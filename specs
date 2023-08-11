@@ -1,0 +1,8 @@
+Tuner
+	Need at least T-106-2 cores.
+	0-20uH in 256 steps (0.08uH) - In series with each other
+	0-1280pF in 256 steps (5pF) - Parellel to inductors
+
+
+LDG:
+	4-800 (16-150 Ohm on 6M) / 16-3200 ohms with balun.
