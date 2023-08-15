@@ -414,6 +414,26 @@
     [
       "7de6637b-a3f9-4235-bc7f-a0209db4fd87",
       ""
+    ],
+    [
+      "56173b31-289a-4c49-a589-c141bdfa0fab",
+      "HF Filters"
+    ],
+    [
+      "aa8c42b1-1c4d-4b66-bb6c-53166a3d60bc",
+      "HF ATU"
+    ],
+    [
+      "9eb5e972-3da6-4527-ae74-1da19d682654",
+      "HF PA"
+    ],
+    [
+      "1fd4cb1c-5600-429a-82b7-a34258802c9b",
+      "Control Logic"
+    ],
+    [
+      "c42fe2c4-f257-4c13-b29c-9a9d38346e31",
+      "Power Supply"
     ]
   ],
   "text_variables": {}
