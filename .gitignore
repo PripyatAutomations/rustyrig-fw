@@ -4,3 +4,6 @@ fp-info-cache
 */*-backups/*
 images/*
 images
+src/.obj/*.o
+src/firmware.bin
+src/firmware.log

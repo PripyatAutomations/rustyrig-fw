@@ -1,0 +1,21 @@
+In order to reduce costs and use cheaply available relays, some compromises
+were made. Not the end of the world as we can reliably sequence things in software.
+
+All switching of relays carrying RF should *ONLY* be done after activating (lowering) the
+TX_INHIBIT signal, to prevent hot switching the relay!
+
+The stm32 will output this on a dedicated digital GPIO pin, in an ACTIVE LOW state.
+
+
+The values for the L and C components were chosen to match the LDG AT-11 values but
+the control and switching is my own design, inspired by ubitx.
+
+
+By default, the ATU is bypassed by RL_BYPASS's NC contacts. When the ATU is desired,
+RL_BYPASS coil should be energized.
+
+RL_HI_Z moves the C component between inside/outside of the L network for easy
+low/high Z selection.
+
+SWR bridge provides real-time monitoring of forward and reverse power in the
+antennae system and allows shutdown for high SWR to protect the finals.
