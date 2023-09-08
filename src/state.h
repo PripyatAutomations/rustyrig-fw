@@ -1,8 +1,10 @@
-//
 // This file contains the structures used for statistics and state
 #if	!defined(_state_h)
 #define	_state_h
 #include <time.h>
+#include <stdbool.h>
+
+extern bool dying;
 
 enum TuningState {
     TS_UNKNOWN = 0,
@@ -40,6 +42,7 @@ enum BPFSelection {
 
 struct AmpState {
    int   alc[MAX_BANDS];		// ALC: 0-210, per band
+   int	 current_band;			// Current band selection
    int   afr;				// AFR:
    int   inhibit;			// Inhibit TX
    int	 power;				// Power control
@@ -62,12 +65,14 @@ struct FilterState {
 
 struct GlobalState {
    int   faultbeep;			// Beep on faults
-   int	 current_band;			// Current band selection
    int	 bc_standby;			// Stay in STANDBY on band change?
    int   fan_speed;			// Fan speed: 0-6 (0: auto)
    int	 fault_code;			// Current fault code
+   int   faults;			// Faults since last cleared
    int   tr_delay;			// T/R delay
    int   eeprom_ready;			// EEPROM initialized
+   int   eeprom_dirty;			// EEPROM needs written out
+   int   eeprom_corrupted;		// EEPROM is corrupted; prompt before write out
 
    // Thermals
    float therm_inlet;			// Air inlet temp
@@ -89,7 +94,7 @@ struct GlobalState {
 #if	defined(HOST_BUILD)
    // Host build fd's/buffers/etc
    int			eeprom_fd;
-   void			*eeprom_mmap;
+   u_int8_t		*eeprom_mmap;
    int			logfile_fd;
    int			catpipe_fd;
 #endif	// defined(HOST_BUILD)

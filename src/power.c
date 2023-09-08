@@ -6,7 +6,7 @@
 #include "state.h"
 #include "power.h"
 
-extern struct GlobalState *rig;	// Global state
+extern struct GlobalState rig;	// Global state
 
 // 0: 12V, 1: 48V
 float get_voltage(int src) {
@@ -24,4 +24,8 @@ float get_swr(int amp) {
 
 float get_power(int amp) {
    return 0.0;
+}
+
+int check_power_thresholds(void) {
+   return 0;
 }

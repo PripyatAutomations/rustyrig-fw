@@ -10,22 +10,20 @@
  * CAT_FT891: Yaesu FT-891/991A rig control protocol
  * You can enable both protocols or just one.
  */
+#include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "config.h"
+#include "logger.h"
 #include "parser.h"
 #include "state.h"
 #include "thermal.h"
 #include "power.h"
+#include "eeprom.h"
 
-extern struct GlobalState *rig;		// in main.c
-
-int get_serial_number(void) {
-   return 0;
-}
+extern struct GlobalState rig;		// in main.c
 
 int cat_printf(char *str, ...) {
    va_list ap;
@@ -40,7 +38,7 @@ int cat_printf(char *str, ...) {
 #if	defined(CAT_KPA500)
 // ALC Threshold: 0-210, per band
 int cat_kpa500_alc(struct AmpState *amp, char *args) {
-   int alc = amp->alc[rig->current_band];
+   int alc = amp->alc[rig.current_band];
 
    if (args != NULL) {
       int tmp = atoi(args);
@@ -51,7 +49,7 @@ int cat_kpa500_alc(struct AmpState *amp, char *args) {
       if (tmp > 210)
          tmp = 210;
 
-      amp->alc[rig->current_band] = alc = tmp;
+      amp->alc[rig.current_band] = alc = tmp;
    }
    cat_printf("^AL%03d;", alc);
 
@@ -89,7 +87,7 @@ int cat_kpa500_baud_tx(struct AmpState *amp, char *args) {
 }
 
 int cat_kpa500_bcstandby(struct AmpState *amp, char *args) {
-   int bc = rig->bc_standby;
+   int bc = rig.bc_standby;
 
    // SET request?
    if (args != NULL) {
@@ -99,14 +97,14 @@ int cat_kpa500_bcstandby(struct AmpState *amp, char *args) {
       if (tmp > 1)
          tmp = 1;
 
-      rig->bc_standby = bc = tmp;
+      rig.bc_standby = bc = tmp;
    }
    cat_printf("^BC%d", bc);
    return 0;
 }
 
 int cat_kpa500_band(struct AmpState *amp, char *args) {
-   int band = rig->current_band;
+   int band = rig.current_band;
 
    if (args != NULL) {
       int tmp = atoi(args);
@@ -114,7 +112,7 @@ int cat_kpa500_band(struct AmpState *amp, char *args) {
       if (tmp <= 0 || tmp >= MAX_BANDS) {
          return -1;
       }
-      rig->current_band = band = tmp;
+      rig.current_band = band = tmp;
    }
    cat_printf("^BN%02", band);
    
@@ -126,7 +124,7 @@ int cat_kpa500_demo(struct AmpState *amp, char *args) {
 }
 
 int cat_kpa500_fan(struct AmpState *amp, char *args) {
-   int fc = rig->fan_speed;
+   int fc = rig.fan_speed;
 
    if (args != NULL) {
       int tmp = atoi(args);
@@ -136,18 +134,18 @@ int cat_kpa500_fan(struct AmpState *amp, char *args) {
       if (tmp > 6)
          tmp = 6;
 
-      rig->fan_speed = fc = tmp;
+      rig.fan_speed = fc = tmp;
    }
    cat_printf("^FC%d", fc);
    return 0;
 }
 
 int cat_kpa500_faults(struct AmpState *amp, char *args) {
-   int faults = rig->fault_code;
+   int faults = rig.fault_code;
    if (args != NULL) {
       // clear requested?
       if (*args == 'C') {
-         rig->fault_code = faults = 0;
+         rig.fault_code = faults = 0;
       } else	// invalid request
          return -1;
    }
@@ -204,7 +202,7 @@ int cat_kpa500_standby(struct AmpState *amp, char *args) {
 }
 
 int cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
-   int standby = amp->output_target[rig->current_band];
+   int standby = amp->output_target[rig.current_band];
    if (args != NULL) {
       int tmp = atoi(args);
       if (tmp < 0)
@@ -212,7 +210,7 @@ int cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
       if (tmp > 1)
          tmp = 1;
 
-      amp->output_target[rig->current_band] = standby = tmp;
+      amp->output_target[rig.current_band] = standby = tmp;
    }
    cat_printf("^PJ%03d", standby);
    return 0;
@@ -247,7 +245,7 @@ int cat_kpa500_get_temp(struct AmpState *amp, char *args) {
 }
 
 int cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
-   int beep = rig->faultbeep;
+   int beep = rig.faultbeep;
    if (args != NULL) {
       int tmp = atoi(args);
       if (tmp < 0)
@@ -255,7 +253,7 @@ int cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
       if (tmp > 1)
          tmp = 1;
 
-      rig->faultbeep = beep = tmp;
+      rig.faultbeep = beep = tmp;
    }
 
    cat_printf("^SP%d", beep);
@@ -263,7 +261,7 @@ int cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
 }
 
 int cat_kpa500_trdelay(struct AmpState *amp, char *args) {
-   int trdelay = rig->tr_delay;
+   int trdelay = rig.tr_delay;
    if (args != NULL) {
       int tmp = atoi(args);
       if (tmp < 0)
@@ -271,7 +269,7 @@ int cat_kpa500_trdelay(struct AmpState *amp, char *args) {
       if (tmp > 1)
          tmp = 1;
 
-      rig->tr_delay = trdelay = tmp;
+      rig.tr_delay = trdelay = tmp;
    }
    cat_printf("^TR%02d", trdelay);
    return 0;
@@ -389,5 +387,14 @@ int cat_parse_line(char *line) {
       return cat_parse_line_real(line);
    }
 
+   return 0;
+}
+
+// Initialize CAT control
+int cat_init(void) {
+#if	defined(HOST_BUILD)
+// XXX: Open the pipe
+#endif
+   Log(INFO, "CAT Initialization succesful");
    return 0;
 }

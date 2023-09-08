@@ -12,7 +12,7 @@
 #include "state.h"
 #include "parser.h"
 
-extern struct GlobalState *rig;	// Global state
+extern struct GlobalState rig;	// Global state
 
 /* String constants we use more than a few times */
 const char *s_prio_crit = "CRIT",
@@ -58,8 +58,10 @@ void logger_init(void) {
 }
 
 void logger_end(void) {
+#if	defined(HOST_BUILD)
    if (logfp != NULL)
       fclose(logfp);
+#endif
 }
 
 void Log(logpriority_t priority, const char *fmt, ...) {
@@ -96,36 +98,16 @@ void Log(logpriority_t priority, const char *fmt, ...) {
       return;
    }
 
-   /* log to the logfile on flash */
+   /* log to the logfile */
    if (logfp != NULL) {
-      fprintf(logfp, "[%s] %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
+      fprintf(logfp, "%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
       fflush(logfp);
    }
 
 #if	defined(HOST_BUILD)
+   // Send it to the stdout too on host builds
    fprintf(stdout, "[%s] %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
 #endif	// defined(HOST_BUILD)
-
-   /* Route the message according to priority */
-   switch (priority) {
-      case CRIT:
-//         if (logger != NULL)
-//            logger->error(msgbuf);
-         break;
-      case WARN:
-//         if (logger != NULL)
-//            logger->warn(msgbuf);
-         break;
-      case INFO:
-//         if (logger != NULL)
-//            logger->info(msgbuf);
-         break;
-      case DEBUG:
-//         if (logger != NULL)
-//            logger->debug(msgbuf);
-      default:
-         break;
-   }
 
    va_end(ap);
 }

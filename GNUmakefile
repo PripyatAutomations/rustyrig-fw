@@ -1,10 +1,11 @@
 all: world
 
-world:
-	@echo "Nothing to do"
+world clean test:
+	@${MAKE} -C src $@
 
 help:
-	@echo "world|clean|pull|push|commit"
+	@echo "build ctrl: world|clean|test"
+	@echo "source mgmt: pull|push|commit"
 
 push: commit
 	git push
@@ -14,6 +15,3 @@ pull:
 
 commit:
 	git commit
-
-clean:
-	@echo "Nothing to do"

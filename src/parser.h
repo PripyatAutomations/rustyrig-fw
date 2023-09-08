@@ -10,4 +10,8 @@ struct cat_cmd {
                 max_args;		// maximum arguments for SET mode
 };
 
+extern int cat_printf(char *str, ...);
+extern int cat_parse_line(char *line);
+extern int cat_init(void);
+
 #endif	// !defined(_parser_h)

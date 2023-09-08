@@ -8,10 +8,15 @@
 #include "config.h"
 #include "state.h"
 #include "parser.h"
-extern struct GlobalState *rig;	// Global state
+#include "eeprom_offsets.h"
 
 extern int eeprom_init(void);
-extern int eeprom_read(void *buf, size_t offset, size_t len);
-extern int eeprom_write(void *buf, size_t offset, size_t len);
+extern int eeprom_write(size_t offset, u_int8_t data);
+extern u_int8_t eeprom_read(size_t offset);
+extern int eeprom_read_block(u_int8_t *buf, size_t offset, size_t len);
+extern int eeprom_write_block(void *buf, size_t offset, size_t len);
+extern int eeprom_load_config(void);
+extern int eeprom_write_config(int force);
+extern int get_serial_number(void);
 
 #endif	// !defined(_eeprom_h)

@@ -5,7 +5,7 @@
 #include "config.h"
 #include "state.h"
 #include "parser.h"
-extern struct GlobalState *rig;	// Global state
+extern struct GlobalState rig;	// Global state
 
 // Get thermals:
 // Sensor #s:
@@ -17,17 +17,17 @@ extern struct GlobalState *rig;	// Global state
 //	2001	High-band PA LPF board
 int get_thermal(int sensor) {
     if (sensor == 0) {
-       return rig->therm_enclosure;
+       return rig.therm_enclosure;
     } else if (sensor == 1) {
-       return rig->therm_inlet;
+       return rig.therm_inlet;
     } else if (sensor == 1000) {
-       return rig->low_amp.therm_final;
+       return rig.low_amp.therm_final;
     } else if (sensor == 1001) {
-       return rig->low_amp.therm_lpf;
+       return rig.low_amp.therm_lpf;
     } else if (sensor == 2000) {
-       return rig->high_amp.therm_final;
+       return rig.high_amp.therm_final;
     } else if (sensor == 2001) {
-       return rig->high_amp.therm_lpf;
+       return rig.high_amp.therm_lpf;
     }
 
     return -1;
