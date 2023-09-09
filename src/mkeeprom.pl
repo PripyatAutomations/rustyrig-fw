@@ -2,7 +2,9 @@
 #
 # Here we generate an eeprom.bin from the radio.json configuration file
 #
-# You should pass arguments
+# We also generate the build_config.h and eeprom_layouts.h needed for the host
+#
+# You should pass arguments to me, or i will use defaults...
 use strict;
 use warnings;
 use Getopt::Std;
@@ -97,10 +99,29 @@ sub config_load {
    }
    close($fh);
    $nbytes = length($tmp);
-   print "  => Read $nbytes bytes from config $_[0]\n";
+   print "  => Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
    $tmp = $json->decode($tmp) or warn("ERROR: Can't parse configuration $_[0]!\n") and return;
    $cfgdata = merge($default_cfg, $tmp);
+}
+
+# Load eeprom_layout from eeprom_layout.json
+sub eeprom_layout_load {
+   print "* Load EEPROM layout definition from $_[0]\n";
+   open(my $fh, '<', $_[0]) or die("ERROR: Couldn't open $_[0]!\n");
+   my $nbytes = 0;
+   my $tmp = '';
+
+   while (1) {
+      my $res = read $fh, $tmp, 512, length($tmp);
+      die "$!\n" if not defined $res;
+      last if not $res;
+   }
+   close($fh);
+   $nbytes = length($tmp);
+   print "  => Read $nbytes bytes from $_[0]\n";
+   my $json = JSON->new;
+   $tmp = $json->decode($tmp) or warn("ERROR: Can't parse $_[0]!\n") and return;
 }
 
 sub eeprom_load {
@@ -133,7 +154,7 @@ sub eeprom_patch {
    my $eeprom_size = $cfgdata->{"eeprom"}{"size"};
 
    if ($eeprom_data eq "") {
-      print "  => No EEPROM data, starting clean with $eeprom_size byes empty rom\n";
+      print "  => No EEPROM data, starting clean with $eeprom_size byes empty image\n";
       $eeprom_data = "\x00" x $eeprom_size;
    }
    
@@ -179,10 +200,9 @@ sub generate_eeprom_layout_h {
    print "  => Generating $_[0]\n";
    open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
-   # XXX: write stuff here
+   # XXX: Walk the json layout and spit out a header for the eeprom.c mess to use...
 
    close $fh;
-#   print "  => Wrote $nbytes bytes to $_[0]\n";
 }
 
 sub generate_config_h {
@@ -194,10 +214,43 @@ sub generate_config_h {
    print "  => Generating $_[0]\n";
    open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
-   # XXX: write stuff here
+   print $fh "#if     !defined(_config_h)\n#define _config_h\n";
+   printf $fh "#define VERSION \"%02d.%02d\"\n", $version->{firmware}{major}, $version->{firmware}{minor};
+   printf $fh "#define VERSION_MAJOR 0x%x\n", $version->{firmware}{major};
+   printf $fh "#define VERSION_MINOR 0x%x\n", $version->{firmware}{minor};
+   printf $fh "#define MY_I2C_ADDR %s\n", $cfgdata->{i2c}{myaddr};
+   if ($cfgdata->{eeprom}{type} eq "mmap") {
+      print $fh "#define EEPROM_TYPE_MMAP true\n";
+      print $fh "#undef EEPROM_TYPE_I2C\n";
+      printf $fh "#define EEPROM_MMAP_ADDR %s\n", $cfgdata->{eeprom}{addr};
+   } elsif ($cfgdata->{eeprom}{type} eq "i2c") {
+      print $fh "#undef EEPROM_TYPE_MMAP\n";
+      print $fh "#define EEPROM_TYPE_I2C\n";
+      printf $fh "#define EEPROM_I2C_ADDR %s\n", $cfgdata->{eeprom}{addr};
+   }
+   if (defined($cfgdata->{features})) {
+      if (defined($cfgdata->{features}{'cat-kpa500'}) && $cfgdata->{features}{'cat-kpa500'} eq 1) {
+         printf $fh "#define CAT_KPA500 true\n";
+      }
+      if (defined($cfgdata->{features}{'cat-yaesu'}) && $cfgdata->{features}{'cat-yaesu'} eq 1) {
+         printf $fh "#define CAT_YAESU true\n";
+      }
+   }
+   printf $fh "#define EEPROM_SIZE %d\n", $cfgdata->{eeprom}{size};
+   my $x = '';
+   if (defined($cfgdata->{features}{'max-bands'})) {
+      $x = $cfgdata->{features}{'max-bands'};
+   } else {
+      $x = 10;
+   }
+   printf $fh "#define MAX_BANDS %d\n", $x;
 
+   # XXX: Host mode
+   print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";
+   print $fh "#define HOST_LOG_FILE \"firmware.log\"\n";
+   print $fh "#define HOST_CAT_PIPE \"cat.fifo\"\n";
+   print $fh "#endif\n";
    close $fh;
-#   print "  => Wrote $nbytes bytes to $_[0]\n";
 }
 
 sub generate_headers {
@@ -209,6 +262,9 @@ sub generate_headers {
 #############################################################
 # Load the configuration
 config_load($config_file);
+
+# Load the EEPROM layout definition
+eeprom_layout_load("eeprom_layout.json");
 
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);

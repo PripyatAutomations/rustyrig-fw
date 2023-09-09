@@ -1,6 +1,7 @@
 {
    "device": {
-       "serial": "000000"
+       "serial": "000000",
+       "version": 1
    },
    "station": {
        "call", "N0CALL",
@@ -18,6 +19,9 @@
        "addr": "0x0000",
        "size": 16384,
        "type": "mmap"
+   },
+   "i2c": {
+        "myaddr": "0xa0"
    },
    "net": {
        "ip": "10.201.1.100",

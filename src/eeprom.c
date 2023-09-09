@@ -7,12 +7,12 @@
  *	memory mapped eeprom/flash devices with direct reading/writing
  *	i2c connected parts
  */
+#include "config.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include "config.h"
 #if	defined(HOST_BUILD)
 #include <stdio.h>
 #include <fcntl.h>

@@ -7,7 +7,7 @@
  * eventually as a stand-alone transceiver, we support two protocols for control
  *
  * CAT_KPA500: Electraft KPA-500 amplifier control protocol
- * CAT_FT891: Yaesu FT-891/991A rig control protocol
+ * CAT_YAESU: Yaesu FT-891/991A rig control protocol
  * You can enable both protocols or just one.
  */
 #include "config.h"
@@ -35,7 +35,7 @@ int cat_printf(char *str, ...) {
    return 0;
 }
 
-#if	defined(CAT_KPA500)
+#if	defined(CAT_kKPA500)
 // ALC Threshold: 0-210, per band
 int cat_kpa500_alc(struct AmpState *amp, char *args) {
    int alc = amp->alc[amp->current_band];

@@ -3,18 +3,21 @@
       "version_major": {
           "offset": 0,
           "size": 1,
-          "type": "d"
+          "type": "d",
+          "key":  "firmware.major"
       },
       "version_minor": {
           "offset": 1,
           "size": 1,
-          "type": "d"
+          "type": "d",
+          "key":  "firmware.minor"
       },
       "serial": {
           "offset": 2,
           "size": 3,
           "type": "d",
-      }
+          "key":  "device.serial"
+      },
       "currband_low": {
           "offset": 6,
           "size": 1,
