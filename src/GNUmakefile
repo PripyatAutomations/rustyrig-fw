@@ -4,10 +4,10 @@ HOST_BUILD=y
 
 ifeq (${HOST_BUILD},n)
 TARGET_PREFIX := arm-none-eabi
-BUILD_DIR := build/host/
+BUILD_DIR := build/radio/
 OBJ_PREFIX := ${BUILD_DIR}/obj
 else
-BUILD_DIR := build/radio/
+BUILD_DIR := build/host/
 OBJ_PREFIX := ${BUILD_DIR}/obj
 endif
 CFLAGS := -std=gnu11 -fPIC -g -O2
@@ -31,14 +31,17 @@ EEPROM_FILE := eeprom.bin
 
 bin := firmware.bin
 
-objs += eeprom.o
-objs += faults.o
-objs += i2c.o
-objs += logger.o
-objs += main.o
-objs += parser.o
-objs += power.o
-objs += thermal.o
+objs += eeprom.o		# "EEPROM" configuration storage
+objs += faults.o		# Fault management/alerting
+objs += gpio.o			# GPIO controls
+objs += i2c.o			# i2c abstraction
+objs += logger.o		# Logging facilities
+objs += main.o			# main loop
+objs += parser.o		# CAT parsers
+objs += posix.o			# support for POSIX hosts (pi or debugging)
+objs += power.o			# Power monitoring and management
+objs += thermal.o		# Thermal management
+objs += usb.o			# Support for USB control (stm32)
 
 real_objs := $(foreach x, ${objs}, ${OBJ_PREFIX}/${x})
 extra_clean += firmware.log

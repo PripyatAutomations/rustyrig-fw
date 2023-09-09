@@ -8,3 +8,4 @@ images
 src/.obj/*.o
 src/firmware.bin
 src/firmware.log
+src/eeprom.bin
