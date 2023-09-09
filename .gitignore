@@ -9,8 +9,8 @@ images/*
 images
 
 # build artifacts
-src/build/*.*
-src/build/obj/*
+src/build/*/*.*
+src/build/*/obj/*
 
 # Shared image that can be used by all radios
 src/firmware.bin

@@ -1,2 +1,27 @@
 Install these packages at minimum:
 	libjson-perl libterm-readline-perl-perl libhash-merge-perl
+
+
+Files
+-----
+	eeprom_layout.json	Contains machine readable layout data for patching eeprom.bin
+	radio.json		User supplied, see radio.json.example
+
+
+Building
+--------
+	Edit configuration in radio.json as appropriate.
+		joe radio.json
+	Build the firmware and EEPROM:
+		make world
+
+	Optionally (recommended):
+		make test
+
+
+Installing
+----------
+	Plug the radio into USB
+	Try 'make install' to use DFU flashing.
+
+	If this doesnt work, see doc/BOOTLOADER.txt

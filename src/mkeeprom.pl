@@ -21,17 +21,25 @@ STDOUT->autoflush(1);
 
 my $eeprom_file = '';
 my $config_file = '';
+my $build_dir = '';
 
 # use commandline args, if present [eeprom] [config]
 if ($#ARGV >= 0) {
    $eeprom_file = $ARGV[0];
 
-   if ($#ARGV == 1) {
+   if ($#ARGV >= 1) {
       $config_file = $ARGV[1];
+   }
+   if ($#ARGV >= 2) {
+      $build_dir = $ARGV[2];
+   } else {
+      # XXX: Make this use the config :P
+      $build_dir = "build/host";
    }
 } else {
    $eeprom_file = "eeprom.bin";
    $config_file = "radio.json";
+   $build_dir = "build/host";
 }
 my $eeprom_data = '';
 
@@ -70,7 +78,7 @@ my $default_cfg = {
    }
 };
 # Merge in the version information
-my $default_cfg = merge($default_cfg, $version);
+$default_cfg = merge($default_cfg, $version);
 
 my $cfgdata = { };
 my $use_defaults = 0;
@@ -130,7 +138,7 @@ sub eeprom_patch {
    }
    
    if ($use_defaults == 0) {
-      print "* Applying configuration from $config_file\n";
+      print "* Applying configuration...\n";
    }
 
    if ($warnings > 0) {
@@ -143,8 +151,6 @@ sub eeprom_patch {
 }
 
 sub eeprom_save {
-   # Disable interrupt while saving
-   $SIG{INT} = 'IGNORE';
    my $nbytes = length($eeprom_data);
    my $eeprom_size = $cfgdata->{"eeprom"}{"size"};
 
@@ -164,6 +170,42 @@ sub eeprom_save {
    print "  => Wrote $nbytes bytes to $_[0]\n";
 }
 
+sub generate_eeprom_layout_h {
+   my $file = $_[0];
+   my $nbytes = 0;
+   if ($file eq '') {
+      die("generate_eeprom_layout_h: No argument given\n");
+   }
+   print "  => Generating $_[0]\n";
+   open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
+
+   # XXX: write stuff here
+
+   close $fh;
+#   print "  => Wrote $nbytes bytes to $_[0]\n";
+}
+
+sub generate_config_h {
+   my $file = $_[0];
+   my $nbytes = 0;
+   if ($file eq '') {
+      die("generate_eeprom_layout_h: No argument given\n");
+   }
+   print "  => Generating $_[0]\n";
+   open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
+
+   # XXX: write stuff here
+
+   close $fh;
+#   print "  => Wrote $nbytes bytes to $_[0]\n";
+}
+
+sub generate_headers {
+   print "* Generating headers\n";
+   generate_config_h($build_dir . "/build_config.h");
+   generate_eeprom_layout_h($build_dir . "/eeprom_layout.h");
+}
+
 #############################################################
 # Load the configuration
 config_load($config_file);
@@ -174,5 +216,10 @@ eeprom_load($eeprom_file);
 # Apply our radio.json
 eeprom_patch($cfgdata);
 
+# Disable interrupt while saving
+$SIG{INT} = 'IGNORE';
+
 # Save the patched eeprom.bin
 eeprom_save($eeprom_file);
+
+generate_headers();

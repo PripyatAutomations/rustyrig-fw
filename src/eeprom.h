@@ -8,7 +8,7 @@
 #include "config.h"
 #include "state.h"
 #include "parser.h"
-#include "eeprom_offsets.h"
+#include "eeprom_layout.h"
 
 extern int eeprom_init(void);
 extern int eeprom_write(size_t offset, u_int8_t data);
