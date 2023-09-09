@@ -93,3 +93,6 @@ distclean: clean
 	${RM} ${EEPROM_FILE}
 	${RM} $(foreach x, ${objs}, build/host/obj/${x})
 	${RM} $(foreach x, ${objs}, build/radio/obj/${x})
+
+install:
+	@echo "Automatic DFU installation isn't supported yet... Please see doc/INSTALLING.txt for more info"

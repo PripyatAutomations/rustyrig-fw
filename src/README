@@ -12,6 +12,7 @@ Building
 --------
 	Edit configuration in radio.json as appropriate.
 		joe radio.json
+
 	Build the firmware and EEPROM:
 		make world
 

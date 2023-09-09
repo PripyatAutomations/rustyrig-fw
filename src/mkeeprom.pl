@@ -82,13 +82,16 @@ my $default_cfg = {
 # Merge in the version information
 $default_cfg = merge($default_cfg, $version);
 
-my $cfgdata = { };
-my $use_defaults = 0;
+# temporary data
+my $cfgtmp = { };
+
+# Get your config here
+my $config = { };
 
 # Load configuration from radio.json ($2)
 sub config_load {
    print "* Load config from $_[0]\n";
-   open(my $fh, '<', $_[0]) or warn("  => Couldn't open configuration file $_[0], using defaults!\n") and $use_defaults = 1 and return;
+   open(my $fh, '<', $_[0]) or warn("  => Couldn't open configuration file $_[0], using defaults!\n") and return;
    my $nbytes = 0;
    my $tmp = '';
 
@@ -101,8 +104,7 @@ sub config_load {
    $nbytes = length($tmp);
    print "  => Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
-   $tmp = $json->decode($tmp) or warn("ERROR: Can't parse configuration $_[0]!\n") and return;
-   $cfgdata = merge($default_cfg, $tmp);
+   $cfgtmp = $json->decode($tmp) or warn("ERROR: Can't parse configuration $_[0]!\n") and return;
 }
 
 # Load eeprom_layout from eeprom_layout.json
@@ -125,7 +127,7 @@ sub eeprom_layout_load {
 }
 
 sub eeprom_load {
-   my $eeprom_size = $cfgdata->{"eeprom"}{"size"};
+   my $eeprom_size = $config->{"eeprom"}{"size"};
    print "* Loading EEPROM from $_[0]\n";
    open(my $EEPROM, '<:raw', $_[0]) or return;
    my $nbytes = 0;
@@ -151,29 +153,25 @@ sub eeprom_load {
 sub eeprom_patch {
    my $errors = 0;
    my $warnings = 0;
-   my $eeprom_size = $cfgdata->{"eeprom"}{"size"};
+   my $eeprom_size = $config->{"eeprom"}{"size"};
+
+   print "* Patching in-memory image\n";
 
    if ($eeprom_data eq "") {
-      print "  => No EEPROM data, starting clean with $eeprom_size byes empty image\n";
+      print "  => No EEPROM data, starting clean with $eeprom_size bytes empty image\n";
       $eeprom_data = "\x00" x $eeprom_size;
    }
    
-   if ($use_defaults == 0) {
-      print "* Applying configuration...\n";
-   }
-
-   if ($warnings > 0) {
-      print "*** There were $warnings warnings during patching.\n";
-   }
-
    if ($errors > 0) {
       die("*** There were $errors errors during patching, aborting!\n");
    }
+
+   print "  => Finished patching, there were $warnings warnings\n";
 }
 
 sub eeprom_save {
    my $nbytes = length($eeprom_data);
-   my $eeprom_size = $cfgdata->{"eeprom"}{"size"};
+   my $eeprom_size = $config->{"eeprom"}{"size"};
 
    if ($nbytes == 0) {
       die("ERROR: Refusing to write empty (0 byte) EEPROM to $_[0]\n");
@@ -218,28 +216,28 @@ sub generate_config_h {
    printf $fh "#define VERSION \"%02d.%02d\"\n", $version->{firmware}{major}, $version->{firmware}{minor};
    printf $fh "#define VERSION_MAJOR 0x%x\n", $version->{firmware}{major};
    printf $fh "#define VERSION_MINOR 0x%x\n", $version->{firmware}{minor};
-   printf $fh "#define MY_I2C_ADDR %s\n", $cfgdata->{i2c}{myaddr};
-   if ($cfgdata->{eeprom}{type} eq "mmap") {
+   printf $fh "#define MY_I2C_ADDR %s\n", $config->{i2c}{myaddr};
+   if ($config->{eeprom}{type} eq "mmap") {
       print $fh "#define EEPROM_TYPE_MMAP true\n";
       print $fh "#undef EEPROM_TYPE_I2C\n";
-      printf $fh "#define EEPROM_MMAP_ADDR %s\n", $cfgdata->{eeprom}{addr};
-   } elsif ($cfgdata->{eeprom}{type} eq "i2c") {
+      printf $fh "#define EEPROM_MMAP_ADDR %s\n", $config->{eeprom}{addr};
+   } elsif ($config->{eeprom}{type} eq "i2c") {
       print $fh "#undef EEPROM_TYPE_MMAP\n";
       print $fh "#define EEPROM_TYPE_I2C\n";
-      printf $fh "#define EEPROM_I2C_ADDR %s\n", $cfgdata->{eeprom}{addr};
+      printf $fh "#define EEPROM_I2C_ADDR %s\n", $config->{eeprom}{addr};
    }
-   if (defined($cfgdata->{features})) {
-      if (defined($cfgdata->{features}{'cat-kpa500'}) && $cfgdata->{features}{'cat-kpa500'} eq 1) {
+   if (defined($config->{features})) {
+      if (defined($config->{features}{'cat-kpa500'}) && $config->{features}{'cat-kpa500'} eq 1) {
          printf $fh "#define CAT_KPA500 true\n";
       }
-      if (defined($cfgdata->{features}{'cat-yaesu'}) && $cfgdata->{features}{'cat-yaesu'} eq 1) {
+      if (defined($config->{features}{'cat-yaesu'}) && $config->{features}{'cat-yaesu'} eq 1) {
          printf $fh "#define CAT_YAESU true\n";
       }
    }
-   printf $fh "#define EEPROM_SIZE %d\n", $cfgdata->{eeprom}{size};
+   printf $fh "#define EEPROM_SIZE %d\n", $config->{eeprom}{size};
    my $x = '';
-   if (defined($cfgdata->{features}{'max-bands'})) {
-      $x = $cfgdata->{features}{'max-bands'};
+   if (defined($config->{features}{'max-bands'})) {
+      $x = $config->{features}{'max-bands'};
    } else {
       $x = 10;
    }
@@ -263,14 +261,17 @@ sub generate_headers {
 # Load the configuration
 config_load($config_file);
 
+# Merge defaults with loaded configuration
+$config = merge($default_cfg, $cfgtmp);
+
 # Load the EEPROM layout definition
 eeprom_layout_load("eeprom_layout.json");
 
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);
 
-# Apply our radio.json
-eeprom_patch($cfgdata);
+# Apply our radio.json to in-memory EEPROM image
+eeprom_patch($config);
 
 # Disable interrupt while saving
 $SIG{INT} = 'IGNORE';
@@ -278,4 +279,6 @@ $SIG{INT} = 'IGNORE';
 # Save the patched eeprom.bin
 eeprom_save($eeprom_file);
 
+# And generate headers for the C bits...
 generate_headers();
+
