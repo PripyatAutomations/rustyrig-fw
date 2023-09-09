@@ -3,6 +3,19 @@
        "serial": "000000",
        "version": 1
    },
+   "eeprom": {
+       "addr": "0x0000",
+       "size": 16384,
+       "type": "mmap"
+   },
+   "i2c": {
+        "myaddr": "0xa0"
+   },
+   "features": {
+        "cat-kpa500": true,
+        "cat-yaesu": true,
+        "max-bands": 14
+   },
    "station": {
        "call", "N0CALL",
        "grid": "AA00aa"
@@ -14,14 +27,6 @@
    "pin": {
        "master": "654321",
        "reset": "543210"
-   },
-   "eeprom": {
-       "addr": "0x0000",
-       "size": 16384,
-       "type": "mmap"
-   },
-   "i2c": {
-        "myaddr": "0xa0"
    },
    "net": {
        "ip": "10.201.1.100",
