@@ -116,26 +116,24 @@ sub config_load {
    $cfgtmp = $json->decode($tmp) or warn("ERROR: Can't parse configuration $_[0]!\n") and return;
 }
 
-my $el_json = '';
 my @eeprom_dd;
 # Load eeprom_layout from eeprom_layout.json
 sub eeprom_layout_load {
    print "* Load EEPROM layout definition from $_[0]\n";
    open(my $fh, '<', $_[0]) or die("ERROR: Couldn't open $_[0]!\n");
    my $nbytes = 0;
-
+   my $tmp = '';
    while (1) {
-      my $res = read $fh, $el_json, 512, length($el_json);
+      my $res = read $fh, $tmp, 512, length($tmp);
       die "$!\n" if not defined $res;
       last if not $res;
    }
 
    close($fh);
-   $nbytes = length($el_json);
+   $nbytes = length($tmp);
    print "  => Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
-   @eeprom_dd = $json->decode($el_json) or warn("ERROR: Can't parse $_[0]!\n") and return;
-#   print Dumper(@eeprom_dd);
+   @eeprom_dd = $json->decode($tmp) or warn("ERROR: Can't parse $_[0]!\n") and return;
 }
 
 sub eeprom_load {
