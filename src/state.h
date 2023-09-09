@@ -100,4 +100,6 @@ struct GlobalState {
 #endif	// defined(HOST_BUILD)
 };
 
+extern void shutdown_rig(int signum);	// main.c
+
 #endif	// !defined(_state_h)

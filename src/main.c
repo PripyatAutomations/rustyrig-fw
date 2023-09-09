@@ -9,7 +9,8 @@
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
-#include "parser.h"
+#include "cat_control.h"
+#include "posix.h"
 
 bool dying = 0;
 struct GlobalState rig;	// Global state
@@ -35,12 +36,24 @@ static int load_defaults(void) {
    return 0;
 }   
 
+void shutdown_rig(int signum) {
+    if (signum >= 0) {
+       Log(CRIT, "Shutting down by signal %d", signum);
+    } else {
+       Log(CRIT, "Shutting down due to internal error: %d", -signum);
+    }
+
+    host_cleanup();
+    exit(signum);
+}
+
 int main(int argc, char **argv) {
-   // On the stm32, main is not our entry point, so we can use this
-   // to help catch misbuilt images.
+   // On the stm32, main is not our entry point, so we can use this to help catch misbuilt images.
 #if	!defined(HOST_BUILD)
-   printf("This program is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is severely broken!\n");
+   printf("This build is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is severely broken!\n");
    exit(1);
+#else
+   init_signals();
 #endif
 
    // Initialize subsystems
@@ -55,7 +68,7 @@ int main(int argc, char **argv) {
    // if able to connect to EEPROM, load and apply settings
    if (eeprom_init() == 0) {
       eeprom_load_config();
-   } else { // Load defaults
+   } else {
       load_defaults();
    }
 

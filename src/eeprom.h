@@ -1,13 +1,12 @@
 #if	!defined(_eeprom_h)
 #define	_eeprom_h
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "config.h"
 #include "state.h"
-#include "parser.h"
 #include "eeprom_layout.h"
 
 extern int eeprom_init(void);

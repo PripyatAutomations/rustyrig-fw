@@ -1,8 +1,15 @@
+/*
+ * Power management and monitoring
+ *
+ * - Try to monitor the battery and reduce TX power if it will deplete battery too soon
+ * - Record usage statistics, total TX time, lifetime power used
+ * - Est. lifetime and current BTU of heat production (enclosure temp - inlet temp based)
+ */
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "config.h"
 #include "state.h"
 #include "power.h"
 

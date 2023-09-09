@@ -1,6 +1,6 @@
 all: world
 
-world test run:
+world test run install:
 	@${MAKE} -C src $@
 
 help:

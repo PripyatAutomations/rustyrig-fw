@@ -2,15 +2,14 @@
  * support logging to a a few places
  *	Targets: syslog console flash (file)
  */
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <string.h>
-#include "config.h"
 #include "logger.h"
 #include "state.h"
-#include "parser.h"
 
 extern struct GlobalState rig;	// Global state
 

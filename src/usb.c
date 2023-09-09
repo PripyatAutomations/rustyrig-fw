@@ -9,6 +9,5 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "state.h"
-#include "parser.h"
 #include "usb.h"
 extern struct GlobalState rig;	// Global state

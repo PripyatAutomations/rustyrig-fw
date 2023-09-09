@@ -14,13 +14,29 @@ use Data::Dumper;
 use MIME::Base64;
 use Hash::Merge qw( merge );
 Hash::Merge::set_behavior('RIGHT_PRECEDENT');
-
-# XXX: parse these out from .version
-my $ver_major = 23;
-my $ver_minor = 1;
-
 STDOUT->autoflush(1);
 
+#############################
+# Determine Project Version #
+#############################
+open(my $verfh, "<", ".version") or die("Missing .version!\n");
+my $verdata = '';
+while (<$verfh>) {
+   $verdata = $_;
+}
+close($verfh);
+my @ver = split(/\./, $verdata);
+
+my $version = {
+   "firmware" => {
+      "major" => $ver[0],
+      "minor" => $ver[1]
+   }
+};
+
+#################
+# Some defaults #
+#################
 my $eeprom_file = '';
 my $config_file = '';
 my $build_dir = '';
@@ -39,19 +55,12 @@ if ($#ARGV >= 0) {
       $build_dir = "build/host";
    }
 } else {
-   $eeprom_file = "eeprom.bin";
-   $config_file = "radio.json";
    $build_dir = "build/host";
+   $eeprom_file = "$build_dir/eeprom.bin";
+   $config_file = "radio.json";
 }
 my $eeprom_data = '';
-
-# Here we hold the final configuration, at first with defaults loaded...
-my $version = {
-   "firmware" => {
-      "major" => $ver_major,
-      "minor" => $ver_minor
-   }
-};
+my $eeprom_layout = { };
 
 # Here we store the default configuration
 my $default_cfg = {
@@ -107,29 +116,32 @@ sub config_load {
    $cfgtmp = $json->decode($tmp) or warn("ERROR: Can't parse configuration $_[0]!\n") and return;
 }
 
+my $el_json = '';
+my @eeprom_dd;
 # Load eeprom_layout from eeprom_layout.json
 sub eeprom_layout_load {
    print "* Load EEPROM layout definition from $_[0]\n";
    open(my $fh, '<', $_[0]) or die("ERROR: Couldn't open $_[0]!\n");
    my $nbytes = 0;
-   my $tmp = '';
 
    while (1) {
-      my $res = read $fh, $tmp, 512, length($tmp);
+      my $res = read $fh, $el_json, 512, length($el_json);
       die "$!\n" if not defined $res;
       last if not $res;
    }
+
    close($fh);
-   $nbytes = length($tmp);
+   $nbytes = length($el_json);
    print "  => Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
-   $tmp = $json->decode($tmp) or warn("ERROR: Can't parse $_[0]!\n") and return;
+   @eeprom_dd = $json->decode($el_json) or warn("ERROR: Can't parse $_[0]!\n") and return;
+#   print Dumper(@eeprom_dd);
 }
 
 sub eeprom_load {
    my $eeprom_size = $config->{"eeprom"}{"size"};
-   print "* Loading EEPROM from $_[0]\n";
-   open(my $EEPROM, '<:raw', $_[0]) or return;
+   print "* Load EEPROM data from $_[0]\n";
+   open(my $EEPROM, '<:raw', $_[0]) or print "  => Not found, skipping\n" and return;
    my $nbytes = 0;
 
    while (1) {
@@ -141,7 +153,7 @@ sub eeprom_load {
 
    $nbytes = length($eeprom_data);
    if ($nbytes == $eeprom_size) {
-      print "  => Loaded $nbytes bytes from $_[0]\n";
+      print "  => Read $nbytes bytes from $_[0]\n";
    } elsif ($nbytes == 0) {
       print "  => Read empty EEPROM from $_[0]... Fixing!\n";
       return;
@@ -151,27 +163,41 @@ sub eeprom_load {
 }
 
 sub eeprom_patch {
+   my $changes = 0;
    my $errors = 0;
    my $warnings = 0;
    my $eeprom_size = $config->{"eeprom"}{"size"};
 
-   print "* Patching in-memory image\n";
+   print "* Patch in-memory image\n";
 
    if ($eeprom_data eq "") {
       print "  => No EEPROM data, starting clean with $eeprom_size bytes empty image\n";
       $eeprom_data = "\x00" x $eeprom_size;
    }
-   
+
+   # Walk over the layout structure and see if we have a value set in the config...
+   for my $item (@eeprom_dd) {
+      for my $key (keys(%$item)) {
+          my $p = $item->{$key};
+          if (defined($item->{$key}{key})) {
+            print "  => $key: ", Dumper($item->{$key}), "\n";
+
+            if (defined($config->{$key})) {
+               print "    * Value: ", $config->{$key}, "\n";
+            }
+          }
+       }
+   }
    if ($errors > 0) {
-      die("*** There were $errors errors during patching, aborting!\n");
+      die("*** There were $errors errors (of $changes patches processed) during patching, aborting!\n");
    }
 
-   print "  => Finished patching, there were $warnings warnings\n";
+   print "  => Finished patching, there were $warnings warnings from $changes patches\n";
 }
 
 sub eeprom_save {
    my $nbytes = length($eeprom_data);
-   my $eeprom_size = $config->{"eeprom"}{"size"};
+   my $eeprom_size = $config->{eeprom}{size};
 
    if ($nbytes == 0) {
       die("ERROR: Refusing to write empty (0 byte) EEPROM to $_[0]\n");
@@ -181,7 +207,7 @@ sub eeprom_save {
       die("ERROR: Our EEPROM ($_[0]) is $eeprom_size bytes, but we ended up with $nbytes bytes of data. Bailing to avoid damage!\n");
    }
 
-   print "* Saving $nbytes bytes to $_[0]\n";
+   print "* Save $nbytes bytes to $_[0]\n";
    open(my $EEPROM, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
    print $EEPROM $eeprom_data;
@@ -216,7 +242,17 @@ sub generate_config_h {
    printf $fh "#define VERSION \"%02d.%02d\"\n", $version->{firmware}{major}, $version->{firmware}{minor};
    printf $fh "#define VERSION_MAJOR 0x%x\n", $version->{firmware}{major};
    printf $fh "#define VERSION_MINOR 0x%x\n", $version->{firmware}{minor};
-   printf $fh "#define MY_I2C_ADDR %s\n", $config->{i2c}{myaddr};
+
+   if (defined($config->{i2c})) {
+      if (defined($config->{i2c}{myaddr})) {
+         printf $fh "#define MY_I2C_ADDR %s\n", $config->{i2c}{myaddr};
+      }
+   }
+
+   if (!defined($config->{eeprom}{type}) || !defined($config->{eeprom}{addr})) {
+      die("ERROR: Invalid configuration, edit $file and try again!\n");
+   }
+
    if ($config->{eeprom}{type} eq "mmap") {
       print $fh "#define EEPROM_TYPE_MMAP true\n";
       print $fh "#undef EEPROM_TYPE_I2C\n";
@@ -234,19 +270,26 @@ sub generate_config_h {
          printf $fh "#define CAT_YAESU true\n";
       }
    }
-   printf $fh "#define EEPROM_SIZE %d\n", $config->{eeprom}{size};
-   my $x = '';
-   if (defined($config->{features}{'max-bands'})) {
-      $x = $config->{features}{'max-bands'};
-   } else {
-      $x = 10;
+   if (!defined($config->{eeprom}{size})) {
+      die("ERROR: eeprom.size not set!\n");
    }
-   printf $fh "#define MAX_BANDS %d\n", $x;
 
-   # XXX: Host mode
+   printf $fh "#define EEPROM_SIZE %d\n", $config->{eeprom}{size};
+
+   my $max_bands = '';
+   if (defined($config->{features}{'max-bands'})) {
+      $max_bands = $config->{features}{'max-bands'};
+   } else {
+      $max_bands = 10;
+   }
+   printf $fh "#define MAX_BANDS %d\n", $max_bands;
+
+   # XXX: Host mode stuff
    print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";
    print $fh "#define HOST_LOG_FILE \"firmware.log\"\n";
    print $fh "#define HOST_CAT_PIPE \"cat.fifo\"\n";
+
+   # footer
    print $fh "#endif\n";
    close $fh;
 }
@@ -281,4 +324,3 @@ eeprom_save($eeprom_file);
 
 # And generate headers for the C bits...
 generate_headers();
-

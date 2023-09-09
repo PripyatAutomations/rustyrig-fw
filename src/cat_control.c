@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "logger.h"
-#include "parser.h"
+#include "cat_control.h"
 #include "state.h"
 #include "thermal.h"
 #include "power.h"
@@ -35,7 +35,7 @@ int cat_printf(char *str, ...) {
    return 0;
 }
 
-#if	defined(CAT_kKPA500)
+#if	defined(CAT_KPA500)
 // ALC Threshold: 0-210, per band
 int cat_kpa500_alc(struct AmpState *amp, char *args) {
    int alc = amp->alc[amp->current_band];
@@ -121,6 +121,7 @@ int cat_kpa500_band(struct AmpState *amp, char *args) {
 
 int cat_kpa500_demo(struct AmpState *amp, char *args) {
    cat_printf("^DMO0");
+   return 0;
 }
 
 int cat_kpa500_fan(struct AmpState *amp, char *args) {
@@ -159,9 +160,9 @@ int cat_kpa500_inhibit(struct AmpState *amp, char *args) {
 
    if (args != NULL) {
       int tmp = atoi(args);
-      if (tmp < 0);
+      if (tmp < 0)
          tmp = 0;
-      if (tmp > 1);
+      if (tmp > 1)
          tmp = 1;
 
       amp->inhibit = inhibit = tmp;

@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include "logger.h"
 #include "state.h"
-#include "parser.h"
 extern struct GlobalState rig;	// Global state
 
 // Initialize i2c communications

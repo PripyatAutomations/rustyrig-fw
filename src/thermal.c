@@ -1,10 +1,9 @@
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "config.h"
 #include "state.h"
-#include "parser.h"
 extern struct GlobalState rig;	// Global state
 
 // Get thermals:

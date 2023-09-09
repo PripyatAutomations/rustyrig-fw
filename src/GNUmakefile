@@ -9,25 +9,27 @@ CONFIG_FILE=radio.json
 # Usually, say n here, unless developing
 HOST_BUILD=y
 
+CFLAGS := -std=gnu11 -fPIC -g -O2 -Wall -Wno-unused -pedantic
+LDFLAGS := -lc -lm
+
 ifeq (${HOST_BUILD},n)
 TARGET_PREFIX := arm-none-eabi
 BUILD_DIR := build/radio
 OBJ_PREFIX := ${BUILD_DIR}/obj
+CFLAGS +=
+LDFLAGS +=
 else
 BUILD_DIR := build/host
 OBJ_PREFIX := ${BUILD_DIR}/obj
+CFLAGS += -DHOST_BUILD=1 -pthread
+LDFLAGS += -lgpiod -pthread
 endif
-
-CFLAGS := -std=gnu11 -fPIC -g -O2 -I${BUILD_DIR}
-LDFLAGS := -lc -lm
+CFLAGS += -I${BUILD_DIR}
 
 ifneq (x${TARGET_PREFIX},x)
 CC := ${TARGET_PREFIX}-gcc
 LD := ${TARGET_PREFIX}-ld
-CFLAGS +=
-LDFLAGS +=
 else
-CFLAGS += -DHOST_BUILD=1
 CC := gcc
 LD := ld
 endif
@@ -38,14 +40,16 @@ EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 
 bin := ${BUILD_DIR}/firmware.bin
 
+objs += cat_control.o		# CAT parsers
 objs += eeprom.o		# "EEPROM" configuration storage
 objs += faults.o		# Fault management/alerting
 objs += gpio.o			# GPIO controls
 objs += i2c.o			# i2c abstraction
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
-objs += parser.o		# CAT parsers
+ifeq (${HOST_BUILD}, y)
 objs += posix.o			# support for POSIX hosts (pi or debugging)
+endif
 objs += power.o			# Power monitoring and management
 objs += thermal.o		# Thermal management
 objs += usb.o			# Support for USB control (stm32)
@@ -60,10 +64,10 @@ all: world
 
 world: ${bin} ${extra_build}
 
-${bin}: ${real_objs}
+${bin}: ${real_objs} .version
 	${CC} ${LDFLAGS} -o $@ ${real_objs}
 
-${OBJ_PREFIX}/%.o:%.c $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h)
+${OBJ_PREFIX}/%.o:%.c $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h) .version GNUmakefile
 	${CC} ${CFLAGS} -o $@ -c $<
 
 ${src_files}: ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h 
@@ -76,7 +80,7 @@ ${BUILD_DIR}/build_config.h: ${EEPROM_FILE}
 ${BUILD_DIR}/eeprom_layout.h: ${EEPROM_FILE}
 
 ${EEPROM_FILE}: $(wildcard *.h) mkeeprom.pl
-	./mkeeprom.pl ${EEPROM_FILE} ${CONFIG_FILE}
+	./mkeeprom.pl ${EEPROM_FILE} ${CONFIG_FILE} ${BUILD_DIR}
 
 run: ${bin} ${EEPROM_FILE}
 	${bin}

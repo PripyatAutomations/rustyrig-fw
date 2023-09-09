@@ -1,13 +1,12 @@
 /*
- * Here we deal with gpio on host platform
+ * Here we deal with gpio on our various platforms
  */
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "config.h"
 #include "state.h"
-#include "parser.h"
 #include "gpio.h"
 #if	defined(HOST_BUILD)
 #include <gpiod.h>		// Linux hosts

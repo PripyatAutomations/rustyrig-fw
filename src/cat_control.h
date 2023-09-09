@@ -1,5 +1,5 @@
-#if	!defined(_parser_h)
-#define	_parser_h
+#if	!defined(_cat_control_h)
+#define	_cat_control_h
 
 #define	MAX_ARGS	12
 
@@ -14,4 +14,4 @@ extern int cat_printf(char *str, ...);
 extern int cat_parse_line(char *line);
 extern int cat_init(void);
 
-#endif	// !defined(_parser_h)
+#endif	// !defined(_cat_control_h)

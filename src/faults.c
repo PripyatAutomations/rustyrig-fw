@@ -1,11 +1,15 @@
+/*
+ * Manage faults, both minor and major.
+ *
+ * Log them and disable TX, if needed
+ */
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "config.h"
 #include "logger.h"
 #include "state.h"
-#include "parser.h"
 #include "faults.h"
 extern struct GlobalState rig;	// Global state
 
