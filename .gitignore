@@ -1,11 +1,21 @@
-src/build/*/*
+# kicad stuff
 *-backups/*
 fp-info-cache
 */fp-info-cache
 */*-backups/*
+
+# exported images
 images/*
 images
-src/.obj/*.o
+
+# build artifacts
+src/build/*.*
+src/build/obj/*
+
+# Shared image that can be used by all radios
 src/firmware.bin
-src/firmware.log
+
+# User built images and runtime outputs that may contain user information
 src/eeprom.bin
+src/firmware.log
+src/radio.json

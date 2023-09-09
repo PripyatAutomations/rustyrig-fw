@@ -1,5 +1,12 @@
 #
 # Build the firmware
+#
+
+CONFIG_FILE=radio.json
+
+# Are we building for the host (posix) or a target device?
+
+# Usually, say n here, unless developing
 HOST_BUILD=y
 
 ifeq (${HOST_BUILD},n)
@@ -23,13 +30,11 @@ CC := gcc
 LD := ld
 endif
 
-# XXX: Fix this
-#EEPROM_SIZE := $(shell grep EEPROM_SIZE config.h|awk '{print $3}')
-#EEPROM_FILE := $(shell grep HOST_EEPROM_FILE config.h|awk '{print $3}')
+# XXX: get this from radio.json
 EEPROM_SIZE := 16384
-EEPROM_FILE := eeprom.bin
+EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 
-bin := firmware.bin
+bin := ${BUILD_DIR}/firmware.bin
 
 objs += eeprom.o		# "EEPROM" configuration storage
 objs += faults.o		# Fault management/alerting
@@ -44,8 +49,8 @@ objs += thermal.o		# Thermal management
 objs += usb.o			# Support for USB control (stm32)
 
 real_objs := $(foreach x, ${objs}, ${OBJ_PREFIX}/${x})
-extra_clean += firmware.log
-extra_build += eeprom.bin
+extra_clean += firmware.log firmware.bin eeprom.bin ${EEPROM_FILE}
+extra_build += ${EEPROM_FILE}
 
 all: world
 
@@ -62,12 +67,14 @@ clean:
 
 eeprom: ${EEPROM_FILE}
 
-${EEPROM_FILE}:
-	dd if=/dev/zero of=${EEPROM_FILE} bs=${EEPROM_SIZE} count=1
-	# XXX: Apply the default values at DefaultValues offset
+${EEPROM_FILE}: $(wildcard *.h) mkeeprom.pl ${CONFIG_FILE}
+	./mkeeprom.pl ${EEPROM_FILE} ${CONFIG_FILE}
+
+run: ${bin} ${EEPROM_FILE}
+	${bin}
 
 # Run debugger
-gdb:
+gdb: ${bin} ${EEPROM_FILE}
 ifneq (x${HOST_BUILD},x)
 	gdb ${bin} -ex 'run'
 endif

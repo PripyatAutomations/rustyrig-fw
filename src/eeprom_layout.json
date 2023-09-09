@@ -1,0 +1,29 @@
+{
+   "eeprom": {
+      "version_major": {
+          "offset": 0,
+          "size": 1,
+          "type": "d"
+      },
+      "version_minor": {
+          "offset": 1,
+          "size": 1,
+          "type": "d"
+      },
+      "serial": {
+          "offset": 2,
+          "size": 3,
+          "type": "d",
+      }
+      "currband_low": {
+          "offset": 6,
+          "size": 1,
+          "type": "d"
+      },
+      "currband_high": {
+          "offset": 7,
+          "size": 1,
+          "type": "d"
+      }
+   }
+}

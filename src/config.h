@@ -33,7 +33,11 @@
 ///////////
 // Debug //
 ///////////
-#define	HOST_EEPROM_FILE	"eeprom.bin"
+#if	defined(HOST_BUILD)
+#define	HOST_EEPROM_FILE	"build/host/eeprom.bin"
+#else
+#define	HOST_EEPROM_FILE	"build/radio/eeprom.bin"
+#endif
 #define	HOST_LOG_FILE		"firmware.log"
 #define	HOST_CAT_PIPE		"cat.fifo"
 

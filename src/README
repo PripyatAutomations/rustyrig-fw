@@ -1,2 +1,2 @@
 Install these packages at minimum:
-	libjson-perl libterm-readline-perl-perl
+	libjson-perl libterm-readline-perl-perl libhash-merge-perl

@@ -1,6 +1,6 @@
 all: world
 
-world clean test:
+world test run:
 	@${MAKE} -C src $@
 
 help:
@@ -15,3 +15,8 @@ pull:
 
 commit:
 	git commit
+
+
+clean distclean:
+	@echo "=> src"
+	@${MAKE} -C src $@
