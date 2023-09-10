@@ -346,7 +346,7 @@ sub generate_config_h {
 
    # XXX: Host mode stuff
    my $platform = $cptr->get("/build/platform");
-   if ($platform == "posix") {
+   if ($platform eq "posix") {
       print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";
       print $fh "#define HOST_LOG_FILE \"firmware.log\"\n";
       print $fh "#define HOST_CAT_PIPE \"cat.fifo\"\n";
