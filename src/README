@@ -1,6 +1,8 @@
 Install these packages at minimum:
 	libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl
 
+Install cpan modules (if on debian)
+	cpan install Mojo::JSON::Pointer
 
 Files
 -----

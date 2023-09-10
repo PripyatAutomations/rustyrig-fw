@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 #
 # Here we generate an eeprom.bin from the radio.json configuration file
-#
 # We also generate the build_config.h and eeprom_layouts.h needed for the host
 #
 # You should pass arguments to me, or i will use defaults...
+###############################################################################
 use strict;
 use warnings;
 use Getopt::Std;
@@ -13,7 +13,12 @@ use JSON;
 use Data::Dumper;
 use MIME::Base64;
 use Hash::Merge qw( merge );
+use Mojo::JSON::Pointer;
+
 Hash::Merge::set_behavior('RIGHT_PRECEDENT');
+$Data::Dumper::Terse = 1;
+$Data::Dumper::Indent = 1;       # mild pretty print
+$Data::Dumper::Useqq = 1;        # print strings in double quotes
 STDOUT->autoflush(1);
 
 #############################
@@ -26,7 +31,6 @@ while (<$verfh>) {
 }
 close($verfh);
 my @ver = split(/\./, $verdata);
-
 my $version = {
    "firmware" => {
       "major" => $ver[0],
@@ -34,35 +38,9 @@ my $version = {
    }
 };
 
-#################
-# Some defaults #
-#################
-my $eeprom_file = '';
-my $config_file = '';
-my $build_dir = '';
-
-# use commandline args, if present [eeprom] [config]
-if ($#ARGV >= 0) {
-   $eeprom_file = $ARGV[0];
-
-   if ($#ARGV >= 1) {
-      $config_file = $ARGV[1];
-   }
-   if ($#ARGV >= 2) {
-      $build_dir = $ARGV[2];
-   } else {
-      # XXX: Make this use the config :P
-      $build_dir = "build/host";
-   }
-} else {
-   $build_dir = "build/host";
-   $eeprom_file = "$build_dir/eeprom.bin";
-   $config_file = "radio.json";
-}
-my $eeprom_data = '';
-my $eeprom_layout = { };
-
-# Here we store the default configuration
+############
+# Defaults #
+############
 my $default_cfg = {
    "owner" => {
       "call" => "N0CALL",
@@ -88,17 +66,42 @@ my $default_cfg = {
       "serial" => "000000"
    }
 };
-# Merge in the version information
-$default_cfg = merge($default_cfg, $version);
 
-# temporary data
-my $cfgtmp = { };
-
-# Get your config here
+###########
+# Globals #
+###########
+my $build_dir = '';
 my $config = { };
+my $config_file = '';
+my $cptr;
+my $eeprom_file = '';
+my $eeprom_data = '';
+my $eeprom_layout = { };
+
+# use commandline args, if present [eeprom] [config]
+if ($#ARGV >= 0) {
+   $eeprom_file = $ARGV[0];
+
+   if ($#ARGV >= 1) {
+      $config_file = $ARGV[1];
+   }
+   if ($#ARGV >= 2) {
+      $build_dir = $ARGV[2];
+   } else {
+      # XXX: Make this use the config :P
+      $build_dir = "build/host";
+   }
+} else {
+   $build_dir = "build/host";
+   $eeprom_file = "$build_dir/eeprom.bin";
+   $config_file = "radio.json";
+}
 
 # Load configuration from radio.json ($2)
 sub config_load {
+   # Merge the version information into the default configuration
+   my $base_cfg = merge($default_cfg, $version);
+
    print "* Load config from $_[0]\n";
    open(my $fh, '<', $_[0]) or warn("  => Couldn't open configuration file $_[0], using defaults!\n") and return;
    my $nbytes = 0;
@@ -110,10 +113,17 @@ sub config_load {
       last if not $res;
    }
    close($fh);
+
    $nbytes = length($tmp);
    print "  => Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
-   $cfgtmp = $json->decode($tmp) or warn("ERROR: Can't parse configuration $_[0]!\n") and return;
+   my $loaded_cfg = $json->decode($tmp) or warn("ERROR: Can't parse configuration $_[0]!\n") and return;
+
+   # Merge defaults with loaded configuration
+   $config = merge($base_cfg, $loaded_cfg);
+   $cptr = Mojo::JSON::Pointer->new($config);
+
+#   print "cfg: ", Dumper($config);
 }
 
 my @eeprom_dd;
@@ -123,6 +133,7 @@ sub eeprom_layout_load {
    open(my $fh, '<', $_[0]) or die("ERROR: Couldn't open $_[0]!\n");
    my $nbytes = 0;
    my $tmp = '';
+
    while (1) {
       my $res = read $fh, $tmp, 512, length($tmp);
       die "$!\n" if not defined $res;
@@ -137,7 +148,7 @@ sub eeprom_layout_load {
 }
 
 sub eeprom_load {
-   my $eeprom_size = $config->{"eeprom"}{"size"};
+   my $eeprom_size = $cptr->get("/eeprom/size");
    print "* Load EEPROM data from $_[0]\n";
    open(my $EEPROM, '<:raw', $_[0]) or print "  => Not found, skipping\n" and return;
    my $nbytes = 0;
@@ -150,6 +161,7 @@ sub eeprom_load {
    close($EEPROM);
 
    $nbytes = length($eeprom_data);
+
    if ($nbytes == $eeprom_size) {
       print "  => Read $nbytes bytes from $_[0]\n";
    } elsif ($nbytes == 0) {
@@ -164,7 +176,7 @@ sub eeprom_patch {
    my $changes = 0;
    my $errors = 0;
    my $warnings = 0;
-   my $eeprom_size = $config->{"eeprom"}{"size"};
+   my $eeprom_size = $cptr->get("/eeprom/size");
 
    print "* Patch in-memory image\n";
 
@@ -176,18 +188,42 @@ sub eeprom_patch {
    # Walk over the layout structure and see if we have a value set in the config...
    for my $item (@eeprom_dd) {
       for my $key (keys(%$item)) {
-          my $p = $item->{$key};
-          if (defined($item->{$key}{key})) {
-            print "  => $key: ", Dumper($item->{$key}), "\n";
+          my $ee_key = $item->{$key}{key};
+          my $ee_offset = $item->{$key}{offset};
+          my $ee_size = $item->{$key}{size};
+          my $ee_type = $item->{$key}{type};
+          my $eeprom_size = $cptr->get("/eeprom/size");
 
-            if (defined($config->{$key})) {
-               print "    * Value: ", $config->{$key}, "\n";
-            }
+          if (defined($ee_key)) {
+             $changes++;
+
+             my $cval = $cptr->get("/$ee_key");
+             if (defined($cval)) {
+                # Validate the offset and size will fit within the rom
+                if (($ee_offset >= 0 && $ee_offset < $eeprom_size) &&
+                    ($ee_offset + $ee_size <= $eeprom_size)) {
+                   print "  * Patching $ee_size bytes @ $ee_offset: $ee_key ($ee_type) => $cval\n";
+                   if ($ee_type eq 'd') {
+                      #
+                   } elsif ($ee_type eq 'b') {
+                      #
+                   } elsif ($ee_type eq 'LicensePrivs') {
+                      # license privileges
+                   }
+                } else {
+                   print "Invalid offset/size ($ee_offset, $ee_size) - our EEPROM is $eeprom_size\n";
+                }
+             } else {
+                print "    * No value at key $ee_key\n";
+                $warnings++;
+             }
           }
        }
    }
+
    if ($errors > 0) {
-      die("*** There were $errors errors (of $changes patches processed) during patching, aborting!\n");
+      print "*** There were $errors errors while processing $changes patche, aborting without change!\n";
+      die();
    }
 
    print "  => Finished patching, there were $warnings warnings from $changes patches\n";
@@ -195,7 +231,7 @@ sub eeprom_patch {
 
 sub eeprom_save {
    my $nbytes = length($eeprom_data);
-   my $eeprom_size = $config->{eeprom}{size};
+   my $eeprom_size = $cptr->get("/eeprom/size");
 
    if ($nbytes == 0) {
       die("ERROR: Refusing to write empty (0 byte) EEPROM to $_[0]\n");
@@ -216,9 +252,11 @@ sub eeprom_save {
 sub generate_eeprom_layout_h {
    my $file = $_[0];
    my $nbytes = 0;
+
    if ($file eq '') {
       die("generate_eeprom_layout_h: No argument given\n");
    }
+
    print "  => Generating $_[0]\n";
    open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
@@ -236,6 +274,7 @@ sub generate_config_h {
    print "  => Generating $_[0]\n";
    open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
+   print $fh "// Auto-generated file. Please do not edit. Run mkeeprom.pl instead\n\n";
    print $fh "#if     !defined(_config_h)\n#define _config_h\n";
    printf $fh "#define VERSION \"%02d.%02d\"\n", $version->{firmware}{major}, $version->{firmware}{minor};
    printf $fh "#define VERSION_MAJOR 0x%x\n", $version->{firmware}{major};
@@ -301,9 +340,6 @@ sub generate_headers {
 #############################################################
 # Load the configuration
 config_load($config_file);
-
-# Merge defaults with loaded configuration
-$config = merge($default_cfg, $cfgtmp);
 
 # Load the EEPROM layout definition
 eeprom_layout_load("eeprom_layout.json");

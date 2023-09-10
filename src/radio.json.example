@@ -12,8 +12,8 @@
         "myaddr": "0xa0"
    },
    "features": {
-        "cat-kpa500": true,
-        "cat-yaesu": true,
+        "cat-kpa500": 1,
+        "cat-yaesu": 1,,
         "max-bands": 14
    },
    "station": {
