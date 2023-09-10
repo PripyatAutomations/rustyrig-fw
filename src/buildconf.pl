@@ -1,9 +1,8 @@
 #!/usr/bin/perl
 #
-# Here we generate an eeprom.bin from the radio.json configuration file
-# We also generate the build_config.h and res/eeprom_layouts.h needed for the host
-#
-# You should pass arguments to me, or i will use defaults...
+# Convert $profile.json to an eeprom.bin and appropriate headers needed to build
+# the radio software, either natively or cross compiled.
+# $profile defaults to 'radio' but can be provided as the first (and only) argument
 ###############################################################################
 use strict;
 use warnings;
@@ -14,6 +13,7 @@ use Data::Dumper;
 use MIME::Base64;
 use Hash::Merge qw( merge );
 use Mojo::JSON::Pointer;
+use File::Path qw(make_path remove_tree);
 
 Hash::Merge::set_behavior('RIGHT_PRECEDENT');
 $Data::Dumper::Terse = 1;
@@ -81,12 +81,13 @@ my @eeprom_dd;
 my $profile = 'radio';
 
 # use profile name from command line, if given
-if ($#ARGV >= 0) {
+if ($#ARGV == 0) {
    $profile = $ARGV[0];
 }
 $config_file = "$profile.json";
 $build_dir = "build/$profile";
 $eeprom_file = "$build_dir/eeprom.bin";
+make_path("$build_dir/obj");
 
 # Load configuration from radio.json ($2)
 sub config_load {

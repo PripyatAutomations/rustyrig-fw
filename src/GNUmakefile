@@ -52,7 +52,7 @@ all: world
 
 world: ${bin} ${extra_build}
 
-${bin}: radio.json ${BUILD_DIR}/.active ${real_objs} .version
+${bin}: radio.json ${real_objs} .version
 	${CC} ${LDFLAGS} -o $@ ${real_objs}
 
 ${OBJ_DIR}/%.o:%.c $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h) .version GNUmakefile ${CF}
@@ -66,8 +66,8 @@ clean:
 ${BUILD_DIR}/build_config.h: ${EEPROM_FILE}
 ${BUILD_DIR}/eeprom_layout.h: ${EEPROM_FILE}
 
-${EEPROM_FILE}: $(wildcard *.h) mkeeprom.pl
-	./mkeeprom.pl ${CONFIG}
+${EEPROM_FILE}: $(wildcard *.h) buildconf.pl
+	./buildconf.pl ${CONFIG}
 
 run: ${bin} ${EEPROM_FILE}
 	${bin}
@@ -90,7 +90,3 @@ radio.json:
 	@echo "* PLEASE read README.txt and edit radio.json as needed *"
 	@echo "********************************************************"
 	exit 1
-
-${BUILD_DIR}/.active:
-	mkdir -p ${BUILD_DIR}/obj
-	touch $@
