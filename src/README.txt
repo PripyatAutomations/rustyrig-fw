@@ -11,6 +11,8 @@ Files
 
 Building
 --------
+	You can past CONFIG=name to pass a configuration, do NOT add the .json suffix
+
 	Edit configuration in radio.json as appropriate.
 		joe radio.json
 
