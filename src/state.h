@@ -91,13 +91,13 @@ struct GlobalState {
    struct FilterState 	low_filters,
                         high_filters;
 
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
    // Host build fd's/buffers/etc
    int			eeprom_fd;
    u_int8_t		*eeprom_mmap;
    int			logfile_fd;
    int			catpipe_fd;
-#endif	// defined(HOST_BUILD)
+#endif	// defined(HOST_POSIX)
 };
 
 extern void shutdown_rig(int signum);	// main.c

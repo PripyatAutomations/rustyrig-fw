@@ -47,8 +47,8 @@ const char *log_priority_to_str(logpriority_t priority) {
 }
 
 void logger_init(void) {
-#if	defined(HOST_BUILD)
-/* This really should be HAVE_FS or such, rather than HOST_BUILD as we could log to SD, etc... */
+#if	defined(HOST_POSIX)
+/* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
    if (logfp == NULL) {
       logfp = fopen(HOST_LOG_FILE, "a+");
 
@@ -61,8 +61,8 @@ void logger_init(void) {
 }
 
 void logger_end(void) {
-#if	defined(HOST_BUILD)
-/* This really should be HAVE_FS or such, rather than HOST_BUILD as we could log to SD, etc... */
+#if	defined(HOST_POSIX)
+/* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
    if (logfp != NULL)
       fclose(logfp);
 #endif
@@ -108,10 +108,10 @@ void Log(logpriority_t priority, const char *fmt, ...) {
       fflush(logfp);
    }
 
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
    // Send it to the stdout too on host builds
    fprintf(stdout, "%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
-#endif	// defined(HOST_BUILD)
+#endif	// defined(HOST_POSIX)
 
    va_end(ap);
 }

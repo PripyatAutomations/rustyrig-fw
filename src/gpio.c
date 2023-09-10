@@ -11,7 +11,7 @@
 #include <string.h>
 #include "state.h"
 #include "gpio.h"
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
 #include <gpiod.h>		// Linux hosts
 const int max_gpiochips = 8;
 #endif
@@ -20,7 +20,7 @@ extern struct GlobalState rig;	// Global state
 
 // Initialize platform GPIO
 int gpio_init(void) {
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
 #else
 #endif
    return 0;

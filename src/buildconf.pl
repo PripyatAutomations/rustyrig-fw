@@ -345,9 +345,13 @@ sub generate_config_h {
    printf $fh "#define MAX_BANDS %d\n", $max_bands;
 
    # XXX: Host mode stuff
-   print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";
-   print $fh "#define HOST_LOG_FILE \"firmware.log\"\n";
-   print $fh "#define HOST_CAT_PIPE \"cat.fifo\"\n";
+   my $platform = $cptr->get("/build/platform");
+   if ($platform == "posix") {
+      print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";
+      print $fh "#define HOST_LOG_FILE \"firmware.log\"\n";
+      print $fh "#define HOST_CAT_PIPE \"cat.fifo\"\n";
+      print $fh "#define HOST_POSIX\n";
+   }
 
    # footer
    print $fh "#endif\n";

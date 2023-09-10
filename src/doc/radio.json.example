@@ -4,7 +4,7 @@
        "hwversion": 1
    },
    "build": {
-       "cflags": "-fPIC -DHOST_BUILD=1 -pthread",
+       "cflags": "-fPIC -pthread",
        "ldflags": "-lgpiod -pthread",
        "platform": "posix",
        "toolchain": {

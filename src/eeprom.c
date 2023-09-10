@@ -3,7 +3,7 @@
  * depending on how it's connected.
  *
  * We support the following:
- *	mmaping a file on HOST_BUILD,
+ *	mmaping a file on HOST_POSIX,
  *	memory mapped eeprom/flash devices with direct reading/writing
  *	i2c connected parts
  */
@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -33,7 +33,7 @@ int eeprom_init(void) {
    size_t bytes_read = 0;
 
 // emulation
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
    struct stat sb;
    size_t eeprom_len;
    ssize_t s;
@@ -69,7 +69,7 @@ int eeprom_read_block(u_int8_t *buf, size_t offset, size_t len) {
       return -1;
    }
 
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
    while (myoff <= len) {
       buf[myoff] = *rig.eeprom_mmap + offset + myoff;
 
@@ -115,7 +115,7 @@ u_int8_t eeprom_read(size_t offset) {
 int eeprom_write_block(void *buf, size_t offset, size_t len) {
    int res = -1;
 
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
 #else
    // XXX: Add support for memory mapped or i2c EEPROMs here
 #endif
