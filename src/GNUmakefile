@@ -80,7 +80,7 @@ test: clean world gdb
 
 distclean: clean
 	${RM} ${EEPROM_FILE}
-	${RM} -r build/*
+	${RM} -r build
 
 install:
 	@echo "Automatic DFU installation isn't supported yet... Please see doc/INSTALLING.txt for more info"

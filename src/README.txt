@@ -6,9 +6,8 @@ Install cpan modules (if on debian)
 
 Files
 -----
-	eeprom_layout.json	Contains machine readable layout data for patching eeprom.bin
-	radio.json		User supplied, see radio.json.example
-
+	res/eeprom_layout.json	Contains machine readable layout data for patching eeprom.bin
+	radio.json		User supplied, see doc/radio.json.example
 
 Building
 --------
