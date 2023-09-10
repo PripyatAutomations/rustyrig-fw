@@ -6,10 +6,13 @@
  * - Est. lifetime and current BTU of heat production (enclosure temp - inlet temp based)
  */
 #include "config.h"
-#include <stdio.h>
+#include <stddef.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <unistd.h>
+#include <string.h>
 #include "state.h"
 #include "power.h"
 

@@ -3,11 +3,14 @@
  *	Targets: syslog console flash (file)
  */
 #include "config.h"
-#include <stdio.h>
+#include <stddef.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include "logger.h"
 #include "state.h"
 

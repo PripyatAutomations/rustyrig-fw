@@ -4,13 +4,17 @@
  * Namely we use optionally use pipes instead of real serial ports
  */
 #include "config.h"
-#include <stdio.h>
+#include <stddef.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <unistd.h>
+#include <string.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdio.h>
 #include "state.h"
 #include "posix.h"
 #include "logger.h"

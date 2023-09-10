@@ -79,7 +79,7 @@ clean:
 ${BUILD_DIR}/build_config.h: ${EEPROM_FILE}
 ${BUILD_DIR}/eeprom_layout.h: ${EEPROM_FILE}
 
-${EEPROM_FILE}: $(wildcard *.h) buildconf.pl
+config.h ${EEPROM_FILE}: $(wildcard *.h) buildconf.pl
 	./buildconf.pl ${CONFIG}
 
 run: ${bin} ${EEPROM_FILE}
@@ -100,6 +100,6 @@ install:
 
 radio.json:
 	@echo "********************************************************"
-	@echo "* PLEASE read README.txt and edit radio.json as needed *"
+	@echo "* PLEASE read README.txt and edit ${CF} as needed *"
 	@echo "********************************************************"
 	exit 1

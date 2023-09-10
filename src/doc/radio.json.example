@@ -42,5 +42,19 @@
        "mask": "255.255.255.0",
        "dns1": "10.201.1.1",
        "dns2": "1.1.1.1"
+   },
+   "rfdecks": {
+       "lowband": {
+           "bands": [ "160M", "80M", "60M", "40", "30M", "20M", "17M", "15M", "12M", "10M" ],
+           "minpower": "5W",
+           "maxpower": "1200W",
+           "powerstep": 10
+       },
+       "highband": {
+           "bands": [ "6M", "2M", "70CM" ],
+           "minpower": "5W",
+           "maxpower": "1000W",
+           "powerstep": 10
+       }
    }
 }

@@ -1,10 +1,11 @@
 #include "config.h"
-#include <stdio.h>
+#include <stddef.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <string.h>
 #include <unistd.h>
+#include <string.h>
 #include "i2c.h"
 #include "state.h"
 #include "eeprom.h"

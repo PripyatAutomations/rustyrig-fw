@@ -87,9 +87,11 @@ if ($#ARGV == 0) {
 $config_file = "$profile.json";
 $build_dir = "build/$profile";
 $eeprom_file = "$build_dir/eeprom.bin";
+
+# Make the build directory tree, if not present
 make_path("$build_dir/obj");
 
-# Load configuration from radio.json ($2)
+# Load configuration from $config_file
 sub config_load {
    # Merge the version information into the default configuration
    my $base_cfg = merge($default_cfg, $version);
@@ -195,13 +197,14 @@ sub eeprom_patch {
                 # Validate the offset and size will fit within the rom
                 if (($ee_offset >= 0 && $ee_offset < $eeprom_size) &&
                     ($ee_offset + $ee_size <= $eeprom_size)) {
-                   print "  * Patching $ee_size bytes @ $ee_offset: $ee_key ($ee_type) => $cval\n";
+                   printf "   * Patching %d bytes @ %04d: [%s] %s=%s\n", $ee_size, $ee_offset, $ee_type, $ee_key, $cval;
+#                   print "  * Patching $ee_size bytes @ $ee_offset: [$ee_type] $ee_key=$cval\n";
                    if ($ee_type eq 'd') {
-                      #
+                      # numeric
                    } elsif ($ee_type eq 's') {
-                      #
+                      # string
                    } elsif ($ee_type eq 'b') {
-                      #
+                      # raw bytes
                    } elsif ($ee_type eq 'LicensePrivs') {
                       # license privileges
                    } elsif ($ee_type eq 'ip4') {
@@ -258,6 +261,10 @@ sub generate_eeprom_layout_h {
    open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
    print $fh "#if     !defined(_eeprom_layout_h)\n#define _eeprom_layout_h\n";
+
+   # XXX: Sort the list here, based on the offset
+
+   my $eeprom_size = $cptr->get("/eeprom/size");
    # Walk over the layout structure and see if we have a value set in the config...
    for my $item (@eeprom_dd) {
       for my $key (keys(%$item)) {
@@ -265,7 +272,6 @@ sub generate_eeprom_layout_h {
           my $ee_offset = $item->{$key}{offset};
           my $ee_size = $item->{$key}{size};
           my $ee_type = $item->{$key}{type};
-          my $eeprom_size = $cptr->get("/eeprom/size");
 
           if (defined($ee_key)) {
              my $cval = $cptr->get("/$ee_key");
@@ -291,7 +297,7 @@ sub generate_config_h {
    print "  * Generating $_[0]\n";
    open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
-   print $fh "// Auto-generated file. Please do not edit. Run mkeeprom.pl instead\n\n";
+   print $fh "// Auto-generated file. Please do not edit. Run buildconf.pl instead\n\n";
    print $fh "#if     !defined(_config_h)\n#define _config_h\n";
    printf $fh "#define VERSION \"%02d.%02d\"\n", $version->{firmware}{major}, $version->{firmware}{minor};
    printf $fh "#define VERSION_MAJOR 0x%x\n", $version->{firmware}{major};
@@ -364,7 +370,7 @@ eeprom_layout_load("res/eeprom_layout.json");
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);
 
-# Apply our radio.json to in-memory EEPROM image
+# Apply loaded configuration to in-memory EEPROM image
 eeprom_patch($config);
 
 # Disable interrupt while saving

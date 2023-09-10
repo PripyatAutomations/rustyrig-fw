@@ -8,10 +8,13 @@
  *	i2c connected parts
  */
 #include "config.h"
+#include <stddef.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
+#include <string.h>
 #include <errno.h>
 #if	defined(HOST_BUILD)
 #include <stdio.h>
