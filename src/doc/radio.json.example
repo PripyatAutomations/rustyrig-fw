@@ -1,7 +1,15 @@
 {
    "device": {
-       "serial": "000000",
-       "version": 1
+       "serial": "000001",
+       "hwversion": 1
+   },
+   "build": {
+       "cflags": "-fPIC -DHOST_BUILD=1 -pthread",
+       "ldflags": "-lgpiod -pthread",
+       "platform": "posix",
+       "toolchain": {
+           "prefix": ""
+       }
    },
    "eeprom": {
        "addr": "0x0000",
@@ -13,19 +21,19 @@
    },
    "features": {
         "cat-kpa500": 1,
-        "cat-yaesu": 1,,
+        "cat-yaesu": 1,
         "max-bands": 14
    },
    "station": {
-       "call", "N0CALL",
+       "call": "N0CALL",
        "grid": "AA00aa"
    },
    "owner": {
        "call": "N0CALL",
-       "privs": "US/General",
+       "privs": "US/General"
    },
    "pin": {
-       "master": "654321",
+       "master": "012345",
        "reset": "543210"
    },
    "net": {

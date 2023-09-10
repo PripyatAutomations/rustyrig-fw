@@ -1,42 +1,29 @@
-#
-# Build the firmware
-#
-
-CONFIG_FILE=radio.json
-
-# Are we building for the host (posix) or a target device?
-
-# Usually, say n here, unless developing
-HOST_BUILD=y
-
-CFLAGS := -std=gnu11 -fPIC -g -O2 -Wall -Wno-unused -pedantic
-LDFLAGS := -lc -lm
-
-ifeq (${HOST_BUILD},n)
-TARGET_PREFIX := arm-none-eabi
-BUILD_DIR := build/radio
-OBJ_PREFIX := ${BUILD_DIR}/obj
-CFLAGS +=
-LDFLAGS +=
-else
-BUILD_DIR := build/host
-OBJ_PREFIX := ${BUILD_DIR}/obj
-CFLAGS += -DHOST_BUILD=1 -pthread
-LDFLAGS += -lgpiod -pthread
+ifeq (x$(wildcard radio.json),x)
+$(error ERROR!!! Please create radio.json first)
 endif
-CFLAGS += -I${BUILD_DIR}
 
-ifneq (x${TARGET_PREFIX},x)
-CC := ${TARGET_PREFIX}-gcc
-LD := ${TARGET_PREFIX}-ld
+CONFIG ?= radio
+CF := ${CONFIG}.json
+CFLAGS := -std=gnu11 -g -O2 -Wall -Wno-unused -pedantic
+LDFLAGS := -lc -lm
+BUILD_DIR := build/${CONFIG}
+
+# Pull target configuration bits out of the config .json file
+CFLAGS += -I${BUILD_DIR} $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
+TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
+EEPROM_SIZE := $(shell cat ${CF} | jq -r ".eeprom.size")
+EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
+PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
+
+ifneq (${TC_PREFIX},"")
+CC := ${TC_PREFIX}-gcc
+LD := ${TC_PREFIX}-ld
 else
 CC := gcc
 LD := ld
 endif
-
-# XXX: get this from radio.json
-EEPROM_SIZE := 16384
-EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
+OBJ_DIR := ${BUILD_DIR}/obj
 
 bin := ${BUILD_DIR}/firmware.bin
 
@@ -47,14 +34,15 @@ objs += gpio.o			# GPIO controls
 objs += i2c.o			# i2c abstraction
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
-ifeq (${HOST_BUILD}, y)
+ifeq (${PLATFORM}, posix)
 objs += posix.o			# support for POSIX hosts (pi or debugging)
 endif
 objs += power.o			# Power monitoring and management
 objs += thermal.o		# Thermal management
 objs += usb.o			# Support for USB control (stm32)
 
-real_objs := $(foreach x, ${objs}, ${OBJ_PREFIX}/${x})
+################################################################################
+real_objs := $(foreach x, ${objs}, ${OBJ_DIR}/${x})
 extra_clean += firmware.log firmware.bin eeprom.bin ${EEPROM_FILE}
 extra_clean += $(wildcard ${BUILD_DIR}/*.h)
 extra_build += ${EEPROM_FILE}
@@ -64,10 +52,10 @@ all: world
 
 world: ${bin} ${extra_build}
 
-${bin}: ${real_objs} .version
+${bin}: radio.json ${BUILD_DIR}/.active ${real_objs} .version
 	${CC} ${LDFLAGS} -o $@ ${real_objs}
 
-${OBJ_PREFIX}/%.o:%.c $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h) .version GNUmakefile
+${OBJ_DIR}/%.o:%.c $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h) .version GNUmakefile ${CF}
 	${CC} ${CFLAGS} -o $@ -c $<
 
 ${src_files}: ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h 
@@ -75,28 +63,34 @@ ${src_files}: ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h
 clean:
 	${RM} ${bin} ${real_objs} ${extra_clean}
 
-
 ${BUILD_DIR}/build_config.h: ${EEPROM_FILE}
 ${BUILD_DIR}/eeprom_layout.h: ${EEPROM_FILE}
 
 ${EEPROM_FILE}: $(wildcard *.h) mkeeprom.pl
-	./mkeeprom.pl ${EEPROM_FILE} ${CONFIG_FILE} ${BUILD_DIR}
+	./mkeeprom.pl ${CONFIG}
 
 run: ${bin} ${EEPROM_FILE}
 	${bin}
 
 # Run debugger
 gdb: ${bin} ${EEPROM_FILE}
-ifneq (x${HOST_BUILD},x)
 	gdb ${bin} -ex 'run'
-endif
 
 test: clean world gdb
 
 distclean: clean
 	${RM} ${EEPROM_FILE}
-	${RM} $(foreach x, ${objs}, build/host/obj/${x})
-	${RM} $(foreach x, ${objs}, build/radio/obj/${x})
+	${RM} -r build/*
 
 install:
 	@echo "Automatic DFU installation isn't supported yet... Please see doc/INSTALLING.txt for more info"
+
+radio.json:
+	@echo "********************************************************"
+	@echo "* PLEASE read README.txt and edit radio.json as needed *"
+	@echo "********************************************************"
+	exit 1
+
+${BUILD_DIR}/.active:
+	mkdir -p ${BUILD_DIR}/obj
+	touch $@

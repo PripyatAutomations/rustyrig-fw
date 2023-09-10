@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "state.h"
+/* This comes from mkeeprom.h and lives in build/$target/ */
 #include "eeprom_layout.h"
 
 extern int eeprom_init(void);

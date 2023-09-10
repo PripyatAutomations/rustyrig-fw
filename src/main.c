@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
    }
 
    cat_init();
-   Log(INFO, "Ready to operate!");
+   Log(INFO, "Radio initialization completed. Enjoy!");
 
    // Main loop
    while(!dying) {
