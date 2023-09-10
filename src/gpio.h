@@ -1,6 +1,6 @@
 #if	!defined(_gpio_h)
 #define	_gpio_h
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
 // XXX: Include host gpio support
 extern const int max_gpiochips;
 #else

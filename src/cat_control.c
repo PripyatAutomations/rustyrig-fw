@@ -395,7 +395,7 @@ int cat_parse_line(char *line) {
 
 // Initialize CAT control
 int cat_init(void) {
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
 // XXX: Open the pipe
 #endif
    Log(INFO, "CAT Initialization succesful");

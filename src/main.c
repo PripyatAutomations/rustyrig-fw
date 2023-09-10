@@ -50,7 +50,7 @@ void shutdown_rig(int signum) {
 
 int main(int argc, char **argv) {
    // On the stm32, main is not our entry point, so we can use this to help catch misbuilt images.
-#if	!defined(HOST_BUILD)
+#if	!defined(HOST_POSIX)
    printf("This build is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is severely broken!\n");
    exit(1);
 #else

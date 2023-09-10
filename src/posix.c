@@ -4,6 +4,9 @@
  * Namely we use optionally use pipes instead of real serial ports
  */
 #include "config.h"
+#if	!defined(HOST_POSIX)
+#error "This is only valid on host posix, please check the GNUmakefile!"
+#else
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -65,3 +68,4 @@ void init_signals(void) {
    signal(SIGUSR1, sighandler);
    signal(SIGUSR2, sighandler);
 }
+#endif	// HOST_POSIX

@@ -1,6 +1,6 @@
 #if	!defined(_i2c_h)
 #define	_i2c_h
-#if	defined(HOST_BUILD)
+#if	defined(HOST_POSIX)
 // XXX: Include host i2c support
 #else
 // Include uc specific i2c
