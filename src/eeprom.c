@@ -26,8 +26,47 @@
 #include "logger.h"
 #include "eeprom.h"
 #include "i2c.h"
+#include "eeprom_layout.h"
 
 extern struct GlobalState rig;	// Global state
+
+// Returns either the index of they key in eeprom_layout or -1 if not found
+int eeprom_offset_index(const char *key) {
+   int max_entries = -1, idx = -1;
+
+   max_entries = (sizeof(eeprom_layout) / sizeof(eeprom_layout[0]));
+
+   if (max_entries == 0)
+      return -1;
+
+   for (idx = 0; idx < max_entries; idx++) {
+      if (strncasecmp(key, eeprom_layout[idx].key, strlen(key)) == 0) {
+//         Log(DEBUG, "match for key %s at index %d", key, idx);
+         return idx;
+      }
+   }
+
+//   Log(DEBUG, "No match found for key %s in eeprom_layout", key);
+   return -1;
+}
+
+int eeprom_get_int(int idx) {
+   return -1;
+}
+
+const char *eeprom_get_str(int idx) {
+   char *ret = NULL;
+
+   return ret;
+}
+
+int eeprom_get_int_i(const char *key) {
+   return eeprom_get_int(eeprom_offset_index(key));
+}
+
+const char *eeprom_get_str_i(const char *key) {
+   return eeprom_get_str(eeprom_offset_index(key));
+}
 
 int eeprom_init(void) {
    size_t bytes_read = 0;
@@ -175,6 +214,8 @@ int eeprom_write_config(int force) {
    return 0;
 }
 
-int get_serial_number(void) {
-   return 0;
+char *get_serial_number(void) {
+   int idx = eeprom_offset_index("device/serial");
+   Log(INFO, "Device serial number: %s", eeprom_get_str(idx));
+   return NULL;
 }

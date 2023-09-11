@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#if defined(HOST_POSIX)
+#endif
 #include "state.h"
 #include "usb.h"
 extern struct GlobalState rig;	// Global state

@@ -51,7 +51,7 @@
            "powerstep": 10
        },
        "highband": {
-           "bands": [ "6M", "2M", "70CM" ],
+           "bands": [ "6M", "2M", "1.25M", "70CM" ],
            "minpower": "5W",
            "maxpower": "1000W",
            "powerstep": 10

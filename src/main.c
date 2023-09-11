@@ -16,6 +16,14 @@
 bool dying = 0;
 struct GlobalState rig;	// Global state
 
+static int load_defaults(void) {
+   // Set minimum defaults, til we have EEPROM available
+   rig.faultbeep = 1;
+   rig.bc_standby = 1;
+   rig.tr_delay = 50;
+   return 0;
+}   
+
 // Zeroize our memory structures
 static int initialize_state(void) {
    memset(&rig, 0, sizeof(struct GlobalState));
@@ -26,16 +34,9 @@ static int initialize_state(void) {
    memset(&rig.low_filters, 0, sizeof(struct FilterState));
    memset(&rig.high_filters, 0, sizeof(struct FilterState));
 
+   load_defaults();
    return 0;
 }
-
-static int load_defaults(void) {
-   // Set minimum defaults, til we have EEPROM available
-   rig.faultbeep = 1;
-   rig.bc_standby = 1;
-   rig.tr_delay = 50;
-   return 0;
-}   
 
 void shutdown_rig(int signum) {
     if (signum >= 0) {
@@ -60,6 +61,7 @@ int main(int argc, char **argv) {
    // Initialize subsystems
    logger_init();
    Log(INFO, "Radio firmware v%s starting...", VERSION);
+   get_serial_number();
    initialize_state();			// Load default values
 
    // Initialize the i2c buses, if present
@@ -69,8 +71,6 @@ int main(int argc, char **argv) {
    // if able to connect to EEPROM, load and apply settings
    if (eeprom_init() == 0) {
       eeprom_load_config();
-   } else {
-      load_defaults();
    }
 
    cat_init();
@@ -80,6 +80,7 @@ int main(int argc, char **argv) {
    while(!dying) {
       char buf[512];
       memset(buf, 0, 512);
+      // read_serial(&buf, 512);
       cat_parse_line(buf);
       sleep(1);
    }

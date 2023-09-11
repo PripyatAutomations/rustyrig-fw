@@ -76,7 +76,7 @@ ${OBJ_DIR}/%.o:%.c $(wildcard *.h) ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eepr
 ${src_files}: ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h
 
 # Rebuild the EEPROM and headers, if config or eeprom_layout are changed
-${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h ${EEPROM_FILE}: ${CF} res/eeprom_layout.json
+${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h ${EEPROM_FILE}: ${CF} res/eeprom_layout.json buildconf.pl
 	./buildconf.pl ${CONFIG}
 
 ##################
