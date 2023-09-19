@@ -19,7 +19,8 @@ struct eeprom_layout {
        EE_INTEGER,		// numeric
        EE_FLOAT,		// floating point
        EE_IP4,			// ipv4 address
-       EE_LCLASS,		// license class
+       EE_LCLASS,		// license class,
+       EE_GRID			// grid square
     } type;
 };
 

@@ -247,15 +247,15 @@ sub eeprom_patch {
              printf "     => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
 
              # Here we chose which
-             if ($ee_type eq 'callsign') {
+             if ($ee_type eq 'call') {
                # callsign (8 bytes)
-             } elsif ($ee_type eq 'i') {
+             } elsif ($ee_type eq 'int') {
                 # integer (4 bytes)
              } elsif ($ee_type eq 'ip4') {
                 # ipv4 address (4 bytes)
-             } elsif ($ee_type eq 'lclass') {
+             } elsif ($ee_type eq 'class') {
                 # license privileges (1 byte enum)
-             } elsif ($ee_type eq 's') {
+             } elsif ($ee_type eq 'str') {
                 # string (variable length)
              }
              if ($curr_offset != $ee_offset) {
@@ -353,17 +353,19 @@ sub generate_eeprom_layout_h {
           my $ee_type = $item->{$key}{type};
           my $ee_type_enum = "EE_NONE";
 
-          if ($ee_type eq "b") {
+          if ($ee_type eq "byte") {
              $ee_type_enum = "EE_BYTES";
-          } elsif ($ee_type eq "f") {
+          } elsif ($ee_type eq "float") {
              $ee_type_enum = "EE_FLOAT";
-          } elsif ($ee_type eq "i") {
+          } elsif ($ee_type eq "int") {
              $ee_type_enum = "EE_INTEGER";
           } elsif ($ee_type eq "ip4") {
              $ee_type_enum = "EE_IP4";
-          } elsif ($ee_type eq "lclass") {
+          } elsif ($ee_type eq "grid") {
+             $ee_type_enum = "EE_GRID";
+          } elsif ($ee_type eq "class") {
              $ee_type_enum = "EE_LCLASS";
-          } elsif ($ee_type eq "s") {
+          } elsif ($ee_type eq "str") {
              $ee_type_enum = "EE_STRING";
           }
 

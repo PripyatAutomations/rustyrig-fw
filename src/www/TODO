@@ -1,0 +1,4 @@
+* Implement Web Serial firmare uploads
+	https://developer.chrome.com/articles/serial/
+	https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API
+	- js/zmodemjs for zmodem upload

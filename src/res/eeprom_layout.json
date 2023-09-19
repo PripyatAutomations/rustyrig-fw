@@ -2,46 +2,46 @@
    "fw_major": {
        "offset": 0,
        "size": 1,
-       "type": "i",
+       "type": "int",
        "key":  "firmware/major"
    },
    "fw_minor": {
        "offset": 1,
        "size": 1,
-       "type": "i",
+       "type": "int",
        "key":  "firmware/minor"
    },
    "dev_sernum": {
        "offset": 2,
        "size": 6,
-       "type": "s",
+       "type": "str",
        "key":  "device/serial",
        "default": "000000"
    },
    "dev_hwver": {
        "offset": 8,
        "size": 4,
-       "type": "i",
+       "type": "int",
        "key": "device/hwversion"
    },
    "currband_low": {
        "offset": 12,
        "size": 1,
-       "type": "i",
+       "type": "int",
        "key": "rfdecks/lowband/curr_band",
        "default": 0
    },
    "currband_high": {
        "offset": 13,
        "size": 1,
-       "type": "i",
+       "type": "int",
        "key": "rfdecks/highband/curr_band",
        "default": 0
    },
-   "sta_callsign": {
+   "sta_call": {
        "offset": 14,
        "size": 8,
-       "type": "callsign",
+       "type": "call",
        "key": "station/call",
        "default": "N0CALL"
    },
@@ -54,28 +54,28 @@
    "owner_call": {
        "offset": 30,
        "size": 8,
-       "type": "callsign",
+       "type": "call",
        "key": "owner/call",
        "default": "N0CALL"
    },
    "owner_privs": {
        "offset": 38,
        "size": 1,
-       "type": "lclass",
+       "type": "class",
        "key": "owner/privs",
        "default": "US/General"
    },
    "pin_master": {
        "offset": 39,
        "size": 6,
-       "type": "s",
+       "type": "str",
        "key": "pin/master",
        "default": "012345"
    },
    "pin_reset": {
        "offset": 45,
        "size": 6,
-       "type": "s",
+       "type": "str",
        "key": "pin/reset",
        "default": "543210"
    },
@@ -116,20 +116,20 @@
    "net_vlan": {
        "offset": 71,
        "size": 4,
-       "type": "i",
+       "type": "int",
        "key": "net/vlan",
        "default": 1
    },
    "my_i2c_addr": {
        "offset": 75,
        "size": 1,
-       "type": "i",
+       "type": "int",
        "key": "i2c/myaddr"
    },
    "checksum": {
        "offset": 16380,
        "size": 4,
-       "type": "i",
+       "type": "int",
        "key": "eeprom/checksum",
        "protect": 1
    }

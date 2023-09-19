@@ -1,0 +1,8 @@
+body, html {
+    background-color: #0c0c0c;
+    color: #c0c0c0;
+}
+
+a, a:visited, a:active {
+    color: #004fcc;
+}

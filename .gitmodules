@@ -1,0 +1,3 @@
+[submodule "src/www/js/zmodemjs"]
+	path = src/www/js/zmodemjs
+	url = https://github.com/FGasper/zmodemjs.git
