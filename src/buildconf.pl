@@ -13,6 +13,7 @@ use Data::Dumper;
 use MIME::Base64;
 use Hash::Merge qw( merge );
 use Mojo::JSON::Pointer;
+use String::CRC32;
 use File::Path qw(make_path remove_tree);
 
 Hash::Merge::set_behavior('RIGHT_PRECEDENT');
@@ -27,9 +28,12 @@ STDOUT->autoflush(1);
 open(my $verfh, "<", ".version") or die("Missing .version!\n");
 my $verdata = '';
 while (<$verfh>) {
-   $verdata = $_;
+   $verdata = $verdata . $_;
 }
 close($verfh);
+
+# remove spaces and newlines
+$verdata =~ s/^\s+|\s(?=\s)|\s+$//g;
 my @ver = split(/\./, $verdata);
 my $version = {
    "firmware" => {
@@ -42,28 +46,10 @@ my $version = {
 # Defaults #
 ############
 my $default_cfg = {
-   "owner" => {
-      "call" => "N0CALL",
-      "privs" => "US/General"
-   },
-   "pin" => {
-      "master" => "654321",
-      "reset" => "654321"
-   },
    "eeprom" => {
       "size" => 16384,
       "type" => "mmap",
       "addr" => 0x0000
-   },
-   "net" => {
-      "ip" => "10.201.1.100",
-      "gw" => "10.201.1.1",
-      "mask" => "255.255.255.0",
-      "dns1" => "10.201.1.1",
-      "dns2" => "1.1.1.1",
-   },
-   "device" => {
-      "serial" => "000000"
    }
 };
 # Merge the version information into the default configuration
@@ -72,23 +58,21 @@ my $base_cfg = merge($default_cfg, $version);
 ###########
 # Globals #
 ###########
-my $build_dir = '';
-my $config = { };
-my $config_file = '';
-my $cptr;
-my $eeprom_file = '';
-my $eeprom_data = '';
-my $eeprom_layout = { };
-my @eeprom_dd;
 my $profile = 'radio';
 
 # use profile name from command line, if given
 if ($#ARGV == 0) {
    $profile = $ARGV[0];
 }
-$config_file = "$profile.json";
-$build_dir = "build/$profile";
-$eeprom_file = "$build_dir/eeprom.bin";
+
+my $build_dir = "build/$profile";
+my $config = { };
+my $config_file = "$profile.json";
+my $cptr;
+my $eeprom_file = "$build_dir/eeprom.bin";
+my $eeprom_data = '';
+my @eeprom_layout;
+my @eeprom_types;
 
 # Make the build directory tree, if not present
 make_path("$build_dir/obj");
@@ -119,6 +103,36 @@ sub config_load {
    $cptr = Mojo::JSON::Pointer->new($config);
 }
 
+sub eeprom_types_load {
+   print "* Load EEPROM data types from $_[0]\n";
+   open(my $fh, '<', $_[0]) or warn("  * Couldn't open configuration file $_[0], using defaults!\n") and return;
+   my $nbytes = 0;
+   my $tmp = '';
+
+   while (1) {
+      my $res = read $fh, $tmp, 512, length($tmp);
+      die "$!\n" if not defined $res;
+      last if not $res;
+   }
+   close($fh);
+
+   $nbytes = length($tmp);
+   print "  * Read $nbytes bytes from $_[0]\n";
+   my $json = JSON->new;
+   @eeprom_types = $json->decode($tmp) or warn("ERROR: Can't parse EEPROM types file $_[0]!\n") and return;
+
+   # Iterate over the types and print them...
+   for my $item (@eeprom_types) {
+      for my $key (sort keys(%$item)) {
+          my $ee_size = $item->{$key}{size};
+          if ($ee_size == -1) {
+             $ee_size = 'variable';
+          }
+          print "  * Registering EEPROM data type: '$key' with size $ee_size\n";
+      }
+   }
+}
+
 # Load eeprom_layout from eeprom_layout.json
 sub eeprom_layout_load {
    print "* Load EEPROM layout definition from $_[0]\n";
@@ -131,16 +145,21 @@ sub eeprom_layout_load {
       die "$!\n" if not defined $res;
       last if not $res;
    }
-
    close($fh);
+
    $nbytes = length($tmp);
    print "  * Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
-   @eeprom_dd = $json->decode($tmp) or warn("ERROR: Can't parse $_[0]!\n") and return;
+   @eeprom_layout = $json->decode($tmp) or warn("ERROR: Can't parse $_[0]!\n") and return;
 }
 
 sub eeprom_load {
    my $eeprom_size = $cptr->get("/eeprom/size");
+   if (! -e $_[0]) {
+      print "* EEPROM image $_[0] doesn't exist, using empty $eeprom_size byte image!\n";
+      return;
+   }
+
    print "* Load EEPROM data from $_[0]\n";
    open(my $EEPROM, '<:raw', $_[0]) or print "  * Not found, skipping\n" and return;
    my $nbytes = 0;
@@ -160,8 +179,10 @@ sub eeprom_load {
       print "  * Read empty EEPROM from $_[0]... Fixing!\n";
       return;
    } else {
-      die("ERROR: Expected $eeprom_size bytes but read $nbytes from $_[0], bailing to avoid damage...\n");
+      die("ERROR: Expected $eeprom_size bytes but read $nbytes from $_[0], halting to avoid damage...\n");
    }
+
+#   eeprom_verify_checksum();
 }
 
 sub eeprom_patch {
@@ -169,54 +190,81 @@ sub eeprom_patch {
    my $errors = 0;
    my $warnings = 0;
    my $eeprom_size = $cptr->get("/eeprom/size");
+   my $curr_offset = 0;
 
    print "* Patch in-memory image\n";
 
    if ($eeprom_data eq "") {
-      print "  * No EEPROM data, starting clean with $eeprom_size bytes empty image\n";
       $eeprom_data = "\x00" x $eeprom_size;
    }
 
    # Walk over the layout structure and see if we have a value set in the config...
-   for my $item (@eeprom_dd) {
-      for my $key (keys(%$item)) {
-#       for my $key (sort { $item->{$b}{offset} <=> $item->{$a}{offset} } keys %item) {
+   for my $item (@eeprom_layout) {
+       for my $key (sort { $item->{$a}{offset} <=> $item->{$b}{offset} } keys %$item) {
           my $ee_key = $item->{$key}{key};
+          my $ee_default = $item->{$key}{default};
           my $ee_offset = $item->{$key}{offset};
           my $ee_size = $item->{$key}{size};
           my $ee_type = $item->{$key}{type};
           my $eeprom_size = $cptr->get("/eeprom/size");
+          my $cval;
+          my $defval = 0;
 
-          if (defined($ee_key)) {
-             $changes++;
+          if (!defined($ee_key)) {
+#             printf "*skip* no key\n";
+             next;
+          }
 
-             my $cval = $cptr->get("/$ee_key");
-             my $ckey = $ee_key;
-             $ckey =~ s/\//_/;
-             if (defined($cval)) {
-                # Validate the offset and size will fit within the rom
-                if (($ee_offset >= 0 && $ee_offset < $eeprom_size) &&
-                    ($ee_offset + $ee_size <= $eeprom_size)) {
-                   printf "   * Patching %d bytes @ %04d: [%s] %s=%s\n", $ee_size, $ee_offset, $ee_type, $ee_key, $cval;
-#                   print "  * Patching $ee_size bytes @ $ee_offset: [$ee_type] $ee_key=$cval\n";
-                   if ($ee_type eq 'b') {
-                      # raw bytes
-                   } elsif ($ee_type eq 'i') {
-                      # integer
-                   } elsif ($ee_type eq 's') {
-                      # string
-                   } elsif ($ee_type eq 'lclass') {
-                      # license privileges
-                   } elsif ($ee_type eq 'ip4') {
-                      # ipv4 address
-                   }
-                } else {
-                   print "Invalid offset/size ($ee_offset, $ee_size) - our EEPROM is $eeprom_size\n";
-                }
+          $changes++;
+
+          # skip unsaved keys (checksum mostly)
+          my $ee_protect = $item->{$key}{protect};
+          if (defined($ee_protect)) {
+             print "     => Skipped key $ee_key, it is protected.\n";
+             next;
+          }
+
+          $cval = $cptr->get("/$ee_key");
+          my $ckey = $ee_key;
+          $ckey =~ s/\//_/;
+
+          if (!defined($cval)) {
+             $warnings++;
+             if (defined($ee_default)) {
+                $defval = 1;
+                $cval = $ee_default;
              } else {
-                print "    * No value at key $ee_key\n";
-                $warnings++;
+                printf "     => Not patching %d byte%s @ <%04d>: key $ee_key: <Warning - no value set!>\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset;
+                next;
              }
+          }
+
+
+          # Validate the offset and size will fit within the rom
+          if (($ee_offset >= 0 && $ee_offset < $eeprom_size) &&
+              ($ee_offset + $ee_size <= $eeprom_size)) {
+
+             printf "     => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
+
+             # Here we chose which
+             if ($ee_type eq 'callsign') {
+               # callsign (8 bytes)
+             } elsif ($ee_type eq 'i') {
+                # integer (4 bytes)
+             } elsif ($ee_type eq 'ip4') {
+                # ipv4 address (4 bytes)
+             } elsif ($ee_type eq 'lclass') {
+                # license privileges (1 byte enum)
+             } elsif ($ee_type eq 's') {
+                # string (variable length)
+             }
+             if ($curr_offset != $ee_offset) {
+                printf "Calculated offset (%04d) and layout offset (%04d) mismatch, halting to avoid damage!\n", $curr_offset, $ee_offset;
+                die();
+             }
+             $curr_offset += $ee_size;
+          } else {
+             print "Invalid offset/size ($ee_offset, $ee_size) - our EEPROM is $eeprom_size\n";
           }
        }
    }
@@ -226,9 +274,34 @@ sub eeprom_patch {
       die();
    }
 
-   print "  * Finished patching, there were $warnings warnings from $changes patches\n";
+   print "* Finished patching, there were $warnings warnings from $changes patches\n";
 }
 
+# Confirm the checksum is correct
+sub eeprom_verify_checksum {
+   my $chksum = crc32(substr($eeprom_data, 0, -4));
+   my $eeprom_size = $cptr->get("/eeprom/size");
+   my $saved_chksum = substr($eeprom_data, ($eeprom_size - 4), 4);
+   my $valid = 0;
+   print "* Verifying image checksum...\n";
+
+   if ($chksum eq $saved_chksum) {
+      printf "   * Valid checksum (CRC32) <%x>, continuing!\n", $chksum;
+      return 1;
+   } else {
+      printf "   * Stored checksum (CRC32) <%x> doesn't match calculated <%x>, bailing to prevent damage!\n", $chksum, $saved_chksum;
+      die();
+   }
+}
+
+# Update the in-memory image's checksum before saving
+sub eeprom_update_checksum {
+   my $chksum = crc32(substr($eeprom_data, 0, -4));
+   printf "* Updating in-memory EEPROM image checksum to %x\n", $chksum;
+   # XXX: patch the checksum
+}
+
+# Write out our EEPROM, if it looks valid
 sub eeprom_save {
    my $nbytes = length($eeprom_data);
    my $eeprom_size = $cptr->get("/eeprom/size");
@@ -238,17 +311,22 @@ sub eeprom_save {
    }
 
    if ($nbytes != $eeprom_size) {
-      die("ERROR: Our EEPROM ($_[0]) is $eeprom_size bytes, but we ended up with $nbytes bytes of data. Bailing to avoid damage!\n");
+      die("ERROR: Our EEPROM ($_[0]) is $eeprom_size bytes, but we ended up with $nbytes bytes of data. Halting to avoid damage!\n");
    }
 
-   print "* Save $nbytes bytes to $_[0]\n";
-   open(my $EEPROM, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
+   # Update the eeprom checksum
+   eeprom_update_checksum();
 
+   # Write out the eeprom
+   print "* Saving EEPROM to $_[0]\n";
+   open(my $EEPROM, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
    print $EEPROM $eeprom_data;
    close $EEPROM;
+
    print "  * Wrote $nbytes bytes to $_[0]\n";
 }
 
+# Save the key to offset/size/type mappings
 sub generate_eeprom_layout_h {
    my $file = $_[0];
    my $nbytes = 0;
@@ -261,13 +339,13 @@ sub generate_eeprom_layout_h {
    open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
    print $fh "// This file is autogenerated by buildconf, please do not edit it directly.\n";
-   print $fh "// Please edit $config_file then re-run 'buildconf $config_file' to make changes.\n";
+   print $fh "// Please edit $config_file then re-run './buildconf.pl $config_file' to make changes.\n";
    print $fh "#if     !defined(_eeprom_layout_h)\n#define _eeprom_layout_h\n";
 
    my $eeprom_size = $cptr->get("/eeprom/size");
    print $fh "struct eeprom_layout eeprom_layout[] = {\n";
 
-   for my $item (@eeprom_dd) {
+   for my $item (@eeprom_layout) {
       for my $key (sort keys(%$item)) {
           my $ee_key = $item->{$key}{key};
           my $ee_offset = $item->{$key}{offset};
@@ -302,12 +380,15 @@ sub generate_eeprom_layout_h {
    close $fh;
 }
 
+# Export a build configuration, to include the needed parts to support our configuration....
 sub generate_config_h {
    my $file = $_[0];
    my $nbytes = 0;
+
    if ($file eq '') {
       die("generate_eeprom_layout_h: No argument given\n");
    }
+
    print "  * Generating $_[0]\n";
    open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
 
@@ -374,6 +455,7 @@ sub generate_config_h {
    close $fh;
 }
 
+# Save all headers
 sub generate_headers {
    print "* Generating headers\n";
    generate_config_h($build_dir . "/build_config.h");
@@ -384,7 +466,10 @@ sub generate_headers {
 # Load the configuration
 config_load($config_file);
 
-# Load the EEPROM layout definition
+# Load the EEPROM types definitions
+eeprom_types_load("res/eeprom_types.json");
+
+# Load the EEPROM layout definitions
 eeprom_layout_load("res/eeprom_layout.json");
 
 # Try loading the eeprom into memory

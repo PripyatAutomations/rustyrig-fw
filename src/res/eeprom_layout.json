@@ -2,103 +2,135 @@
    "fw_major": {
        "offset": 0,
        "size": 1,
-       "type": "d",
+       "type": "i",
        "key":  "firmware/major"
    },
    "fw_minor": {
        "offset": 1,
        "size": 1,
-       "type": "d",
+       "type": "i",
        "key":  "firmware/minor"
    },
    "dev_sernum": {
        "offset": 2,
        "size": 6,
        "type": "s",
-       "key":  "device/serial"
+       "key":  "device/serial",
+       "default": "000000"
+   },
+   "dev_hwver": {
+       "offset": 8,
+       "size": 4,
+       "type": "i",
+       "key": "device/hwversion"
    },
    "currband_low": {
-       "offset": 8,
+       "offset": 12,
        "size": 1,
-       "type": "d",
-       "key": "rfdecks/lowband/curr_band"
+       "type": "i",
+       "key": "rfdecks/lowband/curr_band",
+       "default": 0
    },
    "currband_high": {
-       "offset": 9,
+       "offset": 13,
        "size": 1,
-       "type": "d",
-       "key": "rfdecks/highband/curr_band"
-   },
-   "my_i2c_addr": {
-       "offset": 10,
-       "size": 1,
-       "type": "d",
-       "key": "i2c/myaddr"
+       "type": "i",
+       "key": "rfdecks/highband/curr_band",
+       "default": 0
    },
    "sta_callsign": {
-       "offset": 11,
+       "offset": 14,
        "size": 8,
-       "type": "s",
-       "key": "station/call"
+       "type": "callsign",
+       "key": "station/call",
+       "default": "N0CALL"
    },
    "sta_grid": {
-       "offset": 19,
+       "offset": 22,
        "size": 8,
-       "type": "s",
+       "type": "grid",
        "key": "station/grid"
    },
    "owner_call": {
-       "offset": 27,
+       "offset": 30,
        "size": 8,
-       "type": "s",
-       "key": "owner/call"
+       "type": "callsign",
+       "key": "owner/call",
+       "default": "N0CALL"
    },
    "owner_privs": {
-       "offset": 35,
+       "offset": 38,
        "size": 1,
        "type": "lclass",
-       "key": "owner/privs"
+       "key": "owner/privs",
+       "default": "US/General"
    },
    "pin_master": {
-       "offset": 36,
+       "offset": 39,
        "size": 6,
        "type": "s",
-       "key": "pin/master"
+       "key": "pin/master",
+       "default": "012345"
    },
    "pin_reset": {
-       "offset": 42,
+       "offset": 45,
        "size": 6,
        "type": "s",
-       "key": "pin/reset"
+       "key": "pin/reset",
+       "default": "543210"
    },
    "net_ip": {
-       "offset": 48,
+       "offset": 51,
        "size": 4,
        "type": "ip4",
-       "key": "net/ip"
+       "key": "net/ip",
+       "default": "10.201.1.100"
    },
    "net_gw": {
-       "offset": 52,
+       "offset": 55,
        "size": 4,
        "type": "ip4",
-       "key": "net/gw"
+       "key": "net/gw",
+       "default": "10.201.1.1"
    },
    "net_mask": {
-       "offset": 56,
+       "offset": 59,
        "size": 4,
        "type": "ip4",
-       "key": "net/mask"
+       "key": "net/mask",
+       "default": "255.255.255.0"
    },
    "net_dns1": {
-       "offset": 60,
+       "offset": 63,
        "size": 4,
        "type": "ip4",
-       "key": "net/dns1"
+       "key": "net/dns1",
+       "default": "10.201.1.1"
    },
    "net_dns2": {
-       "offset": 64,
+       "offset": 67,
        "size": 4,
        "type": "ip4",
        "key": "net/dns2"
+   },
+   "net_vlan": {
+       "offset": 71,
+       "size": 4,
+       "type": "i",
+       "key": "net/vlan",
+       "default": 1
+   },
+   "my_i2c_addr": {
+       "offset": 75,
+       "size": 1,
+       "type": "i",
+       "key": "i2c/myaddr"
+   },
+   "checksum": {
+       "offset": 16380,
+       "size": 4,
+       "type": "i",
+       "key": "eeprom/checksum",
+       "protect": 1
    }
 }

@@ -1,0 +1,20 @@
+{
+   "callsign": {
+      "size": 8
+   },
+   "grid": {
+      "size": 8
+   },
+   "i": {
+      "size": 4
+   },
+   "ip4": {
+      "size": 4
+   },
+   "lclass": {
+      "size": 1
+   },
+   "s": {
+      "size": -1
+   }
+}

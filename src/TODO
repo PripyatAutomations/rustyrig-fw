@@ -1,0 +1,14 @@
+[Network]
+    net/ip4 and net/ip6 split
+    net/prefer_ip4
+    net/ignore_icmp_echo
+    net/ignore_mcast
+    net/ignore_bcast
+
+
+
+[HostInterface]
+
+
+
+[Backplane]

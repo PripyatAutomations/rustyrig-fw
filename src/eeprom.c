@@ -26,6 +26,8 @@
 #include "logger.h"
 #include "eeprom.h"
 #include "i2c.h"
+
+// In $builddir/ and contains mappings for names to offset/size/type data
 #include "eeprom_layout.h"
 
 extern struct GlobalState rig;	// Global state
@@ -41,12 +43,12 @@ int eeprom_offset_index(const char *key) {
 
    for (idx = 0; idx < max_entries; idx++) {
       if (strncasecmp(key, eeprom_layout[idx].key, strlen(key)) == 0) {
-//         Log(DEBUG, "match for key %s at index %d", key, idx);
+         Log(DEBUG, "match for key %s at index %d", key, idx);
          return idx;
       }
    }
 
-//   Log(DEBUG, "No match found for key %s in eeprom_layout", key);
+   Log(DEBUG, "No match found for key %s in eeprom_layout", key);
    return -1;
 }
 

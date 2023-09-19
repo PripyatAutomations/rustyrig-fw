@@ -1,5 +1,5 @@
 Install these packages at minimum:
-	libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl
+	libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl
 
 Install cpan modules (if on debian)
 	cpan install Mojo::JSON::Pointer
@@ -11,7 +11,9 @@ Files
 
 Building
 --------
-	You can past CONFIG=name to pass a configuration, do NOT add the .json suffix
+	You can past CONFIG=name to pass a configuration, do NOT add the .json suffix, ex:
+		make CONFIG=myradio world
+	This will use ./myradio.json and place build artifacts in build/myradio/
 
 	Edit configuration in radio.json as appropriate.
 		joe radio.json
