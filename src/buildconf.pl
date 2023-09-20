@@ -307,8 +307,11 @@ sub eeprom_patch {
 sub eeprom_verify_checksum {
    print "* Verifying image checksum...\n";
    my $eeprom_size = $cptr->get("/eeprom/size");
+
+   # XXX: This should get the offset from @eeprom_layout!
+   my $ed_offset = ($eeprom_size - 4);
    my $chksum = crc32(substr($eeprom_data, 0, -4));
-   my $saved_chksum = unpack("L", substr($eeprom_data, ($eeprom_size - 4), 4));
+   my $saved_chksum = unpack("L", substr($eeprom_data, $ed_offset, 4));
 
    if ($saved_chksum eq "\0\0\0\0") {
       printf "  * Ignoring empty EEPROM checksum\n";
@@ -326,8 +329,11 @@ sub eeprom_update_checksum {
    my $eeprom_size = $cptr->get("/eeprom/size");
    printf "* Updating in-memory EEPROM image checksum to %x\n", $chksum;
 
+   # XXX: This should get the offset from @eeprom_layout!
+   my $ed_offset = ($eeprom_size - 4);
+
    # patch the checksum
-   substr($eeprom_data, ($eeprom_size - 4), 4, pack("l", $chksum));
+   substr($eeprom_data, $ed_offset, 4, pack("l", $chksum));
 }
 
 # Write out our EEPROM, if it looks valid
