@@ -72,9 +72,9 @@ const char *eeprom_get_str_i(const char *key) {
 int eeprom_init(void) {
    size_t bytes_read = 0;
 
-// emulation
 #if	defined(HOST_POSIX)
    struct stat sb;
+#endif
    size_t eeprom_len;
    ssize_t s;
 
@@ -83,17 +83,17 @@ int eeprom_init(void) {
       Log(LOG_CRIT, "EEPROM Initialization failed: %s: %d: %s", HOST_EEPROM_FILE, errno, strerror(errno));
       return -1;
    }
-   
+
+// we do not have fstat (or a file system at all) on the radio...   
+#if	defined(HOST_POSIX)
    if (fstat(fd, &sb) == -1) {
       Log(LOG_CRIT, "EEPROM image %s does not exist, run 'make eeprom' and try again", HOST_EEPROM_FILE);
       return -1;
    }
+#endif
    eeprom_len = sb.st_size;
    rig.eeprom_fd = fd;
    rig.eeprom_mmap = mmap(NULL, eeprom_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-#else
-   // XXX: Add support for memory mapped or i2c EEPROMs here
-#endif
    rig.eeprom_ready = 1;
    Log(LOG_INFO, "EEPROM Initialized (%s) %s", (rig.eeprom_fd > 0 ? "mmap" : "i2c"),
                                            (rig.eeprom_fd > 0 ? HOST_EEPROM_FILE : ""));
@@ -105,19 +105,19 @@ int eeprom_read_block(u_int8_t *buf, size_t offset, size_t len) {
    ssize_t myoff = 0;
    u_int8_t *p = buf;
 
-   if (buf == NULL || offset <= 0 || len <= 0) {
-      return -1;
+   // Check for memory mapped style EEPROMs
+   if (rig.eeprom_mmap != NULL) {
+      if (buf == NULL || offset <= 0 || len <= 0) {
+         return -1;
+      }
+
+      while (myoff <= len) {
+         buf[myoff] = *rig.eeprom_mmap + offset + myoff;
+
+         myoff++;
+      }
    }
 
-#if	defined(HOST_POSIX)
-   while (myoff <= len) {
-      buf[myoff] = *rig.eeprom_mmap + offset + myoff;
-
-      myoff++;
-   }
-#else
-   // XXX: Add support for memory mapped or i2c EEPROMs here
-#endif
    return res;
 }
 
@@ -127,6 +127,7 @@ int eeprom_write(size_t offset, u_int8_t data) {
 #if	0
    u_int8_t *ptr = NULL;
 
+   // Check for memory mapped style EEPROMs
    if (rig.eeprom_mmap != NULL) {
       &ptr = *(rig.eeprom_mmap + offset);
       ptr = (u_int8_t)data;
@@ -155,35 +156,47 @@ u_int8_t eeprom_read(size_t offset) {
 int eeprom_write_block(void *buf, size_t offset, size_t len) {
    int res = -1;
 
-#if	defined(HOST_POSIX)
-#else
-   // XXX: Add support for memory mapped or i2c EEPROMs here
-#endif
    return res;
 }
 
 u_int32_t eeprom_checksum_generate(void) {
-   u_int32_t sum = crc32buf((char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
+   u_int32_t sum = 0;
+
+   // Check for memory mapped style EEPROMs
+   if (rig.eeprom_mmap != NULL) {
+      sum = crc32buf((char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
+   }
 
    return sum;
 }
 
 // Check the checksum
 int eeprom_validate_checksum(void) {
-   u_int32_t calc_sum = eeprom_checksum_generate();
-   u_int32_t curr_sum = (u_int32_t)(*(rig.eeprom_mmap + (EEPROM_SIZE - 4)));
+   u_int32_t calc_sum = 0, curr_sum = 0;
+   u_int32_t *chksum_addr = (u_int32_t *)(&rig.eeprom_mmap[EEPROM_SIZE - 4]);
 
-   if (calc_sum != curr_sum)
+   // Check for memory mapped style EEPROMs
+   if (rig.eeprom_mmap != NULL) {
+      curr_sum = *(u_int32_t *)chksum_addr;
+      calc_sum = eeprom_checksum_generate();
+   }
+
+   // return -1 if the checksums do not match
+   if (calc_sum != curr_sum) {
+      Log(LOG_WARN, "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
       return -1;
+   } else {
+      Log(LOG_INFO, "EEPROM checkum <%x> is correct, loading settings...", calc_sum);
+   }
 
    return 0;
 }
 
 // Load the EEPROM data into the state structures
 int eeprom_load_config(void) {
-   // Validate EEPROM checksum before applying
+   // Validate EEPROM checksum before applying configuration...
    if (eeprom_validate_checksum() != 0) {
-      Log(LOG_CRIT, "Ignoring saved configuration due to EEPROM checksum mismatch");
+      Log(LOG_WARN, "Ignoring saved configuration due to EEPROM checksum mismatch");
 
       // Set EEPROM corrupt flag
       rig.eeprom_corrupted = 1;
@@ -192,6 +205,12 @@ int eeprom_load_config(void) {
       return -1;
    }
 
+   // walk over the eeprom_layout and apply each setting to our state object (rig)
+   int cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
+   for (int i = 0; i < cfg_rows; i++) {
+       Log(LOG_DEBUG, "key: %s type: %d offset: %d size: %d", eeprom_layout[i].key,
+           eeprom_layout[i].type, eeprom_layout[i].offset, eeprom_layout[i].size);
+   }
    Log(LOG_INFO, "Configuration successfully loaded from EEPROM");
    return 0;
 }

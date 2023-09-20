@@ -247,24 +247,12 @@ sub eeprom_patch {
 
              printf "  => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
 
-             # Here we chose which
+             # Here we chose which type
+             # XXX: Need to use eeprom_types sizes, etc here - overriding as needed...
              if ($ee_type eq 'call') {
                # callsign (8 bytes)
                my $packedcall = pack("Z8", $cval);
                substr($eeprom_data, $ee_offset, 8, $packedcall);
-             } elsif ($ee_type eq 'int') {
-                # integer (4 bytes)
-                if ($cval =~ m/^0x/) {
-                   # Convert hex string cval to int cval for embedding...
-                   $cval = hex($cval);
-                }
-               substr($eeprom_data, $ee_offset, 4, pack("I", $cval));
-             } elsif ($ee_type eq 'ip4') {
-                # ipv4 address (4 bytes)
-                # XXX: Pack this properly
-                my @tmpip = split(/\./, $cval);
-                my $packedip = pack("CCCC", @tmpip[0], @tmpip[1], @tmpip[2], @tmpip[3]);
-               substr($eeprom_data, $ee_offset, 4, $packedip);
              } elsif ($ee_type eq 'class') {
                 # license privileges (1 byte enum)
                 if ($cval =~ "US/Technician") {
@@ -277,13 +265,28 @@ sub eeprom_patch {
                    $cval = 'E';
                 }
                substr($eeprom_data, $ee_offset, 1, pack("a1", $cval));
+             } elsif ($ee_type eq 'int') {
+                # integer (4 bytes)
+                if ($cval =~ m/^0x/) {
+                   # Convert hex string cval to int cval for embedding...
+                   $cval = hex($cval);
+                }
+               substr($eeprom_data, $ee_offset, 4, pack("I", $cval));
+             } elsif ($ee_type eq 'ip4') {
+                # ipv4 address (4 bytes)
+                my @tmpip = split(/\./, $cval);
+                my $packedip = pack("CCCC", $tmpip[0], $tmpip[1], $tmpip[2], $tmpip[3]);
+               substr($eeprom_data, $ee_offset, 4, $packedip);
              } elsif ($ee_type eq 'str') {
                 # string (variable length)
                 if ($ee_size == 0) {
                    print "   * Skipping 0 length key\n";
                    next;
                 }
+                substr($eeprom_data, $ee_offset, $ee_size, $cval);
              }
+
+             # Try to make sure the offsets are lining up....
              if ($curr_offset != $ee_offset) {
                 printf "Calculated offset (%04d) and layout offset (%04d) mismatch, halting to avoid damage!\n", $curr_offset, $ee_offset;
                 die();
@@ -327,7 +330,7 @@ sub eeprom_verify_checksum {
 sub eeprom_update_checksum {
    my $chksum = crc32(substr($eeprom_data, 0, -4));
    my $eeprom_size = $cptr->get("/eeprom/size");
-   printf "* Updating in-memory EEPROM image checksum to %x\n", $chksum;
+   printf "* Updating in-memory EEPROM image checksum to <%x>\n", $chksum;
 
    # XXX: This should get the offset from @eeprom_layout!
    my $ed_offset = ($eeprom_size - 4);
@@ -341,6 +344,7 @@ sub eeprom_save {
    my $nbytes = length($eeprom_data);
    my $eeprom_size = $cptr->get("/eeprom/size");
 
+   # Do some sanity checks on the EEPROM...
    if ($nbytes == 0) {
       die("ERROR: Refusing to write empty (0 byte) EEPROM to $_[0]\n");
    }
@@ -349,13 +353,13 @@ sub eeprom_save {
       die("ERROR: Our EEPROM ($_[0]) is $eeprom_size bytes, but we ended up with $nbytes bytes of data. Halting to avoid damage!\n");
    }
 
-   # Update the eeprom checksum
+   # If we made it here, update the eeprom checksum...
    eeprom_update_checksum();
 
-   # Write out the eeprom
+   # Write out the eeprom image
    print "* Saving EEPROM to $_[0]\n";
    open(my $EEPROM, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
-   print $EEPROM $eeprom_data;
+   print $EEPROM $eeprom_data or die("write error: $_[0]: $!\n");
    close $EEPROM;
 
    print "  * Wrote $nbytes bytes to $_[0]\n";

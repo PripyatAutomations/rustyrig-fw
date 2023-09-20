@@ -20,7 +20,7 @@ extern struct GlobalState rig;	// Global state
 const char *s_prio_crit = "CRIT",
            *s_prio_warn = "WARN",
            *s_prio_info = "INFO",
-           *s_prio_debug = "DEBUG",
+           *s_prio_debug = "DBUG",
            *s_none = "NONE";
 
 FILE   *logfp = NULL;
@@ -37,7 +37,7 @@ const char *log_priority_to_str(logpriority_t priority) {
          return s_prio_info;
          break;
       case LOG_DEBUG:
-         return s_prio_info;
+         return s_prio_debug;
          break;
       default:
          return s_none;
