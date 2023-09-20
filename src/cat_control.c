@@ -95,6 +95,6 @@ int cat_init(void) {
 #if	defined(HOST_POSIX)
 // XXX: Open the pipe
 #endif
-   Log(INFO, "CAT Initialization succesful");
+   Log(LOG_INFO, "CAT Initialization succesful");
    return 0;
 }

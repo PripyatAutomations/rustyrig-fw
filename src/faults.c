@@ -20,10 +20,10 @@ int set_fault(int fault) {
     rig.faults++;
 
     if (fault > rig.fault_code) {
-       Log(CRIT, "Fault event [%d] code %d set exceeds last (%d), raising fault level!", rig.faults, fault, rig.fault_code);
+       Log(LOG_CRIT, "Fault event [%d] code %d set exceeds last (%d), raising fault level!", rig.faults, fault, rig.fault_code);
        rig.fault_code = fault;
     } else {
-       Log(WARN, "Fault event [%] code is lower priority than last (%d), not raising fault level!", rig.faults, fault, rig.fault_code);
+       Log(LOG_WARN, "Fault event [%] code is lower priority than last (%d), not raising fault level!", rig.faults, fault, rig.fault_code);
     }
 
     // XXX: Update the display

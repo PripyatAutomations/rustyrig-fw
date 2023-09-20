@@ -182,7 +182,8 @@ sub eeprom_load {
       die("ERROR: Expected $eeprom_size bytes but read $nbytes from $_[0], halting to avoid damage...\n");
    }
 
-#   eeprom_verify_checksum();
+   # Verify the checksum of the EEPROM, before allowing it to be used as source...
+   eeprom_verify_checksum();
 }
 
 sub eeprom_patch {
@@ -220,7 +221,7 @@ sub eeprom_patch {
           # skip unsaved keys (checksum mostly)
           my $ee_protect = $item->{$key}{protect};
           if (defined($ee_protect)) {
-             print "     => Skipped key $ee_key, it is protected.\n";
+             print "  => Skipped key $ee_key, it is protected.\n";
              next;
           }
 
@@ -234,7 +235,7 @@ sub eeprom_patch {
                 $defval = 1;
                 $cval = $ee_default;
              } else {
-                printf "     => Not patching %d byte%s @ <%04d>: key $ee_key: <Warning - no value set!>\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset;
+                printf "  => Not patching %d byte%s @ <%04d>: key $ee_key: <Warning - no value set!>\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset;
                 next;
              }
           }
@@ -244,19 +245,44 @@ sub eeprom_patch {
           if (($ee_offset >= 0 && $ee_offset < $eeprom_size) &&
               ($ee_offset + $ee_size <= $eeprom_size)) {
 
-             printf "     => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
+             printf "  => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
 
              # Here we chose which
              if ($ee_type eq 'call') {
                # callsign (8 bytes)
+               my $packedcall = pack("Z8", $cval);
+               substr($eeprom_data, $ee_offset, 8, $packedcall);
              } elsif ($ee_type eq 'int') {
                 # integer (4 bytes)
+                if ($cval =~ m/^0x/) {
+                   # Convert hex string cval to int cval for embedding...
+                   $cval = hex($cval);
+                }
+               substr($eeprom_data, $ee_offset, 4, pack("I", $cval));
              } elsif ($ee_type eq 'ip4') {
                 # ipv4 address (4 bytes)
+                # XXX: Pack this properly
+                my @tmpip = split(/\./, $cval);
+                my $packedip = pack("CCCC", @tmpip[0], @tmpip[1], @tmpip[2], @tmpip[3]);
+               substr($eeprom_data, $ee_offset, 4, $packedip);
              } elsif ($ee_type eq 'class') {
                 # license privileges (1 byte enum)
+                if ($cval =~ "US/Technician") {
+                   $cval = 'T';
+                } elsif ($cval =~ "US/General") {
+                   $cval = 'G';
+                } elsif ($cval =~ "US/Advanced") {
+                   $cval = 'A';
+                } elsif ($cval =~ "US/Extra") {
+                   $cval = 'E';
+                }
+               substr($eeprom_data, $ee_offset, 1, pack("a1", $cval));
              } elsif ($ee_type eq 'str') {
                 # string (variable length)
+                if ($ee_size == 0) {
+                   print "   * Skipping 0 length key\n";
+                   next;
+                }
              }
              if ($curr_offset != $ee_offset) {
                 printf "Calculated offset (%04d) and layout offset (%04d) mismatch, halting to avoid damage!\n", $curr_offset, $ee_offset;
@@ -270,7 +296,7 @@ sub eeprom_patch {
    }
 
    if ($errors > 0) {
-      print "*** There were $errors errors while processing $changes patche, aborting without change!\n";
+      print "*** There were $errors errors while processing $changes patches, aborting without change!\n";
       die();
    }
 
@@ -279,26 +305,29 @@ sub eeprom_patch {
 
 # Confirm the checksum is correct
 sub eeprom_verify_checksum {
-   my $chksum = crc32(substr($eeprom_data, 0, -4));
-   my $eeprom_size = $cptr->get("/eeprom/size");
-   my $saved_chksum = substr($eeprom_data, ($eeprom_size - 4), 4);
-   my $valid = 0;
    print "* Verifying image checksum...\n";
+   my $eeprom_size = $cptr->get("/eeprom/size");
+   my $chksum = crc32(substr($eeprom_data, 0, -4));
+   my $saved_chksum = unpack("L", substr($eeprom_data, ($eeprom_size - 4), 4));
 
-   if ($chksum eq $saved_chksum) {
-      printf "   * Valid checksum (CRC32) <%x>, continuing!\n", $chksum;
-      return 1;
+   if ($saved_chksum eq "\0\0\0\0") {
+      printf "  * Ignoring empty EEPROM checksum\n";
+   } elsif ($chksum eq $saved_chksum) {
+      printf "  * Valid checksum (CRC32) <%x>, continuing!\n", $chksum;
    } else {
-      printf "   * Stored checksum (CRC32) <%x> doesn't match calculated <%x>, bailing to prevent damage!\n", $chksum, $saved_chksum;
-      die();
+      printf "  * Stored checksum (CRC32) <%x> doesn't match calculated <%x>, bailing to prevent damage!\n", $saved_chksum, $chksum;
+      return 1;
    }
 }
 
 # Update the in-memory image's checksum before saving
 sub eeprom_update_checksum {
    my $chksum = crc32(substr($eeprom_data, 0, -4));
+   my $eeprom_size = $cptr->get("/eeprom/size");
    printf "* Updating in-memory EEPROM image checksum to %x\n", $chksum;
-   # XXX: patch the checksum
+
+   # patch the checksum
+   substr($eeprom_data, ($eeprom_size - 4), 4, pack("l", $chksum));
 }
 
 # Write out our EEPROM, if it looks valid
@@ -345,6 +374,9 @@ sub generate_eeprom_layout_h {
    my $eeprom_size = $cptr->get("/eeprom/size");
    print $fh "struct eeprom_layout eeprom_layout[] = {\n";
 
+
+   # this needs reworked so that we get the enum types out of eeprom_types
+   # XXX: We also should generate the eeprom_layout.type enum here, so we include all types...
    for my $item (@eeprom_layout) {
       for my $key (sort keys(%$item)) {
           my $ee_key = $item->{$key}{key};
@@ -443,7 +475,7 @@ sub generate_config_h {
    }
    printf $fh "#define MAX_BANDS %d\n", $max_bands;
 
-   # XXX: Host mode stuff
+   # Platform specific selections:
    my $platform = $cptr->get("/build/platform");
    if ($platform eq "posix") {
       print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";

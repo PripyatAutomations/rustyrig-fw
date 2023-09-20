@@ -27,16 +27,16 @@ FILE   *logfp = NULL;
 
 const char *log_priority_to_str(logpriority_t priority) {
    switch (priority) {
-      case CRIT:
+      case LOG_CRIT:
          return s_prio_crit;
          break;
-      case WARN:
+      case LOG_WARN:
          return s_prio_warn;
          break;
-      case INFO:
+      case LOG_INFO:
          return s_prio_info;
          break;
-      case DEBUG:
+      case LOG_DEBUG:
          return s_prio_info;
          break;
       default:

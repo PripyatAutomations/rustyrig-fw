@@ -40,9 +40,9 @@ static int initialize_state(void) {
 
 void shutdown_rig(int signum) {
     if (signum >= 0) {
-       Log(CRIT, "Shutting down by signal %d", signum);
+       Log(LOG_CRIT, "Shutting down by signal %d", signum);
     } else {
-       Log(CRIT, "Shutting down due to internal error: %d", -signum);
+       Log(LOG_CRIT, "Shutting down due to internal error: %d", -signum);
     }
 
     host_cleanup();
@@ -60,8 +60,7 @@ int main(int argc, char **argv) {
 
    // Initialize subsystems
    logger_init();
-   Log(INFO, "Radio firmware v%s starting...", VERSION);
-   get_serial_number();
+   Log(LOG_INFO, "Radio firmware v%s starting...", VERSION);
    initialize_state();			// Load default values
 
    // Initialize the i2c buses, if present
@@ -73,8 +72,10 @@ int main(int argc, char **argv) {
       eeprom_load_config();
    }
 
+   get_serial_number();
    cat_init();
-   Log(INFO, "Radio initialization completed. Enjoy!");
+
+   Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 
    // Main loop
    while(!dying) {

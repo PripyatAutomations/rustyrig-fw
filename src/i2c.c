@@ -16,6 +16,6 @@ extern struct GlobalState rig;	// Global state
 // Initialize i2c communications
 // addr: My address
 int i2c_init(int bus, int addr) {
-    Log(INFO, "Initializing i2c bus %d, my address is [0x%x]", bus, addr);
+    Log(LOG_INFO, "Initializing i2c bus %d, my address is [0x%x]", bus, addr);
     return 0;
 }

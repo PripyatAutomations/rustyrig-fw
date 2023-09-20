@@ -26,9 +26,8 @@
 #include "logger.h"
 #include "eeprom.h"
 #include "i2c.h"
-
-// In $builddir/ and contains mappings for names to offset/size/type data
-#include "eeprom_layout.h"
+#include "crc.h"
+#include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
 
 extern struct GlobalState rig;	// Global state
 
@@ -43,12 +42,12 @@ int eeprom_offset_index(const char *key) {
 
    for (idx = 0; idx < max_entries; idx++) {
       if (strncasecmp(key, eeprom_layout[idx].key, strlen(key)) == 0) {
-         Log(DEBUG, "match for key %s at index %d", key, idx);
+         Log(LOG_DEBUG, "match for key %s at index %d", key, idx);
          return idx;
       }
    }
 
-   Log(DEBUG, "No match found for key %s in eeprom_layout", key);
+   Log(LOG_DEBUG, "No match found for key %s in eeprom_layout", key);
    return -1;
 }
 
@@ -81,12 +80,12 @@ int eeprom_init(void) {
 
    int fd = open(HOST_EEPROM_FILE, O_RDWR);
    if (fd == -1) {
-      Log(CRIT, "EEPROM Initialization failed: %s: %d: %s", HOST_EEPROM_FILE, errno, strerror(errno));
+      Log(LOG_CRIT, "EEPROM Initialization failed: %s: %d: %s", HOST_EEPROM_FILE, errno, strerror(errno));
       return -1;
    }
    
    if (fstat(fd, &sb) == -1) {
-      Log(CRIT, "EEPROM image %s does not exist, run 'make eeprom' and try again", HOST_EEPROM_FILE);
+      Log(LOG_CRIT, "EEPROM image %s does not exist, run 'make eeprom' and try again", HOST_EEPROM_FILE);
       return -1;
    }
    eeprom_len = sb.st_size;
@@ -96,7 +95,7 @@ int eeprom_init(void) {
    // XXX: Add support for memory mapped or i2c EEPROMs here
 #endif
    rig.eeprom_ready = 1;
-   Log(INFO, "EEPROM Initialized (%s) %s", (rig.eeprom_fd > 0 ? "mmap" : "i2c"),
+   Log(LOG_INFO, "EEPROM Initialized (%s) %s", (rig.eeprom_fd > 0 ? "mmap" : "i2c"),
                                            (rig.eeprom_fd > 0 ? HOST_EEPROM_FILE : ""));
    return 0;
 }
@@ -164,7 +163,7 @@ int eeprom_write_block(void *buf, size_t offset, size_t len) {
 }
 
 u_int32_t eeprom_checksum_generate(void) {
-   u_int32_t sum = 0;
+   u_int32_t sum = crc32buf((char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
 
    return sum;
 }
@@ -172,8 +171,7 @@ u_int32_t eeprom_checksum_generate(void) {
 // Check the checksum
 int eeprom_validate_checksum(void) {
    u_int32_t calc_sum = eeprom_checksum_generate();
-   u_int32_t curr_sum = 0;
-// XXX: memory mapped --   eeprom[EEOFF_CHECKSUM];
+   u_int32_t curr_sum = (u_int32_t)(*(rig.eeprom_mmap + (EEPROM_SIZE - 4)));
 
    if (calc_sum != curr_sum)
       return -1;
@@ -185,13 +183,16 @@ int eeprom_validate_checksum(void) {
 int eeprom_load_config(void) {
    // Validate EEPROM checksum before applying
    if (eeprom_validate_checksum() != 0) {
-      Log(CRIT, "Ignoring saved configuration due to EEPROM checksum mismatch");
+      Log(LOG_CRIT, "Ignoring saved configuration due to EEPROM checksum mismatch");
 
       // Set EEPROM corrupt flag
       rig.eeprom_corrupted = 1;
+
+      // XXX: Here we should load some default network and authentication settings...
+      return -1;
    }
 
-   Log(INFO, "Configuration successfully loaded from EEPROM");
+   Log(LOG_INFO, "Configuration successfully loaded from EEPROM");
    return 0;
 }
 
@@ -206,18 +207,18 @@ int eeprom_write_config(int force) {
 
    // We are running defaults if we got here, so prompt the user first
    if (rig.eeprom_corrupted && !force) {
-      Log(WARN, "Not saving EEPROM since corrupt flag set");
+      Log(LOG_WARN, "Not saving EEPROM since corrupt flag set");
       return -1;
    }
 
    sum = eeprom_checksum_generate();
 
-   Log(INFO, "Saving to EEPROM not yet supported");
+   Log(LOG_INFO, "Saving to EEPROM not yet supported");
    return 0;
 }
 
 char *get_serial_number(void) {
    int idx = eeprom_offset_index("device/serial");
-   Log(INFO, "Device serial number: %s", eeprom_get_str(idx));
+   Log(LOG_INFO, "Device serial number: %s", eeprom_get_str(idx));
    return NULL;
 }
