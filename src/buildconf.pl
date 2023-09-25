@@ -6,6 +6,7 @@
 ###############################################################################
 use strict;
 use warnings;
+use Config;
 use Getopt::Std;
 use IO::Handle;
 use JSON;
@@ -528,6 +529,8 @@ sub generate_headers {
 }
 
 #############################################################
+print "* Host byte Order: ", $Config{byteorder}, "\n";
+
 # Load the configuration
 config_load($config_file);
 
