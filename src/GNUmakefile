@@ -131,3 +131,7 @@ radio.json:
 	@echo "* PLEASE read README.txt and edit ${CF} as needed *"
 	@echo "********************************************************"
 	exit 1
+
+installdep:
+	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl
+	cpan install Mojo::JSON::Pointer
