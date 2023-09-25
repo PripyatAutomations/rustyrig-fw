@@ -52,6 +52,10 @@ int eeprom_offset_index(const char *key) {
 }
 
 int eeprom_get_int(int idx) {
+   if (idx < 0)
+      return -1;
+
+   // Extract the 32 bits (u_int32_t)
    return -1;
 }
 

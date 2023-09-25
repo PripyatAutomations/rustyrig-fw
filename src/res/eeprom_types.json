@@ -16,5 +16,20 @@
    },
    "str": {
       "size": -1
+   },
+   "freq": {
+      "size": 8
+   },
+   "channel": {
+      "struct": {
+         "name": "str:16",
+         "freq": "freq",
+         "bandwidth": "freq",
+         "split_offset": "freq",
+         "pl_mode": "str:4",
+         "tx_pl": "freq",
+         "rx_pl": "freq",
+         "tx_power": "int"
+      }
    }
 }
