@@ -179,23 +179,6 @@
     )
   )
 
-  (sheet (at 227.33 27.94) (size 34.29 85.09) (fields_autoplaced)
-    (stroke (width 0.1524) (type solid))
-    (fill (color 0 0 0 0.0000))
-    (uuid fdb2b14f-0d8d-49af-a4bf-3eaab0e2b73c)
-    (property "Sheetname" "RF Baseband" (at 227.33 27.2284 0)
-      (effects (font (size 1.27 1.27)) (justify left bottom))
-    )
-    (property "Sheetfile" "rf_baseband.kicad_sch" (at 227.33 113.6146 0)
-      (effects (font (size 1.27 1.27)) (justify left top))
-    )
-    (instances
-      (project "radiopcb"
-        (path "/7de6637b-a3f9-4235-bc7f-a0209db4fd87" (page "10"))
-      )
-    )
-  )
-
   (sheet_instances
     (path "/" (page "1"))
   )

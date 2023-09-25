@@ -462,6 +462,10 @@
     [
       "2a23b905-ab69-4da8-a252-d9cbcc6b94f4",
       "HF Legal Limit Amp"
+    ],
+    [
+      "fdb2b14f-0d8d-49af-a4bf-3eaab0e2b73c",
+      "RF Baseband"
     ]
   ],
   "text_variables": {}

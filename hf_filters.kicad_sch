@@ -3633,7 +3633,7 @@
     (effects (font (size 2.1 2.1)) (justify left bottom))
     (uuid 0d12869e-0c21-40f4-bcbb-be688f908fd8)
   )
-  (text "*** Filters need recalculated! ***" (at 198.12 176.53 0)
+  (text "*** Filters need recalculated! ***" (at 195.58 175.26 0)
     (effects (font (size 3 3)) (justify left bottom))
     (uuid 1f70bb8b-8288-444e-9e16-6f60c9a0d638)
   )

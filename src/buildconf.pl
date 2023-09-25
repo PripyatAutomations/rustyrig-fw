@@ -80,7 +80,7 @@ make_path("$build_dir/obj");
 # Load configuration from $config_file
 sub config_load {
    print "* Load config from $_[0]\n";
-   open(my $fh, '<', $_[0]) or warn("  * Couldn't open configuration file $_[0], using defaults!\n") and return;
+   open(my $fh, '<', $_[0]) or die("  * Couldn't open configuration file $_[0], please make sure it exists!\n");
    my $nbytes = 0;
    my $tmp = '';
 
@@ -94,7 +94,7 @@ sub config_load {
    $nbytes = length($tmp);
    print "  * Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
-   my $loaded_cfg = $json->decode($tmp) or warn("ERROR: Can't parse configuration $_[0]!\n") and return;
+   my $loaded_cfg = $json->decode($tmp) or die("ERROR: Can't parse configuration $_[0]!\n");
 
    # Merge defaults with loaded configuration
    $config = merge($base_cfg, $loaded_cfg);
@@ -105,7 +105,7 @@ sub config_load {
 
 sub eeprom_types_load {
    print "* Load EEPROM data types from $_[0]\n";
-   open(my $fh, '<', $_[0]) or warn("  * Couldn't open configuration file $_[0], using defaults!\n") and return;
+   open(my $fh, '<', $_[0]) or warn("  * Couldn't open configuration file $_[0], using defaults!\n");
    my $nbytes = 0;
    my $tmp = '';
 
@@ -204,12 +204,29 @@ sub eeprom_patch {
        for my $key (sort { $item->{$a}{offset} <=> $item->{$b}{offset} } keys %$item) {
           my $ee_key = $item->{$key}{key};
           my $ee_default = $item->{$key}{default};
-          my $ee_offset = $item->{$key}{offset};
+          my $ee_off_raw = $item->{$key}{offset};
+          my $ee_offset = $ee_off_raw;
+          my $ee_offset_relative = 0;
           my $ee_size = $item->{$key}{size};
           my $ee_type = $item->{$key}{type};
           my $eeprom_size = $cptr->get("/eeprom/size");
           my $cval;
           my $defval = 0;
+
+          if (defined($ee_off_raw)) {
+             if ($ee_off_raw =~ m/^\+/) {
+                # Is this a relative offset?
+                $ee_offset_relative = 1;
+                $ee_offset =~ s/\+//;
+                $curr_offset += $ee_offset;
+   #             print "* RELative OFFset: $curr_offset\n";
+             } else {
+                # Absolute offset
+                $ee_offset_relative = 0;
+                $curr_offset = $ee_offset;
+   #             print "* ABSolute OFFset: $curr_offset\n";
+             }
+          }
 
           if (!defined($ee_key)) {
 #             printf "*skip* no key\n";
@@ -243,16 +260,20 @@ sub eeprom_patch {
 
           # Validate the offset and size will fit within the rom
           if (($ee_offset >= 0 && $ee_offset < $eeprom_size) &&
+              ($curr_offset + $ee_size < $eeprom_size) &&
               ($ee_offset + $ee_size <= $eeprom_size)) {
 
              printf "  => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
+
+             # Pad out the memory location with NULLs to get rid of old contents...
+             substr($eeprom_data, $curr_offset, $ee_size, "\x00" x $ee_size);
 
              # Here we chose which type
              # XXX: Need to use eeprom_types sizes, etc here - overriding as needed...
              if ($ee_type eq 'call') {
                # callsign (8 bytes)
                my $packedcall = pack("Z8", $cval);
-               substr($eeprom_data, $ee_offset, 8, $packedcall);
+               substr($eeprom_data, $curr_offset, 8, $packedcall);
              } elsif ($ee_type eq 'class') {
                 # license privileges (1 byte enum)
                 if ($cval =~ "US/Technician") {
@@ -264,26 +285,26 @@ sub eeprom_patch {
                 } elsif ($cval =~ "US/Extra") {
                    $cval = 'E';
                 }
-               substr($eeprom_data, $ee_offset, 1, pack("a1", $cval));
+               substr($eeprom_data, $curr_offset, 1, pack("a1", $cval));
              } elsif ($ee_type eq 'int') {
                 # integer (4 bytes)
                 if ($cval =~ m/^0x/) {
                    # Convert hex string cval to int cval for embedding...
                    $cval = hex($cval);
                 }
-               substr($eeprom_data, $ee_offset, 4, pack("I", $cval));
+               substr($eeprom_data, $curr_offset, 4, pack("I", $cval));
              } elsif ($ee_type eq 'ip4') {
                 # ipv4 address (4 bytes)
                 my @tmpip = split(/\./, $cval);
                 my $packedip = pack("CCCC", $tmpip[0], $tmpip[1], $tmpip[2], $tmpip[3]);
-               substr($eeprom_data, $ee_offset, 4, $packedip);
+               substr($eeprom_data, $curr_offset, 4, $packedip);
              } elsif ($ee_type eq 'str') {
                 # string (variable length)
                 if ($ee_size == 0) {
                    print "   * Skipping 0 length key\n";
                    next;
                 }
-                substr($eeprom_data, $ee_offset, $ee_size, $cval);
+                substr($eeprom_data, $curr_offset, $ee_size, $cval);
              }
 
              # Try to make sure the offsets are lining up....

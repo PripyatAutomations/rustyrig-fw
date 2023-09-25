@@ -8,7 +8,7 @@ bin := ${BUILD_DIR}/firmware.bin
 
 # Throw an error if the .json configuration file doesn't exist...
 ifeq (x$(wildcard ${CF}),x)
-$(error ***ERROR*** Please create ${CF} first before building)
+$(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
 endif
 
 CFLAGS := -std=gnu11 -g -O2 -Wall -Wno-unused -pedantic
