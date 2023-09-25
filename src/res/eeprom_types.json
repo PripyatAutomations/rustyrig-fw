@@ -21,6 +21,7 @@
       "size": 8
    },
    "channel": {
+      "size": -1,
       "struct": {
          "name": "str:16",
          "freq": "freq",
