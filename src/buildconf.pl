@@ -4,6 +4,10 @@
 # the radio software, either natively or cross compiled.
 # $profile defaults to 'radio' but can be provided as the first (and only) argument
 ###############################################################################
+
+# XXX: This won't work on BIG ENDIAN build hosts, unless targetting a BE system
+# XXX: Images created in this manner will not be compatible with LITTLE ENDIAN toolchains or devices
+# XXX: Fix this someday if there's interest?
 use strict;
 use warnings;
 use Config;
@@ -69,11 +73,19 @@ if ($#ARGV == 0) {
 my $build_dir = "build/$profile";
 my $config = { };
 my $config_file = "$profile.json";
-my $cptr;
 my $eeprom_file = "$build_dir/eeprom.bin";
+# In-memory version of the EEPROM, either loaded or empty
 my $eeprom_data = '';
+# In-memory version of JUST the channels, to patch into eeprom
+my $eeprom_channel_data = '';
 my @eeprom_layout;
 my @eeprom_types;
+my @eeprom_channels;
+# pointers to config, types, layout, and channels respectively
+my $cptr;
+my $tptr;
+my $lptr;
+my $chptr;
 
 # Make the build directory tree, if not present
 make_path("$build_dir/obj");
@@ -132,6 +144,9 @@ sub eeprom_types_load {
           print "  * Registering EEPROM data type: '$key' with size $ee_size\n";
       }
    }
+
+   # apply mojo json pointer, so we can reference by path
+   $tptr = Mojo::JSON::Pointer->new(@eeprom_types);
 }
 
 # Load eeprom_layout from eeprom_layout.json
@@ -152,6 +167,9 @@ sub eeprom_layout_load {
    print "  * Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
    @eeprom_layout = $json->decode($tmp) or warn("ERROR: Can't parse $_[0]!\n") and return;
+
+   # apply mojo json pointer, so we can reference by path
+   $lptr = Mojo::JSON::Pointer->new(@eeprom_layout);
 }
 
 sub eeprom_load {
@@ -243,9 +261,15 @@ sub eeprom_patch {
              next;
           }
 
-          $cval = $cptr->get("/$ee_key");
-          my $ckey = $ee_key;
-          $ckey =~ s/\//_/;
+          my $bin_data = 0;
+
+          # if this key is 'channels' use eeprom_channel_data instead
+          if ($ee_key =~ m/^channels$/) {
+             $cval = $eeprom_channel_data;
+             $bin_data = 1;
+          } else {
+             $cval = $cptr->get("/$ee_key");
+          }
 
           if (!defined($cval)) {
              $warnings++;
@@ -258,65 +282,65 @@ sub eeprom_patch {
              }
           }
 
-
           # Validate the offset and size will fit within the rom
-          if (($ee_offset >= 0 && $ee_offset < $eeprom_size) &&
-              ($curr_offset + $ee_size < $eeprom_size) &&
-              ($ee_offset + $ee_size <= $eeprom_size)) {
-
-             printf "  => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
-
-             # Pad out the memory location with NULLs to get rid of old contents...
-             substr($eeprom_data, $curr_offset, $ee_size, "\x00" x $ee_size);
-
-             # Here we chose which type
-             # XXX: Need to use eeprom_types sizes, etc here - overriding as needed...
-             if ($ee_type eq 'call') {
-               # callsign (8 bytes)
-               my $packedcall = pack("Z8", $cval);
-               substr($eeprom_data, $curr_offset, 8, $packedcall);
-             } elsif ($ee_type eq 'class') {
-                # license privileges (1 byte enum)
-                if ($cval =~ "US/Technician") {
-                   $cval = 'T';
-                } elsif ($cval =~ "US/General") {
-                   $cval = 'G';
-                } elsif ($cval =~ "US/Advanced") {
-                   $cval = 'A';
-                } elsif ($cval =~ "US/Extra") {
-                   $cval = 'E';
-                }
-               substr($eeprom_data, $curr_offset, 1, pack("a1", $cval));
-             } elsif ($ee_type eq 'int') {
-                # integer (4 bytes)
-                if ($cval =~ m/^0x/) {
-                   # Convert hex string cval to int cval for embedding...
-                   $cval = hex($cval);
-                }
-               substr($eeprom_data, $curr_offset, 4, pack("I", $cval));
-             } elsif ($ee_type eq 'ip4') {
-                # ipv4 address (4 bytes)
-                my @tmpip = split(/\./, $cval);
-                my $packedip = pack("CCCC", $tmpip[0], $tmpip[1], $tmpip[2], $tmpip[3]);
-               substr($eeprom_data, $curr_offset, 4, $packedip);
-             } elsif ($ee_type eq 'str') {
-                # string (variable length)
-                if ($ee_size == 0) {
-                   print "   * Skipping 0 length key\n";
-                   next;
-                }
-                substr($eeprom_data, $curr_offset, $ee_size, $cval);
-             }
-
-             # Try to make sure the offsets are lining up....
-             if ($curr_offset != $ee_offset) {
-                printf "Calculated offset (%04d) and layout offset (%04d) mismatch, halting to avoid damage!\n", $curr_offset, $ee_offset;
-                die();
-             }
-             $curr_offset += $ee_size;
-          } else {
+          if (($ee_offset < 0 || $ee_offset > $eeprom_size) || ($curr_offset + $ee_size > $eeprom_size) && ($ee_offset + $ee_size >= $eeprom_size)) {
              print "Invalid offset/size ($ee_offset, $ee_size) - our EEPROM is $eeprom_size\n";
+             next;
           }
+          if ($bin_data) {
+             printf "  => Patching %d byte%s @ <%04d>: [%s] %s = <binary>%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, ($defval == 0 ? "" : " <Warning - default value!>");
+          } else {
+             printf "  => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $ee_size, ($ee_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
+          }
+
+          # Pad out the memory location with NULLs to get rid of old contents...
+          substr($eeprom_data, $curr_offset, $ee_size, "\x00" x $ee_size);
+
+          # Here we chose which type
+          # XXX: Need to use eeprom_types sizes, etc here - overriding as needed...
+          if ($ee_type eq 'call') {
+            # callsign (8 bytes)
+            my $packedcall = pack("Z8", $cval);
+            substr($eeprom_data, $curr_offset, 8, $packedcall);
+          } elsif ($ee_type eq 'class') {
+             # license privileges (1 byte enum)
+             if ($cval =~ "US/Technician") {
+                $cval = 'T';
+             } elsif ($cval =~ "US/General") {
+                $cval = 'G';
+             } elsif ($cval =~ "US/Advanced") {
+                $cval = 'A';
+             } elsif ($cval =~ "US/Extra") {
+                $cval = 'E';
+             }
+            substr($eeprom_data, $curr_offset, 1, pack("a1", $cval));
+          } elsif ($ee_type eq 'int') {
+             # integer (4 bytes)
+             if ($cval =~ m/^0x/) {
+                # Convert hex string cval to int cval for embedding...
+                $cval = hex($cval);
+             }
+            substr($eeprom_data, $curr_offset, 4, pack("I", $cval));
+          } elsif ($ee_type eq 'ip4') {
+             # ipv4 address (4 bytes)
+             my @tmpip = split(/\./, $cval);
+             my $packedip = pack("CCCC", $tmpip[0], $tmpip[1], $tmpip[2], $tmpip[3]);
+            substr($eeprom_data, $curr_offset, 4, $packedip);
+          } elsif ($ee_type eq 'str') {
+             # string (variable length)
+             if ($ee_size == 0) {
+                print "   * Skipping 0 length key\n";
+                next;
+             }
+             substr($eeprom_data, $curr_offset, $ee_size, $cval);
+          }
+
+          # Try to make sure the offsets are lining up....
+          if ($curr_offset != $ee_offset) {
+             printf "Calculated offset (%04d) and layout offset (%04d) mismatch, halting to avoid damage!\n", $curr_offset, $ee_offset;
+             die();
+          }
+          $curr_offset += $ee_size;
        }
    }
 
@@ -385,6 +409,79 @@ sub eeprom_save {
    close $EEPROM;
 
    print "  * Wrote $nbytes bytes to $_[0]\n";
+}
+
+# If the channels.json file exists, load it
+sub eeprom_load_channels {
+   my $chan_data_sz = $lptr->get('/channels/size');
+   print "* Loading channel memories from $_[0] into $chan_data_sz storage...\n";
+   $eeprom_channel_data = "\x00" x $chan_data_sz;
+   open(my $fh, '<', $_[0]) or warn("  * Couldn't open channel memories file $_[0], not saving channel memories!\n");
+   my $nbytes = 0;
+   my $tmp = '';
+
+   while (1) {
+      my $res = read $fh, $tmp, 512, length($tmp);
+      die "$!\n" if not defined $res;
+      last if not $res;
+   }
+   close($fh);
+
+   $nbytes = length($tmp);
+   print "  * Read $nbytes bytes from $_[0]\n";
+   my $json = JSON->new;
+   @eeprom_channels = $json->decode($tmp) or warn("ERROR: Can't parse channels file $_[0]!\n") and return;
+   # apply mojo json pointer, so we can reference by path
+   $chptr = Mojo::JSON::Pointer->new(@eeprom_channels);
+}
+
+# Apply channels to the eeprom in memory
+sub eeprom_insert_channels {
+   if (@eeprom_channels) {
+      print "   * Parsing loaded data...\n";
+      # Iterate over the types and print them...
+      my $ch_num = 0;
+      for my $wrap (@eeprom_channels) {
+         for my $item (keys(%$wrap)) {
+            my $t = $wrap->{$item};
+
+            # walk through the groups
+            for my $group (sort keys(%$t)) {
+                my $g = $wrap->{$item}{$group};
+#                print "group: $group, g: ", Dumper($g), "\n";
+
+                # Find the channel
+                for my $key (sort { $a <=> $b } keys(%$g)) {
+                   # XXX: Add missing properties:
+                   print "   * Exporting channel $group/$key\n";
+#                   my $ee_size = $item->{$key}{size};
+#                   my $ch_bw = $item->{$key}{bandwidth};
+#                   my $ch_freq = $item->{$key}{freq};
+#                   my $ch_mode = $item->{$key}{mode};
+#                   my $ch_name = $item->{$key}{name};
+#                   my $ch_txpower = $item->{$key}{tx_power};
+#                   my $ch_txpower_str;
+#                   if (defined($ch_txpower) && $ch_txpower != 0) {
+#                      $ch_txpower_str = $ch_txpower . "W";
+#                   } else {
+#                      $ch_txpower_str = "OFF";
+#                   }
+#                   printf "  * Storing channel: %03d: \"$ch_name\" %0.3f Khz $ch_mode <%.1d Khz bw> TX: $ch_txpower_str\n", $ch_num, ($ch_freq/1000), ($ch_bw/1000);
+                   $ch_num++;
+               }
+            }
+         }
+      }
+      # XXX: Pack all the data into an object for insertion
+#      $eeprom_channel_data =
+      print "* Packed $ch_num channel memories into ", length($eeprom_channel_data), " bytes.\n";
+   } else {
+      print "* No channel memories defined, skipping.\n";
+   }
+}
+
+# XXX: Extract channels from the eeprom in memory
+sub eeprom_export_channels {
 }
 
 # Save the key to offset/size/type mappings
@@ -543,8 +640,14 @@ eeprom_layout_load("res/eeprom_layout.json");
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);
 
+# If we have a channels.json, import it
+eeprom_load_channels('channels.json');
+
+eeprom_insert_channels();
+
 # Apply loaded configuration to in-memory EEPROM image
 eeprom_patch($config);
+
 
 # Disable interrupt while saving
 $SIG{INT} = 'IGNORE';

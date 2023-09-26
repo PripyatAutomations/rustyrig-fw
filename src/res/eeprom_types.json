@@ -20,17 +20,30 @@
    "freq": {
       "size": 8
    },
+   "mode": {
+      "size": 4
+   },
+   "bool": {
+      "size": 1
+   },
    "channel": {
       "size": -1,
       "struct": {
-         "name": "str:16",
+         "name": "str:18",
          "freq": "freq",
+         "mode": "mode",
          "bandwidth": "freq",
+         "split_direction": "int",
          "split_offset": "freq",
          "pl_mode": "str:4",
+         "tx_dcs": "int",
+         "rx_dcs": "int",
          "tx_pl": "freq",
          "rx_pl": "freq",
-         "tx_power": "int"
+         "tx_power": "int",
+         "agc": "int",
+         "nb": "int",
+         "rf_gain": "int"
       }
    }
 }

@@ -126,6 +126,12 @@
        "type": "int",
        "key": "i2c/myaddr"
    },
+   "channels": {
+       "offset": 2048,
+       "size": 14332,
+       "type": "packed:channel",
+       "key": "channels"
+   },
    "eeprom/checksum": {
        "offset": 16380,
        "size": 4,
