@@ -532,7 +532,7 @@ sub generate_eeprom_types_h {
    # End the types enum
    print $fh "};\n";
    print $fh "typedef enum ee_data_type ee_data_type;\n";
-   print $fh "\n"
+   print $fh "\n";
    print $fh "#endif // defined(__eprom_types_h)\n";
    close $fh;
 }
