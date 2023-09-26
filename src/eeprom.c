@@ -27,6 +27,7 @@
 #include "eeprom.h"
 #include "i2c.h"
 #include "crc.h"
+#define	EEPROM_C
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
 
 extern struct GlobalState rig;	// Global state

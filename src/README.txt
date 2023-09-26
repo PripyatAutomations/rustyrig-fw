@@ -11,7 +11,7 @@ Files
 
 Building
 --------
-	You can past CONFIG=name to pass a configuration, do NOT add the .json suffix, ex:
+	You can use CONFIG=name to pass a configuration, do NOT add the .json suffix, ex:
 		make CONFIG=myradio world
 	This will use ./myradio.json and place build artifacts in build/myradio/
 

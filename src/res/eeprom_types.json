@@ -1,33 +1,47 @@
 {
    "call": {
-      "size": 8
+      "size": 8,
+      "descr": "Ham callsign"
    },
    "grid": {
-      "size": 8
+      "size": 8,
+      "descr": "Maidenhead gridsquare"
    },
    "int": {
-      "size": 4
+      "size": 4,
+      "descr": "Whole numbers"
+   },
+   "float": {
+      "size": 8,
+      "descr": "Decimal (floating point) numbers"
    },
    "ip4": {
-      "size": 4
+      "size": 4,
+      "descr": "IPv4 address"
    },
    "class": {
-      "size": 1
+      "size": 1,
+      "descr": "License Class"
    },
    "str": {
-      "size": -1
+      "size": -1,
+      "descr": "Text string, fixed length NULL pad"
    },
    "freq": {
-      "size": 8
+      "size": 8,
+      "descr": "A frequency"
    },
    "mode": {
-      "size": 4
+      "size": 4,
+      "descr": "Operating mode (modulation)"
    },
    "bool": {
-      "size": 1
+      "size": 1,
+      "descr": "Boolean (true/false)"
    },
    "channel": {
       "size": -1,
+      "descr": "Channel memory",
       "struct": {
          "name": "str:18",
          "freq": "freq",

@@ -21,6 +21,9 @@ use Mojo::JSON::Pointer;
 use String::CRC32;
 use File::Path qw(make_path remove_tree);
 
+# Toggle to 1 to show debugging messages
+my $DEBUG = 0;
+
 Hash::Merge::set_behavior('RIGHT_PRECEDENT');
 $Data::Dumper::Terse = 1;
 $Data::Dumper::Indent = 1;       # mild pretty print
@@ -138,10 +141,13 @@ sub eeprom_types_load {
    for my $item (@eeprom_types) {
       for my $key (sort keys(%$item)) {
           my $ee_size = $item->{$key}{size};
+          my $ee_descr = $item->{$key}{descr};
           if ($ee_size == -1) {
              $ee_size = 'variable';
           }
-          print "  * Registering EEPROM data type: '$key' with size $ee_size\n";
+          if ($DEBUG) {
+             printf "  * Registering EEPROM data type: '$key' with size $ee_size - %s\n", (defined($ee_descr) ? $ee_descr : "");
+          }
       }
    }
 
@@ -414,7 +420,7 @@ sub eeprom_save {
 # If the channels.json file exists, load it
 sub eeprom_load_channels {
    my $chan_data_sz = $lptr->get('/channels/size');
-   print "* Loading channel memories from $_[0] into $chan_data_sz storage...\n";
+   print "* Loading channel memories from $_[0]\n";
    $eeprom_channel_data = "\x00" x $chan_data_sz;
    open(my $fh, '<', $_[0]) or warn("  * Couldn't open channel memories file $_[0], not saving channel memories!\n");
    my $nbytes = 0;
@@ -431,6 +437,7 @@ sub eeprom_load_channels {
    print "  * Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
    @eeprom_channels = $json->decode($tmp) or warn("ERROR: Can't parse channels file $_[0]!\n") and return;
+
    # apply mojo json pointer, so we can reference by path
    $chptr = Mojo::JSON::Pointer->new(@eeprom_channels);
 }
@@ -438,9 +445,9 @@ sub eeprom_load_channels {
 # Apply channels to the eeprom in memory
 sub eeprom_insert_channels {
    if (@eeprom_channels) {
-      print "   * Parsing loaded data...\n";
       # Iterate over the types and print them...
       my $ch_num = 0;
+
       for my $wrap (@eeprom_channels) {
          for my $item (keys(%$wrap)) {
             my $t = $wrap->{$item};
@@ -448,25 +455,32 @@ sub eeprom_insert_channels {
             # walk through the groups
             for my $group (sort keys(%$t)) {
                 my $g = $wrap->{$item}{$group};
-#                print "group: $group, g: ", Dumper($g), "\n";
 
                 # Find the channel
                 for my $key (sort { $a <=> $b } keys(%$g)) {
-                   # XXX: Add missing properties:
-                   print "   * Exporting channel $group/$key\n";
-#                   my $ee_size = $item->{$key}{size};
-#                   my $ch_bw = $item->{$key}{bandwidth};
-#                   my $ch_freq = $item->{$key}{freq};
-#                   my $ch_mode = $item->{$key}{mode};
-#                   my $ch_name = $item->{$key}{name};
-#                   my $ch_txpower = $item->{$key}{tx_power};
-#                   my $ch_txpower_str;
-#                   if (defined($ch_txpower) && $ch_txpower != 0) {
-#                      $ch_txpower_str = $ch_txpower . "W";
-#                   } else {
-#                      $ch_txpower_str = "OFF";
-#                   }
-#                   printf "  * Storing channel: %03d: \"$ch_name\" %0.3f Khz $ch_mode <%.1d Khz bw> TX: $ch_txpower_str\n", $ch_num, ($ch_freq/1000), ($ch_bw/1000);
+                   my $ch = $g->{$key};
+                   my $ch_agc = $ch->{'agc'};
+                   my $ch_bandwidth = $ch->{'bandwidth'};
+                   my $ch_freq = $ch->{'freq'};
+                   my $ch_mode = $ch->{'mode'};
+                   my $ch_name = $ch->{'name'};
+                   my $ch_nb = $ch->{'nb'};
+                   my $ch_pl_mode = $ch->{'pl_mode'};
+                   my $ch_tx_dcs = $ch->{'tx_dcs'};
+                   my $ch_rx_dcs = $ch->{'rx_dcs'};
+                   my $ch_tx_pl = $ch->{'tx_pl'};
+                   my $ch_rx_pl = $ch->{'rx_pl'};
+                   my $ch_tx_power = $ch->{'tx_power'};
+                   my $ch_rf_gain = $ch->{'rf_gain'};
+                   my $ch_split_dir = $ch->{'split_direction'};
+                   my $ch_split_off = $ch->{'split_offset'};
+                   my $ch_txpower_str;
+                   if (defined($ch_tx_power) && $ch_tx_power != 0) {
+                      $ch_txpower_str = $ch_tx_power . "W";
+                   } else {
+                      $ch_txpower_str = "OFF";
+                   }
+                   printf "  * Storing channel %03d [$group] \"$ch_name\" %0.3f Khz $ch_mode <%.1d Khz bw> TX: $ch_txpower_str\n", $ch_num, ($ch_freq/1000), ($ch_bandwidth/1000);
                    $ch_num++;
                }
             }
@@ -482,6 +496,45 @@ sub eeprom_insert_channels {
 
 # XXX: Extract channels from the eeprom in memory
 sub eeprom_export_channels {
+}
+
+# Save the EEPROM types header
+sub generate_eeprom_types_h {
+   my $file = $_[0];
+   my $nbytes = 0;
+
+   if ($file eq '') {
+      die("generate_eeprom_layout_h: No argument given\n");
+   }
+
+   print "  * Generating $_[0]\n";
+   open(my $fh, '>:raw', $_[0]) or die("ERROR: Couldn't open $_[0] for writing: $!\n");
+   print $fh "// This file is autogenerated by buildconf, please do not edit it directly.\n";
+   print $fh "// Please edit $config_file then re-run './buildconf.pl $config_file' to make changes.\n";
+   print $fh "#if     !defined(_eeprom_types_h)\n#define _eeprom_types_h\n\n";
+   
+   # Start the types enum
+   print $fh "enum ee_data_type {                      // Type of the data\n";
+
+   # Iterate over the types and emit a line in the enum
+   for my $item (@eeprom_types) {
+      for my $key (sort keys(%$item)) {
+         my $t_type = $tptr->get("/$key");
+         my $key_u = uc($key);
+         print $fh "   EE_", $key_u, ",";
+         my $t_descr = $item->{$key}{descr};
+         if (defined($t_descr)) {
+            print $fh "\t\t\t// $t_descr";
+         }
+         print $fh "\n";
+      }
+   }
+   # End the types enum
+   print $fh "};\n";
+   print $fh "typedef enum ee_data_type ee_data_type;\n";
+   print $fh "\n"
+   print $fh "#endif // defined(__eprom_types_h)\n";
+   close $fh;
 }
 
 # Save the key to offset/size/type mappings
@@ -501,8 +554,9 @@ sub generate_eeprom_layout_h {
    print $fh "#if     !defined(_eeprom_layout_h)\n#define _eeprom_layout_h\n";
 
    my $eeprom_size = $cptr->get("/eeprom/size");
-   print $fh "struct eeprom_layout eeprom_layout[] = {\n";
-
+   print $fh "// This is only useed in eeprom.c\n";
+   print $fh "#if   defined(EEPROM_C)\n";
+   print $fh "static struct eeprom_layout eeprom_layout[] = {\n";
 
    # this needs reworked so that we get the enum types out of eeprom_types
    # XXX: We also should generate the eeprom_layout.type enum here, so we include all types...
@@ -512,23 +566,8 @@ sub generate_eeprom_layout_h {
           my $ee_offset = $item->{$key}{offset};
           my $ee_size = $item->{$key}{size};
           my $ee_type = $item->{$key}{type};
-          my $ee_type_enum = "EE_NONE";
-
-          if ($ee_type eq "byte") {
-             $ee_type_enum = "EE_BYTES";
-          } elsif ($ee_type eq "float") {
-             $ee_type_enum = "EE_FLOAT";
-          } elsif ($ee_type eq "int") {
-             $ee_type_enum = "EE_INTEGER";
-          } elsif ($ee_type eq "ip4") {
-             $ee_type_enum = "EE_IP4";
-          } elsif ($ee_type eq "grid") {
-             $ee_type_enum = "EE_GRID";
-          } elsif ($ee_type eq "class") {
-             $ee_type_enum = "EE_LCLASS";
-          } elsif ($ee_type eq "str") {
-             $ee_type_enum = "EE_STRING";
-          }
+          # expand the enum type name (EE_WHATEVER)
+          my $ee_type_enum = "EE_" . uc($ee_type);
 
           if (defined($ee_key)) {
              my $cval = $cptr->get("/$ee_key");
@@ -539,7 +578,8 @@ sub generate_eeprom_layout_h {
        }
    }
    print $fh "};\n";
-   print $fh "#endif\n";
+   print $fh "#endif // defined(EEPROM_C)\n";
+   print $fh "#endif // defined(__eprom_layout_h)\n";
    close $fh;
 }
 
@@ -622,10 +662,14 @@ sub generate_config_h {
 sub generate_headers {
    print "* Generating headers\n";
    generate_config_h($build_dir . "/build_config.h");
+   generate_eeprom_types_h($build_dir . "/eeprom_types.h");
    generate_eeprom_layout_h($build_dir . "/eeprom_layout.h");
 }
 
 #############################################################
+# XXX: Are we importing or exporting?
+my $run_mode = "import";
+
 print "* Host byte Order: ", $Config{byteorder}, "\n";
 
 # Load the configuration
@@ -640,20 +684,24 @@ eeprom_layout_load("res/eeprom_layout.json");
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);
 
-# If we have a channels.json, import it
+# If we have a channels.json, import them and apply
 eeprom_load_channels('channels.json');
 
-eeprom_insert_channels();
+if ($run_mode =~ m/^import$/) {
+   eeprom_insert_channels();
 
-# Apply loaded configuration to in-memory EEPROM image
-eeprom_patch($config);
+   # Apply loaded configuration to in-memory EEPROM image
+   eeprom_patch($config);
 
+   # Disable interrupt while saving
+   $SIG{INT} = 'IGNORE';
 
-# Disable interrupt while saving
-$SIG{INT} = 'IGNORE';
+   # Save the patched eeprom.bin
+   eeprom_save($eeprom_file);
 
-# Save the patched eeprom.bin
-eeprom_save($eeprom_file);
-
-# And generate headers for the C bits...
-generate_headers();
+   # And generate headers for the C bits...
+   generate_headers();
+} elsif ($run_mode =~ m/^export$/) {
+   print "*** exporting is not yet supported ;( ***\n";
+   die();
+}

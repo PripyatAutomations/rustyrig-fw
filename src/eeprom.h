@@ -7,21 +7,13 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "state.h"
+#include "eeprom_types.h"
 
 struct eeprom_layout {
     char *key;
     size_t offset;		// Offset into rom
     size_t size;		// Size in bytes
-    enum {			// Type of the data
-       EE_NONE = 0,
-       EE_BYTES,		// raw bytes
-       EE_STRING,		// string
-       EE_INTEGER,		// numeric
-       EE_FLOAT,		// floating point
-       EE_IP4,			// ipv4 address
-       EE_LCLASS,		// license class,
-       EE_GRID			// grid square
-    } type;
+    ee_data_type type;
 };
 
 // Support for deal with eeprom by name instead of addresses
