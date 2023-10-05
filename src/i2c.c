@@ -11,6 +11,7 @@
 #include <string.h>
 #include "logger.h"
 #include "state.h"
+#include "i2c.h"
 extern struct GlobalState rig;	// Global state
 
 // Initialize i2c communications

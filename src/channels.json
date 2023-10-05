@@ -12,7 +12,7 @@
          "8": { "name": "CHU 14.67Mhz", "freq": 14670000, "bandwidth": "10000", "mode": "AM", "tx_power": 0 },
          "9": { "name": "RWM 4.996Mhz", "freq": 4996000, "bandwidth": "10000", "mode": "AM", "tx_power": 0 },
          "10": { "name": "RWM 9.996Mhz", "freq": 9996000, "bandwidth": "10000", "mode": "AM", "tx_power": 0 },
-         "11": { "name": "RWM 14.006Mhz", "freq": 14996000, "bandwidth": "10000", "mode": "AM", "tx_power": 0 }
+         "11": { "name": "RWM 14.996Mhz", "freq": 14996000, "bandwidth": "10000", "mode": "AM", "tx_power": 0 }
       },
       "CALLING": {
          "0": { "name": "2M FM CALL", "freq": 146520000, "bandwidth": "3000", "mode": "WBFM", "tx_power": 100 },

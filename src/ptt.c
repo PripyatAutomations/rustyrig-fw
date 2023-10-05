@@ -13,6 +13,17 @@
 #include <unistd.h>
 #include <string.h>
 #include "state.h"
-#include "parser.h"
+#include "ptt.h"
 extern struct GlobalState rig;	// Global state
 
+bool ptt_check_blocked(void) {
+    if (rig.tx_blocked) {
+       return true;
+     }
+     return false;
+}
+
+bool ptt_set_blocked(bool blocked) {
+   rig.tx_blocked = blocked;
+   return blocked;
+}

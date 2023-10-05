@@ -64,6 +64,7 @@ struct FilterState {
 };
 
 struct GlobalState {
+   bool  tx_blocked;			// is TX blocked (user control)?
    int   faultbeep;			// Beep on faults
    int	 bc_standby;			// Stay in STANDBY on band change?
    int   fan_speed;			// Fan speed: 0-6 (0: auto)

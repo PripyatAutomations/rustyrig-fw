@@ -1,3 +1,6 @@
 [submodule "src/www/js/zmodemjs"]
 	path = src/www/js/zmodemjs
 	url = https://github.com/FGasper/zmodemjs.git
+[submodule "src/ext/radioberry"]
+	path = src/ext/radioberry
+	url = https://github.com/pa3gsb/Radioberry-2.x.git
