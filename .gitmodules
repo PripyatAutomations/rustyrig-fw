@@ -4,3 +4,6 @@
 [submodule "src/ext/radioberry"]
 	path = src/ext/radioberry
 	url = https://github.com/pa3gsb/Radioberry-2.x.git
+[submodule "src/ext/Radioberry-2.x-extensions"]
+	path = src/ext/Radioberry-2.x-extensions
+	url = https://github.com/pa3gsb/Radioberry-2.x-extensions.git

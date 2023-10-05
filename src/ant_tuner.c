@@ -18,7 +18,14 @@
 #include "i2c.h"
 #include "crc.h"
 #include "ant_tuner.h"
+// Tell atu_tables we want the data (we are the tuner code)
 #define	ANT_TUNER
 #include "atu_tables.h"
 
 extern struct GlobalState rig;	// Global state
+
+// Initialize all ATU units
+int atu_init(void) {
+    return 0;
+}
+

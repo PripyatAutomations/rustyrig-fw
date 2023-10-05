@@ -1,9 +1,5 @@
 /*
- * util_vna.c: Lightweight Vector Network Analyzer features
- * 
- * Here we support using the AD9866 to sweep the antenna and
- * provide a data set for calculating L&C values in the ant_tuner
- * code.
+ * Support for network control/access
  */
 #include "config.h"
 #include <stddef.h>
@@ -17,5 +13,4 @@
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
-#include "util_vna.h"
 extern struct GlobalState rig;	// Global state

@@ -36,18 +36,21 @@ objs += ant_tuner.o		# Antenna Tuner
 objs += cat_control.o		# CAT parsers
 objs += cat_kpa500.o		# amplifier control (KPA-500 mode)
 objs += cat_yaesu.o		# Yaesu CAT protocol
+objs += channels.o		# Channel Memories
 objs += crc32.o
 objs += eeprom.o		# "EEPROM" configuration storage
 objs += faults.o		# Fault management/alerting
+objs += filters.o		# Control of input/output filters
 objs += gpio.o			# GPIO controls
 objs += i2c.o			# i2c abstraction
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
+objs += network.o		# Network control
 ifeq (${PLATFORM}, posix)
 objs += posix.o			# support for POSIX hosts (pi or debugging)
 endif
 objs += power.o			# Power monitoring and management
-objs += ptt.o
+objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 objs += thermal.o		# Thermal management
 objs += usb.o			# Support for USB control (stm32)
 objs += util_vna.o		# Vector Network Analyzer
@@ -130,7 +133,7 @@ res/eeprom_types.json:
 	exit 1
 
 # Display an error message and halt the build, if no configuration file
-radio.json:
+${CF}:
 	@echo "********************************************************"
 	@echo "* PLEASE read README.txt and edit ${CF} as needed *"
 	@echo "********************************************************"
