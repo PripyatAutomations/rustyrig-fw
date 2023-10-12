@@ -78,7 +78,8 @@ ${bin}: ${real_objs}
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 
 # Rebuild the EEPROM and headers, if any configuration or templates are changed
-${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h ${EEPROM_FILE}: ${CF} $(wildcard res/*.json) buildconf.pl .version GNUmakefile
+${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h ${EEPROM_FILE}: buildconf
+configure buildconf: ${CF} $(wildcard res/*.json) buildconf.pl .version GNUmakefile
 	@echo "[buildconf]"
 	@./buildconf.pl ${CONFIG}
 

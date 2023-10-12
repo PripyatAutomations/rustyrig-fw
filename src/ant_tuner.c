@@ -28,4 +28,3 @@ extern struct GlobalState rig;	// Global state
 int atu_init(void) {
     return 0;
 }
-
