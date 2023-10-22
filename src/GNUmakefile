@@ -51,6 +51,7 @@ objs += posix.o			# support for POSIX hosts (pi or debugging)
 endif
 objs += power.o			# Power monitoring and management
 objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
+objs += radioberry.o		# communication with radioberry host
 objs += thermal.o		# Thermal management
 objs += usb.o			# Support for USB control (stm32)
 objs += util_vna.o		# Vector Network Analyzer

@@ -22,8 +22,9 @@
          "0": { "name": "MARITIME MOBILE", "freq": 14300000, "bandwidth": "3000", "mode": "USB", "tx_power": 100 }
       },
       "WASTELAND": {
-         "0": { "name": "20M Wasteland", "freq": 3840000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
-         "1": { "name": "40M Wasteland", "freq": 7200000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 }
+         "0": { "name": "80M Wasteland", "freq": 3840000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "1": { "name": "40M Wasteland", "freq": 7200000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "2": { "name": "20M Wasteland", "freq": 14313000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 }
       }
    }
 }

@@ -6,3 +6,10 @@ computer for remote operation.
 
 There is no front panel user interface, besides power LED and fault # LED
 display.
+
+-------------------------------------------
+
+Current experiment consists of the following bits:
+* raspberry pi 4b 8gb running devuan 64bit
+* radioberry v2 RF frontend
+* the RF amplifier, filters, and antenna matching unit.

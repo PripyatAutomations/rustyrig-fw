@@ -1,3 +1,4 @@
+
 Install these packages at minimum:
 	libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl
 
@@ -27,7 +28,14 @@ Building
 
 Installing
 ----------
-	Plug the radio into USB
+	Holding DFU button, plug the radio into USB.
 	Try 'make install' to use DFU flashing.
 
 	If this doesnt work, see doc/BOOTLOADER.txt
+
+
+Status
+------
+
+Presently my experiments take me to running this on stm32 attached to a pi
+with radioberry v2 board.
