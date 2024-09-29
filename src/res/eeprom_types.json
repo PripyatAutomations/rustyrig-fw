@@ -1,6 +1,6 @@
 {
    "call": {
-      "size": 8,
+      "size": 16,
       "descr": "Ham callsign"
    },
    "grid": {

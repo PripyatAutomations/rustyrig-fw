@@ -40,88 +40,88 @@
    },
    "station/call": {
        "offset": 12,
-       "size": 8,
+       "size": 16,
        "type": "call",
        "key": "station/call",
        "default": "N0CALL"
    },
    "station/grid": {
-       "offset": 20,
+       "offset": 28,
        "size": 8,
        "type": "grid",
        "key": "station/grid"
    },
    "owner/call": {
-       "offset": 28,
-       "size": 8,
+       "offset": 36,
+       "size": 16,
        "type": "call",
        "key": "owner/call",
        "default": "N0CALL"
    },
    "owner/privs": {
-       "offset": 36,
+       "offset": 52,
        "size": 1,
        "type": "class",
        "key": "owner/privs",
        "default": "US/General"
    },
    "pin/master": {
-       "offset": 37,
+       "offset": 53,
        "size": 6,
        "type": "str",
        "key": "pin/master",
        "default": "012345"
    },
    "pin/reset": {
-       "offset": 43,
+       "offset": 59,
        "size": 6,
        "type": "str",
        "key": "pin/reset",
        "default": "543210"
    },
    "net/ip": {
-       "offset": 49,
+       "offset": 65,
        "size": 4,
        "type": "ip4",
        "key": "net/ip",
        "default": "10.201.1.100"
    },
    "net/gw": {
-       "offset": 53,
+       "offset": 69,
        "size": 4,
        "type": "ip4",
        "key": "net/gw",
        "default": "10.201.1.1"
    },
    "net/mask": {
-       "offset": 57,
+       "offset": 73,
        "size": 4,
        "type": "ip4",
        "key": "net/mask",
        "default": "255.255.255.0"
    },
    "net/dns1": {
-       "offset": 61,
+       "offset": 77,
        "size": 4,
        "type": "ip4",
        "key": "net/dns1",
        "default": "10.201.1.1"
    },
    "net/dns2": {
-       "offset": 65,
+       "offset": 81,
        "size": 4,
        "type": "ip4",
        "key": "net/dns2"
    },
    "net/vlan": {
-       "offset": 69,
+       "offset": 85,
        "size": 4,
        "type": "int",
        "key": "net/vlan",
        "default": 1
    },
    "i2c/myaddr": {
-       "offset": 73,
+       "offset": 89,
        "size": 1,
        "type": "int",
        "key": "i2c/myaddr"
