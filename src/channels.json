@@ -16,7 +16,11 @@
       },
       "CALLING": {
          "0": { "name": "2M FM CALL", "freq": 146520000, "bandwidth": "3000", "mode": "WBFM", "tx_power": 100 },
-         "1": { "name": "10M FM CALL", "freq": 29600000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 }
+         "1": { "name": "10M FM CALL", "freq": 29600000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 },
+         "2": { "name": "160M AM CALL", "freq": 1885000, "bandwidth": "10000", "mode": "AM", "tx_power": 100 },
+         "3": { "name": "80M AM CALL", "freq": 3885000, "bandwidth": "10000", "mode": "AM", "tx_power": 100 },
+         "4": { "name": "40M AM CALL", "freq": 7290000, "bandwidth": "10000", "mode": "AM", "tx_power": 100 },
+         "5": { "name": "10M FM CALL", "freq": 29600000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 }
       },
       "EMERGENCY": {
          "0": { "name": "MARITIME MOBILE", "freq": 14300000, "bandwidth": "3000", "mode": "USB", "tx_power": 100 }

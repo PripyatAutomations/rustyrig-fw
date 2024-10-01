@@ -488,7 +488,6 @@ sub eeprom_insert_channels {
                    }
                    # XXX: Pack all the data into an object for insertion
                    
-              
                    # did we get anything to store?
                    $this_len = length($this_data);
                    printf "  * Stored channel %03d [$group] \"$ch_name\" %0.3f Khz $ch_mode <%.1d Khz bw> TX: $ch_txpower_str (%d bytes)\n", $ch_num, ($ch_freq/1000), ($ch_bandwidth/1000, $this_len);
