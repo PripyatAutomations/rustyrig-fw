@@ -2,6 +2,7 @@
  * This contains stuff for when we live on a posix host
  *
  * Namely we use optionally use pipes instead of real serial ports
+ * and deal with POSIX signals
  */
 #include "config.h"
 #if	!defined(HOST_POSIX)

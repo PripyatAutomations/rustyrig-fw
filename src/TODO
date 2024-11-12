@@ -1,3 +1,6 @@
+[buildconf]
+* Take default sizes from eeprom_types
+
 [Network]
     net/ip4 and net/ip6 split
     net/prefer_ip4
@@ -5,9 +8,6 @@
     net/ignore_mcast
     net/ignore_bcast
 
-
-
 [HostInterface]
-
 
 [Backplane]

@@ -20,7 +20,7 @@
       "descr": "IPv4 address"
    },
    "class": {
-      "size": 1,
+      "size": 2,
       "descr": "License Class"
    },
    "str": {

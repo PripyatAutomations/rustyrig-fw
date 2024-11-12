@@ -60,7 +60,7 @@
    },
    "owner/privs": {
        "offset": 52,
-       "size": 1,
+       "size": 2,
        "type": "class",
        "key": "owner/privs",
        "default": "US/General"

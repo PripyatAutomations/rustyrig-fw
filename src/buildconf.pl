@@ -311,17 +311,17 @@ sub eeprom_patch {
             my $packedcall = pack("Z8", $cval);
             substr($eeprom_data, $curr_offset, 8, $packedcall);
           } elsif ($ee_type eq 'class') {
-             # license privileges (1 byte enum)
+             # license privileges (2 byte enum) - Add more plz
              if ($cval =~ "US/Technician") {
-                $cval = 'T';
+                $cval = 'UT';
              } elsif ($cval =~ "US/General") {
-                $cval = 'G';
+                $cval = 'UG';
              } elsif ($cval =~ "US/Advanced") {
-                $cval = 'A';
+                $cval = 'UA';
              } elsif ($cval =~ "US/Extra") {
-                $cval = 'E';
+                $cval = 'UE';
              }
-            substr($eeprom_data, $curr_offset, 1, pack("a1", $cval));
+             substr($eeprom_data, $curr_offset, 2, pack("a2", $cval));
           } elsif ($ee_type eq 'int') {
              # integer (4 bytes)
              if ($cval =~ m/^0x/) {
@@ -641,6 +641,7 @@ sub generate_config_h {
       if (defined($config->{features}{'cat-kpa500'}) && $config->{features}{'cat-kpa500'} eq 1) {
          printf $fh "#define CAT_KPA500 true\n";
       }
+
       if (defined($config->{features}{'cat-yaesu'}) && $config->{features}{'cat-yaesu'} eq 1) {
          printf $fh "#define CAT_YAESU true\n";
       }
@@ -662,11 +663,13 @@ sub generate_config_h {
 
    # Platform specific selections:
    my $platform = $cptr->get("/build/platform");
+
    if ($platform eq "posix") {
       print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";
       print $fh "#define HOST_LOG_FILE \"firmware.log\"\n";
       print $fh "#define HOST_CAT_PIPE \"cat.fifo\"\n";
       print $fh "#define HOST_POSIX\n";
+      print $fh "#define HOST_LINUX\t// This should not be here, but i2c depends on it for now\n";
    }
 
    # footer
