@@ -29,11 +29,11 @@ extern struct GlobalState rig;		// in main.c
 
 #if	defined(CAT_KPA500)
 // ALC Threshold: 0-210, per band
-static int cat_kpa500_alc(struct AmpState *amp, char *args) {
-   int alc = amp->alc[amp->current_band];
+static uint32_t cat_kpa500_alc(struct AmpState *amp, char *args) {
+   uint32_t alc = amp->alc[amp->current_band];
 
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
 
       if (tmp < 0) 
          tmp = 0;
@@ -48,11 +48,11 @@ static int cat_kpa500_alc(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_afr(struct AmpState *amp, char *args) {
-   int afr = amp->afr;
+static uint32_t cat_kpa500_afr(struct AmpState *amp, char *args) {
+   uint32_t afr = amp->afr;
 
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
 
       if (tmp < 1400)
          tmp = 1400;
@@ -67,39 +67,39 @@ static int cat_kpa500_afr(struct AmpState *amp, char *args) {
 }
 
 // NOOP - Reply 38400 baud always.
-static int cat_kpa500_baud_pc(struct AmpState *amp, char *args) {
+static uint32_t cat_kpa500_baud_pc(struct AmpState *amp, char *args) {
     cat_printf("^BRP3;");
     return 0;
 }
 
 // NOOP - Reply 38400 baud always.
-static int cat_kpa500_baud_tx(struct AmpState *amp, char *args) {
+static uint32_t cat_kpa500_baud_tx(struct AmpState *amp, char *args) {
    cat_printf("^BRX3;");
    return 0;
 }
 
-static int cat_kpa500_bcstandby(struct AmpState *amp, char *args) {
-   int bc = rig.bc_standby;
+static uint32_t cat_kpa500_bcstandby(struct AmpState *amp, char *args) {
+   uint32_t bc = rig.bc_standby;
 
    // SET request?
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
       if (tmp > 1)
          tmp = 1;
 
-      rig.bc_standby = bc = tmp;
+      rig.bc_standby = bc = tmp);
    }
    cat_printf("^BC%d", bc);
    return 0;
 }
 
-static int cat_kpa500_band(struct AmpState *amp, char *args) {
-   int band = amp->current_band;
+static uint32_t cat_kpa500_band(struct AmpState *amp, char *args) {
+   uint32_t band = amp->current_band;
 
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
 
       if (tmp <= 0 || tmp >= MAX_BANDS) {
          return -1;
@@ -111,16 +111,16 @@ static int cat_kpa500_band(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_demo(struct AmpState *amp, char *args) {
+static uint32_t cat_kpa500_demo(struct AmpState *amp, char *args) {
    cat_printf("^DMO0");
    return 0;
 }
 
-static int cat_kpa500_fan(struct AmpState *amp, char *args) {
-   int fc = rig.fan_speed;
+static uint32_t cat_kpa500_fan(struct AmpState *amp, char *args) {
+   uint32_t fc = rig.fan_speed;
 
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
 
       if (tmp < 0)
          tmp = 0;
@@ -133,8 +133,8 @@ static int cat_kpa500_fan(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_faults(struct AmpState *amp, char *args) {
-   int faults = rig.fault_code;
+static uint32_t cat_kpa500_faults(struct AmpState *amp, char *args) {
+   uint32_t faults = rig.fault_code;
    if (args != NULL) {
       // clear requested?
       if (*args == 'C') {
@@ -147,11 +147,11 @@ static int cat_kpa500_faults(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_inhibit(struct AmpState *amp, char *args) {
-   int inhibit = amp->inhibit;
+static uint32_t cat_kpa500_inhibit(struct AmpState *amp, char *args) {
+   uint32_t inhibit = amp->inhibit;
 
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
       if (tmp > 1)
@@ -164,10 +164,10 @@ static int cat_kpa500_inhibit(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_power(struct AmpState *amp, char *args) {
-   int power = amp->power;
+static uint32_t cat_kpa500_power(struct AmpState *amp, char *args) {
+   uint32_t power = amp->power;
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
       if (tmp > 1)
@@ -179,10 +179,10 @@ static int cat_kpa500_power(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_standby(struct AmpState *amp, char *args) {
-   int standby = amp->standby;
+static uint32_t cat_kpa500_standby(struct AmpState *amp, char *args) {
+   uint32_t standby = amp->standby;
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
       if (tmp > 1)
@@ -194,10 +194,10 @@ static int cat_kpa500_standby(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
-   int standby = amp->output_target[amp->current_band];
+static uint32_t cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
+   uint32_t standby = amp->output_target[amp->current_band];
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
       if (tmp > 1)
@@ -209,21 +209,21 @@ static int cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_fwversion(struct AmpState *amp, char *args) {
+static uint32_t cat_kpa500_fwversion(struct AmpState *amp, char *args) {
    cat_printf("^RVM%s", VERSION);
    return 0;
 }
 
-static int cat_kpa500_serial(struct AmpState *amp, char *args) {
+static uint32_t cat_kpa500_serial(struct AmpState *amp, char *args) {
    cat_printf("^SN%05d", get_serial_number());
    return 0;
 }
 
-static int cat_kpa500_get_temp(struct AmpState *amp, char *args) {
-   int sensor = 0;
+static uint32_t cat_kpa500_get_temp(struct AmpState *amp, char *args) {
+   uint32_t sensor = 0;
 
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
 
@@ -237,10 +237,10 @@ static int cat_kpa500_get_temp(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
-   int beep = rig.faultbeep;
+static uint32_t cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
+   uint32_t beep = rig.faultbeep;
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
       if (tmp > 1)
@@ -253,10 +253,10 @@ static int cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
    return 0;
 }
 
-static int cat_kpa500_trdelay(struct AmpState *amp, char *args) {
-   int trdelay = rig.tr_delay;
+static uint32_t cat_kpa500_trdelay(struct AmpState *amp, char *args) {
+   uint32_t trdelay = rig.tr_delay;
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
       if (tmp > 1)
@@ -269,11 +269,11 @@ static int cat_kpa500_trdelay(struct AmpState *amp, char *args) {
 }
 
 // 0: 12V, 1: 48V
-static int cat_kpa500_power_info(struct AmpState *amp, char *args) {
+static uint32_t cat_kpa500_power_info(struct AmpState *amp, char *args) {
    float volts = 0.0, curr = 0.0;
 
    if (args != NULL) {
-      int tmp = atoi(args);
+      uint32_t tmp = atoi(args);
       if (tmp < 0)
          tmp = 0;
       if (tmp > 1)
@@ -287,15 +287,15 @@ static int cat_kpa500_power_info(struct AmpState *amp, char *args) {
 }
 
 // XXX: finish this
-static int cat_kpa500_get_swr(struct AmpState *amp, char *args) {
-   int curr_amp = 0;
+static uint32_t cat_kpa500_get_swr(struct AmpState *amp, char *args) {
+   uint32_t curr_amp = 0;
    float swr = get_swr(curr_amp);
    float pwr = get_power(curr_amp);
    cat_printf("^WS%03.0d %03.0d", swr, pwr);
    return 0;
 }
 
-static int cat_kpa500_if_mode(struct AmpState *amp, char *args) {
+static uint32_t cat_kpa500_if_mode(struct AmpState *amp, char *args) {
    cat_printf("^XI31");
    return 0;
 }
@@ -325,7 +325,7 @@ struct cat_cmd cmd_kpa500[] = {
 };
 
 // Here we parse the commands for amplifier controls
-int cat_parse_amp_line(char *line) {
+uint32_t cat_parse_amp_line(char *line) {
    return 0;
 }
 #endif

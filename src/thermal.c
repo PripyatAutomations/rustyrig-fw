@@ -22,7 +22,7 @@ extern struct GlobalState rig;	// Global state
 //	1001	Low-band PA LPF board
 //	2000	High-band PA Final
 //	2001	High-band PA LPF board
-int get_thermal(int sensor) {
+uint32_t get_thermal(uint32_t sensor) {
     if (sensor == 0) {
        return rig.therm_enclosure;
     } else if (sensor == 1) {

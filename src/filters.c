@@ -15,6 +15,7 @@
 #include "state.h"
 #include "logger.h"
 #include "eeprom.h"
+#include "filters.h"
 #define	FILTERS_C
 #include "filter_tables.h"
 

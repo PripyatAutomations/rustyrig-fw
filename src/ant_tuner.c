@@ -25,6 +25,6 @@
 extern struct GlobalState rig;	// Global state
 
 // Initialize all ATU units
-int atu_init(void) {
+uint32_t atu_init(void) {
     return 0;
 }

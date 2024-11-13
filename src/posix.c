@@ -36,7 +36,7 @@ void host_cleanup(void) {
     unlink(HOST_CAT_PIPE);
 }
 
-static void sighandler(int signum) {
+static void sighandler(int32_t signum) {
    switch(signum) {
       // Convenience signals
       case SIGHUP:

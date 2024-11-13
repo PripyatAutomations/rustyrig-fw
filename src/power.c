@@ -19,23 +19,23 @@
 extern struct GlobalState rig;	// Global state
 
 // 0: 12V, 1: 48V
-float get_voltage(int src) {
+float get_voltage(uint32_t src) {
    return 0.0;
 }
 
-float get_current(int src) {
+float get_current(uint32_t src) {
    return 0.0;
 }
 
 
-float get_swr(int amp) {
+float get_swr(uint32_t amp) {
    return 0.0;
 }
 
-float get_power(int amp) {
+float get_power(uint32_t amp) {
    return 0.0;
 }
 
-int check_power_thresholds(void) {
+uint32_t check_power_thresholds(void) {
    return 0;
 }

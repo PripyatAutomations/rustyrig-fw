@@ -23,9 +23,9 @@ radio_gpiochip gpiochips[MAX_GPIOCHIPS];
 extern struct GlobalState rig;	// Global state
 
 // right now we only support one gpio chip, but this wrapper should ease transition
-int radio_find_gpiochip(const char *name) {
+uint32_t radio_find_gpiochip(const char *name) {
 #if	defined(HOST_POSIX)
-   for (int i = 0; i < MAX_GPIOCHIPS; i++) {
+   for (uint32_t i = 0; i < MAX_GPIOCHIPS; i++) {
       if (strcasecmp(gpiochips[i].key, name) == 0) {
          return i;
       }
@@ -34,8 +34,8 @@ int radio_find_gpiochip(const char *name) {
 #endif
 }
 
-int radio_gpiochip_init(const char *chipname) {
-   int i = -1;
+uint32_t radio_gpiochip_init(const char *chipname) {
+   uint32_t i = -1;
 
    // Does it already exist?
    if ((i = radio_find_gpiochip(chipname)) != -1) {
@@ -74,7 +74,7 @@ int radio_gpiochip_init(const char *chipname) {
 }
    
 // Initialize platform GPIO
-int gpio_init(void) {
+uint32_t gpio_init(void) {
 #if	defined(HOST_POSIX)
 #endif
    radio_gpiochip_init("main");

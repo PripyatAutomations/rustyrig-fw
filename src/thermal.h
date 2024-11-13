@@ -11,7 +11,7 @@ static inline double degF_to_degC(double tempF) {
     return (tempF - 32.0) * 5.0 / 9.0;
 }
 
-extern int get_thermal(int sensor);		// Query temp in degC for sensor id given
+extern uint32_t get_thermal(uint32_t sensor);		// Query temp in degC for sensor id given
 extern bool are_we_on_fire(void);		// Determine if radio is on fire and try to prevent that
 
 #endif	// !defined(_thermal_h)

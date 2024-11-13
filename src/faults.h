@@ -1,6 +1,7 @@
 #if	!defined(_faults_h)
 #define	_faults_h
 
+// XXX: We need set the highest bit to 1 to indicate that fault is fatal and should halt TX
 // A higher (numeric) error will replace a lower numbered one in the fault code register...
 // XXX: Sort these by order of severity
 #define	FAULT_NONE		0x00	// No faults
@@ -18,6 +19,6 @@
 // Last fault needs to be 99 (0x64)
 #define	FAULT_UNKNOWN		0x64
 
-extern int set_fault(int fault);
+extern uint32_t set_fault(uint32_t fault);
 
 #endif	// !defined(_faults_h)

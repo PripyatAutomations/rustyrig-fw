@@ -19,7 +19,7 @@
 #include <stdio.h>
 
 extern struct GlobalState rig;	// Global state
-static int file_descriptor = -1;
+static uint32_t file_descriptor = -1;
 static const char *i2c_bus = "/dev/i2c-1";
 
 #ifdef HOST_LINUX
@@ -33,7 +33,7 @@ static const char *i2c_bus = "/dev/i2c-1";
 /*
 // Initialize i2c communications
 // addr: My address
-int i2c_init(int bus, int addr) {
+uint32_t i2c_init(uint32_t bus, uint32_t addr) {
     Log(LOG_INFO, "Initializing i2c bus %d, my address is [0x%x]", bus, addr);
     return 0;
 }

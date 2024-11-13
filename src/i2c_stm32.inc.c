@@ -5,7 +5,7 @@
 extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c2; // Example for a second I2C bus
 
-static I2C_HandleTypeDef *get_i2c_handle(int bus_id) {
+static I2C_HandleTypeDef *get_i2c_handle(uint32_t bus_id) {
     switch (bus_id) {
         case 1:
             return &hi2c1;
@@ -17,7 +17,7 @@ static I2C_HandleTypeDef *get_i2c_handle(int bus_id) {
     }
 }
 
-bool i2c_init(I2CBus *bus, int my_addr) {
+bool i2c_init(I2CBus *bus, uint32_t my_addr) {
     I2C_HandleTypeDef *handle = get_i2c_handle(bus->bus_id);
 
     // Addresses below 0 aren't valid

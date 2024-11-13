@@ -18,7 +18,7 @@
 bool dying = 0;
 struct GlobalState rig;	// Global state
 
-static int load_defaults(void) {
+static uint32_t load_defaults(void) {
    // Set minimum defaults, til we have EEPROM available
    rig.faultbeep = 1;
    rig.bc_standby = 1;
@@ -27,7 +27,7 @@ static int load_defaults(void) {
 }   
 
 // Zeroize our memory structures
-static int initialize_state(void) {
+static uint32_t initialize_state(void) {
    memset(&rig, 0, sizeof(struct GlobalState));
    memset(&rig.low_amp, 0, sizeof(struct AmpState));
    memset(&rig.high_amp, 0, sizeof(struct AmpState));
@@ -40,7 +40,7 @@ static int initialize_state(void) {
    return 0;
 }
 
-void shutdown_rig(int signum) {
+void shutdown_rig(uint32_t signum) {
     if (signum >= 0) {
        Log(LOG_CRIT, "Shutting down by signal %d", signum);
     } else {

@@ -33,8 +33,8 @@
 extern struct GlobalState rig;	// Global state
 
 // Returns either the index of they key in eeprom_layout or -1 if not found
-int eeprom_offset_index(const char *key) {
-   int max_entries = -1, idx = -1;
+uint32_t eeprom_offset_index(const char *key) {
+   uint32_t max_entries = -1, idx = -1;
 
    max_entries = (sizeof(eeprom_layout) / sizeof(eeprom_layout[0]));
 
@@ -52,22 +52,22 @@ int eeprom_offset_index(const char *key) {
    return -1;
 }
 
-int eeprom_get_int(int idx) {
+uint32_t eeprom_get_int(uint32_t idx) {
    if (idx < 0)
       return -1;
 
-   // Extract the 32 bits (u_int32_t)
+   // Extract the 32 bits (uint32_t)
    return -1;
 }
 
-const char *eeprom_get_str(int idx) {
+const char *eeprom_get_str(uint32_t idx) {
    char *ret = NULL;
 
-   // int eeprom_read_block(u_int8_t *buf, size_t offset, size_t len)
+   // uint32_t eeprom_read_block(uint8_t *buf, size_t offset, size_t len)
    return ret;
 }
 
-int eeprom_get_int_i(const char *key) {
+uint32_t eeprom_get_int_i(const char *key) {
    return eeprom_get_int(eeprom_offset_index(key));
 }
 
@@ -75,7 +75,7 @@ const char *eeprom_get_str_i(const char *key) {
    return eeprom_get_str(eeprom_offset_index(key));
 }
 
-int eeprom_init(void) {
+uint32_t eeprom_init(void) {
    size_t bytes_read = 0;
 
 #if	defined(HOST_POSIX)
@@ -84,7 +84,7 @@ int eeprom_init(void) {
    size_t eeprom_len;
    ssize_t s;
 
-   int fd = open(HOST_EEPROM_FILE, O_RDWR);
+   uint32_t fd = open(HOST_EEPROM_FILE, O_RDWR);
    if (fd == -1) {
       Log(LOG_CRIT, "EEPROM Initialization failed: %s: %d: %s", HOST_EEPROM_FILE, errno, strerror(errno));
       return -1;
@@ -106,10 +106,10 @@ int eeprom_init(void) {
    return 0;
 }
 
-int eeprom_read_block(u_int8_t *buf, size_t offset, size_t len) {
-   int res = 0;
+uint32_t eeprom_read_block(uint8_t *buf, size_t offset, size_t len) {
+   uint32_t res = 0;
    ssize_t myoff = 0;
-   u_int8_t *p = buf;
+   uint8_t *p = buf;
 
    // Check for memory mapped style EEPROMs
    if (rig.eeprom_mmap != NULL) {
@@ -127,23 +127,23 @@ int eeprom_read_block(u_int8_t *buf, size_t offset, size_t len) {
    return res;
 }
 
-int eeprom_write(size_t offset, u_int8_t data) {
-   int res = 0;
+uint32_t eeprom_write(size_t offset, uint8_t data) {
+   uint32_t res = 0;
    ssize_t myoff = 0;
 #if	0
-   u_int8_t *ptr = NULL;
+   uint8_t *ptr = NULL;
 
    // Check for memory mapped style EEPROMs
    if (rig.eeprom_mmap != NULL) {
       &ptr = *(rig.eeprom_mmap + offset);
-      ptr = (u_int8_t)data;
+      ptr = (uint8_t)data;
    }
 #endif
    return res;
 }
 
-u_int8_t eeprom_read(size_t offset) {
-   u_int8_t res = 0;
+uint8_t eeprom_read(size_t offset) {
+   uint8_t res = 0;
 
    if (offset <= 0) {
       errno = EADDRNOTAVAIL;
@@ -153,20 +153,20 @@ u_int8_t eeprom_read(size_t offset) {
 /*
    // for host mode or other memory mapped
    if (rig.eeprom_map != NULL) {
-      res = (u_int8_t)(rig.eeprom_mmap + offset);
+      res = (uint8_t)(rig.eeprom_mmap + offset);
    }
 */
    return res;
 }
 
-int eeprom_write_block(void *buf, size_t offset, size_t len) {
-   int res = -1;
+uint32_t eeprom_write_block(void *buf, size_t offset, size_t len) {
+   uint32_t res = -1;
 
    return res;
 }
 
-u_int32_t eeprom_checksum_generate(void) {
-   u_int32_t sum = 0;
+uint32_t eeprom_checksum_generate(void) {
+   uint32_t sum = 0;
 
    // Check for memory mapped style EEPROMs
    if (rig.eeprom_mmap != NULL) {
@@ -177,13 +177,13 @@ u_int32_t eeprom_checksum_generate(void) {
 }
 
 // Check the checksum
-int eeprom_validate_checksum(void) {
-   u_int32_t calc_sum = 0, curr_sum = 0;
-   u_int32_t *chksum_addr = (u_int32_t *)(&rig.eeprom_mmap[EEPROM_SIZE - 4]);
+uint32_t eeprom_validate_checksum(void) {
+   uint32_t calc_sum = 0, curr_sum = 0;
+   uint32_t *chksum_addr = (uint32_t *)(&rig.eeprom_mmap[EEPROM_SIZE - 4]);
 
    // Check for memory mapped style EEPROMs
    if (rig.eeprom_mmap != NULL) {
-      curr_sum = *(u_int32_t *)chksum_addr;
+      curr_sum = *(uint32_t *)chksum_addr;
       calc_sum = eeprom_checksum_generate();
    }
 
@@ -199,7 +199,7 @@ int eeprom_validate_checksum(void) {
 }
 
 // Load the EEPROM data into the state structures
-int eeprom_load_config(void) {
+uint32_t eeprom_load_config(void) {
    // Validate EEPROM checksum before applying configuration...
    if (eeprom_validate_checksum() != 0) {
       Log(LOG_WARN, "Ignoring saved configuration due to EEPROM checksum mismatch");
@@ -212,8 +212,8 @@ int eeprom_load_config(void) {
    }
 
    // walk over the eeprom_layout and apply each setting to our state object (rig)
-   int cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
-   for (int i = 0; i < cfg_rows; i++) {
+   uint32_t cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
+   for (uint32_t i = 0; i < cfg_rows; i++) {
        Log(LOG_DEBUG, "key: %s type: %d offset: %d size: %d", eeprom_layout[i].key,
            eeprom_layout[i].type, eeprom_layout[i].offset, eeprom_layout[i].size);
    }
@@ -222,8 +222,8 @@ int eeprom_load_config(void) {
 }
 
 // Write the state structures out to EEPROM
-int eeprom_write_config(int force) {
-   u_int32_t sum = 0;
+uint32_t eeprom_write_config(uint32_t force) {
+   uint32_t sum = 0;
 
    // If we do not have any pending changes, don't bother
    if (rig.eeprom_dirty == 0) {
@@ -243,7 +243,7 @@ int eeprom_write_config(int force) {
 }
 
 char *get_serial_number(void) {
-   int idx = eeprom_offset_index("device/serial");
+   uint32_t idx = eeprom_offset_index("device/serial");
    Log(LOG_INFO, "Device serial number: %s", eeprom_get_str(idx));
    return NULL;
 }

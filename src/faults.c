@@ -16,7 +16,7 @@
 #include "faults.h"
 extern struct GlobalState rig;	// Global state
 
-int set_fault(int fault) {
+uint32_t set_fault(uint32_t fault) {
     rig.faults++;
 
     if (fault > rig.fault_code) {

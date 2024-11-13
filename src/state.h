@@ -41,13 +41,13 @@ enum BPFSelection {
 };
 
 struct AmpState {
-   int   alc[MAX_BANDS];		// ALC: 0-210, per band
-   int	 current_band;			// Current band selection
-   int   afr;				// AFR:
-   int   inhibit;			// Inhibit TX
-   int	 power;				// Power control
-   int	 standby;			// Standby mode
-   int   output_target[MAX_BANDS];	// Target power (see formula in .c)
+   uint32_t   alc[MAX_BANDS];		// ALC: 0-210, per band
+   uint32_t   current_band;			// Current band selection
+   uint32_t   afr;				// AFR:
+   uint32_t   inhibit;			// Inhibit TX
+   uint32_t   power;				// Power control
+   uint32_t   standby;			// Standby mode
+   uint32_t   output_target[MAX_BANDS];	// Target power (see formula in .c)
    float power_target;			// Target power configuration
    float therm_final;			// Thermal state of Final Transistor
    float therm_lpf;			// Thermal state of LPF board
@@ -66,15 +66,15 @@ struct FilterState {
 struct GlobalState {
    bool  tx_blocked;			// is TX blocked (user control)?
    bool  ptt;				// Are we transmitting?
-   int   faultbeep;			// Beep on faults
-   int	 bc_standby;			// Stay in STANDBY on band change?
-   int   fan_speed;			// Fan speed: 0-6 (0: auto)
-   int	 fault_code;			// Current fault code
-   int   faults;			// Faults since last cleared
-   int   tr_delay;			// T/R delay
-   int   eeprom_ready;			// EEPROM initialized
-   int   eeprom_dirty;			// EEPROM needs written out
-   int   eeprom_corrupted;		// EEPROM is corrupted; prompt before write out
+   bool  faultbeep;			// Beep on faults
+   bool  bc_standby;			// Stay in STANDBY on band change?
+   uint8_t    fan_speed;		// Fan speed: 0-6 (0: auto)
+   uint32_t   fault_code;		// Current fault code
+   uint32_t   faults;			// Faults since last cleared
+   uint32_t   tr_delay;			// T/R delay
+   bool       eeprom_ready;		// EEPROM initialized
+   bool       eeprom_dirty;		// EEPROM needs written out
+   bool       eeprom_corrupted;		// EEPROM is corrupted; prompt before write out
 
    // Thermals
    float therm_inlet;			// Air inlet temp
@@ -95,13 +95,13 @@ struct GlobalState {
 
 #if	defined(HOST_POSIX)
    // Host build fd's/buffers/etc
-   int			eeprom_fd;
+   uint32_t		eeprom_fd;
    u_int8_t		*eeprom_mmap;
-   int			logfile_fd;
-   int			catpipe_fd;
+   uint32_t		logfile_fd;
+   uint32_t		catpipe_fd;
 #endif	// defined(HOST_POSIX)
 };
 
-extern void shutdown_rig(int signum);	// main.c
+extern void shutdown_rig(uint32_t signum);	// main.c
 
 #endif	// !defined(_state_h)

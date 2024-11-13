@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #if	defined(HOST_POSIX)
 // XXX: Include host gpio support
-extern const int max_gpiochips;
+extern const uint32_t max_gpiochips;
 #else
 // Include uc specific gpio
 #endif
@@ -22,7 +22,7 @@ typedef struct radio_gpiochip {
    bool			active;
 } radio_gpiochip;
 
-extern int gpio_init(void);
+extern uint32_t gpio_init(void);
 
 #endif	// !defined(__h)
 

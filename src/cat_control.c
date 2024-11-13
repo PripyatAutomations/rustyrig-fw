@@ -28,7 +28,7 @@
 
 extern struct GlobalState rig;		// in main.c
 
-int cat_printf(char *str, ...) {
+uint32_t cat_printf(char *str, ...) {
    va_list ap;
    va_start(ap, str);
 
@@ -39,12 +39,12 @@ int cat_printf(char *str, ...) {
 }
 
 // Here we parse commands for the main rig
-int cat_parse_line_real(char *line) {
+uint32_t cat_parse_line_real(char *line) {
    return 0;
 }
 
 // Here we decide which parser to use
-int cat_parse_line(char *line) {
+uint32_t cat_parse_line(char *line) {
    size_t line_len = -1;
    char *endp = NULL;
 
@@ -92,7 +92,7 @@ int cat_parse_line(char *line) {
 }
 
 // Initialize CAT control
-int cat_init(void) {
+uint32_t cat_init(void) {
 #if	defined(HOST_POSIX)
 // XXX: Open the pipe
 #endif
