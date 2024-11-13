@@ -1,7 +1,7 @@
 all: world
 
 CONFIG ?= radio
-CF := ${CONFIG}.json
+CF := config/${CONFIG}.json
 BUILD_DIR := build/${CONFIG}
 OBJ_DIR := ${BUILD_DIR}/obj
 bin := ${BUILD_DIR}/firmware.bin
