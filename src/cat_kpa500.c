@@ -89,7 +89,8 @@ static uint32_t cat_kpa500_bcstandby(struct AmpState *amp, char *args) {
       if (tmp > 1)
          tmp = 1;
 
-      rig.bc_standby = bc = tmp);
+      rig.bc_standby = tmp;
+      bc = tmp;
    }
    cat_printf("^BC%d", bc);
    return 0;
@@ -246,7 +247,8 @@ static uint32_t cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
       if (tmp > 1)
          tmp = 1;
 
-      rig.faultbeep = beep = tmp;
+      beep = tmp;
+      rig.faultbeep = beep;
    }
 
    cat_printf("^SP%d", beep);
