@@ -489,6 +489,7 @@ sub eeprom_insert_channels {
    my $ee_data_offset = 0;
 
    if (@eeprom_channels) {
+      print "* Installing channel memories\n";
       # Iterate over the types and print them...
       my $ch_num = 0;
 
@@ -528,16 +529,16 @@ sub eeprom_insert_channels {
                      $ch_txpower_str = "OFF";
                   }
                   # XXX: Pack all the data into an object for insertion
-                  
-                  # did we get anything to store?
-                  $this_len = length($this_data);
-                  printf "  * Stored channel %03d [$group] \"$ch_name\" %0.3f Khz $ch_mode <%.1d Khz bw> TX: $ch_txpower_str (%d bytes)\n", $ch_num, ($ch_freq/1000), ($ch_bandwidth/1000, $this_len);
-
-                  if ($this_len > 0) {
-                  # Insert it into the total stored
 #                     my $packedcall = pack("Z8", $cval);
 #                     substr($eeprom_channel_data, $curr_offset, 8, $packedcall);
 #                     $ee_data_offset += $this_len;
+                  
+                  # did we get anything to store?
+                  $this_len = length($this_data);
+                  printf "  + Added channel %03d [$group] \"$ch_name\" %0.3f Khz $ch_mode <%.1d Khz bw> TX: $ch_txpower_str (%d bytes)\n", $ch_num, ($ch_freq/1000), ($ch_bandwidth/1000, $this_len);
+
+                  if ($this_len > 0) {
+                  # Insert it into the total stored
                   }
 
                   $ch_num++;
@@ -886,13 +887,18 @@ if ($run_mode =~ m/^import$/) {
    eeprom_insert_channels();
 
    # Disable interrupt while saving
+   my $saved_signal = $SIG{INT};
    $SIG{INT} = 'IGNORE';
 
    # Save the patched eeprom.bin
    eeprom_save($eeprom_file);
 
+   # Restore the signal handler (if any)
+   $SIG{INT} = $saved_signal;
+
    # And generate headers for the C bits...
    generate_headers();
+   
 } elsif ($run_mode =~ m/^export$/) {
    print "*** exporting is not yet supported ;( ***\n";
    die();
