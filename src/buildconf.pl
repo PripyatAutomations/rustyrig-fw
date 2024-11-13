@@ -22,10 +22,16 @@ use Hash::Merge qw(merge);
 use Mojo::JSON::Pointer;
 use String::CRC32;
 use File::Path qw(make_path remove_tree);
-# Toggle to 1 to show debugging messages
+
+# Toggle to 1 to show debugging messages, 0 to disable
 my $DEBUG = 1;
 
+my $eeprom_version = 1;
+
+# Hash sort stuff (i forget what this do, but it's important ;)
 Hash::Merge::set_behavior('RIGHT_PRECEDENT');
+
+# Logging output related things
 $Data::Dumper::Terse = 1;
 $Data::Dumper::Indent = 1;       # mild pretty print
 $Data::Dumper::Useqq = 1;        # print strings in double quotes
@@ -58,9 +64,11 @@ my $default_cfg = {
    "eeprom" => {
       "size" => 16384,
       "type" => "mmap",
-      "addr" => 0x0000
+      "addr" => 0x0000, 
+      "version" => $eeprom_version
    }
 };
+
 # Merge the version information into the default configuration
 my $base_cfg = merge($default_cfg, $version);
 
@@ -82,14 +90,15 @@ my $eeprom_file = "$build_dir/eeprom.bin";
 my $eeprom_data = '';
 # In-memory version of JUST the channels, to patch into eeprom
 my $eeprom_channel_data = '';
-my @eeprom_layout;
-my @eeprom_types;
+my ( @eeprom_layout_out, @eeprom_layout_in );
+my ( @eeprom_types_out, @eeprom_types_in );
+
 my @eeprom_channels;
-# pointers to config, types, layout, and channels respectively
+# pointers to config, channels, layout, types respectively
 my $cptr;
-my $tptr;
-my $lptr;
 my $chptr;
+my ( $lptr_out, $lptr_in );
+my ( $tptr_out, $tptr_in );
 
 # Make the build directory tree, if not present
 make_path("$build_dir/obj");
@@ -125,6 +134,7 @@ sub eeprom_types_load {
    open(my $fh, '<', $_[0]) or warn("  * Couldn't open configuration file $_[0], using defaults!\n");
    my $nbytes = 0;
    my $tmp = '';
+   my @out;
 
    while (1) {
       my $res = read $fh, $tmp, 512, length($tmp);
@@ -136,10 +146,10 @@ sub eeprom_types_load {
    $nbytes = length($tmp);
    print "  * Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
-   @eeprom_types = $json->decode($tmp) or warn("ERROR: Can't parse EEPROM types file $_[0]!\n") and return;
+   @out = $json->decode($tmp) or warn("ERROR: Can't parse EEPROM types file $_[0]!\n") and return;
 
    # Iterate over the types and print them...
-   for my $item (@eeprom_types) {
+   for my $item (@out) {
       for my $key (sort keys(%$item)) {
           my $ee_size = $item->{$key}{size};
           my $ee_descr = $item->{$key}{descr};
@@ -151,13 +161,23 @@ sub eeprom_types_load {
           }
       }
    }
-
-   # apply mojo json pointer, so we can reference by path
-   $tptr = Mojo::JSON::Pointer->new(@eeprom_types);
+   return @out;
 }
 
+# XXX: We need to pass a type and direction- in (0) or out (1) here
 sub eeprom_get_type_size {
-    my ($type_name) = @_;
+    my ($type_name, $direction) = @_;
+
+    my @eeprom_types;
+    my @eeprom_layout;
+    
+    if ($direction == 0) {
+       @eeprom_types = @eeprom_types_in;
+       @eeprom_layout = @eeprom_layout_in;
+    } else {
+       @eeprom_types = @eeprom_types_out;
+       @eeprom_layout = @eeprom_layout_out;
+    }
 
     # Assume the data is structured as a single hash ref in @eeprom_types
     my $eeprom_data = $eeprom_types[0];  # Dereference the first (and only) hash
@@ -176,6 +196,7 @@ sub eeprom_layout_load {
    open(my $fh, '<', $_[0]) or die("ERROR: Couldn't open $_[0]!\n");
    my $nbytes = 0;
    my $tmp = '';
+   my @out;
 
    while (1) {
       my $res = read $fh, $tmp, 512, length($tmp);
@@ -187,10 +208,8 @@ sub eeprom_layout_load {
    $nbytes = length($tmp);
    print "  * Read $nbytes bytes from $_[0]\n";
    my $json = JSON->new;
-   @eeprom_layout = $json->decode($tmp) or warn("ERROR: Can't parse $_[0]!\n") and return;
-
-   # apply mojo json pointer, so we can reference by path
-   $lptr = Mojo::JSON::Pointer->new(@eeprom_layout);
+   @out = $json->decode($tmp) or warn("ERROR: Can't parse $_[0]!\n");
+   return @out;
 }
 
 sub eeprom_load {
@@ -240,7 +259,7 @@ sub eeprom_patch {
    }
 
    # Walk over the layout structure and see if we have a value set in the config...
-   for my $item (@eeprom_layout) {
+   for my $item (@eeprom_layout_out) {
        for my $key (sort { $item->{$a}{offset} <=> $item->{$b}{offset} } keys %$item) {
           my $ee_key = $item->{$key}{key};
           my $ee_default = $item->{$key}{default};
@@ -261,7 +280,7 @@ sub eeprom_patch {
              $short_type =~ s/packed\://;
 #             print "    * Packed type $short_type\n";
           } else {
-             $type_size = eeprom_get_type_size($ee_type);
+             $type_size = eeprom_get_type_size($ee_type, 1);
           }
 
           if (defined($ee_off_raw)) {
@@ -399,6 +418,7 @@ sub eeprom_patch {
 # Confirm the checksum is correct
 sub eeprom_verify_checksum {
    print "* Verifying image checksum...\n";
+   # XXX: should this be in or out?
    my $eeprom_size = $cptr->get("/eeprom/size");
 
    # XXX: This should get the offset from @eeprom_layout!
@@ -457,7 +477,7 @@ sub eeprom_save {
 
 # If the channels.json file exists, load it
 sub eeprom_load_channels {
-   my $chan_data_sz = $lptr->get('/channels/size');
+   my $chan_data_sz = $lptr_out->get('/channels/size');
    print "* Loading channel memories from $_[0]\n";
    $eeprom_channel_data = "\x00" x $chan_data_sz;
    open(my $fh, '<', $_[0]) or do {
@@ -575,9 +595,9 @@ sub generate_eeprom_types_h {
    print $fh "enum ee_data_type {                      /* Type of the data */\n";
 
    # Iterate over the types and emit a line in the enum
-   for my $item (@eeprom_types) {
+   for my $item (@eeprom_types_out) {
       for my $key (sort keys(%$item)) {
-         my $t_type = $tptr->get("/$key");
+         my $t_type = $tptr_out->get("/$key");
          my $key_u = uc($key);
          print $fh "   EE_", $key_u, ",";
          my $t_descr = $item->{$key}{descr};
@@ -618,7 +638,7 @@ sub generate_eeprom_layout_h {
 
    # this needs reworked so that we get the enum types out of eeprom_types
    # XXX: We also should generate the eeprom_layout.type enum here, so we include all types...
-   for my $item (@eeprom_layout) {
+   for my $item (@eeprom_layout_out) {
       for my $key (sort keys(%$item)) {
           my $ee_key = $item->{$key}{key};
           my $ee_offset = $item->{$key}{offset};
@@ -631,7 +651,7 @@ sub generate_eeprom_layout_h {
              $short_type =~ s/packed\://;
 #             print "    * Packed type $short_type\n";
           } else {
-             $type_size = eeprom_get_type_size($ee_type);
+             $type_size = eeprom_get_type_size($ee_type, 1);
           }
           my $final_size = $type_size;
           
@@ -798,7 +818,6 @@ sub generate_atu_tables_h {
       }
       print $fh "   { -1, -1, -1, -1 } /* terminator row */\n";
       print $fh " };\n";
-   #   die();
    } else {
       print "* No ATUs configured\n";
       print $fh "#endif /* !defined(__atu_tables_h) */\n";
@@ -842,7 +861,7 @@ sub generate_filter_tables_h {
    close $fh;
 }
 
-# Save all headers
+# Create all C headers
 sub generate_headers {
    print "* Generating EEPROM layout C headers:\n";
    generate_atu_tables_h($build_dir . "/atu_tables.h");
@@ -859,11 +878,18 @@ print "* Host byte Order: ", $Config{byteorder}, "\n";
 # Load the configuration
 config_load($config_file);
 
+######
+# Here we figure out if existing ROM and current versions are different and act appropriately
 # Load the EEPROM types definitions
-eeprom_types_load("res/eeprom_types.json");
+@eeprom_types_out = eeprom_types_load("res/eeprom_types.json");
+
+# apply mojo json pointer, so we can reference by path
+$tptr_out = Mojo::JSON::Pointer->new(@eeprom_types_out);
 
 # Load the EEPROM layout definitions
-eeprom_layout_load("res/eeprom_layout.json");
+@eeprom_layout_out = eeprom_layout_load("res/eeprom_layout.json");
+# apply mojo json pointer, so we can reference by path
+$lptr_out = Mojo::JSON::Pointer->new(@eeprom_layout_out);
 
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);
@@ -880,11 +906,11 @@ if ($run_mode =~ m/^import$/) {
    # If we have a channels.json, import them and apply
    eeprom_load_channels('config/channels.json');
 
-   # Apply loaded configuration to in-memory EEPROM image
-   eeprom_patch($config);
-
    # Patch in the channel memories
    eeprom_insert_channels();
+
+   # Apply loaded configuration to in-memory EEPROM image
+   eeprom_patch($config);
 
    # Disable interrupt while saving
    my $saved_signal = $SIG{INT};

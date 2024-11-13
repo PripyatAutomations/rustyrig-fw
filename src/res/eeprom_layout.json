@@ -1,119 +1,124 @@
 {
-   "firmware/major": {
+   "eeprom/version": {
        "offset": 0,
+       "type": "int",
+       "key": "eeprom/version"
+   },
+   "firmware/major": {
+       "offset": 4,
        "type": "int",
        "key":  "firmware/major"
    },
    "firmware/minor": {
-       "offset": 4,
+       "offset": 8,
        "type": "int",
        "key":  "firmware/minor"
    },
    "device/serial": {
-       "offset": 8,
+       "offset": 12,
        "type": "int",
        "key":  "device/serial",
        "default": 1
    },
    "device/hwversion": {
-       "offset": 12,
+       "offset": 16,
        "type": "int",
        "key": "device/hwversion"
    },
    "rfdecks/lowband/curr_band": {
-       "offset": 16,
+       "offset": 20,
        "size": 1,
        "type": "int",
        "key": "rfdecks/lowband/curr_band",
        "default": 0
    },
    "rfdecks/highband/curr_band": {
-       "offset": 17,
+       "offset": 21,
        "size": 1,
        "type": "int",
        "key": "rfdecks/highband/curr_band",
        "default": 0
    },
    "station/call": {
-       "offset": 18,
+       "offset": 22,
        "type": "call",
        "key": "station/call",
        "default": "N0CALL"
    },
    "station/grid": {
-       "offset": 34,
+       "offset": 38,
        "type": "grid",
        "key": "station/grid"
    },
    "owner/call": {
-       "offset": 42,
+       "offset": 46,
        "type": "call",
        "key": "owner/call",
        "default": "N0CALL"
    },
    "owner/privs": {
-       "offset": 58,
+       "offset": 62,
        "type": "class",
        "key": "owner/privs",
        "default": "US/General"
    },
    "pin/master": {
-       "offset": 60,
+       "offset": 64,
        "size": 6,
        "type": "str",
        "key": "pin/master",
        "default": "012345"
    },
    "pin/reset": {
-       "offset": 66,
+       "offset": 70,
        "size": 6,
        "type": "str",
        "key": "pin/reset",
        "default": "543210"
    },
    "net/ip": {
-       "offset": 72,
+       "offset": 76,
        "type": "ip4",
        "key": "net/ip",
        "default": "10.201.1.100"
    },
    "net/gw": {
-       "offset": 76,
+       "offset": 80,
        "type": "ip4",
        "key": "net/gw",
        "default": "10.201.1.1"
    },
    "net/mask": {
-       "offset": 80,
+       "offset": 84,
        "type": "ip4",
        "key": "net/mask",
        "default": "255.255.255.0"
    },
    "net/dns1": {
-       "offset": 84,
+       "offset": 88,
        "type": "ip4",
        "key": "net/dns1",
        "default": "10.201.1.1"
    },
    "net/dns2": {
-       "offset": 88,
+       "offset": 92,
        "type": "ip4",
        "key": "net/dns2"
    },
    "net/vlan": {
-       "offset": 92,
+       "offset": 96,
        "type": "int",
        "key": "net/vlan",
        "default": 1
    },
    "i2c/myaddr": {
-       "offset": 96,
+       "offset": 100,
        "type": "int",
        "key": "i2c/myaddr"
    },
    "channels": {
        "offset": 2048,
-       "size": 14332,
+       "size": 14328,
        "type": "packed:channel",
        "key": "channels"
    },
