@@ -6,4 +6,5 @@ The layout should be such:
 			eeprom_types.json	Types for import
 
 
-Such as archive/20241112.01/eeprom_layout.json would represent -v 20241112.01
+Such as archive/01/eeprom_layout.json would represent eeprom version 1
+
