@@ -10,8 +10,8 @@
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
-#include "cat_control.h"
+#include "cat.h"
 #include "posix.h"
 
-bool dying = 0;
-struct GlobalState rig;	// Global state
+extern bool dying = 0;
+extern struct GlobalState rig;	// Global state

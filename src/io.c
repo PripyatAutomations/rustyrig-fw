@@ -1,7 +1,6 @@
 //
 // IO abstraction
 //
-
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -25,6 +24,7 @@ int io_init(input_context_t *ctx, input_type_t type, const char *path_or_address
     switch (type) {
        case INPUT_SOCKET: {
           ctx->fd = socket(AF_INET, SOCK_STREAM, 0);
+
           if (ctx->fd < 0) {
              return -1;
           }
@@ -33,6 +33,7 @@ int io_init(input_context_t *ctx, input_type_t type, const char *path_or_address
           memset(&server_addr, 0, sizeof(server_addr));
           server_addr.sin_family = AF_INET;
           server_addr.sin_port = htons(port);
+
           if (inet_pton(AF_INET, path_or_address, &server_addr.sin_addr) <= 0) {
              close(ctx->fd);
              return -1;
@@ -47,6 +48,7 @@ int io_init(input_context_t *ctx, input_type_t type, const char *path_or_address
        case INPUT_DEVICE:
        case INPUT_PIPE:
           ctx->fd = open(path_or_address, O_RDWR);  // O_RDWR for read/write capability
+
           if (ctx->fd < 0) {
              return -1;
           }
@@ -66,7 +68,10 @@ ssize_t io_read(input_context_t *ctx, char *buffer, size_t len) {
 }
 
 ssize_t io_write(input_context_t *ctx, const char *buffer, size_t len) {
-    if (!ctx || ctx->fd < 0) return -1;
+    if (!ctx || ctx->fd < 0) {
+       return -1;
+    }
+
     return write(ctx->fd, buffer, len);
 }
 

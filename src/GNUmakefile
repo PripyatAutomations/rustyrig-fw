@@ -21,7 +21,7 @@ EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
 
 ifeq (${PLATFORM},posix)
-LDFLAGS += -lev
+LDFLAGS += -lev -lgpiod
 endif
 
 # Are we cross compiling?

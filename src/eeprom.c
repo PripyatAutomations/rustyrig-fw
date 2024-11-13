@@ -215,8 +215,25 @@ uint32_t eeprom_load_config(void) {
    // walk over the eeprom_layout and apply each setting to our state object (rig)
    uint32_t cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
    for (uint32_t i = 0; i < cfg_rows; i++) {
-       Log(LOG_DEBUG, "key: %s type: %d offset: %d size: %d", eeprom_layout[i].key,
-           eeprom_layout[i].type, eeprom_layout[i].offset, eeprom_layout[i].size);
+       // Common types: string, int, float
+       char mbuf[512];
+       memset(mbuf, 0, sizeof(mbuf));
+//       switch(eeprom_layout[i].type) {
+//           case EE_BOOL: snprintf(mbuf, 512, (eeprom_layout[i].
+//   EE_BOOL,                     /* Boolean (true/false) */
+//   EE_CALL,                     /* Ham callsign */
+//   EE_CHANNEL,                  /* Channel memory */
+//   EE_CLASS,                    /* License Class */
+//   EE_FLOAT,                    /* Decimal (floating point) numbers */
+//   EE_FREQ,                     /* A frequency */
+//   EE_GRID,                     /* Maidenhead gridsquare */
+//   EE_INT,                      /* Whole numbers */
+//   EE_IP4,                      /* IPv4 address */
+//   EE_MODE,                     /* Operating mode (modulation) */
+//   EE_STR,                      /* Text string, fixed length NULL pad */
+//       }
+       Log(LOG_DEBUG, "key: %s type: %d offset: %d size: %d |%s|", eeprom_layout[i].key,
+           eeprom_layout[i].type, eeprom_layout[i].offset, eeprom_layout[i].size, mbuf);
    }
    Log(LOG_INFO, "Configuration successfully loaded from EEPROM");
    return 0;

@@ -3,9 +3,13 @@
       "serial": "000001",
       "hwversion": 1
    },
+   "interface": {
+      "cat": "pipe:cat.socket",
+      "logger": "file:hatchet.log"
+   },
    "build": {
-      "cflags": "-fPIC -pthread",
-      "ldflags": "-lgpiod -pthread",
+      "cflags": "-fPIC",
+      "ldflags": "",
       "platform": "posix",
       "toolchain": {
          "prefix": ""
@@ -42,7 +46,7 @@
       "mask": "255.255.255.0",
       "dns1": "10.201.1.1",
       "dns2": "1.1.1.1",
-      "vlan": 1400
+      "vlan": 1583
    },
    "thermal": {
       "encl_alarm": 120.0,

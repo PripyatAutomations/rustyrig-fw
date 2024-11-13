@@ -922,7 +922,7 @@ eeprom_load($eeprom_file);
 
 if ($run_mode =~ m/^import$/) {
    # If we have a channels.json, import them and apply
-   eeprom_load_channels('config/channels.json');
+   eeprom_load_channels("config/${profile}.channels.json");
 
    # Patch in the channel memories
    eeprom_insert_channels();
