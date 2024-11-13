@@ -1,3 +1,6 @@
+//
+// Thermal monitoring and shutdown feature
+//
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -39,6 +42,7 @@ int get_thermal(int sensor) {
 
 // Check the thermals and determine if we might be on fire...
 bool are_we_on_fire(void) {
+    // We need to pull these values out of the config data
 /*
     if (rig.therm_enclosure > thermal.encl_max) return true;
     if (rig.therm_inlet > thermal.inlet_max) return true;

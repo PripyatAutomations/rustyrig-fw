@@ -39,3 +39,11 @@ Status
 
 Presently my experiments take me to running this on stm32 attached to a pi
 with radioberry v2 board.
+
+Presently I'm working on the radio management and CAT code, then i'll start
+adding support for various i2c devices like DDS chips.
+
+It's up to the user to implement bits of the reference hardware and
+configure the software as they need. Feel free to request features via
+
+github.com/pripyatautomations/

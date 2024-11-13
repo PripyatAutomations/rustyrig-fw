@@ -1,5 +1,5 @@
 /*
- * Here we handle interaction with a radioberry
+ * Here we handle interaction with a radioberry, if used
  */
 #include "config.h"
 #include <stddef.h>

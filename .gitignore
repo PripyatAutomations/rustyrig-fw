@@ -21,4 +21,5 @@ src/firmware.log
 src/radio.json
 
 # Archived configs
-src/config/archive/*
+src/config/archive/*.json
+
