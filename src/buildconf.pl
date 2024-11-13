@@ -307,11 +307,11 @@ sub eeprom_patch {
           my $final_size = $type_size;
           
           if (defined($ee_size) && $ee_size > 0) {
-             if ($type_size == -1) {
-#                print "     ~ Variable field of type $ee_type forced to $ee_size bytes\n";
-             } else {
-                print "     ~ Overriding default size $type_size for [$ee_type] ($ee_size)\n";
-             }
+#             if ($type_size == -1) {
+##                print "     ~ Variable field of type $ee_type forced to $ee_size bytes\n";
+#             } else {
+#                print "     ~ Overriding default size $type_size for [$ee_type] ($ee_size)\n";
+#             }
              $final_size = $ee_size;
           }
 
@@ -635,11 +635,7 @@ sub generate_eeprom_layout_h {
           my $final_size = $type_size;
           
           if (defined($ee_size) && $ee_size > 0) {
-             if ($type_size == -1) {
-#                print "     ~ Variable field of type $ee_type forced to $ee_size bytes\n";
-             } else {
-                print "     ~ Overriding default size $type_size for [$ee_type] ($ee_size)\n";
-             }
+#             print "     ~ Overriding default size $type_size for [$ee_type] ($ee_size)\n";
              $final_size = $ee_size;
           }
 

@@ -1,0 +1,9 @@
+#!/bin/bash
+ts=$(date +%Y-%m-%d.%H%M)
+nf=config/archive/channels.$ts.json
+cp config/channels.json $nf
+echo "* Archived channels to $nf"
+
+nf=config/archive/radio.$ts.json
+cp config/radio.json $nf
+echo "* Archived config to $nf"

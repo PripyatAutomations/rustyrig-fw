@@ -19,3 +19,6 @@ src/firmware.bin
 src/eeprom.bin
 src/firmware.log
 src/radio.json
+
+# Archived configs
+src/config/archive/*
