@@ -11,6 +11,7 @@
 #include "eeprom.h"
 #include "logger.h"
 #include "thermal.h"
+#include "ant_tuner.h"
 #include "cat_control.h"
 #include "ptt.h"
 #include "posix.h"
@@ -64,6 +65,12 @@ int main(int argc, char **argv) {
    logger_init();
    Log(LOG_INFO, "Radio firmware v%s starting...", VERSION);
    initialize_state();			// Load default values
+   get_serial_number();
+
+   // if able to connect to EEPROM, load and apply settings
+   if (eeprom_init() == 0) {
+      eeprom_load_config();
+   }
 
    // Initialize the i2c buses, if present (starts at 1) 
    I2CBus i2c_bus1 = { .bus_id = 1 };
@@ -79,12 +86,7 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "Error initializing i2c");
    }
 
-   // if able to connect to EEPROM, load and apply settings
-   if (eeprom_init() == 0) {
-      eeprom_load_config();
-   }
-
-   get_serial_number();
+   atu_init();
    cat_init();
 
    Log(LOG_INFO, "Radio initialization completed. Enjoy!");

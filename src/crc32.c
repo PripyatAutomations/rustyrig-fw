@@ -1,7 +1,7 @@
 /* Crc - 32 BIT ANSI X3.66 CRC checksum files */
 // From https://github.com/panzi/CRC-and-checksum-functions
 #include <stdio.h>
-#include "crc.h"
+#include "crc32.h"
 
 #ifdef __TURBOC__
  #pragma warn -cln

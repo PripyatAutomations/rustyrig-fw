@@ -26,7 +26,7 @@
 #include "logger.h"
 #include "eeprom.h"
 #include "i2c.h"
-#include "crc.h"
+#include "crc32.h"
 #define	EEPROM_C
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
 
@@ -80,7 +80,6 @@ uint32_t eeprom_init(void) {
 
 #if	defined(HOST_POSIX)
    struct stat sb;
-#endif
    size_t eeprom_len;
    ssize_t s;
 
@@ -103,6 +102,8 @@ uint32_t eeprom_init(void) {
    rig.eeprom_ready = 1;
    Log(LOG_INFO, "EEPROM Initialized (%s) %s", (rig.eeprom_fd > 0 ? "mmap" : "i2c"),
                                            (rig.eeprom_fd > 0 ? HOST_EEPROM_FILE : ""));
+#endif	// defined(HOST_POSIX)
+
    return 0;
 }
 

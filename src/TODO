@@ -1,6 +1,6 @@
 [buildconf]
-* Support for -i 1.2 style option to allow using an older version's
-  eeprom_{layout,types}.json to import data for saving in current version
+- Support for loading older (input) eeprom layouts, according to version saved in the EEPROM
+  - see res/archive/*
 
 [Network]
     net/ip4 and net/ip6 split

@@ -10,7 +10,18 @@
 #include <unistd.h>
 #include <string.h>
 #include "logger.h"
-#include "state.h"
-extern struct GlobalState rig;	// Global state
 #include "cat.h"
 #include "cat_yaesu.h"
+#include "cat_control.h"
+#include "state.h"
+
+extern struct GlobalState rig;	// Global state
+
+#if	defined(CAT_YAESU)
+
+struct cat_cmd cmd_yaesu[] = {
+   // Commands for Yaesu mode
+};
+
+
+#endif
