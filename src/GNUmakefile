@@ -143,5 +143,5 @@ ${CF}:
 	exit 1
 
 installdep:
-	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl
+	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl libgpiod-dev
 	cpan install Mojo::JSON::Pointer

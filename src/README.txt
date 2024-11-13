@@ -1,10 +1,11 @@
 There's probably missing packages in these lists and some packages no longer needed....
 
-Install these packages at minimum:
-	libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl
+If you use debian, you can skip this part and use 'make installdep'
+	Install these packages at minimum:
+		libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl
 
-Install cpan modules (if on debian)
-	cpan install Mojo::JSON::Pointer
+	Install cpan modules (if on debian)
+		cpan install Mojo::JSON::Pointer
 
 Files
 -----
