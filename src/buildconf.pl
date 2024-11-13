@@ -2,7 +2,11 @@
 #
 # Convert $profile.json to an eeprom.bin and appropriate headers needed to build
 # the radio software, either natively or cross compiled.
-# $profile defaults to 'radio' but can be provided as the first (and only) argument
+# $profile defaults to 'radio' but can be provided as the first argument.
+#
+# Exporting the configuration will eventually be supported too...
+# - To use it, buildconf.pl $profile export which will save in config/archive/*-yyyy-mm-dd.json
+#
 ###############################################################################
 # arguments: [profile] [import|export]
 #
@@ -18,15 +22,16 @@ use JSON;
 use Data::Dumper;
 use Devel::Peek;
 use MIME::Base64;
+use POSIX qw(strftime);
 use Hash::Merge qw(merge);
 use Mojo::JSON::Pointer;
 use String::CRC32;
 use File::Path qw(make_path remove_tree);
 
-# Toggle to 1 to show debugging messages, 0 to disable
-my $DEBUG = 1;
-
 my $eeprom_version = 1;
+
+my $DEBUG = 1;			# Toggle to 1 to show debugging messages, 0 to disable
+my $run_mode = "import";	# This is set to argv[2] below, if present
 
 # Hash sort stuff (i forget what this do, but it's important ;)
 Hash::Merge::set_behavior('RIGHT_PRECEDENT');
@@ -68,11 +73,7 @@ my $default_cfg = {
       "version" => $eeprom_version
    }
 };
-
-# Merge the version information into the default configuration
 my $base_cfg = merge($default_cfg, $version);
-
-my $run_mode = "import";
 
 ###########
 # Globals #
@@ -85,6 +86,7 @@ if ($#ARGV >= 0) {
    shift @_;
 }
 
+# Set the run-mode if it's present
 if ($#ARGV >= 1) {
    $run_mode = $ARGV[1];
 }
@@ -581,6 +583,7 @@ sub eeprom_insert_channels {
 
 # XXX: Extract channels from the eeprom in memory
 sub eeprom_export_channels {
+   print "*** exporting is not yet supported ;( ***\n";
 }
 
 # Save the EEPROM types header
@@ -917,10 +920,6 @@ if ($need_upgrade) {
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);
 
-#####
-# XXX: Are we importing or exporting?
-
-
 if ($run_mode =~ m/^import$/) {
    # If we have a channels.json, import them and apply
    eeprom_load_channels('config/channels.json');
@@ -943,8 +942,9 @@ if ($run_mode =~ m/^import$/) {
 
    # And generate headers for the C bits...
    generate_headers();
-   
 } elsif ($run_mode =~ m/^export$/) {
-   print "*** exporting is not yet supported ;( ***\n";
-   die();
+   # Export channels
+   my $timestamp = strftime "%m-%d-%Y", localtime;
+   my $export_chan = "config/archive/${timestamp}";
+   eeprom_export_channels($export_chan);
 }

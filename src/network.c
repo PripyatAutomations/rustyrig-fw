@@ -13,4 +13,9 @@
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
+
+#if	defined(HOST_POSIX)
+#include <sys/socket.h>
+#endif
+
 extern struct GlobalState rig;	// Global state

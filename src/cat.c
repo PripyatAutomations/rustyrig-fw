@@ -24,8 +24,8 @@
 #include "thermal.h"
 #include "power.h"
 #include "eeprom.h"
-
-extern struct GlobalState rig;		// in main.c
+#include "vfo.h"
+extern struct GlobalState rig;  // Global state
 
 uint32_t cat_printf(char *str, ...) {
    va_list ap;

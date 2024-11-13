@@ -20,6 +20,10 @@ EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
 EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
 
+ifeq (${PLATFORM},posix)
+LDFLAGS += -lev
+endif
+
 # Are we cross compiling?
 ifneq (${TC_PREFIX},"")
 CC := ${TC_PREFIX}-gcc
@@ -42,14 +46,16 @@ objs += eeprom.o		# "EEPROM" configuration storage
 objs += faults.o		# Fault management/alerting
 objs += filters.o		# Control of input/output filters
 objs += gpio.o			# GPIO controls
+objs += io.o			# Input/Output abstraction/portability
 objs += i2c.o			# i2c abstraction
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += network.o		# Network control
+
 ifeq (${PLATFORM}, posix)
-objs += cat_pipe.o		# CAT over unix pipes (for posix hosts)
 objs += posix.o			# support for POSIX hosts (pi or debugging)
 endif
+
 objs += power.o			# Power monitoring and management
 objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 objs += thermal.o		# Thermal management

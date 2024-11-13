@@ -5,6 +5,7 @@
 #include <linux/i2c-dev.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <errno.h>
 
 bool i2c_init(I2CBus *bus, uint32_t my_addr) {
     char i2c_bus_path[20];
@@ -23,7 +24,7 @@ bool i2c_init(I2CBus *bus, uint32_t my_addr) {
 
 bool i2c_write(I2CBus *bus, uint8_t device_address, uint8_t *data, size_t length) {
     if (ioctl(bus->fd, I2C_SLAVE, device_address) < 0) {
-        perror("Failed to set I2C slave address");
+        Log(LOG_WARN, "i2c_write: Failed to set I2C slave address: %s (%d)", strerror(errno), errno);
         return false;
     }
     return (write(bus->fd, data, length) == (ssize_t)length);
@@ -31,7 +32,7 @@ bool i2c_write(I2CBus *bus, uint8_t device_address, uint8_t *data, size_t length
 
 bool i2c_read(I2CBus *bus, uint8_t device_address, uint8_t *buffer, size_t length) {
     if (ioctl(bus->fd, I2C_SLAVE, device_address) < 0) {
-        perror("Failed to set I2C slave address");
+        Log(LOG_WARN, "i2c_read: Failed to set I2C slave address: %s (%d)", strerror(errno), errno);
         return false;
     }
     return (read(bus->fd, buffer, length) == (ssize_t)length);
