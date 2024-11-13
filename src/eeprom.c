@@ -248,3 +248,28 @@ char *get_serial_number(void) {
    Log(LOG_INFO, "Device serial number: %s", eeprom_get_str(idx));
    return NULL;
 }
+
+////////////////////////////////
+// Support for delayed writes //
+////////////////////////////////
+// Do we have any changes to write?
+bool check_pending_eeprom_changes(void) {
+   return false;
+}
+
+// How long ago was the eeprom changed?
+uint32_t get_eeprom_change_age(void) {
+   return 0;
+}
+
+// Write the pending changes if any
+bool write_pending_eeprom_changes(void) {
+   if (check_pending_eeprom_changes()) { 
+      // XXx: this should come from config
+      int max_age = 60;
+      if (get_eeprom_change_age() > max_age) {
+         // Commit changes
+      }
+   }
+   return false;
+}

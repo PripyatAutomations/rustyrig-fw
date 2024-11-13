@@ -12,7 +12,7 @@
 #include "logger.h"
 #include "thermal.h"
 #include "ant_tuner.h"
-#include "cat_control.h"
+#include "cat.h"
 #include "ptt.h"
 #include "posix.h"
 

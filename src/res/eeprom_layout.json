@@ -117,10 +117,70 @@
        "key": "i2c/myaddr"
    },
    "channels": {
-       "offset": 2048,
+       "offset": 1952,
        "size": 14328,
        "type": "packed:channel",
        "key": "channels"
+   },
+   "thermal/encl_alarm": {
+       "offset": 16284,
+       "type": "float",
+       "key": "thermal/encl_alarm"
+   },
+   "thermal/encl_max": {
+       "offset": 16292,
+       "type": "float",
+       "key": "thermal/encl_max"
+   },
+   "thermal/encl_target": {
+       "offset": 16300,
+       "type": "float",
+       "key": "thermal/encl_target"
+   },
+   "thermal/final_alarm": {
+       "offset": 16308,
+       "type": "float",
+       "key": "thermal/final_alarm"
+   },
+   "thermal/final_max": {
+       "offset": 16316,
+       "type": "float",
+       "key": "thermal/final_max"
+   },
+   "thermal/final_target": {
+       "offset": 16324,
+       "type": "float",
+       "key": "thermal/final_target"
+   },
+   "thermal/inlet_alarm": {
+       "offset": 16332,
+       "type": "float",
+       "key": "thermal/inlet_alarm"
+   },
+   "thermal/inlet_max": {
+       "offset": 16340,
+       "type": "float",
+       "key": "thermal/inlet_max"
+   },
+   "thermal/inlet_target": {
+       "offset": 16348,
+       "type": "float",
+       "key": "thermal/inlet_target"
+   },
+   "thermal/lpf_alarm": {
+       "offset": 16356,
+       "type": "float",
+       "key": "thermal/lpf_alarm"
+   },
+   "thermal/lpf_max": {
+       "offset": 16364,
+       "type": "float",
+       "key": "thermal/lpf_max"
+   },
+   "thermal/lpf_target": {
+       "offset": 16372,
+       "type": "float",
+       "key": "thermal/lpf_target"
    },
    "eeprom/checksum": {
        "offset": 16380,

@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "logger.h"
-#include "cat_control.h"
+#include "cat.h"
 #include "state.h"
 #include "thermal.h"
 #include "power.h"

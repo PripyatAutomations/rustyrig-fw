@@ -12,7 +12,6 @@
 #include "logger.h"
 #include "cat.h"
 #include "cat_yaesu.h"
-#include "cat_control.h"
 #include "state.h"
 
 extern struct GlobalState rig;	// Global state

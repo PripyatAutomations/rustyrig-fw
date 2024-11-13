@@ -10,7 +10,8 @@
 * Overall: NYI
 
 [EEPROM]
-* Overall: Some
+* Overall: Import, Load, Get
+  - Need to implement export and finish support for upgrading eeprom version to latest in buildconf.pl
 
 [Fault Handling]
 * Overall: In Progress

@@ -1,3 +1,4 @@
+There's probably missing packages in these lists and some packages no longer needed....
 
 Install these packages at minimum:
 	libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl
@@ -7,8 +8,12 @@ Install cpan modules (if on debian)
 
 Files
 -----
-	res/eeprom_layout.json	Contains machine readable layout data for patching eeprom.bin
-	radio.json		User supplied, see doc/radio.json.example
+	res/eeprom_layout.json		Contains machine readable layout data for patching eeprom.bin
+	config/radio.json		User supplied, see doc/radio.json.example
+
+Configuring
+-----------
+	See CONFIGURING for hints
 
 Building
 --------
@@ -37,13 +42,9 @@ Installing
 Status
 ------
 
-Presently my experiments take me to running this on stm32 attached to a pi
-with radioberry v2 board.
-
-Presently I'm working on the radio management and CAT code, then i'll start
+Right now I'm working on the radio management and CAT code, then i'll start
 adding support for various i2c devices like DDS chips.
 
 It's up to the user to implement bits of the reference hardware and
 configure the software as they need. Feel free to request features via
-
 github.com/pripyatautomations/

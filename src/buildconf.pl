@@ -72,6 +72,8 @@ my $default_cfg = {
 # Merge the version information into the default configuration
 my $base_cfg = merge($default_cfg, $version);
 
+my $run_mode = "import";
+
 ###########
 # Globals #
 ###########
@@ -80,6 +82,11 @@ my $profile = 'radio';
 # use profile name from command line, if given
 if ($#ARGV >= 0) {
    $profile = $ARGV[0];
+   shift @_;
+}
+
+if ($#ARGV >= 1) {
+   $run_mode = $ARGV[1];
 }
 
 my $build_dir = "build/$profile";
@@ -880,6 +887,9 @@ config_load($config_file);
 
 ######
 # Here we figure out if existing ROM and current versions are different and act appropriately
+my $need_upgrade = 0;
+my $curr_eeprom_version = 0;
+
 # Load the EEPROM types definitions
 @eeprom_types_out = eeprom_types_load("res/eeprom_types.json");
 
@@ -891,16 +901,25 @@ $tptr_out = Mojo::JSON::Pointer->new(@eeprom_types_out);
 # apply mojo json pointer, so we can reference by path
 $lptr_out = Mojo::JSON::Pointer->new(@eeprom_layout_out);
 
+if ($need_upgrade) {
+   print "** Upgrade needed: EEPROM from $curr_eeprom_version to $eeprom_version\n";
+   @eeprom_types_in = eeprom_types_load("res/archive/$curr_eeprom_version/eeprom_types.json");
+   @eeprom_layout_in = eeprom_layout_load("res/archive/$curr_eeprom_version/eeprom_layout.json");
+   $lptr_in = Mojo::JSON::Pointer->new(@eeprom_layout_in);
+   $tptr_in = Mojo::JSON::Pointer->new(@eeprom_types_in);
+} else {
+   @eeprom_layout_in = @eeprom_layout_out;
+   @eeprom_types_in = @eeprom_types_out;
+   $lptr_in = $lptr_out;
+   $tptr_in = $tptr_out;
+}
+
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);
 
 #####
 # XXX: Are we importing or exporting?
-my $run_mode = "import";
 
-if ($#ARGV >= 1) {
-   $run_mode = $ARGV[1];
-}
 
 if ($run_mode =~ m/^import$/) {
    # If we have a channels.json, import them and apply

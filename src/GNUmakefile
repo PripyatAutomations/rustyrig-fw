@@ -33,7 +33,7 @@ endif
 # Source objects #
 ##################
 objs += ant_tuner.o		# Antenna Tuner
-objs += cat_control.o		# CAT parsers
+objs += cat.o			# CAT parsers
 objs += cat_kpa500.o		# amplifier control (KPA-500 mode)
 objs += cat_yaesu.o		# Yaesu CAT protocol
 objs += channels.o		# Channel Memories
