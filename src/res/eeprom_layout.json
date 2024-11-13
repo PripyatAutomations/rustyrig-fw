@@ -1,20 +1,18 @@
 {
    "firmware/major": {
        "offset": 0,
-       "size": 1,
        "type": "int",
        "key":  "firmware/major"
    },
    "firmware/minor": {
        "offset": 1,
-       "size": 1,
        "type": "int",
        "key":  "firmware/minor"
    },
    "device/serial": {
        "offset": 2,
-       "size": 4,
        "type": "int",
+       "size": 4,
        "key":  "device/serial",
        "default": 1
    },
@@ -26,41 +24,35 @@
    },
    "rfdecks/lowband/curr_band": {
        "offset": 10,
-       "size": 1,
        "type": "int",
        "key": "rfdecks/lowband/curr_band",
        "default": 0
    },
    "rfdecks/highband/curr_band": {
        "offset": 11,
-       "size": 1,
        "type": "int",
        "key": "rfdecks/highband/curr_band",
        "default": 0
    },
    "station/call": {
        "offset": 12,
-       "size": 16,
        "type": "call",
        "key": "station/call",
        "default": "N0CALL"
    },
    "station/grid": {
        "offset": 28,
-       "size": 8,
        "type": "grid",
        "key": "station/grid"
    },
    "owner/call": {
        "offset": 36,
-       "size": 16,
        "type": "call",
        "key": "owner/call",
        "default": "N0CALL"
    },
    "owner/privs": {
        "offset": 52,
-       "size": 2,
        "type": "class",
        "key": "owner/privs",
        "default": "US/General"
@@ -81,35 +73,30 @@
    },
    "net/ip": {
        "offset": 65,
-       "size": 4,
        "type": "ip4",
        "key": "net/ip",
        "default": "10.201.1.100"
    },
    "net/gw": {
        "offset": 69,
-       "size": 4,
        "type": "ip4",
        "key": "net/gw",
        "default": "10.201.1.1"
    },
    "net/mask": {
        "offset": 73,
-       "size": 4,
        "type": "ip4",
        "key": "net/mask",
        "default": "255.255.255.0"
    },
    "net/dns1": {
        "offset": 77,
-       "size": 4,
        "type": "ip4",
        "key": "net/dns1",
        "default": "10.201.1.1"
    },
    "net/dns2": {
        "offset": 81,
-       "size": 4,
        "type": "ip4",
        "key": "net/dns2"
    },
@@ -122,7 +109,6 @@
    },
    "i2c/myaddr": {
        "offset": 89,
-       "size": 1,
        "type": "int",
        "key": "i2c/myaddr"
    },

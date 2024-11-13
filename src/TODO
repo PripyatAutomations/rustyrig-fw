@@ -1,5 +1,6 @@
 [buildconf]
-* Take default sizes from eeprom_types
+* Support for -i 1.2 style option to allow using an older version's
+  eeprom_{layout,types}.json to import data for saving in current version
 
 [Network]
     net/ip4 and net/ip6 split
@@ -11,3 +12,7 @@
 [HostInterface]
 
 [Backplane]
+
+[CAT]
+* Implement control over unix pipes in posix mode
+* Implement control over stm32 serial over usb

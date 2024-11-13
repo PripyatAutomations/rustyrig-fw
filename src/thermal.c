@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "state.h"
+#include "thermal.h"
+
 extern struct GlobalState rig;	// Global state
 
 // Get thermals:
@@ -33,4 +35,17 @@ int get_thermal(int sensor) {
     }
 
     return -1;
+}
+
+// Check the thermals and determine if we might be on fire...
+bool are_we_on_fire(void) {
+/*
+    if (rig.therm_enclosure > thermal.encl_max) return true;
+    if (rig.therm_inlet > thermal.inlet_max) return true;
+    if (rig.low_amp.therm_final > thermal.final_max) return true;
+    if (rig.low_amp.therm_lpf > thermal.final_lpf) return true;
+    if (rig.high_amp.therm_final > thermal.final_max) return true;
+    if (rig.high_amp.therm_lpf > thermal.final_lpf) return true;
+*/
+    return false;
 }

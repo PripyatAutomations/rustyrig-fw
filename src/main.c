@@ -10,7 +10,9 @@
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
+#include "thermal.h"
 #include "cat_control.h"
+#include "ptt.h"
 #include "posix.h"
 
 bool dying = 0;
@@ -90,6 +92,13 @@ int main(int argc, char **argv) {
    // Main loop
    while(!dying) {
       char buf[512];
+      
+      if (are_we_on_fire()) {
+         ptt_set(false);
+         ptt_set_blocked(true);
+         Log(LOG_CRIT, "Radio is on fire?! Halted TX!\n");
+      }
+
       memset(buf, 0, 512);
       // read_serial(&buf, 512);
       cat_parse_line(buf);

@@ -47,6 +47,7 @@ objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += network.o		# Network control
 ifeq (${PLATFORM}, posix)
+objs += cat_pipe.o		# CAT over unix pipes (for posix hosts)
 objs += posix.o			# support for POSIX hosts (pi or debugging)
 endif
 objs += power.o			# Power monitoring and management
@@ -55,6 +56,7 @@ objs += radioberry.o		# communication with radioberry host
 objs += thermal.o		# Thermal management
 objs += usb.o			# Support for USB control (stm32)
 objs += util_vna.o		# Vector Network Analyzer
+objs += vfo.o			# VFO control/management
 
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)

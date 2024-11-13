@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include "logger.h"
 #include "state.h"
 #include "ptt.h"
 extern struct GlobalState rig;	// Global state
@@ -26,4 +27,19 @@ bool ptt_check_blocked(void) {
 bool ptt_set_blocked(bool blocked) {
    rig.tx_blocked = blocked;
    return blocked;
+}
+
+
+bool ptt_set(bool ptt) {
+   if (ptt_check_blocked()) {
+      Log(LOG_WARN, "PTT request while blocked");
+      return false;
+   }
+
+   rig.ptt = ptt;
+   return rig.ptt;
+}
+
+bool ptt_toggle(void) {
+   return ptt_set(!rig.ptt);
 }

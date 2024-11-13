@@ -63,6 +63,7 @@ int eeprom_get_int(int idx) {
 const char *eeprom_get_str(int idx) {
    char *ret = NULL;
 
+   // int eeprom_read_block(u_int8_t *buf, size_t offset, size_t len)
    return ret;
 }
 
