@@ -76,7 +76,7 @@ if ($#ARGV >= 0) {
 
 my $build_dir = "build/$profile";
 my $config = { };
-my $config_file = "$profile.json";
+my $config_file = "config/$profile.json";
 my $eeprom_file = "$build_dir/eeprom.bin";
 # In-memory version of the EEPROM, either loaded or empty
 my $eeprom_data = '';
@@ -877,7 +877,7 @@ if ($#ARGV >= 1) {
 
 if ($run_mode =~ m/^import$/) {
    # If we have a channels.json, import them and apply
-   eeprom_load_channels('channels.json');
+   eeprom_load_channels('config/channels.json');
 
    # Apply loaded configuration to in-memory EEPROM image
    eeprom_patch($config);
