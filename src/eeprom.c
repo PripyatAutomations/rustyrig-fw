@@ -60,6 +60,14 @@ uint32_t eeprom_get_int(uint32_t idx) {
    return -1;
 }
 
+float eeprom_get_float(uint32_t idx) {
+   if (idx < 0)
+      return -1;
+
+   // Extract the float
+   return -1;
+}
+
 const char *eeprom_get_str(uint32_t idx) {
    char *ret = NULL;
 
@@ -143,20 +151,18 @@ uint32_t eeprom_write(size_t offset, uint8_t data) {
    return res;
 }
 
-uint8_t eeprom_read(size_t offset) {
-   uint8_t res = 0;
+void *eeprom_read(size_t offset) {
+   void *res = NULL;
 
    if (offset <= 0) {
       errno = EADDRNOTAVAIL;
       return res;
    }
 
-/*
    // for host mode or other memory mapped
-   if (rig.eeprom_map != NULL) {
-      res = (uint8_t)(rig.eeprom_mmap + offset);
+   if (rig.eeprom_mmap != NULL) {
+      res = (void *)(rig.eeprom_mmap + offset);
    }
-*/
    return res;
 }
 
@@ -178,7 +184,7 @@ uint32_t eeprom_checksum_generate(void) {
 }
 
 // Check the checksum
-uint32_t eeprom_validate_checksum(void) {
+bool eeprom_validate_checksum(void) {
    uint32_t calc_sum = 0, curr_sum = 0;
    uint32_t *chksum_addr = (uint32_t *)(&rig.eeprom_mmap[EEPROM_SIZE - 4]);
 
@@ -191,12 +197,12 @@ uint32_t eeprom_validate_checksum(void) {
    // return -1 if the checksums do not match
    if (calc_sum != curr_sum) {
       Log(LOG_WARN, "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
-      return -1;
+      return true;
    } else {
       Log(LOG_INFO, "EEPROM checkum <%x> is correct, loading settings...", calc_sum);
    }
 
-   return 0;
+   return false;
 }
 
 // Load the EEPROM data into the state structures
@@ -216,22 +222,34 @@ uint32_t eeprom_load_config(void) {
    uint32_t cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
    for (uint32_t i = 0; i < cfg_rows; i++) {
        // Common types: string, int, float
-       char mbuf[512];
+       int mb_sz = 512;
+       char mbuf[mb_sz];
        memset(mbuf, 0, sizeof(mbuf));
-//       switch(eeprom_layout[i].type) {
-//           case EE_BOOL: snprintf(mbuf, 512, (eeprom_layout[i].
-//   EE_BOOL,                     /* Boolean (true/false) */
-//   EE_CALL,                     /* Ham callsign */
-//   EE_CHANNEL,                  /* Channel memory */
-//   EE_CLASS,                    /* License Class */
-//   EE_FLOAT,                    /* Decimal (floating point) numbers */
-//   EE_FREQ,                     /* A frequency */
-//   EE_GRID,                     /* Maidenhead gridsquare */
-//   EE_INT,                      /* Whole numbers */
+       switch(eeprom_layout[i].type) {
+           case EE_BOOL: snprintf(mbuf, mb_sz, "%s", (eeprom_get_int(i) ? "true" : "false")); break;
+           case EE_CALL:
+           case EE_GRID:
+           case EE_STR:
+                snprintf(mbuf, mb_sz, "%s", eeprom_get_str(i));
+                break;
+           case EE_CHANNEL:
+                // XXX: we need to prase channel data
+                break;
+           case EE_CLASS:
+                break;
+           case EE_FLOAT:
+           case EE_FREQ:
+                snprintf(mbuf, mb_sz, "%f", eeprom_get_float(i));
+                break;
+           case EE_INT:
+                snprintf(mbuf, mb_sz, "%d", eeprom_get_int(i));
+                break;
+           default:
+                Log(LOG_DEBUG, "unhandled type %d", eeprom_layout[i].type);
+                break;
 //   EE_IP4,                      /* IPv4 address */
 //   EE_MODE,                     /* Operating mode (modulation) */
-//   EE_STR,                      /* Text string, fixed length NULL pad */
-//       }
+       }
        Log(LOG_DEBUG, "key: %s type: %d offset: %d size: %d |%s|", eeprom_layout[i].key,
            eeprom_layout[i].type, eeprom_layout[i].offset, eeprom_layout[i].size, mbuf);
    }

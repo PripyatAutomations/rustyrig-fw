@@ -27,7 +27,7 @@
 #include "vfo.h"
 extern struct GlobalState rig;  // Global state
 
-uint32_t cat_printf(char *str, ...) {
+int32_t cat_printf(char *str, ...) {
    va_list ap;
    va_start(ap, str);
 
@@ -38,12 +38,12 @@ uint32_t cat_printf(char *str, ...) {
 }
 
 // Here we parse commands for the main rig
-uint32_t cat_parse_line_real(char *line) {
+int32_t cat_parse_line_real(char *line) {
    return 0;
 }
 
 // Here we decide which parser to use
-uint32_t cat_parse_line(char *line) {
+int32_t cat_parse_line(char *line) {
    size_t line_len = -1;
    char *endp = NULL;
 
@@ -91,7 +91,7 @@ uint32_t cat_parse_line(char *line) {
 }
 
 // Initialize CAT control
-uint32_t cat_init(void) {
+int32_t cat_init(void) {
 #if	defined(HOST_POSIX)
 // XXX: Open the pipe
 #endif

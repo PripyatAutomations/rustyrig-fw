@@ -10,10 +10,10 @@
 #include "eeprom_types.h"
 
 struct eeprom_layout {
-    char *key;
-    size_t offset;		// Offset into rom
-    size_t size;		// Size in bytes
-    ee_data_type type;
+    char 		*key;
+    size_t		offset;		// Offset into rom
+    size_t 		size;		// Size in bytes
+    ee_data_type 	type;
 };
 
 // Support for deal with eeprom by name instead of addresses
@@ -21,7 +21,7 @@ extern uint32_t eeprom_offset_index(const char *key);
 
 // Direct (by address) reading of one or more bytes
 // These should only be used internally...
-extern u_int8_t eeprom_read(size_t offset);
+extern void *eeprom_read(size_t offset);
 extern uint32_t eeprom_write(size_t offset, u_int8_t data);
 extern uint32_t eeprom_read_block(u_int8_t *buf, size_t offset, size_t len);
 extern uint32_t eeprom_write_block(void *buf, size_t offset, size_t len);
