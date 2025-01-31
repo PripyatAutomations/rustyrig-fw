@@ -1,5 +1,5 @@
 /*
- * Support for network transport for console, cat, and debugging
+ * Support for serial transports for console, cat, and debugging
  */
 #include "config.h"
 #include <stddef.h>
@@ -20,5 +20,7 @@
 
 extern struct GlobalState rig;	// Global state
 
-// Here we have to provide a common interface with serial
-// transport for cons, cat, and debug
+// Here we need to abstract between the following bits:
+//	CAT interpreters
+//	CLI mode
+//	Debug Tool

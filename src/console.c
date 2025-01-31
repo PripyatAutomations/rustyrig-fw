@@ -1,5 +1,5 @@
 /*
- * Support for network transport for console, cat, and debugging
+ * Support for a console interface to the radio
  */
 #include "config.h"
 #include <stddef.h>
@@ -20,5 +20,4 @@
 
 extern struct GlobalState rig;	// Global state
 
-// Here we have to provide a common interface with serial
-// transport for cons, cat, and debug
+// We need to be transport agnostic for network and serial transports

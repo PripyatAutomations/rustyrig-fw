@@ -57,6 +57,8 @@ void logger_init(void) {
       }
       // XXX: do final setup
    }
+#else
+/* Machdep log setup goes here */
 #endif
 }
 
@@ -65,6 +67,8 @@ void logger_end(void) {
 /* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
    if (logfp != NULL)
       fclose(logfp);
+#else
+/* Machdep log teardown goes here */
 #endif
 }
 
@@ -95,23 +99,25 @@ void Log(logpriority_t priority, const char *fmt, ...) {
       }
    }
 
+#if	defined(HOST_POSIX) || defined(FEATURE_FILESYSTEM)
    /* Only spew to the serial port if logfile is closed */
    if (logfp == NULL) {
+      // XXX: this should support network targets too!!
 //      sio_printf("%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
       va_end(ap);
       return;
-   }
-
-   /* log to the logfile */
-   if (logfp != NULL) {
+   } else {
       fprintf(logfp, "%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
       fflush(logfp);
    }
+#endif
 
-#if	defined(HOST_POSIX)
+#if	deifned(HOST_POSIX)
    // Send it to the stdout too on host builds
    fprintf(stdout, "%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
-#endif	// defined(HOST_POSIX)
+#endif
+
+   /* Machdep logging goes here! */
 
    va_end(ap);
 }
