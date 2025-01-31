@@ -46,7 +46,9 @@ uint32_t radio_gpiochip_init(const char *chipname) {
 #if	defined(HOST_POSIX)
    struct gpiod_chip *tmp = NULL;
 
-   if ((tmp = gpiod_chip_open_by_name(chipname)) == NULL) {
+   if ((tmp = gpiod_chip_open(chipname)) == NULL) {
+// XXX: v1 api remnant, safe to remove?
+//   if ((tmp = gpiod_chip_open_by_name(chipname)) == NULL) {
       Log(LOG_CRIT, "error opening gpio cihp %s", chipname);
       return -1;
    }

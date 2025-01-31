@@ -1,7 +1,7 @@
 # kicad stuff
-*-backups/*
-fp-info-cache
-*/fp-info-cache
+pcb/*-backups/*
+pcb/fp-info-cache
+pcb/*/fp-info-cache
 */*-backups/*
 
 # exported images
@@ -22,4 +22,3 @@ src/radio.json
 
 # Archived configs
 src/config/archive/*.json
-

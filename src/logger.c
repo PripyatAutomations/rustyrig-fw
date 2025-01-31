@@ -112,7 +112,7 @@ void Log(logpriority_t priority, const char *fmt, ...) {
    }
 #endif
 
-#if	deifned(HOST_POSIX)
+#if	defined(HOST_POSIX)
    // Send it to the stdout too on host builds
    fprintf(stdout, "%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
 #endif

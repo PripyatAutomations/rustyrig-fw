@@ -6,7 +6,7 @@
 	(paper "A4")
 	(title_block
 		(title "HF Antenna Matching Unit")
-		(rev "2023/08/24")
+		(rev "2025/01/30")
 	)
 	(lib_symbols
 		(symbol "1N4148_1"
@@ -5654,6 +5654,12 @@
 		(uuid "8fd86ab1-5c90-4d9e-bca9-00bed7c81da5")
 	)
 	(junction
+		(at 175.26 41.91)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "980b85ee-ff3e-4fd7-a21f-5ffd12cb5070")
+	)
+	(junction
 		(at 167.64 26.67)
 		(diameter 0)
 		(color 194 0 0 1)
@@ -5682,12 +5688,6 @@
 		(diameter 0)
 		(color 194 0 0 1)
 		(uuid "a7050d4e-a12f-451e-bbab-fac93a1eb9d2")
-	)
-	(junction
-		(at 175.26 44.45)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "a708595a-b3e8-41d6-acdf-63f8a9ef305c")
 	)
 	(junction
 		(at 110.49 140.97)
@@ -7883,6 +7883,16 @@
 	)
 	(wire
 		(pts
+			(xy 175.26 39.37) (xy 175.26 41.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5358870c-a66b-4fc4-a667-7a23a0770a35")
+	)
+	(wire
+		(pts
 			(xy 24.13 140.97) (xy 24.13 130.81)
 		)
 		(stroke
@@ -9701,7 +9711,7 @@
 	)
 	(wire
 		(pts
-			(xy 172.72 41.91) (xy 176.53 41.91)
+			(xy 172.72 41.91) (xy 175.26 41.91)
 		)
 		(stroke
 			(width 0)
@@ -9790,16 +9800,6 @@
 			(type default)
 		)
 		(uuid "af0f8df7-d07f-4aa7-b8c1-53b9aada8aaa")
-	)
-	(wire
-		(pts
-			(xy 175.26 39.37) (xy 175.26 44.45)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "af64bef4-bc8c-497b-8f71-ba20976903a9")
 	)
 	(wire
 		(pts
@@ -11287,6 +11287,16 @@
 			(type dot)
 		)
 		(uuid "fc92dc58-ccbd-4b55-8a6e-47030c9fdea1")
+	)
+	(wire
+		(pts
+			(xy 175.26 41.91) (xy 176.53 41.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fc94164a-5796-4b9e-89ba-f191c690f4c5")
 	)
 	(wire
 		(pts
