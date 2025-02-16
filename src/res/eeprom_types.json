@@ -29,7 +29,8 @@
    },
    "str": {
       "size": -1,
-      "descr": "Text string, fixed length NULL pad"
+      "descr": "Text string, fixed length NULL pad",
+      "nullterm": 1
    },
    "freq": {
       "size": 8,

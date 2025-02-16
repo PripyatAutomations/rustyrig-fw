@@ -403,6 +403,7 @@ sub eeprom_patch {
                 next;
              }
              substr($eeprom_data, $curr_offset, $final_size, $cval);
+             # Add trailing NULL
           }
 
           # Try to make sure the offsets are lining up....
@@ -859,7 +860,7 @@ sub generate_filter_tables_h {
       print $fh "#define MAX_FILTERS $filter_count\n";
       # Walk through the configured tuners and emit a row for each C
    } else {
-      print "* No filters configured, empty atu_tables.h generated!\n";
+      print "  * No filters configured, empty atu_tables.h generated!\n";
       print $fh "#endif /* !defined(__atu_tables_h) */\n";
       return;
    }

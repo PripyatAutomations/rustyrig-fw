@@ -1,6 +1,9 @@
 #if	!defined(_eeprom_h)
 #define	_eeprom_h
 
+// This will prevent loading with a newer EEPROM version and someday will force an upgrade if older
+#define	MY_EEPROM_VER	1
+
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +21,7 @@ struct eeprom_layout {
 
 // Support for deal with eeprom by name instead of addresses
 extern uint32_t eeprom_offset_index(const char *key);
+extern const char *eeprom_offset_name(uint32_t idx);
 
 // Direct (by address) reading of one or more bytes
 // These should only be used internally...
@@ -34,6 +38,6 @@ extern uint32_t eeprom_get_int(uint32_t idx);
 extern const char *eeprom_get_str(uint32_t idx);
 extern uint32_t eeprom_get_int_i(const char *key);
 extern const char *eeprom_get_str_i(const char *key);
-extern char *get_serial_number(void);
+extern uint32_t get_serial_number(void);
 
 #endif	// !defined(_eeprom_h)

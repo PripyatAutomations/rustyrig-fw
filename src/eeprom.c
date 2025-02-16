@@ -53,13 +53,24 @@ uint32_t eeprom_offset_index(const char *key) {
 
    for (idx = 0; idx < max_entries; idx++) {
       if (strncasecmp(key, eeprom_layout[idx].key, strlen(key)) == 0) {
-         Log(LOG_DEBUG, "match for key %s at index %d", key, idx);
+         Log(LOG_DEBUG, "match for key %s at index %d: type=%d, offset=%lu, sz=%lu", key, idx,
+            eeprom_layout[idx].type, eeprom_layout[idx].offset, eeprom_layout[idx].size);
          return idx;
       }
    }
 
    Log(LOG_DEBUG, "No match found for key %s in eeprom_layout", key);
    return -1;
+}
+
+const char *eeprom_offset_name(uint32_t idx) {
+   if (idx <= 0)
+      return NULL;
+
+   const char *rv = eeprom_layout[idx].key;
+
+   Log(LOG_DEBUG, "match for index %d: %s\n", idx, rv);
+   return rv;
 }
 
 uint32_t eeprom_get_int(uint32_t idx) {
@@ -92,13 +103,13 @@ const char *eeprom_get_str(uint32_t idx) {
    if (idx == -1)
       return NULL;
 
-   static char buf[256]; // Ensure enough space for most strings
+   static char buf[256];
    size_t len = eeprom_layout[idx].size;
    if (len == (size_t)-1) len = 255; // Arbitrary max size for flexible strings
 
    memset(buf, 0, sizeof(buf));
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
-   Log(LOG_DEBUG, "EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
+   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
    memcpy(buf, myaddr, len);
 
    // Ensure null termination
@@ -131,7 +142,7 @@ uint32_t eeprom_init(void) {
    rig.eeprom_fd = fd;
    rig.eeprom_mmap = mmap(NULL, eeprom_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
    rig.eeprom_ready = 1;
-   Log(LOG_INFO, "EEPROM Initialized (%s) %s", (rig.eeprom_fd > 0 ? "mmap" : "phys"),
+   Log(LOG_INFO, "EEPROM Initialized (%s%s)", (rig.eeprom_fd > 0 ? "mmap:" : "phys"),
                                            (rig.eeprom_fd > 0 ? HOST_EEPROM_FILE : ""));
 #endif	// defined(HOST_POSIX)
 
@@ -311,10 +322,11 @@ uint32_t eeprom_write_config(uint32_t force) {
    return 0;
 }
 
-char *get_serial_number(void) {
+uint32_t get_serial_number(void) {
    uint32_t idx = eeprom_offset_index("device/serial");
-   Log(LOG_INFO, "Device serial number: %s", eeprom_get_str(idx));
-   return NULL;
+   uint32_t val = eeprom_get_int(idx);
+   Log(LOG_INFO, "Device serial number: %lu", val);
+   return val;
 }
 
 ////////////////////////////////
