@@ -330,8 +330,8 @@ sub eeprom_patch {
              $cval = $cptr->get("/$ee_key");
           }
 
+          # Figure out how much memory we need to touch...
           my $final_size = $type_size;
-          
           if (defined($ee_size) && $ee_size > 0) {
 #             if ($type_size == -1) {
 ##                print "     ~ Variable field of type $ee_type forced to $ee_size bytes\n";
@@ -384,6 +384,13 @@ sub eeprom_patch {
                 $cval = 'UE';
              }
              substr($eeprom_data, $curr_offset, 2, pack("a2", $cval));
+          } elsif ($ee_type eq 'grid') {
+             substr($eeprom_data, $curr_offset, 8, pack("CCCCCCCC", $cval));
+          } elsif ($ee_type eq 'float') {
+             if ($cval =~ m/&0x/) {
+                $cval = hex($cval);
+             }
+             substr($eeprom_data, $curr_offset, 8, pack("d", $cval));
           } elsif ($ee_type eq 'int') {
              # integer (4 bytes)
              if ($cval =~ m/^0x/) {

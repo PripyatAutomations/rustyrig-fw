@@ -109,7 +109,7 @@ const char *eeprom_get_str(uint32_t idx) {
 
    memset(buf, 0, sizeof(buf));
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
-   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
+//   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
    memcpy(buf, myaddr, len);
 
    // Ensure null termination
@@ -259,7 +259,9 @@ uint32_t eeprom_load_config(void) {
        char mbuf[mb_sz];
        memset(mbuf, 0, sizeof(mbuf));
        switch(eeprom_layout[i].type) {
-           case EE_BOOL: snprintf(mbuf, mb_sz, "%s", (eeprom_get_int(i) ? "true" : "false")); break;
+           case EE_BOOL:
+                snprintf(mbuf, mb_sz, "%s", (eeprom_get_int(i) ? "true" : "false"));
+                break;
            case EE_CALL:
            case EE_GRID:
            case EE_STR:
@@ -269,6 +271,7 @@ uint32_t eeprom_load_config(void) {
                 // XXX: we need to prase channel data
                 break;
            case EE_CLASS:
+                // XXX: we need to implement license classes
                 break;
            case EE_FLOAT:
            case EE_FREQ:
