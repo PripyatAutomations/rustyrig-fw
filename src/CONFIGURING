@@ -1,6 +1,7 @@
 Ideally you'll have at least 2 serial ports available - one for CAT and one for debug logging.
+Set them in the config json below.
 
-Edit radio.json to reflect your target.
+Edit config/radio.json to reflect your target.
 
 
 radio.json

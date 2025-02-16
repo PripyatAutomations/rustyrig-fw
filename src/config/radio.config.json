@@ -15,6 +15,12 @@
          "prefix": ""
       }
    },
+   "debug": {
+      "logfile": "/tmp/radio-debvg.log",
+      "logtype": "pipe",
+      "logmode": "0666",
+      "loglevel": "debug"
+   },
    "eeprom": {
       "addr": "0x0000",
       "size": 16384,
@@ -64,20 +70,21 @@
    },
    "rfdecks": {
       "lowband": {
-         "bands": [ "160M", "80M", "60M", "40", "30M", "20M", "17M", "15M", "12M", "10M" ],
+         "bands": [ "160M", "80M", "60M", "40M", "30M", "20M", "17M", "15M", "12M", "10M" ],
          "minpower": "5W",
-         "maxpower": "1200W",
+         "maxpower": [ "500W", "500W", "500W", "600W", "600W", "600W", "600W", "600W", "600W", "600W" ],
          "powerstep": 10
       },
       "highband": {
          "bands": [ "6M", "2M", "1.25M", "70CM" ],
          "minpower": "5W",
-         "maxpower": "1000W",
+         "maxpower": [ "100W", "100W", "100W", "100W" ],
          "powerstep": 10
       }
    },
    "atu": {
       "atu0": {
+         "title": "HF ATU",
          "L": [ 10, 5, 2.5, 1.25, 0.59, 0.39, 0.22, 0.11 ],
          "C": [ 642, 320, 160, 82, 39, 20, 10, 5 ]
       }

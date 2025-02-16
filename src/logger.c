@@ -16,6 +16,10 @@
 
 extern struct GlobalState rig;	// Global state
 
+/* This should be updated only once per second, in main thread */
+extern char latest_timestamp[64];
+extern time_t now, last_ts_update;
+
 /* String constants we use more than a few times */
 const char *s_prio_crit = "CRIT",
            *s_prio_warn = "WARN",
@@ -72,12 +76,35 @@ void logger_end(void) {
 #endif
 }
 
-void Log(logpriority_t priority, const char *fmt, ...) {
-   char msgbuf[512];
-   char tsbuf[64];
-   va_list ap;
+int update_timestamp(void) {
    time_t t;
    struct tm *tmp;
+
+   // If we've already updated this second or have gone back in time, return error
+   if (last_ts_update >= now) {
+      return -1;
+   }
+
+   last_ts_update = now;
+   memset(latest_timestamp, 0, sizeof(latest_timestamp));
+   t = time(NULL);
+
+   if ((tmp = localtime(&t)) != NULL) {
+      /* success, proceed */
+      if (strftime(latest_timestamp, sizeof(latest_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
+         /* handle the error */
+         memset(latest_timestamp, 0, sizeof(latest_timestamp));
+         snprintf(latest_timestamp, sizeof(latest_timestamp), "<%lu>", time(NULL));
+      }
+   } else {
+      return 1;
+   }
+   return 0;
+}
+
+void Log(logpriority_t priority, const char *fmt, ...) {
+   char msgbuf[512];
+   va_list ap;
 
    /* clear the message buffer */
    memset(msgbuf, 0, sizeof(msgbuf));
@@ -87,34 +114,22 @@ void Log(logpriority_t priority, const char *fmt, ...) {
    /* Expand the format string */
    vsnprintf(msgbuf, 511, fmt, ap);
 
-   memset(tsbuf, 0, sizeof(tsbuf));
-   t = time(NULL);
-
-   if ((tmp = localtime(&t)) != NULL) {
-      /* success, proceed */
-      if (strftime(tsbuf, sizeof(tsbuf), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
-         /* handle the error */
-         memset(tsbuf, 0, sizeof(tsbuf));
-         snprintf(tsbuf, sizeof(tsbuf), "<%lu>", time(NULL));
-      }
-   }
-
 #if	defined(HOST_POSIX) || defined(FEATURE_FILESYSTEM)
    /* Only spew to the serial port if logfile is closed */
    if (logfp == NULL) {
       // XXX: this should support network targets too!!
-//      sio_printf("%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
+//      sio_printf("%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
       va_end(ap);
       return;
    } else {
-      fprintf(logfp, "%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
+      fprintf(logfp, "%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
       fflush(logfp);
    }
 #endif
 
 #if	defined(HOST_POSIX)
    // Send it to the stdout too on host builds
-   fprintf(stdout, "%s %s: %s\n", tsbuf, log_priority_to_str(priority), msgbuf);
+   fprintf(stdout, "%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
 #endif
 
    /* Machdep logging goes here! */

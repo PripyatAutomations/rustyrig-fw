@@ -16,18 +16,27 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+
+// support for file-backed emulated eeproms
 #if	defined(HOST_POSIX)
+// some of these headers may be required for other platforms, edit as needed
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #endif
+// support for stm32 flash-backed eeprom emulation
+#if	defined(HOST_STM32)
+//
+#endif
+
 #include "state.h"
 #include "logger.h"
 #include "eeprom.h"
 #include "i2c.h"
 #include "crc32.h"
-#define	EEPROM_C
+
+#define	EEPROM_C		// Let the header know we're in the C file
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
 
 extern struct GlobalState rig;	// Global state
@@ -53,26 +62,12 @@ uint32_t eeprom_offset_index(const char *key) {
 }
 
 uint32_t eeprom_get_int(uint32_t idx) {
-   if (idx < 0)
+   if (idx == -1)
       return -1;
 
-   // Extract the 32 bits (uint32_t)
-   return -1;
-}
-
-float eeprom_get_float(uint32_t idx) {
-   if (idx < 0)
-      return -1;
-
-   // Extract the float
-   return -1;
-}
-
-const char *eeprom_get_str(uint32_t idx) {
-   char *ret = NULL;
-
-   // uint32_t eeprom_read_block(uint8_t *buf, size_t offset, size_t len)
-   return ret;
+   uint32_t value = 0;
+   memcpy(&value, rig.eeprom_mmap + eeprom_layout[idx].offset, sizeof(uint32_t));
+   return value;
 }
 
 uint32_t eeprom_get_int_i(const char *key) {
@@ -81,6 +76,31 @@ uint32_t eeprom_get_int_i(const char *key) {
 
 const char *eeprom_get_str_i(const char *key) {
    return eeprom_get_str(eeprom_offset_index(key));
+}
+
+float eeprom_get_float(uint32_t idx) {
+   if (idx == -1)
+      return -1;
+
+   float value = 0;
+   memcpy(&value, rig.eeprom_mmap + eeprom_layout[idx].offset, sizeof(float));
+   return value;
+}
+
+const char *eeprom_get_str(uint32_t idx) {
+   if (idx == -1)
+      return NULL;
+
+   static char buf[256]; // Ensure enough space for most strings
+   size_t len = eeprom_layout[idx].size;
+   if (len == (size_t)-1) len = 255; // Arbitrary max size for flexible strings
+
+   memset(buf, 0, sizeof(buf));
+   memcpy(buf, rig.eeprom_mmap + eeprom_layout[idx].offset, len);
+
+   // Ensure null termination
+   buf[len] = '\0';
+   return buf;
 }
 
 uint32_t eeprom_init(void) {
@@ -138,16 +158,15 @@ uint32_t eeprom_read_block(uint8_t *buf, size_t offset, size_t len) {
 
 uint32_t eeprom_write(size_t offset, uint8_t data) {
    uint32_t res = 0;
-   ssize_t myoff = 0;
-#if	0
-   uint8_t *ptr = NULL;
 
-   // Check for memory mapped style EEPROMs
+   // Check for memory-mapped EEPROM
    if (rig.eeprom_mmap != NULL) {
-      &ptr = *(rig.eeprom_mmap + offset);
-      ptr = (uint8_t)data;
+      uint8_t *ptr = (uint8_t *)rig.eeprom_mmap + offset; // Correct pointer arithmetic
+      *ptr = data; // Write data to the mapped EEPROM memory
+   } else {
+      res = 1; // Indicate failure (e.g., EEPROM not mapped)
    }
-#endif
+
    return res;
 }
 

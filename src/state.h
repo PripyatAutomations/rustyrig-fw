@@ -6,13 +6,10 @@
 
 extern bool dying;
 
-enum TuningState {
-    TS_UNKNOWN = 0,
-    TS_TUNING,
-    TS_TUNE_FAILED,
-    TS_TX_READY
-};
 
+// TX Low Pass Filters
+// Ideally these need to be moved to the build config
+//	* Band Name, Start Freq, Stop Freq, Rolloff
 enum LPFSelection {
     LPF_NONE = 0,			// No filter selected
     LPF_160M,				// 160M LPF
@@ -31,6 +28,7 @@ enum LPFSelection {
     LPF_HIGH_USER2			// High Band, User Filter 2
 };
 
+// Intermediate RX Band Pass Filtering, if equipped
 enum BPFSelection {
     BPF_NONE = 0,			// No filter selected
     BPF_160_80M,			// 160 - 80M BPF
@@ -40,6 +38,8 @@ enum BPFSelection {
     BPF_12_10M				// 12 - 10M BPF
 };
 
+
+// State of the amplifier module
 struct AmpState {
    uint32_t   alc[MAX_BANDS];		// ALC: 0-210, per band
    uint32_t   current_band;			// Current band selection
@@ -53,6 +53,15 @@ struct AmpState {
    float therm_lpf;			// Thermal state of LPF board
 };
 
+// State of the all tunings: PA & Matching Units
+enum TuningState {
+    TS_UNKNOWN = 0,
+    TS_TUNING,
+    TS_TUNE_FAILED,
+    TS_TX_READY
+};
+
+// Antenna Matching Unit current state
 struct ATUState {
    float power_fwd,			// Measured forward power
          power_rev;			// Measured reflected power
@@ -93,8 +102,7 @@ struct GlobalState {
    struct FilterState 	low_filters,
                         high_filters;
 
-#if	defined(HOST_POSIX)
-   // Host build fd's/buffers/etc
+#if	defined(HOST_POSIX)   // Host build fd's/buffers/etc
    uint32_t		eeprom_fd;
    u_int8_t		*eeprom_mmap;
    uint32_t		logfile_fd;

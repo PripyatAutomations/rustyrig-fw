@@ -4,6 +4,9 @@ pcb/fp-info-cache
 pcb/*/fp-info-cache
 */*-backups/*
 
+# logs
+src/testbuild.log
+
 # exported images
 images/*
 images

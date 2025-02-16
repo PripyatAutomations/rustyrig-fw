@@ -16,8 +16,15 @@
 #include "ptt.h"
 #include "posix.h"
 
-bool dying = 0;
+bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
+
+// Current time, must be updated ONCE per second, used to save calls to gettimeofday()
+time_t now = -1;
+// Current timestamp
+char latest_timestamp[64];
+// last time we updated the timestamp by calling update_timestamp
+time_t last_ts_update = -1;
 
 static uint32_t load_defaults(void) {
    // Set minimum defaults, til we have EEPROM available

@@ -10,9 +10,7 @@
 ###############################################################################
 # arguments: [profile] [import|export]
 #
-# XXX: This won't work on BIG ENDIAN build hosts, unless targetting a BE system
-# XXX: Images created in this manner will not be compatible with LITTLE ENDIAN toolchains or devices
-# XXX: Fix this someday if there's interest?
+# XXX: This won't work on building cross-endian
 use strict;
 use warnings;
 use Config;
@@ -93,7 +91,7 @@ if ($#ARGV >= 1) {
 
 my $build_dir = "build/$profile";
 my $config = { };
-my $config_file = "config/$profile.json";
+my $config_file = "config/$profile.config.json";
 my $eeprom_file = "$build_dir/eeprom.bin";
 # In-memory version of the EEPROM, either loaded or empty
 my $eeprom_data = '';
@@ -575,7 +573,7 @@ sub eeprom_insert_channels {
             }
          }
       }
-      print "* Packed $ch_num channel memories into ", length($eeprom_channel_data), " bytes.\n";
+      print "* Packed $ch_num channel memories into ", length($eeprom_channel_data), " bytes of reserved channel storage.\n";
    } else {
       print "* No channel memories defined, skipping.\n";
    }
@@ -861,7 +859,7 @@ sub generate_filter_tables_h {
       print $fh "#define MAX_FILTERS $filter_count\n";
       # Walk through the configured tuners and emit a row for each C
    } else {
-      print "* No filters configured\n";
+      print "* No filters configured, empty atu_tables.h generated!\n";
       print $fh "#endif /* !defined(__atu_tables_h) */\n";
       return;
    }
@@ -920,6 +918,10 @@ if ($need_upgrade) {
 # Try loading the eeprom into memory
 eeprom_load($eeprom_file);
 
+my $timestamp = strftime "%m-%d-%Y", localtime;
+my $export_chan = "config/archive/${timestamp}.channels.json";
+my $export_settings = "config/archive/${timestamp}.settings.json";
+
 if ($run_mode =~ m/^import$/) {
    # If we have a channels.json, import them and apply
    eeprom_load_channels("config/${profile}.channels.json");
@@ -943,8 +945,10 @@ if ($run_mode =~ m/^import$/) {
    # And generate headers for the C bits...
    generate_headers();
 } elsif ($run_mode =~ m/^export$/) {
-   # Export channels
-   my $timestamp = strftime "%m-%d-%Y", localtime;
-   my $export_chan = "config/archive/${timestamp}";
    eeprom_export_channels($export_chan);
+} elsif ($run_mode =~ m/^backup$/) {
+   eeprom_export_channels($export_chan);
+   eeprom_dump_config($export_settings);
+   print "*** NOTICE *** The exported settings file is NOT a complete build config. That data is not included in the eeprom and cannot be automatically dumped\n";
 }
+
