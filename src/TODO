@@ -16,3 +16,7 @@
 [CAT]
 * Implement control over unix pipes in posix mode
 * Implement control over stm32 serial over usb
+
+[Porting]
+minimal inet_ntop() for non-posix
+

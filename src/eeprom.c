@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <arpa/inet.h> // For inet_ntop() - probably need to stub on non-posix
 #endif
 // support for stm32 flash-backed eeprom emulation
 #if	defined(HOST_STM32)
@@ -96,7 +97,9 @@ const char *eeprom_get_str(uint32_t idx) {
    if (len == (size_t)-1) len = 255; // Arbitrary max size for flexible strings
 
    memset(buf, 0, sizeof(buf));
-   memcpy(buf, rig.eeprom_mmap + eeprom_layout[idx].offset, len);
+   u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
+   Log(LOG_DEBUG, "EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
+   memcpy(buf, myaddr, len);
 
    // Ensure null termination
    buf[len] = '\0';
@@ -128,7 +131,7 @@ uint32_t eeprom_init(void) {
    rig.eeprom_fd = fd;
    rig.eeprom_mmap = mmap(NULL, eeprom_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
    rig.eeprom_ready = 1;
-   Log(LOG_INFO, "EEPROM Initialized (%s) %s", (rig.eeprom_fd > 0 ? "mmap" : "i2c"),
+   Log(LOG_INFO, "EEPROM Initialized (%s) %s", (rig.eeprom_fd > 0 ? "mmap" : "phys"),
                                            (rig.eeprom_fd > 0 ? HOST_EEPROM_FILE : ""));
 #endif	// defined(HOST_POSIX)
 
@@ -263,10 +266,21 @@ uint32_t eeprom_load_config(void) {
            case EE_INT:
                 snprintf(mbuf, mb_sz, "%d", eeprom_get_int(i));
                 break;
+           case EE_IP4: {
+                uint8_t ip4[4];
+                memcpy(ip4, rig.eeprom_mmap + eeprom_layout[i].offset, 4);
+                snprintf(mbuf, mb_sz, "%u.%u.%u.%u", ip4[0], ip4[1], ip4[2], ip4[3]);
+                break;
+           }
+           case EE_IP6: {
+                uint8_t ip6[16];
+                memcpy(ip6, rig.eeprom_mmap + eeprom_layout[i].offset, 16);
+                inet_ntop(AF_INET6, ip6, mbuf, mb_sz);
+                break;
+           }
            default:
                 Log(LOG_DEBUG, "unhandled type %d", eeprom_layout[i].type);
                 break;
-//   EE_IP4,                      /* IPv4 address */
 //   EE_MODE,                     /* Operating mode (modulation) */
        }
        Log(LOG_DEBUG, "key: %s type: %d offset: %d size: %d |%s|", eeprom_layout[i].key,

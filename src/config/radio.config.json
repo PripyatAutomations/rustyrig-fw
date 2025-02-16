@@ -8,8 +8,8 @@
       "logger": "file:hatchet.log"
    },
    "build": {
-      "cflags": "-fPIC",
-      "ldflags": "",
+      "cflags": "-fPIC -g -O1",
+      "ldflags": "-g",
       "platform": "posix",
       "toolchain": {
          "prefix": ""

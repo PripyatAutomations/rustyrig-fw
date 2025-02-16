@@ -1,0 +1,6 @@
+F=$1
+echo "* Processing $F *"
+tgt=('gzip -9' 'bzip2 -9' 'xz --extreme -9' 'zstd --ultra -22' 'brotli -q 11' 'lrzip -Q -L 9 -p 2' 'lzip -9')
+echo -e "origin:\t\t\t$(wc -c "$F"|cut -f 1 -d ' ')"
+
+for i in "${tgt[@]}"; do echo -en "$i:\t"; cat "$F" | ${i} | wc -c; done

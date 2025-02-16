@@ -11,8 +11,8 @@ ifeq (x$(wildcard ${CF}),x)
 $(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
 endif
 
-CFLAGS := -std=gnu11 -g -O2 -Wall -Wno-unused -pedantic
-LDFLAGS := -lc -lm
+CFLAGS := -std=gnu11 -g -O1 -Wall -Wno-unused -pedantic -std=gnu99
+LDFLAGS := -lc -lm -g
 CFLAGS += -I${BUILD_DIR} $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
 TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))

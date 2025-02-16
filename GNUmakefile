@@ -1,6 +1,6 @@
 all: world
 
-world test run install:
+world test run install gdb:
 	@${MAKE} -C src $@
 
 help:
