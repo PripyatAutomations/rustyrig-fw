@@ -23,4 +23,4 @@ minimal inet_ntop() for non-posix
 [eeprom]
 * remove need for they key field (why not use the name of the entry itself?) in eeprom_layout
 * fix relative offsets in eeprom_layout
-
+* Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
