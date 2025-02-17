@@ -398,6 +398,8 @@ sub eeprom_patch {
              my @tmpip = split(/\./, $cval);
              my $packedip = pack("CCCC", $tmpip[0], $tmpip[1], $tmpip[2], $tmpip[3]);
             substr($eeprom_data, $curr_offset, 4, $packedip);
+          } elsif ($ee_type eq 'struct') {
+            # XXX: Insert code to handle structs here
           } elsif ($ee_type eq 'str') {
              # string (variable length)
              if ($final_size == 0) {
@@ -519,7 +521,13 @@ sub eeprom_insert_channels {
    my $ee_data_offset = 0;
 
    if (@eeprom_channels) {
-      print "* Installing channel memories\n";
+      print "* Inserting channel memories\n";
+
+      # Determine the offset to the channel storage in eeprom
+      my $chan_offset = 0;
+      # Prepare the header
+      my $chan_header;
+
       # Iterate over the types and print them...
       my $ch_num = 0;
 
@@ -577,6 +585,9 @@ sub eeprom_insert_channels {
          }
       }
       print "* Packed $ch_num channel memories into ", length($eeprom_channel_data), " bytes of reserved channel storage.\n";
+      # Copy the header into eeprom
+      # Copy the packed data into eeprom at $chan_offset + sizeof(chan_header)
+      print "* Wrote " . length($eeprom_channel_data) . " bytes into eeprom\n";
    } else {
       print "* No channel memories defined, skipping.\n";
    }
@@ -954,4 +965,3 @@ if ($run_mode =~ m/^import$/) {
    eeprom_dump_config($export_settings);
    print "*** NOTICE *** The exported settings file is NOT a complete build config. That data is not included in the eeprom and cannot be automatically dumped\n";
 }
-

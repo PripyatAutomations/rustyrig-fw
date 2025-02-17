@@ -44,10 +44,27 @@
       "size": 1,
       "descr": "Boolean (true/false)"
    },
+   "chan_header": {
+      "size": -1,
+      "descr": "Channel Mem Header",
+      "struct": {
+         "total_slots": "int",
+         "used_slots": "int"
+      }
+   },
+   "chan_groups": {
+      "size": -1,
+      "descr": "Chan Groups",
+      "struct": {
+         "id": "int",
+         "name": "str:13"
+      }
+   },
    "channel": {
       "size": -1,
       "descr": "Channel memory",
       "struct": {
+         "group": "int",
          "name": "str:18",
          "freq": "freq",
          "mode": "mode",

@@ -319,7 +319,7 @@ uint32_t eeprom_load_config(void) {
                 snprintf(mbuf, mb_sz, "%s", eeprom_get_str(i));
                 break;
            case EE_CHANNEL:
-                // XXX: we need to prase channel data
+                // XXX: we need to parse channel data - needs buildconf to add structs to eeprom_types.h
                 break;
            case EE_CLASS:
                 // XXX: we need to implement license classes

@@ -34,7 +34,6 @@ struct eeprom_channel_groups {		// Channel group names
     int			id;
     char		name[13];
 };
-
 typedef struct eeprom_channel_group ee_chan_group;
 
 struct eeprom_channel_header {		// Header data for the channel memory
@@ -47,10 +46,20 @@ struct eeprom_channel_slot {		// An indvidual channel slot
     int			group;		// Channel Group or -1 if none
     char		name[29];	// Name string
     float		freq;		// Frequency in khz
-    float		tx_offset;	// Transmit offset in Khz (for repeaters)
-    enum mod_mode	mode;		// Modulation Mode
+    char		mode[5];	// Modulation mode
+//    enum mod_mode	mode;		// Modulation Mode (stored as 4 byte string in eeprom)
     int			bw;		// bw in hz
+    int			split_dir;	// Split direction: -1 for negative, 0 or 1 for normal
+    float		tx_offset;	// Transmit offset in Khz (for repeaters)
+    char		pl_mode[5];	// PL mode (4 bytes)
+    int			tx_dcs;
+    int			rx_dcs;
+    int			tx_pl;
+    int			rx_pl;
     float		tx_power;	// TX power in watts
+    int			agc;
+    int			nb;
+    int			rf_gain;
 };
 typedef struct eeprom_channel_slot ee_chan_slot;
 
