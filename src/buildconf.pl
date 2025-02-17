@@ -284,8 +284,6 @@ sub eeprom_patch {
 
           if ($ee_type =~ m/^packed:/) {
              my $short_type = $ee_type;
-             $short_type =~ s/packed\://;
-#             print "    * Packed type $short_type\n";
           } else {
              $type_size = eeprom_get_type_size($ee_type, 1);
           }
@@ -363,7 +361,7 @@ sub eeprom_patch {
              printf "  => Patching %d byte%s @ <%04d>: [%s] %s = %s%s\n", $final_size, ($final_size == 1 ? " " : "s"), $curr_offset, $ee_type, $ee_key, $cval, ($defval == 0 ? "" : " <Warning - default value!>");
           }
 
-          # Pad out the memory location with NULLs to get rid of old contents...
+          # Zero out the memory area before writing to it
           substr($eeprom_data, $curr_offset, $final_size, "\x00" x $final_size);
 
           # Here we chose which type
@@ -385,12 +383,9 @@ sub eeprom_patch {
              }
              substr($eeprom_data, $curr_offset, 2, pack("a2", $cval));
           } elsif ($ee_type eq 'grid') {
-             substr($eeprom_data, $curr_offset, 8, pack("CCCCCCCC", $cval));
+             substr($eeprom_data, $curr_offset, 8, pack("a8", $cval));
           } elsif ($ee_type eq 'float') {
-             if ($cval =~ m/&0x/) {
-                $cval = hex($cval);
-             }
-             substr($eeprom_data, $curr_offset, 8, pack("d", $cval));
+             substr($eeprom_data, $curr_offset, 4, pack("f", $cval));
           } elsif ($ee_type eq 'int') {
              # integer (4 bytes)
              if ($cval =~ m/^0x/) {

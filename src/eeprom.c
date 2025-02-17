@@ -74,6 +74,10 @@ const char *eeprom_offset_name(uint32_t idx) {
 }
 
 uint32_t eeprom_get_int(uint32_t idx) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+
    if (idx == -1)
       return -1;
 
@@ -83,14 +87,25 @@ uint32_t eeprom_get_int(uint32_t idx) {
 }
 
 uint32_t eeprom_get_int_i(const char *key) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+
    return eeprom_get_int(eeprom_offset_index(key));
 }
 
 const char *eeprom_get_str_i(const char *key) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return NULL;
+   }
    return eeprom_get_str(eeprom_offset_index(key));
 }
 
 float eeprom_get_float(uint32_t idx) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+
    if (idx == -1)
       return -1;
 
@@ -100,6 +115,10 @@ float eeprom_get_float(uint32_t idx) {
 }
 
 const char *eeprom_get_str(uint32_t idx) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return NULL;
+   }
+
    if (idx == -1)
       return NULL;
 
@@ -138,7 +157,7 @@ uint32_t eeprom_init(void) {
       return -1;
    }
 #endif
-   eeprom_len = sb.st_size;
+   rig.eeprom_size = eeprom_len = sb.st_size;
    rig.eeprom_fd = fd;
    rig.eeprom_mmap = mmap(NULL, eeprom_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
    rig.eeprom_ready = 1;
@@ -153,6 +172,10 @@ uint32_t eeprom_read_block(uint8_t *buf, size_t offset, size_t len) {
    uint32_t res = 0;
    ssize_t myoff = 0;
    uint8_t *p = buf;
+
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
 
    // Check for memory mapped style EEPROMs
    if (rig.eeprom_mmap != NULL) {
@@ -173,6 +196,10 @@ uint32_t eeprom_read_block(uint8_t *buf, size_t offset, size_t len) {
 uint32_t eeprom_write(size_t offset, uint8_t data) {
    uint32_t res = 0;
 
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+
    // Check for memory-mapped EEPROM
    if (rig.eeprom_mmap != NULL) {
       uint8_t *ptr = (uint8_t *)rig.eeprom_mmap + offset; // Correct pointer arithmetic
@@ -186,6 +213,10 @@ uint32_t eeprom_write(size_t offset, uint8_t data) {
 
 void *eeprom_read(size_t offset) {
    void *res = NULL;
+
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return NULL;
+   }
 
    if (offset <= 0) {
       errno = EADDRNOTAVAIL;
@@ -201,6 +232,10 @@ void *eeprom_read(size_t offset) {
 
 uint32_t eeprom_write_block(void *buf, size_t offset, size_t len) {
    uint32_t res = -1;
+
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
 
    return res;
 }
@@ -230,6 +265,19 @@ bool eeprom_validate_checksum(void) {
    // return -1 if the checksums do not match
    if (calc_sum != curr_sum) {
       Log(LOG_WARN, "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
+
+      if (rig.eeprom_fd >= 0) {
+         close(rig.eeprom_fd);
+         rig.eeprom_fd = -1;
+      }
+
+      if (rig.eeprom_mmap != NULL) {
+         munmap(rig.eeprom_mmap, rig.eeprom_size);
+         rig.eeprom_mmap = NULL;
+      }
+
+      rig.eeprom_ready = -1;
+      rig.eeprom_corrupted = 1;
       return true;
    } else {
       Log(LOG_INFO, "EEPROM checkum <%x> is correct, loading settings...", calc_sum);
@@ -251,12 +299,15 @@ uint32_t eeprom_load_config(void) {
       return -1;
    }
 
+   Log(LOG_DEBUG, "*** Configuration Dump ***");
+
    // walk over the eeprom_layout and apply each setting to our state object (rig)
    uint32_t cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
    for (uint32_t i = 0; i < cfg_rows; i++) {
        // Common types: string, int, float
        int mb_sz = 512;
        char mbuf[mb_sz];
+       unsigned char *addr;
        memset(mbuf, 0, sizeof(mbuf));
        switch(eeprom_layout[i].type) {
            case EE_BOOL:
@@ -272,6 +323,9 @@ uint32_t eeprom_load_config(void) {
                 break;
            case EE_CLASS:
                 // XXX: we need to implement license classes
+                addr = rig.eeprom_mmap + eeprom_layout[i].offset;
+                memcpy(mbuf, addr, 2);
+                *(addr + 2) = '\0';
                 break;
            case EE_FLOAT:
            case EE_FREQ:
@@ -326,8 +380,10 @@ uint32_t eeprom_write_config(uint32_t force) {
 }
 
 uint32_t get_serial_number(void) {
-   uint32_t idx = eeprom_offset_index("device/serial");
-   uint32_t val = eeprom_get_int(idx);
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+   uint32_t val = eeprom_get_int_i("device/serial");
    Log(LOG_INFO, "Device serial number: %lu", val);
    return val;
 }

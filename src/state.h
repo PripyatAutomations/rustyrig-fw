@@ -105,6 +105,7 @@ struct GlobalState {
 #if	defined(HOST_POSIX)   // Host build fd's/buffers/etc
    uint32_t		eeprom_fd;
    u_int8_t		*eeprom_mmap;
+   size_t		eeprom_size;
    uint32_t		logfile_fd;
    uint32_t		catpipe_fd;
 #endif	// defined(HOST_POSIX)

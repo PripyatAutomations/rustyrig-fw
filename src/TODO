@@ -20,3 +20,7 @@
 [Porting]
 minimal inet_ntop() for non-posix
 
+[eeprom]
+* remove need for they key field (why not use the name of the entry itself?) in eeprom_layout
+* fix relative offsets in eeprom_layout
+

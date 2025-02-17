@@ -63,122 +63,122 @@
        "default": "US/General"
    },
    "pin/master": {
-       "offset": 64,
+       "offset": 65,
        "size": 6,
        "type": "str",
        "key": "pin/master",
        "default": "012345"
    },
    "pin/reset": {
-       "offset": 70,
+       "offset": 71,
        "size": 6,
        "type": "str",
        "key": "pin/reset",
        "default": "543210"
    },
    "net/ip": {
-       "offset": 76,
+       "offset": 77,
        "type": "ip4",
        "key": "net/ip",
        "default": "10.201.1.100"
    },
    "net/gw": {
-       "offset": 80,
+       "offset": 81,
        "type": "ip4",
        "key": "net/gw",
        "default": "10.201.1.1"
    },
    "net/mask": {
-       "offset": 84,
+       "offset": 85,
        "type": "ip4",
        "key": "net/mask",
        "default": "255.255.255.0"
    },
    "net/dns1": {
-       "offset": 88,
+       "offset": 89,
        "type": "ip4",
        "key": "net/dns1",
        "default": "10.201.1.1"
    },
    "net/dns2": {
-       "offset": 92,
+       "offset": 93,
        "type": "ip4",
        "key": "net/dns2"
    },
    "net/vlan": {
-       "offset": 96,
+       "offset": 97,
        "type": "int",
        "key": "net/vlan",
        "default": 1
    },
    "i2c/myaddr": {
-       "offset": 100,
+       "offset": 101,
        "type": "int",
        "key": "i2c/myaddr"
    },
    "channels": {
-       "offset": 1952,
+       "offset": 1953,
        "size": 14328,
        "type": "packed:channel",
        "key": "channels"
    },
    "thermal/encl_alarm": {
-       "offset": 16284,
+       "offset": 16285,
        "type": "float",
        "key": "thermal/encl_alarm"
    },
    "thermal/encl_max": {
-       "offset": 16292,
+       "offset": 16291,
        "type": "float",
        "key": "thermal/encl_max"
    },
    "thermal/encl_target": {
-       "offset": 16300,
+       "offset": 16295,
        "type": "float",
        "key": "thermal/encl_target"
    },
    "thermal/final_alarm": {
-       "offset": 16308,
+       "offset": 16299,
        "type": "float",
        "key": "thermal/final_alarm"
    },
    "thermal/final_max": {
-       "offset": 16316,
+       "offset": 16333,
        "type": "float",
        "key": "thermal/final_max"
    },
    "thermal/final_target": {
-       "offset": 16324,
+       "offset": 16337,
        "type": "float",
        "key": "thermal/final_target"
    },
    "thermal/inlet_alarm": {
-       "offset": 16332,
+       "offset": 16341,
        "type": "float",
        "key": "thermal/inlet_alarm"
    },
    "thermal/inlet_max": {
-       "offset": 16340,
+       "offset": 16345,
        "type": "float",
        "key": "thermal/inlet_max"
    },
    "thermal/inlet_target": {
-       "offset": 16348,
+       "offset": 16349,
        "type": "float",
        "key": "thermal/inlet_target"
    },
    "thermal/lpf_alarm": {
-       "offset": 16356,
+       "offset": 16353,
        "type": "float",
        "key": "thermal/lpf_alarm"
    },
    "thermal/lpf_max": {
-       "offset": 16364,
+       "offset": 16357,
        "type": "float",
        "key": "thermal/lpf_max"
    },
    "thermal/lpf_target": {
-       "offset": 16372,
+       "offset": 16361,
        "type": "float",
        "key": "thermal/lpf_target"
    },
