@@ -668,9 +668,10 @@ sub generate_eeprom_layout_h {
           my $ee_type = $item->{$key}{type};
 
           my $type_size = -1;
+
           if ($ee_type =~ m/^packed:/) {
-             my $short_type = $ee_type;
-             $short_type =~ s/packed\://;
+#             my $short_type = $ee_type;
+#             $short_type =~ s/packed\://;
 #             print "    * Packed type $short_type\n";
           } else {
              $type_size = eeprom_get_type_size($ee_type, 1);
