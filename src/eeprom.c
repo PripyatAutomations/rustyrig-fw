@@ -329,7 +329,7 @@ uint32_t eeprom_load_config(void) {
                 break;
            case EE_FLOAT:
            case EE_FREQ:
-                snprintf(mbuf, mb_sz, "%f", eeprom_get_float(i));
+                snprintf(mbuf, mb_sz, "%0.3f", eeprom_get_float(i));
                 break;
            case EE_INT:
                 snprintf(mbuf, mb_sz, "%d", eeprom_get_int(i));

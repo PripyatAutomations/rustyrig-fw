@@ -124,62 +124,62 @@
    },
    "thermal/encl_alarm": {
        "offset": 16285,
-       "type": "float",
+       "type": "int",
        "key": "thermal/encl_alarm"
    },
    "thermal/encl_max": {
        "offset": 16291,
-       "type": "float",
+       "type": "int",
        "key": "thermal/encl_max"
    },
    "thermal/encl_target": {
        "offset": 16295,
-       "type": "float",
+       "type": "int",
        "key": "thermal/encl_target"
    },
    "thermal/final_alarm": {
        "offset": 16299,
-       "type": "float",
+       "type": "int",
        "key": "thermal/final_alarm"
    },
    "thermal/final_max": {
        "offset": 16333,
-       "type": "float",
+       "type": "int",
        "key": "thermal/final_max"
    },
    "thermal/final_target": {
        "offset": 16337,
-       "type": "float",
+       "type": "int",
        "key": "thermal/final_target"
    },
    "thermal/inlet_alarm": {
        "offset": 16341,
-       "type": "float",
+       "type": "int",
        "key": "thermal/inlet_alarm"
    },
    "thermal/inlet_max": {
        "offset": 16345,
-       "type": "float",
+       "type": "int",
        "key": "thermal/inlet_max"
    },
    "thermal/inlet_target": {
        "offset": 16349,
-       "type": "float",
+       "type": "int",
        "key": "thermal/inlet_target"
    },
    "thermal/lpf_alarm": {
        "offset": 16353,
-       "type": "float",
+       "type": "int",
        "key": "thermal/lpf_alarm"
    },
    "thermal/lpf_max": {
        "offset": 16357,
-       "type": "float",
+       "type": "int",
        "key": "thermal/lpf_max"
    },
    "thermal/lpf_target": {
        "offset": 16361,
-       "type": "float",
+       "type": "int",
        "key": "thermal/lpf_target"
    },
    "eeprom/checksum": {

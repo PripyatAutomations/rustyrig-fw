@@ -4,8 +4,9 @@
       "hwversion": 1
    },
    "interface": {
-      "cat": "pipe:cat.socket",
-      "logger": "file:hatchet.log"
+      "amp": "pipe:/tmp/rustyradio.amp.socket",
+      "cat": "pipe:/tmp/rustyradio.cat.socket",
+      "logger": "file:/tmp/rustyradio.debug.log"
    },
    "build": {
       "cflags": "-fPIC -g -O1",
