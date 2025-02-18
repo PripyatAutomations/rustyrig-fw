@@ -11,7 +11,7 @@
 #include "eeprom.h"
 #include "logger.h"
 #include "thermal.h"
-#include "ant_tuner.h"
+#include "atu.h"
 #include "cat.h"
 #include "ptt.h"
 #include "posix.h"
@@ -62,7 +62,7 @@ void shutdown_rig(uint32_t signum) {
 int main(int argc, char **argv) {
    // On the stm32, main is not our entry point, so we can use this to help catch misbuilt images.
 #if	!defined(HOST_POSIX)
-   printf("This build is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is severely broken!\n");
+   printf("This build is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is likely severely broken!\n");
    exit(1);
 #else
    init_signals();
@@ -79,6 +79,9 @@ int main(int argc, char **argv) {
    }
    get_serial_number();
 
+   // Initialize CAT controls (KPA500/Yaesu)
+   cat_init();
+
    // Initialize the i2c buses, if present (starts at 1) 
    I2CBus i2c_bus1 = { .bus_id = 1 };
    I2CBus i2c_bus2 = { .bus_id = 2 };
@@ -93,8 +96,9 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "Error initializing i2c");
    }
 
-   atu_init();
-   cat_init();
+
+   // Initialize each antenna tuner (XXX: scan the config)
+   atu_init(0);
 
    Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 

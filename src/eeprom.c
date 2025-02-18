@@ -266,14 +266,16 @@ bool eeprom_validate_checksum(void) {
    if (calc_sum != curr_sum) {
       Log(LOG_WARN, "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
 
-      if (rig.eeprom_fd >= 0) {
-         close(rig.eeprom_fd);
-         rig.eeprom_fd = -1;
-      }
-
+      // if the eeprom is mmapped, free it
       if (rig.eeprom_mmap != NULL) {
          munmap(rig.eeprom_mmap, rig.eeprom_size);
          rig.eeprom_mmap = NULL;
+      }
+
+      //  if there's a file handle open for the eeprom.bin, close it
+      if (rig.eeprom_fd >= 0) {
+         close(rig.eeprom_fd);
+         rig.eeprom_fd = -1;
       }
 
       rig.eeprom_ready = -1;
@@ -303,6 +305,8 @@ uint32_t eeprom_load_config(void) {
 
    // walk over the eeprom_layout and apply each setting to our state object (rig)
    uint32_t cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
+   int chan_slots_loaded = 0;
+
    for (uint32_t i = 0; i < cfg_rows; i++) {
        // Common types: string, int, float
        int mb_sz = 512;
@@ -318,8 +322,16 @@ uint32_t eeprom_load_config(void) {
            case EE_STR:
                 snprintf(mbuf, mb_sz, "%s", eeprom_get_str(i));
                 break;
-           case EE_CHANNEL:
+           case EE_CHAN_HEADER:
+                Log(LOG_DEBUG, "! Found Chan Mem Header");
+                break;
+           case EE_CHAN_GROUPS:
+                Log(LOG_DEBUG, "! Found Chan Grp Table");
+                break;
+           case EE_CHAN_SLOT:
                 // XXX: we need to parse channel data - needs buildconf to add structs to eeprom_types.h
+                chan_slots_loaded++;
+                Log(LOG_DEBUG, "! Channel Slot: %d\n", chan_slots_loaded);
                 break;
            case EE_CLASS:
                 // XXX: we need to implement license classes

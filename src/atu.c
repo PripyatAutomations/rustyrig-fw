@@ -16,7 +16,7 @@
 #include "logger.h"
 #include "eeprom.h"
 #include "i2c.h"
-#include "ant_tuner.h"
+#include "atu.h"
 // Tell atu_tables we want the data (we are the tuner code)
 #define	ANT_TUNER
 #include "atu_tables.h"
@@ -24,7 +24,18 @@
 extern struct GlobalState rig;	// Global state
 
 // Initialize all ATU units
-uint32_t atu_init(void) {
-   Log(LOG_INFO, "Antenna Matching Unit (ATU) initialized");
-   return 0;
+int atu_init(int uid) {
+   int rv = 0;
+   Log(LOG_INFO, "Antenna Matching Unit (ATU) #%d initialized");
+   return rv;
+}
+
+int atu_init_all(void) {
+   int rv = 0;
+   int i = 0;
+   Log(LOG_INFO, "Initializing all ATUs");
+
+   // XXX: Iterate over the available ATUs...
+   rv += atu_init(i);
+   return -rv;
 }

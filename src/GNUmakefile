@@ -36,7 +36,7 @@ endif
 ##################
 # Source objects #
 ##################
-objs += ant_tuner.o		# Antenna Tuner
+objs += atu.o			# Antenna Tuner
 objs += cat.o			# CAT parsers
 objs += cat_kpa500.o		# amplifier control (KPA-500 mode)
 objs += cat_yaesu.o		# Yaesu CAT protocol
@@ -46,6 +46,9 @@ objs += eeprom.o		# "EEPROM" configuration storage
 objs += faults.o		# Fault management/alerting
 objs += filters.o		# Control of input/output filters
 objs += gpio.o			# GPIO controls
+objs += gui.o			# Support for a local user-interface
+objs += gui_fb.o		# Generic LCD (framebuffer) interface
+objs += gui_nextion.o		# Nextion HMI display interface
 objs += io.o			# Input/Output abstraction/portability
 objs += i2c.o			# i2c abstraction
 objs += logger.o		# Logging facilities

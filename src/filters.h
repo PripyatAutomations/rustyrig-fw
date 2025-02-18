@@ -10,3 +10,6 @@
 struct rf_filter {
     uint32_t	f_type;
 };
+
+extern int filter_init(int fid);
+extern int filter_init_all(void);

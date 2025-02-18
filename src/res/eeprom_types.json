@@ -60,7 +60,7 @@
          "name": "str:13"
       }
    },
-   "channel": {
+   "chan_slot": {
       "size": -1,
       "descr": "Channel memory",
       "struct": {

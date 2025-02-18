@@ -20,3 +20,20 @@
 #include "filter_tables.h"
 
 extern struct GlobalState rig;	// Global state
+
+int filter_init(int fid) {
+    int rv = -1;
+    Log(LOG_INFO, "* Initialized filter %d");
+    return rv;
+}
+
+// Enumate all filters from configuration and init them
+int filter_init_all(void) {
+    int rv = 0;
+    int i = 0;
+
+    // Walk the configured filters and set them up
+    Log(LOG_INFO, "Initializating all filters");
+    filter_init(i);
+    return rv;
+}
