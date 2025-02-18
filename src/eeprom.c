@@ -73,69 +73,6 @@ const char *eeprom_offset_name(uint32_t idx) {
    return rv;
 }
 
-uint32_t eeprom_get_int(uint32_t idx) {
-   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
-      return -1;
-   }
-
-   if (idx == -1)
-      return -1;
-
-   uint32_t value = 0;
-   memcpy(&value, rig.eeprom_mmap + eeprom_layout[idx].offset, sizeof(uint32_t));
-   return value;
-}
-
-uint32_t eeprom_get_int_i(const char *key) {
-   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
-      return -1;
-   }
-
-   return eeprom_get_int(eeprom_offset_index(key));
-}
-
-const char *eeprom_get_str_i(const char *key) {
-   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
-      return NULL;
-   }
-   return eeprom_get_str(eeprom_offset_index(key));
-}
-
-float eeprom_get_float(uint32_t idx) {
-   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
-      return -1;
-   }
-
-   if (idx == -1)
-      return -1;
-
-   float value = 0;
-   memcpy(&value, rig.eeprom_mmap + eeprom_layout[idx].offset, sizeof(float));
-   return value;
-}
-
-const char *eeprom_get_str(uint32_t idx) {
-   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
-      return NULL;
-   }
-
-   if (idx == -1)
-      return NULL;
-
-   static char buf[256];
-   size_t len = eeprom_layout[idx].size;
-   if (len == (size_t)-1) len = 255; // Arbitrary max size for flexible strings
-
-   memset(buf, 0, sizeof(buf));
-   u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
-//   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
-   memcpy(buf, myaddr, len);
-
-   // Ensure null termination
-   buf[len] = '\0';
-   return buf;
-}
-
 uint32_t eeprom_init(void) {
    size_t bytes_read = 0;
 
@@ -315,12 +252,12 @@ uint32_t eeprom_load_config(void) {
        memset(mbuf, 0, sizeof(mbuf));
        switch(eeprom_layout[i].type) {
            case EE_BOOL:
-                snprintf(mbuf, mb_sz, "%s", (eeprom_get_int(i) ? "true" : "false"));
+                snprintf(mbuf, mb_sz, "%s", (eeprom_get_int_i(i) ? "true" : "false"));
                 break;
            case EE_CALL:
            case EE_GRID:
            case EE_STR:
-                snprintf(mbuf, mb_sz, "%s", eeprom_get_str(i));
+                snprintf(mbuf, mb_sz, "%s", eeprom_get_str_i(i));
                 break;
            case EE_CHAN_HEADER:
                 Log(LOG_DEBUG, "! Found Chan Mem Header");
@@ -341,10 +278,10 @@ uint32_t eeprom_load_config(void) {
                 break;
            case EE_FLOAT:
            case EE_FREQ:
-                snprintf(mbuf, mb_sz, "%0.3f", eeprom_get_float(i));
+                snprintf(mbuf, mb_sz, "%0.3f", eeprom_get_float_i(i));
                 break;
            case EE_INT:
-                snprintf(mbuf, mb_sz, "%d", eeprom_get_int(i));
+                snprintf(mbuf, mb_sz, "%d", eeprom_get_int_i(i));
                 break;
            case EE_IP4: {
                 uint8_t ip4[4];
@@ -395,7 +332,7 @@ uint32_t get_serial_number(void) {
    if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
       return -1;
    }
-   uint32_t val = eeprom_get_int_i("device/serial");
+   uint32_t val = eeprom_get_int("device/serial");
    Log(LOG_INFO, "Device serial number: %lu", val);
    return val;
 }
@@ -423,4 +360,100 @@ bool write_pending_eeprom_changes(void) {
       }
    }
    return false;
+}
+
+////////////////
+uint32_t eeprom_get_int_i(uint32_t idx) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+
+   if (idx == -1)
+      return -1;
+
+   uint32_t value = 0;
+   memcpy(&value, rig.eeprom_mmap + eeprom_layout[idx].offset, sizeof(uint32_t));
+   return value;
+}
+
+uint32_t eeprom_get_int(const char *key) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+
+   return eeprom_get_int_i(eeprom_offset_index(key));
+}
+
+
+float eeprom_get_float_i(uint32_t idx) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+
+   if (idx == -1)
+      return -1;
+
+   float value = 0;
+   memcpy(&value, rig.eeprom_mmap + eeprom_layout[idx].offset, sizeof(float));
+   return value;
+}
+
+float eeprom_get_float(const char *key) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return -1;
+   }
+
+   return eeprom_get_float_i(eeprom_offset_index(key));
+}
+
+const char *eeprom_get_str_i(uint32_t idx) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return NULL;
+   }
+
+   if (idx == -1)
+      return NULL;
+
+   static char buf[256];
+   size_t len = eeprom_layout[idx].size;
+   if (len == (size_t)-1) len = 255; // Arbitrary max size for flexible strings
+
+   memset(buf, 0, sizeof(buf));
+   u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
+//   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
+   memcpy(buf, myaddr, len);
+
+   // Ensure null termination
+   buf[len] = '\0';
+   return buf;
+}
+
+const char *eeprom_get_str(const char *key) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return NULL;
+   }
+   return eeprom_get_str_i(eeprom_offset_index(key));
+}
+
+struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin) {
+   if (sin == NULL || rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return NULL;
+   }
+
+   // this is stored as 4 packed bytes by buildconf
+   unsigned char packed_ip[4];
+   int idx = eeprom_offset_index(key);
+
+   if (idx == -1) {
+      Log(LOG_WARN, "error in eeprom_get_ipv4: invalid key %s", key);
+      return NULL;
+   }
+
+   unsigned char *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
+   memcpy(packed_ip, myaddr, 4);
+   sin->s_addr = *(uint32_t *)packed_ip;
+#if	defined(NOISY_NETWORK)
+   Log(LOG_DEBUG, "netcfg: %s => %s", key, inet_ntoa(*sin));
+#endif
+   return sin;
 }

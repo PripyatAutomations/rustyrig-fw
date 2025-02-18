@@ -1,5 +1,5 @@
 /*
- * Support for a console interface to the radio
+ * Support for a console interface to the radio via io abstraction (socket|serial|pipe)
  */
 #include "config.h"
 #include <stddef.h>
@@ -13,11 +13,15 @@
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
-
+#include "console.h"
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>
 #endif
 
 extern struct GlobalState rig;	// Global state
 
-// We need to be transport agnostic for network and serial transports
+bool cons_help
+struct cons_cmds core_cmds[] = {
+    { "help", 0, 1, cons_help },
+    { NULL, -1, -1, NULL }
+};

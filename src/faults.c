@@ -26,6 +26,8 @@ uint32_t set_fault(uint32_t fault) {
        Log(LOG_WARN, "Fault event [%] code is lower priority than last (%d), not raising fault level!", rig.faults, fault, rig.fault_code);
     }
 
-    // XXX: Update the display
+    // XXX: Determine if shutting down the PA and output should occur
+
+    // XXX: Update the display & set fault LED
     return 0;
 }

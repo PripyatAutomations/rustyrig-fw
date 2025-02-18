@@ -1,5 +1,5 @@
 /*
- * This is the CAT parser.
+ * This is the CAT parser. We use the io abstraction in io.c
  *
  * Here we parse commands for the various functions of the radio.
  *
@@ -9,7 +9,7 @@
  * You can enable both protocols or just one.
  *
  * Since the KPA500 commands have a prefix character, we can be flexible about
- * how it is connected. A single pipe/serial port can be used, if desired.
+ * how it is connected. A single pipe/serial port/socket can be used, if desired.
  */
 #include "config.h"
 #include <stddef.h>

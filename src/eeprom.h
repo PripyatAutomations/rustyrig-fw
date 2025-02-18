@@ -1,4 +1,4 @@
-#if	!defined(_eeprom_h)
+#if	!defined(__eeprom_h)
 #define	_eeprom_h
 
 // This will prevent loading with a newer EEPROM version and someday will force an upgrade if older
@@ -78,10 +78,13 @@ extern uint32_t eeprom_write_block(void *buf, size_t offset, size_t len);
 extern uint32_t eeprom_init(void);
 extern uint32_t eeprom_load_config(void);
 extern uint32_t eeprom_write_config(uint32_t force);
-extern uint32_t eeprom_get_int(uint32_t idx);
-extern const char *eeprom_get_str(uint32_t idx);
-extern uint32_t eeprom_get_int_i(const char *key);
-extern const char *eeprom_get_str_i(const char *key);
+extern uint32_t eeprom_get_int(const char *key);
+extern uint32_t eeprom_get_int_i(uint32_t idx);
+extern const char *eeprom_get_str(const char *key);
+extern const char *eeprom_get_str_i(uint32_t idx);
+extern float eeprom_get_float(const char *key);
+extern float eeprom_get_float_i(uint32_t idx);
 extern uint32_t get_serial_number(void);
+extern struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin);
 
 #endif	// !defined(_eeprom_h)

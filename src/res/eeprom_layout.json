@@ -111,68 +111,74 @@
        "key": "net/vlan",
        "default": 1
    },
-   "i2c/myaddr": {
+   "net/mtu": {
        "offset": 101,
+       "type": "int",
+       "key": "net/mtu",
+       "default": 1500
+   },
+   "i2c/myaddr": {
+       "offset": 105,
        "type": "int",
        "key": "i2c/myaddr"
    },
    "thermal/encl_alarm": {
-       "offset": 105,
+       "offset": 109,
        "type": "int",
        "key": "thermal/encl_alarm"
    },
    "thermal/encl_max": {
-       "offset": 109,
+       "offset": 113,
        "type": "int",
        "key": "thermal/encl_max"
    },
    "thermal/encl_target": {
-       "offset": 114,
+       "offset": 117,
        "type": "int",
        "key": "thermal/encl_target"
    },
    "thermal/final_alarm": {
-       "offset": 118,
+       "offset": 121,
        "type": "int",
        "key": "thermal/final_alarm"
    },
    "thermal/final_max": {
-       "offset": 122,
+       "offset": 125,
        "type": "int",
        "key": "thermal/final_max"
    },
    "thermal/final_target": {
-       "offset": 126,
+       "offset": 129,
        "type": "int",
        "key": "thermal/final_target"
    },
    "thermal/inlet_alarm": {
-       "offset": 130,
+       "offset": 133,
        "type": "int",
        "key": "thermal/inlet_alarm"
    },
    "thermal/inlet_max": {
-       "offset": 134,
+       "offset": 137,
        "type": "int",
        "key": "thermal/inlet_max"
    },
    "thermal/inlet_target": {
-       "offset": 138,
+       "offset": 141,
        "type": "int",
        "key": "thermal/inlet_target"
    },
    "thermal/lpf_alarm": {
-       "offset": 142,
+       "offset": 145,
        "type": "int",
        "key": "thermal/lpf_alarm"
    },
    "thermal/lpf_max": {
-       "offset": 146,
+       "offset": 149,
        "type": "int",
        "key": "thermal/lpf_max"
    },
    "thermal/lpf_target": {
-       "offset": 150,
+       "offset": 153,
        "type": "int",
        "key": "thermal/lpf_target"
    },

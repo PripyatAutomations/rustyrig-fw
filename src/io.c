@@ -1,5 +1,5 @@
 //
-// IO abstraction
+// IO abstraction: Socket, pipe, and serial
 //
 #include "config.h"
 #include <stddef.h>

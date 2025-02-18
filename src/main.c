@@ -16,6 +16,7 @@
 #include "cat.h"
 #include "ptt.h"
 #include "gpio.h"
+#include "network.h"
 
 bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
@@ -78,6 +79,7 @@ int main(int argc, char **argv) {
    if (eeprom_init() == 0) {
       eeprom_load_config();
    }
+   // Print the serial #
    get_serial_number();
 
    gpio_init();
@@ -105,18 +107,24 @@ int main(int argc, char **argv) {
 
    Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 
+   show_network_info();
+
    // Main loop
    while(!dying) {
       char buf[512];
-      
+
+      // Check thermals
       if (are_we_on_fire()) {
          ptt_set(false);
          ptt_set_blocked(true);
          Log(LOG_CRIT, "Radio is on fire?! Halted TX!\n");
       }
 
-      memset(buf, 0, 512);
-      // read_serial(&buf, 512);
+      /// XXX: Determine which (pipes|devices|sockets) are needing read from
+      // XXX: Iterate over them: console, amp, rig
+      // We limit line length to 512
+      memset(buf, 0, PARSE_LINE_LEN);
+      // io_read(&buf, PARSE_LINE_LEN - 1);
       cat_parse_line(buf);
       sleep(1);
    }

@@ -4,8 +4,12 @@
 #include <time.h>
 #include <stdbool.h>
 
+// In main.c
 extern bool dying;
 
+// #define NOISY_NETWORK
+
+#define	PARSE_LINE_LEN	512
 
 // TX Low Pass Filters
 // Ideally these need to be moved to the build config
