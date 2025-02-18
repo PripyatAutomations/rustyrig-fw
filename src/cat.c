@@ -3,12 +3,13 @@
  *
  * Here we parse commands for the various functions of the radio.
  *
- * Since this module is designed to be used either with an existing rig or
- * eventually as a stand-alone transceiver, we support two protocols for control
- *
- * CAT_KPA500: Electraft KPA-500 amplifier control protocol
- * CAT_YAESU: Yaesu FT-891/991A rig control protocol
+ * Amplifier and rig control are split up into two CAT interfaces.
+ *   CAT_KPA500: Electraft KPA-500 amplifier control protocol
+ *   CAT_YAESU: Yaesu FT-891/991A rig control protocol
  * You can enable both protocols or just one.
+ *
+ * Since the KPA500 commands have a prefix character, we can be flexible about
+ * how it is connected. A single pipe/serial port can be used, if desired.
  */
 #include "config.h"
 #include <stddef.h>
@@ -93,7 +94,9 @@ int32_t cat_parse_line(char *line) {
 // Initialize CAT control
 int32_t cat_init(void) {
 #if	defined(HOST_POSIX)
-// XXX: Open the pipe
+// XXX: Open the pipe(s)
+// KPA500 amplifier control
+// Yaesu-style rig control
 #endif
    Log(LOG_INFO, "CAT Initialization succesful");
    return 0;

@@ -405,7 +405,7 @@ uint32_t get_serial_number(void) {
 ////////////////////////////////
 // Do we have any changes to write?
 bool check_pending_eeprom_changes(void) {
-   return false;
+    return false;
 }
 
 // How long ago was the eeprom changed?

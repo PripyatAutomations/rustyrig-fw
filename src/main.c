@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include "posix.h"
 #include "i2c.h"
 #include "state.h"
 #include "eeprom.h"
@@ -14,7 +15,7 @@
 #include "atu.h"
 #include "cat.h"
 #include "ptt.h"
-#include "posix.h"
+#include "gpio.h"
 
 bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
@@ -78,6 +79,8 @@ int main(int argc, char **argv) {
       eeprom_load_config();
    }
    get_serial_number();
+
+   gpio_init();
 
    // Initialize CAT controls (KPA500/Yaesu)
    cat_init();

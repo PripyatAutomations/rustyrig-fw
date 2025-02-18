@@ -26,7 +26,7 @@ extern struct GlobalState rig;	// Global state
 // Initialize all ATU units
 int atu_init(int uid) {
    int rv = 0;
-   Log(LOG_INFO, "Antenna Matching Unit (ATU) #%d initialized");
+   Log(LOG_INFO, "Antenna Matching Unit (ATU) #%d initialized", uid);
    return rv;
 }
 

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css">
+    <link rel="shortcut icon" href="images/favicon.png" type="image/x-icon" />
+
+    <!-- SEO title & description -->
+    <title>WebUSB STM32 Updater Tool | Silicon Witchery</title>
+    <meta name="description" content="WebUSB based firmware upgrade tool for STM32 series devices.">
+    <link rel="canonical" href="https://siliconwitchery.github.io/web-stm32-updater/" />
+
+    <!-- Facebook & Twitter card meta -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@SiliconWitchery" />
+    <meta property="og:title" content="WebUSB STM32 Updater Tool | Silicon Witchery" />
+    <meta property="og:description" content="WebUSB based firmware upgrade tool for STM32 series devices." />
+    <meta property="og:image" content="https://siliconwitchery.github.io/web-stm32-updater/images/share.png" />
+    <meta property="og:url" content="https://siliconwitchery.github.io/web-stm32-updater/" />
+    <meta property="og:type" content="website" />
+
+    <!-- Script which contains the WebUSB DFU functions -->
+    <script src="usbDfuDevice.js"></script>
+</head>
+
+
+<!-- Page HTML content -->
+
+<body>
+    <div class="app">
+
+        <!-- Title -->
+        <h1>WebUSB STM32 Updater Tool</h1>
+        <p>This tool uses the WebUSB API to perform device firmware upgrade (DFU) on STM32 devices. Paste the link to
+            your file below and enter both the flash size, and page size for your device. This can be either in
+            hexadecimal (e.g. 0x20) or decimal (e.g. 128). Click connect to start the DFU process. Visit our repository
+            below to learn how this tool works, and fork your own version with whatever customizations you need. Make
+            sure you're using Chromium or the latest <a href="https://www.google.com/chrome/" target="_blank">Chrome
+                Desktop</a>.
+        </p>
+
+        <!-- Text entry boxes -->
+        <div class="entry-boxes">
+
+            <!-- Update file entry box -->
+            <input id="fileLocationBox" style="flex-grow: 1;" type="url" placeholder="https://server/yourFile.bin">
+
+            <!-- Flash size entry box -->
+            <input id="flashSizeBox" type="text" size="11" placeholder="Flash size">
+
+            <!-- Page size entry box -->
+            <input id="pageSizeBox" type="text" size="11" placeholder="Page size">
+
+
+        </div>
+
+        <!-- Buttons and progress bar -->
+        <div class="buttons-and-bar">
+
+            <!-- Connect/program button -->
+            <button id="connectProgramButton">Connect</button>
+
+            <!-- Progress bar -->
+            <progress id="progressBar" value="0" max="100"></progress>
+
+        </div>
+
+        <!-- Footer -->
+        <footer>
+
+            <p>For help, bug reporting, and source code, visit the
+                <a href="https://github.com/siliconwitchery/web-stm32-updater" target="_blank">repository</a>
+            </p>
+
+            <p>Copyright © 2022 <a href="https://www.siliconwitchery.com" target="_blank">Silicon Witchery</a></p>
+
+        </footer>
+
+    </div>
+
+</body>
+
+
+<!-- Javascript for interacting with the button and progress bar -->
+
+<script>
+
+    // Create a USB dfu device object
+    let dfu = new usbDfuDevice();
+
+    // Reference to the text boxes, button and progress bar
+    const fileLocationBox = document.getElementById('fileLocationBox');
+    const flashSizeBox = document.getElementById('flashSizeBox');
+    const pageSizeBox = document.getElementById('pageSizeBox');
+    const connectProgramButton = document.getElementById('connectProgramButton');
+    const progressBar = document.getElementById('progressBar');
+
+    // When the button is clicked
+    connectProgramButton.addEventListener('click', function () {
+
+        // Start the update function (This is an async process)
+        startUpdate();
+    });
+
+    // This function runs the update process. It is asynchronous because the operations inside take some time
+    async function startUpdate() {
+
+        // Disable the button to avoid the user calling this multiple times
+        connectProgramButton.disabled = true;
+
+        // Try to get the file and run the update sequence
+        try {
+
+            // Disallow empty URLs
+            if (fileLocationBox.value == "") {
+                throw ("Error: No URL provided");
+            }
+
+            // Attempt to get the file. Note, your browser will block this if you try to run it locally
+            // See here: https://stackoverflow.com/questions/43262121/trying-to-use-fetch-and-pass-in-mode-no-cors 
+            let response = await fetch(fileLocationBox.value);
+
+            // This needs to be here to catch things like 404 errors, which aren't counted as a promise failure
+            if (!response.ok) {
+                throw ("Error: " + response.status + " " + response.statusText);
+            }
+
+            // Create an array buffer containing the file data
+            let fileArr = await response.arrayBuffer();
+
+            // Run the update sequence
+            await dfu.runUpdateSequence(fileArr, flashSizeBox.value, pageSizeBox.value);
+
+            // Done
+            alert("Done!");
+        }
+
+        // On any caught errors
+        catch (error) {
+
+            // Reset the button and progress bar
+            dfuDisconnectHandler();
+
+            // Show the error as an alert
+            alert(error);
+        }
+    }
+
+    // Updates the button text. "Connecting", "Erasing", etc.
+    function dfuStatusHandler(status) {
+        connectProgramButton.innerHTML = status;
+    }
+
+    // Updates the progress bar value. 0 - 100%
+    function dfuProgressHandler(value) {
+        progressBar.value = value;
+    }
+
+    // This function is called on a disconnect event
+    function dfuDisconnectHandler() {
+
+        // Reset the button back to 'connect'
+        connectProgramButton.innerHTML = "Connect";
+
+        // Enable the button again
+        connectProgramButton.disabled = false;
+
+        // Reset the progress bar
+        progressBar.value = 0;
+    }
+
+</script>
+
+</html>
