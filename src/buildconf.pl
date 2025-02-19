@@ -277,6 +277,8 @@ sub eeprom_patch {
 
    # Walk over the layout structure and see if we have a value set in the config...
    for my $item (@eeprom_layout_out) {
+
+# XXX: this is problematic as we don't want to hard code offsets
        for my $key (sort { $item->{$a}{offset} <=> $item->{$b}{offset} } keys %$item) {
           my $ee_key = $item->{$key}{key};
           my $ee_default = $item->{$key}{default};
@@ -302,7 +304,7 @@ sub eeprom_patch {
              if ($ee_off_raw =~ m/^\@/) {
                 # Absolute offset
                 $ee_offset_relative = 0;
-                print "* ABSolute OFFset: Updating ($ee_offset) to ($curr_offset)\n";
+                print "* ABSolute OFFset: Updating (from $curr_offset) to ($ee_offset)\n";
                 $curr_offset = $ee_offset;
              } else {
                 # Is this a relative offset?
@@ -310,7 +312,6 @@ sub eeprom_patch {
                 $ee_offset =~ s/\+//;
                 $curr_offset += $ee_offset;
                 print "* RELative OFFset: Updated to $curr_offset\n";
-                $ee_offset = $curr_offset;
              }
           }
 
@@ -524,6 +525,8 @@ sub eeprom_load_channels {
 
    # apply mojo json pointer, so we can reference by path
    $chptr = Mojo::JSON::Pointer->new(@eeprom_channels);
+
+   # XXX: We need to validate the data here and reject it, if incorrect, to avoid corrupt eeprom!   
 }
 
 # Apply channels to the eeprom in memory
