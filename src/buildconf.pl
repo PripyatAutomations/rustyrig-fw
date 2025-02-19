@@ -305,7 +305,7 @@ sub eeprom_patch {
           if (defined($ee_off_raw)) {
              $ee_off_raw =~ s/[+\-@]//g;
              $curr_offset = $ee_off_raw;
-             print "* ABSolute OFFset: $curr_offset\n";
+#             print "* ABSolute OFFset: $curr_offset\n";
 #             if ($ee_off_raw =~ m/^@/) {
 #                # Absolute offset
 #                $ee_offset_relative = $ee_off_raw;
@@ -794,6 +794,12 @@ sub generate_config_h {
 
       if (defined($config->{features}{'cat-yaesu'}) && $config->{features}{'cat-yaesu'} eq 1) {
          printf $fh "#define CAT_YAESU true\n";
+      }
+   }
+
+   if (defined($config->{'debug'})) {
+      if (defined($config->{debug}{'noisy-eeprom'}) && $config->{debug}{'noisy-eeprom'} eq 1) {
+         printf $fh "#define NOISY_EEPROM true\n";
       }
    }
 

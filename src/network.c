@@ -40,9 +40,10 @@ void show_network_info(void) {
    eeprom_get_ip4("net/dns2", &sa_dns2);
 
    Log(LOG_INFO, "*** Network Configuration ***");
-   Log(LOG_INFO, "Current VLAN: %d, MTU: %d", vlan, mtu);
-   Log(LOG_INFO, "Static IP: %s", inet_ntoa(sa_ip));
-   Log(LOG_INFO, "Static GW: %s", inet_ntoa(sa_gw));
+   Log(LOG_INFO, "  Current VLAN: %d\t\tMTU: %d", vlan, mtu);
+   Log(LOG_INFO, "     Static IP: %s", inet_ntoa(sa_ip));
+   Log(LOG_INFO, " Static Subnet: %s", inet_ntoa(sa_mask));
+   Log(LOG_INFO, "Static Gateway: %s", inet_ntoa(sa_gw));
    Log(LOG_INFO, "Static DNS (1): %s", inet_ntoa(sa_dns1));
    Log(LOG_INFO, "Static DNS (2): %s", inet_ntoa(sa_dns2));
 }

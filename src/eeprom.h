@@ -13,7 +13,7 @@
 #include "eeprom_types.h"
 
 #define	PIN_LEN	8		// 8 byte pin
-#define	NOISY_EEPROM	// Define this to cause eeprom functions to be extra noisy
+
 typedef enum mod_mode {
     MOD_NONE = 0,
     MOD_CW,

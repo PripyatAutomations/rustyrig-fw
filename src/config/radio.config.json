@@ -17,6 +17,7 @@
       }
    },
    "debug": {
+      "noisy-eeprom": 0,
       "logfile": "/tmp/radio-debvg.log",
       "logtype": "pipe",
       "logmode": "0666",
@@ -32,7 +33,7 @@
    },
    "features": {
       "cat-kpa500": 1,
-      "cat-yaesu": 0,
+      "cat-yaesu": 1,
       "max-bands": 14
    },
    "station": {

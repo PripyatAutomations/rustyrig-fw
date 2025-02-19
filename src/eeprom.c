@@ -241,8 +241,6 @@ uint32_t eeprom_load_config(void) {
       return -1;
    }
 
-   Log(LOG_DEBUG, "* Loading configuration from EEPROM");
-
    // walk over the eeprom_layout and apply each setting to our state object (rig)
    uint32_t cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
    int chan_slots_loaded = 0;
