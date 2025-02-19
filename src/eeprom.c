@@ -8,6 +8,7 @@
  *	i2c connected parts
  */
 #include "config.h"
+#include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -457,3 +458,18 @@ struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin) {
 #endif
    return sin;
 }
+
+void show_pin_info(void) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return;
+   }
+
+   char master_pin[PIN_LEN + 1];
+   char reset_pin[PIN_LEN + 1];
+   memset(master_pin, 0, PIN_LEN + 1);
+   memset(reset_pin, 0, PIN_LEN + 1);
+   snprintf(master_pin, PIN_LEN, "%s", eeprom_get_str("pin/master"));
+   snprintf(reset_pin, PIN_LEN, "%s", eeprom_get_str("pin/reset"));
+   Log(LOG_INFO, "*** Master PIN: %s, Factory Reset PIN: %s", master_pin, reset_pin);
+}
+

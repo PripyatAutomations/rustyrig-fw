@@ -108,6 +108,7 @@ int main(int argc, char **argv) {
    Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 
    show_network_info();
+   show_pin_info();
 
    // Main loop
    while(!dying) {

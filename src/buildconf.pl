@@ -266,6 +266,15 @@ sub eeprom_patch {
       $eeprom_data = "\x00" x $eeprom_size;
    }
 
+   # XXX: We need to follow a better strategy for offsets-
+   # XXX: -- Keep a running offset, starting at 0 on entry.
+   # XXX: -- Any offset prefixed with @ is an absolute offset and will be used without updating the running offset
+   # XXX: -- Any offset without prefix will be added to running offset
+   # XXX: -- If no offset given, use the running offset
+   # XXX: -- Running offset is updated BEFORE taking action
+   # XXX: -- Size should come from types, unless specified in layout entry
+   # XXX: -- Eliminate need for key property on each layout entry
+
    # Walk over the layout structure and see if we have a value set in the config...
    for my $item (@eeprom_layout_out) {
        for my $key (sort { $item->{$a}{offset} <=> $item->{$b}{offset} } keys %$item) {
@@ -332,11 +341,11 @@ sub eeprom_patch {
           # Figure out how much memory we need to touch...
           my $final_size = $type_size;
           if (defined($ee_size) && $ee_size > 0) {
-#             if ($type_size == -1) {
-##                print "     ~ Variable field of type $ee_type forced to $ee_size bytes\n";
-#             } else {
-#                print "     ~ Overriding default size $type_size for [$ee_type] ($ee_size)\n";
-#             }
+             if ($type_size == -1) {
+                print "     ~ Variable field of type $ee_type forced to $ee_size bytes\n";
+             } else {
+                print "     ~ Overriding default size $type_size for [$ee_type] ($ee_size)\n";
+             }
              $final_size = $ee_size;
           }
 
@@ -690,7 +699,6 @@ sub generate_eeprom_layout_h {
    print $fh "static struct eeprom_layout eeprom_layout[] = {\n";
 
    # this needs reworked so that we get the enum types out of eeprom_types
-   # XXX: We also should generate the eeprom_layout.type enum here, so we include all types...
    for my $item (@eeprom_layout_out) {
       for my $key (sort keys(%$item)) {
           my $ee_key = $item->{$key}{key};

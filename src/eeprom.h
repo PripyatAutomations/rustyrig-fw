@@ -12,6 +12,8 @@
 #include "state.h"
 #include "eeprom_types.h"
 
+#define	PIN_LEN	8		// 8 byte pin
+
 typedef enum mod_mode {
     MOD_NONE = 0,
     MOD_CW,
@@ -86,5 +88,6 @@ extern float eeprom_get_float(const char *key);
 extern float eeprom_get_float_i(uint32_t idx);
 extern uint32_t get_serial_number(void);
 extern struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin);
+extern void show_pin_info(void);
 
 #endif	// !defined(_eeprom_h)
