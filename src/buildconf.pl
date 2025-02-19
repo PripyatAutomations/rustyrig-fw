@@ -95,8 +95,9 @@ my $config_file = "config/$profile.config.json";
 my $eeprom_file = "$build_dir/eeprom.bin";
 # In-memory version of the EEPROM, either loaded or empty
 my $eeprom_data = '';
-# In-memory version of JUST the channels, to patch into eeprom
+# In-memory version of the channel tabel
 my $eeprom_channel_data = '';
+
 my ( @eeprom_layout_out, @eeprom_layout_in );
 my ( @eeprom_types_out, @eeprom_types_in );
 
@@ -518,13 +519,14 @@ sub eeprom_load_channels {
 
 # Apply channels to the eeprom in memory
 sub eeprom_insert_channels {
-   my $ee_data_offset = 0;
-
    if (@eeprom_channels) {
       print "* Inserting channel memories\n";
+      # XXX: use size of the $eeprom_channel_data var
+      # substr($eeprom_channel_data, 0, $final_size, "\x00" x $final_size);
 
       # Determine the offset to the channel storage in eeprom
       my $chan_offset = 0;
+
       # Prepare the header
       my $chan_header;
 
@@ -566,10 +568,6 @@ sub eeprom_insert_channels {
                   } else {
                      $ch_txpower_str = "OFF";
                   }
-                  # XXX: Pack all the data into an object for insertion
-#                     my $packedcall = pack("Z8", $cval);
-#                     substr($eeprom_channel_data, $curr_offset, 8, $packedcall);
-#                     $ee_data_offset += $this_len;
                   
                   # did we get anything to store?
                   $this_len = length($this_data);
@@ -577,6 +575,10 @@ sub eeprom_insert_channels {
 
                   if ($this_len > 0) {
                   # Insert it into the total stored
+                  # XXX: Pack all the data into an object for insertion
+#                     my $packedcall = pack("Z8", $cval);
+#                     substr($eeprom_channel_data, $chan_offset, 8, $packedcall);
+#                     $chanoffset += $this_len;
                   }
 
                   $ch_num++;
@@ -587,7 +589,7 @@ sub eeprom_insert_channels {
       print "* Packed $ch_num channel memories into ", length($eeprom_channel_data), " bytes of reserved channel storage.\n";
       # Copy the header into eeprom
       # Copy the packed data into eeprom at $chan_offset + sizeof(chan_header)
-      print "* Wrote " . length($eeprom_channel_data) . " bytes into eeprom\n";
+#      print "* Wrote " . length($eeprom_channel_data) . " bytes into eeprom\n";
    } else {
       print "* No channel memories defined, skipping.\n";
    }
