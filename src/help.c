@@ -1,3 +1,4 @@
+// Here we support a help system, if filesystem is present
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -13,5 +14,5 @@
 #include "cat.h"
 #include "posix.h"
 
-extern bool dying;		// in main.c
+extern bool dying;
 extern struct GlobalState rig;	// Global state

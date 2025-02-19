@@ -49,6 +49,7 @@ objs += gpio.o			# GPIO controls
 objs += gui.o			# Support for a local user-interface
 objs += gui_fb.o		# Generic LCD (framebuffer) interface
 objs += gui_nextion.o		# Nextion HMI display interface
+objs += help.o			# support for help menus from filesystem, if available
 objs += io.o			# Input/Output abstraction/portability
 objs += i2c.o			# i2c abstraction
 objs += logger.o		# Logging facilities
@@ -56,7 +57,7 @@ objs += main.o			# main loop
 objs += network.o		# Network control
 
 ifeq (${PLATFORM}, posix)
-objs += posix.o			# support for POSIX hosts (pi or debugging)
+objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 endif
 
 objs += power.o			# Power monitoring and management

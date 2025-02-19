@@ -9,14 +9,15 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#if	defined(HOST_POSIX)
+#include <sys/socket.h>
+#endif
 #include "i2c.h"
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
 #include "console.h"
-#if	defined(HOST_POSIX)
-#include <sys/socket.h>
-#endif
+#include "help.h"
 
 extern struct GlobalState rig;	// Global state
 

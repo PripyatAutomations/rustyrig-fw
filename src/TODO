@@ -1,3 +1,7 @@
+[porting]
+- Shorten strings where possible
+- Wrap strings for storage as appropriate on micros (stm32? ;)
+
 [buildconf]
 - Support for loading older (input) eeprom layouts, according to version saved in the EEPROM
   - see res/archive/*

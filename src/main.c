@@ -17,6 +17,7 @@
 #include "ptt.h"
 #include "gpio.h"
 #include "network.h"
+#include "help.h"
 
 bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
