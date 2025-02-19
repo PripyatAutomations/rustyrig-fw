@@ -253,6 +253,7 @@ sub eeprom_load {
    eeprom_verify_checksum();
 }
 
+# XXX: -- Eliminate need for key property on each layout entry
 sub eeprom_patch {
    my $changes = 0;
    my $errors = 0;
@@ -266,6 +267,7 @@ sub eeprom_patch {
       $eeprom_data = "\x00" x $eeprom_size;
    }
 
+   # -- This is impossible with Mojo::JSON, unless we can add an index value while loading it
    # XXX: We need to follow a better strategy for offsets-
    # XXX: -- Keep a running offset, starting at 0 on entry.
    # XXX: -- Any offset prefixed with @ is an absolute offset and will be used without updating the running offset
@@ -273,13 +275,13 @@ sub eeprom_patch {
    # XXX: -- If no offset given, use the running offset
    # XXX: -- Running offset is updated BEFORE taking action
    # XXX: -- Size should come from types, unless specified in layout entry
-   # XXX: -- Eliminate need for key property on each layout entry
 
    # Walk over the layout structure and see if we have a value set in the config...
    for my $item (@eeprom_layout_out) {
 
 # XXX: this is problematic as we don't want to hard code offsets
-       for my $key (sort { $item->{$a}{offset} <=> $item->{$b}{offset} } keys %$item) {
+#       for my $key (sort { $item->{$a}{offset} <=> $item->{$b}{offset} } keys %$item) {
+       for my $key (sort { ($item->{$a}{offset} // 1e9) <=> ($item->{$b}{offset} // 1e9) || $a cmp $b } keys %$item) {
           my $ee_key = $item->{$key}{key};
           my $ee_default = $item->{$key}{default};
           my $ee_off_raw = $item->{$key}{offset};
@@ -301,18 +303,21 @@ sub eeprom_patch {
           }
 
           if (defined($ee_off_raw)) {
-             if ($ee_off_raw =~ m/^\@/) {
-                # Absolute offset
-                $ee_offset_relative = 0;
-                print "* ABSolute OFFset: Updating (from $curr_offset) to ($ee_offset)\n";
-                $curr_offset = $ee_offset;
-             } else {
-                # Is this a relative offset?
-                $ee_offset_relative = 1;
-                $ee_offset =~ s/\+//;
-                $curr_offset += $ee_offset;
-                print "* RELative OFFset: Updated to $curr_offset\n";
-             }
+             $ee_off_raw =~ s/[+\-@]//g;
+             $curr_offset = $ee_off_raw;
+             print "* ABSolute OFFset: $curr_offset\n";
+#             if ($ee_off_raw =~ m/^@/) {
+#                # Absolute offset
+#                $ee_offset_relative = $ee_off_raw;
+#                $ee_offset_relative =~ s/@//g;
+#                print "* ABSolute OFFset: Updating (from $curr_offset) to ($ee_offset_relative)\n";
+#                $curr_offset = $ee_offset = $ee_off_raw;
+#             } else {
+#                $ee_offset =~ s/[+\-@]//g;
+#                $curr_offset += $ee_offset;
+#                print "* RELative OFFset: Updated to $curr_offset\n";
+#                $ee_offset = $curr_offset;
+#             }
           }
 
           if (!defined($ee_key)) {
@@ -706,6 +711,7 @@ sub generate_eeprom_layout_h {
       for my $key (sort keys(%$item)) {
           my $ee_key = $item->{$key}{key};
           my $ee_offset = $item->{$key}{offset};
+          $ee_offset =~ s/[+\-@]//g;
           my $ee_size = $item->{$key}{size};
           my $ee_type = $item->{$key}{type};
 

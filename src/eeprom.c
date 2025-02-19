@@ -241,7 +241,7 @@ uint32_t eeprom_load_config(void) {
       return -1;
    }
 
-   Log(LOG_DEBUG, "*** Configuration Dump ***");
+   Log(LOG_DEBUG, "* Loading configuration from EEPROM");
 
    // walk over the eeprom_layout and apply each setting to our state object (rig)
    uint32_t cfg_rows = sizeof(eeprom_layout) / sizeof(eeprom_layout[0]);
@@ -303,8 +303,10 @@ uint32_t eeprom_load_config(void) {
                 break;
 //   EE_MODE,                     /* Operating mode (modulation) */
        }
+#if	defined(NOISY_EEPROM)
        Log(LOG_DEBUG, "key: %s type: %d offset: %d size: %d |%s|", eeprom_layout[i].key,
            eeprom_layout[i].type, eeprom_layout[i].offset, eeprom_layout[i].size, mbuf);
+#endif	// defined(NOISY_EEPROM)
    }
    Log(LOG_INFO, "Configuration successfully loaded from EEPROM");
    return 0;
