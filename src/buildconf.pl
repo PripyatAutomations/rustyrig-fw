@@ -299,18 +299,18 @@ sub eeprom_patch {
           }
 
           if (defined($ee_off_raw)) {
-             if ($ee_off_raw =~ m/^\+/) {
+             if ($ee_off_raw =~ m/^\@/) {
+                # Absolute offset
+                $ee_offset_relative = 0;
+                print "* ABSolute OFFset: Updating ($ee_offset) to ($curr_offset)\n";
+                $curr_offset = $ee_offset;
+             } else {
                 # Is this a relative offset?
                 $ee_offset_relative = 1;
                 $ee_offset =~ s/\+//;
                 $curr_offset += $ee_offset;
-#                print "* RELative OFFset: Updated to $curr_offset\n";
-#                $ee_offset = $curr_offset;
-             } else {
-                # Absolute offset
-                $ee_offset_relative = 0;
-#                print "* ABSolute OFFset: Updating ($ee_offset) to ($curr_offset)\n";
-                $curr_offset = $ee_offset;
+                print "* RELative OFFset: Updated to $curr_offset\n";
+                $ee_offset = $curr_offset;
              }
           }
 

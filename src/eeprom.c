@@ -54,8 +54,10 @@ uint32_t eeprom_offset_index(const char *key) {
 
    for (idx = 0; idx < max_entries; idx++) {
       if (strncasecmp(key, eeprom_layout[idx].key, strlen(key)) == 0) {
+#if	defined(NOISY_EEPROM)
          Log(LOG_DEBUG, "match for key %s at index %d: type=%d, offset=%lu, sz=%lu", key, idx,
             eeprom_layout[idx].type, eeprom_layout[idx].offset, eeprom_layout[idx].size);
+#endif
          return idx;
       }
    }
