@@ -378,6 +378,7 @@ sub eeprom_patch {
           }
 
           # Zero out the memory area before writing to it
+          print "Zeroing $final_size byes at offset $curr_offset\n";
           substr($eeprom_data, $curr_offset, $final_size, "\x00" x $final_size);
 
           # Here we chose which type
@@ -422,8 +423,12 @@ sub eeprom_patch {
                 print "   * Skipping 0 length key\n";
                 next;
              }
-             substr($eeprom_data, $curr_offset, $final_size, $cval);
-             # Add trailing NULL
+
+
+             # and write it to the to eeprom image
+             substr($eeprom_data, $curr_offset, length($cval), $cval);
+             # then pad the rest of the string storage with nulls
+             substr($eeprom_data, $curr_offset + length($cval) + 1, "\x00" x ($final_size - length($cval)));
           }
 
           # Try to make sure the offsets are lining up....

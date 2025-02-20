@@ -182,6 +182,17 @@
        "type": "int",
        "key": "thermal/lpf_target"
    },
+   "net/interface": {
+      "offset": 157,
+      "type": "str",
+      "size": "6",
+      "key": "net/interface"
+   },
+   "pin/show": {
+       "offset": 163,
+       "type": "int",
+       "key": "pin/show"
+   },
    "channels": {
        "offset": "2052",
        "size": 14328,

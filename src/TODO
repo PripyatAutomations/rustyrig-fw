@@ -1,3 +1,6 @@
+[makefile]
+- Make build halt on errors! (why this broken? i havent looked into it yet)
+
 [porting]
 - Shorten strings where possible
 - Wrap strings for storage as appropriate on micros (stm32? ;)

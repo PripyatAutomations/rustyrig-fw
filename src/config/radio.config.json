@@ -4,9 +4,18 @@
       "hwversion": 1
    },
    "interface": {
-      "amp": "pipe:/tmp/rustyradio.amp.socket",
-      "cat": "pipe:/tmp/rustyradio.cat.socket",
-      "logger": "file:/tmp/rustyradio.debug.log"
+      "amp": {
+         "port": "pipe:/tmp/rustyradio.amp.socket",
+         "enabled": 1
+      },
+      "cat": {
+         "port": "pipe:/tmp/rustyradio.cat.socket",
+         "enabled": 1
+      },
+      "display": {
+         "type": "nextion",
+         "port": "/dev/ttyUSB.nextion"
+      }
    },
    "build": {
       "cflags": "-fPIC -g -O1",
@@ -18,10 +27,11 @@
    },
    "debug": {
       "noisy-eeprom": 0,
-      "logfile": "/tmp/radio-debvg.log",
-      "logtype": "pipe",
-      "logmode": "0666",
-      "loglevel": "debug"
+      "logfile": "/tmp/radio-debug.log",
+      "logtype": "file",
+      "logmode": "0660",
+      "loglevel": "debug",
+      "targets": "*"
    },
    "eeprom": {
       "addr": "0x0000",
@@ -45,10 +55,12 @@
       "privs": "US/General"
    },
    "pin": {
+      "show": 1,
       "master": "012345",
       "reset": "543210"
    },
    "net": {
+      "interface": "ether",
       "ip": "10.201.1.100",
       "gw": "10.201.1.1",
       "mask": "255.255.255.0",

@@ -29,7 +29,6 @@ void show_network_info(void) {
       return;
    }
 
-//   const char *val = eeprom_get_str("net/ip");
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;
    int vlan = eeprom_get_int("net/vlan");
    int mtu = eeprom_get_int("net/mtu");
@@ -38,12 +37,15 @@ void show_network_info(void) {
    eeprom_get_ip4("net/gw", &sa_gw);
    eeprom_get_ip4("net/dns1", &sa_dns1);
    eeprom_get_ip4("net/dns2", &sa_dns2);
-
+   const char *iface = eeprom_get_str("net/interface");
    Log(LOG_INFO, "*** Network Configuration ***");
-   Log(LOG_INFO, "  Current VLAN: %d\t\tMTU: %d", vlan, mtu);
-   Log(LOG_INFO, "     Static IP: %s", inet_ntoa(sa_ip));
-   Log(LOG_INFO, " Static Subnet: %s", inet_ntoa(sa_mask));
-   Log(LOG_INFO, "Static Gateway: %s", inet_ntoa(sa_gw));
-   Log(LOG_INFO, "Static DNS (1): %s", inet_ntoa(sa_dns1));
-   Log(LOG_INFO, "Static DNS (2): %s", inet_ntoa(sa_dns2));
+   Log(LOG_INFO, "  Interface: %s\tCurrent VLAN: %d\tMTU: %d\tMode: Static", iface, vlan, mtu);
+   char s_ip[16], s_mask[16], s_gw[16], s_dns1[16], s_dns2[16];
+   snprintf(s_ip, 16, "%s", inet_ntoa(sa_ip));
+   snprintf(s_gw, 16, "%s", inet_ntoa(sa_gw));
+   snprintf(s_mask, 16, "%s", inet_ntoa(sa_mask));
+   snprintf(s_dns1, 16, "%s", inet_ntoa(sa_dns1));
+   snprintf(s_dns2, 16, "%s", inet_ntoa(sa_dns2));
+   Log(LOG_INFO, "Static IP: %s (%s) GW: %s", s_ip, s_mask, s_gw);
+   Log(LOG_INFO, "Name Servers: %s, %s", s_dns1, s_dns2);
 }
