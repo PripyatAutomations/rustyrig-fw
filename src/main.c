@@ -18,6 +18,7 @@
 #include "gpio.h"
 #include "network.h"
 #include "help.h"
+#include "faults.h"
 
 bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
@@ -114,6 +115,11 @@ int main(int argc, char **argv) {
    // Main loop
    while(!dying) {
       char buf[512];
+
+      // Check faults
+      if (check_faults()) {
+         Log(LOG_CRIT, "Fault detected, see crash dump above");
+      }
 
       // Check thermals
       if (are_we_on_fire()) {

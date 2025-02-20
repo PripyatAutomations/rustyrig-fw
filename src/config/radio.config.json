@@ -3,20 +3,6 @@
       "serial": "900001",
       "hwversion": 1
    },
-   "interface": {
-      "amp": {
-         "port": "pipe:/tmp/rustyradio.amp.socket",
-         "enabled": 1
-      },
-      "cat": {
-         "port": "pipe:/tmp/rustyradio.cat.socket",
-         "enabled": 1
-      },
-      "display": {
-         "type": "nextion",
-         "port": "/dev/ttyUSB.nextion"
-      }
-   },
    "build": {
       "cflags": "-fPIC -g -O1",
       "ldflags": "-g",
@@ -38,13 +24,31 @@
       "size": 16384,
       "type": "mmap"
    },
-   "i2c": {
-      "myaddr": "0xa0"
-   },
    "features": {
       "cat-kpa500": 1,
       "cat-yaesu": 1,
       "max-bands": 14
+   },
+   "i2c": {
+      "myaddr": "0xa0"
+   },
+   "interface": {
+      "amp": {
+         "port": "pipe:/tmp/rustyradio.amp.socket",
+         "enabled": 1
+      },
+      "cat": {
+         "port": "pipe:/tmp/rustyradio.cat.socket",
+         "enabled": 1
+      },
+      "console": {
+         "enabled": 1,
+         "type": "stdio"
+      },
+      "display": {
+         "type": "nextion",
+         "port": "/dev/ttyUSB.nextion"
+      }
    },
    "station": {
       "call": "N0CALL",

@@ -31,3 +31,7 @@ uint32_t set_fault(uint32_t fault) {
     // XXX: Update the display & set fault LED
     return 0;
 }
+
+bool check_faults(void) {
+    return false;
+}
