@@ -1,5 +1,6 @@
 #if	!defined(_thermal_h)
 #define	_thermal_h
+#include "config.h"
 
 // Convert Celsius to Fahrenheit
 static inline double degC_to_degF(double tempC) {

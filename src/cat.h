@@ -1,5 +1,6 @@
 #if	!defined(_cat_control_h)
 #define	_cat_control_h
+#include "config.h"
 
 #define	MAX_ARGS	12
 

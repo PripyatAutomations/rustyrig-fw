@@ -1,6 +1,10 @@
+#if	!defined(_io_h)
+#define	_io_h
 //
 // IO abstraction layer for portability between hosts
 //
+#include "config.h"
+
 typedef enum {
     INPUT_SOCKET,
     INPUT_DEVICE,
@@ -17,3 +21,4 @@ extern int io_init(input_context_t *ctx, input_type_t type, const char *path_or_
 extern ssize_t io_read(input_context_t *ctx, char *buffer, size_t len);
 extern void io_close(input_context_t *ctx);
 extern ssize_t io_write(input_context_t *ctx, const char *buffer, size_t len);
+#endif	// !defined(_io_h)

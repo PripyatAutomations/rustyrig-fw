@@ -1,6 +1,6 @@
 #if	!defined(_faults_h)
 #define	_faults_h
-
+#include "config.h"
 #include <stdbool.h>
 
 // XXX: We need set the highest bit to 1 to indicate that fault is fatal and should halt TX

@@ -1,6 +1,6 @@
 #if	!defined(_i2c_h)
 #define	_i2c_h
-
+#include "config.h"
 #include <stdint.h>
 #include <stdbool.h>
 

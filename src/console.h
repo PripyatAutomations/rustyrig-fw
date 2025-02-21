@@ -1,3 +1,7 @@
+#if	!defined(_console_h)
+#define	_console_h
+
+#include "config.h"
 #include <stdbool.h>
 
 struct cons_cmds {
@@ -6,3 +10,4 @@ struct cons_cmds {
        max_args;
    bool (*hndlr)();
 };
+#endif	// !defined(_console_h)

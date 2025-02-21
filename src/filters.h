@@ -1,5 +1,7 @@
 // Filter type
 #include <stdint.h>
+#include "config.h"
+
 #define	FILTER_NONE		0x0000
 #define	FILTER_LPF		0x0001
 #define	FILTER_BPF		0x0002

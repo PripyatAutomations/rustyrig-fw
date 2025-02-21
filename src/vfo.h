@@ -5,6 +5,7 @@
 //
 #if	!defined(_vfo_h)
 #define	_vfo_h
+#include "config.h"
 #include <stdint.h>
 #include <stdbool.h>
 

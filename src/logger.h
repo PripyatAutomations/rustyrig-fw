@@ -1,6 +1,8 @@
 #if	!defined(_logger_h)
 #define	_logger_h
+#include "config.h"
 #include <stdarg.h>
+
 enum LogPriority {
       LOG_CRIT = 0,
       LOG_WARN,

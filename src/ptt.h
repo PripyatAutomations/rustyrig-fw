@@ -1,5 +1,6 @@
 #if	!defined(_ptt_h)
 #define	_ptt_h
+#include "config.h"
 
 extern bool ptt_check_blocked(void);
 extern bool ptt_set_blocked(bool blocked);

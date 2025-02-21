@@ -16,3 +16,7 @@
 
 extern bool dying;
 extern struct GlobalState rig;	// Global state
+
+//bool send_help(io_port_t *port, const char *topic) {
+//   return true;
+//}

@@ -1,6 +1,7 @@
 // This file contains the structures used for statistics and state
 #if	!defined(_state_h)
 #define	_state_h
+#include "config.h"
 #include <time.h>
 #include <stdbool.h>
 

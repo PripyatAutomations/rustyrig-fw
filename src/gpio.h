@@ -1,5 +1,6 @@
 #if	!defined(_gpio_h)
 #define	_gpio_h
+#include "config.h"
 #include <stdbool.h>
 #if	defined(HOST_POSIX)
 // XXX: Include host gpio support

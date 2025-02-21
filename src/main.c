@@ -103,14 +103,11 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "Error initializing i2c");
    }
 
-
    // Initialize each antenna tuner (XXX: scan the config)
    atu_init(0);
-
-   Log(LOG_INFO, "Radio initialization completed. Enjoy!");
-
    show_network_info();
    show_pin_info();
+   Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 
    // Main loop
    while(!dying) {
@@ -128,12 +125,21 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "Radio is on fire?! Halted TX!\n");
       }
 
+      // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
       // XXX: Iterate over them: console, amp, rig
       // We limit line length to 512
       memset(buf, 0, PARSE_LINE_LEN);
-      // io_read(&buf, PARSE_LINE_LEN - 1);
+      // io_read(&cat_io, &buf, PARSE_LINE_LEN - 1);
       cat_parse_line(buf);
+
+//      memset(buf, 0, PARSE_LINE_LEN);
+//      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
+        cat_parse_amp_line(buf);
+
+//      memset(buf, 0, PARSE_LINE_LEN);
+//      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
+//      console_parse_line(buf);
       sleep(1);
    }
 
