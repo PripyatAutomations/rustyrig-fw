@@ -89,7 +89,7 @@ extra_clean += ${STAMP_FILE}
 extra_build += ${EEPROM_FILE}
 extra_clean += ${EEPROM_FILE}
 
-world: ${extra_build} ${bin}
+world: ${STAMP_FILE} ${extra_build} ${bin}
 
 STAMP_FILE := ${BUILD_DIR}/buildconf.stamp
 
