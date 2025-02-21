@@ -1,4 +1,5 @@
-#.SHELLFLAGS = -e
+SHELL = bash
+.SHELLFLAGS = -e -c
 all: world
 
 PROFILE ?= radio
@@ -103,7 +104,7 @@ configure buildconf: ${CF} $(wildcard res/*.json) buildconf.pl .version GNUmakef
 
 
 BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h)
-${OBJ_DIR}/%.o: %.c ${STAMP_FILE}
+${OBJ_DIR}/%.o: %.c ${STAMP_FILE} ${BUILD_HEADERS}
 	@${CC} ${CFLAGS} -o $@ -c $<
 	@echo "[Compile] $@ from $<"
 
