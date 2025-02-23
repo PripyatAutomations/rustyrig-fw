@@ -15,6 +15,7 @@
 #include "cat.h"
 #include "cat_yaesu.h"
 #include "state.h"
+#include "ptt.h"
 
 extern struct GlobalState rig;	// Global state
 
@@ -83,8 +84,15 @@ void cat_yaesu_s_meter(const char *args) {}		// Read S-meter/SWR/ALC/COMP
 void cat_yaesu_squelch(const char *args) {} 		// Read/Set squelch
 void cat_yaesu_split(const char *args) {} 		// Split
 void cat_yaesu_swap_vfo(const char *args) {} 		// Swap VFOs
-void cat_yaesu_txw(const char *args) {} 			// Read/Set Tuning step
-void cat_yaesu_ptt(const char *args) {} 			// Start transmitting
+void cat_yaesu_txw(const char *args) {} 		// Read/Set Tuning step
+
+
+// PTT set
+void cat_yaesu_ptt(const char *args) {
+//   ptt_set();
+//   ptt_toggle();
+}
+
 void cat_yaesu_unlock(const char *args) {}		// Unlock
 void cat_yaesu_up(const char *args) {} 			// UP
 void cat_yaesu_vfo_mem(const char *args) {}		// VFO/Memory button

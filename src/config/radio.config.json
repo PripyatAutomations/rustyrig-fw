@@ -89,6 +89,18 @@
       "lpf_max": 130.0,
       "lpf_target": 125.0
    },
+   "cards": {
+      "amp": {
+         "present": "false",
+         "type": "i2c",
+         "addr": "0x4a"
+      },
+      "atu": {
+         "present": "true",
+         "type": "i2c",
+         "addr": "0x2a"
+      }
+   },
    "rfdecks": {
       "lowband": {
          "bands": [ "160M", "80M", "60M", "40M", "30M", "20M", "17M", "15M", "12M", "10M" ],

@@ -117,10 +117,11 @@
        "key": "net/mtu",
        "default": 1500
    },
-   "i2c/myaddr": {
+   "net/bind": {
        "offset": 105,
-       "type": "int",
-       "key": "i2c/myaddr"
+       "type": "str",
+       "size": 32,
+       "key": "net/bind"
    },
    "thermal/encl_alarm": {
        "offset": 109,
@@ -192,12 +193,6 @@
        "offset": 163,
        "type": "int",
        "key": "pin/show"
-   },
-   "net/bind": {
-       "offset": 167,
-       "type": "str",
-       "size": 32,
-       "key": "net/bind"
    },
    "chan_header": {
        "offset": 1500,

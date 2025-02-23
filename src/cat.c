@@ -6,10 +6,11 @@
  * Amplifier and rig control are split up into two CAT interfaces.
  *   CAT_KPA500: Electraft KPA-500 amplifier control protocol
  *   CAT_YAESU: Yaesu FT-891/991A rig control protocol
- * You can enable both protocols or just one.
+ * You can enable both protocols or just one, depending on your build
  *
  * Since the KPA500 commands have a prefix character, we can be flexible about
- * how it is connected. A single pipe/serial port/socket can be used, if desired.
+ * how it is connected. A single pipe/serial port/socket can be used, for CAT,
+ * if desired.
  */
 #include "config.h"
 #include <stddef.h>
