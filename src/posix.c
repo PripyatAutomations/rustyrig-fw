@@ -69,4 +69,10 @@ void init_signals(void) {
    signal(SIGUSR1, sighandler);
    signal(SIGUSR2, sighandler);
 }
+
+bool host_init(void) {
+   init_signals();
+   return false;
+}
+
 #endif	// HOST_POSIX

@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
    printf("This build is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is likely severely broken!\n");
    exit(1);
 #else
-   init_signals();
+   host_init();
 #endif
 
    // Initialize subsystems

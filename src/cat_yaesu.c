@@ -63,15 +63,8 @@ void cat_yaesu_TX(const char *args) {} // Start transmitting
 void cat_yaesu_UP(const char *args) {} // Frequency up
 void cat_yaesu_XF(const char *args) {} // Read/Set transceiver filter
 
-// Command lookup table
-typedef struct {
-    const char *command;
-    uint8_t min_args;
-    uint8_t max_args;
-    void (*cat_yaesu_r)(const char *args);
-} CATCommand;
-
 CATCommand cat_commands[] = {
+    // cmd, min, max, callback
     { "AC", 1, 1, cat_yaesu_AC },
     { "AG", 1, 1, cat_yaesu_AG },
     { "AI", 1, 1, cat_yaesu_AI },

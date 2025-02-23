@@ -5,5 +5,6 @@
 #include <arpa/inet.h>
 
 extern void show_network_info(void);
+extern void net_print_listeners(const char *listenaddr);
 
 #endif	// !defined(_network_h)

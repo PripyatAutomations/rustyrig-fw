@@ -193,6 +193,12 @@
        "type": "int",
        "key": "pin/show"
    },
+   "net/bind": {
+       "offset": 167,
+       "type": "str",
+       "size": 32,
+       "key": "net/bind"
+   },
    "channels": {
        "offset": "2052",
        "size": 14328,
