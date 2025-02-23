@@ -79,8 +79,6 @@ uint32_t radio_gpiochip_init(const char *chipname) {
    
 // Initialize platform GPIO
 uint32_t gpio_init(void) {
-#if	defined(HOST_POSIX)
-#endif
    Log(LOG_INFO, "Initializing gpio");
    radio_gpiochip_init("main");
    return 0;

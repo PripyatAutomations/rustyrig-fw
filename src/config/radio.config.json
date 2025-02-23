@@ -46,6 +46,7 @@
          "type": "stdio"
       },
       "display": {
+         "hmi": "hmi/5in_nextion.hmi",
          "type": "nextion",
          "port": "/dev/ttyUSB.nextion"
       }
