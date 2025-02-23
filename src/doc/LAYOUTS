@@ -1,0 +1,7 @@
+There's a few possible ways to run this mess. Either on a single SBC like a raspberry pi or on a few micros.
+
+If your uc has enough resource and network connectivity, you could probably use that.
+
+Otherwise you might need to setup an esp32 with firmware that handles the network connectivity (HTTP).
+
+For now, development is happening on linux on a pi, for simplicity. Eventually we'll move to smaller targets.

@@ -17,7 +17,7 @@
 #include "state.h"
 #include "io.h"
 
-int io_init(input_context_t *ctx, input_type_t type, const char *path_or_address, int port) {
+int io_init(io_context_t *ctx, io_type_t type, const char *path, int port) {
     if (!ctx)
        return -1;
     ctx->type = type;
@@ -34,7 +34,7 @@ int io_init(input_context_t *ctx, input_type_t type, const char *path_or_address
           server_addr.sin_family = AF_INET;
           server_addr.sin_port = htons(port);
 
-          if (inet_pton(AF_INET, path_or_address, &server_addr.sin_addr) <= 0) {
+          if (inet_pton(AF_INET, path, &server_addr.sin_addr) <= 0) {
              close(ctx->fd);
              return -1;
           }
@@ -47,7 +47,7 @@ int io_init(input_context_t *ctx, input_type_t type, const char *path_or_address
        }
        case INPUT_DEVICE:
        case INPUT_PIPE:
-          ctx->fd = open(path_or_address, O_RDWR);  // O_RDWR for read/write capability
+          ctx->fd = open(path, O_RDWR);  // O_RDWR for read/write capability
 
           if (ctx->fd < 0) {
              return -1;
@@ -59,7 +59,7 @@ int io_init(input_context_t *ctx, input_type_t type, const char *path_or_address
     return 0;
 }
 
-ssize_t io_read(input_context_t *ctx, char *buffer, size_t len) {
+ssize_t io_read(io_context_t *ctx, char *buffer, size_t len) {
     if (!ctx || ctx->fd < 0 || !buffer) {
        return -1;
     }
@@ -67,7 +67,7 @@ ssize_t io_read(input_context_t *ctx, char *buffer, size_t len) {
     return read(ctx->fd, buffer, len);
 }
 
-ssize_t io_write(input_context_t *ctx, const char *buffer, size_t len) {
+ssize_t io_write(io_context_t *ctx, const char *buffer, size_t len) {
     if (!ctx || ctx->fd < 0) {
        return -1;
     }
@@ -75,7 +75,7 @@ ssize_t io_write(input_context_t *ctx, const char *buffer, size_t len) {
     return write(ctx->fd, buffer, len);
 }
 
-void io_close(input_context_t *ctx) {
+void io_close(io_context_t *ctx) {
     if (ctx && ctx->fd >= 0) {
         close(ctx->fd);
         ctx->fd = -1;
