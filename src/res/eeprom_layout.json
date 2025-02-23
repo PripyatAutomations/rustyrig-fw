@@ -124,73 +124,73 @@
        "key": "net/bind"
    },
    "thermal/encl_alarm": {
-       "offset": 109,
+       "offset": 137,
        "type": "int",
        "key": "thermal/encl_alarm"
    },
    "thermal/encl_max": {
-       "offset": 113,
+       "offset": 141,
        "type": "int",
        "key": "thermal/encl_max"
    },
    "thermal/encl_target": {
-       "offset": 117,
+       "offset": 145,
        "type": "int",
        "key": "thermal/encl_target"
    },
    "thermal/final_alarm": {
-       "offset": 121,
+       "offset": 149,
        "type": "int",
        "key": "thermal/final_alarm"
    },
    "thermal/final_max": {
-       "offset": 125,
+       "offset": 153,
        "type": "int",
        "key": "thermal/final_max"
    },
    "thermal/final_target": {
-       "offset": 129,
+       "offset": 157,
        "type": "int",
        "key": "thermal/final_target"
    },
    "thermal/inlet_alarm": {
-       "offset": 133,
+       "offset": 161,
        "type": "int",
        "key": "thermal/inlet_alarm"
    },
    "thermal/inlet_max": {
-       "offset": 137,
+       "offset": 165,
        "type": "int",
        "key": "thermal/inlet_max"
    },
    "thermal/inlet_target": {
-       "offset": 141,
+       "offset": 169,
        "type": "int",
        "key": "thermal/inlet_target"
    },
    "thermal/lpf_alarm": {
-       "offset": 145,
+       "offset": 173,
        "type": "int",
        "key": "thermal/lpf_alarm"
    },
    "thermal/lpf_max": {
-       "offset": 149,
+       "offset": 177,
        "type": "int",
        "key": "thermal/lpf_max"
    },
    "thermal/lpf_target": {
-       "offset": 153,
+       "offset": 181,
        "type": "int",
        "key": "thermal/lpf_target"
    },
    "net/interface": {
-      "offset": 157,
+      "offset": 185,
       "type": "str",
       "size": "6",
       "key": "net/interface"
    },
    "pin/show": {
-       "offset": 163,
+       "offset": 191,
        "type": "int",
        "key": "pin/show"
    },

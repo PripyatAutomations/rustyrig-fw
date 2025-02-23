@@ -115,13 +115,12 @@ ${BUILD_DIR}/build_config.h ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.j
 ##################
 clean:
 	@echo "[clean]"
-	@${RM} ${bin} ${real_objs} ${extra_clean}
+	${RM} ${bin} ${real_objs} ${extra_clean}
 
 distclean: clean
 	@echo "[distclean]"
-	@${RM} ${EEPROM_FILE}
-	@${RM} -r build
-	@${RM} -f config/archive/*.json *.log
+	${RM} -r build
+	${RM} -f config/archive/*.json *.log
 
 ###############
 # DFU Install #
