@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 
    // Initialize subsystems
    logger_init();
-   Log(LOG_INFO, "Radio firmware v%s starting...", VERSION);
+   Log(LOG_INFO, "rustyrig radio firmware v%s starting...", VERSION);
    initialize_state();			// Load default values
 
    // if able to connect to EEPROM, load and apply settings

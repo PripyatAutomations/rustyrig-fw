@@ -1,3 +1,6 @@
+[makefile]
+Make things so that make debug forces a make clean & adding make debug if last built without debug (can we use nm or such to check symbols)
+
 [porting]
 - Shorten strings where possible
 - Wrap strings for storage as appropriate on micros (stm32? ;)

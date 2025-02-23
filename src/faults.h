@@ -21,6 +21,13 @@
 // Last fault needs to be 99 (0x64)
 #define	FAULT_UNKNOWN		0x64
 
+struct fault_table {
+   uint32_t 	code;			// error code
+   bool		fatal;			// Is this a fatal error?
+};
+
+extern struct fault_table fault_table[];
+
 extern uint32_t set_fault(uint32_t fault);
 extern bool check_faults(void);
 

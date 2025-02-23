@@ -16,6 +16,7 @@ endif
 CFLAGS := -std=gnu11 -g -O1 -Wall -Wno-unused -pedantic -std=gnu99
 LDFLAGS := -lc -lm -g
 CFLAGS += -I${BUILD_DIR} $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
 TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
@@ -105,6 +106,8 @@ configure buildconf: ${CF} $(wildcard res/*.json) buildconf.pl .version GNUmakef
 
 BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h)
 ${OBJ_DIR}/%.o: %.c ${STAMP_FILE} ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it...
+	@${RM} -f $@
 	@${CC} ${CFLAGS} -o $@ -c $<
 	@echo "[Compile] $@ from $<"
 
@@ -145,7 +148,7 @@ run: ${bin}
 	@echo "[run] ${bin}"
 	@${bin}
 
-gdb: ${bin} ${EEPROM_FILE}
+gdb debug: ${bin} ${EEPROM_FILE}
 	@echo "[gdb] ${bin}"
 	@gdb ${bin} -ex 'run'
 

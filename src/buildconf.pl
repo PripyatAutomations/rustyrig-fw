@@ -824,10 +824,10 @@ sub generate_config_h {
 
    # Platform specific selections:
    my $platform = $cptr->get("/build/platform");
+   print $fh "#define LOG_FILE \"/tmp/rustyrig.log\"\n";
 
    if ($platform eq "posix") {
       print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";
-      print $fh "#define HOST_LOG_FILE \"firmware.log\"\n";
       print $fh "#define HOST_CAT_PIPE \"cat.fifo\"\n";
       print $fh "#define HOST_POSIX\n";
       print $fh "#define HOST_LINUX\t// This should not be here, but i2c depends on it for now\n";

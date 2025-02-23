@@ -54,7 +54,7 @@ void logger_init(void) {
 #if	defined(HOST_POSIX)
 /* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
    if (logfp == NULL) {
-      logfp = fopen(HOST_LOG_FILE, "a+");
+      logfp = fopen(LOG_FILE, "a+");
 
       if (logfp == NULL) {
          return;
