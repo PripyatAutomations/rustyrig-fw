@@ -20,12 +20,14 @@
 #include <unistd.h>
 #include <string.h>
 #include "logger.h"
-#include "cat.h"
 #include "state.h"
 #include "thermal.h"
 #include "power.h"
 #include "eeprom.h"
 #include "vfo.h"
+#include "cat.h"
+#include "cat_kpa500.h"
+#include "cat_yaesu.h"
 extern struct GlobalState rig;  // Global state
 
 int32_t cat_printf(char *str, ...) {
@@ -97,6 +99,12 @@ int32_t cat_init(void) {
 // XXX: Open the pipe(s)
 // KPA500 amplifier control
 // Yaesu-style rig control
+#if	defined(CAT_YAESU)
+   cat_yaesu_init();
+#endif
+#if	defined(CAT_KPA500)
+   cat_kpa500_init();
+#endif
 #endif
    Log(LOG_INFO, "CAT Initialization succesful");
    return 0;

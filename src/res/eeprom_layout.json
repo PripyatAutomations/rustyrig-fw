@@ -199,6 +199,16 @@
        "size": 32,
        "key": "net/bind"
    },
+   "chan_header": {
+       "offset": 1500,
+       "type": "packed:chan_header",
+       "key": "chan_header"
+   },
+   "chan_groups": {
+       "offset": 1700,
+       "type": "packed:chan_groups",
+       "key": "chan_groups"
+   },
    "channels": {
        "offset": "2052",
        "size": 14328,

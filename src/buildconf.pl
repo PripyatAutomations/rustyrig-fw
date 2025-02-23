@@ -348,9 +348,9 @@ sub eeprom_patch {
           my $final_size = $type_size;
           if (defined($ee_size) && $ee_size > 0) {
              if ($type_size == -1) {
-                print "     ~ Variable field of type $ee_type forced to $ee_size bytes\n";
+                print "     ~ Variable length field of type $ee_type forced to $ee_size bytes\n";
              } else {
-                print "     ~ Overriding default size $type_size for [$ee_type] ($ee_size)\n";
+                print "     ~ Overriding default size $type_size for [$ee_type], set to $ee_size\n";
              }
              $final_size = $ee_size;
           }
@@ -378,7 +378,6 @@ sub eeprom_patch {
           }
 
           # Zero out the memory area before writing to it
-#          print "Zeroing $final_size byes at offset $curr_offset\n";
           substr($eeprom_data, $curr_offset, $final_size, "\x00" x $final_size);
 
           # Here we chose which type
@@ -424,12 +423,11 @@ sub eeprom_patch {
                 next;
              }
 
-             # then pad the rest of the string storage with nulls
-             print "final size: $final_size, length(cval): ", length($cval), "\n";
-             substr($eeprom_data, $curr_offset + length($cval) + 1, "\x00" x ($final_size - length($cval)));
-
-             # and write it to the to eeprom image
+             # write the string to eeprom
              substr($eeprom_data, $curr_offset, length($cval), $cval);
+             # then pad the rest of the string storage with nulls in eeprom
+             my $pad_len = ($final_size - length($cval));
+             substr($eeprom_data, $curr_offset + length($cval) + 1, $pad_len, "\x00" x $pad_len);
           }
 
           # Try to make sure the offsets are lining up....

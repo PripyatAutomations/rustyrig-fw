@@ -54,9 +54,8 @@ void show_network_info(void) {
    Log(LOG_INFO, "Static IP: %s (%s) GW: %s", s_ip, s_mask, s_gw);
    Log(LOG_INFO, "Name Servers: %s, %s", s_dns1, s_dns2);
 #else
-   Log(LOG_INFO, "*** Network configuration is not handled on posix hosts ***");
+   // print what addresses our bind will apply to
    const char *listenaddr = eeprom_get_str("net/bind");
-
    if (listenaddr != NULL) {
       Log(LOG_INFO, "I am listening on %s", listenaddr);
       net_print_listeners(listenaddr);

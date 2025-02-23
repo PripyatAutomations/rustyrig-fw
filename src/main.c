@@ -89,20 +89,6 @@ int main(int argc, char **argv) {
    // Initialize CAT controls (KPA500/Yaesu)
    cat_init();
 
-   // Initialize the i2c buses, if present (starts at 1) 
-   I2CBus i2c_bus1 = { .bus_id = 1 };
-   I2CBus i2c_bus2 = { .bus_id = 2 };
-
-   if (i2c_init(&i2c_bus1, MY_I2C_ADDR) &&
-      i2c_init(&i2c_bus2, MY_I2C_ADDR)) {
-      uint8_t data[] = { 0x01, 0x02 };
-      i2c_write(&i2c_bus1, 0x50, data, sizeof(data));
-      uint8_t buffer[10];
-      i2c_read(&i2c_bus2, 0x60, buffer, sizeof(buffer));
-   } else {
-      Log(LOG_CRIT, "Error initializing i2c");
-   }
-
    // Initialize each antenna tuner (XXX: scan the config)
    atu_init(0);
    show_network_info();

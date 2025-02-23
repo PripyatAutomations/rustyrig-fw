@@ -10,4 +10,6 @@ typedef struct {
     void (*cat_yaesu_r)(const char *args);
 } CATCommand;
 
+extern bool cat_yaesu_init(void);
+
 #endif	// !defined(_cat_yaesu_h)
