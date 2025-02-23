@@ -152,7 +152,7 @@ gdb debug: ${bin} ${EEPROM_FILE}
 	@echo "[gdb] ${bin}"
 	@gdb ${bin} -ex 'run'
 
-test: clean world gdb
+test: clean world run
 endif
 
 #################

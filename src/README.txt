@@ -1,3 +1,8 @@
+What is this?
+It's a project to make a firmware that will run on various homebrew radios.
+
+Initially we're targetting devices running linux, with hopes to port to esp32 and stm32.
+
 There's probably missing packages in these lists and some packages no longer needed....
 
 If you use debian, you can skip this part and use 'make installdep'
@@ -20,25 +25,33 @@ Building
 --------
 	You can use CONFIG=name to pass a configuration, do NOT add the .json suffix, ex:
 		make CONFIG=myradio world
-	This will use ./myradio.json and place build artifacts in build/myradio/
+	This will use ./config/myradio.config.json and place build artifacts in build/myradio/
 
-	Edit configuration in radio.json as appropriate.
-		joe radio.json
+	Edit configuration in config/radio.config.json as appropriate.
+		joe radio/radio.config.json
 
 	Build the firmware and EEPROM:
 		make world
 
-	Optionally (recommended):
-		make test
-
+	Optionally run it, if on posix (recommended):
+		make run
 
 Installing
 ----------
+
+	Linux
+	-----
+	There is no installing, just run from the source folder. You can
+	copy the firmware wherever, just make sure you edit paths to
+	eeprom.bin as needed.
+
+	ESP32/STM32
+	-----------
 	Holding DFU button, plug the radio into USB.
 	Try 'make install' to use DFU flashing.
 
 	If this doesnt work, see doc/BOOTLOADER.txt
-
+	Possibly use the web flashers in www/ when they are tested!
 
 Status
 ------
