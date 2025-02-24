@@ -205,16 +205,23 @@
        "key": "chan_groups"
    },
    "channels": {
-       "offset": "2052",
+       "offset": 2052,
        "size": 14328,
        "type": "packed:channel",
        "key": "channels"
    },
    "eeprom/checksum": {
-       "offset": "16380",
+       "offset": 16380,
        "size": 4,
        "type": "int",
        "key": "eeprom/checksum",
        "protect": 1
+   },
+   "atu_tv": {
+       "offset": 16384,
+       "size": 16384,
+       "type": "packed:atu_tv",
+       "key": "atu_tv",
+       "comment": "Antenna Matching Unit stored LC values"
    }
 }

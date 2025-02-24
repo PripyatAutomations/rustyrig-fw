@@ -107,7 +107,7 @@ static int32_t cat_kpa500_band(struct AmpState *amp, char *args) {
       }
       amp->current_band = band = tmp;
    }
-   cat_printf("^BN%02", band);
+   cat_printf("^BN%02d", band);
    
    return 0;
 }

@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "i2c.h"
+#include "serial.h"
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"

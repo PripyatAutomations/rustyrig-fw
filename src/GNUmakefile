@@ -113,7 +113,7 @@ ${bin}: ${real_objs}
 	@${CC} -o $@ ${real_objs} ${LDFLAGS}
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 
-${BUILD_DIR}/build_config.h ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json) buildconf.pl
+${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildcard res/*.json) buildconf.pl
 	@echo "[buildconf]"
 	@set -e; ./buildconf.pl ${PROFILE}
 
