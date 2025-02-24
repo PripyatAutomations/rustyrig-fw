@@ -95,11 +95,9 @@ int main(int argc, char **argv) {
    rig.serial = get_serial_number();
    Log(LOG_INFO, "Device serial number: %lu", rig.serial);
 
-   // Set up the 
-   // XXX: Iterate over all configured devices of class
-   atu_init(0);
-   amp_init(0);
+   atu_init_all();
    filter_init_all();
+   amp_init_all();
 
    // Network connectivity
    show_network_info();

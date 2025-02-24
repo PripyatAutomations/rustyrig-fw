@@ -28,15 +28,15 @@ extern struct GlobalState rig;	// Global state
 // Initialize all ATU units
 int atu_init(int uid) {
    int rv = 0;
-   Log(LOG_INFO, "Antenna Matching Unit (ATU) #%d initialized", uid);
+   Log(LOG_INFO, " => ATU #%d initialized", uid);
    return rv;
 }
 
 int atu_init_all(void) {
    int rv = 0;
-   int tuners = 0;
+   int tuners = 1;
+//   tuners = eeprom_get_int("hw/atus");
 
-   tuners = eeprom_get_int("hw/atus");
    Log(LOG_INFO, "Initializing all ATUs (%d total)", tuners);
 
    // XXX: Iterate over the available ATUs and collect the return values
@@ -46,5 +46,6 @@ int atu_init_all(void) {
        }
    }
 
+   Log(LOG_INFO, "ATU setup complete");
    return -rv;
 }

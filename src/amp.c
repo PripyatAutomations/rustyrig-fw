@@ -20,6 +20,13 @@ extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 bool amp_init(uint8_t index) {
-   Log(LOG_INFO, "Amplifier %d initialized", index);
-   return true;
+   Log(LOG_INFO, " => Amp #%d initialized", index);
+   return false;
+}
+
+bool amp_init_all(void) {
+   Log(LOG_INFO, "Initializing amplifiers");
+   amp_init(0);
+   Log(LOG_INFO, "Amp setup complete");
+   return false;
 }

@@ -26,19 +26,14 @@ extern time_t now;
 static time_t last_ts_update;
 
 /* String constants we use more than a few times */
-const char s_prio_crit[] = " CRIT",
-           s_prio_warn[] = " WARN",
-           s_prio_info[] = " INFO",
-           s_prio_audit[] = "AUDIT",
-           s_prio_debug[] = "DEBUG",
-           s_prio_none[] = " NONE";
+const char s_prio_none[] = " NONE";
 
 static struct log_priority log_priorities[] = {
-   { .prio = LOG_CRIT,	.msg = s_prio_crit },
-   { .prio = LOG_WARN,	.msg = s_prio_warn },
-   { .prio = LOG_INFO,	.msg = s_prio_info },
-   { .prio = LOG_AUDIT,	.msg = s_prio_audit },
-   { .prio = LOG_DEBUG,	.msg = s_prio_debug },
+   { .prio = LOG_CRIT,	.msg = " CRIT" },
+   { .prio = LOG_WARN,	.msg = " WARN" },
+   { .prio = LOG_INFO,	.msg = " INFO" },
+   { .prio = LOG_AUDIT,	.msg = "AUDIT" },
+   { .prio = LOG_DEBUG,	.msg = "DEBUG" },
    { .prio = LOG_NONE,	.msg = s_prio_none }		// invalid entry
 };
 

@@ -24,7 +24,7 @@ extern struct GlobalState rig;	// Global state
 
 int filter_init(int fid) {
     int rv = -1;
-    Log(LOG_INFO, "* Initialized filter %d");
+    Log(LOG_INFO, " => Filter #%d initialized", fid);
     return rv;
 }
 
@@ -34,7 +34,8 @@ int filter_init_all(void) {
     int i = 0;
 
     // Walk the configured filters and set them up
-    Log(LOG_INFO, "Initializating all filters");
+    Log(LOG_INFO, "Initializing all filters");
     filter_init(i);
+    Log(LOG_INFO, "Filter setup complete");
     return rv;
 }
