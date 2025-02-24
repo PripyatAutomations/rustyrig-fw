@@ -70,6 +70,8 @@ int main(int argc, char **argv) {
    now = time(NULL);
    update_timestamp();
    logfp = stdout;
+   rig.log_level = LOG_DEBUG;	// startup in debug mode
+
    // On the stm32, main is not our entry point, so we can use this to help catch misbuilt images.
 #if	!defined(HOST_POSIX)
    printf("This build is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is likely severely broken!\n");

@@ -4,7 +4,7 @@
       "hwversion": 1
    },
    "build": {
-      "cflags": "-fPIC -g -O1",
+      "cflags": "-fPIC -g",
       "ldflags": "-g",
       "platform": "posix",
       "toolchain": {
@@ -12,7 +12,7 @@
       }
    },
    "debug": {
-      "noisy-eeprom": "false",
+      "noisy-eeprom": "true",
       "logfile": "/tmp/radio-debug.log",
       "logtype": "file",
       "logmode": "0660",
@@ -31,7 +31,6 @@
       "max-bands": 14
    },
    "i2c": {
-      "myaddr": "0xa0"
    },
    "interface": {
       "amp": {

@@ -87,6 +87,8 @@ uint32_t eeprom_init(void) {
    size_t eeprom_len;
    ssize_t s;
 
+   // XXX: This needs to be read-only, until we sort out delayed writes, then it can go back to O_RDWR
+//   uint32_t fd = open(HOST_EEPROM_FILE, O_RDONLY);
    uint32_t fd = open(HOST_EEPROM_FILE, O_RDWR);
    if (fd == -1) {
       Log(LOG_CRIT, "EEPROM Initialization failed: %s: %d: %s", HOST_EEPROM_FILE, errno, strerror(errno));
@@ -103,6 +105,14 @@ uint32_t eeprom_init(void) {
    rig.eeprom_size = eeprom_len = sb.st_size;
    rig.eeprom_fd = fd;
    rig.eeprom_mmap = mmap(NULL, eeprom_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+
+   if (rig.eeprom_mmap == MAP_FAILED) {
+      // Deal with failed mmap here
+      Log(LOG_CRIT, "EEPROM mount failed!");
+#if	defined(HOST_POSIX)
+      exit(1);
+#endif
+   }
    rig.eeprom_ready = 1;
    Log(LOG_INFO, "EEPROM Initialized (%s%s)", (rig.eeprom_fd > 0 ? "mmap:" : "phys"),
                                            (rig.eeprom_fd > 0 ? HOST_EEPROM_FILE : ""));
@@ -223,6 +233,10 @@ bool eeprom_validate_checksum(void) {
 
       rig.eeprom_ready = -1;
       rig.eeprom_corrupted = 1;
+#if	defined(HOST_POSIX)
+      exit(1);
+#endif
+
       return true;
    } else {
       Log(LOG_INFO, "EEPROM checkum <%x> is correct, loading settings...", calc_sum);
@@ -429,13 +443,14 @@ const char *eeprom_get_str_i(uint32_t idx) {
 
    memset(buf, 0, sizeof(buf));
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
-#if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
-#endif
    memcpy(buf, myaddr, len);
 
    // Ensure null termination
    buf[len] = '\0';
+
+#if	defined(NOISY_EEPROM)
+   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x: |%s|", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr, buf);
+#endif
    return buf;
 }
 
@@ -452,7 +467,7 @@ struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin) {
    }
 
    // this is stored as 4 packed bytes by buildconf
-   unsigned char packed_ip[4];
+   unsigned char packed_ip[4] = { 0, 0, 0, 0 };
    int idx = eeprom_offset_index(key);
 
    if (idx == -1) {
