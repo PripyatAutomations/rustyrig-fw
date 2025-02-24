@@ -1,79 +1,79 @@
 {
    "debug/loglevel": {
-      "offset": 198,
+      "offset": 0,
       "type": "str",
       "key": "debug/loglevel",
       "size": 6
    },
    "dev/serial": {
-       "offset": 12,
+       "offset": 6,
        "type": "int",
        "key":  "dev/serial",
        "default": 1
    },
    "dev/hwversion": {
-       "offset": 16,
+       "offset": 7,
        "type": "int",
        "key": "dev/hwversion"
    },
    "eeprom/version": {
-       "offset": "0",
+       "offset": "11",
        "type": "int",
        "key": "eeprom/version"
    },
    "features/auto-block-ptt": {
-       "offset": 197,
+       "offset": 15,
        "type": "bool",
        "key": "features/auto-block-ptt"
    },
    "fw/major": {
-       "offset": 4,
+       "offset": 16,
        "type": "int",
        "key":  "fw/major"
    },
    "fw/minor": {
-       "offset": 8,
+       "offset": 20,
        "type": "int",
        "key":  "fw/minor"
    },
    "hw/atus": {
-       "offset": 195,
+       "offset": 24,
        "type": "int",
        "key": "hw/atus",
        "size": 1
    },
    "hw/amps": {
-       "offset": 196,
+       "offset": 25,
        "type": "int",
        "key": "hw/amps",
        "size": 1
    },
    "net/bind": {
-       "offset": 105,
+       "offset": 26,
        "type": "str",
        "size": 32,
        "key": "net/bind"
    },
    "net/dns1": {
-       "offset": 89,
+       "offset": 59,
        "type": "ip4",
        "key": "net/dns1",
        "default": "1.1.1.1"
    },
    "net/dns2": {
-       "offset": 93,
+       "offset": 64,
        "type": "ip4",
        "key": "net/dns2",
        "default": "4.2.2.2"
    },
    "net/gw": {
-       "offset": 81,
+       "offset": 67,
        "type": "ip4",
        "key": "net/gw",
        "default": "192.168.100.100"
    },
    "net/interface": {
-      "offset": 185,
+      "offset": 71,
       "type": "str",
       "size": "6",
       "key": "net/interface"
@@ -85,164 +85,164 @@
        "default": "192.168.100.100"
    },
    "net/mask": {
-       "offset": 85,
+       "offset": 81,
        "type": "ip4",
        "key": "net/mask",
        "default": "255.255.255.0"
    },
    "net/mtu": {
-       "offset": 101,
+       "offset": 85,
        "type": "int",
        "key": "net/mtu",
        "default": 1500
    },
    "net/vlan": {
-       "offset": 97,
+       "offset": 89,
        "type": "int",
        "key": "net/vlan",
        "default": 1
    },
    "owner/call": {
-       "offset": 46,
+       "offset": 93,
        "type": "call",
        "key": "owner/call",
        "default": "N0CALL"
    },
    "owner/privs": {
-       "offset": 62,
+       "offset": 97,
        "type": "class",
        "key": "owner/privs",
        "default": "US/General"
    },
    "pin/master": {
-       "offset": 65,
-       "size": 6,
+       "offset": 99,
+       "size": 8,
        "type": "str",
        "key": "pin/master",
-       "default": "012345"
+       "default": "01234567"
    },
    "pin/reset": {
-       "offset": 71,
-       "size": 6,
+       "offset": 107,
+       "size": 8,
        "type": "str",
        "key": "pin/reset",
-       "default": "543210"
+       "default": "76543210"
    },
    "pin/show": {
-       "offset": 191,
+       "offset": 115,
        "type": "bool",
        "key": "pin/show"
    },
    "rfdecks/lowband/curr_band": {
-       "offset": 20,
+       "offset": 116,
        "size": 1,
        "type": "int",
        "key": "rfdecks/lowband/curr_band",
        "default": 0
    },
    "rfdecks/highband/curr_band": {
-       "offset": 21,
+       "offset": 117,
        "size": 1,
        "type": "int",
        "key": "rfdecks/highband/curr_band",
        "default": 0
    },
    "station/call": {
-       "offset": 22,
+       "offset": 118,
        "type": "call",
        "key": "station/call",
        "default": "N0CALL"
    },
    "station/grid": {
-       "offset": 38,
+       "offset": 134,
        "type": "grid",
        "key": "station/grid"
    },
    "therm/encl_alarm": {
-       "offset": 137,
+       "offset": 142,
        "type": "int",
        "key": "therm/encl_alarm"
    },
    "therm/encl_max": {
-       "offset": 141,
+       "offset": 146,
        "type": "int",
        "key": "therm/encl_max"
    },
    "therm/encl_target": {
-       "offset": 145,
+       "offset": 150,
        "type": "int",
        "key": "therm/encl_target"
    },
    "therm/final_alarm": {
-       "offset": 149,
+       "offset": 154,
        "type": "int",
        "key": "therm/final_alarm"
    },
    "therm/final_max": {
-       "offset": 153,
+       "offset": 158,
        "type": "int",
        "key": "therm/final_max"
    },
    "therm/final_target": {
-       "offset": 157,
+       "offset": 162,
        "type": "int",
        "key": "therm/final_target"
    },
    "therm/inlet_alarm": {
-       "offset": 161,
+       "offset": 164,
        "type": "int",
        "key": "therm/inlet_alarm"
    },
    "therm/inlet_max": {
-       "offset": 165,
+       "offset": 168,
        "type": "int",
        "key": "therm/inlet_max"
    },
    "therm/inlet_target": {
-       "offset": 169,
+       "offset": 172,
        "type": "int",
        "key": "therm/inlet_target"
    },
    "therm/lpf_alarm": {
-       "offset": 173,
+       "offset": 176,
        "type": "int",
        "key": "therm/lpf_alarm"
    },
    "therm/lpf_max": {
-       "offset": 177,
+       "offset": 180,
        "type": "int",
        "key": "therm/lpf_max"
    },
    "therm/lpf_target": {
-       "offset": 181,
+       "offset": 184,
        "type": "int",
        "key": "therm/lpf_target"
    },
    "chan_header": {
-       "offset": 1500,
+       "offset": 100000,
        "type": "packed:chan_header",
        "key": "chan_header"
    },
    "chan_groups": {
-       "offset": 1700,
+       "offset": 100100,
        "type": "packed:chan_groups",
        "key": "chan_groups"
    },
    "channels": {
-       "offset": 2052,
+       "offset": 101000,
        "size": 14328,
        "type": "packed:channel",
        "key": "channels"
    },
    "atu_tv": {
-       "offset": 16384,
+       "offset": 200000,
        "size": 16384,
        "type": "packed:atu_tv",
        "key": "atu_tv",
        "comment": "Antenna Matching Unit stored LC values"
    },
    "eeprom/checksum": {
-       "offset": 16380,
+       "offset": 1048572,
        "size": 4,
        "type": "int",
        "key": "eeprom/checksum",
