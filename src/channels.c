@@ -13,4 +13,6 @@
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
+
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state

@@ -23,6 +23,7 @@
 #include "posix.h"
 #include "logger.h"
 
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 // This gets called by our atexit() handler to make sure we clean up temporary files...

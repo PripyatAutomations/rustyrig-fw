@@ -1,6 +1,3 @@
-//
-// Here we deal with common GUI operations between HMI and framebuffer
-//
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -13,8 +10,8 @@
 #include "state.h"
 #include "logger.h"
 #include "eeprom.h"
-#include "i2c.h"
-#include "gui.h"
+#include "socket.h"
+#include "io.h"
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state

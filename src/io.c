@@ -17,6 +17,9 @@
 #include "state.h"
 #include "io.h"
 
+extern bool dying;		// in main.c
+extern struct GlobalState rig;	// Global state
+
 int io_init(io_context_t *ctx, io_type_t type, const char *path, int port) {
     if (!ctx)
        return -1;

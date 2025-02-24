@@ -1,6 +1,23 @@
-// i2c_esp32.c
+#include "config.h"
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <string.h>
+#include "i2c.h"
+#include "state.h"
+#include "eeprom.h"
+#include "logger.h"
+#include "cat.h"
+#include "posix.h"
 #include "i2c_hal.h"
 #include "driver/i2c.h"
+
+extern bool dying;		// in main.c
+extern struct GlobalState rig;	// Global state
+
 
 #define I2C_MASTER_PORT I2C_NUM_0
 

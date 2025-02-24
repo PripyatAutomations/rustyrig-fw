@@ -19,7 +19,9 @@
 #include "i2c.h"
 #include "i2c_hal.h"
 
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
+
 static uint32_t file_descriptor = -1;
 static const char *i2c_bus = "/dev/i2c-1";
 

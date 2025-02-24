@@ -1,9 +1,24 @@
-// i2c_linux.c
+#include "config.h"
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <string.h>
+#include "i2c.h"
+#include "state.h"
+#include "eeprom.h"
+#include "logger.h"
+#include "cat.h"
+#include "posix.h"
 #include "i2c_hal.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
+extern bool dying;		// in main.c
+extern struct GlobalState rig;	// Global state
 
 static int i2c_fd = -1;
 

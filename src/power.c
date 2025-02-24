@@ -16,6 +16,7 @@
 #include "state.h"
 #include "power.h"
 
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 // 0: 12V, 1: 48V

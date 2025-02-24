@@ -22,3 +22,6 @@
 #include "i2c.h"
 #include "gui.h"
 #include "gui_nextion.h"
+
+extern bool dying;		// in main.c
+extern struct GlobalState rig;	// Global state

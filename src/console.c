@@ -21,8 +21,11 @@
 
 extern struct GlobalState rig;	// Global state
 
-bool cons_help
+bool cons_help(void /*io *port*/) {
+   return false;
+}
+
 struct cons_cmds core_cmds[] = {
-    { "help", 0, 1, cons_help },
-    { NULL, -1, -1, NULL }
+   { "help", 0, 1, cons_help },
+//   { NULL, -1, -1, NULL }
 };

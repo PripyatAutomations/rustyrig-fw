@@ -46,6 +46,7 @@ objs += cat.o			# CAT parsers
 objs += cat_kpa500.o		# amplifier control (KPA-500 mode)
 objs += cat_yaesu.o		# Yaesu CAT protocol
 objs += channels.o		# Channel Memories
+objs += console.o		# Console support
 objs += crc32.o			# CRC32 calculation for eeprom verification
 objs += eeprom.o		# "EEPROM" configuration storage
 objs += faults.o		# Fault management/alerting
@@ -55,23 +56,26 @@ objs += gui.o			# Support for a local user-interface
 objs += gui_fb.o		# Generic LCD (framebuffer) interface
 objs += gui_nextion.o		# Nextion HMI display interface
 objs += help.o			# support for help menus from filesystem, if available
-objs += io.o			# Input/Output abstraction/portability
 objs += i2c.o			# i2c abstraction
+objs += io.o			# Input/Output abstraction/portability
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += network.o		# Network control
-objs += waterfall.o		# Support for rendering waterfalls
 
 ifeq (${PLATFORM}, posix)
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 endif
 
 objs += power.o			# Power monitoring and management
+objs += protection.o		# Protection features
 objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
+objs += serial.o		# Serial port stuff
+objs += socket.o		# Socket operations
 objs += thermal.o		# Thermal management
 objs += usb.o			# Support for USB control (stm32)
 objs += util_vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
+objs += waterfall.o		# Support for rendering waterfalls
 
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)

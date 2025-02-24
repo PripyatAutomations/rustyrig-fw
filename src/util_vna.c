@@ -20,4 +20,6 @@
 #include "eeprom.h"
 #include "logger.h"
 #include "util_vna.h"
+
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state

@@ -23,6 +23,7 @@
 #include <netinet/in.h>
 #endif
 
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 // Here we have to provide a common interface with serial

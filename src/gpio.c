@@ -20,6 +20,7 @@
 radio_gpiochip gpiochips[MAX_GPIOCHIPS];
 #endif
 
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 // right now we only support one gpio chip, but this wrapper should ease transition

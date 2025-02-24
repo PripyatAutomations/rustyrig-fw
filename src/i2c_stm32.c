@@ -1,6 +1,22 @@
-// i2c_stm32.c
+#include "config.h"
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <string.h>
+#include "i2c.h"
+#include "state.h"
+#include "eeprom.h"
+#include "logger.h"
+#include "cat.h"
+#include "posix.h"
 #include "i2c_hal.h"
 #include "stm32f1xx_hal.h"
+
+extern bool dying;		// in main.c
+extern struct GlobalState rig;	// Global state
 
 extern I2C_HandleTypeDef hi2c1;
 

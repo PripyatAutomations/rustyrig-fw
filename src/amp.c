@@ -16,6 +16,9 @@
 #include "amp.h"
 #include "logger.h"
 
+extern bool dying;		// in main.c
+extern struct GlobalState rig;	// Global state
+
 bool amp_init(uint8_t index) {
    Log(LOG_INFO, "Amplifier %d initialized", index);
    return true;

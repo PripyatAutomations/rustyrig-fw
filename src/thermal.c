@@ -13,6 +13,7 @@
 #include "thermal.h"
 #include "logger.h"
 
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 typedef struct ThermalLimits {

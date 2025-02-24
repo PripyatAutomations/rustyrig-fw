@@ -14,6 +14,7 @@
 #include "logger.h"
 #include "state.h"
 
+extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 /* This should be updated only once per second, in main thread */

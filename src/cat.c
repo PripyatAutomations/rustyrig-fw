@@ -30,6 +30,7 @@
 #include "cat_kpa500.h"
 #include "cat_yaesu.h"
 extern struct GlobalState rig;  // Global state
+extern bool dying;		// in main.c
 
 int32_t cat_printf(char *str, ...) {
    va_list ap;
