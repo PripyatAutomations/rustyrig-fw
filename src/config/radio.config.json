@@ -21,7 +21,7 @@
    },
    "eeprom": {
       "addr": "0x0000",
-      "size": 16384,
+      "size": 1048576,
       "type": "mmap"
    },
    "features": {

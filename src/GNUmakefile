@@ -42,6 +42,7 @@ endif
 ##################
 objs += amp.o			# Amplifier management
 objs += atu.o			# Antenna Tuner
+objs += audio.o			# Audio channel stuff
 objs += cat.o			# CAT parsers
 objs += cat_kpa500.o		# amplifier control (KPA-500 mode)
 objs += cat_yaesu.o		# Yaesu CAT protocol
@@ -56,6 +57,7 @@ objs += gui.o			# Support for a local user-interface
 objs += gui_fb.o		# Generic LCD (framebuffer) interface
 objs += gui_nextion.o		# Nextion HMI display interface
 objs += help.o			# support for help menus from filesystem, if available
+objs += http.o			# HTTP server
 objs += i2c.o			# i2c abstraction
 objs += io.o			# Input/Output abstraction/portability
 objs += logger.o		# Logging facilities
@@ -76,6 +78,7 @@ objs += usb.o			# Support for USB control (stm32)
 objs += util_vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
 objs += waterfall.o		# Support for rendering waterfalls
+objs += websocket.o		# Websocket transport for CAT and audio
 
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)

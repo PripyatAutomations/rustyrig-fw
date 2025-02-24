@@ -17,6 +17,7 @@
 #include "eeprom.h"
 #include "i2c.h"
 #include "atu.h"
+
 // Tell atu_tables we want the data (we are the tuner code)
 #define	ANT_TUNER
 #include "atu_tables.h"
