@@ -13,12 +13,14 @@
 #include "logger.h"
 #include "thermal.h"
 #include "atu.h"
+#include "amp.h"
 #include "cat.h"
 #include "ptt.h"
 #include "gpio.h"
 #include "network.h"
 #include "help.h"
 #include "faults.h"
+#include "filters.h"
 
 bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
@@ -77,26 +79,36 @@ int main(int argc, char **argv) {
    Log(LOG_INFO, "rustyrig radio firmware v%s starting...", VERSION);
    initialize_state();			// Load default values
 
+   gpio_init();
+
    // if able to connect to EEPROM, load and apply settings
    if (eeprom_init() == 0) {
       eeprom_load_config();
    }
+
    // Print the serial #
    get_serial_number();
 
-   gpio_init();
-
-   // Initialize CAT controls (KPA500/Yaesu)
+   // Start up CAT interfaces
+//   io_init();
    cat_init();
 
-   // Initialize each antenna tuner (XXX: scan the config)
+   // Set up the 
+   // XXX: Iterate over all configured devices of class
    atu_init(0);
+   amp_init(0);
+   filter_init_all();
+
+   // Network connectivity
    show_network_info();
    show_pin_info();
+
    Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 
    // Main loop
    while(!dying) {
+      now = time(NULL);
+//      Log(LOG_DEBUG, "Tick %lu", now);
       char buf[512];
 
       // Check faults

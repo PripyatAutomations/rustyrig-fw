@@ -14,3 +14,9 @@
 #include "thermal.h"
 #include "protection.h"
 #include "amp.h"
+#include "logger.h"
+
+bool amp_init(uint8_t index) {
+   Log(LOG_INFO, "Amplifier %d initialized", index);
+   return true;
+}
