@@ -177,7 +177,7 @@ CATCommand cat_commands[] = {
 };
 
 bool cat_yaesu_init(void) {
-   Log(LOG_INFO, "Rig control (yaesu protocol) initialized");
+   Log(LOG_INFO, "Rig CAT control (yaesu emu) initialized");
    return false;
 }
 

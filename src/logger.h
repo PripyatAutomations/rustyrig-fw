@@ -1,5 +1,5 @@
-#if	!defined(_logger_h)
-#define	_logger_h
+#if	!defined(__rr_logger_h)
+#define	__rr_logger_h
 #include "config.h"
 #include <stdarg.h>
 

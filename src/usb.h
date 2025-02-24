@@ -1,5 +1,5 @@
-#if	!defined(_usb_h)
-#define	_usb_h
+#if	!defined(__rr_usb_h)
+#define	__rr_usb_h
 #include "config.h"
 
-#endif	// !defined(_usb_h)
+#endif	// !defined(__rr_usb_h)

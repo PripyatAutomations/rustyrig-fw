@@ -332,7 +332,7 @@ int32_t cat_parse_amp_line(char *line) {
 }
 
 bool cat_kpa500_init(void) {
-   Log(LOG_INFO, "Amplifier (KPA500 emu) CAT control initialized");
+   Log(LOG_INFO, "Amplifier CAT control (KPA500 emu) initialized");
    return false;
 }
 

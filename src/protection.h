@@ -1,5 +1,5 @@
-#if	!defined(_protection_h)
-#define	_protecion_h
+#if	!defined(__rr_protection_h)
+#define	__rr_protecion_h
 #include "config.h"
 
-#endif	// !defined(_protection_h)
+#endif	// !defined(__rr_protection_h)

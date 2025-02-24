@@ -1,6 +1,6 @@
 // This file contains the structures used for statistics and state
-#if	!defined(_state_h)
-#define	_state_h
+#if	!defined(__rr_state_h)
+#define	__rr_state_h
 #include "config.h"
 #include <time.h>
 #include <stdbool.h>
@@ -118,4 +118,4 @@ struct GlobalState {
 
 extern void shutdown_rig(uint32_t signum);	// main.c
 
-#endif	// !defined(_state_h)
+#endif	// !defined(__rr_state_h)

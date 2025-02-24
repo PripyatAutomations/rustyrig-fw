@@ -3,8 +3,8 @@
 //
 // Storage and interface for Variable Frequency Oscillator objecs
 //
-#if	!defined(_vfo_h)
-#define	_vfo_h
+#if	!defined(__rr_vfo_h)
+#define	__rr_vfo_h
 #include "config.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -21,4 +21,4 @@ typedef struct VFO {
    float	freq;		// Current frequency in Hertz
 } VFO;
 
-#endif	// !defined(_vfo_h)
+#endif	// !defined(__rr_vfo_h)

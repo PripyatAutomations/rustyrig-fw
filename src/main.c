@@ -89,9 +89,6 @@ int main(int argc, char **argv) {
    // Print the serial #
    get_serial_number();
 
-   // Start up CAT interfaces
-//   io_init();
-   cat_init();
 
    // Set up the 
    // XXX: Iterate over all configured devices of class
@@ -102,6 +99,10 @@ int main(int argc, char **argv) {
    // Network connectivity
    show_network_info();
    show_pin_info();
+
+   // Start up CAT interfaces
+//   io_init();
+   cat_init();
 
    Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 

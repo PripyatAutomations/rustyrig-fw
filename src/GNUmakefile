@@ -133,7 +133,7 @@ install:
 ###################
 ifeq (${PLATFORM},posix)
 # Run debugger
-run: ${bin}
+run: ${EEPROM_FILE} ${bin}
 	@echo "[run] ${bin}"
 	@${bin}
 

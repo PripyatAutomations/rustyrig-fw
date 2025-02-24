@@ -1,3 +1,6 @@
+#if	!defined(__rr_filters_h)
+#define	__rr_filters_h
+
 // Filter type
 #include <stdint.h>
 #include "config.h"
@@ -15,3 +18,5 @@ struct rf_filter {
 
 extern int filter_init(int fid);
 extern int filter_init_all(void);
+
+#endif	// !defined(__rr_filters_h)

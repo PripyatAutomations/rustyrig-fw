@@ -1,8 +1,8 @@
 //
 // Support for rendering to a framebuffer
 //
-#if	!defined(_gui_fb_h)
-#define	_gui_fb_h
+#if	!defined(__rr_gui_fb_h)
+#define	__rr_gui_fb_h
 #include "config.h"
 
-#endif	// !defined(_gui_fb.h)
+#endif	// !defined(__rr_gui_fb.h)

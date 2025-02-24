@@ -1,5 +1,5 @@
-#if	!defined(__eeprom_h)
-#define	_eeprom_h
+#if	!defined(___rr_eeprom_h)
+#define	__rr_eeprom_h
 
 // This will prevent loading with a newer EEPROM version and someday will force an upgrade if older
 #define	MY_EEPROM_VER	1
@@ -90,4 +90,4 @@ extern uint32_t get_serial_number(void);
 extern struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin);
 extern void show_pin_info(void);
 
-#endif	// !defined(_eeprom_h)
+#endif	// !defined(__rr_eeprom_h)

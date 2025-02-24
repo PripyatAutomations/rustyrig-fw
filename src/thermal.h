@@ -1,5 +1,5 @@
-#if	!defined(_thermal_h)
-#define	_thermal_h
+#if	!defined(__rr_thermal_h)
+#define	__rr_thermal_h
 #include "config.h"
 
 // Convert Celsius to Fahrenheit
@@ -15,4 +15,4 @@ static inline double degF_to_degC(double tempF) {
 extern uint32_t get_thermal(uint32_t sensor);		// Query temp in degC for sensor id given
 extern bool are_we_on_fire(void);		// Determine if radio is on fire and try to prevent that
 
-#endif	// !defined(_thermal_h)
+#endif	// !defined(__rr_thermal_h)

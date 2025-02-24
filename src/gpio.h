@@ -1,10 +1,10 @@
-#if	!defined(_gpio_h)
-#define	_gpio_h
+#if	!defined(__rr_gpio_h)
+#define	__rr_gpio_h
 #include "config.h"
 #include <stdbool.h>
 #if	defined(HOST_POSIX)
 // XXX: Include host gpio support
-extern const uint32_t max_gpiochips;
+extern const uint32_t max__rr_gpiochips;
 #else
 // Include uc specific gpio
 #endif
@@ -17,7 +17,7 @@ struct GPIO_pin {
 };
 typedef struct GPIO_pin GPIOpin;
 
-typedef struct radio_gpiochip {
+typedef struct radio__rr_gpiochip {
    struct gpiod_chip 	*chip;
    char			key[GPIO_KEYLEN + 1];
    bool			active;

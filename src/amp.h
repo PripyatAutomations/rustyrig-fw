@@ -1,5 +1,6 @@
-#if	!defined(_amp_h)
-#define	_amp_h
+#if	!defined(__rr_amp_h)
+#define	__rr_amp_h
+
 extern bool amp_init(uint8_t index);
 
-#endif	// !defined(_amp_h)
+#endif	// !defined(__rr_amp_h)

@@ -1,4 +1,4 @@
-#if	!defined(_gui_h)
-#define	_gui_h
+#if	!defined(__rr_gui_h)
+#define	__rr_gui_h
 #include "config.h"
-#endif	// !defined(_gui_h)
+#endif	// !defined(__rr_gui_h)

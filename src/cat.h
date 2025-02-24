@@ -1,5 +1,5 @@
-#if	!defined(_cat_control_h)
-#define	_cat_control_h
+#if	!defined(_rr_cat_control_h)
+#define	_rr_cat_control_h
 #include "config.h"
 
 #define	MAX_ARGS	12
@@ -22,4 +22,4 @@ extern struct cat_cmd cmd_kpa500[];
 extern int32_t cat_parse_amp_line(char *line);
 extern int32_t cat_printf(char *str, ...);
 
-#endif	// !defined(_cat_control_h)
+#endif	// !defined(_rr_cat_control_h)

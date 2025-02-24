@@ -1,5 +1,5 @@
-#if	!defined(_gui_nextion_h)
-#define	_gui_nextion_h
+#if	!defined(__rr_gui_nextion_h)
+#define	__rr_gui_nextion_h
 #include "config.h"
 
-#endif	// !defined(_gui_nextion_h)
+#endif	// !defined(__rr_gui_nextion_h)

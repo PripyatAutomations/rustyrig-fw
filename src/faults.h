@@ -1,5 +1,5 @@
-#if	!defined(_faults_h)
-#define	_faults_h
+#if	!defined(__rr_faults_h)
+#define	__rr_faults_h
 #include "config.h"
 #include <stdbool.h>
 
@@ -31,4 +31,4 @@ extern struct fault_table fault_table[];
 extern uint32_t set_fault(uint32_t fault);
 extern bool check_faults(void);
 
-#endif	// !defined(_faults_h)
+#endif	// !defined(__rr_faults_h)

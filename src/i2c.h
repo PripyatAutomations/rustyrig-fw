@@ -1,5 +1,5 @@
-#if	!defined(_i2c_h)
-#define	_i2c_h
+#if	!defined(__rr_i2c_h)
+#define	__rr_i2c_h
 #include "config.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -14,4 +14,4 @@ typedef struct {
 } I2CBus;
 
 
-#endif	// !defined(_i2c_h)
+#endif	// !defined(__rr_i2c_h)

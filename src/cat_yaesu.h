@@ -1,5 +1,5 @@
-#if	!defined(_cat_yaesu_h)
-#define	_cat_yaesu_h
+#if	!defined(_rr_cat_yaesu_h)
+#define	_rr_cat_yaesu_h
 #include "config.h"
 
 // Command lookup table
@@ -12,4 +12,4 @@ typedef struct {
 
 extern bool cat_yaesu_init(void);
 
-#endif	// !defined(_cat_yaesu_h)
+#endif	// !defined(_rr_cat_yaesu_h)

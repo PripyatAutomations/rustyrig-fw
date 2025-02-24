@@ -1,7 +1,7 @@
-#if	!defined(_cat_kpa500_h)
-#define	_cat_kpa500_h
+#if	!defined(_rr_cat_kpa500_h)
+#define	_rr_cat_kpa500_h
 #include "config.h"
 
 extern bool cat_kpa500_init(void);
 
-#endif	// !defined(_cat_kpa500_h)
+#endif	// !defined(_rr_cat_kpa500_h)
