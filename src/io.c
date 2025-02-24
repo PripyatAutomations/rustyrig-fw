@@ -1,5 +1,6 @@
 //
-// IO abstraction: Socket, pipe, and serial
+// IO abstraction
+// 	We use backends in socket.c, serial.c, and friends to support this
 //
 #include "config.h"
 #include <stddef.h>
