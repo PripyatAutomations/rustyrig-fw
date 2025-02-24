@@ -73,7 +73,9 @@ const char *eeprom_offset_name(uint32_t idx) {
 
    const char *rv = eeprom_layout[idx].key;
 
+#if	defined(NOISY_EEPROM)
    Log(LOG_DEBUG, "match for index %d: %s\n", idx, rv);
+#endif
    return rv;
 }
 
@@ -337,7 +339,6 @@ uint32_t get_serial_number(void) {
       return -1;
    }
    uint32_t val = eeprom_get_int("device/serial");
-   Log(LOG_INFO, "Device serial number: %lu", val);
    return val;
 }
 
@@ -346,6 +347,10 @@ uint32_t get_serial_number(void) {
 ////////////////////////////////
 // Do we have any changes to write?
 bool check_pending_eeprom_changes(void) {
+    if (rig.eeprom_saved < rig.eeprom_changed) {
+       return true;
+    }
+
     return false;
 }
 
@@ -424,7 +429,9 @@ const char *eeprom_get_str_i(uint32_t idx) {
 
    memset(buf, 0, sizeof(buf));
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
-//   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
+#if	defined(NOISY_EEPROM)
+   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr);
+#endif
    memcpy(buf, myaddr, len);
 
    // Ensure null termination
@@ -460,6 +467,38 @@ struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin) {
    Log(LOG_DEBUG, "netcfg: %s => %s", key, inet_ntoa(*sin));
 #endif
    return sin;
+}
+
+
+
+bool eeprom_get_bool_i(uint32_t idx) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return NULL;
+   }
+
+   if (idx == UINT32_MAX) {
+//      errno = ERANGE;
+      return false;
+   }
+
+   u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
+#if	defined(NOISY_EEPROM)
+   Log(LOG_DEBUG, "eeprom_get_bool EEPROM[%i] at %x with offset %d with final addr %x: val=%d", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr, *myaddr);
+#endif
+   if (*myaddr >= 1) {
+      return true;
+   } else {
+      return false;
+   }
+   // Ooof, we really shouldnt return either here :P
+   return false;
+}
+
+bool eeprom_get_bool(const char *key) {
+   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+      return NULL;
+   }
+   return eeprom_get_bool_i(eeprom_offset_index(key));
 }
 
 // Show the pin information at startup, if enabled

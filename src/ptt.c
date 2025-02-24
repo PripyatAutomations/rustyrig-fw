@@ -27,6 +27,7 @@ bool ptt_check_blocked(void) {
 }
 
 bool ptt_set_blocked(bool blocked) {
+   Log(LOG_AUDIT, "PTT %sBLOCKED", (blocked ? "" : "un"));
    rig.tx_blocked = blocked;
    return blocked;
 }
@@ -34,7 +35,7 @@ bool ptt_set_blocked(bool blocked) {
 
 bool ptt_set(bool ptt) {
    if (ptt_check_blocked()) {
-      Log(LOG_WARN, "PTT request while blocked");
+      Log(LOG_WARN, "PTT request while blocked, ignoring!");
       return false;
    }
 

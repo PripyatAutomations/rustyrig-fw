@@ -11,47 +11,69 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include "logger.h"
 #include "state.h"
+#include "eeprom.h"
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
-/* This should be updated only once per second, in main thread */
+/* This should be updated only once per second, by a call to update_timestamp from main thread */
+// These are in main
 extern char latest_timestamp[64];
-extern time_t now, last_ts_update;
+extern time_t now;
+static time_t last_ts_update;
 
 /* String constants we use more than a few times */
-const char *s_prio_crit = "CRIT",
-           *s_prio_warn = "WARN",
-           *s_prio_info = "INFO",
-           *s_prio_debug = "DBUG",
-           *s_none = "NONE";
+const char s_prio_crit[] = " CRIT",
+           s_prio_warn[] = " WARN",
+           s_prio_info[] = " INFO",
+           s_prio_audit[] = "AUDIT",
+           s_prio_debug[] = "DEBUG",
+           s_prio_none[] = " NONE";
 
-FILE   *logfp = NULL;
+static struct log_priority log_priorities[] = {
+   { .prio = LOG_CRIT,	.msg = s_prio_crit },
+   { .prio = LOG_WARN,	.msg = s_prio_warn },
+   { .prio = LOG_INFO,	.msg = s_prio_info },
+   { .prio = LOG_AUDIT,	.msg = s_prio_audit },
+   { .prio = LOG_DEBUG,	.msg = s_prio_debug },
+   { .prio = LOG_NONE,	.msg = s_prio_none }		// invalid entry
+};
+
+FILE	*logfp = NULL;
 
 const char *log_priority_to_str(logpriority_t priority) {
-   switch (priority) {
-      case LOG_CRIT:
-         return s_prio_crit;
-         break;
-      case LOG_WARN:
-         return s_prio_warn;
-         break;
-      case LOG_INFO:
-         return s_prio_info;
-         break;
-      case LOG_DEBUG:
-         return s_prio_debug;
-         break;
-      default:
-         return s_none;
-         break;
+   int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
+
+   for (int i = 0; i < log_levels; i++) {
+      if (log_priorities[i].prio == priority) {
+         return log_priorities[i].msg;
+      }
    }
-   return NULL;
+   return s_prio_none;
 }
 
 void logger_init(void) {
+
+   // Try to set default log level
+   const char *ll = eeprom_get_str("debug/loglevel");
+
+   if (ll == NULL) {
+      printf("logger_init: Failed to get loglevel from eeprom");
+      return;
+   }
+
+   int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
+   for (int i = 0; i < log_levels; i++) {
+      if (strcasecmp(log_priorities[i].msg, ll) == 0) {
+         rig.log_level = log_priorities[i].prio;
+         Log(LOG_INFO, "Setting log_level to %d (%s) = %s", log_priorities[i].prio, log_priorities[i].msg, log_priority_to_str(log_priorities[i].prio));
+         break;
+      }
+   }
+
 #if	defined(HOST_POSIX)
 /* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
    if (logfp == NULL) {
@@ -81,9 +103,9 @@ int update_timestamp(void) {
    time_t t;
    struct tm *tmp;
 
-   // If we've already updated this second or have gone back in time, return error
+   // If we've already updated this second or have gone back in time, return success, to save CPU
    if (last_ts_update >= now) {
-      return -1;
+      return 0;
    }
 
    last_ts_update = now;
@@ -117,20 +139,22 @@ void Log(logpriority_t priority, const char *fmt, ...) {
 
 #if	defined(HOST_POSIX) || defined(FEATURE_FILESYSTEM)
    /* Only spew to the serial port if logfile is closed */
-   if (logfp == NULL) {
+   if (logfp == NULL && logfp != stdout) {
       // XXX: this should support network targets too!!
 //      sio_printf("%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
       va_end(ap);
       return;
    } else {
-      fprintf(logfp, "%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
+      fprintf(logfp, "[%s] %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
       fflush(logfp);
    }
 #endif
 
 #if	defined(HOST_POSIX)
-   // Send it to the stdout too on host builds
-   fprintf(stdout, "%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
+   if (logfp != stdout) {
+      // Send it to the stdout too on host builds
+      fprintf(stdout, "[%s] %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
+   }
 #endif
 
    /* Machdep logging goes here! */

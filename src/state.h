@@ -4,6 +4,7 @@
 #include "config.h"
 #include <time.h>
 #include <stdbool.h>
+#include "logger.h"
 
 // In main.c
 extern bool dying;
@@ -78,10 +79,12 @@ struct FilterState {
 };
 
 struct GlobalState {
+   logpriority_t log_level;		// Minimum log level to show
    bool  tx_blocked;			// is TX blocked (user control)?
    bool  ptt;				// Are we transmitting?
    bool  faultbeep;			// Beep on faults
    bool  bc_standby;			// Stay in STANDBY on band change?
+   uint32_t   serial;			// Device serial #
    uint8_t    fan_speed;		// Fan speed: 0-6 (0: auto)
    uint32_t   fault_code;		// Current fault code
    uint32_t   faults;			// Faults since last cleared
@@ -89,6 +92,8 @@ struct GlobalState {
    bool       eeprom_ready;		// EEPROM initialized
    bool       eeprom_dirty;		// EEPROM needs written out
    bool       eeprom_corrupted;		// EEPROM is corrupted; prompt before write out
+   time_t     eeprom_saved;		// When was EEPROM last written out?
+   time_t     eeprom_changed;		// When was a setting last changed that needs written to EEPROM?
 
    // Thermals
    float therm_inlet;			// Air inlet temp

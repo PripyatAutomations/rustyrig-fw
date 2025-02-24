@@ -19,32 +19,56 @@ extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 struct fault_table fault_table[] = {
-   // FAULT		 	Fatal?
-   { FAULT_NONE,	 	false },
-   { FAULT_STUCK_RELAY,	 	true },
-   { FAULT_INLET_THERMAL,	true },
-   { FAULT_TOO_HOT,      	true },
-   { FAULT_HIGH_SWR,	 	true },
-   { FAULT_FINAL_THERMAL, 	true },
-   { FAULT_FINAL_LOW_CURRENT, 	true },
-   { FAULT_FINAL_HIGH_CURRENT, 	true },
-   { FAULT_FINAL_LOW_VOLT, 	true },
-   { FAULT_FINAL_HIGH_VOLT, 	true },
-   { FAULT_TOT_TIMEOUT,	  	true },
-   { FAULT_UNKNOWN,	 	true },
+   // FAULT		 	Fatal?		String
+   { FAULT_NONE,	 	false,		"None" },
+   { FAULT_STUCK_RELAY,	 	true,		"RELAY" },
+   { FAULT_INLET_THERMAL,	true,		"THERM_IN" },
+   { FAULT_TOO_HOT,      	true,		"THERM_BOX" },
+   { FAULT_HIGH_SWR,	 	true,		"SWR" },
+   { FAULT_FINAL_THERMAL, 	true,		"THERM_FIN" },
+   { FAULT_FINAL_LOW_CURRENT, 	true,		"F. Lo Curr" },
+   { FAULT_FINAL_HIGH_CURRENT, 	true,		"F. Hi Curr" },
+   { FAULT_FINAL_LOW_VOLT, 	true,		"F. Lo Volt" },
+   { FAULT_FINAL_HIGH_VOLT, 	true,		"F. Hi Volt" },
+   { FAULT_TOT_TIMEOUT,	  	true,		"TIMEOUT" },
+   { FAULT_UNKNOWN,	 	true,		"Unknown" },
 };
 
 int fault_priority(uint32_t code) {
-   // XXX: We need to look this up in the fault table
+   // XXX: We need to look this up in the fault table and figure out the priority
+   int items = (sizeof(fault_table) / sizeof(struct fault_table));
+   if (items > 0) {
+      for (int i = 0; i < items; i++) {
+         if (fault_table[i].code == code) {
+            return fault_table[i].code;
+         }
+      }
+   }
    return code;
 }
 
-const char *fault_get_type_str(uint32_t fault) {
+const char *fault_get_type_str(uint32_t code) {
+   int items = (sizeof(fault_table) / sizeof(struct fault_table));
+   if (items > 0) {
+      for (int i = 0; i < items; i++) {
+         if (fault_table[i].code == code) {
+            return fault_table[i].msg;
+         }
+      }
+   }
    return NULL;
 }
 
 // All faults trigger an alarm light, but only some are fatal and will cause a shutdown
 bool fault_is_fatal(uint32_t code) {
+   int items = (sizeof(fault_table) / sizeof(struct fault_table));
+   if (items > 0) {
+      for (int i = 0; i < items; i++) {
+         if (fault_table[i].code == code) {
+            return fault_table[i].fatal;
+         }
+      }
+   }
    return false;
 }
 

@@ -12,7 +12,7 @@
       }
    },
    "debug": {
-      "noisy-eeprom": 0,
+      "noisy-eeprom": "false",
       "logfile": "/tmp/radio-debug.log",
       "logtype": "file",
       "logmode": "0660",
@@ -25,8 +25,9 @@
       "type": "mmap"
    },
    "features": {
-      "cat-kpa500": 1,
-      "cat-yaesu": 1,
+      "auto-block-ptt": "false",
+      "cat-kpa500": "true",
+      "cat-yaesu": "true",
       "max-bands": 14
    },
    "i2c": {
@@ -35,14 +36,14 @@
    "interface": {
       "amp": {
          "port": "pipe:/tmp/rustyradio.amp.socket",
-         "enabled": 1
+         "enabled": "true"
       },
       "cat": {
          "port": "pipe:/tmp/rustyradio.cat.socket",
-         "enabled": 1
+         "enabled": "true"
       },
       "console": {
-         "enabled": 1,
+         "enabled": "true",
          "type": "stdio"
       },
       "display": {
@@ -91,11 +92,13 @@
    },
    "cards": {
       "amp": {
+         "name": "amp",
          "present": "false",
          "type": "i2c",
          "addr": "0x4a"
       },
       "atu": {
+         "name": "atu",
          "present": "true",
          "type": "i2c",
          "addr": "0x2a"

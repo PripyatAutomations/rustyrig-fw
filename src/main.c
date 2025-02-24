@@ -29,8 +29,9 @@ struct GlobalState rig;	// Global state
 time_t now = -1;
 // Current timestamp
 char latest_timestamp[64];
-// last time we updated the timestamp by calling update_timestamp
-time_t last_ts_update = -1;
+
+// should we automatically block PTT at startup?
+int auto_block_ptt = 0;
 
 static uint32_t load_defaults(void) {
    // Set minimum defaults, til we have EEPROM available
@@ -66,6 +67,9 @@ void shutdown_rig(uint32_t signum) {
 }
 
 int main(int argc, char **argv) {
+   now = time(NULL);
+   update_timestamp();
+   logfp = stdout;
    // On the stm32, main is not our entry point, so we can use this to help catch misbuilt images.
 #if	!defined(HOST_POSIX)
    printf("This build is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is likely severely broken!\n");
@@ -75,7 +79,6 @@ int main(int argc, char **argv) {
 #endif
 
    // Initialize subsystems
-   logger_init();
    Log(LOG_INFO, "rustyrig radio firmware v%s starting...", VERSION);
    initialize_state();			// Load default values
 
@@ -86,9 +89,11 @@ int main(int argc, char **argv) {
       eeprom_load_config();
    }
 
-   // Print the serial #
-   get_serial_number();
+   logger_init();
 
+   // Print the serial #
+   rig.serial = get_serial_number();
+   Log(LOG_INFO, "Device serial number: %lu", rig.serial);
 
    // Set up the 
    // XXX: Iterate over all configured devices of class
@@ -103,13 +108,20 @@ int main(int argc, char **argv) {
    // Start up CAT interfaces
 //   io_init();
    cat_init();
+   auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
+
+   if (auto_block_ptt) {
+      Log(LOG_INFO, "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
+      ptt_set_blocked(true);
+   }
 
    Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 
    // Main loop
    while(!dying) {
       now = time(NULL);
-//      Log(LOG_DEBUG, "Tick %lu", now);
+      update_timestamp();
+
       char buf[512];
 
       // Check faults
@@ -128,13 +140,16 @@ int main(int argc, char **argv) {
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
       // XXX: Iterate over them: console, amp, rig
       // We limit line length to 512
+#if	defined(CAT_YAESU)
       memset(buf, 0, PARSE_LINE_LEN);
       // io_read(&cat_io, &buf, PARSE_LINE_LEN - 1);
       cat_parse_line(buf);
-
+#endif
+#if	defined(CAT_KPA500)
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
         cat_parse_amp_line(buf);
+#endif
 
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);

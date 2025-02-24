@@ -84,6 +84,8 @@ extern uint32_t eeprom_get_int(const char *key);
 extern uint32_t eeprom_get_int_i(uint32_t idx);
 extern const char *eeprom_get_str(const char *key);
 extern const char *eeprom_get_str_i(uint32_t idx);
+extern bool eeprom_get_bool(const char *key);
+extern bool eeprom_get_bool_i(uint32_t idx);
 extern float eeprom_get_float(const char *key);
 extern float eeprom_get_float_i(uint32_t idx);
 extern uint32_t get_serial_number(void);

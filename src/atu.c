@@ -34,10 +34,17 @@ int atu_init(int uid) {
 
 int atu_init_all(void) {
    int rv = 0;
-   int i = 0;
-   Log(LOG_INFO, "Initializing all ATUs");
+   int tuners = 0;
 
-   // XXX: Iterate over the available ATUs...
-   rv += atu_init(i);
+   tuners = eeprom_get_int("hw/atus");
+   Log(LOG_INFO, "Initializing all ATUs (%d total)", tuners);
+
+   // XXX: Iterate over the available ATUs and collect the return values
+   for (int i = 0; i < tuners; i++) {
+       if (atu_init(i)) {
+          rv++;
+       }
+   }
+
    return -rv;
 }

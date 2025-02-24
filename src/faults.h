@@ -24,10 +24,16 @@
 struct fault_table {
    uint32_t 	code;			// error code
    bool		fatal;			// Is this a fatal error?
+   char		msg[16];		// message string
 };
 
 extern struct fault_table fault_table[];
 
+extern uint32_t set_fault(uint32_t code);
+extern bool check_faults(void);
+extern int fault_priority(uint32_t code);
+extern const char *fault_get_type_str(uint32_t code);
+extern bool fault_is_fatal(uint32_t code);
 extern uint32_t set_fault(uint32_t fault);
 extern bool check_faults(void);
 

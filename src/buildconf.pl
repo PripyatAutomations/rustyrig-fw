@@ -402,6 +402,20 @@ sub eeprom_patch {
              substr($eeprom_data, $curr_offset, 8, pack("a8", $cval));
           } elsif ($ee_type eq 'float') {
              substr($eeprom_data, $curr_offset, 4, pack("f", $cval));
+          } elsif ($ee_type eq 'bool') {
+             my $nval;
+             my $tval = lc($cval);
+
+             if ($tval =~ /^(1|on|true|yes)$/i) {
+                $nval = 1;
+             } elsif ($tval =~ /^(0|off|false|no)$/i) {
+                $nval = 0;
+             } else {
+                print "Wut? Got weird cval \"$cval\"!\n";
+                $nval = 0;
+            }
+
+             substr($eeprom_data, $curr_offset, 1, pack('C', $nval));
           } elsif ($ee_type eq 'int') {
              # integer (4 bytes)
              if ($cval =~ m/^0x/) {
@@ -753,6 +767,11 @@ sub generate_eeprom_layout_h {
    close $fh;
 }
 
+sub match_boolean {
+    my $val = shift;
+    return ($val =~ /^(1|on|true|yes)$/i) ? 1 : 0;
+}
+
 # Export a build configuration, to include the needed parts to support our configuration....
 sub generate_config_h {
    my $file = $_[0];
@@ -793,17 +812,17 @@ sub generate_config_h {
    }
 
    if (defined($config->{features})) {
-      if (defined($config->{features}{'cat-kpa500'}) && $config->{features}{'cat-kpa500'} eq 1) {
+      if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat-kpa500'})) {
          printf $fh "#define CAT_KPA500 true\n";
       }
 
-      if (defined($config->{features}{'cat-yaesu'}) && $config->{features}{'cat-yaesu'} eq 1) {
+      if (defined($config->{features}{'cat-yaesu'}) && match_boolean($config->{features}{'cat-yaesu'})) {
          printf $fh "#define CAT_YAESU true\n";
       }
    }
 
    if (defined($config->{'debug'})) {
-      if (defined($config->{debug}{'noisy-eeprom'}) && $config->{debug}{'noisy-eeprom'} eq 1) {
+      if (defined($config->{debug}{'noisy-eeprom'}) && match_boolean($config->{debug}{'noisy-eeprom'})) {
          printf $fh "#define NOISY_EEPROM true\n";
       }
    }

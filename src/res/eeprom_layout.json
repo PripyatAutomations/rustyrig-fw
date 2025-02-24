@@ -191,8 +191,31 @@
    },
    "pin/show": {
        "offset": 191,
-       "type": "int",
+       "type": "bool",
        "key": "pin/show"
+   },
+   "hw/atus": {
+       "offset": 195,
+       "type": "int",
+       "key": "hw/atus",
+       "size": 1
+   },
+   "hw/amps": {
+       "offset": 196,
+       "type": "int",
+       "key": "hw/amps",
+       "size": 1
+   },
+   "features/auto-block-ptt": {
+       "offset": 197,
+       "type": "bool",
+       "key": "features/auto-block-ptt"
+   },
+   "debug/loglevel": {
+      "offset": 198,
+      "type": "str",
+      "key": "debug/loglevel",
+      "size": 6
    },
    "chan_header": {
        "offset": 1500,
