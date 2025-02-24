@@ -56,8 +56,8 @@ uint32_t eeprom_offset_index(const char *key) {
    for (idx = 0; idx < max_entries; idx++) {
       if (strncasecmp(key, eeprom_layout[idx].key, strlen(key)) == 0) {
 #if	defined(NOISY_EEPROM)
-         Log(LOG_DEBUG, "match for key %s at index %d: type=%d, offset=%lu, sz=%lu", key, idx,
-            eeprom_layout[idx].type, eeprom_layout[idx].offset, eeprom_layout[idx].size);
+         Log(LOG_DEBUG, "$eeprom offset: %s is <%d> type %d, %lu bytes @ %lu", key, idx,
+            eeprom_layout[idx].type, eeprom_layout[idx].size, eeprom_layout[idx].offset);
 #endif
          return idx;
       }
@@ -74,7 +74,7 @@ const char *eeprom_offset_name(uint32_t idx) {
    const char *rv = eeprom_layout[idx].key;
 
 #if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "match for index %d: %s\n", idx, rv);
+   Log(LOG_DEBUG, "$eeprom index <%d> has key %s\n", idx, rv);
 #endif
    return rv;
 }
@@ -87,9 +87,15 @@ uint32_t eeprom_init(void) {
    size_t eeprom_len;
    ssize_t s;
 
-   // XXX: This needs to be read-only, until we sort out delayed writes, then it can go back to O_RDWR
-//   uint32_t fd = open(HOST_EEPROM_FILE, O_RDONLY);
+
+#if     defined(HOST_POSI) && defined(EEPROM_READONLY)
+   uint32_t fd = open(HOST_EEPROM_FILE, O_RDONLY);
+   Log(LOG_DEBUG, "EEPROM opened READ ONLY on fd %d", fd);
+#else
    uint32_t fd = open(HOST_EEPROM_FILE, O_RDWR);
+   Log(LOG_DEBUG, "EEPROM opened read-write on fd %d", fd);
+#endif
+
    if (fd == -1) {
       Log(LOG_CRIT, "EEPROM Initialization failed: %s: %d: %s", HOST_EEPROM_FILE, errno, strerror(errno));
       return -1;
@@ -102,17 +108,23 @@ uint32_t eeprom_init(void) {
       return -1;
    }
 #endif
+
    rig.eeprom_size = eeprom_len = sb.st_size;
    rig.eeprom_fd = fd;
+#if	defined(HOST_POSI) && defined(EEPROM_READONLY)
+   rig.eeprom_mmap = mmap(NULL, eeprom_len, PROT_READ, MAP_SHARED, fd, 0);
+#else
    rig.eeprom_mmap = mmap(NULL, eeprom_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+#endif
 
    if (rig.eeprom_mmap == MAP_FAILED) {
       // Deal with failed mmap here
-      Log(LOG_CRIT, "EEPROM mount failed!");
+      Log(LOG_CRIT, "EEPROM mount failed: %d:%s!", errno, strerror(errno));
 #if	defined(HOST_POSIX)
       exit(1);
 #endif
    }
+
    rig.eeprom_ready = 1;
    Log(LOG_INFO, "EEPROM Initialized (%s%s)", (rig.eeprom_fd > 0 ? "mmap:" : "phys"),
                                            (rig.eeprom_fd > 0 ? HOST_EEPROM_FILE : ""));
@@ -270,7 +282,7 @@ uint32_t eeprom_load_config(void) {
        memset(mbuf, 0, sizeof(mbuf));
        switch(eeprom_layout[i].type) {
            case EE_BOOL:
-                snprintf(mbuf, mb_sz, "%s", (eeprom_get_int_i(i) ? "true" : "false"));
+                snprintf(mbuf, mb_sz, "%s", (eeprom_get_bool_i(i) ? "true" : "false"));
                 break;
            case EE_CALL:
            case EE_GRID:
@@ -292,7 +304,7 @@ uint32_t eeprom_load_config(void) {
                 // XXX: we need to implement license classes
                 addr = rig.eeprom_mmap + eeprom_layout[i].offset;
                 memcpy(mbuf, addr, 2);
-                *(addr + 2) = '\0';
+                mbuf[2] = '\0';
                 break;
            case EE_FLOAT:
            case EE_FREQ:
@@ -313,14 +325,20 @@ uint32_t eeprom_load_config(void) {
                 inet_ntop(AF_INET6, ip6, mbuf, mb_sz);
                 break;
            }
-           default:
-                Log(LOG_DEBUG, "unhandled type %d", eeprom_layout[i].type);
-                break;
 //   EE_MODE,                     /* Operating mode (modulation) */
+           default:
+                Log(LOG_CRIT, "unhandled type %d while parsing eeprom layout", eeprom_layout[i].type);
+                Log(LOG_CRIT, "Please ensure eeprom is built for current fw ver!");
+#if	defined(HOST_POSIX)
+                exit(1);
+#else
+                abort();
+#endif
+                break;
        }
 #if	defined(NOISY_EEPROM)
-       Log(LOG_DEBUG, "key: %s type: %d offset: %d size: %d |%s|", eeprom_layout[i].key,
-           eeprom_layout[i].type, eeprom_layout[i].offset, eeprom_layout[i].size, mbuf);
+       Log(LOG_DEBUG, "$eeprom enumerate: %s <%d> type %d is %d bytes @ %d |%s|", eeprom_layout[i].key, i,
+           eeprom_layout[i].type, eeprom_layout[i].size, eeprom_layout[i].offset, mbuf);
 #endif	// defined(NOISY_EEPROM)
    }
    Log(LOG_INFO, "Configuration successfully loaded from EEPROM");
@@ -449,7 +467,7 @@ const char *eeprom_get_str_i(uint32_t idx) {
    buf[len] = '\0';
 
 #if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "eeprom_get_str EEPROM[%i] at %x with offset %d with final addr %x: |%s|", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr, buf);
+   Log(LOG_DEBUG, "$eeprom get_str: <%i> has offset %d @ %x |%s|", idx, eeprom_layout[idx].offset, myaddr, buf);
 #endif
    return buf;
 }
@@ -498,7 +516,8 @@ bool eeprom_get_bool_i(uint32_t idx) {
 
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
 #if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "eeprom_get_bool EEPROM[%i] at %x with offset %d with final addr %x: val=%d", idx, rig.eeprom_mmap,  eeprom_layout[idx].offset, myaddr, *myaddr);
+   Log(LOG_DEBUG, "$eeprom get_bool: <%i> has offset %d @ %x |%d=%s|", idx, eeprom_layout[idx].offset, myaddr, *myaddr, (*myaddr ? "true" : "false"));
+
 #endif
    if (*myaddr >= 1) {
       return true;

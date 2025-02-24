@@ -62,3 +62,14 @@ adding support for various i2c devices like DDS chips.
 It's up to the user to implement bits of the reference hardware and
 configure the software as they need. Feel free to request features via
 github.com/pripyatautomations/
+
+
+Known issues
+------------
+* eeprom corruption *
+   If you encounter problems with an eeprom checksum error after restarting
+the program, try setting eeprom.readonly to true and using 'make gdb' instead
+of 'make run' - if it crashes, please type 'bt' then paste the output into a
+bug report. - This can happen when a bug causes the eeprom to be accidentally
+modified. Since on linux we mmap the eeprom image, this isn't going to cause
+wear. On real EEPROM, we will be using a delayed write system. 

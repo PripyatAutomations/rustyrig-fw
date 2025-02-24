@@ -404,17 +404,12 @@ sub eeprom_patch {
              substr($eeprom_data, $curr_offset, 4, pack("f", $cval));
           } elsif ($ee_type eq 'bool') {
              my $nval;
-             my $tval = lc($cval);
 
-             if ($tval =~ /^(1|on|true|yes)$/i) {
+             if (match_boolean(lc($cval))) {
                 $nval = 1;
-             } elsif ($tval =~ /^(0|off|false|no)$/i) {
-                $nval = 0;
              } else {
-                print "Wut? Got weird cval \"$cval\"!\n";
                 $nval = 0;
-            }
-
+             }
              substr($eeprom_data, $curr_offset, 1, pack('C', $nval));
           } elsif ($ee_type eq 'int') {
              # integer (4 bytes)
@@ -809,6 +804,10 @@ sub generate_config_h {
       print $fh "#undef EEPROM_TYPE_MMAP\n";
       print $fh "#define EEPROM_TYPE_I2C\n";
       printf $fh "#define EEPROM_I2C_ADDR %s\n", $config->{eeprom}{addr};
+   }
+
+   if (match_boolean($config->{eeprom}{readonly})) {
+      printf $fh "#define EEPROM_READONLY\n";
    }
 
    if (defined($config->{features})) {

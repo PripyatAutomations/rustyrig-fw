@@ -1,5 +1,5 @@
 {
-   "device": {
+   "dev": {
       "serial": "900001",
       "hwversion": 1
    },
@@ -22,7 +22,8 @@
    "eeprom": {
       "addr": "0x0000",
       "size": 1048576,
-      "type": "mmap"
+      "type": "mmap",
+      "readonly": "false"
    },
    "features": {
       "auto-block-ptt": "false",
@@ -62,7 +63,7 @@
    "pin": {
       "show": 1,
       "master": "012345",
-      "reset": "543210"
+      "reset": "76543210"
    },
    "net": {
       "bind": "0.0.0.0",
