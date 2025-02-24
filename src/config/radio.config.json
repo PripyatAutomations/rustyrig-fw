@@ -76,7 +76,7 @@
       "mtu": 1500,
       "vlan": 1583
    },
-   "thermal": {
+   "therm": {
       "encl_alarm": 120.0,
       "encl_max": 135.0,
       "encl_target": 95.0,

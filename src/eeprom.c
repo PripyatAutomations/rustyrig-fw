@@ -338,7 +338,7 @@ uint32_t get_serial_number(void) {
    if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
       return -1;
    }
-   uint32_t val = eeprom_get_int("device/serial");
+   uint32_t val = eeprom_get_int("dev/serial");
    return val;
 }
 
