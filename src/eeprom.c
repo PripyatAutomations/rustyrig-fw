@@ -413,7 +413,13 @@ uint32_t eeprom_get_int_i(uint32_t idx) {
       return -1;
 
    uint32_t value = 0;
-   memcpy(&value, rig.eeprom_mmap + eeprom_layout[idx].offset, sizeof(uint32_t));
+   u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
+   memcpy(&value, myaddr, sizeof(uint32_t));
+
+#if	defined(NOISY_EEPROM)
+   Log(LOG_DEBUG, "$eeprom get_int: <%i> has offset %d @ %x |%d|", idx, eeprom_layout[idx].offset, myaddr, value);
+#endif
+
    return value;
 }
 
@@ -435,7 +441,12 @@ float eeprom_get_float_i(uint32_t idx) {
       return -1;
 
    float value = 0;
-   memcpy(&value, rig.eeprom_mmap + eeprom_layout[idx].offset, sizeof(float));
+   u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
+   memcpy(&value, myaddr, sizeof(uint32_t));
+
+#if	defined(NOISY_EEPROM)
+   Log(LOG_DEBUG, "$eeprom get_float: <%i> has offset %d @ %x |%f|", idx, eeprom_layout[idx].offset, myaddr, value);
+#endif
    return value;
 }
 
