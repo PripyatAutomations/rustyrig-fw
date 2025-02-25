@@ -381,7 +381,6 @@ sub eeprom_patch {
           substr($eeprom_data, $curr_offset, $final_size, "\x00" x $final_size);
 
           # Here we chose which type
-          # XXX: Need to use eeprom_types sizes, etc here - overriding as needed...
           if ($ee_type eq 'call') {
              # callsign (8 bytes)
              my $packedcall = pack("Z8", $cval);
@@ -428,7 +427,7 @@ sub eeprom_patch {
           } elsif ($ee_type eq 'str') {
              # string (variable length)
              if ($final_size == 0) {
-                print "   * Skipping 0 length key\n";
+                print "   * Skipping 0 length string key\n";
                 next;
              }
 
