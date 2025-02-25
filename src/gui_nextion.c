@@ -25,3 +25,11 @@
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
+
+bool gui_nextion_init(void) {
+   return false;
+}
+
+bool gui_nextion_update(void) {
+   return false;
+}

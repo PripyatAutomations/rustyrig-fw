@@ -1,4 +1,5 @@
 #include "config.h"
+#if	defined(HOST_POSIX)
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -40,3 +41,4 @@ int i2c_read(uint8_t addr, uint8_t *data, size_t len) {
 void i2c_deinit(void) {
     if (i2c_fd >= 0) close(i2c_fd);
 }
+#endif	// defined(HOST_POSIX)

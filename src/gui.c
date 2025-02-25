@@ -18,3 +18,21 @@
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
+
+bool gui_init(void) {
+   return false;
+}
+
+bool gui_update(void) {
+   // Refresh Nextion display if present
+   if (gui_nextion_update()) {
+      return true;
+   }
+
+   // Refresh the framebuffer (for LED and HTTP)
+   if (gui_fb_update()) {
+      return true;
+   }
+
+   return false;
+}

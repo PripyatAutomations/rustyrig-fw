@@ -21,7 +21,7 @@
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
-int io_init(io_context_t *ctx, io_type_t type, const char *path, int port) {
+int io_open(io_context_t *ctx, io_type_t type, const char *path, int port) {
     if (!ctx)
        return -1;
     ctx->type = type;
@@ -84,4 +84,8 @@ void io_close(io_context_t *ctx) {
         close(ctx->fd);
         ctx->fd = -1;
     }
+}
+
+bool io_init(void) {
+   return false;
 }

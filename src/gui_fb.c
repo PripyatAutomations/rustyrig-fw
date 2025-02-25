@@ -19,3 +19,11 @@
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
+
+bool gui_fb_init(void) {
+   return false;
+}
+
+bool gui_fb_update(void) {
+   return false;
+}

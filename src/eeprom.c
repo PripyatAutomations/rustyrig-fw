@@ -462,8 +462,6 @@ const char *eeprom_get_str_i(uint32_t idx) {
    memset(buf, 0, sizeof(buf));
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
    memcpy(buf, myaddr, len);
-
-   // Ensure null termination
    buf[len] = '\0';
 
 #if	defined(NOISY_EEPROM)
@@ -547,8 +545,8 @@ void show_pin_info(void) {
       char reset_pin[PIN_LEN + 1];
       memset(master_pin, 0, PIN_LEN + 1);
       memset(reset_pin, 0, PIN_LEN + 1);
-      snprintf(master_pin, PIN_LEN, "%s", eeprom_get_str("pin/master"));
-      snprintf(reset_pin, PIN_LEN, "%s", eeprom_get_str("pin/reset"));
+      snprintf(master_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/master"));
+      snprintf(reset_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/reset"));
       Log(LOG_INFO, "*** Master PIN: %s, Factory Reset PIN: %s (set pin/show to 0 to hide!) ***", master_pin, reset_pin);
    }
 }

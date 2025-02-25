@@ -21,6 +21,10 @@
 #include "help.h"
 #include "faults.h"
 #include "filters.h"
+#include "gui.h"
+#include "io.h"
+#include "audio.h"
+#include "usb.h"
 
 bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
@@ -91,6 +95,12 @@ int main(int argc, char **argv) {
       eeprom_load_config();
    }
 
+   // i2c init
+//   i2c_init();
+
+   // GUI init
+   gui_init();
+
    logger_init();
 
    // Print the serial #
@@ -105,15 +115,25 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
-   // Start up CAT interfaces
-//   io_init();
-   cat_init();
+   // apply some configuration from the eeprom
    auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
 
    if (auto_block_ptt) {
       Log(LOG_INFO, "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
       ptt_set_blocked(true);
    }
+
+   if (io_init()) {
+      Log(LOG_CRIT, "*** Fatal error init i/o subsys ***");
+//      fatal_error();
+   }
+
+   if (cat_init()) {
+      Log(LOG_CRIT, "*** Fatal error CAT ***");
+//      fatal_error();
+   }
+
+   audio_init();
 
    Log(LOG_INFO, "Radio initialization completed. Enjoy!");
 
@@ -154,6 +174,7 @@ int main(int argc, char **argv) {
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
 //      console_parse_line(buf);
+      gui_update();
       sleep(1);
    }
 

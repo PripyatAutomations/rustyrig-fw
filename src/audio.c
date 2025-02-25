@@ -16,3 +16,15 @@
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
+
+bool audio_init(void) {
+   return false;
+}
+
+bool audio_write_samples() {
+   return false;
+}
+
+au_sample_t **audio_read_samples(void) {
+   return NULL;
+}
