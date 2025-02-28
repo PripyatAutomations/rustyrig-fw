@@ -41,17 +41,6 @@
 		)
 		(uuid "9ed684a1-9d94-4795-9862-6da8cdab4367")
 	)
-	(text "This section contains the\nAntenna Matching unit for\nHF at 50W 100% duty cycle"
-		(exclude_from_sim no)
-		(at 16.51 162.56 0)
-		(effects
-			(font
-				(size 4 4)
-			)
-			(justify left bottom)
-		)
-		(uuid "e201b9d4-4e00-48de-afdd-043098f9505f")
-	)
 	(text "This section contains\nthe control logic\nand USB interface"
 		(exclude_from_sim no)
 		(at 124.46 36.83 0)
@@ -260,44 +249,6 @@
 			(project "radiopcb"
 				(path "/7de6637b-a3f9-4235-bc7f-a0209db4fd87"
 					(page "4")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 13.97 140.97)
-		(size 102.87 59.69)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "aa8c42b1-1c4d-4b66-bb6c-53166a3d60bc")
-		(property "Sheetname" "HF ATU"
-			(at 13.97 140.2584 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "hf_atu.kicad_sch"
-			(at 13.97 201.2446 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-			)
-		)
-		(instances
-			(project "radiopcb"
-				(path "/7de6637b-a3f9-4235-bc7f-a0209db4fd87"
-					(page "3")
 				)
 			)
 		)

@@ -74,6 +74,7 @@ objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 objs += serial.o		# Serial port stuff
 objs += socket.o		# Socket operations
 objs += thermal.o		# Thermal management
+objs += timer.o			# Timers support
 objs += usb.o			# Support for USB control (stm32)
 objs += util_vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
