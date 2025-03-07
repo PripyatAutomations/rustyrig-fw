@@ -71,6 +71,9 @@ objs += main.o			# main loop
 objs += network.o		# Network control
 
 ifeq (${PLATFORM}, posix)
+#objs += audio.pipewire.o	# Pipwiere on posix hosts
+CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
+LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 endif
 
@@ -112,8 +115,8 @@ BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcar
 ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
-	@${CC} ${CFLAGS} -o $@ -c $<
-	@echo "[Compile] $@ from $<"
+	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
+	@echo "[compile] $@ from $<"
 
 # Binary also depends on the .stamp file
 ${bin}: ${real_objs}
