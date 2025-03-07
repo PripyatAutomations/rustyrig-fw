@@ -25,9 +25,14 @@
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
+// XXX: this should load the last used state for this tuner unit
+atu_tv *atu_find_saved_state(int uid) {
+   return NULL;
+}
+
 // Initialize all ATU units
 int atu_init(int uid) {
-   int rv = 0
+   int rv = 0;
    atu_tv *tv = NULL;
    Log(LOG_INFO, " => ATU #%d initialized", uid);
    // do we have saved tuning parameters for this unit?
