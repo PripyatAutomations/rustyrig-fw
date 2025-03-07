@@ -1,89 +1,416 @@
 {
-  "bandplan": [
-    {
-      "band": "160m",
-      "start": 1.800,
-      "end": 2.000,
-      "privileges": [
-        {"mode": "CW", "tech": false, "general": {"start": 1.800, "end": 2.000}, "advanced": {"start": 1.800, "end": 2.000}, "extra": {"start": 1.800, "end": 2.000}},
-        {"mode": "Phone/Digital", "tech": false, "general": {"start": 1.800, "end": 2.000}, "advanced": {"start": 1.800, "end": 2.000}, "extra": {"start": 1.800, "end": 2.000}}
-      ]
-    },
-    {
-      "band": "80m",
-      "start": 3.500,
-      "end": 4.000,
-      "privileges": [
-        {"mode": "CW", "tech": false, "general": {"start": 3.525, "end": 3.600}, "advanced": {"start": 3.500, "end": 3.600}, "extra": {"start": 3.500, "end": 3.600}},
-        {"mode": "Phone/Digital", "tech": false, "general": {"start": 3.800, "end": 4.000}, "advanced": {"start": 3.700, "end": 4.000}, "extra": {"start": 3.600, "end": 4.000}}
-      ]
-    },
-    {
-      "band": "40m",
-      "start": 7.000,
-      "end": 7.300,
-      "privileges": [
-        {"mode": "CW", "tech": false, "general": {"start": 7.025, "end": 7.125}, "advanced": {"start": 7.000, "end": 7.125}, "extra": {"start": 7.000, "end": 7.125}},
-        {"mode": "Phone/Digital", "tech": false, "general": {"start": 7.175, "end": 7.300}, "advanced": {"start": 7.125, "end": 7.300}, "extra": {"start": 7.125, "end": 7.300}}
-      ]
-    },
-    {
-      "band": "20m",
-      "start": 14.000,
-      "end": 14.350,
-      "privileges": [
-        {"mode": "CW", "tech": false, "general": {"start": 14.025, "end": 14.150}, "advanced": {"start": 14.000, "end": 14.150}, "extra": {"start": 14.000, "end": 14.150}},
-        {"mode": "Phone/Digital", "tech": false, "general": {"start": 14.225, "end": 14.350}, "advanced": {"start": 14.175, "end": 14.350}, "extra": {"start": 14.150, "end": 14.350}}
-      ]
-    },
-    {
-      "band": "10m",
-      "start": 28.000,
-      "end": 29.700,
-      "privileges": [
-        {"mode": "CW", "tech": {"start": 28.000, "end": 28.300}, "general": {"start": 28.000, "end": 29.700}, "advanced": {"start": 28.000, "end": 29.700}, "extra": {"start": 28.000, "end": 29.700}},
-        {"mode": "Phone/Digital", "tech": {"start": 28.300, "end": 28.500}, "general": {"start": 28.300, "end": 29.700}, "advanced": {"start": 28.300, "end": 29.700}, "extra": {"start": 28.300, "end": 29.700}}
-      ]
-    },
-    {
-      "band": "6m",
-      "start": 50.000,
-      "end": 54.000,
-      "privileges": [
-        {"mode": "All Modes", "tech": true, "general": true, "advanced": true, "extra": true}
-      ]
-    },
-    {
-      "band": "2m",
-      "start": 144.000,
-      "end": 148.000,
-      "privileges": [
-        {"mode": "All Modes", "tech": true, "general": true, "advanced": true, "extra": true}
-      ]
-    },
-    {
-      "band": "1.25m",
-      "start": 222.000,
-      "end": 225.000,
-      "privileges": [
-        {"mode": "All Modes", "tech": false, "general": true, "advanced": true, "extra": true}
-      ]
-    },
-    {
-      "band": "70cm",
-      "start": 420.000,
-      "end": 450.000,
-      "privileges": [
-        {"mode": "All Modes", "tech": true, "general": true, "advanced": true, "extra": true}
-      ]
-    },
-    {
-      "band": "33cm",
-      "start": 902.000,
-      "end": 928.000,
-      "privileges": [
-        {"mode": "All Modes", "tech": true, "general": true, "advanced": true, "extra": true}
-      ]
-    }
-  ]
+    "$schema": "bands-schema.json",
+    "bandplans": [ {
+        "dxcc": [6,110,291],
+        "name": "United States Amateur Band Plan",
+        "classes": [
+            {"N":"Novice"},
+            {"T":"Technican"},
+            {"G":"General"},
+            {"A":"Advanced"},
+            {"E":"Amateur Extra"}
+        ],
+        "bands": [
+            {
+                "band": "2200m",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [135700, 137800],
+                "classes": ["E","A","G"],
+                "note": "1W EIRP, must register with Utilities Technology Council before operating."
+            },
+            {
+                "band": "630m",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [427000, 479000],
+                "classes": ["E","A","G"],
+                "note": "5W EIRP except Alaska within 496mi of Russia 1W EIRP, must register with Utlities Technology Council before operating."
+            },
+            {
+                "band": "160m",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [1800000, 2000000],
+                "classes": ["E","A","G"],
+                "note": "Avoid interference to radiolocation operations from 1900 to 2000 kHz."
+            },
+            {
+                "band": "80m",
+                "modes":["CW","DIG"],
+                "freq": [3500000, 3600000],
+                "classes": ["E"]
+            },
+            {
+                "band": "80m",
+                "modes":["CW","DIG"],
+                "freq": [3525000, 3600000],
+                "classes": ["A","G"]
+            },
+            {
+                "band": "80m",
+                "modes":["CW"],
+                "freq": [3525000, 3600000],
+                "classes": ["T","N"],
+                "note": "Novices and Technicans are limited to 200W on 80m."
+            },
+            {
+                "band": "80m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [3600000, 4000000],
+                "classes": ["E"]
+            },
+            {
+                "band": "80m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [3700000, 4000000],
+                "classes": ["A"]
+            },
+            {
+                "band": "80m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [3800000, 4000000],
+                "classes": ["G"]
+            },
+            {
+                "band": "60m",
+                "modes":["CW","DIG","USB PHONE"],
+                "freq": [5330500, 5333500],
+                "classes": ["E","A","G"],
+                "note": "Amateurs may operate with a maxmimum of 100W ERP relative to a half-wave dipole."
+            },
+            {
+                "band": "60m",
+                "modes":["CW","DIG","USB PHONE"],
+                "freq": [5346500, 5349500],
+                "classes": ["E","A","G"],
+                "note": "Amateurs may operate with a maxmimum of 100W ERP relative to a half-wave dipole."
+            },
+            {
+                "band": "60m",
+                "modes":["CW","DIG","USB PHONE"],
+                "freq": [5357000, 5360000],
+                "classes": ["E","A","G"],
+                "note": "Amateurs may operate with a maxmimum of 100W ERP relative to a half-wave dipole."
+            },
+            {
+                "band": "60m",
+                "modes":["CW","DIG","USB PHONE"],
+                "freq": [5371500, 5374500],
+                "classes": ["E","A","G"],
+                "note": "Amateurs may operate with a maxmimum of 100W ERP relative to a half-wave dipole."
+            },
+            {
+                "band": "60m",
+                "modes":["CW","DIG","USB PHONE"],
+                "freq": [5403500, 5406500],
+                "classes": ["E","A","G"],
+                "note": "Amateurs may operate with a maxmimum of 100W ERP relative to a half-wave dipole."
+            },
+            {
+                "band": "40m",
+                "modes":["CW","DIG"],
+                "freq": [7000000, 7125000],
+                "classes": ["E"],
+                "note": "Region 2 only."
+            },
+            {
+                "band": "40m",
+                "modes":["CW","DIG"],
+                "freq": [7025000, 7125000],
+                "classes": ["A","G"],
+                "note": "Region 2 only."
+            },
+            {
+                "band": "40m",
+                "modes":["CW"],
+                "freq": [7025000, 7125000],
+                "classes": ["T","N"],
+                "note": "Region 2 only, Novices and Technicans are limited to 200W on 40m."
+            },
+            {
+                "band": "40m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [7075000, 7100000],
+                "classes": ["E","A","G"],
+                "note": "Only outside Region 2 or west of 130°W or below 20°N."
+            },
+            {
+                "band": "40m",
+                "modes":["CW"],
+                "freq": [7025000, 7075000],
+                "classes": ["T","N"],
+                "note": "Only outside Region 2 or west of 130°W or below 20°N, Novices and Technicans are limited to 200W on 40m."
+            },
+            {
+                "band": "40m",
+                "modes":["CW"],
+                "freq": [7075000, 7125000],
+                "classes": ["T","N"],
+                "note": "Only outside Region 2 or west of 130°W or below 20°N, Novices and Technicans are limited to 200W on 40m."
+            },
+            {
+                "band": "40m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [7125000, 7300000],
+                "classes": ["E","A"],
+                "note": "Region 2 only."
+            },
+            {
+                "band": "40m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [7175000, 7300000],
+                "classes": ["G"],
+                "note": "Region 2 only."
+            },
+            {
+                "band": "30m",
+                "modes":["CW","DIG"],
+                "freq": [10100000, 10150000],
+                "classes": ["E","A","G"],
+                "note": "Avoid interference to fixed services outside the US, Amateurs may operate with no more then 200W PEP."
+            },
+            {
+                "band": "20m",
+                "modes":["CW","DIG"],
+                "freq": [14000000, 14150000],
+                "classes": ["E"]
+            },
+            {
+                "band": "20m",
+                "modes":["CW","DIG"],
+                "freq": [14025000, 14150000],
+                "classes": ["A","G"]
+            },
+            {
+                "band": "20m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [14150000, 14350000],
+                "classes": ["E"]
+            },
+            {
+                "band": "20m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [14175000, 14350000],
+                "classes": ["A"]
+            },
+            {
+                "band": "20m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [14225000, 14350000],
+                "classes": ["G"]
+            },
+            {
+                "band": "17m",
+                "modes":["CW","DIG"],
+                "freq": [18068000, 18110000],
+                "classes": ["E","A","G"]
+            },
+            {
+                "band": "17m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [18110000, 18168000],
+                "classes": ["E","A","G"]
+            },
+            {
+                "band": "15m",
+                "modes":["CW","DIG"],
+                "freq": [21000000, 21200000],
+                "classes": ["E"]
+            },
+            {
+                "band": "15m",
+                "modes":["CW","DIG"],
+                "freq": [21025000, 21200000],
+                "classes": ["A","G"]
+            },
+            {
+                "band": "15m",
+                "modes":["CW"],
+                "freq": [21025000, 21200000],
+                "classes": ["T","N"],
+                "note": "Novices and Technicans are limited to 200W on 15m."
+            },
+            {
+                "band": "15m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [21200000, 21450000],
+                "classes": ["E"]
+            },
+            {
+                "band": "15m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [21225000, 21450000],
+                "classes": ["A"]
+            },
+            {
+                "band": "15m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [21275000, 21450000],
+                "classes": ["G"]
+            },
+            {
+                "band": "12m",
+                "modes":["CW","DIG"],
+                "freq": [24890000, 24930000],
+                "classes": ["E","A","G"]
+            },
+            {
+                "band": "12m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [24930000, 24990000],
+                "classes": ["E","A","G"]
+            },
+            {
+                "band": "10m",
+                "modes":["CW","DIG"],
+                "freq": [28000000, 28300000],
+                "classes": ["E","A","G","T","N"],
+                "note": "Novices and Technicans are limited to 200W on 10m."
+            },
+            {
+                "band": "10m",
+                "modes":["CW","PHONE","IMAGE"],
+                "freq": [28300000, 29700000],
+                "classes": ["E","A","G"]
+            },
+            {
+                "band": "10m",
+                "modes":["SSB PHONE"],
+                "freq": [28300000, 28500000],
+                "classes": ["T","N"],
+                "note": "Novices and Technicans are limited to 200W on 10m."
+            },
+            {
+                "band": "6m",
+                "modes":["CW"],
+                "freq": [50000000, 50100000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "6m",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [50100000, 54000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "2m",
+                "modes":["CW"],
+                "freq": [144000000, 144100000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "2m",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [144100000, 148000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "1.25m",
+                "modes":["Fixed Digital"],
+                "freq": [219000000, 220000000],
+                "classes": ["E","A","G","T"],
+                "note": "The 219-220MHz segment is limited to fixed digital message forwarding systems only."
+            },
+            {
+                "band": "1.25m",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [222000000, 225000000],
+                "classes": ["E","A","G","T","N"],
+                "note": "Novices are limited to 25W on 1.25m."
+            },
+            {
+                "band": "70cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [420000000, 450000000],
+                "classes": ["E","A","G","T"],
+                "note": "Geographical power restrictions apply, see FCC Part 97.303 for more information."
+            },
+            {
+                "band": "33cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [902000000, 928000000],
+                "classes": ["E","A","G","T"],
+                "note": "Geographical power restrictions apply, see FCC Part 97.303 for more information."
+            },
+            {
+                "band": "23cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [1240000000, 1300000000],
+                "classes": ["E","A","G","T"],
+                "note": "Geographical power restrictions apply, see FCC Part 97.303 for more information."
+            },
+            {
+                "band": "23cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [1270000000, 1295000000],
+                "classes": ["N"],
+                "note": "Novices are limited to 5W on 23cm."
+            },
+            {
+                "band": "13cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [2300000000, 2310000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "13cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [2390000000, 2450000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "9cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [3400000000, 3450000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "5cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [5650000000, 5925000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "3cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [10000000000, 10500000000],
+                "classes": ["E","A","G","T"],
+                "note": "Pulse emission not allowed."
+            },
+            {
+                "band": "1.2cm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [24000000000, 24250000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "6mm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [47000000000, 47200000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "4mm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [76000000000, 81000000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "2.5mm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [122250000000, 123000000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "2mm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [134000000000, 141000000000],
+                "classes": ["E","A","G","T"]
+            },
+            {
+                "band": "1mm",
+                "modes":["CW","DIG","PHONE","IMAGE"],
+                "freq": [241000000000, 250000000000],
+                "classes": ["E","A","G","T"]
+            }
+        ]
+    } ]
 }
