@@ -3,7 +3,7 @@
  * depending on how it's connected.
  *
  * We support the following:
- *	mmaping a file on HOST_POSIX,
+ *	mmaping a file on posix hosts
  *	memory mapped eeprom/flash devices with direct reading/writing
  *	i2c connected parts
  */

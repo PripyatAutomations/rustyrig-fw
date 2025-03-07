@@ -27,8 +27,16 @@ extern struct GlobalState rig;	// Global state
 
 // Initialize all ATU units
 int atu_init(int uid) {
-   int rv = 0;
+   int rv = 0
+   atu_tv *tv = NULL;
    Log(LOG_INFO, " => ATU #%d initialized", uid);
+   // do we have saved tuning parameters for this unit?
+   if ((tv = atu_find_saved_state(uid)) != NULL) {
+      // Apply them
+   } else {
+      // XXX: Should we do a DDS sweep tune, if possible?
+   }
+
    return rv;
 }
 

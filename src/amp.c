@@ -21,6 +21,9 @@ extern struct GlobalState rig;	// Global state
 
 bool amp_init(uint8_t index) {
    Log(LOG_INFO, " => Amp #%d initialized", index);
+
+   // XXX: Set up CAT, if enabled
+
    return false;
 }
 

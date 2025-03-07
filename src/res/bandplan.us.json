@@ -1,0 +1,89 @@
+{
+  "bandplan": [
+    {
+      "band": "160m",
+      "start": 1.800,
+      "end": 2.000,
+      "privileges": [
+        {"mode": "CW", "tech": false, "general": {"start": 1.800, "end": 2.000}, "advanced": {"start": 1.800, "end": 2.000}, "extra": {"start": 1.800, "end": 2.000}},
+        {"mode": "Phone/Digital", "tech": false, "general": {"start": 1.800, "end": 2.000}, "advanced": {"start": 1.800, "end": 2.000}, "extra": {"start": 1.800, "end": 2.000}}
+      ]
+    },
+    {
+      "band": "80m",
+      "start": 3.500,
+      "end": 4.000,
+      "privileges": [
+        {"mode": "CW", "tech": false, "general": {"start": 3.525, "end": 3.600}, "advanced": {"start": 3.500, "end": 3.600}, "extra": {"start": 3.500, "end": 3.600}},
+        {"mode": "Phone/Digital", "tech": false, "general": {"start": 3.800, "end": 4.000}, "advanced": {"start": 3.700, "end": 4.000}, "extra": {"start": 3.600, "end": 4.000}}
+      ]
+    },
+    {
+      "band": "40m",
+      "start": 7.000,
+      "end": 7.300,
+      "privileges": [
+        {"mode": "CW", "tech": false, "general": {"start": 7.025, "end": 7.125}, "advanced": {"start": 7.000, "end": 7.125}, "extra": {"start": 7.000, "end": 7.125}},
+        {"mode": "Phone/Digital", "tech": false, "general": {"start": 7.175, "end": 7.300}, "advanced": {"start": 7.125, "end": 7.300}, "extra": {"start": 7.125, "end": 7.300}}
+      ]
+    },
+    {
+      "band": "20m",
+      "start": 14.000,
+      "end": 14.350,
+      "privileges": [
+        {"mode": "CW", "tech": false, "general": {"start": 14.025, "end": 14.150}, "advanced": {"start": 14.000, "end": 14.150}, "extra": {"start": 14.000, "end": 14.150}},
+        {"mode": "Phone/Digital", "tech": false, "general": {"start": 14.225, "end": 14.350}, "advanced": {"start": 14.175, "end": 14.350}, "extra": {"start": 14.150, "end": 14.350}}
+      ]
+    },
+    {
+      "band": "10m",
+      "start": 28.000,
+      "end": 29.700,
+      "privileges": [
+        {"mode": "CW", "tech": {"start": 28.000, "end": 28.300}, "general": {"start": 28.000, "end": 29.700}, "advanced": {"start": 28.000, "end": 29.700}, "extra": {"start": 28.000, "end": 29.700}},
+        {"mode": "Phone/Digital", "tech": {"start": 28.300, "end": 28.500}, "general": {"start": 28.300, "end": 29.700}, "advanced": {"start": 28.300, "end": 29.700}, "extra": {"start": 28.300, "end": 29.700}}
+      ]
+    },
+    {
+      "band": "6m",
+      "start": 50.000,
+      "end": 54.000,
+      "privileges": [
+        {"mode": "All Modes", "tech": true, "general": true, "advanced": true, "extra": true}
+      ]
+    },
+    {
+      "band": "2m",
+      "start": 144.000,
+      "end": 148.000,
+      "privileges": [
+        {"mode": "All Modes", "tech": true, "general": true, "advanced": true, "extra": true}
+      ]
+    },
+    {
+      "band": "1.25m",
+      "start": 222.000,
+      "end": 225.000,
+      "privileges": [
+        {"mode": "All Modes", "tech": false, "general": true, "advanced": true, "extra": true}
+      ]
+    },
+    {
+      "band": "70cm",
+      "start": 420.000,
+      "end": 450.000,
+      "privileges": [
+        {"mode": "All Modes", "tech": true, "general": true, "advanced": true, "extra": true}
+      ]
+    },
+    {
+      "band": "33cm",
+      "start": 902.000,
+      "end": 928.000,
+      "privileges": [
+        {"mode": "All Modes", "tech": true, "general": true, "advanced": true, "extra": true}
+      ]
+    }
+  ]
+}

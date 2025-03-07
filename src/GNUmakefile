@@ -43,12 +43,17 @@ endif
 objs += amp.o			# Amplifier management
 objs += atu.o			# Antenna Tuner
 objs += audio.o			# Audio channel stuff
+objs += audio.pcm5102.o		# pcm5102 DAC support
 objs += cat.o			# CAT parsers
 objs += cat_kpa500.o		# amplifier control (KPA-500 mode)
 objs += cat_yaesu.o		# Yaesu CAT protocol
 objs += channels.o		# Channel Memories
 objs += console.o		# Console support
 objs += crc32.o			# CRC32 calculation for eeprom verification
+objs += dds.o			# API for Direct Digital Synthesizers
+objs += dds.ad9833.o		# AD9833 DDS
+objs += dds.ad9851_stm32.o	# STM32 (AT command) ad9851 DDS
+objs += debug.o			# Debug stuff
 objs += eeprom.o		# "EEPROM" configuration storage
 objs += faults.o		# Fault management/alerting
 objs += filters.o		# Control of input/output filters
@@ -59,6 +64,7 @@ objs += gui_nextion.o		# Nextion HMI display interface
 objs += help.o			# support for help menus from filesystem, if available
 objs += http.o			# HTTP server
 objs += i2c.o			# i2c abstraction
+objs += i2c.mux.o		# i2c multiplexor support
 objs += io.o			# Input/Output abstraction/portability
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
@@ -113,8 +119,14 @@ ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 ${bin}: ${real_objs}
 	@${CC} -o $@ ${real_objs} ${LDFLAGS}
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
+	@ls -a1ls $@
 	@file $@
 	@size $@
+
+strip: ${bin}
+	@echo "[strip] $@"
+	@strip ${bin}
+	@ls -a1ls $@
 
 ${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildcard res/*.json) buildconf.pl
 	@echo "[buildconf]"

@@ -9,6 +9,7 @@ struct atu_tv {
    bool	 bypass;		// Bypass tuner?
    bool	 hi_z;			// Hi-Z switch
 };
+typedef struct atu_tv atu_tv;
 
 extern int atu_init(int uid);
 extern int atu_init_all(void);
