@@ -1,27 +1,14 @@
-# kicad stuff
-pcb/*-backups/*
-pcb/fp-info-cache
-pcb/*/fp-info-cache
-*/*-backups/*
-
 # logs
-src/testbuild.log
+testbuild.log
+firmware.log
 
 # exported images
 images/*
 images
 
 # build artifacts
-src/build/*/*.*
-src/build/*/obj/*
-
-# Shared image that can be used by all radios
-src/firmware.bin
-
-# User built images and runtime outputs that may contain user information
-src/eeprom.bin
-src/firmware.log
-src/radio.json
+build/*/*.*
+build/*/obj/*
 
 # Archived configs
-src/config/archive/*.json
+config/archive/*.json
