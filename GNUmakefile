@@ -124,9 +124,9 @@ ${bin}: ${real_objs}
 	@size $@
 
 strip: ${bin}
-	@echo "[strip] $@"
+	@echo "[strip] ${bin}"
 	@strip ${bin}
-	@ls -a1ls $@
+	@ls -a1ls ${bin}
 
 ${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildcard res/*.json) buildconf.pl
 	@echo "[buildconf]"
