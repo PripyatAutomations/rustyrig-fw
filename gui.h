@@ -3,6 +3,7 @@
 #include "config.h"
 #include "gui_fb.h"
 #include "gui_nextion.h"
+#include "gui_mjpeg.h"
 
 extern bool gui_init(void);
 extern bool gui_update(void);

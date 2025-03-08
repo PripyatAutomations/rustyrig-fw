@@ -20,8 +20,27 @@
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 
-bool gui_fb_init(void) {
-   return false;
+gui_fb_state_t *gui_fb_init(gui_fb_state_t *fb) {
+   // XXX: Get these from eeprom
+   uint8_t	new_depth = 0,
+                new_height = 0,
+                new_width = 0;
+
+   // If framebuffer not passed to us, allocate one to return
+   if (fb == NULL) {
+      if (!(fb = malloc(sizeof(gui_fb_state_t)))) {
+         Log(LOG_CRIT, "out of mem. allocating fb_state");
+         return NULL;
+      }
+
+      memset(fb, 0, sizeof(gui_fb_state_t));
+      if (!(fb->framebuffer = malloc(new_depth * new_height * new_width))) {
+         free(fb);
+         return NULL;
+      }
+   }
+
+   return fb;
 }
 
 bool gui_fb_update(void) {

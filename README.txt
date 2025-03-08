@@ -1,7 +1,11 @@
 What is this?
 It's a project to make a firmware that will run on various homebrew radios.
 
-Initially we're targetting devices running linux, with hopes to port to esp32 and stm32.
+It's nowhere near ready to use but feel free to jump in and contribute
+changes to help it get closer!
+
+Initially we're targetting devices running linux, with hopes to port to esp32 and
+maybe stm32. Of course, the features available will be reduced on lower-end hardware.
 
 There's probably missing packages in these lists and some packages no longer needed....
 

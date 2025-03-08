@@ -60,7 +60,9 @@ objs += filters.o		# Control of input/output filters
 objs += gpio.o			# GPIO controls
 objs += gui.o			# Support for a local user-interface
 objs += gui_fb.o		# Generic LCD (framebuffer) interface
+objs += gui_mjpeg.o		# Framebuffer via MJPEG streaming (over http)
 objs += gui_nextion.o		# Nextion HMI display interface
+#objs += gui_h264.o		# Framebuffer via H264 (over http)
 objs += help.o			# support for help menus from filesystem, if available
 objs += http.o			# HTTP server
 objs += i2c.o			# i2c abstraction
@@ -72,8 +74,8 @@ objs += network.o		# Network control
 
 ifeq (${PLATFORM}, posix)
 #objs += audio.pipewire.o	# Pipwiere on posix hosts
-CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
-LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
+CFLAGS += $(shell pkg-config --cflags libpipewire-0.3 libjpeg)
+LDFLAGS += $(shell pkg-config --libs libpipewire-0.3 libjpeg)
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 endif
 
@@ -189,5 +191,5 @@ ${CF}:
 	exit 1
 
 installdep:
-	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl libgpiod-dev
+	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl libgpiod-dev libjpeg-dev
 	cpan install Mojo::JSON::Pointer

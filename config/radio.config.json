@@ -46,11 +46,25 @@
          "enabled": "true",
          "type": "stdio"
       },
-      "display": {
-         "hmi": "hmi/5in_nextion.hmi",
-         "type": "nextion",
-         "port": "/dev/ttyUSB.nextion"
-      }
+      "display": [
+         {
+            "enabled": "false",
+            "hmi": "hmi/5in_nextion.hmi",
+            "type": "nextion",
+            "port": "/dev/ttyUSB.nextion"
+         },
+         {
+            "name": "vfb0",
+            "type": "vfb",
+            "height": 480,
+            "width": 640
+         },
+         {
+            "name": "lcd0",
+            "type": "lcd",
+            "framebuffer": "vfb0"
+         }
+      ]
    },
    "station": {
       "call": "N0CALL",
