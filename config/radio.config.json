@@ -93,7 +93,9 @@
       "http": {
          "enabled": "true",
          "bind": "0.0.0.0",
-         "port": 8420
+         "port": 8420,
+         "404-path": "./www/404.shtml",
+         "www-root": "./www"
       },
       "mqtt": {
          "enabled": "true",

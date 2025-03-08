@@ -1,5 +1,6 @@
 [i2c/eeprom]
 - Implement hard coded address for i2c eeprom and a codepath to support it
+- Should we bypass the eeprom step and read directly from the config & channels.json?
 
 [makefile]
 Make things so that make debug forces a make clean & adding make debug if last built without debug (can we use nm or such to check symbols)

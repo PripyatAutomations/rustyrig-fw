@@ -180,7 +180,8 @@ int main(int argc, char **argv) {
         cat_parse_amp_line(buf);
 #endif
 
-      mg_mgr_poll(&mg_mgr, 1000);  // Process all connections
+      // Process Mongoose HTTP and MQTT events
+      mg_mgr_poll(&mg_mgr, 1000);
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
 //      console_parse_line(buf);

@@ -254,6 +254,20 @@
        "key": "debug/show_ts",
        "default": "true"
    },
+   "net/http/www-root": {
+       "offset": 249,
+       "size": 101,
+       "type": "str",
+       "key": "net/http/www-root",
+       "default": "./www"
+   },
+   "net/http/404-path": {
+       "offset": 249,
+       "size": 101,
+       "type": "str",
+       "key": "net/http/404-path",
+       "default": "./www/404.shtml"
+   },
    "chan_header": {
        "offset": 100000,
        "type": "packed:chan_header",
