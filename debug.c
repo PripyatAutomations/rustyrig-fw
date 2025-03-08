@@ -19,7 +19,6 @@
 #include "state.h"
 #include "logger.h"
 #include "eeprom.h"
-#include "debug.h"
 
 bool debug_init(void) {
    // Nothing to do yet

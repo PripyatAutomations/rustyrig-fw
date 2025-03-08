@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include "debug.h"
 
 enum LogPriority {
       LOG_NONE = -1,

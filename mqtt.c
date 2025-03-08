@@ -22,6 +22,7 @@ extern struct GlobalState rig;	// Global state
 static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
    /// XXX handle mqtt
 }
+
 bool mqtt_init(struct mg_mgr *mgr) {
    struct in_addr sa_bind;
    char listen_addr[255];

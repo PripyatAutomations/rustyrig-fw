@@ -91,6 +91,7 @@ int main(int argc, char **argv) {
 
    // Initialize subsystems
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);
+   debug_init();
    initialize_state();			// Load default values
 
    mg_mgr_init(&mg_mgr);

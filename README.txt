@@ -7,13 +7,21 @@ changes to help it get closer!
 Initially we're targetting devices running linux, with hopes to port to esp32 and
 maybe stm32. Of course, the features available will be reduced on lower-end hardware.
 
+
+Be sure to pull submodules:
+	git submodule init
+	git submodule pull
+
 There's probably missing packages in these lists and some packages no longer needed....
 
-If you use debian, you can skip this part and use 'make installdep'
-	Install these packages at minimum:
+	* Debian *
+	make installdep
+
+	*others*
+	   Install these packages at minimum:
 		libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl
 
-	Install cpan modules (if on debian)
+	   Install cpan modules (if on debian)
 		cpan install Mojo::JSON::Pointer
 
 Files

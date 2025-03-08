@@ -10,6 +10,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include "eeprom.h"
+#include "logger.h"
+#include "gui.h"
 #include "waterfall.h"
 
 extern bool dying;		// in main.c
