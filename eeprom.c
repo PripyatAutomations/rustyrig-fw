@@ -56,14 +56,14 @@ uint32_t eeprom_offset_index(const char *key) {
    for (idx = 0; idx < max_entries; idx++) {
       if (strncasecmp(key, eeprom_layout[idx].key, strlen(key)) == 0) {
 #if	defined(NOISY_EEPROM)
-         Log(LOG_DEBUG, "$eeprom offset: %s is <%d> type %d, %lu bytes @ %lu", key, idx,
+         Log(LOG_DEBUG, "eeprom", "offset: %s is <%d> type %d, %lu bytes @ %lu", key, idx,
             eeprom_layout[idx].type, eeprom_layout[idx].size, eeprom_layout[idx].offset);
 #endif
          return idx;
       }
    }
 
-   Log(LOG_DEBUG, "No match found for key %s in eeprom_layout", key);
+   Log(LOG_DEBUG, "eeprom", "No match found for key %s in eeprom_layout", key);
    return -1;
 }
 
@@ -74,7 +74,7 @@ const char *eeprom_offset_name(uint32_t idx) {
    const char *rv = eeprom_layout[idx].key;
 
 #if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "$eeprom index <%d> has key %s\n", idx, rv);
+   Log(LOG_DEBUG, "eeprom", "index <%d> has key %s\n", idx, rv);
 #endif
    return rv;
 }
@@ -90,21 +90,21 @@ uint32_t eeprom_init(void) {
 
 #if     defined(HOST_POSI) && defined(EEPROM_READONLY)
    uint32_t fd = open(HOST_EEPROM_FILE, O_RDONLY);
-   Log(LOG_DEBUG, "EEPROM opened READ ONLY on fd %d", fd);
+   Log(LOG_DEBUG, "eeprom", "EEPROM opened READ ONLY on fd %d", fd);
 #else
    uint32_t fd = open(HOST_EEPROM_FILE, O_RDWR);
-   Log(LOG_DEBUG, "EEPROM opened read-write on fd %d", fd);
+   Log(LOG_DEBUG, "eeprom", "EEPROM opened read-write on fd %d", fd);
 #endif
 
    if (fd == -1) {
-      Log(LOG_CRIT, "EEPROM Initialization failed: %s: %d: %s", HOST_EEPROM_FILE, errno, strerror(errno));
+      Log(LOG_CRIT, "eeprom", "EEPROM Initialization failed: %s: %d: %s", HOST_EEPROM_FILE, errno, strerror(errno));
       return -1;
    }
 
 // we do not have fstat (or a file system at all) on the radio...   
 #if	defined(HOST_POSIX)
    if (fstat(fd, &sb) == -1) {
-      Log(LOG_CRIT, "EEPROM image %s does not exist, run 'make eeprom' and try again", HOST_EEPROM_FILE);
+      Log(LOG_CRIT, "eeprom", "EEPROM image %s does not exist, run 'make eeprom' and try again", HOST_EEPROM_FILE);
       return -1;
    }
 #endif
@@ -119,14 +119,14 @@ uint32_t eeprom_init(void) {
 
    if (rig.eeprom_mmap == MAP_FAILED) {
       // Deal with failed mmap here
-      Log(LOG_CRIT, "EEPROM mount failed: %d:%s!", errno, strerror(errno));
+      Log(LOG_CRIT, "eeprom", "EEPROM mount failed: %d:%s!", errno, strerror(errno));
 #if	defined(HOST_POSIX)
       exit(1);
 #endif
    }
 
    rig.eeprom_ready = 1;
-   Log(LOG_INFO, "EEPROM Initialized (%s%s)", (rig.eeprom_fd > 0 ? "mmap:" : "phys"),
+   Log(LOG_INFO, "eeprom", "EEPROM Initialized (%s%s)", (rig.eeprom_fd > 0 ? "mmap:" : "phys"),
                                            (rig.eeprom_fd > 0 ? HOST_EEPROM_FILE : ""));
 #endif	// defined(HOST_POSIX)
 
@@ -229,7 +229,7 @@ bool eeprom_validate_checksum(void) {
 
    // return -1 if the checksums do not match
    if (calc_sum != curr_sum) {
-      Log(LOG_WARN, "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
+      Log(LOG_WARN, "eeprom", "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
 
       // if the eeprom is mmapped, free it
       if (rig.eeprom_mmap != NULL) {
@@ -251,7 +251,7 @@ bool eeprom_validate_checksum(void) {
 
       return true;
    } else {
-      Log(LOG_INFO, "EEPROM checkum <%x> is correct, loading settings...", calc_sum);
+      Log(LOG_INFO, "eeprom", "EEPROM checkum <%x> is correct, loading settings...", calc_sum);
    }
 
    return false;
@@ -261,7 +261,7 @@ bool eeprom_validate_checksum(void) {
 uint32_t eeprom_load_config(void) {
    // Validate EEPROM checksum before applying configuration...
    if (eeprom_validate_checksum() != 0) {
-      Log(LOG_WARN, "Ignoring saved configuration due to EEPROM checksum mismatch");
+      Log(LOG_WARN, "eeprom", "Ignoring saved configuration due to EEPROM checksum mismatch");
 
       // Set EEPROM corrupt flag
       rig.eeprom_corrupted = 1;
@@ -290,15 +290,15 @@ uint32_t eeprom_load_config(void) {
                 snprintf(mbuf, mb_sz, "%s", eeprom_get_str_i(i));
                 break;
            case EE_CHAN_HEADER:
-                Log(LOG_DEBUG, "! Found Chan Mem Header");
+                Log(LOG_DEBUG, "eeprom", "! Found Chan Mem Header");
                 break;
            case EE_CHAN_GROUPS:
-                Log(LOG_DEBUG, "! Found Chan Grp Table");
+                Log(LOG_DEBUG, "eeprom", "! Found Chan Grp Table");
                 break;
            case EE_CHAN_SLOT:
                 // XXX: we need to parse channel data - needs buildconf to add structs to eeprom_types.h
                 chan_slots_loaded++;
-                Log(LOG_DEBUG, "! Channel Slot: %d\n", chan_slots_loaded);
+                Log(LOG_DEBUG, "eeprom", "! Channel Slot: %d\n", chan_slots_loaded);
                 break;
            case EE_CLASS:
                 // XXX: we need to implement license classes
@@ -327,8 +327,8 @@ uint32_t eeprom_load_config(void) {
            }
 //   EE_MODE,                     /* Operating mode (modulation) */
            default:
-                Log(LOG_CRIT, "unhandled type %d while parsing eeprom layout", eeprom_layout[i].type);
-                Log(LOG_CRIT, "Please ensure eeprom is built for current fw ver!");
+                Log(LOG_CRIT, "eeprom", "unhandled type %d while parsing eeprom layout", eeprom_layout[i].type);
+                Log(LOG_CRIT, "eeprom", "Please ensure eeprom is built for current fw ver!");
 #if	defined(HOST_POSIX)
                 exit(1);
 #else
@@ -337,11 +337,11 @@ uint32_t eeprom_load_config(void) {
                 break;
        }
 #if	defined(NOISY_EEPROM)
-       Log(LOG_DEBUG, "$eeprom enumerate: %s <%d> type %d is %d bytes @ %d |%s|", eeprom_layout[i].key, i,
+       Log(LOG_DEBUG, "eeprom", "enumerate: %s <%d> type %d is %d bytes @ %d |%s|", eeprom_layout[i].key, i,
            eeprom_layout[i].type, eeprom_layout[i].size, eeprom_layout[i].offset, mbuf);
 #endif	// defined(NOISY_EEPROM)
    }
-   Log(LOG_INFO, "Configuration successfully loaded from EEPROM");
+   Log(LOG_INFO, "eeprom", "Configuration successfully loaded from EEPROM");
    return 0;
 }
 
@@ -356,13 +356,13 @@ uint32_t eeprom_write_config(uint32_t force) {
 
    // We are running defaults if we got here, so prompt the user first
    if (rig.eeprom_corrupted && !force) {
-      Log(LOG_WARN, "Not saving EEPROM since corrupt flag set");
+      Log(LOG_WARN, "eeprom", "Not saving EEPROM since corrupt flag set");
       return -1;
    }
 
    sum = eeprom_checksum_generate();
 
-   Log(LOG_INFO, "Saving to EEPROM not yet supported");
+   Log(LOG_INFO, "eeprom", "Saving to EEPROM not yet supported");
    return 0;
 }
 
@@ -417,7 +417,7 @@ uint32_t eeprom_get_int_i(uint32_t idx) {
    memcpy(&value, myaddr, sizeof(uint32_t));
 
 #if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "$eeprom get_int: <%i> has offset %d @ %x |%d|", idx, eeprom_layout[idx].offset, myaddr, value);
+   Log(LOG_DEBUG, "eeprom", "get_int: <%i> has offset %d @ %x |%d|", idx, eeprom_layout[idx].offset, myaddr, value);
 #endif
 
    return value;
@@ -445,7 +445,7 @@ float eeprom_get_float_i(uint32_t idx) {
    memcpy(&value, myaddr, sizeof(uint32_t));
 
 #if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "$eeprom get_float: <%i> has offset %d @ %x |%f|", idx, eeprom_layout[idx].offset, myaddr, value);
+   Log(LOG_DEBUG, "eeprom", "get_float: <%i> has offset %d @ %x |%f|", idx, eeprom_layout[idx].offset, myaddr, value);
 #endif
    return value;
 }
@@ -476,7 +476,7 @@ const char *eeprom_get_str_i(uint32_t idx) {
    buf[len] = '\0';
 
 #if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "$eeprom get_str: <%i> has offset %d @ %x |%s|", idx, eeprom_layout[idx].offset, myaddr, buf);
+   Log(LOG_DEBUG, "eeprom", "get_str: <%i> has offset %d @ %x |%s|", idx, eeprom_layout[idx].offset, myaddr, buf);
 #endif
    return buf;
 }
@@ -498,7 +498,7 @@ struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin) {
    int idx = eeprom_offset_index(key);
 
    if (idx == -1) {
-      Log(LOG_WARN, "error in eeprom_get_ipv4: invalid key %s", key);
+      Log(LOG_WARN, "eeprom", "error in eeprom_get_ipv4: invalid key %s", key);
       return NULL;
    }
 
@@ -506,7 +506,7 @@ struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin) {
    memcpy(packed_ip, myaddr, 4);
    sin->s_addr = *(uint32_t *)packed_ip;
 #if	defined(NOISY_NETWORK)
-   Log(LOG_DEBUG, "netcfg: %s => %s", key, inet_ntoa(*sin));
+   Log(LOG_DEBUG, "eeprom", "netcfg: %s => %s", key, inet_ntoa(*sin));
 #endif
    return sin;
 }
@@ -525,7 +525,7 @@ bool eeprom_get_bool_i(uint32_t idx) {
 
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
 #if	defined(NOISY_EEPROM)
-   Log(LOG_DEBUG, "$eeprom get_bool: <%i> has offset %d @ %x |%d=%s|", idx, eeprom_layout[idx].offset, myaddr, *myaddr, (*myaddr ? "true" : "false"));
+   Log(LOG_DEBUG, "eeprom", "get_bool: <%i> has offset %d @ %x |%d=%s|", idx, eeprom_layout[idx].offset, myaddr, *myaddr, (*myaddr ? "true" : "false"));
 
 #endif
    if (*myaddr >= 1) {
@@ -558,6 +558,6 @@ void show_pin_info(void) {
       memset(reset_pin, 0, PIN_LEN + 1);
       snprintf(master_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/master"));
       snprintf(reset_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/reset"));
-      Log(LOG_INFO, "*** Master PIN: %s, Factory Reset PIN: %s (set pin/show to 0 to hide!) ***", master_pin, reset_pin);
+      Log(LOG_INFO, "eeprom", "*** Master PIN: %s, Factory Reset PIN: %s (set pin/show to 0 to hide!) ***", master_pin, reset_pin);
    }
 }

@@ -12,6 +12,15 @@
 #include "logger.h"
 #include "cat.h"
 #include "posix.h"
+#include "websocket.h"
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
+
+bool ws_init(struct mg_mgr *mgr) {
+   if (mgr == NULL) {
+      Log(LOG_CRIT, "ws", "ws_init called with NULL mgr");
+      return true;
+   }
+   return false;
+}

@@ -73,17 +73,17 @@ uint32_t get_thermal(uint32_t sensor) {
 bool are_we_on_fire(void) {
     // Send an alarm to log, but return TRUE for warnings
     if (rig.therm_enclosure >= thermal_limits.encl_warn)
-       Log(LOG_CRIT, "THERMAL WARNING: Enclosure %d > %d degF!", rig.therm_enclosure, thermal_limits.encl_warn);
+       Log(LOG_CRIT, "therm", "THERMAL WARNING: Enclosure %d > %d degF!", rig.therm_enclosure, thermal_limits.encl_warn);
     if (rig.therm_inlet >= thermal_limits.inlet_warn)
-       Log(LOG_CRIT, "THERMAL WARNING: Inlet %d > %d degF!", rig.therm_enclosure, thermal_limits.encl_warn);
+       Log(LOG_CRIT, "therm", "THERMAL WARNING: Inlet %d > %d degF!", rig.therm_enclosure, thermal_limits.encl_warn);
     if (rig.low_amp.therm_lpf >= thermal_limits.lpf_warn)
-       Log(LOG_CRIT, "THERMAL WARNING: LPF (Low) %d > %d degF!", rig.low_amp.therm_lpf, thermal_limits.lpf_warn);
+       Log(LOG_CRIT, "therm", "THERMAL WARNING: LPF (Low) %d > %d degF!", rig.low_amp.therm_lpf, thermal_limits.lpf_warn);
     if (rig.high_amp.therm_lpf >= thermal_limits.lpf_warn)
-       Log(LOG_CRIT, "THERMAL WARNING: LPF (High) %d > %d degF!", rig.high_amp.therm_lpf, thermal_limits.lpf_warn);
+       Log(LOG_CRIT, "therm", "THERMAL WARNING: LPF (High) %d > %d degF!", rig.high_amp.therm_lpf, thermal_limits.lpf_warn);
     if (rig.low_amp.therm_final >= thermal_limits.lpf_warn)
-       Log(LOG_CRIT, "THERMAL WARNING: FINALS (Low) %d > %d degF!", rig.low_amp.therm_final, thermal_limits.final_warn);
+       Log(LOG_CRIT, "therm", "THERMAL WARNING: FINALS (Low) %d > %d degF!", rig.low_amp.therm_final, thermal_limits.final_warn);
     if (rig.high_amp.therm_final >= thermal_limits.lpf_warn)
-       Log(LOG_CRIT, "THERMAL WARNING: FINALS (High) %d > %d degF!", rig.high_amp.therm_final, thermal_limits.final_warn);
+       Log(LOG_CRIT, "therm", "THERMAL WARNING: FINALS (High) %d > %d degF!", rig.high_amp.therm_final, thermal_limits.final_warn);
 
     // Return TRUE on any max at or exceeded
     if (rig.therm_enclosure >= thermal_limits.encl_max) return true;

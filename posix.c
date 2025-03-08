@@ -41,7 +41,7 @@ static void sighandler(int32_t signum) {
    switch(signum) {
       // Convenience signals
       case SIGHUP:
-         Log(LOG_INFO, "Caught SIGHUP");
+         Log(LOG_INFO, "core", "Caught SIGHUP");
          // XXX: Reload from eeprom
          break;
       case SIGUSR1:
@@ -54,7 +54,7 @@ static void sighandler(int32_t signum) {
       case SIGKILL:
          shutdown_rig(0);
       default:
-         Log(LOG_CRIT, "Caught unknown signal %d", signum);
+         Log(LOG_CRIT, "core", "Caught unknown signal %d", signum);
          break;
    }
 }

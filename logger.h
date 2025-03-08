@@ -20,9 +20,8 @@ struct log_priority {
 
 extern FILE *logfp;
 typedef enum LogPriority logpriority_t;
-extern void Log(logpriority_t priority, const char *fmt, ...);
+extern void Log(logpriority_t priority, const char *subsys, const char *fmt, ...);
 extern void logger_setup(void);
 extern void logger_init(void);
-extern int update_timestamp(void);
 
 #endif

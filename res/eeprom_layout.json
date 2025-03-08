@@ -218,6 +218,42 @@
        "type": "int",
        "key": "therm/lpf_target"
    },
+   "net/http/bind": {
+       "offset": 218,
+       "type": "ip4",
+       "key": "net/http/bind"
+   },
+   "net/http/port": {
+       "offset": 222,
+       "type": "int",
+       "key": "net/http/port"
+   },
+   "net/http/enabled": {
+       "offset": 230,
+       "type": "bool",
+       "key": "net/http/enabled"
+   },
+   "net/mqtt/bind": {
+       "offset": 231,
+       "type": "ip4",
+       "key": "net/mqtt/bind"
+   },
+   "net/mqtt/port": {
+       "offset": 239,
+       "type": "int",
+       "key": "net/mqtt/port"
+   },
+   "net/mqtt/enabled": {
+       "offset": 247,
+       "type": "bool",
+       "key": "net/mqtt/enabled"
+   },
+   "debug/show_ts": {
+       "offset": 248,
+       "type": "bool",
+       "key": "debug/show_ts",
+       "default": "true"
+   },
    "chan_header": {
        "offset": 100000,
        "type": "packed:chan_header",

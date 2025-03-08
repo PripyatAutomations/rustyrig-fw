@@ -12,11 +12,12 @@
       }
    },
    "debug": {
-      "noisy-eeprom": "true",
+      "noisy-eeprom": "false",
       "logfile": "/tmp/radio-debug.log",
       "logtype": "file",
       "logmode": "0660",
       "loglevel": "debug",
+      "show_ts": "false",
       "targets": "*"
    },
    "eeprom": {
@@ -88,7 +89,17 @@
       "dns1": "10.201.1.1",
       "dns2": "1.1.1.1",
       "mtu": 1500,
-      "vlan": 1583
+      "vlan": 1583,
+      "http": {
+         "enabled": "true",
+         "bind": "0.0.0.0",
+         "port": 8420
+      },
+      "mqtt": {
+         "enabled": "true",
+         "bind": "0.0.0.0",
+         "port": 8833
+      }
    },
    "therm": {
       "encl_alarm": 120.0,

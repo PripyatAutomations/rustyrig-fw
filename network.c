@@ -44,21 +44,21 @@ void show_network_info(void) {
    eeprom_get_ip4("net/dns1", &sa_dns1);
    eeprom_get_ip4("net/dns2", &sa_dns2);
    const char *iface = eeprom_get_str("net/interface");
-   Log(LOG_INFO, "*** Network Configuration ***");
-   Log(LOG_INFO, "  Interface: %s\tCurrent VLAN: %d\tMTU: %d\tMode: Static", iface, vlan, mtu);
+   Log(LOG_INFO, "net", "*** Network Configuration ***");
+   Log(LOG_INFO, "net", "  Interface: %s\tCurrent VLAN: %d\tMTU: %d\tMode: Static", iface, vlan, mtu);
    char s_ip[16], s_mask[16], s_gw[16], s_dns1[16], s_dns2[16];
    snprintf(s_ip, 16, "%s", inet_ntoa(sa_ip));
    snprintf(s_gw, 16, "%s", inet_ntoa(sa_gw));
    snprintf(s_mask, 16, "%s", inet_ntoa(sa_mask));
    snprintf(s_dns1, 16, "%s", inet_ntoa(sa_dns1));
    snprintf(s_dns2, 16, "%s", inet_ntoa(sa_dns2));
-   Log(LOG_INFO, "Static IP: %s (%s) GW: %s", s_ip, s_mask, s_gw);
-   Log(LOG_INFO, "Name Servers: %s, %s", s_dns1, s_dns2);
+   Log(LOG_INFO, "net", "Static IP: %s (%s) GW: %s", s_ip, s_mask, s_gw);
+   Log(LOG_INFO, "net", "Name Servers: %s, %s", s_dns1, s_dns2);
 #else
    // print what addresses our bind will apply to
    const char *listenaddr = eeprom_get_str("net/bind");
    if (listenaddr != NULL) {
-      Log(LOG_INFO, "I am listening on %s", listenaddr);
+      Log(LOG_INFO, "net", "I am listening on %s", listenaddr);
       net_print_listeners(listenaddr);
    }
 #endif
@@ -70,7 +70,7 @@ void net_print_listeners(const char *listenaddr) {
     char addr[INET6_ADDRSTRLEN];
 
     if (getifaddrs(&ifaddr) == -1) {
-        Log(LOG_CRIT, "getifaddrs: %s", strerror(errno));
+        Log(LOG_CRIT, "net", "getifaddrs: %s", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
@@ -79,7 +79,7 @@ void net_print_listeners(const char *listenaddr) {
             continue;
 
         int family = ifa->ifa_addr->sa_family;
-//        Log(LOG_INFO, "iteration, Interface: %s, Family: %d", ifa->ifa_name, family);
+//        Log(LOG_INFO, "net", "iteration, Interface: %s, Family: %d", ifa->ifa_name, family);
 
         if (family == AF_INET || family == AF_INET6) {
             void *addr_ptr = (family == AF_INET) 
@@ -87,7 +87,7 @@ void net_print_listeners(const char *listenaddr) {
                 : (void *)&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
 
             if (inet_ntop(family, addr_ptr, addr, sizeof(addr)) == NULL) {
-                Log(LOG_CRIT, "inet_ntop failed: %s", strerror(errno));
+                Log(LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno));
                 continue;
             }
 
@@ -95,7 +95,7 @@ void net_print_listeners(const char *listenaddr) {
                 strcmp(addr, listenaddr) == 0 ||
                 (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
                 (strcmp(listenaddr, "::") == 0 && family == AF_INET6)) {
-                Log(LOG_INFO, " => %s: %s", ifa->ifa_name, addr);
+                Log(LOG_INFO, "net", " => %s: %s", ifa->ifa_name, addr);
             }
         }
     }

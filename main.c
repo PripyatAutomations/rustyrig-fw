@@ -25,9 +25,13 @@
 #include "io.h"
 #include "audio.h"
 #include "usb.h"
+#include "http.h"
+#include "websocket.h"
+#include "mqtt.h"
 
 bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
+struct mg_mgr mg_mgr;
 
 // Current time, must be updated ONCE per second, used to save calls to gettimeofday()
 time_t now = -1;
@@ -36,6 +40,7 @@ char latest_timestamp[64];
 
 // should we automatically block PTT at startup?
 int auto_block_ptt = 0;
+
 
 static uint32_t load_defaults(void) {
    // Set minimum defaults, til we have EEPROM available
@@ -61,18 +66,18 @@ static uint32_t initialize_state(void) {
 
 void shutdown_rig(uint32_t signum) {
     if (signum >= 0) {
-       Log(LOG_CRIT, "Shutting down by signal %d", signum);
+       Log(LOG_CRIT, "core", "Shutting down by signal %d", signum);
     } else {
-       Log(LOG_CRIT, "Shutting down due to internal error: %d", -signum);
+       Log(LOG_CRIT, "core", "Shutting down due to internal error: %d", -signum);
     }
 
     host_cleanup();
     exit(signum);
 }
 
+
 int main(int argc, char **argv) {
    now = time(NULL);
-   update_timestamp();
    logfp = stdout;
    rig.log_level = LOG_DEBUG;	// startup in debug mode
 
@@ -85,9 +90,10 @@ int main(int argc, char **argv) {
 #endif
 
    // Initialize subsystems
-   Log(LOG_INFO, "rustyrig radio firmware v%s starting...", VERSION);
+   Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);
    initialize_state();			// Load default values
 
+   mg_mgr_init(&mg_mgr);
    gpio_init();
 
    // if able to connect to EEPROM, load and apply settings
@@ -105,7 +111,7 @@ int main(int argc, char **argv) {
 
    // Print the serial #
    rig.serial = get_serial_number();
-   Log(LOG_INFO, "Device serial number: %lu", rig.serial);
+   Log(LOG_INFO, "core", "Device serial number: %lu", rig.serial);
 
    atu_init_all();
    filter_init_all();
@@ -115,45 +121,47 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
+   http_init(&mg_mgr);
+   ws_init(&mg_mgr);
+   mqtt_init(&mg_mgr);
+
    // apply some configuration from the eeprom
    auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
 
    if (auto_block_ptt) {
-      Log(LOG_INFO, "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
+      Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
       ptt_set_blocked(true);
    }
 
    if (io_init()) {
-      Log(LOG_CRIT, "*** Fatal error init i/o subsys ***");
+      Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
 //      fatal_error();
    }
 
    if (cat_init()) {
-      Log(LOG_CRIT, "*** Fatal error CAT ***");
+      Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
 //      fatal_error();
    }
 
    audio_init();
 
-   Log(LOG_INFO, "Radio initialization completed. Enjoy!");
+   Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
    // Main loop
    while(!dying) {
       now = time(NULL);
-      update_timestamp();
-
       char buf[512];
 
       // Check faults
       if (check_faults()) {
-         Log(LOG_CRIT, "Fault detected, see crash dump above");
+         Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
       }
 
       // Check thermals
       if (are_we_on_fire()) {
          ptt_set(false);
          ptt_set_blocked(true);
-         Log(LOG_CRIT, "Radio is on fire?! Halted TX!\n");
+         Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!\n");
       }
 
       // XXX: we need to pass io structs
@@ -171,11 +179,11 @@ int main(int argc, char **argv) {
         cat_parse_amp_line(buf);
 #endif
 
+      mg_mgr_poll(&mg_mgr, 1000);  // Process all connections
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
 //      console_parse_line(buf);
       gui_update();
-      sleep(1);
    }
 
    return 0;

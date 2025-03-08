@@ -34,7 +34,7 @@ atu_tv *atu_find_saved_state(int uid) {
 int atu_init(int uid) {
    int rv = 0;
    atu_tv *tv = NULL;
-   Log(LOG_INFO, " => ATU #%d initialized", uid);
+   Log(LOG_INFO, "atu", " => ATU #%d initialized", uid);
    // do we have saved tuning parameters for this unit?
    if ((tv = atu_find_saved_state(uid)) != NULL) {
       // Apply them
@@ -50,7 +50,7 @@ int atu_init_all(void) {
    int tuners = 1;
 //   tuners = eeprom_get_int("hw/atus");
 
-   Log(LOG_INFO, "Initializing all ATUs (%d total)", tuners);
+   Log(LOG_INFO, "atu", "Initializing all ATUs (%d total)", tuners);
 
    // XXX: Iterate over the available ATUs and collect the return values
    for (int i = 0; i < tuners; i++) {
@@ -59,6 +59,6 @@ int atu_init_all(void) {
        }
    }
 
-   Log(LOG_INFO, "ATU setup complete");
+   Log(LOG_INFO, "atu", "ATU setup complete");
    return -rv;
 }

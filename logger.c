@@ -15,6 +15,7 @@
 #include "logger.h"
 #include "state.h"
 #include "eeprom.h"
+#include "debug.h"		// Debug message filtering
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
@@ -25,15 +26,18 @@ extern char latest_timestamp[64];
 extern time_t now;
 static time_t last_ts_update;
 
+// Do we need to show a timestamp in log messages?
+static bool log_show_ts = false;
+
 /* String constants we use more than a few times */
 const char s_prio_none[] = " NONE";
 
 static struct log_priority log_priorities[] = {
-   { .prio = LOG_CRIT,	.msg = " CRIT" },
-   { .prio = LOG_WARN,	.msg = " WARN" },
-   { .prio = LOG_INFO,	.msg = " INFO" },
-   { .prio = LOG_AUDIT,	.msg = "AUDIT" },
-   { .prio = LOG_DEBUG,	.msg = "DEBUG" },
+   { .prio = LOG_CRIT,	.msg = "crit" },
+   { .prio = LOG_WARN,	.msg = "warn" },
+   { .prio = LOG_INFO,	.msg = "info" },
+   { .prio = LOG_AUDIT,	.msg = "audit" },
+   { .prio = LOG_DEBUG,	.msg = "debug" },
    { .prio = LOG_NONE,	.msg = s_prio_none }		// invalid entry
 };
 
@@ -51,8 +55,6 @@ const char *log_priority_to_str(logpriority_t priority) {
 }
 
 void logger_init(void) {
-
-   // Try to set default log level
    const char *ll = eeprom_get_str("debug/loglevel");
 
    if (ll == NULL) {
@@ -60,11 +62,13 @@ void logger_init(void) {
       return;
    }
 
+   log_show_ts = eeprom_get_bool("debug/show_ts");
+
    int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
    for (int i = 0; i < log_levels; i++) {
       if (strcasecmp(log_priorities[i].msg, ll) == 0) {
          rig.log_level = log_priorities[i].prio;
-         Log(LOG_INFO, "Setting log_level to %d (%s) = %s", log_priorities[i].prio, log_priorities[i].msg, log_priority_to_str(log_priorities[i].prio));
+         Log(LOG_INFO, "core", "Setting log_level to %d (%s) = %s", log_priorities[i].prio, log_priorities[i].msg, log_priority_to_str(log_priorities[i].prio));
          break;
       }
    }
@@ -94,7 +98,7 @@ void logger_end(void) {
 #endif
 }
 
-int update_timestamp(void) {
+static inline int update_timestamp(void) {
    time_t t;
    struct tm *tmp;
 
@@ -120,9 +124,22 @@ int update_timestamp(void) {
    return 0;
 }
 
-void Log(logpriority_t priority, const char *fmt, ...) {
+void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    char msgbuf[512];
    va_list ap;
+
+   // If this is a debug message, apply debug filtering
+   if (priority == LOG_DEBUG) {
+      if (debug_filter(subsys, fmt) == false) {
+         // if we get false back, drop the message
+         return;
+      }
+   }
+
+   // update the timestamp string
+   if (log_show_ts) {
+      update_timestamp();
+   }
 
    /* clear the message buffer */
    memset(msgbuf, 0, sizeof(msgbuf));
@@ -136,11 +153,15 @@ void Log(logpriority_t priority, const char *fmt, ...) {
    /* Only spew to the serial port if logfile is closed */
    if (logfp == NULL && logfp != stdout) {
       // XXX: this should support network targets too!!
-//      sio_printf("%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
+//      cons_printf("%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
       va_end(ap);
       return;
    } else {
-      fprintf(logfp, "[%s] %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
+      if (log_show_ts) {
+         fprintf(logfp, "[%s] <%s.%s>: %s\n", latest_timestamp, subsys, log_priority_to_str(priority), msgbuf);
+      } else {
+         fprintf(logfp, "<%s.%s>: %s\n", subsys, log_priority_to_str(priority), msgbuf);
+      }
       fflush(logfp);
    }
 #endif
@@ -148,7 +169,11 @@ void Log(logpriority_t priority, const char *fmt, ...) {
 #if	defined(HOST_POSIX)
    if (logfp != stdout) {
       // Send it to the stdout too on host builds
-      fprintf(stdout, "[%s] %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
+      if (log_show_ts) {
+         fprintf(stdout, "[%s] <%s.%s> %s\n", latest_timestamp, subsys, log_priority_to_str(priority), msgbuf);
+      } else {
+         fprintf(stdout, "<%s.%s> %s\n", subsys, log_priority_to_str(priority), msgbuf);
+      }
    }
 #endif
 

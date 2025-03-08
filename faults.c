@@ -79,7 +79,7 @@ uint32_t set_fault(uint32_t fault) {
    const char *fault_type = fault_get_type_str(fault);
 
    if (fault_priority(fault) > fault_priority(rig.fault_code)) {
-      Log(LOG_CRIT, "FAULT: New fault %s is higher priority than last (%d > %d), raised fault level!", fault_type, fault, rig.fault_code);
+      Log(LOG_CRIT, "faults", "FAULT: New fault %s is higher priority than last (%d > %d), raised fault level!", fault_type, fault, rig.fault_code);
       rig.fault_code = fault;
    }
 
@@ -94,7 +94,7 @@ bool check_faults(void) {
    if (rig.fault_code != 0) {
       // XXX: We should check if fatal or alarm
       if (fault_is_fatal(rig.fault_code)) {
-         Log(LOG_CRIT, "Fault [%d] has occurred and we cannot continue! Halting to prevent damage! Total faults: %d", rig.fault_code, rig.faults);
+         Log(LOG_CRIT, "faults", "Fault [%d] has occurred and we cannot continue! Halting to prevent damage! Total faults: %d", rig.fault_code, rig.faults);
 //         protection_lockout("FAULT");
          return true;
       }

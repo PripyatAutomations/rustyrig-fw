@@ -25,3 +25,11 @@ bool debug_init(void) {
    // Nothing to do yet
    return false;
 }
+
+bool debug_filter(const char *subsys, const char *fmt) {
+   // XXX: Figure out if the debug level is desired by the user and if so return true
+   return true;
+
+   // Nope, discard the message
+//   return false;
+}

@@ -97,7 +97,7 @@ int32_t cat_parse_line(char *line) {
 
 // Initialize CAT control
 int32_t cat_init(void) {
-   Log(LOG_INFO, "Initializing CAT interfaces");
+   Log(LOG_INFO, "cat", "Initializing CAT interfaces");
 #if	defined(HOST_POSIX)
 // XXX: Open the pipe(s)
 // KPA500 amplifier control
@@ -109,6 +109,6 @@ int32_t cat_init(void) {
    cat_kpa500_init();
 #endif
 #endif
-   Log(LOG_INFO, "CAT Initialization succesful");
+   Log(LOG_INFO, "cat", "CAT Initialization succesful");
    return 0;
 }
