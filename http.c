@@ -1,5 +1,6 @@
 //
-// Here we deal with http in mongoose
+// Here we deal with http requests using mongoose
+//
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -16,10 +17,15 @@
 #include "cat.h"
 #include "posix.h"
 #include "http.h"
+#if	defined(HOST_POSIX)
+#define	HTTP_MAX_ROUTES	64
+#else
+#define	HTTP_MAX_ROUTES	20
+#endif
 
 // This defines a hard-coded fallback path for httpd root, if not set in config
 #define	WWW_ROOT_FALLBACK	"./www"
-#define	WWW_404_FALLBACK	"./www/404.shtml"
+#define	WWW_404_FALLBACK	"./www/404.html"
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
@@ -34,21 +40,72 @@ struct http_route {
 };
 typedef struct http_route http_route_t;
 
+//////////////////////////////////////
+// Deal with HTTP API requests here //
+//////////////////////////////////////
+static bool http_api_ping(struct mg_http_message *msg, struct mg_connection *c) {
+   mg_http_reply(c, 200, "", "{%m:%d}\n", MG_ESC("status"), 1);
+   return false;
+}
+
+static bool http_api_time(struct mg_http_message *msg, struct mg_connection *c) {
+   mg_http_reply(c, 200, "", "{%m:%lu}\n", MG_ESC("time"), time(NULL));
+   return false;
+}
+
+static http_route_t http_routes[HTTP_MAX_ROUTES] = {
+    { "/api/ping",	http_api_ping },
+    { "/api/time",	http_api_time },
+    { NULL,		NULL }
+};
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+// Ugly things lie below. I am not responsible for vomit on keyboards //
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connection *c) {
+   int items = (sizeof(http_routes) / sizeof(http_route_t));
+   for (int i = 0; i <= items; i++) {
+//      Log(LOG_DEBUG, "http.req.crazy", "hdr: testing index %d: %s", i, http_routes[i].match);
+
+      if ((http_routes[i].match != NULL) && mg_match(msg->uri, mg_str(http_routes[i].match), NULL)) {
+         Log(LOG_DEBUG, "http.req", "hdr: index %d (%s) matched", i, http_routes[i].match);
+
+         if (http_routes[i].cb != NULL) {
+            bool rv = http_routes[i].cb(msg, c);
+            // if no error, get out of here
+            if (rv == false) {
+               return false;
+            } else {
+               // let the user know 
+               Log(LOG_WARN, "http.err", "hdr: route for %s returned failure", msg->uri);
+               break;
+            }
+         } else {
+           Log(LOG_WARN, "http.err", "Route for %s not found", msg->uri);
+           break;
+         }
+      }
+   }
+   return true;
+}
+
 // Connection event handler function
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_HTTP_MSG) {
       struct mg_http_message *hm = (struct mg_http_message *) ev_data;
-      if (mg_match(hm->uri, mg_str("/api/ping"), NULL)) {
-         mg_http_reply(c, 200, "", "{%m:%d}\n", MG_ESC("status"), 1);
-      } else if (mg_match(hm->uri, mg_str("/api/time"), NULL)) {
-         mg_http_reply(c, 200, "", "{%m:%lu}\n", MG_ESC("time"), time(NULL));
-      } else {
-        struct mg_http_serve_opts opts = {
-           .extra_headers = www_headers,
-           .page404 = www_404_path,
-           .root_dir = www_root
-        };
-        mg_http_serve_dir(c, hm, &opts);
+
+      // If API requests fail, try passing it to static
+      if (http_dispatch_route(hm, c)) {
+         struct mg_http_serve_opts opts = {
+            .extra_headers = www_headers,
+            .page404 = www_404_path,
+            .root_dir = www_root
+         };
+
+         // XXX: this does show ANY files in www/ so dont store credentials there!
+         mg_http_serve_dir(c, hm, &opts);
       }
    }
 }

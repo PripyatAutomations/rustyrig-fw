@@ -1,5 +1,9 @@
 //
 // Here we deal with mqtt in mongoose
+//
+// We eventually will support both client and server roles
+// but for now focus will be on server
+//
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
