@@ -124,7 +124,7 @@ ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 	@echo "[compile] $@ from $<"
 
 # Binary also depends on the .stamp file
-${bin}: ${real_objs}
+${bin}: ${real_objs} ext/libmongoose/mongoose.c 
 	@${CC} -o $@ ${real_objs} ${LDFLAGS}
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 	@ls -a1ls $@
@@ -194,5 +194,10 @@ ${CF}:
 	exit 1
 
 installdep:
-	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl libgpiod-dev libjpeg-dev
+	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl libgpiod-dev libjpeg-dev libpipewire-0.3-dev libjpeg-dev
 	cpan install Mojo::JSON::Pointer
+
+ext/libmongoose/mongoose.c:
+	@echo "You forgot to git submodule init; git submodule update. Doing it for you!"
+	git submodule init
+	git submodule update
