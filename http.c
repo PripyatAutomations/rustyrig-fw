@@ -164,7 +164,7 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
 
       size_t match_len = strlen(http_routes[i].match);
       if (strncmp(msg->uri.buf, http_routes[i].match, match_len) == 0) {
-         Log(LOG_DEBUG, "http.req", "Matched %s with request URI %.*s", http_routes[i].match, (int)msg->uri.len, msg->uri.buf);
+//         Log(LOG_DEBUG, "http.req", "Matched %s with request URI %.*s", http_routes[i].match, (int)msg->uri.len, msg->uri.buf);
 
          // Strip trailing slash if it's there
          if (msg->uri.len > 0 && msg->uri.buf[msg->uri.len - 1] == '/') {
@@ -172,8 +172,8 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
          }
 
          return http_routes[i].cb(msg, c);
-      } else {
-         Log(LOG_DEBUG, "http.req", "Failed to match %.*s: %d: %s", (int)msg->uri.len, msg->uri.buf, i, http_routes[i].match);
+//      } else {
+//         Log(LOG_DEBUG, "http.req", "Failed to match %.*s: %d: %s", (int)msg->uri.len, msg->uri.buf, i, http_routes[i].match);
       }
    }
 
