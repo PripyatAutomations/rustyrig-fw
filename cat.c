@@ -11,6 +11,12 @@
  * Since the KPA500 commands have a prefix character, we can be flexible about
  * how it is connected. A single pipe/serial port/socket can be used, for CAT,
  * if desired.
+ *
+ * We have two entry points here
+ *	- cat_parse_line(): Parses a line from io (sock|net|pipe)
+ *	- cat_parse_ws(): Parses a websocket message containing a CAT command
+ *
+ * We respond via cat_reply() with enum cat_req_type as first arg
  */
 #include "config.h"
 #include <stddef.h>
@@ -27,10 +33,28 @@
 #include "eeprom.h"
 #include "vfo.h"
 #include "cat.h"
-#include "cat_kpa500.h"
-#include "cat_yaesu.h"
+#include "cat.kpa500.h"
+#include "cat.yaesu.h"
 extern struct GlobalState rig;  // Global state
 extern bool dying;		// in main.c
+
+// Initialize CAT control
+int32_t cat_init(void) {
+   Log(LOG_INFO, "cat", "Initializing CAT interfaces");
+#if	defined(HOST_POSIX)
+// XXX: Open the pipe(s)
+// KPA500 amplifier control
+// Yaesu-style rig control
+#if	defined(CAT_YAESU)
+   cat_yaesu_init();
+#endif
+#if	defined(CAT_KPA500)
+   cat_kpa500_init();
+#endif
+#endif
+   Log(LOG_INFO, "cat", "CAT Initialization succesful");
+   return 0;
+}
 
 int32_t cat_printf(char *str, ...) {
    va_list ap;
@@ -95,20 +119,16 @@ int32_t cat_parse_line(char *line) {
    return 0;
 }
 
-// Initialize CAT control
-int32_t cat_init(void) {
-   Log(LOG_INFO, "cat", "Initializing CAT interfaces");
-#if	defined(HOST_POSIX)
-// XXX: Open the pipe(s)
-// KPA500 amplifier control
-// Yaesu-style rig control
-#if	defined(CAT_YAESU)
-   cat_yaesu_init();
-#endif
-#if	defined(CAT_KPA500)
-   cat_kpa500_init();
-#endif
-#endif
-   Log(LOG_INFO, "cat", "CAT Initialization succesful");
-   return 0;
+
+typedef enum cat_req_type {
+   REQ_NONE = 0,		// Not set (invalid)
+   REQ_IO,			// Via io.c
+   REQ_WS			// Via mongoose websocket
+} cat_req_type;
+
+#if	defined(FEATURE_HTTP)
+#include "mongoose.h"
+bool cat_parse_ws(cat_req_type reqtype, struct mg_ws_message *msg) {
+   return false;
 }
+#endif

@@ -1,6 +1,12 @@
 /*
  * Here we implement the Yaesu 891/991a style CAT protocol for control of the rig
  * ft891 has complete CAT enough for all uses, so it's our milestone goal
+ *
+ * We have two entry points here
+ *	- cat_parse_line(): Parses a line from io (sock|net|pipe)
+ *	- cat_parse_ws(): Parses a websocket message containing a CAT command
+ *
+ * We respond via cat_reply() with enum cat_req_type as first arg
  */
 #include "config.h"
 #include <stdio.h>
@@ -13,7 +19,7 @@
 #include <string.h>
 #include "logger.h"
 #include "cat.h"
-#include "cat_yaesu.h"
+#include "ca.yaesu.h"
 #include "state.h"
 #include "ptt.h"
 extern bool dying;		// in main.c

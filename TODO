@@ -35,3 +35,13 @@ minimal inet_ntop() for non-posix
 * remove need for they key field (why not use the name of the entry itself?) in eeprom_layout
 * fix relative offsets in eeprom_layout
 * Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
+
+[misc]
+* Add emulation backend using flrig or hamlib
+  - Internally cache the radio state & poll it regularly
+  - Send push events of the diff to client w/ periodic full updates
+  - 'Translate' our yaesu/kpa500 CAT commands by calling backend
+
+[mqtt]
+* Finish mqtt server stuff (via mongoose)
+* Implement mqtt client mode, for sending to existing server

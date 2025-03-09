@@ -30,6 +30,7 @@
       "auto-block-ptt": "false",
       "cat-kpa500": "true",
       "cat-yaesu": "true",
+      "http": "true",
       "max-bands": 14
    },
    "i2c": {

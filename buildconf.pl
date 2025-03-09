@@ -819,6 +819,9 @@ sub generate_config_h {
       if (defined($config->{features}{'cat-yaesu'}) && match_boolean($config->{features}{'cat-yaesu'})) {
          printf $fh "#define CAT_YAESU true\n";
       }
+      if (defined($config->{features}{'http'}) && match_boolean($config->{features}{'http'})) {
+         printf $fh "#define FEATURE_HTTP\n";
+      }
    }
 
    if (defined($config->{'debug'})) {

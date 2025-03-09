@@ -41,7 +41,6 @@ char latest_timestamp[64];
 // should we automatically block PTT at startup?
 int auto_block_ptt = 0;
 
-
 static uint32_t load_defaults(void) {
    // Set minimum defaults, til we have EEPROM available
    rig.faultbeep = 1;
@@ -179,14 +178,20 @@ int main(int argc, char **argv) {
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
         cat_parse_amp_line(buf);
 #endif
-
-      // Process Mongoose HTTP and MQTT events
-      mg_mgr_poll(&mg_mgr, 1000);
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
 //      console_parse_line(buf);
+
+      // Redraw the GUI virtual framebuffer
       gui_update();
+
+      // XXX: Check if an LCD/OLED is configured and display it
+      // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
+
+      // Process Mongoose HTTP and MQTT events, this should be here because the mjpeg could be queried
+      mg_mgr_poll(&mg_mgr, 1000);
    }
 
+   mg_mgr_free(&mg_mgr);
    return 0;
 }
