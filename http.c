@@ -215,9 +215,7 @@ bool http_init(struct mg_mgr *mgr) {
 
    // store firmware version in www_fw_ver
    memset(www_fw_ver, 0, sizeof(www_fw_ver));
-//   sprintf(www_fw_ver, sizeof(www_fw_ver), "X-Radio-Firmware: rustyrig %s", "XXX");
-//   snprintf(www_fw_ver, 128, "X-Radio-Version: rustyrig 202503.01");
-   snprintf(www_fw_ver, 128, "X-Radio-Version: rustyrig %s", VERSION);
+   snprintf(www_fw_ver, 128, "X-Radio: rustyrig %s on %s", VERSION, HARDWARE);
 
    // and make our headers
    memset(www_headers, 0, sizeof(www_headers));
@@ -241,3 +239,46 @@ bool http_init(struct mg_mgr *mgr) {
    Log(LOG_INFO, "http", "HTTP listening at %s with www-root at %s", listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
    return false;
 }
+
+
+////////////////////////////
+#if	0
+static void ev_handler(struct mg_connection *nc, int ev, void *p) {
+    if (ev == MG_EV_HTTP_REQUEST) {
+        // Handle HTTP request
+        mg_send_head(nc, 200, 0, "Content-Type: text/html");
+        mg_printf(nc, "<html><body><h1>WebSocket Server</h1></body></html>");
+    } else if (ev == MG_EV_WS_OPEN) {
+        // WebSocket connection opened
+        printf("WebSocket connected\n");
+    } else if (ev == MG_EV_WS_MSG) {
+        // WebSocket message received
+        struct mg_ws_message *msg = (struct mg_ws_message *) p;
+        printf("Received message: %.*s\n", (int) msg->data.len, msg->data.p);
+        // Respond to the WebSocket client
+        mg_ws_send(nc, msg->data.p, msg->data.len, WEBSOCKET_OP_TEXT);
+    } else if (ev == MG_EV_WS_CLOSE) {
+        // WebSocket connection closed
+        printf("WebSocket disconnected\n");
+    }
+}
+
+int main() {
+    struct mg_mgr mgr;
+    struct mg_connection *nc;
+
+    mg_mgr_init(&mgr, NULL);
+    nc = mg_bind(&mgr, "8080", ev_handler);
+    
+    mg_set_protocol_http_websocket(nc);  // Enable WebSocket support
+    
+    printf("Starting WebSocket server on ws://localhost:8080\n");
+
+    while (1) {
+        mg_mgr_poll(&mgr, 1000);  // Main event loop
+    }
+
+    mg_mgr_free(&mgr);
+    return 0;
+}
+#endif

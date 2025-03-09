@@ -1,3 +1,8 @@
+//
+// Here we wrap around our supported audio interfaces
+//
+// Most of the ugly bits should go in the per-backend sources
+//
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
