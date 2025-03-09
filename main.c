@@ -58,12 +58,18 @@ static uint32_t load_defaults(void) {
 // Zeroize our memory structures
 static uint32_t initialize_state(void) {
    memset(&rig, 0, sizeof(struct GlobalState));
-   memset(&rig.low_amp, 0, sizeof(struct AmpState));
-   memset(&rig.high_amp, 0, sizeof(struct AmpState));
-   memset(&rig.low_atu, 0, sizeof(struct ATUState));
-   memset(&rig.high_atu, 0, sizeof(struct ATUState));
-   memset(&rig.low_filters, 0, sizeof(struct FilterState));
-   memset(&rig.high_filters, 0, sizeof(struct FilterState));
+
+   for (int i = 0; i < RR_MAX_AMPS; i++) {
+       memset(&rig.amps[i], 0, sizeof(struct AmpState));
+   }
+
+   for (int i = 0; i < RR_MAX_ATUS; i++) {
+      memset(&rig.atus[i], 0, sizeof(struct ATUState));
+   }
+
+   for (int i = 0; i < RR_MAX_FILTERS; i++) {
+      memset(&rig.filters[i], 0, sizeof(struct FilterState));
+   }
 
    load_defaults();
    return 0;
@@ -121,9 +127,11 @@ int main(int argc, char **argv) {
    rig.serial = get_serial_number();
    Log(LOG_INFO, "core", "Device serial number: %lu", rig.serial);
 
-   atu_init_all();
+   // Initialize add-in cards
+   // XXX: This should be done by enumerating the bus eventually
    filter_init_all();
    amp_init_all();
+   atu_init_all();
 
    // Network connectivity
    show_network_info();

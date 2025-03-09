@@ -26,6 +26,9 @@ bool ws_init(struct mg_mgr *mgr) {
 }
 
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
-   mg_ws_send(c, msg->data.buf, msg->data.len, WEBSOCKET_OP_TEXT);
+   if (!cat_parse_ws(REQ_WS, msg)) {
+//      mg_ws_send(c, msg->data.buf, msg->data.len, WEBSOCKET_OP_TEXT);
+   }
+
    return false;
 }

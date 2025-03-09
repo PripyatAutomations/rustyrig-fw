@@ -2,13 +2,20 @@
 #define __rr_audio_h
 
 typedef enum {
-    AU_BACKEND_PIPEWIRE,
-    AU_BACKEND_I2S,  // For ESP32 PCM5102
-    AU_BACKEND_ALSA  // Optional for Linux
+    AU_BACKEND_NULL_SINK = 0,	// Null sink that discards all input but generates logging statistics
+    AU_BACKEND_PIPEWIRE,	// Pipewire interface for linux hosts
+    AU_BACKEND_I2S, 		// For ESP32 PCM5102, etc
+    AU_BACKEND_ALSA,		// Perhaps someone will write the ALSA backend?
+    AU_BACKEND_OSS,		// And maybe even OSS for those heathens
 } au_backend_t;
 
 typedef struct au_device_t au_device_t;
 typedef struct uint32_t au_sample_t;
+
+struct au_interface {
+   au_backend_t		be_type;		// Backend type
+};
+typedef struct au_interface au_interface_t;
 
 /* Initialize an audio device with a backend and name */
 extern au_device_t *au_init(au_backend_t backend, const char *device_name);

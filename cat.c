@@ -33,22 +33,21 @@
 #include "eeprom.h"
 #include "vfo.h"
 #include "cat.h"
-#include "cat.kpa500.h"
-#include "cat.yaesu.h"
 extern struct GlobalState rig;  // Global state
 extern bool dying;		// in main.c
 
 // Initialize CAT control
 int32_t cat_init(void) {
    Log(LOG_INFO, "cat", "Initializing CAT interfaces");
+
 #if	defined(HOST_POSIX)
 // XXX: Open the pipe(s)
-// KPA500 amplifier control
-// Yaesu-style rig control
-#if	defined(CAT_YAESU)
+
+#if	defined(CAT_YAESU)		// Yaesu-style rig control
    cat_yaesu_init();
 #endif
-#if	defined(CAT_KPA500)
+#if	defined(CAT_KPA500)		// KPA500 amplifier control
+
    cat_kpa500_init();
 #endif
 #endif
@@ -119,16 +118,32 @@ int32_t cat_parse_line(char *line) {
    return 0;
 }
 
-
-typedef enum cat_req_type {
-   REQ_NONE = 0,		// Not set (invalid)
-   REQ_IO,			// Via io.c
-   REQ_WS			// Via mongoose websocket
-} cat_req_type;
-
 #if	defined(FEATURE_HTTP)
 #include "mongoose.h"
+
 bool cat_parse_ws(cat_req_type reqtype, struct mg_ws_message *msg) {
-   return false;
+    if (reqtype != REQ_WS || msg == NULL) {
+        return false;
+    }
+
+    Log(LOG_DEBUG, "cat.ws.noisy", "parsing %d bytes from ws: |%.*s|", msg->data.len, msg->data.len, msg->data.buf);
+
+    // Extract "cmd" and "val" from JSON
+    const char *cmd_str = mg_json_get_str(msg->data, "$.cat.cmd");
+    const char *val_str = mg_json_get_str(msg->data, "$.cat.val");
+    Log(LOG_DEBUG, "cat.ws.noisy", "cmd: %s, val: %s", cmd_str, val_str);
+
+    if (cmd_str && val_str) {
+        // Copy cmd to a fixed-size buffer and null-terminate
+        char cmd[16] = {0};
+        strncpy(cmd, cmd_str, sizeof(cmd) - 1);
+
+        // Convert val to an integer
+        int val = atoi(val_str);
+        Log(LOG_DEBUG, "cat.ws.noisy", "got cmd: %s", cmd);
+    }
+
+    return false;
 }
+
 #endif

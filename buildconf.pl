@@ -811,6 +811,21 @@ sub generate_config_h {
       printf $fh "#define EEPROM_READONLY\n";
    }
 
+   if (defined($config->{limits})) {
+      my $max_amps = $config->{limits}{'max-amps'};
+      my $max_atus = $config->{limits}{'max-atus'};
+      my $max_filters = $config->{limits}{'max-filters'};
+      if (defined($max_amps)) {
+         printf $fh "#define RR_MAX_AMPS\t\t$max_amps\n";
+      }
+      if (defined($max_atus)) {
+         printf $fh "#define RR_MAX_ATUS\t\t$max_atus\n";
+      }
+      if (defined($max_filters)) {
+         printf $fh "#define RR_MAX_FILTERS\t\t$max_filters\n";
+      }
+   }
+
    if (defined($config->{features})) {
       if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat-kpa500'})) {
          printf $fh "#define CAT_KPA500 true\n";

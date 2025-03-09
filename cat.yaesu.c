@@ -106,7 +106,7 @@ void cat_yaesu_vox_gain(const char *args) {}		// VOX Gain
 void cat_yaesu_vox(const char *args) {}			// VOX
 void cat_yaesu_zero_in(const char *args) {}		// Zero In
 
-CATCommand cat_commands[] = {
+CATCommand cat_yaesu_commands[] = {
     // cmd, min, max, callback
     { "AB", 0, 1, cat_yaesu_vfo_a_to_b },	// VFO A to VFO B
     { "AC", 1, 1, cat_yaesu_tuner_control },	// Antenna Tuner Control

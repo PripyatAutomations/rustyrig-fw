@@ -55,8 +55,7 @@ struct AmpState {
    uint32_t   standby;			// Standby mode
    uint32_t   output_target[MAX_BANDS];	// Target power (see formula in .c)
    float power_target;			// Target power configuration
-   float therm_final;			// Thermal state of Final Transistor
-   float therm_lpf;			// Thermal state of LPF board
+   float thermal;			// Thermal state of Final Transistor
 };
 
 // State of the all tunings: PA & Matching Units
@@ -71,11 +70,13 @@ enum TuningState {
 struct ATUState {
    float power_fwd,			// Measured forward power
          power_rev;			// Measured reflected power
+   float thermal;			// Reported temperature or -1000 if not available
 };
 
 struct FilterState {
    enum LPFSelection LPF;		// Chosen TX Low Pass Filter
    enum BPFSelection BPF;		// Chosen RX Band Pass Filter
+   float thermal;			// Thermal state of Final Transistor
 };
 
 struct GlobalState {
@@ -105,12 +106,9 @@ struct GlobalState {
    float		power_tx_watts; // Lifetime total watts used transmitting
 
    // Sub-units
-   struct AmpState 	low_amp,
-                        high_amp;
-   struct ATUState 	low_atu,
-                        high_atu;
-   struct FilterState 	low_filters,
-                        high_filters;
+   struct AmpState 	amps[RR_MAX_AMPS];
+   struct ATUState 	atus[RR_MAX_ATUS];
+   struct FilterState 	filters[RR_MAX_FILTERS];
 
 #if	defined(HOST_POSIX)   // Host build fd's/buffers/etc
    uint32_t		eeprom_fd;
