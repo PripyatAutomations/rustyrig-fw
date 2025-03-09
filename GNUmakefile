@@ -195,7 +195,7 @@ ${CF}:
 	exit 1
 
 installdep:
-	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl libgpiod-dev libjpeg-dev libpipewire-0.3-dev libjpeg-dev
+	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl libgpiod-dev libjpeg-dev libpipewire-0.3-dev libjpeg-dev libopus-dev
 	cpan install Mojo::JSON::Pointer
 
 ext/libmongoose/mongoose.c:

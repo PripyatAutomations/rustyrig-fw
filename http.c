@@ -182,11 +182,45 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
    return true; // No match found, let static handler take over
 }
 
+struct auth_data {
+   char user[33];
+   char pass[33];
+};
+typedef struct auth_data auth_data_t;
+
+static bool http_check_auth(struct mg_http_message *msg, auth_data_t *auth) {
+   mg_http_creds(msg, auth->user, sizeof(auth->user), auth->pass, sizeof(auth->pass));
+
+   if (auth->user[0] == '\0') {
+      // No username provided, fail the request
+      return false;
+   } else {
+      if (auth->pass[0] == '\0') {
+         // XXX: If account has no password set, return true here
+         // No password provided
+         return false;
+      } else {
+         // Verify the username and password, return true if allowed
+         Log(LOG_DEBUG, "http.noise", "username %s", auth->user);
+      }
+      return false;
+   }
+}
+
 // Connection event handler function
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_HTTP_MSG) {
       struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
+/* XXX: bring in auth capabilities
+      auth_data_t ad;
+      memset(&ad, 0, sizeof(ad));
+      if (http_check_auth(hm, &ad) == false) {
+         // stuff to do if not authorized
+      } else {
+         // Stuff to do if authorized
+      }
+*/
       // If API requests fail, try passing it to static
       if (http_dispatch_route(hm, c) == true) {
          http_static(hm, c);

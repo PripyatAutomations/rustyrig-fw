@@ -1,5 +1,5 @@
 /*
- * Support for a console interface to the radio via io abstraction (socket|serial|pipe)
+ * Support for a console interface to the radio via io abstraction (socket|serial|pipe|ws)
  */
 #include "config.h"
 #include <stddef.h>

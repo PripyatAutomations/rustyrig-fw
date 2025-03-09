@@ -1,0 +1,27 @@
+
+$type: { payload }
+
+types:
+	au		Audio samples
+	cat		CAT messages
+	log		Log messages
+	rom		EEPROM manager commands
+	tty		TTY (console)
+	wf		Waterfall data
+
+[au]
+	config, frame
+
+[cat]
+	cmd, val
+
+[log]
+	sys, prio, msg
+
+[rom]
+	backup, restore, get, set
+
+[tty]
+	ts, msg
+
+[wf]

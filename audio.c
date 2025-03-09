@@ -18,6 +18,7 @@
 #include "cat.h"
 #include "posix.h"
 #include "audio.h"
+#include <opus/opus.h>		// Used for audio compression
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
