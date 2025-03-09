@@ -5,6 +5,8 @@
 // but for now focus will be on server
 //
 #include "config.h"
+
+#if	defined(FEATURE_MQTT)
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -49,7 +51,11 @@ bool mqtt_init(struct mg_mgr *mgr) {
       return true;
    }
 
-   mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL);
+   if (mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL) == NULL) {
+      Log(LOG_CRIT, "http", "Failed to start http listener");
+      exit(1);
+   }
+
    Log(LOG_INFO, "mqtt", "MQTT listening at %s", listen_addr);
    return false;
 }
@@ -176,3 +182,4 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
    }
 }
+#endif	// defined(FEATURE_MQTT)

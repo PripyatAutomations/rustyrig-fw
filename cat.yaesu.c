@@ -19,7 +19,7 @@
 #include <string.h>
 #include "logger.h"
 #include "cat.h"
-#include "ca.yaesu.h"
+#include "cat.yaesu.h"
 #include "state.h"
 #include "ptt.h"
 extern bool dying;		// in main.c

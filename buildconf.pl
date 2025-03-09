@@ -822,6 +822,9 @@ sub generate_config_h {
       if (defined($config->{features}{'http'}) && match_boolean($config->{features}{'http'})) {
          printf $fh "#define FEATURE_HTTP\n";
       }
+      if (defined($config->{features}{'mqtt'}) && match_boolean($config->{features}{'mqtt'})) {
+         printf $fh "#define FEATURE_MQTT\n";
+      }
    }
 
    if (defined($config->{'debug'})) {

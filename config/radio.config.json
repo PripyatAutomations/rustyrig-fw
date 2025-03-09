@@ -31,7 +31,8 @@
       "cat-kpa500": "true",
       "cat-yaesu": "true",
       "http": "true",
-      "max-bands": 14
+      "max-bands": 14,
+      "mqtt": "true"
    },
    "i2c": {
    },

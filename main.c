@@ -25,13 +25,15 @@
 #include "io.h"
 #include "audio.h"
 #include "usb.h"
+#if	defined(FEATURE_HTTP)
 #include "http.h"
 #include "websocket.h"
 #include "mqtt.h"
+struct mg_mgr mg_mgr;
+#endif
 
 bool dying = 0;		// Are we shutting down?
 struct GlobalState rig;	// Global state
-struct mg_mgr mg_mgr;
 
 // Current time, must be updated ONCE per second, used to save calls to gettimeofday()
 time_t now = -1;
@@ -93,7 +95,9 @@ int main(int argc, char **argv) {
    debug_init();
    initialize_state();			// Load default values
 
+#if	defined(FEATURE_HTTP)
    mg_mgr_init(&mg_mgr);
+#endif
    gpio_init();
 
    // if able to connect to EEPROM, load and apply settings
@@ -121,9 +125,11 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
+#if	defined(FEATURE_HTTP)
    http_init(&mg_mgr);
    ws_init(&mg_mgr);
    mqtt_init(&mg_mgr);
+#endif
 
    // apply some configuration from the eeprom
    auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
@@ -188,8 +194,10 @@ int main(int argc, char **argv) {
       // XXX: Check if an LCD/OLED is configured and display it
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
 
+#if	defined(FEATURE_HTTP)
       // Process Mongoose HTTP and MQTT events, this should be here because the mjpeg could be queried
       mg_mgr_poll(&mg_mgr, 1000);
+#endif
    }
 
    mg_mgr_free(&mg_mgr);

@@ -2,6 +2,8 @@
 // Here we deal with http requests using mongoose
 //
 #include "config.h"
+
+#if	defined(FEATURE_HTTP)
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -190,15 +192,15 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
-      Log(LOG_DEBUG, "http.ws.noise", "Websocket upgrade completed");
+      Log(LOG_DEBUG, "http.noise", "Conn. upgraded to ws");
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
       // Respond to the WebSocket client
       mg_ws_send(c, msg->data.buf, msg->data.len, WEBSOCKET_OP_TEXT);
-      Log(LOG_DEBUG, "http.ws.noise", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+      Log(LOG_DEBUG, "http.noise", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
    } else if (ev == MG_EV_CLOSE) {
-      Log(LOG_DEBUG, "http.ws", "WS conn closed");
+      Log(LOG_DEBUG, "http.noise", "HTTP conn closed");
    }
 }
 
@@ -210,7 +212,6 @@ bool http_init(struct mg_mgr *mgr) {
       Log(LOG_CRIT, "http", "http_init %s failed", listen_addr);
       return true;
    }
-
 
    // Get the bind address and port
    int bind_port = eeprom_get_int("net/http/port");
@@ -225,7 +226,7 @@ bool http_init(struct mg_mgr *mgr) {
 
    // store firmware version in www_fw_ver
    memset(www_fw_ver, 0, sizeof(www_fw_ver));
-   snprintf(www_fw_ver, 128, "X-Radio: rustyrig %s on %s", VERSION, HARDWARE);
+   snprintf(www_fw_ver, 128, "X-Version: rustyrig %s on %s", VERSION, HARDWARE);
 
    // and make our headers
    memset(www_headers, 0, sizeof(www_headers));
@@ -245,7 +246,12 @@ bool http_init(struct mg_mgr *mgr) {
       snprintf(www_root, sizeof(www_root), "%s", WWW_ROOT_FALLBACK);
    }
 
-   mg_http_listen(mgr, listen_addr, http_cb, NULL);
+   if (mg_http_listen(mgr, listen_addr, http_cb, NULL) == NULL) {
+      Log(LOG_CRIT, "http", "Failed to start http listener");
+      exit(1);
+   }
+
    Log(LOG_INFO, "http", "HTTP listening at %s with www-root at %s", listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
    return false;
 }
+#endif	// defined(FEATURE_HTTP)

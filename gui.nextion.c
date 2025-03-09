@@ -21,7 +21,7 @@
 #include "eeprom.h"
 #include "i2c.h"
 #include "gui.h"
-#include "gui_nextion.h"
+#include "gui.nextion.h"
 
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
