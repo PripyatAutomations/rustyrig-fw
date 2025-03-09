@@ -8,6 +8,7 @@
 #if	!defined(HOST_POSIX)
 #error "This is only valid on host posix, please check the GNUmakefile!"
 #else
+#include <sys/stat.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,6 +20,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
+#include <errno.h>
 #include "state.h"
 #include "posix.h"
 #include "logger.h"
@@ -73,6 +75,21 @@ void init_signals(void) {
 
 bool host_init(void) {
    init_signals();
+   return false;
+}
+
+bool file_exists(const char *path) {
+   struct stat sb;
+   int rv = stat(path, &sb);
+
+   // Skip file not found and only show other errors
+   if (rv != ENOENT) {
+      Log(LOG_DEBUG, "core", "file_exists: %s returned %d (%s)", path, errno, strerror(errno));
+      return false;
+   } else if (rv == 0) {
+      return true;
+   }
+
    return false;
 }
 

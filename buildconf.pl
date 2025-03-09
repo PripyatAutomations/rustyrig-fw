@@ -57,7 +57,8 @@ my $version = {
    "fw" => {
       "major" => $ver[0],
       "minor" => $ver[1]
-   }
+   },
+   "hw" => "sb50"
 };
 
 ############
@@ -784,6 +785,7 @@ sub generate_config_h {
    printf $fh "#define VERSION \"%02d.%02d\"\n", $version->{fw}{major}, $version->{fw}{minor};
    printf $fh "#define VERSION_MAJOR 0x%x\n", $version->{fw}{major};
    printf $fh "#define VERSION_MINOR 0x%x\n", $version->{fw}{minor};
+   printf $fh "#define HARDWARE \"%s\"\n", $version->{hw};
 
    if (defined($config->{i2c})) {
       if (defined($config->{i2c}{myaddr})) {
