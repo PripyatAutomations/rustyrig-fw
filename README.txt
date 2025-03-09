@@ -65,6 +65,15 @@ Installing
 	If this doesnt work, see doc/BOOTLOADER.txt
 	Possibly use the web flashers in www/ when they are tested!
 
+
+Running
+-------
+	make run
+
+If compiling gives an error such as:
+	make: *** No rule to make target 'build/radio/obj/amp.o', needed by 'build/radio/firmware.bin'.  Stop.
+Just try re-running 'make'!
+
 Status
 ------
 

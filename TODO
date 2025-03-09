@@ -35,6 +35,7 @@ minimal inet_ntop() for non-posix
 * remove need for they key field (why not use the name of the entry itself?) in eeprom_layout
 * fix relative offsets in eeprom_layout
 * Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
+- Make a tool which converts res/eeprom_layout.json (and eeprom_types.json) to a text file like doc/eeprom.txt
 
 [misc]
 * Add emulation backend using flrig or hamlib
@@ -45,3 +46,9 @@ minimal inet_ntop() for non-posix
 [mqtt]
 * Finish mqtt server stuff (via mongoose)
 * Implement mqtt client mode, for sending to existing server
+
+[www]
+* Implement Web Serial firmare uploads
+        https://developer.chrome.com/articles/serial/
+        https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API
+        - js/zmodemjs for zmodem upload

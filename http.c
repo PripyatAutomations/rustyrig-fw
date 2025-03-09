@@ -19,6 +19,7 @@
 #include "cat.h"
 #include "posix.h"
 #include "http.h"
+#include "websocket.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
 #else
@@ -145,9 +146,9 @@ static bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
 static http_route_t http_routes[HTTP_MAX_ROUTES] = {
     { "/api/ping",	http_api_ping },		// Responds back with the date given
     { "/api/time",	http_api_time },		// Get device time
-    { "/api/ws",	http_api_ws },			// Upgrade to websocket
     { "/api/version",	http_api_version },		// Version info
     { "/help",		http_help }	,		// Help API
+    { "/ws",		http_api_ws },			// Upgrade to websocket
     { NULL,		NULL }
 };
 
@@ -231,7 +232,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
       // Respond to the WebSocket client
-      mg_ws_send(c, msg->data.buf, msg->data.len, WEBSOCKET_OP_TEXT);
+      ws_handle(msg, c);
       Log(LOG_DEBUG, "http.noise", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
    } else if (ev == MG_EV_CLOSE) {
       Log(LOG_DEBUG, "http.noise", "HTTP conn closed");

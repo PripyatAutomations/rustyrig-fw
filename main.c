@@ -28,7 +28,11 @@
 #if	defined(FEATURE_HTTP)
 #include "http.h"
 #include "websocket.h"
+#endif
+#if	defined(FEATURE_MQTT)
 #include "mqtt.h"
+#endif
+#if	defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
 struct mg_mgr mg_mgr;
 #endif
 
@@ -95,7 +99,7 @@ int main(int argc, char **argv) {
    debug_init();
    initialize_state();			// Load default values
 
-#if	defined(FEATURE_HTTP)
+#if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
    mg_mgr_init(&mg_mgr);
 #endif
    gpio_init();
@@ -128,6 +132,8 @@ int main(int argc, char **argv) {
 #if	defined(FEATURE_HTTP)
    http_init(&mg_mgr);
    ws_init(&mg_mgr);
+#endif
+#if	defined(FEATURE_MQTT)
    mqtt_init(&mg_mgr);
 #endif
 
@@ -194,12 +200,14 @@ int main(int argc, char **argv) {
       // XXX: Check if an LCD/OLED is configured and display it
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
 
-#if	defined(FEATURE_HTTP)
+#if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
       // Process Mongoose HTTP and MQTT events, this should be here because the mjpeg could be queried
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
    }
 
+#if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
    mg_mgr_free(&mg_mgr);
+#endif
    return 0;
 }
