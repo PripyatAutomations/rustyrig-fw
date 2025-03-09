@@ -202,7 +202,7 @@ static bool http_check_auth(struct mg_http_message *msg, auth_data_t *auth) {
          return false;
       } else {
          // Verify the username and password, return true if allowed
-         Log(LOG_DEBUG, "http.noise", "username %s", auth->user);
+         Log(LOG_DEBUG, "http.noisy", "username %s", auth->user);
       }
       return false;
    }
@@ -227,15 +227,17 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
-      Log(LOG_DEBUG, "http.noise", "Conn. upgraded to ws");
+      Log(LOG_DEBUG, "http.noisy", "Conn. upgraded to ws");
+      ws_add_client(c);
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
       // Respond to the WebSocket client
       ws_handle(msg, c);
-      Log(LOG_DEBUG, "http.noise", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+      Log(LOG_DEBUG, "http.noisy", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
    } else if (ev == MG_EV_CLOSE) {
-      Log(LOG_DEBUG, "http.noise", "HTTP conn closed");
+      Log(LOG_DEBUG, "http.noisy", "HTTP conn closed");
+      ws_remove_client(c);
    }
 }
 

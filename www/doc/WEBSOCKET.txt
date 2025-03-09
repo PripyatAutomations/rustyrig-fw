@@ -16,12 +16,18 @@ types:
 	cmd, val
 
 [log]
-	sys, prio, msg
+	sys, prio, msg	- A log viewer message
 
 [rom]
-	backup, restore, get, set
+	backup
+	restore
+	get
+	set
+
+[talk]
+	msg	- Chat sent to all users
 
 [tty]
-	ts, msg
+	msg, ts	- Timestamped console message
 
 [wf]

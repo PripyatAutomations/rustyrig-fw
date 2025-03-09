@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HamChat</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+
+        /* Scrollbar for chat box */
+        #chat-box {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background-color: #fff;
+            width: 100%;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+
+        /* Optional input styling */
+        #chat-input {
+            font-size: 14px;
+            width: 80%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        /* General button styles to ensure equal height */
+        button {
+            padding: 10px 15px; /* Same padding for both buttons */
+            font-size: 16px; /* Larger text */
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Clear button */
+        #clear-btn {
+            background-color: #a31c1c; /* Muted red */
+            color: #fff;
+        }
+
+        #clear-btn:hover {
+            background-color: #821212; /* Darker red for hover */
+        }
+
+        /* Send button */
+        #send-btn {
+            background-color: #28a745; /* Green for send */
+            color: #fff;
+        }
+
+        #send-btn:hover {
+            background-color: #218838; /* Darker green for hover */
+        }
+
+        /* Sounds checkbox */
+        #sound-toggle {
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 16px; /* Bigger text */
+        }
+
+        /* Chat message styles */
+        .chat-message {
+            font-size: 16px;
+            padding: 10px;
+            margin: 5px 0;
+        }
+
+        .chat-status {
+            font-size: 16px;
+            color: green;
+            margin: 5px 0;
+        }
+
+        .error {
+            font-size: 16px;
+            color: red;
+            margin: 5px 0;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="chat-box"></div>
+    <input type="text" id="chat-input" placeholder="Type a message..." autofocus />
+    <button id="send-btn">Send</button>
+    <button id="clear-btn">Clear</button>
+    <input type="checkbox" id="play-bell" checked/>Sounds<br/>
+    <audio id="bell-sound" src="bell.mp3"></audio>
+    <script>
+        $(document).ready(function() {
+            var bellAudio = document.getElementById('bell-sound'); // Get the audio element
+
+            var protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+            var host = window.location.hostname;
+            var port = window.location.port ? ':' + window.location.port : '';  // Use the current port if specified, else default
+            var socketUrl = protocol + host + port + '/ws/';
+
+            // Connect to the WebSocket server
+            var socket = new WebSocket(socketUrl);
+            // When message is received
+            socket.onmessage = function(event) {
+                var msgData = event.data;
+                try {
+                    var msgObj = JSON.parse(msgData);
+                    if (msgObj.talk && msgObj.talk.msg) {
+                        var message = msgObj.talk.msg;
+                        $('#chat-box').append('<div>' + message + '</div>');
+
+                        // Automatically scroll to the bottom of the chat box
+                        $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+                        if (document.getElementById('play-bell').checked) {
+                            bellAudio.currentTime = 0;  // Reset audio to start from the beginning
+                            bellAudio.play();
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error parsing message:", e);
+                }
+            };
+
+            // When the WebSocket connection is open
+            socket.onopen = function() {
+                $('#chat-box').append('<div class="chat-status">WebSocket connected.</div>');
+                $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight); // Auto-scroll to the bottom
+            };
+
+            // When the WebSocket connection is closed
+            socket.onclose = function() {
+                $('#chat-box').append('<div class="chat-status error">WebSocket diconnected.</div>');
+                $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight); // Auto-scroll to the bottom
+            };
+
+            // When there's an error with the WebSocket
+            socket.onerror = function(error) {
+                console.error("WebSocket error:", error);
+                $('#chat-box').append('<div class="chat-status error">WebSocket error occurred.</div>');
+                $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight); // Auto-scroll to the bottom
+            };
+
+            // clear button
+            $('#clear-btn').click(function() {
+                $('#chat-box').empty(); // Clear the chat messages
+            });
+
+            // Send message to the server when "Send" button is clicked
+            $('#send-btn').click(function() {
+                var message = $('#chat-input').val().trim();
+                if (message) {
+                    var msgObj = {
+                        "talk": {
+                            "msg": message
+                        }
+                    };
+                    socket.send(JSON.stringify(msgObj)); // Send the message to the server
+                    $('#chat-box').append('<div>==> ' + message + '</div>');
+                    $('#chat-input').val(''); // Clear the input field
+                }
+            });
+
+            // Also send the message when the "Enter" key is pressed
+            $('#chat-input').keypress(function(e) {
+                if (e.which == 13) {
+                    $('#send-btn').click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
