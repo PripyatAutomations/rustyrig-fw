@@ -10,5 +10,8 @@ images
 build/*/*.*
 build/*/obj/*
 
+# user database
+config/http.users
+
 # Archived configs
 config/archive/*.json

@@ -1,0 +1,3 @@
+# Format is name:enabled:password:permissions # admin should be first so it gets uid 0!
+admin:1:d033e22ae348aeb5660fc2140aec35850c4da997:admin.*,edit.*,view.*,radio.*,tx
+guest:1:35675e68f4b5af7b995d9205ad0fc43842f16450:view.*
