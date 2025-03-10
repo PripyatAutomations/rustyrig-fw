@@ -12,7 +12,28 @@
  <body>
   <div id="upper-wrapper">
     <div id="chat-box" tabindex="-1"></div>
-    <div id="chat-user-list" tabindex="-1"></div>
+    <div id="chat-user-list" tabindex="-1">
+     <h3>Connected Users</h3>
+     <ul>
+      <li>&lt;<a href="#" class="chat-user-list"><span class="cul-self">N0CALL</a>&gt;</li>
+     </ul>
+    </div>
+    <div id="user-menu">
+     <span id="um-close"><a href="#" id="um-close">X</a></span>
+     User: N0CALL<br/>
+     <span id="user-menu-items">
+      <ul>
+       <li><a href="#" id="email-user">Email</a></li>
+       <li><a href="#" id="whois-user">Whois</a></li>
+       <li><a href="#" id="qrz-lookup-user">QRZ</a></li>
+       <hr width="50%"/>
+       <li><a href="#" id="edit-user">Edit</a></li>
+       <li><a href="#" id="mute-user">Mute</a></li>
+       <li><a href="#" id="kick-user">Kick</a></li>
+       <li><a href="#" id="ban-user">Lock&amp;Kick</a></li>
+      </ul>
+     </span>
+    </div>
   </div>
   <div id="lower-wrapper">
    <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
@@ -183,6 +204,10 @@ $(document).ready(function() {
    });
    $('#bell-btn').data('checked', true);  // Ensure proper initialization
 
+   // User menu
+   $('#um-close').click(function() {
+      $('#user-menu').hide();
+   });
    // deal with our keypresses
    $(document).keydown(function (e) {
       if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {

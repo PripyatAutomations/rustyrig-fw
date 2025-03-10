@@ -36,12 +36,84 @@ body {
 #chat-user-list {
    position: absolute;
    left: CALC(100% - 10.5em);
-   top: 1.2em;
+   top: 1.25em;
    width: 10em;
-   height: 268px;
-   background: #c0c0c0;
+   height: 269px;
+   background: #fafafa;
    border: 2px solid #0f0f0f;
    border-radius: 10px;
+}
+
+.cul-item {
+   background-color: #fafaff;
+}
+
+#chat-user-list ul {
+   padding-top: 5px;
+   padding-left: 1.5em;
+   margin-top: 0px;
+}
+
+#chat-user-list li {
+   padding-top: 0px;
+   margin-top: 0px;
+}
+
+#chat-user-list h3 {
+   font-size: 1em;
+   text-decoration: underline;
+   padding: 0px;
+   margin: 0px;
+   margin-top: 0.2em;
+   margin-left: 1em;
+   color: red;
+}
+
+
+#chat-user-list a, #chat-user-list a:visited, #chat-user-ligt a:active {
+   color: green;
+   text-decoration: none;
+}
+
+.cul-self, .cul-self a, .cul-self a:visited, .cul-self a:active {
+   color: red;
+}
+
+#user-menu {
+/*   display: none; */
+   color: black;
+   background: #fff0f0;
+   position: absolute;
+   left: CALC(100% - 9.5em);
+   top: 4.5em;
+   margin-left: 0.1em;
+   padding-left: 0.7em;
+   width: 8em;
+   height: 11.5em;
+   border: 2px solid #c0c0c0;
+   border-radius: 10px;
+   z-index: 1000;
+}
+
+#user-menu ul {
+   color: black;
+   margin-top: 0em;
+   padding-left: 15px;
+   padding-top: 0.2em;
+}
+
+#user-menu li {
+}
+
+#um-close {
+   position: absolute;
+   color: red;
+   text-decoration: none;
+   font-size: 20px;
+   top: -1px;
+   right: -8px;
+   height: 32px;
+   width: 32px;
 }
 
 /* General button styles to ensure equal height */
