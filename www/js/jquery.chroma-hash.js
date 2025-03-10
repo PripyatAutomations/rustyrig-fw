@@ -85,9 +85,9 @@
                             "position": "absolute",
                             "opacity": "1.0",
                             /* XXX: This adding 92 and 104 nonsense is to fix bug in my css..? */
-                            "left": position.left + width + 91,
-                            "top": position.top + 104,
-                            "height": height - 2 + "px",
+                            "left": position.left + width + 93,
+                            "top": position.top + 84,
+                            "height": height - 3 + "px",
                             "width": "8px",
                             "margin": "0px",
                             "marginLeft": -8 * (++i) + "px",

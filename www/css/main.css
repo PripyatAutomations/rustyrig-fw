@@ -3,12 +3,55 @@ a, a:visited, a:active {
 }
 
 body {
-  color: #c0c0c0;
+  color: black;
    font-family: Arial, sans-serif;
    margin: 0;
    padding: 20px;
  /*    background-color: #0c0c0c; */
    background-color: #f4f4f9;
+}
+
+.red {
+   color: red;
+}
+
+#tbl-login {
+   background: #f0c0c0;
+   border: 2px solid #c0c0c0;
+   border-radius: 10px;
+   padding: 0.75em 1em 0.5em 1em;
+   position: relative;
+   left: 0px;
+   height: 99.9%;
+   width: 33%;
+}
+
+#tbl-login h3 {
+   padding: 0px;
+   padding-bottom: 0.5em;
+   margin: 0px;
+   text-align: center;
+}
+
+#login-btn-box {
+   position: relative;
+   padding: 0px;
+   padding-top: 0.5em;
+   top: 0px;
+   left: 25%;
+   width: 100%;
+}
+
+#win-login {
+   position: absolute;
+   top: 33%;
+   left: 33%;
+   height: 99.9%;
+   width: 99.9%;
+}
+
+#win-chat {
+   display: none;
 }
 
 /* Scrollbar for chat box */
@@ -22,6 +65,14 @@ body {
    width: CALC(100% - 11em);
    height: 250px;
    margin-bottom: 10px;
+}
+
+input {
+   border: 1px solid #c0c0c0;
+   border-radius: 10px;
+   font-size: 18px;
+   padding-left: 0.5em;
+   padding-right: 0.5em;
 }
 
 /* Optional input styling */
