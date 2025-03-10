@@ -25,7 +25,10 @@ types:
 	set
 
 [talk]
+	join	- Reports a user joining chat
+	quit	- Reports a user leaving chat
 	msg	- Chat sent to all users
+	who	- Request a list of users in the chat (to server)
 
 [tty]
 	msg, ts	- Timestamped console message

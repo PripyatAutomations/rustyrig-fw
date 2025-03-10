@@ -6,8 +6,6 @@
 struct ws_client {
     struct mg_connection *conn;
     struct ws_client *next;  // Next client in the list
-    // If the user has logged in, this will point at the http_auth structure
-    http_auth_t *auth;
 };
 
 extern bool ws_init(struct mg_mgr *mgr);

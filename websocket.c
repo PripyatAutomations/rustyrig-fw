@@ -30,61 +30,17 @@ bool ws_init(struct mg_mgr *mgr) {
    return false;
 }
 
-// Send a broadcast message to all ws clients
+// Broadcast a message to all WebSocket clients (using http_client_list)
 void ws_broadcast(struct mg_connection *sender_conn, struct mg_str *msg_data) {
-    struct ws_client *current = client_list;
+    http_client_t *current = http_client_list;  // Iterate over all clients
 
     while (current != NULL) {
-        if (current->conn != sender_conn) {
+        // Only send to WebSocket clients
+        if (current->is_ws && current->conn != sender_conn) {
             mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
         }
         current = current->next;
     }
-}
-
-// Add a WebSocket client to the client list
-void ws_add_client(struct mg_connection *c) {
-    // Allocate memory for a new client
-    struct ws_client *new_client = (struct ws_client *)malloc(sizeof(struct ws_client));
-    if (!new_client) {
-        Log(LOG_WARN, "http.ws", "Failed to allocate memory for new WebSocket client");
-        return;
-    }
-
-    new_client->conn = c;  // Set the connection
-    new_client->next = client_list;  // Add it to the front of the list
-    client_list = new_client;  // Update the head of the list
-}
-
-// Remove a WebSocket client from the client list
-void ws_remove_client(struct mg_connection *c) {
-    struct ws_client *prev = NULL;
-    struct ws_client *current = client_list;
-
-    // Traverse the list to find the client
-    while (current != NULL) {
-        if (current->conn == c) {
-            // Found the client to remove
-            if (prev == NULL) {
-                // Removing the first element
-                client_list = current->next;
-            } else {
-                // Removing a non-first element
-                prev->next = current->next;
-            }
-
-            // Free the memory allocated for this client
-            free(current);
-            Log(LOG_DEBUG, "http.ws", "WebSocket client removed");
-            return;
-        }
-
-        prev = current;
-        current = current->next;
-    }
-
-    // If we reach here, the client was not found in the list
-    Log(LOG_WARN, "http.ws", "Attempted to remove WebSocket client not in the list");
 }
 
 // Example: In your WebSocket connection handler

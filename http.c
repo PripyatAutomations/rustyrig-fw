@@ -19,6 +19,7 @@
 #include "cat.h"
 #include "posix.h"
 #include "http.h"
+#include "sha1.h"
 #include "websocket.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
@@ -37,23 +38,11 @@ static char www_fw_ver[128];
 static char www_headers[512];
 static char www_404_path[PATH_MAX];
 
-struct http_route {
-   char *match;
-   bool (*cb)();
-};
-typedef struct http_route http_route_t;
+http_client_t *http_client_list = NULL;
 
-enum http_res_type {
-   RES_PLAIN = 0,
-   RES_HTML,
-   RES_JSON
-};
-typedef enum http_res_type http_res_type_t;
-
-struct http_res_types {
-   char *shortname;
-   char *msg;
-};
+// User database
+static int http_load_users(const char *filename);	// forward decl
+http_user_t http_users[HTTP_MAX_USERS];
 
 const struct mg_http_serve_opts http_opts = {
    .extra_headers = www_headers,
@@ -65,6 +54,18 @@ static struct http_res_types http_res_types[] = {
    { "html", "Content-Type: text/html\r\n" },
    { "json", "Content-Type: application/json\r\n" },
 };
+
+
+// Generate a session token (can be a random string or timestamp-based hash)
+static void generate_session_hash(char *token) {
+    // Generate a simple random session token (you can improve this with better entropy)
+    snprintf(token, HTTP_HASH_LEN + 1, "%08x", rand());  // Simple random token for demonstration
+}
+
+///
+/// fwd decl
+void http_add_client(struct mg_connection *c, bool is_ws, uint8_t uid, const char *session_token);
+void http_remove_client(struct mg_connection *c);
 
 // Returns HTTP Content-Type for the chosen short name (save some memory)
 static inline const char *get_hct(const char *type) {
@@ -144,12 +145,12 @@ static bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
 }
 
 static http_route_t http_routes[HTTP_MAX_ROUTES] = {
-    { "/api/ping",	http_api_ping },		// Responds back with the date given
-    { "/api/time",	http_api_time },		// Get device time
-    { "/api/version",	http_api_version },		// Version info
-    { "/help",		http_help }	,		// Help API
-    { "/ws",		http_api_ws },			// Upgrade to websocket
-    { NULL,		NULL }
+    { "/api/ping",	http_api_ping,	false },		// Responds back with the date given
+    { "/api/time",	http_api_time, 	false },		// Get device time
+    { "/api/version",	http_api_version, false },		// Version info
+    { "/help",		http_help,	false }	,		// Help API
+    { "/ws",		http_api_ws,	true },			// Upgrade to websocket
+    { NULL,		NULL,		false }			// Terminator (is this even needed?)
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -183,61 +184,27 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
    return true; // No match found, let static handler take over
 }
 
-struct auth_data {
-   char user[33];
-   char pass[33];
-};
-typedef struct auth_data auth_data_t;
-
-static bool http_check_auth(struct mg_http_message *msg, auth_data_t *auth) {
-   mg_http_creds(msg, auth->user, sizeof(auth->user), auth->pass, sizeof(auth->pass));
-
-   if (auth->user[0] == '\0') {
-      // No username provided, fail the request
-      return false;
-   } else {
-      if (auth->pass[0] == '\0') {
-         // XXX: If account has no password set, return true here
-         // No password provided
-         return false;
-      } else {
-         // Verify the username and password, return true if allowed
-         Log(LOG_DEBUG, "http.noisy", "username %s", auth->user);
-      }
-      return false;
-   }
-}
-
-// Connection event handler function
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
-   if (ev == MG_EV_HTTP_MSG) {
-      struct mg_http_message *hm = (struct mg_http_message *) ev_data;
+   struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
-/* XXX: bring in auth capabilities
-      auth_data_t ad;
-      memset(&ad, 0, sizeof(ad));
-      if (http_check_auth(hm, &ad) == false) {
-         // stuff to do if not authorized
-      } else {
-         // Stuff to do if authorized
-      }
-*/
-      // If API requests fail, try passing it to static
+   if (ev == MG_EV_HTTP_MSG) {
       if (http_dispatch_route(hm, c) == true) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
-      Log(LOG_DEBUG, "http.noisy", "Conn. upgraded to ws");
-      ws_add_client(c);
+     Log(LOG_DEBUG, "http.noisy", "Conn. upgraded to ws");
+     char token[40];
+     generate_session_hash(token);
+     http_add_client(c, true, -1, token);
    } else if (ev == MG_EV_WS_MSG) {
-      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
+     struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
-      // Respond to the WebSocket client
-      ws_handle(msg, c);
-      Log(LOG_DEBUG, "http.noisy", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+     // Respond to the WebSocket client
+     ws_handle(msg, c);
+     Log(LOG_DEBUG, "http.noisy", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
    } else if (ev == MG_EV_CLOSE) {
-      Log(LOG_DEBUG, "http.noisy", "HTTP conn closed");
-      ws_remove_client(c);
+     Log(LOG_DEBUG, "http.noisy", "HTTP conn closed");
+     http_remove_client(c);
    }
 }
 
@@ -283,6 +250,11 @@ bool http_init(struct mg_mgr *mgr) {
       snprintf(www_root, sizeof(www_root), "%s", WWW_ROOT_FALLBACK);
    }
 
+   // XXX: move this path to config.json (build-time)
+   if (http_load_users("config/http.users") < 0) {
+      Log(LOG_WARN, "http.core", "Error loading users from config/http.users");
+   }
+
    if (mg_http_listen(mgr, listen_addr, http_cb, NULL) == NULL) {
       Log(LOG_CRIT, "http", "Failed to start http listener");
       exit(1);
@@ -291,4 +263,107 @@ bool http_init(struct mg_mgr *mgr) {
    Log(LOG_INFO, "http", "HTTP listening at %s with www-root at %s", listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
    return false;
 }
+
+//
+// HTTP Basic-auth user
+//
+// Load users from the file into the global array
+static int http_load_users(const char *filename) {
+    FILE *file = fopen(filename, "r");
+
+    if (!file) {
+       return -1;
+    }
+
+    memset(http_users, 0, sizeof(http_users));
+    char line[512];
+    int user_count = 0;
+
+    while (fgets(line, sizeof(line), file) && user_count < HTTP_MAX_USERS) {
+      if (line[0] == '#' || line[0] == '\n') {
+         continue;  // Skip comments and empty lines
+      }
+
+      http_user_t *up = &http_users[user_count];
+      char *token = strtok(line, ":");
+      int i = 0;
+
+      while (token && i < 4) {
+         switch (i) {
+            case 0: // Username
+               strncpy(up->user, token, HTTP_USER_LEN);
+               break;
+            case 1: // Enabled flag
+               up->enabled = atoi(token);
+               break;
+            case 2: // Password hash
+               strncpy(up->pass, token, HTTP_PASS_LEN);
+               break;
+            case 3: // Privileges (not used in this example)
+               // Skipping privileges as they aren't currently implemented
+               break;
+         }
+         token = strtok(NULL, ":");
+         i++;
+      }
+      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, name=%s, enabled=%s, privs=%s", user_count, up->user, (up->enabled ? "true" : "false"), "N/A");
+      user_count++;
+   }
+   fclose(file);
+   return 0;  // Success
+}
+
+// Add a new client to the client list (HTTP or WebSocket)
+void http_add_client(struct mg_connection *c, bool is_ws, uint8_t uid, const char *session_token) {
+   http_client_t *new_client = (http_client_t *)malloc(sizeof(http_client_t));
+   if (!new_client) {
+      Log(LOG_WARN, "http", "Failed to allocate memory for new client");
+      return;
+   }
+
+   new_client->conn = c;                  // Set the connection
+   new_client->is_ws = is_ws;             // Set WebSocket flag
+   new_client->session.uid = uid;                 // Set the user ID (from http_users array)
+   strncpy(new_client->session.token, session_token, HTTP_HASH_LEN); // Copy session token
+   new_client->next = http_client_list;   // Add it to the front of the list
+   http_client_list = new_client;         // Update the head of the list
+   Log(LOG_DEBUG, "http", "Added new client");
+}
+
+const char *http_get_uname(int8_t uid) {
+   if (uid < 0 || uid > HTTP_MAX_USERS) {
+      Log(LOG_DEBUG, "http.auth", "get_uname: invalid uid: %d passed!", uid);
+      return NULL;
+   }
+   return http_users[uid].user;
+}
+
+// Remove a client (WebSocket or HTTP) from the list
+void http_remove_client(struct mg_connection *c) {
+   http_client_t *prev = NULL;
+   http_client_t *current = http_client_list;
+
+   while (current != NULL) {
+      if (current->conn == c) {
+         // Found the client to remove
+         if (prev == NULL) {
+            // Removing the first element
+            http_client_list = current->next;
+         } else {
+            // Removing a non-first element
+            prev->next = current->next;
+         }
+         Log(LOG_DEBUG, "http", "Client removed: uid=%d (%s)", current->session.uid, http_get_uname(current->session.uid));
+
+         // Free the memory allocated for this client
+         free(current);
+         return;
+      }
+
+      prev = current;
+      current = current->next;
+   }
+   Log(LOG_WARN, "http", "Attempted to remove client not in the list");
+}
+
 #endif	// defined(FEATURE_HTTP)

@@ -15,7 +15,7 @@ $(error ***ERROR*** Please create ${CF} first before building -- There is an exa
 endif
 
 CFLAGS := -std=gnu11 -g -O1 -Wall -Wno-unused -pedantic -std=gnu99
-LDFLAGS := -lc -lm -g
+LDFLAGS := -lc -lm -g -lcrypt
 CFLAGS += -I${BUILD_DIR} $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
@@ -87,6 +87,7 @@ objs += power.o			# Power monitoring and management
 objs += protection.o		# Protection features
 objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 objs += serial.o		# Serial port stuff
+objs += sha1.o			# for passwords
 objs += socket.o		# Socket operations
 objs += thermal.o		# Thermal management
 objs += timer.o			# Timers support
