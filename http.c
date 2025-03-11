@@ -35,7 +35,7 @@ extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 static char www_root[PATH_MAX];
 static char www_fw_ver[128];
-static char www_headers[512];
+static char www_headers[32768];
 static char www_404_path[PATH_MAX];
 
 http_client_t *http_client_list = NULL;
