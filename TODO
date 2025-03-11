@@ -53,6 +53,12 @@ minimal inet_ntop() for non-posix
         https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API
         - js/zmodemjs for zmodem upload
 * http auth db really needs to user the username to salt the password
+* When we reconnect, we should send a ping with our auth token
+  - The serve may respond with "expired" to tell us our session is invalid
+* display a Reconnecting symbol. on top in the corner
+* Rework the http_client stuff so that instead of being removed on disconnected,
+  we just use a last-seen time to expire their session. We should never have a ton
+  of people connected to the radio, so it should be fine this way
 
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards

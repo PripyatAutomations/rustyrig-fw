@@ -56,16 +56,105 @@ static struct http_res_types http_res_types[] = {
 };
 
 
-// Generate a session token (can be a random string or timestamp-based hash)
-static void generate_session_hash(char *token) {
-    // Generate a simple random session token (you can improve this with better entropy)
-    snprintf(token, HTTP_HASH_LEN + 1, "%08x", rand());  // Simple random token for demonstration
+http_client_t *http_find_client_by_c(struct mg_connection *c) {
+   http_client_t *cptr = http_client_list;
+   int i = 0;
+
+   while(cptr != NULL) {
+      if (cptr->conn == c) {
+         Log(LOG_DEBUG, "http.core.noisy", "find_client_by_c <%x> returning index %i: %x", c, i, cptr);
+         return cptr;
+      }
+      i++;
+      cptr = cptr->next;
+   }
+
+   Log(LOG_DEBUG, "http.core.noisy", "find_client_by_c <%x> no matches!", c);
+   return NULL;
 }
 
-///
-/// fwd decl
-void http_add_client(struct mg_connection *c, bool is_ws, uint8_t uid, const char *session_token);
-void http_remove_client(struct mg_connection *c);
+http_client_t *http_find_client_by_token(const char *token) {
+   http_client_t *cptr = NULL;
+   int i = 0;
+
+   while(cptr != NULL) {
+      if (cptr->token[0] == '\0') {
+         continue;
+      }
+
+      Log(LOG_DEBUG, "http.core.noisy", "hfcbt: trying index %i with nonce |%s| for token %s. Our token |%s|", i, cptr->nonce, cptr->token, token);
+
+      if (strncmp(cptr->token, token, strlen(token)) == 0) {
+         Log(LOG_DEBUG, "http.core.noisy", "hfcbt returning index %i for token |%s|", i, token);
+         return cptr;
+      }
+      i++;
+      cptr = cptr->next;
+   }
+
+   Log(LOG_DEBUG, "http.core.noisy", "hfcbt no matches for token |%s|!", token);
+   return NULL;
+}
+
+http_client_t *http_find_client_by_nonce(const char *nonce) {
+   http_client_t *cptr = NULL;
+   int i = 0;
+
+   while(cptr != NULL) {
+      if (cptr->nonce[0] == '\0') {
+         continue;
+      }
+
+      if (strcmp(cptr->nonce, nonce) == 0) {
+         Log(LOG_DEBUG, "http.core.noisy", "hfcbn returning index %i with token |%s| for nonce |%s|", i, cptr->token, cptr->nonce);
+         return cptr;
+      }
+      i++;
+      cptr = cptr->next;
+   }
+
+   Log(LOG_DEBUG, "http.core.noisy", "hfcbn %s no matches!", nonce);
+   return NULL;
+}
+
+
+void http_dump_clients(void) {
+   http_client_t *cptr = http_client_list;
+   int i = 0;
+
+   while(cptr != NULL) {
+      Log(LOG_DEBUG, "http.core.noisy", " => %d %sactive %swebsocket, conn: <%x>, token: |%s|, nonce: |%s|, next: <%x> ",
+          i, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->token,
+          cptr->nonce, cptr->next);
+      i++;
+      cptr = cptr->next;
+   }
+}
+
+void compute_wire_password(const unsigned char *password_hash, const char *nonce, unsigned char final_hash[20]) {
+   mg_sha1_ctx ctx;
+   char combined[HTTP_HASH_LEN+1];
+   char hex_output[HTTP_HASH_LEN+1];
+
+   // Ensure null termination and format "hash+nonce"
+   memcpy(combined, password_hash, 20);
+   combined[20] = '+';
+   strncpy(combined + 21, nonce, sizeof(combined) - 22);
+   combined[sizeof(combined) - 1] = '\0';
+
+   // Compute SHA1 of the combined string
+   mg_sha1_init(&ctx);
+   mg_sha1_update(&ctx, (unsigned char *)combined, strlen(combined));
+   mg_sha1_final(final_hash, &ctx);
+
+   // Convert to hex (for logging or debugging)
+   for (int i = 0; i < 20; i++) {
+      sprintf(hex_output + (i * 2), "%02x", final_hash[i]);
+   }
+   hex_output[41] = '\0';
+
+   Log(LOG_DEBUG, "http.auth", "Final SHA1: %s", hex_output);
+}
 
 // Returns HTTP Content-Type for the chosen short name (save some memory)
 static inline const char *get_hct(const char *type) {
@@ -193,15 +282,12 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
    } else if (ev == MG_EV_WS_OPEN) {
      Log(LOG_DEBUG, "http.noisy", "Conn. upgraded to ws");
-     char token[40];
-     generate_session_hash(token);
-     http_add_client(c, true, -1, token);
    } else if (ev == MG_EV_WS_MSG) {
      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
+     Log(LOG_DEBUG, "http.noisy", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
 
      // Respond to the WebSocket client
      ws_handle(msg, c);
-     Log(LOG_DEBUG, "http.noisy", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
    } else if (ev == MG_EV_CLOSE) {
      Log(LOG_DEBUG, "http.noisy", "HTTP conn closed");
      http_remove_client(c);
@@ -306,28 +392,30 @@ static int http_load_users(const char *filename) {
          token = strtok(NULL, ":");
          i++;
       }
-      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, name=%s, enabled=%s, privs=%s", user_count, up->user, (up->enabled ? "true" : "false"), "N/A");
+      Log(LOG_DEBUG, "http.auth", "load_users: user=%s, enabled=%s, privs=%s", up->user, (up->enabled ? "true" : "false"), "N/A");
       user_count++;
    }
+   Log(LOG_INFO, "http.auth", "Loaded %d users from %s", user_count, filename);
    fclose(file);
-   return 0;  // Success
+   return 0;
 }
 
 // Add a new client to the client list (HTTP or WebSocket)
-void http_add_client(struct mg_connection *c, bool is_ws, uint8_t uid, const char *session_token) {
+http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    http_client_t *new_client = (http_client_t *)malloc(sizeof(http_client_t));
    if (!new_client) {
       Log(LOG_WARN, "http", "Failed to allocate memory for new client");
-      return;
+      return NULL;
    }
 
+   new_client->active = true;
    new_client->conn = c;                  // Set the connection
    new_client->is_ws = is_ws;             // Set WebSocket flag
-   new_client->session.uid = uid;                 // Set the user ID (from http_users array)
-   strncpy(new_client->session.token, session_token, HTTP_HASH_LEN); // Copy session token
    new_client->next = http_client_list;   // Add it to the front of the list
    http_client_list = new_client;         // Update the head of the list
-   Log(LOG_DEBUG, "http", "Added new client");
+
+   Log(LOG_DEBUG, "http", "Added new client at <%x>", new_client);
+   return new_client;
 }
 
 const char *http_get_uname(int8_t uid) {
@@ -346,17 +434,17 @@ void http_remove_client(struct mg_connection *c) {
    while (current != NULL) {
       if (current->conn == c) {
          // Found the client to remove
+         current->active = false;
+
          if (prev == NULL) {
-            // Removing the first element
             http_client_list = current->next;
          } else {
-            // Removing a non-first element
             prev->next = current->next;
          }
-         Log(LOG_DEBUG, "http", "Client removed: uid=%d (%s)", current->session.uid, http_get_uname(current->session.uid));
 
-         // Free the memory allocated for this client
+         memset(current, 0, sizeof(http_client_t));
          free(current);
+         Log(LOG_DEBUG, "http", "Client with conn |%x| removed", c);
          return;
       }
 

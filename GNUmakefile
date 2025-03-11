@@ -87,7 +87,7 @@ objs += power.o			# Power monitoring and management
 objs += protection.o		# Protection features
 objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 objs += serial.o		# Serial port stuff
-objs += sha1.o			# for passwords
+#objs += sha1.o			# for passwords
 objs += socket.o		# Socket operations
 objs += thermal.o		# Thermal management
 objs += timer.o			# Timers support
@@ -196,8 +196,7 @@ ${CF}:
 	exit 1
 
 installdep:
-	apt install libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl libjson-perl libstring-crc32-perl libgpiod-dev libjpeg-dev libpipewire-0.3-dev libjpeg-dev libopus-dev
-	cpan install Mojo::JSON::Pointer
+	@./install-deps.sh
 
 ext/libmongoose/mongoose.c:
 	@echo "You forgot to git submodule init; git submodule update. Doing it for you!"

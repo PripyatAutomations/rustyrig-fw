@@ -269,3 +269,9 @@ button {
    color: red;
    margin: 5px 0;
 }
+
+.msg-connected {
+   font-size: 24px;
+   color: DarkGreen;
+   margin: 5px 0;
+}

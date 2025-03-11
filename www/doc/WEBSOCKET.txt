@@ -3,6 +3,7 @@ $type: { payload }
 
 types:
 	au		Audio samples
+	auth		Login/Logout/Pass Change
 	cat		CAT messages
 	log		Log messages
 	rom		EEPROM manager commands
@@ -11,6 +12,10 @@ types:
 
 [au]
 	config, frame
+
+[auth]
+	cmd
+		login|pass|logout
 
 [cat]
 	cmd, val
@@ -34,3 +39,4 @@ types:
 	msg, ts	- Timestamped console message
 
 [wf]
+	samp	- Waterfall samples (from server)
