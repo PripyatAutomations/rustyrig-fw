@@ -55,8 +55,9 @@ static struct http_res_types http_res_types[] = {
    { "json", "Content-Type: application/json\r\n" },
 };
 
-
 http_client_t *http_find_client_by_c(struct mg_connection *c) {
+//   Log(LOG_DEBUG, "http.ugly", "find by c, dumping list");
+//   http_dump_clients();
    http_client_t *cptr = http_client_list;
    int i = 0;
 
@@ -74,7 +75,9 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
 }
 
 http_client_t *http_find_client_by_token(const char *token) {
-   http_client_t *cptr = NULL;
+//   Log(LOG_DEBUG, "http.ugly", "find by token, dumping list");
+//   http_dump_clients();
+   http_client_t *cptr = http_client_list;
    int i = 0;
 
    while(cptr != NULL) {
@@ -82,10 +85,8 @@ http_client_t *http_find_client_by_token(const char *token) {
          continue;
       }
 
-      Log(LOG_DEBUG, "http.core.noisy", "hfcbt: trying index %i with nonce |%s| for token %s. Our token |%s|", i, cptr->nonce, cptr->token, token);
-
-      if (strncmp(cptr->token, token, strlen(token)) == 0) {
-         Log(LOG_DEBUG, "http.core.noisy", "hfcbt returning index %i for token |%s|", i, token);
+      if (memcmp(cptr->token, token, strlen(cptr->token)) == 0) {
+//         Log(LOG_DEBUG, "http.core.noisy", "hfcbt returning index %i for token |%s|", i, token);
          return cptr;
       }
       i++;
@@ -97,7 +98,9 @@ http_client_t *http_find_client_by_token(const char *token) {
 }
 
 http_client_t *http_find_client_by_nonce(const char *nonce) {
-   http_client_t *cptr = NULL;
+//   Log(LOG_DEBUG, "http.ugly", "find by nonce, dumping list");
+//   http_dump_clients();
+   http_client_t *cptr = http_client_list;
    int i = 0;
 
    while(cptr != NULL) {
@@ -105,7 +108,7 @@ http_client_t *http_find_client_by_nonce(const char *nonce) {
          continue;
       }
 
-      if (strcmp(cptr->nonce, nonce) == 0) {
+      if (memcmp(cptr->nonce, nonce, strlen(cptr->nonce)) == 0) {
          Log(LOG_DEBUG, "http.core.noisy", "hfcbn returning index %i with token |%s| for nonce |%s|", i, cptr->token, cptr->nonce);
          return cptr;
       }
@@ -117,14 +120,13 @@ http_client_t *http_find_client_by_nonce(const char *nonce) {
    return NULL;
 }
 
-
 void http_dump_clients(void) {
    http_client_t *cptr = http_client_list;
    int i = 0;
 
    while(cptr != NULL) {
-      Log(LOG_DEBUG, "http.core.noisy", " => %d %sactive %swebsocket, conn: <%x>, token: |%s|, nonce: |%s|, next: <%x> ",
-          i, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->token,
+      Log(LOG_DEBUG, "http.core.noisy", " => %d at <%x> %sactive %swebsocket, conn: <%x>, token: |%s|, nonce: |%s|, next: <%x> ",
+          i, cptr, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->token,
           cptr->nonce, cptr->next);
       i++;
       cptr = cptr->next;
@@ -154,6 +156,20 @@ void compute_wire_password(const unsigned char *password_hash, const char *nonce
    hex_output[41] = '\0';
 
    Log(LOG_DEBUG, "http.auth", "Final SHA1: %s", hex_output);
+}
+
+static int generate_nonce(char *buffer, size_t length) {
+   static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+   size_t i;
+
+   if (length < 1) return 0;  // Ensure valid length
+
+   for (i = 0; i < (length - 2); i++) {
+      buffer[i] = base64_chars[rand() % 64];  // Directly assign base64 characters
+   }
+   
+   buffer[length] = '\0';  // Null terminate
+   return length;
 }
 
 // Returns HTTP Content-Type for the chosen short name (save some memory)
@@ -281,15 +297,11 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
-     Log(LOG_DEBUG, "http.noisy", "Conn. upgraded to ws");
+//     Log(LOG_DEBUG, "http.noisy", "Conn. upgraded to ws");
    } else if (ev == MG_EV_WS_MSG) {
      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
-     Log(LOG_DEBUG, "http.noisy", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
-
-     // Respond to the WebSocket client
      ws_handle(msg, c);
    } else if (ev == MG_EV_CLOSE) {
-     Log(LOG_DEBUG, "http.noisy", "HTTP conn closed");
      http_remove_client(c);
    }
 }
@@ -403,16 +415,23 @@ static int http_load_users(const char *filename) {
 // Add a new client to the client list (HTTP or WebSocket)
 http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    http_client_t *new_client = (http_client_t *)malloc(sizeof(http_client_t));
+
    if (!new_client) {
       Log(LOG_WARN, "http", "Failed to allocate memory for new client");
       return NULL;
    }
+   memset(new_client, 0, sizeof(http_client_t));
+
+   generate_nonce(new_client->nonce, sizeof(new_client->nonce));
+   generate_nonce(new_client->token, sizeof(new_client->token));
 
    new_client->active = true;
-   new_client->conn = c;                  // Set the connection
-   new_client->is_ws = is_ws;             // Set WebSocket flag
-   new_client->next = http_client_list;   // Add it to the front of the list
-   http_client_list = new_client;         // Update the head of the list
+   new_client->conn = c;
+   new_client->is_ws = is_ws;
+
+   // Add to the top of the list
+   new_client->next = http_client_list;
+   http_client_list = new_client;
 
    Log(LOG_DEBUG, "http", "Added new client at <%x>", new_client);
    return new_client;

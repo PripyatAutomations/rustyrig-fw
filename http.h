@@ -59,7 +59,10 @@ extern void http_remove_client(struct mg_connection *c);
 extern http_client_t *http_find_client_by_c(struct mg_connection *c);
 extern http_client_t *http_find_client_by_token(const char *token);
 extern http_client_t *http_find_client_by_nonce(const char *nonce);
+extern void http_dump_clients(void);
 extern void compute_wire_password(const unsigned char *password_hash, const char *nonce, unsigned char final_hash[20]);
+
+//////////////////
 extern http_client_t *http_client_list;
 
 #endif	// !defined(__rr_http_h)
