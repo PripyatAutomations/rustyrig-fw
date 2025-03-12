@@ -60,7 +60,7 @@ bool ws_send_userlist(void) {
    int count = 0;
    for (int i = 0; i < HTTP_MAX_USERS; i++) {
       if (http_users[i].enabled) {
-         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s\"", count++ ? "," : "", http_users[i].user);
+         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s\"", count++ ? "," : "", http_users[i].name);
          if (len >= sizeof(resp_buf)) break;  // Prevent buffer overflow
       }
    }
@@ -136,7 +136,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
             char msgbuf[512];
             struct mg_str mp;
             memset(msgbuf, 0, sizeof(msgbuf));
-            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\" } }", cptr->user, data);
+            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\" } }", cptr->user->name, data);
             Log(LOG_DEBUG, "chat.noisy", "sending |%s| (%lu of %lu max bytes) to all clients", msgbuf, strlen(msgbuf), sizeof(msgbuf));
             mp = mg_str(msgbuf);
             ws_broadcast(c, &mp);
@@ -159,7 +159,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       if (strcmp(cmd, "login") == 0) {
          // Construct the response
          char resp_buf[512];
-         srand((unsigned int)time(NULL));
+
          memset(resp_buf, 0, sizeof(resp_buf));
          Log(LOG_DEBUG, "auth.noisy", "Login request from user %s", user);
 
@@ -167,9 +167,12 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
          if (cptr == NULL) {
             return true;
          }
-         memset(cptr->user, 0, sizeof(cptr->user));
-         memcpy(cptr->user, user, sizeof(cptr->user));
-
+         for (int i = 0; i < HTTP_MAX_USERS; i++) {
+            if (strcasecmp(http_users[i].name, user) == 0) {
+               cptr->user = &http_users[i];
+               break;
+            }
+         }
          snprintf(resp_buf, sizeof(resp_buf), 
                   "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }", 
                   cptr->nonce, user, cptr->token);
@@ -184,31 +187,36 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
          char *req_token = mg_json_get_str(msg_data, "$.auth.token");
          char *token = mg_json_get_str(msg_data, "$.auth.token");
 
-         if (pass == NULL) {
-            ws_kick_client_by_c(c, "auth/pass ws msg without password");
+         if (pass == NULL || token == NULL) {
+            Log(LOG_DEBUG, "auth", "auth pass command without without password <%x> / token <%x>", pass, token);
+            ws_kick_client_by_c(c, "auth.pass message incomplete/invalid. Goodbye");
+            return false;
          }
 
          http_client_t *cptr = http_find_client_by_token(token);
-         int login_uid = cptr->uid;
-         Log(LOG_DEBUG, "auth.noisy", "PASS: cptr <%x>", cptr);
 
          if (cptr == NULL) {
             Log(LOG_DEBUG, "auth", "Unable to find client in PASS parsing");
             http_dump_clients();
-         } else {
-            Log(LOG_DEBUG, "auth.noisy", "PASS from cptr <%x> with token |%s|", cptr, token);
+            return true;
          }
 
+         if (cptr->user == NULL) {
+            Log(LOG_DEBUG, "auth", "cptr-> user == NULL!");
+            http_dump_clients();
+            return true;
+         }
+
+         int login_uid = cptr->user->uid; // = const char *http_get_uname();
          if (login_uid < 0 || login_uid > HTTP_MAX_USERS) {
-            Log(LOG_DEBUG, "auth.noisy", "Couldn't find uid for username %s", cptr->user);
+            Log(LOG_DEBUG, "auth.noisy", "Invalid uid for username %s", cptr->user->name);
             ws_kick_client(cptr, "Invalid login");
             return true;
          }
 
-         // Address the user database entry
          http_user_t *up = &http_users[login_uid];
          if (up == NULL) {
-            Log(LOG_DEBUG, "auth.noisy", "Uid %d returned NULL http_user_t", login_uid);
+            Log(LOG_CRIT, "auth", "Uid %d returned NULL http_user_t", login_uid);
             return true;
          }
 
@@ -220,9 +228,11 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
                      "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\" } }", 
                      user, token);
             mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
-            Log(LOG_DEBUG, "auth.noisy", "Sending |%s| to user", resp_buf);
+            Log(LOG_INFO, "auth", "User %s <%d> on cptr <%x> logged in with privs: %s",
+                cptr->user->name, cptr->user->uid, cptr, http_users[cptr->user->uid].privs);
          } else {
-            ws_kick_client(cptr, "Invalid login");
+            Log(LOG_INFO, "auth", "User %s on cptr <%x> gave wrong password. Disconnecting", cptr->user, cptr);
+            ws_kick_client(cptr, "Invalid login/password");
          }
       }
    }
