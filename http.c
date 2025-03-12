@@ -1,4 +1,3 @@
-//
 // Here we deal with http requests using mongoose
 //
 #include "config.h"
@@ -54,6 +53,29 @@ static struct http_res_types http_res_types[] = {
    { "html", "Content-Type: text/html\r\n" },
    { "json", "Content-Type: application/json\r\n" },
 };
+
+int http_user_index(const char *user) {
+   int rv = -1;
+
+   if (user == NULL) {
+      return -1;
+   }
+
+   for (int i = 0; i < HTTP_MAX_USERS; i++) {
+      http_user_t *up = &http_users[i];
+
+      if (up->user[0] == '\0' || up->pass[0] == '\0') {
+         continue;
+      }
+
+      Log(LOG_DEBUG, "http.auth,noisy", "Comparing login username uid [%d]", i);
+      if (strcasecmp(up->user, user) == 0) {
+         Log(LOG_DEBUG, "http.auth.noisy", "Found uid %d for username %s", i, user);
+         return i;
+      }
+   }
+   return rv;
+}
 
 http_client_t *http_find_client_by_c(struct mg_connection *c) {
 //   Log(LOG_DEBUG, "http.ugly", "find by c, dumping list");
@@ -120,6 +142,26 @@ http_client_t *http_find_client_by_nonce(const char *nonce) {
    return NULL;
 }
 
+bool http_save_users(const char *filename) {
+  FILE *file = fopen(filename, "r");
+
+  if (!file) {
+     return true;
+  }
+
+  Log(LOG_DEBUG, "http.auth", "Saving HTTP user database");
+  for (int i = 0; i < HTTP_MAX_USERS; i++) {
+     http_user_t *up = &http_users[i];
+
+     if (up->user[0] != '\0' && up->pass[0] != '\0') {
+        Log(LOG_DEBUG, "http.auth", " => %s %sabled with privileges: %s", up->user, (up->enabled ? "en" :"dis"),  up->pass);
+        fprintf(file, "%d:%s:%d:%s:%s\n", up->uid, up->user, up->enabled, up->pass, (up->privs[0] != '\0' ? up->privs : "none"));
+     }
+  }
+  fclose(file);
+  return true;
+}
+
 void http_dump_clients(void) {
    http_client_t *cptr = http_client_list;
    int i = 0;
@@ -133,29 +175,33 @@ void http_dump_clients(void) {
    }
 }
 
-void compute_wire_password(const unsigned char *password_hash, const char *nonce, unsigned char final_hash[20]) {
-   mg_sha1_ctx ctx;
+unsigned char *compute_wire_password(const unsigned char *password_hash, const char *nonce) {
+   unsigned char *final_hash = (unsigned char *)malloc(20);
    char combined[HTTP_HASH_LEN+1];
    char hex_output[HTTP_HASH_LEN+1];
+   mg_sha1_ctx ctx;
 
-   // Ensure null termination and format "hash+nonce"
-   memcpy(combined, password_hash, 20);
-   combined[20] = '+';
-   strncpy(combined + 21, nonce, sizeof(combined) - 22);
-   combined[sizeof(combined) - 1] = '\0';
+   if (final_hash == NULL) {
+      Log(LOG_DEBUG, "http.auth", "oom in compute_wire_password");
+      return NULL;
+   }
+
+   memset((void *)final_hash, 0, 20);
+   memset(combined, 0, sizeof(combined));
+   snprintf(combined, sizeof(combined), "%s+%s", password_hash, nonce);
 
    // Compute SHA1 of the combined string
    mg_sha1_init(&ctx);
    mg_sha1_update(&ctx, (unsigned char *)combined, strlen(combined));
    mg_sha1_final(final_hash, &ctx);
 
-   // Convert to hex (for logging or debugging)
+   /* Print out the result */
    for (int i = 0; i < 20; i++) {
-      sprintf(hex_output + (i * 2), "%02x", final_hash[i]);
+      sprintf(hex_output + (i * 2), "%02x", combined[i]);
    }
    hex_output[41] = '\0';
-
-   Log(LOG_DEBUG, "http.auth", "Final SHA1: %s", hex_output);
+   Log(LOG_DEBUG, "http.auth", "cwp: Final SHA1: %s", hex_output);
+   return final_hash;
 }
 
 static int generate_nonce(char *buffer, size_t length) {
@@ -359,6 +405,12 @@ bool http_init(struct mg_mgr *mgr) {
    }
 
    Log(LOG_INFO, "http", "HTTP listening at %s with www-root at %s", listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
+
+   mg_timer_add(mgr, CHAT_NAMES_INTERVAL, MG_TIMER_REPEAT, ws_blorp_userlist_cb, NULL);
+
+   // XXX: TEMP: dump client list & save users
+   http_dump_clients();
+   http_save_users("/tmp/test-users.save");
    return false;
 }
 
@@ -382,29 +434,46 @@ static int http_load_users(const char *filename) {
          continue;  // Skip comments and empty lines
       }
 
-      http_user_t *up = &http_users[user_count];
-      char *token = strtok(line, ":");
-      int i = 0;
+      // Remove trailing \r or \n characters
+      char *end = line + strlen(line) - 1;
+      while (end >= line && (*end == '\r' || *end == '\n')) {
+         *end = '\0';
+         end--;
+      }
 
-      while (token && i < 4) {
+      // Trim leading spaces
+      char *start = line + strspn(line, " \t\r\n");  // Skip spaces, tabs, carriage returns, and newlines
+      if (start != line) {
+         memmove(line, start, strlen(start) + 1);  // Move the content to the front
+      }
+
+      http_user_t *up = NULL;
+      char *token = strtok(line, ":");
+      int i = 0, uid = -1;
+
+      while (token && i < 5) {
          switch (i) {
-            case 0: // Username
+            case 0: // uid
+               uid = atoi(token);
+               up = &http_users[uid];
+               break;
+            case 1: // Username
                strncpy(up->user, token, HTTP_USER_LEN);
                break;
-            case 1: // Enabled flag
+            case 2: // Enabled flag
                up->enabled = atoi(token);
                break;
-            case 2: // Password hash
+            case 3: // Password hash
                strncpy(up->pass, token, HTTP_PASS_LEN);
                break;
-            case 3: // Privileges (not used in this example)
-               // Skipping privileges as they aren't currently implemented
+            case 4: // Privileges
+               memcpy(up->privs, token, USER_PRIV_LEN);
                break;
          }
          token = strtok(NULL, ":");
          i++;
       }
-      Log(LOG_DEBUG, "http.auth", "load_users: user=%s, enabled=%s, privs=%s", up->user, (up->enabled ? "true" : "false"), "N/A");
+      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->user, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
       user_count++;
    }
    Log(LOG_INFO, "http.auth", "Loaded %d users from %s", user_count, filename);
@@ -422,9 +491,10 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    }
    memset(new_client, 0, sizeof(http_client_t));
 
-   generate_nonce(new_client->nonce, sizeof(new_client->nonce));
+   // create some nonces for login hashing and session
    generate_nonce(new_client->token, sizeof(new_client->token));
-
+   generate_nonce(new_client->nonce, sizeof(new_client->nonce));
+   new_client->authenticated = false;
    new_client->active = true;
    new_client->conn = c;
    new_client->is_ws = is_ws;
@@ -433,7 +503,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    new_client->next = http_client_list;
    http_client_list = new_client;
 
-   Log(LOG_DEBUG, "http", "Added new client at <%x>", new_client);
+   Log(LOG_DEBUG, "http", "Added new client at <%x> token: |%s| nonce: |%s|", new_client, new_client->token, new_client->nonce);
    return new_client;
 }
 
@@ -452,7 +522,7 @@ void http_remove_client(struct mg_connection *c) {
 
    while (current != NULL) {
       if (current->conn == c) {
-         // Found the client to remove
+         // Found the client to remove, nark it dead
          current->active = false;
 
          if (prev == NULL) {

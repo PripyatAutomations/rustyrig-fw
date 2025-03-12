@@ -4,6 +4,7 @@
 // XXX: Register an interest in events on ws
 // XXX: Update the display whenever websocket event comes in
 var socket;
+let ws_kicked = false;		// were were kicked? stop autoreconnects if so
 let reconnecting = false;
 let reconnectDelay = 1000; // Start with 1 second
 let reconnectInterval = [1000, 5000, 10000, 30000, 60000, 300000]; // Delay intervals in ms
@@ -14,6 +15,19 @@ var auth_user;
 var auth_token;
 var remote_nonce;
 var login_user;
+
+function try_login() {
+   login_user = $('input#user').val().toUpperCase();
+   console.log("Logging in as", login_user, "...");
+   // Send login request via websocket
+   var msgObj = {
+      "auth": {
+         "cmd": "login",
+         "user": login_user
+      }
+   };
+   socket.send(JSON.stringify(msgObj));
+}
 
 $(document).ready(function() {
    // XXX: If not authenticated
@@ -26,8 +40,9 @@ $(document).ready(function() {
 
    // If the password field is change
    $('input#user').change(function() {
-      // try to save the user from the form
-      login_user = $('input#user').val();
+      // Cache the username and force to upper case
+      login_user = $('input#user').val().toUpperCase();
+      $('input#user').val = login_user;
    });
 
 
@@ -37,8 +52,8 @@ $(document).ready(function() {
       let pass = $("input#pass");
       if (user.val().trim() === "") {
          flashRed(user);
-         event.preventDefault(); // Prevent form submission
-         return; // Stop checking further
+         event.preventDefault();
+         return;
       }
 
       if (pass.val().trim() === "") {
@@ -47,25 +62,15 @@ $(document).ready(function() {
          return;
       }
 
-      login_user = $('input#user').val();
-      console.log("Logging in as", login_user, "...");
-      // Send login request via websocket
-      var msgObj = {
-         "auth": {
-            "cmd": "login",
-            "user": login_user
-         }
-      };
-      socket.send(JSON.stringify(msgObj));
+      ws_connect();
       evt.preventDefault();
    });
 
    $('input#reset').click(function(evt) {
       console.log("Form reset");
    });
-   bellAudio = document.getElementById('bell-sound'); // Get the audio element
+   bellAudio = document.getElementById('bell-sound');
    form_disable(true);
-   createWebSocket();
 
    // clear button
    $('#clear-btn').click(function() {
@@ -203,7 +208,7 @@ function show_connecting(state) {
    }
 }
 
-function createWebSocket() {
+function ws_connect() {
    // Clear any previous reconnecting flag
    reconnecting = false;
    show_connecting(true);
@@ -211,6 +216,7 @@ function createWebSocket() {
    
    socket.onopen = function() {
       show_connecting(false);
+      try_login();
       form_disable(false);
       append_chatbox('<div class="chat-status">👽 WebSocket connected.</div>');
       reconnecting = false; // Reset reconnect flag on successful connection
@@ -268,6 +274,19 @@ function createWebSocket() {
             console.log("log message:", data);
          } else if (msgObj.auth) {
             var cmd = msgObj.auth.cmd;
+            var error = msgObj.auth.error;
+
+            if (error) {
+               var error = msgObj.auth.error;
+               console.log("Authentication error! Status: ", error);
+               $('span#sub-login-error-msg').empty();
+               $('span#sub-login-error-msg').append("<span>Server replied: ", error, "</span>");
+               $('div#sub-login-error').show();
+               // Stop auto-reconnecting
+               stopReconnecting();
+               return false;
+            }
+
             switch (cmd) {
                case 'authorized':
                   if (msgObj.auth.user) {
@@ -279,7 +298,6 @@ function createWebSocket() {
                   }
 
                   hide_login_window();
-
                   append_chatbox('<div><span class="msg-connected">👽&nbsp;***&nbsp Welcome back, ' + auth_user + '&nbsp;***</span></div>');
                   console.log("Got AUTHORIZED from server as username: ", auth_user, " with token ", auth_token);
                   break;
@@ -291,14 +309,17 @@ function createWebSocket() {
                      auth_token = token;
                   }
 
-                  var firstHash = sha1Hex(utf8Encode(login_user)); // Ensure correct encoding
-                  var combinedString = firstHash + '+' + nonce;
-                  var hashed_pass = sha1Hex(utf8Encode(combinedString));
+                  var login_pass = $('input#pass').val;
+// XXX: This needs reworked a bit to user the double-hashing for replay protection
+//                  var firstHash = sha1Hex(utf8Encode(login_pass)); // Ensure correct encoding
+//                  var combinedString = firstHash + '+' + nonce;
+//                  var hashed_pass = sha1Hex(utf8Encode(combinedString));
                   var msgObj = {
                      "auth": {
                         "cmd": "pass",
                         "user": login_user,
-                        "pass": hashed_pass,
+                        "pass": login_pass,
+//                        "pass": hashed_pass,
                         "token": auth_token
                      }
                   };
@@ -306,12 +327,6 @@ function createWebSocket() {
                   console.log("Got challenge with nonce ", nonce, ", sending response", msgObj_t);
                   socket.send(msgObj_t);
 
-                  break;
-               case 'error':
-                  var error = msgObj.auth.error;
-                  console.log("Authentication error! Status: ", error);
-                  // Stop auto-reconnecting
-                  alert("Authentication error: " + error);
                   break;
                case 'expired':
                   console.log("Session expired!");
@@ -349,7 +364,7 @@ function handleReconnect() {
    
    // Reattempt connection after delay
    reconnectTimer = setTimeout(function() {
-      createWebSocket();
+      ws_connect();
 
       // increase delay for the next try
       reconnectDelay = reconnectInterval[Math.min(reconnectInterval.length - 1, reconnectInterval.indexOf(reconnectDelay) + 1)];

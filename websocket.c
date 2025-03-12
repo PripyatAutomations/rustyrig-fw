@@ -51,6 +51,64 @@ void hash_to_hex(char *dest, const uint8_t *hash, size_t len) {
    dest[len * 2] = '\0'; 			 // Null-terminate the string
 }
 
+
+
+bool ws_send_userlist(void) {
+   char resp_buf[512];
+   int len = mg_snprintf(resp_buf, sizeof(resp_buf), "{ \"talk\": { \"cmd\": \"names\", \"users\": [");
+
+   int count = 0;
+   for (int i = 0; i < HTTP_MAX_USERS; i++) {
+      if (http_users[i].enabled) {
+         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s\"", count++ ? "," : "", http_users[i].user);
+         if (len >= sizeof(resp_buf)) break;  // Prevent buffer overflow
+      }
+   }
+
+   mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }");
+
+   // Send the response over WebSocket (assuming you have a valid `c` connection)
+   // mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+   
+   return false;
+}
+
+void ws_blorp_userlist_cb(void *arg) {
+   ws_send_userlist();
+   (void)arg;
+}
+
+bool ws_kick_client(http_client_t *cptr, const char *reason) {
+   char resp_buf[512];
+   struct mg_connection *c = cptr->conn;
+   
+   if (cptr == NULL || cptr->conn == NULL) {
+      Log(LOG_DEBUG, "auth.noisy", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+      return true;
+   }
+
+   memset(resp_buf, 0, sizeof(resp_buf));
+   snprintf(resp_buf, sizeof(resp_buf), "{ \"auth\": { \"error\": \"Disconnected: %s.\" } }", reason);
+   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+   mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
+   http_remove_client(c);
+
+   return false;
+}
+
+bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
+   char resp_buf[512];
+
+   http_client_t *cptr = http_find_client_by_c(c);
+   
+   if (cptr == NULL || cptr->conn == NULL) {
+      Log(LOG_DEBUG, "auth.noisy", "ws_kick_client_by_c for mg_conn <%x> has cptr <%x> and is invalid", c, (cptr != NULL ? cptr->conn : NULL));
+      return true;
+   }
+
+   return ws_kick_client(cptr, reason);
+}
+
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
 
@@ -109,57 +167,63 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
          if (cptr == NULL) {
             return true;
          }
+         memset(cptr->user, 0, sizeof(cptr->user));
          memcpy(cptr->user, user, sizeof(cptr->user));
 
-         // Safely format the response message without overwriting
          snprintf(resp_buf, sizeof(resp_buf), 
                   "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }", 
                   cptr->nonce, user, cptr->token);
-
-         // Send the response message
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
          Log(LOG_DEBUG, "auth.noisy", "Sending login challenge |%s| to user", resp_buf);
       } else if (strcmp(cmd, "logout") == 0) {
          char *token = mg_json_get_str(msg_data, "$.auth.token");
-         http_client_t *cptr = NULL;
-
-         if (token != NULL && token[0] != '\0') {
-            http_find_client_by_token(token);
-         }
-
-         Log(LOG_DEBUG, "auth.noisy", "Logout request from session token %s", cptr->token);
+         Log(LOG_DEBUG, "auth.noisy", "Logout request from session token |%s|", (token != NULL ? token : "NONE"));
+         ws_kick_client_by_c(c, "Logged out");
       } else if (strcmp(cmd, "pass") == 0) {
          char *pass = mg_json_get_str(msg_data, "$.auth.pass");
          char *req_token = mg_json_get_str(msg_data, "$.auth.token");
-         char *nonce = NULL;
          char *token = mg_json_get_str(msg_data, "$.auth.token");
 
+         if (pass == NULL) {
+            ws_kick_client_by_c(c, "auth/pass ws msg without password");
+         }
+
          http_client_t *cptr = http_find_client_by_token(token);
+         int login_uid = cptr->uid;
+         Log(LOG_DEBUG, "auth.noisy", "PASS: cptr <%x>", cptr);
 
          if (cptr == NULL) {
             Log(LOG_DEBUG, "auth", "Unable to find client in PASS parsing");
             http_dump_clients();
+         } else {
+            Log(LOG_DEBUG, "auth.noisy", "PASS from cptr <%x> with token |%s|", cptr, token);
          }
 
-         nonce = cptr->nonce;
-         char resp_buf[512];
-         memset(resp_buf, 0, sizeof(resp_buf));
+         if (login_uid < 0 || login_uid > HTTP_MAX_USERS) {
+            Log(LOG_DEBUG, "auth.noisy", "Couldn't find uid for username %s", cptr->user);
+            ws_kick_client(cptr, "Invalid login");
+            return true;
+         }
 
-         // Safely format the response message without overwriting
-         snprintf(resp_buf, sizeof(resp_buf), 
-                  "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\" } }", 
-                  user, token);
+         // Address the user database entry
+         http_user_t *up = &http_users[login_uid];
+         if (up == NULL) {
+            Log(LOG_DEBUG, "auth.noisy", "Uid %d returned NULL http_user_t", login_uid);
+            return true;
+         }
 
-         // Send the response message
-         mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
-         Log(LOG_DEBUG, "auth.noisy", "Sending |%s| to user", resp_buf);
-
-         // User is sending hashed password
-//         Log(LOG_DEBUG, "auth.noisy", "PASS from user %s with token %s (pass: |%s|)", user, token, pass);
-/*
-         compute_wire_password(password_hash, nonce, final_hash);
-         Log(LOG_DEBUG, "auth.noisy", "My computed result for pass |%s| with nonce |%s| is |%s|", password_hash, nonce, final_hash);
-*/
+         if (strcmp(up->pass, pass) == 0) {
+            cptr->authenticated = true;
+            char resp_buf[512];
+            memset(resp_buf, 0, sizeof(resp_buf));
+            snprintf(resp_buf, sizeof(resp_buf), 
+                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\" } }", 
+                     user, token);
+            mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+            Log(LOG_DEBUG, "auth.noisy", "Sending |%s| to user", resp_buf);
+         } else {
+            ws_kick_client(cptr, "Invalid login");
+         }
       }
    }
 

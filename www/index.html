@@ -13,8 +13,27 @@
   </style>
  </head>
  <body>
+  <noscript>
+   <h1>Please enable javascript!</h1>
+   <p>
+   This site wouldn't be possible without javascript. Please enable it or
+   upgrade your browser to a recent firefox or chromium.
+   </p>
+  </noscript>
   <!-- XXX: we need to split these out into partials loaded at runtime -->
   <div id="win-login" class="window">
+   <div id="sub-login-error" class="modal">
+    <span id="sub-login-error-msg"></span><br/>
+    <center><button id="login-err-ok">OK</button></center>
+    <script>
+    $(document).ready(function() {
+       $('button#login-err-ok').click(function() {
+          $('div#sub-login-error').hide();
+          $('span#sub-login-error-msg').empty();
+       });
+    });
+    </script>
+   </div>
    <form id="login">
     <table id="tbl-login">
      <tr><td colspan="2"><h3 class="red">Login Required</h3></td></tr>

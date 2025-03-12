@@ -50,6 +50,38 @@ body {
    width: 99.9%;
 }
 
+#sub-login-error {
+   display: none;
+   border: 2px solid red;
+   background: DarkRed;
+   position: absolute;
+   padding: 1em;
+   font-size: 1.5em;
+   color: white;
+   height: 5em;
+   width: 12em;
+   top: 0.25em;
+   left: 5em;
+   z-index: 100000;
+}
+
+#sub-login-error-msg {
+   word-wrap: break-word;  /* Ensures long words break */
+   overflow-wrap: break-word; /* Modern equivalent */
+   white-space: normal;  /* Allows text to wrap */
+}
+
+#login-err-ok {
+   border: 2px solid IndianRed;
+   border-radius: 10px;
+   background: #f00000;
+   color: white;
+   padding: 0.5e 1em 0.5em 1em;
+   margin-top: 1em;
+   font-size: 1em;
+   font-weight: bold;
+}
+
 #win-chat {
    display: none;
 }
