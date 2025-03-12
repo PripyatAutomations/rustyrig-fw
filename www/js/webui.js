@@ -4,7 +4,7 @@
 // XXX: Register an interest in events on ws
 // XXX: Update the display whenever websocket event comes in
 var socket;
-let ws_kicked = false;		// were were kicked? stop autoreconnects if so
+var ws_kicked = false;		// were were kicked? stop autoreconnects if so
 let reconnecting = false;
 let reconnectDelay = 1000; // Start with 1 second
 let reconnectInterval = [1000, 5000, 10000, 30000, 60000, 300000]; // Delay intervals in ms
@@ -33,7 +33,7 @@ $(document).ready(function() {
    // XXX: If not authenticated
    if (true) {
       // put a chroma-hash widget on password fields
-      var chroma_hash = $("input:password").chromaHash({ bars: 3, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
+//      var chroma_hash = $("input:password").chromaHash({ bars: 3, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
 
       $('#win-login input#user').focus();
    }
@@ -50,6 +50,7 @@ $(document).ready(function() {
    $('form#login').submit(function(evt) {
       let user = $("input#user");
       let pass = $("input#pass");
+
       if (user.val().trim() === "") {
          flashRed(user);
          event.preventDefault();
@@ -62,6 +63,8 @@ $(document).ready(function() {
          return;
       }
 
+      // Since this is a manual reconnect attempt, allow it, if we were previously kicked
+      ws_kicked = false;
       ws_connect();
       evt.preventDefault();
    });
@@ -208,13 +211,42 @@ function show_connecting(state) {
    }
 }
 
+async function sha1Hex(str) {
+   const buffer = new TextEncoder().encode(str);
+   const hashBuffer = await crypto.subtle.digest("SHA-1", buffer);
+   return Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+}
+
+async function authenticate(login_user, login_pass, auth_token) {
+   var hashed_pass = await sha1Hex(login_pass);  // Wait for the hash to complete
+   var msgObj = {
+      "auth": {
+         "cmd": "pass",
+         "user": login_user,
+         "pass": hashed_pass,
+         "token": auth_token
+      }
+   };
+   console.log(msgObj); // Example usage
+   return msgObj; // Return the object if needed
+}
+
 function ws_connect() {
    // Clear any previous reconnecting flag
    reconnecting = false;
    show_connecting(true);
    socket = new WebSocket(getWebSocketUrl());
    
+   if (ws_kicked == true) {
+      // Prevent reconnecting for a moment at least
+      console.log("Preventing auto-reconnect - we were kicked");
+      return;
+   }
+
    socket.onopen = function() {
+      ws_kicked = false;
       show_connecting(false);
       try_login();
       form_disable(false);
@@ -225,13 +257,19 @@ function ws_connect() {
    
    // When the WebSocket connection is closed
    socket.onclose = function() {
-       handleReconnect();
+      if (ws_kicked != true) {
+         console.log("Auto-reconnecting ws (socket closed)");
+         handleReconnect();
+      }
    };
 
    // When there's an error with the WebSocket
    socket.onerror = function(error) {
       append_chatbox('<div class="chat-status error">👽 WebSocket error: ', error, 'occurred.</div>');
-      handleReconnect();
+      if (ws_kicked != true) {
+         console.log("Auto-reconnecting ws (on-error)");
+         handleReconnect();
+      }
    };
 
    socket.onmessage = function(event) {
@@ -280,8 +318,13 @@ function ws_connect() {
                var error = msgObj.auth.error;
                console.log("Authentication error! Status: ", error);
                $('span#sub-login-error-msg').empty();
-               $('span#sub-login-error-msg').append("<span>Server replied: ", error, "</span>");
+               $('span#sub-login-error-msg').append("<span>", error, "</span>");
+
+               // Get rid of message after about 20 seconds
+               setTimeout(function() { $('div#sub-login-error').hide(); }, 20000);
+
                $('div#sub-login-error').show();
+               $('button#login-err-ok').focus();
                // Stop auto-reconnecting
                stopReconnecting();
                return false;
@@ -309,24 +352,17 @@ function ws_connect() {
                      auth_token = token;
                   }
 
-                  var login_pass = $('input#pass').val;
+                  var login_pass = $('input#pass').val();
+                  var hashed_pass = sha1Hex(login_pass);
 // XXX: This needs reworked a bit to user the double-hashing for replay protection
 //                  var firstHash = sha1Hex(utf8Encode(login_pass)); // Ensure correct encoding
 //                  var combinedString = firstHash + '+' + nonce;
 //                  var hashed_pass = sha1Hex(utf8Encode(combinedString));
-                  var msgObj = {
-                     "auth": {
-                        "cmd": "pass",
-                        "user": login_user,
-                        "pass": login_pass,
-//                        "pass": hashed_pass,
-                        "token": auth_token
-                     }
-                  };
-                  var msgObj_t = JSON.stringify(msgObj);
-                  console.log("Got challenge with nonce ", nonce, ", sending response", msgObj_t);
-                  socket.send(msgObj_t);
-
+                  authenticate(login_user, login_pass, auth_token).then(msgObj => {
+                     var msgObj_t = JSON.stringify(msgObj);
+                     console.log("Got challenge with nonce ", nonce, ", sending response", msgObj_t);
+                     socket.send(msgObj_t);
+                  });
                   break;
                case 'expired':
                   console.log("Session expired!");
@@ -345,8 +381,12 @@ function ws_connect() {
 }
 
 function stopReconnecting() {
+   ws_kicked = true;
+   if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+   }
+
    if (reconnecting) {
-      reconnectTImer.stop();
       reconnecting = false;
    }
    show_connecting(false);
@@ -386,14 +426,14 @@ function flashRed(element) {
 
 function hide_login_window() {
    $('div#win-login').hide();
-   $('.chroma-hash').hide();
+//   $('.chroma-hash').hide();
    $('div#win-chat').show();
    $('#chat-input').focus();
 }
 
 function show_login_window() {
    $('div#win-login').show();
-   $('.chroma-hash').show();
+//   $('.chroma-hash').show();
    $('div#win-chat').hide();
    $('input#user').focus();
 }

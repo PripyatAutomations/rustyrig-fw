@@ -16,7 +16,7 @@
 
 struct http_user {
    int		uid;
-   char 	user[HTTP_USER_LEN+1];			// Username
+   char 	name[HTTP_USER_LEN+1];			// Username
    char 	pass[HTTP_PASS_LEN+1];			// Password hash
    char		privs[USER_PRIV_LEN+1];			// privileges string?
    bool 	enabled;				// Is the user enabled?
@@ -48,11 +48,10 @@ struct http_client {
     bool active;		// Is this slot actually used or is it free-listed?
     bool authenticated;		// Is the user fully logged in?
     bool is_ws;                 // Flag to indicate if it's a WebSocket client
-    int	 uid;
+    http_user_t *user;		// pointer to http user, once login is sent. DO NOT TRUST IF authenticated != true!
     struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
     char token[HTTP_TOKEN_LEN+1];
     char nonce[HTTP_TOKEN_LEN+1];
-    char user[HTTP_USER_LEN+1];
     struct http_client *next; 	// pointer to next client in list
 };
 typedef struct http_client http_client_t;
@@ -67,6 +66,7 @@ extern void http_remove_client(struct mg_connection *c);
 extern http_client_t *http_find_client_by_c(struct mg_connection *c);
 extern http_client_t *http_find_client_by_token(const char *token);
 extern http_client_t *http_find_client_by_nonce(const char *nonce);
+extern const char *http_get_uname(int8_t uid);
 extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file
 extern unsigned char *compute_wire_password(const unsigned char *password_hash, const char *nonce);

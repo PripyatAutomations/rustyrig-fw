@@ -18,7 +18,6 @@
 #include "cat.h"
 #include "posix.h"
 #include "http.h"
-#include "sha1.h"
 #include "websocket.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
@@ -64,12 +63,12 @@ int http_user_index(const char *user) {
    for (int i = 0; i < HTTP_MAX_USERS; i++) {
       http_user_t *up = &http_users[i];
 
-      if (up->user[0] == '\0' || up->pass[0] == '\0') {
+      if (up->name[0] == '\0' || up->pass[0] == '\0') {
          continue;
       }
 
       Log(LOG_DEBUG, "http.auth,noisy", "Comparing login username uid [%d]", i);
-      if (strcasecmp(up->user, user) == 0) {
+      if (strcasecmp(up->name, user) == 0) {
          Log(LOG_DEBUG, "http.auth.noisy", "Found uid %d for username %s", i, user);
          return i;
       }
@@ -153,9 +152,9 @@ bool http_save_users(const char *filename) {
   for (int i = 0; i < HTTP_MAX_USERS; i++) {
      http_user_t *up = &http_users[i];
 
-     if (up->user[0] != '\0' && up->pass[0] != '\0') {
-        Log(LOG_DEBUG, "http.auth", " => %s %sabled with privileges: %s", up->user, (up->enabled ? "en" :"dis"),  up->pass);
-        fprintf(file, "%d:%s:%d:%s:%s\n", up->uid, up->user, up->enabled, up->pass, (up->privs[0] != '\0' ? up->privs : "none"));
+     if (up->name[0] != '\0' && up->pass[0] != '\0') {
+        Log(LOG_DEBUG, "http.auth", " => %s %sabled with privileges: %s", up->name, (up->enabled ? "en" :"dis"),  up->pass);
+        fprintf(file, "%d:%s:%d:%s:%s\n", up->uid, up->name, up->enabled, up->pass, (up->privs[0] != '\0' ? up->privs : "none"));
      }
   }
   fclose(file);
@@ -175,25 +174,26 @@ void http_dump_clients(void) {
    }
 }
 
-unsigned char *compute_wire_password(const unsigned char *password_hash, const char *nonce) {
-   unsigned char *final_hash = (unsigned char *)malloc(20);
+#if	0
+unsigned char *compute_wire_password(const unsigned char *password, const char *nonce) {
+   unsigned char *rv = (unsigned char *)malloc(20);
    char combined[HTTP_HASH_LEN+1];
    char hex_output[HTTP_HASH_LEN+1];
    mg_sha1_ctx ctx;
 
-   if (final_hash == NULL) {
+   if (rv == NULL) {
       Log(LOG_DEBUG, "http.auth", "oom in compute_wire_password");
       return NULL;
    }
 
-   memset((void *)final_hash, 0, 20);
+   memset((void *)rv, 0, 20);
    memset(combined, 0, sizeof(combined));
    snprintf(combined, sizeof(combined), "%s+%s", password_hash, nonce);
 
    // Compute SHA1 of the combined string
    mg_sha1_init(&ctx);
    mg_sha1_update(&ctx, (unsigned char *)combined, strlen(combined));
-   mg_sha1_final(final_hash, &ctx);
+   mg_sha1_final(rv, &ctx);
 
    /* Print out the result */
    for (int i = 0; i < 20; i++) {
@@ -201,8 +201,20 @@ unsigned char *compute_wire_password(const unsigned char *password_hash, const c
    }
    hex_output[41] = '\0';
    Log(LOG_DEBUG, "http.auth", "cwp: Final SHA1: %s", hex_output);
-   return final_hash;
+   return rv;
 }
+#endif
+#if	0
+unsigned char *compute_wire_password(const unsigned char *password, const char *nonce) {
+   unsigned char *rv =  (unsigned char *)malloc(20);
+   memset((void *)rv, 0, 20);
+   mg_sha1_ctx ctx;
+   mg_sha1_init(&ctx);
+   mg_sha1_update(&ctx, (unsigned char *)password, strlen(password));
+   mg_sha1_final(rv, &ctx);
+   return rv;
+}
+#endif
 
 static int generate_nonce(char *buffer, size_t length) {
    static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -455,10 +467,12 @@ static int http_load_users(const char *filename) {
          switch (i) {
             case 0: // uid
                uid = atoi(token);
+               Log(LOG_DEBUG, "auth.core", "new uid %d", uid);
                up = &http_users[uid];
+               up->uid = uid;
                break;
             case 1: // Username
-               strncpy(up->user, token, HTTP_USER_LEN);
+               strncpy(up->name, token, HTTP_USER_LEN);
                break;
             case 2: // Enabled flag
                up->enabled = atoi(token);
@@ -473,7 +487,7 @@ static int http_load_users(const char *filename) {
          token = strtok(NULL, ":");
          i++;
       }
-      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->user, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
+      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->name, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
       user_count++;
    }
    Log(LOG_INFO, "http.auth", "Loaded %d users from %s", user_count, filename);
@@ -512,7 +526,7 @@ const char *http_get_uname(int8_t uid) {
       Log(LOG_DEBUG, "http.auth", "get_uname: invalid uid: %d passed!", uid);
       return NULL;
    }
-   return http_users[uid].user;
+   return http_users[uid].name;
 }
 
 // Remove a client (WebSocket or HTTP) from the list

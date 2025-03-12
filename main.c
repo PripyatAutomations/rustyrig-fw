@@ -89,6 +89,8 @@ void shutdown_rig(uint32_t signum) {
 
 int main(int argc, char **argv) {
    now = time(NULL);
+   srand((unsigned int)now);
+
    logfp = stdout;
    rig.log_level = LOG_DEBUG;	// startup in debug mode
 
