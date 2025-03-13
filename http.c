@@ -48,11 +48,11 @@ const struct mg_http_serve_opts http_opts = {
    .root_dir = www_root
 };
 
-
 static struct http_res_types http_res_types[] = {
    { "html", "Content-Type: text/html\r\n" },
    { "json", "Content-Type: application/json\r\n" },
 };
+
 
 int http_user_index(const char *user) {
    int rv = -1;
@@ -366,16 +366,46 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
    return true; // No match found, let static handler take over
 }
 
+
+#if	defined(HTTP_USE_TLS)
+struct mg_str tls_cert;
+struct mg_str tls_key;
+
+static struct mg_tls_opts tls_opts;
+void http_tls_init(void) {
+   bool tls_error = false;
+   memset(&tls_opts, 0, sizeof(tls_opts));
+   
+   tls_cert = mg_file_read(&mg_fs_posix, HTTP_TLS_CERT);
+   if (tls_cert.buf == NULL) {
+      Log(LOG_CRIT, "http.tls", "Unable to load TLS cert from %s", HTTP_TLS_CERT);
+      tls_error = true;
+   }
+
+   tls_key = mg_file_read(&mg_fs_posix, HTTP_TLS_KEY);
+   if (tls_key.buf == NULL) {
+      Log(LOG_CRIT, "http.tls", "Unable to load TLS key from %s", HTTP_TLS_KEY);
+      tls_error = true;
+   }
+
+   if (tls_error == true) {
+      Log(LOG_CRIT, "http.tls", "No cert/key, skipping TLS setup");
+      Log(LOG_CRIT, "http.tls", "Either fix this or disable TLS!");
+      exit(1);
+   } else {
+      tls_opts.cert =  tls_cert;
+      tls_opts.key = tls_key;
+      tls_opts.skip_verification = 1;
+      Log(LOG_CRIT, "http.tls", "TLS initialized succesfully");
+   }
+}
+#endif
+
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
    if (ev == MG_EV_ACCEPT && c->fn_data != NULL) {
 #if	defined(HTTP_USE_TLS)
-      struct mg_tls_opts tls_opts;
-      memset(&tls_opts, 0, sizeof(tls_opts));
-      tls_opts.cert = mg_unpacked(HTTP_TLS_CERT);
-      tls_opts.key = mg_unpacked(HTTP_TLS_KEY);
-      tls_opts.skip_verification = 1;
       mg_tls_init(c, &tls_opts);
 #endif
    } else if (ev == MG_EV_HTTP_MSG) {
@@ -450,6 +480,8 @@ bool http_init(struct mg_mgr *mgr) {
    memset(tls_listen_addr, 0, sizeof(tls_listen_addr));
    snprintf(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_bind), tls_bind_port);
 
+   http_tls_init();
+
    if (mg_http_listen(mgr, tls_listen_addr, http_cb, (void *)1) == NULL) {
       Log(LOG_CRIT, "http", "Failed to start https listener");
       exit(1);
@@ -461,8 +493,6 @@ bool http_init(struct mg_mgr *mgr) {
    // send the userlist to connected users every now and then
    mg_timer_add(mgr, CHAT_NAMES_INTERVAL, MG_TIMER_REPEAT, ws_blorp_userlist_cb, NULL);
 
-   // XXX: TEMP: dump client list & save users
-   http_dump_clients();
    http_save_users("/tmp/test-users.save");
    return false;
 }

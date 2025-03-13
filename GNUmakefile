@@ -29,8 +29,8 @@ PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
 
 ifeq (${USE_SSL},true)
-CFLAGS += -DMG_TLS=MG_TLS_OPENSSL
-LDFLAGS += -lssl -lcrypto
+CFLAGS += -DMG_TLS=MG_TLS_MBED
+LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 endif
 
 ifeq (${PLATFORM},posix)

@@ -103,9 +103,9 @@
          "port": 8420,
          "404_path": "./www/404.shtml",
          "tls_enabled": "true",
-         "tls_cert": "/home/radio/rustyrig-fw/config/fullchain.pem",
+         "tls_cert": "/home/radio/ark/rustyrig-fw/config/fullchain.pem",
          "tls_port": 4420,
-         "tls_key": "/home/radio/rustyrig-fw/config/privkey.pem",
+         "tls_key": "/home/radio/ark/rustyrig-fw/config/key.pem",
          "www_root": "./www"
       },
       "mqtt": {

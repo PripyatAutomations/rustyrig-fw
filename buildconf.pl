@@ -854,7 +854,6 @@ sub generate_config_h {
          if (defined($tls_enabled) && match_boolean($tls_enabled)) {
             printf $fh "#define HTTP_TLS_KEY \"%s\"\n", $config->{'net'}{'http'}{'tls_key'};
             printf $fh "#define HTTP_TLS_CERT \"%s\"\n", $config->{'net'}{'http'}{'tls_cert'};
-            printf $fh "#define	MG_TLS MG_TLS_OPENSSL\n";
          }
       }
    }
