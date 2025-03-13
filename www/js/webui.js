@@ -255,9 +255,9 @@ function cul_update(message) {
    const users = message.talk.users;
    users.forEach(user => {
       const li = `<li>
-                     <button class="chat-user-list" onclick="show_user_menu('${user}')">
+                     <span class="chat-user-list" onclick="show_user_menu('${user}')">
                         <span class="cul-self">${user}</span>
-                     </button>
+                     </span>
                   </li>`;
       $('#cul-list').append(li);
    });
