@@ -457,8 +457,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
                  cptr->user->name, now);
         struct mg_str ms = mg_str(resp_buf);
         ws_broadcast(NULL, &ms);
+        Log(LOG_INFO, "auth", "User %s on cptr <%x> left chat", cptr->user->name, cptr);
      }
-     Log(LOG_INFO, "auth", "User %s on cptr <%x> left chat", cptr->user->name, cptr);
      http_remove_client(c);
    }
 }
