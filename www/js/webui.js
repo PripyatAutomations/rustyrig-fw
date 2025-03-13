@@ -105,7 +105,7 @@ $(document).ready(function() {
                return;
             }
 */
-            switch(command) {
+            switch(command.toUpperCase()) {
                case 'ban':
                   console.log("Send BAN for", args[1]);
                   sendCommand(command, args[1]);
