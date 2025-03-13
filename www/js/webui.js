@@ -10,7 +10,8 @@ let reconnectDelay = 1000;	// Start with 1 second
 let reconnectInterval = [1000, 5000, 10000, 30000, 60000, 120000]; // Delay intervals in ms
 var reconnectIndex = 0; 	// Index to track the current delay
 var reconnectTimer;  		// so we can stop reconnects
-var chat_ding;			// sound widget
+var chat_ding;			// sound widget for chat ding
+var join_ding;			// sound widget for join ding
 var logged_in;			// Did we get an AUTHORIZED response?
 var auth_user;
 var auth_token;
@@ -75,7 +76,7 @@ $(document).ready(function() {
    $('input#reset').click(function(evt) {
       console.log("Form reset");
    });
-   chat_ding = document.getElementById('bell-sound');
+   chat_ding = document.getElementById('chat-ding');
    form_disable(true);
 
    // clear button
@@ -177,6 +178,7 @@ $(document).ready(function() {
    $('#um-close').click(function() {
       $('#user-menu').hide();
    });
+
    // deal with our keypresses
    $(document).keydown(function (e) {
       if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
@@ -237,17 +239,20 @@ async function authenticate(login_user, login_pass, auth_token) {
          "token": auth_token
       }
    };
-   console.log(msgObj); // Example usage
-   return msgObj; // Return the object if needed
+   return msgObj;
 }
 
 function userlist_update(message) {
-   $('#cul-list').empty();
-   const users = message.talk.users;
-   users.forEach(user => {
-      const li = `<li>&lt;<a href="#" class="chat-user-list"><span class="cul-self">${user}</span></a>&gt;</li>`;
-      $('#cul-list').append(li);
-   });
+   $('#cul-list').empty();                                                                                                                                    
+   const users = message.talk.users;                                                                                                                          
+   users.forEach(user => {                                                                                                                                    
+      const li = `<li><button class="chat-user-list"><span class="cul-self">${user}</span></button></li>`;
+      $('#cul-list').append(li);                                                                                                                              
+   });                                                                                                                                                        
+}      
+
+function show_user_menu(username) {
+   console.log("User menu for:", username);
 }
 
 function ws_connect() {
@@ -383,6 +388,7 @@ function ws_connect() {
 //                  var firstHash = sha1Hex(utf8Encode(login_pass)); // Ensure correct encoding
 //                  var combinedString = firstHash + '+' + nonce;
 //                  var hashed_pass = sha1Hex(utf8Encode(combinedString));
+                  // here we use an async call to crypto.simple
                   authenticate(login_user, login_pass, auth_token).then(msgObj => {
                      var msgObj_t = JSON.stringify(msgObj);
                      console.log("Got challenge with nonce ", nonce, ", sending response", msgObj_t);
@@ -467,8 +473,6 @@ function show_login_window() {
 
 // turn a unix time into [HH:MM.ss] stamp or space padding if invalid
 function msg_timestamp(msg_ts) {
-//   console.log("Received timestamp:", msg_ts, "Type:", typeof msg_ts);
-
    if (typeof msg_ts !== "number") {
       msg_ts = Number(msg_ts); 			// Convert string to number if necessary
       if (isNaN(msg_ts)) return "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";

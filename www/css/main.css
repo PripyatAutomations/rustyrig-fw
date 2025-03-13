@@ -132,6 +132,7 @@ input {
 }
 
 #chat-user-list ul {
+   list-style: none;
    padding-top: 5px;
    padding-left: 1.5em;
    margin-top: 0px;

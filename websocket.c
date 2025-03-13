@@ -134,6 +134,9 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
             memset(msgbuf, 0, sizeof(msgbuf));
             snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", cptr->user->name, data, now);
             mp = mg_str(msgbuf);
+
+            // Update the sender's last_heard time
+            cptr->last_heard = now;
             ws_broadcast(c, &mp);
          } else if (strcmp(cmd, "kick") == 0) {
             Log(LOG_INFO, "chat", "Kick command received, processing...");
@@ -169,15 +172,18 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
                break;
             }
          }
+
          snprintf(resp_buf, sizeof(resp_buf), 
                   "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }", 
                   cptr->nonce, user, cptr->token);
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
-         Log(LOG_DEBUG, "auth.noisy", "Sending login challenge |%s| to user", resp_buf);
+
+         Log(LOG_DEBUG, "auth.noisy", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
          free_and_null(cmd);
          free_and_null(user);
       } else if (strcmp(cmd, "logout") == 0) {
          char *token = mg_json_get_str(msg_data, "$.auth.token");
+
          Log(LOG_DEBUG, "auth.noisy", "Logout request from session token |%s|", (token != NULL ? token : "NONE"));
          ws_kick_client_by_c(c, "Logged out");
          free_and_null(token);
@@ -230,11 +236,18 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 
          if (strcmp(up->pass, pass) == 0) {
             cptr->authenticated = true;
+
+            // Store some timestamps such as when user joined & session will forcibly expire
+            cptr->session_start = now;
+            cptr->last_heard = now;
+            cptr->session_expiry = now + HTTP_SESSION_LIFETIME;		
+
+            // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
             char resp_buf[HTTP_WS_MAX_MSG+1];
             memset(resp_buf, 0, sizeof(resp_buf));
             snprintf(resp_buf, sizeof(resp_buf), 
-                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\" } }", 
-                     user, token);
+                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu } }", 
+                     user, token, now);
             mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
             // blorp out a join to all chat users
@@ -244,10 +257,10 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
                      user, now);
             struct mg_str ms = mg_str(resp_buf);
             ws_broadcast(NULL, &ms);
-            Log(LOG_INFO, "auth", "User %s <%d> on cptr <%x> logged in with privs: %s",
-                cptr->user->name, cptr->user->uid, cptr, http_users[cptr->user->uid].privs);
+            Log(LOG_INFO, "auth", "User %s on cptr <%x> logged in with privs: %s",
+                cptr->user->name, cptr, http_users[cptr->user->uid].privs);
          } else {
-            Log(LOG_INFO, "auth", "User %s on cptr <%x> gave wrong password. Disconnecting", cptr->user, cptr);
+            Log(LOG_INFO, "auth", "User %s on cptr <%x> gave wrong password. Kicking!", cptr->user, cptr);
             ws_kick_client(cptr, "Invalid login/password");
          }
          free_and_null(pass);

@@ -29,6 +29,7 @@
 #define	WWW_ROOT_FALLBACK	"./www"
 #define	WWW_404_FALLBACK	"./www/404.html"
 
+extern time_t now;
 extern bool dying;		// in main.c
 extern struct GlobalState rig;	// Global state
 static char www_root[PATH_MAX];
@@ -52,7 +53,6 @@ static struct http_res_types http_res_types[] = {
    { "html", "Content-Type: text/html\r\n" },
    { "json", "Content-Type: application/json\r\n" },
 };
-
 
 int http_user_index(const char *user) {
    int rv = -1;
@@ -654,6 +654,22 @@ void http_remove_client(struct mg_connection *c) {
 
    // XXX: Are these even worth logging?
 //   Log(LOG_WARN, "http", "Attempted to remove client not in the list");
+}
+
+void http_expire_sessions(void) {
+   http_client_t *cptr = http_client_list;
+   int expired = 0;
+
+   while(cptr != NULL) {
+      if (cptr->session_expiry <= now) {
+         expired++;
+         time_t last_heard = (now - cptr->last_heard);
+         Log(LOG_WARN, "http.auth", "Kicking expired session (%lu sec old, last haerd %lu sec ago) for %s",
+             HTTP_SESSION_LIFETIME, last_heard, cptr->user->name);
+         ws_kick_client(cptr, "Login session expired!");
+      }
+      cptr = cptr->next;
+   }
 }
 
 #endif	// defined(FEATURE_HTTP)

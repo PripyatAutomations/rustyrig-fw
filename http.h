@@ -6,6 +6,8 @@
 #include "mongoose.h"
 
 #define	HTTP_WS_MAX_MSG		65535		// 64kbytes should be enough per message, even with audio frames
+#define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
+#define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
 
 // HTTP Basic-auth user
 #define	HTTP_MAX_USERS		32		// How many users are allowed in http.users?
@@ -49,15 +51,17 @@ struct http_res_types {
    char *msg;
 };
 
-// Unified client structure for HTTP and WebSocket clients
 struct http_client {
     bool active;		// Is this slot actually used or is it free-listed?
     bool authenticated;		// Is the user fully logged in?
     bool is_ws;                 // Flag to indicate if it's a WebSocket client
+    time_t session_expiry;	// When does the session expire?
+    time_t session_start;	// When did they login?
+    time_t last_heard;		// when a last valid message was heard from client
     http_user_t *user;		// pointer to http user, once login is sent. DO NOT TRUST IF authenticated != true!
     struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
-    char token[HTTP_TOKEN_LEN+1];
-    char nonce[HTTP_TOKEN_LEN+1];
+    char token[HTTP_TOKEN_LEN+1]; // Session token
+    char nonce[HTTP_TOKEN_LEN+1]; // Authentication nonce - only used between challenge & pass stages
     struct http_client *next; 	// pointer to next client in list
 };
 typedef struct http_client http_client_t;
