@@ -16,6 +16,8 @@ endif
 
 CFLAGS := -std=gnu11 -g -O1 -Wall -Wno-unused -pedantic -std=gnu99
 LDFLAGS := -lc -lm -g -lcrypt
+
+
 CFLAGS += -I${BUILD_DIR} $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
@@ -23,6 +25,13 @@ TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
 EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
+
+USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
+
+ifeq (${USE_SSL},true)
+CFLAGS += -DMG_TLS=MG_TLS_OPENSSL
+LDFLAGS += -lssl -lcrypto
+endif
 
 ifeq (${PLATFORM},posix)
 LDFLAGS += -lgpiod

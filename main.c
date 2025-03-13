@@ -139,6 +139,8 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
+   // XXX: put this in config
+   mg_log_set(MG_LL_DEBUG);
 #if	defined(FEATURE_HTTP)
    http_init(&mg_mgr);
    ws_init(&mg_mgr);

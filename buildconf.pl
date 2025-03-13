@@ -812,9 +812,9 @@ sub generate_config_h {
    }
 
    if (defined($config->{limits})) {
-      my $max_amps = $config->{limits}{'max-amps'};
-      my $max_atus = $config->{limits}{'max-atus'};
-      my $max_filters = $config->{limits}{'max-filters'};
+      my $max_amps = $config->{limits}{'max_amps'};
+      my $max_atus = $config->{limits}{'max_atus'};
+      my $max_filters = $config->{limits}{'max_filters'};
       if (defined($max_amps)) {
          printf $fh "#define RR_MAX_AMPS\t\t$max_amps\n";
       }
@@ -827,11 +827,11 @@ sub generate_config_h {
    }
 
    if (defined($config->{features})) {
-      if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat-kpa500'})) {
+      if (defined($config->{features}{'cat_kpa500'}) && match_boolean($config->{features}{'cat_kpa500'})) {
          printf $fh "#define CAT_KPA500 true\n";
       }
 
-      if (defined($config->{features}{'cat-yaesu'}) && match_boolean($config->{features}{'cat-yaesu'})) {
+      if (defined($config->{features}{'cat_yaesu'}) && match_boolean($config->{features}{'cat_yaesu'})) {
          printf $fh "#define CAT_YAESU true\n";
       }
       if (defined($config->{features}{'http'}) && match_boolean($config->{features}{'http'})) {
@@ -843,8 +843,19 @@ sub generate_config_h {
    }
 
    if (defined($config->{'debug'})) {
-      if (defined($config->{debug}{'noisy-eeprom'}) && match_boolean($config->{debug}{'noisy-eeprom'})) {
+      if (defined($config->{debug}{'noisy_eeprom'}) && match_boolean($config->{debug}{'noisy_eeprom'})) {
          printf $fh "#define NOISY_EEPROM true\n";
+      }
+   }
+   if (defined($config->{'net'})) {
+      if (defined($config->{'net'}{'http'})) {
+         printf $fh "#define HTTP_USE_TLS 1\n";
+         my $tls_enabled = $config->{'net'}{'http'}{'tls_enabled'};
+         if (defined($tls_enabled) && match_boolean($tls_enabled)) {
+            printf $fh "#define HTTP_TLS_KEY \"%s\"\n", $config->{'net'}{'http'}{'tls_key'};
+            printf $fh "#define HTTP_TLS_CERT \"%s\"\n", $config->{'net'}{'http'}{'tls_cert'};
+            printf $fh "#define	MG_TLS MG_TLS_OPENSSL\n";
+         }
       }
    }
 
@@ -855,8 +866,8 @@ sub generate_config_h {
    printf $fh "#define EEPROM_SIZE %d\n", $config->{eeprom}{size};
 
    my $max_bands = '';
-   if (defined($config->{features}{'max-bands'})) {
-      $max_bands = $config->{features}{'max-bands'};
+   if (defined($config->{features}{'max_bands'})) {
+      $max_bands = $config->{features}{'max_bands'};
    } else {
       $max_bands = 10;
    }

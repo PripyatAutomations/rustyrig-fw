@@ -48,6 +48,7 @@ const struct mg_http_serve_opts http_opts = {
    .root_dir = www_root
 };
 
+
 static struct http_res_types http_res_types[] = {
    { "html", "Content-Type: text/html\r\n" },
    { "json", "Content-Type: application/json\r\n" },
@@ -300,6 +301,23 @@ static bool http_api_version(struct mg_http_message *msg, struct mg_connection *
    return false;
 }
 
+static bool http_api_stats(struct mg_http_message *msg, struct mg_connection *c) {
+   struct mg_connection *t;
+   // Print some statistics about currently established connections
+   mg_printf(c, "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n");
+   mg_http_printf_chunk(c, "ID PROTO TYPE      LOCAL           REMOTE\n");
+   for (t = c->mgr->conns; t != NULL; t = t->next) {
+     mg_http_printf_chunk(c, "%-3lu %4s %s %M %M\n", t->id,
+                          t->is_udp ? "UDP" : "TCP",
+                          t->is_listening  ? "LISTENING"
+                          : t->is_accepted ? "ACCEPTED "
+                                           : "CONNECTED",
+                          mg_print_ip, &t->loc, mg_print_ip, &t->rem);
+   }
+   mg_http_printf_chunk(c, "");  // Don't forget the last empty chunk
+   return false;
+}
+
 static bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
 
    // XXX: this does show ANY files in www/ so dont store credentials there!
@@ -309,6 +327,7 @@ static bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
 
 static http_route_t http_routes[HTTP_MAX_ROUTES] = {
     { "/api/ping",	http_api_ping,	false },		// Responds back with the date given
+    { "/api/stats",	http_api_stats,	false },		// Statistics
     { "/api/time",	http_api_time, 	false },		// Get device time
     { "/api/version",	http_api_version, false },		// Version info
     { "/help",		http_help,	false }	,		// Help API
@@ -350,7 +369,16 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
-   if (ev == MG_EV_HTTP_MSG) {
+   if (ev == MG_EV_ACCEPT && c->fn_data != NULL) {
+#if	defined(HTTP_USE_TLS)
+      struct mg_tls_opts tls_opts;
+      memset(&tls_opts, 0, sizeof(tls_opts));
+      tls_opts.cert = mg_unpacked(HTTP_TLS_CERT);
+      tls_opts.key = mg_unpacked(HTTP_TLS_KEY);
+      tls_opts.skip_verification = 1;
+      mg_tls_init(c, &tls_opts);
+#endif
+   } else if (ev == MG_EV_HTTP_MSG) {
       if (http_dispatch_route(hm, c) == true) {
          http_static(hm, c);
       }
@@ -365,24 +393,14 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 }
 
 bool http_init(struct mg_mgr *mgr) {
-   struct in_addr sa_bind;
-   char listen_addr[255];
-
    if (mgr == NULL) {
-      Log(LOG_CRIT, "http", "http_init %s failed", listen_addr);
+      Log(LOG_CRIT, "http", "http_init passed NULL mgr!");
       return true;
    }
 
-   // Get the bind address and port
-   int bind_port = eeprom_get_int("net/http/port");
-   eeprom_get_ip4("net/http/bind", &sa_bind);
-   memset(listen_addr, 0, sizeof(listen_addr));
-   snprintf(listen_addr, sizeof(listen_addr), "http://%s:%d", inet_ntoa(sa_bind), bind_port);
-
-   // clear the memory
    memset(www_root, 0, sizeof(www_root));
-   const char *cfg_www_root = eeprom_get_str("net/http/www-root");
-   const char *cfg_404_path = eeprom_get_str("net/http/404-path");
+   const char *cfg_www_root = eeprom_get_str("net/http/www_root");
+   const char *cfg_404_path = eeprom_get_str("net/http/404_path");
 
    // store firmware version in www_fw_ver
    memset(www_fw_ver, 0, sizeof(www_fw_ver));
@@ -411,6 +429,14 @@ bool http_init(struct mg_mgr *mgr) {
       Log(LOG_WARN, "http.core", "Error loading users from config/http.users");
    }
 
+   struct in_addr sa_bind;
+
+   char listen_addr[255];
+   int bind_port = eeprom_get_int("net/http/port");
+   eeprom_get_ip4("net/http/bind", &sa_bind);
+   memset(listen_addr, 0, sizeof(listen_addr));
+   snprintf(listen_addr, sizeof(listen_addr), "http://%s:%d", inet_ntoa(sa_bind), bind_port);
+
    if (mg_http_listen(mgr, listen_addr, http_cb, NULL) == NULL) {
       Log(LOG_CRIT, "http", "Failed to start http listener");
       exit(1);
@@ -418,6 +444,21 @@ bool http_init(struct mg_mgr *mgr) {
 
    Log(LOG_INFO, "http", "HTTP listening at %s with www-root at %s", listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
 
+#if	defined(HTTP_USE_TLS)
+   int tls_bind_port = eeprom_get_int("net/http/tls_port");
+   char tls_listen_addr[255];
+   memset(tls_listen_addr, 0, sizeof(tls_listen_addr));
+   snprintf(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_bind), tls_bind_port);
+
+   if (mg_http_listen(mgr, tls_listen_addr, http_cb, (void *)1) == NULL) {
+      Log(LOG_CRIT, "http", "Failed to start https listener");
+      exit(1);
+   }
+
+   Log(LOG_INFO, "http", "HTTPS listening at %s with www-root at %s", tls_listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
+#endif
+
+   // send the userlist to connected users every now and then
    mg_timer_add(mgr, CHAT_NAMES_INTERVAL, MG_TIMER_REPEAT, ws_blorp_userlist_cb, NULL);
 
    // XXX: TEMP: dump client list & save users
