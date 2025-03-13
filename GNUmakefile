@@ -207,6 +207,11 @@ ${CF}:
 installdep:
 	@./install-deps.sh
 
+update:
+	git pull
+	git submodule init
+	git submodule update --remote --recursive
+
 ext/libmongoose/mongoose.c:
 	@echo "You forgot to git submodule init; git submodule update. Doing it for you!"
 	git submodule init

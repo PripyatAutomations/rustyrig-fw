@@ -139,8 +139,10 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
-   // XXX: put this in config
+#if	defined(MONGOOSE_DEBUGY)
    mg_log_set(MG_LL_DEBUG);
+#endif
+
 #if	defined(FEATURE_HTTP)
    http_init(&mg_mgr);
    ws_init(&mg_mgr);
@@ -150,7 +152,7 @@ int main(int argc, char **argv) {
 #endif
 
    // apply some configuration from the eeprom
-   auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
+   auto_block_ptt = eeprom_get_bool("features/auto_block_ptt");
 
    if (auto_block_ptt) {
       Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");

@@ -843,9 +843,12 @@ sub generate_config_h {
    }
 
    if (defined($config->{'debug'})) {
-      if (defined($config->{debug}{'noisy_eeprom'}) && match_boolean($config->{debug}{'noisy_eeprom'})) {
+      if (defined($config->{'debug'}{'noisy_eeprom'}) && match_boolean($config->{debug}{'noisy_eeprom'})) {
          printf $fh "#define NOISY_EEPROM true\n";
       }
+      my $mg_debug = $config->{'debug'}{'mongoose'};
+      if (defined($mg_debug) && match_boolean($mg_debug)) {
+         printf $fh "#define MONGOOSE_DEBUG\ttrue\n"; }
    }
    if (defined($config->{'net'})) {
       if (defined($config->{'net'}{'http'})) {
@@ -854,6 +857,14 @@ sub generate_config_h {
          if (defined($tls_enabled) && match_boolean($tls_enabled)) {
             printf $fh "#define HTTP_TLS_KEY \"%s\"\n", $config->{'net'}{'http'}{'tls_key'};
             printf $fh "#define HTTP_TLS_CERT \"%s\"\n", $config->{'net'}{'http'}{'tls_cert'};
+         }
+         my $authdb = $config->{'net'}{'http'}{'authdb'};
+         if (defined($authdb)) {
+            printf $fh "#define HTTP_AUTHDB_PATH\t\"%s\"\n", $authdb;
+         }
+         my $authdb_dynamic = $config->{'net'}{'http'}{'authdb_dynamic'};
+         if (defined($authdb_dynamic) && match_boolean($authdb_dynamic)) {
+            printf $fh "#define HTTP_AUTHDB_DYNAMIC\t1\n";
          }
       }
    }

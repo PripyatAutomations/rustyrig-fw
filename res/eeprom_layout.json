@@ -21,10 +21,10 @@
        "type": "int",
        "key": "eeprom/version"
    },
-   "features/auto-block-ptt": {
+   "features/auto_block_ptt": {
        "offset": 19,
        "type": "bool",
-       "key": "features/auto-block-ptt"
+       "key": "features/auto_block_ptt"
    },
    "fw/major": {
        "offset": 23,

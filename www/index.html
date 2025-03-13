@@ -59,25 +59,11 @@
     <div id="chat-box" tabindex="-1"></div>
      <div id="chat-user-list" tabindex="-1">
       <h3>Connected Users</h3>
-      <ul>
-       <li>&lt;<a href="#" class="chat-user-list"><span class="cul-self">N0CALL</a>&gt;</li>
+      <ul id="cul-list">
       </ul>
      </div>
      <div id="user-menu">
       <span id="um-close"><a href="#" id="um-close">X</a></span>
-      User: N0CALL<br/>
-      <span id="user-menu-items">
-       <ul>
-        <li><a href="#" id="email-user">Email</a></li>
-        <li><a href="#" id="whois-user">Whois</a></li>
-        <li><a href="#" id="qrz-lookup-user">QRZ</a></li>
-        <hr width="50%"/>
-        <li><a href="#" id="edit-user">Edit</a></li>
-        <li><a href="#" id="mute-user">Mute</a></li>
-        <li><a href="#" id="kick-user">Kick</a></li>
-        <li><a href="#" id="ban-user">Lock&amp;Kick</a></li>
-       </ul>
-      </span>
      </div>
    </div>
    <div id="lower-wrapper">
@@ -89,7 +75,8 @@
      <button id="bell-btn" data-checked="true">
       <img id="bell-image" src="img/bell-alert.png" alt="Bell (dark)" />
      </button>
-     <audio id="bell-sound" src="bell.mp3" tabindex="-1"></audio>
+     <audio id="chat-ding" src="bell.mp3" tabindex="-1"></audio>
+     <audio id="join-ding" src="join.mp3" tabindex="-1"></audio>
     </div>
    </div>
   </div> <!-- win-chat -->

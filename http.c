@@ -68,9 +68,8 @@ int http_user_index(const char *user) {
          continue;
       }
 
-      Log(LOG_DEBUG, "http.auth,noisy", "Comparing login username uid [%d]", i);
       if (strcasecmp(up->name, user) == 0) {
-         Log(LOG_DEBUG, "http.auth.noisy", "Found uid %d for username %s", i, user);
+//         Log(LOG_DEBUG, "http.auth.noisy", "Found uid %d for username %s", i, user);
          return i;
       }
    }
@@ -85,14 +84,14 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
 
    while(cptr != NULL) {
       if (cptr->conn == c) {
-         Log(LOG_DEBUG, "http.core.noisy", "find_client_by_c <%x> returning index %i: %x", c, i, cptr);
+//         Log(LOG_DEBUG, "http.core.noisy", "find_client_by_c <%x> returning index %i: %x", c, i, cptr);
          return cptr;
       }
       i++;
       cptr = cptr->next;
    }
 
-   Log(LOG_DEBUG, "http.core.noisy", "find_client_by_c <%x> no matches!", c);
+//   Log(LOG_DEBUG, "http.core.noisy", "find_client_by_c <%x> no matches!", c);
    return NULL;
 }
 
@@ -115,7 +114,7 @@ http_client_t *http_find_client_by_token(const char *token) {
       cptr = cptr->next;
    }
 
-   Log(LOG_DEBUG, "http.core.noisy", "hfcbt no matches for token |%s|!", token);
+//   Log(LOG_DEBUG, "http.core.noisy", "hfcbt no matches for token |%s|!", token);
    return NULL;
 }
 
@@ -131,21 +130,47 @@ http_client_t *http_find_client_by_nonce(const char *nonce) {
       }
 
       if (memcmp(cptr->nonce, nonce, strlen(cptr->nonce)) == 0) {
-         Log(LOG_DEBUG, "http.core.noisy", "hfcbn returning index %i with token |%s| for nonce |%s|", i, cptr->token, cptr->nonce);
+//         Log(LOG_DEBUG, "http.core.noisy", "hfcbn returning index %i with token |%s| for nonce |%s|", i, cptr->token, cptr->nonce);
          return cptr;
       }
       i++;
       cptr = cptr->next;
    }
 
-   Log(LOG_DEBUG, "http.core.noisy", "hfcbn %s no matches!", nonce);
+//   Log(LOG_DEBUG, "http.core.noisy", "hfcbn %s no matches!", nonce);
    return NULL;
 }
 
-bool http_save_users(const char *filename) {
-  FILE *file = fopen(filename, "r");
+static void http_backup_authdb(void) {
+   char new_path[256];
+   time_t now = time(NULL);
+   struct tm *tm_info = localtime(&now);
+   char date_str[9]; // YYYYMMDD + null terminator
+   int index = 0;
 
+   strftime(date_str, sizeof(date_str), "%Y%m%d", tm_info);
+
+   // Find the next available unique number
+   do {
+      snprintf(new_path, sizeof(new_path), "%s.bak-%s.%d", HTTP_AUTHDB_PATH, date_str, index);
+      index++;
+   } while (file_exists(new_path));
+
+   // Rename the file
+   if (rename(HTTP_AUTHDB_PATH, new_path) == 0) {
+      printf("Renamed to: %s\n", new_path);
+   } else {
+      perror("rename");
+   }
+}
+bool http_save_users(const char *filename) {
+  http_backup_authdb();
+
+  FILE *file = fopen(filename, "w");
+
+  int users_saved = 0;
   if (!file) {
+     Log(LOG_CRIT, "http.auth", "Error saving user database to %s: %d:%s", filename, errno, strerror(errno));
      return true;
   }
 
@@ -154,11 +179,13 @@ bool http_save_users(const char *filename) {
      http_user_t *up = &http_users[i];
 
      if (up->name[0] != '\0' && up->pass[0] != '\0') {
-        Log(LOG_DEBUG, "http.auth", " => %s %sabled with privileges: %s", up->name, (up->enabled ? "en" :"dis"),  up->pass);
+        Log(LOG_DEBUG, "http.auth", " => %s %sabled with privileges: %s", up->name, (up->enabled ? "en" :"dis"),  up->privs);
         fprintf(file, "%d:%s:%d:%s:%s\n", up->uid, up->name, up->enabled, up->pass, (up->privs[0] != '\0' ? up->privs : "none"));
+        users_saved++;
      }
   }
   fclose(file);
+  Log(LOG_DEBUG, "http.auth", "Saved %d users to %s", users_saved, filename);
   return true;
 }
 
@@ -366,7 +393,6 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
    return true; // No match found, let static handler take over
 }
 
-
 #if	defined(HTTP_USE_TLS)
 struct mg_str tls_cert;
 struct mg_str tls_key;
@@ -393,10 +419,11 @@ void http_tls_init(void) {
       Log(LOG_CRIT, "http.tls", "Either fix this or disable TLS!");
       exit(1);
    } else {
-      tls_opts.cert =  tls_cert;
+      tls_opts.cert = tls_cert;
       tls_opts.key = tls_key;
       tls_opts.skip_verification = 1;
-      Log(LOG_CRIT, "http.tls", "TLS initialized succesfully");
+      Log(LOG_CRIT, "http.tls", "TLS initialized succesfully, |cert: <%lu @ %x>| |key: <%lu @ %x>",
+         tls_cert.len, tls_cert, tls_key.len, tls_key);
    }
 }
 #endif
@@ -407,8 +434,9 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_ACCEPT && c->fn_data != NULL) {
 #if	defined(HTTP_USE_TLS)
       mg_tls_init(c, &tls_opts);
+   } else
 #endif
-   } else if (ev == MG_EV_HTTP_MSG) {
+   if (ev == MG_EV_HTTP_MSG) {
       if (http_dispatch_route(hm, c) == true) {
          http_static(hm, c);
       }
@@ -455,8 +483,8 @@ bool http_init(struct mg_mgr *mgr) {
    }
 
    // XXX: move this path to config.json (build-time)
-   if (http_load_users("config/http.users") < 0) {
-      Log(LOG_WARN, "http.core", "Error loading users from config/http.users");
+   if (http_load_users(HTTP_AUTHDB_PATH) < 0) {
+      Log(LOG_WARN, "http.core", "Error loading users from %s", HTTP_AUTHDB_PATH);
    }
 
    struct in_addr sa_bind;
@@ -493,7 +521,6 @@ bool http_init(struct mg_mgr *mgr) {
    // send the userlist to connected users every now and then
    mg_timer_add(mgr, CHAT_NAMES_INTERVAL, MG_TIMER_REPEAT, ws_blorp_userlist_cb, NULL);
 
-   http_save_users("/tmp/test-users.save");
    return false;
 }
 
@@ -509,7 +536,7 @@ static int http_load_users(const char *filename) {
     }
 
     memset(http_users, 0, sizeof(http_users));
-    char line[512];
+    char line[HTTP_WS_MAX_MSG+1];
     int user_count = 0;
 
     while (fgets(line, sizeof(line), file) && user_count < HTTP_MAX_USERS) {
@@ -538,7 +565,6 @@ static int http_load_users(const char *filename) {
          switch (i) {
             case 0: // uid
                uid = atoi(token);
-               Log(LOG_DEBUG, "auth.core", "new uid %d", uid);
                up = &http_users[uid];
                up->uid = uid;
                break;
@@ -558,7 +584,7 @@ static int http_load_users(const char *filename) {
          token = strtok(NULL, ":");
          i++;
       }
-      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->name, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
+//      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->name, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
       user_count++;
    }
    Log(LOG_INFO, "http.auth", "Loaded %d users from %s", user_count, filename);
@@ -625,7 +651,9 @@ void http_remove_client(struct mg_connection *c) {
       prev = current;
       current = current->next;
    }
-   Log(LOG_WARN, "http", "Attempted to remove client not in the list");
+
+   // XXX: Are these even worth logging?
+//   Log(LOG_WARN, "http", "Attempted to remove client not in the list");
 }
 
 #endif	// defined(FEATURE_HTTP)

@@ -4,22 +4,23 @@
 // XXX: Register an interest in events on ws
 // XXX: Update the display whenever websocket event comes in
 var socket;
-var ws_kicked = false;		// were were kicked? stop autoreconnects if so
+var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
-let reconnectDelay = 1000; // Start with 1 second
-let reconnectInterval = [1000, 5000, 10000, 30000, 60000, 300000]; // Delay intervals in ms
-var reconnectIndex = 0;  // Index to track the current delay
-var reconnectTimer;  // To manage reconnect attempts
-var bellAudio;		// sound widget
+let reconnectDelay = 1000;	// Start with 1 second
+let reconnectInterval = [1000, 5000, 10000, 30000, 60000, 120000]; // Delay intervals in ms
+var reconnectIndex = 0; 	// Index to track the current delay
+var reconnectTimer;  		// so we can stop reconnects
+var chat_ding;			// sound widget
+var logged_in;			// Did we get an AUTHORIZED response?
 var auth_user;
 var auth_token;
 var remote_nonce;
 var login_user;
 
+// This sends the first stage of the login process
 function try_login() {
    login_user = $('input#user').val().toUpperCase();
-   console.log("Logging in as", login_user, "...");
-   // Send login request via websocket
+   console.log("Logging in as " + login_user + "...");
    var msgObj = {
       "auth": {
          "cmd": "login",
@@ -38,7 +39,7 @@ $(document).ready(function() {
       $('#win-login input#user').focus();
    }
 
-   // If the password field is change
+   // If the password field is changed
    $('input#user').change(function() {
       // Cache the username and force to upper case
       login_user = $('input#user').val().toUpperCase();
@@ -63,8 +64,10 @@ $(document).ready(function() {
          return;
       }
 
-      // Since this is a manual reconnect attempt, allow it, if we were previously kicked
+      // Since this is a manual reconnect attempt, unset ws_kicked which would block it
       ws_kicked = false;
+      // we need to re-authenticate
+      authenticated = false;
       ws_connect();
       evt.preventDefault();
    });
@@ -72,7 +75,7 @@ $(document).ready(function() {
    $('input#reset').click(function(evt) {
       console.log("Form reset");
    });
-   bellAudio = document.getElementById('bell-sound');
+   chat_ding = document.getElementById('bell-sound');
    form_disable(true);
 
    // clear button
@@ -85,20 +88,24 @@ $(document).ready(function() {
    // Send message to the server when "Send" button is clicked
    $('#send-btn').click(function() {
       var message = $('#chat-input').val().trim();
-      // Determine if the message is a command, otherwise send it off to
+
+      // Determine if the message is a command, otherwise send it off as chat
       if (message) {
          if (message.charAt(0) == '/') {
-            console.log("got command:", message);
+            console.log("got CHAT command:", message);
             var args = message.split(' ');
+
             if (args.length > 0 && args[0].startsWith('/')) {
                args[0] = args[0].slice(1);  // Remove the first character if /
             }
+
             var command = args[0];
+/* XXX: I dont like this but some people do?
             if (!command) {
                append_chatbox('<div><span class="error">👽 Empty command? -- ' + message + '</span></div>');
                return;
             }
-
+*/
             switch(command) {
                case 'ban':
                   console.log("Send BAN", args[1]);
@@ -116,7 +123,7 @@ $(document).ready(function() {
                   console.log("Send WHOIS", args[1]);
                   break;
                default:
-                  append_chatbox('<div><span class="error">👽 Invalid command:' + message + '</span></div>');
+                  append_chatbox('<div><span class="error">👽 Invalid command:' + command + '</span></div>');
                   break;
             }
          } else {
@@ -127,8 +134,9 @@ $(document).ready(function() {
                   "data": message
                }
             };
-            socket.send(JSON.stringify(msgObj)); // Send the message to the server
-            append_chatbox('<div><span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+            socket.send(JSON.stringify(msgObj));
+            var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+            append_chatbox('<div>' + my_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
          }
          $('#chat-input').val(''); // Clear the input field
          setTimeout(function () {
@@ -233,6 +241,15 @@ async function authenticate(login_user, login_pass, auth_token) {
    return msgObj; // Return the object if needed
 }
 
+function userlist_update(message) {
+   $('#cul-list').empty();
+   const users = message.talk.users;
+   users.forEach(user => {
+      const li = `<li>&lt;<a href="#" class="chat-user-list"><span class="cul-self">${user}</span></a>&gt;</li>`;
+      $('#cul-list').append(li);
+   });
+}
+
 function ws_connect() {
    // Clear any previous reconnecting flag
    reconnecting = false;
@@ -251,13 +268,13 @@ function ws_connect() {
       try_login();
       form_disable(false);
       append_chatbox('<div class="chat-status">👽 WebSocket connected.</div>');
-      reconnecting = false; // Reset reconnect flag on successful connection
-      reconnectDelay = 1000; // Reset reconnect delay to 1 second
+      reconnecting = false; 		// Reset reconnect flag on successful connection
+      reconnectDelay = 1000; 		// Reset reconnect delay to 1 second
    };
    
-   // When the WebSocket connection is closed
+   /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
-      if (ws_kicked != true) {
+      if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
          handleReconnect();
       }
@@ -266,7 +283,7 @@ function ws_connect() {
    // When there's an error with the WebSocket
    socket.onerror = function(error) {
       append_chatbox('<div class="chat-status error">👽 WebSocket error: ', error, 'occurred.</div>');
-      if (ws_kicked != true) {
+      if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (on-error)");
          handleReconnect();
       }
@@ -276,34 +293,41 @@ function ws_connect() {
       var msgData = event.data;
       try {
          var msgObj = JSON.parse(msgData);
-         console.log("Got: ", msgData);
 
-         // Handle 'talk' commands
          if (msgObj.talk) {
-            var cmd = msgObj.talk.cmd;  // Get the command
-            var message = msgObj.talk.data;  // Get the message (if present)
+            var cmd = msgObj.talk.cmd;
+            var message = msgObj.talk.data;
 
             if (cmd === 'msg' && message) {
                var sender = msgObj.talk.from;
-
-               // Handle message command
-               append_chatbox('<div><span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+               var msg_ts = msg_timestamp(msgObj.talk.ts);
+               append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
 
                // Play bell sound if the bell button is checked
                if ($('#bell-btn').data('checked')) {
-                  bellAudio.currentTime = 0;  // Reset audio to start from the beginning
-                  bellAudio.play();
+                  chat_ding.currentTime = 0;  // Reset audio to start from the beginning
+                  chat_ding.play();
+               }
+            } else if (cmd === 'join') {
+               var user = msgObj.talk.user;
+               if (user) {
+                  var msg_ts = msg_timestamp(msgObj.talk.ts);
+                  append_chatbox('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">joined the chat</span>&nbsp;***</div>');
+               } else {
+                  console.log("got join for undefined user, ignoring");
                }
             } else if (cmd === 'kick') {
-               // Handle 'kick' command
+               // XXX: Display a message in chat about the user being kicked and by who/why
                console.log("Kick command received");
-               // You can add code here to handle the kick action
             } else if (cmd === 'mute') {
-               // Handle 'mute' command
+               // XXX: If this mute is for us, disable the send button
+               // XXX: and show an alert.
                console.log("Mute command received");
-               // You can add code here to handle the mute action
+            } else if (cmd === "names") {
+               userlist_update(msgObj);
+            } else if (cmd === "unmute") {
+               // XXX: If unmute is for us, enable send button and let user know they can talk again
             } else {
-               // Unknown or unsupported command
                console.log("Unknown talk command:", cmd);
             }
          } else if (msgObj.log) {
@@ -325,6 +349,7 @@ function ws_connect() {
 
                $('div#sub-login-error').show();
                $('button#login-err-ok').focus();
+
                // Stop auto-reconnecting
                stopReconnecting();
                return false;
@@ -372,6 +397,8 @@ function ws_connect() {
                   console.log("Unknown auth command: ", cmd);
                   break;
             }
+         } else {
+            console.log("Got unknown message from server: ", msgData);
          }
       } catch (e) {
          console.error("Error parsing message:", e);
@@ -436,4 +463,20 @@ function show_login_window() {
 //   $('.chroma-hash').show();
    $('div#win-chat').hide();
    $('input#user').focus();
+}
+
+// turn a unix time into [HH:MM.ss] stamp or space padding if invalid
+function msg_timestamp(msg_ts) {
+//   console.log("Received timestamp:", msg_ts, "Type:", typeof msg_ts);
+
+   if (typeof msg_ts !== "number") {
+      msg_ts = Number(msg_ts); 			// Convert string to number if necessary
+      if (isNaN(msg_ts)) return "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+   }
+
+   let date = new Date(msg_ts * 1000); 		// Convert seconds to milliseconds
+   let hh = String(date.getHours()).padStart(2, '0');
+   let mm = String(date.getMinutes()).padStart(2, '0');
+   let ss = String(date.getSeconds()).padStart(2, '0');
+   return `[${hh}:${mm}.${ss}]`;
 }

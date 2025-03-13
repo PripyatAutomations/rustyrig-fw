@@ -163,7 +163,7 @@ input {
 }
 
 #user-menu {
-/*   display: none; */
+   display: none;
    color: black;
    background: #fff0f0;
    position: absolute;

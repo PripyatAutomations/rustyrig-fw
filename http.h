@@ -5,6 +5,8 @@
 
 #include "mongoose.h"
 
+#define	HTTP_WS_MAX_MSG		65535		// 64kbytes should be enough per message, even with audio frames
+
 // HTTP Basic-auth user
 #define	HTTP_MAX_USERS		32		// How many users are allowed in http.users?
 #define	HTTP_USER_LEN		16		// username length (16 char)
@@ -12,7 +14,11 @@
 #define	HTTP_HASH_LEN		40		// sha1
 #define	HTTP_TOKEN_LEN		14		// session-id / nonce length, longer moar secure
 #define	USER_PRIV_LEN		100		// privileges list
+
+// CHAT protocol
 #define	CHAT_NAMES_INTERVAL	5000		// fire off a NAMES message in chat every 5 seconds
+// CAT protocol
+// WF protocol
 
 struct http_user {
    int		uid;
