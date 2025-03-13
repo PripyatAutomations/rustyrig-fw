@@ -383,11 +383,11 @@ function ws_connect() {
                // XXX: If this mute is for us, disable the send button
                // XXX: and show an alert.
                console.log("Mute command received");
-            } else if (cmd === "part" || cmd === "quit") {
+            } else if (cmd === "quit") {
                var user = msgObj.talk.user;
                if (user) {
                   var msg_ts = msg_timestamp(msgObj.talk.ts);
-                  append_chatbox('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">%sed the chat</span>&nbsp;***</div>', cmd);
+                  append_chatbox('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">left the chat</span>&nbsp;***</div>');
                } else {
                   console.log("got %s for undefined user, ignoring", cmd);
                }
