@@ -327,7 +327,8 @@ function ws_connect() {
       show_connecting(false);
       try_login();
       form_disable(false);
-      append_chatbox('<div class="chat-status">👽 WebSocket connected.</div>');
+      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+      append_chatbox('<div class="chat-status">' + my_ts + ' 👽 WebSocket connected.</div>');
       reconnecting = false; 		// Reset reconnect flag on successful connection
       reconnectDelay = 1000; 		// Reset reconnect delay to 1 second
    };
@@ -342,7 +343,9 @@ function ws_connect() {
 
    // When there's an error with the WebSocket
    socket.onerror = function(error) {
-      append_chatbox('<div class="chat-status error">👽 WebSocket error: ', error, 'occurred.</div>');
+      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+      append_chatbox('<div class="chat-status error">' + my_ts + ' 👽 WebSocket error: ', error, 'occurred.</div>');
+
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (on-error)");
          handleReconnect();
@@ -437,7 +440,8 @@ function ws_connect() {
                   logged_in = true;
 
                   hide_login_window();
-                  append_chatbox('<div><span class="msg-connected">👽&nbsp;***&nbsp Welcome back, ' + auth_user + '&nbsp;***</span></div>');
+                  var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+                  append_chatbox('<div><span class="msg-connected">' + my_ts + ' 👽&nbsp;***&nbsp Welcome back, ' + auth_user + '&nbsp;***</span></div>');
                   console.log("Got AUTHORIZED from server as username: ", auth_user, " with token ", auth_token);
                   break;
                case 'challenge':

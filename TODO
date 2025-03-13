@@ -58,6 +58,7 @@ minimal inet_ntop() for non-posix
 * Rework the http_client stuff so that instead of being removed on disconnected,
   we just use a last-seen time to expire their session. We should never have a ton
   of people connected to the radio, so it should be fine this way
-* 
+*  Fix reconnect times. They seem to be much later than what the user gets told
+
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards
