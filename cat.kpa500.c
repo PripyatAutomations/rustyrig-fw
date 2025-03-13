@@ -35,7 +35,7 @@ static int32_t cat_kpa500_alc(struct AmpState *amp, char *args) {
    if (args != NULL) {
       uint32_t tmp = atoi(args);
 
-      if (tmp < 0) 
+      if (tmp < 0)
          tmp = 0;
 
       if (tmp > 210)
@@ -108,7 +108,7 @@ static int32_t cat_kpa500_band(struct AmpState *amp, char *args) {
       amp->current_band = band = tmp;
    }
    cat_printf("^BN%02d", band);
-   
+
    return 0;
 }
 

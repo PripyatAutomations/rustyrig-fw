@@ -306,7 +306,7 @@ dict * dict_new(void)
 void dict_free(dict * d)
 {
     int i ;
-    
+
     if (!d)
         return ;
 

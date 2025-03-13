@@ -253,7 +253,7 @@ static int generate_nonce(char *buffer, size_t length) {
    for (i = 0; i < (length - 2); i++) {
       buffer[i] = base64_chars[rand() % 64];  // Directly assign base64 characters
    }
-   
+
    buffer[length] = '\0';  // Null terminate
    return length;
 }
@@ -401,7 +401,7 @@ static struct mg_tls_opts tls_opts;
 void http_tls_init(void) {
    bool tls_error = false;
    memset(&tls_opts, 0, sizeof(tls_opts));
-   
+
    tls_cert = mg_file_read(&mg_fs_posix, HTTP_TLS_CERT);
    if (tls_cert.buf == NULL) {
       Log(LOG_CRIT, "http.tls", "Unable to load TLS cert from %s", HTTP_TLS_CERT);
@@ -475,7 +475,7 @@ bool http_init(struct mg_mgr *mgr) {
       snprintf(www_404_path, sizeof(www_404_path), "%s", WWW_404_FALLBACK);
    }
 
-   // set the www-root if configured   
+   // set the www-root if configured
    if (cfg_www_root != NULL) {
       snprintf(www_root, sizeof(www_root), "%s", cfg_www_root);
    } else { // use the defaults

@@ -168,7 +168,7 @@ $(document).ready(function() {
        let isChecked = $(this).data('checked');
        $(this).data('checked', !isChecked);
        let newSrc = isChecked ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
-       
+
        console.log("Setting image to:", newSrc);  // Debug log
        $('#bell-image').attr('src', newSrc);
    });
@@ -243,13 +243,13 @@ async function authenticate(login_user, login_pass, auth_token) {
 }
 
 function userlist_update(message) {
-   $('#cul-list').empty();                                                                                                                                    
-   const users = message.talk.users;                                                                                                                          
-   users.forEach(user => {                                                                                                                                    
+   $('#cul-list').empty();
+   const users = message.talk.users;
+   users.forEach(user => {
       const li = `<li><button class="chat-user-list"><span class="cul-self">${user}</span></button></li>`;
-      $('#cul-list').append(li);                                                                                                                              
-   });                                                                                                                                                        
-}      
+      $('#cul-list').append(li);
+   });
+}
 
 function show_user_menu(username) {
    console.log("User menu for:", username);
@@ -260,7 +260,7 @@ function ws_connect() {
    reconnecting = false;
    show_connecting(true);
    socket = new WebSocket(getWebSocketUrl());
-   
+
    if (ws_kicked == true) {
       // Prevent reconnecting for a moment at least
       console.log("Preventing auto-reconnect - we were kicked");
@@ -276,7 +276,7 @@ function ws_connect() {
       reconnecting = false; 		// Reset reconnect flag on successful connection
       reconnectDelay = 1000; 		// Reset reconnect delay to 1 second
    };
-   
+
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
       if (ws_kicked != true && reconnecting == false) {
@@ -434,7 +434,7 @@ function handleReconnect() {
    reconnecting = true;
    show_connecting(true);
    append_chatbox(`<div class="chat-status error">👽 Reconnecting in ${reconnectDelay / 1000} seconds at ${new Date().toLocaleTimeString()}...</div>`);
-   
+
    // Reattempt connection after delay
    reconnectTimer = setTimeout(function() {
       ws_connect();

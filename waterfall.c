@@ -1,5 +1,5 @@
 //
-// Here we support plotting a waterfall onto virtual fb 
+// Here we support plotting a waterfall onto virtual fb
 // to be sent either to display or network client
 #include "config.h"
 #include <stddef.h>

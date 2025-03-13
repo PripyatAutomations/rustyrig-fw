@@ -1,60 +1,60 @@
 // ISC License
-// 
+//
 // Copyright 2022 Silicon Witchery AB
-// 
-// Permission to use, copy, modify, and/or distribute this software for any 
-// purpose with or without fee is hereby granted, provided that the above 
+//
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
-// 
-// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH 
-// REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY 
-// AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, 
-// INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM 
-// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR 
-// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR 
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+// REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+// AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+// INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
-//  
-//  
-//      This file contains everything needed for implementing a basic USB 
-//      firmware upgrade using Chrome to STM32 based devices. This is how to get 
+//
+//
+//      This file contains everything needed for implementing a basic USB
+//      firmware upgrade using Chrome to STM32 based devices. This is how to get
 //      started
-//   
+//
 //      Firstly, include this file into your HTML <head> block:
-//  
+//
 //          <script src="usbDfuDevice.js"></script>
-//   
-//      Then create an instance of the dfu object inside your <script> block. 
-//  
+//
+//      Then create an instance of the dfu object inside your <script> block.
+//
 //          let dfu = new usbDfuDevice();
-//  
+//
 //      Once you have retrieved your update.bin file, call the function
-//      runUpdateSequence() and pass the arrayBuffer containing your 
-//      firmware. It doesn't seem straightforward to automatically get flash and 
-//      page size within the bootloader. So you'll need to provide both these 
+//      runUpdateSequence() and pass the arrayBuffer containing your
+//      firmware. It doesn't seem straightforward to automatically get flash and
+//      page size within the bootloader. So you'll need to provide both these
 //      values too. They can be as strings (hex or dec format) or as a number.
-//  
+//
 //          await dfu.runUpdateSequence(binaryData, flashSizeStr, pageSizeStr);
-//  
-//      A connection pane will appear, and any devices with the STM32 vendorID 
-//      will be shown. Note the device must be in DFU mode. This is usually 
-//      achieved by holding the BOOT pin during reset of the STM32. The update 
-//      sequence function is asynchronous so the await keyword can be used. It 
+//
+//      A connection pane will appear, and any devices with the STM32 vendorID
+//      will be shown. Note the device must be in DFU mode. This is usually
+//      achieved by holding the BOOT pin during reset of the STM32. The update
+//      sequence function is asynchronous so the await keyword can be used. It
 //      returns a promise on completion.
-//   
-//      It's also possible to call the update steps manually. Look at the 
+//
+//      It's also possible to call the update steps manually. Look at the
 //      runUpdateSequence() function to see how this is done.
 //
-//      Further details on how the DFU sequence should work can be found within 
+//      Further details on how the DFU sequence should work can be found within
 //      this application note:
-//  
+//
 //          https://www.st.com/resource/en/application_note/cd00264379-usb-dfu-protocol-used-in-the-stm32-bootloader-stmicroelectronics.pdf
-//  
+//
 //      The exact specification of the USB DFU protocol is documented here:
-//  
+//
 //          https://www.usb.org/sites/default/files/DFU_1.1.pdf
-//  
-//      More details of the WebUSB API can be found here: 
-//  
+//
+//      More details of the WebUSB API can be found here:
+//
 //          https://web.dev/usb/
 //
 //      To learn more about us, visit out website:
@@ -62,7 +62,7 @@
 //          https://www.siliconwitchery.com
 
 
-// Class constructor containing all the DFU functions and parameters 
+// Class constructor containing all the DFU functions and parameters
 let usbDfuDevice = class {
 
     // List of DFU requests we can perform. These are according to the DFU spec
@@ -124,7 +124,7 @@ let usbDfuDevice = class {
         this.pageSize = 0x80;
     }
 
-    // Helper function to get the latest DFU status. Often required before new 
+    // Helper function to get the latest DFU status. Often required before new
     // operations
     async getStatus() {
 
@@ -165,7 +165,7 @@ let usbDfuDevice = class {
                 throw ("Error: " + Object.keys(dfu.dfuError)[error] +
                     " in dfu state: " + Object.keys(dfu.dfuState)[state]);
 
-                // This could be extended to return the error and state in a 
+                // This could be extended to return the error and state in a
                 // more machine readable way for retrying operations. Here we
                 // just return an error string
             }
@@ -420,12 +420,12 @@ let usbDfuDevice = class {
                 // Copy data from the file to the dat buffer
                 blockData.set(new Uint8Array(fileArr.slice(dataStart, dataEnd)));
 
-                // Write block by block 
+                // Write block by block
                 await this.device.controlTransferOut({
                     requestType: 'class',
                     recipient: 'interface',
                     request: this.dfuRequest.DFU_DNLOAD,
-                    value: 2 + block, // wValue should be the block number + 2 
+                    value: 2 + block, // wValue should be the block number + 2
                     index: 0
                 }, blockData); // 2048 byte block of data to program
 
@@ -505,7 +505,7 @@ let usbDfuDevice = class {
         dfuDisconnectHandler();
     }
 
-    // Executes the full DFU sequence. 
+    // Executes the full DFU sequence.
     async runUpdateSequence(fileArr, flashSizeStr, pageSizeStr) {
 
         // Attempt the sequence

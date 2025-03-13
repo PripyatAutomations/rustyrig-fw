@@ -82,8 +82,8 @@ void net_print_listeners(const char *listenaddr) {
 //        Log(LOG_INFO, "net", "iteration, Interface: %s, Family: %d", ifa->ifa_name, family);
 
         if (family == AF_INET || family == AF_INET6) {
-            void *addr_ptr = (family == AF_INET) 
-                ? (void *)&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr 
+            void *addr_ptr = (family == AF_INET)
+                ? (void *)&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr
                 : (void *)&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
 
             if (inet_ntop(family, addr_ptr, addr, sizeof(addr)) == NULL) {

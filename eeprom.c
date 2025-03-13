@@ -101,7 +101,7 @@ uint32_t eeprom_init(void) {
       return -1;
    }
 
-// we do not have fstat (or a file system at all) on the radio...   
+// we do not have fstat (or a file system at all) on the radio...
 #if	defined(HOST_POSIX)
    if (fstat(fd, &sb) == -1) {
       Log(LOG_CRIT, "eeprom", "EEPROM image %s does not exist, run 'make eeprom' and try again", HOST_EEPROM_FILE);
@@ -393,7 +393,7 @@ uint32_t get_eeprom_change_age(void) {
 
 // Write the pending changes if any
 bool write_pending_eeprom_changes(void) {
-   if (check_pending_eeprom_changes()) { 
+   if (check_pending_eeprom_changes()) {
       // XXx: this should come from config
       int max_age = 60;
       if (get_eeprom_change_age() > max_age) {

@@ -104,7 +104,7 @@ bool are_we_on_fire(void) {
            Log(LOG_CRIT, "therm", "THERMAL ALARM: AMP %d %d > %d degF!", i, rig.amps[i].thermal, thermal_limits.final_max);
            return true;
         }
-        if (rig.amps[i].thermal >= thermal_limits.final_warn) { 
+        if (rig.amps[i].thermal >= thermal_limits.final_warn) {
            Log(LOG_CRIT, "therm", "THERMAL WARNING: ANP %d %d > %d degF!", i, rig.amps[i].thermal, thermal_limits.final_warn);
         }
     }

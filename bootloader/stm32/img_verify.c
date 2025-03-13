@@ -4,7 +4,7 @@
 static void main_exe_app(void) {
     uint32_t sp_adr; // app's stack pointer value
     uint32_t pc_adr; // app's reset address value
- 
+
     // Does vector table at start of app have valid stack pointer value?
     sp_adr = *(uint32_t *)MAIN_APP_ADR_START;
     if( (sp_adr < MAIN_SRAM_ADR_START) || (sp_adr > MAIN_SRAM_ADR_END) )

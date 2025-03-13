@@ -53,7 +53,7 @@ static uint32_t load_defaults(void) {
    rig.bc_standby = 1;
    rig.tr_delay = 50;
    return 0;
-}   
+}
 
 // Zeroize our memory structures
 static uint32_t initialize_state(void) {

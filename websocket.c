@@ -65,7 +65,7 @@ bool ws_send_userlist(void) {
    struct mg_str ms = mg_str(resp_buf);
    ws_broadcast(NULL, &ms);
 //   Log(LOG_DEBUG, "http.ws.noisy", "sending userlist: %s", resp_buf);
-   
+
    return false;
 }
 
@@ -77,7 +77,7 @@ void ws_blorp_userlist_cb(void *arg) {
 bool ws_kick_client(http_client_t *cptr, const char *reason) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
    struct mg_connection *c = cptr->conn;
-   
+
    if (cptr == NULL || cptr->conn == NULL) {
       Log(LOG_DEBUG, "auth.noisy", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
       return true;
@@ -96,7 +96,7 @@ bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
 
    http_client_t *cptr = http_find_client_by_c(c);
-   
+
    if (cptr == NULL || cptr->conn == NULL) {
       Log(LOG_DEBUG, "auth.noisy", "ws_kick_client_by_c for mg_conn <%x> has cptr <%x> and is invalid", c, (cptr != NULL ? cptr->conn : NULL));
       return true;
@@ -173,8 +173,8 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
             }
          }
 
-         snprintf(resp_buf, sizeof(resp_buf), 
-                  "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }", 
+         snprintf(resp_buf, sizeof(resp_buf),
+                  "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }",
                   cptr->nonce, user, cptr->token);
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
@@ -240,13 +240,13 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
             // Store some timestamps such as when user joined & session will forcibly expire
             cptr->session_start = now;
             cptr->last_heard = now;
-            cptr->session_expiry = now + HTTP_SESSION_LIFETIME;		
+            cptr->session_expiry = now + HTTP_SESSION_LIFETIME;
 
             // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
             char resp_buf[HTTP_WS_MAX_MSG+1];
             memset(resp_buf, 0, sizeof(resp_buf));
-            snprintf(resp_buf, sizeof(resp_buf), 
-                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu } }", 
+            snprintf(resp_buf, sizeof(resp_buf),
+                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu } }",
                      user, token, now);
             mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 

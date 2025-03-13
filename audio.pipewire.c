@@ -38,18 +38,18 @@ static void on_tx_process(void *data) {
 
 au_device_t *au_init(au_backend_t backend, const char *device_name) {
     if (backend != AU_BACKEND_PIPEWIRE) return NULL;
-    
+
     au_device_t *dev = calloc(1, sizeof(au_device_t));
     dev->backend = backend;
-    
+
     pw_init(NULL, NULL);
     dev->loop = pw_loop_new(NULL);
     dev->context = pw_context_new(pw_loop_get(dev->loop), NULL, 0);
     dev->core = pw_context_connect(dev->context, NULL, 0);
-    
+
     struct pw_properties *rx_props = pw_properties_new(PW_KEY_NODE_NAME, device_name ? device_name : "Audio-RX", NULL);
     struct pw_properties *tx_props = pw_properties_new(PW_KEY_NODE_NAME, device_name ? device_name : "Audio-TX", NULL);
-    
+
     dev->rx_stream = pw_stream_new_simple(pw_loop_get(dev->loop), "RX Stream", rx_props,
                                           &(struct pw_stream_events){.version = PW_VERSION_STREAM_EVENTS, .process = on_rx_process}, dev);
     dev->tx_stream = pw_stream_new_simple(pw_loop_get(dev->loop), "TX Stream", tx_props,
