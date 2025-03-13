@@ -446,6 +446,19 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
      ws_handle(msg, c);
    } else if (ev == MG_EV_CLOSE) {
+     char resp_buf[HTTP_WS_MAX_MSG+1];
+     http_client_t *cptr = http_find_client_by_c(c);
+
+     if (cptr != NULL) {
+        // blorp out a quit to all chat users
+        memset(resp_buf, 0, sizeof(resp_buf));
+        snprintf(resp_buf, sizeof(resp_buf),
+                 "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
+                 cptr->user->name, now);
+        struct mg_str ms = mg_str(resp_buf);
+        ws_broadcast(NULL, &ms);
+     }
+     Log(LOG_INFO, "auth", "User %s on cptr <%x> left chat", cptr->user->name, cptr);
      http_remove_client(c);
    }
 }
