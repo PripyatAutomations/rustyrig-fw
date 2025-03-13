@@ -7,7 +7,7 @@ var socket;
 var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
 let reconnectDelay = 1000;	// Start with 1 second
-let reconnectInterval = [1000, 5000, 10000, 30000, 60000, 120000]; // Delay intervals in ms
+let reconnectInterval = [1000, 5000, 10000, 30000, 30000, 30000, 30000, 60000, 60000, 120000]; // Delay intervals in ms
 var reconnectIndex = 0; 	// Index to track the current delay
 var reconnectTimer;  		// so we can stop reconnects
 var chat_ding;			// sound widget for chat ding
@@ -32,11 +32,9 @@ function try_login() {
 }
 
 $(document).ready(function() {
-   // XXX: If not authenticated
-   if (true) {
+   if (!logged_in) {
       // put a chroma-hash widget on password fields
 //      var chroma_hash = $("input:password").chromaHash({ bars: 3, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
-
       $('#win-login input#user').focus();
    }
 
@@ -68,7 +66,7 @@ $(document).ready(function() {
       // Since this is a manual reconnect attempt, unset ws_kicked which would block it
       ws_kicked = false;
       // we need to re-authenticate
-      authenticated = false;
+      logged_in = false;
       ws_connect();
       evt.preventDefault();
    });
@@ -109,19 +107,24 @@ $(document).ready(function() {
 */
             switch(command) {
                case 'ban':
-                  console.log("Send BAN", args[1]);
+                  console.log("Send BAN for", args[1]);
+                  sendCommand(command, args[1]);
                   break;
                case 'edit':
-                  console.log("Send EDIT", args[1]);
+                  console.log("Send EDIT for", args[1]);
+                  sendCommand(command, args[1]);
                   break;
                case 'kick':
-                  console.log("Send KICK", args[1]);
+                  console.log("Sending KICK for", args[1]);
+                  sendCommand(command, args[1]);
                   break;
                case 'mute':
                   console.log("Send MUTE", args[1]);
+                  sendCommand(command, args[1]);
                   break;
                case 'whois':
                   console.log("Send WHOIS", args[1]);
+                  sendCommand(command, args[1]);
                   break;
                default:
                   append_chatbox('<div><span class="error">👽 Invalid command:' + command + '</span></div>');
@@ -156,12 +159,17 @@ $(document).ready(function() {
    $(document).click(function (event) {
       // If the click is NOT on an input, button, or a focusable element
       if (!$(event.target).is('#chat-input, a, [tabindex]')) {
-         $('#chat-input').focus();
+         if (logged_in) {
+            $('#chat-input').focus();
+         } else {
+            $('form#login input#user').focus();
+         }
       }
+         
    });
 
    // Ensure #chat-box does not accidentally become focusable
-   $('#chat-box').attr('tabindex', '-1'); // Prevent accidental focus
+   $('#chat-box').attr('tabindex', '-1');
 
    // Support toggling the sound via bell button
    $('#bell-btn').click(function() {
@@ -242,17 +250,64 @@ async function authenticate(login_user, login_pass, auth_token) {
    return msgObj;
 }
 
-function userlist_update(message) {
+function cul_update(message) {
    $('#cul-list').empty();
    const users = message.talk.users;
    users.forEach(user => {
-      const li = `<li><button class="chat-user-list"><span class="cul-self">${user}</span></button></li>`;
+      const li = `<li>
+                     <button class="chat-user-list" onclick="show_user_menu('${user}')">
+                        <span class="cul-self">${user}</span>
+                     </button>
+                  </li>`;
       $('#cul-list').append(li);
    });
 }
 
 function show_user_menu(username) {
-   console.log("User menu for:", username);
+   // Update the user menu with the username
+   $('#user-menu').html(`
+      User: ${username}<br/>
+      <span id="user-menu-items">
+         <ul>
+            <li><a href="mailto:user_email" target="_blank">Email</a></li>
+            <li><button id="whois-user">Whois</button></li>
+            <hr width="50%"/>
+            <li><button id="mute-user">Mute</button></li>
+            <li><button id="kick-user">Kick</button></li>
+            <li><button id="ban-user">Lock&amp;Kick</button></li>
+         </ul>
+      </span>
+   `);
+
+   // Attach event listeners to buttons using jQuery
+   $('#whois-user').on('click', function() {
+      sendCommand('whois', username);
+   });
+
+   $('#mute-user').on('click', function() {
+      sendCommand('mute', username);
+   });
+
+   $('#kick-user').on('click', function() {
+      sendCommand('kick', username);
+   });
+
+   $('#ban-user').on('click', function() {
+      sendCommand('ban', username);
+   });
+}
+
+// Function to send commands over WebSocket
+function sendCommand(cmd, target) {
+   const msgObj = {
+      "talk": {
+         "cmd": cmd,
+         "token": auth_token,  // assuming auth_token is available
+         "target": target
+      }
+   };
+   socket.send(JSON.stringify(msgObj));
+   console.log(`Sent command: /${cmd} ${target}`);
 }
 
 function ws_connect() {
@@ -329,11 +384,11 @@ function ws_connect() {
                // XXX: and show an alert.
                console.log("Mute command received");
             } else if (cmd === "names") {
-               userlist_update(msgObj);
+               cul_update(msgObj);
             } else if (cmd === "unmute") {
                // XXX: If unmute is for us, enable send button and let user know they can talk again
             } else {
-               console.log("Unknown talk command:", cmd);
+               console.log("Unknown talk command:", cmd, "msg: ", msgData);
             }
          } else if (msgObj.log) {
             var data = msgObj.log.data;
@@ -362,6 +417,7 @@ function ws_connect() {
 
             switch (cmd) {
                case 'authorized':
+                  // Save the auth_user as it's the only reputable source of truth for user's name
                   if (msgObj.auth.user) {
                      auth_user = msgObj.auth.user;
                   }
@@ -369,6 +425,8 @@ function ws_connect() {
                   if (msgObj.auth.token) {
                      auth_token = msgObj.auth.token;
                   }
+
+                  logged_in = true;
 
                   hide_login_window();
                   append_chatbox('<div><span class="msg-connected">👽&nbsp;***&nbsp Welcome back, ' + auth_user + '&nbsp;***</span></div>');
