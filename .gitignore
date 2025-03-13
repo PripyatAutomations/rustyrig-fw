@@ -10,7 +10,8 @@ images
 build/*/*.*
 build/*/obj/*
 
-# user database
+# user database & certs
+config/*.pem
 config/http.users
 
 # Archived configs
