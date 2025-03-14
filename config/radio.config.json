@@ -1,7 +1,14 @@
 {
-   "dev": {
-      "serial": "900001",
-      "hwversion": 1
+   "atu": {
+      "atu0": {
+         "title": "HF ATU",
+         "L": [ 10, 5, 2.5, 1.25, 0.59, 0.39, 0.22, 0.11 ],
+         "C": [ 642, 320, 160, 82, 39, 20, 10, 5 ]
+      }
+   },
+   "backend": {
+      "dummy": "true",
+      "hamlib": "true"
    },
    "build": {
       "cflags": "-fPIC -g",
@@ -9,6 +16,20 @@
       "platform": "posix",
       "toolchain": {
          "prefix": ""
+      }
+   },
+   "cards": {
+      "amp": {
+         "name": "amp",
+         "present": "false",
+         "type": "i2c",
+         "addr": "0x4a"
+      },
+      "atu": {
+         "name": "atu",
+         "present": "true",
+         "type": "i2c",
+         "addr": "0x2a"
       }
    },
    "debug": {
@@ -20,6 +41,10 @@
       "mongoose": "false",
       "show_ts": "false",
       "targets": "*"
+   },
+   "dev": {
+      "serial": "900001",
+      "hwversion": 1
    },
    "eeprom": {
       "addr": "0x0000",
@@ -75,19 +100,6 @@
          }
       ]
    },
-   "station": {
-      "call": "N0CALL",
-      "grid": "AA00aa"
-   },
-   "owner": {
-      "call": "N0CALL",
-      "privs": "US/General"
-   },
-   "pin": {
-      "show": 1,
-      "master": "012345",
-      "reset": "76543210"
-   },
    "net": {
       "bind": "0.0.0.0",
       "interface": "ether",
@@ -117,33 +129,14 @@
          "port": 8833
       }
    },
-   "therm": {
-      "encl_alarm": 120.0,
-      "encl_max": 135.0,
-      "encl_target": 95.0,
-      "inlet_alarm": 120.0,
-      "inlet_max": 120.0,
-      "inlet_target": 110.0,
-      "final_alarm": 170.0,
-      "final_max": 185.0,
-      "final_target": 135.0,
-      "lpf_alarm": 125.0,
-      "lpf_max": 130.0,
-      "lpf_target": 125.0
+   "owner": {
+      "call": "N0CALL",
+      "privs": "US/General"
    },
-   "cards": {
-      "amp": {
-         "name": "amp",
-         "present": "false",
-         "type": "i2c",
-         "addr": "0x4a"
-      },
-      "atu": {
-         "name": "atu",
-         "present": "true",
-         "type": "i2c",
-         "addr": "0x2a"
-      }
+   "pin": {
+      "show": 1,
+      "master": "012345",
+      "reset": "76543210"
    },
    "rfdecks": {
       "lowband": {
@@ -159,11 +152,22 @@
          "powerstep": 10
       }
    },
-   "atu": {
-      "atu0": {
-         "title": "HF ATU",
-         "L": [ 10, 5, 2.5, 1.25, 0.59, 0.39, 0.22, 0.11 ],
-         "C": [ 642, 320, 160, 82, 39, 20, 10, 5 ]
-      }
+   "station": {
+      "call": "N0CALL",
+      "grid": "AA00aa"
+   },
+   "therm": {
+      "encl_alarm": 120.0,
+      "encl_max": 135.0,
+      "encl_target": 95.0,
+      "inlet_alarm": 120.0,
+      "inlet_max": 120.0,
+      "inlet_target": 110.0,
+      "final_alarm": 170.0,
+      "final_max": 185.0,
+      "final_target": 135.0,
+      "lpf_alarm": 125.0,
+      "lpf_max": 130.0,
+      "lpf_target": 125.0
    }
 }

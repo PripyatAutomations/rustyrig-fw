@@ -172,7 +172,7 @@ CATCommand cat_yaesu_commands[] = {
     { "ST", 1, 1, cat_yaesu_split },		// Split
     { "SV", 1, 1, cat_yaesu_swap_vfo },		// Swap VFO
     { "TS", 1, 1, cat_yaesu_txw },		// TXW?
-    { "TX", 0, 0, cat_yaesu_ptt },		// TX Set (PTT)
+    { "TX", 1, 1, cat_yaesu_ptt },		// TX Set (PTT)
     { "UP", 0, 0, cat_yaesu_down },		// UP
     { "UL", 0, 1, cat_yaesu_unlock },		// Unlock
     { "VG", 0, 1, cat_yaesu_vox_gain },		// VOX Gain

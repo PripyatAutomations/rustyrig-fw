@@ -25,8 +25,12 @@ TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
 EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
-
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
+USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
+
+ifeq (${USE_HAMLIB},true)
+LDFLAGS += -lhamlib
+endif
 
 ifeq (${USE_SSL},true)
 CFLAGS += -DMG_TLS=MG_TLS_MBED

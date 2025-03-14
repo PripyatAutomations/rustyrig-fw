@@ -840,6 +840,12 @@ sub generate_config_h {
       if (defined($config->{features}{'mqtt'}) && match_boolean($config->{features}{'mqtt'})) {
          printf $fh "#define FEATURE_MQTT\n";
       }
+      if (defined($config->{'backend'}{'dummy'}) && match_boolean($config->{'backend'}{'dummy'})) {
+         printf $fh "#define BACKEND_DUMMY\n";
+      }
+      if (defined($config->{'backend'}{'hamlib'}) && match_boolean($config->{'backend'}{'hamlib'})) {
+         printf $fh "#define BACKEND_HAMLIB\n";
+      }
    }
 
    if (defined($config->{'debug'})) {

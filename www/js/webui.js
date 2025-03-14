@@ -504,7 +504,7 @@ function handleReconnect() {
    reconnecting = true;
    show_connecting(true);
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-   append_chatbox('<div class="chat-status error">' + my_ts +  ' 👽 Reconnecting in ${reconnectDelay / 1000} seconds at ${new Date().toLocaleTimeString()}...</div>');
+   append_chatbox('<div class="chat-status error">' + my_ts + " 👽 Reconnecting in ${reconnectDelay / 1000} seconds at ${new Date().toLocaleTimeString()}...</div>");
 
    // Reattempt connection after delay
    reconnectTimer = setTimeout(function() {
