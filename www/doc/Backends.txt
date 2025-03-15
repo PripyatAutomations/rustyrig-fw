@@ -1,0 +1,6 @@
+The backend mechanism allows connecting to existing legacy rigs using hamlib
+to proxy CAT/audio over websockets.
+
+
+Supported backends:
+	* Dummy		[NYI]	Implemented via backend-internal with Dummy Mode flag set
