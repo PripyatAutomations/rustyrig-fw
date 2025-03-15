@@ -14,9 +14,6 @@
 #include "cat.h"
 #include "posix.h"
 #include "websocket.h"
-
-extern bool dying;		// in main.c
-extern time_t now;		// in main.c
 extern struct GlobalState rig;	// Global state
 
 bool ws_init(struct mg_mgr *mgr) {
@@ -24,7 +21,7 @@ bool ws_init(struct mg_mgr *mgr) {
       Log(LOG_CRIT, "ws", "ws_init called with NULL mgr");
       return true;
    }
-
+   Log(LOG_DEBUG, "http.ws", "WebSocket init completed succesfully");
    return false;
 }
 

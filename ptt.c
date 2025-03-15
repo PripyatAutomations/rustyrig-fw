@@ -16,9 +16,6 @@
 #include "state.h"
 #include "ptt.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 bool ptt_check_blocked(void) {
     if (rig.tx_blocked) {
        return true;

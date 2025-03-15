@@ -30,8 +30,6 @@
 #define	WWW_404_FALLBACK	"./www/404.html"
 
 extern time_t now;
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
 static char www_root[PATH_MAX];
 static char www_fw_ver[128];
 static char www_headers[32768];

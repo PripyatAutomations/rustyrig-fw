@@ -25,6 +25,7 @@
 #include "io.h"
 #include "audio.h"
 #include "usb.h"
+#include "backend.h"
 #if	defined(FEATURE_HTTP)
 #include "http.h"
 #include "websocket.h"
@@ -36,8 +37,8 @@
 struct mg_mgr mg_mgr;
 #endif
 
-bool dying = 0;		// Are we shutting down?
-struct GlobalState rig;	// Global state
+bool dying = 0;                // Are we shutting down?
+struct GlobalState rig;        // Global state
 
 // Current time, must be updated ONCE per second, used to save calls to gettimeofday()
 time_t now = -1;
@@ -117,12 +118,8 @@ int main(int argc, char **argv) {
       eeprom_load_config();
    }
 
-   // i2c init
 //   i2c_init();
-
-   // GUI init
    gui_init();
-
    logger_init();
 
    // Print the serial #
@@ -162,11 +159,19 @@ int main(int argc, char **argv) {
    if (io_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
 //      fatal_error();
+      exit(1);
+   }
+
+   if (backend_init()) {
+      Log(LOG_CRIT, "core", "*** Failed init backend ***");
+//      fatal_error();
+      exit(1);
    }
 
    if (cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
 //      fatal_error();
+      exit(1);
    }
 
    audio_init();

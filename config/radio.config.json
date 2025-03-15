@@ -7,6 +7,7 @@
       }
    },
    "backend": {
+      "active": "hamlib",
       "dummy": "true",
       "hamlib": "true"
    },
@@ -39,7 +40,7 @@
       "logmode": "0660",
       "loglevel": "debug",
       "mongoose": "false",
-      "show_ts": "false",
+      "show_ts": "true",
       "targets": "*"
    },
    "dev": {
@@ -58,7 +59,8 @@
       "cat_yaesu": "true",
       "http": "true",
       "max_bands": 14,
-      "mqtt": "true"
+      "mqtt": "true",
+      "sqlite": "true"
    },
    "limits": {
       "max_amps": 2,

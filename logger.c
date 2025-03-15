@@ -17,9 +17,6 @@
 #include "eeprom.h"
 #include "debug.h"		// Debug message filtering
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
 extern char latest_timestamp[64];
@@ -158,9 +155,9 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       return;
    } else {
       if (log_show_ts) {
-         fprintf(logfp, "[%s] <%s.%s>: %s\n", latest_timestamp, log_priority_to_str(priority), subsys, msgbuf);
+         fprintf(logfp, "[%s] <%s.%s> %s\n", latest_timestamp, log_priority_to_str(priority), subsys, msgbuf);
       } else {
-         fprintf(logfp, "<%s.%s>: %s\n", log_priority_to_str(priority), subsys, msgbuf);
+         fprintf(logfp, "<%s.%s> %s\n", log_priority_to_str(priority), subsys, msgbuf);
       }
       fflush(logfp);
    }

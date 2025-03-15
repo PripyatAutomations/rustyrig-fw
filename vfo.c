@@ -13,9 +13,6 @@
 #include "state.h"
 #include "vfo.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 bool set_vfo_frequency(VFOType vfo_type, uint32_t input, float freq) {
    Log(LOG_INFO, "vfo", "Setting VFO (type: %d) input #%d to %f", vfo_type, input, freq);
    return true;

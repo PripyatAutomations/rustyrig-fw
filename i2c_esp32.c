@@ -15,10 +15,6 @@
 #include "i2c_hal.h"
 #include "driver/i2c.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
-
 #define I2C_MASTER_PORT I2C_NUM_0
 
 int i2c_init(void) {

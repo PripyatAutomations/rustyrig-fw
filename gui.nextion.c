@@ -23,9 +23,6 @@
 #include "gui.h"
 #include "gui.nextion.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 bool gui_nextion_init(void) {
    return false;
 }

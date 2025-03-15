@@ -275,6 +275,13 @@
        "key": "net/http/tls_port",
        "default": 4420
    },
+   "backend/active": {
+       "offset": 358,
+       "type": "str",
+       "size": 10,
+       "key": "backend/active",
+       "default": "internal"
+   },
    "chan_header": {
        "offset": 100000,
        "type": "packed:chan_header",

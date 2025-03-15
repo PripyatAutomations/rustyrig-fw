@@ -15,6 +15,3 @@
 #endif
 #include "state.h"
 #include "usb.h"
-
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state

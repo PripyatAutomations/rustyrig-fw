@@ -22,9 +22,6 @@
 #include "posix.h"
 #include "mqtt.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 // forward declration
 static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data);
 

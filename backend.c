@@ -47,3 +47,24 @@ rr_backend_t *rr_backend_find(const char *name) {
    }
    return NULL;
 }
+
+bool backend_init(void) {
+   rr_backend_t *be = NULL;
+
+// This mode only really applies on posix hosts such as linux...
+#if	defined(HOST_POSIX)
+   const char *be_name = eeprom_get_str("backend/active");
+   be = rr_backend_find(be_name);
+
+   if (be == NULL) {
+      Log(LOG_CRIT, "core", "Invalid backend selection %s - please fix config key backend.acive!");
+      exit(1);
+   }
+#else
+// ESP32 and stm32 only support internal backend
+   be = rr_backend_internal;
+#endif
+   rig.backend = be;
+   Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
+   return false;
+}

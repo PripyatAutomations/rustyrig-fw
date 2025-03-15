@@ -20,9 +20,6 @@
 #include "audio.h"
 #include <opus/opus.h>		// Used for audio compression
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 bool audio_init(void) {
    return false;
 }

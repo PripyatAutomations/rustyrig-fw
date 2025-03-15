@@ -834,12 +834,21 @@ sub generate_config_h {
       if (defined($config->{features}{'cat_yaesu'}) && match_boolean($config->{features}{'cat_yaesu'})) {
          printf $fh "#define CAT_YAESU true\n";
       }
+
       if (defined($config->{features}{'http'}) && match_boolean($config->{features}{'http'})) {
          printf $fh "#define FEATURE_HTTP\n";
       }
+
       if (defined($config->{features}{'mqtt'}) && match_boolean($config->{features}{'mqtt'})) {
          printf $fh "#define FEATURE_MQTT\n";
       }
+
+      if (defined($config->{features}{'sqlite'}) && match_boolean($config->{features}{'sqlite'})) {
+         printf $fh "#define FEATURE_SQLITE\n";
+      }
+   }
+
+   if (defined($config->{'backend'})) {
       if (defined($config->{'backend'}{'dummy'}) && match_boolean($config->{'backend'}{'dummy'})) {
          printf $fh "#define BACKEND_DUMMY\n";
       }

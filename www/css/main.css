@@ -217,9 +217,6 @@ button {
    height: 3em;
 }
 
-#bell-image {
-   object-fit: contain; /* Keeps aspect ratio while fitting in the box */
-}
 
 #bell-btn {
    height: 3em;
@@ -261,14 +258,6 @@ button {
    background-color: #218838; /* Darker green for hover */
 }
 
-/* Sounds checkbox */
-#bell-btn {
-   margin-left: 0px;
-   cursor: pointer;
-}
-
-#bell-image:hover {
-}
 
 /* Chat message styles */
 .chat-msg {
@@ -307,4 +296,57 @@ button {
    font-size: 24px;
    color: DarkGreen;
    margin: 5px 0;
+}
+
+
+div#button-box {
+   background: #eeeeee;
+   position: relative;
+   margin-top: 1em;
+   padding: 1em;
+   height: 3.5em;
+   width: 16em;
+   border: 2px solid #c0c0c0;
+}
+
+/* Sounds checkbox */
+#bell-btn {
+   position: relative;
+   top: -0.6em;
+   right: 0px;
+   margin-left: 0px;
+   cursor: pointer;
+   height: 3.5em;
+   width: 5.5em;
+}
+
+#bell-image {
+   object-fit: contain;
+   width: 100%;
+   height: 100%;
+   position: absolute;
+   top: 0px;
+   left: 0px;
+}
+
+#bell-image:hover {
+}
+
+span#alert-vol {
+   height: 4em;
+   width: 4em;
+}
+
+#clear-btn, #send-btn {
+   height: 3.5em;
+}
+
+input[type="range"]#alert-vol {
+   -webkit-appearance: none;
+   background: #80a080;
+   display: none;
+   position: relative;
+   height: 2em;
+   top: -3.5em;
+   left: 13.5em;
 }

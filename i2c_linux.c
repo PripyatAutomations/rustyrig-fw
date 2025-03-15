@@ -18,8 +18,6 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
 
 static int i2c_fd = -1;
 

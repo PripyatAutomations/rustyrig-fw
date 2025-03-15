@@ -6,7 +6,7 @@
   <script src="js/jquery.min.js"></script>
   <script src="js/webui.js"></script>
   <link rel="stylesheet" href="css/main.css"/>
-  <title>HamChat</title>
+  <title>rustyrig-fw v202503.01</title>
   <style>
   </style>
  </head>
@@ -73,11 +73,12 @@
      <button id="send-btn" class="green-btn">Send</button>
      <button id="clear-btn" class="red-btn">Clear</button>
      <button id="bell-btn" data-checked="true">
-      <img id="bell-image" src="img/bell-alert.png" alt="Bell (dark)" />
+      <img id="bell-image" src="img/bell-alert.png" alt="Bell (dark)"/>
      </button>
-     <audio id="chat-ding" src="bell.mp3" tabindex="-1"></audio>
-     <audio id="join-ding" src="join.mp3" tabindex="-1"></audio>
+     <input type="range" id="alert-vol" min="0" max="100" step="10"/>
     </div>
+    <audio id="chat-ding" src="bell.mp3" tabindex="-1"></audio>
+    <audio id="join-ding" src="join.mp3" tabindex="-1"></audio>
    </div>
   </div> <!-- win-chat -->
  </body>

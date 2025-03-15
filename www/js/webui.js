@@ -32,6 +32,8 @@ function try_login() {
 }
 
 $(document).ready(function() {
+   var unmute_vol;
+
    if (!logged_in) {
       // put a chroma-hash widget on password fields
 //      var chroma_hash = $("input:password").chromaHash({ bars: 3, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
@@ -45,6 +47,22 @@ $(document).ready(function() {
       $('input#user').val = login_user;
    });
 
+   $('button#bell-btn').hover(function() {
+      $('input#alert-vol').show();
+   });
+
+   $('button#bell-btn').blur(function() {
+      $('input#alert-vol').hide();
+   });
+
+   $('input#alert-vol').mouseleave(function() {
+      $('input#alert-vol').hide();
+   });
+
+   $("input#alert-vol").on("input", function() {
+      let volume = $(this).val() / 100; // Scale 0-100 to 0-1
+      $("audio#chat-ding, audio#join-ding").prop("volume", volume);
+   });
 
    // When the form is submitted, we need to send the username and wait for a nonce to come back
    $('form#login').submit(function(evt) {
@@ -74,6 +92,7 @@ $(document).ready(function() {
    $('input#reset').click(function(evt) {
       console.log("Form reset");
    });
+
    chat_ding = document.getElementById('chat-ding');
    form_disable(true);
 
@@ -174,6 +193,15 @@ $(document).ready(function() {
    // Support toggling the sound via bell button
    $('#bell-btn').click(function() {
        let isChecked = $(this).data('checked');
+       if (isChecked) {
+          // Save unmuted volume globally
+          unmute_vol = $('audio#chat-ding').val();
+          $('audio#chat-ding').val(0);
+       } else {
+          // restore saved volume
+          $('audio#chat-ding').val(unmute_vol);
+          $('audio#join-ding').val(unmute_vol);
+       }
        $(this).data('checked', !isChecked);
        let newSrc = isChecked ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
 
@@ -504,7 +532,8 @@ function handleReconnect() {
    reconnecting = true;
    show_connecting(true);
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-   append_chatbox('<div class="chat-status error">' + my_ts + " 👽 Reconnecting in ${reconnectDelay / 1000} seconds at ${new Date().toLocaleTimeString()}...</div>");
+   var rc_sec = reconnectDelay / 1000;
+   append_chatbox('<div class="chat-status error">' + my_ts + ' 👽 Reconnecting in ' + rc_sec + ' sec</div>');
 
    // Reattempt connection after delay
    reconnectTimer = setTimeout(function() {

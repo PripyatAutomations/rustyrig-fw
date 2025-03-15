@@ -41,9 +41,6 @@
 #define	EEPROM_C		// Let the header know we're in the C file
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 // Returns either the index of they key in eeprom_layout or -1 if not found
 uint32_t eeprom_offset_index(const char *key) {
    uint32_t max_entries = -1, idx = -1;

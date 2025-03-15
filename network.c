@@ -24,9 +24,6 @@
 #include <netinet/in.h>
 #endif
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 // Here we have to provide a common interface with serial
 // transport for cons, cat, and debug
 void show_network_info(void) {

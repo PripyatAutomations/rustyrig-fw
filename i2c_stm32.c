@@ -15,9 +15,6 @@
 #include "i2c_hal.h"
 #include "stm32f1xx_hal.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 extern I2C_HandleTypeDef hi2c1;
 
 int i2c_init(void) {

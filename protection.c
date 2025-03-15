@@ -12,6 +12,3 @@
 #include "logger.h"
 #include "state.h"
 #include "protection.h"
-
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state

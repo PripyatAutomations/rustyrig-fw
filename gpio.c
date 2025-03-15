@@ -20,9 +20,6 @@
 radio_gpiochip gpiochips[MAX_GPIOCHIPS];
 #endif
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 // right now we only support one gpio chip, but this wrapper should ease transition
 uint32_t radio_find_gpiochip(const char *name) {
 // On posix hosts, such as linux on pi, we use libgpiod to access gpio, add other platforms here

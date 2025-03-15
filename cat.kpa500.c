@@ -24,8 +24,6 @@
 #include "thermal.h"
 #include "power.h"
 #include "eeprom.h"
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
 
 #if	defined(CAT_KPA500)
 // ALC Threshold: 0-210, per band

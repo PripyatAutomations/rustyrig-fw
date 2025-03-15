@@ -15,9 +15,6 @@
 #include "state.h"
 #include "faults.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 struct fault_table fault_table[] = {
    // FAULT		 	Fatal?		String
    { FAULT_NONE,	 	false,		"None" },

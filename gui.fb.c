@@ -17,9 +17,6 @@
 #include "gui.h"
 #include "gui.fb.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 gui_fb_state_t *gui_fb_init(gui_fb_state_t *fb) {
    // XXX: Get these from eeprom
    uint8_t	new_depth = 0,

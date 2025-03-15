@@ -57,9 +57,10 @@ objs += amp.o			# Amplifier management
 objs += atu.o			# Antenna Tuner
 objs += audio.o			# Audio channel stuff
 objs += audio.pcm5102.o		# pcm5102 DAC support
-objs += backend.o
-objs += backend.dummy.o
-objs += backend.hamlib.o
+objs += backend.o		# Support for multiple backends by setting up pointer into appropriate one
+objs += backend.dummy.o		# Dummy backend (not implemented yet - use hamlib + rigctld in dummy rig mode!)
+objs += backend.hamlib.o	# Support for using hamlib to control legacy rigs
+objs += backend.internal.o	# Internal (real hardware) backend
 objs += cat.o			# CAT parsers
 objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
 objs += cat.yaesu.o		# Yaesu CAT protocol
@@ -94,8 +95,8 @@ objs += network.o		# Network control
 ifeq (${PLATFORM}, posix)
 objs += gui.mjpeg.o		# Framebuffer via MJPEG streaming (over http)
 #objs += audio.pipewire.o	# Pipwiere on posix hosts
-CFLAGS += $(shell pkg-config --cflags libpipewire-0.3 libjpeg)
-LDFLAGS += $(shell pkg-config --libs libpipewire-0.3 libjpeg)
+CFLAGS += $(shell pkg-config --cflags libpipewire-0.3 libjpeg sqlite3)
+LDFLAGS += $(shell pkg-config --libs libpipewire-0.3 libjpeg sqlite3)
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 endif
 
@@ -103,7 +104,6 @@ objs += power.o			# Power monitoring and management
 objs += protection.o		# Protection features
 objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 objs += serial.o		# Serial port stuff
-#objs += sha1.o			# for passwords
 objs += socket.o		# Socket operations
 objs += thermal.o		# Thermal management
 objs += timer.o			# Timers support

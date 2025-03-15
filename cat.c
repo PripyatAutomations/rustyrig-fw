@@ -33,8 +33,6 @@
 #include "eeprom.h"
 #include "vfo.h"
 #include "cat.h"
-extern struct GlobalState rig;  // Global state
-extern bool dying;		// in main.c
 
 // Initialize CAT control
 int32_t cat_init(void) {

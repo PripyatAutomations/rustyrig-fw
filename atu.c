@@ -22,8 +22,6 @@
 #define	ANT_TUNER
 #include "atu_tables.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
 
 // XXX: this should load the last used state for this tuner unit
 atu_tv *atu_find_saved_state(int uid) {

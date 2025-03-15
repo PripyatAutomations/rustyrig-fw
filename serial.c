@@ -19,9 +19,6 @@
 #include <sys/socket.h>
 #endif
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 // Here we need to abstract between the following bits:
 //	CAT interpreters
 //	CLI mode

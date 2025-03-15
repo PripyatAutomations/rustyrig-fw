@@ -13,6 +13,3 @@
 #include "logger.h"
 #include "gui.h"
 #include "waterfall.h"
-
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state

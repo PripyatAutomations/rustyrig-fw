@@ -10,7 +10,7 @@
 #include <stdbool.h>
 
 typedef enum VFOType {
-   VFO_NONE = 0,	// Not present
+   VFO_INVALID = 0,	// Not present
    VFS_DDS,		// Direct Digital Synthesizer
    VFO_EXTERNAL		// External frequency reference
 } VFOType;

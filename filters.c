@@ -19,9 +19,6 @@
 #define	FILTERS_C
 #include "filter_tables.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 int filter_init(int fid) {
     int rv = -1;
     Log(LOG_INFO, "filt", " => Filter #%d initialized", fid);

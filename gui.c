@@ -16,9 +16,6 @@
 #include "i2c.h"
 #include "gui.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
-
 bool gui_init(void) {
    return false;
 }

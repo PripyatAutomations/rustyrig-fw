@@ -22,8 +22,6 @@
 #include "cat.yaesu.h"
 #include "state.h"
 #include "ptt.h"
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
 
 #if	defined(CAT_YAESU)
 // Function stubs for all FT-891 CAT commands

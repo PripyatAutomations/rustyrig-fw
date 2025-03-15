@@ -5,12 +5,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include "logger.h"
-
-// In main.c
-extern bool dying;
-
-// #define NOISY_NETWORK
-
+#include "backend.h"
 #define	PARSE_LINE_LEN	512
 
 // TX Low Pass Filters
@@ -81,6 +76,7 @@ struct FilterState {
 
 struct GlobalState {
    logpriority_t log_level;		// Minimum log level to show
+   rr_backend_t	*backend;		// Selected backend (set in main.c)
    bool  tx_blocked;			// is TX blocked (user control)?
    bool  ptt;				// Are we transmitting?
    bool  faultbeep;			// Beep on faults
@@ -120,5 +116,8 @@ struct GlobalState {
 };
 
 extern void shutdown_rig(uint32_t signum);	// main.c
-
+//
+extern struct GlobalState rig;	// in main.c
+extern bool dying;              // in main.c
+extern time_t now;		// in main.c
 #endif	// !defined(__rr_state_h)

@@ -13,5 +13,3 @@
 #include "socket.h"
 #include "io.h"
 
-extern bool dying;		// in main.c
-extern struct GlobalState rig;	// Global state
