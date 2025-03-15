@@ -116,7 +116,8 @@ struct GlobalState {
 };
 
 extern void shutdown_rig(uint32_t signum);	// main.c
-//
+
+////////////////////
 extern struct GlobalState rig;	// in main.c
 extern bool dying;              // in main.c
 extern time_t now;		// in main.c

@@ -54,6 +54,10 @@ bool ws_send_userlist(void) {
 
    http_client_t *cptr = http_client_list;
    while (cptr != NULL) {
+      if (cptr->user == NULL) {
+         continue;
+      }
+
       len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s\"", count++ ? "," : "", cptr->user->name);
 //      Log(LOG_DEBUG, "http.ws.noisy", "adding %s to userlist blob", cptr->user->name);
       cptr = cptr->next;

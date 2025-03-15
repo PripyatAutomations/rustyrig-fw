@@ -26,19 +26,23 @@
 #endif
 
 // This defines a hard-coded fallback path for httpd root, if not set in config
+#if	defined(HOST_POSIX)
+#if	!defined(INSTALL_PREFIX)
 #define	WWW_ROOT_FALLBACK	"./www"
 #define	WWW_404_FALLBACK	"./www/404.html"
+#endif	// !defined(INSTALL_PREFIX)
+#else
+#define	WWW_ROOT_FALLBACK	"fs:www/"
+#define	WWW_404_FALLBACK	"fs:www/404.html"
+#endif	// defined(HOST_POSIX).else
 
-extern time_t now;
+static int http_load_users(const char *filename);	// forward decl
+
 static char www_root[PATH_MAX];
 static char www_fw_ver[128];
 static char www_headers[32768];
 static char www_404_path[PATH_MAX];
-
 http_client_t *http_client_list = NULL;
-
-// User database
-static int http_load_users(const char *filename);	// forward decl
 http_user_t http_users[HTTP_MAX_USERS];
 
 const struct mg_http_serve_opts http_opts = {
@@ -53,8 +57,6 @@ static struct http_res_types http_res_types[] = {
 };
 
 int http_user_index(const char *user) {
-   int rv = -1;
-
    if (user == NULL) {
       return -1;
    }
@@ -67,20 +69,28 @@ int http_user_index(const char *user) {
       }
 
       if (strcasecmp(up->name, user) == 0) {
-//         Log(LOG_DEBUG, "http.auth.noisy", "Found uid %d for username %s", i, user);
+         Log(LOG_DEBUG, "http.auth.noisy", "Found uid %d for username %s", i, user);
          return i;
       }
    }
-   return rv;
+   return -1;
+}
+
+// Perform various checks on synthesized URLs to make sure the user isn't up to anything shady...
+// XXX: Implement these!
+static bool check_url(const char *path) {
+   return false;
 }
 
 http_client_t *http_find_client_by_c(struct mg_connection *c) {
-//   Log(LOG_DEBUG, "http.ugly", "find by c, dumping list");
-//   http_dump_clients();
    http_client_t *cptr = http_client_list;
    int i = 0;
 
    while(cptr != NULL) {
+      if (cptr == NULL) {
+         break;
+      }
+
       if (cptr->conn == c) {
 //         Log(LOG_DEBUG, "http.core.noisy", "find_client_by_c <%x> returning index %i: %x", c, i, cptr);
          return cptr;
@@ -94,12 +104,14 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
 }
 
 http_client_t *http_find_client_by_token(const char *token) {
-//   Log(LOG_DEBUG, "http.ugly", "find by token, dumping list");
-//   http_dump_clients();
    http_client_t *cptr = http_client_list;
    int i = 0;
 
    while(cptr != NULL) {
+      if (cptr == NULL) {
+         break;
+      }
+
       if (cptr->token[0] == '\0') {
          continue;
       }
@@ -117,12 +129,14 @@ http_client_t *http_find_client_by_token(const char *token) {
 }
 
 http_client_t *http_find_client_by_nonce(const char *nonce) {
-//   Log(LOG_DEBUG, "http.ugly", "find by nonce, dumping list");
-//   http_dump_clients();
    http_client_t *cptr = http_client_list;
    int i = 0;
 
    while(cptr != NULL) {
+      if (cptr == NULL) {
+         break;
+      }
+
       if (cptr->nonce[0] == '\0') {
          continue;
       }
@@ -139,42 +153,56 @@ http_client_t *http_find_client_by_nonce(const char *nonce) {
    return NULL;
 }
 
-static void http_backup_authdb(void) {
+static bool http_backup_authdb(void) {
    char new_path[256];
-   time_t now = time(NULL);
    struct tm *tm_info = localtime(&now);
    char date_str[9]; // YYYYMMDD + null terminator
    int index = 0;
 
    strftime(date_str, sizeof(date_str), "%Y%m%d", tm_info);
 
-   // Find the next available unique number
+   // Find the next seqnum for the backup
    do {
+      if (index > MAX_AUTHDB_BK_INDEX) {
+         return true;
+      }
+
       snprintf(new_path, sizeof(new_path), "%s.bak-%s.%d", HTTP_AUTHDB_PATH, date_str, index);
       index++;
    } while (file_exists(new_path));
 
    // Rename the file
    if (rename(HTTP_AUTHDB_PATH, new_path) == 0) {
-      printf("Renamed to: %s\n", new_path);
+      Log(LOG_INFO, "http.core", "* Renamed old config (%s) to %s", HTTP_AUTHDB_PATH, new_path);
    } else {
-      perror("rename");
+      Log(LOG_DEBUG, "http.core", "* Error renaming old config (%s) to %s: %d:%s", HTTP_AUTHDB_PATH, new_path, errno, strerror(errno));
+      return true;
    }
+
+   return false;
 }
+
 bool http_save_users(const char *filename) {
-  http_backup_authdb();
+  if (http_backup_authdb()) {
+     return true;
+  }
 
   FILE *file = fopen(filename, "w");
-
   int users_saved = 0;
+
   if (!file) {
      Log(LOG_CRIT, "http.auth", "Error saving user database to %s: %d:%s", filename, errno, strerror(errno));
      return true;
   }
 
   Log(LOG_DEBUG, "http.auth", "Saving HTTP user database");
+
   for (int i = 0; i < HTTP_MAX_USERS; i++) {
      http_user_t *up = &http_users[i];
+
+     if (up == NULL) {
+        return true;
+     }
 
      if (up->name[0] != '\0' && up->pass[0] != '\0') {
         Log(LOG_DEBUG, "http.auth", " => %s %sabled with privileges: %s", up->name, (up->enabled ? "en" :"dis"),  up->privs);
@@ -182,6 +210,7 @@ bool http_save_users(const char *filename) {
         users_saved++;
      }
   }
+
   fclose(file);
   Log(LOG_DEBUG, "http.auth", "Saved %d users to %s", users_saved, filename);
   return true;
@@ -192,6 +221,10 @@ void http_dump_clients(void) {
    int i = 0;
 
    while(cptr != NULL) {
+      if (cptr == NULL) {
+         return;
+      }
+
       Log(LOG_DEBUG, "http.core.noisy", " => %d at <%x> %sactive %swebsocket, conn: <%x>, token: |%s|, nonce: |%s|, next: <%x> ",
           i, cptr, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->token,
           cptr->nonce, cptr->next);
@@ -246,13 +279,15 @@ static int generate_nonce(char *buffer, size_t length) {
    static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
    size_t i;
 
-   if (length < 1) return 0;  // Ensure valid length
-
-   for (i = 0; i < (length - 2); i++) {
-      buffer[i] = base64_chars[rand() % 64];  // Directly assign base64 characters
+   if (length < 8) {
+      length = 8;
    }
 
-   buffer[length] = '\0';  // Null terminate
+   for (i = 0; i < (length - 2); i++) {
+      buffer[i] = base64_chars[rand() % 64];
+   }
+
+   buffer[length] = '\0';
    return length;
 }
 
@@ -267,6 +302,7 @@ static inline const char *get_hct(const char *type) {
 
    return "Content-Type: text/plain\r\n";
 }
+
 
 //////////////////////////////////////
 // Deal with HTTP API requests here //
@@ -294,6 +330,12 @@ static bool http_help(struct mg_http_message *msg, struct mg_connection *c) {
    }
 
    snprintf(help_path, h_sz, "%s/help/%s.html", www_root, topic);
+
+   // Sanitize the URL
+   if (check_url(help_path)) {
+      Log(LOG_DEBUG, "http.api", "Naught URL %s in http_help", help_path);
+      return true;
+   }
 
    if (file_exists(help_path) != true) {
       Log(LOG_DEBUG, "http.api", "help: %s doesn't exist", help_path);
@@ -331,21 +373,19 @@ static bool http_api_stats(struct mg_http_message *msg, struct mg_connection *c)
    // Print some statistics about currently established connections
    mg_printf(c, "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n");
    mg_http_printf_chunk(c, "ID PROTO TYPE      LOCAL           REMOTE\n");
+
    for (t = c->mgr->conns; t != NULL; t = t->next) {
-     mg_http_printf_chunk(c, "%-3lu %4s %s %M %M\n", t->id,
-                          t->is_udp ? "UDP" : "TCP",
-                          t->is_listening  ? "LISTENING"
-                          : t->is_accepted ? "ACCEPTED "
-                                           : "CONNECTED",
-                          mg_print_ip, &t->loc, mg_print_ip, &t->rem);
+       mg_http_printf_chunk(c, "%-3lu %4s %s %M %M\n", t->id, t->is_udp ? "UDP" : "TCP",
+                            t->is_listening  ? "LISTENING" : t->is_accepted ? "ACCEPTED " : "CONNECTED",
+                            mg_print_ip, &t->loc, mg_print_ip, &t->rem);
    }
+
    mg_http_printf_chunk(c, "");  // Don't forget the last empty chunk
    return false;
 }
 
+// Serve www-root for static files
 static bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
-
-   // XXX: this does show ANY files in www/ so dont store credentials there!
    mg_http_serve_dir(c, msg, &http_opts);
    return false;
 }
@@ -355,7 +395,7 @@ static http_route_t http_routes[HTTP_MAX_ROUTES] = {
     { "/api/stats",	http_api_stats,	false },		// Statistics
     { "/api/time",	http_api_time, 	false },		// Get device time
     { "/api/version",	http_api_version, false },		// Version info
-    { "/help",		http_help,	false }	,		// Help API
+//    { "/help",		http_help,	false }	,		// Help API
     { "/ws",		http_api_ws,	true },			// Upgrade to websocket
     { NULL,		NULL,		false }			// Terminator (is this even needed?)
 };
@@ -379,11 +419,12 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
 
          // Strip trailing slash if it's there
          if (msg->uri.len > 0 && msg->uri.buf[msg->uri.len - 1] == '/') {
-            msg->uri.len--;  // Remove trailing slash
+            msg->uri.len--;
          }
 
          return http_routes[i].cb(msg, c);
-//      } else {
+      } else {
+         // NOP
 //         Log(LOG_DEBUG, "http.req", "Failed to match %.*s: %d: %s", (int)msg->uri.len, msg->uri.buf, i, http_routes[i].match);
       }
    }
@@ -401,19 +442,21 @@ void http_tls_init(void) {
    memset(&tls_opts, 0, sizeof(tls_opts));
 
    tls_cert = mg_file_read(&mg_fs_posix, HTTP_TLS_CERT);
+
    if (tls_cert.buf == NULL) {
       Log(LOG_CRIT, "http.tls", "Unable to load TLS cert from %s", HTTP_TLS_CERT);
       tls_error = true;
    }
 
    tls_key = mg_file_read(&mg_fs_posix, HTTP_TLS_KEY);
+
    if (tls_key.buf == NULL) {
       Log(LOG_CRIT, "http.tls", "Unable to load TLS key from %s", HTTP_TLS_KEY);
       tls_error = true;
    }
 
    if (tls_error == true) {
-      Log(LOG_CRIT, "http.tls", "No cert/key, skipping TLS setup");
+      Log(LOG_CRIT, "http.tls", "No cert/key, aborting TLS setup");
       Log(LOG_CRIT, "http.tls", "Either fix this or disable TLS!");
       exit(1);
    } else {
@@ -439,7 +482,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
-//     Log(LOG_DEBUG, "http.noisy", "Conn. upgraded to ws");
+     http_client_t *cptr = http_find_client_by_c(c);
+     Log(LOG_DEBUG, "http.noisy", "Conn cptr <%x> (c: <%x>) upgraded to ws");
    } else if (ev == MG_EV_WS_MSG) {
      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
      ws_handle(msg, c);
@@ -551,8 +595,15 @@ static int http_load_users(const char *filename) {
     int user_count = 0;
 
     while (fgets(line, sizeof(line), file) && user_count < HTTP_MAX_USERS) {
+      // Trim leading spaces
+      char *start = line + strspn(line, " \t\r\n");
+      if (start != line) {
+         memmove(line, start, strlen(start) + 1);
+      }
+
+      // Skip comments and empty lines
       if (line[0] == '#' || line[0] == '\n') {
-         continue;  // Skip comments and empty lines
+         continue;
       }
 
       // Remove trailing \r or \n characters
@@ -562,10 +613,10 @@ static int http_load_users(const char *filename) {
          end--;
       }
 
-      // Trim leading spaces
-      char *start = line + strspn(line, " \t\r\n");  // Skip spaces, tabs, carriage returns, and newlines
+      // Trim leading spaces (again)
+      start = line + strspn(line, " \t\r\n");
       if (start != line) {
-         memmove(line, start, strlen(start) + 1);  // Move the content to the front
+         memmove(line, start, strlen(start) + 1);
       }
 
       http_user_t *up = NULL;
@@ -595,7 +646,7 @@ static int http_load_users(const char *filename) {
          token = strtok(NULL, ":");
          i++;
       }
-//      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->name, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
+      Log(LOG_DEBUG, "http.auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->name, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
       user_count++;
    }
    Log(LOG_INFO, "http.auth", "Loaded %d users from %s", user_count, filename);
@@ -613,7 +664,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    }
    memset(new_client, 0, sizeof(http_client_t));
 
-   // create some nonces for login hashing and session
+   // create some randomness for login hashing and session
    generate_nonce(new_client->token, sizeof(new_client->token));
    generate_nonce(new_client->nonce, sizeof(new_client->nonce));
    new_client->authenticated = false;
@@ -625,13 +676,13 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    new_client->next = http_client_list;
    http_client_list = new_client;
 
-   Log(LOG_DEBUG, "http", "Added new client at <%x> token: |%s| nonce: |%s|", new_client, new_client->token, new_client->nonce);
+   Log(LOG_DEBUG, "http", "Added new client at cptr <%x> with token |%s| nonce |%s|", new_client, new_client->token, new_client->nonce);
    return new_client;
 }
 
 const char *http_get_uname(int8_t uid) {
    if (uid < 0 || uid > HTTP_MAX_USERS) {
-      Log(LOG_DEBUG, "http.auth", "get_uname: invalid uid: %d passed!", uid);
+      Log(LOG_DEBUG, "http.auth", "get_uname: invalid uid %d passed!", uid);
       return NULL;
    }
    return http_users[uid].name;
@@ -644,7 +695,7 @@ void http_remove_client(struct mg_connection *c) {
 
    while (current != NULL) {
       if (current->conn == c) {
-         // Found the client to remove, nark it dead
+         // Found the client to remove, mark it dead
          current->active = false;
 
          if (prev == NULL) {
@@ -653,18 +704,15 @@ void http_remove_client(struct mg_connection *c) {
             prev->next = current->next;
          }
 
+         Log(LOG_DEBUG, "http.noisy", "Removing client <%x> with cptr <%x>", c, current);
          memset(current, 0, sizeof(http_client_t));
          free(current);
-         Log(LOG_DEBUG, "http", "Client with conn |%x| removed", c);
          return;
       }
 
       prev = current;
       current = current->next;
    }
-
-   // XXX: Are these even worth logging?
-//   Log(LOG_WARN, "http", "Attempted to remove client not in the list");
 }
 
 void http_expire_sessions(void) {
@@ -672,6 +720,10 @@ void http_expire_sessions(void) {
    int expired = 0;
 
    while(cptr != NULL) {
+      if (cptr == NULL) {
+         break;
+      }
+
       if (cptr->session_expiry <= now) {
          expired++;
          time_t last_heard = (now - cptr->last_heard);

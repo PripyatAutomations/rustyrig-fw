@@ -5,6 +5,9 @@
 
 #include "mongoose.h"
 
+// Limit to 100 backups in a day, this should be sane
+#define MAX_AUTHDB_BK_INDEX     100
+
 #define	HTTP_WS_MAX_MSG		65535		// 64kbytes should be enough per message, even with audio frames
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
 #define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
@@ -18,7 +21,7 @@
 #define	USER_PRIV_LEN		100		// privileges list
 
 // CHAT protocol
-#define	CHAT_NAMES_INTERVAL	5000		// fire off a NAMES message in chat every 5 seconds
+#define	CHAT_NAMES_INTERVAL	3000		// fire off a NAMES message in chat every 5 seconds
 // CAT protocol
 // WF protocol
 
