@@ -1,0 +1,29 @@
+#include <stdio.h>
+#include <time.h>
+
+#define ALPHA 0.1  // Weight for moving average
+
+int main() {
+   struct timespec start, end;
+   double loop_runtime = 0.0, current_time;
+
+   while (1) {
+      clock_gettime(CLOCK_MONOTONIC, &start);
+
+      // Your loop work goes here
+
+      clock_gettime(CLOCK_MONOTONIC, &end);
+      current_time = (end.tv_sec - start.tv_sec) + 
+                     (end.tv_nsec - start.tv_nsec) / 1e9;
+
+      if (loop_runtime == 0.0)
+         loop_runtime = current_time;  // Initialize
+      else
+         loop_runtime = (ALPHA * current_time) + (1 - ALPHA) * loop_runtime;
+
+      printf("Loop runtime: %.6f seconds\n", loop_runtime);
+   }
+
+   return 0;
+}
+
