@@ -66,6 +66,10 @@ void net_print_listeners(const char *listenaddr) {
     struct ifaddrs *ifaddr, *ifa;
     char addr[INET6_ADDRSTRLEN];
 
+    if (listenaddr == NULL) {
+       return;
+    }
+
     if (getifaddrs(&ifaddr) == -1) {
         Log(LOG_CRIT, "net", "getifaddrs: %s", strerror(errno));
         exit(EXIT_FAILURE);

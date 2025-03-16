@@ -121,6 +121,11 @@ bool hl_fini(void) {
       return true;
    }
 
+   if (hl_rig != NULL) {
+      rig_close(hl_rig);
+      rig_cleanup(hl_rig);
+   }
+
    return false;
 }
 

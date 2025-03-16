@@ -19,8 +19,6 @@
 bool amp_init(uint8_t index) {
    Log(LOG_INFO, "amp", " => Unit #%d initialized", index);
 
-   // XXX: Set up CAT (kpa500), if enabled
-
    return false;
 }
 

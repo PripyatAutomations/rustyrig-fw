@@ -24,6 +24,7 @@
 #include "gui.h"
 #include "io.h"
 #include "audio.h"
+#include "timer.h"
 #include "usb.h"
 #include "backend.h"
 #if	defined(FEATURE_HTTP)
@@ -37,19 +38,14 @@
 struct mg_mgr mg_mgr;
 #endif
 
-bool dying = 0;                // Are we shutting down?
-struct GlobalState rig;        // Global state
+bool dying = 0;                 // Are we shutting down?
+struct GlobalState rig;         // Global state
+time_t now = -1;		// time() called once a second in main loop to update
+char latest_timestamp[64];	// Current printed timestamp
+int auto_block_ptt = 0;		// Auto block PTT at boot?
 
-// Current time, must be updated ONCE per second, used to save calls to gettimeofday()
-time_t now = -1;
-// Current timestamp
-char latest_timestamp[64];
-
-// should we automatically block PTT at startup?
-int auto_block_ptt = 0;
-
+// Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
-   // Set minimum defaults, til we have EEPROM available
    rig.faultbeep = 1;
    rig.bc_standby = 1;
    rig.tr_delay = 50;
@@ -87,11 +83,10 @@ void shutdown_rig(uint32_t signum) {
     exit(signum);
 }
 
-
 int main(int argc, char **argv) {
+   // Initialize some earl state
    now = time(NULL);
    srand((unsigned int)now);
-
    logfp = stdout;
    rig.log_level = LOG_DEBUG;	// startup in debug mode
 
@@ -111,6 +106,7 @@ int main(int argc, char **argv) {
 #if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
    mg_mgr_init(&mg_mgr);
 #endif
+   timer_init();
    gpio_init();
 
    // if able to connect to EEPROM, load and apply settings
@@ -136,11 +132,12 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
-#if	defined(MONGOOSE_DEBUGY)
+// Is mongoose http server enabled?
+#if	defined(FEATURE_HTTP)
+// Is extra mongoose debugging enabled?
+#if	defined(MONGOOSE_DEBUG)
    mg_log_set(MG_LL_DEBUG);
 #endif
-
-#if	defined(FEATURE_HTTP)
    http_init(&mg_mgr);
    ws_init(&mg_mgr);
 #endif
@@ -195,6 +192,9 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!\n");
       }
 
+      // Run event loop timers
+      timer_run();
+
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
       // XXX: Iterate over them: console, amp, rig
@@ -220,7 +220,7 @@ int main(int argc, char **argv) {
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
 
 #if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
-      // Process Mongoose HTTP and MQTT events, this should be here because the mjpeg could be queried
+      // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
    }

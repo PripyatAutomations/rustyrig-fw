@@ -125,6 +125,11 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    char msgbuf[512];
    va_list ap;
 
+   if (subsys == NULL || fmt == NULL) {
+      printf("Invalid Log request: No subsys/fmt\n");
+      return;
+   }
+
    // If this is a debug message, apply debug filtering
    if (priority == LOG_DEBUG) {
       if (debug_filter(subsys, fmt) == false) {

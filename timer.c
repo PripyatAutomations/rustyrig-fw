@@ -26,3 +26,14 @@ bool timer_create_periodic(int interval, int repeats, void (*callback)()) {
 bool timer_create_oneshot(int delay, void (*callback)()) {
    return false;
 }
+
+// Run all pending timers this iteration of the main loop
+bool timer_run(void) {
+   return false;
+}
+
+// initialize the timer subsystem
+bool timer_init(void) {
+   Log(LOG_INFO, "timer", "Initialized timers");
+   return false;
+}

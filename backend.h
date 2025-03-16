@@ -45,5 +45,6 @@ typedef struct rr_backend rr_backend_t;
 #include "backend.internal.h"
 
 extern bool backend_init(void);
+extern bool rr_be_set_ptt(rr_vfo_t vfo, bool state);
 
 #endif	// !defined(__rr_backend_h)

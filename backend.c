@@ -69,3 +69,14 @@ bool backend_init(void) {
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
    return false;
 }
+
+bool rr_be_set_ptt(rr_vfo_t vfo, bool state) {
+#if	0
+   if (rig.backend->api->rig_set_ptt(vfo, state)) {
+      Log(LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.",
+          rr_vfo_name(vfo), bool2str(state));
+      return true;
+   }
+#endif
+   return false;
+}

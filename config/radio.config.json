@@ -39,7 +39,7 @@
       "logmode": "0660",
       "loglevel": "debug",
       "mongoose": "false",
-      "show_ts": "true",
+      "show_ts": "false",
       "targets": "*"
    },
    "dev": {
