@@ -14,3 +14,21 @@
 #include "vfo.h"
 #include "cat.h"
 #include "backend.h"
+
+static bool be_dummy_init(void) {
+   return true;
+}
+
+static bool be_dummy_fini(void) {
+   return true;
+}
+
+rr_backend_funcs_t rr_backend_dummy_api = {
+   .backend_fini = &be_dummy_fini,
+   .backend_init = &be_dummy_init,
+};
+
+rr_backend_t rr_backend_dummy = {
+   .name = "dummy",
+   .api = &rr_backend_dummy_api,
+};

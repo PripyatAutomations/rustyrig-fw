@@ -601,7 +601,12 @@ sub eeprom_insert_channels {
                   
                   # did we get anything to store?
                   $this_len = length($this_data);
-                  printf "  + Added channel %03d [$group] \"$ch_name\" %0.3f Khz $ch_mode <%.1d Khz bw> TX: $ch_txpower_str (%d bytes)\n", $ch_num, ($ch_freq/1000), ($ch_bandwidth/1000, $this_len);
+                  # FM doesnt use width as normal, so dont show it
+                  if ($ch_mode eq 'FM' || $ch_mode eq 'WBFM' || $ch_mode eq 'NBFM') {
+                     printf "  + Added channel %03d [$group] \"$ch_name\" %0.3f Khz $ch_mode TX: $ch_txpower_str (%d bytes)\n", $ch_num, ($ch_freq/1000), $this_len;
+                  } else {
+                     printf "  + Added channel %03d [$group] \"$ch_name\" %0.3f Khz $ch_mode <%.1d Khz bw> TX: $ch_txpower_str (%d bytes)\n", $ch_num, ($ch_freq/1000), ($ch_bandwidth/1000), $this_len;
+                  }
 
                   if ($this_len > 0) {
                   # Insert it into the total stored
@@ -849,9 +854,6 @@ sub generate_config_h {
    }
 
    if (defined($config->{'backend'})) {
-      if (defined($config->{'backend'}{'dummy'}) && match_boolean($config->{'backend'}{'dummy'})) {
-         printf $fh "#define BACKEND_DUMMY\n";
-      }
       if (defined($config->{'backend'}{'hamlib'}) && match_boolean($config->{'backend'}{'hamlib'})) {
          printf $fh "#define BACKEND_HAMLIB\n";
       }

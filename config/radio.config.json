@@ -8,7 +8,6 @@
    },
    "backend": {
       "active": "hamlib",
-      "dummy": "true",
       "hamlib": "true"
    },
    "build": {

@@ -42,6 +42,7 @@ typedef struct rr_backend rr_backend_t;
 
 #include "backend.dummy.h"
 #include "backend.hamlib.h"
+#include "backend.internal.h"
 
 extern bool backend_init(void);
 

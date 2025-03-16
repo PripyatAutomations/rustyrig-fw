@@ -23,10 +23,11 @@ struct backends {
 
 static struct backends available_backends[] = {
 // A generic background which tracks state and pretends to do whatever the user asks
-#if	defined(BACKEND_DUMMY)
-    { "hamlib",			&rr_backend_hamlib },
-#endif	// defined(BACKEND_HAMLIB)
-// A backend using hamlib's rigctld as the target. For legacy radios
+    // Support for real rustyrig hardware
+    { "internal",		&rr_backend_internal },
+    // Support for dummy (No Op) backend
+    { "dummy",			&rr_backend_dummy },
+    // A backend using hamlib's rigctld as the target. For legacy radios
 #if	defined(BACKEND_HAMLIB)
     { "hamlib",			&rr_backend_hamlib },
 #endif	// defined(BACKEND_HAMLIB)

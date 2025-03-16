@@ -17,3 +17,21 @@
 #include "vfo.h"
 #include "cat.h"
 #include "backend.h"
+
+static bool be_int_init(void) {
+   return true;
+}
+
+static bool be_int_fini(void) {
+   return true;
+}
+
+rr_backend_funcs_t rr_backend_internal_api = {
+   .backend_fini = &be_int_fini,
+   .backend_init = &be_int_init,
+};
+
+rr_backend_t rr_backend_internal = {
+   .name = "internal",
+   .api = &rr_backend_internal_api,
+};
