@@ -13,6 +13,7 @@
 #include "eeprom.h"
 #include "vfo.h"
 #include "cat.h"
+#include "http.h"
 #include "backend.h"
 
 // Mostly we just use this bit to allow compile-time selection of backends
@@ -33,6 +34,35 @@ static struct backends available_backends[] = {
 #endif	// defined(BACKEND_HAMLIB)
    { NULL,			NULL }
 };
+
+static const char *s_true = "true";
+static const char *s_false = "false";
+
+static const char *bool2str(bool val) {
+   if (val == true) {
+      return s_true;
+   }
+   return s_false;
+}
+
+static const char *rr_vfo_name(rr_vfo_t vfo) {
+   switch (vfo) {
+      case VFO_A:
+         return "A";
+      case VFO_B:
+         return "B";
+      case VFO_C:
+         return "C";
+      case VFO_D:
+         return "D";
+      case VFO_E:
+         return "E";
+      case VFO_NONE:
+      default:
+         return "-";
+   }
+   return "-";
+}
 
 // Get the backend structure based on the name
 rr_backend_t *rr_backend_find(const char *name) {
@@ -70,13 +100,34 @@ bool backend_init(void) {
    return false;
 }
 
-bool rr_be_set_ptt(rr_vfo_t vfo, bool state) {
-#if	0
-   if (rig.backend->api->rig_set_ptt(vfo, state)) {
+// XXX: We need to work out how we'll deal with CAT commands directly (not via http/ws) as they wont have cptr
+// XXX: but we will have a user struct available since they're logged in.. hmmm
+bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
+   if (cptr == NULL || cptr->user == NULL) {
+      Log(LOG_CRIT, "rig", "Got be_set_ptt without a user!");
+      return true;
+   }
+
+   // Sqawk audit log and Apply PTT if we made it this far
+   Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->user->name);
+
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_ptt_set == NULL) {
+      return true;
+   }
+
+   if (rig.backend->api->rig_ptt_set(vfo, state)) {
       Log(LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.",
           rr_vfo_name(vfo), bool2str(state));
       return true;
    }
-#endif
    return false;
+}
+
+bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
+   // XXX: This is incorrect
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_ptt_get == NULL) {
+      return false;
+   }
+   bool rv = rig.backend->api->rig_ptt_get(vfo);
+   return rv;
 }

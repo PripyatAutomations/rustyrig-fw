@@ -23,7 +23,7 @@ static bool be_dummy_fini(void) {
    return true;
 }
 
-rr_backend_funcs_t rr_backend_dummy_api = {
+static rr_backend_funcs_t rr_backend_dummy_api = {
    .backend_fini = &be_dummy_fini,
    .backend_init = &be_dummy_init,
 };

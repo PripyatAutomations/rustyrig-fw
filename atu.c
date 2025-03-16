@@ -22,6 +22,9 @@
 #define	ANT_TUNER
 #include "atu_tables.h"
 
+bool atu_load_memories(int unit) {
+   return false;
+}
 
 // XXX: this should load the last used state for this tuner unit
 atu_tv *atu_find_saved_state(int uid) {

@@ -8,7 +8,9 @@
    },
    "backend": {
       "active": "hamlib",
-      "hamlib": "true"
+      "hamlib": "true",
+      "model": 2,
+      "port": "/dev/null"
    },
    "build": {
       "cflags": "-fPIC -g",

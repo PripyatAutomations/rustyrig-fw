@@ -26,7 +26,7 @@ static bool be_int_fini(void) {
    return true;
 }
 
-rr_backend_funcs_t rr_backend_internal_api = {
+static rr_backend_funcs_t rr_backend_internal_api = {
    .backend_fini = &be_int_fini,
    .backend_init = &be_int_init,
 };

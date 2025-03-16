@@ -1,6 +1,7 @@
 #if	!defined(__rr_backend_h)
 #define	__rr_backend_h
 #include <stdbool.h>
+#include "http.h"
 
 enum rr_vfo {
    VFO_NONE = -1,
@@ -25,7 +26,7 @@ struct rr_backend_funcs {
    bool		(*rig_freq_vfo_a)(const char *args);
    bool		(*rig_mode_vfo_a)(const char *args);
    bool		(*rig_ptt_set)(rr_vfo_t vfo, bool state);
-   bool		(*rig_ptt_get)(rr_vfo_t vfo, bool state);
+   bool		(*rig_ptt_get)(rr_vfo_t vfo);
    bool		(*rig_split_mode)(rr_vfo_t vfo, const char *args);
    bool		(*rig_tuner_control)(rr_vfo_t vfo, const char *args);
    bool		(*rig_set_power)(rr_vfo_t vfo, const char *args);
@@ -45,6 +46,6 @@ typedef struct rr_backend rr_backend_t;
 #include "backend.internal.h"
 
 extern bool backend_init(void);
-extern bool rr_be_set_ptt(rr_vfo_t vfo, bool state);
+extern bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state);
 
 #endif	// !defined(__rr_backend_h)

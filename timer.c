@@ -13,6 +13,7 @@
 #include "logger.h"
 #include "state.h"
 #include "timer.h"
+#include "mongoose.h"
 
 // timer_create_periodic:
 //	Create a timer that occurs every interval milliseconds

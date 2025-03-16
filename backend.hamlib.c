@@ -30,7 +30,8 @@ static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl
 
-vfo_t hl_get_vfo(rr_vfo_t vfo) {
+// Return hamlib VFO from rr VFO id
+static vfo_t hl_get_vfo(rr_vfo_t vfo) {
    switch(vfo) {
       case VFO_A:
          return RIG_VFO_A;
@@ -55,7 +56,7 @@ vfo_t hl_get_vfo(rr_vfo_t vfo) {
    return RIG_VFO_NONE;
 }
 
-bool hl_ptt_set(rr_vfo_t vfo, bool state) {
+static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
    vfo_t hl_vfo = hl_get_vfo(vfo);
    int ret = -1;
 
@@ -74,10 +75,12 @@ bool hl_ptt_set(rr_vfo_t vfo, bool state) {
 }
 
 // Initialize the hamlib connection
-bool hl_init(void) {
+static bool hl_init(void) {
    RIG *hl_rig = NULL;
    int ret;
 
+   // For now, we'll only support connecting to rigctl
+   // XXX: Add support for various hamlib backends
    rig_model_t model = RIG_MODEL_NETRIGCTL;  // Use NET rigctl (model 2)
    rig_set_debug(RIG_DEBUG_NONE);
    hl_rig = rig_init(model);
@@ -115,7 +118,7 @@ bool hl_init(void) {
    return false;
 }
 
-bool hl_fini(void) {
+static bool hl_fini(void) {
    if (hl_rig == NULL) {
       Log(LOG_DEBUG, "hamlib", "hl_fini called but hl_rig == NULL");
       return true;
@@ -129,7 +132,7 @@ bool hl_fini(void) {
    return false;
 }
 
-rr_backend_funcs_t rr_backend_hamlib_api = {
+static rr_backend_funcs_t rr_backend_hamlib_api = {
    .backend_fini = &hl_fini,
    .backend_init = &hl_init,
    .rig_ptt_set = &hl_ptt_set
