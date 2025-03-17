@@ -65,6 +65,7 @@ objs += cat.o			# CAT parsers
 objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
 objs += cat.yaesu.o		# Yaesu CAT protocol
 objs += channels.o		# Channel Memories
+objs += codec.o			# Support for audio codec
 objs += console.o		# Console support
 objs += crc32.o			# CRC32 calculation for eeprom verification
 objs += dds.o			# API for Direct Digital Synthesizers

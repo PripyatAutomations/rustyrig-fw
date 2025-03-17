@@ -9,9 +9,9 @@
 enum LogPriority {
       LOG_NONE = -1,
       LOG_CRIT,
+      LOG_AUDIT,
       LOG_WARN,
       LOG_INFO,
-      LOG_AUDIT,
       LOG_DEBUG,
 };
 struct log_priority {

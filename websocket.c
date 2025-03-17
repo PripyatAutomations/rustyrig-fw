@@ -22,13 +22,16 @@ bool ws_init(struct mg_mgr *mgr) {
       return true;
    }
 
+   // send the userlist to connected users every now and then
+   mg_timer_add(mgr, CHAT_NAMES_INTERVAL, MG_TIMER_REPEAT, ws_blorp_userlist_cb, NULL);
+
    Log(LOG_DEBUG, "http.ws", "WebSocket init completed succesfully");
    return false;
 }
 
 // Broadcast a message to all WebSocket clients (using http_client_list)
 void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
-   if (sender == NULL || msg_data == NULL) {
+   if (msg_data == NULL) {
       return;
    }
 
@@ -57,6 +60,7 @@ bool ws_send_userlist(void) {
    }
    mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }");
    struct mg_str ms = mg_str(resp_buf);
+   Log(LOG_DEBUG, "ws.chat", "Userlist bcast: %s", resp_buf);
    ws_broadcast(NULL, &ms);
 
    return false;

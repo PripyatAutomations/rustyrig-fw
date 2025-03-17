@@ -30,10 +30,10 @@ static bool log_show_ts = false;
 const char s_prio_none[] = " NONE";
 
 static struct log_priority log_priorities[] = {
+   { .prio = LOG_AUDIT,	.msg = "audit" },
    { .prio = LOG_CRIT,	.msg = "crit" },
    { .prio = LOG_WARN,	.msg = "warn" },
    { .prio = LOG_INFO,	.msg = "info" },
-   { .prio = LOG_AUDIT,	.msg = "audit" },
    { .prio = LOG_DEBUG,	.msg = "debug" },
    { .prio = LOG_NONE,	.msg = s_prio_none }		// invalid entry
 };

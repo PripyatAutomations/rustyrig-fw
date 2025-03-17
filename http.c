@@ -573,9 +573,6 @@ bool http_init(struct mg_mgr *mgr) {
    Log(LOG_INFO, "http", "HTTPS listening at %s with www-root at %s", tls_listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
 #endif
 
-   // send the userlist to connected users every now and then
-   mg_timer_add(mgr, CHAT_NAMES_INTERVAL, MG_TIMER_REPEAT, ws_blorp_userlist_cb, NULL);
-
    return false;
 }
 
