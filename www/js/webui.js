@@ -438,7 +438,7 @@ function ws_connect() {
                var msg_ts = msg_timestamp(msgObj.talk.ts);
                // Don't play a bell or set highlight on SelfMsgs
                if (sender === auth_user) {
-                  append_chatbox('<div>' + my_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+                  append_chatbox('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
                } else {
                   append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
 
