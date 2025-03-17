@@ -33,10 +33,17 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    if (cmd && data) {
       if (strcmp(cmd, "msg") == 0) {
          char msgbuf[HTTP_WS_MAX_MSG+1];
+         char *escaped_msg = escape_html(data);
+         if (escaped_msg == NULL) {
+            Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
+            return true;
+         }
+
          struct mg_str mp;
          memset(msgbuf, 0, sizeof(msgbuf));
-         snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", cptr->user->name, data, now);
+         snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", cptr->user->name, escaped_msg, now);
          mp = mg_str(msgbuf);
+         free(escaped_msg);
 
          // Update the sender's last_heard time
          ws_broadcast(c, &mp);

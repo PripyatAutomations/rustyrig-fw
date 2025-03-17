@@ -3,6 +3,8 @@
 #include "config.h"
 
 #if	defined(FEATURE_HTTP)
+#include <stdio.h>
+#include <string.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -737,5 +739,37 @@ void http_expire_sessions(void) {
       cptr = cptr->next;
    }
 }
+
+
+char *escape_html(const char *input) {
+   if (!input) {
+      return NULL;
+   }
+
+   size_t len = strlen(input);
+   size_t buf_size = len * 6 + 1; 		// Worst case: every char becomes `&quot;` (6 bytes)
+   char *output = malloc(buf_size);
+
+   if (!output) {
+      return NULL;
+   }
+
+   char *p = output;
+   for (size_t i = 0; i < len; i++) {
+      switch (input[i]) {
+         case '<':  p += sprintf(p, "&lt;"); break;
+         case '>':  p += sprintf(p, "&gt;"); break;
+         case '&':  p += sprintf(p, "&amp;"); break;
+         case '"':  p += sprintf(p, "&quot;"); break;
+         case '\'': p += sprintf(p, "&#39;"); break;
+         default:   *p++ = input[i]; break;
+      }
+   }
+   *p = '\0';
+
+   return output;
+}
+
+#include "mongoose.h"
 
 #endif	// defined(FEATURE_HTTP)
