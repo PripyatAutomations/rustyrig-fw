@@ -388,7 +388,6 @@ function ws_connect() {
          if (msgObj.talk) {
             var cmd = msgObj.talk.cmd;
             var message = msgObj.talk.data;
-            console.log("msg: ", msgObj);
 
             if (cmd === 'msg' && message) {
                var sender = msgObj.talk.from;
@@ -424,7 +423,6 @@ function ws_connect() {
                   console.log("got %s for undefined user, ignoring", cmd);
                }
             } else if (cmd === "names") {
-               console.log("cul_update", msgObj);
                cul_update(msgObj);
             } else if (cmd === "unmute") {
                // XXX: If unmute is for us, enable send button and let user know they can talk again

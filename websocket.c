@@ -60,7 +60,6 @@ bool ws_send_userlist(void) {
    }
    mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }");
    struct mg_str ms = mg_str(resp_buf);
-   Log(LOG_DEBUG, "ws.chat", "Userlist bcast: %s", resp_buf);
    ws_broadcast(NULL, &ms);
 
    return false;
