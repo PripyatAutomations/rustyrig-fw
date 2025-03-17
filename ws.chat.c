@@ -45,8 +45,8 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mp = mg_str(msgbuf);
          free(escaped_msg);
 
-         // Update the sender's last_heard time
-         ws_broadcast(c, &mp);
+         // Send to everyone, including the sender, which will then display it as SelfMsg
+         ws_broadcast(NULL, &mp);
       } else if (strcmp(cmd, "kick") == 0) {
          Log(LOG_INFO, "chat", "Kick command received, processing...");
       } else if (strcmp(cmd, "mute") == 0) {
