@@ -105,6 +105,28 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
    return NULL;
 }
 
+http_client_t *http_find_client_by_name(const char *name) {
+   http_client_t *cptr = http_client_list;
+   int i = 0;
+
+   if (name == NULL) {
+      return NULL;
+   }
+
+   while(cptr != NULL) {
+      if (cptr == NULL || cptr->user == NULL || (cptr->user->name[0] == '\0')) {
+         break;
+      }
+
+      if (strcasecmp(cptr->user->name, name) == 0) {
+         return cptr;
+      }
+      i++;
+      cptr = cptr->next;
+   }
+   return NULL;
+}
+
 http_client_t *http_find_client_by_token(const char *token) {
    http_client_t *cptr = http_client_list;
    int i = 0;
@@ -152,6 +174,30 @@ http_client_t *http_find_client_by_nonce(const char *nonce) {
    }
 
 //   Log(LOG_DEBUG, "http.core.noisy", "hfcbn %s no matches!", nonce);
+   return NULL;
+}
+
+http_client_t *http_find_client_by_guest_id(int gid) {
+   http_client_t *cptr = http_client_list;
+   int i = 0;
+
+   // this filters out invalid calls
+   if (gid <= 1) {
+      Log(LOG_DEBUG, "http.noisy", "hfcgid: gid %d isn't valid", gid);
+      return NULL;
+   }
+
+   while(cptr != NULL) {
+      if (cptr == NULL) {
+         break;
+      }
+
+      if (cptr->guest_id == gid) {
+         return cptr;
+      }
+      i++;
+      cptr = cptr->next;
+   }
    return NULL;
 }
 

@@ -17,6 +17,8 @@
 extern struct GlobalState rig;	// Global state
 
 bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
+   bool rv = false;
+
    if (c == NULL || msg == NULL) {
       Log(LOG_DEBUG, "http.ws", "auth_msg: got msg <%x> c <%x>", msg, c);
       return true;
@@ -28,13 +30,15 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    struct mg_str msg_data = msg->data;
-   char *token = mg_json_get_str(msg_data, "$.auth.token");
    char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
+   char *pass = mg_json_get_str(msg_data, "$.auth.pass");
+   char *token = mg_json_get_str(msg_data, "$.auth.token");
    char *user = mg_json_get_str(msg_data, "$.auth.user");
 
    // Must always send a command and username during auth
    if (cmd == NULL || (user == NULL && token == NULL)) {
-      return true;
+      rv = true;
+      goto cleanup;
    }
 
    if (strcmp(cmd, "login") == 0) {
@@ -45,9 +49,8 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
       http_client_t *cptr = http_add_client(c, true);
       if (cptr == NULL) {
-         free(cmd);
-         free(user);
-         return true;
+         rv = true;
+         goto cleanup;
       }
 
       // search for user
@@ -64,24 +67,18 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
       Log(LOG_DEBUG, "auth.noisy", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
-      free(cmd);
-      free(user);
    } else if (strcmp(cmd, "logout") == 0) {
-      char *token = mg_json_get_str(msg_data, "$.auth.token");
 
       Log(LOG_DEBUG, "auth.noisy", "Logout request from session token |%s|", (token != NULL ? token : "NONE"));
       ws_kick_client_by_c(c, "Logged out");
-      free(token);
    } else if (strcmp(cmd, "pass") == 0) {
-      char *pass = mg_json_get_str(msg_data, "$.auth.pass");
-      char *token = mg_json_get_str(msg_data, "$.auth.token");
+      bool guest = false;
 
       if (pass == NULL || token == NULL) {
          Log(LOG_DEBUG, "auth", "auth pass command without without password <%x> / token <%x>", pass, token);
          ws_kick_client_by_c(c, "auth.pass message incomplete/invalid. Goodbye");
-         free(pass);
-         free(token);
-         return false;
+         rv = true;
+         goto cleanup;
       }
 
       http_client_t *cptr = http_find_client_by_token(token);
@@ -89,38 +86,35 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       if (cptr == NULL) {
          Log(LOG_DEBUG, "auth", "Unable to find client in PASS parsing");
          http_dump_clients();
-         free(pass);
-         free(token);
-         return true;
+         rv = true;
+         goto cleanup;
       }
 
       if (cptr->user == NULL) {
          Log(LOG_DEBUG, "auth", "cptr-> user == NULL!");
          ws_kick_client(cptr, "Invalid login/password");
-         free(pass);
-         free(token);
-         return true;
+         rv = true;
+         goto cleanup;
       }
 
       int login_uid = cptr->user->uid;
       if (login_uid < 0 || login_uid > HTTP_MAX_USERS) {
          Log(LOG_DEBUG, "auth.noisy", "Invalid uid for username %s", cptr->user->name);
          ws_kick_client(cptr, "Invalid login/passowrd");
-         free(pass);
-         free(token);
-         return true;
+         rv = true;
+         goto cleanup;
       }
 
       http_user_t *up = &http_users[login_uid];
       if (up == NULL) {
          Log(LOG_CRIT, "auth", "Uid %d returned NULL http_user_t", login_uid);
-         free(pass);
-         free(token);
-         return true;
+         rv = true;
+         goto cleanup;
       }
 
       if (strcasecmp(up->name, "guest") == 0) {
          cptr->guest_id = generate_random_number(4);
+         guest = true;
       }
 
       if (strcmp(up->pass, pass) == 0) {
@@ -134,14 +128,21 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
          char resp_buf[HTTP_WS_MAX_MSG+1];
          memset(resp_buf, 0, sizeof(resp_buf));
-         snprintf(resp_buf, sizeof(resp_buf),
-                  "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu } }",
-                  user, token, now);
+         if (guest) {
+            snprintf(resp_buf, sizeof(resp_buf),
+                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s%04d\", \"token\": \"%s\", \"ts\": %lu } }",
+                     user, cptr->guest_id, token, now);
+         } else {
+            snprintf(resp_buf, sizeof(resp_buf),
+                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu } }",
+                     user, token, now);
+         }
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
          // blorp out a join to all chat users
          memset(resp_buf, 0, sizeof(resp_buf));
-         if (strcasecmp(user, "guest") == 0) {
+
+         if (guest) {
             snprintf(resp_buf, sizeof(resp_buf),
                      "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s%d\", \"ts\": %lu } }",
                      user, cptr->guest_id, now);
@@ -158,8 +159,12 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          Log(LOG_INFO, "auth", "User %s on cptr <%x> gave wrong password. Kicking!", cptr->user, cptr);
          ws_kick_client(cptr, "Invalid login/password");
       }
-      free(pass);
-      free(token);
    }
-   return false;
+
+cleanup:
+   free(cmd);
+   free(pass);
+   free(token);
+   free(user);
+   return rv;
 }
