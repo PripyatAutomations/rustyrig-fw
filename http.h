@@ -65,6 +65,7 @@ struct http_client {
     struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
     char token[HTTP_TOKEN_LEN+1]; // Session token
     char nonce[HTTP_TOKEN_LEN+1]; // Authentication nonce - only used between challenge & pass stages
+    int guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
     struct http_client *next; 	// pointer to next client in list
 };
 typedef struct http_client http_client_t;
