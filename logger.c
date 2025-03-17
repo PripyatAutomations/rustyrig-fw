@@ -65,7 +65,7 @@ void logger_init(void) {
    for (int i = 0; i < log_levels; i++) {
       if (strcasecmp(log_priorities[i].msg, ll) == 0) {
          rig.log_level = log_priorities[i].prio;
-         Log(LOG_INFO, "core", "Setting log_level to %d (%s) = %s", log_priorities[i].prio, log_priorities[i].msg, log_priority_to_str(log_priorities[i].prio));
+         Log(LOG_INFO, "core", "Setting log_level to %d (%s)", log_priorities[i].prio, log_priorities[i].msg);
          break;
       }
    }

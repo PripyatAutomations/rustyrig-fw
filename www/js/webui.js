@@ -521,7 +521,6 @@ function ws_connect() {
                   show_chat_window();
                   var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                   append_chatbox('<div><span class="msg-connected">' + my_ts + ' 👽&nbsp;***&nbsp Welcome back, ' + auth_user + '&nbsp;***</span></div>');
-                  console.log("Got AUTHORIZED from server as username: ", auth_user, " with token ", auth_token);
                   break;
                case 'challenge':
                   var nonce = msgObj.auth.nonce;
@@ -533,6 +532,7 @@ function ws_connect() {
 
                   var login_pass = $('input#pass').val();
                   var hashed_pass = sha1Hex(login_pass);
+
                   // here we use an async call to crypto.simple
                   authenticate(login_user, login_pass, auth_token).then(msgObj => {
                      var msgObj_t = JSON.stringify(msgObj);
