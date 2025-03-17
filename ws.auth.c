@@ -50,6 +50,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          return true;
       }
 
+      // search for user
       for (int i = 0; i < HTTP_MAX_USERS; i++) {
          if (strcasecmp(http_users[i].name, user) == 0) {
             cptr->user = &http_users[i];
@@ -118,6 +119,10 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          return true;
       }
 
+      if (strcasecmp(up->name, "guest") == 0) {
+         cptr->guest_id = generate_random_number(4);
+      }
+
       if (strcmp(up->pass, pass) == 0) {
          cptr->authenticated = true;
 
@@ -136,9 +141,15 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // blorp out a join to all chat users
          memset(resp_buf, 0, sizeof(resp_buf));
-         snprintf(resp_buf, sizeof(resp_buf),
-                  "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu } }",
-                  user, now);
+         if (strcasecmp(user, "guest") == 0) {
+            snprintf(resp_buf, sizeof(resp_buf),
+                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s%d\", \"ts\": %lu } }",
+                     user, cptr->guest_id, now);
+         } else {
+            snprintf(resp_buf, sizeof(resp_buf),
+                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu } }",
+                     user, now);
+         }
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms);
          Log(LOG_INFO, "auth", "User %s on cptr <%x> logged in with privs: %s",

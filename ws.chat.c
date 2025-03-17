@@ -38,10 +38,14 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
             return true;
          }
-
+         char *user = cptr->user->name;
          struct mg_str mp;
          memset(msgbuf, 0, sizeof(msgbuf));
-         snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", cptr->user->name, escaped_msg, now);
+         if (strcasecmp(user, "guest") == 0) {
+            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", user, cptr->guest_id, escaped_msg, now);
+         } else {
+            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", user, escaped_msg, now);
+         }
          mp = mg_str(msgbuf);
          free(escaped_msg);
 

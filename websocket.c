@@ -57,7 +57,7 @@ bool ws_send_userlist(void) {
 
       // Append guest-id on the username for GUESTS
       if (strcasecmp(cptr->user->name, "guest") == 0) {
-         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s%d\"", count++ ? "," : "", cptr->user->name, cptr->guest_id);
+         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s%04d\"", count++ ? "," : "", cptr->user->name, cptr->guest_id);
       } else {
          len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s\"", count++ ? "," : "", cptr->user->name);
       }
@@ -134,18 +134,24 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 int generate_random_number(int digits) {
    int num = 0, prev_digit = -1;
 
+try_again:
    for (int i = 0; i < digits; i++) {
-      printf("i: %d\n", i);
-
       int digit;
       do {
          digit = rand() % 10;
-         printf(".");
       } while (digit == prev_digit); // Ensure no consecutive repeats
 
       num = num * 10 + digit;
       prev_digit = digit;
    }
 
+   http_client_t *cptr = http_client_list;
+   while (cptr != NULL) {
+      // if we match an existing number, start over
+      if (cptr->guest_id == num) {
+         goto try_again;
+      }
+      cptr = cptr->next;
+   }
    return num;
 }
