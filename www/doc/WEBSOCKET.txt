@@ -4,8 +4,8 @@ $type: { payload }
 types:
 	au		Audio samples
 	auth		Login/Logout/Pass Change
-	cat		CAT messages
 	log		Log messages
+	rigctl		CAT messages
 	rom		EEPROM manager commands
 	tty		TTY (console)
 	wf		Waterfall data
@@ -17,11 +17,11 @@ types:
 	cmd
 		login|pass|logout
 
-[cat]
-	cmd, val
-
 [log]
 	sys, prio, msg	- A log viewer message
+
+[rigctl]
+	cmd, val
 
 [rom]
 	backup

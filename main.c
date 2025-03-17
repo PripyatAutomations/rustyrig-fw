@@ -187,13 +187,13 @@ int main(int argc, char **argv) {
 
       // Check thermals
       if (are_we_on_fire()) {
-         ptt_set(false);
+         ptt_set_all_off();
          ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!\n");
       }
 
-      // Run event loop timers
-      timer_run();
+      // Run event loop timers XXX: This is moved into mongoose timers
+//      timer_run();
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from

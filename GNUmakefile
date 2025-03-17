@@ -112,6 +112,9 @@ objs += util.vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
 objs += waterfall.o		# Support for rendering waterfalls
 objs += websocket.o		# Websocket transport for CAT and audio
+objs += ws.auth.o		# Websocket Authentication
+objs += ws.chat.o		# Websocket Chat (talk)
+objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)

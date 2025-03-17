@@ -860,6 +860,11 @@ sub generate_config_h {
    }
 
    if (defined($config->{'debug'})) {
+      my $logfile = $config->{'debug'}{'logfile'};
+      if (defined($logfile)) {
+         print $fh "#define LOG_FILE \"$logfile\"\n";
+      }
+
       if (defined($config->{'debug'}{'noisy_eeprom'}) && match_boolean($config->{debug}{'noisy_eeprom'})) {
          printf $fh "#define NOISY_EEPROM true\n";
       }
@@ -902,7 +907,6 @@ sub generate_config_h {
 
    # Platform specific selections:
    my $platform = $cptr->get("/build/platform");
-   print $fh "#define LOG_FILE \"/tmp/rustyrig.log\"\n";
 
    if ($platform eq "posix") {
       print $fh "#define HOST_EEPROM_FILE \"$eeprom_file\"\n";

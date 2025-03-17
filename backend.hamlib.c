@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <string.h>
 
-// This only gets drug in if we have features.backend_hamlib=true
+// This only gets drug in if we have features/backend/hamlib=true
 #if	defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
 #include "logger.h"
@@ -85,7 +85,7 @@ static bool hl_init(void) {
    rig_set_debug(RIG_DEBUG_NONE);
    hl_rig = rig_init(model);
 
-  if (!hl_rig) {
+   if (!hl_rig) {
       fprintf(stderr, "Failed to initialize rig\n");
       return true;
    }

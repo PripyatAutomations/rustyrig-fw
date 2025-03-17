@@ -183,3 +183,15 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 
    va_end(ap);
 }
+
+void hash_to_hex(char *dest, const uint8_t *hash, size_t len) {
+   if (dest == NULL || hash == NULL || len <= 0) {
+      return;
+   }
+
+   for (size_t i = 0; i < len; i++) {
+      sprintf(dest + (i * 2), "%02x", hash[i]);
+   }
+
+   dest[len * 2] = '\0';
+}

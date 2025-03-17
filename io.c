@@ -19,8 +19,10 @@
 #include "io.h"
 
 int io_open(io_context_t *ctx, io_type_t type, const char *path, int port) {
-    if (!ctx)
+    if (!ctx) {
        return -1;
+    }
+
     ctx->type = type;
     switch (type) {
        case INPUT_SOCKET: {

@@ -29,17 +29,28 @@ bool ptt_set_blocked(bool blocked) {
    return blocked;
 }
 
-
-bool ptt_set(bool ptt) {
+// For CAT to call
+bool ptt_set(rr_vfo_t vfo, bool ptt) {
    if (ptt_check_blocked()) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
       return false;
    }
 
-   rig.ptt = ptt;
-   return rig.ptt;
+   rig.backend->api->rig_ptt_set(vfo, ptt);
+   return ptt;
 }
 
-bool ptt_toggle(void) {
-   return ptt_set(!rig.ptt);
+bool ptt_toggle(rr_vfo_t vfo) {
+   return ptt_set(vfo, !rig.ptt);
+}
+
+bool ptt_set_all_off(void) {
+   Log(LOG_CRIT, "core", "PTT turned off for all VFOs!");
+   ptt_set(VFO_A, false);
+   ptt_set(VFO_B, false);
+   ptt_set(VFO_C, false);
+   ptt_set(VFO_D, false);
+   ptt_set(VFO_E, false);
+
+   return false;
 }
