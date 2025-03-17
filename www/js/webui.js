@@ -592,8 +592,8 @@ function handleReconnect() {
       ws_connect();
 
       // increase delay for the next try
-      reconnectDelay = reconnectInterval[Math.min(reconnectInterval.length - 1, reconnectInterval.indexOf(reconnectDelay) + 1)] * 1000;
-   }, reconnectDelay);
+      reconnectDelay = reconnectInterval[Math.min(reconnectInterval.length - 1, reconnectInterval.indexOf(reconnectDelay) + 1)];
+   }, reconnectDelay * 1000);
 }
 
 function getWebSocketUrl() {
