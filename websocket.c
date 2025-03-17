@@ -130,3 +130,22 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    }
    return false;
 }
+
+int generate_random_number(int digits) {
+   int num = 0, prev_digit = -1;
+
+   for (int i = 0; i < digits; i++) {
+      printf("i: %d\n", i);
+
+      int digit;
+      do {
+         digit = rand() % 10;
+         printf(".");
+      } while (digit == prev_digit); // Ensure no consecutive repeats
+
+      num = num * 10 + digit;
+      prev_digit = digit;
+   }
+
+   return num;
+}
