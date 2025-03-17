@@ -18,6 +18,8 @@ var auth_token;
 var remote_nonce;
 var login_user;
 var unmute_vol = 100;
+var vol_changing = false;
+var vol_timer;
 
 // This sends the first stage of the login process
 function try_login() {
@@ -54,23 +56,22 @@ $(document).ready(function() {
       $('input#user').val = login_user;
    });
 
+/*
+   // pop up the volume dialog, if not already open
    $('button#bell-btn').hover(function() {
-      $('input#alert-vol').show();
-      setTimeout(function() {
-         $('input#alert-vol').hide();
-      }, 5000);
+      if (!vol_changing) {
+         vol_changing = true;
+         $('input#alert-vol').show();
+         vol_timer = setTimeout(function() {
+            $('input#alert-vol').hide();
+            vol_changing = false;
+         }, 5000);
+      }
    });
+*/
 
-   $('button#bell-btn').blur(function() {
-      $('input#alert-vol').hide();
-   });
-
-   $('input#alert-vol').mouseleave(function() {
-      $('input#alert-vol').hide();
-   });
-
-   $("input#alert-vol").on("input", function() {
-      let volume = $(this).val() / 100; 		// Scale 0-100 to 0-1
+   $("input#alert-vol").on("change", function() {
+      let volume = $(this).val() / 100;
       $("audio#chat-ding, audio#join-ding").prop("volume", volume);
    });
 

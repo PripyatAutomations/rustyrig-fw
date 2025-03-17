@@ -496,15 +496,17 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
      http_client_t *cptr = http_find_client_by_c(c);
 
      // make sure we're not accessing unsafe memory
-     if (cptr != NULL && cptr->user != NULL && cptr->user->name != NULL) {
-        // blorp out a quit to all chat users
+     if (cptr != NULL && cptr->user != NULL && cptr->user->name[0] != '\0') {
+        char *uname = cptr->user->name;
+
+        // blorp out a quit to all connected users
         memset(resp_buf, 0, sizeof(resp_buf));
         snprintf(resp_buf, sizeof(resp_buf),
                  "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
-                 cptr->user->name, now);
+                 uname, now);
         struct mg_str ms = mg_str(resp_buf);
         ws_broadcast(NULL, &ms);
-        Log(LOG_INFO, "auth", "User %s on cptr <%x> left chat", cptr->user->name, cptr);
+        Log(LOG_AUDIT, "auth", "User %s on cptr <%x> disconnected", uname, cptr);
      }
      http_remove_client(c);
    }
@@ -728,7 +730,7 @@ void http_expire_sessions(void) {
       if (cptr->session_expiry <= now) {
          expired++;
          time_t last_heard = (now - cptr->last_heard);
-         Log(LOG_WARN, "http.auth", "Kicking expired session (%lu sec old, last heard %lu sec ago) for %s",
+         Log(LOG_AUDIT, "http.auth", "Kicking expired session (%lu sec old, last heard %lu sec ago) for %s",
              HTTP_SESSION_LIFETIME, last_heard, cptr->user->name);
          ws_kick_client(cptr, "Login session expired!");
       }
