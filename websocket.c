@@ -55,7 +55,12 @@ bool ws_send_userlist(void) {
          continue;
       }
 
-      len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s\"", count++ ? "," : "", cptr->user->name);
+      // Append guest-id on the username for GUESTS
+      if (strcasecmp(cptr->user->name, "guest") == 0) {
+         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s%d\"", count++ ? "," : "", cptr->user->name, cptr->guest_id);
+      } else {
+         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s\"", count++ ? "," : "", cptr->user->name);
+      }
       cptr = cptr->next;
    }
    mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }");
@@ -104,8 +109,6 @@ bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
    return ws_kick_client(cptr, reason);
 }
 
-#define free_and_null(___x) do { if ((___x) != NULL) { free(___x); (___x) = NULL; } } while (0)
-
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    if (c == NULL || msg == NULL || msg->data.buf == NULL) {
       Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
@@ -118,8 +121,9 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 
    // Handle different message types...
    if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-//      return ws_handle_cat_msg(msg, c);
-   } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
+      return ws_handle_rigctl_msg(msg, c);
+   } else
+    if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
       return ws_handle_chat_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
       return ws_handle_auth_msg(msg, c);
