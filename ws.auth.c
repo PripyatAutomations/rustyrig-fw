@@ -95,7 +95,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
       if (cptr->user == NULL) {
          Log(LOG_DEBUG, "auth", "cptr-> user == NULL!");
-         http_dump_clients();
+         ws_kick_client(cptr, "Invalid login/password");
          free(pass);
          free(token);
          return true;
@@ -104,7 +104,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       int login_uid = cptr->user->uid;
       if (login_uid < 0 || login_uid > HTTP_MAX_USERS) {
          Log(LOG_DEBUG, "auth.noisy", "Invalid uid for username %s", cptr->user->name);
-         ws_kick_client(cptr, "Invalid login");
+         ws_kick_client(cptr, "Invalid login/passowrd");
          free(pass);
          free(token);
          return true;

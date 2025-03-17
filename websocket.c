@@ -79,7 +79,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    }
 
    memset(resp_buf, 0, sizeof(resp_buf));
-   snprintf(resp_buf, sizeof(resp_buf), "{ \"auth\": { \"error\": \"Disconnected: %s.\" } }", (reason != NULL ? reason : "No reason given."));
+   snprintf(resp_buf, sizeof(resp_buf), "{ \"auth\": { \"error\": \"%s.\" } }", (reason != NULL ? reason : "No reason given."));
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
    mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
    http_remove_client(c);

@@ -1,0 +1,67 @@
+a, a:visited, a:active {
+   color: #004fcc;
+}
+
+html, body {
+   background: #1f1f1f;
+   color: #f4f4f9;
+}
+
+#tbl-login {
+   background: #404040;
+   color: #f0c0c0;
+}
+
+#chat-box {
+   background: #1a1a1a;
+   color: #cacaca;
+   border: 2px solid #3f3f3f;
+}
+
+div#tabstrip {
+   background: #1a1a1a;
+   color: #c0c0c0;
+}
+
+span.menu-tab {
+   background: #3f3f3f;
+   color: #c0c0c0;
+   border: 2px solid #c0c0c0;
+}
+
+#chat-user-list {
+   background: #1a1a1a;
+   color: #cacaca;
+   border: 2px solid #3f3f3f;
+}
+
+div#button-box {
+   background: #1a1a1a;
+   color: #cacaca;
+   border: 2px solid #3f3f3f;
+}
+
+input {
+   background: #1a1a1a;
+   color: #cacaca;
+   border: 2px solid #3f3f3f;
+}
+
+div#tabstrip {
+   background: #1a1a1a;
+   color: #cacaca;
+   border: 2px solid #3f3f3f;
+}
+
+#bell-image {
+   background: #1a1a1a;
+   color: #cacaca;
+}
+
+#bell-btn {
+   border: 2px solid #3f3f3f;
+}
+
+.chat-msg, .chat-my-msg {
+   color: #c0c0c0;
+}

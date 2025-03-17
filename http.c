@@ -222,7 +222,7 @@ void http_dump_clients(void) {
 
    while(cptr != NULL) {
       if (cptr == NULL) {
-         return;
+         break;
       }
 
       Log(LOG_DEBUG, "http.core.noisy", " => %d at <%x> %sactive %swebsocket, conn: <%x>, token: |%s|, nonce: |%s|, next: <%x> ",
@@ -483,7 +483,11 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
    } else if (ev == MG_EV_WS_OPEN) {
      http_client_t *cptr = http_find_client_by_c(c);
-     Log(LOG_DEBUG, "http.noisy", "Conn cptr <%x> (c: <%x>) upgraded to ws");
+     if (cptr) {
+        Log(LOG_DEBUG, "http.noisy", "Conn cptr c <%x> upgraded to ws at cptr <%x>", c, cptr);
+     } else {
+        Log(LOG_DEBUG, "http.noisy", "Conn c <%x> upgraded to ws", c);
+     }
    } else if (ev == MG_EV_WS_MSG) {
      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
      ws_handle(msg, c);
@@ -491,7 +495,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
      char resp_buf[HTTP_WS_MAX_MSG+1];
      http_client_t *cptr = http_find_client_by_c(c);
 
-     if (cptr != NULL) {
+     // make sure we're not accessing unsafe memory
+     if (cptr != NULL && cptr->user != NULL && cptr->user->name != NULL) {
         // blorp out a quit to all chat users
         memset(resp_buf, 0, sizeof(resp_buf));
         snprintf(resp_buf, sizeof(resp_buf),
@@ -537,13 +542,11 @@ bool http_init(struct mg_mgr *mgr) {
       snprintf(www_root, sizeof(www_root), "%s", WWW_ROOT_FALLBACK);
    }
 
-   // XXX: move this path to config.json (build-time)
    if (http_load_users(HTTP_AUTHDB_PATH) < 0) {
       Log(LOG_WARN, "http.core", "Error loading users from %s", HTTP_AUTHDB_PATH);
    }
 
    struct in_addr sa_bind;
-
    char listen_addr[255];
    int bind_port = eeprom_get_int("net/http/port");
    eeprom_get_ip4("net/http/bind", &sa_bind);
@@ -579,6 +582,7 @@ bool http_init(struct mg_mgr *mgr) {
 //
 // HTTP Basic-auth user
 //
+
 // Load users from the file into the global array
 static int http_load_users(const char *filename) {
     FILE *file = fopen(filename, "r");
@@ -673,7 +677,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    new_client->next = http_client_list;
    http_client_list = new_client;
 
-   Log(LOG_DEBUG, "http", "Added new client at cptr <%x> with token |%s| nonce |%s|", new_client, new_client->token, new_client->nonce);
+   Log(LOG_DEBUG, "http", "Added new client at cptr <%x> with token |%s|", new_client, new_client->token);
    return new_client;
 }
 
@@ -724,7 +728,7 @@ void http_expire_sessions(void) {
       if (cptr->session_expiry <= now) {
          expired++;
          time_t last_heard = (now - cptr->last_heard);
-         Log(LOG_WARN, "http.auth", "Kicking expired session (%lu sec old, last haerd %lu sec ago) for %s",
+         Log(LOG_WARN, "http.auth", "Kicking expired session (%lu sec old, last heard %lu sec ago) for %s",
              HTTP_SESSION_LIFETIME, last_heard, cptr->user->name);
          ws_kick_client(cptr, "Login session expired!");
       }

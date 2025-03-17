@@ -6,8 +6,8 @@
 var socket;
 var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
-let reconnectDelay = 1000;	// Start with 1 second
-let reconnectInterval = [1000, 5000, 10000, 30000, 30000, 30000, 30000, 60000, 60000, 120000]; // Delay intervals in ms
+let reconnectDelay = 1;
+let reconnectInterval = [1, 2, 5, 10, 30 ];
 var reconnectIndex = 0; 	// Index to track the current delay
 var reconnectTimer;  		// so we can stop reconnects
 var chat_ding;			// sound widget for chat ding
@@ -17,6 +17,7 @@ var auth_user;
 var auth_token;
 var remote_nonce;
 var login_user;
+var unmute_vol = 100;
 
 // This sends the first stage of the login process
 function try_login() {
@@ -32,7 +33,13 @@ function try_login() {
 }
 
 $(document).ready(function() {
-   var unmute_vol;
+   if (localStorage.getItem("dark_mode") !== "false") {
+      $("#dark-theme").attr("href", "css/dark.css").removeAttr("disabled");
+      $("#tab-dark").text("light");
+   } else {
+      $("#dark-theme").attr("href", "").attr("disabled", "disabled");
+      $("#tab-dark").text("dark");
+   }
 
    if (!logged_in) {
       // put a chroma-hash widget on password fields
@@ -49,6 +56,9 @@ $(document).ready(function() {
 
    $('button#bell-btn').hover(function() {
       $('input#alert-vol').show();
+      setTimeout(function() {
+         $('input#alert-vol').hide();
+      }, 5000);
    });
 
    $('button#bell-btn').blur(function() {
@@ -60,7 +70,7 @@ $(document).ready(function() {
    });
 
    $("input#alert-vol").on("input", function() {
-      let volume = $(this).val() / 100; // Scale 0-100 to 0-1
+      let volume = $(this).val() / 100; 		// Scale 0-100 to 0-1
       $("audio#chat-ding, audio#join-ding").prop("volume", volume);
    });
 
@@ -98,8 +108,7 @@ $(document).ready(function() {
 
    // clear button
    $('#clear-btn').click(function() {
-      $('#chat-box').empty(); // Clear the chat messages
-      $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight); // Auto-scroll to the bottom
+      $('#chat-input').val('');
       $('#chat-input').focus();
    });
 
@@ -161,7 +170,7 @@ $(document).ready(function() {
             var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
             append_chatbox('<div>' + my_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
          }
-         $('#chat-input').val(''); // Clear the input field
+         $('#chat-input').val('');
          setTimeout(function () {
               $('#chat-input').focus();
          }, 10); // Delay to allow any event processing to finish
@@ -195,12 +204,15 @@ $(document).ready(function() {
        let isChecked = $(this).data('checked');
        if (isChecked) {
           // Save unmuted volume globally
-          unmute_vol = $('audio#chat-ding').val();
+          unmute_vol = $('audio#chat-ding').prop('volume');
+          console.log("Saved volume ", unmute_vol);
           $('audio#chat-ding').val(0);
+          $('input#alert-vol').val(0);
        } else {
           // restore saved volume
           $('audio#chat-ding').val(unmute_vol);
           $('audio#join-ding').val(unmute_vol);
+          $('input#alert-vol').val(unmute_vol * 100);
        }
        $(this).data('checked', !isChecked);
        let newSrc = isChecked ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
@@ -213,6 +225,31 @@ $(document).ready(function() {
    // User menu
    $('#um-close').click(function() {
       $('#user-menu').hide();
+   });
+
+   // Top menu
+   $('span#tab-chat').click(function() {
+       show_chat_window();
+   });
+
+   $('span#tab-rig').click(function() {
+       $('div#win-chat').hide();
+       $('div#win-settings').hide();
+       $('div#win-rig').show();
+   });
+
+   $('span#tab-settings').click(function() {
+       $('div#win-rig').hide();
+       $('div#win-chat').hide();
+       $('div#win-settings').show();
+   });
+
+   $('span#tab-dark').click(function() {
+       toggle_dark_mode();
+   });
+
+   $('span#tab-logout').click(function() {
+       logout();
    });
 
    // deal with our keypresses
@@ -266,6 +303,11 @@ async function sha1Hex(str) {
 }
 
 async function authenticate(login_user, login_pass, auth_token) {
+// XXX: This needs reworked a bit to user the double-hashing for replay protection
+//                  var firstHash = sha1Hex(utf8Encode(login_pass)); // Ensure correct encoding
+//                  var combinedString = firstHash + '+' + nonce;
+//                  var hashed_pass = sha1Hex(utf8Encode(combinedString));
+
    var hashed_pass = await sha1Hex(login_pass);  // Wait for the hash to complete
    var msgObj = {
       "auth": {
@@ -358,7 +400,7 @@ function ws_connect() {
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
       append_chatbox('<div class="chat-status">' + my_ts + ' 👽 WebSocket connected.</div>');
       reconnecting = false; 		// Reset reconnect flag on successful connection
-      reconnectDelay = 1000; 		// Reset reconnect delay to 1 second
+      reconnectDelay = 1; 		// Reset reconnect delay to 1 second
    };
 
    /* NOTE: On error sorts this out for us */
@@ -399,6 +441,9 @@ function ws_connect() {
                   chat_ding.currentTime = 0;  // Reset audio to start from the beginning
                   chat_ding.play();
                }
+               // Flash the indicator, if set
+               // XXX: add a toggle in settings
+               set_highlight("chat");
             } else if (cmd === 'join') {
                var user = msgObj.talk.user;
                if (user) {
@@ -439,7 +484,11 @@ function ws_connect() {
 
             if (error) {
                var error = msgObj.auth.error;
-               console.log("Authentication error! Status: ", error);
+               stopReconnecting();
+
+               var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+               append_chatbox('<div><span class="error">' + my_ts + ' 👽 Error: ' + error + '!</span></div>');
+               show_login_window();
                $('span#sub-login-error-msg').empty();
                $('span#sub-login-error-msg').append("<span>", error, "</span>");
 
@@ -447,10 +496,12 @@ function ws_connect() {
                setTimeout(function() { $('div#sub-login-error').hide(); }, 20000);
 
                $('div#sub-login-error').show();
+               $('button#login-err-ok').click(function() {
+                  $('div#sub-login-error').hide();
+                  $('span#sub-login-error-msg').empty();
+                  $('input#user').focus();
+               });
                $('button#login-err-ok').focus();
-
-               // Stop auto-reconnecting
-               stopReconnecting();
                return false;
             }
 
@@ -466,8 +517,7 @@ function ws_connect() {
                   }
 
                   logged_in = true;
-
-                  hide_login_window();
+                  show_chat_window();
                   var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                   append_chatbox('<div><span class="msg-connected">' + my_ts + ' 👽&nbsp;***&nbsp Welcome back, ' + auth_user + '&nbsp;***</span></div>');
                   console.log("Got AUTHORIZED from server as username: ", auth_user, " with token ", auth_token);
@@ -482,20 +532,16 @@ function ws_connect() {
 
                   var login_pass = $('input#pass').val();
                   var hashed_pass = sha1Hex(login_pass);
-// XXX: This needs reworked a bit to user the double-hashing for replay protection
-//                  var firstHash = sha1Hex(utf8Encode(login_pass)); // Ensure correct encoding
-//                  var combinedString = firstHash + '+' + nonce;
-//                  var hashed_pass = sha1Hex(utf8Encode(combinedString));
                   // here we use an async call to crypto.simple
                   authenticate(login_user, login_pass, auth_token).then(msgObj => {
                      var msgObj_t = JSON.stringify(msgObj);
-                     console.log("Got challenge with nonce ", nonce, ", sending response", msgObj_t);
                      socket.send(msgObj_t);
                   });
                   break;
                case 'expired':
                   console.log("Session expired!");
-                  show_login_win();
+                  append_chatbox('<div><span class="error">👽 Session expired, logging out</span></div>');
+                  show_login_window();
                   break;
                default:
                   console.log("Unknown auth command: ", cmd);
@@ -532,15 +578,14 @@ function handleReconnect() {
    reconnecting = true;
    show_connecting(true);
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-   var rc_sec = reconnectDelay / 1000;
-   append_chatbox('<div class="chat-status error">' + my_ts + ' 👽 Reconnecting in ' + rc_sec + ' sec</div>');
+   append_chatbox('<div class="chat-status error">' + my_ts + ' 👽 Reconnecting in ' + reconnectDelay + ' sec</div>');
 
-   // Reattempt connection after delay
+   // Delay reconnecting for a bit
    reconnectTimer = setTimeout(function() {
       ws_connect();
 
       // increase delay for the next try
-      reconnectDelay = reconnectInterval[Math.min(reconnectInterval.length - 1, reconnectInterval.indexOf(reconnectDelay) + 1)];
+      reconnectDelay = reconnectInterval[Math.min(reconnectInterval.length - 1, reconnectInterval.indexOf(reconnectDelay) + 1)] * 1000;
    }, reconnectDelay);
 }
 
@@ -557,18 +602,53 @@ function flashRed(element) {
    }, 2000);
 }
 
-function hide_login_window() {
-   $('div#win-login').hide();
+function toggle_dark_mode() {
+   const $darkTheme = $("#dark-theme");
+   const $toggleBtn = $("#tab-dark"); // The button span
+   const darkCSS = "css/dark.css";
+
+   let dark_mode = localStorage.getItem("dark_mode") !== "false"; 
+   dark_mode = !dark_mode; // Toggle it
+
+   if (dark_mode) {
+      console.log("Set Dark Mode");
+      $darkTheme.attr("href", darkCSS).removeAttr("disabled");
+      $toggleBtn.text("light");
+   } else {
+      console.log("Set Light Mode");
+      $darkTheme.attr("href", "").attr("disabled", "disabled");
+      $toggleBtn.text("dark");
+   }
+
+   localStorage.setItem("dark_mode", dark_mode);
+}
+
+function show_login_window() {
+   $('div#win-chat').hide();
+   $('div#win-settings').hide();
+   $('div#win-login').show();
+   $('input#user').focus();
+   $('div#tabstrip').hide();
+//   $('.chroma-hash').show();
+}
+
+function show_chat_window() {
 //   $('.chroma-hash').hide();
+   $('div#win-login').hide();
+   $('div#win-rig').hide();
+   $('div#win-settings').hide();
+   $('div#tabstrip').show();
    $('div#win-chat').show();
    $('#chat-input').focus();
 }
 
-function show_login_window() {
-   $('div#win-login').show();
-//   $('.chroma-hash').show();
+function show_settings_window() {
+//   $('.chroma-hash').hide();
+   $('div#win-rig').hide();
    $('div#win-chat').hide();
-   $('input#user').focus();
+   $('div#win-login').hide();
+   $('div#tabstrip').show();
+   $('div#win-settings').show();
 }
 
 // turn a unix time into [HH:MM.ss] stamp or space padding if invalid
@@ -583,4 +663,27 @@ function msg_timestamp(msg_ts) {
    let mm = String(date.getMinutes()).padStart(2, '0');
    let ss = String(date.getSeconds()).padStart(2, '0');
    return `[${hh}:${mm}.${ss}]`;
+}
+
+function logout() {
+   var msgObj = {
+      "auth": {
+         "cmd": "logout",
+         "user": auth_user,
+         "token": auth_token
+      }
+   };
+   socket.send(JSON.stringify(msgObj));
+}
+
+function set_highlight(tab) {
+   clear_highlight();
+
+   // Add highlight to the specified tab
+   $(`span#tab-${tab}`).addClass('chat-highlight');
+}
+
+function clear_highlight() {
+   // Remove the highlight class from all tabs
+   $('span[id^="tab-"]').removeClass('chat-highlight');
 }

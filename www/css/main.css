@@ -1,14 +1,24 @@
+/* Disable text selection for everything by default */
+* {
+   user-select: none;
+   -webkit-user-select: none; /* For Safari */
+   -moz-user-select: none; /* For Firefox */
+   -ms-user-select: none; /* For IE/Edge */
+}
+
 a, a:visited, a:active {
     color: #004fcc;
 }
 
-body {
-  color: black;
+html, body {
+   color: black;
    font-family: Arial, sans-serif;
    margin: 0;
    padding: 20px;
- /*    background-color: #0c0c0c; */
    background-color: #f4f4f9;
+   height: calc(100vh - 1px);
+   width: calc(100vw - 1px);
+   overflow: hidden; /* Prevents scrolling if needed */
 }
 
 .red {
@@ -54,14 +64,14 @@ body {
    display: none;
    border: 2px solid red;
    background: DarkRed;
-   position: absolute;
+   position: fixed;
    padding: 1em;
    font-size: 1.5em;
    color: white;
    height: 5em;
    width: 24em;
-   top: 0.25em;
-   left: 0em;
+   top: CALC(50% - 5em);
+   left: CALC(50% - 12em);
    z-index: 100000;
 }
 
@@ -84,18 +94,28 @@ body {
 
 #win-chat {
    display: none;
+   position: fixed;
+   top: CALC(3em + 5px);
+   left: 0px;
+   width: 100%;
+   user-select: text;
+   -webkit-user-select: text;
+   -moz-user-select: text;
+   -ms-user-select: text;
 }
 
-/* Scrollbar for chat box */
 #chat-box {
-   max-height: 300px;
+   position: fixed;
+   top: 3.5em;
+   left: 0px;
    overflow-y: auto;
    padding: 10px;
-   border: 1px solid #ddd;
+   border: 2px solid #ddd;
    border-radius: 10px;
    background-color: #fff;
-   width: CALC(100% - 11em);
-   height: 250px;
+   width: CALC(100% - 12em);
+   height: CALC(100% - 9.5em);
+   margin-left: 0.1em;
    margin-bottom: 10px;
 }
 
@@ -107,28 +127,32 @@ input {
    padding-right: 0.5em;
 }
 
-/* Optional input styling */
 #chat-input {
+   position: fixed;
+   bottom: 0.5em;
+   left: 0px;
+   height: 2.5em;
    font-size: 14px;
-   width: 99%;
+   margin-left: 0.5em;
+   width: CALC(100% - 20em);
    padding: 10px;
    border-radius: 5px;
-   border: 1px solid #ccc;
+   border: 2px solid #ccc;
 }
 
 #chat-user-list {
-   position: absolute;
-   left: CALC(100% - 10.5em);
-   top: 1.25em;
+   position: fixed;
+   left: CALC(100% - 10.4em);
+   top: 3.5em;
    width: 10em;
-   height: 269px;
-   background: #fafafa;
-   border: 2px solid #0f0f0f;
+   height: CALC(100% - 8.8em + 1px);
+   border: 2px solid #ddd;
    border-radius: 10px;
+   padding-top: 0.5em;
+   background-color: #fff;
 }
 
 .cul-item {
-   background-color: #fafaff;
 }
 
 #chat-user-list ul {
@@ -150,7 +174,6 @@ input {
    margin: 0px;
    margin-top: 0.2em;
    margin-left: 1em;
-   color: red;
 }
 
 
@@ -167,8 +190,8 @@ input {
    display: none;
    color: black;
    background: #fff0f0;
-   position: absolute;
-   left: CALC(100% - 9.5em);
+   position: fixed;
+   left: CALC(100% - 15em);
    top: 4.5em;
    margin-left: 0.1em;
    padding-left: 0.7em;
@@ -218,27 +241,10 @@ button {
 }
 
 
-#bell-btn {
-   height: 3em;
-   padding-top: 0em;
-   padding-bottom: 0.3em;
-   margin: 0em;
-}
-
-#button-box {
-   height: 3.5em;
-   margin-top: 0.5em;
-   padding: 0.3em;
-   padding-bottom: 0.1em;
-/*     border: 2px solid red; */
-}
-
 /* Clear button */
 .red-btn {
    background-color: #a31c1c; /* Muted red */
    color: #fff;
-   margin-left: 3px;
-   margin-right: 3px;
 }
 
 .red-btn:hover {
@@ -251,10 +257,10 @@ button {
    border: 2px solid #00c000;
    background-color: #28a745; /* Green for send */
    color: #fff;
-   margin-right: 3px;
 }
 
 .green-btn:hover {
+   border: 2px solid #00c000;
    background-color: #218838; /* Darker green for hover */
 }
 
@@ -298,26 +304,33 @@ button {
    margin: 5px 0;
 }
 
-
 div#button-box {
+   position: fixed;
+   right: 0.2em;
+   bottom: 0.3em;
+   border: 2px solid red;
+   border-radius: 10px;
+   height: 3.3em;
+   padding: 0.3em;
+   padding-bottom: 0.1em;
    background: #eeeeee;
-   position: relative;
    margin-top: 1em;
-   padding: 1em;
-   height: 3.5em;
-   width: 16em;
+   width: 14em;
    border: 2px solid #c0c0c0;
 }
 
 /* Sounds checkbox */
 #bell-btn {
+   padding-top: 0em;
+   padding-bottom: 0.3em;
+   margin: 0em;
    position: relative;
-   top: -0.6em;
+   top: -0.5em;
    right: 0px;
    margin-left: 0px;
    cursor: pointer;
-   height: 3.5em;
-   width: 5.5em;
+   height: 3em;
+   width: 4.1em;
 }
 
 #bell-image {
@@ -329,24 +342,82 @@ div#button-box {
    left: 0px;
 }
 
-#bell-image:hover {
-}
+#bell-image:hover { }
 
-span#alert-vol {
-   height: 4em;
-   width: 4em;
-}
+span#alert-vol { }
 
 #clear-btn, #send-btn {
-   height: 3.5em;
+   height: 3em;
 }
 
 input[type="range"]#alert-vol {
    -webkit-appearance: none;
    background: #80a080;
    display: none;
+   position: fixed;
+   width: 1em;
+   height: 10em; /* Height of the vertical range slider */
+   bottom: 3.2em;
+   right: 1.7em;
+}
+
+input[type="range"]#alert-vol::-webkit-slider-runnable-track {
+   height: 100%;
+}
+
+input[type="range"]#alert-vol::-webkit-slider-thumb {
+   width: 1em;
+   height: 1em;
+   background: #000;
+   border-radius: 50%;
+   cursor: pointer;
+}
+
+div#tabstrip {
+   display: none;
+   border: 2px solid #c0c0c0;
+   border-radius: 10px;
+   background: #cfcfcf;
+   width: CALC(100% - 3px);
+   height: 3em;
+   position: fixed;
+   top: 0px;
+   left: 0px;
+   padding: 0px;
+   margin: 0px;
+}
+
+span#menu-tabs {
    position: relative;
-   height: 2em;
-   top: -3.5em;
-   left: 13.5em;
+   left: 0px;
+   top: 0.0em;
+}
+
+span.menu-tab {
+   position: relative;
+   left: 0em;
+   top: 0.4em;
+   border-radius: 10px;
+   border: 2px solid red;
+   background: #c0c0c0;
+   color: black;
+   font-size: 1.5em;
+   font-weight: bold;
+   height: 2.7em;
+   width: 4em;
+   margin-left: 0.25em;
+   margin-right: 0.25em;
+   padding: 0.3em;
+   padding-left: 1em;
+   padding-right: 1em;
+}
+
+span.menu-tab:hover {
+   background: #9f9f9f;
+   color: white;
+}
+
+.chat-highlight {
+   background-color: yellow;
+   font-weight: bold;
 }

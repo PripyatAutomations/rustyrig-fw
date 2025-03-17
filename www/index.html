@@ -6,9 +6,8 @@
   <script src="js/jquery.min.js"></script>
   <script src="js/webui.js"></script>
   <link rel="stylesheet" href="css/main.css"/>
-  <title>rustyrig-fw v202503.01</title>
-  <style>
-  </style>
+  <link rel="stylesheet" id="dark-theme" href="css/dark.css"/>
+  <title>rustyrig webui</title>
  </head>
  <body>
   <noscript>
@@ -19,18 +18,19 @@
    </p>
   </noscript>
   <!-- XXX: we need to split these out into partials loaded at runtime -->
+  <div id="tabstrip" class="tabstrip">
+   <span id="menu-tabs">
+    <span id="tab-rig" class="menu-tab">rig</span>
+    <span id="tab-chat" class="menu-tab">chat</span>
+    <span id="tab-settings" class="menu-tab">settings</span>
+    <span id="tab-dark" class="menu-tab">dark</span>
+    <span id="tab-logout" class="menu-tab menu-right">logout</span>
+   </span><!-- menu_tabs -->
+  </div>
   <div id="win-login" class="window">
    <div id="sub-login-error" class="modal">
     <span id="sub-login-error-msg"></span><br/>
     <center><button id="login-err-ok">OK</button></center>
-    <script>
-    $(document).ready(function() {
-       $('button#login-err-ok').click(function() {
-          $('div#sub-login-error').hide();
-          $('span#sub-login-error-msg').empty();
-       });
-    });
-    </script>
    </div>
    <form id="login">
     <table id="tbl-login">
@@ -75,11 +75,14 @@
      <button id="bell-btn" data-checked="true">
       <img id="bell-image" src="img/bell-alert.png" alt="Bell (dark)"/>
      </button>
-     <input type="range" id="alert-vol" min="0" max="100" step="10"/>
+     <input type="range" id="alert-vol" min="0" max="100" step="10" value="100"/>
     </div>
-    <audio id="chat-ding" src="bell.mp3" tabindex="-1"></audio>
-    <audio id="join-ding" src="join.mp3" tabindex="-1"></audio>
+    <audio id="chat-ding" src="sounds/bell.mp3" tabindex="-1"></audio>
+    <audio id="join-ding" src="sounds/join.mp3" tabindex="-1"></audio>
    </div>
   </div> <!-- win-chat -->
+  <div id="win-rig" class="window">
+   
+  </div><!-- win-rig -->
  </body>
 </html>
