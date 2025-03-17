@@ -56,7 +56,7 @@ $(document).ready(function() {
       $('input#user').val = login_user;
    });
 
-/*
+/* XXX: WIP
    // pop up the volume dialog, if not already open
    $('button#bell-btn').hover(function() {
       if (!vol_changing) {
@@ -171,7 +171,6 @@ $(document).ready(function() {
             };
             socket.send(JSON.stringify(msgObj));
             var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-            append_chatbox('<div>' + my_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
          }
          $('#chat-input').val('');
          setTimeout(function () {
@@ -437,16 +436,21 @@ function ws_connect() {
             if (cmd === 'msg' && message) {
                var sender = msgObj.talk.from;
                var msg_ts = msg_timestamp(msgObj.talk.ts);
-               append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+               // Don't play a bell or set highlight on SelfMsgs
+               if (sender === auth_user) {
+                  append_chatbox('<div>' + my_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+               } else {
+                  append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
 
-               // Play bell sound if the bell button is checked
-               if ($('#bell-btn').data('checked')) {
-                  chat_ding.currentTime = 0;  // Reset audio to start from the beginning
-                  chat_ding.play();
+                  // Play bell sound if the bell button is checked
+                  if ($('#bell-btn').data('checked')) {
+                     chat_ding.currentTime = 0;  // Reset audio to start from the beginning
+                     chat_ding.play();
+                  }
+                  // Flash the indicator, if set
+                  // XXX: add a toggle in settings
+                  set_highlight("chat");
                }
-               // Flash the indicator, if set
-               // XXX: add a toggle in settings
-               set_highlight("chat");
             } else if (cmd === 'join') {
                var user = msgObj.talk.user;
                if (user) {
