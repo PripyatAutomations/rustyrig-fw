@@ -264,7 +264,6 @@ button {
    background-color: #218838; /* Darker green for hover */
 }
 
-
 /* Chat message styles */
 .chat-msg {
    color: black;
@@ -398,7 +397,7 @@ span.menu-tab {
    left: 0em;
    top: 0.4em;
    border-radius: 10px;
-   border: 2px solid red;
+   border: 2px solid #0a0a0a;
    background: #c0c0c0;
    color: black;
    font-size: 1.5em;

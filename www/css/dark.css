@@ -35,6 +35,10 @@ span.menu-tab {
    border: 2px solid #3f3f3f;
 }
 
+.cul-self, .cul-self a, .cul-self a:visited, .cul-self a:active {
+   color: red;
+}
+
 div#button-box {
    background: #1a1a1a;
    color: #cacaca;
