@@ -97,7 +97,6 @@ $(document).ready(function() {
 
       // we need to re-authenticate
       logged_in = false;
-      $('div#login-btn-box button#submit').prop('disabled', true);
 
       ws_connect();
       evt.preventDefault();
@@ -628,7 +627,7 @@ function toggle_dark_mode() {
 }
 
 function show_login_window() {
-   $(this).prop('disabled', true);
+   $('button#submit').prop('disabled', false);
    $('div#win-chat').hide();
    $('div#win-settings').hide();
    $('div#win-login').show();
