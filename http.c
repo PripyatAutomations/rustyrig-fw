@@ -46,6 +46,7 @@ static char www_headers[32768];
 static char www_404_path[PATH_MAX];
 http_client_t *http_client_list = NULL;
 http_user_t http_users[HTTP_MAX_USERS];
+int	    http_users_connected = 0;
 
 const struct mg_http_serve_opts http_opts = {
    .extra_headers = www_headers,
@@ -727,7 +728,8 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    new_client->next = http_client_list;
    http_client_list = new_client;
 
-   Log(LOG_DEBUG, "http", "Added new client at cptr <%x> with token |%s|", new_client, new_client->token);
+   http_users_connected++;
+   Log(LOG_DEBUG, "http", "Added new client at cptr <%x> with token |%s| (%d clients total now)", new_client, new_client->token, http_users_connected);
    return new_client;
 }
 
@@ -755,7 +757,12 @@ void http_remove_client(struct mg_connection *c) {
             prev->next = current->next;
          }
 
-         Log(LOG_DEBUG, "http.noisy", "Removing client <%x> with cptr <%x>", c, current);
+         http_users_connected--;
+         if (http_users_connected < 0) {
+            Log(LOG_DEBUG, "http", "Why is http_users_connected == %d? Resetting to 0", http_users_connected);
+            http_users_connected = 0;
+         }
+         Log(LOG_DEBUG, "http.noisy", "Removing client at cptr <%x> with c <%x> (%d users remain)", current, c, http_users_connected);
          memset(current, 0, sizeof(http_client_t));
          free(current);
          return;

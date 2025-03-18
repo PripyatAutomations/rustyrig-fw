@@ -34,3 +34,17 @@ Long story short, on a debian-based system do the following to try it:
 
    Open a browser and connect to the http (port 8420) or https (port 4420):
 	firefox	https://localhost:4420/
+
+
+STATUS
+------
+* CAT (ft891)		DELAYED
+* core			WORKING
+* http/websockets	WORKING
+* OPUS codec		IN WORK
+* Pipewire		IN WORK
+* backend-hamlib	IN WORK
+* backend-internal	DELAYED
+* www/chat		WORKING
+* www/rig		IN WORK
+

@@ -37,7 +37,7 @@ minimal inet_ntop() for non-posix
 * fix relative offsets in eeprom_layout
 * Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
 - Make a tool which converts res/eeprom_layout.json (and eeprom_types.json) to a text file like doc/eeprom.txt
-* Fix net/bind to by an ip4 or ip6 type instead of string!
+* Fix net/bind to be an ip4 or ip6 type instead of string!
 
 [misc]
 * Add emulation backend using flrig or hamlib
@@ -67,3 +67,7 @@ minimal inet_ntop() for non-posix
 
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards
+
+[client]
+* Use mongoose, libopus, pipewire, and GTK to present a native client which a local
+  rigctld or hamlib based program can connect to the remote rig

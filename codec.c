@@ -27,7 +27,6 @@ static OpusDecoder *decoder = NULL;
 
 #include "codec.h"
 
-
 // PipeWire playback stream fetches PCM here
 int codec_get_pcm_frame(void *output, int max_size) {
    if (pcm_buffer_used == 0) {
@@ -74,8 +73,9 @@ void codec_encode_frame(const void *pcm_data, int size) {
       return;
    }
 
-   Log(LOG_DEBUG, "codec", "Encoded %d bytes -> %d bytes", size, compressed_size);
-   // Send 'opus_data' (compressed_size bytes) over WebSocket later
+   Log(LOG_DEBUG, "codec.noisy", "Encoded %d bytes -> %d bytes", size, compressed_size);
+
+   // XXX: Send the encoded frame via ws
 }
 
 // OPUS decoder outputs PCM here
@@ -86,6 +86,7 @@ void codec_decode_frame(const uint8_t *data, int len) {
    if (decoded_samples > 0) {
       pcm_buffer_used += decoded_samples * sizeof(opus_int16);
    }
+   Log(LOG_INFO, "codec.noisy", "Decoded %d bytes -> %d samples in %d bytes", len, decoded_samples, pcm_buffer_used);
 }
 
 #if	0	// XXX: dead code

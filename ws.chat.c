@@ -72,10 +72,6 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
-// XXX: Whois disabled for now until fixed
-         rv = false;
-         goto cleanup;
-
          // Deal with user database supplied data
          int tgt_uid = -1;
          int guest_id = -1;
@@ -104,13 +100,17 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          if (tcptr == NULL) {
             // XXX: No such user error
+            Log(LOG_DEBUG, "chat", "whois |%s| - tcptr == NULL", target);
             rv = true;
             goto cleanup;
          }
 
          // Form the message and send it
-         if (tcptr == NULL || tcptr->user == NULL) {
+         if (tcptr->user == NULL) {
             // XXX: Send No Such User response
+            Log(LOG_DEBUG, "chat", "whois |%s| - tcptr->user == NULL", target);
+            rv = true;
+            goto cleanup;
          }
 
          struct mg_str mp;
@@ -118,9 +118,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          memset(msgbuf, 0, sizeof(msgbuf));
 
          if (guest) {
-//            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", user, cptr->guest_id, escaped_msg, now);
+//            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }", user, cptr->guest_id, escaped_msg, now);
          } else {
-//            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", user, escaped_msg, now);
+//            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }", user, escaped_msg, now);
          }
          mp = mg_str(msgbuf);
       } else {
