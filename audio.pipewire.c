@@ -17,11 +17,16 @@
 #include "audio.pipewire.h"
 #include "logger.h"
 
+#if	defined(FEATURE_PIPEWIRE)
+
+#if	0
 /* Callback for processing RX (capture) */
 static void on_rx_process(void *data) {
     au_device_t *dev = (au_device_t *)data;
     struct pw_buffer *buffer;
-    if ((buffer = pw_stream_dequeue_buffer(dev->rx_stream)) == NULL) return;
+    if ((buffer = pw_stream_dequeue_buffer(dev->rx_stream)) == NULL) {
+       return;
+    }
     fwrite(buffer->buffer->datas[0].data, 1, buffer->buffer->datas[0].chunk->size, stdout);
     pw_stream_queue_buffer(dev->rx_stream, buffer);
 }
@@ -30,14 +35,18 @@ static void on_rx_process(void *data) {
 static void on_tx_process(void *data) {
     au_device_t *dev = (au_device_t *)data;
     struct pw_buffer *buffer;
-    if ((buffer = pw_stream_dequeue_buffer(dev->tx_stream)) == NULL) return;
+    if ((buffer = pw_stream_dequeue_buffer(dev->tx_stream)) == NULL) {
+       return;
+    }
     fread(buffer->buffer->datas[0].data, 1, buffer->buffer->datas[0].maxsize, stdin);
     buffer->buffer->datas[0].chunk->size = buffer->buffer->datas[0].maxsize;
     pw_stream_queue_buffer(dev->tx_stream, buffer);
 }
 
 au_device_t *au_init(au_backend_t backend, const char *device_name) {
-    if (backend != AU_BACKEND_PIPEWIRE) return NULL;
+    if (backend != AU_BACKEND_PIPEWIRE) {
+       return NULL;
+    }
 
     au_device_t *dev = calloc(1, sizeof(au_device_t));
     dev->backend = backend;
@@ -77,6 +86,7 @@ void au_cleanup(au_device_t *dev) {
     }
     free(dev);
 }
+#endif
 
 #if	0
 #include <pipewire/pipewire.h>
@@ -98,11 +108,17 @@ static void on_process(void *userdata) {
    int size;
 
    struct audio_data *aud = userdata;
-   if (!aud->stream) return;
+   if (!aud->stream) {
+      return;
+   }
 
-   if (!(buffer = pw_stream_dequeue_buffer(aud->stream))) return;
+   if (!(buffer = pw_stream_dequeue_buffer(aud->stream)))
+      return;
+   }
    spa_buffer = buffer->buffer;
-   if (!(spa_buffer->datas[0].data)) return;
+   if (!(spa_buffer->datas[0].data)) {
+      return;
+   }
 
    data = spa_buffer->datas[0].data;
    size = spa_buffer->datas[0].chunk->size;
@@ -144,3 +160,4 @@ void init_pipewire(struct audio_data *aud) {
    pw_main_loop_run(aud->loop);
 }
 #endif
+#endif	// defined(FEATURE_PIPEWIRE)

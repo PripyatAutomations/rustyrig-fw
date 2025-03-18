@@ -103,7 +103,7 @@ objs += network.o		# Network control
 ifeq (${PLATFORM}, posix)
 objs += gui.mjpeg.o		# Framebuffer via MJPEG streaming (over http)
 ifeq (${USE_PIPEWIRE},true)
-#objs += audio.pipewire.o	# Pipwiere on posix hosts
+objs += audio.pipewire.o	# Pipwiere on posix hosts
 CFLAGS += $(shell pkg-config --cflags libpipewire-0.3 libjpeg sqlite3)
 LDFLAGS += $(shell pkg-config --libs libpipewire-0.3 libjpeg sqlite3)
 endif
