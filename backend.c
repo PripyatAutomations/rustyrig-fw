@@ -95,8 +95,20 @@ bool backend_init(void) {
 // ESP32 and stm32 only support internal backend
    be = rr_backend_internal;
 #endif
-   rig.backend = be;
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
+   rig.backend = be;
+
+   if (be->api == NULL) {
+      Log(LOG_CRIT, "core", "Backend %s doesn't have api pointer", be->name);
+      return true;
+   }
+
+   if (be->api->backend_init == NULL) {
+      Log(LOG_CRIT, "core", "Backend %s doesn't have backend_init()!", be->name);
+      return true;
+   }
+
+   rig.backend->api->backend_init();
    return false;
 }
 

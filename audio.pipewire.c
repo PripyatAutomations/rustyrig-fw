@@ -77,3 +77,70 @@ void au_cleanup(au_device_t *dev) {
     }
     free(dev);
 }
+
+#if	0
+#include <pipewire/pipewire.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/utils/result.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "codec.h"  // For OPUS compression
+
+#define SAMPLE_RATE 48000
+#define CHANNELS 1
+#define FRAME_SIZE 960  // 20ms frames at 48kHz
+
+static void on_process(void *userdata) {
+   struct pw_buffer *buffer;
+   struct spa_buffer *spa_buffer;
+   void *data;
+   int size;
+
+   struct audio_data *aud = userdata;
+   if (!aud->stream) return;
+
+   if (!(buffer = pw_stream_dequeue_buffer(aud->stream))) return;
+   spa_buffer = buffer->buffer;
+   if (!(spa_buffer->datas[0].data)) return;
+
+   data = spa_buffer->datas[0].data;
+   size = spa_buffer->datas[0].chunk->size;
+
+   // Send data to OPUS encoder
+   process_audio_frame(data, size);
+
+   pw_stream_queue_buffer(aud->stream, buffer);
+}
+
+void init_pipewire(struct audio_data *aud) {
+   struct pw_properties *props;
+
+   pw_init(NULL, NULL);
+   aud->loop = pw_main_loop_new(NULL);
+   aud->context = pw_context_new(pw_main_loop_get_loop(aud->loop), NULL, 0);
+   aud->core = pw_context_connect(aud->context, NULL, 0);
+   aud->stream = pw_stream_new_simple(
+      pw_main_loop_get_loop(aud->loop),
+      "Audio Capture",
+      pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",
+                        PW_KEY_MEDIA_CATEGORY, "Capture",
+                        PW_KEY_MEDIA_ROLE, "Communication",
+                        NULL),
+      on_process, aud);
+
+   struct spa_pod *params[1];
+   params[0] = spa_format_audio_raw_build(
+      &aud->b, SPA_PARAM_EnumFormat,
+      &SPA_AUDIO_INFO_RAW_INIT(
+         .format = SPA_AUDIO_FORMAT_S16,
+         .rate = SAMPLE_RATE,
+         .channels = CHANNELS));
+
+   pw_stream_connect(aud->stream, PW_DIRECTION_INPUT, PW_ID_ANY,
+                     PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS,
+                     params, 1);
+
+   pw_main_loop_run(aud->loop);
+}
+#endif

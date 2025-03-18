@@ -129,20 +129,6 @@ int main(int argc, char **argv) {
    amp_init_all();
    atu_init_all();
 
-
-// Is mongoose http server enabled?
-#if	defined(FEATURE_HTTP)
-// Is extra mongoose debugging enabled?
-#if	defined(MONGOOSE_DEBUG)
-   mg_log_set(MG_LL_DEBUG);
-#endif
-   http_init(&mg_mgr);
-   ws_init(&mg_mgr);
-#endif
-#if	defined(FEATURE_MQTT)
-   mqtt_init(&mg_mgr);
-#endif
-
    // apply some configuration from the eeprom
    auto_block_ptt = eeprom_get_bool("features/auto_block_ptt");
 
@@ -176,6 +162,18 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
+// Is mongoose http server enabled?
+#if	defined(FEATURE_HTTP)
+// Is extra mongoose debugging enabled?
+#if	defined(MONGOOSE_DEBUG)
+   mg_log_set(MG_LL_DEBUG);
+#endif
+   http_init(&mg_mgr);
+   ws_init(&mg_mgr);
+#endif
+#if	defined(FEATURE_MQTT)
+   mqtt_init(&mg_mgr);
+#endif
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
    // Main loop

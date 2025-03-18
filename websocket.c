@@ -7,13 +7,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
 #include "cat.h"
+#include "codec.h"
+#include "eeprom.h"
+#include "i2c.h"
+#include "logger.h"
 #include "posix.h"
+#include "state.h"
 #include "websocket.h"
+
 extern struct GlobalState rig;	// Global state
 
 bool ws_init(struct mg_mgr *mgr) {
@@ -116,17 +118,20 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
 //     Log(LOG_DEBUG, "http.noisy", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+   if (msg->flags & WEBSOCKET_OP_BINARY) {
+      codec_decode_frame((unsigned char *)msg->data.buf, msg->data.len);
+   } else {	// Text based packet
+      struct mg_str msg_data = msg->data;
 
-   struct mg_str msg_data = msg->data;
-
-   // Handle different message types...
-   if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-      return ws_handle_rigctl_msg(msg, c);
-   } else
-    if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
-      return ws_handle_chat_msg(msg, c);
-   } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
-      return ws_handle_auth_msg(msg, c);
+      // Handle different message types...
+      if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
+         return ws_handle_rigctl_msg(msg, c);
+      } else
+       if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
+         return ws_handle_chat_msg(msg, c);
+      } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
+         return ws_handle_auth_msg(msg, c);
+      }
    }
    return false;
 }
