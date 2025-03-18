@@ -4,6 +4,8 @@
 #include "config.h"
 #if	defined(FEATURE_PIPEWIRE)
 #include <pipewire/pipewire.h>
+#include <pipewire/context.h>
+#include <pipewire/properties.h> // Ensure this header is included
 #include <spa/param/audio/format-utils.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -70,6 +72,7 @@ void pipewire_init(struct audio_data *aud) {
       pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",
                         PW_KEY_MEDIA_CATEGORY, "Capture",
                         PW_KEY_MEDIA_ROLE, "Communication",
+                        PW_KEY_APP_NAME, "rustyrig",
                         NULL),
       &stream_events, aud);
 
@@ -135,6 +138,7 @@ void pipewire_init_playback(struct audio_data *aud) {
       pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",
                         PW_KEY_MEDIA_CATEGORY, "Playback",
                         PW_KEY_MEDIA_ROLE, "Communication",
+                        PW_KEY_APP_NAME, "rustyrig",
                         NULL),
       &playback_events, aud);
 
@@ -145,7 +149,6 @@ void pipewire_init_playback(struct audio_data *aud) {
          .format = SPA_AUDIO_FORMAT_S16,
          .rate = SAMPLE_RATE,
          .channels = CHANNELS));
-
    pw_stream_connect(aud->playback_stream, PW_DIRECTION_OUTPUT, PW_ID_ANY,
                      PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS,
                      (const struct spa_pod **)params, 1);
