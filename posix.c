@@ -75,19 +75,4 @@ bool host_init(void) {
    return false;
 }
 
-bool file_exists(const char *path) {
-   struct stat sb;
-   int rv = stat(path, &sb);
-
-   // Skip file not found and only show other errors
-   if (rv != 0) {
-      Log(LOG_DEBUG, "core", "file_exists: %s returned %d (%s)", path, errno, strerror(errno));
-      return false;
-   } else {
-      return true;
-   }
-
-   return false;
-}
-
 #endif	// HOST_POSIX

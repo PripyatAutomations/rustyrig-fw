@@ -143,3 +143,11 @@ bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
    bool rv = rig.backend->api->rig_ptt_get(vfo);
    return rv;
 }
+
+bool rr_be_poll(void) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->backend_poll == NULL) {
+      return true;
+   }
+
+   return rig.backend->api->backend_poll();
+}

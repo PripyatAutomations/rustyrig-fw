@@ -1,3 +1,6 @@
+//
+// Socket backend for io subsys
+//
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -10,6 +13,5 @@
 #include "state.h"
 #include "logger.h"
 #include "eeprom.h"
-#include "socket.h"
 #include "io.h"
 

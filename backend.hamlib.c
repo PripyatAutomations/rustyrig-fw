@@ -26,9 +26,10 @@
 #include "backend.h"
 
 static RIG *hl_rig = NULL;	// hamlib Rig interface
-
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl
+
+static rr_vfo_t vfos[MAX_VFOS];
 
 // Return hamlib VFO from rr VFO id
 static vfo_t hl_get_vfo(rr_vfo_t vfo) {

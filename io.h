@@ -24,5 +24,7 @@ extern ssize_t io_read(io_context_t *ctx, char *buffer, size_t len);
 extern void io_close(io_context_t *ctx);
 extern ssize_t io_write(io_context_t *ctx, const char *buffer, size_t len);
 extern bool io_init(void);
+#include "io.socket.h"
+#include "io.serial.h"
 
 #endif	// !defined(__rr_io_h)

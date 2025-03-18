@@ -1,3 +1,5 @@
+//
+// Some crap chatgpt spewed to me that we should try for lulz
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>

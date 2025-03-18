@@ -13,7 +13,9 @@
 #include "state.h"
 #include "vfo.h"
 
-bool set_vfo_frequency(VFOType vfo_type, uint32_t input, float freq) {
+// This should be called by CAT to set the backend appropriately
+bool set_vfo_frequency(rr_vfo_type_t vfo_type, uint32_t input, float freq) {
    Log(LOG_INFO, "vfo", "Setting VFO (type: %d) input #%d to %f", vfo_type, input, freq);
+   // We should call into the backend here to set the frequency
    return true;
 }

@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
 
-      rr_au_pw_runloop_all();
+//      rr_au_pw_runloop_all();
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from

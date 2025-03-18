@@ -2,16 +2,7 @@
 #define	__rr_backend_h
 #include <stdbool.h>
 #include "http.h"
-
-enum rr_vfo {
-   VFO_NONE = -1,
-   VFO_A,
-   VFO_B,
-   VFO_C,
-   VFO_D,
-   VFO_E
-};
-typedef enum rr_vfo rr_vfo_t;
+#include "vfo.h"
 
 struct rr_backend_funcs {
    // Backend management
@@ -41,6 +32,7 @@ struct rr_backend {
    rr_backend_funcs_t 	*api;
 };
 typedef struct rr_backend rr_backend_t;
+
 
 #include "backend.dummy.h"
 #include "backend.hamlib.h"

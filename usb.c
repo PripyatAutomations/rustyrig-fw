@@ -11,7 +11,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#if defined(HOST_POSIX)
-#endif
 #include "state.h"
+#if defined(HOST_POSIX) && defined(FEATURE_USB)
 #include "usb.h"
+
+#endif	// defined(HOST_POSIX) && defined(FEATURE_USB)
+
