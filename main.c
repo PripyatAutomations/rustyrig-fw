@@ -6,27 +6,28 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "posix.h"
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "thermal.h"
 #include "atu.h"
 #include "amp.h"
+#include "backend.h"
 #include "cat.h"
-#include "ptt.h"
-#include "gpio.h"
-#include "network.h"
-#include "help.h"
+#include "eeprom.h"
 #include "faults.h"
 #include "filters.h"
+#include "gpio.h"
 #include "gui.h"
+#include "help.h"
+#include "i2c.h"
 #include "io.h"
-#include "audio.h"
+#include "logger.h"
+#include "network.h"
+#include "posix.h"
+#include "ptt.h"
+#include "state.h"
+#include "thermal.h"
 #include "timer.h"
 #include "usb.h"
-#include "backend.h"
+#include "audio.h"
+#include "codec.h"
 #if	defined(FEATURE_HTTP)
 #include "http.h"
 #include "websocket.h"
@@ -128,9 +129,6 @@ int main(int argc, char **argv) {
    amp_init_all();
    atu_init_all();
 
-   // Network connectivity
-   show_network_info();
-   show_pin_info();
 
 // Is mongoose http server enabled?
 #if	defined(FEATURE_HTTP)
@@ -172,6 +170,11 @@ int main(int argc, char **argv) {
    }
 
    audio_init();
+   codec_init();
+
+   // Network connectivity
+   show_network_info();
+   show_pin_info();
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
@@ -189,7 +192,7 @@ int main(int argc, char **argv) {
       if (are_we_on_fire()) {
          ptt_set_all_off();
          ptt_set_blocked(true);
-         Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!\n");
+         Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
 
       // Run event loop timers XXX: This is moved into mongoose timers

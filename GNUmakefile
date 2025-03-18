@@ -17,19 +17,26 @@ endif
 CFLAGS := -std=gnu11 -g -O1 -Wall -Wno-unused -pedantic -std=gnu99
 LDFLAGS := -lc -lm -g -lcrypt
 
-
-CFLAGS += -I${BUILD_DIR} $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+CFLAGS += -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
 TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
 EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
-USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
+USE_ALSA = $(strip $(shell cat ${CF} | jq -r '.features.alsa'))
+USE_PIPEWIRE = $(strip $(shell cat ${CF} | jq -r '.features.pipewire'))
 USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
+USE_OPUS = $(strip $(shell cat ${CF} | jq -r '.features.opus'))
+USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
 
 ifeq (${USE_HAMLIB},true)
 LDFLAGS += -lhamlib
+endif
+
+ifeq (${USE_OPUS},true)
+LDFLAGS += $(shell pkg-config --libs opus)
+CFLAGS += $(shell pkg-config --cflags opus)
 endif
 
 ifeq (${USE_SSL},true)
@@ -95,9 +102,11 @@ objs += network.o		# Network control
 
 ifeq (${PLATFORM}, posix)
 objs += gui.mjpeg.o		# Framebuffer via MJPEG streaming (over http)
+ifeq (${USE_PIPEWIRE},true)
 #objs += audio.pipewire.o	# Pipwiere on posix hosts
 CFLAGS += $(shell pkg-config --cflags libpipewire-0.3 libjpeg sqlite3)
 LDFLAGS += $(shell pkg-config --libs libpipewire-0.3 libjpeg sqlite3)
+endif
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 endif
 

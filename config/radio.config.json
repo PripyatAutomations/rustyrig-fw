@@ -55,12 +55,15 @@
       "readonly": "false"
    },
    "features": {
+      "alsa": "false",
       "auto_block_ptt": "false",
       "cat_kpa500": "true",
       "cat_yaesu": "true",
       "http": "true",
       "max_bands": 14,
       "mqtt": "true",
+      "opus": "true",
+      "pipewire": "true",
       "sqlite": "true"
    },
    "limits": {

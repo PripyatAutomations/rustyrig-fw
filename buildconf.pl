@@ -832,6 +832,10 @@ sub generate_config_h {
    }
 
    if (defined($config->{features})) {
+      if (defined($config->{features}{'alsa'}) && match_boolean($config->{features}{'alsa'})) {
+         printf $fh "#define FEATURE_ALSA\n";
+      }
+
       if (defined($config->{features}{'cat_kpa500'}) && match_boolean($config->{features}{'cat_kpa500'})) {
          printf $fh "#define CAT_KPA500 true\n";
       }
@@ -846,6 +850,14 @@ sub generate_config_h {
 
       if (defined($config->{features}{'mqtt'}) && match_boolean($config->{features}{'mqtt'})) {
          printf $fh "#define FEATURE_MQTT\n";
+      }
+
+      if (defined($config->{features}{'opus'}) && match_boolean($config->{features}{'opus'})) {
+         printf $fh "#define FEATURE_OPUS\n";
+      }
+
+      if (defined($config->{features}{'pipewire'}) && match_boolean($config->{features}{'pipewire'})) {
+         printf $fh "#define FEATURE_PIPEWIRE\n";
       }
 
       if (defined($config->{features}{'sqlite'}) && match_boolean($config->{features}{'sqlite'})) {
