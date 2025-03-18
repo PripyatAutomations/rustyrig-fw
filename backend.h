@@ -15,8 +15,9 @@ typedef enum rr_vfo rr_vfo_t;
 
 struct rr_backend_funcs {
    // Backend management
-   bool		(*backend_init)(void);
-   bool		(*backend_fini)(void);
+   bool		(*backend_init)(void);			// Startup
+   bool		(*backend_fini)(void);			// Shutdown
+   bool		(*backend_poll)(void);			// Called periodically to get the rig status
 
    ////////////////////////////////////////
    // Rig control

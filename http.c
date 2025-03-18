@@ -1,7 +1,5 @@
 // Here we deal with http requests using mongoose
-//
 #include "config.h"
-
 #if	defined(FEATURE_HTTP)
 #include <stdio.h>
 #include <string.h>
@@ -708,29 +706,29 @@ static int http_load_users(const char *filename) {
 
 // Add a new client to the client list (HTTP or WebSocket)
 http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
-   http_client_t *new_client = (http_client_t *)malloc(sizeof(http_client_t));
+   http_client_t *cptr = (http_client_t *)malloc(sizeof(http_client_t));
 
-   if (!new_client) {
+   if (!cptr) {
       Log(LOG_WARN, "http", "Failed to allocate memory for new client");
       return NULL;
    }
-   memset(new_client, 0, sizeof(http_client_t));
+   memset(cptr, 0, sizeof(http_client_t));
 
    // create some randomness for login hashing and session
-   generate_nonce(new_client->token, sizeof(new_client->token));
-   generate_nonce(new_client->nonce, sizeof(new_client->nonce));
-   new_client->authenticated = false;
-   new_client->active = true;
-   new_client->conn = c;
-   new_client->is_ws = is_ws;
+   generate_nonce(cptr->token, sizeof(cptr->token));
+   generate_nonce(cptr->nonce, sizeof(cptr->nonce));
+   cptr->authenticated = false;
+   cptr->active = true;
+   cptr->conn = c;
+   cptr->is_ws = is_ws;
 
    // Add to the top of the list
-   new_client->next = http_client_list;
-   http_client_list = new_client;
+   cptr->next = http_client_list;
+   http_client_list = cptr;
 
    http_users_connected++;
-   Log(LOG_DEBUG, "http", "Added new client at cptr <%x> with token |%s| (%d clients total now)", new_client, new_client->token, http_users_connected);
-   return new_client;
+   Log(LOG_DEBUG, "http", "Added new client at cptr <%x> with token |%s| (%d clients total now)", cptr, cptr->token, http_users_connected);
+   return cptr;
 }
 
 const char *http_get_uname(int8_t uid) {
@@ -793,7 +791,7 @@ void http_expire_sessions(void) {
    }
 }
 
-
+// You *MUST* free the return value when you are done!
 char *escape_html(const char *input) {
    if (!input) {
       return NULL;

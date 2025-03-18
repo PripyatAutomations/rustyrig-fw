@@ -21,18 +21,19 @@
 #include "audio.pipewire.h"
 #include <opus/opus.h>		// Used for audio compression
 
-struct audio_data aud;
+// XXX: this is incorrect
+static rr_au_pw_data_t au;
 
-bool audio_init(void) {
-   pipewire_init(&aud);
-   pipewire_init_playback(&aud);
+bool rr_au_init(void) {
+   pipewire_init(&au);
+   pipewire_init_playback(&au);
    return false;
 }
 
-bool audio_write_samples() {
+bool rr_au_write_samples() {
    return false;
 }
 
-au_sample_t **audio_read_samples(void) {
+rr_au_sample_t **rr_au_read_samples(void) {
    return NULL;
 }

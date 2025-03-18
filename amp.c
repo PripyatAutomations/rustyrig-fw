@@ -16,15 +16,15 @@
 #include "amp.h"
 #include "logger.h"
 
-bool amp_init(uint8_t index) {
+bool rr_amp_init(uint8_t index) {
    Log(LOG_INFO, "amp", " => Unit #%d initialized", index);
 
    return false;
 }
 
-bool amp_init_all(void) {
+bool rr_amp_init_all(void) {
    Log(LOG_INFO, "amp", "Initializing amplifiers");
-   amp_init(0);
+   rr_amp_init(0);
    Log(LOG_INFO, "amp", "Amp setup complete");
    return false;
 }

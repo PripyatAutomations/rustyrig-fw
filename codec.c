@@ -1,3 +1,11 @@
+//
+// Support for OPUS audio codec
+//
+// We use OPUS because it is supported in all modern browsers.
+//
+// Eventually, we need to support an unlimited number of audio channels
+// so that dual receive, etc is possible
+// - Stuff like RX1 on LEFT, RX2 on RIGHT would be pretty fancy
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -88,29 +96,6 @@ void codec_decode_frame(const uint8_t *data, int len) {
    }
    Log(LOG_INFO, "codec.noisy", "Decoded %d bytes -> %d samples in %d bytes", len, decoded_samples, pcm_buffer_used);
 }
-
-#if	0	// XXX: dead code
-void codec_decode_frame(const unsigned char *opus_data, int opus_size) {
-   short pcm[MAX_FRAME_SIZE];  // Output PCM buffer
-   int frame_size;
-
-   if (!decoder) {
-      codec_init();
-   }
-
-   // Decode OPUS data into raw PCM samples
-   frame_size = opus_decode(decoder, opus_data, opus_size, pcm, FRAME_SIZE, 0);
-   if (frame_size < 0) {
-      Log(LOG_DEBUG, "codec.noisy", "OPUS decoding failed: %s", opus_strerror(frame_size));
-      return;
-   }
-
-   // PCM audio is now in `pcm[]` (frame_size samples)
-   Log(LOG_INFO, "codec.noisy", "Decoded %d bytes -> %d samples", opus_size, frame_size);
-
-   // TODO: Send `pcm` to PipeWire playback
-}
-#endif
 
 void codec_fini(void) {
    if (decoder) {

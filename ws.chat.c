@@ -34,7 +34,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    char *user = cptr->user->name;
 
    if (cmd && data) {
-      if (strcmp(cmd, "msg") == 0) {
+      if (strcasecmp(cmd, "msg") == 0) {
          char msgbuf[HTTP_WS_MAX_MSG+1];
          char *escaped_msg = escape_html(data);
 
@@ -61,11 +61,11 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // Send to everyone, including the sender, which will then display it as SelfMsg
          ws_broadcast(NULL, &mp);
-      } else if (strcmp(cmd, "kick") == 0) {
+      } else if (strcasecmp(cmd, "kick") == 0) {
          Log(LOG_INFO, "chat", "Kick command received, processing...");
-      } else if (strcmp(cmd, "mute") == 0) {
+      } else if (strcasecmp(cmd, "mute") == 0) {
          Log(LOG_INFO, "chat", "Mute command received, processing...");
-      } else if (strcmp(cmd, "whois") == 0) {
+      } else if (strcasecmp(cmd, "whois") == 0) {
          if (target == NULL) {
             // XXX: Send an warning to the user informing that they must specify a target username
             rv = true;

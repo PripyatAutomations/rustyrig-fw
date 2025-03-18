@@ -27,7 +27,6 @@
 #include "thermal.h"
 #include "timer.h"
 #include "usb.h"
-#include "audio.h"
 #include "codec.h"
 #if	defined(FEATURE_HTTP)
 #include "http.h"
@@ -127,8 +126,8 @@ int main(int argc, char **argv) {
    // Initialize add-in cards
    // XXX: This should be done by enumerating the bus eventually
    filter_init_all();
-   amp_init_all();
-   atu_init_all();
+   rr_amp_init_all();
+   rr_atu_init_all();
 
    // apply some configuration from the eeprom
    auto_block_ptt = eeprom_get_bool("features/auto_block_ptt");
@@ -156,7 +155,7 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-   audio_init();
+   rr_au_init();
    codec_init();
 
    // Network connectivity
@@ -194,7 +193,7 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
 
-      au_pw_runloop();
+      rr_au_pw_runloop_all();
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from

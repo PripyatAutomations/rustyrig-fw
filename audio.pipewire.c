@@ -26,13 +26,15 @@
 #define CHANNELS 1
 #define FRAME_SIZE 960  // 20ms frames at 48kHz
 
+rr_au_pw_data_t au;
+
 static void on_process(void *userdata) {
    struct pw_buffer *buffer;
    struct spa_buffer *spa_buffer;
    void *data;
    int size;
 
-   struct audio_data *aud = userdata;
+   rr_au_pw_data_t *aud = userdata;
    if (!aud->capture_stream) {
       return;
    }
@@ -55,7 +57,7 @@ static void on_process(void *userdata) {
    pw_stream_queue_buffer(aud->capture_stream, buffer);
 }
 
-void pipewire_init(struct audio_data *aud) {
+void pipewire_init(rr_au_pw_data_t *aud) {
    pw_init(NULL, NULL);
    aud->loop = pw_loop_new(NULL);
    struct pw_context *context = pw_context_new(aud->loop, NULL, 0);
@@ -97,7 +99,7 @@ static void on_playback_process(void *userdata) {
    void *data;
    int size;
 
-   struct audio_data *aud = userdata;
+   rr_au_pw_data_t *aud = userdata;
    if (!aud->playback_stream) {
       return;
    }
@@ -126,7 +128,7 @@ static void on_playback_process(void *userdata) {
 }
 
 // Initialize the playback stream
-void pipewire_init_playback(struct audio_data *aud) {
+void pipewire_init_playback(rr_au_pw_data_t *aud) {
    static const struct pw_stream_events playback_events = {
       PW_VERSION_STREAM_EVENTS,
       .process = on_playback_process,
@@ -154,14 +156,19 @@ void pipewire_init_playback(struct audio_data *aud) {
                      (const struct spa_pod **)params, 1);
 }
 
-bool au_pw_runloop(void) {
-   pw_loop_iterate(aud.loop, 0);  // 0 for non-blocking
-   if (aud.loop != NULL) {
-      // Make sure to use the correct loop type for iteration
-      pw_loop_iterate(aud.loop, 0);  // Non-blocking
+bool rr_au_pw_runloop_real(rr_au_pw_data_t *au) {
+   pw_loop_iterate(au->loop, 0);  // 0 for non-blocking
+   if (au->loop != NULL) {
+      pw_loop_iterate(au->loop, 0);  // Non-blocking
    }
 
    return false;
+}
+
+bool rr_au_pw_runloop_all(void) {
+   bool rv = false;
+   rr_au_pw_runloop_real(&au);
+   return rv;
 }
 
 #endif	// defined(FEATURE_PIPEWIRE)

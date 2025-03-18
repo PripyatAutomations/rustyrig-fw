@@ -41,7 +41,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       goto cleanup;
    }
 
-   if (strcmp(cmd, "login") == 0) {
+   if (strcasecmp(cmd, "login") == 0) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
       memset(resp_buf, 0, sizeof(resp_buf));
 
@@ -67,11 +67,11 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
       Log(LOG_DEBUG, "auth.noisy", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
-   } else if (strcmp(cmd, "logout") == 0) {
+   } else if (strcasecmp(cmd, "logout") == 0) {
 
       Log(LOG_DEBUG, "auth.noisy", "Logout request from session token |%s|", (token != NULL ? token : "NONE"));
       ws_kick_client_by_c(c, "Logged out");
-   } else if (strcmp(cmd, "pass") == 0) {
+   } else if (strcasecmp(cmd, "pass") == 0) {
       bool guest = false;
 
       if (pass == NULL || token == NULL) {
@@ -117,7 +117,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          guest = true;
       }
 
-      if (strcmp(up->pass, pass) == 0) {
+      if (strcasecmp(up->pass, pass) == 0) {
          cptr->authenticated = true;
 
          // Store some timestamps such as when user joined & session will forcibly expire

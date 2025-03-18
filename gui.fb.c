@@ -1,5 +1,9 @@
 //
-// Framebuffer (LCD or similar) display backend
+// Virtual framebuffer, for display on LcD or web canvas
+//
+// We must support multiple virtual framebuffers, for things like
+// the waterfall, which is rendered outside of the overall GUI
+// then drawn into the main VFB or sent over the network to client
 //
 #include "config.h"
 #include <stddef.h>
@@ -40,6 +44,7 @@ gui_fb_state_t *gui_fb_init(gui_fb_state_t *fb) {
    return fb;
 }
 
+// Force redrawing
 bool gui_fb_update(void) {
    return false;
 }
