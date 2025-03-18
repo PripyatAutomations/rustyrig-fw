@@ -63,6 +63,7 @@ minimal inet_ntop() for non-posix
   of people connected to the radio, so it should be fine this way
 * Fix reconnect times. They seem to be much later than what the user gets told
 * Fix tab highlights
+* Implement tabbed/windowed modes with movable/resizable windows (overlapping)
 
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards

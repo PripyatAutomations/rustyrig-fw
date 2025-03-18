@@ -511,7 +511,7 @@ void http_tls_init(void) {
       tls_opts.cert = tls_cert;
       tls_opts.key = tls_key;
       tls_opts.skip_verification = 1;
-      Log(LOG_CRIT, "http.tls", "TLS initialized succesfully, |cert: <%lu @ %x>| |key: <%lu @ %x>",
+      Log(LOG_INFO, "http.tls", "TLS initialized succesfully, |cert: <%lu @ %x>| |key: <%lu @ %x>",
          tls_cert.len, tls_cert, tls_key.len, tls_key);
    }
 }
