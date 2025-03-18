@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <script src="js/jquery.min.js"></script>
+  <script src="js/segment.min.js"></script>
   <script src="js/webui.js"></script>
   <link rel="stylesheet" href="css/main.css"/>
   <link rel="stylesheet" id="dark-theme" href="css/dark.css"/>
@@ -82,7 +83,23 @@
    </div>
   </div> <!-- win-chat -->
   <div id="win-rig" class="window">
-   
+   <div id="rig-top-status"></div>
+   <div id="rig-body-wrap">
+    <div id="rig-upper-split">
+     <div id="rig-vfos">
+      <span id="vfo-a">
+      </span>
+      <span id="vfo-b">
+      </span>
+      <span id="vfo-c">
+      </span>
+     </div>
+     <div id="rig-controls"></div>
+    </div>
+    <div id="rig-lower-split">
+     <div id="rig-memory"></div>
+    </div>
+   </div>
   </div><!-- win-rig -->
  </body>
 </html>

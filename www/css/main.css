@@ -104,6 +104,21 @@ html, body {
    -ms-user-select: text;
 }
 
+#win-rig {
+   display: none;
+   border: 2px solid red;
+   border-radius: 10px;
+   position: fixed;
+   top: CALC(3em + 5px);
+   height: CALC(100% - 3em - 10px);
+   left: 0.25em;
+   width: CALC(100% - 0.5em);
+   user-select: text;
+   -webkit-user-select: text;
+   -moz-user-select: text;
+   -ms-user-select: text;
+}
+
 #chat-box {
    position: fixed;
    top: 3.5em;

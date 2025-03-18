@@ -144,7 +144,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          if (guest) {
             snprintf(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s%d\", \"ts\": %lu } }",
+                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s%04d\", \"ts\": %lu } }",
                      user, cptr->guest_id, now);
          } else {
             snprintf(resp_buf, sizeof(resp_buf),

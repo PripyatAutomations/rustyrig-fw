@@ -72,6 +72,10 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
+// XXX: Whois disabled for now until fixed
+         rv = false;
+         goto cleanup;
+
          // Deal with user database supplied data
          int tgt_uid = -1;
          int guest_id = -1;
