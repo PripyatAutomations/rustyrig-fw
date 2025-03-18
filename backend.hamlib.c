@@ -80,10 +80,17 @@ static bool hl_init(void) {
    RIG *hl_rig = NULL;
    int ret;
 
-   // For now, we'll only support connecting to rigctl
-   // XXX: Add support for various hamlib backends
+   // Config values are stored in build_config.h as #defines for now
+#if	defined(BACKEND_MODEL)
+   rig_model_t model = BACKEND_MODEL;
+#else
    rig_model_t model = RIG_MODEL_NETRIGCTL;  // Use NET rigctl (model 2)
+#endif
+#if	defined(BACKEND_HAMLIB_DEBUG)
+   rig_set_debug(BACKEND_HAMLIB_DEBUG);
+#else
    rig_set_debug(RIG_DEBUG_NONE);
+#endif
    hl_rig = rig_init(model);
 
    if (!hl_rig) {
