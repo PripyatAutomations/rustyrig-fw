@@ -16,6 +16,8 @@
 #include "eeprom.h"
 #include "i2c.h"
 #include "audio.h"
+
+#if	defined(FEATURE_PCM5102)
 #if	defined(HOST_ESP32)
 #include <driver/i2s.h>
 #endif
@@ -62,3 +64,5 @@ void au_cleanup(au_device_t *dev) {
     free(dev);
 #endif
 }
+
+#endif	// defined(FEATURE_PCM5102)

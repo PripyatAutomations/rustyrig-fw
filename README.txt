@@ -7,6 +7,7 @@ changes to help it get closer!
 Initially we're targetting devices running linux, with hopes to port to esp32 and
 maybe stm32. Of course, the features available will be reduced on lower-end hardware.
 
+See QUICKSTART.txt for a quick guide to getting running.
 
 Be sure to pull submodules:
 	git submodule init

@@ -18,9 +18,14 @@
 #include "cat.h"
 #include "posix.h"
 #include "audio.h"
+#include "audio.pipewire.h"
 #include <opus/opus.h>		// Used for audio compression
 
+struct audio_data aud;
+
 bool audio_init(void) {
+   pipewire_init(&aud);
+   pipewire_init_playback(&aud);
    return false;
 }
 

@@ -27,5 +27,6 @@ extern void au_cleanup(au_device_t *dev);
 extern bool audio_init(void);
 extern bool audio_write_samples(void);
 extern au_sample_t **audio_read_samples(void);
+#include "audio.pipewire.h"
 
 #endif	// !defined(__rr_audio_h)

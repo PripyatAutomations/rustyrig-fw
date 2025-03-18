@@ -17,11 +17,29 @@
 #define FRAME_SIZE 960  // 20ms frames at 48kHz
 #define MAX_FRAME_SIZE 5760 // Max 120ms @ 48kHz
 #define OPUS_MAX_PACKET 4000
+#define PCM_BUFFER_SIZE (FRAME_SIZE * 10)  // Buffer for 10 frames
 
 #if	defined(FEATURE_OPUS)
-
+static int pcm_buffer_used = 0;
+static uint8_t pcm_buffer[PCM_BUFFER_SIZE];
 static OpusEncoder *encoder = NULL;
 static OpusDecoder *decoder = NULL;
+
+#include "codec.h"
+
+
+// PipeWire playback stream fetches PCM here
+int codec_get_pcm_frame(void *output, int max_size) {
+   if (pcm_buffer_used == 0) {
+      return 0;  // No audio available
+   }
+
+   int to_copy = (pcm_buffer_used < max_size) ? pcm_buffer_used : max_size;
+   memcpy(output, pcm_buffer, to_copy);
+   pcm_buffer_used -= to_copy;
+
+   return to_copy;
+}
 
 bool codec_init(void) {
    int error;
@@ -60,7 +78,17 @@ void codec_encode_frame(const void *pcm_data, int size) {
    // Send 'opus_data' (compressed_size bytes) over WebSocket later
 }
 
+// OPUS decoder outputs PCM here
+void codec_decode_frame(const uint8_t *data, int len) {
+   int decoded_samples = opus_decode(decoder, data, len, 
+                                     (opus_int16 *)(pcm_buffer + pcm_buffer_used),
+                                     FRAME_SIZE, 0);
+   if (decoded_samples > 0) {
+      pcm_buffer_used += decoded_samples * sizeof(opus_int16);
+   }
+}
 
+#if	0	// XXX: dead code
 void codec_decode_frame(const unsigned char *opus_data, int opus_size) {
    short pcm[MAX_FRAME_SIZE];  // Output PCM buffer
    int frame_size;
@@ -81,6 +109,7 @@ void codec_decode_frame(const unsigned char *opus_data, int opus_size) {
 
    // TODO: Send `pcm` to PipeWire playback
 }
+#endif
 
 void codec_fini(void) {
    if (decoder) {

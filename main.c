@@ -6,8 +6,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "atu.h"
 #include "amp.h"
+#include "atu.h"
+#include "audio.h"
 #include "backend.h"
 #include "cat.h"
 #include "eeprom.h"
@@ -193,8 +194,7 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
 
-      // Run event loop timers XXX: This is moved into mongoose timers
-//      timer_run();
+      au_pw_runloop();
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from

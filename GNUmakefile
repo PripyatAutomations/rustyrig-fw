@@ -14,7 +14,8 @@ ifeq (x$(wildcard ${CF}),x)
 $(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
 endif
 
-CFLAGS := -std=gnu11 -g -O1 -Wall -Wno-unused -pedantic -std=gnu99
+CFLAGS := -std=gnu11 -g -O1 -std=gnu99
+CFLAGS_WARN := -Wall -Wno-unused -pedantic
 LDFLAGS := -lc -lm -g -lcrypt
 
 CFLAGS += -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
@@ -150,6 +151,11 @@ world: ${extra_build} ${bin}
 BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h)
 ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
+	@${RM} -f $@
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+	@echo "[compile] $@ from $<"
+
+${OBJ_DIR}/audio.pipewire.o: audio.pipewire.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
 	@echo "[compile] $@ from $<"
