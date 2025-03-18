@@ -13,6 +13,8 @@ Make things so that make debug forces a make clean & adding make debug if last b
 [buildconf]
 - Support for loading older (input) eeprom layouts, according to version saved in the EEPROM
   - see res/archive/*
+* Remove need for offset & key properties
+  - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)
 
 [Network]
     net/ip4 and net/ip6 split

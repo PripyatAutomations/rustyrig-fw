@@ -94,7 +94,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mp = mg_str(msgbuf);
          cptr->last_heard = now;
          ws_broadcast(c, &mp);
-         ptt_set(c_vfo, c_state);
+         rr_ptt_set(c_vfo, c_state);
       } else {
          Log(LOG_DEBUG, "rigctl", "Got unknown rig msg: |%.*s|", msg_data.len, msg_data.buf);
       }

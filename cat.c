@@ -13,10 +13,10 @@
  * if desired.
  *
  * We have two entry points here
- *	- cat_parse_line(): Parses a line from io (sock|net|pipe)
- *	- cat_parse_ws(): Parses a websocket message containing a CAT command
+ *	- rr_cat_parse_line(): Parses a line from io (sock|net|pipe)
+ *	- rr_cat_parse_ws(): Parses a websocket message containing a CAT command
  *
- * We respond via cat_reply() with enum cat_req_type as first arg
+ * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
 #include "config.h"
 #include <stddef.h>
@@ -35,25 +35,25 @@
 #include "cat.h"
 
 // Initialize CAT control
-int32_t cat_init(void) {
+int32_t rr_cat_init(void) {
    Log(LOG_INFO, "cat", "Initializing CAT interfaces");
 
 #if	defined(HOST_POSIX)
 // XXX: Open the pipe(s)
 
 #if	defined(CAT_YAESU)		// Yaesu-style rig control
-   cat_yaesu_init();
+   rr_cat_yaesu_init();
 #endif
 #if	defined(CAT_KPA500)		// KPA500 amplifier control
 
-   cat_kpa500_init();
+   rr_cat_kpa500_init();
 #endif
 #endif
    Log(LOG_INFO, "cat", "CAT Initialization succesful");
    return 0;
 }
 
-int32_t cat_printf(char *str, ...) {
+int32_t rr_cat_printf(char *str, ...) {
    va_list ap;
    va_start(ap, str);
 
@@ -64,12 +64,12 @@ int32_t cat_printf(char *str, ...) {
 }
 
 // Here we parse commands for the main rig
-int32_t cat_parse_line_real(char *line) {
+int32_t rr_cat_parse_line_real(char *line) {
    return 0;
 }
 
 // Here we decide which parser to use
-int32_t cat_parse_line(char *line) {
+int32_t rr_cat_parse_line(char *line) {
    size_t line_len = -1;
    char *endp = NULL;
 
@@ -105,12 +105,12 @@ int32_t cat_parse_line(char *line) {
 #if	defined(CAT_KPA500)
    // is command for amp?
    if (*line == '^') {
-      return cat_parse_amp_line(line + 1);
+      return rr_cat_parse_amp_line(line + 1);
    } else
 #endif
    {
       // XXX: Validate the CAT command syntax
-      return cat_parse_line_real(line);
+      return rr_cat_parse_line_real(line);
    }
 
    return 0;
@@ -119,7 +119,7 @@ int32_t cat_parse_line(char *line) {
 #if	defined(FEATURE_HTTP)
 #include "mongoose.h"
 
-bool cat_parse_ws(cat_req_type reqtype, struct mg_ws_message *msg) {
+bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
     if (reqtype != REQ_WS || msg == NULL) {
         return false;
     }

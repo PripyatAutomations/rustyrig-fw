@@ -16,22 +16,22 @@
 #include "state.h"
 #include "ptt.h"
 
-bool ptt_check_blocked(void) {
+bool rr_ptt_check_blocked(void) {
     if (rig.tx_blocked) {
        return true;
      }
      return false;
 }
 
-bool ptt_set_blocked(bool blocked) {
+bool rr_ptt_set_blocked(bool blocked) {
    Log(LOG_AUDIT, "ptt", "PTT %sBLOCKED", (blocked ? "" : "un"));
    rig.tx_blocked = blocked;
    return blocked;
 }
 
 // For CAT to call
-bool ptt_set(rr_vfo_t vfo, bool ptt) {
-   if (ptt_check_blocked()) {
+bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
+   if (rr_ptt_check_blocked()) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
       return false;
    }
@@ -40,17 +40,17 @@ bool ptt_set(rr_vfo_t vfo, bool ptt) {
    return ptt;
 }
 
-bool ptt_toggle(rr_vfo_t vfo) {
-   return ptt_set(vfo, !rig.ptt);
+bool rr_ptt_toggle(rr_vfo_t vfo) {
+   return rr_ptt_set(vfo, !rig.ptt);
 }
 
-bool ptt_set_all_off(void) {
+bool rr_ptt_set_all_off(void) {
    Log(LOG_CRIT, "core", "PTT turned off for all VFOs!");
-   ptt_set(VFO_A, false);
-   ptt_set(VFO_B, false);
-   ptt_set(VFO_C, false);
-   ptt_set(VFO_D, false);
-   ptt_set(VFO_E, false);
+   rr_ptt_set(VFO_A, false);
+   rr_ptt_set(VFO_B, false);
+   rr_ptt_set(VFO_C, false);
+   rr_ptt_set(VFO_D, false);
+   rr_ptt_set(VFO_E, false);
 
    return false;
 }

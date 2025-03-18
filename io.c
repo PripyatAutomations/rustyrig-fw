@@ -18,7 +18,7 @@
 #include "state.h"
 #include "io.h"
 
-int io_open(io_context_t *ctx, io_type_t type, const char *path, int port) {
+int rr_io_open(rr_io_context_t *ctx, rr_io_type_t type, const char *path, int port) {
     if (!ctx) {
        return -1;
     }
@@ -62,7 +62,7 @@ int io_open(io_context_t *ctx, io_type_t type, const char *path, int port) {
     return 0;
 }
 
-ssize_t io_read(io_context_t *ctx, char *buffer, size_t len) {
+ssize_t rr_io_read(rr_io_context_t *ctx, char *buffer, size_t len) {
     if (!ctx || ctx->fd < 0 || !buffer) {
        return -1;
     }
@@ -70,7 +70,7 @@ ssize_t io_read(io_context_t *ctx, char *buffer, size_t len) {
     return read(ctx->fd, buffer, len);
 }
 
-ssize_t io_write(io_context_t *ctx, const char *buffer, size_t len) {
+ssize_t rr_io_write(rr_io_context_t *ctx, const char *buffer, size_t len) {
     if (!ctx || ctx->fd < 0) {
        return -1;
     }
@@ -78,13 +78,13 @@ ssize_t io_write(io_context_t *ctx, const char *buffer, size_t len) {
     return write(ctx->fd, buffer, len);
 }
 
-void io_close(io_context_t *ctx) {
+void rr_io_close(rr_io_context_t *ctx) {
     if (ctx && ctx->fd >= 0) {
         close(ctx->fd);
         ctx->fd = -1;
     }
 }
 
-bool io_init(void) {
+bool rr_io_init(void) {
    return false;
 }

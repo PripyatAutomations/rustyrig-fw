@@ -5,15 +5,15 @@
 #define	MAX_ARGS	12
 
 
-typedef enum cat_req_type {
+typedef enum rr_cat_req_type {
    REQ_NONE = 0,                // Not set (invalid)
    REQ_IO,                      // Via io.c
    REQ_WS                       // Via mongoose websocket
-} cat_req_type;
+} rr_cat_req_type;
 
 
 // For the command table structure
-struct cat_cmd {
+struct rr_cat_cmd {
    char 	verb[6];
    int32_t		(*hndlr)();		// handler
    int32_t	min_args,		// minimum arguments for SET mode
@@ -25,24 +25,24 @@ typedef struct {
     const char *command;
     uint8_t min_args;
     uint8_t max_args;
-    void (*cat_yaesu_r)(const char *args);
+    void (*rr_cat_yaesu_r)(const char *args);
 } CATCommand;
 
-extern int32_t cat_printf(char *str, ...);
-extern int32_t cat_parse_line(char *line);
-extern int32_t cat_init(void);
-extern int32_t cat_parse_line_real(char *line);
-extern int32_t cat_parse_line(char *line);
+extern int32_t rr_cat_printf(char *str, ...);
+extern int32_t rr_cat_parse_line(char *line);
+extern int32_t rr_cat_init(void);
+extern int32_t rr_cat_parse_line_real(char *line);
+extern int32_t rr_cat_parse_line(char *line);
 
-// cat_kpa500.c
-extern struct cat_cmd cmd_kpa500[];
-extern int32_t cat_parse_amp_line(char *line);
-extern int32_t cat_printf(char *str, ...);
+// rr_cat_kpa500.c
+extern struct rr_cat_cmd cmd_kpa500[];
+extern int32_t rr_cat_parse_amp_line(char *line);
+extern int32_t rr_cat_printf(char *str, ...);
 
 #if	defined(FEATURE_HTTP)
 #include "mongoose.h"
 // for websocket.c
-extern bool cat_parse_ws(cat_req_type reqtype, struct mg_ws_message *msg);
+extern bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg);
 #endif	// defined(FEATURE_HTTP)
 
 #include "cat.kpa500.h"

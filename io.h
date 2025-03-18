@@ -11,19 +11,19 @@ typedef enum {
     INPUT_SOCKET,
     INPUT_DEVICE,
     INPUT_PIPE
-} io_type_t;
+} rr_io_type_t;
 
 typedef struct {
-    io_type_t type;
+    rr_io_type_t type;
     int fd;            // File descriptor for socket, device, or pipe
     // XXX: Add ChibiOS stuff
-} io_context_t;
+} rr_io_context_t;
 
-extern int io_open(io_context_t *ctx, io_type_t type, const char *path_or_address, int port);
-extern ssize_t io_read(io_context_t *ctx, char *buffer, size_t len);
-extern void io_close(io_context_t *ctx);
-extern ssize_t io_write(io_context_t *ctx, const char *buffer, size_t len);
-extern bool io_init(void);
+extern int rr_io_open(rr_io_context_t *ctx, rr_io_type_t type, const char *path_or_address, int port);
+extern ssize_t rr_io_read(rr_io_context_t *ctx, char *buffer, size_t len);
+extern void rr_io_close(rr_io_context_t *ctx);
+extern ssize_t rr_io_write(rr_io_context_t *ctx, const char *buffer, size_t len);
+extern bool rr_io_init(void);
 #include "io.socket.h"
 #include "io.serial.h"
 

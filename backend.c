@@ -17,12 +17,12 @@
 #include "backend.h"
 
 // Mostly we just use this bit to allow compile-time selection of backends
-struct backends {
+struct rr_backends {
     const char		*name;
     rr_backend_t 	*backend;
 };
 
-static struct backends available_backends[] = {
+static struct rr_backends available_backends[] = {
 // A generic background which tracks state and pretends to do whatever the user asks
     // Support for real rustyrig hardware
     { "internal",		&rr_backend_internal },
@@ -70,7 +70,7 @@ rr_backend_t *rr_backend_find(const char *name) {
       return NULL;
    }
 
-   int items = (sizeof(available_backends) / sizeof(struct backends));
+   int items = (sizeof(available_backends) / sizeof(struct rr_backends));
    for (int i = 0; i < items; i++) {
       if (strcasecmp(available_backends[i].name, name) == 0) {
          return available_backends[i].backend;
@@ -79,7 +79,7 @@ rr_backend_t *rr_backend_find(const char *name) {
    return NULL;
 }
 
-bool backend_init(void) {
+bool rr_backend_init(void) {
    rr_backend_t *be = NULL;
 
 // This mode only really applies on posix hosts such as linux...

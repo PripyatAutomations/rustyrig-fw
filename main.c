@@ -134,22 +134,22 @@ int main(int argc, char **argv) {
 
    if (auto_block_ptt) {
       Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
-      ptt_set_blocked(true);
+      rr_ptt_set_blocked(true);
    }
 
-   if (io_init()) {
+   if (rr_io_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
 //      fatal_error();
       exit(1);
    }
 
-   if (backend_init()) {
+   if (rr_backend_init()) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
 //      fatal_error();
       exit(1);
    }
 
-   if (cat_init()) {
+   if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
 //      fatal_error();
       exit(1);
@@ -188,8 +188,8 @@ int main(int argc, char **argv) {
 
       // Check thermals
       if (are_we_on_fire()) {
-         ptt_set_all_off();
-         ptt_set_blocked(true);
+         rr_ptt_set_all_off();
+         rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
 
@@ -202,16 +202,16 @@ int main(int argc, char **argv) {
 #if	defined(CAT_YAESU)
       memset(buf, 0, PARSE_LINE_LEN);
       // io_read(&cat_io, &buf, PARSE_LINE_LEN - 1);
-      cat_parse_line(buf);
+      rr_cat_parse_line(buf);
 #endif
 #if	defined(CAT_KPA500)
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
-        cat_parse_amp_line(buf);
+        rr_cat_parse_amp_line(buf);
 #endif
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
-//      console_parse_line(buf);
+//      rr_cons_parse_line(buf);
 
       // Redraw the GUI virtual framebuffer
       gui_update();
