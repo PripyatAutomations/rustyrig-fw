@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "i2c_hal.h"
+#include "i2c.hal.h"
 
 typedef struct {
     uint32_t fd; 		// File descriptor (Linux) or pointer/handle (STM32)

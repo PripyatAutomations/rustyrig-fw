@@ -17,7 +17,7 @@
 #include "logger.h"
 #include "state.h"
 #include "i2c.h"
-#include "i2c_hal.h"
+#include "i2c.hal.h"
 
 static uint32_t file_descriptor = -1;
 static const char *i2c_bus = "/dev/i2c-1";
