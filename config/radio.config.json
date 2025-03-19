@@ -7,8 +7,8 @@
       }
    },
    "backend": {
-      "active": "hamlib",
-      "hamlib": "true",
+      "active": "internal",
+      "hamlib": "false",
       "hamlib_debug": 4,
       "model": 2,
       "port": "/dev/null"

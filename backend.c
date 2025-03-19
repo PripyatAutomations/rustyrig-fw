@@ -72,8 +72,13 @@ rr_backend_t *rr_backend_find(const char *name) {
 
    int items = (sizeof(available_backends) / sizeof(struct rr_backends));
    for (int i = 0; i < items; i++) {
+      rr_backend_t *bp = available_backends[i].backend;
+      if (bp == NULL) {
+         return NULL;
+      }
+
       if (strcasecmp(available_backends[i].name, name) == 0) {
-         return available_backends[i].backend;
+         return bp;
       }
    }
    return NULL;
