@@ -29,6 +29,7 @@ USE_ALSA = $(strip $(shell cat ${CF} | jq -r '.features.alsa'))
 USE_PIPEWIRE = $(strip $(shell cat ${CF} | jq -r '.features.pipewire'))
 USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
 USE_OPUS = $(strip $(shell cat ${CF} | jq -r '.features.opus'))
+USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
 
 ifeq (${USE_HAMLIB},true)
@@ -45,10 +46,6 @@ CFLAGS += -DMG_TLS=MG_TLS_MBED
 LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 endif
 
-ifeq (${PLATFORM},posix)
-LDFLAGS += -lgpiod
-endif
-
 # Are we cross compiling?
 ifneq (${TC_PREFIX},"")
 CC := ${TC_PREFIX}-gcc
@@ -63,8 +60,15 @@ endif
 ##################
 objs += amp.o			# Amplifier management
 objs += atu.o			# Antenna Tuner
-objs += audio.o			# Audio channel stuff
-objs += audio.pcm5102.o		# pcm5102 DAC support
+objs += au.o			# Audio channel stuff
+objs += au.pcm5102.o		# pcm5102 DAC support
+
+ifeq (${USE_PIPEWIRE},true)
+objs += au.pipewire.o	# Pipewire on posix hosts
+CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
+LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
+endif
+
 objs += backend.o		# Support for multiple backends by setting up pointer into appropriate one
 objs += backend.dummy.o		# Dummy backend (not implemented yet - use hamlib + rigctld in dummy rig mode!)
 objs += backend.hamlib.o	# Support for using hamlib to control legacy rigs
@@ -103,14 +107,13 @@ objs += mongoose.o		# Mongoose http/websocket/mqtt library
 objs += mqtt.o			# Support for MQTT via mongoose
 objs += network.o		# Network control
 
-ifeq (${PLATFORM}, posix)
-objs += gui.mjpeg.o		# Framebuffer via MJPEG streaming (over http)
-ifeq (${USE_PIPEWIRE},true)
-objs += audio.pipewire.o	# Pipwiere on posix hosts
-CFLAGS += $(shell pkg-config --cflags libpipewire-0.3 libjpeg sqlite3)
-LDFLAGS += $(shell pkg-config --libs libpipewire-0.3 libjpeg sqlite3)
+ifeq (${USE_SQLITE},true)
+CFLAGS += $(shell pkg-config --cflags sqlite3)
+LDFLAGS += $(shell pkg-config --libs sqlite3)
 endif
+ifeq (${PLATFORM},posix)
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
+LDFLAGS += -lgpiod
 endif
 
 objs += power.o			# Power monitoring and management
@@ -125,7 +128,7 @@ objs += util.string.o		# String utility functions
 objs += util.vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
 objs += waterfall.o		# Support for rendering waterfalls
-objs += websocket.o		# Websocket transport for CAT and audio
+objs += ws.o			# Websocket transport for CAT and audio
 objs += ws.auth.o		# Websocket Authentication
 objs += ws.chat.o		# Websocket Chat (talk)
 objs += ws.rigctl.o		# Websocket Rig Control (CAT)
@@ -158,7 +161,7 @@ ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 	@echo "[compile] $@ from $<"
 
-${OBJ_DIR}/audio.pipewire.o: audio.pipewire.c ${BUILD_HEADERS}
+${OBJ_DIR}/au.pipewire.o: au.pipewire.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
 	@echo "[compile] $@ from $<"

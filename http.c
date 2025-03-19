@@ -18,7 +18,7 @@
 #include "cat.h"
 #include "posix.h"
 #include "http.h"
-#include "websocket.h"
+#include "ws.h"
 #include "util.string.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64

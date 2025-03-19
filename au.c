@@ -17,8 +17,7 @@
 #include "logger.h"
 #include "cat.h"
 #include "posix.h"
-#include "audio.h"
-#include "audio.pipewire.h"
+#include "au.h"
 #include <opus/opus.h>		// Used for audio compression
 
 // XXX: this is incorrect

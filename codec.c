@@ -16,7 +16,7 @@
 #include <string.h>
 #include "logger.h"
 #include "state.h"
-#include "audio.h"
+#include "au.h"
 #include "codec.h"
 #include <opus/opus.h>
 

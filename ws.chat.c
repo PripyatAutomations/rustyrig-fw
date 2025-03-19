@@ -13,7 +13,7 @@
 #include "logger.h"
 #include "cat.h"
 #include "posix.h"
-#include "websocket.h"
+#include "ws.h"
 extern struct GlobalState rig;	// Global state
 
 bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {

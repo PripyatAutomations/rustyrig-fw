@@ -13,7 +13,7 @@
 #include "logger.h"
 #include "cat.h"
 #include "posix.h"
-#include "websocket.h"
+#include "ws.h"
 #include "ptt.h"
 
 extern struct GlobalState rig;	// Global state

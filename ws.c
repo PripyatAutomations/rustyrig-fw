@@ -14,7 +14,7 @@
 #include "logger.h"
 #include "posix.h"
 #include "state.h"
-#include "websocket.h"
+#include "ws.h"
 
 extern struct GlobalState rig;	// Global state
 

@@ -15,7 +15,7 @@
 #include "logger.h"
 #include "eeprom.h"
 #include "i2c.h"
-#include "audio.h"
+#include "au.h"
 
 #if	defined(FEATURE_PCM5102)
 #if	defined(HOST_ESP32)

@@ -1,5 +1,5 @@
-#if	!defined(__rr_websocket_h)
-#define __rr_websocket_h
+#if	!defined(__rr_ws_h)
+#define __rr_ws_h
 #include "mongoose.h"
 #include "http.h"
 
@@ -27,4 +27,4 @@ extern bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *
 // ws.rigctl.c
 extern bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c);
 
-#endif	// !defined(__rr_websocket_h)
+#endif	// !defined(__rr_ws_h)

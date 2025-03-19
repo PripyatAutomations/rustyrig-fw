@@ -17,8 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "audio.h"
-#include "audio.pipewire.h"
+#include "au.h"
 #include "logger.h"
 #include "codec.h"
 

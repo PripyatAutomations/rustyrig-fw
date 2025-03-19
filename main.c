@@ -8,7 +8,7 @@
 #include <string.h>
 #include "amp.h"
 #include "atu.h"
-#include "audio.h"
+#include "au.h"
 #include "backend.h"
 #include "cat.h"
 #include "eeprom.h"
@@ -30,7 +30,7 @@
 #include "codec.h"
 #if	defined(FEATURE_HTTP)
 #include "http.h"
-#include "websocket.h"
+#include "ws.h"
 #endif
 #if	defined(FEATURE_MQTT)
 #include "mqtt.h"
