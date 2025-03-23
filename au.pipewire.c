@@ -166,6 +166,11 @@ bool rr_au_pw_runloop_real(rr_au_pw_data_t *au) {
 
 bool rr_au_pw_runloop_all(void) {
    bool rv = false;
+
+   if (au.loop == NULL) {
+      return true;
+   }
+
    rr_au_pw_runloop_real(&au);
    return rv;
 }

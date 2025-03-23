@@ -90,18 +90,10 @@ int main(int argc, char **argv) {
    srand((unsigned int)now);
    logfp = stdout;
    rig.log_level = LOG_DEBUG;	// startup in debug mode
-
-   // On the stm32, main is not our entry point, so we can use this to help catch misbuilt images.
-#if	!defined(HOST_POSIX)
-   printf("This build is intended to be a firmware image for the radio, not run on a host PC. The fact that it even runs means your build environment is likely severely broken!\n");
-   exit(1);
-#else
    host_init();
-#endif
 
-   // Initialize subsystems
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);
-   debug_init();
+   debug_init();			// Initialize debug	
    initialize_state();			// Load default values
 
 #if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
@@ -193,7 +185,7 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
 
-//      rr_au_pw_runloop_all();
+      rr_au_pw_runloop_all();
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from

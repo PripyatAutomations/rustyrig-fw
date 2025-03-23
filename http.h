@@ -11,6 +11,8 @@
 #define	HTTP_WS_MAX_MSG		65535		// 64kbytes should be enough per message, even with audio frames
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
 #define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
+#define	HTTP_PING_TIME		50		// If we haven't heard from the client in this long, send a ping
+#define	HTTP_PING_TIMEOUT	10		// And give them this long to respond
 
 // HTTP Basic-auth user
 #define	HTTP_MAX_USERS		32		// How many users are allowed in http.users?
@@ -61,6 +63,7 @@ struct http_client {
     time_t session_expiry;	// When does the session expire?
     time_t session_start;	// When did they login?
     time_t last_heard;		// when a last valid message was heard from client
+    time_t last_ping;		// If client is pending timeout, this will contain the time a ping was sent to check for dead connection
     http_user_t *user;		// pointer to http user, once login is sent. DO NOT TRUST IF authenticated != true!
     struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
     char token[HTTP_TOKEN_LEN+1]; // Session token

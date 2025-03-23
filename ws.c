@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <limits.h>
 #include <time.h>
 #include "cat.h"
 #include "codec.h"
@@ -111,6 +112,38 @@ bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
    return ws_kick_client(cptr, reason);
 }
 
+static bool ws_handle_ping(struct mg_ws_message *msg, struct mg_connection *c) {
+   if (c == NULL || msg == NULL || msg->data.buf == NULL) {
+      return true;
+   }
+   struct mg_str msg_data = msg->data;
+   char *ts = mg_json_get_str(msg_data, "$.ping.ts");
+   if (ts == NULL) {
+      free(ts);
+      return true;
+   }
+
+   char *endptr;
+   errno = 0;
+   time_t ts_t = strtoll(ts, &endptr, 10);
+
+   if (errno == ERANGE || ts_t < 0 || ts_t > LONG_MAX || *endptr != '\0') {
+      Log(LOG_DEBUG, "http.ping", "Got invalid ts |%s| from client <%x>", ts, c);
+      free(ts);
+      return true;
+   }
+   free(ts);      
+
+   if (ts_t + HTTP_PING_TIMEOUT < now) {
+      Log(LOG_AUDIT, "http.ping", "Ping timeout for conn <%x>", c);
+      // XXX: We need to kick the user here if its too late
+   } else {
+      // XXX: Find the cptr and cleear last_ping, update last_heard to now
+   }
+
+   return false;
+}
+
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    if (c == NULL || msg == NULL || msg->data.buf == NULL) {
       Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
@@ -131,6 +164,8 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
          return ws_handle_chat_msg(msg, c);
       } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
          return ws_handle_auth_msg(msg, c);
+      } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
+         return ws_handle_ping(msg, c);
       }
    }
    return false;

@@ -480,6 +480,9 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
    return true; // No match found, let static handler take over
 }
 
+//
+// Support for using HTTPS
+//
 #if	defined(HTTP_USE_TLS)
 struct mg_str tls_cert;
 struct mg_str tls_key;
@@ -517,6 +520,8 @@ void http_tls_init(void) {
 }
 #endif
 
+/////
+///// Main HTTP callback
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
@@ -772,6 +777,10 @@ void http_remove_client(struct mg_connection *c) {
    }
 }
 
+//
+// Called periodically to remove sessions that have existed too long
+//
+// XXX: We also should do pings for cliebts
 void http_expire_sessions(void) {
    http_client_t *cptr = http_client_list;
    int expired = 0;
@@ -787,6 +796,13 @@ void http_expire_sessions(void) {
          Log(LOG_AUDIT, "http.auth", "Kicking expired session (%lu sec old, last heard %lu sec ago) for %s",
              HTTP_SESSION_LIFETIME, last_heard, cptr->user->name);
          ws_kick_client(cptr, "Login session expired!");
+      } else if (cptr->last_ping < (now - HTTP_PING_TIMEOUT)) {
+         // Client has timed out
+         Log(LOG_AUDIT, "http.auth", "Client connection <%x> for user %s timed out, disconnecting", cptr, cptr->user->name);
+         ws_kick_client(cptr, "Ping timeout");
+      } else if (cptr->last_heard < (now - HTTP_PING_TIME)) { // Client hasn't been heard from in awhile, send a ping
+         // XXX: Send a ping, so they'll have something to respond to to acknowledge life
+//         cptr->last_ping = now;
       }
       cptr = cptr->next;
    }

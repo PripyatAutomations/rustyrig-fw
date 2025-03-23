@@ -1,4 +1,5 @@
-// Here we support a help system, if filesystem is present
+// A wrapper for the io subsystem to use mongoose on supported platforms
+///
 #include "config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -7,14 +8,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "i2c.h"
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
-#include "cat.h"
-#include "posix.h"
-#include "io.h"
+#include "mongoose.h"
 
-bool send_help(rr_io_context_t *port, const char *topic) {
-   return false;
-}
+extern bool dying;		// in main.c
+extern struct GlobalState rig;	// Global state
+
