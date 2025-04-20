@@ -29,12 +29,11 @@
          "3": { "name": "11M CB Channel 6 (Super Bowl)", "freq": 27025000, "bandwidth": "6000", "mode": "AM", "tx_power": 1000 },
          "4": { "name": "11M Freeband Common", "freq": 27405000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
          "5": { "name": "17M Wasteland", "freq": 18150000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
-         "6": { "name": "60M CH1 (Common voice)", "freq": 5330500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
-         "7": { "name": "6.900 LSB Pirate Zone", "freq": 6900000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
-         "8": { "name": "7055 Wild Zone", "freq": 7055000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
-         "9": { "name": "7275 LSB Ops", "freq": 7275000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
-         "10": { "name": "14325 USB Drama", "freq": 14325000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
-         "11": { "name": "14350 Oddities", "freq": 14350000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 }
+         "6": { "name": "6.900 LSB Pirate Zone", "freq": 6900000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "7": { "name": "7055 Wild Zone", "freq": 7055000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "8": { "name": "7275 LSB Ops", "freq": 7275000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "9": { "name": "14325 USB Drama", "freq": 14325000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "10": { "name": "14350 Oddities", "freq": 14350000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 }
       },
       "FREEBAND": {
          "0": { "name": "27555 Calling", "freq": 27555000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
@@ -54,8 +53,9 @@
          "7": { "name": "446.000 Simplex", "freq": 446000000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 }
       },
       "60M": {
-         "0": { "name": "60M CH 2", "freq": 5346500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
-         "1": { "name": "60M CH 5", "freq": 5371500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 }
+         "0": { "name": "60M CH1 (Common voice)", "freq": 5330500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "1": { "name": "60M CH 2", "freq": 5346500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "2": { "name": "60M CH 5", "freq": 5371500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 }
       }
    }
 }
