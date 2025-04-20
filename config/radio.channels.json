@@ -29,7 +29,7 @@
          "3": { "name": "11M CB Channel 6 (Super Bowl)", "freq": 27025000, "bandwidth": "6000", "mode": "AM", "tx_power": 1000 },
          "4": { "name": "11M Freeband Common", "freq": 27405000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
          "5": { "name": "17M Wasteland", "freq": 18150000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
-         "6": { "name": "6.900 LSB Pirate Zone", "freq": 6900000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "6": { "name": "6900 LSB Pirate Zone", "freq": 6900000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
          "7": { "name": "7055 Wild Zone", "freq": 7055000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
          "8": { "name": "7275 LSB Ops", "freq": 7275000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
          "9": { "name": "14325 USB Drama", "freq": 14325000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
