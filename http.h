@@ -2,7 +2,7 @@
 #define __rr_http_h
 #include <stdbool.h>
 #include <stdint.h>
-
+#include <arpa/inet.h>
 #include "mongoose.h"
 
 // Limit to 100 backups in a day, this should be sane

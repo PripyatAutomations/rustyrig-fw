@@ -1,6 +1,7 @@
 // Here we deal with http requests using mongoose
 #include "config.h"
 #if	defined(FEATURE_HTTP)
+
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -11,6 +12,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
+#include <arpa/inet.h>
 #include "i2c.h"
 #include "state.h"
 #include "eeprom.h"
@@ -525,9 +527,13 @@ void http_tls_init(void) {
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
-   if (ev == MG_EV_ACCEPT && c->fn_data != NULL) {
+   if (ev == MG_EV_ACCEPT) {
+      MG_INFO(("%M", mg_print_ip_port, &c->rem));
+
 #if	defined(HTTP_USE_TLS)
-      mg_tls_init(c, &tls_opts);
+      if (c->fn_data != NULL) {
+         mg_tls_init(c, &tls_opts);
+      }
    } else
 #endif
    if (ev == MG_EV_HTTP_MSG) {

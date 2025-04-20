@@ -383,8 +383,10 @@ function sendCommand(cmd, target) {
 }
 
 function ws_connect() {
-   // Clear any previous reconnecting flag
+   var rc = reconnecting;
    reconnecting = false;
+
+   // Clear any previous reconnecting flag
    show_connecting(true);
    socket = new WebSocket(getWebSocketUrl());
 
@@ -396,6 +398,7 @@ function ws_connect() {
 
    socket.onopen = function() {
       ws_kicked = false;
+      in_connect = false;
       show_connecting(false);
       try_login();
       form_disable(false);
@@ -416,7 +419,9 @@ function ws_connect() {
    // When there's an error with the WebSocket
    socket.onerror = function(error) {
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-      append_chatbox('<div class="chat-status error">' + my_ts + ' 👽 WebSocket error: ', error, 'occurred.</div>');
+      if (rc === false) {
+         append_chatbox('<div class="chat-status error">' + my_ts + ' 👽 WebSocket error: ', error, 'occurred.</div>');
+      }
 
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (on-error)");

@@ -90,8 +90,16 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          goto cleanup;
       }
 
+      char ip[INET6_ADDRSTRLEN];  // Buffer to hold IPv4 or IPv6 address
+
+      if (c->rem.is_ip6) {
+         inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
+      } else {
+         inet_ntop(AF_INET, &c->rem.ip[12], ip, sizeof(ip));
+      }
+
       if (cptr->user == NULL) {
-         Log(LOG_DEBUG, "auth", "cptr-> user == NULL!");
+         Log(LOG_DEBUG, "auth", "cptr-> user == NULL handling conn from ip %s", ip);
          ws_kick_client(cptr, "Invalid login/password");
          rv = true;
          goto cleanup;
@@ -99,7 +107,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
       int login_uid = cptr->user->uid;
       if (login_uid < 0 || login_uid > HTTP_MAX_USERS) {
-         Log(LOG_DEBUG, "auth.noisy", "Invalid uid for username %s", cptr->user->name);
+         Log(LOG_DEBUG, "auth.noisy", "Invalid uid for username %s from IP %s", cptr->user->name, ip);
          ws_kick_client(cptr, "Invalid login/passowrd");
          rv = true;
          goto cleanup;
@@ -142,21 +150,22 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // blorp out a join to all chat users
          memset(resp_buf, 0, sizeof(resp_buf));
 
+
          if (guest) {
             snprintf(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s%04d\", \"ts\": %lu } }",
-                     user, cptr->guest_id, now);
+                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s%04d\", \"ts\": %lu, \"ip\": \"%s\" } }",
+                     user, cptr->guest_id, now, ip);
          } else {
             snprintf(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu } }",
-                     user, now);
+                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu, \"ip\": \"%s\" } }",
+                     user, now, ip);
          }
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms);
-         Log(LOG_INFO, "auth", "User %s on cptr <%x> logged in with privs: %s",
-             cptr->user->name, cptr, http_users[cptr->user->uid].privs);
+         Log(LOG_INFO, "auth", "User %s on cptr <%x> logged in from IP %s with privs: %s",
+             cptr->user->name, cptr, ip, http_users[cptr->user->uid].privs);
       } else {
-         Log(LOG_INFO, "auth", "User %s on cptr <%x> gave wrong password. Kicking!", cptr->user, cptr);
+         Log(LOG_INFO, "auth", "User %s on cptr <%x> from IP %s gave wrong password. Kicking!", cptr->user, cptr, ip);
          ws_kick_client(cptr, "Invalid login/password");
       }
    }
