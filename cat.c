@@ -93,7 +93,7 @@ int32_t rr_cat_parse_line(char *line) {
          return -1;
       }
 
-      // is comand line complete? if not, return -2 to say "Not yet"
+      // is command line complete? if not, return -2 to say "Not yet"
       if (*endp == ';') {
          *endp = '\0';
          endp--;
@@ -108,11 +108,12 @@ int32_t rr_cat_parse_line(char *line) {
       return rr_cat_parse_amp_line(line + 1);
    } else
 #endif
+#if	defined(CAT_YAESU)
    {
       // XXX: Validate the CAT command syntax
       return rr_cat_parse_line_real(line);
    }
-
+#endif
    return 0;
 }
 

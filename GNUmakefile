@@ -217,6 +217,11 @@ gdb debug: ${bin} ${EEPROM_FILE}
 test: clean world run
 endif
 
+#########################
+# Rebuild a clean image #
+#########################
+rebuild clean-build cleanbuild: distclean buildconf world
+
 #################
 # Configuration #
 #################

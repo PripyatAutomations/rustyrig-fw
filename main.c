@@ -28,6 +28,10 @@
 #include "timer.h"
 #include "usb.h"
 #include "codec.h"
+
+//
+// http ui support
+//
 #if	defined(FEATURE_HTTP)
 #include "http.h"
 #include "ws.h"

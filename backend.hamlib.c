@@ -2,7 +2,10 @@
 // An ugly backend that connects to a radio or rigctld via hamlib
 //
 // This mostly exists to help test the rest of the firmware but
-// could probably be used as a proxy for legacy rigs.
+// could probably be used as a proxy for legacy rigs too
+//
+// Notice that most functions are static, this is because they should NEVER be 
+// directly called outside of this module. You should use the backend API instead.
 //
 #include "config.h"
 #include <stddef.h>
@@ -57,6 +60,12 @@ static vfo_t hl_get_vfo(rr_vfo_t vfo) {
    return RIG_VFO_NONE;
 }
 
+// Destroy the hamlib RIG object
+static void hl_destroy(RIG *hl_rig) {
+   rig_close(hl_rig);
+   rig_cleanup(hl_rig);
+}
+
 static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
    vfo_t hl_vfo = hl_get_vfo(vfo);
    int ret = -1;
@@ -77,7 +86,6 @@ static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
 
 // Initialize the hamlib connection
 static bool hl_init(void) {
-   RIG *hl_rig = NULL;
    int ret;
 
    // Config values are stored in build_config.h as #defines for now
@@ -86,6 +94,8 @@ static bool hl_init(void) {
 #else
    rig_model_t model = RIG_MODEL_NETRIGCTL;  // Use NET rigctl (model 2)
 #endif
+   // Set debug level, if configured
+   // XXX: We should probably make this a run-time configuration
 #if	defined(BACKEND_HAMLIB_DEBUG)
    rig_set_debug(BACKEND_HAMLIB_DEBUG);
 #else
@@ -109,6 +119,8 @@ static bool hl_init(void) {
    }
 
 #if	0
+   // XXX: We need to iterate over all VFOs that are configured and set them up to default states...
+
    // Set frequency
    if ((ret = rig_set_freq(hl_rig, RIG_VFO_A, freq)) != RIG_OK)
       fprintf(stderr, "Failed to set frequency: %s\n", rigerror(ret));
@@ -117,10 +129,11 @@ static bool hl_init(void) {
    if ((ret = rig_set_mode(hl_rig, RIG_VFO_A, mode, 0)) != RIG_OK)
       fprintf(stderr, "Failed to set mode: %s\n", rigerror(ret));
 
+   // Set TX power
+   // Set filter width
 
    // Cleanup
-   rig_close(hl_rig);
-   rig_cleanup(hl_rig);
+   hl_destroy(hl_rig);
 #endif
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
    return false;
@@ -133,9 +146,9 @@ static bool hl_fini(void) {
    }
 
    if (hl_rig != NULL) {
-      rig_close(hl_rig);
-      rig_cleanup(hl_rig);
+      hl_destroy(hl_rig);
    }
+   hl_rig = NULL;
 
    return false;
 }

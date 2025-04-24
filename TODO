@@ -66,6 +66,7 @@ minimal inet_ntop() for non-posix
 * Fix tab highlights
 * Implement tabbed/windowed modes with movable/resizable windows (overlapping)
 * Finish implementing pings
+* Explore replacements for mongoose library that integrate a bit better with our needs
 
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards
