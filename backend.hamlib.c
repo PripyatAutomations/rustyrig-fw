@@ -89,8 +89,8 @@ static bool hl_init(void) {
    int ret;
 
    // Config values are stored in build_config.h as #defines for now
-#if	defined(BACKEND_MODEL)
-   rig_model_t model = BACKEND_MODEL;
+#if	defined(BACKEND_HAMLIB_MODEL)
+   rig_model_t model = BACKEND_HAMLIB_MODEL;
 #else
    rig_model_t model = RIG_MODEL_NETRIGCTL;  // Use NET rigctl (model 2)
 #endif
