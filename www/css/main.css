@@ -15,7 +15,7 @@ html, body {
    font-family: Arial, sans-serif;
    margin: 0;
    padding: 20px;
-   background-color: #f4f4f9;
+   background-color: #dcdcdc;
    height: calc(100vh - 1px);
    width: calc(100vw - 1px);
    overflow: hidden; /* Prevents scrolling if needed */
@@ -127,7 +127,7 @@ html, body {
    padding: 10px;
    border: 2px solid #ddd;
    border-radius: 10px;
-   background-color: #fff;
+   background-color: #dcdcdc;
    width: CALC(100% - 12em);
    height: CALC(100% - 9.5em);
    margin-left: 0.1em;
@@ -143,6 +143,7 @@ input {
 }
 
 #chat-input {
+   background: #dcdcdc;
    position: fixed;
    bottom: 0.5em;
    left: 0px;
@@ -164,7 +165,7 @@ input {
    border: 2px solid #ddd;
    border-radius: 10px;
    padding-top: 0.5em;
-   background-color: #fff;
+   background-color: #dcdcdc;
 }
 
 .cul-item {
@@ -353,7 +354,7 @@ div#button-box {
    height: 3.3em;
    padding: 0.3em;
    padding-bottom: 0.1em;
-   background: #eeeeee;
+   background: #dcdcdc;
    margin-top: 1em;
    width: 17em;
    border: 2px solid #c0c0c0;

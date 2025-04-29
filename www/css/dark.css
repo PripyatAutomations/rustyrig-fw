@@ -82,3 +82,8 @@ div#tabstrip {
 #um-header {
    border-bottom: 2px solid black;
 }
+
+#chat-input {
+   color: #fafafa;
+   background: #0c0c0c;
+}
