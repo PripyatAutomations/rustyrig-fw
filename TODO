@@ -70,6 +70,7 @@ minimal inet_ntop() for non-posix
 
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards
+* Add support for masking out messages such as '-*.noisy'
 
 [client]
 * Use mongoose, libopus, pipewire, and GTK to present a native client which a local
