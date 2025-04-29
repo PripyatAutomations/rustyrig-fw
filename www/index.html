@@ -59,24 +59,40 @@
    </form>
   </div><!-- win_login -->
   <div id="win-chat" class="window">
-   <div id="upper-wrapper">
-    <div id="chat-box" tabindex="-1"></div>
-     <div id="chat-user-list" tabindex="-1">
-      <h3>Connected Users</h3>
-      <ul id="cul-list">
-      </ul>
-     </div>
-     <div id="user-menu">
-      <span id="um-close"><a href="#" id="um-close">X</a></span>
-     </div>
-   </div>
+   <div id="chat-box" tabindex="-1"></div>
+   <div id="upper-wrapper"></div>
    <div id="lower-wrapper">
+    <!-- CUL -->
+    <div id="chat-user-list" tabindex="-1">
+     <h3>Connected Users</h3>
+     <ul id="cul-list"></ul>
+    </div>
+    <div id="user-menu">
+     <div id="um-header" style="position: relative;">
+      <span id="um-close" style="position: absolute; top: 5px; right: 5px; cursor: pointer;">✖</span>
+     </div>
+     <div id="um-content">
+      <!-- The rest of the user menu content goes here -->
+      User: <span id="um-username"></span><br/>
+      <span id="user-menu-items">
+       <ul>
+        <li><a href="mailto:user_email" target="_blank">Email</a></li>
+        <li><button id="whois-user">Whois</button></li>
+        <hr width="50%"/>
+        <li><button id="mute-user">Mute</button></li>
+        <li><button id="kick-user">Kick</button></li>
+        <li><button id="ban-user">Lock&Kick</button></li>
+       </ul>
+      </span>
+     </div>
+    </div>
+    <!-- End CUL -->
     <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
     <br/>
     <div id="button-box">
+     <button id="open-emoji" class="open-emoji">😀</button>
      <button id="send-btn" class="green-btn">Send</button>
      <button id="clear-btn" class="red-btn">Clear</button>
-     <button id="open-emoji" class="open-emoji">😀</button>
      <button id="bell-btn" data-checked="true">
       <img id="bell-image" src="img/bell-alert.png" alt="Bell (dark)"/>
      </button>

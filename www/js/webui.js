@@ -119,6 +119,16 @@ $(document).ready(function() {
       $('#chat-input').focus();
    });
 
+   // Toggle display of the emoji keyboard
+   $('#open-emoji').click(function() {
+       const emojiKeyboard = $('#emoji-keyboard');
+       if (emojiKeyboard.is(':visible')) {
+           emojiKeyboard.hide(); // Hide if already visible
+       } else {
+           emojiKeyboard.show(); // Show if hidden
+       }
+   });
+
    // Send message to the server when "Send" button is clicked
    $('#send-btn').click(function() {
       var message = $('#chat-input').val().trim();
@@ -339,29 +349,43 @@ function cul_update(message) {
 }
 
 function show_user_menu(username) {
-    // Update the user menu with the username
-    // XXX: We need to query if the user is muted and reflect it in the message
-    var admin_menu = `
-             <hr width="50%"/>
-             <li><button class="cul-menu-button" id="mute-user">Mute</button></li>
-             <li><button class="cul-menu-button" id="kick-user">Kick</button></li>
-             <li><button class="cul-menu-button" id="ban-user">Lock&Kick</button></li>
-    `;
-    var menu = `
-       User: ${username}<br/>
-       <span id="user-menu-items">
-          <ul>
-             <li><a href="mailto:user_email" target="_blank">Email</a></li>
-             <li><button class="cul-menu-button" id="whois-user">Whois</button></li>
-          </ul>
-       </span>
-    `;
-    // If the current user is an admin, add the admin_menu -- check auth_privs for admin.*
-//    if () {
-//       html += admin_menu;
-//    }
+    // Check if the current user has admin privileges (auth_privs contains 'admin.*')
+    var isAdmin = /admin\..*/.test(auth_privs);
 
+    // Admin menu to be appended if the user is an admin
+    var admin_menu = `
+        <hr width="50%"/>
+        <li><button class="cul-menu-button" id="mute-user">Mute</button></li>
+        <li><button class="cul-menu-button" id="kick-user">Kick</button></li>
+        <li><button class="cul-menu-button" id="ban-user">Lock&Kick</button></li>
+    `;
+
+    // Base menu
+    var user_email = 'sorry@not.yet';
+
+    var menu = `
+        <div id="um-header" style="position: relative;">
+            <span id="um-close" style="position: absolute; top: 5px; right: 5px; cursor: pointer;">✖</span>
+        </div>
+        User: ${username}<br/>
+        <span id="user-menu-items">
+            <ul>
+<!--                <li><a href="mailto:${user_email}" target="_blank">Email</a></li> -->
+                <li><button class="cul-menu-button" id="whois-user">Whois</button></li>
+                ${isAdmin ? admin_menu : ''} <!-- Append admin menu if the user is an admin -->
+            </ul>
+        </span>
+    `;
+
+    // Update the user menu and show it
     $('#user-menu').html(menu);
+/*
+    $('#user-menu').css({
+        display: 'block',
+        top: $('#chat-input').offset().top,
+        left: $('#chat-input').offset().left + 20 // Adjust position as needed
+    });
+*/
     $('#user-menu').show();
 
     // Attach event listeners to buttons using jQuery
@@ -379,6 +403,11 @@ function show_user_menu(username) {
 
     $('#ban-user').on('click', function() {
         sendCommand('ban', username);
+    });
+
+    // Close button functionality
+    $('#um-close').on('click', function() {
+        $('#user-menu').hide();
     });
 }
 
@@ -417,7 +446,7 @@ function ws_connect() {
       try_login();
       form_disable(false);
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-      append_chatbox('<div class="chat-status">' + my_ts + ' 👽 WebSocket connected.</div>');
+      append_chatbox('<div class="chat-status">' + my_ts + '&nbsp;WebSocket connected.</div>');
       reconnecting = false; 		// Reset reconnect flag on successful connection
       reconnectDelay = 1; 		// Reset reconnect delay to 1 second
    };
@@ -434,7 +463,7 @@ function ws_connect() {
    socket.onerror = function(error) {
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
       if (rc === false) {
-         append_chatbox('<div class="chat-status error">' + my_ts + ' 👽 WebSocket error: ', error, 'occurred.</div>');
+         append_chatbox('<div class="chat-status error">' + my_ts + '&nbsp;WebSocket error: ', error, 'occurred.</div>');
       }
 
       if (ws_kicked != true && reconnecting == false) {
@@ -535,7 +564,7 @@ function ws_connect() {
                stopReconnecting();
 
                var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-               append_chatbox('<div><span class="error">' + my_ts + ' 👽 Error: ' + error + '!</span></div>');
+               append_chatbox('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
                show_login_window();
                $('span#sub-login-error-msg').empty();
                $('span#sub-login-error-msg').append("<span>", error, "</span>");
@@ -571,7 +600,7 @@ function ws_connect() {
                   logged_in = true;
                   show_chat_window();
                   var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-                  append_chatbox('<div><span class="msg-connected">' + my_ts + ' 👽&nbsp;***&nbsp Welcome back, ' + auth_user + '&nbsp;***</span></div>');
+                  append_chatbox('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
                   break;
                case 'challenge':
                   var nonce = msgObj.auth.nonce;
@@ -715,7 +744,7 @@ function msg_timestamp(msg_ts) {
    let hh = String(date.getHours()).padStart(2, '0');
    let mm = String(date.getMinutes()).padStart(2, '0');
    let ss = String(date.getSeconds()).padStart(2, '0');
-   return `[${hh}:${mm}.${ss}]`;
+   return `[${hh}:${mm}:${ss}]`;
 }
 
 function logout() {

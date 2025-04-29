@@ -1,7 +1,7 @@
 [i2c/eeprom]
 - Implement hard coded address for i2c eeprom and a codepath to support it
 - Should we bypass the eeprom step and read directly from the config & channels.json on posix?
-  - Maybe a use sqlite3 db for all that?
+  - Maybe a use sqlite3 db for storing persistent data?
 
 [makefile]
 Make things so that make debug forces a make clean & adding make debug if last built without debug (can we use nm or such to check symbols)
@@ -44,7 +44,7 @@ minimal inet_ntop() for non-posix
 [misc]
 * Add emulation backend using flrig or hamlib
   - Internally cache the radio state & poll it regularly
-  - Send push events of the diff to client w/ periodic full updates
+  - Send push events of the 786diff to client w/ periodic full updates
   - 'Translate' our yaesu/kpa500 CAT commands by calling backend
 
 [mqtt]
@@ -57,7 +57,7 @@ minimal inet_ntop() for non-posix
         https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API
         - js/zmodemjs for zmodem upload
 * When we reconnect, we should send a ping with our auth token
-  - The serve may respond with "expired" to tell us our session is invalid or a new token
+  - The server may respond with "expired" to tell us our session is invalid or a new token
     if the session is still valid.
 * display a Reconnecting symbol on top in the corner
 * Rework the http_client stuff so that instead of being removed on disconnected,

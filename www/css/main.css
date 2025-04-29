@@ -197,7 +197,6 @@ input {
    margin-left: 1em;
 }
 
-
 #chat-user-list a, #chat-user-list a:visited, #chat-user-ligt a:active {
    color: green;
    text-decoration: none;
@@ -207,24 +206,7 @@ input {
    color: red;
 }
 
-#user-menu {
-   display: none;
-   color: black;
-   background: #fff0f0;
-   position: fixed;
-   left: CALC(100% - 15em);
-   top: 4.5em;
-   margin-left: 0.1em;
-   padding-left: 0.7em;
-   width: 8em;
-   height: 11.5em;
-   border: 2px solid #c0c0c0;
-   border-radius: 10px;
-   z-index: 1000;
-}
-
 #user-menu ul {
-   color: black;
    margin-top: 0em;
    padding-left: 15px;
    padding-top: 0.2em;
@@ -233,15 +215,49 @@ input {
 #user-menu li {
 }
 
+/* Styling for the user-menu */
+#user-menu {
+    position: absolute;
+    /* XXX: Can we move this to be slightly offset from the user in the list instead? */
+    top: 75px;
+    right: 20px;
+    border: 1px solid #ccc;
+    background: #c0c0c0;
+    color: black;
+    padding: 10px;
+    width: 200px;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: none; /* Initially hidden */
+}
+
+#user-menu a, #user-menu a:visited, #user-menu: a:active {
+   color: #c0c0f0;
+}
+
+/* Header of the user menu, containing the close button */
+#um-header {
+    position: relative;
+    height: 20px;
+}
+
+/* Close button styling */
 #um-close {
-   position: absolute;
-   color: red;
-   text-decoration: none;
-   font-size: 20px;
-   top: -1px;
-   right: -8px;
-   height: 32px;
-   width: 32px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    cursor: pointer;
+    font-size: 16px;
+    color: #c00000;
+}
+
+#um-close:hover {
+    color: #ff0000;
+}
+
+/* Content inside the user menu */
+#um-content {
+    margin-top: 10px;
 }
 
 /* General button styles to ensure equal height */
@@ -260,7 +276,6 @@ button {
    margin-bottom: 0em;
    height: 3em;
 }
-
 
 /* Clear button */
 .red-btn {
@@ -286,7 +301,7 @@ button {
 }
 
 #open-emoji {
-   background-color: #213888;
+   background-color: #2138c8;
 }
 
 /* Chat message styles */
@@ -323,8 +338,8 @@ button {
 }
 
 .msg-connected {
-   font-size: 24px;
-   color: DarkGreen;
+   font-size: 16px;
+   color: LightGreen;
    margin: 5px 0;
 }
 

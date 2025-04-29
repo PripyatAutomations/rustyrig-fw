@@ -69,3 +69,12 @@ div#tabstrip {
 .chat-msg, .chat-my-msg {
    color: #c0c0c0;
 }
+
+#user-menu {
+   background: #060606;
+   color: #c0c0c0;
+}
+
+#user-menu a, #user-menu a:visited, #user-menu: a:active {
+   color: LightSteelBlue;
+}

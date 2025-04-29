@@ -31,10 +31,14 @@ void show_network_info(void) {
       return;
    }
 
+   int bind_port = eeprom_get_int("net/http/port");
+   int tls_bind_port = eeprom_get_int("net/http/tls_port");
+
 #if	!defined(HOST_POSIX)
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;
    int vlan = eeprom_get_int("net/vlan");
    int mtu = eeprom_get_int("net/mtu");
+
    eeprom_get_ip4("net/ip", &sa_ip);
    eeprom_get_ip4("net/mask", &sa_mask);
    eeprom_get_ip4("net/gw", &sa_gw);
@@ -59,7 +63,7 @@ void show_network_info(void) {
    const char *listenaddr = eeprom_get_str("net/bind");
 
    if (listenaddr != NULL) {
-      Log(LOG_INFO, "net", "I am listening on %s", listenaddr);
+      Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port, tls_bind_port);
       net_print_listeners(listenaddr);
    }
 #endif

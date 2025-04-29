@@ -24,7 +24,7 @@
       }
    },
    "backend": {
-      "active": "hamlib",
+      "active": "internal",
       "hamlib": "true",
       "hamlib_debug": 4,
       "model": 2,

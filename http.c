@@ -50,7 +50,7 @@ http_client_t *http_client_list = NULL;
 http_user_t http_users[HTTP_MAX_USERS];
 int	    http_users_connected = 0;
 
-const struct mg_http_serve_opts http_opts = {
+static const struct mg_http_serve_opts http_opts = {
    .extra_headers = www_headers,
    .page404 = www_404_path,
    .root_dir = www_root
@@ -61,6 +61,7 @@ static struct http_res_types http_res_types[] = {
    { "json", "Content-Type: application/json\r\n" },
 };
 
+// This is used in ws.* too, so not static
 int http_user_index(const char *user) {
    if (user == NULL) {
       return -1;
@@ -284,6 +285,7 @@ void http_dump_clients(void) {
    }
 }
 
+// XXX: Fix this?
 #if	0
 unsigned char *compute_wire_password(const unsigned char *password, const char *nonce) {
    unsigned char *rv = (unsigned char *)malloc(20);
@@ -354,7 +356,6 @@ static inline const char *get_hct(const char *type) {
    return "Content-Type: text/plain\r\n";
 }
 
-
 //////////////////////////////////////
 // Deal with HTTP API requests here //
 //////////////////////////////////////
@@ -382,9 +383,9 @@ static bool http_help(struct mg_http_message *msg, struct mg_connection *c) {
 
    snprintf(help_path, h_sz, "%s/help/%s.html", www_root, topic);
 
-   // Sanitize the URL
+   // Sanity check the URL
    if (check_url(help_path)) {
-      Log(LOG_DEBUG, "http.api", "Naught URL %s in http_help", help_path);
+      Log(LOG_DEBUG, "http.api", "Naughty URL %s in http_help", help_path);
       return true;
    }
 
@@ -563,7 +564,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
         memset(resp_buf, 0, sizeof(resp_buf));
         if (cptr->guest_id > 0) {
            snprintf(resp_buf, sizeof(resp_buf),
-                    "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s04%d\", \"ts\": %lu } }",
+                    "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s%04d\", \"ts\": %lu } }",
                     uname, cptr->guest_id, now);
         } else {
            snprintf(resp_buf, sizeof(resp_buf),
