@@ -78,3 +78,7 @@ div#tabstrip {
 #user-menu a, #user-menu a:visited, #user-menu: a:active {
    color: LightSteelBlue;
 }
+
+#um-header {
+   border-bottom: 2px solid black;
+}

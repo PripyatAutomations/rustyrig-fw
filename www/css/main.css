@@ -238,6 +238,7 @@ input {
 /* Header of the user menu, containing the close button */
 #um-header {
     position: relative;
+    border-bottom: 2px solid #c0c0c0;
     height: 20px;
 }
 

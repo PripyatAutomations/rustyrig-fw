@@ -530,8 +530,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
    if (ev == MG_EV_ACCEPT) {
-      MG_INFO(("%M", mg_print_ip_port, &c->rem));
-
+//      MG_INFO(("%M", mg_print_ip_port, &c->rem));
 #if	defined(HTTP_USE_TLS)
       if (c->fn_data != NULL) {
          mg_tls_init(c, &tls_opts);
