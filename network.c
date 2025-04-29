@@ -24,6 +24,50 @@
 #include <netinet/in.h>
 #endif
 
+#if	defined(HOST_POSIX)
+static void net_print_listeners(const char *listenaddr) {
+   struct ifaddrs *ifaddr, *ifa;
+   char addr[INET6_ADDRSTRLEN];
+
+   if (listenaddr == NULL) {
+      return;
+   }
+
+   if (getifaddrs(&ifaddr) == -1) {
+      Log(LOG_CRIT, "net", "getifaddrs: %s", strerror(errno));
+      exit(EXIT_FAILURE);
+   }
+
+   for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+      if (ifa->ifa_addr == NULL) {
+         continue;
+      }
+
+      int family = ifa->ifa_addr->sa_family;
+
+      if (family == AF_INET || family == AF_INET6) {
+         void *addr_ptr = (family == AF_INET)
+             ? (void *)&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr
+             : (void *)&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
+
+         if (inet_ntop(family, addr_ptr, addr, sizeof(addr)) == NULL) {
+             Log(LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno));
+             continue;
+         }
+
+         if (!listenaddr ||
+             strcmp(addr, listenaddr) == 0 ||
+             (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
+             (strcmp(listenaddr, "::") == 0 && family == AF_INET6)) {
+             Log(LOG_INFO, "net", " => %s: %s", ifa->ifa_name, addr);
+         }
+      }
+   }
+
+   freeifaddrs(ifaddr);
+}
+#endif
+
 // Here we have to provide a common interface with serial
 // transport for cons, cat, and debug
 void show_network_info(void) {
@@ -69,46 +113,3 @@ void show_network_info(void) {
 #endif
 }
 
-#if	defined(HOST_POSIX)
-void net_print_listeners(const char *listenaddr) {
-   struct ifaddrs *ifaddr, *ifa;
-   char addr[INET6_ADDRSTRLEN];
-
-   if (listenaddr == NULL) {
-      return;
-   }
-
-   if (getifaddrs(&ifaddr) == -1) {
-      Log(LOG_CRIT, "net", "getifaddrs: %s", strerror(errno));
-      exit(EXIT_FAILURE);
-   }
-
-   for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-      if (ifa->ifa_addr == NULL) {
-         continue;
-      }
-
-      int family = ifa->ifa_addr->sa_family;
-
-      if (family == AF_INET || family == AF_INET6) {
-         void *addr_ptr = (family == AF_INET)
-             ? (void *)&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr
-             : (void *)&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
-
-         if (inet_ntop(family, addr_ptr, addr, sizeof(addr)) == NULL) {
-             Log(LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno));
-             continue;
-         }
-
-         if (!listenaddr ||
-             strcmp(addr, listenaddr) == 0 ||
-             (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
-             (strcmp(listenaddr, "::") == 0 && family == AF_INET6)) {
-             Log(LOG_INFO, "net", " => %s: %s", ifa->ifa_name, addr);
-         }
-      }
-   }
-
-   freeifaddrs(ifaddr);
-}
-#endif
