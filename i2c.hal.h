@@ -1,6 +1,6 @@
 // i2c_hal.h
-#ifndef I2C_HAL_H
-#define I2C_HAL_H
+#if	!defined(__RR_I2C_HAL_H)
+#define __RR_I2C_HAL_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -17,4 +17,4 @@ uint32_t i2c_read(uint8_t addr, uint8_t *data, size_t len);
 // Deinitialize the I2C bus
 void i2c_deinit(void);
 
-#endif // I2C_HAL_H
+#endif // !defined(__RR_I2C_HAL_H)

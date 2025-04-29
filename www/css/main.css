@@ -149,7 +149,7 @@ input {
    height: 2.5em;
    font-size: 14px;
    margin-left: 0.5em;
-   width: CALC(100% - 20em);
+   width: CALC(100% - 23em);
    padding: 10px;
    border-radius: 5px;
    border: 2px solid #ccc;
@@ -247,9 +247,9 @@ button {
    cursor: pointer;
 }
 
-#clear-btn, #send-btn, .login-btn {
-   padding-top: 0.2em;
-   padding-bottom: 0.2em;
+#clear-btn, #send-btn, .login-btn, #open-emoji {
+   padding-top: 0.15em;
+   padding-bottom: 0.15em;
    margin-top: 0em;
    margin-bottom: 0em;
    height: 3em;
@@ -277,6 +277,10 @@ button {
 .green-btn:hover {
    border: 2px solid #00c000;
    background-color: #218838; /* Darker green for hover */
+}
+
+#open-emoji {
+   background-color: #213888;
 }
 
 /* Chat message styles */
@@ -329,7 +333,7 @@ div#button-box {
    padding-bottom: 0.1em;
    background: #eeeeee;
    margin-top: 1em;
-   width: 14em;
+   width: 17em;
    border: 2px solid #c0c0c0;
 }
 

@@ -15,6 +15,7 @@
 #include "state.h"
 #include "faults.h"
 
+// Fault Table contains the known faults and their text strings
 struct fault_table fault_table[] = {
    // FAULT		 	Fatal?		String
    { FAULT_NONE,	 	false,		"None" },
@@ -28,6 +29,7 @@ struct fault_table fault_table[] = {
    { FAULT_FINAL_LOW_VOLT, 	true,		"F. Lo Volt" },
    { FAULT_FINAL_HIGH_VOLT, 	true,		"F. Hi Volt" },
    { FAULT_TOT_TIMEOUT,	  	true,		"TIMEOUT" },
+   { FAULT_WARMING_UP,		false,		"Warming Up" },
    { FAULT_UNKNOWN,	 	true,		"Unknown" },
 };
 

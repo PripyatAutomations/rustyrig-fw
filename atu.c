@@ -22,12 +22,51 @@
 #define	ANT_TUNER
 #include "atu_tables.h"
 
+// Extract the memories from eeprom and optionally json file on posix
 bool rr_atu_load_memories(int unit) {
+#if	defined(HOST_POSIX)
+   // Open the json configuration file, if present
+#endif
+   // Look up ATU memory header
+   int active_slots = 0;
+
+   // Get the eeprom offset of the start of ATU mem slots
+   // Look up ATU channels defined by the header
+   for (int i = 0; i < active_slots; i++) {
+      // Apply offset to base_addr
+   }
    return false;
+}
+
+static rr_atu_tv *tv_is_closest(rr_atu_tv *low, rr_atu_tv *high) {
+   // shortcut for invalid calls
+   if (low == NULL && high == NULL) {
+      return NULL;
+   }
+
+   // If only high value provided, return it
+   if (low == NULL && high != NULL) {
+      return high;
+   }
+
+   // if only low value provided, return it
+   if (high == NULL && low != NULL) {
+      return low;
+   }
+
+   // fallthru case
+   return NULL;
 }
 
 // XXX: this should load the last used state for this tuner unit
 rr_atu_tv *rr_atu_find_saved_state(int uid) {
+   rr_atu_tv *closest_low = NULL,
+             *closest_high = NULL;
+
+//   if (tv_is_closest(closest_low, closest_high)) {
+//   }
+
+   // If we make it here, no close values were found
    return NULL;
 }
 
@@ -60,6 +99,6 @@ int rr_atu_init_all(void) {
        }
    }
 
-   Log(LOG_INFO, "atu", "ATU setup complete");
+   Log(LOG_INFO, "atu", "ATU setup complete with %d warning/issues", rv);
    return -rv;
 }

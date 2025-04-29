@@ -13,7 +13,7 @@
 #include "logger.h"
 #include "cat.h"
 #include "posix.h"
-#include "i2c_hal.h"
+#include "i2c.hal.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -21,17 +21,17 @@
 
 static int i2c_fd = -1;
 
-int i2c_init(void) {
+uint32_t i2c_init(void) {
     i2c_fd = open("/dev/i2c-1", O_RDWR);
     return (i2c_fd < 0) ? -1 : 0;
 }
 
-int i2c_write(uint8_t addr, const uint8_t *data, size_t len) {
+uint32_t i2c_write(uint8_t addr, const uint8_t *data, size_t len) {
     if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0) return -1;
     return (write(i2c_fd, data, len) == len) ? 0 : -1;
 }
 
-int i2c_read(uint8_t addr, uint8_t *data, size_t len) {
+uint32_t i2c_read(uint8_t addr, uint8_t *data, size_t len) {
     if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0) return -1;
     return (read(i2c_fd, data, len) == len) ? 0 : -1;
 }

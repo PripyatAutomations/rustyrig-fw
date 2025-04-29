@@ -147,16 +147,19 @@ static int32_t rr_cat_kpa500_faults(struct AmpState *amp, char *args) {
 }
 
 static int32_t rr_cat_kpa500_inhibit(struct AmpState *amp, char *args) {
-   uint32_t inhibit = amp->inhibit;
+   bool inhibit = amp->inhibit;
 
    if (args != NULL) {
-      uint32_t tmp = atoi(args);
-      if (tmp < 0)
-         tmp = 0;
-      if (tmp > 1)
-         tmp = 1;
+      int tmp = atoi(args);
+      if (tmp <= 0) {
+         inhibit = false;
+      }
 
-      amp->inhibit = inhibit = tmp;
+      if (tmp >= 1) {
+         inhibit = true;
+      }
+
+      amp->inhibit = inhibit;
    }
 
    rr_cat_printf("^NH%d", inhibit);

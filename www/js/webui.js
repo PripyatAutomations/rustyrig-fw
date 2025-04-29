@@ -12,6 +12,7 @@ var reconnectIndex = 0; 	// Index to track the current delay
 var reconnectTimer;  		// so we can stop reconnects
 var chat_ding;			// sound widget for chat ding
 var join_ding;			// sound widget for join ding
+var leave_ding;			// sound widget for leave ding
 var logged_in;			// Did we get an AUTHORIZED response?
 var auth_user;
 var auth_token;
@@ -72,7 +73,7 @@ $(document).ready(function() {
 
    $("input#alert-vol").on("change", function() {
       let volume = $(this).val() / 100;
-      $("audio#chat-ding, audio#join-ding").prop("volume", volume);
+      $("audio#chat-ding, audio#join-ding, audio#leave-ding").prop("volume", volume);
    });
 
    // When the form is submitted, we need to send the username and wait for a nonce to come back
@@ -107,6 +108,8 @@ $(document).ready(function() {
    });
 
    chat_ding = document.getElementById('chat-ding');
+   join_ding = document.getElementById('join-ding');
+   leave_ding = document.getElementById('leave-ding');
    form_disable(true);
 
    // clear button
@@ -208,12 +211,11 @@ $(document).ready(function() {
           // Save unmuted volume globally
           unmute_vol = $('audio#chat-ding').prop('volume');
           console.log("Saved volume ", unmute_vol);
-          $('audio#chat-ding').val(0);
+          $('audio#chat-ding, audio#join-ding, audio#leave-ding').val(0);
           $('input#alert-vol').val(0);
        } else {
           // restore saved volume
-          $('audio#chat-ding').val(unmute_vol);
-          $('audio#join-ding').val(unmute_vol);
+          $('audio#chat-ding, audio#join-ding, audio#leave-ding').val(unmute_vol);
           $('input#alert-vol').val(unmute_vol * 100);
        }
        $(this).data('checked', !isChecked);
@@ -458,15 +460,30 @@ function ws_connect() {
                }
             } else if (cmd === 'join') {
                var user = msgObj.talk.user;
+
                if (user) {
                   var msg_ts = msg_timestamp(msgObj.talk.ts);
                   append_chatbox('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">joined the chat</span>&nbsp;***</div>');
+                  // Play join (door open) sound if the bell button is checked
+                  if ($('#bell-btn').data('checked')) {
+                     if (!(user === auth_user)) {
+                        join_ding.currentTime = 0;  // Reset audio to start from the beginning
+                        join_ding.play();
+                     }
+                  }
                } else {
                   console.log("got join for undefined user, ignoring");
                }
             } else if (cmd === 'kick') {
                // XXX: Display a message in chat about the user being kicked and by who/why
                console.log("Kick command received");
+               // Play leave (door close) sound if the bell button is checked
+               if ($('#bell-btn').data('checked')) {
+                  if (!(user === auth_user)) {
+                     leave_ding.currentTime = 0;  // Reset audio to start from the beginning
+                     leave_ding.play();
+                  }
+               }
             } else if (cmd === 'mute') {
                // XXX: If this mute is for us, disable the send button
                // XXX: and show an alert.
@@ -476,6 +493,13 @@ function ws_connect() {
                if (user) {
                   var msg_ts = msg_timestamp(msgObj.talk.ts);
                   append_chatbox('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">left the chat</span>&nbsp;***</div>');
+                  // Play leave (door close) sound if the bell button is checked
+                  if ($('#bell-btn').data('checked')) {
+                     if (!(user === auth_user)) {
+                        leave_ding.currentTime = 0;  // Reset audio to start from the beginning
+                        leave_ding.play();
+                     }
+                  }
                } else {
                   console.log("got %s for undefined user, ignoring", cmd);
                }

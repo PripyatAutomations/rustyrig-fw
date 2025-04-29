@@ -2,6 +2,7 @@
 #define	__rr_atu_h
 #include "config.h"
 
+// A tuning value
 struct rr_atu_tv {
    float frequency;		// Frequency in hz
    float L;			// Inductance selected

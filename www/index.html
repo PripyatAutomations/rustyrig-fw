@@ -7,8 +7,10 @@
   <script src="js/segment.min.js"></script>
   <script src="js/webui.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/emoji.js"></script>
   <link rel="stylesheet" href="css/main.css"/>
   <link rel="stylesheet" id="dark-theme" href="css/dark.css"/>
+  <link rel="stylesheet" href="css/keyboard.css"/>
   <title>rustyrig webui</title>
  </head>
  <body>
@@ -74,6 +76,7 @@
     <div id="button-box">
      <button id="send-btn" class="green-btn">Send</button>
      <button id="clear-btn" class="red-btn">Clear</button>
+     <button id="open-emoji" class="open-emoji">😀</button>
      <button id="bell-btn" data-checked="true">
       <img id="bell-image" src="img/bell-alert.png" alt="Bell (dark)"/>
      </button>
@@ -81,6 +84,7 @@
     </div>
     <audio id="chat-ding" src="sounds/bell.mp3" tabindex="-1"></audio>
     <audio id="join-ding" src="sounds/join.mp3" tabindex="-1"></audio>
+    <audio id="leave-ding" src="sounds/leave.mp3" tabindex="-1"></audio>
    </div>
   </div> <!-- win-chat -->
   <div id="win-rig" class="window">

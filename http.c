@@ -1,4 +1,5 @@
 // Here we deal with http requests using mongoose
+// I kind of want to explore more open options for this
 #include "config.h"
 #if	defined(FEATURE_HTTP)
 
@@ -560,9 +561,16 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 
         // blorp out a quit to all connected users
         memset(resp_buf, 0, sizeof(resp_buf));
-        snprintf(resp_buf, sizeof(resp_buf),
-                 "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
-                 uname, now);
+        if (cptr->guest_id > 0) {
+           snprintf(resp_buf, sizeof(resp_buf),
+                    "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s04%d\", \"ts\": %lu } }",
+                    uname, cptr->guest_id, now);
+        } else {
+           snprintf(resp_buf, sizeof(resp_buf),
+                    "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
+                    uname, now);
+        }
+
         struct mg_str ms = mg_str(resp_buf);
         ws_broadcast(NULL, &ms);
         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> disconnected", uname, cptr);

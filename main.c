@@ -212,7 +212,7 @@ int main(int argc, char **argv) {
       // Redraw the GUI virtual framebuffer
       gui_update();
 
-      // XXX: Check if an LCD/OLED is configured and display it
+      // XXX: Check if an LCD/OLED is configured and update it
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
 
 #if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)

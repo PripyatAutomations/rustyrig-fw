@@ -14,4 +14,3 @@
 #include "logger.h"
 #include "eeprom.h"
 #include "io.h"
-

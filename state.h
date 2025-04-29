@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include "logger.h"
 #include "backend.h"
+#include "atu.h"		// for rr_atu_tv
 #define	PARSE_LINE_LEN	512
 
 // TX Low Pass Filters
@@ -43,14 +44,16 @@ enum BPFSelection {
 // State of the amplifier module
 struct AmpState {
    uint32_t   alc[MAX_BANDS];		// ALC: 0-210, per band
-   uint32_t   current_band;			// Current band selection
-   uint32_t   afr;				// AFR:
-   uint32_t   inhibit;			// Inhibit TX
-   uint32_t   power;				// Power control
+   uint32_t   current_band;		// Current band selection
+   uint32_t   afr;			// AFR:
+   bool	      inhibit;			// Inhibit TX / Locked out
+   uint32_t   power;			// Power control
    uint32_t   standby;			// Standby mode
    uint32_t   output_target[MAX_BANDS];	// Target power (see formula in .c)
-   float power_target;			// Target power configuration
-   float thermal;			// Thermal state of Final Transistor
+   float      power_target;		// Target power configuration
+   float      thermal;	                // Thermal state of Final Transistor (in degF)
+   bool       warmup_required;		// If true, we will enforce a warmup time
+   uint32_t   warmup_time;		// Warmup time required for device
 };
 
 // State of the all tunings: PA & Matching Units
@@ -66,6 +69,7 @@ struct ATUState {
    float power_fwd,			// Measured forward power
          power_rev;			// Measured reflected power
    float thermal;			// Reported temperature or -1000 if not available
+   rr_atu_tv *tv;			// Active tuning values
 };
 
 struct FilterState {

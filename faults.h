@@ -17,6 +17,7 @@
 #define	FAULT_FINAL_LOW_VOLT	0x08	// Final supply voltage too low
 #define	FAULT_FINAL_HIGH_VOLT	0x09	// Final supply voltage too high
 #define	FAULT_TOT_TIMEOUT	0x0a	// TOT Expired
+#define	FAULT_WARMING_UP	0x0b	// PTT attempted while warming up (will be cleared by warmup routine)
 
 // Last fault needs to be 99 (0x64)
 #define	FAULT_UNKNOWN		0x64

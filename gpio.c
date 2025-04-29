@@ -78,6 +78,8 @@ uint32_t radio_gpiochip_init(const char *chipname) {
 // Initialize platform GPIO
 uint32_t gpio_init(void) {
    Log(LOG_INFO, "gpio", "Initializing gpio");
+
+   // XXX: Walk over configured list of gpio interfaces from config
    radio_gpiochip_init("main");
    return 0;
 }

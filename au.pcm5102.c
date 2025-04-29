@@ -18,6 +18,11 @@
 #include "au.h"
 
 #if	defined(FEATURE_PCM5102)
+#if	defined(HOST_POSIX)
+// This actually should check if it's a linux host and include linux i2c
+
+#endif
+
 #if	defined(HOST_ESP32)
 #include <driver/i2s.h>
 #endif

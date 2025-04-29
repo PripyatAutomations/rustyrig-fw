@@ -24,15 +24,22 @@
 static rr_au_pw_data_t au;
 
 bool rr_au_init(void) {
+#if	defined(FEATURE_PIPEWIRE)
    pipewire_init(&au);
    pipewire_init_playback(&au);
+//   pipewire_init_record(&au);
+#endif
    return false;
 }
 
 bool rr_au_write_samples() {
+#if	defined(FEATURE_PIPEWIRE)
+#endif
    return false;
 }
 
 rr_au_sample_t **rr_au_read_samples(void) {
+#if	defined(FEATURE_PIPEWIRE)
+#endif
    return NULL;
 }

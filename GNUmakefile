@@ -97,6 +97,7 @@ objs += gui.nextion.o		# Nextion HMI display interface
 objs += help.o			# support for help menus from filesystem, if available
 objs += http.o			# HTTP server
 objs += i2c.o			# i2c abstraction
+objs += i2c.linux.o
 objs += i2c.mux.o		# i2c multiplexor support
 objs += io.o			# Input/Output abstraction/portability
 objs += io.serial.o		# Serial port stuff
