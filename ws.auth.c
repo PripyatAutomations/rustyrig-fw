@@ -136,21 +136,23 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
          char resp_buf[HTTP_WS_MAX_MSG+1];
          memset(resp_buf, 0, sizeof(resp_buf));
+
+         // add suffix (numeric) for guest
          if (guest) {
             snprintf(resp_buf, sizeof(resp_buf),
-                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s%04d\", \"token\": \"%s\", \"ts\": %lu } }",
-                     user, cptr->guest_id, token, now);
+                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s%04d\", \"token\": \"%s\", \"ts\": %lu, \"privs\": \"%s\" } }",
+                     user, cptr->guest_id, token, now, cptr->user->privs);
          } else {
             snprintf(resp_buf, sizeof(resp_buf),
-                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu } }",
-                     user, token, now);
+                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu, \"privs\": \"%s\" } }",
+                     user, token, now, cptr->user->privs);
          }
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
          // blorp out a join to all chat users
          memset(resp_buf, 0, sizeof(resp_buf));
 
-
+         // add suffix (numeric) for guests
          if (guest) {
             snprintf(resp_buf, sizeof(resp_buf),
                      "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s%04d\", \"ts\": %lu, \"ip\": \"%s\" } }",

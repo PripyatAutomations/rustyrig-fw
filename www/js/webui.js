@@ -16,6 +16,7 @@ var leave_ding;			// sound widget for leave ding
 var logged_in;			// Did we get an AUTHORIZED response?
 var auth_user;
 var auth_token;
+var auth_privs;
 var remote_nonce;
 var login_user;
 var unmute_vol = 100;
@@ -325,50 +326,60 @@ async function authenticate(login_user, login_pass, auth_token) {
 }
 
 function cul_update(message) {
-   $('#cul-list').empty();
-   const users = message.talk.users;
-   users.forEach(user => {
-      const li = `<li>
-                     <span class="chat-user-list" onclick="show_user_menu('${user}')">
-                        <span class="cul-self">${user}</span>
-                     </span>
-                  </li>`;
-      $('#cul-list').append(li);
-   });
+    $('#cul-list').empty();
+    const users = message.talk.users;
+    users.forEach(user => {
+        const li = `<li>
+                       <span class="chat-user-list" onclick="show_user_menu('${user}')">
+                          <span class="cul-self">${user}</span>
+                       </span>
+                    </li>`;
+        $('#cul-list').append(li);
+    });
 }
 
 function show_user_menu(username) {
-   // Update the user menu with the username
-   $('#user-menu').html(`
-      User: ${username}<br/>
-      <span id="user-menu-items">
-         <ul>
-            <li><a href="mailto:user_email" target="_blank">Email</a></li>
-            <li><button id="whois-user">Whois</button></li>
-            <hr width="50%"/>
-            <li><button id="mute-user">Mute</button></li>
-            <li><button id="kick-user">Kick</button></li>
-            <li><button id="ban-user">Lock&amp;Kick</button></li>
-         </ul>
-      </span>
-   `);
+    // Update the user menu with the username
+    // XXX: We need to query if the user is muted and reflect it in the message
+    var admin_menu = `
+             <hr width="50%"/>
+             <li><button class="cul-menu-button" id="mute-user">Mute</button></li>
+             <li><button class="cul-menu-button" id="kick-user">Kick</button></li>
+             <li><button class="cul-menu-button" id="ban-user">Lock&Kick</button></li>
+    `;
+    var menu = `
+       User: ${username}<br/>
+       <span id="user-menu-items">
+          <ul>
+             <li><a href="mailto:user_email" target="_blank">Email</a></li>
+             <li><button class="cul-menu-button" id="whois-user">Whois</button></li>
+          </ul>
+       </span>
+    `;
+    // If the current user is an admin, add the admin_menu -- check auth_privs for admin.*
+//    if () {
+//       html += admin_menu;
+//    }
 
-   // Attach event listeners to buttons using jQuery
-   $('#whois-user').on('click', function() {
-      sendCommand('whois', username);
-   });
+    $('#user-menu').html(menu);
+    $('#user-menu').show();
 
-   $('#mute-user').on('click', function() {
-      sendCommand('mute', username);
-   });
+    // Attach event listeners to buttons using jQuery
+    $('#whois-user').on('click', function() {
+        sendCommand('whois', username);
+    });
 
-   $('#kick-user').on('click', function() {
-      sendCommand('kick', username);
-   });
+    $('#mute-user').on('click', function() {
+        sendCommand('mute', username);
+    });
 
-   $('#ban-user').on('click', function() {
-      sendCommand('ban', username);
-   });
+    $('#kick-user').on('click', function() {
+        sendCommand('kick', username);
+    });
+
+    $('#ban-user').on('click', function() {
+        sendCommand('ban', username);
+    });
 }
 
 // Function to send commands over WebSocket
@@ -381,6 +392,7 @@ function sendCommand(cmd, target) {
       }
    };
    socket.send(JSON.stringify(msgObj));
+   $('#user-menu').hide();
    console.log(`Sent command: /${cmd} ${target}`);
 }
 
@@ -550,6 +562,10 @@ function ws_connect() {
 
                   if (msgObj.auth.token) {
                      auth_token = msgObj.auth.token;
+                  }
+
+                  if (msgObj.auth.privs) {
+                     auth_privs = msgObj.auth.privs;
                   }
 
                   logged_in = true;

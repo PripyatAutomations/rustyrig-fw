@@ -170,6 +170,12 @@ input {
 .cul-item {
 }
 
+.cul-menu-button {
+   border: 1px solid #909090;
+   padding: 0em;
+   margin: 0em;
+}
+
 #chat-user-list ul {
    list-style: none;
    padding-top: 5px;
