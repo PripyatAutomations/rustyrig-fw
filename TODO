@@ -54,11 +54,8 @@ minimal inet_ntop() for non-posix
 [www]
 * Fix bell notifications (looks like we broke when adding localStorage bit)
 * Change the window title to show unread messages
-* Pasting images - should base64 encode them and send to currently connected users?
-  - We need to work on reassembly:
-	- Add an image-id in sender
-	- Reassemble based on chunk # and image-id
-	- Expire incomplete images from memory after a few minutes
+- Pasting images
+  - Expire incomplete images from memory after a few minutes
   - Make sure we're cleaning up image data when no longer used
 * Selectable text in chat msgbox?
 * Fix tab highlights
