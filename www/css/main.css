@@ -462,3 +462,41 @@ span.menu-tab:hover {
    background-color: yellow;
    font-weight: bold;
 }
+
+
+a.chat-link {
+    color: #0808a0;
+}
+
+.img-confirm-box {
+    background: #a0a0a0;
+    border: 1px solid #ccc;
+    padding: 10px;
+    position: absolute;
+    zIndex: 1500;
+    height: CALC(100% - 10.1em);
+    width: CALC(100% - 10.1em);
+    left: 5em;
+    top: 5em;
+    margin-bottom: 1em;
+}
+
+.img-confirm-img {
+    max-width: CALC(100% - 11em);
+    max-height: CALC(100% - 16.5em);
+}
+
+button#img-post, button#img-cancel {
+    position: fixed;
+    bottom: 4em;
+    height: 3em;
+    width: 5em;
+}
+
+buttom#img-post {
+   left: 10em;
+}
+
+button#img-cancel {
+   left: 13.5em;
+}

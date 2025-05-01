@@ -31,7 +31,10 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
    char *data = mg_json_get_str(msg_data, "$.talk.data");
    char *target = mg_json_get_str(msg_data, "$.talk.target");
+   char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
    char *user = cptr->user->name;
+   long chunk_index = mg_json_get_long(msg_data, "$.talk.chunk_index", 0);
+   long total_chunks = mg_json_get_long(msg_data, "$.talk.total_chunks", 0);
 
    if (cmd && data) {
       if (strcasecmp(cmd, "msg") == 0) {
@@ -51,10 +54,19 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          memset(msgbuf, 0, sizeof(msgbuf));
-         if (strcasecmp(user, "guest") == 0) {
-            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", user, cptr->guest_id, escaped_msg, now);
+         if (strcmp(msg_type, "image_chunk") == 0) {
+            // Deal with chat images, they'll have additional fields
+            if (strcasecmp(user, "guest") == 0) {
+               snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", user, cptr->guest_id, escaped_msg, now, msg_type, chunk_index, total_chunks);
+            } else {
+               snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", user, escaped_msg, now, msg_type, chunk_index, total_chunks);
+            }
          } else {
-            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu } }", user, escaped_msg, now);
+            if (strcasecmp(user, "guest") == 0) {
+               snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", user, cptr->guest_id, escaped_msg, now, msg_type);
+            } else {
+               snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", user, escaped_msg, now, msg_type);
+            }
          }
          mp = mg_str(msgbuf);
          free(escaped_msg);
@@ -134,5 +146,6 @@ cleanup:
    free(cmd);
    free(data);
    free(target);
+   free(msg_type);
    return rv;
 }

@@ -87,3 +87,12 @@ div#tabstrip {
    color: #fafafa;
    background: #0c0c0c;
 }
+
+a.chat-link {
+    color: LightSteelBlue;
+}
+
+.img-confirm-box {
+    background: #0a0a0a;
+    border: 1px solid #ccc;
+]

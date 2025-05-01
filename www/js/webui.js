@@ -35,6 +35,7 @@ function try_login() {
    socket.send(JSON.stringify(msgObj));
 }
 
+
 $(document).ready(function() {
    // Do we have a preference for dark/light mode in localStorage?
    if (localStorage.getItem("dark_mode") !== "false") {
@@ -131,6 +132,32 @@ $(document).ready(function() {
       $('#chat-input').focus();
    });
 
+   $('#chat-input').on('paste', function(e) {
+      const items = (e.originalEvent || e).clipboardData.items;
+      for (const item of items) {
+         if (item.type.indexOf('image') !== -1) {
+            const file = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+               const dataUrl = evt.target.result;
+               const confirmBox = $('<div class="img-confirm-box">')
+                  .append(`<p>Send this image?</p><img src="${dataUrl}"><br>`)
+                  .append('<button id="img-post" class="green-btn">Yes</button><button id="img-cancel" class="red-btn">No</button>');
+               $('body').append(confirmBox);
+               confirmBox.find('#img-post').click(() => {
+                  send_chunked_image(dataUrl);
+                  confirmBox.remove();
+               });
+               confirmBox.find('#img-cancel').click(() => confirmBox.remove());
+               $('button#img-post').focus();
+            };
+            reader.readAsDataURL(file);
+            e.preventDefault(); // prevent default paste behavior
+            break;
+         }
+      }
+   });
+
    // Toggle display of the emoji keyboard
    $('#open-emoji').click(function() {
        const emojiKeyboard = $('#emoji-keyboard');
@@ -162,15 +189,15 @@ $(document).ready(function() {
             switch(command.toLowerCase()) {
                case 'ban':
                   console.log("Send BAN for", args[1]);
-                  sendCommand(command, args[1]);
+                  send_command(command, args[1]);
                   break;
                case 'edit':
                   console.log("Send EDIT for", args[1]);
-                  sendCommand(command, args[1]);
+                  send_command(command, args[1]);
                   break;
                case 'kick':
                   console.log("Sending KICK for", args[1]);
-                  sendCommand(command, args[1]);
+                  send_command(command, args[1]);
                   break;
                case 'me':
                   message = message.slice(4);
@@ -180,11 +207,11 @@ $(document).ready(function() {
                   break;
                case 'mute':
                   console.log("Send MUTE", args[1]);
-                  sendCommand(command, args[1]);
+                  send_command(command, args[1]);
                   break;
                case 'whois':
                   console.log("Send WHOIS", args[1]);
-                  sendCommand(command, args[1]);
+                  send_command(command, args[1]);
                   break;
                default:
                   append_chatbox('<div><span class="error">Invalid command:' + command + '</span></div>');
@@ -411,19 +438,19 @@ function show_user_menu(username) {
 
     // Attach event listeners to buttons using jQuery
     $('#whois-user').on('click', function() {
-        sendCommand('whois', username);
+        send_command('whois', username);
     });
 
     $('#mute-user').on('click', function() {
-        sendCommand('mute', username);
+        send_command('mute', username);
     });
 
     $('#kick-user').on('click', function() {
-        sendCommand('kick', username);
+        send_command('kick', username);
     });
 
     $('#ban-user').on('click', function() {
-        sendCommand('ban', username);
+        send_command('ban', username);
     });
 
     // Close button functionality
@@ -433,7 +460,7 @@ function show_user_menu(username) {
 }
 
 // Function to send commands over WebSocket
-function sendCommand(cmd, target) {
+function send_command(cmd, target) {
    const msgObj = {
       "talk": {
          "cmd": cmd,
@@ -444,6 +471,13 @@ function sendCommand(cmd, target) {
    socket.send(JSON.stringify(msgObj));
    $('#user-menu').hide();
    console.log(`Sent command: /${cmd} ${target}`);
+}
+
+function msg_create_links(message) {
+   return message.replace(
+      /(https?:\/\/[^\s]+)/g,
+      '<a href="$1" class="chat-link" target="_blank" rel="noopener">$1</a>'
+   );
 }
 
 function ws_connect() {
@@ -507,30 +541,39 @@ function ws_connect() {
                var msg_type = msgObj.talk.msg_type;
                var msg_ts = msg_timestamp(msgObj.talk.ts);
 
-               // Don't play a bell or set highlight on SelfMsgs
-               if (sender === auth_user) {
-                  if (msg_type === 'action') {
-                     append_chatbox('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==> ***&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+               // Linkify non-images
+               if (msg_type === "image_chunk") {
+                  console.log("Handling image chunk: " + message);
+                  handle_image_chunk(message);
+               } else if (msg_type === "action" || msg_type == "pub") {
+                  // Conevert URLs to clickable links
+                  message = msg_create_links(message);
+
+                  // Don't play a bell or set highlight on SelfMsgs
+                  if (sender === auth_user) {
+                     if (msg_type === 'action') {
+                        append_chatbox('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span>***&nbsp;' + sender + '&nbsp;***&nbsp;<span class="chat-my-msg">' + message + '</span></div>');
+                     } else {
+                        append_chatbox('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+                     }
                   } else {
-                     append_chatbox('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
-                  }
-               } else {
-                  if (msg_type === 'action') {
-                     append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">***&nbsp;' + sender + '&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
-                  } else {
-                     append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
-                  }
+                     if (msg_type === 'action') {
+                        append_chatbox('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
+                     } else {
+                        append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+                     }
 
-                  // Play bell sound if the bell button is checked
-                  if ($('#bell-btn').data('checked')) {
-                     chat_ding.currentTime = 0;  // Reset audio to start from the beginning
-                     chat_ding.play();
+                     // Play bell sound if the bell button is checked
+                     if ($('#bell-btn').data('checked')) {
+                        chat_ding.currentTime = 0;  // Reset audio to start from the beginning
+                        chat_ding.play();
+                     }
+
+                     // Flash the indicator, if set
+                     set_highlight("chat");
+
+                     // XXX: Update the window title to show a pending message
                   }
-
-                  // Flash the indicator, if set
-                  set_highlight("chat");
-
-                  // XXX: Update the window title to show a pending message
                }
             } else if (cmd === 'join') {
                var user = msgObj.talk.user;
@@ -594,7 +637,7 @@ function ws_connect() {
 
             if (error) {
                var error = msgObj.auth.error;
-               stopReconnecting();
+               stop_reconnecting();
 
                var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                append_chatbox('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
@@ -671,7 +714,7 @@ function ws_connect() {
    return socket;
 }
 
-function stopReconnecting() {
+function stop_reconnecting() {
    ws_kicked = true;
    if (reconnect_timer) {
       clearTimeout(reconnect_timer);
@@ -802,4 +845,47 @@ function set_highlight(tab) {
 function clear_highlight() {
    // Remove the highlight class from all tabs
    $('span[id^="tab-"]').removeClass('chat-highlight');
+}
+
+function send_chunked_image(base64Image) {
+   const chunkSize = 8000; // Safe under 64K JSON limit
+   const totalChunks = Math.ceil(base64Image.length / chunkSize);
+   const msgId = crypto.randomUUID(); // Unique ID for this image
+
+   for (let i = 0; i < totalChunks; i++) {
+      const chunkData = base64Image.slice(i * chunkSize, (i + 1) * chunkSize);
+      const msgObj = {
+         talk: {
+            cmd: "msg",
+            ts: msg_timestamp(Math.floor(Date.now() / 1000)),
+            token: auth_token,
+            msg_type: "image_chunk",
+            msg_id: msgId,
+            chunk_index: i,
+            total_chunks: totalChunks,
+            data: chunkData
+         }
+      };
+      socket.send(JSON.stringify(msgObj));
+   }
+}
+
+const imageChunks = {}; // msg_id => {chunks: [], received: 0, total: N}
+
+function handle_image_chunk(msg) {
+   const { msg_id, chunk_index, total_chunks, data } = msg;
+
+   if (!imageChunks[msg_id]) {
+      imageChunks[msg_id] = { chunks: [], received: 0, total: total_chunks };
+   }
+
+   imageChunks[msg_id].chunks[chunk_index] = data;
+   imageChunks[msg_id].received++;
+
+   if (imageChunks[msg_id].received === total_chunks) {
+      const fullData = imageChunks[msg_id].chunks.join('');
+      delete imageChunks[msg_id];
+
+      append_chatbox(`<div><img src="${fullData}" class="chat-img" /></div>`);
+   }
 }

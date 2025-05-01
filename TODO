@@ -44,19 +44,23 @@ minimal inet_ntop() for non-posix
 [misc]
 * Add emulation backend using flrig or hamlib
   - Internally cache the radio state & poll it regularly
-  - Send push events of the 786diff to client w/ periodic full updates
+  - Send push events of the diff to client w/ periodic full updates
   - 'Translate' our yaesu/kpa500 CAT commands by calling backend
 
 [mqtt]
 * Finish mqtt server stuff (via mongoose)
-* Implement mqtt client mode, for sending to existing server
+* Implement mqtt client mode, for sending status to existing server(s)
 
 [www]
+* Fix bell notifications (looks like we broke when adding localStorage bit)
 * Change the window title to show unread messages
-* Clickable links
 * Pasting images - should base64 encode them and send to currently connected users?
-
-* Selectable text in chat msgbox
+  - We need to work on reassembly:
+	- Add an image-id in sender
+	- Reassemble based on chunk # and image-id
+	- Expire incomplete images from memory after a few minutes
+  - Make sure we're cleaning up image data when no longer used
+* Selectable text in chat msgbox?
 * Fix tab highlights
 * Implement Web Serial firmare uploads
         https://developer.chrome.com/articles/serial/
