@@ -938,7 +938,7 @@ function handle_file_chunk(msgObj) {
       // XXX: Should we scan for missing chunks and-request them to be resent?
       const fullData = file_chunks[msg_id].chunks.join('');
       delete file_chunks[msg_id];
-
+/*
       const isSelf = sender === auth_user;
       const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
       const msg_ts = msg_timestamp(msgObj.talk.ts);
@@ -958,8 +958,33 @@ function handle_file_chunk(msgObj) {
          .append(`<button class="img-min-btn">−</button>`)
          .append(`<button class="img-close-btn">X</button>`)
          .append(`<img src="${fullData}" class="chat-img"/>`);
+      $wrap.append($imgWrap);
+      append_chatbox($wrap.prop('outerHTML'));
+*/
+      const isSelf = sender === auth_user;
+      const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
+      const msg_ts = msg_timestamp(msgObj.talk.ts);
+
+      const $img = $('<img>').attr('src', fullData).addClass('chat-img');
+      const $min = $('<button>').addClass('img-min-btn').text('−');
+      const $close = $('<button>').addClass('img-close-btn').text('X');
+
+      const $controls = $('<div class="chat-img-controls">')
+         .append($min)
+         .append($close);
+
+      const $wrap = $('<div class="chat-img-msg">')
+         .append(msg_ts + `&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`);
+
+      // Wrap the image in a clickable link to open in a new tab
+      const $imgLink = $('<a>').attr('href', fullData).attr('target', '_blank').append($img);
+
+      const $imgWrap = $('<div class="chat-img-wrap">')
+         .append($imgLink)  // Add the link-wrapped image
+         .append($controls); // Add the minimize and close controls
 
       $wrap.append($imgWrap);
+
       append_chatbox($wrap.prop('outerHTML'));
 
 
