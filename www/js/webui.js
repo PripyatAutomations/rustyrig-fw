@@ -951,16 +951,17 @@ function handle_file_chunk(msgObj) {
          .append($min)
          .append($close);
 
-      const $imgWrap = $('<div class="chat-img-wrap">')
-         .append($controls)
-         .append($img);
-
       const $wrap = $('<div class="chat-img-msg">')
-         .append(`${msg_ts}&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`)
-         .append($imgWrap);
+         .append(msg_ts + `&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`);
 
-      // add the new div into the chat-box
+      const $imgWrap = $('<div class="chat-img-wrap">')
+         .append(`<button class="img-min-btn">−</button>`)
+         .append(`<button class="img-close-btn">X</button>`)
+         .append(`<img src="${fullData}" class="chat-img"/>`);
+
+      $wrap.append($imgWrap);
       append_chatbox($wrap.prop('outerHTML'));
+
 
       // Close button functionality
       $(document).on('click', '.img-close-btn', function () {
@@ -974,19 +975,22 @@ function handle_file_chunk(msgObj) {
 
       // minimize/restore button functionality
       $(document).on('click', '.img-min-btn', function () {
-         const $wrap = $(this).closest('.chat-img-wrap');
+         const $btn = $(this);
+         const $wrap = $btn.closest('.chat-img-wrap');
          const $img = $wrap.find('img.chat-img');
-         const $placeholder = $wrap.find('.img-placeholder');
+         let $placeholder = $wrap.find('.img-placeholder');
 
          if ($img.is(':visible')) {
             $img.hide();
-            if (!$placeholder.length)
-               $wrap.append('<em class="img-placeholder">[Image Minimized]</em>');
-            $(this).text('+');
+            if (!$placeholder.length) {
+               $placeholder = $('<div class="img-placeholder">[Image Minimized]</div>');
+               $wrap.append($placeholder);
+            }
+            $btn.text('+');
          } else {
             $img.show();
             $placeholder.remove();
-            $(this).text('−');
+            $btn.text('−');
          }
       });
    }
