@@ -18,7 +18,7 @@ html, body {
    background-color: #dcdcdc;
    height: calc(100vh - 1px);
    width: calc(100vw - 1px);
-   overflow: hidden; /* Prevents scrolling if needed */
+   overflow: hidden;
 }
 
 .red {
@@ -76,9 +76,9 @@ html, body {
 }
 
 #sub-login-error-msg {
-   word-wrap: break-word;  /* Ensures long words break */
-   overflow-wrap: break-word; /* Modern equivalent */
-   white-space: normal;  /* Allows text to wrap */
+   word-wrap: break-word;
+   overflow-wrap: break-word;
+   white-space: normal;
 }
 
 #login-err-ok {
@@ -124,6 +124,7 @@ html, body {
    top: 3.5em;
    left: 0px;
    overflow-y: auto;
+   overflow-x: hidden;
    padding: 10px;
    border: 2px solid #ddd;
    border-radius: 10px;
@@ -272,11 +273,15 @@ button {
 }
 
 #clear-btn, #send-btn, .login-btn, #open-emoji {
+/*
    padding-top: 0.15em;
    padding-bottom: 0.15em;
    margin-top: 0em;
    margin-bottom: 0em;
+*/
    height: 3em;
+   position: relative;
+   height: 100%;
 }
 
 /* Clear button */
@@ -348,15 +353,13 @@ button {
 div#button-box {
    position: fixed;
    right: 0.2em;
-   bottom: 0.3em;
-   border: 2px solid red;
-   border-radius: 10px;
-   height: 3.3em;
-   padding: 0.3em;
-   padding-bottom: 0.1em;
+   bottom: 0.5em;
+   padding: 10px;
+   border-radius: 5px;
+   border: 2px solid #ccc;
+   height: 2.5em;
    background: #dcdcdc;
-   margin-top: 1em;
-   width: 17em;
+   width: 16em;
    border: 2px solid #c0c0c0;
 }
 
@@ -365,13 +368,13 @@ div#button-box {
    padding-top: 0em;
    padding-bottom: 0.3em;
    margin: 0em;
-   position: relative;
-   top: -0.5em;
+   position: absolute;
+   top: 0em;
    right: 0px;
    margin-left: 0px;
    cursor: pointer;
-   height: 3em;
-   width: 4.1em;
+   height: 100%;
+   width: 25%;
 }
 
 #bell-image {
@@ -476,14 +479,8 @@ a.chat-link {
     padding-left: 10px;
     position: absolute;
     zIndex: 1500;
-/*
-    height: CALC(100% - 10.1em);
-    width: CALC(100% - 10.1em);
-    left: 5em;
-    top: 3em;
-*/
-    height: 100%;
-    width: 100%;
+    height: CALC(100% - 4px);
+    width: CALC(100% - 16px);
     top: 0px;
     left: 0px;
 }
@@ -500,7 +497,7 @@ a.chat-link {
     max-height: CALC(80% - 3.5em);
 }
 
-button#img-post, button#img-cancel {
+button#img-post, button#img-cancel, button#img-clearclip {
     position: absolute;
     bottom: 1em;
     height: 3em;
@@ -508,27 +505,47 @@ button#img-post, button#img-cancel {
 }
 
 buttom#img-post {
-   left: 2em;
 }
 
 button#img-cancel {
+   left: 8em;
+}
+
+button#img-clearclip {
    left: 15em;
 }
 
 .chat-img-wrap {
+/*   position: absolute; */
    text-indent: 3em;
    position: relative;
    display: inline-block;
+   width: 75%;
+   display: inline-block;
+   max-width: 80%;
+   max-height: 75%;
+   text-indent: 3em;
+}
+
+.chat-img-wrap img {
+   max-width: 100%;
+   max-height: 100%;
+   height: auto;
+   width: auto;
+   display: block;
 }
 
 .img-close-btn {
    position: absolute;
-   top: 0;
-   right: 0;
+   top: 0.2em;
+   right: 0.2em;
    background: red;
    color: white;
    border: 2px solid red;
    border-radius: 8px;
    font-weight: bold;
    cursor: pointer;
+   font-size: 0.8em;
+   padding: 0.2em 0.4em;
+   line-height: 1;
 }

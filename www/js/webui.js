@@ -36,7 +36,7 @@ var leave_ding;			// sound widget for leave ding
 ////////////////
 // Chat stuff //
 ////////////////
-const fileChunks = {}; // msg_id => {chunks: [], received: 0, total: N}
+const file_chunks = {}; // msg_id => {chunks: [], received: 0, total: N}
 
 ////////////////////////////
 // Send initial Login Cmd //
@@ -168,13 +168,19 @@ $(document).ready(function() {
                const dataUrl = evt.target.result;
                const confirmBox = $('<div class="img-confirm-box">')
                   .append(`<p>Send this image?</p><img id="img-confirm-img" src="${dataUrl}"><br>`)
-                  .append('<button id="img-post" class="green-btn">Yes</button><button id="img-cancel" class="red-btn">No</button>');
+                  .append('<button id="img-post" class="green-btn">Yes</button><button id="img-cancel" class="red-btn">No</button>')
+                  .append('<button id="img-clearclip" class="red-btn">Clr Clipbrd</button>');
+                  
                $('body').append(confirmBox);
                confirmBox.find('#img-post').click(() => {
                   send_chunked_file(dataUrl);
                   confirmBox.remove();
                });
                confirmBox.find('#img-cancel').click(() => {
+                  confirmBox.remove();
+               });
+               confirmBox.find('#img-clearclip').click(() => {
+                  navigator.clipboard.writeText(" ");
                   confirmBox.remove();
                });
                form_disable(false);
@@ -220,9 +226,23 @@ $(document).ready(function() {
                   console.log("Send BAN for", args[1]);
                   send_command(command, args[1]);
                   break;
+               case 'clear':
+                  console.log("Cleared scrollback");
+                  clear_chatbox();
                case 'edit':
                   console.log("Send EDIT for", args[1]);
                   send_command(command, args[1]);
+                  break;
+               case 'help':
+                  append_chatbox('<div><span class="error">HELP: All commands start with / and should be lower case</span></div>');
+                  append_chatbox('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in</span></div>');
+                  append_chatbox('<div><span class="error">/clear&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
+                  append_chatbox('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user</span></div>');
+                  append_chatbox('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
+                  append_chatbox('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user (with optional reason)</span></div>');
+                  append_chatbox('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show as an ACTION in chat</span></div>');
+                  append_chatbox('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat</span></div>');
+                  append_chatbox('<div><span class="error">/whois&nbsp;&nbsp;&nbsp;- Show user information</span></div>');
                   break;
                case 'kick':
                   console.log("Sending KICK for", args[1]);
@@ -899,32 +919,81 @@ function send_chunked_file(base64Data) {
    }
 }
 
+//
+// Here we deal with reassembling chunks..
+// XXX: We should add a timeout so that abusive users can't send incomplete files
+// XXX: and tie up a bunch of RAM
 function handle_file_chunk(msgObj) {
    const { msg_id, chunk_index, total_chunks, data } = msgObj.talk;
    const sender = msgObj.talk.from;
 
-   if (!fileChunks[msg_id]) {
-      fileChunks[msg_id] = { chunks: [], received: 0, total: total_chunks };
+   if (!file_chunks[msg_id]) {
+      file_chunks[msg_id] = { chunks: [], received: 0, total: total_chunks };
    }
 
-   fileChunks[msg_id].chunks[chunk_index] = data;
-   fileChunks[msg_id].received++;
+   file_chunks[msg_id].chunks[chunk_index] = data;
+   file_chunks[msg_id].received++;
 
-   if (fileChunks[msg_id].received === total_chunks) {
-      const fullData = fileChunks[msg_id].chunks.join('');
-      delete fileChunks[msg_id];
+   if (file_chunks[msg_id].received === total_chunks) {
+      const fullData = file_chunks[msg_id].chunks.join('');
+      delete file_chunks[msg_id];
 
       const isSelf = sender === auth_user;
       const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
       const msg_ts = msg_timestamp(msgObj.talk.ts);
 
-      const $wrap = $('<div>')
-         .append(msg_ts  + `<span class="chat-msg-prefix">${prefix}</span><br/>`)
-         .append(`'<div class="chat-img-wrap"><img src="${fullData}" class="chat-img" /></div>`)
-         .append('<button class="img-close-btn">X</button>');
+      const $wrap = $('<div class="chat-img-msg">')
+         .append(`${msg_ts}&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`)
+         .append(
+            $('<div class="chat-img-wrap">')
+               .append(`<img src="${fullData}" class="chat-img"/>`)
+               .append('<button class="img-close-btn">X</button>')
+         );
 
-      $wrap.find('.img-close-btn').click(() => $wrap.remove());
+      // Close button functionality
+      $(document).on('click', '.img-close-btn', function () {
+         const $wrap = $(this).closest('.chat-img-msg');
+         $wrap.find('.chat-img-wrap').html('<em>[Image Deleted]</em>');
+      });
 
       append_chatbox($wrap.prop('outerHTML'));
    }
+}
+
+let startY = null;
+
+$(document).on('click', '.chat-img', function () {
+   $('#modalImage').attr('src', this.src);
+   $('#imageModal').removeClass('hidden');
+});
+
+$('#closeImageModal').on('click', () => {
+   $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
+});
+
+$(document).on('keydown', (e) => {
+   if ($('#imageModal').is(':visible') && e.key === 'Escape') {
+      $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
+   }
+});
+
+$('#imageModal').on('click', (e) => {
+   if (e.target.id === 'imageModal') {
+      $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
+   }
+});
+
+// Swipe down to close (basic touch gesture)
+$('#imageModal').on('touchstart', function (e) {
+   startY = e.originalEvent.touches[0].clientY;
+}).on('touchend', function (e) {
+   const endY = e.originalEvent.changedTouches[0].clientY;
+   if (startY && endY - startY > 100) { // swipe down
+      $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
+   }
+   startY = null;
+});
+
+function clear_chatbox() {
+   $('#chat-box').empty();
 }
