@@ -54,7 +54,8 @@ minimal inet_ntop() for non-posix
 [www]
 * Change the window title to show unread messages
 * Clickable links
-* Pasting images
+* Pasting images - should base64 encode them and send to currently connected users?
+
 * Selectable text in chat msgbox
 * Fix tab highlights
 * Implement Web Serial firmare uploads

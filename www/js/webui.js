@@ -6,10 +6,10 @@
 var socket;
 var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
-let reconnectDelay = 1;
-let reconnectInterval = [1, 2, 5, 10, 30 ];
-var reconnectIndex = 0; 	// Index to track the current delay
-var reconnectTimer;  		// so we can stop reconnects
+let reconnect_delay = 1;
+let reconnect_interval = [1, 2, 5, 10, 30 ];
+var reconnect_index = 0; 	// Index to track the current delay
+var reconnect_timer;  		// so we can stop reconnects
 var chat_ding;			// sound widget for chat ding
 var join_ding;			// sound widget for join ding
 var leave_ding;			// sound widget for leave ding
@@ -19,7 +19,6 @@ var auth_token;
 var auth_privs;
 var remote_nonce;
 var login_user;
-var unmute_vol = 100;
 var vol_changing = false;
 var vol_timer;
 
@@ -37,12 +36,20 @@ function try_login() {
 }
 
 $(document).ready(function() {
+   // Do we have a preference for dark/light mode in localStorage?
    if (localStorage.getItem("dark_mode") !== "false") {
       $("#dark-theme").attr("href", "css/dark.css").removeAttr("disabled");
       $("#tab-dark").text("light");
    } else {
       $("#dark-theme").attr("href", "").attr("disabled", "disabled");
       $("#tab-dark").text("dark");
+   }
+
+   // Do we have a preference for sounds in localStorage? Remember to invert the value!
+   if (localStorage.getItem("mute_sounds") === "false") {
+      $('#bell-btn').data('checked', true);
+   } else {
+      $('#bell-btn').data('checked', false);
    }
 
    if (!logged_in) {
@@ -82,14 +89,16 @@ $(document).ready(function() {
       let user = $("input#user");
       let pass = $("input#pass");
 
+      // Is the username field empty?
       if (user.val().trim() === "") {
-         flashRed(user);
+         flash_red(user);
          event.preventDefault();
          return;
       }
 
+      // Is the password field empty?
       if (pass.val().trim() === "") {
-         flashRed(pass);
+         flash_red(pass);
          event.preventDefault();
          return;
       }
@@ -100,7 +109,10 @@ $(document).ready(function() {
       // we need to re-authenticate
       logged_in = false;
 
+      // Open websocket connection
       ws_connect();
+
+      // Stop HTML form submission
       evt.preventDefault();
    });
 
@@ -132,6 +144,8 @@ $(document).ready(function() {
    // Send message to the server when "Send" button is clicked
    $('#send-btn').click(function() {
       var message = $('#chat-input').val().trim();
+      var chat_msg = false;
+      var msg_type = "invalid";
 
       // Determine if the message is a command, otherwise send it off as chat
       if (message) {
@@ -144,12 +158,7 @@ $(document).ready(function() {
             }
 
             var command = args[0];
-/* XXX: I dont like this but some people do?
-            if (!command) {
-               append_chatbox('<div><span class="error">👽 Empty command? -- ' + message + '</span></div>');
-               return;
-            }
-*/
+
             switch(command.toLowerCase()) {
                case 'ban':
                   console.log("Send BAN for", args[1]);
@@ -163,6 +172,12 @@ $(document).ready(function() {
                   console.log("Sending KICK for", args[1]);
                   sendCommand(command, args[1]);
                   break;
+               case 'me':
+                  message = message.slice(4);
+                  console.log("ACTION ", message);
+                  chat_msg = true;
+                  msg_type = "action";
+                  break;
                case 'mute':
                   console.log("Send MUTE", args[1]);
                   sendCommand(command, args[1]);
@@ -172,20 +187,28 @@ $(document).ready(function() {
                   sendCommand(command, args[1]);
                   break;
                default:
-                  append_chatbox('<div><span class="error">👽 Invalid command:' + command + '</span></div>');
+                  append_chatbox('<div><span class="error">Invalid command:' + command + '</span></div>');
                   break;
             }
          } else {
+           chat_msg = true;
+           msg_type = "pub";
+         }
+
+         if (chat_msg) {
+            var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
             var msgObj = {
                "talk": {
                   "cmd": "msg",
+                  "ts": my_ts,
                   "token": auth_token,
+                  "msg_type": msg_type,
                   "data": message
                }
             };
             socket.send(JSON.stringify(msgObj));
-            var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
          }
+
          $('#chat-input').val('');
          setTimeout(function () {
               $('#chat-input').focus();
@@ -193,10 +216,14 @@ $(document).ready(function() {
       }
    });
 
-   // Also send the message when the "Enter" key is pressed
+   ///////////////////////
+   // Keyboard controls //
+   ///////////////////////
    $('#chat-input').keypress(function(e) {
+      // ENTER
       if (e.which == 13) {
          $('#send-btn').click();
+         e.preventDefault();
       }
    });
 
@@ -209,7 +236,6 @@ $(document).ready(function() {
             $('form#login input#user').focus();
          }
       }
-         
    });
 
    // Ensure #chat-box does not accidentally become focusable
@@ -218,24 +244,15 @@ $(document).ready(function() {
    // Support toggling the sound via bell button
    $('#bell-btn').click(function() {
        let isChecked = $(this).data('checked');
-       if (isChecked) {
-          // Save unmuted volume globally
-          unmute_vol = $('audio#chat-ding').prop('volume');
-          console.log("Saved volume ", unmute_vol);
-          $('audio#chat-ding, audio#join-ding, audio#leave-ding').val(0);
-          $('input#alert-vol').val(0);
-       } else {
-          // restore saved volume
-          $('audio#chat-ding, audio#join-ding, audio#leave-ding').val(unmute_vol);
-          $('input#alert-vol').val(unmute_vol * 100);
-       }
        $(this).data('checked', !isChecked);
-       let newSrc = isChecked ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
 
-       console.log("Setting image to:", newSrc);  // Debug log
+       // chose the correct image based on checked status
+       let newSrc = isChecked ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
        $('#bell-image').attr('src', newSrc);
+
+       // save to local storage (note we save muted state, so inverted!)
+       localStorage.setItem("mute_sound", !$(this).data('checked'));
    });
-   $('#bell-btn').data('checked', true);  // Ensure proper initialization
 
    // User menu
    $('#um-close').click(function() {
@@ -318,9 +335,11 @@ async function sha1Hex(str) {
 }
 
 async function authenticate(login_user, login_pass, auth_token, nonce) {
-// XXX: This needs reworked a bit to use double-hashing for replay protection
-//
+///////////////////////
+// Replay protection //
+///////////////////////
 
+// XXX: Once the C side is implemented, we can re-enable this
 //   var firstHash = await sha1Hex(login_pass);
 //   var combinedString = firstHash + '+' + nonce;
 //   var hashed_pass = await sha1Hex(combinedString);
@@ -433,7 +452,7 @@ function ws_connect() {
 
    // Clear any previous reconnecting flag
    show_connecting(true);
-   socket = new WebSocket(getWebSocketUrl());
+   socket = new WebSocket(make_ws_url());
 
    if (ws_kicked == true) {
       // Prevent reconnecting for a moment at least
@@ -450,14 +469,14 @@ function ws_connect() {
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
       append_chatbox('<div class="chat-status">' + my_ts + '&nbsp;WebSocket connected.</div>');
       reconnecting = false; 		// Reset reconnect flag on successful connection
-      reconnectDelay = 1; 		// Reset reconnect delay to 1 second
+      reconnect_delay = 1; 		// Reset reconnect delay to 1 second
    };
 
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
-         handleReconnect();
+         handle_reconnect();
       }
    };
 
@@ -470,7 +489,7 @@ function ws_connect() {
 
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (on-error)");
-         handleReconnect();
+         handle_reconnect();
       }
    };
 
@@ -485,21 +504,33 @@ function ws_connect() {
 
             if (cmd === 'msg' && message) {
                var sender = msgObj.talk.from;
+               var msg_type = msgObj.talk.msg_type;
                var msg_ts = msg_timestamp(msgObj.talk.ts);
+
                // Don't play a bell or set highlight on SelfMsgs
                if (sender === auth_user) {
-                  append_chatbox('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+                  if (msg_type === 'action') {
+                     append_chatbox('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==> ***&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+                  } else {
+                     append_chatbox('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+                  }
                } else {
-                  append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+                  if (msg_type === 'action') {
+                     append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">***&nbsp;' + sender + '&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+                  } else {
+                     append_chatbox('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+                  }
 
                   // Play bell sound if the bell button is checked
                   if ($('#bell-btn').data('checked')) {
                      chat_ding.currentTime = 0;  // Reset audio to start from the beginning
                      chat_ding.play();
                   }
+
                   // Flash the indicator, if set
-                  // XXX: add a toggle in settings
                   set_highlight("chat");
+
+                  // XXX: Update the window title to show a pending message
                }
             } else if (cmd === 'join') {
                var user = msgObj.talk.user;
@@ -642,18 +673,18 @@ function ws_connect() {
 
 function stopReconnecting() {
    ws_kicked = true;
-   if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
+   if (reconnect_timer) {
+      clearTimeout(reconnect_timer);
    }
 
    if (reconnecting) {
       reconnecting = false;
    }
    show_connecting(false);
-   reconnectIndex = 0;
+   reconnect_index = 0;
 }
 
-function handleReconnect() {
+function handle_reconnect() {
    if (reconnecting) {
       return;
    }
@@ -661,23 +692,24 @@ function handleReconnect() {
    reconnecting = true;
    show_connecting(true);
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-   append_chatbox('<div class="chat-status error">' + my_ts + ' 👽 Reconnecting in ' + reconnectDelay + ' sec</div>');
+   append_chatbox('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec</div>');
 
    // Delay reconnecting for a bit
-   reconnectTimer = setTimeout(function() {
+   reconnect_timer = setTimeout(function() {
       ws_connect();
 
       // increase delay for the next try
-      reconnectDelay = reconnectInterval[Math.min(reconnectInterval.length - 1, reconnectInterval.indexOf(reconnectDelay) + 1)];
-   }, reconnectDelay * 1000);
+      reconnect_delay = reconnect_interval[Math.min(reconnect_interval.length - 1, reconnect_interval.indexOf(reconnect_delay) + 1)];
+   }, reconnect_delay * 1000);
 }
 
-function getWebSocketUrl() {
+function make_ws_url() {
    var protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
    return protocol + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + "/ws/";
 }
 
-function flashRed(element) {
+function flash_red(element) {
+   // XXX: We should save the old border, if any, then restore it below
    element.focus()
    element.css("border", "2px solid red");
    setTimeout(() => {
@@ -687,7 +719,7 @@ function flashRed(element) {
 
 function toggle_dark_mode() {
    const $darkTheme = $("#dark-theme");
-   const $toggleBtn = $("#tab-dark"); // The button span
+   const $toggleBtn = $("#tab-dark");
    const darkCSS = "css/dark.css";
 
    let dark_mode = localStorage.getItem("dark_mode") !== "false"; 
