@@ -919,7 +919,6 @@ function send_chunked_file(base64Data) {
    }
 }
 
-//
 // Here we deal with reassembling chunks..
 // XXX: We should add a timeout so that abusive users can't send incomplete files
 // XXX: and tie up a bunch of RAM
@@ -934,7 +933,9 @@ function handle_file_chunk(msgObj) {
    file_chunks[msg_id].chunks[chunk_index] = data;
    file_chunks[msg_id].received++;
 
+   // If this is the last chunk, display it
    if (file_chunks[msg_id].received === total_chunks) {
+      // XXX: Should we scan for missing chunks and-request them to be resent?
       const fullData = file_chunks[msg_id].chunks.join('');
       delete file_chunks[msg_id];
 
@@ -942,21 +943,52 @@ function handle_file_chunk(msgObj) {
       const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
       const msg_ts = msg_timestamp(msgObj.talk.ts);
 
+      const $img = $('<img>').attr('src', fullData).addClass('chat-img');
+      const $min = $('<button>').addClass('img-min-btn').text('−');
+      const $close = $('<button>').addClass('img-close-btn').text('X');
+
+      const $controls = $('<div class="chat-img-controls">')
+         .append($min)
+         .append($close);
+
+      const $imgWrap = $('<div class="chat-img-wrap">')
+         .append($controls)
+         .append($img);
+
       const $wrap = $('<div class="chat-img-msg">')
          .append(`${msg_ts}&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`)
-         .append(
-            $('<div class="chat-img-wrap">')
-               .append(`<img src="${fullData}" class="chat-img"/>`)
-               .append('<button class="img-close-btn">X</button>')
-         );
+         .append($imgWrap);
+
+      // add the new div into the chat-box
+      append_chatbox($wrap.prop('outerHTML'));
 
       // Close button functionality
       $(document).on('click', '.img-close-btn', function () {
-         const $wrap = $(this).closest('.chat-img-msg');
-         $wrap.find('.chat-img-wrap').html('<em>[Image Deleted]</em>');
+         const $wrap = $(this).closest('.chat-img-wrap');
+         $wrap.find('img.chat-img').remove();
+         $wrap.find('.img-placeholder').remove(); // just in case
+         $wrap.append('<em class="img-placeholder">[Image Deleted]</em>');
+         $(this).siblings('.img-min-btn').remove(); // remove minimize if deleted
+         $(this).remove();
       });
 
-      append_chatbox($wrap.prop('outerHTML'));
+      // minimize/restore button functionality
+      $(document).on('click', '.img-min-btn', function () {
+         const $wrap = $(this).closest('.chat-img-wrap');
+         const $img = $wrap.find('img.chat-img');
+         const $placeholder = $wrap.find('.img-placeholder');
+
+         if ($img.is(':visible')) {
+            $img.hide();
+            if (!$placeholder.length)
+               $wrap.append('<em class="img-placeholder">[Image Minimized]</em>');
+            $(this).text('+');
+         } else {
+            $img.show();
+            $placeholder.remove();
+            $(this).text('−');
+         }
+      });
    }
 }
 

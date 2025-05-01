@@ -535,17 +535,32 @@ button#img-clearclip {
    display: block;
 }
 
-.img-close-btn {
+
+.chat-img-controls {
    position: absolute;
    top: 0.2em;
    right: 0.2em;
+   display: flex;
+   gap: 0.3em;
+}
+
+.img-close-btn,
+.img-min-btn {
+   background: #888;
+   color: white;
+   border: 2px solid #888;
+   border-radius: 6px;
+   font-weight: bold;
+   font-size: 0.75em;
+   padding: 0 0.4em;
+   cursor: pointer;
+}
+
+.img-close-btn {
    background: red;
    color: white;
-   border: 2px solid red;
-   border-radius: 8px;
    font-weight: bold;
    cursor: pointer;
    font-size: 0.8em;
-   padding: 0.2em 0.4em;
    line-height: 1;
 }
