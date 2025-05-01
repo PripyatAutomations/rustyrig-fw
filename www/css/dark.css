@@ -96,3 +96,7 @@ a.chat-link {
     background: #0a0a0a;
     border: 1px solid #ccc;
 ]
+
+.img-confirm-box img {
+    border: 2px solid white;
+}

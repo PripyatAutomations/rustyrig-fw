@@ -469,34 +469,66 @@ a.chat-link {
 }
 
 .img-confirm-box {
-    background: #a0a0a0;
+    background: #ffe0e0;
     border: 1px solid #ccc;
-    padding: 10px;
+    font-size: 1.3em;
+    font-weight: bold;
+    padding-left: 10px;
     position: absolute;
     zIndex: 1500;
+/*
     height: CALC(100% - 10.1em);
     width: CALC(100% - 10.1em);
     left: 5em;
-    top: 5em;
-    margin-bottom: 1em;
+    top: 3em;
+*/
+    height: 100%;
+    width: 100%;
+    top: 0px;
+    left: 0px;
 }
 
-.img-confirm-img {
-    max-width: CALC(100% - 11em);
-    max-height: CALC(100% - 16.5em);
+.img-confirm-box img {
+    border: 2px solid red;
+    margin-top: 0px;
+    padding: 0px;
+    position: absolute;
+    top: 2.5em;
+    left: 2em;
+    width: 100%v;
+    max-width: CALC(100% - 6em);
+    max-height: CALC(80% - 3.5em);
 }
 
 button#img-post, button#img-cancel {
-    position: fixed;
-    bottom: 4em;
+    position: absolute;
+    bottom: 1em;
     height: 3em;
     width: 5em;
 }
 
 buttom#img-post {
-   left: 10em;
+   left: 2em;
 }
 
 button#img-cancel {
-   left: 13.5em;
+   left: 15em;
+}
+
+.chat-img-wrap {
+   text-indent: 3em;
+   position: relative;
+   display: inline-block;
+}
+
+.img-close-btn {
+   position: absolute;
+   top: 0;
+   right: 0;
+   background: red;
+   color: white;
+   border: 2px solid red;
+   border-radius: 8px;
+   font-weight: bold;
+   cursor: pointer;
 }

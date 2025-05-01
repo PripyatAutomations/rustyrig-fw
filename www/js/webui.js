@@ -1,8 +1,10 @@
-// Run our startup tasks
-// XXX: Load localstorage settings or request from server (this will send defaults if no prefs stored)
-//    -- Save to localStorage if not already there
-// XXX: Register an interest in events on ws
-// XXX: Update the display whenever websocket event comes in
+//
+// Here's my ugly implementation of the WebUI.
+//
+
+//////////////////////////
+// Socket related stuff //
+//////////////////////////
 var socket;
 var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
@@ -10,33 +12,55 @@ let reconnect_delay = 1;
 let reconnect_interval = [1, 2, 5, 10, 30 ];
 var reconnect_index = 0; 	// Index to track the current delay
 var reconnect_timer;  		// so we can stop reconnects
+
+////////////////////////////
+// Authentication/Session //
+////////////////////////////
+var logged_in;			// Did we get an AUTHORIZED response?
+var auth_user;			// Username the server sent us
+var auth_token;			// Session token the server gave us during LOGIN
+var auth_privs;			// Privileges the server has granted us
+var remote_nonce;		// The login nonce, which is used to derive a replay protected password response
+var login_user;			// Username we send to the server
+
+///////////////////
+// Volume slider //
+///////////////////
+var vol_changing = false;	// Are we currently changing the volume?\
+var vol_timer;			// timer to expire Set Volume dialog
 var chat_ding;			// sound widget for chat ding
 var join_ding;			// sound widget for join ding
 var leave_ding;			// sound widget for leave ding
-var logged_in;			// Did we get an AUTHORIZED response?
-var auth_user;
-var auth_token;
-var auth_privs;
-var remote_nonce;
-var login_user;
-var vol_changing = false;
-var vol_timer;
 
-// This sends the first stage of the login process
+
+////////////////
+// Chat stuff //
+////////////////
+const fileChunks = {}; // msg_id => {chunks: [], received: 0, total: N}
+
+////////////////////////////
+// Send initial Login Cmd //
+////////////////////////////
 function try_login() {
+   // Save the login user
    login_user = $('input#user').val().toUpperCase();
+
    console.log("Logging in as " + login_user + "...");
+
    var msgObj = {
       "auth": {
          "cmd": "login",
          "user": login_user
       }
    };
+
    socket.send(JSON.stringify(msgObj));
 }
 
-
 $(document).ready(function() {
+   /////////////////////////////////////
+   // Load settings from LocalStorage //
+   /////////////////////////////////////
    // Do we have a preference for dark/light mode in localStorage?
    if (localStorage.getItem("dark_mode") !== "false") {
       $("#dark-theme").attr("href", "css/dark.css").removeAttr("disabled");
@@ -46,7 +70,6 @@ $(document).ready(function() {
       $("#tab-dark").text("dark");
    }
 
-   // Do we have a preference for sounds in localStorage? Remember to invert the value!
    if (localStorage.getItem("mute_sounds") === "false") {
       $('#bell-btn').data('checked', true);
    } else {
@@ -66,7 +89,6 @@ $(document).ready(function() {
       $('input#user').val = login_user;
    });
 
-/* XXX: WIP
    // pop up the volume dialog, if not already open
    $('button#bell-btn').hover(function() {
       if (!vol_changing) {
@@ -78,7 +100,6 @@ $(document).ready(function() {
          }, 5000);
       }
    });
-*/
 
    $("input#alert-vol").on("change", function() {
       let volume = $(this).val() / 100;
@@ -87,12 +108,16 @@ $(document).ready(function() {
 
    // When the form is submitted, we need to send the username and wait for a nonce to come back
    $('form#login').submit(function(evt) {
+      // Stop HTML form submission
+      evt.preventDefault();
+
       let user = $("input#user");
       let pass = $("input#pass");
 
       // Is the username field empty?
       if (user.val().trim() === "") {
          flash_red(user);
+         user.focus();
          event.preventDefault();
          return;
       }
@@ -100,6 +125,7 @@ $(document).ready(function() {
       // Is the password field empty?
       if (pass.val().trim() === "") {
          flash_red(pass);
+         pass.focus();
          event.preventDefault();
          return;
       }
@@ -113,14 +139,13 @@ $(document).ready(function() {
       // Open websocket connection
       ws_connect();
 
-      // Stop HTML form submission
-      evt.preventDefault();
    });
 
    $('input#reset').click(function(evt) {
       console.log("Form reset");
    });
 
+   // Attach the sound objects (chat/join/leave)
    chat_ding = document.getElementById('chat-ding');
    join_ding = document.getElementById('join-ding');
    leave_ding = document.getElementById('leave-ding');
@@ -139,16 +164,20 @@ $(document).ready(function() {
             const file = item.getAsFile();
             const reader = new FileReader();
             reader.onload = function(evt) {
+               form_disable(true);
                const dataUrl = evt.target.result;
                const confirmBox = $('<div class="img-confirm-box">')
-                  .append(`<p>Send this image?</p><img src="${dataUrl}"><br>`)
+                  .append(`<p>Send this image?</p><img id="img-confirm-img" src="${dataUrl}"><br>`)
                   .append('<button id="img-post" class="green-btn">Yes</button><button id="img-cancel" class="red-btn">No</button>');
                $('body').append(confirmBox);
                confirmBox.find('#img-post').click(() => {
-                  send_chunked_image(dataUrl);
+                  send_chunked_file(dataUrl);
                   confirmBox.remove();
                });
-               confirmBox.find('#img-cancel').click(() => confirmBox.remove());
+               confirmBox.find('#img-cancel').click(() => {
+                  confirmBox.remove();
+               });
+               form_disable(false);
                $('button#img-post').focus();
             };
             reader.readAsDataURL(file);
@@ -542,9 +571,9 @@ function ws_connect() {
                var msg_ts = msg_timestamp(msgObj.talk.ts);
 
                // Linkify non-images
-               if (msg_type === "image_chunk") {
-                  console.log("Handling image chunk: " + message);
-                  handle_image_chunk(message);
+               if (msg_type === "file_chunk") {
+//                  console.log("Handling image chunk: " + message);
+                  handle_file_chunk(msgObj);
                } else if (msg_type === "action" || msg_type == "pub") {
                   // Conevert URLs to clickable links
                   message = msg_create_links(message);
@@ -847,19 +876,19 @@ function clear_highlight() {
    $('span[id^="tab-"]').removeClass('chat-highlight');
 }
 
-function send_chunked_image(base64Image) {
+function send_chunked_file(base64Data) {
    const chunkSize = 8000; // Safe under 64K JSON limit
-   const totalChunks = Math.ceil(base64Image.length / chunkSize);
+   const totalChunks = Math.ceil(base64Data.length / chunkSize);
    const msgId = crypto.randomUUID(); // Unique ID for this image
 
    for (let i = 0; i < totalChunks; i++) {
-      const chunkData = base64Image.slice(i * chunkSize, (i + 1) * chunkSize);
+      const chunkData = base64Data.slice(i * chunkSize, (i + 1) * chunkSize);
       const msgObj = {
          talk: {
             cmd: "msg",
             ts: msg_timestamp(Math.floor(Date.now() / 1000)),
             token: auth_token,
-            msg_type: "image_chunk",
+            msg_type: "file_chunk",
             msg_id: msgId,
             chunk_index: i,
             total_chunks: totalChunks,
@@ -870,22 +899,32 @@ function send_chunked_image(base64Image) {
    }
 }
 
-const imageChunks = {}; // msg_id => {chunks: [], received: 0, total: N}
+function handle_file_chunk(msgObj) {
+   const { msg_id, chunk_index, total_chunks, data } = msgObj.talk;
+   const sender = msgObj.talk.from;
 
-function handle_image_chunk(msg) {
-   const { msg_id, chunk_index, total_chunks, data } = msg;
-
-   if (!imageChunks[msg_id]) {
-      imageChunks[msg_id] = { chunks: [], received: 0, total: total_chunks };
+   if (!fileChunks[msg_id]) {
+      fileChunks[msg_id] = { chunks: [], received: 0, total: total_chunks };
    }
 
-   imageChunks[msg_id].chunks[chunk_index] = data;
-   imageChunks[msg_id].received++;
+   fileChunks[msg_id].chunks[chunk_index] = data;
+   fileChunks[msg_id].received++;
 
-   if (imageChunks[msg_id].received === total_chunks) {
-      const fullData = imageChunks[msg_id].chunks.join('');
-      delete imageChunks[msg_id];
+   if (fileChunks[msg_id].received === total_chunks) {
+      const fullData = fileChunks[msg_id].chunks.join('');
+      delete fileChunks[msg_id];
 
-      append_chatbox(`<div><img src="${fullData}" class="chat-img" /></div>`);
+      const isSelf = sender === auth_user;
+      const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
+      const msg_ts = msg_timestamp(msgObj.talk.ts);
+
+      const $wrap = $('<div>')
+         .append(msg_ts  + `<span class="chat-msg-prefix">${prefix}</span><br/>`)
+         .append(`'<div class="chat-img-wrap"><img src="${fullData}" class="chat-img" /></div>`)
+         .append('<button class="img-close-btn">X</button>');
+
+      $wrap.find('.img-close-btn').click(() => $wrap.remove());
+
+      append_chatbox($wrap.prop('outerHTML'));
    }
 }

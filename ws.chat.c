@@ -54,7 +54,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          memset(msgbuf, 0, sizeof(msgbuf));
-         if (strcmp(msg_type, "image_chunk") == 0) {
+         if (strcmp(msg_type, "file_chunk") == 0) {
             // Deal with chat images, they'll have additional fields
             if (strcasecmp(user, "guest") == 0) {
                snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", user, cptr->guest_id, escaped_msg, now, msg_type, chunk_index, total_chunks);
