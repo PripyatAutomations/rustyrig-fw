@@ -52,6 +52,11 @@ minimal inet_ntop() for non-posix
 * Implement mqtt client mode, for sending to existing server
 
 [www]
+* Change the window title to show unread messages
+* Clickable links
+* Pasting images
+* Selectable text in chat msgbox
+* Fix tab highlights
 * Implement Web Serial firmare uploads
         https://developer.chrome.com/articles/serial/
         https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API
@@ -63,10 +68,7 @@ minimal inet_ntop() for non-posix
 * Rework the http_client stuff so that instead of being removed on disconnected,
   we just use a last-seen time to expire their session. We should never have a ton
   of people connected to the radio, so it should be fine this way
-* Fix tab highlights
 * Implement tabbed/windowed modes with movable/resizable windows (overlapping)
-* Finish implementing pings
-* Explore replacements for mongoose library that integrate a bit better with our needs
 
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards

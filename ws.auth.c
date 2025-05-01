@@ -121,12 +121,24 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          goto cleanup;
       }
 
-      if (strcasecmp(up->name, "guest") == 0) {
-         cptr->guest_id = generate_random_number(4);
-         guest = true;
+      // Deal with double-hashed (reply-protected) responses
+      char *nonce = cptr->nonce;
+      if (nonce == NULL) {
+         Log(LOG_CRIT, "auth", "No nonce for user %d", login_uid);
+         rv = true;
+         goto cleanup;
       }
+//      char *temp_pw = compute_wire_password(up->pass, nonce);
+//      Log(LOG_INFO, "auth", "Saved: %s, hashed (server): %s, received: %s", up->pass, temp_pw, pass);
 
+//      if (strcmp(temp_pw, pass) == 0) {
       if (strcasecmp(up->pass, pass) == 0) {
+         // special handling for guests; we generate a random # prefix for their name
+         if (strcasecmp(up->name, "guest") == 0) {
+            cptr->guest_id = generate_random_number(4);
+            guest = true;
+         }
+
          cptr->authenticated = true;
 
          // Store some timestamps such as when user joined & session will forcibly expire
@@ -168,7 +180,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s (port %d) with privs: %s",
              cptr->user->name, cptr, ip, port, http_users[cptr->user->uid].privs);
       } else {
-         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> from IP %s (port %d) gave wrong password. Kicking!", cptr->user, cptr, ip, port);
+         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> from IP %s (port %d) gave wrong password. |%s| != |%s| Kicking!", cptr->user, cptr, ip, port, pass, up->pass);
          ws_kick_client(cptr, "Invalid login/password");
       }
    }

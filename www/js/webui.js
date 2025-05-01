@@ -317,11 +317,13 @@ async function sha1Hex(str) {
       .join("");
 }
 
-async function authenticate(login_user, login_pass, auth_token) {
-// XXX: This needs reworked a bit to user the double-hashing for replay protection
-//                  var firstHash = sha1Hex(utf8Encode(login_pass)); // Ensure correct encoding
-//                  var combinedString = firstHash + '+' + nonce;
-//                  var hashed_pass = sha1Hex(utf8Encode(combinedString));
+async function authenticate(login_user, login_pass, auth_token, nonce) {
+// XXX: This needs reworked a bit to use double-hashing for replay protection
+//
+
+//   var firstHash = await sha1Hex(login_pass);
+//   var combinedString = firstHash + '+' + nonce;
+//   var hashed_pass = await sha1Hex(combinedString);
 
    var hashed_pass = await sha1Hex(login_pass);  // Wait for the hash to complete
    var msgObj = {
@@ -614,7 +616,7 @@ function ws_connect() {
                   var hashed_pass = sha1Hex(login_pass);
 
                   // here we use an async call to crypto.simple
-                  authenticate(login_user, login_pass, auth_token).then(msgObj => {
+                  authenticate(login_user, login_pass, auth_token, nonce).then(msgObj => {
                      var msgObj_t = JSON.stringify(msgObj);
                      socket.send(msgObj_t);
                   });

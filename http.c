@@ -286,9 +286,9 @@ void http_dump_clients(void) {
 }
 
 // XXX: Fix this?
-#if	0
-unsigned char *compute_wire_password(const unsigned char *password, const char *nonce) {
-   unsigned char *rv = (unsigned char *)malloc(20);
+#if	1
+char *compute_wire_password(const char *password, const char *nonce) {
+   char *rv = (char *)malloc(20);
    char combined[HTTP_HASH_LEN+1];
    char hex_output[HTTP_HASH_LEN+1];
    mg_sha1_ctx ctx;
@@ -300,11 +300,11 @@ unsigned char *compute_wire_password(const unsigned char *password, const char *
 
    memset((void *)rv, 0, 20);
    memset(combined, 0, sizeof(combined));
-   snprintf(combined, sizeof(combined), "%s+%s", password_hash, nonce);
+   snprintf(combined, sizeof(combined), "%s+%s", password, nonce);
 
    // Compute SHA1 of the combined string
    mg_sha1_init(&ctx);
-   mg_sha1_update(&ctx, (unsigned char *)combined, strlen(combined));
+   mg_sha1_update(&ctx, (char *)combined, strlen(combined));
    mg_sha1_final(rv, &ctx);
 
    /* Print out the result */
@@ -317,12 +317,12 @@ unsigned char *compute_wire_password(const unsigned char *password, const char *
 }
 #endif
 #if	0
-unsigned char *compute_wire_password(const unsigned char *password, const char *nonce) {
-   unsigned char *rv =  (unsigned char *)malloc(20);
+char *compute_wire_password(const char *password, const char *nonce) {
+   char *rv =  (char *)malloc(20);
    memset((void *)rv, 0, 20);
    mg_sha1_ctx ctx;
    mg_sha1_init(&ctx);
-   mg_sha1_update(&ctx, (unsigned char *)password, strlen(password));
+   mg_sha1_update(&ctx, (char *)password, strlen(password));
    mg_sha1_final(rv, &ctx);
    return rv;
 }
