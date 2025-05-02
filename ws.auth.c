@@ -16,6 +16,38 @@
 #include "ws.h"
 extern struct GlobalState rig;	// Global state
 
+char *compute_wire_password(const char *password, const char *nonce) {
+   unsigned char combined[HTTP_HASH_LEN + 1];
+   char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
+   mg_sha1_ctx ctx;
+
+   if (hex_output == NULL) {
+      Log(LOG_DEBUG, "http.auth", "oom in compute_wire_password");
+      return NULL;
+   }
+
+   memset((char *)combined, 0, sizeof(combined));
+   snprintf((char *)combined, sizeof(combined), "%s+%s", password, nonce);
+
+   // Compute SHA1 of the combined string
+   mg_sha1_init(&ctx);
+   size_t len = strlen((char *)combined);  // Cast to (char *) for strlen
+   mg_sha1_update(&ctx, (unsigned char *)combined, len);
+   
+   unsigned char hash[20];  // Store the raw SHA1 hash
+   mg_sha1_final(hash, &ctx);
+
+   // Convert the raw hash to a hexadecimal string
+   for (int i = 0; i < 20; i++) {
+      sprintf(hex_output + (i * 2), "%02x", hash[i]);
+   }
+   hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
+
+   Log(LOG_DEBUG, "http.auth", "cwp: Final SHA1: %s", hex_output);
+   
+   return hex_output;
+}
+
 bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
 
@@ -128,8 +160,9 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          rv = true;
          goto cleanup;
       }
-//      char *temp_pw = compute_wire_password(up->pass, nonce);
-//      Log(LOG_INFO, "auth", "Saved: %s, hashed (server): %s, received: %s", up->pass, temp_pw, pass);
+
+      char *temp_pw = compute_wire_password(up->pass, nonce);
+      Log(LOG_INFO, "auth", "Saved: %s, hashed (server): %s, received: %s", up->pass, temp_pw, pass);
 
 //      if (strcmp(temp_pw, pass) == 0) {
       if (strcasecmp(up->pass, pass) == 0) {

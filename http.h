@@ -89,7 +89,6 @@ extern http_client_t *http_find_client_by_name(const char *name);
 extern const char *http_get_uname(int8_t uid);
 extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file
-extern char *compute_wire_password(const char *password_hash, const char *nonce);
 extern char *escape_html(const char *input);
 
 //////////////////

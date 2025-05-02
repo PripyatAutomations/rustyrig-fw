@@ -2,7 +2,6 @@
 // I kind of want to explore more open options for this
 #include "config.h"
 #if	defined(FEATURE_HTTP)
-
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -284,49 +283,6 @@ void http_dump_clients(void) {
       cptr = cptr->next;
    }
 }
-
-// XXX: Fix this?
-#if	1
-char *compute_wire_password(const char *password, const char *nonce) {
-   char *rv = (char *)malloc(20);
-   char combined[HTTP_HASH_LEN+1];
-   char hex_output[HTTP_HASH_LEN+1];
-   mg_sha1_ctx ctx;
-
-   if (rv == NULL) {
-      Log(LOG_DEBUG, "http.auth", "oom in compute_wire_password");
-      return NULL;
-   }
-
-   memset((void *)rv, 0, 20);
-   memset(combined, 0, sizeof(combined));
-   snprintf(combined, sizeof(combined), "%s+%s", password, nonce);
-
-   // Compute SHA1 of the combined string
-   mg_sha1_init(&ctx);
-   mg_sha1_update(&ctx, (char *)combined, strlen(combined));
-   mg_sha1_final(rv, &ctx);
-
-   /* Print out the result */
-   for (int i = 0; i < 20; i++) {
-      sprintf(hex_output + (i * 2), "%02x", combined[i]);
-   }
-   hex_output[41] = '\0';
-   Log(LOG_DEBUG, "http.auth", "cwp: Final SHA1: %s", hex_output);
-   return rv;
-}
-#endif
-#if	0
-char *compute_wire_password(const char *password, const char *nonce) {
-   char *rv =  (char *)malloc(20);
-   memset((void *)rv, 0, 20);
-   mg_sha1_ctx ctx;
-   mg_sha1_init(&ctx);
-   mg_sha1_update(&ctx, (char *)password, strlen(password));
-   mg_sha1_final(rv, &ctx);
-   return rv;
-}
-#endif
 
 static int generate_nonce(char *buffer, size_t length) {
    static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -815,7 +771,7 @@ void http_expire_sessions(void) {
          Log(LOG_AUDIT, "http.auth", "Client connection <%x> for user %s timed out, disconnecting", cptr, cptr->user->name);
          ws_kick_client(cptr, "Ping timeout");
       } else if (cptr->last_heard < (now - HTTP_PING_TIME)) { // Client hasn't been heard from in awhile, send a ping
-         // XXX: Send a ping, so they'll have something to respond to to acknowledge life
+         // XXX: Send a ping, so they'll have something to respond to, to acknowledge life
 //         cptr->last_ping = now;
       }
       cptr = cptr->next;
