@@ -32,7 +32,6 @@ var chat_ding;			// sound widget for chat ding
 var join_ding;			// sound widget for join ding
 var leave_ding;			// sound widget for leave ding
 
-
 ////////////////
 // Chat stuff //
 ////////////////
@@ -57,6 +56,49 @@ function try_login() {
    socket.send(JSON.stringify(msgObj));
 }
 
+function initialize_sounds() {
+   // Attach the sound objects (chat/join/leave)
+   chat_ding = document.getElementById('chat-ding');
+   join_ding = document.getElementById('join-ding');
+   leave_ding = document.getElementById('leave-ding');
+
+   // Attach function to pop up the volume dialog, if not already open
+   $('button#bell-btn').hover(function() {
+      if (!vol_changing) {
+         vol_changing = true;
+         $('input#alert-vol').show();
+         vol_timer = setTimeout(function() {
+            $('input#alert-vol').hide();
+            vol_changing = false;
+         }, 5000);
+      }
+   });
+
+   // Deal with volume change events
+   $("input#alert-vol").on("change", function() {
+      let volume = $(this).val() / 100;
+      $("audio#chat-ding, audio#join-ding, audio#leave-ding").prop("volume", volume);
+   });
+
+   // Support toggling the sound via bell button
+//      $('#bell-btn').click(function() {
+   $('#bell-btn').change(function() {
+       let isChecked = $(this).data('checked');
+
+       // chose the correct image based on checked status
+       let newSrc = isChecked ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
+       $('#bell-image').attr('src', newSrc);
+       // save state to localStorage
+       localStorage.setItem("play_sounds", isChecked);
+   });
+
+function toggle_mute() {
+   let isChecked = $('#bell-btn').data('checked');
+
+   // Toggle the value, which will fire the change event
+   $('#bell-btn').data('checked', !isChecked);
+}
+
 $(document).ready(function() {
    /////////////////////////////////////
    // Load settings from LocalStorage //
@@ -69,13 +111,6 @@ $(document).ready(function() {
       $("#dark-theme").attr("href", "").attr("disabled", "disabled");
       $("#tab-dark").text("dark");
    }
-/*
-   if (localStorage.getItem("mute_sounds") === "false") {
-      $('#bell-btn').data('checked', true);
-   } else {
-      $('#bell-btn').data('checked', false);
-   }
-*/
 
    if (!logged_in) {
       // put a chroma-hash widget on password fields
@@ -90,22 +125,6 @@ $(document).ready(function() {
       $('input#user').val = login_user;
    });
 
-   // pop up the volume dialog, if not already open
-   $('button#bell-btn').hover(function() {
-      if (!vol_changing) {
-         vol_changing = true;
-         $('input#alert-vol').show();
-         vol_timer = setTimeout(function() {
-            $('input#alert-vol').hide();
-            vol_changing = false;
-         }, 5000);
-      }
-   });
-
-   $("input#alert-vol").on("change", function() {
-      let volume = $(this).val() / 100;
-      $("audio#chat-ding, audio#join-ding, audio#leave-ding").prop("volume", volume);
-   });
 
    // When the form is submitted, we need to send the username and wait for a nonce to come back
    $('form#login').submit(function(evt) {
@@ -146,10 +165,8 @@ $(document).ready(function() {
       console.log("Form reset");
    });
 
-   // Attach the sound objects (chat/join/leave)
-   chat_ding = document.getElementById('chat-ding');
-   join_ding = document.getElementById('join-ding');
-   leave_ding = document.getElementById('leave-ding');
+   // Set up sounds
+   initialize_sounds();
    form_disable(true);
 
    // clear button
@@ -188,14 +205,14 @@ $(document).ready(function() {
                $('button#img-post').focus();
             };
             reader.readAsDataURL(file);
-            e.preventDefault(); // prevent default paste behavior
+            e.preventDefault();
             break;
          }
       }
    });
 
    // Toggle display of the emoji keyboard
-   $('#open-emoji').click(function() {
+   $('#emoji-btn').click(function() {
        const emojiKeyboard = $('#emoji-keyboard');
        if (emojiKeyboard.is(':visible')) {
            emojiKeyboard.hide(); // Hide if already visible
@@ -213,15 +230,16 @@ $(document).ready(function() {
       // Determine if the message is a command, otherwise send it off as chat
       if (message) {
          if (message.charAt(0) == '/') {
-            console.log("got CHAT command:", message);
+//            console.log("got CHAT command:", message);
             var args = message.split(' ');
 
+            // remove the leading /
             if (args.length > 0 && args[0].startsWith('/')) {
-               args[0] = args[0].slice(1);  // Remove the first character if /
+               args[0] = args[0].slice(1);
             }
-
             var command = args[0];
 
+            // Compare the lower-cased command
             switch(command.toLowerCase()) {
                case 'ban':
                   console.log("Send BAN for", args[1]);
@@ -249,7 +267,7 @@ $(document).ready(function() {
                   console.log("Sending KICK for", args[1]);
                   send_command(command, args[1]);
                   break;
-               case 'me':
+               case 'me':	// /me shows an ACTION in the chat
                   message = message.slice(4);
                   console.log("ACTION ", message);
                   chat_msg = true;
@@ -272,6 +290,7 @@ $(document).ready(function() {
            msg_type = "pub";
          }
 
+         // Is this a user message that we should display?
          if (chat_msg) {
             var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
             var msgObj = {
@@ -286,10 +305,11 @@ $(document).ready(function() {
             socket.send(JSON.stringify(msgObj));
          }
 
+         // Clear the input field and after a delay re-focus it, to avoid flashing
          $('#chat-input').val('');
          setTimeout(function () {
               $('#chat-input').focus();
-         }, 10); // Delay to allow any event processing to finish
+         }, 10);
       }
    });
 
@@ -304,12 +324,13 @@ $(document).ready(function() {
       }
    });
 
+   // For clicks inside the document, do stuff
    $(document).click(function (event) {
       // If the click is NOT on an input, button, or a focusable element
       if (!$(event.target).is('#chat-input, a, [tabindex]')) {
-         if (logged_in) {
+         if (logged_in) {	// Focus the chat input field
             $('#chat-input').focus();
-         } else {
+         } else {		// Nope, focus the user field
             $('form#login input#user').focus();
          }
       }
@@ -318,23 +339,8 @@ $(document).ready(function() {
    // Ensure #chat-box does not accidentally become focusable
    $('#chat-box').attr('tabindex', '-1');
 
-   // Support toggling the sound via bell button
-   $('#bell-btn').click(function() {
-       let isChecked = $(this).data('checked');
-       $(this).data('checked', !isChecked);
-
-       // chose the correct image based on checked status
-       let newSrc = isChecked ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
-       $('#bell-image').attr('src', newSrc);
-
-       // save to local storage (note we save muted state, so inverted!)
-       localStorage.setItem("mute_sound", !$(this).data('checked'));
-   });
-
-   // User menu
-   $('#um-close').click(function() {
-      $('#user-menu').hide();
-   });
+   // User menu, close button
+   $('#um-close').click(function() { $('#user-menu').hide(); });
 
    // Top menu
    $('span#tab-chat').click(function() {
@@ -364,7 +370,7 @@ $(document).ready(function() {
    // deal with our keypresses
    $(document).keydown(function (e) {
       if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
-         e.preventDefault(); // Prevent default behavior (e.g., focusing or scrolling)
+         e.preventDefault(); 	// Prevent default behavior (e.g., focusing or scrolling)
 
          let chatBox = $("#chat-box");
          let scrollAmount = 30; // Adjust for smoother or faster scrolling
@@ -389,6 +395,7 @@ function append_chatbox(msg) {
 };
 
 function form_disable(state) {
+   $('#emoji-btn').prop('disabled', state);
    $('#send-btn').prop('disabled', state);
    $('#clear-btn').prop('disabled', state);
    $('#chat-box').prop('disabled', state);
@@ -403,7 +410,7 @@ function show_connecting(state) {
    }
 }
 
-async function sha1Hex(str) {
+async function sha1_hex(str) {
    const buffer = new TextEncoder().encode(str);
    const hashBuffer = await crypto.subtle.digest("SHA-1", buffer);
    return Array.from(new Uint8Array(hashBuffer))
@@ -417,11 +424,11 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
 ///////////////////////
 
 // XXX: Once the C side is implemented, we can re-enable this
-//   var firstHash = await sha1Hex(login_pass);
+//   var firstHash = await sha1_hex(login_pass);
 //   var combinedString = firstHash + '+' + nonce;
-//   var hashed_pass = await sha1Hex(combinedString);
+//   var hashed_pass = await sha1_hex(combinedString);
 
-   var hashed_pass = await sha1Hex(login_pass);  // Wait for the hash to complete
+   var hashed_pass = await sha1_hex(login_pass);  // Wait for the hash to complete
    var msgObj = {
       "auth": {
          "cmd": "pass",
@@ -434,29 +441,39 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
 }
 
 function cul_update(message) {
-   $('#cul-list').empty();
-   const users = message.talk.users;
+    $('#cul-list').empty();
+    const users = message.talk.users;
 
-   users.forEach(user => {
-      const { name, admin, tx, view_only } = user;
+    // Natural, case-insensitive sort by name
+    users.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
 
-      const badges = [];
+    users.forEach(user => {
+       const { name, admin, tx, view_only, owner } = user;
 
-      if (tx)
-         badges.push('<span class="user-badge tx-badge" title="Transmitting">●</span>');
-      if (admin) {
-         badges.push('<span class="user-badge admin-badge" title="Admin">★</span>');
-      } else if (view_only) {
-         badges.push('<span class="user-badge view-badge" title="View Only">👁️</span>');
-      }
+       let badges = '';
 
-      const li = `<li>
-                     <span class="chat-user-list" onclick="show_user_menu('${name}')">
-                        ${badges.join('')} <span class="cul-self">${name}</span>
-                     </span>
-                  </li>`;
-      $('#cul-list').append(li);
-   });
+       if (tx) {
+          badges += '<span class="badge tx-badge">🔊</span>';
+       }
+
+       if (owner) {
+          badges += '<span class="badge owner-badge">👑</span>';
+       } else if (admin) {
+          badges += '<span class="badge admin-badge">⭐</span>';
+       } else if (view_only) {
+          badges += '<span class="badge view-badge">👀</span>';
+       } else {
+          badges += '<span class="badge empty-badge">&nbsp;&nbsp;</span>';
+       }
+
+       const userItem = `<li>
+          <span class="chat-user-list" onclick="show_user_menu('${user.name}')">
+             ${badges}<span class="cul-self">${user.name}</span>
+          </span>
+       </li>`;
+
+       $('#cul-list').append(userItem);
+    });
 }
 
 function show_user_menu(username) {
@@ -490,13 +507,6 @@ function show_user_menu(username) {
 
     // Update the user menu and show it
     $('#user-menu').html(menu);
-/*
-    $('#user-menu').css({
-        display: 'block',
-        top: $('#chat-input').offset().top,
-        left: $('#chat-input').offset().left + 20 // Adjust position as needed
-    });
-*/
     $('#user-menu').show();
 
     // Attach event listeners to buttons using jQuery
@@ -750,7 +760,7 @@ function ws_connect() {
                   }
 
                   var login_pass = $('input#pass').val();
-                  var hashed_pass = sha1Hex(login_pass);
+                  var hashed_pass = sha1_hex(login_pass);
 
                   // here we use an async call to crypto.simple
                   authenticate(login_user, login_pass, auth_token, nonce).then(msgObj => {

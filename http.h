@@ -60,6 +60,7 @@ struct http_client {
     bool active;		// Is this slot actually used or is it free-listed?
     bool authenticated;		// Is the user fully logged in?
     bool is_ws;                 // Flag to indicate if it's a WebSocket client
+    bool is_ptt;		// Is the user keying up ANY attached rig?
     time_t session_expiry;	// When does the session expire?
     time_t session_start;	// When did they login?
     time_t last_heard;		// when a last valid message was heard from client

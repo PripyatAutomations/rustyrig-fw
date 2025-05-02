@@ -59,7 +59,6 @@ bool ws_send_userlist(void) {
          continue;
       }
 
-      // Only increment count once per iteration
       const char *comma = (count > 0) ? "," : "";
       const char *name_fmt = (strcasecmp(cptr->user->name, "guest") == 0) ? "%s%04d" : "%s";
       char username[64];
@@ -67,17 +66,17 @@ bool ws_send_userlist(void) {
 
       bool is_admin = (strstr(cptr->user->privs, "admin") != NULL);
       bool is_view_only = (strstr(cptr->user->privs, "view") != NULL);
-      bool is_txing = (cptr->is_ws && (now - cptr->last_heard) < 1);  // tweak this as needed
+      bool is_txing = cptr->is_ptt;			// does user have PTT active on any rigs?
+      bool is_owner = (strstr(cptr->user->privs, "owner") != NULL);
 
-      // Use count properly, and don't increment it twice
       len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len,
-                   "%s{\"name\":\"%s\",\"admin\":%s,\"tx\":%s,\"view_only\":%s}",
+                   "%s{\"name\":\"%s\",\"admin\":%s,\"tx\":%s,\"view_only\":%s,\"owner\":%s}",
                    comma, username,
                    is_admin ? "true" : "false",
                    is_txing ? "true" : "false",
-                   is_view_only ? "true" : "false");
+                   is_view_only ? "true" : "false",
+                   is_owner ? "true" : "false");
       
-      // Increment count after processing the current client
       count++;
       cptr = cptr->next;
    }

@@ -487,21 +487,7 @@ button#img-clearclip {
    font-weight: bold;
 }
 
-.badge {
-   font-size: 1em;
-   margin-left: 0.2em;
-}
-
-.admin-badge {
-   color: gold;
-}
-
-.tx-badge {
-   color: red;
-}
-
-.view-badge {
-   color: gray;
+.cul-item {
 }
 
 #chat-user-list {
@@ -516,43 +502,57 @@ button#img-clearclip {
    background-color: #dcdcdc;
 }
 
-.cul-item {
+#chat-user-list ul {
+   list-style: none;
+   padding-top: 5px;
+   padding-left: 0;
+   margin-top: 0px;
+   margin-bottom: 0px;
+}
+
+#chat-user-list li {
+   display: flex;                 /* Align username and badges horizontally */
+   align-items: center;           /* Center vertically */
+   padding: 5px 0;                /* Add padding between items */
+   margin: 0;
+}
+
+.cul-self {
+   font-weight: bold;
+   margin-right: 8px;             /* Space between username and badges */
+}
+
+.badge {
+   margin-left: 5px;              /* Space between badges */
+   font-size: 1.2em;              /* Set the size of badges */
+}
+
+.tx-badge {
+   color: green;
+}
+
+.owner-badge {
+   color: gold;
+}
+
+.admin-badge {
+   color: #FFD700; /* Gold */
+}
+
+.view-badge {
+   color: #888;
+}
+
+.blank-badge {
+    display: inline-block;
+    width: 1.2em; /* Adjust to match badge size */
+    height: 1em;
 }
 
 .cul-menu-button {
    border: 1px solid #909090;
    padding: 0em;
    margin: 0em;
-}
-
-#chat-user-list ul {
-   list-style: none;
-   padding-top: 5px;
-   padding-left: 1.5em;
-   margin-top: 0px;
-}
-
-#chat-user-list li {
-   padding-top: 0px;
-   margin-top: 0px;
-}
-
-#chat-user-list h3 {
-   font-size: 1em;
-   text-decoration: underline;
-   padding: 0px;
-   margin: 0px;
-   margin-top: 0.2em;
-   margin-left: 1em;
-}
-
-#chat-user-list a, #chat-user-list a:visited, #chat-user-ligt a:active {
-   color: green;
-   text-decoration: none;
-}
-
-.cul-self, .cul-self a, .cul-self a:visited, .cul-self a:active {
-   color: black;
 }
 
 #user-menu ul {
@@ -567,7 +567,6 @@ button#img-clearclip {
 /* Styling for the user-menu */
 #user-menu {
     position: absolute;
-    /* XXX: Can we move this to be slightly offset from the user in the list instead? */
     top: 75px;
     right: 20px;
     border: 1px solid #ccc;
