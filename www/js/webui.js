@@ -61,6 +61,16 @@ function initialize_sounds() {
    chat_ding = document.getElementById('chat-ding');
    join_ding = document.getElementById('join-ding');
    leave_ding = document.getElementById('leave-ding');
+   let default_sounds = localStorage.getItem('play_sounds');
+
+   if (default_sounds === 'true') {
+      $('button#bell-btn').data('checked', true);
+   } else {
+      $('button#bell-btn').data('checked', false);
+   }
+
+   let newSrc = !$('button#bell-btn').data('checked') ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
+   $('img#bell-image').attr('src', newSrc);
 
    // Attach function to pop up the volume dialog, if not already open
    $('button#bell-btn').hover(function() {
@@ -80,23 +90,16 @@ function initialize_sounds() {
       $("audio#chat-ding, audio#join-ding, audio#leave-ding").prop("volume", volume);
    });
 
-   // Support toggling the sound via bell button
-//      $('#bell-btn').click(function() {
-   $('#bell-btn').change(function() {
-       let isChecked = $(this).data('checked');
-
-       // chose the correct image based on checked status
-       let newSrc = isChecked ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
-       $('#bell-image').attr('src', newSrc);
-       // save state to localStorage
-       localStorage.setItem("play_sounds", isChecked);
-   });
+   // Support toggling mute via bell button
+   $('#bell-btn').click(function() { toggle_mute(); });
+}
 
 function toggle_mute() {
-   let isChecked = $('#bell-btn').data('checked');
+   $('button#bell-btn').data('checked', !$('#bell-btn').data('checked'));
+   localStorage.setItem("play_sounds", $('button#bell-btn').data('checked'));
 
-   // Toggle the value, which will fire the change event
-   $('#bell-btn').data('checked', !isChecked);
+   let newSrc = $('button#bell-btn').data('checked') ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
+   $('img#bell-image').attr('src', newSrc);
 }
 
 $(document).ready(function() {
@@ -921,13 +924,14 @@ function clear_highlight() {
    $('span[id^="tab-"]').removeClass('chat-highlight');
 }
 
-function send_chunked_file(base64Data) {
+function send_chunked_file(base64Data, filename) {
    const chunkSize = 8000; // Safe under 64K JSON limit
    const totalChunks = Math.ceil(base64Data.length / chunkSize);
    const msgId = crypto.randomUUID(); // Unique ID for this image
 
    for (let i = 0; i < totalChunks; i++) {
       const chunkData = base64Data.slice(i * chunkSize, (i + 1) * chunkSize);
+
       const msgObj = {
          talk: {
             cmd: "msg",
@@ -936,23 +940,27 @@ function send_chunked_file(base64Data) {
             msg_type: "file_chunk",
             msg_id: msgId,
             chunk_index: i,
-            total_chunks: totalChunks,
+            total_chunks: totalChunks, // Add total_chunks for all chunks
+            filename: i === 0 ? filename : undefined, // Include filename only in the first chunk
             data: chunkData
          }
       };
+
       socket.send(JSON.stringify(msgObj));
    }
 }
 
-// Here we deal with reassembling chunks..
-// XXX: We should add a timeout so that abusive users can't send incomplete files
-// XXX: and tie up a bunch of RAM
 function handle_file_chunk(msgObj) {
-   const { msg_id, chunk_index, total_chunks, data } = msgObj.talk;
+   const { msg_id, chunk_index, total_chunks, data, filename } = msgObj.talk;
    const sender = msgObj.talk.from;
 
    if (!file_chunks[msg_id]) {
-      file_chunks[msg_id] = { chunks: [], received: 0, total: total_chunks };
+      file_chunks[msg_id] = { chunks: [], received: 0, total: total_chunks, filename: filename };
+   }
+
+   // Only update the filename once (from the first chunk)
+   if (filename) {
+      file_chunks[msg_id].filename = filename;
    }
 
    file_chunks[msg_id].chunks[chunk_index] = data;
@@ -960,9 +968,10 @@ function handle_file_chunk(msgObj) {
 
    // If this is the last chunk, display it
    if (file_chunks[msg_id].received === total_chunks) {
-      // XXX: Should we scan for missing chunks and-request them to be resent?
       const fullData = file_chunks[msg_id].chunks.join('');
+      const fileName = file_chunks[msg_id].filename;
       delete file_chunks[msg_id];
+
       const isSelf = sender === auth_user;
       const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
       const msg_ts = msg_timestamp(msgObj.talk.ts);
@@ -992,7 +1001,11 @@ function handle_file_chunk(msgObj) {
          .append(msg_ts + `&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`);
 
       // Wrap the image in a clickable link to open in a new tab
-      const $imgLink = $('<a>').attr('href', fullData).attr('target', '_blank').append($img);
+      const $imgLink = $('<a>')
+         .attr('href', fullData)
+         .attr('target', '_blank')
+         .text(fileName) // Add the filename as a clickable text
+         .append($img);
 
       const $imgWrap = $('<div class="chat-img-wrap">')
          .append($imgLink)  // Add the link-wrapped image
@@ -1002,8 +1015,7 @@ function handle_file_chunk(msgObj) {
 
       append_chatbox($wrap.prop('outerHTML'));
 
-
-      // Close button functionality
+      // Handle close button and minimize/restore button as before
       $(document).on('click', '.img-close-btn', function () {
          const $wrap = $(this).closest('.chat-img-wrap');
          $wrap.find('img.chat-img').remove();
@@ -1013,7 +1025,6 @@ function handle_file_chunk(msgObj) {
          $(this).remove();
       });
 
-      // minimize/restore button functionality
       $(document).on('click', '.img-min-btn', function () {
          const $btn = $(this);
          const $wrap = $btn.closest('.chat-img-wrap');
