@@ -157,112 +157,6 @@ input {
    border: 2px solid #ccc;
 }
 
-#chat-user-list {
-   position: fixed;
-   left: CALC(100% - 10.4em);
-   top: 3.5em;
-   width: 10em;
-   height: CALC(100% - 8.8em + 1px);
-   border: 2px solid #ddd;
-   border-radius: 10px;
-   padding-top: 0.5em;
-   background-color: #dcdcdc;
-}
-
-.cul-item {
-}
-
-.cul-menu-button {
-   border: 1px solid #909090;
-   padding: 0em;
-   margin: 0em;
-}
-
-#chat-user-list ul {
-   list-style: none;
-   padding-top: 5px;
-   padding-left: 1.5em;
-   margin-top: 0px;
-}
-
-#chat-user-list li {
-   padding-top: 0px;
-   margin-top: 0px;
-}
-
-#chat-user-list h3 {
-   font-size: 1em;
-   text-decoration: underline;
-   padding: 0px;
-   margin: 0px;
-   margin-top: 0.2em;
-   margin-left: 1em;
-}
-
-#chat-user-list a, #chat-user-list a:visited, #chat-user-ligt a:active {
-   color: green;
-   text-decoration: none;
-}
-
-.cul-self, .cul-self a, .cul-self a:visited, .cul-self a:active {
-   color: red;
-}
-
-#user-menu ul {
-   margin-top: 0em;
-   padding-left: 15px;
-   padding-top: 0.2em;
-}
-
-#user-menu li {
-}
-
-/* Styling for the user-menu */
-#user-menu {
-    position: absolute;
-    /* XXX: Can we move this to be slightly offset from the user in the list instead? */
-    top: 75px;
-    right: 20px;
-    border: 1px solid #ccc;
-    background: #c0c0c0;
-    color: black;
-    padding: 10px;
-    width: 200px;
-    z-index: 1000;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    display: none; /* Initially hidden */
-}
-
-#user-menu a, #user-menu a:visited, #user-menu: a:active {
-   color: #c0c0f0;
-}
-
-/* Header of the user menu, containing the close button */
-#um-header {
-    position: relative;
-    border-bottom: 2px solid #c0c0c0;
-    height: 20px;
-}
-
-/* Close button styling */
-#um-close {
-    position: absolute;
-    top: 0;
-    right: 0;
-    cursor: pointer;
-    font-size: 16px;
-    color: #c00000;
-}
-
-#um-close:hover {
-    color: #ff0000;
-}
-
-/* Content inside the user menu */
-#um-content {
-    margin-top: 10px;
-}
-
 /* General button styles to ensure equal height */
 button {
    padding: 10px 15px; /* Same padding for both buttons */
@@ -563,4 +457,155 @@ button#img-clearclip {
    cursor: pointer;
    font-size: 0.8em;
    line-height: 1;
+}
+
+.chat-img-wrap {
+   max-height: 80%;
+   max-width: 80%;
+   overflow: hidden;
+   display: inline-block;
+}
+
+.chat-img {
+   max-height: 80vh;
+   max-width: 100%;
+   height: auto;
+   width: auto;
+}
+
+/******************
+ * Chat user list *
+ ******************/
+.chat-user {
+   display: flex;
+   align-items: center;
+   margin-bottom: 0.3em;
+}
+
+.chat-username {
+   margin-right: 0.5em;
+   font-weight: bold;
+}
+
+.badge {
+   font-size: 1em;
+   margin-left: 0.2em;
+}
+
+.admin-badge {
+   color: gold;
+}
+
+.tx-badge {
+   color: red;
+}
+
+.view-badge {
+   color: gray;
+}
+
+#chat-user-list {
+   position: fixed;
+   left: CALC(100% - 10.4em);
+   top: 3.5em;
+   width: 10em;
+   height: CALC(100% - 8.8em + 1px);
+   border: 2px solid #ddd;
+   border-radius: 10px;
+   padding-top: 0.5em;
+   background-color: #dcdcdc;
+}
+
+.cul-item {
+}
+
+.cul-menu-button {
+   border: 1px solid #909090;
+   padding: 0em;
+   margin: 0em;
+}
+
+#chat-user-list ul {
+   list-style: none;
+   padding-top: 5px;
+   padding-left: 1.5em;
+   margin-top: 0px;
+}
+
+#chat-user-list li {
+   padding-top: 0px;
+   margin-top: 0px;
+}
+
+#chat-user-list h3 {
+   font-size: 1em;
+   text-decoration: underline;
+   padding: 0px;
+   margin: 0px;
+   margin-top: 0.2em;
+   margin-left: 1em;
+}
+
+#chat-user-list a, #chat-user-list a:visited, #chat-user-ligt a:active {
+   color: green;
+   text-decoration: none;
+}
+
+.cul-self, .cul-self a, .cul-self a:visited, .cul-self a:active {
+   color: black;
+}
+
+#user-menu ul {
+   margin-top: 0em;
+   padding-left: 15px;
+   padding-top: 0.2em;
+}
+
+#user-menu li {
+}
+
+/* Styling for the user-menu */
+#user-menu {
+    position: absolute;
+    /* XXX: Can we move this to be slightly offset from the user in the list instead? */
+    top: 75px;
+    right: 20px;
+    border: 1px solid #ccc;
+    background: #c0c0c0;
+    color: black;
+    padding: 10px;
+    width: 200px;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: none; /* Initially hidden */
+}
+
+#user-menu a, #user-menu a:visited, #user-menu: a:active {
+   color: #c0c0f0;
+}
+
+/* Header of the user menu, containing the close button */
+#um-header {
+    position: relative;
+    border-bottom: 2px solid #c0c0c0;
+    height: 20px;
+}
+
+/* Close button styling */
+#um-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    cursor: pointer;
+    font-size: 16px;
+    color: #c00000;
+}
+
+#um-close:hover {
+    color: #ff0000;
+}
+
+/* Content inside the user menu */
+#um-content {
+    margin-top: 10px;
 }

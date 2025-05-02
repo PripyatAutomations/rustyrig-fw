@@ -69,12 +69,13 @@ $(document).ready(function() {
       $("#dark-theme").attr("href", "").attr("disabled", "disabled");
       $("#tab-dark").text("dark");
    }
-
+/*
    if (localStorage.getItem("mute_sounds") === "false") {
       $('#bell-btn').data('checked', true);
    } else {
       $('#bell-btn').data('checked', false);
    }
+*/
 
    if (!logged_in) {
       // put a chroma-hash widget on password fields
@@ -433,16 +434,29 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
 }
 
 function cul_update(message) {
-    $('#cul-list').empty();
-    const users = message.talk.users;
-    users.forEach(user => {
-        const li = `<li>
-                       <span class="chat-user-list" onclick="show_user_menu('${user}')">
-                          <span class="cul-self">${user}</span>
-                       </span>
-                    </li>`;
-        $('#cul-list').append(li);
-    });
+   $('#cul-list').empty();
+   const users = message.talk.users;
+
+   users.forEach(user => {
+      const { name, admin, tx, view_only } = user;
+
+      const badges = [];
+
+      if (tx)
+         badges.push('<span class="user-badge tx-badge" title="Transmitting">●</span>');
+      if (admin) {
+         badges.push('<span class="user-badge admin-badge" title="Admin">★</span>');
+      } else if (view_only) {
+         badges.push('<span class="user-badge view-badge" title="View Only">👁️</span>');
+      }
+
+      const li = `<li>
+                     <span class="chat-user-list" onclick="show_user_menu('${name}')">
+                        ${badges.join('')} <span class="cul-self">${name}</span>
+                     </span>
+                  </li>`;
+      $('#cul-list').append(li);
+   });
 }
 
 function show_user_menu(username) {
@@ -758,6 +772,7 @@ function ws_connect() {
          }
       } catch (e) {
          console.error("Error parsing message:", e);
+         console.log("Unknown data: ", msgData);
       }
    };
    return socket;
@@ -938,34 +953,24 @@ function handle_file_chunk(msgObj) {
       // XXX: Should we scan for missing chunks and-request them to be resent?
       const fullData = file_chunks[msg_id].chunks.join('');
       delete file_chunks[msg_id];
-/*
       const isSelf = sender === auth_user;
       const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
       const msg_ts = msg_timestamp(msgObj.talk.ts);
 
-      const $img = $('<img>').attr('src', fullData).addClass('chat-img');
-      const $min = $('<button>').addClass('img-min-btn').text('−');
-      const $close = $('<button>').addClass('img-close-btn').text('X');
+      // Bound the image to 80% of the screen height
+      const chatBoxHeight = $('#chat-box').innerHeight();
+      const maxImgHeight = Math.floor(chatBoxHeight * 0.8) + 'px';
 
-      const $controls = $('<div class="chat-img-controls">')
-         .append($min)
-         .append($close);
+      const $img = $('<img>')
+         .attr('src', fullData)
+         .addClass('chat-img')
+         .css({
+            'max-height': maxImgHeight,
+            'max-width': '80%',
+            'height': 'auto',
+            'width': 'auto'
+         });
 
-      const $wrap = $('<div class="chat-img-msg">')
-         .append(msg_ts + `&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`);
-
-      const $imgWrap = $('<div class="chat-img-wrap">')
-         .append(`<button class="img-min-btn">−</button>`)
-         .append(`<button class="img-close-btn">X</button>`)
-         .append(`<img src="${fullData}" class="chat-img"/>`);
-      $wrap.append($imgWrap);
-      append_chatbox($wrap.prop('outerHTML'));
-*/
-      const isSelf = sender === auth_user;
-      const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
-      const msg_ts = msg_timestamp(msgObj.talk.ts);
-
-      const $img = $('<img>').attr('src', fullData).addClass('chat-img');
       const $min = $('<button>').addClass('img-min-btn').text('−');
       const $close = $('<button>').addClass('img-close-btn').text('X');
 

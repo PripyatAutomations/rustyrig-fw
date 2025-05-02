@@ -54,19 +54,35 @@ bool ws_send_userlist(void) {
 
    http_client_t *cptr = http_client_list;
    while (cptr != NULL) {
-      if (cptr->user == NULL) {
+      if (cptr->user == NULL || !cptr->authenticated) {
+         cptr = cptr->next;
          continue;
       }
 
-      // Append guest-id on the username for GUESTS
-      if (strcasecmp(cptr->user->name, "guest") == 0) {
-         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s%04d\"", count++ ? "," : "", cptr->user->name, cptr->guest_id);
-      } else {
-         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "%s\"%s\"", count++ ? "," : "", cptr->user->name);
-      }
+      // Only increment count once per iteration
+      const char *comma = (count > 0) ? "," : "";
+      const char *name_fmt = (strcasecmp(cptr->user->name, "guest") == 0) ? "%s%04d" : "%s";
+      char username[64];
+      snprintf(username, sizeof(username), name_fmt, cptr->user->name, cptr->guest_id);
+
+      bool is_admin = (strstr(cptr->user->privs, "admin") != NULL);
+      bool is_view_only = (strstr(cptr->user->privs, "view") != NULL);
+      bool is_txing = (cptr->is_ws && (now - cptr->last_heard) < 1);  // tweak this as needed
+
+      // Use count properly, and don't increment it twice
+      len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len,
+                   "%s{\"name\":\"%s\",\"admin\":%s,\"tx\":%s,\"view_only\":%s}",
+                   comma, username,
+                   is_admin ? "true" : "false",
+                   is_txing ? "true" : "false",
+                   is_view_only ? "true" : "false");
+      
+      // Increment count after processing the current client
+      count++;
       cptr = cptr->next;
    }
-   mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }");
+   len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }");
+
    struct mg_str ms = mg_str(resp_buf);
    ws_broadcast(NULL, &ms);
 
