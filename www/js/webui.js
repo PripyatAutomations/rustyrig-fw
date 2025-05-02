@@ -61,16 +61,26 @@ function initialize_sounds() {
    chat_ding = document.getElementById('chat-ding');
    join_ding = document.getElementById('join-ding');
    leave_ding = document.getElementById('leave-ding');
+
+   // Set the current state of sounds from localStorage
    let default_sounds = localStorage.getItem('play_sounds');
-
-   if (default_sounds === 'true') {
-      $('button#bell-btn').data('checked', true);
-   } else {
+   if (default_sounds === 'false') {
       $('button#bell-btn').data('checked', false);
+   } else {
+      $('button#bell-btn').data('checked', true);
    }
-
    let newSrc = !$('button#bell-btn').data('checked') ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
    $('img#bell-image').attr('src', newSrc);
+
+   // Support toggling mute via bell button
+   $('#bell-btn').click(function() { toggle_mute(); });
+
+/*
+   // Deal with volume change events
+   $("input#alert-vol").on("change", function() {
+      let volume = $(this).val() / 100;
+      $("audio#chat-ding, audio#join-ding, audio#leave-ding").prop("volume", volume);
+   });
 
    // Attach function to pop up the volume dialog, if not already open
    $('button#bell-btn').hover(function() {
@@ -83,23 +93,19 @@ function initialize_sounds() {
          }, 5000);
       }
    });
-
-   // Deal with volume change events
-   $("input#alert-vol").on("change", function() {
-      let volume = $(this).val() / 100;
-      $("audio#chat-ding, audio#join-ding, audio#leave-ding").prop("volume", volume);
-   });
-
-   // Support toggling mute via bell button
-   $('#bell-btn').click(function() { toggle_mute(); });
+*/
 }
 
 function toggle_mute() {
-   $('button#bell-btn').data('checked', !$('#bell-btn').data('checked'));
-   localStorage.setItem("play_sounds", $('button#bell-btn').data('checked'));
+   let $btn = $('#bell-btn');
+   let current = $btn.data('checked') || false;
+   let next = !current;
 
-   let newSrc = $('button#bell-btn').data('checked') ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
-   $('img#bell-image').attr('src', newSrc);
+   $btn.data('checked', next);
+   localStorage.setItem("play_sounds", next);
+   console.log("Button", next);
+   let newSrc = current ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
+   $('#bell-image').attr('src', newSrc);
 }
 
 $(document).ready(function() {
@@ -114,6 +120,9 @@ $(document).ready(function() {
       $("#dark-theme").attr("href", "").attr("disabled", "disabled");
       $("#tab-dark").text("dark");
    }
+
+   // Add a note telling user about /help and !help
+   append_chatbox('<div><span class="error">***** New commands are available! See /help for chat help and !help for rig commands *****</span></div>');
 
    if (!logged_in) {
       // put a chroma-hash widget on password fields
@@ -256,15 +265,15 @@ $(document).ready(function() {
                   send_command(command, args[1]);
                   break;
                case 'help':
-                  append_chatbox('<div><span class="error">HELP: All commands start with / and should be lower case</span></div>');
-                  append_chatbox('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in</span></div>');
+                  append_chatbox('<div><span class="error">*** HELP *** All commands start with /</span></div>');
+                  append_chatbox('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; [reason]</span></div>');
                   append_chatbox('<div><span class="error">/clear&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
-                  append_chatbox('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user</span></div>');
+                  append_chatbox('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
                   append_chatbox('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
-                  append_chatbox('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user (with optional reason)</span></div>');
-                  append_chatbox('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show as an ACTION in chat</span></div>');
-                  append_chatbox('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat</span></div>');
-                  append_chatbox('<div><span class="error">/whois&nbsp;&nbsp;&nbsp;- Show user information</span></div>');
+                  append_chatbox('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; [reason]</span></div>');
+                  append_chatbox('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
+                  append_chatbox('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt;</span></div>');
+                  append_chatbox('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
                   break;
                case 'kick':
                   console.log("Sending KICK for", args[1]);

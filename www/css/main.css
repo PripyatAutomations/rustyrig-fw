@@ -6,13 +6,31 @@
    -ms-user-select: none; /* For IE/Edge */
 }
 
+/*
+ * Fonts
+ */
+@font-face {
+   font-family: 'Roboto';
+   src: url('../fonts/Roboto-Regular.ttf') format('truetype');
+   font-weight: normal;
+   font-style: normal;
+}
+
+@font-face {
+   font-family: 'OpenSans';
+   src: url('../fonts/OpenSans-Regular.ttf') format('truetype');
+   font-weight: normal;
+   font-style: normal;
+}
+
 a, a:visited, a:active {
     color: #004fcc;
 }
 
 html, body {
    color: black;
-   font-family: Arial, sans-serif;
+/*   font-family: Arial, sans-serif; */
+   font-family: 'Roboto', 'OpenSans';
    margin: 0;
    padding: 20px;
    background-color: #dcdcdc;
@@ -498,7 +516,6 @@ button#img-clearclip {
    height: CALC(100% - 8.8em + 1px);
    border: 2px solid #ddd;
    border-radius: 10px;
-   padding-top: 0.5em;
    background-color: #dcdcdc;
 }
 
@@ -513,7 +530,7 @@ button#img-clearclip {
 #chat-user-list li {
    display: flex;                 /* Align username and badges horizontally */
    align-items: center;           /* Center vertically */
-   padding: 5px 0;                /* Add padding between items */
+/*   padding: 5px 0; */
    margin: 0;
 }
 
