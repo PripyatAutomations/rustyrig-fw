@@ -86,7 +86,7 @@
       "mqtt": "true",
       "opus": "true",
       "pipewire": "true",
-      "sqlite": "true"
+      "sqlite": "false"
    },
    "limits": {
       "max_amps": 2,

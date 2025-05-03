@@ -83,7 +83,7 @@ adding support for various i2c devices like DDS chips.
 
 It's up to the user to implement bits of the reference hardware and
 configure the software as they need. Feel free to request features via
-github.com/pripyatautomations/
+github.com/pripyatautomations/rustyrig-fw
 
 
 Known issues
@@ -95,3 +95,11 @@ of 'make run' - if it crashes, please type 'bt' then paste the output into a
 bug report. - This can happen when a bug causes the eeprom to be accidentally
 modified. Since on linux we mmap the eeprom image, this isn't going to cause
 wear. On real EEPROM, we will be using a delayed write system. 
+
+* Lots of stubs/incomplete stuff
+	In an effort to try to keep things tidy, I'm trying to introduce
+a bit of abstractions around similar devices. By having source files around
+for intended future targets, i can leave notes and bits of code that will
+be useful for supporting that item later. If something you want to use is
+not yet implemented, feel free to ask in the chat or even better, start
+writing some code. PR can be submitted via github
