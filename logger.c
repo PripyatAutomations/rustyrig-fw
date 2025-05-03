@@ -166,9 +166,9 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       return;
    } else {
       if (log_show_ts) {
-         fprintf(logfp, "[%s] <%s.%s> %s\n", latest_timestamp, log_priority_to_str(priority), subsys, msgbuf);
+         fprintf(logfp, "[%s] <%s.%s> %s\n", subsys, latest_timestamp, log_priority_to_str(priority), msgbuf);
       } else {
-         fprintf(logfp, "<%s.%s> %s\n", log_priority_to_str(priority), subsys, msgbuf);
+         fprintf(logfp, "<%s.%s> %s\n", subsys, log_priority_to_str(priority), msgbuf);
       }
       fflush(logfp);
    }
@@ -178,9 +178,9 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    if (logfp != stdout) {
       // Send it to the stdout too on host builds
       if (log_show_ts) {
-         fprintf(stdout, "[%s] <%s.%s> %s\n", latest_timestamp, log_priority_to_str(priority), subsys, msgbuf);
+         fprintf(stdout, "[%s] <%s.%s> %s\n", latest_timestamp, subsys, log_priority_to_str(priority), msgbuf);
       } else {
-         fprintf(stdout, "<%s.%s> %s\n", log_priority_to_str(priority), subsys, msgbuf);
+         fprintf(stdout, "<%s.%s> %s\n", subsys, log_priority_to_str(priority), msgbuf);
       }
    }
 #endif
