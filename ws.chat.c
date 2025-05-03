@@ -126,19 +126,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          bool guest = false;
          http_client_t *tcptr = NULL;
 
-         if (strncasecmp(target, "guest", 5) == 0) {
-            // Deal with guest usernames (they don't actually existing in user table except as GUEST
-            guest = true;
-            guest_id = atoi(target + 5);
-            // look up the account data, but note guests are 'special'
-            tgt_uid = http_user_index("GUEST");
-            Log(LOG_DEBUG, "chat", "WHOIS for %s%04d (%d) by %s", target, cptr->guest_id, tgt_uid, user);
-            tcptr = http_find_client_by_guest_id(tgt_uid);
-         } else {
-            tgt_uid = http_user_index(target);
-            Log(LOG_DEBUG, "chat", "WHOIS for %s (%d) by %s", target, tgt_uid, user);
-            tcptr = http_find_client_by_name(target);
-         }
+         tgt_uid = http_user_index(target);
+         Log(LOG_DEBUG, "chat", "WHOIS for %s (%d) by %s", target, tgt_uid, user);
+         tcptr = http_find_client_by_name(target);
 
          if (tgt_uid < 0 || tgt_uid > HTTP_MAX_USERS) {
             Log(LOG_DEBUG, "chat", "tgt_uid %d is invalid for user %s", tgt_uid, target);

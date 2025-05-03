@@ -389,8 +389,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
         struct mg_str ms = mg_str(resp_buf);
         ws_broadcast(NULL, &ms);
         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> disconnected", cptr->chatname, cptr);
-     } else {
-        Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn <%x> disconnected", c);
+//     } else {
+//        Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn <%x> disconnected", c);
      }
      http_remove_client(c);
    }

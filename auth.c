@@ -240,7 +240,7 @@ int http_load_users(const char *filename) {
          token = strtok(NULL, ":");
          i++;
       }
-      Log(LOG_INFO, "auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->name, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
+//      Log(LOG_INFO, "auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->name, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
       user_count++;
    }
    Log(LOG_INFO, "auth", "Loaded %d users from %s", user_count, filename);

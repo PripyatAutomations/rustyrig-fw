@@ -988,7 +988,7 @@ function clear_highlight() {
 }
 
 function send_chunked_file(base64Data, filename) {
-   const chunkSize = 8000; // Safe under 64K JSON limit
+   const chunkSize = 8000;
    const totalChunks = Math.ceil(base64Data.length / chunkSize);
    const msgId = crypto.randomUUID(); // Unique ID for this image
 
@@ -1003,7 +1003,7 @@ function send_chunked_file(base64Data, filename) {
             msg_type: "file_chunk",
             msg_id: msgId,
             chunk_index: i,
-            total_chunks: totalChunks, // Add total_chunks for all chunks
+            total_chunks: totalChunks,
             filename: i === 0 ? filename : undefined, // Include filename only in the first chunk
             data: chunkData
          }
