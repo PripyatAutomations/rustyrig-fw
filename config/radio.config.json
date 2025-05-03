@@ -61,7 +61,7 @@
       "logfile": "/tmp/radio-debug.log",
       "logtype": "file",
       "logmode": "0660",
-      "loglevel": "info",
+      "loglevel": "debug",
       "mongoose": "false",
       "show_ts": "false",
       "targets": "*"

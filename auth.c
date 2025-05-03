@@ -278,7 +278,7 @@ bool match_priv(const char *user_privs, const char *priv) {
    const char *start = user_privs;
    size_t privlen = strlen(priv);
 
-   printf("match_priv(): comparing '%s' to '%s'\n", user_privs, priv);
+   Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'\n", user_privs, priv);
 
    while (start && *start) {
       const char *end = strchr(start, ',');
