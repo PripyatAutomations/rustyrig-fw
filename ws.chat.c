@@ -7,12 +7,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include "auth.h"
 #include "i2c.h"
 #include "state.h"
 #include "eeprom.h"
 #include "logger.h"
 #include "cat.h"
 #include "posix.h"
+#include "http.h"
 #include "ws.h"
 extern struct GlobalState rig;	// Global state
 
@@ -32,20 +34,34 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    char *data = mg_json_get_str(msg_data, "$.talk.data");
    char *target = mg_json_get_str(msg_data, "$.talk.target");
    char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
-   char *user = cptr->user->name;
+   char *user = cptr->chatname;
    long chunk_index = mg_json_get_long(msg_data, "$.talk.chunk_index", 0);
    long total_chunks = mg_json_get_long(msg_data, "$.talk.total_chunks", 0);
 
-   if (cmd && data) {
+   if (cmd) {
       if (strcasecmp(cmd, "msg") == 0) {
+         if (!data) {
+            Log(LOG_DEBUG, "chat", "got msg for cptr <%x> with no data", cptr);
+            rv = true;
+            goto cleanup;
+         }
+
+         if (!has_priv(cptr->user->uid, "admin|owner|chat")) {
+            Log(LOG_INFO, "chat", "user %s doesn't have chat privileges but tried to send a message", cptr->chatname);
+            // XXX: Alert the user that their message was NOT deliverred because they aren't allowed to send it.
+            rv = true;
+            goto cleanup;
+         }
+
          char msgbuf[HTTP_WS_MAX_MSG+1];
          char *escaped_msg = escape_html(data);
+         struct mg_str mp;
 
          if (escaped_msg == NULL) {
             Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
-            return true;
+            rv = true;
+            goto cleanup;
          }
-         struct mg_str mp;
 
          // sanity check
          if (user == NULL) {
@@ -55,29 +71,49 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          memset(msgbuf, 0, sizeof(msgbuf));
          if (strcmp(msg_type, "file_chunk") == 0) {
-            // Deal with chat images, they'll have additional fields
-            if (strcasecmp(user, "guest") == 0) {
-               snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", user, cptr->guest_id, escaped_msg, now, msg_type, chunk_index, total_chunks);
-            } else {
-               snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", user, escaped_msg, now, msg_type, chunk_index, total_chunks);
-            }
+            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", cptr->chatname, escaped_msg, now, msg_type, chunk_index, total_chunks);
          } else {
-            if (strcasecmp(user, "guest") == 0) {
-               snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", user, cptr->guest_id, escaped_msg, now, msg_type);
-            } else {
-               snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", user, escaped_msg, now, msg_type);
-            }
+            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", cptr->chatname, escaped_msg, now, msg_type);
          }
          mp = mg_str(msgbuf);
          free(escaped_msg);
 
          // Send to everyone, including the sender, which will then display it as SelfMsg
          ws_broadcast(NULL, &mp);
+      } else if (strcasecmp(cmd, "die") == 0) {
+         if (has_priv(cptr->user->uid, "admin|owner")) {
+            Log(LOG_AUDIT, "core", "Got /die command from %s (uid: %d with privs %s)", cptr->chatname, cptr->user->uid, cptr->user->privs);
+            // Send an ALERRT to all connected users
+            char msgbuf[HTTP_WS_MAX_MSG+1];
+            memset(msgbuf, 0, sizeof(msgbuf));
+            snprintf(msgbuf, sizeof(msgbuf), "Shutting down due to /die from %s (uid: %d with privs %s)", cptr->chatname, cptr->user->uid, cptr->user->privs);
+            send_global_alert(cptr, msgbuf);
+            shutdown_rig(-1);
+         } else {
+            Log(LOG_AUDIT, "core", "Got /die from %s (uid: %d with privs %s) who does not have appropriate privileges", cptr->chatname, cptr->user->uid, cptr->user->privs);
+            rv = true;
+            goto cleanup;
+         }
       } else if (strcasecmp(cmd, "kick") == 0) {
          Log(LOG_INFO, "chat", "Kick command received, processing...");
       } else if (strcasecmp(cmd, "mute") == 0) {
          Log(LOG_INFO, "chat", "Mute command received, processing...");
+      } else if (strcasecmp(cmd, "restart") == 0) {
+         if (has_priv(cptr->user->uid, "admin|owner")) {
+            Log(LOG_AUDIT, "core", "Got /restart command from %s (uid: %d with privs %s", cptr->chatname, cptr->user->uid, cptr->user->privs);
+            // Send an ALERRT to all connected users
+            char msgbuf[HTTP_WS_MAX_MSG+1];
+            memset(msgbuf, 0, sizeof(msgbuf));
+            snprintf(msgbuf, sizeof(msgbuf), "Shutting down due to /restart from %s (uid: %d with privs %s)", cptr->chatname, cptr->user->uid, cptr->user->privs);
+            send_global_alert(cptr, msgbuf);
+            restart_rig();
+         } else {
+            Log(LOG_AUDIT, "core", "Got /restart from %s (uid: %d with privs %s) who does not have appropriate privileges", cptr->chatname, cptr->user->uid, cptr->user->privs);
+            rv = true;
+            goto cleanup;
+         }
       } else if (strcasecmp(cmd, "whois") == 0) {
+  // XXX: Rewrite this for the new situation of cptr->chatname
          if (target == NULL) {
             // XXX: Send an warning to the user informing that they must specify a target username
             rv = true;
@@ -125,15 +161,18 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
+         char *escaped_msg = escape_html(data);
          struct mg_str mp;
+
+         if (escaped_msg == NULL) {
+            Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
+            rv = true;
+            goto cleanup;
+         }
+
          char msgbuf[HTTP_WS_MAX_MSG+1];
          memset(msgbuf, 0, sizeof(msgbuf));
-
-         if (guest) {
-//            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s%04d\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }", user, cptr->guest_id, escaped_msg, now);
-         } else {
-//            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }", user, escaped_msg, now);
-         }
+         snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }", cptr->chatname, escaped_msg, now);
          mp = mg_str(msgbuf);
       } else {
          Log(LOG_DEBUG, "chat", "Got unknown talk msg: |%.*s|", msg_data.len, msg_data.buf);

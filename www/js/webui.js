@@ -255,25 +255,45 @@ $(document).ready(function() {
             switch(command.toLowerCase()) {
                case 'ban':
                   console.log("Send BAN for", args[1]);
-                  send_command(command, args[1]);
+                  send_command(command, args[1], args[2]);
                   break;
                case 'clear':
                   console.log("Cleared scrollback");
                   clear_chatbox();
+               case 'die':
+               case 'restart':
+                  var reason;
+                  if (typeof args[1] === "undefined" || args[1] === '') {
+                     reason = "No Reason Given";
+                  } else {
+                     reason = args[1];
+                  }
+                  send_command(command, reason);
+                  break;
                case 'edit':
                   console.log("Send EDIT for", args[1]);
                   send_command(command, args[1]);
                   break;
                case 'help':
                   append_chatbox('<div><span class="error">*** HELP *** All commands start with /</span></div>');
-                  append_chatbox('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; [reason]</span></div>');
                   append_chatbox('<div><span class="error">/clear&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
-                  append_chatbox('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
                   append_chatbox('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
-                  append_chatbox('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; [reason]</span></div>');
                   append_chatbox('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
-                  append_chatbox('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt;</span></div>');
                   append_chatbox('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+                  var isAdmin = /admin/.test(auth_privs);
+                  if (isAdmin) {
+                     append_chatbox('<div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners./</span></div>');
+                     append_chatbox('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; [reason]</span></div>');
+                     append_chatbox('<div><span class="error">/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server [reason]</span></div>');
+                     append_chatbox('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
+                     append_chatbox('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; [reason]</span></div>');
+                     append_chatbox('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt;</span></div>');
+                     append_chatbox('<div><span class="error">/restart&nbsp;- Restart the server [reason]</span></div>');
+                  } else {
+                     append_chatbox('<div><span class="error">*********************************************</span></div>');
+                     append_chatbox('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
+                     append_chatbox('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
+                  }
                   break;
                case 'kick':
                   console.log("Sending KICK for", args[1]);
@@ -360,15 +380,16 @@ $(document).ready(function() {
    });
 
    $('span#tab-rig').click(function() {
-       $('div#win-chat').hide();
-       $('div#win-settings').hide();
-       $('div#win-rig').show();
+       show_rig_window();
    });
 
-   $('span#tab-settings').click(function() {
-       $('div#win-rig').hide();
-       $('div#win-chat').hide();
-       $('div#win-settings').show();
+   $('span#tab-config').click(function() {
+       show_config_window();
+   });
+
+
+   $('span#tab-syslog').click(function() {
+       show_syslog_window();
    });
 
    $('span#tab-dark').click(function() {
@@ -436,11 +457,11 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
 ///////////////////////
 
 // XXX: Once the C side is implemented, we can re-enable this
-//   var firstHash = await sha1_hex(login_pass);
-//   var combinedString = firstHash + '+' + nonce;
-//   var hashed_pass = await sha1_hex(combinedString);
+   var firstHash = await sha1_hex(login_pass);
+   var combinedString = firstHash + '+' + nonce;
+   var hashed_pass = await sha1_hex(combinedString);
 
-   var hashed_pass = await sha1_hex(login_pass);  // Wait for the hash to complete
+//   var hashed_pass = await sha1_hex(login_pass);  // Wait for the hash to complete
    var msgObj = {
       "auth": {
          "cmd": "pass",
@@ -489,8 +510,7 @@ function cul_update(message) {
 }
 
 function show_user_menu(username) {
-    // Check if the current user has admin privileges (auth_privs contains 'admin.*')
-    var isAdmin = /admin\..*/.test(auth_privs);
+    var isAdmin = /admin/.test(auth_privs);
 
     // Admin menu to be appended if the user is an admin
     var admin_menu = `
@@ -545,17 +565,28 @@ function show_user_menu(username) {
 }
 
 // Function to send commands over WebSocket
-function send_command(cmd, target) {
+function send_command(cmd, args) {
    const msgObj = {
       "talk": {
          "cmd": cmd,
-         "token": auth_token,  // assuming auth_token is available
-         "target": target
+         "token": auth_token
       }
    };
+   console.log("Sending cmd ", cmd, "args: ", args, "msgObj: ", msgObj);
+
+   if (cmd === "die") {
+      if (typeof reason !== "undefined") {
+         msgObj.talk.reason = args;
+      } else {
+         msgObj.talk.reason = "No reason given.";
+      }
+   } else {
+      msgObj.talk.target = args;
+   }
+
    socket.send(JSON.stringify(msgObj));
    $('#user-menu').hide();
-   console.log(`Sent command: /${cmd} ${target}`);
+   console.log(`Sent command: /${cmd} ${args}`);
 }
 
 function msg_create_links(message) {
@@ -870,7 +901,8 @@ function toggle_dark_mode() {
 function show_login_window() {
    $('button#submit').prop('disabled', false);
    $('div#win-chat').hide();
-   $('div#win-settings').hide();
+   $('div#win-config').hide();
+   $('div#win-syslog').hide();
    $('div#win-login').show();
    $('input#user').focus();
    $('div#tabstrip').hide();
@@ -881,19 +913,41 @@ function show_chat_window() {
 //   $('.chroma-hash').hide();
    $('div#win-login').hide();
    $('div#win-rig').hide();
-   $('div#win-settings').hide();
+   $('div#win-config').hide();
+   $('div#win-syslog').hide();
    $('div#tabstrip').show();
    $('div#win-chat').show();
    $('#chat-input').focus();
 }
 
-function show_settings_window() {
+function show_rig_window() {
+//   $('.chroma-hash').hide();
+   $('div#win-login').hide();
+   $('div#win-chat').hide();
+   $('div#win-config').hide();
+   $('div#win-syslog').hide();
+   $('div#tabstrip').show();
+   $('div#win-rig').show();
+}
+
+function show_config_window() {
 //   $('.chroma-hash').hide();
    $('div#win-rig').hide();
    $('div#win-chat').hide();
    $('div#win-login').hide();
+   $('div#win-syslog').hide();
    $('div#tabstrip').show();
-   $('div#win-settings').show();
+   $('div#win-config').show();
+}
+
+function show_syslog_window() {
+//   $('.chroma-hash').hide();
+   $('div#win-rig').hide();
+   $('div#win-chat').hide();
+   $('div#win-login').hide();
+   $('div#win-config').hide();
+   $('div#tabstrip').show();
+   $('div#win-syslog').show();
 }
 
 // turn a unix time into [HH:MM.ss] stamp or space padding if invalid

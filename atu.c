@@ -74,7 +74,7 @@ rr_atu_tv *rr_atu_find_saved_state(int uid) {
 int rr_atu_init(int uid) {
    int rv = 0;
    rr_atu_tv *tv = NULL;
-   Log(LOG_INFO, "atu", " => ATU #%d initialized", uid);
+   Log(LOG_INFO, "atu", " => ATU #%d initializing", uid);
    // do we have saved tuning parameters for this unit?
    if ((tv = rr_atu_find_saved_state(uid)) != NULL) {
       // Apply them

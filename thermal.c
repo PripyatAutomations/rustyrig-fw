@@ -59,7 +59,7 @@ uint32_t get_thermal(uint32_t sensor) {
          return -1000;
       } else {
          float temp = rig.amps[unit].thermal;
-         Log(LOG_DEBUG, "therm.noisy", "returning thermal %d (PA: %d): %f degF", sensor, unit, temp);
+         Log(LOG_DEBUG, "therm", "returning thermal %d (PA: %d): %f degF", sensor, unit, temp);
          return temp;
       }
     } else if (sensor >= 2000 && sensor <= 2099) {
@@ -69,7 +69,7 @@ uint32_t get_thermal(uint32_t sensor) {
          return -1000;
       } else {
          float temp = rig.atus[unit].thermal;
-         Log(LOG_DEBUG, "therm.noisy", "returning thermal %d (ATU: %d): %f degF", sensor, unit, temp);
+         Log(LOG_DEBUG, "therm", "returning thermal %d (ATU: %d): %f degF", sensor, unit, temp);
          return temp;
       }
     } else if (sensor >= 3000 && sensor <= 3099) {
@@ -79,7 +79,7 @@ uint32_t get_thermal(uint32_t sensor) {
          return -1000;
       } else {
          float temp = rig.filters[unit].thermal;
-         Log(LOG_DEBUG, "therm.noisy", "returning thermal %d (Filter: %d): %f degF", sensor, unit, temp);
+         Log(LOG_DEBUG, "therm", "returning thermal %d (Filter: %d): %f degF", sensor, unit, temp);
          return temp;
       }
     }

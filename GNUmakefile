@@ -69,6 +69,7 @@ CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
 LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
 endif
 
+objs += auth.o			# User management
 objs += backend.o		# Support for multiple backends by setting up pointer into appropriate one
 objs += backend.dummy.o		# Dummy backend (not implemented yet - use hamlib + rigctld in dummy rig mode!)
 objs += backend.hamlib.o	# Support for using hamlib to control legacy rigs
@@ -130,7 +131,6 @@ objs += util.vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
 objs += waterfall.o		# Support for rendering waterfalls
 objs += ws.o			# Websocket transport for CAT and audio
-objs += ws.auth.o		# Websocket Authentication
 objs += ws.chat.o		# Websocket Chat (talk)
 objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 

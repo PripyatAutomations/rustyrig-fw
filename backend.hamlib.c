@@ -141,7 +141,7 @@ static bool hl_init(void) {
 
 static bool hl_fini(void) {
    if (hl_rig == NULL) {
-      Log(LOG_DEBUG, "hamlib", "hl_fini called but hl_rig == NULL");
+      Log(LOG_WARN, "hamlib", "hl_fini called but hl_rig == NULL");
       return true;
    }
 

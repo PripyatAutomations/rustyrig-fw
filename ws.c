@@ -19,6 +19,20 @@
 
 extern struct GlobalState rig;	// Global state
 
+bool send_global_alert(http_client_t *cptr, const char *data) {
+      char msgbuf[HTTP_WS_MAX_MSG+1];
+      struct mg_str mp;
+      char *escaped_msg = escape_html(data);
+      memset(msgbuf, 0, sizeof(msgbuf));
+
+      snprintf(msgbuf, sizeof(msgbuf), "{ \"alert\": { \"from\": \"%s\", \"alert\": \"%s\", \"ts\": %lu } }", cptr->chatname, escaped_msg, now);
+      mp = mg_str(msgbuf);
+      ws_broadcast(NULL, &mp);
+      free(escaped_msg);
+
+      return false;
+}
+
 bool ws_init(struct mg_mgr *mgr) {
    if (mgr == NULL) {
       Log(LOG_CRIT, "ws", "ws_init called with NULL mgr");
@@ -60,9 +74,6 @@ bool ws_send_userlist(void) {
       }
 
       const char *comma = (count > 0) ? "," : "";
-      const char *name_fmt = (strcasecmp(cptr->user->name, "guest") == 0) ? "%s%04d" : "%s";
-      char username[64];
-      snprintf(username, sizeof(username), name_fmt, cptr->user->name, cptr->guest_id);
 
       bool is_admin = (strstr(cptr->user->privs, "admin") != NULL);
       bool is_view_only = (strstr(cptr->user->privs, "view") != NULL);
@@ -71,7 +82,7 @@ bool ws_send_userlist(void) {
 
       len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len,
                    "%s{\"name\":\"%s\",\"admin\":%s,\"tx\":%s,\"view_only\":%s,\"owner\":%s}",
-                   comma, username,
+                   comma, cptr->chatname,
                    is_admin ? "true" : "false",
                    is_txing ? "true" : "false",
                    is_view_only ? "true" : "false",
@@ -97,7 +108,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    struct mg_connection *c = cptr->conn;
 
    if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth.noisy", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
       return true;
    }
 
@@ -120,7 +131,7 @@ bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
    http_client_t *cptr = http_find_client_by_c(c);
 
    if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth.noisy", "ws_kick_client_by_c for mg_conn <%x> has cptr <%x> and is invalid", c, (cptr != NULL ? cptr->conn : NULL));
+      Log(LOG_DEBUG, "auth", "ws_kick_client_by_c for mg_conn <%x> has cptr <%x> and is invalid", c, (cptr != NULL ? cptr->conn : NULL));
       return true;
    }
 
@@ -165,7 +176,8 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       return true;
    }
 
-//     Log(LOG_DEBUG, "http.noisy", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+   Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+
    if (msg->flags & WEBSOCKET_OP_BINARY) {
       codec_decode_frame((unsigned char *)msg->data.buf, msg->data.len);
    } else {	// Text based packet
@@ -184,29 +196,4 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       }
    }
    return false;
-}
-
-int generate_random_number(int digits) {
-   int num = 0, prev_digit = -1;
-
-try_again:
-   for (int i = 0; i < digits; i++) {
-      int digit;
-      do {
-         digit = rand() % 10;
-      } while (digit == prev_digit); // Ensure no consecutive repeats
-
-      num = num * 10 + digit;
-      prev_digit = digit;
-   }
-
-   http_client_t *cptr = http_client_list;
-   while (cptr != NULL) {
-      // if we match an existing number, start over
-      if (cptr->guest_id == num) {
-         goto try_again;
-      }
-      cptr = cptr->next;
-   }
-   return num;
 }

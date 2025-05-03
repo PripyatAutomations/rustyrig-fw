@@ -35,6 +35,7 @@ static struct log_priority log_priorities[] = {
    { .prio = LOG_WARN,	.msg = "warn" },
    { .prio = LOG_INFO,	.msg = "info" },
    { .prio = LOG_DEBUG,	.msg = "debug" },
+   { .prio = LOG_CRAZY, .msg = "crazy" },
    { .prio = LOG_NONE,	.msg = s_prio_none }		// invalid entry
 };
 
@@ -130,14 +131,19 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       return;
    }
 
+   if (priority > rig.log_level) {
+      return;
+   }
+
    // If this is a debug message, apply debug filtering
+/*
    if (priority == LOG_DEBUG) {
       if (debug_filter(subsys, fmt) == false) {
          // if we get false back, drop the message
          return;
       }
    }
-
+*/
    // update the timestamp string
    if (log_show_ts) {
       update_timestamp();

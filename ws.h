@@ -18,8 +18,7 @@ extern bool ws_kick_client(http_client_t *cptr, const char *reason);			// discon
 extern bool ws_kick_client_by_c(struct mg_connection *c, const char *reason);
 extern bool ws_handle_protocol(struct mg_ws_message *msg, struct mg_connection *c);
 extern bool ws_send_userlist(void);
-extern int generate_random_number(int digits);
-extern char *compute_wire_password(const char *password_hash, const char *nonce);
+extern bool send_global_alert(http_client_t *cptr, const char *data);
 
 // ws.auth.c
 extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c);

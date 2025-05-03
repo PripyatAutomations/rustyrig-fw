@@ -1,3 +1,6 @@
+[ws/www]
+- Implement ALERT message that pops up for all users (for shutdown, overheat, SWR alerts).
+
 [i2c/eeprom]
 - Implement hard coded address for i2c eeprom and a codepath to support it
 - Should we bypass the eeprom step and read directly from the config & channels.json on posix?
@@ -11,7 +14,7 @@ Make things so that make debug forces a make clean & adding make debug if last b
 - Wrap strings for storage as appropriate on micros (stm32? ;)
 
 [buildconf]
-- Support for loading older (input) eeprom layouts, according to version saved in the EEPROM
+- Support for loading older (input) eeprom layouts, according to version saved in the EEPROM, for upgrading
   - see res/archive/*
 * Remove need for offset & key properties
   - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)

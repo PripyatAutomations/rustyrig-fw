@@ -70,6 +70,7 @@ struct http_client {
     char token[HTTP_TOKEN_LEN+1]; // Session token
     char nonce[HTTP_TOKEN_LEN+1]; // Authentication nonce - only used between challenge & pass stages
     int guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
+    char chatname[HTTP_USER_LEN+1]; // username to show in chat (GUESTxxxx or USER)
     struct http_client *next; 	// pointer to next client in list
 };
 typedef struct http_client http_client_t;

@@ -100,3 +100,11 @@ a.chat-link {
 .img-confirm-box img {
     border: 2px solid white;
 }
+
+.chat-status {
+   color: LightSteelBlue;
+}
+
+.msg-connected {
+   color: LightGreen;
+}

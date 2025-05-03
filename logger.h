@@ -13,6 +13,7 @@ enum LogPriority {
       LOG_WARN,
       LOG_INFO,
       LOG_DEBUG,
+      LOG_CRAZY
 };
 struct log_priority {
    enum LogPriority	prio;

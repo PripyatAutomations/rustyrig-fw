@@ -43,6 +43,8 @@
 struct mg_mgr mg_mgr;
 #endif
 
+int my_argc = -1;
+char **my_argv = NULL;
 bool dying = 0;                 // Are we shutting down?
 struct GlobalState rig;         // Global state
 time_t now = -1;		// time() called once a second in main loop to update
@@ -88,7 +90,26 @@ void shutdown_rig(uint32_t signum) {
     exit(signum);
 }
 
+void restart_rig(void) {
+   Log(LOG_CRIT, "core", "Restarting process...");
+
+   host_cleanup();
+
+   // Ensure argv is NULL-terminated (it should be, but defensively...)
+   my_argv[my_argc] = NULL;
+
+   execv(my_argv[0], my_argv);
+
+   // If execv fails
+   perror("execv");
+   exit(127);
+}
+
 int main(int argc, char **argv) {
+   // save for restarting later
+   my_argc = argc;
+   my_argv = argv;
+
    // Initialize some earl state
    now = time(NULL);
    srand((unsigned int)now);

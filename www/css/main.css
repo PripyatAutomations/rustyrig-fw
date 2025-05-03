@@ -137,6 +137,36 @@ html, body {
    -ms-user-select: text;
 }
 
+#win-syslog {
+   display: none;
+   border: 2px solid green;
+   border-radius: 10px;
+   position: fixed;
+   top: CALC(3em + 5px);
+   height: CALC(100% - 3em - 10px);
+   left: 0.25em;
+   width: CALC(100% - 0.5em);
+   user-select: text;
+   -webkit-user-select: text;
+   -moz-user-select: text;
+   -ms-user-select: text;
+}
+
+#win-config {
+   display: none;
+   border: 2px solid #0000ff;
+   border-radius: 10px;
+   position: fixed;
+   top: CALC(3em + 5px);
+   height: CALC(100% - 3em - 10px);
+   left: 0.25em;
+   width: CALC(100% - 0.5em);
+   user-select: text;
+   -webkit-user-select: text;
+   -moz-user-select: text;
+   -ms-user-select: text;
+}
+
 #chat-box {
    position: fixed;
    top: 3.5em;
@@ -246,7 +276,7 @@ button {
 
 .chat-status {
    font-size: 16px;
-   color: green;
+   color: DarkSteelBlue;
    margin: 5px 0;
 }
 
@@ -258,7 +288,7 @@ button {
 
 .msg-connected {
    font-size: 16px;
-   color: LightGreen;
+   color: DarkGreen;
    margin: 5px 0;
 }
 
@@ -344,28 +374,35 @@ div#tabstrip {
 }
 
 span#menu-tabs {
+   display: flex;
+   justify-content: flex-start;
+   align-items: center;
    position: relative;
-   left: 0px;
-   top: 0.0em;
+   top: 0;
+   left: 0;
+   height: 3em; /* Match tabstrip height */
+}
+
+#tab-dark {
+   margin-left: auto;
 }
 
 span.menu-tab {
-   position: relative;
-   left: 0em;
-   top: 0.4em;
    border-radius: 10px;
    border: 2px solid #0a0a0a;
    background: #c0c0c0;
    color: black;
-   font-size: 1.5em;
+   font-size: 1.2em;
    font-weight: bold;
-   height: 2.7em;
-   width: 4em;
-   margin-left: 0.25em;
+   display: flex;
+   align-items: center;
+   justify-content: center;
    margin-right: 0.25em;
-   padding: 0.3em;
-   padding-left: 1em;
-   padding-right: 1em;
+   margin-left: 0.25em;
+   height: 2.5em;
+   line-height: 1.3em;
+   top: 0;
+   padding: 0 1em;     /* x padding only */
 }
 
 span.menu-tab:hover {

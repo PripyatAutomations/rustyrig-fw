@@ -77,11 +77,11 @@ void codec_encode_frame(const void *pcm_data, int size) {
 
    compressed_size = opus_encode(encoder, pcm_data, frame_size, opus_data, OPUS_MAX_PACKET);
    if (compressed_size < 0) {
-      Log(LOG_DEBUG, "codec", "Opus encoding failed: %s", opus_strerror(compressed_size));
+      Log(LOG_WARN, "codec", "Opus encoding failed: %s", opus_strerror(compressed_size));
       return;
    }
 
-   Log(LOG_DEBUG, "codec.noisy", "Encoded %d bytes -> %d bytes", size, compressed_size);
+   Log(LOG_CRAZY, "codec", "Encoded %d bytes -> %d bytes", size, compressed_size);
 
    // XXX: Send the encoded frame via ws
 }
@@ -94,7 +94,7 @@ void codec_decode_frame(const uint8_t *data, int len) {
    if (decoded_samples > 0) {
       pcm_buffer_used += decoded_samples * sizeof(opus_int16);
    }
-   Log(LOG_INFO, "codec.noisy", "Decoded %d bytes -> %d samples in %d bytes", len, decoded_samples, pcm_buffer_used);
+   Log(LOG_CRAZY, "codec", "Decoded %d bytes -> %d samples in %d bytes", len, decoded_samples, pcm_buffer_used);
 }
 
 void codec_fini(void) {

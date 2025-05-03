@@ -126,7 +126,7 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
    }
 
    // Sqawk audit log and Apply PTT if we made it this far
-   Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->user->name);
+   Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
 
    if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_ptt_set == NULL) {
       return true;
