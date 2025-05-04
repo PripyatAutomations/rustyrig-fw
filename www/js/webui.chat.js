@@ -60,148 +60,61 @@ function paste_image(e, item) {
    e.preventDefault();
 }
 
+function insert_at_cursor($input, text) {
+   const start = $input.prop('selectionStart');
+   const end = $input.prop('selectionEnd');
+   const val = $input.val();
+   $input.val(val.substring(0, start) + text + val.substring(end));
+   $input[0].setSelectionRange(start + text.length, start + text.length);
+}
+
+function handle_paste(e) {
+   const items = (e.originalEvent || e).clipboardData.items;
+
+   for (const item of items) {
+      if (item.type.indexOf('image') !== -1) {
+         paste_image(e, item);
+         break;
+      } else if (item.type.indexOf('text/plain') !== -1) {
+         item.getAsString(function(text) {
+            const $input = $('#chat-input');
+            const start = $input.prop('selectionStart');
+            const end = $input.prop('selectionEnd');
+            const val = $input.val();
+            insert_at_cursor($('#chat-input'), text);
+         });
+         break;
+      } else if (item.type === 'text/html') {
+         item.getAsString(function(html) {
+            const text = $('<div>').html(html).text();
+            insert_at_cursor($('#chat-input'), text);
+         });
+         break;
+      } else {
+         alert("PASTE: Unsupported file type: " + item.type);
+         console.log("PASTE: Unsupported file type: ", item.type);
+         break;
+      }
+   }
+}
+
 function chat_init() {
+/*
+ * XXX: This needs to check the active tab first
+ *
    $('#chat-link').click(function(e) {
       if (logged_in) {
          $('#chat-input').focus();
       }
    });
-
+*/
    $('#chat-input').on('paste', function(e) {
-      const items = (e.originalEvent || e).clipboardData.items;
-      for (const item of items) {
-         if (item.type.indexOf('image') !== -1) {
-            paste_image(e, item);
-            break;
-         } else if (item.type.indexOf('text/plain') !== -1) {
-            item.getAsString(function(text) {
-               const $input = $('#chat-input');
-               const start = $input.prop('selectionStart');
-               const end = $input.prop('selectionEnd');
-               const val = $input.val();
-               $input.val(val.substring(0, start) + text + val.substring(end));
-               // Move cursor after inserted text
-               $input[0].setSelectionRange(start + text.length, start + text.length);
-            });
-            break;
-         } else {
-            alert("PASTE: Unsupported file type: " + item.type);
-            console.log("PASTE: Unsupported file type: ", item.type);
-         }
-      }
+      handle_paste(e);
       e.preventDefault();
    });
 
-   // Send message to the server when "Send" button is clicked
-   $('#send-btn').click(function() {
-      var message = $('#chat-input').val().trim();
-      var chat_msg = false;
-      var msg_type = "invalid";
-
-      // Determine if the message is a command, otherwise send it off as chat
-      if (message) {
-         if (message.charAt(0) == '/') {
-            var args = message.split(' ');
-
-            // remove the leading /
-            if (args.length > 0 && args[0].startsWith('/')) {
-               args[0] = args[0].slice(1);
-            }
-            var command = args[0];
-
-            // Compare the lower-cased command
-            switch(command.toLowerCase()) {
-               case 'ban':
-                  console.log("Send BAN for", args[1]);
-                  chat_send_command(command, args[1], args[2]);
-                  break;
-               case 'clear':
-                  console.log("Cleared scrollback");
-                  clear_chatbox();
-               case 'die':
-               case 'restart':
-                  var reason;
-                  if (typeof args[1] === "undefined" || args[1] === '') {
-                     reason = "No Reason Given";
-                  } else {
-                     reason = args[1];
-                  }
-                  chat_send_command(command, reason);
-                  break;
-               case 'edit':
-                  console.log("Send EDIT for", args[1]);
-                  chat_send_command(command, args[1]);
-                  break;
-               case 'help':
-                  chat_append('<div><span class="error">*** HELP *** All commands start with /</span></div>');
-                  chat_append('<div><span class="error">/clear&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
-                  chat_append('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
-                  chat_append('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
-                  chat_append('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
-
-                  var isAdmin = /admin/.test(auth_privs);
-                  if (isAdmin) {
-                     chat_append('<div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners./</span></div>');
-                     chat_append('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; [reason]</span></div>');
-                     chat_append('<div><span class="error">/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server [reason]</span></div>');
-                     chat_append('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
-                     chat_append('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; [reason]</span></div>');
-                     chat_append('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt;</span></div>');
-                     chat_append('<div><span class="error">/restart&nbsp;- Restart the server [reason]</span></div>');
-                  } else {
-                     chat_append('<div><span class="error">*********************************************</span></div>');
-                     chat_append('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
-                     chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
-                  }
-                  break;
-               case 'kick':
-                  console.log("Sending KICK for", args[1]);
-                  chat_send_command(command, args[1]);
-                  break;
-               case 'me':	// /me shows an ACTION in the chat
-                  message = message.slice(4);
-                  console.log("ACTION ", message);
-                  chat_msg = true;
-                  msg_type = "action";
-                  break;
-               case 'mute':
-                  console.log("Send MUTE", args[1]);
-                  chat_send_command(command, args[1]);
-                  break;
-               case 'whois':
-                  console.log("Send WHOIS", args[1]);
-                  chat_send_command(command, args[1]);
-                  break;
-               default:
-                  chat_append('<div><span class="error">Invalid command:' + command + '</span></div>');
-                  break;
-            }
-         } else {
-           chat_msg = true;
-           msg_type = "pub";
-         }
-
-         // Is this a user message that we should display?
-         if (chat_msg) {
-            var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-            var msgObj = {
-               "talk": {
-                  "cmd": "msg",
-                  "ts": my_ts,
-                  "token": auth_token,
-                  "msg_type": msg_type,
-                  "data": message
-               }
-            };
-            socket.send(JSON.stringify(msgObj));
-         }
-
-         // Clear the input field and after a delay re-focus it, to avoid flashing
-         $('#chat-input').val('');
-         setTimeout(function () {
-              $('#chat-input').focus();
-         }, 10);
-      }
+   $('#send-btn').click(function(e) {
+      parse_chat_cmd(e);
    });
 
    ///////////////////////
@@ -327,7 +240,7 @@ function chat_send_command(cmd, args) {
    };
    console.log("Sending cmd ", cmd, "args: ", args, "msgObj: ", msgObj);
 
-   if (cmd === "die") {
+   if (cmd === "die" || cmd == "restart") {
       if (typeof reason !== "undefined") {
          msgObj.talk.reason = args;
       } else {
@@ -340,4 +253,115 @@ function chat_send_command(cmd, args) {
    socket.send(JSON.stringify(msgObj));
    $('#user-menu').hide();
    console.log(`Sent command: /${cmd} ${args}`);
+}
+
+function parse_chat_cmd(e) {
+   var message = $('#chat-input').val().trim();
+   var chat_msg = false;
+   var msg_type = "invalid";
+
+   // Determine if the message is a command, otherwise send it off as chat
+   if (message) {
+      if (message.charAt(0) == '/') {
+         var args = message.split(' ');
+
+         // remove the leading /
+         if (args.length > 0 && args[0].startsWith('/')) {
+            args[0] = args[0].slice(1);
+         }
+         var command = args[0];
+
+         // Compare the lower-cased command
+         switch(command.toLowerCase()) {
+            case 'ban':
+               console.log("Send BAN for", args[1]);
+               chat_send_command(command, args[1], args[2]);
+               break;
+            case 'clear':
+               console.log("Cleared scrollback");
+               clear_chatbox();
+            case 'die':
+            case 'restart':
+               var reason;
+               if (typeof args[1] === "undefined" || args[1] === '') {
+                  reason = "No Reason Given";
+               } else {
+                  reason = args[1];
+               }
+               chat_send_command(command, reason);
+               break;
+            case 'edit':
+               console.log("Send EDIT for", args[1]);
+               chat_send_command(command, args[1]);
+               break;
+            case 'help':
+               chat_append('<div><span class="error">*** HELP *** All commands start with /</span></div>');
+               chat_append('<div><span class="error">/clear&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
+               chat_append('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
+               chat_append('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
+               chat_append('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+
+               var isAdmin = /admin/.test(auth_privs);
+               if (isAdmin) {
+                  chat_append('<div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners./</span></div>');
+                  chat_append('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; [reason]</span></div>');
+                  chat_append('<div><span class="error">/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server [reason]</span></div>');
+                  chat_append('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
+                  chat_append('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; [reason]</span></div>');
+                  chat_append('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt;</span></div>');
+                  chat_append('<div><span class="error">/restart&nbsp;- Restart the server [reason]</span></div>');
+               } else {
+                  chat_append('<div><span class="error">*********************************************</span></div>');
+                  chat_append('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
+                  chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
+               }
+               break;
+            case 'kick':
+               console.log("Sending KICK for", args[1]);
+               chat_send_command(command, args[1]);
+               break;
+            case 'me':	// /me shows an ACTION in the chat
+               message = message.slice(4);
+               console.log("ACTION ", message);
+               chat_msg = true;
+               msg_type = "action";
+               break;
+            case 'mute':
+               console.log("Send MUTE", args[1]);
+               chat_send_command(command, args[1]);
+               break;
+            case 'whois':
+               console.log("Send WHOIS", args[1]);
+               chat_send_command(command, args[1]);
+               break;
+            default:
+               chat_append('<div><span class="error">Invalid command:' + command + '</span></div>');
+               break;
+         }
+      } else {
+        chat_msg = true;
+        msg_type = "pub";
+      }
+
+      // Is this a user message that we should display?
+      if (chat_msg) {
+         var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+         var msgObj = {
+            "talk": {
+               "cmd": "msg",
+               "ts": my_ts,
+               "token": auth_token,
+               "msg_type": msg_type,
+               "data": message
+            }
+         };
+         socket.send(JSON.stringify(msgObj));
+      }
+
+      // Clear the input field and after a delay re-focus it, to avoid flashing
+      $('#chat-input').val('');
+      setTimeout(function () {
+           $('#chat-input').focus();
+      }, 10);
+   }
 }

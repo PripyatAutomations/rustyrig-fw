@@ -1,6 +1,6 @@
-////////////////
-// Chat stuff //
-////////////////
+/////////////////////////////
+// File Xfer / Image paste //
+/////////////////////////////
 const file_chunks = {}; // msg_id => {chunks: [], received: 0, total: N}
 
 function send_chunked_file(base64Data, filename) {
