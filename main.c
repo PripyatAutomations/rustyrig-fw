@@ -40,7 +40,7 @@
 #if	defined(FEATURE_MQTT)
 #include "mqtt.h"
 #endif
-#if	defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
+#if	defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;
 #endif
 
@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
    debug_init();			// Initialize debug	
    initialize_state();			// Load default values
 
-#if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
+#if	defined(USE_MONGOOSE)
    mg_mgr_init(&mg_mgr);
 #endif
    timer_init();
@@ -232,19 +232,18 @@ int main(int argc, char **argv) {
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
 //      rr_cons_parse_line(buf);
 
-      // Redraw the GUI virtual framebuffer
+      // Redraw the GUI virtual framebuffer, update nextion
       gui_update();
 
       // XXX: Check if an LCD/OLED is configured and update it
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
-
-#if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
+#if	defined(USE_MONGOOSE)
       // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
    }
 
-#if     defined(FEATURE_MQTT) || defined(FEATURE_HTTP)
+#if	defined(USE_MONGOOSE)
    mg_mgr_free(&mg_mgr);
 #endif
    return 0;
