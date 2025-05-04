@@ -23,42 +23,29 @@ function clear_chatbox() {
    }, 10);
 }
 
-function paste_image(e, item) {
-   const file = item.getAsFile();
-   const reader = new FileReader();
-   reader.onload = function(evt) {
-      form_disable(true);
-      const dataUrl = evt.target.result;
-      const confirmBox = $('<div class="img-confirm-box">')
-         .append(`<p>Send this image?</p><img id="img-confirm-img" src="${dataUrl}"><br>`)
-         .append('<button id="img-post" class="green-btn">Yes</button><button id="img-cancel" class="red-btn">No</button>')
-         .append('<button id="img-clearclip" class="red-btn">Clr Clipbrd</button>');
-         
-      $('body').append(confirmBox);
-      confirmBox.find('#img-post').click(() => {
-         send_chunked_file(dataUrl);
-         confirmBox.remove();
-      });
-      confirmBox.find('#img-cancel').click(() => {
-         confirmBox.remove();
-      });
-      confirmBox.find('#img-clearclip').click(() => {
-         navigator.clipboard.writeText(" ");
-         confirmBox.remove();
-      });
-      form_disable(false);
-      $('button#img-post').focus();
-   };
-   reader.readAsDataURL(file);
-   e.preventDefault();
-}
-
 function insert_at_cursor($input, text) {
    const start = $input.prop('selectionStart');
    const end = $input.prop('selectionEnd');
    const val = $input.val();
    $input.val(val.substring(0, start) + text + val.substring(end));
    $input[0].setSelectionRange(start + text.length, start + text.length);
+}
+
+function paste_plaintext(e, item) {
+   item.getAsString(function(text) {
+      const $input = $('#chat-input');
+      const start = $input.prop('selectionStart');
+      const end = $input.prop('selectionEnd');
+      const val = $input.val();
+      insert_at_cursor($('#chat-input'), text);
+   });
+}
+
+function paste_html(e, item) {
+   item.getAsString(function(html) {
+      const text = $('<div>').html(html).text();
+      insert_at_cursor($('#chat-input'), text);
+   });
 }
 
 function handle_paste(e) {
@@ -69,19 +56,10 @@ function handle_paste(e) {
          paste_image(e, item);
          break;
       } else if (item.type === 'text/plain') {			// Handle plaintext
-         item.getAsString(function(text) {
-            const $input = $('#chat-input');
-            const start = $input.prop('selectionStart');
-            const end = $input.prop('selectionEnd');
-            const val = $input.val();
-            insert_at_cursor($('#chat-input'), text);
-         });
+         paste_plaintext(e, item);
          break;
       } else if (item.type === 'text/html') {			// Strip HTML tabs
-         item.getAsString(function(html) {
-            const text = $('<div>').html(html).text();
-            insert_at_cursor($('#chat-input'), text);
-         });
+         paste_html(e, item);
          break;
       } else {
          alert("PASTE: Unsupported file type: " + item.type);
@@ -162,7 +140,7 @@ function cul_update(message) {
        } else if (view_only) {
           badges += '<span class="badge view-badge">👀&nbsp;</span>';
        } else {
-          badges += '<span class="badge empty-badge">&nbsp;&nbsp;&nbsp;&nbsp;</span>';
+          badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';
        }
 
        const userItem = `<li>

@@ -60,21 +60,20 @@ function toggle_mute() {
 }
 
 function play_notify_bell() {
-   // Play bell sound if the bell button is checked
    if ($('#bell-btn').data('checked')) {
-      chat_ding.currentTime = 0;  // Reset audio to start from the beginning
+      chat_ding.currentTime = 0; 
       chat_ding.play();
    }
 }
 
 function set_highlight(tab) {
+   // Clear all highlights
    clear_highlight();
 
-   // Add highlight to the specified tab
+   // Set the new one
    $(`span#tab-${tab}`).addClass('chat-highlight');
 }
 
 function clear_highlight() {
-   // Remove the highlight class from all tabs
    $('span[id^="tab-"]').removeClass('chat-highlight');
 }

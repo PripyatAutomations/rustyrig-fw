@@ -90,6 +90,7 @@ function login_init() {
       let user = $("input#user");
       let pass = $("input#pass");
 
+      // A username is *required*
       if (user.val().trim() === "") {
          flash_red(user);
          user.focus();
@@ -97,6 +98,7 @@ function login_init() {
          return;
       }
 
+      // A password is *required*
       if (pass.val().trim() === "") {
          flash_red(pass);
          pass.focus();

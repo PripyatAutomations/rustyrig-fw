@@ -79,7 +79,7 @@ function handle_file_chunk(msgObj) {
 
       const $img = $('<img>')
          .attr('src', fullData)
-//         .attr('src', blobUrl)			// this is more efficient
+//         .attr('src', blobUrl)			// this is more efficient, but seems to break scrolling
          .addClass('chat-img')
          .css({
             'max-height': maxImgHeight,
@@ -153,6 +153,36 @@ function handle_file_chunk(msgObj) {
    }
 }
 
+function paste_image(e, item) {
+   const file = item.getAsFile();
+   const reader = new FileReader();
+   reader.onload = function(evt) {
+      form_disable(true);
+      const dataUrl = evt.target.result;
+      const confirmBox = $('<div class="img-confirm-box">')
+         .append(`<p>Send this image?</p><img id="img-confirm-img" src="${dataUrl}"><br>`)
+         .append('<button id="img-post" class="green-btn">Yes</button><button id="img-cancel" class="red-btn">No</button>')
+         .append('<button id="img-clearclip" class="red-btn">Clr Clipbrd</button>');
+         
+      $('body').append(confirmBox);
+      confirmBox.find('#img-post').click(() => {
+         send_chunked_file(dataUrl);
+         confirmBox.remove();
+      });
+      confirmBox.find('#img-cancel').click(() => {
+         confirmBox.remove();
+      });
+      confirmBox.find('#img-clearclip').click(() => {
+         navigator.clipboard.writeText(" ");
+         confirmBox.remove();
+      });
+      form_disable(false);
+      $('button#img-post').focus();
+   };
+   reader.readAsDataURL(file);
+   e.preventDefault();
+}
+
 let startY = null;
 
 $(document).on('click', '.chat-img', function () {
@@ -181,6 +211,7 @@ $('#imageModal').on('touchstart', function (e) {
    startY = e.originalEvent.touches[0].clientY;
 }).on('touchend', function (e) {
    const endY = e.originalEvent.changedTouches[0].clientY;
+
    if (startY && endY - startY > 100) { // swipe down
       $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
    }
