@@ -84,32 +84,29 @@
                         var properties = {
                             "position": "absolute",
                             "opacity": "1.0",
-                            /* XXX: This adding 92 and 104 nonsense is to fix bug in my css..? */
-                            "left": position.left + width + 93,
-                            "top": position.top + 84,
+                            "left": position.left + (width * 1.4),
+                            "top": position.top + 86,
                             "height": height - 3 + "px",
                             "width": "8px",
                             "margin": "0px",
-                            "marginLeft": -8 * (++i) + "px",
-
                             "transition": "background 0.5s",
                             "-moz-transition": "background 0.5s",
                             "-webkit-transition": "background 0.5s",
                             "-khtml-transition": "background 0.5s",
                             "-o-transition": "background 0.5s",
                             "-ms-transition": "background 0.5s",
-
                             "transition-delay": '400ms',
                             "-moz-transition-delay": '400ms',
                             "-webkit-transition-delay": '400ms',
                             "-khtml-transition-delay": '400ms',
                             "-o-transition-delay": '400ms',
+                            "z-index": 1900
                         };
 
                         // ugly hack to make chrome not messed up
                         if (navigator.userAgent.includes("Chrome")) {
-                           properties["top"] = position.top + 95;
-                           properties["left"] = position.left + width + 78;
+                           properties["top"] = properties["top"] - 5;
+                           properties["left"] = position.left + (width * 1.35);
                         } else if (navigator.userAgent.indexOf("Safari") > -1) {
                            properties["marginTop"] = "3px";
                         } else {
