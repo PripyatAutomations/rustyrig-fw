@@ -3,6 +3,20 @@
 /////////////////////////////
 const file_chunks = {}; // msg_id => {chunks: [], received: 0, total: N}
 
+// Convert base64 data URI to Blob
+function data_uri_to_blob(dataURI) {
+   const byteString = atob(dataURI.split(',')[1]);
+   const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+
+   const ab = new ArrayBuffer(byteString.length);
+   const ia = new Uint8Array(ab);
+   for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+   }
+
+   return new Blob([ab], { type: mimeString });
+}
+
 function send_chunked_file(base64Data, filename) {
    const chunkSize = 8000;
    const totalChunks = Math.ceil(base64Data.length / chunkSize);
@@ -59,8 +73,13 @@ function handle_file_chunk(msgObj) {
       const chatBoxHeight = $('#chat-box').innerHeight();
       const maxImgHeight = Math.floor(chatBoxHeight * 0.8) + 'px';
 
+
+      const blob = data_uri_to_blob(fullData);
+      const blobUrl = URL.createObjectURL(blob);
+
       const $img = $('<img>')
          .attr('src', fullData)
+//         .attr('src', blobUrl)			// this is more efficient
          .addClass('chat-img')
          .css({
             'max-height': maxImgHeight,
@@ -68,6 +87,12 @@ function handle_file_chunk(msgObj) {
             'height': 'auto',
             'width': 'auto'
          });
+
+      const $imgLink = $('<a>')
+         .attr('href', blobUrl)
+         .attr('target', '_blank')
+         .text(fileName)
+         .append($img);
 
       const $min = $('<button>').addClass('img-min-btn').text('−');
       const $close = $('<button>').addClass('img-close-btn').text('X');
@@ -79,13 +104,6 @@ function handle_file_chunk(msgObj) {
       const $wrap = $('<div class="chat-img-msg">')
          .append(msg_ts + `&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`);
 
-      // Wrap the image in a clickable link to open in a new tab
-      const $imgLink = $('<a>')
-         .attr('href', fullData)
-         .attr('target', '_blank')
-         .text(fileName) // Add the filename as a clickable text
-         .append($img);
-
       const $imgWrap = $('<div class="chat-img-wrap">')
          .append($imgLink)  // Add the link-wrapped image
          .append($controls); // Add the minimize and close controls
@@ -93,6 +111,12 @@ function handle_file_chunk(msgObj) {
       $wrap.append($imgWrap);
 
       chat_append($wrap.prop('outerHTML'));
+
+      // Scroll to the newly appended image
+      setTimeout(() => {
+         const lastImg = $('.chat-img-msg').last()[0];
+         if (lastImg) lastImg.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 10);
 
       // Handle close button and minimize/restore button as before
       $(document).on('click', '.img-close-btn', function () {
@@ -121,6 +145,9 @@ function handle_file_chunk(msgObj) {
             $img.show();
             $placeholder.remove();
             $btn.text('−');
+            setTimeout(function() {
+               $img[0].scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 10);
          }
       });
    }

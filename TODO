@@ -1,5 +1,3 @@
-[ws/www]
-- Implement ALERT message that pops up for all users (for shutdown, overheat, SWR alerts).
 
 [i2c/eeprom]
 - Implement hard coded address for i2c eeprom and a codepath to support it
@@ -55,11 +53,17 @@ minimal inet_ntop() for non-posix
 * Implement mqtt client mode, for sending status to existing server(s)
 
 [www]
-* Fix bell notifications (looks like we broke when adding localStorage bit)
+* Implement ALERT message that pops up for all users (for shutdown, overheat, SWR alerts).
+* Add /whois
+  - Show real name, nickk
+  - Show last signon, idle time, # of sessions active
+  - Show privileges
+  - Show if PTTing
 * Change the window title to show unread messages
 - Pasting images
   - Expire incomplete images from memory after a few minutes
   - Make sure we're cleaning up image data when no longer used
+  - FIX MINIMIZE BUTTON!
 * Selectable text in chat msgbox?
 * Fix tab highlights
 * Implement Web Serial firmare uploads
@@ -70,7 +74,7 @@ minimal inet_ntop() for non-posix
   - The server may respond with "expired" to tell us our session is invalid or a new token
     if the session is still valid.
 * display a Reconnecting symbol on top in the corner
-* Rework the http_client stuff so that instead of being removed on disconnected,
+? Rework the http_client stuff so that instead of being removed on disconnected,
   we just use a last-seen time to expire their session. We should never have a ton
   of people connected to the radio, so it should be fine this way
 * Implement tabbed/windowed modes with movable/resizable windows (overlapping)

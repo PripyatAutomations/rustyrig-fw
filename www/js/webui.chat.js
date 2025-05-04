@@ -8,26 +8,19 @@ function msg_create_links(message) {
    );
 }
 
-function msg_timestamp(msg_ts) {
-   if (typeof msg_ts !== "number") {
-      msg_ts = Number(msg_ts); 			// Convert string to number if necessary
-      if (isNaN(msg_ts)) return "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
-   }
-
-   let date = new Date(msg_ts * 1000); 		// Convert seconds to milliseconds
-   let hh = String(date.getHours()).padStart(2, '0');
-   let mm = String(date.getMinutes()).padStart(2, '0');
-   let ss = String(date.getSeconds()).padStart(2, '0');
-   return `[${hh}:${mm}:${ss}]`;
-}
-
 function chat_append(msg) {
    $('#chat-box').append(msg);
-   $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+   setTimeout(function () {
+      $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+   }, 10);
 };
 
 function clear_chatbox() {
    $('#chat-box').empty();
+
+   setTimeout(function () {
+      $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+   }, 10);
 }
 
 function paste_image(e, item) {
@@ -75,7 +68,7 @@ function handle_paste(e) {
       if (item.type.indexOf('image') !== -1) {
          paste_image(e, item);
          break;
-      } else if (item.type.indexOf('text/plain') !== -1) {
+      } else if (item.type === 'text/plain') {			// Handle plaintext
          item.getAsString(function(text) {
             const $input = $('#chat-input');
             const start = $input.prop('selectionStart');
@@ -84,7 +77,7 @@ function handle_paste(e) {
             insert_at_cursor($('#chat-input'), text);
          });
          break;
-      } else if (item.type === 'text/html') {
+      } else if (item.type === 'text/html') {			// Strip HTML tabs
          item.getAsString(function(html) {
             const text = $('<div>').html(html).text();
             insert_at_cursor($('#chat-input'), text);
@@ -143,31 +136,38 @@ function cul_update(message) {
     $('#cul-list').empty();
     const users = message.talk.users;
 
-    // Natural, case-insensitive sort by name
-    users.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+    // Only show each user once in the list
+    const uniqueUsers = Array.from(
+       new Map(users.map(u => [u.name.toLowerCase(), u])).values()
+    );
 
-    users.forEach(user => {
+    uniqueUsers.sort((a, b) => a.name.localeCompare(b.name, undefined, {
+       sensitivity: 'base',
+       numeric: true
+    }));
+
+    uniqueUsers.forEach(user => {
        const { name, admin, tx, view_only, owner } = user;
 
-       let badges = '';
+       let badges = '', tx_badges = '';
 
        if (tx) {
-          badges += '<span class="badge tx-badge">🔊</span>';
+          tx_badges += '<span class="badge tx-badge">🔊</span>';
        }
 
        if (owner) {
-          badges += '<span class="badge owner-badge">👑</span>';
+          badges += '<span class="badge owner-badge">👑&nbsp;</span>';
        } else if (admin) {
-          badges += '<span class="badge admin-badge">⭐</span>';
+          badges += '<span class="badge admin-badge">⭐&nbsp;</span>';
        } else if (view_only) {
-          badges += '<span class="badge view-badge">👀</span>';
+          badges += '<span class="badge view-badge">👀&nbsp;</span>';
        } else {
-          badges += '<span class="badge empty-badge">&nbsp;&nbsp;</span>';
+          badges += '<span class="badge empty-badge">&nbsp;&nbsp;&nbsp;&nbsp;</span>';
        }
 
        const userItem = `<li>
           <span class="chat-user-list" onclick="show_user_menu('${user.name}')">
-             ${badges}<span class="cul-self">${user.name}</span>
+             ${badges}<span class="cul-self">${user.name}</span>${tx_badges}
           </span>
        </li>`;
 
@@ -300,13 +300,15 @@ function parse_chat_cmd(e) {
                chat_append('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
                chat_append('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
                chat_append('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+               chat_append('<br/><div><span class="error">*** DEBUG TOOLS *** All commands start with /</span></div>');
+               chat_append('<div><span class="error">/reloadcss&nbsp;&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
 
                var isAdmin = /admin/.test(auth_privs);
                if (isAdmin) {
-                  chat_append('<div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners./</span></div>');
+                  chat_append('<br/><div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners./</span></div>');
                   chat_append('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; [reason]</span></div>');
                   chat_append('<div><span class="error">/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server [reason]</span></div>');
-                  chat_append('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
+//                  chat_append('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
                   chat_append('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; [reason]</span></div>');
                   chat_append('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt;</span></div>');
                   chat_append('<div><span class="error">/restart&nbsp;- Restart the server [reason]</span></div>');
@@ -329,6 +331,12 @@ function parse_chat_cmd(e) {
             case 'mute':
                console.log("Send MUTE", args[1]);
                chat_send_command(command, args[1]);
+               break;
+            case 'reloadcss':
+               console.log("Reloading CSS on user command");
+               reload_css();
+               chat_append('<div><span class="error">Reloaded CSS</span></div>');
+               $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
                break;
             case 'whois':
                console.log("Send WHOIS", args[1]);

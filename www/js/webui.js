@@ -12,6 +12,27 @@ let reconnect_interval = [1, 2, 5, 10, 30 ];
 var reconnect_index = 0; 	// Index to track the current delay
 var reconnect_timer;  		// so we can stop reconnects later
 
+function reload_css() {
+  $('link[rel="stylesheet"]').each(function() {
+    let $link = $(this);
+    let href = $link.attr('href').split('?')[0];
+    $link.attr('href', href + '?_=' + new Date().getTime());
+  });
+}
+
+function msg_timestamp(msg_ts) {
+   if (typeof msg_ts !== "number") {
+      msg_ts = Number(msg_ts); 			// Convert string to number if necessary
+      if (isNaN(msg_ts)) return "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+   }
+
+   let date = new Date(msg_ts * 1000); 		// Convert seconds to milliseconds
+   let hh = String(date.getHours()).padStart(2, '0');
+   let mm = String(date.getMinutes()).padStart(2, '0');
+   let ss = String(date.getSeconds()).padStart(2, '0');
+   return `[${hh}:${mm}:${ss}]`;
+}
+
 $(document).ready(function() {
    /////////////////////////////////////
    // Load settings from LocalStorage //
