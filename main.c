@@ -28,6 +28,7 @@
 #include "timer.h"
 #include "usb.h"
 #include "codec.h"
+#include "dds.h"
 
 //
 // http ui support
@@ -174,6 +175,7 @@ int main(int argc, char **argv) {
 
    rr_au_init();
    codec_init();
+   dds_init();
 
    // Network connectivity
    show_network_info();
