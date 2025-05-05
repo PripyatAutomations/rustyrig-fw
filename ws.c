@@ -197,3 +197,8 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    }
    return false;
 }
+
+void au_send_to_ws(const void *data, size_t len) {
+   struct mg_str msg = mg_str_n((const char *)data, len);
+   ws_broadcast(NULL, &msg);
+}

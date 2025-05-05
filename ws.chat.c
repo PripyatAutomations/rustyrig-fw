@@ -53,6 +53,11 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
+         if (strlen(data) == 0) {
+            rv = true;
+            goto cleanup;
+         }
+
          char msgbuf[HTTP_WS_MAX_MSG+1];
          char *escaped_msg = escape_html(data);
          struct mg_str mp;
@@ -113,7 +118,6 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
       } else if (strcasecmp(cmd, "whois") == 0) {
-  // XXX: Rewrite this for the new situation of cptr->chatname
          if (target == NULL) {
             // XXX: Send an warning to the user informing that they must specify a target username
             rv = true;
@@ -151,19 +155,14 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
-         char *escaped_msg = escape_html(data);
-         struct mg_str mp;
-
-         if (escaped_msg == NULL) {
-            Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
-            rv = true;
-            goto cleanup;
-         }
-
+         char whois_data[HTTP_WS_MAX_MSG/2];
          char msgbuf[HTTP_WS_MAX_MSG+1];
          memset(msgbuf, 0, sizeof(msgbuf));
-         snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }", cptr->chatname, escaped_msg, now);
+         memset(whois_data, 0, sizeof(whois_data));
+         snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }", cptr->chatname, whois_data, now);
+         struct mg_str mp;
          mp = mg_str(msgbuf);
+         // Send it to just the user
       } else {
          Log(LOG_DEBUG, "chat", "Got unknown talk msg: |%.*s|", msg_data.len, msg_data.buf);
       }

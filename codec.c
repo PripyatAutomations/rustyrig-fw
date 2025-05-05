@@ -66,9 +66,14 @@ bool codec_init(void) {
    return false;
 }
 
+extern void au_send_to_ws(const void *buf, size_t len);  // Assume already implemented
+
+#define AUDIO_TYPE_OPUS 0x01
+#define AUDIO_TYPE_PCM  0x00
+
 void codec_encode_frame(const void *pcm_data, int size) {
    unsigned char opus_data[OPUS_MAX_PACKET];
-   int frame_size = size / sizeof(short); // Convert byte size to sample count
+   int frame_size = size / sizeof(short);
    int compressed_size;
 
    if (!encoder) {
@@ -83,7 +88,21 @@ void codec_encode_frame(const void *pcm_data, int size) {
 
    Log(LOG_CRAZY, "codec", "Encoded %d bytes -> %d bytes", size, compressed_size);
 
-   // XXX: Send the encoded frame via ws
+   // Wrap with format byte
+   uint8_t msg[1 + OPUS_MAX_PACKET];
+   msg[0] = AUDIO_TYPE_OPUS;
+   memcpy(&msg[1], opus_data, compressed_size);
+   au_send_to_ws(msg, compressed_size + 1);
+
+   // Optional: also send raw PCM
+#if defined(SEND_PCM_TOO)
+   if (size <= 1024) {  // Keep it from flooding small clients
+      uint8_t raw_msg[1 + size];
+      raw_msg[0] = AUDIO_TYPE_PCM;
+      memcpy(&raw_msg[1], pcm_data, size);
+      au_send_to_ws(raw_msg, size + 1);
+   }
+#endif
 }
 
 // OPUS decoder outputs PCM here

@@ -26,6 +26,7 @@
 #define FRAME_SIZE 960  // 20ms frames at 48kHz
 
 rr_au_pw_data_t au;
+extern void au_send_to_ws(const void *data, size_t len);
 
 static void on_process(void *userdata) {
    struct pw_buffer *buffer;
@@ -34,24 +35,17 @@ static void on_process(void *userdata) {
    int size;
 
    rr_au_pw_data_t *aud = userdata;
-   if (!aud->capture_stream) {
-      return;
-   }
+   if (!aud->capture_stream) return;
 
-   if (!(buffer = pw_stream_dequeue_buffer(aud->capture_stream))) {
-      return;
-   }
-
+   if (!(buffer = pw_stream_dequeue_buffer(aud->capture_stream))) return;
    spa_buffer = buffer->buffer;
-   if (!(spa_buffer->datas[0].data)) {
-      return;
-   }
+   if (!(spa_buffer->datas[0].data)) return;
 
    data = spa_buffer->datas[0].data;
    size = spa_buffer->datas[0].chunk->size;
 
-   // Send data to OPUS encoder
-   codec_encode_frame(data, size);
+   codec_encode_frame(data, size);     // still encode to OPUS if needed
+   au_send_to_ws(data, size);          // send raw (or encoded) audio to all clients
 
    pw_stream_queue_buffer(aud->capture_stream, buffer);
 }

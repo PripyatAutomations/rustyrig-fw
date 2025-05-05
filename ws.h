@@ -26,5 +26,7 @@ extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
 extern bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c);
 // ws.rigctl.c
 extern bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c);
+//
+extern void au_send_to_ws(const void *data, size_t len);
 
 #endif	// !defined(__rr_ws_h)
