@@ -118,38 +118,38 @@ function handle_file_chunk(msgObj) {
          if (lastImg) lastImg.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }, 10);
 
-      // Handle close button and minimize/restore button as before
-      $(document).on('click', '.img-close-btn', function () {
-         const $wrap = $(this).closest('.chat-img-wrap');
-         $wrap.find('img.chat-img').remove();
-         $wrap.find('.img-placeholder').remove(); // just in case
-         $wrap.append('<em class="img-placeholder">[Image Deleted]</em>');
-         $(this).siblings('.img-min-btn').remove(); // remove minimize if deleted
-         $(this).remove();
+      $('#chat-box').on('click', '.img-close-btn', function () {
+          const $wrap = $(this).closest('.chat-img-wrap');
+          $wrap.find('img.chat-img').remove();
+          $wrap.find('.img-placeholder').remove();
+          $wrap.append('<em class="img-placeholder">[Image Deleted]</em>');
+          $(this).siblings('.img-min-btn').remove();
+          $(this).remove();
       });
 
-      $(document).on('click', '.img-min-btn', function () {
-         const $btn = $(this);
-         const $wrap = $btn.closest('.chat-img-wrap');
-         const $img = $wrap.find('img.chat-img');
-         let $placeholder = $wrap.find('.img-placeholder');
+      $('#chat-box').on('click', '.img-min-btn', function () {
+          const $btn = $(this);
+          const $wrap = $btn.closest('.chat-img-wrap');
+          const $img = $wrap.find('img.chat-img');
+          let $placeholder = $wrap.find('.img-placeholder');
 
-         if ($img.is(':visible')) {
-            $img.hide();
-            if (!$placeholder.length) {
-               $placeholder = $('<div class="img-placeholder">[Image Minimized]</div>');
-               $wrap.append($placeholder);
-            }
-            $btn.text('+');
-         } else {
-            $img.show();
-            $placeholder.remove();
-            $btn.text('−');
-            setTimeout(function() {
-               $img[0].scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }, 10);
-         }
+          if ($img.is(':visible')) {
+              $img.hide();
+              if (!$placeholder.length) {
+                  $placeholder = $('<div class="img-placeholder">[Image Minimized]</div>');
+                  $wrap.append($placeholder);
+              }
+              $btn.text('+');
+          } else {
+              $img.show();
+              $placeholder.remove();
+              $btn.text('−');
+              setTimeout(function () {
+                  $img[0].scrollIntoView({ behavior: 'smooth', block: 'end' });
+              }, 10);
+          }
       });
+
    }
 }
 
@@ -182,38 +182,3 @@ function paste_image(e, item) {
    reader.readAsDataURL(file);
    e.preventDefault();
 }
-
-let startY = null;
-
-$(document).on('click', '.chat-img', function () {
-   $('#modalImage').attr('src', this.src);
-   $('#imageModal').removeClass('hidden');
-});
-
-$('#closeImageModal').on('click', () => {
-   $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
-});
-
-$(document).on('keydown', (e) => {
-   if ($('#imageModal').is(':visible') && e.key === 'Escape') {
-      $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
-   }
-});
-
-$('#imageModal').on('click', (e) => {
-   if (e.target.id === 'imageModal') {
-      $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
-   }
-});
-
-// Swipe down to close (basic touch gesture)
-$('#imageModal').on('touchstart', function (e) {
-   startY = e.originalEvent.touches[0].clientY;
-}).on('touchend', function (e) {
-   const endY = e.originalEvent.changedTouches[0].clientY;
-
-   if (startY && endY - startY > 100) { // swipe down
-      $('#imageModal').addClass('hidden').find('#modalImage').css('transform', '');
-   }
-   startY = null;
-});
