@@ -36,7 +36,6 @@
 #include "logger.h"
 #include "eeprom.h"
 #include "i2c.h"
-#include "crc32.h"
 
 #define	EEPROM_C		// Let the header know we're in the C file
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
@@ -207,7 +206,7 @@ uint32_t eeprom_checksum_generate(void) {
 
    // Check for memory mapped style EEPROMs
    if (rig.eeprom_mmap != NULL) {
-      sum = crc32buf((char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
+      sum = mg_crc32(0, (char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
    }
 
    return sum;
@@ -226,7 +225,7 @@ bool eeprom_validate_checksum(void) {
 
    // return -1 if the checksums do not match
    if (calc_sum != curr_sum) {
-      Log(LOG_WARN, "eeprom", "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
+      Log(LOG_CRIT, "eeprom", "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
 
       // if the eeprom is mmapped, free it
       if (rig.eeprom_mmap != NULL) {

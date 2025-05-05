@@ -80,7 +80,6 @@ objs += cat.yaesu.o		# Yaesu CAT protocol
 objs += channels.o		# Channel Memories
 objs += codec.o			# Support for audio codec
 objs += console.o		# Console support
-objs += crc32.o			# CRC32 calculation for eeprom verification
 objs += dds.o			# API for Direct Digital Synthesizers
 objs += dds.ad9833.o		# AD9833 DDS
 objs += dds.ad9959_stm32.o	# STM32 (AT command) ad9851 DDS
