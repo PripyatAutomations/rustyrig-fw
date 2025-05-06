@@ -327,7 +327,7 @@ void http_tls_init(void) {
 
    tls_key = mg_file_read(&mg_fs_posix, HTTP_TLS_KEY);
 
-   if (tls_key.buf == NULL) {
+   if (tls_key.buf == NULL || tls_key.len <= 1) {
       Log(LOG_CRIT, "http.tls", "Unable to load TLS key from %s", HTTP_TLS_KEY);
       tls_error = true;
    }
@@ -341,7 +341,7 @@ void http_tls_init(void) {
       tls_opts.key = tls_key;
       tls_opts.skip_verification = 1;
       Log(LOG_INFO, "http.tls", "TLS initialized succesfully, |cert: <%lu @ %x>| |key: <%lu @ %x>",
-         tls_cert.len, tls_cert, tls_key.len, tls_key);
+         tls_cert.len, tls_cert, tls_key.len, tls_key.buf);
    }
 }
 #endif
