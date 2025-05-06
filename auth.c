@@ -34,10 +34,23 @@ extern struct GlobalState rig;	// Global state
 #define	WWW_404_FALLBACK	"fs:www/404.html"
 #endif	// defined(HOST_POSIX).else
 
+//////////////////////////////////////////
+// Compute wire password:
+//
+// How it works:
+//	Take password hash from the database and append "+" nonce
+//	Print the result as hex and compare it to what the user sent
+//
+// This provides protection against replays by 
 char *compute_wire_password(const char *password, const char *nonce) {
    unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
    char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
    mg_sha1_ctx ctx;
+
+   if (password == NULL || nonce == NULL) {
+      Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%x> or nonce<%x>", password, nonce);
+      return NULL;
+   }
 
    if (hex_output == NULL) {
       Log(LOG_CRIT, "auth", "oom in compute_wire_password");
@@ -457,6 +470,11 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       }
 
       temp_pw = compute_wire_password(up->pass, nonce);
+      if (temp_pw == NULL) {
+         Log(LOG_WARN, "auth", "Got NULL return from compute_wire_password for mg_conn:<%x>, kicking!", c);
+         rv = true;
+         goto cleanup;
+      }
       Log(LOG_CRAZY, "auth", "Saved: %s, hashed (server): %s, received: %s", up->pass, temp_pw, pass);
 
       if (strcmp(temp_pw, pass) == 0) {
@@ -476,14 +494,17 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
          cptr->session_expiry = now + HTTP_SESSION_LIFETIME;
 
+
          // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
          char resp_buf[HTTP_WS_MAX_MSG+1];
          memset(resp_buf, 0, sizeof(resp_buf));
-
          snprintf(resp_buf, sizeof(resp_buf),
                      "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu, \"privs\": \"%s\" } }",
                      cptr->chatname, token, now, cptr->user->privs);
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+
+         // Send a ping to the user and expect them to reply within HTTP_PING_TIMEOUT seconds
+         ws_send_ping(cptr);
 
          // blorp out a join to all chat users
          memset(resp_buf, 0, sizeof(resp_buf));

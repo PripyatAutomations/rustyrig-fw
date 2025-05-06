@@ -58,7 +58,6 @@ static struct http_res_types http_res_types[] = {
    { "json", "Content-Type: application/json\r\n" },
 };
 
-
 // Perform various checks on synthesized URLs to make sure the user isn't up to anything shady...
 // XXX: Implement these!
 static bool check_url(const char *path) {
@@ -134,7 +133,6 @@ http_client_t *http_find_client_by_guest_id(int gid) {
    }
    return NULL;
 }
-
 
 void http_dump_clients(void) {
    http_client_t *cptr = http_client_list;
@@ -361,7 +359,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    }
 
    if (ev == MG_EV_ACCEPT) {
-      Log(LOG_AUDIT, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
+//      Log(LOG_AUDIT, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
 
 #if	defined(HTTP_USE_TLS)
       if (c->fn_data != NULL) {
@@ -400,8 +398,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
         struct mg_str ms = mg_str(resp_buf);
         ws_broadcast(NULL, &ms);
         Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
-     } else {
-        Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
+//     } else {
+//        Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
      }
      http_remove_client(c);
    }
@@ -499,7 +497,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    http_client_list = cptr;
 
    http_users_connected++;
-   Log(LOG_INFO, "http", "Added new client at cptr <%x> with token |%s| (%d clients total now)", cptr, cptr->token, http_users_connected);
+   Log(LOG_INFO, "http", "Added new client at cptr:<%x> with token |%s| (%d clients total now)", cptr, cptr->token, http_users_connected);
    return cptr;
 }
 
@@ -528,7 +526,7 @@ void http_remove_client(struct mg_connection *c) {
             Log(LOG_INFO, "http", "Why is http_users_connected == %d? Resetting to 0", http_users_connected);
             http_users_connected = 0;
          }
-         Log(LOG_INFO, "http", "Removing client at cptr <%x> with c <%x> (%d users remain)", current, c, http_users_connected);
+         Log(LOG_INFO, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d users remain)", current, c, http_users_connected);
          memset(current, 0, sizeof(http_client_t));
          free(current);
          return;
@@ -548,7 +546,7 @@ bool ws_send_ping(http_client_t *cptr) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
    struct mg_connection *c = cptr->conn;
    if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr:<%x> has mg_conn:<%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
       return true;
    }
 
@@ -556,8 +554,9 @@ bool ws_send_ping(http_client_t *cptr) {
    snprintf(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
-   // XXX: Setting this means clients will ping timeout if they do not respond...
-//   cptr->last_ping = now;
+   Log(LOG_DEBUG, "auth", "sending ping to user on cptr:<%x> with ts:[%d]", cptr, now);
+   // Make sure that timeout will happen if no response
+   cptr->last_ping = now;
    return false;
 }
 

@@ -166,7 +166,18 @@ function ws_connect() {
       try {
          var msgObj = JSON.parse(msgData);
 
-         if (msgObj.talk) {
+         if (msgObj.ping) {			// Handle PING messages
+            var ts = msgObj.ping.ts;
+            if (typeof ts === 'undefined' || ts <= 0) {
+               // Invalid timestamp in the ping, ignore it
+               return false;
+            }
+            // If we make it here, deal with the ping by logging it and replying ASAP
+            console.log("Got PING from server with ts", ts, "replying!");
+            var newMsg = { pong: { ts: String(ts) } };
+            var msgObj_t = JSON.stringify(newMsg);
+            socket.send(msgObj_t);
+         } else if (msgObj.talk) {		// Handle Chat messages
             var cmd = msgObj.talk.cmd;
             var message = msgObj.talk.data;
 

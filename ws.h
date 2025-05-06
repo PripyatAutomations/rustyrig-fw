@@ -14,6 +14,13 @@ extern void ws_add_client(struct mg_connection *c);
 extern void ws_remove_client(struct mg_connection *c);
 extern void ws_broadcast(struct mg_connection *sender_conn, struct mg_str *msg_data);
 extern void ws_blorp_userlist_cb(void *arg);						// timer calls this to send userlists periodically
+
+// Send to a specific, authenticated websocket user by cptr
+extern void ws_send_to_cptr(struct mg_connection *sender, http_client_t *acptr, struct mg_str *msg_data);
+
+// Send to all users, except the sender (UNLESS sender is NULL)
+extern void ws_send_to_name(struct mg_connection *sender, const char *username, struct mg_str *msg_data);
+
 extern bool ws_kick_client(http_client_t *cptr, const char *reason);			// disconnect a user, if we can find them
 extern bool ws_kick_client_by_c(struct mg_connection *c, const char *reason);
 extern bool ws_handle_protocol(struct mg_ws_message *msg, struct mg_connection *c);

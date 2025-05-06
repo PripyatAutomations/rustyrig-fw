@@ -61,6 +61,27 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
    }
 }
 
+// Send to a specific, authenticated websocket session
+void ws_send_to_cptr(struct mg_connection *sender, http_client_t *acptr, struct mg_str *msg_data) {
+   mg_ws_send(acptr->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
+}
+
+// Send to all logged in instances of the user
+void ws_send_to_name(struct mg_connection *sender, const char *username, struct mg_str *msg_data) {
+   if (sender == NULL || username == NULL || msg_data == NULL) {
+      Log(LOG_CRIT, "ws", "ws_send_to_name passed incomplete data; sender:<%x>, username:<%x>, msg_data:<%x>", sender, username, msg_data);
+      return;
+   }
+
+   http_client_t *current = http_client_list;
+   while (current != NULL) {
+      // allow server (NULL sender) or check to make sure not to send to ourself
+      if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
+         ws_send_to_cptr(sender, current, msg_data);
+      }
+   }
+}
+
 bool ws_send_userlist(void) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
    int len = mg_snprintf(resp_buf, sizeof(resp_buf), "{ \"talk\": { \"cmd\": \"names\", \"ts\": %lu, \"users\": [", now);
@@ -113,7 +134,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    }
 
    memset(resp_buf, 0, sizeof(resp_buf));
-   snprintf(resp_buf, sizeof(resp_buf), "{ \"pong\": { \"ts\": \"%lu\" } }", now);
+   snprintf(resp_buf, sizeof(resp_buf), "{ \"auth\": { \"error\": \"Client kicked: %s\" } }", (reason != NULL ? reason : "no rason given"));
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
    mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
    http_remove_client(c);
@@ -139,26 +160,16 @@ bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
 }
 
 static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
+   bool rv = false;
+   char *ts = NULL;
+
+   Log(LOG_DEBUG, "http.ws", "enter ws_handle_pong");
+
    if (c == NULL || msg == NULL || msg->data.buf == NULL) {
-      return true;
+      Log(LOG_DEBUG, "http.ws", "ws_handle_pong got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
+      rv = true;
+      goto cleanup;
    }
-   struct mg_str msg_data = msg->data;
-   char *ts = mg_json_get_str(msg_data, "$.pong.ts");
-   if (ts == NULL) {
-      free(ts);
-      return true;
-   }
-
-   char *endptr;
-   errno = 0;
-   time_t ts_t = strtoll(ts, &endptr, 10);
-
-   if (errno == ERANGE || ts_t < 0 || ts_t > LONG_MAX || *endptr != '\0') {
-      Log(LOG_DEBUG, "http.pong", "Got invalid ts |%s| from client <%x>", ts, c);
-      free(ts);
-      return true;
-   }
-   free(ts);      
 
    char ip[INET6_ADDRSTRLEN];  // Buffer to hold IPv4 or IPv6 address
    int port = c->rem.port;
@@ -176,19 +187,46 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       snprintf(msgbuf, sizeof(msgbuf), "Kicking client from %s:%d who has no cptr?!?!!?", ip, port);
       Log(LOG_AUDIT, "http.pong", msgbuf);
       ws_kick_client_by_c(c, msgbuf);
-      return true;
+      rv = true;
+      goto cleanup;
    }
+
+   struct mg_str msg_data = msg->data;
+   
+   if ((ts = mg_json_get_str(msg_data, "$.pong.ts")) == NULL) {
+      Log(LOG_DEBUG, "http.ws", "ws_handle_pong: PONG from user with no timestamp");
+      rv = true;
+      goto cleanup;
+   } else {
+      Log(LOG_DEBUG, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", cptr->chatname, ts);
+   }
+
+   char *endptr;
+   errno = 0;
+   time_t ts_t = strtoll(ts, &endptr, 10);
+
+   if (errno == ERANGE || ts_t < 0 || ts_t > LONG_MAX || *endptr != '\0') {
+      Log(LOG_DEBUG, "http.pong", "Got invalid ts |%s| from client <%x>", ts, c);
+      rv = true;
+      goto cleanup;
+   }
+
 
    if (ts_t + HTTP_PING_TIMEOUT < now) {
       Log(LOG_AUDIT, "http.pong", "Ping timeout for mg_conn:<%x> on cptr:<%x> from %s:%d", c, cptr, ip, port);
       ws_kick_client(cptr, "Network Error: PING timeout");
-      return true;
+      rv = true;
+      goto cleanup;
    } else { // The pong response is valid, update the client's data
       cptr->last_heard = now;
       cptr->last_ping = 0;
+      Log(LOG_DEBUG, "http.pong", "Reset user %s last_heard to now:[%lu] and last_ping to 0", cptr->chatname, now);
    }
 
-   return false;
+cleanup:
+   free(ts);
+
+   return rv;
 }
 
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
@@ -197,23 +235,32 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       return true;
    }
 
+   // XXX: This should be moved to an option in config perhaps?
+   // Reserve this for CRAZY log level, as its VERY noisy
    Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+//   Log(LOG_DEBUG, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
 
    if (msg->flags & WEBSOCKET_OP_BINARY) {
       codec_decode_frame((unsigned char *)msg->data.buf, msg->data.len);
    } else {	// Text based packet
       struct mg_str msg_data = msg->data;
 
+      // Update the last-heard time for the user
+      http_client_t *cptr = http_find_client_by_c(c);
+      if (cptr != NULL) {
+         cptr->last_heard = now;
+      }
+
       // Handle different message types...
       if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
          return ws_handle_rigctl_msg(msg, c);
-      } else
-       if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
+      } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
+         Log(LOG_DEBUG, "http", "calling ws_handle_pong");
+         return ws_handle_pong(msg, c);
+      } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
          return ws_handle_chat_msg(msg, c);
       } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
          return ws_handle_auth_msg(msg, c);
-      } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
-         return ws_handle_pong(msg, c);
       }
    }
    return false;

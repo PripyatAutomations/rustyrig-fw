@@ -13,8 +13,10 @@
 #include "state.h"
 #include "protection.h"
 
+extern struct GlobalState rig;      // Global state
+
 // Warmup protection
-static bool rr_protect_warmup_pending(int amp_idx) {
+bool rr_protect_warmup_pending(int amp_idx) {
    if (amp_idx < 0) {
       return false;
    }
@@ -22,5 +24,10 @@ static bool rr_protect_warmup_pending(int amp_idx) {
    // Lookup warmup-required and warmup-time for the passed amp
 
    // Return no, no warmup needed
+   return false;
+}
+
+bool protection_lockout(const char *reason) {
+   rig.tx_blocked = true;
    return false;
 }

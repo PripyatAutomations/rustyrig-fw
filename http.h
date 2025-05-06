@@ -5,8 +5,10 @@
 #include <arpa/inet.h>
 #include "mongoose.h"
 
-// Limit to 100 backups in a day, this should be sane
-#define MAX_AUTHDB_BK_INDEX     100
+///////
+// many of these need moved to config; decide if runtime or build? (prob build)
+// Limit to 10 backups of authdb retained, this should be sane; we delete older backups
+#define MAX_AUTHDB_BK_INDEX     10
 
 #define	HTTP_WS_MAX_MSG		65535		// 64kbytes should be enough per message, even with audio frames
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected

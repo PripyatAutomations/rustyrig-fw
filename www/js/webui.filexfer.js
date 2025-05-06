@@ -28,13 +28,14 @@ function send_chunked_file(base64Data, filename) {
       const msgObj = {
          talk: {
             cmd: "msg",
-            ts: msg_timestamp(Math.floor(Date.now() / 1000)),
+            ts: Math.floor(Date.now() / 1000),
             token: auth_token,
             msg_type: "file_chunk",
             msg_id: msgId,
             chunk_index: i,
-            total_chunks: totalChunks,
-            filename: i === 0 ? filename : undefined, // Include filename only in the first chunk
+            total_chunks: (i === 0) ? totalChunks : undefined,
+            // Include filename only in the first chunk
+            filename: (i === 0) ? filename : undefined,
             data: chunkData
          }
       };
@@ -51,16 +52,19 @@ function handle_file_chunk(msgObj) {
       file_chunks[msg_id] = { chunks: [], received: 0, total: total_chunks, filename: filename };
    }
 
-   // Only update the filename once (from the first chunk)
+   // Only update the filename & total_chunks once (from the first chunk)
    if (filename) {
       file_chunks[msg_id].filename = filename;
+   }
+   if (total_chunks) {
+      file_chunks[msg_id].total_chunks = total_chunks;
    }
 
    file_chunks[msg_id].chunks[chunk_index] = data;
    file_chunks[msg_id].received++;
 
    // If this is the last chunk, display it
-   if (file_chunks[msg_id].received === total_chunks) {
+   if (file_chunks[msg_id].received === file_chunks[msg_id].total_chunks) {
       const fullData = file_chunks[msg_id].chunks.join('');
       const fileName = file_chunks[msg_id].filename;
       delete file_chunks[msg_id];
@@ -72,7 +76,6 @@ function handle_file_chunk(msgObj) {
       // Bound the image to 80% of the screen height
       const chatBoxHeight = $('#chat-box').innerHeight();
       const maxImgHeight = Math.floor(chatBoxHeight * 0.8) + 'px';
-
 
       const blob = data_uri_to_blob(fullData);
       const blobUrl = URL.createObjectURL(blob);

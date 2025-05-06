@@ -331,11 +331,10 @@ function parse_chat_cmd(e) {
 
       // Is this a user message that we should display?
       if (chat_msg) {
-         var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
          var msgObj = {
             "talk": {
                "cmd": "msg",
-               "ts": my_ts,
+               "ts": Math.floor(Date.now() / 1000),
                "token": auth_token,
                "msg_type": msg_type,
                "data": message
