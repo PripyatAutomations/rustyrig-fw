@@ -113,7 +113,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    }
 
    memset(resp_buf, 0, sizeof(resp_buf));
-   snprintf(resp_buf, sizeof(resp_buf), "{ \"auth\": { \"error\": \"%s.\" } }", (reason != NULL ? reason : "No reason given."));
+   snprintf(resp_buf, sizeof(resp_buf), "{ \"pong\": { \"ts\": \"%lu\" } }", now);
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
    mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
    http_remove_client(c);
@@ -138,12 +138,12 @@ bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
    return ws_kick_client(cptr, reason);
 }
 
-static bool ws_handle_ping(struct mg_ws_message *msg, struct mg_connection *c) {
+static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    if (c == NULL || msg == NULL || msg->data.buf == NULL) {
       return true;
    }
    struct mg_str msg_data = msg->data;
-   char *ts = mg_json_get_str(msg_data, "$.ping.ts");
+   char *ts = mg_json_get_str(msg_data, "$.pong.ts");
    if (ts == NULL) {
       free(ts);
       return true;
@@ -154,17 +154,38 @@ static bool ws_handle_ping(struct mg_ws_message *msg, struct mg_connection *c) {
    time_t ts_t = strtoll(ts, &endptr, 10);
 
    if (errno == ERANGE || ts_t < 0 || ts_t > LONG_MAX || *endptr != '\0') {
-      Log(LOG_DEBUG, "http.ping", "Got invalid ts |%s| from client <%x>", ts, c);
+      Log(LOG_DEBUG, "http.pong", "Got invalid ts |%s| from client <%x>", ts, c);
       free(ts);
       return true;
    }
    free(ts);      
 
-   if (ts_t + HTTP_PING_TIMEOUT < now) {
-      Log(LOG_AUDIT, "http.ping", "Ping timeout for conn <%x>", c);
-      // XXX: We need to kick the user here if its too late
+   char ip[INET6_ADDRSTRLEN];  // Buffer to hold IPv4 or IPv6 address
+   int port = c->rem.port;
+   if (c->rem.is_ip6) {
+      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
    } else {
-      // XXX: Find the cptr and cleear last_ping, update last_heard to now
+      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
+   }
+
+   http_client_t *cptr = http_find_client_by_c(c);
+
+   if (cptr == NULL) {
+      char msgbuf[512];
+      memset(msgbuf, 0, sizeof(msgbuf));
+      snprintf(msgbuf, sizeof(msgbuf), "Kicking client from %s:%d who has no cptr?!?!!?", ip, port);
+      Log(LOG_AUDIT, "http.pong", msgbuf);
+      ws_kick_client_by_c(c, msgbuf);
+      return true;
+   }
+
+   if (ts_t + HTTP_PING_TIMEOUT < now) {
+      Log(LOG_AUDIT, "http.pong", "Ping timeout for mg_conn:<%x> on cptr:<%x> from %s:%d", c, cptr, ip, port);
+      ws_kick_client(cptr, "Network Error: PING timeout");
+      return true;
+   } else { // The pong response is valid, update the client's data
+      cptr->last_heard = now;
+      cptr->last_ping = 0;
    }
 
    return false;
@@ -191,8 +212,8 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
          return ws_handle_chat_msg(msg, c);
       } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
          return ws_handle_auth_msg(msg, c);
-      } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
-         return ws_handle_ping(msg, c);
+      } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
+         return ws_handle_pong(msg, c);
       }
    }
    return false;

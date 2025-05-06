@@ -352,8 +352,17 @@ void http_tls_init(void) {
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
+   char ip[INET6_ADDRSTRLEN];  // Buffer to hold IPv4 or IPv6 address
+   int port = c->rem.port;
+   if (c->rem.is_ip6) {
+      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
+   } else {
+      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
+   }
+
    if (ev == MG_EV_ACCEPT) {
-//      MG_INFO(("%M", mg_print_ip_port, &c->rem));
+      Log(LOG_AUDIT, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
+
 #if	defined(HTTP_USE_TLS)
       if (c->fn_data != NULL) {
          mg_tls_init(c, &tls_opts);
@@ -366,10 +375,12 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
    } else if (ev == MG_EV_WS_OPEN) {
      http_client_t *cptr = http_find_client_by_c(c);
+
      if (cptr) {
-        Log(LOG_INFO, "http", "Conn c <%x> upgraded to ws at cptr <%x>", c, cptr);
+        Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
      } else {
-        Log(LOG_INFO, "http", "Conn c <%x> upgraded to ws", c);
+        // XXX: We should kick the user if no cptr, i think??
+        Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws", c, ip, port);
      }
    } else if (ev == MG_EV_WS_MSG) {
      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
@@ -388,9 +399,9 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
                     cptr->chatname, now);
         struct mg_str ms = mg_str(resp_buf);
         ws_broadcast(NULL, &ms);
-        Log(LOG_AUDIT, "auth", "User %s on cptr <%x> disconnected", cptr->chatname, cptr);
-//     } else {
-//        Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn <%x> disconnected", c);
+        Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
+     } else {
+        Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
      }
      http_remove_client(c);
    }
@@ -494,6 +505,10 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
 
 // Remove a client (WebSocket or HTTP) from the list
 void http_remove_client(struct mg_connection *c) {
+   if (c == NULL) {
+      Log(LOG_CRIT, "http", "http_remove_client passed NULL mg_conn?!");
+      return;
+   }
    http_client_t *prev = NULL;
    http_client_t *current = http_client_list;
 
@@ -524,6 +539,28 @@ void http_remove_client(struct mg_connection *c) {
    }
 }
 
+bool ws_send_ping(http_client_t *cptr) {
+   if (cptr == NULL) {
+      return true;
+   }
+
+   // XXX: Send a ping, so they'll have something to respond to, to acknowledge life
+   char resp_buf[HTTP_WS_MAX_MSG+1];
+   struct mg_connection *c = cptr->conn;
+   if (cptr == NULL || cptr->conn == NULL) {
+      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+      return true;
+   }
+
+   memset(resp_buf, 0, sizeof(resp_buf));
+   snprintf(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
+   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+
+   // XXX: Setting this means clients will ping timeout if they do not respond...
+//   cptr->last_ping = now;
+   return false;
+}
+
 //
 // Called periodically to remove sessions that have existed too long
 //
@@ -551,10 +588,8 @@ void http_expire_sessions(void) {
          ws_kick_client(cptr, "Ping timeout");
       // Have they been quiet for too long? Send a ping and wait for reply or timeout (above)
       } else if (cptr->last_heard < (now - HTTP_PING_TIME)) { // Client hasn't been heard from in awhile, send a ping
-         // XXX: Send a ping, so they'll have something to respond to, to acknowledge life
-//         cptr->last_ping = now;
+         ws_send_ping(cptr);
       }
-      cptr = cptr->next;
    }
 }
 

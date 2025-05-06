@@ -19,7 +19,7 @@
 extern struct GlobalState rig;	// Global state
 
 bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
-   bool rv = true;		// return value
+   bool rv = true;
    struct mg_str msg_data = msg->data;
    http_client_t *cptr = http_find_client_by_c(c);
 
@@ -128,11 +128,11 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          int tgt_uid = -1;
          int guest_id = -1;
          bool guest = false;
-         http_client_t *tcptr = NULL;
+         http_client_t *acptr = NULL;
 
          tgt_uid = http_user_index(target);
-         Log(LOG_DEBUG, "chat", "WHOIS for %s (%d) by %s", target, tgt_uid, user);
-         tcptr = http_find_client_by_name(target);
+         Log(LOG_INFO, "chat", "WHOIS for %s (%d) by %s", target, tgt_uid, user);
+         acptr = http_find_client_by_name(target);
 
          if (tgt_uid < 0 || tgt_uid > HTTP_MAX_USERS) {
             Log(LOG_DEBUG, "chat", "tgt_uid %d is invalid for user %s", tgt_uid, target);
@@ -140,17 +140,17 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
-         if (tcptr == NULL) {
+         if (acptr == NULL) {
             // XXX: No such user error
-            Log(LOG_DEBUG, "chat", "whois |%s| - tcptr == NULL", target);
+            Log(LOG_DEBUG, "chat", "whois |%s| - acptr == NULL", target);
             rv = true;
             goto cleanup;
          }
 
          // Form the message and send it
-         if (tcptr->user == NULL) {
+         if (acptr->user == NULL) {
             // XXX: Send No Such User response
-            Log(LOG_DEBUG, "chat", "whois |%s| - tcptr->user == NULL", target);
+            Log(LOG_DEBUG, "chat", "whois |%s| - acptr->user == NULL", target);
             rv = true;
             goto cleanup;
          }

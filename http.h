@@ -91,6 +91,7 @@ extern const char *http_get_uname(int8_t uid);
 extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file
 extern char *escape_html(const char *input);
+extern bool ws_send_ping(http_client_t *cptr);
 
 //////////////////
 extern http_client_t *http_client_list;
