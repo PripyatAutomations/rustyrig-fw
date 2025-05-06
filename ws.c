@@ -54,6 +54,10 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
 
    http_client_t *current = http_client_list;
    while (current != NULL) {
+      if (current == NULL || !current->session_start) {
+         break;
+      }
+
       if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
          mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
       }
@@ -163,10 +167,8 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
    char *ts = NULL;
 
-   Log(LOG_DEBUG, "http.ws", "enter ws_handle_pong");
-
    if (c == NULL || msg == NULL || msg->data.buf == NULL) {
-      Log(LOG_DEBUG, "http.ws", "ws_handle_pong got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
+      Log(LOG_CRAZY, "http.ws", "ws_handle_pong got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
       rv = true;
       goto cleanup;
    }
@@ -194,11 +196,11 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
    
    if ((ts = mg_json_get_str(msg_data, "$.pong.ts")) == NULL) {
-      Log(LOG_DEBUG, "http.ws", "ws_handle_pong: PONG from user with no timestamp");
+      Log(LOG_WARN, "http.ws", "ws_handle_pong: PONG from user with no timestamp");
       rv = true;
       goto cleanup;
    } else {
-      Log(LOG_DEBUG, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", cptr->chatname, ts);
+      Log(LOG_CRAZY, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", cptr->chatname, ts);
    }
 
    char *endptr;
@@ -206,7 +208,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    time_t ts_t = strtoll(ts, &endptr, 10);
 
    if (errno == ERANGE || ts_t < 0 || ts_t > LONG_MAX || *endptr != '\0') {
-      Log(LOG_DEBUG, "http.pong", "Got invalid ts |%s| from client <%x>", ts, c);
+      Log(LOG_WARN, "http.pong", "Got invalid ts |%s| from client <%x>", ts, c);
       rv = true;
       goto cleanup;
    }
@@ -220,7 +222,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    } else { // The pong response is valid, update the client's data
       cptr->last_heard = now;
       cptr->last_ping = 0;
-      Log(LOG_DEBUG, "http.pong", "Reset user %s last_heard to now:[%lu] and last_ping to 0", cptr->chatname, now);
+      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%lu] and last_ping to 0", cptr->chatname, now);
    }
 
 cleanup:
@@ -255,7 +257,6 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
          return ws_handle_rigctl_msg(msg, c);
       } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
-         Log(LOG_DEBUG, "http", "calling ws_handle_pong");
          return ws_handle_pong(msg, c);
       } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
          return ws_handle_chat_msg(msg, c);

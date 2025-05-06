@@ -376,9 +376,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 
      if (cptr) {
         Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
+        cptr->is_ws = true;
      } else {
-        // XXX: We should kick the user if no cptr, i think??
         Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws", c, ip, port);
+        ws_kick_client_by_c(c, "Socket error");
      }
    } else if (ev == MG_EV_WS_MSG) {
      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
@@ -487,6 +488,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    // create some randomness for login hashing and session
    generate_nonce(cptr->token, sizeof(cptr->token));
    generate_nonce(cptr->nonce, sizeof(cptr->nonce));
+   cptr->connected = now;
    cptr->authenticated = false;
    cptr->active = true;
    cptr->conn = c;
@@ -538,32 +540,33 @@ void http_remove_client(struct mg_connection *c) {
 }
 
 bool ws_send_ping(http_client_t *cptr) {
-   if (cptr == NULL) {
+   if (cptr == NULL || !cptr->is_ws) {
       return true;
    }
 
    // XXX: Send a ping, so they'll have something to respond to, to acknowledge life
    char resp_buf[HTTP_WS_MAX_MSG+1];
    struct mg_connection *c = cptr->conn;
+
    if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr:<%x> has mg_conn:<%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+      Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%x> has mg_conn:<%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
       return true;
    }
 
+   Log(LOG_CRAZY, "auth", "sending ping to user on cptr:<%x> with ts:[%d]", cptr, now);
    memset(resp_buf, 0, sizeof(resp_buf));
    snprintf(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
-   Log(LOG_DEBUG, "auth", "sending ping to user on cptr:<%x> with ts:[%d]", cptr, now);
    // Make sure that timeout will happen if no response
    cptr->last_ping = now;
    return false;
 }
 
+
 //
 // Called periodically to remove sessions that have existed too long
 //
-// XXX: We also should do pings for cliebts
 void http_expire_sessions(void) {
    http_client_t *cptr = http_client_list;
    int expired = 0;

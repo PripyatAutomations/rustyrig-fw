@@ -247,13 +247,18 @@ int main(int argc, char **argv) {
       // Redraw the GUI virtual framebuffer, update nextion
       gui_update();
 
+      // Send pings, drop dead connections, etc
+//      http_expire_sessions();
+
       // XXX: Check if an LCD/OLED is configured and update it
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
+
 #if	defined(USE_MONGOOSE)
       // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
 
+      // If enabled, calculate loop run time
 #if	defined(USE_PROFILING)
       clock_gettime(CLOCK_MONOTONIC, &loop_end);
       current_time = (loop_end.tv_sec - loop_start.tv_sec) + 
@@ -268,7 +273,7 @@ int main(int argc, char **argv) {
 
 #if	defined(USE_PROFILING)
    // XXX: Every 5 minutes we should save the loop runtime
-   Log(LOG_DEBUG, "loop", "Average mainloop runtime: %.6f seconds", loop_runtime);
+//   Log(LOG_INFO, "loop", "Average mainloop runtime: %.6f seconds", loop_runtime);
 #endif // defined(USE_PROFILING)
    host_cleanup();
 

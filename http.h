@@ -13,7 +13,8 @@
 #define	HTTP_WS_MAX_MSG		65535		// 64kbytes should be enough per message, even with audio frames
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
 #define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
-#define	HTTP_PING_TIME		50		// If we haven't heard from the client in this long, send a ping
+#define HTTP_AUTH_TIMEOUT       20              // Allow 20 seconds from connection to send login command
+#define HTTP_PING_TIME          30              // If we haven't heard from the client in this long, send a ping
 #define	HTTP_PING_TIMEOUT	10		// And give them this long to respond
 
 // HTTP Basic-auth user
@@ -63,6 +64,7 @@ struct http_client {
     bool authenticated;		// Is the user fully logged in?
     bool is_ws;                 // Flag to indicate if it's a WebSocket client
     bool is_ptt;		// Is the user keying up ANY attached rig?
+    time_t connected;		// when was the socket connected?
     time_t session_expiry;	// When does the session expire?
     time_t session_start;	// When did they login?
     time_t last_heard;		// when a last valid message was heard from client
@@ -89,6 +91,7 @@ extern http_client_t *http_find_client_by_token(const char *token);
 extern http_client_t *http_find_client_by_nonce(const char *nonce);
 extern http_client_t *http_find_client_by_guest_id(int gid);
 extern http_client_t *http_find_client_by_name(const char *name);
+extern void http_expire_sessions(void);                                        // ping clients, drop pinged out ones, etc
 extern const char *http_get_uname(int8_t uid);
 extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file

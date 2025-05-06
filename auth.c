@@ -504,6 +504,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
          // Send a ping to the user and expect them to reply within HTTP_PING_TIMEOUT seconds
+         cptr->last_heard = now;
          ws_send_ping(cptr);
 
          // blorp out a join to all chat users

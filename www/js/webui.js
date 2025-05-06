@@ -175,8 +175,7 @@ function ws_connect() {
             // If we make it here, deal with the ping by logging it and replying ASAP
             console.log("Got PING from server with ts", ts, "replying!");
             var newMsg = { pong: { ts: String(ts) } };
-            var msgObj_t = JSON.stringify(newMsg);
-            socket.send(msgObj_t);
+            socket.send(JSON.stringify(newMsg));
          } else if (msgObj.talk) {		// Handle Chat messages
             var cmd = msgObj.talk.cmd;
             var message = msgObj.talk.data;
