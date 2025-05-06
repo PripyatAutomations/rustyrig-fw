@@ -295,7 +295,7 @@ button {
 div#button-box {
    position: fixed;
    right: 0.2em;
-   bottom: 0.5em;
+   bottom: 0.3em;
    padding: 10px;
    border-radius: 5px;
    border: 2px solid #ccc;
