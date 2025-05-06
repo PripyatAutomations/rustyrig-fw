@@ -359,7 +359,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    }
 
    if (ev == MG_EV_ACCEPT) {
-//      Log(LOG_AUDIT, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
+      Log(LOG_CRAZY, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
 
 #if	defined(HTTP_USE_TLS)
       if (c->fn_data != NULL) {
@@ -372,7 +372,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
-     http_client_t *cptr = http_find_client_by_c(c);
+//     http_client_t *cptr = http_find_client_by_c(c);
+      http_client_t *cptr = http_add_client(c, false);
 
      if (cptr) {
         Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
@@ -571,27 +572,30 @@ void http_expire_sessions(void) {
    http_client_t *cptr = http_client_list;
    int expired = 0;
 
-   while(cptr != NULL) {
-      if (cptr == NULL) {
-         break;
+   while (cptr != NULL) {
+      if (cptr->is_ws) {
+         // Expired session?
+         if (cptr->session_expiry > 0 && cptr->session_expiry <= now) {
+            expired++;
+            time_t last_heard = now - cptr->last_heard;
+            Log(LOG_AUDIT, "http.auth", "Kicking expired session on cptr:<%x> (%lu sec old, last heard %lu sec ago) for user %s",
+                cptr, HTTP_SESSION_LIFETIME, last_heard, cptr->chatname);
+            ws_kick_client(cptr, "Login session expired!");
+         } else if (cptr->last_ping != 0 && (now - cptr->last_ping) > HTTP_PING_TIMEOUT) {
+            // Ping timeout?
+            Log(LOG_AUDIT, "http.auth", "Client conn at cptr:<%x> for user %s timed out, disconnecting", cptr, cptr->chatname);
+            ws_kick_client(cptr, "Ping timeout");
+         } else if (cptr->last_ping == 0 && (now - cptr->last_heard) >= HTTP_PING_TIME) {
+            // Time to send a ping?
+            ws_send_ping(cptr);
+         }
+      } else { // Not websocket
+         if (cptr->connected > 0 && !cptr->session_start && (now - cptr->connected) >= HTTP_AUTH_TIMEOUT) {
+            Log(LOG_AUDIT, "http.auth", "Client at mg_conn:<%x> didn't authenticate in time, kicking.", cptr);
+            ws_kick_client(cptr, "Auth timeout");
+         }
       }
-
-      // Boot expired sessions
-      if (cptr->session_expiry <= now) {
-         expired++;
-         time_t last_heard = (now - cptr->last_heard);
-         Log(LOG_AUDIT, "http.auth", "Kicking expired session (%lu sec old, last heard %lu sec ago) for %s",
-             HTTP_SESSION_LIFETIME, last_heard, cptr->chatname);
-         ws_kick_client(cptr, "Login session expired!");
-      // Check for ping timeouts
-      } else if (cptr->last_ping < (now - HTTP_PING_TIMEOUT)) {
-         // Client has timed out
-         Log(LOG_AUDIT, "http.auth", "Client connection <%x> for user %s timed out, disconnecting", cptr, cptr->chatname);
-         ws_kick_client(cptr, "Ping timeout");
-      // Have they been quiet for too long? Send a ping and wait for reply or timeout (above)
-      } else if (cptr->last_heard < (now - HTTP_PING_TIME)) { // Client hasn't been heard from in awhile, send a ping
-         ws_send_ping(cptr);
-      }
+      cptr = cptr->next;
    }
 }
 

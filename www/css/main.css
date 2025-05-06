@@ -549,10 +549,12 @@ button#img-clearclip {
    position: fixed;
    left: CALC(100% - 10.4em);
    top: 3.5em;
-   width: 10em;
-   height: CALC(100% - 8.8em + 1px);
+   width: 9em;
+   height: CALC(100% - 8.3em + 1px);
    border: 2px solid #ddd;
    border-radius: 10px;
+   padding-left: 0.5em;
+   padding-right: 0.5em;
    background-color: #dcdcdc;
 }
 

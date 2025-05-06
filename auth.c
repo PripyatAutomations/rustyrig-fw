@@ -383,10 +383,9 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
       memset(resp_buf, 0, sizeof(resp_buf));
 
-
       Log(LOG_AUDIT, "auth", "Login request from user %s on mg_conn:<%x> from %s:%d", user, c, ip, port);
 
-      http_client_t *cptr = http_add_client(c, true);
+      http_client_t *cptr = http_find_client_by_c(c);
       if (cptr == NULL) {
          Log(LOG_CRIT, "auth", "Discarding login request on mg_conn:<%x> from %s:%d due to NULL cptr?!?!!?", c, ip, port);
          rv = true;
