@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include "amp.h"
 #include "atu.h"
 #include "au.h"
@@ -44,6 +45,7 @@
 struct mg_mgr mg_mgr;
 #endif
 
+#define	TS_ALPHA	0.1	// Weight for the moving average
 int my_argc = -1;
 char **my_argv = NULL;
 bool dying = 0;                 // Are we shutting down?
@@ -87,8 +89,7 @@ void shutdown_rig(uint32_t signum) {
        Log(LOG_CRIT, "core", "Shutting down due to internal error: %d", -signum);
     }
 
-    host_cleanup();
-    exit(signum);
+    dying = 1;
 }
 
 void restart_rig(void) {
@@ -110,6 +111,13 @@ int main(int argc, char **argv) {
    // save for restarting later
    my_argc = argc;
    my_argv = argv;
+
+   // loop time calculation
+#if	defined(USE_PROFILING)
+   struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
+   struct timespec loop_end = { .tv_sec = 0, .tv_nsec = 0 };
+   double loop_runtime = 0.0, current_time;
+#endif // defined(USE_PROFILING)
 
    // Initialize some earl state
    now = time(NULL);
@@ -197,7 +205,11 @@ int main(int argc, char **argv) {
 
    // Main loop
    while(!dying) {
+#if	defined(USE_PROFILING)
+      clock_gettime(CLOCK_MONOTONIC, &loop_start);
+#endif // defined(USE_PROFILING)
       now = time(NULL);
+
       char buf[512];
 
       // Check faults
@@ -241,7 +253,24 @@ int main(int argc, char **argv) {
       // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
+
+#if	defined(USE_PROFILING)
+      clock_gettime(CLOCK_MONOTONIC, &loop_end);
+      current_time = (loop_end.tv_sec - loop_start.tv_sec) + 
+                     (loop_end.tv_nsec - loop_start.tv_nsec) / 1e9;
+
+      if (loop_runtime == 0.0)
+         loop_runtime = current_time;
+      else
+         loop_runtime = (TS_ALPHA * current_time) + (1 - TS_ALPHA) * loop_runtime;
+#endif // defined(USE_PROFILING)
    }
+
+#if	defined(USE_PROFILING)
+   // XXX: Every 5 minutes we should save the loop runtime
+   Log(LOG_DEBUG, "loop", "Average mainloop runtime: %.6f seconds", loop_runtime);
+#endif // defined(USE_PROFILING)
+   host_cleanup();
 
 #if	defined(USE_MONGOOSE)
    mg_mgr_free(&mg_mgr);

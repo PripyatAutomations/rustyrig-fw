@@ -14,18 +14,18 @@
 #include "logger.h"
 
 typedef struct ThermalLimits {
-  int32_t encl_warn;
-  int32_t encl_max;
-  int32_t encl_target;
-  int32_t final_warn;
-  int32_t final_max;
-  int32_t final_target;
-  int32_t inlet_warn;
-  int32_t inlet_max;
-  int32_t inlet_target;
-  int32_t lpf_warn;
-  int32_t lpf_max;
-  int32_t lpf_target;
+   int32_t encl_warn;
+   int32_t encl_max;
+   int32_t encl_target;
+   int32_t final_warn;
+   int32_t final_max;
+   int32_t final_target;
+   int32_t inlet_warn;
+   int32_t inlet_max;
+   int32_t inlet_target;
+   int32_t lpf_warn;
+   int32_t lpf_max;
+   int32_t lpf_target;
 } ThermalLimits;
 
 // Set some sane default values in case the user didn't bother to configure them...

@@ -881,6 +881,11 @@ sub generate_config_h {
    }
 
    if (defined($config->{'debug'})) {
+      my $profiling = $config->{'debug'}{'profiling'};
+      if (defined($profiling) && match_boolean($config->{debug}{'profiling'})) {
+         print $fh "#define USE_PROFILING true\n";
+      }
+
       my $logfile = $config->{'debug'}{'logfile'};
       if (defined($logfile)) {
          print $fh "#define LOG_FILE \"$logfile\"\n";

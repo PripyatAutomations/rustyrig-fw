@@ -63,6 +63,7 @@
       "logmode": "0660",
       "loglevel": "debug",
       "mongoose": "false",
+      "profiling": "true",
       "show_ts": "false",
       "targets": "*"
    },
