@@ -599,6 +599,20 @@ void http_expire_sessions(void) {
    }
 }
 
+bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
+   if (buf == NULL || fmt == NULL) {
+      return true;
+   }
+
+   va_list ap;
+   memset(buf, 0, len);
+   va_start(ap, fmt);
+   vsnprintf(buf, len, fmt, ap);
+   va_end(ap);
+
+   return false;
+}
+
 #include "mongoose.h"
 
 #endif	// defined(FEATURE_HTTP)

@@ -18,7 +18,58 @@
 #include "ws.h"
 extern struct GlobalState rig;	// Global state
 
+// Send an error message to the user, informing them they lack the appropriate privileges
+bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
+   Log(LOG_CRAZY, "core", "Unprivileged user %s (uid: %d with privs %s) requested to do %s and was denied", cptr->chatname, cptr->user->uid, cptr->user->privs, action);
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   prepare_msg(msgbuf, sizeof(msgbuf),
+      "{ \"talk\": { \"error\": { \"ts\": %lu, \"msg\": \"You do not have enough privileges to use '%s' command\" } } }",
+         now, action);
+   return false;
+}
+
+static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
+   if (has_priv(cptr->user->uid, "admin|owner")) {
+      // Send an ALERRT to all connected users
+      char msgbuf[HTTP_WS_MAX_MSG+1];
+      prepare_msg(msgbuf, sizeof(msgbuf),
+         "Shutting down due to /die \"%s\" from %s (uid: %d with privs %s)",
+         (reason != NULL ? reason : "No reason given"),
+         cptr->chatname, cptr->user->uid, cptr->user->privs);
+      Log(LOG_AUDIT, "core", msgbuf);
+      send_global_alert(cptr, "***SERVER***", msgbuf);
+      dying = 1;
+   } else {
+      ws_chat_err_noprivs(cptr, "DIE");
+      return true;
+   }
+   return false;
+}
+
+static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
+   if (has_priv(cptr->user->uid, "admin|owner")) {
+      // Send an ALERT to all connected users
+      char msgbuf[HTTP_WS_MAX_MSG+1];
+      prepare_msg(msgbuf, sizeof(msgbuf),
+         "Shutting down due to /restart from %s (uid: %d with privs %s)",
+         cptr->chatname, cptr->user->uid, cptr->user->privs);
+      send_global_alert(cptr, "***SERVER***", msgbuf);
+      Log(LOG_AUDIT, "core", msgbuf);
+      dying = 1;		// flag that this should be the last iteration
+      restarting = 1;		// flag that we should restart after processing the alert
+   } else {
+      Log(LOG_AUDIT, "core", "Got /restart from %s (uid: %d with privs %s) who does not have appropriate privileges", cptr->chatname, cptr->user->uid, cptr->user->privs);
+      ws_chat_err_noprivs(cptr, "RESTART");
+      return true;
+   }
+   return false;
+}
+
 bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
+   if (msg == NULL || c == NULL) {
+      return true;
+   }
+
    bool rv = true;
    struct mg_str msg_data = msg->data;
    http_client_t *cptr = http_find_client_by_c(c);
@@ -46,6 +97,12 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
+         // If the message is empty, just return success
+         if (strlen(data) == 0) {
+            rv = false;
+            goto cleanup;
+         }
+
          if (!has_priv(cptr->user->uid, "admin|owner|chat")) {
             Log(LOG_INFO, "chat", "user %s doesn't have chat privileges but tried to send a message", cptr->chatname);
             // XXX: Alert the user that their message was NOT deliverred because they aren't allowed to send it.
@@ -53,20 +110,8 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
-         if (strlen(data) == 0) {
-            rv = true;
-            goto cleanup;
-         }
-
-         char msgbuf[HTTP_WS_MAX_MSG+1];
-         char *escaped_msg = escape_html(data);
          struct mg_str mp;
-
-         if (escaped_msg == NULL) {
-            Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
-            rv = true;
-            goto cleanup;
-         }
+         char msgbuf[HTTP_WS_MAX_MSG+1];
 
          // sanity check
          if (user == NULL) {
@@ -74,49 +119,31 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
-         memset(msgbuf, 0, sizeof(msgbuf));
-         if (strcmp(msg_type, "file_chunk") == 0) {
-            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", cptr->chatname, escaped_msg, now, msg_type, chunk_index, total_chunks);
-         } else {
+         // handle a file chunk
+         if (msg_type != NULL && strcmp(msg_type, "file_chunk") == 0) {
+            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", cptr->chatname, data, now, msg_type, chunk_index, total_chunks);
+         } else { // or just a chat message
+            char *escaped_msg = escape_html(data);
+            if (escaped_msg == NULL) {
+               Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
+               rv = true;
+               goto cleanup;
+            }
             snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", cptr->chatname, escaped_msg, now, msg_type);
+            free(escaped_msg);
          }
          mp = mg_str(msgbuf);
-         free(escaped_msg);
 
          // Send to everyone, including the sender, which will then display it as SelfMsg
          ws_broadcast(NULL, &mp);
       } else if (strcasecmp(cmd, "die") == 0) {
-         if (has_priv(cptr->user->uid, "admin|owner")) {
-            Log(LOG_AUDIT, "core", "Got /die command from %s (uid: %d with privs %s)", cptr->chatname, cptr->user->uid, cptr->user->privs);
-            // Send an ALERRT to all connected users
-            char msgbuf[HTTP_WS_MAX_MSG+1];
-            memset(msgbuf, 0, sizeof(msgbuf));
-            snprintf(msgbuf, sizeof(msgbuf), "Shutting down due to /die from %s (uid: %d with privs %s)", cptr->chatname, cptr->user->uid, cptr->user->privs);
-            send_global_alert(cptr, msgbuf);
-            shutdown_rig(-1);
-         } else {
-            Log(LOG_AUDIT, "core", "Got /die from %s (uid: %d with privs %s) who does not have appropriate privileges", cptr->chatname, cptr->user->uid, cptr->user->privs);
-            rv = true;
-            goto cleanup;
-         }
+         ws_chat_cmd_die(cptr, data);
       } else if (strcasecmp(cmd, "kick") == 0) {
          Log(LOG_INFO, "chat", "Kick command received, processing...");
       } else if (strcasecmp(cmd, "mute") == 0) {
          Log(LOG_INFO, "chat", "Mute command received, processing...");
       } else if (strcasecmp(cmd, "restart") == 0) {
-         if (has_priv(cptr->user->uid, "admin|owner")) {
-            Log(LOG_AUDIT, "core", "Got /restart command from %s (uid: %d with privs %s", cptr->chatname, cptr->user->uid, cptr->user->privs);
-            // Send an ALERRT to all connected users
-            char msgbuf[HTTP_WS_MAX_MSG+1];
-            memset(msgbuf, 0, sizeof(msgbuf));
-            snprintf(msgbuf, sizeof(msgbuf), "Shutting down due to /restart from %s (uid: %d with privs %s)", cptr->chatname, cptr->user->uid, cptr->user->privs);
-            send_global_alert(cptr, msgbuf);
-            restart_rig();
-         } else {
-            Log(LOG_AUDIT, "core", "Got /restart from %s (uid: %d with privs %s) who does not have appropriate privileges", cptr->chatname, cptr->user->uid, cptr->user->privs);
-            rv = true;
-            goto cleanup;
-         }
+         ws_chat_cmd_restart(cptr, data);
       } else if (strcasecmp(cmd, "whois") == 0) {
          if (target == NULL) {
             // XXX: Send an warning to the user informing that they must specify a target username
@@ -157,9 +184,14 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          char whois_data[HTTP_WS_MAX_MSG/2];
          char msgbuf[HTTP_WS_MAX_MSG+1];
-         memset(msgbuf, 0, sizeof(msgbuf));
          memset(whois_data, 0, sizeof(whois_data));
-         snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }", cptr->chatname, whois_data, now);
+
+         // XXX: Populate WHOIS data
+
+         // prepare the response
+         prepare_msg(msgbuf, sizeof(msgbuf),
+            "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }",
+            cptr->chatname, whois_data, now);
          struct mg_str mp;
          mp = mg_str(msgbuf);
          // Send it to just the user

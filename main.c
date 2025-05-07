@@ -49,6 +49,7 @@ struct mg_mgr mg_mgr;
 int my_argc = -1;
 char **my_argv = NULL;
 bool dying = 0;                 // Are we shutting down?
+bool restarting = 0;		// Are we restarting?
 struct GlobalState rig;         // Global state
 time_t now = -1;		// time() called once a second in main loop to update
 char latest_timestamp[64];	// Current printed timestamp
@@ -204,7 +205,7 @@ int main(int argc, char **argv) {
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
    // Main loop
-   while(!dying) {
+   while(1) {
 #if	defined(USE_PROFILING)
       clock_gettime(CLOCK_MONOTONIC, &loop_start);
 #endif // defined(USE_PROFILING)
@@ -264,11 +265,15 @@ int main(int argc, char **argv) {
       current_time = (loop_end.tv_sec - loop_start.tv_sec) + 
                      (loop_end.tv_nsec - loop_start.tv_nsec) / 1e9;
 
-      if (loop_runtime == 0.0)
+      if (loop_runtime == 0.0) {
          loop_runtime = current_time;
-      else
+      } else {
          loop_runtime = (TS_ALPHA * current_time) + (1 - TS_ALPHA) * loop_runtime;
+      }
 #endif // defined(USE_PROFILING)
+      if (dying) {
+         break;
+      }
    }
 
 #if	defined(USE_PROFILING)
@@ -280,5 +285,10 @@ int main(int argc, char **argv) {
 #if	defined(USE_MONGOOSE)
    mg_mgr_free(&mg_mgr);
 #endif
+
+   if (restarting) {
+       restart_rig();
+   }
+   
    return 0;
 }

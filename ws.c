@@ -19,18 +19,22 @@
 
 extern struct GlobalState rig;	// Global state
 
-bool send_global_alert(http_client_t *cptr, const char *data) {
-      char msgbuf[HTTP_WS_MAX_MSG+1];
-      struct mg_str mp;
-      char *escaped_msg = escape_html(data);
-      memset(msgbuf, 0, sizeof(msgbuf));
+bool send_global_alert(http_client_t *cptr, const char *sender, const char *data) {
+   if (cptr == NULL || data == NULL) {
+      return true;
+   }
 
-      snprintf(msgbuf, sizeof(msgbuf), "{ \"alert\": { \"from\": \"%s\", \"alert\": \"%s\", \"ts\": %lu } }", cptr->chatname, escaped_msg, now);
-      mp = mg_str(msgbuf);
-      ws_broadcast(NULL, &mp);
-      free(escaped_msg);
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   struct mg_str mp;
+   char *escaped_msg = escape_html(data);
+   prepare_msg(msgbuf, sizeof(msgbuf), 
+      "{ \"alert\": { \"from\": \"%s\", \"alert\": \"%s\", \"ts\": %lu } }",
+      cptr->chatname, escaped_msg, now);
+   mp = mg_str(msgbuf);
+   ws_broadcast(NULL, &mp);
+   free(escaped_msg);
 
-      return false;
+   return false;
 }
 
 bool ws_init(struct mg_mgr *mgr) {
@@ -58,6 +62,7 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
          break;
       }
 
+      // NULL sender means it came from the server itself
       if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
          mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
       }
@@ -67,6 +72,10 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
 
 // Send to a specific, authenticated websocket session
 void ws_send_to_cptr(struct mg_connection *sender, http_client_t *acptr, struct mg_str *msg_data) {
+   if (sender == NULL || acptr == NULL || msg_data == NULL) {
+      return;
+   }
+
    mg_ws_send(acptr->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
 }
 
@@ -79,7 +88,11 @@ void ws_send_to_name(struct mg_connection *sender, const char *username, struct 
 
    http_client_t *current = http_client_list;
    while (current != NULL) {
-      // allow server (NULL sender) or check to make sure not to send to ourself
+      if (current == NULL) {
+         break;
+      }
+
+      // Messages from the server will have NULL sender
       if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
          ws_send_to_cptr(sender, current, msg_data);
       }
@@ -93,6 +106,10 @@ bool ws_send_userlist(void) {
 
    http_client_t *cptr = http_client_list;
    while (cptr != NULL) {
+      if (cptr == NULL) {
+         return true;
+      }
+
       if (cptr->user == NULL || !cptr->authenticated) {
          cptr = cptr->next;
          continue;
@@ -124,16 +141,21 @@ bool ws_send_userlist(void) {
    return false;
 }
 
+// Wrap ws_send_userlist so it can be called by a timer
 void ws_blorp_userlist_cb(void *arg) {
    ws_send_userlist();
 }
 
 bool ws_kick_client(http_client_t *cptr, const char *reason) {
+   if (cptr == NULL || cptr->conn == NULL) {
+      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+      return true;
+   }
+
    char resp_buf[HTTP_WS_MAX_MSG+1];
    struct mg_connection *c = cptr->conn;
 
-   if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+   if (c == NULL) {
       return true;
    }
 
@@ -213,7 +235,6 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       goto cleanup;
    }
 
-
    if (ts_t + HTTP_PING_TIMEOUT < now) {
       Log(LOG_AUDIT, "http.pong", "Ping timeout for mg_conn:<%x> on cptr:<%x> from %s:%d", c, cptr, ip, port);
       ws_kick_client(cptr, "Network Error: PING timeout");
@@ -238,9 +259,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    // XXX: This should be moved to an option in config perhaps?
-   // Reserve this for CRAZY log level, as its VERY noisy
    Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
-//   Log(LOG_DEBUG, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
 
    if (msg->flags & WEBSOCKET_OP_BINARY) {
       codec_decode_frame((unsigned char *)msg->data.buf, msg->data.len);
@@ -264,6 +283,20 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
          return ws_handle_auth_msg(msg, c);
       }
    }
+   return false;
+}
+
+bool ws_send_error(struct mg_connection *c, const char *scope, const char *msg) {
+   if (c == NULL || scope == NULL || msg == NULL) {
+      return true;
+   }
+
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   memset(msgbuf, 0, sizeof(msgbuf));
+   snprintf(msgbuf, sizeof(msgbuf),
+      "{ \"%s\": { \"error\": \"%s\", \"ts\": %lu } }",
+      scope, msg, now);
+
    return false;
 }
 

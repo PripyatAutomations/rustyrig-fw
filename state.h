@@ -128,5 +128,6 @@ extern char **my_argv;		// in main.c
 
 extern struct GlobalState rig;	// in main.c
 extern bool dying;              // in main.c
+extern bool restarting;		// in main.c
 extern time_t now;		// in main.c
 #endif	// !defined(__rr_state_h)

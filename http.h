@@ -14,8 +14,8 @@
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
 #define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
 #define HTTP_AUTH_TIMEOUT       20              // Allow 20 seconds from connection to send login command
-#define HTTP_PING_TIME          30              // If we haven't heard from the client in this long, send a ping
-#define	HTTP_PING_TIMEOUT	10		// And give them this long to respond
+#define HTTP_PING_TIME          120             // If we haven't heard from the client in this long, send a ping
+#define	HTTP_PING_TIMEOUT	(HTTP_PING_TIME/4)	// And give them this long to respond
 
 // HTTP Basic-auth user
 #define	HTTP_MAX_USERS		32		// How many users are allowed in http.users?
@@ -97,7 +97,7 @@ extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file
 extern char *escape_html(const char *input);
 extern bool ws_send_ping(http_client_t *cptr);
-
+extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
 //////////////////
 extern http_client_t *http_client_list;
 
