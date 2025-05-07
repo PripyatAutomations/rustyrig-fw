@@ -393,14 +393,14 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
      // make sure we're not accessing unsafe memory
      if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
         // blorp out a quit to all connected users
-        memset(resp_buf, 0, sizeof(resp_buf));
-        snprintf(resp_buf, sizeof(resp_buf),
+        prepare_msg(resp_buf, sizeof(resp_buf),
                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
                     cptr->chatname, now);
         struct mg_str ms = mg_str(resp_buf);
         ws_broadcast(NULL, &ms);
         Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
 //     } else {
+         // This is very noisy as it includes http requests for assets; maybe we can filter them out?
 //        Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
      }
      http_remove_client(c);
@@ -413,30 +413,27 @@ bool http_init(struct mg_mgr *mgr) {
       return true;
    }
 
-   memset(www_root, 0, sizeof(www_root));
    const char *cfg_www_root = eeprom_get_str("net/http/www_root");
    const char *cfg_404_path = eeprom_get_str("net/http/404_path");
 
    // store firmware version in www_fw_ver
-   memset(www_fw_ver, 0, sizeof(www_fw_ver));
-   snprintf(www_fw_ver, 128, "X-Version: rustyrig %s on %s", VERSION, HARDWARE);
+   prepare_msg(www_fw_ver, sizeof(www_fw_ver), "X-Version: rustyrig %s on %s", VERSION, HARDWARE);
 
    // and make our headers
-   memset(www_headers, 0, sizeof(www_headers));
-   snprintf(www_headers, sizeof(www_headers), "%s\r\n", www_fw_ver);
+   prepare_msg(www_headers, sizeof(www_headers), "%s\r\n", www_fw_ver);
 
    // store the 404 path if available
    if (cfg_404_path != NULL) {
-      snprintf(www_404_path, sizeof(www_404_path), "%s", WWW_404_FALLBACK);
+      prepare_msg(www_404_path, sizeof(www_404_path), "%s", WWW_404_FALLBACK);
    } else {
-      snprintf(www_404_path, sizeof(www_404_path), "%s", WWW_404_FALLBACK);
+      prepare_msg(www_404_path, sizeof(www_404_path), "%s", WWW_404_FALLBACK);
    }
 
    // set the www-root if configured
    if (cfg_www_root != NULL) {
-      snprintf(www_root, sizeof(www_root), "%s", cfg_www_root);
+      prepare_msg(www_root, sizeof(www_root), "%s", cfg_www_root);
    } else { // use the defaults
-      snprintf(www_root, sizeof(www_root), "%s", WWW_ROOT_FALLBACK);
+      prepare_msg(www_root, sizeof(www_root), "%s", WWW_ROOT_FALLBACK);
    }
 
    if (http_load_users(HTTP_AUTHDB_PATH) < 0) {
@@ -447,8 +444,7 @@ bool http_init(struct mg_mgr *mgr) {
    char listen_addr[255];
    int bind_port = eeprom_get_int("net/http/port");
    eeprom_get_ip4("net/http/bind", &sa_bind);
-   memset(listen_addr, 0, sizeof(listen_addr));
-   snprintf(listen_addr, sizeof(listen_addr), "http://%s:%d", inet_ntoa(sa_bind), bind_port);
+   prepare_msg(listen_addr, sizeof(listen_addr), "http://%s:%d", inet_ntoa(sa_bind), bind_port);
 
    if (mg_http_listen(mgr, listen_addr, http_cb, NULL) == NULL) {
       Log(LOG_CRIT, "http", "Failed to start http listener");
@@ -460,8 +456,7 @@ bool http_init(struct mg_mgr *mgr) {
 #if	defined(HTTP_USE_TLS)
    int tls_bind_port = eeprom_get_int("net/http/tls_port");
    char tls_listen_addr[255];
-   memset(tls_listen_addr, 0, sizeof(tls_listen_addr));
-   snprintf(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_bind), tls_bind_port);
+   prepare_msg(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_bind), tls_bind_port);
 
    http_tls_init();
 
@@ -555,8 +550,7 @@ bool ws_send_ping(http_client_t *cptr) {
    }
 
    Log(LOG_CRAZY, "auth", "sending ping to user on cptr:<%x> with ts:[%d]", cptr, now);
-   memset(resp_buf, 0, sizeof(resp_buf));
-   snprintf(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
+   prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
    // Make sure that timeout will happen if no response

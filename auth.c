@@ -140,7 +140,7 @@ static bool http_backup_authdb(void) {
          return true;
       }
 
-      snprintf(new_path, sizeof(new_path), "%s.bak-%s.%d", HTTP_AUTHDB_PATH, date_str, index);
+      prepare_msg(new_path, sizeof(new_path), "%s.bak-%s.%d", HTTP_AUTHDB_PATH, date_str, index);
       index++;
    } while (file_exists(new_path));
 
@@ -381,8 +381,6 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
    if (strcasecmp(cmd, "login") == 0) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
-      memset(resp_buf, 0, sizeof(resp_buf));
-
       Log(LOG_AUDIT, "auth", "Login request from user %s on mg_conn:<%x> from %s:%d", user, c, ip, port);
 
       http_client_t *cptr = http_find_client_by_c(c);
@@ -400,7 +398,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
       }
 
-      snprintf(resp_buf, sizeof(resp_buf),
+      prepare_msg(resp_buf, sizeof(resp_buf),
                "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }",
                cptr->nonce, user, cptr->token);
       mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
@@ -480,10 +478,10 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // special handling for guests; we generate a random # prefix for their name
          if (strcasecmp(up->name, "guest") == 0) {
             cptr->guest_id = generate_random_guest_id(4);
-            snprintf(cptr->chatname, sizeof(cptr->chatname), "%s%04d", up->name, cptr->guest_id);
+            prepare_msg(cptr->chatname, sizeof(cptr->chatname), "%s%04d", up->name, cptr->guest_id);
             guest = true;
          } else {
-            snprintf(cptr->chatname, sizeof(cptr->chatname), "%s", up->name);
+            prepare_msg(cptr->chatname, sizeof(cptr->chatname), "%s", up->name);
          }
 
          cptr->authenticated = true;
@@ -496,8 +494,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
          char resp_buf[HTTP_WS_MAX_MSG+1];
-         memset(resp_buf, 0, sizeof(resp_buf));
-         snprintf(resp_buf, sizeof(resp_buf),
+         prepare_msg(resp_buf, sizeof(resp_buf),
                      "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu, \"privs\": \"%s\" } }",
                      cptr->chatname, token, now, cptr->user->privs);
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
@@ -507,8 +504,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          ws_send_ping(cptr);
 
          // blorp out a join to all chat users
-         memset(resp_buf, 0, sizeof(resp_buf));
-         snprintf(resp_buf, sizeof(resp_buf),
+         prepare_msg(resp_buf, sizeof(resp_buf),
                      "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu, \"ip\": \"%s\", \"privs\": \"%s\" } }",
                      cptr->chatname, now, ip, cptr->user->privs);
          struct mg_str ms = mg_str(resp_buf);

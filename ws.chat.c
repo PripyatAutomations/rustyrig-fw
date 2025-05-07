@@ -121,7 +121,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // handle a file chunk
          if (msg_type != NULL && strcmp(msg_type, "file_chunk") == 0) {
-            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", cptr->chatname, data, now, msg_type, chunk_index, total_chunks);
+            prepare_msg(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", cptr->chatname, data, now, msg_type, chunk_index, total_chunks);
          } else { // or just a chat message
             char *escaped_msg = escape_html(data);
             if (escaped_msg == NULL) {
@@ -129,7 +129,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                rv = true;
                goto cleanup;
             }
-            snprintf(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", cptr->chatname, escaped_msg, now, msg_type);
+            prepare_msg(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", cptr->chatname, escaped_msg, now, msg_type);
             free(escaped_msg);
          }
          mp = mg_str(msgbuf);

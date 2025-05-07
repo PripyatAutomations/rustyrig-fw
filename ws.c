@@ -159,8 +159,9 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
       return true;
    }
 
-   memset(resp_buf, 0, sizeof(resp_buf));
-   snprintf(resp_buf, sizeof(resp_buf), "{ \"auth\": { \"error\": \"Client kicked: %s\" } }", (reason != NULL ? reason : "no rason given"));
+   prepare_msg(resp_buf, sizeof(resp_buf), 
+      "{ \"auth\": { \"error\": \"Client kicked: %s\" } }",
+      (reason != NULL ? reason : "no rason given"));
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
    mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
    http_remove_client(c);
@@ -207,8 +208,10 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
 
    if (cptr == NULL) {
       char msgbuf[512];
-      memset(msgbuf, 0, sizeof(msgbuf));
-      snprintf(msgbuf, sizeof(msgbuf), "Kicking client from %s:%d who has no cptr?!?!!?", ip, port);
+
+      prepare_msg(msgbuf, sizeof(msgbuf),
+         "Kicking client from %s:%d who has no cptr?!?!!?",
+         ip, port);
       Log(LOG_AUDIT, "http.pong", msgbuf);
       ws_kick_client_by_c(c, msgbuf);
       rv = true;
@@ -292,8 +295,7 @@ bool ws_send_error(struct mg_connection *c, const char *scope, const char *msg) 
    }
 
    char msgbuf[HTTP_WS_MAX_MSG+1];
-   memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf),
+   prepare_msg(msgbuf, sizeof(msgbuf),
       "{ \"%s\": { \"error\": \"%s\", \"ts\": %lu } }",
       scope, msg, now);
 
