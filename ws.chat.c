@@ -147,54 +147,54 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       } else if (strcasecmp(cmd, "whois") == 0) {
          if (target == NULL) {
             // XXX: Send an warning to the user informing that they must specify a target username
+            Log(LOG_DEBUG, "chat", "whois with no target");
             rv = true;
             goto cleanup;
          }
+         http_client_t *acptr = http_client_list;
+         int clone_idx = 0;
 
-         // Deal with user database supplied data
-         int tgt_uid = -1;
-         int guest_id = -1;
-         bool guest = false;
-         http_client_t *acptr = NULL;
+         while (acptr != NULL) {
+            // not a match? Carry on!
+            if (strcasecmp(acptr->chatname, target) != 0) {
+               acptr = acptr->next;
+               continue;
+            }
 
-         tgt_uid = http_user_index(target);
-         Log(LOG_INFO, "chat", "WHOIS for %s (%d) by %s", target, tgt_uid, user);
-         acptr = http_find_client_by_name(target);
+            char whois_data[HTTP_WS_MAX_MSG/2];
+            char msgbuf[HTTP_WS_MAX_MSG+1];
 
-         if (tgt_uid < 0 || tgt_uid > HTTP_MAX_USERS) {
-            Log(LOG_DEBUG, "chat", "tgt_uid %d is invalid for user %s", tgt_uid, target);
-            rv = true;
-            goto cleanup;
+            if (acptr == NULL) {
+               // XXX: No such user error
+               Log(LOG_DEBUG, "chat", "whois |%s| - acptr == NULL", target);
+               rv = true;
+               goto cleanup;
+            }
+
+            // Form the message and send it
+            if (acptr->user == NULL) {
+               // XXX: Send No Such User response
+               Log(LOG_DEBUG, "chat", "whois |%s| - acptr->user == NULL", target);
+               acptr = acptr->next;
+               continue;
+            }
+
+            http_user_t *up = acptr->user;
+            prepare_msg(whois_data, sizeof(whois_data), 
+               "{ \"username\": \"%s\", \"clone\": %d, \"email\": \"%s\", \"privs\": \"%s\", \"connected\": %lu, \"last_heard\": %lu, \"ua\": \"%s\" }",
+               acptr->chatname, clone_idx, up->email, up->privs, acptr->session_start,
+               acptr->last_heard, (acptr->user_agent ? acptr->user_agent : "Unknown"));
+
+            // prepare the response
+            prepare_msg(msgbuf, sizeof(msgbuf),
+               "{ \"talk\": { \"cmd\": \"whois\", \"data\": %s, \"ts\": %lu } }",
+               whois_data, now);
+            mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+            clone_idx++;		// keep track of which clone this is
+
+            acptr = acptr->next;
+            continue;
          }
-
-         if (acptr == NULL) {
-            // XXX: No such user error
-            Log(LOG_DEBUG, "chat", "whois |%s| - acptr == NULL", target);
-            rv = true;
-            goto cleanup;
-         }
-
-         // Form the message and send it
-         if (acptr->user == NULL) {
-            // XXX: Send No Such User response
-            Log(LOG_DEBUG, "chat", "whois |%s| - acptr->user == NULL", target);
-            rv = true;
-            goto cleanup;
-         }
-
-         char whois_data[HTTP_WS_MAX_MSG/2];
-         char msgbuf[HTTP_WS_MAX_MSG+1];
-         memset(whois_data, 0, sizeof(whois_data));
-
-         // XXX: Populate WHOIS data
-
-         // prepare the response
-         prepare_msg(msgbuf, sizeof(msgbuf),
-            "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"whois\", \"data\": \"%s\", \"ts\": %lu } }",
-            cptr->chatname, whois_data, now);
-         struct mg_str mp;
-         mp = mg_str(msgbuf);
-         // Send it to just the user
       } else {
          Log(LOG_DEBUG, "chat", "Got unknown talk msg: |%.*s|", msg_data.len, msg_data.buf);
       }

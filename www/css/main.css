@@ -637,12 +637,16 @@ button#img-clearclip {
 
 #chat-whois {
    position: fixed;
-   top: 10em;
-   left: 10em;
-   border: 2px solid red;
-   background: DarkRed;
-   font-size: 1.2em;
-   color: DarkSlateGray;
+   top: 5em;
+   left: 5em;
+   padding: 0.5em;
+   padding-top: 1em;
+   height: CALC(100% - 10em);
+   width: CALC(100% - 10em);
+   border: 2px solid DarkOrchid;
+   background: DarkSlateBlue;
+   font-size: 1.1em;
+   color: CornflowerBlue;
    display: none;
 }
 
@@ -674,4 +678,18 @@ button#img-clearclip {
 /* Content inside the user menu */
 #um-content {
     margin-top: 10px;
+}
+
+#emoji-keyboard {
+   display: none;
+   position: fixed;
+   left: 0.2em;
+   bottom: 0.3em;
+   padding: 10px;
+   border-radius: 5px;
+   border: 2px solid #ccc;
+   height: 2.5em;
+   background: DarkRed;
+   width: 16em;
+   border: 2px solid red;
 }

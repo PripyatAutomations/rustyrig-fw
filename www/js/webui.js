@@ -78,13 +78,17 @@ $(document).ready(function() {
    form_disable(true);
 
    // Toggle display of the emoji keyboard
-   $('#emoji-btn').click(function() {
+   $('#open-emoji').click(function() {
        const emojiKeyboard = $('#emoji-keyboard');
        if (emojiKeyboard.is(':visible')) {
-           emojiKeyboard.hide(); // Hide if already visible
+           emojiKeyboard.hide();
        } else {
-           emojiKeyboard.show(); // Show if hidden
+           emojiKeyboard.show();
        }
+   });
+
+   $('#chat-whois').click(function() {
+      $(this).hide();
    });
 
    // For clicks inside the document, do stuff
@@ -162,6 +166,8 @@ function ws_connect() {
 
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
+      $('#cul-list').empty();
+
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
          handle_reconnect();
@@ -170,6 +176,8 @@ function ws_connect() {
 
    // When there's an error with the WebSocket
    socket.onerror = function(error) {
+      $('#cul-list').empty();
+
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
       if (rc === false) {
          chat_append('<div class="chat-status error">' + my_ts + '&nbsp;WebSocket error: ', error, 'occurred.</div>');
@@ -262,6 +270,19 @@ function ws_connect() {
                // XXX: If this mute is for us, disable the send button
                // XXX: and show an alert.
                console.log("Mute command received");
+            } else if (cmd === 'whois') {
+               const info = msgObj.talk.data;
+
+               let html = `<strong>User:</strong> ${info.username}<br>`;
+               html += `<strong>Email:</strong> ${info.email}<br>`;
+               html += `<strong>Privileges:</strong> ${info.privs || 'None'}<br>`;
+               html += '<hr width="75%"/>';
+               html += `<strong>Clone:</strong> ${info.clone}<br>`;
+               html += `<strong>Connected:</strong> ${new Date(info.connected * 1000).toLocaleString()}<br>`;
+               html += `<strong>Last Heard:</strong> ${new Date(info.last_heard * 1000).toLocaleString()}<br>`;
+               html += `<strong>User-Agent:</strong> <code>${info.ua}</code>`;
+               html += "<br/>Click window to close";
+               $('#chat-whois').html(html).show();
             } else if (cmd === "quit") {
                var user = msgObj.talk.user;
                if (user) {

@@ -134,6 +134,30 @@ http_client_t *http_find_client_by_guest_id(int gid) {
    return NULL;
 }
 
+http_client_t *http_find_client_by_name(const char *name) {
+   http_client_t *cptr = http_client_list;
+   int i = 0;
+
+   if (name == NULL) {
+      return NULL;
+   }
+
+   while(cptr != NULL) {
+      if (cptr == NULL || cptr->user == NULL || (cptr->chatname[0] == '\0')) {
+         break;
+      }
+
+      if (strcasecmp(cptr->chatname, name) == 0) {
+         Log(LOG_DEBUG, "http.core", "hfcb_name found match at index %d for %s", i, name);
+         return cptr;
+      }
+      i++;
+      cptr = cptr->next;
+   }
+   Log(LOG_DEBUG, "http.core", "hfcb_name found no results for %s, index was %d", name, i);
+   return NULL;
+}
+
 void http_dump_clients(void) {
    http_client_t *cptr = http_client_list;
    int i = 0;

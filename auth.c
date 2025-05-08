@@ -104,28 +104,6 @@ int http_user_index(const char *user) {
    return -1;
 }
 
-http_client_t *http_find_client_by_name(const char *name) {
-   http_client_t *cptr = http_client_list;
-   int i = 0;
-
-   if (name == NULL) {
-      return NULL;
-   }
-
-   while(cptr != NULL) {
-      if (cptr == NULL || cptr->user == NULL || (cptr->chatname[0] == '\0')) {
-         break;
-      }
-
-      if (strcasecmp(cptr->chatname, name) == 0) {
-         return cptr;
-      }
-      i++;
-      cptr = cptr->next;
-   }
-   return NULL;
-}
-
 static bool http_backup_authdb(void) {
    char new_path[256];
    struct tm *tm_info = localtime(&now);

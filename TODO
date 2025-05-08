@@ -55,6 +55,12 @@ minimal inet_ntop() for non-posix
 * Implement mqtt client mode, for sending status to existing server(s)
 
 [www]
+* Send user-info when they join instead of every time CUL is updated
+  - This will save a fair bit of data transfer over the length of a session
+    - probably a few mbytes
+* Send a bundle hash for the app when ws connects, so client can reload assets
+* move stuff to local/sessionStorage so we can reload the script without disconnecting!
+  - uodate components in cache when server says a newer version available
 * Implement ALERT message that pops up for all users (for shutdown, overheat, SWR alerts).
 * Add /whois
   - Show real name, nickk
