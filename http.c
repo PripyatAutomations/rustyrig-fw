@@ -384,7 +384,6 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
      }
    } else if (ev == MG_EV_WS_MSG) {
      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
-
      ws_handle(msg, c);
    } else if (ev == MG_EV_CLOSE) {
      char resp_buf[HTTP_WS_MAX_MSG+1];
@@ -549,12 +548,21 @@ bool ws_send_ping(http_client_t *cptr) {
       return true;
    }
 
-   Log(LOG_CRAZY, "auth", "sending ping to user on cptr:<%x> with ts:[%d]", cptr, now);
-   prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
-   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
    // Make sure that timeout will happen if no response
    cptr->last_ping = now;
+   cptr->ping_attempts++;
+
+   // only bother making noise if the first attempt failed, send the first ping to crazy level log
+   if (cptr->ping_attempts > 1) {
+      Log(LOG_DEBUG, "auth", "sending ping to user on cptr:<%x> with ts:[%d] attempt %d", cptr, now, cptr->ping_attempts);
+   } else {
+      Log(LOG_CRAZY, "auth", "sending ping to user on cptr:<%x> with ts:[%d] attempt %d", cptr, now, cptr->ping_attempts);
+   }
+
+   prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
+   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+
    return false;
 }
 
@@ -576,11 +584,16 @@ void http_expire_sessions(void) {
                 cptr, HTTP_SESSION_LIFETIME, last_heard, cptr->chatname);
             ws_kick_client(cptr, "Login session expired!");
          } else if (cptr->last_ping != 0 && (now - cptr->last_ping) > HTTP_PING_TIMEOUT) {
-            // Ping timeout?
-            Log(LOG_AUDIT, "http.auth", "Client conn at cptr:<%x> for user %s timed out, disconnecting", cptr, cptr->chatname);
-            ws_kick_client(cptr, "Ping timeout");
+            if (cptr->ping_attempts >= HTTP_PING_TRIES) {
+               // Ping timeout?
+               Log(LOG_AUDIT, "http.auth", "Client conn at cptr:<%x> for user %s timed out, disconnecting", cptr, cptr->chatname);
+               ws_kick_client(cptr, "Ping timeout");
+            } else {
+               // try again
+               ws_send_ping(cptr);
+            }
          } else if (cptr->last_ping == 0 && (now - cptr->last_heard) >= HTTP_PING_TIME) {
-            // Time to send a ping?
+            // Time to send the first ping
             ws_send_ping(cptr);
          }
       } else { // Not websocket

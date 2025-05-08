@@ -64,7 +64,7 @@
       "loglevel": "debug",
       "mongoose": "false",
       "profiling": "true",
-      "show_ts": "false",
+      "show_ts": "true",
       "targets": "*"
    },
    "dev": {

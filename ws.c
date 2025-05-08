@@ -238,14 +238,16 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       goto cleanup;
    }
 
-   if (ts_t + HTTP_PING_TIMEOUT < now) {
-      Log(LOG_AUDIT, "http.pong", "Ping timeout for mg_conn:<%x> on cptr:<%x> from %s:%d", c, cptr, ip, port);
+   time_t ping_expiry = ts_t + HTTP_PING_TIME;
+   if ((ping_expiry) < now) {
+      Log(LOG_AUDIT, "http.pong", "Late ping for mg_conn:<%x> on cptr:<%x> from %s:%d ts: %lu + %lu (timeout) < now %lu", c, cptr, ip, port, ts_t, HTTP_PING_TIMEOUT, now);
       ws_kick_client(cptr, "Network Error: PING timeout");
       rv = true;
       goto cleanup;
    } else { // The pong response is valid, update the client's data
       cptr->last_heard = now;
       cptr->last_ping = 0;
+      cptr->ping_attempts = 0;
       Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%lu] and last_ping to 0", cptr->chatname, now);
    }
 
@@ -278,6 +280,8 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       // Handle different message types...
       if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
          return ws_handle_rigctl_msg(msg, c);
+      } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
+         mg_ws_send(c, "pong", 4, WEBSOCKET_OP_TEXT);
       } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
          return ws_handle_pong(msg, c);
       } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {

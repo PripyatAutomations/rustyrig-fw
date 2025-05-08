@@ -107,7 +107,7 @@ function chat_init() {
    $('span#tab-config').click(function() { show_config_window(); });
    $('span#tab-syslog').click(function() { show_syslog_window(); });
    $('span#tab-dark').click(function() { toggle_dark_mode(); });
-   $('span#tab-logout').click(function() { logout(); });
+   $('span#tab-logout').click(function() { clear_chatbox(); logout(); });
 }
 
 function cul_update(message) {
@@ -216,7 +216,7 @@ function chat_send_command(cmd, args) {
          "token": auth_token
       }
    };
-   console.log("Sending cmd ", cmd, "args: ", args, "msgObj: ", msgObj);
+//   console.log("Sending cmd ", cmd, "args: ", args, "msgObj: ", msgObj);
 
    if (cmd === "die" || cmd == "restart") {
       if (typeof reason !== "undefined") {
@@ -230,7 +230,7 @@ function chat_send_command(cmd, args) {
 
    socket.send(JSON.stringify(msgObj));
    $('#user-menu').hide();
-   console.log(`Sent command: /${cmd} ${args}`);
+//   console.log(`Sent command: /${cmd} ${args}`);
 }
 
 function parse_chat_cmd(e) {
@@ -258,6 +258,7 @@ function parse_chat_cmd(e) {
             case 'clear':
                console.log("Cleared scrollback");
                clear_chatbox();
+               break;
             case 'die':
             case 'restart':
                var reason;

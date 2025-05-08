@@ -11,7 +11,10 @@ let reconnect_delay = 1;
 let reconnect_interval = [1, 2, 5, 10, 30 ];
 var reconnect_index = 0; 	// Index to track the current delay
 var reconnect_timer;  		// so we can stop reconnects later
+var ws_last_heard;		// When was the last time we heard something from the server? Used to send a keep-alive
+var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
 
+// Support reloading the stylesheet (/reloadcss) without restarting the app
 function reload_css() {
   $('link[rel="stylesheet"]').each(function() {
     let $link = $(this);
@@ -31,6 +34,13 @@ function msg_timestamp(msg_ts) {
    let mm = String(date.getMinutes()).padStart(2, '0');
    let ss = String(date.getSeconds()).padStart(2, '0');
    return `[${hh}:${mm}:${ss}]`;
+}
+
+function send_ping(sock) {
+   if (sock.readyState === WebSocket.OPEN) {
+      const now = Math.floor(Date.now() / 1000);  // Unix time in seconds
+      sock.send("ping " + now);
+   }
 }
 
 $(document).ready(function() {
@@ -134,10 +144,20 @@ function ws_connect() {
       show_connecting(false);
       try_login();
       form_disable(false);
-      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+      var now = Math.floor(Date.now() / 1000);
+      var my_ts = msg_timestamp(now);
       chat_append('<div class="chat-status">' + my_ts + '&nbsp;WebSocket connected.</div>');
       reconnecting = false; 		// Reset reconnect flag on successful connection
       reconnect_delay = 1; 		// Reset reconnect delay to 1 second
+
+      // Set a timer to check if keepalives needs to be sent
+      setInterval(function() {
+         if (ws_last_heard < (now - ws_keepalive_time)) {
+            console.log(`keep-alive needed; last-heard=${ws_lastheard} now=${now} keep-alive time: ${ws_keepalive_time}, sending`);
+            // Send a keep-alive to the sserver so it will reply
+            send_ping(socket);
+         }
+      }, 10000);
    };
 
    /* NOTE: On error sorts this out for us */
@@ -163,6 +183,8 @@ function ws_connect() {
 
    socket.onmessage = function(event) {
       var msgData = event.data;
+      ws_last_heard = Date.now();
+
       try {
          var msgObj = JSON.parse(msgData);
 
@@ -306,6 +328,12 @@ function ws_connect() {
 
                   if (msgObj.auth.privs) {
                      auth_privs = msgObj.auth.privs;
+                  }
+
+                  // Clear the chat window if changing users
+                  console.log("lu: ", login_user, "au: ", auth_user);
+                  if (login_user !== "GUEST" && auth_user !== login_user) {
+                     clear_chatbox();
                   }
 
                   logged_in = true;

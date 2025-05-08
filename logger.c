@@ -166,7 +166,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       return;
    } else {
       if (log_show_ts) {
-         fprintf(logfp, "[%s] <%s.%s> %s\n", subsys, latest_timestamp, log_priority_to_str(priority), msgbuf);
+         fprintf(logfp, "[%s] <%s.%s> %s\n", latest_timestamp, subsys, log_priority_to_str(priority), msgbuf);
       } else {
          fprintf(logfp, "<%s.%s> %s\n", subsys, log_priority_to_str(priority), msgbuf);
       }

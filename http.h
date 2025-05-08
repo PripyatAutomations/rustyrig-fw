@@ -14,9 +14,13 @@
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
 #define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
 #define HTTP_AUTH_TIMEOUT       20              // Allow 20 seconds from connection to send login command
-#define HTTP_PING_TIME          120             // If we haven't heard from the client in this long, send a ping
+#define HTTP_PING_TIME          30             // If we haven't heard from the client in this long, send a ping
+#if	(HTTP_PING_TIME / 4) >= 10
 #define	HTTP_PING_TIMEOUT	(HTTP_PING_TIME/4)	// And give them this long to respond
-
+#else
+#define	HTTP_PING_TIMEOUT	10
+#endif	// (HTTP_PING_TIME / 4)
+#define	HTTP_PING_TRIES		3		// We'll try this many times before kicking the client
 // HTTP Basic-auth user
 #define	HTTP_MAX_USERS		32		// How many users are allowed in http.users?
 #define	HTTP_USER_LEN		16		// username length (16 char)
@@ -69,6 +73,7 @@ struct http_client {
     time_t session_start;	// When did they login?
     time_t last_heard;		// when a last valid message was heard from client
     time_t last_ping;		// If client is pending timeout, this will contain the time a ping was sent to check for dead connection
+    int    ping_attempts;	// How many times have we tried to ping the client without answer?
     http_user_t *user;		// pointer to http user, once login is sent. DO NOT TRUST IF authenticated != true!
     struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
     char token[HTTP_TOKEN_LEN+1]; // Session token
