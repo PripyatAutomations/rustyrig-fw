@@ -632,7 +632,18 @@ button#img-clearclip {
     width: 200px;
     z-index: 1000;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    display: none; /* Initially hidden */
+    display: none;
+}
+
+#chat-whois {
+   position: fixed;
+   top: 10em;
+   left: 10em;
+   border: 2px solid red;
+   background: DarkRed;
+   font-size: 1.2em;
+   color: DarkSlateGray;
+   display: none;
 }
 
 #user-menu a, #user-menu a:visited, #user-menu: a:active {

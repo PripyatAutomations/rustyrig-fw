@@ -270,7 +270,6 @@ function parse_chat_cmd(e) {
                chat_send_command(command, reason);
                break;
             case 'edit':
-               console.log("Send EDIT for", args[1]);
                chat_send_command(command, args[1]);
                break;
             case 'help':
@@ -298,7 +297,6 @@ function parse_chat_cmd(e) {
                }
                break;
             case 'kick':
-               console.log("Sending KICK for", args[1]);
                chat_send_command(command, args[1]);
                break;
             case 'me':	// /me shows an ACTION in the chat
@@ -308,7 +306,6 @@ function parse_chat_cmd(e) {
                msg_type = "action";
                break;
             case 'mute':
-               console.log("Send MUTE", args[1]);
                chat_send_command(command, args[1]);
                break;
             case 'reloadcss':
@@ -318,7 +315,6 @@ function parse_chat_cmd(e) {
                $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
                break;
             case 'whois':
-               console.log("Send WHOIS", args[1]);
                chat_send_command(command, args[1]);
                break;
             default:

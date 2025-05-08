@@ -280,7 +280,11 @@ static http_route_t http_routes[HTTP_MAX_ROUTES] = {
 // Ugly things lie below. I am not responsible for vomit on keyboards //
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
-static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connection *c) {
+static bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c) {
+   if (c == NULL || msg == NULL) {
+      return true;
+   }
+
    int items = (sizeof(http_routes) / sizeof(http_route_t)) - 1;
 
    for (int i = 0; i < items; i++) {
@@ -289,8 +293,13 @@ static bool http_dispatch_route(struct mg_http_message *msg, struct mg_connectio
       }
 
       size_t match_len = strlen(http_routes[i].match);
+/*
+      if (match_len < HTTP_ROUTE_MIN_MATCHLEN) {
+         continue;
+      }
+*/
       if (strncmp(msg->uri.buf, http_routes[i].match, match_len) == 0) {
-         Log(LOG_CRAZY, "http.req", "Matched %s with request URI %.*s", http_routes[i].match, (int)msg->uri.len, msg->uri.buf);
+         Log(LOG_CRAZY, "http.req", "Matched %s with request URI %.*s [length: %d]", http_routes[i].match, (int)msg->uri.len, msg->uri.buf, match_len);
 
          // Strip trailing slash if it's there
          if (msg->uri.len > 0 && msg->uri.buf[msg->uri.len - 1] == '/') {
@@ -368,41 +377,64 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    } else
 #endif
    if (ev == MG_EV_HTTP_MSG) {
+      http_client_t *cptr = http_find_client_by_c(c);
+
+      if (cptr == NULL) {
+         Log(LOG_DEBUG, "http.core", "mg_ev_http_msg cptr == NULL");
+         cptr = http_add_client(c, false);
+      }
+      // Save the user-agent the first time
+      if (cptr->user_agent == NULL) {
+         struct mg_str *ua_hdr = mg_http_get_header(hm, "User-Agent");
+         size_t ua_len = ua_hdr->len < HTTP_UA_LEN ? ua_hdr->len : HTTP_UA_LEN;
+         
+         // allocate the memory
+         cptr->user_agent = malloc(ua_len);
+         memset(cptr->user_agent, 0, ua_len);
+         memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
+         Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, cptr->user_agent, ua_len);
+      }
+
+      // Send the request to our HTTP router
       if (http_dispatch_route(hm, c) == true) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
-//     http_client_t *cptr = http_find_client_by_c(c);
-      http_client_t *cptr = http_add_client(c, false);
-
-     if (cptr) {
-        Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
-        cptr->is_ws = true;
-     } else {
-        Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws", c, ip, port);
-        ws_kick_client_by_c(c, "Socket error");
-     }
+      http_client_t *cptr = http_find_client_by_c(c);
+      if (cptr) {
+         Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
+         cptr->is_ws = true;
+      } else {
+         Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws", c, ip, port);
+         ws_kick_client_by_c(c, "Socket error");
+      }
    } else if (ev == MG_EV_WS_MSG) {
-     struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
-     ws_handle(msg, c);
+      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
+      ws_handle(msg, c);
    } else if (ev == MG_EV_CLOSE) {
-     char resp_buf[HTTP_WS_MAX_MSG+1];
-     http_client_t *cptr = http_find_client_by_c(c);
+      char resp_buf[HTTP_WS_MAX_MSG+1];
+      http_client_t *cptr = http_find_client_by_c(c);
 
-     // make sure we're not accessing unsafe memory
-     if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
-        // blorp out a quit to all connected users
-        prepare_msg(resp_buf, sizeof(resp_buf),
-                    "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
-                    cptr->chatname, now);
-        struct mg_str ms = mg_str(resp_buf);
-        ws_broadcast(NULL, &ms);
-        Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
-//     } else {
-         // This is very noisy as it includes http requests for assets; maybe we can filter them out?
-//        Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
-     }
-     http_remove_client(c);
+      // make sure we're not accessing unsafe memory
+      if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
+         // Free the resources, if any, for the user_agent
+         if (cptr->user_agent != NULL) {
+            free(cptr->user_agent);
+            cptr->user_agent = NULL;
+         }
+
+         // blorp out a quit to all connected users
+         prepare_msg(resp_buf, sizeof(resp_buf),
+                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
+                     cptr->chatname, now);
+         struct mg_str ms = mg_str(resp_buf);
+         ws_broadcast(NULL, &ms);
+         Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
+//      } else {
+          // This is very noisy as it includes http requests for assets; maybe we can filter them out?
+//         Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
+      }
+      http_remove_client(c);
    }
 }
 
@@ -595,11 +627,6 @@ void http_expire_sessions(void) {
          } else if (cptr->last_ping == 0 && (now - cptr->last_heard) >= HTTP_PING_TIME) {
             // Time to send the first ping
             ws_send_ping(cptr);
-         }
-      } else { // Not websocket
-         if (cptr->connected > 0 && !cptr->session_start && (now - cptr->connected) >= HTTP_AUTH_TIMEOUT) {
-            Log(LOG_AUDIT, "http.auth", "Client at mg_conn:<%x> didn't authenticate in time, kicking.", cptr);
-            ws_kick_client(cptr, "Auth timeout");
          }
       }
       cptr = cptr->next;

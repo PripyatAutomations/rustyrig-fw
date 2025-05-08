@@ -160,9 +160,9 @@ bool http_save_users(const char *filename) {
      return true;
   }
 
-  FILE *file = fopen(filename, "w");
   int users_saved = 0;
 
+  FILE *file = fopen(filename, "w");
   if (!file) {
      Log(LOG_CRIT, "auth", "Error saving user database to %s: %d:%s", filename, errno, strerror(errno));
      return true;
@@ -230,30 +230,52 @@ int http_load_users(const char *filename) {
       char *token = strtok(line, ":");
       int i = 0, uid = -1;
 
-      while (token && i < 5) {
+      while (token && i < 6) {
          switch (i) {
             case 0: // uid
-               uid = atoi(token);
-               up = &http_users[uid];
-               up->uid = uid;
+               if (token) {
+                  uid = atoi(token);
+                  up = &http_users[uid];
+                  up->uid = uid;
+               }
                break;
             case 1: // Username
-               strncpy(up->name, token, HTTP_USER_LEN);
+               if (token) {
+                  strncpy(up->name, token, HTTP_USER_LEN);
+               }
                break;
             case 2: // Enabled flag
-               up->enabled = atoi(token);
+               if (token) {
+                  up->enabled = atoi(token);
+               }
                break;
             case 3: // Password hash
-               strncpy(up->pass, token, HTTP_PASS_LEN);
+               if (token) {
+                  strncpy(up->pass, token, HTTP_PASS_LEN);
+               }
                break;
-            case 4: // Privileges
-               memcpy(up->privs, token, USER_PRIV_LEN);
+            case 4: // Email
+               if (token != NULL) {
+                  strncpy(up->email, token, USER_EMAIL_LEN);
+               }
+               break;
+            case 5: // Privileges
+               if (token) {
+                  strncpy(up->privs, token, USER_PRIV_LEN);
+               }
                break;
          }
          token = strtok(NULL, ":");
          i++;
       }
-//      Log(LOG_INFO, "auth", "load_users: uid=%d, user=%s, enabled=%s, privs=%s", uid, up->name, (up->enabled ? "true" : "false"), (up->privs[0] != '\0' ? up->privs : "none"));
+/*
+      Log(LOG_CRAZY, "auth", "load_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s",
+          uid,
+          (up->name[0]  != '\0' ? up->name  : "none"),
+          (up->email[0] != '\0' ? up->email : "none"),
+          (up->enabled   ? "true" : "false"),
+          (up->privs[0] != '\0' ? up->privs : "none"));
+*/
       user_count++;
    }
    Log(LOG_INFO, "auth", "Loaded %d users from %s", user_count, filename);
@@ -265,6 +287,10 @@ int http_load_users(const char *filename) {
 http_client_t *http_find_client_by_nonce(const char *nonce) {
    http_client_t *cptr = http_client_list;
    int i = 0;
+
+   if (nonce == NULL) {
+      return NULL;
+   }
 
    while(cptr != NULL) {
       if (cptr == NULL) {
@@ -324,6 +350,10 @@ bool match_priv(const char *user_privs, const char *priv) {
 }
 
 bool has_priv(int uid, const char *priv) {
+   if (priv == NULL) {
+      return false;
+   }
+
    const char *p = priv;
    while (p && *p) {
       const char *sep = strchr(p, '|');
@@ -405,9 +435,8 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
       Log(LOG_DEBUG, "auth", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
    } else if (strcasecmp(cmd, "logout") == 0) {
-
       Log(LOG_DEBUG, "auth", "Logout request from session token |%s|", (token != NULL ? token : "NONE"));
-      ws_kick_client_by_c(c, "Logged out");
+      ws_kick_client_by_c(c, "Logged out. 73!");
    } else if (strcasecmp(cmd, "pass") == 0) {
       bool guest = false;
 

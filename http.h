@@ -27,7 +27,9 @@
 #define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64
 #define	HTTP_HASH_LEN		40		// sha1
 #define	HTTP_TOKEN_LEN		14		// session-id / nonce length, longer moar secure
+#define	HTTP_UA_LEN		512		// allow 128 bytes
 #define	USER_PRIV_LEN		100		// privileges list
+#define USER_EMAIL_LEN		128		// email address
 
 // CHAT protocol
 #define	CHAT_NAMES_INTERVAL	3000		// fire off a NAMES message in chat every 5 seconds
@@ -38,6 +40,7 @@ struct http_user {
    int		uid;
    char 	name[HTTP_USER_LEN+1];			// Username
    char 	pass[HTTP_PASS_LEN+1];			// Password hash
+   char         email[USER_EMAIL_LEN+1];		// Email address
    char		privs[USER_PRIV_LEN+1];			// privileges string?
    bool 	enabled;				// Is the user enabled?
 };
@@ -80,6 +83,7 @@ struct http_client {
     char nonce[HTTP_TOKEN_LEN+1]; // Authentication nonce - only used between challenge & pass stages
     int guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
     char chatname[HTTP_USER_LEN+1]; // username to show in chat (GUESTxxxx or USER)
+    char *user_agent;		// User-agent
     struct http_client *next; 	// pointer to next client in list
 };
 typedef struct http_client http_client_t;

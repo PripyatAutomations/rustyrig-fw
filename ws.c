@@ -152,6 +152,11 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
       return true;
    }
 
+   if (cptr->user_agent != NULL) {
+      free(cptr->user_agent);
+      cptr->user_agent = NULL;
+   }
+
    char resp_buf[HTTP_WS_MAX_MSG+1];
    struct mg_connection *c = cptr->conn;
 
