@@ -114,6 +114,9 @@ function chat_init() {
 }
 
 function cul_offline() {
+   // Clear the user-info cache (populated from JOIN messages)
+   user_cache = {};
+
    $('#cul-list').empty();
    $('#cul-list').append('<span class="error">OFFLINE</span>');
 }

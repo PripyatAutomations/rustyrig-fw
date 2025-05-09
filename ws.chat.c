@@ -65,6 +65,21 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
    return false;
 }
 
+void ws_send_userinfo(http_client_t *c) {
+   if (!c || !c->authenticated || !c->user)
+      return;
+
+   char buf[256];
+   int len = mg_snprintf(buf, sizeof(buf),
+      "{ \"talk\": { \"cmd\": \"userinfo\", \"user\": \"%s\", \"privs\": \"%s\", \"tx\": %s } }",
+      c->chatname,
+      c->user->privs,
+      c->is_ptt ? "true" : "false");
+
+   struct mg_str msg = mg_str_n(buf, len);
+   ws_broadcast(NULL, &msg);
+}
+
 bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    if (msg == NULL || c == NULL) {
       return true;

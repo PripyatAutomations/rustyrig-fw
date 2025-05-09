@@ -30,8 +30,11 @@ extern bool ws_send_error(struct mg_connection *c, const char *scope, const char
 
 // ws.auth.c
 extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c);
+
 // ws.chat.c
 extern bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c);
+extern void ws_send_userinfo(http_client_t *c);
+
 // ws.rigctl.c
 extern bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c);
 //

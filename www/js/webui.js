@@ -14,6 +14,12 @@ var reconnect_timer;  		// so we can stop reconnects later
 var ws_last_heard;		// When was the last time we heard something from the server? Used to send a keep-alive
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
 
+
+/////
+/// chat stuff that needs to move
+////
+let user_cache = {};
+
 // Support reloading the stylesheet (/reloadcss) without restarting the app
 function reload_css() {
   $('link[rel="stylesheet"]').each(function() {
@@ -255,6 +261,7 @@ function ws_connect() {
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
       cul_offline();
+
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
          handle_reconnect();
