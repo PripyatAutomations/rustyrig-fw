@@ -88,6 +88,7 @@ $(document).ready(function() {
    });
 
    $('#chat-whois').click(function() {
+      form_disable(false);
       $(this).hide();
    });
 
@@ -104,8 +105,75 @@ $(document).ready(function() {
       }
    });
 
-   $(document).keydown(function (e) {
-      if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
+   ////////////// tab completion //////////////
+   let completing = false;
+   let completionList = [];
+   let completionIndex = 0;
+   let matchStart = 0;
+   let matchLength = 0;
+
+   function getCULNames() {
+      return $('#cul-list .chat-user-list .cul-self').map(function () {
+         return $(this).text();
+      }).get();
+   }
+
+   function updateCompletionIndicator(name) {
+      if (name) {
+         $('#completion-indicator').text(`🔍 COMPLETING: ${name}`).show();
+      } else {
+         $('#completion-indicator').hide();
+      }
+   }
+
+   $('#chat-input').on('keydown', function (e) {
+      const input = $(this);
+      const text = input.val();
+      const caretPos = this.selectionStart;
+
+      if (e.key === 'Tab') {
+         e.preventDefault();
+
+         if (!completing) {
+            const beforeCaret = text.slice(0, caretPos);
+            const match = beforeCaret.match(/@(\w*)$/);
+
+            if (match) {
+               const word = match[1];
+               const matchStart = beforeCaret.lastIndexOf('@' + word);
+               const afterCaret = text.slice(caretPos);
+
+               const current = completionList[completionIndex];
+               const completed = text.slice(0, matchStart + 1) + current + afterCaret;
+
+               input.val(completed);
+               const newCaret = matchStart + 1 + current.length;
+               this.setSelectionRange(newCaret, newCaret);
+            }
+         }
+
+         if (completing && completionList.length) {
+            const currentName = completionList[completionIndex];
+            const completedText =
+               text.slice(0, matchStart + 1) + currentName + text.slice(caretPos);
+
+            input.val(completedText);
+            const newCaret = matchStart + 1 + currentName.length;
+            this.setSelectionRange(newCaret, newCaret);
+            updateCompletionIndicator(currentName);
+            completionIndex = (completionIndex + 1) % completionList.length;
+         }
+      } else if (e.key === 'Escape') {
+         if (completing) {
+            input.val(originalText);
+            this.setSelectionRange(matchStart + 1 + originalPrefix.length, matchStart + 1 + originalPrefix.length);
+            completing = false;
+            updateCompletionIndicator(null);
+         }
+      } else if (completing && !e.key.match(/^[a-zA-Z0-9]$/)) {
+         completing = false;
+         updateCompletionIndicator(null);
+      } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
          e.preventDefault();
 
          let chatBox = $("#chat-box");
@@ -121,8 +189,20 @@ $(document).ready(function() {
          } else if (e.key === "PageDown") {
             chatBox.scrollTop(chatBox.scrollTop() + pageScrollAmount);
          }
+      } else if (completing && (e.key === ' ' || e.key === 'Enter')) {
+         // Finalize current match
+         const finalName = completionList[(completionIndex - 1 + completionList.length) % completionList.length];
+         const finalizedText =
+            text.slice(0, matchStart + 1) + finalName + text.slice(caretPos);
+         input.val(finalizedText);
+
+         const newCaret = matchStart + 1 + finalName.length;
+         this.setSelectionRange(newCaret, newCaret);
+         completing = false;
+         updateCompletionIndicator(null);
       }
    });
+   ////////////// tab completion //////////////
 });
 
 function make_ws_url() {
@@ -166,8 +246,7 @@ function ws_connect() {
 
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
-      $('#cul-list').empty();
-
+      cul_offline();
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
          handle_reconnect();
@@ -176,7 +255,7 @@ function ws_connect() {
 
    // When there's an error with the WebSocket
    socket.onerror = function(error) {
-      $('#cul-list').empty();
+      cul_offline();
 
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
       if (rc === false) {
@@ -271,17 +350,19 @@ function ws_connect() {
                // XXX: and show an alert.
                console.log("Mute command received");
             } else if (cmd === 'whois') {
+               form_disable(true);
                const info = msgObj.talk.data;
 
                let html = `<strong>User:</strong> ${info.username}<br>`;
                html += `<strong>Email:</strong> ${info.email}<br>`;
                html += `<strong>Privileges:</strong> ${info.privs || 'None'}<br>`;
                html += '<hr width="75%"/>';
-               html += `<strong>Clone:</strong> ${info.clone}<br>`;
-               html += `<strong>Connected:</strong> ${new Date(info.connected * 1000).toLocaleString()}<br>`;
+//               html += `<strong>${info.clones} sessions active</br/>`;
+               html += `<strong>Clone #</strong>&nbsp;${info.clone}<br/>`;
+               html += `<strong>Connected:</strong> ${new Date(info.connected * 1000).toLocaleString()},<br>`;
                html += `<strong>Last Heard:</strong> ${new Date(info.last_heard * 1000).toLocaleString()}<br>`;
                html += `<strong>User-Agent:</strong> <code>${info.ua}</code>`;
-               html += "<br/>Click window to close";
+               html += "<br/><br/><hr/<br/>Click window to close";
                $('#chat-whois').html(html).show();
             } else if (cmd === "quit") {
                var user = msgObj.talk.user;
@@ -464,11 +545,18 @@ function toggle_dark_mode() {
 }
 
 function form_disable(state) {
+   if (state === false) {
+      $('#button-box, #chat-input').show();
+   } else {
+      $('#button-box, #chat-input').hide();
+   }
+/*
    $('#emoji-btn').prop('disabled', state);
    $('#send-btn').prop('disabled', state);
    $('#clear-btn').prop('disabled', state);
    $('#chat-box').prop('disabled', state);
    $('#bell-btn').prop('disabled', state);
+*/
 }
 
 function show_login_window() {

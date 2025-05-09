@@ -643,10 +643,10 @@ button#img-clearclip {
    padding-top: 1em;
    height: CALC(100% - 10em);
    width: CALC(100% - 10em);
-   border: 2px solid DarkOrchid;
-   background: DarkSlateBlue;
+   border: 2px solid DarkSlateBlue;
+   background: DarkBlue;
    font-size: 1.1em;
-   color: CornflowerBlue;
+   color: FloralWhite;
    display: none;
 }
 

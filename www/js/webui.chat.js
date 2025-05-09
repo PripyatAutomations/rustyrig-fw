@@ -101,13 +101,21 @@ function chat_init() {
 
    // Ensure #chat-box does not accidentally become focusable
    $('#chat-box').attr('tabindex', '-1');
-   $('#um-close').click(function() { $('#user-menu').hide(); });
+   $('#um-close').click(function() {
+      form_disable(false);
+      $('#user-menu').hide('slow');
+   });
    $('span#tab-chat').click(function() { show_chat_window(); });
    $('span#tab-rig').click(function() { show_rig_window(); });
    $('span#tab-config').click(function() { show_config_window(); });
    $('span#tab-syslog').click(function() { show_syslog_window(); });
    $('span#tab-dark').click(function() { toggle_dark_mode(); });
    $('span#tab-logout').click(function() { clear_chatbox(); logout(); });
+}
+
+function cul_offline() {
+   $('#cul-list').empty();
+   $('#cul-list').append('<span class="error">OFFLINE</span>');
 }
 
 function cul_update(message) {
@@ -156,6 +164,8 @@ function cul_update(message) {
 function show_user_menu(username) {
     var isAdmin = /admin/.test(auth_privs);
 
+    form_disable(true);
+
     // Admin menu to be appended if the user is an admin
     var admin_menu = `
         <hr width="50%"/>
@@ -165,6 +175,7 @@ function show_user_menu(username) {
     `;
 
     // Base menu
+    // We need to extract this from the user-cache
     var user_email = 'sorry@not.yet';
 
     var menu = `
@@ -204,7 +215,8 @@ function show_user_menu(username) {
 
     // Close button functionality
     $('#um-close').on('click', function() {
-        $('#user-menu').hide();
+        form_disable(false);
+        $('#user-menu').hide('slow');
     });
 }
 
