@@ -92,7 +92,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    if (cmd) {
       if (strcasecmp(cmd, "msg") == 0) {
          if (!data) {
-            Log(LOG_DEBUG, "chat", "got msg for cptr <%x> with no data", cptr);
+            Log(LOG_DEBUG, "chat", "got msg for cptr <%x> with no data: chatname: %s", cptr, user);
             rv = true;
             goto cleanup;
          }
@@ -104,7 +104,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          if (!has_priv(cptr->user->uid, "admin|owner|chat")) {
-            Log(LOG_INFO, "chat", "user %s doesn't have chat privileges but tried to send a message", cptr->chatname);
+            Log(LOG_INFO, "chat", "user %s doesn't have chat privileges but tried to send a message", user);
             // XXX: Alert the user that their message was NOT deliverred because they aren't allowed to send it.
             rv = true;
             goto cleanup;
@@ -121,7 +121,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // handle a file chunk
          if (msg_type != NULL && strcmp(msg_type, "file_chunk") == 0) {
-            prepare_msg(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }", cptr->chatname, data, now, msg_type, chunk_index, total_chunks);
+            prepare_msg(msgbuf, sizeof(msgbuf),
+                        "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }",
+                        cptr->chatname, data, now, msg_type, chunk_index, total_chunks);
          } else { // or just a chat message
             char *escaped_msg = escape_html(data);
             if (escaped_msg == NULL) {
@@ -129,7 +131,8 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                rv = true;
                goto cleanup;
             }
-            prepare_msg(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }", cptr->chatname, escaped_msg, now, msg_type);
+            prepare_msg(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }",
+                        cptr->chatname, escaped_msg, now, msg_type);
             free(escaped_msg);
          }
          mp = mg_str(msgbuf);

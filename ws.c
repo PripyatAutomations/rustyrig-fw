@@ -101,15 +101,13 @@ void ws_send_to_name(struct mg_connection *sender, const char *username, struct 
 
 bool ws_send_userlist(void) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
-   int len = mg_snprintf(resp_buf, sizeof(resp_buf), "{ \"talk\": { \"cmd\": \"names\", \"ts\": %lu, \"users\": [", now);
+   int len = mg_snprintf(resp_buf, sizeof(resp_buf), 
+       "{ \"talk\": { \"cmd\": \"names\", \"ts\": %lu, \"users\": [",
+       now);
    int count = 0;
 
    http_client_t *cptr = http_client_list;
    while (cptr != NULL) {
-      if (cptr == NULL) {
-         return true;
-      }
-
       if (cptr->user == NULL || !cptr->authenticated) {
          cptr = cptr->next;
          continue;
@@ -133,7 +131,7 @@ bool ws_send_userlist(void) {
       count++;
       cptr = cptr->next;
    }
-   len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }");
+   len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }\n");
 
    struct mg_str ms = mg_str(resp_buf);
    ws_broadcast(NULL, &ms);

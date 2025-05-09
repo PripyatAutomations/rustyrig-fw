@@ -81,15 +81,23 @@ $(document).ready(function() {
    $('#open-emoji').click(function() {
        const emojiKeyboard = $('#emoji-keyboard');
        if (emojiKeyboard.is(':visible')) {
-           emojiKeyboard.hide();
+           emojiKeyboard.hide('slow');
        } else {
-           emojiKeyboard.show();
+           emojiKeyboard.show('fast');
        }
+   });
+
+   $('#chat-whois').on('keydown', function (e) {
+      if (e.key === ' ' || e.keyCode === 32) {
+         e.preventDefault(); // Prevents scrolling
+         $(this).hide('slow');
+         form_disable(false);
+      }
    });
 
    $('#chat-whois').click(function() {
       form_disable(false);
-      $(this).hide();
+      $(this).hide('slow');
    });
 
    // For clicks inside the document, do stuff
@@ -363,7 +371,7 @@ function ws_connect() {
                html += `<strong>Last Heard:</strong> ${new Date(info.last_heard * 1000).toLocaleString()}<br>`;
                html += `<strong>User-Agent:</strong> <code>${info.ua}</code>`;
                html += "<br/><br/><hr/<br/>Click window to close";
-               $('#chat-whois').html(html).show();
+               $('#chat-whois').html(html).show('slow').focus();
             } else if (cmd === "quit") {
                var user = msgObj.talk.user;
                if (user) {
@@ -513,14 +521,13 @@ function handle_reconnect() {
 }
 
 function flash_red(element) {
-   // XXX: We should save the old border, if any, then restore it below
    element.focus()
    var old_border = element.css("border");
    element.css("border", "2px solid red");
    setTimeout(() => {
       let restore_border = old_border;
       element.css("border", restore_border);
-   }, 2000);
+   }, 1000);
 }
 
 function toggle_dark_mode() {
@@ -546,17 +553,10 @@ function toggle_dark_mode() {
 
 function form_disable(state) {
    if (state === false) {
-      $('#button-box, #chat-input').show();
+      $('#button-box, #chat-input').show(300);
    } else {
-      $('#button-box, #chat-input').hide();
+      $('#button-box, #chat-input').hide(250);
    }
-/*
-   $('#emoji-btn').prop('disabled', state);
-   $('#send-btn').prop('disabled', state);
-   $('#clear-btn').prop('disabled', state);
-   $('#chat-box').prop('disabled', state);
-   $('#bell-btn').prop('disabled', state);
-*/
 }
 
 function show_login_window() {
