@@ -32,12 +32,15 @@ extern bool ws_send_error(struct mg_connection *c, const char *scope, const char
 extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c);
 
 // ws.chat.c
+extern bool ws_chat_err_noprivs(http_client_t *cptr, const char *action);
 extern bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c);
-extern void ws_send_userinfo(http_client_t *c);
+extern void ws_send_userinfo(http_client_t *cptr);
+extern bool ws_send_users(http_client_t *cptr);
 
 // ws.rigctl.c
 extern bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c);
-//
+
+// ws.audio.c
 extern void au_send_to_ws(const void *data, size_t len);
 
 #endif	// !defined(__rr_ws_h)

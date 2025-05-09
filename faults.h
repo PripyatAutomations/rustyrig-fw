@@ -18,6 +18,9 @@
 #define	FAULT_FINAL_HIGH_VOLT	0x09	// Final supply voltage too high
 #define	FAULT_TOT_TIMEOUT	0x0a	// TOT Expired
 #define	FAULT_WARMING_UP	0x0b	// PTT attempted while warming up (will be cleared by warmup routine)
+#define	FAULT_IO_ERROR		0xc0	// IO init error
+#define	FAULT_BACKEND_ERR	0xc1	// Backend init error
+#define	FAULT_CAT_ERROR		0xc2	// CAT init error
 
 // Last fault needs to be 99 (0x64)
 #define	FAULT_UNKNOWN		0x64

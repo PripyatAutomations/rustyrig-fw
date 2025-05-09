@@ -260,7 +260,9 @@ function ws_connect() {
 
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
-      cul_offline();
+      if (typeof cul_offline === 'function') {
+         cul_offline();
+      }
 
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
@@ -296,8 +298,7 @@ function ws_connect() {
                // Invalid timestamp in the ping, ignore it
                return false;
             }
-            // If we make it here, deal with the ping by logging it and replying ASAP
-            console.log("Got PING from server with ts", ts, "replying!");
+//            console.log("Got PING from server with ts", ts, "replying!");
             var newMsg = { pong: { ts: String(ts) } };
             socket.send(JSON.stringify(newMsg));
          } else if (msgObj.talk) {		// Handle Chat messages
@@ -449,7 +450,7 @@ function ws_connect() {
 
                   // Clear the chat window if changing users
                   console.log("lu: ", login_user, "au: ", auth_user);
-                  if (login_user !== "GUEST" && auth_user !== login_user) {
+                  if (login_user !== "GUEST" && auth_user !== login_user.toUpperCase()) {
                      clear_chatbox();
                   }
 

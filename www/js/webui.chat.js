@@ -164,6 +164,21 @@ function cul_update(message) {
     });
 }
 
+function send_admin_command(cmd, username) {
+   let payload = { target: username };
+
+   // Commands that require a reason
+   const needsReason = ['kick', 'ban'];
+
+   if (needsReason.includes(cmd)) {
+      let reason = prompt("Enter a reason for " + cmd + "ing " + username + ":");
+      if (reason === null) return;  // Cancelled
+      payload.reason = reason;
+   }
+
+   chat_send_command(cmd, payload);
+}
+
 function show_user_menu(username) {
     var isAdmin = /admin/.test(auth_privs);
 
@@ -199,22 +214,11 @@ function show_user_menu(username) {
     $('#user-menu').html(menu);
     $('#user-menu').show();
 
-    // Attach event listeners to buttons using jQuery
-    $('#whois-user').on('click', function() {
-        chat_send_command('whois', username);
-    });
-
-    $('#mute-user').on('click', function() {
-        chat_send_command('mute', username);
-    });
-
-    $('#kick-user').on('click', function() {
-        chat_send_command('kick', username);
-    });
-
-    $('#ban-user').on('click', function() {
-        chat_send_command('ban', username);
-    });
+    // Attach event listeners
+    $('#whois-user').on('click', () => chat_send_command('whois', { target: username }));
+    $('#mute-user').on('click', () => chat_send_command('mute', { target: username }));
+    $('#kick-user').on('click', () => send_admin_command('kick', username));
+    $('#ban-user').on('click', () => send_admin_command('ban', username));
 
     // Close button functionality
     $('#um-close').on('click', function() {
@@ -228,24 +232,15 @@ function chat_send_command(cmd, args) {
    const msgObj = {
       "talk": {
          "cmd": cmd,
-         "token": auth_token
+         "token": auth_token,
+         "args": args
       }
    };
-//   console.log("Sending cmd ", cmd, "args: ", args, "msgObj: ", msgObj);
 
-   if (cmd === "die" || cmd == "restart") {
-      if (typeof reason !== "undefined") {
-         msgObj.talk.reason = args;
-      } else {
-         msgObj.talk.reason = "No reason given.";
-      }
-   } else {
-      msgObj.talk.target = args;
-   }
-
-   socket.send(JSON.stringify(msgObj));
+   var msgObj_j = JSON.stringify(msgObj);
+   socket.send(msgObj_j);
    $('#user-menu').hide();
-//   console.log(`Sent command: /${cmd} ${args}`);
+   console.log("Sent command: ", msgObj_j);
 }
 
 function parse_chat_cmd(e) {
@@ -266,26 +261,16 @@ function parse_chat_cmd(e) {
 
          // Compare the lower-cased command
          switch(command.toLowerCase()) {
-            case 'ban':
-               console.log("Send BAN for", args[1]);
-               chat_send_command(command, args[1], args[2]);
-               break;
+            // commands with no arguments
             case 'clear':
-               console.log("Cleared scrollback");
+                console.log("Cleared scrollback");
                clear_chatbox();
                break;
-            case 'die':
-            case 'restart':
-               var reason;
-               if (typeof args[1] === "undefined" || args[1] === '') {
-                  reason = "No Reason Given";
-               } else {
-                  reason = args[1];
-               }
-               chat_send_command(command, reason);
-               break;
-            case 'edit':
-               chat_send_command(command, args[1]);
+            case 'reloadcss':
+               console.log("Reloading CSS on user command");
+               reload_css();
+               chat_append('<div><span class="error">Reloaded CSS</span></div>');
+               $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
                break;
             case 'help':
                chat_append('<div><span class="error">*** HELP *** All commands start with /</span></div>');
@@ -311,30 +296,48 @@ function parse_chat_cmd(e) {
                   chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
                }
                break;
-            case 'kick':
-               chat_send_command(command, args[1]);
-               break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);
                console.log("ACTION ", message);
                chat_msg = true;
                msg_type = "action";
                break;
+            ////////////////////////////////////////////
+            // All these are sent to the server as-is //
+            //   It will respond if allowed or not    //
+            ////////////////////////////////////////////
+            case 'kick':
+            case 'ban':
             case 'mute':
-               chat_send_command(command, args[1]);
+               if (args.length >= 2) {
+                  args_obj = {
+                     target: args[1],
+                     reason: args.slice(2).join(' ') || ''
+                  };
+               }
                break;
-            case 'reloadcss':
-               console.log("Reloading CSS on user command");
-               reload_css();
-               chat_append('<div><span class="error">Reloaded CSS</span></div>');
-               $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
-               break;
+
             case 'whois':
-               chat_send_command(command, args[1]);
+            case 'edit':
+               if (args.length >= 2) {
+                  args_obj = {
+                     target: args[1]
+                  };
+               }
+               break;
+
+            case 'die':
+            case 'restart':
+               args_obj = {
+                  reason: args.slice(1).join(' ') || ''
+               };
                break;
             default:
                chat_append('<div><span class="error">Invalid command:' + command + '</span></div>');
                break;
+         }
+         if (typeof args_obj === 'object' && args_obj !== null) {
+            chat_send_command(command, args_obj);
          }
       } else {
         chat_msg = true;

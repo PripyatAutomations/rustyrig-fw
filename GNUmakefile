@@ -130,6 +130,8 @@ objs += util.vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
 objs += waterfall.o		# Support for rendering waterfalls
 objs += ws.o			# Websocket transport for CAT and audio
+objs += ws.audio.o		# Audio (raw / OPUS) over websockets
+objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
 objs += ws.chat.o		# Websocket Chat (talk)
 objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 

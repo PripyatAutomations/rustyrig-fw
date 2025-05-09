@@ -30,6 +30,9 @@ struct fault_table fault_table[] = {
    { FAULT_FINAL_HIGH_VOLT, 	true,		"F. Hi Volt" },
    { FAULT_TOT_TIMEOUT,	  	true,		"TIMEOUT" },
    { FAULT_WARMING_UP,		false,		"Warming Up" },
+   { FAULT_IO_ERROR,		false,		"IO INIT" },
+   { FAULT_BACKEND_ERR,		false,		"BACKEND" },
+   { FAULT_CAT_ERROR,		false,		"CAT INIT" },
    { FAULT_UNKNOWN,	 	true,		"Unknown" },
 };
 

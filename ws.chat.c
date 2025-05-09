@@ -18,7 +18,7 @@
 #include "ws.h"
 extern struct GlobalState rig;	// Global state
 
-// Send an error message to the user, informing them they lack the appropriate privileges
+// Send an error message to the user, informing them they lack the appropriate privileges in chat
 bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
    Log(LOG_CRAZY, "core", "Unprivileged user %s (uid: %d with privs %s) requested to do %s and was denied", cptr->chatname, cptr->user->uid, cptr->user->privs, action);
    char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -28,6 +28,9 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
    return false;
 }
 
+///////////////////////////////
+// DIE: Makes the server die //
+///////////////////////////////
 static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
    if (has_priv(cptr->user->uid, "admin|owner")) {
       // Send an ALERRT to all connected users
@@ -46,6 +49,9 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
    return false;
 }
 
+//////////////////////////////////////
+// RESTART: Make the server restart //
+//////////////////////////////////////
 static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
    if (has_priv(cptr->user->uid, "admin|owner")) {
       // Send an ALERT to all connected users
@@ -58,26 +64,114 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
       dying = 1;		// flag that this should be the last iteration
       restarting = 1;		// flag that we should restart after processing the alert
    } else {
-      Log(LOG_AUDIT, "core", "Got /restart from %s (uid: %d with privs %s) who does not have appropriate privileges", cptr->chatname, cptr->user->uid, cptr->user->privs);
       ws_chat_err_noprivs(cptr, "RESTART");
       return true;
    }
    return false;
 }
 
-void ws_send_userinfo(http_client_t *c) {
-   if (!c || !c->authenticated || !c->user)
+///////////////////////
+// KICK: Kick a user //
+///////////////////////
+static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char *reason) {
+   if (has_priv(cptr->user->uid, "admin|owner")) {
+      // Actually kick the user
+      http_client_t *acptr = http_find_client_by_name(target);
+      if (acptr == NULL) {
+         return true;
+      }
+
+      ws_kick_client(acptr, reason);
+
+      // Send an ALERT to all connected users
+      char msgbuf[HTTP_WS_MAX_MSG+1];
+      prepare_msg(msgbuf, sizeof(msgbuf),
+         "KICK from %s (uid: %d with privs %s): %s (Reason: %s)",
+         cptr->chatname, cptr->user->uid, cptr->user->privs, target, (reason ? reason : "No reason given"));
+      send_global_alert(cptr, "***ADMIN***", msgbuf);
+      Log(LOG_AUDIT, "admin.kick", msgbuf);
+   } else {
+      ws_chat_err_noprivs(cptr, "KICK");
+      return true;
+   }
+   return false;
+}
+
+///////////////////////
+// MUTE: Mute a user //
+///////////////////////
+static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char *reason) {
+   if (has_priv(cptr->user->uid, "admin|owner")) {
+      http_client_t *acptr = http_find_client_by_name(target);
+      if (acptr == NULL) {
+         return true;
+      }
+      acptr->is_muted = true;
+
+      // Send an ALERT to all connected users
+      char msgbuf[HTTP_WS_MAX_MSG+1];
+      prepare_msg(msgbuf, sizeof(msgbuf),
+         "MUTE from %s (uid: %d with privs %s): %s (Reason: %s)",
+         cptr->chatname, cptr->user->uid, cptr->user->privs, target, (reason ? reason : "No reason given"));
+      send_global_alert(cptr, "***ADMIN***", msgbuf);
+      Log(LOG_AUDIT, "admin.mute", msgbuf);
+   } else {
+      ws_chat_err_noprivs(cptr, "MUTE");
+      return true;
+   }
+   return false;
+}
+
+///////////////////////////
+// UNMUTE: Unmute a user //
+///////////////////////////
+static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
+   if (has_priv(cptr->user->uid, "admin|owner")) {
+      http_client_t *acptr = http_find_client_by_name(target);
+      if (acptr == NULL) {
+         return true;
+      }
+      acptr->is_muted = false;
+
+      // Send an ALERT to all connected users
+      char msgbuf[HTTP_WS_MAX_MSG+1];
+      prepare_msg(msgbuf, sizeof(msgbuf),
+         "UNMUTE from %s (uid: %d with privs %s)",
+         cptr->chatname, cptr->user->uid, cptr->user->privs, target);
+      send_global_alert(cptr, "***ADMIN***", msgbuf);
+      Log(LOG_AUDIT, "admin.unmute", msgbuf);
+   } else {
+      ws_chat_err_noprivs(cptr, "UNMUTE");
+      return true;
+   }
+   return false;
+}
+
+// Send the updated userinfo for a single user; see ws_send_users below for everyone
+void ws_send_userinfo(http_client_t *cptr) {
+   if (!cptr || !cptr->authenticated || !cptr->user)
       return;
 
    char buf[256];
    int len = mg_snprintf(buf, sizeof(buf),
       "{ \"talk\": { \"cmd\": \"userinfo\", \"user\": \"%s\", \"privs\": \"%s\", \"tx\": %s } }",
-      c->chatname,
-      c->user->privs,
-      c->is_ptt ? "true" : "false");
+      cptr->chatname,
+      cptr->user->privs,
+      cptr->is_ptt ? "true" : "false");
 
    struct mg_str msg = mg_str_n(buf, len);
    ws_broadcast(NULL, &msg);
+}
+
+// Send info on all online users to the user
+bool ws_send_users(http_client_t *cptr) {
+    http_client_t *current = http_client_list;
+
+    while (current != NULL) {
+       ws_send_userinfo(current);
+       current = current->next;
+    }
+    return false;
 }
 
 bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
@@ -95,10 +189,12 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
    cptr->last_heard = now;
 
+// Sent command:  {"talk":{"cmd":"whois","token":"C/xNK+6y5LIqK","args":{"target":"admin"}}}
    char *token = mg_json_get_str(msg_data, "$.talk.token");
    char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
    char *data = mg_json_get_str(msg_data, "$.talk.data");
-   char *target = mg_json_get_str(msg_data, "$.talk.target");
+   char *target = mg_json_get_str(msg_data, "$.talk.args.target");
+   char *reason = mg_json_get_str(msg_data, "$.talk.args.reason");
    char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
    char *user = cptr->chatname;
    long chunk_index = mg_json_get_long(msg_data, "$.talk.chunk_index", 0);
@@ -157,11 +253,13 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       } else if (strcasecmp(cmd, "die") == 0) {
          ws_chat_cmd_die(cptr, data);
       } else if (strcasecmp(cmd, "kick") == 0) {
-         Log(LOG_INFO, "chat", "Kick command received, processing...");
+         ws_chat_cmd_kick(cptr, target, data);
       } else if (strcasecmp(cmd, "mute") == 0) {
-         Log(LOG_INFO, "chat", "Mute command received, processing...");
+         ws_chat_cmd_mute(cptr, target, data);
       } else if (strcasecmp(cmd, "restart") == 0) {
          ws_chat_cmd_restart(cptr, data);
+      } else if (strcasecmp(cmd, "unmute") == 0) {
+         ws_chat_cmd_unmute(cptr, target);
       } else if (strcasecmp(cmd, "whois") == 0) {
          if (target == NULL) {
             // XXX: Send an warning to the user informing that they must specify a target username
@@ -224,6 +322,7 @@ cleanup:
    free(cmd);
    free(data);
    free(target);
+   free(reason);
    free(msg_type);
    return rv;
 }

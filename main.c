@@ -166,19 +166,19 @@ int main(int argc, char **argv) {
 
    if (rr_io_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
-//      fatal_error();
+      set_fault(FAULT_IO_ERROR);
       exit(1);
    }
 
    if (rr_backend_init()) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
-//      fatal_error();
+      set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
 
    if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
-//      fatal_error();
+      set_fault(FAULT_CAT_ERROR);
       exit(1);
    }
 

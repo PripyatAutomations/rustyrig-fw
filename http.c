@@ -642,7 +642,7 @@ void http_expire_sessions(void) {
          } else if (cptr->last_ping != 0 && (now - cptr->last_ping) > HTTP_PING_TIMEOUT) {
             if (cptr->ping_attempts >= HTTP_PING_TRIES) {
                // Ping timeout?
-               Log(LOG_AUDIT, "http.auth", "Client conn at cptr:<%x> for user %s timed out, disconnecting", cptr, cptr->chatname);
+               Log(LOG_AUDIT, "http.auth", "Client conn at cptr:<%x> for user %s ping timed out, disconnecting", cptr, cptr->chatname);
                ws_kick_client(cptr, "Ping timeout");
             } else {
                // try again
