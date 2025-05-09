@@ -203,7 +203,7 @@ function show_user_menu(username) {
         User: ${username}<br/>
         <span id="user-menu-items">
             <ul>
-                <li><a href="mailto:${user_email}" target="_blank">Email</a></li>
+<!--                <li><a href="mailto:${user_email}" target="_blank">Email</a></li> -->
                 <li><button class="cul-menu-button" id="whois-user">Whois</button></li>
                 ${isAdmin ? admin_menu : ''}
             </ul>

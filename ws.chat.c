@@ -16,6 +16,9 @@
 #include "posix.h"
 #include "http.h"
 #include "ws.h"
+
+#define	CHAT_MIN_REASON_LEN	6
+
 extern struct GlobalState rig;	// Global state
 
 // Send an error message to the user, informing them they lack the appropriate privileges in chat
@@ -28,10 +31,23 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
    return false;
 }
 
+bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   prepare_msg(msgbuf, sizeof(msgbuf),
+      "{ \"talk\": { \"error\": { \"ts\": %lu, \"msg\": \"You MUST provide a reason for using'%s' command\" } } }",
+         now, command);
+   return false;
+}
+
 ///////////////////////////////
 // DIE: Makes the server die //
 ///////////////////////////////
 static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
+   if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
+      ws_chat_error_need_reason(cptr, "die");
+      return true;
+   }
+
    if (has_priv(cptr->user->uid, "admin|owner")) {
       // Send an ALERRT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -53,12 +69,17 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
 // RESTART: Make the server restart //
 //////////////////////////////////////
 static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
+   if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
+      ws_chat_error_need_reason(cptr, "RESTART");
+      return true;
+   }
+
    if (has_priv(cptr->user->uid, "admin|owner")) {
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf),
-         "Shutting down due to /restart from %s (uid: %d with privs %s)",
-         cptr->chatname, cptr->user->uid, cptr->user->privs);
+         "Shutting down due to /restart from %s (uid: %d with privs %s): %s",
+         cptr->chatname, cptr->user->uid, cptr->user->privs, reason);
       send_global_alert(cptr, "***SERVER***", msgbuf);
       Log(LOG_AUDIT, "core", msgbuf);
       dying = 1;		// flag that this should be the last iteration
@@ -74,6 +95,11 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
 // KICK: Kick a user //
 ///////////////////////
 static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char *reason) {
+   if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
+      ws_chat_error_need_reason(cptr, "kick");
+      return true;
+   }
+
    if (has_priv(cptr->user->uid, "admin|owner")) {
       // Actually kick the user
       http_client_t *acptr = http_find_client_by_name(target);
@@ -101,6 +127,11 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
 // MUTE: Mute a user //
 ///////////////////////
 static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char *reason) {
+   if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
+      ws_chat_error_need_reason(cptr, "mute");
+      return true;
+   }
+
    if (has_priv(cptr->user->uid, "admin|owner")) {
       http_client_t *acptr = http_find_client_by_name(target);
       if (acptr == NULL) {
@@ -251,13 +282,13 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Send to everyone, including the sender, which will then display it as SelfMsg
          ws_broadcast(NULL, &mp);
       } else if (strcasecmp(cmd, "die") == 0) {
-         ws_chat_cmd_die(cptr, data);
+         ws_chat_cmd_die(cptr, reason);
       } else if (strcasecmp(cmd, "kick") == 0) {
-         ws_chat_cmd_kick(cptr, target, data);
+         ws_chat_cmd_kick(cptr, target, reason);
       } else if (strcasecmp(cmd, "mute") == 0) {
-         ws_chat_cmd_mute(cptr, target, data);
+         ws_chat_cmd_mute(cptr, target, reason);
       } else if (strcasecmp(cmd, "restart") == 0) {
-         ws_chat_cmd_restart(cptr, data);
+         ws_chat_cmd_restart(cptr, reason);
       } else if (strcasecmp(cmd, "unmute") == 0) {
          ws_chat_cmd_unmute(cptr, target);
       } else if (strcasecmp(cmd, "whois") == 0) {

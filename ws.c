@@ -177,6 +177,10 @@ cleanup:
    return rv;
 }
 
+
+//
+// Handle a websocket request (see http.c/http_cb for case ev == MG_EV_WS_MSG)
+//
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    if (c == NULL || msg == NULL || msg->data.buf == NULL) {
       Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
