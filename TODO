@@ -1,3 +1,6 @@
+[radioberry]
+* Implement support for this thing
+
 [core]
 * If session is being kicked, check if it has PTT active and drop PTT before kicking
 

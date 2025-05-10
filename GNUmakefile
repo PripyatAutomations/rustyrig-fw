@@ -125,6 +125,7 @@ endif
 objs += power.o			# Power monitoring and management
 objs += protection.o		# Protection features
 objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
+objs += radioberry.o		# Radioberry device support
 objs += thermal.o		# Thermal management
 objs += timer.o			# Timers support
 objs += usb.o			# Support for USB control (stm32)
