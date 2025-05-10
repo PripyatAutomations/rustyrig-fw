@@ -33,12 +33,12 @@ bool ws_init(struct mg_mgr *mgr) {
 }
 
 // Send to a specific, authenticated websocket session
-void ws_send_to_cptr(struct mg_connection *sender, http_client_t *acptr, struct mg_str *msg_data) {
-   if (sender == NULL || acptr == NULL || msg_data == NULL) {
+void ws_send_to_cptr(struct mg_connection *sender, http_client_t *cptr, struct mg_str *msg_data) {
+   if (cptr == NULL || msg_data == NULL) {
       return;
    }
 
-   mg_ws_send(acptr->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
+   mg_ws_send(cptr->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
 }
 
 // Send to all logged in instances of the user
@@ -226,6 +226,37 @@ bool ws_send_error(struct mg_connection *c, const char *scope, const char *msg) 
    prepare_msg(msgbuf, sizeof(msgbuf),
       "{ \"%s\": { \"error\": \"%s\", \"ts\": %lu } }",
       scope, msg, now);
+
+   return false;
+}
+
+bool ws_send_ping(http_client_t *cptr) {
+   if (cptr == NULL || !cptr->is_ws) {
+      return true;
+   }
+
+   // XXX: Send a ping, so they'll have something to respond to, to acknowledge life
+   char resp_buf[HTTP_WS_MAX_MSG+1];
+   struct mg_connection *c = cptr->conn;
+
+   if (cptr == NULL || cptr->conn == NULL) {
+      Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%x> has mg_conn:<%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+      return true;
+   }
+
+   // Make sure that timeout will happen if no response
+   cptr->last_ping = now;
+   cptr->ping_attempts++;
+
+   // only bother making noise if the first attempt failed, send the first ping to crazy level log
+   if (cptr->ping_attempts > 1) {
+      Log(LOG_DEBUG, "auth", "sending ping to user on cptr:<%x> with ts:[%d] attempt %d", cptr, now, cptr->ping_attempts);
+   } else {
+      Log(LOG_CRAZY, "auth", "sending ping to user on cptr:<%x> with ts:[%d] attempt %d", cptr, now, cptr->ping_attempts);
+   }
+
+   prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
+   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
    return false;
 }

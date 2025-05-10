@@ -61,10 +61,14 @@ endif
 objs += amp.o			# Amplifier management
 objs += atu.o			# Antenna Tuner
 objs += au.o			# Audio channel stuff
-objs += au.pcm5102.o		# pcm5102 DAC support
+objs += au.pcm5102.o		# pcm5102 i2s DAC support
+
+ifeq (${USE_ALSA},true)
+objs += au.alsa.o		# ALSA on posix hosts
+endif
 
 ifeq (${USE_PIPEWIRE},true)
-objs += au.pipewire.o	# Pipewire on posix hosts
+objs += au.pipewire.o		# Pipewire on posix hosts
 CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
 LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
 endif
@@ -96,6 +100,7 @@ objs += gui.nextion.o		# Nextion HMI display interface
 #objs += gui.h264.o		# Framebuffer via H264 (over http)
 objs += help.o			# support for help menus from filesystem, if available
 objs += http.o			# HTTP server
+objs += http.api.o		# HTTP REST API
 objs += i2c.o			# i2c abstraction
 objs += i2c.linux.o
 objs += i2c.mux.o		# i2c multiplexor support

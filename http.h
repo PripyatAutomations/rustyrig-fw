@@ -90,7 +90,6 @@ struct http_client {
 typedef struct http_client http_client_t;
 
 ////////////////////////////////////////////////////////
-
 extern bool http_init(struct mg_mgr *mgr);
 extern http_client_t *http_add_client(struct mg_connection *c, bool is_ws);
 extern void http_remove_client(struct mg_connection *c);
@@ -103,8 +102,11 @@ extern void http_expire_sessions(void);                                        /
 extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file
 extern char *escape_html(const char *input);
-extern bool ws_send_ping(http_client_t *cptr);
 extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
+extern const char *http_content_type(const char *type);
+
+// http.api.c:
+extern bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c);
 //////////////////
 extern http_client_t *http_client_list;
 

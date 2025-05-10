@@ -1,5 +1,4 @@
 // Here we deal with http requests using mongoose
-// I kind of want to explore more open options for this
 #include "config.h"
 #if	defined(FEATURE_HTTP)
 #include <stdio.h>
@@ -175,24 +174,8 @@ void http_dump_clients(void) {
    }
 }
 
-static int generate_nonce(char *buffer, size_t length) {
-   static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-   size_t i;
-
-   if (length < 8) {
-      length = 8;
-   }
-
-   for (i = 0; i < (length - 2); i++) {
-      buffer[i] = base64_chars[rand() % 64];
-   }
-
-   buffer[length] = '\0';
-   return length;
-}
-
 // Returns HTTP Content-Type for the chosen short name (save some memory)
-static inline const char *get_hct(const char *type) {
+const char *http_content_type(const char *type) {
    int items = (sizeof(http_res_types) / sizeof(struct http_res_types));
    for (int i = 0; i <= items; i++) {
       if (strcasecmp(http_res_types[i].shortname, type) == 0) {
@@ -201,142 +184,6 @@ static inline const char *get_hct(const char *type) {
    }
 
    return "Content-Type: text/plain\r\n";
-}
-
-//////////////////////////////////////
-// Deal with HTTP API requests here //
-//////////////////////////////////////
-static bool http_help(struct mg_http_message *msg, struct mg_connection *c) {
-   size_t h_sz = PATH_MAX;
-   size_t t_sz = 128;
-   char help_path[h_sz];
-   char topic[t_sz];
-
-   memset(help_path, 0, h_sz);
-   memset(topic, 0, t_sz);
-
-   // Extract topic from URI after "/help/"
-   const char *prefix = "/help/";
-   size_t prefix_len = strlen(prefix);
-
-   if (msg->uri.len > prefix_len && strncmp(msg->uri.buf, prefix, prefix_len) == 0) {
-      snprintf(topic, t_sz, "%.*s", (int)(msg->uri.len - prefix_len), msg->uri.buf + prefix_len);
-   }
-
-   // Default to index if no specific topic is provided
-   if (topic[0] == '\0') {
-      snprintf(topic, t_sz, "index");
-   }
-
-   snprintf(help_path, h_sz, "%s/help/%s.html", www_root, topic);
-
-   // Sanity check the URL
-   if (check_url(help_path)) {
-      Log(LOG_AUDIT, "http.api", "Naughty URL %s in http_help", help_path);
-      return true;
-   }
-
-   if (file_exists(help_path) != true) {
-      Log(LOG_AUDIT, "http.api", "help: %s doesn't exist", help_path);
-   }
-
-   mg_http_serve_file(c, msg, help_path, &http_opts);
-   return false;
-}
-
-static bool http_api_ping(struct mg_http_message *msg, struct mg_connection *c) {
-   // XXX: We should send back the first GET argument
-   mg_http_reply(c, 200, get_hct("json"), "{%m:%d}\n", MG_ESC("status"), 1);
-   return false;
-}
-
-static bool http_api_time(struct mg_http_message *msg, struct mg_connection *c) {
-   mg_http_reply(c, 200, get_hct("json"), "{%m:%lu}\n", MG_ESC("time"), time(NULL));
-   return false;
-}
-
-static bool http_api_ws(struct mg_http_message *msg, struct mg_connection *c) {
-   // Upgrade to websocket
-   mg_ws_upgrade(c, msg, NULL);
-   c->data[0] = 'W';
-   return false;
-}
-
-static bool http_api_version(struct mg_http_message *msg, struct mg_connection *c) {
-   mg_http_reply(c, 200, get_hct("json"), "{ \"version\": { \"firmware\": \"%s\", \"hardware\": \"%s\" } }", VERSION, HARDWARE);
-   return false;
-}
-
-static bool http_api_stats(struct mg_http_message *msg, struct mg_connection *c) {
-   struct mg_connection *t;
-   // Print some statistics about currently established connections
-   mg_printf(c, "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n");
-   mg_http_printf_chunk(c, "ID PROTO TYPE      LOCAL           REMOTE\n");
-
-   for (t = c->mgr->conns; t != NULL; t = t->next) {
-       mg_http_printf_chunk(c, "%-3lu %4s %s %M %M\n", t->id, t->is_udp ? "UDP" : "TCP",
-                            t->is_listening  ? "LISTENING" : t->is_accepted ? "ACCEPTED " : "CONNECTED",
-                            mg_print_ip, &t->loc, mg_print_ip, &t->rem);
-   }
-
-   mg_http_printf_chunk(c, "");  // Don't forget the last empty chunk
-   return false;
-}
-
-// Serve www-root for static files
-static bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
-   mg_http_serve_dir(c, msg, &http_opts);
-   return false;
-}
-
-static http_route_t http_routes[HTTP_MAX_ROUTES] = {
-    { "/api/ping",	http_api_ping,	false },		// Responds back with the date given
-    { "/api/stats",	http_api_stats,	false },		// Statistics
-    { "/api/time",	http_api_time, 	false },		// Get device time
-    { "/api/version",	http_api_version, false },		// Version info
-//    { "/help",		http_help,	false }	,		// Help API
-    { "/ws",		http_api_ws,	true },			// Upgrade to websocket
-    { NULL,		NULL,		false }			// Terminator (is this even needed?)
-};
-
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-// Ugly things lie below. I am not responsible for vomit on keyboards //
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-static bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c) {
-   if (c == NULL || msg == NULL) {
-      return true;
-   }
-
-   int items = (sizeof(http_routes) / sizeof(http_route_t)) - 1;
-
-   for (int i = 0; i < items; i++) {
-      if (http_routes[i].match == NULL && http_routes[i].cb == NULL) {
-         break;
-      }
-
-      size_t match_len = strlen(http_routes[i].match);
-/*
-      if (match_len < HTTP_ROUTE_MIN_MATCHLEN) {
-         continue;
-      }
-*/
-      if (strncmp(msg->uri.buf, http_routes[i].match, match_len) == 0) {
-         Log(LOG_CRAZY, "http.req", "Matched %s with request URI %.*s [length: %d]", http_routes[i].match, (int)msg->uri.len, msg->uri.buf, match_len);
-
-         // Strip trailing slash if it's there
-         if (msg->uri.len > 0 && msg->uri.buf[msg->uri.len - 1] == '/') {
-            msg->uri.len--;
-         }
-
-         return http_routes[i].cb(msg, c);
-      } else {
-         Log(LOG_CRAZY, "http.req", "Failed to match %.*s: %d: %s", (int)msg->uri.len, msg->uri.buf, i, http_routes[i].match);
-      }
-   }
-
-   return true; // No match found, let static handler take over
 }
 
 //
@@ -378,6 +225,12 @@ void http_tls_init(void) {
    }
 }
 #endif
+
+// Serve www-root for static files
+bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
+   mg_http_serve_dir(c, msg, &http_opts);
+   return false;
+}
 
 ///// Main HTTP callback
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
@@ -425,12 +278,13 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
    } else if (ev == MG_EV_WS_OPEN) {
       http_client_t *cptr = http_find_client_by_c(c);
+
       if (cptr) {
          Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
          cptr->is_ws = true;
       } else {
          Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws", c, ip, port);
-         ws_kick_client_by_c(c, "Socket error");
+         ws_kick_client_by_c(c, "Socket error 314");
       }
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
@@ -438,25 +292,26 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
       http_client_t *cptr = http_find_client_by_c(c);
+      if (cptr->is_ws) {
+         // make sure we're not accessing unsafe memory
+         if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
+            // Free the resources, if any, for the user_agent
+            if (cptr->user_agent != NULL) {
+               free(cptr->user_agent);
+               cptr->user_agent = NULL;
+            }
 
-      // make sure we're not accessing unsafe memory
-      if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
-         // Free the resources, if any, for the user_agent
-         if (cptr->user_agent != NULL) {
-            free(cptr->user_agent);
-            cptr->user_agent = NULL;
+            // blorp out a quit to all connected users
+            prepare_msg(resp_buf, sizeof(resp_buf),
+                        "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
+                        cptr->chatname, now);
+            struct mg_str ms = mg_str(resp_buf);
+            ws_broadcast(NULL, &ms);
+            Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
+   //      } else {
+             // This is very noisy as it includes http requests for assets; maybe we can filter them out?
+   //         Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
          }
-
-         // blorp out a quit to all connected users
-         prepare_msg(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
-                     cptr->chatname, now);
-         struct mg_str ms = mg_str(resp_buf);
-         ws_broadcast(NULL, &ms);
-         Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
-//      } else {
-          // This is very noisy as it includes http requests for assets; maybe we can filter them out?
-//         Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
       }
       http_remove_client(c);
    }
@@ -588,37 +443,6 @@ void http_remove_client(struct mg_connection *c) {
       prev = current;
       current = current->next;
    }
-}
-
-bool ws_send_ping(http_client_t *cptr) {
-   if (cptr == NULL || !cptr->is_ws) {
-      return true;
-   }
-
-   // XXX: Send a ping, so they'll have something to respond to, to acknowledge life
-   char resp_buf[HTTP_WS_MAX_MSG+1];
-   struct mg_connection *c = cptr->conn;
-
-   if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%x> has mg_conn:<%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
-      return true;
-   }
-
-   // Make sure that timeout will happen if no response
-   cptr->last_ping = now;
-   cptr->ping_attempts++;
-
-   // only bother making noise if the first attempt failed, send the first ping to crazy level log
-   if (cptr->ping_attempts > 1) {
-      Log(LOG_DEBUG, "auth", "sending ping to user on cptr:<%x> with ts:[%d] attempt %d", cptr, now, cptr->ping_attempts);
-   } else {
-      Log(LOG_CRAZY, "auth", "sending ping to user on cptr:<%x> with ts:[%d] attempt %d", cptr, now, cptr->ping_attempts);
-   }
-
-   prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
-   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
-
-   return false;
 }
 
 //

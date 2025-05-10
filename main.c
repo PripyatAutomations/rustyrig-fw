@@ -225,7 +225,9 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
 
+#if	defined(FEATURE_PIPEWIRE)
       rr_au_pw_runloop_all();
+#endif // defined(FEATURE_PIPEWIRE)
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
@@ -277,7 +279,7 @@ int main(int argc, char **argv) {
    }
 
 #if	defined(USE_PROFILING)
-   // XXX: Every 5 minutes we should save the loop runtime
+   // XXX: Every 5 minutes we should save the loop runtime average
 //   Log(LOG_INFO, "loop", "Average mainloop runtime: %.6f seconds", loop_runtime);
 #endif // defined(USE_PROFILING)
    host_cleanup();

@@ -558,3 +558,19 @@ try_again:
    }
    return num;
 }
+
+int generate_nonce(char *buffer, size_t length) {
+   static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+   size_t i;
+
+   if (length < 8) {
+      length = 8;
+   }
+
+   for (i = 0; i < (length - 2); i++) {
+      buffer[i] = base64_chars[rand() % 64];
+   }
+
+   buffer[length] = '\0';
+   return length;
+}

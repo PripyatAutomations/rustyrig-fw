@@ -27,6 +27,7 @@ extern bool ws_handle_protocol(struct mg_ws_message *msg, struct mg_connection *
 extern bool ws_send_userlist(void);
 extern bool send_global_alert(http_client_t *cptr, const char *sender, const char *data);
 extern bool ws_send_error(struct mg_connection *c, const char *scope, const char *msg);
+extern bool ws_send_ping(http_client_t *cptr);
 
 // ws.auth.c
 extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c);
