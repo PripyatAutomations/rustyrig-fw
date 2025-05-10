@@ -1,3 +1,11 @@
+//
+// cat.yaesu.c
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 /*
  * Here we implement the Yaesu 891/991a style CAT protocol for control of the rig
  * ft891 has complete CAT enough for all uses, so it's our milestone goal
