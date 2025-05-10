@@ -128,6 +128,8 @@ $(document).ready(function() {
          } else {		// Nope, focus the user field
             $('form#login input#user').focus();
          }
+      } else if ($(event.target).is('#reason-modal')) {
+         form_disabled(false);
       }
    });
    ////////////// tab completion //////////////

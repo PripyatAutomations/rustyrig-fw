@@ -165,7 +165,7 @@ function cul_update(message) {
 }
 
 function send_admin_command(cmd, username) {
-   const needsReason = ['kick', 'ban'];
+   const needsReason = ['kick', 'ban', 'mute'];
 
    if (needsReason.includes(cmd)) {
       show_reason_modal(cmd, username);
@@ -193,6 +193,7 @@ function show_reason_modal(cmd, username) {
          chat_send_command(cmd, { target: username, reason: reason });
       }
       modal.style.display = "none";
+      form_disable(false);
       form.removeEventListener("submit", handler);
    };
 

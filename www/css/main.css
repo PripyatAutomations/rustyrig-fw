@@ -701,13 +701,13 @@ button#img-clearclip {
    width: 60vw;
    height: 60vh;
    background-color: DarkBlue;
-   color: white;
+   color: LemonChiffon;
    padding: 20px;
    box-shadow: 0 0 20px black;
    z-index: 1000;
 }
 
-#reason-modal input[type="text"] {
+#reason-modal input[type="text"], #reason-modal textarea {
    width: 90%;
    padding: 8px;
    margin: 10px auto;
@@ -715,20 +715,23 @@ button#img-clearclip {
    background-color: navy;
    color: lightyellow;
    border: 2px solid gold;
-   border-radius: 6px;
+   border-radius: 10px;
    font-size: 1em;
 }
 
 #reason-modal button {
-   background-color: gold;
-   color: navy;
-   border: 2px solid darkblue;
-   border-radius: 6px;
+   background-color: navy;
+   color: Gold;
+   border: 2px solid Gold;
+   border-radius: 10px;
    padding: 6px 14px;
    font-weight: bold;
    cursor: pointer;
 }
 
+/*
 #reason-modal button:hover {
    background-color: yellow;
+   color: navy;
 }
+*/
