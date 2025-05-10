@@ -693,3 +693,42 @@ button#img-clearclip {
    width: 16em;
    border: 2px solid red;
 }
+
+#reason-modal {
+   position: fixed;
+   top: 20%;
+   left: 20%;
+   width: 60vw;
+   height: 60vh;
+   background-color: DarkBlue;
+   color: white;
+   padding: 20px;
+   box-shadow: 0 0 20px black;
+   z-index: 1000;
+}
+
+#reason-modal input[type="text"] {
+   width: 90%;
+   padding: 8px;
+   margin: 10px auto;
+   display: block;
+   background-color: navy;
+   color: lightyellow;
+   border: 2px solid gold;
+   border-radius: 6px;
+   font-size: 1em;
+}
+
+#reason-modal button {
+   background-color: gold;
+   color: navy;
+   border: 2px solid darkblue;
+   border-radius: 6px;
+   padding: 6px 14px;
+   font-weight: bold;
+   cursor: pointer;
+}
+
+#reason-modal button:hover {
+   background-color: yellow;
+}

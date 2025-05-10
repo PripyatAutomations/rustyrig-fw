@@ -165,18 +165,38 @@ function cul_update(message) {
 }
 
 function send_admin_command(cmd, username) {
-   let payload = { target: username };
-
-   // Commands that require a reason
    const needsReason = ['kick', 'ban'];
 
    if (needsReason.includes(cmd)) {
-      let reason = prompt("Enter a reason for " + cmd + "ing " + username + ":");
-      if (reason === null) return;  // Cancelled
-      payload.reason = reason;
+      show_reason_modal(cmd, username);
+   } else {
+      chat_send_command(cmd, { target: username });
    }
+}
 
-   chat_send_command(cmd, payload);
+function show_reason_modal(cmd, username) {
+   const modal = document.getElementById("reason-modal");
+   const form = document.getElementById("reason-form");
+   const textarea = document.getElementById("reason-text");
+   const title = document.getElementById("reason-title");
+
+   title.textContent = `Enter reason for ${cmd}ing ${username}`;
+   textarea.value = "";
+
+   modal.style.display = "block";
+   textarea.focus();
+
+   const handler = function(e) {
+      e.preventDefault();
+      const reason = textarea.value.trim();
+      if (reason) {
+         chat_send_command(cmd, { target: username, reason: reason });
+      }
+      modal.style.display = "none";
+      form.removeEventListener("submit", handler);
+   };
+
+   form.addEventListener("submit", handler);
 }
 
 function show_user_menu(username) {
@@ -278,18 +298,20 @@ function parse_chat_cmd(e) {
                chat_append('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
                chat_append('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
                chat_append('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+               //////
                chat_append('<br/><div><span class="error">*** DEBUG TOOLS *** All commands start with /</span></div>');
                chat_append('<div><span class="error">/reloadcss&nbsp;&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
 
-               var isAdmin = /admin/.test(auth_privs);
+               var isAdmin = /(owner|admin)/.test(auth_privs);
                if (isAdmin) {
                   chat_append('<br/><div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners./</span></div>');
-                  chat_append('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; [reason]</span></div>');
-                  chat_append('<div><span class="error">/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server [reason]</span></div>');
+                  chat_append('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="error">/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
 //                  chat_append('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
-                  chat_append('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; [reason]</span></div>');
-                  chat_append('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt;</span></div>');
-                  chat_append('<div><span class="error">/restart&nbsp;- Restart the server [reason]</span></div>');
+                  chat_append('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="error">/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="error">/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
                } else {
                   chat_append('<div><span class="error">*********************************************</span></div>');
                   chat_append('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');

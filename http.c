@@ -579,7 +579,7 @@ void http_remove_client(struct mg_connection *c) {
             Log(LOG_INFO, "http", "Why is http_users_connected == %d? Resetting to 0", http_users_connected);
             http_users_connected = 0;
          }
-         Log(LOG_INFO, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d users remain)", current, c, http_users_connected);
+         Log(LOG_CRAZY, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d users remain)", current, c, http_users_connected);
          memset(current, 0, sizeof(http_client_t));
          free(current);
          return;
@@ -604,7 +604,6 @@ bool ws_send_ping(http_client_t *cptr) {
       return true;
    }
 
-
    // Make sure that timeout will happen if no response
    cptr->last_ping = now;
    cptr->ping_attempts++;
@@ -621,7 +620,6 @@ bool ws_send_ping(http_client_t *cptr) {
 
    return false;
 }
-
 
 //
 // Called periodically to remove sessions that have existed too long
@@ -657,6 +655,7 @@ void http_expire_sessions(void) {
    }
 }
 
+// Combine some common, safe string handling into one call
 bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    if (buf == NULL || fmt == NULL) {
       return true;

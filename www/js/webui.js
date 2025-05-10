@@ -1,6 +1,3 @@
-// Here's my ugly implementation of the WebUI.
-//
-
 //////////////////////////
 // Socket related stuff //
 //////////////////////////
@@ -12,8 +9,9 @@ let reconnect_interval = [1, 2, 5, 10, 30 ];
 var reconnect_index = 0; 	// Index to track the current delay
 var reconnect_timer;  		// so we can stop reconnects later
 var ws_last_heard;		// When was the last time we heard something from the server? Used to send a keep-alive
+var ws_last_pinged;
+var ws_keepalives_sent = 0;
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
-
 
 /////
 /// chat stuff that needs to move
@@ -43,8 +41,15 @@ function msg_timestamp(msg_ts) {
 }
 
 function send_ping(sock) {
+   if (ws_keepalives_sent > 3) {
+     // XXX: Give up and reconnect
+     console.log("We've reached 3 tries to send keepalive, giving up");
+   }
+
    if (sock.readyState === WebSocket.OPEN) {
       const now = Math.floor(Date.now() / 1000);  // Unix time in seconds
+      ws_keepalives_sent++;
+      ws_last_pinged = now;
       sock.send("ping " + now);
    }
 }
@@ -93,23 +98,30 @@ $(document).ready(function() {
        }
    });
 
-   $('#chat-whois').on('keydown', function (e) {
-      if (e.key === ' ' || e.keyCode === 32) {
-         e.preventDefault(); // Prevents scrolling
-         $(this).hide('slow');
-         form_disable(false);
+   $(document).on('keydown', function(e) {
+      if (e.key === "Escape") {
+         if ($('#reason-modal').is(':visible')) {
+            $('#reason-modal').hide('fast');
+         } else if ($('#chat-whois').is(':visible')) {
+            $('#chat-whois').hide('fast');
+         } else if ($('#user-menu').is(':visible')) {
+            $('#user-menu').hide('fast');
+         } else {
+            return;
+         }
+      } else {
+        return;
       }
-   });
-
-   $('#chat-whois').click(function() {
       form_disable(false);
-      $(this).hide('slow');
+      e.preventDefault();
    });
 
-   // For clicks inside the document, do stuff
    $(document).click(function (event) {
-      // If the click is NOT on an input, button, or a focusable element
-      if (!$(event.target).is('#chat-input, a, [tabindex]')) {
+      if ($(event.target).is('#chat-whois')) {
+         event.preventDefault();
+         $(event.target).hide('fast');
+         form_disable(false);
+      } else if (!$(event.target).is('#chat-input, a, [tabindex]')) {
          // are we logged in?
          if (logged_in) {	// Focus the chat input field
             $('#chat-input').focus();
@@ -118,7 +130,6 @@ $(document).ready(function() {
          }
       }
    });
-
    ////////////// tab completion //////////////
    let completing = false;
    let completionList = [];
@@ -230,7 +241,7 @@ function ws_connect() {
    show_connecting(true);
    socket = new WebSocket(make_ws_url());
 
-   // Was the websockets connection kicked? If so, don't reconnect
+   // Was the websocket connection kicked? If so, don't reconnect
    if (ws_kicked == true) {
       console.log("Preventing auto-reconnect - we were kicked");
       return;
@@ -248,11 +259,11 @@ function ws_connect() {
       reconnecting = false; 		// Reset reconnect flag on successful connection
       reconnect_delay = 1; 		// Reset reconnect delay to 1 second
 
-      // Set a timer to check if keepalives needs to be sent
+      // Set a timer to check if keepalives needs to be sent (every day 10 seconds)
       setInterval(function() {
          if (ws_last_heard < (now - ws_keepalive_time)) {
             console.log(`keep-alive needed; last-heard=${ws_lastheard} now=${now} keep-alive time: ${ws_keepalive_time}, sending`);
-            // Send a keep-alive to the sserver so it will reply
+            // Send a keep-alive (ping) to the server so it will reply
             send_ping(socket);
          }
       }, 10000);
@@ -369,17 +380,17 @@ function ws_connect() {
                form_disable(true);
                const info = msgObj.talk.data;
 
-               let html = `<strong>User:</strong> ${info.username}<br>`;
-               html += `<strong>Email:</strong> ${info.email}<br>`;
-               html += `<strong>Privileges:</strong> ${info.privs || 'None'}<br>`;
+               let html = `<strong>User:</strong>&nbsp;${info.username}<br>`;
+               html += `<strong>Email:</strong>&nbsp;${info.email}<br>`;
+               html += `<strong>Privileges:</strong>&nbsp;${info.privs || 'None'}<br>`;
                html += '<hr width="75%"/>';
-//               html += `<strong>${info.clones} sessions active</br/>`;
+//               html += `<strong>Active Sessions</strong>${info.clones}</br/>`;
                html += `<strong>Clone #</strong>&nbsp;${info.clone}<br/>`;
-               html += `<strong>Connected:</strong> ${new Date(info.connected * 1000).toLocaleString()},<br>`;
-               html += `<strong>Last Heard:</strong> ${new Date(info.last_heard * 1000).toLocaleString()}<br>`;
-               html += `<strong>User-Agent:</strong> <code>${info.ua}</code>`;
-               html += "<br/><br/><hr/<br/>Click window to close";
-               $('#chat-whois').html(html).show('slow').focus();
+               html += `<strong>Connected:</strong>&nbsp;${new Date(info.connected * 1000).toLocaleString()},<br>`;
+               html += `<strong>Last Heard:</strong>&nbsp;${new Date(info.last_heard * 1000).toLocaleString()}<br>`;
+               html += `<strong>User-Agent:</strong>&nbsp;<code>${info.ua}</code>`;
+               html += "<br/><br/><hr/<br/>Click window or hit escape to close";
+               $('#chat-whois').html(html).show('slow');
             } else if (cmd === "quit") {
                var user = msgObj.talk.user;
                if (user) {

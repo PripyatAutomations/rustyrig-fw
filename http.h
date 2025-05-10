@@ -92,8 +92,6 @@ typedef struct http_client http_client_t;
 ////////////////////////////////////////////////////////
 
 extern bool http_init(struct mg_mgr *mgr);
-extern int http_user_index(const char *user);
-
 extern http_client_t *http_add_client(struct mg_connection *c, bool is_ws);
 extern void http_remove_client(struct mg_connection *c);
 extern http_client_t *http_find_client_by_c(struct mg_connection *c);
@@ -102,7 +100,6 @@ extern http_client_t *http_find_client_by_nonce(const char *nonce);
 extern http_client_t *http_find_client_by_guest_id(int gid);
 extern http_client_t *http_find_client_by_name(const char *name);
 extern void http_expire_sessions(void);                                        // ping clients, drop pinged out ones, etc
-extern const char *http_get_uname(int8_t uid);
 extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file
 extern char *escape_html(const char *input);

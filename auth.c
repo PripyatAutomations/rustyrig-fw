@@ -84,7 +84,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
 http_user_t http_users[HTTP_MAX_USERS];
 
 // This is used in ws.* too, so not static
-int http_user_index(const char *user) {
+int http_getuid(const char *user) {
    if (user == NULL) {
       return -1;
    }
@@ -496,8 +496,8 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Store some timestamps such as when user joined & session will forcibly expire
          cptr->session_start = now;
          cptr->last_heard = now;
-         cptr->session_expiry = now + HTTP_SESSION_LIFETIME;
-
+         // XXX: This might be a bad idea
+//         cptr->session_expiry = now + HTTP_SESSION_LIFETIME;
 
          // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
          char resp_buf[HTTP_WS_MAX_MSG+1];

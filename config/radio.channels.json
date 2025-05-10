@@ -20,7 +20,9 @@
          "2": { "name": "160M AM CALL", "freq": 1885000, "bandwidth": "6000", "mode": "AM", "tx_power": 100 },
          "3": { "name": "80M AM CALL", "freq": 3885000, "bandwidth": "6000", "mode": "AM", "tx_power": 100 },
          "4": { "name": "40M AM CALL", "freq": 7290000, "bandwidth": "6000", "mode": "AM", "tx_power": 100 },
-         "5": { "name": "10M FM CALL", "freq": 29600000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 }
+         "5": { "name": "10M FM CALL", "freq": 29600000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 },
+         "6": { "name": "10M US CALL", "freq": 28400000, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "7": { "name": "30M USB (AU)", "freq": 10125000, "bandwidth": "300", "mode": "USB", "tx_power": 0 }
       },
       "WASTELAND": {
          "0": { "name": "80M Wasteland", "freq": 3840000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
@@ -28,12 +30,13 @@
          "2": { "name": "20M Wasteland", "freq": 14313000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
          "3": { "name": "11M CB Channel 6 (Super Bowl)", "freq": 27025000, "bandwidth": "6000", "mode": "AM", "tx_power": 1000 },
          "4": { "name": "11M Freeband Common", "freq": 27405000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
-         "5": { "name": "17M Wasteland", "freq": 18150000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
-         "6": { "name": "6900 LSB Pirate Zone", "freq": 6900000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
-         "7": { "name": "7055 Wild Zone", "freq": 7055000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
-         "8": { "name": "7275 LSB Ops", "freq": 7275000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
-         "9": { "name": "14325 USB Drama", "freq": 14325000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
-         "10": { "name": "14350 Oddities", "freq": 14350000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 }
+         "5": { "name": "11M AU Calling", "freq": 27355000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "6": { "name": "17M Wasteland", "freq": 18150000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "7": { "name": "6900 LSB Pirate Zone", "freq": 6900000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "8": { "name": "7055 Wild Zone", "freq": 7055000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "9": { "name": "7275 LSB Ops", "freq": 7275000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "10": { "name": "14325 USB Drama", "freq": 14325000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "11": { "name": "14350 Oddities", "freq": 14350000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 }
       },
       "FREEBAND": {
          "0": { "name": "27555 Calling", "freq": 27555000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
