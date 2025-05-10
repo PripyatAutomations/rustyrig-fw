@@ -63,6 +63,10 @@ static const struct mg_http_serve_opts http_opts = {
 static struct http_res_types http_res_types[] = {
    { "html", "Content-Type: text/html\r\n" },
    { "json", "Content-Type: application/json\r\n" },
+   { "jpg",  "Content-Type: image/jpeg\r\n" },
+   { "png",  "Content-Type: image/png\r\n" },
+   { "svg",  "Content-Type: image/svg\r\n" },
+   { "webp",  "Content-Type: image/webp\r\n" }
 };
 
 // Perform various checks on synthesized URLs to make sure the user isn't up to anything shady...
