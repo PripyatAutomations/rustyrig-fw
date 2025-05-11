@@ -328,6 +328,7 @@ function parse_chat_cmd(e) {
                   chat_append('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
                   chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
                }
+                  chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;You can use tab completion, press @ then type letters or hit tab</span></div>');
                break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);

@@ -186,6 +186,36 @@ cleanup:
 }
 
 
+// Deal with the binary requests
+static bool ws_binframe_process(const char *buf, size_t len) {
+    codec_decode_frame((unsigned char *)buf, len);
+    return false;
+}
+
+static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection *c) {
+   struct mg_str msg_data = msg->data;
+
+   // Update the last-heard time for the user
+   http_client_t *cptr = http_find_client_by_c(c);
+   if (cptr != NULL) {
+      cptr->last_heard = now;
+   }
+
+   // Handle different message types...
+   if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
+      return ws_handle_rigctl_msg(msg, c);
+   } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
+      mg_ws_send(c, "pong", 4, WEBSOCKET_OP_TEXT);
+   } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
+      return ws_handle_pong(msg, c);
+   } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
+      return ws_handle_chat_msg(msg, c);
+   } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
+      return ws_handle_auth_msg(msg, c);
+   }
+   return false;
+}
+
 //
 // Handle a websocket request (see http.c/http_cb for case ev == MG_EV_WS_MSG)
 //
@@ -195,32 +225,16 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       return true;
    }
 
+#if	defined(HTTP_DEBUG_CRAZY)
    // XXX: This should be moved to an option in config perhaps?
-   Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+//   Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+#endif
 
+   // Binary (audio, waterfall) frames
    if (msg->flags & WEBSOCKET_OP_BINARY) {
-      codec_decode_frame((unsigned char *)msg->data.buf, msg->data.len);
-   } else {	// Text based packet
-      struct mg_str msg_data = msg->data;
-
-      // Update the last-heard time for the user
-      http_client_t *cptr = http_find_client_by_c(c);
-      if (cptr != NULL) {
-         cptr->last_heard = now;
-      }
-
-      // Handle different message types...
-      if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-         return ws_handle_rigctl_msg(msg, c);
-      } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
-         mg_ws_send(c, "pong", 4, WEBSOCKET_OP_TEXT);
-      } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
-         return ws_handle_pong(msg, c);
-      } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
-         return ws_handle_chat_msg(msg, c);
-      } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
-         return ws_handle_auth_msg(msg, c);
-      }
+      ws_binframe_process(msg->data.buf, msg->data.len);
+   } else {	// Text (mostly json) frames
+      ws_txtframe_process(msg, c);
    }
    return false;
 }

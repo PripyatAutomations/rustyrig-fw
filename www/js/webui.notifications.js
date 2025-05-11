@@ -21,7 +21,7 @@ function notification_init() {
       $('button#bell-btn').data('checked', true);
    }
    let bell_isOn = $('button#bell-btn').data('checked');
-   $('button#bell-btn').text(bell_isOn ? '🔔' : '🔕');
+   $('button#bell-btn').text(bell_isOn ? '🔔' : '🚫');
 
    // Support toggling mute via bell button
    $('#bell-btn').click(function() { toggle_mute(); });
@@ -54,9 +54,8 @@ function toggle_mute() {
 
    $btn.data('checked', next);
    localStorage.setItem("play_sounds", next);
-   console.log("Button", next);
-   let newSrc = current ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
-   $('#bell-image').attr('src', newSrc);
+   let bell_isOn = $('button#bell-btn').data('checked');
+   $('button#bell-btn').text(bell_isOn ? '🔔' : '🚫');
 }
 
 function play_notify_bell() {
