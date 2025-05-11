@@ -1,3 +1,25 @@
+/* Scale the content to always fit the viewport */
+html {
+    transform-origin: top left;
+    transform: scale(1);
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Optional: Ensure all child elements respect the scaling */
+/*
+* {
+    box-sizing: border-box;
+}
+*/
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    html {
+        transform: scale(calc(100vw / 768)); /* Dynamically scale based on viewport width */
+    }
+}
+
 /* Disable text selection for everything by default */
 * {
    user-select: none;
@@ -699,9 +721,7 @@ button#img-clearclip {
    cursor: pointer;
 }
 
-/*
 #reason-modal button:hover {
-   background-color: yellow;
-   color: navy;
+   color: LightYellow;
+   border: 2px solid DarkOrchid;
 }
-*/

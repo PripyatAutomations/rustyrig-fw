@@ -2,7 +2,8 @@
 <html lang="en">
  <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!--  <meta name="viewport" content="width=device-width, initial-scale=1.0"/> -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <script src="js/jquery.min.js"></script>
   <script src="js/jquery.chroma-hash.js"></script>
   <script src="js/segment.min.js"></script>
@@ -14,10 +15,11 @@
   <script src="js/webui.audio.js"></script>
   <script src="js/webui.notifications.js"></script>
   <script src="js/webui.emoji.js"></script>
-  <link rel="stylesheet" href="css/main.css"/>
-  <link rel="stylesheet" id="dark-theme" href="css/dark.css"/>
-  <!-- On-screen (and emoji) keyboard -->
-  <link rel="stylesheet" href="css/keyboard.css"/>
+  <link rel="stylesheet" id="css-main" href="css/main.css"/> <!-- default (light) theme) -->
+  <link rel="stylesheet" id="dark-theme" href="css/dark.css"/> <!-- dark theme -->
+  <link rel="stylesheet" id="css-rigctl" href="css/rigctl.css"/> <!-- rig control tab -->
+  <link rel="stylesheet" id="css-rigctl" href="css/rigctl-dark.css"/> <!-- rig control tab (dark theme) -->
+  <link rel="stylesheet" id="css-keyboard" href="css/keyboard.css"/> <!-- On-screen (and emoji) keyboard -->
   <title>rustyrig webui</title>
  </head>
  <body>

@@ -96,11 +96,25 @@ $(document).ready(function() {
       }
    });
 
+   // Native listener for ctrl + wheel
+   document.addEventListener('wheel', function(e) {
+      if (e.ctrlKey) {
+         e.preventDefault();
+      }
+   }, { passive: false });
+
    $(document).on('keydown', function(e) {
       // prevent / from triggering search
       // XXX: i *could* make this allow search only if 
       const inputFocused = document.activeElement.id === 'chat-input';
-      if (!inputFocused && e.key === '/' && !e.ctrlKey && !e.metaKey) {
+
+      // Prevent zooming in/out
+      if (e.ctrlKey && (
+            e.key === '+' || e.key === '-' || 
+            e.key === '=' || e.key === '0' || 
+            e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) {
+         e.preventDefault();
+      } else if (!inputFocused && e.key === '/' && !e.ctrlKey && !e.metaKey) {
          e.preventDefault();
       } else if (e.key === "Escape") {
          if ($('#reason-modal').is(':visible')) {

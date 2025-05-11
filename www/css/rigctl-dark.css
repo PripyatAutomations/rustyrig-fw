@@ -1,0 +1,9 @@
+/*
+ * Styling for the rig interface, in dark mode.
+ *
+ * This is broken out into it's own file so that we can use @import() later
+ * support switching rig themes
+ *
+ * Only shared things should be added to this main CSS
+ * Place dark-mode overrides here for best results
+ */
