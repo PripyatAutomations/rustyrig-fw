@@ -875,8 +875,11 @@ sub generate_config_h {
       if (defined($config->{'backend'}{'hamlib_model'})) {
          printf $fh "#define BACKEND_HAMLIB_MODEL\t%d\n", $config->{'backend'}{'hamlib_model'};
       }
-      if (defined($config->{'backend'}{'port'})) {
-         printf $fh "#define BACKEND_PORT\t\"%s\"\n", $config->{'backend'}{'port'};
+      if (defined($config->{'backend'}{'hamlib_baud'})) {
+         printf $fh "#define BACKEND_HAMLIB_BAUD\t%d\n", $config->{'backend'}{'hamlib_baud'};
+      }
+      if (defined($config->{'backend'}{'hamlib_port'})) {
+         printf $fh "#define BACKEND_HAMLIB_PORT\t\"%s\"\n", $config->{'backend'}{'hamlib_port'};
       }
    }
 

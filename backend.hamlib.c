@@ -109,6 +109,7 @@ static bool hl_init(void) {
 #else
    rig_set_debug(RIG_DEBUG_NONE);
 #endif
+
    hl_rig = rig_init(model);
 
    if (!hl_rig) {
@@ -116,8 +117,14 @@ static bool hl_init(void) {
       return true;
    }
 
+   // XXX: Is this needed or is the simpler code OK?
+/*
    strncpy(hl_rig->state.rigport.pathname, "localhost:4532", sizeof(hl_rig->state.rigport.pathname) - 1);
    hl_rig->state.rigport.pathname[sizeof(hl_rig->state.rigport.pathname) - 1] = '\0';
+*/
+
+   rig_set_conf(hl_rig, rig_token_lookup(hl_rig, "rig_pathname"), BACKEND_HAMLIB_PORT);
+   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
 
    // Open connection to rigctld
    if ((ret = rig_open(hl_rig)) != RIG_OK) {

@@ -24,11 +24,12 @@
       }
    },
    "backend": {
-      "active": "internal",
+      "active": "hamlib",
       "hamlib": "true",
       "hamlib_debug": 4,
       "hamlib_model": 2,
-      "port": "/dev/null"
+      "hamlib_baud": 38400,
+      "hamlib_port": "localhost:4532"
    },
    "build": {
       "cflags": "-fPIC -g",
