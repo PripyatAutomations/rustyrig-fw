@@ -26,7 +26,7 @@
    border-radius: 10px;
    background-color: #dcdcdc;
    width: CALC(100% - 14.2em);
-   height: CALC(100% - 9em);
+   height: CALC(100% - 12em);
    margin-left: 0.1em;
    margin-bottom: 10px;
 }
@@ -79,7 +79,7 @@ div#button-box {
    left: CALC(100% - 12.5em);
    top: 3.8em;
    width: 8.8em;
-   height: CALC(100% - 7.8em);
+   height: CALC(100% - 10.8em);
    border: 2px solid #ddd;
    border-radius: 10px;
    padding-left: 0.5em;
