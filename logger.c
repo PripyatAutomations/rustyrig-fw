@@ -144,6 +144,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    }
 
    // If this is a debug message, apply debug filtering
+   // XXX: Finish this bit someday or remove it
 /*
    if (priority == LOG_DEBUG) {
       if (debug_filter(subsys, fmt) == false) {

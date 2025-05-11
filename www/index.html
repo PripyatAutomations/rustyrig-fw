@@ -15,6 +15,7 @@
   <script src="js/webui.audio.js"></script>
   <script src="js/webui.notifications.js"></script>
   <script src="js/webui.emoji.js"></script>
+  <script src="js/webui.syslog.js"></script>
   <!-- XXX: This should be minified into a single file for production builds -->
   <link rel="stylesheet" id="css-main" href="css/main.css"/> <!-- default (light theme) -->
   <link rel="stylesheet" id="css-chat" href="css/chat.css"/> <!-- chat tab -->
@@ -74,18 +75,19 @@
    </form>
   </div><!-- win_login -->
   <div id="win-chat" class="window">
-   <div id="chat-box" tabindex="-1">
-    <div id="emoji-keyboard"></div>
-   </div>
    <div id="upper-wrapper"></div>
    <div id="lower-wrapper">
-    <!-- CUL -->
-    <div id="chat-user-list" tabindex="-1">
-     <h4>Connected Users</h4>
-     <hr width="100%"/>
-     <ul id="cul-list"></ul>
+    <div id="chat-container">
+     <div id="chat-box" tabindex="-1">
+      <div id="emoji-keyboard"></div>
+     </div>
+     <div id="chat-user-list" tabindex="-1">
+      <h4>Connected Users</h4>
+      <hr width="100%"/>
+      <ul id="cul-list"></ul>
+     </div>
     </div>
-    <div id="user-menu">
+   <div id="user-menu">
      <div id="um-header" style="position: relative;">
       <span id="um-close" style="position: absolute; top: 5px; right: 5px; cursor: pointer;">✖</span>
      </div>
@@ -104,7 +106,6 @@
       </span>
      </div>
     </div>
-    <!-- End CUL -->
     <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
     <br/>
     <div id="button-box">

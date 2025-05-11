@@ -12,10 +12,10 @@
    border: 2px solid red;
    border-radius: 10px;
    position: fixed;
-   top: CALC(3em + 5px);
-   height: CALC(100% - 3em - 10px);
-   left: 0.25em;
-   width: CALC(100% - 0.5em);
+   top: 3.7em;
+   height: CALC(100% - 7em);
+   left: 0px;
+   width: CALC(100% - 3em);
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;

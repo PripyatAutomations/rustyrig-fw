@@ -6,7 +6,7 @@
 #win-chat {
    display: none;
    position: fixed;
-   top: CALC(3em + 5px);
+   top: CALC(3.5em);
    left: 0px;
    width: 100%;
    user-select: text;
@@ -15,7 +15,27 @@
    -ms-user-select: text;
 }
 
+#chat-container {
+   display: flex;
+   height: 100%;
+   overflow: hidden;
+}
+
+#chat-user-list {
+   position: fixed;
+   left: CALC(100% - 12.5em);
+   top: 3.8em;
+   width: 8.8em;
+   height: CALC(100% - 10.8em);
+   border: 2px solid #ddd;
+   border-radius: 10px;
+   padding-left: 0.5em;
+   padding-right: 0.5em;
+   background-color: #dcdcdc;
+}
+
 #chat-box {
+   flex: 1;
    position: fixed;
    top: 3.8em;
    left: 0px;
@@ -74,18 +94,6 @@ div#button-box {
    background: #3f3f3f;
 }
 
-#chat-user-list {
-   position: fixed;
-   left: CALC(100% - 12.5em);
-   top: 3.8em;
-   width: 8.8em;
-   height: CALC(100% - 10.8em);
-   border: 2px solid #ddd;
-   border-radius: 10px;
-   padding-left: 0.5em;
-   padding-right: 0.5em;
-   background-color: #dcdcdc;
-}
 
 span#alert-vol { }
 
@@ -277,7 +285,6 @@ button#img-clearclip {
 
 .cul-item {
 }
-
 
 #chat-user-list ul {
    list-style: none;

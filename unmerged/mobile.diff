@@ -2,48 +2,6 @@ diff --git a/www/css/main.css b/www/css/main.css
 index 34390d2..ecb6c3e 100644
 --- a/www/css/main.css
 +++ b/www/css/main.css
-@@ -27,16 +27,36 @@ a, a:visited, a:active {
-     color: #004fcc;
- }
- 
--html, body {
--   color: black;
--/*   font-family: Arial, sans-serif; */
-+body {
-    font-family: 'Roboto', 'OpenSans';
--   margin: 0;
--   padding: 20px;
-+   color: black;
-    background-color: #dcdcdc;
-    height: calc(100vh - 1px);
-    width: calc(100vw - 1px);
-    overflow: hidden;
-+   margin: 0;
-+   padding: 0;
-+   overflow: hidden;
-+}
-+
-+/* Scale the content to always fit the viewport */
-+html {
-+    transform-origin: top left;
-+    transform: scale(1);
-+    height: 100vh;
-+    width: 100vw;
-+}
-+
-+/* Optional: Ensure all child elements respect the scaling */
-+* {
-+    box-sizing: border-box;
-+}
-+
-+/* Responsive adjustments for smaller screens */
-+@media (max-width: 768px) {
-+    html {
-+        transform: scale(calc(100vw / 768)); /* Dynamically scale based on viewport width */
-+    }
- }
- 
- .red {
 @@ -50,8 +70,9 @@ html, body {
     padding: 0.75em 1em 0.5em 1em;
     position: relative;
@@ -298,16 +256,3 @@ index 34390d2..ecb6c3e 100644
 +        font-size: 12px; /* Reduce font size by 2 steps for better fit */
 +    }
  }
-diff --git a/www/index.html b/www/index.html
-index 557f34b..ba6735c 100644
---- a/www/index.html
-+++ b/www/index.html
-@@ -2,7 +2,7 @@
- <html lang="en">
-  <head>
-   <meta charset="UTF-8"/>
--  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-   <script src="js/jquery.min.js"></script>
-   <script src="js/jquery.chroma-hash.js"></script>
-   <script src="js/segment.min.js"></script>

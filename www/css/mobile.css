@@ -5,4 +5,43 @@
    html {
       transform: scale(calc(100vw / 768)); /* Dynamically scale based on viewport width */
    }
+
+   #tab-strip {
+      display: flex;
+      height: 2.8em;
+   }
+   #menu-tab {
+   }
+
+   #win-login {
+      top: 1em;
+      left: 1em;
+      height: CALC(100% - 2.2em);
+      width: CALC(100% - 2.2em);
+   }
+
+   #chat-box {
+      height: CALC(100% - 15.8em);
+   }
+
+   #chat-user-list {
+      height: CALC(100% - 14.5em);
+   }
+
+   #chat-input {
+      bottom: 7.5em;
+      width: CALC(100% - 5.5em);
+   }
+
+   div#button-box {
+      left: 0px;
+      bottom: 2.8em;
+   }
+
+   #chat-whois {
+      top: 1em;
+      left: 1em;
+      height: CALC(100% - 2.2em);
+      width: CALC(100% - 2.2em);
+   }
 }

@@ -57,11 +57,10 @@ input {
    padding-right: 0.5em;
 }
 
-
 /* General button styles to ensure equal height */
 button {
-   padding: 10px 15px; /* Same padding for both buttons */
-   font-size: 16px; /* Larger text */
+   padding: 10px 15px;
+   font-size: 16px;
    border-radius: 5px;
    border: none;
    cursor: pointer;
@@ -178,10 +177,10 @@ button {
    border: 2px solid green;
    border-radius: 10px;
    position: fixed;
-   top: CALC(3em + 5px);
-   height: CALC(100% - 3em - 10px);
-   left: 0.25em;
-   width: CALC(100% - 0.5em);
+   top: 3.7em;
+   height: CALC(100% - 7em);
+   left: 0px;
+   width: CALC(100% - 3em);
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;
@@ -193,10 +192,10 @@ button {
    border: 2px solid #0000ff;
    border-radius: 10px;
    position: fixed;
-   top: CALC(3em + 5px);
-   height: CALC(100% - 3em - 10px);
-   left: 0.25em;
-   width: CALC(100% - 0.5em);
+   top: 3.7em;
+   height: CALC(100% - 7em);
+   left: 0px;
+   width: CALC(100% - 3em);
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;

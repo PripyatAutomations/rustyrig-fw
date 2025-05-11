@@ -192,8 +192,18 @@ static bool ws_binframe_process(const char *buf, size_t len) {
     return false;
 }
 
+//
+////
+// This needs optimized!
+///
+//
 static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
+   char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
+   char *data = mg_json_get_str(msg_data, "$.talk.data");
+   char *target =  mg_json_get_str(msg_data, "$.talk.args.target");
+   char *msg_type =  mg_json_get_str(msg_data, "$.type");
+   bool result = false;
 
    // Update the last-heard time for the user
    http_client_t *cptr = http_find_client_by_c(c);
@@ -201,18 +211,43 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       cptr->last_heard = now;
    }
 
-   // Handle different message types...
+   // Handle ping messages
+   if (msg_type != NULL && strcasecmp(msg_type, "ping") == 0) {
+      char ts_buf[32];
+
+      if (mg_json_get_str(msg_data, "$.ts") != NULL) {
+         snprintf(ts_buf, sizeof(ts_buf), "%s", mg_json_get_str(msg_data, "$.ts"));
+
+         int64_t ts = atoll(ts_buf);
+
+         char pong[128];
+         snprintf(pong, sizeof(pong), "{\"type\":\"pong\",\"ts\":%ld}", ts);
+         mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
+         goto cleanup;
+      }
+   }
+
+   // Check for $.cat field (rigctl message)
    if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-      return ws_handle_rigctl_msg(msg, c);
+      result = ws_handle_rigctl_msg(msg, c);
+   } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
+      if (cmd != NULL) {
+         result = ws_handle_chat_msg(msg, c);
+      }
    } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
       mg_ws_send(c, "pong", 4, WEBSOCKET_OP_TEXT);
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
-      return ws_handle_pong(msg, c);
-   } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
-      return ws_handle_chat_msg(msg, c);
+      result = ws_handle_pong(msg, c);
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
-      return ws_handle_auth_msg(msg, c);
+      result = ws_handle_auth_msg(msg, c);
    }
+
+cleanup:
+   free(cmd);
+   free(data);
+   free(target);
+   free(msg_type);
+
    return false;
 }
 
