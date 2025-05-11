@@ -514,6 +514,21 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      cptr->chatname, token, now, cptr->user->privs);
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
+         ////////////////////
+         // Set user flags //
+         ////////////////////
+         if (has_priv(cptr->user->uid, "owner|syslog")) {
+            client_set_flag(cptr, FLAG_SYSLOG);
+         }
+
+         if (has_priv(cptr->user->uid, "admin|owner")) {
+            client_set_flag(cptr, FLAG_STAFF);
+         }
+
+         if (has_priv(cptr->user->uid, "tx")) {
+            client_set_flag(cptr, FLAG_CAN_TX);
+         }
+
          // Send a ping to the user and expect them to reply within HTTP_PING_TIMEOUT seconds
          cptr->last_heard = now;
          ws_send_ping(cptr);

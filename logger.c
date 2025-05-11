@@ -24,7 +24,7 @@
 #include "state.h"
 #include "eeprom.h"
 #include "debug.h"		// Debug message filtering
-
+#include "ws.h"			// Support for sending the syslog via websocket
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
 extern char latest_timestamp[64];
@@ -131,7 +131,9 @@ static inline int update_timestamp(void) {
 }
 
 void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
-   char msgbuf[512];
+   char msgbuf[513];
+   char ts_log_msg[1025];
+   char log_msg[769];
    va_list ap;
 
    if (subsys == NULL || fmt == NULL) {
@@ -153,7 +155,8 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       }
    }
 */
-   // update the timestamp string
+
+      // update the timestamp string (XXX: This could be moved to our once/sec handler)
    if (log_show_ts) {
       update_timestamp();
    }
@@ -165,6 +168,8 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 
    /* Expand the format string */
    vsnprintf(msgbuf, 511, fmt, ap);
+   memset(log_msg, 0, sizeof(log_msg));
+   snprintf(log_msg, sizeof(log_msg), "<%s.%s> %s", subsys, log_priority_to_str(priority), msgbuf);
 
 #if	defined(HOST_POSIX) || defined(FEATURE_FILESYSTEM)
    /* Only spew to the serial port if logfile is closed */
@@ -175,24 +180,30 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       return;
    } else {
       if (log_show_ts) {
-         fprintf(logfp, "[%s] <%s.%s> %s\n", latest_timestamp, subsys, log_priority_to_str(priority), msgbuf);
+         fprintf(logfp, "[%s] %s\n", latest_timestamp, log_msg);
+         if (logfp != stdout) {
+            fprintf(stdout, "[%s] %s\n", latest_timestamp, log_msg);
+         }
       } else {
-         fprintf(logfp, "<%s.%s> %s\n", subsys, log_priority_to_str(priority), msgbuf);
+         fprintf(logfp, "%s\n", log_msg);
+         if (logfp != stdout) {
+            fprintf(stdout, "%s\n", log_msg);
+         }
       }
       fflush(logfp);
    }
 #endif
 
-#if	defined(HOST_POSIX)
-   if (logfp != stdout) {
-      // Send it to the stdout too on host builds
-      if (log_show_ts) {
-         fprintf(stdout, "[%s] <%s.%s> %s\n", latest_timestamp, subsys, log_priority_to_str(priority), msgbuf);
-      } else {
-         fprintf(stdout, "<%s.%s> %s\n", subsys, log_priority_to_str(priority), msgbuf);
-      }
-   }
-#endif
+   // Send it to websockets
+//   char *escaped_msg = escape_html(log_msg);
+
+   char ws_logbuf[2048];
+   memset(ws_logbuf, 0, sizeof(ws_logbuf));
+   snprintf(ws_logbuf, sizeof(ws_logbuf), "{ \"syslog\": { \"ts\": %lu, \"subsys\": \"%s\", \"prio\": \"%s\", \"data\": \"%s\" } }",
+            now, subsys, log_priority_to_str(priority), log_msg);
+   struct mg_str ms = mg_str(ws_logbuf);
+   ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms);
+//   free(escaped_msg);
 
    /* Machdep logging goes here! */
 

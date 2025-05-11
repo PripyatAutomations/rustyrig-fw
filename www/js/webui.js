@@ -330,13 +330,16 @@ function ws_connect() {
    };
 
    socket.onmessage = function(event) {
+//      console.log("evt: ", event);
       var msgData = event.data;
       ws_last_heard = Date.now();
 
       try {
          var msgObj = JSON.parse(msgData);
 
-         if (msgObj.alert) {
+         if (msgObj.syslog) {		// Handle syslog messages
+            syslog_append(msgObj);
+         } else if (msgObj.alert) {
             var alert_from = msgObj.alert.from.toUpperCase();
             var alert_ts = msgObj.alert.ts;
             var alert_msg = msgObj.alert.msg;
@@ -500,7 +503,6 @@ function ws_connect() {
                   }
 
                   // Clear the chat window if changing users
-                  console.log("lu: ", login_user, "au: ", auth_user);
                   if (login_user !== "GUEST" && auth_user !== login_user.toUpperCase()) {
                      clear_chatbox();
                   }
@@ -661,17 +663,6 @@ function show_config_window() {
    $('div#tabstrip').show();
    $('div#win-config').show();
 }
-
-function show_syslog_window() {
-//   $('.chroma-hash').hide();
-   $('div#win-rig').hide();
-   $('div#win-chat').hide();
-   $('div#win-login').hide();
-   $('div#win-config').hide();
-   $('div#tabstrip').show();
-   $('div#win-syslog').show();
-}
-
 
 ////////////////////////
 // Latency calculator //

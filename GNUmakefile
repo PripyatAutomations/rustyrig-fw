@@ -176,7 +176,7 @@ ${OBJ_DIR}/au.pipewire.o: au.pipewire.c ${BUILD_HEADERS}
 
 # Binary also depends on the .stamp file
 ${bin}: ${real_objs} ext/libmongoose/mongoose.c config/http.users
-	@${CC} -o $@ ${real_objs} ${LDFLAGS}
+	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 	@ls -a1ls $@
 	@file $@

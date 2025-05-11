@@ -186,6 +186,30 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
    return false;
 }
 
+// Toggle syslog
+static bool ws_chat_cmd_syslog(http_client_t *cptr, const char *state) {
+   if (has_priv(cptr->user->uid, "admin|owner|syslog")) {
+      bool new_state = false;
+
+      // Parse the state
+      if ((strcasecmp(state, "on") == 0) ||
+          (strcasecmp(state, "true") == 0) ||
+          (strcasecmp(state, "yes") == 0)) {
+         new_state = true;
+         client_set_flag(cptr, FLAG_SYSLOG);
+      } else if ((strcasecmp(state, "off") == 0) ||
+                 (strcasecmp(state, "false") == 0) ||
+                 (strcasecmp(state, "no") == 0)) {
+         new_state = false;
+         client_clear_flag(cptr, FLAG_SYSLOG);
+      }
+   } else {
+      ws_chat_err_noprivs(cptr, "SYSLOG");
+      return true;
+   }
+   return false;
+}
+
 // Send the updated userinfo for a single user; see ws_send_users below for everyone
 void ws_send_userinfo(http_client_t *cptr) {
    if (!cptr || !cptr->authenticated || !cptr->user)
@@ -301,6 +325,8 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          ws_chat_cmd_mute(cptr, target, reason);
       } else if (strcasecmp(cmd, "restart") == 0) {
          ws_chat_cmd_restart(cptr, reason);
+      } else if (strcasecmp(cmd, "syslog") == 0) {
+         ws_chat_cmd_syslog(cptr, target);
       } else if (strcasecmp(cmd, "unmute") == 0) {
          ws_chat_cmd_unmute(cptr, target);
       } else if (strcasecmp(cmd, "whois") == 0) {

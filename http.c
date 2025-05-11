@@ -511,6 +511,24 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    return false;
 }
 
+/////////////
+bool client_has_flag(http_client_t *cptr, u_int32_t user_flag) {
+   return (cptr->user_flags & user_flag) != 0;
+}
+
+void client_set_flag(http_client_t *cptr, u_int32_t flag) {
+   if (cptr) {
+      cptr->user_flags |= flag;
+   }
+}
+
+void client_clear_flag(http_client_t *cptr, u_int32_t flag) {
+   if (cptr) {
+      cptr->user_flags &= ~flag;
+   }
+}
+//////////////
+
 #include "mongoose.h"
 
 #endif	// defined(FEATURE_HTTP)

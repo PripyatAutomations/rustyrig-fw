@@ -80,6 +80,7 @@ struct http_client {
     bool is_ws;                 // Flag to indicate if it's a WebSocket client
     bool is_ptt;		// Is the user keying up ANY attached rig?
     bool is_muted;		// Is the client muted? (Can't TX)
+    u_int32_t user_flags;       // Bit flags for user features, permissions, etc.
     time_t connected;		// when was the socket connected?
     time_t session_expiry;	// When does the session expire?
     time_t session_start;	// When did they login?
@@ -96,6 +97,20 @@ struct http_client {
     struct http_client *next; 	// pointer to next client in list
 };
 typedef struct http_client http_client_t;
+
+#define FLAG_ADMIN       0x00000001
+#define FLAG_MUTED       0x00000002
+#define FLAG_PTT         0x00000004
+#define FLAG_SERVERBOT   0x00000008
+#define FLAG_STAFF       0x00000010
+#define FLAG_SUBSCRIBER  0x00000020
+#define FLAG_LISTENER    0x00000040
+#define	FLAG_SYSLOG	 0x00000080
+#define	FLAG_CAN_TX	 0x00000100
+
+extern bool client_has_flag(http_client_t *cptr, u_int32_t user_flag);
+extern void client_set_flag(http_client_t *cptr, u_int32_t flag);
+extern void client_clear_flag(http_client_t *cptr, u_int32_t flag);
 
 ////////////////////////////////////////////////////////
 extern bool http_init(struct mg_mgr *mgr);

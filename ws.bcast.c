@@ -43,6 +43,24 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
    }
 }
 
+// Broadcast a message to all WebSocket clients with matching flags (using http_client_list)
+void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, struct mg_str *msg_data) {
+   if (msg_data == NULL) {
+      return;
+   }
+
+   http_client_t *current = http_client_list;
+   while (current != NULL) {
+      // NULL sender means it came from the server itself
+      if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
+         if (client_has_flag(current, flags)) {
+            mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
+         }
+      }
+      current = current->next;
+   }
+}
+
 bool send_global_alert(http_client_t *cptr, const char *sender, const char *data) {
    if (/*cptr == NULL ||*/ data == NULL) {
       return true;

@@ -260,7 +260,7 @@ function chat_send_command(cmd, args) {
    var msgObj_j = JSON.stringify(msgObj);
    socket.send(msgObj_j);
    $('#user-menu').hide();
-   console.log("Sent command: ", msgObj_j);
+//   console.log("Sent command: ", msgObj_j);
 }
 
 function parse_chat_cmd(e) {
@@ -283,18 +283,20 @@ function parse_chat_cmd(e) {
          switch(command.toLowerCase()) {
             // commands with no arguments
             case 'clear':
-               console.log("Cleared scrollback");
                clear_chatbox();
                break;
+            case 'clearlog':
+               chat_append('<div><span class="error">Cleared syslog window</span></div>');
+               syslog_clear();
+               break;
             case 'clxfr':
-               console.log("Clearing cached file chunks");
+               chat_append('<div><span class="error">Cleared xfer-chunks</span></div>');
                clear_xfer_chunks();
                break;
             case 'reloadcss':
                console.log("Reloading CSS on user command");
                reload_css();
                chat_append('<div><span class="error">Reloaded CSS</span></div>');
-               $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
                break;
             case 'help':
                chat_append('<div><span class="error">*** HELP *** All commands start with /</span></div>');
@@ -304,8 +306,10 @@ function parse_chat_cmd(e) {
                chat_append('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
                //////
                chat_append('<br/><div><span class="error">*** DEBUG TOOLS *** All commands start with /</span></div>');
+               chat_append('<div><span class="error">/clearlog&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
                chat_append('<div><span class="error">/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
                chat_append('<div><span class="error">/reloadcss&nbsp;&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
+               chat_append('<div><span class="error">/syslog&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
 
                var isAdmin = /(owner|admin)/.test(auth_privs);
                if (isAdmin) {
@@ -326,7 +330,6 @@ function parse_chat_cmd(e) {
                break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);
-               console.log("ACTION ", message);
                chat_msg = true;
                msg_type = "action";
                break;
@@ -345,8 +348,9 @@ function parse_chat_cmd(e) {
                }
                break;
 
-            case 'whois':
             case 'edit':
+            case 'syslog':
+            case 'whois':
                if (args.length >= 2) {
                   args_obj = {
                      target: args[1]
