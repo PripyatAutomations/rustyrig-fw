@@ -55,6 +55,10 @@ function send_ping(sock) {
 }
 
 $(document).ready(function() {
+   $(document).on('submit', 'form', function(e) {
+      e.preventDefault();
+   });
+
    /////////////////////////////////////
    // Load settings from LocalStorage //
    /////////////////////////////////////
@@ -80,26 +84,25 @@ $(document).ready(function() {
       console.log("Form reset");
    });
 
-   // clear buttons
-   $('#clear-btn').click(function() {
-      $('#chat-input').val('');
-      $('#chat-input').focus();
-   });
-
    form_disable(true);
 
    // Toggle display of the emoji keyboard
-   $('#open-emoji').click(function() {
-       const emojiKeyboard = $('#emoji-keyboard');
-       if (emojiKeyboard.is(':visible')) {
-           emojiKeyboard.hide('slow');
-       } else {
-           emojiKeyboard.show('fast');
-       }
+   $('#emoji-btn').click(function() {
+      const emojiKeyboard = $('#emoji-keyboard');
+      if (emojiKeyboard.is(':visible')) {
+         emojiKeyboard.hide('slow');
+      } else {
+         emojiKeyboard.show('fast');
+      }
    });
 
    $(document).on('keydown', function(e) {
-      if (e.key === "Escape") {
+      // prevent / from triggering search
+      // XXX: i *could* make this allow search only if 
+      const inputFocused = document.activeElement.id === 'chat-input';
+      if (!inputFocused && e.key === '/' && !e.ctrlKey && !e.metaKey) {
+         e.preventDefault();
+      } else if (e.key === "Escape") {
          if ($('#reason-modal').is(':visible')) {
             $('#reason-modal').hide('fast');
          } else if ($('#chat-whois').is(':visible')) {
@@ -113,13 +116,16 @@ $(document).ready(function() {
         return;
       }
       form_disable(false);
-      e.preventDefault();
    });
 
    $(document).click(function (event) {
       if ($(event.target).is('#chat-whois')) {
          event.preventDefault();
          $(event.target).hide('fast');
+         form_disable(false);
+      } else if ($(event.target).is('#clear-btn')) {
+         event.preventDefault();
+         $('#chat-input').val('');
          form_disable(false);
       } else if (!$(event.target).is('#chat-input, a, [tabindex]')) {
          // are we logged in?
@@ -132,7 +138,7 @@ $(document).ready(function() {
          form_disabled(false);
       }
    });
-   ////////////// tab completion //////////////
+
    let completing = false;
    let completionList = [];
    let completionIndex = 0;
@@ -167,8 +173,15 @@ $(document).ready(function() {
 
             if (match) {
                const word = match[1];
-               const matchStart = beforeCaret.lastIndexOf('@' + word);
+               matchStart = beforeCaret.lastIndexOf('@' + word);
+               matchLength = word.length;
                const afterCaret = text.slice(caretPos);
+
+               completionList = getCULNames().filter(name => name.toLowerCase().startsWith(word.toLowerCase()));
+               if (!completionList.length) return;
+
+               completing = true;
+               completionIndex = 0;
 
                const current = completionList[completionIndex];
                const completed = text.slice(0, matchStart + 1) + current + afterCaret;
@@ -176,17 +189,20 @@ $(document).ready(function() {
                input.val(completed);
                const newCaret = matchStart + 1 + current.length;
                this.setSelectionRange(newCaret, newCaret);
+               updateCompletionIndicator(current);
+               completionIndex = (completionIndex + 1) % completionList.length;
             }
          }
-
          if (completing && completionList.length) {
             const currentName = completionList[completionIndex];
+            const atStart = matchStart === 0;
             const completedText =
-               text.slice(0, matchStart + 1) + currentName + text.slice(caretPos);
+               text.slice(0, matchStart) + currentName + (atStart ? ": " : " ") + text.slice(caretPos);
 
             input.val(completedText);
-            const newCaret = matchStart + 1 + currentName.length;
+            const newCaret = matchStart + currentName.length + (atStart ? 2 : 1);
             this.setSelectionRange(newCaret, newCaret);
+
             updateCompletionIndicator(currentName);
             completionIndex = (completionIndex + 1) % completionList.length;
          }
@@ -229,7 +245,6 @@ $(document).ready(function() {
          updateCompletionIndicator(null);
       }
    });
-   ////////////// tab completion //////////////
 });
 
 function make_ws_url() {
@@ -305,7 +320,14 @@ function ws_connect() {
       try {
          var msgObj = JSON.parse(msgData);
 
-         if (msgObj.ping) {			// Handle PING messages
+         if (msgObj.alert) {
+            var alert_from = msgObj.alert.from.toUpperCase();
+            var alert_ts = msgObj.alert.ts;
+            var alert_msg = msgObj.alert.msg;
+            var msg_ts = msg_timestamp(alert_ts);
+
+            chat_append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!&nbsp;&lt;${alert_from}&gt;&nbsp;&nbsp;${alert_msg}</div>`);
+         } else if (msgObj.ping) {			// Handle PING messages
             var ts = msgObj.ping.ts;
             if (typeof ts === 'undefined' || ts <= 0) {
                // Invalid timestamp in the ping, ignore it
@@ -344,7 +366,6 @@ function ws_connect() {
 
                      play_notify_bell();
                      set_highlight("chat");
-
                      // XXX: Update the window title to show a pending message
                   }
                }
@@ -427,14 +448,15 @@ function ws_connect() {
                var error = msgObj.auth.error;
                stop_reconnecting();
 
+               console.log("auth.error: ", error);
                var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                chat_append('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
                show_login_window();
                $('span#sub-login-error-msg').empty();
                $('span#sub-login-error-msg').append("<span>", error, "</span>");
 
-               // Get rid of message after about 20 seconds
-               setTimeout(function() { $('div#sub-login-error').hide(); }, 20000);
+               // Get rid of message after about 30 seconds XXX: disabled for now, add a check if /kicked and dont timeout
+//               setTimeout(function() { $('div#sub-login-error').hide(); }, 30000);
 
                $('div#sub-login-error').show();
                $('button#login-err-ok').click(function() {
@@ -575,6 +597,7 @@ function toggle_dark_mode() {
 function form_disable(state) {
    if (state === false) {
       $('#button-box, #chat-input').show(300);
+      $('#chat-input').focus();
    } else {
       $('#button-box, #chat-input').hide(250);
    }

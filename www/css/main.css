@@ -214,16 +214,15 @@ button {
    cursor: pointer;
 }
 
-#clear-btn, #send-btn, .login-btn, #open-emoji {
-/*
+#upload-btn, #clear-btn, #send-btn, .login-btn, #emoji-btn, #bell-btn {
    padding-top: 0.15em;
    padding-bottom: 0.15em;
    margin-top: 0em;
    margin-bottom: 0em;
-*/
    height: 3em;
    position: relative;
    height: 100%;
+   background: #3f3f3f;
 }
 
 /* Clear button */
@@ -247,10 +246,6 @@ button {
 .green-btn:hover {
    border: 2px solid #00c000;
    background-color: #218838; /* Darker green for hover */
-}
-
-#open-emoji {
-   background-color: #2138c8;
 }
 
 /* Chat message styles */
@@ -292,6 +287,8 @@ button {
    margin: 5px 0;
 }
 
+span#alert-vol { }
+
 div#button-box {
    position: fixed;
    right: 0.2em;
@@ -301,39 +298,13 @@ div#button-box {
    border: 2px solid #ccc;
    height: 2.5em;
    background: #dcdcdc;
-   width: 16em;
    border: 2px solid #c0c0c0;
 }
 
-/* Sounds checkbox */
-#bell-btn {
-   padding-top: 0em;
-   padding-bottom: 0.3em;
-   margin: 0em;
-   position: absolute;
-   top: 0em;
-   right: 0px;
-   margin-left: 0px;
-   cursor: pointer;
-   height: 100%;
-   width: 25%;
-}
-
-#bell-image {
-   object-fit: contain;
-   width: 100%;
-   height: 100%;
-   position: absolute;
-   top: 0px;
-   left: 0px;
-}
-
-#bell-image:hover { }
-
-span#alert-vol { }
-
-#clear-btn, #send-btn {
-   height: 3em;
+#clear-btn, #send-btn, #bell-btn {
+   height: 2.6em;
+   padding-bottom: 5px;
+   padding-top: 5px;
 }
 
 input[type="range"]#alert-vol {
@@ -683,14 +654,13 @@ button#img-clearclip {
 #emoji-keyboard {
    display: none;
    position: fixed;
-   left: 0.2em;
-   bottom: 0.3em;
+   left: 0.5em;
+   top: 1em;
    padding: 10px;
    border-radius: 5px;
-   border: 2px solid #ccc;
-   height: 2.5em;
+   height: CALC(100% - 8em);
    background: DarkRed;
-   width: 16em;
+   width: CALC(100% - 14em);
    border: 2px solid red;
 }
 

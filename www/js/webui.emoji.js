@@ -129,7 +129,6 @@ $(document).ready(function() {
       }
 
       let emojiData = null;
-
       if (window.localStorage && localStorage.getItem('emojiData')) {
          emojiData = JSON.parse(localStorage.getItem('emojiData'));
          buildPopup(emojiData);
@@ -144,7 +143,7 @@ $(document).ready(function() {
       }
    }
 
-   $('#open-emoji').on('click', function(){
+   $('#emoji-btn').on('click', function(){
       displayEmojiKeyboard();
    });
 });

@@ -20,8 +20,8 @@ function notification_init() {
    } else {
       $('button#bell-btn').data('checked', true);
    }
-   let newSrc = !$('button#bell-btn').data('checked') ? 'img/bell-alert-outline.png' : 'img/bell-alert.png';
-   $('img#bell-image').attr('src', newSrc);
+   let bell_isOn = $('button#bell-btn').data('checked');
+   $('button#bell-btn').text(bell_isOn ? '🔔' : '🔕');
 
    // Support toggling mute via bell button
    $('#bell-btn').click(function() { toggle_mute(); });

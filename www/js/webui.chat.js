@@ -148,8 +148,13 @@ function cul_update(message) {
           badges += '<span class="badge owner-badge">👑&nbsp;</span>';
        } else if (admin) {
           badges += '<span class="badge admin-badge">⭐&nbsp;</span>';
+       } else if (name.toUpperCase() === "N9MSC") {
+          badges += '<span class="badge admin-badge">🐒&nbsp;</span>';
        } else if (view_only) {
           badges += '<span class="badge view-badge">👀&nbsp;</span>';
+//       } else if (user_has_priv(name, "tx")) {
+//       } else if (is_muted(name)) {
+//          badges += `<span class="badge view-badge">🙊</span>`;
        } else {
           badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';
        }
@@ -180,7 +185,7 @@ function show_reason_modal(cmd, username) {
    const textarea = document.getElementById("reason-text");
    const title = document.getElementById("reason-title");
 
-   title.textContent = `Enter reason for ${cmd}ing ${username}`;
+   title.textContent = `Enter ${cmd} reason for ${username}`;
    textarea.value = "";
 
    modal.style.display = "block";
@@ -284,8 +289,12 @@ function parse_chat_cmd(e) {
          switch(command.toLowerCase()) {
             // commands with no arguments
             case 'clear':
-                console.log("Cleared scrollback");
+               console.log("Cleared scrollback");
                clear_chatbox();
+               break;
+            case 'clxfr':
+               console.log("Clearing cached file chunks");
+               clear_xfer_chunks();
                break;
             case 'reloadcss':
                console.log("Reloading CSS on user command");
@@ -301,6 +310,7 @@ function parse_chat_cmd(e) {
                chat_append('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
                //////
                chat_append('<br/><div><span class="error">*** DEBUG TOOLS *** All commands start with /</span></div>');
+               chat_append('<div><span class="error">/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
                chat_append('<div><span class="error">/reloadcss&nbsp;&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
 
                var isAdmin = /(owner|admin)/.test(auth_privs);

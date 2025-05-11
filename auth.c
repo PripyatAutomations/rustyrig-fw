@@ -493,12 +493,12 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // special handling for guests; we generate a random # prefix for their name
          if (strcasecmp(up->name, "guest") == 0) {
             cptr->guest_id = generate_random_guest_id(4);
-            prepare_msg(cptr->chatname, sizeof(cptr->chatname), "%s%04d", up->name, cptr->guest_id);
+            memset(cptr->chatname, 0, sizeof(cptr->chatname));
+            snprintf(cptr->chatname, sizeof(cptr->chatname), "GUEST%04d", cptr->guest_id);
             guest = true;
          } else {
             prepare_msg(cptr->chatname, sizeof(cptr->chatname), "%s", up->name);
          }
-
          cptr->authenticated = true;
 
          // Store some timestamps such as when user joined & session will forcibly expire

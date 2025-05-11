@@ -154,10 +154,14 @@ http_client_t *http_find_client_by_name(const char *name) {
    }
 
    while(cptr != NULL) {
-      if (cptr == NULL || cptr->user == NULL || (cptr->chatname[0] == '\0')) {
-         break;
+      Log(LOG_DEBUG, "http.core", "hfcbn: i: %d user: %x chatname: %s", i, cptr->user, cptr->chatname);
+      // incomplete entry
+      if (cptr->user == NULL || (cptr->chatname[0] == '\0')) {
+         cptr = cptr->next;
+         continue;
       }
 
+      // match?
       if (strcasecmp(cptr->chatname, name) == 0) {
          Log(LOG_DEBUG, "http.core", "hfcb_name found match at index %d for %s", i, name);
          return cptr;
@@ -295,7 +299,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
          cptr->is_ws = true;
       } else {
-         Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws", c, ip, port);
+         Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
          ws_kick_client_by_c(c, "Socket error 314");
       }
    } else if (ev == MG_EV_WS_MSG) {
@@ -304,15 +308,16 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
       http_client_t *cptr = http_find_client_by_c(c);
-      if (cptr->is_ws) {
-         // make sure we're not accessing unsafe memory
-         if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
-            // Free the resources, if any, for the user_agent
-            if (cptr->user_agent != NULL) {
-               free(cptr->user_agent);
-               cptr->user_agent = NULL;
-            }
+      // make sure we're not accessing unsafe memory
+      if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
+         // Free the resources, if any, for the user_agent
+         if (cptr->user_agent != NULL) {
+            free(cptr->user_agent);
+            cptr->user_agent = NULL;
+         }
 
+         // if it's a websocket user, it's a client, else it's probably something loading assets
+         if (cptr->is_ws) {
             // blorp out a quit to all connected users
             prepare_msg(resp_buf, sizeof(resp_buf),
                         "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
@@ -320,10 +325,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
             struct mg_str ms = mg_str(resp_buf);
             ws_broadcast(NULL, &ms);
             Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
-   //      } else {
-             // This is very noisy as it includes http requests for assets; maybe we can filter them out?
-   //         Log(LOG_AUDIT, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
          }
+      } else {
+          // This is very noisy as it includes http requests for assets; maybe we can filter them out more?
+         Log(LOG_CRAZY, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
       }
       http_remove_client(c);
    }

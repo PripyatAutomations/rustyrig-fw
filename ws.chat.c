@@ -115,15 +115,16 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
          return true;
       }
 
-      ws_kick_client(acptr, reason);
 
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf),
-         "KICK from %s (uid: %d with privs %s): %s (Reason: %s)",
-         cptr->chatname, cptr->user->uid, cptr->user->privs, target, (reason ? reason : "No reason given"));
-      send_global_alert(cptr, "***ADMIN***", msgbuf);
+         "%s was kicked by %s (Reason: %s)",
+         target, cptr->chatname,
+         (reason ? reason : "No reason given"));
+      send_global_alert(cptr, "***SERVER***", msgbuf);
       Log(LOG_AUDIT, "admin.kick", msgbuf);
+      ws_kick_client(acptr, msgbuf);
    } else {
       ws_chat_err_noprivs(cptr, "KICK");
       return true;
@@ -149,10 +150,10 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
-      prepare_msg(msgbuf, sizeof(msgbuf),
-         "MUTE from %s (uid: %d with privs %s): %s (Reason: %s)",
-         cptr->chatname, cptr->user->uid, cptr->user->privs, target, (reason ? reason : "No reason given"));
-      send_global_alert(cptr, "***ADMIN***", msgbuf);
+      prepare_msg(msgbuf, sizeof(msgbuf), "MUTE %s from %s: Reason: %s",
+         target, cptr->chatname,
+         (reason ? reason : "No reason given"));
+      send_global_alert(cptr, "***SERVER***", msgbuf);
       Log(LOG_AUDIT, "admin.mute", msgbuf);
    } else {
       ws_chat_err_noprivs(cptr, "MUTE");
@@ -174,10 +175,9 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
 
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
-      prepare_msg(msgbuf, sizeof(msgbuf),
-         "UNMUTE from %s (uid: %d with privs %s)",
-         cptr->chatname, cptr->user->uid, cptr->user->privs, target);
-      send_global_alert(cptr, "***ADMIN***", msgbuf);
+      prepare_msg(msgbuf, sizeof(msgbuf), "UNMUTE %s from %s",
+         target, cptr->chatname);
+      send_global_alert(cptr, "***SERVER***", msgbuf);
       Log(LOG_AUDIT, "admin.unmute", msgbuf);
    } else {
       ws_chat_err_noprivs(cptr, "UNMUTE");
@@ -271,9 +271,13 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // handle a file chunk
          if (msg_type != NULL && strcmp(msg_type, "file_chunk") == 0) {
+            char *filetype = mg_json_get_str(msg_data, "$.talk.filetype");
+            char *filename = mg_json_get_str(msg_data, "$.talk.filename");
             prepare_msg(msgbuf, sizeof(msgbuf),
-                        "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld } }",
-                        cptr->chatname, data, now, msg_type, chunk_index, total_chunks);
+                        "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld, \"filename\": \"%s\", \"filetype\": \"%s\" } }",
+                        cptr->chatname, data, now, msg_type, chunk_index, total_chunks, filename, filetype);
+            free(filetype);
+            free(filename);
          } else { // or just a chat message
             char *escaped_msg = escape_html(data);
             if (escaped_msg == NULL) {

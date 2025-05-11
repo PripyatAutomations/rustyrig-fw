@@ -59,7 +59,7 @@
       <td colspan="2">
        <div id="login-btn-box">
         <button id="submit" value="Submit" class="green-btn login-btn">Login</button>
-        <button id="clear-btn" value="Clear" class="red-btn login-btn">Reset</button>
+        <button id="clear-btn" value="Clear" class="red-btn">Reset</button>
        </div>
       </td>
      </tr>
@@ -67,10 +67,11 @@
    </form>
   </div><!-- win_login -->
   <div id="win-chat" class="window">
-   <div id="chat-box" tabindex="-1"></div>
+   <div id="chat-box" tabindex="-1">
+    <div id="emoji-keyboard"></div>
+   </div>
    <div id="upper-wrapper"></div>
    <div id="lower-wrapper">
-    <div id="emoji-keyboard"></div>
     <!-- CUL -->
     <div id="chat-user-list" tabindex="-1">
      <h4>Connected Users</h4>
@@ -100,15 +101,14 @@
     <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
     <br/>
     <div id="button-box">
-     <button id="open-emoji" class="open-emoji">😀</button>
-     <button id="upload-file" title="Upload file or image">📎</button>
+     <button id="emoji-btn" class="emoji-btn" title="Emoji Keyboard">😀</button>
      <input type="file" id="file-input" style="display: none;" />
-     <button id="send-btn" class="green-btn" title="Send">➤</button>
-     <button id="clear-btn" class="red-btn" title="Clear">❌</button>
-     <button id="bell-btn" data-checked="true">
-      <img id="bell-image" src="img/bell-alert.png" alt="Bell (dark)"/>
-     </button>
+     <button id="send-btn" title="Send to chat">🚀</button>
+     <button id="clear-btn" title="Clear input">❌</button>
+     <button id="upload-btn" title="Upload file or image">📎</button>
+     <button id="bell-btn" data-checked="true">🔔</button>
      <input type="range" id="alert-vol" min="0" max="100" step="10" value="100"/>
+     <input type="file" id="file-upload" accept="image/*" style="display: none;">
     </div>
     <div id="chat-whois"></div>
     <audio id="chat-ding" src="sounds/bell.mp3" tabindex="-1"></audio>

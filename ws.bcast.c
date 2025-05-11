@@ -35,10 +35,6 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
 
    http_client_t *current = http_client_list;
    while (current != NULL) {
-      if (current == NULL || !current->session_start) {
-         break;
-      }
-
       // NULL sender means it came from the server itself
       if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
          mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
@@ -48,7 +44,7 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
 }
 
 bool send_global_alert(http_client_t *cptr, const char *sender, const char *data) {
-   if (cptr == NULL || data == NULL) {
+   if (/*cptr == NULL ||*/ data == NULL) {
       return true;
    }
 
@@ -56,8 +52,8 @@ bool send_global_alert(http_client_t *cptr, const char *sender, const char *data
    struct mg_str mp;
    char *escaped_msg = escape_html(data);
    prepare_msg(msgbuf, sizeof(msgbuf), 
-      "{ \"alert\": { \"from\": \"%s\", \"alert\": \"%s\", \"ts\": %lu } }",
-      cptr->chatname, escaped_msg, now);
+      "{ \"alert\": { \"from\": \"%s\", \"msg\": \"%s\", \"ts\": %lu } }",
+      sender, escaped_msg, now);
    mp = mg_str(msgbuf);
    ws_broadcast(NULL, &mp);
    free(escaped_msg);
