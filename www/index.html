@@ -7,7 +7,7 @@
   <script src="js/jquery.min.js"></script>
   <script src="js/jquery.chroma-hash.js"></script>
   <script src="js/segment.min.js"></script>
-  <!-- Release builds will have this minified into a single file -->
+  <!-- XXX: Release builds will have this minified into a single file -->
   <script src="js/webui.js"></script>
   <script src="js/webui.auth.js"></script>
   <script src="js/webui.chat.js"></script>
@@ -15,11 +15,16 @@
   <script src="js/webui.audio.js"></script>
   <script src="js/webui.notifications.js"></script>
   <script src="js/webui.emoji.js"></script>
-  <link rel="stylesheet" id="css-main" href="css/main.css"/> <!-- default (light) theme) -->
-  <link rel="stylesheet" id="dark-theme" href="css/dark.css"/> <!-- dark theme -->
+  <!-- XXX: This should be minified into a single file for production builds -->
+  <link rel="stylesheet" id="css-main" href="css/main.css"/> <!-- default (light theme) -->
+  <link rel="stylesheet" id="css-chat" href="css/chat.css"/> <!-- chat tab -->
   <link rel="stylesheet" id="css-rigctl" href="css/rigctl.css"/> <!-- rig control tab -->
+  <link rel="stylesheet" id="css-main-dark" href="css/dark.css"/> <!-- dark theme -->
+  <link rel="stylesheet" id="css-chat-dark" href="css/chat-dark.css"/> <!-- chat tab (dark theme) -->
   <link rel="stylesheet" id="css-rigctl" href="css/rigctl-dark.css"/> <!-- rig control tab (dark theme) -->
   <link rel="stylesheet" id="css-keyboard" href="css/keyboard.css"/> <!-- On-screen (and emoji) keyboard -->
+  <link rel="stylesheet" id="css-mobile" href="css/mobile.css"/> <!-- mobile support -->
+  <link rel="stylesheet" id="css-mobile-dark" href="css/mobile-dark.css"/> <!-- mobile support (dark theme) -->
   <title>rustyrig webui</title>
  </head>
  <body>

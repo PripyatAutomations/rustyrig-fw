@@ -105,12 +105,6 @@ function chat_init() {
       form_disable(false);
       $('#user-menu').hide('slow');
    });
-   $('span#tab-chat').click(function() { show_chat_window(); });
-   $('span#tab-rig').click(function() { show_rig_window(); });
-   $('span#tab-config').click(function() { show_config_window(); });
-   $('span#tab-syslog').click(function() { show_syslog_window(); });
-   $('span#tab-dark').click(function() { toggle_dark_mode(); });
-   $('span#tab-logout').click(function() { clear_chatbox(); logout(); });
 }
 
 function cul_offline() {

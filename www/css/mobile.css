@@ -1,0 +1,8 @@
+/*
+ * Stuff for small screened devices
+ */
+@media (max-width: 768px) {
+   html {
+      transform: scale(calc(100vw / 768)); /* Dynamically scale based on viewport width */
+   }
+}

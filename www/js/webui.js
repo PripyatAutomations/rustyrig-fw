@@ -62,14 +62,16 @@ $(document).ready(function() {
    /////////////////////////////////////
    // Load settings from LocalStorage //
    /////////////////////////////////////
-   // Do we have a preference for dark/light mode in localStorage?
-   if (localStorage.getItem("dark_mode") !== "false") {
-      $("#dark-theme").attr("href", "css/dark.css").removeAttr("disabled");
-      $("#tab-dark").text("light");
-   } else {
-      $("#dark-theme").attr("href", "").attr("disabled", "disabled");
-      $("#tab-dark").text("dark");
-   }
+   // bind tab strip handlers
+   $('span#tab-chat').click(function() { show_chat_window(); });
+   $('span#tab-rig').click(function() { show_rig_window(); });
+   $('span#tab-config').click(function() { show_config_window(); });
+   $('span#tab-syslog').click(function() { show_syslog_window(); });
+   $('span#tab-dark').click(function() {  
+      var dark_mode = localStorage.getItem("dark_mode") !== "false"
+      set_dark_mode(!dark_mode);
+   });
+   $('span#tab-logout').click(function() { clear_chatbox(); logout(); });
 
    if (!logged_in) {
       login_init();
@@ -587,25 +589,26 @@ function flash_red(element) {
    }, 1000);
 }
 
-function toggle_dark_mode() {
-   const $darkTheme = $("#dark-theme");
+function set_dark_mode(state) {
+   let current = localStorage.getItem("dark_mode") !== "false";
+   let dark_mode = (typeof state === 'undefined') ? !current : state;
+
    const $toggleBtn = $("#tab-dark");
-   const darkCSS = "css/dark.css";
 
-   let dark_mode = localStorage.getItem("dark_mode") !== "false"; 
-   dark_mode = !dark_mode;
+   $('link[id^="css-"]').filter(function() {
+      return this.id.endsWith("-dark");
+   }).each(function() {
+      if (dark_mode) {
+         $(this).removeAttr("disabled");
+      } else {
+         $(this).attr("disabled", "disabled");
+      }
+   });
 
-   if (dark_mode) {
-      console.log("Set Dark Mode");
-      $darkTheme.attr("href", darkCSS).removeAttr("disabled");
-      $toggleBtn.text("light");
-   } else {
-      console.log("Set Light Mode");
-      $darkTheme.attr("href", "").attr("disabled", "disabled");
-      $toggleBtn.text("dark");
-   }
+   $toggleBtn.text(dark_mode ? "light" : "dark");
+   console.log("Set " + (dark_mode ? "Dark" : "Light") + " Mode");
 
-   localStorage.setItem("dark_mode", dark_mode);
+   localStorage.setItem("dark_mode", dark_mode ? "true" : "false");
 }
 
 function form_disable(state) {

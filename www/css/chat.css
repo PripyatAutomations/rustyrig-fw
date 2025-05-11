@@ -1,0 +1,455 @@
+/*
+ * Stylesheet for the chat tab
+ *
+ * Please put dark overrides in css/chat-dark.css
+ */
+#win-chat {
+   display: none;
+   position: fixed;
+   top: CALC(3em + 5px);
+   left: 0px;
+   width: 100%;
+   user-select: text;
+   -webkit-user-select: text;
+   -moz-user-select: text;
+   -ms-user-select: text;
+}
+
+#chat-box {
+   position: fixed;
+   top: 3.8em;
+   left: 0px;
+   overflow-y: auto;
+   overflow-x: hidden;
+   padding: 10px;
+   border: 2px solid #ddd;
+   border-radius: 10px;
+   background-color: #dcdcdc;
+   width: CALC(100% - 14.2em);
+   height: CALC(100% - 9em);
+   margin-left: 0.1em;
+   margin-bottom: 10px;
+}
+
+#chat-input {
+   background: #dcdcdc;
+   position: fixed;
+   bottom: 3em;
+   left: 0px;
+   height: 2.4em;
+   font-size: 14px;
+   margin-left: 0.5em;
+   width: CALC(100% - 25.5em);
+   padding: 10px;
+   border-radius: 5px;
+   border: 2px solid #ccc;
+}
+
+div#button-box {
+   position: fixed;
+   right: 2.5em;
+   bottom: 2.8em;
+   margin-top: 0.2em;
+   margin-bottom: 0.2em;
+   padding: 0.5em;
+   padding-top: 0.3em;
+   padding-bottom: 0.3em;
+   border-radius: 5px;
+   border: 2px solid #ccc;
+   height: 2.5em;
+   background: #dcdcdc;
+   border: 2px solid #c0c0c0;
+}
+
+#upload-btn, #clear-btn, #send-btn, .login-btn, #emoji-btn, #bell-btn {
+   padding-top: 0.15em;
+   padding-bottom: 0.15em;
+   margin-left: 0.1em;
+   margin-right: 0.1em;
+   margin-top: 0em;
+   margin-bottom: 0em;
+   height: 3em;
+   position: relative;
+   height: 100%;
+   background: #3f3f3f;
+}
+
+#chat-user-list {
+   position: fixed;
+   left: CALC(100% - 12.5em);
+   top: 3.8em;
+   width: 8.8em;
+   height: CALC(100% - 7.8em);
+   border: 2px solid #ddd;
+   border-radius: 10px;
+   padding-left: 0.5em;
+   padding-right: 0.5em;
+   background-color: #dcdcdc;
+}
+
+span#alert-vol { }
+
+/* Chat message styles */
+.chat-msg {
+   color: black;
+   font-size: 16px;
+}
+
+.chat-my-msg {
+   color: #0a0a0a;
+   font-size: 16px;
+}
+
+.chat-msg-prefix {
+   color: #c00303;
+   font-size: 16px;
+}
+
+.chat-my-msg-prefix {
+   color: #03ac03;
+   font-size: 16px;
+}
+
+.chat-status {
+   font-size: 16px;
+   color: DarkSteelBlue;
+   margin: 5px 0;
+}
+#clear-btn, #send-btn, #bell-btn {
+   height: 2.6em;
+   padding-bottom: 5px;
+   padding-top: 5px;
+}
+
+input[type="range"]#alert-vol {
+   -webkit-appearance: none;
+   background: #80a080;
+   display: none;
+   position: fixed;
+   width: 1em;
+   height: 10em; /* Height of the vertical range slider */
+   bottom: 3.2em;
+   right: 1.7em;
+}
+
+input[type="range"]#alert-vol::-webkit-slider-runnable-track {
+   height: 100%;
+}
+
+input[type="range"]#alert-vol::-webkit-slider-thumb {
+   width: 1em;
+   height: 1em;
+   background: #000;
+   border-radius: 50%;
+   cursor: pointer;
+}
+
+.chat-highlight {
+   background-color: yellow;
+   font-weight: bold;
+}
+
+a.chat-link {
+    color: #0808a0;
+}
+
+.img-confirm-box {
+    background: #ffe0e0;
+    border: 1px solid #ccc;
+    font-size: 1.3em;
+    font-weight: bold;
+    padding-left: 10px;
+    position: absolute;
+    zIndex: 1500;
+    height: CALC(100% - 4px);
+    width: CALC(100% - 16px);
+    top: 0px;
+    left: 0px;
+}
+
+.img-confirm-box img {
+    border: 2px solid red;
+    margin-top: 0px;
+    padding: 0px;
+    position: absolute;
+    top: 2.5em;
+    left: 2em;
+    width: 100%v;
+    max-width: CALC(100% - 6em);
+    max-height: CALC(80% - 3.5em);
+}
+
+button#img-post, button#img-cancel, button#img-clearclip {
+    position: absolute;
+    bottom: 1em;
+    height: 3em;
+    width: 5em;
+}
+
+buttom#img-post {
+}
+
+button#img-cancel {
+   left: 8em;
+}
+
+button#img-clearclip {
+   left: 15em;
+}
+
+.chat-img-wrap {
+/*   position: absolute; */
+   text-indent: 3em;
+   position: relative;
+   display: inline-block;
+   width: 75%;
+   display: inline-block;
+   max-width: 80%;
+   max-height: 75%;
+   text-indent: 3em;
+}
+
+.chat-img-wrap img {
+   max-width: 100%;
+   max-height: 100%;
+   height: auto;
+   width: auto;
+   display: block;
+}
+
+
+.chat-img-controls {
+   position: absolute;
+   top: 0.2em;
+   right: 0.2em;
+   display: flex;
+   gap: 0.3em;
+}
+
+.img-close-btn,
+.img-min-btn {
+   background: #888;
+   color: white;
+   border: 2px solid #888;
+   border-radius: 6px;
+   font-weight: bold;
+   font-size: 0.75em;
+   padding: 0 0.4em;
+   cursor: pointer;
+}
+
+.img-close-btn {
+   background: red;
+   color: white;
+   font-weight: bold;
+   cursor: pointer;
+   font-size: 0.8em;
+   line-height: 1;
+}
+
+.chat-img-wrap {
+   max-height: 80%;
+   max-width: 80%;
+   overflow: hidden;
+   display: inline-block;
+}
+
+.chat-img {
+   max-height: 80vh;
+   max-width: 100%;
+   height: auto;
+   width: auto;
+}
+
+/******************
+ * Chat user list *
+ ******************/
+.chat-user {
+   display: flex;
+   align-items: center;
+   margin-bottom: 0.3em;
+}
+
+.chat-username {
+   margin-right: 0.5em;
+   font-weight: bold;
+}
+
+.cul-item {
+}
+
+
+#chat-user-list ul {
+   list-style: none;
+   padding-top: 5px;
+   padding-left: 0;
+   margin-top: 0px;
+   margin-bottom: 0px;
+}
+
+#chat-user-list li {
+   display: flex;                 /* Align username and badges horizontally */
+   align-items: center;           /* Center vertically */
+/*   padding: 5px 0; */
+   margin: 0;
+}
+
+.cul-self {
+   font-weight: bold;
+   margin-right: 8px;             /* Space between username and badges */
+}
+
+.badge {
+   margin-left: 5px;              /* Space between badges */
+   font-size: 1.2em;              /* Set the size of badges */
+}
+
+.tx-badge {
+   color: green;
+}
+
+.owner-badge {
+   color: gold;
+}
+
+.admin-badge {
+   color: #FFD700; /* Gold */
+}
+
+.view-badge {
+   color: #888;
+}
+
+.blank-badge {
+    display: inline-block;
+    width: 1.2em; /* Adjust to match badge size */
+    height: 1em;
+}
+
+.cul-menu-button {
+   border: 1px solid #909090;
+   padding: 0em;
+   margin: 0em;
+}
+
+#user-menu ul {
+   margin-top: 0em;
+   padding-left: 15px;
+   padding-top: 0.2em;
+}
+
+#user-menu li {
+}
+
+/* Styling for the user-menu */
+#user-menu {
+    position: absolute;
+    top: 75px;
+    right: 20px;
+    border: 1px solid #ccc;
+    background: #c0c0c0;
+    color: black;
+    padding: 10px;
+    width: 200px;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: none;
+}
+
+#chat-whois {
+   position: fixed;
+   top: 5em;
+   left: 5em;
+   padding: 0.5em;
+   padding-top: 1em;
+   height: CALC(100% - 10em);
+   width: CALC(100% - 10em);
+   border: 2px solid DarkSlateBlue;
+   background: DarkBlue;
+   font-size: 1.1em;
+   color: LemonChiffon;
+   display: none;
+}
+
+#user-menu a, #user-menu a:visited, #user-menu: a:active {
+   color: #c0c0f0;
+}
+
+/* Header of the user menu, containing the close button */
+#um-header {
+    position: relative;
+    border-bottom: 2px solid #c0c0c0;
+    height: 20px;
+}
+
+/* Close button styling */
+#um-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    cursor: pointer;
+    font-size: 16px;
+    color: #c00000;
+}
+
+#um-close:hover {
+    color: #ff0000;
+}
+
+/* Content inside the user menu */
+#um-content {
+    margin-top: 10px;
+}
+
+#emoji-keyboard {
+   display: none;
+   position: fixed;
+   left: 0.5em;
+   top: 1em;
+   padding: 10px;
+   border-radius: 5px;
+   height: CALC(100% - 8em);
+   background: DarkRed;
+   width: CALC(100% - 14em);
+   border: 2px solid red;
+}
+
+#reason-modal {
+   position: fixed;
+   top: 20%;
+   left: 20%;
+   width: 60vw;
+   height: 60vh;
+   background-color: DarkBlue;
+   color: LemonChiffon;
+   padding: 20px;
+   box-shadow: 0 0 20px black;
+   z-index: 1000;
+}
+
+#reason-modal input[type="text"], #reason-modal textarea {
+   width: 90%;
+   padding: 8px;
+   margin: 10px auto;
+   display: block;
+   background-color: navy;
+   color: lightyellow;
+   border: 2px solid gold;
+   border-radius: 10px;
+   font-size: 1em;
+}
+
+#reason-modal button {
+   background-color: navy;
+   color: Gold;
+   border: 2px solid Gold;
+   border-radius: 10px;
+   padding: 6px 14px;
+   font-weight: bold;
+   cursor: pointer;
+}
+
+#reason-modal button:hover {
+   color: LightYellow;
+   border: 2px solid DarkOrchid;
+}
