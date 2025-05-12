@@ -32,6 +32,9 @@ function reload_css() {
     let href = $link.attr('href').split('?')[0];
     $link.attr('href', href + '?_=' + new Date().getTime());
   });
+
+   let chatBox = $('#chat-box');
+   chatBox.scrollTop(chatBox[0].scrollHeight);
 }
 
 function msg_timestamp(msg_ts) {

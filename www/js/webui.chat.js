@@ -10,6 +10,12 @@ function msg_create_links(message) {
 }
 
 function chat_append(msg) {
+   // limit scrollback to 1000 items
+   const $messages = $('#chat-box');
+   if ($messages.length > 1000) {
+      $messages.slice(0, 100).remove();
+   }
+
    $('#chat-box').append(msg);
    setTimeout(function () {
       $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
@@ -319,6 +325,19 @@ function parse_chat_cmd(e) {
                chat_append('<div><span class="error">Cleared xfer-chunks</span></div>');
                clear_xfer_chunks();
                break;
+            case 'chat':
+               show_chat_window();
+               break;
+            case 'cfg':
+            case 'config':
+               show_config_window();
+               break;
+            case 'rig':
+               show_rig_window();
+               break;
+            case 'log':
+               show_syslog_window();
+               break;
             case 'reloadcss':
                console.log("Reloading CSS on user command");
                reload_css();
@@ -326,6 +345,7 @@ function parse_chat_cmd(e) {
                break;
             case 'help':
                chat_append('<div><span class="error">*** HELP *** All commands start with /</span></div>');
+               chat_append('<div><span class="error">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
                chat_append('<div><span class="error">/clear&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
                chat_append('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
                chat_append('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');

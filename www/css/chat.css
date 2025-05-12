@@ -362,7 +362,7 @@ button#img-clearclip {
 
 /* Styling for the user-menu */
 #user-menu {
-    position: absolute;
+    position: fixed;
     top: 0px;
     right: 3em;
     border: 1px solid #ccc;
@@ -370,9 +370,14 @@ button#img-clearclip {
     color: black;
     padding: 10px;
     width: CALC(60% - 1em);
-    z-index: 1000;
+    z-index: 1500;
+    height: 90%;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: none;
+}
+
+#user-menu h4 {
+    font-size: 1.4em;
 }
 
 #chat-whois {
