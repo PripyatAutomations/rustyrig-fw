@@ -8,14 +8,12 @@
 
    #tab-strip {
       display: flex;
-/*      height: 2.4em; */
+      height: 1.5em;
    }
 
    span#menu-tabs {
-      margin-top: 0.4em;
       top: 0;
       left: 0;
-      height: 1.3em;
    }
 
    span.menu-tab {
@@ -24,9 +22,7 @@
       color: black;
       font-size: 1em;
       font-weight: bold;
-      margin-right: 0.25em;
-      margin-left: 0.25em;
-      height: 1.5em;
+      height: 2em;
       line-height: 1.3em;
       top: 0;
       padding-left: 0.5em;
