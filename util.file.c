@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,9 +22,9 @@
 #include <fcntl.h>
 #endif
 
-#include "state.h"
-#include "posix.h"
-#include "logger.h"
+#include "inc/state.h"
+#include "inc/posix.h"
+#include "inc/logger.h"
 
 bool file_exists(const char *path) {
 // Support for posix hosts

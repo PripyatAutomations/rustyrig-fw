@@ -11,7 +11,7 @@
  *
  * Build conf will generate the LC tables used below (atu_tables.h)
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,15 +20,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "state.h"
-#include "logger.h"
-#include "eeprom.h"
-#include "i2c.h"
-#include "atu.h"
+#include "inc/state.h"
+#include "inc/logger.h"
+#include "inc/eeprom.h"
+#include "inc/i2c.h"
+#include "inc/atu.h"
 
 // Tell atu_tables we want the data (we are the tuner code)
 #define	ANT_TUNER
-#include "atu_tables.h"
+#include "inc/atu_tables.h"
 
 // Extract the memories from eeprom and optionally json file on posix
 bool rr_atu_load_memories(int unit) {

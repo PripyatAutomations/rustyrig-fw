@@ -15,7 +15,7 @@
  *	memory mapped eeprom/flash devices with direct reading/writing
  *	i2c connected parts
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -40,13 +40,13 @@
 //
 #endif
 
-#include "state.h"
-#include "logger.h"
-#include "eeprom.h"
-#include "i2c.h"
+#include "inc/state.h"
+#include "inc/logger.h"
+#include "inc/eeprom.h"
+#include "inc/i2c.h"
 
 #define	EEPROM_C		// Let the header know we're in the C file
-#include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
+#include "inc/eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
 
 // Returns either the index of they key in eeprom_layout or -1 if not found
 uint32_t eeprom_offset_index(const char *key) {

@@ -8,12 +8,12 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_i2c_h)
 #define	__rr_i2c_h
-#include "config.h"
+#include "inc/config.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "i2c.hal.h"
+#include "inc/i2c.hal.h"
 
 typedef struct {
     uint32_t fd; 		// File descriptor (Linux) or pointer/handle (STM32)

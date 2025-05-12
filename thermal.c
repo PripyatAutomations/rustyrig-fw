@@ -9,7 +9,7 @@
 //
 // Thermal monitoring and shutdown feature
 //
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "state.h"
-#include "thermal.h"
-#include "logger.h"
+#include "inc/state.h"
+#include "inc/thermal.h"
+#include "inc/logger.h"
 
 // Set some sane default values in case the user didn't bother to configure them...
 struct ThermalLimits thermal_limits = {

@@ -9,7 +9,7 @@
 //
 // This doesn't exist yet, unfortunately.
 // Mostly the file exists to catch bits that will be needed to fit into the au abstraction layer
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,12 +20,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "au.h"
-#include "logger.h"
-#include "codec.h"
+#include "inc/au.h"
+#include "inc/logger.h"
+#include "inc/codec.h"
 
 #if	defined(FEATURE_ALSA)
-#include "au.alsa.h"
+#include "inc/au.alsa.h"
 
 // ... stuff goes here
 #endif	// defined(FEATURE_ALSA)

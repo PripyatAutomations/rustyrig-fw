@@ -12,13 +12,13 @@
 // This will prevent loading with a newer EEPROM version and someday will force an upgrade if older
 #define	MY_EEPROM_VER	1
 
-#include "config.h"
+#include "inc/config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "state.h"
-#include "eeprom_types.h"
+#include "inc/state.h"
+#include "inc/eeprom_types.h"
 
 #define	PIN_LEN	8		// 8 byte pin
 

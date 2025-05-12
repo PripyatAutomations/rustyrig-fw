@@ -9,7 +9,7 @@
 /*
  * Support for serial transports for console, cat, and debugging
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,11 +17,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "i2c.h"
-#include "io.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
+#include "inc/i2c.h"
+#include "inc/io.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
 
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>

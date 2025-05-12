@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_auth_h)
 #define	__rr_auth_h
-#include "http.h"
+#include "inc/http.h"
 
 extern http_user_t http_users[HTTP_MAX_USERS];
 extern int http_getuid(const char *user);

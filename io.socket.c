@@ -9,7 +9,7 @@
 //
 // Socket backend for io subsys
 //
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,7 +18,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "state.h"
-#include "logger.h"
-#include "eeprom.h"
-#include "io.h"
+#include "inc/state.h"
+#include "inc/logger.h"
+#include "inc/eeprom.h"
+#include "inc/io.h"

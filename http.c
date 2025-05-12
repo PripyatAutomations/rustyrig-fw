@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we deal with http requests using mongoose
-#include "config.h"
+#include "inc/config.h"
 #if	defined(FEATURE_HTTP)
 #include <stdio.h>
 #include <string.h>
@@ -20,17 +20,17 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "cat.h"
-#include "posix.h"
-#include "http.h"
-#include "ws.h"
-#include "auth.h"
-#include "util.string.h"
-#include "util.file.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/cat.h"
+#include "inc/posix.h"
+#include "inc/http.h"
+#include "inc/ws.h"
+#include "inc/auth.h"
+#include "inc/util.string.h"
+#include "inc/util.file.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
 #else
@@ -568,6 +568,6 @@ void client_clear_flag(http_client_t *cptr, u_int32_t flag) {
 }
 //////////////
 
-#include "mongoose.h"
+#include "inc/mongoose.h"
 
 #endif	// defined(FEATURE_HTTP)

@@ -12,7 +12,7 @@
  * Namely we use optionally use pipes instead of real serial ports
  * and deal with POSIX signals
  */
-#include "config.h"
+#include "inc/config.h"
 #if	!defined(HOST_POSIX)
 #error "This is only valid on host posix, please check the GNUmakefile!"
 #else
@@ -29,9 +29,9 @@
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
-#include "state.h"
-#include "posix.h"
-#include "logger.h"
+#include "inc/state.h"
+#include "inc/posix.h"
+#include "inc/logger.h"
 
 // This gets called by our atexit() handler to make sure we clean up temporary files...
 void host_cleanup(void) {

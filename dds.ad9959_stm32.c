@@ -14,7 +14,7 @@
 //
 // Code repurposed from my ad9959-util tool
 //
-#include "config.h"
+#include "inc/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -24,10 +24,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "state.h"
-#include "logger.h"
-#include "eeprom.h"
-#include "i2c.h"
+#include "inc/state.h"
+#include "inc/logger.h"
+#include "inc/eeprom.h"
+#include "inc/i2c.h"
 
 // XXX: Integrate this ASAP
 #if	0

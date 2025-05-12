@@ -11,7 +11,7 @@
  *
  * For now, we only support stm32, feel free to write linux USB gadget support
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,9 +19,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "state.h"
+#include "inc/state.h"
 #if defined(HOST_POSIX) && defined(FEATURE_USB)
-#include "usb.h"
+#include "inc/usb.h"
 
 #endif	// defined(HOST_POSIX) && defined(FEATURE_USB)
 

@@ -15,7 +15,7 @@
 // Notice that most functions are static, this is because they should NEVER be 
 // directly called outside of this module. You should use the backend API instead.
 //
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -27,14 +27,14 @@
 // This only gets drug in if we have features/backend/hamlib=true
 #if	defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
-#include "logger.h"
-#include "state.h"
-#include "thermal.h"
-#include "power.h"
-#include "eeprom.h"
-#include "vfo.h"
-#include "cat.h"
-#include "backend.h"
+#include "inc/logger.h"
+#include "inc/state.h"
+#include "inc/thermal.h"
+#include "inc/power.h"
+#include "inc/eeprom.h"
+#include "inc/vfo.h"
+#include "inc/cat.h"
+#include "inc/backend.h"
 
 static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl

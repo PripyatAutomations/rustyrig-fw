@@ -9,7 +9,7 @@
 //
 // Here we managed attached Direct Digital Synthesizer devices
 //
-#include "config.h"
+#include "inc/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -19,10 +19,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "state.h"
-#include "logger.h"
-#include "eeprom.h"
-#include "i2c.h"
+#include "inc/state.h"
+#include "inc/logger.h"
+#include "inc/eeprom.h"
+#include "inc/i2c.h"
 
 bool dds_init(void) {
    return false;

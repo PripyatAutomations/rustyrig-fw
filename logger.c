@@ -10,7 +10,7 @@
  * support logging to a a few places
  *	Targets: syslog console flash (file)
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,11 +20,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include "logger.h"
-#include "state.h"
-#include "eeprom.h"
-#include "debug.h"		// Debug message filtering
-#include "ws.h"			// Support for sending the syslog via websocket
+#include "inc/logger.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/debug.h"		// Debug message filtering
+#include "inc/ws.h"			// Support for sending the syslog via websocket
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
 extern char latest_timestamp[64];

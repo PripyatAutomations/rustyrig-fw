@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_thermal_h)
 #define	__rr_thermal_h
-#include "config.h"
+#include "inc/config.h"
 
 typedef struct ThermalLimits {
    int32_t encl_warn;

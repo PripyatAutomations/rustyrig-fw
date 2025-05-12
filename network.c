@@ -10,7 +10,7 @@
  * Support for network transport for console, cat, and debugging
  *
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,11 +19,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "network.h"
-#include "logger.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/network.h"
+#include "inc/logger.h"
 
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>

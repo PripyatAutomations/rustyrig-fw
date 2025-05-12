@@ -28,7 +28,7 @@ bool rr_au_write_samples(const void *samples, size_t size);
 rr_au_sample_t **rr_au_read_samples(void);
 void rr_au_cleanup(rr_au_device_t *dev);
 
-#include "au.pipewire.h"
-#include "au.pcm5102.h"
+#include "inc/au.pipewire.h"
+#include "inc/au.pcm5102.h"
 
 #endif	// !defined(__rr_audio_h)

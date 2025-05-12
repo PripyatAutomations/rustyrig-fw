@@ -9,7 +9,7 @@
 /*
  * This was shat out by chatgpt and modified to fit. Feel free to rewrite it!
  */
-#include "config.h"
+#include "inc/config.h"
 #if	defined(FEATURE_PIPEWIRE)
 #include <pipewire/pipewire.h>
 #include <pipewire/context.h>
@@ -25,9 +25,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "au.h"
-#include "logger.h"
-#include "codec.h"
+#include "inc/au.h"
+#include "inc/logger.h"
+#include "inc/codec.h"
 
 #define SAMPLE_RATE 48000
 #define CHANNELS 1

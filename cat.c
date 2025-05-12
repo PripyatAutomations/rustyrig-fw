@@ -26,7 +26,7 @@
  *
  * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -34,13 +34,13 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "logger.h"
-#include "state.h"
-#include "thermal.h"
-#include "power.h"
-#include "eeprom.h"
-#include "vfo.h"
-#include "cat.h"
+#include "inc/logger.h"
+#include "inc/state.h"
+#include "inc/thermal.h"
+#include "inc/power.h"
+#include "inc/eeprom.h"
+#include "inc/vfo.h"
+#include "inc/cat.h"
 
 // Initialize CAT control
 int32_t rr_cat_init(void) {
@@ -126,7 +126,7 @@ int32_t rr_cat_parse_line(char *line) {
 }
 
 #if	defined(FEATURE_HTTP)
-#include "mongoose.h"
+#include "inc/mongoose.h"
 
 bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
     if (reqtype != REQ_WS || msg == NULL) {

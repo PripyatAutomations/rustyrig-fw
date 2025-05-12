@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,14 +15,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "cat.h"
-#include "posix.h"
-#include "ws.h"
-#include "ptt.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/cat.h"
+#include "inc/posix.h"
+#include "inc/ws.h"
+#include "inc/ptt.h"
 
 extern struct GlobalState rig;	// Global state
 

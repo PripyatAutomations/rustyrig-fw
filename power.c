@@ -13,7 +13,7 @@
  * - Record usage statistics, total TX time, lifetime power used
  * - Est. lifetime and current BTU of heat production (enclosure temp - inlet temp based)
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,8 +21,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "state.h"
-#include "power.h"
+#include "inc/state.h"
+#include "inc/power.h"
 
 // 0: 12V, 1: 48V
 float get_voltage(uint32_t src) {

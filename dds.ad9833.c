@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "config.h"
+#include "inc/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "state.h"
-#include "logger.h"
-#include "eeprom.h"
-#include "i2c.h"
+#include "inc/state.h"
+#include "inc/logger.h"
+#include "inc/eeprom.h"
+#include "inc/i2c.h"

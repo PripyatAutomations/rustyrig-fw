@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "dict.h"
+#include "inc/dict.h"
 
 /*---------------------------------------------------------------------------
                                 Defines

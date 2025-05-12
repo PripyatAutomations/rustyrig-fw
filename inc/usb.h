@@ -8,6 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_usb_h)
 #define	__rr_usb_h
-#include "config.h"
+#include "inc/config.h"
 
 #endif	// !defined(__rr_usb_h)

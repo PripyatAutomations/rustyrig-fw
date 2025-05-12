@@ -12,7 +12,7 @@
 // We eventually will support both client and server roles
 // but for now focus will be on server
 //
-#include "config.h"
+#include "inc/config.h"
 
 #if	defined(FEATURE_MQTT)
 #include <stddef.h>
@@ -22,13 +22,13 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "cat.h"
-#include "posix.h"
-#include "mqtt.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/cat.h"
+#include "inc/posix.h"
+#include "inc/mqtt.h"
 
 // forward declration
 static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data);

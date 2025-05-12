@@ -9,7 +9,7 @@
 /*
  * Support for a console interface to the radio via io abstraction (socket|serial|pipe|ws)
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,12 +20,12 @@
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>
 #endif
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "console.h"
-#include "help.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/console.h"
+#include "inc/help.h"
 
 bool cons_help(void /*io *port*/) {
    return false;

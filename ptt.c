@@ -12,7 +12,7 @@
  * we also deal with the PA_INHIBIT lines which allow momentarily stopping RF output without
  * powering down the PAs (such as for relay changes in tuning or filters).
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,9 +20,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "logger.h"
-#include "state.h"
-#include "ptt.h"
+#include "inc/logger.h"
+#include "inc/state.h"
+#include "inc/ptt.h"
 
 bool rr_ptt_check_blocked(void) {
     if (rig.tx_blocked) {

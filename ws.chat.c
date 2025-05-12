@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,15 +15,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "auth.h"
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "cat.h"
-#include "posix.h"
-#include "http.h"
-#include "ws.h"
+#include "inc/auth.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/cat.h"
+#include "inc/posix.h"
+#include "inc/http.h"
+#include "inc/ws.h"
 
 #define	CHAT_MIN_REASON_LEN	6
 
@@ -115,7 +115,6 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
          return true;
       }
 
-
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf),
@@ -124,6 +123,7 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
          (reason ? reason : "No reason given"));
       send_global_alert(cptr, "***SERVER***", msgbuf);
       Log(LOG_AUDIT, "admin.kick", msgbuf);
+//      ws_chat_notice(acptr, "disconnected");
       ws_kick_client(acptr, msgbuf);
    } else {
       ws_chat_err_noprivs(cptr, "KICK");

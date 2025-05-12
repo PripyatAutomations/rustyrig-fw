@@ -9,8 +9,8 @@
 #if	!defined(__rr_backend_h)
 #define	__rr_backend_h
 #include <stdbool.h>
-#include "http.h"
-#include "vfo.h"
+#include "inc/http.h"
+#include "inc/vfo.h"
 
 struct rr_backend_funcs {
    // Backend management
@@ -42,9 +42,9 @@ struct rr_backend {
 typedef struct rr_backend rr_backend_t;
 
 
-#include "backend.dummy.h"
-#include "backend.hamlib.h"
-#include "backend.internal.h"
+#include "inc/backend.dummy.h"
+#include "inc/backend.hamlib.h"
+#include "inc/backend.internal.h"
 
 extern bool rr_backend_init(void);
 extern bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state);

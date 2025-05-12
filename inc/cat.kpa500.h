@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(_rr_cat_kpa500_h)
 #define	_rr_cat_kpa500_h
-#include "config.h"
+#include "inc/config.h"
 
 extern bool rr_cat_kpa500_init(void);
 

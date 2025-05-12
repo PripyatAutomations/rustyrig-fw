@@ -10,7 +10,7 @@
 // Here we support plotting a waterfall onto virtual fb
 // to be sent either to display or network client
 //
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,7 +18,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "eeprom.h"
-#include "logger.h"
-#include "gui.h"
-#include "waterfall.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/gui.h"
+#include "inc/waterfall.h"

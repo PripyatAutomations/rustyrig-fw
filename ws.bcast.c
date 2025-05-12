@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,14 +16,14 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-#include "cat.h"
-#include "codec.h"
-#include "eeprom.h"
-#include "i2c.h"
-#include "logger.h"
-#include "posix.h"
-#include "state.h"
-#include "ws.h"
+#include "inc/cat.h"
+#include "inc/codec.h"
+#include "inc/eeprom.h"
+#include "inc/i2c.h"
+#include "inc/logger.h"
+#include "inc/posix.h"
+#include "inc/state.h"
+#include "inc/ws.h"
 
 extern struct GlobalState rig;	// Global state
 
@@ -71,6 +71,24 @@ bool send_global_alert(http_client_t *cptr, const char *sender, const char *data
    char *escaped_msg = escape_html(data);
    prepare_msg(msgbuf, sizeof(msgbuf), 
       "{ \"alert\": { \"from\": \"%s\", \"msg\": \"%s\", \"ts\": %lu } }",
+      sender, escaped_msg, now);
+   mp = mg_str(msgbuf);
+   ws_broadcast(NULL, &mp);
+   free(escaped_msg);
+
+   return false;
+}
+
+bool ws_chat_notice(http_client_t *cptr, const char *sender, const char *data) {
+   if (/*cptr == NULL ||*/ data == NULL) {
+      return true;
+   }
+
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   struct mg_str mp;
+   char *escaped_msg = escape_html(data);
+   prepare_msg(msgbuf, sizeof(msgbuf), 
+      "{ \"talk\": { \"cmd\": \"NOTICE\", \"from\": \"%s\", \"data\": \"%s\", \"ts\": %lu } }",
       sender, escaped_msg, now);
    mp = mg_str(msgbuf);
    ws_broadcast(NULL, &mp);

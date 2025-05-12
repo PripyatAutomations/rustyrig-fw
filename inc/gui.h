@@ -13,9 +13,9 @@
 // push images to a canvas on nextion for waterfall, etc
 #if	!defined(__rr_gui_h)
 #define	__rr_gui_h
-#include "config.h"
-#include "gui.fb.h"
-#include "gui.nextion.h"
+#include "inc/config.h"
+#include "inc/gui.fb.h"
+#include "inc/gui.nextion.h"
 
 extern bool gui_init(void);
 extern bool gui_update(void);

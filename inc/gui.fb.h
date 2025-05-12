@@ -11,7 +11,7 @@
 //
 #if	!defined(__rr_gui_fb_h)
 #define	__rr_gui_fb_h
-#include "config.h"
+#include "inc/config.h"
 
 struct gui_fb_state {
     uint8_t	fb_width,

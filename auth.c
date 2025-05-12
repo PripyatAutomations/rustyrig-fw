@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "config.h"
+#include "inc/config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -18,16 +18,16 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "cat.h"
-#include "posix.h"
-#include "http.h"
-#include "ws.h"
-#include "util.string.h"
-#include "auth.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/cat.h"
+#include "inc/posix.h"
+#include "inc/http.h"
+#include "inc/ws.h"
+#include "inc/util.string.h"
+#include "inc/auth.h"
 
 extern struct GlobalState rig;	// Global state
 

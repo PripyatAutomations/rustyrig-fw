@@ -11,7 +11,7 @@
 //
 // Most of the ugly bits should go in the per-backend sources
 //
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,16 +19,16 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "cat.h"
-#include "posix.h"
-#include "au.h"
-#include "au.alsa.h"
-#include "au.pipe.h"
-#include "au.pipewire.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/cat.h"
+#include "inc/posix.h"
+#include "inc/au.h"
+#include "inc/au.alsa.h"
+#include "inc/au.pipe.h"
+#include "inc/au.pipewire.h"
 #include <opus/opus.h>  // Used for audio compression
 
 typedef struct {

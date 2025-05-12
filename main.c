@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,39 +15,39 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "amp.h"
-#include "atu.h"
-#include "au.h"
-#include "backend.h"
-#include "cat.h"
-#include "eeprom.h"
-#include "faults.h"
-#include "filters.h"
-#include "gpio.h"
-#include "gui.h"
-#include "help.h"
-#include "i2c.h"
-#include "io.h"
-#include "logger.h"
-#include "network.h"
-#include "posix.h"
-#include "ptt.h"
-#include "state.h"
-#include "thermal.h"
-#include "timer.h"
-#include "usb.h"
-#include "codec.h"
-#include "dds.h"
+#include "inc/amp.h"
+#include "inc/atu.h"
+#include "inc/au.h"
+#include "inc/backend.h"
+#include "inc/cat.h"
+#include "inc/eeprom.h"
+#include "inc/faults.h"
+#include "inc/filters.h"
+#include "inc/gpio.h"
+#include "inc/gui.h"
+#include "inc/help.h"
+#include "inc/i2c.h"
+#include "inc/io.h"
+#include "inc/logger.h"
+#include "inc/network.h"
+#include "inc/posix.h"
+#include "inc/ptt.h"
+#include "inc/state.h"
+#include "inc/thermal.h"
+#include "inc/timer.h"
+#include "inc/usb.h"
+#include "inc/codec.h"
+#include "inc/dds.h"
 
 //
 // http ui support
 //
 #if	defined(FEATURE_HTTP)
-#include "http.h"
-#include "ws.h"
+#include "inc/http.h"
+#include "inc/ws.h"
 #endif
 #if	defined(FEATURE_MQTT)
-#include "mqtt.h"
+#include "inc/mqtt.h"
 #endif
 #if	defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;

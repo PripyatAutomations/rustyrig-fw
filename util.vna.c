@@ -15,7 +15,7 @@
  *
  * Someone implement this ;)
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -23,8 +23,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "i2c.h"
-#include "state.h"
-#include "eeprom.h"
-#include "logger.h"
-#include "util.vna.h"
+#include "inc/i2c.h"
+#include "inc/state.h"
+#include "inc/eeprom.h"
+#include "inc/logger.h"
+#include "inc/util.vna.h"

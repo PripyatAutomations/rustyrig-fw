@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <arpa/inet.h>
-#include "mongoose.h"
+#include "inc/mongoose.h"
 
 ///////
 // many of these need moved to config; decide if runtime or build? (prob build)

@@ -10,7 +10,7 @@
  * Here we implement timers (periodic and one-shot) in a platform
  * independent manner.
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,10 +18,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "logger.h"
-#include "state.h"
-#include "timer.h"
-#include "mongoose.h"
+#include "inc/logger.h"
+#include "inc/state.h"
+#include "inc/timer.h"
+#include "inc/mongoose.h"
 
 // timer_create_periodic:
 //	Create a timer that occurs every interval milliseconds

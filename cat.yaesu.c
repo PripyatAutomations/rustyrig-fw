@@ -16,7 +16,7 @@
  *
  * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -25,11 +25,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "logger.h"
-#include "cat.h"
-#include "cat.yaesu.h"
-#include "state.h"
-#include "ptt.h"
+#include "inc/logger.h"
+#include "inc/cat.h"
+#include "inc/cat.yaesu.h"
+#include "inc/state.h"
+#include "inc/ptt.h"
 
 #if	defined(CAT_YAESU)
 // Function stubs for all FT-891 CAT commands

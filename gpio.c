@@ -9,7 +9,7 @@
 /*
  * Here we deal with gpio on our various platforms
  */
-#include "config.h"
+#include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "state.h"
-#include "gpio.h"
-#include "logger.h"
+#include "inc/state.h"
+#include "inc/gpio.h"
+#include "inc/logger.h"
 
 #if	defined(HOST_POSIX)
 #include <stdio.h>

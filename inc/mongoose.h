@@ -61,7 +61,7 @@ extern "C" {
 #endif  // !defined(MG_ARCH)
 
 #if !defined(MG_ARCH) || (MG_ARCH == MG_ARCH_CUSTOM)
-#include "mongoose_config.h"  // keep this include
+#include "inc/mongoose_config.h"  // keep this include
 #endif
 
 #if !defined(MG_ARCH)
@@ -314,11 +314,11 @@ int mkdir(const char *, mode_t);
 #include <string.h>
 #include <time.h>
 #if MG_ARCH == MG_ARCH_CMSIS_RTOS1
-#include "cmsis_os.h"  // keep this include
+#include "inc/cmsis_os.h"  // keep this include
 // https://developer.arm.com/documentation/ka003821/latest
 extern uint32_t rt_time_get(void);
 #elif MG_ARCH == MG_ARCH_CMSIS_RTOS2
-#include "cmsis_os2.h"  // keep this include
+#include "inc/cmsis_os2.h"  // keep this include
 #endif
 
 #define strdup(s) ((char *) mg_strdup(mg_str(s)).buf)
@@ -3008,8 +3008,8 @@ struct mg_profitem {
 
 #if MG_ENABLE_TCPIP && defined(MG_ENABLE_DRIVER_CMSIS) && MG_ENABLE_DRIVER_CMSIS
 
-#include "Driver_ETH_MAC.h"  // keep this include
-#include "Driver_ETH_PHY.h"  // keep this include
+#include "inc/Driver_ETH_MAC.h"  // keep this include
+#include "inc/Driver_ETH_PHY.h"  // keep this include
 
 #endif
 
@@ -3139,9 +3139,9 @@ bool mg_phy_up(struct mg_phy *, uint8_t addr, bool *full_duplex,
 #if MG_ENABLE_TCPIP && MG_ARCH == MG_ARCH_PICOSDK && \
     defined(MG_ENABLE_DRIVER_PICO_W) && MG_ENABLE_DRIVER_PICO_W
 
-#include "cyw43.h"              // keep this include
-#include "pico/cyw43_arch.h"    // keep this include
-#include "pico/unique_id.h"     // keep this include
+#include "inc/cyw43.h"              // keep this include
+#include "inc/pico/cyw43_arch.h"    // keep this include
+#include "inc/pico/unique_id.h"     // keep this include
 
 struct mg_tcpip_driver_pico_w_data {
   char *ssid;

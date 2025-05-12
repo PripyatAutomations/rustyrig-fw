@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_gpio_h)
 #define	__rr_gpio_h
-#include "config.h"
+#include "inc/config.h"
 #include <stdbool.h>
 #if	defined(HOST_POSIX)
 // XXX: Include host gpio support
