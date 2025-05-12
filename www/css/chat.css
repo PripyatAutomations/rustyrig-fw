@@ -37,24 +37,28 @@
    padding-left: 0.5em;
    padding-right: 0.5em;
    background-color: #dcdcdc;
+   font-size: clamp(0.5em, 1vw + 0.3em, 1em);
 }
 
 #chat-box {
-   flex: 1;
+/*   flex: 1; */
    position: fixed;
    top: 3.8em;
    left: 0px;
-/*  overflow: auto; */
    overflow-y: auto;
    overflow-x: hidden;
    padding: 10px;
+   width: CALC(100% - 14.2em);
+   border: 2px solid #ddd;
+   border-radius: 10px;
+   margin-left: 0.1em;
+   margin-bottom: 10px;
+   height: CALC(100% - 12em);
    border: 2px solid #ddd;
    border-radius: 10px;
    background-color: #dcdcdc;
-   width: CALC(100% - 14.2em);
-   height: CALC(100% - 12em);
    margin-left: 0.1em;
-   margin-bottom: 10px;
+   width: calc(100% - var(--user-list-width, 14.2em));
 }
 
 #chat-input {

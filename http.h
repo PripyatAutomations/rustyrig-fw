@@ -118,7 +118,6 @@ extern http_client_t *http_add_client(struct mg_connection *c, bool is_ws);
 extern void http_remove_client(struct mg_connection *c);
 extern http_client_t *http_find_client_by_c(struct mg_connection *c);
 extern http_client_t *http_find_client_by_token(const char *token);
-extern http_client_t *http_find_client_by_nonce(const char *nonce);
 extern http_client_t *http_find_client_by_guest_id(int gid);
 extern http_client_t *http_find_client_by_name(const char *name);
 extern void http_expire_sessions(void);                                        // ping clients, drop pinged out ones, etc

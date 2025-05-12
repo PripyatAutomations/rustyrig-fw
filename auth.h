@@ -14,7 +14,6 @@ extern http_user_t http_users[HTTP_MAX_USERS];
 extern int http_getuid(const char *user);
 extern http_client_t *http_find_client_by_name(const char *name);
 extern bool http_save_users(const char *filename);
-extern http_client_t *http_find_client_by_nonce(const char *nonce);
 extern int http_load_users(const char *filename);
 extern bool has_priv(int uid, const char *priv);
 extern int generate_random_guest_id(int digits);

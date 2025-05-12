@@ -269,8 +269,8 @@ int http_load_users(const char *filename) {
    return 0;
 }
 
-
-http_client_t *http_find_client_by_nonce(const char *nonce) {
+// find by login challenge
+static http_client_t *http_find_client_by_nonce(const char *nonce) {
    http_client_t *cptr = http_client_list;
    int i = 0;
 
@@ -288,7 +288,7 @@ http_client_t *http_find_client_by_nonce(const char *nonce) {
       }
 
       if (memcmp(cptr->nonce, nonce, strlen(cptr->nonce)) == 0) {
-         Log(LOG_CRAZY, "http.core", "hfcbn returning index %i with token |%s| for nonce |%s|", i, cptr->token, cptr->nonce);
+         Log(LOG_CRAZY, "http.core", "hfcbn returning index %i for nonce |%s|", cptr->nonce);
          return cptr;
       }
       i++;
@@ -423,7 +423,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    } else if (strcasecmp(cmd, "logout") == 0) {
       http_client_t *cptr = http_find_client_by_c(c);
       Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x> token |%s|",
-          (cptr->chatname ? cptr->chatname : ""),
+          (cptr->chatname[0] != '\0' ? cptr->chatname : ""),
           cptr, c,
           (token != NULL ? token : "NONE"));
       ws_kick_client_by_c(c, "Logged out. 73!");

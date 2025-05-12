@@ -305,7 +305,7 @@ function ws_connect() {
 
                   // Clear the chat window if changing users
                   if (login_user !== "GUEST" && auth_user !== login_user.toUpperCase()) {
-                     clear_chatbox();
+                     chatbox_clear();
                   }
 
                   logged_in = true;
@@ -506,6 +506,7 @@ function latency_get_avg() {
 
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_init() {
+   // try to prevent submitting a GET for this
    $(document).on('submit', 'form', function(e) {
       e.preventDefault();
    });
@@ -524,7 +525,7 @@ window.webui_inits.push(function webui_init() {
       var dark_mode = localStorage.getItem("dark_mode") !== "false"
       set_dark_mode(!dark_mode);
    });
-   $('span#tab-logout').click(function() { clear_chatbox(); logout(); });
+   $('span#tab-logout').click(function() { logout(); });
    chat_append('<div><span class="error">***** New commands are available! See /help for chat help and !help for rig commands *****</span></div>');
 
    // Reset buttons

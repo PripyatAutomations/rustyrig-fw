@@ -119,4 +119,10 @@ function logout() {
       }
    };
    socket.send(JSON.stringify(msgObj));
+   if (typeof chatbox_clear === "function") {
+      chatbox_clear();
+   }
+   if (typeof syslog_clear === "function") {
+      syslog_clear();
+   }
 }

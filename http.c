@@ -461,7 +461,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    http_client_list = cptr;
 
    http_users_connected++;
-   Log(LOG_INFO, "http", "Added new client at cptr:<%x> with token |%s| (%d clients total now)", cptr, cptr->token, http_users_connected);
+   Log(LOG_INFO, "http", "Added new client at cptr:<%x> (%d clients total now)", cptr, http_users_connected);
    return cptr;
 }
 

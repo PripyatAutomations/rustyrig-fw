@@ -22,7 +22,7 @@ function chat_append(msg) {
    }, 10);
 };
 
-function clear_chatbox() {
+function chatbox_clear() {
    $('#chat-box').empty();
 
    setTimeout(function () {
@@ -130,6 +130,22 @@ function chat_init() {
          $('#user-menu').hide('slow');
       });
    });
+
+/*
+   function updateUserListWidth() {
+      let width = $('#chat-user-list').outerWidth();
+      $(':root').css('--user-list-width', width + 'px');
+   }
+
+   $(document).ready(() => {
+      updateUserListWidth();
+
+      // Track resize with polling (since resize events don't fire on divs)
+      setInterval(() => {
+         updateUserListWidth();
+      }, 300); // light polling
+   });
+*/
 }
 
 function cul_offline() {
@@ -315,7 +331,7 @@ function parse_chat_cmd(e) {
          switch(command.toLowerCase()) {
             // commands with no arguments
             case 'clear':
-               clear_chatbox();
+               chatbox_clear();
                break;
             case 'clearlog':
                chat_append('<div><span class="error">Cleared syslog window</span></div>');
@@ -338,6 +354,9 @@ function parse_chat_cmd(e) {
             case 'log':
                show_syslog_window();
                break;
+            case 'logout':
+            case 'quit':
+               logout();
             case 'reloadcss':
                console.log("Reloading CSS on user command");
                reload_css();
@@ -346,6 +365,7 @@ function parse_chat_cmd(e) {
             case 'help':
                chat_append('<div><span class="error">*** HELP *** All commands start with /</span></div>');
                chat_append('<div><span class="error">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
+               chat_append('<div><span class="error">/quit or /logout to end session</span></div>');
                chat_append('<div><span class="error">/clear&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
                chat_append('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
                chat_append('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');

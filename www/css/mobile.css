@@ -46,14 +46,6 @@
       width: CALC(100% - 6em);
    }
 
-   #chat-box {
-      height: CALC(100% - 15.8em);
-   }
-
-   #chat-user-list {
-      height: CALC(100% - 14.5em);
-   }
-
    #chat-input {
       bottom: 7.5em;
       width: CALC(100% - 5.5em);
@@ -69,5 +61,16 @@
       left: 1em;
       height: CALC(100% - 2.2em);
       width: CALC(100% - 2.2em);
+   }
+
+   #chat-user-list {
+      height: auto;
+      width: auto; /* let user resize */
+      height: CALC(100% - 14.5em);
+   }
+
+   #chat-box {
+      height: CALC(100% - 15.8em);
+      width: calc(100% - var(--user-list-width, 14.2em));
    }
 }
