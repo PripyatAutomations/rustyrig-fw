@@ -77,11 +77,11 @@ div#button-box {
    border-radius: 5px;
    border: 2px solid #ccc;
    height: 2.5em;
-   background: #dcdcdc;
+   background: Gainsboro;
    border: 2px solid #c0c0c0;
 }
 
-#upload-btn, #clear-btn, #send-btn, .login-btn, #emoji-btn, #bell-btn {
+#upload-btn, #clear-btn, #send-btn, #emoji-btn, #bell-btn {
    padding-top: 0.15em;
    padding-bottom: 0.15em;
    margin-left: 0.1em;
@@ -91,7 +91,7 @@ div#button-box {
    height: 3em;
    position: relative;
    height: 100%;
-   background: #3f3f3f;
+   background: GhostWhite;
 }
 
 
@@ -123,6 +123,7 @@ span#alert-vol { }
    color: DarkSteelBlue;
    margin: 5px 0;
 }
+
 #clear-btn, #send-btn, #bell-btn {
    height: 2.6em;
    padding-bottom: 5px;
@@ -301,7 +302,7 @@ button#img-clearclip {
    margin: 0;
 }
 
-.cul-self {
+.cul-self, .cul-other {
    font-weight: bold;
    margin-right: 8px;             /* Space between username and badges */
 }
@@ -351,13 +352,13 @@ button#img-clearclip {
 /* Styling for the user-menu */
 #user-menu {
     position: absolute;
-    top: 75px;
-    right: 20px;
+    top: 0px;
+    right: 3em;
     border: 1px solid #ccc;
     background: #c0c0c0;
     color: black;
     padding: 10px;
-    width: 200px;
+    width: CALC(60% - 1em);
     z-index: 1000;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: none;

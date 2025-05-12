@@ -2,7 +2,6 @@
 <html lang="en">
  <head>
   <meta charset="UTF-8"/>
-<!--  <meta name="viewport" content="width=device-width, initial-scale=1.0"/> -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <script src="js/jquery.min.js"></script>
   <script src="js/jquery.chroma-hash.js"></script>
@@ -19,12 +18,16 @@
   <!-- XXX: This should be minified into a single file for production builds -->
   <link rel="stylesheet" id="css-main" href="css/main.css"/> <!-- default (light theme) -->
   <link rel="stylesheet" id="css-chat" href="css/chat.css"/> <!-- chat tab -->
+  <link rel="stylesheet" id="css-keyboard" href="css/keyboard.css"/> <!-- On-screen (and emoji) keyboard -->
   <link rel="stylesheet" id="css-rigctl" href="css/rigctl.css"/> <!-- rig control tab -->
+  <link rel="stylesheet" id="css-mobile" href="css/mobile.css"/> <!-- mobile support -->
   <link rel="stylesheet" id="css-main-dark" href="css/dark.css"/> <!-- dark theme -->
   <link rel="stylesheet" id="css-chat-dark" href="css/chat-dark.css"/> <!-- chat tab (dark theme) -->
-  <link rel="stylesheet" id="css-rigctl" href="css/rigctl-dark.css"/> <!-- rig control tab (dark theme) -->
-  <link rel="stylesheet" id="css-keyboard" href="css/keyboard.css"/> <!-- On-screen (and emoji) keyboard -->
-  <link rel="stylesheet" id="css-mobile" href="css/mobile.css"/> <!-- mobile support -->
+  <link rel="stylesheet" id="css-rigctl-dark" href="css/rigctl-dark.css"/> <!-- rig control tab (dark theme) -->
+<!--
+  <link rel="stylesheet" id="css-keyboard-dark" href="css/keyboard-dark.css"/>
+-->
+<!-- On-screen (and emoji) keyboard (dark theme) -->
   <link rel="stylesheet" id="css-mobile-dark" href="css/mobile-dark.css"/> <!-- mobile support (dark theme) -->
   <title>rustyrig webui</title>
  </head>
@@ -41,8 +44,8 @@
    <span id="menu-tabs">
     <span id="tab-rig" class="menu-tab">rig</span>
     <span id="tab-chat" class="menu-tab">chat</span>
-    <span id="tab-syslog" class="menu-tab">syslog</span>
-    <span id="tab-config" class="menu-tab">config</span>
+    <span id="tab-syslog" class="menu-tab">log</span>
+    <span id="tab-config" class="menu-tab">cfg</span>
     <span id="tab-dark" class="menu-tab">dark</span>
     <span id="tab-logout" class="menu-tab menu-right">logout</span>
    </span><!-- menu_tabs -->
@@ -66,8 +69,8 @@
      <tr>
       <td colspan="2">
        <div id="login-btn-box">
-        <button id="submit" value="Submit" class="green-btn login-btn">Login</button>
-        <button id="clear-btn" value="Clear" class="red-btn">Reset</button>
+        <button id="login-submit-btn" value="Submit" class="green-btn login-btn">Login</button>
+        <button id="login-reset-btn" value="Clear" class="red-btn reset-btn">Reset</button>
        </div>
       </td>
      </tr>
@@ -75,19 +78,18 @@
    </form>
   </div><!-- win_login -->
   <div id="win-chat" class="window">
-   <div id="upper-wrapper"></div>
-   <div id="lower-wrapper">
+   <div id="upper-wrapper">
     <div id="chat-container">
      <div id="chat-box" tabindex="-1">
       <div id="emoji-keyboard"></div>
-     </div>
+     </div> <!-- chat-box -->
      <div id="chat-user-list" tabindex="-1">
       <h4>Connected Users</h4>
       <hr width="100%"/>
       <ul id="cul-list"></ul>
-     </div>
-    </div>
-   <div id="user-menu">
+     </div> <!-- chat-user-list -->
+    </div> <!-- chat-container -->
+    <div id="user-menu">
      <div id="um-header" style="position: relative;">
       <span id="um-close" style="position: absolute; top: 5px; right: 5px; cursor: pointer;">✖</span>
      </div>
@@ -106,6 +108,8 @@
       </span>
      </div>
     </div>
+   </div> <!-- upper-wrapper -->
+   <div id="lower-wrapper">
     <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
     <br/>
     <div id="button-box">
@@ -117,19 +121,19 @@
      <button id="bell-btn" data-checked="true" title="Notification sounds">🔔</button>
      <input type="range" id="alert-vol" min="0" max="100" step="10" value="100"/>
      <input type="file" id="file-upload" accept="image/*" style="display: none;">
-    </div>
-    <div id="chat-whois"></div>
-    <audio id="chat-ding" src="sounds/bell.mp3" tabindex="-1"></audio>
-    <audio id="join-ding" src="sounds/join.mp3" tabindex="-1"></audio>
-    <audio id="leave-ding" src="sounds/leave.mp3" tabindex="-1"></audio>
-   </div>
+    </div> <!-- button-box -->
+   </div> <!-- lower-wrapper -->
+   <div id="chat-whois"></div>
+   <audio id="chat-ding" src="sounds/bell.mp3" tabindex="-1"></audio>
+   <audio id="join-ding" src="sounds/join.mp3" tabindex="-1"></audio>
+   <audio id="leave-ding" src="sounds/leave.mp3" tabindex="-1"></audio>
    <div id="reason-modal" style="display:none">
     <form id="reason-form">
      <div id="reason-title" style="color:white; margin-bottom:10px;"></div>
      <textarea id="reason-text" style="width:100%; height:60%; resize:none;"></textarea><br/>
      <button type="submit">Submit</button>
     </form>
-   </div>
+   </div> <!-- reason-modal -->
   </div> <!-- win-chat -->
   <div id="win-rig" class="window">
    <div id="rig-top-status"></div>

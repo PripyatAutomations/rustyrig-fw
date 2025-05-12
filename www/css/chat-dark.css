@@ -3,3 +3,31 @@
  *
  * Please put dark overrides here
  */
+.chat-msg-prefix {
+/*   color: DarkTurquoise; */
+   color: DarkSeaGreen;
+}
+
+.chat-my-msg-prefix {
+   color: DarkSalmon;
+}
+
+/* Button Box */
+div#button-box {
+   background: DarkSlateGrey;
+   border: 2px solid #c0c0c0;
+}
+
+#upload-btn, #clear-btn, #send-btn, #emoji-btn, #bell-btn {
+   background: SlateGrey;
+}
+
+span#alert-vol { }
+
+.cul-self {
+   color: PaleTurquoise;
+}
+
+.cul-other {
+   color: NavajoWhite;
+}

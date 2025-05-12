@@ -8,16 +8,46 @@
 
    #tab-strip {
       display: flex;
-      height: 2.8em;
+/*      height: 2.4em; */
    }
-   #menu-tab {
+
+   span#menu-tabs {
+      margin-top: 0.4em;
+      top: 0;
+      left: 0;
+      height: 1.3em;
+   }
+
+   span.menu-tab {
+      border: 2px solid #0a0a0a;
+      background: #c0c0c0;
+      color: black;
+      font-size: 1em;
+      font-weight: bold;
+      margin-right: 0.25em;
+      margin-left: 0.25em;
+      height: 1.5em;
+      line-height: 1.3em;
+      top: 0;
+      padding-left: 0.5em;
+      padding-right: 0.5em;
+   }
+
+   span.menu-tab:hover {
+   }
+
+   #tbl-login {
+      height: 100%;
+      padding: 2em;
+      width: 100%;
    }
 
    #win-login {
-      top: 1em;
-      left: 1em;
-      height: CALC(100% - 2.2em);
-      width: CALC(100% - 2.2em);
+      position: absolute;
+      top: 1.5em;
+      left: 1.5em;
+      height: 100%;
+      width: CALC(100% - 6em);
    }
 
    #chat-box {

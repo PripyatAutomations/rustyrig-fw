@@ -1,3 +1,15 @@
+.error {
+   color: Orange;
+}
+
+.red {
+   color: red;
+}
+
+.msg-connected {
+   color: Gold;
+}
+
 a, a:visited, a:active {
    color: #004fcc;
 }
@@ -103,8 +115,4 @@ a.chat-link {
 
 .chat-status {
    color: LightSteelBlue;
-}
-
-.msg-connected {
-   color: #10c010;
 }

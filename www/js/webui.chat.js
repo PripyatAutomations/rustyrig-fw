@@ -153,9 +153,16 @@ function cul_update(message) {
           badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';
        }
 
+       // Change color for our own name in CUL
+       let cul_class = 'cul-other';
+       if (auth_user === user.name) {
+          cul_class = 'cul-self';
+        }
+
+       // render the user item (li)
        const userItem = `<li>
           <span class="chat-user-list" onclick="show_user_menu('${user.name}')">
-             ${badges}<span class="cul-self">${user.name}</span>${tx_badges}
+             ${badges}<span class="${cul_class}">${user.name}</span>${tx_badges}
           </span>
        </li>`;
 
