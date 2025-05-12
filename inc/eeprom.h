@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "inc/state.h"
-#include "inc/eeprom_types.h"
+#include "eeprom_types.h"
 
 #define	PIN_LEN	8		// 8 byte pin
 

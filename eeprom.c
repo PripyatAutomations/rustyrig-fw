@@ -46,7 +46,7 @@
 #include "inc/i2c.h"
 
 #define	EEPROM_C		// Let the header know we're in the C file
-#include "inc/eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
+#include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
 
 // Returns either the index of they key in eeprom_layout or -1 if not found
 uint32_t eeprom_offset_index(const char *key) {
