@@ -81,6 +81,7 @@ window.webui_inits.push(function webui_chat_init() { chat_init(); });
 
 function chat_init() {
   $(document).ready(function() {
+     let chatBox = $('#chat-box');
    /*
     * XXX: This needs to check the active tab first
     *
@@ -93,7 +94,6 @@ function chat_init() {
 
       // scroll the chatbox down when window is resized (keyboard open/closed, etc)
       $(window).on('resize', function() {
-         let chatBox = $('#chat-box');
 /* XXX: Or maybe we want to just scroll if they're near the bottom already? Need to figure out common kbd size and replace the 50 with the max
          let el = chatBox[0];
          if (el.scrollHeight - el.scrollTop - el.clientHeight < 50) {
@@ -132,19 +132,29 @@ function chat_init() {
    });
 
 /*
-   function updateUserListWidth() {
-      let width = $('#chat-user-list').outerWidth();
-      $(':root').css('--user-list-width', width + 'px');
+   function cul_auto_resize() {
+      const $container = $('#chat-container');
+      const $chatBox = $('#chat-box');
+      const $userList = $('#chat-user-list');
+
+      const containerWidth = $container.width();
+      const chatBoxWidth = $chatBox.outerWidth();
+      $userList.width(containerWidth - chatBoxWidth);
    }
 
-   $(document).ready(() => {
-      updateUserListWidth();
+   // Initial sizing
+   cul_auto_resize();
 
-      // Track resize with polling (since resize events don't fire on divs)
-      setInterval(() => {
-         updateUserListWidth();
-      }, 300); // light polling
-   });
+   // Update on window resize
+   $(window).on('resize', cul_auto_resize);
+   let lastWidth = 0;
+   setInterval(function() {
+      const currentWidth = $('#chat-box').width();
+      if (currentWidth !== lastWidth) {
+         lastWidth = currentWidth;
+         cul_auto_resize();
+      }
+   }, 100);
 */
 }
 

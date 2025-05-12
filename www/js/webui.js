@@ -33,8 +33,10 @@ function reload_css() {
     $link.attr('href', href + '?_=' + new Date().getTime());
   });
 
-   let chatBox = $('#chat-box');
-   chatBox.scrollTop(chatBox[0].scrollHeight);
+   setTimeout(function() {
+      let chatBox = $('#chat-box');
+      chatBox.scrollTop(chatBox[0].scrollHeight);
+   }, 250);
 }
 
 function msg_timestamp(msg_ts) {
@@ -274,12 +276,14 @@ function ws_connect() {
                show_login_window();
                $('span#sub-login-error-msg').empty();
                $('span#sub-login-error-msg').append("<span>", error, "</span>");
+               form_disable(true);
 
                // Get rid of message after about 30 seconds XXX: disabled for now, add a check if /kicked and dont timeout
 //               setTimeout(function() { $('div#sub-login-error').hide(); }, 30000);
 
                $('div#sub-login-error').show();
                $('button#login-err-ok').click(function() {
+                  form_disable(false);
                   $('div#sub-login-error').hide();
                   $('span#sub-login-error-msg').empty();
                   $('input#user').focus();
@@ -590,7 +594,7 @@ window.webui_inits.push(function webui_init() {
          event.preventDefault();
          $('#chat-input').val('');
          form_disable(false);
-      } else if (!$(event.target).is('#chat-input, a, [tabindex]')) {
+      } else if (!$(event.target).is('#reason-modal, #chat-input, a, [tabindex]')) {
          // are we logged in?
          if (logged_in) {	// Focus the chat input field
             $('#chat-input').focus();

@@ -3,14 +3,6 @@
  *
  * Please put dark overrides here
  */
-.chat-msg-prefix {
-/*   color: DarkTurquoise; */
-   color: DarkSeaGreen;
-}
-
-.chat-my-msg-prefix {
-   color: DarkSalmon;
-}
 
 /* Button Box */
 div#button-box {
@@ -24,10 +16,20 @@ div#button-box {
 
 span#alert-vol { }
 
-.cul-self {
-   color: PaleTurquoise;
+.chat-msg-prefix, .chat-my-msg-prefix { 
+   font-size: 16px;
 }
 
-.cul-other {
+.cul-self, .cul-other {
+   font-weight: bold;
+   margin-right: 8px;
+}
+
+.chat-my-msg-prefix, .cul-self {
    color: NavajoWhite;
 }
+
+.chat-msg-prefix, .cul-other {
+   color: PaleTurquoise; 
+}
+
