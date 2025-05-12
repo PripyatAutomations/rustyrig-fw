@@ -7,7 +7,8 @@ var chat_ding;			// sound widget for chat ding
 var join_ding;			// sound widget for join ding
 var leave_ding;			// sound widget for leave ding
 
-function notification_init() {
+if (!window.webui_inits) window.webui_inits = [];
+window.webui_inits.push(function webui_chat_init() {
    // Attach the sound objects (chat/join/leave)
    chat_ding = document.getElementById('chat-ding');
    join_ding = document.getElementById('join-ding');
@@ -45,7 +46,7 @@ function notification_init() {
       }
    });
 */
-}
+});
 
 function toggle_mute() {
    let $btn = $('#bell-btn');

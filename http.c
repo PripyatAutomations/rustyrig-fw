@@ -30,6 +30,7 @@
 #include "ws.h"
 #include "auth.h"
 #include "util.string.h"
+#include "util.file.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
 #else
@@ -61,12 +62,25 @@ static const struct mg_http_serve_opts http_opts = {
 };
 
 static struct http_res_types http_res_types[] = {
+   { "7z",  "Content-Type: application/x-7z-compressed\r\n" },
+   { "css",  "Content-Type: text/css\r\n" },
+   { "htm",  "Content-Type: text/html\r\n" },
    { "html", "Content-Type: text/html\r\n" },
+   { "js",   "Content-Type: application/javascript\r\n" },
    { "json", "Content-Type: application/json\r\n" },
    { "jpg",  "Content-Type: image/jpeg\r\n" },
+   { "mp3",  "Content-Type: audio/mpeg\r\n" },
+   { "ogg",  "Content-Type: audio/ogg\r\n" },
+   { "otf",  "Content-Type: font/otf\r\n" },
    { "png",  "Content-Type: image/png\r\n" },
    { "svg",  "Content-Type: image/svg\r\n" },
-   { "webp",  "Content-Type: image/webp\r\n" }
+   { "tar",  "Content-Type: application/x-tar\r\n" },
+   { "ttf",  "Content-Type: font/ttf\r\n" },
+   { "txt",  "Content-Type: text/plain\r\n" },
+   { "webp", "Content-Type: image/webp\r\n" },
+   { "woff", "Content-Type: font/woff\r\n" },
+   { "woff2", "Content-Type: font/woff2\r\n" },
+   { "zip",  "Content-Type: application/zip\r\n" }
 };
 
 // Perform various checks on synthesized URLs to make sure the user isn't up to anything shady...
@@ -242,13 +256,38 @@ void http_tls_init(void) {
 }
 #endif
 
-// Serve www-root for static files
 bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
-   mg_http_serve_dir(c, msg, &http_opts);
-   return false;
+   struct mg_http_serve_opts opts = http_opts;
+
+   // Copy URI into null-terminated buffer
+   char path[256];
+   snprintf(path, sizeof(path), "%.*s", (int)msg->uri.len, msg->uri.buf);
+/*
+   if (is_dir(path + 1)) {
+      // fallback to directory handler
+*/
+      mg_http_serve_dir(c, msg, &opts);
+      return false;
+//   } else {
+/*
+      // Find last '.' in the path for the extension
+      const char *ext = strrchr(path, '.');
+      if (ext && *(ext + 1)) {
+         const char *ctype = http_content_type(ext + 1);
+         mg_printf(c,
+            "HTTP/1.1 200 OK\r\n"
+            "%s"
+            "\r\n",
+            ctype);
+*/
+         mg_http_serve_file(c, msg, path, &opts);  // serve the file manually
+//         return false;
+//      }
+//   }
+//   return true;
 }
 
-///// Main HTTP callback
+ ///// Main HTTP callback
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 

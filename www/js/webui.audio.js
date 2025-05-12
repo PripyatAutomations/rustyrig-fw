@@ -1,3 +1,8 @@
+if (!window.webui_inits) window.webui_inits = [];
+window.webui_inits.push(function webui_audio_init() {
+   // initialize audio
+});
+
 function start_tx_audio() {
    navigator.mediaDevices.getUserMedia({ audio: true })
       .then(function(stream) {

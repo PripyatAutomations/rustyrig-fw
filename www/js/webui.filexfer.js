@@ -1,6 +1,48 @@
 /////////////////////////////
 // File Xfer / Image paste //
 /////////////////////////////
+
+if (!window.webui_inits) window.webui_inits = [];
+window.webui_inits.push(function webui_filexfer_init() {
+   // Trigger file input when button is clicked
+   $('#upload-btn').on('click', function() {
+      $('#file-upload').click();
+   });
+
+   // Handle file selection
+   $('#file-upload').on('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+         const dataUrl = evt.target.result;
+         form_disable(true);
+         const confirmBox = $('<div class="img-confirm-box">')
+            .append(`<p>Send this image?</p><img id="img-confirm-img" src="${dataUrl}" />`)
+            .append('<button id="img-post" class="green-btn">Yes</button>')
+            .append('<button id="img-cancel" class="gray-btn">Cancel</button>');
+
+         $('body').append(confirmBox);
+
+         confirmBox.find('#img-post').click(() => {
+            send_chunked_file(dataUrl, file.name, file.type);
+            confirmBox.remove();
+            $('#file-upload').val('');
+         });
+
+         confirmBox.find('#img-cancel').click(() => {
+            confirmBox.remove();
+            $('#file-upload').val('');
+         });
+
+         form_disable(false);
+         confirmBox.find('#img-post').focus();
+      };
+      reader.readAsDataURL(file);
+   });
+});
+
 const file_chunks = {}; // msg_id => {chunks: [], received: 0, total: N}
 
 // Convert base64 data URI to Blob
@@ -236,43 +278,3 @@ function clear_xfer_chunks() {
    const freedKB = ((before - after) / 1024).toFixed(1);
    console.log(`Cleared file_chunks: ~${freedKB} KB freed`);
 }
-
-$(document).ready(function() {
-   // Trigger file input when button is clicked
-   $('#upload-btn').on('click', function() {
-      $('#file-upload').click();
-   });
-
-   // Handle file selection
-   $('#file-upload').on('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-         const dataUrl = evt.target.result;
-         form_disable(true);
-         const confirmBox = $('<div class="img-confirm-box">')
-            .append(`<p>Send this image?</p><img id="img-confirm-img" src="${dataUrl}" />`)
-            .append('<button id="img-post" class="green-btn">Yes</button>')
-            .append('<button id="img-cancel" class="gray-btn">Cancel</button>');
-
-         $('body').append(confirmBox);
-
-         confirmBox.find('#img-post').click(() => {
-            send_chunked_file(dataUrl, file.name, file.type);
-            confirmBox.remove();
-            $('#file-upload').val('');
-         });
-
-         confirmBox.find('#img-cancel').click(() => {
-            confirmBox.remove();
-            $('#file-upload').val('');
-         });
-
-         form_disable(false);
-         confirmBox.find('#img-post').focus();
-      };
-      reader.readAsDataURL(file);
-   });
-});

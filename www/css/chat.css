@@ -30,7 +30,7 @@
    min-width: 1em;
    max-width: 40%;
    overflow: auto;
-   width: 8.8em;
+   width: 8em;
    height: CALC(100% - 10.8em);
    border: 2px solid #ddd;
    border-radius: 10px;
@@ -342,8 +342,13 @@ button#img-clearclip {
 
 .cul-menu-button {
    border: 1px solid #909090;
-   padding: 0em;
+   padding: 0.25em;
+   font-size: 2em;
+   padding-left: 0.5em;
+   padding-right: 0.5em;
    margin: 0em;
+   margin-bottom: 0.5em;
+   margin-top: 0.5em;
 }
 
 #user-menu ul {
@@ -372,12 +377,12 @@ button#img-clearclip {
 
 #chat-whois {
    position: fixed;
-   top: 5em;
-   left: 5em;
+   top: 0.25em;
+   left: 0.25em;
    padding: 0.5em;
    padding-top: 1em;
-   height: CALC(100% - 10em);
-   width: CALC(100% - 10em);
+   height: CALC(100% - 4.5em);
+   width: CALC(100% - 4.5em);
    border: 2px solid DarkSlateBlue;
    background: DarkBlue;
    font-size: 1.1em;
@@ -466,4 +471,20 @@ button#img-clearclip {
 #reason-modal button:hover {
    color: LightYellow;
    border: 2px solid DarkOrchid;
+}
+
+#win-container {
+   height: calc(var(--vh, 1vh) * 100);
+   overflow: hidden; /* or auto, depending on your layout */
+   display: flex;
+   flex-direction: column;
+}
+
+/* Allow us to resize dynamic */
+#win-rigctl,
+#win-chat,
+#win-syslog,
+#win-config {
+   flex: 1;
+   overflow-y: auto;
 }

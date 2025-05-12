@@ -13,6 +13,13 @@ var ws_last_pinged;
 var ws_keepalives_sent = 0;
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
 
+////////////////////////
+// Latency calculator //
+////////////////////////
+let latency_samples = [];
+var latency_timer;
+const latency_max_samples = 50;
+
 /////
 /// chat stuff that needs to move
 ////
@@ -53,215 +60,6 @@ function send_ping(sock) {
       sock.send("ping " + now);
    }
 }
-
-$(document).ready(function() {
-   $(document).on('submit', 'form', function(e) {
-      e.preventDefault();
-   });
-
-   /////////////////////////////////////
-   // Load settings from LocalStorage //
-   /////////////////////////////////////
-   // bind tab strip handlers
-   $('span#tab-chat').click(function() { show_chat_window(); });
-   $('span#tab-rig').click(function() { show_rig_window(); });
-   $('span#tab-config').click(function() { show_config_window(); });
-   $('span#tab-syslog').click(function() { show_syslog_window(); });
-   $('span#tab-dark').click(function() {  
-      var dark_mode = localStorage.getItem("dark_mode") !== "false"
-      set_dark_mode(!dark_mode);
-   });
-   $('span#tab-logout').click(function() { clear_chatbox(); logout(); });
-
-   if (!logged_in) {
-      login_init();
-   }
-
-   notification_init();
-   chat_init();
-   chat_append('<div><span class="error">***** New commands are available! See /help for chat help and !help for rig commands *****</span></div>');
-
-   // Reset buttons
-   $('input#reset').click(function(evt) {
-      console.log("Form reset");
-   });
-
-   form_disable(true);
-
-   // Toggle display of the emoji keyboard
-   $('#emoji-btn').click(function() {
-      const emojiKeyboard = $('#emoji-keyboard');
-      if (emojiKeyboard.is(':visible')) {
-         emojiKeyboard.hide('slow');
-      } else {
-         emojiKeyboard.show('fast');
-      }
-   });
-
-   // Native listener for ctrl + wheel
-   document.addEventListener('wheel', function(e) {
-      if (e.ctrlKey) {
-         e.preventDefault();
-      }
-   }, { passive: false });
-
-   $(document).on('keydown', function(e) {
-      // prevent / from triggering search
-      // XXX: i *could* make this allow search only if 
-      const inputFocused = document.activeElement.id === 'chat-input';
-
-      // Prevent zooming in/out
-      if (e.ctrlKey && (
-            e.key === '+' || e.key === '-' || 
-            e.key === '=' || e.key === '0' || 
-            e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) {
-         e.preventDefault();
-      } else if (!inputFocused && e.key === '/' && !e.ctrlKey && !e.metaKey) {
-         e.preventDefault();
-      } else if (e.key === "Escape") {
-         if ($('#reason-modal').is(':visible')) {
-            $('#reason-modal').hide('fast');
-         } else if ($('#chat-whois').is(':visible')) {
-            $('#chat-whois').hide('fast');
-         } else if ($('#user-menu').is(':visible')) {
-            $('#user-menu').hide('fast');
-         } else {
-            return;
-         }
-      } else {
-        return;
-      }
-      form_disable(false);
-   });
-
-   $(document).click(function (event) {
-      if ($(event.target).is('#chat-whois')) {
-         event.preventDefault();
-         $(event.target).hide('fast');
-         form_disable(false);
-      } else if ($(event.target).is('#clear-btn')) {
-         event.preventDefault();
-         $('#chat-input').val('');
-         form_disable(false);
-      } else if (!$(event.target).is('#chat-input, a, [tabindex]')) {
-         // are we logged in?
-         if (logged_in) {	// Focus the chat input field
-            $('#chat-input').focus();
-         } else {		// Nope, focus the user field
-            $('form#login input#user').focus();
-         }
-      } else if ($(event.target).is('#reason-modal')) {
-         form_disabled(false);
-      }
-   });
-
-   let completing = false;
-   let completionList = [];
-   let completionIndex = 0;
-   let matchStart = 0;
-   let matchLength = 0;
-
-   function getCULNames() {
-      return $('#cul-list .chat-user-list .cul-self').map(function () {
-         return $(this).text();
-      }).get();
-   }
-
-   function updateCompletionIndicator(name) {
-      if (name) {
-         $('#completion-indicator').text(`🔍 COMPLETING: ${name}`).show();
-      } else {
-         $('#completion-indicator').hide();
-      }
-   }
-
-   $('#chat-input').on('keydown', function (e) {
-      const input = $(this);
-      const text = input.val();
-      const caretPos = this.selectionStart;
-
-      if (e.key === 'Tab') {
-         e.preventDefault();
-
-         if (!completing) {
-            const beforeCaret = text.slice(0, caretPos);
-            const match = beforeCaret.match(/@(\w*)$/);
-
-            if (match) {
-               const word = match[1];
-               matchStart = beforeCaret.lastIndexOf('@' + word);
-               matchLength = word.length;
-               const afterCaret = text.slice(caretPos);
-
-               completionList = getCULNames().filter(name => name.toLowerCase().startsWith(word.toLowerCase()));
-               if (!completionList.length) return;
-
-               completing = true;
-               completionIndex = 0;
-
-               const current = completionList[completionIndex];
-               const completed = text.slice(0, matchStart + 1) + current + afterCaret;
-
-               input.val(completed);
-               const newCaret = matchStart + 1 + current.length;
-               this.setSelectionRange(newCaret, newCaret);
-               updateCompletionIndicator(current);
-               completionIndex = (completionIndex + 1) % completionList.length;
-            }
-         }
-         if (completing && completionList.length) {
-            const currentName = completionList[completionIndex];
-            const atStart = matchStart === 0;
-            const completedText =
-               text.slice(0, matchStart) + currentName + (atStart ? ": " : " ") + text.slice(caretPos);
-
-            input.val(completedText);
-            const newCaret = matchStart + currentName.length + (atStart ? 2 : 1);
-            this.setSelectionRange(newCaret, newCaret);
-
-            updateCompletionIndicator(currentName);
-            completionIndex = (completionIndex + 1) % completionList.length;
-         }
-      } else if (e.key === 'Escape') {
-         if (completing) {
-            input.val(originalText);
-            this.setSelectionRange(matchStart + 1 + originalPrefix.length, matchStart + 1 + originalPrefix.length);
-            completing = false;
-            updateCompletionIndicator(null);
-         }
-      } else if (completing && !e.key.match(/^[a-zA-Z0-9]$/)) {
-         completing = false;
-         updateCompletionIndicator(null);
-      } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
-         e.preventDefault();
-
-         let chatBox = $("#chat-box");
-         let scrollAmount = 30;
-         let pageScrollAmount = chatBox.outerHeight();
-
-         if (e.key === "ArrowUp") {
-            chatBox.scrollTop(chatBox.scrollTop() - scrollAmount);
-         } else if (e.key === "ArrowDown") {
-            chatBox.scrollTop(chatBox.scrollTop() + scrollAmount);
-         } else if (e.key === "PageUp") {
-            chatBox.scrollTop(chatBox.scrollTop() - pageScrollAmount);
-         } else if (e.key === "PageDown") {
-            chatBox.scrollTop(chatBox.scrollTop() + pageScrollAmount);
-         }
-      } else if (completing && (e.key === ' ' || e.key === 'Enter')) {
-         // Finalize current match
-         const finalName = completionList[(completionIndex - 1 + completionList.length) % completionList.length];
-         const finalizedText =
-            text.slice(0, matchStart + 1) + finalName + text.slice(caretPos);
-         input.val(finalizedText);
-
-         const newCaret = matchStart + 1 + finalName.length;
-         this.setSelectionRange(newCaret, newCaret);
-         completing = false;
-         updateCompletionIndicator(null);
-      }
-   });
-});
 
 function make_ws_url() {
    var protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
@@ -664,13 +462,6 @@ function show_config_window() {
    $('div#win-config').show();
 }
 
-////////////////////////
-// Latency calculator //
-////////////////////////
-let latency_samples = [];
-var latency_timer;
-const latency_max_samples = 50;
-
 function latency_send_pings(socket) {
    const now = Date.now();
    socket.send(JSON.stringify({type: 'ping', ts: now}));
@@ -704,5 +495,221 @@ function latency_get_avg() {
    if (latency_samples.length === 0) {
       return null;
    }
+
    let sum = latency_samples.reduce((a, b) => a + b, 0);
-   return sum / latency_samples.length; }
+   return sum / latency_samples.length;
+}
+
+
+if (!window.webui_inits) window.webui_inits = [];
+window.webui_inits.push(function webui_init() {
+   $(document).on('submit', 'form', function(e) {
+      e.preventDefault();
+   });
+
+   /////////////////////////////////////
+   // Load settings from LocalStorage //
+   /////////////////////////////////////
+   // bind tab strip handlers
+   $('span#tab-chat').click(function() {
+      show_chat_window();
+   });
+   $('span#tab-rig').click(function() { show_rig_window(); });
+   $('span#tab-config').click(function() { show_config_window(); });
+   $('span#tab-syslog').click(function() { show_syslog_window(); });
+   $('span#tab-dark').click(function() {  
+      var dark_mode = localStorage.getItem("dark_mode") !== "false"
+      set_dark_mode(!dark_mode);
+   });
+   $('span#tab-logout').click(function() { clear_chatbox(); logout(); });
+   chat_append('<div><span class="error">***** New commands are available! See /help for chat help and !help for rig commands *****</span></div>');
+
+   // Reset buttons
+   $('input#reset').click(function(evt) {
+      console.log("Form reset");
+   });
+
+   form_disable(true);
+
+   // Toggle display of the emoji keyboard
+   $('#emoji-btn').click(function() {
+      const emojiKeyboard = $('#emoji-keyboard');
+      if (emojiKeyboard.is(':visible')) {
+         emojiKeyboard.hide('slow');
+      } else {
+         emojiKeyboard.show('fast');
+      }
+   });
+
+   // Native listener for ctrl + wheel
+   document.addEventListener('wheel', function(e) {
+      if (e.ctrlKey) {
+         e.preventDefault();
+      }
+   }, { passive: false });
+
+   $(document).on('keydown', function(e) {
+      // prevent / from triggering search
+      // XXX: i *could* make this allow search only if 
+      const inputFocused = document.activeElement.id === 'chat-input';
+
+      // Prevent zooming in/out
+      if (e.ctrlKey && (
+            e.key === '+' || e.key === '-' || 
+            e.key === '=' || e.key === '0' || 
+            e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) {
+         e.preventDefault();
+      } else if (!inputFocused && e.key === '/' && !e.ctrlKey && !e.metaKey) {
+         e.preventDefault();
+      } else if (e.key === "Escape") {
+         if ($('#reason-modal').is(':visible')) {
+            $('#reason-modal').hide('fast');
+         } else if ($('#chat-whois').is(':visible')) {
+            $('#chat-whois').hide('fast');
+         } else if ($('#user-menu').is(':visible')) {
+            $('#user-menu').hide('fast');
+         } else {
+            return;
+         }
+      } else {
+        return;
+      }
+      form_disable(false);
+   });
+
+   $(document).click(function (event) {
+      if ($(event.target).is('#chat-whois')) {
+         event.preventDefault();
+         $(event.target).hide('fast');
+         form_disable(false);
+      } else if ($(event.target).is('#clear-btn')) {
+         event.preventDefault();
+         $('#chat-input').val('');
+         form_disable(false);
+      } else if (!$(event.target).is('#chat-input, a, [tabindex]')) {
+         // are we logged in?
+         if (logged_in) {	// Focus the chat input field
+            $('#chat-input').focus();
+         } else {		// Nope, focus the user field
+            $('form#login input#user').focus();
+         }
+      } else if ($(event.target).is('#reason-modal')) {
+         form_disabled(false);
+      }
+   });
+
+   let completing = false;
+   let completionList = [];
+   let completionIndex = 0;
+   let matchStart = 0;
+   let matchLength = 0;
+
+   function getCULNames() {
+      return $('#cul-list .chat-user-list .cul-self').map(function () {
+         return $(this).text();
+      }).get();
+   }
+
+   function updateCompletionIndicator(name) {
+      if (name) {
+         $('#completion-indicator').text(`🔍 COMPLETING: ${name}`).show();
+      } else {
+         $('#completion-indicator').hide();
+      }
+   }
+
+   $('#chat-input').on('keydown', function (e) {
+      const input = $(this);
+      const text = input.val();
+      const caretPos = this.selectionStart;
+
+      if (e.key === 'Tab') {
+         e.preventDefault();
+
+         if (!completing) {
+            const beforeCaret = text.slice(0, caretPos);
+            const match = beforeCaret.match(/@(\w*)$/);
+
+            if (match) {
+               const word = match[1];
+               matchStart = beforeCaret.lastIndexOf('@' + word);
+               matchLength = word.length;
+               const afterCaret = text.slice(caretPos);
+
+               completionList = getCULNames().filter(name => name.toLowerCase().startsWith(word.toLowerCase()));
+               if (!completionList.length) return;
+
+               completing = true;
+               completionIndex = 0;
+
+               const current = completionList[completionIndex];
+               const completed = text.slice(0, matchStart + 1) + current + afterCaret;
+
+               input.val(completed);
+               const newCaret = matchStart + 1 + current.length;
+               this.setSelectionRange(newCaret, newCaret);
+               updateCompletionIndicator(current);
+               completionIndex = (completionIndex + 1) % completionList.length;
+            }
+         }
+         if (completing && completionList.length) {
+            const currentName = completionList[completionIndex];
+            const atStart = matchStart === 0;
+            const completedText =
+               text.slice(0, matchStart) + currentName + (atStart ? ": " : " ") + text.slice(caretPos);
+
+            input.val(completedText);
+            const newCaret = matchStart + currentName.length + (atStart ? 2 : 1);
+            this.setSelectionRange(newCaret, newCaret);
+
+            updateCompletionIndicator(currentName);
+            completionIndex = (completionIndex + 1) % completionList.length;
+         }
+      } else if (e.key === 'Escape') {
+         if (completing) {
+            input.val(originalText);
+            this.setSelectionRange(matchStart + 1 + originalPrefix.length, matchStart + 1 + originalPrefix.length);
+            completing = false;
+            updateCompletionIndicator(null);
+         }
+      } else if (completing && !e.key.match(/^[a-zA-Z0-9]$/)) {
+         completing = false;
+         updateCompletionIndicator(null);
+      } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
+         e.preventDefault();
+
+         let chatBox = $("#chat-box");
+         let scrollAmount = 30;
+         let pageScrollAmount = chatBox.outerHeight();
+
+         if (e.key === "ArrowUp") {
+            chatBox.scrollTop(chatBox.scrollTop() - scrollAmount);
+         } else if (e.key === "ArrowDown") {
+            chatBox.scrollTop(chatBox.scrollTop() + scrollAmount);
+         } else if (e.key === "PageUp") {
+            chatBox.scrollTop(chatBox.scrollTop() - pageScrollAmount);
+         } else if (e.key === "PageDown") {
+            chatBox.scrollTop(chatBox.scrollTop() + pageScrollAmount);
+         }
+      } else if (completing && (e.key === ' ' || e.key === 'Enter')) {
+         // Finalize current match
+         const finalName = completionList[(completionIndex - 1 + completionList.length) % completionList.length];
+         const finalizedText =
+            text.slice(0, matchStart + 1) + finalName + text.slice(caretPos);
+         input.val(finalizedText);
+
+         const newCaret = matchStart + 1 + finalName.length;
+         this.setSelectionRange(newCaret, newCaret);
+         completing = false;
+         updateCompletionIndicator(null);
+      }
+   });
+
+   // Handle the vertical height used by keyboard on mobile
+   function viewport_resize() {
+      let vh = window.innerHeight * 0.01;
+      $(':root').css('--vh', vh + 'px');
+   }
+   $(window).on('resize orientationchange', viewport_resize);
+   $(document).ready(viewport_resize);
+});

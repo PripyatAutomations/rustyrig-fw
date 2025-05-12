@@ -4,17 +4,57 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <script src="js/jquery.min.js"></script>
+<!--
   <script src="js/jquery.chroma-hash.js"></script>
   <script src="js/segment.min.js"></script>
+-->
   <!-- XXX: Release builds will have this minified into a single file -->
-  <script src="js/webui.js"></script>
-  <script src="js/webui.auth.js"></script>
-  <script src="js/webui.chat.js"></script>
-  <script src="js/webui.filexfer.js"></script>
-  <script src="js/webui.audio.js"></script>
-  <script src="js/webui.notifications.js"></script>
-  <script src="js/webui.emoji.js"></script>
-  <script src="js/webui.syslog.js"></script>
+  <script>
+    const scripts = [
+      "webui.js",
+      "webui.notifications.js",
+      "webui.auth.js",
+      "webui.syslog.js",
+      "webui.chat.js",
+      "webui.filexfer.js",
+      "webui.audio.js",
+      "webui.rigctl.js",
+      "webui.emoji.js"
+    ];
+
+    function asset_load_scripts(scriptList, onComplete) {
+      let loaded = 0;
+
+      for (const src of scriptList) {
+        const script = document.createElement("script");
+        script.src = "js/" + src;
+        script.async = false; // preserve order
+        script.onload = () => {
+          loaded++;
+          if (loaded === scriptList.length && onComplete) {
+            onComplete();
+          }
+        };
+        script.onerror = () => {
+          console.error("Failed to load:", script.src);
+        };
+        document.head.appendChild(script);
+      }
+    }
+
+    // When all scripts are loaded, call the registered init functions
+    asset_load_scripts(scripts, () => {
+      if (Array.isArray(window.webui_inits)) {
+        for (const fn of window.webui_inits) {
+          try {
+            fn();
+          } catch (e) {
+            console.error("Init function failed:", e);
+          }
+        }
+      }
+    });
+  </script>
   <!-- XXX: This should be minified into a single file for production builds -->
   <link rel="stylesheet" id="css-main" href="css/main.css"/> <!-- default (light theme) -->
   <link rel="stylesheet" id="css-chat" href="css/chat.css"/> <!-- chat tab -->
@@ -50,114 +90,116 @@
     <span id="tab-logout" class="menu-tab menu-right">logout</span>
    </span><!-- menu_tabs -->
   </div><!-- tabstrip -->
-  <div id="win-login" class="window">
-   <div id="sub-login-error" class="modal">
-    <span id="sub-login-error-msg"></span><br/>
-    <center><button id="login-err-ok">OK</button></center>
-   </div>
-   <form id="login">
-    <table id="tbl-login">
-     <tr><td colspan="2"><h3 class="red">Login Required</h3></td></tr>
-     <tr>
-      <td align="right"><label for="user">Callsign: </label></td>
-      <td><input type="text" length="16" id="user" name="user" placeholder="Callsign (guest)"/></td>
-     </tr>
-     <tr>
-      <td align="right"><label for="pass">Password: </label></td>
-      <td><input type="password" length="32" id="pass" name="pass" placeholder="Password (guest)"/></td>
-     </tr>
-     <tr>
-      <td colspan="2">
-       <div id="login-btn-box">
-        <button id="login-submit-btn" value="Submit" class="green-btn login-btn">Login</button>
-        <button id="login-reset-btn" value="Clear" class="red-btn reset-btn">Reset</button>
-       </div>
-      </td>
-     </tr>
-    </table>
-   </form>
-  </div><!-- win_login -->
-  <div id="win-chat" class="window">
-   <div id="upper-wrapper">
-    <div id="chat-container">
-     <div id="chat-box" tabindex="-1">
-      <div id="emoji-keyboard"></div>
-     </div> <!-- chat-box -->
-     <div id="chat-user-list" tabindex="-1">
-      <h4>Connected Users</h4>
-      <hr width="100%"/>
-      <ul id="cul-list"></ul>
-     </div> <!-- chat-user-list -->
-    </div> <!-- chat-container -->
-    <div id="user-menu">
-     <div id="um-header" style="position: relative;">
-      <span id="um-close" style="position: absolute; top: 5px; right: 5px; cursor: pointer;">✖</span>
-     </div>
-     <div id="um-content">
-      <!-- The rest of the user menu content goes here -->
-      User: <span id="um-username"></span><br/>
-      <span id="user-menu-items">
-       <ul>
-        <li><a href="mailto:user_email" target="_blank">Email</a></li>
-        <li><button id="whois-user">Whois</button></li>
-        <hr width="50%"/>
-        <li><button id="mute-user">Mute</button></li>
-        <li><button id="kick-user">Kick</button></li>
-        <li><button id="ban-user">Lock&Kick</button></li>
-       </ul>
-      </span>
-     </div>
+  <div id="win-container">
+   <div id="win-login" class="window">
+    <div id="sub-login-error" class="modal">
+     <span id="sub-login-error-msg"></span><br/>
+     <center><button id="login-err-ok">OK</button></center>
     </div>
-   </div> <!-- upper-wrapper -->
-   <div id="lower-wrapper">
-    <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
-    <br/>
-    <div id="button-box">
-     <button id="emoji-btn" class="emoji-btn" title="Emoji Keyboard">😀</button>
-     <input type="file" id="file-input" style="display: none;" />
-     <button id="send-btn" title="Send to chat">🚀</button>
-     <button id="clear-btn" title="Clear input">❌</button>
-     <button id="upload-btn" title="Upload image">📎</button>
-     <button id="bell-btn" data-checked="true" title="Notification sounds">🔔</button>
-     <input type="range" id="alert-vol" min="0" max="100" step="10" value="100"/>
-     <input type="file" id="file-upload" accept="image/*" style="display: none;">
-    </div> <!-- button-box -->
-   </div> <!-- lower-wrapper -->
-   <div id="chat-whois"></div>
-   <audio id="chat-ding" src="sounds/bell.mp3" tabindex="-1"></audio>
-   <audio id="join-ding" src="sounds/join.mp3" tabindex="-1"></audio>
-   <audio id="leave-ding" src="sounds/leave.mp3" tabindex="-1"></audio>
-   <div id="reason-modal" style="display:none">
-    <form id="reason-form">
-     <div id="reason-title" style="color:white; margin-bottom:10px;"></div>
-     <textarea id="reason-text" style="width:100%; height:60%; resize:none;"></textarea><br/>
-     <button type="submit">Submit</button>
+    <form id="login">
+     <table id="tbl-login">
+      <tr><td colspan="2"><h3 class="red">Login Required</h3></td></tr>
+      <tr>
+       <td align="right"><label for="user">Callsign: </label></td>
+       <td><input type="text" length="16" id="user" name="user" placeholder="Callsign (guest)"/></td>
+      </tr>
+      <tr>
+       <td align="right"><label for="pass">Password: </label></td>
+       <td><input type="password" length="32" id="pass" name="pass" placeholder="Password (guest)"/></td>
+      </tr>
+      <tr>
+       <td colspan="2">
+        <div id="login-btn-box">
+         <button id="login-submit-btn" value="Submit" class="green-btn login-btn">Login</button>
+         <button id="login-reset-btn" value="Clear" class="red-btn reset-btn">Reset</button>
+        </div>
+       </td>
+      </tr>
+     </table>
     </form>
-   </div> <!-- reason-modal -->
-  </div> <!-- win-chat -->
-  <div id="win-rig" class="window">
-   <div id="rig-top-status"></div>
-   <div id="rig-body-wrap">
-    <div id="rig-upper-split">
-     <div id="rig-vfos">
-      <span id="vfo-a">
-      </span>
-      <span id="vfo-b">
-      </span>
-      <span id="vfo-c">
-      </span>
+   </div><!-- win_login -->
+   <div id="win-chat" class="window">
+    <div id="upper-wrapper">
+     <div id="chat-container">
+      <div id="chat-box" tabindex="-1">
+       <div id="emoji-keyboard"></div>
+      </div> <!-- chat-box -->
+      <div id="chat-user-list" tabindex="-1">
+       <h4>Connected Users</h4>
+       <hr width="100%"/>
+       <ul id="cul-list"></ul>
+      </div> <!-- chat-user-list -->
+     </div> <!-- chat-container -->
+     <div id="user-menu">
+      <div id="um-header" style="position: relative;">
+       <span id="um-close" style="position: absolute; top: 5px; right: 5px; cursor: pointer;">✖</span>
+      </div>
+      <div id="um-content">
+       <!-- The rest of the user menu content goes here -->
+       User: <span id="um-username"></span><br/>
+       <span id="user-menu-items">
+        <ul>
+         <li><a href="mailto:user_email" target="_blank">Email</a></li>
+         <li><button id="whois-user">Whois</button></li>
+         <hr width="50%"/>
+         <li><button id="mute-user">Mute</button></li>
+         <li><button id="kick-user">Kick</button></li>
+         <li><button id="ban-user">Lock&Kick</button></li>
+        </ul>
+       </span>
+      </div>
      </div>
-     <div id="rig-controls"></div>
+    </div> <!-- upper-wrapper -->
+    <div id="lower-wrapper">
+     <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
+     <br/>
+     <div id="button-box">
+      <button id="emoji-btn" class="emoji-btn" title="Emoji Keyboard">😀</button>
+      <input type="file" id="file-input" style="display: none;" />
+      <button id="send-btn" title="Send to chat">🚀</button>
+      <button id="clear-btn" title="Clear input">❌</button>
+      <button id="upload-btn" title="Upload image">📎</button>
+      <button id="bell-btn" data-checked="true" title="Notification sounds">🔔</button>
+      <input type="range" id="alert-vol" min="0" max="100" step="10" value="100"/>
+      <input type="file" id="file-upload" accept="image/*" style="display: none;">
+     </div> <!-- button-box -->
+    </div> <!-- lower-wrapper -->
+    <div id="chat-whois"></div>
+    <audio id="chat-ding" src="sounds/bell.mp3" tabindex="-1"></audio>
+    <audio id="join-ding" src="sounds/join.mp3" tabindex="-1"></audio>
+    <audio id="leave-ding" src="sounds/leave.mp3" tabindex="-1"></audio>
+    <div id="reason-modal" style="display:none">
+     <form id="reason-form">
+      <div id="reason-title" style="color:white; margin-bottom:10px;"></div>
+      <textarea id="reason-text" style="width:100%; height:60%; resize:none;"></textarea><br/>
+      <button type="submit">Submit</button>
+     </form>
+    </div> <!-- reason-modal -->
+   </div> <!-- win-chat -->
+   <div id="win-rig" class="window">
+    <div id="rig-top-status"></div>
+    <div id="rig-body-wrap">
+     <div id="rig-upper-split">
+      <div id="rig-vfos">
+       <span id="vfo-a">
+       </span>
+       <span id="vfo-b">
+       </span>
+       <span id="vfo-c">
+       </span>
+      </div>
+      <div id="rig-controls"></div>
+     </div>
+     <div id="rig-lower-split">
+      <div id="rig-memory"></div>
+     </div>
     </div>
-    <div id="rig-lower-split">
-     <div id="rig-memory"></div>
-    </div>
-   </div>
-  </div><!-- win-rig -->
-  <div id="win-syslog" class="window">
-   <div id="syslog" class="syslog"></div>
-  </div><!-- win-syslog -->
-  <div id="win-config" class="window">
-  </div><!-- win-config -->
+   </div><!-- win-rig -->
+   <div id="win-syslog" class="window">
+    <div id="syslog" class="syslog"></div>
+   </div><!-- win-syslog -->
+   <div id="win-config" class="window">
+   </div><!-- win-config -->
+  </div>
  </body>
 </html>

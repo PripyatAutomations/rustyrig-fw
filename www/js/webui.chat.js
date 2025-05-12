@@ -1,6 +1,7 @@
 ////////////////
 // Chat Stuff //
 ////////////////
+
 function msg_create_links(message) {
    return message.replace(
       /(https?:\/\/[^\s]+)/g,
@@ -69,41 +70,59 @@ function handle_paste(e) {
    }
 }
 
+if (!window.webui_inits) window.webui_inits = [];
+window.webui_inits.push(function webui_chat_init() { chat_init(); });
+
 function chat_init() {
-/*
- * XXX: This needs to check the active tab first
- *
-   $('#chat-link').click(function(e) {
-      if (logged_in) {
-         $('#chat-input').focus();
-      }
-   });
-*/
-   $('#chat-input').on('paste', function(e) {
-      handle_paste(e);
-      e.preventDefault();
-   });
+  $(document).ready(function() {
+   /*
+    * XXX: This needs to check the active tab first
+    *
+      $('#chat-link').click(function(e) {
+         if (logged_in) {
+            $('#chat-input').focus();
+         }
+      });
+   */
 
-   $('#send-btn').click(function(e) {
-      parse_chat_cmd(e);
-   });
+      // scroll the chatbox down when window is resized (keyboard open/closed, etc)
+      $(window).on('resize', function() {
+         let chatBox = $('#chat-box');
+/* XXX: Or maybe we want to just scroll if they're near the bottom already? Need to figure out common kbd size and replace the 50 with the max
+         let el = chatBox[0];
+         if (el.scrollHeight - el.scrollTop - el.clientHeight < 50) {
+            chatBox.scrollTop(el.scrollHeight);
+         }
+ */
+         chatBox.scrollTop(chatBox[0].scrollHeight);
+      });
 
-   ///////////////////////
-   // Keyboard controls //
-   ///////////////////////
-   $('#chat-input').keypress(function(e) {
-      // ENTER
-      if (e.which == 13) {
-         $('#send-btn').click();
+      $('#chat-input').on('paste', function(e) {
+         handle_paste(e);
          e.preventDefault();
-      }
-   });
+      });
 
-   // Ensure #chat-box does not accidentally become focusable
-   $('#chat-box').attr('tabindex', '-1');
-   $('#um-close').click(function() {
-      form_disable(false);
-      $('#user-menu').hide('slow');
+      $('#send-btn').click(function(e) {
+         parse_chat_cmd(e);
+      });
+
+      ///////////////////////
+      // Keyboard controls //
+      ///////////////////////
+      $('#chat-input').keypress(function(e) {
+         // ENTER
+         if (e.which == 13) {
+            $('#send-btn').click();
+            e.preventDefault();
+         }
+      });
+
+      // Ensure #chat-box does not accidentally become focusable
+      $('#chat-box').attr('tabindex', '-1');
+      $('#um-close').click(function() {
+         form_disable(false);
+         $('#user-menu').hide('slow');
+      });
    });
 }
 
@@ -214,9 +233,9 @@ function show_user_menu(username) {
     // Admin menu to be appended if the user is an admin
     var admin_menu = `
         <hr width="50%"/>
-        <li><button class="cul-menu-button" id="mute-user">Mute</button></li>
-        <li><button class="cul-menu-button" id="kick-user">Kick</button></li>
-        <li><button class="cul-menu-button" id="ban-user">Lock&Kick</button></li>
+        <li><button class="cul-menu-button" id="mute-user" title="Mute (disable CAT/TX) for user">Mute</button></li>
+        <li><button class="cul-menu-button" id="kick-user" title="Disconnect user">Kick</button></li>
+        <li><button class="cul-menu-button" id="ban-user" title="Ban & Kick user">Ban</button></li>
     `;
 
     // Base menu

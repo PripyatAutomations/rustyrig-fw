@@ -63,14 +63,14 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
    cptr->last_heard = now;
 
-   char *token = mg_json_get_str(msg_data, "$.rig.token");
-   char *cmd = mg_json_get_str(msg_data, "$.rig.cmd");
-   char *data = mg_json_get_str(msg_data, "$.rig.data");
+   char *token = mg_json_get_str(msg_data, "$.cat.token");
+   char *cmd = mg_json_get_str(msg_data, "$.cat.cmd");
+   char *data = mg_json_get_str(msg_data, "$.cat.data");
 
    if (cmd && data) {
       if (strcasecmp(cmd, "ptt") == 0) {
-         char *vfo = mg_json_get_str(msg_data, "$.rig.data.vfo");
-         char *state = mg_json_get_str(msg_data, "$.rig.data.state");
+         char *vfo = mg_json_get_str(msg_data, "$.cat.data.vfo");
+         char *state = mg_json_get_str(msg_data, "$.cat.data.state");
 
          if (vfo == NULL || state == NULL) {
             Log(LOG_DEBUG, "rigctl", "PTT set without vfo or state");

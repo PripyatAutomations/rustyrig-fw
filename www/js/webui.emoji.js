@@ -1,4 +1,7 @@
-$(document).ready(function() {
+// In webui.chat.js
+if (!window.webui_inits) window.webui_inits = [];
+window.webui_inits.push(function webui_emoji_init() {
+  // do chat-related setup here
    function displayEmojiKeyboard() {
       if ($('#emoji-popup').length) {
          $('#emoji-popup').toggle();

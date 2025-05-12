@@ -43,3 +43,23 @@ bool file_exists(const char *path) {
 
    return false;
 }
+
+bool is_dir(const char *path) {
+// Support for posix hosts
+#if	defined(HOST_POSIX)
+   struct stat sb;
+   int rv = stat(path, &sb);
+
+   // Skip file not found and only show other errors
+   if (rv != 0) {
+      Log(LOG_WARN, "core", "is_dir: %s returned %d (%s)", path, errno, strerror(errno));
+      return false;
+   } else {
+      if ((sb.st_mode & S_IFMT) == S_IFDIR) {
+         return true;
+      }
+   }
+#endif
+
+   return false;
+}

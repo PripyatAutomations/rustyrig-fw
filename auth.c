@@ -421,7 +421,11 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
       Log(LOG_DEBUG, "auth", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
    } else if (strcasecmp(cmd, "logout") == 0) {
-      Log(LOG_DEBUG, "auth", "Logout request from session token |%s|", (token != NULL ? token : "NONE"));
+      http_client_t *cptr = http_find_client_by_c(c);
+      Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x> token |%s|",
+          (cptr->chatname ? cptr->chatname : ""),
+          cptr, c,
+          (token != NULL ? token : "NONE"));
       ws_kick_client_by_c(c, "Logged out. 73!");
    } else if (strcasecmp(cmd, "pass") == 0) {
       bool guest = false;

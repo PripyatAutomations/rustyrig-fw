@@ -1,3 +1,8 @@
+if (!window.webui_inits) window.webui_inits = [];
+window.webui_inits.push(function webui_syslog_init() {
+  // do syslog-related setup here
+});
+
 function syslog_clear() {
    $('#syslog').empty();
 }

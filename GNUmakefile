@@ -61,6 +61,7 @@ endif
 objs += amp.o			# Amplifier management
 objs += atu.o			# Antenna Tuner
 objs += au.o			# Audio channel stuff
+objs += au.pipe.o		# pipe / socket support
 objs += au.pcm5102.o		# pcm5102 i2s DAC support
 
 ifeq (${USE_ALSA},true)
@@ -135,7 +136,7 @@ objs += util.string.o		# String utility functions
 objs += util.vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
 objs += waterfall.o		# Support for rendering waterfalls
-objs += ws.o			# Websocket transport for CAT and audio
+objs += ws.o			# Websocket transport general
 objs += ws.audio.o		# Audio (raw / OPUS) over websockets
 objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
 objs += ws.chat.o		# Websocket Chat (talk)

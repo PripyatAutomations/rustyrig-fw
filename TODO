@@ -58,6 +58,7 @@ minimal inet_ntop() for non-posix
 * Implement mqtt client mode, for sending status to existing server(s)
 
 [www]
+* mute the join/parts when reconecting
 * Send user-info when they join instead of every time CUL is updated
   - This will save a fair bit of data transfer over the length of a session
     - probably a few mbytes

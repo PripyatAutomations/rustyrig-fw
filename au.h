@@ -8,32 +8,25 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_audio_h)
 #define __rr_audio_h
+#include <stdbool.h>
+#include <stddef.h>
 
 typedef enum {
-    AU_BACKEND_NULL_SINK = 0,	// Null sink that discards all input but generates logging statistics
-    AU_BACKEND_PIPEWIRE,	// Pipewire interface for linux hosts
-    AU_BACKEND_I2S, 		// For ESP32 PCM5102, etc
-    AU_BACKEND_ALSA,		// Perhaps someone will write the ALSA backend?
-    AU_BACKEND_OSS,		// And maybe even OSS for those heathens
+    AU_BACKEND_NULL_SINK = 0, // Null sink that discards all input but generates logging statistics
+    AU_BACKEND_PIPEWIRE,      // Pipewire interface for Linux hosts
+    AU_BACKEND_I2S,           // For ESP32 PCM5102, etc.
+    AU_BACKEND_ALSA,          // ALSA backend
+    AU_BACKEND_OSS,           // OSS backend
+    AU_BACKEND_PIPE,          // PCM via pipe/socket
 } rr_au_backend_t;
 
 typedef struct rr_au_device_t rr_au_device_t;
 typedef struct uint32_t rr_au_sample_t;
 
-struct rr_au_interface {
-   rr_au_backend_t		be_type;		// Backend type
-};
-typedef struct rr_au_interface rr_au_interface_t;
-
-/* Initialize an audio device with a backend and name */
-//extern rr_au_device_t *rr_au_init(rr_au_backend_t backend, const char *device_name);
-extern bool rr_au_init(void);
-/* Process audio events (non-blocking) */
-extern void rr_au_poll(rr_au_device_t *dev);
-/* Cleanup resources */
-extern void rr_au_cleanup(rr_au_device_t *dev);
-extern bool rr_au_write_samples(void);
-extern rr_au_sample_t **rr_au_read_samples(void);
+bool rr_au_init(void);
+bool rr_au_write_samples(const void *samples, size_t size);
+rr_au_sample_t **rr_au_read_samples(void);
+void rr_au_cleanup(rr_au_device_t *dev);
 
 #include "au.pipewire.h"
 #include "au.pcm5102.h"

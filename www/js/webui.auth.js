@@ -1,3 +1,49 @@
+if (!window.webui_inits) window.webui_inits = [];
+window.webui_inits.push(function webui_auth_init() {
+   if (!logged_in) {
+      show_login_window();
+   }
+
+   $('input#user').change(function() {
+      // Cache the username and force to upper case
+      login_user = $('input#user').val().toUpperCase();
+      $('input#user').val = login_user;
+   });
+
+   // When the form is submitted, we need to send the username and wait for a nonce to come back
+   $('form#login').submit(function(evt) {
+      // Stop HTML form submission
+      evt.preventDefault();
+
+      let user = $("input#user");
+      let pass = $("input#pass");
+
+      // A username is *required*
+      if (user.val().trim() === "") {
+         flash_red(user);
+         user.focus();
+         event.preventDefault();
+         return;
+      }
+
+      // A password is *required*
+      if (pass.val().trim() === "") {
+         flash_red(pass);
+         pass.focus();
+         event.preventDefault();
+         return;
+      }
+
+      // Since this is a manual reconnect attempt, unset ws_kicked which would block it
+      ws_kicked = false;
+      logged_in = false;
+      ws_connect();
+   });
+// If we can fix the positioning, this is nice to have... but disabled for now
+//      var chroma_hash = $("input:password").chromaHash({ bars: 4, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
+   $('#win-login input#user').focus();
+});
+
 ////////////////////////////
 // Authentication/Session //
 ////////////////////////////
@@ -73,45 +119,4 @@ function logout() {
       }
    };
    socket.send(JSON.stringify(msgObj));
-}
-
-function login_init() {
-   $('input#user').change(function() {
-      // Cache the username and force to upper case
-      login_user = $('input#user').val().toUpperCase();
-      $('input#user').val = login_user;
-   });
-
-   // When the form is submitted, we need to send the username and wait for a nonce to come back
-   $('form#login').submit(function(evt) {
-      // Stop HTML form submission
-      evt.preventDefault();
-
-      let user = $("input#user");
-      let pass = $("input#pass");
-
-      // A username is *required*
-      if (user.val().trim() === "") {
-         flash_red(user);
-         user.focus();
-         event.preventDefault();
-         return;
-      }
-
-      // A password is *required*
-      if (pass.val().trim() === "") {
-         flash_red(pass);
-         pass.focus();
-         event.preventDefault();
-         return;
-      }
-
-      // Since this is a manual reconnect attempt, unset ws_kicked which would block it
-      ws_kicked = false;
-      logged_in = false;
-      ws_connect();
-   });
-// If we can fix the positioning, this is nice to have... but disabled for now
-//      var chroma_hash = $("input:password").chromaHash({ bars: 4, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
-   $('#win-login input#user').focus();
 }
