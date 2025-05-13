@@ -31,6 +31,7 @@
         script.async = false; // preserve order
         script.onload = () => {
           loaded++;
+
           if (loaded === scriptList.length && onComplete) {
             onComplete();
           }
@@ -181,16 +182,29 @@
     <div id="rig-body-wrap">
      <div id="rig-upper-split">
       <div id="rig-vfos">
-       <span id="vfo-a">
-       </span>
-       <span id="vfo-b">
-       </span>
-       <span id="vfo-c">
-       </span>
-      </div>
-      <div id="rig-controls"></div>
-     </div>
+       <div id="vfo-a" class="vfo-box">
+        <h4>VFO A</h4>
+        <span id="vfo-a-freq">7074.000</span><br/>
+        <span id="vfo-a-mode">D-U</span>&nbsp;
+        <span id="vfo-a-width">3000 Hz</span>
+       </div>
+       <div id="vfo-b" class="vfo-box">
+        <h4>VFO B</h4>
+        <span id="vfo-b-freq">7074.000</span><br/>
+        <span id="vfo-b-mode">D-U</span>&nbsp;
+        <span id="vfo-b-width">3000 Hz</span>
+       </div>
+       <div id="vfo-c" class="vfo-box">
+        <h4>VFO C</h4>
+        <span id="vfo-c-freq">7074.000</span><br/>
+        <span id="vfo-c-mode">D-U</span>&nbsp;
+        <span id="vfo-c-width">3000 Hz</span>
+       </div>
+      </div> <!-- rig-vfos -->
+      <br/>
+     </div> <!-- rig-upper-split -->
      <div id="rig-lower-split">
+      <div id="rig-controls"></div> <!-- rig-controls -->
       <div id="rig-memory"></div>
      </div>
     </div>
@@ -199,6 +213,16 @@
     <div id="syslog" class="syslog"></div>
    </div><!-- win-syslog -->
    <div id="win-config" class="window">
+    <div id="win-cfg-ui" class="cfg-section">
+     <h4>User Interface</h4>
+     <label for="ui-zoom">Zoom</label>
+     <input id="ui-zoom" type="range" min="0" max="10" value="1"/><br/>
+    </div> <!-- win-cfg-ui -->
+    <div id="win-cfg-notify" class="cfg-section"K>
+     <h4>Notifications</h4>
+     <label for="ui-notify-chat-vol">Chat Alert Vol</label>
+     <input id="ui-notify-chat-vol" type="range" min="0" max="100" value="50%"/><br/>
+    </div> <!-- win-cfg-notify -->
    </div><!-- win-config -->
   </div>
  </body>

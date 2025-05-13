@@ -125,4 +125,5 @@ function logout() {
    if (typeof syslog_clear === "function") {
       syslog_clear();
    }
+   show_login_window();
 }

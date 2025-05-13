@@ -8,7 +8,7 @@
    position: fixed;
    top: CALC(3.5em);
    left: 0px;
-   width: 100%;
+   width: CALC(100% - 1em);
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;
@@ -22,7 +22,7 @@
    border: 1px dashed red;
    border-radius: 10px;
    display: flex;
-   width: 100vw;
+   width: CALC(100vw - 0.2em);
    height: CALC(100vh - 8em);
 }
 
@@ -32,7 +32,7 @@
    font-size: clamp(0.5em, 1vw + 0.3em, 1em);
    margin-right: 0.1em;
    min-width: 60%;
-   max-width: 98%;
+   max-width: 100%;
    overflow-y: auto;
    overflow-x: hidden;
    padding: 10px;
@@ -52,9 +52,13 @@
    flex-grow: 1;
    overflow-y: auto;
    overflow-x: hidden;
-   min-width: 0%;
+   min-width: 0px;
    max-width: 40%;
    width: 15%;
+}
+
+#chat-user-list h4 {
+   text-align: center;
 }
 
 #chat-input {
@@ -74,7 +78,7 @@
 div#button-box {
    position: fixed;
    right: 2.5em;
-   bottom: 2.8em;
+   bottom: 2.5em;
    margin-top: 0.2em;
    margin-bottom: 0.2em;
    padding: 0.5em;
@@ -82,7 +86,7 @@ div#button-box {
    padding-bottom: 0.3em;
    border-radius: 5px;
    border: 2px solid #ccc;
-   height: 2.5em;
+   height: 2.7em;
    background: Gainsboro;
    border: 2px solid #c0c0c0;
 }
@@ -97,7 +101,12 @@ div#button-box {
    height: 3em;
    position: relative;
    height: 100%;
-   background: GhostWhite;
+   background: Linen;
+}
+
+#upload-btn:hover, #clear-btn:hover, #send-btn:hover, #emoji-btn:hover, #bell-btn:hover {
+   border: 2px solid teal;
+   border-radius: 10px;
 }
 
 span#alert-vol { }
@@ -120,7 +129,7 @@ span#alert-vol { }
    margin: 5px 0;
 }
 
-#clear-btn, #send-btn, #bell-btn {
+#clear-btn, #send-btn {
    height: 2.6em;
    padding-bottom: 5px;
    padding-top: 5px;
@@ -346,13 +355,13 @@ button#img-clearclip {
 
 .cul-menu-button {
    border: 1px solid #909090;
-   padding: 0.25em;
-   font-size: 2em;
+   padding: 0.1em;
+   font-size: 1.4em;
    padding-left: 0.5em;
    padding-right: 0.5em;
    margin: 0em;
-   margin-bottom: 0.5em;
-   margin-top: 0.5em;
+   margin-bottom: 0.1em;
+   margin-top: 0.1em;
 }
 
 #user-menu ul {
@@ -366,21 +375,25 @@ button#img-clearclip {
 
 /* Styling for the user-menu */
 #user-menu {
-    position: fixed;
+    position: absolute;
     top: 0px;
-    right: 3em;
+    right: 0px;
     border: 1px solid #ccc;
+    margin-right: 1em;
     background: #c0c0c0;
     color: black;
     padding: 10px;
     width: CALC(60% - 1em);
     z-index: 900;
-    height: 90%;
+    height: CALC(100vh - 5em);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: none;
+    max-height: CALC(100vh - 4em);
+    height: CALC(100vh - 4em);
 }
 
 #user-menu h4 {
+    text-align: center;
     font-size: 1.4em;
 }
 

@@ -9,15 +9,145 @@
  */
 #win-rig {
    display: none;
-   border: 2px solid red;
+   border: 1px solid SeaGreen;
    border-radius: 10px;
    position: fixed;
    top: 3.7em;
-   height: CALC(100% - 7em);
+   height: CALC(100% - 9em);
+   padding: 1em;
    left: 0px;
-   width: CALC(100% - 3em);
+   width: CALC(100% - 4.8em);
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;
    -ms-user-select: text;
+}
+
+#rig-vfos {
+   background: MintCream;
+}
+
+#rig-vfos {
+   display: flex;
+   margin-top: 0px;
+   width: 100%;
+   border-radius: 10px;
+}
+
+.vfo-box {
+/*   background: AntiqueWhite; */
+   background: MidnightBlue;
+   margin-top: 0px;
+   margin-left: 0.25em;
+   margin-right: 0.25em;
+   padding-left: 1em;
+   padding-right: 1em;
+}
+
+#vfo-a, #vfo-b, #vfo-c {
+   placement: relative;
+   top: 0.5em;
+   left: 0.5em;
+   border-bottom-right-radius: 10px;
+}
+
+#vfo-a h4, #vfo-b h4, #vfo-c h4 {
+   text-align: center;
+   border-bottom: 1px solid red;
+   border-radius: 5px;
+   padding: 0px;
+   margin: 0px;
+   width: 100%;
+   margin-top: 0.1em;
+   margin-bottom: 1em;
+}
+
+#vfo-a { border: 1px solid DarkTurquoise; }
+#vfo-b { border: 1px solid SpringGreen; }
+#vfo-c { border: 1px solid DarkOrange; }
+
+#vfo-a-freq, #vfo-b-freq, #vfo-freq {
+   font-size: 1.0em;
+}
+
+#vfo-a-mode, #vfo-b-mode, #vfo-c-mode {
+   font-size: 1.0em;
+}
+
+#vfo-a-width, #vfo-b-width, #vfo-c-width {
+   font-size: 1.0em;
+}
+
+#vfo-a-freq, #vfo-a-mode, #vfo-a-width {
+   color: DarkTurquoise;
+   font-family: lcd;
+   font-size: 1.0em;
+}
+
+#vfo-b-freq, #vfo-b-mode, #vfo-b-width {
+   color: SpringGreen;
+   font-family: lcd;
+   font-size: 1.0em;
+}
+
+#vfo-c-freq, #vfo-c-mode, #vfo-c-width {
+   color: DarkOrange;
+   font-family: lcd;
+   font-size: 1.0em;
+}
+
+#rig-controls {
+   position: absolute;
+   resize: none;
+   border: 1px solid DarkOrange;
+   width: CALC(100% - 1em);
+   position: relative;
+   height: 100%;
+}
+
+#rig-upper-split {
+   background: #0f0f0f;
+   border: 1px dashed DarkTurquoise;
+   display: flex;
+   resize: vertical;
+   overflow: hidden;
+   min-height: 0%;
+   max-height: 50%;
+   height: 30%;
+}
+
+#rig-lower-split {
+   display: flex;
+   resize: vertical;
+   overflow: hidden;
+   border: 1px dashed SpringGreen;
+   min-height: 0%;
+   max-height: 50%;
+   height: 30%;
+}
+
+#rig-memory {
+   background: Honeydew;
+   left: 0em;
+   bottom: 0em;
+   margin: 0px;
+   padding: 0.1em;
+   position: absolute;
+   border: 1px solid green;
+   border-top-left-radius: 0px;
+   border-top-right-radius: 0px;
+   border-radius: 10px;
+   max-height: 95%;
+   height: 30%;
+   width: CALC(100vw - 0.6em);
+}
+
+.cfg-section {
+   display: flex;
+   border: 1px dashed lime;
+   border-radius-bottom-right: 10px;
+}
+
+.cfg-section h4 {
+   text-align: center;
 }

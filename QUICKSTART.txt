@@ -38,13 +38,16 @@ Long story short, on a debian-based system do the following to try it:
 
 STATUS
 ------
-* CAT (ft891)		DELAYED
 * core			WORKING
 * http/websockets	WORKING
-* OPUS codec		IN WORK
-* Pipewire		IN WORK
-* backend-hamlib	IN WORK
-* backend-internal	DELAYED
 * www/chat		WORKING
 * www/rig		IN WORK
-
+* PCM over websockets	IN WORK
+* au.pipe		IN WORK
+* backend-hamlib	IN WORK
+* backend-internal	DELAYED
+* CAT Host (ft891 emu)	DELAYED
+* au.alsa		DELAYED
+* au.pulse		probably wont implement unless easier way to support pw too (via compat layer)
+* au.pipewire		DELAYED
+* OPUS codec		DELAYED

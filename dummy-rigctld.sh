@@ -1,2 +1,3 @@
 #!/bin/bash
-rigctld -o -v -v -m 1
+rigctld -o -m 1 -vvvv
+

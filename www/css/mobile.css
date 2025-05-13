@@ -52,6 +52,7 @@
    }
 
    div#button-box {
+      text-align: center;
       left: 0px;
       bottom: 2.8em;
    }
@@ -94,5 +95,12 @@
    }
 
    #login-err-ok {
+   }
+
+   #upload-btn, #clear-btn, #send-btn, #emoji-btn, #bell-btn {
+      padding-left: 1em;
+      padding-right: 1em;
+      margin-left: 0.5em;
+      margin-right: 0.5em;
    }
 }

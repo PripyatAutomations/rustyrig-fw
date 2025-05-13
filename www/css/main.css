@@ -17,6 +17,13 @@ html {
 }
 
 
+@font-face {
+   font-family: 'OpenSans';
+   src: url('../fonts/OpenSans-Regular.ttf') format('truetype');
+   font-weight: normal;
+   font-style: normal;
+}
+
 /*
  * Fonts
  */
@@ -28,12 +35,11 @@ html {
 }
 
 @font-face {
-   font-family: 'OpenSans';
-   src: url('../fonts/OpenSans-Regular.ttf') format('truetype');
+   font-family: 'LCD';
    font-weight: normal;
    font-style: normal;
+   src: url('../fonts/intodotmatrix.ttf') format('truetype');
 }
-
 a, a:visited, a:active {
     color: #004fcc;
 }
@@ -245,7 +251,7 @@ span.menu-tab:hover {
 #win-syslog {
    overflow-x: none;
    overflow-y: scroll;
-   border: 2px solid green;
+   border: 1px solid Indigo;
    border-radius: 10px;
    position: fixed;
    padding: 10px;

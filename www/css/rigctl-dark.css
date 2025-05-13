@@ -7,3 +7,23 @@
  * Only shared things should be added to this main CSS
  * Place dark-mode overrides here for best results
  */
+#rig-vfos {
+   background: DarkSlateGrey;
+   border: 1px dashed Indigo;
+}
+
+#vfo-a h4, #vfo-b h4, #vfo-c h4 {
+   background: Indigo;
+}
+
+#vfo-a { border: 1px solid DarkTurquoise; }
+#vfo-b { border: 1px solid SpringGreen; }
+#vfo-c { border: 1px solid DarkOrange; }
+
+#rig-memory {
+   background: DimGrey;
+}
+
+.vfo-box {
+   background: #0c0c0c;
+}

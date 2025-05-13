@@ -196,9 +196,8 @@ void http_dump_clients(void) {
          break;
       }
 
-      Log(LOG_DEBUG, "http", " => %d at <%x> %sactive %swebsocket, conn: <%x>, token: |%s|, nonce: |%s|, next: <%x> ",
-          i, cptr, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->token,
-          cptr->nonce, cptr->next);
+      Log(LOG_DEBUG, "http", " => %d at <%x> %sactive %swebsocket, conn: <%x>, next: <%x> ",
+          i, cptr, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->next);
       i++;
       cptr = cptr->next;
    }
@@ -312,7 +311,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       http_client_t *cptr = http_find_client_by_c(c);
 
       if (cptr == NULL) {
-         Log(LOG_DEBUG, "http.core", "mg_ev_http_msg cptr == NULL");
+         Log(LOG_CRAZY, "http.core", "ACCEPT: mg_ev_http_msg cptr == NULL, creating new client");
          cptr = http_add_client(c, false);
       }
       // Save the user-agent the first time
@@ -324,7 +323,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          cptr->user_agent = malloc(ua_len);
          memset(cptr->user_agent, 0, ua_len);
          memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
-         Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, cptr->user_agent, ua_len);
+         Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, (cptr->user_agent ? cptr->user_agent : "none"), ua_len);
       }
 
       // Send the request to our HTTP router

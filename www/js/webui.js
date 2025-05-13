@@ -432,9 +432,10 @@ function show_login_window() {
    $('div#win-chat').hide();
    $('div#win-config').hide();
    $('div#win-syslog').hide();
-   $('div#win-login').show();
+   $('div#win-rig').hide();
    $('input#user').focus();
    $('div#tabstrip').hide();
+   $('div#win-login').show();
 //   $('.chroma-hash').show();
 }
 
@@ -557,8 +558,15 @@ window.webui_inits.push(function webui_init() {
    }, { passive: false });
 
    $(document).on('keydown', function(e) {
-      // prevent / from triggering search
-      // XXX: i *could* make this allow search only if 
+      // Handle login field focus transition
+      if (document.activeElement.matches('form#login input#user')) {
+         if ((e.key === 'Enter') || (e.key === 'Tab' && !e.shiftKey)) {
+            e.preventDefault();
+            document.querySelector('form#login input#pass')?.focus();
+            return;
+         }
+      }
+
       const inputFocused = document.activeElement.id === 'chat-input';
 
       // Prevent zooming in/out
@@ -580,7 +588,7 @@ window.webui_inits.push(function webui_init() {
             return;
          }
       } else {
-        return;
+         return;
       }
       form_disable(false);
    });
