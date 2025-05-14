@@ -316,6 +316,14 @@ button#img-clearclip {
    margin-right: 8px;             /* Space between username and badges */
 }
 
+a.other-link:hover, a.other-link:hover, a.other-link:visited, a.other-link:active {
+   color: DarkSlateBlue;
+}
+
+a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
+  color: SaddleBrown;
+}
+
 .chat-my-msg-prefix, .cul-self {
    color: SaddleBrown;
    font-weight: bold;
@@ -377,19 +385,20 @@ button#img-clearclip {
 #user-menu {
     position: absolute;
     top: 0px;
-    right: 0px;
+    right: 0.8em;
     border: 1px solid #ccc;
+    border-top-right-radius: 10px;
     margin-right: 1em;
     background: #c0c0c0;
     color: black;
     padding: 10px;
-    width: CALC(60% - 1em);
-    z-index: 900;
+    width: CALC(40% - 5em);
+    z-index: 1000;
     height: CALC(100vh - 5em);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: none;
     max-height: CALC(100vh - 4em);
-    height: CALC(100vh - 4em);
+    height: CALC(100vh - 9.5em);
 }
 
 #user-menu h4 {
@@ -399,8 +408,8 @@ button#img-clearclip {
 
 #chat-whois {
    position: fixed;
-   top: 0.25em;
-   left: 0.25em;
+   top: 5px;
+   left: 5px;
    padding: 0.5em;
    padding-top: 1em;
    height: CALC(100% - 4.5em);
@@ -410,6 +419,7 @@ button#img-clearclip {
    font-size: 1.1em;
    color: LemonChiffon;
    display: none;
+   z-index: 1500;
 }
 
 #user-menu a, #user-menu a:visited, #user-menu: a:active {
@@ -465,7 +475,7 @@ button#img-clearclip {
    color: LemonChiffon;
    padding: 20px;
    box-shadow: 0 0 20px black;
-   z-index: 1000;
+   z-index: 1500;
 }
 
 #reason-modal input[type="text"], #reason-modal textarea {
@@ -493,6 +503,10 @@ button#img-clearclip {
 #reason-modal button:hover {
    color: LightYellow;
    border: 2px solid DarkOrchid;
+}
+
+#reason-modal input#reason {
+   width: 100%;
 }
 
 #win-container {

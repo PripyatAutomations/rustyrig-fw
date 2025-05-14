@@ -39,6 +39,14 @@ function reload_css() {
    }, 250);
 }
 
+function user_link(username) {
+   if (username === auth_user) {
+      return `<a href="#" class="my-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
+   } else {
+      return `<a href="#" class="other-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
+   }
+}
+
 function msg_timestamp(msg_ts) {
    if (typeof msg_ts !== "number") {
       msg_ts = Number(msg_ts); 			// Convert string to number if necessary
@@ -69,6 +77,38 @@ function send_ping(sock) {
 function make_ws_url() {
    var protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
    return protocol + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + "/ws/";
+}
+
+
+function show_chat_window() {
+//   $('.chroma-hash').hide();
+   $('div#win-login').hide();
+   $('div#win-rig').hide();
+   $('div#win-config').hide();
+   $('div#win-syslog').hide();
+   $('div#tabstrip').show();
+   $('div#win-chat').show();
+   $('#chat-input').focus();
+}
+
+function show_rig_window() {
+//   $('.chroma-hash').hide();
+   $('div#win-login').hide();
+   $('div#win-chat').hide();
+   $('div#win-config').hide();
+   $('div#win-syslog').hide();
+   $('div#tabstrip').show();
+   $('div#win-rig').show();
+}
+
+function show_config_window() {
+//   $('.chroma-hash').hide();
+   $('div#win-rig').hide();
+   $('div#win-chat').hide();
+   $('div#win-login').hide();
+   $('div#win-syslog').hide();
+   $('div#tabstrip').show();
+   $('div#win-config').show();
 }
 
 function ws_connect() {
@@ -196,7 +236,9 @@ function ws_connect() {
 
                if (user) {
                   var msg_ts = msg_timestamp(msgObj.talk.ts);
-                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">joined the chat</span>&nbsp;***</div>');
+                  var nl = user_link(user);
+
+                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">joined the chat</span>&nbsp;***</div>');
                   // Play join (door open) sound if the bell button is checked
                   if ($('#bell-btn').data('checked')) {
                      if (!(user === auth_user)) {
@@ -427,48 +469,6 @@ function form_disable(state) {
    }
 }
 
-function show_login_window() {
-   $('button#submit').prop('disabled', false);
-   $('div#win-chat').hide();
-   $('div#win-config').hide();
-   $('div#win-syslog').hide();
-   $('div#win-rig').hide();
-   $('input#user').focus();
-   $('div#tabstrip').hide();
-   $('div#win-login').show();
-//   $('.chroma-hash').show();
-}
-
-function show_chat_window() {
-//   $('.chroma-hash').hide();
-   $('div#win-login').hide();
-   $('div#win-rig').hide();
-   $('div#win-config').hide();
-   $('div#win-syslog').hide();
-   $('div#tabstrip').show();
-   $('div#win-chat').show();
-   $('#chat-input').focus();
-}
-
-function show_rig_window() {
-//   $('.chroma-hash').hide();
-   $('div#win-login').hide();
-   $('div#win-chat').hide();
-   $('div#win-config').hide();
-   $('div#win-syslog').hide();
-   $('div#tabstrip').show();
-   $('div#win-rig').show();
-}
-
-function show_config_window() {
-//   $('.chroma-hash').hide();
-   $('div#win-rig').hide();
-   $('div#win-chat').hide();
-   $('div#win-login').hide();
-   $('div#win-syslog').hide();
-   $('div#tabstrip').show();
-   $('div#win-config').show();
-}
 
 function latency_send_pings(socket) {
    const now = Date.now();
@@ -593,24 +593,28 @@ window.webui_inits.push(function webui_init() {
       form_disable(false);
    });
 
-   $(document).click(function (event) {
-      if ($(event.target).is('#chat-whois')) {
-         event.preventDefault();
-         $(event.target).hide('fast');
+   $(document).click(function (e) {
+      if ($(e.target).is('#reason-modal')) {			// focus reason input
+         e.preventDefault();
+         $('input#reason').focus();
+      } else if ($(e.target).is('input#reason')) {		// focus reason input
+         e.preventDefault();
+         $('input#reason').focus();
+      } else if ($(e.target).is('#chat-whois')) {		// hide whois dialog if clicked
+         e.preventDefault();
+         $(e.target).hide('fast');
          form_disable(false);
-      } else if ($(event.target).is('#clear-btn')) {
-         event.preventDefault();
+      } else if ($(e.target).is('#clear-btn')) {		// deal with the clear button in chat
+         e.preventDefault();
          $('#chat-input').val('');
          form_disable(false);
-      } else if (!$(event.target).is('#reason-modal, #chat-input, a, [tabindex]')) {
-         // are we logged in?
-         if (logged_in) {	// Focus the chat input field
+/*
+      } else if (logged_in) {	// Focus the chat input field
             $('#chat-input').focus();
          } else {		// Nope, focus the user field
             $('form#login input#user').focus();
          }
-      } else if ($(event.target).is('#reason-modal')) {
-         form_disabled(false);
+*/
       }
    });
 
@@ -671,7 +675,7 @@ window.webui_inits.push(function webui_init() {
          if (completing && completionList.length) {
             const currentName = completionList[completionIndex];
             const atStart = matchStart === 0;
-            const completedText =
+            const completedText = '@' + 
                text.slice(0, matchStart) + currentName + (atStart ? ": " : " ") + text.slice(caretPos);
 
             input.val(completedText);

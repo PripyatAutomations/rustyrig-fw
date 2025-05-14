@@ -167,17 +167,17 @@ BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcar
 ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 	@echo "[compile] $@ from $<"
 
 ${OBJ_DIR}/au.pipewire.o: au.pipewire.c ${BUILD_HEADERS}
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 	@echo "[compile] $@ from $<"
 
 # Binary also depends on the .stamp file
 ${bin}: ${real_objs} ext/libmongoose/mongoose.c config/http.users
-	${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
+	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 	@ls -a1ls $@
 	@file $@

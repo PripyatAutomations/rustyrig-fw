@@ -58,10 +58,13 @@
    }
 
    #chat-whois {
-      top: 1em;
-      left: 1em;
-      height: CALC(100% - 2.2em);
-      width: CALC(100% - 2.2em);
+      top: 0px;
+      left: 0px;
+      padding: 1.5em;
+      border: 1px solid MidnightBlue;
+      border-radius: 10px;
+      height: CALC(100% - 6em);
+      width: CALC(100% - 5.8em);
    }
 
    #chat-container {

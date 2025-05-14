@@ -40,8 +40,6 @@
    margin-top: 0px;
    margin-left: 0.25em;
    margin-right: 0.25em;
-   padding-left: 1em;
-   padding-right: 1em;
 }
 
 #vfo-a, #vfo-b, #vfo-c {
@@ -52,7 +50,10 @@
 }
 
 #vfo-a h4, #vfo-b h4, #vfo-c h4 {
+   color: white;
+   background: LightSeaGreen;
    text-align: center;
+   font-weight: bold;
    border-bottom: 1px solid red;
    border-radius: 5px;
    padding: 0px;
@@ -66,16 +67,25 @@
 #vfo-b { border: 1px solid SpringGreen; }
 #vfo-c { border: 1px solid DarkOrange; }
 
-#vfo-a-freq, #vfo-b-freq, #vfo-freq {
+#vfo-a-freq, #vfo-b-freq, #vfo-c-freq {
    font-size: 1.0em;
+   font-weight: bold;
+   padding-left: 2em;
+   padding-right: 1em;
 }
 
 #vfo-a-mode, #vfo-b-mode, #vfo-c-mode {
    font-size: 1.0em;
+   font-weight: bold;
+   padding-left: 1em;
+   padding-right: 1em;
 }
 
 #vfo-a-width, #vfo-b-width, #vfo-c-width {
    font-size: 1.0em;
+   font-weight: bold;
+   padding-left: 1em;
+   padding-right: 1em;
 }
 
 #vfo-a-freq, #vfo-a-mode, #vfo-a-width {
@@ -94,6 +104,10 @@
    color: DarkOrange;
    font-family: lcd;
    font-size: 1.0em;
+}
+
+.active-vfo {  
+   border: 3px solid DarkOrange !important;
 }
 
 #rig-controls {

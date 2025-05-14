@@ -1,9 +1,10 @@
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_auth_init() {
+/*
    if (!logged_in) {
       show_login_window();
    }
-
+*/
    $('input#user').change(function() {
       // Cache the username and force to upper case
       login_user = $('input#user').val().toUpperCase();
@@ -126,4 +127,16 @@ function logout() {
       syslog_clear();
    }
    show_login_window();
+}
+
+function show_login_window() {
+   $('button#submit').prop('disabled', false);
+   $('div#win-chat').hide();
+   $('div#win-config').hide();
+   $('div#win-syslog').hide();
+   $('div#win-rig').hide();
+   $('input#user').focus();
+   $('div#tabstrip').hide();
+   $('div#win-login').show();
+//   $('.chroma-hash').show();
 }

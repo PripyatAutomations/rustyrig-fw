@@ -12,6 +12,18 @@
    border: 1px dashed Indigo;
 }
 
+.vfo-box {
+   background: MidnightBlue !important;
+}
+
+.active-vfo {
+   border: 2px solid DarkSalmon !important;
+}
+
+.active-vfo h4 {
+   background: DarkRed !important;
+}
+
 #vfo-a h4, #vfo-b h4, #vfo-c h4 {
    background: Indigo;
 }

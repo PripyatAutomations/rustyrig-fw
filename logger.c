@@ -85,6 +85,7 @@ void logger_init(void) {
       logfp = fopen(LOG_FILE, "a+");
 
       if (logfp == NULL) {
+         Log(LOG_CRIT, "core", "Couldn't open log file at %s - %d:%s", LOG_FILE, errno, strerror(errno));
          return;
       }
       // XXX: do final setup
@@ -203,27 +204,24 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    /* Only spew to the serial port if logfile is closed */
    if (logfp == NULL && logfp != stdout) {
       // XXX: this should support network targets too!!
-//      cons_printf("%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
+      printf("%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
       va_end(ap);
       return;
-   } else {
-      if (log_show_ts) {
-         fprintf(logfp, "[%s] %s\n", latest_timestamp, log_msg);
-         if (logfp != stdout) {
-            fprintf(stdout, "[%s] %s\n", latest_timestamp, log_msg);
-         }
-      } else {
-         fprintf(logfp, "%s\n", log_msg);
-         if (logfp != stdout) {
-            fprintf(stdout, "%s\n", log_msg);
-         }
-      }
-      fflush(logfp);
    }
-#endif
 
-   // Send it to websockets
-//   char *escaped_msg = escape_html(log_msg);
+   if (log_show_ts) {
+      fprintf(logfp, "[%s] %s\n", latest_timestamp, log_msg);
+      if (logfp != stdout) {
+         fprintf(stdout, "[%s] %s\n", latest_timestamp, log_msg);
+      }
+   } else {
+      fprintf(logfp, "%s\n", log_msg);
+      if (logfp != stdout) {
+         fprintf(stdout, "%s\n", log_msg);
+      }
+   }
+   fflush(logfp);
+#endif
 
    char ws_logbuf[2048];
    char ws_json_escaped[1024];
@@ -235,7 +233,6 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
             now, subsys, log_priority_to_str(priority), ws_json_escaped);
    struct mg_str ms = mg_str(ws_logbuf);
    ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms);
-//   free(escaped_msg);
 
    /* Machdep logging goes here! */
 

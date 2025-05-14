@@ -109,22 +109,27 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
    }
 
    if (has_priv(cptr->user->uid, "admin|owner")) {
-      // Actually kick the user
-      http_client_t *acptr = http_find_client_by_name(target);
-      if (acptr == NULL) {
-         return true;
+      http_client_t *acptr;
+      int kicked = 0;
+
+      for (acptr = http_client_list; acptr != NULL; acptr = acptr->next) {
+         if (strcmp(acptr->chatname, target) == 0) {
+            // Build and send message
+            char msgbuf[HTTP_WS_MAX_MSG+1];
+            prepare_msg(msgbuf, sizeof(msgbuf),
+               "%s was kicked by %s (Reason: %s)",
+               target, cptr->chatname,
+               (reason ? reason : "No reason given"));
+            send_global_alert(cptr, "***SERVER***", msgbuf);
+            Log(LOG_AUDIT, "admin.kick", msgbuf);
+            ws_kick_client(acptr, msgbuf);
+            kicked++;
+         }
       }
 
-      // Send an ALERT to all connected users
-      char msgbuf[HTTP_WS_MAX_MSG+1];
-      prepare_msg(msgbuf, sizeof(msgbuf),
-         "%s was kicked by %s (Reason: %s)",
-         target, cptr->chatname,
-         (reason ? reason : "No reason given"));
-      send_global_alert(cptr, "***SERVER***", msgbuf);
-      Log(LOG_AUDIT, "admin.kick", msgbuf);
-//      ws_chat_notice(acptr, "disconnected");
-      ws_kick_client(acptr, msgbuf);
+      if (!kicked) {
+         // Maybe inform kicker that no clients matched?
+      }
    } else {
       ws_chat_err_noprivs(cptr, "KICK");
       return true;
