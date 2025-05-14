@@ -36,7 +36,7 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
    http_client_t *current = http_client_list;
    while (current != NULL) {
       // NULL sender means it came from the server itself
-      if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
+      if ((current->is_ws && current->authenticated) && (current->conn != sender)) {
          mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
       }
       current = current->next;
@@ -52,7 +52,7 @@ void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, stru
    http_client_t *current = http_client_list;
    while (current != NULL) {
       // NULL sender means it came from the server itself
-      if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
+      if ((current->is_ws && current->authenticated) && (current->conn != sender)) {
          if (client_has_flag(current, flags)) {
             mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
          }
@@ -98,16 +98,21 @@ bool ws_chat_notice(http_client_t *cptr, const char *sender, const char *data) {
 }
 
 bool ws_send_userlist(void) {
+   http_client_t *cptr = http_client_list;
+   if (cptr == NULL) {
+      return true;
+   }
+
    char resp_buf[HTTP_WS_MAX_MSG+1];
    int len = mg_snprintf(resp_buf, sizeof(resp_buf), 
        "{ \"talk\": { \"cmd\": \"names\", \"ts\": %lu, \"users\": [",
        now);
-   int count = 0;
 
-   http_client_t *cptr = http_client_list;
+   int count = 0;
    while (cptr != NULL) {
       if (cptr->user == NULL || !cptr->authenticated) {
          cptr = cptr->next;
+         count++;
          continue;
       }
 

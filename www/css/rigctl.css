@@ -63,9 +63,9 @@
    margin-bottom: 1em;
 }
 
-#vfo-a { border: 1px solid DarkTurquoise; }
+#vfo-a { border: 1px solid SpringGreen; }
 #vfo-b { border: 1px solid SpringGreen; }
-#vfo-c { border: 1px solid DarkOrange; }
+#vfo-c { border: 1px solid SpringGreen; }
 
 #vfo-a-freq, #vfo-b-freq, #vfo-c-freq {
    font-size: 1.0em;

@@ -62,9 +62,9 @@ static const struct mg_http_serve_opts http_opts = {
 };
 
 static struct http_res_types http_res_types[] = {
-   { "7z",  "Content-Type: application/x-7z-compressed\r\n" },
+//   { "7z",  "Content-Type: application/x-7z-compressed\r\n" },
    { "css",  "Content-Type: text/css\r\n" },
-   { "htm",  "Content-Type: text/html\r\n" },
+//   { "htm",  "Content-Type: text/html\r\n" },
    { "html", "Content-Type: text/html\r\n" },
    { "js",   "Content-Type: application/javascript\r\n" },
    { "json", "Content-Type: application/json\r\n" },
@@ -74,13 +74,14 @@ static struct http_res_types http_res_types[] = {
    { "otf",  "Content-Type: font/otf\r\n" },
    { "png",  "Content-Type: image/png\r\n" },
    { "svg",  "Content-Type: image/svg\r\n" },
-   { "tar",  "Content-Type: application/x-tar\r\n" },
+//   { "tar",  "Content-Type: application/x-tar\r\n" },
    { "ttf",  "Content-Type: font/ttf\r\n" },
    { "txt",  "Content-Type: text/plain\r\n" },
    { "webp", "Content-Type: image/webp\r\n" },
    { "woff", "Content-Type: font/woff\r\n" },
    { "woff2", "Content-Type: font/woff2\r\n" },
-   { "zip",  "Content-Type: application/zip\r\n" }
+//   { "zip",  "Content-Type: application/zip\r\n" },
+   { NULL,	NULL }
 };
 
 // Perform various checks on synthesized URLs to make sure the user isn't up to anything shady...
@@ -205,9 +206,25 @@ void http_dump_clients(void) {
 
 // Returns HTTP Content-Type for the chosen short name (save some memory)
 const char *http_content_type(const char *type) {
+   if (type == NULL) {
+      return NULL;
+   }
+
    int items = (sizeof(http_res_types) / sizeof(struct http_res_types));
    for (int i = 0; i <= items; i++) {
+//      printf("hct: %s, checking %d: %s\n",
+//         type, i, http_res_types[i].shortname);
+
+      // end of table marker?
+      if (http_res_types[i].shortname == NULL && http_res_types[i].msg == NULL) {
+         break;
+      }
+
+      // compare the short name
       if (strcasecmp(http_res_types[i].shortname, type) == 0) {
+//         printf("hct: %s is [%d] => %s: %s\n",
+//             type, i, http_res_types[i].shortname,
+//             http_res_types[i].msg);
          return http_res_types[i].msg;
       }
    }
@@ -259,34 +276,49 @@ bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
    struct mg_http_serve_opts opts = http_opts;
 
    // Copy URI into null-terminated buffer
-   char path[256];
+   char path[4096];
+   memset(path, 0, sizeof(path));
    snprintf(path, sizeof(path), "%.*s", (int)msg->uri.len, msg->uri.buf);
-/*
-   if (is_dir(path + 1)) {
-      // fallback to directory handler
-*/
-      mg_http_serve_dir(c, msg, &opts);
-      return false;
-//   } else {
-/*
+   char real_path[8192];
+   memset(real_path, 0, sizeof(real_path));
+
+   if (www_root[0] == '\0') {
+      Log(LOG_CRIT, "http.core", "www_root is NULL");
+      return true;
+   }
+
+   if (strlen(path) == 1 && path[0] == '/') {
+      memset(path, 0, sizeof(path));
+      snprintf(path, sizeof(path), "index.html");
+   }
+   snprintf(real_path, sizeof(real_path), "%s/%s", www_root, path);
+
+   if (file_exists(real_path)) {
       // Find last '.' in the path for the extension
       const char *ext = strrchr(path, '.');
       if (ext && *(ext + 1)) {
+         // lookup the mime type based on extension
          const char *ctype = http_content_type(ext + 1);
-         mg_printf(c,
-            "HTTP/1.1 200 OK\r\n"
-            "%s"
-            "\r\n",
-            ctype);
-*/
-         mg_http_serve_file(c, msg, path, &opts);  // serve the file manually
-//         return false;
-//      }
-//   }
-//   return true;
+         char typebuf[256];
+         // save it in a form mongoose likes
+         memset(typebuf, 0, sizeof(typebuf));
+         snprintf(typebuf, sizeof(typebuf), "%s=%s", ext + 1, ctype);
+         // tell mongoose about it
+         opts.mime_types = ctype;
+         // and serve the file
+         mg_http_serve_dir(c, msg, &opts);
+         return false;
+      }
+   } else if (is_dir(real_path)) {
+      mg_http_serve_dir(c, msg, &opts);
+      return false;
+   } else {		// file not found
+      mg_http_serve_file(c, msg, www_404_path, &opts);
+   }
+   return true;
 }
 
- ///// Main HTTP callback
+///// Main HTTP callback
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
@@ -400,6 +432,7 @@ bool http_init(struct mg_mgr *mgr) {
    } else { // use the defaults
       prepare_msg(www_root, sizeof(www_root), "%s", WWW_ROOT_FALLBACK);
    }
+   Log(LOG_CRIT, "http.init", "set www-root to %s", www_root);
 
    if (http_load_users(HTTP_AUTHDB_PATH) < 0) {
       Log(LOG_WARN, "http.core", "Error loading users from %s", HTTP_AUTHDB_PATH);

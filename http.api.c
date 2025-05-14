@@ -151,6 +151,8 @@ bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c) 
    int items = (sizeof(http_routes) / sizeof(http_route_t)) - 1;
 
    for (int i = 0; i < items; i++) {
+      int rv = 0;
+
       // end of table marker
       if (http_routes[i].match == NULL && http_routes[i].cb == NULL) {
          break;
@@ -170,7 +172,8 @@ bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c) 
             msg->uri.len--;
          }
 
-         return http_routes[i].cb(msg, c);
+         rv = http_routes[i].cb(msg, c);
+         return false;
       } else {
          Log(LOG_CRAZY, "http.req", "Failed to match %.*s: %d: %s", (int)msg->uri.len, msg->uri.buf, i, http_routes[i].match);
       }
