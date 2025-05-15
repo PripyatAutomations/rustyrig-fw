@@ -4,6 +4,7 @@
 @media (max-width: 768px) {
    html {
       transform: scale(calc(100vw / 768)); /* Dynamically scale based on viewport width */
+      height: CALC(100vh - 3em);
    }
 
    #tab-strip {
@@ -16,9 +17,14 @@
       left: 0;
    }
 
+   div#win-rig {
+     height: CALC(100vh - 5.6em);
+     width: CALC(100% - 4em);
+   }
+
    #win-chat {
-     height: CALC(100% - 14.5em);
-     border: 2px solid pink !important;
+      padding: 0px;
+      height: CALC(100vh - 5.5em);
    }
 
    span.menu-tab {
@@ -45,21 +51,27 @@
 
    #win-login {
       position: absolute;
-      top: 1.5em;
-      left: 1.5em;
-      height: 100%;
-      width: CALC(100% - 6em);
+      top: 1em;
+      left: 1em;
+/*      height: 100%; */
+      width: CALC(100% - 1.5em);
+   }
+
+   #win-syslog {
+      height: CALC(100vh - 5.5em);
+/*      overflow: hidden; */
    }
 
    #chat-input {
-      bottom: 7.5em;
-      width: CALC(100% - 5.5em);
+      left: 0em;
+      bottom: 4.5em;
+      width: CALC(100% - 2.7em);
    }
 
    div#button-box {
       text-align: center;
-      left: 0px;
-      bottom: 2.8em;
+      left: 0em;
+      bottom: 0em;
    }
 
    #chat-whois {
@@ -68,8 +80,7 @@
       padding: 1.5em;
       border: 1px solid MidnightBlue;
       border-radius: 10px;
-      height: CALC(100% - 6em);
-      width: CALC(100% - 5.8em);
+      width: CALC(100% - 3em);
    }
 
    #chat-container {

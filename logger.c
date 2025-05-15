@@ -20,11 +20,15 @@
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <time.h>
+#include <errno.h>
 #include "inc/logger.h"
-#include "inc/state.h"
+#if	!defined(__RRCLIENT)
 #include "inc/eeprom.h"
 #include "inc/debug.h"		// Debug message filtering
 #include "inc/ws.h"			// Support for sending the syslog via websocket
+#endif	// !defined(__RRCLIENT)
+
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
 extern char latest_timestamp[64];
@@ -33,6 +37,8 @@ static time_t last_ts_update;
 
 // Do we need to show a timestamp in log messages?
 static bool log_show_ts = false;
+
+static int log_level;
 
 /* String constants we use more than a few times */
 const char s_prio_none[] = " NONE";
@@ -61,6 +67,7 @@ const char *log_priority_to_str(logpriority_t priority) {
 }
 
 void logger_init(void) {
+#if	!defined(__RRCLIENT)
    const char *ll = eeprom_get_str("debug/loglevel");
 
    if (ll == NULL) {
@@ -73,11 +80,15 @@ void logger_init(void) {
    int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
    for (int i = 0; i < log_levels; i++) {
       if (strcasecmp(log_priorities[i].msg, ll) == 0) {
-         rig.log_level = log_priorities[i].prio;
+         log_level = log_priorities[i].prio;
          Log(LOG_INFO, "core", "Setting log_level to %d (%s)", log_priorities[i].prio, log_priorities[i].msg);
          break;
       }
    }
+#else
+   log_show_ts = true;
+   log_level = LOG_DEBUG;
+#endif
 
 #if	defined(HOST_POSIX)
 /* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
@@ -170,7 +181,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       return;
    }
 
-   if (priority > rig.log_level) {
+   if (priority > log_level) {
       return;
    }
 
@@ -223,6 +234,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    fflush(logfp);
 #endif
 
+#if	!defined(__RRCLIENT)
    char ws_logbuf[2048];
    char ws_json_escaped[1024];
    memset(ws_json_escaped, 0, sizeof(ws_json_escaped));
@@ -233,6 +245,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
             now, subsys, log_priority_to_str(priority), ws_json_escaped);
    struct mg_str ms = mg_str(ws_logbuf);
    ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms);
+#endif	// !defined(__RRCLIENT)
 
    /* Machdep logging goes here! */
 

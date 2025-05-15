@@ -263,7 +263,7 @@ function show_user_menu(username) {
 
     // Admin menu to be appended if the user is an admin
     var admin_menu = `
-        <hr width="50%"/>
+        <hr width="50%"/>Admin<br/><br/>
         <li><button class="cul-menu-button" id="mute-user" title="Mute (disable CAT/TX) for user">Mute</button></li>
         <li><button class="cul-menu-button" id="kick-user" title="Disconnect user">Kick</button></li>
         <li><button class="cul-menu-button" id="ban-user" title="Ban & Kick user">Ban</button></li>
@@ -275,9 +275,9 @@ function show_user_menu(username) {
 
     var menu = `
         <div id="um-header" style="position: relative;">
-            <span id="um-close" style="position: absolute; top: 5px; right: 5px; cursor: pointer;">✖</span>
-        </div>
-        User: ${username}<br/>
+            <span id="um-close">✖</span>
+        </div><br/>
+        <center>User: ${username}</center><br/>
         <span id="user-menu-items">
             <ul>
 <!--                <li><a href="mailto:${user_email}" target="_blank">Email</a></li> -->

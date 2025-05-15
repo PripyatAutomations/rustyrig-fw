@@ -1,9 +1,20 @@
+html, body {
+  top: 0px;
+  left: 0px;
+  color: black;
+  font-family: 'Roboto', 'OpenSans';
+  margin: 0px;
+  padding: 0px;
+  background-color: #dcdcdc;
+  height: CALC(100vh - 1em);
+  width: CALC(100vw - 1em);
+/*  overflow: hidden; */
+}
+
 /* Scale the content to always fit the viewport */
 html {
-    transform-origin: top left;
-    transform: scale(1);
-    height: 100vh;
-    width: 100vw;
+   transform-origin: top left;
+   transform: scale(1);
 }
 
 /* Disable text selection for everything by default */
@@ -15,7 +26,6 @@ html {
    /* Optional: Ensure all child elements respect the scaling */
 /*    box-sizing: border-box; */
 }
-
 
 @font-face {
    font-family: 'OpenSans';
@@ -35,29 +45,21 @@ html {
 }
 
 @font-face {
-   font-family: 'LCD';
-   font-weight: normal;
-   font-style: normal;
-   src: url('../fonts/intodotmatrix.ttf') format('truetype');
-}
-a, a:visited, a:active {
-    color: #004fcc;
+  font-family: 'LCD';
+  font-weight: normal;
+  font-style: normal;
+  src: url('../fonts/intodotmatrix.ttf') format('truetype');
 }
 
-html, body {
-   color: black;
-   font-family: 'Roboto', 'OpenSans';
-   margin: 0;
-   padding: 20px;
-   background-color: #dcdcdc;
-   height: calc(100vh - 1px);
-   width: calc(100vw - 1px);
-   overflow: hidden;
+a, a:visited, a:active {
+   color: #004fcc;
 }
 
 input {
+/*
    border: 1px solid #c0c0c0;
    border-radius: 10px;
+*/
    font-size: 18px;
    padding-left: 0.5em;
    padding-right: 0.5em;
@@ -76,7 +78,6 @@ button {
    color: Maroon;
 }
 
-/* Clear button */
 .red-btn {
    background-color: #a31c1c; /* Muted red */
    color: #fff;
@@ -118,8 +119,6 @@ button {
    padding: 0.75em 1em 0.5em 1em;
    position: relative;
    left: 0px;
-   height: 99.9%;
-   width: 33%;
 }
 
 #tbl-login h3 {
@@ -139,11 +138,10 @@ button {
 }
 
 #win-login {
-   position: absolute;
+   position: fixed;
    top: 33%;
    left: 33%;
-   height: 99.9%;
-   width: 99.9%;
+   font-size: 1.2em;
 }
 
 #sub-login-error {
@@ -154,8 +152,6 @@ button {
    padding: 1em;
    font-size: 1.5em;
    color: white;
-   height: 5em;
-   width: 24em;
    top: CALC(50% - 5em);
    left: CALC(50% - 12em);
    z-index: 100000;
@@ -184,9 +180,7 @@ button {
    border-radius: 10px;
    position: fixed;
    top: 3.7em;
-   height: CALC(100% - 7em);
    left: 0px;
-   width: CALC(100% - 3em);
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;
@@ -198,7 +192,7 @@ div#tabstrip {
    border: 2px solid #c0c0c0;
    border-radius: 10px;
    background: #cfcfcf;
-   width: CALC(100% - 2.5em - 3px);
+   width: 100%;
    height: 3.2em;
    position: fixed;
    top: 0px;
@@ -212,10 +206,10 @@ span#menu-tabs {
    justify-content: flex-start;
    align-items: center;
    position: relative;
-   margin-top: 0.8em;
+   margin-top: 0.7em;
    top: 0;
    left: 0;
-   height: 1.8em;
+   height: 2em;
 }
 
 #tab-dark {
@@ -257,9 +251,9 @@ span.menu-tab:hover {
    padding: 10px;
    padding-bottom: 1em;
    top: 3.7em;
-   height: CALC(100% - 8.5em);
-   left: 0px;
-   width: CALC(100% - 4em);
+   height: CALC(100% - 5em);
+   width: CALC(100% - 1.1em);
+   left: 0.3em;
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;

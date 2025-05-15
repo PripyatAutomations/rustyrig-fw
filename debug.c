@@ -24,9 +24,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "inc/state.h"
 #include "inc/logger.h"
-#include "inc/eeprom.h"
+//#include "inc/eeprom.h"
 
 bool debug_init(void) {
    // Nothing to do yet

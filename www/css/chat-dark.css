@@ -7,7 +7,7 @@
 /* Button Box */
 div#button-box {
    background: DimGrey;
-   border: 2px solid #c0c0c0;
+   border: 5px solid #c0c0c0;
 }
 
 #upload-btn, #clear-btn, #send-btn, #emoji-btn, #bell-btn {
@@ -32,8 +32,6 @@ span#alert-vol { }
 .chat-msg-prefix, .cul-other {
    color: PaleTurquoise; 
 }
-
-
 
 a.other-link:hover, a.other-link:hover, a.other-link:visited, a.other-link:active {
    color: PaleTurquoise;

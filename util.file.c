@@ -22,7 +22,6 @@
 #include <fcntl.h>
 #endif
 
-#include "inc/state.h"
 #include "inc/posix.h"
 #include "inc/logger.h"
 

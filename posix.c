@@ -29,18 +29,25 @@
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
-#include "inc/state.h"
 #include "inc/posix.h"
 #include "inc/logger.h"
+
+#if	defined(__RRCLIENT)
+extern void shutdown_app(int signum);
+#else
+#include "inc/state.h"
+#endif
 
 // This gets called by our atexit() handler to make sure we clean up temporary files...
 void host_cleanup(void) {
     printf("Goodbye!\n");
     // Unlink the cat pipe
+#if	!defined(__RRCLIENT)
     if (rig.catpipe_fd >= 0) {
        close(rig.catpipe_fd);
        rig.catpipe_fd = -1;
     }
+#endif
     unlink(HOST_CAT_PIPE);
 }
 
@@ -59,7 +66,11 @@ static void sighandler(int32_t signum) {
       case SIGINT:
       case SIGTERM:
       case SIGKILL:
+#if	defined(__RRCLIENT)
+         shutdown_app(0);
+#else
          shutdown_rig(0);
+#endif
       default:
          Log(LOG_CRIT, "core", "Caught unknown signal %d", signum);
          break;

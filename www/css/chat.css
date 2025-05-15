@@ -1,33 +1,39 @@
-/*
- * Stylesheet for the chat tab
- *
- * Please put dark overrides in css/chat-dark.css
- */
+/* * Stylesheet for the chat tab 
+ * Please put dark overrides in css/chat-dark.css */
 #win-chat {
    display: none;
    position: absolute;
    top: 3.5em;
-   left: 0px;
-   width: CALC(100% - 1em);
+   left: 0.3em;
+   border: 2px dotted lime;
+/*   overflow-x: none; */
+   overflow-y: scroll;
+   border-bottom: 10px;
+   position: fixed;
+/*   padding: 10px;
+   padding-bottom: 1em; */
+   height: CALC(100% - 3em);
+   width: 100%;
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;
    -ms-user-select: text;
+   display: none;
+   flex-direction: column;
 }
 
 #chat-container {
    overflow: hidden;
    margin-top: 2px;
    margin-bottom: 2px;
-   border: 1px dashed red;
+/*   border: 2px dashed red; */
    border-radius: 10px;
    display: flex;
-   width: CALC(100vw - 0.2em);
    height: CALC(100vh - 8em);
 }
 
 #chat-box {
-   border-radius: 10px;
+   border-bottom-radius: 10px;
    background-color: #dcdcdc;
    font-size: clamp(0.5em, 1vw + 0.3em, 1em);
    margin-right: 0.1em;
@@ -43,7 +49,6 @@
 }
 
 #chat-user-list {
-   border: 2px solid #ddd;
    border-radius: 10px;
    font-size: clamp(0.6em, 1vw + 0.4em, 1.1em);
    padding-left: 0.5em;
@@ -65,32 +70,32 @@
 
 #chat-input {
    background: #dcdcdc;
-   position: fixed;
-   bottom: 3em;
+   position: absolute;
+   bottom: 0px;
    left: 0px;
    height: 2.4em;
    font-size: 14px;
    margin-left: 0.5em;
-   width: CALC(100% - 25.5em);
+   width: CALC(100% - 23.2em);
    padding: 10px;
-   border-radius: 5px;
+   border-radius: 10px;
    border: 2px solid #ccc;
 }
 
 div#button-box {
-   position: fixed;
-   right: 2.5em;
-   bottom: 2.5em;
+   position: absolute;
+   right: 0em;
+   bottom: 0em;
    margin-top: 0.2em;
-   margin-bottom: 0.2em;
+   margin-bottom: 0em;
    padding: 0.5em;
    padding-top: 0.3em;
    padding-bottom: 0.3em;
    border-radius: 5px;
-   border: 2px solid #ccc;
-   height: 2.7em;
+/*   border: 6px solid #ccc; */
+   height: 2.6em;
    background: Gainsboro;
-   border: 2px solid #c0c0c0;
+/*   border: 2px solid #c0c0c0; */
 }
 
 #upload-btn, #clear-btn, #send-btn, #emoji-btn, #bell-btn {
@@ -376,31 +381,31 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 
 #user-menu ul {
    margin-top: 0em;
-   padding-left: 15px;
+   padding-left: 1em;
    padding-top: 0.2em;
+   list-style-type: none;
+   text-align: center;
 }
 
 #user-menu li {
+    padding-bottom: 1em;
 }
 
 /* Styling for the user-menu */
 #user-menu {
     position: absolute;
+    font-size: 1.6em;
     top: 0px;
-    right: 0.8em;
+    right: 0px;
     border: 1px solid #ccc;
-    border-top-right-radius: 10px;
-    margin-right: 1em;
+    border-radius: 10px;
+    padding: 1em;
     background: #c0c0c0;
     color: black;
-    padding: 10px;
     width: CALC(40% - 5em);
     z-index: 1000;
-    height: CALC(100vh - 5em);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: none;
-    max-height: CALC(100vh - 4em);
-    height: CALC(100vh - 9.5em);
 }
 
 #user-menu h4 {
@@ -408,14 +413,19 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
     font-size: 1.4em;
 }
 
+#user-menu hr {
+    margin-top: 1em;
+    margin-bottom: 1em;
+}
+
 #chat-whois {
    position: fixed;
-   top: 5px;
-   left: 5px;
+   top: 0px;
+   left: 0px;
    padding: 0.5em;
    padding-top: 1em;
-   height: CALC(100% - 4.5em);
-   width: CALC(100% - 4.5em);
+   height: CALC(100% - 1em);
+   width: CALC(100% - 1em);
    border: 2px solid DarkSlateBlue;
    background: DarkBlue;
    font-size: 1.1em;
@@ -437,12 +447,12 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 
 /* Close button styling */
 #um-close {
-    position: absolute;
-    top: 0;
-    right: 0;
+    top: 0px;
+    right: 0px;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 2em;
     color: #c00000;
+    position: absolute;
 }
 
 #um-close:hover {
@@ -461,9 +471,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    top: 1em;
    padding: 10px;
    border-radius: 5px;
-   height: CALC(100% - 8em);
-   background: DarkRed;
-   width: CALC(100% - 14em);
+/*   width: CALC(100% - 14em); */
    border: 2px solid red;
 }
 
@@ -525,4 +533,16 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 #win-config {
    flex: 1;
    overflow-y: auto;
+}
+
+#upper-wrapper {
+   padding: 0px;
+   margin: 0px;
+/*   border: 2px dashed yellow; */
+}
+
+#lower-wrapper {
+   padding: 0px;
+   margin: 0px;
+   border: 2px dashed LawnGreen;
 }

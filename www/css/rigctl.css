@@ -9,18 +9,23 @@
  */
 #win-rig {
    display: none;
-   border: 1px solid SeaGreen;
+   border: 2px solid pink;
+   overflow-x: none;
+   overflow-y: scroll;
    border-radius: 10px;
    position: fixed;
+   padding: 10px;
+   padding-bottom: 1em;
    top: 3.7em;
-   height: CALC(100% - 9em);
-   padding: 1em;
-   left: 0px;
-   width: CALC(100% - 4.8em);
+   height: CALC(100% - 5em);
+   width: CALC(100% - 2em);
+   left: 0.3em;
    user-select: text;
    -webkit-user-select: text;
    -moz-user-select: text;
    -ms-user-select: text;
+   display: none;
+   flex-direction: column;
 }
 
 #rig-vfos {
