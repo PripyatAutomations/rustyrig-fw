@@ -16,6 +16,11 @@
       left: 0;
    }
 
+   #win-chat {
+     height: CALC(100% - 14.5em);
+     border: 2px solid pink !important;
+   }
+
    span.menu-tab {
       border: 2px solid #0a0a0a;
       background: #c0c0c0;
@@ -73,12 +78,12 @@
 
    #chat-user-list {
       height: auto;
-      width: auto; /* let user resize */
-      height: CALC(100% - 14.5em);
+      width: auto;
+      height: CALC(100% - 14.1em);
    }
 
    #chat-box {
-      height: CALC(100% - 15.8em);
+      height: CALC(100% - 16.8em);
       width: calc(100% - var(--user-list-width, 14.2em));
    }
 

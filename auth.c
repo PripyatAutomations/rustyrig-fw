@@ -418,8 +418,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }",
                cptr->nonce, user, cptr->token);
       mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
-
-      Log(LOG_DEBUG, "auth", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
+      Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
    } else if (strcasecmp(cmd, "logout") == 0) {
       http_client_t *cptr = http_find_client_by_c(c);
       Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x> token |%s|",

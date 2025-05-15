@@ -1,5 +1,8 @@
 //
 // radioberry.c
+//	Some day this will house code to interact with the radioberry firmware directly
+//	That's probably not in the very near future unless others jump in and help with the rest! ;)
+//
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

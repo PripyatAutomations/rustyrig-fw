@@ -61,11 +61,15 @@ static const struct mg_http_serve_opts http_opts = {
    .root_dir = www_root
 };
 
+// XXX: Need to remove Content-Type: from these and just store that here
+static const char content_type[] = "Content-Type: ";
+
 static struct http_res_types http_res_types[] = {
 //   { "7z",  "Content-Type: application/x-7z-compressed\r\n" },
    { "css",  "Content-Type: text/css\r\n" },
 //   { "htm",  "Content-Type: text/html\r\n" },
    { "html", "Content-Type: text/html\r\n" },
+   { "ico", "Content-Type: image/x-icon\r\n" },
    { "js",   "Content-Type: application/javascript\r\n" },
    { "json", "Content-Type: application/json\r\n" },
    { "jpg",  "Content-Type: image/jpeg\r\n" },

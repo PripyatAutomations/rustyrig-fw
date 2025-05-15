@@ -310,7 +310,7 @@ function ws_connect() {
 
             if (error) {
                var error = msgObj.auth.error;
-               stop_reconnecting();
+               stop_reconnecting();			// disable auto-reconnects
 
                console.log("auth.error: ", error);
                var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));

@@ -112,7 +112,6 @@ bool ws_send_userlist(void) {
    while (cptr != NULL) {
       if (cptr->user == NULL || !cptr->authenticated) {
          cptr = cptr->next;
-         count++;
          continue;
       }
 

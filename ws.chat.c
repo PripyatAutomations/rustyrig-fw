@@ -113,6 +113,16 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
       int kicked = 0;
 
       for (acptr = http_client_list; acptr != NULL; acptr = acptr->next) {
+         // if acptr is null, we don't have a next entry either, bail to avoid segfault below
+         if (acptr == NULL) {
+            break;
+         }
+
+         // skip this one as it's not a valid chat client
+         if (!acptr->active || !acptr->is_ws || acptr->chatname[0] == '\0') {
+            continue;
+         }
+
          if (strcmp(acptr->chatname, target) == 0) {
             // Build and send message
             char msgbuf[HTTP_WS_MAX_MSG+1];
