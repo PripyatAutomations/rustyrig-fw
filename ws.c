@@ -200,7 +200,12 @@ cleanup:
 
 // Deal with the binary requests
 static bool ws_binframe_process(const char *buf, size_t len) {
-    codec_decode_frame((unsigned char *)buf, len);
+   if (buf[0] == 'u') {  // PCM-u
+   } else if (buf[0] == 'O') {
+#if	defined(FEATURE_OPUS)
+       codec_decode_frame((unsigned char *)buf, len);
+#endif
+    }
     return false;
 }
 

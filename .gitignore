@@ -17,3 +17,8 @@ config/http.users
 
 # Archived configs
 config/archive/*.json
+
+rrcli/build/*
+rrcli/build/*/*
+rrcli/build/*/*.*
+rrcli/build/*/obj/*

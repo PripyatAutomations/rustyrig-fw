@@ -190,8 +190,10 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-   rr_au_init();
+//   rr_au_init();
+#if	defined(FEATURE_OPUS)
    codec_init();
+#endif
    dds_init();
 
    // Network connectivity

@@ -24,7 +24,7 @@
 
    #win-chat {
       padding: 0px;
-      height: CALC(100vh - 5.5em);
+      height: CALC(100vh - 4em);
       border: 2px dotted pink;
    }
 
@@ -91,20 +91,27 @@
    #chat-user-list {
       height: auto;
       width: auto;
-      height: CALC(100% - 14.1em);
+      height: CALC(100% - 14.7em);
    }
 
    #chat-box {
-      height: CALC(100% - 16.8em);
+      height: CALC(100% - 18.8em);
       width: calc(100% - var(--user-list-width, 14.2em));
+      padding-bottom: 1em;
    }
 
    #upper-wrapper {
-      border: 2px dashed yellow;
+/*      border: 2px dashed darkorange; */
+      height: CALC(100% - 8em);
    }
 
    #lower-wrapper {
       border: 2px dashed LawnGreen;
+      position: absolute;
+      bottom: 0em;
+      left: 0em;
+      height: 8em;
+      width: CALC(100% - 0.3em);
    }
 
    div#sub-login-error {

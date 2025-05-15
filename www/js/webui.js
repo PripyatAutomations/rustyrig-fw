@@ -264,19 +264,30 @@ function ws_connect() {
                // XXX: and show an alert.
                console.log("Mute command received");
             } else if (cmd === 'whois') {
+               const clones = msgObj.talk.data;
+
+               if (!clones || clones.length === 0) {
+                  return;
+               }
                form_disable(true);
-               const info = msgObj.talk.data;
+
+               const info = clones[0]; // shared info from the first entry
 
                let html = `<strong>User:</strong>&nbsp;${info.username}<br>`;
                html += `<strong>Email:</strong>&nbsp;${info.email}<br>`;
                html += `<strong>Privileges:</strong>&nbsp;${info.privs || 'None'}<br>`;
                html += '<hr width="75%"/>';
-//               html += `<strong>Active Sessions</strong>${info.clones}</br/>`;
-               html += `<strong>Clone #</strong>&nbsp;${info.clone}<br/>`;
-               html += `<strong>Connected:</strong>&nbsp;${new Date(info.connected * 1000).toLocaleString()},<br>`;
-               html += `<strong>Last Heard:</strong>&nbsp;${new Date(info.last_heard * 1000).toLocaleString()}<br>`;
-               html += `<strong>User-Agent:</strong>&nbsp;<code>${info.ua}</code>`;
-               html += "<br/><br/><hr/<br/>Click window or hit escape to close";
+
+               html += `<strong>Active Sessions: ${clones.length}</strong><br>`;
+               clones.forEach((session) => {
+                  let clone_num = session.clone + 1;
+                  html += `&nbsp;&nbsp;<em>Clone #${clone_num}</em><br>`;
+                  html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>Connected:</strong> ${new Date(session.connected * 1000).toLocaleString()}`;
+                  html += `&nbsp;&nbsp;<strong>Last Heard:</strong> ${new Date(session.last_heard * 1000).toLocaleString()}<br>`;
+                  html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>User-Agent:</strong> <code>${session.ua}</code><br><br>`;
+               });
+
+               html += "<hr/><br/>Click window or hit escape to close";
                $('#chat-whois').html(html).show('slow');
             } else if (cmd === "quit") {
                var user = msgObj.talk.user;

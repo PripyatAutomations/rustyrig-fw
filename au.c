@@ -43,7 +43,7 @@ rr_au_backend_interface_t au_backend_null = {
 
 bool rr_au_init(rr_au_backend_interface_t *be) {
     // Initialize the selected backend
-    if (be->init) {
+    if (be && be->init) {
         return be->init();
     }
     return true;

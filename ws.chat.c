@@ -25,7 +25,7 @@
 #include "inc/http.h"
 #include "inc/ws.h"
 
-#define	CHAT_MIN_REASON_LEN	6
+#define	CHAT_MIN_REASON_LEN	1
 
 extern struct GlobalState rig;	// Global state
 
@@ -103,11 +103,12 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
 // KICK: Kick a user //
 ///////////////////////
 static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char *reason) {
+/*
    if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "kick");
       return true;
    }
-
+*/
    if (has_priv(cptr->user->uid, "admin|owner")) {
       http_client_t *acptr;
       int kicked = 0;
@@ -152,11 +153,12 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
 // MUTE: Mute a user //
 ///////////////////////
 static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char *reason) {
+/*
    if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "mute");
       return true;
    }
-
+*/
    if (has_priv(cptr->user->uid, "admin|owner")) {
       http_client_t *acptr = http_find_client_by_name(target);
       if (acptr == NULL) {
@@ -268,7 +270,6 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
    cptr->last_heard = now;
 
-// Sent command:  {"talk":{"cmd":"whois","token":"C/xNK+6y5LIqK","args":{"target":"admin"}}}
    char *token = mg_json_get_str(msg_data, "$.talk.token");
    char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
    char *data = mg_json_get_str(msg_data, "$.talk.data");
@@ -347,57 +348,89 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          ws_chat_cmd_unmute(cptr, target);
       } else if (strcasecmp(cmd, "whois") == 0) {
          if (target == NULL) {
-            // XXX: Send an warning to the user informing that they must specify a target username
+            // XXX: Send a warning to the user informing that they must specify a target username
             Log(LOG_DEBUG, "chat", "whois with no target");
             rv = true;
             goto cleanup;
          }
+         char msgbuf[HTTP_WS_MAX_MSG + 1];
          http_client_t *acptr = http_client_list;
+
+         if (acptr == NULL) {
+            Log(LOG_DEBUG, "chat", "whois no users online?!?");
+            rv = true;
+            goto cleanup;
+         }
+
+         // create the full message
+         memset(msgbuf, 0, sizeof(msgbuf));
          int clone_idx = 0;
+         char whois_data[HTTP_WS_MAX_MSG / 2];
+         char *wp = whois_data;
+         size_t remaining = sizeof(whois_data);
+         int written;
+
+         written = snprintf(wp, remaining, "[");
+
+         if (written < 0 || (size_t)written >= remaining) {
+            goto trunc;
+         }
+         wp += written;
+         remaining -= written;
 
          while (acptr != NULL) {
-            // not a match? Carry on!
             if (strcasecmp(acptr->chatname, target) != 0) {
                acptr = acptr->next;
                continue;
             }
 
-            char whois_data[HTTP_WS_MAX_MSG/2];
-            char msgbuf[HTTP_WS_MAX_MSG+1];
-
-            if (acptr == NULL) {
-               // XXX: No such user error
-               Log(LOG_DEBUG, "chat", "whois |%s| - acptr == NULL", target);
-               rv = true;
-               goto cleanup;
-            }
-
-            // Form the message and send it
-            if (acptr->user == NULL) {
-               // XXX: Send No Such User response
-               Log(LOG_DEBUG, "chat", "whois |%s| - acptr->user == NULL", target);
+            if (!acptr->user) {
                acptr = acptr->next;
                continue;
             }
 
             http_user_t *up = acptr->user;
-            prepare_msg(whois_data, sizeof(whois_data), 
-               "{ \"username\": \"%s\", \"clone\": %d, \"email\": \"%s\", \"privs\": \"%s\", \"connected\": %lu, \"last_heard\": %lu, \"ua\": \"%s\" }",
-               acptr->chatname, clone_idx, up->email, up->privs, acptr->session_start,
-               acptr->last_heard, (acptr->user_agent ? acptr->user_agent : "Unknown"));
 
-            // prepare the response
-            prepare_msg(msgbuf, sizeof(msgbuf),
-               "{ \"talk\": { \"cmd\": \"whois\", \"data\": %s, \"ts\": %lu } }",
-               whois_data, now);
-            mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-            clone_idx++;		// keep track of which clone this is
+            // Add comma if not the first
+            if (clone_idx > 0) {
+               written = snprintf(wp, remaining, ",");
+               if (written < 0 || (size_t)written >= remaining)
+                  goto trunc;
+               wp += written;
+               remaining -= written;
+            }
+
+            written = snprintf(wp, remaining,
+               "{ \"username\": \"%s\", \"clone\": %d, \"email\": \"%s\", \"privs\": \"%s\", \"connected\": %lu, \"last_heard\": %lu, \"ua\": \"%s\" }",
+               acptr->chatname, clone_idx++, up->email, up->privs,
+               acptr->session_start, acptr->last_heard,
+               acptr->user_agent ? acptr->user_agent : "Unknown");
+
+            if (written < 0 || (size_t)written >= remaining)
+               goto trunc;
+            wp += written;
+            remaining -= written;
 
             acptr = acptr->next;
-            continue;
          }
-      } else {
-         Log(LOG_DEBUG, "chat", "Got unknown talk msg: |%.*s|", msg_data.len, msg_data.buf);
+
+         written = snprintf(wp, remaining, "]");
+         if (written < 0 || (size_t)written >= remaining)
+            goto trunc;
+         wp += written;
+         remaining -= written;
+
+         // Send the full message
+         snprintf(msgbuf, sizeof(msgbuf),
+            "{ \"talk\": { \"cmd\": \"whois\", \"data\": %s, \"ts\": %lu } }",
+            whois_data, now);
+//         Log(LOG_DEBUG, "ws.chat", "ws message: %s", msgbuf);
+         mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+         goto cleanup;
+
+trunc:
+         Log(LOG_WARN, "chat", "whois_data truncated");
+         goto cleanup;
       }
    }
 
