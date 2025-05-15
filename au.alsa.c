@@ -28,5 +28,13 @@
 #include "inc/au.alsa.h"
 
 // ... stuff goes here
+rr_au_backend_interface_t au_backend_alsa = {
+        .backend_type = AU_BACKEND_ALSA,
+        .init = alsa_init,
+        .write_samples = alsa_write_samples,
+        .read_samples = alsa_read_samples,
+        .cleanup = alsa_cleanup,
+};
+
 #endif	// defined(FEATURE_ALSA)
 

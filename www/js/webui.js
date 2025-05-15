@@ -280,9 +280,15 @@ function ws_connect() {
                $('#chat-whois').html(html).show('slow');
             } else if (cmd === "quit") {
                var user = msgObj.talk.user;
+               var reason = msgObj.talk.reason;
+
                if (user) {
                   var msg_ts = msg_timestamp(msgObj.talk.ts);
-                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">left the chat</span>&nbsp;***</div>');
+                  if (typeof reason === 'undefined') {
+                     reason = 'Client exited';
+                  }
+
+                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">left the chat: ' + reason + '</span>&nbsp;***</div>');
                   // Play leave (door close) sound if the bell button is checked
                   if ($('#bell-btn').data('checked')) {
                      if (!(user === auth_user)) {
@@ -534,8 +540,9 @@ window.webui_inits.push(function webui_init() {
    chat_append('<div><span class="error">***** New commands are available! See /help for chat help and !help for rig commands *****</span></div>');
 
    // Reset buttons
-   $('input#reset').click(function(evt) {
+   $('#login-reset-btn').click(function(evt) {
       console.log("Form reset");
+      $('input#user, input#pass').val('');
    });
 
    form_disable(true);
@@ -645,19 +652,22 @@ window.webui_inits.push(function webui_init() {
 
       if (e.key === 'Tab') {
          e.preventDefault();
-
+/*
          if (!completing) {
             const beforeCaret = text.slice(0, caretPos);
             const match = beforeCaret.match(/@(\w*)$/);
 
             if (match) {
                const word = match[1];
-               matchStart = beforeCaret.lastIndexOf('@' + word);
+               matchStart = beforeCaret.lastIndexOf(word);
                matchLength = word.length;
                const afterCaret = text.slice(caretPos);
 
                completionList = getCULNames().filter(name => name.toLowerCase().startsWith(word.toLowerCase()));
-               if (!completionList.length) return;
+
+               if (!completionList.length) {
+                  return;
+               }
 
                completing = true;
                completionIndex = 0;
@@ -695,6 +705,7 @@ window.webui_inits.push(function webui_init() {
       } else if (completing && !e.key.match(/^[a-zA-Z0-9]$/)) {
          completing = false;
          updateCompletionIndicator(null);
+*/
       } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
          e.preventDefault();
 
@@ -712,6 +723,7 @@ window.webui_inits.push(function webui_init() {
             chatBox.scrollTop(chatBox.scrollTop() + pageScrollAmount);
          }
       } else if (completing && (e.key === ' ' || e.key === 'Enter')) {
+  /*
          // Finalize current match
          const finalName = completionList[(completionIndex - 1 + completionList.length) % completionList.length];
          const finalizedText =
@@ -722,6 +734,7 @@ window.webui_inits.push(function webui_init() {
          this.setSelectionRange(newCaret, newCaret);
          completing = false;
          updateCompletionIndicator(null);
+*/
       }
    });
 

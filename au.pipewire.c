@@ -33,6 +33,8 @@
 #define CHANNELS 1
 #define FRAME_SIZE 960  // 20ms frames at 48kHz
 
+rr_au_backend_interface_t au_backend_pipewire;
+
 rr_au_pw_data_t au;
 extern void au_send_to_ws(const void *data, size_t len);
 
@@ -56,6 +58,12 @@ static void on_process(void *userdata) {
    au_send_to_ws(data, size);          // send raw (or encoded) audio to all clients
 
    pw_stream_queue_buffer(aud->capture_stream, buffer);
+}
+
+bool pipewire_backend_init(void) {
+    static rr_au_pw_data_t pw_data; // Static instance for initialization
+    pipewire_init(&pw_data);
+    return true;
 }
 
 void pipewire_init(rr_au_pw_data_t *aud) {

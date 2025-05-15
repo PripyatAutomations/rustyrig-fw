@@ -86,8 +86,6 @@ int rr_atu_init(int uid) {
    // do we have saved tuning parameters for this unit?
    if ((tv = rr_atu_find_saved_state(uid)) != NULL) {
       // Apply them
-   } else {
-      // XXX: Should we do a DDS sweep tune, if possible?
    }
 
    return rv;

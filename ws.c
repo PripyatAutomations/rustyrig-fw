@@ -87,6 +87,18 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
       return true;
    }
 
+   // make sure we're not accessing unsafe memory
+   if (cptr->user != NULL && cptr->chatname[0] != '\0') {
+      if (cptr->active) {
+         // blorp out a quit to all connected users
+         prepare_msg(resp_buf, sizeof(resp_buf),
+                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"%s\", \"ts\": %lu } }",
+                     cptr->chatname, reason, now);
+         struct mg_str ms = mg_str(resp_buf);
+         ws_broadcast(NULL, &ms);
+      }
+   }
+
    prepare_msg(resp_buf, sizeof(resp_buf), 
       "{ \"auth\": { \"error\": \"Client kicked: %s\" } }",
       (reason != NULL ? reason : "no rason given"));

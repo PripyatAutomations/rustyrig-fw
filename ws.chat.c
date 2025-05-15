@@ -130,7 +130,8 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
                "%s was kicked by %s (Reason: %s)",
                target, cptr->chatname,
                (reason ? reason : "No reason given"));
-            send_global_alert(cptr, "***SERVER***", msgbuf);
+            struct mg_str ms = mg_str(msgbuf);
+            ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms);
             Log(LOG_AUDIT, "admin.kick", msgbuf);
             ws_kick_client(acptr, msgbuf);
             kicked++;

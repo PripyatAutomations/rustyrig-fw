@@ -390,11 +390,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
             cptr->user_agent = NULL;
          }
 
-         // if it's a websocket user, it's a client, else it's probably something loading assets
-         if (cptr->is_ws) {
+         if (cptr->active) {
             // blorp out a quit to all connected users
             prepare_msg(resp_buf, sizeof(resp_buf),
-                        "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"ts\": %lu } }",
+                        "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"connection closed\", \"ts\": %lu } }",
                         cptr->chatname, now);
             struct mg_str ms = mg_str(resp_buf);
             ws_broadcast(NULL, &ms);

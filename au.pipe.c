@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <stdio.h>
 
+
 typedef struct {
     int pipe_fd;  // File descriptor for the pipe/socket
 } rr_au_pipe_device_t;
@@ -39,3 +40,12 @@ bool pipe_read_samples(rr_au_pipe_device_t *device, void *buffer, size_t size) {
 void pipe_cleanup(rr_au_pipe_device_t *device) {
     if (device->pipe_fd >= 0) close(device->pipe_fd);
 }
+
+rr_au_backend_interface_t au_backend_pipe = {
+    .backend_type = AU_BACKEND_PIPE,
+//    .init = pipe_init,
+//    .write_samples = pipe_write_samples,
+//    .read_samples = pipe_read_samples,
+//    .cleanup = pipe_cleanup
+};
+

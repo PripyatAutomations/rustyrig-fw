@@ -25,6 +25,7 @@
    #win-chat {
       padding: 0px;
       height: CALC(100vh - 5.5em);
+      border: 2px dotted pink;
    }
 
    span.menu-tab {
@@ -50,16 +51,16 @@
    }
 
    #win-login {
-      position: absolute;
-      top: 1em;
-      left: 1em;
-/*      height: 100%; */
-      width: CALC(100% - 1.5em);
+      border: 2px dashed darkorange;
+      top: 0em;
+      left: 0em;
+      height: CALC(100vh - 0.5em);
+      width: CALC(100vw - 0.5em);
+      overflow: hidden;
    }
 
    #win-syslog {
       height: CALC(100vh - 5.5em);
-/*      overflow: hidden; */
    }
 
    #chat-input {
@@ -98,22 +99,32 @@
       width: calc(100% - var(--user-list-width, 14.2em));
    }
 
+   #upper-wrapper {
+      border: 2px dashed yellow;
+   }
+
+   #lower-wrapper {
+      border: 2px dashed LawnGreen;
+   }
+
    div#sub-login-error {
-      top: 1em;
-      left: 1em;
-      height: CALC(100vh - 5em);
-      width: CALC(100% - 6em);
+      top: 0em;
+      left: 0em;
+      height: CALC(100vh - 2.5em);
+      width: CALC(100vw - 2.5em);
    }
 
    span#sub-login-error-msg {
       position: absolute;
-      top: 33%;
-      left: 33%;
-      height: 66%;
-      width: 66%;
+      top: 10%;
+      left: 10%;
+      height: 80%;
+      width: 80%;
    }
 
-   #login-err-ok {
+   button#login-err-ok {
+      position: absolute;
+      bottom: 2em;
    }
 
    #upload-btn, #clear-btn, #send-btn, #emoji-btn, #bell-btn {

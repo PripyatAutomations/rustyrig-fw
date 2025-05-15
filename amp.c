@@ -33,11 +33,12 @@ typedef struct rr_amp_state {
 rr_amp_state_t *amp_data[MAX_AMPS];
 
 bool rr_amp_init(uint8_t index) {
-   Log(LOG_INFO, "amp", " => Unit #%d initializing", index);
    if (index > (MAX_AMPS - 1)) {
       Log(LOG_CRIT, "amp", "rr_amp_init: got unit id %d > MAX_AMPS (%d), bailing!", index, MAX_AMPS);
       return true;
    }
+
+   Log(LOG_INFO, "amp", " => Unit #%d initializing", index);
 
    if (amp_data[index] == NULL) {
       amp_data[index] = malloc(sizeof(rr_amp_state_t));
@@ -49,7 +50,7 @@ bool rr_amp_init(uint8_t index) {
 }
 
 bool rr_amp_init_all(void) {
-   Log(LOG_INFO, "amp", "Initializing amplifiers");
+   Log(LOG_INFO, "amp", "Initializing all amplifiers");
    rr_amp_init(0);
    Log(LOG_INFO, "amp", "Amp setup complete");
    return false;

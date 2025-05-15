@@ -20,13 +20,23 @@ typedef enum {
     AU_BACKEND_PIPE,          // PCM via pipe/socket
 } rr_au_backend_t;
 
-typedef struct rr_au_device_t rr_au_device_t;
-typedef struct uint32_t rr_au_sample_t;
+typedef float rr_au_sample_t;
 
-bool rr_au_init(void);
-bool rr_au_write_samples(const void *samples, size_t size);
-rr_au_sample_t **rr_au_read_samples(void);
-void rr_au_cleanup(rr_au_device_t *dev);
+typedef struct rr_au_device_t rr_au_device_t;
+
+typedef struct {
+    rr_au_backend_t backend_type;
+    bool (*init)(void);
+    bool (*write_samples)(const void *samples, size_t size);
+    rr_au_sample_t **(*read_samples)(void);
+    void (*cleanup)(rr_au_device_t *dev);
+} rr_au_backend_interface_t;
+
+extern bool rr_au_init(rr_au_backend_interface_t *be);
+extern bool rr_au_write_samples(rr_au_backend_interface_t *be, const void *samples, size_t size);
+extern rr_au_sample_t **rr_au_read_samples(rr_au_backend_interface_t *be);
+extern void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev);
+
 
 #include "inc/au.pipewire.h"
 #include "inc/au.pcm5102.h"

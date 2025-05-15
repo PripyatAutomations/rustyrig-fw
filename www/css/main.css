@@ -138,10 +138,11 @@ button {
 }
 
 #win-login {
-   position: fixed;
+   position: absolute;
    top: 33%;
    left: 33%;
    font-size: 1.2em;
+   overflow: hidden;
 }
 
 #sub-login-error {

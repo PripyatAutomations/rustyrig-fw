@@ -5,7 +5,6 @@
    position: absolute;
    top: 3.5em;
    left: 0.3em;
-   border: 2px dotted lime;
 /*   overflow-x: none; */
    overflow-y: scroll;
    border-bottom: 10px;
@@ -394,7 +393,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 /* Styling for the user-menu */
 #user-menu {
     position: absolute;
-    font-size: 1.6em;
+    font-size: 1.4em;
     top: 0px;
     right: 0px;
     border: 1px solid #ccc;
@@ -425,7 +424,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    padding: 0.5em;
    padding-top: 1em;
    height: CALC(100% - 1em);
-   width: CALC(100% - 1em);
+   width: CALC(100% - 0.5em);
    border: 2px solid DarkSlateBlue;
    background: DarkBlue;
    font-size: 1.1em;
@@ -538,11 +537,9 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 #upper-wrapper {
    padding: 0px;
    margin: 0px;
-/*   border: 2px dashed yellow; */
 }
 
 #lower-wrapper {
    padding: 0px;
    margin: 0px;
-   border: 2px dashed LawnGreen;
 }
