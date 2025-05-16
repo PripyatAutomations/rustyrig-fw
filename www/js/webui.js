@@ -575,6 +575,7 @@ window.webui_inits.push(function webui_init() {
       }
    }, { passive: false });
 
+   $('button#reload-css').click(reload_css);
    $(document).on('keydown', function(e) {
       // Handle login field focus transition
       if (document.activeElement.matches('form#login input#user')) {

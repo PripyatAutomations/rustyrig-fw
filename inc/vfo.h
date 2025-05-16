@@ -42,7 +42,11 @@ enum rr_mode {
    MODE_LSB,
    MODE_USB,
    MODE_ISB,
-   MODE_FM
+   MODE_FM,
+   MODE_DU,
+   MODE_DL,
+   MODE_FT4,			// ft8lib?
+   MODE_FT8			// ft8lib?
 };
 typedef enum rr_mode rr_mode_t;
 

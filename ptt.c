@@ -44,7 +44,11 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
       return false;
    }
 
-   rig.backend->api->rig_ptt_set(vfo, ptt);
+   if (rig.backend && rig.backend->api) {
+      rig.backend->api->rig_ptt_set(vfo, ptt);
+   } else {
+      Log(LOG_WARN, "ptt", "no backend");
+   }
    return ptt;
 }
 

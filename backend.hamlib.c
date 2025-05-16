@@ -195,11 +195,12 @@ static bool hl_fini(void) {
 }
 
 // Here we poll the various meters and state
-bool hl_poll(void) {
+bool hl_poll(rr_vfo_t vfo) {
    // XXX: We need to deal with generating diffs
    // - save the current state as a whole, with a timestamp
    // - poll the rig status
    // - Elsewhere, in backend.c, we'll compare current + last, every call to send_rig_status
+   Log(LOG_WARN, "hamlib", "hihi!");
    return false;
 }
 
@@ -207,8 +208,8 @@ static rr_backend_funcs_t rr_backend_hamlib_api = {
    .backend_fini = &hl_fini,
    .backend_init = &hl_init,
    .backend_poll = &hl_poll,
-   .rig_ptt_set = &hl_ptt_set
-   .rig_freq_set = &hl_freq_set
+   .rig_ptt_set = &hl_ptt_set,
+//   .rig_freq_set = &hl_freq_set
 };
 
 rr_backend_t rr_backend_hamlib = {

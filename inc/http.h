@@ -117,6 +117,7 @@ extern void client_set_flag(http_client_t *cptr, u_int32_t flag);
 extern void client_clear_flag(http_client_t *cptr, u_int32_t flag);
 
 ////////////////////////////////////////////////////////
+extern int http_count_clients(void);
 extern bool http_init(struct mg_mgr *mgr);
 extern http_client_t *http_add_client(struct mg_connection *c, bool is_ws);
 extern void http_remove_client(struct mg_connection *c);

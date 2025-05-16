@@ -424,7 +424,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
       }
 
-      if ((http_users_connected > HTTP_MAX_SESSIONS)) {
+      if (http_count_clients() > HTTP_MAX_SESSIONS) {
          Log(LOG_AUDIT, "auth.users", "Server is full! %d clients exceeds max %d", http_users_connected, HTTP_MAX_SESSIONS);
          // kick the user
          rv = true;
@@ -432,10 +432,15 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       }
 
       if (cptr->user) {
-         if (cptr->user->clones > cptr->user->max_clones) {
+         if (cptr->user->clones + 1 > cptr->user->max_clones) {
             Log(LOG_AUDIT, "auth.users", "User clone limit reached for %s: %d clones exceeds max %d", cptr->user->name, cptr->user->clones, cptr->user->max_clones);
             // Kick the client
+            ws_kick_client(cptr, "Too many clones");
+            rv = true;
+            goto cleanup;
          }
+      } else {
+         Log(LOG_CRIT, "auth.users", "login request has no cptr->user for cptr:<%x>?!", cptr);
       }
       prepare_msg(resp_buf, sizeof(resp_buf),
                "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }",
@@ -567,8 +572,8 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms);
 
-         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d with privs: %s",
-             cptr->chatname, cptr, ip, port, http_users[cptr->user->uid].privs);
+         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
+             cptr->chatname, cptr, ip, port, cptr->user->clones, cptr->user->max_clones, cptr->user->privs);
       } else {
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> from IP %s:%d gave wrong password. Kicking!", cptr->user, cptr, ip, port);
          ws_kick_client(cptr, "Invalid login/password");

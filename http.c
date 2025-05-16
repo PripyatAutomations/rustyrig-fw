@@ -65,26 +65,26 @@ static const struct mg_http_serve_opts http_opts = {
 static const char content_type[] = "Content-Type: ";
 
 static struct http_res_types http_res_types[] = {
-//   { "7z",  "Content-Type: application/x-7z-compressed\r\n" },
-   { "css",  "Content-Type: text/css\r\n" },
-//   { "htm",  "Content-Type: text/html\r\n" },
-   { "html", "Content-Type: text/html\r\n" },
-   { "ico", "Content-Type: image/x-icon\r\n" },
-   { "js",   "Content-Type: application/javascript\r\n" },
-   { "json", "Content-Type: application/json\r\n" },
-   { "jpg",  "Content-Type: image/jpeg\r\n" },
-   { "mp3",  "Content-Type: audio/mpeg\r\n" },
-   { "ogg",  "Content-Type: audio/ogg\r\n" },
-   { "otf",  "Content-Type: font/otf\r\n" },
-   { "png",  "Content-Type: image/png\r\n" },
-   { "svg",  "Content-Type: image/svg\r\n" },
-//   { "tar",  "Content-Type: application/x-tar\r\n" },
-   { "ttf",  "Content-Type: font/ttf\r\n" },
-   { "txt",  "Content-Type: text/plain\r\n" },
-   { "webp", "Content-Type: image/webp\r\n" },
-   { "woff", "Content-Type: font/woff\r\n" },
-   { "woff2", "Content-Type: font/woff2\r\n" },
-//   { "zip",  "Content-Type: application/zip\r\n" },
+   { "7z",  "application/x-7z-compressed\r\n" },
+   { "css",  "text/css\r\n" },
+   { "htm",  "text/html\r\n" },
+   { "html", "text/html\r\n" },
+   { "ico", "image/x-icon\r\n" },
+   { "js",   "application/javascript\r\n" },
+   { "json", "application/json\r\n" },
+   { "jpg",  "image/jpeg\r\n" },
+   { "mp3",  "audio/mpeg\r\n" },
+   { "ogg",  "audio/ogg\r\n" },
+   { "otf",  "font/otf\r\n" },
+   { "png",  "image/png\r\n" },
+   { "svg",  "image/svg\r\n" },
+   { "tar",  "application/x-tar\r\n" },
+   { "ttf",  "font/ttf\r\n" },
+   { "txt",  "text/plain\r\n" },
+   { "webp", "image/webp\r\n" },
+   { "woff", "font/woff\r\n" },
+   { "woff2", "font/woff2\r\n" },
+   { "zip",  "application/zip\r\n" },
    { NULL,	NULL }
 };
 
@@ -233,7 +233,7 @@ const char *http_content_type(const char *type) {
       }
    }
 
-   return "Content-Type: text/plain\r\n";
+   return "text/plain\r\n";
 }
 
 //
@@ -527,7 +527,10 @@ void http_remove_client(struct mg_connection *c) {
          }
          Log(LOG_CRAZY, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d users remain)", current, c, http_users_connected);
          if (current->user) {
-            current->user->clones--;
+            if (current->authenticated && current->is_ws) {
+               current->user->clones--;
+            }
+
             if (current->user->clones < 0) {
                Log(LOG_INFO, "http", "Client at cptr:<%x> has %d clones??", current, current->user->clones);
                current->user->clones = 0;
@@ -609,6 +612,18 @@ void client_clear_flag(http_client_t *cptr, u_int32_t flag) {
    }
 }
 //////////////
+
+int http_count_clients(void) {
+   int c = 0;
+   http_client_t *cptr = http_client_list;
+   while (cptr != NULL) {
+      if (cptr->authenticated && cptr->is_ws) {
+         c++;
+      }
+      cptr = cptr->next;
+   }
+   return c;
+}
 
 #include "inc/mongoose.h"
 

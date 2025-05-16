@@ -16,7 +16,7 @@ struct rr_backend_funcs {
    // Backend management
    bool		(*backend_init)(void);			// Startup
    bool		(*backend_fini)(void);			// Shutdown
-   bool		(*backend_poll)(void);			// Called periodically to get the rig status
+   bool		(*backend_poll)(rr_vfo_t vfo);		// Called periodically to get the rig status
 
    ////////////////////////////////////////
    // Rig control
@@ -31,6 +31,7 @@ struct rr_backend_funcs {
    bool		(*rig_split_mode)(rr_vfo_t vfo, const char *args);
    bool		(*rig_tuner_control)(rr_vfo_t vfo, const char *args);
    bool		(*rig_set_power)(rr_vfo_t vfo, const char *args);
+   bool		(*rig_set_freq)(rr_vfo_t vfo, const char *args);
 };
 typedef struct rr_backend_funcs rr_backend_funcs_t;
 

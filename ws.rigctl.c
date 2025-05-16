@@ -19,12 +19,143 @@
 #include "inc/state.h"
 #include "inc/eeprom.h"
 #include "inc/logger.h"
+#include "inc/auth.h"
+#include "inc/backend.h"
 #include "inc/cat.h"
 #include "inc/posix.h"
 #include "inc/ws.h"
 #include "inc/ptt.h"
+#include "inc/vfo.h"
 
 extern struct GlobalState rig;	// Global state
+
+///////////////////
+#define	WS_RIGCTL_FORCE_INTERVAL	30		// every 30 seconds, send a full update
+
+// This ugly mess needs sorted out asap ;)
+typedef struct ws_rig_state {
+   float	freq;
+   rr_mode_t	mode;
+   int		width;
+} ws_rig_state_t;
+
+// Here we keep track of a few sets of VFO state
+static ws_rig_state_t	vfo_states[MAX_VFOS], vfo_states_last[MAX_VFOS];
+static rr_vfo_t	active_vfo;
+
+ws_rig_state_t *ws_rig_get_vfo_state(rr_vfo_t vfo) {
+   return &vfo_states[vfo];
+}
+
+ws_rig_state_t *ws_rig_get_vfo_last_state(rr_vfo_t vfo) {
+   return &vfo_states_last[vfo];
+}
+
+// Returns NULL or a diff of the last and current rig statef
+// XXX: Uglyyy...
+static ws_rig_state_t *ws_rigctl_state_diff(rr_vfo_t vfo) {
+   if (vfo == VFO_NONE) {
+      return NULL;
+   }
+
+/*
+   // for dict2json stuff im considering making
+   dict *update;
+   if (!(update = dict_new()) {
+      Log(LOG_CRIT, "ws.rigctl", "dict_new failed!");
+      return NULL;
+   }
+*/
+
+   // shortcut pointers
+   ws_rig_state_t *curr = &vfo_states[vfo],
+                  *old = &vfo_states_last[vfo];
+
+   // allocate some storage for the diff values
+   ws_rig_state_t *update = malloc(sizeof(ws_rig_state_t));
+   if (update == NULL) {
+      // XXX: we should throw a log message but we're out of memory....
+      return NULL;
+   }
+   memset(update, 0, sizeof(ws_rig_state_t));
+
+   bool u_freq, u_mode, u_width;
+
+   // Only propogate changed fields
+   if (old->freq != curr->freq) {
+      update->freq = curr->freq;
+      u_freq = true;
+   }
+
+   if (old->mode != curr->mode) {
+      update->mode = curr->mode;
+      u_mode = true;
+   }
+
+   if (old->width != curr->width) {
+      update->width =curr->width;
+      u_width = true;
+   }
+
+   if (u_freq || u_mode || u_width) {
+      return update;
+   }
+
+   // If no changes, return NULL
+   free(update);
+   return NULL;
+}
+
+// Save the old state then poll the rig
+static bool ws_rig_state_poll(rr_vfo_t vfo) {
+   // shortcut pointers
+   ws_rig_state_t *curr = &vfo_states[vfo],
+                  *old = &vfo_states_last[vfo];
+
+   // save the current values to _last
+   memset(old, 0, sizeof(ws_rig_state_t));
+   memcpy(old, curr, sizeof(ws_rig_state_t));
+
+   // Poll the backend 
+   if (rig.backend && rig.backend->api && rig.backend->api->backend_poll) {
+      rig.backend->api->backend_poll(vfo);
+   }
+
+   return false;
+}
+
+// Sends a diff of the changes since last poll, in json
+time_t ws_rig_state_last_sent;
+
+static bool ws_rig_state_send(rr_vfo_t vfo) {
+   bool force_send = false;
+
+   if (vfo == VFO_NONE) {
+      return NULL;
+   }
+
+   // Nothing to return, see if we've iterated enough times to force a send
+   if (ws_rig_state_last_sent >= WS_RIGCTL_FORCE_INTERVAL) {
+      force_send = true;
+   }
+
+   ws_rig_state_t *diff = NULL;
+
+   if (force_send) {
+      // send the entire latest update to the users
+      diff = &vfo_states[vfo];
+   } else {
+      ws_rigctl_state_diff(vfo);
+      if (diff == NULL) {
+         return false;
+      }
+   }
+ 
+   // update last sent and return success
+   ws_rig_state_last_sent = now;
+   return false;
+}
+
 
 rr_vfo_t vfo_lookup(const char *vfo) {
    rr_vfo_t c_vfo;
@@ -56,37 +187,35 @@ rr_vfo_t vfo_lookup(const char *vfo) {
 bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
    http_client_t *cptr = http_find_client_by_c(c);
+   bool rv = false;
 
    if (cptr == NULL) {
-      Log(LOG_DEBUG, "rigctl", "rig parse, cptr == NULL, c: <%x>", c);
+      Log(LOG_DEBUG, "ws.rigctl", "rig parse, cptr == NULL, c: <%x>", c);
       return true;
    }
-   cptr->last_heard = now;
+   cptr->last_heard = now;	// avoid unneeded keep-alives
 
-   char *token = mg_json_get_str(msg_data, "$.cat.token");
    char *cmd = mg_json_get_str(msg_data, "$.cat.cmd");
-   char *data = mg_json_get_str(msg_data, "$.cat.data");
+   char *vfo = mg_json_get_str(msg_data, "$.cat.data.vfo");
+   char *state = mg_json_get_str(msg_data, "$.cat.data.state");
 
-   if (cmd && data) {
+   if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
-         char *vfo = mg_json_get_str(msg_data, "$.cat.data.vfo");
-         char *state = mg_json_get_str(msg_data, "$.cat.data.state");
-
+         if (!has_priv(cptr->user->uid, "admin|owner|tx")) {
+            rv = true;
+            goto cleanup;
+         }
          if (vfo == NULL || state == NULL) {
-            Log(LOG_DEBUG, "rigctl", "PTT set without vfo or state");
-            free(token);
-            free(cmd);
-            free(data);
-            free(vfo);
-            free(state);
-            return true;
+            Log(LOG_DEBUG, "ws.rigctl", "PTT set without vfo or state");
+            rv = true;
+            goto cleanup;
          }
          rr_vfo_t c_vfo;
          bool c_state;
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
 
-         if (strcasecmp(state, "true") == 0) {
+         if (strcasecmp(state, "true") == 0 || strcasecmp(state, "on") == 0) {
             c_state = true;
          } else {
             c_state = false;
@@ -94,20 +223,22 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          if (vfo == NULL) {
             c_vfo = VFO_A;
-         } else {
          }
 
-         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"rigctl\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }", cptr->chatname, state, vfo, now);
+         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }", cptr->chatname, state, vfo, now);
          mp = mg_str(msgbuf);
          cptr->last_heard = now;
          ws_broadcast(c, &mp);
+         Log(LOG_AUDIT, "ptt", "User %s set PTT to %s", cptr->chatname, (c_state ? "true" : "false"));
          rr_ptt_set(c_vfo, c_state);
       } else {
-         Log(LOG_DEBUG, "rigctl", "Got unknown rig msg: |%.*s|", msg_data.len, msg_data.buf);
+         Log(LOG_DEBUG, "ws.rigctl", "Got unknown rig msg: |%.*s|", msg_data.len, msg_data.buf);
       }
    }
-   free(token);
+
+cleanup:
    free(cmd);
-   free(data);
-   return false;
+   free(state);
+   free(vfo);
+   return rv;
 }
