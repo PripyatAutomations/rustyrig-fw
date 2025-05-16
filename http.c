@@ -53,7 +53,6 @@ static char www_fw_ver[128];
 static char www_headers[32768];
 static char www_404_path[PATH_MAX];
 http_client_t *http_client_list = NULL;
-int	    http_users_connected = 0;
 
 static const struct mg_http_serve_opts http_opts = {
    .extra_headers = www_headers,
@@ -495,8 +494,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    cptr->next = http_client_list;
    http_client_list = cptr;
 
-   http_users_connected++;
-   Log(LOG_INFO, "http", "Added new client at cptr:<%x> (%d clients total now)", cptr, http_users_connected);
+   Log(LOG_INFO, "http", "Added new client at cptr:<%x> (%d clients total now)", cptr, http_count_clients());
    return cptr;
 }
 
@@ -520,12 +518,7 @@ void http_remove_client(struct mg_connection *c) {
             prev->next = current->next;
          }
 
-         http_users_connected--;
-         if (http_users_connected < 0) {
-            Log(LOG_INFO, "http", "Why is http_users_connected == %d? Resetting to 0", http_users_connected);
-            http_users_connected = 0;
-         }
-         Log(LOG_CRAZY, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d users remain)", current, c, http_users_connected);
+         Log(LOG_CRAZY, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d users remain)", current, c, http_count_clients() - 1);
          if (current->user) {
             if (current->authenticated && current->is_ws) {
                current->user->clones--;

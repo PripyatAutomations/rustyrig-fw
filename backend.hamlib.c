@@ -200,7 +200,6 @@ bool hl_poll(rr_vfo_t vfo) {
    // - save the current state as a whole, with a timestamp
    // - poll the rig status
    // - Elsewhere, in backend.c, we'll compare current + last, every call to send_rig_status
-   Log(LOG_WARN, "hamlib", "hihi!");
    return false;
 }
 

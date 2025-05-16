@@ -424,8 +424,9 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
       }
 
-      if (http_count_clients() > HTTP_MAX_SESSIONS) {
-         Log(LOG_AUDIT, "auth.users", "Server is full! %d clients exceeds max %d", http_users_connected, HTTP_MAX_SESSIONS);
+      int curr_clients = http_count_clients();
+      if (curr_clients > HTTP_MAX_SESSIONS) {
+         Log(LOG_AUDIT, "auth.users", "Server is full! %d clients exceeds max %d", curr_clients, HTTP_MAX_SESSIONS);
          // kick the user
          rv = true;
          goto cleanup;

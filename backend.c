@@ -152,10 +152,10 @@ bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
    return rv;
 }
 
-bool rr_be_poll(void) {
+bool rr_be_poll(rr_vfo_t vfo) {
    if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->backend_poll == NULL) {
       return true;
    }
 
-   return rig.backend->api->backend_poll();
+   return rig.backend->api->backend_poll(vfo);
 }

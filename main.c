@@ -271,6 +271,9 @@ int main(int argc, char **argv) {
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
 
+      // poll the backend (internal or hamlib)
+      rr_be_poll(VFO_A);
+
       // If enabled, calculate loop run time
 #if	defined(USE_PROFILING)
       clock_gettime(CLOCK_MONOTONIC, &loop_end);
