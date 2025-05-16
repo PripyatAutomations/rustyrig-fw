@@ -1,6 +1,10 @@
 /*
  * rig control (CAT over websocket)
  */
+var ptt_active = false;
+var freq = 7074000;
+var freq_b = 14074000;
+
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_rigctl_init() {
    let status = "OK";
@@ -8,9 +12,6 @@ window.webui_inits.push(function webui_rigctl_init() {
    console.log("rigctl init: start");
    console.log("rigctl init: end. status=" + status);
 
-   let ptt_active = false;
-   let freq = 7074000;
-   let freq_b = 14074000;
 
    $('button#rig-ptt').click(function() {
       console.log("ptt: ", ptt_active);
@@ -37,6 +38,15 @@ window.webui_inits.push(function webui_rigctl_init() {
       socket.send(json_msg);
    });
 
+   $('span#vfo-a-freq, span#vfo-b-freq').html(freq);
+   $('span#vfo-b-freq').html(freq_b);
+
+   // XXX: we should make this take a container div as argument
+   freq_input_init();
+});
+
+
+function freq_input_init() {
    const DIGITS = 10;
 
    function freq_create_digit(index) {
@@ -118,4 +128,4 @@ window.webui_inits.push(function webui_rigctl_init() {
        console.log("New freq: ", val);
    });
    freq_set_digits(freq, $input);
-});
+}
