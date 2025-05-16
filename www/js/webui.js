@@ -299,7 +299,7 @@ function ws_connect() {
                      reason = 'Client exited';
                   }
 
-                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">left the chat: ' + reason + '</span>&nbsp;***</div>');
+                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
                   // Play leave (door close) sound if the bell button is checked
                   if ($('#bell-btn').data('checked')) {
                      if (!(user === auth_user)) {

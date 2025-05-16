@@ -81,7 +81,8 @@
       padding: 1.5em;
       border: 1px solid MidnightBlue;
       border-radius: 10px;
-      width: CALC(100% - 3em);
+      height: CALC(100% - 0.4em);
+      width: CALC(100% - 2.4em);
    }
 
    #chat-container {
@@ -91,11 +92,11 @@
    #chat-user-list {
       height: auto;
       width: auto;
-      height: CALC(100% - 14.7em);
+      height: CALC(100% - 17.6em);
    }
 
    #chat-box {
-      height: CALC(100% - 18.8em);
+      height: CALC(100% - 22.8em);
       width: calc(100% - var(--user-list-width, 14.2em));
       padding-bottom: 1em;
    }
@@ -139,5 +140,24 @@
       padding-right: 1em;
       margin-left: 0.5em;
       margin-right: 0.5em;
+   }
+
+   #user-menu {
+      width: 10em;
+      font-size: 1.3em;
+      padding: 0.5em;
+   }
+
+   #user-menu h4 {
+      padding: 0em;
+      margin: 0em;
+   }
+
+   #user-menu ul {
+      padding-left: 0.2em;
+   }
+
+   #user-menu li {
+      padding-bottom: 0.2em;
    }
 }

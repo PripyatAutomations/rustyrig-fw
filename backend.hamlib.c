@@ -39,8 +39,32 @@
 static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl
-
 static rr_vfo_t vfos[MAX_VFOS];
+
+// enum rig_debug_level_e {
+//     RIG_DEBUG_NONE = 0, /*!< no bug reporting */
+//     RIG_DEBUG_BUG,      /*!< serious bug */
+//     RIG_DEBUG_ERR,      /*!< error case (e.g. protocol, memory allocation) */
+//     RIG_DEBUG_WARN,     /*!< warning */
+//     RIG_DEBUG_VERBOSE,  /*!< verbose */
+//     RIG_DEBUG_TRACE,    /*!< tracing */
+//     RIG_DEBUG_CACHE     /*!< caching */
+// };
+static int32_t hamlib_debug_level = RIG_DEBUG_VERBOSE;
+
+typedef struct hamlib_state {
+   freq_t freq;
+   rmode_t rmode;
+   pbwidth_t width;
+   vfo_t vfo;
+   int strength;
+   int rit;
+   int xit;
+   int ret;
+   rig_model_t rig_model;
+} hamlib_state_t;
+
+hamlib_state_t hl_state;
 
 // Return hamlib VFO from rr VFO id
 static vfo_t hl_get_vfo(rr_vfo_t vfo) {
@@ -107,7 +131,7 @@ static bool hl_init(void) {
 #if	defined(BACKEND_HAMLIB_DEBUG)
    rig_set_debug(BACKEND_HAMLIB_DEBUG);
 #else
-   rig_set_debug(RIG_DEBUG_NONE);
+   rig_set_debug(hamlib_debug_level);
 #endif
 
    hl_rig = rig_init(model);
@@ -132,6 +156,8 @@ static bool hl_init(void) {
       rig_cleanup(hl_rig);
       return true;
    }
+
+   rig_set_vfo(hl_rig, RIG_VFO_A);
 
 #if	0
    // XXX: We need to iterate over all VFOs that are configured and set them up to default states...
@@ -182,6 +208,7 @@ static rr_backend_funcs_t rr_backend_hamlib_api = {
    .backend_init = &hl_init,
    .backend_poll = &hl_poll,
    .rig_ptt_set = &hl_ptt_set
+   .rig_freq_set = &hl_freq_set
 };
 
 rr_backend_t rr_backend_hamlib = {

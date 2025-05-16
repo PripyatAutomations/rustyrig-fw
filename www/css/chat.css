@@ -387,18 +387,18 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 }
 
 #user-menu li {
-    padding-bottom: 1em;
+    padding-bottom: 0.4em;
 }
 
 /* Styling for the user-menu */
 #user-menu {
     position: absolute;
-    font-size: 1.4em;
+    font-size: 1.2em;
     top: 0px;
     right: 0px;
     border: 1px solid #ccc;
     border-radius: 10px;
-    padding: 1em;
+    padding: 0.2em;
     background: #c0c0c0;
     color: black;
     width: CALC(40% - 5em);
@@ -426,6 +426,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    height: CALC(100% - 1em);
    width: CALC(100% - 0.5em);
    border: 2px solid DarkSlateBlue;
+   border-radius: 10px;
    background: DarkBlue;
    font-size: 1.1em;
    color: LemonChiffon;

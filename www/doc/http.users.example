@@ -1,3 +1,3 @@
-# Format is uid:name:enabled:password:email:permissions
-0:ADMIN:1:d033e22ae348aeb5660fc2140aec35850c4da997:none:admin.*,edit.*,view.*,radio.*,tx
-1:GUEST:1:35675e68f4b5af7b995d9205ad0fc43842f16450:none:view.*
+# Format is uid:name:enabled:password:email:maxclones:permissions
+0:ADMIN:1:d033e22ae348aeb5660fc2140aec35850c4da997:none:3:admin.*,edit.*,view.*,radio.*,tx
+1:GUEST:1:35675e68f4b5af7b995d9205ad0fc43842f16450:none:3:view.*

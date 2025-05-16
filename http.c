@@ -526,6 +526,13 @@ void http_remove_client(struct mg_connection *c) {
             http_users_connected = 0;
          }
          Log(LOG_CRAZY, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d users remain)", current, c, http_users_connected);
+         if (current->user) {
+            current->user->clones--;
+            if (current->user->clones < 0) {
+               Log(LOG_INFO, "http", "Client at cptr:<%x> has %d clones??", current, current->user->clones);
+               current->user->clones = 0;
+            }
+         }
          memset(current, 0, sizeof(http_client_t));
          free(current);
          return;

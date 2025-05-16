@@ -18,6 +18,8 @@
 // Limit to 10 backups of authdb retained, this should be sane; we delete older backups
 #define MAX_AUTHDB_BK_INDEX     10
 
+
+#define	HTTP_MAX_SESSIONS	10		// max sessions per user
 #define	HTTP_WS_MAX_MSG		65535		// 64kbytes should be enough per message, even with audio frames
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
 #define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
@@ -51,6 +53,8 @@ struct http_user {
    char         email[USER_EMAIL_LEN+1];		// Email address
    char		privs[USER_PRIV_LEN+1];			// privileges string?
    bool 	enabled;				// Is the user enabled?
+   int		max_clones;				// maximum allowed sessions
+   int		clones;					// active logins
 };
 typedef struct http_user http_user_t;
 extern http_user_t http_users[HTTP_MAX_USERS];
@@ -131,5 +135,6 @@ extern const char *http_content_type(const char *type);
 extern bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c);
 //////////////////
 extern http_client_t *http_client_list;
+extern int http_users_connected;
 
 #endif	// !defined(__rr_http_h)

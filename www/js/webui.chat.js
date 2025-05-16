@@ -383,6 +383,7 @@ function parse_chat_cmd(e) {
                chat_append('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
                chat_append('<div><span class="error">/menu&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
                chat_append('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+               chat_append('<div><span class="error">/quit&nbsp;&nbsp;- Disconnect</span></div>');
                //////
                chat_append('<br/><div><span class="error">*** DEBUG TOOLS *** All commands start with /</span></div>');
                chat_append('<div><span class="error">/clearlog&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');

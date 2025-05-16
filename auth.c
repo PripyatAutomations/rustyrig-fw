@@ -216,7 +216,7 @@ int http_load_users(const char *filename) {
       char *token = strtok(line, ":");
       int i = 0, uid = -1;
 
-      while (token && i < 6) {
+      while (token && i < 7) {
          switch (i) {
             case 0: // uid
                if (token) {
@@ -245,7 +245,17 @@ int http_load_users(const char *filename) {
                   strncpy(up->email, token, USER_EMAIL_LEN);
                }
                break;
-            case 5: // Privileges
+            case 5:
+               //
+               if (token) {
+                  int tval = atoi(token);
+                  if (tval < 0 || tval > HTTP_MAX_SESSIONS) {
+                     Log(LOG_CRIT, "auth.core", "Loading user %s has invalid maxclones: %d (min: 1, max: %d)", up->name, tval, HTTP_MAX_SESSIONS);
+                  }
+                  up->max_clones = tval;
+               }
+               break;
+            case 6: // Privileges
                if (token) {
                   strncpy(up->privs, token, USER_PRIV_LEN);
                }
@@ -414,6 +424,19 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
       }
 
+      if ((http_users_connected > HTTP_MAX_SESSIONS)) {
+         Log(LOG_AUDIT, "auth.users", "Server is full! %d clients exceeds max %d", http_users_connected, HTTP_MAX_SESSIONS);
+         // kick the user
+         rv = true;
+         goto cleanup;
+      }
+
+      if (cptr->user) {
+         if (cptr->user->clones > cptr->user->max_clones) {
+            Log(LOG_AUDIT, "auth.users", "User clone limit reached for %s: %d clones exceeds max %d", cptr->user->name, cptr->user->clones, cptr->user->max_clones);
+            // Kick the client
+         }
+      }
       prepare_msg(resp_buf, sizeof(resp_buf),
                "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }",
                cptr->nonce, user, cptr->token);
@@ -503,6 +526,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             prepare_msg(cptr->chatname, sizeof(cptr->chatname), "%s", up->name);
          }
          cptr->authenticated = true;
+         cptr->user->clones++;
 
          // Store some timestamps such as when user joined & session will forcibly expire
          cptr->session_start = now;

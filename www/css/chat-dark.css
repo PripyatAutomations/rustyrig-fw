@@ -7,7 +7,7 @@
 /* Button Box */
 div#button-box {
    background: DimGrey;
-   border: 5px solid #c0c0c0;
+   border: 2px solid #c0c0c0;
 }
 
 #upload-btn, #clear-btn, #send-btn, #emoji-btn, #bell-btn {

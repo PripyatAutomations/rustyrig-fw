@@ -23,8 +23,9 @@ struct rr_backend_funcs {
 //   bool		(*rig_af_gain)(const char *args);
 //   bool		(*rig_copy_vfo_b_to_a)(const char *args);
 //   bool		(*rig_copy_vfo_a_to_b)(const char *args);
-   bool		(*rig_freq_vfo_a)(const char *args);
-   bool		(*rig_mode_vfo_a)(const char *args);
+//   bool		(*rig_freq_vfo_a)(const char *args);
+//   bool		(*rig_mode_vfo_a)(const char *args);
+   
    bool		(*rig_ptt_set)(rr_vfo_t vfo, bool state);
    bool		(*rig_ptt_get)(rr_vfo_t vfo);
    bool		(*rig_split_mode)(rr_vfo_t vfo, const char *args);

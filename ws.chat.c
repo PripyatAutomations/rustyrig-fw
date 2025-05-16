@@ -128,12 +128,12 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
             // Build and send message
             char msgbuf[HTTP_WS_MAX_MSG+1];
             prepare_msg(msgbuf, sizeof(msgbuf),
-               "%s was kicked by %s (Reason: %s)",
-               target, cptr->chatname,
+               "kicked by %s (Reason: %s)",
+               cptr->chatname,
                (reason ? reason : "No reason given"));
-            struct mg_str ms = mg_str(msgbuf);
-            ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms);
             Log(LOG_AUDIT, "admin.kick", msgbuf);
+//            struct mg_str ms = mg_str(msgbuf);
+//            ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms);
             ws_kick_client(acptr, msgbuf);
             kicked++;
          }

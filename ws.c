@@ -101,7 +101,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
 
    prepare_msg(resp_buf, sizeof(resp_buf), 
       "{ \"auth\": { \"error\": \"Client kicked: %s\" } }",
-      (reason != NULL ? reason : "no rason given"));
+      (reason != NULL ? reason : "no reason given"));
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
    mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
    http_remove_client(c);
