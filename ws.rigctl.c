@@ -225,7 +225,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             c_vfo = VFO_A;
          }
 
-         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }", cptr->chatname, state, vfo, now);
+         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
+             cptr->chatname, state, vfo, now);
          mp = mg_str(msgbuf);
          cptr->last_heard = now;
          ws_broadcast(c, &mp);

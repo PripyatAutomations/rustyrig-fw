@@ -35,7 +35,7 @@
 #include "inc/vfo.h"
 #include "inc/cat.h"
 #include "inc/backend.h"
-
+#include "inc/ws.h"
 static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl
@@ -50,7 +50,7 @@ static rr_vfo_t vfos[MAX_VFOS];
 //     RIG_DEBUG_TRACE,    /*!< tracing */
 //     RIG_DEBUG_CACHE     /*!< caching */
 // };
-static int32_t hamlib_debug_level = RIG_DEBUG_VERBOSE;
+static int32_t hamlib_debug_level = RIG_DEBUG_WARN; // RIG_DEBUG_VERBOSE;
 
 typedef struct hamlib_state {
    freq_t freq;
@@ -62,6 +62,7 @@ typedef struct hamlib_state {
    int xit;
    int ret;
    rig_model_t rig_model;
+   ptt_t ptt;
 } hamlib_state_t;
 
 hamlib_state_t hl_state;
@@ -177,6 +178,18 @@ static bool hl_init(void) {
    hl_destroy(hl_rig);
 #endif
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
+
+   // set some sane defaults
+   int rc = rig_set_mode(hl_rig, RIG_VFO_CURR, RIG_MODE_LSB, rig_passband_normal(hl_rig, RIG_MODE_LSB));
+   if (rc != RIG_OK) {
+      Log(LOG_WARN, "be.hamlib", "Failed setting VFO A mode to LSB");
+   }
+
+   rc = rig_set_freq(hl_rig, RIG_VFO_CURR, 7200000);
+   if (rc != RIG_OK) {
+      Log(LOG_WARN, "be.hamlib", "Failed setting VFO A freq to 7200");
+   }
+
    return false;
 }
 
@@ -200,6 +213,50 @@ bool hl_poll(rr_vfo_t vfo) {
    // - save the current state as a whole, with a timestamp
    // - poll the rig status
    // - Elsewhere, in backend.c, we'll compare current + last, every call to send_rig_status
+   int rc = -1;
+
+   // Do VFO_A
+/*
+   memset(&hl_state, 0, sizeof(hamlib_state_t));
+   if ((rc = rig_set_vfo(hl_rig, RIG_VFO_A)) != RIG_OK) {
+      Log(LOG_WARN, "be.hamlib", "SET VFO A failed: %s", rigerror(rc));
+      return true;
+   }
+*/
+
+   if ((rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq)) != RIG_OK) {
+      Log(LOG_WARN, "be.hamlib", "GET VFO_A freq failed: %s", rigerror(rc));
+      return true;
+   }
+
+   if ((rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width)) != RIG_OK) {
+      Log(LOG_WARN, "be.hamlib", "GET VFO_A mode failed: %s", rigerror(rc));
+   }
+
+   if ((rc = rig_get_ptt(hl_rig, RIG_VFO_CURR, &hl_state.ptt)) != RIG_OK) {
+      Log(LOG_WARN, "be.hamlib", "GET VFO_A ptt failed: %s", rigerror(rc));
+   }
+
+   Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f",
+       (hl_state.ptt ? "ON" : "off"),
+       (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
+       hl_state.width);
+
+   // send to all users
+   struct mg_str mp;
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+
+   prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"state\": { \"vfo\": \"A\", \"freq\": %f, \"mode\": \"%s\", \"width\": %d, \"ptt\": \"%s\" }, \"ts\": %lu  } }",
+       (hl_state.freq), rig_strrmode(hl_state.rmode), hl_state.width,
+       (hl_state.ptt ? "true" : "false"), now);
+        
+   mp = mg_str(msgbuf);
+
+   // Send to everyone, including the sender, which will then display it in various widgets
+   ws_broadcast(NULL, &mp);
+
+   // Send a 
+
    return false;
 }
 

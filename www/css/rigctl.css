@@ -197,7 +197,6 @@
 }
 
 .digit .value {
-/*   width: 20px; */
    background: MidnightBlue;
    color: Turquoise;
    text-align: center;
@@ -210,8 +209,12 @@
    flex-direction: column;
    align-items: center;
    justify-content: center;
-   width: 1.1em;
+   width: 1em;
    height: 100%;
    background: red;
    margin: 2px;
+}
+
+.edit-vfo {
+   border: 2px solid red;
 }

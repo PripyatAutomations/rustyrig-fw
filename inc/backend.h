@@ -53,5 +53,4 @@ extern bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo);
 extern bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state);
 extern bool rr_be_poll(rr_vfo_t vfo);
 
-
 #endif	// !defined(__rr_backend_h)

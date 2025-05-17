@@ -118,6 +118,7 @@ extern void client_clear_flag(http_client_t *cptr, u_int32_t flag);
 
 ////////////////////////////////////////////////////////
 extern int http_count_clients(void);
+extern http_client_t *whos_talking(void);			// returns NULL or a pointer to the cptr of user PTTing
 extern bool http_init(struct mg_mgr *mgr);
 extern http_client_t *http_add_client(struct mg_connection *c, bool is_ws);
 extern void http_remove_client(struct mg_connection *c);

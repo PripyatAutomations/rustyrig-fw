@@ -214,11 +214,11 @@ int main(int argc, char **argv) {
 #endif
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
+   struct timespec last_rig_poll;
+
    // Main loop
    while(1) {
-#if	defined(USE_PROFILING)
       clock_gettime(CLOCK_MONOTONIC, &loop_start);
-#endif // defined(USE_PROFILING)
       now = time(NULL);
 
       char buf[512];
@@ -271,8 +271,19 @@ int main(int argc, char **argv) {
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
 
-      // poll the backend (internal or hamlib)
-      rr_be_poll(VFO_A);
+      if (last_rig_poll.tv_sec) {
+         long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
+                   (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
+
+         // poll the backend (internal or hamlib), if needed
+         // XXX: move to config
+         if (ms >= 300) {
+            rr_be_poll(VFO_A);
+         }
+      }
+
+      // save our current time for the next time through
+      memcpy(&last_rig_poll, &loop_start, sizeof(struct timespec));
 
       // If enabled, calculate loop run time
 #if	defined(USE_PROFILING)
@@ -290,6 +301,7 @@ int main(int argc, char **argv) {
          break;
       }
    }
+
 
 #if	defined(USE_PROFILING)
    // XXX: Every 5 minutes we should save the loop runtime average

@@ -12,6 +12,7 @@ var ws_last_heard;		// When was the last time we heard something from the server
 var ws_last_pinged;
 var ws_keepalives_sent = 0;
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
+var active_vfo;			// Active VFO
 
 ////////////////////////
 // Latency calculator //
@@ -189,6 +190,50 @@ function ws_connect() {
             var msg_ts = msg_timestamp(alert_ts);
 
             chat_append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!&nbsp;&lt;${alert_from}&gt;&nbsp;&nbsp;${alert_msg}</div>`);
+         } else if (msgObj.cat) {
+//            console.log("msg: ", msgObj);
+            var vfo = msgObj.cat.state.vfo;
+            var freq = msgObj.cat.state.freq;
+            var mode = msgObj.cat.state.mode;
+            var width = msgObj.cat.state.width;
+            var ptt = msgObj.cat.state.ptt;
+            var ts = msgObj.cat.ts;
+
+            if (typeof vfo !== 'undefined') {
+               active_vfo = vfo;
+            }
+            if (typeof freq !== 'undefined') {
+               if (active_vfo === "A") {
+                  $('span#vfo-a-freq').html(freq);
+               } else if (active_vfo === "B") {
+                  $('span#vfo-b-freq').html(freq);
+               }
+               let $input = $('#rig-freq');
+               freq_set_digits(freq, $input);
+            }
+            if (typeof mode !== 'undefined') {
+               if (active_vfo === "A") {
+                  $('span#vfo-a-mode').html(mode);
+               } else if (active_vfo === "B") {
+                  $('span#vfo-b-mode').html(mode);
+               }
+            }
+            if (typeof width !== 'undefined') {
+               if (active_vfo === "A") {
+                  $('span#vfo-a-width').html(width);
+               } else if (active_vfo === "B") {
+                  $('span#vfo-b-width').html(width);
+               }
+            }
+            if (typeof ptt !== 'undefined') {
+               var ptt_l = ptt.toLowerCase();
+
+               if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes') {
+                  $('#rig-ptt').addClass("red-btn");
+               } else {
+                  $('#rig-ptt').removeClass("red-btn");
+               }
+            }
          } else if (msgObj.ping) {			// Handle PING messages
             var ts = msgObj.ping.ts;
             if (typeof ts === 'undefined' || ts <= 0) {

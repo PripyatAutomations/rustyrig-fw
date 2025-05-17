@@ -604,8 +604,10 @@ void client_clear_flag(http_client_t *cptr, u_int32_t flag) {
       cptr->user_flags &= ~flag;
    }
 }
+
 //////////////
 
+// Counts only websocket clients that are logged in
 int http_count_clients(void) {
    int c = 0;
    http_client_t *cptr = http_client_list;
@@ -618,6 +620,19 @@ int http_count_clients(void) {
    return c;
 }
 
+// Returns
+http_client_t *whos_talking(void) {
+   http_client_t *cptr = http_client_list;
+
+   while (cptr != NULL) {
+      if (cptr->is_ptt) {
+         return cptr;
+      }
+      cptr = cptr->next;
+   }
+
+   return NULL;
+}
 #include "inc/mongoose.h"
 
 #endif	// defined(FEATURE_HTTP)
