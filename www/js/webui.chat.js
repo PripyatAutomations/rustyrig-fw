@@ -80,20 +80,14 @@ window.webui_inits.push(function webui_chat_init() { chat_init(); });
 
 function chat_init() {
   $(document).ready(function() {
-     let chatBox = $('#chat-box');
-   /*
-    * XXX: This needs to check the active tab first
-    *
-      $('#chat-link').click(function(e) {
-         if (logged_in) {
-            $('#chat-input').focus();
-         }
-      });
-   */
+      let chatBox = $('#chat-box');
+
+      // set a timer to update the userlist once a second
+      setInterval(cul_render, 1000);
 
       // scroll the chatbox down when window is resized (keyboard open/closed, etc)
       $(window).on('resize', function() {
-/* XXX: Or maybe we want to just scroll if they're near the bottom already? Need to figure out common kbd size and replace the 50 with the max
+/* XXX: Or maybe we want to only scroll if they're near the bottom already? Need to figure out common kbd size and replace the 50 with the max
          let el = chatBox[0];
          if (el.scrollHeight - el.scrollTop - el.clientHeight < 50) {
             chatBox.scrollTop(el.scrollHeight);
@@ -192,7 +186,7 @@ function parse_names_reply(message) {
 // Re-render the #chat-user-list from UserCache contents
 function cul_render() {
     $('#cul-list').empty();
-    const users = message.talk.users;
+    const users = UserCache.get_all();
 
     // Only show each user once in the list
     const uniqueUsers = Array.from(
@@ -205,26 +199,25 @@ function cul_render() {
     }));
 
     uniqueUsers.forEach(user => {
-       const { name, admin, tx, view_only, owner } = user;
-
+       const { name, admin, tx, } = user;
+       const privs = new Set((user.privs || '').split(',').map(p => p.trim()));
        let badges = '', tx_badges = '';
 
        if (tx) {
           tx_badges += '<span class="badge tx-badge">🔊</span>';
        }
 
-       if (owner) {
-          badges += '<span class="badge owner-badge">👑&nbsp;</span>';
-       } else if (admin) {
-          badges += '<span class="badge admin-badge">⭐&nbsp;</span>';
-       } else if (name.toUpperCase() === "N9MSC") {
-          badges += '<span class="badge admin-badge">🐒&nbsp;</span>';
-       } else if (view_only) {
-          badges += '<span class="badge view-badge">👀&nbsp;</span>';
-       } else if (is_muted(name)) {
-          badges += `<span class="badge view-badge">🙊</span>`;
+       if (privs.has('owner')) {
+           badges += '<span class="badge owner-badge">👑&nbsp;</span>';
+       } else if (privs.has('admin')) {
+           badges += '<span class="badge admin-badge">⭐&nbsp;</span>';
+       } else if ((user.name || '').toUpperCase() === 'N9MSC') {
+           badges += '<span class="badge admin-badge">🐒&nbsp;</span>';
+       } else if (user.muted) {
+           badges += '<span class="badge view-badge">🙊</span>';
        } else {
-          badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';
+           badges += '<span class="badge view-badge">👀&nbsp;</span>';
+//           badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';
        }
 
        // Change color for our own name in CUL
