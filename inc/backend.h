@@ -16,7 +16,7 @@ struct rr_backend_funcs {
    // Backend management
    bool		(*backend_init)(void);			// Startup
    bool		(*backend_fini)(void);			// Shutdown
-   bool		(*backend_poll)(rr_vfo_t vfo);		// Called periodically to get the rig status
+   bool		(*backend_poll)(void);			// Called periodically to get the rig status
 
    ////////////////////////////////////////
    // Rig control

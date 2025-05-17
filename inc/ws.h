@@ -30,7 +30,7 @@ extern void ws_send_to_name(struct mg_connection *sender, const char *username, 
 extern bool ws_kick_client(http_client_t *cptr, const char *reason);			// disconnect a user, if we can find them
 extern bool ws_kick_client_by_c(struct mg_connection *c, const char *reason);
 extern bool ws_handle_protocol(struct mg_ws_message *msg, struct mg_connection *c);
-extern bool ws_send_userlist(void);
+extern bool ws_send_userlist(http_client_t *cptr);
 extern bool ws_send_error(struct mg_connection *c, const char *scope, const char *msg);
 extern bool ws_send_ping(http_client_t *cptr);
 

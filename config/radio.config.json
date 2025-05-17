@@ -26,7 +26,7 @@
    "backend": {
       "active": "hamlib",
       "hamlib": "true",
-      "hamlib_debug": 4,
+      "hamlib_debug": "warn",
       "hamlib_model": 2,
       "hamlib_baud": 38400,
       "hamlib_port": "localhost:4532"

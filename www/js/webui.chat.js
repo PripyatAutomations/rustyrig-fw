@@ -165,7 +165,32 @@ function cul_offline() {
    $('#cul-list').append('<span class="error">OFFLINE</span>');
 }
 
-function cul_update(message) {
+// Store the data from names reply in the UserCache, replacing outdated informations
+// XXX: Implement this
+function parse_names_reply(message) {
+    const users = message.talk.users;
+
+    // Only show each user once in the list
+    const uniqueUsers = Array.from(
+       new Map(users.map(u => [u.name.toLowerCase(), u])).values()
+    );
+
+    uniqueUsers.sort((a, b) => a.name.localeCompare(b.name, undefined, {
+       sensitivity: 'base',
+       numeric: true
+    }));
+
+    uniqueUsers.forEach(user => {
+       const { name, tx, muted, privs } = user;
+       if (typeof name !== 'undefined') {
+          UserCache.add(user);
+       }
+    });
+    return false;
+}
+
+// Re-render the #chat-user-list from UserCache contents
+function cul_render() {
     $('#cul-list').empty();
     const users = message.talk.users;
 
@@ -196,9 +221,8 @@ function cul_update(message) {
           badges += '<span class="badge admin-badge">🐒&nbsp;</span>';
        } else if (view_only) {
           badges += '<span class="badge view-badge">👀&nbsp;</span>';
-//       } else if (user_has_priv(name, "tx")) {
-//       } else if (is_muted(name)) {
-//          badges += `<span class="badge view-badge">🙊</span>`;
+       } else if (is_muted(name)) {
+          badges += `<span class="badge view-badge">🙊</span>`;
        } else {
           badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';
        }
@@ -406,7 +430,7 @@ function parse_chat_cmd(e) {
                   chat_append('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
                   chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
                }
-                  chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;You can use tab completion, press @ then type letters or hit tab</span></div>');
+//               chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;You can use tab completion, press @ then type letters or hit tab</span></div>');
                break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);

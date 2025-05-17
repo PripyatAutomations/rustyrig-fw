@@ -97,51 +97,35 @@ bool ws_chat_notice(http_client_t *cptr, const char *sender, const char *data) {
    return false;
 }
 
-bool ws_send_userlist(void) {
-   http_client_t *cptr = http_client_list;
+bool ws_send_userlist(http_client_t *cptr) {
    if (cptr == NULL) {
       return true;
    }
 
+   if (cptr->user == NULL || !cptr->authenticated) {
+      return true;
+   }
+
    char resp_buf[HTTP_WS_MAX_MSG+1];
-   int len = mg_snprintf(resp_buf, sizeof(resp_buf), 
+   int len = snprintf(resp_buf, sizeof(resp_buf), 
        "{ \"talk\": { \"cmd\": \"names\", \"ts\": %lu, \"users\": [",
        now);
 
    int count = 0;
-   while (cptr != NULL) {
-      if (cptr->user == NULL || !cptr->authenticated) {
-         cptr = cptr->next;
-         continue;
-      }
 
-      const char *comma = (count > 0) ? "," : "";
+   const char *comma = (count > 0) ? "," : "";
 
-      bool is_admin = (strstr(cptr->user->privs, "admin") != NULL);
-      bool is_view_only = (strstr(cptr->user->privs, "view") != NULL);
-      bool is_txing = cptr->is_ptt;			// does user have PTT active on any rigs?
-      bool is_owner = (strstr(cptr->user->privs, "owner") != NULL);
-
-      len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len,
-                   "%s{\"name\":\"%s\",\"admin\":%s,\"tx\":%s,\"view_only\":%s,\"owner\":%s}",
-                   comma, cptr->chatname,
-                   is_admin ? "true" : "false",
-                   is_txing ? "true" : "false",
-                   is_view_only ? "true" : "false",
-                   is_owner ? "true" : "false");
-      
-      count++;
-      cptr = cptr->next;
-   }
+   bool is_txing = (whos_talking() == cptr);
+   len += snprintf(resp_buf + len, sizeof(resp_buf) - len,
+                "%s{\"name\":\"%s\", \"tx\": \"%s\", \"privs\": \"%s\"}",
+                comma, cptr->chatname,
+                is_txing ? "true" : "false",
+                cptr->user->privs);
+   
+   count++;
    len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }\n");
-
    struct mg_str ms = mg_str(resp_buf);
    ws_broadcast(NULL, &ms);
 
    return false;
-}
-
-// Wrap ws_send_userlist so it can be called by a timer
-void ws_blorp_userlist_cb(void *arg) {
-   ws_send_userlist();
 }

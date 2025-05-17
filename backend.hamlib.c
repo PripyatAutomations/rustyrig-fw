@@ -50,7 +50,7 @@ static rr_vfo_t vfos[MAX_VFOS];
 //     RIG_DEBUG_TRACE,    /*!< tracing */
 //     RIG_DEBUG_CACHE     /*!< caching */
 // };
-static int32_t hamlib_debug_level = RIG_DEBUG_WARN; // RIG_DEBUG_VERBOSE;
+static int32_t hamlib_debug_level = RIG_DEBUG_ERR; // RIG_DEBUG_VERBOSE;
 
 typedef struct hamlib_state {
    freq_t freq;
@@ -208,7 +208,7 @@ static bool hl_fini(void) {
 }
 
 // Here we poll the various meters and state
-bool hl_poll(rr_vfo_t vfo) {
+bool hl_poll(void) {
    // XXX: We need to deal with generating diffs
    // - save the current state as a whole, with a timestamp
    // - poll the rig status

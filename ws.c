@@ -33,9 +33,6 @@ bool ws_init(struct mg_mgr *mgr) {
       return true;
    }
 
-   // send the userlist to connected users every now and then
-   mg_timer_add(mgr, CHAT_NAMES_INTERVAL, MG_TIMER_REPEAT, ws_blorp_userlist_cb, NULL);
-
    Log(LOG_DEBUG, "http.ws", "WebSocket init completed succesfully");
    return false;
 }

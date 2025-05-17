@@ -24,7 +24,57 @@ const latency_max_samples = 50;
 /////
 /// chat stuff that needs to move
 ////
-let user_cache = {};
+const UserCache = {
+   users: {},
+
+   add(user) {
+      this.users[user.name] = {
+         // Only copy fields that are actually present
+         ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
+         ...(user.hasOwnProperty('muted') && { muted: user.muted }),
+         ...(user.hasOwnProperty('privs') && { privs: user.privs })
+      };
+   },
+
+   remove(name) {
+      delete this.users[name];
+   },
+
+   update(user) {
+      const existing = this.users[user.name];
+      if (!existing) {
+/*
+         this.add({
+            name: user.name,
+            admin: user.is_admin,
+            ptt: user.is_ptt,
+            muted: user.is_muted
+         });
+*/
+         this.add(user);
+         return;
+      }
+
+      if ('is_admin' in user) existing.admin = user.is_admin;
+      if ('is_ptt'   in user) existing.ptt   = user.is_ptt;
+      if ('is_muted' in user) existing.muted = user.is_muted;
+   },
+
+   get(name) {
+      return this.users[name] || null;
+   },
+
+   get_all() {
+      return Object.entries(this.users).map(([name, props]) => ({ name, ...props }));
+   },
+
+   dump() {
+      console.log("UserCache contents:");
+      for (const [name, props] of Object.entries(this.users)) {
+         console.log(`- ${name}:`, props);
+      }
+   }
+};
 
 // Support reloading the stylesheet (/reloadcss) without restarting the app
 function reload_css() {
@@ -199,29 +249,26 @@ function ws_connect() {
             var ptt = msgObj.cat.state.ptt;
             var ts = msgObj.cat.ts;
 
-            if (typeof vfo !== 'undefined') {
-               active_vfo = vfo;
-            }
             if (typeof freq !== 'undefined') {
-               if (active_vfo === "A") {
+               if (vfo === "A") {
                   $('span#vfo-a-freq').html(freq);
-               } else if (active_vfo === "B") {
+               } else if (vfo === "B") {
                   $('span#vfo-b-freq').html(freq);
                }
                let $input = $('#rig-freq');
                freq_set_digits(freq, $input);
             }
             if (typeof mode !== 'undefined') {
-               if (active_vfo === "A") {
+               if (vfo === "A") {
                   $('span#vfo-a-mode').html(mode);
-               } else if (active_vfo === "B") {
+               } else if (vfo === "B") {
                   $('span#vfo-b-mode').html(mode);
                }
             }
             if (typeof width !== 'undefined') {
-               if (active_vfo === "A") {
+               if (vfo === "A") {
                   $('span#vfo-a-width').html(width);
-               } else if (active_vfo === "B") {
+               } else if (vfo === "B") {
                   $('span#vfo-b-width').html(width);
                }
             }
@@ -277,11 +324,15 @@ function ws_connect() {
                   }
                }
             } else if (cmd === 'join') {
+               console.log("join msg: ", msgObj);
                var user = msgObj.talk.user;
+               var privs = msgObj.talk.privs;
 
-               if (user) {
+               if (typeof user !== 'undefined') {
                   var msg_ts = msg_timestamp(msgObj.talk.ts);
                   var nl = user_link(user);
+
+                  UserCache.add({ name: user, ptt: false, muted: false, privs: privs });
 
                   chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">joined the chat</span>&nbsp;***</div>');
                   // Play join (door open) sound if the bell button is checked
@@ -291,12 +342,12 @@ function ws_connect() {
                         join_ding.play();
                      }
                   }
+                  console.log("Join by:", user);
                } else {
                   console.log("got join for undefined user, ignoring");
                }
             } else if (cmd === 'kick') {
-               // XXX: Display a message in chat about the user being kicked and by who/why
-               console.log("Kick command received");
+               console.log("kick msg: ", msgObj);
                // Play leave (door close) sound if the bell button is checked
                if ($('#bell-btn').data('checked')) {
                   if (!(user === auth_user)) {
@@ -304,10 +355,13 @@ function ws_connect() {
                      leave_ding.play();
                   }
                }
+               UserCache.remove(user);
+               console.log("Kick command received for user: ", user, " reason: ", msgObj.talk.data.reason);
             } else if (cmd === 'mute') {
                // XXX: If this mute is for us, disable the send button
                // XXX: and show an alert.
-               console.log("Mute command received");
+               console.log("Mute command received for user: ", user);
+               UserCache.update({ name: user, is_muted: true });
             } else if (cmd === 'whois') {
                const clones = msgObj.talk.data;
 
@@ -326,7 +380,7 @@ function ws_connect() {
                html += `<strong>Active Sessions: ${clones.length}</strong><br>`;
                clones.forEach((session) => {
                   let clone_num = session.clone + 1;
-                  html += `&nbsp;&nbsp;<em>Clone #${clone_num}</em><br>`;
+                     html += `&nbsp;&nbsp;<em>Clone #${clone_num}</em><br>`;
                   html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>Connected:</strong> ${new Date(session.connected * 1000).toLocaleString()}`;
                   html += `&nbsp;&nbsp;<strong>Last Heard:</strong> ${new Date(session.last_heard * 1000).toLocaleString()}<br>`;
                   html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>User-Agent:</strong> <code>${session.ua}</code><br><br>`;
@@ -335,6 +389,7 @@ function ws_connect() {
                html += "<hr/><br/>Click window or hit escape to close";
                $('#chat-whois').html(html).show('slow');
             } else if (cmd === "quit") {
+               console.log("quit msg: ", msgObj);
                var user = msgObj.talk.user;
                var reason = msgObj.talk.reason;
 
@@ -344,6 +399,7 @@ function ws_connect() {
                      reason = 'Client exited';
                   }
 
+                  UserCache.remove(user);
                   chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
                   // Play leave (door close) sound if the bell button is checked
                   if ($('#bell-btn').data('checked')) {
@@ -356,9 +412,10 @@ function ws_connect() {
                   console.log("got %s for undefined user, ignoring", cmd);
                }
             } else if (cmd === "names") {
-               cul_update(msgObj);
+               parse_names_reply(msgObj);
             } else if (cmd === "unmute") {
                // XXX: If unmute is for us, enable send button and let user know they can talk again
+               UserCache.update({ name: user, is_muted: false });
             } else {
                console.log("Unknown talk command:", cmd, "msg: ", msgData);
             }
@@ -448,11 +505,11 @@ function ws_connect() {
                   break;
             }
          } else {
-            console.log("Got unknown message from server: ", msgData);
+            console.log("Got unknown message from server: ", msgObj);
          }
       } catch (e) {
          console.error("Error parsing message:", e);
-         console.log("Unknown data: ", msgData);
+         console.log("Unknown data: ", msgObj);
       }
    };
    return socket;
@@ -795,11 +852,11 @@ window.webui_inits.push(function webui_init() {
       }
    });
 
-   // Handle the vertical height used by keyboard on mobile
-   function viewport_resize() {
-      let vh = window.innerHeight * 0.01;
-      $(':root').css('--vh', vh + 'px');
-   }
-   $(window).on('resize orientationchange', viewport_resize);
-   $(document).ready(viewport_resize);
+   // Handle the vertical height used by keyboard on mobile - xxx fix this!
+//   function viewport_resize() {
+//      let vh = window.innerHeight * 0.01;
+//      $(':root').css('--vh', vh + 'px');
+//   }
+//   $(window).on('resize orientationchange', viewport_resize);
+//   $(document).ready(viewport_resize);
 });

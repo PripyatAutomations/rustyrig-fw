@@ -870,7 +870,25 @@ sub generate_config_h {
          printf $fh "#define BACKEND_HAMLIB\n";
       }
       if (defined($config->{'backend'}{'hamlib_debug'})) {
-         printf $fh "#define BACKEND_HAMLIB_DEBUG\t%d\n", $config->{'backend'}{'hamlib_debug'};
+         my $dl = $config->{'backend'}{'hamlib_debug'};
+         my $dt;
+
+         if ($dl eq 'bug') {
+            $dt = 'RIG_DEBUG_BUG';
+         } elsif ($dl eq 'err') {
+            $dt = 'RIG_DEBUG_ERR';
+         } elsif ($dl eq 'warn') {
+            $dt = 'RIG_DEBUG_WARN';
+         } elsif ($dl eq 'verbose') {
+            $dt = 'RIG_DEBUG_VERBOSE';
+         } elsif ($dl eq 'trace') {
+            $dt = 'RIG_DEBUG_TRACE';
+         } elsif ($dl eq 'cache') {
+            $dt = 'RIG_DEBUG_CACHE';
+         } else {
+            $dt = 'RIG_DEBUG_NONE';
+         }
+         printf $fh "#define BACKEND_HAMLIB_DEBUG\t%s\n", $dt;
       }
       if (defined($config->{'backend'}{'hamlib_model'})) {
          printf $fh "#define BACKEND_HAMLIB_MODEL\t%d\n", $config->{'backend'}{'hamlib_model'};

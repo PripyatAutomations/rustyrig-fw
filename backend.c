@@ -157,5 +157,5 @@ bool rr_be_poll(rr_vfo_t vfo) {
       return true;
    }
 
-   return rig.backend->api->backend_poll(vfo);
+   return rig.backend->api->backend_poll();
 }

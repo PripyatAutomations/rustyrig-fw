@@ -118,7 +118,7 @@ static bool ws_rig_state_poll(rr_vfo_t vfo) {
 
    // Poll the backend 
    if (rig.backend && rig.backend->api && rig.backend->api->backend_poll) {
-      rig.backend->api->backend_poll(vfo);
+      rig.backend->api->backend_poll();
    }
 
    return false;
