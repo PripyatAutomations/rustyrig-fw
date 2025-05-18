@@ -193,6 +193,18 @@ static bool hl_init(void) {
    return false;
 }
 
+static bool hl_freq_set(http_client_t *cptr, rr_vfo_t vfo, float freq) {
+   int ret = -1;
+
+   // Set frequency
+   if ((ret = rig_set_freq(hl_rig, RIG_VFO_A, freq)) != RIG_OK) {
+      Log(LOG_WARN, "ws.rigctl", "Failed to set frequency: %s", rigerror(ret));
+      return true;
+   }
+
+   return false;
+}
+
 static bool hl_fini(void) {
    if (hl_rig == NULL) {
       Log(LOG_WARN, "hamlib", "hl_fini called but hl_rig == NULL");

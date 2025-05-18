@@ -33,7 +33,6 @@ window.webui_inits.push(function webui_rigctl_init() {
       };
       let json_msg = JSON.stringify(msg)
       socket.send(json_msg);
-      console.log("ptt: ", state);
    });
 
    freq_input_init();
@@ -132,20 +131,20 @@ function freq_input_init() {
          cat: {
             cmd: "freq",
             data: {
-               vfo: active_vfo,
+               vfo: "A",
                freq: val
             }
          }
       };
       let json_msg = JSON.stringify(msg)
       socket.send(json_msg);
-      console.log("vfo", active_vfo, "freq", freq);
-       
-      // XXX: should we remove/limit this to account for lag/server response??
+//      console.log("vfo A", active_vfo, "freq", val);
+/*
       if (active_vfo === "A") {
          $('span#vfo-a-freq').html(val);
       } else if (active_vfo === "B") {
          $('span#vfo-b-freq').html(val);
       }
+*/
    });
 }

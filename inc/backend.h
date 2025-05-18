@@ -31,7 +31,7 @@ struct rr_backend_funcs {
    bool		(*rig_split_mode)(rr_vfo_t vfo, const char *args);
    bool		(*rig_tuner_control)(rr_vfo_t vfo, const char *args);
    bool		(*rig_set_power)(rr_vfo_t vfo, const char *args);
-   bool		(*rig_set_freq)(rr_vfo_t vfo, const char *args);
+   bool		(*rig_freq_set)(rr_vfo_t vfo, float freq);
 };
 typedef struct rr_backend_funcs rr_backend_funcs_t;
 

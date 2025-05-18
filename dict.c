@@ -5,7 +5,6 @@
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
-// Licensed under MIT license, if built without mongoose or GPL if built with.
 /*-------------------------------------------------------------------------*/
 /**
    @file    dict.c

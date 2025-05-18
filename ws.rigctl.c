@@ -198,7 +198,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    char *cmd = mg_json_get_str(msg_data, "$.cat.cmd");
    char *vfo = mg_json_get_str(msg_data, "$.cat.data.vfo");
    char *state = mg_json_get_str(msg_data, "$.cat.data.state");
-   char *freq = mg_json_get_str(msg_data, "$.cat.data.freq");
 
    if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
@@ -238,19 +237,25 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s", cptr->chatname, (c_state ? "true" : "false"));
          rr_ptt_set(c_vfo, c_state);
       } else if (strcasecmp(cmd, "freq") == 0) {
+         char *freq = mg_json_get_str(msg_data, "$.cat.data.freq");
+         float new_freq = 0;
+         Log(LOG_DEBUG, "ptt", "Got message with freq: %s", freq);
+
          if (!has_priv(cptr->user->uid, "admin|owner|tx")) {
             rv = true;
+            free(freq);
             goto cleanup;
          }
 
          if (vfo == NULL || freq == NULL) {
             Log(LOG_DEBUG, "ws.rigctl", "FREQ set without vfo or freq");
             rv = true;
+            free(freq);
             goto cleanup;
          }
 
+         new_freq = atof(freq);
          rr_vfo_t c_vfo;
-         bool c_state;
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
 
@@ -261,12 +266,12 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // tell everyone about it
          prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"freq\": \"%f\", \"vfo\": \"%s\", \"ts\": %lu } }",
-             cptr->chatname, freq, vfo, now);
+             cptr->chatname, new_freq, vfo, now);
          mp = mg_str(msgbuf);
-         ws_broadcast(c, &mp);
-         Log(LOG_AUDIT, "freq", "User %s set VFO %s FREQ to %f hz", cptr->chatname, vfo, freq);
-
-         // XXX: Need to apply to backend
+         ws_broadcast(NULL, &mp);
+         Log(LOG_AUDIT, "freq", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
+         free(freq);
+//         rr_be_set_freq(c_vfo, new_freq);
       } else {
          Log(LOG_DEBUG, "ws.rigctl", "Got unknown rig msg: |%.*s|", msg_data.len, msg_data.buf);
       }

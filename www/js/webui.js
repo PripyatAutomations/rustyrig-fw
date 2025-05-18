@@ -261,7 +261,6 @@ function ws_connect() {
                      ptt_active = false;
                   }
                   UserCache.update({ name: user, ptt: ptt_active });
-                  console.log("PTT: ", ptt_active);
                }
              } else {  // Nope, it's a state message
                var state = msgObj.cat.state;

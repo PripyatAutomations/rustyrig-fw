@@ -1,3 +1,6 @@
+[webcam]
+- Support for streaming a v4l webcam from the station to the clients O_o
+
 [radioberry]
 * Implement support for this thing
 
