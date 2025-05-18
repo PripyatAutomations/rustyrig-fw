@@ -67,6 +67,10 @@ const UserCache = {
       for (const [name, props] of Object.entries(this.users)) {
          console.log(`- ${name}:`, props);
       }
+   },
+   clear() {
+      this.users = {};
+      cul_render();
    }
 };
 
@@ -179,6 +183,8 @@ function ws_connect() {
       reconnecting = false; 		// Reset reconnect flag on successful connection
       reconnect_delay = 1; 		// Reset reconnect delay to 1 second
 
+      UserCache.clear();
+
       // Set a timer to check if keepalives needs to be sent (every day 10 seconds)
       setInterval(function() {
          if (ws_last_heard < (now - ws_keepalive_time)) {
@@ -246,15 +252,16 @@ function ws_connect() {
                   var vfo = msgObj.cat.vfo;
                   var ptt = msgObj.cat.state;
                   var ptt_l = ptt.toLowerCase();
-                  var my_ptt = false;
 
                   if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes') {
                      $('#rig-ptt').addClass("red-btn");
-                     my_ptt = true;
+                     ptt_active = true;
                   } else {
                      $('#rig-ptt').removeClass("red-btn");
+                     ptt_active = false;
                   }
-                  UserCache.update({ name: user, ptt: my_ptt });
+                  UserCache.update({ name: user, ptt: ptt_active });
+                  console.log("PTT: ", ptt_active);
                }
              } else {  // Nope, it's a state message
                var state = msgObj.cat.state;

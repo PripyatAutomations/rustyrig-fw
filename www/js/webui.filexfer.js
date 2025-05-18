@@ -118,7 +118,7 @@ function handle_file_chunk(msgObj) {
       delete file_chunks[msg_id];
 
       const isSelf = sender === auth_user;
-      const prefix = isSelf ? '===>' : `&lt;${sender}&gt;`;
+      const prefix = isSelf ? '<span class="chat-my-msg-prefix">===>' : `<span class="chat-msg-prefix">&lt;${sender}&gt;`;
       const msg_ts = msg_timestamp(msgObj.talk.ts);
 
       const chatBoxHeight = $('#chat-box').innerHeight();
@@ -154,7 +154,7 @@ function handle_file_chunk(msgObj) {
             .append($close);
 
          const $wrap = $('<div class="chat-img-msg">')
-            .append(msg_ts + `&nbsp;<span class="chat-msg-prefix">${prefix}</span><br/>`);
+            .append(msg_ts + `&nbsp;${prefix}</span><br/>`);
 
          const $imgWrap = $('<div class="chat-img-wrap">')
             .append($imgLink)  // Add the link-wrapped image

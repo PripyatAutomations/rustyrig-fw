@@ -1,7 +1,7 @@
 /*
  * rig control (CAT over websocket)
  */
-var ptt_active = false;
+var ptt_active = false;		// managed by webui.js for now when cat ptt comes
 const FREQ_DIGITS = 10;
 
 if (!window.webui_inits) window.webui_inits = [];
@@ -15,14 +15,11 @@ window.webui_inits.push(function webui_rigctl_init() {
    $('button#rig-ptt').click(function() {
       let state = "off";
 
+      // this is set via CAT messages
       if (ptt_active === false) {
          state = "on";
-         ptt_active = true;
-         $(this).addClass('red-btn');
       } else {
          state = "off";
-         ptt_active = false;
-         $(this).removeClass('red-btn');
       }
 
       var msg = { 

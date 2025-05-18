@@ -234,7 +234,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
              cptr->chatname, state, vfo, now);
          mp = mg_str(msgbuf);
-         ws_broadcast(c, &mp);
+         ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s", cptr->chatname, (c_state ? "true" : "false"));
          rr_ptt_set(c_vfo, c_state);
       } else if (strcasecmp(cmd, "freq") == 0) {
