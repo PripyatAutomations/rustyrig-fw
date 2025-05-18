@@ -82,9 +82,6 @@ function chat_init() {
   $(document).ready(function() {
       let chatBox = $('#chat-box');
 
-      // set a timer to update the userlist once a second
-      setInterval(cul_render, 1000);
-
       // scroll the chatbox down when window is resized (keyboard open/closed, etc)
       $(window).on('resize', function() {
 /* XXX: Or maybe we want to only scroll if they're near the bottom already? Need to figure out common kbd size and replace the 50 with the max
@@ -161,12 +158,13 @@ function cul_offline() {
 
 // Store the data from names reply in the UserCache, replacing outdated informations
 // XXX: Implement this
-function parse_names_reply(message) {
-    const users = message.talk.users;
+function parse_userinfo_reply(message) {
+/*
+    const users = message.talk.userinfo;
 
     // Only show each user once in the list
     const uniqueUsers = Array.from(
-       new Map(users.map(u => [u.name.toLowerCase(), u])).values()
+       new Map(users.map(u => [u.name.toLowerCase(), u])).values()[A
     );
 
     uniqueUsers.sort((a, b) => a.name.localeCompare(b.name, undefined, {
@@ -180,6 +178,13 @@ function parse_names_reply(message) {
           UserCache.add(user);
        }
     });
+*/
+    if (typeof message != 'undefined') {
+//       console.log("userinfo: ", message.talk);
+       UserCache.update({ name: message.talk.user, privs: message.talk.privs });
+//       console.log("Adding user: ", message.talk.user, "with privileges,", message.talk.privs);
+    }
+
     return false;
 }
 
@@ -199,11 +204,13 @@ function cul_render() {
     }));
 
     uniqueUsers.forEach(user => {
-       const { name, admin, tx, } = user;
+//       console.log("user: ", user);
+       const { name, admin } = user;
+       
        const privs = new Set((user.privs || '').split(',').map(p => p.trim()));
        let badges = '', tx_badges = '';
 
-       if (tx) {
+       if (user.ptt) {
           tx_badges += '<span class="badge tx-badge">🔊</span>';
        }
 
@@ -405,6 +412,7 @@ function parse_chat_cmd(e) {
                chat_append('<br/><div><span class="error">*** DEBUG TOOLS *** All commands start with /</span></div>');
                chat_append('<div><span class="error">/clearlog&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
                chat_append('<div><span class="error">/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
+               chat_append('<div><span class="error">/names&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Force refresh of UserCache</span></div>');
                chat_append('<div><span class="error">/reloadcss&nbsp;&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
                chat_append('<div><span class="error">/syslog&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
 

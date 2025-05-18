@@ -340,6 +340,8 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          ws_chat_cmd_kick(cptr, target, reason);
       } else if (strcasecmp(cmd, "mute") == 0) {
          ws_chat_cmd_mute(cptr, target, reason);
+      } else if (strcasecmp(cmd, "names") == 0) {
+         ws_send_users(cptr);
       } else if (strcasecmp(cmd, "restart") == 0) {
          ws_chat_cmd_restart(cptr, reason);
       } else if (strcasecmp(cmd, "syslog") == 0) {

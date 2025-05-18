@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
 
          // poll the backend (internal or hamlib), if needed
          // XXX: move to config
-         if (ms >= 300) {
+         if (ms >= 500) {
             rr_be_poll(VFO_A);
          }
       }

@@ -35,7 +35,7 @@ static struct rr_backends available_backends[] = {
     // Support for real rustyrig hardware
     { "internal",		&rr_backend_internal },
     // Support for dummy (No Op) backend
-    { "dummy",			&rr_backend_dummy },
+//    { "dummy",			&rr_backend_dummy },
     // A backend using hamlib's rigctld as the target. For legacy radios
 #if	defined(BACKEND_HAMLIB)
     { "hamlib",			&rr_backend_hamlib },

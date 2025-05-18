@@ -198,6 +198,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    char *cmd = mg_json_get_str(msg_data, "$.cat.cmd");
    char *vfo = mg_json_get_str(msg_data, "$.cat.data.vfo");
    char *state = mg_json_get_str(msg_data, "$.cat.data.state");
+   char *freq = mg_json_get_str(msg_data, "$.cat.data.freq");
 
    if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
@@ -205,11 +206,13 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             rv = true;
             goto cleanup;
          }
+
          if (vfo == NULL || state == NULL) {
             Log(LOG_DEBUG, "ws.rigctl", "PTT set without vfo or state");
             rv = true;
             goto cleanup;
          }
+
          rr_vfo_t c_vfo;
          bool c_state;
          char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -224,14 +227,46 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          if (vfo == NULL) {
             c_vfo = VFO_A;
          }
+         cptr->last_heard = now;
+         cptr->is_ptt = c_state;		// set the user as PTT or not
 
+         // tell everyone about it
          prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
              cptr->chatname, state, vfo, now);
          mp = mg_str(msgbuf);
-         cptr->last_heard = now;
          ws_broadcast(c, &mp);
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s", cptr->chatname, (c_state ? "true" : "false"));
          rr_ptt_set(c_vfo, c_state);
+      } else if (strcasecmp(cmd, "freq") == 0) {
+         if (!has_priv(cptr->user->uid, "admin|owner|tx")) {
+            rv = true;
+            goto cleanup;
+         }
+
+         if (vfo == NULL || freq == NULL) {
+            Log(LOG_DEBUG, "ws.rigctl", "FREQ set without vfo or freq");
+            rv = true;
+            goto cleanup;
+         }
+
+         rr_vfo_t c_vfo;
+         bool c_state;
+         char msgbuf[HTTP_WS_MAX_MSG+1];
+         struct mg_str mp;
+
+         if (vfo == NULL) {
+            c_vfo = VFO_A;
+         }
+         cptr->last_heard = now;
+
+         // tell everyone about it
+         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"freq\": \"%f\", \"vfo\": \"%s\", \"ts\": %lu } }",
+             cptr->chatname, freq, vfo, now);
+         mp = mg_str(msgbuf);
+         ws_broadcast(c, &mp);
+         Log(LOG_AUDIT, "freq", "User %s set VFO %s FREQ to %f hz", cptr->chatname, vfo, freq);
+
+         // XXX: Need to apply to backend
       } else {
          Log(LOG_DEBUG, "ws.rigctl", "Got unknown rig msg: |%.*s|", msg_data.len, msg_data.buf);
       }

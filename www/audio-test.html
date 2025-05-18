@@ -7,8 +7,8 @@ $(async function () {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
     // Load both processors
-    await audioContext.audioWorklet.addModule('microphone-processor.js');
-    await audioContext.audioWorklet.addModule('speaker-processor.js');
+    await audioContext.audioWorklet.addModule('js/microphone-processor.js');
+    await audioContext.audioWorklet.addModule('js/speaker-processor.js');
 
     // ===== 🎙️ Microphone (Capture to Server) =====
     const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });

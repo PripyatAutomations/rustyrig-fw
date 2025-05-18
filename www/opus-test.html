@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PTT Audio Client with Opus-Recorder</title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="js/recorder.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    label, select, button { display: block; margin: 0.5em 0; }
+    button.ptt { font-size: 1.2em; padding: 0.5em 1em; }
+  </style>
+</head>
+<body>
+  <h1>Audio Client</h1>
+
+  <label>Microphone Input:
+    <select id="inputDevice"></select>
+  </label>
+  <label>Playback Output:
+    <select id="playbackDevice"></select>
+  </label>
+  <label>Notification Output:
+    <select id="notifyDevice"></select>
+  </label>
+
+  <label>Codec:
+    <select id="codecSelect">
+      <option value="pcm">Uncompressed PCM</option>
+      <option value="opus" selected>OPUS</option>
+    </select>
+  </label>
+
+  <label>Bitrate (OPUS only):
+    <select id="bitrateSelect">
+      <option value="16000">16 kbps</option>
+      <option value="24000">24 kbps</option>
+      <option value="32000" selected>32 kbps</option>
+      <option value="48000">48 kbps</option>
+      <option value="64000">64 kbps</option>
+    </select>
+  </label>
+
+  <button class="ptt" id="pttButton">Push-to-Talk: OFF</button>
+
+  <audio id="notifyAudio" src="notify.mp3" preload="auto"></audio>
+
+  <script>
+    let recorder = null;
+    let isPTT = false;
+    let sentFirstChunk = false;
+    const ws = new WebSocket("wss://yourserver/audio"); // Replace with your server
+
+    async function setSinkId(elem, id) {
+      if (elem.setSinkId) {
+        try {
+          await elem.setSinkId(id);
+        } catch (err) {
+          console.warn("setSinkId failed:", err);
+        }
+      }
+    }
+
+    async function listDevices() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const inputs = devices.filter(d => d.kind === 'audioinput');
+      const outputs = devices.filter(d => d.kind === 'audiooutput');
+
+      const fillSelect = (sel, list) => {
+        sel.empty();
+        list.forEach(d => {
+          sel.append($('<option>').val(d.deviceId).text(d.label || `Device ${d.deviceId}`));
+        });
+      };
+
+      fillSelect($('#inputDevice'), inputs);
+      fillSelect($('#playbackDevice'), outputs);
+      fillSelect($('#notifyDevice'), outputs);
+    }
+
+    async function startRecording() {
+      const inputId = $('#inputDevice').val();
+      const codec = $('#codecSelect').val();
+      const bitrate = parseInt($('#bitrateSelect').val(), 10);
+
+      const constraints = {
+        audio: {
+          deviceId: inputId ? { exact: inputId } : undefined
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      recorder = new Recorder({
+        encoderPath: 'encoderWorker.min.js', // Ensure this path is correct
+        mediaTrackConstraints: true,
+        encoderSampleRate: 48000,
+        encoderBitRate: bitrate,
+        streamPages: true,
+        leaveStreamOpen: true
+      });
+
+      recorder.ondataavailable = function(typedArray) {
+        const payload = {
+          cmd: "au",
+          codec: codec,
+          data: Array.from(typedArray)
+        };
+        if (!sentFirstChunk && codec === "opus") {
+          payload.bitrate = bitrate;
+          sentFirstChunk = true;
+        }
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(payload));
+        }
+      };
+
+      recorder.start().then(() => {
+        recorder.stream = stream;
+      });
+    }
+
+    function stopRecording() {
+      if (recorder) {
+        recorder.stop();
+        recorder = null;
+      }
+    }
+
+    $(async function () {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      await listDevices();
+
+      $('#playbackDevice').on('change', function () {
+        setSinkId($('#notifyAudio')[0], $(this).val());
+      });
+
+      $('#notifyDevice').on('change', function () {
+        setSinkId($('#notifyAudio')[0], $(this).val());
+      });
+
+      $('#pttButton').on('click', async function () {
+        isPTT = !isPTT;
+        $(this).text(`Push-to-Talk: ${isPTT ? "ON" : "OFF"}`);
+
+        if (isPTT) {
+          sentFirstChunk = false;
+          await startRecording();
+        } else {
+          stopRecording();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

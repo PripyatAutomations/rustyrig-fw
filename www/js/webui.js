@@ -34,30 +34,24 @@ const UserCache = {
          ...(user.hasOwnProperty('muted') && { muted: user.muted }),
          ...(user.hasOwnProperty('privs') && { privs: user.privs })
       };
+      cul_render();
    },
 
    remove(name) {
       delete this.users[name];
+      cul_render();
    },
 
    update(user) {
       const existing = this.users[user.name];
       if (!existing) {
-/*
-         this.add({
-            name: user.name,
-            admin: user.is_admin,
-            ptt: user.is_ptt,
-            muted: user.is_muted
-         });
-*/
          this.add(user);
          return;
       }
 
-      if ('is_admin' in user) existing.admin = user.is_admin;
-      if ('is_ptt'   in user) existing.ptt   = user.is_ptt;
-      if ('is_muted' in user) existing.muted = user.is_muted;
+      if ('ptt'   in user) existing.ptt   = user.ptt;
+      if ('muted' in user) existing.muted = user.muted;
+      cul_render();
    },
 
    get(name) {
@@ -129,7 +123,6 @@ function make_ws_url() {
    var protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
    return protocol + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + "/ws/";
 }
-
 
 function show_chat_window() {
 //   $('.chroma-hash').hide();
@@ -241,44 +234,61 @@ function ws_connect() {
 
             chat_append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!&nbsp;&lt;${alert_from}&gt;&nbsp;&nbsp;${alert_msg}</div>`);
          } else if (msgObj.cat) {
-//            console.log("msg: ", msgObj);
-            var vfo = msgObj.cat.state.vfo;
-            var freq = msgObj.cat.state.freq;
-            var mode = msgObj.cat.state.mode;
-            var width = msgObj.cat.state.width;
-            var ptt = msgObj.cat.state.ptt;
-            var ts = msgObj.cat.ts;
+ //           console.log("CAT msg: ", msgObj);
+            var cat_ts = msgObj.ts;
+            var msg_ts = msg_timestamp(cat_ts);
+            var cmd = msgObj.cat.cmd;
+            var user = msgObj.cat.user;
 
-            if (typeof freq !== 'undefined') {
-               if (vfo === "A") {
-                  $('span#vfo-a-freq').html(freq);
-               } else if (vfo === "B") {
-                  $('span#vfo-b-freq').html(freq);
-               }
-               let $input = $('#rig-freq');
-               freq_set_digits(freq, $input);
-            }
-            if (typeof mode !== 'undefined') {
-               if (vfo === "A") {
-                  $('span#vfo-a-mode').html(mode);
-               } else if (vfo === "B") {
-                  $('span#vfo-b-mode').html(mode);
-               }
-            }
-            if (typeof width !== 'undefined') {
-               if (vfo === "A") {
-                  $('span#vfo-a-width').html(width);
-               } else if (vfo === "B") {
-                  $('span#vfo-b-width').html(width);
-               }
-            }
-            if (typeof ptt !== 'undefined') {
-               var ptt_l = ptt.toLowerCase();
+            if (typeof msgObj.cat.cmd !== 'undefined') { // is it a command?
+               var cmd = msgObj.cat.cmd.toLowerCase();
+               if (cmd === 'ptt') {
+                  var vfo = msgObj.cat.vfo;
+                  var ptt = msgObj.cat.state;
+                  var ptt_l = ptt.toLowerCase();
+                  var my_ptt = false;
 
-               if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes') {
-                  $('#rig-ptt').addClass("red-btn");
-               } else {
-                  $('#rig-ptt').removeClass("red-btn");
+                  if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes') {
+                     $('#rig-ptt').addClass("red-btn");
+                     my_ptt = true;
+                  } else {
+                     $('#rig-ptt').removeClass("red-btn");
+                  }
+                  UserCache.update({ name: user, ptt: my_ptt });
+               }
+             } else {  // Nope, it's a state message
+               var state = msgObj.cat.state;
+//               console.log("state:", state);
+
+               if (typeof state === 'undefined') {
+                  return;
+               }
+
+               const { freq, mode, ptt, width, vfo }  = state;
+               if (typeof freq !== 'undefined') {
+                  if (vfo === "A") {
+                     $('span#vfo-a-freq').html(freq);
+                  } else if (vfo === "B") {
+                     $('span#vfo-b-freq').html(freq);
+                  }
+                  let $input = $('#rig-freq');
+                  freq_set_digits(freq, $input);
+               }
+
+               if (typeof mode !== 'undefined') {
+                  if (vfo === "A") {
+                     $('span#vfo-a-mode').html(mode);
+                  } else if (vfo === "B") {
+                     $('span#vfo-b-mode').html(mode);
+                  }
+               }
+
+               if (typeof width !== 'undefined') {
+                  if (vfo === "A") {
+                     $('span#vfo-a-width').html(width);
+                  } else if (vfo === "B") {
+                     $('span#vfo-b-width').html(width);
+                  }
                }
             }
          } else if (msgObj.ping) {			// Handle PING messages
@@ -324,15 +334,22 @@ function ws_connect() {
                   }
                }
             } else if (cmd === 'join') {
-               console.log("join msg: ", msgObj);
                var user = msgObj.talk.user;
                var privs = msgObj.talk.privs;
 
                if (typeof user !== 'undefined') {
                   var msg_ts = msg_timestamp(msgObj.talk.ts);
                   var nl = user_link(user);
+                  var ptt_state = msgObj.talk.ptt;
+                  if (typeof ptt_state === 'undefined') {
+                     ptt_state = false;
+                  }
+                  var muted_state = msgObj.talk.muted;
+                  if (typeof muted_state === 'undefined') {
+                     muted_state = false;
+                  }
 
-                  UserCache.add({ name: user, ptt: false, muted: false, privs: privs });
+                  UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
 
                   chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">joined the chat</span>&nbsp;***</div>');
                   // Play join (door open) sound if the bell button is checked
@@ -342,12 +359,11 @@ function ws_connect() {
                         join_ding.play();
                      }
                   }
-                  console.log("Join by:", user);
                } else {
                   console.log("got join for undefined user, ignoring");
                }
             } else if (cmd === 'kick') {
-               console.log("kick msg: ", msgObj);
+//               console.log("kick msg: ", msgObj);
                // Play leave (door close) sound if the bell button is checked
                if ($('#bell-btn').data('checked')) {
                   if (!(user === auth_user)) {
@@ -361,7 +377,7 @@ function ws_connect() {
                // XXX: If this mute is for us, disable the send button
                // XXX: and show an alert.
                console.log("Mute command received for user: ", user);
-               UserCache.update({ name: user, is_muted: true });
+               UserCache.update({ name: user, muted: true });
             } else if (cmd === 'whois') {
                const clones = msgObj.talk.data;
 
@@ -389,7 +405,6 @@ function ws_connect() {
                html += "<hr/><br/>Click window or hit escape to close";
                $('#chat-whois').html(html).show('slow');
             } else if (cmd === "quit") {
-               console.log("quit msg: ", msgObj);
                var user = msgObj.talk.user;
                var reason = msgObj.talk.reason;
 
@@ -399,23 +414,27 @@ function ws_connect() {
                      reason = 'Client exited';
                   }
 
-                  UserCache.remove(user);
-                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
-                  // Play leave (door close) sound if the bell button is checked
-                  if ($('#bell-btn').data('checked')) {
-                     if (!(user === auth_user)) {
-                        leave_ding.currentTime = 0;  // Reset audio to start from the beginning
-                        leave_ding.play();
+                  // skip this for our clones
+                  if (user.name !== auth_user) {
+                     UserCache.remove(user);
+                     // Play leave (door close) sound if the bell button is checked
+                     if ($('#bell-btn').data('checked')) {
+                        if (!(user === auth_user)) {
+                           leave_ding.currentTime = 0;  // Reset audio to start from the beginning
+                           leave_ding.play();
+                        }
                      }
                   }
+
+                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
                } else {
                   console.log("got %s for undefined user, ignoring", cmd);
                }
-            } else if (cmd === "names") {
-               parse_names_reply(msgObj);
+            } else if (cmd === "userinfo") {
+               parse_userinfo_reply(msgObj);
             } else if (cmd === "unmute") {
                // XXX: If unmute is for us, enable send button and let user know they can talk again
-               UserCache.update({ name: user, is_muted: false });
+               UserCache.update({ name: user, muted: false });
             } else {
                console.log("Unknown talk command:", cmd, "msg: ", msgData);
             }
@@ -561,7 +580,7 @@ function set_dark_mode(state) {
    let current = localStorage.getItem("dark_mode") !== "false";
    let dark_mode = (typeof state === 'undefined') ? !current : state;
 
-   const $toggleBtn = $("#tab-dark");
+   const $dark_btn = $("#tab-dark");
 
    $('link[id^="css-"]').filter(function() {
       return this.id.endsWith("-dark");
@@ -573,7 +592,7 @@ function set_dark_mode(state) {
       }
    });
 
-   $toggleBtn.text(dark_mode ? "light" : "dark");
+   $dark_btn.text(dark_mode ? "light" : "dark");
    console.log("Set " + (dark_mode ? "Dark" : "Light") + " Mode");
 
    localStorage.setItem("dark_mode", dark_mode ? "true" : "false");

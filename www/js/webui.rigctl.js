@@ -13,14 +13,16 @@ window.webui_inits.push(function webui_rigctl_init() {
 
 
    $('button#rig-ptt').click(function() {
-      console.log("ptt: ", ptt_active);
       let state = "off";
+
       if (ptt_active === false) {
          state = "on";
          ptt_active = true;
+         $(this).addClass('red-btn');
       } else {
          state = "off";
          ptt_active = false;
+         $(this).removeClass('red-btn');
       }
 
       var msg = { 
@@ -34,6 +36,7 @@ window.webui_inits.push(function webui_rigctl_init() {
       };
       let json_msg = JSON.stringify(msg)
       socket.send(json_msg);
+      console.log("ptt: ", state);
    });
 
    freq_input_init();
@@ -127,10 +130,25 @@ function freq_input_init() {
 
    let $input = $('#rig-freq');
    freq_init_digits($input, function(val) {
-       if (active_vfo === "A") {
-          $('span#vfo-a-freq').html(val);
-       } else if (active_vfo === "B") {
-          $('span#vfo-b-freq').html(val);
-       }
+      // Blorp out the change as a command
+      var msg = { 
+         cat: {
+            cmd: "freq",
+            data: {
+               vfo: active_vfo,
+               freq: val
+            }
+         }
+      };
+      let json_msg = JSON.stringify(msg)
+      socket.send(json_msg);
+      console.log("vfo", active_vfo, "freq", freq);
+       
+      // XXX: should we remove/limit this to account for lag/server response??
+      if (active_vfo === "A") {
+         $('span#vfo-a-freq').html(val);
+      } else if (active_vfo === "B") {
+         $('span#vfo-b-freq').html(val);
+      }
    });
 }

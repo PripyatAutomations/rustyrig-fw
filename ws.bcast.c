@@ -98,34 +98,35 @@ bool ws_chat_notice(http_client_t *cptr, const char *sender, const char *data) {
 }
 
 bool ws_send_userlist(http_client_t *cptr) {
-   if (cptr == NULL) {
-      return true;
+   http_client_t *curr = (cptr != NULL) ? cptr : http_client_list;
+
+   while (curr) {
+      if (curr->user && curr->authenticated) {
+         char resp_buf[HTTP_WS_MAX_MSG+1];
+         int len = snprintf(resp_buf, sizeof(resp_buf), 
+             "{ \"talk\": { \"cmd\": \"names\", \"ts\": %lu, \"users\": [",
+             now);
+
+         int count = 0;
+         const char *comma = (count > 0) ? "," : "";
+
+         bool is_txing = (whos_talking() == curr);
+         len += snprintf(resp_buf + len, sizeof(resp_buf) - len,
+                      "%s{\"name\":\"%s\", \"tx\": \"%s\", \"privs\": \"%s\"}",
+                      comma, curr->chatname,
+                      is_txing ? "true" : "false",
+                      curr->user->privs);
+
+         count++;
+         len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }\n");
+         struct mg_str ms = mg_str(resp_buf);
+         ws_broadcast(curr->conn, &ms);
+      }
+
+      if (cptr != NULL)
+         break;  // single user case
+      curr = curr->next;
    }
-
-   if (cptr->user == NULL || !cptr->authenticated) {
-      return true;
-   }
-
-   char resp_buf[HTTP_WS_MAX_MSG+1];
-   int len = snprintf(resp_buf, sizeof(resp_buf), 
-       "{ \"talk\": { \"cmd\": \"names\", \"ts\": %lu, \"users\": [",
-       now);
-
-   int count = 0;
-
-   const char *comma = (count > 0) ? "," : "";
-
-   bool is_txing = (whos_talking() == cptr);
-   len += snprintf(resp_buf + len, sizeof(resp_buf) - len,
-                "%s{\"name\":\"%s\", \"tx\": \"%s\", \"privs\": \"%s\"}",
-                comma, cptr->chatname,
-                is_txing ? "true" : "false",
-                cptr->user->privs);
-   
-   count++;
-   len += mg_snprintf(resp_buf + len, sizeof(resp_buf) - len, "] } }\n");
-   struct mg_str ms = mg_str(resp_buf);
-   ws_broadcast(NULL, &ms);
 
    return false;
 }

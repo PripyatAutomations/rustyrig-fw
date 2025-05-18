@@ -215,7 +215,7 @@ bool hl_poll(void) {
    // - Elsewhere, in backend.c, we'll compare current + last, every call to send_rig_status
    int rc = -1;
 
-   // Do VFO_A
+   // Do VFO_ for now
 /*
    memset(&hl_state, 0, sizeof(hamlib_state_t));
    if ((rc = rig_set_vfo(hl_rig, RIG_VFO_A)) != RIG_OK) {
