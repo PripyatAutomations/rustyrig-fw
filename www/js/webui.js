@@ -6,8 +6,9 @@ var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
 let reconnect_delay = 1;
 let reconnect_interval = [1, 2, 5, 10, 30 ];
-var reconnect_index = 0; 	// Index to track the current delay
 var reconnect_timer;  		// so we can stop reconnects later
+var reconnect_tries = 0;	// how many times have we tried to connect?
+var max_reconnects = 10;	// maximum times we'll retry connecting
 var ws_last_heard;		// When was the last time we heard something from the server? Used to send a keep-alive
 var ws_last_pinged;
 var ws_keepalives_sent = 0;
@@ -566,7 +567,7 @@ function stop_reconnecting() {
       reconnecting = false;
    }
    show_connecting(false);
-   reconnect_index = 0;
+   reconnect_tries = 0;
 }
 
 function handle_reconnect() {
@@ -578,6 +579,11 @@ function handle_reconnect() {
    show_connecting(true);
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
    chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec</div>');
+
+   reconnect_tries++;
+   if (reconnect_tries >= max_reconnects) {
+      stop_reconnecting();
+   }
 
    // Delay reconnecting for a bit
    reconnect_timer = setTimeout(function() {

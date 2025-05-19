@@ -45,9 +45,11 @@
 }
 
 #vfo-a, #vfo-b, #vfo-c {
+   font-size: 0.8em;
    placement: relative;
    top: 0.5em;
    left: 0.5em;
+   width: 25em;
    border-bottom-right-radius: 10px;
 }
 
