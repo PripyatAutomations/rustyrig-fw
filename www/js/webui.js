@@ -270,12 +270,14 @@ function ws_connect() {
                   return;
                }
 
-               const { freq, mode, ptt, width, vfo }  = state;
+               const { freq, mode, ptt, width, vfo, power }  = state;
                if (typeof freq !== 'undefined') {
                   if (vfo === "A") {
-                     $('span#vfo-a-freq').html(freq);
+                     $('span#vfo-a-freq').html(format_freq(freq) + '&nbsp;Hz');
                   } else if (vfo === "B") {
-                     $('span#vfo-b-freq').html(freq);
+                     $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
+                  } else if (vfo === "C") {
+                     $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
                   }
                   let $input = $('#rig-freq');
                   freq_set_digits(freq, $input);
@@ -286,14 +288,28 @@ function ws_connect() {
                      $('span#vfo-a-mode').html(mode);
                   } else if (vfo === "B") {
                      $('span#vfo-b-mode').html(mode);
+                  } else if (vfo === "C") {
+                     $('span#vfo-c-mode').html(mode);
                   }
                }
 
                if (typeof width !== 'undefined') {
                   if (vfo === "A") {
-                     $('span#vfo-a-width').html(width);
+                     $('span#vfo-a-width').html(width + '&nbsp;Hz');
                   } else if (vfo === "B") {
-                     $('span#vfo-b-width').html(width);
+                     $('span#vfo-b-width').html(width + '&nbsp;Hz');
+                  } else if (vfo === "C") {
+                     $('span#vfo-c-width').html(width + '&nbsp;Hz');
+                  }
+               }
+
+               if (typeof power !== 'undefined') {
+                  if (vfo === "A") {
+                     $('span#vfo-a-power').html(power + '&nbsp;W');
+                  } else if (vfo === "B") {
+                     $('span#vfo-b-power').html(power + '&nbsp;W');
+                  } else if (vfo === "C") {
+                     $('span#vfo-c-power').html(power + '&nbsp;W');
                   }
                }
             }

@@ -70,6 +70,13 @@
    border: 2px solid DarkSlateGrey;
 }
 
+#edit-vfo-width, #edit-vfo-power {
+   font-size: 1.8em;
+   background: SlateGrey;
+/*   border: 2px solid DarkSlateGrey; */
+   border-radius: 10px;
+}
+
 
 #vfo-a-freq, #vfo-a-mode, #vfo-a-width, #vfo-a-power {
    color: MintCream;

@@ -173,21 +173,22 @@
    <div id="win-rig" class="window">
 <!--    <div id="rig-top-status"></div> -->
     <div id="rig-body-wrap">
+    <span style="font-size: 1.6em;">Click freq/mode/width/power on a VFO to change them.</script><br/>
 <!--     <div id="rig-upper-split"> -->
       <div id="rig-vfos">
        <div id="vfo-a" class="vfo-box active-vfo">
         <h4>VFO A</h4>
         <span id="vfo-a-freq">0</span><br/>
-        <span id="vfo-a-mode">D-U</span>&nbsp;
-        <span id="vfo-a-width">3000 Hz</span><br/>
-        <span id="vfo-a-power">100 W</span>
+        <span id="vfo-a-mode">---</span>&nbsp;
+        <span id="vfo-a-width">--- Hz</span><br/>
+        <span id="vfo-a-power">--- W</span>
        </div>
        <div id="vfo-b" class="vfo-box">
         <h4>VFO B</h4>
-        <span id="vfo-b-freq">0</span><br/>
-        <span id="vfo-b-mode">D-U</span>&nbsp;
-        <span id="vfo-b-width">3000 Hz</span><br/>
-        <span id="vfo-b-power">100 W</span>
+        <span id="vfo-b-freq">---</span><br/>
+        <span id="vfo-b-mode">*OFF*</span>&nbsp;
+        <span id="vfo-b-width">--- Hz</span><br/>
+        <span id="vfo-b-power">--- W</span>
        </div>
 <!--
        <div id="vfo-c" class="vfo-box">
@@ -208,6 +209,14 @@
        <div id="edit-vfo-mode">
         <select id="rig-mode"></select>
         </div>
+       <div id="edit-vfo-width">
+        <label for="tx-bw">Width (Hz): <span id="tx-bw-val">3000</span></label>
+        <input type="range" id="tx-bw" min="50" max="3000" step="50" value="1550">
+       </div>
+       <div id="edit-vfo-power">
+        <label for="tx-pow">Power (Watts): <span id="tx-pow-val">10</span></label>
+        <input type="range" id="tx-pow" min="5" max="100" step="1" value="5">
+       </div>
        </div> <!-- edit-vfo-mode -->
       <button id="rig-apply">Apply</button>&nbsp;&nbsp;
       <button id="rig-ptt">PTT</button>&nbsp;&nbsp;

@@ -199,6 +199,9 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    char *vfo = mg_json_get_str(msg_data, "$.cat.data.vfo");
    char *state = mg_json_get_str(msg_data, "$.cat.data.state");
 
+   // XXX: Need to remove this and instead pull it from rig state
+   int power = 5;
+
    if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
          if (!has_priv(cptr->user->uid, "admin|owner|tx")) {
@@ -230,8 +233,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->is_ptt = c_state;		// set the user as PTT or not
 
          // tell everyone about it
-         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
-             cptr->chatname, state, vfo, now);
+         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"power\": %d, \"ts\": %lu } }",
+             cptr->chatname, state, vfo, power, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s", cptr->chatname, (c_state ? "true" : "false"));

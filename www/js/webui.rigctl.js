@@ -18,16 +18,33 @@ window.webui_inits.push(function webui_rigctl_init() {
 
 function vfo_edit_init() {
    $('span#vfo-a-freq').click(function(e) {
-      $('#edit-vfo-freq').toggle('slow');
+      $('#edit-vfo-freq').toggle(300);
    });
+
    $('span#vfo-a-mode').click(function(e) {
-      $('#edit-vfo-mode').toggle('slow');
+      $('#edit-vfo-mode').toggle(300);
+   });
+
+   $('span#vfo-a-width').click(function(e) {
+      $('#edit-vfo-width').toggle(300);
+   });
+
+   $('span#vfo-a-power').click(function(e) {
+      $('#edit-vfo-power').toggle(300);
    });
 
    let modes = [ 'LSB', 'USB', 'AM', 'FM', 'D-L', 'D-U' ];
 
    $.each(modes, function(_, mode) {
       $('#rig-mode').append($('<option>').val(mode).text(mode));
+   });
+
+   /* XXX: fix the naming here */
+   $('#tx-bw').on('input', function() {
+      $('#tx-bw-val').text($(this).val());
+   });
+   $('#tx-pow').on('input', function() {
+      $('#tx-pow-val').text($(this).val());
    });
 }
 
@@ -167,4 +184,9 @@ function freq_input_init() {
       socket.send(json_msg);
       console.log("setting vfo A", active_vfo, "freq", val);
    });
+}
+
+function format_freq(freq) {
+   let mhz = (freq / 1000).toFixed(3); // 72000000 → "72000.000"
+   return mhz.replace(/\B(?=(\d{3})+(?!\d))/g, ","); // Add comma
 }

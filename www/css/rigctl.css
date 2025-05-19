@@ -221,9 +221,16 @@
    margin: 2px;
 }
 
-#edit-vfo-freq, #edit-vfo-mode, #edit-vfo-width {
+#edit-vfo-freq, #edit-vfo-mode, #edit-vfo-width, #edit-vfo-power {
 /*   border: 2px solid red; */
    display: none;
+}
+
+#edit-vfo-width, #edit-vfo-power {
+   font-size: 1.8em;
+   background: AntiqueWhite;
+/*   border: 2px solid DarkSlateGrey; */
+   border-radius: 10px;
 }
 
 #edit-vfo-mode select {
