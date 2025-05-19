@@ -39,3 +39,52 @@
 .vfo-box {
    background: #0c0c0c;
 }
+
+.digit-container {
+   background: MidnightBlue;
+}
+
+.digit {
+   background: MidnightBlue;
+}
+
+.digit button {
+   color: Aquamarine;
+   background: DarkSlateGray;
+}
+
+.digit .value {
+   background: MidnightBlue;
+   color: MintCream;
+}
+
+.digit-spacer {
+   background: red;
+}
+
+#edit-vfo-freq, #edit-vfo-mode, #edit-vfo-width {
+}
+
+#edit-vfo-mode select {
+   background: #c0c0c0;
+   border: 2px solid DarkSlateGrey;
+}
+
+
+#vfo-a-freq, #vfo-a-mode, #vfo-a-width, #vfo-a-power {
+   color: MintCream;
+   font-family: lcd;
+   font-size: 1.0em;
+}
+
+#vfo-b-freq, #vfo-b-mode, #vfo-b-width, #vfo-b-power {
+   color: SpringGreen;
+   font-family: lcd;
+   font-size: 1.0em;
+}
+
+#vfo-c-freq, #vfo-c-mode, #vfo-c-width, #vfo-c-power {
+   color: DarkOrange;
+   font-family: lcd;
+   font-size: 1.0em;
+}

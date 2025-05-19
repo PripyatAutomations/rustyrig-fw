@@ -193,7 +193,7 @@ static bool hl_init(void) {
    return false;
 }
 
-static bool hl_freq_set(http_client_t *cptr, rr_vfo_t vfo, float freq) {
+static bool hl_freq_set(rr_vfo_t vfo, float freq) {
    int ret = -1;
 
    // Set frequency
@@ -267,8 +267,6 @@ bool hl_poll(void) {
    // Send to everyone, including the sender, which will then display it in various widgets
    ws_broadcast(NULL, &mp);
 
-   // Send a 
-
    return false;
 }
 
@@ -277,7 +275,7 @@ static rr_backend_funcs_t rr_backend_hamlib_api = {
    .backend_init = &hl_init,
    .backend_poll = &hl_poll,
    .rig_ptt_set = &hl_ptt_set,
-//   .rig_freq_set = &hl_freq_set
+   .rig_freq_set = &hl_freq_set
 };
 
 rr_backend_t rr_backend_hamlib = {

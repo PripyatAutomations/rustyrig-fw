@@ -32,6 +32,7 @@ struct rr_backend_funcs {
    bool		(*rig_tuner_control)(rr_vfo_t vfo, const char *args);
    bool		(*rig_set_power)(rr_vfo_t vfo, const char *args);
    bool		(*rig_freq_set)(rr_vfo_t vfo, float freq);
+   float	(*rig_freq_get)(rr_vfo_t vfo);
 };
 typedef struct rr_backend_funcs rr_backend_funcs_t;
 
@@ -49,8 +50,12 @@ typedef struct rr_backend rr_backend_t;
 #include "inc/backend.internal.h"
 
 extern bool rr_backend_init(void);
+extern bool rr_get_ptt(http_client_t *cptr, rr_vfo_t vfo);
+extern bool rr_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state);
+extern float rr_freq_get(rr_vfo_t vfo);
+extern bool rr_freq_set(rr_vfo_t vfo, float freq);
 extern bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo);
-extern bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state);
+
 extern bool rr_be_poll(rr_vfo_t vfo);
 
 #endif	// !defined(__rr_backend_h)

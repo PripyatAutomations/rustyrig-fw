@@ -152,7 +152,7 @@ bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
    return rv;
 }
 
-bool rr_be_freq_set(rr_vfo_t vfo, float freq) {
+bool rr_freq_set(rr_vfo_t vfo, float freq) {
    if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_ptt_set == NULL) {
       return true;
    }
@@ -167,16 +167,14 @@ bool rr_be_freq_set(rr_vfo_t vfo, float freq) {
    return false;
 }
 
-/*
-float rr_be_get_freq(http_client_t *cptr, rr_vfo_t vfo) {
+float rr_freq_get(rr_vfo_t vfo) {
    // XXX: This is incorrect
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_ptt_get == NULL) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_freq_get == NULL) {
       return false;
    }
    bool rv = rig.backend->api->rig_freq_get(vfo);
    return rv;
 }
-*/
 
 bool rr_be_poll(rr_vfo_t vfo) {
    if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->backend_poll == NULL) {

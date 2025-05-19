@@ -38,8 +38,7 @@
 }
 
 .vfo-box {
-/*   background: AntiqueWhite; */
-   background: MidnightBlue;
+   background: AntiqueWhite;
    margin-top: 0px;
    margin-left: 0.25em;
    margin-right: 0.25em;
@@ -91,19 +90,26 @@
    padding-right: 1em;
 }
 
-#vfo-a-freq, #vfo-a-mode, #vfo-a-width {
-   color: DarkTurquoise;
+#vfo-a-power, #vfo-b-power, #vfo-c-power {
+   font-size: 1.0em;
+   font-weight: bold;
+   padding-left: 1em;
+   padding-right: 1em;
+}
+
+#vfo-a-freq, #vfo-a-mode, #vfo-a-width, #vfo-a-power {
+   color: Navy;
    font-family: lcd;
    font-size: 1.0em;
 }
 
-#vfo-b-freq, #vfo-b-mode, #vfo-b-width {
+#vfo-b-freq, #vfo-b-mode, #vfo-b-width, #vfo-b-power {
    color: SpringGreen;
    font-family: lcd;
    font-size: 1.0em;
 }
 
-#vfo-c-freq, #vfo-c-mode, #vfo-c-width {
+#vfo-c-freq, #vfo-c-mode, #vfo-c-width, #vfo-c-power {
    color: DarkOrange;
    font-family: lcd;
    font-size: 1.0em;
@@ -116,7 +122,7 @@
 #rig-controls {
    position: absolute;
    resize: none;
-   border: 1px solid DarkOrange;
+/*   border: 1px solid DarkOrange; */
    width: CALC(100% - 1em);
    position: relative;
    height: 100%;
@@ -173,7 +179,7 @@
 .digit-container {
    display: inline-flex;
    font-family: monospace;
-   background: MidnightBlue;
+   background: AntiqueWhite;
    align-items: center;
    text-align: center;
    margin: 0px;
@@ -181,7 +187,7 @@
 }
 
 .digit {
-   background: MidnightBlue;
+   background: AntiqueWhite;
    display: flex;
    flex-direction: column;
    align-items: center;
@@ -197,8 +203,8 @@
 }
 
 .digit .value {
-   background: MidnightBlue;
-   color: Turquoise;
+   background: AntiqueWhite;
+   color: Navy;
    text-align: center;
    font-family: lcd;
    font-size: 2.4em;
@@ -215,6 +221,14 @@
    margin: 2px;
 }
 
-.edit-vfo {
-   border: 2px solid red;
+#edit-vfo-freq, #edit-vfo-mode, #edit-vfo-width {
+/*   border: 2px solid red; */
+   display: none;
+}
+
+#edit-vfo-mode select {
+   font-size: 1.8em;
+   background: AntiqueWhite;
+   border: 2px solid DarkSlateGrey;
+   border-radius: 10px;
 }

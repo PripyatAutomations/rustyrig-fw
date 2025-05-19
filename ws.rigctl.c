@@ -271,7 +271,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "freq", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
          free(freq);
-//         rr_be_set_freq(c_vfo, new_freq);
+         rr_freq_set(c_vfo, new_freq);
       } else {
          Log(LOG_DEBUG, "ws.rigctl", "Got unknown rig msg: |%.*s|", msg_data.len, msg_data.buf);
       }

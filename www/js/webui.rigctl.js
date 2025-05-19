@@ -11,7 +11,27 @@ window.webui_inits.push(function webui_rigctl_init() {
    console.log("rigctl init: start");
    console.log("rigctl init: end. status=" + status);
 
+   vfo_edit_init();
+   ptt_btn_init();
+   freq_input_init();
+});
 
+function vfo_edit_init() {
+   $('span#vfo-a-freq').click(function(e) {
+      $('#edit-vfo-freq').toggle('slow');
+   });
+   $('span#vfo-a-mode').click(function(e) {
+      $('#edit-vfo-mode').toggle('slow');
+   });
+
+   let modes = [ 'LSB', 'USB', 'AM', 'FM', 'D-L', 'D-U' ];
+
+   $.each(modes, function(_, mode) {
+      $('#rig-mode').append($('<option>').val(mode).text(mode));
+   });
+}
+
+function ptt_btn_init() {
    $('button#rig-ptt').click(function() {
       let state = "off";
 
@@ -34,9 +54,7 @@ window.webui_inits.push(function webui_rigctl_init() {
       let json_msg = JSON.stringify(msg)
       socket.send(json_msg);
    });
-
-   freq_input_init();
-});
+}
 
 function freq_update_digit($digit, delta) {
    let val = parseInt($digit.find('.value').text(), 10);
@@ -46,13 +64,17 @@ function freq_update_digit($digit, delta) {
    if (newVal > 9) {
       $digit.find('.value').text('0');
       let idx = parseInt($digit.attr('data-index'));
-      if (idx > 0)
+
+      if (idx > 0) {
          freq_update_digit($container.find('.digit').eq(idx - 1), +1);
+      }
    } else if (newVal < 0) {
       $digit.find('.value').text('9');
       let idx = parseInt($digit.attr('data-index'));
-      if (idx > 0)
+
+      if (idx > 0) {
          freq_update_digit($container.find('.digit').eq(idx - 1), -1);
+      }
    } else {
       $digit.find('.value').text(newVal);
    }
@@ -73,6 +95,7 @@ function freq_get_digits($container = $('#custom-input')) {
 function freq_set_digits(val, $container = $('#custom-input')) {
    let str = String(val).padStart(FREQ_DIGITS, '0');
    let $digits = $container.find('.digit');
+
    for (let i = 0; i < FREQ_DIGITS; i++) {
       $digits.eq(i).find('.value').text(str[i]);
    }
@@ -101,8 +124,9 @@ function freq_input_init() {
          }
       }
 
-      if (onChange)
+      if (onChange) {
          $container.data('onChange', onChange);
+      }
 
       $container.on('click', '.inc', function() {
          let $digit = $(this).closest('.digit');
@@ -114,6 +138,8 @@ function freq_input_init() {
          freq_update_digit($digit, -1);
       });
 
+      /* XXX: fix this to support sending the changed result */
+/*
       $container.on('dblclick', '.digit .value', function() {
          $(this).text('0');
 
@@ -122,6 +148,7 @@ function freq_input_init() {
             onChange();
          }
       });
+*/
    }
 
    let $input = $('#rig-freq');
@@ -138,13 +165,6 @@ function freq_input_init() {
       };
       let json_msg = JSON.stringify(msg)
       socket.send(json_msg);
-//      console.log("vfo A", active_vfo, "freq", val);
-/*
-      if (active_vfo === "A") {
-         $('span#vfo-a-freq').html(val);
-      } else if (active_vfo === "B") {
-         $('span#vfo-b-freq').html(val);
-      }
-*/
+      console.log("setting vfo A", active_vfo, "freq", val);
    });
 }

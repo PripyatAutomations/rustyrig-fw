@@ -179,13 +179,15 @@
         <h4>VFO A</h4>
         <span id="vfo-a-freq">0</span><br/>
         <span id="vfo-a-mode">D-U</span>&nbsp;
-        <span id="vfo-a-width">3000 Hz</span>
+        <span id="vfo-a-width">3000 Hz</span><br/>
+        <span id="vfo-a-power">100 W</span>
        </div>
        <div id="vfo-b" class="vfo-box">
         <h4>VFO B</h4>
         <span id="vfo-b-freq">0</span><br/>
         <span id="vfo-b-mode">D-U</span>&nbsp;
-        <span id="vfo-b-width">3000 Hz</span>
+        <span id="vfo-b-width">3000 Hz</span><br/>
+        <span id="vfo-b-power">100 W</span>
        </div>
 <!--
        <div id="vfo-c" class="vfo-box">
@@ -200,14 +202,18 @@
 <!--     </div>  --> <!-- rig-upper-split -->
 <!--     <div id="rig-lower-split"> -->
       <div id="rig-controls">
-       <div id="edit-vfo">
+       <div id="edit-vfo-freq">
         <div id="rig-freq" class="digit-container"></div><br/>
-        <button id="rig-apply">Apply</button>&nbsp;&nbsp;
-        <button id="rig-ptt">PTT</button>&nbsp;&nbsp;
-        <button id="reload-css">Reload CSS</button>
-       </div> <!-- edit-vfo -->
+       </div> <!-- edit-vfo-freq -->
+       <div id="edit-vfo-mode">
+        <select id="rig-mode"></select>
+        </div>
+       </div> <!-- edit-vfo-mode -->
+      <button id="rig-apply">Apply</button>&nbsp;&nbsp;
+      <button id="rig-ptt">PTT</button>&nbsp;&nbsp;
+      <button id="reload-css">Reload CSS</button>
       </div> <!-- rig-controls -->
-      <div id="rig-memory"></div>
+<!--      <div id="rig-memory"></div> -->
      </div>
 <!--    </div> -->
    </div><!-- win-rig -->
