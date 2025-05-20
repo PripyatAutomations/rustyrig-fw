@@ -314,6 +314,9 @@ bool match_priv(const char *user_privs, const char *priv) {
    size_t privlen = strlen(priv);
 
    Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'\n", user_privs, priv);
+   if (user_privs == NULL || priv == NULL) {
+      return false;
+   }
 
    while (start && *start) {
       const char *end = strchr(start, ',');
@@ -346,7 +349,7 @@ bool match_priv(const char *user_privs, const char *priv) {
 }
 
 bool has_priv(int uid, const char *priv) {
-   if (priv == NULL) {
+   if (priv == NULL || uid < 0 || (uid > HTTP_MAX_USERS - 1)) {
       return false;
    }
 
@@ -359,6 +362,10 @@ bool has_priv(int uid, const char *priv) {
       if (len >= sizeof(tmp)) len = sizeof(tmp) - 1;
       memcpy(tmp, p, len);
       tmp[len] = '\0';
+
+      if (http_users[uid].privs[0] == '\0') {
+         return false;
+      }
 
       if (match_priv(http_users[uid].privs, tmp)) {
          return true;
@@ -562,6 +569,11 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             client_set_flag(cptr, FLAG_CAN_TX);
          }
 
+         // client cannot transmit unless a user with owner|admin is logged in
+         if (has_priv(cptr->user->uid, "noob")) {
+            client_set_flag(cptr, FLAG_NOOB);
+         }
+
          // Send a ping to the user and expect them to reply within HTTP_PING_TIMEOUT seconds
          cptr->last_heard = now;
          ws_send_ping(cptr);
@@ -632,4 +644,23 @@ int generate_nonce(char *buffer, size_t length) {
 
    buffer[length] = '\0';
    return length;
+}
+
+// is an admin or owner online?
+bool is_admin_online(void) {
+   if (http_client_list == NULL) {
+      return false;
+   }
+
+   http_client_t *curr = http_client_list;
+   while (curr != NULL) {
+      if (!curr->is_ws || !curr->authenticated || curr->user == NULL) {
+         return false;
+      }
+      if (has_priv(curr->user->uid, "admin|owner")) {
+         return true;
+      }
+      curr = curr->next;
+   }
+   return false;
 }

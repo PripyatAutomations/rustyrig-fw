@@ -66,6 +66,36 @@ void ws_send_to_name(struct mg_connection *sender, const char *username, struct 
    }
 }
 
+bool ws_kick_by_name(const char *name, const char *reason) {
+   if (http_client_list == NULL) {
+      return true;
+   }
+
+   http_client_t *curr = http_client_list;
+   while (curr != NULL) {
+      if (strcasecmp(name, curr->chatname) == 0) {
+         ws_kick_client(curr, reason);
+      }
+      curr = curr->next;
+   }
+   return false;
+}
+
+bool ws_kick_by_uid(int uid, const char *reason) {
+   if (http_client_list == NULL) {
+      return true;
+   }
+
+   http_client_t *curr = http_client_list;
+   while (curr != NULL) {
+      if (uid == curr->user->uid) {
+         ws_kick_client(curr, reason);
+      }
+      curr = curr->next;
+   }
+   return false;
+}
+
 bool ws_kick_client(http_client_t *cptr, const char *reason) {
    if (cptr == NULL || cptr->conn == NULL) {
       Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));

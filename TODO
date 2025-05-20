@@ -1,3 +1,7 @@
+ASAP
+* Implement TX halt when PTTing user disconnects.
+  - also halt TX by FLAG_NOOB users if the last admin logs out
+
 [webcam]
 - Support for streaming a v4l webcam from the station to the clients O_o
 

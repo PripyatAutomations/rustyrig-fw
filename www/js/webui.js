@@ -454,6 +454,9 @@ function ws_connect() {
                let html = `<strong>User:</strong>&nbsp;${info.username}<br>`;
                html += `<strong>Email:</strong>&nbsp;${info.email}<br>`;
                html += `<strong>Privileges:</strong>&nbsp;${info.privs || 'None'}<br>`;
+               if (typeof info.muted !== 'undefined' && info.muted === "true") {
+                  html += `<strong class="red">This user is currently muted.</strong>&nbsp;Rigctl is temporarily suspended.<br>`;
+               }
                html += '<hr width="75%"/>';
 
                html += `<strong>Active Sessions: ${clones.length}</strong><br>`;

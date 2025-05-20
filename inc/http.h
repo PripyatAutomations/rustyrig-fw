@@ -32,7 +32,7 @@
 //#endif	// (HTTP_PING_TIME / 4)
 #define	HTTP_PING_TRIES		3		// We'll try this many times before kicking the client
 // HTTP Basic-auth user
-#define	HTTP_MAX_USERS		32		// How many users are allowed in http.users?
+#define	HTTP_MAX_USERS		64		// How many users are allowed in http.users?
 #define	HTTP_USER_LEN		16		// username length (16 char)
 #define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64
 #define	HTTP_HASH_LEN		40		// sha1
@@ -111,6 +111,7 @@ typedef struct http_client http_client_t;
 #define FLAG_LISTENER    0x00000040
 #define	FLAG_SYSLOG	 0x00000080
 #define	FLAG_CAN_TX	 0x00000100
+#define	FLAG_NOOB        0x00000200		// user can only use ws.cat if owner|admin logged in
 
 extern bool client_has_flag(http_client_t *cptr, u_int32_t user_flag);
 extern void client_set_flag(http_client_t *cptr, u_int32_t flag);

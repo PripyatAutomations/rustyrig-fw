@@ -159,8 +159,9 @@ function cul_offline() {
 // Store the data from names reply in the UserCache, replacing outdated informations
 // XXX: Implement this
 function parse_userinfo_reply(message) {
+    console.log("parse_userinfo_reply:", message);
     if (typeof message !== 'undefined') {
-       UserCache.update({ name: message.talk.user, privs: message.talk.privs });
+       UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: message.talk.muted, ptt: message.talk.ptt });
     }
 
     return false;
@@ -182,14 +183,16 @@ function cul_render() {
     }));
 
     uniqueUsers.forEach(user => {
-//       console.log("user:", user);
-       const { name, admin } = user;
-       
+       console.log("cul_render:", user.name, "data:", user);
+       const { name } = user;
        const privs = new Set((user.privs || '').split(',').map(p => p.trim()));
        let badges = '', tx_badges = '';
 
        if (user.ptt) {
           tx_badges += '<span class="badge tx-badge">🎙️ </span>';
+       }
+       if (user.muted === "true") {
+           tx_badges += '<span class="badge">🙊</span>';
        }
 
        if (privs.has('owner')) {
@@ -198,8 +201,6 @@ function cul_render() {
            badges += '<span class="badge admin-badge">⭐&nbsp;</span>';
        } else if ((user.name || '').toUpperCase() === 'N9MSC') {
            badges += '<span class="badge admin-badge">🐒&nbsp;</span>';
-       } else if (user.muted) {
-           tx_badges += '<span class="badge">🙊</span>';
        } else {
            badges += '<span class="badge view-badge">👀&nbsp;</span>';
 //           badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';
@@ -299,10 +300,22 @@ function show_user_menu(username) {
     // Attach event listeners
     $('#whois-user').on('click', () => chat_send_command('whois', { target: username }));
     var user = UserCache.get(username);
-    if (typeof user !== 'undefined') {
-       $('#mute-user').on('click', () => chat_send_command('mute', { target: username }));
-       $('#unmute-user').on('click', () => chat_send_command('unmute', { target: username }));
 
+    // if user is in the cache, see if they have muted property set
+    if (typeof user !== 'undefined') {
+       $('#mute-user').on('click', function() {
+          chat_send_command('mute', { target: username });
+          form_disable(false);
+          $('#user-menu').hide('slow');
+       });
+
+       $('#unmute-user').on('click', function() {
+          chat_send_command('unmute', { target: username });
+          form_disable(false);
+          $('#user-menu').hide('slow');
+       });
+
+       // do we show mute or unmute button?
        if (user.muted === "true") {
           $('#mute-user').hide('fast');
           $('#unmute-user').show('fast');
@@ -443,11 +456,16 @@ function parse_chat_cmd(e) {
                      target: args[1],
                      reason: args.slice(2).join(' ') || ''
                   };
+               } else {
+                  args_obj = {
+                     target: args[1],
+                  };
                }
                break;
 
             case 'edit':
             case 'syslog':
+            case 'unmute':
             case 'whois':
                if (args.length >= 2) {
                   args_obj = {

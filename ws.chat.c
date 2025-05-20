@@ -174,7 +174,7 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
       send_global_alert(cptr, "***SERVER***", msgbuf);
 
       // broadcast the userinfo so cul updates
-      ws_send_userinfo(acptr);
+      ws_send_userinfo(acptr, NULL);
       Log(LOG_AUDIT, "admin.mute", msgbuf);
    } else {
       ws_chat_err_noprivs(cptr, "MUTE");
@@ -201,7 +201,7 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
       send_global_alert(cptr, "***SERVER***", msgbuf);
       Log(LOG_AUDIT, "admin.unmute", msgbuf);
       // broadcast the userinfo so cul updates
-      ws_send_userinfo(acptr);
+      ws_send_userinfo(acptr, NULL);
    } else {
       ws_chat_err_noprivs(cptr, "UNMUTE");
       return true;
@@ -234,9 +234,10 @@ static bool ws_chat_cmd_syslog(http_client_t *cptr, const char *state) {
 }
 
 // Send the updated userinfo for a single user; see ws_send_users below for everyone
-void ws_send_userinfo(http_client_t *cptr) {
-   if (!cptr || !cptr->authenticated || !cptr->user)
-      return;
+bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
+   if (!cptr || !cptr->authenticated || !cptr->user) {
+      return true;
+   }
 
    char buf[256];
    int len = mg_snprintf(buf, sizeof(buf),
@@ -247,20 +248,28 @@ void ws_send_userinfo(http_client_t *cptr) {
       cptr->user->is_muted ? "true" : "false");
 
    struct mg_str msg = mg_str_n(buf, len);
-   ws_broadcast(NULL, &msg);
+   if (acptr != NULL) {
+      Log(LOG_DEBUG, "ws_send_userinfo", "sending msg to cptr:<%x>: %s", acptr, buf);
+      ws_send_to_cptr(NULL, acptr, &msg);
+   } else {
+      ws_broadcast(NULL, &msg);
+   }
+   return false;
 }
 
 // Send info on all online users to the user
 bool ws_send_users(http_client_t *cptr) {
     http_client_t *current = http_client_list;
     
-    if (cptr != NULL) {
-       ws_send_userinfo(cptr);
-    } else {
-       while (current != NULL) {
-          ws_send_userinfo(current);
-          current = current->next;
+    // iterate over all the users
+    while (current != NULL) {
+       // should this be sent to a single user?
+       if (cptr != NULL) {
+          ws_send_userinfo(current, cptr);
+       } else {           // nope, broadcast it
+          ws_send_userinfo(current, NULL);
        }
+    current = current->next;
     }
     return false;
 }
@@ -413,10 +422,11 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             }
 
             written = snprintf(wp, remaining,
-               "{ \"username\": \"%s\", \"clone\": %d, \"email\": \"%s\", \"privs\": \"%s\", \"connected\": %lu, \"last_heard\": %lu, \"ua\": \"%s\" }",
+               "{ \"username\": \"%s\", \"clone\": %d, \"email\": \"%s\", \"privs\": \"%s\", \"connected\": %lu, \"last_heard\": %lu, \"ua\": \"%s\", \"muted\": \"%s\"  }",
                acptr->chatname, clone_idx++, up->email, up->privs,
                acptr->session_start, acptr->last_heard,
-               acptr->user_agent ? acptr->user_agent : "Unknown");
+               acptr->user_agent ? acptr->user_agent : "Unknown",
+               acptr->user->is_muted ? "true" : "false");
 
             if (written < 0 || (size_t)written >= remaining)
                goto trunc;

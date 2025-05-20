@@ -177,12 +177,18 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       return true;
    }
 
+   // Support for 'noob' class users who can only control rig if an admin|owner is present
+   if (client_has_flag(cptr, FLAG_NOOB) && !is_admin_online()) {
+      Log(LOG_AUDIT, "ws.rigctl", "Ignoring %s command from %s as they are a noob and no admins are online", cmd, cptr->chatname);
+      return true;
+   }
+
    // XXX: Need to remove this and instead pull it from rig state
    int power = 5;
 
    if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
-         if (!has_priv(cptr->user->uid, "admin|owner|tx")) {
+         if (!has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
             rv = true;
             goto cleanup;
          }
@@ -227,7 +233,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
-         if (!has_priv(cptr->user->uid, "admin|owner|tx")) {
+         if (!has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
             rv = true;
             free(freq);
             goto cleanup;
