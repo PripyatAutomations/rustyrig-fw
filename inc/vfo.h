@@ -59,5 +59,6 @@ struct rr_vfo_data {
 };
 typedef struct rr_vfo_data rr_vfo_data_t;
 extern bool set_vfo_frequency(rr_vfo_type_t vfo_type, uint32_t input, float freq);
+extern rr_vfo_t vfo_lookup(const char *vfo);
 
 #endif	// !defined(__rr_vfo_h)

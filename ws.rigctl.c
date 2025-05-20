@@ -42,6 +42,7 @@ typedef struct ws_rig_state {
 // Here we keep track of a few sets of VFO state
 static ws_rig_state_t	vfo_states[MAX_VFOS], vfo_states_last[MAX_VFOS];
 static rr_vfo_t	active_vfo;
+time_t ws_rig_state_last_sent;
 
 ws_rig_state_t *ws_rig_get_vfo_state(rr_vfo_t vfo) {
    return &vfo_states[vfo];
@@ -125,7 +126,6 @@ static bool ws_rig_state_poll(rr_vfo_t vfo) {
 }
 
 // Sends a diff of the changes since last poll, in json
-time_t ws_rig_state_last_sent;
 
 static bool ws_rig_state_send(rr_vfo_t vfo) {
    bool force_send = false;
@@ -154,34 +154,6 @@ static bool ws_rig_state_send(rr_vfo_t vfo) {
    // update last sent and return success
    ws_rig_state_last_sent = now;
    return false;
-}
-
-
-rr_vfo_t vfo_lookup(const char *vfo) {
-   rr_vfo_t c_vfo;
-
-   switch(vfo[0]) {
-      case 'A':
-         c_vfo = VFO_A;
-         break;
-      case 'B':
-         c_vfo = VFO_B;
-         break;
-      case 'C':
-         c_vfo = VFO_C;
-         break;
-      case 'D':
-         c_vfo = VFO_D;
-         break;
-      case 'E':
-         c_vfo = VFO_E;
-         break;
-      default:
-         c_vfo = VFO_NONE;
-         break;
-   }
-
-   return c_vfo;
 }
 
 bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
@@ -242,7 +214,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       } else if (strcasecmp(cmd, "freq") == 0) {
          char *freq = mg_json_get_str(msg_data, "$.cat.data.freq");
          float new_freq = 0;
-         Log(LOG_DEBUG, "ptt", "Got message with freq: %s", freq);
 
          if (!has_priv(cptr->user->uid, "admin|owner|tx")) {
             rv = true;

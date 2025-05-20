@@ -27,3 +27,30 @@ bool set_vfo_frequency(rr_vfo_type_t vfo_type, uint32_t input, float freq) {
    // We should call into the backend here to set the frequency
    return true;
 }
+
+rr_vfo_t vfo_lookup(const char *vfo) {
+   rr_vfo_t c_vfo;
+
+   switch(vfo[0]) {
+      case 'A':
+         c_vfo = VFO_A;
+         break;
+      case 'B':
+         c_vfo = VFO_B;
+         break;
+      case 'C':
+         c_vfo = VFO_C;
+         break;
+      case 'D':
+         c_vfo = VFO_D;
+         break;
+      case 'E':
+         c_vfo = VFO_E;
+         break;
+      default:
+         c_vfo = VFO_NONE;
+         break;
+   }
+
+   return c_vfo;
+}
