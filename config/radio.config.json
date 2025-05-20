@@ -86,7 +86,7 @@
       "http": "true",
       "max_bands": 14,
       "mqtt": "true",
-      "opus": "tfasle",
+      "opus": "false",
       "pipewire": "false",
       "sqlite": "false"
    },
