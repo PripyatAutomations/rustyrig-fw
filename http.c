@@ -172,7 +172,7 @@ http_client_t *http_find_client_by_name(const char *name) {
    }
 
    while(cptr != NULL) {
-      Log(LOG_DEBUG, "http.core", "hfcbn: i: %d user: %x chatname: %s", i, cptr->user, cptr->chatname);
+      Log(LOG_DEBUG, "http.core", "hfcbn: i: %d user:<%x> chatname: %s", i, cptr->user, cptr->chatname);
       // incomplete entry
       if (cptr->user == NULL || (cptr->chatname[0] == '\0')) {
          cptr = cptr->next;
@@ -547,7 +547,7 @@ void http_expire_sessions(void) {
    int expired = 0;
 
    while (cptr != NULL) {
-      if (cptr->is_ws) {
+      if (cptr && cptr->is_ws) {
          // Expired session?
          if (cptr->session_expiry > 0 && cptr->session_expiry <= now) {
             expired++;

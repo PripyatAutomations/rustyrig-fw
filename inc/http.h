@@ -55,6 +55,7 @@ struct http_user {
    bool 	enabled;				// Is the user enabled?
    int		max_clones;				// maximum allowed sessions
    int		clones;					// active logins
+   int		is_muted;				// is this user muted?
 };
 typedef struct http_user http_user_t;
 extern http_user_t http_users[HTTP_MAX_USERS];
@@ -83,7 +84,6 @@ struct http_client {
     bool authenticated;		// Is the user fully logged in?
     bool is_ws;                 // Flag to indicate if it's a WebSocket client
     bool is_ptt;		// Is the user keying up ANY attached rig?
-    bool is_muted;		// Is the client muted? (Can't TX)
     u_int32_t user_flags;       // Bit flags for user features, permissions, etc.
     time_t connected;		// when was the socket connected?
     time_t session_expiry;	// When does the session expire?

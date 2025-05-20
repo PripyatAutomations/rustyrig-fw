@@ -112,7 +112,6 @@ function msg_timestamp(msg_ts) {
 
 function send_ping(sock) {
    if (ws_keepalives_sent > 3) {
-     // XXX: Give up and reconnect
      console.log("We've reached 3 tries to send keepalive, giving up");
    }
 
@@ -224,7 +223,7 @@ function ws_connect() {
    };
 
    socket.onmessage = function(event) {
-//      console.log("evt: ", event);
+//      console.log("evt:", event);
       var msgData = event.data;
       ws_last_heard = Date.now();
 
@@ -241,7 +240,7 @@ function ws_connect() {
 
             chat_append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!&nbsp;&lt;${alert_from}&gt;&nbsp;&nbsp;${alert_msg}</div>`);
          } else if (msgObj.cat) {
- //           console.log("CAT msg: ", msgObj);
+ //           console.log("CAT msg:", msgObj);
             var cat_ts = msgObj.ts;
             var msg_ts = msg_timestamp(cat_ts);
             var cmd = msgObj.cat.cmd;
@@ -327,6 +326,8 @@ function ws_connect() {
             var cmd = msgObj.talk.cmd;
             var message = msgObj.talk.data;
 
+            // keep msg up top as it's the most frequently encountered command
+            // XXX: Maybe we should keep a counter of received commands so we can optimize this a bit later??
             if (cmd === 'msg' && message) {
                var sender = msgObj.talk.from;
                var msg_type = msgObj.talk.msg_type;
@@ -386,7 +387,7 @@ function ws_connect() {
                   console.log("got join for undefined user, ignoring");
                }
             } else if (cmd === 'kick') {
-//               console.log("kick msg: ", msgObj);
+//               console.log("kick msg:", msgObj);
                // Play leave (door close) sound if the bell button is checked
                if ($('#bell-btn').data('checked')) {
                   if (!(user === auth_user)) {
@@ -395,38 +396,16 @@ function ws_connect() {
                   }
                }
                UserCache.remove(user);
-               console.log("Kick command received for user: ", user, " reason: ", msgObj.talk.data.reason);
+               console.log("Kick command received for user:", user, " reason:", msgObj.talk.data.reason);
             } else if (cmd === 'mute') {
-               // XXX: If this mute is for us, disable the send button
-               // XXX: and show an alert.
-               console.log("Mute command received for user: ", user);
+               // Shows a muted icon
+               console.log("Mute command received for user:", user);
                UserCache.update({ name: user, muted: true });
-            } else if (cmd === 'whois') {
-               const clones = msgObj.talk.data;
 
-               if (!clones || clones.length === 0) {
-                  return;
+               // this is for us, so disable the PTT button
+               if (user === auth_user) {
+                  $('button#rig-ptt').attr("disabled", "disabled");
                }
-               form_disable(true);
-
-               const info = clones[0]; // shared info from the first entry
-
-               let html = `<strong>User:</strong>&nbsp;${info.username}<br>`;
-               html += `<strong>Email:</strong>&nbsp;${info.email}<br>`;
-               html += `<strong>Privileges:</strong>&nbsp;${info.privs || 'None'}<br>`;
-               html += '<hr width="75%"/>';
-
-               html += `<strong>Active Sessions: ${clones.length}</strong><br>`;
-               clones.forEach((session) => {
-                  let clone_num = session.clone + 1;
-                     html += `&nbsp;&nbsp;<em>Clone #${clone_num}</em><br>`;
-                  html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>Connected:</strong> ${new Date(session.connected * 1000).toLocaleString()}`;
-                  html += `&nbsp;&nbsp;<strong>Last Heard:</strong> ${new Date(session.last_heard * 1000).toLocaleString()}<br>`;
-                  html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>User-Agent:</strong> <code>${session.ua}</code><br><br>`;
-               });
-
-               html += "<hr/><br/>Click window or hit escape to close";
-               $('#chat-whois').html(html).show('slow');
             } else if (cmd === "quit") {
                var user = msgObj.talk.user;
                var reason = msgObj.talk.reason;
@@ -456,10 +435,40 @@ function ws_connect() {
             } else if (cmd === "userinfo") {
                parse_userinfo_reply(msgObj);
             } else if (cmd === "unmute") {
-               // XXX: If unmute is for us, enable send button and let user know they can talk again
                UserCache.update({ name: user, muted: false });
+
+               // this is for us, so re-enable the PTT button, if appropriate
+               if (user === auth_user) {
+                  $('button#rig-ptt').removeAttr("disabled");
+               }
+            } else if (cmd === 'whois') {
+               const clones = msgObj.talk.data;
+
+               if (!clones || clones.length === 0) {
+                  return;
+               }
+               form_disable(true);
+
+               const info = clones[0]; // shared info from the first entry
+
+               let html = `<strong>User:</strong>&nbsp;${info.username}<br>`;
+               html += `<strong>Email:</strong>&nbsp;${info.email}<br>`;
+               html += `<strong>Privileges:</strong>&nbsp;${info.privs || 'None'}<br>`;
+               html += '<hr width="75%"/>';
+
+               html += `<strong>Active Sessions: ${clones.length}</strong><br>`;
+               clones.forEach((session) => {
+                  let clone_num = session.clone + 1;
+                     html += `&nbsp;&nbsp;<em>Clone #${clone_num}</em><br>`;
+                  html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>Connected:</strong> ${new Date(session.connected * 1000).toLocaleString()}`;
+                  html += `&nbsp;&nbsp;<strong>Last Heard:</strong> ${new Date(session.last_heard * 1000).toLocaleString()}<br>`;
+                  html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>User-Agent:</strong> <code>${session.ua}</code><br><br>`;
+               });
+
+               html += "<hr/><br/>Click window or hit escape to close";
+               $('#chat-whois').html(html).show('slow');
             } else {
-               console.log("Unknown talk command:", cmd, "msg: ", msgData);
+               console.log("Unknown talk command:", cmd, "msg:", msgData);
             }
          } else if (msgObj.log) {
             var data = msgObj.log.data;
@@ -473,7 +482,7 @@ function ws_connect() {
                var error = msgObj.auth.error;
                stop_reconnecting();			// disable auto-reconnects
 
-               console.log("auth.error: ", error);
+               console.log("auth.error:", error);
                var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                chat_append('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
                show_login_window();
@@ -543,15 +552,15 @@ function ws_connect() {
                   show_login_window();
                   break;
                default:
-                  console.log("Unknown auth command: ", cmd);
+                  console.log("Unknown auth command:", cmd);
                   break;
             }
          } else {
-            console.log("Got unknown message from server: ", msgObj);
+            console.log("Got unknown message from server:", msgObj);
          }
       } catch (e) {
          console.error("Error parsing message:", e);
-         console.log("Unknown data: ", msgObj);
+         console.log("Unknown data:", msgObj);
       }
    };
    return socket;

@@ -171,6 +171,12 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    char *vfo = mg_json_get_str(msg_data, "$.cat.data.vfo");
    char *state = mg_json_get_str(msg_data, "$.cat.data.state");
 
+   if (cptr->user->is_muted) {
+      Log(LOG_AUDIT, "ws.rigctl", "Ignoring %s command from %s as they are muted!", cmd, cptr->chatname);
+      // XXX: Inform the user they are muted and can't use rigctl
+      return true;
+   }
+
    // XXX: Need to remove this and instead pull it from rig state
    int power = 5;
 

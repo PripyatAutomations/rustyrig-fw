@@ -1,7 +1,7 @@
 if (!window.webui_inits) window.webui_inits = [];
 
 window.webui_inits.push(function webui_audio_init() {
-   $('button#use-audio').click(webui_audio_start);
+//   $('button#use-audio').click(webui_audio_start);
 
    // Wait for socket to exist before allowing audio init
    if (!window.socket) {
@@ -11,6 +11,8 @@ window.webui_inits.push(function webui_audio_init() {
    }
 });
 
+/*
+// Start our audioWorklets and deal with the data to/from them
 async function webui_audio_start() {
    const socket = window.socket;
    if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -88,3 +90,4 @@ async function webui_audio_start() {
       $('button#use-audio').click(webui_audio_start);
    });
 }
+*/

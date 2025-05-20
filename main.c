@@ -261,7 +261,8 @@ int main(int argc, char **argv) {
       gui_update();
 
       // Send pings, drop dead connections, etc
-      http_expire_sessions();
+      // XXX: re-enable this asap!
+//      http_expire_sessions();
 
       // XXX: Check if an LCD/OLED is configured and update it
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them

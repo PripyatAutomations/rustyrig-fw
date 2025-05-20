@@ -164,7 +164,7 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
       if (acptr == NULL) {
          return true;
       }
-      acptr->is_muted = true;
+      acptr->user->is_muted = true;
 
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -172,6 +172,9 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
          target, cptr->chatname,
          (reason ? reason : "No reason given"));
       send_global_alert(cptr, "***SERVER***", msgbuf);
+
+      // broadcast the userinfo so cul updates
+      ws_send_userinfo(acptr);
       Log(LOG_AUDIT, "admin.mute", msgbuf);
    } else {
       ws_chat_err_noprivs(cptr, "MUTE");
@@ -189,7 +192,7 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
       if (acptr == NULL) {
          return true;
       }
-      acptr->is_muted = false;
+      acptr->user->is_muted = false;
 
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -197,6 +200,8 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
          target, cptr->chatname);
       send_global_alert(cptr, "***SERVER***", msgbuf);
       Log(LOG_AUDIT, "admin.unmute", msgbuf);
+      // broadcast the userinfo so cul updates
+      ws_send_userinfo(acptr);
    } else {
       ws_chat_err_noprivs(cptr, "UNMUTE");
       return true;
@@ -235,10 +240,11 @@ void ws_send_userinfo(http_client_t *cptr) {
 
    char buf[256];
    int len = mg_snprintf(buf, sizeof(buf),
-      "{ \"talk\": { \"cmd\": \"userinfo\", \"user\": \"%s\", \"privs\": \"%s\", \"tx\": %s } }",
+      "{ \"talk\": { \"cmd\": \"userinfo\", \"user\": \"%s\", \"privs\": \"%s\", \"tx\": %s, \"muted\": \"%s\" } }",
       cptr->chatname,
       cptr->user->privs,
-      cptr->is_ptt ? "true" : "false");
+      cptr->is_ptt ? "true" : "false",
+      cptr->user->is_muted ? "true" : "false");
 
    struct mg_str msg = mg_str_n(buf, len);
    ws_broadcast(NULL, &msg);
@@ -247,10 +253,14 @@ void ws_send_userinfo(http_client_t *cptr) {
 // Send info on all online users to the user
 bool ws_send_users(http_client_t *cptr) {
     http_client_t *current = http_client_list;
-
-    while (current != NULL) {
-       ws_send_userinfo(current);
-       current = current->next;
+    
+    if (cptr != NULL) {
+       ws_send_userinfo(cptr);
+    } else {
+       while (current != NULL) {
+          ws_send_userinfo(current);
+          current = current->next;
+       }
     }
     return false;
 }

@@ -16,6 +16,16 @@ struct ws_client {
     struct ws_client *next;  // Next client in the list
 };
 
+struct ws_audio_frame {
+     uint32_t	sender;			// sender of the message (connection index)
+     uint32_t	dest;			// destination? server is 0
+     enum {
+        AU_PCM16U = 0,			// 16-bit PCM-u
+        AU_PCM24U,			// 24-bit PCM-u
+     } frame_type;
+};
+typedef struct ws_audio_frame ws_audio_frame_t;
+
 extern bool ws_init(struct mg_mgr *mgr);
 extern bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c);
 extern void ws_add_client(struct mg_connection *c);

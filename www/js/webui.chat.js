@@ -69,7 +69,7 @@ function handle_paste(e) {
          break;
       } else {
          alert("PASTE: Unsupported file type: " + item.type);
-         console.log("PASTE: Unsupported file type: ", item.type);
+         console.log("PASTE: Unsupported file type:", item.type);
          break;
       }
    }
@@ -159,30 +159,8 @@ function cul_offline() {
 // Store the data from names reply in the UserCache, replacing outdated informations
 // XXX: Implement this
 function parse_userinfo_reply(message) {
-/*
-    const users = message.talk.userinfo;
-
-    // Only show each user once in the list
-    const uniqueUsers = Array.from(
-       new Map(users.map(u => [u.name.toLowerCase(), u])).values()[A
-    );
-
-    uniqueUsers.sort((a, b) => a.name.localeCompare(b.name, undefined, {
-       sensitivity: 'base',
-       numeric: true
-    }));
-
-    uniqueUsers.forEach(user => {
-       const { name, tx, muted, privs } = user;
-       if (typeof name !== 'undefined') {
-          UserCache.add(user);
-       }
-    });
-*/
-    if (typeof message != 'undefined') {
-//       console.log("userinfo: ", message.talk);
+    if (typeof message !== 'undefined') {
        UserCache.update({ name: message.talk.user, privs: message.talk.privs });
-//       console.log("Adding user: ", message.talk.user, "with privileges,", message.talk.privs);
     }
 
     return false;
@@ -204,14 +182,14 @@ function cul_render() {
     }));
 
     uniqueUsers.forEach(user => {
-//       console.log("user: ", user);
+//       console.log("user:", user);
        const { name, admin } = user;
        
        const privs = new Set((user.privs || '').split(',').map(p => p.trim()));
        let badges = '', tx_badges = '';
 
        if (user.ptt) {
-          tx_badges += '<span class="badge tx-badge">🔊</span>';
+          tx_badges += '<span class="badge tx-badge">🎙️ </span>';
        }
 
        if (privs.has('owner')) {
@@ -221,7 +199,7 @@ function cul_render() {
        } else if ((user.name || '').toUpperCase() === 'N9MSC') {
            badges += '<span class="badge admin-badge">🐒&nbsp;</span>';
        } else if (user.muted) {
-           badges += '<span class="badge view-badge">🙊</span>';
+           tx_badges += '<span class="badge">🙊</span>';
        } else {
            badges += '<span class="badge view-badge">👀&nbsp;</span>';
 //           badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';
@@ -288,7 +266,10 @@ function show_user_menu(username) {
     // Admin menu to be appended if the user is an admin
     var admin_menu = `
         <hr width="50%"/>Admin<br/><br/>
-        <li><button class="cul-menu-button" id="mute-user" title="Mute (disable CAT/TX) for user">Mute</button></li>
+        <li>
+         <button class="cul-menu-button" id="mute-user" title="Mute (disable CAT/TX) for user">Mute</button>
+         <button class="cul-menu-button" id="unmute-user" title="Unmute (enable CAT/TX) for user">Unmute</button>
+        </li>
         <li><button class="cul-menu-button" id="kick-user" title="Disconnect user">Kick</button></li>
         <li><button class="cul-menu-button" id="ban-user" title="Ban & Kick user">Ban</button></li>
     `;
@@ -317,7 +298,19 @@ function show_user_menu(username) {
 
     // Attach event listeners
     $('#whois-user').on('click', () => chat_send_command('whois', { target: username }));
-    $('#mute-user').on('click', () => chat_send_command('mute', { target: username }));
+    var user = UserCache.get(username);
+    if (typeof user !== 'undefined') {
+       $('#mute-user').on('click', () => chat_send_command('mute', { target: username }));
+       $('#unmute-user').on('click', () => chat_send_command('unmute', { target: username }));
+
+       if (user.muted === "true") {
+          $('#mute-user').hide('fast');
+          $('#unmute-user').show('fast');
+       } else {
+          $('#unmute-user').hide('fast');
+          $('#mute-user').show('fast');
+       }
+    }
     $('#kick-user').on('click', () => send_admin_command('kick', username));
     $('#ban-user').on('click', () => send_admin_command('ban', username));
 
@@ -341,7 +334,7 @@ function chat_send_command(cmd, args) {
    var msgObj_j = JSON.stringify(msgObj);
    socket.send(msgObj_j);
    $('#user-menu').hide();
-//   console.log("Sent command: ", msgObj_j);
+//   console.log("Sent command:", msgObj_j);
 }
 
 function parse_chat_cmd(e) {

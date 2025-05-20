@@ -52,7 +52,7 @@ void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, stru
    http_client_t *current = http_client_list;
    while (current != NULL) {
       // NULL sender means it came from the server itself
-      if ((current->is_ws && current->authenticated) && (current->conn != sender)) {
+      if (current && (current->is_ws && current->authenticated) && (current->conn != sender)) {
          if (client_has_flag(current, flags)) {
             mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
          }
@@ -97,6 +97,7 @@ bool ws_chat_notice(http_client_t *cptr, const char *sender, const char *data) {
    return false;
 }
 
+// refresh the userlist to show updated clients
 bool ws_send_userlist(http_client_t *cptr) {
    http_client_t *curr = (cptr != NULL) ? cptr : http_client_list;
 
@@ -112,9 +113,10 @@ bool ws_send_userlist(http_client_t *cptr) {
 
          bool is_txing = (whos_talking() == curr);
          len += snprintf(resp_buf + len, sizeof(resp_buf) - len,
-                      "%s{\"name\":\"%s\", \"tx\": \"%s\", \"privs\": \"%s\"}",
-                      comma, curr->chatname,
+                      "%s{\"name\":\"%s\", \"ts\": %lu, \"ptt\": \"%s\", \"muted\": \"%s\", \"privs\": \"%s\"}",
+                      comma, curr->chatname, now,
                       is_txing ? "true" : "false",
+                      curr->user->is_muted ? "true" : "false",
                       curr->user->privs);
 
          count++;
@@ -123,8 +125,10 @@ bool ws_send_userlist(http_client_t *cptr) {
          ws_broadcast(curr->conn, &ms);
       }
 
-      if (cptr != NULL)
+      if (cptr != NULL) {
          break;  // single user case
+      }
+
       curr = curr->next;
    }
 

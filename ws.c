@@ -321,12 +321,13 @@ bool ws_send_ping(http_client_t *cptr) {
 
    // only bother making noise if the first attempt failed, send the first ping to crazy level log
    if (cptr->ping_attempts > 1) {
-      Log(LOG_DEBUG, "auth", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d", cptr->chatname, cptr, now, cptr->ping_attempts);
+      Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d", cptr->chatname, cptr, now, cptr->ping_attempts);
    } else {
-      Log(LOG_CRAZY, "auth", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d", cptr->chatname, cptr, now, cptr->ping_attempts);
+      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d", cptr->chatname, cptr, now, cptr->ping_attempts);
    }
 
    prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
+   Log(LOG_DEBUG, "ws", "User at cptr:<%x>", cptr);
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
    return false;
