@@ -215,6 +215,12 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          char *freq = mg_json_get_str(msg_data, "$.cat.data.freq");
          float new_freq = 0;
 
+         if (freq == NULL) {
+            rv = true;
+            free(freq);
+            goto cleanup;
+         }
+
          if (!has_priv(cptr->user->uid, "admin|owner|tx")) {
             rv = true;
             free(freq);
