@@ -1,0 +1,91 @@
+amp.c					Amplifier controls (NYI)
+atu.c					Auto-tuning support (NYI)
+au.alsa.c				ALSA audio backend (untested codegpt muck)
+au.c					Audio wrapper
+au.pcm5102.c				PCM5102 DAC support (NYI)
+au.pipe.c				Pipe audio backend (untested codegpt muck)
+au.pipewire.c				Pipewire audio backend  (untested codegpt muck)
+auth.c					User authentication and http user list management
+backend.c				Backend wrapper
+backend.dummy.c				Dummy (NOOP) backend (NYI - use hammylib's dummy)
+backend.hamlib.c			Hamlib (rigctld) backend support
+backend.internal.c			Internal backend (For real radios)
+cat.c					CAT wrapper
+cat.kpa500.c				KPA500-style amplifier CAT parser
+cat.yaesu.c				Yaesu ft891-ish CAT parser
+channels.c				Support for channel memories
+codec.c					Support for audio codecs like OPUS (NYI)
+console.c				Console (TUI) for the server (NYI)
+dds.ad9833.c				DDS: AD9833 (NYI)
+dds.ad9959_stm32.c			DDS: AD9959 with STM32 host; NYI but some code
+dds.c					DDS units (NYI)
+dds.si5351.c				DDS: SI5351 (NYI)
+debug.c					Debug stuff
+dict.c					Support for a simple key-val dict type
+eeprom.c				EEPROM configuration (emulated on posix)
+faults.c				Fault handling
+filters.c				Filter support
+gpio.c					GPIO wrapper
+gui.c					GUI (NYI)
+gui.fb.c				Virtual framebuffer (NYI)
+gui.nextion.c				GUI on Nextion display via serial (NYI)
+help.c					Help system (NYI see /doc on http or doc/ in src tree)
+http.api.c				HTTP api commands
+http.c					HTTP core
+i2c.c					i2c interfaces (NYI)
+i2c.esp32.c
+i2c.linux.c
+i2c.mux.c
+i2c.stm32.c
+io.c					io wrapper
+io.serial.c				Serial target
+io.socket.c				Socket target
+logger.c				system log
+main.c
+mongoose.c				libmongoose http/ws server
+mqtt.c					MQTT control via libmongoose
+network.c				Network utilities
+posix.c					POSIX host stuff
+power.c					Power management
+protection.c				Core of the protection systems
+ptt.c					PTT wrapper; will get consumed into backend.c soon
+radioberry.c				NYI
+thermal.c				Thermal management (NYI)
+timer.c					Timers
+usb.c					NYI
+util.file.c
+util.math.c
+util.string.c
+util.vna.c				NYI; Eventually support to use DDS to do VNA tasks for tuner
+vfo.c					VFO wrapper
+waterfall.c				NYI
+ws.audio.c				Audio (PCM) over ws; in work
+ws.bcast.c				Broadcast messages to users with some privileges or everyone
+ws.c					websocket core
+ws.chat.c				chat related ws stuff
+ws.rigctl.c				rigctl over ws
+
+webui
+-----
+www/js/webui.audio.js
+www/js/webui.auth.js
+www/js/webui.chat.js
+www/js/webui.emoji.js
+www/js/webui.filexfer.js
+www/js/webui.js
+www/js/webui.notifications.js
+www/js/webui.rigctl.js
+www/js/webui.syslog.js
+
+css
+---
+www/css/chat.css
+www/css/chat-dark.css
+www/css/dark.css
+www/css/keyboard.css
+www/css/led.css
+www/css/main.css
+www/css/mobile.css
+www/css/mobile-dark.css
+www/css/rigctl.css
+www/css/rigctl-dark.css
