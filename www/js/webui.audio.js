@@ -1,23 +1,24 @@
 if (!window.webui_inits) window.webui_inits = [];
+
 window.webui_inits.push(function webui_audio_init() {
+   $('button#use-audio').click(webui_audio_start);
+
    // Wait for socket to exist before allowing audio init
    if (!window.socket) {
       console.warn("Audio init delayed: socket not yet available");
+      console.log("click start audio button in rig tab to start audio");
       return;
    }
-
-   $('button#start-audio').click(webui_au_init);
 });
 
-async function webui_au_init() {
+async function webui_audio_start() {
    const socket = window.socket;
    if (!socket || socket.readyState !== WebSocket.OPEN) {
       console.error("webui_au_init: socket not ready");
       return;
    }
 
-   $('button#start-audio').addClass('green-btn');
-
+   $('button#use-audio').addClass('green-btn');
    let captureSeq = 0;
 
    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -79,5 +80,11 @@ async function webui_au_init() {
    }
 
    // You can expose stopAudio or bind it to a UI button if needed
-   // $('#stopBtn').on('click', stopAudio);
+   $('button#use-audio').off('click');
+   $('button#use-audio').click(function() {
+      stopAudio();
+      $('button#use-audio').removeClass('green-btn');
+      $('button#use-audio').off('click');
+      $('button#use-audio').click(webui_audio_start);
+   });
 }
