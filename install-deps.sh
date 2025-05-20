@@ -1,9 +1,9 @@
 [ -z "$PROFILE" ] && PROFILE=radio
 
 apt install -y libjson-perl libterm-readline-perl-perl libhash-merge-perl libjson-xs-perl \
-	       libjson-perl libstring-crc32-perl libgpiod-dev gpiod jq pkg-config libmdedtls-dev
+	       libjson-perl libstring-crc32-perl libgpiod-dev gpiod jq pkg-config libmbedtls-dev
 
-
+# Used in buildconf.pl to grok json
 cpan install Mojo::JSON::Pointer
 
 # Optional - for use with hamlib
