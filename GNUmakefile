@@ -136,6 +136,7 @@ objs += util.string.o		# String utility functions
 objs += util.vna.o		# Vector Network Analyzer
 objs += vfo.o			# VFO control/management
 objs += waterfall.o		# Support for rendering waterfalls
+objs += webcam.o		# Webcam (v4l2) streaming to a canvas
 objs += ws.o			# Websocket transport general
 objs += ws.audio.o		# Audio (raw / OPUS) over websockets
 objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)

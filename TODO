@@ -2,6 +2,9 @@ ASAP
 * Implement TX halt when PTTing user disconnects.
   - also halt TX by FLAG_NOOB users if the last admin logs out
 
+[embedded]
+- Slim this fat beast down to where it can live on an esp32/stm32 again ;)
+
 [webcam]
 - Support for streaming a v4l webcam from the station to the clients O_o
 

@@ -21,5 +21,6 @@ extern char *compute_wire_password(const char *password_hash, const char *nonce)
 extern const char *http_get_uname(int8_t uid);
 extern int generate_nonce(char *buffer, size_t length);
 extern bool is_admin_online(void);
+extern bool is_elmer_online(void);
 
 #endif	// !defined(__rr_auth_h)

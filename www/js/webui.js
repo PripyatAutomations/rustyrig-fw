@@ -383,7 +383,7 @@ function ws_connect() {
 
                   UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
 
-                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">joined the chat</span>&nbsp;***</div>');
+                  chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">connected to the radio</span>&nbsp;***</div>');
                   // Play join (door open) sound if the bell button is checked
                   if ($('#bell-btn').data('checked')) {
                      if (!(user === auth_user)) {

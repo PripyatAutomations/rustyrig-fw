@@ -168,7 +168,7 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
-      prepare_msg(msgbuf, sizeof(msgbuf), "MUTE %s from %s: Reason: %s",
+      prepare_msg(msgbuf, sizeof(msgbuf), "%s MUTEd by %s: Reason: %s",
          target, cptr->chatname,
          (reason ? reason : "No reason given"));
       send_global_alert(cptr, "***SERVER***", msgbuf);
@@ -196,7 +196,7 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
 
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
-      prepare_msg(msgbuf, sizeof(msgbuf), "UNMUTE %s from %s",
+      prepare_msg(msgbuf, sizeof(msgbuf), "%s UNMUTEd by %s",
          target, cptr->chatname);
       send_global_alert(cptr, "***SERVER***", msgbuf);
       Log(LOG_AUDIT, "admin.unmute", msgbuf);
