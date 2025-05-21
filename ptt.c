@@ -88,7 +88,7 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
        vfo_name(vfo), (hl_state.freq), rig_strrmode(hl_state.rmode), hl_state.width, (ptt ? "true" : "false"), now);
    struct mg_str mp = mg_str(msgbuf);
    ws_broadcast(NULL, &mp);
-   Log(LOG_DEBUG, "ptt", "sending ptt state msg: %s", msgbuf);
+//   Log(LOG_DEBUG, "ptt", "sending ptt state msg: %s", msgbuf);
 
    return ptt;
 }
