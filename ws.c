@@ -369,7 +369,6 @@ bool ws_send_ping(http_client_t *cptr) {
    }
 
    prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
-   Log(LOG_DEBUG, "ws", "User at cptr:<%x>", cptr);
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
    return false;
