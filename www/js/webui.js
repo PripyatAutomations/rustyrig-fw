@@ -836,7 +836,8 @@ window.webui_inits.push(function webui_init() {
 
             if (match) {
                const word = match[1];
-               matchStart = beforeCaret.lastIndexOf(word);
+//               matchStart = beforeCaret.lastIndexOf(word);
+               matchStart = match.index;  // includes the @
                matchLength = word.length;
                const afterCaret = text.slice(caretPos);
 
@@ -862,10 +863,12 @@ window.webui_inits.push(function webui_init() {
          if (completing && completionList.length) {
             const currentName = completionList[completionIndex];
             const atStart = matchStart === 0;
-            const completedText = text.slice(0, matchStart) + currentName + (atStart ? ": " : " ") + text.slice(caretPos);
+            const suffix = atStart ? ": " : (!text.startsWith("/") ? ", " : " ");
+            const completedText = text.slice(0, matchStart) + currentName + suffix + text.slice(caretPos);
 
             input.val(completedText);
-            const newCaret = matchStart + currentName.length + (atStart ? 2 : 1);
+//            const newCaret = matchStart + currentName.length + (atStart ? 2 : 1);
+            const newCaret = matchStart + currentName.length + suffix.length;
             this.setSelectionRange(newCaret, newCaret);
 
             updateCompletionIndicator(currentName);
