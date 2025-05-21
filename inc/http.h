@@ -41,6 +41,8 @@
 #define	USER_PRIV_LEN		100		// privileges list
 #define USER_EMAIL_LEN		128		// email address
 
+// ws.cat protocol
+#define	HTTP_API_RIGPOLL_PAUSE	1		// time to delay polling the rig after a freq message on ws.cat
 // CHAT protocol
 #define	CHAT_NAMES_INTERVAL	120000		// fire off a NAMES message in chat every 120 seconds
 // CAT protocol
