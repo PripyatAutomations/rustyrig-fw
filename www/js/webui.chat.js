@@ -120,32 +120,6 @@ function chat_init() {
          $('#user-menu').hide('slow');
       });
    });
-
-/*
-   function cul_auto_resize() {
-      const $container = $('#chat-container');
-      const $chatBox = $('#chat-box');
-      const $userList = $('#chat-user-list');
-
-      const containerWidth = $container.width();
-      const chatBoxWidth = $chatBox.outerWidth();
-      $userList.width(containerWidth - chatBoxWidth);
-   }
-
-   // Initial sizing
-   cul_auto_resize();
-
-   // Update on window resize
-   $(window).on('resize', cul_auto_resize);
-   let lastWidth = 0;
-   setInterval(function() {
-      const currentWidth = $('#chat-box').width();
-      if (currentWidth !== lastWidth) {
-         lastWidth = currentWidth;
-         cul_auto_resize();
-      }
-   }, 100);
-*/
 }
 
 function cul_offline() {
@@ -159,7 +133,7 @@ function cul_offline() {
 // Store the data from names reply in the UserCache, replacing outdated informations
 // XXX: Implement this
 function parse_userinfo_reply(message) {
-    console.log("parse_userinfo_reply:", message);
+//    console.log("parse_userinfo_reply:", message);
     if (typeof message !== 'undefined') {
        UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: message.talk.muted, ptt: message.talk.ptt });
     }
@@ -437,7 +411,7 @@ function parse_chat_cmd(e) {
                   chat_append('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
                   chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
                }
-//               chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;You can use tab completion, press @ then type letters or hit tab</span></div>');
+               chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;You can use tab completion, press @ then type a few letters or hit tab</span></div>');
                break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);

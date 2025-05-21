@@ -51,6 +51,7 @@ const UserCache = {
       }
 
       if ('ptt'   in user) existing.ptt   = user.ptt;
+      if ('privs' in user) existing.privs = user.privs;
       if ('muted' in user) existing.muted = user.muted;
       cul_render();
    },
@@ -654,7 +655,6 @@ function form_disable(state) {
    }
 }
 
-
 function latency_send_pings(socket) {
    const now = Date.now();
    socket.send(JSON.stringify({type: 'ping', ts: now}));
@@ -692,7 +692,6 @@ function latency_get_avg() {
    let sum = latency_samples.reduce((a, b) => a + b, 0);
    return sum / latency_samples.length;
 }
-
 
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_init() {
@@ -812,9 +811,7 @@ window.webui_inits.push(function webui_init() {
    let matchLength = 0;
 
    function getCULNames() {
-      return $('#cul-list .chat-user-list .cul-self').map(function () {
-         return $(this).text();
-      }).get();
+      return UserCache.get_all().map(user => user.name);
    }
 
    function updateCompletionIndicator(name) {
@@ -832,7 +829,7 @@ window.webui_inits.push(function webui_init() {
 
       if (e.key === 'Tab') {
          e.preventDefault();
-/*
+
          if (!completing) {
             const beforeCaret = text.slice(0, caretPos);
             const match = beforeCaret.match(/@(\w*)$/);
@@ -853,10 +850,10 @@ window.webui_inits.push(function webui_init() {
                completionIndex = 0;
 
                const current = completionList[completionIndex];
-               const completed = text.slice(0, matchStart + 1) + current + afterCaret;
+               const completed = text.slice(0, matchStart - 1) + current + afterCaret;
 
                input.val(completed);
-               const newCaret = matchStart + 1 + current.length;
+               const newCaret = matchStart - 1 + current.length;
                this.setSelectionRange(newCaret, newCaret);
                updateCompletionIndicator(current);
                completionIndex = (completionIndex + 1) % completionList.length;
@@ -865,8 +862,7 @@ window.webui_inits.push(function webui_init() {
          if (completing && completionList.length) {
             const currentName = completionList[completionIndex];
             const atStart = matchStart === 0;
-            const completedText = '@' + 
-               text.slice(0, matchStart) + currentName + (atStart ? ": " : " ") + text.slice(caretPos);
+            const completedText = text.slice(0, matchStart) + currentName + (atStart ? ": " : " ") + text.slice(caretPos);
 
             input.val(completedText);
             const newCaret = matchStart + currentName.length + (atStart ? 2 : 1);
@@ -885,7 +881,6 @@ window.webui_inits.push(function webui_init() {
       } else if (completing && !e.key.match(/^[a-zA-Z0-9]$/)) {
          completing = false;
          updateCompletionIndicator(null);
-*/
       } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
          e.preventDefault();
 
@@ -903,18 +898,15 @@ window.webui_inits.push(function webui_init() {
             chatBox.scrollTop(chatBox.scrollTop() + pageScrollAmount);
          }
       } else if (completing && (e.key === ' ' || e.key === 'Enter')) {
-  /*
          // Finalize current match
          const finalName = completionList[(completionIndex - 1 + completionList.length) % completionList.length];
-         const finalizedText =
-            text.slice(0, matchStart + 1) + finalName + text.slice(caretPos);
+         const finalizedText = text.slice(0, matchStart) + finalName + text.slice(caretPos);
          input.val(finalizedText);
 
-         const newCaret = matchStart + 1 + finalName.length;
+         const newCaret = matchStart + finalName.length;
          this.setSelectionRange(newCaret, newCaret);
          completing = false;
          updateCompletionIndicator(null);
-*/
       }
    });
 
