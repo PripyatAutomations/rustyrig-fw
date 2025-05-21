@@ -80,10 +80,10 @@ struct http_res_types {
 };
 
 struct http_client {
-    bool active;		// Is this slot actually used or is it free-listed?
-    bool authenticated;		// Is the user fully logged in?
-    bool is_ws;                 // Flag to indicate if it's a WebSocket client
-    bool is_ptt;		// Is the user keying up ANY attached rig?
+    bool   active;		// Is this slot actually used or is it free-listed?
+    bool   authenticated;       // Is the user fully logged in?
+    bool   is_ws;               // Flag to indicate if it's a WebSocket client
+    bool   is_ptt;		// Is the user keying up ANY attached rig?
     u_int32_t user_flags;       // Bit flags for user features, permissions, etc.
     time_t connected;		// when was the socket connected?
     time_t session_expiry;	// When does the session expire?
@@ -93,11 +93,11 @@ struct http_client {
     int    ping_attempts;	// How many times have we tried to ping the client without answer?
     http_user_t *user;		// pointer to http user, once login is sent. DO NOT TRUST IF authenticated != true!
     struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
-    char token[HTTP_TOKEN_LEN+1]; // Session token
-    char nonce[HTTP_TOKEN_LEN+1]; // Authentication nonce - only used between challenge & pass stages
-    int guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
-    char chatname[HTTP_USER_LEN+1]; // username to show in chat (GUESTxxxx or USER)
-    char *user_agent;		// User-agent
+    char   token[HTTP_TOKEN_LEN+1]; // Session token
+    char   nonce[HTTP_TOKEN_LEN+1]; // Authentication nonce - only used between challenge & pass stages
+    int    guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
+    char   chatname[HTTP_USER_LEN+1]; // username to show in chat (GUESTxxxx or USER)
+    char  *user_agent;		// User-agent
     struct http_client *next; 	// pointer to next client in list
 };
 typedef struct http_client http_client_t;
@@ -137,6 +137,7 @@ extern const char *http_content_type(const char *type);
 
 // http.api.c:
 extern bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c);
+
 //////////////////
 extern http_client_t *http_client_list;
 extern int http_users_connected;

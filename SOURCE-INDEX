@@ -59,6 +59,7 @@ util.string.c
 util.vna.c				NYI; Eventually support to use DDS to do VNA tasks for tuner
 vfo.c					VFO wrapper
 waterfall.c				NYI
+webcam.c				Support for a v4l2 (or maybe pipewire?!) webcam at the station side (NYI)
 ws.audio.c				Audio (PCM) over ws; in work
 ws.bcast.c				Broadcast messages to users with some privileges or everyone
 ws.c					websocket core

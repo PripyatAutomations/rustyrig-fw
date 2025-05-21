@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-//   rr_au_init();
+   rr_au_init();
 #if	defined(FEATURE_OPUS)
    codec_init();
 #endif
@@ -273,7 +273,7 @@ int main(int argc, char **argv) {
 
       // Send pings, drop dead connections, etc
       // XXX: re-enable this asap!
-//      http_expire_sessions();
+      http_expire_sessions();
 
       // XXX: Check if an LCD/OLED is configured and update it
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them

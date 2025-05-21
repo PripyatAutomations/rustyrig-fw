@@ -318,7 +318,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    return false;
 }
 
-bool ws_send_error(struct mg_connection *c, const char *scope, const char *msg) {
+bool ws_send_error_msg(struct mg_connection *c, const char *scope, const char *msg) {
    if (c == NULL || scope == NULL || msg == NULL) {
       return true;
    }
@@ -328,8 +328,20 @@ bool ws_send_error(struct mg_connection *c, const char *scope, const char *msg) 
       "{ \"%s\": { \"error\": \"%s\", \"ts\": %lu } }",
       scope, msg, now);
 
+   // XXX: Actually send it
    return false;
 }
+
+bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
+   va_list ap;
+   va_start(ap, fmt);
+
+   // XXX: actually send the error
+
+   va_end(ap);
+   return false;
+}
+
 
 bool ws_send_ping(http_client_t *cptr) {
    if (cptr == NULL || !cptr->is_ws) {

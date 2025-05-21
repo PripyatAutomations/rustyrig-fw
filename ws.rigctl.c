@@ -179,7 +179,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
    // Support for 'noob' class users who can only control rig if an elmer is present
    if (client_has_flag(cptr, FLAG_NOOB) && !is_elmer_online()) {
-      Log(LOG_AUDIT, "ws.rigctl", "Ignoring %s command from %s as they are a noob and no elmers are online", cmd, cptr->chatname);
+      Log(LOG_AUDIT, "ws.rigctl", "Ignoring %s command from %s as they're a noob and no elmers are online", cmd, cptr->chatname);
       return true;
    }
 

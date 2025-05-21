@@ -1,4 +1,3 @@
-//
 // http.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -555,13 +554,15 @@ void http_expire_sessions(void) {
             Log(LOG_AUDIT, "http.auth", "Kicking expired session on cptr:<%x> (%lu sec old, last heard %lu sec ago) for user %s",
                 cptr, HTTP_SESSION_LIFETIME, last_heard, cptr->chatname);
             ws_kick_client(cptr, "Login session expired!");
-         } else if (cptr->last_ping != 0 && (now - cptr->last_ping) > HTTP_PING_TIMEOUT) {
+            continue;
+         }
+
+         // Check for ping timeout & retry
+         if (cptr->last_ping != 0 && (now - cptr->last_ping) > HTTP_PING_TIMEOUT) {
             if (cptr->ping_attempts >= HTTP_PING_TRIES) {
-               // Ping timeout?
                Log(LOG_AUDIT, "http.auth", "Client conn at cptr:<%x> for user %s ping timed out, disconnecting", cptr, cptr->chatname);
                ws_kick_client(cptr, "Ping timeout");
-            } else {
-               // try again
+            } else {           // try again
                ws_send_ping(cptr);
             }
          } else if (cptr->last_ping == 0 && (now - cptr->last_heard) >= HTTP_PING_TIME) {
@@ -590,7 +591,11 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
 
 /////////////
 bool client_has_flag(http_client_t *cptr, u_int32_t user_flag) {
-   return (cptr->user_flags & user_flag) != 0;
+   if (cptr) {
+      return (cptr->user_flags & user_flag) != 0;
+   }
+
+   return false;
 }
 
 void client_set_flag(http_client_t *cptr, u_int32_t flag) {

@@ -1,4 +1,4 @@
-// webcam.c
+// webcam.c: Support for a v4l2 webcam pointed at the rig/station
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

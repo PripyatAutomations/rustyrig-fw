@@ -31,6 +31,7 @@ extern bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c);
 extern void ws_add_client(struct mg_connection *c);
 extern void ws_remove_client(struct mg_connection *c);
 
+
 // Send to a specific, authenticated websocket user by cptr
 extern void ws_send_to_cptr(struct mg_connection *sender, http_client_t *acptr, struct mg_str *msg_data);
 
@@ -43,7 +44,8 @@ extern bool ws_kick_by_name(const char *name, const char *reason);
 extern bool ws_kick_by_uid(int uid, const char *reason);
 
 extern bool ws_handle_protocol(struct mg_ws_message *msg, struct mg_connection *c);
-extern bool ws_send_error(struct mg_connection *c, const char *scope, const char *msg);
+extern bool ws_send_error_msg(struct mg_connection *c, const char *scope, const char *msg);
+extern bool ws_send_error(http_client_t *cptr, const char *fmt, ...);
 extern bool ws_send_ping(http_client_t *cptr);
 
 // ws.audio.c
