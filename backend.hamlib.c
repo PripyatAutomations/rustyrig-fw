@@ -141,6 +141,7 @@ static bool hl_init(void) {
    if ((ret = rig_open(hl_rig)) != RIG_OK) {
       fprintf(stderr, "Failed to connect to rigctld: %s\n", rigerror(ret));
       rig_cleanup(hl_rig);
+      shutdown_rig(100);
       return true;
    }
 
