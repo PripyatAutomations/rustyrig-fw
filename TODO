@@ -4,9 +4,12 @@ ASAP
 * Make rigctl connection autoreconnect in backend.hamlib
 * Fix PTT button needing clicked twice after TOT fired
   - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
+* SUpport for at least VFO A & B
 
 [elmer mode]
 - Add a way for STAFF class users to toggle their elmer flag
+  - or maybe add a way for noob to request an elmer to babysit them?
+    * This seems like the best way
 
 [embedded]
 - Slim this fat beast down to where it can live on an esp32/stm32 again ;)
