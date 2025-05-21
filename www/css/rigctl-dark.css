@@ -95,3 +95,7 @@
    font-family: lcd;
    font-size: 1.0em;
 }
+
+.vfo-changed {
+   color: Yellow !important;
+}

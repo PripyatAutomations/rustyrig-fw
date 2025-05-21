@@ -183,7 +183,7 @@ function cul_render() {
     }));
 
     uniqueUsers.forEach(user => {
-       console.log("cul_render:", user.name, "data:", user);
+//       console.log("cul_render:", user.name, "data:", user);
        const { name } = user;
        const privs = new Set((user.privs || '').split(',').map(p => p.trim()));
        let badges = '', tx_badges = '';

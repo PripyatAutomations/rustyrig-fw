@@ -163,7 +163,7 @@ extra_clean += ${EEPROM_FILE}
 
 world: ${extra_build} ${bin}
 
-BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard *.h) $(wildcard ${BUILD_DIR}/*.h)
+BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard inc/*.h) $(wildcard ${BUILD_DIR}/*.h)
 ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@

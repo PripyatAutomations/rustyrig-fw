@@ -157,7 +157,7 @@ bool rr_freq_set(rr_vfo_t vfo, float freq) {
       return true;
    }
 
-   Log(LOG_AUDIT, "rf", "FREQ set to %.0f", freq);
+//   Log(LOG_AUDIT, "rf", "FREQ set to %.0f", freq);
 
    if (rig.backend->api->rig_freq_set(vfo, freq)) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.",

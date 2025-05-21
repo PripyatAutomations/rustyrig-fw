@@ -287,6 +287,7 @@ function ws_connect() {
                   }
                   let $input = $('#rig-freq');
                   freq_set_digits(freq, $input);
+                  $('.vfo-changed').removeClass('vfo-changed');
                }
 
                if (typeof mode !== 'undefined') {

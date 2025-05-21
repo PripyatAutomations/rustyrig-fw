@@ -96,6 +96,8 @@ function freq_update_digit($digit, delta) {
       $digit.find('.value').text(newVal);
    }
 
+   $digit.find('.value').addClass('vfo-changed');
+
    let onChange = $container.data('onChange');
    if (typeof onChange === 'function') {
       onChange(freq_get_digits($container));
@@ -183,6 +185,7 @@ function freq_input_init() {
       let json_msg = JSON.stringify(msg)
       socket.send(json_msg);
       console.log("setting vfo A", active_vfo, "freq", val);
+      $input.addClass('vfo-changed');
    });
 }
 

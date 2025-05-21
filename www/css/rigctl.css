@@ -241,3 +241,7 @@
    border: 2px solid DarkSlateGrey;
    border-radius: 10px;
 }
+
+.vfo-changed {
+   color: DarkOrange !important; }
+}
