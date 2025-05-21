@@ -246,6 +246,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
+         // XXX: Lets see if this is good, we will delay polling briefly to allow input
+         next_rig_poll = now + 2;
          new_freq = atof(freq);
          rr_vfo_t c_vfo;
          char msgbuf[HTTP_WS_MAX_MSG+1];

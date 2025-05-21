@@ -249,7 +249,6 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
 
    struct mg_str msg = mg_str_n(buf, len);
    if (acptr != NULL) {
-      Log(LOG_DEBUG, "ws_send_userinfo", "sending msg to cptr:<%x>: %s", acptr, buf);
       ws_send_to_cptr(NULL, acptr, &msg);
    } else {
       ws_broadcast(NULL, &msg);

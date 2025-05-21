@@ -238,7 +238,13 @@ function ws_connect() {
             var alert_msg = msgObj.alert.msg;
             var msg_ts = msg_timestamp(alert_ts);
 
-            chat_append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!&nbsp;&lt;${alert_from}&gt;&nbsp;&nbsp;${alert_msg}</div>`);
+            if (alert_from === '***SERVER***') {
+               alert_from = '';
+            } else {
+               alert_from = '&nbsp;&lt;' + alert_from + '&gt;&nbsp;';
+            }
+
+            chat_append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!${alert_from}&nbsp;${alert_msg}</div>`);
          } else if (msgObj.cat) {
  //           console.log("CAT msg:", msgObj);
             var cat_ts = msgObj.ts;

@@ -60,6 +60,7 @@ bool dying = 0;                 // Are we shutting down?
 bool restarting = 0;		// Are we restarting?
 struct GlobalState rig;         // Global state
 time_t now = -1;		// time() called once a second in main loop to update
+time_t next_rig_poll = 0;	// allows us to pause rig polling
 char latest_timestamp[64];	// Current printed timestamp
 int auto_block_ptt = 0;		// Auto block PTT at boot?
 
@@ -272,7 +273,7 @@ int main(int argc, char **argv) {
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
 
-      if (last_rig_poll.tv_sec) {
+      if (next_rig_poll <= now && last_rig_poll.tv_sec) {
          long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
                    (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
 
@@ -282,6 +283,7 @@ int main(int argc, char **argv) {
             // XXX: This should 
             rr_be_poll(VFO_A);
          }
+         next_rig_poll = 0;
       }
 
       // save our current time for the next time through
