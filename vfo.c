@@ -28,10 +28,10 @@ bool set_vfo_frequency(rr_vfo_type_t vfo_type, uint32_t input, float freq) {
    return true;
 }
 
-rr_vfo_t vfo_lookup(const char *vfo) {
+rr_vfo_t vfo_lookup(const char vfo) {
    rr_vfo_t c_vfo;
 
-   switch(vfo[0]) {
+   switch(vfo) {
       case 'A':
          c_vfo = VFO_A;
          break;
@@ -53,4 +53,29 @@ rr_vfo_t vfo_lookup(const char *vfo) {
    }
 
    return c_vfo;
+}
+
+const char vfo_name(rr_vfo_t vfo) {
+   switch(vfo) {
+      case VFO_A:
+         return 'A';
+         break;
+      case VFO_B:
+         return 'B';
+         break;
+      case VFO_C:
+         return 'C';
+         break;
+      case VFO_D:
+         return 'D';
+         break;
+      case VFO_E:
+         return 'E';
+         break;
+      case VFO_NONE:
+      default:
+         return '*';
+         break;
+   }
+   return '*';
 }

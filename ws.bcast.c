@@ -61,8 +61,8 @@ void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, stru
    }
 }
 
-bool send_global_alert(http_client_t *cptr, const char *sender, const char *data) {
-   if (/*cptr == NULL ||*/ data == NULL) {
+bool send_global_alert(const char *sender, const char *data) {
+   if (data == NULL) {
       return true;
    }
 

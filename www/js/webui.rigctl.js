@@ -49,6 +49,7 @@ function vfo_edit_init() {
 }
 
 function ptt_btn_init() {
+   $('button#rig-ptt').removeClass('red-btn');
    $('button#rig-ptt').click(function() {
       let state = "off";
 
@@ -177,19 +178,19 @@ function freq_input_init() {
          cat: {
             cmd: "freq",
             data: {
-               vfo: "A",
+               vfo: active_vfo,
                freq: val
             }
          }
       };
       let json_msg = JSON.stringify(msg)
       socket.send(json_msg);
-      console.log("setting vfo A", active_vfo, "freq", val);
+//      console.log("setting vfo", active_vfo, "freq", val);
       $input.addClass('vfo-changed');
    });
 }
 
 function format_freq(freq) {
-   let mhz = (freq / 1000).toFixed(3); // 72000000 → "72000.000"
+   let mhz = (freq / 1000).toFixed(3);               // to decimal khz
    return mhz.replace(/\B(?=(\d{3})+(?!\d))/g, ","); // Add comma
 }

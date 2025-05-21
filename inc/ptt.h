@@ -16,4 +16,6 @@ extern bool rr_ptt_set(rr_vfo_t vfo, bool ptt);
 extern bool rr_ptt_toggle(rr_vfo_t vfo);
 extern bool rr_ptt_set_all_off(void);
 
+extern time_t global_tot_time;
+
 #endif	// !defined(__rr_pt_h)

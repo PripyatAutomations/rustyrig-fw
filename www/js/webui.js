@@ -5,7 +5,7 @@ var socket;
 var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
 let reconnect_delay = 1;
-let reconnect_interval = [1, 2, 5, 10, 30 ];
+let reconnect_interval = [1, 2, 5, 10, 30, 60 ];
 var reconnect_timer;  		// so we can stop reconnects later
 var reconnect_tries = 0;	// how many times have we tried to connect?
 var max_reconnects = 10;	// maximum times we'll retry connecting
@@ -13,7 +13,7 @@ var ws_last_heard;		// When was the last time we heard something from the server
 var ws_last_pinged;
 var ws_keepalives_sent = 0;
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
-var active_vfo;			// Active VFO
+var active_vfo = 'A';		// Active VFO
 
 ////////////////////////
 // Latency calculator //
@@ -260,7 +260,7 @@ function ws_connect() {
                   var ptt = msgObj.cat.state;
                   var ptt_l = ptt.toLowerCase();
 
-                  if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes') {
+                  if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes' || ptt_l === true) {
                      $('#rig-ptt').addClass("red-btn");
                      ptt_active = true;
                   } else {
@@ -278,6 +278,13 @@ function ws_connect() {
                }
 
                const { freq, mode, ptt, width, vfo, power }  = state;
+               if (typeof ptt !== 'undefined') {
+                  if (ptt === "false") {
+                     $('button#rig-ptt').removeClass("red-btn");
+                  } else {
+                     $('button#rig-ptt').addClass("red-btn");
+                  }
+               }
                if (typeof freq !== 'undefined') {
                   if (vfo === "A") {
                      $('span#vfo-a-freq').html(format_freq(freq) + '&nbsp;Hz');
@@ -598,11 +605,13 @@ function handle_reconnect() {
    reconnecting = true;
    show_connecting(true);
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-   chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec</div>');
+   chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec (attempt ' + reconnect_tries + '/' + max_reconnects + ')</div>');
 
    reconnect_tries++;
    if (reconnect_tries >= max_reconnects) {
+      chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Giving up on reconnecting after ' + reconnect_tries + ' attempts!</div>');
       stop_reconnecting();
+      show_login_window();
    }
 
    // Delay reconnecting for a bit
@@ -836,7 +845,6 @@ window.webui_inits.push(function webui_init() {
 
             if (match) {
                const word = match[1];
-//               matchStart = beforeCaret.lastIndexOf(word);
                matchStart = match.index;  // includes the @
                matchLength = word.length;
                const afterCaret = text.slice(caretPos);
@@ -867,7 +875,6 @@ window.webui_inits.push(function webui_init() {
             const completedText = text.slice(0, matchStart) + currentName + suffix + text.slice(caretPos);
 
             input.val(completedText);
-//            const newCaret = matchStart + currentName.length + (atStart ? 2 : 1);
             const newCaret = matchStart + currentName.length + suffix.length;
             this.setSelectionRange(newCaret, newCaret);
 

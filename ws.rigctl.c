@@ -199,7 +199,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
-         rr_vfo_t c_vfo;
+         rr_vfo_t c_vfo = vfo_lookup(vfo[0]);
          bool c_state;
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
@@ -210,9 +210,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             c_state = false;
          }
 
-         if (vfo == NULL) {
-            c_vfo = VFO_A;
-         }
          cptr->last_heard = now;
          cptr->is_ptt = c_state;		// set the user as PTT or not
 
@@ -221,7 +218,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
              cptr->chatname, state, vfo, power, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
-         Log(LOG_AUDIT, "ptt", "User %s set PTT to %s", cptr->chatname, (c_state ? "true" : "false"));
+         Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
          rr_ptt_set(c_vfo, c_state);
       } else if (strcasecmp(cmd, "freq") == 0) {
          char *freq = mg_json_get_str(msg_data, "$.cat.data.freq");

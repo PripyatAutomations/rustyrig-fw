@@ -93,7 +93,8 @@
    "limits": {
       "max_amps": 2,
       "max_atus": 4,
-      "max_filters": 4
+      "max_filters": 4,
+      "rf_talk_timeout": 300
    },
    "i2c": {
    },

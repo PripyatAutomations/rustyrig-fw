@@ -569,9 +569,13 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             client_set_flag(cptr, FLAG_CAN_TX);
          }
 
-         // client cannot transmit unless a user with owner|admin is logged in
+         // client cannot transmit unless a user with elmer flag is logged in
          if (has_priv(cptr->user->uid, "noob")) {
             client_set_flag(cptr, FLAG_NOOB);
+         }
+         // client is an elmer and can allow noobs to control rig
+         if (has_priv(cptr->user->uid, "elmer")) {
+            client_set_flag(cptr, FLAG_ELMER);
          }
 
          // Send a ping to the user and expect them to reply within HTTP_PING_TIMEOUT seconds
@@ -676,7 +680,7 @@ bool is_elmer_online(void) {
       if (!curr->is_ws || !curr->authenticated || curr->user == NULL) {
          return false;
       }
-      if (has_priv(curr->user->uid, "elmer")) {
+      if (client_has_flag(curr, FLAG_ELMER)) {
          return true;
       }
       curr = curr->next;

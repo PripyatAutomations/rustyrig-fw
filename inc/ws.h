@@ -54,7 +54,7 @@ extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
 
 // ws_bcast.c
 extern void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, struct mg_str *msg_data);
-extern bool send_global_alert(http_client_t *cptr, const char *sender, const char *data);
+extern bool send_global_alert(const char *sender, const char *data);
 extern void ws_broadcast(struct mg_connection *sender_conn, struct mg_str *msg_data);
 extern void ws_blorp_userlist_cb(void *arg);			// timer calls this to send userlists periodically
 

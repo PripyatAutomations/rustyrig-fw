@@ -820,6 +820,8 @@ sub generate_config_h {
       my $max_amps = $config->{limits}{'max_amps'};
       my $max_atus = $config->{limits}{'max_atus'};
       my $max_filters = $config->{limits}{'max_filters'};
+      my $tot_time = $config->{limits}{'rf_talk_timeout'};
+
       if (defined($max_amps)) {
          printf $fh "#define RR_MAX_AMPS\t\t$max_amps\n";
       }
@@ -828,6 +830,9 @@ sub generate_config_h {
       }
       if (defined($max_filters)) {
          printf $fh "#define RR_MAX_FILTERS\t\t$max_filters\n";
+      }
+      if (defined($tot_time)) {
+         printf $fh "#define RF_TALK_TIMEOUT\t\t$tot_time\n";
       }
    }
 

@@ -162,10 +162,12 @@ function cul_render() {
        const privs = new Set((user.privs || '').split(',').map(p => p.trim()));
        let badges = '', tx_badges = '';
 
-       if (user.ptt) {
-          tx_badges += '<span class="badge tx-badge">🎙️ </span>';
+       if (privs.has('elmer')) {
+           tx_badges +=  '<span class="badge admin-badge">🧙&nbsp;</span>';
        }
-       if (user.muted === "true") {
+       if (user.ptt) {
+          tx_badges += '<span class="badge tx-badge">🎙️</span>';
+       } else if (user.muted === "true") {
            tx_badges += '<span class="badge">🙊</span>';
        }
 
@@ -173,8 +175,12 @@ function cul_render() {
            badges += '<span class="badge owner-badge">👑&nbsp;</span>';
        } else if (privs.has('admin')) {
            badges += '<span class="badge admin-badge">⭐&nbsp;</span>';
+       } else if (privs.has('noob')) {
+           badges += '<span class="badge admin-badge">🐣&nbsp;</span>';
        } else if ((user.name || '').toUpperCase() === 'N9MSC') {
            badges += '<span class="badge admin-badge">🐒&nbsp;</span>';
+       } else if (privs.has('tx')) {
+           badges +=  '<span class="badge admin-badge">👤&nbsp;</span>';
        } else {
            badges += '<span class="badge view-badge">👀&nbsp;</span>';
 //           badges += '<span class="badge empty-badge">&nbsp;✴&nbsp;</span>';

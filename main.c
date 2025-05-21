@@ -229,6 +229,16 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
       }
 
+      // Has the TOT expired?
+      if (global_tot_time > 0 && global_tot_time <= now) {
+         Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", RF_TALK_TIMEOUT);
+         rr_ptt_set_all_off();
+         char msgbuf[HTTP_WS_MAX_MSG+1];
+         prepare_msg(msgbuf, sizeof(msgbuf), "TOT expired, halting TX!");
+         send_global_alert("***SERVER***", msgbuf);
+         global_tot_time = 0;
+      }
+
       // Check thermals
       if (are_we_on_fire()) {
          rr_ptt_set_all_off();
@@ -304,13 +314,11 @@ int main(int argc, char **argv) {
       if (dying) {
          break;
       }
-   }
-
-
 #if	defined(USE_PROFILING)
    // XXX: Every 5 minutes we should save the loop runtime average
-//   Log(LOG_INFO, "loop", "Average mainloop runtime: %.6f seconds", loop_runtime);
+//      Log(LOG_INFO, "loop", "Last mainloop runtime: %.6f seconds", loop_runtime);
 #endif // defined(USE_PROFILING)
+   }
    host_cleanup();
 
 #if	defined(USE_MONGOOSE)

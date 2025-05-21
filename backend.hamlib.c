@@ -51,20 +51,6 @@ static rr_vfo_t vfos[MAX_VFOS];
 //     RIG_DEBUG_CACHE     /*!< caching */
 // };
 static int32_t hamlib_debug_level = RIG_DEBUG_ERR; // RIG_DEBUG_VERBOSE;
-
-typedef struct hamlib_state {
-   freq_t freq;
-   rmode_t rmode;
-   pbwidth_t width;
-   vfo_t vfo;
-   int strength;
-   int rit;
-   int xit;
-   int ret;
-   rig_model_t rig_model;
-   ptt_t ptt;
-} hamlib_state_t;
-
 hamlib_state_t hl_state;
 
 // Return hamlib VFO from rr VFO id

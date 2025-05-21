@@ -55,8 +55,7 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
       ws_chat_error_need_reason(cptr, "die");
       return true;
    }
-
-   if (has_priv(cptr->user->uid, "admin|owner")) {
+   if (client_has_flag(cptr, FLAG_STAFF)) {
       // Send an ALERRT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf),
@@ -64,7 +63,7 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
          (reason != NULL ? reason : "No reason given"),
          cptr->chatname, cptr->user->uid, cptr->user->privs);
       Log(LOG_AUDIT, "core", msgbuf);
-      send_global_alert(cptr, "***SERVER***", msgbuf);
+      send_global_alert("***SERVER***", msgbuf);
       dying = 1;
    } else {
       ws_chat_err_noprivs(cptr, "DIE");
@@ -82,13 +81,13 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
       return true;
    }
 
-   if (has_priv(cptr->user->uid, "admin|owner")) {
+   if (client_has_flag(cptr, FLAG_STAFF)) {
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf),
          "Shutting down due to /restart from %s (uid: %d with privs %s): %s",
          cptr->chatname, cptr->user->uid, cptr->user->privs, reason);
-      send_global_alert(cptr, "***SERVER***", msgbuf);
+      send_global_alert("***SERVER***", msgbuf);
       Log(LOG_AUDIT, "core", msgbuf);
       dying = 1;		// flag that this should be the last iteration
       restarting = 1;		// flag that we should restart after processing the alert
@@ -109,7 +108,7 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
       return true;
    }
 */
-   if (has_priv(cptr->user->uid, "admin|owner")) {
+   if (client_has_flag(cptr, FLAG_STAFF)) {
       http_client_t *acptr;
       int kicked = 0;
 
@@ -153,13 +152,7 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
 // MUTE: Mute a user //
 ///////////////////////
 static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char *reason) {
-/*
-   if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
-      ws_chat_error_need_reason(cptr, "mute");
-      return true;
-   }
-*/
-   if (has_priv(cptr->user->uid, "admin|owner")) {
+   if (client_has_flag(cptr, FLAG_STAFF)) {
       http_client_t *acptr = http_find_client_by_name(target);
       if (acptr == NULL) {
          return true;
@@ -171,7 +164,7 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
       prepare_msg(msgbuf, sizeof(msgbuf), "%s MUTEd by %s: Reason: %s",
          target, cptr->chatname,
          (reason ? reason : "No reason given"));
-      send_global_alert(cptr, "***SERVER***", msgbuf);
+      send_global_alert("***SERVER***", msgbuf);
 
       // broadcast the userinfo so cul updates
       ws_send_userinfo(acptr, NULL);
@@ -187,7 +180,7 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 // UNMUTE: Unmute a user //
 ///////////////////////////
 static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
-   if (has_priv(cptr->user->uid, "admin|owner")) {
+   if (client_has_flag(cptr, FLAG_STAFF)) {
       http_client_t *acptr = http_find_client_by_name(target);
       if (acptr == NULL) {
          return true;
@@ -198,7 +191,7 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf), "%s UNMUTEd by %s",
          target, cptr->chatname);
-      send_global_alert(cptr, "***SERVER***", msgbuf);
+      send_global_alert("***SERVER***", msgbuf);
       Log(LOG_AUDIT, "admin.unmute", msgbuf);
       // broadcast the userinfo so cul updates
       ws_send_userinfo(acptr, NULL);
@@ -211,7 +204,9 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
 
 // Toggle syslog
 static bool ws_chat_cmd_syslog(http_client_t *cptr, const char *state) {
-   if (has_priv(cptr->user->uid, "admin|owner|syslog")) {
+
+   if (client_has_flag(cptr, FLAG_STAFF) ||
+       has_priv(cptr->user->uid, "syslog")) {
       bool new_state = false;
 
       // Parse the state

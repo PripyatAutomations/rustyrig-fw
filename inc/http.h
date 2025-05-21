@@ -42,11 +42,7 @@
 #define USER_EMAIL_LEN		128		// email address
 
 // ws.cat protocol
-#define	HTTP_API_RIGPOLL_PAUSE	1		// time to delay polling the rig after a freq message on ws.cat
-
-// CHAT protocol
-#define	CHAT_NAMES_INTERVAL	120000		// fire off a NAMES message in chat every 120 seconds
-
+#define	HTTP_API_RIGPOLL_PAUSE	2		// time to delay polling the rig after a freq message on ws.cat
 
 // WF protocol
 
@@ -116,6 +112,7 @@ typedef struct http_client http_client_t;
 #define	FLAG_SYSLOG	 0x00000080
 #define	FLAG_CAN_TX	 0x00000100
 #define	FLAG_NOOB        0x00000200		// user can only use ws.cat if owner|admin logged in
+#define	FLAG_ELMER       0x00000400		// user is an elmer, so noobs can TX if they are present
 
 extern bool client_has_flag(http_client_t *cptr, u_int32_t user_flag);
 extern void client_set_flag(http_client_t *cptr, u_int32_t flag);
