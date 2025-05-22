@@ -8,8 +8,10 @@
  * Place dark-mode overrides here for best results
  */
 #rig-vfos {
+/*
    background: DarkSlateGrey;
    border: 1px dashed Indigo;
+   */
 }
 
 .vfo-box {
@@ -98,4 +100,8 @@
 
 .vfo-changed {
    color: Yellow !important;
+}
+div#rig-right div.chat-user-list {
+   background-color: #0f0f0f;
+   height: CALC(100% - 5em);
 }

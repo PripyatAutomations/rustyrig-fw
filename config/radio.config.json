@@ -150,7 +150,7 @@
          "404_path": "./www/404.shtml",
          "tls_enabled": "true",
          "tls_cert": "/home/rigbox/ark/rustyrig-fw/config/cert.pem",
-         "tls_port": 4420,
+         "tls_port": 4421,
          "tls_key": "/home/rigbox/ark/rustyrig-fw/config/key.pem",
          "www_root": "./www"
       },

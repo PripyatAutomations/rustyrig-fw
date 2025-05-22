@@ -115,9 +115,9 @@ function chat_init() {
 
       // Ensure #chat-box does not accidentally become focusable
       $('#chat-box').attr('tabindex', '-1');
-      $('#um-close').click(function() {
+      $('.um-close').click(function() {
          form_disable(false);
-         $('#user-menu').hide('slow');
+         $('.user-menu').hide('slow');
       });
    });
 }
@@ -126,8 +126,8 @@ function cul_offline() {
    // Clear the user-info cache (populated from JOIN messages)
    user_cache = {};
 
-   $('#cul-list').empty();
-   $('#cul-list').append('<span class="error">OFFLINE</span>');
+   $('.cul-list').empty();
+   $('.cul-list').append('<span class="error">OFFLINE</span>');
 }
 
 // Store the data from names reply in the UserCache, replacing outdated informations
@@ -143,7 +143,7 @@ function parse_userinfo_reply(message) {
 
 // Re-render the #chat-user-list from UserCache contents
 function cul_render() {
-    $('#cul-list').empty();
+    $('.cul-list').empty();
     const users = UserCache.get_all();
 
     // Only show each user once in the list
@@ -199,7 +199,7 @@ function cul_render() {
           </span>
        </li>`;
 
-       $('#cul-list').append(userItem);
+       $('.cul-list').append(userItem);
     });
 }
 
@@ -259,11 +259,11 @@ function show_user_menu(username) {
     var user_email = 'none';
 
     var menu = `
-        <div id="um-header" style="position: relative;">
-            <span id="um-close">✖</span>
+        <div class="um-header" style="position: relative;">
+            <span class="um-close">✖</span>
         </div><br/>
         <center>User: ${username}</center><br/>
-        <span id="user-menu-items">
+        <span class="user-menu-items">
             <ul>
 <!--                <li><a href="mailto:${user_email}" target="_blank">Email</a></li> -->
                 <li><button class="cul-menu-button" id="whois-user">Whois</button></li>
@@ -273,8 +273,7 @@ function show_user_menu(username) {
     `;
 
     // Update the user menu and show it
-    $('#user-menu').html(menu);
-
+    $('.user-menu').html(menu);
 
     var user = UserCache.get(username);
     // if user is in the cache, see if they have muted property set
@@ -282,13 +281,13 @@ function show_user_menu(username) {
        $('#mute-user').on('click', function() {
           chat_send_command('mute', { target: username });
           form_disable(false);
-          $('#user-menu').hide('slow');
+          $('.user-menu').hide('slow');
        });
 
        $('#unmute-user').on('click', function() {
           chat_send_command('unmute', { target: username });
           form_disable(false);
-          $('#user-menu').hide('slow');
+          $('.user-menu').hide('slow');
        });
 
        // do we show mute or unmute button?
@@ -302,9 +301,9 @@ function show_user_menu(username) {
     }
 
     // Close button functionality
-    $('#um-close').on('click', function() {
+    $('.um-close').on('click', function() {
         form_disable(false);
-        $('#user-menu').hide('slow');
+        $('.user-menu').hide('slow');
     });
 
     // Attach event listeners
@@ -313,7 +312,7 @@ function show_user_menu(username) {
     $('#ban-user').on('click', () => send_admin_command('ban', username));
 
     // Finally, show the menu
-    $('#user-menu').show();
+    $('.user-menu').show();
 }
 
 // Function to send commands over WebSocket
@@ -328,7 +327,7 @@ function chat_send_command(cmd, args) {
 
    var msgObj_j = JSON.stringify(msgObj);
    socket.send(msgObj_j);
-   $('#user-menu').hide();
+   $('.user-menu').hide();
 //   console.log("Sent command:", msgObj_j);
 }
 

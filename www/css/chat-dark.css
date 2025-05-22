@@ -40,3 +40,7 @@ a.other-link:hover, a.other-link:hover, a.other-link:visited, a.other-link:activ
 a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
   color: NavajoWhite;
 }
+
+div.chat-user-list {
+   background-color: #0f0f0f;
+}

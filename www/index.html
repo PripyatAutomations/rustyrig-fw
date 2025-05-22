@@ -124,19 +124,19 @@
       <div id="chat-box" tabindex="-1">
        <div id="emoji-keyboard"></div>
       </div> <!-- chat-box -->
-      <div id="chat-user-list" tabindex="-1">
+      <div class="chat-user-list" id="chat-user-list-chat" tabindex="-1">
        <h4>users</h4>
        <hr width="100%"/>
-       <ul id="cul-list"></ul>
+       <ul id="cul-list-chat" class="cul-list"></ul>
       </div> <!-- chat-user-list -->
      </div> <!-- chat-container -->
-     <div id="user-menu">
-      <div id="um-header" style="position: relative;">
-       <span id="um-close">✖</span>
+     <div class="user-menu">
+      <div class="um-header" style="position: relative;">
+       <span class="um-close">✖</span>
       </div>
-      <div id="um-content">
-       User: <span id="um-username"></span><br/>
-       <span id="user-menu-items">
+      <div class="um-content">
+       User: <span class="um-username"></span><br/>
+       <span class="user-menu-items">
        </span>
       </div>
      </div>
@@ -168,10 +168,10 @@
     </div> <!-- reason-modal -->
    </div> <!-- win-chat -->
    <div id="win-rig" class="window">
-<!--    <div id="rig-top-status"></div> -->
-    <div id="rig-body-wrap">
-    <span style="font-size: 1.6em;">Click freq/mode/width/power on a VFO to change them.</script><br/>
-<!--     <div id="rig-upper-split"> -->
+    <div id="rig-top-status"></div>
+    <div id="rig-left">
+     <div id="rig-body-wrap">
+      <span style="font-size: 1.6em;">Click freq/mode/width/power on a VFO to change them.</script><br/>
       <div id="rig-vfos">
        <div id="vfo-a" class="vfo-box active-vfo">
         <h4>VFO A</h4>
@@ -187,25 +187,15 @@
         <span id="vfo-b-width">--- Hz</span><br/>
         <span id="vfo-b-power">--- W</span>
        </div>
-<!--
-       <div id="vfo-c" class="vfo-box">
-        <h4>VFO C</h4>
-        <span id="vfo-c-freq">7074.000</span><br/>
-        <span id="vfo-c-mode">D-U</span>&nbsp;
-        <span id="vfo-c-width">3000 Hz</span>
-       </div>
--->
       </div> <!-- rig-vfos -->
       <br/>
-<!--     </div>  --> <!-- rig-upper-split -->
-<!--     <div id="rig-lower-split"> -->
       <div id="rig-controls">
        <div id="edit-vfo-freq">
         <div id="rig-freq" class="digit-container"></div><br/>
        </div> <!-- edit-vfo-freq -->
        <div id="edit-vfo-mode">
         <select id="rig-mode"></select>
-        </div>
+       </div>
        <div id="edit-vfo-width">
         <label for="tx-bw">Width (Hz): <span id="tx-bw-val">3000</span></label>
         <input type="range" id="tx-bw" min="50" max="3000" step="50" value="1550">
@@ -214,19 +204,38 @@
         <label for="tx-pow">Power (Watts): <span id="tx-pow-val">10</span></label>
         <input type="range" id="tx-pow" min="5" max="100" step="1" value="5">
        </div>
-       </div> <!-- edit-vfo-mode -->
+      </div> <!-- edit-vfo-mode -->
       <button id="use-audio">Enable Audio</button>&nbsp;&nbsp;
       <button id="rig-apply">Apply</button>&nbsp;&nbsp;
       <button id="rig-ptt">PTT</button>&nbsp;&nbsp;
       <button id="reload-css">Reload CSS</button>
-      </div> <!-- rig-controls -->
-<!--      <div id="rig-memory"></div> -->
+     </div> <!-- rig-controls -->
+<!--
+     <div id="rig-memory"></div>
+-->
+    </div> <!-- rig-left -->
+    <div id="rig-right">
+     <div id="chat-user-list-rig" class="chat-user-list" tabindex="-1">
+      <h4>users</h4>
+      <hr width="100%"/>
+      <ul id="cul-list-rig" class="cul-list"></ul>
+     </div> <!-- chat-user-list -->
+    </div> <!-- rig-right -->
+    <div class="user-menu">
+     <div class="um-header" style="position: relative;">
+      <span class="um-close">✖</span>
      </div>
-<!--    </div> -->
-   </div><!-- win-rig -->
+     <div class="um-content">
+      User: <span class="um-username"></span><br/>
+      <span class="user-menu-items">
+      </span>
+     </div>
+    </div>
+   </div> <!-- win-rig -->
+<!--- WIN:SYSLOG -->
    <div id="win-syslog" class="window">
     <div id="syslog" class="syslog"></div>
-   </div><!-- win-syslog -->
+   </div> <!-- win-syslog -->
    <div id="win-config" class="window">
     <div id="win-cfg-ui" class="cfg-section">
      <span><h4>User Interface</h4></span><br/>

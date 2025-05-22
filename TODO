@@ -6,6 +6,11 @@ ASAP
   - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
 * SUpport for at least VFO A & B
 
+[chat]
+* Support saving the chat log
+- Should we allow selecting text for copy/paste?
+  - maybe cfg tab option?
+
 [elmer mode]
 * Implement request and accept|deny for elevate privileges
   - store which elmers accepted in the acptr->en_data->elmers
@@ -98,7 +103,6 @@ minimal inet_ntop() for non-posix
   - Expire incomplete images from memory after a few minutes
   - Make sure we're cleaning up image data when no longer used
   - FIX MINIMIZE BUTTON!
-* Selectable text in chat msgbox?
 * Fix tab highlights
 * Implement Web Serial firmare uploads
         https://developer.chrome.com/articles/serial/

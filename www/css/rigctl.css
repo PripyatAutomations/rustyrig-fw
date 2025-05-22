@@ -27,7 +27,7 @@
 }
 
 #rig-vfos {
-   background: MintCream;
+/*   background: MintCream; */
 }
 
 #rig-vfos {
@@ -231,7 +231,6 @@
 #edit-vfo-width, #edit-vfo-power {
    font-size: 1.8em;
    background: AntiqueWhite;
-/*   border: 2px solid DarkSlateGrey; */
    border-radius: 10px;
 }
 
@@ -244,4 +243,30 @@
 
 .vfo-changed {
    color: DarkOrange !important; }
+}
+
+div#rig-left {
+   border: 2px solid green;
+   position: fixed;
+   top: 0em;
+   left: 0em;
+   max-width: 80%;
+   height: CALC(100% - 10.5em);
+   width: CALC(100% - 10em);
+}
+
+div#rig-right {
+   position: fixed;
+   top: 3.6em;
+   right: 1.5em;
+   height: CALC(100% - 3.5em);
+   padding: 0em;
+   margin: 0em;
+   width: 10em;
+}
+
+div#rig-right div.chat-user-list {
+   position: fixed;
+   background-color: #dcdcdc;
+   height: CALC(100% - 3.5em);
 }
