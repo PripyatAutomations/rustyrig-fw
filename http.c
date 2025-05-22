@@ -28,6 +28,7 @@
 #include "inc/http.h"
 #include "inc/ws.h"
 #include "inc/auth.h"
+#include "inc/ptt.h"
 #include "inc/util.string.h"
 #include "inc/util.file.h"
 #if	defined(HOST_POSIX)
@@ -382,6 +383,12 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       http_client_t *cptr = http_find_client_by_c(c);
       // make sure we're not accessing unsafe memory
       if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
+         // Does the user hold PTT? if so turn it off
+         if (cptr->is_ptt) {
+            rr_ptt_set_all_off();
+            cptr->is_ptt = false;
+         }
+
          // Free the resources, if any, for the user_agent
          if (cptr->user_agent != NULL) {
             free(cptr->user_agent);

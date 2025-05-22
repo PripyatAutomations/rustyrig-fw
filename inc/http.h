@@ -24,7 +24,10 @@
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
 #define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
 #define HTTP_AUTH_TIMEOUT       20              // Allow 20 seconds from connection to send login command
-#define HTTP_PING_TIME          30             // If we haven't heard from the client in this long, send a ping
+#define HTTP_PING_TIME          30              // If we haven't heard from the client in this long, send a ping
+#define	HTTP_MAX_ELMERS		8		// how many elmers can accept elevate request from the user?
+#define	HTTP_MAX_NOOBS		8		// how many noobs can an elmer babysit?
+
 //#if	(HTTP_PING_TIME / 4) >= 10
 //#define	HTTP_PING_TIMEOUT	(HTTP_PING_TIME/4)	// And give them this long to respond
 //#else
@@ -44,8 +47,9 @@
 // ws.cat protocol
 #define	HTTP_API_RIGPOLL_PAUSE	2		// time to delay polling the rig after a freq message on ws.cat
 
-// WF protocol
+// WF (waterfall) protocol
 
+// http.users entry
 struct http_user {
    int		uid;
    char 	name[HTTP_USER_LEN+1];			// Username
@@ -98,6 +102,12 @@ struct http_client {
     int    guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
     char   chatname[HTTP_USER_LEN+1]; // username to show in chat (GUESTxxxx or USER)
     char  *user_agent;		// User-agent
+
+    // This is a little ugly, but this stores pointers to the users associated with elmer/noob system
+    union {
+       struct http_client *elmers[HTTP_MAX_ELMERS];	// pointer(s) to elmers who have accepted to babysit user (if noob)
+       struct http_client *noobs[HTTP_MAX_NOOBS];	// pointer(s) to noobs this user is babysitting
+    } en_data;
     struct http_client *next; 	// pointer to next client in list
 };
 typedef struct http_client http_client_t;

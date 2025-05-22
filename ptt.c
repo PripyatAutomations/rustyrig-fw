@@ -44,6 +44,8 @@ bool rr_ptt_set_blocked(bool blocked) {
 
 // For CAT to call
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+
    if (rr_ptt_check_blocked()) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
       return false;
@@ -62,33 +64,11 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
       Log(LOG_WARN, "ptt", "no backend");
    }
 
-   // turn off PTT flag on any user that may hold it
-   http_client_t *curr = http_client_list;
-   while (curr != NULL) {
-      // if set, clear the ptt flag for user and announce it
-      if (curr->is_ptt) {
-         curr->is_ptt = false;
-
-         // Update the userlist
-         ws_send_userinfo(curr, NULL);
-      }
-      curr = curr->next;
-   }
-
-   // send an alert that TOT expired
-   char msgbuf[HTTP_WS_MAX_MSG+1];
-   prepare_msg(msgbuf, sizeof(msgbuf), "TOT expired, halting TX!");
-   send_global_alert("***SERVER***", msgbuf);
-
-   // XXX: fix this someday? we'll have to for multi-vfo modes
-//   hl_state.ptt = false;
-
-   // and send a CAT message turning off ptt
+   // and send a CAT message with the state
    prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"state\": { \"vfo\": \"%c\", \"freq\": %f, \"mode\": \"%s\", \"width\": %d, \"ptt\": \"%s\" }, \"ts\": %lu  } }",
        vfo_name(vfo), (hl_state.freq), rig_strrmode(hl_state.rmode), hl_state.width, (ptt ? "true" : "false"), now);
    struct mg_str mp = mg_str(msgbuf);
    ws_broadcast(NULL, &mp);
-//   Log(LOG_DEBUG, "ptt", "sending ptt state msg: %s", msgbuf);
 
    return ptt;
 }

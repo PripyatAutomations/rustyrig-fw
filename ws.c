@@ -342,7 +342,6 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
    return false;
 }
 
-
 bool ws_send_ping(http_client_t *cptr) {
    if (cptr == NULL || !cptr->is_ws) {
       return true;

@@ -16,6 +16,9 @@ window.webui_inits.push(function webui_rigctl_init() {
    freq_input_init();
 });
 
+function send_cat_msg() {
+}
+
 function vfo_edit_init() {
    $('span#vfo-a-freq').click(function(e) {
       $('#edit-vfo-freq').toggle(300);
@@ -39,6 +42,22 @@ function vfo_edit_init() {
       $('#rig-mode').append($('<option>').val(mode).text(mode));
    });
 
+   $('#rig-mode').change(function(e) {
+      // Send the change to the server
+      var val = $(this).val();
+      console.log("MODE changed to", val);;
+      var msg = { 
+         cat: {
+            cmd: "mode",
+            data: {
+               vfo: active_vfo,
+               mode: val
+            }
+         }
+      };
+      let json_msg = JSON.stringify(msg)
+      socket.send(json_msg);
+   });
    /* XXX: fix the naming here */
    $('#tx-bw').on('input', function() {
       $('#tx-bw-val').text($(this).val());

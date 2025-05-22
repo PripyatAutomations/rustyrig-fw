@@ -79,25 +79,36 @@ button {
 }
 
 .red-btn {
-   background-color: #a31c1c; /* Muted red */
+   background-color: #a31c1c;
    color: #fff;
 }
 
 .red-btn:hover {
    border: 2px solid #cc0000;
-   background-color: #821212; /* Darker red for hover */
+   background-color: #821212;
 }
 
-/* Send button */
 .green-btn {
    border: 2px solid #00c000;
-   background-color: #28a745; /* Green for send */
+   background-color: #28a745;
    color: #fff;
 }
 
 .green-btn:hover {
    border: 2px solid #00c000;
-   background-color: #218838; /* Darker green for hover */
+   background-color: #218838;
+}
+
+.yellow-btn {
+   border: 2px solid #00c000;
+   background-color: Yellow;
+   color: Black;
+}
+
+.yellow-btn:hover {
+   border: 2px solid #00c000;
+   background-color: DarkOrange;
+   color: Black;
 }
 
 .error {

@@ -603,11 +603,12 @@ function handle_reconnect() {
    }
 
    reconnecting = true;
+   reconnect_tries++;
    show_connecting(true);
+
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
    chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec (attempt ' + reconnect_tries + '/' + max_reconnects + ')</div>');
 
-   reconnect_tries++;
    if (reconnect_tries >= max_reconnects) {
       chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Giving up on reconnecting after ' + reconnect_tries + ' attempts!</div>');
       stop_reconnecting();

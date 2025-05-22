@@ -24,7 +24,7 @@
 #include "inc/posix.h"
 #include "inc/http.h"
 #include "inc/ws.h"
-
+#include "inc/ptt.h"
 #define	CHAT_MIN_REASON_LEN	1
 
 extern struct GlobalState rig;	// Global state
@@ -130,7 +130,7 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
                "kicked by %s (Reason: %s)",
                cptr->chatname,
                (reason ? reason : "No reason given"));
-            Log(LOG_AUDIT, "admin.kick", msgbuf);
+            Log(LOG_AUDIT, "admin.kick", "%s %s", acptr->chatname, msgbuf);
 //            struct mg_str ms = mg_str(msgbuf);
 //            ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms);
             ws_kick_client(acptr, msgbuf);
@@ -169,6 +169,12 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
       // broadcast the userinfo so cul updates
       ws_send_userinfo(acptr, NULL);
       Log(LOG_AUDIT, "admin.mute", msgbuf);
+
+      // turn off PTT if this user holds it
+      if (acptr->is_ptt) {
+         rr_ptt_set_all_off();
+         acptr->is_ptt = false;
+      }
    } else {
       ws_chat_err_noprivs(cptr, "MUTE");
       return true;

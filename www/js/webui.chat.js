@@ -256,8 +256,7 @@ function show_user_menu(username) {
     `;
 
     // Base menu
-    // We need to extract this from the user-cache
-    var user_email = 'sorry@not.yet';
+    var user_email = 'none';
 
     var menu = `
         <div id="um-header" style="position: relative;">
@@ -275,12 +274,9 @@ function show_user_menu(username) {
 
     // Update the user menu and show it
     $('#user-menu').html(menu);
-    $('#user-menu').show();
 
-    // Attach event listeners
-    $('#whois-user').on('click', () => chat_send_command('whois', { target: username }));
+
     var user = UserCache.get(username);
-
     // if user is in the cache, see if they have muted property set
     if (typeof user !== 'undefined') {
        $('#mute-user').on('click', function() {
@@ -304,14 +300,20 @@ function show_user_menu(username) {
           $('#mute-user').show('fast');
        }
     }
-    $('#kick-user').on('click', () => send_admin_command('kick', username));
-    $('#ban-user').on('click', () => send_admin_command('ban', username));
 
     // Close button functionality
     $('#um-close').on('click', function() {
         form_disable(false);
         $('#user-menu').hide('slow');
     });
+
+    // Attach event listeners
+    $('#whois-user').on('click', () => chat_send_command('whois', { target: username }));
+    $('#kick-user').on('click', () => send_admin_command('kick', username));
+    $('#ban-user').on('click', () => send_admin_command('ban', username));
+
+    // Finally, show the menu
+    $('#user-menu').show();
 }
 
 // Function to send commands over WebSocket

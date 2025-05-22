@@ -7,9 +7,12 @@ ASAP
 * SUpport for at least VFO A & B
 
 [elmer mode]
-- Add a way for STAFF class users to toggle their elmer flag
-  - or maybe add a way for noob to request an elmer to babysit them?
-    * This seems like the best way
+* Implement request and accept|deny for elevate privileges
+  - store which elmers accepted in the acptr->en_data->elmers
+  - store noobs under elmer's en_data->noobs
+  - If either user disconnects, clear these
+  - If last elmer for the noob leaves, disable their privileges
+  - Once an elmer is online, the user can again request elevate
 
 [embedded]
 - Slim this fat beast down to where it can live on an esp32/stm32 again ;)
