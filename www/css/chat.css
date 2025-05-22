@@ -47,7 +47,7 @@
    padding-right: 6px;
 }
 
-#chat-user-list {
+div.chat-user-list {
    border-radius: 10px;
    font-size: clamp(0.6em, 1vw + 0.4em, 1.1em);
    padding-left: 0.5em;
@@ -56,12 +56,10 @@
    flex-grow: 1;
    overflow-y: auto;
    overflow-x: hidden;
-   min-width: 0px;
-   max-width: 40%;
    width: 10em;
 }
 
-#chat-user-list h4 {
+div.chat-user-list h4 {
    text-align: center;
    margin-bottom: 0.1em;
    margin-top: 0.5em;
@@ -378,7 +376,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    margin-top: 0.1em;
 }
 
-#user-menu ul {
+.user-menu ul {
    margin-top: 0em;
    padding-left: 1em;
    padding-top: 0.2em;
@@ -386,12 +384,12 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    text-align: center;
 }
 
-#user-menu li {
+.user-menu li {
     padding-bottom: 0.4em;
 }
 
 /* Styling for the user-menu */
-#user-menu {
+.user-menu {
     position: absolute;
     font-size: 1.2em;
     top: 0px;
@@ -407,12 +405,12 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
     display: none;
 }
 
-#user-menu h4 {
+.user-menu h4 {
     text-align: center;
     font-size: 1.4em;
 }
 
-#user-menu hr {
+.user-menu hr {
     margin-top: 1em;
     margin-bottom: 1em;
 }
@@ -434,19 +432,19 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    z-index: 1500;
 }
 
-#user-menu a, #user-menu a:visited, #user-menu: a:active {
+.user-menu a, .user-menu a:visited, .user-menu: a:active {
    color: #c0c0f0;
 }
 
 /* Header of the user menu, containing the close button */
-#um-header {
+.um-header {
     position: relative;
     border-bottom: 2px solid #c0c0c0;
     height: 20px;
 }
 
 /* Close button styling */
-#um-close {
+.um-close {
     top: 0px;
     right: 0px;
     cursor: pointer;
@@ -455,12 +453,12 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
     position: absolute;
 }
 
-#um-close:hover {
+.um-close:hover {
     color: #ff0000;
 }
 
 /* Content inside the user menu */
-#um-content {
+.um-content {
     margin-top: 10px;
 }
 
