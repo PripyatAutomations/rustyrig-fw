@@ -1,0 +1,6 @@
+-- Get PTT duration
+
+SELECT *, 
+       julianday(end_time) - julianday(start_time) AS duration_days 
+  FROM ptt_log 
+ WHERE end_time IS NOT NULL;

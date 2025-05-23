@@ -6,6 +6,9 @@ ASAP
   - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
 * SUpport for at least VFO A & B
 
+[misc]
+* Add support for TX quotas (credits) and tracking top talkers
+
 [chat]
 * Support saving the chat log
 - Should we allow selecting text for copy/paste?
@@ -20,7 +23,7 @@ ASAP
   - Once an elmer is online, the user can again request elevate
 
 [embedded]
-- Slim this fat beast down to where it can live on an esp32/stm32 again ;)
+- Make options to trim it back down for stm32/esp32 hosts
 
 [webcam]
 - Support for streaming a v4l webcam from the station to the clients O_o

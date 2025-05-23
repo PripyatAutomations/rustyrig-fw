@@ -27,8 +27,6 @@
 #include "inc/backend.h"
 #include "inc/ptt.h"
 
-static rr_vfo_t vfos[MAX_VFOS];
-
 static rr_vfo_t be_int_get_vfo(rr_vfo_t vfo) {
    return vfo;
 }
@@ -60,15 +58,15 @@ static bool be_int_fini(void) {
 }
 
 // rig polling
-bool be_int_poll(void) {
-   return false;
+rr_vfo_data_t *be_int_poll(void) {
+   return NULL;
 }
 
 static rr_backend_funcs_t rr_backend_internal_api = {
    .backend_fini = &be_int_fini,
    .backend_init = &be_int_init,
    .backend_poll = &be_int_poll,
-   .ptt_set = be_int_ptt_set
+   .ptt_set = &be_int_ptt_set
 };
 
 rr_backend_t rr_backend_internal = {

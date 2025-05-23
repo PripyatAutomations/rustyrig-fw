@@ -12,6 +12,7 @@ build/*/*.*
 build/*/obj/*
 
 # user database & certs
+db/*
 config/*.pem
 config/http.users
 

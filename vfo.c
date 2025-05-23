@@ -21,6 +21,20 @@
 #include "inc/state.h"
 #include "inc/vfo.h"
 
+rr_vfo_data_t vfos[MAX_VFOS];
+
+static const char vfo_mode_none[] = "NONE";
+static const char vfo_mode_cw[] = "CW";
+static const char vfo_mode_am[] = "AM";
+static const char vfo_mode_lsb[] = "LSB";
+static const char vfo_mode_usb[] = "USB";
+static const char vfo_mode_isb[] = "ISB";
+static const char vfo_mode_fm[] = "FM";
+static const char vfo_mode_dl[] = "D-L";
+static const char vfo_mode_du[] = "D-U";
+static const char vfo_mode_ft4[] = "FT4";
+static const char vfo_mode_ft8[] = "FT8";
+
 // This should be called by CAT to set the backend appropriately
 bool set_vfo_frequency(rr_vfo_type_t vfo_type, uint32_t input, float freq) {
    Log(LOG_INFO, "vfo", "Setting VFO (type: %d) input #%d to %f", vfo_type, input, freq);
@@ -78,4 +92,69 @@ const char vfo_name(rr_vfo_t vfo) {
          break;
    }
    return '*';
+}
+
+rr_mode_t vfo_parse_mode(const char *mode) {
+   if (strcasecmp(mode, vfo_mode_cw) == 0) {
+      return MODE_CW;
+   } else if (strcasecmp(mode, vfo_mode_am) == 0) {
+      return MODE_AM;
+   } else if (strcasecmp(mode, vfo_mode_lsb) == 0) {
+      return MODE_LSB;
+   } else if (strcasecmp(mode, vfo_mode_usb) == 0) {
+      return MODE_USB;
+   } else if (strcasecmp(mode, vfo_mode_isb) == 0) {
+      return MODE_ISB;
+   } else if (strcasecmp(mode, vfo_mode_fm) == 0) {
+      return MODE_FM;
+   } else if (strcasecmp(mode, vfo_mode_dl) == 0) {
+      return MODE_DL;
+   } else if (strcasecmp(mode, vfo_mode_du) == 0) {
+      return MODE_DU;
+   } else if (strcasecmp(mode, vfo_mode_ft4) == 0) {
+      return MODE_FT4;
+   } else if (strcasecmp(mode, vfo_mode_ft8) == 0) {
+      return MODE_FT8;
+   }
+   return MODE_NONE;
+}
+
+const char *vfo_mode_name(rr_mode_t mode) {
+   switch(mode) {
+      case MODE_CW:
+         return vfo_mode_cw;
+         break;
+      case MODE_AM:
+         return vfo_mode_am;
+         break;
+      case MODE_LSB:
+         return vfo_mode_lsb;
+         break;
+      case MODE_USB:
+         return vfo_mode_usb;
+         break;
+      case MODE_ISB:
+         return vfo_mode_isb;
+         break;
+      case MODE_FM:
+         return vfo_mode_fm;
+         break;
+      case MODE_DL:
+         return vfo_mode_dl;
+         break;
+      case MODE_DU:
+         return vfo_mode_du;
+         break;
+      case MODE_FT4:
+         return vfo_mode_ft4;
+         break;
+      case MODE_FT8:
+         return vfo_mode_ft8;
+         break;
+      case MODE_NONE:
+      default:
+         return vfo_mode_none;
+         break;
+   }
+   return NULL;
 }

@@ -88,6 +88,7 @@ struct http_client {
     bool   authenticated;       // Is the user fully logged in?
     bool   is_ws;               // Flag to indicate if it's a WebSocket client
     bool   is_ptt;		// Is the user keying up ANY attached rig?
+    int    ptt_session;		// Set when PTT has been raised
     u_int32_t user_flags;       // Bit flags for user features, permissions, etc.
     time_t connected;		// when was the socket connected?
     time_t session_expiry;	// When does the session expire?

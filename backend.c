@@ -226,9 +226,20 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
 }
 
 bool rr_be_poll(rr_vfo_t vfo) {
+   if (vfo < 0 || vfo >> MAX_VFOS) {
+      return true;
+   }
+
    if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->backend_poll == NULL) {
       return true;
    }
 
-   return rig.backend->api->backend_poll();
+   rr_vfo_data_t *ret_vfo = rig.backend->api->backend_poll();
+   if (ret_vfo == NULL) {
+      return true;
+   }
+   // save it to the VFO storage
+   memcpy(&vfos[vfo], ret_vfo, sizeof(rr_vfo_data_t));
+   free(ret_vfo);
+   return false;
 }

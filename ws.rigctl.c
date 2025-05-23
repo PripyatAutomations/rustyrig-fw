@@ -26,6 +26,7 @@
 #include "inc/ws.h"
 #include "inc/ptt.h"
 #include "inc/vfo.h"
+#include "inc/database.h"
 
 extern struct GlobalState rig;	// Global state
 
@@ -184,7 +185,21 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    // XXX: Need to remove this and instead pull it from rig state
-   int power = 5;
+   rr_vfo_t vfo_id = VFO_NONE;
+   rr_mode_t mode = MODE_NONE;
+   int power = 0;
+   const char *mode_name = vfo_mode_name(mode);
+   float freq = 0;
+   int width = 0;
+
+   if (vfo != NULL) {
+      vfo_id = vfo_lookup(vfo[0]);
+      rr_vfo_data_t *dp = &vfos[vfo_id];
+      mode = dp->mode;
+      freq = dp->freq;
+      power = dp->power;
+      width = dp->width;
+   }
 
    if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
@@ -211,11 +226,18 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          cptr->last_heard = now;
-         cptr->is_ptt = c_state;		// set the user as PTT or not
+         cptr->is_ptt = c_state;
+
+         // XXX: Finish this
+         if (!cptr->ptt_session) {
+            cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, freq, vfo_mode_name(mode), width, power);
+         } else {
+            db_ptt_stop(masterdb, cptr->ptt_session);
+         }
 
          // tell everyone about it
-         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"power\": %d, \"ts\": %lu } }",
-             cptr->chatname, state, vfo, power, now);
+         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"power\": %d, \"freq\": %f, \"mode\": \"%s\", \"ts\": %lu } }",
+             cptr->chatname, state, vfo, power, freq, vfo_mode_name(mode), now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);

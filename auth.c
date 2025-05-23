@@ -177,6 +177,7 @@ bool http_save_users(const char *filename) {
 
 // Load users from the file into the global array
 int http_load_users(const char *filename) {
+    Log(LOG_INFO, "auth", "Loading static users from %s", filename);
     FILE *file = fopen(filename, "r");
 
     if (!file) {
@@ -276,7 +277,7 @@ int http_load_users(const char *filename) {
       }
       user_count++;
    }
-   Log(LOG_INFO, "auth", "Loaded %d users from %s", user_count, filename);
+   Log(LOG_INFO, "auth", "Loaded %d static users from %s", user_count, filename);
    fclose(file);
    return 0;
 }

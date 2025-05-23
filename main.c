@@ -38,6 +38,7 @@
 #include "inc/usb.h"
 #include "inc/codec.h"
 #include "inc/dds.h"
+#include "inc/database.h"
 
 //
 // http ui support
@@ -140,6 +141,9 @@ int main(int argc, char **argv) {
    debug_init();			// Initialize debug	
    initialize_state();			// Load default values
 
+#if	defined(FEATURE_SQLITE)
+   masterdb = db_open(MASTERDB_PATH);
+#endif	// defined(FEATURE_SQLITE)
 #if	defined(USE_MONGOOSE)
    mg_mgr_init(&mg_mgr);
 #endif

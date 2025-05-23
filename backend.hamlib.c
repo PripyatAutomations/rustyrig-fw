@@ -39,7 +39,6 @@
 static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl
-static rr_vfo_t vfos[MAX_VFOS];
 
 // enum rig_debug_level_e {
 //     RIG_DEBUG_NONE = 0, /*!< no bug reporting */
@@ -190,14 +189,21 @@ static bool hl_fini(void) {
 }
 
 // Here we poll the various meters and state
-bool hl_poll(void) {
+rr_vfo_data_t *hl_poll(void) {
    // XXX: We need to deal with generating diffs
    // - save the current state as a whole, with a timestamp
    // - poll the rig status
    // - Elsewhere, in backend.c, we'll compare current + last, every call to send_rig_status
    int rc = -1;
 
-   // Do VFO_ for now
+   rr_vfo_data_t *rv = malloc(sizeof(rr_vfo_data_t));
+   if (rv == NULL) {
+      printf("OOM in hl_poll!\n");
+      return NULL;
+   }
+   memset(rv, 0, sizeof(rr_vfo_t));
+
+   // Do VFO_A for now
 /*
    memset(&hl_state, 0, sizeof(hamlib_state_t));
    if ((rc = rig_set_vfo(hl_rig, RIG_VFO_A)) != RIG_OK) {
@@ -208,7 +214,8 @@ bool hl_poll(void) {
 
    if ((rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq)) != RIG_OK) {
       Log(LOG_WARN, "be.hamlib", "GET VFO_A freq failed: %s", rigerror(rc));
-      return true;
+      free(rv);
+      return NULL;
    }
 
    if ((rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width)) != RIG_OK) {
@@ -224,6 +231,14 @@ bool hl_poll(void) {
        (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
        hl_state.width);
 
+   // Pack the data into a vfo_data struct to send back to our caller
+   rv->freq = hl_state.freq;
+   rv->width = hl_state.width;
+   rv->mode = vfo_parse_mode(rig_strrmode(hl_state.rmode));
+   // XXX: finish this
+   rv->width = 3000;
+   rv->power = 10;
+
    // send to all users
    struct mg_str mp;
    char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -237,7 +252,7 @@ bool hl_poll(void) {
    // Send to everyone, including the sender, which will then display it in various widgets
    ws_broadcast(NULL, &mp);
 
-   return false;
+   return rv;
 }
 
 bool hl_power_set(rr_vfo_t vfo, float power) {

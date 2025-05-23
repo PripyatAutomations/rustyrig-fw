@@ -57,6 +57,12 @@
          "addr": "0x2a"
       }
    },
+   "database": {
+      "master": {
+          "path": "./db/master.db",
+          "template": "./sql/sqlite.master.sql"
+      }
+   },
    "debug": {
       "noisy_eeprom": "false",
       "logfile": "/tmp/radio-debug.log",
@@ -88,7 +94,7 @@
       "mqtt": "true",
       "opus": "false",
       "pipewire": "false",
-      "sqlite": "false"
+      "sqlite": "true"
    },
    "limits": {
       "max_amps": 2,

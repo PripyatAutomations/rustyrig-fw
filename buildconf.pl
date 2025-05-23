@@ -836,6 +836,17 @@ sub generate_config_h {
       }
    }
 
+   if (defined($config->{'database'})) {
+      if (defined($config->{'database'}{'master'})) {
+         if (defined($config->{'database'}{'master'}{'path'})) {
+            printf $fh "#define MASTERDB_PATH \"%s\"\n", $config->{'database'}{'master'}{'path'};
+         }
+         if (defined($config->{'database'}{'master'}{'template'})) {
+            printf $fh "#define MASTERDB_TEMPLATE \"%s\"\n", $config->{'database'}{'master'}{'template'};
+         }
+      }
+   }
+
    if (defined($config->{features})) {
       if (defined($config->{features}{'alsa'}) && match_boolean($config->{features}{'alsa'})) {
          printf $fh "#define FEATURE_ALSA\n";

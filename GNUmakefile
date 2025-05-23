@@ -46,6 +46,11 @@ CFLAGS += -DMG_TLS=MG_TLS_MBED
 LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 endif
 
+ifeq (${USE_SQLITE},true)
+CFLAGS += -DUSE_SQLITE
+LDFLAGS += -lsqlite3
+endif
+
 # Are we cross compiling?
 ifneq (${TC_PREFIX},"")
 CC := ${TC_PREFIX}-gcc
@@ -85,6 +90,7 @@ objs += cat.yaesu.o		# Yaesu CAT protocol
 objs += channels.o		# Channel Memories
 objs += codec.o			# Support for audio codec
 objs += console.o		# Console support
+objs += database.o		# sqlite3 database stuff
 objs += dds.o			# API for Direct Digital Synthesizers
 objs += dds.ad9833.o		# AD9833 DDS
 objs += dds.ad9959_stm32.o	# STM32 (AT command) ad9851 DDS
@@ -270,3 +276,11 @@ ext/libmongoose/mongoose.c:
 config/http.users:
 	@echo "*** You do not have a config/http.users so i've copied the default file from doc/"
 	cp doc/http.users.example config/http.users
+
+db/master.db:
+	sqlite3 $@ < sql/sqlite.master.sql
+
+dump-ptt:
+	sqlite3 db/master.db 'select * from ptt_log';
+dump-log:
+	sqlite3 db/master.db 'select * from audit_log';
