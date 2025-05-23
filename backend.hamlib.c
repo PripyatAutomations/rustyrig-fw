@@ -226,6 +226,10 @@ rr_vfo_data_t *hl_poll(void) {
       Log(LOG_WARN, "be.hamlib", "GET VFO_A ptt failed: %s", rigerror(rc));
    }
 
+   if ((rc = rig_get_strength(hl_rig, RIG_VFO_CURR, &hl_state.power)) != RIG_OK) {
+      Log(LOG_WARN, "be.hamlib", "GET VFO_A power failed: %s", rigerror(rc));
+   }
+
    Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f",
        (hl_state.ptt ? "ON" : "off"),
        (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
@@ -260,6 +264,12 @@ bool hl_power_set(rr_vfo_t vfo, float power) {
 }
 
 float hl_power_get(rr_vfo_t vfo) {
+   int i = 0;
+   int rv = rig_get_strength(hl_rig, RIG_VFO_CURR, &i);
+   if (rv != RIG_OK) {
+      Log(LOG_CRIT, "hl_power_get", "failed: %d", rv);
+   }
+   Log(LOG_DEBUG, "hl_power_get", "read: %d", i);
    return 0;
 }
 

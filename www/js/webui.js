@@ -175,6 +175,13 @@ function ws_connect() {
    var rc = reconnecting;
    reconnecting = false;
    show_connecting(true);
+
+   // destroy old socket, if present
+   if (typeof socket !== 'undefined') {
+      socket.close();
+      socket = null;
+   }
+
    socket = new WebSocket(make_ws_url());
 
    // Was the websocket connection kicked? If so, don't reconnect
