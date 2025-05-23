@@ -230,10 +230,10 @@ rr_vfo_data_t *hl_poll(void) {
       Log(LOG_WARN, "be.hamlib", "GET VFO_A power failed: %s", rigerror(rc));
    }
 
-   Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f",
+   Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
        (hl_state.ptt ? "ON" : "off"),
        (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
-       hl_state.width);
+       hl_state.width, hl_state.power);
 
    // Pack the data into a vfo_data struct to send back to our caller
    rv->freq = hl_state.freq;
@@ -247,9 +247,10 @@ rr_vfo_data_t *hl_poll(void) {
    struct mg_str mp;
    char msgbuf[HTTP_WS_MAX_MSG+1];
 
-   prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"state\": { \"vfo\": \"A\", \"freq\": %f, \"mode\": \"%s\", \"width\": %d, \"ptt\": \"%s\" }, \"ts\": %lu  } }",
+   prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"state\": { \"vfo\": \"A\", \"freq\": %f, \"mode\": \"%s\", \"width\": %d, \"ptt\": \"%s\", \"power\": %d }, \"ts\": %lu  } }",
        (hl_state.freq), rig_strrmode(hl_state.rmode), hl_state.width,
-       (hl_state.ptt ? "true" : "false"), now);
+       (hl_state.ptt ? "true" : "false"),
+       hl_state.power, now);
         
    mp = mg_str(msgbuf);
 
@@ -266,9 +267,11 @@ bool hl_power_set(rr_vfo_t vfo, float power) {
 float hl_power_get(rr_vfo_t vfo) {
    int i = 0;
    int rv = rig_get_strength(hl_rig, RIG_VFO_CURR, &i);
+
    if (rv != RIG_OK) {
       Log(LOG_CRIT, "hl_power_get", "failed: %d", rv);
    }
+
    Log(LOG_DEBUG, "hl_power_get", "read: %d", i);
    return 0;
 }
