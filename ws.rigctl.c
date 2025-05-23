@@ -33,6 +33,7 @@ extern struct GlobalState rig;	// Global state
 ///////////////////
 #define	WS_RIGCTL_FORCE_INTERVAL	30		// every 30 seconds, send a full update
 
+// XXX: Merge with existing rr_vfo_data_t
 // This ugly mess needs sorted out asap ;)
 typedef struct ws_rig_state {
    float	freq;
@@ -127,7 +128,6 @@ static bool ws_rig_state_poll(rr_vfo_t vfo) {
 }
 
 // Sends a diff of the changes since last poll, in json
-
 static bool ws_rig_state_send(rr_vfo_t vfo) {
    bool force_send = false;
 
@@ -315,7 +315,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "mode", "User %s set VFO %s MODE to %s", cptr->chatname, vfo, mode);
-//         rr_mode_set(c_vfo, mode);
+         rr_set_mode(c_vfo, vfo_parse_mode(mode));
          free(mode);
       } else {
          Log(LOG_DEBUG, "ws.rigctl", "Got unknown rig msg: |%.*s|", msg_data.len, msg_data.buf);

@@ -64,5 +64,7 @@ extern bool rr_freq_set(rr_vfo_t vfo, float freq);
 extern bool rr_be_poll(rr_vfo_t vfo);
 extern uint16_t rr_get_width(rr_vfo_t vfo);
 extern bool rr_set_width(rr_vfo_t vfo, uint16_t width);
+extern bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode);
+extern rr_mode_t rr_get_mode(rr_vfo_t vfo);
 
 #endif	// !defined(__rr_backend_h)

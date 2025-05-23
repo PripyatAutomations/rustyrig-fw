@@ -19,7 +19,7 @@ typedef struct hamlib_state {
    rmode_t rmode;
    pbwidth_t width;
    vfo_t vfo;
-   int strength;
+   int power;
    int rit;
    int xit;
    int ret;

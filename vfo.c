@@ -28,7 +28,7 @@ static const char vfo_mode_cw[] = "CW";
 static const char vfo_mode_am[] = "AM";
 static const char vfo_mode_lsb[] = "LSB";
 static const char vfo_mode_usb[] = "USB";
-static const char vfo_mode_isb[] = "ISB";
+static const char vfo_mode_dsb[] = "DSB";
 static const char vfo_mode_fm[] = "FM";
 static const char vfo_mode_dl[] = "D-L";
 static const char vfo_mode_du[] = "D-U";
@@ -103,8 +103,8 @@ rr_mode_t vfo_parse_mode(const char *mode) {
       return MODE_LSB;
    } else if (strcasecmp(mode, vfo_mode_usb) == 0) {
       return MODE_USB;
-   } else if (strcasecmp(mode, vfo_mode_isb) == 0) {
-      return MODE_ISB;
+   } else if (strcasecmp(mode, vfo_mode_dsb) == 0) {
+      return MODE_DSB;
    } else if (strcasecmp(mode, vfo_mode_fm) == 0) {
       return MODE_FM;
    } else if (strcasecmp(mode, vfo_mode_dl) == 0) {
@@ -133,8 +133,8 @@ const char *vfo_mode_name(rr_mode_t mode) {
       case MODE_USB:
          return vfo_mode_usb;
          break;
-      case MODE_ISB:
-         return vfo_mode_isb;
+      case MODE_DSB:
+         return vfo_mode_dsb;
          break;
       case MODE_FM:
          return vfo_mode_fm;

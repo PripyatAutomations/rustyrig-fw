@@ -41,7 +41,7 @@ enum rr_mode {
    MODE_AM,
    MODE_LSB,
    MODE_USB,
-   MODE_ISB,
+   MODE_DSB,
    MODE_FM,
    MODE_DU,
    MODE_DL,
