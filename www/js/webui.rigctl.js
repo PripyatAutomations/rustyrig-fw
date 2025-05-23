@@ -95,7 +95,14 @@ function ptt_btn_init() {
 
 function freq_update_digit($digit, delta) {
    let val = parseInt($digit.find('.value').text(), 10);
-   let newVal = val + delta;
+   var newVal;
+
+   if (delta != 0) {
+      newVal = val + delta;
+   } else {
+      newVal = 0;
+   }
+
    let $container = $digit.closest('.digit-container');
 
    if (newVal > 9) {
@@ -117,7 +124,6 @@ function freq_update_digit($digit, delta) {
    }
 
    $digit.find('.value').addClass('vfo-changed');
-
    let onChange = $container.data('onChange');
    if (typeof onChange === 'function') {
       onChange(freq_get_digits($container));
@@ -177,17 +183,15 @@ function freq_input_init() {
          freq_update_digit($digit, -1);
       });
 
-      /* XXX: fix this to support sending the changed result */
-/*
       $container.on('dblclick', '.digit .value', function() {
-         $(this).text('0');
+         let $digit = $(this).closest('.digit');
 
+         freq_update_digit($digit, 0);
          let onChange = $container.data('onChange');
          if (onChange) {
             onChange();
          }
       });
-*/
    }
 
    let $input = $('#rig-freq');

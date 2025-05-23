@@ -1,5 +1,5 @@
 #!/bin/bash
-SZ_C=$(ls *.[ch]|grep -v mongoose|xargs cat|wc -l)
+SZ_C=$(ls *.c inc/*.h|grep -v mongoose|xargs cat|wc -l)
 SZ_PL=$(cat buildconf.pl | wc -l)
 SZ_JS=$(cat www/js/webui*.js |wc -l)
 SZ_HTML=$(cat www/index.html | wc -l)

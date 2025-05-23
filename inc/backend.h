@@ -20,19 +20,24 @@ struct rr_backend_funcs {
 
    ////////////////////////////////////////
    // Rig control
-//   bool		(*rig_af_gain)(const char *args);
-//   bool		(*rig_copy_vfo_b_to_a)(const char *args);
-//   bool		(*rig_copy_vfo_a_to_b)(const char *args);
-//   bool		(*rig_freq_vfo_a)(const char *args);
-//   bool		(*rig_mode_vfo_a)(const char *args);
+//   bool		(*af_gain)(const char *args);
+//   bool		(*copy_vfo_b_to_a)(const char *args);
+//   bool		(*copy_vfo_a_to_b)(const char *args);
+//   bool		(*freq_vfo_a)(const char *args);
+//   bool		(*mode_vfo_a)(const char *args);
    
-   bool		(*rig_ptt_set)(rr_vfo_t vfo, bool state);
-   bool		(*rig_ptt_get)(rr_vfo_t vfo);
-   bool		(*rig_split_mode)(rr_vfo_t vfo, const char *args);
-   bool		(*rig_tuner_control)(rr_vfo_t vfo, const char *args);
-   bool		(*rig_set_power)(rr_vfo_t vfo, const char *args);
-   bool		(*rig_freq_set)(rr_vfo_t vfo, float freq);
-   float	(*rig_freq_get)(rr_vfo_t vfo);
+   bool		(*ptt_set)(rr_vfo_t vfo, bool state);
+   bool		(*ptt_get)(rr_vfo_t vfo);
+   bool		(*split_mode)(rr_vfo_t vfo, const char *args);
+   bool		(*tuner_control)(rr_vfo_t vfo, const char *args);
+   bool		(*power_set)(rr_vfo_t vfo, float power);
+   float        (*power_get)(rr_vfo_t vfo);
+   rr_mode_t	(*mode_get)(rr_vfo_t vfo);
+   bool		(*mode_set)(rr_vfo_t vfo, rr_mode_t mode);
+   bool		(*freq_set)(rr_vfo_t vfo, float freq);
+   float	(*freq_get)(rr_vfo_t vfo);
+   uint16_t     (*width_get)(rr_vfo_t vfo);
+   bool         (*width_set)(rr_vfo_t vfo, uint16_t width);
 };
 typedef struct rr_backend_funcs rr_backend_funcs_t;
 
@@ -44,18 +49,20 @@ struct rr_backend {
 };
 typedef struct rr_backend rr_backend_t;
 
-
 #include "inc/backend.dummy.h"
 #include "inc/backend.hamlib.h"
 #include "inc/backend.internal.h"
 
 extern bool rr_backend_init(void);
+extern bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo);
 extern bool rr_get_ptt(http_client_t *cptr, rr_vfo_t vfo);
 extern bool rr_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state);
+extern float rr_get_power(rr_vfo_t vfo);
+extern bool rr_set_power(rr_vfo_t vfo, float power);
 extern float rr_freq_get(rr_vfo_t vfo);
 extern bool rr_freq_set(rr_vfo_t vfo, float freq);
-extern bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo);
-
 extern bool rr_be_poll(rr_vfo_t vfo);
+extern uint16_t rr_get_width(rr_vfo_t vfo);
+extern bool rr_set_width(rr_vfo_t vfo, uint16_t width);
 
 #endif	// !defined(__rr_backend_h)

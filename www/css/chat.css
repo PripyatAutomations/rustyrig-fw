@@ -296,7 +296,7 @@ button#img-clearclip {
 .cul-item {
 }
 
-#chat-user-list ul {
+.chat-user-list ul {
    list-style: none;
    padding-top: 5px;
    padding-left: 0;
@@ -304,7 +304,7 @@ button#img-clearclip {
    margin-bottom: 0px;
 }
 
-#chat-user-list li {
+.chat-user-list li {
    display: flex;                 /* Align username and badges horizontally */
    align-items: center;           /* Center vertically */
 /*   padding: 5px 0; */
@@ -376,7 +376,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    margin-top: 0.1em;
 }
 
-.user-menu ul {
+#user-menu ul {
    margin-top: 0em;
    padding-left: 1em;
    padding-top: 0.2em;
@@ -384,12 +384,12 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    text-align: center;
 }
 
-.user-menu li {
+#user-menu li {
     padding-bottom: 0.4em;
 }
 
 /* Styling for the user-menu */
-.user-menu {
+#user-menu {
     position: absolute;
     font-size: 1.2em;
     top: 0px;
@@ -405,12 +405,12 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
     display: none;
 }
 
-.user-menu h4 {
+#user-menu h4 {
     text-align: center;
     font-size: 1.4em;
 }
 
-.user-menu hr {
+#user-menu hr {
     margin-top: 1em;
     margin-bottom: 1em;
 }
@@ -432,7 +432,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    z-index: 1500;
 }
 
-.user-menu a, .user-menu a:visited, .user-menu: a:active {
+#user-menu a, #user-menu a:visited, #user-menu: a:active {
    color: #c0c0f0;
 }
 

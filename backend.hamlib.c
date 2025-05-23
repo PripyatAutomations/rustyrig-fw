@@ -145,25 +145,8 @@ static bool hl_init(void) {
       return true;
    }
 
+   // Activate VFO A
    rig_set_vfo(hl_rig, RIG_VFO_A);
-
-#if	0
-   // XXX: We need to iterate over all VFOs that are configured and set them up to default states...
-
-   // Set frequency
-   if ((ret = rig_set_freq(hl_rig, RIG_VFO_A, freq)) != RIG_OK)
-      fprintf(stderr, "Failed to set frequency: %s\n", rigerror(ret));
-
-   // Set mode
-   if ((ret = rig_set_mode(hl_rig, RIG_VFO_A, mode, 0)) != RIG_OK)
-      fprintf(stderr, "Failed to set mode: %s\n", rigerror(ret));
-
-   // Set TX power
-   // Set filter width
-
-   // Cleanup
-   hl_destroy(hl_rig);
-#endif
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
 
    // set some sane defaults
@@ -257,12 +240,39 @@ bool hl_poll(void) {
    return false;
 }
 
+bool hl_power_set(rr_vfo_t vfo, float power) {
+   return false;
+}
+
+float hl_power_get(rr_vfo_t vfo) {
+   return 0;
+}
+
+rr_mode_t hl_mode_get(rr_vfo_t vfo) {
+   return MODE_NONE;
+}
+
+bool hl_mode_set(rr_vfo_t vfo, rr_mode_t mode) {
+   return false;
+}
+
+uint16_t hl_width_get(rr_vfo_t vfo) {
+   return 0;
+}
+
+bool hl_width_set(rr_vfo_t vfo, uint16_t width) {
+   return false;
+}
+
 static rr_backend_funcs_t rr_backend_hamlib_api = {
    .backend_fini = &hl_fini,
    .backend_init = &hl_init,
    .backend_poll = &hl_poll,
-   .rig_ptt_set = &hl_ptt_set,
-   .rig_freq_set = &hl_freq_set
+   .ptt_set = &hl_ptt_set,
+   .freq_set = &hl_freq_set,
+   .mode_set = &hl_mode_set,
+   .power_set = &hl_power_set,
+   .width_set = &hl_width_set
 };
 
 rr_backend_t rr_backend_hamlib = {

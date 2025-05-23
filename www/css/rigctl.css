@@ -256,10 +256,11 @@ div#rig-left {
 }
 
 div#rig-right {
+   border-radius: 10px;
    position: fixed;
    top: 3.6em;
-   right: 1.5em;
-   height: CALC(100% - 3.5em);
+   right: 1.2em;
+   height: CALC(100% - 1em);
    padding: 0em;
    margin: 0em;
    width: 10em;
@@ -268,5 +269,5 @@ div#rig-right {
 div#rig-right div.chat-user-list {
    position: fixed;
    background-color: #dcdcdc;
-   height: CALC(100% - 3.5em);
+   height: CALC(100% - 5em);
 }

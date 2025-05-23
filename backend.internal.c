@@ -68,7 +68,7 @@ static rr_backend_funcs_t rr_backend_internal_api = {
    .backend_fini = &be_int_fini,
    .backend_init = &be_int_init,
    .backend_poll = &be_int_poll,
-   .rig_ptt_set = be_int_ptt_set
+   .ptt_set = be_int_ptt_set
 };
 
 rr_backend_t rr_backend_internal = {

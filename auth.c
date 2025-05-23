@@ -586,8 +586,9 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // blorp out a join to all chat users
          prepare_msg(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu, \"ip\": \"%s\", \"privs\": \"%s\" } }",
-                     cptr->chatname, now, ip, cptr->user->privs);
+                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu, \"ip\": \"%s\", \"privs\": \"%s\", \"muted\": \"%s\" } }",
+                     cptr->chatname, now, ip, cptr->user->privs, 
+                     (cptr->user->is_muted ? "true" : "false"));
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms);
 

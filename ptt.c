@@ -59,7 +59,7 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    }
 
    if (rig.backend && rig.backend->api) {
-      rig.backend->api->rig_ptt_set(vfo, ptt);
+      rig.backend->api->ptt_set(vfo, ptt);
    } else {
       Log(LOG_WARN, "ptt", "no backend");
    }

@@ -131,11 +131,11 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
    // Sqawk audit log and Apply PTT if we made it this far
    Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
 
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_ptt_set == NULL) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->ptt_set == NULL) {
       return true;
    }
 
-   if (rig.backend->api->rig_ptt_set(vfo, state)) {
+   if (rig.backend->api->ptt_set(vfo, state)) {
       Log(LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.",
           rr_vfo_name(vfo), bool2str(state));
       return true;
@@ -145,21 +145,21 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
 
 bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
    // XXX: This is incorrect
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_ptt_get == NULL) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->ptt_get == NULL) {
       return false;
    }
-   bool rv = rig.backend->api->rig_ptt_get(vfo);
+   bool rv = rig.backend->api->ptt_get(vfo);
    return rv;
 }
 
 bool rr_freq_set(rr_vfo_t vfo, float freq) {
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_ptt_set == NULL) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->ptt_set == NULL) {
       return true;
    }
 
 //   Log(LOG_AUDIT, "rf", "FREQ set to %.0f", freq);
 
-   if (rig.backend->api->rig_freq_set(vfo, freq)) {
+   if (rig.backend->api->freq_set(vfo, freq)) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.",
           rr_vfo_name(vfo), freq);
       return true;
@@ -168,11 +168,60 @@ bool rr_freq_set(rr_vfo_t vfo, float freq) {
 }
 
 float rr_freq_get(rr_vfo_t vfo) {
-   // XXX: This is incorrect
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->rig_freq_get == NULL) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->freq_get == NULL) {
       return false;
    }
-   bool rv = rig.backend->api->rig_freq_get(vfo);
+   return rig.backend->api->freq_get(vfo);
+}
+
+float rr_get_power(rr_vfo_t vfo) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->power_get == NULL) {
+      return false;
+   }
+   return rig.backend->api->power_get(vfo);
+}
+
+bool rr_set_power(rr_vfo_t vfo, float power) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->power_set == NULL) {
+      return false;
+   }
+   bool rv = rig.backend->api->power_set(vfo, power);
+   return rv;
+}
+
+uint16_t rr_get_width(rr_vfo_t vfo) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->width_get == NULL) {
+      return false;
+   }
+   return rig.backend->api->width_get(vfo);
+}
+
+bool rr_set_width(rr_vfo_t vfo, uint16_t width) {
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->width_set == NULL) {
+      return false;
+   }
+   bool rv = rig.backend->api->width_set(vfo, width);
+   return rv;
+}
+
+rr_mode_t rr_get_mode(rr_vfo_t vfo) {
+   rr_mode_t mode = MODE_NONE;
+
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->mode_get == NULL) {
+      return false;
+   }
+   mode = rig.backend->api->mode_get(vfo);
+
+   return mode;
+}
+
+bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
+   bool rv = false;
+   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->mode_set == NULL) {
+      return false;
+   }
+
+   rv = rig.backend->api->mode_set(vfo, mode);
    return rv;
 }
 

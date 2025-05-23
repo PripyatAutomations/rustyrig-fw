@@ -117,7 +117,7 @@ function chat_init() {
       $('#chat-box').attr('tabindex', '-1');
       $('.um-close').click(function() {
          form_disable(false);
-         $('.user-menu').hide('slow');
+         $('#user-menu').hide('slow');
       });
    });
 }
@@ -248,11 +248,11 @@ function show_user_menu(username) {
     var admin_menu = `
         <hr width="50%"/>Admin<br/><br/>
         <li>
-         <button class="cul-menu-button" id="mute-user" title="Mute (disable CAT/TX) for user">Mute</button>
-         <button class="cul-menu-button" id="unmute-user" title="Unmute (enable CAT/TX) for user">Unmute</button>
+         <button class="cul-menu-button mute-user" title="Mute (disable CAT/TX) for user">Mute</button>
+         <button class="cul-menu-button unmute-user" title="Unmute (enable CAT/TX) for user">Unmute</button>
         </li>
-        <li><button class="cul-menu-button" id="kick-user" title="Disconnect user">Kick</button></li>
-        <li><button class="cul-menu-button" id="ban-user" title="Ban & Kick user">Ban</button></li>
+        <li><button class="cul-menu-button kick-user" title="Disconnect user">Kick</button></li>
+        <li><button class="cul-menu-button ban-user" title="Ban & Kick user">Ban</button></li>
     `;
 
     // Base menu
@@ -266,53 +266,53 @@ function show_user_menu(username) {
         <span class="user-menu-items">
             <ul>
 <!--                <li><a href="mailto:${user_email}" target="_blank">Email</a></li> -->
-                <li><button class="cul-menu-button" id="whois-user">Whois</button></li>
+                <li><button class="cul-menu-button whois-user">Whois</button></li>
                 ${isAdmin ? admin_menu : ''}
             </ul>
         </span>
     `;
 
     // Update the user menu and show it
-    $('.user-menu').html(menu);
+    $('#user-menu').html(menu);
 
     var user = UserCache.get(username);
     // if user is in the cache, see if they have muted property set
     if (typeof user !== 'undefined') {
-       $('#mute-user').on('click', function() {
+       $('.mute-user').on('click', function() {
           chat_send_command('mute', { target: username });
           form_disable(false);
-          $('.user-menu').hide('slow');
+          $('#user-menu').hide('slow');
        });
 
-       $('#unmute-user').on('click', function() {
+       $('.unmute-user').on('click', function() {
           chat_send_command('unmute', { target: username });
           form_disable(false);
-          $('.user-menu').hide('slow');
+          $('#user-menu').hide('slow');
        });
 
        // do we show mute or unmute button?
        if (user.muted === "true") {
-          $('#mute-user').hide('fast');
-          $('#unmute-user').show('fast');
+          $('.mute-user').hide('fast');
+          $('.unmute-user').show('fast');
        } else {
-          $('#unmute-user').hide('fast');
-          $('#mute-user').show('fast');
+          $('.unmute-user').hide('fast');
+          $('.mute-user').show('fast');
        }
     }
 
     // Close button functionality
     $('.um-close').on('click', function() {
         form_disable(false);
-        $('.user-menu').hide('slow');
+        $('#user-menu').hide('slow');
     });
 
     // Attach event listeners
-    $('#whois-user').on('click', () => chat_send_command('whois', { target: username }));
-    $('#kick-user').on('click', () => send_admin_command('kick', username));
-    $('#ban-user').on('click', () => send_admin_command('ban', username));
+    $('.whois-user').on('click', () => chat_send_command('whois', { target: username }));
+    $('.kick-user').on('click', () => send_admin_command('kick', username));
+    $('.ban-user').on('click', () => send_admin_command('ban', username));
 
     // Finally, show the menu
-    $('.user-menu').show();
+    $('#user-menu').show();
 }
 
 // Function to send commands over WebSocket
@@ -327,7 +327,7 @@ function chat_send_command(cmd, args) {
 
    var msgObj_j = JSON.stringify(msgObj);
    socket.send(msgObj_j);
-   $('.user-menu').hide();
+   $('#user-menu').hide();
 //   console.log("Sent command:", msgObj_j);
 }
 
@@ -388,37 +388,37 @@ function parse_chat_cmd(e) {
             case 'help':
                chat_append('<div><span class="error">*** HELP *** All commands start with /</span></div>');
                chat_append('<div><span class="error">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
-               chat_append('<div><span class="error">/quit or /logout to end session</span></div>');
-               chat_append('<div><span class="error">/clear&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
-               chat_append('<div><span class="error">/help&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
-               chat_append('<div><span class="error">/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
-               chat_append('<div><span class="error">/menu&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
-               chat_append('<div><span class="error">/whois&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
-               chat_append('<div><span class="error">/quit&nbsp;&nbsp;- Disconnect</span></div>');
+               chat_append('<div><span class="error">&nbsp;/quit&nbsp;&nbsp;-&nbsp;End session</span></div>');
+               chat_append('<div><span class="error">&nbsp;/clear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
+               chat_append('<div><span class="error">&nbsp;/help&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
+               chat_append('<div><span class="error">&nbsp;/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
+               chat_append('<div><span class="error">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
+               chat_append('<div><span class="error">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+               chat_append('<div><span class="error">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
                //////
-               chat_append('<br/><div><span class="error">*** DEBUG TOOLS *** All commands start with /</span></div>');
-               chat_append('<div><span class="error">/clearlog&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
-               chat_append('<div><span class="error">/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
-               chat_append('<div><span class="error">/names&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Force refresh of UserCache</span></div>');
-               chat_append('<div><span class="error">/reloadcss&nbsp;&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
-               chat_append('<div><span class="error">/syslog&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
+               chat_append('<br/><div><span class="error">*** DEBUG TOOLS - Used by developer</span></div>');
+               chat_append('<div><span class="error">&nbsp;/clearlog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
+               chat_append('<div><span class="error">&nbsp;/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
+               chat_append('<div><span class="error">&nbsp;/names&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Force refresh of UserCache</span></div>');
+               chat_append('<div><span class="error">&nbsp;/reloadcss&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
+               chat_append('<div><span class="error">&nbsp;/syslog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
 
                var isAdmin = /(owner|admin)/.test(auth_privs);
                if (isAdmin) {
-                  chat_append('<br/><div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners./</span></div>');
-                  chat_append('<div><span class="error">/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="error">/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
+                  chat_append('<br/><div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners.</span></div>');
+                  chat_append('<div><span class="error">&nbsp;/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="error">&nbsp;/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
 //                  chat_append('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
-                  chat_append('<div><span class="error">/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="error">/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="error">/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="error">/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
+                  chat_append('<div><span class="error">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="error">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="error">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="error">&nbsp;/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
                } else {
                   chat_append('<div><span class="error">*********************************************</span></div>');
                   chat_append('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
                   chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
                }
-               chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;You can use tab completion, press @ then type a few letters or hit tab</span></div>');
+               chat_append('<br/><div><span class="error">You can use tab completion, press @ then type a few letters or hit tab</span></div>');
                break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);
