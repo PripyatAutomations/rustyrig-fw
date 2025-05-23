@@ -91,6 +91,16 @@
    </span><!-- menu_tabs -->
   </div><!-- tabstrip -->
   <div id="win-container">
+   <div id="user-menu">
+    <div class="um-header" style="position: relative;">
+     <span class="um-close">✖</span>
+    </div>
+    <div class="um-content">
+     User: <span class="um-username"></span><br/>
+     <span class="user-menu-items">
+     </span>
+    </div>
+   </div> <!-- user-menu -->
    <div id="win-login" class="window">
     <div id="sub-login-error" class="modal">
      <span id="sub-login-error-msg"></span><br/>
@@ -126,20 +136,9 @@
       </div> <!-- chat-box -->
       <div class="chat-user-list" id="chat-user-list-chat" tabindex="-1">
        <h4>users</h4>
-       <hr width="100%"/>
        <ul id="cul-list-chat" class="cul-list"></ul>
       </div> <!-- chat-user-list -->
      </div> <!-- chat-container -->
-     <div id="user-menu">
-      <div class="um-header" style="position: relative;">
-       <span class="um-close">✖</span>
-      </div>
-      <div class="um-content">
-       User: <span class="um-username"></span><br/>
-       <span class="user-menu-items">
-       </span>
-      </div>
-     </div>
     </div> <!-- upper-wrapper -->
     <div id="lower-wrapper">
      <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
@@ -222,16 +221,6 @@
       <ul id="cul-list-rig" class="cul-list"></ul>
      </div> <!-- chat-user-list -->
     </div> <!-- rig-right -->
-    <div class="user-menu">
-     <div class="um-header" style="position: relative;">
-      <span class="um-close">✖</span>
-     </div>
-     <div class="um-content">
-      User: <span class="um-username"></span><br/>
-      <span class="user-menu-items">
-      </span>
-     </div>
-    </div>
    </div> <!-- win-rig -->
 <!--- WIN:SYSLOG -->
    <div id="win-syslog" class="window">

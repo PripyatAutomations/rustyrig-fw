@@ -29,17 +29,24 @@ const UserCache = {
    users: {},
 
    add(user) {
-      this.users[user.name] = {
-         // Only copy fields that are actually present
-         ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
-         ...(user.hasOwnProperty('muted') && { muted: user.muted }),
-         ...(user.hasOwnProperty('privs') && { privs: user.privs })
-      };
+      const entry = this.users[user.name];
+      if (entry) {
+         entry.refcount++;
+      } else {
+         this.users[user.name] = {
+            refcount: 1,
+            ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
+            ...(user.hasOwnProperty('muted') && { muted: user.muted }),
+            ...(user.hasOwnProperty('privs') && { privs: user.privs })
+         };
+      }
       cul_render();
    },
 
    remove(name) {
-      delete this.users[name];
+      const entry = this.users[name];
+      if (!entry) return;
+      if (--entry.refcount <= 0) delete this.users[name];
       cul_render();
    },
 
@@ -49,7 +56,6 @@ const UserCache = {
          this.add(user);
          return;
       }
-
       if ('ptt'   in user) existing.ptt   = user.ptt;
       if ('privs' in user) existing.privs = user.privs;
       if ('muted' in user) existing.muted = user.muted;
@@ -64,12 +70,17 @@ const UserCache = {
       return Object.entries(this.users).map(([name, props]) => ({ name, ...props }));
    },
 
+   clones(name) {
+      return this.users[name]?.refcount || 0;
+   },
+
    dump() {
       console.log("UserCache contents:");
       for (const [name, props] of Object.entries(this.users)) {
          console.log(`- ${name}:`, props);
       }
    },
+
    clear() {
       this.users = {};
       cul_render();

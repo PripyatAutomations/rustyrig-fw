@@ -392,7 +392,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 #user-menu {
     position: absolute;
     font-size: 1.2em;
-    top: 0px;
+    top: 3.5em;
     right: 0px;
     border: 1px solid #ccc;
     border-radius: 10px;
