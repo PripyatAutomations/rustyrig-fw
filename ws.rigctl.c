@@ -43,7 +43,6 @@ typedef struct ws_rig_state {
 
 // Here we keep track of a few sets of VFO state
 static ws_rig_state_t	vfo_states[MAX_VFOS], vfo_states_last[MAX_VFOS];
-static rr_vfo_t	active_vfo;
 time_t ws_rig_state_last_sent;
 
 ws_rig_state_t *ws_rig_get_vfo_state(rr_vfo_t vfo) {

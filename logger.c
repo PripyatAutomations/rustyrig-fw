@@ -99,10 +99,7 @@ void logger_init(void) {
          Log(LOG_CRIT, "core", "Couldn't open log file at %s - %d:%s", LOG_FILE, errno, strerror(errno));
          return;
       }
-      // XXX: do final setup
    }
-#else
-/* Machdep log setup goes here */
 #endif
 }
 
@@ -111,8 +108,6 @@ void logger_end(void) {
 /* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
    if (logfp != NULL)
       fclose(logfp);
-#else
-/* Machdep log teardown goes here */
 #endif
 }
 
@@ -196,7 +191,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    }
 */
 
-      // update the timestamp string (XXX: This could be moved to our once/sec handler)
+   // this is arranged so that it will return if called more than once a second
    if (log_show_ts) {
       update_timestamp();
    }
@@ -205,7 +200,6 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    memset(msgbuf, 0, sizeof(msgbuf));
 
    va_start(ap, fmt);
-
    /* Expand the format string */
    vsnprintf(msgbuf, 511, fmt, ap);
    memset(log_msg, 0, sizeof(log_msg));
@@ -214,8 +208,6 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 #if	defined(HOST_POSIX) || defined(FEATURE_FILESYSTEM)
    /* Only spew to the serial port if logfile is closed */
    if (logfp == NULL && logfp != stdout) {
-      // XXX: this should support network targets too!!
-      printf("%s %s: %s\n", latest_timestamp, log_priority_to_str(priority), msgbuf);
       va_end(ap);
       return;
    }
@@ -223,17 +215,18 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    if (log_show_ts) {
       fprintf(logfp, "[%s] %s\n", latest_timestamp, log_msg);
       if (logfp != stdout) {
-         fprintf(stdout, "[%s] %s\n", latest_timestamp, log_msg);
+         fprintf(stdout, "x[%s] %s\n", latest_timestamp, log_msg);
       }
    } else {
       fprintf(logfp, "%s\n", log_msg);
       if (logfp != stdout) {
-         fprintf(stdout, "%s\n", log_msg);
+         fprintf(stdout, "x: %s\n", log_msg);
       }
    }
    fflush(logfp);
 #endif
 
+// if not in rrclient code, we should bcast this to users with SYSLOG flag
 #if	!defined(__RRCLIENT)
    char ws_logbuf[2048];
    char ws_json_escaped[1024];

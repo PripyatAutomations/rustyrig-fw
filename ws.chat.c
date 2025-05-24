@@ -339,15 +339,68 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             free(filetype);
             free(filename);
          } else { // or just a chat message
-            char *escaped_msg = escape_html(data);
-            if (escaped_msg == NULL) {
-               Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
-               rv = true;
-               goto cleanup;
+            if (data[0] == '!') {
+               char *input = data + 1;  // skip initial '!'
+               char cmd[16], arg[32];
+               size_t cmd_len = sizeof(cmd), arg_len = sizeof(arg);
+
+               if (!has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
+                  /// XXX: we should send an error alert
+                  rv = true;
+                  goto cleanup;
+               }
+
+               while (*input) {
+                  while (isspace(*input)) input++;
+
+                  // extract command
+                  size_t i = 0;
+                  while (*input && !isspace(*input) && i < cmd_len - 1)
+                     cmd[i++] = *input++;
+                  cmd[i] = '\0';
+
+                  while (isspace(*input)) input++;
+
+                  // extract argument
+                  i = 0;
+                  while (*input && !isspace(*input) && i < arg_len - 1)
+                     arg[i++] = *input++;
+                  arg[i] = '\0';
+
+                  if (*cmd == '\0' || *arg == '\0')
+                     break;
+
+                  if (strcasecmp(cmd, "freq") == 0) {
+                     long real_freq = parse_freq(arg);
+                     Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", real_freq, arg, cptr->chatname);
+                     rr_freq_set(active_vfo, real_freq);
+                  } else if (strcasecmp(cmd, "mode") == 0) {
+                     Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
+                     rr_set_mode(active_vfo, vfo_parse_mode(arg));
+                  } else if (strcasecmp(cmd, "power") == 0) {
+                     Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);
+                  } else if (strcasecmp(cmd, "width") == 0) {
+                     long real_width = parse_freq(arg);
+                     Log(LOG_DEBUG, "ws.chat", "Got !width %lu (%s) from %s", real_width, arg, cptr->chatname);
+                  } else if (strcasecmp(cmd, "vfo") == 0) {
+                     Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
+                  } else if (strcasecmp(cmd, "help") == 0) {
+                     // XXX: Send a help message
+                  } else {
+                     Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
+                  }
+               }
+            } else {			// just a message
+               char *escaped_msg = escape_html(data);
+               if (escaped_msg == NULL) {
+                  Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
+                  rv = true;
+                  goto cleanup;
+               }
+               prepare_msg(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }",
+                           cptr->chatname, escaped_msg, now, msg_type);
+               free(escaped_msg);
             }
-            prepare_msg(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }",
-                        cptr->chatname, escaped_msg, now, msg_type);
-            free(escaped_msg);
          }
          mp = mg_str(msgbuf);
 

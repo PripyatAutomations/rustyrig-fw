@@ -65,8 +65,10 @@ extern rr_vfo_t vfo_lookup(const char vfo);
 extern const char vfo_name(rr_vfo_t vfo);
 extern rr_mode_t vfo_parse_mode(const char *mode);
 extern const char *vfo_mode_name(rr_mode_t mode);
+extern long parse_freq(const char *str);
 
 //
 extern rr_vfo_data_t vfos[MAX_VFOS];
+extern rr_vfo_t active_vfo;
 
 #endif	// !defined(__rr_vfo_h)

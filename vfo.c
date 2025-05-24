@@ -22,6 +22,7 @@
 #include "inc/vfo.h"
 
 rr_vfo_data_t vfos[MAX_VFOS];
+rr_vfo_t active_vfo = VFO_A;
 
 static const char vfo_mode_none[] = "NONE";
 static const char vfo_mode_cw[] = "CW";
@@ -107,9 +108,9 @@ rr_mode_t vfo_parse_mode(const char *mode) {
       return MODE_DSB;
    } else if (strcasecmp(mode, vfo_mode_fm) == 0) {
       return MODE_FM;
-   } else if (strcasecmp(mode, vfo_mode_dl) == 0) {
+   } else if (strcasecmp(mode, vfo_mode_dl) == 0 || strcasecmp(mode, "dl") == 0) {
       return MODE_DL;
-   } else if (strcasecmp(mode, vfo_mode_du) == 0) {
+   } else if (strcasecmp(mode, vfo_mode_du) == 0 || strcasecmp(mode, "du") == 0) {
       return MODE_DU;
    } else if (strcasecmp(mode, vfo_mode_ft4) == 0) {
       return MODE_FT4;
@@ -161,4 +162,42 @@ const char *vfo_mode_name(rr_mode_t mode) {
 
    Log(LOG_DEBUG, "vfo_mode_name", "%d => %s", rv);
    return rv;
+}
+
+long parse_freq(const char *str) {
+   while (isspace(*str)) str++;
+
+   char *end = NULL;
+   double val = strtod(str, &end);
+
+   while (isspace(*end)) {
+      end++;
+   }
+
+   // Determine unit
+   if (*end == '\0') {
+      // No suffix: guess based on size
+      if (val < 1e3) {
+         return (long)(val * 1e3);       // assume kHz
+      } else {
+         return (long)val;                         // already in Hz
+      }
+   } else if (*end == 'k' || *end == 'K') {
+      return (long)(val * 1e3);
+   } else if (*end == 'm' || *end == 'M') {
+      return (long)(val * 1e6);
+   }
+
+   return -1; // invalid format
+}
+
+const char *format_freq(long hz, char *buf, size_t len) {
+   if (hz >= 1000000) {
+      snprintf(buf, len, "%.3f MHz", hz / 1e6);
+   } else if (hz >= 1000) {
+      snprintf(buf, len, "%.1f kHz", hz / 1e3);
+   } else {
+      snprintf(buf, len, "%ld Hz", hz);
+   }
+   return buf;
 }
