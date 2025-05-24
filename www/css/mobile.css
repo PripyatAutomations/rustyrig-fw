@@ -89,7 +89,7 @@
       height: CALC(100vh - 0.8em);
    }
 
-   #chat-user-list {
+   .chat-user-list {
       height: auto;
       width: auto;
       height: CALC(100% - 17.6em);

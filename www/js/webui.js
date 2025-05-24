@@ -177,10 +177,10 @@ function ws_connect() {
    show_connecting(true);
 
    // destroy old socket, if present
-   if (typeof socket !== 'undefined') {
-      socket.close();
-      socket = null;
-   }
+//   if (typeof socket !== 'undefined') {
+//      socket.close();
+//      socket = null;
+//   }
 
    socket = new WebSocket(make_ws_url());
 

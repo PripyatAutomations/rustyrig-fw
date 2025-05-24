@@ -120,41 +120,45 @@ rr_mode_t vfo_parse_mode(const char *mode) {
 }
 
 const char *vfo_mode_name(rr_mode_t mode) {
+   const char *rv = NULL;
+
    switch(mode) {
       case MODE_CW:
-         return vfo_mode_cw;
+         rv = vfo_mode_cw;
          break;
       case MODE_AM:
-         return vfo_mode_am;
+         rv = vfo_mode_am;
          break;
       case MODE_LSB:
-         return vfo_mode_lsb;
+         rv = vfo_mode_lsb;
          break;
       case MODE_USB:
-         return vfo_mode_usb;
+         rv = vfo_mode_usb;
          break;
       case MODE_DSB:
-         return vfo_mode_dsb;
+         rv = vfo_mode_dsb;
          break;
       case MODE_FM:
-         return vfo_mode_fm;
+         rv = vfo_mode_fm;
          break;
       case MODE_DL:
-         return vfo_mode_dl;
+         rv = vfo_mode_dl;
          break;
       case MODE_DU:
-         return vfo_mode_du;
+         rv = vfo_mode_du;
          break;
       case MODE_FT4:
-         return vfo_mode_ft4;
+         rv = vfo_mode_ft4;
          break;
       case MODE_FT8:
-         return vfo_mode_ft8;
+         rv = vfo_mode_ft8;
          break;
       case MODE_NONE:
       default:
-         return vfo_mode_none;
+         rv = vfo_mode_none;
          break;
    }
-   return NULL;
+
+   Log(LOG_DEBUG, "vfo_mode_name", "%d => %s", rv);
+   return rv;
 }
