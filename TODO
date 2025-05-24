@@ -5,6 +5,9 @@ ASAP
 * Fix PTT button needing clicked twice after TOT fired
   - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
 * SUpport for at least VFO A & B
+* Move the input box to be permanent, with the button bar above it when in chat
+- Make VFO widgets floating
+- Make vfo edit widgets pop up overlapping the affected VFO
 
 [misc]
 * Add support for TX quotas (credits) and tracking top talkers
