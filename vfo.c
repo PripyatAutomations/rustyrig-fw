@@ -170,17 +170,18 @@ long parse_freq(const char *str) {
    char *end = NULL;
    double val = strtod(str, &end);
 
-   while (isspace(*end)) {
-      end++;
-   }
+   while (isspace(*end)) end++;
 
-   // Determine unit
+   // If no suffix provided, guess unit
    if (*end == '\0') {
-      // No suffix: guess based on size
-      if (val < 1e3) {
-         return (long)(val * 1e3);       // assume kHz
+      // Count digits before any decimal point
+      const char *dot = strchr(str, '.');
+      int digits = dot ? (dot - str) : strlen(str);
+
+      if (digits >= 3 && digits <= 5) {
+         return (long)(val * 1e3); // assume kHz
       } else {
-         return (long)val;                         // already in Hz
+         return (long)val;         // assume Hz
       }
    } else if (*end == 'k' || *end == 'K') {
       return (long)(val * 1e3);
