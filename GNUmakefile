@@ -281,6 +281,6 @@ db/master.db:
 	sqlite3 $@ < sql/sqlite.master.sql
 
 dump-ptt:
-	sqlite3 db/master.db 'select * from ptt_log';
+	sqlite3 db/master.db 'select * from ptt_log order BY start_time;'
 dump-log:
-	sqlite3 db/master.db 'select * from audit_log';
+	sqlite3 db/master.db 'select * from audit_log;'

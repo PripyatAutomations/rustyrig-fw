@@ -327,8 +327,22 @@ bool ws_send_error_msg(struct mg_connection *c, const char *scope, const char *m
    prepare_msg(msgbuf, sizeof(msgbuf),
       "{ \"%s\": { \"error\": \"%s\", \"ts\": %lu } }",
       scope, msg, now);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
-   // XXX: Actually send it
+   return false;
+}
+
+bool ws_send_notice(struct mg_connection *c, const char *scope, const char *msg) {
+   if (c == NULL || scope == NULL || msg == NULL) {
+      return true;
+   }
+
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   prepare_msg(msgbuf, sizeof(msgbuf),
+      "{ \"%s\": { \"notice\": \"%s\", \"ts\": %lu } }",
+      scope, msg, now);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
    return false;
 }
 
