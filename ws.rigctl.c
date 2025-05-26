@@ -243,8 +243,9 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             \"mode\": \"%s\", \"ts\": %lu } }",
              cptr->chatname, state, vfo, dp->power,
              dp->freq, dp->width, mode_name, now);
-//         mp = mg_str(msgbuf);
-//         ws_broadcast(NULL, &mp);
+           fprintf(stderr, "msg: %s [%li]\n", msgbuf, strlen(msgbuf));
+         mp = mg_str(msgbuf);
+         ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
          rr_ptt_set(c_vfo, c_state);
       } else if (strcasecmp(cmd, "freq") == 0) {
