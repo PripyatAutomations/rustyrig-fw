@@ -587,16 +587,16 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // blorp out a join to all chat users
          prepare_msg(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu, \"ip\": \"%s\", \"privs\": \"%s\", \"muted\": \"%s\" } }",
+                     "{ \"talk\": { \"cmd\": \"join\", \"user\": \"%s\", \"ts\": %lu, \"ip\": \"%s\", \"privs\": \"%s\", \"muted\": \"%s\", \"clones\": %d } }",
                      cptr->chatname, now, ip, cptr->user->privs, 
-                     (cptr->user->is_muted ? "true" : "false"));
+                     (cptr->user->is_muted ? "true" : "false"), cptr->user->clones);
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms);
 
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
              cptr->chatname, cptr, ip, port, cptr->user->clones, cptr->user->max_clones, cptr->user->privs);
 
-         // send an initial user-list (names) message to populate the chat-user-list (cul)
+         // send an initial user-list  message to populate the chat-user-list (cul)
          ws_send_users(cptr);
       } else {
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> from IP %s:%d gave wrong password. Kicking!", cptr->user, cptr, ip, port);

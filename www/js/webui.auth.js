@@ -43,6 +43,10 @@ window.webui_inits.push(function webui_auth_init() {
 // If we can fix the positioning, this is nice to have... but disabled for now
 //      var chroma_hash = $("input:password").chromaHash({ bars: 4, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
    $('#win-login input#user').focus();
+
+   $(window).on('beforeunload', function() {
+       logout();
+   }); 
 });
 
 ////////////////////////////
@@ -112,20 +116,25 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
 }
 
 function logout() {
-   var msgObj = {
-      "auth": {
-         "cmd": "logout",
-         "user": auth_user,
-         "token": auth_token
-      }
-   };
-   socket.send(JSON.stringify(msgObj));
+   if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
+      var msgObj = {
+         "auth": {
+            "cmd": "logout",
+            "user": auth_user,
+            "token": auth_token
+         }
+      };
+      socket.send(JSON.stringify(msgObj));
+   }
+
    if (typeof chatbox_clear === "function") {
       chatbox_clear();
    }
+
    if (typeof syslog_clear === "function") {
       syslog_clear();
    }
+
    show_login_window();
 }
 

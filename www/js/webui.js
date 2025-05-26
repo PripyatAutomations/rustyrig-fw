@@ -177,10 +177,10 @@ function ws_connect() {
    show_connecting(true);
 
    // destroy old socket, if present
-//   if (typeof socket !== 'undefined') {
-//      socket.close();
-//      socket = null;
-//   }
+   if (typeof socket !== 'undefined') {
+      socket.close();
+      socket = null;
+   }
 
    socket = new WebSocket(make_ws_url());
 
@@ -228,6 +228,7 @@ function ws_connect() {
 
    // When there's an error with the WebSocket
    socket.onerror = function(error) {
+      socket.close();
       cul_offline();
 
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
@@ -349,11 +350,12 @@ function ws_connect() {
                      $('span#vfo-c-power').html(power + '&nbsp;W');
                   }
                }
+
                var ptt_user = '';
                if (typeof user !== 'undefined' && user !== '') {
                   ptt_user = '<span>TX by ' + user + '</span>&nbsp';
-                  console.log("PTT:", ptt_user);
                }
+
                var status_msg = '<span>VFO: ' + vfo + '</span>&nbsp' +
                                 '<span>Mode:&nbsp;' +  mode + '&nbsp;</span>' +
                                 '<span>Freq:' + format_freq(freq) + '</span>&nbsp;&nbsp;' +
@@ -369,7 +371,7 @@ function ws_connect() {
                // Invalid timestamp in the ping, ignore it
                return false;
             }
-//            console.log("Got PING from server with ts", ts, "replying!");
+            console.log("Got PING from server with ts", ts, "replying!");
             var newMsg = { pong: { ts: String(ts) } };
             socket.send(JSON.stringify(newMsg));
          } else if (msgObj.talk) {		// Handle Chat messages
@@ -415,9 +417,11 @@ function ws_connect() {
                   var msg_ts = msg_timestamp(msgObj.talk.ts);
                   var nl = user_link(user);
                   var ptt_state = msgObj.talk.ptt;
+
                   if (typeof ptt_state === 'undefined') {
                      ptt_state = false;
                   }
+
                   var muted_state = msgObj.talk.muted;
                   if (typeof muted_state === 'undefined') {
                      muted_state = false;

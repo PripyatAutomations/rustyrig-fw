@@ -484,7 +484,7 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    color: LemonChiffon;
    padding: 20px;
    box-shadow: 0 0 20px black;
-   z-index: 1500;
+   z-index: 4500;
 }
 
 #reason-modal input[type="text"], #reason-modal textarea {
