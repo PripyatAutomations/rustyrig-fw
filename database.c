@@ -69,6 +69,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    return success;
 }
 
+// XXX: We need to add support for pointing to the recording file that will be started
 int db_ptt_start(sqlite3 *db, const char *username,
                  double frequency, const char *mode,
                  int bandwidth, float power) {

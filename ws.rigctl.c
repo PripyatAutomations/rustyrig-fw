@@ -211,7 +211,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             vfo_id = vfo_lookup(vfo[0]);
          }
          rr_vfo_data_t *dp = &vfos[vfo_id];
-         Log(LOG_DEBUG, "ws.rigctl", "mode: %d", dp->mode);
          mode_name = vfo_mode_name(dp->mode);
 
          // turn PTT state requested into a boolean value

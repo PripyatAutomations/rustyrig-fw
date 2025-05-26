@@ -78,6 +78,54 @@ static vfo_t hl_get_vfo(rr_vfo_t vfo) {
    return RIG_VFO_NONE;
 }
 
+rr_mode_t hl_mode_get(rr_vfo_t vfo) {
+   int rv = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width);
+   Log(LOG_DEBUG, "hl_mode_get", "rv: %d mode: %lu width: %d", rv, hl_state.rmode, hl_state.width);
+   return MODE_NONE;
+}
+
+// Convert between internal and hamlib IDs for modes
+rmode_t hl_mode(rr_mode_t mode) {
+   rmode_t rv = RIG_MODE_NONE;
+   if (mode == MODE_CW) {
+      return RIG_MODE_CW;
+   } else if (mode == MODE_AM) {
+      return RIG_MODE_AM;
+   } else if (mode == MODE_LSB) {
+      return RIG_MODE_LSB;
+   } else if (mode == MODE_USB) {
+      return RIG_MODE_USB;
+   } else if (mode == MODE_FM) {
+      return RIG_MODE_FM;
+   } else if (mode == MODE_DU) {
+      return RIG_MODE_PKTUSB;
+   } else if (mode == MODE_DL) {
+      return RIG_MODE_PKTLSB;
+   }
+   return RIG_MODE_NONE;
+}
+
+// Convert between internal and hamlib IDs for modes
+rr_mode_t hl_mode_to_rr(rmode_t mode) {
+   rr_mode_t rv = MODE_NONE;
+   if (mode == RIG_MODE_CW) {
+      return MODE_CW;
+   } else if (mode == RIG_MODE_AM) {
+      return MODE_AM;
+   } else if (mode == RIG_MODE_LSB) {
+      return MODE_LSB;
+   } else if (mode == RIG_MODE_USB) {
+      return MODE_USB;
+   } else if (mode == RIG_MODE_FM) {
+      return MODE_FM;
+   } else if (mode == RIG_MODE_PKTUSB) {
+      return MODE_DU;
+   } else if (mode == RIG_MODE_PKTLSB) {
+      return MODE_DL;
+   }
+   return RIG_MODE_NONE;
+}
+
 // Destroy the hamlib RIG object
 static void hl_destroy(RIG *hl_rig) {
    rig_close(hl_rig);
@@ -227,8 +275,9 @@ rr_vfo_data_t *hl_poll(void) {
    // Pack the data into a vfo_data struct to send back to our caller
    rv->freq = hl_state.freq;
    rv->width = hl_state.width;
-   Log(LOG_DEBUG, "be.hamlib", "rmode: %d", hl_state.rmode);
-   rv->mode = vfo_parse_mode(rig_strrmode(hl_state.rmode));
+//   const char *tmode = rig_strrmode(hl_state.rmode);
+//   rv->mode = vfo_parse_mode(tmode);
+   rv->mode = hl_mode_to_rr(hl_state.rmode);
    // XXX: finish this
    rv->width = hl_state.width;
    rv->power = hl_state.power;
@@ -264,33 +313,6 @@ float hl_power_get(rr_vfo_t vfo) {
 
    Log(LOG_DEBUG, "hl_power_get", "read: %d", i);
    return 0;
-}
-
-rr_mode_t hl_mode_get(rr_vfo_t vfo) {
-   int rv = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width);
-   Log(LOG_DEBUG, "hl_mode_get", "rv: %d mode: %lu width: %d", rv, hl_state.rmode, hl_state.width);
-   return MODE_NONE;
-}
-
-// Convert between internal and hamlib IDs for modes
-rmode_t hl_mode(rr_mode_t mode) {
-   rmode_t rv = RIG_MODE_NONE;
-   if (mode == MODE_CW) {
-      return RIG_MODE_CW;
-   } else if (mode == MODE_AM) {
-      return RIG_MODE_AM;
-   } else if (mode == MODE_LSB) {
-      return RIG_MODE_LSB;
-   } else if (mode == MODE_USB) {
-      return RIG_MODE_USB;
-   } else if (mode == MODE_FM) {
-      return RIG_MODE_FM;
-   } else if (mode == MODE_DU) {
-      return RIG_MODE_PKTUSB;
-   } else if (mode == MODE_DL) {
-      return RIG_MODE_PKTLSB;
-   }
-   return RIG_MODE_NONE;
 }
 
 bool hl_mode_set(rr_vfo_t vfo, rr_mode_t mode) {

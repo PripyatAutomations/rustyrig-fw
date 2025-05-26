@@ -18,7 +18,8 @@ CREATE TABLE ptt_log (
    bandwidth INTEGER NOT NULL,
    power REAL NOT NULL,
    start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-   end_time DATETIME
+   end_time DATETIME,
+   record_file TEXT
 );
 
 -- Users

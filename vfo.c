@@ -96,7 +96,7 @@ const char vfo_name(rr_vfo_t vfo) {
 }
 
 rr_mode_t vfo_parse_mode(const char *mode) {
-   Log(LOG_DEBUG, "vfo", "vfo_parse_mode: %s", mode);
+   Log(LOG_CRAZY, "vfo", "vfo_parse_mode: %s", mode);
    if (strcasecmp(mode, vfo_mode_cw) == 0) {
       return MODE_CW;
    } else if (strcasecmp(mode, vfo_mode_am) == 0) {
@@ -109,15 +109,16 @@ rr_mode_t vfo_parse_mode(const char *mode) {
       return MODE_DSB;
    } else if (strcasecmp(mode, vfo_mode_fm) == 0) {
       return MODE_FM;
-   } else if (strcasecmp(mode, vfo_mode_dl) == 0 || strcasecmp(mode, "dl") == 0) {
+   } else if (strcasecmp(mode, vfo_mode_dl) == 0 || strcasecmp(mode, "dl") == 0 || strcasecmp(mode, "PKTLSB") == 0) {
       return MODE_DL;
-   } else if (strcasecmp(mode, vfo_mode_du) == 0 || strcasecmp(mode, "du") == 0) {
+   } else if (strcasecmp(mode, vfo_mode_du) == 0 || strcasecmp(mode, "du") == 0 || strcasecmp(mode, "PKTUSB") == 0) {
       return MODE_DU;
    } else if (strcasecmp(mode, vfo_mode_ft4) == 0) {
       return MODE_FT4;
    } else if (strcasecmp(mode, vfo_mode_ft8) == 0) {
       return MODE_FT8;
    }
+   Log(LOG_DEBUG, "vfo", "vfo_parse_mode: Couldn't parse %s, returning MODE_NONE", mode);
    return MODE_NONE;
 }
 
@@ -160,8 +161,6 @@ const char *vfo_mode_name(rr_mode_t mode) {
          rv = vfo_mode_none;
          break;
    }
-
-   Log(LOG_DEBUG, "vfo_mode_name", "%d => %s", mode, rv);
    return rv;
 }
 

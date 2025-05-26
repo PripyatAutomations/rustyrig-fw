@@ -80,6 +80,7 @@ CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
 LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
 endif
 
+objs += au.recording.o		# Support for recording audio to files
 objs += auth.o			# User management
 objs += backend.o		# Support for multiple backends by setting up pointer into appropriate one
 objs += backend.dummy.o		# Dummy backend (not implemented yet - use hamlib + rigctld in dummy rig mode!)
