@@ -10,7 +10,9 @@ function msg_create_links(message) {
 
 function chat_append(msg) {
    // limit scrollback to 1000 items
-   const $messages = $('#chat-box');
+//   const $messages = $('#chat-box');
+   const $messages = $('#chat-box').children();
+   // If we have over 1000 lines, remove 100
    if ($messages.length > 1000) {
       $messages.slice(0, 100).remove();
    }

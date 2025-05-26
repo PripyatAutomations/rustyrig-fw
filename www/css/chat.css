@@ -32,6 +32,7 @@
 }
 
 #chat-box {
+   border: 2px solid red;
    border-bottom-radius: 10px;
    background-color: #dcdcdc;
    font-size: clamp(0.5em, 1vw + 0.3em, 1em);
@@ -541,4 +542,13 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 #lower-wrapper {
    padding: 0px;
    margin: 0px;
+}
+
+#rig-top-status {
+   border-radius: 10px;
+   border: 2px solid red;
+   position: fixed;
+   top: CALC(3.5em);
+   left: 0px;
+   width: 100%;
 }
