@@ -285,11 +285,21 @@ rr_vfo_data_t *hl_poll(void) {
    // send to all users
    struct mg_str mp;
    char msgbuf[HTTP_WS_MAX_MSG+1];
+   http_client_t *talker = whos_talking();
 
-   prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"state\": { \"vfo\": \"A\", \"freq\": %f, \"mode\": \"%s\", \"width\": %d, \"ptt\": \"%s\", \"power\": %d }, \"ts\": %lu  } }",
+   prepare_msg(msgbuf, sizeof(msgbuf),
+       "{ \"cat\": { \"state\": { \"vfo\": "
+                    "\"A\", \"freq\": %f, "
+                    "\"mode\": \"%s\", "
+                    "\"width\": %d, "
+                    "\"ptt\": \"%s\", "
+                    "\"power\": %d"
+                " }, \"ts\": %lu ,"
+                " \"user\": \"%s\""
+       " } }",
        (hl_state.freq), rig_strrmode(hl_state.rmode), hl_state.width,
        (hl_state.ptt ? "true" : "false"),
-       hl_state.power, now);
+       hl_state.power, now, (talker ? talker->chatname : ""));
         
    mp = mg_str(msgbuf);
 

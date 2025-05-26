@@ -349,10 +349,16 @@ function ws_connect() {
                      $('span#vfo-c-power').html(power + '&nbsp;W');
                   }
                }
+               var ptt_user = '';
+               if (typeof user !== 'undefined' && user !== '') {
+                  ptt_user = '<span>TX by ' + user + '</span>&nbsp';
+                  console.log("PTT:", ptt_user);
+               }
                var status_msg = '<span>VFO: ' + vfo + '</span>&nbsp' +
                                 '<span>Mode:&nbsp;' +  mode + '&nbsp;</span>' +
                                 '<span>Freq:' + format_freq(freq) + '</span>&nbsp;&nbsp;' +
-                                '<span>Width:' + width + '</span>&nbsp;&nbsp;';
+                                '<span>Width:' + width + '</span>&nbsp;&nbsp;' +
+                                ptt_user;
 // XXX: Power in the server msgs is actually rssid
 //                                '<span>RX: ' + power + '</span>';
                $('#chat-rig-status span#vfo-status').html(status_msg);
