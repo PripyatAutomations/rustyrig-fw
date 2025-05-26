@@ -183,22 +183,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       return true;
    }
 
-   // XXX: Need to remove this and instead pull it from rig state
-   rr_vfo_t vfo_id = VFO_NONE;
-   rr_mode_t mode = MODE_NONE;
-   int power = 0;
-   const char *mode_name = vfo_mode_name(mode);
-   float freq = 0;
-   int width = 0;
-
-   if (vfo != NULL) {
-      vfo_id = vfo_lookup(vfo[0]);
-      rr_vfo_data_t *dp = &vfos[vfo_id];
-      mode = dp->mode;
-      freq = dp->freq;
-      power = dp->power;
-      width = dp->width;
-   }
 
    if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
@@ -218,6 +202,17 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
 
+         // Gather some date
+         rr_vfo_t vfo_id = VFO_NONE;
+         const char *mode_name = NULL;
+         if (vfo == NULL) {
+            vfo_id = VFO_A;
+         } else {
+            vfo_id = vfo_lookup(vfo[0]);
+         }
+         rr_vfo_data_t *dp = &vfos[vfo_id];
+         mode_name = vfo_mode_name(dp->mode);
+
          if (strcasecmp(state, "true") == 0 || strcasecmp(state, "on") == 0) {
             c_state = true;
          } else {
@@ -227,18 +222,29 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
          cptr->is_ptt = c_state;
 
-         // XXX: Finish this
+         // Log PTT event in the master db
          if (!cptr->ptt_session) {
-            cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, freq, vfo_mode_name(mode), width, power);
+            cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, dp->freq, mode_name, dp->width, dp->power);
          } else {
             db_ptt_stop(masterdb, cptr->ptt_session);
          }
 
+         printf("vfo: %s\n", vfo);
+         printf("pow: %f\n", dp->power);
+         printf("freq: %f\n", dp->freq);
+         printf("mode: %d\n", dp->mode);
+         printf("wdth: %d\n", dp->width);
+         printf("tmod: %s\n", mode_name);
+         
          // tell everyone about it
-         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \"vfo\": \"%s\", \"power\": %d, \"freq\": %f, \"mode\": \"%s\", \"ts\": %lu } }",
-             cptr->chatname, state, vfo, power, freq, vfo_mode_name(mode), now);
-         mp = mg_str(msgbuf);
-         ws_broadcast(NULL, &mp);
+         prepare_msg(msgbuf, sizeof(msgbuf),
+         "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \
+            \"vfo\": \"%s\", \"power\": %f, \"freq\": %f, \"width\": %d, \
+            \"mode\": \"%s\", \"ts\": %lu } }",
+             cptr->chatname, state, vfo, dp->power,
+             dp->freq, dp->width, mode_name, now);
+//         mp = mg_str(msgbuf);
+//         ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
          rr_ptt_set(c_vfo, c_state);
       } else if (strcasecmp(cmd, "freq") == 0) {

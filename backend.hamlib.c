@@ -148,17 +148,6 @@ static bool hl_init(void) {
    rig_set_vfo(hl_rig, RIG_VFO_A);
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
 
-   // set some sane defaults
-   int rc = rig_set_mode(hl_rig, RIG_VFO_CURR, RIG_MODE_LSB, rig_passband_normal(hl_rig, RIG_MODE_LSB));
-   if (rc != RIG_OK) {
-      Log(LOG_WARN, "be.hamlib", "Failed setting VFO A mode to LSB");
-   }
-
-   rc = rig_set_freq(hl_rig, RIG_VFO_CURR, 7200000);
-   if (rc != RIG_OK) {
-      Log(LOG_WARN, "be.hamlib", "Failed setting VFO A freq to 7200");
-   }
-
    return false;
 }
 

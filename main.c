@@ -101,6 +101,7 @@ void shutdown_rig(uint32_t signum) {
     }
 
     dying = 1;
+    rr_ptt_set_all_off();
 }
 
 void restart_rig(void) {

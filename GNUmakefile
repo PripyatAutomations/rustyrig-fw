@@ -49,6 +49,7 @@ endif
 ifeq (${USE_SQLITE},true)
 CFLAGS += -DUSE_SQLITE
 LDFLAGS += -lsqlite3
+MASTER_DB := $(strip $(shell cat ${CF} | jq -r ".database.master.path"))
 endif
 
 # Are we cross compiling?
@@ -222,7 +223,7 @@ install:
 ###################
 ifeq (${PLATFORM},posix)
 # Run debugger
-run: ${EEPROM_FILE} ${bin}
+run: ${MASTERDB} ${EEPROM_FILE} ${bin}
 	@echo "[run] ${bin}"
 	@${bin}
 
@@ -277,10 +278,10 @@ config/http.users:
 	@echo "*** You do not have a config/http.users so i've copied the default file from doc/"
 	cp doc/http.users.example config/http.users
 
-db/master.db:
+${MASTER_DB}:
 	sqlite3 $@ < sql/sqlite.master.sql
 
 dump-ptt:
-	sqlite3 db/master.db 'select * from ptt_log order BY start_time;'
+	sqlite3 ${MASTER_DB} 'select * from ptt_log order BY start_time;'
 dump-log:
-	sqlite3 db/master.db 'select * from audit_log;'
+	sqlite3 ${MASTER_DB} 'select * from audit_log;'
