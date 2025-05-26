@@ -35,19 +35,5 @@ Long story short, on a debian-based system do the following to try it:
    Open a browser and connect to the http (port 8420) or https (port 4420):
 	firefox	https://localhost:4420/
 
-
-STATUS
-------
-* core			WORKING
-* http/websockets	WORKING
-* www/chat		WORKING
-* www/rig		IN WORK
-* PCM over websockets	IN WORK
-* au.pipe		IN WORK
-* backend-hamlib	IN WORK
-* backend-internal	DELAYED
-* CAT Host (ft891 emu)	DELAYED
-* au.alsa		DELAYED
-* au.pulse		probably wont implement unless easier way to support pw too (via compat layer)
-* au.pipewire		DELAYED
-* OPUS codec		DELAYED
+--
+See STATUS for status of subsystems.

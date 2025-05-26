@@ -1,0 +1,16 @@
+
+STATUS
+------
+* core			WORKING
+* http/websockets	WORKING
+* www/chat		WORKING
+* www/rig		MOSTLY WORKING
+* PCM over websockets	IN WORK
+* au.pipe		IN WORK
+* backend-hamlib	MOSTLY WORKING
+* backend-internal	DELAYED
+* CAT Host (ft891 emu)	DELAYED (needs io.{serial,socket} to be finished
+* au.alsa		DELAYED (probably wont implement any time soon)
+* au.pulse		probably wont implement unless easier way to support pw too (via compat layer)
+* au.pipewire		DELAYED
+* OPUS codec		DELAYED
