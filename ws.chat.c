@@ -334,7 +334,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             char *filetype = mg_json_get_str(msg_data, "$.talk.filetype");
             char *filename = mg_json_get_str(msg_data, "$.talk.filename");
             prepare_msg(msgbuf, sizeof(msgbuf),
-                        "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, \"total_chunks\": %ld, \"filename\": \"%s\", \"filetype\": \"%s\" } }",
+                        "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", "
+                        "\"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, "
+                        "\"total_chunks\": %ld, \"filename\": \"%s\", \"filetype\": \"%s\" } }",
                         cptr->chatname, data, now, msg_type, chunk_index, total_chunks, filename, filetype);
             free(filetype);
             free(filename);
@@ -397,7 +399,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   rv = true;
                   goto cleanup;
                }
-               prepare_msg(msgbuf, sizeof(msgbuf), "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\": %lu, \"msg_type\": \"%s\" } }",
+               prepare_msg(msgbuf, sizeof(msgbuf),
+                  "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\":"
+                  " %lu, \"msg_type\": \"%s\" } }",
                            cptr->chatname, escaped_msg, now, msg_type);
                free(escaped_msg);
             }

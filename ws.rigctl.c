@@ -229,21 +229,13 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             db_ptt_stop(masterdb, cptr->ptt_session);
          }
 
-         printf("vfo: %s\n", vfo);
-         printf("pow: %f\n", dp->power);
-         printf("freq: %f\n", dp->freq);
-         printf("mode: %d\n", dp->mode);
-         printf("wdth: %d\n", dp->width);
-         printf("tmod: %s\n", mode_name);
-         
          // tell everyone about it
          prepare_msg(msgbuf, sizeof(msgbuf),
-         "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", \
-            \"vfo\": \"%s\", \"power\": %f, \"freq\": %f, \"width\": %d, \
-            \"mode\": \"%s\", \"ts\": %lu } }",
+            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", "
+            "\"vfo\": \"%s\", \"power\": %f, \"freq\": %f, \"width\": %d, "
+            "\"mode\": \"%s\", \"ts\": %lu } }",
              cptr->chatname, state, vfo, dp->power,
              dp->freq, dp->width, mode_name, now);
-           fprintf(stderr, "msg: %s [%li]\n", msgbuf, strlen(msgbuf));
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
@@ -265,7 +257,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             goto cleanup;
          }
 
-         // XXX: Lets see if this is good, we will delay polling briefly to allow input
+         // XXX: We should do a latency test at the start of the session and optimize this per-user from there
          next_rig_poll = now + HTTP_API_RIGPOLL_PAUSE;
          new_freq = atof(freq);
          rr_vfo_t c_vfo;
@@ -280,7 +272,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
 
          // tell everyone about it
-         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"freq\": \"%f\", \"vfo\": \"%s\", \"ts\": %lu } }",
+         prepare_msg(msgbuf, sizeof(msgbuf),
+            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"freq\": \"%f\", \"vfo\": \"%s\", \"ts\": %lu } }",
              cptr->chatname, new_freq, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
@@ -316,8 +309,9 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
 
          // tell everyone about it
-         prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"mode\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
-             cptr->chatname, mode, vfo, now);
+         prepare_msg(msgbuf, sizeof(msgbuf),
+            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"mode\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
+            cptr->chatname, mode, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "mode", "User %s set VFO %s MODE to %s", cptr->chatname, vfo, mode);

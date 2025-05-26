@@ -306,7 +306,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 
 #if	defined(HTTP_DEBUG_CRAZY)
    // XXX: This should be moved to an option in config perhaps?
-//   Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+   Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
 #endif
 
    // Binary (audio, waterfall) frames
@@ -376,9 +376,11 @@ bool ws_send_ping(http_client_t *cptr) {
 
    // only bother making noise if the first attempt failed, send the first ping to crazy level log
    if (cptr->ping_attempts > 1) {
-      Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d", cptr->chatname, cptr, now, cptr->ping_attempts);
+      Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d",
+          cptr->chatname, cptr, now, cptr->ping_attempts);
    } else {
-      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d", cptr->chatname, cptr, now, cptr->ping_attempts);
+      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d",
+          cptr->chatname, cptr, now, cptr->ping_attempts);
    }
 
    prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
