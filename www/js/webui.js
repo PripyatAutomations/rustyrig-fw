@@ -254,6 +254,7 @@ function ws_connect() {
          } else if (msgObj.error) {
             var msg = msgObj.error;
             chat(`<div class="chat-status notice">${msg}</div>`);
+            console.log("NOTICE:", msg);
          } else if (msgObj.alert) {
             var alert_from = msgObj.alert.from.toUpperCase();
             var alert_ts = msgObj.alert.ts;
@@ -351,12 +352,10 @@ function ws_connect() {
                var status_msg = '<span>VFO: ' + vfo + '</span>&nbsp' +
                                 '<span>Mode:&nbsp;' +  mode + '&nbsp;</span>' +
                                 '<span>Freq:' + format_freq(freq) + '</span>&nbsp;&nbsp;' +
-                                '<span>Width:' + width + '</span>&nbsp;&nbsp;' +
-                                '<span>RX: ' + power + '</span>&nbsp;' +
-                                '<button class="rig-ptt">PTT</button>&nbsp;&nbsp;';
-//                                (ptt === "true" ? "<span>PTT</span>" : "");
-               $('#chat-rig-status').html(status_msg);
-               console.log("State:", status_msg);
+                                '<span>Width:' + width + '</span>&nbsp;&nbsp;';
+// XXX: Power in the server msgs is actually rssid
+//                                '<span>RX: ' + power + '</span>';
+               $('#chat-rig-status span#vfo-status').html(status_msg);
             }
          } else if (msgObj.ping) {			// Handle PING messages
             var ts = msgObj.ping.ts;

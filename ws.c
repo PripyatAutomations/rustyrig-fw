@@ -332,27 +332,38 @@ bool ws_send_error_msg(struct mg_connection *c, const char *scope, const char *m
    return false;
 }
 
-bool ws_send_notice(struct mg_connection *c, const char *scope, const char *msg) {
-   if (c == NULL || scope == NULL || msg == NULL) {
-      return true;
-   }
-
-   char msgbuf[HTTP_WS_MAX_MSG+1];
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"%s\": { \"notice\": \"%s\", \"ts\": %lu } }",
-      scope, msg, now);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-
-   return false;
-}
-
 bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
    va_list ap;
    va_start(ap, fmt);
+   char tmpbuf[8192];
+   memset(tmpbuf, 0, sizeof(tmpbuf));
+   vsnprintf(tmpbuf, 8192, fmt, ap);
 
-   // XXX: actually send the error
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   char *escaped_msg = escape_html(tmpbuf);
+   prepare_msg(msgbuf, sizeof(msgbuf),
+      "{ \"error\": \"%s\", \"ts\": %lu } }",
+      tmpbuf, now);
+   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
    va_end(ap);
+   free(escaped_msg);
+   return false;
+}
+
+bool ws_send_notice(struct mg_connection *c, const char *msg) {
+   if (c == NULL || msg == NULL) {
+      return true;
+   }
+
+   char *escaped_msg = escape_html(msg);
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   prepare_msg(msgbuf, sizeof(msgbuf),
+      "{ \"notice\": \"%s\", \"ts\": %lu }",
+      escaped_msg, now);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
+   free(escaped_msg);
    return false;
 }
 

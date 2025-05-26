@@ -380,13 +380,13 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   }
 
                   if (strcasecmp(cmd, "help") == 0) {
-                     ws_send_notice(cptr->conn, "***SERVER***",
+                     ws_send_notice(cptr->conn, "<span>***SERVER***"
                         "<br/>*** !help for VFO commands ***<br>"
                         "&nbsp;&nbsp;&nbsp;!freq <freq> - Set frequency to <freq> - can be 7200 7.2m 7200000 etc form<br/>"
                         "&nbsp;&nbsp;&nbsp;!mode <mode> - Set mode to CW|AM|LSB|USB|FM|DL|DU<br/>"
                         "&nbsp;&nbsp;&nbsp;!power <power> - Set power (NYI)<br/>"
                         "&nbsp;&nbsp;&nbsp;!vfo <vfo> - Switch VFOs (A|B|C)<br/>"
-                        "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (NYI)<br/>");
+                        "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (NYI)<br/></span>");
                      rv = false;
                      goto cleanup;
                   } else if (strcasecmp(cmd, "freq") == 0) {

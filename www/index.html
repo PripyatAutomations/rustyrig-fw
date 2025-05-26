@@ -141,7 +141,12 @@
      </div> <!-- chat-container -->
     </div> <!-- upper-wrapper -->
     <div id="lower-wrapper">
-     <div id="chat-rig-status">***</div>
+     <div id="chat-rig-status">
+      <span id="vfo-status"></span>
+      <span id="chat-ptt-wrap">
+       <button class="rig-ptt chat-ptt">PTT</button>&nbsp;&nbsp;
+      </span>
+     </div>
      <input type="text" id="chat-input" placeholder="Type a message..." autofocus/>
      <div id="button-box">
       <button id="emoji-btn" class="emoji-btn" title="Emoji Keyboard">😀</button>
@@ -161,7 +166,6 @@
     <div id="reason-modal" style="display:none">
      <form id="reason-form">
       <div id="reason-title" style="color:white; margin-bottom:10px;"></div>
-<!--      <textarea id="reason-text" style="width:100%; height:60%; resize:none;"></textarea><br/> -->
       <input id="reason-text" type="text" class="reason"><br/>
       <button type="submit" title="Kick user" id="reason-submit">Submit</button>
       <button type="reset" title="Cancel" id="reason-cancel">Cancel</button>

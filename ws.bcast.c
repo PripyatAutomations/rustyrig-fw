@@ -78,21 +78,3 @@ bool send_global_alert(const char *sender, const char *data) {
 
    return false;
 }
-
-bool ws_chat_notice(http_client_t *cptr, const char *sender, const char *data) {
-   if (/*cptr == NULL ||*/ data == NULL) {
-      return true;
-   }
-
-   char msgbuf[HTTP_WS_MAX_MSG+1];
-   struct mg_str mp;
-   char *escaped_msg = escape_html(data);
-   prepare_msg(msgbuf, sizeof(msgbuf), 
-      "{ \"talk\": { \"cmd\": \"NOTICE\", \"from\": \"%s\", \"data\": \"%s\", \"ts\": %lu } }",
-      sender, escaped_msg, now);
-   mp = mg_str(msgbuf);
-   ws_broadcast(NULL, &mp);
-   free(escaped_msg);
-
-   return false;
-}

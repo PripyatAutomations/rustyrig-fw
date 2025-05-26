@@ -555,3 +555,17 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    height: 2em;
    width: CALC(100% - 1em);
 }
+
+span#chat-ptt-wrap {
+   position: abolute;
+   right: 10em;
+   top: 0px;
+   border: 2px dashed limegreen;
+   width: 100%;
+}
+
+#chat-ptt {
+   position: relative;
+   top: 0px;
+   right: 1em;
+}
