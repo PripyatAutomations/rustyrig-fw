@@ -1,3 +1,4 @@
+  This will need manually applied, if needed, as the source has diverged greatly
 diff --git a/www/js/webui.rigctl.js b/www/js/webui.rigctl.js
 index 302274a..70a20ca 100644
 --- a/www/js/webui.rigctl.js
