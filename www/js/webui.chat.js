@@ -385,42 +385,42 @@ function parse_chat_cmd(e) {
             case 'reloadcss':
                console.log("Reloading CSS on user command");
                reload_css();
-               chat_append('<div><span class="error">Reloaded CSS</span></div>');
+               chat_append('<div><span class="notice">Reloaded CSS</span></div>');
                break;
             case 'help':
-               chat_append('<div><span class="error">*** HELP *** All commands start with /</span></div>');
-               chat_append('<div><span class="error">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
-               chat_append('<div><span class="error">&nbsp;/quit&nbsp;&nbsp;-&nbsp;End session</span></div>');
-               chat_append('<div><span class="error">&nbsp;/clear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
-               chat_append('<div><span class="error">&nbsp;/help&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
-               chat_append('<div><span class="error">&nbsp;/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
-               chat_append('<div><span class="error">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
-               chat_append('<div><span class="error">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
-               chat_append('<div><span class="error">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
+               chat_append('<div><span class="notice">*** HELP *** All commands start with /</span></div>');
+               chat_append('<div><span class="notice">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;-&nbsp;End session</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/clear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/help&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
                //////
-               chat_append('<br/><div><span class="error">*** DEBUG TOOLS - Used by developer</span></div>');
-               chat_append('<div><span class="error">&nbsp;/clearlog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
-               chat_append('<div><span class="error">&nbsp;/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
-               chat_append('<div><span class="error">&nbsp;/names&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Force refresh of UserCache</span></div>');
-               chat_append('<div><span class="error">&nbsp;/reloadcss&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
-               chat_append('<div><span class="error">&nbsp;/syslog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
+               chat_append('<br/><div><span class="notice">*** DEBUG TOOLS - Used by developer</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/clearlog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/names&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Force refresh of UserCache</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/reloadcss&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/syslog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
 
                var isAdmin = /(owner|admin)/.test(auth_privs);
                if (isAdmin) {
-                  chat_append('<br/><div><span class="error">*** ADMIN HELP *** These commands are only available to admins/owners.</span></div>');
-                  chat_append('<div><span class="error">&nbsp;/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="error">&nbsp;/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
-//                  chat_append('<div><span class="error">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
-                  chat_append('<div><span class="error">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="error">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="error">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="error">&nbsp;/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
+                  chat_append('<br/><div><span class="notice">*** ADMIN HELP *** These commands are only available to admins/owners.</span></div>');
+                  chat_append('<div><span class="notice">&nbsp;/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="notice">&nbsp;/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
+//                  chat_append('<div><span class="notice">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
+                  chat_append('<div><span class="notice">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="notice">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="notice">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
+                  chat_append('<div><span class="notice">&nbsp;/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
                } else {
-                  chat_append('<div><span class="error">*********************************************</span></div>');
-                  chat_append('<div><span class="error">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
-                  chat_append('<div><span class="error">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
+                  chat_append('<div><span class="notice">*********************************************</span></div>');
+                  chat_append('<div><span class="notice">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
+                  chat_append('<div><span class="notice">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
                }
-               chat_append('<br/><div><span class="error">You can use tab completion, press @ then type a few letters or hit tab</span></div>');
+               chat_append('<br/><div><span class="notice">You can use tab completion, press @ then type a few letters or hit tab</span></div>');
                break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);

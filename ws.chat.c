@@ -353,26 +353,43 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                }
 
                while (*input) {
-                  while (isspace(*input)) input++;
+                  while (isspace(*input)) {
+                     input++;
+                  }
 
                   // extract command
                   size_t i = 0;
-                  while (*input && !isspace(*input) && i < cmd_len - 1)
+                  while (*input && !isspace(*input) && i < cmd_len - 1) {
                      cmd[i++] = *input++;
+                  }
                   cmd[i] = '\0';
 
-                  while (isspace(*input)) input++;
+                  while (isspace(*input)) {
+                    input++;
+                  }
 
                   // extract argument
                   i = 0;
-                  while (*input && !isspace(*input) && i < arg_len - 1)
+                  while (*input && !isspace(*input) && i < arg_len - 1) {
                      arg[i++] = *input++;
+                  }
                   arg[i] = '\0';
 
-                  if (*cmd == '\0' || *arg == '\0')
+                  if (*cmd == '\0' || *arg == '\0') {
                      break;
+                  }
 
-                  if (strcasecmp(cmd, "freq") == 0) {
+                  if (strcasecmp(cmd, "help") == 0) {
+                     ws_send_notice(cptr->conn, "***SERVER***",
+                        "<br/>*** !help for VFO commands ***<br>"
+                        "&nbsp;&nbsp;&nbsp;!freq <freq> - Set frequency to <freq> - can be 7200 7.2m 7200000 etc form<br/>"
+                        "&nbsp;&nbsp;&nbsp;!mode <mode> - Set mode to CW|AM|LSB|USB|FM|DL|DU<br/>"
+                        "&nbsp;&nbsp;&nbsp;!power <power> - Set power (NYI)<br/>"
+                        "&nbsp;&nbsp;&nbsp;!vfo <vfo> - Switch VFOs (A|B|C)<br/>"
+                        "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (NYI)<br/>");
+                     rv = false;
+                     goto cleanup;
+                  } else if (strcasecmp(cmd, "freq") == 0) {
                      long real_freq = parse_freq(arg);
                      Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", real_freq, arg, cptr->chatname);
                      rr_freq_set(active_vfo, real_freq);
@@ -386,8 +403,6 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      Log(LOG_DEBUG, "ws.chat", "Got !width %lu (%s) from %s", real_width, arg, cptr->chatname);
                   } else if (strcasecmp(cmd, "vfo") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
-                  } else if (strcasecmp(cmd, "help") == 0) {
-                     // XXX: Send a help message
                   } else {
                      Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
                   }

@@ -160,7 +160,7 @@ const char *vfo_mode_name(rr_mode_t mode) {
          break;
    }
 
-   Log(LOG_DEBUG, "vfo_mode_name", "%d => %s", mode, rv);
+   Log(LOG_CRAZY, "vfo_mode_name", "%d => %s", mode, rv);
    return rv;
 }
 

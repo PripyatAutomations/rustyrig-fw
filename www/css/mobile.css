@@ -160,4 +160,7 @@
    #user-menu li {
       padding-bottom: 0.2em;
    }
+   div#rig-right div.chat-user-list {
+      height: CALC(100% - 2em);
+   }
 }

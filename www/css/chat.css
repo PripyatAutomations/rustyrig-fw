@@ -28,11 +28,11 @@
 /*   border: 2px dashed red; */
    border-radius: 10px;
    display: flex;
-   height: CALC(100vh - 8em);
+   height: CALC(100vh - 11em);
 }
 
 #chat-box {
-   border: 2px solid red;
+   border: 2px dashed limegreen;
    border-bottom-radius: 10px;
    background-color: #dcdcdc;
    font-size: clamp(0.5em, 1vw + 0.3em, 1em);
@@ -544,11 +544,14 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    margin: 0px;
 }
 
-#rig-top-status {
+#chat-rig-status {
    border-radius: 10px;
-   border: 2px solid red;
-   position: fixed;
-   top: CALC(3.5em);
-   left: 0px;
-   width: 100%;
+   background: #0f0f0f;
+   border: 2px dashed blue;
+   position: relative;
+   font-size: 1.4em;
+   left: 0.5em;
+   bottom: 0em;
+   height: 2em;
+   width: CALC(100% - 1em);
 }

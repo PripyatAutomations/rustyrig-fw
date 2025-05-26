@@ -117,6 +117,12 @@ button {
    margin: 5px;
 }
 
+.notice {
+   font-size: 16px;
+   color: #00a000;
+   margin: 5px;
+}
+
 .msg-connected {
    font-size: 16px;
    color: DarkGreen;

@@ -68,8 +68,8 @@ function vfo_edit_init() {
 }
 
 function ptt_btn_init() {
-   $('button#rig-ptt').removeClass('red-btn');
-   $('button#rig-ptt').click(function() {
+   $('button.rig-ptt').removeClass('red-btn');
+   $('button.rig-ptt').click(function() {
       let state = "off";
 
       // this is set via CAT messages

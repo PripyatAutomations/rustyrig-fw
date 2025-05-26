@@ -251,6 +251,9 @@ function ws_connect() {
 
          if (msgObj.syslog) {		// Handle syslog messages
             syslog_append(msgObj);
+         } else if (msgObj.error) {
+            var msg = msgObj.error;
+            chat(`<div class="chat-status notice">${msg}</div>`);
          } else if (msgObj.alert) {
             var alert_from = msgObj.alert.from.toUpperCase();
             var alert_ts = msgObj.alert.ts;
@@ -279,10 +282,10 @@ function ws_connect() {
                   var ptt_l = ptt.toLowerCase();
 
                   if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes' || ptt_l === true) {
-                     $('#rig-ptt').addClass("red-btn");
+                     $('.rig-ptt').addClass("red-btn");
                      ptt_active = true;
                   } else {
-                     $('#rig-ptt').removeClass("red-btn");
+                     $('.rig-ptt').removeClass("red-btn");
                      ptt_active = false;
                   }
                   UserCache.update({ name: user, ptt: ptt_active });
@@ -298,9 +301,9 @@ function ws_connect() {
                const { freq, mode, ptt, width, vfo, power }  = state;
                if (typeof ptt !== 'undefined') {
                   if (ptt === "false") {
-                     $('button#rig-ptt').removeClass("red-btn");
+                     $('button.rig-ptt').removeClass("red-btn");
                   } else {
-                     $('button#rig-ptt').addClass("red-btn");
+                     $('button.rig-ptt').addClass("red-btn");
                   }
                }
                if (typeof freq !== 'undefined') {
@@ -345,6 +348,15 @@ function ws_connect() {
                      $('span#vfo-c-power').html(power + '&nbsp;W');
                   }
                }
+               var status_msg = '<span>VFO: ' + vfo + '</span>&nbsp' +
+                                '<span>Mode:&nbsp;' +  mode + '&nbsp;</span>' +
+                                '<span>Freq:' + format_freq(freq) + '</span>&nbsp;&nbsp;' +
+                                '<span>Width:' + width + '</span>&nbsp;&nbsp;' +
+                                '<span>RX: ' + power + '</span>&nbsp;' +
+                                '<button class="rig-ptt">PTT</button>&nbsp;&nbsp;';
+//                                (ptt === "true" ? "<span>PTT</span>" : "");
+               $('#chat-rig-status').html(status_msg);
+               console.log("State:", status_msg);
             }
          } else if (msgObj.ping) {			// Handle PING messages
             var ts = msgObj.ping.ts;
@@ -437,7 +449,7 @@ function ws_connect() {
 
                // this is for us, so disable the PTT button
                if (user === auth_user) {
-                  $('button#rig-ptt').attr("disabled", "disabled");
+                  $('button.rig-ptt').attr("disabled", "disabled");
                }
             } else if (cmd === "quit") {
                var user = msgObj.talk.user;
@@ -472,7 +484,7 @@ function ws_connect() {
 
                // this is for us, so re-enable the PTT button, if appropriate
                if (user === auth_user) {
-                  $('button#rig-ptt').removeAttr("disabled");
+                  $('button.rig-ptt').removeAttr("disabled");
                }
             } else if (cmd === 'whois') {
                const clones = msgObj.talk.data;
