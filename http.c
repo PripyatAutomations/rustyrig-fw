@@ -632,12 +632,13 @@ int http_count_clients(void) {
    return c;
 }
 
-// Returns
+// Returns the user actively PTTing
 http_client_t *whos_talking(void) {
    http_client_t *cptr = http_client_list;
 
    while (cptr != NULL) {
-      if (cptr->is_ptt) {
+      if (cptr->authenticated && cptr->is_ptt) {
+         Log(LOG_DEBUG, "http", "whos_talking: returning cptr:<%x> - %s", cptr, cptr->chatname);
          return cptr;
       }
       cptr = cptr->next;

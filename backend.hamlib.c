@@ -304,14 +304,14 @@ bool hl_power_set(rr_vfo_t vfo, float power) {
 }
 
 float hl_power_get(rr_vfo_t vfo) {
-   int i = 0;
-   int rv = rig_get_strength(hl_rig, RIG_VFO_CURR, &i);
+   value_t power;
+   int rv = rig_get_level(hl_rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &power);
 
    if (rv != RIG_OK) {
       Log(LOG_CRIT, "hl_power_get", "failed: %d", rv);
    }
 
-   Log(LOG_DEBUG, "hl_power_get", "read: %d", i);
+   Log(LOG_DEBUG, "hl_power_get", "read: %f", power.f);
    return 0;
 }
 

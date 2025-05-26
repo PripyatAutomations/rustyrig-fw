@@ -31,6 +31,16 @@ USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
 USE_OPUS = $(strip $(shell cat ${CF} | jq -r '.features.opus'))
 USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
+USE_LIBUNWIND = $(strip $(shell cat ${CF} | jq -r ".features.libunwind"))
+
+ifeq (${USE_LIBUNWIND},true)
+CFLAGS += -fno-omit-frame-pointer -Og -gdwarf -DUSE_LIBUNWIND
+LDFLAGS += -lunwind
+ifeq ($(shell uname -m),x86_64)
+LDFLAGS += -lunwind-x86_64
+endif
+
+endif
 
 ifeq (${USE_HAMLIB},true)
 LDFLAGS += -lhamlib
@@ -142,6 +152,7 @@ objs += util.file.o		# Misc file functions
 objs += util.math.o		# Misc math functions
 objs += util.string.o		# String utility functions
 objs += util.vna.o		# Vector Network Analyzer
+objs += unwind.o		# support for libunwind for stack tracing
 objs += vfo.o			# VFO control/management
 objs += waterfall.o		# Support for rendering waterfalls
 objs += webcam.o		# Webcam (v4l2) streaming to a canvas
@@ -174,20 +185,20 @@ world: ${extra_build} ${bin}
 
 BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard inc/*.h) $(wildcard ${BUILD_DIR}/*.h)
 ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
-# delete the old object file, so we can't accidentally link against it...
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@echo "[compile] $@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
-	@echo "[compile] $@ from $<"
 
 ${OBJ_DIR}/au.pipewire.o: au.pipewire.c ${BUILD_HEADERS}
+	@echo "[compile] $@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
-	@echo "[compile] $@ from $<"
 
 # Binary also depends on the .stamp file
 ${bin}: ${real_objs} ext/libmongoose/mongoose.c config/http.users
-	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
+	${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
 	@file $@
 	@size $@

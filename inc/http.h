@@ -103,7 +103,8 @@ struct http_client {
     int    guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
     char   chatname[HTTP_USER_LEN+1]; // username to show in chat (GUESTxxxx or USER)
     char  *user_agent;		// User-agent
-
+    bool   ghost;		// Is the session a ghost?
+    time_t ghost_time;		// When did the session become a ghost?
     // This is a little ugly, but this stores pointers to the users associated with elmer/noob system
     union {
        struct http_client *elmers[HTTP_MAX_ELMERS];	// pointer(s) to elmers who have accepted to babysit user (if noob)

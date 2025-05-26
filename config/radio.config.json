@@ -90,6 +90,7 @@
       "cat_kpa500": "true",
       "cat_yaesu": "true",
       "http": "true",
+      "libunwind": "false",
       "max_bands": 14,
       "mqtt": "true",
       "opus": "false",
