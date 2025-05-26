@@ -557,15 +557,14 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 }
 
 span#chat-ptt-wrap {
-   position: abolute;
-   right: 10em;
-   top: 0px;
-   border: 2px dashed limegreen;
-   width: 100%;
+   position: fixed;
+   right: 0em;
+   bottom: 2.4em;
+   padding: 0em;
+   margin: 0em;
+   width: 5em;
 }
 
-#chat-ptt {
-   position: relative;
-   top: 0px;
-   right: 1em;
+.chat-ptt {
+   width: 5em !important;
 }

@@ -143,7 +143,10 @@ int main(int argc, char **argv) {
    initialize_state();			// Load default values
 
 #if	defined(FEATURE_SQLITE)
-   masterdb = db_open(MASTERDB_PATH);
+   if ((masterdb = db_open(MASTERDB_PATH)) == NULL) {
+      Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
+      exit(31);
+   }
 #endif	// defined(FEATURE_SQLITE)
 #if	defined(USE_MONGOOSE)
    mg_mgr_init(&mg_mgr);

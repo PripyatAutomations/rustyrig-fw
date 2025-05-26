@@ -96,6 +96,7 @@ const char vfo_name(rr_vfo_t vfo) {
 }
 
 rr_mode_t vfo_parse_mode(const char *mode) {
+   Log(LOG_DEBUG, "vfo", "vfo_parse_mode: %s", mode);
    if (strcasecmp(mode, vfo_mode_cw) == 0) {
       return MODE_CW;
    } else if (strcasecmp(mode, vfo_mode_am) == 0) {
@@ -160,7 +161,7 @@ const char *vfo_mode_name(rr_mode_t mode) {
          break;
    }
 
-   Log(LOG_CRAZY, "vfo_mode_name", "%d => %s", mode, rv);
+   Log(LOG_DEBUG, "vfo_mode_name", "%d => %s", mode, rv);
    return rv;
 }
 

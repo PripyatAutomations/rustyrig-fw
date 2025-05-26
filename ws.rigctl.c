@@ -202,7 +202,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
 
-         // Gather some date
+         // Gather some data about the VFO
          rr_vfo_t vfo_id = VFO_NONE;
          const char *mode_name = NULL;
          if (vfo == NULL) {
@@ -211,14 +211,17 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             vfo_id = vfo_lookup(vfo[0]);
          }
          rr_vfo_data_t *dp = &vfos[vfo_id];
+         Log(LOG_DEBUG, "ws.rigctl", "mode: %d", dp->mode);
          mode_name = vfo_mode_name(dp->mode);
 
+         // turn PTT state requested into a boolean value
          if (strcasecmp(state, "true") == 0 || strcasecmp(state, "on") == 0) {
             c_state = true;
          } else {
             c_state = false;
          }
 
+         // Update their last heard and PTT status
          cptr->last_heard = now;
          cptr->is_ptt = c_state;
 

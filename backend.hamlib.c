@@ -227,6 +227,7 @@ rr_vfo_data_t *hl_poll(void) {
    // Pack the data into a vfo_data struct to send back to our caller
    rv->freq = hl_state.freq;
    rv->width = hl_state.width;
+   Log(LOG_DEBUG, "be.hamlib", "rmode: %d", hl_state.rmode);
    rv->mode = vfo_parse_mode(rig_strrmode(hl_state.rmode));
    // XXX: finish this
    rv->width = hl_state.width;

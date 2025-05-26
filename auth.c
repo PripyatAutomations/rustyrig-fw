@@ -682,9 +682,10 @@ bool is_elmer_online(void) {
    http_client_t *curr = http_client_list;
    while (curr != NULL) {
       if (!curr->is_ws || !curr->authenticated || curr->user == NULL) {
-         return false;
+         continue;
       }
       if (client_has_flag(curr, FLAG_ELMER)) {
+         Log(LOG_CRAZY, "auth", "is_elmer_online: returning cptr:<%x> - %s", curr, curr->chatname);
          return true;
       }
       curr = curr->next;
