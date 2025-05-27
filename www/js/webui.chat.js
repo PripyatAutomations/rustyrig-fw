@@ -121,6 +121,22 @@ function chat_init() {
          form_disable(false);
          $('#user-menu').hide('slow');
       });
+
+      function applyChatFontSize(size) {
+         $("#chatbox").css("font-size", size + "px");
+         localStorage.setItem("chatFontSize", size);
+      }
+
+      $(function() {
+         const savedSize = localStorage.getItem("chatFontSize") || 16;
+         $("#ui-chat-font").val(savedSize);
+         applyChatFontSize(savedSize);
+
+         $("#ui-chat-font").on("input", function() {
+            applyChatFontSize(this.value);
+         });
+      });
+
    });
 }
 

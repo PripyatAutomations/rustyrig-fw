@@ -379,7 +379,7 @@ function ws_connect() {
                // Invalid timestamp in the ping, ignore it
                return false;
             }
-            console.log("Got PING from server with ts", ts, "replying!");
+//            console.log("Got PING from server with ts", ts, "replying!");
             var newMsg = { pong: { ts: String(ts) } };
             socket.send(JSON.stringify(newMsg));
          } else if (msgObj.talk) {		// Handle Chat messages
