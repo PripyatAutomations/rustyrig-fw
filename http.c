@@ -500,7 +500,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    cptr->next = http_client_list;
    http_client_list = cptr;
 
-   Log(LOG_INFO, "http", "Added new client at cptr:<%x> (%d clients total now)", cptr, http_count_clients());
+   Log(LOG_INFO, "http", "Added new client at cptr:<%x> (%d clients and %d sessions total now)", cptr, http_count_connections(), http_count_clients());
    return cptr;
 }
 
@@ -632,13 +632,24 @@ int http_count_clients(void) {
    return c;
 }
 
+// Counts ALL websocket clients
+int http_count_connections(void) {
+   int c = 0;
+   http_client_t *cptr = http_client_list;
+   while (cptr != NULL) {
+      c++;
+      cptr = cptr->next;
+   }
+   return c;
+}
+
 // Returns the user actively PTTing
 http_client_t *whos_talking(void) {
    http_client_t *cptr = http_client_list;
 
    while (cptr != NULL) {
       if (cptr->authenticated && cptr->is_ptt) {
-         Log(LOG_DEBUG, "http", "whos_talking: returning cptr:<%x> - %s", cptr, cptr->chatname);
+         Log(LOG_CRAZY, "http", "whos_talking: returning cptr:<%x> - %s", cptr, cptr->chatname);
          return cptr;
       }
       cptr = cptr->next;

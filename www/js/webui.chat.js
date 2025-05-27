@@ -133,11 +133,10 @@ function cul_offline() {
 }
 
 // Store the data from names reply in the UserCache, replacing outdated informations
-// XXX: Implement this
 function parse_userinfo_reply(message) {
 //    console.log("parse_userinfo_reply:", message);
     if (typeof message !== 'undefined') {
-       UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: message.talk.muted, ptt: message.talk.ptt });
+       UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: message.talk.muted, ptt: message.talk.ptt, clones: message.talk.clones });
     }
 
     return false;
@@ -434,6 +433,7 @@ function parse_chat_cmd(e) {
             case 'kick':
             case 'ban':
             case 'mute':
+            case 'names':
                if (args.length >= 2) {
                   args_obj = {
                      target: args[1],

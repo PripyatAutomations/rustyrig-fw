@@ -29,36 +29,43 @@ const UserCache = {
    users: {},
 
    add(user) {
-      const entry = this.users[user.name];
-      if (entry) {
-         entry.refcount++;
-      } else {
-         this.users[user.name] = {
-            refcount: 1,
-            ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
-            ...(user.hasOwnProperty('muted') && { muted: user.muted }),
-            ...(user.hasOwnProperty('privs') && { privs: user.privs })
-         };
-      }
+      this.users[user.name] = {
+         ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
+         ...(user.hasOwnProperty('muted') && { muted: user.muted }),
+         ...(user.hasOwnProperty('privs') && { privs: user.privs }),
+         ...(user.hasOwnProperty('clones') && { clones: user.clones })
+      };
+      console.log("UC.add: name:", user.name, "clones:", user.clones);
       cul_render();
    },
 
    remove(name) {
       const entry = this.users[name];
       if (!entry) return;
-      if (--entry.refcount <= 0) delete this.users[name];
+
+      console.log("UC.remove: name:", name, "clones:", entry.clones);
+
+      if (entry.clones <= 1) {
+         delete this.users[name];
+      } else {
+         entry.clones--;
+      }
+
       cul_render();
    },
 
    update(user) {
       const existing = this.users[user.name];
+
       if (!existing) {
+         console.log("UC.update: No entry, creating new");
          this.add(user);
          return;
       }
       if ('ptt'   in user) existing.ptt   = user.ptt;
       if ('privs' in user) existing.privs = user.privs;
       if ('muted' in user) existing.muted = user.muted;
+      if ('clones' in user) existing.clines = user.clones;
       cul_render();
    },
 
@@ -253,6 +260,7 @@ function ws_connect() {
          if (msgObj.syslog) {		// Handle syslog messages
             syslog_append(msgObj);
          } else if (msgObj.error) {
+            console.log("ERR:", msgObj);
             var msg = msgObj.error;
             chat(`<div class="chat-status notice">${msg}</div>`);
             console.log("NOTICE:", msg);
@@ -427,7 +435,12 @@ function ws_connect() {
                      muted_state = false;
                   }
 
-                  UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
+                  var clones = msgObj.talk.clones;
+                  if (typeof clones !== 'undefined') {
+                     UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs, clones: clones });
+                  } else {
+                     UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
+                  }
 
                   chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">connected to the radio</span>&nbsp;***</div>');
                   // Play join (door open) sound if the bell button is checked
@@ -959,6 +972,10 @@ window.webui_inits.push(function webui_init() {
          updateCompletionIndicator(null);
       }
    });
+
+//   $(window).on('unload', function() {
+//      navigator.sendBeacon('/disconnect', JSON.stringify({id: user_id}));
+//   });
 
    // Handle the vertical height used by keyboard on mobile - xxx fix this!
 //   function viewport_resize() {

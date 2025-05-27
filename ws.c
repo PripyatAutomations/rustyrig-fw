@@ -342,7 +342,7 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
    char msgbuf[HTTP_WS_MAX_MSG+1];
    char *escaped_msg = escape_html(tmpbuf);
    prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"error\": \"%s\", \"ts\": %lu } }",
+      "{ \"error\": \"%s\", \"ts\": %lu }",
       tmpbuf, now);
    mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 

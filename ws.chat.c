@@ -242,11 +242,14 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
 
    char buf[256];
    int len = mg_snprintf(buf, sizeof(buf),
-      "{ \"talk\": { \"cmd\": \"userinfo\", \"user\": \"%s\", \"privs\": \"%s\", \"tx\": %s, \"muted\": \"%s\" } }",
+      "{ \"talk\": { \"cmd\": \"userinfo\", \"user\": \"%s\", "
+      "\"privs\": \"%s\", \"tx\": %s, \"muted\": \"%s\", "
+      "\"clones\": %d } }",
       cptr->chatname,
       cptr->user->privs,
       cptr->is_ptt ? "true" : "false",
-      cptr->user->is_muted ? "true" : "false");
+      cptr->user->is_muted ? "true" : "false",
+      cptr->user->clones);
 
    struct mg_str msg = mg_str_n(buf, len);
    if (acptr != NULL) {
