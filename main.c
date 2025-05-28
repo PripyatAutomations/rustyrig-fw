@@ -308,7 +308,7 @@ int main(int argc, char **argv) {
       // save our current time for the next time through
       memcpy(&last_rig_poll, &loop_start, sizeof(struct timespec));
 
-      usleep(100);
+      usleep(1000);
 
       // If enabled, calculate loop run time
 #if	defined(USE_PROFILING)

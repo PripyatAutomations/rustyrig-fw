@@ -15,6 +15,12 @@
 #define SOCKET_PATH_TX "/tmp/rustyrig_tx.sock"
 #define SOCKET_PATH_RX "/tmp/rustyrig_rx.pipe"
 
+struct audio_header {
+   uint8_t magic[2];      // e.g. "AU"
+   uint8_t sample_rate;   // 0 = 16000, 1 = 44100
+   uint8_t format;        // 0 = S16LE, 1 = FLAC, 2 = OPUS
+};
+
 static GstElement *tx_pipeline = NULL;
 static GstElement *rx_pipeline = NULL;
 
@@ -127,6 +133,15 @@ static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level,
    g_printerr("GST %s: %s\n", gst_debug_level_get_name(level), gst_debug_message_get(message));
 }
 
+static void send_audio_header(int fd, int rate, int format) {
+   struct audio_header hdr = {
+      .magic = {'A', 'U'},
+      .sample_rate = (rate == 44100) ? 1 : 0,
+      .format = (uint8_t)format,
+   };
+   write(fd, &hdr, sizeof(hdr));
+}
+
 int main(int argc, char *argv[]) {
    printf("Starting fwdsp v.%s\n", VERSION);
    gst_init(&argc, &argv);
@@ -135,7 +150,24 @@ int main(int argc, char *argv[]) {
 //   const char *rx_template = "pipewiresrc device=alsa_input.usb-Creative_Sound_Blaster_X-Fi_Go_Pro-00.analog-stereo ! audioconvert ! bandpass frequency=1700 width=2700 ! volume volume=2.0 ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
 //   const char *rx_template = "alsasrc device=hw:1,0 ! audioconvert ! bandpass frequency=1700 width=2700 ! volume volume=2.0 ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
 //   const char *rx_template = "alsasrc device=hw:1,0 ! audio/x-raw,format=S16LE,channels=2,rate=44100 ! fdsink fd=%d";
-   const char *rx_template = "audiotestsrc wave=sine ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
+//   const char *rx_template = "audiotestsrc wave=sine ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
+   int use_format = 2; // 0 = S16LE, 1 = FLAC, 2 = OPUS
+   int sample_rate = 16000;
+
+   const char *rx_template = NULL;
+   switch (use_format) {
+      case 0:
+         rx_template = (sample_rate == 44100)
+            ? "audiotestsrc wave=sine ! audio/x-raw,rate=44100,format=S16LE,channels=1 ! fdsink fd=%d"
+            : "audiotestsrc wave=sine ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
+         break;
+      case 1:
+         rx_template = "audiotestsrc wave=sine ! audio/x-raw,rate=44100,channels=1 ! flacenc ! fdsink fd=%d";
+         break;
+      case 2:
+         rx_template = "audiotestsrc wave=sine ! audio/x-raw,rate=16000,channels=1 ! opusenc ! fdsink fd=%d";
+         break;
+   }
    const char *tx_template = "fdsrc fd=%d ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! audioconvert ! volume volume=1.0 ! pipewiresink stream-properties=\"props,target.node.name='fwdsp TX'\"";
 
    run_loop(rx_template, tx_template);
