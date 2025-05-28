@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 //   const char *rx_template = "alsasrc device=hw:1,0 ! audioconvert ! bandpass frequency=1700 width=2700 ! volume volume=2.0 ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
 //   const char *rx_template = "alsasrc device=hw:1,0 ! audio/x-raw,format=S16LE,channels=2,rate=44100 ! fdsink fd=%d";
 //   const char *rx_template = "audiotestsrc wave=sine ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
-   int use_format = 2; // 0 = S16LE, 1 = FLAC, 2 = OPUS
+   int use_format = 0; // 0 = S16LE, 1 = FLAC, 2 = OPUS
    int sample_rate = 16000;
 
    const char *rx_template = NULL;
