@@ -8,7 +8,7 @@ CHANNELS := config/${PROFILE}.channels.json
 BUILD_DIR := build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
 fw_bin := ${BUILD_DIR}/firmware.bin
-fwdsp_bin :+ ${BUILD_DIR}/fwdsp.bin
+fwdsp_bin := ${BUILD_DIR}/fwdsp.bin
 
 bins += ${fw_bin} ${fwdsp_bin}
 
@@ -166,7 +166,7 @@ fwdsp_objs += fwdsp.pipewire.o		# Pipewire on posix hosts
 CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
 LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
 endif
-fwdsp_objs += audio.o
+fwdsp_objs += fwdsp-main.o
 
 # translate unprefixed object file names to source file names
 fw_src_files = $(fw_objs:.o=.c)
@@ -210,7 +210,7 @@ ${OBJ_DIR}/fwdsp/%.o: %.c ${BUILD_HEADERS}
 # Binary also depends on the .stamp file
 ${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users
 	@echo "[Link] firmware ($@) from $(words ${real_fw_objs}) object files..."
-	${CC} -o $@ ${real_fw_objs} ${LDFLAGS} || exit 1
+	@${CC} -o $@ ${real_fw_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
 	@file $@
 	@size $@
@@ -218,7 +218,7 @@ ${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users
 # Binary also depends on the .stamp file
 ${fwdsp_bin}: ${real_fwdsp_objs}
 	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
-	${CC} -o $@ ${real_fw_objs} ${LDFLAGS} || exit 1
+	@${CC} -o $@ ${real_fwdsp_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
 	@file $@
 	@size $@

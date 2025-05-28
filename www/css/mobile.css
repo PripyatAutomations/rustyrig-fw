@@ -18,8 +18,8 @@
    }
 
    div#win-rig {
-     height: CALC(100vh - 5.6em);
-     width: CALC(100% - 4em);
+     height: CALC(100vh - 4em);
+     width: CALC(100% - 10.2em);
    }
 
    #win-chat {
@@ -89,16 +89,38 @@
       height: CALC(100vh - 0.8em);
    }
 
-   .chat-user-list {
-      position: fixed;
+   div#cul-list-rig {
+      position: absolute;
+      top: 3.5em;
+      right: 0em;
+   }
+
+   div#cul-list-chat {
+      position: absolute;
+      top: 0em;
+      height: 100%;
+      z-index: 99999;
+   }
+
+   div.chat-user-list {
+      position: absolute;
+      top: 0.5em;
       right: 0em;
       height: auto;
       width: 10em;
-      height: CALC(100% - 14.8em);
+      height: CALC(100% - 13.5em);
+   }
+
+   div#chat-user-list-rig {
+      top: 4.2em;
+      right: 0em;
+      height: CALC(100% - 12.5em);
+      border: 1px solid grey;
+      width: 13em;
    }
 
    #chat-box {
-      height: CALC(100% - 18.8em);
+      height: CALC(100% - 17.8em);
       width: calc(100% - 14.5em);
       position: fixed;
       top: 5em;
@@ -111,7 +133,7 @@
    }
 
    #lower-wrapper {
-      border: 2px dashed LawnGreen;
+/*      border: 2px dashed LawnGreen; */
       position: absolute;
       bottom: 0em;
       left: 0em;
@@ -147,9 +169,9 @@
    }
 
    #user-menu {
-      width: 10em;
-      font-size: 1.3em;
-      padding: 0.5em;
+      width: 9em;
+      font-size: 1.2em;
+      padding: 0.2em;
    }
 
    #user-menu h4 {
@@ -168,13 +190,18 @@
       height: CALC(100% - 2em);
    }
    #chat-rig-status {
-      bottom: 2.5em;
-      width: CALC(100% - 0.2em);
+      bottom: 2.4em;
+      width: CALC(100% - 1em);
       left: 0px;
+      font-size: 1.2em;
    }
    span#chat-ptt-wrap {
       position: absolute;
-      bottom: 0em;
-      right: -1.5[Aem;
+      top: 0.1em;
+      right: -0.8em;
    }
+   button#chat-ptt {
+      height: 1em;
+   }
+
 }

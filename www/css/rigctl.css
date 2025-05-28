@@ -14,7 +14,7 @@
    border-radius-bottom: 10px;
    position: fixed;
    top: 3.7em;
-   height: CALC(100% - 5em);
+   height: CALC(100% - 4em);
    width: CALC(100% - 1em);
    position: absolute;
    left: 0em;
@@ -134,7 +134,6 @@
    background: #0f0f0f;
    border: 1px dashed DarkTurquoise;
    display: flex;
-   resize: vertical;
    overflow: hidden;
    min-height: 0%;
    max-height: 50%;
@@ -143,7 +142,6 @@
 
 #rig-lower-split {
    display: flex;
-   resize: vertical;
    overflow: hidden;
    border: 1px dashed SpringGreen;
    min-height: 0%;

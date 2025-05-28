@@ -37,14 +37,10 @@
    background-color: #dcdcdc;
    font-size: clamp(0.5em, 1vw + 0.3em, 1em);
    margin-right: 0.1em;
-   min-width: 60%;
-   max-width: 100%;
-   overflow-y: auto;
-   overflow-x: hidden;
    padding: 10px;
-   resize: horizontal;
+   overflow-x: none;
+   overflow-y: scroll;
    width: CALC(100% - 10em);
-   border-right: 8px solid #999;
    padding-right: 6px;
 }
 
@@ -552,15 +548,15 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
    border: 2px dashed blue;
    position: relative;
    font-size: 1.4em;
-   left: 0.5em;
-   bottom: 0em;
+   left: 0.2em;
+   bottom: 0.3em;
    height: 1.8em;
-   width: CALC(100% - 5em);
+   width: CALC(100% - 1.1em);
 }
 
 span#chat-ptt-wrap {
-   position: fixed;
-   right: -0.5em;
+   position: absolute;
+   right: -1.2em;
    top: 0.2em;
    padding: 0em;
    margin: 0em;
