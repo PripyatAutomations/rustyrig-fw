@@ -37,8 +37,13 @@ extern bool rr_au_write_samples(rr_au_backend_interface_t *be, const void *sampl
 extern rr_au_sample_t **rr_au_read_samples(rr_au_backend_interface_t *be);
 extern void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev);
 
+// Initialize the UNIX domain socket server for receiving audio
+extern void au_unix_socket_init(void);
+// Cleanup the UNIX domain socket server and any client connections
+extern void au_unix_socket_cleanup(void);
+// Poll the UNIX socket server and client; handle new connections and incoming audio data
+extern void au_unix_socket_poll(void);
 
-#include "inc/au.pipewire.h"
 #include "inc/au.pcm5102.h"
 
 #endif	// !defined(__rr_audio_h)

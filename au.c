@@ -19,6 +19,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <errno.h>
+#include <stdio.h>
+#include <sys/un.h>
+#include <fcntl.h>
 #include "inc/i2c.h"
 #include "inc/state.h"
 #include "inc/eeprom.h"
@@ -29,9 +35,12 @@
 #include "inc/au.alsa.h"
 #include "inc/au.pipe.h"
 #include "inc/au.pipewire.h"
+#include "inc/ws.h"
 #if	defined(FEATURE_OPUS)
 #include <opus/opus.h>  // Used for audio compression
 #endif
+
+#define SOCKET_PATH_RX "/tmp/rustyrig_rx.pipe"
 
 rr_au_backend_interface_t au_backend_null = {
     .backend_type = AU_BACKEND_NULL_SINK,
@@ -69,4 +78,122 @@ void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev) {
     if (be->cleanup) {
         be->cleanup(dev);
     }
+}
+
+///////////////////
+// Audio Sockets //
+///////////////////
+
+static const char *rx_socket_path = "/tmp/rustyrig_rx.pipe";
+
+int rx_server_fd = -1;
+int rx_client_fd = -1;
+
+int setup_rx_unix_socket_server(const char *path) {
+   struct sockaddr_un addr = {0};
+   int fd;
+
+   fd = socket(AF_UNIX, SOCK_STREAM, 0);
+   if (fd < 0) {
+      perror("socket");
+      return -1;
+   }
+
+   unlink(path);  // Remove existing socket file if present
+
+   addr.sun_family = AF_UNIX;
+   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+
+   if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+      perror("bind");
+      close(fd);
+      return -1;
+   }
+
+   if (listen(fd, 5) < 0) {
+      perror("listen");
+      close(fd);
+      return -1;
+   }
+
+   // Make the socket non-blocking
+   if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+      perror("fcntl");
+      close(fd);
+      return -1;
+   }
+
+   printf("UNIX socket server listening on %s\n", path);
+   return fd;
+}
+
+void close_client() {
+   if (rx_client_fd >= 0) {
+      close(rx_client_fd);
+      rx_client_fd = -1;
+   }
+}
+
+void close_server() {
+   if (rx_server_fd >= 0) {
+      close(rx_server_fd);
+      rx_server_fd = -1;
+      unlink(rx_socket_path);
+   }
+}
+
+void au_unix_socket_init(void) {
+   rx_server_fd = setup_rx_unix_socket_server(SOCKET_PATH_RX);
+
+   if (rx_server_fd < 0) {
+      fprintf(stderr, "Failed to create UNIX server socket\n");
+   }
+}
+
+void au_unix_socket_cleanup(void) {
+   close_client();
+   close_server();
+}
+
+void au_unix_socket_poll(void) {
+   // Accept new connections if any
+   int client_fd = accept(rx_server_fd, NULL, NULL);
+   if (client_fd >= 0) {
+      Log(LOG_INFO, "audio", "Client connected on UNIX socket (fd=%d)", client_fd);
+      // Set non-blocking for client socket
+      fcntl(client_fd, F_SETFL, O_NONBLOCK);
+      rx_client_fd = client_fd;
+      return; // accept one connection per poll, or loop if you want multiple
+   } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      perror("accept");
+   }
+
+   if (rx_client_fd < 0) {
+      // No connected client
+      return;
+   }
+
+   // Read from the client socket
+   uint8_t buf[4096];
+   ssize_t n = read(rx_client_fd, buf, sizeof(buf));
+
+   if (n > 0) {
+//      Log(LOG_DEBUG, "audio", "Read %zd bytes from UNIX socket client (fd=%d)", n, rx_client_fd);
+      broadcast_audio_to_ws_clients(buf, n);
+   } else if (n == 0) {
+      // Client closed connection
+      Log(LOG_INFO, "audio", "Client disconnected (fd=%d)", rx_client_fd);
+      close(rx_client_fd);
+      rx_client_fd = -1;
+   } else if (n < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+         // No data available, not an error
+         return;
+      }
+      // Real error reading
+      perror("read");
+      Log(LOG_WARN, "audio", "Read error on UNIX socket client (fd=%d), closing", rx_client_fd);
+      close(rx_client_fd);
+      rx_client_fd = -1;
+   }
 }

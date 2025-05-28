@@ -59,6 +59,7 @@ extern void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sende
 extern bool send_global_alert(const char *sender, const char *data);
 extern void ws_broadcast(struct mg_connection *sender_conn, struct mg_str *msg_data);
 extern void ws_blorp_userlist_cb(void *arg);			// timer calls this to send userlists periodically
+extern void broadcast_audio_to_ws_clients(const void *data, size_t len);
 
 // ws.chat.c
 extern bool ws_chat_err_noprivs(http_client_t *cptr, const char *action);

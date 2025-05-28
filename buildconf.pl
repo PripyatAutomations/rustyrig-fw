@@ -861,6 +861,10 @@ sub generate_config_h {
          printf $fh "#define CAT_YAESU true\n";
       }
 
+      if (defined($config->{features}{'gstreamer'}) && match_boolean($config->{features}{'gstreamer'})) {
+         printf $fh "#define FEATURE_GSTREAMER\n";
+      }
+
       if (defined($config->{features}{'http'}) && match_boolean($config->{features}{'http'})) {
          printf $fh "#define FEATURE_HTTP\n";
       }

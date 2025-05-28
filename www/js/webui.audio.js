@@ -9,7 +9,27 @@ window.webui_inits.push(function webui_audio_init() {
       console.log("click start audio button in rig tab to start audio");
       return;
    }
+
 });
+
+const audioCtx = new AudioContext({ sampleRate: 16000 });
+
+function playRawPCM(buffer) {
+   const pcmData = new Int16Array(buffer);
+   const float32Data = new Float32Array(pcmData.length);
+   
+   for (let i = 0; i < pcmData.length; i++) {
+      float32Data[i] = pcmData[i] / 32768;
+   }
+   
+   const audioBuffer = audioCtx.createBuffer(1, float32Data.length, 16000);
+   audioBuffer.copyToChannel(float32Data, 0);
+
+   const source = audioCtx.createBufferSource();
+   source.buffer = audioBuffer;
+   source.connect(audioCtx.destination);
+   source.start();
+}
 
 /*
 // Start our audioWorklets and deal with the data to/from them

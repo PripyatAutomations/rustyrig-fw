@@ -89,6 +89,7 @@
       "auto_block_ptt": "false",
       "cat_kpa500": "true",
       "cat_yaesu": "true",
+      "gstreamer": "true",
       "http": "true",
       "libunwind": "false",
       "max_bands": 14,

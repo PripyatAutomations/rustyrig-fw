@@ -29,12 +29,13 @@ EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
 EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
 USE_ALSA = $(strip $(shell cat ${CF} | jq -r '.features.alsa'))
-USE_PIPEWIRE = $(strip $(shell cat ${CF} | jq -r '.features.pipewire'))
+USE_GSTREAMER = $(strip $(shell cat ${CF} | jq -r '.features.gstreamer'))
 USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
+USE_LIBUNWIND = $(strip $(shell cat ${CF} | jq -r ".features.libunwind"))
+USE_PIPEWIRE = $(strip $(shell cat ${CF} | jq -r '.features.pipewire'))
 USE_OPUS = $(strip $(shell cat ${CF} | jq -r '.features.opus'))
 USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
-USE_LIBUNWIND = $(strip $(shell cat ${CF} | jq -r ".features.libunwind"))
 
 ifeq (${USE_LIBUNWIND},true)
 CFLAGS += -fno-omit-frame-pointer -Og -gdwarf -DUSE_LIBUNWIND
@@ -63,6 +64,11 @@ ifeq (${USE_SQLITE},true)
 CFLAGS += -DUSE_SQLITE
 LDFLAGS += -lsqlite3
 MASTER_DB := $(strip $(shell cat ${CF} | jq -r ".database.master.path"))
+endif
+
+ifeq (${USE_GSTREAMER},true)
+FWDSP_CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
+FWDSP_LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 endif
 
 # Are we cross compiling?
@@ -156,7 +162,6 @@ fw_objs += ws.chat.o		# Websocket Chat (talk)
 fw_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 
 ##### DSP #####
-
 ifeq (${USE_ALSA},true)
 fwdsp_objs += fwdsp.alsa.o		# ALSA on posix hosts
 endif
@@ -205,7 +210,7 @@ ${OBJ_DIR}/fwdsp/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
 ${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users
@@ -218,7 +223,7 @@ ${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users
 # Binary also depends on the .stamp file
 ${fwdsp_bin}: ${real_fwdsp_objs}
 	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
-	@${CC} -o $@ ${real_fwdsp_objs} ${LDFLAGS} || exit 1
+	${CC} -o $@ ${real_fwdsp_objs} ${LDFLAGS} ${FWDSP_LDFLAGS} || exit 1
 	@ls -a1ls $@
 	@file $@
 	@size $@
@@ -256,8 +261,9 @@ install:
 ifeq (${PLATFORM},posix)
 # Run debugger
 run: ${MASTERDB} ${EEPROM_FILE} ${fw_bin}
-	@echo "[run] ${fw_bin}"
-	@${fw_bin}
+	@echo "[run] ${fwdsp_bin} & ${fw_bin}"
+	${fwdsp_bin} &
+	${fw_bin}
 
 gdb debug: ${fw_bin} ${EEPROM_FILE}
 	@echo "[gdb] ${fw_bin}"

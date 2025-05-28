@@ -78,3 +78,18 @@ bool send_global_alert(const char *sender, const char *data) {
 
    return false;
 }
+
+void broadcast_audio_to_ws_clients(const void *data, size_t len) {
+   struct mg_connection *c;
+   http_client_t *current = http_client_list;
+   while (current != NULL) {
+      if (current && (current->is_ws && current->authenticated)) {
+         struct mg_connection *c = current->conn;
+
+         if (c->is_websocket) {
+            mg_ws_send(c, data, len, WEBSOCKET_OP_BINARY);
+         }
+      }
+      current = current->next;
+   }
+}

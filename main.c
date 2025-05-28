@@ -65,6 +65,7 @@ time_t next_rig_poll = 0;	// allows us to pause rig polling
 char latest_timestamp[64];	// Current printed timestamp
 int auto_block_ptt = 0;		// Auto block PTT at boot?
 
+
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
    rig.faultbeep = 1;
@@ -102,6 +103,7 @@ void shutdown_rig(uint32_t signum) {
 
     dying = 1;
     rr_ptt_set_all_off();
+    au_unix_socket_cleanup();
 }
 
 void restart_rig(void) {
@@ -200,6 +202,8 @@ int main(int argc, char **argv) {
    }
 
    rr_au_init();
+   au_unix_socket_init();
+
 #if	defined(FEATURE_OPUS)
    codec_init();
 #endif
@@ -253,10 +257,7 @@ int main(int argc, char **argv) {
          rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
-
-#if	defined(FEATURE_PIPEWIRE)
-      rr_au_pw_runloop_all();
-#endif // defined(FEATURE_PIPEWIRE)
+      au_unix_socket_poll();
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
@@ -288,7 +289,7 @@ int main(int argc, char **argv) {
 
 #if	defined(USE_MONGOOSE)
       // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
-      mg_mgr_poll(&mg_mgr, 1000);
+      mg_mgr_poll(&mg_mgr, 0);
 #endif
 
       if (next_rig_poll <= now && last_rig_poll.tv_sec) {
@@ -306,6 +307,8 @@ int main(int argc, char **argv) {
 
       // save our current time for the next time through
       memcpy(&last_rig_poll, &loop_start, sizeof(struct timespec));
+
+      usleep(100);
 
       // If enabled, calculate loop run time
 #if	defined(USE_PROFILING)
