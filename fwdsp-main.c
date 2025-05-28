@@ -157,9 +157,12 @@ int main(int argc, char *argv[]) {
    const char *rx_template = NULL;
    switch (use_format) {
       case 0:
-         rx_template = (sample_rate == 44100)
-            ? "audiotestsrc wave=sine ! audio/x-raw,rate=44100,format=S16LE,channels=1 ! fdsink fd=%d"
-            : "audiotestsrc wave=sine ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
+//         rx_template = (sample_rate == 44100)
+//            ? "audiotestsrc wave=sine ! audio/x-raw,rate=44100,format=S16LE,channels=1 ! fdsink fd=%d"
+//            : "audiotestsrc wave=sine ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
+//           rx_template = "pipewiresrc device=alsa_input.usb-Creative_Sound_Blaster_X-Fi_Go_Pro-00.analog-stereo ! audioconvert ! bandpass frequency=1700 width=2700 ! volume volume=2.0 ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
+            rx_template = "audiotestsrc wave=sine ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! fdsink fd=%d";
+
          break;
       case 1:
          rx_template = "audiotestsrc wave=sine ! audio/x-raw,rate=44100,channels=1 ! flacenc ! fdsink fd=%d";

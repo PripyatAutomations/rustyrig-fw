@@ -123,7 +123,7 @@ int setup_rx_unix_socket_server(const char *path) {
       return -1;
    }
 
-   printf("UNIX socket server listening on %s\n", path);
+   Log(LOG_DEBUG, "au", "UNIX socket server listening on %s", path);
    return fd;
 }
 
@@ -146,7 +146,7 @@ void au_unix_socket_init(void) {
    rx_server_fd = setup_rx_unix_socket_server(SOCKET_PATH_RX);
 
    if (rx_server_fd < 0) {
-      fprintf(stderr, "Failed to create UNIX server socket\n");
+      Log(LOG_DEBUG, "au", "Failed to create UNIX server socket");
    }
 }
 
@@ -158,8 +158,10 @@ void au_unix_socket_cleanup(void) {
 void au_unix_socket_poll(void) {
    // Accept new connections if any
    int client_fd = accept(rx_server_fd, NULL, NULL);
+
    if (client_fd >= 0) {
-      Log(LOG_INFO, "audio", "Client connected on UNIX socket (fd=%d)", client_fd);
+      Log(LOG_INFO, "audio", "fwdsp connected on UNIX socket (fd=%d)", client_fd);
+
       // Set non-blocking for client socket
       fcntl(client_fd, F_SETFL, O_NONBLOCK);
       rx_client_fd = client_fd;
@@ -182,7 +184,7 @@ void au_unix_socket_poll(void) {
       broadcast_audio_to_ws_clients(buf, n);
    } else if (n == 0) {
       // Client closed connection
-      Log(LOG_INFO, "audio", "Client disconnected (fd=%d)", rx_client_fd);
+      Log(LOG_INFO, "au", "fwdsp disconnected (fd=%d)", rx_client_fd);
       close(rx_client_fd);
       rx_client_fd = -1;
    } else if (n < 0) {
@@ -192,7 +194,7 @@ void au_unix_socket_poll(void) {
       }
       // Real error reading
       perror("read");
-      Log(LOG_WARN, "audio", "Read error on UNIX socket client (fd=%d), closing", rx_client_fd);
+      Log(LOG_WARN, "au", "fwdsp read error on UNIX socket client (fd=%d), closing", rx_client_fd);
       close(rx_client_fd);
       rx_client_fd = -1;
    }

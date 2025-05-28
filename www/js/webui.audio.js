@@ -12,23 +12,55 @@ window.webui_inits.push(function webui_audio_init() {
 
 });
 
+function stopPlayback() {
+   playbackTime = audioCtx.currentTime;
+}
+
+function flushPlayback() {
+   const sampleRate = audioCtx.sampleRate;
+   const silence = new Float32Array(sampleRate / 10); // 100ms silence
+
+   const audioBuffer = audioCtx.createBuffer(1, silence.length, sampleRate);
+   audioBuffer.copyToChannel(silence, 0);
+
+   const source = audioCtx.createBufferSource();
+   source.buffer = audioBuffer;
+   source.connect(audioCtx.destination);
+
+   const now = audioCtx.currentTime;
+   if (playbackTime < now) playbackTime = now;
+
+   source.start(playbackTime);
+   playbackTime += silence.length / sampleRate;
+}
+
 const audioCtx = new AudioContext({ sampleRate: 16000 });
+let playbackTime = audioCtx.currentTime;
 
 function playRawPCM(buffer) {
    const pcmData = new Int16Array(buffer);
    const float32Data = new Float32Array(pcmData.length);
-   
+
    for (let i = 0; i < pcmData.length; i++) {
       float32Data[i] = pcmData[i] / 32768;
    }
-   
-   const audioBuffer = audioCtx.createBuffer(1, float32Data.length, 16000);
+
+   const samplesPerPacket = float32Data.length;
+   const sampleRate = audioCtx.sampleRate;  // might be 44100, not 16000
+   const duration = samplesPerPacket / sampleRate;
+
+   const audioBuffer = audioCtx.createBuffer(1, samplesPerPacket, sampleRate);
    audioBuffer.copyToChannel(float32Data, 0);
 
    const source = audioCtx.createBufferSource();
    source.buffer = audioBuffer;
    source.connect(audioCtx.destination);
-   source.start();
+
+   // Schedule the audio to play in sequence
+   const now = audioCtx.currentTime;
+   if (playbackTime < now) playbackTime = now;
+   source.start(playbackTime);
+   playbackTime += duration;
 }
 
 /*

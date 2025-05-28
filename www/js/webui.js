@@ -233,6 +233,8 @@ function ws_connect() {
          cul_offline();
       }
 
+      flushPlayback();  // Ensures remaining audio is played out
+
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
          handle_reconnect();
@@ -254,6 +256,7 @@ function ws_connect() {
          console.log("Auto-reconnecting ws (on-error)");
          handle_reconnect();
       }
+      flushPlayback();  // Ensures remaining audio is played out
    };
 
    socket.onmessage = function(event) {
