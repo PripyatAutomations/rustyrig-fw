@@ -260,7 +260,7 @@ install:
 ###################
 ifeq (${PLATFORM},posix)
 # Run debugger
-run: ${MASTERDB} ${EEPROM_FILE} ${fw_bin}
+run: ${MASTER_DB} ${EEPROM_FILE} ${fw_bin}
 	@echo "[run] ${fwdsp_bin} & ${fw_bin}"
 	${fwdsp_bin} &
 	${fw_bin}
@@ -317,6 +317,7 @@ config/http.users:
 	cp doc/http.users.example config/http.users
 
 ${MASTER_DB}:
+	mkdir -p $(shell dirname "${MASTER_DB}")
 	sqlite3 $@ < sql/sqlite.master.sql
 
 dump-ptt:
