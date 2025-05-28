@@ -340,8 +340,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       if (c->fn_data != NULL) {
          mg_tls_init(c, &tls_opts);
       }
-   } else
 #endif
+   } else
    if (ev == MG_EV_HTTP_MSG) {
       http_client_t *cptr = http_find_client_by_c(c);
 

@@ -941,10 +941,10 @@ sub generate_config_h {
          printf $fh "#define MONGOOSE_DEBUG\ttrue\n"; }
    }
    if (defined($config->{'net'})) {
-      if (defined($config->{'net'}{'http'})) {
-         printf $fh "#define HTTP_USE_TLS 1\n";
+      if (defined($config->{'net'}{'http'}{'enabled'}) && match_boolean($config->{'net'}{'http'}{'enabled'})) {
          my $tls_enabled = $config->{'net'}{'http'}{'tls_enabled'};
          if (defined($tls_enabled) && match_boolean($tls_enabled)) {
+            printf $fh "#define HTTP_USE_TLS 1\n";
             printf $fh "#define HTTP_TLS_KEY \"%s\"\n", $config->{'net'}{'http'}{'tls_key'};
             printf $fh "#define HTTP_TLS_CERT \"%s\"\n", $config->{'net'}{'http'}{'tls_cert'};
          }
