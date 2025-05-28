@@ -110,7 +110,8 @@ my ( $lptr_out, $lptr_in );
 my ( $tptr_out, $tptr_in );
 
 # Make the build directory tree, if not present
-make_path("$build_dir/obj");
+make_path("$build_dir/obj/firmware");
+make_path("$build_dir/obj/fwdsp");
 
 # Load configuration from $config_file
 sub config_load {

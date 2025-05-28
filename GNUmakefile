@@ -7,7 +7,10 @@ CF := config/${PROFILE}.config.json
 CHANNELS := config/${PROFILE}.channels.json
 BUILD_DIR := build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
-bin := ${BUILD_DIR}/firmware.bin
+fw_bin := ${BUILD_DIR}/firmware.bin
+fwdsp_bin :+ ${BUILD_DIR}/fwdsp.bin
+
+bins += ${fw_bin} ${fwdsp_bin}
 
 # Throw an error if the .json configuration file doesn't exist...
 ifeq (x$(wildcard ${CF}),x)
@@ -74,99 +77,106 @@ endif
 ##################
 # Source objects #
 ##################
-objs += amp.o			# Amplifier management
-objs += atu.o			# Antenna Tuner
-objs += au.o			# Audio channel stuff
-objs += au.pipe.o		# pipe / socket support
-objs += au.pcm5102.o		# pcm5102 i2s DAC support
+fw_objs += amp.o			# Amplifier management
+fw_objs += atu.o			# Antenna Tuner
+fw_objs += au.o			# Audio channel stuff
+fw_objs += au.pipe.o		# pipe / socket support
+fw_objs += au.pcm5102.o		# pcm5102 i2s DAC support
 
-ifeq (${USE_ALSA},true)
-objs += au.alsa.o		# ALSA on posix hosts
-endif
-
-ifeq (${USE_PIPEWIRE},true)
-objs += au.pipewire.o		# Pipewire on posix hosts
-CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
-LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
-endif
-
-objs += au.recording.o		# Support for recording audio to files
-objs += auth.o			# User management
-objs += backend.o		# Support for multiple backends by setting up pointer into appropriate one
-objs += backend.dummy.o		# Dummy backend (not implemented yet - use hamlib + rigctld in dummy rig mode!)
-objs += backend.hamlib.o	# Support for using hamlib to control legacy rigs
-objs += backend.internal.o	# Internal (real hardware) backend
-objs += cat.o			# CAT parsers
-objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
-objs += cat.yaesu.o		# Yaesu CAT protocol
-objs += channels.o		# Channel Memories
-objs += codec.o			# Support for audio codec
-objs += console.o		# Console support
-objs += database.o		# sqlite3 database stuff
-objs += dds.o			# API for Direct Digital Synthesizers
-objs += dds.ad9833.o		# AD9833 DDS
-objs += dds.ad9959_stm32.o	# STM32 (AT command) ad9851 DDS
-objs += dds.si5351.o		# Si5351 synthesizer
-objs += debug.o			# Debug stuff
-objs += dict.o			# dictionary object
-objs += eeprom.o		# "EEPROM" configuration storage
-objs += faults.o		# Fault management/alerting
-objs += filters.o		# Control of input/output filters
-objs += gpio.o			# GPIO controls
-objs += gui.o			# Support for a local user-interface
-objs += gui.fb.o		# Generic LCD (framebuffer) interface
-objs += gui.nextion.o		# Nextion HMI display interface
-#objs += gui.h264.o		# Framebuffer via H264 (over http)
-objs += help.o			# support for help menus from filesystem, if available
-objs += http.o			# HTTP server
-objs += http.api.o		# HTTP REST API
-objs += i2c.o			# i2c abstraction
-objs += i2c.linux.o
-objs += i2c.mux.o		# i2c multiplexor support
-objs += io.o			# Input/Output abstraction/portability
-objs += io.serial.o		# Serial port stuff
-objs += io.socket.o		# Socket operations
-objs += logger.o		# Logging facilities
-objs += main.o			# main loop
-objs += mongoose.o		# Mongoose http/websocket/mqtt library
-objs += mqtt.o			# Support for MQTT via mongoose
-objs += network.o		# Network control
+fw_objs += au.recording.o		# Support for recording audio to files
+fw_objs += auth.o			# User management
+fw_objs += backend.o		# Support for multiple backends by setting up pointer into appropriate one
+fw_objs += backend.dummy.o		# Dummy backend (not implemented yet - use hamlib + rigctld in dummy rig mode!)
+fw_objs += backend.hamlib.o	# Support for using hamlib to control legacy rigs
+fw_objs += backend.internal.o	# Internal (real hardware) backend
+fw_objs += cat.o			# CAT parsers
+fw_objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
+fw_objs += cat.yaesu.o		# Yaesu CAT protocol
+fw_objs += channels.o		# Channel Memories
+fw_objs += codec.o			# Support for audio codec
+fw_objs += console.o		# Console support
+fw_objs += database.o		# sqlite3 database stuff
+fw_objs += dds.o			# API for Direct Digital Synthesizers
+fw_objs += dds.ad9833.o		# AD9833 DDS
+fw_objs += dds.ad9959_stm32.o	# STM32 (AT command) ad9851 DDS
+fw_objs += dds.si5351.o		# Si5351 synthesizer
+fw_objs += debug.o			# Debug stuff
+fw_objs += dict.o			# dictionary object
+fw_objs += eeprom.o		# "EEPROM" configuration storage
+fw_objs += faults.o		# Fault management/alerting
+fw_objs += filters.o		# Control of input/output filters
+fw_objs += gpio.o			# GPIO controls
+fw_objs += gui.o			# Support for a local user-interface
+fw_objs += gui.fb.o		# Generic LCD (framebuffer) interface
+fw_objs += gui.nextion.o		# Nextion HMI display interface
+#fw_objs += gui.h264.o		# Framebuffer via H264 (over http)
+fw_objs += help.o			# support for help menus from filesystem, if available
+fw_objs += http.o			# HTTP server
+fw_objs += http.api.o		# HTTP REST API
+fw_objs += i2c.o			# i2c abstraction
+fw_objs += i2c.linux.o
+fw_objs += i2c.mux.o		# i2c multiplexor support
+fw_objs += io.o			# Input/Output abstraction/portability
+fw_objs += io.serial.o		# Serial port stuff
+fw_objs += io.socket.o		# Socket operations
+fw_objs += logger.o		# Logging facilities
+fw_objs += main.o			# main loop
+fw_objs += mongoose.o		# Mongoose http/websocket/mqtt library
+fw_objs += mqtt.o			# Support for MQTT via mongoose
+fw_objs += network.o		# Network control
 
 ifeq (${USE_SQLITE},true)
 CFLAGS += $(shell pkg-config --cflags sqlite3)
 LDFLAGS += $(shell pkg-config --libs sqlite3)
 endif
 ifeq (${PLATFORM},posix)
-objs += posix.o			# support for POSIX hosts (linux or perhaps others)
+fw_objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 LDFLAGS += -lgpiod
 endif
 
-objs += power.o			# Power monitoring and management
-objs += protection.o		# Protection features
-objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
-objs += radioberry.o		# Radioberry device support
-objs += thermal.o		# Thermal management
-objs += timer.o			# Timers support
-objs += usb.o			# Support for USB control (stm32)
-objs += util.file.o		# Misc file functions
-objs += util.math.o		# Misc math functions
-objs += util.string.o		# String utility functions
-objs += util.vna.o		# Vector Network Analyzer
-objs += unwind.o		# support for libunwind for stack tracing
-objs += vfo.o			# VFO control/management
-objs += waterfall.o		# Support for rendering waterfalls
-objs += webcam.o		# Webcam (v4l2) streaming to a canvas
-objs += ws.o			# Websocket transport general
-objs += ws.audio.o		# Audio (raw / OPUS) over websockets
-objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
-objs += ws.chat.o		# Websocket Chat (talk)
-objs += ws.rigctl.o		# Websocket Rig Control (CAT)
+fw_objs += power.o			# Power monitoring and management
+fw_objs += protection.o		# Protection features
+fw_objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
+fw_objs += radioberry.o		# Radioberry device support
+fw_objs += thermal.o		# Thermal management
+fw_objs += timer.o			# Timers support
+fw_objs += usb.o			# Support for USB control (stm32)
+fw_objs += util.file.o		# Misc file functions
+fw_objs += util.math.o		# Misc math functions
+fw_objs += util.string.o		# String utility functions
+fw_objs += util.vna.o		# Vector Network Analyzer
+fw_objs += unwind.o		# support for libunwind for stack tracing
+fw_objs += vfo.o			# VFO control/management
+fw_objs += waterfall.o		# Support for rendering waterfalls
+fw_objs += webcam.o		# Webcam (v4l2) streaming to a canvas
+fw_objs += ws.o			# Websocket transport general
+fw_objs += ws.audio.o		# Audio (raw / OPUS) over websockets
+fw_objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
+fw_objs += ws.chat.o		# Websocket Chat (talk)
+fw_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
+
+##### DSP #####
+
+ifeq (${USE_ALSA},true)
+fwdsp_objs += fwdsp.alsa.o		# ALSA on posix hosts
+endif
+
+ifeq (${USE_PIPEWIRE},true)
+fwdsp_objs += fwdsp.pipewire.o		# Pipewire on posix hosts
+CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
+LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
+endif
+fwdsp_objs += audio.o
 
 # translate unprefixed object file names to source file names
-src_files = $(objs:.o=.c)
+fw_src_files = $(fw_objs:.o=.c)
+fwdsp_src_files = $(fwdsp_objs:.o:.c)
 
 # prepend objdir path to each object
-real_objs := $(foreach x, ${objs}, ${OBJ_DIR}/${x})
+real_fw_objs := $(foreach x, ${fw_objs}, ${OBJ_DIR}/firmware/${x})
+
+# prepend objdir path to each object
+real_fwdsp_objs := $(foreach x, ${fwdsp_objs}, ${OBJ_DIR}/fwdsp/${x})
 
 ################################################################################
 ###############
@@ -181,32 +191,42 @@ extra_clean += $(wildcard ${BUILD_DIR}/*.h)
 extra_build += ${EEPROM_FILE}
 extra_clean += ${EEPROM_FILE}
 
-world: ${extra_build} ${bin}
+world: ${extra_build} ${bins}
 
 BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard inc/*.h) $(wildcard ${BUILD_DIR}/*.h)
-${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
+${OBJ_DIR}/firmware/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/au.pipewire.o: au.pipewire.c ${BUILD_HEADERS}
+# fwdsp
+${OBJ_DIR}/fwdsp/%.o: %.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
-${bin}: ${real_objs} ext/libmongoose/mongoose.c config/http.users
-	@echo "[Link] $@ from $(words ${real_objs}) object files..."
-	${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
+${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users
+	@echo "[Link] firmware ($@) from $(words ${real_fw_objs}) object files..."
+	${CC} -o $@ ${real_fw_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
 	@file $@
 	@size $@
 
-strip: ${bin}
-	@echo "[strip] ${bin}"
-	@strip ${bin}
-	@ls -a1ls ${bin}
+# Binary also depends on the .stamp file
+${fwdsp_bin}: ${real_fwdsp_objs}
+	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
+	${CC} -o $@ ${real_fw_objs} ${LDFLAGS} || exit 1
+	@ls -a1ls $@
+	@file $@
+	@size $@
+
+strip: ${fw_bin} ${fw_dspbin}
+	@echo "[strip] ${bins}"
+	@strip $^
+	@ls -a1ls $^
 
 ${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildcard res/*.json) buildconf.pl
 	@echo "[buildconf]"
@@ -217,7 +237,7 @@ ${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildca
 ##################
 clean:
 	@echo "[clean]"
-	${RM} ${bin} ${real_objs} ${extra_clean}
+	${RM} ${bins} ${real_fwdsp_objs} ${real_fw_objs} ${extra_clean}
 
 distclean: clean
 	@echo "[distclean]"
@@ -235,13 +255,13 @@ install:
 ###################
 ifeq (${PLATFORM},posix)
 # Run debugger
-run: ${MASTERDB} ${EEPROM_FILE} ${bin}
-	@echo "[run] ${bin}"
-	@${bin}
+run: ${MASTERDB} ${EEPROM_FILE} ${fw_bin}
+	@echo "[run] ${fw_bin}"
+	@${fw_bin}
 
-gdb debug: ${bin} ${EEPROM_FILE}
-	@echo "[gdb] ${bin}"
-	@gdb ${bin} -ex 'run'
+gdb debug: ${fw_bin} ${EEPROM_FILE}
+	@echo "[gdb] ${fw_bin}"
+	@gdb ${fw_bin} -ex 'run'
 
 test: clean world run
 endif

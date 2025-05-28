@@ -90,14 +90,18 @@
    }
 
    .chat-user-list {
+      position: fixed;
+      right: 0em;
       height: auto;
-      width: auto;
-      height: CALC(100% - 17.6em);
+      width: 10em;
+      height: CALC(100% - 14.8em);
    }
 
    #chat-box {
-      height: CALC(100% - 22.8em);
-      width: calc(100% - var(--user-list-width, 14.2em));
+      height: CALC(100% - 18.8em);
+      width: calc(100% - 14.5em);
+      position: fixed;
+      top: 5em;
       padding-bottom: 1em;
    }
 
@@ -162,5 +166,15 @@
    }
    div#rig-right div.chat-user-list {
       height: CALC(100% - 2em);
+   }
+   #chat-rig-status {
+      bottom: 2.5em;
+      width: CALC(100% - 0.2em);
+      left: 0px;
+   }
+   span#chat-ptt-wrap {
+      position: absolute;
+      bottom: 0em;
+      right: -1.5[Aem;
    }
 }

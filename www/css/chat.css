@@ -547,19 +547,21 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 #chat-rig-status {
    border-radius: 10px;
    background: #0f0f0f;
+   padding-top: 0.5em;
+   padding-left: 0.75em;
    border: 2px dashed blue;
    position: relative;
    font-size: 1.4em;
    left: 0.5em;
    bottom: 0em;
-   height: 2em;
-   width: CALC(100% - 1em);
+   height: 1.8em;
+   width: CALC(100% - 5em);
 }
 
 span#chat-ptt-wrap {
    position: fixed;
-   right: 0em;
-   bottom: 2.4em;
+   right: -0.5em;
+   top: 0.2em;
    padding: 0em;
    margin: 0em;
    width: 5em;
