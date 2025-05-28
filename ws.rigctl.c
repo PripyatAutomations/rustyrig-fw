@@ -279,7 +279,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
              cptr->chatname, new_freq, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
-         Log(LOG_AUDIT, "freq", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
+         Log(LOG_DEBUG, "ws.cat", "Sending %s to cptr:<%x> (%s)", msgbuf, cptr, cptr->chatname);
+         Log(LOG_AUDIT, "ws.cat", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
          rr_freq_set(c_vfo, new_freq);
          free(freq);
       } else if (strcasecmp(cmd, "mode") == 0) {

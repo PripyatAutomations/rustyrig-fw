@@ -299,10 +299,10 @@ int main(int argc, char **argv) {
          // poll the backend (internal or hamlib), if needed
          // XXX: move to config
          if (ms >= 500) {
-            // XXX: This should 
+            // Poll the rig
             rr_be_poll(VFO_A);
          }
-         next_rig_poll = 0;
+         next_rig_poll = now + 1;
       }
 
       // save our current time for the next time through

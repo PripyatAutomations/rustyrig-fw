@@ -266,6 +266,7 @@ function ws_connect() {
          playRawPCM(event.data);
       } else if (typeof event.data === "string") {
          var msgData = event.data;
+         console.log("Got string:", msgData);
          ws_last_heard = Date.now();
 
          try {
