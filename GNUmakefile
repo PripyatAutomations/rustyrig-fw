@@ -262,7 +262,7 @@ ifeq (${PLATFORM},posix)
 # Run debugger
 run: ${MASTER_DB} ${EEPROM_FILE} ${fw_bin}
 	@echo "[run] ${fwdsp_bin} & ${fw_bin}"
-	${fwdsp_bin} &
+#	${fwdsp_bin} &
 	${fw_bin}
 
 gdb debug: ${fw_bin} ${EEPROM_FILE}
