@@ -61,10 +61,9 @@ bool dying = 0;                 // Are we shutting down?
 bool restarting = 0;		// Are we restarting?
 struct GlobalState rig;         // Global state
 time_t now = -1;		// time() called once a second in main loop to update
-time_t next_rig_poll = 0;	// allows us to pause rig polling
 char latest_timestamp[64];	// Current printed timestamp
 int auto_block_ptt = 0;		// Auto block PTT at boot?
-
+struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
@@ -227,9 +226,6 @@ int main(int argc, char **argv) {
 #endif
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
-   struct timespec last_rig_poll;
-   last_rig_poll.tv_sec = 0;
-   last_rig_poll.tv_nsec = 0;
 
    // Main loop
    while(1) {

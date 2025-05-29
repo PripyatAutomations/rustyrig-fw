@@ -260,7 +260,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          // XXX: We should do a latency test at the start of the session and optimize this per-user from there
-         next_rig_poll = now + HTTP_API_RIGPOLL_PAUSE;
+         last_rig_poll.tv_sec = (now + HTTP_API_RIGPOLL_PAUSE);
          new_freq = atof(freq);
          rr_vfo_t c_vfo;
          char msgbuf[HTTP_WS_MAX_MSG+1];
