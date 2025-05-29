@@ -6,3 +6,4 @@ sleep 1
 ./fwdsp-test.sh &
 sleep 1
 ./build/radio/firmware.bin
+./killall.sh
