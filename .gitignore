@@ -15,6 +15,7 @@ build/*/obj/*
 db/*
 config/*.pem
 config/http.users
+config/*.secret
 
 # Archived configs
 config/archive/*.json

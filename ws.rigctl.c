@@ -186,7 +186,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
    if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
-         if (!has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
+         if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
             rv = true;
             goto cleanup;
          }
@@ -246,7 +246,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          char *freq = mg_json_get_str(msg_data, "$.cat.data.freq");
          float new_freq = 0;
 
-         if (!has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
+         if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
             rv = true;
             free(freq);
             goto cleanup;
@@ -286,7 +286,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       } else if (strcasecmp(cmd, "mode") == 0) {
          char *mode = mg_json_get_str(msg_data, "$.cat.data.mode");
 
-         if (!has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
+         if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
             rv = true;
             free(mode);
             goto cleanup;

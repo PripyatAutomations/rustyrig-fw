@@ -1,6 +1,7 @@
 #!/bin/bash
+[ ! -f build/radio/firmware.bin ] && ./build.sh
+./killall.sh
 ./ft891-rigctld.sh &
-sleep 2
 ./fwdsp-test.sh &
-sleep 3
+sleep 1
 ./build/radio/firmware.bin

@@ -32,7 +32,7 @@ Files
 
 Configuring
 -----------
-	See CONFIGURING for hints
+	See doc/CONFIGURING for hints
 
 Building
 --------
@@ -103,3 +103,16 @@ for intended future targets, i can leave notes and bits of code that will
 be useful for supporting that item later. If something you want to use is
 not yet implemented, feel free to ask in the chat or even better, start
 writing some code. PR can be submitted via github
+
+--------------
+
+Some quick notes about getting started:
+ * archive-config.sh	Backup configs to config/archive/
+ * build.sh		Forces a clean build
+ * dummy-rigctld.sh	hamlib dummy backend (not very useful)
+ * ft891-rigctld.sh	ft-891 rigctld startup
+ * fwdsp-test.sh	Used to start up fwdsp instances
+ * install-deps.sh	Install needed packages for building/running on host
+ * killall.sh		Stops all services
+ * pipewire-test.sh
+ * test-run.sh		Starts everything up

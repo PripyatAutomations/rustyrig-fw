@@ -1,3 +1,21 @@
+// fwdsp-main.c: firmware DSP bridge
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+//
+//
+// Here we handle moving audio between gstreamer and the firmwre.
+// You will typically have two instances running of fwdsp.bin
+// One with the -t argument and another with -r, for TX and RX, respectively
+//
+// Eventually configuration will be moved to config/$PROFILE.fwdsp.json
+//
+// XXX: We need to try our best to stay running after errors
+// XXX: - Auto-reconnect, with increasing backoff
+//
 #include "inc/config.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -31,6 +49,7 @@ struct audio_config {
    int format;        // 0 = S16LE, 1 = FLAC, 2 = OPUS
    bool rx_mode;
    bool tx_mode;
+   bool persistent;	// persistent mode, keep reconnecting until fatal signal
 };
 
 static GstElement *tx_pipeline = NULL;
@@ -157,7 +176,7 @@ int main(int argc, char *argv[]) {
    };
 
    int opt;
-   while ((opt = getopt(argc, argv, "c:s:R:T:p:rxh")) != -1) {
+   while ((opt = getopt(argc, argv, "c:s:R:T:p:rtxh")) != -1) {
       switch (opt) {
          case 'c':
             if (strcmp(optarg, "flac") == 0) cfg.format = 1;
@@ -179,8 +198,12 @@ int main(int argc, char *argv[]) {
          case 'r':
             cfg.rx_mode = true;
             break;
-         case 'x':
+         case 't':
             cfg.tx_mode = true;
+            break;
+         case 'x':
+            cfg.persistent = true;
+            printf("We are running in persistent mode, we will reconnect until receive fatal signal such as SIGKILL!\n");
             break;
          case 'h':
          default:
@@ -213,8 +236,12 @@ int main(int argc, char *argv[]) {
 
    if (cfg.tx_mode) {
       // TX logic placeholder
+      cfg.template = "fdsrc fd=%d ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! audioconvert ! volume volume=1.0 ! pipewiresink stream-properties=\"props,target.node.name='fwdsp TX'\"";
    }
 
-   run_loop(&cfg);
+   do {
+      run_loop(&cfg);
+   } while(cfg.persistent);
+
    return 0;
 }

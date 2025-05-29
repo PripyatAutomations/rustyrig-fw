@@ -14,5 +14,6 @@
 #include "inc/mongoose.h"
 
 extern bool mqtt_init(struct mg_mgr *mgr);
+extern bool mqtt_client_init(void);
 
 #endif	// !defined(__rr_mqtt_h)

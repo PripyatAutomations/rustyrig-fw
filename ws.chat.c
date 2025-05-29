@@ -349,7 +349,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                char cmd[16], arg[32];
                size_t cmd_len = sizeof(cmd), arg_len = sizeof(arg);
 
-               if (!has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
+               if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
                   /// XXX: we should send an error alert
                   rv = true;
                   goto cleanup;

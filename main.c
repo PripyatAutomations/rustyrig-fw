@@ -223,6 +223,7 @@ int main(int argc, char **argv) {
 #endif
 #if	defined(FEATURE_MQTT)
    mqtt_init(&mg_mgr);
+   mqtt_client_init();
 #endif
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 

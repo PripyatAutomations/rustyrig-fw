@@ -1,2 +1,2 @@
 #!/bin/bash
-killall -9 TERM rigctld firmware.bin fwdsp.bin
+killall -9 rigctld firmware.bin fwdsp.bin

@@ -187,4 +187,41 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
    }
 }
+
+// XXX: Move these to config
+const char *mqtt_user = "rustyrig-ft891";
+const char *mqtt_host = "10.237.1.239";
+int mqtt_port = 8833;
+char mqtt_secret[128];
+
+bool mqtt_client_init(void) {
+   FILE *fp = NULL;
+   // XXX: This should come from config:net.mqtt-client.secret-file
+   const char *secret_file = "./config/mqtt-cli.secret";
+   if (!file_exists(secret_file)) {
+      Log(LOG_CRIT, "mqtt.cli", "Secret file '%s' doesn't exist", secret_file);
+      return false;
+   }
+
+   if ((fp = fopen(secret_file, "r")) == NULL) {
+      Log(LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno));
+      return false;
+   }
+
+   memset(mqtt_secret, 0, sizeof(mqtt_secret));
+   if (fgets(mqtt_secret, sizeof(mqtt_secret), fp) == NULL) {
+      Log(LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno));
+      return true;
+   }
+
+   char *end = mqtt_secret + strlen(mqtt_secret) - 1;
+   while (end >= mqtt_secret && (*end == '\r' || *end == '\n')) {
+      *end = '\0';
+      end--;
+   }
+   Log(LOG_DEBUG, "mqtt.cli", "Connect to mqtt: user=\"%s\", pass=\"%s\", host=\"%s:%d\"",
+      mqtt_user, mqtt_secret, mqtt_host, mqtt_port);
+   return false;
+}
+
 #endif	// defined(FEATURE_MQTT)
