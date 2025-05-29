@@ -12,8 +12,9 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define DEFAULT_SOCKET_PATH_TX "/tmp/rustyrig_tx.sock"
-#define DEFAULT_SOCKET_PATH_RX "/tmp/rustyrig_rx.pipe"
+#define DEFAULT_SOCKET_PATH_TX "./run/rustyrig_tx.sock"
+#define DEFAULT_SOCKET_PATH_RX "./run/rustyrig_rx.pipe"
+
 static void send_audio_header(int fd, int rate, int format);
 
 struct audio_header {
@@ -73,7 +74,7 @@ static void run_loop(const struct audio_config *cfg) {
          while (rx_fd < 0) {
             rx_fd = connect_unix_socket(cfg->rx_path);
             if (rx_fd < 0) {
-               fprintf(stderr, "Waiting for RX socket connection...\n");
+               fprintf(stderr, "fwdsp: Waiting for RX socket connection...\n");
                sleep(1);
             }
          }
@@ -82,7 +83,7 @@ static void run_loop(const struct audio_config *cfg) {
          rx_pipeline = build_pipeline(cfg->template, rx_fd);
 
          if (!rx_pipeline) {
-            fprintf(stderr, "Failed to build RX pipeline\n");
+            fprintf(stderr, "fwdsp: Failed to build RX pipeline\n");
             cleanup_pipeline(&rx_pipeline);
             close(rx_fd);
             sleep(1);
@@ -104,11 +105,11 @@ static void run_loop(const struct audio_config *cfg) {
                   GError *err;
                   gchar *dbg;
                   gst_message_parse_error(msg, &err, &dbg);
-                  fprintf(stderr, "GStreamer error: %s\n", err->message);
+                  fprintf(stderr, "fwdsp: GStreamer error: %s\n", err->message);
                   g_error_free(err);
                   g_free(dbg);
                } else if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS) {
-                  fprintf(stderr, "GStreamer EOS received\n");
+                  fprintf(stderr, "fwdsp: GStreamer EOS received\n");
                }
                running = FALSE;
                gst_message_unref(msg);

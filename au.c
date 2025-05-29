@@ -40,7 +40,8 @@
 #include <opus/opus.h>  // Used for audio compression
 #endif
 
-#define SOCKET_PATH_RX "/tmp/rustyrig_rx.pipe"
+#define SOCKET_PATH_RX "./run/rustyrig_rx.pipe"
+#define SOCKET_PATH_TX "./run/rustyrig_tx.pipe"
 
 rr_au_backend_interface_t au_backend_null = {
     .backend_type = AU_BACKEND_NULL_SINK,
@@ -83,8 +84,8 @@ void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev) {
 ///////////////////
 // Audio Sockets //
 ///////////////////
-
-static const char *rx_socket_path = "/tmp/rustyrig_rx.pipe";
+static const char *rx_socket_path = SOCKET_PATH_RX;
+static const char *tx_socket_path = SOCKET_PATH_TX;
 
 int rx_server_fd = -1;
 int rx_client_fd = -1;

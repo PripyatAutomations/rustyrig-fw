@@ -238,7 +238,6 @@ bool rr_be_poll(rr_vfo_t vfo) {
    if (ret_vfo == NULL) {
       return true;
    }
-   printf(".");
    // save it to the VFO storage
    memcpy(&vfos[vfo], ret_vfo, sizeof(rr_vfo_data_t));
    free(ret_vfo);
