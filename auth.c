@@ -434,11 +434,19 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
       }
 
+      if (cptr->user == NULL || cptr->user->enabled == false) {
+         Log(LOG_AUDIT, "auth.users", "User account %s is disabled", cptr->user->name);
+         rv = true;
+         ws_kick_client(cptr, "Account disabled");
+         goto cleanup;
+      }
+
       int curr_clients = http_count_clients();
       if (curr_clients > HTTP_MAX_SESSIONS) {
          Log(LOG_AUDIT, "auth.users", "Server is full! %d clients exceeds max %d", curr_clients, HTTP_MAX_SESSIONS);
          // kick the user
          rv = true;
+         ws_kick_client(cptr, "Server full! Try again later.");
          goto cleanup;
       }
 
