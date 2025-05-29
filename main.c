@@ -127,8 +127,8 @@ int main(int argc, char **argv) {
    my_argv = argv;
 
    // loop time calculation
-#if	defined(USE_PROFILING)
    struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
+#if	defined(USE_PROFILING)
    struct timespec loop_end = { .tv_sec = 0, .tv_nsec = 0 };
    double loop_runtime = 0.0, current_time;
 #endif // defined(USE_PROFILING)
@@ -228,11 +228,14 @@ int main(int argc, char **argv) {
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
    struct timespec last_rig_poll;
+   last_rig_poll.tv_sec = 0;
+   last_rig_poll.tv_nsec = 0;
 
    // Main loop
    while(1) {
+      // save the current time
       clock_gettime(CLOCK_MONOTONIC, &loop_start);
-      now = time(NULL);
+      now = loop_start.tv_sec;
 
       char buf[512];
 
@@ -286,27 +289,22 @@ int main(int argc, char **argv) {
 
       // XXX: Check if an LCD/OLED is configured and update it
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
+      long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
+                (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
+
+      // poll the backend (internal or hamlib), if needed
+      // XXX: move to config
+      if (ms >= 500) {
+         // Poll the rig
+         rr_be_poll(VFO_A);
+         last_rig_poll.tv_sec = loop_start.tv_sec;
+         last_rig_poll.tv_nsec = loop_start.tv_nsec;
+      }
 
 #if	defined(USE_MONGOOSE)
       // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
       mg_mgr_poll(&mg_mgr, 0);
 #endif
-
-      if (next_rig_poll <= now && last_rig_poll.tv_sec) {
-         long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
-                   (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
-
-         // poll the backend (internal or hamlib), if needed
-         // XXX: move to config
-         if (ms >= 500) {
-            // Poll the rig
-            rr_be_poll(VFO_A);
-         }
-         next_rig_poll = now + 1;
-      }
-
-      // save our current time for the next time through
-      memcpy(&last_rig_poll, &loop_start, sizeof(struct timespec));
 
       usleep(1000);
 

@@ -215,7 +215,7 @@ ${OBJ_DIR}/fwdsp/%.o: %.c ${BUILD_HEADERS}
 	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
-${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users
+${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users ${fw_src_files}
 	@echo "[Link] firmware ($@) from $(words ${real_fw_objs}) object files..."
 	@${CC} -o $@ ${real_fw_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
@@ -223,7 +223,7 @@ ${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users
 	@size $@
 
 # Binary also depends on the .stamp file
-${fwdsp_bin}: ${real_fwdsp_objs}
+${fwdsp_bin}: ${real_fwdsp_objs} ${fwdsp_src_files}
 	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
 	${CC} -o $@ ${real_fwdsp_objs} ${LDFLAGS} ${FWDSP_LDFLAGS} || exit 1
 	@ls -a1ls $@
