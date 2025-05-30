@@ -104,17 +104,6 @@ function chat_init() {
          parse_chat_cmd(e);
       });
 
-      ///////////////////////
-      // Keyboard controls //
-      ///////////////////////
-      $('#chat-input').keypress(function(e) {
-         // ENTER
-         if (e.which == 13) {
-            $('#send-btn').click();
-            e.preventDefault();
-         }
-      });
-
       // Ensure #chat-box does not accidentally become focusable
       $('#chat-box').attr('tabindex', '-1');
       $('.um-close').click(function() {
