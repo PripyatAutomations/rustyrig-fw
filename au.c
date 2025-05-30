@@ -199,3 +199,22 @@ void au_unix_socket_poll(void) {
       rx_client_fd = -1;
    }
 }
+
+static bool parse_format_header(int fd, struct audio_header *hdr_out) {
+   ssize_t r;
+   size_t total = 0;
+   uint8_t *buf = (uint8_t *)hdr_out;
+
+   while (total < sizeof(*hdr_out)) {
+      r = read(fd, buf + total, sizeof(*hdr_out) - total);
+      if (r <= 0) return false;
+      total += r;
+   }
+
+   if (hdr_out->magic[0] != 'A' || hdr_out->magic[1] != 'U') {
+      Log(LOG_DEBUG, "au", "Invalid header magic");
+      return false;
+   }
+
+   return true;
+}

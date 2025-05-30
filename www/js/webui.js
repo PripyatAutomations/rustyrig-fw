@@ -36,7 +36,7 @@ const UserCache = {
          ...(user.hasOwnProperty('privs') && { privs: user.privs }),
          ...(user.hasOwnProperty('clones') && { clones: user.clones })
       };
-      console.log("UC.add: name:", user.name, "clones:", user.clones);
+//      console.log("UC.add: name:", user.name, "clones:", user.clones);
       cul_render();
    },
 
@@ -44,7 +44,7 @@ const UserCache = {
       const entry = this.users[name];
       if (!entry) return;
 
-      console.log("UC.remove: name:", name, "clones:", entry.clones);
+//      console.log("UC.remove: name:", name, "clones:", entry.clones);
 
       if (entry.clones <= 1) {
          delete this.users[name];
@@ -59,7 +59,7 @@ const UserCache = {
       const existing = this.users[user.name];
 
       if (!existing) {
-         console.log("UC.update: No entry, creating new");
+         console.log("UC.update: No entry for", user.name, "- creating new");
          this.add(user);
          return;
       }
@@ -282,7 +282,7 @@ function ws_connect() {
          playRawPCM(event.data);
       } else if (typeof event.data === "string") {
          var msgData = event.data;
-         console.log("Got string:", msgData);
+//         console.log("Got string:", msgData);
          ws_last_heard = Date.now();
 
          try {

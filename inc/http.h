@@ -105,6 +105,12 @@ struct http_client {
     char  *user_agent;		// User-agent
     bool   ghost;		// Is the session a ghost?
     time_t ghost_time;		// When did the session become a ghost?
+    enum {
+       CONN_NONE = 0,
+       CONN_RIGUI,		// User-interface (chat and CAT)
+       CONN_AUDIO_RX,		// RX audio
+       CONN_AUDIO_TX		// TX audio
+    } connection_type;
     // This is a little ugly, but this stores pointers to the users associated with elmer/noob system
     union {
        struct http_client *elmers[HTTP_MAX_ELMERS];	// pointer(s) to elmers who have accepted to babysit user (if noob)
