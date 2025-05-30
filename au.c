@@ -32,9 +32,7 @@
 #include "inc/cat.h"
 #include "inc/posix.h"
 #include "inc/au.h"
-#include "inc/au.alsa.h"
 #include "inc/au.pipe.h"
-#include "inc/au.pipewire.h"
 #include "inc/ws.h"
 #include "inc/fwdsp-shared.h"
 
