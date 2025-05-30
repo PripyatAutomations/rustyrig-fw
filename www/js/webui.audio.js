@@ -1,3 +1,13 @@
+var Flac;
+if (typeof WebAssembly === 'object' && WebAssembly){
+   //load wasm-based library
+   Flac = require('libflac.min.wasm.js');
+   //or, for example, in worker script: importScripts('libflac.min.wasm.js');
+} else {
+   //load asm.js-based library
+   Flac = require('libflac.min.js');
+   //or, for example, in worker script: importScripts('libflac.min.js');
+}
 const WebUiAudio = {
    rx_context: null,
    tx_context: null,
@@ -21,12 +31,12 @@ const WebUiAudio = {
 
       this.rx_context = new AudioContext({ sampleRate: 44100 });
       this.tx_context = new AudioContext({ sampleRate: 44100 });
-      await this.tx_context.audioWorklet.addModule('js/microphone-processor.js');
+      await this.tx_context.audioWorklet.addModule('js/tx-processor.js');
       await this.rx_context.audioWorklet.addModule('js/rx-processor.js');
 
       this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const micSource = this.tx_context.createMediaStreamSource(this.micStream);
-      this.txNode = new AudioWorkletNode(this.tx_context, 'microphone-processor');
+      this.txNode = new AudioWorkletNode(this.tx_context, 'tx-processor');
 
       this.txNode.port.onmessage = (event) => {
          const float32Array = event.data;

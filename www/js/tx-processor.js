@@ -1,5 +1,5 @@
 // Slurp audio from the mic input and vomit it back to the main code in www/js/webui.audio.js
-class MicrophoneProcessor extends AudioWorkletProcessor {
+class TxProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         this.buffer = [];
@@ -24,4 +24,4 @@ class MicrophoneProcessor extends AudioWorkletProcessor {
     }
 }
 
-registerProcessor('microphone-processor', MicrophoneProcessor);
+registerProcessor('tx-processor', TxProcessor);

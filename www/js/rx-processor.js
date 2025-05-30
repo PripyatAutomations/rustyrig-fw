@@ -1,4 +1,4 @@
-class SpeakerProcessor extends AudioWorkletProcessor {
+class RxProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         this.buffer = [];
@@ -23,4 +23,4 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     }
 }
 
-registerProcessor('speaker-processor', SpeakerProcessor);
+registerProcessor('rx-processor', RxProcessor);
