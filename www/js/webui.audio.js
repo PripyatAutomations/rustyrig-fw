@@ -1,123 +1,142 @@
 const WebUiAudio = {
-   rxCtx: null,
-   rxTime: 0,
-   txCtx: null,
-   txTime: 0,
-   rxGainNode: null,
-   txGainNode: null,
+   rx_context: null,
+   tx_context: null,
+   micStream: null,
+   txNode: null,
+   rxNode: null,
+   captureSeq: 0,
 
-   stopPlayback() {
-      this.rxTime = this.rxCtx.currentTime;
-   },
-
-   stopTransmit() {
-      this.txTime = this.txCtx.currentTime;
-   },
-
-   flushPlayback() {
-      const sampleRate = this.rxCtx.sampleRate;
-      const silence = new Float32Array(sampleRate / 10); // 100ms silence
-
-      const audioBuffer = this.rxCtx.createBuffer(1, silence.length, sampleRate);
-      audioBuffer.copyToChannel(silence, 0);
-
-      const source = this.rxCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(this.rxCtx.destination);
-
-      const rxNow = this.rxCtx.currentTime;
-      if (this.rxTime < rxNow) {
-         this.rxTime = rxNow;
-      }
-
-      source.start(this.rxTime);
-      this.rxTime += silence.length / sampleRate;
-   },
-
-   playRawPCM(buffer) {
-      const pcmData = new Int16Array(buffer);
-      const float32Data = new Float32Array(pcmData.length);
-
-      for (let i = 0; i < pcmData.length; i++) {
-         float32Data[i] = pcmData[i] / 32768;
-      }
-
-      const samplesPerPacket = float32Data.length;
-      const sampleRate = this.rxCtx.sampleRate;
-      const duration = samplesPerPacket / sampleRate;
-
-      const audioBuffer = this.rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
-      audioBuffer.copyToChannel(float32Data, 0);
-
-      const source = this.rxCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(this.rxGainNode);
-
-      const rxNow = this.rxCtx.currentTime;
-      if (this.rxTime < rxNow) {
-         this.rxTime = rxNow;
-      }
-
-      source.start(this.rxTime);
-      this.rxTime += duration;
-   },
-
-   // XXX: Here we should figure out what kind of frame it is and send to appropriate parser
-   handle_binary_frame(evt) {
-      this.playRawPCM(evt.data);
-   },
-
-   webui_audio_start() {
-      console.log("Starting WebUiAudio");
-      if (!window.socket) {
-         console.log("WebUiAudio: No socket :(");
+   async start() {
+      if (!window.socket || socket.readyState !== WebSocket.OPEN) {
+         console.error("WebUiAudio: socket not ready");
          return;
       }
 
-//      this.rxCtx = new AudioContext({ sampleRate: 44100 });
-      this.rxCtx = new AudioContext({ sampleRate: 16000 });
-      this.rxTime = this.rxCtx.currentTime;
+      socket.binaryType = 'arraybuffer';
 
-//      this.txCtx = new AudioContext({ sampleRate: 44100 });
-      this.txCtx = new AudioContext({ sampleRate: 16000 });
-      this.txTime = this.txCtx.currentTime;
-
-      this.rxGainNode = this.rxCtx.createGain();
-      this.rxGainNode.gain.value = $('#rig-rx-vol').val();
-      this.rxGainNode.connect(this.rxCtx.destination);
-
-      this.txGainNode = this.txCtx.createGain();
-      this.txGainNode.gain.value = $('#rig-tx-vol').val();
-      this.txGainNode.connect(this.txCtx.destination);
-
-      if (this.rxCtx.state === 'suspended') {
-         this.rxCtx.resume().then(() => console.log("RX context resumed"));
+      if (this.rx_context) {
+         console.warn("WebUiAudio already running");
+         return;
       }
-      if (this.txCtx.state === 'suspended') {
-         this.txCtx.resume().then(() => console.log("TX context resumed"));
+
+      this.rx_context = new AudioContext({ sampleRate: 44100 });
+      this.tx_context = new AudioContext({ sampleRate: 44100 });
+      await this.tx_context.audioWorklet.addModule('js/microphone-processor.js');
+      await this.rx_context.audioWorklet.addModule('js/rx-processor.js');
+
+      this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const micSource = this.tx_context.createMediaStreamSource(this.micStream);
+      this.txNode = new AudioWorkletNode(this.tx_context, 'microphone-processor');
+
+      this.txNode.port.onmessage = (event) => {
+         const float32Array = event.data;
+         const buffer = new ArrayBuffer(float32Array.length * 2 + 4);
+         const view = new DataView(buffer);
+         view.setUint32(0, this.captureSeq++, true);
+         for (let i = 0; i < float32Array.length; i++) {
+            const s = Math.max(-1, Math.min(1, float32Array[i]));
+            view.setInt16(4 + i * 2, s * 0x7FFF, true);
+         }
+         if (socket.readyState === WebSocket.OPEN)
+            socket.send(buffer);
+      };
+      micSource.connect(this.txNode);
+
+      this.rxNode = new AudioWorkletNode(this.rx_context, 'rx-processor');
+      this.rxGainNode = this.rx_context.createGain();
+      this.rxGainNode.gain.value = parseFloat($('#rig-rx-vol').val());
+      this.rxNode.connect(this.rxGainNode);
+      this.rxGainNode.connect(this.rx_context.destination);
+
+      this.txGainNode = this.tx_context.createGain();
+      this.txGainNode.gain.value = parseFloat($('#rig-tx-vol').val());
+      this.txNode.connect(this.txGainNode);
+      this.txGainNode.connect(this.tx_context.destination); // monitor
+
+      socket.addEventListener('message', this._onSocketMessage);
+   },
+
+   _onSocketMessage(event) {
+      if (!(event.data instanceof ArrayBuffer)) return;
+      const view = new DataView(event.data);
+      const int16Samples = new Int16Array(event.data.slice(4));
+      const float32Samples = new Float32Array(int16Samples.length);
+      for (let i = 0; i < int16Samples.length; i++) {
+         float32Samples[i] = int16Samples[i] / 0x7FFF;
       }
+      WebUiAudio.rxNode.port.postMessage(float32Samples);
+   },
+
+   stop() {
+      if (this.rx_context) {
+         this.rxNode?.disconnect();
+         this.rxGainNode?.disconnect();
+         this.rx_context.close();
+         this.rx_context = null;
+         console.log(" => Stopped RX");
+      }
+
+      if (this.tx_context) {
+         this.txNode?.disconnect();
+         this.txGainNode?.disconnect();
+         this.micStream?.getTracks().forEach(t => t.stop());
+         this.tx_context.close();
+         this.tx_context = null;
+         console.log(" => Stopped TX");
+      }
+      socket.removeEventListener('message', this._onSocketMessage);
+   },
+
+   handle_binary_frame(event) {
+      WebUiAudio.onBinaryFrame(event.data);
+   },
+
+   flushPlayback() {
+      if (this.rxNode?.port) {
+         this.rxNode.port.postMessage({ flush: true });
+      }
+   },
+
+   onBinaryFrame(data) {
+      if (!this.rxNode) return;
+
+      const view = new DataView(data);
+      const int16Samples = new Int16Array(data.slice(4));
+      const float32Samples = new Float32Array(int16Samples.length);
+      for (let i = 0; i < int16Samples.length; i++) {
+         float32Samples[i] = int16Samples[i] / 0x7FFF;
+      }
+      this.rxNode.port.postMessage(float32Samples);
    }
 };
 
-// Volume change hooks
+// Hook up button and sliders
+$('button#start-audio').click(async function () {
+   if (!WebUiAudio.rx_context) {
+      await WebUiAudio.start();
+      console.log("Started audio streaming");
+      $(this).addClass('green-btn');
+   } else {
+      WebUiAudio.stop();
+      console.log("Stopped audio streaming");
+      $(this).removeClass('green-btn');
+   }
+});
+
 $('#rig-rx-vol').change(function() {
    if (WebUiAudio.rxGainNode) {
       WebUiAudio.rxGainNode.gain.value = parseFloat($(this).val());
-      console.log("RX vol:", WebUiAudio.rxGainNode.gain.value);
    }
 });
 
 $('#rig-tx-vol').change(function() {
    if (WebUiAudio.txGainNode) {
       WebUiAudio.txGainNode.gain.value = parseFloat($(this).val());
-      console.log("TX vol:", WebUiAudio.txGainNode.gain.value);
    }
 });
-
-
 
 if (!window.webui_inits) window.webui_inits = [];
 
 window.webui_inits.push(function webui_audio_init() {
-   $('button#use-audio').click(WebUiAudio.webui_audio_start());
+   $('button#start-audio').click(WebUiAudio.start());
 });

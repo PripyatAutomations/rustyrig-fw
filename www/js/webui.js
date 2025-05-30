@@ -602,7 +602,7 @@ function ws_connect() {
                      show_active_tab();
                      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                      chat_append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
-                     WebUiAudio.webui_audio_start();
+                     WebUiAudio.start();
                      break;
                   case 'challenge':
                      var nonce = msgObj.auth.nonce;

@@ -102,9 +102,61 @@ static void run_loop(struct audio_config *cfg) {
       }
 
 //      send_format_header(sock_fd, cfg);
+      GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
+      if (ret == GST_STATE_CHANGE_FAILURE) {
+         g_printerr("Failed to set pipeline to PLAYING state.\n");
+         GstMessage *msg = gst_bus_poll(gst_element_get_bus(pipeline), GST_MESSAGE_ERROR, 0);
+         if (msg) {
+            GError *err;
+            gchar *debug_info;
+            gst_message_parse_error(msg, &err, &debug_info);
+            g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
+            g_printerr("Debugging info: %s\n", debug_info ? debug_info : "none");
+            g_clear_error(&err);
+            g_free(debug_info);
+            gst_message_unref(msg);
+            exit(1);
+         }
+      }
 
-      gst_element_set_state(pipeline, GST_STATE_PLAYING);
       GstBus *bus = gst_element_get_bus(pipeline);
+      GstMessage *msg = gst_bus_timed_pop_filtered(bus, 5 * GST_SECOND,
+          GST_MESSAGE_ERROR | GST_MESSAGE_EOS | GST_MESSAGE_STATE_CHANGED);
+
+      if (msg != NULL) {
+         GError *err;
+         gchar *debug_info;
+
+         switch (GST_MESSAGE_TYPE(msg)) {
+            case GST_MESSAGE_ERROR:
+               gst_message_parse_error(msg, &err, &debug_info);
+               g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
+               g_printerr("Debug info: %s\n", debug_info ? debug_info : "none");
+               g_clear_error(&err);
+               g_free(debug_info);
+               break;
+
+            case GST_MESSAGE_EOS:
+               g_print("End-Of-Stream reached.\n");
+               break;
+
+            case GST_MESSAGE_STATE_CHANGED:
+               if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline)) {
+                  GstState old_state, new_state, pending_state;
+                  gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
+                  g_print("Pipeline state changed from %s to %s.\n",
+                          gst_element_state_get_name(old_state), gst_element_state_get_name(new_state));
+               }
+               break;
+
+            default:
+               // Not expected
+               break;
+         }
+
+         gst_message_unref(msg);
+      }
+      gst_object_unref(bus);
 
       while (running) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND,
@@ -144,7 +196,8 @@ static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level,
 static void send_format_header(int fd, struct audio_config *cfg) {
    struct audio_header hdr = {
       .magic = {'A', 'U'},
-      .sample_rate = (cfg->sample_rate == 44100) ? 1 : 0,
+//      .sample_rate = (cfg->sample_rate == 44100) ? 1 : 0,
+      .sample_rate = (cfg->sample_rate),
       .format = (uint8_t)cfg->format,
       .channel_id = (uint8_t)cfg->channel_id
    };

@@ -172,7 +172,7 @@ void au_unix_socket_poll(void) {
    }
 
    // Read from the client socket
-   uint8_t buf[4096];
+   uint8_t buf[16384];
    ssize_t n = read(rx_client_fd, buf, sizeof(buf));
 
    if (n > 0) {
@@ -189,8 +189,7 @@ void au_unix_socket_poll(void) {
          return;
       }
       // Real error reading
-      perror("read");
-      Log(LOG_WARN, "au", "fwdsp read error on UNIX socket client (fd=%d), closing", rx_client_fd);
+      Log(LOG_WARN, "au", "fwdsp read error on UNIX socket client (fd=%d), closing. error %d:%s", rx_client_fd, errno, strerror(errno));
       close(rx_client_fd);
       rx_client_fd = -1;
    }
