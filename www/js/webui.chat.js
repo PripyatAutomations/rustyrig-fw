@@ -337,6 +337,18 @@ function chat_send_command(cmd, args) {
 //   console.log("Sent command:", msgObj_j);
 }
 
+function show_chat_window() {
+   active_tab = 'chat';
+//   $('.chroma-hash').hide();
+   $('div#win-login').hide();
+   $('div#win-rig').hide();
+   $('div#win-config').hide();
+   $('div#win-syslog').hide();
+   $('div#tabstrip').show();
+   $('div#win-chat').show();
+   $('#chat-input').focus();
+}
+
 var unmute_vol = $('#rig-rx-vol').val();
 
 function parse_chat_cmd(e) {

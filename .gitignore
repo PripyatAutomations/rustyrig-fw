@@ -27,3 +27,10 @@ rrcli/build/*
 rrcli/build/*/*
 rrcli/build/*/*.*
 rrcli/build/*/obj/*
+
+# run-time state and audio recordings
+state/*.pipe
+state/*.log
+state/*.tmp
+recordings/*.*
+

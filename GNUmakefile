@@ -254,7 +254,7 @@ clean:
 distclean: clean
 	@echo "[distclean]"
 	${RM} -r build
-	${RM} -f config/archive/*.json *.log
+	${RM} -f config/archive/*.json *.log state/*
 
 ###############
 # DFU Install #

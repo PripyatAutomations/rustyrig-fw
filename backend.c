@@ -196,7 +196,7 @@ uint16_t rr_get_width(rr_vfo_t vfo) {
    return rig.backend->api->width_get(vfo);
 }
 
-bool rr_set_width(rr_vfo_t vfo, uint16_t width) {
+bool rr_set_width(rr_vfo_t vfo, const char *width) {
    if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->width_set == NULL) {
       return false;
    }

@@ -389,7 +389,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                         "&nbsp;&nbsp;&nbsp;!mode <mode> - Set mode to CW|AM|LSB|USB|FM|DL|DU<br/>"
                         "&nbsp;&nbsp;&nbsp;!power <power> - Set power (NYI)<br/>"
                         "&nbsp;&nbsp;&nbsp;!vfo <vfo> - Switch VFOs (A|B|C)<br/>"
-                        "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (NYI)<br/></span>");
+                        "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (narrow|normal|wide)<br/></span>");
                      rv = false;
                      goto cleanup;
                   } else if (strcasecmp(cmd, "freq") == 0) {
@@ -402,8 +402,8 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   } else if (strcasecmp(cmd, "power") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);
                   } else if (strcasecmp(cmd, "width") == 0) {
-                     long real_width = parse_freq(arg);
-                     Log(LOG_DEBUG, "ws.chat", "Got !width %lu (%s) from %s", real_width, arg, cptr->chatname);
+                     Log(LOG_DEBUG, "ws.chat", "Got !width %s from %s", arg, cptr->chatname);
+                     rr_set_width(active_vfo, arg);
                   } else if (strcasecmp(cmd, "vfo") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
                   } else {

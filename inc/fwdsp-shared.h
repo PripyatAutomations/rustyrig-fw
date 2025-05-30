@@ -1,6 +1,6 @@
 
-#define DEFAULT_SOCKET_PATH_TX "./run/rustyrig_tx.sock"
-#define DEFAULT_SOCKET_PATH_RX "./run/rustyrig_rx.pipe"
+#define DEFAULT_SOCKET_PATH_TX "./state/fwdso-tx.sock"
+#define DEFAULT_SOCKET_PATH_RX "./state/fwdsp-rx.pipe"
 
 struct audio_header {
    uint8_t magic[2];      // e.g. "AU"

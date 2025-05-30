@@ -37,8 +37,6 @@
 #include "inc/fwdsp-shared.h"
 
 // XXX: This needs moved to config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path
-#define SOCKET_PATH_RX "./run/rustyrig_rx.pipe"
-#define SOCKET_PATH_TX "./run/rustyrig_tx.pipe"
 
 rr_au_backend_interface_t au_backend_null = {
     .backend_type = AU_BACKEND_NULL_SINK,
@@ -81,8 +79,8 @@ void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev) {
 ///////////////////
 // Audio Sockets //
 ///////////////////
-static const char *rx_socket_path = SOCKET_PATH_RX;
-static const char *tx_socket_path = SOCKET_PATH_TX;
+static const char *rx_socket_path = DEFAULT_SOCKET_PATH_RX;
+static const char *tx_socket_path = DEFAULT_SOCKET_PATH_TX;
 
 int rx_server_fd = -1;
 int rx_client_fd = -1;
@@ -141,7 +139,7 @@ void close_server() {
 }
 
 void au_unix_socket_init(void) {
-   rx_server_fd = setup_rx_unix_socket_server(SOCKET_PATH_RX);
+   rx_server_fd = setup_rx_unix_socket_server(DEFAULT_SOCKET_PATH_RX);
 
    if (rx_server_fd < 0) {
       Log(LOG_DEBUG, "au", "Failed to create UNIX server socket");

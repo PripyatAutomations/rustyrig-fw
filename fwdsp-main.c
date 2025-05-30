@@ -1,5 +1,5 @@
-// fwdsp-main.c: firmware DSP bridge
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+// fwdsp-main.c: firmware DSP bridge This is part of rustyrig-fw. 
+// 	https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -101,7 +101,7 @@ static void run_loop(struct audio_config *cfg) {
          continue;
       }
 
-      send_format_header(sock_fd, cfg);
+//      send_format_header(sock_fd, cfg);
 
       gst_element_set_state(pipeline, GST_STATE_PLAYING);
       GstBus *bus = gst_element_get_bus(pipeline);

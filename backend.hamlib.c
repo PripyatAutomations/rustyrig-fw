@@ -340,12 +340,20 @@ uint16_t hl_width_get(rr_vfo_t vfo) {
    return hl_state.width;
 }
 
-bool hl_width_set(rr_vfo_t vfo, uint16_t width) {
-   if (width > 1) {
-      return true;
+bool hl_width_set(rr_vfo_t vfo, const char *width) {
+   int rv = -1;
+   if (strcasecmp(width, "narrow") == 0 || strcasecmp(width, "nar") == 0) {
+      rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, 
+                   rig_passband_narrow(hl_rig, hl_state.rmode));
+   } else if (strcasecmp(width, "normal") == 0 || strcasecmp(width, "norm") == 0) {
+      rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, RIG_PASSBAND_NORMAL);
+   } else if (strcasecmp(width, "wide") == 0) {
+      rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, 
+                   rig_passband_wide(hl_rig, hl_state.rmode));
+   } else {
+      Log(LOG_WARN, "be.hl", "Unknown width %s - try narrow|normal|wide!", width);
    }
-
-   int rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, RIG_PASSBAND_NORMAL);
+   Log(LOG_INFO, "be.hl", "Set width to %s: rv=%d");
    return false;
 }
 

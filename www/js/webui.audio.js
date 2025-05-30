@@ -1,101 +1,123 @@
-if (!window.webui_inits) window.webui_inits = [];
+const WebUiAudio = {
+   rxCtx: null,
+   rxTime: 0,
+   txCtx: null,
+   txTime: 0,
+   rxGainNode: null,
+   txGainNode: null,
 
-// RX context
-const rxCtx = new AudioContext({ sampleRate: 16000 });
-let rxTime = rxCtx.currentTime;
+   stopPlayback() {
+      this.rxTime = this.rxCtx.currentTime;
+   },
 
-// TX context
-const txCtx = new AudioContext({ sampleRate: 16000 });
-let txTime = txCtx.currentTime;
+   stopTransmit() {
+      this.txTime = this.txCtx.currentTime;
+   },
 
-// Support volume control
-const rxGainNode = rxCtx.createGain();
-rxGainNode.gain.value = $('#rig-rx-vol').val();
-rxGainNode.connect(rxCtx.destination);
+   flushPlayback() {
+      const sampleRate = this.rxCtx.sampleRate;
+      const silence = new Float32Array(sampleRate / 10); // 100ms silence
 
-const txGainNode = txCtx.createGain();
-txGainNode.gain.value = $('#rig-tx-vol').val();
-txGainNode.connect(txCtx.destination);
+      const audioBuffer = this.rxCtx.createBuffer(1, silence.length, sampleRate);
+      audioBuffer.copyToChannel(silence, 0);
 
-// Halt playback
-function stopPlayback() {
-   rxTime = rxCtx.currentTime;
-}
+      const source = this.rxCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.rxCtx.destination);
 
-// Halt transmit
-function stopTransmit() {
-   txTime = txCtx.currentTime;
-}
+      const rxNow = this.rxCtx.currentTime;
+      if (this.rxTime < rxNow) {
+         this.rxTime = rxNow;
+      }
 
-// Flush the playback buffer then insert silence
-function flushPlayback() {
-   const sampleRate = rxCtx.sampleRate;
-   const silence = new Float32Array(sampleRate / 10); // 100ms silence
+      source.start(this.rxTime);
+      this.rxTime += silence.length / sampleRate;
+   },
 
-   const audioBuffer = rxCtx.createBuffer(1, silence.length, sampleRate);
-   audioBuffer.copyToChannel(silence, 0);
+   playRawPCM(buffer) {
+      const pcmData = new Int16Array(buffer);
+      const float32Data = new Float32Array(pcmData.length);
 
-   const source = rxCtx.createBufferSource();
-   source.buffer = audioBuffer;
-   source.connect(rxCtx.destination);
+      for (let i = 0; i < pcmData.length; i++) {
+         float32Data[i] = pcmData[i] / 32768;
+      }
 
-   const rxNow = rxCtx.currentTime;
-   if (rxTime < rxNow) {
-      rxTime = rxNow;
+      const samplesPerPacket = float32Data.length;
+      const sampleRate = this.rxCtx.sampleRate;
+      const duration = samplesPerPacket / sampleRate;
+
+      const audioBuffer = this.rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
+      audioBuffer.copyToChannel(float32Data, 0);
+
+      const source = this.rxCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.rxGainNode);
+
+      const rxNow = this.rxCtx.currentTime;
+      if (this.rxTime < rxNow) {
+         this.rxTime = rxNow;
+      }
+
+      source.start(this.rxTime);
+      this.rxTime += duration;
+   },
+
+   // XXX: Here we should figure out what kind of frame it is and send to appropriate parser
+   handle_binary_frame(evt) {
+      this.playRawPCM(evt.data);
+   },
+
+   webui_audio_start() {
+      console.log("Starting WebUiAudio");
+      if (!window.socket) {
+         console.log("WebUiAudio: No socket :(");
+         return;
+      }
+
+//      this.rxCtx = new AudioContext({ sampleRate: 44100 });
+      this.rxCtx = new AudioContext({ sampleRate: 16000 });
+      this.rxTime = this.rxCtx.currentTime;
+
+//      this.txCtx = new AudioContext({ sampleRate: 44100 });
+      this.txCtx = new AudioContext({ sampleRate: 16000 });
+      this.txTime = this.txCtx.currentTime;
+
+      this.rxGainNode = this.rxCtx.createGain();
+      this.rxGainNode.gain.value = $('#rig-rx-vol').val();
+      this.rxGainNode.connect(this.rxCtx.destination);
+
+      this.txGainNode = this.txCtx.createGain();
+      this.txGainNode.gain.value = $('#rig-tx-vol').val();
+      this.txGainNode.connect(this.txCtx.destination);
+
+      if (this.rxCtx.state === 'suspended') {
+         this.rxCtx.resume().then(() => console.log("RX context resumed"));
+      }
+      if (this.txCtx.state === 'suspended') {
+         this.txCtx.resume().then(() => console.log("TX context resumed"));
+      }
    }
+};
 
-   source.start(rxTime);
-   rxTime += silence.length / sampleRate;
-}
-
-// Support for playing back raw PCM audio
-function playRawPCM(buffer) {
-   const pcmData = new Int16Array(buffer);
-   const float32Data = new Float32Array(pcmData.length);
-
-   for (let i = 0; i < pcmData.length; i++) {
-      float32Data[i] = pcmData[i] / 32768;
-   }
-
-   const samplesPerPacket = float32Data.length;
-   const sampleRate = rxCtx.sampleRate;
-   const duration = samplesPerPacket / sampleRate;
-
-   const audioBuffer = rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
-   audioBuffer.copyToChannel(float32Data, 0);
-
-   const source = rxCtx.createBufferSource();
-   source.buffer = audioBuffer;
-   source.connect(rxGainNode);
-
-   // Schedule the audio to play in sequence
-   const rxNow = rxCtx.currentTime;
-   if (rxTime < rxNow) {
-      rxTime = rxNow;
-   }
-
-   source.start(rxTime);
-   rxTime += duration;
-}
-
-//$('#rig-rx-vol').on('input', function () {
+// Volume change hooks
 $('#rig-rx-vol').change(function() {
-   rxGainNode.gain.value = parseFloat($(this).val());
-   console.log("RX vol:", rxGainNode.gain.value);
+   if (WebUiAudio.rxGainNode) {
+      WebUiAudio.rxGainNode.gain.value = parseFloat($(this).val());
+      console.log("RX vol:", WebUiAudio.rxGainNode.gain.value);
+   }
 });
 
 $('#rig-tx-vol').change(function() {
-   txGainNode.gain.value = parseFloat($(this).val());
-   console.log("TX vol:", txGainNode.gain.value);
+   if (WebUiAudio.txGainNode) {
+      WebUiAudio.txGainNode.gain.value = parseFloat($(this).val());
+      console.log("TX vol:", WebUiAudio.txGainNode.gain.value);
+   }
 });
 
-window.webui_inits.push(function webui_audio_init() {
-//   $('button#use-audio').click(webui_audio_start);
 
-   // Wait for socket to exist before allowing audio init
-   if (!window.socket) {
-      console.warn("Audio init delayed: socket not yet available");
-      console.log("click start audio button in rig tab to start audio");
-      return;
-   }
+
+if (!window.webui_inits) window.webui_inits = [];
+
+window.webui_inits.push(function webui_audio_init() {
+   $('button#use-audio').click(WebUiAudio.webui_audio_start());
 });

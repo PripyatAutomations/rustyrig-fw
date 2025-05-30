@@ -23,9 +23,20 @@ let latency_samples = [];
 var latency_timer;
 const latency_max_samples = 50;
 
-/////
-/// chat stuff that needs to move
-////
+// Support reloading the stylesheet (/reloadcss) without restarting the app
+function reload_css() {
+  $('link[rel="stylesheet"]').each(function() {
+    let $link = $(this);
+    let href = $link.attr('href').split('?')[0];
+    $link.attr('href', href + '?_=' + new Date().getTime());
+  });
+
+   setTimeout(function() {
+      let chatBox = $('#chat-box');
+      chatBox.scrollTop(chatBox[0].scrollHeight);
+   }, 250);
+}
+
 const UserCache = {
    users: {},
 
@@ -95,20 +106,6 @@ const UserCache = {
    }
 };
 
-// Support reloading the stylesheet (/reloadcss) without restarting the app
-function reload_css() {
-  $('link[rel="stylesheet"]').each(function() {
-    let $link = $(this);
-    let href = $link.attr('href').split('?')[0];
-    $link.attr('href', href + '?_=' + new Date().getTime());
-  });
-
-   setTimeout(function() {
-      let chatBox = $('#chat-box');
-      chatBox.scrollTop(chatBox[0].scrollHeight);
-   }, 250);
-}
-
 function user_link(username) {
    if (username === auth_user) {
       return `<a href="#" class="my-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
@@ -160,29 +157,6 @@ function show_active_tab() {
    }
 }
 
-function show_chat_window() {
-   active_tab = 'chat';
-//   $('.chroma-hash').hide();
-   $('div#win-login').hide();
-   $('div#win-rig').hide();
-   $('div#win-config').hide();
-   $('div#win-syslog').hide();
-   $('div#tabstrip').show();
-   $('div#win-chat').show();
-   $('#chat-input').focus();
-}
-
-function show_rig_window() {
-   active_tab = 'rig';
-//   $('.chroma-hash').hide();
-   $('div#win-login').hide();
-   $('div#win-chat').hide();
-   $('div#win-config').hide();
-   $('div#win-syslog').hide();
-   $('div#tabstrip').show();
-   $('div#win-rig').show();
-}
-
 function show_config_window() {
    active_tab = 'config';
 //   $('.chroma-hash').hide();
@@ -215,7 +189,6 @@ function ws_connect() {
 
    socket.onopen = function() {
       ws_kicked = false;
-      in_connect = false;
       show_connecting(false);
       try_login();
       form_disable(false);
@@ -249,7 +222,7 @@ function ws_connect() {
          cul_offline();
       }
 
-      flushPlayback();  // Ensures remaining audio is played out
+      WebUiAudio.flushPlayback();
 
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
@@ -272,14 +245,14 @@ function ws_connect() {
          console.log("Auto-reconnecting ws (on-error)");
          handle_reconnect();
       }
-      flushPlayback();  // Ensures remaining audio is played out
+      WebUiAudio.flushPlayback();
    };
 
    socket.onmessage = function(event) {
 //      console.log("evt:", event);
       if (event.data instanceof ArrayBuffer) {
 //         console.log("Received binary message:", event.data);
-         playRawPCM(event.data);
+         WebUiAudio.handle_binary_frame(event);
       } else if (typeof event.data === "string") {
          var msgData = event.data;
 //         console.log("Got string:", msgData);
@@ -629,6 +602,7 @@ function ws_connect() {
                      show_active_tab();
                      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                      chat_append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
+                     WebUiAudio.webui_audio_start();
                      break;
                   case 'challenge':
                      var nonce = msgObj.auth.nonce;
@@ -789,107 +763,6 @@ function latency_get_avg() {
    return sum / latency_samples.length;
 }
 
-function handle_chat_completion(e) {
-   const input = $(this);
-   const text = input.val();
-   const caretPos = this.selectionStart;
-
-   if (e.key === 'Tab') {
-      e.preventDefault();
-
-      if (!completing) {
-         const beforeCaret = text.slice(0, caretPos);
-         const match = beforeCaret.match(/@(\w*)$/);
-
-         if (match) {
-            const word = match[1];
-            matchStart = match.index;  // includes the @
-            matchLength = word.length;
-            const afterCaret = text.slice(caretPos);
-
-            completionList = getCULNames().filter(name => name.toLowerCase().startsWith(word.toLowerCase()));
-
-            if (!completionList.length) {
-               return;
-            }
-
-            completing = true;
-            completionIndex = 0;
-
-            const current = completionList[completionIndex];
-            const completed = text.slice(0, matchStart - 1) + current + afterCaret;
-
-            input.val(completed);
-            const newCaret = matchStart - 1 + current.length;
-            this.setSelectionRange(newCaret, newCaret);
-            updateCompletionIndicator(current);
-            completionIndex = (completionIndex + 1) % completionList.length;
-         }
-      }
-      if (completing && completionList.length) {
-         const currentName = completionList[completionIndex];
-         const atStart = matchStart === 0;
-         const suffix = atStart ? ": " : (!text.startsWith("/") ? ", " : " ");
-         const completedText = text.slice(0, matchStart) + currentName + suffix + text.slice(caretPos);
-
-         input.val(completedText);
-         const newCaret = matchStart + currentName.length + suffix.length;
-         this.setSelectionRange(newCaret, newCaret);
-
-         updateCompletionIndicator(currentName);
-         completionIndex = (completionIndex + 1) % completionList.length;
-      }
-   } else if (e.key === 'Escape') {
-      if (completing) {
-         input.val(originalText);
-         this.setSelectionRange(matchStart + 1 + originalPrefix.length, matchStart + 1 + originalPrefix.length);
-         completing = false;
-         updateCompletionIndicator(null);
-      }
-   } else if (completing && !e.key.match(/^[a-zA-Z0-9]$/)) {
-      completing = false;
-      updateCompletionIndicator(null);
-   } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
-      e.preventDefault();
-
-      let chatBox = $("#chat-box");
-      let scrollAmount = 30;
-      let pageScrollAmount = chatBox.outerHeight();
-
-      if (e.ctrlKey) {
-         if (e.key === "ArrowUp") {
-            console.log("scroll up");
-  //               showPreviousInput();
-         } else if (e.key === "ArrowDown") {
-            console.log("scrown down");
-  //               showNextInput();
-         }
-         return;
-      } else {
-         // XXX: FInish this, to allow ctrl-up/down to scroll the input
-         if (e.key === "ArrowUp") {
-            chatBox.scrollTop(chatBox.scrollTop() - scrollAmount);
-         } else if (e.key === "ArrowDown") {
-            chatBox.scrollTop(chatBox.scrollTop() + scrollAmount);
-         } else if (e.key === "PageUp") {
-            chatBox.scrollTop(chatBox.scrollTop() - pageScrollAmount);
-         } else if (e.key === "PageDown") {
-            chatBox.scrollTop(chatBox.scrollTop() + pageScrollAmount);
-         }
-      }
-   } else if (completing && (e.key === ' ' || e.key === 'Enter')) {
-      // Finalize current match
-      const finalName = completionList[(completionIndex - 1 + completionList.length) % completionList.length];
-      const finalizedText = text.slice(0, matchStart) + finalName + text.slice(caretPos);
-      input.val(finalizedText);
-
-      const newCaret = matchStart + finalName.length;
-      this.setSelectionRange(newCaret, newCaret);
-      completing = false;
-      updateCompletionIndicator(null);
-   }
-}
-
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_init() {
    // try to prevent submitting a GET for this
@@ -942,14 +815,17 @@ window.webui_inits.push(function webui_init() {
    $('button#reload-css').click(reload_css);
    $(document).on('keydown', function(e) {
       // Handle login field focus transition
+/*
       if (document.activeElement.matches('form#login input#user')) {
          if ((e.key === 'Enter') || (e.key === 'Tab' && !e.shiftKey)) {
             e.preventDefault();
             document.querySelector('form#login input#pass')?.focus();
             return;
          }
+      } else if (active_tab === 'chat') {
+         handle_chat_completion(e);
       }
-
+*/
       // Prevent zooming in/out
       if (e.ctrlKey && (
             e.key === '+' || e.key === '-' || 
@@ -996,35 +872,7 @@ window.webui_inits.push(function webui_init() {
       }
    });
 
-   let completing = false;
-   let completionList = [];
-   let completionIndex = 0;
-   let matchStart = 0;
-   let matchLength = 0;
-
-   function getCULNames() {
-      return UserCache.get_all().map(user => user.name);
-   }
-
-   function updateCompletionIndicator(name) {
-      if (name) {
-         $('#completion-indicator').text(`🔍 COMPLETING: ${name}`).show();
-      } else {
-         $('#completion-indicator').hide();
-      }
-   }
-
-   $('#chat-input').on('keydown', handle_chat_completion);
-
 //   $(window).on('unload', function() {
-//      navigator.sendBeacon('/disconnect', JSON.stringify({id: user_id}));
+//      navigator.sendBeacon('/disconnect', JSON.stringify({token: auth_token }));
 //   });
-
-   // Handle the vertical height used by keyboard on mobile - xxx fix this!
-//   function viewport_resize() {
-//      let vh = window.innerHeight * 0.01;
-//      $(':root').css('--vh', vh + 'px');
-//   }
-//   $(window).on('resize orientationchange', viewport_resize);
-//   $(document).ready(viewport_resize);
 });

@@ -217,3 +217,14 @@ function format_freq(freq) {
    let mhz = (freq / 1000).toFixed(3);               // to decimal khz
    return mhz.replace(/\B(?=(\d{3})+(?!\d))/g, ","); // Add comma
 }
+
+function show_rig_window() {
+   active_tab = 'rig';
+//   $('.chroma-hash').hide();
+   $('div#win-login').hide();
+   $('div#win-chat').hide();
+   $('div#win-config').hide();
+   $('div#win-syslog').hide();
+   $('div#tabstrip').show();
+   $('div#win-rig').show();
+}
