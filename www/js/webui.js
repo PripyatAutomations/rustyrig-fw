@@ -890,13 +890,6 @@ window.webui_inits.push(function webui_init() {
          e.preventDefault();
          $('#chat-input').val('');
          form_disable(false);
-/*
-      } else if (logged_in) {	// Focus the chat input field
-            $('#chat-input').focus();
-         } else {		// Nope, focus the user field
-            $('form#login input#user').focus();
-         }
-*/
       }
    });
 
@@ -985,14 +978,26 @@ window.webui_inits.push(function webui_init() {
          let scrollAmount = 30;
          let pageScrollAmount = chatBox.outerHeight();
 
-         if (e.key === "ArrowUp") {
-            chatBox.scrollTop(chatBox.scrollTop() - scrollAmount);
-         } else if (e.key === "ArrowDown") {
-            chatBox.scrollTop(chatBox.scrollTop() + scrollAmount);
-         } else if (e.key === "PageUp") {
-            chatBox.scrollTop(chatBox.scrollTop() - pageScrollAmount);
-         } else if (e.key === "PageDown") {
-            chatBox.scrollTop(chatBox.scrollTop() + pageScrollAmount);
+         if (e.ctrlKey) {
+            if (e.key === "ArrowUp") {
+               console.log("scroll up");
+//               showPreviousInput();
+            } else if (e.key === "ArrowDown") {
+               console.log("scrown down");
+//               showNextInput();
+            }
+            return;
+         } else {
+            // XXX: FInish this, to allow ctrl-up/down to scroll the input
+            if (e.key === "ArrowUp") {
+               chatBox.scrollTop(chatBox.scrollTop() - scrollAmount);
+            } else if (e.key === "ArrowDown") {
+               chatBox.scrollTop(chatBox.scrollTop() + scrollAmount);
+            } else if (e.key === "PageUp") {
+               chatBox.scrollTop(chatBox.scrollTop() - pageScrollAmount);
+            } else if (e.key === "PageDown") {
+               chatBox.scrollTop(chatBox.scrollTop() + pageScrollAmount);
+            }
          }
       } else if (completing && (e.key === ' ' || e.key === 'Enter')) {
          // Finalize current match

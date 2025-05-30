@@ -150,5 +150,6 @@ function show_login_window() {
    $('input#user').focus();
    $('div#tabstrip').hide();
    $('div#win-login').show();
+   $('form#login input#user').focus();
 //   $('.chroma-hash').show();
 }
