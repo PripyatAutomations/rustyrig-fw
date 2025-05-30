@@ -28,6 +28,7 @@
 #include "inc/http.h"
 
 time_t   global_tot_time = 0;		// TOT
+int	 vfos_enabled = 2;		// A + B by default
 
 bool rr_ptt_check_blocked(void) {
     if (rig.tx_blocked) {
@@ -73,18 +74,15 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    return ptt;
 }
 
-// XXX: This needs updated to support multiple VFOs
 bool rr_ptt_toggle(rr_vfo_t vfo) {
    return rr_ptt_set(vfo, !rig.ptt);
 }
 
 bool rr_ptt_set_all_off(void) {
    Log(LOG_AUDIT, "core", "PTT turned off for all VFOs!");
-   rr_ptt_set(VFO_A, false);
-   rr_ptt_set(VFO_B, false);
-//   rr_ptt_set(VFO_C, false);
-//   rr_ptt_set(VFO_D, false);
-//   rr_ptt_set(VFO_E, false);
+   for (int i = 1; i < vfos_enabled; i++) {
+      rr_ptt_set(i, false);
+   }
 
    global_tot_time = 0;
 

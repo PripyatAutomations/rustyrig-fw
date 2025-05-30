@@ -1,39 +1,54 @@
 if (!window.webui_inits) window.webui_inits = [];
 
-const audioCtx = new AudioContext({ sampleRate: 16000 });
-// Support volume control
-const gainNode = audioCtx.createGain();
-gainNode.gain.value = 1.0;
-gainNode.connect(audioCtx.destination);
+// RX context
+const rxCtx = new AudioContext({ sampleRate: 16000 });
+let rxTime = rxCtx.currentTime;
 
-let playbackTime = audioCtx.currentTime;
+// TX context
+const txCtx = new AudioContext({ sampleRate: 16000 });
+let txTime = txCtx.currentTime;
+
+// Support volume control
+const rxGainNode = rxCtx.createGain();
+rxGainNode.gain.value = $('#rig-rx-vol').val();
+rxGainNode.connect(rxCtx.destination);
+
+const txGainNode = txCtx.createGain();
+txGainNode.gain.value = $('#rig-tx-vol').val();
+txGainNode.connect(txCtx.destination);
 
 // Halt playback
 function stopPlayback() {
-   playbackTime = audioCtx.currentTime;
+   rxTime = rxCtx.currentTime;
+}
+
+// Halt transmit
+function stopTransmit() {
+   txTime = txCtx.currentTime;
 }
 
 // Flush the playback buffer then insert silence
 function flushPlayback() {
-   const sampleRate = audioCtx.sampleRate;
+   const sampleRate = rxCtx.sampleRate;
    const silence = new Float32Array(sampleRate / 10); // 100ms silence
 
-   const audioBuffer = audioCtx.createBuffer(1, silence.length, sampleRate);
+   const audioBuffer = rxCtx.createBuffer(1, silence.length, sampleRate);
    audioBuffer.copyToChannel(silence, 0);
 
-   const source = audioCtx.createBufferSource();
+   const source = rxCtx.createBufferSource();
    source.buffer = audioBuffer;
-   source.connect(audioCtx.destination);
+   source.connect(rxCtx.destination);
 
-   const now = audioCtx.currentTime;
-   if (playbackTime < now) {
-      playbackTime = now;
+   const rxNow = rxCtx.currentTime;
+   if (rxTime < rxNow) {
+      rxTime = rxNow;
    }
 
-   source.start(playbackTime);
-   playbackTime += silence.length / sampleRate;
+   source.start(rxTime);
+   rxTime += silence.length / sampleRate;
 }
 
+// Support for playing back raw PCM audio
 function playRawPCM(buffer) {
    const pcmData = new Int16Array(buffer);
    const float32Data = new Float32Array(pcmData.length);
@@ -43,28 +58,35 @@ function playRawPCM(buffer) {
    }
 
    const samplesPerPacket = float32Data.length;
-   const sampleRate = audioCtx.sampleRate;  // might be 44100, not 16000
+   const sampleRate = rxCtx.sampleRate;
    const duration = samplesPerPacket / sampleRate;
 
-   const audioBuffer = audioCtx.createBuffer(1, samplesPerPacket, sampleRate);
+   const audioBuffer = rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
    audioBuffer.copyToChannel(float32Data, 0);
 
-   const source = audioCtx.createBufferSource();
+   const source = rxCtx.createBufferSource();
    source.buffer = audioBuffer;
-   source.connect(audioCtx.destination);
+   source.connect(rxGainNode);
 
    // Schedule the audio to play in sequence
-   const now = audioCtx.currentTime;
-   if (playbackTime < now) {
-      playbackTime = now;
+   const rxNow = rxCtx.currentTime;
+   if (rxTime < rxNow) {
+      rxTime = rxNow;
    }
 
-   source.start(playbackTime);
-   playbackTime += duration;
+   source.start(rxTime);
+   rxTime += duration;
 }
 
-$('#rig-playback-vol').on('input', function () {
-   gainNode.gain.value = parseFloat($(this).val());
+//$('#rig-rx-vol').on('input', function () {
+$('#rig-rx-vol').change(function() {
+   rxGainNode.gain.value = parseFloat($(this).val());
+   console.log("RX vol:", rxGainNode.gain.value);
+});
+
+$('#rig-tx-vol').change(function() {
+   txGainNode.gain.value = parseFloat($(this).val());
+   console.log("TX vol:", txGainNode.gain.value);
 });
 
 window.webui_inits.push(function webui_audio_init() {

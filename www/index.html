@@ -237,34 +237,35 @@
    </div> <!-- win-syslog -->
    <div id="win-config" class="window">
     <div id="win-cfg-ui" class="cfg-section">
-     <span><h4>User Interface</h4></span><br/>
      <ul>
       <li>
-       <label for="ui-zoom">Zoom</label>
+       <label for="ui-zoom">Zoom</label><br/>
        <input id="ui-zoom" type="range" min="0" max="10" value="1"/>
       </li>
       <li>
-       <label for="ui-zoom">Chat Font</label>
+       <label for="ui-zoom">Chat Font</label><br/>
        <input id="ui-chat-font" type="range" min="8" max="32" value="16"/>
       </li>
       <li>
-       <label for="ui-zoom">VFO Font</label>
+       <label for="ui-zoom">VFO Font</label><br/>
        <input id="ui-vfo-font" type="text"/>
       </li>
       <li>
-       <label for="rig-playback-vol">Playback Volume</label>
-       <input type="range" id="rig-playback-vol" min="0" max="2" step="0.01" value="1">
+       <label for="rig-playback-vol">RX Volume</label><br/>
+       <input type="range" id="rig-rx-vol" min="0" max="2" step="0.01" value="0.2"/>
+      </li>
+      <li>
+       <label for="rig-record-vol">TX Volume</label><br/>
+       <input type="range" id="rig-tx-vol" min="0" max="2" step="0.01" value="1"/>
+      </li>
+      <li>
+       <label for="ui-notify-chat-vol">Chat Alert Vol</label><br/>
+       <input id="ui-notify-chat-vol" type="range" min="0" max="100" value="50%"/>
       </li>
      </ul>
      <br/>
-    </div> <!-- win-cfg-ui -->
-    <div id="win-cfg-notify" class="cfg-section">
-     <h4>Notifications</h4><br/>
-     <div>
-      <label for="ui-notify-chat-vol">Chat Alert Vol</label>
-      <input id="ui-notify-chat-vol" type="range" min="0" max="100" value="50%"/>
      </div><br/>
-    </div> <!-- win-cfg-notify -->
+    </div>
    </div><!-- win-config -->
   </div>
  </body>

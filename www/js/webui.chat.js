@@ -348,6 +348,8 @@ function chat_send_command(cmd, args) {
 //   console.log("Sent command:", msgObj_j);
 }
 
+var unmute_vol = $('#rig-rx-vol').val();
+
 function parse_chat_cmd(e) {
    var message = $('#chat-input').val().trim();
    var chat_msg = false;
@@ -402,6 +404,21 @@ function parse_chat_cmd(e) {
                reload_css();
                chat_append('<div><span class="notice">Reloaded CSS</span></div>');
                break;
+            case 'rxvol':
+               $('#rig-rx-vol').val(args[1] / 100);
+               console.log("Set volume to " + args[1] + "%");
+               rxGainNode.gain.value = parseFloat($('#rig-rx-vol').val());
+               break;
+            case 'rxmute':
+               unmute_vol = $('#rig-rx-vol').val();
+               rxGainNode.gain.value = 0;
+               console.log("Muting RX audio");
+               break;
+            case 'rxunmute':
+               $('#rig-rx-vol').val(unmute_vol);
+               console.log("Unmuting RX audio");
+               rxGainNode.gain.value = unmute_vol;
+               break;
             case 'help':
                chat_append('<div><span class="notice">*** HELP *** All commands start with /</span></div>');
                chat_append('<div><span class="notice">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
@@ -412,6 +429,11 @@ function parse_chat_cmd(e) {
                chat_append('<div><span class="notice">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
                chat_append('<div><span class="notice">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
                chat_append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
+
+               chat_append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
+               chat_append('<div><span class="notice">&nbsp;/rxmute | /rxunmute&nbsp;&nbsp;&nbsp;- Mute/Unmute RX audio</span></div>');
+
                //////
                chat_append('<br/><div><span class="notice">*** DEBUG TOOLS - Used by developer</span></div>');
                chat_append('<div><span class="notice">&nbsp;/clearlog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
