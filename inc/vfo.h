@@ -17,7 +17,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define	MAX_VFOS	4
+#define	MAX_VFOS		2		// maximum VFOs
+#define	DEFAULT_TOT_TIME	300		// TOT time, if not set
 
 typedef enum rr_vfo_type {
    VFO_INVALID = 0,	// Not present
@@ -58,6 +59,8 @@ struct rr_vfo_data {
    float        freq;		// dial frequency
    rr_mode_t	mode;		// Mode we're TXing
    float        power;		// power in watts
+   time_t	tx_started;
+   time_t	tot_time;	// TOT time length configured (defaults to DEFAULT_TOT_TIME)
 };
 typedef struct rr_vfo_data rr_vfo_data_t;
 extern bool set_vfo_frequency(rr_vfo_type_t vfo_type, uint32_t input, float freq);
@@ -66,6 +69,7 @@ extern const char vfo_name(rr_vfo_t vfo);
 extern rr_mode_t vfo_parse_mode(const char *mode);
 extern const char *vfo_mode_name(rr_mode_t mode);
 extern long parse_freq(const char *str);
+extern rr_vfo_data_t get_vfo(int vfo);
 
 //
 extern rr_vfo_data_t vfos[MAX_VFOS];
