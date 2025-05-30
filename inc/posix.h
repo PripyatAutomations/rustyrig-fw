@@ -14,4 +14,7 @@ extern void host_cleanup(void);
 extern bool host_init(void);
 extern bool file_exists(const char *path);
 
+// if built for one of the apps
+extern void shutdown_app(int signum);
+
 #endif	// !defined(__rr_posix_h)
