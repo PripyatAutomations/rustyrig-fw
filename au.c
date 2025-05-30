@@ -36,10 +36,9 @@
 #include "inc/au.pipe.h"
 #include "inc/au.pipewire.h"
 #include "inc/ws.h"
-#if	defined(FEATURE_OPUS)
-#include <opus/opus.h>  // Used for audio compression
-#endif
+#include "inc/fwdsp-shared.h"
 
+// XXX: This needs moved to config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path
 #define SOCKET_PATH_RX "./run/rustyrig_rx.pipe"
 #define SOCKET_PATH_TX "./run/rustyrig_tx.pipe"
 

@@ -14,8 +14,11 @@ build/*/obj/*
 # user database & certs
 db/*
 config/*.pem
-config/http.users
 config/*.secret
+config/http.users
+
+# Default config moved to doc/example.config.json
+config/radio.config.json
 
 # Archived configs
 config/archive/*.json

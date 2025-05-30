@@ -37,6 +37,8 @@ USE_OPUS = $(strip $(shell cat ${CF} | jq -r '.features.opus'))
 USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
 
+FWDSP_CFLAGS += -D__FWDSP
+
 ifeq (${USE_LIBUNWIND},true)
 CFLAGS += -fno-omit-frame-pointer -Og -gdwarf -DUSE_LIBUNWIND
 LDFLAGS += -lunwind
@@ -172,6 +174,9 @@ CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
 LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
 endif
 fwdsp_objs += fwdsp-main.o
+fwdsp_objs += logger.o
+fwdsp_objs += posix.o
+fwdsp_objs += util.file.o
 
 # translate unprefixed object file names to source file names
 fw_src = $(fw_objs:.o=.c)
@@ -212,7 +217,7 @@ ${OBJ_DIR}/fwdsp/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
 ${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users ${fw_src}

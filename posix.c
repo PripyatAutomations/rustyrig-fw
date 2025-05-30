@@ -32,7 +32,7 @@
 #include "inc/posix.h"
 #include "inc/logger.h"
 
-#if	defined(__RRCLIENT)
+#if	defined(__RRCLIENT) || defined(__FWDSP)
 extern void shutdown_app(int signum);
 #else
 #include "inc/state.h"
@@ -42,7 +42,7 @@ extern void shutdown_app(int signum);
 void host_cleanup(void) {
     printf("Goodbye!\n");
     // Unlink the cat pipe
-#if	!defined(__RRCLIENT)
+#if	!defined(__RRCLIENT) && !defined(__FWDSP)
     if (rig.catpipe_fd >= 0) {
        close(rig.catpipe_fd);
        rig.catpipe_fd = -1;
@@ -66,7 +66,7 @@ static void sighandler(int32_t signum) {
       case SIGINT:
       case SIGTERM:
       case SIGKILL:
-#if	defined(__RRCLIENT)
+#if	defined(__RRCLIENT) || defined(__FWDSP)
          shutdown_app(0);
 #else
          shutdown_rig(0);

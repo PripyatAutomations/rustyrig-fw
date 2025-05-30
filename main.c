@@ -61,7 +61,6 @@ bool dying = 0;                 // Are we shutting down?
 bool restarting = 0;		// Are we restarting?
 struct GlobalState rig;         // Global state
 time_t now = -1;		// time() called once a second in main loop to update
-char latest_timestamp[64];	// Current printed timestamp
 int auto_block_ptt = 0;		// Auto block PTT at boot?
 struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 
@@ -132,11 +131,11 @@ int main(int argc, char **argv) {
    double loop_runtime = 0.0, current_time;
 #endif // defined(USE_PROFILING)
 
-   // Initialize some earl state
+   // Initialize some early state
    now = time(NULL);
    srand((unsigned int)now);
    logfp = stdout;
-   rig.log_level = LOG_DEBUG;	// startup in debug mode
+   rig.log_level = LOG_DEBUG;		// startup in debug mode until config loaded
    host_init();
 
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);

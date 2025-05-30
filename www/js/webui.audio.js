@@ -8,10 +8,12 @@ gainNode.connect(audioCtx.destination);
 
 let playbackTime = audioCtx.currentTime;
 
+// Halt playback
 function stopPlayback() {
    playbackTime = audioCtx.currentTime;
 }
 
+// Flush the playback buffer then insert silence
 function flushPlayback() {
    const sampleRate = audioCtx.sampleRate;
    const silence = new Float32Array(sampleRate / 10); // 100ms silence
@@ -24,7 +26,9 @@ function flushPlayback() {
    source.connect(audioCtx.destination);
 
    const now = audioCtx.currentTime;
-   if (playbackTime < now) playbackTime = now;
+   if (playbackTime < now) {
+      playbackTime = now;
+   }
 
    source.start(playbackTime);
    playbackTime += silence.length / sampleRate;
@@ -51,7 +55,10 @@ function playRawPCM(buffer) {
 
    // Schedule the audio to play in sequence
    const now = audioCtx.currentTime;
-   if (playbackTime < now) playbackTime = now;
+   if (playbackTime < now) {
+      playbackTime = now;
+   }
+
    source.start(playbackTime);
    playbackTime += duration;
 }

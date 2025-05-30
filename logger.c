@@ -23,11 +23,12 @@
 #include <time.h>
 #include <errno.h>
 #include "inc/logger.h"
-#if	!defined(__RRCLIENT)
+#if	!defined(__RRCLIENT) && !defined(__FWDSP)
 #include "inc/eeprom.h"
 #include "inc/debug.h"		// Debug message filtering
 #include "inc/ws.h"			// Support for sending the syslog via websocket
-#endif	// !defined(__RRCLIENT)
+#endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
+
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
@@ -37,8 +38,8 @@ static time_t last_ts_update;
 
 // Do we need to show a timestamp in log messages?
 static bool log_show_ts = false;
-
 static int log_level;
+char latest_timestamp[64];	// Current printed timestamp
 
 /* String constants we use more than a few times */
 const char s_prio_none[] = " NONE";
@@ -67,7 +68,7 @@ const char *log_priority_to_str(logpriority_t priority) {
 }
 
 void logger_init(void) {
-#if	!defined(__RRCLIENT)
+#if	!defined(__RRCLIENT) && !defined(__FWDSP)
    const char *ll = eeprom_get_str("debug/loglevel");
 
    if (ll == NULL) {
@@ -227,7 +228,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 #endif
 
 // if not in rrclient code, we should bcast this to users with SYSLOG flag
-#if	!defined(__RRCLIENT)
+#if	!defined(__RRCLIENT) && !defined(__FWDSP)
    char ws_logbuf[2048];
    char ws_json_escaped[1024];
    memset(ws_json_escaped, 0, sizeof(ws_json_escaped));

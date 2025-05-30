@@ -34,5 +34,5 @@ extern void Log(logpriority_t priority, const char *subsys, const char *fmt, ...
 extern void logger_setup(void);
 extern void logger_init(void);
 extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
-
+extern char latest_timestamp[64];
 #endif
