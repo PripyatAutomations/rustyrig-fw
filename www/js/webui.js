@@ -14,6 +14,7 @@ var ws_last_pinged;
 var ws_keepalives_sent = 0;
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
 var active_vfo = 'A';		// Active VFO
+var active_tab = 'chat';
 
 ////////////////////////
 // Latency calculator //
@@ -147,7 +148,20 @@ function make_ws_url() {
    return protocol + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + "/ws/";
 }
 
+function show_active_tab() {
+   if (active_tab === "chat") {
+      show_chat_window();
+   } else if (active_tab === "rig") {
+      show_rig_window();
+   } else if (active_tab === 'log') {
+      show_syslog_window();
+   } else if (active_tab === "config") {
+      show_config_window();
+   }
+}
+
 function show_chat_window() {
+   active_tab = 'chat';
 //   $('.chroma-hash').hide();
    $('div#win-login').hide();
    $('div#win-rig').hide();
@@ -159,6 +173,7 @@ function show_chat_window() {
 }
 
 function show_rig_window() {
+   active_tab = 'rig';
 //   $('.chroma-hash').hide();
    $('div#win-login').hide();
    $('div#win-chat').hide();
@@ -169,6 +184,7 @@ function show_rig_window() {
 }
 
 function show_config_window() {
+   active_tab = 'config';
 //   $('.chroma-hash').hide();
    $('div#win-rig').hide();
    $('div#win-chat').hide();
@@ -610,7 +626,7 @@ function ws_connect() {
                      }
 
                      logged_in = true;
-                     show_chat_window();
+                     show_active_tab();
                      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                      chat_append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
                      break;

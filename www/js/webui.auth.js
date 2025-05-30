@@ -16,6 +16,8 @@ window.webui_inits.push(function webui_auth_init() {
       // Stop HTML form submission
       evt.preventDefault();
 
+     $('button#login-submit-btn').prop('disabled', false);
+
       let user = $("input#user");
       let pass = $("input#pass");
 
@@ -139,7 +141,8 @@ function logout() {
 }
 
 function show_login_window() {
-   $('button#submit').prop('disabled', false);
+//   $('button#submit').prop('disabled', false);
+   $('button#login-submit-btn').prop('disabled', false);
    $('div#win-chat').hide();
    $('div#win-config').hide();
    $('div#win-syslog').hide();

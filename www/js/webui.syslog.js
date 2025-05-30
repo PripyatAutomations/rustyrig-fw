@@ -35,6 +35,7 @@ function syslog_append(msgObj) {
 
 function show_syslog_window() {
 //   $('.chroma-hash').hide();
+   active_tab = "syslog";
    $('div#win-rig').hide();
    $('div#win-chat').hide();
    $('div#win-login').hide();
