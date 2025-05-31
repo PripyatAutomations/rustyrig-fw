@@ -134,3 +134,90 @@ function logout() {
 
    wmSwitchTab('login');
 }
+
+////////////////////////
+////////////////////////
+////////////////////////
+function webui_parse_auth_msg(msgObj) {
+   var cmd = msgObj.auth.cmd;
+   var error = msgObj.auth.error;
+
+   if (error) {
+      var error = msgObj.auth.error;
+      stop_reconnecting();			// disable auto-reconnects
+
+      console.log("auth.error:", error);
+      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+      ChatBox.Append('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
+      wmSwitchTab('login');
+      $('span#sub-login-error-msg').empty();
+      $('span#sub-login-error-msg').append("<span>", error, "</span>");
+      form_disable(true);
+
+      // Get rid of message after about 30 seconds XXX: disabled for now, add a check if /kicked and dont timeout
+   //   setTimeout(function() { $('div#sub-login-error').hide(); }, 30000);
+
+      $('div#sub-login-error').show();
+      $('button#login-err-ok').click(function() {
+         form_disable(false);
+         $('div#sub-login-error').hide();
+         $('span#sub-login-error-msg').empty();
+         $('input#user').focus();
+      });
+      $('button#login-err-ok').focus();
+      return false;
+   }
+
+   switch (cmd) {
+      case 'authorized':
+         // Save the auth_user as it's the only reputable source of truth for user's name
+         if (msgObj.auth.user) {
+            auth_user = msgObj.auth.user;
+         }
+
+         if (msgObj.auth.token) {
+            auth_token = msgObj.auth.token;
+         }
+
+         if (msgObj.auth.privs) {
+            auth_privs = msgObj.auth.privs;
+         }
+
+         // Clear the chat window if changing users
+         if (login_user !== "GUEST" && auth_user !== login_user.toUpperCase()) {
+            chatbox_clear();
+         }
+
+         logged_in = true;
+         wmSwitchTab(active_tab);
+         var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
+         ChatBox.Append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
+         Audio = new WebUiAudio();
+         break;
+      case 'challenge':
+         var nonce = msgObj.auth.nonce;
+         var token = msgObj.auth.token;
+
+         if (token) {
+            auth_token = token;
+         }
+
+         var login_pass = $('input#pass').val();
+         var hashed_pass = sha1_hex(login_pass);
+
+         // here we use an async call to crypto.simple
+         authenticate(login_user, login_pass, auth_token, nonce).then(msgObj => {
+            var msgObj_t = JSON.stringify(msgObj);
+            socket.send(msgObj_t);
+         });
+         break;
+      case 'expired':
+         console.log("Session expired!");
+         ChatBox.Append('<div><span class="error">Session expired, logging out</span></div>');
+         wmSwitchTab('login');
+         break;
+      default:
+         console.log("Unknown auth command:", cmd);
+         break;
+   }
+}

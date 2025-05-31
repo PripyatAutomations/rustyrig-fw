@@ -101,3 +101,100 @@ function ptt_btn_init() {
       socket.send(json_msg);
    });
 }
+
+function webui_parse_cat_msg(msgObj) {
+   var cat_ts = msgObj.ts;
+   var msg_ts = msg_timestamp(cat_ts);
+   var cmd = msgObj.cat.cmd;
+   var user = msgObj.cat.user;
+
+   if (typeof msgObj.cat.cmd !== 'undefined') { // is it a command?
+      var cmd = msgObj.cat.cmd.toLowerCase();
+      if (cmd === 'ptt') {
+         var vfo = msgObj.cat.vfo;
+         var ptt = msgObj.cat.state;
+         var ptt_l = ptt.toLowerCase();
+
+         if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes' || ptt_l === true) {
+            $('.rig-ptt').addClass("red-btn");
+            ptt_active = true;
+         } else {
+            $('.rig-ptt').removeClass("red-btn");
+            ptt_active = false;
+         }
+         UserCache.update({ name: user, ptt: ptt_active });
+      }
+    } else {  // Nope, it's a state message
+      var state = msgObj.cat.state;
+     //               console.log("state:", state);
+
+      if (typeof state === 'undefined') {
+         return;
+      }
+
+      const { freq, mode, ptt, width, vfo, power }  = state;
+      if (typeof ptt !== 'undefined') {
+         if (ptt === "false") {
+            $('button.rig-ptt').removeClass("red-btn");
+         } else {
+            $('button.rig-ptt').addClass("red-btn");
+         }
+      }
+      if (typeof freq !== 'undefined') {
+         if (vfo === "A") {
+            $('span#vfo-a-freq').html(format_freq(freq) + '&nbsp;Hz');
+         } else if (vfo === "B") {
+            $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
+         } else if (vfo === "C") {
+            $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
+         }
+         let $input = $('#rig-freq');
+         freq_set_digits(freq, $input);
+         $('.vfo-changed').removeClass('vfo-changed');
+      }
+
+      if (typeof mode !== 'undefined') {
+         if (vfo === "A") {
+            $('span#vfo-a-mode').html(mode);
+         } else if (vfo === "B") {
+            $('span#vfo-b-mode').html(mode);
+         } else if (vfo === "C") {
+            $('span#vfo-c-mode').html(mode);
+         }
+      }
+
+      if (typeof width !== 'undefined') {
+         if (vfo === "A") {
+            $('span#vfo-a-width').html(width + '&nbsp;Hz');
+         } else if (vfo === "B") {
+            $('span#vfo-b-width').html(width + '&nbsp;Hz');
+         } else if (vfo === "C") {
+            $('span#vfo-c-width').html(width + '&nbsp;Hz');
+         }
+      }
+
+      if (typeof power !== 'undefined') {
+         if (vfo === "A") {
+            $('span#vfo-a-power').html(power + '&nbsp;W');
+         } else if (vfo === "B") {
+            $('span#vfo-b-power').html(power + '&nbsp;W');
+         } else if (vfo === "C") {
+            $('span#vfo-c-power').html(power + '&nbsp;W');
+         }
+      }
+
+      var ptt_user = '';
+      if (typeof user !== 'undefined' && user !== '') {
+         ptt_user = '<span>TX by ' + user + '</span>&nbsp';
+      }
+
+      var status_msg = '<span>VFO: ' + vfo + '</span>&nbsp' +
+                       '<span>Mode:&nbsp;' +  mode + '&nbsp;</span>' +
+                       '<span>Freq:' + format_freq(freq) + '</span>&nbsp;&nbsp;' +
+                       '<span>Width:' + width + '</span>&nbsp;&nbsp;' +
+                       ptt_user;
+      // XXX: Power in the server msgs is actually rssid
+     //                                '<span>RX: ' + power + '</span>';
+      $('#chat-rig-status span#vfo-status').html(status_msg);
+   }
+}

@@ -128,11 +128,11 @@ function ws_connect() {
    };
 
    socket.onmessage = function(event) {
-//      console.log("evt:", event);
       if (event.data instanceof ArrayBuffer) {
 //         console.log("Received binary message:", event.data);
-         handle_binary_frame(event);
+//         handle_binary_frame(event);
       } else if (typeof event.data === "string") {
+//      console.log("evt:", event);
          var msgData = event.data;
 //         console.log("Got string:", msgData);
          ws_last_heard = Date.now();
@@ -162,100 +162,7 @@ function ws_connect() {
                ChatBox.Append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!${alert_from}&nbsp;${alert_msg}</div>`);
             } else if (msgObj.cat) {
     //           console.log("CAT msg:", msgObj);
-               var cat_ts = msgObj.ts;
-               var msg_ts = msg_timestamp(cat_ts);
-               var cmd = msgObj.cat.cmd;
-               var user = msgObj.cat.user;
-
-               if (typeof msgObj.cat.cmd !== 'undefined') { // is it a command?
-                  var cmd = msgObj.cat.cmd.toLowerCase();
-                  if (cmd === 'ptt') {
-                     var vfo = msgObj.cat.vfo;
-                     var ptt = msgObj.cat.state;
-                     var ptt_l = ptt.toLowerCase();
-
-                     if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes' || ptt_l === true) {
-                        $('.rig-ptt').addClass("red-btn");
-                        ptt_active = true;
-                     } else {
-                        $('.rig-ptt').removeClass("red-btn");
-                        ptt_active = false;
-                     }
-                     UserCache.update({ name: user, ptt: ptt_active });
-                  }
-                } else {  // Nope, it's a state message
-                  var state = msgObj.cat.state;
-   //               console.log("state:", state);
-
-                  if (typeof state === 'undefined') {
-                     return;
-                  }
-
-                  const { freq, mode, ptt, width, vfo, power }  = state;
-                  if (typeof ptt !== 'undefined') {
-                     if (ptt === "false") {
-                        $('button.rig-ptt').removeClass("red-btn");
-                     } else {
-                        $('button.rig-ptt').addClass("red-btn");
-                     }
-                  }
-                  if (typeof freq !== 'undefined') {
-                     if (vfo === "A") {
-                        $('span#vfo-a-freq').html(format_freq(freq) + '&nbsp;Hz');
-                     } else if (vfo === "B") {
-                        $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
-                     } else if (vfo === "C") {
-                        $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
-                     }
-                     let $input = $('#rig-freq');
-                     freq_set_digits(freq, $input);
-                     $('.vfo-changed').removeClass('vfo-changed');
-                  }
-
-                  if (typeof mode !== 'undefined') {
-                     if (vfo === "A") {
-                        $('span#vfo-a-mode').html(mode);
-                     } else if (vfo === "B") {
-                        $('span#vfo-b-mode').html(mode);
-                     } else if (vfo === "C") {
-                        $('span#vfo-c-mode').html(mode);
-                     }
-                  }
-
-                  if (typeof width !== 'undefined') {
-                     if (vfo === "A") {
-                        $('span#vfo-a-width').html(width + '&nbsp;Hz');
-                     } else if (vfo === "B") {
-                        $('span#vfo-b-width').html(width + '&nbsp;Hz');
-                     } else if (vfo === "C") {
-                        $('span#vfo-c-width').html(width + '&nbsp;Hz');
-                     }
-                  }
-
-                  if (typeof power !== 'undefined') {
-                     if (vfo === "A") {
-                        $('span#vfo-a-power').html(power + '&nbsp;W');
-                     } else if (vfo === "B") {
-                        $('span#vfo-b-power').html(power + '&nbsp;W');
-                     } else if (vfo === "C") {
-                        $('span#vfo-c-power').html(power + '&nbsp;W');
-                     }
-                  }
-
-                  var ptt_user = '';
-                  if (typeof user !== 'undefined' && user !== '') {
-                     ptt_user = '<span>TX by ' + user + '</span>&nbsp';
-                  }
-
-                  var status_msg = '<span>VFO: ' + vfo + '</span>&nbsp' +
-                                   '<span>Mode:&nbsp;' +  mode + '&nbsp;</span>' +
-                                   '<span>Freq:' + format_freq(freq) + '</span>&nbsp;&nbsp;' +
-                                   '<span>Width:' + width + '</span>&nbsp;&nbsp;' +
-                                   ptt_user;
-   // XXX: Power in the server msgs is actually rssid
-   //                                '<span>RX: ' + power + '</span>';
-                  $('#chat-rig-status span#vfo-status').html(status_msg);
-               }
+               webui_parse_cat_msg(msgObj);
             } else if (msgObj.ping) {			// Handle PING messages
                var ts = msgObj.ping.ts;
                if (typeof ts === 'undefined' || ts <= 0) {
@@ -266,249 +173,13 @@ function ws_connect() {
                var newMsg = { pong: { ts: String(ts) } };
                socket.send(JSON.stringify(newMsg));
             } else if (msgObj.talk) {		// Handle Chat messages
-               var cmd = msgObj.talk.cmd;
-               var message = msgObj.talk.data;
-
-               // keep msg up top as it's the most frequently encountered command
-               // XXX: Maybe we should keep a counter of received commands so we can optimize this a bit later??
-               if (cmd === 'msg' && message) {
-                  var sender = msgObj.talk.from;
-                  var msg_type = msgObj.talk.msg_type;
-                  var msg_ts = msg_timestamp(msgObj.talk.ts);
-
-                  if (msg_type === "file_chunk") {
-                     handle_file_chunk(msgObj);
-                  } else if (msg_type === "action" || msg_type == "pub") {
-                     message = msg_create_links(message);
-
-                     // Don't play a bell or set highlight on SelfMsgs
-                     if (sender === auth_user) {
-                        if (msg_type === 'action') {
-                           ChatBox.Append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span>***&nbsp;' + sender + '&nbsp;***&nbsp;<span class="chat-my-msg">' + message + '</span></div>');
-                        } else {
-                           ChatBox.Append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
-                        }
-                     } else {
-                        if (msg_type === 'action') {
-                           ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
-                        } else {
-                           ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
-                        }
-
-                        play_notify_bell();
-                        set_highlight("chat");
-                        // XXX: Update the window title to show a pending message
-                     }
-                  }
-               } else if (cmd === 'join') {
-                  var user = msgObj.talk.user;
-                  var privs = msgObj.talk.privs;
-
-                  if (typeof user !== 'undefined') {
-                     var msg_ts = msg_timestamp(msgObj.talk.ts);
-                     var nl = user_link(user);
-                     var ptt_state = msgObj.talk.ptt;
-
-                     if (typeof ptt_state === 'undefined') {
-                        ptt_state = false;
-                     }
-
-                     var muted_state = msgObj.talk.muted;
-                     if (typeof muted_state === 'undefined') {
-                        muted_state = false;
-                     }
-
-                     var clones = msgObj.talk.clones;
-                     if (typeof clones !== 'undefined') {
-                        UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs, clones: clones });
-                     } else {
-                        UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
-                     }
-
-                     ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">connected to the radio</span>&nbsp;***</div>');
-                     // Play join (door open) sound if the bell button is checked
-                     if ($('#bell-btn').data('checked')) {
-                        if (!(user === auth_user)) {
-                           join_ding.currentTime = 0;  // Reset audio to start from the beginning
-                           join_ding.play();
-                        }
-                     }
-                  } else {
-                     console.log("got join for undefined user, ignoring");
-                  }
-               } else if (cmd === 'kick') {
-   //               console.log("kick msg:", msgObj);
-                  // Play leave (door close) sound if the bell button is checked
-                  if ($('#bell-btn').data('checked')) {
-                     if (!(user === auth_user)) {
-                        leave_ding.currentTime = 0;  // Reset audio to start from the beginning
-                        leave_ding.play();
-                     }
-                  }
-                  UserCache.remove(user);
-                  console.log("Kick command received for user:", user, " reason:", msgObj.talk.data.reason);
-               } else if (cmd === 'mute') {
-                  // Shows a muted icon
-                  console.log("Mute command received for user:", user);
-                  UserCache.update({ name: user, muted: true });
-
-                  // this is for us, so disable the PTT button
-                  if (user === auth_user) {
-                     $('button.rig-ptt').attr("disabled", "disabled");
-                  }
-               } else if (cmd === "quit") {
-                  var user = msgObj.talk.user;
-                  var reason = msgObj.talk.reason;
-
-                  if (user) {
-                     var msg_ts = msg_timestamp(msgObj.talk.ts);
-                     if (typeof reason === 'undefined') {
-                        reason = 'Client exited';
-                     }
-
-                     // skip this for our clones
-                     if (user.name !== auth_user) {
-                        UserCache.remove(user);
-                        // Play leave (door close) sound if the bell button is checked
-                        if ($('#bell-btn').data('checked')) {
-                           if (!(user === auth_user)) {
-                              leave_ding.currentTime = 0;  // Reset audio to start from the beginning
-                              leave_ding.play();
-                           }
-                        }
-                     }
-
-                     ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
-                  } else {
-                     console.log("got %s for undefined user, ignoring", cmd);
-                  }
-               } else if (cmd === "userinfo") {
-                  parse_userinfo_reply(msgObj);
-               } else if (cmd === "unmute") {
-                  UserCache.update({ name: user, muted: false });
-
-                  // this is for us, so re-enable the PTT button, if appropriate
-                  if (user === auth_user) {
-                     $('button.rig-ptt').removeAttr("disabled");
-                  }
-               } else if (cmd === 'whois') {
-                  const clones = msgObj.talk.data;
-
-                  if (!clones || clones.length === 0) {
-                     return;
-                  }
-                  form_disable(true);
-
-                  const info = clones[0]; // shared info from the first entry
-
-                  let html = `<strong>User:</strong>&nbsp;${info.username}<br>`;
-                  html += `<strong>Email:</strong>&nbsp;${info.email}<br>`;
-                  html += `<strong>Privileges:</strong>&nbsp;${info.privs || 'None'}<br>`;
-                  if (typeof info.muted !== 'undefined' && info.muted === "true") {
-                     html += `<strong class="red">This user is currently muted.</strong>&nbsp;Rigctl is temporarily suspended.<br>`;
-                  }
-                  html += '<hr width="75%"/>';
-
-                  html += `<strong>Active Sessions: ${clones.length}</strong><br>`;
-                  clones.forEach((session) => {
-                     let clone_num = session.clone + 1;
-                        html += `&nbsp;&nbsp;<em>Clone #${clone_num}</em><br>`;
-                     html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>Connected:</strong> ${new Date(session.connected * 1000).toLocaleString()}`;
-                     html += `&nbsp;&nbsp;<strong>Last Heard:</strong> ${new Date(session.last_heard * 1000).toLocaleString()}<br>`;
-                     html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>User-Agent:</strong> <code>${session.ua}</code><br><br>`;
-                  });
-
-                  html += "<hr/><br/>Click window or hit escape to close";
-                  $('#chat-whois').html(html).show('slow');
-               } else {
-                  console.log("Unknown talk command:", cmd, "msg:", msgData);
-               }
+               webui_parse_chat_msg(msgObj);
             } else if (msgObj.log) {
                var data = msgObj.log.data;
                // XXX: show in log window
                console.log("log message:", data);
             } else if (msgObj.auth) {
-               var cmd = msgObj.auth.cmd;
-               var error = msgObj.auth.error;
-
-               if (error) {
-                  var error = msgObj.auth.error;
-                  stop_reconnecting();			// disable auto-reconnects
-
-                  console.log("auth.error:", error);
-                  var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-                  ChatBox.Append('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
-                  wmSwitchTab('login');
-                  $('span#sub-login-error-msg').empty();
-                  $('span#sub-login-error-msg').append("<span>", error, "</span>");
-                  form_disable(true);
-
-                  // Get rid of message after about 30 seconds XXX: disabled for now, add a check if /kicked and dont timeout
-   //               setTimeout(function() { $('div#sub-login-error').hide(); }, 30000);
-
-                  $('div#sub-login-error').show();
-                  $('button#login-err-ok').click(function() {
-                     form_disable(false);
-                     $('div#sub-login-error').hide();
-                     $('span#sub-login-error-msg').empty();
-                     $('input#user').focus();
-                  });
-                  $('button#login-err-ok').focus();
-                  return false;
-               }
-
-               switch (cmd) {
-                  case 'authorized':
-                     // Save the auth_user as it's the only reputable source of truth for user's name
-                     if (msgObj.auth.user) {
-                        auth_user = msgObj.auth.user;
-                     }
-
-                     if (msgObj.auth.token) {
-                        auth_token = msgObj.auth.token;
-                     }
-
-                     if (msgObj.auth.privs) {
-                        auth_privs = msgObj.auth.privs;
-                     }
-
-                     // Clear the chat window if changing users
-                     if (login_user !== "GUEST" && auth_user !== login_user.toUpperCase()) {
-                        chatbox_clear();
-                     }
-
-                     logged_in = true;
-                     wmSwitchTab(active_tab);
-                     var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-                     ChatBox.Append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
-                     Audio = new WebUiAudio();
-                     break;
-                  case 'challenge':
-                     var nonce = msgObj.auth.nonce;
-                     var token = msgObj.auth.token;
-
-                     if (token) {
-                        auth_token = token;
-                     }
-
-                     var login_pass = $('input#pass').val();
-                     var hashed_pass = sha1_hex(login_pass);
-
-                     // here we use an async call to crypto.simple
-                     authenticate(login_user, login_pass, auth_token, nonce).then(msgObj => {
-                        var msgObj_t = JSON.stringify(msgObj);
-                        socket.send(msgObj_t);
-                     });
-                     break;
-                  case 'expired':
-                     console.log("Session expired!");
-                     ChatBox.Append('<div><span class="error">Session expired, logging out</span></div>');
-                     wmSwitchTab('login');
-                     break;
-                  default:
-                     console.log("Unknown auth command:", cmd);
-                     break;
-               }
+               webui_parse_auth_msg(msgObj);
             } else {
                console.log("Got unknown message from server:", msgObj);
             }
@@ -601,9 +272,6 @@ window.webui_inits.push(function webui_init() {
       e.preventDefault();
    });
 
-   /////////////////////////////////////
-   // Load settings from LocalStorage //
-   /////////////////////////////////////
    // bind tab strip handlers
    $('span#tab-chat').click(function() { wmSwitchTab('chat'); });
    $('span#tab-rig').click(function() { wmSwitchTab('rig'); });

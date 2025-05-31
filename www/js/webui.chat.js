@@ -58,6 +58,8 @@ window.webui_inits.push(function webui_chat_init() { chat_init(); });
 
 function chat_init() {
   $(document).ready(function() {
+      let chatBox = $('#chat-box');
+
       // scroll the chatbox down when window is resized (keyboard open/closed, etc)
       $(window).on('resize', function() {
          chatBox.scrollTop(chatBox[0].scrollHeight);
@@ -621,3 +623,167 @@ function handle_paste(e) {
    }
 }
 //      const Inputbox = new WebUiInput('#chat-input');
+
+
+/////////////////////////////////
+/////////////////////////////////
+/////////////////////////////////
+function webui_parse_chat_msg(msgObj) {
+   var cmd = msgObj.talk.cmd;
+   var message = msgObj.talk.data;
+
+   // keep msg up top as it's the most frequently encountered command
+   // XXX: Maybe we should keep a counter of received commands so we can optimize this a bit later??
+   if (cmd === 'msg' && message) {
+      var sender = msgObj.talk.from;
+      var msg_type = msgObj.talk.msg_type;
+      var msg_ts = msg_timestamp(msgObj.talk.ts);
+
+      if (msg_type === "file_chunk") {
+         handle_file_chunk(msgObj);
+      } else if (msg_type === "action" || msg_type == "pub") {
+         message = msg_create_links(message);
+
+         // Don't play a bell or set highlight on SelfMsgs
+         if (sender === auth_user) {
+            if (msg_type === 'action') {
+               ChatBox.Append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span>***&nbsp;' + sender + '&nbsp;***&nbsp;<span class="chat-my-msg">' + message + '</span></div>');
+            } else {
+               ChatBox.Append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+            }
+         } else {
+            if (msg_type === 'action') {
+               ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
+            } else {
+               ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+            }
+
+            play_notify_bell();
+            set_highlight("chat");
+            // XXX: Update the window title to show a pending message
+         }
+      }
+   } else if (cmd === 'join') {
+      var user = msgObj.talk.user;
+      var privs = msgObj.talk.privs;
+
+      if (typeof user !== 'undefined') {
+         var msg_ts = msg_timestamp(msgObj.talk.ts);
+         var nl = user_link(user);
+         var ptt_state = msgObj.talk.ptt;
+
+         if (typeof ptt_state === 'undefined') {
+            ptt_state = false;
+         }
+
+         var muted_state = msgObj.talk.muted;
+         if (typeof muted_state === 'undefined') {
+            muted_state = false;
+         }
+
+         var clones = msgObj.talk.clones;
+         if (typeof clones !== 'undefined') {
+            UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs, clones: clones });
+         } else {
+            UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
+         }
+
+         ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">connected to the radio</span>&nbsp;***</div>');
+         // Play join (door open) sound if the bell button is checked
+         if ($('#bell-btn').data('checked')) {
+            if (!(user === auth_user)) {
+               join_ding.currentTime = 0;  // Reset audio to start from the beginning
+               join_ding.play();
+            }
+         }
+      } else {
+         console.log("got join for undefined user, ignoring");
+      }
+   } else if (cmd === 'kick') {
+//      console.log("kick msg:", msgObj);
+      // Play leave (door close) sound if the bell button is checked
+      if ($('#bell-btn').data('checked')) {
+         if (!(user === auth_user)) {
+            leave_ding.currentTime = 0;  // Reset audio to start from the beginning
+            leave_ding.play();
+         }
+      }
+      UserCache.remove(user);
+      console.log("Kick command received for user:", user, " reason:", msgObj.talk.data.reason);
+   } else if (cmd === 'mute') {
+      // Shows a muted icon
+      console.log("Mute command received for user:", user);
+      UserCache.update({ name: user, muted: true });
+
+      // this is for us, so disable the PTT button
+      if (user === auth_user) {
+         $('button.rig-ptt').attr("disabled", "disabled");
+      }
+   } else if (cmd === "quit") {
+      var user = msgObj.talk.user;
+      var reason = msgObj.talk.reason;
+
+      if (user) {
+         var msg_ts = msg_timestamp(msgObj.talk.ts);
+         if (typeof reason === 'undefined') {
+            reason = 'Client exited';
+         }
+
+         // skip this for our clones
+         if (user.name !== auth_user) {
+            UserCache.remove(user);
+            // Play leave (door close) sound if the bell button is checked
+            if ($('#bell-btn').data('checked')) {
+               if (!(user === auth_user)) {
+                  leave_ding.currentTime = 0;  // Reset audio to start from the beginning
+                  leave_ding.play();
+               }
+            }
+         }
+
+         ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
+      } else {
+         console.log("got %s for undefined user, ignoring", cmd);
+      }
+   } else if (cmd === "userinfo") {
+      parse_userinfo_reply(msgObj);
+   } else if (cmd === "unmute") {
+      UserCache.update({ name: user, muted: false });
+
+      // this is for us, so re-enable the PTT button, if appropriate
+      if (user === auth_user) {
+         $('button.rig-ptt').removeAttr("disabled");
+      }
+   } else if (cmd === 'whois') {
+      const clones = msgObj.talk.data;
+
+      if (!clones || clones.length === 0) {
+         return;
+      }
+      form_disable(true);
+
+      const info = clones[0]; // shared info from the first entry
+
+      let html = `<strong>User:</strong>&nbsp;${info.username}<br>`;
+      html += `<strong>Email:</strong>&nbsp;${info.email}<br>`;
+      html += `<strong>Privileges:</strong>&nbsp;${info.privs || 'None'}<br>`;
+      if (typeof info.muted !== 'undefined' && info.muted === "true") {
+         html += `<strong class="red">This user is currently muted.</strong>&nbsp;Rigctl is temporarily suspended.<br>`;
+      }
+      html += '<hr width="75%"/>';
+
+      html += `<strong>Active Sessions: ${clones.length}</strong><br>`;
+      clones.forEach((session) => {
+         let clone_num = session.clone + 1;
+            html += `&nbsp;&nbsp;<em>Clone #${clone_num}</em><br>`;
+         html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>Connected:</strong> ${new Date(session.connected * 1000).toLocaleString()}`;
+         html += `&nbsp;&nbsp;<strong>Last Heard:</strong> ${new Date(session.last_heard * 1000).toLocaleString()}<br>`;
+         html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>User-Agent:</strong> <code>${session.ua}</code><br><br>`;
+      });
+
+      html += "<hr/><br/>Click window or hit escape to close";
+      $('#chat-whois').html(html).show('slow');
+   } else {
+      console.log("Unknown talk command:", cmd, "msg:", msgData);
+   }
+}

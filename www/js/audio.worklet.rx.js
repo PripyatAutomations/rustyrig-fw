@@ -18,7 +18,7 @@ class RxAudioProcessor extends AudioWorkletProcessor {
             channel[i] = this.buffer.shift();
          } else {
             channel[i] = 0.0;	// silence on underrun;
-            console.log('[audio] RX underrun!');
+//            console.log('[audio] RX underrun!');
          }
       }
 
