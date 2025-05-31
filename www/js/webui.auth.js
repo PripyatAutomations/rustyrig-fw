@@ -16,7 +16,7 @@ window.webui_inits.push(function webui_auth_init() {
       // Stop HTML form submission
       evt.preventDefault();
 
-     $('button#login-submit-btn').prop('disabled', false);
+      $('button#login-submit-btn').prop('disabled', false);
 
       let user = $("input#user");
       let pass = $("input#pass");

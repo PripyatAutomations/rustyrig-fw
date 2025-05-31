@@ -855,6 +855,11 @@ window.webui_inits.push(function webui_init() {
    });
 
    $(document).click(function (e) {
+      if (typeof window.RigAudio === 'undefined') {
+         // Since the user has interacted, we can start sound now
+         window.RigAudio = new WebUiAudio(window.socket);
+      }
+
       if ($(e.target).is('#reason-modal')) {			// focus reason input
          e.preventDefault();
          $('input#reason').focus();

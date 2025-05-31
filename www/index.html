@@ -9,15 +9,6 @@
   <script src="js/libflac.min.js"></script>
   <!-- XXX: Release builds will have this minified into a single file -->
   <script>
-    Flac.onready = function() {
-      console.log("Flac WASM loaded and ready");
-    };
-
-    Flac.onerror = function(err) {
-      console.error("Flac error:", err);
-    };
-
-    console.log("Flac available?", typeof Flac !== "undefined");
     const scripts = [
       "jquery.chroma-hash.js",
       "webui.auth.js",
