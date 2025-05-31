@@ -1,3 +1,13 @@
+////////////////////////////
+// Authentication/Session //
+////////////////////////////
+var logged_in;			// Did we get an AUTHORIZED response?
+var auth_user;			// Username the server sent us
+var auth_token;			// Session token the server gave us during LOGIN
+var auth_privs;			// Privileges the server has granted us
+var remote_nonce;		// The login nonce, which is used to derive a replay protected password response
+var login_user;			// Username we send to the server
+
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_auth_init() {
    $('input#user').change(function() {
@@ -11,7 +21,8 @@ window.webui_inits.push(function webui_auth_init() {
       // Stop HTML form submission
       evt.preventDefault();
 
-      $('button#login-submit-btn').prop('disabled', false);
+      // disable the button
+      $('button#login-submit-btn').prop('disabled', true);
 
       let user = $("input#user");
       let pass = $("input#pass");
@@ -45,16 +56,6 @@ window.webui_inits.push(function webui_auth_init() {
        logout();
    }); 
 });
-
-////////////////////////////
-// Authentication/Session //
-////////////////////////////
-var logged_in;			// Did we get an AUTHORIZED response?
-var auth_user;			// Username the server sent us
-var auth_token;			// Session token the server gave us during LOGIN
-var auth_privs;			// Privileges the server has granted us
-var remote_nonce;		// The login nonce, which is used to derive a replay protected password response
-var login_user;			// Username we send to the server
 
 ////////////////////////////
 // Send initial Login Cmd //
@@ -132,7 +133,7 @@ function logout() {
       syslog_clear();
    }
 
-   wmSwitchTab('login');
+   wm_switch_tab('login');
 }
 
 ////////////////////////
@@ -149,7 +150,7 @@ function webui_parse_auth_msg(msgObj) {
       console.log("auth.error:", error);
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
       ChatBox.Append('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
-      wmSwitchTab('login');
+      wm_switch_tab('login');
       $('span#sub-login-error-msg').empty();
       $('span#sub-login-error-msg').append("<span>", error, "</span>");
       form_disable(true);
@@ -189,7 +190,7 @@ function webui_parse_auth_msg(msgObj) {
          }
 
          logged_in = true;
-         wmSwitchTab(active_tab);
+         wm_switch_tab(active_tab);
          var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
          ChatBox.Append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
          Audio = new WebUiAudio();
@@ -214,7 +215,7 @@ function webui_parse_auth_msg(msgObj) {
       case 'expired':
          console.log("Session expired!");
          ChatBox.Append('<div><span class="error">Session expired, logging out</span></div>');
-         wmSwitchTab('login');
+         wm_switch_tab('login');
          break;
       default:
          console.log("Unknown auth command:", cmd);

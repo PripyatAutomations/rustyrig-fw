@@ -222,7 +222,7 @@ function handle_reconnect() {
    if (reconnect_tries >= max_reconnects) {
       ChatBox.Append('<div class="chat-status error">' + my_ts + '&nbsp; Giving up on reconnecting after ' + reconnect_tries + ' attempts!</div>');
       stop_reconnecting();
-      wmSwitchTab('login');
+      wm_switch_tab('login');
    }
 
    // Delay reconnecting for a bit
@@ -273,10 +273,10 @@ window.webui_inits.push(function webui_init() {
    });
 
    // bind tab strip handlers
-   $('span#tab-chat').click(function() { wmSwitchTab('chat'); });
-   $('span#tab-rig').click(function() { wmSwitchTab('rig'); });
-   $('span#tab-config').click(function() { wmSwitchTab('cfg'); });
-   $('span#tab-syslog').click(function() { wmSwitchTab('syslog'); });
+   $('span#tab-chat').click(function() { wm_switch_tab('chat'); });
+   $('span#tab-rig').click(function() { wm_switch_tab('rig'); });
+   $('span#tab-config').click(function() { wm_switch_tab('cfg'); });
+   $('span#tab-syslog').click(function() { wm_switch_tab('syslog'); });
 
    $('span#tab-dark').click(function() {  
       var dark_mode = localStorage.getItem("dark_mode") !== "false"
