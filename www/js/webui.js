@@ -19,7 +19,10 @@ var ChatBox;
 function msg_timestamp(msg_ts) {
    if (typeof msg_ts !== "number") {
       msg_ts = Number(msg_ts); 			// Convert string to number if necessary
-      if (isNaN(msg_ts)) return "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+
+      if (isNaN(msg_ts)) {
+         return "&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;&nbsp;&nbsp;&nbsp;";
+      }
    }
 
    let date = new Date(msg_ts * 1000); 		// Convert seconds to milliseconds
@@ -127,69 +130,73 @@ function ws_connect() {
 //      WebUiAudio.flushPlayback();
    };
 
-   socket.onmessage = function(event) {
-      if (event.data instanceof ArrayBuffer) {
-//         console.log("Received binary message:", event.data);
-//         handle_binary_frame(event);
-      } else if (typeof event.data === "string") {
-//      console.log("evt:", event);
-         var msgData = event.data;
-//         console.log("Got string:", msgData);
-         ws_last_heard = Date.now();
+function webui_handle_ws_msg(event) {
+   if (event.data instanceof ArrayBuffer) {
+ //     console.log("Received binary message:", event.data);
+ //     handle_binary_frame(event);
+   } else if (typeof event.data === "string") {
+  // console.log("evt:", event);
+      var msgData = event.data;
+ //     console.log("Got string:", msgData);
+      ws_last_heard = Date.now();
 
-         try {
-            var msgObj = JSON.parse(msgData);
+      try {
+         var msgObj = JSON.parse(msgData);
 
-            if (msgObj.syslog) {		// Handle syslog messages
-               syslog_append(msgObj);
-            } else if (msgObj.error) {
-               console.log("ERR:", msgObj);
-               var msg = msgObj.error;
-               chat(`<div class="chat-status notice">${msg}</div>`);
-               console.log("NOTICE:", msg);
-            } else if (msgObj.alert) {
-               var alert_from = msgObj.alert.from.toUpperCase();
-               var alert_ts = msgObj.alert.ts;
-               var alert_msg = msgObj.alert.msg;
-               var msg_ts = msg_timestamp(alert_ts);
+         if (msgObj.syslog) {		// Handle syslog messages
+            syslog_append(msgObj);
+         } else if (msgObj.error) {
+            console.log("ERR:", msgObj);
+            var msg = msgObj.error;
+            chat(`<div class="chat-status notice">${msg}</div>`);
+            console.log("NOTICE:", msg);
+         } else if (msgObj.alert) {
+            var alert_from = msgObj.alert.from.toUpperCase();
+            var alert_ts = msgObj.alert.ts;
+            var alert_msg = msgObj.alert.msg;
+            var msg_ts = msg_timestamp(alert_ts);
 
-               if (alert_from === '***SERVER***') {
-                  alert_from = '';
-               } else {
-                  alert_from = '&nbsp;&lt;' + alert_from + '&gt;&nbsp;';
-               }
-
-               ChatBox.Append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!${alert_from}&nbsp;${alert_msg}</div>`);
-            } else if (msgObj.cat) {
-    //           console.log("CAT msg:", msgObj);
-               webui_parse_cat_msg(msgObj);
-            } else if (msgObj.ping) {			// Handle PING messages
-               var ts = msgObj.ping.ts;
-               if (typeof ts === 'undefined' || ts <= 0) {
-                  // Invalid timestamp in the ping, ignore it
-                  return false;
-               }
-   //            console.log("Got PING from server with ts", ts, "replying!");
-               var newMsg = { pong: { ts: String(ts) } };
-               socket.send(JSON.stringify(newMsg));
-            } else if (msgObj.talk) {		// Handle Chat messages
-               webui_parse_chat_msg(msgObj);
-            } else if (msgObj.log) {
-               var data = msgObj.log.data;
-               // XXX: show in log window
-               console.log("log message:", data);
-            } else if (msgObj.auth) {
-               webui_parse_auth_msg(msgObj);
+            if (alert_from === '***SERVER***') {
+               alert_from = '';
             } else {
-               console.log("Got unknown message from server:", msgObj);
+               alert_from = '&nbsp;&lt;' + alert_from + '&gt;&nbsp;';
             }
-         } catch (e) {
-            console.error("Error parsing message:", e);
-            console.log("Unknown data:", msgObj);
+
+            ChatBox.Append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!${alert_from}&nbsp;${alert_msg}</div>`);
+         } else if (msgObj.cat) {
+ //           console.log("CAT msg:", msgObj);
+            webui_parse_cat_msg(msgObj);
+         } else if (msgObj.ping) {			// Handle PING messages
+            var ts = msgObj.ping.ts;
+            if (typeof ts === 'undefined' || ts <= 0) {
+               // Invalid timestamp in the ping, ignore it
+               return false;
+            }
+//            console.log("Got PING from server with ts", ts, "replying!");
+            var newMsg = { pong: { ts: String(ts) } };
+            socket.send(JSON.stringify(newMsg));
+         } else if (msgObj.talk) {		// Handle Chat messages
+            webui_parse_chat_msg(msgObj);
+         } else if (msgObj.log) {
+            var data = msgObj.log.data;
+            // XXX: show in log window
+            console.log("log message:", data);
+         } else if (msgObj.auth) {
+            webui_parse_auth_msg(msgObj);
+         } else {
+            console.log("Got unknown message from server:", msgObj);
          }
-      } else {
-         console.warn("Unknown message type:", event.data);
+      } catch (e) {
+         console.error("Error parsing message:", e);
+         console.log("Unknown data:", msgObj);
       }
+   } else {
+      console.warn("Unknown message type:", event.data);
+   }
+}
+
+   socket.onmessage = function(event) {
+       webui_handle_ws_msg(event);
    }
    return socket;
 }
