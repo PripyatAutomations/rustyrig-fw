@@ -13,29 +13,6 @@ var ws_last_heard;		// When was the last time we heard something from the server
 var ws_last_pinged;
 var ws_keepalives_sent = 0;
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
-var active_vfo = 'A';		// Active VFO
-var active_tab = 'chat';
-
-////////////////////////
-// Latency calculator //
-////////////////////////
-let latency_samples = [];
-var latency_timer;
-const latency_max_samples = 50;
-
-// Support reloading the stylesheet (/reloadcss) without restarting the app
-function reload_css() {
-  $('link[rel="stylesheet"]').each(function() {
-    let $link = $(this);
-    let href = $link.attr('href').split('?')[0];
-    $link.attr('href', href + '?_=' + new Date().getTime());
-  });
-
-   setTimeout(function() {
-      let chatBox = $('#chat-box');
-      chatBox.scrollTop(chatBox[0].scrollHeight);
-   }, 250);
-}
 
 const UserCache = {
    users: {},
@@ -143,29 +120,6 @@ function send_ping(sock) {
 function make_ws_url() {
    var protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
    return protocol + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + "/ws/";
-}
-
-function show_active_tab() {
-   if (active_tab === "chat") {
-      show_chat_window();
-   } else if (active_tab === "rig") {
-      show_rig_window();
-   } else if (active_tab === 'log') {
-      show_syslog_window();
-   } else if (active_tab === "config") {
-      show_config_window();
-   }
-}
-
-function show_config_window() {
-   active_tab = 'config';
-//   $('.chroma-hash').hide();
-   $('div#win-rig').hide();
-   $('div#win-chat').hide();
-   $('div#win-login').hide();
-   $('div#win-syslog').hide();
-   $('div#tabstrip').show();
-   $('div#win-config').show();
 }
 
 function ws_connect() {
@@ -559,7 +513,7 @@ function ws_connect() {
                   console.log("auth.error:", error);
                   var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                   chat_append('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
-                  show_login_window();
+                  wmSwitchTab('login');
                   $('span#sub-login-error-msg').empty();
                   $('span#sub-login-error-msg').append("<span>", error, "</span>");
                   form_disable(true);
@@ -599,7 +553,7 @@ function ws_connect() {
                      }
 
                      logged_in = true;
-                     show_active_tab();
+                     wmSwitchTab(active_tab);
                      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                      chat_append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
 //                     WebUiAudio.start();
@@ -624,7 +578,7 @@ function ws_connect() {
                   case 'expired':
                      console.log("Session expired!");
                      chat_append('<div><span class="error">Session expired, logging out</span></div>');
-                     show_login_window();
+                     wmSwitchTab('login');
                      break;
                   default:
                      console.log("Unknown auth command:", cmd);
@@ -672,7 +626,7 @@ function handle_reconnect() {
    if (reconnect_tries >= max_reconnects) {
       chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Giving up on reconnecting after ' + reconnect_tries + ' attempts!</div>');
       stop_reconnecting();
-      show_login_window();
+      wmSwitchTab('login');
    }
 
    // Delay reconnecting for a bit
@@ -725,44 +679,6 @@ function form_disable(state) {
    }
 }
 
-function latency_send_pings(socket) {
-   const now = Date.now();
-   socket.send(JSON.stringify({type: 'ping', ts: now}));
-}
-
-function latency_check_init() {
-   socket.onmessage = function(event) {
-      let msg = JSON.parse(event.data);
-
-      if (msg.type === 'pong' && msg.ts) {
-         let rtt = Date.now() - msg.ts;
-         latency_samples.push(rtt);
-
-         if (latency_samples.length > latency_max_samples) {
-            latency_samples.shift();
-         }
-      }
-   };
-}
-
-function latency_toggle_check() {
-   if (!latency_timer) {
-      latency_timer = setInterval(latency_send_pings, 2000);
-   } else {
-      // Destroy the timer instance
-      
-   }
-}
-
-function latency_get_avg() {
-   if (latency_samples.length === 0) {
-      return null;
-   }
-
-   let sum = latency_samples.reduce((a, b) => a + b, 0);
-   return sum / latency_samples.length;
-}
-
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_init() {
    // try to prevent submitting a GET for this
@@ -774,16 +690,16 @@ window.webui_inits.push(function webui_init() {
    // Load settings from LocalStorage //
    /////////////////////////////////////
    // bind tab strip handlers
-   $('span#tab-chat').click(function() {
-      show_chat_window();
-   });
-   $('span#tab-rig').click(function() { show_rig_window(); });
-   $('span#tab-config').click(function() { show_config_window(); });
-   $('span#tab-syslog').click(function() { show_syslog_window(); });
+   $('span#tab-chat').click(function() { wmSwitchTab('chat'); });
+   $('span#tab-rig').click(function() { wmSwitchTab('rig'); });
+   $('span#tab-config').click(function() { wmSwitchTab('cfg'); });
+   $('span#tab-syslog').click(function() { wmSwitchTab('syslog'); });
+
    $('span#tab-dark').click(function() {  
       var dark_mode = localStorage.getItem("dark_mode") !== "false"
       set_dark_mode(!dark_mode);
    });
+
    $('span#tab-logout').click(function() { logout(); });
    chat_append('<div><span class="error">***** New commands are available! See /help for chat help and !help for rig commands *****</span></div>');
 
@@ -805,79 +721,10 @@ window.webui_inits.push(function webui_init() {
       }
    });
 
-   // Native listener for ctrl + wheel
-   document.addEventListener('wheel', function(e) {
-      if (e.ctrlKey) {
-         e.preventDefault();
-      }
-   }, { passive: false });
-
    $('button#reload-css').click(reload_css);
-   $(document).on('keydown', function(e) {
-      // Handle login field focus transition
-/*
-      if (document.activeElement.matches('form#login input#user')) {
-         if ((e.key === 'Enter') || (e.key === 'Tab' && !e.shiftKey)) {
-            e.preventDefault();
-            document.querySelector('form#login input#pass')?.focus();
-            return;
-         }
-      } else if (active_tab === 'chat') {
-         handle_chat_completion(e);
-      }
-*/
-      // Prevent zooming in/out
-      if (e.ctrlKey && (
-            e.key === '+' || e.key === '-' || 
-            e.key === '=' || e.key === '0' || 
-            e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) {
-         e.preventDefault();
-      } else if ((active_tab !== 'chat') && e.key === '/' && !e.ctrlKey && !e.metaKey) {
-         e.preventDefault();
-      } else if (e.key === "Escape") {
-         if ($('#reason-modal').is(':visible')) {
-            $('#reason-modal').hide('fast');
-         } else if ($('#chat-whois').is(':visible')) {
-            $('#chat-whois').hide('fast');
-         } else if ($('#user-menu').is(':visible')) {
-            $('#user-menu').hide('fast');
-         } else {
-            return;
-         }
-      // ENTER
-      } else if (e.which == 13) {
-         $('#send-btn').click();
-         e.preventDefault();
-      } else {
-         return;
-      }
-      form_disable(false);
-   });
-
-   $(document).click(function (e) {
-      if (typeof window.RigAudio === 'undefined') {
-         // Since the user has interacted, we can start sound now
-         window.RigAudio = new WebUiAudio(window.socket);
-      }
-
-      if ($(e.target).is('#reason-modal')) {			// focus reason input
-         e.preventDefault();
-         $('input#reason').focus();
-      } else if ($(e.target).is('input#reason')) {		// focus reason input
-         e.preventDefault();
-         $('input#reason').focus();
-      } else if ($(e.target).is('#chat-whois')) {		// hide whois dialog if clicked
-         e.preventDefault();
-         $(e.target).hide('fast');
-         form_disable(false);
-      } else if ($(e.target).is('#clear-btn')) {		// deal with the clear button in chat
-         e.preventDefault();
-         $('#chat-input').val('');
-         form_disable(false);
-      }
-   });
 
 //   $(window).on('unload', function() {
 //      navigator.sendBeacon('/disconnect', JSON.stringify({token: auth_token }));
 //   });
 });
+
