@@ -14,82 +14,7 @@ var ws_last_pinged;
 var ws_keepalives_sent = 0;
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
 
-const UserCache = {
-   users: {},
-
-   add(user) {
-      this.users[user.name] = {
-         ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
-         ...(user.hasOwnProperty('muted') && { muted: user.muted }),
-         ...(user.hasOwnProperty('privs') && { privs: user.privs }),
-         ...(user.hasOwnProperty('clones') && { clones: user.clones })
-      };
-//      console.log("UC.add: name:", user.name, "clones:", user.clones);
-      cul_render();
-   },
-
-   remove(name) {
-      const entry = this.users[name];
-      if (!entry) return;
-
-//      console.log("UC.remove: name:", name, "clones:", entry.clones);
-
-      if (entry.clones <= 1) {
-         delete this.users[name];
-      } else {
-         entry.clones--;
-      }
-
-      cul_render();
-   },
-
-   update(user) {
-      const existing = this.users[user.name];
-
-      if (!existing) {
-         console.log("UC.update: No entry for", user.name, "- creating new");
-         this.add(user);
-         return;
-      }
-      if ('ptt'   in user) existing.ptt   = user.ptt;
-      if ('privs' in user) existing.privs = user.privs;
-      if ('muted' in user) existing.muted = user.muted;
-      if ('clones' in user) existing.clines = user.clones;
-      cul_render();
-   },
-
-   get(name) {
-      return this.users[name] || null;
-   },
-
-   get_all() {
-      return Object.entries(this.users).map(([name, props]) => ({ name, ...props }));
-   },
-
-   clones(name) {
-      return this.users[name]?.refcount || 0;
-   },
-
-   dump() {
-      console.log("UserCache contents:");
-      for (const [name, props] of Object.entries(this.users)) {
-         console.log(`- ${name}:`, props);
-      }
-   },
-
-   clear() {
-      this.users = {};
-      cul_render();
-   }
-};
-
-function user_link(username) {
-   if (username === auth_user) {
-      return `<a href="#" class="my-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
-   } else {
-      return `<a href="#" class="other-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
-   }
-}
+var ChatBox;
 
 function msg_timestamp(msg_ts) {
    if (typeof msg_ts !== "number") {
@@ -148,7 +73,7 @@ function ws_connect() {
       form_disable(false);
       var now = Math.floor(Date.now() / 1000);
       var my_ts = msg_timestamp(now);
-      chat_append('<div class="chat-status">' + my_ts + '&nbsp;WebSocket connected.</div>');
+      ChatBox.Append('<div class="chat-status">' + my_ts + '&nbsp;WebSocket connected.</div>');
       reconnecting = false; 		// Reset reconnect flag on successful connection
       reconnect_delay = 1; 		// Reset reconnect delay to 1 second
 
@@ -192,7 +117,7 @@ function ws_connect() {
 
       var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
       if (rc === false) {
-         chat_append('<div class="chat-status error">' + my_ts + '&nbsp;WebSocket error: ', error, 'occurred.</div>');
+         ChatBox.Append('<div class="chat-status error">' + my_ts + '&nbsp;WebSocket error: ', error, 'occurred.</div>');
       }
 
       if (ws_kicked != true && reconnecting == false) {
@@ -234,7 +159,7 @@ function ws_connect() {
                   alert_from = '&nbsp;&lt;' + alert_from + '&gt;&nbsp;';
                }
 
-               chat_append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!${alert_from}&nbsp;${alert_msg}</div>`);
+               ChatBox.Append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!${alert_from}&nbsp;${alert_msg}</div>`);
             } else if (msgObj.cat) {
     //           console.log("CAT msg:", msgObj);
                var cat_ts = msgObj.ts;
@@ -359,15 +284,15 @@ function ws_connect() {
                      // Don't play a bell or set highlight on SelfMsgs
                      if (sender === auth_user) {
                         if (msg_type === 'action') {
-                           chat_append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span>***&nbsp;' + sender + '&nbsp;***&nbsp;<span class="chat-my-msg">' + message + '</span></div>');
+                           ChatBox.Append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span>***&nbsp;' + sender + '&nbsp;***&nbsp;<span class="chat-my-msg">' + message + '</span></div>');
                         } else {
-                           chat_append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+                           ChatBox.Append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
                         }
                      } else {
                         if (msg_type === 'action') {
-                           chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
+                           ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
                         } else {
-                           chat_append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+                           ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
                         }
 
                         play_notify_bell();
@@ -400,7 +325,7 @@ function ws_connect() {
                         UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
                      }
 
-                     chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">connected to the radio</span>&nbsp;***</div>');
+                     ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">connected to the radio</span>&nbsp;***</div>');
                      // Play join (door open) sound if the bell button is checked
                      if ($('#bell-btn').data('checked')) {
                         if (!(user === auth_user)) {
@@ -453,7 +378,7 @@ function ws_connect() {
                         }
                      }
 
-                     chat_append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
+                     ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
                   } else {
                      console.log("got %s for undefined user, ignoring", cmd);
                   }
@@ -512,7 +437,7 @@ function ws_connect() {
 
                   console.log("auth.error:", error);
                   var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-                  chat_append('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
+                  ChatBox.Append('<div><span class="error">' + my_ts + '&nbsp;Error: ' + error + '!</span></div>');
                   wmSwitchTab('login');
                   $('span#sub-login-error-msg').empty();
                   $('span#sub-login-error-msg').append("<span>", error, "</span>");
@@ -555,7 +480,7 @@ function ws_connect() {
                      logged_in = true;
                      wmSwitchTab(active_tab);
                      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-                     chat_append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
+                     ChatBox.Append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
 //                     WebUiAudio.start();
                      break;
                   case 'challenge':
@@ -577,7 +502,7 @@ function ws_connect() {
                      break;
                   case 'expired':
                      console.log("Session expired!");
-                     chat_append('<div><span class="error">Session expired, logging out</span></div>');
+                     ChatBox.Append('<div><span class="error">Session expired, logging out</span></div>');
                      wmSwitchTab('login');
                      break;
                   default:
@@ -621,10 +546,10 @@ function handle_reconnect() {
    show_connecting(true);
 
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-   chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec (attempt ' + reconnect_tries + '/' + max_reconnects + ')</div>');
+   ChatBox.Append('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec (attempt ' + reconnect_tries + '/' + max_reconnects + ')</div>');
 
    if (reconnect_tries >= max_reconnects) {
-      chat_append('<div class="chat-status error">' + my_ts + '&nbsp; Giving up on reconnecting after ' + reconnect_tries + ' attempts!</div>');
+      ChatBox.Append('<div class="chat-status error">' + my_ts + '&nbsp; Giving up on reconnecting after ' + reconnect_tries + ' attempts!</div>');
       stop_reconnecting();
       wmSwitchTab('login');
    }
@@ -636,16 +561,6 @@ function handle_reconnect() {
       // increase delay for the next try
       reconnect_delay = reconnect_interval[Math.min(reconnect_interval.length - 1, reconnect_interval.indexOf(reconnect_delay) + 1)];
    }, reconnect_delay * 1000);
-}
-
-function flash_red(element) {
-   element.focus()
-   var old_border = element.css("border");
-   element.css("border", "2px solid red");
-   setTimeout(() => {
-      let restore_border = old_border;
-      element.css("border", restore_border);
-   }, 1000);
 }
 
 function set_dark_mode(state) {
@@ -700,8 +615,11 @@ window.webui_inits.push(function webui_init() {
       set_dark_mode(!dark_mode);
    });
 
+   let chatBox = $('#chat-box');
+   ChatBox = new WebUiChat(chatBox);
+
    $('span#tab-logout').click(function() { logout(); });
-   chat_append('<div><span class="error">***** New commands are available! See /help for chat help and !help for rig commands *****</span></div>');
+   ChatBox.Append('<div><span class="error">***** New commands are available! See /help for chat help and !help for rig commands *****</span></div>');
 
    // Reset buttons
    $('#login-reset-btn').click(function(evt) {
@@ -723,8 +641,8 @@ window.webui_inits.push(function webui_init() {
 
    $('button#reload-css').click(reload_css);
 
+// XXX: Hook this up so it can send a dying gasp to release the session quicker
 //   $(window).on('unload', function() {
 //      navigator.sendBeacon('/disconnect', JSON.stringify({token: auth_token }));
 //   });
 });
-

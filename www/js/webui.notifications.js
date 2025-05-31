@@ -77,3 +77,13 @@ function set_highlight(tab) {
 function clear_highlight() {
    $('span[id^="tab-"]').removeClass('chat-highlight');
 }
+
+function flash_red(element) {
+   element.focus()
+   var old_border = element.css("border");
+   element.css("border", "2px solid red");
+   setTimeout(() => {
+      let restore_border = old_border;
+      element.css("border", restore_border);
+   }, 1000);
+}

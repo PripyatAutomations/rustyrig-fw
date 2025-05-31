@@ -1,10 +1,5 @@
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_auth_init() {
-/*
-   if (!logged_in) {
-      wmSwitchTab('login');
-   }
-*/
    $('input#user').change(function() {
       // Cache the username and force to upper case
       login_user = $('input#user').val().toUpperCase();

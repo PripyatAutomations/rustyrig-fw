@@ -14,7 +14,6 @@ function wmSwitchTab(tab) {
 
          // If this isn't the desired tab, hide it (so we don't flicker the current tab)
          if (tab !== i) {
-            console.log('[wm] hiding', i);
             $(div_name).hide('slow');
          }
       });
@@ -43,7 +42,6 @@ function wmSwitchTab(tab) {
 }
 
 const el = document.getElementById('win-syslog');
-
 requestAnimationFrame(() => {
    el.scrollTop = el.scrollHeight;
 });

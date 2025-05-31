@@ -162,7 +162,7 @@ function handle_file_chunk(msgObj) {
 
          $wrap.append($imgWrap);
 
-         chat_append($wrap.prop('outerHTML'));
+         ChatBox.Append($wrap.prop('outerHTML'));
 
          // Scroll to the newly appended image
          setTimeout(() => {
@@ -175,7 +175,7 @@ function handle_file_chunk(msgObj) {
             .attr('target', '_blank')
             .text(`Download ${fileName} (${fileType || 'unknown'})`);
 
-         chat_append('<div class="chat-msg">$imgWrap.append($fileLink)</div>');
+         ChatBox.Append('<div class="chat-msg">$imgWrap.append($fileLink)</div>');
       }
 
       $('#chat-box').on('click', '.img-close-btn', function () {

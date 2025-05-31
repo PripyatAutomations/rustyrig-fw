@@ -1,6 +1,10 @@
 ////////////////
 // Chat Stuff //
 ////////////////
+//
+// Utility functions used stand-alone elsewhere
+//
+// Convert http(s) urls into clickable links
 function msg_create_links(message) {
    return message.replace(
       /(https?:\/\/[^\s]+)/g,
@@ -8,90 +12,54 @@ function msg_create_links(message) {
    );
 }
 
-function chat_append(msg) {
-   // limit scrollback to 1000 items
-//   const $messages = $('#chat-box');
-   const $messages = $('#chat-box').children();
-   // If we have over 1000 lines, remove 100
-   if ($messages.length > 1000) {
-      $messages.slice(0, 100).remove();
-   }
-
-   $('#chat-box').append(msg);
-   setTimeout(function () {
-      $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
-   }, 10);
-};
-
-function chatbox_clear() {
-   $('#chat-box').empty();
-
-   setTimeout(function () {
-      $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
-   }, 10);
-}
-
-function insert_at_cursor($input, text) {
-   const start = $input.prop('selectionStart');
-   const end = $input.prop('selectionEnd');
-   const val = $input.val();
-   $input.val(val.substring(0, start) + text + val.substring(end));
-   $input[0].setSelectionRange(start + text.length, start + text.length);
-}
-
-function paste_plaintext(e, item) {
-   item.getAsString(function(text) {
-      const $input = $('#chat-input');
-      const start = $input.prop('selectionStart');
-      const end = $input.prop('selectionEnd');
-      const val = $input.val();
-      insert_at_cursor($('#chat-input'), text);
-   });
-}
-
-function paste_html(e, item) {
-   item.getAsString(function(html) {
-      const text = $('<div>').html(html).text();
-      insert_at_cursor($('#chat-input'), text);
-   });
-}
-
-function handle_paste(e) {
-   const items = (e.originalEvent || e).clipboardData.items;
-
-   for (const item of items) {
-      if (item.type.indexOf('image') !== -1) {
-         paste_image(e, item);
-         break;
-      } else if (item.type === 'text/plain') {			// Handle plaintext
-         paste_plaintext(e, item);
-         break;
-      } else if (item.type === 'text/html') {			// Strip HTML tabs
-         paste_html(e, item);
-         break;
-      } else {
-         alert("PASTE: Unsupported file type: " + item.type);
-         console.log("PASTE: Unsupported file type:", item.type);
-         break;
+class WebUiChat {
+   constructor(output, input) {
+      if (typeof output === 'undefined' || output === null) {
+         return null;
       }
+
+      this.output = $(output);
+      this.scrollback_max_lines = 1000;
+      this.scrollback_purge_lines = 100;
+   }
+
+   // Add a message to the chat
+   Append(msg) {
+      // limit scrollback to 1000 items
+      const $messages = $('#chat-box').children();
+
+      // Limit scrollback size
+      if ($messages.length > this.scrollback_max_lines) {
+         $messages.slice(0, this.scrollback_purge_lines).remove();
+      }
+
+      // Add the message to the chatbox
+      this.output.append(msg);
+
+      // A few ms delay before scrolling to improve smoothness
+      setTimeout(function () {
+         $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+      }, 10);
+   }
+
+   Clear() {
+      this.output.empty();
+
+      setTimeout(function () {
+         $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+      }, 10);
    }
 }
 
-if (!window.webui_inits) window.webui_inits = [];
+if (!window.webui_inits) {
+   window.webui_inits = [];
+}
 window.webui_inits.push(function webui_chat_init() { chat_init(); });
 
 function chat_init() {
   $(document).ready(function() {
-      let chatBox = $('#chat-box');
-
       // scroll the chatbox down when window is resized (keyboard open/closed, etc)
       $(window).on('resize', function() {
-/* XXX: Or maybe we want to only scroll if they're near the bottom already? Need to figure out common kbd size and replace the 50 with the max
-         let el = chatBox[0];
-         if (el.scrollHeight - el.scrollTop - el.clientHeight < 50) {
-            chatBox.scrollTop(el.scrollHeight);
-         }
- */
          chatBox.scrollTop(chatBox[0].scrollHeight);
       });
 
@@ -362,11 +330,11 @@ function parse_chat_cmd(e) {
                chatbox_clear();
                break;
             case 'clearlog':
-               chat_append('<div><span class="error">Cleared syslog window</span></div>');
+               ChatBox.Append('<div><span class="error">Cleared syslog window</span></div>');
                syslog_clear();
                break;
             case 'clxfr':
-               chat_append('<div><span class="error">Cleared xfer-chunks</span></div>');
+               ChatBox.Append('<div><span class="error">Cleared xfer-chunks</span></div>');
                clear_xfer_chunks();
                break;
             case 'chat':
@@ -391,7 +359,7 @@ function parse_chat_cmd(e) {
             case 'reloadcss':
                console.log("Reloading CSS on user command");
                reload_css();
-               chat_append('<div><span class="notice">Reloaded CSS</span></div>');
+               ChatBox.Append('<div><span class="notice">Reloaded CSS</span></div>');
                break;
             case 'rxvol':
                $('#rig-rx-vol').val(args[1] / 100);
@@ -409,44 +377,44 @@ function parse_chat_cmd(e) {
                rxGainNode.gain.value = unmute_vol;
                break;
             case 'help':
-               chat_append('<div><span class="notice">*** HELP *** All commands start with /</span></div>');
-               chat_append('<div><span class="notice">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;-&nbsp;End session</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/clear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/help&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
+               ChatBox.Append('<div><span class="notice">*** HELP *** All commands start with /</span></div>');
+               ChatBox.Append('<div><span class="notice">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;-&nbsp;End session</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/clear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/help&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
 
-               chat_append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/rxmute | /rxunmute&nbsp;&nbsp;&nbsp;- Mute/Unmute RX audio</span></div>');
+               ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/rxmute | /rxunmute&nbsp;&nbsp;&nbsp;- Mute/Unmute RX audio</span></div>');
 
                //////
-               chat_append('<br/><div><span class="notice">*** DEBUG TOOLS - Used by developer</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/clearlog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/names&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Force refresh of UserCache</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/reloadcss&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
-               chat_append('<div><span class="notice">&nbsp;/syslog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
+               ChatBox.Append('<br/><div><span class="notice">*** DEBUG TOOLS - Used by developer</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/clearlog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/names&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Force refresh of UserCache</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/reloadcss&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/syslog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
 
                var isAdmin = /(owner|admin)/.test(auth_privs);
                if (isAdmin) {
-                  chat_append('<br/><div><span class="notice">*** ADMIN HELP *** These commands are only available to admins/owners.</span></div>');
-                  chat_append('<div><span class="notice">&nbsp;/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="notice">&nbsp;/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
-//                  chat_append('<div><span class="notice">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
-                  chat_append('<div><span class="notice">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="notice">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="notice">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
-                  chat_append('<div><span class="notice">&nbsp;/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
+                  ChatBox.Append('<br/><div><span class="notice">*** ADMIN HELP *** These commands are only available to admins/owners.</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
+//                  ChatBox.Append('<div><span class="notice">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
                } else {
-                  chat_append('<div><span class="notice">*********************************************</span></div>');
-                  chat_append('<div><span class="notice">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
-                  chat_append('<div><span class="notice">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
+                  ChatBox.Append('<div><span class="notice">*********************************************</span></div>');
+                  ChatBox.Append('<div><span class="notice">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
                }
-               chat_append('<br/><div><span class="notice">You can use tab completion, press @ then type a few letters or hit tab</span></div>');
+               ChatBox.Append('<br/><div><span class="notice">You can use tab completion, press @ then type a few letters or hit tab</span></div>');
                break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);
@@ -491,7 +459,7 @@ function parse_chat_cmd(e) {
                };
                break;
             default:
-               chat_append('<div><span class="error">Invalid command:' + command + '</span></div>');
+               ChatBox.Append('<div><span class="error">Invalid command:' + command + '</span></div>');
                break;
          }
          if (typeof args_obj === 'object' && args_obj !== null) {
@@ -523,3 +491,133 @@ function parse_chat_cmd(e) {
       }, 10);
    }
 }
+
+const UserCache = {
+   users: {},
+
+   add(user) {
+      this.users[user.name] = {
+         ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
+         ...(user.hasOwnProperty('muted') && { muted: user.muted }),
+         ...(user.hasOwnProperty('privs') && { privs: user.privs }),
+         ...(user.hasOwnProperty('clones') && { clones: user.clones })
+      };
+//      console.log("UC.add: name:", user.name, "clones:", user.clones);
+      cul_render();
+   },
+
+   remove(name) {
+      const entry = this.users[name];
+      if (!entry) return;
+
+//      console.log("UC.remove: name:", name, "clones:", entry.clones);
+
+      if (entry.clones <= 1) {
+         delete this.users[name];
+      } else {
+         entry.clones--;
+      }
+
+      cul_render();
+   },
+
+   update(user) {
+      const existing = this.users[user.name];
+
+      if (!existing) {
+         console.log("UC.update: No entry for", user.name, "- creating new");
+         this.add(user);
+         return;
+      }
+      if ('ptt'   in user) existing.ptt   = user.ptt;
+      if ('privs' in user) existing.privs = user.privs;
+      if ('muted' in user) existing.muted = user.muted;
+      if ('clones' in user) existing.clines = user.clones;
+      cul_render();
+   },
+
+   get(name) {
+      return this.users[name] || null;
+   },
+
+   get_all() {
+      return Object.entries(this.users).map(([name, props]) => ({ name, ...props }));
+   },
+
+   clones(name) {
+      return this.users[name]?.refcount || 0;
+   },
+
+   dump() {
+      console.log("UserCache contents:");
+      for (const [name, props] of Object.entries(this.users)) {
+         console.log(`- ${name}:`, props);
+      }
+   },
+
+   clear() {
+      this.users = {};
+      cul_render();
+   }
+};
+
+function user_link(username) {
+   if (username === auth_user) {
+      return `<a href="#" class="my-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
+   } else {
+      return `<a href="#" class="other-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
+   }
+}
+
+/*
+      if (typeof input === 'undefined' || input === null) {
+         return null;
+      }
+      this.input = $(input);
+*/
+function insert_at_cursor($input, text) {
+   const start = $input.prop('selectionStart');
+   const end = $input.prop('selectionEnd');
+   const val = $input.val();
+   $input.val(val.substring(0, start) + text + val.substring(end));
+   $input[0].setSelectionRange(start + text.length, start + text.length);
+}
+
+function paste_plaintext(e, item) {
+   item.getAsString(function(text) {
+      const $input = $('#chat-input');
+      const start = $input.prop('selectionStart');
+      const end = $input.prop('selectionEnd');
+      const val = $input.val();
+      insert_at_cursor($('#chat-input'), text);
+   });
+}
+
+function paste_html(e, item) {
+   item.getAsString(function(html) {
+      const text = $('<div>').html(html).text();
+      insert_at_cursor($('#chat-input'), text);
+   });
+}
+
+function handle_paste(e) {
+   const items = (e.originalEvent || e).clipboardData.items;
+
+   for (const item of items) {
+      if (item.type.indexOf('image') !== -1) {
+         paste_image(e, item);
+         break;
+      } else if (item.type === 'text/plain') {			// Handle plaintext
+         paste_plaintext(e, item);
+         break;
+      } else if (item.type === 'text/html') {			// Strip HTML tabs
+         paste_html(e, item);
+         break;
+      } else {
+         alert("PASTE: Unsupported file type: " + item.type);
+         console.log("PASTE: Unsupported file type:", item.type);
+         break;
+      }
+   }
+}
+//      const Inputbox = new WebUiInput('#chat-input');

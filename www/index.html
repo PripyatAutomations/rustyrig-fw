@@ -11,18 +11,21 @@
   <script>
     const scripts = [
       "jquery.chroma-hash.js",
-      "webui.winman.js",
-      "webui.input.js",
-      "webui.auth.js",
+      "webui.chat.js",				// chat stuff
+      "webui.winman.js",			// window manager
+      "webui.input.js",				// mouyse/keyboard input
+      "webui.auth.js",				// Authentication
+      "webui.frequency.js",			// frequency widget/formatting/parsing
       "webui.js",
-      "webui.notifications.js",
-      "webui.syslog.js",
-      "webui.chat.completion.js",
-      "webui.chat.js",
-      "webui.filexfer.js",
-      "webui.rigctl.js",
-      "webui.audio.js",
-      "webui.emoji.js"
+      "webui.latencycalc.js",			// Latency estimator
+      "webui.notifications.js",			// Notification stuff
+      "webui.syslog.js",			// syslog viewer
+      "webui.chat.completion.js",		// tab completion for chat
+      "webui.filexfer.js",			// file transfer for chat
+      "webui.rigctl.js",			// rig interface tab
+      "webui.audio.js",				// audio handling
+      "webui.emoji.js",				// emoji keyboard
+      "webui.debug.js"				// debugging utilities
     ];
 
     function asset_load_scripts(scriptList, onComplete) {
@@ -210,12 +213,12 @@
         <select id="rig-mode"></select>
        </div>
        <div id="edit-vfo-width">
-        <label for="tx-bw">Width (Hz): <span id="tx-bw-val">3000</span></label>
-        <input type="range" id="tx-bw" min="50" max="3000" step="50" value="1550">
+        <label for="rig-width">Width (Hz): <span id="rig-width-val">3000</span></label>
+        <input type="range" id="rig-width" min="50" max="3000" step="50" value="1550">
        </div>
        <div id="edit-vfo-power">
-        <label for="tx-pow">Power (Watts): <span id="tx-pow-val">10</span></label>
-        <input type="range" id="tx-pow" min="5" max="100" step="1" value="5">
+        <label for="rig-power">Power (Watts): <span id="rig-power-val">10</span></label>
+        <input type="range" id="rig-power" min="5" max="100" step="1" value="5">
        </div>
       </div> <!-- edit-vfo-mode -->
       <button id="start-audio">Enable Audio</button>&nbsp;&nbsp;
