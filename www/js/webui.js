@@ -481,7 +481,7 @@ function ws_connect() {
                      wmSwitchTab(active_tab);
                      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                      ChatBox.Append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
-//                     WebUiAudio.start();
+                     Audio = new WebUiAudio();
                      break;
                   case 'challenge':
                      var nonce = msgObj.auth.nonce;

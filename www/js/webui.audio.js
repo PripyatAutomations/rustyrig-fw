@@ -97,6 +97,8 @@ class WebUiAudio {
 //function WebUiAudioAttach(WebUiAudio) {
 //}
 
+var Audio;
+
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_audio_init() {
    console.log('[audio] Initializing subsystem');

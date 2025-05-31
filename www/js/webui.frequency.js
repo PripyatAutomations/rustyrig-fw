@@ -1,4 +1,3 @@
-
 function freq_update_digit($digit, delta) {
    let val = parseInt($digit.find('.value').text(), 10);
    var newVal;
