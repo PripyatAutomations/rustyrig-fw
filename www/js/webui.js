@@ -222,7 +222,7 @@ function ws_connect() {
          cul_offline();
       }
 
-      WebUiAudio.flushPlayback();
+//      WebUiAudio.flushPlayback();
 
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
@@ -245,14 +245,14 @@ function ws_connect() {
          console.log("Auto-reconnecting ws (on-error)");
          handle_reconnect();
       }
-      WebUiAudio.flushPlayback();
+//      WebUiAudio.flushPlayback();
    };
 
    socket.onmessage = function(event) {
 //      console.log("evt:", event);
       if (event.data instanceof ArrayBuffer) {
 //         console.log("Received binary message:", event.data);
-         WebUiAudio.handle_binary_frame(event);
+         handle_binary_frame(event);
       } else if (typeof event.data === "string") {
          var msgData = event.data;
 //         console.log("Got string:", msgData);
@@ -602,7 +602,7 @@ function ws_connect() {
                      show_active_tab();
                      var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
                      chat_append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
-                     WebUiAudio.start();
+//                     WebUiAudio.start();
                      break;
                   case 'challenge':
                      var nonce = msgObj.auth.nonce;

@@ -5,7 +5,10 @@
 
 # RX audio (mic in)
 #./build/${PROFILE}/fwdsp.bin -p "pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! queue ! fdsink fd=%d" -c pcm 
-./build/${PROFILE}/fwdsp.bin -p "pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=44100,channels=1 ! queue ! fdsink fd=%d" -c pcm -s 44100
-#./build/${PROFILE}/fwdsp.bin \
+#./build/${PROFILE}/fwdsp.bin -p "pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=44100,channels=1 ! queue ! fdsink fd=%d" -c pcm -s 44100
+./build/${PROFILE}/fwdsp.bin \
+   -p "audioconvert ! audioresample ! opusenc ! oggmux"
+   -c opus -s 16000
+#   -p "audioconvert ! audioresample ! flacenc ! fdsink fd=%d" \
 #  -p "pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! flacenc ! fdsink fd=%d" \
 #  -c flac -s 16000

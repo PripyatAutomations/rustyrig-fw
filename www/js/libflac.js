@@ -1,0 +1,1 @@
+../../ext/libflac.js-5.4.0/dist/libflac.js

@@ -1,1 +1,1 @@
-../../ext/libflac.js/dist/libflac.min.d.ts
+../../ext/libflac.js-5.4.0/dist/libflac.min.d.ts

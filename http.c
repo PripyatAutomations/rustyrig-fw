@@ -80,6 +80,7 @@ static struct http_res_types http_res_types[] = {
    { "tar",  "application/x-tar\r\n" },
    { "ttf",  "font/ttf\r\n" },
    { "txt",  "text/plain\r\n" },
+   { "wasm", "application/wasm\r\n" },
    { "webp", "image/webp\r\n" },
    { "woff", "font/woff\r\n" },
    { "woff2", "font/woff2\r\n" },
