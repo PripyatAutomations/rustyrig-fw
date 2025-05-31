@@ -11,6 +11,8 @@
   <script>
     const scripts = [
       "jquery.chroma-hash.js",
+      "webui.winman.js",
+      "webui.input.js",
       "webui.auth.js",
       "webui.js",
       "webui.notifications.js",
@@ -38,7 +40,7 @@
           }
         };
         script.onerror = () => {
-          console.error("Failed to load:", script.src);
+          console.error("[loader] Failed to load:", script.src);
         };
         document.head.appendChild(script);
       }
@@ -51,7 +53,7 @@
           try {
             fn();
           } catch (e) {
-            console.error("Init function failed:", e);
+            console.error("[loader] Init function failed:", e);
           }
         }
       }

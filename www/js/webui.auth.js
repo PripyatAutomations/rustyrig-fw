@@ -2,7 +2,7 @@ if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_auth_init() {
 /*
    if (!logged_in) {
-      show_login_window();
+      wmSwitchTab('login');
    }
 */
    $('input#user').change(function() {
@@ -137,19 +137,5 @@ function logout() {
       syslog_clear();
    }
 
-   show_login_window();
-}
-
-function show_login_window() {
-//   $('button#submit').prop('disabled', false);
-   $('button#login-submit-btn').prop('disabled', false);
-   $('div#win-chat').hide();
-   $('div#win-config').hide();
-   $('div#win-syslog').hide();
-   $('div#win-rig').hide();
-   $('input#user').focus();
-   $('div#tabstrip').hide();
-   $('div#win-login').show();
-   $('form#login input#user').focus();
-//   $('.chroma-hash').show();
+   wmSwitchTab('login');
 }

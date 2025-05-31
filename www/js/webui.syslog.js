@@ -32,20 +32,3 @@ function syslog_append(msgObj) {
       });
    }
 }
-
-function show_syslog_window() {
-//   $('.chroma-hash').hide();
-   active_tab = "syslog";
-   $('div#win-rig').hide();
-   $('div#win-chat').hide();
-   $('div#win-login').hide();
-   $('div#win-config').hide();
-   $('div#tabstrip').show();
-   $('div#win-syslog').show();
-   const el = document.getElementById('win-syslog');
-
-   requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
-   });
-
-}
