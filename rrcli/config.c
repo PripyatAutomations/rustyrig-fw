@@ -110,6 +110,6 @@ bool config_load(const char *path) {
    }
 
 //   dict_dump(cfg, stdout);
-   return true;
+   return false;
 }
    

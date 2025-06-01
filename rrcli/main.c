@@ -95,7 +95,9 @@ static gboolean poll_mongoose(gpointer user_data) {
 
 int main(int argc, char *argv[]) {
    logfp = stdout;
-   config_load("rrclient.cfg");
+   if (config_load("config/rrclient.cfg")) {
+      exit(1);
+   }
    gtk_init(&argc, &argv);
    GtkCssProvider *provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(provider,
@@ -154,14 +156,23 @@ int main(int argc, char *argv[]) {
 
    gtk_box_pack_start(GTK_BOX(control_box), mode_combo, FALSE, FALSE, 6);
 
-   // Volume slider
-   GtkWidget *volume_label = gtk_label_new("Volume:");
-   GtkWidget *volume_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-   const char *cfg_vol = dict_get(cfg, "ui.volume.rx", "30");
-   gtk_range_set_value(GTK_RANGE(volume_slider), atoi(cfg_vol));
+   // RX Volume slider
+   GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
+   GtkWidget *rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   const char *cfg_rx_vol = dict_get(cfg, "ui.volume.rx", "30");
+   gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(cfg_rx_vol));
 
-   gtk_box_pack_start(GTK_BOX(control_box), volume_label, FALSE, FALSE, 6);
-   gtk_box_pack_start(GTK_BOX(control_box), volume_slider, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_label, FALSE, FALSE, 6);
+   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_slider, TRUE, TRUE, 0);
+
+   // TX Volume slider
+   GtkWidget *tx_vol_label = gtk_label_new("TX Vol");
+   GtkWidget *tx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   const char *cfg_tx_vol = dict_get(cfg, "ui.volume.tx", "30");
+   gtk_range_set_value(GTK_RANGE(tx_vol_slider), atoi(cfg_tx_vol));
+
+   gtk_box_pack_start(GTK_BOX(control_box), tx_vol_label, FALSE, FALSE, 6);
+   gtk_box_pack_start(GTK_BOX(control_box), tx_vol_slider, TRUE, TRUE, 0);
 
    /////// Text box
    GtkWidget *text_view = gtk_text_view_new();

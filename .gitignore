@@ -19,6 +19,7 @@ config/http.users
 
 # Default config moved to doc/example.config.json
 config/radio.config.json
+config/rrclient.cfg
 
 # Archived configs
 config/archive/*.json

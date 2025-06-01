@@ -10,7 +10,7 @@ OBJ_DIR := ${BUILD_DIR}/obj
 fw_bin := ${BUILD_DIR}/firmware.bin
 fwdsp_bin := ${BUILD_DIR}/fwdsp.bin
 
-bins += ${fw_bin} ${fwdsp_bin}
+bins += ${fw_bin} ${fwdsp_bin} build/client/rrclient
 
 # Throw an error if the .json configuration file doesn't exist...
 ifeq (x$(wildcard ${CF}),x)
@@ -250,11 +250,13 @@ ${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildca
 clean:
 	@echo "[clean]"
 	${RM} ${bins} ${real_fwdsp_objs} ${real_fw_objs} ${extra_clean}
+	${MAKE} -C rrcli $@
 
 distclean: clean
 	@echo "[distclean]"
 	${RM} -r build
 	${RM} -f config/archive/*.json *.log state/*
+	${MAKE} -C rrcli $@
 
 ###############
 # DFU Install #
@@ -332,3 +334,6 @@ dump-ptt:
 
 dump-log:
 	echo -e ".headers on\nselect * from audit_log;" | sqlite3 ${MASTER_DB}
+
+build/client/rrclient:
+	${MAKE} -C rrcli
