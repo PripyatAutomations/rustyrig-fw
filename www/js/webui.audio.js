@@ -1,4 +1,4 @@
-//
+
 // Audio Device wrapper for RX, TX, and ALERT channels
 class WebUiAudioDev {
    constructor(ChannelType, sampleRate, gain) {
@@ -40,7 +40,7 @@ class WebUiAudioDev {
  */
             // XXX: Add support for sending alerts to a different sound device
          }
-
+         this.StartFLACDecoder();
       } catch(e) {
          console.log('Error:', e);
          return null;
@@ -53,6 +53,46 @@ class WebUiAudioDev {
 
    GetGain() {
       return this.gainNode.gain.value;
+   }
+
+   StartFLACDecoder() {
+      let decoder;
+      let inputBuffer = [];
+      let inputBufferOffset = 0;
+
+      decoder = Flac.create_libflac_decoder();
+
+      if (!decoder) {
+          console.error("[flac] Could not create FLAC decoder.");
+          return;
+      }
+
+      Flac.init_decoder_stream(
+          decoder,
+          this.flac_read_callback,
+          this.flac_write_callback,
+          this.flac_metadata_callback,
+          this.flac_error_callback,
+          0 // client_data
+      );
+
+      const ok = Flac.FLAC__stream_decoder_init_stream(
+          decoder,
+          this.flac_read_callback,
+          null, // seek_callback
+          null, // tell_callback
+          null, // length_callback
+          null, // eof_callback
+          this.flac_write_callback,
+          this.flac_metadata_callback,
+          this.flac_error_callback,
+          0
+      );
+
+      if (ok !== 0) {
+          console.error("[flac] Decoder initialization failed with code", ok);
+      }
+      this.flac_decoder = decoder;
    }
 }
 
@@ -98,6 +138,11 @@ class WebUiAudio {
 //}
 
 var Audio;
+
+function handle_binary_frame(arrayBuffer) {
+    const uint8Array = new Uint8Array(arrayBuffer);
+    Flac.decode_frame(Audio.flac_decoder, uint8Array);
+}
 
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_audio_init() {

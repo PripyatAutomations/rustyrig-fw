@@ -525,7 +525,8 @@ a.my-link:hover, a.my-link:hover, a.my-link:visited, a.my-link:active {
 #win-rigctl,
 #win-chat,
 #win-syslog,
-#win-config {
+#win-cfg {
+   display: none;
    flex: 1;
    overflow-y: auto;
 }

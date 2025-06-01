@@ -133,7 +133,7 @@ function ws_connect() {
 function webui_handle_ws_msg(event) {
    if (event.data instanceof ArrayBuffer) {
  //     console.log("Received binary message:", event.data);
- //     handle_binary_frame(event);
+      handle_binary_frame(event);
    } else if (typeof event.data === "string") {
   // console.log("evt:", event);
       var msgData = event.data;
