@@ -69,6 +69,10 @@ function ws_connect() {
       return;
    }
 
+   socket.onmessage = function(event) {
+       webui_handle_ws_msg(event);
+   }
+
    socket.onopen = function() {
       ws_kicked = false;
       show_connecting(false);
@@ -129,6 +133,7 @@ function ws_connect() {
       }
 //      WebUiAudio.flushPlayback();
    };
+}
 
 function webui_handle_ws_msg(event) {
    if (event.data instanceof ArrayBuffer) {
@@ -193,13 +198,10 @@ function webui_handle_ws_msg(event) {
    } else {
       console.warn("Unknown message type:", event.data);
    }
-}
 
-   socket.onmessage = function(event) {
-       webui_handle_ws_msg(event);
-   }
    return socket;
 }
+
 
 function stop_reconnecting() {
    ws_kicked = true;

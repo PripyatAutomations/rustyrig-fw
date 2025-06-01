@@ -18,4 +18,4 @@ if [ "$FORMAT" == "FLAC+OGG" ]; then
 fi
 
 ./build/${PROFILE}/fwdsp.bin -p "${rx_pipeline}" -c flac -s 44100 &
-./build/${PROFILE}/fwdsp.bin -p "${tx_pipeline}" -c flac -s 44100 -t &
+#./build/${PROFILE}/fwdsp.bin -p "${tx_pipeline}" -c flac -s 44100 -t &

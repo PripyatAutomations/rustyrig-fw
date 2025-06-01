@@ -20,7 +20,9 @@ LDFLAGS := -lc -lm -g -ggdb -lcrypt
 CFLAGS += -I.. -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -D__RRCLIENT=1
+CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
+LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
 TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
 #USE_ALSA = $(strip $(shell cat ${CF} | jq -r '.features.alsa'))
@@ -72,6 +74,7 @@ endif
 #objs += channels.o		# Channel Memories
 #objs += codec.o			# Support for audio codec
 #objs += console.o		# Console support
+objs += config.o
 objs += debug.o			# Debug stuff
 objs += dict.o			# dictionary object
 #objs += gui.o			# Support for a local user-interface

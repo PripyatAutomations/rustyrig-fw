@@ -193,7 +193,8 @@ function webui_parse_auth_msg(msgObj) {
          wm_switch_tab(active_tab);
          var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
          ChatBox.Append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
-         Audio = new WebUiAudio();
+         webui_audio_start();
+         setupAudio();
          break;
       case 'challenge':
          var nonce = msgObj.auth.nonce;
