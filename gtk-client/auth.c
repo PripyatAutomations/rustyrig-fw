@@ -28,23 +28,6 @@ extern time_t now;
 extern bool ptt_active;
 extern void shutdown_app(int signum);
 
-bool ws_send_login(struct mg_connection *c, const char *login_user) {
-   if (c == NULL || login_user == NULL) {
-      return true;
-   }
-
-   char msgbuf[512];
-   memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512,
-                 "{ \"auth\": {"
-                 "     \"cmd\": \"login\", "
-                 "     \"user\": \"%s\""
-                 "   }"
-                 "}", login_user);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-   return false;
-}
-
 // This provides protection against replays by 
 char *compute_wire_password(const char *password, const char *nonce) {
 
@@ -81,6 +64,23 @@ char *compute_wire_password(const char *password, const char *nonce) {
    Log(LOG_CRAZY, "auth", "passwd %s nonce %s result %s", password, nonce, hex_output);
    
    return hex_output;
+}
+
+bool ws_send_login(struct mg_connection *c, const char *login_user) {
+   if (c == NULL || login_user == NULL) {
+      return true;
+   }
+
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512,
+                 "{ \"auth\": {"
+                 "     \"cmd\": \"login\", "
+                 "     \"user\": \"%s\""
+                 "   }"
+                 "}", login_user);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   return false;
 }
 
 // Hashes the user stored password with the server token and returns it

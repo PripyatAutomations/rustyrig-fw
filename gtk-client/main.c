@@ -33,6 +33,21 @@ static GtkTextBuffer *text_buffer;
 static GtkWidget *conn_button = NULL;
 static bool ws_connected = false;
 
+bool ui_print(const char *fmt, ...) {
+   va_list ap;
+   va_start(ap, fmt);
+   char outbuf[8096];
+   size_t outbuf_sz = sizeof(outbuf);
+   memset(outbuf, 0, outbuf_sz);
+
+   vsnprintf(outbuf, outbuf_sz, fmt, ap);
+ 
+   gtk_text_buffer_insert_at_cursor(text_buffer, outbuf, strlen(outbuf));
+   gtk_text_buffer_insert_at_cursor(text_buffer, "\n", 1);
+   va_end(ap);
+   return false;
+}
+
 void shutdown_app(int signum) {
    Log(LOG_INFO, "core", "Shutting down %s%d", (signum > 0 ? "with signal " : ""), signum);
 }
@@ -79,9 +94,11 @@ void update_connection_button(bool connected, GtkWidget *btn) {
 static void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_CONNECT) {
       const char *url = dict_get(cfg, "server.url", NULL);
-      struct mg_tls_opts opts = {.ca = mg_unpacked("/certs/ca.pem"),
+      if (c->is_tls) {
+         struct mg_tls_opts opts = {.ca = mg_unpacked("/certs/ca.pem"),
                                  .name = mg_url_host(url)};
-      mg_tls_init(c, &opts);
+         mg_tls_init(c, &opts);
+      }
    } else if (ev == MG_EV_WS_OPEN) {
       const char *login_user = dict_get(cfg, "server.user", NULL);
       ws_connected = true;
@@ -98,12 +115,9 @@ static void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
       ws_send_login(c, login_user);
 
       Log(LOG_INFO, "core", "Sending login for user %s", login_user);
-      const char *lms = "Login message sent";
-      gtk_text_buffer_insert_at_cursor(text_buffer, lms, strlen(lms));
-      gtk_text_buffer_insert_at_cursor(text_buffer, "\n", 1);
+      ui_print("Login request sent for user %s", login_user);
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
-//      const char *login_pass = dict_get(cfg, "server.pass"));
       gtk_text_buffer_insert_at_cursor(text_buffer, wm->data.buf, wm->data.len);
       gtk_text_buffer_insert_at_cursor(text_buffer, "\n", 1);
    } else if (ev == MG_EV_ERROR) {
@@ -130,6 +144,7 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
       if (url) {
          ws_conn = mg_ws_connect(&mgr, url, ws_handler, NULL, NULL);
          gtk_button_set_label(button, "Connecting...");
+         ui_print("Connecting to %s", url);
       }
    }
 }
@@ -171,7 +186,22 @@ int main(int argc, char *argv[]) {
    // GTK UI setup
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "rustyrig remote client");
-   gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
+
+   const char *cfg_height = dict_get(cfg, "ui.height", "600");
+   const char *cfg_width = dict_get(cfg, "ui.width", "800");
+   const char *cfg_x = dict_get(cfg, "ui.x", "0");
+   const char *cfg_y = dict_get(cfg, "ui.y", "0");
+   int cfg_height_i = 600, cfg_width_i = 800, cfg_x_i = 0, cfg_y_i = 0;
+   if (cfg_height) { cfg_height_i = atoi(cfg_height); }
+   if (cfg_width) { cfg_width_i = atoi(cfg_width); }
+   // Place the window
+   if (cfg_x) { cfg_x_i = atoi(cfg_x); }
+   if (cfg_y) { cfg_y_i = atoi(cfg_y); }
+   if (cfg_x && cfg_y) {
+      gtk_window_move(GTK_WINDOW(window), cfg_x_i, cfg_y_i);
+   }
+   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width_i, cfg_height_i);
+
 
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    gtk_container_add(GTK_CONTAINER(window), vbox);
@@ -184,7 +214,6 @@ int main(int argc, char *argv[]) {
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
    gtk_style_context_add_class(conn_ctx, "conn-idle");
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
-
 
    // Frequency input
    GtkWidget *freq_label = gtk_label_new("Freq (KHz):");
@@ -211,7 +240,7 @@ int main(int argc, char *argv[]) {
    // RX Volume slider
    GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
    GtkWidget *rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-   const char *cfg_rx_vol = dict_get(cfg, "ui.volume.rx", "30");
+   const char *cfg_rx_vol = dict_get(cfg, "default.volume.rx", "30");
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(cfg_rx_vol));
 
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_label, FALSE, FALSE, 6);
@@ -220,7 +249,7 @@ int main(int argc, char *argv[]) {
    // TX Volume slider
    GtkWidget *tx_vol_label = gtk_label_new("TX Vol");
    GtkWidget *tx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-   const char *cfg_tx_vol = dict_get(cfg, "ui.volume.tx", "30");
+   const char *cfg_tx_vol = dict_get(cfg, "default.volume.tx", "30");
    gtk_range_set_value(GTK_RANGE(tx_vol_slider), atoi(cfg_tx_vol));
 
    gtk_box_pack_start(GTK_BOX(control_box), tx_vol_label, FALSE, FALSE, 6);
@@ -253,6 +282,7 @@ int main(int argc, char *argv[]) {
 
    g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
 
+   ui_print("rustyrig client started");
    gtk_widget_show_all(window);
    gtk_main();
 

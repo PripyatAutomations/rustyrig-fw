@@ -518,6 +518,8 @@ void http_remove_client(struct mg_connection *c) {
    http_client_t *prev = NULL;
    http_client_t *current = http_client_list;
 
+   c->is_closing = 1;
+
    while (current != NULL) {
       if (current->conn == c) {
          // Found the client to remove, mark it dead
