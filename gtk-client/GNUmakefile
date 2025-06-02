@@ -56,18 +56,9 @@ endif
 ##################
 # Source objects #
 ##################
+objs += auth.o
 #objs += au.o			# Audio channel stuff
 #objs += au.pipe.o		# pipe / socket support
-#ifeq (${USE_ALSA},true)
-#objs += au.alsa.o		# ALSA on posix hosts
-#endif
-
-#ifeq (${USE_PIPEWIRE},true)
-#objs += au.pipewire.o		# Pipewire on posix hosts
-#CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
-#LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
-#endif
-
 #objs += cat.o			# CAT parsers
 #objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
 #objs += cat.yaesu.o		# Yaesu CAT protocol
@@ -170,9 +161,9 @@ install:
 # Running on host #
 ###################
 # Run debugger
-run: ${EEPROM_FILE} ${bin}
+run: ${bin}
 	@echo "[run] ${bin}"
-	@${bin}
+	@(cd ..; ./rrclient.sh)
 
 gdb debug: ${bin} ${EEPROM_FILE}
 	@echo "[gdb] ${bin}"

@@ -38,7 +38,7 @@ static time_t last_ts_update;
 
 // Do we need to show a timestamp in log messages?
 static bool log_show_ts = false;
-static int log_level;
+int log_level;
 char latest_timestamp[64];	// Current printed timestamp
 
 /* String constants we use more than a few times */

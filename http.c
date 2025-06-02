@@ -353,6 +353,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       // Save the user-agent the first time
       if (cptr->user_agent == NULL) {
          struct mg_str *ua_hdr = mg_http_get_header(hm, "User-Agent");
+         if (ua_hdr == NULL) {
+            Log(LOG_INFO, "http.core", "ua_hdr is null!");
+            return;
+         }
          size_t ua_len = ua_hdr->len < HTTP_UA_LEN ? ua_hdr->len : HTTP_UA_LEN;
          
          // allocate the memory

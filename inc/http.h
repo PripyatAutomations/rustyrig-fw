@@ -133,6 +133,7 @@ typedef struct http_client http_client_t;
 #define	FLAG_NOOB        0x00000400		// user can only use ws.cat if owner|admin logged in
 #define	FLAG_ELMER       0x00000800		// user is an elmer, so noobs can TX if they are present
 
+#if	!defined(__RRCLIENT)
 extern bool client_has_flag(http_client_t *cptr, u_int32_t user_flag);
 extern void client_set_flag(http_client_t *cptr, u_int32_t flag);
 extern void client_clear_flag(http_client_t *cptr, u_int32_t flag);
@@ -162,5 +163,5 @@ extern bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connecti
 //////////////////
 extern http_client_t *http_client_list;
 extern int http_users_connected;
-
+#endif	// !defined(__RCLIENT)
 #endif	// !defined(__rr_http_h)

@@ -10,7 +10,7 @@ OBJ_DIR := ${BUILD_DIR}/obj
 fw_bin := ${BUILD_DIR}/firmware.bin
 fwdsp_bin := ${BUILD_DIR}/fwdsp.bin
 
-bins += ${fw_bin} ${fwdsp_bin} build/client/rrclient
+bins += ${fw_bin} ${fwdsp_bin}
 
 # Throw an error if the .json configuration file doesn't exist...
 ifeq (x$(wildcard ${CF}),x)
@@ -36,6 +36,11 @@ USE_PIPEWIRE = $(strip $(shell cat ${CF} | jq -r '.features.pipewire'))
 USE_OPUS = $(strip $(shell cat ${CF} | jq -r '.features.opus'))
 USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
+USE_GTK = $(strip $(shell cat ${CF} | jq -r ".features.gtk"))
+
+ifeq (${USE_GTK},true)
+bins += build/client/rrclient
+endif
 
 FWDSP_CFLAGS += -D__FWDSP
 
@@ -250,13 +255,13 @@ ${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildca
 clean:
 	@echo "[clean]"
 	${RM} ${bins} ${real_fwdsp_objs} ${real_fw_objs} ${extra_clean}
-	${MAKE} -C rrcli $@
+	${MAKE} -C gtk-client $@
 
 distclean: clean
 	@echo "[distclean]"
 	${RM} -r build
 	${RM} -f config/archive/*.json *.log state/*
-	${MAKE} -C rrcli $@
+	${MAKE} -C gtk-client $@
 
 ###############
 # DFU Install #
@@ -336,4 +341,4 @@ dump-log:
 	echo -e ".headers on\nselect * from audit_log;" | sqlite3 ${MASTER_DB}
 
 build/client/rrclient:
-	${MAKE} -C rrcli
+	${MAKE} -C gtk-client

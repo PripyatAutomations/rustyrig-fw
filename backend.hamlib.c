@@ -267,11 +267,12 @@ rr_vfo_data_t *hl_poll(void) {
       Log(LOG_WARN, "be.hamlib", "GET VFO_A power failed: %s", rigerror(rc));
    }
 
+/*
    Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
        (hl_state.ptt ? "ON" : "off"),
        (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
        hl_state.width, hl_state.power);
-
+ */
    // Pack the data into a vfo_data struct to send back to our caller
    rv->freq = hl_state.freq;
    rv->width = hl_state.width;

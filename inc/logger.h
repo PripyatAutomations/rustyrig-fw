@@ -29,6 +29,7 @@ struct log_priority {
 };
 
 extern FILE *logfp;
+extern int log_level;
 typedef enum LogPriority logpriority_t;
 extern void Log(logpriority_t priority, const char *subsys, const char *fmt, ...);
 extern void logger_setup(void);
