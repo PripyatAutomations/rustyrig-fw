@@ -29,28 +29,33 @@ extern bool ptt_active;
 extern void shutdown_app(int signum);
 
 bool ws_send_login(struct mg_connection *c, const char *login_user) {
-   char login_buf[512];
-   memset(login_buf, 0, 512);
-   snprintf(login_buf, 512,
+   if (c == NULL || login_user == NULL) {
+      return true;
+   }
+
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512,
                  "{ \"auth\": {"
                  "     \"cmd\": \"login\", "
                  "     \"user\": \"%s\""
                  "   }"
                  "}", login_user);
-   mg_ws_send(c, login_buf, strlen(login_buf), WEBSOCKET_OP_TEXT);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    return false;
 }
 
 // This provides protection against replays by 
 char *compute_wire_password(const char *password, const char *nonce) {
-   unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
-   char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
-   mg_sha1_ctx ctx;
 
    if (password == NULL || nonce == NULL) {
       Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%x> or nonce<%x>", password, nonce);
       return NULL;
    }
+
+   unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
+   char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
+   mg_sha1_ctx ctx;
 
    if (hex_output == NULL) {
       Log(LOG_CRIT, "auth", "oom in compute_wire_password");
@@ -81,14 +86,14 @@ char *compute_wire_password(const char *password, const char *nonce) {
 // Hashes the user stored password with the server token and returns it
 bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passwd, const char *token) {
    char *temp_pw = compute_wire_password(passwd, token);
-   if (temp_pw == NULL) { // failed
+   if (c == NULL || token == NULL || temp_pw == NULL) { // failed
       Log(LOG_CRIT, "auth", "Failed to hash session password (token: |%s|)", token);
       return true;
    }
 
-   char login_buf[512];
-   memset(login_buf, 0, 512);
-   snprintf(login_buf, 512,
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512,
                  "{ \"auth\": {"
                  "     \"cmd\": \"pass\", "
                  "     \"user\": \"%s\","
@@ -96,9 +101,28 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
                  "     \"token\": \"%s\""
                  "   }"
                  "}", user, temp_pw, token);
-   mg_ws_send(c, login_buf, strlen(login_buf), WEBSOCKET_OP_TEXT);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
    //
    free(temp_pw);
+   return false;
+}
+
+bool ws_send_logout(struct mg_connection *c, const char *user, const char *token) {
+   if (user == NULL || token == NULL || c == NULL) {
+      return true;
+   }
+
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512,
+                 "{ \"auth\": {"
+                 "     \"cmd\": \"logout\", "
+                 "     \"user\": \"%s\","
+                 "     \"token\": \"%s\""
+                 "   }"
+                 "}", user, token);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
    return false;
 }
