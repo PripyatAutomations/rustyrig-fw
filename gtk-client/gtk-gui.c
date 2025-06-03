@@ -28,6 +28,8 @@ extern bool ws_connected;
 GtkTextBuffer *text_buffer;
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
+GtkWidget *freq_entry = NULL;
+GtkWidget *mode_combo = NULL;
 
 bool ui_print(const char *fmt, ...) {
    va_list ap;
@@ -56,6 +58,26 @@ static gboolean poll_mongoose(gpointer user_data) {
 static gboolean update_now(gpointer user_data) {
    now = time(NULL);
    return G_SOURCE_CONTINUE;
+}
+
+void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
+   GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo));
+   GtkTreeIter iter;
+   int index = 0;
+
+   if (gtk_tree_model_get_iter_first(model, &iter)) {
+      do {
+         gchar *str = NULL;
+         gtk_tree_model_get(model, &iter, 0, &str, -1);
+         if (str && strcmp(str, text) == 0) {
+            gtk_combo_box_set_active(GTK_COMBO_BOX(combo), index);
+            g_free(str);
+            return;
+         }
+         g_free(str);
+         index++;
+      } while (gtk_tree_model_iter_next(model, &iter));
+   }
 }
 
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
@@ -172,7 +194,7 @@ bool gui_init(void) {
 
    // Frequency input
    GtkWidget *freq_label = gtk_label_new("Freq (KHz):");
-   GtkWidget *freq_entry = gtk_entry_new();
+   freq_entry = gtk_entry_new();
    gtk_entry_set_max_length(GTK_ENTRY(freq_entry), 13);
    gtk_entry_set_text(GTK_ENTRY(freq_entry), "7,074.000");
 
@@ -180,7 +202,7 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, FALSE, FALSE, 0);
 
    // Mode dropdown
-   GtkWidget *mode_combo = gtk_combo_box_text_new();
+   mode_combo = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "AM");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "LSB");

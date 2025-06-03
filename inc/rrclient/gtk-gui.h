@@ -18,8 +18,12 @@
 
 extern bool ui_print(const char *fmt, ...);
 extern void update_connection_button(bool connected, GtkWidget *btn);
+extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text);
 extern bool gui_init(void);
 extern GtkTextBuffer *text_buffer;
 extern GtkWidget *conn_button;
+extern GtkWidget *text_view;
+extern GtkWidget *freq_entry;
+extern GtkWidget *mode_combo;
 
 #endif	// !defined(__rrclient_gtk_gui_h)

@@ -33,11 +33,6 @@ static bool ws_binframe_process(const char *buf, size_t len) {
 
 static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
-//   ui_print(" ==> CAT: %s", msg_data);
-//  ==> CAT: { "cat": { "state": { "vfo": "A", 
-//             "freq": 580000.000000, "mode": "AM",
-//             "width": 9000, "ptt": "false", "power": 8 },
-//             "ts": 296884 , "user": "" } }
    if (mg_json_get(msg_data, "$.cat.state", NULL) > 0) {
       char *vfo = mg_json_get_str(msg_data, "$.cat.state.vfo");
       double freq;
@@ -51,12 +46,23 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
       double ts;
       mg_json_get_num(msg_data, "$.cat.state.ts", &ts);
       char *user = mg_json_get_str(msg_data, "$.cat.state.user");
-      ui_print("State: VFO=%s freq=%.0f mode=%s width=%.0f ptt=%s (user=%s) power=%.0f ts=%.0f",
-          vfo, freq, mode, width, ptt, user, power, ts);
+//      ui_print("State: VFO=%s freq=%.0f mode=%s width=%.0f ptt=%s (user=%s) power=%.0f ts=%.0f",
+//          vfo, freq, mode, width, ptt, user, power, ts);
+
+      // Update the display
+      char freq_buf[24];
+      memset(freq_buf, 0, sizeof(freq_buf));
+      snprintf(freq_buf, sizeof(freq_buf), "%.3f", freq / 1000);
+      gtk_entry_set_text(GTK_ENTRY(freq_entry), freq_buf);
+      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+
+      // free memory
       free(vfo);
       free(mode);
       free(ptt);
       free(user);
+   } else {
+      ui_print(" ==> CAT: Unknown msg -- %s", msg_data);
    }
    return false;
 }
@@ -88,6 +94,12 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
    char *user = mg_json_get_str(msg_data, "$.auth.user");
 //   ui_print(" => cmd: '%s', nonce: %s, user: %s", cmd, nonce, user);
 
+   // Must always send a command and username during auth
+   if (cmd == NULL || (user == NULL)) {
+      rv = true;
+      goto cleanup;
+   }
+
    if (strcasecmp(cmd, "challenge") == 0) {
       char *token = mg_json_get_str(msg_data, "$.auth.token");
       if (token != NULL) {
@@ -100,12 +112,6 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
       free(token);
    } else if (strcasecmp(cmd, "authorized") == 0) {
       ui_print("*** Authorized ***");
-   }
-
-   // Must always send a command and username during auth
-   if (cmd == NULL || (user == NULL)) {
-      rv = true;
-      goto cleanup;
    }
 
 cleanup:
