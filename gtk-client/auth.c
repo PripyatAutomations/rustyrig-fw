@@ -31,9 +31,37 @@ extern time_t now;
 extern bool ptt_active;
 extern void shutdown_app(int signum);
 
+const char *session_token = NULL;
+
+char *hash_passwd(const char *passwd) {
+   unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
+   char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
+   mg_sha1_ctx ctx;
+
+   if (hex_output == NULL) {
+      Log(LOG_CRIT, "auth", "oom in compute_wire_password");
+      return NULL;
+   }
+
+   // Compute SHA1 of the combined string
+   mg_sha1_init(&ctx);
+   size_t len = strlen((char *)passwd);  // Cast to (char *) for strlen
+   mg_sha1_update(&ctx, (unsigned char *)passwd, len);
+   
+   unsigned char hash[20];  // Store the raw SHA1 hash
+   mg_sha1_final(hash, &ctx);
+
+   // Convert the raw hash to a hexadecimal string
+   for (int i = 0; i < 20; i++) {
+      sprintf(hex_output + (i * 2), "%02x", hash[i]);
+   }
+   hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
+//   ui_print("hashed passwd to %s", hex_output);
+   return hex_output;
+}
+
 // This provides protection against replays by 
 char *compute_wire_password(const char *password, const char *nonce) {
-
    if (password == NULL || nonce == NULL) {
       Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%x> or nonce<%x>", password, nonce);
       return NULL;
@@ -91,16 +119,16 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
    return false;
 }
 
-// Hashes the user stored password with the server token and returns it
-bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passwd, const char *token) {
-   if (c == NULL || user == NULL || passwd == NULL || token == NULL) {
-      Log(LOG_CRIT, "auth", "ws_send_passwd with invalid parameters, c:<%x> user:<%x> passwd:<%x> token:<%x>", c, user, passwd, token);
+// Hashes the user stored password with the server nonce and returns it
+bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passwd, const char *nonce) {
+   if (c == NULL || user == NULL || passwd == NULL || nonce == NULL) {
+      Log(LOG_CRIT, "auth", "ws_send_passwd with invalid parameters, c:<%x> user:<%x> passwd:<%x> nonce:<%x>", c, user, passwd, nonce);
       return true;
    }
 
-   char *temp_pw = compute_wire_password(passwd, token);
+   char *temp_pw = compute_wire_password(hash_passwd(passwd), nonce);
    if (temp_pw == NULL) { // failed
-      Log(LOG_CRIT, "auth", "Failed to hash session password (token: |%s|)", token);
+      Log(LOG_CRIT, "auth", "Failed to hash session password (nonce: |%s|)", nonce);
       return true;
    }
 
@@ -113,7 +141,7 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
                  "     \"pass\": \"%s\","
                  "     \"token\": \"%s\""
                  "   }"
-                 "}", user, temp_pw, token);
+                 "}", user, temp_pw, session_token);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
    //

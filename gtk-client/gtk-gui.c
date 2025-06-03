@@ -100,9 +100,10 @@ void update_connection_button(bool connected, GtkWidget *btn) {
 static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    if (ws_connected) {
 
-      ws_conn = NULL;
+      ws_conn->is_closing = 1;
       ws_connected = false;
       gtk_button_set_label(button, "Connect");
+      ws_conn = NULL;
    } else {
       const char *url = dict_get(cfg, "server.url", NULL);
 

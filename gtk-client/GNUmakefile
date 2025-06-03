@@ -155,7 +155,7 @@ run: ${bin}
 
 gdb debug: ${bin} ${EEPROM_FILE}
 	@echo "[gdb] ${bin}"
-	@gdb ${bin} -ex 'run'
+	@(cd ..; gdb gtk-client/${bin} -ex 'run')
 
 test: clean world run
 

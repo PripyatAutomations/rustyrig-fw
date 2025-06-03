@@ -31,6 +31,36 @@ static bool ws_binframe_process(const char *buf, size_t len) {
     return false;                                                                                       
 }
 
+static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
+   struct mg_str msg_data = msg->data;
+//   ui_print(" ==> CAT: %s", msg_data);
+//  ==> CAT: { "cat": { "state": { "vfo": "A", 
+//             "freq": 580000.000000, "mode": "AM",
+//             "width": 9000, "ptt": "false", "power": 8 },
+//             "ts": 296884 , "user": "" } }
+   if (mg_json_get(msg_data, "$.cat.state", NULL) > 0) {
+      char *vfo = mg_json_get_str(msg_data, "$.cat.state.vfo");
+      double freq;
+      mg_json_get_num(msg_data, "$.cat.state.freq", &freq);
+      char *mode = mg_json_get_str(msg_data, "$.cat.state.mode");
+      double width;
+      mg_json_get_num(msg_data, "$.cat.state.width", &width);
+      char *ptt = mg_json_get_str(msg_data, "$.cat.state.ptt");
+      double power;
+      mg_json_get_num(msg_data, "$.cat.state.power", &power);
+      double ts;
+      mg_json_get_num(msg_data, "$.cat.state.ts", &ts);
+      char *user = mg_json_get_str(msg_data, "$.cat.state.user");
+      ui_print("State: VFO=%s freq=%.0f mode=%s width=%.0f ptt=%s (user=%s) power=%.0f ts=%.0f",
+          vfo, freq, mode, width, ptt, user, power, ts);
+      free(vfo);
+      free(mode);
+      free(ptt);
+      free(user);
+   }
+   return false;
+}
+
 static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
 
@@ -54,92 +84,80 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
 
    struct mg_str msg_data = msg->data;
    char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
-   char *pass = mg_json_get_str(msg_data, "$.auth.pass");
-   char *token = mg_json_get_str(msg_data, "$.auth.token");
+   char *nonce = mg_json_get_str(msg_data, "$.auth.nonce");
    char *user = mg_json_get_str(msg_data, "$.auth.user");
-   char *temp_pw = NULL;
+//   ui_print(" => cmd: '%s', nonce: %s, user: %s", cmd, nonce, user);
+
+   if (strcasecmp(cmd, "challenge") == 0) {
+      char *token = mg_json_get_str(msg_data, "$.auth.token");
+      if (token != NULL) {
+         session_token = strdup(token);
+      } else {
+         session_token = NULL;
+      }
+      ui_print("*** Sending PASSWD ***");
+      ws_send_passwd(c, user, dict_get(cfg, "server.pass", NULL), nonce);
+      free(token);
+   } else if (strcasecmp(cmd, "authorized") == 0) {
+      ui_print("*** Authorized ***");
+   }
 
    // Must always send a command and username during auth
-   if (cmd == NULL || (user == NULL && token == NULL)) {
+   if (cmd == NULL || (user == NULL)) {
       rv = true;
       goto cleanup;
    }
+
 cleanup:
-   free(temp_pw);
    free(cmd);
-   free(pass);
-   free(token);
+   free(nonce);
    free(user);
    return rv;
 }
 
 static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
-   char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
-   char *data = mg_json_get_str(msg_data, "$.talk.data");
-   char *target =  mg_json_get_str(msg_data, "$.talk.args.target");
-   char *msg_type =  mg_json_get_str(msg_data, "$.type");
-   char *hello = mg_json_get_str(msg_data, "$.hello");
-   char *ping = mg_json_get_str(msg_data, "$.ping");
-   char *auth = mg_json_get_str(msg_data, "$.auth");
    bool result = false;
 
-   ui_print("==> %s", msg->data);
-/*
-   ui_print("cmd: %s, data: %s, target: %s", cmd, data, target);
-   ui_print("msg_type:%s, hello:%s, ping: %s", msg_type, hello, ping);
-   ui_print("auth: %s", auth);
- */
-   if (mg_json_get(msg_data, ".ping", NULL) > 0) {
-      char ts_buf[32];
-      ui_print("Ping? Pong! |%s|", msg_data);
-      char *ping_ts = mg_json_get_str(msg_data, "$.ping.ts");
+//   ui_print("==> %s", msg->data);
 
-      if (ping_ts != NULL) {
-         snprintf(ts_buf, sizeof(ts_buf), "%s", ping_ts);
+   if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
+      char ts_buf[32];
+      double ping_ts = 0;
+      mg_json_get_num(msg_data, "$.ping.ts", &ping_ts);
+
+      if (ping_ts > 0) {
+         memset(ts_buf, 0, sizeof(ts_buf));
+         snprintf(ts_buf, sizeof(ts_buf), "%f", ping_ts);
 
          char pong[128];
          snprintf(pong, sizeof(pong), "{\"type\":\"pong\",\"ts\":%s", ts_buf);
          mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
-         free(ping_ts);
-      } else {
-         Log(LOG_DEBUG, "ws", "ping without ts");
+//         ui_print("Ping? Pong! |%.0f|", ping_ts);
       }
       goto cleanup;
-   }
-
-   if (auth != NULL) {
-      ui_print("AUTH message");
-   } else if (hello != NULL) {
-      ui_print("Got HELLO from server at c:<%x>: %s", c, hello);
-//      cptr->cli_version = malloc(HTTP_UA_LEN);
-//      memset(cptr->cli_version, 0, HTTP_UA_LEN);
-//      snprintf(cptr->cli_version, HTTP_UA_LEN, "%s", hello);
+   } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
+      result = ws_handle_auth_msg(msg, c);
+   } else if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
+      char *hello = mg_json_get_str(msg_data, "$.hello");
+      ui_print("*** Server version: %s ***", hello);
+      free(hello);
       goto cleanup;
    // Check for $.cat field (rigctl message)
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-      ui_print("CAT msg");
-//      result = ws_handle_rigctl_msg(msg, c);
+//      ui_print("CAT msg");
+      result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
-      ui_print("TALK msg");
-      if (cmd != NULL) {
+//      ui_print("TALK msg");
+//      if (cmd != NULL) {
 //         result = ws_handle_chat_msg(msg, c);
-      }
+//      }
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
       ui_print("PONG!");
 //      result = ws_handle_pong(msg, c);
-   } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
-      result = ws_handle_auth_msg(msg, c);
    }
 
 cleanup:
-   free(cmd);
-   free(data);
-   free(target);
-   free(msg_type);
-   free(ping);
-   free(auth);
-
    return false;
 }
 
@@ -169,6 +187,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_OPEN) {
 //      c->is_hexdumping = 1;
+      ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
       const char *url = dict_get(cfg, "server.url", NULL);
 
@@ -200,6 +219,7 @@ void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
       ui_print("Socket error: %s", (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
       ws_connected = false;
+      ws_conn = NULL;
       update_connection_button(false, conn_button);
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");
@@ -208,7 +228,7 @@ void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
 }
 
 void ws_init(void) {
-   mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
+//   mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
    mg_mgr_init(&mgr);
 }
 
