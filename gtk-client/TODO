@@ -1,0 +1,3 @@
+* Implement gstreamer audio
+* Finish parsing server messages
+* Implement rest of controls to send CAT messages
