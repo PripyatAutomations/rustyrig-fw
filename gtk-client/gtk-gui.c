@@ -21,11 +21,13 @@ extern dict *cfg;
 extern bool ws_connected;
 extern struct mg_mgr mgr;
 extern struct mg_connection *ws_conn;
+extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
 
 GtkTextBuffer *text_buffer;
 GtkWidget *conn_button = NULL;
+GtkWidget *text_view = NULL;
 
 bool ui_print(const char *fmt, ...) {
    va_list ap;
@@ -37,15 +39,22 @@ bool ui_print(const char *fmt, ...) {
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(text_buffer, &end);
    gtk_text_buffer_place_cursor(text_buffer, &end);
-
    gtk_text_buffer_insert_at_cursor(text_buffer, outbuf, -1);
    gtk_text_buffer_insert_at_cursor(text_buffer, "\n", 1);
+
+   gtk_text_buffer_get_end_iter(text_buffer, &end);
+   gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(text_view), &end, 0.0, FALSE, 0.0, 0.0);
 
    return false;
 }
 
 static gboolean poll_mongoose(gpointer user_data) {
    mg_mgr_poll(&mgr, 0);
+   return G_SOURCE_CONTINUE;
+}
+
+static gboolean update_now(gpointer user_data) {
+   now = time(NULL);
    return G_SOURCE_CONTINUE;
 }
 
@@ -56,6 +65,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    gtk_button_set_label(GTK_BUTTON(button), label);
 
    GtkStyleContext *context = gtk_widget_get_style_context(GTK_WIDGET(button));
+
    if (ptt_active) {
       gtk_style_context_add_class(context, "ptt-active");
       gtk_style_context_remove_class(context, "ptt-idle");
@@ -95,9 +105,11 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
       gtk_button_set_label(button, "Connect");
    } else {
       const char *url = dict_get(cfg, "server.url", NULL);
+
       if (url) {
          // Connect to WebSocket server
          ws_conn = mg_ws_connect(&mgr, dict_get(cfg, "server.url", NULL), ws_handler, NULL, NULL);
+
          if (ws_conn == NULL) {
             ui_print("Socket connect error");
          }
@@ -126,16 +138,20 @@ bool gui_init(void) {
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "rustyrig remote client");
 
+   // Window size and placement
    const char *cfg_height = dict_get(cfg, "ui.height", "600");
    const char *cfg_width = dict_get(cfg, "ui.width", "800");
    const char *cfg_x = dict_get(cfg, "ui.x", "0");
    const char *cfg_y = dict_get(cfg, "ui.y", "0");
    int cfg_height_i = 600, cfg_width_i = 800, cfg_x_i = 0, cfg_y_i = 0;
+
    if (cfg_height) { cfg_height_i = atoi(cfg_height); }
    if (cfg_width) { cfg_width_i = atoi(cfg_width); }
+
    // Place the window
    if (cfg_x) { cfg_x_i = atoi(cfg_x); }
    if (cfg_y) { cfg_y_i = atoi(cfg_y); }
+
    if (cfg_x && cfg_y) {
       gtk_window_move(GTK_WINDOW(window), cfg_x_i, cfg_y_i);
    }
@@ -205,10 +221,23 @@ bool gui_init(void) {
    gtk_style_context_add_class(ctx, "ptt-idle");
 
    /////// Text box
+/*
    GtkWidget *text_view = gtk_text_view_new();
    gtk_text_view_set_editable(GTK_TEXT_VIEW(text_view), FALSE);
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
    gtk_box_pack_start(GTK_BOX(vbox), text_view, TRUE, TRUE, 0);
+*/
+   GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
+   gtk_widget_set_size_request(scrolled, -1, 200);  // limit height to 200px
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
+                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+
+   text_view = gtk_text_view_new();
+   text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
+   gtk_container_add(GTK_CONTAINER(scrolled), text_view);
+
+   // then pack `scrolled` into your layout instead of the raw text_view
+   gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 0);
 
    GtkWidget *entry = gtk_entry_new();
    gtk_box_pack_start(GTK_BOX(vbox), entry, FALSE, FALSE, 0);
@@ -220,7 +249,7 @@ bool gui_init(void) {
    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
    g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
-
+   g_timeout_add(1000, update_now, NULL);
    ui_print("rustyrig client started");
    gtk_widget_show_all(window);
    return false;

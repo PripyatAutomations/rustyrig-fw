@@ -107,6 +107,11 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
       cptr->user_agent = NULL;
    }
 
+   if (cptr->cli_version != NULL) {
+      free(cptr->cli_version);
+      cptr->cli_version = NULL;
+   }
+
    char resp_buf[HTTP_WS_MAX_MSG+1];
    struct mg_connection *c = cptr->conn;
 
@@ -247,6 +252,9 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    char *data = mg_json_get_str(msg_data, "$.talk.data");
    char *target =  mg_json_get_str(msg_data, "$.talk.args.target");
    char *msg_type =  mg_json_get_str(msg_data, "$.type");
+   char *hello = mg_json_get_str(msg_data, "$.hello");
+   char *ping = mg_json_get_str(msg_data, "$.ping");
+
    bool result = false;
 
    // Update the last-heard time for the user
@@ -256,30 +264,30 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    }
 
    // Handle ping messages
-   if (msg_type != NULL && strcasecmp(msg_type, "ping") == 0) {
+   if (ping != NULL) {
       char ts_buf[32];
-
-      if (mg_json_get_str(msg_data, "$.ts") != NULL) {
-         snprintf(ts_buf, sizeof(ts_buf), "%s", mg_json_get_str(msg_data, "$.ts"));
-
-         int64_t ts = atoll(ts_buf);
+      char *ping_ts = mg_json_get_str(msg_data, "$.ping.ts");
+      if (ping_ts != NULL) {
+         snprintf(ts_buf, sizeof(ts_buf), "%s", ping_ts);
 
          char pong[128];
-         snprintf(pong, sizeof(pong), "{\"type\":\"pong\",\"ts\":%ld}", ts);
+         snprintf(pong, sizeof(pong), "{\"type\":\"pong\",\"ts\":%s", ts_buf);
          mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
-         goto cleanup;
+         free(ping_ts);
       }
-   }
-
-   // Check for $.cat field (rigctl message)
-   if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
+      goto cleanup;
+   } else if (hello != NULL) {
+      Log(LOG_DEBUG, "ws", "Got HELLO from client at c:<%x>: %s", c, hello);
+      cptr->cli_version = malloc(HTTP_UA_LEN);
+      memset(cptr->cli_version, 0, HTTP_UA_LEN);
+      snprintf(cptr->cli_version, HTTP_UA_LEN, "%s", hello);
+      goto cleanup;
+   } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
       result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
       if (cmd != NULL) {
          result = ws_handle_chat_msg(msg, c);
       }
-   } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
-      mg_ws_send(c, "pong", 4, WEBSOCKET_OP_TEXT);
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
       result = ws_handle_pong(msg, c);
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
@@ -291,6 +299,8 @@ cleanup:
    free(data);
    free(target);
    free(msg_type);
+   free(hello);
+   free(ping);
 
    return false;
 }

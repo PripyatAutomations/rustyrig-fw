@@ -338,8 +338,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    } else {
       inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
    }
-
-   if (ev == MG_EV_ACCEPT) {
+ 
+   if (ev == MG_EV_OPEN) {
+//      c->is_hexdumping = 1;
+   } else if (ev == MG_EV_ACCEPT) {
       Log(LOG_CRAZY, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
 
 #if	defined(HTTP_USE_TLS)
@@ -361,15 +363,15 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          struct mg_str *ua_hdr = mg_http_get_header(hm, "User-Agent");
          if (ua_hdr == NULL) {
             Log(LOG_INFO, "http.core", "ua_hdr is null!");
-            return;
+         } else {
+            size_t ua_len = ua_hdr->len < HTTP_UA_LEN ? ua_hdr->len : HTTP_UA_LEN;
+            
+            // allocate the memory
+            cptr->user_agent = malloc(ua_len);
+            memset(cptr->user_agent, 0, ua_len);
+            memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
+            Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, (cptr->user_agent ? cptr->user_agent : "none"), ua_len);
          }
-         size_t ua_len = ua_hdr->len < HTTP_UA_LEN ? ua_hdr->len : HTTP_UA_LEN;
-         
-         // allocate the memory
-         cptr->user_agent = malloc(ua_len);
-         memset(cptr->user_agent, 0, ua_len);
-         memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
-         Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, (cptr->user_agent ? cptr->user_agent : "none"), ua_len);
       } else {
          Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> has no User-Agent", c, cptr);
       }
@@ -389,15 +391,14 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          memset(msgbuf, 0, sizeof(msgbuf));
          snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         c->is_writable = 1;
-         mg_mgr_poll(&mg_mgr, 0);
+//         c->is_writable = 1;
+//         mg_mgr_poll(&mg_mgr, 0);
       } else {
          Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
          ws_kick_client_by_c(c, "Socket error 314");
       }
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
-      Log(LOG_DEBUG, "http", "got ws msg: %s", msg->data);
       ws_handle(msg, c);
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
@@ -414,6 +415,11 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          if (cptr->user_agent != NULL) {
             free(cptr->user_agent);
             cptr->user_agent = NULL;
+         }
+
+         if (cptr->cli_version != NULL) {
+            free(cptr->cli_version);
+            cptr->cli_version = NULL;
          }
 
          if (cptr->active) {

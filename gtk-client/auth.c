@@ -74,6 +74,7 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
       return true;
    }
 
+   ui_print("*** Sending LOGIN ***");
    char msgbuf[512];
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512,
@@ -136,5 +137,13 @@ bool ws_send_logout(struct mg_connection *c, const char *user, const char *token
                  "}", user, token);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
+   return false;
+}
+
+bool ws_send_hello(struct mg_connection *c) {
+   char msgbuf[512];
+   memset(msgbuf, 0, sizeof(msgbuf));
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rrclient %s on %s\" }", VERSION, HARDWARE);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    return false;
 }
