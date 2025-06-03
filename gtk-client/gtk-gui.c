@@ -31,6 +31,15 @@ GtkWidget *text_view = NULL;
 GtkWidget *freq_entry = NULL;
 GtkWidget *mode_combo = NULL;
 
+static gboolean scroll_to_end_idle(gpointer data) {
+   GtkTextView *text_view = GTK_TEXT_VIEW(data);
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
+   GtkTextIter end;
+   gtk_text_buffer_get_end_iter(buffer, &end);
+   gtk_text_view_scroll_to_iter(text_view, &end, 0.0, TRUE, 0.0, 1.0);
+   return FALSE; // remove the idle handler after it runs
+}
+
 bool ui_print(const char *fmt, ...) {
    va_list ap;
    va_start(ap, fmt);
@@ -40,12 +49,11 @@ bool ui_print(const char *fmt, ...) {
 
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(text_buffer, &end);
-   gtk_text_buffer_place_cursor(text_buffer, &end);
-   gtk_text_buffer_insert_at_cursor(text_buffer, outbuf, -1);
-   gtk_text_buffer_insert_at_cursor(text_buffer, "\n", 1);
+   gtk_text_buffer_insert(text_buffer, &end, outbuf, -1);
+   gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
 
-   gtk_text_buffer_get_end_iter(text_buffer, &end);
-   gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(text_view), &end, 0.0, FALSE, 0.0, 0.0);
+   // Scroll after the current main loop iteration
+   g_idle_add(scroll_to_end_idle, text_view);
 
    return false;
 }
@@ -244,12 +252,6 @@ bool gui_init(void) {
    gtk_style_context_add_class(ctx, "ptt-idle");
 
    /////// Text box
-/*
-   GtkWidget *text_view = gtk_text_view_new();
-   gtk_text_view_set_editable(GTK_TEXT_VIEW(text_view), FALSE);
-   text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
-   gtk_box_pack_start(GTK_BOX(vbox), text_view, TRUE, TRUE, 0);
-*/
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);  // limit height to 200px
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
@@ -257,8 +259,9 @@ bool gui_init(void) {
 
    text_view = gtk_text_view_new();
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(text_view), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(text_view), FALSE);
    gtk_container_add(GTK_CONTAINER(scrolled), text_view);
-
    // then pack `scrolled` into your layout instead of the raw text_view
    gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 0);
 

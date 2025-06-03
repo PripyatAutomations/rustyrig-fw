@@ -225,7 +225,6 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
 
 cleanup:
    free(ts);
-
    return rv;
 }
 

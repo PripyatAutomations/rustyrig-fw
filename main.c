@@ -231,7 +231,7 @@ int main(int argc, char **argv) {
    while(1) {
       // save the current time
       clock_gettime(CLOCK_MONOTONIC, &loop_start);
-      now = loop_start.tv_sec;
+      now = time(NULL);
 
       char buf[512];
 

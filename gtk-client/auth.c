@@ -171,7 +171,7 @@ bool ws_send_logout(struct mg_connection *c, const char *user, const char *token
 bool ws_send_hello(struct mg_connection *c) {
    char msgbuf[512];
    memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rrclient %s on %s\" }", VERSION, HARDWARE);
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rrclient %s\" }", VERSION);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    return false;
 }

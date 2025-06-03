@@ -125,7 +125,6 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    struct mg_str msg_data = msg->data;
    bool result = false;
 
-//   ui_print("==> %s", msg->data);
 
    if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
       char ts_buf[32];
@@ -134,12 +133,11 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 
       if (ping_ts > 0) {
          memset(ts_buf, 0, sizeof(ts_buf));
-         snprintf(ts_buf, sizeof(ts_buf), "%f", ping_ts);
+         snprintf(ts_buf, sizeof(ts_buf), "%.0f", ping_ts);
 
          char pong[128];
-         snprintf(pong, sizeof(pong), "{\"type\":\"pong\",\"ts\":%s", ts_buf);
+         snprintf(pong, sizeof(pong), "{\"pong\": { \"ts\":\"%s\" } }", ts_buf);
          mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
-//         ui_print("Ping? Pong! |%.0f|", ping_ts);
       }
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
@@ -159,10 +157,10 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 //         result = ws_handle_chat_msg(msg, c);
 //      }
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
-      ui_print("PONG!");
 //      result = ws_handle_pong(msg, c);
+   } else {
+      ui_print("==> %s", msg->data);
    }
-
 cleanup:
    return false;
 }
