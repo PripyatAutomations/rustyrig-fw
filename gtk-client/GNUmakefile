@@ -72,6 +72,7 @@ LDFLAGS += $(shell pkg-config --libs sqlite3)
 endif
 
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
+objs += userlist.o
 objs += util.file.o		# Misc file functions
 objs += util.math.o		# Misc math functions
 objs += util.string.o		# String utility functions

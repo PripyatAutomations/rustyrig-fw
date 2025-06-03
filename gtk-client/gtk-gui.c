@@ -24,7 +24,7 @@ extern struct mg_connection *ws_conn;
 extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
-
+extern GtkWidget *create_user_list_window(void);
 GtkTextBuffer *text_buffer;
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
@@ -277,6 +277,7 @@ bool gui_init(void) {
    g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
    g_timeout_add(1000, update_now, NULL);
    ui_print("rustyrig client started");
+   create_user_list_window();
    gtk_widget_show_all(window);
    return false;
 }
