@@ -201,7 +201,6 @@ void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
                                  .name = mg_url_host(url)};
          mg_tls_init(c, &opts);
       }
-      ui_print("*** Connected to server on socket:<%x> ***", c);
    } else if (ev == MG_EV_WS_OPEN) {
       const char *login_user = dict_get(cfg, "server.user", NULL);
       ws_connected = true;
