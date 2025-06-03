@@ -119,7 +119,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
       if (cptr->active) {
          // blorp out a quit to all connected users
          prepare_msg(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"%s\", \"ts\": %lu } }",
+                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"%s\", \"ts\": %li } }",
                      cptr->chatname, reason, now);
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms);
@@ -207,7 +207,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
 
    time_t ping_expiry = ts_t + HTTP_PING_TIME;
    if ((ping_expiry) < now) {
-      Log(LOG_AUDIT, "http.pong", "Late ping for mg_conn:<%x> on cptr:<%x> from %s:%d ts: %lu + %lu (timeout) < now %lu", c, cptr, ip, port, ts_t, HTTP_PING_TIMEOUT, now);
+      Log(LOG_AUDIT, "http.pong", "Late ping for mg_conn:<%x> on cptr:<%x> from %s:%d ts: %li + %li (timeout) < now %li", c, cptr, ip, port, ts_t, HTTP_PING_TIMEOUT, now);
       ws_kick_client(cptr, "Network Error: PING timeout");
       rv = true;
       goto cleanup;
@@ -215,7 +215,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       cptr->last_heard = now;
       cptr->last_ping = 0;
       cptr->ping_attempts = 0;
-      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%lu] and last_ping to 0", cptr->chatname, now);
+      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%li] and last_ping to 0", cptr->chatname, now);
    }
 
 cleanup:
@@ -325,7 +325,7 @@ bool ws_send_error_msg(struct mg_connection *c, const char *scope, const char *m
 
    char msgbuf[HTTP_WS_MAX_MSG+1];
    prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"%s\": { \"error\": \"%s\", \"ts\": %lu } }",
+      "{ \"%s\": { \"error\": \"%s\", \"ts\": %li } }",
       scope, msg, now);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
@@ -342,7 +342,7 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
    char msgbuf[HTTP_WS_MAX_MSG+1];
    char *escaped_msg = escape_html(tmpbuf);
    prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"error\": \"%s\", \"ts\": %lu }",
+      "{ \"error\": \"%s\", \"ts\": %li }",
       tmpbuf, now);
    mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
@@ -359,7 +359,7 @@ bool ws_send_notice(struct mg_connection *c, const char *msg) {
    char *escaped_msg = escape_html(msg);
    char msgbuf[HTTP_WS_MAX_MSG+1];
    prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"notice\": \"%s\", \"ts\": %lu }",
+      "{ \"notice\": \"%s\", \"ts\": %li }",
       escaped_msg, now);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
@@ -387,14 +387,14 @@ bool ws_send_ping(http_client_t *cptr) {
 
    // only bother making noise if the first attempt failed, send the first ping to crazy level log
    if (cptr->ping_attempts > 1) {
-      Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d",
+      Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
           cptr->chatname, cptr, now, cptr->ping_attempts);
    } else {
-      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%d] attempt %d",
+      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
           cptr->chatname, cptr, now, cptr->ping_attempts);
    }
 
-   prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %lu } }", now);
+   prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %li } }", now);
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
    return false;

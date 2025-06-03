@@ -37,6 +37,8 @@
 #define	HTTP_MAX_ROUTES	20
 #endif
 
+extern struct mg_mgr mg_mgr;
+
 // This defines a hard-coded fallback path for httpd root, if not set in config
 #if	defined(HOST_POSIX)
 #if	!defined(INSTALL_PREFIX)
@@ -55,7 +57,9 @@ static char www_404_path[PATH_MAX];
 http_client_t *http_client_list = NULL;
 
 static const struct mg_http_serve_opts http_opts = {
+#if	0
    .extra_headers = www_headers,
+#endif
    .page404 = www_404_path,
    .root_dir = www_root
 };
@@ -317,6 +321,7 @@ bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
       mg_http_serve_dir(c, msg, &opts);
       return false;
    } else {		// file not found
+      Log(LOG_DEBUG, "http.core", "Static dispatch for %s returning 404", path);
       mg_http_serve_file(c, msg, www_404_path, &opts);
    }
    return true;
@@ -350,6 +355,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          Log(LOG_CRAZY, "http.core", "ACCEPT: mg_ev_http_msg cptr == NULL, creating new client");
          cptr = http_add_client(c, false);
       }
+
       // Save the user-agent the first time
       if (cptr->user_agent == NULL) {
          struct mg_str *ua_hdr = mg_http_get_header(hm, "User-Agent");
@@ -364,10 +370,13 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          memset(cptr->user_agent, 0, ua_len);
          memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
          Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, (cptr->user_agent ? cptr->user_agent : "none"), ua_len);
+      } else {
+         Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> has no User-Agent", c, cptr);
       }
 
       // Send the request to our HTTP router
       if (http_dispatch_route(hm, c) == true) {
+         Log(LOG_DEBUG, "http.core", "fall through to http_static");
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
@@ -376,12 +385,19 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       if (cptr) {
          Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
          cptr->is_ws = true;
+         char msgbuf[512];
+         memset(msgbuf, 0, sizeof(msgbuf));
+         snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
+         mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+         c->is_writable = 1;
+         mg_mgr_poll(&mg_mgr, 0);
       } else {
          Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
          ws_kick_client_by_c(c, "Socket error 314");
       }
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
+      Log(LOG_DEBUG, "http", "got ws msg: %s", msg->data);
       ws_handle(msg, c);
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
@@ -426,11 +442,13 @@ bool http_init(struct mg_mgr *mgr) {
    const char *cfg_www_root = eeprom_get_str("net/http/www_root");
    const char *cfg_404_path = eeprom_get_str("net/http/404_path");
 
+#if	0 // XXX: fix this
    // store firmware version in www_fw_ver
    prepare_msg(www_fw_ver, sizeof(www_fw_ver), "X-Version: rustyrig %s on %s", VERSION, HARDWARE);
 
    // and make our headers
    prepare_msg(www_headers, sizeof(www_headers), "%s\r\n", www_fw_ver);
+#endif
 
    // store the 404 path if available
    if (cfg_404_path != NULL) {
@@ -531,7 +549,8 @@ void http_remove_client(struct mg_connection *c) {
             prev->next = current->next;
          }
 
-         Log(LOG_CRAZY, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d users remain)", current, c, http_count_clients() - 1);
+         Log(LOG_CRAZY, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d connections / %d users remain)",
+             current, c, http_count_connections(), http_count_clients());
          if (current->user) {
             if (current->authenticated && current->is_ws) {
                current->user->clones--;

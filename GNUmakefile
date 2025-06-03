@@ -340,5 +340,9 @@ dump-ptt:
 dump-log:
 	echo -e ".headers on\nselect * from audit_log;" | sqlite3 ${MASTER_DB}
 
-build/client/rrclient:
+build/client/rrclient: build/client/build_config.h
 	${MAKE} -C gtk-client
+
+
+build/client/build_config.h:
+	./buildconf.pl client

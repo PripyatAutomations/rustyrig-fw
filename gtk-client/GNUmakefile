@@ -17,7 +17,7 @@ CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
 CFLAGS_WARN := -Wall -Wno-unused -pedantic
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
-CFLAGS += -I.. -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+CFLAGS += -I.. -I. -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
@@ -57,18 +57,11 @@ endif
 # Source objects #
 ##################
 objs += auth.o
-#objs += au.o			# Audio channel stuff
-#objs += au.pipe.o		# pipe / socket support
-#objs += cat.o			# CAT parsers
-#objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
-#objs += cat.yaesu.o		# Yaesu CAT protocol
-#objs += channels.o		# Channel Memories
-#objs += codec.o			# Support for audio codec
-#objs += console.o		# Console support
+#objs += audio.o		# Audio channel stuff
 objs += config.o
 objs += debug.o			# Debug stuff
 objs += dict.o			# dictionary object
-#objs += gui.o			# Support for a local user-interface
+objs += gtk-gui.o		# Support for a GTK user interface
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += mongoose.o		# Mongoose http/websocket/mqtt library
@@ -79,15 +72,10 @@ LDFLAGS += $(shell pkg-config --libs sqlite3)
 endif
 
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
-
-#objs += timer.o			# Timers support
 objs += util.file.o		# Misc file functions
 objs += util.math.o		# Misc math functions
 objs += util.string.o		# String utility functions
-#objs += ws.o			# Websocket transport general
-#objs += ws.audio.o		# Audio (raw / OPUS) over websockets
-#objs += ws.chat.o		# Websocket Chat (talk)
-#objs += ws.rigctl.o		# Websocket Rig Control (CAT)
+objs += ws.o			# Websocket transport general
 
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)

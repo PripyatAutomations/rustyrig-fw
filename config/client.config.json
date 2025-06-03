@@ -55,6 +55,12 @@
          "www_root": "./www"
       }
    },
+   "eeprom": {
+      "addr": "0x0000",
+      "size": 1048576,
+      "type": "mmap",
+      "readonly": "false"
+   },
    "owner": {
       "call": "N0CALL",
       "privs": "US/General"

@@ -13,13 +13,16 @@
 #include "inc/posix.h"
 #include "inc/mongoose.h"
 #include "inc/http.h"
+#include "rrclient/auth.h"
+#include "rrclient/gtk-gui.h"
+#include "rrclient/ws.h"
 
 // config.c
 extern bool config_load(const char *path);
 extern dict *cfg;
 
 // main.c
-extern struct mg_mgr mg_mgr;
+extern struct mg_mgr mgr;
 extern int my_argc;
 extern char **my_argv;
 extern bool dying;
@@ -79,14 +82,23 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
                  "     \"user\": \"%s\""
                  "   }"
                  "}", login_user);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   if (ret < 0) {
+      Log(LOG_DEBUG, "auth", "ws_send_login: mg_ws_send error: %d", ret);
+      return true;
+   }
    return false;
 }
 
 // Hashes the user stored password with the server token and returns it
 bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passwd, const char *token) {
+   if (c == NULL || user == NULL || passwd == NULL || token == NULL) {
+      Log(LOG_CRIT, "auth", "ws_send_passwd with invalid parameters, c:<%x> user:<%x> passwd:<%x> token:<%x>", c, user, passwd, token);
+      return true;
+   }
+
    char *temp_pw = compute_wire_password(passwd, token);
-   if (c == NULL || token == NULL || temp_pw == NULL) { // failed
+   if (temp_pw == NULL) { // failed
       Log(LOG_CRIT, "auth", "Failed to hash session password (token: |%s|)", token);
       return true;
    }
