@@ -30,6 +30,7 @@ GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
 GtkWidget *freq_entry = NULL;
 GtkWidget *mode_combo = NULL;
+GtkWidget *userlist_window = NULL;
 
 static gboolean scroll_to_end_idle(gpointer data) {
    GtkTextView *text_view = GTK_TEXT_VIEW(data);
@@ -277,7 +278,7 @@ bool gui_init(void) {
    g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
    g_timeout_add(1000, update_now, NULL);
    ui_print("rustyrig client started");
-   create_user_list_window();
+   userlist_window = create_user_list_window();
    gtk_widget_show_all(window);
    return false;
 }

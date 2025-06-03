@@ -28,10 +28,16 @@ PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
 #USE_ALSA = $(strip $(shell cat ${CF} | jq -r '.features.alsa'))
 #USE_PIPEWIRE = $(strip $(shell cat ${CF} | jq -r '.features.pipewire'))
 #USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
+USE_GSTREAMER = $(strip $(shell cat ${CF} | jq -r '.features.gstreamer'))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
 
 ifeq (${USE_HAMLIB},true)
 LDFLAGS += -lhamlib
+endif
+
+ifeq (${USE_GSTREAMER},true)
+CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
+LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 endif
 
 ifeq (${USE_OPUS},true)
@@ -56,6 +62,7 @@ endif
 ##################
 # Source objects #
 ##################
+objs += audio.o			# gstreamer based audio
 objs += auth.o
 #objs += audio.o		# Audio channel stuff
 objs += config.o
@@ -106,9 +113,9 @@ ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 	@echo "[compile] $@ from $<"
 
-${OBJ_DIR}/au.pipewire.o: au.pipewire.c ${BUILD_HEADERS}
+${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 	@echo "[compile] $@ from $<"
 
 # Binary also depends on the .stamp file

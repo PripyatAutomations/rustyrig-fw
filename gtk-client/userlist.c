@@ -17,6 +17,8 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+extern dict *cfg;
+
 GtkWidget *cul_view = NULL;
 
 struct rr_user {
@@ -78,8 +80,26 @@ GtkWidget *create_user_list_window(void) {
    gtk_tree_view_column_pack_start(mute_col, mute_icon, FALSE);
    gtk_tree_view_column_add_attribute(mute_col, mute_icon, "icon-name", COL_MUTE_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), mute_col);
-
    gtk_container_add(GTK_CONTAINER(window), cul_view);
+
+   const char *cfg_height = dict_get(cfg, "ui.userlist.height", "600");
+   const char *cfg_width = dict_get(cfg, "ui.userlist.width", "800");
+   const char *cfg_x = dict_get(cfg, "ui.userlist.x", "0");
+   const char *cfg_y = dict_get(cfg, "ui.userlist.y", "0");
+   int cfg_height_i = 600, cfg_width_i = 800, cfg_x_i = 0, cfg_y_i = 0;
+
+   if (cfg_height) { cfg_height_i = atoi(cfg_height); }
+   if (cfg_width) { cfg_width_i = atoi(cfg_width); }
+
+   // Place the window
+   if (cfg_x) { cfg_x_i = atoi(cfg_x); }
+   if (cfg_y) { cfg_y_i = atoi(cfg_y); }
+
+   if (cfg_x && cfg_y) {
+      gtk_window_move(GTK_WINDOW(window), cfg_x_i, cfg_y_i);
+   }
+   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width_i, cfg_height_i);
+
    gtk_widget_show_all(window);
 
    return window;

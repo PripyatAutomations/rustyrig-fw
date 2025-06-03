@@ -227,6 +227,7 @@ void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");
       gtk_style_context_remove_class(ctx, "ptt-active");
+      ui_print("*** DISCONNECTED ***");
    }
 }
 

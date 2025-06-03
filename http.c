@@ -378,7 +378,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 
       // Send the request to our HTTP router
       if (http_dispatch_route(hm, c) == true) {
-         Log(LOG_DEBUG, "http.core", "fall through to http_static");
+         Log(LOG_CRAZY, "http.core", "fall through to http_static");
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
@@ -391,8 +391,6 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          memset(msgbuf, 0, sizeof(msgbuf));
          snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-//         c->is_writable = 1;
-//         mg_mgr_poll(&mg_mgr, 0);
       } else {
          Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
          ws_kick_client_by_c(c, "Socket error 314");
