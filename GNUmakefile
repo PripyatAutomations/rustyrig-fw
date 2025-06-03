@@ -275,9 +275,11 @@ install:
 ifeq (${PLATFORM},posix)
 # Run debugger
 run: ${MASTER_DB} ${EEPROM_FILE} ${fw_bin}
-	@echo "[run] ${fwdsp_bin} & ${fw_bin}"
+#	@echo "[run] ${fwdsp_bin} & ${fw_bin}"
 #	${fwdsp_bin} &
-	${fw_bin}
+#	${fw_bin}
+	@echo "*** Running test script at test-run.sh ***"
+	./test-run.sh
 
 gdb debug: ${fw_bin} ${EEPROM_FILE}
 	@echo "[gdb] ${fw_bin}"
