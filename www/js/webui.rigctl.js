@@ -104,6 +104,7 @@ function webui_parse_cat_msg(msgObj) {
    var cmd = msgObj.cat.cmd;
    var user = msgObj.cat.user;
 
+//   console.log("Got CAT msg: ", msgObj);
    if (typeof msgObj.cat.cmd !== 'undefined') { // is it a command?
       var cmd = msgObj.cat.cmd.toLowerCase();
       if (cmd === 'ptt') {

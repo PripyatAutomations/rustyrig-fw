@@ -223,14 +223,16 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          // tell everyone about it
+/*
          prepare_msg(msgbuf, sizeof(msgbuf),
-            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", "
+            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"ptt\": \"%s\", "
             "\"vfo\": \"%s\", \"power\": %f, \"freq\": %f, \"width\": %d, "
             "\"mode\": \"%s\", \"ts\": %lu } }",
              cptr->chatname, ptt_state, vfo, dp->power,
              dp->freq, dp->width, mode_name, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
+*/
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
          rr_ptt_set(c_vfo, c_state);
          free(ptt_state);
@@ -251,10 +253,9 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          // XXX: We should do a latency test at the start of the session and optimize this per-user from there
-         Log(LOG_DEBUG, "ws.rigctl", "old lrp to %li.%li - now is %li", last_rig_poll.tv_sec, last_rig_poll.tv_nsec, now);
          last_rig_poll.tv_sec = (loop_start.tv_sec + HTTP_API_RIGPOLL_PAUSE);
          last_rig_poll.tv_nsec = loop_start.tv_nsec;
-         Log(LOG_DEBUG, "ws.rigctl", "set lrp to %li.%li - now is %li", last_rig_poll.tv_sec, last_rig_poll.tv_nsec, now);
+
          rr_vfo_t c_vfo;
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;

@@ -123,7 +123,6 @@ void on_freq_committed(GtkWidget *entry, gpointer user_data) {
 
 gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
    poll_block_expire = now + 10;
-   ui_print("Blocked polling for 10 sec on freq-input focused");
    return FALSE;
 }
 

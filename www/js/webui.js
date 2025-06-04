@@ -109,7 +109,6 @@ function ws_connect() {
       }
 
 //      WebUiAudio.flushPlayback();
-
       if (ws_kicked != true && reconnecting == false) {
          console.log("Auto-reconnecting ws (socket closed)");
          handle_reconnect();
@@ -135,9 +134,15 @@ function ws_connect() {
    };
 }
 
+function handle_binary_frame(event) {
+//      console.log("evt:", event);
+      if (event.data instanceof ArrayBuffer) {
+         playRawPCM(event.data);
+      }
+}
+
 function webui_handle_ws_msg(event) {
    if (event.data instanceof ArrayBuffer) {
- //     console.log("Received binary message:", event.data);
       handle_binary_frame(event);
    } else if (typeof event.data === "string") {
   // console.log("evt:", event);
@@ -201,7 +206,6 @@ function webui_handle_ws_msg(event) {
 
    return socket;
 }
-
 
 function stop_reconnecting() {
    ws_kicked = true;

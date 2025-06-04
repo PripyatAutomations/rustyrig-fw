@@ -23,6 +23,7 @@ CFLAGS += -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
 LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
+LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
 #USE_ALSA = $(strip $(shell cat ${CF} | jq -r '.features.alsa'))
@@ -161,7 +162,7 @@ run: ${bin}
 	@echo "[run] ${bin}"
 	@(cd ..; ./rrclient.sh)
 
-gdb debug: ${bin} ${EEPROM_FILE}
+gdb debug: ${bin}
 	@echo "[gdb] ${bin}"
 	@(cd ..; gdb gtk-client/${bin} -ex 'run')
 
