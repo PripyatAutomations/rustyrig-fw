@@ -284,7 +284,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          rr_freq_set(c_vfo, new_freq);
          free(freq);
       } else if (strcasecmp(cmd, "mode") == 0) {
-         char *mode = mg_json_get_str(msg_data, "$.cat.data.mode");
+         char *mode = mg_json_get_str(msg_data, "$.cat.mode");
 
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
             rv = true;

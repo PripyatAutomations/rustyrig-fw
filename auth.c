@@ -462,16 +462,15 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          Log(LOG_CRIT, "auth.users", "login request has no cptr->user for cptr:<%x>?!", cptr);
       }
       prepare_msg(resp_buf, sizeof(resp_buf),
-               "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }",
-               cptr->nonce, user, cptr->token);
+               "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\" } }",
+               cptr->nonce, user);
       mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
       Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
    } else if (strcasecmp(cmd, "logout") == 0) {
       http_client_t *cptr = http_find_client_by_c(c);
-      Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x> token |%s|",
+      Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x>",
           (cptr->chatname[0] != '\0' ? cptr->chatname : ""),
-          cptr, c,
-          (token != NULL ? token : "NONE"));
+          cptr, c);
       ws_kick_client_by_c(c, "Logged out. 73!");
    } else if (strcasecmp(cmd, "pass") == 0) {
       bool guest = false;

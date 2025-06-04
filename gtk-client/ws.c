@@ -21,7 +21,8 @@ struct mg_mgr mgr;
 bool ws_connected = false;
 struct mg_connection *ws_conn = NULL;
 bool server_ptt_state = false;
-
+extern time_t now;
+extern time_t poll_block_expire, poll_block_delay;
 
 // Deal with the binary requests
 static bool ws_binframe_process(const char *buf, size_t len) {
@@ -35,52 +36,100 @@ static bool ws_binframe_process(const char *buf, size_t len) {
 }
 
 
-// CAT msg: { "cat": { "state": { "vfo": "A", "freq": 7200700.000000, "mode": "LSB", "width": 2400, "ptt": "false", "power": -6 }, "ts": 1748995531 , "user": "" } }
+static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *c) {
+   struct mg_str msg_data = msg->data;
+   bool rv;
+
+   char *cmd = mg_json_get_str(msg_data,    "$.talk.cmd");
+   char *user = mg_json_get_str(msg_data,   "$.talk.user");
+   char *privs = mg_json_get_str(msg_data,  "$.talk.privs");
+   char *tx = mg_json_get_str(msg_data,     "$.talk.tx");
+   char *muted = mg_json_get_str(msg_data,  "$.talk.muted");
+   char *clones = mg_json_get_str(msg_data, "$.talk.clones");
+
+   if (!cmd) {
+      rv = true;
+      goto cleanup;
+   }
+
+   if (strcasecmp(cmd, "userinfo") == 0) {
+      Log(LOG_DEBUG, "chat", "UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, tx, muted, clones);
+   } else if (strcasecmp(cmd, "join") == 0) {
+      char *ip = mg_json_get_str(msg_data, "$.talk.ip");
+      if (user == NULL || ip == NULL) {
+         free(ip);
+         goto cleanup;
+      }
+      ui_print("*** %s connected to the radio", user);
+      free(ip);
+   } else if (strcasecmp(cmd, "quit") == 0) {
+      char *reason = mg_json_get_str(msg_data, "$.talk.reason");
+      if (user == NULL || reason == NULL) {
+         free(reason);
+         goto cleanup;
+      }
+      ui_print("*** %s disconnected from the radio: %s", user, reason);
+      free(reason);
+   } else {
+      Log(LOG_DEBUG, "chat", "msg: %s", msg->data);
+   }
+
+cleanup:
+   free(cmd);
+   free(user);
+   free(privs);
+   free(tx);
+   free(muted);
+   free(clones);
+   return false;
+}
 
 static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
-   Log(LOG_DEBUG, "ws.cat", "CAT msg: %s", msg->data);
+//   Log(LOG_DEBUG, "ws.cat", "CAT msg: %s", msg->data);
 
    if (mg_json_get(msg_data, "$.cat.state", NULL) > 0) {
-      char *vfo = mg_json_get_str(msg_data, "$.cat.state.vfo");
-      double freq;
-      mg_json_get_num(msg_data, "$.cat.state.freq", &freq);
-      char *mode = mg_json_get_str(msg_data, "$.cat.state.mode");
-      double width;
-      mg_json_get_num(msg_data, "$.cat.state.width", &width);
-      double power;
-      mg_json_get_num(msg_data, "$.cat.state.power", &power);
+      if (poll_block_expire < now) {
+         char *vfo = mg_json_get_str(msg_data, "$.cat.state.vfo");
+         double freq;
+         mg_json_get_num(msg_data, "$.cat.state.freq", &freq);
+         char *mode = mg_json_get_str(msg_data, "$.cat.state.mode");
+         double width;
+         mg_json_get_num(msg_data, "$.cat.state.width", &width);
+         double power;
+         mg_json_get_num(msg_data, "$.cat.state.power", &power);
 
-      bool ptt = false;
-      char *ptt_s = mg_json_get_str(msg_data, "$.cat.state.ptt");
+         bool ptt = false;
+         char *ptt_s = mg_json_get_str(msg_data, "$.cat.state.ptt");
 
-      if (ptt_s != NULL && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
-         ptt = true;
-      }  else {
-         ptt = false;
+         if (ptt_s != NULL && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
+            ptt = true;
+         }  else {
+            ptt = false;
+         }
+         server_ptt_state = ptt;
+         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
+
+         double ts;
+         mg_json_get_num(msg_data, "$.cat.state.ts", &ts);
+         char *user = mg_json_get_str(msg_data, "$.cat.state.user");
+
+         g_signal_handlers_block_by_func(ptt_button, G_CALLBACK(on_ptt_toggled), NULL);
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
+         g_signal_handlers_unblock_by_func(ptt_button, G_CALLBACK(on_ptt_toggled), NULL);
+
+         // Update the display
+         char freq_buf[24];
+         memset(freq_buf, 0, sizeof(freq_buf));
+         snprintf(freq_buf, sizeof(freq_buf), "%.3f", freq / 1000);
+         gtk_entry_set_text(GTK_ENTRY(freq_entry), freq_buf);
+         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+
+         // free memory
+         free(vfo);
+         free(mode);
+         free(user);
       }
-      server_ptt_state = ptt;
-      update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
-
-      double ts;
-      mg_json_get_num(msg_data, "$.cat.state.ts", &ts);
-      char *user = mg_json_get_str(msg_data, "$.cat.state.user");
-
-      g_signal_handlers_block_by_func(ptt_button, G_CALLBACK(on_ptt_toggled), NULL);
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
-      g_signal_handlers_unblock_by_func(ptt_button, G_CALLBACK(on_ptt_toggled), NULL);
-
-      // Update the display
-      char freq_buf[24];
-      memset(freq_buf, 0, sizeof(freq_buf));
-      snprintf(freq_buf, sizeof(freq_buf), "%.3f", freq / 1000);
-      gtk_entry_set_text(GTK_ENTRY(freq_entry), freq_buf);
-      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
-
-      // free memory
-      free(vfo);
-      free(mode);
-      free(user);
    } else {
       ui_print(" ==> CAT: Unknown msg -- %s", msg_data);
    }
@@ -171,10 +220,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
       result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
-//      ui_print("TALK msg");
-//      if (cmd != NULL) {
-//         result = ws_handle_chat_msg(msg, c);
-//      }
+      result = ws_handle_talk_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
 //      result = ws_handle_pong(msg, c);
    } else if (mg_json_get(msg_data, "$.syslog", NULL) > 0) {
@@ -286,4 +332,64 @@ void ws_init(void) {
 
 void ws_fini(void) {
    mg_mgr_free(&mgr);
+}
+
+bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
+   if (c == NULL || vfo == NULL) {
+      return true;
+   }
+
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"ptt\", \"data\": { \"vfo\": \"%s\", \"state\": \"%s\" } } }",
+                 vfo, (ptt ? "true" : "false"));
+//   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
+   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   if (ret < 0) {
+      Log(LOG_DEBUG, "cat", "ws_send_ptt_cmd: mg_ws_send error: %d", ret);
+      return true;
+   }
+   return false;
+}
+
+bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode) {
+   if (c == NULL || vfo == NULL || mode == NULL) {
+      return true;
+   }
+
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"mode\", \"data\": { \"vfo\": \"%s\", \"mode\": \"%s\" } } }",
+                 vfo, mode);
+//   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
+   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
+   if (ret < 0) {
+      Log(LOG_DEBUG, "cat", "ws_send_mode_cmd: mg_ws_send error: %d", ret);
+      return true;
+   }
+   return false;
+}
+
+bool connect_or_disconnect(GtkButton *button) {
+   if (ws_connected) {
+      ws_conn->is_closing = 1;
+      ws_connected = false;
+      gtk_button_set_label(button, "Connect");
+      ws_conn = NULL;
+   } else {
+      const char *url = dict_get(cfg, "server.url", NULL);
+
+      if (url) {
+         // Connect to WebSocket server
+         ws_conn = mg_ws_connect(&mgr, url, ws_handler, NULL, NULL);
+
+         if (ws_conn == NULL) {
+            ui_print("Socket connect error");
+         }
+         gtk_button_set_label(button, "Connecting...");
+         ui_print("Connecting to %s", url);
+      }
+   }
+   return false;
 }

@@ -83,9 +83,9 @@ function ptt_btn_init() {
 
       // this is set via CAT messages
       if (ptt_active === false) {
-         state = "on";
+         state = "true";
       } else {
-         state = "off";
+         state = "false";
       }
 
       var msg = { 

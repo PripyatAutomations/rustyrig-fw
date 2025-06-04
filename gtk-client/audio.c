@@ -1,4 +1,4 @@
-// gtk-client/audion.c: support for using gstreamer for audio streams
+// gtk-client/audio.c: support for using gstreamer for audio streams
 // 	https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

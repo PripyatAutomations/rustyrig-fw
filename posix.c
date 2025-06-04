@@ -32,6 +32,8 @@
 #include "inc/posix.h"
 #include "inc/logger.h"
 
+extern bool dying;
+
 #if	defined(__RRCLIENT) || defined(__FWDSP)
 extern void shutdown_app(int signum);
 #else
@@ -66,11 +68,13 @@ static void sighandler(int32_t signum) {
       case SIGINT:
       case SIGTERM:
       case SIGKILL:
+         dying  = true;
 #if	defined(__RRCLIENT) || defined(__FWDSP)
          shutdown_app(0);
 #else
          shutdown_rig(0);
 #endif
+        break;
       default:
          Log(LOG_CRIT, "core", "Caught unknown signal %d", signum);
          break;

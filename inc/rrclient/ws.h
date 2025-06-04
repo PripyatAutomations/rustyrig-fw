@@ -30,5 +30,8 @@
 extern void ws_handler(struct mg_connection *c, int ev, void *ev_data);
 extern void ws_init(void);
 extern void ws_fini(void);
+extern bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt);
+extern bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode);
+extern bool connect_or_disconnect(GtkButton *button);
 
 #endif	// !defined(__rrclient_ws_h)

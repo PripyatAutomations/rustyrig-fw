@@ -32,5 +32,5 @@ extern GtkWidget *userlist_window;
 extern GtkWidget *log_view;
 extern GtkTextBuffer *log_buffer;
 extern GtkWidget *ptt_button;
-
+extern GtkWidget *config_tab;
 #endif	// !defined(__rrclient_gtk_gui_h)

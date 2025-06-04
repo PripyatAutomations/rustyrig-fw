@@ -25,6 +25,8 @@ extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
 extern GtkWidget *create_user_list_window(void);
+extern time_t poll_block_expire, poll_block_delay;
+
 GtkTextBuffer *text_buffer;
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
@@ -34,6 +36,7 @@ GtkWidget *userlist_window = NULL;
 GtkWidget *log_view = NULL;
 GtkTextBuffer *log_buffer = NULL;
 GtkWidget *ptt_button = NULL;
+GtkWidget *config_tab = NULL;
 
 static gboolean scroll_to_end_idle(gpointer data) {
    GtkTextView *text_view = GTK_TEXT_VIEW(data);
@@ -91,6 +94,16 @@ static gboolean update_now(gpointer user_data) {
    return G_SOURCE_CONTINUE;
 }
 
+gulong mode_changed_handler_id;
+
+static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
+   const gchar *text = gtk_combo_box_text_get_active_text(combo);
+   if (text) {
+      ws_send_mode_cmd(ws_conn, "A", text);
+      g_free((gchar *)text);
+   }
+}
+
 void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
    if (!combo || !text)
       return;
@@ -105,7 +118,9 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          gtk_tree_model_get(model, &iter, 0, &str, -1);
 
          if (str && strcmp(str, text) == 0) {
+            g_signal_handler_block(combo, mode_changed_handler_id);
             gtk_combo_box_set_active(GTK_COMBO_BOX(combo), index);
+            g_signal_handler_unblock(combo, mode_changed_handler_id);
             g_free(str);
             return;
          }
@@ -114,7 +129,6 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
       } while (gtk_tree_model_iter_next(model, &iter));
    }
 }
-
 
 void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
    const gchar *label = active ? "PTT ON " : "PTT OFF";
@@ -133,7 +147,15 @@ void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
 void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    ptt_active = gtk_toggle_button_get_active(button);
    update_ptt_button_ui(button, ptt_active);
-   // send message to server here if needed
+
+   poll_block_expire = now + poll_block_delay;
+
+   // Send to server the negated value
+   if (!ptt_active) {
+      ws_send_ptt_cmd(ws_conn, "A", false);
+   } else {
+      ws_send_ptt_cmd(ws_conn, "A", true);
+   }
 }
 
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
@@ -159,26 +181,7 @@ void update_connection_button(bool connected, GtkWidget *btn) {
 }
 
 static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
-   if (ws_connected) {
-
-      ws_conn->is_closing = 1;
-      ws_connected = false;
-      gtk_button_set_label(button, "Connect");
-      ws_conn = NULL;
-   } else {
-      const char *url = dict_get(cfg, "server.url", NULL);
-
-      if (url) {
-         // Connect to WebSocket server
-         ws_conn = mg_ws_connect(&mgr, dict_get(cfg, "server.url", NULL), ws_handler, NULL, NULL);
-
-         if (ws_conn == NULL) {
-            ui_print("Socket connect error");
-         }
-         gtk_button_set_label(button, "Connecting...");
-         ui_print("Connecting to %s", url);
-      }
-   }
+   connect_or_disconnect(GTK_BUTTON(button));
 }
 
 bool gui_init(void) {
@@ -198,10 +201,10 @@ bool gui_init(void) {
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "rustyrig remote client");
 
-   int cfg_height_i = atoi(dict_get(cfg, "ui.height", "600"));
-   int cfg_width_i  = atoi(dict_get(cfg, "ui.width", "800"));
-   int cfg_x_i      = atoi(dict_get(cfg, "ui.x", "0"));
-   int cfg_y_i      = atoi(dict_get(cfg, "ui.y", "0"));
+   int cfg_height_i = atoi(dict_get(cfg, "ui.main.height", "600"));
+   int cfg_width_i  = atoi(dict_get(cfg, "ui.main.width", "800"));
+   int cfg_x_i      = atoi(dict_get(cfg, "ui.main.x", "0"));
+   int cfg_y_i      = atoi(dict_get(cfg, "ui.main.y", "0"));
 
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width_i, cfg_height_i);
    gtk_window_move(GTK_WINDOW(window), cfg_x_i, cfg_y_i);
@@ -224,7 +227,7 @@ bool gui_init(void) {
    GtkWidget *freq_label = gtk_label_new("Freq (KHz):");
    freq_entry = gtk_entry_new();
    gtk_entry_set_max_length(GTK_ENTRY(freq_entry), 13);
-   gtk_entry_set_text(GTK_ENTRY(freq_entry), "7,074.000");
+   gtk_entry_set_text(GTK_ENTRY(freq_entry), "7200.000");
 
    gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, FALSE, FALSE, 0);
@@ -238,6 +241,7 @@ bool gui_init(void) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "D-U");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
    gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 3);
+   mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
 
    gtk_box_pack_start(GTK_BOX(control_box), mode_combo, FALSE, FALSE, 6);
 
@@ -292,13 +296,39 @@ bool gui_init(void) {
    gtk_container_add(GTK_CONTAINER(log_tab), log_view);
    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), log_tab, gtk_label_new("Log"));
 
+   config_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), config_tab, gtk_label_new("Config"));
+
+   GtkWidget *config_label = gtk_label_new("Configuration will go here...");
+   gtk_box_pack_start(GTK_BOX(config_tab), config_label, FALSE, FALSE, 12);
+
    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    g_timeout_add(10, poll_mongoose, NULL);
    g_timeout_add(1000, update_now, NULL);
 
-   ui_print("rustyrig client started");
+   const char *cfg_ontop_s = dict_get(cfg, "ui.main.on-top", "false");
+   const char *cfg_raised_s = dict_get(cfg, "ui.main.raised", "true");
+   bool cfg_ontop = false, cfg_raised = false;
+
+   if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
+      cfg_ontop = true;
+   }
+   
+   if (cfg_raised_s && strcasecmp(cfg_raised_s, "true") == 0) {
+      cfg_raised = true;
+   }
+
+   if (cfg_ontop) {
+      gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
+   }
+
+   if (cfg_raised) {
+      gtk_window_present(GTK_WINDOW(window));   
+   }
 
    userlist_window = create_user_list_window();
    gtk_widget_show_all(window);
+   ui_print("rustyrig client started");
+
    return false;
 }

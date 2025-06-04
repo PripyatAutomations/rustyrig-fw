@@ -20,15 +20,16 @@ bool config_load(const char *path) {
         *this_section = 0;
    char *section = "general";
 
+   if (!file_exists(path)) {
+      Log(LOG_CRIT, "config", "Can't find config file %s", path);
+      return true;
+   }
+
    if (cfg != NULL) {
       Log(LOG_CRIT, "config", "Config already loaded");
       return true;
    }
 
-   if (!file_exists(path)) {
-      Log(LOG_CRIT, "config", "Can't find config file %s", path);
-      return true;
-   }
 
    FILE *fp = fopen(path, "r");
    if (fp == NULL) {
@@ -106,10 +107,10 @@ bool config_load(const char *path) {
    } while (!feof(fp));
 
    if (errors > 0) {
-      fprintf(stderr, "cfg <%s> %d lines loaded with %d errors from %s\n", section, line, errors, path);
+      fprintf(stderr, "cfg [%s] %d lines loaded with %d errors from %s\n", section, line, errors, path);
+   } else {
+      fprintf(stderr, "cfg [%s] loaded %d lines from %s with no errors\n", section, line, path);
    }
 
-//   dict_dump(cfg, stdout);
    return false;
 }
-   

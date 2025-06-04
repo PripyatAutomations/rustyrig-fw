@@ -7,6 +7,7 @@ CF := config/${PROFILE}.config.json
 CHANNELS := config/${PROFILE}.channels.json
 BUILD_DIR := build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
+INSTALL_DIR = /opt/rustyrig
 fw_bin := ${BUILD_DIR}/firmware.bin
 fwdsp_bin := ${BUILD_DIR}/fwdsp.bin
 
@@ -17,12 +18,18 @@ ifeq (x$(wildcard ${CF}),x)
 $(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
 endif
 
+
 CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
 CFLAGS_WARN := -Wall -Wno-unused -pedantic -Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
 CFLAGS += -I. -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
+
+ifneq (x${DEBUG_PROTO},x)
+CFLAGS += -DDEBUG_PROTO
+endif
+
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
 TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
@@ -263,12 +270,13 @@ distclean: clean
 	${RM} -f config/archive/*.json *.log state/*
 	${MAKE} -C gtk-client $@
 
-###############
-# DFU Install #
-###############
 install:
-	@echo "Automatic DFU installation isn't supported yet... Please see doc/INSTALLING.txt for more info"
-
+#	@echo "Automatic DFU installation isn't supported yet... Please see doc/INSTALLING.txt for more info"
+	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
+	cp -av ${bins}  ${INSTALL_DIR}/bin
+	cp -av archive-config.sh *-rigctld.sh fwdsp-test.sh killall.sh rrclient.sh test-run.sh ${INSTALL_DIR}/bin
+	cp -aiv config/${PROFILE}.*.json config/client.config.json config/rrclient.cfg ${INSTALL_DIR}/etc
+ 
 ###################
 # Running on host #
 ###################

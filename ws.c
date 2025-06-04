@@ -313,7 +313,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       return true;
    }
 
-#if	defined(HTTP_DEBUG_CRAZY)
+#if	defined(HTTP_DEBUG_CRAZY) || defined(DEBUG_PROTO)
    // XXX: This should be moved to an option in config perhaps?
    Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
 #endif
