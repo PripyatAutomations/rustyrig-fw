@@ -20,6 +20,9 @@ extern dict *cfg;		// config.c
 struct mg_mgr mgr;
 bool ws_connected = false;
 struct mg_connection *ws_conn = NULL;
+bool server_ptt_state = false;
+
+
 // Deal with the binary requests
 static bool ws_binframe_process(const char *buf, size_t len) {
    if (buf[0] == 'u') {  // PCM-u
@@ -31,8 +34,13 @@ static bool ws_binframe_process(const char *buf, size_t len) {
     return false;                                                                                       
 }
 
+
+// CAT msg: { "cat": { "state": { "vfo": "A", "freq": 7200700.000000, "mode": "LSB", "width": 2400, "ptt": "false", "power": -6 }, "ts": 1748995531 , "user": "" } }
+
 static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
+   Log(LOG_DEBUG, "ws.cat", "CAT msg: %s", msg->data);
+
    if (mg_json_get(msg_data, "$.cat.state", NULL) > 0) {
       char *vfo = mg_json_get_str(msg_data, "$.cat.state.vfo");
       double freq;
@@ -40,14 +48,27 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
       char *mode = mg_json_get_str(msg_data, "$.cat.state.mode");
       double width;
       mg_json_get_num(msg_data, "$.cat.state.width", &width);
-      char *ptt = mg_json_get_str(msg_data, "$.cat.state.ptt");
       double power;
       mg_json_get_num(msg_data, "$.cat.state.power", &power);
+
+      bool ptt = false;
+      char *ptt_s = mg_json_get_str(msg_data, "$.cat.state.ptt");
+
+      if (ptt_s != NULL && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
+         ptt = true;
+      }  else {
+         ptt = false;
+      }
+      server_ptt_state = ptt;
+      update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
+
       double ts;
       mg_json_get_num(msg_data, "$.cat.state.ts", &ts);
       char *user = mg_json_get_str(msg_data, "$.cat.state.user");
-//      ui_print("State: VFO=%s freq=%.0f mode=%s width=%.0f ptt=%s (user=%s) power=%.0f ts=%.0f",
-//          vfo, freq, mode, width, ptt, user, power, ts);
+
+      g_signal_handlers_block_by_func(ptt_button, G_CALLBACK(on_ptt_toggled), NULL);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
+      g_signal_handlers_unblock_by_func(ptt_button, G_CALLBACK(on_ptt_toggled), NULL);
 
       // Update the display
       char freq_buf[24];
@@ -59,7 +80,6 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
       // free memory
       free(vfo);
       free(mode);
-      free(ptt);
       free(user);
    } else {
       ui_print(" ==> CAT: Unknown msg -- %s", msg_data);
@@ -149,7 +169,6 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       goto cleanup;
    // Check for $.cat field (rigctl message)
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-//      ui_print("CAT msg");
       result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
 //      ui_print("TALK msg");
@@ -158,6 +177,35 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 //      }
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
 //      result = ws_handle_pong(msg, c);
+   } else if (mg_json_get(msg_data, "$.syslog", NULL) > 0) {
+//{ "syslog": { "ts": 1748989166, "subsys": "auth", 
+//              "prio": "audit",
+//              "data": "<auth.audit> Login request from user ADMIN on mg_conn:<1d9cd3d0> from 10.250.1.2:159" } }
+
+      char *ts = mg_json_get_str(msg_data, "$.syslog.ts");
+      char *prio = mg_json_get_str(msg_data, "$.syslog.prio");
+      char *subsys = mg_json_get_str(msg_data, "$.syslog.subsys");
+      char *data = mg_json_get_str(msg_data, "$.syslog.data");
+      char my_timestamp[64];
+      time_t t;
+      struct tm *tmp;
+      memset(my_timestamp, 0, sizeof(my_timestamp));
+      t = time(NULL);
+
+      if ((tmp = localtime(&t)) != NULL) {
+         /* success, proceed */
+         if (strftime(my_timestamp, sizeof(my_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
+            /* handle the error */
+            memset(my_timestamp, 0, sizeof(my_timestamp));
+            snprintf(my_timestamp, sizeof(my_timestamp), "<%lu>", time(NULL));
+         }
+      }
+
+      log_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
+      free(ts);
+      free(prio);
+      free(subsys);
+      free(data);
    } else {
       ui_print("==> %s", msg->data);
    }
