@@ -1,0 +1,24 @@
+[general]
+#server.url=wss://your-server-here:4420/ws/
+server.url=ws://localhost:8420/ws/
+server.user=admin
+server.pass=passwordgoeshere
+server.auto-connect=true
+default.volume.rx=50
+default.tx.power=50
+audio.pipeline.rx=
+audio.pipeline.tx=
+ui.main.height=768
+ui.main.width=1024
+ui.main.x=1400
+ui.main.y=2200
+ui.main.raise=true
+ui.main.on-top=false
+#ui.userlist.raised=true
+ui.userlist.on-top=false
+ui.userlist.height=600
+ui.userlist.width=300
+ui.userlist.x=800
+ui.userlist.y=2200
+# Length of time to block CAT updates (in seconds) after a local state change
+cat.poll-blocking=1

@@ -73,8 +73,6 @@ int main(int argc, char *argv[]) {
    if (cfg == NULL) {
       Log(LOG_CRIT, "core", "Failed to load configuration, bailing!");
       exit(1);
-   } else {
-      dict_dump(cfg, stdout);
    }
 
    ws_init();
