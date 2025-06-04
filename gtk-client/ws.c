@@ -15,6 +15,7 @@
 #include "inc/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
+#include "rrclient/ws.h"
 
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;
@@ -24,18 +25,6 @@ bool server_ptt_state = false;
 extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
-
-// Deal with the binary requests
-static bool ws_binframe_process(const char *buf, size_t len) {
-   if (buf[0] == 'u') {  // PCM-u
-   } else if (buf[0] == 'O') {
-#if     defined(FEATURE_OPUS)
-//       codec_decode_frame((unsigned char *)buf, len);
-#endif                                                                                                  
-    }                                                                                                   
-    return false;                                                                                       
-}
-
 
 static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
@@ -87,9 +76,7 @@ cleanup:
 
 static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
-   Log(LOG_DEBUG, "ws.cat", "CAT msg: %s", msg->data);
 
-// +++ CAT ++ { "cat": { "state": { "vfo": "A", "freq": 7200000.000000, "mode": "AM", "width": 9000, "ptt": "false" }, "ts": 1749062098  } }
    if (mg_json_get(msg_data, "$.cat.state", NULL) > 0) {
       if (poll_block_expire < now) {
          char *vfo = mg_json_get_str(msg_data, "$.cat.state.vfo");
@@ -115,23 +102,24 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
          double ts;
          mg_json_get_num(msg_data, "$.cat.ts", &ts);
          char *user = mg_json_get_str(msg_data, "$.cat.state.user");
-
-         g_signal_handlers_block_by_func(ptt_button, G_CALLBACK(on_ptt_toggled), NULL);
+         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
-         g_signal_handlers_unblock_by_func(ptt_button, G_CALLBACK(on_ptt_toggled), NULL);
+         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
 
          // Update the display
          char freq_buf[24];
          memset(freq_buf, 0, sizeof(freq_buf));
          snprintf(freq_buf, sizeof(freq_buf), "%.3f", freq / 1000);
 
-         if (freq_buf && strlen(freq_buf) > 0) {
+         if (freq_buf[0] != '\0' && strlen(freq_buf) > 0) {
             g_signal_handler_block(freq_entry, freq_changed_handler_id);
+//            Log(LOG_DEBUG, "ws", "Updating freq_entry: %s", freq_buf);
             gtk_entry_set_text(GTK_ENTRY(freq_entry), freq_buf);
             g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
          }
 
          if (mode && strlen(mode) > 0) {
+//            Log(LOG_DEBUG, "ws", "Updating mode_combo: %s", mode);
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
          }
 
@@ -139,11 +127,12 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
          free(vfo);
          free(mode);
          free(user);
-      } else {
-         Log(LOG_DEBUG, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
+//      } else {
+//         Log(LOG_DEBUG, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
       }
    } else {
-      ui_print(" ==> CAT: Unknown msg -- %s", msg_data);
+//      ui_print(" ==> CAT: Unknown msg -- %s", msg_data);
+      Log(LOG_DEBUG, "ws.cat", "CAT msg: %s", msg->data);
    }
    return false;
 }
@@ -209,7 +198,6 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    struct mg_str msg_data = msg->data;
    bool result = false;
 
-
    if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
       char ts_buf[32];
       double ping_ts = 0;
@@ -233,17 +221,13 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       goto cleanup;
    // Check for $.cat field (rigctl message)
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-      ui_print("+++ CAT ++ %s", msg_data);
+//      ui_print("+++ CAT ++ %s", msg_data);
       result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
       result = ws_handle_talk_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
 //      result = ws_handle_pong(msg, c);
    } else if (mg_json_get(msg_data, "$.syslog", NULL) > 0) {
-//{ "syslog": { "ts": 1748989166, "subsys": "auth", 
-//              "prio": "audit",
-//              "data": "<auth.audit> Login request from user ADMIN on mg_conn:<1d9cd3d0> from 10.250.1.2:159" } }
-
       char *ts = mg_json_get_str(msg_data, "$.syslog.ts");
       char *prio = mg_json_get_str(msg_data, "$.syslog.prio");
       char *subsys = mg_json_get_str(msg_data, "$.syslog.subsys");
@@ -359,7 +343,7 @@ bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"ptt\", \"vfo\": \"%s\", \"ptt\": \"%s\" } }",
                  vfo, (ptt ? "true" : "false"));
-   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
+//   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    if (ret < 0) {
       Log(LOG_DEBUG, "cat", "ws_send_ptt_cmd: mg_ws_send error: %d", ret);

@@ -143,7 +143,7 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
                  "   }"
                  "}", user, temp_pw, session_token);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-   ui_print("<== %s", msgbuf);
+//   ui_print("<== %s", msgbuf);
    //
    free(temp_pw);
    return false;

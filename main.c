@@ -63,7 +63,7 @@ struct GlobalState rig;         // Global state
 time_t now = -1;		// time() called once a second in main loop to update
 int auto_block_ptt = 0;		// Auto block PTT at boot?
 struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
-
+struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
    rig.faultbeep = 1;
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
    my_argv = argv;
 
    // loop time calculation
-   struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
+
 #if	defined(USE_PROFILING)
    struct timespec loop_end = { .tv_sec = 0, .tv_nsec = 0 };
    double loop_runtime = 0.0, current_time;

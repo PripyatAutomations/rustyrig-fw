@@ -60,15 +60,6 @@ static ws_rig_state_t *ws_rigctl_state_diff(rr_vfo_t vfo) {
       return NULL;
    }
 
-/*
-   // for dict2json stuff im considering making
-   dict *update;
-   if (!(update = dict_new()) {
-      Log(LOG_CRIT, "ws.rigctl", "dict_new failed!");
-      return NULL;
-   }
-*/
-
    // shortcut pointers
    ws_rig_state_t *curr = &vfo_states[vfo],
                   *old = &vfo_states_last[vfo];
@@ -183,15 +174,14 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       return true;
    }
 
-
    if (cmd) {
       if (strcasecmp(cmd, "ptt") == 0) {
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
             rv = true;
             goto cleanup;
          }
-         char *ptt_state = mg_json_get_str(msg_data, "$.cat.ptt");
 
+         char *ptt_state = mg_json_get_str(msg_data, "$.cat.ptt");
          if (vfo == NULL || ptt_state == NULL) {
             Log(LOG_DEBUG, "ws.rigctl", "PTT set without vfo or ptt_state");
             rv = true;
@@ -245,11 +235,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          rr_ptt_set(c_vfo, c_state);
          free(ptt_state);
       } else if (strcasecmp(cmd, "freq") == 0) {
-//         char *freq = mg_json_get_str(msg_data, "$.cat.freq");
-
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
             rv = true;
-//            free(freq);
             goto cleanup;
          }
 
@@ -260,13 +247,14 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          if (vfo == NULL || new_freq < 0) {
             Log(LOG_DEBUG, "ws.rigctl", "FREQ set without vfo or freq");
             rv = true;
-//            free(freq);
             goto cleanup;
          }
 
          // XXX: We should do a latency test at the start of the session and optimize this per-user from there
-         last_rig_poll.tv_sec = (now + HTTP_API_RIGPOLL_PAUSE);
-//         new_freq = atof(freq);
+         Log(LOG_DEBUG, "ws.rigctl", "old lrp to %li.%li - now is %li", last_rig_poll.tv_sec, last_rig_poll.tv_nsec, now);
+         last_rig_poll.tv_sec = (loop_start.tv_sec + HTTP_API_RIGPOLL_PAUSE);
+         last_rig_poll.tv_nsec = loop_start.tv_nsec;
+         Log(LOG_DEBUG, "ws.rigctl", "set lrp to %li.%li - now is %li", last_rig_poll.tv_sec, last_rig_poll.tv_nsec, now);
          rr_vfo_t c_vfo;
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
@@ -284,10 +272,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
              cptr->chatname, new_freq, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
-         Log(LOG_DEBUG, "ws.cat", "Sending %s to cptr:<%x> (%s)", msgbuf, cptr, cptr->chatname);
          Log(LOG_AUDIT, "ws.cat", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
          rr_freq_set(c_vfo, new_freq);
-//         free(freq);
       } else if (strcasecmp(cmd, "mode") == 0) {
          char *mode = mg_json_get_str(msg_data, "$.cat.mode");
 

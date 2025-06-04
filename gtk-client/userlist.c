@@ -61,11 +61,8 @@ GtkWidget *create_user_list_window(void) {
    gtk_window_set_title(GTK_WINDOW(window), "User List");
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
 
-   Log(LOG_DEBUG, "userlist", "cfg: <%x>", cfg);
-
    const char *cfg_ontop_s = dict_get(cfg, "ui.userlist.on-top", "false");
    const char *cfg_raised_s = dict_get(cfg, "ui.userlist.raised", "true");
-   Log(LOG_DEBUG, "userlist", "ontop:<%x> raised:<%x>", cfg_ontop_s, cfg_raised_s);
 
    if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
       gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);

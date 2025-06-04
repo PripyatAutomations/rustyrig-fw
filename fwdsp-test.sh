@@ -14,6 +14,7 @@ FORMAT="FLAC+OGG"
 
 if [ "$FORMAT" == "FLAC+OGG" ]; then
    rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! flacenc ! oggmux ! queue ! fdsink fd=%d"
+#   rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! queue ! fdsink fd=%d"
    tx_pipepine="fdsrc fd=%d ! oggdemux ! flacdec ! audioconvert ! audioresample ! queue ! pulsesink device=default"
 fi
 

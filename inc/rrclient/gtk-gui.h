@@ -16,6 +16,14 @@
 #include "inc/mongoose.h"
 #include "inc/http.h"
 
+inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
+   union {
+      void (*func)(GtkToggleButton *, gpointer);
+      gpointer ptr;
+   } u = { .func = f };
+   return u.ptr;
+}
+
 extern bool ui_print(const char *fmt, ...);
 extern bool log_print(const char *fmt, ...);
 extern void update_connection_button(bool connected, GtkWidget *btn);

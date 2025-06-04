@@ -51,6 +51,11 @@ bool ui_print(const char *fmt, ...) {
    va_list ap;
    va_start(ap, fmt);
    char outbuf[8096];
+
+   if (fmt == NULL) {
+      return true;
+   }
+
    memset(outbuf, 0, sizeof(outbuf));
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
    va_end(ap);
@@ -100,7 +105,6 @@ gulong freq_changed_handler_id;
 
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
-   Log(LOG_DEBUG, "gtk-gui", "on_mode_changed: %s <%x>", text, text);
    if (text) {
       ws_send_mode_cmd(ws_conn, "A", text);
       g_free((gchar *)text);
@@ -126,7 +130,7 @@ gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointer user_
 gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
    on_freq_committed(entry, NULL);
    poll_block_expire = 0;
-   ui_print("Polling resumed: %li", poll_block_expire);
+//   ui_print("Polling resumed: %li", poll_block_expire);
    return FALSE;
 }
 
