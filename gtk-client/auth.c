@@ -31,7 +31,7 @@ extern time_t now;
 extern bool ptt_active;
 extern void shutdown_app(int signum);
 
-const char *session_token = NULL;
+char session_token[HTTP_TOKEN_LEN+1];
 
 char *hash_passwd(const char *passwd) {
    unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
@@ -143,7 +143,7 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
                  "   }"
                  "}", user, temp_pw, session_token);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-
+   ui_print("<== %s", msgbuf);
    //
    free(temp_pw);
    return false;

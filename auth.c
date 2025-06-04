@@ -316,7 +316,7 @@ bool match_priv(const char *user_privs, const char *priv) {
    const char *start = user_privs;
    size_t privlen = strlen(priv);
 
-   Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'\n", user_privs, priv);
+   Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'", user_privs, priv);
    if (user_privs == NULL || priv == NULL) {
       return false;
    }
@@ -380,7 +380,6 @@ bool has_priv(int uid, const char *priv) {
    return false;
 }
 
-
 bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
 
@@ -403,6 +402,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    struct mg_str msg_data = msg->data;
+   Log(LOG_CRAZY, "ws.auth", "msgbuf: %s", msg_data);
    char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
    char *pass = mg_json_get_str(msg_data, "$.auth.pass");
    char *token = mg_json_get_str(msg_data, "$.auth.token");
@@ -462,10 +462,10 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          Log(LOG_CRIT, "auth.users", "login request has no cptr->user for cptr:<%x>?!", cptr);
       }
       prepare_msg(resp_buf, sizeof(resp_buf),
-               "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\" } }",
-               cptr->nonce, user);
+               "{ \"auth\": { \"cmd\": \"challenge\", \"nonce\": \"%s\", \"user\": \"%s\", \"token\": \"%s\" } }",
+               cptr->nonce, user, cptr->token);
       mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
-      Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%x>", cptr->nonce, cptr);
+      Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%x> with token |%s|", cptr->nonce, cptr, cptr->token);
    } else if (strcasecmp(cmd, "logout") == 0) {
       http_client_t *cptr = http_find_client_by_c(c);
       Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x>",

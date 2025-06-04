@@ -515,6 +515,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    // create some randomness for login hashing and session
    generate_nonce(cptr->token, sizeof(cptr->token));
    generate_nonce(cptr->nonce, sizeof(cptr->nonce));
+   Log(LOG_CRAZY, "http", "add_client: token:<%x> |%s|, nonce:<%x> |%s|", cptr->token, cptr->token, cptr->nonce, cptr->nonce);
    cptr->connected = now;
    cptr->authenticated = false;
    cptr->active = true;

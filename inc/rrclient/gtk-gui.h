@@ -33,4 +33,7 @@ extern GtkWidget *log_view;
 extern GtkTextBuffer *log_buffer;
 extern GtkWidget *ptt_button;
 extern GtkWidget *config_tab;
+extern gulong mode_changed_handler_id;
+extern gulong freq_changed_handler_id;
+
 #endif	// !defined(__rrclient_gtk_gui_h)

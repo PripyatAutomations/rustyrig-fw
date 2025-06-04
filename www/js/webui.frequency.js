@@ -105,10 +105,8 @@ function freq_input_init() {
       var msg = { 
          cat: {
             cmd: "freq",
-            data: {
-               vfo: active_vfo,
-               freq: val
-            }
+            vfo: active_vfo,
+            freq: val
          }
       };
       let json_msg = JSON.stringify(msg)

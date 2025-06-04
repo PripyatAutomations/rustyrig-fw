@@ -57,10 +57,8 @@ function vfo_edit_init() {
       var msg = { 
          cat: {
             cmd: "mode",
-            data: {
-               vfo: active_vfo,
-               mode: val
-            }
+            vfo: active_vfo,
+            mode: val
          }
       };
       let json_msg = JSON.stringify(msg)
@@ -91,10 +89,8 @@ function ptt_btn_init() {
       var msg = { 
          cat: {
             cmd: "ptt",
-            data: {
-               vfo: "A",
-               state: state
-            }
+            vfo: "A",
+            ptt: state
          }
       };
       let json_msg = JSON.stringify(msg)
@@ -112,7 +108,7 @@ function webui_parse_cat_msg(msgObj) {
       var cmd = msgObj.cat.cmd.toLowerCase();
       if (cmd === 'ptt') {
          var vfo = msgObj.cat.vfo;
-         var ptt = msgObj.cat.state;
+         var ptt = msgObj.cat.ptt;
          var ptt_l = ptt.toLowerCase();
 
          if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes' || ptt_l === true) {

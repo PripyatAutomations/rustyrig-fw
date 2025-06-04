@@ -51,6 +51,7 @@ bool ui_print(const char *fmt, ...) {
    va_list ap;
    va_start(ap, fmt);
    char outbuf[8096];
+   memset(outbuf, 0, sizeof(outbuf));
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
    va_end(ap);
 
@@ -95,13 +96,38 @@ static gboolean update_now(gpointer user_data) {
 }
 
 gulong mode_changed_handler_id;
+gulong freq_changed_handler_id;
 
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
+   Log(LOG_DEBUG, "gtk-gui", "on_mode_changed: %s <%x>", text, text);
    if (text) {
       ws_send_mode_cmd(ws_conn, "A", text);
       g_free((gchar *)text);
    }
+}
+
+void on_freq_committed(GtkWidget *entry, gpointer user_data) {
+   const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+   // Validate and send to server
+   double freq = atof(text) * 1000;
+
+   if (freq > 0) {
+      ws_send_freq_cmd(ws_conn, "A", freq);
+   }
+}
+
+gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
+   poll_block_expire = now + 10;
+   ui_print("Blocked polling for 10 sec on freq-input focused");
+   return FALSE;
+}
+
+gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
+   on_freq_committed(entry, NULL);
+   poll_block_expire = 0;
+   ui_print("Polling resumed: %li", poll_block_expire);
+   return FALSE;
 }
 
 void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
@@ -227,7 +253,11 @@ bool gui_init(void) {
    GtkWidget *freq_label = gtk_label_new("Freq (KHz):");
    freq_entry = gtk_entry_new();
    gtk_entry_set_max_length(GTK_ENTRY(freq_entry), 13);
-   gtk_entry_set_text(GTK_ENTRY(freq_entry), "7200.000");
+   freq_changed_handler_id = g_signal_connect(freq_entry, "activate", G_CALLBACK(on_freq_committed), NULL);
+   g_signal_connect(freq_entry, "focus-out-event", G_CALLBACK(on_freq_focus_out), NULL);
+   g_signal_connect(freq_entry, "focus-in-event", G_CALLBACK(on_freq_focus_in), NULL);
+
+//   gtk_entry_set_text(GTK_ENTRY(freq_entry), "7200.000");
 
    gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, FALSE, FALSE, 0);

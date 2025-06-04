@@ -39,7 +39,7 @@
 
 static void send_format_header(int fd, struct audio_config *cfg);
 
-bool running = true;
+bool dying = false;
 static GstElement *pipeline = NULL;
 time_t now = -1;                // time() called once a second in main loop to update
 
@@ -158,7 +158,7 @@ static void run_loop(struct audio_config *cfg) {
       }
       gst_object_unref(bus);
 
-      while (running) {
+      while (!dying) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND,
             GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
 
@@ -173,7 +173,7 @@ static void run_loop(struct audio_config *cfg) {
             } else if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS) {
                fprintf(stderr, "fwdsp: GStreamer EOS received\n");
             }
-            running = false;
+            dying = true;
             gst_message_unref(msg);
          }
       }

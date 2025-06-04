@@ -61,23 +61,17 @@ GtkWidget *create_user_list_window(void) {
    gtk_window_set_title(GTK_WINDOW(window), "User List");
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
 
-   const char *cfg_ontop_s = dict_get(cfg, "ui.main.on-top", "false");
-   const char *cfg_raised_s = dict_get(cfg, "ui.main.raised", "true");
-   bool cfg_ontop, cfg_raised;
+   Log(LOG_DEBUG, "userlist", "cfg: <%x>", cfg);
 
-   if (strcasecmp(cfg_ontop_s, "true") == 0) {
-      cfg_ontop = true;
-   }
-   
-   if (strcasecmp(cfg_raised_s, "true") == 0) {
-      cfg_raised = true;
-   }
+   const char *cfg_ontop_s = dict_get(cfg, "ui.userlist.on-top", "false");
+   const char *cfg_raised_s = dict_get(cfg, "ui.userlist.raised", "true");
+   Log(LOG_DEBUG, "userlist", "ontop:<%x> raised:<%x>", cfg_ontop_s, cfg_raised_s);
 
-   if (cfg_ontop) {
+   if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
       gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
    }
-
-   if (cfg_raised) {
+   
+   if (cfg_raised_s && strcasecmp(cfg_raised_s, "true") == 0) {
       gtk_window_present(GTK_WINDOW(window));   
    }
 

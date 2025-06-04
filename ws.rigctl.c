@@ -168,8 +168,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    cptr->last_heard = now;	// avoid unneeded keep-alives
 
    char *cmd = mg_json_get_str(msg_data, "$.cat.cmd");
-   char *vfo = mg_json_get_str(msg_data, "$.cat.data.vfo");
-   char *state = mg_json_get_str(msg_data, "$.cat.data.state");
+   char *vfo = mg_json_get_str(msg_data, "$.cat.vfo");
+   char *state = mg_json_get_str(msg_data, "$.cat.state");
 
    if (cptr->user->is_muted) {
       Log(LOG_AUDIT, "ws.rigctl", "Ignoring %s command from %s as they are muted!", cmd, cptr->chatname);
@@ -190,9 +190,10 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             rv = true;
             goto cleanup;
          }
+         char *ptt_state = mg_json_get_str(msg_data, "$.cat.ptt");
 
-         if (vfo == NULL || state == NULL) {
-            Log(LOG_DEBUG, "ws.rigctl", "PTT set without vfo or state");
+         if (vfo == NULL || ptt_state == NULL) {
+            Log(LOG_DEBUG, "ws.rigctl", "PTT set without vfo or ptt_state");
             rv = true;
             goto cleanup;
          }
@@ -214,7 +215,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mode_name = vfo_mode_name(dp->mode);
 
          // turn PTT state requested into a boolean value
-         if (strcasecmp(state, "true") == 0 || strcasecmp(state, "on") == 0) {
+         if (strcasecmp(ptt_state, "true") == 0 || strcasecmp(ptt_state, "on") == 0) {
             c_state = true;
          } else {
             c_state = false;
@@ -236,32 +237,36 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"state\": \"%s\", "
             "\"vfo\": \"%s\", \"power\": %f, \"freq\": %f, \"width\": %d, "
             "\"mode\": \"%s\", \"ts\": %lu } }",
-             cptr->chatname, state, vfo, dp->power,
+             cptr->chatname, ptt_state, vfo, dp->power,
              dp->freq, dp->width, mode_name, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
          rr_ptt_set(c_vfo, c_state);
+         free(ptt_state);
       } else if (strcasecmp(cmd, "freq") == 0) {
-         char *freq = mg_json_get_str(msg_data, "$.cat.data.freq");
-         float new_freq = 0;
+//         char *freq = mg_json_get_str(msg_data, "$.cat.freq");
 
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
             rv = true;
-            free(freq);
+//            free(freq);
             goto cleanup;
          }
 
-         if (vfo == NULL || freq == NULL) {
+         double new_freq_d;
+         mg_json_get_num(msg_data, "$.cat.freq", &new_freq_d);
+         float new_freq = (float)new_freq_d;
+
+         if (vfo == NULL || new_freq < 0) {
             Log(LOG_DEBUG, "ws.rigctl", "FREQ set without vfo or freq");
             rv = true;
-            free(freq);
+//            free(freq);
             goto cleanup;
          }
 
          // XXX: We should do a latency test at the start of the session and optimize this per-user from there
          last_rig_poll.tv_sec = (now + HTTP_API_RIGPOLL_PAUSE);
-         new_freq = atof(freq);
+//         new_freq = atof(freq);
          rr_vfo_t c_vfo;
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
@@ -282,7 +287,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          Log(LOG_DEBUG, "ws.cat", "Sending %s to cptr:<%x> (%s)", msgbuf, cptr, cptr->chatname);
          Log(LOG_AUDIT, "ws.cat", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
          rr_freq_set(c_vfo, new_freq);
-         free(freq);
+//         free(freq);
       } else if (strcasecmp(cmd, "mode") == 0) {
          char *mode = mg_json_get_str(msg_data, "$.cat.mode");
 
@@ -293,7 +298,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          if (vfo == NULL || mode == NULL) {
-            Log(LOG_DEBUG, "ws.rigctl", "FREQ set without vfo or freq");
+            Log(LOG_DEBUG, "ws.rigctl", "MODE set without vfo:<%x> or mode:<%x>", vfo, mode);
             rv = true;
             free(mode);
             goto cleanup;
@@ -313,7 +318,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // tell everyone about it
          prepare_msg(msgbuf, sizeof(msgbuf),
-            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"mode\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
+            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"mode\", \"mode\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
             cptr->chatname, mode, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);

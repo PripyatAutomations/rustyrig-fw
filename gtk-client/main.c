@@ -38,8 +38,20 @@ static const char *configs[] = {
    "./config/rrclient.cfg"
 };
 
+gboolean check_dying(gpointer data) {
+   if (dying) {
+      gtk_main_quit();
+      return G_SOURCE_REMOVE;  // remove this timeout
+   }
+   return G_SOURCE_CONTINUE;
+}
+
 void shutdown_app(int signum) {
-   Log(LOG_INFO, "core", "Shutting down %s%d", (signum > 0 ? "with signal " : ""), signum);
+   if (signum > 0) {
+      Log(LOG_INFO, "core", "Shutting down due to signal %d", signum);
+   } else {
+      Log(LOG_INFO, "core", "Shutting down by user request");
+   }
 }
 
 int main(int argc, char *argv[]) {
@@ -78,6 +90,7 @@ int main(int argc, char *argv[]) {
    ws_init();
    gtk_init(&argc, &argv);
    gui_init();
+   g_timeout_add(1000, check_dying, NULL);
    char *poll_block_delay_s = dict_get(cfg, "cat.poll-blocking", "2");
    poll_block_delay = atoi(poll_block_delay_s);
 
