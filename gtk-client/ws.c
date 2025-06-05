@@ -36,7 +36,6 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
    char *cmd = mg_json_get_str(msg_data,    "$.talk.cmd");
    char *user = mg_json_get_str(msg_data,   "$.talk.user");
    char *privs = mg_json_get_str(msg_data,  "$.talk.privs");
-//   char *tx = mg_json_get_str(msg_data,     "$.talk.tx");
    bool tx;
    mg_json_get_bool(msg_data, "$.talk.tx", &tx);
    char *muted = mg_json_get_str(msg_data,  "$.talk.muted");
@@ -51,8 +50,6 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
    if (strcasecmp(cmd, "userinfo") == 0) {
       Log(LOG_DEBUG, "chat", "UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), muted, clones);
    } else if (strcasecmp(cmd, "msg") == 0) {
-// msg: { "talk": { "from": "ADMIN", "cmd": "msg", "data": "hihi", "ts": 1749084366, 
-// "msg_type": "pub" } }
       char *from = mg_json_get_str(msg_data, "$.talk.from");
       char *data = mg_json_get_str(msg_data, "$.talk.data");
       ui_print("[%s]  <%s> %s", get_chat_ts(), from, data);
@@ -91,7 +88,6 @@ cleanup:
    free(cmd);
    free(user);
    free(privs);
-//   free(tx);
    free(muted);
    free(clones);
    free(ts);

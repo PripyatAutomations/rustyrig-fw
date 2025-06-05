@@ -219,15 +219,45 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
 
    if (ws_conn && msg && *msg) {
       if (msg[0] == '/') { // Handle local commands
-         return;
+         if (strcasecmp(msg + 1, "ban") == 0) {
+         } else if (strcasecmp(msg + 1, "chat") == 0) {
+           // Switch to chat tab
+         } else if (strcasecmp(msg + 1, "clear") == 0) {
+            gtk_text_buffer_set_text(text_buffer, "", -1);
+         } else if (strcasecmp(msg + 1, "clearlog") == 0) {
+            gtk_text_buffer_set_text(log_buffer, "", -1);
+         } else if (strcasecmp(msg + 1, "config") == 0 || strcasecmp(msg + 1, "cfg") == 0) {
+         } else if (strcasecmp(msg + 1, "die") == 0) {
+         } else if (strcasecmp(msg + 1, "edit") == 0) {
+         } else if (strcasecmp(msg + 1, "help") == 0) {
+         } else if (strcasecmp(msg + 1, "kick") == 0) {
+         } else if (strcasecmp(msg + 1, "log") == 0) {
+         } else if (strcasecmp(msg + 1, "logout") == 0) {
+         } else if (strcasecmp(msg + 1, "menu") == 0) {
+         } else if (strcasecmp(msg + 1, "me") == 0) {
+         } else if (strcasecmp(msg + 1, "mute") == 0) {
+         } else if (strcasecmp(msg + 1, "names") == 0) {
+         } else if (strcasecmp(msg + 1, "restart") == 0) {
+         } else if (strcasecmp(msg + 1, "rxmute") == 0) {
+         } else if (strcasecmp(msg + 1, "rxvol") == 0) {
+         } else if (strcasecmp(msg + 1, "rxunmute") == 0) {
+         } else if (strcasecmp(msg + 1, "syslog") == 0) {
+         } else if (strcasecmp(msg + 1, "unmute") == 0) {
+         } else if (strcasecmp(msg + 1, "whois") == 0) {
+         } else if (strcasecmp(msg + 1, "quit") == 0) {
+         } else {
+           // Invalid command
+           ui_print("Invalid command: %s", msg);
+         }
+      } else {
+         char msgbuf[4096];
+         prepare_msg(msgbuf, sizeof(msgbuf), 
+            "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
+            "\"msg_type\": \"pub\" } }", msg);
+         
+         mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       }
 
-      char msgbuf[4096];
-      prepare_msg(msgbuf, sizeof(msgbuf), 
-         "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
-         "\"msg_type\": \"pub\" } }", msg);
-      
-      mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       g_ptr_array_add(input_history, g_strdup(msg));
       history_index = input_history->len;
       gtk_entry_set_text(GTK_ENTRY(entry), "");
