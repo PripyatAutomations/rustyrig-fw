@@ -37,7 +37,6 @@ bool gst_active = false;
 
 void ws_audio_pipeline_cleanup(void) {
    if (pipeline) {
-
       gst_element_set_state(pipeline, GST_STATE_NULL);
       gst_object_unref(pipeline);
       pipeline = NULL;
