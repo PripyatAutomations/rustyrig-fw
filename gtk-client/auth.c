@@ -30,6 +30,8 @@ extern bool restarting;
 extern time_t now;
 extern bool ptt_active;
 extern void shutdown_app(int signum);
+// gtk-gui.c
+extern const char *get_chat_ts(void);
 
 char session_token[HTTP_TOKEN_LEN+1];
 
@@ -56,7 +58,7 @@ char *hash_passwd(const char *passwd) {
       sprintf(hex_output + (i * 2), "%02x", hash[i]);
    }
    hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
-//   ui_print("hashed passwd to %s", hex_output);
+//   ui_print("[%s] hashed passwd to %s", get_chat_ts(), hex_output);
    return hex_output;
 }
 
@@ -102,7 +104,7 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
       return true;
    }
 
-   ui_print("*** Sending LOGIN ***");
+   ui_print("[%s] *** Sending LOGIN ***", get_chat_ts());
    char msgbuf[512];
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512,
@@ -143,7 +145,7 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
                  "   }"
                  "}", user, temp_pw, session_token);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-//   ui_print("<== %s", msgbuf);
+//   ui_print("[%s] <== %s", msgbuf, get_chat_ts());
    //
    free(temp_pw);
    return false;

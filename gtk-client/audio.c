@@ -30,11 +30,14 @@
 #include "inc/util.file.h"
 static GstElement *pipeline = NULL;
 static GstElement *appsrc = NULL;
+extern dict *cfg;		// main.c
 
+bool audio_enabled = false;
 bool gst_active = false;
 
 void ws_audio_pipeline_cleanup(void) {
    if (pipeline) {
+
       gst_element_set_state(pipeline, GST_STATE_NULL);
       gst_object_unref(pipeline);
       pipeline = NULL;
@@ -43,7 +46,19 @@ void ws_audio_pipeline_cleanup(void) {
 }
 
 void ws_audio_pipeline_init(void) {
-    if (pipeline) return;
+    if (pipeline) {
+       return;
+    }
+
+    char *au_en_s = dict_get(cfg, "audio.disabled", "false");
+    if (au_en_s != NULL) {
+       if (strcasecmp(au_en_s, "true") == 0 || strcasecmp(au_en_s, "on") == 0) {
+          audio_enabled = false;
+          return;
+       } else {
+          audio_enabled = true;
+       }
+    }
 
     gst_init(NULL, NULL);
 
@@ -56,8 +71,8 @@ void ws_audio_pipeline_init(void) {
         "emit-signals=false "
         "! audio/x-raw,format=S16LE,channels=1,rate=16000 "
         "! audioconvert "
-        "! audioresample "
-        "! autoaudiosink", NULL);
+        "! audioresample ! queue "
+        "! pulsesink device=default", NULL);
 
     if (!pipeline) {
         Log(LOG_CRIT, "ws.audio", "Failed to create pipeline");
@@ -93,7 +108,7 @@ void ws_audio_pipeline_init(void) {
 
 
 bool ws_binframe_process(const char *buf, size_t len) {
-    return true;
+//    return true;
     if (!pipeline) {
         ws_audio_pipeline_init();
         if (!pipeline) return false;  // failed to init
@@ -146,4 +161,3 @@ bool ws_binframe_process(const char *buf, size_t len) {
 
     return true;
 }
-

@@ -19,13 +19,13 @@
 
 extern dict *cfg;
 extern bool ws_connected;
-extern struct mg_mgr mgr;
-extern struct mg_connection *ws_conn;
 extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
+extern struct mg_connection *ws_conn;
 extern GtkWidget *create_user_list_window(void);
 extern time_t poll_block_expire, poll_block_delay;
+extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 
 GtkTextBuffer *text_buffer;
 GtkWidget *conn_button = NULL;
@@ -37,6 +37,26 @@ GtkWidget *log_view = NULL;
 GtkTextBuffer *log_buffer = NULL;
 GtkWidget *ptt_button = NULL;
 GtkWidget *config_tab = NULL;
+static GPtrArray *input_history = NULL;
+static int history_index = -1;
+static char chat_ts[9];
+static time_t chat_ts_updated = 0;
+
+const char *get_chat_ts(void) {
+   memset(chat_ts, 0, 9);
+
+   if (chat_ts_updated == 0) {
+      chat_ts_updated = now = time(NULL);
+   }
+
+   if (chat_ts_updated <= now) {
+      chat_ts_updated = now;
+      struct tm *ti = localtime(&now);
+      int rv = strftime(chat_ts, 9, "%H:%M:%S", ti);
+//      printf("Now: %li -> %s (rv: %d)\n", now, chat_ts, rv);
+   }
+   return chat_ts;
+}
 
 static gboolean scroll_to_end_idle(gpointer data) {
    GtkTextView *text_view = GTK_TEXT_VIEW(data);
@@ -90,16 +110,6 @@ bool log_print(const char *fmt, ...) {
    return true;
 }
 
-static gboolean poll_mongoose(gpointer user_data) {
-   mg_mgr_poll(&mgr, 0);
-   return G_SOURCE_CONTINUE;
-}
-
-static gboolean update_now(gpointer user_data) {
-   now = time(NULL);
-   return G_SOURCE_CONTINUE;
-}
-
 gulong mode_changed_handler_id;
 gulong freq_changed_handler_id;
 
@@ -129,7 +139,7 @@ gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointer user_
 gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
    on_freq_committed(entry, NULL);
    poll_block_expire = 0;
-//   ui_print("Polling resumed: %li", poll_block_expire);
+//   ui_print("[%s] Polling resumed: %li", get_chat_ts(), poll_block_expire);
    return FALSE;
 }
 
@@ -187,12 +197,65 @@ void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    }
 }
 
+// Combine some common, safe string handling into one call
+bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
+   if (buf == NULL || fmt == NULL) {
+      return true;
+   }
+
+   va_list ap;
+   memset(buf, 0, len);
+   va_start(ap, fmt);
+   vsnprintf(buf, len, fmt, ap);
+   va_end(ap);
+
+   return false;
+}
+
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(entry));
 
+
    if (ws_conn && msg && *msg) {
-      mg_ws_send(ws_conn, msg, strlen(msg), WEBSOCKET_OP_TEXT);
+      if (msg[0] == '/') { // Handle local commands
+         return;
+      }
+
+      char msgbuf[4096];
+      prepare_msg(msgbuf, sizeof(msgbuf), 
+         "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
+         "\"msg_type\": \"pub\" } }", msg);
+      
+      mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+      g_ptr_array_add(input_history, g_strdup(msg));
+      history_index = input_history->len;
+      gtk_entry_set_text(GTK_ENTRY(entry), "");
    }
+}
+
+static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
+   if (!input_history || input_history->len == 0)
+      return FALSE;
+
+   if (event->keyval == GDK_KEY_Up) {
+      if (history_index > 0)
+         history_index--;
+   } else if (event->keyval == GDK_KEY_Down) {
+      if (history_index < input_history->len - 1)
+         history_index++;
+      else {
+         gtk_entry_set_text(GTK_ENTRY(entry), "");
+         history_index = input_history->len;
+         return TRUE;
+      }
+   } else {
+      return FALSE;
+   }
+
+   const char *text = g_ptr_array_index(input_history, history_index);
+   gtk_entry_set_text(GTK_ENTRY(entry), text);
+   gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+   return TRUE;
 }
 
 void update_connection_button(bool connected, GtkWidget *btn) {
@@ -213,6 +276,7 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    connect_or_disconnect(GTK_BUTTON(button));
 }
 
+
 bool gui_init(void) {
    GtkCssProvider *provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(provider,
@@ -227,6 +291,7 @@ bool gui_init(void) {
       GTK_STYLE_PROVIDER(provider),
       GTK_STYLE_PROVIDER_PRIORITY_USER);
 
+   input_history = g_ptr_array_new_with_free_func(g_free);
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "rustyrig remote client");
 
@@ -312,6 +377,8 @@ bool gui_init(void) {
 
    GtkWidget *entry = gtk_entry_new();
    gtk_box_pack_start(GTK_BOX(main_tab), entry, FALSE, FALSE, 0);
+   g_signal_connect(entry, "activate", G_CALLBACK(on_send_button_clicked), entry);
+   g_signal_connect(entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
 
    GtkWidget *button = gtk_button_new_with_label("Send");
    gtk_box_pack_start(GTK_BOX(main_tab), button, FALSE, FALSE, 0);
@@ -335,9 +402,11 @@ bool gui_init(void) {
    GtkWidget *config_label = gtk_label_new("Configuration will go here...");
    gtk_box_pack_start(GTK_BOX(config_tab), config_label, FALSE, FALSE, 12);
 
+   GtkWidget *show_userlist_button = gtk_button_new_with_label("Toggle Userlist");
+   gtk_box_pack_start(GTK_BOX(config_tab), show_userlist_button, FALSE, FALSE, 3);
+   g_signal_connect(show_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
+
    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-   g_timeout_add(10, poll_mongoose, NULL);
-   g_timeout_add(1000, update_now, NULL);
 
    const char *cfg_ontop_s = dict_get(cfg, "ui.main.on-top", "false");
    const char *cfg_raised_s = dict_get(cfg, "ui.main.raised", "true");
@@ -361,7 +430,7 @@ bool gui_init(void) {
 
    userlist_window = create_user_list_window();
    gtk_widget_show_all(window);
-   ui_print("rustyrig client started");
+   ui_print("[%s] rustyrig client started", get_chat_ts());
 
    return false;
 }

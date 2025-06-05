@@ -35,5 +35,6 @@ extern bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const cha
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq);
 extern bool connect_or_disconnect(GtkButton *button);
 extern bool ws_binframe_process(const char *buf, size_t len);
+extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
 
 #endif	// !defined(__rrclient_ws_h)

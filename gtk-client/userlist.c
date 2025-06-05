@@ -40,6 +40,11 @@ enum {
    NUM_COLS
 };
 
+static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
+   gtk_widget_hide(widget);  // hide the window
+   return TRUE;              // prevent the default handler from destroying it
+}
+
 GtkWidget *create_user_list_window(void) {
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
@@ -110,10 +115,21 @@ GtkWidget *create_user_list_window(void) {
    gtk_container_add(GTK_CONTAINER(window), cul_view);
 
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
-
    gtk_widget_show_all(window);
+   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
    return window;
+}
+
+
+extern GtkWidget *userlist_window;
+
+void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
+   if (gtk_widget_get_visible(userlist_window)) {
+      gtk_widget_hide(userlist_window);
+   } else {
+      gtk_widget_show_all(userlist_window);
+   }
 }
 
 const char *s_admin = "emblem-important";

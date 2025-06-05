@@ -25,6 +25,7 @@ bool server_ptt_state = false;
 extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
+extern const char *get_chat_ts(void);
 
 static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
@@ -36,6 +37,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
    char *tx = mg_json_get_str(msg_data,     "$.talk.tx");
    char *muted = mg_json_get_str(msg_data,  "$.talk.muted");
    char *clones = mg_json_get_str(msg_data, "$.talk.clones");
+   char *ts = mg_json_get_str(msg_data,     "$.talk.ts");
 
    if (!cmd) {
       rv = true;
@@ -44,13 +46,21 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
 
    if (strcasecmp(cmd, "userinfo") == 0) {
       Log(LOG_DEBUG, "chat", "UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, tx, muted, clones);
+   } else if (strcasecmp(cmd, "msg") == 0) {
+// msg: { "talk": { "from": "ADMIN", "cmd": "msg", "data": "hihi", "ts": 1749084366, 
+// "msg_type": "pub" } }
+      char *from = mg_json_get_str(msg_data, "$.talk.from");
+      char *data = mg_json_get_str(msg_data, "$.talk.data");
+      ui_print("[%s]  <%s> %s", get_chat_ts(), from, data);
+      free(data);
+      free(from);
    } else if (strcasecmp(cmd, "join") == 0) {
       char *ip = mg_json_get_str(msg_data, "$.talk.ip");
       if (user == NULL || ip == NULL) {
          free(ip);
          goto cleanup;
       }
-      ui_print("*** %s connected to the radio", user);
+      ui_print("[%s] *** %s connected to the radio", get_chat_ts(), user);
       free(ip);
    } else if (strcasecmp(cmd, "quit") == 0) {
       char *reason = mg_json_get_str(msg_data, "$.talk.reason");
@@ -58,7 +68,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          free(reason);
          goto cleanup;
       }
-      ui_print("*** %s disconnected from the radio: %s", user, reason);
+      ui_print("[%s] *** %s disconnected from the radio: %s", get_chat_ts(), user, reason);
       free(reason);
    } else {
       Log(LOG_DEBUG, "chat", "msg: %s", msg->data);
@@ -71,6 +81,7 @@ cleanup:
    free(tx);
    free(muted);
    free(clones);
+   free(ts);
    return false;
 }
 
@@ -131,7 +142,7 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
 //         Log(LOG_DEBUG, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
       }
    } else {
-//      ui_print(" ==> CAT: Unknown msg -- %s", msg_data);
+//      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(), msg_data);
       Log(LOG_DEBUG, "ws.cat", "CAT msg: %s", msg->data);
    }
    return false;
@@ -162,7 +173,7 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
    char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
    char *nonce = mg_json_get_str(msg_data, "$.auth.nonce");
    char *user = mg_json_get_str(msg_data, "$.auth.user");
-//   ui_print(" => cmd: '%s', nonce: %s, user: %s", cmd, nonce, user);
+//   ui_print("[%s] => cmd: '%s', nonce: %s, user: %s", get_chat_ts(), cmd, nonce, user);
 
    // Must always send a command and username during auth
    if (cmd == NULL || (user == NULL)) {
@@ -177,14 +188,14 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
       if (token != NULL) {
          snprintf(session_token, HTTP_TOKEN_LEN + 1, "%s", token);
       } else {
-         ui_print("?? Got CHALLENGE without valid token!");
+         ui_print("[%s] ?? Got CHALLENGE without valid token!", get_chat_ts());
          goto cleanup;
       }
-      ui_print("*** Sending PASSWD ***");
+      ui_print("[%s] *** Sending PASSWD ***", get_chat_ts());
       ws_send_passwd(c, user, dict_get(cfg, "server.pass", NULL), nonce);
       free(token);
    } else if (strcasecmp(cmd, "authorized") == 0) {
-      ui_print("*** Authorized ***");
+      ui_print("[%s] *** Authorized ***", get_chat_ts());
    }
 
 cleanup:
@@ -216,12 +227,12 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       result = ws_handle_auth_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
       char *hello = mg_json_get_str(msg_data, "$.hello");
-      ui_print("*** Server version: %s ***", hello);
+      ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
       free(hello);
       goto cleanup;
    // Check for $.cat field (rigctl message)
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-//      ui_print("+++ CAT ++ %s", msg_data);
+//      ui_print("[%s] +++ CAT ++ %s", get_chat_ts(), msg_data);
       result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
       result = ws_handle_talk_msg(msg, c);
@@ -253,7 +264,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       free(subsys);
       free(data);
    } else {
-      ui_print("==> UnknownMsg: %s", msg->data);
+      ui_print("[%s] ==> UnknownMsg: %s", get_chat_ts(), msg->data);
    }
 cleanup:
    return false;
@@ -313,7 +324,7 @@ void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
       ws_handle(wm, c);
    } else if (ev == MG_EV_ERROR) {
-      ui_print("Socket error: %s", (char *)ev_data);
+      ui_print("[%s] Socket error: %s", get_chat_ts(), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
       ws_connected = false;
       ws_conn = NULL;
@@ -321,7 +332,7 @@ void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");
       gtk_style_context_remove_class(ctx, "ptt-active");
-      ui_print("*** DISCONNECTED ***");
+      ui_print("[%s] *** DISCONNECTED ***", get_chat_ts());
    }
 }
 
@@ -403,10 +414,10 @@ bool connect_or_disconnect(GtkButton *button) {
          ws_conn = mg_ws_connect(&mgr, url, ws_handler, NULL, NULL);
 
          if (ws_conn == NULL) {
-            ui_print("Socket connect error");
+            ui_print("[%s] Socket connect error", get_chat_ts());
          }
          gtk_button_set_label(button, "Connecting...");
-         ui_print("Connecting to %s", url);
+         ui_print("[%s] Connecting to %s", get_chat_ts(), url);
       }
    }
    return false;

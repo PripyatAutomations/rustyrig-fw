@@ -20,6 +20,8 @@
 // config.c
 extern bool config_load(const char *path);
 extern dict *cfg;
+extern struct mg_mgr mgr;
+extern struct mg_connection *ws_conn;
 
 int my_argc = -1;
 char **my_argv = NULL;
@@ -52,6 +54,16 @@ void shutdown_app(int signum) {
    } else {
       Log(LOG_INFO, "core", "Shutting down by user request");
    }
+}
+
+static gboolean poll_mongoose(gpointer user_data) {
+   mg_mgr_poll(&mgr, 0);
+   return G_SOURCE_CONTINUE;
+}
+
+static gboolean update_now(gpointer user_data) {
+   now = time(NULL);
+   return G_SOURCE_CONTINUE;
 }
 
 int main(int argc, char *argv[]) {
@@ -90,6 +102,8 @@ int main(int argc, char *argv[]) {
    ws_init();
    gtk_init(&argc, &argv);
    gui_init();
+   g_timeout_add(10, poll_mongoose, NULL);
+   g_timeout_add(1000, update_now, NULL);
    g_timeout_add(1000, check_dying, NULL);
    char *poll_block_delay_s = dict_get(cfg, "cat.poll-blocking", "2");
    poll_block_delay = atoi(poll_block_delay_s);
