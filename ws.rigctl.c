@@ -190,8 +190,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          rr_vfo_t c_vfo = vfo_lookup(vfo[0]);
          bool c_state;
-         char msgbuf[HTTP_WS_MAX_MSG+1];
-         struct mg_str mp;
 
          // Gather some data about the VFO
          rr_vfo_t vfo_id = VFO_NONE;
@@ -223,7 +221,9 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          // tell everyone about it
-/*
+#if	0
+         char msgbuf[HTTP_WS_MAX_MSG+1];
+         struct mg_str mp;
          prepare_msg(msgbuf, sizeof(msgbuf),
             "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"ptt\": \"%s\", "
             "\"vfo\": \"%s\", \"power\": %f, \"freq\": %f, \"width\": %d, "
@@ -232,7 +232,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
              dp->freq, dp->width, mode_name, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
-*/
+#endif
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
          rr_ptt_set(c_vfo, c_state);
          free(ptt_state);
@@ -257,8 +257,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          last_rig_poll.tv_nsec = loop_start.tv_nsec;
 
          rr_vfo_t c_vfo;
-         char msgbuf[HTTP_WS_MAX_MSG+1];
-         struct mg_str mp;
 
          if (vfo == NULL) {
             c_vfo = VFO_A;
@@ -267,12 +265,16 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
          cptr->last_heard = now;
 
+#if	0
          // tell everyone about it
+         char msgbuf[HTTP_WS_MAX_MSG+1];
+         struct mg_str mp;
          prepare_msg(msgbuf, sizeof(msgbuf),
             "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"freq\": \"%f\", \"vfo\": \"%s\", \"ts\": %lu } }",
              cptr->chatname, new_freq, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
+#endif
          Log(LOG_AUDIT, "ws.cat", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
          rr_freq_set(c_vfo, new_freq);
       } else if (strcasecmp(cmd, "mode") == 0) {
@@ -303,14 +305,19 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             
          cptr->last_heard = now;
 
+#if	0
          // tell everyone about it
          prepare_msg(msgbuf, sizeof(msgbuf),
             "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"mode\", \"mode\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
             cptr->chatname, mode, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp);
+#endif
          Log(LOG_AUDIT, "mode", "User %s set VFO %s MODE to %s", cptr->chatname, vfo, mode);
-         rr_set_mode(c_vfo, vfo_parse_mode(mode));
+         rr_mode_t new_mode = vfo_parse_mode(mode);
+         if (new_mode != MODE_NONE) {
+            rr_set_mode(c_vfo, new_mode);
+         }
          free(mode);
       } else {
          Log(LOG_DEBUG, "ws.rigctl", "Got unknown rig msg: |%.*s|", msg_data.len, msg_data.buf);

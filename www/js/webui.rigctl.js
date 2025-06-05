@@ -77,13 +77,15 @@ function vfo_edit_init() {
 function ptt_btn_init() {
    $('button.rig-ptt').removeClass('red-btn');
    $('button.rig-ptt').click(function() {
-      let state = "off";
+      let state = "false";
 
       // this is set via CAT messages
       if (ptt_active === false) {
          state = "true";
+         ptt_active = true;
       } else {
          state = "false";
+         ptt_active = false;
       }
 
       var msg = { 
@@ -112,7 +114,7 @@ function webui_parse_cat_msg(msgObj) {
          var ptt = msgObj.cat.ptt;
          var ptt_l = ptt.toLowerCase();
 
-         if (ptt_l === "true" || ptt_l === "on" || ptt_l === 'yes' || ptt_l === true) {
+         if (ptt_l === "true" || ptt_l === true) {
             $('.rig-ptt').addClass("red-btn");
             ptt_active = true;
          } else {
@@ -123,7 +125,7 @@ function webui_parse_cat_msg(msgObj) {
       }
     } else {  // Nope, it's a state message
       var state = msgObj.cat.state;
-     //               console.log("state:", state);
+//      console.log("state:", state);
 
       if (typeof state === 'undefined') {
          return;

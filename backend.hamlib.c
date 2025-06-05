@@ -285,7 +285,7 @@ rr_vfo_data_t *hl_poll(void) {
 
    // send to all users
    struct mg_str mp;
-   char msgbuf[HTTP_WS_MAX_MSG+1];
+   char msgbuf[4096];
    http_client_t *talker = whos_talking();
 
    prepare_msg(msgbuf, sizeof(msgbuf),

@@ -50,6 +50,7 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
    int idx = 0;
 #if	0	// XXX: clean this up
    struct mg_str json = mg_str(json_array);
+   
    struct mg_str elem;
    while ((elem = mg_json_get_arr(json, idx++)).len > 0) {
       struct mg_str v;
