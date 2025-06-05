@@ -26,6 +26,8 @@ extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
+extern GtkWidget *main_window;
+extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 
 static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
@@ -52,6 +54,10 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       char *from = mg_json_get_str(msg_data, "$.talk.from");
       char *data = mg_json_get_str(msg_data, "$.talk.data");
       ui_print("[%s]  <%s> %s", get_chat_ts(), from, data);
+
+      if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
+         gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
+      }
       free(data);
       free(from);
    } else if (strcasecmp(cmd, "join") == 0) {
@@ -70,6 +76,11 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       }
       ui_print("[%s] *** %s disconnected from the radio: %s", get_chat_ts(), user, reason);
       free(reason);
+   } else if (strcmp(cmd, "whois") == 0) {
+      const char *json_array = mg_json_get_str(msg_data, "$.talk.data");
+      if (json_array) {
+         ui_show_whois_dialog(GTK_WINDOW(main_window), json_array);
+      }
    } else {
       Log(LOG_DEBUG, "chat", "msg: %s", msg->data);
    }

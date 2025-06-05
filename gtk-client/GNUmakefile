@@ -66,6 +66,7 @@ endif
 objs += audio.o			# gstreamer based audio
 objs += auth.o
 #objs += audio.o		# Audio channel stuff
+objs += chat.o
 objs += config.o
 objs += debug.o			# Debug stuff
 objs += dict.o			# dictionary object

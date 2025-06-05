@@ -37,6 +37,7 @@ GtkWidget *log_view = NULL;
 GtkTextBuffer *log_buffer = NULL;
 GtkWidget *ptt_button = NULL;
 GtkWidget *config_tab = NULL;
+GtkWidget *main_window = NULL;
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
 static char chat_ts[9];
@@ -276,6 +277,10 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    connect_or_disconnect(GTK_BUTTON(button));
 }
 
+static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer user_data) {
+   gtk_window_set_urgency_hint(GTK_WINDOW(widget), FALSE);
+   return FALSE;
+}
 
 bool gui_init(void) {
    GtkCssProvider *provider = gtk_css_provider_new();
@@ -292,19 +297,19 @@ bool gui_init(void) {
       GTK_STYLE_PROVIDER_PRIORITY_USER);
 
    input_history = g_ptr_array_new_with_free_func(g_free);
-   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(window), "rustyrig remote client");
+   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 
    int cfg_height_i = atoi(dict_get(cfg, "ui.main.height", "600"));
    int cfg_width_i  = atoi(dict_get(cfg, "ui.main.width", "800"));
    int cfg_x_i      = atoi(dict_get(cfg, "ui.main.x", "0"));
    int cfg_y_i      = atoi(dict_get(cfg, "ui.main.y", "0"));
 
-   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width_i, cfg_height_i);
-   gtk_window_move(GTK_WINDOW(window), cfg_x_i, cfg_y_i);
+   gtk_window_set_default_size(GTK_WINDOW(main_window), cfg_width_i, cfg_height_i);
+   gtk_window_move(GTK_WINDOW(main_window), cfg_x_i, cfg_y_i);
 
    GtkWidget *notebook = gtk_notebook_new();
-   gtk_container_add(GTK_CONTAINER(window), notebook);
+   gtk_container_add(GTK_CONTAINER(main_window), notebook);
 
    GtkWidget *main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), main_tab, gtk_label_new("Control"));
@@ -406,7 +411,8 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(config_tab), show_userlist_button, FALSE, FALSE, 3);
    g_signal_connect(show_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
 
-   g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+   g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+   g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
 
    const char *cfg_ontop_s = dict_get(cfg, "ui.main.on-top", "false");
    const char *cfg_raised_s = dict_get(cfg, "ui.main.raised", "true");
@@ -421,15 +427,15 @@ bool gui_init(void) {
    }
 
    if (cfg_ontop) {
-      gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
+      gtk_window_set_keep_above(GTK_WINDOW(main_window), TRUE);
    }
 
    if (cfg_raised) {
-      gtk_window_present(GTK_WINDOW(window));   
+      gtk_window_present(GTK_WINDOW(main_window));   
    }
 
    userlist_window = create_user_list_window();
-   gtk_widget_show_all(window);
+   gtk_widget_show_all(main_window);
    ui_print("[%s] rustyrig client started", get_chat_ts());
 
    return false;

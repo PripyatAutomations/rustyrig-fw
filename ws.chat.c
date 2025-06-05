@@ -398,7 +398,10 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      rr_freq_set(active_vfo, real_freq);
                   } else if (strcasecmp(cmd, "mode") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
-                     rr_set_mode(active_vfo, vfo_parse_mode(arg));
+                     rr_mode_t new_mode = vfo_parse_mode(arg);
+                     if (new_mode != MODE_NONE) {
+                        rr_set_mode(active_vfo, new_mode);
+                     }
                   } else if (strcasecmp(cmd, "power") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);
                   } else if (strcasecmp(cmd, "width") == 0) {

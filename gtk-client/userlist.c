@@ -18,7 +18,7 @@
 #include "rrclient/ws.h"
 
 extern dict *cfg;
-
+extern GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
 
 struct rr_user {
@@ -120,9 +120,6 @@ GtkWidget *create_user_list_window(void) {
 
    return window;
 }
-
-
-extern GtkWidget *userlist_window;
 
 void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    if (gtk_widget_get_visible(userlist_window)) {
