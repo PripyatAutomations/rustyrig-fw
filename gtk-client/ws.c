@@ -238,17 +238,29 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
       result = ws_handle_auth_msg(msg, c);
-   } else if (mg_json_get(msg_data, "$.notice", NULL) > 0) {
-      char *msg = mg_json_get_str(msg_data, "$.notice");
+   } else if (mg_json_get(msg_data, "$.alert", NULL) > 0) {
+      char *msg = mg_json_get_str(msg_data, "$.alert.msg");
+      char *from = mg_json_get_str(msg_data, "$.alert.from");
+
       if (msg != NULL) {
-         ui_print("*** %s ***", msg);
+         ui_print("[%s] ALERT: %s !!!", get_chat_ts(), msg);
       }
       free(msg);
+      goto cleanup;
+      free(msg);
+      free(from);
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.error", NULL) > 0) {
       char *msg = mg_json_get_str(msg_data, "$.error");
       if (msg != NULL) {
-         ui_print("!!! %s !!!", msg);
+         ui_print("[%s] ERROR %s !!!", get_chat_ts(), msg);
+      }
+      free(msg);
+      goto cleanup;
+   } else if (mg_json_get(msg_data, "$.notice", NULL) > 0) {
+      char *msg = mg_json_get_str(msg_data, "$.notice");
+      if (msg != NULL) {
+         ui_print("[%s] NOTICE %s ***", get_chat_ts(), msg);
       }
       free(msg);
       goto cleanup;
