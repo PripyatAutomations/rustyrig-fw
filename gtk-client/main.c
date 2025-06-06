@@ -34,11 +34,10 @@ time_t poll_block_expire = 0;	// Here we set this to now + config:cat.poll-block
 time_t poll_block_delay = 0;	// ^-- stores the delay
 
 static const char *configs[] = { 
+   "~/.config/rrclient.cfg",
    "~/.rrclient.cfg",
    "/etc/rrclient.cfg",
    "/opt/rustyrig/etc/rrclient.cfg",
-   "../config/rrclient.cfg",
-   "./config/rrclient.cfg"
 };
 
 gboolean check_dying(gpointer data) {
@@ -67,24 +66,42 @@ static gboolean update_now(gpointer user_data) {
    return G_SOURCE_CONTINUE;
 }
 
+const char *expand_path(const char *path) {
+   if (path[0] == '~') {
+      const char *home = getenv("HOME");
+      if (!home) return NULL;
+
+      static char expanded[PATH_MAX];
+      snprintf(expanded, sizeof(expanded), "%s%s", home, path + 1);
+      return expanded;
+   }
+   return path;
+}
+
 int main(int argc, char *argv[]) {
    logfp = stdout;
    log_level = LOG_DEBUG;
 
-#if	1
-   // Try the various locations our config might live at
    int cfg_entries = (sizeof(configs) / sizeof(char *));
    Log(LOG_DEBUG, "core", "We have %d entries in configs", cfg_entries);
 
    for (int i = 0; i < cfg_entries; i++) {
       if (configs[i] != NULL) {
-         if (!file_exists(configs[i])) {
-            continue;
+         const char *realpath = expand_path(configs[i]);
+         if (!realpath) continue;
+
+         if (file_exists(realpath)) {
+            Log(LOG_INFO, "core", "Trying to load config from \"%s\"", realpath);
+            if (config_load(realpath)) {
+               Log(LOG_CRIT, "core", "Couldn't load config \"%s\", bailing!", realpath);
+               exit(1);
+            }
+            break;
          }
 
-         Log(LOG_INFO, "core", "Trying to load config from \"%s\"", configs[i]);
-         if (config_load(configs[i])) {
-            Log(LOG_CRIT, "core", "Couldn't load config \"%s\", bailing!", configs[i]);
+         Log(LOG_INFO, "core", "Trying to load config from \"%s\"", realpath);
+         if (config_load(realpath)) {
+            Log(LOG_CRIT, "core", "Couldn't load config \"%s\", bailing!", realpath);
             exit(1);
          }
          break;
@@ -92,9 +109,6 @@ int main(int argc, char *argv[]) {
          fprintf(stderr, ":( configs[%d] is NULL in loop", i);
       }
    }
-#else
-   config_load("./config/rrclient.cfg");
-#endif
    host_init();
 
    if (cfg == NULL) {
