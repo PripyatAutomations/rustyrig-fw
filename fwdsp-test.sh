@@ -10,15 +10,15 @@
 #./build/${PROFILE}/fwdsp.bin -p "pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=44100,channels=1 ! queue ! fdsink fd=%d" -c pcm -s 44100
 #  -p "pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! flacenc ! fdsink fd=%d" \
 
-FORMAT="FLAC+OGG"
+#FORMAT="FLAC+OGG"
 
-if [ "$FORMAT" == "FLAC+OGG" ]; then
+#if [ "$FORMAT" == "FLAC+OGG" ]; then
+#   rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! opusenc ! oggmux ! queue ! fdsink fd=%d"
 #   rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! flacenc ! oggmux ! queue ! fdsink fd=%d"
-#   rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! queue ! fdsink fd=%d"
    rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! queue ! fdsink fd=%d"
-   tx_pipepine="fdsrc fd=%d ! oggdemux ! flacdec ! audioconvert ! audioresample ! queue ! pulsesink device=default"
-fi
-
+#   tx_pipepine="fdsrc fd=%d ! oggdemux ! flacdec ! audioconvert ! audioresample ! queue ! pulsesink device=default"
+#fi
+export GST_DEBUG=*:3
 #./build/${PROFILE}/fwdsp.bin -p "${rx_pipeline}" -c flac -s 44100 &
-./build/${PROFILE}/fwdsp.bin -p "${rx_pipeline}" -s 16000 &
+./build/${PROFILE}/fwdsp.bin -p "${rx_pipeline}" -s 44100 &
 #./build/${PROFILE}/fwdsp.bin -p "${tx_pipeline}" -c flac -s 44100 -t &

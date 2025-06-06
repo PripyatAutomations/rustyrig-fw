@@ -172,7 +172,7 @@ void au_unix_socket_poll(void) {
    }
 
    // Read from the client socket
-   uint8_t buf[64511];
+   uint8_t buf[800];
    ssize_t n = read(rx_client_fd, buf, sizeof(buf));
 
    if (n > 0) {

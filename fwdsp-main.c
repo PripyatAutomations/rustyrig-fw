@@ -265,34 +265,8 @@ int main(int argc, char *argv[]) {
       }
    }
 
-   if (cfg.tx_mode) {
-      if (cfg.channel_id < 0) {
-         cfg.channel_id = 1;
-      }
-
-      cfg.template = "fdsrc fd=%d ! audio/x-raw,rate=16000,format=S16LE,channels=1 ! audioconvert ! volume volume=1.0 ! pipewiresink stream-properties=\"props,target.node.name='fwdsp TX'\"";
-   } else {
-      if (cfg.channel_id < 0) {
-         cfg.channel_id = 0;
-      }
-
-      switch (cfg.format) {
-         case 0:
-            cfg.template = (cfg.sample_rate == 44100)
-               ? "pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=44100,channels=1 ! fdsink fd=%d"
-               : "pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! fdsink fd=%d";
-            break;
-         case 1:
-            cfg.template = (cfg.sample_rate == 44100)
-               ? "audiotestsrc wave=sine ! audio/x-raw,rate=44100,channels=1 ! flacenc ! fdsink fd=%d"
-               : "audiotestsrc wave=sine ! audio/x-raw,rate=16000,channels=1 ! flacenc ! fdsink fd=%d";
-            break;
-         case 2:
-            cfg.template = (cfg.sample_rate == 44100)
-               ? "audiotestsrc wave=sine ! audio/x-raw,rate=44100,channels=1 ! opusenc ! fdsink fd=%d"
-               : "audiotestsrc wave=sine ! audio/x-raw,rate=16000,channels=1 ! opusenc ! fdsink fd=%d";
-            break;
-      }
+   if (cfg.channel_id < 0) {
+      cfg.channel_id = 0;
    }
 
    time_t last_run = -1;

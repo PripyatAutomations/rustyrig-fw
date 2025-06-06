@@ -70,7 +70,8 @@ static gboolean update_now(gpointer user_data) {
 int main(int argc, char *argv[]) {
    logfp = stdout;
    log_level = LOG_DEBUG;
-/*
+
+#if	1
    // Try the various locations our config might live at
    int cfg_entries = (sizeof(configs) / sizeof(char *));
    Log(LOG_DEBUG, "core", "We have %d entries in configs", cfg_entries);
@@ -91,8 +92,9 @@ int main(int argc, char *argv[]) {
          fprintf(stderr, ":( configs[%d] is NULL in loop", i);
       }
    }
-*/
+#else
    config_load("./config/rrclient.cfg");
+#endif
    host_init();
 
    if (cfg == NULL) {

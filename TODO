@@ -1,4 +1,6 @@
 ASAP
+* Add mute/unmute button for RX audio which halts sending the samples entirely
+
 * Test TX halt when PTTing user disconnects.
   - also halt TX by FLAG_NOOB users if the last admin logs out
 * Make rigctl connection autoreconnect in backend.hamlib

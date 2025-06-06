@@ -8,6 +8,8 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
+#include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
 #include "inc/logger.h"
 #include "inc/dict.h"
 #include "inc/posix.h"
@@ -26,7 +28,8 @@ extern struct mg_connection *ws_conn;
 extern GtkWidget *create_user_list_window(void);
 extern time_t poll_block_expire, poll_block_delay;
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
-
+extern GstElement *rx_vol_gst_elem;		// audio.c
+extern GstElement *rx_pipeline;			// audio.c
 GtkTextBuffer *text_buffer;
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
@@ -312,6 +315,13 @@ static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer us
    return FALSE;
 }
 
+void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
+   gdouble val = gtk_range_get_value(range);
+   val /= 100.0;  // scale from 0–100 to 0.0–1.0
+   Log(LOG_DEBUG, "rxvol", "New val: %f", val);
+   g_object_set(G_OBJECT(user_data), "volume", val, NULL);
+}
+
 bool gui_init(void) {
    GtkCssProvider *provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(provider,
@@ -381,6 +391,11 @@ bool gui_init(void) {
    GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
    GtkWidget *rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(dict_get(cfg, "default.volume.rx", "30")));
+   rx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(rx_pipeline), "rxvol");
+   if (rx_vol_gst_elem) {
+      g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
+   }
+
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_label, FALSE, FALSE, 6);
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_slider, TRUE, TRUE, 0);
 
