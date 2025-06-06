@@ -17,6 +17,7 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+extern bool ws_audio_init(void);
 // config.c
 extern bool config_load(const char *path);
 extern dict *cfg;
@@ -113,6 +114,8 @@ int main(int argc, char *argv[]) {
    if (strcasecmp(autoconnect, "true") == 0 || strcasecmp(autoconnect, "yes") == 0 || strcasecmp(autoconnect, "on") == 0) {
       connect_or_disconnect(GTK_BUTTON(conn_button));
    }
+
+   ws_audio_init();
 
    // start gtk main loop
    gtk_main();
