@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-
+#include <limits.h>
 #if	defined(HOST_POSIX)
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -61,4 +61,40 @@ bool is_dir(const char *path) {
 #endif
 
    return false;
+}
+
+const char *expand_path(const char *path) {
+   if (path[0] == '~') {
+      const char *home = getenv("HOME");
+      if (!home) return NULL;
+
+      static char expanded[PATH_MAX];
+      snprintf(expanded, sizeof(expanded), "%s%s", home, path + 1);
+      return expanded;
+   }
+   return path;
+}
+
+const char *find_file_by_list(const char *files[], int file_count) {
+   Log(LOG_DEBUG, "core", "find_file_by_list: We have %d entries in set", file_count);
+
+   for (int i = 0; i < file_count; i++) {
+      if (files[i] != NULL) {
+         const char *realpath = expand_path(files[i]);
+         if (!realpath) {
+            continue;
+         }
+
+         if (file_exists(realpath)) {
+            Log(LOG_INFO, "core", "ffbl: Returning \"%s\"", realpath);
+            return realpath;
+            break;
+         }
+         break;
+      } else {
+         fprintf(stderr, "ffbl: :( files[%d] is NULL in loop", i);
+      }
+   }
+
+   return NULL;
 }

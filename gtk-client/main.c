@@ -13,6 +13,7 @@
 #include "inc/posix.h"
 #include "inc/mongoose.h"
 #include "inc/http.h"
+#include "inc/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -66,49 +67,18 @@ static gboolean update_now(gpointer user_data) {
    return G_SOURCE_CONTINUE;
 }
 
-const char *expand_path(const char *path) {
-   if (path[0] == '~') {
-      const char *home = getenv("HOME");
-      if (!home) return NULL;
-
-      static char expanded[PATH_MAX];
-      snprintf(expanded, sizeof(expanded), "%s%s", home, path + 1);
-      return expanded;
-   }
-   return path;
-}
-
 int main(int argc, char *argv[]) {
    logfp = stdout;
    log_level = LOG_DEBUG;
 
    int cfg_entries = (sizeof(configs) / sizeof(char *));
-   Log(LOG_DEBUG, "core", "We have %d entries in configs", cfg_entries);
+   const char *realpath = find_file_by_list(configs, cfg_entries);
 
-   for (int i = 0; i < cfg_entries; i++) {
-      if (configs[i] != NULL) {
-         const char *realpath = expand_path(configs[i]);
-         if (!realpath) continue;
-
-         if (file_exists(realpath)) {
-            Log(LOG_INFO, "core", "Trying to load config from \"%s\"", realpath);
-            if (config_load(realpath)) {
-               Log(LOG_CRIT, "core", "Couldn't load config \"%s\", bailing!", realpath);
-               exit(1);
-            }
-            break;
-         }
-
-         Log(LOG_INFO, "core", "Trying to load config from \"%s\"", realpath);
-         if (config_load(realpath)) {
-            Log(LOG_CRIT, "core", "Couldn't load config \"%s\", bailing!", realpath);
-            exit(1);
-         }
-         break;
-      } else {
-         fprintf(stderr, ":( configs[%d] is NULL in loop", i);
-      }
+   if (config_load(realpath)) {
+      Log(LOG_CRIT, "core", "Couldn't load config \"%s\", bailing!", realpath);
+      exit(1);
    }
+
    host_init();
 
    if (cfg == NULL) {

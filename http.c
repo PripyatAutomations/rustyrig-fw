@@ -341,6 +341,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
  
    if (ev == MG_EV_OPEN) {
 //      c->is_hexdumping = 1;
+   } else if (ev == MG_EV_CONNECT) {
+      struct mg_tls_opts opts;
+      opts.ca = mg_str("*");
+      mg_tls_init(c, &opts);
    } else if (ev == MG_EV_ACCEPT) {
       Log(LOG_CRAZY, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
 

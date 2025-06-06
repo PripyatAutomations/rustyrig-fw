@@ -12,6 +12,7 @@
 #include "inc/dict.h"
 #include "inc/posix.h"
 #include "inc/mongoose.h"
+#include "inc/util.file.h"
 #include "inc/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
@@ -22,12 +23,22 @@ struct mg_mgr mgr;
 bool ws_connected = false;
 struct mg_connection *ws_conn = NULL;
 bool server_ptt_state = false;
+const char *tls_ca_path = NULL;
+struct mg_str tls_ca_path_str;
+
 extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
+extern const char *expand_path(const char *path); // main.c
+
+const char *default_tls_ca_paths[] = {
+   "/etc/ssl/certs/ca-certificates.crt",
+   "/etc/pki/tls/certs/ca-bundle.crt",
+   "/etc/ssl/cert.pem"
+};
 
 static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
@@ -328,17 +339,23 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    return false;
 }
 
-void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
+void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_OPEN) {
 //      c->is_hexdumping = 1;
       ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
       const char *url = dict_get(cfg, "server.url", NULL);
 
-      // XXX: Need to figure out how to deal with the certificate authority file?
       if (c->is_tls) {
-         struct mg_tls_opts opts = { /*.ca = mg_unpacked("/certs/ca.pem"), */
-                                 .name = mg_url_host(url)};
+         struct mg_tls_opts opts = { .name = mg_url_host(url) };
+/*
+         if (tls_ca_path != NULL) {
+            Log(LOG_DEBUG, "http", "TLS path: %s", tls_ca_path);
+            opts.ca = tls_ca_path_str;
+         }
+*/
+         tls_ca_path = "*";
+         opts.ca = mg_str(tls_ca_path);
          mg_tls_init(c, &opts);
       }
    } else if (ev == MG_EV_WS_OPEN) {
@@ -374,6 +391,16 @@ void ws_handler(struct mg_connection *c, int ev, void *ev_data) {
 void ws_init(void) {
 //   mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
    mg_mgr_init(&mgr);
+/*
+   tls_ca_path = find_file_by_list(default_tls_ca_paths, sizeof(default_tls_ca_paths) / sizeof(char *));
+
+   if (tls_ca_path != NULL) {
+      tls_ca_path_str = mg_str(tls_ca_path);
+      Log(LOG_DEBUG, "ws", "Setting TLS CA path to %s", tls_ca_path);
+   } else {
+      Log(LOG_CRIT, "ws", "unable to find TLS CA file");
+   }
+*/
 }
 
 void ws_fini(void) {
@@ -446,7 +473,9 @@ bool connect_or_disconnect(GtkButton *button) {
 
       if (url) {
          // Connect to WebSocket server
-         ws_conn = mg_ws_connect(&mgr, url, ws_handler, NULL, NULL);
+         ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
+         struct mg_tls_opts opts = { .ca = "*" };  // for self-signed or test certs
+         mg_tls_init(ws_conn, &opts);  // <--- Required for wss://
 
          if (ws_conn == NULL) {
             ui_print("[%s] Socket connect error", get_chat_ts());
