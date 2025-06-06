@@ -49,9 +49,9 @@ bool ws_audio_init(void) {
       NULL);
 #else
    rx_pipeline = gst_parse_launch("appsrc name=mysrc is-live=true format=bytes "
-   " ! oggdemux "
-//   " ! flacdec "
-   " ! opusdec "
+//   " ! oggdemux "
+   " ! flacdec "
+//   " ! opusdec "
    " ! audioconvert "
    " ! audioresample "
    " ! queue "
@@ -74,11 +74,11 @@ rx_pipeline = gst_parse_launch(
    if (!appsrc) return false;
 
    g_object_set(G_OBJECT(appsrc),
-#if	defined(AUDIO_PCM)
-                "format", GST_FORMAT_TIME,
-#else
+//#if	defined(AUDIO_PCM)
+//                "format", GST_FORMAT_TIME,
+//#else
                 "format", GST_FORMAT_BYTES,
-#endif
+//#endif
                 "is-live", TRUE,
                 "stream-type", 0, // GST_APP_STREAM_TYPE_STREAM
                 NULL);
