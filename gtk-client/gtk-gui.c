@@ -41,6 +41,7 @@ GtkTextBuffer *log_buffer = NULL;
 GtkWidget *ptt_button = NULL;
 GtkWidget *config_tab = NULL;
 GtkWidget *main_window = NULL;
+GtkWidget *rx_vol_slider = NULL;
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
 static char chat_ts[9];
@@ -57,7 +58,6 @@ const char *get_chat_ts(void) {
       chat_ts_updated = now;
       struct tm *ti = localtime(&now);
       int rv = strftime(chat_ts, 9, "%H:%M:%S", ti);
-//      printf("Now: %li -> %s (rv: %d)\n", now, chat_ts, rv);
    }
    return chat_ts;
 }
@@ -68,7 +68,7 @@ static gboolean scroll_to_end_idle(gpointer data) {
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(buffer, &end);
    gtk_text_view_scroll_to_iter(text_view, &end, 0.0, TRUE, 0.0, 1.0);
-   return FALSE; // remove the idle handler after it runs
+   return FALSE; 		// remove the idle handler after it runs
 }
 
 bool ui_print(const char *fmt, ...) {
@@ -89,15 +89,16 @@ bool ui_print(const char *fmt, ...) {
    gtk_text_buffer_insert(text_buffer, &end, outbuf, -1);
    gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
 
-   // Scroll after the current main loop iteration
+   // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
    g_idle_add(scroll_to_end_idle, text_view);
 
    return false;
 }
 
 bool log_print(const char *fmt, ...) {
-   if (!log_buffer)
+   if (!log_buffer) {
       return false;
+   }
 
    va_list ap;
    va_start(ap, fmt);
@@ -148,8 +149,9 @@ gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpointer user
 }
 
 void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
-   if (!combo || !text)
+   if (!combo || !text) {
       return;
+   }
 
    GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo));
    GtkTreeIter iter;
@@ -268,16 +270,18 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
 }
 
 static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
-   if (!input_history || input_history->len == 0)
+   if (!input_history || input_history->len == 0) {
       return FALSE;
+   }
 
    if (event->keyval == GDK_KEY_Up) {
-      if (history_index > 0)
+      if (history_index > 0) {
          history_index--;
+      }
    } else if (event->keyval == GDK_KEY_Down) {
-      if (history_index < input_history->len - 1)
+      if (history_index < input_history->len - 1) {
          history_index++;
-      else {
+      } else {
          gtk_entry_set_text(GTK_ENTRY(entry), "");
          history_index = input_history->len;
          return TRUE;
@@ -318,7 +322,6 @@ static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer us
 void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    gdouble val = gtk_range_get_value(range);
    val /= 100.0;  // scale from 0–100 to 0.0–1.0
-   Log(LOG_DEBUG, "rx-vol", "New val: %f", val);
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
 
@@ -361,16 +364,18 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
    gtk_style_context_add_class(conn_ctx, "conn-idle");
+   Log(LOG_CRAZY, "gtk", "conn_button add callback clicked");
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
 
    GtkWidget *freq_label = gtk_label_new("Freq (KHz):");
    freq_entry = gtk_entry_new();
    gtk_entry_set_max_length(GTK_ENTRY(freq_entry), 13);
+   Log(LOG_CRAZY, "gtk", "freq_entry add callback activate");
    freq_changed_handler_id = g_signal_connect(freq_entry, "activate", G_CALLBACK(on_freq_committed), NULL);
-   g_signal_connect(freq_entry, "focus-out-event", G_CALLBACK(on_freq_focus_out), NULL);
+   Log(LOG_CRAZY, "gtk", "freq_entry add callback focus in");
    g_signal_connect(freq_entry, "focus-in-event", G_CALLBACK(on_freq_focus_in), NULL);
-
-//   gtk_entry_set_text(GTK_ENTRY(freq_entry), "7200.000");
+   Log(LOG_CRAZY, "gtk", "freq_entry add callback focus out");
+   g_signal_connect(freq_entry, "focus-out-event", G_CALLBACK(on_freq_focus_out), NULL);
 
    gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, FALSE, FALSE, 0);
@@ -384,20 +389,29 @@ bool gui_init(void) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "D-U");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
    gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 3);
+   Log(LOG_CRAZY, "gtk", "mode_combo add callback changed");
    mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
 
    gtk_box_pack_start(GTK_BOX(control_box), mode_combo, FALSE, FALSE, 6);
 
    GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
-   GtkWidget *rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(dict_get(cfg, "default.volume.rx", "30")));
-   rx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(rx_pipeline), "rx-vol");
-   if (rx_vol_gst_elem) {
-      g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
-   }
+
+   Log(LOG_CRAZY, "gtk", "rx_vol handler value-changed");
+   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
 
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_label, FALSE, FALSE, 6);
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_slider, TRUE, TRUE, 0);
+
+   // apply default RX volume
+   const char *cfg_rx_volume = dict_get(cfg, "audio.volume.rx", NULL);
+   float vol = 0;
+   Log(LOG_DEBUG, "audio", "Setting default RX volume to %s", cfg_rx_volume);
+   if (cfg_rx_volume != NULL) {
+      vol = atoi(cfg_rx_volume);
+      gtk_range_set_value(GTK_RANGE(rx_vol_slider), vol);
+   }
 
    GtkWidget *tx_power_label = gtk_label_new("TX Power");
    GtkWidget *tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
@@ -409,6 +423,7 @@ bool gui_init(void) {
    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_box_pack_start(GTK_BOX(control_box), spacer, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), ptt_button, FALSE, FALSE, 0);
+   Log(LOG_CRAZY, "gtk", "ptt_button add callback toggled");
    g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-idle");
 
@@ -427,11 +442,14 @@ bool gui_init(void) {
 
    GtkWidget *entry = gtk_entry_new();
    gtk_box_pack_start(GTK_BOX(main_tab), entry, FALSE, FALSE, 0);
+   Log(LOG_CRAZY, "gtk", "entry add callback activate");
    g_signal_connect(entry, "activate", G_CALLBACK(on_send_button_clicked), entry);
+   Log(LOG_CRAZY, "gtk", "entry add callbak key-press");
    g_signal_connect(entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
 
    GtkWidget *button = gtk_button_new_with_label("Send");
    gtk_box_pack_start(GTK_BOX(main_tab), button, FALSE, FALSE, 0);
+   Log(LOG_CRAZY, "gtk", "send button add callbak clicked");
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), entry);
 
    GtkWidget *log_tab = gtk_scrolled_window_new(NULL, NULL);
@@ -452,11 +470,14 @@ bool gui_init(void) {
    GtkWidget *config_label = gtk_label_new("Configuration will go here...");
    gtk_box_pack_start(GTK_BOX(config_tab), config_label, FALSE, FALSE, 12);
 
-   GtkWidget *show_userlist_button = gtk_button_new_with_label("Toggle Userlist");
-   gtk_box_pack_start(GTK_BOX(config_tab), show_userlist_button, FALSE, FALSE, 3);
-   g_signal_connect(show_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
+   GtkWidget *toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
+   gtk_box_pack_start(GTK_BOX(config_tab), toggle_userlist_button, FALSE, FALSE, 3);
+   Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
+   g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
 
+   Log(LOG_CRAZY, "gtk", "mainwin on add callback destroy");
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+   Log(LOG_CRAZY, "gtk", "mainwin on add callback focus in");
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
 
    const char *cfg_ontop_s = dict_get(cfg, "ui.main.on-top", "false");

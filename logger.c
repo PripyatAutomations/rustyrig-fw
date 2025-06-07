@@ -107,8 +107,9 @@ void logger_init(void) {
 void logger_end(void) {
 #if	defined(HOST_POSIX)
 /* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
-   if (logfp != NULL)
+   if (logfp != NULL) {
       fclose(logfp);
+   }
 #endif
 }
 

@@ -66,7 +66,9 @@ bool is_dir(const char *path) {
 const char *expand_path(const char *path) {
    if (path[0] == '~') {
       const char *home = getenv("HOME");
-      if (!home) return NULL;
+      if (!home) {
+         return NULL;
+      }
 
       static char expanded[PATH_MAX];
       snprintf(expanded, sizeof(expanded), "%s%s", home, path + 1);

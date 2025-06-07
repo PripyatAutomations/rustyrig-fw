@@ -60,13 +60,14 @@ bool config_load(const char *path) {
       } while(*end == '\r' || *end == '\n');
 
       // did we eat the whole line?
-      if ((end - skip) <= 0)
+      if ((end - skip) <= 0) {
          continue;
+      }
 
       if ((*skip == '/' && *skip+1 == '/') ||		// comments
-           *skip == '#' || *skip == ';')
+           *skip == '#' || *skip == ';') {
          continue;
-      else if (*skip == '[' && *end == ']') {		// section
+      } else if (*skip == '[' && *end == ']') {		// section
          this_section = strndup(skip + 1, strlen(skip) - 2);
 //         fprintf(stderr, "[Info]: cfg.section.open: '%s' [%lu]\n", this_section, strlen(this_section));
          continue;

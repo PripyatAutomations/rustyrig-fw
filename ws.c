@@ -246,7 +246,6 @@ static bool ws_binframe_process(const char *buf, size_t len) {
 ////
 // This needs optimized!
 ///
-//
 static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
    char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
@@ -322,8 +321,10 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 
    // Binary (audio, waterfall) frames
    if (msg->flags & WEBSOCKET_OP_BINARY) {
+      Log(LOG_DEBUG, "ws", "Binary frame: %li bytes", msg->data.len);
       ws_binframe_process(msg->data.buf, msg->data.len);
    } else {	// Text (mostly json) frames
+      Log(LOG_DEBUG, "ws", "Text frame: %li bytes", msg->data.len);
       ws_txtframe_process(msg, c);
    }
    return false;

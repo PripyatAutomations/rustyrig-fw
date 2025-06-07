@@ -6,6 +6,7 @@ server.pass=yourpassword
 server.auto-connect=true
 default.volume.rx=50
 default.tx.power=50
+audio.volume.rx=20
 audio.pipeline.rx.format=time
 audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rxvol ! queue ! pulsesink device=default
 #audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes ! oggdemux ! flacdec ! audioconvert ! audioresample ! queue ! pulsesink device=default

@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <gtk/gtk.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -33,6 +34,7 @@
 #define	AUDIO_PCM
 extern dict *cfg;		// main.c
 extern struct mg_connection *ws_conn;
+extern GtkWidget *rx_vol_slider;
 
 bool audio_enabled = false;
 bool gst_active = false;
@@ -50,7 +52,9 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
    GstMapInfo map;
 
    sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
-   if (!sample) return GST_FLOW_ERROR;
+   if (!sample) {
+      return GST_FLOW_ERROR;
+   }
 
    buffer = gst_sample_get_buffer(sample);
    if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
@@ -88,6 +92,15 @@ bool ws_audio_init(void) {
          return false;
       }
 
+      // apply default RX volume
+      const char *cfg_rx_volume = dict_get(cfg, "audio.volume.rx", NULL);
+      float vol = 0;
+      Log(LOG_DEBUG, "audio", "Setting default RX volume to %s", cfg_rx_volume);
+      if (cfg_rx_volume != NULL) {
+         vol = atoi(cfg_rx_volume);
+         g_object_set(rx_vol_gst_elem, "volume", vol / 100.0, NULL);
+      }
+
       const char *cfg_rx_format = dict_get(cfg, "audio.pipeline.rx.format", NULL);
       int rx_format = 0;
       if (strcasecmp(cfg_rx_format, "bytes") == 0) {
@@ -105,7 +118,7 @@ bool ws_audio_init(void) {
    // XXX: Set this once our latency detector works
    //   gst_pipeline_set_latency(GST_PIPELINE(rx_pipeline), 0);
       gst_element_set_state(rx_pipeline, GST_STATE_PLAYING);
-      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "rx-pipeline");
+//      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "rx-pipeline");
    } else {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
@@ -124,7 +137,7 @@ bool ws_audio_init(void) {
       }
 
       // Attach stuff
-      tx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-vol");
+//      tx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-vol");
       tx_appsrc = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-src");
       if (!tx_appsrc) {
          return false;
@@ -142,6 +155,7 @@ bool ws_audio_init(void) {
                    "is-live", TRUE,
                    "stream-type", 0, // GST_APP_STREAM_TYPE_STREAM
                    NULL);
+      Log(LOG_CRAZY, "audio", "tx_sink connect callback new-sample");
       tx_sink = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-sink");
       g_signal_connect(tx_sink, "new-sample", G_CALLBACK(handle_tx_sample), NULL);
 
@@ -149,7 +163,7 @@ bool ws_audio_init(void) {
    // XXX: Set this once our latency detector works
    //   gst_pipeline_set_latency(GST_PIPELINE(tx_pipeline), 0);
       gst_element_set_state(tx_pipeline, GST_STATE_PLAYING);
-      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "tx-pipeline");
+//      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "tx-pipeline");
    } else {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
@@ -201,4 +215,3 @@ void ws_binframe_process(const void *data, size_t len) {
    g_signal_emit_by_name(rx_appsrc, "push-buffer", buffer, &ret);
    gst_buffer_unref(buffer);
 }
-

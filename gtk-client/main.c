@@ -90,6 +90,7 @@ int main(int argc, char *argv[]) {
    setenv("GST_DEBUG", "*:3", 0);
    ws_init();
    gtk_init(&argc, &argv);
+   ws_audio_init();
    gui_init();
    g_timeout_add(10, poll_mongoose, NULL);
    g_timeout_add(1000, update_now, NULL);
@@ -103,7 +104,6 @@ int main(int argc, char *argv[]) {
       connect_or_disconnect(GTK_BUTTON(conn_button));
    }
 
-   ws_audio_init();
 
    // start gtk main loop
    gtk_main();

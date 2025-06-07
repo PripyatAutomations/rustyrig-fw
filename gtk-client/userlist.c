@@ -116,7 +116,8 @@ GtkWidget *create_user_list_window(void) {
 
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    gtk_widget_show_all(window);
-   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
+   Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
+//   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
    return window;
 }
