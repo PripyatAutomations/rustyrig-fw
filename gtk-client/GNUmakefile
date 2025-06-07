@@ -7,7 +7,7 @@ CF := ../config/${PROFILE}.config.json
 BUILD_DIR := ../build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
 bin := ${BUILD_DIR}/rrclient
-
+INSTALL_DIR := /usr/local
 # Throw an error if the .json configuration file doesn't exist...
 ifeq (x$(wildcard ${CF}),x)
 $(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/client.json.example you can use)
