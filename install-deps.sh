@@ -6,7 +6,7 @@ set -e
 apt install -y \
    libjson-perl libterm-readline-perl-perl libhash-merge-perl \
    libjson-xs-perl libstring-crc32-perl libgpiod-dev gpiod \
-   jq pkg-config libmbedtls-dev
+   jq pkg-config libmbedtls-dev libopus-dev
 
 # Mojo::JSON::Pointer used by buildconf.pl
 cpan install Mojo::JSON::Pointer

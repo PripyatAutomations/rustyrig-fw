@@ -182,7 +182,8 @@ static bool hl_init(void) {
 */
 
    rig_set_conf(hl_rig, rig_token_lookup(hl_rig, "rig_pathname"), BACKEND_HAMLIB_PORT);
-   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
+// XXX: this doesnt work on daedalus
+//   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
 
    // Open connection to rigctld
    if ((ret = rig_open(hl_rig)) != RIG_OK) {
