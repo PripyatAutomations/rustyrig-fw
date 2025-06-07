@@ -154,7 +154,7 @@ distclean: clean
 ################
 install:
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
-	cp -av ${bins}  ${INSTALL_DIR}/bin
+	cp -av ${bin}  ${INSTALL_DIR}/bin
 
 ###################
 # Running on host #
