@@ -10,9 +10,6 @@ Feel free to contribute changes or improvements via github or .diff's!
 
 Long story short, on a debian-based system do the following to try it:
 
-   Make sure you have jq, make, gcc, etc
-	apt install -y jq build-essential make
-
    Find your rig's model # in hamlib:
 	rigctld -l | less
 

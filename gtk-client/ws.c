@@ -61,7 +61,12 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
    }
 
    if (strcasecmp(cmd, "userinfo") == 0) {
-      ui_print("UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), muted, clones);
+      int clones_i = -1;
+      if (clones != NULL) {
+         clones_i = atoi(clones);
+      }
+      ui_print("ui: %s", msg_data);
+      ui_print("UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), muted, clones_i);
    } else if (strcasecmp(cmd, "msg") == 0) {
       char *from = mg_json_get_str(msg_data, "$.talk.from");
       char *data = mg_json_get_str(msg_data, "$.talk.data");
