@@ -95,8 +95,19 @@ bool config_load(const char *path) {
 
       if (strncasecmp(this_section, "general", 7) == 0) {
          // Parse configuration line (XXX: GET RID OF STRTOK!)
-         key = strtok(skip, "=\n");
-         val = strtok(NULL, "=\n");
+         key = NULL;
+         val = NULL;
+         char *eq = strchr(skip, '=');
+
+         if (eq) {
+            *eq = '\0';
+            key = skip;
+            val = eq + 1;
+
+            while (*val == ' ') {
+               val++;
+            }
+         }
 
          // Store value
          dict_add(cfg, key, val);

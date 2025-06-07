@@ -95,7 +95,7 @@ int setup_rx_unix_socket_server(const char *path) {
       return -1;
    }
 
-   unlink(path);  // Remove existing socket file if present
+   unlink(path);
 
    addr.sun_family = AF_UNIX;
    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);

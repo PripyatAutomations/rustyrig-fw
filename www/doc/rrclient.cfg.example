@@ -1,13 +1,16 @@
 [general]
-#server.url=wss://rigserver-ax1:4420/ws/
 server.url=ws://localhost:8420/ws/
+#server.url=wss://localhost:4420/ws/
 server.user=admin
 server.pass=yourpassword
 server.auto-connect=true
 default.volume.rx=50
 default.tx.power=50
-audio.pipeline.rx=
-audio.pipeline.tx=
+audio.pipeline.rx.format=time
+audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rxvol ! queue ! pulsesink device=default
+#audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes ! oggdemux ! flacdec ! audioconvert ! audioresample ! queue ! pulsesink device=default
+audio.pipeline.tx.format=time
+audio.pipeline.tx=pulsesrc device=default ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=tx-vol ! queue ! appsink name=tx-sink emit-signals=true sync=false
 ui.main.height=768
 ui.main.width=1024
 ui.main.x=1400
@@ -22,4 +25,3 @@ ui.userlist.x=800
 ui.userlist.y=2200
 # Length of time to block CAT updates (in seconds) after a local state change
 cat.poll-blocking=1
-audio.disabled=true

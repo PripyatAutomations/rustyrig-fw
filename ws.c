@@ -231,6 +231,8 @@ cleanup:
 
 // Deal with the binary requests
 static bool ws_binframe_process(const char *buf, size_t len) {
+   Log(LOG_DEBUG, "ws.binframe", "Binary frame of %li bytes", len);
+
    if (buf[0] == 'u') {  // PCM-u
    } else if (buf[0] == 'O') {
 #if	defined(FEATURE_OPUS)
