@@ -324,7 +324,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
       Log(LOG_DEBUG, "ws", "Binary frame: %li bytes", msg->data.len);
       ws_binframe_process(msg->data.buf, msg->data.len);
    } else {	// Text (mostly json) frames
-      Log(LOG_DEBUG, "ws", "Text frame: %li bytes", msg->data.len);
+//      Log(LOG_DEBUG, "ws", "Text frame: %li bytes", msg->data.len);
       ws_txtframe_process(msg, c);
    }
    return false;

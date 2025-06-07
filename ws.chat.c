@@ -210,9 +210,7 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
 
 // Toggle syslog
 static bool ws_chat_cmd_syslog(http_client_t *cptr, const char *state) {
-
-   if (client_has_flag(cptr, FLAG_STAFF) ||
-       has_priv(cptr->user->uid, "syslog")) {
+   if (client_has_flag(cptr, FLAG_STAFF) || has_priv(cptr->user->uid, "syslog")) {
       bool new_state = false;
 
       // Parse the state
@@ -506,8 +504,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                acptr->user_agent ? acptr->user_agent : "Unknown",
                acptr->user->is_muted ? "true" : "false");
 
-            if (written < 0 || (size_t)written >= remaining)
+            if (written < 0 || (size_t)written >= remaining) {
                goto trunc;
+            }
             wp += written;
             remaining -= written;
 
@@ -515,8 +514,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          written = snprintf(wp, remaining, "]");
-         if (written < 0 || (size_t)written >= remaining)
+         if (written < 0 || (size_t)written >= remaining) {
             goto trunc;
+         }
          wp += written;
          remaining -= written;
 

@@ -41,11 +41,13 @@ static int32_t rr_cat_kpa500_alc(struct AmpState *amp, char *args) {
    if (args != NULL) {
       uint32_t tmp = atoi(args);
 
-      if (tmp < 0)
+      if (tmp < 0) {
          tmp = 0;
+      }
 
-      if (tmp > 210)
+      if (tmp > 210) {
          tmp = 210;
+      }
 
       amp->alc[amp->current_band] = alc = tmp;
    }
@@ -60,11 +62,13 @@ static int32_t rr_cat_kpa500_afr(struct AmpState *amp, char *args) {
    if (args != NULL) {
       uint32_t tmp = atoi(args);
 
-      if (tmp < 1400)
+      if (tmp < 1400) {
          tmp = 1400;
+      }
 
-      if (tmp > 5000)
+      if (tmp > 5000) {
          tmp = 5000;
+      }
 
       amp->afr = afr = tmp;
    }
@@ -90,10 +94,13 @@ static int32_t rr_cat_kpa500_bcstandby(struct AmpState *amp, char *args) {
    // SET request?
    if (args != NULL) {
       uint32_t tmp = atoi(args);
-      if (tmp < 0)
+      if (tmp < 0) {
          tmp = 0;
-      if (tmp > 1)
+      }
+
+      if (tmp > 1) {
          tmp = 1;
+      }
 
       rig.bc_standby = tmp;
       bc = tmp;
@@ -129,10 +136,13 @@ static int32_t rr_cat_kpa500_fan(struct AmpState *amp, char *args) {
    if (args != NULL) {
       uint32_t tmp = atoi(args);
 
-      if (tmp < 0)
+      if (tmp < 0) {
          tmp = 0;
-      if (tmp > 6)
+      }
+
+      if (tmp > 6) {
          tmp = 6;
+      }
 
       rig.fan_speed = fc = tmp;
    }
@@ -146,8 +156,9 @@ static int32_t rr_cat_kpa500_faults(struct AmpState *amp, char *args) {
       // clear requested?
       if (*args == 'C') {
          rig.fault_code = faults = 0;
-      } else	// invalid request
+      } else {	// invalid request
          return -1;
+      }
    }
    rr_cat_printf("^FL%02d", faults);
 
@@ -178,10 +189,14 @@ static int32_t rr_cat_kpa500_power(struct AmpState *amp, char *args) {
    uint32_t power = amp->power;
    if (args != NULL) {
       uint32_t tmp = atoi(args);
-      if (tmp < 0)
+
+      if (tmp < 0) {
          tmp = 0;
-      if (tmp > 1)
+      }
+
+      if (tmp > 1) {
          tmp = 1;
+      }
 
       amp->power = power = tmp;
    }
@@ -193,10 +208,14 @@ static int32_t rr_cat_kpa500_standby(struct AmpState *amp, char *args) {
    uint32_t standby = amp->standby;
    if (args != NULL) {
       uint32_t tmp = atoi(args);
-      if (tmp < 0)
+
+      if (tmp < 0) {
          tmp = 0;
-      if (tmp > 1)
+      }
+
+      if (tmp > 1) {
          tmp = 1;
+      }
 
       amp->standby = standby = tmp;
    }
@@ -208,10 +227,14 @@ static int32_t rr_cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
    uint32_t standby = amp->output_target[amp->current_band];
    if (args != NULL) {
       uint32_t tmp = atoi(args);
-      if (tmp < 0)
+
+      if (tmp < 0) {
          tmp = 0;
-      if (tmp > 1)
+      }
+
+      if (tmp > 1) {
          tmp = 1;
+      }
 
       amp->output_target[amp->current_band] = standby = tmp;
    }
@@ -234,11 +257,14 @@ static int32_t rr_cat_kpa500_get_temp(struct AmpState *amp, char *args) {
 
    if (args != NULL) {
       uint32_t tmp = atoi(args);
-      if (tmp < 0)
-         tmp = 0;
 
-      if (tmp > 5)
+      if (tmp < 0) {
+         tmp = 0;
+      }
+
+      if (tmp > 5) {
          tmp = 5;
+      }
 
       sensor = tmp;
    }
@@ -251,10 +277,14 @@ static int32_t rr_cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
    uint32_t beep = rig.faultbeep;
    if (args != NULL) {
       uint32_t tmp = atoi(args);
-      if (tmp < 0)
+
+      if (tmp < 0) {
          tmp = 0;
-      if (tmp > 1)
+      }
+
+      if (tmp > 1) {
          tmp = 1;
+      }
 
       beep = tmp;
       rig.faultbeep = beep;
@@ -268,10 +298,14 @@ static int32_t rr_cat_kpa500_trdelay(struct AmpState *amp, char *args) {
    uint32_t trdelay = rig.tr_delay;
    if (args != NULL) {
       uint32_t tmp = atoi(args);
-      if (tmp < 0)
+
+      if (tmp < 0) {
          tmp = 0;
-      if (tmp > 1)
+      }
+
+      if (tmp > 1) {
          tmp = 1;
+      }
 
       rig.tr_delay = trdelay = tmp;
    }
@@ -285,10 +319,14 @@ static int32_t rr_cat_kpa500_power_info(struct AmpState *amp, char *args) {
 
    if (args != NULL) {
       uint32_t tmp = atoi(args);
-      if (tmp < 0)
+
+      if (tmp < 0) {
          tmp = 0;
-      if (tmp > 1)
+      }
+
+      if (tmp > 1) {
          tmp = 1;
+      }
 
       volts = get_voltage(0);	// in power.c
       curr = get_current(0);

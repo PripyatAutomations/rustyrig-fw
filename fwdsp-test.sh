@@ -8,6 +8,7 @@
 #rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! opusenc ! oggmux ! queue ! fdsink fd=%d"
 #rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! flacenc ! oggmux ! queue ! fdsink fd=%d"
 rx_pipeline="pulsesrc device=default do-timestamp=1 ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! queue ! fdsink fd=%d"
+#rx_pipeline="pulsesrc device=default do-timestamp=1 ! audioconvert ! audioresample ! flacenc ! queue ! fdsink fd=%d"
 #rx_pipeline="pulsesrc device=default ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! queue ! fdsink  fd=%d"
 #rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=44100,channels=1 ! flacenc ! queue ! fdsink fd=%d"
 #tx_pipepine="fdsrc fd=%d ! oggdemux ! flacdec ! audioconvert ! audioresample ! queue ! pulsesink device=default"

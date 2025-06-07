@@ -66,6 +66,10 @@ static gboolean scroll_to_end_idle(gpointer data) {
    GtkTextView *text_view = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
    GtkTextIter end;
+   if (data == NULL) {
+      printf("scroll_to_end_idle: data == NULL\n");
+      return FALSE;
+   }
    gtk_text_buffer_get_end_iter(buffer, &end);
    gtk_text_view_scroll_to_iter(text_view, &end, 0.0, TRUE, 0.0, 1.0);
    return FALSE; 		// remove the idle handler after it runs
@@ -100,6 +104,9 @@ bool log_print(const char *fmt, ...) {
       return false;
    }
 
+   if (fmt == NULL) {
+      printf("log_print sent NULL fmt\n");
+   }
    va_list ap;
    va_start(ap, fmt);
    char outbuf[8096];

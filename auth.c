@@ -326,7 +326,9 @@ bool match_priv(const char *user_privs, const char *priv) {
       size_t len = end ? (size_t)(end - start) : strlen(start);
 
       char token[64];
-      if (len >= sizeof(token)) len = sizeof(token) - 1;
+      if (len >= sizeof(token)) {
+         len = sizeof(token) - 1;
+      }
       memcpy(token, start, len);
       token[len] = '\0';
 
@@ -362,7 +364,9 @@ bool has_priv(int uid, const char *priv) {
       size_t len = sep ? (size_t)(sep - p) : strlen(p);
 
       char tmp[64];  // adjust size as needed
-      if (len >= sizeof(tmp)) len = sizeof(tmp) - 1;
+      if (len >= sizeof(tmp)) {
+         len = sizeof(tmp) - 1;
+      }
       memcpy(tmp, p, len);
       tmp[len] = '\0';
 

@@ -103,9 +103,9 @@ bool ws_audio_init(void) {
 
       const char *cfg_rx_format = dict_get(cfg, "audio.pipeline.rx.format", NULL);
       int rx_format = 0;
-      if (strcasecmp(cfg_rx_format, "bytes") == 0) {
+      if (cfg_rx_format != NULL && strcasecmp(cfg_rx_format, "bytes") == 0) {
          rx_format = GST_FORMAT_BYTES;
-      } else if (strcasecmp(cfg_rx_format, "time") == 0) {
+      } else if (cfg_rx_format && strcasecmp(cfg_rx_format, "time") == 0) {
          rx_format = GST_FORMAT_TIME;
       }
 
@@ -145,9 +145,9 @@ bool ws_audio_init(void) {
 
       const char *cfg_tx_format = dict_get(cfg, "audio.pipeline.tx.format", NULL);
       int tx_format = 0;
-      if (strcasecmp(cfg_tx_format, "bytes") == 0) {
+      if (cfg_tx_format != NULL && strcasecmp(cfg_tx_format, "bytes") == 0) {
          tx_format = GST_FORMAT_BYTES;
-      } else if (strcasecmp(cfg_tx_format, "time") == 0) {
+      } else if (cfg_tx_format != NULL && strcasecmp(cfg_tx_format, "time") == 0) {
          tx_format = GST_FORMAT_TIME;
       }
 

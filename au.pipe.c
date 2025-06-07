@@ -38,7 +38,9 @@ bool pipe_read_samples(rr_au_pipe_device_t *device, void *buffer, size_t size) {
 }
 
 void pipe_cleanup(rr_au_pipe_device_t *device) {
-    if (device->pipe_fd >= 0) close(device->pipe_fd);
+    if (device->pipe_fd >= 0) {
+       close(device->pipe_fd);
+    }
 }
 
 rr_au_backend_interface_t au_backend_pipe = {

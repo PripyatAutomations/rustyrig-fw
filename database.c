@@ -23,6 +23,7 @@ sqlite3 *masterdb = NULL;
 
 sqlite3 *db_open(const char *path) {
    sqlite3 *db;
+
    if (sqlite3_open(path, &db) == SQLITE_OK) {
       return db;
    }
@@ -37,8 +38,9 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled,
                      "VALUES (?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       return false;
+   }
 
    sqlite3_bind_int(stmt, 1, uid);
    sqlite3_bind_text(stmt, 2, name, -1, SQLITE_STATIC);
@@ -57,8 +59,9 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    const char *sql = "INSERT INTO audit_log (username, event_type, details) VALUES (?, ?, ?);";
 
    sqlite3_stmt *stmt;
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       return false;
+   }
 
    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
    sqlite3_bind_text(stmt, 2, event_type, -1, SQLITE_STATIC);
@@ -77,8 +80,9 @@ int db_ptt_start(sqlite3 *db, const char *username,
                      "VALUES (?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       return -1;
+   }
 
    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
    sqlite3_bind_double(stmt, 2, frequency);
@@ -100,8 +104,9 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
    const char *sql = "UPDATE ptt_log SET end_time = CURRENT_TIMESTAMP WHERE id = ?;";
 
    sqlite3_stmt *stmt;
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       return false;
+   }
 
    sqlite3_bind_int(stmt, 1, session_id);
 

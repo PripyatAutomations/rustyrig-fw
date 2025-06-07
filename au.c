@@ -202,7 +202,9 @@ static bool parse_format_header(int fd, struct audio_header *hdr_out) {
 
    while (total < sizeof(*hdr_out)) {
       r = read(fd, buf + total, sizeof(*hdr_out) - total);
-      if (r <= 0) return false;
+      if (r <= 0) {
+         return false;
+      }
       total += r;
    }
 

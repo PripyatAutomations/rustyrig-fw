@@ -35,16 +35,22 @@ uint32_t i2c_init(void) {
 }
 
 uint32_t i2c_write(uint8_t addr, const uint8_t *data, size_t len) {
-    if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0) return -1;
+    if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0) {
+       return -1;
+    }
     return (write(i2c_fd, data, len) == len) ? 0 : -1;
 }
 
 uint32_t i2c_read(uint8_t addr, uint8_t *data, size_t len) {
-    if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0) return -1;
+    if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0) {
+       return -1;
+    }
     return (read(i2c_fd, data, len) == len) ? 0 : -1;
 }
 
 void i2c_deinit(void) {
-    if (i2c_fd >= 0) close(i2c_fd);
+    if (i2c_fd >= 0) {
+       close(i2c_fd);
+    }
 }
 #endif	// defined(HOST_POSIX)

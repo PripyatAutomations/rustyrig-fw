@@ -86,7 +86,7 @@ objs += util.file.o		# Misc file functions
 objs += util.math.o		# Misc math functions
 objs += util.string.o		# String utility functions
 objs += ws.o			# Websocket transport general
-
+objs += ws.audio.o		# Audio over websocket negotiation
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)
 

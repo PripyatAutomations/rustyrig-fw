@@ -441,8 +441,9 @@ float eeprom_get_float_i(uint32_t idx) {
       return -1;
    }
 
-   if (idx == -1)
+   if (idx == -1) {
       return -1;
+   }
 
    float value = 0;
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;
@@ -467,12 +468,15 @@ const char *eeprom_get_str_i(uint32_t idx) {
       return NULL;
    }
 
-   if (idx == -1)
+   if (idx == -1) {
       return NULL;
+   }
 
    static char buf[256];
    size_t len = eeprom_layout[idx].size;
-   if (len == (size_t)-1) len = 255; // Arbitrary max size for flexible strings
+   if (len == (size_t)-1) {
+      len = 255; // Arbitrary max size for flexible strings
+   }
 
    memset(buf, 0, sizeof(buf));
    u_int8_t *myaddr = rig.eeprom_mmap + eeprom_layout[idx].offset;

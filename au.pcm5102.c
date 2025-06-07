@@ -42,7 +42,9 @@ struct au_device_t {
 
 au_device_t *au_init(au_backend_t backend, const char *device_name) {
 #if	defined(HOST_ESP32)
-    if (backend != AU_BACKEND_I2S) return NULL;
+    if (backend != AU_BACKEND_I2S) {
+       return NULL;
+    }
 
     au_device_t *dev = calloc(1, sizeof(au_device_t));
     dev->backend = backend;
