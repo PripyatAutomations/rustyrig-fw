@@ -318,7 +318,7 @@ static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer us
 void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    gdouble val = gtk_range_get_value(range);
    val /= 100.0;  // scale from 0–100 to 0.0–1.0
-   Log(LOG_DEBUG, "rxvol", "New val: %f", val);
+   Log(LOG_DEBUG, "rx-vol", "New val: %f", val);
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
 
@@ -391,7 +391,7 @@ bool gui_init(void) {
    GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
    GtkWidget *rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(dict_get(cfg, "default.volume.rx", "30")));
-   rx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(rx_pipeline), "rxvol");
+   rx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(rx_pipeline), "rx-vol");
    if (rx_vol_gst_elem) {
       g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
    }

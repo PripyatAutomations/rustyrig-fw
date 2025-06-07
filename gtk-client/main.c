@@ -86,6 +86,8 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
+   setenv("GST_DEBUG_DUMP_DOT_DIR", "1", 0);
+   setenv("GST_DEBUG", "*:3", 0);
    ws_init();
    gtk_init(&argc, &argv);
    gui_init();

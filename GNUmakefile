@@ -275,7 +275,7 @@ install:
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av ${bins}  ${INSTALL_DIR}/bin
 	cp -av archive-config.sh *-rigctld.sh fwdsp-test.sh killall.sh rrclient.sh test-run.sh ${INSTALL_DIR}/bin
-	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
+#	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
  
 ###################
 # Running on host #
