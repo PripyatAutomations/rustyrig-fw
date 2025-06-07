@@ -149,11 +149,12 @@ distclean: clean
 	${RM} -r build
 	${RM} -f config/archive/*.json *.log
 
-###############
-# DFU Install #
-###############
+################
+# Host Install #
+################
 install:
-	@echo "Automatic DFU installation isn't supported yet... Please see doc/INSTALLING.txt for more info"
+	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
+	cp -av ${bins}  ${INSTALL_DIR}/bin
 
 ###################
 # Running on host #
