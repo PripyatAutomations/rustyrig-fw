@@ -347,16 +347,11 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       const char *url = dict_get(cfg, "server.url", NULL);
 
       if (c->is_tls) {
-         struct mg_tls_opts opts = { .name = mg_url_host(url) };
-/*
-         if (tls_ca_path != NULL) {
-            Log(LOG_DEBUG, "http", "TLS path: %s", tls_ca_path);
-            opts.ca = tls_ca_path_str;
-         }
-*/
-         tls_ca_path = "*";
-         opts.ca = mg_str(tls_ca_path);
+         Log(LOG_DEBUG, "ws", "handler, is_tls: true");
+         struct mg_tls_opts opts = { .name = mg_url_host(url), .ca = tls_ca_path_str };
          mg_tls_init(c, &opts);
+      } else {
+         Log(LOG_DEBUG, "ws", "handler, is_tls: false");
       }
    } else if (ev == MG_EV_WS_OPEN) {
       const char *login_user = dict_get(cfg, "server.user", NULL);
@@ -389,18 +384,22 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 }
 
 void ws_init(void) {
-//   mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
+   const char *debug = dict_get(cfg, "debug.http", "false");
+   if (debug != NULL && (strcasecmp(debug, "true") == 0 ||
+                        strcasecmp(debug, "yes") == 0)) {
+      mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
+   }
    mg_mgr_init(&mgr);
+   tls_ca_path = "*";
 /*
    tls_ca_path = find_file_by_list(default_tls_ca_paths, sizeof(default_tls_ca_paths) / sizeof(char *));
-
+*/
    if (tls_ca_path != NULL) {
       tls_ca_path_str = mg_str(tls_ca_path);
       Log(LOG_DEBUG, "ws", "Setting TLS CA path to %s", tls_ca_path);
    } else {
       Log(LOG_CRIT, "ws", "unable to find TLS CA file");
    }
-*/
 }
 
 void ws_fini(void) {
@@ -474,8 +473,15 @@ bool connect_or_disconnect(GtkButton *button) {
       if (url) {
          // Connect to WebSocket server
          ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
-         struct mg_tls_opts opts = { .ca = "*" };  // for self-signed or test certs
-         mg_tls_init(ws_conn, &opts);  // <--- Required for wss://
+         if (strncasecmp(url, "wss://", 6) == 0) {
+            Log(LOG_DEBUG, "http", "Our URL %s needs TLS, enabling!", url);
+            struct mg_tls_opts opts;
+            Log(LOG_DEBUG, "http", "tls_ca_path:<%x> %s, tls_ca_path_str:<%x>", tls_ca_path, tls_ca_path, tls_ca_path_str);
+            opts.ca = tls_ca_path_str;
+            mg_tls_init(ws_conn, &opts);
+         } else {
+            Log(LOG_DEBUG, "http", "our URL %s is NOT TLS, skipping!", url);
+         }
 
          if (ws_conn == NULL) {
             ui_print("[%s] Socket connect error", get_chat_ts());
