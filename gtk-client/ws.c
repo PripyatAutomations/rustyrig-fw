@@ -17,7 +17,7 @@
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
-
+#include "rrclient/audio.h"
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;
 bool ws_connected = false;
@@ -25,6 +25,8 @@ struct mg_connection *ws_conn = NULL;
 bool server_ptt_state = false;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
+
+static bool sending_in_progress = false;
 
 extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
@@ -59,7 +61,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
    }
 
    if (strcasecmp(cmd, "userinfo") == 0) {
-      Log(LOG_DEBUG, "chat", "UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), muted, clones);
+      ui_print("UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), muted, clones);
    } else if (strcasecmp(cmd, "msg") == 0) {
       char *from = mg_json_get_str(msg_data, "$.talk.from");
       char *data = mg_json_get_str(msg_data, "$.talk.data");
@@ -76,7 +78,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          free(ip);
          goto cleanup;
       }
-      ui_print("[%s] *** %s connected to the radio", get_chat_ts(), user);
+      ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(), user);
       free(ip);
    } else if (strcasecmp(cmd, "quit") == 0) {
       char *reason = mg_json_get_str(msg_data, "$.talk.reason");
@@ -84,13 +86,17 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          free(reason);
          goto cleanup;
       }
-      ui_print("[%s] *** %s disconnected from the radio: %s", get_chat_ts(), user, reason);
+      ui_print("[%s] >> %s disconnected from the radio: %s <<<", get_chat_ts(), user, reason ? reason : "No reason given");
       free(reason);
    } else if (strcmp(cmd, "whois") == 0) {
       const char *json_array = mg_json_get_str(msg_data, "$.talk.data");
+/*
       if (json_array) {
          ui_show_whois_dialog(GTK_WINDOW(main_window), json_array);
       }
+*/
+      ui_print(">>> WHOIS %s", user);
+      ui_print("   %s", json_array);
    } else {
       Log(LOG_DEBUG, "chat", "msg: %.*s", msg->data.len, msg->data.buf);
    }
@@ -347,11 +353,14 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       const char *url = dict_get(cfg, "server.url", NULL);
 
       if (c->is_tls) {
-         Log(LOG_DEBUG, "ws", "handler, is_tls: true");
          struct mg_tls_opts opts = { .name = mg_url_host(url), .ca = tls_ca_path_str };
          mg_tls_init(c, &opts);
-      } else {
-         Log(LOG_DEBUG, "ws", "handler, is_tls: false");
+      }
+   } else if (ev == MG_EV_WRITE) {
+      if (sending_in_progress) {
+         free_sent_frame();
+         sending_in_progress = false;
+         try_send_next_frame(c);  // attempt to send the next
       }
    } else if (ev == MG_EV_WS_OPEN) {
       const char *login_user = dict_get(cfg, "server.user", NULL);
@@ -474,13 +483,10 @@ bool connect_or_disconnect(GtkButton *button) {
          // Connect to WebSocket server
          ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
          if (strncasecmp(url, "wss://", 6) == 0) {
-            Log(LOG_DEBUG, "http", "Our URL %s needs TLS, enabling!", url);
             struct mg_tls_opts opts;
             Log(LOG_DEBUG, "http", "tls_ca_path:<%x> %s, tls_ca_path_str:<%x>", tls_ca_path, tls_ca_path, tls_ca_path_str);
             opts.ca = tls_ca_path_str;
             mg_tls_init(ws_conn, &opts);
-         } else {
-            Log(LOG_DEBUG, "http", "our URL %s is NOT TLS, skipping!", url);
          }
 
          if (ws_conn == NULL) {

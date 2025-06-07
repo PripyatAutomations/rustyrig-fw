@@ -16,21 +16,11 @@
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
+#include "rrclient/userlist.h"
 
 extern dict *cfg;
 extern GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
-
-struct rr_user {
-   char   	  name[HTTP_USER_LEN+1];
-   char           privs[200];
-   time_t	  logged_in;
-   time_t         last_heard;
-   u_int32_t      user_flags;
-   bool           is_ptt;
-   bool           is_muted;
-   struct rr_user *next;
-};
 
 enum {
    COL_PRIV_ICON,
@@ -45,7 +35,7 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
    return TRUE;              // prevent the default handler from destroying it
 }
 
-GtkWidget *create_user_list_window(void) {
+GtkWidget *userlist_init(void) {
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
    const char *cfg_height_s = dict_get(cfg, "ui.userlist.height", "600");
@@ -116,7 +106,9 @@ GtkWidget *create_user_list_window(void) {
 
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    gtk_widget_show_all(window);
-   Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
+   g_signal_connect(window, "key-press-event", G_CALLBACK(handle_keypress), window);
+
+//   Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
 //   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
    return window;
@@ -145,5 +137,9 @@ bool userlist_add(struct rr_user *cptr) {
       COL_TALK_ICON, "microphone-sensitivity-high",
       COL_MUTE_ICON, NULL, // not muted
       -1);
+   ui_print("New user: %s (privs: %s) since %lu (last heard: %lu) - flags: %lu, ptt:%s muted:%s",
+       cptr->name, cptr->privs, cptr->logged_in, cptr->last_heard, cptr->user_flags,
+       (cptr->is_ptt ? "on" : "off"), (cptr->is_muted ? "on" : "off"));
+
    return false;
 }

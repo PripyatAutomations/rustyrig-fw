@@ -55,6 +55,7 @@ void shutdown_app(int signum) {
    } else {
       Log(LOG_INFO, "core", "Shutting down by user request");
    }
+   dying = true;
 }
 
 static gboolean poll_mongoose(gpointer user_data) {
@@ -86,8 +87,11 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
-   setenv("GST_DEBUG_DUMP_DOT_DIR", "1", 0);
-   setenv("GST_DEBUG", "*:3", 0);
+   // Set up some debugging
+   setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
+   const char *cfg_audio_debug = dict_get(cfg, "audio.debug", ":*3");
+   setenv("GST_DEBUG", cfg_audio_debug, 0);
+
    ws_init();
    gtk_init(&argc, &argv);
    ws_audio_init();

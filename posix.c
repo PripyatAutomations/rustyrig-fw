@@ -68,7 +68,6 @@ static void sighandler(int32_t signum) {
       case SIGINT:
       case SIGTERM:
       case SIGKILL:
-         dying = true;
 #if	defined(__RRCLIENT) || defined(__FWDSP)
          shutdown_app(0);
 #else

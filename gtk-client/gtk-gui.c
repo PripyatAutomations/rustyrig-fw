@@ -25,7 +25,7 @@ extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
 extern struct mg_connection *ws_conn;
-extern GtkWidget *create_user_list_window(void);
+extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern GstElement *rx_vol_gst_elem;		// audio.c
@@ -38,10 +38,18 @@ GtkWidget *mode_combo = NULL;
 GtkWidget *userlist_window = NULL;
 GtkWidget *log_view = NULL;
 GtkTextBuffer *log_buffer = NULL;
+GtkWidget *chat_entry = NULL;
 GtkWidget *ptt_button = NULL;
-GtkWidget *config_tab = NULL;
 GtkWidget *main_window = NULL;
 GtkWidget *rx_vol_slider = NULL;
+GtkWidget *toggle_userlist_button = NULL;
+
+///////// Tab View //////////
+GtkWidget *notebook = NULL;
+GtkWidget *config_tab = NULL;
+GtkWidget *main_tab = NULL;
+GtkWidget *log_tab = NULL;
+
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
 static char chat_ts[9];
@@ -225,38 +233,109 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    return false;
 }
 
-static void on_send_button_clicked(GtkButton *button, gpointer entry) {
-   const gchar *msg = gtk_entry_get_text(GTK_ENTRY(entry));
+void show_help(void) {
+   ui_print("******************************************");
+   ui_print("          rustyrig v.%s help", VERSION);
+   ui_print("[Chat Commands]");
+   ui_print("   /clear			Clear chat tab");
+   ui_print("   /clearlog		Clear the syslog tab");
+   ui_print("   /die			Shut down server");
+//   ui_print("   /edit			Edit a user");
+   ui_print("   /help			This help text");
+   ui_print("   /kick [user] [reason]	Kick the user");
+   ui_print("   /logout			Logout");
+   ui_print("   /me [message]		Send an ACTION");
+   ui_print("   /mute [user] [reason]	Disable controls for user");
+   ui_print("   /names			Show who's in the chat");
+   ui_print("   /restart [reason]	Restart the server");
+//   ui_print("   /rxmute			MUTE RX audio");
+   ui_print("   /rxvol [vol;ume]	Set RX volume");
+   ui_print("   /rxunmute		Unmute RX audio");
+//   ui_print("   /txmute			Mute TX audio");
+//   ui_print("   /txvol [val]		Set TX gain");
+   ui_print("   /unmute [user]		Unmute user");
+   ui_print("   /whois [user]		WHOIS a user");
+   ui_print("   /quit [reason]		End the session");
+   ui_print("");
+   ui_print("[UI Commands]");
+   ui_print("   /chat			Switch to chat tab");
+   ui_print("   /config | /cfg		Switch to config tab");
+   ui_print("   /log | /syslog		Switch to syslog tab");
+   ui_print("[Key Combinations");
+   ui_print("   alt-1 thru alt-3	Change tabs in main window");
+   ui_print("   alt-u			Show userlist");
+   ui_print("******************************************");
+}
 
+static void on_send_button_clicked(GtkButton *button, gpointer entry) {
+   const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
 
    if (ws_conn && msg && *msg) {
       if (msg[0] == '/') { // Handle local commands
          if (strcasecmp(msg + 1, "ban") == 0) {
-         } else if (strcasecmp(msg + 1, "chat") == 0) {
-           // Switch to chat tab
          } else if (strcasecmp(msg + 1, "clear") == 0) {
             gtk_text_buffer_set_text(text_buffer, "", -1);
          } else if (strcasecmp(msg + 1, "clearlog") == 0) {
             gtk_text_buffer_set_text(log_buffer, "", -1);
-         } else if (strcasecmp(msg + 1, "config") == 0 || strcasecmp(msg + 1, "cfg") == 0) {
          } else if (strcasecmp(msg + 1, "die") == 0) {
+            char msgbuf[4096];
+            prepare_msg(msgbuf, sizeof(msgbuf), 
+               "{ \"talk\": { \"cmd\": \"die\", \"args\": \"%s\" } }", msg);
+            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          } else if (strcasecmp(msg + 1, "edit") == 0) {
          } else if (strcasecmp(msg + 1, "help") == 0) {
+            show_help();
          } else if (strcasecmp(msg + 1, "kick") == 0) {
-         } else if (strcasecmp(msg + 1, "log") == 0) {
+            char msgbuf[4096];
+            prepare_msg(msgbuf, sizeof(msgbuf), 
+               "{ \"talk\": { \"cmd\": \"kick\", \"reason\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
+            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          } else if (strcasecmp(msg + 1, "logout") == 0) {
-         } else if (strcasecmp(msg + 1, "menu") == 0) {
          } else if (strcasecmp(msg + 1, "me") == 0) {
+            char msgbuf[4096];
+            prepare_msg(msgbuf, sizeof(msgbuf), 
+               "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
+               "\"msg_type\": \"action\" } }", msg);
+            
+            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          } else if (strcasecmp(msg + 1, "mute") == 0) {
          } else if (strcasecmp(msg + 1, "names") == 0) {
          } else if (strcasecmp(msg + 1, "restart") == 0) {
+            char msgbuf[4096];
+            prepare_msg(msgbuf, sizeof(msgbuf), 
+               "{ \"talk\": { \"cmd\": \"die\", \"reason\": \"%s\" } }", msg);
+            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          } else if (strcasecmp(msg + 1, "rxmute") == 0) {
          } else if (strcasecmp(msg + 1, "rxvol") == 0) {
+            gdouble val = atoi(msg + 7) / 100;
+            gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
+            ui_print("* Set rx-vol to %f", val);
          } else if (strcasecmp(msg + 1, "rxunmute") == 0) {
-         } else if (strcasecmp(msg + 1, "syslog") == 0) {
          } else if (strcasecmp(msg + 1, "unmute") == 0) {
          } else if (strcasecmp(msg + 1, "whois") == 0) {
+            char msgbuf[4096];
+            prepare_msg(msgbuf, sizeof(msgbuf), 
+               "{ \"talk\": { \"cmd\": \"die\", \"restart\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
+            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          } else if (strcasecmp(msg + 1, "quit") == 0) {
+            shutdown_app(0);
+         // Switch tabs
+         } else if (strcasecmp(msg + 1, "chat") == 0) {
+            int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), main_tab);
+            if (index != -1) {
+               gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+               gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+            }
+         } else if (strcasecmp(msg + 1, "config") == 0 || strcasecmp(msg + 1, "cfg") == 0) {
+            int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), config_tab);
+            if (index != -1) {
+               gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+            }
+         } else if (strcasecmp(msg + 1, "log") == 0 || strcasecmp(msg + 1, "syslog") == 0) {
+            int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), log_tab);
+            if (index != -1) {
+               gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+            }
          } else {
            // Invalid command
            ui_print("Invalid command: %s", msg);
@@ -272,8 +351,9 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
 
       g_ptr_array_add(input_history, g_strdup(msg));
       history_index = input_history->len;
-      gtk_entry_set_text(GTK_ENTRY(entry), "");
+      gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
    }
+   gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 }
 
 static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
@@ -289,7 +369,7 @@ static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointe
       if (history_index < input_history->len - 1) {
          history_index++;
       } else {
-         gtk_entry_set_text(GTK_ENTRY(entry), "");
+         gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
          history_index = input_history->len;
          return TRUE;
       }
@@ -298,8 +378,8 @@ static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointe
    }
 
    const char *text = g_ptr_array_index(input_history, history_index);
-   gtk_entry_set_text(GTK_ENTRY(entry), text);
-   gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+   gtk_entry_set_text(GTK_ENTRY(chat_entry), text);
+   gtk_editable_set_position(GTK_EDITABLE(chat_entry), -1);
    return TRUE;
 }
 
@@ -331,6 +411,41 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    val /= 100.0;  // scale from 0–100 to 0.0–1.0
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
+gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+   GtkNotebook *notebook = GTK_NOTEBOOK(user_data);
+
+   // alt-u works everywhere
+   if ((event->state & GDK_MOD1_MASK)) {
+      if (event->keyval == GDK_KEY_u) {
+         if (gtk_widget_get_visible(userlist_window)) {
+            gtk_widget_hide(userlist_window);
+         } else {
+            gtk_widget_show_all(userlist_window);
+         }
+         return TRUE;
+      }
+   }
+
+   // alt-1 through alt-3 only work in main window
+   if ((event->state & GDK_MOD1_MASK) && gtk_window_is_active(GTK_WINDOW(main_window))) {
+      // now safe to respond to Alt+1..3
+      switch (event->keyval) {
+         case GDK_KEY_1:
+            gtk_notebook_set_current_page(notebook, 0);
+            gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+            break;
+         case GDK_KEY_2:
+            gtk_notebook_set_current_page(notebook, 1);
+            break;
+         case GDK_KEY_3:
+            gtk_notebook_set_current_page(notebook, 2);
+            break;
+      }
+      gtk_window_present(GTK_WINDOW(main_window));
+      return TRUE;
+   }
+   return FALSE;
+}
 
 bool gui_init(void) {
    GtkCssProvider *provider = gtk_css_provider_new();
@@ -358,10 +473,10 @@ bool gui_init(void) {
    gtk_window_set_default_size(GTK_WINDOW(main_window), cfg_width_i, cfg_height_i);
    gtk_window_move(GTK_WINDOW(main_window), cfg_x_i, cfg_y_i);
 
-   GtkWidget *notebook = gtk_notebook_new();
+   notebook = gtk_notebook_new();
    gtk_container_add(GTK_CONTAINER(main_window), notebook);
 
-   GtkWidget *main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), main_tab, gtk_label_new("Control"));
 
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -447,19 +562,19 @@ bool gui_init(void) {
    gtk_container_add(GTK_CONTAINER(scrolled), text_view);
    gtk_box_pack_start(GTK_BOX(main_tab), scrolled, TRUE, TRUE, 0);
 
-   GtkWidget *entry = gtk_entry_new();
-   gtk_box_pack_start(GTK_BOX(main_tab), entry, FALSE, FALSE, 0);
+   chat_entry = gtk_entry_new();
+   gtk_box_pack_start(GTK_BOX(main_tab), chat_entry, FALSE, FALSE, 0);
    Log(LOG_CRAZY, "gtk", "entry add callback activate");
-   g_signal_connect(entry, "activate", G_CALLBACK(on_send_button_clicked), entry);
+   g_signal_connect(chat_entry, "activate", G_CALLBACK(on_send_button_clicked), chat_entry);
    Log(LOG_CRAZY, "gtk", "entry add callbak key-press");
-   g_signal_connect(entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
+   g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
 
    GtkWidget *button = gtk_button_new_with_label("Send");
    gtk_box_pack_start(GTK_BOX(main_tab), button, FALSE, FALSE, 0);
    Log(LOG_CRAZY, "gtk", "send button add callbak clicked");
-   g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), entry);
+   g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
-   GtkWidget *log_tab = gtk_scrolled_window_new(NULL, NULL);
+   log_tab = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(log_tab),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
@@ -477,7 +592,7 @@ bool gui_init(void) {
    GtkWidget *config_label = gtk_label_new("Configuration will go here...");
    gtk_box_pack_start(GTK_BOX(config_tab), config_label, FALSE, FALSE, 12);
 
-   GtkWidget *toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
+   toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
    gtk_box_pack_start(GTK_BOX(config_tab), toggle_userlist_button, FALSE, FALSE, 3);
    Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
    g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
@@ -507,9 +622,15 @@ bool gui_init(void) {
       gtk_window_present(GTK_WINDOW(main_window));   
    }
 
-   userlist_window = create_user_list_window();
+   userlist_window = userlist_init();
+
    gtk_widget_show_all(main_window);
+   g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_keypress), notebook);
+
+   // Focus the chat entry by defualt
+   gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
    ui_print("[%s] rustyrig client started", get_chat_ts());
+
 
    return false;
 }

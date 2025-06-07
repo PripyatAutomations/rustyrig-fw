@@ -7,7 +7,8 @@ CF := config/${PROFILE}.config.json
 CHANNELS := config/${PROFILE}.channels.json
 BUILD_DIR := build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
-INSTALL_DIR = /opt/rustyrig
+#INSTALL_DIR = /opt/rustyrig
+INSTALL_DIR = /usr/local
 fw_bin := ${BUILD_DIR}/firmware.bin
 fwdsp_bin := ${BUILD_DIR}/fwdsp.bin
 
@@ -274,7 +275,7 @@ install:
 #	@echo "Automatic DFU installation isn't supported yet... Please see doc/INSTALLING.txt for more info"
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av ${bins}  ${INSTALL_DIR}/bin
-	cp -av archive-config.sh *-rigctld.sh fwdsp-test.sh killall.sh rrclient.sh test-run.sh ${INSTALL_DIR}/bin
+#	cp -av archive-config.sh *-rigctld.sh fwdsp-test.sh killall.sh rrclient.sh test-run.sh ${INSTALL_DIR}/bin
 #	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
  
 ###################

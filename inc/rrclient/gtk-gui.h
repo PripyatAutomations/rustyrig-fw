@@ -29,6 +29,7 @@ extern bool log_print(const char *fmt, ...);
 extern void update_connection_button(bool connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, gboolean active);
 extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text);
+extern gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 extern bool gui_init(void);
 extern void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 extern GtkTextBuffer *text_buffer;

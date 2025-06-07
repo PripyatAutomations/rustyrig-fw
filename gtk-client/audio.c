@@ -30,8 +30,9 @@
 #include "inc/posix.h"
 #include "inc/util.file.h"
 #include "inc/mongoose.h"
+#include "rrclient/gtk-gui.h"
+#include "rrclient/audio.h"
 
-#define	AUDIO_PCM
 extern dict *cfg;		// main.c
 extern struct mg_connection *ws_conn;
 extern GtkWidget *rx_vol_slider;
@@ -46,27 +47,88 @@ GstElement *tx_appsrc = NULL;
 GstElement *tx_vol_gst_elem = NULL;
 GstElement *tx_sink = NULL;
 
-GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
-   GstSample *sample;
-   GstBuffer *buffer;
-   GstMapInfo map;
+static struct ws_frame *send_queue = NULL;
+static bool sending_in_progress = false;
 
-   sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
+void enqueue_frame(uint8_t *data, size_t len) {
+  struct ws_frame *f = malloc(sizeof(*f));
+  f->data = data;
+  f->len = len;
+  f->next = NULL;
+  if (!send_queue) {
+     send_queue = f;
+  } else {
+    struct ws_frame *last = send_queue;
+    while (last->next) last = last->next;
+    last->next = f;
+  }
+}
+
+void free_sent_frame(void) {
+  if (send_queue) {
+    free(send_queue->data);
+    struct ws_frame *tmp = send_queue;
+    send_queue = send_queue->next;
+    free(tmp);
+  }
+}
+
+void try_send_next_frame(struct mg_connection *c) {
+  if (sending_in_progress || !send_queue) return;
+
+  sending_in_progress = true;
+  mg_ws_send(c, send_queue->data, send_queue->len, WEBSOCKET_OP_BINARY);
+  // free_sent_frame() will be called once send completes
+}
+
+GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
+   GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
    if (!sample) {
       return GST_FLOW_ERROR;
    }
 
-   buffer = gst_sample_get_buffer(sample);
+   if (!ws_conn) {
+      gst_sample_unref(sample);
+      return GST_FLOW_OK;
+   }
+
+   GstBuffer *buffer = gst_sample_get_buffer(sample);
+   GstMapInfo map;
+
    if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-      Log(LOG_DEBUG, "ws.audio", "Read %li bytes", strlen(user_data));
-      mg_ws_send(ws_conn, map.data, map.size, WEBSOCKET_OP_BINARY);
+      if (map.size > 0 && map.size < 65536) {
+         struct ws_frame *frame = malloc(sizeof(*frame));
+         if (frame == NULL) {
+            Log(LOG_CRIT, "audio", "OOM in handle_tx_sample!");
+            exit(1);
+         }
+
+         frame->data = malloc(map.size);
+         frame->len = map.size;
+         memcpy(frame->data, map.data, map.size);
+
+         mg_ws_send(ws_conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
+//         ws_conn->pfn = on_ws_event;
+         ws_conn->fn_data = frame;
+      } else {
+         Log(LOG_WARN, "ws.audio", "Discarding oversized buffer: %zu bytes", map.size);
+      }
       gst_buffer_unmap(buffer, &map);
-   } else {
-      Log(LOG_DEBUG, "ws.audio", "Buffer map failed");
    }
 
    gst_sample_unref(sample);
    return GST_FLOW_OK;
+}
+
+static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
+   if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
+      GError *err = NULL;
+      gchar *debug = NULL;
+      gst_message_parse_error(msg, &err, &debug);
+      g_printerr("GStreamer ERROR: %s\n", err->message);
+      g_error_free(err);
+      g_free(debug);
+   }
 }
 
 bool ws_audio_init(void) {
@@ -123,6 +185,7 @@ bool ws_audio_init(void) {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
 
+#if	0 // disabled for now
    ///////////////
    Log(LOG_INFO, "audio", "Configuring TX audio-path");
    const char *tx_pipeline_str = dict_get(cfg, "audio.pipeline.tx", NULL);
@@ -133,16 +196,24 @@ bool ws_audio_init(void) {
       Log(LOG_INFO, "audio", "Launching TX pipeline: %s", tx_pipeline_str);
       tx_pipeline = gst_parse_launch(tx_pipeline_str, NULL);
       if (!tx_pipeline) {
+         Log(LOG_CRIT, "audio", "Failed to connect tx_pipeline");
          return false;
       }
 
       // Attach stuff
 //      tx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-vol");
-      tx_appsrc = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-src");
+      tx_appsrc = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-sink");
       if (!tx_appsrc) {
+         Log(LOG_CRIT, "audio", "Failed to connect tx_appsrc");
          return false;
       }
 
+      GstBus *rx_bus = gst_pipeline_get_bus(GST_PIPELINE(rx_pipeline));
+      gst_bus_add_signal_watch(rx_bus);
+      g_signal_connect(rx_bus, "message", G_CALLBACK(on_bus_message), NULL);
+      gst_object_unref(rx_bus);
+
+#if	0
       const char *cfg_tx_format = dict_get(cfg, "audio.pipeline.tx.format", NULL);
       int tx_format = 0;
       if (cfg_tx_format != NULL && strcasecmp(cfg_tx_format, "bytes") == 0) {
@@ -151,11 +222,19 @@ bool ws_audio_init(void) {
          tx_format = GST_FORMAT_TIME;
       }
 
+      gst_object_unref(tx_bus);
+
       g_object_set(G_OBJECT(tx_appsrc), "format", tx_format,
                    "is-live", TRUE,
                    "stream-type", 0, // GST_APP_STREAM_TYPE_STREAM
                    NULL);
-      Log(LOG_CRAZY, "audio", "tx_sink connect callback new-sample");
+#endif
+
+      GstBus *tx_bus = gst_pipeline_get_bus(GST_PIPELINE(tx_pipeline));
+      gst_bus_add_signal_watch(tx_bus);
+      g_signal_connect(tx_bus, "message", G_CALLBACK(on_bus_message), NULL);
+
+      Log(LOG_DEBUG, "audio", "tx_sink connect callback new-sample");
       tx_sink = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-sink");
       g_signal_connect(tx_sink, "new-sample", G_CALLBACK(handle_tx_sample), NULL);
 
@@ -167,6 +246,7 @@ bool ws_audio_init(void) {
    } else {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
+#endif
 
    return true;
 }
@@ -195,9 +275,11 @@ void ws_audio_shutdown(void) {
    }
 }
 
-void ws_binframe_process(const void *data, size_t len) {
+//
+// Deal with a received audio frame
+bool ws_binframe_process(const char *data, size_t len) {
    if (!rx_appsrc || len == 0) {
-      return;
+      return true;
    }
 
    GstBuffer *buffer = gst_buffer_new_allocate(NULL, len, NULL);
