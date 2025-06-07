@@ -30,6 +30,8 @@ extern time_t poll_block_expire, poll_block_delay;
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
+GtkCssProvider *css_provider = NULL;
+GtkTextBuffer *log_buffer = NULL;
 GtkTextBuffer *text_buffer;
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
@@ -37,13 +39,11 @@ GtkWidget *freq_entry = NULL;
 GtkWidget *mode_combo = NULL;
 GtkWidget *userlist_window = NULL;
 GtkWidget *log_view = NULL;
-GtkTextBuffer *log_buffer = NULL;
 GtkWidget *chat_entry = NULL;
 GtkWidget *ptt_button = NULL;
 GtkWidget *main_window = NULL;
 GtkWidget *rx_vol_slider = NULL;
 GtkWidget *toggle_userlist_button = NULL;
-
 ///////// Tab View //////////
 GtkWidget *notebook = NULL;
 GtkWidget *config_tab = NULL;
@@ -263,7 +263,7 @@ void show_help(void) {
    ui_print("   /log | /syslog		Switch to syslog tab");
    ui_print("[Key Combinations");
    ui_print("   alt-1 thru alt-3	Change tabs in main window");
-   ui_print("   alt-u			Show userlist");
+   ui_print("   alt-u			Toggle userlist");
    ui_print("******************************************");
 }
 
@@ -448,8 +448,8 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
 }
 
 bool gui_init(void) {
-   GtkCssProvider *provider = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(provider,
+   css_provider = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(css_provider,
       ".ptt-active { background: red; color: white; }"
       ".ptt-idle { background: #0fc00f; color: white; }"
       ".conn-active { background: #0fc00f; color: white; }"
@@ -458,7 +458,7 @@ bool gui_init(void) {
 
    gtk_style_context_add_provider_for_screen(
       gdk_screen_get_default(),
-      GTK_STYLE_PROVIDER(provider),
+      GTK_STYLE_PROVIDER(css_provider),
       GTK_STYLE_PROVIDER_PRIORITY_USER);
 
    input_history = g_ptr_array_new_with_free_func(g_free);
