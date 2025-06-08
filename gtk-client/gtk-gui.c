@@ -273,65 +273,64 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    if (ws_conn && msg && *msg) {
       if (msg[0] == '/') { // Handle local commands
          if (strcasecmp(msg + 1, "ban") == 0) {
-         } else if (strcasecmp(msg + 1, "clear") == 0) {
+         } else if (strncasecmp(msg + 1, "clear", 5) == 0) {
             gtk_text_buffer_set_text(text_buffer, "", -1);
-         } else if (strcasecmp(msg + 1, "clearlog") == 0) {
+         } else if (strncasecmp(msg + 1, "clearlog", 8) == 0) {
             gtk_text_buffer_set_text(log_buffer, "", -1);
-         } else if (strcasecmp(msg + 1, "die") == 0) {
+         } else if (strncasecmp(msg + 1, "die", 3) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
                "{ \"talk\": { \"cmd\": \"die\", \"args\": \"%s\" } }", msg);
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strcasecmp(msg + 1, "edit") == 0) {
-         } else if (strcasecmp(msg + 1, "help") == 0) {
+         } else if (strncasecmp(msg + 1, "edit", 4) == 0) {
+         } else if (strncasecmp(msg + 1, "help", 4) == 0) {
             show_help();
-         } else if (strcasecmp(msg + 1, "kick") == 0) {
+         } else if (strncasecmp(msg + 1, "kick", 4) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
                "{ \"talk\": { \"cmd\": \"kick\", \"reason\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strcasecmp(msg + 1, "logout") == 0) {
-         } else if (strcasecmp(msg + 1, "me") == 0) {
+         } else if (strncasecmp(msg + 1, "logout", 6) == 0) {
+         } else if (strncasecmp(msg + 1, "me", 2) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
                "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
-               "\"msg_type\": \"action\" } }", msg);
-            
+               "\"msg_type\": \"action\" } }", msg + 3);
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strcasecmp(msg + 1, "mute") == 0) {
-         } else if (strcasecmp(msg + 1, "names") == 0) {
-         } else if (strcasecmp(msg + 1, "restart") == 0) {
+         } else if (strncasecmp(msg + 1, "mute", 4) == 0) {
+         } else if (strncasecmp(msg + 1, "names", 5) == 0) {
+         } else if (strncasecmp(msg + 1, "restart", 7) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
                "{ \"talk\": { \"cmd\": \"die\", \"reason\": \"%s\" } }", msg);
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strcasecmp(msg + 1, "rxmute") == 0) {
-         } else if (strcasecmp(msg + 1, "rxvol") == 0) {
+         } else if (strncasecmp(msg + 1, "rxmute", 6) == 0) {
+         } else if (strncasecmp(msg + 1, "rxvol", 5) == 0) {
             gdouble val = atoi(msg + 7) / 100;
             gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
             ui_print("* Set rx-vol to %f", val);
-         } else if (strcasecmp(msg + 1, "rxunmute") == 0) {
-         } else if (strcasecmp(msg + 1, "unmute") == 0) {
-         } else if (strcasecmp(msg + 1, "whois") == 0) {
+         } else if (strncasecmp(msg + 1, "rxunmute", 8) == 0) {
+         } else if (strncasecmp(msg + 1, "unmute", 6) == 0) {
+         } else if (strncasecmp(msg + 1, "whois", 4) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
                "{ \"talk\": { \"cmd\": \"die\", \"restart\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strcasecmp(msg + 1, "quit") == 0) {
+         } else if (strncasecmp(msg + 1, "quit", 4) == 0) {
             shutdown_app(0);
          // Switch tabs
-         } else if (strcasecmp(msg + 1, "chat") == 0) {
+         } else if (strncasecmp(msg + 1, "chat", 4) == 0) {
             int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), main_tab);
             if (index != -1) {
                gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
                gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
             }
-         } else if (strcasecmp(msg + 1, "config") == 0 || strcasecmp(msg + 1, "cfg") == 0) {
+         } else if (strncasecmp(msg + 1, "config", 6) == 0 || strcasecmp(msg + 1, "cfg") == 0) {
             int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), config_tab);
             if (index != -1) {
                gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
             }
-         } else if (strcasecmp(msg + 1, "log") == 0 || strcasecmp(msg + 1, "syslog") == 0) {
+         } else if (strncasecmp(msg + 1, "log", 3) == 0 || strcasecmp(msg + 1, "syslog") == 0) {
             int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), log_tab);
             if (index != -1) {
                gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);

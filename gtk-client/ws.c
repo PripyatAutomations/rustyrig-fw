@@ -69,13 +69,21 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
    } else if (strcasecmp(cmd, "msg") == 0) {
       char *from = mg_json_get_str(msg_data, "$.talk.from");
       char *data = mg_json_get_str(msg_data, "$.talk.data");
-      ui_print("[%s]  <%s> %s", get_chat_ts(), from, data);
+      char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
+      Log(LOG_DEBUG, "ws", "from: %s msg_type: %s data: |%s|", from, msg_type, data);
+
+      if (strcasecmp(msg_type, "pub") == 0) {
+         ui_print("[%s] <%s> %s", get_chat_ts(), from, data);
+      } else if (strcasecmp(msg_type, "action") == 0) {
+         ui_print("[%s] * %s %s", get_chat_ts(), from, data);
+      }
 
       if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
          gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
       }
       free(data);
       free(from);
+      free(msg_type);
    } else if (strcasecmp(cmd, "join") == 0) {
       char *ip = mg_json_get_str(msg_data, "$.talk.ip");
       if (user == NULL || ip == NULL) {
