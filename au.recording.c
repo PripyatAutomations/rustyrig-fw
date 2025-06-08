@@ -30,4 +30,5 @@
 
 // Returns the ID of the reecording
 int au_recording_start(void) {
+   return 0;
 }
