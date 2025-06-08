@@ -278,7 +278,7 @@ void ws_audio_shutdown(void) {
 //
 // Deal with a received audio frame
 bool audio_process_frame(const char *data, size_t len) {
-   if (!rx_appsrc || len <= 10) {
+   if (!rx_appsrc || len <= 0) {
       return true;
    }
 

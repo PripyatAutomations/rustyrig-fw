@@ -65,7 +65,6 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       if (clones != NULL) {
          clones_i = atoi(clones);
       }
-      ui_print("ui: %s", msg_data);
       ui_print("UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), muted, clones_i);
    } else if (strcasecmp(cmd, "msg") == 0) {
       char *from = mg_json_get_str(msg_data, "$.talk.from");
@@ -214,14 +213,15 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
 
    if (strcasecmp(cmd, "challenge") == 0) {
       char *token = mg_json_get_str(msg_data, "$.auth.token");
-      memset(session_token, 0, HTTP_TOKEN_LEN + 1);
 
       if (token != NULL) {
+         memset(session_token, 0, HTTP_TOKEN_LEN + 1);
          snprintf(session_token, HTTP_TOKEN_LEN + 1, "%s", token);
       } else {
          ui_print("[%s] ?? Got CHALLENGE without valid token!", get_chat_ts());
          goto cleanup;
       }
+
       ui_print("[%s] *** Sending PASSWD ***", get_chat_ts());
       ws_send_passwd(c, user, dict_get(cfg, "server.pass", NULL), nonce);
       free(token);
@@ -328,15 +328,14 @@ cleanup:
 }
 
 //      ws_binframe_process(msg->data.buf, msg->data.len);
-
 bool ws_binframe_process(const char *data, size_t len) {
    if (data == NULL || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
       return true;
    }
 
-   if (data[0] == 'A' && data[1] == 'U') {
+//   if (data[0] == 'A' && data[1] == 'U') {
       audio_process_frame(data, len);
-   }
+//   }
    return false;
 }
 
