@@ -27,3 +27,7 @@
 #if	defined(FEATURE_OPUS)
 #include <opus/opus.h>  // Used for audio compression
 #endif
+
+// Returns the ID of the reecording
+int au_recording_start(void) {
+}

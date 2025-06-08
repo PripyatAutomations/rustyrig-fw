@@ -11,6 +11,7 @@
 #include "inc/util.file.h"
 
 dict *cfg = NULL;
+dict *servers = NULL;
 
 bool config_load(const char *path) {
    int line = 0, errors = 0;
@@ -18,18 +19,16 @@ bool config_load(const char *path) {
    char *end, *skip,
         *key, *val,
         *this_section = 0;
-   char *section = "general";
 
    if (!file_exists(path)) {
       Log(LOG_CRIT, "config", "Can't find config file %s", path);
       return true;
    }
 
-   if (cfg != NULL) {
+   if (cfg != NULL || servers != NULL) {
       Log(LOG_CRIT, "config", "Config already loaded");
       return true;
    }
-
 
    FILE *fp = fopen(path, "r");
    if (fp == NULL) {
@@ -41,7 +40,10 @@ bool config_load(const char *path) {
    fseek(fp, 0, SEEK_SET);
 
    cfg = dict_new();
+   servers = dict_new();
 
+   // Support for C style comments
+   bool in_comment = false;
    do {
       memset(buf, 0, sizeof(buf));
       fgets(buf, sizeof(buf) - 1, fp);
@@ -64,12 +66,23 @@ bool config_load(const char *path) {
          continue;
       }
 
-      if ((*skip == '/' && *skip+1 == '/') ||		// comments
+      // Look for end of comment
+      if (*skip == '*' && *skip == '/') {
+         in_comment = false;
+         continue;
+      // Look for start of comment
+      } else if (*skip == '/' && *skip + 1 == '*') {
+         in_comment = true;
+         continue;
+      // If we're in a comment still, there's no */ on this line, so continue ignoring input
+      } else if (in_comment) {
+         continue;
+      } else if ((*skip == '/' && *skip+1 == '/') ||	// comments
            *skip == '#' || *skip == ';') {
          continue;
       } else if (*skip == '[' && *end == ']') {		// section
          this_section = strndup(skip + 1, strlen(skip) - 2);
-//         fprintf(stderr, "[Info]: cfg.section.open: '%s' [%lu]\n", this_section, strlen(this_section));
+         fprintf(stderr, "[Debug]: cfg.section.open: '%s' [%lu]\n", this_section, strlen(this_section));
          continue;
       } else if (*skip == '@') {			// preprocessor
          if (strncasecmp(skip + 1, "if ", 3) == 0) {
@@ -83,14 +96,8 @@ bool config_load(const char *path) {
 
       // Configuration data *MUST* be inside of a section, no exceptions.
       if (!this_section) {
-         fprintf(stderr, "[Debug] config %s has line outside section header at line %d: %s\n", path, line, buf);
-         errors++;
-         continue;
-      }
-
-      // skip sections not the one we are looking for
-      if (strncasecmp(section, this_section, strlen(section)) != 0) {
-         // Do nothing
+//         fprintf(stderr, "[Debug] config %s has line outside section header at line %d: %s\n", path, line, buf);
+//         errors++;
          continue;
       }
 
@@ -112,6 +119,30 @@ bool config_load(const char *path) {
 
          // Store value
          dict_add(cfg, key, val);
+      } else if (strncasecmp(this_section, "server:", 7) == 0) {
+        // XXX: parse server and add it to list
+//         fprintf(stderr, "parse server: %s\n", skip);
+         key = NULL;
+         val = NULL;
+         char *eq = strchr(skip, '=');
+         char fullkey[128];
+
+         if (eq) {
+            *eq = '\0';
+            key = skip;
+            val = eq + 1;
+
+            while (*val == ' ') {
+               val++;
+            }
+         }
+
+         memset(fullkey, 0, sizeof(fullkey));
+         snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
+//         fprintf(stderr, "fullkey: %s\n", fullkey);
+
+         // Store value
+         dict_add(servers, fullkey, val);
       } else {
          fprintf(stderr, "[Debug] Unknown configuration section '%s' parsing '%s' at %s:%d\n", this_section, buf, path, line);
          errors++;
@@ -119,10 +150,9 @@ bool config_load(const char *path) {
    } while (!feof(fp));
 
    if (errors > 0) {
-      fprintf(stderr, "cfg [%s] %d lines loaded with %d errors from %s\n", section, line, errors, path);
+      fprintf(stderr, "cfg loaded %d lines from %s with %d warnings/errors\n",  line, path, errors);
    } else {
-      fprintf(stderr, "cfg [%s] loaded %d lines from %s with no errors\n", section, line, path);
+      fprintf(stderr, "cfg loaded %d lines from %s with no errors\n", line, path);
    }
-
    return false;
 }

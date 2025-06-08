@@ -340,6 +340,7 @@ char * dict_get(dict * d, char * key, char * defval)
 
     hash = dict_hash(key);
     kp = dict_lookup(d, key, hash);
+
     if (kp) {
         return kp->val ;
     }

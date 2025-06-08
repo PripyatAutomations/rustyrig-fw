@@ -1,3 +1,4 @@
+
 amp.c					Amplifier controls (NYI)
 atu.c					Auto-tuning support (NYI)
 au.alsa.c				ALSA audio backend (untested codegpt muck)
@@ -17,7 +18,7 @@ channels.c				Support for channel memories
 codec.c					Support for audio codecs like OPUS (NYI)
 console.c				Console (TUI) for the server (NYI)
 dds.ad9833.c				DDS: AD9833 (NYI)
-dds.ad9959_stm32.c			DDS: AD9959 with STM32 host; NYI but some code
+dds.ad9959_stm32.c			DDS: AD9959 with STM32 host; NYI but working code from my control tool that should be trivial to integrate wlater
 dds.c					DDS units (NYI)
 dds.si5351.c				DDS: SI5351 (NYI)
 debug.c					Debug stuff

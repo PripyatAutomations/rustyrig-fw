@@ -236,47 +236,82 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
 void show_help(void) {
    ui_print("******************************************");
    ui_print("          rustyrig v.%s help", VERSION);
+   ui_print("[Server Commands]");
+   ui_print("   /connect | /server [name]  Connect to a server (or default)");
+   ui_print("   /disconnect             Disconnect from server");
    ui_print("[Chat Commands]");
-   ui_print("   /clear			Clear chat tab");
-   ui_print("   /clearlog		Clear the syslog tab");
-   ui_print("   /die			Shut down server");
-//   ui_print("   /edit			Edit a user");
-   ui_print("   /help			This help text");
-   ui_print("   /kick [user] [reason]	Kick the user");
-   ui_print("   /logout			Logout");
-   ui_print("   /me [message]		Send an ACTION");
-   ui_print("   /mute [user] [reason]	Disable controls for user");
-   ui_print("   /names			Show who's in the chat");
-   ui_print("   /restart [reason]	Restart the server");
-//   ui_print("   /rxmute			MUTE RX audio");
-   ui_print("   /rxvol [vol;ume]	Set RX volume");
-   ui_print("   /rxunmute		Unmute RX audio");
-//   ui_print("   /txmute			Mute TX audio");
-//   ui_print("   /txvol [val]		Set TX gain");
-   ui_print("   /unmute [user]		Unmute user");
-   ui_print("   /whois [user]		WHOIS a user");
-   ui_print("   /quit [reason]		End the session");
+   ui_print("   /clear                  Clear chat tab");
+   ui_print("   /clearlog               Clear the syslog tab");
+   ui_print("   /die                    Shut down server");
+//   ui_print("   /edit                   Edit a user");
+   ui_print("   /help                   This help text");
+   ui_print("   /kick [user] [reason]   Kick the user");
+   ui_print("   /me [message]           Send an ACTION");
+   ui_print("   /mute [user] [reason]   Disable controls for user");
+   ui_print("   /names                  Show who's in the chat");
+   ui_print("   /restart [reason]       Restart the server");
+//   ui_print("   /rxmute                  MUTE RX audio");
+   ui_print("   /rxvol [vol;ume]        Set RX volume");
+   ui_print("   /rxunmute               Unmute RX audio");
+//   ui_print("   /txmute                 Mute TX audio");
+//   ui_print("   /txvol [val]            Set TX gain");
+   ui_print("   /unmute [user]          Unmute user");
+   ui_print("   /whois [user]           WHOIS a user");
+   ui_print("   /quit [reason]          End the session");
    ui_print("");
    ui_print("[UI Commands]");
-   ui_print("   /chat			Switch to chat tab");
-   ui_print("   /config | /cfg		Switch to config tab");
-   ui_print("   /log | /syslog		Switch to syslog tab");
+   ui_print("   /chat                   Switch to chat tab");
+   ui_print("   /config | /cfg          Switch to config tab");
+   ui_print("   /log | /syslog          Switch to syslog tab");
    ui_print("[Key Combinations");
-   ui_print("   alt-1 thru alt-3	Change tabs in main window");
-   ui_print("   alt-u			Toggle userlist");
+   ui_print("   alt-1 thru alt-3        Change tabs in main window");
+   ui_print("   alt-u                   Toggle userlist");
    ui_print("******************************************");
 }
 
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
 
-   if (ws_conn && msg && *msg) {
+   // These commands should always be available
+   if (strncasecmp(msg + 1, "server", 6) == 0 ||
+       strncasecmp(msg + 1, "connect", 7) == 0) {
+      const char *server = msg + 7;
+      if (server != NULL && strlen(server) > 1) {
+         memset(active_server, 0, sizeof(active_server));
+         snprintf(active_server, sizeof(active_server), "%s", server);
+      } else if (ws_conn == NULL) {
+         connect_server();
+      } else {
+         ui_print("Invalid server specified");
+      }
+   } else if (strncasecmp(msg + 1, "disconnect", 10) == 0) {
+      disconnect_server();
+   } else if (strncasecmp(msg + 1, "quit", 4) == 0) {
+      shutdown_app(0);
+   // Switch tabs
+   } else if (strncasecmp(msg + 1, "chat", 4) == 0) {
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), main_tab);
+      if (index != -1) {
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+         gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+      }
+   } else if (strncasecmp(msg + 1, "clear", 5) == 0) {
+      gtk_text_buffer_set_text(text_buffer, "", -1);
+   } else if (strncasecmp(msg + 1, "clearlog", 8) == 0) {
+      gtk_text_buffer_set_text(log_buffer, "", -1);
+   } else if (strncasecmp(msg + 1, "config", 6) == 0 || strcasecmp(msg + 1, "cfg") == 0) {
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), config_tab);
+      if (index != -1) {
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+      }
+   } else if (strncasecmp(msg + 1, "log", 3) == 0 || strcasecmp(msg + 1, "syslog") == 0) {
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), log_tab);
+      if (index != -1) {
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+      }
+   } else if (ws_conn && msg && *msg) {			// These commands only work when online
       if (msg[0] == '/') { // Handle local commands
          if (strcasecmp(msg + 1, "ban") == 0) {
-         } else if (strncasecmp(msg + 1, "clear", 5) == 0) {
-            gtk_text_buffer_set_text(text_buffer, "", -1);
-         } else if (strncasecmp(msg + 1, "clearlog", 8) == 0) {
-            gtk_text_buffer_set_text(log_buffer, "", -1);
          } else if (strncasecmp(msg + 1, "die", 3) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
@@ -290,7 +325,6 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
             prepare_msg(msgbuf, sizeof(msgbuf), 
                "{ \"talk\": { \"cmd\": \"kick\", \"reason\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strncasecmp(msg + 1, "logout", 6) == 0) {
          } else if (strncasecmp(msg + 1, "me", 2) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
@@ -316,25 +350,6 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
             prepare_msg(msgbuf, sizeof(msgbuf), 
                "{ \"talk\": { \"cmd\": \"die\", \"restart\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strncasecmp(msg + 1, "quit", 4) == 0) {
-            shutdown_app(0);
-         // Switch tabs
-         } else if (strncasecmp(msg + 1, "chat", 4) == 0) {
-            int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), main_tab);
-            if (index != -1) {
-               gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
-               gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
-            }
-         } else if (strncasecmp(msg + 1, "config", 6) == 0 || strcasecmp(msg + 1, "cfg") == 0) {
-            int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), config_tab);
-            if (index != -1) {
-               gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
-            }
-         } else if (strncasecmp(msg + 1, "log", 3) == 0 || strcasecmp(msg + 1, "syslog") == 0) {
-            int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), log_tab);
-            if (index != -1) {
-               gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
-            }
          } else {
            // Invalid command
            ui_print("Invalid command: %s", msg);
@@ -347,11 +362,10 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
          
          mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       }
-
-      g_ptr_array_add(input_history, g_strdup(msg));
-      history_index = input_history->len;
-      gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
    }
+   g_ptr_array_add(input_history, g_strdup(msg));
+   history_index = input_history->len;
+   gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 }
 

@@ -1,23 +1,19 @@
+; Comments can begin with // # or ;   - We now support C style /* */ comments too
+/*
+ * most settings go in [general] setting, servers are called [server:name] where name is short name for it
+ */
 [general]
-server.url=ws://localhost:8420/ws/
-#server.url=wss://localhost:4420/ws/
-server.user=admin
-server.pass=password
-server.auto-connect=true
+;ui.show-pings=false
+# If we want to autoconnect to a server, name it here.
+server.auto-connect=home
 default.volume.rx=50
 default.tx.power=50
 audio.debug=*:3
 audio.volume.rx=20
 audio.pipeline.rx.format=time
-#audio.pipeline.rx.format=bytes
-audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! autoaudiosink name=rx-sink
-#audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink
-#audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! flacdec ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=rx-vol ! queue2 ! pulsesink device=default
+audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink
 audio.pipeline.tx.format=time
-#audio.pipeline.tx=pulsesrc device=default ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=tx-vol ! queue2 ! appsink name=tx-sink emit-signals=true sync=false
-#audio.pipeline.tx=pulsesrc device=default name=tx-src ! volume name=tx-vol ! queue2 ! appsink name=tx-sink emit-signals=true sync=false
 audio.pipeline.tx=audiotestsrc wave=sine freq=440 ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! volume name=tx-vol ! queue2 ! appsink name=tx-sink emit-signals=true sync=false
-#audio.pipeline.tx=appsrc name=rx-src is-live=true format=bytes ! oggdemux ! flacdec ! audioconvert ! audioresample ! queue2 ! pulsesink device=default
 ui.main.height=768
 ui.main.width=1024
 ui.main.x=1400
@@ -32,3 +28,10 @@ ui.userlist.x=800
 ui.userlist.y=2200
 # Length of time to block CAT updates (in seconds) after a local state change
 cat.poll-blocking=1
+
+[server:home]
+server.enabled=true
+#server.url=ws://localhost:8420/ws/
+server.url=wss://localhost:4420/ws/
+server.user=admin
+server.pass=passowrd

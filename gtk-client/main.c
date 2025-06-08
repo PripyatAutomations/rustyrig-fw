@@ -87,6 +87,12 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
+   const char *default_server = dict_get(cfg, "server.default", NULL);
+   if (default_server != NULL) {
+      memset(active_server, 0, sizeof(active_server));
+      snprintf(active_server, sizeof(active_server), "%s", default_server);
+   }
+
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
    const char *cfg_audio_debug = dict_get(cfg, "audio.debug", ":*3");
@@ -102,12 +108,13 @@ int main(int argc, char *argv[]) {
    char *poll_block_delay_s = dict_get(cfg, "cat.poll-blocking", "2");
    poll_block_delay = atoi(poll_block_delay_s);
 
-   // Should we connect on startup?
-   char *autoconnect = dict_get(cfg, "server.auto-connect", "false");
-   if (strcasecmp(autoconnect, "true") == 0 || strcasecmp(autoconnect, "yes") == 0 || strcasecmp(autoconnect, "on") == 0) {
+   // Should we connect to a server on startup?
+   char *autoconnect = dict_get(cfg, "server.auto-connect", NULL);
+   if (autoconnect != NULL) {
+      memset(active_server, 0, sizeof(active_server));
+      snprintf(active_server, sizeof(active_server), "%s", autoconnect);
       connect_or_disconnect(GTK_BUTTON(conn_button));
    }
-
 
    // start gtk main loop
    gtk_main();

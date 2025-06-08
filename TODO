@@ -10,6 +10,9 @@ ASAP
 * Move the input box to be permanently visible at bottom, with the button bar above it when in chat
 - Make VFO widgets floating
 - Make vfo edit widgets pop up overlapping the affected VFO
+- Need to review the libmongoose deps and ensure we can still build without mongoose
+  for cases it's not appropriate (stand-alone firmware on stm32/esp32 for example)
+  where we don't have a network client
 
 [misc]
 * Add support for TX quotas (credits) and tracking top talkers

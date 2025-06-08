@@ -27,7 +27,7 @@ const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
 
 static bool sending_in_progress = false;
-
+bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
 extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
@@ -35,6 +35,8 @@ extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern const char *expand_path(const char *path); // main.c
+extern dict *servers;
+char active_server[512];
 
 const char *default_tls_ca_paths[] = {
    "/etc/ssl/certs/ca-certificates.crt",
@@ -100,7 +102,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       }
       ui_print("[%s] >> %s disconnected from the radio: %s <<<", get_chat_ts(), user, reason ? reason : "No reason given");
       free(reason);
-   } else if (strcmp(cmd, "whois") == 0) {
+   } else if (strcasecmp(cmd, "whois") == 0) {
       const char *json_array = mg_json_get_str(msg_data, "$.talk.data");
 /*
       if (json_array) {
@@ -231,7 +233,9 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
       }
 
       ui_print("[%s] *** Sending PASSWD ***", get_chat_ts());
-      ws_send_passwd(c, user, dict_get(cfg, "server.pass", NULL), nonce);
+      const char *login_pass = get_server_property(active_server, "server.pass");
+
+      ws_send_passwd(c, user, login_pass, nonce);
       free(token);
    } else if (strcasecmp(cmd, "authorized") == 0) {
       ui_print("[%s] *** Authorized ***", get_chat_ts());
@@ -258,8 +262,11 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          snprintf(ts_buf, sizeof(ts_buf), "%.0f", ping_ts);
 
          char pong[128];
-         snprintf(pong, sizeof(pong), "{\"pong\": { \"ts\":\"%s\" } }", ts_buf);
+         snprintf(pong, sizeof(pong), "{ \"pong\": { \"ts\":\"%s\" } }", ts_buf);
          mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
+      }
+      if (cfg_show_pings) {
+         ui_print("* Ping? Pong! *");
       }
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
@@ -375,10 +382,15 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      c->is_hexdumping = 1;
       ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
-      const char *url = dict_get(cfg, "server.url", NULL);
-
+      const char *url = get_server_property(active_server, "server.url");
       if (c->is_tls) {
-         struct mg_tls_opts opts = { .name = mg_url_host(url), .ca = tls_ca_path_str };
+         struct mg_tls_opts opts = { .name = mg_url_host(url) };
+
+         if (tls_ca_path != NULL) {
+            opts.ca = tls_ca_path_str;
+         } else {
+            Log(LOG_CRIT, "ws", "No tls_ca_path set!");
+         }
          mg_tls_init(c, &opts);
       }
    } else if (ev == MG_EV_WRITE) {
@@ -388,7 +400,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          try_send_next_frame(c);  // attempt to send the next
       }
    } else if (ev == MG_EV_WS_OPEN) {
-      const char *login_user = dict_get(cfg, "server.user", NULL);
+      const char *login_user = get_server_property(active_server, "server.user");
       ws_connected = true;
       update_connection_button(true, conn_button);
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
@@ -424,16 +436,30 @@ void ws_init(void) {
       mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
    }
    mg_mgr_init(&mgr);
-   tls_ca_path = "*";
-/*
-   tls_ca_path = find_file_by_list(default_tls_ca_paths, sizeof(default_tls_ca_paths) / sizeof(char *));
-*/
+
+//   tls_ca_path = find_file_by_list(default_tls_ca_paths, sizeof(default_tls_ca_paths) / sizeof(char *));
+   if (tls_ca_path == NULL) {
+      tls_ca_path = strdup("*");
+   }
+
    if (tls_ca_path != NULL) {
+      // turn it into a mongoose string
       tls_ca_path_str = mg_str(tls_ca_path);
-      Log(LOG_DEBUG, "ws", "Setting TLS CA path to %s", tls_ca_path);
+      Log(LOG_DEBUG, "ws", "Setting TLS CA path to <%x> %s with target mg_str at <%x>", tls_ca_path, tls_ca_path, tls_ca_path_str);
    } else {
       Log(LOG_CRIT, "ws", "unable to find TLS CA file");
+      exit(1);
    }
+
+   const char *cfg_show_pings_s = dict_get(cfg, "ui.show-pings", "true");
+
+   if (cfg_show_pings_s != NULL && (strcasecmp(cfg_show_pings_s, "true") == 0 ||
+      strcasecmp(cfg_show_pings_s, "yes") == 0)) {
+      cfg_show_pings = true;
+   } else {
+      cfg_show_pings = false;
+   }
+   Log(LOG_DEBUG, "ws", "ws_init finished");
 }
 
 void ws_fini(void) {
@@ -495,31 +521,64 @@ bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
    return false;
 }
 
-bool connect_or_disconnect(GtkButton *button) {
+const char *get_server_property(const char *server, const char *prop) {
+   char *rv = NULL;
+
+   if (server == NULL || prop == NULL) {
+      Log(LOG_CRIT, "ws", "get_server_prop with null server:<%x> or prop:<%x>");
+      return NULL;
+   }
+
+   char fullkey[1024];
+   memset(fullkey, 0, sizeof(fullkey));
+   snprintf(fullkey, sizeof(fullkey), "%s.%s", server, prop);
+//   ui_print("Looking up server key: %s", fullkey);
+//   dict_dump(servers, stdout);
+   rv = dict_get(servers, fullkey, NULL);
+   return rv;
+}
+
+bool disconnect_server(void) {
    if (ws_connected) {
       ws_conn->is_closing = 1;
       ws_connected = false;
-      gtk_button_set_label(button, "Connect");
+      gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
       ws_conn = NULL;
-   } else {
-      const char *url = dict_get(cfg, "server.url", NULL);
+   }
+   return false;
+}
 
-      if (url) {
-         // Connect to WebSocket server
-         ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
-         if (strncasecmp(url, "wss://", 6) == 0) {
-            struct mg_tls_opts opts;
-            Log(LOG_DEBUG, "http", "tls_ca_path:<%x> %s, tls_ca_path_str:<%x>", tls_ca_path, tls_ca_path, tls_ca_path_str);
-            opts.ca = tls_ca_path_str;
-            mg_tls_init(ws_conn, &opts);
-         }
+bool connect_server(void) {
+   if (active_server[0] == '\0') {
+      // XXX: Display the server choser
+      ui_print("No active server selected, try /server profilename");
+      return true;
+   }
 
-         if (ws_conn == NULL) {
-            ui_print("[%s] Socket connect error", get_chat_ts());
-         }
-         gtk_button_set_label(button, "Connecting...");
-         ui_print("[%s] Connecting to %s", get_chat_ts(), url);
+   const char *url = get_server_property(active_server, "server.url");
+   ui_print("* Got server url |%s| for active server %s", url, active_server);
+
+   if (url) {
+      // Connect to WebSocket server
+      ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
+      if (strncasecmp(url, "wss://", 6) == 0) {
+         // XXX: any pre-init could go here but is generally handled above on detection of TLS
       }
+
+      if (ws_conn == NULL) {
+         ui_print("[%s] Socket connect error", get_chat_ts());
+      }
+      gtk_button_set_label(GTK_BUTTON(conn_button), "Connecting...");
+      ui_print("[%s] Connecting to %s", get_chat_ts(), url);
+   }
+   return false;
+}
+
+bool connect_or_disconnect(GtkButton *button) {
+   if (ws_connected) {
+      disconnect_server();
+   } else {
+      connect_server();
    }
    return false;
 }
