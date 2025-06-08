@@ -53,6 +53,7 @@ typedef struct au_codec_mapping {
 } au_codec_mapping_t;
 
 static au_codec_mapping_t	au_codecs[] = {
+    // Codec ID			// Magic	// Sample Rate
     { AU_CODEC_PCM16,		"PCM1",		16000 },
     { AU_CODEC_PCM44,		"PCM4",		44100 },
     { AU_CODEC_OPUS,		"OPUS",		48000 },
@@ -69,10 +70,20 @@ struct audio_settings {
 typedef struct audio_settings audio_settings_t;
 audio_settings_t	au_rx_config, au_tx_config;
 
+static inline int au_codec_by_id(enum au_codec id) {
+   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+   for (int i = 0; i < codec_entries; i++) {
+      if (au_codecs[i].id == id) {
+         Log(LOG_DEBUG, "ws.audio", "Got index %i", i);
+         return i;
+      }
+   }
+   return -1;
+}
+
 const char *au_codec_get_magic(int id) {
    int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
    for (int i = 0; i < codec_entries; i++) {
-
       if (au_codecs[i].id == AU_CODEC_NONE && au_codecs[i].magic == NULL) {
          break;
       }
@@ -93,11 +104,11 @@ int au_codec_get_id(const char *magic) {
    return -1;
 }
 
-uint32_t au_codec_get_samplerate(au_codec_mapping_t *au) {
+uint32_t au_codec_get_samplerate(int id) {
    int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
 
    for (int i = 0; i < codec_entries; i++) {
-      if (au_codecs[i].id == au->id) {
+      if (au_codecs[i].id == id) {
          return au_codecs[i].sample_rate;
       }
    }
@@ -111,9 +122,10 @@ bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
       return true;
    }
 
+   int codec_id  = au_codec_by_id(au->codec);
    char msgbuf[1024];
    memset(msgbuf, 0, sizeof(msgbuf));
-//   snprintf(msgbuf, "{ \"control\": { \"codec\": \"%s\", \"rate\": %d, \"active\": %s",
-//             au_codec_get_magic(au->codec->id), au_codec_get_samplerate(au->codec->id), (au->active ? "true" : "off"));
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"control\": { \"codec\": \"%s\", \"rate\": %d, \"active\": %s",
+             au_codec_get_magic(codec_id), au_codec_get_samplerate(codec_id), (au->active ? "true" : "off"));
    return true;
 }

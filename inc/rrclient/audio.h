@@ -31,10 +31,11 @@
 #include "rrclient/ws.h"
 
 struct ws_frame {
+  uint8_t magic[2];
   uint8_t *data;
   size_t len;
   struct ws_frame *next;
-};
+} __attribute__((packed));
 
 extern bool audio_enabled;
 extern bool gst_active;
@@ -45,13 +46,12 @@ extern GstElement *tx_pipeline;
 extern GstElement *tx_appsrc;
 extern GstElement *tx_vol_gst_elem;
 extern GstElement *tx_sink;
-
 extern void enqueue_frame(uint8_t *data, size_t len);
 extern void free_sent_frame(void);
 extern void try_send_next_frame(struct mg_connection *c);
 //extern GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
-extern bool ws_binframe_process(const char *data, size_t len);
+extern bool audio_process_frame(const char *data, size_t len);
 
 #endif	// !defined(__rrclient_audio_h)

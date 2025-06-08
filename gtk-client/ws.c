@@ -327,6 +327,19 @@ cleanup:
    return false;
 }
 
+//      ws_binframe_process(msg->data.buf, msg->data.len);
+
+bool ws_binframe_process(const char *data, size_t len) {
+   if (data == NULL || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
+      return true;
+   }
+
+   if (data[0] == 'A' && data[1] == 'U') {
+      audio_process_frame(data, len);
+   }
+   return false;
+}
+
 //
 // Handle a websocket request (see http.c/http_cb for case ev == MG_EV_WS_MSG)
 //
