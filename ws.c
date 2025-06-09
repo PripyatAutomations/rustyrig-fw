@@ -127,10 +127,11 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
                      "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"%s\", \"ts\": %li } }",
                      cptr->chatname, reason, now);
          struct mg_str ms = mg_str(resp_buf);
-         ws_broadcast(NULL, &ms);
+         ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
       }
    }
 
+   // Tell their client they've been disconnected
    prepare_msg(resp_buf, sizeof(resp_buf), 
       "{ \"auth\": { \"error\": \"Client kicked: %s\" } }",
       (reason != NULL ? reason : "no reason given"));

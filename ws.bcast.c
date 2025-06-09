@@ -28,7 +28,7 @@
 extern struct GlobalState rig;	// Global state
 
 // Broadcast a message to all WebSocket clients (using http_client_list)
-void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
+void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data, int data_type) {
    if (msg_data == NULL) {
       return;
    }
@@ -37,14 +37,14 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data) {
    while (current != NULL) {
       // NULL sender means it came from the server itself
       if ((current->is_ws && current->authenticated) && (current->conn != sender)) {
-         mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
+         mg_ws_send(current->conn, msg_data->buf, msg_data->len, data_type);
       }
       current = current->next;
    }
 }
 
 // Broadcast a message to all WebSocket clients with matching flags (using http_client_list)
-void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, struct mg_str *msg_data) {
+void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, struct mg_str *msg_data, int data_type) {
    if (msg_data == NULL) {
       return;
    }
@@ -54,7 +54,7 @@ void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, stru
       // NULL sender means it came from the server itself
       if (current && (current->is_ws && current->authenticated) && (current->conn != sender)) {
          if (client_has_flag(current, flags)) {
-            mg_ws_send(current->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
+            mg_ws_send(current->conn, msg_data->buf, msg_data->len, data_type);
          }
       }
       current = current->next;
@@ -73,12 +73,13 @@ bool send_global_alert(const char *sender, const char *data) {
       "{ \"alert\": { \"from\": \"%s\", \"msg\": \"%s\", \"ts\": %lu } }",
       sender, escaped_msg, now);
    mp = mg_str(msgbuf);
-   ws_broadcast(NULL, &mp);
+   ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
    free(escaped_msg);
 
    return false;
 }
 
+// XXX: This needs to go away and just be sent through the ws_broadcast_with_flags()
 void broadcast_audio_to_ws_clients(const void *data, size_t len) {
    struct mg_connection *c;
    http_client_t *current = http_client_list;

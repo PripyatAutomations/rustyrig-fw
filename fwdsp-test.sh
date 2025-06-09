@@ -6,8 +6,8 @@
 
 # RX audio (mic in)
 #rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! opusenc ! oggmux ! queue ! fdsink fd=%d"
-#rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! flacenc ! oggmux ! queue ! fdsink fd=%d"
-rx_pipeline="pulsesrc device=default do-timestamp=1 ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! queue ! fdsink fd=%d"
+####rx_pipeline="pulsesrc device=default do-timestamp=1 ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! queue ! fdsink fd=%d"
+rx_pipeline="pulsesrc device=default do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! mulawenc ! fdsink fd=%d"
 #rx_pipeline="pulsesrc device=default do-timestamp=1 ! audioconvert ! audioresample ! flacenc ! queue ! fdsink fd=%d"
 #rx_pipeline="pulsesrc device=default ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! queue ! fdsink  fd=%d"
 #rx_pipeline="pulsesrc device=default ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=44100,channels=1 ! flacenc ! queue ! fdsink fd=%d"

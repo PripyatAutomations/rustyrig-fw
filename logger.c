@@ -239,7 +239,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    snprintf(ws_logbuf, sizeof(ws_logbuf), "{ \"syslog\": { \"ts\": %lu, \"subsys\": \"%s\", \"prio\": \"%s\", \"data\": \"%s\" } }",
             now, subsys, log_priority_to_str(priority), ws_json_escaped);
    struct mg_str ms = mg_str(ws_logbuf);
-   ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms);
+   ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms, WEBSOCKET_OP_TEXT);
 #endif	// !defined(__RRCLIENT)
 
    /* Machdep logging goes here! */

@@ -430,7 +430,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
                         "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"connection closed\", \"ts\": %lu } }",
                         cptr->chatname, now);
             struct mg_str ms = mg_str(resp_buf);
-            ws_broadcast(NULL, &ms);
+            ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
             Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
          }
       } else {

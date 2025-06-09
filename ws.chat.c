@@ -132,7 +132,7 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
                (reason ? reason : "No reason given"));
             Log(LOG_AUDIT, "admin.kick", "%s %s", acptr->chatname, msgbuf);
 //            struct mg_str ms = mg_str(msgbuf);
-//            ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms);
+//            ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms, WEBSOCKET_OP_TEXT);
             ws_kick_client(acptr, msgbuf);
             kicked++;
          }
@@ -253,7 +253,7 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
    if (acptr != NULL) {
       ws_send_to_cptr(NULL, acptr, &msg);
    } else {
-      ws_broadcast(NULL, &msg);
+      ws_broadcast(NULL, &msg, WEBSOCKET_OP_TEXT);
    }
    return false;
 }
@@ -428,7 +428,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mp = mg_str(msgbuf);
 
          // Send to everyone, including the sender, which will then display it as SelfMsg
-         ws_broadcast(NULL, &mp);
+         ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
       } else if (strcasecmp(cmd, "die") == 0) {
          ws_chat_cmd_die(cptr, reason);
       } else if (strcasecmp(cmd, "kick") == 0) {

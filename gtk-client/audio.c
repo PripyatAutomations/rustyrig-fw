@@ -108,7 +108,8 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
          memcpy(frame->data, map.data, map.size);
 
          mg_ws_send(ws_conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
-//         ws_conn->pfn = on_ws_event;
+// XXX: Apply this to the GX
+//         ws_conn->pfn = ws_tx_callback;
          ws_conn->fn_data = frame;
       } else {
          Log(LOG_WARN, "ws.audio", "Discarding oversized buffer: %zu bytes", map.size);

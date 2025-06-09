@@ -11,7 +11,8 @@ default.tx.power=50
 audio.debug=*:3
 audio.volume.rx=20
 audio.pipeline.rx.format=time
-audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink
+;audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink
+audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes caps=audio/x-mulaw,rate=8000,channels=1 ! mulawdec ! queue ! pulsesink device=default name=rx-sink
 audio.pipeline.tx.format=time
 audio.pipeline.tx=audiotestsrc wave=sine freq=440 ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! volume name=tx-vol ! queue2 ! appsink name=tx-sink emit-signals=true sync=false
 ui.main.height=768

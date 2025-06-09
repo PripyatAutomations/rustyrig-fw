@@ -101,6 +101,17 @@ static void run_loop(struct audio_config *cfg) {
          continue;
       }
 
+/* XXX: Implement bus signals instead of polling
+GstBus *bus;
+
+[..]
+
+bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
+gst_bus_add_signal_watch (bus);
+g_signal_connect (bus, "message::error", G_CALLBACK (cb_message_error), NULL);
+g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
+*/
+
 //      send_format_header(sock_fd, cfg);
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {

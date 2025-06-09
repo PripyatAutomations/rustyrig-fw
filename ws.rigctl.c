@@ -231,7 +231,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
              cptr->chatname, ptt_state, vfo, dp->power,
              dp->freq, dp->width, mode_name, now);
          mp = mg_str(msgbuf);
-         ws_broadcast(NULL, &mp);
+         ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
 #endif
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
          rr_ptt_set(c_vfo, c_state);
@@ -273,7 +273,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"freq\": \"%f\", \"vfo\": \"%s\", \"ts\": %lu } }",
              cptr->chatname, new_freq, vfo, now);
          mp = mg_str(msgbuf);
-         ws_broadcast(NULL, &mp);
+         ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
 #endif
          Log(LOG_AUDIT, "ws.cat", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
          rr_freq_set(c_vfo, new_freq);
@@ -311,7 +311,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"mode\", \"mode\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
             cptr->chatname, mode, vfo, now);
          mp = mg_str(msgbuf);
-         ws_broadcast(NULL, &mp);
+         ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
 #endif
          Log(LOG_AUDIT, "mode", "User %s set VFO %s MODE to %s", cptr->chatname, vfo, mode);
          rr_mode_t new_mode = vfo_parse_mode(mode);

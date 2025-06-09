@@ -1,3 +1,12 @@
+//
+// gtk-client/ws.c
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+
 #include "inc/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -346,6 +355,13 @@ bool ws_binframe_process(const char *data, size_t len) {
    if (data == NULL || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
       return true;
    }
+
+   char hex[128] = {0};
+   size_t n = len < 16 ? len : 16;
+   for (size_t i = 0; i < n; i++) {
+      snprintf(hex + i * 3, sizeof(hex) - i * 3, "%02X ", (unsigned char)data[i]);
+   }
+   Log(LOG_DEBUG, "http.ws", "binary: %zu bytes, hex: %s", len, hex);
 
 //   if (data[0] == 'A' && data[1] == 'U') {
       audio_process_frame(data, len);

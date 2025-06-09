@@ -55,9 +55,9 @@ extern void au_send_to_ws(const void *data, size_t len);
 extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c);
 
 // ws_bcast.c
-extern void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, struct mg_str *msg_data);
 extern bool send_global_alert(const char *sender, const char *data);
-extern void ws_broadcast(struct mg_connection *sender_conn, struct mg_str *msg_data);
+extern void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, struct mg_str *msg_data, int data_type);
+extern void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data, int data_type);
 extern void ws_blorp_userlist_cb(void *arg);			// timer calls this to send userlists periodically
 extern void broadcast_audio_to_ws_clients(const void *data, size_t len);
 

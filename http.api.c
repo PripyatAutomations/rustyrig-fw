@@ -135,6 +135,7 @@ static http_route_t http_routes[HTTP_MAX_ROUTES] = {
     { "/api/version",	http_api_version, false },		// Version info
 //    { "/help",		http_help,	false }	,		// Help API
     { "/ws",		http_api_ws,	true },			// Upgrade to websocket
+//    { "/tx",		http_api_tx_ws, true },			// 
     { NULL,		NULL,		false }			// Terminator (is this even needed?)
 };
 
