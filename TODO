@@ -1,4 +1,7 @@
 ASAP
+* More audio config stuff, maybe support codec switching.
+  - Support for fwdsp report what codec & rate it's using, so multiple streams can be sent to backend
+    - Maybe add transcoding someday
 * Add mute/unmute button for RX audio which halts sending the samples entirely
 * Test TX halt when PTTing user disconnects.
   - also halt TX by FLAG_NOOB users if the last admin logs out
