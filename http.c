@@ -393,7 +393,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          cptr->is_ws = true;
          char msgbuf[512];
          memset(msgbuf, 0, sizeof(msgbuf));
-         snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
+         // XXX:audio: finish this 
+         const char *codec = "mulaw";
+         int rate = 16000;
+         snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\", \"codec\": \"%s\", \"rate\": %d }", VERSION, HARDWARE, codec, rate);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       } else {
          Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);

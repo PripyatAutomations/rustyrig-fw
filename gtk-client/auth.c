@@ -172,8 +172,10 @@ bool ws_send_logout(struct mg_connection *c, const char *user, const char *token
 
 bool ws_send_hello(struct mg_connection *c) {
    char msgbuf[512];
+   const char *codec = "mulaw";
+   int rate = 16000;
    memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rrclient %s\" }", VERSION);
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rrclient %s\", \"codec\": \"%s\", \"rate\": %d }", VERSION, codec, rate);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    return false;
 }

@@ -137,7 +137,8 @@ function ws_connect() {
 function handle_binary_frame(event) {
 //      console.log("evt:", event);
       if (event.data instanceof ArrayBuffer) {
-         playRawPCM(event.data);
+//         playRawPCM(event.data);
+         playAudioPacket(event.data, 'mulaw');
       } else {
          console.log("Invalid binary frame (not ArrayBuffer)");
       }
@@ -160,10 +161,16 @@ function webui_handle_ws_msg(event) {
          } else if (msgObj.error) {
             console.log("ERR:", msgObj);
             var msg = msgObj.error;
-            ChatBox.Append(`<div class="chat-status notice">${msg}</div>`);
+            ChatBox.Append(`<div class="chat-status notice">ERROR: ${msg}</div>`);
             console.log("NOTICE:", msg);
          } else if (msgObj.hello) {
-            ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello}</div>`);
+            ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello} using codec ${msgObj.codec} at ${msgObj.rate / 1000}Khz</div>`);
+            if (msgObj.rate) {
+               audio_rate = msgObj.rate;
+            }
+            if (msgObj.codec) {
+               audio_codec = msgObj.codec;
+            }
          } else if (msgObj.alert) {
             var alert_from = msgObj.alert.from.toUpperCase();
             var alert_ts = msgObj.alert.ts;

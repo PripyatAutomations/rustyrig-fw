@@ -75,7 +75,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       if (clones != NULL) {
          clones_i = atoi(clones);
       }
-      ui_print("[%s] UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), get_chat_ts(), muted, clones_i);
+      ui_print("[%s] UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %d)", get_chat_ts(), user, privs, (tx ? "true" : "false"), muted, clones_i);
       struct rr_user *cptr = malloc(sizeof(struct rr_user));
 
       if (cptr != NULL) {
@@ -322,8 +322,13 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
       char *hello = mg_json_get_str(msg_data, "$.hello");
-      ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
+      char *codec = mg_json_get_str(msg_data, "$.codec");
+      double rate;
+      mg_json_get_num(msg_data, "$.rate", &rate);
+      ui_print("[%s] *** Server version: %s with codec %s at %.1fKhz ***", get_chat_ts(), hello, codec, rate/1000);
+      // XXX: Store the codec
       free(hello);
+      free(codec);
       goto cleanup;
    // Check for $.cat field (rigctl message)
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {

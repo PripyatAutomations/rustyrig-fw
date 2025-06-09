@@ -1,5 +1,8 @@
 if (!window.webui_inits) window.webui_inits = [];
 
+var audio_codec = "mulaw";		// This is our default but we plan to support others via json message to switch soon
+var audio_rate = 16000;			// default for mulaw
+
 // RX context
 const rxCtx = new AudioContext({ sampleRate: 16000 });
 let rxTime = rxCtx.currentTime;
@@ -48,6 +51,51 @@ function flushPlayback() {
    rxTime += silence.length / sampleRate;
 }
 
+function mulawDecode8(u_val) {
+   const MULAW_MAX = 0x1FFF;
+   const BIAS = 33;
+
+   u_val = ~u_val;
+
+   let t = ((u_val & 0x0F) << 3) + BIAS;
+   t <<= ((u_val & 0x70) >> 4);
+
+   return (u_val & 0x80) ? -t : t;
+}
+
+function decodeMulawToFloat32(buffer) {
+   const mulaw = new Uint8Array(buffer);
+   const float32 = new Float32Array(mulaw.length);
+
+   for (let i = 0; i < mulaw.length; i++) {
+      float32[i] = mulawDecode8(mulaw[i]) / 32768; // Normalize to [-1, 1]
+   }
+
+   return float32;
+}
+
+function playMulawPCM(buffer) {
+   const float32Data = decodeMulawToFloat32(buffer);
+
+   const samplesPerPacket = float32Data.length;
+   const sampleRate = rxCtx.sampleRate;
+   const duration = samplesPerPacket / sampleRate;
+
+   const audioBuffer = rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
+   audioBuffer.copyToChannel(float32Data, 0);
+
+   const source = rxCtx.createBufferSource();
+   source.buffer = audioBuffer;
+   source.connect(rxGainNode);
+
+   const rxNow = rxCtx.currentTime;
+   if (rxTime < rxNow) rxTime = rxNow;
+
+   source.start(rxTime);
+   rxTime += duration;
+}
+
+
 // Support for playing back raw PCM audio
 function playRawPCM(buffer) {
    const pcmData = new Int16Array(buffer);
@@ -76,6 +124,14 @@ function playRawPCM(buffer) {
 
    source.start(rxTime);
    rxTime += duration;
+}
+
+function playAudioPacket(buffer, codec = 'pcm') {
+   if (codec === 'mulaw') {
+      playMulawPCM(buffer);
+   } else {
+      playRawPCM(buffer);
+   }
 }
 
 //$('#rig-rx-vol').on('input', function () {
