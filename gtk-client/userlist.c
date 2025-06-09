@@ -163,13 +163,17 @@ bool userlist_update(struct rr_user *cptr) {
       gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, COL_USERNAME, &existing_name, -1);
 
       if (existing_name && strcmp(existing_name, cptr->name) == 0) {
+         const char *ico_tlk = NULL;
+         const char *ico_mute = NULL;
+         const char *ico_en = NULL;
+
          g_free(existing_name);
          gtk_list_store_set(store, &iter,
             COL_PRIV_ICON, select_user_icon(cptr),
             COL_USERNAME, cptr->name,
-            COL_TALK_ICON, NULL,
-            COL_MUTE_ICON, NULL,
-            COL_ELMERNOOB_ICON, NULL,
+            COL_TALK_ICON, ico_tlk,
+            COL_MUTE_ICON, ico_mute,
+            COL_ELMERNOOB_ICON, ico_en,
             -1);
          return true;
       }

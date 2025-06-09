@@ -1,8 +1,30 @@
+Common to both server and client
+--------------------------------
+git clone http --depth=1 --recurse-submodules git@github.com:PripyatAutomations/rustyrig-fw.git
+cd rustyrig-fw
+sudo ./install-deps.sh
+
+Client build
+---------------
+	cd gtk-client
+	make
+
+If no errors: Change as you feel appropriate
+	sudo cp ../build/client/rrclient /usr/local/bin
+	cp doc/rrclient.cfg.example ~/.config/rrclient.cfg
+	Edit ~/.config/rrclient.cfg
+
+Run it:
+	rrclient
+
+Server setup below
+-------------------------------------
+
 This code is a bit of a mess. Right now I'm focused on getting it functional
 then we'll go through and rewrite/cleanup each file.
 
-I've made this mess in essentially a few weeks of spare time. Keep that in mind
-before exposing it to the internet. Probably wise to use a VPN for now.
+I've made this mess in essentially a few weeks^Wmonths of spare time.
+Keep that in mind before exposing it to the internet. Probably wise to use a VPN for now.
 
 Mongoose httpd is well maintained and tested, but my code presently is not.
 
@@ -19,18 +41,24 @@ Long story short, on a debian-based system do the following to try it:
    Edit config/radio.config.json
 	joe config/radio.config.json
 
-   Install needed dependencies
-	sudo ./install-deps.sh
-
    Fetch updates & submodules
 	make update
 
-   Build and run
+   Build
 	make
-	make run
+
+You can use 'make run' to start it up with audio etc automatically without installing (probably best for now)
+
 
    Open a browser and connect to the http (port 8420) or https (port 4420):
 	firefox	https://localhost:4420/
+
+
+Audio Setup
+------------
+If you are installing this permanently:
+Copy fwdsp-test.sh somewhere and edit it.
+Run it and it will connect to the server, if running and handle the audio transfers
 
 --
 See STATUS for status of subsystems.
