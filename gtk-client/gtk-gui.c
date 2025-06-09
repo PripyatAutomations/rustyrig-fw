@@ -19,15 +19,15 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *cfg;
-extern bool ws_connected;
 extern time_t now;
+extern bool dying;
 extern bool ptt_active;
 extern bool ws_connected;
 extern struct mg_connection *ws_conn;
 extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
-extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
 GtkCssProvider *css_provider = NULL;
@@ -237,7 +237,7 @@ void show_help(void) {
    ui_print("******************************************");
    ui_print("          rustyrig v.%s help", VERSION);
    ui_print("[Server Commands]");
-   ui_print("   /connect | /server [name]  Connect to a server (or default)");
+   ui_print("   /server [name]          Connect to a server (or default)");
    ui_print("   /disconnect             Disconnect from server");
    ui_print("[Chat Commands]");
    ui_print("   /clear                  Clear chat tab");
@@ -273,21 +273,31 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
 
    // These commands should always be available
-   if (strncasecmp(msg + 1, "server", 6) == 0 ||
-       strncasecmp(msg + 1, "connect", 7) == 0) {
-      const char *server = msg + 7;
+   if (strncasecmp(msg + 1, "server", 6) == 0) {
+      const char *server = msg + 8;
+
       if (server != NULL && strlen(server) > 1) {
+         ui_print("[%s] * Changing server profile to %s", get_chat_ts(), server);
+         disconnect_server();
          memset(active_server, 0, sizeof(active_server));
          snprintf(active_server, sizeof(active_server), "%s", server);
-      } else if (ws_conn == NULL) {
+         Log(LOG_DEBUG, "gtk-gui", "Set server profile to %s by console cmd", active_server);
          connect_server();
       } else {
-         ui_print("Invalid server specified");
+         if (ws_conn == NULL) {
+            connect_server();
+         } else {
+            ui_print("* You are already connected and didn't specify a different server to connect to!");
+         }
       }
    } else if (strncasecmp(msg + 1, "disconnect", 10) == 0) {
       disconnect_server();
    } else if (strncasecmp(msg + 1, "quit", 4) == 0) {
-      shutdown_app(0);
+      char msgbuf[4096];
+      prepare_msg(msgbuf, sizeof(msgbuf), 
+         "{ \"auth\": { \"cmd\": \"quit\" } }", msg + 5);
+      mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+      dying = true;
    // Switch tabs
    } else if (strncasecmp(msg + 1, "chat", 4) == 0) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), main_tab);
@@ -315,7 +325,7 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
          } else if (strncasecmp(msg + 1, "die", 3) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"die\", \"args\": \"%s\" } }", msg);
+               "{ \"talk\": { \"cmd\": \"die\", \"args\": \"%s\" } }", msg + 5);
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          } else if (strncasecmp(msg + 1, "edit", 4) == 0) {
          } else if (strncasecmp(msg + 1, "help", 4) == 0) {
@@ -643,7 +653,6 @@ bool gui_init(void) {
    // Focus the chat entry by defualt
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
    ui_print("[%s] rustyrig client started", get_chat_ts());
-
 
    return false;
 }

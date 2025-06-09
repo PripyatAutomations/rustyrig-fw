@@ -302,7 +302,7 @@ int main(int argc, char **argv) {
       mg_mgr_poll(&mg_mgr, 0);
 #endif
 
-      usleep(500);
+      usleep(100);
 
       // If enabled, calculate loop run time
 #if	defined(USE_PROFILING)

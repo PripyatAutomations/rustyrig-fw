@@ -9,3 +9,7 @@ SZ_SQL=$(cat sql/*.sql | wc -l)
 SZ_TTL=$((${SZ_C} + ${SZ_PL} + ${SZ_JS} + ${SZ_HTML} + ${SZ_CSS} + ${SZ_SH} + ${SZ_SQL}))
 
 echo "LOC in $(basename $(pwd)): C ${SZ_C} Perl ${SZ_PL} JavaScript ${SZ_JS} HTML ${SZ_HTML} CSS ${SZ_CSS} BASH ${SZ_SH} SQL ${SZ_SQL} for a total of ${SZ_TTL} lines."
+
+SZ_C=$(ls gtk-client/*.c inc/rrclient/*.h|grep -v mongoose|xargs cat|wc -l)
+
+echo "LOC in rrclient: C: ${SZ_C}"

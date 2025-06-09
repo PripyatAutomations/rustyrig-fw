@@ -67,16 +67,15 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       if (clones != NULL) {
          clones_i = atoi(clones);
       }
-      ui_print("UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), muted, clones_i);
+      ui_print("[%s] UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), get_chat_ts(), muted, clones_i);
    } else if (strcasecmp(cmd, "msg") == 0) {
       char *from = mg_json_get_str(msg_data, "$.talk.from");
       char *data = mg_json_get_str(msg_data, "$.talk.data");
       char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
-      Log(LOG_DEBUG, "ws", "from: %s msg_type: %s data: |%s|", from, msg_type, data);
 
-      if (strcasecmp(msg_type, "pub") == 0) {
+      if (msg_type && strcasecmp(msg_type, "pub") == 0) {
          ui_print("[%s] <%s> %s", get_chat_ts(), from, data);
-      } else if (strcasecmp(msg_type, "action") == 0) {
+      } else if (msg_type && strcasecmp(msg_type, "action") == 0) {
          ui_print("[%s] * %s %s", get_chat_ts(), from, data);
       }
 
@@ -109,8 +108,8 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          ui_show_whois_dialog(GTK_WINDOW(main_window), json_array);
       }
 */
-      ui_print(">>> WHOIS %s", user);
-      ui_print("   %s", json_array);
+      ui_print("[%s] >>> WHOIS %s", user);
+      ui_print("[%s]   %s", json_array);
    } else {
       Log(LOG_DEBUG, "chat", "msg: %.*s", msg->data.len, msg->data.buf);
    }
@@ -266,7 +265,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
       }
       if (cfg_show_pings) {
-         ui_print("* Ping? Pong! *");
+         ui_print("[%s] * Ping? Pong! *", get_chat_ts());
       }
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
@@ -532,9 +531,9 @@ const char *get_server_property(const char *server, const char *prop) {
    char fullkey[1024];
    memset(fullkey, 0, sizeof(fullkey));
    snprintf(fullkey, sizeof(fullkey), "%s.%s", server, prop);
-//   ui_print("Looking up server key: %s", fullkey);
-//   dict_dump(servers, stdout);
    rv = dict_get(servers, fullkey, NULL);
+//   ui_print("Looking up server key: %s returned %s", fullkey, (rv ? rv : "NULL"));
+//   dict_dump(servers, stdout);
    return rv;
 }
 
@@ -551,12 +550,11 @@ bool disconnect_server(void) {
 bool connect_server(void) {
    if (active_server[0] == '\0') {
       // XXX: Display the server choser
-      ui_print("No active server selected, try /server profilename");
+      ui_print("[%s] * No active server selected, try /server profilename", get_chat_ts());
       return true;
    }
 
    const char *url = get_server_property(active_server, "server.url");
-   ui_print("* Got server url |%s| for active server %s", url, active_server);
 
    if (url) {
       // Connect to WebSocket server

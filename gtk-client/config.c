@@ -82,7 +82,7 @@ bool config_load(const char *path) {
          continue;
       } else if (*skip == '[' && *end == ']') {		// section
          this_section = strndup(skip + 1, strlen(skip) - 2);
-         fprintf(stderr, "[Debug]: cfg.section.open: '%s' [%lu]\n", this_section, strlen(this_section));
+//         fprintf(stderr, "[Debug]: cfg.section.open: '%s' [%lu]\n", this_section, strlen(this_section));
          continue;
       } else if (*skip == '@') {			// preprocessor
          if (strncasecmp(skip + 1, "if ", 3) == 0) {

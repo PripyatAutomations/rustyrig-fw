@@ -27,8 +27,8 @@ extern struct mg_connection *ws_conn;
 
 int my_argc = -1;
 char **my_argv = NULL;
-bool dying = 0;                 // Are we shutting down?
-bool restarting = 0;            // Are we restarting?
+bool dying = false;             // Are we shutting down?
+bool restarting = false;        // Are we restarting?
 time_t now = -1;                // time() called once a second in main loop to update
 bool ptt_active = false;
 time_t poll_block_expire = 0;	// Here we set this to now + config:cat.poll-blocking to prevent rig polling from sclearing local controls
