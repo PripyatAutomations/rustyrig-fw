@@ -20,5 +20,8 @@ struct rr_user {
 };
 
 extern bool userlist_add(struct rr_user *cptr);
+extern void userlist_clear(void);
+extern bool userlist_update(struct rr_user *cptr);
+extern bool userlist_remove(const char *name);
 
 #endif	// !defined(__rrclient_userlist_h)

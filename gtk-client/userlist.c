@@ -18,6 +18,7 @@
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
 
+extern gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data);
 extern dict *cfg;
 extern GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
@@ -36,30 +37,13 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
    return TRUE;              // prevent the default handler from destroying it
 }
 
+
 GtkWidget *userlist_init(void) {
-   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-   const char *cfg_height_s = dict_get(cfg, "ui.userlist.height", "600");
-   const char *cfg_width_s = dict_get(cfg, "ui.userlist.width", "800");
-   const char *cfg_x_s = dict_get(cfg, "ui.userlist.x", "0");
-   const char *cfg_y_s = dict_get(cfg, "ui.userlist.y", "0");
-   const char *cfg_hidden = dict_get(cfg, "ui.userlist.hidden", "false");
-
-   int cfg_height = 600, cfg_width = 800, cfg_x = 0, cfg_y = 0;
-
-   cfg_height = atoi(cfg_height_s);
-   cfg_width = atoi(cfg_width_s);
-
-   // Place the window
-   cfg_x = atoi(cfg_x_s);
-   cfg_y = atoi(cfg_y_s);
-   gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
-
+   GtkWidget *window = userlist_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "User List");
-   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
-
    const char *cfg_ontop_s = dict_get(cfg, "ui.userlist.on-top", "false");
    const char *cfg_raised_s = dict_get(cfg, "ui.userlist.raised", "true");
+   const char *cfg_hidden = dict_get(cfg, "ui.userlist.hidden", "false");
 
    if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
       gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
@@ -115,9 +99,10 @@ GtkWidget *userlist_init(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), elmernoob_col);
    gtk_container_add(GTK_CONTAINER(window), cul_view);
 
-   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
-   gtk_widget_show_all(window);
    g_signal_connect(window, "key-press-event", G_CALLBACK(handle_keypress), window);
+   g_signal_connect(window, "configure-event", G_CALLBACK(on_window_configure), NULL);
+   gtk_widget_show_all(window);
+   place_window(userlist_window);
 
 //   Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
 //   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
@@ -156,9 +141,64 @@ bool userlist_add(struct rr_user *cptr) {
       COL_ELMERNOOB_ICON, NULL,			// elmer/noob
       -1);
 
-   ui_print("New user: %s (privs: %s) since %lu (last heard: %lu) - flags: %lu, ptt:%s muted:%s",
+   Log(LOG_DEBUG, "userlist", "New user: %s (privs: %s) since %lu (last heard: %lu) - flags: %lu, ptt:%s muted:%s",
        cptr->name, cptr->privs, cptr->logged_in, cptr->last_heard, cptr->user_flags,
        (cptr->is_ptt ? "on" : "off"), (cptr->is_muted ? "on" : "off"));
 
    return false;
+}
+
+void userlist_clear(void) {
+   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
+   gtk_list_store_clear(store);
+}
+
+bool userlist_update(struct rr_user *cptr) {
+   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
+   GtkTreeIter iter;
+   gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(store), &iter);
+
+   while (valid) {
+      gchar *existing_name = NULL;
+      gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, COL_USERNAME, &existing_name, -1);
+
+      if (existing_name && strcmp(existing_name, cptr->name) == 0) {
+         g_free(existing_name);
+         gtk_list_store_set(store, &iter,
+            COL_PRIV_ICON, select_user_icon(cptr),
+            COL_USERNAME, cptr->name,
+            COL_TALK_ICON, NULL,
+            COL_MUTE_ICON, NULL,
+            COL_ELMERNOOB_ICON, NULL,
+            -1);
+         return true;
+      }
+
+      g_free(existing_name);
+      valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(store), &iter);
+   }
+
+   return userlist_add(cptr);  // add if not found
+}
+
+bool userlist_remove(const char *name) {
+   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
+   GtkTreeIter iter;
+   gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(store), &iter);
+
+   while (valid) {
+      gchar *existing_name = NULL;
+      gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, COL_USERNAME, &existing_name, -1);
+
+      if (existing_name && strcmp(existing_name, name) == 0) {
+         g_free(existing_name);
+         gtk_list_store_remove(store, &iter);
+         return true;
+      }
+
+      g_free(existing_name);
+      valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(store), &iter);
+   }
+
+   return false;  // not found
 }

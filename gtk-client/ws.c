@@ -59,11 +59,12 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
    char *user = mg_json_get_str(msg_data,   "$.talk.user");
    char *privs = mg_json_get_str(msg_data,  "$.talk.privs");
    char *muted = mg_json_get_str(msg_data,  "$.talk.muted");
-   char *clones = mg_json_get_str(msg_data, "$.talk.clones");
+   double clones;
    char *ts = mg_json_get_str(msg_data,     "$.talk.ts");
    bool rv = false;
    bool tx;
    mg_json_get_bool(msg_data, "$.talk.tx", &tx);
+   mg_json_get_num(msg_data, "$.talk.clones", &clones);
 
    if (!cmd) {
       rv = true;
@@ -71,11 +72,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
    }
 
    if (cmd != NULL && strcasecmp(cmd, "userinfo") == 0) {
-      int clones_i = -1;
-      if (clones != NULL) {
-         clones_i = atoi(clones);
-      }
-      ui_print("[%s] UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %d)", get_chat_ts(), user, privs, (tx ? "true" : "false"), muted, clones_i);
+      Log(LOG_DEBUG, "ws.talk", "[%s] UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", get_chat_ts(), user, privs, (tx ? "true" : "false"), muted, clones);
       struct rr_user *cptr = malloc(sizeof(struct rr_user));
 
       if (cptr != NULL) {
@@ -88,7 +85,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          if (muted != NULL && strcasecmp(muted, "true") == 0) {
             cptr->is_muted = muted;
          }
-         userlist_add(cptr);
+         userlist_update(cptr);
       } else {
          Log(LOG_CRIT, "ws", "OOM in ws_handle_talk_msg");
       }
@@ -123,7 +120,10 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          free(reason);
          goto cleanup;
       }
-      ui_print("[%s] >> %s disconnected from the radio: %s <<<", get_chat_ts(), user, reason ? reason : "No reason given");
+      if (clones <= 0 ) {
+         userlist_remove(user);
+      }
+      ui_print("[%s] >> %s disconnected from the radio: %s (%d clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", clones);
       free(reason);
    } else if (cmd != NULL && strcasecmp(cmd, "whois") == 0) {
       const char *json_array = mg_json_get_str(msg_data, "$.talk.data");
@@ -143,7 +143,6 @@ cleanup:
    free(user);
    free(privs);
    free(muted);
-   free(clones);
    free(ts);
    return false;
 }

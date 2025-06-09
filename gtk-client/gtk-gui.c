@@ -443,6 +443,24 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    val /= 100.0;  // scale from 0–100 to 0.0–1.0
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
+
+
+gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
+   if (event->type == GDK_CONFIGURE) {
+      GdkEventConfigure *e = (GdkEventConfigure *)event;
+
+      int x = e->x;
+      int y = e->y;
+      int width = e->width;
+      int height = e->height;
+
+      // Save to config file, GSettings, or global struct
+      Log(LOG_DEBUG, "gtk-ui", "Window moved/resized: x=%d y=%d width=%d height=%d", x, y, width, height);
+   }
+
+   return FALSE; // propagate
+}
+
 gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    GtkNotebook *notebook = GTK_NOTEBOOK(user_data);
 
@@ -453,24 +471,28 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
             gtk_widget_hide(userlist_window);
          } else {
             gtk_widget_show_all(userlist_window);
+            place_window(userlist_window);
          }
          return TRUE;
       }
    }
 
-   // alt-1 through alt-3 only work in main window
-   if ((event->state & GDK_MOD1_MASK) && gtk_window_is_active(GTK_WINDOW(main_window))) {
-      // now safe to respond to Alt+1..3
+   if ((event->state & GDK_MOD1_MASK)) {
+      if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
+         gtk_widget_show_all(main_window);
+         place_window(main_window);
+      }
+
       switch (event->keyval) {
          case GDK_KEY_1:
-            gtk_notebook_set_current_page(notebook, 0);
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 0);
             gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
             break;
          case GDK_KEY_2:
-            gtk_notebook_set_current_page(notebook, 1);
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 1);
             break;
          case GDK_KEY_3:
-            gtk_notebook_set_current_page(notebook, 2);
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 2);
             break;
       }
       gtk_window_present(GTK_WINDOW(main_window));
@@ -658,10 +680,42 @@ bool gui_init(void) {
 
    gtk_widget_show_all(main_window);
    g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_keypress), notebook);
+   g_signal_connect(main_window, "configure-event", G_CALLBACK(on_window_configure), NULL);
 
    // Focus the chat entry by defualt
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
    ui_print("[%s] rustyrig client started", get_chat_ts());
 
+   return false;
+}
+
+bool place_window(GtkWidget *window) {
+   const char *cfg_height_s, *cfg_width_s;
+   const char *cfg_x_s, *cfg_y_s;
+
+   if (window == userlist_window) {
+      cfg_height_s = dict_get(cfg, "ui.userlist.height", "600");
+      cfg_width_s = dict_get(cfg, "ui.userlist.width", "800");
+      cfg_x_s = dict_get(cfg, "ui.userlist.x", "0");
+      cfg_y_s = dict_get(cfg, "ui.userlist.y", "0");
+   } else if (window == main_window) {
+      cfg_height_s = dict_get(cfg, "ui.main.height", "600");
+      cfg_width_s = dict_get(cfg, "ui.main.width", "800");
+      cfg_x_s = dict_get(cfg, "ui.main.x", "0");
+      cfg_y_s = dict_get(cfg, "ui.main.y", "0");
+   } else {
+      return true;
+   }
+   int cfg_height = 600, cfg_width = 800, cfg_x = 0, cfg_y = 0;
+
+   cfg_height = atoi(cfg_height_s);
+   cfg_width = atoi(cfg_width_s);
+
+   // Place the window
+   cfg_x = atoi(cfg_x_s);
+   cfg_y = atoi(cfg_y_s);
+   gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
+   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
+   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    return false;
 }

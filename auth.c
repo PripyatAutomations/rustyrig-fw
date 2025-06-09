@@ -470,7 +470,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                cptr->nonce, user, cptr->token);
       mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
       Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%x> with token |%s|", cptr->nonce, cptr, cptr->token);
-   } else if (strcasecmp(cmd, "logout") == 0) {
+   } else if (strcasecmp(cmd, "logout") == 0 || strcasecmp(cmd, "quit") == 0) {
       http_client_t *cptr = http_find_client_by_c(c);
       Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x>",
           (cptr->chatname[0] != '\0' ? cptr->chatname : ""),
@@ -603,6 +603,9 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      (cptr->user->is_muted ? "true" : "false"), cptr->user->clones);
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
+
+         // update all users
+         ws_send_users(NULL);
 
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
              cptr->chatname, cptr, ip, port, cptr->user->clones, cptr->user->max_clones, cptr->user->privs);

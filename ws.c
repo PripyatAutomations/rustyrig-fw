@@ -124,8 +124,8 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
       if (cptr->active) {
          // blorp out a quit to all connected users
          prepare_msg(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"%s\", \"ts\": %li } }",
-                     cptr->chatname, reason, now);
+                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"%s\", \"ts\": %li, \"clones\": %d } }",
+                     cptr->chatname, reason, now, cptr->user->clones - 1);
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
       }

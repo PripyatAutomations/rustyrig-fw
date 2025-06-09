@@ -134,6 +134,8 @@ function logout() {
    }
 
    wm_switch_tab('login');
+   // Force a reload 1.5 sec after logout so they might see the logged out notice
+   setTimeout(function() { location.reload(); }, 1500);
 }
 
 ////////////////////////
