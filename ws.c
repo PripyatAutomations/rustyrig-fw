@@ -231,15 +231,24 @@ cleanup:
 
 
 // Deal with the binary requests
-static bool ws_binframe_process(const char *buf, size_t len) {
+static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t len) {
    Log(LOG_DEBUG, "ws.binframe", "Binary frame of %li bytes", len);
 
+   http_client_t *cptr = http_find_client_by_c(c);
+
+   if (cptr == NULL) {
+      Log(LOG_CRIT, "ws.binframe", "Binary frame from client at <%x> with no http session. Ignoring!");
+      return true;
+   }
+
+#if	0
    if (buf[0] == 'u') {  // PCM-u
    } else if (buf[0] == 'O') {
 #if	defined(FEATURE_OPUS)
        codec_decode_frame((unsigned char *)buf, len);
 #endif
     }
+#endif
     return false;
 }
 
@@ -323,7 +332,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    // Binary (audio, waterfall) frames
    if (msg->flags & WEBSOCKET_OP_BINARY) {
       Log(LOG_DEBUG, "ws", "Binary frame: %li bytes", msg->data.len);
-      ws_binframe_process(msg->data.buf, msg->data.len);
+      ws_binframe_process(c, msg->data.buf, msg->data.len);
    } else {	// Text (mostly json) frames
 //      Log(LOG_DEBUG, "ws", "Text frame: %li bytes", msg->data.len);
       ws_txtframe_process(msg, c);

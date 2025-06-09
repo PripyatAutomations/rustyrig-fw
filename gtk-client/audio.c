@@ -9,6 +9,8 @@
 //
 // Here we handle moving audio between the server and gstreamer
 //
+// This needs split out into ws.audio.c ws.tx-audio.c for the parts not-relevant to gstreamer.
+// We should keep TX and RX here to make sure things stay in sync
 #include <stdint.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -39,14 +41,12 @@ extern GtkWidget *rx_vol_slider;
 
 bool audio_enabled = false;
 bool gst_active = false;
-GstElement *rx_pipeline = NULL;
-GstElement *rx_appsrc = NULL;
-GstElement *rx_vol_gst_elem = NULL;
-GstElement *tx_pipeline = NULL;
-GstElement *tx_appsrc = NULL;
-GstElement *tx_vol_gst_elem = NULL;
-GstElement *tx_sink = NULL;
+GstElement *rx_pipeline = NULL, 	*tx_pipeline = NULL;
+GstElement *rx_appsrc = NULL,   	*tx_appsrc = NULL;
+GstElement *rx_vol_gst_elem = NULL,	*tx_vol_gst_elem = NULL;
+GstElement *rx_sink = NULL,		*tx_sink = NULL;
 
+//
 static struct ws_frame *send_queue = NULL;
 static bool sending_in_progress = false;
 

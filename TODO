@@ -1,6 +1,5 @@
 ASAP
 * Add mute/unmute button for RX audio which halts sending the samples entirely
-
 * Test TX halt when PTTing user disconnects.
   - also halt TX by FLAG_NOOB users if the last admin logs out
 * Make rigctl connection autoreconnect in backend.hamlib
@@ -127,7 +126,4 @@ minimal inet_ntop() for non-posix
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards
 * Add support for masking out messages such as '-*.noisy'
-
-[client]
-* Use mongoose, libopus, pipewire, and GTK to present a native client which a local
-  rigctld or hamlib based program can connect to the remote rig
+? Add support for rate limiting messages?

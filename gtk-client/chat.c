@@ -49,28 +49,22 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
 
    int idx = 0;
 #if	0	// XXX: clean this up
-   struct mg_str json = mg_str(json_array);
-   
-   struct mg_str elem;
-   while ((elem = mg_json_get_arr(json, idx++)).len > 0) {
-      struct mg_str v;
-
-      const char *username = (v = mg_json_get_str(elem, "$.username")).len ? v.ptr : "Unknown";
-      const char *email = (v = mg_json_get_str(elem, "$.email")).len ? v.ptr : "(none)";
-      const char *privs = (v = mg_json_get_str(elem, "$.privs")).len ? v.ptr : "None";
-      const char *ua = (v = mg_json_get_str(elem, "$.ua")).len ? v.ptr : "Unknown";
-      const char *muted = (v = mg_json_get_str(elem, "$.muted")).len ? v.ptr : "false";
+      const char *username = mg_json_get_str(elem, "$.username")
+      const char *email = (strlen(v = mg_json_get_str(elem, "$.email")) ? v : "(none)");
+      const char *privs = (strlen(v = mg_json_get_str(elem, "$.privs")) ? v : "None");
+      const char *ua = (strlen(v = mg_json_get_str(elem, "$.ua")) ? v : "Unknown");
+      const char *muted = (strlen(v = mg_json_get_str(elem, "$.muted")) ? v : "false");
 
       long connected = mg_json_get_long(elem, "$.connected", 0);
       long last_heard = mg_json_get_long(elem, "$.last_heard", 0);
-      int clone = (int) mg_json_get_long(elem, "$.clone", 0);
+      int clones = (int) mg_json_get_long(elem, "$.clones", 0);
 
       fprintf(stream,
          "<b>User:</b> %s\n"
          "<b>Email:</b> %s\n"
          "<b>Privileges:</b> %s\n"
          "%s"
-         "<b>Clone:</b> #%d\n"
+         "<b>Clones:</b> #%d\n"
          "<b>Connected:</b> %s\n"
          "<b>Last Heard:</b> %s\n"
          "<b>User-Agent:</b> <tt>%s</tt>\n"
@@ -79,7 +73,7 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
          email,
          privs,
          (strcmp(muted, "true") == 0) ? "<span foreground=\"red\"><b>This user is muted.</b></span>\n" : "",
-         clone,
+         clones,
          ctime((time_t*)&connected),
          ctime((time_t*)&last_heard),
          ua

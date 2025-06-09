@@ -27,6 +27,7 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
+#include "rrclient/userlist.h"
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;
 bool ws_connected = false;
@@ -43,7 +44,6 @@ extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
-extern const char *expand_path(const char *path); // main.c
 extern dict *servers;
 char active_server[512];
 
@@ -55,29 +55,44 @@ const char *default_tls_ca_paths[] = {
 
 static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
-   bool rv;
-
    char *cmd = mg_json_get_str(msg_data,    "$.talk.cmd");
    char *user = mg_json_get_str(msg_data,   "$.talk.user");
    char *privs = mg_json_get_str(msg_data,  "$.talk.privs");
-   bool tx;
-   mg_json_get_bool(msg_data, "$.talk.tx", &tx);
    char *muted = mg_json_get_str(msg_data,  "$.talk.muted");
    char *clones = mg_json_get_str(msg_data, "$.talk.clones");
    char *ts = mg_json_get_str(msg_data,     "$.talk.ts");
+   bool rv = false;
+   bool tx;
+   mg_json_get_bool(msg_data, "$.talk.tx", &tx);
 
    if (!cmd) {
       rv = true;
       goto cleanup;
    }
 
-   if (strcasecmp(cmd, "userinfo") == 0) {
+   if (cmd != NULL && strcasecmp(cmd, "userinfo") == 0) {
       int clones_i = -1;
       if (clones != NULL) {
          clones_i = atoi(clones);
       }
       ui_print("[%s] UserInfo: %s -> %s (TX: %s, muted: %s, clones: %d", user, privs, (tx ? "true" : "false"), get_chat_ts(), muted, clones_i);
-   } else if (strcasecmp(cmd, "msg") == 0) {
+      struct rr_user *cptr = malloc(sizeof(struct rr_user));
+
+      if (cptr != NULL) {
+         memset(cptr, 0, sizeof(struct rr_user));
+         snprintf(cptr->name, sizeof(cptr->name), "%s", user);
+         snprintf(cptr->privs, sizeof(cptr->privs), "%s", privs);
+         if (tx) {
+            cptr->is_ptt = true;
+         }
+         if (muted != NULL && strcasecmp(muted, "true") == 0) {
+            cptr->is_muted = muted;
+         }
+         userlist_add(cptr);
+      } else {
+         Log(LOG_CRIT, "ws", "OOM in ws_handle_talk_msg");
+      }
+   } else if (cmd != NULL && strcasecmp(cmd, "msg") == 0) {
       char *from = mg_json_get_str(msg_data, "$.talk.from");
       char *data = mg_json_get_str(msg_data, "$.talk.data");
       char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
@@ -94,7 +109,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       free(data);
       free(from);
       free(msg_type);
-   } else if (strcasecmp(cmd, "join") == 0) {
+   } else if (cmd != NULL && strcasecmp(cmd, "join") == 0) {
       char *ip = mg_json_get_str(msg_data, "$.talk.ip");
       if (user == NULL || ip == NULL) {
          free(ip);
@@ -102,7 +117,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       }
       ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(), user);
       free(ip);
-   } else if (strcasecmp(cmd, "quit") == 0) {
+   } else if (cmd != NULL && strcasecmp(cmd, "quit") == 0) {
       char *reason = mg_json_get_str(msg_data, "$.talk.reason");
       if (user == NULL || reason == NULL) {
          free(reason);
@@ -110,7 +125,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       }
       ui_print("[%s] >> %s disconnected from the radio: %s <<<", get_chat_ts(), user, reason ? reason : "No reason given");
       free(reason);
-   } else if (strcasecmp(cmd, "whois") == 0) {
+   } else if (cmd != NULL && strcasecmp(cmd, "whois") == 0) {
       const char *json_array = mg_json_get_str(msg_data, "$.talk.data");
 /*
       if (json_array) {
@@ -229,7 +244,7 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
       goto cleanup;
    }
 
-   if (strcasecmp(cmd, "challenge") == 0) {
+   if (cmd != NULL && strcasecmp(cmd, "challenge") == 0) {
       char *token = mg_json_get_str(msg_data, "$.auth.token");
 
       if (token != NULL) {
@@ -245,7 +260,7 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
 
       ws_send_passwd(c, user, login_pass, nonce);
       free(token);
-   } else if (strcasecmp(cmd, "authorized") == 0) {
+   } else if (cmd != NULL && strcasecmp(cmd, "authorized") == 0) {
       ui_print("[%s] *** Authorized ***", get_chat_ts());
    }
 

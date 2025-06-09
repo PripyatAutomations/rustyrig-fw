@@ -27,6 +27,7 @@ enum {
    COL_USERNAME,
    COL_TALK_ICON,
    COL_MUTE_ICON,
+   COL_ELMERNOOB_ICON,
    NUM_COLS
 };
 
@@ -72,7 +73,8 @@ GtkWidget *userlist_init(void) {
       G_TYPE_STRING, // privilege icon
       G_TYPE_STRING, // username
       G_TYPE_STRING, // talking icon
-      G_TYPE_STRING  // muted icon
+      G_TYPE_STRING, // muted icon
+      G_TYPE_STRING  // elmer/noob
    );
 
    cul_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
@@ -105,6 +107,14 @@ GtkWidget *userlist_init(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), mute_col);
    gtk_container_add(GTK_CONTAINER(window), cul_view);
 
+   // Elmer/Noob icon
+   GtkCellRenderer *elmernoob_icon = gtk_cell_renderer_pixbuf_new();
+   GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new();
+   gtk_tree_view_column_pack_start(elmernoob_col, elmernoob_icon, FALSE);
+   gtk_tree_view_column_add_attribute(elmernoob_col, elmernoob_icon, "icon-name", COL_MUTE_ICON);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), elmernoob_col);
+   gtk_container_add(GTK_CONTAINER(window), cul_view);
+
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    gtk_widget_show_all(window);
    g_signal_connect(window, "key-press-event", G_CALLBACK(handle_keypress), window);
@@ -112,8 +122,7 @@ GtkWidget *userlist_init(void) {
 //   Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
 //   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
-   if (cfg_hidden != NULL && (strcasecmp(cfg_hidden, "true") == 0 ||
-       strcasecmp(cfg_hidden, "yes") == 0 || strcasecmp(cfg_hidden, "on") == 0)) {
+   if (cfg_hidden != NULL && (strcasecmp(cfg_hidden, "true") == 0 || strcasecmp(cfg_hidden, "yes") == 0 || strcasecmp(cfg_hidden, "on") == 0)) {
       gtk_widget_hide(userlist_window);
    }
 
@@ -129,6 +138,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
 }
 
 const char *s_admin = "emblem-important";
+const char *s_talk = "microphone-sensitivity-high";
 const char *select_user_icon(struct rr_user *cptr) {
    return NULL;
 }
@@ -136,13 +146,16 @@ const char *select_user_icon(struct rr_user *cptr) {
 bool userlist_add(struct rr_user *cptr) {
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
    GtkTreeIter iter;
+
    gtk_list_store_append(store, &iter);
    gtk_list_store_set(store, &iter,
       COL_PRIV_ICON, select_user_icon(cptr),
       COL_USERNAME, cptr->name,
-      COL_TALK_ICON, "microphone-sensitivity-high",
-      COL_MUTE_ICON, NULL, // not muted
+      COL_TALK_ICON, NULL,			// not talking
+      COL_MUTE_ICON, NULL,			// not muted
+      COL_ELMERNOOB_ICON, NULL,			// elmer/noob
       -1);
+
    ui_print("New user: %s (privs: %s) since %lu (last heard: %lu) - flags: %lu, ptt:%s muted:%s",
        cptr->name, cptr->privs, cptr->logged_in, cptr->last_heard, cptr->user_flags,
        (cptr->is_ptt ? "on" : "off"), (cptr->is_muted ? "on" : "off"));
