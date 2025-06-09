@@ -42,6 +42,7 @@ GtkWidget *userlist_init(void) {
    const char *cfg_width_s = dict_get(cfg, "ui.userlist.width", "800");
    const char *cfg_x_s = dict_get(cfg, "ui.userlist.x", "0");
    const char *cfg_y_s = dict_get(cfg, "ui.userlist.y", "0");
+   const char *cfg_hidden = dict_get(cfg, "ui.userlist.hidden", "false");
 
    int cfg_height = 600, cfg_width = 800, cfg_x = 0, cfg_y = 0;
 
@@ -110,6 +111,11 @@ GtkWidget *userlist_init(void) {
 
 //   Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
 //   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
+
+   if (cfg_hidden != NULL && (strcasecmp(cfg_hidden, "true") == 0 ||
+       strcasecmp(cfg_hidden, "yes") == 0 || strcasecmp(cfg_hidden, "on") == 0)) {
+      gtk_widget_hide(userlist_window);
+   }
 
    return window;
 }

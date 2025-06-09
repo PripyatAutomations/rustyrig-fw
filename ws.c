@@ -38,16 +38,16 @@ bool ws_init(struct mg_mgr *mgr) {
 }
 
 // Send to a specific, authenticated websocket session
-void ws_send_to_cptr(struct mg_connection *sender, http_client_t *cptr, struct mg_str *msg_data) {
+void ws_send_to_cptr(struct mg_connection *sender, http_client_t *cptr, struct mg_str *msg_data, int data_type) {
    if (cptr == NULL || msg_data == NULL) {
       return;
    }
 
-   mg_ws_send(cptr->conn, msg_data->buf, msg_data->len, WEBSOCKET_OP_TEXT);
+   mg_ws_send(cptr->conn, msg_data->buf, msg_data->len, data_type);
 }
 
 // Send to all logged in instances of the user
-void ws_send_to_name(struct mg_connection *sender, const char *username, struct mg_str *msg_data) {
+void ws_send_to_name(struct mg_connection *sender, const char *username, struct mg_str *msg_data, int data_type) {
    if (sender == NULL || username == NULL || msg_data == NULL) {
       Log(LOG_CRIT, "ws", "ws_send_to_name passed incomplete data; sender:<%x>, username:<%x>, msg_data:<%x>", sender, username, msg_data);
       return;
@@ -61,7 +61,7 @@ void ws_send_to_name(struct mg_connection *sender, const char *username, struct 
 
       // Messages from the server will have NULL sender
       if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
-         ws_send_to_cptr(sender, current, msg_data);
+         ws_send_to_cptr(sender, current, msg_data, data_type);
       }
    }
 }

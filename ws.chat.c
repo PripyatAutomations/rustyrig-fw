@@ -251,7 +251,7 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
 
    struct mg_str msg = mg_str_n(buf, len);
    if (acptr != NULL) {
-      ws_send_to_cptr(NULL, acptr, &msg);
+      ws_send_to_cptr(NULL, acptr, &msg, WEBSOCKET_OP_TEXT);
    } else {
       ws_broadcast(NULL, &msg, WEBSOCKET_OP_TEXT);
    }

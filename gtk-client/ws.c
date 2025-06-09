@@ -361,7 +361,7 @@ bool ws_binframe_process(const char *data, size_t len) {
    for (size_t i = 0; i < n; i++) {
       snprintf(hex + i * 3, sizeof(hex) - i * 3, "%02X ", (unsigned char)data[i]);
    }
-   Log(LOG_DEBUG, "http.ws", "binary: %zu bytes, hex: %s", len, hex);
+//   Log(LOG_DEBUG, "http.ws", "binary: %zu bytes, hex: %s", len, hex);
 
 //   if (data[0] == 'A' && data[1] == 'U') {
       audio_process_frame(data, len);
@@ -410,6 +410,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       }
    } else if (ev == MG_EV_WRITE) {
       if (sending_in_progress) {
+         Log(LOG_DEBUG, "ws", "http_handler: write frame");
          free_sent_frame();
          sending_in_progress = false;
          try_send_next_frame(c);  // attempt to send the next

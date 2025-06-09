@@ -50,7 +50,8 @@ GstElement *tx_sink = NULL;
 static struct ws_frame *send_queue = NULL;
 static bool sending_in_progress = false;
 
-void enqueue_frame(uint8_t *data, size_t len) {
+// This is very ugly and could definitely use a rewrite. The TX path needs to move into ws.tx-audio.c
+static void enqueue_frame(uint8_t *data, size_t len) {
   struct ws_frame *f = malloc(sizeof(*f));
   f->data = data;
   f->len = len;
@@ -74,7 +75,9 @@ void free_sent_frame(void) {
 }
 
 void try_send_next_frame(struct mg_connection *c) {
-  if (sending_in_progress || !send_queue) return;
+  if (sending_in_progress || !send_queue) {
+     return;
+  }
 
   sending_in_progress = true;
   mg_ws_send(c, send_queue->data, send_queue->len, WEBSOCKET_OP_BINARY);
@@ -110,7 +113,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
          mg_ws_send(ws_conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
 // XXX: Apply this to the GX
 //         ws_conn->pfn = ws_tx_callback;
-         ws_conn->fn_data = frame;
+//         ws_conn->fn_data = frame;
       } else {
          Log(LOG_WARN, "ws.audio", "Discarding oversized buffer: %zu bytes", map.size);
       }
@@ -186,14 +189,13 @@ bool ws_audio_init(void) {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
 
-#if	0 // disabled for now
+#if	1 // disabled for now
    ///////////////
    Log(LOG_INFO, "audio", "Configuring TX audio-path");
    const char *tx_pipeline_str = dict_get(cfg, "audio.pipeline.tx", NULL);
-   if (tx_pipeline_str == NULL) {
-      Log(LOG_CRIT, "audio", "audio.pipeline.tx *MUST* be set in config");
-      shutdown_app(0);
-   } else if (strlen(tx_pipeline_str) > 0) {
+   if (tx_pipeline_str == NULL || tx_pipeline_str >= 0) {
+      Log(LOG_CRIT, "audio", "audio.pipeline.tx *MUST* be set in config for transmit capabilities");
+   } else {
       Log(LOG_INFO, "audio", "Launching TX pipeline: %s", tx_pipeline_str);
       tx_pipeline = gst_parse_launch(tx_pipeline_str, NULL);
       if (!tx_pipeline) {
@@ -244,8 +246,6 @@ bool ws_audio_init(void) {
    //   gst_pipeline_set_latency(GST_PIPELINE(tx_pipeline), 0);
       gst_element_set_state(tx_pipeline, GST_STATE_PLAYING);
 //      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "tx-pipeline");
-   } else {
-      Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
 #endif
 

@@ -21,6 +21,7 @@ ui.main.x=1400
 ui.main.y=2200
 ui.main.raise=true
 ui.main.on-top=false
+ui.userlist.hidden=false
 ui.userlist.raised=true
 ui.userlist.on-top=false
 ui.userlist.height=600
