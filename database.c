@@ -75,9 +75,9 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 // XXX: We need to add support for pointing to the recording file that will be started
 int db_ptt_start(sqlite3 *db, const char *username,
                  double frequency, const char *mode,
-                 int bandwidth, float power) {
-   const char *sql = "INSERT INTO ptt_log (username, frequency, mode, bandwidth, power) "
-                     "VALUES (?, ?, ?, ?, ?);";
+                 int bandwidth, float power, const char *record_file) {
+   const char *sql = "INSERT INTO ptt_log (username, frequency, mode, bandwidth, power, record_file) "
+                     "VALUES (?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
@@ -89,6 +89,7 @@ int db_ptt_start(sqlite3 *db, const char *username,
    sqlite3_bind_text(stmt, 3, mode, -1, SQLITE_STATIC);
    sqlite3_bind_int(stmt, 4, bandwidth);
    sqlite3_bind_double(stmt, 5, power);
+   sqlite3_bind_text(stmt, 6, record_file, -1, SQLITE_STATIC);
 
    if (sqlite3_step(stmt) != SQLITE_DONE) {
       sqlite3_finalize(stmt);

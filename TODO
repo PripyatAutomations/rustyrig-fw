@@ -1,4 +1,4 @@
-ASAP
+[ASAP]
 * More audio config stuff, maybe support codec switching.
   - Support for fwdsp report what codec & rate it's using, so multiple streams can be sent to backend
     - Maybe add transcoding someday
@@ -15,14 +15,18 @@ ASAP
 - Need to review the libmongoose deps and ensure we can still build without mongoose
   for cases it's not appropriate (stand-alone firmware on stm32/esp32 for example)
   where we don't have a network client
+* Move config from eeprom to dict and make a way to stuff cfg dict into eeprom ;)
+
+[fwdsp]
+* Make fwdsp instances configured by keys in the config file [fwdsp] section
+  - Allow auto-spawning encoders when a client requests a codec/rate
+  - Cleanup and stop unused encoders
+
+[audio.recording]
+* Implement recordings and pass the recording ID to the ptt db log
 
 [misc]
 * Add support for TX quotas (credits) and tracking top talkers
-
-[chat]
-* Support saving the chat log
-- Should we allow selecting text for copy/paste?
-  - maybe cfg tab option?
 
 [elmer mode]
 * Implement request and accept|deny for elevate privileges
@@ -125,6 +129,11 @@ minimal inet_ntop() for non-posix
   we just use a last-seen time to expire their session. We should never have a ton
   of people connected to the radio, so it should be fine this way
 * Implement tabbed/windowed modes with movable/resizable windows (overlapping)
+
+[www.chat]
+* Support saving the chat log
+- Should we allow selecting text for copy/paste?
+  - maybe cfg tab option?
 
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards

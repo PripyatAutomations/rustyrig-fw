@@ -114,6 +114,8 @@ int main(int argc, char *argv[]) {
       memset(active_server, 0, sizeof(active_server));
       snprintf(active_server, sizeof(active_server), "%s", autoconnect);
       connect_or_disconnect(GTK_BUTTON(conn_button));
+   } else {
+      show_server_chooser();
    }
 
    // start gtk main loop

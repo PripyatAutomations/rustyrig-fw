@@ -66,12 +66,11 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    }
 
    // and send a CAT message with the state
-/*
    prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"state\": { \"vfo\": \"%c\", \"freq\": %f, \"mode\": \"%s\", \"width\": %d, \"ptt\": \"%s\" }, \"ts\": %lu  } }",
        vfo_name(vfo), (hl_state.freq), rig_strrmode(hl_state.rmode), hl_state.width, (ptt ? "true" : "false"), now);
    struct mg_str mp = mg_str(msgbuf);
-   ws_broadcast(NULL, &mp, WEBSOCKET_OP_BINARY);
-*/
+   ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+
    return ptt;
 }
 

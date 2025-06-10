@@ -579,10 +579,13 @@ const char *get_server_property(const char *server, const char *prop) {
 
 bool disconnect_server(void) {
    if (ws_connected) {
-      ws_conn->is_closing = 1;
+      if (ws_conn != NULL) {
+         ws_conn->is_closing = 1;
+      }
       ws_connected = false;
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
       ws_conn = NULL;
+      userlist_clear();
    }
    return false;
 }

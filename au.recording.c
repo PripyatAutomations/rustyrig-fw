@@ -24,11 +24,23 @@
 #include "inc/posix.h"
 #include "inc/util.file.h"
 #include "inc/au.h"
-#if	defined(FEATURE_OPUS)
-#include <opus/opus.h>  // Used for audio compression
-#endif
+#include "inc/auth.h"
+
+#define	RECORDING_ID_LEN	16
 
 // Returns the ID of the reecording
-int au_recording_start(void) {
-   return 0;
+const char *au_recording_start(void) {
+   char *recording_id = malloc(RECORDING_ID_LEN+1);
+   generate_nonce(recording_id, sizeof(recording_id));
+
+   return recording_id;
+}
+
+bool au_recording_stop(const char *id) {
+   if (id == NULL) {
+      return true;
+   }
+
+   free((void *)id);
+   return false;
 }

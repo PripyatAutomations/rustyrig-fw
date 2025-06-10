@@ -43,6 +43,8 @@ extern void au_unix_socket_init(void);
 extern void au_unix_socket_cleanup(void);
 // Poll the UNIX socket server and client; handle new connections and incoming audio data
 extern void au_unix_socket_poll(void);
+extern const char *au_recording_start(void);
+extern bool au_recording_stop(const char *id);
 
 #include "inc/au.pcm5102.h"
 

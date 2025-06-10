@@ -54,21 +54,21 @@ GtkWidget *userlist_init(void) {
    }
 
    GtkListStore *store = gtk_list_store_new(NUM_COLS,
-      G_TYPE_STRING, // privilege icon
+      G_TYPE_STRING, // privilege emoji
       G_TYPE_STRING, // username
-      G_TYPE_STRING, // talking icon
-      G_TYPE_STRING, // muted icon
-      G_TYPE_STRING  // elmer/noob
+      G_TYPE_STRING, // talking emoji
+      G_TYPE_STRING, // muted emoji
+      G_TYPE_STRING  // elmer/noob emoji
    );
 
    cul_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    g_object_unref(store);
 
-   // Privilege icon
-   GtkCellRenderer *priv_icon = gtk_cell_renderer_pixbuf_new();
+   // Privilege emoji
+   GtkCellRenderer *priv_icon = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *col = gtk_tree_view_column_new();
    gtk_tree_view_column_pack_start(col, priv_icon, FALSE);
-   gtk_tree_view_column_add_attribute(col, priv_icon, "icon-name", COL_PRIV_ICON);
+   gtk_tree_view_column_add_attribute(col, priv_icon, "text", COL_PRIV_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), col);
 
    // Username
@@ -76,27 +76,28 @@ GtkWidget *userlist_init(void) {
    gtk_tree_view_column_pack_start(col, text, TRUE);
    gtk_tree_view_column_add_attribute(col, text, "text", COL_USERNAME);
 
-   // Talking icon
-   GtkCellRenderer *talk_icon = gtk_cell_renderer_pixbuf_new();
+   // Talking emoji
+   GtkCellRenderer *talk_icon = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *talk_col = gtk_tree_view_column_new();
    gtk_tree_view_column_pack_start(talk_col, talk_icon, FALSE);
-   gtk_tree_view_column_add_attribute(talk_col, talk_icon, "icon-name", COL_TALK_ICON);
+   gtk_tree_view_column_add_attribute(talk_col, talk_icon, "text", COL_TALK_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), talk_col);
 
-   // Muted icon
-   GtkCellRenderer *mute_icon = gtk_cell_renderer_pixbuf_new();
+   // Muted emoji
+   GtkCellRenderer *mute_icon = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *mute_col = gtk_tree_view_column_new();
    gtk_tree_view_column_pack_start(mute_col, mute_icon, FALSE);
-   gtk_tree_view_column_add_attribute(mute_col, mute_icon, "icon-name", COL_MUTE_ICON);
+   gtk_tree_view_column_add_attribute(mute_col, mute_icon, "text", COL_MUTE_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), mute_col);
-   gtk_container_add(GTK_CONTAINER(window), cul_view);
 
-   // Elmer/Noob icon
-   GtkCellRenderer *elmernoob_icon = gtk_cell_renderer_pixbuf_new();
+   // Elmer/Noob emoji
+   GtkCellRenderer *elmernoob_icon = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new();
    gtk_tree_view_column_pack_start(elmernoob_col, elmernoob_icon, FALSE);
-   gtk_tree_view_column_add_attribute(elmernoob_col, elmernoob_icon, "icon-name", COL_MUTE_ICON);
+   gtk_tree_view_column_add_attribute(elmernoob_col, elmernoob_icon, "text", COL_ELMERNOOB_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), elmernoob_col);
+
+
    gtk_container_add(GTK_CONTAINER(window), cul_view);
 
    g_signal_connect(window, "key-press-event", G_CALLBACK(handle_keypress), window);
@@ -124,21 +125,35 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
 
 const char *s_admin = "emblem-important";
 const char *s_talk = "microphone-sensitivity-high";
+
 const char *select_user_icon(struct rr_user *cptr) {
-   return NULL;
+   if (strcasestr(cptr->privs, "owner")) return "👑";
+   if (strcasestr(cptr->privs, "admin")) return "⭐";
+   if (strcasestr(cptr->privs, "tx")) return "👤";
+   return "👀";
+}
+
+const char *select_elmernoob_icon(struct rr_user *cptr) {
+   if (strcasestr(cptr->privs, "elmer")) return "🧙";
+   if (strcasestr(cptr->privs, "noob")) return "🐣";
+   return "";
 }
 
 bool userlist_add(struct rr_user *cptr) {
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
    GtkTreeIter iter;
 
-   gtk_list_store_append(store, &iter);
+   const char *ico_tlk = cptr->is_ptt ? "🎙️" : "";
+   const char *ico_mute = cptr->is_muted ? "🙊" : "";
+   const char *ico_en = select_elmernoob_icon(cptr);
+
+   gtk_list_store_append(store, &iter);  // <-- this must come *before* gtk_list_store_set() ;)
    gtk_list_store_set(store, &iter,
       COL_PRIV_ICON, select_user_icon(cptr),
       COL_USERNAME, cptr->name,
-      COL_TALK_ICON, NULL,			// not talking
-      COL_MUTE_ICON, NULL,			// not muted
-      COL_ELMERNOOB_ICON, NULL,			// elmer/noob
+      COL_TALK_ICON, ico_tlk,
+      COL_MUTE_ICON, ico_mute,
+      COL_ELMERNOOB_ICON, ico_en,
       -1);
 
    Log(LOG_DEBUG, "userlist", "New user: %s (privs: %s) since %lu (last heard: %lu) - flags: %lu, ptt:%s muted:%s",
@@ -163,9 +178,9 @@ bool userlist_update(struct rr_user *cptr) {
       gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, COL_USERNAME, &existing_name, -1);
 
       if (existing_name && strcmp(existing_name, cptr->name) == 0) {
-         const char *ico_tlk = NULL;
-         const char *ico_mute = NULL;
-         const char *ico_en = NULL;
+         const char *ico_tlk = cptr->is_ptt ? "🎙️" : "";
+         const char *ico_mute = cptr->is_muted ? "🙊" : "";
+         const char *ico_en = select_elmernoob_icon(cptr);
 
          g_free(existing_name);
          gtk_list_store_set(store, &iter,

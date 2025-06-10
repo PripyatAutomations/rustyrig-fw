@@ -293,11 +293,7 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
          Log(LOG_DEBUG, "gtk-gui", "Set server profile to %s by console cmd", active_server);
          connect_server();
       } else {
-         if (ws_conn == NULL) {
-            connect_server();
-         } else {
-            ui_print("* You are already connected and didn't specify a different server to connect to!");
-         }
+         show_server_chooser();
       }
    } else if (strncasecmp(msg + 1, "disconnect", 10) == 0) {
       disconnect_server();

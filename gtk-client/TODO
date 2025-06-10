@@ -1,5 +1,4 @@
 * makefile cleanup!!!!!!!!!!!!!
-* Implement compressed audio via gstreamer
 * Finish parsing server messages
 * Implement rest of controls typically used
 * Improved frequency input widget. like the webui
@@ -10,3 +9,4 @@
   - or maybe send the mute/unmute to server who will start/stop sending samples
     as well as sending a start/stop message so gstreamer can be paused
 * Add support for multiple server sections in the config and a choser at startup
+? Implement compressed audio via gstreamer

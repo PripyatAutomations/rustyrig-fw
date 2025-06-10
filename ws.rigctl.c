@@ -19,6 +19,7 @@
 #include "inc/state.h"
 #include "inc/eeprom.h"
 #include "inc/logger.h"
+#include "inc/au.h"
 #include "inc/auth.h"
 #include "inc/backend.h"
 #include "inc/cat.h"
@@ -175,6 +176,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    if (cmd) {
+      // XXX: This needs split up to move functionality to ptt.c
       if (strcasecmp(cmd, "ptt") == 0) {
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
             rv = true;
@@ -215,13 +217,16 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // Log PTT event in the master db
          if (!cptr->ptt_session) {
-            cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, dp->freq, mode_name, dp->width, dp->power);
+            const char *recording = au_recording_start();
+            cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, dp->freq, mode_name, dp->width, dp->power, recording);
          } else {
             db_ptt_stop(masterdb, cptr->ptt_session);
          }
 
+         // Send to log file & consoles
+         Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
+
          // tell everyone about it
-#if	0
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
          prepare_msg(msgbuf, sizeof(msgbuf),
@@ -232,8 +237,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
              dp->freq, dp->width, mode_name, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-#endif
-         Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
+
          rr_ptt_set(c_vfo, c_state);
          free(ptt_state);
       } else if (strcasecmp(cmd, "freq") == 0) {

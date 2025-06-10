@@ -14,7 +14,7 @@
 extern sqlite3 *db_open(const char *path);
 extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email, int maxclones, const char *permissions);
 extern bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details);
-extern int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char *mode, int bandwidth, float power);
+extern int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char *mode, int bandwidth, float power, const char *record_file);
 extern bool db_ptt_stop(sqlite3 *db, int session_id);
 //
 extern sqlite3 *masterdb;
