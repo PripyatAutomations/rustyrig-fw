@@ -25,13 +25,13 @@ bool config_load(const char *path) {
       return true;
    }
 
-   if (cfg != NULL || servers != NULL) {
+   if (cfg || servers) {
       Log(LOG_CRIT, "config", "Config already loaded");
       return true;
    }
 
    FILE *fp = fopen(path, "r");
-   if (fp == NULL) {
+   if (!fp) {
       Log(LOG_CRIT, "config", "Failed to open config %s: %d:%s", path, errno, strerror(errno));
       return true;
    }
