@@ -98,7 +98,7 @@ void show_server_chooser(void) {
    GtkTreeIter match_iter;
    gboolean have_match = FALSE;
    while ((rank = dict_enumerate(servers, rank, &k, &v)) >= 0) {
-      printf("config key: %s -> %s\n", k, v);
+//      printf("config key: %s -> %s\n", k, v);
 
       if (!g_str_has_suffix(k, ".server.user")) {
          continue;

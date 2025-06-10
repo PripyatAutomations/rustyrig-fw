@@ -1,3 +1,4 @@
+* Add throttled reconnect like webui has
 * makefile cleanup!!!!!!!!!!!!!
 * Finish parsing server messages
 * Implement rest of controls typically used

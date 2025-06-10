@@ -26,7 +26,7 @@
 #include "inc/au.h"
 #include "inc/auth.h"
 
-#define	RECORDING_ID_LEN	16
+#define	RECORDING_ID_LEN	20
 
 // Returns the ID of the reecording
 const char *au_recording_start(void) {

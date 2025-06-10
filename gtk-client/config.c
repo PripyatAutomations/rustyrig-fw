@@ -69,13 +69,16 @@ bool config_load(const char *path) {
       // Look for end of comment
       if (*skip == '*' && *skip == '/') {
          in_comment = false;
+         fprintf(stderr, "[Debug]: cfg.end_block_comment: %d", line);
          continue;
       // Look for start of comment
       } else if (*skip == '/' && *skip + 1 == '*') {
+         fprintf(stderr, "\n[Debug]: cfg.start_block_comment: %d\n", line);
          in_comment = true;
          continue;
       // If we're in a comment still, there's no */ on this line, so continue ignoring input
       } else if (in_comment) {
+         fprintf(stderr, ".");
          continue;
       } else if ((*skip == '/' && *skip+1 == '/') ||	// comments
            *skip == '#' || *skip == ';') {
@@ -125,7 +128,7 @@ bool config_load(const char *path) {
          key = NULL;
          val = NULL;
          char *eq = strchr(skip, '=');
-         char fullkey[128];
+         char fullkey[256];
 
          if (eq) {
             *eq = '\0';
