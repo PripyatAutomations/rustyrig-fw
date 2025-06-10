@@ -97,11 +97,13 @@ bool ws_kick_by_uid(int uid, const char *reason) {
 }
 
 bool ws_kick_client(http_client_t *cptr, const char *reason) {
+   // skip freeing resources if no client structure
    if (cptr == NULL || cptr->conn == NULL) {
       Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
       return true;
    }
 
+   // If we have a client structure attached, release it's resources
    if (cptr->user_agent != NULL) {
       free(cptr->user_agent);
       cptr->user_agent = NULL;
@@ -115,10 +117,6 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
    struct mg_connection *c = cptr->conn;
 
-   if (c == NULL) {
-      return true;
-   }
-
    // make sure we're not accessing unsafe memory
    if (cptr->user != NULL && cptr->chatname[0] != '\0') {
       if (cptr->active) {
@@ -131,15 +129,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
       }
    }
 
-   // Tell their client they've been disconnected
-   prepare_msg(resp_buf, sizeof(resp_buf), 
-      "{ \"auth\": { \"error\": \"Client kicked: %s\" } }",
-      (reason != NULL ? reason : "no reason given"));
-   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
-   mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
-   http_remove_client(c);
-
-   return false;
+   return ws_kick_client_by_c(cptr->conn, reason);
 }
 
 bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
@@ -149,14 +139,15 @@ bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
       return true;
    }
 
-   http_client_t *cptr = http_find_client_by_c(c);
+   // Tell their client they've been disconnected
+   prepare_msg(resp_buf, sizeof(resp_buf), 
+      "{ \"auth\": { \"error\": \"Client kicked: %s\" } }",
+      (reason != NULL ? reason : "no reason given"));
+   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+   mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
 
-   if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth", "ws_kick_client_by_c for mg_conn <%x> has cptr <%x> and is invalid", c, (cptr != NULL ? cptr->conn : NULL));
-      return true;
-   }
-
-   return ws_kick_client(cptr, reason);
+   http_remove_client(c);
+   return false;
 }
 
 static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {

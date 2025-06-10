@@ -27,6 +27,7 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+#define	DEBUG_WS_BINFRAMES		// turn this off soon
 extern void ws_handler(struct mg_connection *c, int ev, void *ev_data);
 extern void ws_init(void);
 extern void ws_fini(void);

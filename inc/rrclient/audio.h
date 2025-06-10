@@ -47,7 +47,7 @@ extern GstElement *tx_appsrc;
 extern GstElement *tx_vol_gst_elem;
 extern GstElement *tx_sink;
 //extern void enqueue_frame(uint8_t *data, size_t len);
-extern void free_sent_frame(void);
+extern void audio_tx_free_frame(void);
 extern void try_send_next_frame(struct mg_connection *c);
 //extern GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data);
 extern bool ws_audio_init(void);

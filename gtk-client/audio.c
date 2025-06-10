@@ -36,7 +36,7 @@
 #include "rrclient/audio.h"
 
 extern dict *cfg;		// main.c
-extern struct mg_connection *ws_conn;
+extern struct mg_connection *ws_conn, *ws_tx_conn;
 extern GtkWidget *rx_vol_slider;
 
 bool audio_enabled = false;
@@ -51,11 +51,12 @@ static struct ws_frame *send_queue = NULL;
 static bool sending_in_progress = false;
 
 // This is very ugly and could definitely use a rewrite. The TX path needs to move into ws.tx-audio.c
-static void enqueue_frame(uint8_t *data, size_t len) {
+static void audio_tx_enqueue_frame(uint8_t *data, size_t len) {
   struct ws_frame *f = malloc(sizeof(*f));
   f->data = data;
   f->len = len;
   f->next = NULL;
+
   if (!send_queue) {
      send_queue = f;
   } else {
@@ -65,7 +66,7 @@ static void enqueue_frame(uint8_t *data, size_t len) {
   }
 }
 
-void free_sent_frame(void) {
+void audio_tx_free_frame(void) {
   if (send_queue) {
     free(send_queue->data);
     struct ws_frame *tmp = send_queue;
@@ -81,7 +82,7 @@ void try_send_next_frame(struct mg_connection *c) {
 
   sending_in_progress = true;
   mg_ws_send(c, send_queue->data, send_queue->len, WEBSOCKET_OP_BINARY);
-  // free_sent_frame() will be called once send completes
+  // audio_tx_free_frame() will be called once send completes
 }
 
 GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
@@ -90,7 +91,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
       return GST_FLOW_ERROR;
    }
 
-   if (!ws_conn) {
+   if (!ws_tx_conn) {
       gst_sample_unref(sample);
       return GST_FLOW_OK;
    }
@@ -110,10 +111,9 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
          frame->len = map.size;
          memcpy(frame->data, map.data, map.size);
 
-         mg_ws_send(ws_conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
-// XXX: Apply this to the GX
-//         ws_conn->pfn = ws_tx_callback;
-//         ws_conn->fn_data = frame;
+         mg_ws_send(ws_tx_conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
+//         ws_tx_conn->pfn = ws_tx_callback;
+//         ws_tx_conn->fn_data = frame;
       } else {
          Log(LOG_WARN, "ws.audio", "Discarding oversized buffer: %zu bytes", map.size);
       }

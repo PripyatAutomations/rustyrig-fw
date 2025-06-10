@@ -30,8 +30,9 @@
 #include "rrclient/userlist.h"
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;
-bool ws_connected = false;
-struct mg_connection *ws_conn = NULL;
+bool ws_connected = false;	// Is RX stream connecte?
+bool ws_tx_connected = false;	// Is TX stream connected?
+struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 bool server_ptt_state = false;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
@@ -120,20 +121,16 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          free(reason);
          goto cleanup;
       }
+      ui_print("[%s] >> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", --clones);
+
       if (clones <= 0 ) {
          userlist_remove(user);
       }
-      ui_print("[%s] >> %s disconnected from the radio: %s (%d clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", clones);
       free(reason);
    } else if (cmd != NULL && strcasecmp(cmd, "whois") == 0) {
-      const char *json_array = mg_json_get_str(msg_data, "$.talk.data");
-/*
-      if (json_array) {
-         ui_show_whois_dialog(GTK_WINDOW(main_window), json_array);
-      }
-*/
+      const char *whois_msg = mg_json_get_str(msg_data, "$.talk.data");
       ui_print("[%s] >>> WHOIS %s", user);
-      ui_print("[%s]   %s", json_array);
+      ui_print("[%s]   %s", whois_msg);
    } else {
       Log(LOG_DEBUG, "chat", "msg: %.*s", msg->data.len, msg->data.buf);
    }
@@ -186,13 +183,13 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
 
          if (freq_buf[0] != '\0' && strlen(freq_buf) > 0) {
             g_signal_handler_block(freq_entry, freq_changed_handler_id);
-//            Log(LOG_DEBUG, "ws", "Updating freq_entry: %s", freq_buf);
+            Log(LOG_CRAZY, "ws", "Updating freq_entry: %s", freq_buf);
             gtk_entry_set_text(GTK_ENTRY(freq_entry), freq_buf);
             g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
          }
 
          if (mode && strlen(mode) > 0) {
-//            Log(LOG_DEBUG, "ws", "Updating mode_combo: %s", mode);
+            Log(LOG_CRAZY, "ws", "Updating mode_combo: %s", mode);
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
          }
 
@@ -200,12 +197,12 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
          free(vfo);
          free(mode);
          free(user);
-//      } else {
-//         Log(LOG_DEBUG, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
+      } else {
+         Log(LOG_CRAZY, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
       }
    } else {
-//      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(), msg_data);
-      Log(LOG_DEBUG, "ws.cat", "CAT msg: %s", msg->data);
+      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(), msg_data);
+      Log(LOG_DEBUG, "ws.cat", "Unknown msg: %s", msg->data);
    }
    return false;
 }
@@ -375,12 +372,14 @@ bool ws_binframe_process(const char *data, size_t len) {
       return true;
    }
 
+#if	defined(DEBUG_WS_BINFRAMES)
    char hex[128] = {0};
    size_t n = len < 16 ? len : 16;
    for (size_t i = 0; i < n; i++) {
       snprintf(hex + i * 3, sizeof(hex) - i * 3, "%02X ", (unsigned char)data[i]);
    }
-//   Log(LOG_DEBUG, "http.ws", "binary: %zu bytes, hex: %s", len, hex);
+   Log(LOG_DEBUG, "http.ws", "binary: %zu bytes, hex: %s", len, hex);
+#endif
 
 //   if (data[0] == 'A' && data[1] == 'U') {
       audio_process_frame(data, len);
@@ -413,7 +412,9 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 
 void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_OPEN) {
-//      c->is_hexdumping = 1;
+#if	defined(HTTP_DEBUG_CRAZY)
+      c->is_hexdumping = 1;
+#endif
       ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
       const char *url = get_server_property(active_server, "server.url");
@@ -430,7 +431,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_WRITE) {
       if (sending_in_progress) {
          Log(LOG_DEBUG, "ws", "http_handler: write frame");
-         free_sent_frame();
+         audio_tx_free_frame();
          sending_in_progress = false;
          try_send_next_frame(c);  // attempt to send the next
       }
@@ -510,7 +511,8 @@ bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"ptt\", \"vfo\": \"%s\", \"ptt\": \"%s\" } }",
                  vfo, (ptt ? "true" : "false"));
-//   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
+
+   Log(LOG_CRAZY, "CAT", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    if (ret < 0) {
       Log(LOG_DEBUG, "cat", "ws_send_ptt_cmd: mg_ws_send error: %d", ret);
@@ -568,8 +570,10 @@ const char *get_server_property(const char *server, const char *prop) {
    memset(fullkey, 0, sizeof(fullkey));
    snprintf(fullkey, sizeof(fullkey), "%s.%s", server, prop);
    rv = dict_get(servers, fullkey, NULL);
-//   ui_print("Looking up server key: %s returned %s", fullkey, (rv ? rv : "NULL"));
-//   dict_dump(servers, stdout);
+#if	defined(DEBUG_CONFIG) || defined(DEBUG_CONFIG_SERVER)
+   ui_print("Looking up server key: %s returned %s", fullkey, (rv ? rv : "NULL"));
+   dict_dump(servers, stdout);
+#endif
    return rv;
 }
 
@@ -604,7 +608,10 @@ bool connect_server(void) {
       }
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connecting...");
       ui_print("[%s] Connecting to %s", get_chat_ts(), url);
+   } else {
+      ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", active_server);
    }
+
    return false;
 }
 
