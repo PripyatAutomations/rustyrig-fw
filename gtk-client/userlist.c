@@ -105,8 +105,8 @@ GtkWidget *userlist_init(void) {
    gtk_widget_show_all(window);
    place_window(userlist_window);
 
-//   Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
-//   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
+   Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
+   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
    if (cfg_hidden != NULL && (strcasecmp(cfg_hidden, "true") == 0 || strcasecmp(cfg_hidden, "yes") == 0 || strcasecmp(cfg_hidden, "on") == 0)) {
       gtk_widget_hide(userlist_window);

@@ -289,7 +289,6 @@ bool audio_process_frame(const char *data, size_t len) {
    // Add PTS and duration
    static GstClockTime timestamp = 0;
    GstClockTime duration = gst_util_uint64_scale(len, GST_SECOND, 16000 * 2);  // 16-bit mono
-//   GST_BUFFER_PTS(buffer) = GST_CLOCK_TIME_NONE;  // or manually track PTS if needed
    GST_BUFFER_PTS(buffer) = timestamp;
    GST_BUFFER_DURATION(buffer) = duration;
    timestamp += duration;
