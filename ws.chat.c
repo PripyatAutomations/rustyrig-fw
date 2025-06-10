@@ -25,6 +25,7 @@
 #include "inc/http.h"
 #include "inc/ws.h"
 #include "inc/ptt.h"
+#include "inc/client-flags.h"
 #define	CHAT_MIN_REASON_LEN	1
 
 extern struct GlobalState rig;	// Global state

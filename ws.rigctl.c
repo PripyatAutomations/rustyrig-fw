@@ -28,6 +28,7 @@
 #include "inc/ptt.h"
 #include "inc/vfo.h"
 #include "inc/database.h"
+#include "inc/client-flags.h"
 
 extern struct GlobalState rig;	// Global state
 

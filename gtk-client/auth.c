@@ -16,6 +16,7 @@
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
+#include "rrclient/userlist.h"
 
 // config.c
 extern bool config_load(const char *path);
@@ -177,5 +178,73 @@ bool ws_send_hello(struct mg_connection *c) {
    memset(msgbuf, 0, sizeof(msgbuf));
    snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rrclient %s\", \"codec\": \"%s\", \"rate\": %d }", VERSION, codec, rate);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   return false;
+}
+
+bool match_priv(const char *user_privs, const char *priv) {
+   const char *start = user_privs;
+   size_t privlen = strlen(priv);
+
+   Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'", user_privs, priv);
+   if (user_privs == NULL || priv == NULL) {
+      return false;
+   }
+
+   while (start && *start) {
+      const char *end = strchr(start, ',');
+      size_t len = end ? (size_t)(end - start) : strlen(start);
+
+      char token[64];
+      if (len >= sizeof(token)) {
+         len = sizeof(token) - 1;
+      }
+      memcpy(token, start, len);
+      token[len] = '\0';
+
+      Log(LOG_CRAZY, "auth", "token=|%s|", token);
+
+      if (strcmp(token, priv) == 0) {
+         Log(LOG_CRAZY, "auth", " → exact match");
+         return true;
+      }
+
+      if (len >= 2 && token[len - 2] == '.' && token[len - 1] == '*') {
+         token[len - 2] = '\0';  // strip .*
+         if (strncmp(priv, token, strlen(token)) == 0 && priv[strlen(token)] == '.') {
+            Log(LOG_CRAZY, "auth", " → wildcard match");
+            return true;
+         }
+      }
+
+      start = end ? end + 1 : NULL;
+   }
+
+   return false;
+}
+
+bool has_privs(struct rr_user *cptr, const char *priv) {
+   if (priv == NULL || cptr == NULL) {
+      return false;
+   }
+
+   const char *p = priv;
+   while (p && *p) {
+      const char *sep = strchr(p, '|');
+      size_t len = sep ? (size_t)(sep - p) : strlen(p);
+
+      char tmp[64];  // adjust size as needed
+      if (len >= sizeof(tmp)) {
+         len = sizeof(tmp) - 1;
+      }
+      memcpy(tmp, p, len);
+      tmp[len] = '\0';
+
+      if (match_priv(cptr->privs, tmp)) {
+         return true;
+      }
+
+      p = sep ? sep + 1 : NULL;
+   }
+
    return false;
 }

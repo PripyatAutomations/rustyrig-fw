@@ -8,11 +8,17 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rrclient_auth_h)
 #define __rrclient_auth_h
+#include <stdbool.h>
+#include "rrclient/userlist.h"
+
 extern char *compute_wire_password(const char *password, const char *nonce);
 extern bool ws_send_login(struct mg_connection *c, const char *login_user);
 extern bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passwd, const char *nonce);
 extern bool ws_send_logout(struct mg_connection *c, const char *user, const char *token);
 extern bool ws_send_hello(struct mg_connection *c);
 extern char session_token[HTTP_TOKEN_LEN+1];
+extern bool match_priv(const char *user_privs, const char *priv);
+extern bool has_privs(struct rr_user *cptr, const char *priv);
+
 
 #endif	// !defined(__rrclient_auth_h)

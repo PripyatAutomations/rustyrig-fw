@@ -28,6 +28,7 @@
 #include "inc/ws.h"
 #include "inc/util.string.h"
 #include "inc/auth.h"
+#include "inc/client-flags.h"
 
 extern struct GlobalState rig;	// Global state
 

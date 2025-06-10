@@ -24,6 +24,7 @@
 #include "inc/posix.h"
 #include "inc/state.h"
 #include "inc/ws.h"
+#include "inc/client-flags.h"
 
 extern struct GlobalState rig;	// Global state
 

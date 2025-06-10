@@ -8,6 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rrclient_userlist_h)
 #define	__rrclient_userlist_h
+
 struct rr_user {
    char   	  name[HTTP_USER_LEN+1];
    char           privs[200];
@@ -23,5 +24,10 @@ extern bool userlist_add(struct rr_user *cptr);
 extern void userlist_clear(void);
 extern bool userlist_update(struct rr_user *cptr);
 extern bool userlist_remove(const char *name);
+extern struct rr_user *global_userlist;
+extern struct rr_user *find_or_create_client(const char *name);
+extern bool delete_client(struct rr_user *cptr);
+
+#include "inc/client-flags.h"
 
 #endif	// !defined(__rrclient_userlist_h)

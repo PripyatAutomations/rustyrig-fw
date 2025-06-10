@@ -54,6 +54,9 @@ You can use 'make run' to start it up with audio etc automatically without insta
 	firefox	https://localhost:4420/
 
 
+
+-- If building fails, try ./build.sh instead of make
+
 Audio Setup
 ------------
 If you are installing this permanently:

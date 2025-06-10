@@ -8,6 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
 #include "inc/config.h"
+#define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -28,6 +29,8 @@
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
+#include "inc/client-flags.h"
+
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;
 bool ws_connected = false;	// Is RX stream connecte?
@@ -72,25 +75,63 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       goto cleanup;
    }
 
-   if (cmd != NULL && strcasecmp(cmd, "userinfo") == 0) {
-      Log(LOG_DEBUG, "ws.talk", "[%s] UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", get_chat_ts(), user, privs, (tx ? "true" : "false"), muted, clones);
-      struct rr_user *cptr = malloc(sizeof(struct rr_user));
 
-      if (cptr != NULL) {
+   if (cmd && strcasecmp(cmd, "userinfo") == 0) {
+      if (user == NULL) {
+         rv = true;
+         goto cleanup;
+      }
+
+      Log(LOG_DEBUG, "ws.talk", "[%s] UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", get_chat_ts(), user, privs, (tx ? "true" : "false"), muted, clones);
+      struct rr_user *cptr = find_or_create_client(user);
+
+      if (cptr) {
          memset(cptr, 0, sizeof(struct rr_user));
          snprintf(cptr->name, sizeof(cptr->name), "%s", user);
          snprintf(cptr->privs, sizeof(cptr->privs), "%s", privs);
          if (tx) {
             cptr->is_ptt = true;
          }
-         if (muted != NULL && strcasecmp(muted, "true") == 0) {
+         if (muted && strcasecmp(muted, "true") == 0) {
             cptr->is_muted = muted;
+         }
+         if (has_privs(cptr, "admin")) {
+            set_flag(cptr, FLAG_ADMIN);
+         } else if (has_privs(cptr, "owner")) {
+            set_flag(cptr, FLAG_OWNER);
+         }
+         if (has_privs(cptr, "muted")) {
+            set_flag(cptr, FLAG_MUTED);
+            cptr->is_muted = true;
+         }
+         if (has_privs(cptr, "ptt")) {
+            set_flag(cptr, FLAG_PTT);
+         }
+         if (has_privs(cptr, "subscriber")) {
+            set_flag(cptr, FLAG_SUBSCRIBER);
+         }
+         if (has_privs(cptr, "elmer")) {
+            set_flag(cptr, FLAG_ELMER);
+         } else if (has_privs(cptr, "noob")) {
+            set_flag(cptr, FLAG_NOOB);
+         }
+         if (has_privs(cptr, "bot")) {
+            set_flag(cptr, FLAG_SERVERBOT);
+         }
+         if (has_privs(cptr, "listener")) {
+            set_flag(cptr, FLAG_LISTENER);
+         }
+         if (has_privs(cptr, "syslog")) {
+            set_flag(cptr, FLAG_SYSLOG);
+         }
+         if (has_privs(cptr, "tx")) {
+            set_flag(cptr, FLAG_CAN_TX);
          }
          userlist_update(cptr);
       } else {
          Log(LOG_CRIT, "ws", "OOM in ws_handle_talk_msg");
       }
-   } else if (cmd != NULL && strcasecmp(cmd, "msg") == 0) {
+   } else if (cmd && strcasecmp(cmd, "msg") == 0) {
       char *from = mg_json_get_str(msg_data, "$.talk.from");
       char *data = mg_json_get_str(msg_data, "$.talk.data");
       char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
@@ -107,7 +148,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       free(data);
       free(from);
       free(msg_type);
-   } else if (cmd != NULL && strcasecmp(cmd, "join") == 0) {
+   } else if (cmd && strcasecmp(cmd, "join") == 0) {
       char *ip = mg_json_get_str(msg_data, "$.talk.ip");
       if (user == NULL || ip == NULL) {
          free(ip);
@@ -115,7 +156,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       }
       ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(), user);
       free(ip);
-   } else if (cmd != NULL && strcasecmp(cmd, "quit") == 0) {
+   } else if (cmd && strcasecmp(cmd, "quit") == 0) {
       char *reason = mg_json_get_str(msg_data, "$.talk.reason");
       if (user == NULL || reason == NULL) {
          free(reason);
@@ -127,7 +168,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          userlist_remove(user);
       }
       free(reason);
-   } else if (cmd != NULL && strcasecmp(cmd, "whois") == 0) {
+   } else if (cmd && strcasecmp(cmd, "whois") == 0) {
       const char *whois_msg = mg_json_get_str(msg_data, "$.talk.data");
       ui_print("[%s] >>> WHOIS %s", user);
       ui_print("[%s]   %s", whois_msg);
@@ -161,7 +202,7 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
          bool ptt = false;
          char *ptt_s = mg_json_get_str(msg_data, "$.cat.state.ptt");
 
-         if (ptt_s != NULL && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
+         if (ptt_s && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
             ptt = true;
          }  else {
             ptt = false;
@@ -240,10 +281,10 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
       goto cleanup;
    }
 
-   if (cmd != NULL && strcasecmp(cmd, "challenge") == 0) {
+   if (cmd && strcasecmp(cmd, "challenge") == 0) {
       char *token = mg_json_get_str(msg_data, "$.auth.token");
 
-      if (token != NULL) {
+      if (token) {
          memset(session_token, 0, HTTP_TOKEN_LEN + 1);
          snprintf(session_token, HTTP_TOKEN_LEN + 1, "%s", token);
       } else {
@@ -256,7 +297,7 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
 
       ws_send_passwd(c, user, login_pass, nonce);
       free(token);
-   } else if (cmd != NULL && strcasecmp(cmd, "authorized") == 0) {
+   } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
       ui_print("[%s] *** Authorized ***", get_chat_ts());
    }
 
@@ -294,7 +335,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       char *msg = mg_json_get_str(msg_data, "$.alert.msg");
       char *from = mg_json_get_str(msg_data, "$.alert.from");
 
-      if (msg != NULL) {
+      if (msg) {
          ui_print("[%s] ALERT: %s !!!", get_chat_ts(), msg);
       }
       free(msg);
@@ -304,14 +345,14 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.error", NULL) > 0) {
       char *msg = mg_json_get_str(msg_data, "$.error");
-      if (msg != NULL) {
+      if (msg) {
          ui_print("[%s] ERROR %s !!!", get_chat_ts(), msg);
       }
       free(msg);
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.notice", NULL) > 0) {
       char *msg = mg_json_get_str(msg_data, "$.notice");
-      if (msg != NULL) {
+      if (msg) {
          ui_print("[%s] NOTICE %s ***", get_chat_ts(), msg);
       }
       free(msg);
@@ -345,7 +386,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       memset(my_timestamp, 0, sizeof(my_timestamp));
       t = time(NULL);
 
-      if ((tmp = localtime(&t)) != NULL) {
+      if ((tmp = localtime(&t))) {
          /* success, proceed */
          if (strftime(my_timestamp, sizeof(my_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
             /* handle the error */
@@ -392,7 +433,7 @@ bool ws_binframe_process(const char *data, size_t len) {
 //
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    if (c == NULL || msg == NULL || msg->data.buf == NULL) {
-      Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
+      Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg ? msg->data.buf : NULL));
       return true;
    }
 
@@ -421,7 +462,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       if (c->is_tls) {
          struct mg_tls_opts opts = { .name = mg_url_host(url) };
 
-         if (tls_ca_path != NULL) {
+         if (tls_ca_path) {
             opts.ca = tls_ca_path_str;
          } else {
             Log(LOG_CRIT, "ws", "No tls_ca_path set!");
@@ -467,8 +508,8 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 
 void ws_init(void) {
    const char *debug = dict_get(cfg, "debug.http", "false");
-   if (debug != NULL && (strcasecmp(debug, "true") == 0 ||
-                        strcasecmp(debug, "yes") == 0)) {
+   if (debug && (strcasecmp(debug, "true") == 0 ||
+                 strcasecmp(debug, "yes") == 0)) {
       mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
    }
    mg_mgr_init(&mgr);
@@ -478,7 +519,7 @@ void ws_init(void) {
       tls_ca_path = strdup("*");
    }
 
-   if (tls_ca_path != NULL) {
+   if (tls_ca_path) {
       // turn it into a mongoose string
       tls_ca_path_str = mg_str(tls_ca_path);
       Log(LOG_DEBUG, "ws", "Setting TLS CA path to <%x> %s with target mg_str at <%x>", tls_ca_path, tls_ca_path, tls_ca_path_str);
@@ -489,7 +530,7 @@ void ws_init(void) {
 
    const char *cfg_show_pings_s = dict_get(cfg, "ui.show-pings", "true");
 
-   if (cfg_show_pings_s != NULL && (strcasecmp(cfg_show_pings_s, "true") == 0 ||
+   if (cfg_show_pings_s && (strcasecmp(cfg_show_pings_s, "true") == 0 ||
       strcasecmp(cfg_show_pings_s, "yes") == 0)) {
       cfg_show_pings = true;
    } else {
@@ -579,7 +620,7 @@ const char *get_server_property(const char *server, const char *prop) {
 
 bool disconnect_server(void) {
    if (ws_connected) {
-      if (ws_conn != NULL) {
+      if (ws_conn) {
          ws_conn->is_closing = 1;
       }
       ws_connected = false;

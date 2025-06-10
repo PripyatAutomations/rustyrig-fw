@@ -25,8 +25,9 @@
 #include "inc/logger.h"
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
 #include "inc/eeprom.h"
-#include "inc/debug.h"		// Debug message filtering
+#include "inc/debug.h"			// Debug message filtering
 #include "inc/ws.h"			// Support for sending the syslog via websocket
+#include "inc/client-flags.h"
 #endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
 
 

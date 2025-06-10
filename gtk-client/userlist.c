@@ -38,6 +38,69 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
 }
 
 
+struct rr_user *global_userlist = NULL;
+
+struct rr_user *find_or_create_client(const char *name) {
+   struct rr_user *cptr = global_userlist;
+   struct rr_user *prev = NULL;
+
+   while (cptr) {
+      if (strcasecmp(cptr->name, name) == 0) {
+         Log(LOG_DEBUG, "userlist", "find_or_create_client:<%s> found cptr:<%x>, returning", name, cptr);
+         return cptr;
+      }
+      // find the end of the list
+      prev = cptr;
+      cptr = cptr->next;
+   }
+
+   struct rr_user *tmp = calloc(1, sizeof(*tmp));
+   if (!tmp) {
+      Log(LOG_CRIT, "userlist", "OOM in find_or_create_client");
+      return NULL;
+   }
+
+   memset(tmp->name, 0, sizeof(tmp->name));
+   snprintf(tmp->name, sizeof(tmp->name), "%s", name);
+
+   if (prev) {
+      prev->next = tmp;
+   } else {
+      global_userlist = tmp;
+   }
+
+   Log(LOG_DEBUG, "userlist", "find_or_create_client:<%s> created new user <%x>", name, tmp);
+   return tmp;
+}
+
+bool delete_client(struct rr_user *cptr) {
+   if (!cptr) {
+      return true;
+   }
+
+   struct rr_user *c = global_userlist;
+   struct rr_user *prev = NULL;
+
+   while (c) {
+      if (c == cptr) {
+         if (prev) {
+            prev->next = c->next;
+         } else {
+            global_userlist = c->next;
+         }
+         Log(LOG_DEBUG, "userlist", "delete_client:<%x> found cptr, removing '%s'", cptr, cptr->name);
+
+         free(cptr);
+         return false;
+      }
+
+      prev = c;
+      c = c->next;
+   }
+
+   return true;
+}
+
 GtkWidget *userlist_init(void) {
    GtkWidget *window = userlist_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "User List");
