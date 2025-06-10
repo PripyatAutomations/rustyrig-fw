@@ -591,9 +591,9 @@ bool disconnect_server(void) {
 }
 
 bool connect_server(void) {
+   // This could recurse in an ugly way if not careful...
    if (active_server[0] == '\0') {
-      // XXX: Display the server choser
-      ui_print("[%s] * No active server selected, try /server profilename", get_chat_ts());
+      show_server_chooser();
       return true;
    }
 
