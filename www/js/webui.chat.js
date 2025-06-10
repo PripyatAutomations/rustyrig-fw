@@ -153,8 +153,6 @@ function cul_render() {
            badges += '<span class="badge admin-badge">⭐&nbsp;</span>';
        } else if (privs.has('noob')) {
            badges += '<span class="badge admin-badge">🐣&nbsp;</span>';
-       } else if ((user.name || '').toUpperCase() === 'N9MSC') {
-           badges += '<span class="badge admin-badge">🐒&nbsp;</span>';
        } else if (privs.has('tx')) {
            badges +=  '<span class="badge admin-badge">👤&nbsp;</span>';
        } else {
