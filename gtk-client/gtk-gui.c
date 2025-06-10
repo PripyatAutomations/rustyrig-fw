@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,11 +19,11 @@
 #include <gtk/gtk.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
-#include "inc/logger.h"
-#include "inc/dict.h"
-#include "inc/posix.h"
-#include "inc/mongoose.h"
-#include "inc/http.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/dict.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/mongoose.h"
+#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -83,7 +83,7 @@ static gboolean scroll_to_end_idle(gpointer data) {
    GtkTextView *text_view = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
    GtkTextIter end;
-   if (data == NULL) {
+   if (!data) {
       printf("scroll_to_end_idle: data == NULL\n");
       return FALSE;
    }
@@ -97,7 +97,7 @@ bool ui_print(const char *fmt, ...) {
    va_start(ap, fmt);
    char outbuf[8096];
 
-   if (fmt == NULL) {
+   if (!fmt) {
       return true;
    }
 
@@ -121,7 +121,7 @@ bool log_print(const char *fmt, ...) {
       return false;
    }
 
-   if (fmt == NULL) {
+   if (!fmt) {
       printf("log_print sent NULL fmt\n");
    }
    va_list ap;
@@ -229,7 +229,7 @@ void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 
 // Combine some common, safe string handling into one call
 bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
-   if (buf == NULL || fmt == NULL) {
+   if (!buf || !fmt) {
       return true;
    }
 
@@ -285,7 +285,7 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    if (strncasecmp(msg + 1, "server", 6) == 0) {
       const char *server = msg + 8;
 
-      if (server != NULL && strlen(server) > 1) {
+      if (server && strlen(server) > 1) {
          ui_print("[%s] * Changing server profile to %s", get_chat_ts(), server);
          disconnect_server();
          memset(active_server, 0, sizeof(active_server));
@@ -580,7 +580,7 @@ bool gui_init(void) {
    const char *cfg_rx_volume = dict_get(cfg, "audio.volume.rx", NULL);
    float vol = 0;
    Log(LOG_DEBUG, "audio", "Setting default RX volume to %s", cfg_rx_volume);
-   if (cfg_rx_volume != NULL) {
+   if (cfg_rx_volume) {
       vol = atoi(cfg_rx_volume);
       gtk_range_set_value(GTK_RANGE(rx_vol_slider), vol);
    }

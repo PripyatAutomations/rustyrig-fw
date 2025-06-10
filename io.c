@@ -10,7 +10,7 @@
 // IO abstraction
 // 	We use backends in socket.c, serial.c, and friends to support this
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,9 +22,9 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/io.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/io.h"
 
 int rr_io_open(rr_io_context_t *ctx, rr_io_type_t type, const char *path, int port) {
     if (!ctx) {

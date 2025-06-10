@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,8 +22,8 @@
 #include <fcntl.h>
 #endif
 
-#include "inc/posix.h"
-#include "inc/logger.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/logger.h"
 
 bool file_exists(const char *path) {
 // Support for posix hosts
@@ -81,7 +81,7 @@ const char *find_file_by_list(const char *files[], int file_count) {
    Log(LOG_DEBUG, "core", "find_file_by_list: We have %d entries in set", file_count);
 
    for (int i = 0; i < file_count; i++) {
-      if (files[i] != NULL) {
+      if (files[i]) {
          const char *realpath = expand_path(files[i]);
          if (!realpath) {
             continue;

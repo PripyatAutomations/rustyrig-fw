@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_faults_h)
 #define	__rr_faults_h
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdbool.h>
 
 // XXX: We need set the highest bit to 1 to indicate that fault is fatal and should halt TX

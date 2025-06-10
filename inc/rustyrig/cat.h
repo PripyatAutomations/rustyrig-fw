@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(_rr_cat_control_h)
 #define	_rr_cat_control_h
-#include "inc/config.h"
+#include "rustyrig/config.h"
 
 #define	MAX_ARGS	12
 
@@ -48,12 +48,12 @@ extern int32_t rr_cat_parse_amp_line(char *line);
 extern int32_t rr_cat_printf(char *str, ...);
 
 #if	defined(FEATURE_HTTP)
-#include "inc/mongoose.h"
+#include "rustyrig/mongoose.h"
 // for websocket.c
 extern bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg);
 #endif	// defined(FEATURE_HTTP)
 
-#include "inc/cat.kpa500.h"
-#include "inc/cat.yaesu.h"
+#include "rustyrig/cat.kpa500.h"
+#include "rustyrig/cat.yaesu.h"
 
 #endif	// !defined(_rr_cat_control_h)

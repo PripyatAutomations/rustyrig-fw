@@ -9,7 +9,7 @@
 /*
  * Here we deal with gpio on our various platforms
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/state.h"
-#include "inc/gpio.h"
-#include "inc/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/gpio.h"
+#include "rustyrig/logger.h"
 
 #if	defined(HOST_POSIX)
 #include <stdio.h>

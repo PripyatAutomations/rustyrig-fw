@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,12 +17,12 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "inc/logger.h"
-#include "inc/dict.h"
-#include "inc/posix.h"
-#include "inc/mongoose.h"
-#include "inc/util.file.h"
-#include "inc/http.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/dict.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/mongoose.h"
+#include "rustyrig/util.file.h"
+#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -84,7 +84,7 @@ static inline int au_codec_by_id(enum au_codec id) {
 const char *au_codec_get_magic(int id) {
    int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
    for (int i = 0; i < codec_entries; i++) {
-      if (au_codecs[i].id == AU_CODEC_NONE && au_codecs[i].magic == NULL) {
+      if (au_codecs[i].id == AU_CODEC_NONE && !au_codecs[i].magic) {
          break;
       }
       if (au_codecs[i].id == id) {
@@ -117,7 +117,7 @@ uint32_t au_codec_get_samplerate(int id) {
 }
 
 bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
-   if (c == NULL || au == NULL) {
+   if (!c || !au) {
       Log(LOG_CRIT, "ws.audio", "send_au_control_msg: Got invalid c:<%x> or au:<%x>", c, au);
       return true;
    }

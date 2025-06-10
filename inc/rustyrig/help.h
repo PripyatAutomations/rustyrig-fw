@@ -8,8 +8,8 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_help_h)
 #define __rr_help_h
-#include "inc/config.h"
-#include "inc/io.h"
+#include "rustyrig/config.h"
+#include "rustyrig/io.h"
 
 extern  bool send_help(rr_io_context_t *port, const char *topic);
 

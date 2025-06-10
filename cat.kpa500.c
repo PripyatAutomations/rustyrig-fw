@@ -18,7 +18,7 @@
  * CAT_YAESU: Yaesu FT-891/991A rig control protocol
  * You can enable both protocols or just one.
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -26,12 +26,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/logger.h"
-#include "inc/cat.h"
-#include "inc/state.h"
-#include "inc/thermal.h"
-#include "inc/power.h"
-#include "inc/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/state.h"
+#include "rustyrig/thermal.h"
+#include "rustyrig/power.h"
+#include "rustyrig/eeprom.h"
 
 #if	defined(CAT_KPA500)
 // ALC Threshold: 0-210, per band

@@ -17,7 +17,7 @@ CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1
 CFLAGS_WARN := -Wall -Wno-unused -pedantic
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
-CFLAGS += -I.. -I. -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+CFLAGS += -I../inc -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)

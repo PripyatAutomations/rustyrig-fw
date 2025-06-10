@@ -6,7 +6,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we deal with http requests using mongoose
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #if	defined(FEATURE_HTTP)
 #include <stdio.h>
 #include <string.h>
@@ -19,18 +19,18 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/cat.h"
-#include "inc/posix.h"
-#include "inc/http.h"
-#include "inc/ws.h"
-#include "inc/auth.h"
-#include "inc/ptt.h"
-#include "inc/util.string.h"
-#include "inc/util.file.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/http.h"
+#include "rustyrig/ws.h"
+#include "rustyrig/auth.h"
+#include "rustyrig/ptt.h"
+#include "rustyrig/util.string.h"
+#include "rustyrig/util.file.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
 #else
@@ -394,7 +394,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          char msgbuf[512];
          memset(msgbuf, 0, sizeof(msgbuf));
          // XXX:audio: finish this 
-         const char *codec = "mulaw";
+//         const char *codec = "mulaw";
+         const char *codec = "pcm";
          int rate = 16000;
          snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\", \"codec\": \"%s\", \"rate\": %d }", VERSION, HARDWARE, codec, rate);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
@@ -695,6 +696,6 @@ http_client_t *whos_talking(void) {
 
    return NULL;
 }
-#include "inc/mongoose.h"
+#include "rustyrig/mongoose.h"
 
 #endif	// defined(FEATURE_HTTP)

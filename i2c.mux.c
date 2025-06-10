@@ -9,7 +9,7 @@
 //
 // Support for i2c multiplexors
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "inc/state.h"
-#include "inc/logger.h"
-#include "inc/eeprom.h"
-#include "inc/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/i2c.h"

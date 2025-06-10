@@ -6,9 +6,9 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include "inc/dict.h"
-#include "inc/logger.h"
-#include "inc/util.file.h"
+#include "rustyrig/dict.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/util.file.h"
 
 dict *cfg = NULL;
 dict *servers = NULL;

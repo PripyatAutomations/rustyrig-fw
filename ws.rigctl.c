@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,20 +15,20 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/au.h"
-#include "inc/auth.h"
-#include "inc/backend.h"
-#include "inc/cat.h"
-#include "inc/posix.h"
-#include "inc/ws.h"
-#include "inc/ptt.h"
-#include "inc/vfo.h"
-#include "inc/database.h"
-#include "inc/client-flags.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/au.h"
+#include "rustyrig/auth.h"
+#include "rustyrig/backend.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/ws.h"
+#include "rustyrig/ptt.h"
+#include "rustyrig/vfo.h"
+#include "rustyrig/database.h"
+#include "rustyrig/client-flags.h"
 
 extern struct GlobalState rig;	// Global state
 

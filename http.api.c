@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #if	defined(FEATURE_HTTP)
 #include <stdio.h>
 #include <string.h>
@@ -19,16 +19,16 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/cat.h"
-#include "inc/posix.h"
-#include "inc/http.h"
-#include "inc/ws.h"
-#include "inc/auth.h"
-#include "inc/util.string.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/http.h"
+#include "rustyrig/ws.h"
+#include "rustyrig/auth.h"
+#include "rustyrig/util.string.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
 #else

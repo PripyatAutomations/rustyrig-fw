@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_atu_h)
 #define	__rr_atu_h
-#include "inc/config.h"
+#include "rustyrig/config.h"
 
 // A tuning value
 struct rr_atu_tv {

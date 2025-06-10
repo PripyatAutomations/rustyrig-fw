@@ -127,6 +127,7 @@ function playRawPCM(buffer) {
 }
 
 function playAudioPacket(buffer, codec = 'pcm') {
+   console.log("codec: ", codec);
    if (codec === 'mulaw') {
       playMulawPCM(buffer);
    } else {

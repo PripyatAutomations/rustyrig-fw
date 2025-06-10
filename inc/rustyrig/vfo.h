@@ -13,7 +13,7 @@
 //
 #if	!defined(__rr_vfo_h)
 #define	__rr_vfo_h
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdint.h>
 #include <stdbool.h>
 

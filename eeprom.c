@@ -15,7 +15,7 @@
  *	memory mapped eeprom/flash devices with direct reading/writing
  *	i2c connected parts
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -40,10 +40,10 @@
 //
 #endif
 
-#include "inc/state.h"
-#include "inc/logger.h"
-#include "inc/eeprom.h"
-#include "inc/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/i2c.h"
 
 #define	EEPROM_C		// Let the header know we're in the C file
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data

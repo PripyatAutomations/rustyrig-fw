@@ -46,6 +46,6 @@ extern void au_unix_socket_poll(void);
 extern const char *au_recording_start(void);
 extern bool au_recording_stop(const char *id);
 
-#include "inc/au.pcm5102.h"
+#include "rustyrig/au.pcm5102.h"
 
 #endif	// !defined(__rr_audio_h)

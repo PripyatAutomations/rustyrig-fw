@@ -5,7 +5,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -14,6 +14,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "inc/gui.h"
-#include "inc/logger.h"
-#include "inc/state.h"
+#include "rustyrig/gui.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"

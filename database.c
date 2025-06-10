@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,7 +17,7 @@
 #include <time.h>
 #if	defined(FEATURE_SQLITE)
 #include <sqlite3.h>
-#include "inc/database.h"
+#include "rustyrig/database.h"
 
 sqlite3 *masterdb = NULL;
 

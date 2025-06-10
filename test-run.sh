@@ -7,5 +7,9 @@
 [ -z "$(pidof rigctld)" ] && ./ft891-rigctld.sh &
 sleep 2
 ./fwdsp-test.sh &
-./build/${PROFILE}/firmware.bin
+if [ "$1" == "gdb" ]; then
+   gdb ./build/${PROFILE}/firmware.bin -ex 'run'
+else
+   ./build/${PROFILE}/firmware.bin
+fi
 ./killall.sh

@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we support a help system, if filesystem is present
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,13 +15,13 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/cat.h"
-#include "inc/posix.h"
-#include "inc/io.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/io.h"
 
 bool send_help(rr_io_context_t *port, const char *topic) {
    return false;

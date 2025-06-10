@@ -15,8 +15,12 @@ struct rr_user {
    time_t	  logged_in;
    time_t         last_heard;
    u_int32_t      user_flags;
+   int            clones;
    bool           is_ptt;
    bool           is_muted;
+   GtkTreeIter iter;   // <-- GTK list row reference
+   bool in_store;      // <-- whether `iter` is valid
+
    struct rr_user *next;
 };
 
@@ -24,10 +28,15 @@ extern bool userlist_add(struct rr_user *cptr);
 extern void userlist_clear(void);
 extern bool userlist_update(struct rr_user *cptr);
 extern bool userlist_remove(const char *name);
+extern void userlist_resync_all(void);
 extern struct rr_user *global_userlist;
+
+//
+extern struct rr_user *find_client(const char *name);
 extern struct rr_user *find_or_create_client(const char *name);
 extern bool delete_client(struct rr_user *cptr);
+extern bool clear_client_list(void);
 
-#include "inc/client-flags.h"
+#include "rustyrig/client-flags.h"
 
 #endif	// !defined(__rrclient_userlist_h)

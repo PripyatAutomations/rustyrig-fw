@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "inc/dict.h"
+#include "rustyrig/dict.h"
 
 /*---------------------------------------------------------------------------
                                 Defines

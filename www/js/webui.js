@@ -135,10 +135,8 @@ function ws_connect() {
 }
 
 function handle_binary_frame(event) {
-//      console.log("evt:", event);
       if (event.data instanceof ArrayBuffer) {
-//         playRawPCM(event.data);
-         playAudioPacket(event.data, 'mulaw');
+         playAudioPacket(event.data, audio_codec);
       } else {
          console.log("Invalid binary frame (not ArrayBuffer)");
       }

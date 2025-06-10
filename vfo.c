@@ -9,7 +9,7 @@
 /*
  * Deal with things related to the VFO, such as reconfiguring DDS(es)
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/vfo.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/vfo.h"
 
 rr_vfo_data_t vfos[MAX_VFOS];
 rr_vfo_t active_vfo = VFO_A;

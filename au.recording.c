@@ -11,7 +11,7 @@
 //
 // Most of the ugly bits should go in the per-backend sources
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,12 +19,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/state.h"
-#include "inc/logger.h"
-#include "inc/posix.h"
-#include "inc/util.file.h"
-#include "inc/au.h"
-#include "inc/auth.h"
+#include "rustyrig/state.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/util.file.h"
+#include "rustyrig/au.h"
+#include "rustyrig/auth.h"
 
 #define	RECORDING_ID_LEN	20
 

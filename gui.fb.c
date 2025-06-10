@@ -13,7 +13,7 @@
 // the waterfall, which is rendered outside of the overall GUI
 // then drawn into the main VFB or sent over the network to client
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,12 +22,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "inc/state.h"
-#include "inc/logger.h"
-#include "inc/eeprom.h"
-#include "inc/i2c.h"
-#include "inc/gui.h"
-#include "inc/gui.fb.h"
+#include "rustyrig/state.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/gui.h"
+#include "rustyrig/gui.fb.h"
 
 gui_fb_state_t *gui_fb_init(gui_fb_state_t *fb) {
    // XXX: Get these from eeprom

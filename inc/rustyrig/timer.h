@@ -8,8 +8,8 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_timer_h)
 #define	__rr_timer_h
-#include "inc/config.h"
-#include "inc/mongoose.h"
+#include "rustyrig/config.h"
+#include "rustyrig/mongoose.h"
 
 extern bool timer_create_periodic(int interval, int repeats, void (*callback)());
 extern bool timer_create_oneshot(int delay, void (*callback)());

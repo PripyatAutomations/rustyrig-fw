@@ -10,8 +10,8 @@
 // Here we deal with common GUI operations between HMI and framebuffer
 //
 
-#include "inc/au.h"
-#include "inc/mongoose.h"
+#include "rustyrig/au.h"
+#include "rustyrig/mongoose.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>

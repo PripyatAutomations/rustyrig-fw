@@ -9,7 +9,7 @@
 //
 // Here we deal with SWR protection
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/protection.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/protection.h"
 
 extern struct GlobalState rig;      // Global state
 

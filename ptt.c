@@ -12,7 +12,7 @@
  * we also deal with the PA_INHIBIT lines which allow momentarily stopping RF output without
  * powering down the PAs (such as for relay changes in tuning or filters).
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,12 +20,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/ptt.h"
-#include "inc/auth.h"
-#include "inc/ws.h"
-#include "inc/http.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/ptt.h"
+#include "rustyrig/auth.h"
+#include "rustyrig/ws.h"
+#include "rustyrig/http.h"
 
 time_t   global_tot_time = 0;		// TOT
 int	 vfos_enabled = 2;		// A + B by default

@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -14,15 +14,15 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/thermal.h"
-#include "inc/power.h"
-#include "inc/eeprom.h"
-#include "inc/vfo.h"
-#include "inc/cat.h"
-#include "inc/http.h"
-#include "inc/backend.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/thermal.h"
+#include "rustyrig/power.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/vfo.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/http.h"
+#include "rustyrig/backend.h"
 
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {

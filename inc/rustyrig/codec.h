@@ -9,7 +9,7 @@
 #if	!defined(__rr_codec_h)
 #define	__rr_codec_h
 
-#include "inc/config.h"
+#include "rustyrig/config.h"
 
 #define AUDIO_TYPE_OPUS 0x01
 #define AUDIO_TYPE_PCM  0x00

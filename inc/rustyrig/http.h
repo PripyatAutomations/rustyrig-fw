@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <arpa/inet.h>
-#include "inc/mongoose.h"
+#include "rustyrig/mongoose.h"
 ///////
 // many of these need moved to config; decide if runtime or build? (prob build)
 // Limit to 10 backups of authdb retained, this should be sane; we delete older backups

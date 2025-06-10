@@ -8,10 +8,10 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_mqtt_h)
 #define	__rr_mqtt_h
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include "inc/mongoose.h"
+#include "rustyrig/mongoose.h"
 
 extern bool mqtt_init(struct mg_mgr *mgr);
 extern bool mqtt_client_init(void);

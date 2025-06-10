@@ -24,7 +24,7 @@ CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
-CFLAGS += -I. -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+CFLAGS += -I./inc -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 
 ifneq (x${DEBUG_PROTO},x)
@@ -294,7 +294,8 @@ run: ${MASTER_DB} ${EEPROM_FILE} ${fw_bin}
 
 gdb debug: ${fw_bin} ${EEPROM_FILE}
 	@echo "[gdb] ${fw_bin}"
-	@gdb ${fw_bin} -ex 'run'
+#	@gdb ${fw_bin} -ex 'run'
+	./test-run.sh gdb
 
 test: clean world run
 endif

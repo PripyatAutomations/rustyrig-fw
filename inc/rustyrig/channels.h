@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_channels_h)
 #define	__rr_channels_h
-#include "inc/config.h"
-#include "inc/eeprom_laout.h"
+#include "rustyrig/config.h"
+#include "rustyrig/eeprom_laout.h"
 
 #endif	// !defined(__rr_channels_h)

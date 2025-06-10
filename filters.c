@@ -11,7 +11,7 @@
  *
  * Build conf will generate the filter tables (filter_tables.h) in builddir
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,10 +20,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "inc/state.h"
-#include "inc/logger.h"
-#include "inc/eeprom.h"
-#include "inc/filters.h"
+#include "rustyrig/state.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/filters.h"
 #define	FILTERS_C
 #include "filter_tables.h"
 

@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -14,14 +14,14 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/cat.h"
-#include "inc/posix.h"
-#include "inc/i2c_hal.h"
-#include "inc/driver/i2c.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/i2c_hal.h"
+#include "rustyrig/driver/i2c.h"
 
 #define I2C_MASTER_PORT I2C_NUM_0
 

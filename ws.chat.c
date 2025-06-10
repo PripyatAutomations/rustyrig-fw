@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,17 +15,17 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "inc/auth.h"
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/cat.h"
-#include "inc/posix.h"
-#include "inc/http.h"
-#include "inc/ws.h"
-#include "inc/ptt.h"
-#include "inc/client-flags.h"
+#include "rustyrig/auth.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/http.h"
+#include "rustyrig/ws.h"
+#include "rustyrig/ptt.h"
+#include "rustyrig/client-flags.h"
 #define	CHAT_MIN_REASON_LEN	1
 
 extern struct GlobalState rig;	// Global state
@@ -52,7 +52,7 @@ bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
 // DIE: Makes the server die //
 ///////////////////////////////
 static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
-   if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
+   if (reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "die");
       return true;
    }
@@ -61,7 +61,7 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf),
          "Shutting down due to /die \"%s\" from %s (uid: %d with privs %s)",
-         (reason != NULL ? reason : "No reason given"),
+         (reason ? reason : "No reason given"),
          cptr->chatname, cptr->user->uid, cptr->user->privs);
       Log(LOG_AUDIT, "core", msgbuf);
       send_global_alert("***SERVER***", msgbuf);
@@ -77,7 +77,7 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
 // RESTART: Make the server restart //
 //////////////////////////////////////
 static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
-   if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
+   if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "RESTART");
       return true;
    }
@@ -104,7 +104,7 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
 ///////////////////////
 static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char *reason) {
 /*
-   if (reason == NULL || strlen(reason) < CHAT_MIN_REASON_LEN) {
+   if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "kick");
       return true;
    }
@@ -113,9 +113,9 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
       http_client_t *acptr;
       int kicked = 0;
 
-      for (acptr = http_client_list; acptr != NULL; acptr = acptr->next) {
+      for (acptr = http_client_list; acptr; acptr = acptr->next) {
          // if acptr is null, we don't have a next entry either, bail to avoid segfault below
-         if (acptr == NULL) {
+         if (!acptr) {
             break;
          }
 
@@ -155,7 +155,7 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
 static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char *reason) {
    if (client_has_flag(cptr, FLAG_STAFF)) {
       http_client_t *acptr = http_find_client_by_name(target);
-      if (acptr == NULL) {
+      if (!acptr) {
          return true;
       }
       acptr->user->is_muted = true;
@@ -189,7 +189,7 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
    if (client_has_flag(cptr, FLAG_STAFF)) {
       http_client_t *acptr = http_find_client_by_name(target);
-      if (acptr == NULL) {
+      if (!acptr) {
          return true;
       }
       acptr->user->is_muted = false;
@@ -251,7 +251,7 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
       cptr->user->clones);
 
    struct mg_str msg = mg_str_n(buf, len);
-   if (acptr != NULL) {
+   if (acptr) {
       ws_send_to_cptr(NULL, acptr, &msg, WEBSOCKET_OP_TEXT);
    } else {
       ws_broadcast(NULL, &msg, WEBSOCKET_OP_TEXT);
@@ -264,9 +264,9 @@ bool ws_send_users(http_client_t *cptr) {
     http_client_t *current = http_client_list;
     
     // iterate over all the users
-    while (current != NULL) {
+    while (current) {
        // should this be sent to a single user?
-       if (cptr != NULL) {
+       if (cptr) {
           ws_send_userinfo(current, cptr);
        } else {           // nope, broadcast it
           ws_send_userinfo(current, NULL);
@@ -277,7 +277,7 @@ bool ws_send_users(http_client_t *cptr) {
 }
 
 bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
-   if (msg == NULL || c == NULL) {
+   if (!msg || !c) {
       return true;
    }
 
@@ -285,7 +285,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
    http_client_t *cptr = http_find_client_by_c(c);
 
-   if (cptr == NULL) {
+   if (!cptr) {
       Log(LOG_DEBUG, "chat", "talk parse, cptr == NULL, c: <%x>", c);
       return true;
    }
@@ -326,13 +326,13 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          char msgbuf[HTTP_WS_MAX_MSG+1];
 
          // sanity check
-         if (user == NULL) {
+         if (!user) {
             rv = true;
             goto cleanup;
          }
 
          // handle a file chunk
-         if (msg_type != NULL && strcmp(msg_type, "file_chunk") == 0) {
+         if (msg_type && strcmp(msg_type, "file_chunk") == 0) {
             char *filetype = mg_json_get_str(msg_data, "$.talk.filetype");
             char *filename = mg_json_get_str(msg_data, "$.talk.filename");
             prepare_msg(msgbuf, sizeof(msgbuf),
@@ -414,7 +414,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                }
             } else {			// just a message
                char *escaped_msg = escape_html(data);
-               if (escaped_msg == NULL) {
+               if (!escaped_msg) {
                   Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
                   rv = true;
                   goto cleanup;
@@ -445,7 +445,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       } else if (strcasecmp(cmd, "unmute") == 0) {
          ws_chat_cmd_unmute(cptr, target);
       } else if (strcasecmp(cmd, "whois") == 0) {
-         if (target == NULL) {
+         if (!target) {
             // XXX: Send a warning to the user informing that they must specify a target username
             Log(LOG_DEBUG, "chat", "whois with no target");
             rv = true;
@@ -454,7 +454,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          char msgbuf[HTTP_WS_MAX_MSG + 1];
          http_client_t *acptr = http_client_list;
 
-         if (acptr == NULL) {
+         if (!acptr) {
             Log(LOG_DEBUG, "chat", "whois no users online?!?");
             rv = true;
             goto cleanup;
@@ -476,7 +476,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          wp += written;
          remaining -= written;
 
-         while (acptr != NULL) {
+         while (acptr) {
             if (strcasecmp(acptr->chatname, target) != 0) {
                acptr = acptr->next;
                continue;

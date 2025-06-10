@@ -12,7 +12,7 @@
  * Namely we use optionally use pipes instead of real serial ports
  * and deal with POSIX signals
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #if	!defined(HOST_POSIX)
 #error "This is only valid on host posix, please check the GNUmakefile!"
 #else
@@ -29,15 +29,15 @@
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
-#include "inc/posix.h"
-#include "inc/logger.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/logger.h"
 
 extern bool dying;
 
 #if	defined(__RRCLIENT) || defined(__FWDSP)
 extern void shutdown_app(int signum);
 #else
-#include "inc/state.h"
+#include "rustyrig/state.h"
 #endif
 
 // This gets called by our atexit() handler to make sure we clean up temporary files...

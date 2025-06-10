@@ -10,7 +10,7 @@
  * support logging to a a few places
  *	Targets: syslog console flash (file)
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,12 +22,12 @@
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
-#include "inc/logger.h"
+#include "rustyrig/logger.h"
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
-#include "inc/eeprom.h"
-#include "inc/debug.h"			// Debug message filtering
-#include "inc/ws.h"			// Support for sending the syslog via websocket
-#include "inc/client-flags.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/debug.h"			// Debug message filtering
+#include "rustyrig/ws.h"			// Support for sending the syslog via websocket
+#include "rustyrig/client-flags.h"
 #endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
 
 
@@ -72,7 +72,7 @@ void logger_init(void) {
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
    const char *ll = eeprom_get_str("debug/loglevel");
 
-   if (ll == NULL) {
+   if (!ll) {
       printf("logger_init: Failed to get loglevel from eeprom");
       return;
    }
@@ -94,10 +94,10 @@ void logger_init(void) {
 
 #if	defined(HOST_POSIX)
 /* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
-   if (logfp == NULL) {
+   if (!logfp) {
       logfp = fopen(LOG_FILE, "a+");
 
-      if (logfp == NULL) {
+      if (!logfp) {
          Log(LOG_CRIT, "core", "Couldn't open log file at %s - %d:%s", LOG_FILE, errno, strerror(errno));
          return;
       }
@@ -108,7 +108,7 @@ void logger_init(void) {
 void logger_end(void) {
 #if	defined(HOST_POSIX)
 /* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
-   if (logfp != NULL) {
+   if (logfp) {
       fclose(logfp);
    }
 #endif
@@ -127,7 +127,7 @@ static inline int update_timestamp(void) {
    memset(latest_timestamp, 0, sizeof(latest_timestamp));
    t = time(NULL);
 
-   if ((tmp = localtime(&t)) != NULL) {
+   if ((tmp = localtime(&t))) {
       /* success, proceed */
       if (strftime(latest_timestamp, sizeof(latest_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
          /* handle the error */
@@ -174,7 +174,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    char log_msg[769];
    va_list ap;
 
-   if (subsys == NULL || fmt == NULL) {
+   if (!subsys || !fmt) {
       printf("Invalid Log request: No subsys/fmt\n");
       return;
    }
@@ -210,7 +210,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 
 #if	defined(HOST_POSIX) || defined(FEATURE_FILESYSTEM)
    /* Only spew to the serial port if logfile is closed */
-   if (logfp == NULL && logfp != stdout) {
+   if (!logfp && (logfp != stdout)) {
       va_end(ap);
       return;
    }

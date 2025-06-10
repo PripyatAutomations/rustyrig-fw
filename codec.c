@@ -14,7 +14,7 @@
 // Eventually, we need to support an unlimited number of audio channels
 // so that dual receive, etc is possible
 // - Stuff like RX1 on LEFT, RX2 on RIGHT would be pretty fancy
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,10 +22,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/au.h"
-#include "inc/codec.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/au.h"
+#include "rustyrig/codec.h"
 #include <opus/opus.h>
 
 #define SAMPLE_RATE 48000
@@ -41,7 +41,7 @@ static uint8_t pcm_buffer[PCM_BUFFER_SIZE];
 static OpusEncoder *encoder = NULL;
 static OpusDecoder *decoder = NULL;
 
-#include "inc/codec.h"
+#include "rustyrig/codec.h"
 
 // PipeWire playback stream fetches PCM here
 int codec_get_pcm_frame(void *output, int max_size) {

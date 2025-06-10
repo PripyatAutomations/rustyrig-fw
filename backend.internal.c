@@ -9,7 +9,7 @@
 //
 // Internal backend supports controlling real hardware
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,15 +17,15 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/thermal.h"
-#include "inc/power.h"
-#include "inc/eeprom.h"
-#include "inc/vfo.h"
-#include "inc/cat.h"
-#include "inc/backend.h"
-#include "inc/ptt.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/thermal.h"
+#include "rustyrig/power.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/vfo.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/backend.h"
+#include "rustyrig/ptt.h"
 
 static rr_vfo_t be_int_get_vfo(rr_vfo_t vfo) {
    return vfo;

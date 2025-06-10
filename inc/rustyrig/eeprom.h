@@ -12,12 +12,12 @@
 // This will prevent loading with a newer EEPROM version and someday will force an upgrade if older
 #define	MY_EEPROM_VER	1
 
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "inc/state.h"
+#include "rustyrig/state.h"
 #include "eeprom_types.h"
 
 #define	PIN_LEN	8		// 8 byte pin

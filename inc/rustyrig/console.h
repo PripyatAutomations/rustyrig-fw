@@ -9,7 +9,7 @@
 #if	!defined(__rr_console_h)
 #define	__rr_console_h
 
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdbool.h>
 
 struct cons_cmds {

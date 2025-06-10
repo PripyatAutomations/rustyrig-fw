@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
-#include "inc/util.string.h"
+#include "rustyrig/util.string.h"
 
 // You *MUST* free the return value when you are done!
 char *escape_html(const char *input) {
@@ -50,7 +50,7 @@ char *escape_html(const char *input) {
 }
 
 void hash_to_hex(char *dest, const uint8_t *hash, size_t len) {
-   if (dest == NULL || hash == NULL || len <= 0) {
+   if (!dest || !hash || len <= 0) {
       return;
    }
 

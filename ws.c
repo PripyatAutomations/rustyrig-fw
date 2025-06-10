@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,19 +16,19 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-#include "inc/cat.h"
-#include "inc/codec.h"
-#include "inc/eeprom.h"
-#include "inc/i2c.h"
-#include "inc/logger.h"
-#include "inc/posix.h"
-#include "inc/state.h"
-#include "inc/ws.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/codec.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/state.h"
+#include "rustyrig/ws.h"
 
 extern struct GlobalState rig;	// Global state
 
 bool ws_init(struct mg_mgr *mgr) {
-   if (mgr == NULL) {
+   if (!mgr) {
       Log(LOG_CRIT, "ws", "ws_init called with NULL mgr");
       return true;
    }
@@ -39,7 +39,7 @@ bool ws_init(struct mg_mgr *mgr) {
 
 // Send to a specific, authenticated websocket session
 void ws_send_to_cptr(struct mg_connection *sender, http_client_t *cptr, struct mg_str *msg_data, int data_type) {
-   if (cptr == NULL || msg_data == NULL) {
+   if (!cptr || !msg_data) {
       return;
    }
 
@@ -48,31 +48,27 @@ void ws_send_to_cptr(struct mg_connection *sender, http_client_t *cptr, struct m
 
 // Send to all logged in instances of the user
 void ws_send_to_name(struct mg_connection *sender, const char *username, struct mg_str *msg_data, int data_type) {
-   if (sender == NULL || username == NULL || msg_data == NULL) {
+   if (!sender || !username || !msg_data) {
       Log(LOG_CRIT, "ws", "ws_send_to_name passed incomplete data; sender:<%x>, username:<%x>, msg_data:<%x>", sender, username, msg_data);
       return;
    }
 
    http_client_t *current = http_client_list;
-   while (current != NULL) {
-      if (current == NULL) {
-         break;
-      }
-
+   while (current) {
       // Messages from the server will have NULL sender
-      if ((sender == NULL) || (current->is_ws && current->conn != sender)) {
+      if (!sender || (current->is_ws && current->conn != sender)) {
          ws_send_to_cptr(sender, current, msg_data, data_type);
       }
    }
 }
 
 bool ws_kick_by_name(const char *name, const char *reason) {
-   if (http_client_list == NULL) {
+   if (!http_client_list) {
       return true;
    }
 
    http_client_t *curr = http_client_list;
-   while (curr != NULL) {
+   while (curr) {
       if (strcasecmp(name, curr->chatname) == 0) {
          ws_kick_client(curr, reason);
       }
@@ -82,12 +78,12 @@ bool ws_kick_by_name(const char *name, const char *reason) {
 }
 
 bool ws_kick_by_uid(int uid, const char *reason) {
-   if (http_client_list == NULL) {
+   if (!http_client_list) {
       return true;
    }
 
    http_client_t *curr = http_client_list;
-   while (curr != NULL) {
+   while (curr) {
       if (uid == curr->user->uid) {
          ws_kick_client(curr, reason);
       }
@@ -98,18 +94,18 @@ bool ws_kick_by_uid(int uid, const char *reason) {
 
 bool ws_kick_client(http_client_t *cptr, const char *reason) {
    // skip freeing resources if no client structure
-   if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+   if (!cptr || !cptr->conn) {
+      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr ? cptr->conn : NULL));
       return true;
    }
 
    // If we have a client structure attached, release it's resources
-   if (cptr->user_agent != NULL) {
+   if (cptr->user_agent) {
       free(cptr->user_agent);
       cptr->user_agent = NULL;
    }
 
-   if (cptr->cli_version != NULL) {
+   if (cptr->cli_version) {
       free(cptr->cli_version);
       cptr->cli_version = NULL;
    }
@@ -118,7 +114,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    struct mg_connection *c = cptr->conn;
 
    // make sure we're not accessing unsafe memory
-   if (cptr->user != NULL && cptr->chatname[0] != '\0') {
+   if (cptr->user && cptr->chatname[0] != '\0') {
       if (cptr->active) {
          // blorp out a quit to all connected users
          prepare_msg(resp_buf, sizeof(resp_buf),
@@ -135,14 +131,14 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
 bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
 
-   if (c == NULL) {
+   if (!c) {
       return true;
    }
 
    // Tell their client they've been disconnected
    prepare_msg(resp_buf, sizeof(resp_buf), 
       "{ \"auth\": { \"error\": \"Client kicked: %s\" } }",
-      (reason != NULL ? reason : "no reason given"));
+      (reason ? reason : "no reason given"));
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
    mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
 
@@ -154,8 +150,8 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
    char *ts = NULL;
 
-   if (c == NULL || msg == NULL || msg->data.buf == NULL) {
-      Log(LOG_CRAZY, "http.ws", "ws_handle_pong got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
+   if (!c || !msg || !msg->data.buf) {
+      Log(LOG_CRAZY, "http.ws", "ws_handle_pong got msg <%x> c <%x> data <%x>", msg, c, (msg ? msg->data.buf : NULL));
       rv = true;
       goto cleanup;
    }
@@ -170,7 +166,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
 
    http_client_t *cptr = http_find_client_by_c(c);
 
-   if (cptr == NULL) {
+   if (!cptr) {
       char msgbuf[512];
 
       prepare_msg(msgbuf, sizeof(msgbuf),
@@ -227,7 +223,7 @@ static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t
 
    http_client_t *cptr = http_find_client_by_c(c);
 
-   if (cptr == NULL) {
+   if (!cptr) {
       Log(LOG_CRIT, "ws.binframe", "Binary frame from client at <%x> with no http session. Ignoring!");
       return true;
    }
@@ -260,15 +256,15 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 
    // Update the last-heard time for the user
    http_client_t *cptr = http_find_client_by_c(c);
-   if (cptr != NULL) {
+   if (cptr) {
       cptr->last_heard = now;
    }
 
    // Handle ping messages
-   if (ping != NULL) {
+   if (ping) {
       char ts_buf[32];
       char *ping_ts = mg_json_get_str(msg_data, "$.ping.ts");
-      if (ping_ts != NULL) {
+      if (ping_ts) {
          snprintf(ts_buf, sizeof(ts_buf), "%s", ping_ts);
 
          char pong[128];
@@ -277,7 +273,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          free(ping_ts);
       }
       goto cleanup;
-   } else if (hello != NULL) {
+   } else if (hello) {
       Log(LOG_DEBUG, "ws", "Got HELLO from client at c:<%x>: %s", c, hello);
       cptr->cli_version = malloc(HTTP_UA_LEN);
       memset(cptr->cli_version, 0, HTTP_UA_LEN);
@@ -286,7 +282,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
       result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
-      if (cmd != NULL) {
+      if (cmd) {
          result = ws_handle_chat_msg(msg, c);
       }
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
@@ -310,8 +306,8 @@ cleanup:
 // Handle a websocket request (see http.c/http_cb for case ev == MG_EV_WS_MSG)
 //
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
-   if (c == NULL || msg == NULL || msg->data.buf == NULL) {
-      Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg != NULL ? msg->data.buf : NULL));
+   if (!c || !msg || !msg->data.buf) {
+      Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg ? msg->data.buf : NULL));
       return true;
    }
 
@@ -332,7 +328,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 }
 
 bool ws_send_error_msg(struct mg_connection *c, const char *scope, const char *msg) {
-   if (c == NULL || scope == NULL || msg == NULL) {
+   if (!c || !scope || !msg) {
       return true;
    }
 
@@ -365,7 +361,7 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
 }
 
 bool ws_send_notice(struct mg_connection *c, const char *msg) {
-   if (c == NULL || msg == NULL) {
+   if (!c || !msg) {
       return true;
    }
 
@@ -381,7 +377,7 @@ bool ws_send_notice(struct mg_connection *c, const char *msg) {
 }
 
 bool ws_send_ping(http_client_t *cptr) {
-   if (cptr == NULL || !cptr->is_ws) {
+   if (!cptr || !cptr->is_ws) {
       return true;
    }
 
@@ -389,8 +385,8 @@ bool ws_send_ping(http_client_t *cptr) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
    struct mg_connection *c = cptr->conn;
 
-   if (cptr == NULL || cptr->conn == NULL) {
-      Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%x> has mg_conn:<%x> and is invalid", cptr, (cptr != NULL ? cptr->conn : NULL));
+   if (!cptr || !cptr->conn) {
+      Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%x> has mg_conn:<%x> and is invalid", cptr, (cptr ? cptr->conn : NULL));
       return true;
    }
 

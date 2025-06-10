@@ -26,12 +26,12 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
-#include "inc/config.h"
-#include "inc/fwdsp-shared.h"
-#include "inc/logger.h"
-#include "inc/posix.h"
-#include "inc/util.file.h"
-#include "inc/mongoose.h"
+#include "rustyrig/config.h"
+#include "rustyrig/fwdsp-shared.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/util.file.h"
+#include "rustyrig/mongoose.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/audio.h"
 
@@ -102,7 +102,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
    if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
       if (map.size > 0 && map.size < 65536) {
          struct ws_frame *frame = malloc(sizeof(*frame));
-         if (frame == NULL) {
+         if (!frame) {
             Log(LOG_CRIT, "audio", "OOM in handle_tx_sample!");
             exit(1);
          }
@@ -141,7 +141,7 @@ bool ws_audio_init(void) {
    Log(LOG_INFO, "audio", "Configuring RX audio-path");
    const char *rx_pipeline_str = dict_get(cfg, "audio.pipeline.rx", NULL);
 
-   if (rx_pipeline_str == NULL) {
+   if (!rx_pipeline_str) {
       Log(LOG_CRIT, "audio", "audio.pipeline.rx *MUST* be set in config");
       shutdown_app(0);
    } else if (strlen(rx_pipeline_str) > 0) {
@@ -193,7 +193,7 @@ bool ws_audio_init(void) {
    ///////////////
    Log(LOG_INFO, "audio", "Configuring TX audio-path");
    const char *tx_pipeline_str = dict_get(cfg, "audio.pipeline.tx", NULL);
-   if (tx_pipeline_str == NULL || tx_pipeline_str >= 0) {
+   if (!tx_pipeline_str || tx_pipeline_str >= 0) {
       Log(LOG_CRIT, "audio", "audio.pipeline.tx *MUST* be set in config for transmit capabilities");
    } else {
       Log(LOG_INFO, "audio", "Launching TX pipeline: %s", tx_pipeline_str);

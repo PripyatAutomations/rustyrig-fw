@@ -1,4 +1,4 @@
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -8,12 +8,12 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "inc/logger.h"
-#include "inc/dict.h"
-#include "inc/posix.h"
-#include "inc/mongoose.h"
-#include "inc/http.h"
-#include "inc/util.file.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/dict.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/mongoose.h"
+#include "rustyrig/http.h"
+#include "rustyrig/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -82,13 +82,13 @@ int main(int argc, char *argv[]) {
 
    host_init();
 
-   if (cfg == NULL) {
+   if (!cfg) {
       Log(LOG_CRIT, "core", "Failed to load configuration, bailing!");
       exit(1);
    }
 
    const char *default_server = dict_get(cfg, "server.default", NULL);
-   if (default_server != NULL) {
+   if (default_server) {
       memset(active_server, 0, sizeof(active_server));
       snprintf(active_server, sizeof(active_server), "%s", default_server);
    }
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
 
    // Should we connect to a server on startup?
    char *autoconnect = dict_get(cfg, "server.auto-connect", NULL);
-   if (autoconnect != NULL) {
+   if (autoconnect) {
       memset(active_server, 0, sizeof(active_server));
       snprintf(active_server, sizeof(active_server), "%s", autoconnect);
       connect_or_disconnect(GTK_BUTTON(conn_button));

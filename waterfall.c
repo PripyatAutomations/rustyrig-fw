@@ -9,7 +9,7 @@
 // Here we support plotting a waterfall onto virtual fb
 // to be sent either to display or network client
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/gui.h"
-#include "inc/waterfall.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/gui.h"
+#include "rustyrig/waterfall.h"

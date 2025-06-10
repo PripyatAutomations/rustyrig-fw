@@ -9,7 +9,7 @@
 //
 // Amplifier module management
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,12 +17,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/state.h"
-#include "inc/ptt.h"
-#include "inc/thermal.h"
-#include "inc/protection.h"
-#include "inc/amp.h"
-#include "inc/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/ptt.h"
+#include "rustyrig/thermal.h"
+#include "rustyrig/protection.h"
+#include "rustyrig/amp.h"
+#include "rustyrig/logger.h"
 
 #define	MAX_AMPS	4
 typedef struct rr_amp_state {

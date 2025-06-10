@@ -8,11 +8,11 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_logger_h)
 #define	__rr_logger_h
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdarg.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include "inc/debug.h"
+#include "rustyrig/debug.h"
 
 enum LogPriority {
       LOG_NONE = -1,

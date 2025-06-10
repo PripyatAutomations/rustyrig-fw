@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,26 +16,26 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-#include "inc/cat.h"
-#include "inc/codec.h"
-#include "inc/eeprom.h"
-#include "inc/i2c.h"
-#include "inc/logger.h"
-#include "inc/posix.h"
-#include "inc/state.h"
-#include "inc/ws.h"
-#include "inc/client-flags.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/codec.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/state.h"
+#include "rustyrig/ws.h"
+#include "rustyrig/client-flags.h"
 
 extern struct GlobalState rig;	// Global state
 
 // Broadcast a message to all WebSocket clients (using http_client_list)
 void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data, int data_type) {
-   if (msg_data == NULL) {
+   if (!msg_data) {
       return;
    }
 
    http_client_t *current = http_client_list;
-   while (current != NULL) {
+   while (current) {
       // NULL sender means it came from the server itself
       if ((current->is_ws && current->authenticated) && (current->conn != sender)) {
          mg_ws_send(current->conn, msg_data->buf, msg_data->len, data_type);
@@ -46,12 +46,12 @@ void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data, int dat
 
 // Broadcast a message to all WebSocket clients with matching flags (using http_client_list)
 void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, struct mg_str *msg_data, int data_type) {
-   if (msg_data == NULL) {
+   if (!msg_data) {
       return;
    }
 
    http_client_t *current = http_client_list;
-   while (current != NULL) {
+   while (current) {
       // NULL sender means it came from the server itself
       if (current && (current->is_ws && current->authenticated) && (current->conn != sender)) {
          if (client_has_flag(current, flags)) {
@@ -63,7 +63,7 @@ void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, stru
 }
 
 bool send_global_alert(const char *sender, const char *data) {
-   if (data == NULL) {
+   if (!data) {
       return true;
    }
 
@@ -84,7 +84,7 @@ bool send_global_alert(const char *sender, const char *data) {
 void broadcast_audio_to_ws_clients(const void *data, size_t len) {
    struct mg_connection *c;
    http_client_t *current = http_client_list;
-   while (current != NULL) {
+   while (current) {
       if (current && (current->is_ws && current->authenticated)) {
          struct mg_connection *c = current->conn;
 

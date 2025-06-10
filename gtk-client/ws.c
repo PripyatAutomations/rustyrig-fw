@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
@@ -18,18 +18,18 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "inc/logger.h"
-#include "inc/dict.h"
-#include "inc/posix.h"
-#include "inc/mongoose.h"
-#include "inc/util.file.h"
-#include "inc/http.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/dict.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/mongoose.h"
+#include "rustyrig/util.file.h"
+#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
-#include "inc/client-flags.h"
+#include "rustyrig/client-flags.h"
 
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;
@@ -77,7 +77,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
 
 
    if (cmd && strcasecmp(cmd, "userinfo") == 0) {
-      if (user == NULL) {
+      if (!user) {
          rv = true;
          goto cleanup;
       }
@@ -127,7 +127,7 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
          if (has_privs(cptr, "tx")) {
             set_flag(cptr, FLAG_CAN_TX);
          }
-         userlist_update(cptr);
+         userlist_resync_all();
       } else {
          Log(LOG_CRIT, "ws", "OOM in ws_handle_talk_msg");
       }
@@ -150,22 +150,27 @@ static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *
       free(msg_type);
    } else if (cmd && strcasecmp(cmd, "join") == 0) {
       char *ip = mg_json_get_str(msg_data, "$.talk.ip");
-      if (user == NULL || ip == NULL) {
+      if (!user || !ip) {
          free(ip);
          goto cleanup;
       }
+      
+      struct rr_user *cptr = find_or_create_client(user);
       ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(), user);
+      Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%x>", user, cptr);
       free(ip);
    } else if (cmd && strcasecmp(cmd, "quit") == 0) {
       char *reason = mg_json_get_str(msg_data, "$.talk.reason");
-      if (user == NULL || reason == NULL) {
+      if (!user || !reason) {
          free(reason);
          goto cleanup;
       }
       ui_print("[%s] >> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", --clones);
 
-      if (clones <= 0 ) {
-         userlist_remove(user);
+      struct rr_user *cptr = find_client(user);
+      cptr->clones = clones;
+      if (cptr->clones <= 0 ) {
+         delete_client(cptr);
       }
       free(reason);
    } else if (cmd && strcasecmp(cmd, "whois") == 0) {
@@ -188,19 +193,19 @@ cleanup:
 static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
 
-   if (mg_json_get(msg_data, "$.cat.state", NULL) > 0) {
+   if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
       if (poll_block_expire < now) {
-         char *vfo = mg_json_get_str(msg_data, "$.cat.state.vfo");
+         char *vfo = mg_json_get_str(msg_data, "$.cat.vfo");
          double freq;
          mg_json_get_num(msg_data, "$.cat.state.freq", &freq);
-         char *mode = mg_json_get_str(msg_data, "$.cat.state.mode");
+         char *mode = mg_json_get_str(msg_data, "$.cat.mode");
          double width;
-         mg_json_get_num(msg_data, "$.cat.state.width", &width);
+         mg_json_get_num(msg_data, "$.cat.width", &width);
          double power;
-         mg_json_get_num(msg_data, "$.cat.state.power", &power);
+         mg_json_get_num(msg_data, "$.cat.power", &power);
 
          bool ptt = false;
-         char *ptt_s = mg_json_get_str(msg_data, "$.cat.state.ptt");
+         char *ptt_s = mg_json_get_str(msg_data, "$.cat.ptt");
 
          if (ptt_s && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
             ptt = true;
@@ -212,10 +217,19 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
 
          double ts;
          mg_json_get_num(msg_data, "$.cat.ts", &ts);
-         char *user = mg_json_get_str(msg_data, "$.cat.state.user");
+         char *user = mg_json_get_str(msg_data, "$.cat.user");
          g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
          g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
+
+         if (user) {
+//            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
+            struct rr_user *cptr = NULL;
+            if ((cptr = find_client(user))) {
+               Log(LOG_DEBUG, "ws.cat", "ptt set to %s for cptr:<%x>", (cptr->is_ptt ? "true" : "false"), cptr);
+               cptr->is_ptt = ptt;
+            }
+         }
 
          // Update the display
          char freq_buf[24];
@@ -251,7 +265,7 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
 static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
 
-   if (c == NULL || msg == NULL) {
+   if (!c || !msg) {
       Log(LOG_WARN, "http.ws", "auth_msg: got msg:<%x> mg_conn:<%x>", msg, c);
       return true;
    }
@@ -264,7 +278,7 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
       inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
    }
 
-   if (msg->data.buf == NULL) {
+   if (!msg->data.buf) {
       Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
       return true;
    }
@@ -276,7 +290,7 @@ static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *
 //   ui_print("[%s] => cmd: '%s', nonce: %s, user: %s", get_chat_ts(), cmd, nonce, user);
 
    // Must always send a command and username during auth
-   if (cmd == NULL || (user == NULL)) {
+   if (!cmd || !user) {
       rv = true;
       goto cleanup;
    }
@@ -409,7 +423,7 @@ cleanup:
 
 //      ws_binframe_process(msg->data.buf, msg->data.len);
 bool ws_binframe_process(const char *data, size_t len) {
-   if (data == NULL || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
+   if (!data || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
       return true;
    }
 
@@ -432,7 +446,7 @@ bool ws_binframe_process(const char *data, size_t len) {
 // Handle a websocket request (see http.c/http_cb for case ev == MG_EV_WS_MSG)
 //
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
-   if (c == NULL || msg == NULL || msg->data.buf == NULL) {
+   if (!c || !msg || !msg->data.buf) {
       Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg ? msg->data.buf : NULL));
       return true;
    }
@@ -484,7 +498,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       gtk_style_context_add_class(ctx, "ptt-active");
       gtk_style_context_remove_class(ctx, "ptt-idle");
 
-      if (login_user == NULL) {
+      if (!login_user) {
          Log(LOG_CRIT, "core", "server.user not set in config!");
          exit(1);
       }
@@ -515,7 +529,7 @@ void ws_init(void) {
    mg_mgr_init(&mgr);
 
 //   tls_ca_path = find_file_by_list(default_tls_ca_paths, sizeof(default_tls_ca_paths) / sizeof(char *));
-   if (tls_ca_path == NULL) {
+   if (!tls_ca_path) {
       tls_ca_path = strdup("*");
    }
 
@@ -544,7 +558,7 @@ void ws_fini(void) {
 }
 
 bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
-   if (c == NULL || vfo == NULL) {
+   if (!c || !vfo) {
       return true;
    }
 
@@ -563,7 +577,7 @@ bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
 }
 
 bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode) {
-   if (c == NULL || vfo == NULL || mode == NULL) {
+   if (!c || !vfo || !mode) {
       return true;
    }
 
@@ -582,7 +596,7 @@ bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode
 }
 
 bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
-   if (c == NULL || vfo == NULL) {
+   if (!c || !vfo) {
       return true;
    }
 
@@ -602,7 +616,7 @@ bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
 const char *get_server_property(const char *server, const char *prop) {
    char *rv = NULL;
 
-   if (server == NULL || prop == NULL) {
+   if (!server || !prop) {
       Log(LOG_CRIT, "ws", "get_server_prop with null server:<%x> or prop:<%x>");
       return NULL;
    }
@@ -626,7 +640,7 @@ bool disconnect_server(void) {
       ws_connected = false;
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
       ws_conn = NULL;
-      userlist_clear();
+      clear_client_list();
    }
    return false;
 }
@@ -647,7 +661,7 @@ bool connect_server(void) {
          // XXX: any pre-init could go here but is generally handled above on detection of TLS
       }
 
-      if (ws_conn == NULL) {
+      if (!ws_conn) {
          ui_print("[%s] Socket connect error", get_chat_ts());
       }
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connecting...");

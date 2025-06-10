@@ -9,7 +9,7 @@
 //
 // Support for TI PCM5102 DAC
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -19,11 +19,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "inc/state.h"
-#include "inc/logger.h"
-#include "inc/eeprom.h"
-#include "inc/i2c.h"
-#include "inc/au.h"
+#include "rustyrig/state.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/au.h"
 
 #if	defined(FEATURE_PCM5102)
 #if	defined(HOST_POSIX)

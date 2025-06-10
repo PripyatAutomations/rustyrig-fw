@@ -31,11 +31,11 @@
 #if	!defined(__FWDSP)
 #define	__FWDSP
 #endif
-#include "inc/config.h"
-#include "inc/fwdsp-shared.h"
-#include "inc/logger.h"
-#include "inc/posix.h"
-#include "inc/util.file.h"
+#include "rustyrig/config.h"
+#include "rustyrig/fwdsp-shared.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/util.file.h"
 
 static void send_format_header(int fd, struct audio_config *cfg);
 
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
    }
 
    int opt;
-   while ((opt = getopt(argc, argv, "c:i:s:P:p:hrtx")) != -1) {
+   while ((opt = getopt(argc, argv, "c:i:m:s:P:p:hrtx")) != -1) {
       switch (opt) {
          case 'P':
             cfg.sock_path = optarg;
@@ -255,6 +255,9 @@ int main(int argc, char *argv[]) {
             break;
          case 'i':
             cfg.channel_id = atoi(optarg);
+            break;
+         case 'm':
+            printf("Magic %s\n", optarg);
             break;
          case 'p':
             cfg.template = optarg;

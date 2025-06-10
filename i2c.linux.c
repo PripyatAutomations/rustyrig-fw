@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #if	defined(HOST_POSIX)
 #include <stddef.h>
 #include <stdarg.h>
@@ -15,13 +15,13 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/cat.h"
-#include "inc/posix.h"
-#include "inc/i2c.hal.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/i2c.hal.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>

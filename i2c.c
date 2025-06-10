@@ -9,7 +9,7 @@
 /*
  * Here we deal with i2c messages, most importantly logging them
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,10 +22,10 @@
 #include <linux/i2c-dev.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/i2c.h"
-#include "inc/i2c.hal.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/i2c.hal.h"
 
 static uint32_t file_descriptor = -1;
 static const char *i2c_bus = "/dev/i2c-1";

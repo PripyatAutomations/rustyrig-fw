@@ -10,7 +10,7 @@
  * Here we implement timers (periodic and one-shot) in a platform
  * independent manner.
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,10 +18,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "inc/logger.h"
-#include "inc/state.h"
-#include "inc/timer.h"
-#include "inc/mongoose.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/state.h"
+#include "rustyrig/timer.h"
+#include "rustyrig/mongoose.h"
 
 // timer_create_periodic:
 //	Create a timer that occurs every interval milliseconds

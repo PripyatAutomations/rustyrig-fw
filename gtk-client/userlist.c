@@ -1,4 +1,4 @@
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -8,11 +8,11 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "inc/logger.h"
-#include "inc/dict.h"
-#include "inc/posix.h"
-#include "inc/mongoose.h"
-#include "inc/http.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/dict.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/mongoose.h"
+#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -22,6 +22,7 @@ extern gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer
 extern dict *cfg;
 extern GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
+struct rr_user *global_userlist = NULL;
 
 enum {
    COL_PRIV_ICON,
@@ -37,8 +38,22 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
    return TRUE;              // prevent the default handler from destroying it
 }
 
+struct rr_user *find_client(const char *name) {
+   if (!name) {
+      Log(LOG_CRIT, "userlist", "find_client called with NULL name!");
+      return NULL;
+   }
+   struct rr_user *cptr = global_userlist;
 
-struct rr_user *global_userlist = NULL;
+   while (cptr) {
+      if (cptr->name[0] != '\0' && strcasecmp(cptr->name, name) == 0) {
+         Log(LOG_DEBUG, "userlist", "find_or_create_client:<%s> found cptr:<%x>, returning", name, cptr);
+         return cptr;
+      }
+      cptr = cptr->next;
+   }
+   return NULL;
+}
 
 struct rr_user *find_or_create_client(const char *name) {
    struct rr_user *cptr = global_userlist;
@@ -89,6 +104,11 @@ bool delete_client(struct rr_user *cptr) {
             global_userlist = c->next;
          }
          Log(LOG_DEBUG, "userlist", "delete_client:<%x> found cptr, removing '%s'", cptr, cptr->name);
+
+         if (cptr->in_store) {
+            GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
+            gtk_list_store_remove(store, &cptr->iter);
+         }
 
          free(cptr);
          return false;
@@ -171,7 +191,7 @@ GtkWidget *userlist_init(void) {
    Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
    g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
-   if (cfg_hidden != NULL && (strcasecmp(cfg_hidden, "true") == 0 || strcasecmp(cfg_hidden, "yes") == 0 || strcasecmp(cfg_hidden, "on") == 0)) {
+   if (cfg_hidden && (strcasecmp(cfg_hidden, "true") == 0 || strcasecmp(cfg_hidden, "yes") == 0 || strcasecmp(cfg_hidden, "on") == 0)) {
       gtk_widget_hide(userlist_window);
    }
 
@@ -204,31 +224,46 @@ const char *select_elmernoob_icon(struct rr_user *cptr) {
 
 bool userlist_add(struct rr_user *cptr) {
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
-   GtkTreeIter iter;
 
-   const char *ico_tlk = cptr->is_ptt ? "🎙️" : "";
-   const char *ico_mute = cptr->is_muted ? "🙊" : "";
-   const char *ico_en = select_elmernoob_icon(cptr);
+   gtk_list_store_append(store, &cptr->iter);
+   cptr->in_store = true;
 
-   gtk_list_store_append(store, &iter);  // <-- this must come *before* gtk_list_store_set() ;)
-   gtk_list_store_set(store, &iter,
+   gtk_list_store_set(store, &cptr->iter,
       COL_PRIV_ICON, select_user_icon(cptr),
       COL_USERNAME, cptr->name,
-      COL_TALK_ICON, ico_tlk,
-      COL_MUTE_ICON, ico_mute,
-      COL_ELMERNOOB_ICON, ico_en,
+      COL_TALK_ICON, cptr->is_ptt ? "🎙️" : "",
+      COL_MUTE_ICON, cptr->is_muted ? "🙊" : "",
+      COL_ELMERNOOB_ICON, select_elmernoob_icon(cptr),
       -1);
 
    Log(LOG_DEBUG, "userlist", "New user: %s (privs: %s) since %lu (last heard: %lu) - flags: %lu, ptt:%s muted:%s",
        cptr->name, cptr->privs, cptr->logged_in, cptr->last_heard, cptr->user_flags,
        (cptr->is_ptt ? "on" : "off"), (cptr->is_muted ? "on" : "off"));
 
-   return false;
+   return true;
 }
 
 void userlist_clear(void) {
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
    gtk_list_store_clear(store);
+}
+
+bool userlist_refresh(struct rr_user *cptr) {
+   if (!cptr->in_store) {
+      return userlist_add(cptr);
+   }
+
+   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
+
+   gtk_list_store_set(store, &cptr->iter,
+      COL_PRIV_ICON, select_user_icon(cptr),
+      COL_USERNAME, cptr->name,
+      COL_TALK_ICON, cptr->is_ptt ? "🎙️" : "",
+      COL_MUTE_ICON, cptr->is_muted ? "🙊" : "",
+      COL_ELMERNOOB_ICON, select_elmernoob_icon(cptr),
+      -1);
+
+   return true;
 }
 
 bool userlist_update(struct rr_user *cptr) {
@@ -283,4 +318,27 @@ bool userlist_remove(const char *name) {
    }
 
    return false;  // not found
+}
+
+void userlist_resync_all(void) {
+   userlist_clear();
+   struct rr_user *c = global_userlist;
+   while (c) {
+      userlist_add(c);
+      c = c->next;
+   }
+}
+
+bool clear_client_list(void) {
+   struct rr_user *c = global_userlist, *next = NULL;
+   while (c) {
+      next = c->next;
+      free(c);
+      if (!next) {
+         break;
+      }
+      c = next;
+   }
+   return false;
+   userlist_resync_all();
 }

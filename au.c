@@ -11,7 +11,7 @@
 //
 // Most of the ugly bits should go in the per-backend sources
 //
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -25,16 +25,16 @@
 #include <stdio.h>
 #include <sys/un.h>
 #include <fcntl.h>
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/logger.h"
-#include "inc/cat.h"
-#include "inc/posix.h"
-#include "inc/au.h"
-#include "inc/au.pipe.h"
-#include "inc/ws.h"
-#include "inc/fwdsp-shared.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/cat.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/au.h"
+#include "rustyrig/au.pipe.h"
+#include "rustyrig/ws.h"
+#include "rustyrig/fwdsp-shared.h"
 
 // XXX: This needs moved to config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path
 

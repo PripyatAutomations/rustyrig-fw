@@ -11,7 +11,7 @@
 
 // Filter type
 #include <stdint.h>
-#include "inc/config.h"
+#include "rustyrig/config.h"
 
 #define	FILTER_NONE		0x0000
 #define	FILTER_LPF		0x0001

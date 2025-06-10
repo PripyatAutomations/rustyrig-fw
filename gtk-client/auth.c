@@ -1,4 +1,4 @@
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -8,11 +8,11 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "inc/logger.h"
-#include "inc/dict.h"
-#include "inc/posix.h"
-#include "inc/mongoose.h"
-#include "inc/http.h"
+#include "rustyrig/logger.h"
+#include "rustyrig/dict.h"
+#include "rustyrig/posix.h"
+#include "rustyrig/mongoose.h"
+#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -41,7 +41,7 @@ char *hash_passwd(const char *passwd) {
    char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
    mg_sha1_ctx ctx;
 
-   if (hex_output == NULL) {
+   if (!hex_output) {
       Log(LOG_CRIT, "auth", "oom in compute_wire_password");
       return NULL;
    }
@@ -65,7 +65,7 @@ char *hash_passwd(const char *passwd) {
 
 // This provides protection against replays by 
 char *compute_wire_password(const char *password, const char *nonce) {
-   if (password == NULL || nonce == NULL) {
+   if (!password || !nonce) {
       Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%x> or nonce<%x>", password, nonce);
       return NULL;
    }
@@ -74,7 +74,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
    char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
    mg_sha1_ctx ctx;
 
-   if (hex_output == NULL) {
+   if (!hex_output) {
       Log(LOG_CRIT, "auth", "oom in compute_wire_password");
       return NULL;
    }
@@ -101,7 +101,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
 }
 
 bool ws_send_login(struct mg_connection *c, const char *login_user) {
-   if (c == NULL || login_user == NULL) {
+   if (!c || !login_user) {
       return true;
    }
 
@@ -124,13 +124,13 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
 
 // Hashes the user stored password with the server nonce and returns it
 bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passwd, const char *nonce) {
-   if (c == NULL || user == NULL || passwd == NULL || nonce == NULL) {
+   if (!c || !user || !passwd || !nonce) {
       Log(LOG_CRIT, "auth", "ws_send_passwd with invalid parameters, c:<%x> user:<%x> passwd:<%x> nonce:<%x>", c, user, passwd, nonce);
       return true;
    }
 
    char *temp_pw = compute_wire_password(hash_passwd(passwd), nonce);
-   if (temp_pw == NULL) { // failed
+   if !temp_pw) {
       Log(LOG_CRIT, "auth", "Failed to hash session password (nonce: |%s|)", nonce);
       return true;
    }
@@ -153,7 +153,7 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
 }
 
 bool ws_send_logout(struct mg_connection *c, const char *user, const char *token) {
-   if (user == NULL || token == NULL || c == NULL) {
+   if (!user || !token || !c) {
       return true;
    }
 
@@ -186,7 +186,7 @@ bool match_priv(const char *user_privs, const char *priv) {
    size_t privlen = strlen(priv);
 
    Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'", user_privs, priv);
-   if (user_privs == NULL || priv == NULL) {
+   if (!user_privs || !priv) {
       return false;
    }
 
@@ -223,7 +223,7 @@ bool match_priv(const char *user_privs, const char *priv) {
 }
 
 bool has_privs(struct rr_user *cptr, const char *priv) {
-   if (priv == NULL || cptr == NULL) {
+   if (!priv || !cptr) {
       return false;
    }
 

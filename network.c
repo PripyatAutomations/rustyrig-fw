@@ -10,7 +10,7 @@
  * Support for network transport for console, cat, and debugging
  *
  */
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,11 +19,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "inc/i2c.h"
-#include "inc/state.h"
-#include "inc/eeprom.h"
-#include "inc/network.h"
-#include "inc/logger.h"
+#include "rustyrig/i2c.h"
+#include "rustyrig/state.h"
+#include "rustyrig/eeprom.h"
+#include "rustyrig/network.h"
+#include "rustyrig/logger.h"
 
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>
@@ -37,7 +37,7 @@ static void net_print_listeners(const char *listenaddr) {
    struct ifaddrs *ifaddr, *ifa;
    char addr[INET6_ADDRSTRLEN];
 
-   if (listenaddr == NULL) {
+   if (!listenaddr) {
       return;
    }
 
@@ -46,8 +46,8 @@ static void net_print_listeners(const char *listenaddr) {
       exit(EXIT_FAILURE);
    }
 
-   for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-      if (ifa->ifa_addr == NULL) {
+   for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
+      if (!ifa->ifa_addr) {
          continue;
       }
 
@@ -58,7 +58,7 @@ static void net_print_listeners(const char *listenaddr) {
              ? (void *)&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr
              : (void *)&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
 
-         if (inet_ntop(family, addr_ptr, addr, sizeof(addr)) == NULL) {
+         if (!inet_ntop(family, addr_ptr, addr, sizeof(addr))) {
              Log(LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno));
              continue;
          }
@@ -114,7 +114,7 @@ void show_network_info(void) {
    // print what addresses our bind will apply to
    const char *listenaddr = eeprom_get_str("net/bind");
 
-   if (listenaddr != NULL) {
+   if (listenaddr) {
       Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port, tls_bind_port);
       net_print_listeners(listenaddr);
    }

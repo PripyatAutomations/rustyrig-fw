@@ -9,12 +9,12 @@
 // This file contains the structures used for statistics and state
 #if	!defined(__rr_state_h)
 #define	__rr_state_h
-#include "inc/config.h"
+#include "rustyrig/config.h"
 #include <time.h>
 #include <stdbool.h>
-#include "inc/logger.h"
-#include "inc/backend.h"
-#include "inc/atu.h"		// for rr_atu_tv
+#include "rustyrig/logger.h"
+#include "rustyrig/backend.h"
+#include "rustyrig/atu.h"		// for rr_atu_tv
 #define	PARSE_LINE_LEN	512
 
 // TX Low Pass Filters
