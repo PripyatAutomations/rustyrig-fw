@@ -130,7 +130,7 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
    }
 
    char *temp_pw = compute_wire_password(hash_passwd(passwd), nonce);
-   if !temp_pw) {
+   if (!temp_pw) {
       Log(LOG_CRIT, "auth", "Failed to hash session password (nonce: |%s|)", nonce);
       return true;
    }
