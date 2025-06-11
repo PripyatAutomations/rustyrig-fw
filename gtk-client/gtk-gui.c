@@ -518,10 +518,9 @@ bool gui_init(void) {
    GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
    GtkWidget *rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
 
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 0);
-
-   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, FALSE, FALSE, 6);
+   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 6);
 
    // set default value etc. as before
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(dict_get(cfg, "default.volume.rx", "30")));
@@ -538,10 +537,9 @@ bool gui_init(void) {
    GtkWidget *tx_power_label = gtk_label_new("TX Power");
    GtkWidget *tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
 
-   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 0);
-
-   gtk_box_pack_start(GTK_BOX(control_box), tx_power_vbox, FALSE, FALSE, 6);
+   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(control_box), tx_power_vbox, TRUE, TRUE, 6);
 
    gtk_range_set_value(GTK_RANGE(tx_power_slider), atoi(dict_get(cfg, "default.tx.power", "30")));
 
