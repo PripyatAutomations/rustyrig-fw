@@ -54,5 +54,6 @@ extern bool place_window(GtkWidget *window);
 extern void show_server_chooser(void);			// gtk.serverpick.c
 extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
 extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
+extern bool log_print(const char *fmt, ...);
 
 #endif	// !defined(__rrclient_gtk_gui_h)

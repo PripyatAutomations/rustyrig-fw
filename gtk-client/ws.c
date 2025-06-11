@@ -397,15 +397,15 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       t = time(NULL);
 
       if ((tmp = localtime(&t))) {
-         /* success, proceed */
+         // success, proceed
          if (strftime(my_timestamp, sizeof(my_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
-            /* handle the error */
+            // handle the error 
             memset(my_timestamp, 0, sizeof(my_timestamp));
             snprintf(my_timestamp, sizeof(my_timestamp), "<%lu>", time(NULL));
          }
       }
 
-      ui_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
+      log_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
       free(ts);
       free(prio);
       free(subsys);
