@@ -191,6 +191,28 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
 
                char buf[2] = { '0' + val, '\0' };
                gtk_entry_set_text(GTK_ENTRY(entry), buf);
+               gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+               return TRUE;
+            }
+
+            case GDK_KEY_Down: {
+               const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+               int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
+               val = (val + 9) % 10;
+
+               char buf[2] = { '0' + val, '\0' };
+               gtk_entry_set_text(GTK_ENTRY(entry), buf);
+               gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+               return TRUE;
+            }
+#if	0
+            case GDK_KEY_Up: {
+               const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+               int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
+               val = (val + 1) % 10;
+
+               char buf[2] = { '0' + val, '\0' };
+               gtk_entry_set_text(GTK_ENTRY(entry), buf);
                gtk_editable_set_position(GTK_EDITABLE(entry), -1);
                gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
                return TRUE;
@@ -207,6 +229,7 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
                gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
                return TRUE;
             }
+#endif
          default:
             return FALSE;
       }
