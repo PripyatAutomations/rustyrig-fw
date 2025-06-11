@@ -126,28 +126,6 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    }
 }
 
-void on_freq_committed(GtkWidget *entry, gpointer user_data) {
-   const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
-   // Validate and send to server
-   double freq = atof(text) * 1000;
-
-   if (freq > 0) {
-      ws_send_freq_cmd(ws_conn, "A", freq);
-   }
-}
-
-gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
-   poll_block_expire = now + 10;
-   return FALSE;
-}
-
-gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
-   on_freq_committed(entry, NULL);
-   poll_block_expire = 0;
-//   ui_print("[%s] Polling resumed: %li", get_chat_ts(), poll_block_expire);
-   return FALSE;
-}
-
 void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
    if (!combo || !text) {
       return;
@@ -517,13 +495,6 @@ bool gui_init(void) {
 
    freq_entry = gtk_freq_input_new();
    GtkWidget *freq_label = gtk_label_new("Hz");
-
-   Log(LOG_CRAZY, "gtk", "freq_entry add callback activate");
-   freq_changed_handler_id = g_signal_connect(freq_entry, "activate", G_CALLBACK(on_freq_committed), NULL);
-   Log(LOG_CRAZY, "gtk", "freq_entry add callback focus in");
-   g_signal_connect(freq_entry, "focus-in-event", G_CALLBACK(on_freq_focus_in), NULL);
-   Log(LOG_CRAZY, "gtk", "freq_entry add callback focus out");
-   g_signal_connect(freq_entry, "focus-out-event", G_CALLBACK(on_freq_focus_out), NULL);
 
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
