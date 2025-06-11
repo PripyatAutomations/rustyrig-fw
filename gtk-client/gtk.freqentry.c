@@ -145,6 +145,13 @@ static gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpoint
    return FALSE;
 }
 
+static gboolean reset_entry_selection(gpointer data) {
+   GtkWidget *entry = GTK_WIDGET(data);
+   gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+   gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+   return G_SOURCE_REMOVE;
+}
+
 static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
    GtkFreqInput *fi = GTK_FREQ_INPUT(user_data);
 
@@ -153,11 +160,12 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
          continue;
 
       switch (event->keyval) {
-         case GDK_KEY_BackSpace:
+         case GDK_KEY_BackSpace: {
             gtk_entry_set_text(GTK_ENTRY(entry), "0");
             gtk_editable_set_position(GTK_EDITABLE(entry), -1);
             gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
             return TRUE;
+         }
 
          case GDK_KEY_Left: {
             int prev = (i == 0) ? fi->num_digits - 1 : i - 1;
@@ -175,7 +183,34 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
             return TRUE;
          }
 
-         case GDK_KEY_Return:
+         case GDK_KEY_Up: {
+            const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+            int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
+            val = (val + 1) % 10;
+
+            char buf[2] = { '0' + val, '\0' };
+            gtk_entry_set_text(GTK_ENTRY(entry), buf);
+
+            g_idle_add(reset_entry_selection, entry);
+
+            // Stop further propagation to prevent GTK default focus move
+            g_signal_stop_emission_by_name(GTK_WIDGET(entry), "key-press-event");
+            return TRUE;
+         }
+
+         case GDK_KEY_Down: {
+            const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+            int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
+            val = (val + 9) % 10;
+
+            char buf[2] = { '0' + val, '\0' };
+            gtk_entry_set_text(GTK_ENTRY(entry), buf);
+
+            g_idle_add(reset_entry_selection, entry);
+            return TRUE;
+         }
+
+         case GDK_KEY_Return: {
             if (fi->updating) {
                Log(LOG_DEBUG, "gtk.freq", "Forcing send CAT cmd on ENTER press");
                fi->updating = false;
@@ -183,55 +218,10 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
             update_frequency_display(fi);
             poll_block_expire = 0;
             return TRUE;
-
-            case GDK_KEY_Up: {
-               const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
-               int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-               val = (val + 1) % 10;
-
-               char buf[2] = { '0' + val, '\0' };
-               gtk_entry_set_text(GTK_ENTRY(entry), buf);
-               gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-               return TRUE;
-            }
-
-            case GDK_KEY_Down: {
-               const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
-               int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-               val = (val + 9) % 10;
-
-               char buf[2] = { '0' + val, '\0' };
-               gtk_entry_set_text(GTK_ENTRY(entry), buf);
-               gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-               return TRUE;
-            }
-#if	0
-            case GDK_KEY_Up: {
-               const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
-               int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-               val = (val + 1) % 10;
-
-               char buf[2] = { '0' + val, '\0' };
-               gtk_entry_set_text(GTK_ENTRY(entry), buf);
-               gtk_editable_set_position(GTK_EDITABLE(entry), -1);
-               gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-               return TRUE;
-            }
-
-            case GDK_KEY_Down: {
-               const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
-               int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-               val = (val + 9) % 10; // same as (val - 1 + 10) % 10
-
-               char buf[2] = { '0' + val, '\0' };
-               gtk_entry_set_text(GTK_ENTRY(entry), buf);
-               gtk_editable_set_position(GTK_EDITABLE(entry), -1);
-               gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-               return TRUE;
-            }
-#endif
-         default:
+         }
+         default: {
             return FALSE;
+         }
       }
 
       break; // only match one entry
