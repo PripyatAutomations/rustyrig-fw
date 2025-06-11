@@ -203,6 +203,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
       gtk_widget_hide(userlist_window);
    } else {
       gtk_widget_show_all(userlist_window);
+      place_window(userlist_window);
    }
 }
 
