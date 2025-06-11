@@ -539,9 +539,9 @@ bool gui_init(void) {
    Log(LOG_CRAZY, "gtk", "conn_button add callback clicked");
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
 
-   GtkWidget *freq_label = gtk_label_new("Freq (KHz):");
-   freq_entry = gtk_entry_new();
-   gtk_entry_set_max_length(GTK_ENTRY(freq_entry), 13);
+   freq_entry = gtk_freq_input_new();
+   GtkWidget *freq_label = gtk_label_new("Hz");
+
    Log(LOG_CRAZY, "gtk", "freq_entry add callback activate");
    freq_changed_handler_id = g_signal_connect(freq_entry, "activate", G_CALLBACK(on_freq_committed), NULL);
    Log(LOG_CRAZY, "gtk", "freq_entry add callback focus in");
@@ -549,8 +549,8 @@ bool gui_init(void) {
    Log(LOG_CRAZY, "gtk", "freq_entry add callback focus out");
    g_signal_connect(freq_entry, "focus-out-event", G_CALLBACK(on_freq_focus_out), NULL);
 
-   gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
 
    mode_combo = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
@@ -566,30 +566,37 @@ bool gui_init(void) {
 
    gtk_box_pack_start(GTK_BOX(control_box), mode_combo, FALSE, FALSE, 6);
 
+   // RX Volume VBox
+   GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
-   rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-   gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(dict_get(cfg, "default.volume.rx", "30")));
+   GtkWidget *rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
 
-   Log(LOG_CRAZY, "gtk", "rx_vol handler value-changed");
+   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 0);
+
+   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, FALSE, FALSE, 6);
+
+   // set default value etc. as before
+   gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(dict_get(cfg, "default.volume.rx", "30")));
    g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
 
-   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_label, FALSE, FALSE, 6);
-   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_slider, TRUE, TRUE, 0);
-
-   // apply default RX volume
    const char *cfg_rx_volume = dict_get(cfg, "audio.volume.rx", NULL);
-   float vol = 0;
-   Log(LOG_DEBUG, "audio", "Setting default RX volume to %s", cfg_rx_volume);
    if (cfg_rx_volume) {
-      vol = atoi(cfg_rx_volume);
+      float vol = atoi(cfg_rx_volume);
       gtk_range_set_value(GTK_RANGE(rx_vol_slider), vol);
    }
 
+   // TX Power VBox
+   GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *tx_power_label = gtk_label_new("TX Power");
    GtkWidget *tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+
+   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 0);
+
+   gtk_box_pack_start(GTK_BOX(control_box), tx_power_vbox, FALSE, FALSE, 6);
+
    gtk_range_set_value(GTK_RANGE(tx_power_slider), atoi(dict_get(cfg, "default.tx.power", "30")));
-   gtk_box_pack_start(GTK_BOX(control_box), tx_power_label, FALSE, FALSE, 6);
-   gtk_box_pack_start(GTK_BOX(control_box), tx_power_slider, TRUE, TRUE, 0);
 
    ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);

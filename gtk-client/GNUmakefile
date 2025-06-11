@@ -71,6 +71,7 @@ objs += config.o
 objs += debug.o			# Debug stuff
 objs += dict.o			# dictionary object
 objs += gtk-gui.o		# Support for a GTK user interface
+objs += gtk.freqentry.o		# Frequency Entry Widget
 objs += gtk.serverpick.o        # server picker
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop

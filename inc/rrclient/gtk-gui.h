@@ -16,6 +16,13 @@
 #include "rustyrig/mongoose.h"
 #include "rustyrig/http.h"
 
+#define GTK_TYPE_FREQ_INPUT (gtk_freq_input_get_type())
+G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkBox)
+
+GtkWidget *gtk_freq_input_new(void);
+void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
+unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
+
 inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
    union {
       void (*func)(GtkToggleButton *, gpointer);
@@ -46,4 +53,7 @@ extern gulong mode_changed_handler_id;
 extern gulong freq_changed_handler_id;
 extern bool place_window(GtkWidget *window);
 extern void show_server_chooser(void);			// gtk.serverpick.c
+extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
+extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
+
 #endif	// !defined(__rrclient_gtk_gui_h)

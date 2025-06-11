@@ -231,16 +231,12 @@ static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection
             }
          }
 
-         // Update the display
-         char freq_buf[24];
-         memset(freq_buf, 0, sizeof(freq_buf));
-         snprintf(freq_buf, sizeof(freq_buf), "%.3f", freq / 1000);
 
-         if (freq_buf[0] != '\0' && strlen(freq_buf) > 0) {
-            g_signal_handler_block(freq_entry, freq_changed_handler_id);
-            Log(LOG_CRAZY, "ws", "Updating freq_entry: %s", freq_buf);
-            gtk_entry_set_text(GTK_ENTRY(freq_entry), freq_buf);
-            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
+         if (freq > 0) {
+//            g_signal_handler_block(freq_entry, freq_changed_handler_id);
+            Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
+            gtk_freq_input_set_value(GTK_FREQ_INPUT(freq_entry), freq);
+//            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
          }
 
          if (mode && strlen(mode) > 0) {
