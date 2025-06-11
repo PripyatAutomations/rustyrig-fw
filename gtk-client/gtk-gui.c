@@ -115,30 +115,6 @@ bool ui_print(const char *fmt, ...) {
 
    return false;
 }
-
-bool log_print(const char *fmt, ...) {
-   if (!log_buffer) {
-      return false;
-   }
-
-   if (!fmt) {
-      printf("log_print sent NULL fmt\n");
-   }
-   va_list ap;
-   va_start(ap, fmt);
-   char outbuf[8096];
-   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
-   va_end(ap);
-
-   GtkTextIter end;
-   gtk_text_buffer_get_end_iter(log_buffer, &end);
-   gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
-   gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-
-   gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(log_view), &end, 0.0, FALSE, 0.0, 0.0);
-   return true;
-}
-
 gulong mode_changed_handler_id;
 gulong freq_changed_handler_id;
 

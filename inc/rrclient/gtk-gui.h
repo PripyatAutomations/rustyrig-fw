@@ -32,7 +32,6 @@ inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
 }
 
 extern bool ui_print(const char *fmt, ...);
-extern bool log_print(const char *fmt, ...);
 extern void update_connection_button(bool connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, gboolean active);
 extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text);

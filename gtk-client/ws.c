@@ -405,7 +405,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          }
       }
 
-      log_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
+      ui_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
       free(ts);
       free(prio);
       free(subsys);
