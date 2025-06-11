@@ -138,8 +138,8 @@ static gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpoint
    if (fi->updating) {
       // Force a send
       fi->updating = false;
+      poll_block_expire = now + 1;
       update_frequency_display(fi);
-      poll_block_expire = 0;
    }
    fi->updating = prev_updating;
    return FALSE;
@@ -154,28 +154,25 @@ static gboolean reset_entry_selection(gpointer data) {
 
 static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
    GtkFreqInput *fi = GTK_FREQ_INPUT(user_data);
+   poll_block_expire = now + 1;
 
    for (int i = 0; i < fi->num_digits; i++) {
       if (fi->digits[i] != entry)
          continue;
 
       switch (event->keyval) {
-         case GDK_KEY_BackSpace: {
-            gtk_entry_set_text(GTK_ENTRY(entry), "0");
-            gtk_editable_set_position(GTK_EDITABLE(entry), -1);
-            gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-            return TRUE;
+         case GDK_KEY_BackSpace:
+         case GDK_KEY_Left:
+         {
+               int prev = (i == 0) ? fi->num_digits - 1 : i - 1;
+               gtk_widget_grab_focus(fi->digits[prev]);
+               gtk_editable_set_position(GTK_EDITABLE(fi->digits[prev]), -1);
+               gtk_editable_select_region(GTK_EDITABLE(fi->digits[prev]), 0, -1);
+               return TRUE;
          }
 
-         case GDK_KEY_Left: {
-            int prev = (i == 0) ? fi->num_digits - 1 : i - 1;
-            gtk_widget_grab_focus(fi->digits[prev]);
-            gtk_editable_set_position(GTK_EDITABLE(fi->digits[prev]), -1);
-            gtk_editable_select_region(GTK_EDITABLE(fi->digits[prev]), 0, -1);
-            return TRUE;
-         }
-
-         case GDK_KEY_Right: {
+         case GDK_KEY_Right:
+         {
             int next = (i == fi->num_digits - 1) ? 0 : i + 1;
             gtk_widget_grab_focus(fi->digits[next]);
             gtk_editable_set_position(GTK_EDITABLE(fi->digits[next]), -1);
@@ -183,7 +180,8 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
             return TRUE;
          }
 
-         case GDK_KEY_Up: {
+         case GDK_KEY_Up:
+         {
             const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
             int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
             val = (val + 1) % 10;
@@ -198,7 +196,8 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
             return TRUE;
          }
 
-         case GDK_KEY_Down: {
+         case GDK_KEY_Down:
+         {
             const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
             int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
             val = (val + 9) % 10;
@@ -210,7 +209,8 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
             return TRUE;
          }
 
-         case GDK_KEY_Return: {
+         case GDK_KEY_Return:
+         {
             if (fi->updating) {
                Log(LOG_DEBUG, "gtk.freq", "Forcing send CAT cmd on ENTER press");
                fi->updating = false;
@@ -219,9 +219,12 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
             poll_block_expire = 0;
             return TRUE;
          }
-         default: {
+
+         default:
+         {
             return FALSE;
          }
+
       }
 
       break; // only match one entry
@@ -238,6 +241,7 @@ static gboolean select_all_idle(GtkWidget *entry) {
 
 static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gpointer user_data) {
    if (event->type == GDK_2BUTTON_PRESS && event->button == 1) {
+      poll_block_expire = now + 1;
       gtk_entry_set_text(GTK_ENTRY(entry), "0");
 
       // Defer selection slightly to override GTK internals
