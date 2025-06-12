@@ -226,7 +226,6 @@ int main(int argc, char **argv) {
 #endif
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
-
    // Main loop
    while(1) {
       // save the current time

@@ -23,7 +23,7 @@
 #define	HTTP_SESSION_LIFETIME	12*60*60	// Require a re-login every 12 hours, if still connected
 #define	HTTP_SESSION_REAP_TIME	30		// Every 30 seconds, kill expired sessions
 #define HTTP_AUTH_TIMEOUT       20              // Allow 20 seconds from connection to send login command
-#define HTTP_PING_TIME          30              // If we haven't heard from the client in this long, send a ping
+#define HTTP_PING_TIME          120             // If we haven't heard from the client in this long, send a ping
 #define	HTTP_MAX_ELMERS		8		// how many elmers can accept elevate request from the user?
 #define	HTTP_MAX_NOOBS		8		// how many noobs can an elmer babysit?
 

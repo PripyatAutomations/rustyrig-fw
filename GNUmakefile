@@ -219,7 +219,7 @@ world: ${extra_build} ${bins}
 
 ${bins}: ${CF}
 
-BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard inc/*.h) $(wildcard ${BUILD_DIR}/*.h)
+BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard inc/rustrig/*.h) $(wildcard ${BUILD_DIR}/*.h)
 ${OBJ_DIR}/firmware/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"

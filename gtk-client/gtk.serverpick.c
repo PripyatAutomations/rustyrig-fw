@@ -78,7 +78,15 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    return FALSE;
 }
 
+
 void show_server_chooser(void) {
+   if (server_window) {
+      Log(LOG_DEBUG, "gtk.serverpick", "show_server_choser() called while already open");
+      gtk_window_present(GTK_WINDOW(server_window));
+
+      return;
+   }
+
    GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *list = gtk_tree_view_new();
@@ -89,6 +97,7 @@ void show_server_chooser(void) {
    gtk_tree_view_set_model(GTK_TREE_VIEW(list), GTK_TREE_MODEL(store));
    g_object_unref(store);
 
+   gtk_window_set_keep_above(GTK_WINDOW(server_window), TRUE);
    GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(list));
    gtk_tree_selection_set_mode(sel, GTK_SELECTION_SINGLE);
 

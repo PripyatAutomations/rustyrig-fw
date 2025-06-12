@@ -595,7 +595,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // Send a ping to the user and expect them to reply within HTTP_PING_TIMEOUT seconds
          cptr->last_heard = now;
-         ws_send_ping(cptr);
+//         ws_send_ping(cptr);
 
          // blorp out a join to all chat users
          prepare_msg(resp_buf, sizeof(resp_buf),

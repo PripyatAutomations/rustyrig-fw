@@ -16,9 +16,47 @@ dict *cfg = NULL;
 dict *default_cfg = NULL;
 dict *servers = NULL;
 
+static defconfig_t defcfg[] = {
+   { "audio.debug",				":*3" },
+   { "audio.pipeline.rx",			"" },
+   { "audio.pipeline.rx.format",		"" },
+   { "audio.pipeline.tx",			"" },
+   { "audio.pipeline.tx.format",		"" },
+   { "audio.pipeline.rx.pcm16", 		"" },
+   { "audio.pipeline.tx.pcm16",			"" },
+   { "audio.pipeline.rx.pcm44",			"" },
+   { "audio.pipeline.tx.pcm44",			"" },
+   { "audio.pipeline.rx.opus",			"" },
+   { "audio.pipeline.tx.opus",			"" },
+   { "audio.pipeline.rx.flac",			"" },
+   { "audio.pipeline.tx.flac",			"" },
+   { "audio.volume.rx",				"30" },
+   { "audio.volume.tx",				"20" },
+   { "cat.poll-blocking",			"2" },
+   { "debug.http",				"false" },
+   { "default.volume.rx",			"30" },
+   { "default.tx.power",			"30" },
+   { "server.auto-connect",			"" },
+   { "ui.main.height",				"600" },
+   { "ui.main.width",				"800" },
+   { "ui.main.x",				"0" },
+   { "ui.main.y",				"200" },
+   { "ui.main.on-top",				"false" },
+   { "ui.main.raised",				"true" },
+   { "ui.userlist.height",			"300" },
+   { "ui.userlist.width",			"250" },
+   { "ui.userlist.x",				"0" },
+   { "ui.userlist.y",				"0" },
+   { "ui.userlist.on-top",			"false" },
+   { "ui.userlist.raised",			"true" },
+   { "ui.userlist.hidden",			"false" },
+   { "ui.show-pings",				"true" },
+   { NULL,					NULL }
+};
+
 bool cfg_set_default(char *key, char *val) {
-   if (!key || !val) {
-      printf("cfg_set_default: key:<%x> or val:<%x> NULL\n", key, val);
+   if (!key) {
+      Log(LOG_DEBUG, "config", "cfg_set_default: key:<%x> NULL", key);
       return true;
    }
 
@@ -28,11 +66,11 @@ bool cfg_set_default(char *key, char *val) {
       if (!default_cfg) {
          Log(LOG_CRIT, "config", "OOM in cfg_set_default");
          shutdown_app(1);
+         return true;
       }
-      return true;
    }
 
-   printf("Set default for %s to '%s'\n", key, val);
+   Log(LOG_CRAZY, "config", "Set default for %s to '%s'", key, val);
    dict_add(default_cfg, key, val);
 
    return false;
@@ -40,22 +78,25 @@ bool cfg_set_default(char *key, char *val) {
 
 bool cfg_set_defaults(defconfig_t *defaults) {
    if (!defaults) {
-      printf("cfg_set_defaults: NULL input\n");
+      Log(LOG_CRIT, "config", "cfg_set_defaults: NULL input");
       return true;
    }
+
+   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%x>", defaults);
 
    int i = 0;
    while (defaults[i].key) {
       if (cfg_set_default(defaults[i].key, defaults[i].val)) {
-         fprintf(stderr, "Failed to set key: %s\n", defaults[i].key);
+         Log(LOG_CRIT, "config", "cfg_set_defaults: Failed to set key: %s", defaults[i].key);
       }
 
       i++;
    }
 
-   printf("Imported %d items\n", i);
+   Log(LOG_CRAZY, "config", "Imported %d items", i);
    return true;
 }
+
 
 bool cfg_load(const char *path) {
    int line = 0, errors = 0;
@@ -74,6 +115,10 @@ bool cfg_load(const char *path) {
       return true;
    }
 
+   // Load the default settings early
+   cfg_set_defaults(defcfg);
+   cfg = dict_new();
+
    FILE *fp = fopen(path, "r");
    if (!fp) {
       Log(LOG_CRIT, "config", "Failed to open config %s: %d:%s", path, errno, strerror(errno));
@@ -83,7 +128,6 @@ bool cfg_load(const char *path) {
    // rewind configuration file
    fseek(fp, 0, SEEK_SET);
 
-   cfg = dict_new();
    servers = dict_new();
 
    // Support for C style comments
@@ -113,23 +157,22 @@ bool cfg_load(const char *path) {
       // Look for end of comment
       if (*skip == '*' && *skip == '/') {
          in_comment = false;
-         fprintf(stderr, "[Debug]: cfg.end_block_comment: %d", line);
+         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
          continue;
       // Look for start of comment
       } else if (*skip == '/' && *skip + 1 == '*') {
-         fprintf(stderr, "\n[Debug]: cfg.start_block_comment: %d\n", line);
+         Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
          in_comment = true;
          continue;
       // If we're in a comment still, there's no */ on this line, so continue ignoring input
       } else if (in_comment) {
-         fprintf(stderr, ".");
          continue;
-      } else if ((*skip == '/' && *skip+1 == '/') ||	// comments
-           *skip == '#' || *skip == ';') {
+      } else if ((*skip == '/' && *skip+1 == '/') || *skip == '#' || *skip == ';') {
          continue;
       } else if (*skip == '[' && *end == ']') {		// section
          this_section = strndup(skip + 1, strlen(skip) - 2);
 //         fprintf(stderr, "[Debug]: cfg.section.open: '%s' [%lu]\n", this_section, strlen(this_section));
+         Log(LOG_CRAZY, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
          continue;
       } else if (*skip == '@') {			// preprocessor
          if (strncasecmp(skip + 1, "if ", 3) == 0) {
@@ -164,11 +207,15 @@ bool cfg_load(const char *path) {
             }
          }
 
+         if (!key && !val) {
+            Log(LOG_DEBUG, "config", "Skipping NULL KV for: %s", skip);
+            continue;
+         }
+
          // Store value
+         Log(LOG_CRAZY, "config", "Set key: %s => %s", key, val);
          dict_add(cfg, key, val);
       } else if (strncasecmp(this_section, "server:", 7) == 0) {
-        // XXX: parse server and add it to list
-//         fprintf(stderr, "parse server: %s\n", skip);
          key = NULL;
          val = NULL;
          char *eq = strchr(skip, '=');
@@ -191,25 +238,36 @@ bool cfg_load(const char *path) {
          // Store value
          dict_add(servers, fullkey, val);
       } else {
-         fprintf(stderr, "[Debug] Unknown configuration section '%s' parsing '%s' at %s:%d\n", this_section, buf, path, line);
+//         fprintf(stderr, "[Debug] Unknown configuration section '%s' parsing '%s' at %s:%d\n", this_section, buf, path, line);
+         Log(LOG_CRIT, "config", "Unknown configuration section '%s' parsing '%s' at %s:%d", this_section, buf, path, line);
          errors++;
       }
    } while (!feof(fp));
 
    if (errors > 0) {
-      fprintf(stderr, "cfg loaded %d lines from %s with %d warnings/errors\n",  line, path, errors);
+//      fprintf(stderr, "cfg loaded %d lines from %s with %d warnings/errors\n",  line, path, errors);
+      Log(LOG_INFO, "config", "cfg loaded %d lines from %s with %d warnings/errors",  line, path, errors);
    } else {
-      fprintf(stderr, "cfg loaded %d lines from %s with no errors\n", line, path);
+//      fprintf(stderr, "cfg loaded %d lines from %s with no errors\n", line, path);
+      Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
    }
    return false;
 }
 
 const char *cfg_get(char *key) {
+   if (!key) {
+      Log(LOG_CRIT, "config", "got cfg_get with NULL key!");
+      return NULL;
+   }
+
    const char *p = dict_get(cfg, key, NULL);
 
    // nope! try default
    if (!p) {
       p = dict_get(default_cfg, key, NULL);
+      Log(LOG_DEBUG, "config", "returning default value '%s' for key '%s'", p, key);
+   } else {
+      Log(LOG_CRAZY, "config", "returning user value '%s' for key '%s", p, key);
    }
    return p;
 }
@@ -258,6 +316,50 @@ dict *dict_merge_new(dict *a, dict *b) {
    return merged;
 }
 
+static void cfg_print_servers(dict *servers, FILE *fp) {
+   if (!servers || !fp)
+      return;
+
+   char *key, *val;
+   int rank = 0;
+   dict *seen = dict_new();
+
+   while ((rank = dict_enumerate(servers, rank, &key, &val)) >= 0) {
+      // Find the prefix before the first '.'
+      char *dot = strchr(key, '.');
+      if (!dot)
+         continue;
+
+      size_t prefix_len = dot - key;
+      char prefix[64];
+      if (prefix_len >= sizeof(prefix))
+         continue;
+
+      strncpy(prefix, key, prefix_len);
+      prefix[prefix_len] = '\0';
+
+      // Skip if we've already emitted this prefix
+      if (dict_get(seen, prefix, NULL))
+         continue;
+      dict_add(seen, prefix, "1");
+
+      fprintf(fp, "[server:%s]\n", prefix);
+
+      // Emit all keys with this prefix
+      int inner_rank = 0;
+      char *inner_key, *inner_val;
+      while ((inner_rank = dict_enumerate(servers, inner_rank, &inner_key, &inner_val)) >= 0) {
+         if (strncmp(inner_key, prefix, prefix_len) == 0 && inner_key[prefix_len] == '.') {
+            fprintf(fp, "%s=%s\n", inner_key + prefix_len + 1, inner_val ? inner_val : "");
+         }
+      }
+
+      fputc('\n', fp);
+   }
+
+   dict_free(seen);
+}
+
 bool cfg_save(const char *path) {
    FILE *fp = fopen(path, "w");
    if (!fp) {
@@ -269,8 +371,16 @@ bool cfg_save(const char *path) {
 
    // Right-side argument overrides defaults
    merged = dict_merge_new(default_cfg, cfg);
+
+   // Dump general settings
+   fprintf(fp, "[general]\n");
    dict_dump(merged, fp);
+
+   // Release the memory used
    dict_free(merged);
+
+   // Print the server sections
+   cfg_print_servers(servers, fp);
 
    fflush(fp);
    fclose(fp);

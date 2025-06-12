@@ -50,23 +50,6 @@ GstElement *rx_sink = NULL,		*tx_sink = NULL;
 static struct ws_frame *send_queue = NULL;
 static bool sending_in_progress = false;
 
-static defconfig_t defcfg_audio[] = {
-   { "audio.pipeline.rx",			"" },
-   { "audio.volume.rx",				"" },
-   { "audio.pipeline.rx.format",		"" },
-   { "audio.pipeline.tx",			"" },
-   { "audio.pipeline.tx.format",		"" },
-   { "audio.pipeline.rx.pcm16", 		"" },
-   { "audio.pipeline.tx.pcm16",			"" },
-   { "audio.pipeline.rx.pcm44",			"" },
-   { "audio.pipeline.tx.pcm44",			"" },
-   { "audio.pipeline.rx.opus",			"" },
-   { "audio.pipeline.tx.opus",			"" },
-   { "audio.pipeline.rx.flac",			"" },
-   { "audio.pipeline.tx.flac",			"" },
-   { "audio.volume.rx",				"30" },
-   { NULL,					NULL }
-};
 
 // This is very ugly and could definitely use a rewrite. The TX path needs to move into ws.tx-audio.c
 static void audio_tx_enqueue_frame(uint8_t *data, size_t len) {
@@ -154,7 +137,6 @@ static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
 }
 
 bool audio_init(void) {
-   cfg_set_defaults(defcfg_audio);
    gst_init(NULL, NULL);
 
    Log(LOG_INFO, "audio", "Configuring RX audio-path");

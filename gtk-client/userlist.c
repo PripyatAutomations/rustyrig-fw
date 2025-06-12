@@ -121,15 +121,8 @@ bool delete_client(struct rr_user *cptr) {
 
    return true;
 }
-defconfig_t defcfg_userlist[] = {
-   { "ui.userlist.on-top",	"false" },
-   { "ui.userlist.raised",	"true" },
-   { "ui.userlist.hidden",	"false" },
-   { NULL,			NULL }
-};
 
 GtkWidget *userlist_init(void) {
-   cfg_set_defaults(defcfg_userlist);
    GtkWidget *window = userlist_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "User List");
    const char *cfg_ontop_s = cfg_get("ui.userlist.on-top");

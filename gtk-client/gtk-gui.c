@@ -60,22 +60,6 @@ GtkWidget *config_tab = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
 
-defconfig_t defcfg_gui[] = {
-   { "audio.volume.rx",		"20" },
-   { "default.volume.rx",	"30" },
-   { "default.tx.power",	"30" },
-   { "ui.main.height",		"600" },
-   { "ui.main.width",		"800" },
-   { "ui.main.x",		"0" },
-   { "ui.main.y",		"0" },
-   { "ui.main.on-top",		"false" },
-   { "ui.main.raised",		"true" },
-   { "ui.userlist.height",	"600" },
-   { "ui.userlist.width",	"800" },
-   { "ui.userlist.x",		"0" },
-   { "ui.userlist.y",		"0" },
-   { NULL,			NULL }
-};
 
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
@@ -470,7 +454,6 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
 }
 
 bool gui_init(void) {
-   cfg_set_defaults(defcfg_gui);
    css_provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css_provider,
       ".ptt-active { background: red; color: white; }"

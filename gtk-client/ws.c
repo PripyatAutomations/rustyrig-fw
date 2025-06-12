@@ -52,12 +52,6 @@ extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
 char active_server[512];
 
-defconfig_t defcfg_ws[] = {
-   { "debug.http",		"false" },
-   { "ui.show-pings",		"true" },
-   { NULL,			NULL }
-};
-
 const char *default_tls_ca_paths[] = {
    "/etc/ssl/certs/ca-certificates.crt",
    "/etc/pki/tls/certs/ca-bundle.crt",
@@ -519,12 +513,12 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");
       gtk_style_context_remove_class(ctx, "ptt-active");
+      clear_client_list();
       ui_print("[%s] *** DISCONNECTED ***", get_chat_ts());
    }
 }
 
 void ws_init(void) {
-   cfg_set_defaults(defcfg_ws);
    const char *debug = cfg_get("debug.http");
    if (debug && (strcasecmp(debug, "true") == 0 ||
                  strcasecmp(debug, "yes") == 0)) {

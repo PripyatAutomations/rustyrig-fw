@@ -32,18 +32,11 @@ bool ptt_active = false;
 time_t poll_block_expire = 0;	// Here we set this to now + config:cat.poll-blocking to prevent rig polling from sclearing local controls
 time_t poll_block_delay = 0;	// ^-- stores the delay
 
-defconfig_t defcfg_main[] = {
-   { "server.aut-connect",	NULL },
-   { "audio.debug",		":*3" },
-   { "cat.poll-blocking",	"2" },
-   { NULL,			NULL }
-};
 
 static const char *configs[] = { 
    "~/.config/rrclient.cfg",
    "~/.rrclient.cfg",
-   "/etc/rrclient.cfg",
-   "/opt/rustyrig/etc/rrclient.cfg",
+   "/etc/rrclient.cfg"
 };
 
 gboolean check_dying(gpointer data) {
@@ -77,28 +70,29 @@ int main(int argc, char *argv[]) {
    logfp = stdout;
    log_level = LOG_DEBUG;
 
-   cfg_set_defaults(defcfg_main);
-
+   // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
    const char *realpath = find_file_by_list(configs, cfg_entries);
 
-   if (cfg_load(realpath)) {
-      Log(LOG_CRIT, "core", "Couldn't load config \"%s\", bailing!", realpath);
-      exit(1);
+   if (realpath) {
+      if (cfg_load(realpath)) {
+         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", realpath);
+      } else {
+         Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);
+      }
+   } else {
+      Log(LOG_DEBUG, "config", "Creating empty config dict");
+      cfg = dict_new();
    }
 
    host_init();
 
-   if (!cfg) {
-      Log(LOG_CRIT, "core", "Failed to load configuration, bailing!");
-      exit(1);
-   }
-
-
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
    const char *cfg_audio_debug = cfg_get("audio.debug");
-   setenv("GST_DEBUG", cfg_audio_debug, 0);
+   if (cfg_audio_debug) {
+      setenv("GST_DEBUG", cfg_audio_debug, 0);
+   }
 
    ws_init();
    gtk_init(&argc, &argv);
@@ -108,12 +102,11 @@ int main(int argc, char *argv[]) {
    g_timeout_add(10, poll_mongoose, NULL);
    g_timeout_add(1000, update_now, NULL);
    g_timeout_add(1000, check_dying, NULL);
-   char *poll_block_delay_s = cfg_get("cat.poll-blocking");
+   const char *poll_block_delay_s = cfg_get("cat.poll-blocking");
    poll_block_delay = atoi(poll_block_delay_s);
 
-
    // Should we connect to a server on startup?
-   char *autoconnect = cfg_get("server.auto-connect");
+   const char *autoconnect = cfg_get("server.auto-connect");
    if (autoconnect) {
       memset(active_server, 0, sizeof(active_server));
       snprintf(active_server, sizeof(active_server), "%s", autoconnect);
@@ -123,8 +116,20 @@ int main(int argc, char *argv[]) {
    }
 
    // Dump the configuration to a file
-   cfg_save("/tmp/myconfig.cfg");
+   const char *homedir = getenv("HOME");
+   char pathbuf[PATH_MAX+1];
+   memset(pathbuf, 0, sizeof(pathbuf));
 
+   if (homedir != NULL) {
+      snprintf(pathbuf, sizeof(pathbuf), "%s/.config/rrclient.cfg", homedir);
+   }
+
+   if (!file_exists(pathbuf)) {
+      Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);
+      cfg_save(pathbuf);
+   }
+
+   cfg_save("/tmp/test.cfg");
    // start gtk main loop
    gtk_main();
 
