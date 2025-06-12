@@ -14,14 +14,12 @@
 #include "rustyrig/mongoose.h"
 #include "rustyrig/http.h"
 #include "rustyrig/util.file.h"
+#include "rrclient/config.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
 extern bool ws_audio_init(void);
-// config.c
-extern bool config_load(const char *path);
-extern dict *cfg;
 extern struct mg_mgr mgr;
 extern struct mg_connection *ws_conn;
 
@@ -33,6 +31,13 @@ time_t now = -1;                // time() called once a second in main loop to u
 bool ptt_active = false;
 time_t poll_block_expire = 0;	// Here we set this to now + config:cat.poll-blocking to prevent rig polling from sclearing local controls
 time_t poll_block_delay = 0;	// ^-- stores the delay
+
+defconfig_t defcfg_main[] = {
+   { "server.aut-connect",	NULL },
+   { "audio.debug",		":*3" },
+   { "cat.poll-blocking",	"2" },
+   { NULL,			NULL }
+};
 
 static const char *configs[] = { 
    "~/.config/rrclient.cfg",
@@ -72,10 +77,12 @@ int main(int argc, char *argv[]) {
    logfp = stdout;
    log_level = LOG_DEBUG;
 
+   cfg_set_defaults(defcfg_main);
+
    int cfg_entries = (sizeof(configs) / sizeof(char *));
    const char *realpath = find_file_by_list(configs, cfg_entries);
 
-   if (config_load(realpath)) {
+   if (cfg_load(realpath)) {
       Log(LOG_CRIT, "core", "Couldn't load config \"%s\", bailing!", realpath);
       exit(1);
    }
@@ -87,15 +94,10 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
-   const char *default_server = dict_get(cfg, "server.default", NULL);
-   if (default_server) {
-      memset(active_server, 0, sizeof(active_server));
-      snprintf(active_server, sizeof(active_server), "%s", default_server);
-   }
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
-   const char *cfg_audio_debug = dict_get(cfg, "audio.debug", ":*3");
+   const char *cfg_audio_debug = cfg_get("audio.debug");
    setenv("GST_DEBUG", cfg_audio_debug, 0);
 
    ws_init();
@@ -106,11 +108,12 @@ int main(int argc, char *argv[]) {
    g_timeout_add(10, poll_mongoose, NULL);
    g_timeout_add(1000, update_now, NULL);
    g_timeout_add(1000, check_dying, NULL);
-   char *poll_block_delay_s = dict_get(cfg, "cat.poll-blocking", "2");
+   char *poll_block_delay_s = cfg_get("cat.poll-blocking");
    poll_block_delay = atoi(poll_block_delay_s);
 
+
    // Should we connect to a server on startup?
-   char *autoconnect = dict_get(cfg, "server.auto-connect", NULL);
+   char *autoconnect = cfg_get("server.auto-connect");
    if (autoconnect) {
       memset(active_server, 0, sizeof(active_server));
       snprintf(active_server, sizeof(active_server), "%s", autoconnect);
@@ -118,6 +121,9 @@ int main(int argc, char *argv[]) {
    } else {
       show_server_chooser();
    }
+
+   // Dump the configuration to a file
+   cfg_save("/tmp/myconfig.cfg");
 
    // start gtk main loop
    gtk_main();

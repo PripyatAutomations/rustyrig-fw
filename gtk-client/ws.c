@@ -24,6 +24,7 @@
 #include "rustyrig/mongoose.h"
 #include "rustyrig/util.file.h"
 #include "rustyrig/http.h"
+#include "rrclient/config.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -50,6 +51,12 @@ extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
 char active_server[512];
+
+defconfig_t defcfg_ws[] = {
+   { "debug.http",		"false" },
+   { "ui.show-pings",		"true" },
+   { NULL,			NULL }
+};
 
 const char *default_tls_ca_paths[] = {
    "/etc/ssl/certs/ca-certificates.crt",
@@ -517,7 +524,8 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 }
 
 void ws_init(void) {
-   const char *debug = dict_get(cfg, "debug.http", "false");
+   cfg_set_defaults(defcfg_ws);
+   const char *debug = cfg_get("debug.http");
    if (debug && (strcasecmp(debug, "true") == 0 ||
                  strcasecmp(debug, "yes") == 0)) {
       mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
@@ -538,7 +546,7 @@ void ws_init(void) {
       exit(1);
    }
 
-   const char *cfg_show_pings_s = dict_get(cfg, "ui.show-pings", "true");
+   const char *cfg_show_pings_s = cfg_get("ui.show-pings");
 
    if (cfg_show_pings_s && (strcasecmp(cfg_show_pings_s, "true") == 0 ||
       strcasecmp(cfg_show_pings_s, "yes") == 0)) {

@@ -16,39 +16,48 @@ dict *cfg = NULL;
 dict *default_cfg = NULL;
 dict *servers = NULL;
 
-bool config_set_default(char *key, char *val) {
+bool cfg_set_default(char *key, char *val) {
+   if (!key || !val) {
+      printf("cfg_set_default: key:<%x> or val:<%x> NULL\n", key, val);
+      return true;
+   }
+
    if (default_cfg == NULL) {
       default_cfg = dict_new();
 
       if (!default_cfg) {
-         Log(LOG_CRIT, "config", "OOM in config_set_default");
+         Log(LOG_CRIT, "config", "OOM in cfg_set_default");
          shutdown_app(1);
       }
       return true;
    }
 
-   Log(LOG_DEBUG, "config", "Set default for %s to '%s'", key, val);
+   printf("Set default for %s to '%s'\n", key, val);
    dict_add(default_cfg, key, val);
 
    return false;
 }
 
-bool config_set_defaults(defconfig_t *defaults) {
-   int items = sizeof(defconfig_t) / sizeof(defaults);
-   printf("items: %d\n", items);
-
-   for (int i = 0; i < items; i++) {
-      // End of List
-      if (!defaults[i].key || defaults[i].val) {
-         printf("EOL after %d items\n", i);
-         return true;
-      }
-      return config_set_default(defaults[i].key, defaults[i].val);
+bool cfg_set_defaults(defconfig_t *defaults) {
+   if (!defaults) {
+      printf("cfg_set_defaults: NULL input\n");
+      return true;
    }
-   return false;
+
+   int i = 0;
+   while (defaults[i].key) {
+      if (cfg_set_default(defaults[i].key, defaults[i].val)) {
+         fprintf(stderr, "Failed to set key: %s\n", defaults[i].key);
+      }
+
+      i++;
+   }
+
+   printf("Imported %d items\n", i);
+   return true;
 }
 
-bool config_load(const char *path) {
+bool cfg_load(const char *path) {
    int line = 0, errors = 0;
    char buf[768];
    char *end, *skip,
@@ -192,5 +201,79 @@ bool config_load(const char *path) {
    } else {
       fprintf(stderr, "cfg loaded %d lines from %s with no errors\n", line, path);
    }
+   return false;
+}
+
+const char *cfg_get(char *key) {
+   const char *p = dict_get(cfg, key, NULL);
+
+   // nope! try default
+   if (!p) {
+      p = dict_get(default_cfg, key, NULL);
+   }
+   return p;
+}
+
+int dict_merge(dict *dst, dict *src) {
+   if (!dst || !src) {
+      return -1;
+   }
+
+   int rank = 0;
+   char *key, *val;
+   while ((rank = dict_enumerate(src, rank, &key, &val)) >= 0) {
+      if (dict_add(dst, key, val) != 0) {
+         continue;
+      }
+   }
+   return 0;
+}
+
+dict *dict_merge_new(dict *a, dict *b) {
+   dict *merged = dict_new();
+   if (!merged) {
+      return NULL;
+   }
+
+   char *key, *val;
+   int rank = 0;
+
+   // Copy from a
+   while ((rank = dict_enumerate(a, rank, &key, &val)) >= 0) {
+      if (dict_add(merged, key, val) != 0) {
+         dict_free(merged);
+         return NULL;
+      }
+   }
+
+   rank = 0;
+   // Copy from b (overwriting a’s entries if necessary)
+   while ((rank = dict_enumerate(b, rank, &key, &val)) >= 0) {
+      if (dict_add(merged, key, val) != 0) {
+         dict_free(merged);
+         return NULL;
+      }
+   }
+
+   return merged;
+}
+
+bool cfg_save(const char *path) {
+   FILE *fp = fopen(path, "w");
+   if (!fp) {
+      Log(LOG_CRIT, "config", "Failed to open save file: '%s': %d:%s", path, errno, strerror(errno));
+      return true;
+   }
+
+   dict *merged = NULL;
+
+   // Right-side argument overrides defaults
+   merged = dict_merge_new(default_cfg, cfg);
+   dict_dump(merged, fp);
+   dict_free(merged);
+
+   fflush(fp);
+   fclose(fp);
+
    return false;
 }

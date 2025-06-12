@@ -32,8 +32,10 @@
 #include "rustyrig/posix.h"
 #include "rustyrig/util.file.h"
 #include "rustyrig/mongoose.h"
+#include "rrclient/config.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/audio.h"
+#include "rrclient/ws.h"
 
 extern dict *cfg;		// main.c
 extern struct mg_connection *ws_conn, *ws_tx_conn;
@@ -45,10 +47,26 @@ GstElement *rx_pipeline = NULL, 	*tx_pipeline = NULL;
 GstElement *rx_appsrc = NULL,   	*tx_appsrc = NULL;
 GstElement *rx_vol_gst_elem = NULL,	*tx_vol_gst_elem = NULL;
 GstElement *rx_sink = NULL,		*tx_sink = NULL;
-
-//
 static struct ws_frame *send_queue = NULL;
 static bool sending_in_progress = false;
+
+static defconfig_t defcfg_audio[] = {
+   { "audio.pipeline.rx",			"" },
+   { "audio.volume.rx",				"" },
+   { "audio.pipeline.rx.format",		"" },
+   { "audio.pipeline.tx",			"" },
+   { "audio.pipeline.tx.format",		"" },
+   { "audio.pipeline.rx.pcm16", 		"" },
+   { "audio.pipeline.tx.pcm16",			"" },
+   { "audio.pipeline.rx.pcm44",			"" },
+   { "audio.pipeline.tx.pcm44",			"" },
+   { "audio.pipeline.rx.opus",			"" },
+   { "audio.pipeline.tx.opus",			"" },
+   { "audio.pipeline.rx.flac",			"" },
+   { "audio.pipeline.tx.flac",			"" },
+   { "audio.volume.rx",				"30" },
+   { NULL,					NULL }
+};
 
 // This is very ugly and could definitely use a rewrite. The TX path needs to move into ws.tx-audio.c
 static void audio_tx_enqueue_frame(uint8_t *data, size_t len) {
@@ -136,10 +154,11 @@ static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
 }
 
 bool audio_init(void) {
+   cfg_set_defaults(defcfg_audio);
    gst_init(NULL, NULL);
 
    Log(LOG_INFO, "audio", "Configuring RX audio-path");
-   const char *rx_pipeline_str = dict_get(cfg, "audio.pipeline.rx", NULL);
+   const char *rx_pipeline_str = cfg_get("audio.pipeline.rx");
 
    if (!rx_pipeline_str) {
       Log(LOG_CRIT, "audio", "audio.pipeline.rx *MUST* be set in config");
@@ -159,7 +178,8 @@ bool audio_init(void) {
       }
 
       // apply default RX volume
-      const char *cfg_rx_volume = dict_get(cfg, "audio.volume.rx", NULL);
+
+      const char *cfg_rx_volume = cfg_get("audio.volume.rx");
       float vol = 0;
       Log(LOG_DEBUG, "audio", "Setting default RX volume to %s", cfg_rx_volume);
       if (cfg_rx_volume != NULL) {
@@ -167,7 +187,7 @@ bool audio_init(void) {
          g_object_set(rx_vol_gst_elem, "volume", vol / 100.0, NULL);
       }
 
-      const char *cfg_rx_format = dict_get(cfg, "audio.pipeline.rx.format", NULL);
+      const char *cfg_rx_format = cfg_get("audio.pipeline.rx.format");
       int rx_format = 0;
       if (cfg_rx_format != NULL && strcasecmp(cfg_rx_format, "bytes") == 0) {
          rx_format = GST_FORMAT_BYTES;
@@ -192,7 +212,8 @@ bool audio_init(void) {
 #if	1 // disabled for now
    ///////////////
    Log(LOG_INFO, "audio", "Configuring TX audio-path");
-   const char *tx_pipeline_str = dict_get(cfg, "audio.pipeline.tx", NULL);
+
+   const char *tx_pipeline_str = cfg_get("audio.pipeline.tx");
    if (!tx_pipeline_str || tx_pipeline_str >= 0) {
       Log(LOG_CRIT, "audio", "audio.pipeline.tx *MUST* be set in config for transmit capabilities");
    } else {
@@ -217,7 +238,7 @@ bool audio_init(void) {
       gst_object_unref(rx_bus);
 
 #if	0
-      const char *cfg_tx_format = dict_get(cfg, "audio.pipeline.tx.format", NULL);
+      const char *cfg_tx_format = cfg_get("audio.pipeline.tx.format");
       int tx_format = 0;
       if (cfg_tx_format != NULL && strcasecmp(cfg_tx_format, "bytes") == 0) {
          tx_format = GST_FORMAT_BYTES;
@@ -296,4 +317,78 @@ bool audio_process_frame(const char *data, size_t len) {
    GstFlowReturn ret;
    g_signal_emit_by_name(rx_appsrc, "push-buffer", buffer, &ret);
    gst_buffer_unref(buffer);
+}
+
+///////////////////////
+// Codec Negotiation //
+///////////////////////
+
+static au_codec_mapping_t	au_codecs[] = {
+    // Codec ID			// Magic	// Sample Rate	// Pipeline
+    { AU_CODEC_PCM16,		"PCM16",	16000,		 NULL },
+    { AU_CODEC_PCM44,		"PCM44",	44100,		 NULL },
+    { AU_CODEC_OPUS,		"OPUS",		48000,		 NULL },
+    { AU_CODEC_FLAC,		"FLAC",		44100,           NULL },
+    { AU_CODEC_NONE,		NULL,		0,               NULL }
+};
+audio_settings_t	au_rx_config, au_tx_config;
+
+int au_codec_by_id(enum au_codec id) {
+   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+   for (int i = 0; i < codec_entries; i++) {
+      if (au_codecs[i].id == id) {
+         Log(LOG_DEBUG, "ws.audio", "Got index %i", i);
+         return i;
+      }
+   }
+   return -1;
+}
+
+const char *au_codec_get_magic(int id) {
+   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+   for (int i = 0; i < codec_entries; i++) {
+      if (au_codecs[i].id == AU_CODEC_NONE && !au_codecs[i].magic) {
+         break;
+      }
+      if (au_codecs[i].id == id) {
+         return au_codecs[i].magic;
+      }
+   }
+   return NULL;
+}
+
+int au_codec_get_id(const char *magic) {
+   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+   for (int i = 0; i < codec_entries; i++) {
+      if (strcmp(au_codecs[i].magic, magic) == 0) {
+         return au_codecs[i].id;
+      }
+   }
+   return -1;
+}
+
+uint32_t au_codec_get_samplerate(int id) {
+   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+
+   for (int i = 0; i < codec_entries; i++) {
+      if (au_codecs[i].id == id) {
+         return au_codecs[i].sample_rate;
+      }
+   }
+   
+   return 0;
+}
+
+bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
+   if (!c || !au) {
+      Log(LOG_CRIT, "ws.audio", "send_au_control_msg: Got invalid c:<%x> or au:<%x>", c, au);
+      return true;
+   }
+
+   int codec_id  = au_codec_by_id(au->codec);
+   char msgbuf[1024];
+   memset(msgbuf, 0, sizeof(msgbuf));
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"control\": { \"codec\": \"%s\", \"rate\": %d, \"active\": %s",
+             au_codec_get_magic(codec_id), au_codec_get_samplerate(codec_id), (au->active ? "true" : "off"));
+   return true;
 }

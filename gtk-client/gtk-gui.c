@@ -24,6 +24,7 @@
 #include "rustyrig/posix.h"
 #include "rustyrig/mongoose.h"
 #include "rustyrig/http.h"
+#include "rrclient/config.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -58,6 +59,23 @@ GtkWidget *notebook = NULL;
 GtkWidget *config_tab = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
+
+defconfig_t defcfg_gui[] = {
+   { "audio.volume.rx",		"20" },
+   { "default.volume.rx",	"30" },
+   { "default.tx.power",	"30" },
+   { "ui.main.height",		"600" },
+   { "ui.main.width",		"800" },
+   { "ui.main.x",		"0" },
+   { "ui.main.y",		"0" },
+   { "ui.main.on-top",		"false" },
+   { "ui.main.raised",		"true" },
+   { "ui.userlist.height",	"600" },
+   { "ui.userlist.width",	"800" },
+   { "ui.userlist.x",		"0" },
+   { "ui.userlist.y",		"0" },
+   { NULL,			NULL }
+};
 
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
@@ -452,6 +470,7 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
 }
 
 bool gui_init(void) {
+   cfg_set_defaults(defcfg_gui);
    css_provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css_provider,
       ".ptt-active { background: red; color: white; }"
@@ -469,10 +488,10 @@ bool gui_init(void) {
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 
-   int cfg_height_i = atoi(dict_get(cfg, "ui.main.height", "600"));
-   int cfg_width_i  = atoi(dict_get(cfg, "ui.main.width", "800"));
-   int cfg_x_i      = atoi(dict_get(cfg, "ui.main.x", "0"));
-   int cfg_y_i      = atoi(dict_get(cfg, "ui.main.y", "0"));
+   int cfg_height_i = atoi(cfg_get("ui.main.height"));
+   int cfg_width_i  = atoi(cfg_get("ui.main.width"));
+   int cfg_x_i      = atoi(cfg_get("ui.main.x"));
+   int cfg_y_i      = atoi(cfg_get("ui.main.y"));
 
    gtk_window_set_default_size(GTK_WINDOW(main_window), cfg_width_i, cfg_height_i);
    gtk_window_move(GTK_WINDOW(main_window), cfg_x_i, cfg_y_i);
@@ -523,10 +542,10 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 6);
 
    // set default value etc. as before
-   gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(dict_get(cfg, "default.volume.rx", "30")));
+   gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(cfg_get("default.volume.rx")));
    g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
 
-   const char *cfg_rx_volume = dict_get(cfg, "audio.volume.rx", NULL);
+   const char *cfg_rx_volume = cfg_get("audio.volume.rx");
    if (cfg_rx_volume) {
       float vol = atoi(cfg_rx_volume);
       gtk_range_set_value(GTK_RANGE(rx_vol_slider), vol);
@@ -541,7 +560,7 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
    gtk_box_pack_start(GTK_BOX(control_box), tx_power_vbox, TRUE, TRUE, 6);
 
-   gtk_range_set_value(GTK_RANGE(tx_power_slider), atoi(dict_get(cfg, "default.tx.power", "30")));
+   gtk_range_set_value(GTK_RANGE(tx_power_slider), atoi(cfg_get("default.tx.power")));
 
    ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
@@ -604,8 +623,9 @@ bool gui_init(void) {
    Log(LOG_CRAZY, "gtk", "mainwin on add callback focus in");
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
 
-   const char *cfg_ontop_s = dict_get(cfg, "ui.main.on-top", "false");
-   const char *cfg_raised_s = dict_get(cfg, "ui.main.raised", "true");
+
+   const char *cfg_ontop_s = cfg_get("ui.main.on-top");
+   const char *cfg_raised_s = cfg_get("ui.main.raised");
    bool cfg_ontop = false, cfg_raised = false;
 
    if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
@@ -642,15 +662,15 @@ bool place_window(GtkWidget *window) {
    const char *cfg_x_s, *cfg_y_s;
 
    if (window == userlist_window) {
-      cfg_height_s = dict_get(cfg, "ui.userlist.height", "600");
-      cfg_width_s = dict_get(cfg, "ui.userlist.width", "800");
-      cfg_x_s = dict_get(cfg, "ui.userlist.x", "0");
-      cfg_y_s = dict_get(cfg, "ui.userlist.y", "0");
+      cfg_height_s = cfg_get("ui.userlist.height");
+      cfg_width_s = cfg_get("ui.userlist.width");
+      cfg_x_s = cfg_get("ui.userlist.x");
+      cfg_y_s = cfg_get("ui.userlist.y");
    } else if (window == main_window) {
-      cfg_height_s = dict_get(cfg, "ui.main.height", "600");
-      cfg_width_s = dict_get(cfg, "ui.main.width", "800");
-      cfg_x_s = dict_get(cfg, "ui.main.x", "0");
-      cfg_y_s = dict_get(cfg, "ui.main.y", "0");
+      cfg_height_s = cfg_get("ui.main.height");
+      cfg_width_s = cfg_get("ui.main.width");
+      cfg_x_s = cfg_get("ui.main.x");
+      cfg_y_s = cfg_get("ui.main.y");
    } else {
       return true;
    }

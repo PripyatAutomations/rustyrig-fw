@@ -23,8 +23,13 @@ extern dict *default_cfg;		// Default configuration
 extern dict *servers;			// Global server list
 
 // Functions
-extern bool config_set_default(char *key, char *val);
-extern bool config_set_defaults(defconfig_t *defaults);
-extern bool config_load(const char *path);
+extern bool cfg_set_default(char *key, char *val);
+extern bool cfg_set_defaults(defconfig_t *defaults);
+extern bool cfg_load(const char *path);
+extern const char *cfg_get(char *key);
+
+extern dict *dict_merge_new(dict *a, dict *b);
+extern int dict_merge(dict *dst, dict *src);
+extern bool cfg_save(const char *path);
 
 #endif	// !defined(__inc_rrclient_config_h)

@@ -13,6 +13,7 @@
 #include "rustyrig/posix.h"
 #include "rustyrig/mongoose.h"
 #include "rustyrig/http.h"
+#include "rrclient/config.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -120,13 +121,20 @@ bool delete_client(struct rr_user *cptr) {
 
    return true;
 }
+defconfig_t defcfg_userlist[] = {
+   { "ui.userlist.on-top",	"false" },
+   { "ui.userlist.raised",	"true" },
+   { "ui.userlist.hidden",	"false" },
+   { NULL,			NULL }
+};
 
 GtkWidget *userlist_init(void) {
+   cfg_set_defaults(defcfg_userlist);
    GtkWidget *window = userlist_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "User List");
-   const char *cfg_ontop_s = dict_get(cfg, "ui.userlist.on-top", "false");
-   const char *cfg_raised_s = dict_get(cfg, "ui.userlist.raised", "true");
-   const char *cfg_hidden = dict_get(cfg, "ui.userlist.hidden", "false");
+   const char *cfg_ontop_s = cfg_get("ui.userlist.on-top");
+   const char *cfg_raised_s = cfg_get("ui.userlist.raised");
+   const char *cfg_hidden = cfg_get("ui.userlist.hidden");
 
    if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
       gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
