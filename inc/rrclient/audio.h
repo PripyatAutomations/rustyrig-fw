@@ -28,7 +28,21 @@
 #include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
-#include "rrclient/ws.h"
+
+enum au_codec {
+   AU_CODEC_NONE = 0,			// No codec configured
+   AU_CODEC_PCM16,				// 16khz PCM
+   AU_CODEC_PCM44,				// 44.1khz PCM
+   AU_CODEC_OPUS,				// OPUS
+   AU_CODEC_FLAC				// FLAC
+};
+
+typedef struct au_codec_mapping {
+   enum au_codec	id;
+   const char		*magic;
+   int			sample_rate;		// -1 if variable or set later
+   char                 *pipeline;		// contains  *must* be freed
+} au_codec_mapping_t;
 
 struct ws_frame {
   uint8_t magic[2];
@@ -36,6 +50,13 @@ struct ws_frame {
   size_t len;
   struct ws_frame *next;
 } __attribute__((packed));
+
+struct audio_settings {
+    enum au_codec	codec;
+    uint32_t		sample_rate;			// sample rate in hz
+    bool		active;				// Is the stream active?
+};
+typedef struct audio_settings audio_settings_t;
 
 extern bool audio_enabled;
 extern bool gst_active;
@@ -46,6 +67,8 @@ extern GstElement *tx_pipeline;
 extern GstElement *tx_appsrc;
 extern GstElement *tx_vol_gst_elem;
 extern GstElement *tx_sink;
+extern bool audio_init(void);
+
 //extern void enqueue_frame(uint8_t *data, size_t len);
 extern void audio_tx_free_frame(void);
 extern void try_send_next_frame(struct mg_connection *c);

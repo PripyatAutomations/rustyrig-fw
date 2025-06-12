@@ -26,8 +26,8 @@
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
-
-extern dict *cfg;		// config.c
+#include "rrclient/config.h"
+#include "rrclient/audio.h"
 extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
@@ -38,39 +38,29 @@ extern bool ws_connected;
 extern struct mg_connection *ws_conn;
 extern bool server_ptt_state;
 
-enum au_codec {
-   AU_CODEC_NONE = 0,			// No codec configured
-   AU_CODEC_PCM16,				// 16khz PCM
-   AU_CODEC_PCM44,				// 44.1khz PCM
-   AU_CODEC_OPUS,				// OPUS
-   AU_CODEC_FLAC				// FLAC
+static defconfig_t defcfg_ws_audio[] = {
+   { "audio.pipeline.rx.pcm16", 		"" },
+   { "audio.pipeline.tx.pcm16",			"" },
+   { "audio.pipeline.rx.pcm44",			"" },
+   { "audio.pipeline.tx.pcm44",			"" },
+   { "audio.pipeline.rx.opus",			"" },
+   { "audio.pipeline.tx.opus",			"" },
+   { "audio.pipeline.rx.flac",			"" },
+   { "audio.pipeline.tx.flac",			"" },
+   { NULL,					NULL }
 };
-
-typedef struct au_codec_mapping {
-   enum au_codec	id;
-   const char		*magic;
-   int			sample_rate;		// -1 if variable or set later
-} au_codec_mapping_t;
 
 static au_codec_mapping_t	au_codecs[] = {
-    // Codec ID			// Magic	// Sample Rate
-    { AU_CODEC_PCM16,		"PCM1",		16000 },
-    { AU_CODEC_PCM44,		"PCM4",		44100 },
-    { AU_CODEC_OPUS,		"OPUS",		48000 },
-    { AU_CODEC_FLAC,		"FLAC",		44100 },
-    { AU_CODEC_NONE,		NULL,		0 },
+    // Codec ID			// Magic	// Sample Rate	// Pipeline
+    { AU_CODEC_PCM16,		"PCM16",	16000,		 NULL },
+    { AU_CODEC_PCM44,		"PCM44",	44100,		 NULL },
+    { AU_CODEC_OPUS,		"OPUS",		48000,		 NULL },
+    { AU_CODEC_FLAC,		"FLAC",		44100,           NULL },
+    { AU_CODEC_NONE,		NULL,		0,               NULL }
 };
-
-struct audio_settings {
-    enum au_codec	codec;
-    uint32_t		sample_rate;			// sample rate in hz
-    bool		active;				// Is the stream active?
-};
-
-typedef struct audio_settings audio_settings_t;
 audio_settings_t	au_rx_config, au_tx_config;
 
-static inline int au_codec_by_id(enum au_codec id) {
+int au_codec_by_id(enum au_codec id) {
    int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
    for (int i = 0; i < codec_entries; i++) {
       if (au_codecs[i].id == id) {
@@ -128,4 +118,8 @@ bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
    snprintf(msgbuf, sizeof(msgbuf), "{ \"control\": { \"codec\": \"%s\", \"rate\": %d, \"active\": %s",
              au_codec_get_magic(codec_id), au_codec_get_samplerate(codec_id), (au->active ? "true" : "off"));
    return true;
+}
+
+bool ws_audio_init(void) {
+   return config_set_defaults(defcfg_ws_audio);
 }

@@ -25,9 +25,12 @@
 #include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
-#include "rrclient/ws.h"
+#include "rrclient/audio.h"
 
 //#define	DEBUG_WS_BINFRAMES		// turn this off soon
+
+extern char active_server[512];
+
 extern void ws_handler(struct mg_connection *c, int ev, void *ev_data);
 extern void ws_init(void);
 extern void ws_fini(void);
@@ -40,6 +43,14 @@ extern bool disconnect_server(void);
 extern bool connect_server(void);
 extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
 extern const char *get_server_property(const char *server, const char *prop);
-extern char active_server[512];
+
+// ws.audio.c
+extern bool ws_audio_init(void);
+extern bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au);
+extern uint32_t au_codec_get_samplerate(int id);
+extern int au_codec_get_id(const char *magic);
+extern const char *au_codec_get_magic(int id);
+extern int au_codec_by_id(enum au_codec id);
+extern audio_settings_t	au_rx_config, au_tx_config;
 
 #endif	// !defined(__rrclient_ws_h)

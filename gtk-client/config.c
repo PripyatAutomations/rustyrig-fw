@@ -7,11 +7,46 @@
 #include <errno.h>
 #include <time.h>
 #include "rustyrig/dict.h"
+#include "rrclient/config.h"
 #include "rustyrig/logger.h"
 #include "rustyrig/util.file.h"
+#include "rustyrig/posix.h"
 
 dict *cfg = NULL;
+dict *default_cfg = NULL;
 dict *servers = NULL;
+
+bool config_set_default(char *key, char *val) {
+   if (default_cfg == NULL) {
+      default_cfg = dict_new();
+
+      if (!default_cfg) {
+         Log(LOG_CRIT, "config", "OOM in config_set_default");
+         shutdown_app(1);
+      }
+      return true;
+   }
+
+   Log(LOG_DEBUG, "config", "Set default for %s to '%s'", key, val);
+   dict_add(default_cfg, key, val);
+
+   return false;
+}
+
+bool config_set_defaults(defconfig_t *defaults) {
+   int items = sizeof(defconfig_t) / sizeof(defaults);
+   printf("items: %d\n", items);
+
+   for (int i = 0; i < items; i++) {
+      // End of List
+      if (!defaults[i].key || defaults[i].val) {
+         printf("EOL after %d items\n", i);
+         return true;
+      }
+      return config_set_default(defaults[i].key, defaults[i].val);
+   }
+   return false;
+}
 
 bool config_load(const char *path) {
    int line = 0, errors = 0;

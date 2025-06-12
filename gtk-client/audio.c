@@ -135,7 +135,7 @@ static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
    }
 }
 
-bool ws_audio_init(void) {
+bool audio_init(void) {
    gst_init(NULL, NULL);
 
    Log(LOG_INFO, "audio", "Configuring RX audio-path");
