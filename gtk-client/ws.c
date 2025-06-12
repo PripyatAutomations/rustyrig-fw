@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "rustyrig/config.h"
+#include "common/config.h"
 #define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
@@ -18,19 +18,18 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "rustyrig/logger.h"
-#include "rustyrig/dict.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/mongoose.h"
-#include "rustyrig/util.file.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
+#include "common/dict.h"
+#include "common/posix.h"
+#include "common/util.file.h"
 #include "rustyrig/http.h"
-#include "rrclient/config.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
-#include "rustyrig/client-flags.h"
+#include "common/client-flags.h"
 
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;

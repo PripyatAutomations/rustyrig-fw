@@ -11,7 +11,8 @@
  *
  * For now, we only support stm32, feel free to write linux USB gadget support
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,6 +20,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/state.h"
 #if defined(HOST_POSIX) && defined(FEATURE_USB)
 #include "rustyrig/usb.h"

@@ -47,8 +47,8 @@ extern struct rr_cat_cmd cmd_kpa500[];
 extern int32_t rr_cat_parse_amp_line(char *line);
 extern int32_t rr_cat_printf(char *str, ...);
 
-#if	defined(FEATURE_HTTP)
-#include "rustyrig/mongoose.h"
+#if	1	//defined(FEATURE_HTTP)
+//#include "rustyrig/mongoose.h"
 // for websocket.c
 extern bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg);
 #endif	// defined(FEATURE_HTTP)

@@ -11,7 +11,8 @@
  *
  * Log them and disable TX, if needed
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,7 +20,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "rustyrig/logger.h"
+#include "ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/state.h"
 #include "rustyrig/faults.h"
 

@@ -15,7 +15,8 @@
 // Notice that most functions are static, this is because they should NEVER be 
 // directly called outside of this module. You should use the backend API instead.
 //
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -27,7 +28,8 @@
 // This only gets drug in if we have features/backend/hamlib=true
 #if	defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
-#include "rustyrig/logger.h"
+#include "ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/state.h"
 #include "rustyrig/thermal.h"
 #include "rustyrig/power.h"

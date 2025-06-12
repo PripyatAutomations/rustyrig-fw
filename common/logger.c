@@ -10,7 +10,7 @@
  * support logging to a a few places
  *	Targets: syslog console flash (file)
  */
-#include "rustyrig/config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,12 +22,15 @@
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
-#include "rustyrig/logger.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
+
+// We don't build these for gtk client or fwdsp
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
 #include "rustyrig/eeprom.h"
-#include "rustyrig/debug.h"			// Debug message filtering
+#include "common/debug.h"			// Debug message filtering
 #include "rustyrig/ws.h"			// Support for sending the syslog via websocket
-#include "rustyrig/client-flags.h"
+#include "common/client-flags.h"
 #endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
 
 
@@ -39,7 +42,7 @@ static time_t last_ts_update;
 
 // Do we need to show a timestamp in log messages?
 static bool log_show_ts = false;
-int log_level;
+int log_level = LOG_DEBUG;
 char latest_timestamp[64];	// Current printed timestamp
 
 /* String constants we use more than a few times */
@@ -71,38 +74,35 @@ const char *log_priority_to_str(logpriority_t priority) {
 void logger_init(void) {
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
    const char *ll = eeprom_get_str("debug/loglevel");
-
-   if (!ll) {
-      printf("logger_init: Failed to get loglevel from eeprom");
-      return;
-   }
-
    log_show_ts = eeprom_get_bool("debug/show_ts");
-
-   int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
-   for (int i = 0; i < log_levels; i++) {
-      if (strcasecmp(log_priorities[i].msg, ll) == 0) {
-         log_level = log_priorities[i].prio;
-         Log(LOG_INFO, "core", "Setting log_level to %d (%s)", log_priorities[i].prio, log_priorities[i].msg);
-         break;
-      }
-   }
 #else
-   log_show_ts = true;
-   log_level = LOG_DEBUG;
+   const char *ll = cfg_get("log.level");
+   const char *t = cfg_get("log.show-ts");
+   if (t && strcasecmp(t, "true") == 0) {
+      log_show_ts = true;
+   }
 #endif
+   if (ll) {
+      int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
+      for (int i = 0; i < log_levels; i++) {
+         if (strcasecmp(log_priorities[i].msg, ll) == 0) {
+            log_level = log_priorities[i].prio;
+            Log(LOG_INFO, "core", "Setting log_level to %d (%s)", log_priorities[i].prio, log_priorities[i].msg);
+            break;
+         }
+      }
+   } else {
+      log_level = LOG_DEBUG;
+   }
 
-#if	defined(HOST_POSIX)
-/* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
    if (!logfp) {
-      logfp = fopen(LOG_FILE, "a+");
+      logfp = fopen(LOGFILE, "a+");
 
       if (!logfp) {
-         Log(LOG_CRIT, "core", "Couldn't open log file at %s - %d:%s", LOG_FILE, errno, strerror(errno));
+         Log(LOG_CRIT, "core", "Couldn't open log file at %s - %d:%s", LOGFILE, errno, strerror(errno));
          return;
       }
    }
-#endif
 }
 
 void logger_end(void) {
@@ -114,7 +114,7 @@ void logger_end(void) {
 #endif
 }
 
-static inline int update_timestamp(void) {
+int update_timestamp(void) {
    time_t t;
    struct tm *tmp;
 
@@ -208,7 +208,6 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    memset(log_msg, 0, sizeof(log_msg));
    snprintf(log_msg, sizeof(log_msg), "<%s.%s> %s", subsys, log_priority_to_str(priority), msgbuf);
 
-#if	defined(HOST_POSIX) || defined(FEATURE_FILESYSTEM)
    /* Only spew to the serial port if logfile is closed */
    if (!logfp && (logfp != stdout)) {
       va_end(ap);
@@ -227,7 +226,6 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       }
    }
    fflush(logfp);
-#endif
 
 // if not in rrclient code, we should bcast this to users with SYSLOG flag
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)

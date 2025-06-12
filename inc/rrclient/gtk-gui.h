@@ -1,6 +1,6 @@
 #if	!defined(__rrclient_gtk_gui_h)
 #define	__rrclient_gtk_gui_h
-#include "rustyrig/config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -10,10 +10,10 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "rustyrig/logger.h"
-#include "rustyrig/dict.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/mongoose.h"
+#include "common/logger.h"
+#include "common/dict.h"
+#include "common/posix.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include "rustyrig/http.h"
 
 #define GTK_TYPE_FREQ_INPUT (gtk_freq_input_get_type())

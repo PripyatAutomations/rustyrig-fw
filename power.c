@@ -13,7 +13,8 @@
  * - Record usage statistics, total TX time, lifetime power used
  * - Est. lifetime and current BTU of heat production (enclosure temp - inlet temp based)
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,6 +22,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/state.h"
 #include "rustyrig/power.h"
 

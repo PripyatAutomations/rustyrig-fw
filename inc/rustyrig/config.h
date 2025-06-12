@@ -11,7 +11,6 @@
 
 // this lives in build/$platform/build_config.h
 #include "build_config.h"
-#include "rustyrig/dict.h"
 
 //////////////////////////
 // Feature dependencies //

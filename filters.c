@@ -11,7 +11,8 @@
  *
  * Build conf will generate the filter tables (filter_tables.h) in builddir
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,8 +21,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/state.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 #include "rustyrig/eeprom.h"
 #include "rustyrig/filters.h"
 #define	FILTERS_C

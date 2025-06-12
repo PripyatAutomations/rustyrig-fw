@@ -3,53 +3,23 @@ SHELL = bash
 all: world
 
 PROFILE ?= client
-CF := ../config/${PROFILE}.config.json
 BUILD_DIR := ../build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
 bin := ${BUILD_DIR}/rrclient
 INSTALL_DIR := /usr/local
-# Throw an error if the .json configuration file doesn't exist...
-ifeq (x$(wildcard ${CF}),x)
-$(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/client.json.example you can use)
-endif
-
-CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1
+CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .version)\""
 CFLAGS_WARN := -Wall -Wno-unused -pedantic
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
-CFLAGS += -I../inc -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
-CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
-CFLAGS += -D__RRCLIENT=1
+CFLAGS += -I../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
-LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
+LDFLAGS +=
 LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
 LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
-TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
-PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
-#USE_ALSA = $(strip $(shell cat ${CF} | jq -r '.features.alsa'))
-#USE_PIPEWIRE = $(strip $(shell cat ${CF} | jq -r '.features.pipewire'))
-#USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
-USE_GSTREAMER = $(strip $(shell cat ${CF} | jq -r '.features.gstreamer'))
-USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
-
-ifeq (${USE_HAMLIB},true)
-LDFLAGS += -lhamlib
-endif
-
-ifeq (${USE_GSTREAMER},true)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
-endif
-
-ifeq (${USE_OPUS},true)
-LDFLAGS += $(shell pkg-config --libs opus)
-CFLAGS += $(shell pkg-config --cflags opus)
-endif
-
-ifeq (${USE_SSL},true)
 CFLAGS += -DMG_TLS=MG_TLS_MBED
 LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
-endif
 
 # Are we cross compiling?
 ifneq (${TC_PREFIX},"")
@@ -69,6 +39,7 @@ objs += auth.o
 objs += chat.o
 objs += config.o
 objs += debug.o			# Debug stuff
+objs += defconfig.o
 objs += dict.o			# dictionary object
 objs += gtk-gui.o		# Support for a GTK user interface
 objs += gtk.freqentry.o		# Frequency Entry Widget
@@ -76,12 +47,6 @@ objs += gtk.serverpick.o        # server picker
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += mongoose.o		# Mongoose http/websocket/mqtt library
-
-ifeq (${USE_SQLITE},true)
-CFLAGS += $(shell pkg-config --cflags sqlite3)
-LDFLAGS += $(shell pkg-config --libs sqlite3)
-endif
-
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 objs += userlist.o
 objs += util.file.o		# Misc file functions
@@ -111,22 +76,37 @@ extra_clean += ${EEPROM_FILE}
 
 world: ${extra_build} ${bin}
 
-BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard ../inc/rrclient/*.h) $(wildcard ../inc/rustyrig/*.h) $(wildcard ${BUILD_DIR}/*.h)
+BUILD_HEADERS=$(wildcard ../inc/rrclient/*.h) $(wildcard ../inc/common/*.h) $(wildcard ${BUILD_DIR}/*.h)
 ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $@ from $<"
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+
+
+${OBJ_DIR}/%.o: ../common/%.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it...
+	@${RM} -f $@
+	@mkdir -p $(shell dirname $@)
+	@echo "[compile] shared $@ from $<"
+	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+
+${OBJ_DIR}/mongoose.o: ../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it...
+	@${RM} -f $@
+	@echo "[compile] mongoose from $<"
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 ${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 	@echo "[compile] $@ from $<"
+	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
 ${bin}: ${real_objs} ../ext/libmongoose/mongoose.c
-	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
+	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
 	@file $@
 	@size $@
@@ -135,10 +115,6 @@ strip: ${bin}
 	@echo "[strip] ${bin}"
 	@strip ${bin}
 	@ls -a1ls ${bin}
-
-${BUILD_DIR}/build_config.h ../buildconf.pl: ${CF} ${CHANNELS} $(wildcard res/*.json)
-	@echo "[buildconf]"
-	set -e; (cd ..; ./buildconf.pl ${PROFILE})
 
 ##################
 # Source Cleanup #
@@ -176,26 +152,7 @@ test: clean world run
 #########################
 # Rebuild a clean image #
 #########################
-rebuild clean-build cleanbuild: distclean ../buildconf.pl world
-
-#################
-# Configuration #
-#################
-../res/bandplan.json:
-	exit 1
-
-../res/eeprom_layout.json:
-	exit 1
-
-../res/eeprom_types.json:
-	exit 1
-
-# Display an error message and halt the build, if no configuration file
-${CF}:
-	@echo "********************************************************"
-	@echo "* PLEASE read README.txt and edit ${CF} as needed *"
-	@echo "********************************************************"
-	exit 1
+rebuild clean-build cleanbuild: distclean world
 
 ../ext/libmongoose/mongoose.c:
 	@echo "You forgot to git submodule init; git submodule update. Doing it for you!"

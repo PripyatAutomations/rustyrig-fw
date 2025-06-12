@@ -9,7 +9,8 @@
 //
 // Support for TI PCM5102 DAC
 //
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -19,8 +20,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/state.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 #include "rustyrig/eeprom.h"
 #include "rustyrig/i2c.h"
 #include "rustyrig/au.h"

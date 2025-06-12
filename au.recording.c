@@ -11,7 +11,8 @@
 //
 // Most of the ugly bits should go in the per-backend sources
 //
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,10 +20,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/state.h"
-#include "rustyrig/logger.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/util.file.h"
+#include "common/logger.h"
+#include "common/posix.h"
+#include "common/util.file.h"
 #include "rustyrig/au.h"
 #include "rustyrig/auth.h"
 

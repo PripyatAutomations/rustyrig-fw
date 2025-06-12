@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "rustyrig/dict.h"
+#include "common/dict.h"
 #include "rustyrig/ws.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 #define MAX_DIGITS 10
 extern dict *cfg;
 extern time_t now;

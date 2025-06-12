@@ -18,7 +18,8 @@
  * CAT_YAESU: Yaesu FT-891/991A rig control protocol
  * You can enable both protocols or just one.
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -26,7 +27,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "rustyrig/logger.h"
+#include "ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/cat.h"
 #include "rustyrig/state.h"
 #include "rustyrig/thermal.h"

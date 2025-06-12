@@ -16,7 +16,8 @@
  *
  * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -25,7 +26,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "rustyrig/logger.h"
+#include "ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/cat.h"
 #include "rustyrig/cat.yaesu.h"
 #include "rustyrig/state.h"

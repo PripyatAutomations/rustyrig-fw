@@ -19,9 +19,8 @@ ifeq (x$(wildcard ${CF}),x)
 $(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
 endif
 
-
 CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
-CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
+CFLAGS_WARN := -Wall -Wno-unused -pedantic -Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
 CFLAGS += -I./inc -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
@@ -36,12 +35,9 @@ TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
 EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
 PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
-USE_ALSA = $(strip $(shell cat ${CF} | jq -r '.features.alsa'))
 USE_GSTREAMER = $(strip $(shell cat ${CF} | jq -r '.features.gstreamer'))
 USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
 USE_LIBUNWIND = $(strip $(shell cat ${CF} | jq -r ".features.libunwind"))
-USE_PIPEWIRE = $(strip $(shell cat ${CF} | jq -r '.features.pipewire'))
-USE_OPUS = $(strip $(shell cat ${CF} | jq -r '.features.opus'))
 USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
 USE_GTK = $(strip $(shell cat ${CF} | jq -r ".features.gtk"))
@@ -114,15 +110,13 @@ fw_objs += cat.o			# CAT parsers
 fw_objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
 fw_objs += cat.yaesu.o		# Yaesu CAT protocol
 fw_objs += channels.o		# Channel Memories
-fw_objs += codec.o		# Support for audio codec
 fw_objs += console.o		# Console support
+#fw_objs += config.o
 fw_objs += database.o		# sqlite3 database stuff
 fw_objs += dds.o		# API for Direct Digital Synthesizers
 fw_objs += dds.ad9833.o		# AD9833 DDS
 fw_objs += dds.ad9959_stm32.o	# STM32 (AT command) ad9851 DDS
 fw_objs += dds.si5351.o		# Si5351 synthesizer
-fw_objs += debug.o		# Debug stuff
-fw_objs += dict.o		# dictionary object
 fw_objs += eeprom.o		# "EEPROM" configuration storage
 fw_objs += faults.o		# Fault management/alerting
 fw_objs += filters.o		# Control of input/output filters
@@ -141,9 +135,8 @@ fw_objs += i2c.mux.o		# i2c multiplexor support
 fw_objs += io.o			# Input/Output abstraction/portability
 fw_objs += io.serial.o		# Serial port stuff
 fw_objs += io.socket.o		# Socket operations
-fw_objs += logger.o		# Logging facilities
 fw_objs += main.o			# main loop
-fw_objs += mongoose.o		# Mongoose http/websocket/mqtt library
+comm_objs += mongoose.o		# Mongoose http/websocket/mqtt library
 fw_objs += mqtt.o			# Support for MQTT via mongoose
 fw_objs += network.o		# Network control
 
@@ -151,8 +144,9 @@ ifeq (${USE_SQLITE},true)
 CFLAGS += $(shell pkg-config --cflags sqlite3)
 LDFLAGS += $(shell pkg-config --libs sqlite3)
 endif
+
 ifeq (${PLATFORM},posix)
-fw_objs += posix.o			# support for POSIX hosts (linux or perhaps others)
+comm_objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 LDFLAGS += -lgpiod
 endif
 
@@ -163,9 +157,6 @@ fw_objs += radioberry.o		# Radioberry device support
 fw_objs += thermal.o		# Thermal management
 fw_objs += timer.o			# Timers support
 fw_objs += usb.o			# Support for USB control (stm32)
-fw_objs += util.file.o		# Misc file functions
-fw_objs += util.math.o		# Misc math functions
-fw_objs += util.string.o		# String utility functions
 fw_objs += util.vna.o		# Vector Network Analyzer
 fw_objs += unwind.o		# support for libunwind for stack tracing
 fw_objs += vfo.o			# VFO control/management
@@ -176,31 +167,26 @@ fw_objs += ws.audio.o		# Audio (raw / OPUS) over websockets
 fw_objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
 fw_objs += ws.chat.o		# Websocket Chat (talk)
 fw_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
-
-##### DSP #####
-ifeq (${USE_ALSA},true)
-fwdsp_objs += fwdsp.alsa.o		# ALSA on posix hosts
-endif
-
-ifeq (${USE_PIPEWIRE},true)
-fwdsp_objs += fwdsp.pipewire.o		# Pipewire on posix hosts
-CFLAGS += $(shell pkg-config --cflags libpipewire-0.3)
-LDFLAGS += $(shell pkg-config --libs libpipewire-0.3)
-endif
 fwdsp_objs += fwdsp-main.o
-fwdsp_objs += logger.o
-fwdsp_objs += posix.o
-fwdsp_objs += util.file.o
+comm_objs += debug.o			# Debug stuff
+comm_objs += dict.o			# dictionary object
+comm_objs += util.file.o		# Misc file functions
+comm_objs += util.math.o		# Misc math functions
+comm_objs += util.string.o		# String utility functions
 
 # translate unprefixed object file names to source file names
 fw_src = $(fw_objs:.o=.c)
 fwdsp_src = $(fwdsp_objs:.o:.c)
 
 # prepend objdir path to each object
+real_comm_objs := $(foreach x, ${comm_objs}, ${OBJ_DIR}/comm/${x})
 real_fw_objs := $(foreach x, ${fw_objs}, ${OBJ_DIR}/firmware/${x})
-
-# prepend objdir path to each object
 real_fwdsp_objs := $(foreach x, ${fwdsp_objs}, ${OBJ_DIR}/fwdsp/${x})
+
+real_fw_objs += ${OBJ_DIR}/firmware/logger.o
+real_fw_objs += ${OBJ_DIR}/firmware/config.o
+real_fwdsp_objs += ${OBJ_DIR}/fwdsp/logger.o
+real_fwdsp_objs += ${OBJ_DIR}/fwdsp/config.o
 
 ################################################################################
 ###############
@@ -226,30 +212,67 @@ ${OBJ_DIR}/firmware/%.o: %.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
+${OBJ_DIR}/comm/%.o: common/%.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@echo "[compile] shared $@ from $<"
+	@${RM} -f $@
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+
 # fwdsp
 ${OBJ_DIR}/fwdsp/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${real_comm_objs} ${extra_cflags} -o $@ -c $< || exit 1
+
+
+${OBJ_DIR}/fwdsp/config.o: common/config.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@echo "[compile] fwdsp:$@ from $<"
+	@${RM} -f $@
+	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+
+${OBJ_DIR}/firmware/config.o: common/config.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@echo "[compile] server:$@ from $<"
+	@${RM} -f $@
+	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+
+${OBJ_DIR}/fwdsp/logger.o: common/logger.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@echo "[compile] fwdsp:$@ from $<"
+	@${RM} -f $@
+	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+
+${OBJ_DIR}/firmware/logger.o: common/logger.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@echo "[compile] server:$@ from $<"
+	@${RM} -f $@
+	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+
+${OBJ_DIR}/comm/mongoose.o: ext/libmongoose/mongoose.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@echo "[compile] mongoose from $<"
+	@${RM} -f $@
+	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
-${fw_bin}: ${real_fw_objs} ext/libmongoose/mongoose.c config/http.users ${fw_src}
+${fw_bin}: ${real_fw_objs} ${real_comm_objs} ext/libmongoose/mongoose.c config/http.users ${fw_src}
 	@echo "[Link] firmware ($@) from $(words ${real_fw_objs}) object files..."
-	@${CC} -o $@ ${real_fw_objs} ${LDFLAGS} || exit 1
+	${CC} -o $@ ${real_fw_objs} ${real_comm_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
 	@file $@
 	@size $@
 
 # Binary also depends on the .stamp file
-${fwdsp_bin}: ${real_fwdsp_objs} ${fwdsp_src}
+${fwdsp_bin}: ${real_fwdsp_objs} ${real_comm_objs} ext/libmongoose/mongoose.c ${fwdsp_src}
 	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
-	${CC} -o $@ ${real_fwdsp_objs} ${LDFLAGS} ${FWDSP_LDFLAGS} || exit 1
+	${CC} -o $@ ${real_fwdsp_objs} ${real_comm_objs} ${LDFLAGS} ${FWDSP_LDFLAGS}
 	@ls -a1ls $@
 	@file $@
 	@size $@
 
-strip: ${fw_bin} ${fw_dspbin}
+strip: ${fw_bin} ${fwdsp_bin}
 	@echo "[strip] ${bins}"
 	@strip $^
 	@ls -a1ls $^
@@ -263,7 +286,7 @@ ${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildca
 ##################
 clean:
 	@echo "[clean]"
-	${RM} ${bins} ${real_fwdsp_objs} ${real_fw_objs} ${extra_clean}
+	${RM} ${bins} ${real_fwdsp_objs} ${real_fw_objs} ${extra_clean} ${real_comm_objs}
 	${MAKE} -C gtk-client $@
 
 distclean: clean

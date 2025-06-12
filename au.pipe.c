@@ -1,3 +1,4 @@
+
 //
 // au.pipe.c: Pipe/socket interface for audio samples
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
@@ -9,9 +10,9 @@
 //
 // Here we deal with common GUI operations between HMI and framebuffer
 //
-
+#include "build_config.h"
 #include "rustyrig/au.h"
-#include "rustyrig/mongoose.h"
+#include "../ext/libmongoose//mongoose.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>

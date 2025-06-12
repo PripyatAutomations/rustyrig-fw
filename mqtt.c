@@ -12,7 +12,8 @@
 // We eventually will support both client and server roles
 // but for now focus will be on server
 //
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 
 #if	defined(FEATURE_MQTT)
 #include <stddef.h>
@@ -22,12 +23,14 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/i2c.h"
 #include "rustyrig/state.h"
 #include "rustyrig/eeprom.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 #include "rustyrig/cat.h"
-#include "rustyrig/posix.h"
+#include "common/posix.h"
 #include "rustyrig/mqtt.h"
 
 // forward declration

@@ -1,1 +1,0 @@
-../util.string.c

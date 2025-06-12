@@ -8,8 +8,8 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__inc_rrclient_config_h)
 #define	__inc_rrclient_config_h
-
-#include "rustyrig/dict.h"
+#include <stdbool.h>
+#include "common/dict.h"
 
 struct defconfig {
     char *key;
@@ -31,5 +31,6 @@ extern const char *cfg_get(char *key);
 extern dict *dict_merge_new(dict *a, dict *b);
 extern int dict_merge(dict *dst, dict *src);
 extern bool cfg_save(const char *path);
+extern bool cfg_init(defconfig_t *defaults);
 
 #endif	// !defined(__inc_rrclient_config_h)

@@ -6,7 +6,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we deal with http requests using mongoose
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #if	defined(FEATURE_HTTP)
 #include <stdio.h>
 #include <string.h>
@@ -19,18 +20,19 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/i2c.h"
 #include "rustyrig/state.h"
 #include "rustyrig/eeprom.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 #include "rustyrig/cat.h"
-#include "rustyrig/posix.h"
+#include "common/posix.h"
 #include "rustyrig/http.h"
 #include "rustyrig/ws.h"
 #include "rustyrig/auth.h"
 #include "rustyrig/ptt.h"
-#include "rustyrig/util.string.h"
-#include "rustyrig/util.file.h"
+#include "common/util.string.h"
+#include "common/util.file.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
 #else
@@ -696,6 +698,6 @@ http_client_t *whos_talking(void) {
 
    return NULL;
 }
-#include "rustyrig/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 
 #endif	// defined(FEATURE_HTTP)

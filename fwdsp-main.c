@@ -16,6 +16,7 @@
 // XXX: We need to try our best to stay running after errors
 // XXX: - Auto-reconnect, with increasing backoff
 //
+#include "build_config.h"
 #include <stdint.h>
 #include <gst/gst.h>
 #include <sys/socket.h>
@@ -31,11 +32,11 @@
 #if	!defined(__FWDSP)
 #define	__FWDSP
 #endif
-#include "rustyrig/config.h"
-#include "rustyrig/fwdsp-shared.h"
-#include "rustyrig/logger.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/util.file.h"
+#include "common/config.h"
+#include "common/fwdsp-shared.h"
+#include "common/logger.h"
+#include "common/posix.h"
+#include "common/util.file.h"
 
 static void send_format_header(int fd, struct audio_config *cfg);
 

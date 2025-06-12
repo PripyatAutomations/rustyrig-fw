@@ -26,13 +26,12 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
-#include "rustyrig/config.h"
-#include "rustyrig/fwdsp-shared.h"
-#include "rustyrig/logger.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/util.file.h"
-#include "rustyrig/mongoose.h"
-#include "rrclient/config.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/config.h"
+#include "common/fwdsp-shared.h"
+#include "common/logger.h"
+#include "common/posix.h"
+#include "common/util.file.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/audio.h"
 #include "rrclient/ws.h"
@@ -144,7 +143,6 @@ bool audio_init(void) {
 
    if (!rx_pipeline_str) {
       Log(LOG_CRIT, "audio", "audio.pipeline.rx *MUST* be set in config");
-      shutdown_app(0);
    } else if (strlen(rx_pipeline_str) > 0) {
       Log(LOG_INFO, "audio", "Launching RX pipeline: %s", rx_pipeline_str);
       rx_pipeline = gst_parse_launch(rx_pipeline_str, NULL);

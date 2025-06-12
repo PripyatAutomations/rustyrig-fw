@@ -9,7 +9,9 @@
 // Here we support plotting a waterfall onto virtual fb
 // to be sent either to display or network client
 //
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
+#include "ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,6 +20,6 @@
 #include <unistd.h>
 #include <string.h>
 #include "rustyrig/eeprom.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 #include "rustyrig/gui.h"
 #include "rustyrig/waterfall.h"

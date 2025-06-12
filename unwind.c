@@ -2,6 +2,7 @@
  * If enabled, use linunwind so can dump stack traces
  */
 #include <stdio.h>
+#include "build_config.h"
 
 #if	defined(USE_LIBUNWIND)
 #include <libunwind.h>

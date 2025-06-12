@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_ws_h)
 #define __rr_ws_h
-#include "rustyrig/mongoose.h"
+//#include "rustyrig/mongoose.h"
 #include "rustyrig/http.h"
 
 struct ws_client {

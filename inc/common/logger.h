@@ -8,11 +8,11 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_logger_h)
 #define	__rr_logger_h
-#include "rustyrig/config.h"
 #include <stdarg.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include "rustyrig/debug.h"
+#include "common/config.h"
+#include "common/debug.h"
 
 enum LogPriority {
       LOG_NONE = -1,
@@ -36,4 +36,6 @@ extern void logger_setup(void);
 extern void logger_init(void);
 extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
 extern char latest_timestamp[64];
+extern int update_timestamp(void);
+
 #endif

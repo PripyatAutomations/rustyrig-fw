@@ -9,7 +9,8 @@
 //
 // Thermal monitoring and shutdown feature
 //
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,9 +18,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/state.h"
 #include "rustyrig/thermal.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 
 // Set some sane default values in case the user didn't bother to configure them...
 struct ThermalLimits thermal_limits = {

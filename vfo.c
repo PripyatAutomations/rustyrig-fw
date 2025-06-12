@@ -9,7 +9,8 @@
 /*
  * Deal with things related to the VFO, such as reconfiguring DDS(es)
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,7 +18,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "rustyrig/logger.h"
+#include <ctype.h>
+#include "ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/state.h"
 #include "rustyrig/vfo.h"
 

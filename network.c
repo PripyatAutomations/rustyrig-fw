@@ -10,7 +10,8 @@
  * Support for network transport for console, cat, and debugging
  *
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,11 +20,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/i2c.h"
 #include "rustyrig/state.h"
 #include "rustyrig/eeprom.h"
 #include "rustyrig/network.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>

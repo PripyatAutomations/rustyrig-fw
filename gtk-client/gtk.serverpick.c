@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "rustyrig/config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,10 +18,10 @@
 #include <gtk/gtk.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
-#include "rustyrig/logger.h"
-#include "rustyrig/dict.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
+#include "common/dict.h"
+#include "common/posix.h"
 #include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
@@ -78,6 +78,9 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    return FALSE;
 }
 
+void on_server_window_destroy(GtkWidget *widget, gpointer user_data) {
+   server_window = NULL;
+}
 
 void show_server_chooser(void) {
    if (server_window) {
@@ -97,7 +100,7 @@ void show_server_chooser(void) {
    gtk_tree_view_set_model(GTK_TREE_VIEW(list), GTK_TREE_MODEL(store));
    g_object_unref(store);
 
-   gtk_window_set_keep_above(GTK_WINDOW(server_window), TRUE);
+   gtk_window_set_keep_above(GTK_WINDOW(win), TRUE);
    GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(list));
    gtk_tree_selection_set_mode(sel, GTK_SELECTION_SINGLE);
 
@@ -133,6 +136,7 @@ void show_server_chooser(void) {
    g_signal_connect(btn, "clicked", G_CALLBACK(on_connect_clicked), list);
    g_signal_connect(win, "key-press-event", G_CALLBACK(on_key), NULL);
    g_signal_connect(list, "row-activated", G_CALLBACK(on_row_activated), NULL); // double-click handler
+   g_signal_connect(win, "destroy", G_CALLBACK(on_server_window_destroy), NULL);
 
    gtk_box_pack_start(GTK_BOX(vbox), list, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(vbox), btn, FALSE, FALSE, 0);

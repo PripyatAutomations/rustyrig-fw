@@ -37,6 +37,6 @@ extern struct rr_user *find_or_create_client(const char *name);
 extern bool delete_client(struct rr_user *cptr);
 extern bool clear_client_list(void);
 
-#include "rustyrig/client-flags.h"
+#include "common/client-flags.h"
 
 #endif	// !defined(__rrclient_userlist_h)

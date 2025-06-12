@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rrclient_audio_h)
 #define __rrclient_audio_h
-#include "rustyrig/config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,10 +21,10 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
-#include "rustyrig/logger.h"
-#include "rustyrig/dict.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/mongoose.h"
+#include "common/logger.h"
+#include "common/dict.h"
+#include "common/posix.h"
+//#include "rustyrig/mongoose.h"
 #include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"

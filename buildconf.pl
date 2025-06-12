@@ -17,9 +17,9 @@ use Config;
 use Getopt::Std;
 use IO::Handle;
 use JSON;
-use Data::Dumper;
-use Devel::Peek;
-use MIME::Base64;
+#use Data::Dumper;
+#use Devel::Peek;
+#use MIME::Base64;
 use POSIX qw(strftime);
 use Hash::Merge qw(merge);
 use Mojo::JSON::Pointer;
@@ -35,9 +35,9 @@ my $run_mode = "import";	# This is set to argv[2] below, if present
 Hash::Merge::set_behavior('RIGHT_PRECEDENT');
 
 # Logging output related things
-$Data::Dumper::Terse = 1;
-$Data::Dumper::Indent = 1;       # mild pretty print
-$Data::Dumper::Useqq = 1;        # print strings in double quotes
+#$Data::Dumper::Terse = 1;
+#$Data::Dumper::Indent = 1;       # mild pretty print
+#$Data::Dumper::Useqq = 1;        # print strings in double quotes
 STDOUT->autoflush(1);
 
 #############################
@@ -112,6 +112,7 @@ my ( $tptr_out, $tptr_in );
 # Make the build directory tree, if not present
 make_path("$build_dir/obj/firmware");
 make_path("$build_dir/obj/fwdsp");
+make_path("$build_dir/obj/comm");
 
 # Load configuration from $config_file
 sub config_load {

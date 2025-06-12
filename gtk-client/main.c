@@ -1,4 +1,4 @@
-#include "rustyrig/config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -8,13 +8,12 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "rustyrig/logger.h"
-#include "rustyrig/dict.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/mongoose.h"
+#include "common/logger.h"
+#include "common/dict.h"
+#include "common/posix.h"
+#include "../ext/libmongoose/mongoose.h"
 #include "rustyrig/http.h"
-#include "rustyrig/util.file.h"
-#include "rrclient/config.h"
+#include "common/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -22,6 +21,7 @@
 extern bool ws_audio_init(void);
 extern struct mg_mgr mgr;
 extern struct mg_connection *ws_conn;
+extern defconfig_t defcfg[];
 
 int my_argc = -1;
 char **my_argv = NULL;
@@ -32,8 +32,7 @@ bool ptt_active = false;
 time_t poll_block_expire = 0;	// Here we set this to now + config:cat.poll-blocking to prevent rig polling from sclearing local controls
 time_t poll_block_delay = 0;	// ^-- stores the delay
 
-
-static const char *configs[] = { 
+const char *configs[] = { 
    "~/.config/rrclient.cfg",
    "~/.rrclient.cfg",
    "/etc/rrclient.cfg"
@@ -69,10 +68,15 @@ static gboolean update_now(gpointer user_data) {
 int main(int argc, char *argv[]) {
    logfp = stdout;
    log_level = LOG_DEBUG;
+   now = time(NULL);
+   update_timestamp();
 
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
-   const char *realpath = find_file_by_list(configs, cfg_entries);
+   char *realpath = find_file_by_list(configs, cfg_entries);
+
+   cfg_init(defcfg);
+   logger_init();
 
    if (realpath) {
       if (cfg_load(realpath)) {
@@ -80,9 +84,15 @@ int main(int argc, char *argv[]) {
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);
       }
+      // Make sure we release this memory as it's no longer needed
+      free(realpath);
+      realpath = NULL;
+//   } else {
+//      Log(LOG_DEBUG, "config", "Creating empty config dict");
+//      cfg = dict_new();
    } else {
-      Log(LOG_DEBUG, "config", "Creating empty config dict");
-      cfg = dict_new();
+      Log(LOG_CRIT, "config", "Couldn't fiond a valid config file!");
+      exit(1);
    }
 
    host_init();
@@ -103,7 +113,10 @@ int main(int argc, char *argv[]) {
    g_timeout_add(1000, update_now, NULL);
    g_timeout_add(1000, check_dying, NULL);
    const char *poll_block_delay_s = cfg_get("cat.poll-blocking");
-   poll_block_delay = atoi(poll_block_delay_s);
+   int cfg_poll_block_delay = 3;
+   if (poll_block_delay_s) {
+      poll_block_delay = atoi(poll_block_delay_s);
+   }
 
    // Should we connect to a server on startup?
    const char *autoconnect = cfg_get("server.auto-connect");
@@ -116,20 +129,21 @@ int main(int argc, char *argv[]) {
    }
 
    // Dump the configuration to a file
+   cfg_save("/tmp/test.cfg");
+
    const char *homedir = getenv("HOME");
    char pathbuf[PATH_MAX+1];
    memset(pathbuf, 0, sizeof(pathbuf));
 
    if (homedir != NULL) {
       snprintf(pathbuf, sizeof(pathbuf), "%s/.config/rrclient.cfg", homedir);
+      if (!file_exists(pathbuf)) {
+         Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);
+//         cfg_save(pathbuf);
+      }
    }
 
-   if (!file_exists(pathbuf)) {
-      Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);
-      cfg_save(pathbuf);
-   }
 
-   cfg_save("/tmp/test.cfg");
    // start gtk main loop
    gtk_main();
 

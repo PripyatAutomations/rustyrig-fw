@@ -12,7 +12,8 @@
  * we also deal with the PA_INHIBIT lines which allow momentarily stopping RF output without
  * powering down the PAs (such as for relay changes in tuning or filters).
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,7 +21,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "rustyrig/logger.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/state.h"
 #include "rustyrig/ptt.h"
 #include "rustyrig/auth.h"

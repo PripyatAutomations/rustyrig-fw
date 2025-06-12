@@ -9,7 +9,8 @@
 /*
  * Here we deal with i2c messages, most importantly logging them
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,7 +23,8 @@
 #include <linux/i2c-dev.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "rustyrig/logger.h"
+#include "ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/state.h"
 #include "rustyrig/i2c.h"
 #include "rustyrig/i2c.hal.h"

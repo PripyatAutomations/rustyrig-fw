@@ -11,7 +11,7 @@
 #include "rustyrig/config.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include "rustyrig/mongoose.h"
+//#include "rustyrig/mongoose.h"
 
 extern bool mqtt_init(struct mg_mgr *mgr);
 extern bool mqtt_client_init(void);

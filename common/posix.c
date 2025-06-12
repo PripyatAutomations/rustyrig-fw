@@ -12,10 +12,10 @@
  * Namely we use optionally use pipes instead of real serial ports
  * and deal with POSIX signals
  */
-#include "rustyrig/config.h"
-#if	!defined(HOST_POSIX)
-#error "This is only valid on host posix, please check the GNUmakefile!"
-#else
+#include "common/config.h"
+//#if	!defined(HOST_POSIX)
+//#error "This is only valid on host posix, please check the GNUmakefile!"
+//#else
 #include <sys/stat.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -29,28 +29,24 @@
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
-#include "rustyrig/posix.h"
-#include "rustyrig/logger.h"
+#include "common/posix.h"
+#include "common/logger.h"
 
 extern bool dying;
 
-#if	defined(__RRCLIENT) || defined(__FWDSP)
 extern void shutdown_app(int signum);
-#else
-#include "rustyrig/state.h"
-#endif
 
 // This gets called by our atexit() handler to make sure we clean up temporary files...
 void host_cleanup(void) {
     printf("Goodbye!\n");
     // Unlink the cat pipe
-#if	!defined(__RRCLIENT) && !defined(__FWDSP)
-    if (rig.catpipe_fd >= 0) {
-       close(rig.catpipe_fd);
-       rig.catpipe_fd = -1;
-    }
-#endif
-    unlink(HOST_CAT_PIPE);
+//#if	!defined(__RRCLIENT) && !defined(__FWDSP)
+//    if (rig.catpipe_fd >= 0) {
+//       close(rig.catpipe_fd);
+//       rig.catpipe_fd = -1;
+//    }
+//    unlink(HOST_CAT_PIPE);
+//#endif
 }
 
 static void sighandler(int32_t signum) {
@@ -68,11 +64,12 @@ static void sighandler(int32_t signum) {
       case SIGINT:
       case SIGTERM:
       case SIGKILL:
-#if	defined(__RRCLIENT) || defined(__FWDSP)
-         shutdown_app(0);
-#else
-         shutdown_rig(0);
-#endif
+//#if	defined(__RRCLIENT) || defined(__FWDSP)
+//         shutdown_app(0);
+//#else
+//         shutdown_rig(0);
+//#endif
+         exit(1);
         break;
       default:
          Log(LOG_CRIT, "core", "Caught unknown signal %d", signum);
@@ -97,4 +94,4 @@ bool host_init(void) {
    return false;
 }
 
-#endif	// HOST_POSIX
+//#endif	// HOST_POSIX

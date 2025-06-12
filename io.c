@@ -10,7 +10,8 @@
 // IO abstraction
 // 	We use backends in socket.c, serial.c, and friends to support this
 //
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,7 +23,8 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include "rustyrig/logger.h"
+#include "ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/state.h"
 #include "rustyrig/io.h"
 

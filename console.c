@@ -9,7 +9,8 @@
 /*
  * Support for a console interface to the radio via io abstraction (socket|serial|pipe|ws)
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,10 +21,11 @@
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>
 #endif
+#include "ext/libmongoose/mongoose.h"
 #include "rustyrig/i2c.h"
 #include "rustyrig/state.h"
 #include "rustyrig/eeprom.h"
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 #include "rustyrig/console.h"
 #include "rustyrig/help.h"
 

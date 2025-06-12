@@ -26,7 +26,8 @@
  *
  * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
-#include "rustyrig/config.h"
+#include "build_config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -34,7 +35,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "rustyrig/logger.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
 #include "rustyrig/state.h"
 #include "rustyrig/thermal.h"
 #include "rustyrig/power.h"
@@ -126,8 +128,6 @@ int32_t rr_cat_parse_line(char *line) {
 }
 
 #if	defined(FEATURE_HTTP)
-#include "rustyrig/mongoose.h"
-
 bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
     if (reqtype != REQ_WS || msg == NULL) {
         return false;

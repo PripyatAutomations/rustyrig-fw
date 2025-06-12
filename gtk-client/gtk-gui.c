@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "rustyrig/config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,12 +19,11 @@
 #include <gtk/gtk.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
-#include "rustyrig/logger.h"
-#include "rustyrig/dict.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
+#include "common/dict.h"
+#include "common/posix.h"
 #include "rustyrig/http.h"
-#include "rrclient/config.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -471,10 +470,23 @@ bool gui_init(void) {
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 
-   int cfg_height_i = atoi(cfg_get("ui.main.height"));
-   int cfg_width_i  = atoi(cfg_get("ui.main.width"));
-   int cfg_x_i      = atoi(cfg_get("ui.main.x"));
-   int cfg_y_i      = atoi(cfg_get("ui.main.y"));
+   const char *s = NULL;
+   int cfg_height_i = 600;
+   int cfg_width_i = 800;
+   int cfg_x_i = 0;
+   int cfg_y_i = 0;
+   if ((s = cfg_get("ui.main.height"))) {
+      cfg_height_i = atoi(s);
+   }
+   if ((s = cfg_get("ui.main.width"))) {
+      cfg_width_i = atoi(s);
+   }
+   if ((s = cfg_get("ui.main.x"))) {
+      cfg_x_i = atoi(s);
+   }
+   if ((s = cfg_get("ui.main.y"))) {
+      cfg_y_i = atoi(s);
+   }
 
    gtk_window_set_default_size(GTK_WINDOW(main_window), cfg_width_i, cfg_height_i);
    gtk_window_move(GTK_WINDOW(main_window), cfg_x_i, cfg_y_i);
@@ -525,14 +537,13 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 6);
 
    // set default value etc. as before
-   gtk_range_set_value(GTK_RANGE(rx_vol_slider), atoi(cfg_get("default.volume.rx")));
-   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
-
-   const char *cfg_rx_volume = cfg_get("audio.volume.rx");
-   if (cfg_rx_volume) {
-      float vol = atoi(cfg_rx_volume);
-      gtk_range_set_value(GTK_RANGE(rx_vol_slider), vol);
+   s = cfg_get("audio.volume.rx");
+   int cfg_def_vol_rx = 0;
+   if (s) {
+      cfg_def_vol_rx = atoi(s);
    }
+   gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
+   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
 
    // TX Power VBox
    GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
@@ -543,7 +554,12 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
    gtk_box_pack_start(GTK_BOX(control_box), tx_power_vbox, TRUE, TRUE, 6);
 
-   gtk_range_set_value(GTK_RANGE(tx_power_slider), atoi(cfg_get("default.tx.power")));
+   s = cfg_get("default.tx.power");
+   int cfg_def_pow_tx = 0;
+   if (s) {
+      cfg_def_pow_tx = atoi(s);
+   }
+   gtk_range_set_value(GTK_RANGE(tx_power_slider), cfg_def_pow_tx);
 
    ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
@@ -620,10 +636,14 @@ bool gui_init(void) {
    }
 
    if (cfg_ontop) {
+      Log(LOG_DEBUG, "gtk-gui", "set main above");
       gtk_window_set_keep_above(GTK_WINDOW(main_window), TRUE);
    }
 
    if (cfg_raised) {
+      if (!main_window) {
+         fprintf(stderr, "wtf?! cfg_raised with main_window NULL\n");
+      }
       gtk_window_present(GTK_WINDOW(main_window));   
    }
 
@@ -659,12 +679,22 @@ bool place_window(GtkWidget *window) {
    }
    int cfg_height = 600, cfg_width = 800, cfg_x = 0, cfg_y = 0;
 
-   cfg_height = atoi(cfg_height_s);
-   cfg_width = atoi(cfg_width_s);
+   if (cfg_height_s) {
+      cfg_height = atoi(cfg_height_s);
+   }
+
+   if (cfg_width_s) {
+      cfg_width = atoi(cfg_width_s);
+   }
 
    // Place the window
-   cfg_x = atoi(cfg_x_s);
-   cfg_y = atoi(cfg_y_s);
+   if (cfg_x) {
+      cfg_x = atoi(cfg_x_s);
+   }
+
+   if (cfg_y) {
+      cfg_y = atoi(cfg_y_s);
+   }
    gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);

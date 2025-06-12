@@ -14,7 +14,7 @@
 //
 // See the 'help debug' command in console to set this up
 
-#include "rustyrig/config.h"
+#include "common/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 //#include "rustyrig/eeprom.h"
 
 bool debug_init(void) {

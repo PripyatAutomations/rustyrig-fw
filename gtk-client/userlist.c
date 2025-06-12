@@ -1,4 +1,4 @@
-#include "rustyrig/config.h"
+#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -8,12 +8,11 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "rustyrig/logger.h"
-#include "rustyrig/dict.h"
-#include "rustyrig/posix.h"
-#include "rustyrig/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
+#include "common/dict.h"
+#include "common/posix.h"
 #include "rustyrig/http.h"
-#include "rrclient/config.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -123,13 +122,16 @@ bool delete_client(struct rr_user *cptr) {
 }
 
 GtkWidget *userlist_init(void) {
-   GtkWidget *window = userlist_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "User List");
    const char *cfg_ontop_s = cfg_get("ui.userlist.on-top");
    const char *cfg_raised_s = cfg_get("ui.userlist.raised");
    const char *cfg_hidden = cfg_get("ui.userlist.hidden");
 
    if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
+      if (!window) {
+         fprintf(stderr, "wtf?! cfg_raised with window <%x> NULL\n", window);
+      }
       gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
    }
    
@@ -187,14 +189,16 @@ GtkWidget *userlist_init(void) {
    g_signal_connect(window, "key-press-event", G_CALLBACK(handle_keypress), window);
    g_signal_connect(window, "configure-event", G_CALLBACK(on_window_configure), NULL);
    gtk_widget_show_all(window);
-   place_window(userlist_window);
+   place_window(window);
 
    Log(LOG_DEBUG, "gtk", "userlist callback delete-event");
-   g_signal_connect(userlist_window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
+   g_signal_connect(window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
    if (cfg_hidden && (strcasecmp(cfg_hidden, "true") == 0 || strcasecmp(cfg_hidden, "yes") == 0 || strcasecmp(cfg_hidden, "on") == 0)) {
-      gtk_widget_hide(userlist_window);
+      gtk_widget_hide(window);
    }
+
+   userlist_window = window;
 
    return window;
 }

@@ -12,7 +12,7 @@
 #include "rustyrig/config.h"
 #include <time.h>
 #include <stdbool.h>
-#include "rustyrig/logger.h"
+#include "common/logger.h"
 #include "rustyrig/backend.h"
 #include "rustyrig/atu.h"		// for rr_atu_tv
 #define	PARSE_LINE_LEN	512

@@ -6,271 +6,15 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include "rustyrig/dict.h"
-#include "rrclient/config.h"
-#include "rustyrig/logger.h"
-#include "rustyrig/util.file.h"
-#include "rustyrig/posix.h"
+#include "common/dict.h"
+#include "common/config.h"
+#include "common/logger.h"
+#include "common/util.file.h"
+#include "common/posix.h"
 
 dict *cfg = NULL;
 dict *default_cfg = NULL;
 dict *servers = NULL;
-
-static defconfig_t defcfg[] = {
-   { "audio.debug",				":*3" },
-   { "audio.pipeline.rx",			"" },
-   { "audio.pipeline.rx.format",		"" },
-   { "audio.pipeline.tx",			"" },
-   { "audio.pipeline.tx.format",		"" },
-   { "audio.pipeline.rx.pcm16", 		"" },
-   { "audio.pipeline.tx.pcm16",			"" },
-   { "audio.pipeline.rx.pcm44",			"" },
-   { "audio.pipeline.tx.pcm44",			"" },
-   { "audio.pipeline.rx.opus",			"" },
-   { "audio.pipeline.tx.opus",			"" },
-   { "audio.pipeline.rx.flac",			"" },
-   { "audio.pipeline.tx.flac",			"" },
-   { "audio.volume.rx",				"30" },
-   { "audio.volume.tx",				"20" },
-   { "cat.poll-blocking",			"2" },
-   { "debug.http",				"false" },
-   { "default.volume.rx",			"30" },
-   { "default.tx.power",			"30" },
-   { "server.auto-connect",			"" },
-   { "ui.main.height",				"600" },
-   { "ui.main.width",				"800" },
-   { "ui.main.x",				"0" },
-   { "ui.main.y",				"200" },
-   { "ui.main.on-top",				"false" },
-   { "ui.main.raised",				"true" },
-   { "ui.userlist.height",			"300" },
-   { "ui.userlist.width",			"250" },
-   { "ui.userlist.x",				"0" },
-   { "ui.userlist.y",				"0" },
-   { "ui.userlist.on-top",			"false" },
-   { "ui.userlist.raised",			"true" },
-   { "ui.userlist.hidden",			"false" },
-   { "ui.show-pings",				"true" },
-   { NULL,					NULL }
-};
-
-bool cfg_set_default(char *key, char *val) {
-   if (!key) {
-      Log(LOG_DEBUG, "config", "cfg_set_default: key:<%x> NULL", key);
-      return true;
-   }
-
-   if (default_cfg == NULL) {
-      default_cfg = dict_new();
-
-      if (!default_cfg) {
-         Log(LOG_CRIT, "config", "OOM in cfg_set_default");
-         shutdown_app(1);
-         return true;
-      }
-   }
-
-   Log(LOG_CRAZY, "config", "Set default for %s to '%s'", key, val);
-   dict_add(default_cfg, key, val);
-
-   return false;
-}
-
-bool cfg_set_defaults(defconfig_t *defaults) {
-   if (!defaults) {
-      Log(LOG_CRIT, "config", "cfg_set_defaults: NULL input");
-      return true;
-   }
-
-   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%x>", defaults);
-
-   int i = 0;
-   while (defaults[i].key) {
-      if (cfg_set_default(defaults[i].key, defaults[i].val)) {
-         Log(LOG_CRIT, "config", "cfg_set_defaults: Failed to set key: %s", defaults[i].key);
-      }
-
-      i++;
-   }
-
-   Log(LOG_CRAZY, "config", "Imported %d items", i);
-   return true;
-}
-
-
-bool cfg_load(const char *path) {
-   int line = 0, errors = 0;
-   char buf[768];
-   char *end, *skip,
-        *key, *val,
-        *this_section = 0;
-
-   if (!file_exists(path)) {
-      Log(LOG_CRIT, "config", "Can't find config file %s", path);
-      return true;
-   }
-
-   if (cfg || servers) {
-      Log(LOG_CRIT, "config", "Config already loaded");
-      return true;
-   }
-
-   // Load the default settings early
-   cfg_set_defaults(defcfg);
-   cfg = dict_new();
-
-   FILE *fp = fopen(path, "r");
-   if (!fp) {
-      Log(LOG_CRIT, "config", "Failed to open config %s: %d:%s", path, errno, strerror(errno));
-      return true;
-   }
-
-   // rewind configuration file
-   fseek(fp, 0, SEEK_SET);
-
-   servers = dict_new();
-
-   // Support for C style comments
-   bool in_comment = false;
-   do {
-      memset(buf, 0, sizeof(buf));
-      fgets(buf, sizeof(buf) - 1, fp);
-      line++;
-
-      // delete prior whitespace...
-      skip = buf;
-      while(*skip == ' ')
-        skip++;
-
-      // Delete trailing newlines
-      end = buf + strlen(buf);
-      do {
-        *end = '\0';
-        end--;
-      } while(*end == '\r' || *end == '\n');
-
-      // did we eat the whole line?
-      if ((end - skip) <= 0) {
-         continue;
-      }
-
-      // Look for end of comment
-      if (*skip == '*' && *skip == '/') {
-         in_comment = false;
-         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
-         continue;
-      // Look for start of comment
-      } else if (*skip == '/' && *skip + 1 == '*') {
-         Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
-         in_comment = true;
-         continue;
-      // If we're in a comment still, there's no */ on this line, so continue ignoring input
-      } else if (in_comment) {
-         continue;
-      } else if ((*skip == '/' && *skip+1 == '/') || *skip == '#' || *skip == ';') {
-         continue;
-      } else if (*skip == '[' && *end == ']') {		// section
-         this_section = strndup(skip + 1, strlen(skip) - 2);
-//         fprintf(stderr, "[Debug]: cfg.section.open: '%s' [%lu]\n", this_section, strlen(this_section));
-         Log(LOG_CRAZY, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
-         continue;
-      } else if (*skip == '@') {			// preprocessor
-         if (strncasecmp(skip + 1, "if ", 3) == 0) {
-            /* XXX: finish this */
-         } else if (strncasecmp(skip + 1, "endif", 5) == 0) {
-            /* XXX: finish this */
-         } else if (strncasecmp(skip + 1, "else ", 5) == 0) {
-            /* XXX: finish this */
-         }
-      }
-
-      // Configuration data *MUST* be inside of a section, no exceptions.
-      if (!this_section) {
-//         fprintf(stderr, "[Debug] config %s has line outside section header at line %d: %s\n", path, line, buf);
-//         errors++;
-         continue;
-      }
-
-      if (strncasecmp(this_section, "general", 7) == 0) {
-         // Parse configuration line (XXX: GET RID OF STRTOK!)
-         key = NULL;
-         val = NULL;
-         char *eq = strchr(skip, '=');
-
-         if (eq) {
-            *eq = '\0';
-            key = skip;
-            val = eq + 1;
-
-            while (*val == ' ') {
-               val++;
-            }
-         }
-
-         if (!key && !val) {
-            Log(LOG_DEBUG, "config", "Skipping NULL KV for: %s", skip);
-            continue;
-         }
-
-         // Store value
-         Log(LOG_CRAZY, "config", "Set key: %s => %s", key, val);
-         dict_add(cfg, key, val);
-      } else if (strncasecmp(this_section, "server:", 7) == 0) {
-         key = NULL;
-         val = NULL;
-         char *eq = strchr(skip, '=');
-         char fullkey[256];
-
-         if (eq) {
-            *eq = '\0';
-            key = skip;
-            val = eq + 1;
-
-            while (*val == ' ') {
-               val++;
-            }
-         }
-
-         memset(fullkey, 0, sizeof(fullkey));
-         snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
-//         fprintf(stderr, "fullkey: %s\n", fullkey);
-
-         // Store value
-         dict_add(servers, fullkey, val);
-      } else {
-//         fprintf(stderr, "[Debug] Unknown configuration section '%s' parsing '%s' at %s:%d\n", this_section, buf, path, line);
-         Log(LOG_CRIT, "config", "Unknown configuration section '%s' parsing '%s' at %s:%d", this_section, buf, path, line);
-         errors++;
-      }
-   } while (!feof(fp));
-
-   if (errors > 0) {
-//      fprintf(stderr, "cfg loaded %d lines from %s with %d warnings/errors\n",  line, path, errors);
-      Log(LOG_INFO, "config", "cfg loaded %d lines from %s with %d warnings/errors",  line, path, errors);
-   } else {
-//      fprintf(stderr, "cfg loaded %d lines from %s with no errors\n", line, path);
-      Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
-   }
-   return false;
-}
-
-const char *cfg_get(char *key) {
-   if (!key) {
-      Log(LOG_CRIT, "config", "got cfg_get with NULL key!");
-      return NULL;
-   }
-
-   const char *p = dict_get(cfg, key, NULL);
-
-   // nope! try default
-   if (!p) {
-      p = dict_get(default_cfg, key, NULL);
-      Log(LOG_DEBUG, "config", "returning default value '%s' for key '%s'", p, key);
-   } else {
-      Log(LOG_CRAZY, "config", "returning user value '%s' for key '%s", p, key);
-   }
-   return p;
-}
 
 int dict_merge(dict *dst, dict *src) {
    if (!dst || !src) {
@@ -314,6 +58,252 @@ dict *dict_merge_new(dict *a, dict *b) {
    }
 
    return merged;
+}
+
+bool cfg_set_default(char *key, char *val) {
+   if (!key) {
+      Log(LOG_DEBUG, "config", "cfg_set_default: key:<%x> NULL", key);
+      return true;
+   }
+
+   Log(LOG_CRAZY, "config", "Set default for %s to '%s'", key, val);
+   dict_add(default_cfg, key, val);
+
+   return false;
+}
+
+bool cfg_set_defaults(defconfig_t *defaults) {
+   if (!defaults) {
+      Log(LOG_CRIT, "config", "cfg_set_defaults: NULL input");
+      return true;
+   }
+
+   if (!default_cfg) {
+      return true;
+   }
+
+   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%x>", defaults);
+
+   int i = 0;
+   int warnings = 0;
+   while (defaults[i].key) {
+      Log(LOG_DEBUG, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
+
+      if (!defaults[i].val) {
+         Log(LOG_DEBUG, "config", "cfg_set_defaults: Skipping key %s as its empty", defaults[i].val);
+         continue;
+      }
+
+      Log(LOG_DEBUG, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
+      if (cfg_set_default(defaults[i].key, defaults[i].val)) {
+         Log(LOG_CRIT, "config", "cfg_set_defaults: Failed to set key: %s", defaults[i].key);
+         warnings++;
+      }
+
+      i++;
+   }
+
+   Log(LOG_DEBUG, "config", "Imported %d default settings with %d warnings", i, warnings);
+   return true;
+}
+
+bool cfg_init(defconfig_t *defaults) {
+   if (!default_cfg) {
+      default_cfg = dict_new();
+   }
+
+
+   return cfg_set_defaults(defaults);
+}
+
+bool cfg_load(const char *path) {
+   int line = 0, errors = 0;
+   char buf[768];
+   char *end, *skip,
+        *key, *val,
+        *this_section = 0;
+
+   log_level = LOG_DEBUG;
+
+   if (!file_exists(path)) {
+      fprintf(stderr, "Can't find config file %s\n", path);
+      return true;
+   }
+
+   if (cfg || servers) {
+      Log(LOG_CRIT, "config", "Config already loaded");
+      return true;
+   }
+
+   Log(LOG_CRIT, "config", "Enter cfg_load");
+   if (!cfg) {
+      cfg = dict_new();
+      Log(LOG_CRIT, "config", "cfg_load created dict cfg");
+   }
+
+   FILE *fp = fopen(path, "r");
+   if (!fp) {
+      fprintf(stderr, "Failed to open config %s: %d:%s\n", path, errno, strerror(errno));
+      return true;
+   }
+
+   // rewind configuration file
+   fseek(fp, 0, SEEK_SET);
+
+   servers = dict_new();
+
+   // Support for C style comments
+   bool in_comment = false;
+   Log(LOG_CRIT, "config", "cfg_load enter loop");
+   do {
+      memset(buf, 0, sizeof(buf));
+      fgets(buf, sizeof(buf) - 1, fp);
+      line++;
+
+      // delete prior whitespace...
+      skip = buf;
+      while(*skip == ' ')
+        skip++;
+
+      // Delete trailing newlines
+      end = buf + strlen(buf);
+      do {
+        *end = '\0';
+        end--;
+      } while(*end == '\r' || *end == '\n');
+
+      // did we eat the whole line?
+      if ((end - skip) <= 0) {
+         continue;
+      }
+
+      // Look for end of comment
+      if (*skip == '*' && *skip == '/') {
+         in_comment = false;
+         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
+         continue;
+      // Look for start of comment
+      } else if (*skip == '/' && *(skip + 1) == '*') {
+         Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
+         in_comment = true;
+         continue;
+      // If we're in a comment still, there's no */ on this line, so continue ignoring input
+      } else if (in_comment) {
+         continue;
+      } else if ((*skip == '/' && *(skip+1) == '/') || *skip == '#' || *skip == ';') {
+         continue;
+      } else if (*skip == '[' && *end == ']') {		// section
+         this_section = strndup(skip + 1, strlen(skip) - 2);
+         Log(LOG_CRAZY, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
+         continue;
+      } else if (*skip == '@') {			// preprocessor
+         if (strncasecmp(skip + 1, "if ", 3) == 0) {
+            /* XXX: finish this */
+         } else if (strncasecmp(skip + 1, "endif", 5) == 0) {
+            /* XXX: finish this */
+         } else if (strncasecmp(skip + 1, "else ", 5) == 0) {
+            /* XXX: finish this */
+         }
+      }
+
+      // Configuration data *MUST* be inside of a section, no exceptions.
+      if (!this_section) {
+         fprintf(stderr, "[Debug] config %s has line outside section header at line %d: %s\n", path, line, buf);
+         errors++;
+         continue;
+      }
+
+      if (strncasecmp(this_section, "general", 7) == 0) {
+         // Parse configuration line (XXX: GET RID OF STRTOK!)
+         key = NULL;
+         val = NULL;
+         char *eq = strchr(skip, '=');
+
+         if (eq) {
+            *eq = '\0';
+            key = skip;
+            val = eq + 1;
+
+            while (*val == ' ') {
+               val++;
+            }
+         }
+
+         if (!key && !val) {
+            Log(LOG_DEBUG, "config", "Skipping NULL KV for: %s", skip);
+            continue;
+         }
+
+         // Store value
+         Log(LOG_DEBUG, "config", "Set key: %s => %s", key, val);
+         dict_add(cfg, key, val);
+#if	defined(__RRCLIENT)
+      } else if (strncasecmp(this_section, "server:", 7) == 0) {
+         key = NULL;
+         val = NULL;
+         char *eq = strchr(skip, '=');
+         char fullkey[256];
+
+         if (eq) {
+            *eq = '\0';
+            key = skip;
+            val = eq + 1;
+
+            while (*val == ' ') {
+               val++;
+            }
+         }
+
+         memset(fullkey, 0, sizeof(fullkey));
+         snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
+//         fprintf(stderr, "fullkey: %s\n", fullkey);
+
+         // Store value
+         dict_add(servers, fullkey, val);
+#endif
+      } else {
+//         fprintf(stderr, "[Debug] Unknown configuration section '%s' parsing '%s' at %s:%d\n", this_section, buf, path, line);
+         Log(LOG_CRIT, "config", "Unknown configuration section '%s' parsing '%s' at %s:%d", this_section, buf, path, line);
+         errors++;
+      }
+   } while (!feof(fp));
+   Log(LOG_CRIT, "config", "cfg_load exit loop");
+
+   if (errors > 0) {
+//      fprintf(stderr, "cfg loaded %d lines from %s with %d warnings/errors\n",  line, path, errors);
+      Log(LOG_INFO, "config", "cfg loaded %d lines from %s with %d warnings/errors",  line, path, errors);
+   } else {
+//      fprintf(stderr, "cfg loaded %d lines from %s with no errors\n", line, path);
+      Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
+   }
+   return false;
+}
+
+const char *cfg_get(char *key) {
+   if (!key) {
+      Log(LOG_CRIT, "config", "got cfg_get with NULL key!");
+      return NULL;
+   }
+
+   const char *p = dict_get(cfg, key, NULL);
+
+   // nope! try default
+   if (!p) {
+      if (!default_cfg) {
+         Log(LOG_DEBUG, "config", "defcfg not found");
+         return NULL;
+      }
+      p = dict_get(default_cfg, key, NULL);
+      Log(LOG_DEBUG, "config", "returning default value '%s' for key '%s'", p, key);
+   } else {
+      Log(LOG_CRAZY, "config", "returning user value '%s' for key '%s", p, key);
+   }
+/*
+   fprintf(stdout, "-----\n");
+   dict_dump(cfg, stdout);
+   fprintf(stdout, "-----\n");
+*/
+   return p;
 }
 
 static void cfg_print_servers(dict *servers, FILE *fp) {
