@@ -141,7 +141,7 @@ install:
 # Run debugger
 run: ${bin}
 	@echo "[run] ${bin}"
-	@(cd ../..; ./rrclient.sh)
+	${bin}
 
 gdb debug: ${bin}
 	@echo "[gdb] ${bin}"

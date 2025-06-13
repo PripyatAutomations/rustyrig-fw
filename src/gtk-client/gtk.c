@@ -182,6 +182,14 @@ void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    }
 }
 
+static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
+   if (user_data != NULL) {
+      gui_edit_config(user_data);
+   } else {
+      gui_edit_config(config_file);
+   }
+}
+
 // Combine some common, safe string handling into one call
 bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    if (!buf || !fmt) {
@@ -613,7 +621,7 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(config_tab), config_label, FALSE, FALSE, 12);
 
    GtkWidget *btn = gtk_button_new_with_label("Edit Config");
-   g_signal_connect(btn, "clicked", G_CALLBACK(gui_edit_config), NULL);
+   g_signal_connect(btn, "clicked", G_CALLBACK(on_edit_config_button), config_file);
    gtk_box_pack_start(GTK_BOX(config_tab), btn, FALSE, FALSE, 0);
 
    toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
