@@ -37,17 +37,8 @@ ifneq (x${DEBUG_PROTO},x)
 CFLAGS += -DDEBUG_PROTO
 endif
 
-LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
-TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
-EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
-EEPROM_FILE := ${BUILD_DIR}/eeprom.bin
-PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
-USE_GSTREAMER = $(strip $(shell cat ${CF} | jq -r '.features.gstreamer'))
-USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
-USE_LIBUNWIND = $(strip $(shell cat ${CF} | jq -r ".features.libunwind"))
-USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
-USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
-USE_GTK = $(strip $(shell cat ${CF} | jq -r ".features.gtk"))
+# Parse the config/${PROFILE}.config.json file
+include mk/json-config.mk
 
 ifeq (${USE_GTK},true)
 bins += build/client/rrclient
@@ -381,7 +372,7 @@ dump-ptt:
 dump-log:
 	echo -e ".headers on\nselect * from audit_log;" | sqlite3 ${MASTER_DB}
 
-build/client/rrclient:
+build/client/rrclient: $(wildcard src/common/*.c) $(wildcard src/rrclient/*.c) $(wildcard inc/common/*.h) $(wildcard inc/rrclient/*.h)
 	${MAKE} -C src/rrclient
 
 ${BUILD_DIR}/obj/firmware/.stamp:
