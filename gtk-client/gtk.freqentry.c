@@ -15,12 +15,12 @@ extern bool ui_print(const char *fmt, ...);
 extern time_t poll_block_expire, poll_block_delay;
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq);
 
-#define GTK_TYPE_FREQ_INPUT (gtk_freq_input_get_type())
-G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkBox)
+#define GTK_TYPE_FREQ_ENTRY (gtk_freq_input_get_type())
+G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_input, GTK, FREQ_ENTRY, GtkBox)
 
-static void update_frequency_display(GtkFreqInput *fi);
+static void update_frequency_display(GtkFreqEntry *fi);
 
-struct _GtkFreqInput {
+struct _GtkFreqEntry {
    GtkBox parent_instance;
    GtkWidget *digits[MAX_DIGITS];
    GtkWidget *up_buttons[MAX_DIGITS];
@@ -31,10 +31,10 @@ struct _GtkFreqInput {
    int num_digits;
 };
 
-G_DEFINE_TYPE(GtkFreqInput, gtk_freq_input, GTK_TYPE_BOX)
+G_DEFINE_TYPE(GtkFreqEntry, gtk_freq_input, GTK_TYPE_BOX)
 
 static void on_digit_entry_changed(GtkEditable *editable, gpointer user_data) {
-   GtkFreqInput *fi = GTK_FREQ_INPUT(user_data);
+   GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
    GtkWidget *entry = GTK_WIDGET(editable);
 
    int idx = -1;
@@ -69,7 +69,7 @@ static void on_digit_entry_changed(GtkEditable *editable, gpointer user_data) {
    update_frequency_display(fi);
 }
 
-static void update_frequency_display(GtkFreqInput *fi) {
+static void update_frequency_display(GtkFreqEntry *fi) {
    char buf[MAX_DIGITS + 1] = {0};
    for (int i = 0; i < fi->num_digits; i++) {
       const char *text = gtk_entry_get_text(GTK_ENTRY(fi->digits[i]));
@@ -79,14 +79,14 @@ static void update_frequency_display(GtkFreqInput *fi) {
    unsigned long freq = strtoul(buf, NULL, 10);
    // If a frequency is set and we're not still editing the widget, send the CAT command
    if (freq > 0 && (!fi->prev_freq || (fi->freq != freq))) {
-      Log(LOG_DEBUG, "gtk.freq", "upd. freq disp: freq: %lu updating: %s: prev_freq: %lu", freq, (fi->updating ? "true" : "false"), fi->prev_freq);
+      Log(LOG_DEBUG, "gtk.freqentry", "upd. freq disp: freq: %lu updating: %s: prev_freq: %lu", freq, (fi->updating ? "true" : "false"), fi->prev_freq);
       ws_send_freq_cmd(ws_conn, "A", freq);
       fi->prev_freq = fi->freq;
    }
 }
 
 static void on_button_clicked(GtkButton *button, gpointer user_data) {
-   GtkFreqInput *fi = GTK_FREQ_INPUT(user_data);
+   GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
    int idx = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "digit-index"));
    int delta = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "digit-delta"));
 
@@ -116,7 +116,7 @@ static void on_button_clicked(GtkButton *button, gpointer user_data) {
 }
 
 static void on_freq_digit_activate(GtkWidget *entry, gpointer user_data) {
-   GtkFreqInput *fi = GTK_FREQ_INPUT(user_data);
+   GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
    bool prev_updating = fi->updating;
 
    poll_block_expire = now + 3;
@@ -126,13 +126,13 @@ static void on_freq_digit_activate(GtkWidget *entry, gpointer user_data) {
 }
 
 static gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
-   GtkFreqInput *fi = GTK_FREQ_INPUT(user_data);
+   GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
    gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
    return FALSE;
 }
 
 static gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
-   GtkFreqInput *fi = GTK_FREQ_INPUT(user_data);
+   GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
    bool prev_updating = fi->updating;
 
    if (fi->updating) {
@@ -153,7 +153,7 @@ static gboolean reset_entry_selection(gpointer data) {
 }
 
 static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
-   GtkFreqInput *fi = GTK_FREQ_INPUT(user_data);
+   GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
    poll_block_expire = now + 1;
 
    for (int i = 0; i < fi->num_digits; i++) {
@@ -212,7 +212,7 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
          case GDK_KEY_Return:
          {
             if (fi->updating) {
-               Log(LOG_DEBUG, "gtk.freq", "Forcing send CAT cmd on ENTER press");
+               Log(LOG_DEBUG, "gtk.freqentry", "Forcing send CAT cmd on ENTER press");
                fi->updating = false;
             }
             update_frequency_display(fi);
@@ -251,7 +251,7 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
    return FALSE;
 }
 
-static void gtk_freq_input_init(GtkFreqInput *fi) {
+static void gtk_freq_input_init(GtkFreqEntry *fi) {
    gtk_orientable_set_orientation(GTK_ORIENTABLE(fi), GTK_ORIENTATION_HORIZONTAL);
    fi->num_digits = MAX_DIGITS;
    fi->updating = false;
@@ -310,14 +310,14 @@ static void gtk_freq_input_init(GtkFreqInput *fi) {
 
 }
 
-static void gtk_freq_input_class_init(GtkFreqInputClass *klass) {}
+static void gtk_freq_input_class_init(GtkFreqEntryClass *class) {}
 
 GtkWidget *gtk_freq_input_new(void) {
-   GtkWidget *n = g_object_new(GTK_TYPE_FREQ_INPUT, NULL);
+   GtkWidget *n = g_object_new(GTK_TYPE_FREQ_ENTRY, NULL);
    return n;
 }
 
-void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq) {
+void gtk_freq_input_set_value(GtkFreqEntry *fi, unsigned long freq) {
    char buf[MAX_DIGITS + 1];
    snprintf(buf, sizeof(buf), "%0*lu", fi->num_digits, freq);
    bool prev_updating = fi->updating;
@@ -337,7 +337,7 @@ void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq) {
    update_frequency_display(fi);
 }
 
-unsigned long gtk_freq_input_get_value(GtkFreqInput *fi) {
+unsigned long gtk_freq_input_get_value(GtkFreqEntry *fi) {
    char buf[MAX_DIGITS + 1] = {0};
 
    for (int i = 0; i < fi->num_digits; i++) {

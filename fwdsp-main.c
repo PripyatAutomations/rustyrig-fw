@@ -38,11 +38,28 @@
 #include "common/posix.h"
 #include "common/util.file.h"
 
-static void send_format_header(int fd, struct audio_config *cfg);
-
+const char *config_file = "./fwdsp.cfg";
+const char *config_codec = "PC16";
+bool codec_tx_mode = false;
 bool dying = false;
 static GstElement *pipeline = NULL;
 time_t now = -1;                // time() called once a second in main loop to update
+
+const char *configs[] = { 
+   "fwdsp.cfg",
+   "~/.rrustyrig/fwdsp.cfg",
+   "/etc/rustyrig/fwdsp.cfg"
+};
+
+defconfig_t defcfg[] = {
+  { "audio.debug",	"false",	NULL },
+  { "log.level",	"debug",	NULL }, 
+  { "log.show-ts",	"false",	NULL },
+  { "test.key",		" 1",		"Test key" },
+  { NULL,		NULL,		NULL }
+};
+
+static void send_format_header(int fd, struct audio_config *cfg);
 
 static int connect_unix_socket(const char *path) {
    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -71,10 +88,10 @@ static void cleanup_pipeline(GstElement **pipe) {
    }
 }
 
-static GstElement *build_pipeline(const char *template_str, int fd) {
+static GstElement *build_pipeline(const char *pipeline_str, int fd) {
    char pipe_desc[1024];
 
-   snprintf(pipe_desc, sizeof(pipe_desc), template_str, fd);
+   snprintf(pipe_desc, sizeof(pipe_desc), pipeline_str, fd);
    return gst_parse_launch(pipe_desc, NULL);
 }
 
@@ -92,7 +109,7 @@ static void run_loop(struct audio_config *cfg) {
       }
 
       printf("connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
-      pipeline = build_pipeline(cfg->template, sock_fd);
+      pipeline = build_pipeline(cfg->pipeline, sock_fd);
 
       if (!pipeline) {
          fprintf(stderr, "fwdsp: Failed to build pipeline\n");
@@ -217,15 +234,28 @@ static void send_format_header(int fd, struct audio_config *cfg) {
 }
 
 int main(int argc, char *argv[]) {
+   bool empty_config = true;
    printf("Starting fwdsp v.%s\n", VERSION);
    host_init();
    logfp = stdout;
-   logger_init();
-   gst_init(&argc, &argv);
-   gst_debug_add_log_function(gst_log_handler, NULL, NULL);
+   log_level = LOG_DEBUG;
 
-   struct audio_config cfg = {
-      .template = NULL,
+   // Find and load the configuration file
+   int cfg_entries = (sizeof(configs) / sizeof(char *));
+   char *realpath = find_file_by_list(configs, cfg_entries);
+
+   cfg_init(defcfg);
+   logger_init();
+
+   // Set up some debugging
+   setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
+   const char *cfg_audio_debug = cfg_get("audio.debug");
+   if (cfg_audio_debug) {
+      setenv("GST_DEBUG", cfg_audio_debug, 0);
+   }
+
+   struct audio_config au_cfg = {
+      .pipeline = NULL,
       .sample_rate = 16000,
       .format = 0,
       .tx_mode = false,
@@ -233,64 +263,90 @@ int main(int argc, char *argv[]) {
    };
 
    // set sane defaults
-   if (cfg.tx_mode) {
-      cfg.sock_path = DEFAULT_SOCKET_PATH_TX;
+   if (au_cfg.tx_mode) {
+      au_cfg.sock_path = DEFAULT_SOCKET_PATH_TX;
    } else {
-      cfg.sock_path = DEFAULT_SOCKET_PATH_RX;
+      au_cfg.sock_path = DEFAULT_SOCKET_PATH_RX;
    }
 
    int opt;
-   while ((opt = getopt(argc, argv, "c:i:m:s:P:p:hrtx")) != -1) {
+   while ((opt = getopt(argc, argv, "c:f:h")) != -1) {
       switch (opt) {
-         case 'P':
-            cfg.sock_path = optarg;
-            break;
          case 'c':
-            if (strcmp(optarg, "flac") == 0) {
-               cfg.format = 1;
-            } else if (strcmp(optarg, "opus") == 0) {
-               cfg.format = 2;
+            size_t clen = strlen(optarg);
+            if (clen < 0 || clen > 4) {
+               fprintf(stderr, "Codec magic (-c) '%s' *must* be exactly 4 characters\n", optarg);
+               exit(1);
             } else {
-               cfg.format = 0;
+               fprintf(stdout, "Setting codec magic to %s\n", optarg);
+               config_codec = strdup(optarg);
             }
             break;
-         case 'i':
-            cfg.channel_id = atoi(optarg);
-            break;
-         case 'm':
-            printf("Magic %s\n", optarg);
-            break;
-         case 'p':
-            cfg.template = optarg;
-            break;
-         case 's':
-            cfg.sample_rate = atoi(optarg);
+         case 'f':
+            config_file = strdup(optarg);
             break;
          case 't':
-            cfg.tx_mode = true;
-            break;
-         case 'x':
-            cfg.persistent = true;
-            printf("We are running in persistent mode, we will reconnect until receive fatal signal such as SIGKILL!\n");
+            codec_tx_mode = true;
             break;
          case 'h':
          default:
-            fprintf(stderr, "Usage: %s [-t] [-x] [-c pcm|flac|opus] [-s sample_rate] [-P socket] [-p pipeline]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-t]\n", argv[0]);
+            fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
+            fprintf(stderr, "  -t\t\t\tTransmit mode\n");
             exit(1);
       }
    }
 
-   if (cfg.channel_id < 0) {
-      cfg.channel_id = 0;
+   if (au_cfg.channel_id < 0) {
+      au_cfg.channel_id = 0;
    }
 
-   time_t last_run = -1;
+   if (realpath) {
+      config_file = strdup(realpath);
+      if (cfg_load(realpath)) {
+         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", realpath);
+      } else {
+         Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);
+      }
+      empty_config = false;
+      free(realpath);
+   } else {
+     // Use default settings and save it to ~/.config/rrclient.cfg
+     cfg = default_cfg;
+     empty_config = true;
+     fprintf(stderr, "No config found :(\n");
+     exit(1);
+   }
+
+   fprintf(stderr, "----- pipelines -----\n");
+   dict_dump(pipelines, stderr);
+   fprintf(stderr, "------ @<%x> ----\n", pipelines);
+
+
+   char keybuf[256];
+   memset(keybuf, 0, sizeof(keybuf));
+   snprintf(keybuf, sizeof(keybuf), "%s.%s", config_codec, (codec_tx_mode ? "tx" : "rx"));
+   Log(LOG_DEBUG, "codec", "Selecting pipeline '%s' from config --", keybuf);
+
+   const char *cfg_pipeline = cfg_get_real(pipelines, keybuf);
+   if (cfg_pipeline) {
+      Log(LOG_DEBUG, "codec", "%s", cfg_pipeline);
+      au_cfg.pipeline = cfg_pipeline;
+   } else {
+      Log(LOG_CRIT, "fwdsp", "No pipeline configured");
+      exit(1);
+   }
+
+   gst_init(&argc, &argv);
+   gst_debug_add_log_function(gst_log_handler, NULL, NULL);
+
+   time_t last_run = 0;
    do {
       now = time(NULL);
-      run_loop(&cfg);
+      run_loop(&au_cfg);
       printf("Run took %li sec", (now - last_run));
       last_run = now;
-   } while(cfg.persistent);
+   } while(au_cfg.persistent);
 
    host_cleanup();
    return 0;

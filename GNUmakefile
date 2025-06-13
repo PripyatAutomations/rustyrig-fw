@@ -20,7 +20,7 @@ $(error ***ERROR*** Please create ${CF} first before building -- There is an exa
 endif
 
 CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
-CFLAGS_WARN := -Wall -Wno-unused -pedantic -Werror
+CFLAGS_WARN := -Wall -Wno-unused -pedantic # -Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
 CFLAGS += -I./inc -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
@@ -168,6 +168,7 @@ fw_objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
 fw_objs += ws.chat.o		# Websocket Chat (talk)
 fw_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 fwdsp_objs += fwdsp-main.o
+comm_objs += codecneg.o
 comm_objs += debug.o			# Debug stuff
 comm_objs += dict.o			# dictionary object
 comm_objs += util.file.o		# Misc file functions
@@ -223,7 +224,7 @@ ${OBJ_DIR}/fwdsp/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${real_comm_objs} ${extra_cflags} -o $@ -c $< || exit 1
+	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 
 ${OBJ_DIR}/fwdsp/config.o: common/config.c ${BUILD_HEADERS}

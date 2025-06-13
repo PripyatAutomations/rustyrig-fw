@@ -49,32 +49,6 @@ GstElement *rx_sink = NULL,		*tx_sink = NULL;
 static struct ws_frame *send_queue = NULL;
 static bool sending_in_progress = false;
 
-
-// This is very ugly and could definitely use a rewrite. The TX path needs to move into ws.tx-audio.c
-static void audio_tx_enqueue_frame(uint8_t *data, size_t len) {
-  struct ws_frame *f = malloc(sizeof(*f));
-  f->data = data;
-  f->len = len;
-  f->next = NULL;
-
-  if (!send_queue) {
-     send_queue = f;
-  } else {
-    struct ws_frame *last = send_queue;
-    while (last->next) last = last->next;
-    last->next = f;
-  }
-}
-
-void audio_tx_free_frame(void) {
-  if (send_queue) {
-    free(send_queue->data);
-    struct ws_frame *tmp = send_queue;
-    send_queue = send_queue->next;
-    free(tmp);
-  }
-}
-
 void try_send_next_frame(struct mg_connection *c) {
   if (sending_in_progress || !send_queue) {
      return;
@@ -299,66 +273,8 @@ bool audio_process_frame(const char *data, size_t len) {
    gst_buffer_unref(buffer);
 }
 
-///////////////////////
-// Codec Negotiation //
-///////////////////////
 
-static au_codec_mapping_t	au_codecs[] = {
-    // Codec ID			// Magic	// Sample Rate	// Pipeline
-    { AU_CODEC_PCM16,		"PCM16",	16000,		 NULL },
-    { AU_CODEC_PCM44,		"PCM44",	44100,		 NULL },
-    { AU_CODEC_OPUS,		"OPUS",		48000,		 NULL },
-    { AU_CODEC_FLAC,		"FLAC",		44100,           NULL },
-    { AU_CODEC_NONE,		NULL,		0,               NULL }
-};
-audio_settings_t	au_rx_config, au_tx_config;
-
-int au_codec_by_id(enum au_codec id) {
-   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
-   for (int i = 0; i < codec_entries; i++) {
-      if (au_codecs[i].id == id) {
-         Log(LOG_DEBUG, "ws.audio", "Got index %i", i);
-         return i;
-      }
-   }
-   return -1;
-}
-
-const char *au_codec_get_magic(int id) {
-   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
-   for (int i = 0; i < codec_entries; i++) {
-      if (au_codecs[i].id == AU_CODEC_NONE && !au_codecs[i].magic) {
-         break;
-      }
-      if (au_codecs[i].id == id) {
-         return au_codecs[i].magic;
-      }
-   }
-   return NULL;
-}
-
-int au_codec_get_id(const char *magic) {
-   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
-   for (int i = 0; i < codec_entries; i++) {
-      if (strcmp(au_codecs[i].magic, magic) == 0) {
-         return au_codecs[i].id;
-      }
-   }
-   return -1;
-}
-
-uint32_t au_codec_get_samplerate(int id) {
-   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
-
-   for (int i = 0; i < codec_entries; i++) {
-      if (au_codecs[i].id == id) {
-         return au_codecs[i].sample_rate;
-      }
-   }
-   
-   return 0;
-}
-
+#if	0
 bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
    if (!c || !au) {
       Log(LOG_CRIT, "ws.audio", "send_au_control_msg: Got invalid c:<%x> or au:<%x>", c, au);
@@ -372,3 +288,4 @@ bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
              au_codec_get_magic(codec_id), au_codec_get_samplerate(codec_id), (au->active ? "true" : "off"));
    return true;
 }
+#endif

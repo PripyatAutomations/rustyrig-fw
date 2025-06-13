@@ -8,7 +8,7 @@ OBJ_DIR := ${BUILD_DIR}/obj
 bin := ${BUILD_DIR}/rrclient
 INSTALL_DIR := /usr/local
 CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .version)\""
-CFLAGS_WARN := -Wall -Wno-unused -pedantic
+CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
 CFLAGS += -I../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
@@ -41,7 +41,8 @@ objs += config.o
 objs += debug.o			# Debug stuff
 objs += defconfig.o
 objs += dict.o			# dictionary object
-objs += gtk-gui.o		# Support for a GTK user interface
+objs += gtk.o                   # Support for a GTK user interface
+objs += gtk.editcfg.o
 objs += gtk.freqentry.o		# Frequency Entry Widget
 objs += gtk.serverpick.o        # server picker
 objs += logger.o		# Logging facilities
@@ -90,7 +91,7 @@ ${OBJ_DIR}/%.o: ../common/%.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] shared $@ from $<"
-	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 ${OBJ_DIR}/mongoose.o: ../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
@@ -101,7 +102,7 @@ ${OBJ_DIR}/mongoose.o: ../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 ${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@echo "[compile] $@ from $<"
-	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
 ${bin}: ${real_objs} ../ext/libmongoose/mongoose.c

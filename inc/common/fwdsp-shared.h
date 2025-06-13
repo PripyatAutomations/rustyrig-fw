@@ -21,7 +21,7 @@ struct audio_header {
 }  __attribute__((packed));
 
 struct audio_config {
-   const char *template;
+   const char *pipeline;
    const char *sock_path;
    int sample_rate;   // e.g. 16000 or 44100
    int format;        // 0 = S16LE, 1 = FLAC, 2 = OPUS

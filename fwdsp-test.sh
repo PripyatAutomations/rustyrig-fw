@@ -3,25 +3,6 @@
 
 [ ! -z "$(pidof fwdsp.bin)" ] && killall -9 fwdsp.bin
 [ -z "$PROFILE" ] && PROFILE=radio
-
-#####################
-# RX audio (mic in) #
-#####################
-### Use raw 16khz PCM
-rx_pipeline="pulsesrc device=default do-timestamp=1 ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! queue ! fdsink fd=%d"
-rx_magic="U16"
-### Use 8khz mulaw PCM
-#rx_pipeline="pulsesrc device=default do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! mulawenc ! fdsink fd=%d"
-#rx_magic=U08
-### Use 16khz mulaw PCM
-#rx_pipeline="pulsesrc device=default do-timestamp=1 ! audio/x-raw,rate=16000,channels=1 ! mulawenc ! fdsink fd=%d"
-#rx_magic=P16
-
-################
-# TX Pipelines #
-################
-#tx_pipeline="fdsrc fd=%d ! audioconvert ! audioresample ! queue ! pulsesink device=default"
-tx_pipeline="fdsrc fd=%s do-timestamp=1 ! audioconvert ! pulsesink device=default"
 export GST_DEBUG=*:3
-./build/${PROFILE}/fwdsp.bin -p "${rx_pipeline}" -m ${rx_magic} &
-#./build/${PROFILE}/fwdsp.bin -p "${tx_pipeline}" -t &
+./build/${PROFILE}/fwdsp.bin -f fwdsp.cfg -c mu16
+#./build/${PROFILE}/fwdsp.bin -f fwdsp.cfg -c mu16 -t

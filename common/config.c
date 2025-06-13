@@ -14,8 +14,12 @@
 
 dict *cfg = NULL;
 dict *default_cfg = NULL;
+
+// Holds a list of servers where applicable (client and fwdsp)
 dict *servers = NULL;
 
+// Used for fwdsp
+dict *pipelines = NULL;
 int dict_merge(dict *dst, dict *src) {
    if (!dst || !src) {
       return -1;
@@ -62,12 +66,15 @@ dict *dict_merge_new(dict *a, dict *b) {
 
 bool cfg_set_default(char *key, char *val) {
    if (!key) {
-      Log(LOG_DEBUG, "config", "cfg_set_default: key:<%x> NULL", key);
+      Log(LOG_DEBUG, "config", "cfg_set_default: key:<%x> is not valid", key);
       return true;
    }
 
-   Log(LOG_CRAZY, "config", "Set default for %s to '%s'", key, val);
-   dict_add(default_cfg, key, val);
+   Log(LOG_CRAZY, "config", "Setting default for %s to '%s'", key, val);
+   if (dict_add(default_cfg, key, val) != 0) {
+      Log(LOG_WARN, "config", "defcfg failed to set key %s to val at <%x>", key, val);
+      return true;
+   }
 
    return false;
 }
@@ -87,7 +94,7 @@ bool cfg_set_defaults(defconfig_t *defaults) {
    int i = 0;
    int warnings = 0;
    while (defaults[i].key) {
-      Log(LOG_DEBUG, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
+//      Log(LOG_DEBUG, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
 
       if (!defaults[i].val) {
          Log(LOG_DEBUG, "config", "cfg_set_defaults: Skipping key %s as its empty", defaults[i].val);
@@ -154,7 +161,7 @@ bool cfg_load(const char *path) {
 
    // Support for C style comments
    bool in_comment = false;
-   Log(LOG_CRIT, "config", "cfg_load enter loop");
+   Log(LOG_DEBUG, "config", "cfg_load enter loop");
    do {
       memset(buf, 0, sizeof(buf));
       fgets(buf, sizeof(buf) - 1, fp);
@@ -237,7 +244,30 @@ bool cfg_load(const char *path) {
          // Store value
          Log(LOG_DEBUG, "config", "Set key: %s => %s", key, val);
          dict_add(cfg, key, val);
-#if	defined(__RRCLIENT)
+      } else if (strncasecmp(this_section, "pipelines", 9) == 0) {
+         // Parse configuration line (XXX: GET RID OF STRTOK!)
+         key = NULL;
+         val = NULL;
+         char *eq = strchr(skip, '=');
+
+         if (eq) {
+            *eq = '\0';
+            key = skip;
+            val = eq + 1;
+
+            while (*val == ' ') {
+               val++;
+            }
+         }
+
+         if (!key && !val) {
+            Log(LOG_DEBUG, "config", "Skipping NULL KV for: %s", skip);
+            continue;
+         }
+
+         // Store value
+         Log(LOG_DEBUG, "config", "Add pipeline %s => %s", key, val);
+         dict_add(pipelines, key, val);
       } else if (strncasecmp(this_section, "server:", 7) == 0) {
          key = NULL;
          val = NULL;
@@ -256,36 +286,30 @@ bool cfg_load(const char *path) {
 
          memset(fullkey, 0, sizeof(fullkey));
          snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
-//         fprintf(stderr, "fullkey: %s\n", fullkey);
-
          // Store value
          dict_add(servers, fullkey, val);
-#endif
       } else {
-//         fprintf(stderr, "[Debug] Unknown configuration section '%s' parsing '%s' at %s:%d\n", this_section, buf, path, line);
          Log(LOG_CRIT, "config", "Unknown configuration section '%s' parsing '%s' at %s:%d", this_section, buf, path, line);
          errors++;
       }
    } while (!feof(fp));
-   Log(LOG_CRIT, "config", "cfg_load exit loop");
+   Log(LOG_DEBUG, "config", "cfg_load exit loop");
 
    if (errors > 0) {
-//      fprintf(stderr, "cfg loaded %d lines from %s with %d warnings/errors\n",  line, path, errors);
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with %d warnings/errors",  line, path, errors);
    } else {
-//      fprintf(stderr, "cfg loaded %d lines from %s with no errors\n", line, path);
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
    }
    return false;
 }
 
-const char *cfg_get(char *key) {
+const char *cfg_get_real(dict *c, char *key) {
    if (!key) {
       Log(LOG_CRIT, "config", "got cfg_get with NULL key!");
       return NULL;
    }
 
-   const char *p = dict_get(cfg, key, NULL);
+   const char *p = dict_get(c, key, NULL);
 
    // nope! try default
    if (!p) {
@@ -298,12 +322,21 @@ const char *cfg_get(char *key) {
    } else {
       Log(LOG_CRAZY, "config", "returning user value '%s' for key '%s", p, key);
    }
-/*
+#if	1
    fprintf(stdout, "-----\n");
-   dict_dump(cfg, stdout);
+   dict_dump(c, stdout);
    fprintf(stdout, "-----\n");
-*/
+#endif
    return p;
+}
+
+const char *cfg_get(char *key) {
+   if (!key) {
+      Log(LOG_CRIT, "config", "got cfg_get with NULL key!");
+      return NULL;
+   }
+
+   return cfg_get_real(cfg, key);
 }
 
 static void cfg_print_servers(dict *servers, FILE *fp) {
@@ -377,3 +410,36 @@ bool cfg_save(const char *path) {
 
    return false;
 }
+
+#if	0
+// This handles stuff like restarting audio pipelines, etc
+struct {
+   char *kev;
+   bool (*callback)();
+   char *note;
+   struct reload_event *next;
+} reload_event;
+\
+typedef struct reload_event reload_evt_t;
+
+reload_evt_t *reload_events = NULL;
+//extern reload_evt_t *reload_events;
+
+bool run_reload_events(const char *key) {
+   reload_evt_t *rl = reload_events;
+
+   while (rl) {
+      if (strcasecmp(rl->key, key) == 0) {
+         Log(LOG_DEBUG, "event", "reload: run callback at <%x> for key '%s'", rl->callback, key);
+         rl->callback(key);
+      }
+      rl = rl->next;
+   }
+   return false;
+}
+
+bool cfg_apply_new(dict *oldcfg, dict *newcfg) {
+   cfg = newcfg;
+   return false;
+}
+#endif	// not yet

@@ -17,15 +17,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
+//#include <gtk/gtk.h>
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
-//#include "../ext/libmongoose/mongoose.h"
 #include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/audio.h"
+#include "common/codecneg.h"
 
 //#define	DEBUG_WS_BINFRAMES		// turn this off soon
 

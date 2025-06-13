@@ -17,7 +17,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -28,35 +27,7 @@
 #include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
-
-enum au_codec {
-   AU_CODEC_NONE = 0,			// No codec configured
-   AU_CODEC_PCM16,				// 16khz PCM
-   AU_CODEC_PCM44,				// 44.1khz PCM
-   AU_CODEC_OPUS,				// OPUS
-   AU_CODEC_FLAC				// FLAC
-};
-
-typedef struct au_codec_mapping {
-   enum au_codec	id;
-   const char		*magic;
-   int			sample_rate;		// -1 if variable or set later
-   char                 *pipeline;		// contains  *must* be freed
-} au_codec_mapping_t;
-
-struct ws_frame {
-  uint8_t magic[2];
-  uint8_t *data;
-  size_t len;
-  struct ws_frame *next;
-} __attribute__((packed));
-
-struct audio_settings {
-    enum au_codec	codec;
-    uint32_t		sample_rate;			// sample rate in hz
-    bool		active;				// Is the stream active?
-};
-typedef struct audio_settings audio_settings_t;
+#include "common/codecneg.h"
 
 extern bool audio_enabled;
 extern bool gst_active;

@@ -480,12 +480,14 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &opts);
       }
    } else if (ev == MG_EV_WRITE) {
+#if	0
       if (sending_in_progress) {
          Log(LOG_DEBUG, "ws", "http_handler: write frame");
          audio_tx_free_frame();
          sending_in_progress = false;
          try_send_next_frame(c);  // attempt to send the next
       }
+#endif
    } else if (ev == MG_EV_WS_OPEN) {
       const char *login_user = get_server_property(active_server, "server.user");
       ws_connected = true;

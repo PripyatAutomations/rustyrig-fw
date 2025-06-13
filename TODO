@@ -1,3 +1,9 @@
+[protocol]
+* User management
+  - Add/edit users
+  - Reset password
+  - User change own password
+
 [ASAP]
 * More audio config stuff, maybe support codec switching.
   - Support for fwdsp report what codec & rate it's using, so multiple streams can be sent to backend

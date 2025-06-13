@@ -1,4 +1,3 @@
-#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -23,6 +22,7 @@ extern struct mg_mgr mgr;
 extern struct mg_connection *ws_conn;
 extern defconfig_t defcfg[];
 
+const char *config_file = NULL;
 int my_argc = -1;
 char **my_argv = NULL;
 bool dying = false;             // Are we shutting down?
@@ -37,14 +37,6 @@ const char *configs[] = {
    "~/.rrclient.cfg",
    "/etc/rrclient.cfg"
 };
-
-gboolean check_dying(gpointer data) {
-   if (dying) {
-      gtk_main_quit();
-      return G_SOURCE_REMOVE;  // remove this timeout
-   }
-   return G_SOURCE_CONTINUE;
-}
 
 void shutdown_app(int signum) {
    if (signum > 0) {
@@ -62,10 +54,15 @@ static gboolean poll_mongoose(gpointer user_data) {
 
 static gboolean update_now(gpointer user_data) {
    now = time(NULL);
+   if (dying) {
+      gtk_main_quit();
+      return G_SOURCE_REMOVE;  // remove this timeout
+   }
    return G_SOURCE_CONTINUE;
 }
 
 int main(int argc, char *argv[]) {
+   bool empty_config = true;
    logfp = stdout;
    log_level = LOG_DEBUG;
    now = time(NULL);
@@ -79,20 +76,19 @@ int main(int argc, char *argv[]) {
    logger_init();
 
    if (realpath) {
+      config_file = strdup(realpath);
       if (cfg_load(realpath)) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", realpath);
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);
       }
-      // Make sure we release this memory as it's no longer needed
+      empty_config = false;
       free(realpath);
-      realpath = NULL;
-//   } else {
-//      Log(LOG_DEBUG, "config", "Creating empty config dict");
-//      cfg = dict_new();
    } else {
-      Log(LOG_CRIT, "config", "Couldn't fiond a valid config file!");
-      exit(1);
+     // Use default settings and save it to ~/.config/rrclient.cfg
+     cfg = default_cfg;
+     empty_config = true;
+     Log(LOG_WARN, "core", "No config file found, saving defaults to ~/.config/rrclient.cfg");
    }
 
    host_init();
@@ -111,7 +107,7 @@ int main(int argc, char *argv[]) {
    gui_init();
    g_timeout_add(10, poll_mongoose, NULL);
    g_timeout_add(1000, update_now, NULL);
-   g_timeout_add(1000, check_dying, NULL);
+
    const char *poll_block_delay_s = cfg_get("cat.poll-blocking");
    int cfg_poll_block_delay = 3;
    if (poll_block_delay_s) {
@@ -128,21 +124,19 @@ int main(int argc, char *argv[]) {
       show_server_chooser();
    }
 
-   // Dump the configuration to a file
-   cfg_save("/tmp/test.cfg");
-
    const char *homedir = getenv("HOME");
    char pathbuf[PATH_MAX+1];
    memset(pathbuf, 0, sizeof(pathbuf));
 
-   if (homedir != NULL) {
+   // If we don't couldnt find a config file, save the defaults to ~/.config/rrclient.cfg
+   if (homedir && empty_config) {
       snprintf(pathbuf, sizeof(pathbuf), "%s/.config/rrclient.cfg", homedir);
       if (!file_exists(pathbuf)) {
          Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);
-//         cfg_save(pathbuf);
+         cfg_save(pathbuf);
+         config_file = pathbuf;
       }
    }
-
 
    // start gtk main loop
    gtk_main();

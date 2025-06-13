@@ -39,6 +39,7 @@ extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
+extern char *config_file;		// main.c
 GtkCssProvider *css_provider = NULL;
 GtkTextBuffer *log_buffer = NULL;
 GtkTextBuffer *text_buffer;
@@ -58,7 +59,6 @@ GtkWidget *notebook = NULL;
 GtkWidget *config_tab = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
-
 
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
@@ -611,6 +611,10 @@ bool gui_init(void) {
 
    GtkWidget *config_label = gtk_label_new("Configuration will go here...");
    gtk_box_pack_start(GTK_BOX(config_tab), config_label, FALSE, FALSE, 12);
+
+   GtkWidget *btn = gtk_button_new_with_label("Edit Config");
+   g_signal_connect(btn, "clicked", G_CALLBACK(gui_edit_config), NULL);
+   gtk_box_pack_start(GTK_BOX(config_tab), btn, FALSE, FALSE, 0);
 
    toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
    gtk_box_pack_start(GTK_BOX(config_tab), toggle_userlist_button, FALSE, FALSE, 3);
