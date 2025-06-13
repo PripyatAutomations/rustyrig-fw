@@ -84,6 +84,17 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
 
 static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
    EditorContext *ctx = user_data;
+
+   if (ctx->modified) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window),
+         GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
+         "You have unsaved changes. Discard them?");
+      gboolean cancel = gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES;
+      gtk_widget_destroy(dialog);
+      if (cancel)
+         return;
+   }
+
    Log(LOG_DEBUG, "config", "Edit config closed without saving for %s", ctx->filepath);
    gtk_widget_destroy(ctx->window);
    g_free(ctx->filepath);
