@@ -35,6 +35,11 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
       apply_config(ctx->filepath);
    }
    g_free(text);
+
+   Log(LOG_DEBUG, "config", "Edits saved for %s", ctx->filepath);
+   gtk_widget_destroy(ctx->window);
+   g_free(ctx->filepath);
+   g_free(ctx);
 }
 
 static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
