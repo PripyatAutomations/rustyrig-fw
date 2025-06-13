@@ -1,4 +1,9 @@
-[200~#!/bin/bash
+#!/bin/bash
+#
+# Print out bugs marked with "XXX:" or "BUG:" and print a little context
+#
+# We use pygments for python to colorize
+#
 LINES_BEFORE=5
 LINES_AFTER=10
 
@@ -20,11 +25,13 @@ try_colorize() {
       *.sh)    language=bash ;;
       *)       language=text ;;
    esac
-   egrep -Hn '(XXX|BUG):' -A${LINES_AFTER} -B${LINES_BEFORE} "$file" | \
+   egrep -Hni '(XXX|BUG):' -A${LINES_AFTER} -B${LINES_BEFORE} "$file" | \
       ${PYGMENTIZE_BIN:+$PYGMENTIZE_CMD -l $language} || cat
 }
 
-(ls *.[ch];
+
+
+( find . -name \*.\[ch\] | grep -v mongoose | grep -v '^./ext/'; 
   find ./www/js -name 'webui*.js';
   find ./www/css -name '*.css') |
 while read -r line; do

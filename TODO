@@ -5,6 +5,7 @@
   - User change own password
 
 [ASAP]
+* Shell + jq script to parse config/*.config.json into a .cfg flat file
 * More audio config stuff, maybe support codec switching.
   - Support for fwdsp report what codec & rate it's using, so multiple streams can be sent to backend
     - Maybe add transcoding someday

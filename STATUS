@@ -2,15 +2,13 @@
 STATUS
 ------
 * core			WORKING
-* http/websockets	WORKING
-* www/chat		WORKING
+* gtk-client		Similar to webui but without file/image transfer
 * www/rig		MOSTLY WORKING
-* PCM over websockets	IN WORK
+* PCM over websockets	WORKS via gstreamer for RX; TX should work with framing
 * au.pipe		IN WORK
 * backend-hamlib	MOSTLY WORKING
 * backend-internal	DELAYED
 * CAT Host (ft891 emu)	DELAYED (needs io.{serial,socket} to be finished
-* au.alsa		DELAYED (probably wont implement any time soon)
-* au.pulse		probably wont implement unless easier way to support pw too (via compat layer)
-* au.pipewire		DELAYED
-* OPUS codec		DELAYED
+* gstreamer		Working, but needs framing completed
+* http/websockets	WORKING
+* www/chat		WORKING

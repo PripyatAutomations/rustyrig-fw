@@ -223,17 +223,28 @@ int main(int argc, char **argv) {
    timer_init();
    gpio_init();
 
+#if	defined(USE_EEPROM)
    // if able to connect to EEPROM, load and apply settings
    if (eeprom_init() == 0) {
       eeprom_load_config();
    }
+#endif
 
 //   i2c_init();
    gui_init();
    logger_init();
 
    // Print the serial #
-   rig.serial = get_serial_number();
+   const char *s = cfg_get("device.serial");
+   int serial_tmp = 0;
+   if (s) {
+      serial_tmp = atoi(s);
+   }
+#if	defined(USE_EEPROM)
+   if (!s || serial_tmp == 0) {
+      rig.serial = get_serial_number();
+   }
+#endif
    Log(LOG_INFO, "core", "Device serial number: %lu", rig.serial);
 
    // Initialize add-in cards
@@ -242,8 +253,17 @@ int main(int argc, char **argv) {
    rr_amp_init_all();
    rr_atu_init_all();
 
+#if	defined(USE_EEPROM)
+   if (!s) {
+      auto_block_ptt = eeprom_get_bool("features/auto_block_ptt");
+   }
+#endif
+
    // apply some configuration from the eeprom
-   auto_block_ptt = eeprom_get_bool("features/auto_block_ptt");
+   s = cfg_get("features.auto-block-ptt");
+   if (s && strcasecmp(s, "true") == 0) {
+      auto_block_ptt = true;
+   }
 
    if (auto_block_ptt) {
       Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
@@ -277,8 +297,8 @@ int main(int argc, char **argv) {
    dds_init();
 
    // Network connectivity
-   show_network_info();
-   show_pin_info();
+//   show_network_info();
+//   show_pin_info();
 
 // Is mongoose http server enabled?
 #if	defined(FEATURE_HTTP)
@@ -290,8 +310,8 @@ int main(int argc, char **argv) {
    ws_init(&mg_mgr);
 #endif
 #if	defined(FEATURE_MQTT)
-   mqtt_init(&mg_mgr);
-   mqtt_client_init();
+//   mqtt_init(&mg_mgr);
+//   mqtt_client_init();
 #endif
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 

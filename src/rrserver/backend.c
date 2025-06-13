@@ -98,7 +98,14 @@ bool rr_backend_init(void) {
    rr_backend_t *be = NULL;
 
 // This mode only really applies on posix hosts such as linux...
-   const char *be_name = eeprom_get_str("backend/active");
+   const char *be_name = cfg_get("backend.active");
+
+#if	defined(USE_EEPROM)
+   if (!be_name) {
+      be_name = eeprom_get_str("backend/active");
+   }
+#endif
+
    be = rr_backend_find(be_name);
 
    if (be == NULL) {

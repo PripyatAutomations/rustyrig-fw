@@ -1,5 +1,9 @@
+#######
+# This makefile is very ugly. It evolved poorly and needs rewritten ASAP
+#######
 SHELL = bash
 .SHELLFLAGS = -e -c
+
 all: world
 
 PROFILE ?= radio
@@ -7,8 +11,9 @@ CF := config/${PROFILE}.config.json
 CHANNELS := config/${PROFILE}.channels.json
 BUILD_DIR := build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
-#INSTALL_DIR = /opt/rustyrig
 INSTALL_DIR = /usr/local
+CONF_DIR := /etc/rustyrig
+
 fw_bin := ${BUILD_DIR}/firmware.bin
 fwdsp_bin := ${BUILD_DIR}/fwdsp.bin
 
@@ -23,9 +28,11 @@ CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
 CFLAGS_WARN := -Wall -Wno-unused -pedantic # -Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
-CFLAGS += -I./inc -I${BUILD_DIR} -I${BUILD_DIR}/include $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags")) -I./inc/
+CFLAGS += -I${BUILD_DIR} -I${BUILD_DIR}/include 
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
-
+CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
+#CFLAGS += -DUSE_EEPROM
 ifneq (x${DEBUG_PROTO},x)
 CFLAGS += -DDEBUG_PROTO
 endif
@@ -111,13 +118,12 @@ fw_objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
 fw_objs += cat.yaesu.o		# Yaesu CAT protocol
 fw_objs += channels.o		# Channel Memories
 fw_objs += console.o		# Console support
-#fw_objs += config.o
 fw_objs += database.o		# sqlite3 database stuff
 fw_objs += dds.o		# API for Direct Digital Synthesizers
 fw_objs += dds.ad9833.o		# AD9833 DDS
 fw_objs += dds.ad9959_stm32.o	# STM32 (AT command) ad9851 DDS
 fw_objs += dds.si5351.o		# Si5351 synthesizer
-fw_objs += eeprom.o		# "EEPROM" configuration storage
+#fw_objs += eeprom.o		# "EEPROM" configuration storage
 fw_objs += faults.o		# Fault management/alerting
 fw_objs += filters.o		# Control of input/output filters
 fw_objs += gpio.o		# GPIO controls
@@ -137,7 +143,7 @@ fw_objs += io.serial.o		# Serial port stuff
 fw_objs += io.socket.o		# Socket operations
 fw_objs += main.o			# main loop
 comm_objs += mongoose.o		# Mongoose http/websocket/mqtt library
-fw_objs += mqtt.o			# Support for MQTT via mongoose
+#fw_objs += mqtt.o			# Support for MQTT via mongoose
 fw_objs += network.o		# Network control
 
 ifeq (${USE_SQLITE},true)
@@ -202,50 +208,53 @@ extra_clean += $(wildcard ${BUILD_DIR}/*.h)
 extra_build += ${EEPROM_FILE}
 extra_clean += ${EEPROM_FILE}
 
-world: ${extra_build} ${bins}
+world: ${BUILD_DIR}/obj/firmware/.stamp ${extra_build} ${bins}
 
 ${bins}: ${CF}
 
-BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard inc/rustrig/*.h) $(wildcard ${BUILD_DIR}/*.h)
-${OBJ_DIR}/firmware/%.o: rrserver/%.c ${BUILD_HEADERS}
+#BUILD_HEADERS=${BUILD_DIR}/build_config.h
+BUILD_HEADERS += $(wildcard inc/rustrig/*.h) $(wildcard ${BUILD_DIR}/*.h)
+#BUILD_HEADERS += ${BUILD_DIR}/eeprom_layout.h
+
+${OBJ_DIR}/firmware/%.o: src/rrserver/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/comm/%.o: common/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/comm/%.o: src/common/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] shared $@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 # fwdsp
-${OBJ_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/fwdsp/%.o: src/fwdsp/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 
-${OBJ_DIR}/fwdsp/config.o: common/config.c ${BUILD_HEADERS}
+${OBJ_DIR}/fwdsp/config.o: src/common/config.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] fwdsp:$@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/firmware/config.o: common/config.c ${BUILD_HEADERS}
+${OBJ_DIR}/firmware/config.o: src/common/config.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] server:$@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/fwdsp/logger.o: common/logger.c ${BUILD_HEADERS}
+${OBJ_DIR}/fwdsp/logger.o: src/common/logger.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] fwdsp:$@ from $<"
 	@${RM} -f $@
 	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/firmware/logger.o: common/logger.c ${BUILD_HEADERS}
+${OBJ_DIR}/firmware/logger.o: src/common/logger.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] server:$@ from $<"
 	@${RM} -f $@
@@ -278,9 +287,12 @@ strip: ${fw_bin} ${fwdsp_bin}
 	@strip $^
 	@ls -a1ls $^
 
-${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildcard res/*.json) buildconf.pl
-	@echo "[buildconf]"
-	set -e; ./buildconf.pl ${PROFILE}
+${BUILD_DIR}/build_config.h: ${EEPROM_FILE}
+${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
+
+pack-eeprom: pack-eeprom.pl ${EEPROM_FILE}
+	@echo "[pack-eeprom]" 
+	set -e; ./pack-eeprom.pl ${PROFILE}
 
 ##################
 # Source Cleanup #
@@ -288,19 +300,18 @@ ${BUILD_DIR}/build_config.h ${EEPROM_FILE} buildconf: ${CF} ${CHANNELS} $(wildca
 clean:
 	@echo "[clean]"
 	${RM} ${bins} ${real_fwdsp_objs} ${real_fw_objs} ${extra_clean} ${real_comm_objs}
-	${MAKE} -C gtk-client $@
+	${MAKE} -C src/gtk-client $@
 
 distclean: clean
 	@echo "[distclean]"
 	${RM} -r build
 	${RM} -f config/archive/*.json *.log state/*
-	${MAKE} -C gtk-client $@
+	${MAKE} -C src/gtk-client $@
 
 install:
-#	@echo "Automatic DFU installation isn't supported yet... Please see doc/INSTALLING.txt for more info"
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av ${bins}  ${INSTALL_DIR}/bin
-	@${MAKE} -C gtk-client install
+	@${MAKE} -C src/gtk-client install
 #	cp -av archive-config.sh *-rigctld.sh fwdsp-test.sh killall.sh rrclient.sh test-run.sh ${INSTALL_DIR}/bin
 #	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
  
@@ -308,26 +319,18 @@ install:
 # Running on host #
 ###################
 ifeq (${PLATFORM},posix)
-# Run debugger
 run: ${MASTER_DB} ${EEPROM_FILE} ${fw_bin}
-#	@echo "[run] ${fwdsp_bin} & ${fw_bin}"
-#	${fwdsp_bin} &
 #	${fw_bin}
-	@echo "*** Running test script at test-run.sh ***"
 	./test-run.sh
 
 gdb debug: ${fw_bin} ${EEPROM_FILE}
 	@echo "[gdb] ${fw_bin}"
-#	@gdb ${fw_bin} -ex 'run'
-	./test-run.sh gdb
+	@gdb ${fw_bin} -ex 'run'
+	@./killall.sh
 
 test: clean world run
-endif
 
-#########################
-# Rebuild a clean image #
-#########################
-rebuild clean-build cleanbuild: distclean buildconf world
+endif
 
 #################
 # Configuration #
@@ -378,9 +381,11 @@ dump-ptt:
 dump-log:
 	echo -e ".headers on\nselect * from audit_log;" | sqlite3 ${MASTER_DB}
 
-build/client/rrclient: build/client/build_config.h
-	${MAKE} -C gtk-client
+build/client/rrclient:
+	${MAKE} -C src/gtk-client
 
-
-build/client/build_config.h:
-	./buildconf.pl client
+${BUILD_DIR}/obj/firmware/.stamp:
+	mkdir -p "${BUILD_DIR}/obj/firmware"
+	mkdir -p "${BUILD_DIR}/obj/fwdsp"
+	mkdir -p "${BUILD_DIR}/obj/comm"
+	touch $@

@@ -3,7 +3,7 @@ SHELL = bash
 all: world
 
 PROFILE ?= client
-BUILD_DIR := ../build/${PROFILE}
+BUILD_DIR := ../../build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
 bin := ${BUILD_DIR}/rrclient
 INSTALL_DIR := /usr/local
@@ -11,7 +11,7 @@ CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .v
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
-CFLAGS += -I../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
+CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
 LDFLAGS +=
 LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
@@ -93,7 +93,7 @@ ${OBJ_DIR}/%.o: ../common/%.c ${BUILD_HEADERS}
 	@echo "[compile] shared $@ from $<"
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/mongoose.o: ../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
+${OBJ_DIR}/mongoose.o: ../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@echo "[compile] mongoose from $<"
@@ -105,7 +105,7 @@ ${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
 	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
-${bin}: ${real_objs} ../ext/libmongoose/mongoose.c
+${bin}: ${real_objs} ../../ext/libmongoose/mongoose.c
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
@@ -127,7 +127,6 @@ clean:
 distclean: clean
 	@echo "[distclean]"
 	${RM} -r build
-	${RM} -f config/archive/*.json *.log
 
 ################
 # Host Install #
@@ -142,7 +141,7 @@ install:
 # Run debugger
 run: ${bin}
 	@echo "[run] ${bin}"
-	@(cd ..; ./rrclient.sh)
+	@(cd ../..; ./rrclient.sh)
 
 gdb debug: ${bin}
 	@echo "[gdb] ${bin}"
@@ -155,7 +154,7 @@ test: clean world run
 #########################
 rebuild clean-build cleanbuild: distclean world
 
-../ext/libmongoose/mongoose.c:
+../../ext/libmongoose/mongoose.c:
 	@echo "You forgot to git submodule init; git submodule update. Doing it for you!"
 	git submodule init
 	git submodule update

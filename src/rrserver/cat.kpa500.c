@@ -250,7 +250,15 @@ static int32_t rr_cat_kpa500_fwversion(struct AmpState *amp, char *args) {
 }
 
 static int32_t rr_cat_kpa500_serial(struct AmpState *amp, char *args) {
+#if	defined(USE_EEPROM)
    rr_cat_printf("^SN%05d", get_serial_number());
+#else
+   const char *s = cfg_get("device.serial");
+   if (s) {
+      int serial = atoi(s);
+      rr_cat_printf("^SN%05d", serial);
+   }
+#endif
    return 0;
 }
 

@@ -26,7 +26,7 @@
 #include "rustyrig/eeprom.h"
 #include "rustyrig/network.h"
 #include "common/logger.h"
-
+#define	HOST_POSIX
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>
 #include <ifaddrs.h>
@@ -85,14 +85,45 @@ void show_network_info(void) {
       return;
    }
 
-   int bind_port = eeprom_get_int("net/http/port");
-   int tls_bind_port = eeprom_get_int("net/http/tls_port");
+   const char *s = cfg_get("net.http.port");
+   int bind_port = 0;
+   if (s) {
+      bind_port = atoi(s);
+#if	defined(USE_EEPROM)
+   } else {
+      eeprom_get_int("net/http/port");
+#endif
+   }
+   int tls_bind_port = 0;
+   s = cfg_get("net.http.tls_port");
+   if (s) {
+      tls_bind_port = atoi(s);
+#if	defined(USE_EEPROM)
+   } else {
+      eeprom_get_int("net/http/tls_port");
+#endif
+   }
 
 #if	!defined(HOST_POSIX)
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;
-   int vlan = eeprom_get_int("net/vlan");
-   int mtu = eeprom_get_int("net/mtu");
+   int vlan = 0;
+   s = cfg_get("net.vlan");
+   if (s) {
+      vlan = atoi(s);
+   }
 
+   if (!s || (vlan < 0 || vlan > 4095)) {
+      eeprom_get_int("net/vlan");
+   }
+
+   int mtu = 0;
+   s = cfg_get("net.mtu");
+   if (s) {
+      mtu = atoi(s);
+   }
+   if (mtu < 500 || mtu > 10000) {
+      eeprom_get_int("net/mtu");
+   }
    eeprom_get_ip4("net/ip", &sa_ip);
    eeprom_get_ip4("net/mask", &sa_mask);
    eeprom_get_ip4("net/gw", &sa_gw);
@@ -114,7 +145,13 @@ void show_network_info(void) {
    Log(LOG_INFO, "net", "Name Servers: %s, %s", s_dns1, s_dns2);
 #else
    // print what addresses our bind will apply to
-   const char *listenaddr = eeprom_get_str("net/bind");
+   const char *listenaddr = cfg_get("net.http.bind");
+
+#if	defined(USE_EEPROM)
+   if (!listenaddr) {
+      *listenaddr = eeprom_get_str("net/http/bind");
+   }
+#endif
 
    if (listenaddr) {
       Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port, tls_bind_port);
@@ -122,4 +159,3 @@ void show_network_info(void) {
    }
 #endif
 }
-

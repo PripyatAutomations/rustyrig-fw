@@ -1,4 +1,4 @@
-
+--- Needs updated as of 25-06-13 ---
 amp.c					Amplifier controls (NYI)
 atu.c					Auto-tuning support (NYI)
 au.alsa.c				ALSA audio backend (untested codegpt muck)

@@ -453,8 +453,18 @@ bool http_init(struct mg_mgr *mgr) {
       return true;
    }
 
-   const char *cfg_www_root = eeprom_get_str("net/http/www_root");
-   const char *cfg_404_path = eeprom_get_str("net/http/404_path");
+
+   const char *cfg_www_root = cfg_get("net.http.www_root");
+   const char *cfg_404_path = cfg_get("net.http.404_path");
+
+#if	defined(USE_EEPROM)
+   if (!cfg_www_root) {
+      cfg_www_root = eeprom_get_str("net/http/www_root");
+   }
+   if (!cfg_404_path) {
+      cfg_404_path = eeprom_get_str("net/http/404_path");
+   }
+#endif
 
 #if	0 // XXX: fix this
    // store firmware version in www_fw_ver
@@ -485,8 +495,21 @@ bool http_init(struct mg_mgr *mgr) {
 
    struct in_addr sa_bind;
    char listen_addr[255];
-   int bind_port = eeprom_get_int("net/http/port");
-   eeprom_get_ip4("net/http/bind", &sa_bind);
+   int bind_port = 0;
+   const char *s = cfg_get("net.http.port");
+   if (s) {
+      bind_port = atoi(s);
+#if	defined(USE_EEPROM)
+   } else {
+      bind_port = eeprom_get_int("net/http/port");
+#endif
+   }
+   s = cfg_get("net.http.bind");
+   if (!s || !inet_aton(s, &sa_bind)) {
+#if	defined(USE_EEPROM)
+      eeprom_get_ip4("net/http/bind", &sa_bind);
+#endif
+   }
    prepare_msg(listen_addr, sizeof(listen_addr), "http://%s:%d", inet_ntoa(sa_bind), bind_port);
 
    if (mg_http_listen(mgr, listen_addr, http_cb, NULL) == NULL) {
@@ -497,7 +520,15 @@ bool http_init(struct mg_mgr *mgr) {
    Log(LOG_INFO, "http", "HTTP listening at %s with www-root at %s", listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
 
 #if	defined(HTTP_USE_TLS)
-   int tls_bind_port = eeprom_get_int("net/http/tls_port");
+   int tls_bind_port = 0;
+   s = cfg_get("net.http.tls_port");
+   if (s) {
+      tls_bind_port = atoi(s);
+#if	defined(USE_EEPROM)
+   } else {
+      tls_bind_port = eeprom_get_int("net/http/tls_port");
+#endif
+   }
    char tls_listen_addr[255];
    prepare_msg(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_bind), tls_bind_port);
 

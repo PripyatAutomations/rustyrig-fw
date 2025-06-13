@@ -30,7 +30,7 @@
 
 // Tell atu_tables we want the data (we are the tuner code)
 #define	ANT_TUNER
-#include "atu_tables.h"
+//#include "atu_tables.h"
 
 // Extract the memories from eeprom and optionally json file on posix
 bool rr_atu_load_memories(int unit) {
