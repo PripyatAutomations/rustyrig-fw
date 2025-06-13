@@ -3,19 +3,8 @@ Common to both server and client
 git clone http --depth=1 --recurse-submodules git@github.com:PripyatAutomations/rustyrig-fw.git
 cd rustyrig-fw
 sudo ./install-deps.sh
-
-Client build
----------------
-	cd gtk-client
-	make
-
-If no errors: Change as you feel appropriate
-	sudo cp ../build/client/rrclient /usr/local/bin
-	cp doc/rrclient.cfg.example ~/.config/rrclient.cfg
-	Edit ~/.config/rrclient.cfg
-
-Run it:
-	rrclient
+make
+make install
 
 Server setup below
 -------------------------------------
@@ -24,7 +13,8 @@ This code is a bit of a mess. Right now I'm focused on getting it functional
 then we'll go through and rewrite/cleanup each file.
 
 I've made this mess in essentially a few weeks^Wmonths of spare time.
-Keep that in mind before exposing it to the internet. Probably wise to use a VPN for now.
+Keep that in mind before exposing it to the internet.
+Probably wise to use a VPN for now.
 
 Mongoose httpd is well maintained and tested, but my code presently is not.
 
