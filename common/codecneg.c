@@ -29,7 +29,6 @@
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "common/codecneg.h"
-//#include "rrclient/ws.h"
 
 ///////////////////////
 // Codec Negotiation //
@@ -74,16 +73,30 @@ void audio_tx_free_frame(void) {
 }
 
 #endif
+au_codec_mapping_t *au_codec_find_by_magic(const char *magic) {
+   au_codec_mapping_t *rp = au_codecs;
+   int codec_count = 0;
 
-int au_codec_by_id(enum au_codec id) {
+   while (rp) {
+      if (strncasecmp(rp->magic, magic, 4) == 0) {
+         Log(LOG_DEBUG, "codecneg", "found codec at <%x> for magic '%s'", rp, magic);
+         return rp;
+      }
+   }
+
+   Log(LOG_WARN, "codecneg", "codec magic '%s' not found", magic);
+   return NULL;
+}
+
+au_codec_mapping_t *au_codec_by_id(enum au_codec id) {
    int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
    for (int i = 0; i < codec_entries; i++) {
       if (au_codecs[i].id == id) {
          Log(LOG_DEBUG, "ws.audio", "Got index %i", i);
-         return i;
+         return &au_codecs[i];
       }
    }
-   return -1;
+   return NULL;
 }
 
 const char *au_codec_get_magic(int id) {

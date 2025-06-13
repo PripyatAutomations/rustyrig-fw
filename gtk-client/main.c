@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 
    if (realpath) {
       config_file = strdup(realpath);
-      if (cfg_load(realpath)) {
+      if (!(cfg = cfg_load(realpath))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", realpath);
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);

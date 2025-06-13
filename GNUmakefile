@@ -207,7 +207,7 @@ world: ${extra_build} ${bins}
 ${bins}: ${CF}
 
 BUILD_HEADERS=${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_layout.h $(wildcard inc/rustrig/*.h) $(wildcard ${BUILD_DIR}/*.h)
-${OBJ_DIR}/firmware/%.o: %.c ${BUILD_HEADERS}
+${OBJ_DIR}/firmware/%.o: rrserver/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
@@ -258,7 +258,7 @@ ${OBJ_DIR}/comm/mongoose.o: ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
-${fw_bin}: ${real_fw_objs} ${real_comm_objs} ext/libmongoose/mongoose.c config/http.users ${fw_src}
+${fw_bin}: ${real_fw_objs} ${real_comm_objs}
 	@echo "[Link] firmware ($@) from $(words ${real_fw_objs}) object files..."
 	${CC} -o $@ ${real_fw_objs} ${real_comm_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
@@ -266,7 +266,7 @@ ${fw_bin}: ${real_fw_objs} ${real_comm_objs} ext/libmongoose/mongoose.c config/h
 	@size $@
 
 # Binary also depends on the .stamp file
-${fwdsp_bin}: ${real_fwdsp_objs} ${real_comm_objs} ext/libmongoose/mongoose.c ${fwdsp_src}
+${fwdsp_bin}: ${real_fwdsp_objs} ${real_comm_objs}
 	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
 	${CC} -o $@ ${real_fwdsp_objs} ${real_comm_objs} ${LDFLAGS} ${FWDSP_LDFLAGS}
 	@ls -a1ls $@
@@ -366,7 +366,7 @@ ext/libmongoose/mongoose.c:
 
 config/http.users:
 	@echo "*** You do not have a config/http.users so i've copied the default file from doc/"
-	cp doc/http.users.example config/http.users
+	cp -i doc/http.users.example config/http.users
 
 ${MASTER_DB}:
 	mkdir -p $(shell dirname "${MASTER_DB}")

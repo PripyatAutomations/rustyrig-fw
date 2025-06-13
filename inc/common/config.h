@@ -26,7 +26,7 @@ extern dict *pipelines;			// fwdsp/rrclient pipelines
 // Functions
 extern bool cfg_set_default(char *key, char *val);
 extern bool cfg_set_defaults(defconfig_t *defaults);
-extern bool cfg_load(const char *path);
+extern dict *cfg_load(const char *path);
 extern const char *cfg_get(char *key);
 extern const char *cfg_get_real(dict *c, char *key);
 extern dict *dict_merge_new(dict *a, dict *b);

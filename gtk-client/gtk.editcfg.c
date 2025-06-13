@@ -1,7 +1,8 @@
 #include <gtk/gtk.h>
+#include "common/dict.h"
 #include "common/logger.h"
 
-extern bool cfg_load(const char *path);
+extern dict *cfg_load(const char *path);
 
 GtkWidget *cfgedit_window = NULL;
 

@@ -107,12 +107,12 @@ writing some code. PR can be submitted via github
 --------------
 
 Some quick notes about getting started:
- * archive-config.sh	Backup configs to config/archive/
+ * doc/archive-config.sh Backup configs to config/archive/
  * build.sh		Forces a clean build
  * dummy-rigctld.sh	hamlib dummy backend (not very useful)
  * ft891-rigctld.sh	ft-891 rigctld startup
  * fwdsp-test.sh	Used to start up fwdsp instances
  * install-deps.sh	Install needed packages for building/running on host
  * killall.sh		Stops all services
- * pipewire-test.sh
+ * pipewire-test.sh	Test spawning pipewire outside X
  * test-run.sh		Starts everything up

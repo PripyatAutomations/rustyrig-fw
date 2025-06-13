@@ -40,5 +40,11 @@ struct audio_settings {
     bool		active;				// Is the stream active?
 };
 typedef struct audio_settings audio_settings_t;
-
+extern uint32_t au_codec_get_samplerate(int id);
+extern int au_codec_get_id(const char *magic);
+extern const char *au_codec_get_magic(int id);
+extern au_codec_mapping_t *au_codec_by_id(enum au_codec id);
+extern au_codec_mapping_t *au_codec_find_by_magic(const char *magic);
+extern void audio_tx_free_frame(void);
+extern audio_settings_t	au_rx_config, au_tx_config;
 #endif	// !defined(__common_codecneg_h)

@@ -18,8 +18,6 @@ dict *default_cfg = NULL;
 // Holds a list of servers where applicable (client and fwdsp)
 dict *servers = NULL;
 
-// Used for fwdsp
-dict *pipelines = NULL;
 int dict_merge(dict *dst, dict *src) {
    if (!dst || !src) {
       return -1;
@@ -123,7 +121,7 @@ bool cfg_init(defconfig_t *defaults) {
    return cfg_set_defaults(defaults);
 }
 
-bool cfg_load(const char *path) {
+dict *cfg_load(const char *path) {
    int line = 0, errors = 0;
    char buf[768];
    char *end, *skip,
@@ -134,24 +132,20 @@ bool cfg_load(const char *path) {
 
    if (!file_exists(path)) {
       fprintf(stderr, "Can't find config file %s\n", path);
-      return true;
+      return NULL;
    }
 
-   if (cfg || servers) {
-      Log(LOG_CRIT, "config", "Config already loaded");
-      return true;
-   }
-
-   Log(LOG_CRIT, "config", "Enter cfg_load");
-   if (!cfg) {
-      cfg = dict_new();
-      Log(LOG_CRIT, "config", "cfg_load created dict cfg");
+   dict *newcfg = dict_new();
+   if (!newcfg) {
+      Log(LOG_CRIT, "config", "cfg_load OOM creating dict");
+      exit(1);
    }
 
    FILE *fp = fopen(path, "r");
    if (!fp) {
+      free(newcfg);
       fprintf(stderr, "Failed to open config %s: %d:%s\n", path, errno, strerror(errno));
-      return true;
+      return NULL;
    }
 
    // rewind configuration file
@@ -243,7 +237,7 @@ bool cfg_load(const char *path) {
 
          // Store value
          Log(LOG_DEBUG, "config", "Set key: %s => %s", key, val);
-         dict_add(cfg, key, val);
+         dict_add(newcfg, key, val);
       } else if (strncasecmp(this_section, "pipelines", 9) == 0) {
          // Parse configuration line (XXX: GET RID OF STRTOK!)
          key = NULL;
@@ -266,8 +260,11 @@ bool cfg_load(const char *path) {
          }
 
          // Store value
-         Log(LOG_DEBUG, "config", "Add pipeline %s => %s", key, val);
-         dict_add(pipelines, key, val);
+         char fullkey[256];
+         memset(fullkey, 0, sizeof(fullkey));
+         snprintf(fullkey, sizeof(fullkey), "%s%s", this_section, key);
+         Log(LOG_DEBUG, "config", "Add pipeline %s => %s", fullkey, val);
+         dict_add(newcfg, fullkey, val);
       } else if (strncasecmp(this_section, "server:", 7) == 0) {
          key = NULL;
          val = NULL;
@@ -300,7 +297,7 @@ bool cfg_load(const char *path) {
    } else {
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
    }
-   return false;
+   return newcfg;
 }
 
 const char *cfg_get_real(dict *c, char *key) {
@@ -322,7 +319,7 @@ const char *cfg_get_real(dict *c, char *key) {
    } else {
       Log(LOG_CRAZY, "config", "returning user value '%s' for key '%s", p, key);
    }
-#if	1
+#if	0
    fprintf(stdout, "-----\n");
    dict_dump(c, stdout);
    fprintf(stdout, "-----\n");
