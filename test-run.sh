@@ -1,10 +1,10 @@
 #!/bin/bash
 [ -z "$PROFILE" ] && PROFILE=radio
 
-[ ! -f build/${PROFILE}/firmware.bin ] && ./build.sh
+[ ! -f build/${PROFILE}/rrserver ] && ./build.sh
 
-[ ! -z "$(pidof firmware.bin)" ] && killall -9 firmware.bin
-[ ! -z "$(pidof fwdsp.bin)" ] && killall -9 fwdsp.bin
+[ ! -z "$(pidof rrserver)" ] && killall -9 rrserver
+[ ! -z "$(pidof fwdsp)" ] && killall -9 fwdsp
 
 # If user has rigctld running, try to use it instead...
 if [ -z "$(pidof rigctld)" ]; then
@@ -13,12 +13,12 @@ if [ -z "$(pidof rigctld)" ]; then
 fi
 
 # Start up fwdsp
-./build/${PROFILE}/fwdsp.bin -f config/rrserver.cfg -c mu16 -t &
+./build/${PROFILE}/fwdsp -f config/rrserver.cfg -c mu16 -t &
 
 if [ "$1" == "gdb" ]; then
-   gdb ./build/${PROFILE}/firmware.bin -ex 'run'
+   gdb ./build/${PROFILE}/rrserver -ex 'run'
 else
-   ./build/${PROFILE}/firmware.bin
+   ./build/${PROFILE}/rrserver
 fi
 
 # Kill firmware and fwdsp instances

@@ -403,18 +403,29 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
 
+static guint configure_event_timeout = 0;
+static int last_x = -1, last_y = -1, last_w = -1, last_h = -1;
+
+static gboolean on_configure_timeout(gpointer data) {
+   Log(LOG_DEBUG, "gtk-ui", "Window moved/resized: x=%d y=%d width=%d height=%d", last_x, last_y, last_w, last_h);
+   configure_event_timeout = 0;
+   return G_SOURCE_REMOVE;
+}
 
 gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
    if (event->type == GDK_CONFIGURE) {
       GdkEventConfigure *e = (GdkEventConfigure *)event;
 
-      int x = e->x;
-      int y = e->y;
-      int width = e->width;
-      int height = e->height;
+      last_x = e->x;
+      last_y = e->y;
+      last_w = e->width;
+      last_h = e->height;
 
-      // Save to config file, GSettings, or global struct
-      Log(LOG_DEBUG, "gtk-ui", "Window moved/resized: x=%d y=%d width=%d height=%d", x, y, width, height);
+      // Restart timeout (debounce)
+      if (configure_event_timeout != 0) {
+         g_source_remove(configure_event_timeout);
+      }
+      configure_event_timeout = g_timeout_add(300, on_configure_timeout, NULL);
    }
 
    return FALSE; // propagate

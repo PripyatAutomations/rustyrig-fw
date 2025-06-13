@@ -21,10 +21,13 @@ enum au_codec {
 };
 
 typedef struct au_codec_mapping {
-   enum au_codec	id;
-   const char		*magic;
-   int			sample_rate;		// -1 if variable or set later
-   char                 *pipeline;		// contains  *must* be freed
+   enum au_codec  id;
+   const char     *magic;
+   int            sample_rate;    // -1 if variable
+   char           *pipeline;      // optional user-configured pipeline
+   int            refcount;       // how many clients are using this
+   pid_t          pid;            // optional: encoder/decoder process PID
+   int            running;        // flag: pipeline started
 } au_codec_mapping_t;
 
 struct ws_frame {

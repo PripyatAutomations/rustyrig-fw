@@ -136,7 +136,8 @@ function ws_connect() {
 
 function handle_binary_frame(event) {
       if (event.data instanceof ArrayBuffer) {
-         playAudioPacket(event.data, audio_codec);
+//         playAudioPacket(event.data, audio_codec);
+         playAudioPacket(event.data, "mu16");
       } else {
          console.log("Invalid binary frame (not ArrayBuffer)");
       }

@@ -14,8 +14,8 @@ OBJ_DIR := ${BUILD_DIR}/obj
 INSTALL_DIR = /usr/local
 CONF_DIR := /etc/rustyrig
 
-fw_bin := ${BUILD_DIR}/firmware.bin
-fwdsp_bin := ${BUILD_DIR}/fwdsp.bin
+fw_bin := ${BUILD_DIR}/rrserver
+fwdsp_bin := ${BUILD_DIR}/fwdsp
 
 bins += ${fw_bin} ${fwdsp_bin}
 
@@ -300,18 +300,18 @@ pack-eeprom: pack-eeprom.pl ${EEPROM_FILE}
 clean:
 	@echo "[clean]"
 	${RM} ${bins} ${real_fwdsp_objs} ${real_fw_objs} ${extra_clean} ${real_comm_objs}
-	${MAKE} -C src/gtk-client $@
+	${MAKE} -C src/rrclient $@
 
 distclean: clean
 	@echo "[distclean]"
 	${RM} -r build
 	${RM} -f config/archive/*.json *.log state/*
-	${MAKE} -C src/gtk-client $@
+	${MAKE} -C src/rrclient $@
 
 install:
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av ${bins}  ${INSTALL_DIR}/bin
-	@${MAKE} -C src/gtk-client install
+	@${MAKE} -C src/rrclient install
 #	cp -av archive-config.sh *-rigctld.sh fwdsp-test.sh killall.sh rrclient.sh test-run.sh ${INSTALL_DIR}/bin
 #	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
  
@@ -382,7 +382,7 @@ dump-log:
 	echo -e ".headers on\nselect * from audit_log;" | sqlite3 ${MASTER_DB}
 
 build/client/rrclient:
-	${MAKE} -C src/gtk-client
+	${MAKE} -C src/rrclient
 
 ${BUILD_DIR}/obj/firmware/.stamp:
 	mkdir -p "${BUILD_DIR}/obj/firmware"

@@ -1,6 +1,6 @@
 if (!window.webui_inits) window.webui_inits = [];
 
-var audio_codec = "mulaw";		// This is our default but we plan to support others via json message to switch soon
+var audio_codec = "mu16";		// This is our default but we plan to support others via json message to switch soon
 var audio_rate = 16000;			// default for mulaw
 
 // RX context
@@ -51,6 +51,17 @@ function flushPlayback() {
    rxTime += silence.length / sampleRate;
 }
 
+function decodeMulawToFloat32(buffer) {
+   const mulaw = new Uint8Array(buffer);
+   const float32 = new Float32Array(mulaw.length);
+
+   for (let i = 0; i < mulaw.length; i++) {
+      float32[i] = mulawDecode8(mulaw[i]) / 32768; // Normalize to [-1, 1]
+   }
+
+   return float32;
+}
+
 function mulawDecode8(u_val) {
    const MULAW_MAX = 0x1FFF;
    const BIAS = 33;
@@ -63,41 +74,36 @@ function mulawDecode8(u_val) {
    return (u_val & 0x80) ? -t : t;
 }
 
-function decodeMulawToFloat32(buffer) {
-   const mulaw = new Uint8Array(buffer);
-   const float32 = new Float32Array(mulaw.length);
+function playAudioPacket(buffer, codec = 'mu16') {
+   let float32Data;
+   let sampleRate;
 
-   for (let i = 0; i < mulaw.length; i++) {
-      float32[i] = mulawDecode8(mulaw[i]) / 32768; // Normalize to [-1, 1]
+   switch (codec) {
+      case 'mu08':
+         float32Data = decodeMulawToFloat32(buffer);
+         sampleRate = 8000;
+         break;
+      case 'mu16':
+         float32Data = decodeMulawToFloat32(buffer);
+         sampleRate = 16000;
+         break;
+      case 'pc16':
+         float32Data = decodePCM16ToFloat32(buffer);
+         sampleRate = 16000;
+         break;
+      case 'pc44':
+         float32Data = decodePCM16ToFloat32(buffer);
+         sampleRate = 44100;
+         break;
+      default:
+         console.warn("Unknown codec:", codec);
+         return;
    }
 
-   return float32;
+   playFloat32Samples(float32Data, sampleRate);
 }
 
-function playMulawPCM(buffer) {
-   const float32Data = decodeMulawToFloat32(buffer);
-
-   const samplesPerPacket = float32Data.length;
-   const sampleRate = rxCtx.sampleRate;
-   const duration = samplesPerPacket / sampleRate;
-
-   const audioBuffer = rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
-   audioBuffer.copyToChannel(float32Data, 0);
-
-   const source = rxCtx.createBufferSource();
-   source.buffer = audioBuffer;
-   source.connect(rxGainNode);
-
-   const rxNow = rxCtx.currentTime;
-   if (rxTime < rxNow) rxTime = rxNow;
-
-   source.start(rxTime);
-   rxTime += duration;
-}
-
-
-// Support for playing back raw PCM audio
-function playRawPCM(buffer) {
+function decodePCM16ToFloat32(buffer) {
    const pcmData = new Int16Array(buffer);
    const float32Data = new Float32Array(pcmData.length);
 
@@ -105,8 +111,11 @@ function playRawPCM(buffer) {
       float32Data[i] = pcmData[i] / 32768;
    }
 
+   return float32Data;
+}
+
+function playFloat32Samples(float32Data, sampleRate) {
    const samplesPerPacket = float32Data.length;
-   const sampleRate = rxCtx.sampleRate;
    const duration = samplesPerPacket / sampleRate;
 
    const audioBuffer = rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
@@ -116,7 +125,6 @@ function playRawPCM(buffer) {
    source.buffer = audioBuffer;
    source.connect(rxGainNode);
 
-   // Schedule the audio to play in sequence
    const rxNow = rxCtx.currentTime;
    if (rxTime < rxNow) {
       rxTime = rxNow;
@@ -124,15 +132,6 @@ function playRawPCM(buffer) {
 
    source.start(rxTime);
    rxTime += duration;
-}
-
-function playAudioPacket(buffer, codec = 'pcm') {
-   console.log("codec: ", codec);
-   if (codec === 'mulaw') {
-      playMulawPCM(buffer);
-   } else {
-      playRawPCM(buffer);
-   }
 }
 
 //$('#rig-rx-vol').on('input', function () {

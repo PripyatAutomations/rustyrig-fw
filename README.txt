@@ -72,7 +72,7 @@ Running
 	make run
 
 If compiling gives an error such as:
-	make: *** No rule to make target 'build/radio/obj/amp.o', needed by 'build/radio/firmware.bin'.  Stop.
+	make: *** No rule to make target 'build/radio/obj/amp.o', needed by 'build/radio/rrserver'.  Stop.
 Just try re-running 'make'!
 
 Status

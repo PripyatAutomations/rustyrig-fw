@@ -33,7 +33,6 @@
 ///////////////////////
 // Codec Negotiation //
 ///////////////////////
-
 static au_codec_mapping_t	au_codecs[] = {
     // Codec ID			// Magic	// Sample Rate	// Pipeline
     { AU_CODEC_PCM16,		"PC16",		16000,		 NULL },
@@ -46,33 +45,6 @@ static au_codec_mapping_t	au_codecs[] = {
 };
 audio_settings_t	au_rx_config, au_tx_config;
 
-#if	0
-// This is very ugly and could definitely use a rewrite. The TX path needs to move into ws.tx-audio.c
-static void audio_tx_enqueue_frame(uint8_t *data, size_t len) {
-  struct ws_frame *f = malloc(sizeof(*f));
-  f->data = data;
-  f->len = len;
-  f->next = NULL;
-
-  if (!send_queue) {
-     send_queue = f;
-  } else {
-    struct ws_frame *last = send_queue;
-    while (last->next) last = last->next;
-    last->next = f;
-  }
-}
-
-void audio_tx_free_frame(void) {
-  if (send_queue) {
-    free(send_queue->data);
-    struct ws_frame *tmp = send_queue;
-    send_queue = send_queue->next;
-    free(tmp);
-  }
-}
-
-#endif
 au_codec_mapping_t *au_codec_find_by_magic(const char *magic) {
    au_codec_mapping_t *rp = au_codecs;
    int codec_count = 0;
@@ -133,3 +105,59 @@ uint32_t au_codec_get_samplerate(int id) {
    
    return 0;
 }
+
+int au_codec_start(enum au_codec id) {
+   au_codec_mapping_t *c = au_codec_by_id(id);
+   if (!c) return -1;
+
+   if (c->refcount == 0) {
+      Log(LOG_INFO, "codec", "Starting pipeline for codec %s", c->magic);
+      // spawn process or set up encoder instance here
+      // e.g., c->pid = fork(); exec pipeline
+      // OR: open pipe/socket/etc
+      c->running = 1;
+   }
+   c->refcount++;
+   return 0;
+}
+
+int au_codec_stop(enum au_codec id) {
+   au_codec_mapping_t *c = au_codec_by_id(id);
+   if (!c || c->refcount == 0) return -1;
+
+   c->refcount--;
+   if (c->refcount == 0 && c->running) {
+      Log(LOG_INFO, "codec", "Stopping pipeline for codec %s", c->magic);
+      // kill encoder or close pipe/socket
+      // e.g., kill(c->pid, SIGTERM);
+      c->running = 0;
+   }
+   return 0;
+}
+
+#if	0
+// This is very ugly and could definitely use a rewrite. The TX path needs to move into ws.tx-audio.c
+static void audio_tx_enqueue_frame(uint8_t *data, size_t len) {
+  struct ws_frame *f = malloc(sizeof(*f));
+  f->data = data;
+  f->len = len;
+  f->next = NULL;
+
+  if (!send_queue) {
+     send_queue = f;
+  } else {
+    struct ws_frame *last = send_queue;
+    while (last->next) last = last->next;
+    last->next = f;
+  }
+}
+
+void audio_tx_free_frame(void) {
+  if (send_queue) {
+    free(send_queue->data);
+    struct ws_frame *tmp = send_queue;
+    send_queue = send_queue->next;
+    free(tmp);
+  }
+}
+#endif
