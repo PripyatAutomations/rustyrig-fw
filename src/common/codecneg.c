@@ -9,8 +9,9 @@
 //
 // Here we handle moving audio between the server and gstreamer
 //
-// This needs split out into ws.audio.c ws.tx-audio.c for the parts not-relevant to gstreamer.
-// We should keep TX and RX here to make sure things stay in sync
+// Here we manage negotiating codecs that are supported between both sides
+// and framing audio.
+//
 #include <stdint.h>
 #include <sys/socket.h>
 #include <sys/un.h>

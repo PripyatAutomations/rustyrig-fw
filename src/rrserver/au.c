@@ -33,6 +33,7 @@
 #include "rustyrig/eeprom.h"
 #include "rustyrig/cat.h"
 #include "common/posix.h"
+#include "common/codecneg.h"
 #include "rustyrig/au.h"
 #include "rustyrig/au.pipe.h"
 #include "rustyrig/ws.h"

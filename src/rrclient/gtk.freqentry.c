@@ -220,6 +220,23 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
             return TRUE;
          }
 
+         case GDK_KEY_Tab:
+         case GDK_KEY_ISO_Left_Tab:
+         {
+            Log(LOG_DEBUG, "gtk.freqentry", "On Key down: %s", (event->state & GDK_SHIFT_MASK) ? "LeftTab" : "Tab");
+            GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(entry));
+            GtkDirectionType direction = (event->state & GDK_SHIFT_MASK)
+               ? GTK_DIR_TAB_BACKWARD : GTK_DIR_TAB_FORWARD;
+
+            GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(fi));
+            if (parent) {
+               gtk_widget_child_focus(parent, direction);
+            } else {
+               Log(LOG_DEBUG, "gtk.freqentry", "On Key down: no parent widget");
+            }
+            return TRUE;
+         }
+
          default:
          {
             return FALSE;
@@ -254,6 +271,7 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
 static void gtk_freq_input_init(GtkFreqEntry *fi) {
    gtk_orientable_set_orientation(GTK_ORIENTABLE(fi), GTK_ORIENTATION_HORIZONTAL);
    fi->num_digits = MAX_DIGITS;
+   bool prev_updating = fi->updating;
    fi->updating = false;
 
    // Apply small font to buttons and entry
@@ -307,7 +325,7 @@ static void gtk_freq_input_init(GtkFreqEntry *fi) {
       g_signal_connect(fi->digits[i], "button-press-event", G_CALLBACK(on_freq_digit_button), fi);
    }
    pango_font_description_free(font);
-
+   fi->updating = prev_updating;
 }
 
 static void gtk_freq_input_class_init(GtkFreqEntryClass *class) {}

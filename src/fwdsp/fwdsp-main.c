@@ -224,12 +224,13 @@ static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level,
    g_printerr("GST %s: %s\n", gst_debug_level_get_name(level), gst_debug_message_get(message));
 }
 
+// XXX: Finish this
 static void send_format_header(int fd, struct audio_config *cfg) {
    struct audio_header hdr = {
-      .magic = {'A', 'U'},
+      .magic = {'M', 'U', '1', '6'},
 //      .sample_rate = (cfg->sample_rate == 44100) ? 1 : 0,
       .sample_rate = (cfg->sample_rate),
-      .format = (uint8_t)cfg->format,
+//      .format = (uint8_t)cfg->format,
       .channel_id = (uint8_t)cfg->channel_id
    };
    write(fd, &hdr, sizeof(hdr));

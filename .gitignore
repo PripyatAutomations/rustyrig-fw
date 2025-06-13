@@ -17,10 +17,6 @@ config/*.pem
 config/*.secret
 config/http.users
 
-# Default config moved to doc/example.config.json and doc/rrclient.cfg.example
-config/radio.config.json
-config/rrclient.cfg
-
 # Archived configs
 config/archive/*.json
 
