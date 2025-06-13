@@ -220,47 +220,47 @@ ${OBJ_DIR}/comm/%.o: common/%.c ${BUILD_HEADERS}
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 # fwdsp
-${OBJ_DIR}/fwdsp/%.o: %.c ${BUILD_HEADERS}
+${OBJ_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] $@ from $<"
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 
 ${OBJ_DIR}/fwdsp/config.o: common/config.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] fwdsp:$@ from $<"
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 ${OBJ_DIR}/firmware/config.o: common/config.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] server:$@ from $<"
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 ${OBJ_DIR}/fwdsp/logger.o: common/logger.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] fwdsp:$@ from $<"
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 ${OBJ_DIR}/firmware/logger.o: common/logger.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] server:$@ from $<"
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 ${OBJ_DIR}/comm/mongoose.o: ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@echo "[compile] mongoose from $<"
 	@${RM} -f $@
-	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
 ${fw_bin}: ${real_fw_objs} ${real_comm_objs}
 	@echo "[Link] firmware ($@) from $(words ${real_fw_objs}) object files..."
-	${CC} -o $@ ${real_fw_objs} ${real_comm_objs} ${LDFLAGS} || exit 1
+	@${CC} -o $@ ${real_fw_objs} ${real_comm_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
 	@file $@
 	@size $@

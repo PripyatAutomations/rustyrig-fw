@@ -37,11 +37,12 @@
 #include "common/logger.h"
 #include "common/posix.h"
 #include "common/util.file.h"
-
+#include "common/codecneg.h"
 const char *config_file = NULL;
 const char *config_codec = "PC16";
 bool codec_tx_mode = false;
 bool dying = false;
+bool empty_config;
 static GstElement *pipeline = NULL;
 time_t now = -1;                // time() called once a second in main loop to update
 
@@ -53,9 +54,9 @@ const char *configs[] = {
 };
 
 defconfig_t defcfg[] = {
-  { "audio.debug",	"false",	NULL },
-  { "log.level",	"debug",	NULL }, 
-  { "log.show-ts",	"false",	NULL },
+  { "audio.debug",	"false",	"gstreamer debug level" },
+  { "log.level",	"debug",	"main log level" }, 
+  { "log.show-ts",	"false",	"show timestamps in logs" },
   { "test.key",		" 1",		"Test key" },
   { NULL,		NULL,		NULL }
 };
@@ -270,6 +271,7 @@ int main(int argc, char *argv[]) {
       }
    }
 
+   // codec_mapping_t *au_codec_find_by_magic(magic);
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
 
