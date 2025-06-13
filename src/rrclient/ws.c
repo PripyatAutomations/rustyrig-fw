@@ -501,6 +501,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          exit(1);
       }
       ws_send_hello(c);
+      ws_send_capab(c);
       ws_send_login(c, login_user);
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;

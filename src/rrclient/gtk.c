@@ -425,9 +425,66 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       if (configure_event_timeout != 0) {
          g_source_remove(configure_event_timeout);
       }
+
+      if (widget == userlist_window) {
+         char m[128];
+         memset(m, 0, 128);
+         sprintf(m, "%d", e->x);
+         dict_add(cfg, "ui.userlist.x", m);
+
+         memset(m, 0, 128);
+         sprintf(m, "%d", e->y);
+         dict_add(cfg, "ui.userlist.y", m);
+
+         memset(m, 0, 128);
+         sprintf(m, "%d", e->width);
+         dict_add(cfg, "ui.userlist.width", m);
+
+         memset(m, 0, 128);
+         sprintf(m, "%d", e->height);
+         dict_add(cfg, "ui.userlist.height", m);
+      } else if (widget == main_window) {
+         char m[128];
+         memset(m, 0, 128);
+         sprintf(m, "%d", e->x);
+         dict_add(cfg, "ui.main.x", m);
+
+         memset(m, 0, 128);
+         sprintf(m, "%d", e->y);
+         dict_add(cfg, "ui.main.y", m);
+
+         memset(m, 0, 128);
+         sprintf(m, "%d", e->width);
+         dict_add(cfg, "ui.main.width", m);
+
+         memset(m, 0, 128);
+         sprintf(m, "%d", e->height);
+         dict_add(cfg, "ui.main.height", m);
+      }
       configure_event_timeout = g_timeout_add(300, on_configure_timeout, NULL);
    }
 
+#if	0
+bool place_window(GtkWidget *window) {
+   const char *cfg_height_s, *cfg_width_s;
+   const char *cfg_x_s, *cfg_y_s;
+
+   if (window == userlist_window) {
+      cfg_height_s = cfg_get("ui.userlist.height");
+      cfg_width_s = cfg_get("ui.userlist.width");
+      cfg_x_s = cfg_get("ui.userlist.x");
+      cfg_y_s = cfg_get("ui.userlist.y");
+   } else if (window == main_window) {
+      cfg_height_s = cfg_get("ui.main.height");
+      cfg_width_s = cfg_get("ui.main.width");
+      cfg_x_s = cfg_get("ui.main.x");
+      cfg_y_s = cfg_get("ui.main.y");
+   } else {
+      return true;
+   }
+   int cfg_height = 600, cfg_width = 800, cfg_x = 0, cfg_y = 0;
+
+#endif
    return FALSE; // propagate
 }
 

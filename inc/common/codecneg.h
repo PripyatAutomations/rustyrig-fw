@@ -66,4 +66,8 @@ extern au_codec_mapping_t *au_codec_find_by_magic(const char *magic);
 extern void audio_tx_free_frame(void);
 extern audio_settings_t	au_rx_config, au_tx_config;
 
+// New stuff
+extern char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs);
+extern au_codec_mapping_t      au_core_codecs[];
+
 #endif	// !defined(__common_codecneg_h)

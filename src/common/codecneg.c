@@ -34,7 +34,7 @@
 ///////////////////////
 // Codec Negotiation //
 ///////////////////////
-static au_codec_mapping_t	au_codecs[] = {
+au_codec_mapping_t	au_core_codecs[] = {
     // Codec ID			// Magic	// Sample Rate	// Pipeline
     { AU_CODEC_PCM16,		"PC16",		16000,		 NULL },
     { AU_CODEC_PCM44,		"PC44",		44100,		 NULL },
@@ -47,7 +47,7 @@ static au_codec_mapping_t	au_codecs[] = {
 audio_settings_t	au_rx_config, au_tx_config;
 
 au_codec_mapping_t *au_codec_find_by_magic(const char *magic) {
-   au_codec_mapping_t *rp = au_codecs;
+   au_codec_mapping_t *rp = au_core_codecs;
    int codec_count = 0;
 
    while (rp) {
@@ -62,45 +62,45 @@ au_codec_mapping_t *au_codec_find_by_magic(const char *magic) {
 }
 
 au_codec_mapping_t *au_codec_by_id(enum au_codec id) {
-   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+   int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
    for (int i = 0; i < codec_entries; i++) {
-      if (au_codecs[i].id == id) {
+      if (au_core_codecs[i].id == id) {
          Log(LOG_DEBUG, "ws.audio", "Got index %i", i);
-         return &au_codecs[i];
+         return &au_core_codecs[i];
       }
    }
    return NULL;
 }
 
 const char *au_codec_get_magic(int id) {
-   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+   int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
    for (int i = 0; i < codec_entries; i++) {
-      if (au_codecs[i].id == AU_CODEC_NONE && !au_codecs[i].magic) {
+      if (au_core_codecs[i].id == AU_CODEC_NONE && !au_core_codecs[i].magic) {
          break;
       }
-      if (au_codecs[i].id == id) {
-         return au_codecs[i].magic;
+      if (au_core_codecs[i].id == id) {
+         return au_core_codecs[i].magic;
       }
    }
    return NULL;
 }
 
 int au_codec_get_id(const char *magic) {
-   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+   int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
    for (int i = 0; i < codec_entries; i++) {
-      if (strcmp(au_codecs[i].magic, magic) == 0) {
-         return au_codecs[i].id;
+      if (strcmp(au_core_codecs[i].magic, magic) == 0) {
+         return au_core_codecs[i].id;
       }
    }
    return -1;
 }
 
 uint32_t au_codec_get_samplerate(int id) {
-   int codec_entries = sizeof(au_codecs) / sizeof(au_codec_mapping_t);
+   int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
 
    for (int i = 0; i < codec_entries; i++) {
-      if (au_codecs[i].id == id) {
-         return au_codecs[i].sample_rate;
+      if (au_core_codecs[i].id == id) {
+         return au_core_codecs[i].sample_rate;
       }
    }
    
@@ -162,3 +162,28 @@ void audio_tx_free_frame(void) {
   }
 }
 #endif
+
+char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
+   char msgbuf[1024];
+   size_t offset = 0;
+
+   offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset,
+                      "{ media { \"cmd\": \"capab\", \"payload\": \"");
+
+   for (int i = 0; codecs[i].magic != NULL; i++) {
+      if (offset + 5 >= sizeof(msgbuf)) {
+         Log(LOG_CRIT, "codecneg", "Ran out of space adding codec magic");
+         return NULL;
+      }
+      offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "%s ", codecs[i].magic);
+   }
+
+   // Remove trailing space and add closing
+   if (offset > 0 && msgbuf[offset - 1] == ' ')
+      offset--;
+
+   offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "\" } } }");
+
+   Log(LOG_DEBUG, "codecneg", "Returning capab string with %zu bytes: %s", offset, msgbuf);
+   return strdup(msgbuf);
+}

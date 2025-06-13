@@ -40,3 +40,12 @@ extern bool server_ptt_state;
 bool ws_audio_init(void) {
    return false;
 }
+
+bool ws_send_capab(struct mg_connection *c) {
+   char *capab_msg = codecneg_send_supported_codecs(au_core_codecs);
+
+   mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
+   Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
+   free(capab_msg);
+   return false;
+}
