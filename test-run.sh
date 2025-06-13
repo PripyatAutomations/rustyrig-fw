@@ -13,7 +13,9 @@ if [ -z "$(pidof rigctld)" ]; then
 fi
 
 # Start up fwdsp
-./build/${PROFILE}/fwdsp -f config/rrserver.cfg -c mu16 -t &
+./build/${PROFILE}/fwdsp -f config/fwdsp.cfg -c mu16 -t &
+
+sleep 2
 
 if [ "$1" == "gdb" ]; then
    gdb ./build/${PROFILE}/rrserver -ex 'run'
