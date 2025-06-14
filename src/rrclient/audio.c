@@ -26,10 +26,11 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
-#include "../ext/libmongoose/mongoose.h"
 #include "common/config.h"
-#include "common/fwdsp-shared.h"
+#include "../ext/libmongoose/mongoose.h"
+#include "common/codecneg.h"
 #include "common/logger.h"
+#include "common/fwdsp-shared.h"
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "rrclient/gtk-gui.h"
