@@ -35,14 +35,14 @@
 // Codec Negotiation //
 ///////////////////////
 au_codec_mapping_t	au_core_codecs[] = {
-    // Codec ID			// Magic	// Sample Rate	// Pipeline
-    { AU_CODEC_PCM16,		"PC16",		16000,		 NULL },
-    { AU_CODEC_PCM44,		"PC44",		44100,		 NULL },
-    { AU_CODEC_OPUS,		"OPUS",		48000,		 NULL },
-    { AU_CODEC_FLAC,		"FLAC",		44100,           NULL },
-    { AU_CODEC_MULAW8,		"MU08",		8000,		 NULL },
-    { AU_CODEC_MULAW16,		"MU16",		16000,		 NULL },
-    { AU_CODEC_NONE,		NULL,		0,               NULL }
+    // Codec ID			// Magic	// Sample Rate	// PipelineRx, PipelineTX
+    { AU_CODEC_PCM16,		"PC16",		16000,		 NULL,	NULL, 0, 0, false },
+    { AU_CODEC_PCM44,		"PC44",		44100,		 NULL,	NULL, 0, 0, false },
+    { AU_CODEC_OPUS,		"OPUS",		48000,		 NULL,	NULL, 0, 0, false },
+    { AU_CODEC_FLAC,		"FLAC",		44100,           NULL,	NULL, 0, 0, false },
+    { AU_CODEC_MULAW8,		"MU08",		8000,		 NULL,	NULL, 0, 0, false },
+    { AU_CODEC_MULAW16,		"MU16",		16000,		 NULL,	NULL, 0, 0, false },
+    { AU_CODEC_NONE,		NULL,		0,               NULL,	NULL, 0, 0, false }
 };
 audio_settings_t	au_rx_config, au_tx_config;
 
@@ -163,6 +163,7 @@ void audio_tx_free_frame(void) {
 }
 #endif
 
+// Generate a message with the codecs we support
 char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
    char msgbuf[1024];
    size_t offset = 0;
@@ -186,4 +187,66 @@ char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
 
    Log(LOG_DEBUG, "codecneg", "Returning capab string with %zu bytes: %s", offset, msgbuf);
    return strdup(msgbuf);
+}
+
+char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs) {
+   char msgbuf[1024];
+   size_t offset = 0;
+
+   offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "+++MEDIA;cap=\"");
+
+   for (int i = 0; codecs[i].magic != NULL; i++) {
+      if (offset + 5 >= sizeof(msgbuf)) {
+         Log(LOG_CRIT, "codecneg", "Ran out of space adding codec magic");
+         return NULL;
+      }
+      offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "%s ", codecs[i].magic);
+   }
+
+   // Remove trailing space and add closing
+   if (offset > 0 && msgbuf[offset - 1] == ' ')
+      offset--;
+
+   offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "\"");
+
+   Log(LOG_DEBUG, "codecneg", "Returning capab string with %zu bytes: %s", offset, msgbuf);
+   return strdup(msgbuf);
+}
+
+char *codec_filter_common(const char *preferred, const char *available) {
+   char *result = NULL;
+   size_t res_sz = 0;
+
+   const char *p = preferred;
+   while (*p) {
+      while (*p == ' ') p++;  // skip leading spaces
+      if (!*p) break;
+
+      const char *start = p;
+      while (*p && *p != ' ') p++;
+      size_t len = p - start;
+
+      if (len == 4 && strstr(available, start) && 
+          (start == preferred || start[-1] == ' ') && 
+          (p[0] == '\0' || p[0] == ' ')) {
+         result = realloc(result, res_sz + len + 2);
+         memcpy(result + res_sz, start, len);
+         res_sz += len;
+         result[res_sz++] = ' ';
+         result[res_sz] = 0;
+      }
+   }
+
+   // Trim trailing space
+   if (res_sz > 0 && result[res_sz - 1] == ' ') {
+      result[--res_sz] = 0;
+   }
+
+   return result;
+}
+
+// Assign a channel ID to send to the server, XXX: NYI
+int codec_assign_channel_id(au_codec_mapping_t *codec, bool tx) {
+   int rv = -1;
+   return rv;
 }

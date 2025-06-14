@@ -1,0 +1,14 @@
+// On start client
+int codec_id = au_codec_get_id(client_codec_magic);
+if (codec_id >= 0) {
+   au_codec_start(codec_id);
+   client->codec = codec_id;
+}
+
+
+// On stop client
+if (client->codec != AU_CODEC_NONE) {
+   au_codec_stop(client->codec);
+   client->codec = AU_CODEC_NONE;
+}
+

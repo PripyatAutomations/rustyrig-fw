@@ -26,6 +26,7 @@ defconfig_t defcfg[] = {
    { "audio.pipeline.tx.opus",		"",	"Pipeline: OPUS TX" },
    { "audio.pipeline.rx.flac",		"",	"Pipeline: FLAC RX" },
    { "audio.pipeline.tx.flac",		"",	"Pipeline: FLAC TX" },
+   { "audio.prefer-codecs",		"mu16 pc16 mu08", "Preferred codec order" },
    { "audio.volume.rx",			"30",	"Default RX volume" },
    { "audio.volume.tx",			"20",	"Default TX out vol" },
    { "cat.poll-blocking",		"2",	"Sec to block CAT poll messages for input debouncing" },

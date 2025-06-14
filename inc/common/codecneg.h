@@ -22,12 +22,15 @@ enum au_codec {
 
 typedef struct au_codec_mapping {
    enum au_codec  id;
-   const char     *magic;
+   const char     *magic;         // (4 bytes)
    int            sample_rate;    // -1 if variable
-   char           *pipeline;      // optional user-configured pipeline
+
+   // THese properties are set at runtime
+   char           *PipelineRx;    // optional user-configured pipeline for RXing this format
+   char           *PipelineTx;    // user configured pipeline for transmitting this format
    int            refcount;       // how many clients are using this
    pid_t          pid;            // optional: encoder/decoder process PID
-   int            running;        // flag: pipeline started
+   bool           running;        // flag: pipeline started
 } au_codec_mapping_t;
 
 struct ws_frame {
@@ -68,6 +71,9 @@ extern audio_settings_t	au_rx_config, au_tx_config;
 
 // New stuff
 extern char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs);
+extern char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs);
+extern char *codec_filter_common(const char *preferred, const char *available);
+extern int codec_assign_channel_id(au_codec_mapping_t *codec, bool tx);
 extern au_codec_mapping_t      au_core_codecs[];
 
 #endif	// !defined(__common_codecneg_h)

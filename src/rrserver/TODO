@@ -1,0 +1,8 @@
+[eeprom/config]
+* more work to integrate config into eeprom
+  - work on dict and just load/save changed parts of the eeprom
+    - Read into new empty dict
+    - dict_diff to get changed keys (include option to for unique flags only / both / only changed)
+    - If eeprom write delay expired, save to eeprom
+    - On exit, etc
+  - read eeprom into config / channels dict on posix

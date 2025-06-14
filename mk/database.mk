@@ -1,3 +1,8 @@
+ifeq (${USE_SQLITE},true)
+CFLAGS += -DUSE_SQLITE
+LDFLAGS += -lsqlite3
+MASTER_DB := $(strip $(shell cat ${CF} | jq -r ".database.master.path"))
+endif
 
 ${MASTER_DB}:
 	mkdir -p $(shell dirname "${MASTER_DB}")

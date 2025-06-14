@@ -12,6 +12,7 @@ default.volume.rx=50
 default.tx.power=50
 audio.debug=*:3
 audio.volume.rx=0
+audio.prefer-codecs=mu16 pc16 mu08
 audio.pipeline.rx.format=time
 ; mulaw (suitable for voice and maybe some digi)
 #audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes caps=audio/x-mulaw,rate=16000,channels=1 ! mulawdec ! volume name=rx-vol ! queue ! pulsesink device=default name=rx-sink client-name=rrclient

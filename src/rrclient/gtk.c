@@ -39,7 +39,6 @@ extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
-extern char *config_file;		// main.c
 GtkCssProvider *css_provider = NULL;
 GtkTextBuffer *log_buffer = NULL;
 GtkTextBuffer *text_buffer;
@@ -56,7 +55,6 @@ GtkWidget *rx_vol_slider = NULL;
 GtkWidget *toggle_userlist_button = NULL;
 ///////// Tab View //////////
 GtkWidget *notebook = NULL;
-GtkWidget *config_tab = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
 
@@ -182,13 +180,6 @@ void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    }
 }
 
-static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
-   if (user_data != NULL) {
-      gui_edit_config(user_data);
-   } else {
-      gui_edit_config(config_file);
-   }
-}
 
 // Combine some common, safe string handling into one call
 bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
@@ -403,6 +394,7 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
 
+
 static guint configure_event_timeout = 0;
 static int last_x = -1, last_y = -1, last_w = -1, last_h = -1;
 
@@ -527,6 +519,52 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
    }
    return FALSE;
 }
+
+extern char *config_file;		// main.c
+GtkWidget *config_tab = NULL;
+
+static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
+   if (user_data != NULL) {
+      gui_edit_config(user_data);
+   } else {
+      gui_edit_config(config_file);
+   }
+}
+
+static GtkWidget *init_config_tab(void) {
+   GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), nw, gtk_label_new("Config"));
+
+   GtkWidget *config_label = gtk_label_new("Configuration will go here...");
+   gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
+
+   GtkWidget *btn = gtk_button_new_with_label("Edit Config");
+   g_signal_connect(btn, "clicked", G_CALLBACK(on_edit_config_button), config_file);
+   gtk_box_pack_start(GTK_BOX(nw), btn, FALSE, FALSE, 0);
+
+   toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
+   gtk_box_pack_start(GTK_BOX(nw), toggle_userlist_button, FALSE, FALSE, 3);
+   Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
+   g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
+   return false;
+}
+
+static GtkWidget *init_log_tab(void) {
+   GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw),
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+
+   log_view = gtk_text_view_new();
+   log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(log_view));
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(log_view), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(log_view), FALSE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(log_view), GTK_WRAP_WORD_CHAR);
+   gtk_container_add(GTK_CONTAINER(nw), log_view);
+   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), nw, gtk_label_new("Log"));
+   return nw;
+}
+
+///////////////////////////////
 
 bool gui_init(void) {
    css_provider = gtk_css_provider_new();
@@ -670,32 +708,8 @@ bool gui_init(void) {
    Log(LOG_CRAZY, "gtk", "send button add callbak clicked");
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
-   log_tab = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(log_tab),
-                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-
-   log_view = gtk_text_view_new();
-   log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(log_view));
-   gtk_text_view_set_editable(GTK_TEXT_VIEW(log_view), FALSE);
-   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(log_view), FALSE);
-   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(log_view), GTK_WRAP_WORD_CHAR);
-   gtk_container_add(GTK_CONTAINER(log_tab), log_view);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), log_tab, gtk_label_new("Log"));
-
-   config_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), config_tab, gtk_label_new("Config"));
-
-   GtkWidget *config_label = gtk_label_new("Configuration will go here...");
-   gtk_box_pack_start(GTK_BOX(config_tab), config_label, FALSE, FALSE, 12);
-
-   GtkWidget *btn = gtk_button_new_with_label("Edit Config");
-   g_signal_connect(btn, "clicked", G_CALLBACK(on_edit_config_button), config_file);
-   gtk_box_pack_start(GTK_BOX(config_tab), btn, FALSE, FALSE, 0);
-
-   toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
-   gtk_box_pack_start(GTK_BOX(config_tab), toggle_userlist_button, FALSE, FALSE, 3);
-   Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
-   g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
+   log_tab = init_log_tab();
+   config_tab = init_config_tab();
 
    Log(LOG_CRAZY, "gtk", "mainwin on add callback destroy");
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
@@ -784,6 +798,7 @@ bool place_window(GtkWidget *window) {
 // print to syslog
 bool log_print(const char *fmt, ...) {
    if (!log_buffer) {
+      Log(LOG_WARN, "gtk", "log_print called with no log_buffer");
       return false;
    }
 

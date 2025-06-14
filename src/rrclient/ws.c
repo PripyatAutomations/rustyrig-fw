@@ -1,4 +1,4 @@
-//
+// 
 // gtk-client/ws.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -57,268 +57,59 @@ const char *default_tls_ca_paths[] = {
    "/etc/ssl/cert.pem"
 };
 
-static bool ws_handle_talk_msg(struct mg_ws_message *msg, struct mg_connection *c) {
-   struct mg_str msg_data = msg->data;
-   char *cmd = mg_json_get_str(msg_data,    "$.talk.cmd");
-   char *user = mg_json_get_str(msg_data,   "$.talk.user");
-   char *privs = mg_json_get_str(msg_data,  "$.talk.privs");
-   char *muted = mg_json_get_str(msg_data,  "$.talk.muted");
-   double clones;
-   char *ts = mg_json_get_str(msg_data,     "$.talk.ts");
-   bool rv = false;
-   bool tx;
-   mg_json_get_bool(msg_data, "$.talk.tx", &tx);
-   mg_json_get_num(msg_data, "$.talk.clones", &clones);
-
-   if (!cmd) {
-      rv = true;
-      goto cleanup;
-   }
+////////////////////////////////
+///// ws.*.c message handlers //
+////////////////////////////////
+extern bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg);
 
 
-   if (cmd && strcasecmp(cmd, "userinfo") == 0) {
-      if (!user) {
-         rv = true;
-         goto cleanup;
-      }
+///////////////////////////////
+// A better way to route ws //
+///////////////////////////////
+struct ws_msg_routes {
+   const char *type;		// auth|ping|talk|cat|alert|error|hello etc
+   bool (*cb)(/*struct mg_connection *c, struct mg_ws_message *msg*/);
+};
 
-      Log(LOG_DEBUG, "ws.talk", "[%s] UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", get_chat_ts(), user, privs, (tx ? "true" : "false"), muted, clones);
-      struct rr_user *cptr = find_or_create_client(user);
+struct ws_msg_routes ws_routes[] = {
+//   { .type = "alert",	.cb = on_ws_alert },
+   { .type = "auth",	  .cb = ws_handle_auth_msg },
+   { .type = "cat",	  .cb = ws_handle_rigctl_msg },
+//   { .type = "copdec",  .cb = on_ws_codec },
+//   { .type = "error",	 .cb = on_ws_error },
+//   { .type = "hello",	 .cb = on_ws_hello },
+//   { .type = "ping",	 .cb = on_ws_ping },
+//   { .type = "syslog", .cb = on_ws_syslog },
+   { .type = "talk",	 .cb = ws_handle_talk_msg },
+   { .type = NULL,	 .cb = NULL }
+};
+////
 
-      if (cptr) {
-         memset(cptr, 0, sizeof(struct rr_user));
-         snprintf(cptr->name, sizeof(cptr->name), "%s", user);
-         snprintf(cptr->privs, sizeof(cptr->privs), "%s", privs);
-         if (tx) {
-            cptr->is_ptt = true;
-         }
-         if (muted && strcasecmp(muted, "true") == 0) {
-            cptr->is_muted = muted;
-         }
-         if (has_privs(cptr, "admin")) {
-            set_flag(cptr, FLAG_ADMIN);
-         } else if (has_privs(cptr, "owner")) {
-            set_flag(cptr, FLAG_OWNER);
-         }
-         if (has_privs(cptr, "muted")) {
-            set_flag(cptr, FLAG_MUTED);
-            cptr->is_muted = true;
-         }
-         if (has_privs(cptr, "ptt")) {
-            set_flag(cptr, FLAG_PTT);
-         }
-         if (has_privs(cptr, "subscriber")) {
-            set_flag(cptr, FLAG_SUBSCRIBER);
-         }
-         if (has_privs(cptr, "elmer")) {
-            set_flag(cptr, FLAG_ELMER);
-         } else if (has_privs(cptr, "noob")) {
-            set_flag(cptr, FLAG_NOOB);
-         }
-         if (has_privs(cptr, "bot")) {
-            set_flag(cptr, FLAG_SERVERBOT);
-         }
-         if (has_privs(cptr, "listener")) {
-            set_flag(cptr, FLAG_LISTENER);
-         }
-         if (has_privs(cptr, "syslog")) {
-            set_flag(cptr, FLAG_SYSLOG);
-         }
-         if (has_privs(cptr, "tx")) {
-            set_flag(cptr, FLAG_CAN_TX);
-         }
-         userlist_resync_all();
-      } else {
-         Log(LOG_CRIT, "ws", "OOM in ws_handle_talk_msg");
-      }
-   } else if (cmd && strcasecmp(cmd, "msg") == 0) {
-      char *from = mg_json_get_str(msg_data, "$.talk.from");
-      char *data = mg_json_get_str(msg_data, "$.talk.data");
-      char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
+static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *msg) {
+   struct ws_msg_routes *rp = ws_routes;
+   int i = 0;
+   const char *type = NULL;		// We need to find the outer-most label of the json message
 
-      if (msg_type && strcasecmp(msg_type, "pub") == 0) {
-         ui_print("[%s] <%s> %s", get_chat_ts(), from, data);
-      } else if (msg_type && strcasecmp(msg_type, "action") == 0) {
-         ui_print("[%s] * %s %s", get_chat_ts(), from, data);
-      }
-
-      if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
-         gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
-      }
-      free(data);
-      free(from);
-      free(msg_type);
-   } else if (cmd && strcasecmp(cmd, "join") == 0) {
-      char *ip = mg_json_get_str(msg_data, "$.talk.ip");
-      if (!user || !ip) {
-         free(ip);
-         goto cleanup;
-      }
-      
-      struct rr_user *cptr = find_or_create_client(user);
-      ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(), user);
-      Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%x>", user, cptr);
-      free(ip);
-   } else if (cmd && strcasecmp(cmd, "quit") == 0) {
-      char *reason = mg_json_get_str(msg_data, "$.talk.reason");
-      if (!user || !reason) {
-         free(reason);
-         goto cleanup;
-      }
-      ui_print("[%s] >> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", --clones);
-
-      struct rr_user *cptr = find_client(user);
-      cptr->clones = clones;
-      if (cptr->clones <= 0 ) {
-         delete_client(cptr);
-      }
-      free(reason);
-   } else if (cmd && strcasecmp(cmd, "whois") == 0) {
-      const char *whois_msg = mg_json_get_str(msg_data, "$.talk.data");
-      ui_print("[%s] >>> WHOIS %s", user);
-      ui_print("[%s]   %s", whois_msg);
-   } else {
-      Log(LOG_DEBUG, "chat", "msg: %.*s", msg->data.len, msg->data.buf);
-   }
-
-cleanup:
-   free(cmd);
-   free(user);
-   free(privs);
-   free(muted);
-   free(ts);
-   return false;
-}
-
-static bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
-   struct mg_str msg_data = msg->data;
-
-   if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-      if (poll_block_expire < now) {
-         char *vfo = mg_json_get_str(msg_data, "$.cat.vfo");
-         double freq;
-         mg_json_get_num(msg_data, "$.cat.state.freq", &freq);
-         char *mode = mg_json_get_str(msg_data, "$.cat.mode");
-         double width;
-         mg_json_get_num(msg_data, "$.cat.width", &width);
-         double power;
-         mg_json_get_num(msg_data, "$.cat.power", &power);
-
-         bool ptt = false;
-         char *ptt_s = mg_json_get_str(msg_data, "$.cat.ptt");
-
-         if (ptt_s && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
-            ptt = true;
-         }  else {
-            ptt = false;
-         }
-         server_ptt_state = ptt;
-         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
-
-         double ts;
-         mg_json_get_num(msg_data, "$.cat.ts", &ts);
-         char *user = mg_json_get_str(msg_data, "$.cat.user");
-         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
-         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
-         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
-
-         if (user) {
-//            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
-            struct rr_user *cptr = NULL;
-            if ((cptr = find_client(user))) {
-               Log(LOG_DEBUG, "ws.cat", "ptt set to %s for cptr:<%x>", (cptr->is_ptt ? "true" : "false"), cptr);
-               cptr->is_ptt = ptt;
-            }
-         }
-
-
-         if (freq > 0) {
-//            g_signal_handler_block(freq_entry, freq_changed_handler_id);
-            Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
-            gtk_freq_input_set_value(GTK_FREQ_INPUT(freq_entry), freq);
-//            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
-         }
-
-         if (mode && strlen(mode) > 0) {
-            Log(LOG_CRAZY, "ws", "Updating mode_combo: %s", mode);
-            set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
-         }
-
-         // free memory
-         free(vfo);
-         free(mode);
-         free(user);
-      } else {
-         Log(LOG_CRAZY, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
-      }
-   } else {
-      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(), msg_data);
-      Log(LOG_DEBUG, "ws.cat", "Unknown msg: %s", msg->data);
-   }
-   return false;
-}
-
-static bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
-   bool rv = false;
-
-   if (!c || !msg) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg:<%x> mg_conn:<%x>", msg, c);
+   if (!type) {
       return true;
    }
 
-   char ip[INET6_ADDRSTRLEN];
-   int port = c->rem.port;
-   if (c->rem.is_ip6) {
-      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
-   } else {
-      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
-   }
-
-   if (!msg->data.buf) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
-      return true;
-   }
-
-   struct mg_str msg_data = msg->data;
-   char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
-   char *nonce = mg_json_get_str(msg_data, "$.auth.nonce");
-   char *user = mg_json_get_str(msg_data, "$.auth.user");
-//   ui_print("[%s] => cmd: '%s', nonce: %s, user: %s", get_chat_ts(), cmd, nonce, user);
-
-   // Must always send a command and username during auth
-   if (!cmd || !user) {
-      rv = true;
-      goto cleanup;
-   }
-
-   if (cmd && strcasecmp(cmd, "challenge") == 0) {
-      char *token = mg_json_get_str(msg_data, "$.auth.token");
-
-      if (token) {
-         memset(session_token, 0, HTTP_TOKEN_LEN + 1);
-         snprintf(session_token, HTTP_TOKEN_LEN + 1, "%s", token);
-      } else {
-         ui_print("[%s] ?? Got CHALLENGE without valid token!", get_chat_ts());
-         goto cleanup;
+   while (rp[i].type) {
+      if (rp[i].type && strcasecmp(rp[i].type, type) == 0) {
+         // Match
+         Log(LOG_CRAZY, "ws.router", "Matched route #%d for message type %s", i, type);
+         rp[i].cb(c, msg);
+         return false;
       }
-
-      ui_print("[%s] *** Sending PASSWD ***", get_chat_ts());
-      const char *login_pass = get_server_property(active_server, "server.pass");
-
-      ws_send_passwd(c, user, login_pass, nonce);
-      free(token);
-   } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
-      ui_print("[%s] *** Authorized ***", get_chat_ts());
+      i++;
    }
-
-cleanup:
-   free(cmd);
-   free(nonce);
-   free(user);
-   return rv;
+   
+   return true;
 }
 
-static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection *c) {
+static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *msg) {
    struct mg_str msg_data = msg->data;
    bool result = false;
 
@@ -340,7 +131,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       }
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
-      result = ws_handle_auth_msg(msg, c);
+      result = ws_handle_auth_msg(c, msg);
    } else if (mg_json_get(msg_data, "$.alert", NULL) > 0) {
       char *msg = mg_json_get_str(msg_data, "$.alert.msg");
       char *from = mg_json_get_str(msg_data, "$.alert.from");
@@ -380,11 +171,11 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    // Check for $.cat field (rigctl message)
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
 //      ui_print("[%s] +++ CAT ++ %s", get_chat_ts(), msg_data);
-      result = ws_handle_rigctl_msg(msg, c);
+      result = ws_handle_rigctl_msg(c, msg);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
-      result = ws_handle_talk_msg(msg, c);
+      result = ws_handle_talk_msg(c, msg);
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
-//      result = ws_handle_pong(msg, c);
+//      result = ws_handle_pong(c, msg);
    } else if (mg_json_get(msg_data, "$.syslog", NULL) > 0) {
       char *ts = mg_json_get_str(msg_data, "$.syslog.ts");
       char *prio = mg_json_get_str(msg_data, "$.syslog.prio");
@@ -441,9 +232,9 @@ bool ws_binframe_process(const char *data, size_t len) {
 //
 // Handle a websocket request (see http.c/http_cb for case ev == MG_EV_WS_MSG)
 //
-bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
+bool ws_handle(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg || !msg->data.buf) {
-      Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg ? msg->data.buf : NULL));
+      Log(LOG_DEBUG, "http.ws", "ws_handle got c <%x> msg <%x> data <%x>", c, msg , (msg ? msg->data.buf : NULL));
       return true;
    }
 
@@ -456,7 +247,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    if (msg->flags & WEBSOCKET_OP_BINARY) {
       ws_binframe_process(msg->data.buf, msg->data.len);
    } else {     // Text (mostly json) frames
-      ws_txtframe_process(msg, c);
+      ws_txtframe_process(c, msg);
    }
    return false;
 }
@@ -505,7 +296,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       ws_send_login(c, login_user);
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
-      ws_handle(wm, c);
+      ws_handle(c, wm);
    } else if (ev == MG_EV_ERROR) {
       ui_print("[%s] Socket error: %s", get_chat_ts(), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {

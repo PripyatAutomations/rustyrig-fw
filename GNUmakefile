@@ -65,11 +65,6 @@ CFLAGS += -DMG_TLS=MG_TLS_MBED
 LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 endif
 
-ifeq (${USE_SQLITE},true)
-CFLAGS += -DUSE_SQLITE
-LDFLAGS += -lsqlite3
-MASTER_DB := $(strip $(shell cat ${CF} | jq -r ".database.master.path"))
-endif
 
 ifeq (${USE_GSTREAMER},true)
 FWDSP_CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
@@ -273,3 +268,6 @@ ${BUILD_DIR}/obj/firmware/.stamp:
 	mkdir -p "${BUILD_DIR}/obj/fwdsp"
 	mkdir -p "${BUILD_DIR}/obj/comm"
 	touch $@
+
+rrclient:
+	./build/client/rrclient

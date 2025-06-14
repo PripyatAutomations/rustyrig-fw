@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
       if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       } else {
-         Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);
+         Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
       }
    } else {
       char *realpath = find_file_by_list(configs, cfg_entries);
