@@ -115,3 +115,59 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
    return false;
 }
+
+bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
+   if (!c || !vfo) {
+      return true;
+   }
+
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"ptt\", \"vfo\": \"%s\", \"ptt\": \"%s\" } }",
+                 vfo, (ptt ? "true" : "false"));
+
+   Log(LOG_CRAZY, "CAT", "Sending: %s", msgbuf);
+   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   if (ret < 0) {
+      Log(LOG_DEBUG, "cat", "ws_send_ptt_cmd: mg_ws_send error: %d", ret);
+      return true;
+   }
+   return false;
+}
+
+bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode) {
+   if (!c || !vfo || !mode) {
+      return true;
+   }
+
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"mode\", \"vfo\": \"%s\", \"mode\": \"%s\" } }",
+                 vfo, mode);
+   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
+   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
+   if (ret < 0) {
+      Log(LOG_DEBUG, "cat", "ws_send_mode_cmd: mg_ws_send error: %d", ret);
+      return true;
+   }
+   return false;
+}
+
+bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
+   if (!c || !vfo) {
+      return true;
+   }
+
+   char msgbuf[512];
+   memset(msgbuf, 0, 512);
+   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"freq\", \"vfo\": \"%s\", \"freq\": %.3f } }", vfo, freq);
+   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
+   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
+   if (ret < 0) {
+      Log(LOG_DEBUG, "cat", "ws_send_mode_cmd: mg_ws_send error: %d", ret);
+      return true;
+   }
+   return false;
+}

@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-
 #include "common/config.h"
 #define	__RRCLIENT	1
 #include <stddef.h>
@@ -348,62 +347,6 @@ void ws_fini(void) {
    mg_mgr_free(&mgr);
 }
 
-bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
-   if (!c || !vfo) {
-      return true;
-   }
-
-   char msgbuf[512];
-   memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"ptt\", \"vfo\": \"%s\", \"ptt\": \"%s\" } }",
-                 vfo, (ptt ? "true" : "false"));
-
-   Log(LOG_CRAZY, "CAT", "Sending: %s", msgbuf);
-   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-   if (ret < 0) {
-      Log(LOG_DEBUG, "cat", "ws_send_ptt_cmd: mg_ws_send error: %d", ret);
-      return true;
-   }
-   return false;
-}
-
-bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode) {
-   if (!c || !vfo || !mode) {
-      return true;
-   }
-
-   char msgbuf[512];
-   memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"mode\", \"vfo\": \"%s\", \"mode\": \"%s\" } }",
-                 vfo, mode);
-   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
-   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-
-   if (ret < 0) {
-      Log(LOG_DEBUG, "cat", "ws_send_mode_cmd: mg_ws_send error: %d", ret);
-      return true;
-   }
-   return false;
-}
-
-bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
-   if (!c || !vfo) {
-      return true;
-   }
-
-   char msgbuf[512];
-   memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"freq\", \"vfo\": \"%s\", \"freq\": %.3f } }", vfo, freq);
-   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
-   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-
-   if (ret < 0) {
-      Log(LOG_DEBUG, "cat", "ws_send_mode_cmd: mg_ws_send error: %d", ret);
-      return true;
-   }
-   return false;
-}
-
 const char *get_server_property(const char *server, const char *prop) {
    char *rv = NULL;
 
@@ -423,6 +366,9 @@ const char *get_server_property(const char *server, const char *prop) {
    return rv;
 }
 
+///////////////////////////////////////////////////////////
+// Handle properly connect, disconnect, and error events //
+///////////////////////////////////////////////////////////
 bool disconnect_server(void) {
    if (ws_connected) {
       if (ws_conn) {
@@ -430,7 +376,8 @@ bool disconnect_server(void) {
       }
       ws_connected = false;
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
-      ws_conn = NULL;
+      // XXX: im not sure this is acceptable
+//      ws_conn = NULL;
       clear_client_list();
    }
    return false;
