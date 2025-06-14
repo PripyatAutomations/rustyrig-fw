@@ -22,22 +22,52 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "rustyrig/state.h"
+#include "common/codecneg.h"
 #include "common/logger.h"
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "rustyrig/au.h"
 #include "rustyrig/auth.h"
 
-#define	RECORDING_ID_LEN	20
+#define	RECORDING_ID_LEN	24
 
-// Returns the ID of the reecording
-const char *au_recording_start(void) {
+// Returns the ID of of the new recording
+const char *au_recording_start(int channel) {
    char *recording_id = malloc(RECORDING_ID_LEN+1);
    generate_nonce(recording_id, sizeof(recording_id));
 
    return recording_id;
 }
 
+const char *au_recording_mkfilename(const char *recording_id, int channel) {
+   char *rv = NULL;
+   if (!recording_id || channel < 0) {
+      return NULL;
+   }
+
+   const char *recdir = cfg_get("audio.record-dir");
+   if (!recdir) {
+      Log(LOG_CRAZY, "au.record", "Please set audio.record-dir in config to enable recording");
+      return NULL;
+   }
+
+   /// XXX: These states need to come from looking up the active fwdsp channels (pipelines) we are maintaining
+   bool is_tx = false;
+   const char *codec = "*";
+   const char tmpbuf[512];
+   memset(tmpbuf, 0, 512);
+   size_t tmp_len = snprintf(tmpbuf, 512, "%s/%s.%s.%s", recdir, recording_id, (is_tx ? "tx" : "rx"), codec);
+   if (tmp_len > 0) {
+      if (!(rv = strdup(tmpbuf))) {
+         Log(LOG_CRIT, "au.record", "OOM in au_recording_mkfilename");
+         exit(1);
+      }
+   }
+   if (rv) {
+      Log(LOG_DEBUG, "au.record", "New recording will be saved at %s", rv);
+   }
+   return rv;
+}
 bool au_recording_stop(const char *id) {
    if (id == NULL) {
       return true;

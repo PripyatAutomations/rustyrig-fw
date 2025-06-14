@@ -9,6 +9,10 @@
 //
 #if	!defined(__common_codecneg_h)
 #define	__common_codecneg_h
+#include <stdint.h>
+#include <stdbool.h>
+#include <ctype.h>
+#include <sys/types.h>
 
 enum au_codec {
    AU_CODEC_NONE = 0,			// No codec configured

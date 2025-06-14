@@ -77,9 +77,10 @@ const char *configs[] = {
 };
 
 defconfig_t defcfg[] = {
-  { "audio.debug",	"false",	NULL },
-  { "log.level",	"debug",	NULL }, 
-  { "log.show-ts",	"false",	NULL },
+  { "audio.debug",	"false",	"Debug audio? [bool]" },
+  { "audio.record-dir", "./recordings", "TX & RX recordings basedir" },
+  { "log.level",	"debug",	"How noisy should log be?"  }, 
+  { "log.show-ts",	"false",        "Show timestamps in log? [bool]" },
   { "test.key",		" 1",		"Test key" },
   { NULL,		NULL,		NULL }
 };

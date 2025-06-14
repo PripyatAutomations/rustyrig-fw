@@ -207,6 +207,14 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          rr_vfo_data_t *dp = &vfos[vfo_id];
          mode_name = vfo_mode_name(dp->mode);
 
+         // Log PTT event in the master db
+         int channel = -1;
+         if (channel < 0) {
+            Log(LOG_CRIT, "ptt", "Couldn't find channel ID for TX stream, ignoring PTT event");
+            rv = true;
+            goto cleanup;
+         }
+
          // turn PTT state requested into a boolean value
          if (strcasecmp(ptt_state, "true") == 0 || strcasecmp(ptt_state, "on") == 0) {
             c_state = true;
@@ -218,9 +226,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
          cptr->is_ptt = c_state;
 
-         // Log PTT event in the master db
          if (!cptr->ptt_session) {
-            const char *recording = au_recording_start();
+            const char *recording = au_recording_start(channel);
             cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, dp->freq, mode_name, dp->width, dp->power, recording);
          } else {
             db_ptt_stop(masterdb, cptr->ptt_session);

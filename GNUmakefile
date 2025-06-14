@@ -269,5 +269,6 @@ ${BUILD_DIR}/obj/firmware/.stamp:
 	mkdir -p "${BUILD_DIR}/obj/comm"
 	touch $@
 
-rrclient:
+# Launch rrclient, for the lazy
+rrclient: build/client/rrclient
 	./build/client/rrclient
