@@ -46,6 +46,7 @@ objs += gtk.o                   # Support for a GTK user interface
 objs += gtk.editcfg.o
 objs += gtk.freqentry.o		# Frequency Entry Widget
 objs += gtk.serverpick.o        # server picker
+objs += gtk.syslog.o		# syslog tab
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += mongoose.o		# Mongoose http/websocket/mqtt library

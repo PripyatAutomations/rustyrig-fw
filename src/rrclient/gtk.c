@@ -29,6 +29,7 @@
 #include "rrclient/ws.h"
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
+extern GtkWidget *init_log_tab(void);
 extern dict *cfg;
 extern time_t now;
 extern bool dying;
@@ -57,6 +58,7 @@ GtkWidget *toggle_userlist_button = NULL;
 GtkWidget *notebook = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
+GtkWidget *config_tab = NULL;
 
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
@@ -179,7 +181,6 @@ void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ws_send_ptt_cmd(ws_conn, "A", true);
    }
 }
-
 
 // Combine some common, safe string handling into one call
 bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
@@ -521,7 +522,6 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
 }
 
 extern char *config_file;		// main.c
-GtkWidget *config_tab = NULL;
 
 static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
    if (user_data != NULL) {
@@ -547,21 +547,6 @@ static GtkWidget *init_config_tab(void) {
    Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
    g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
    return false;
-}
-
-static GtkWidget *init_log_tab(void) {
-   GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw),
-                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-
-   log_view = gtk_text_view_new();
-   log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(log_view));
-   gtk_text_view_set_editable(GTK_TEXT_VIEW(log_view), FALSE);
-   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(log_view), FALSE);
-   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(log_view), GTK_WRAP_WORD_CHAR);
-   gtk_container_add(GTK_CONTAINER(nw), log_view);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), nw, gtk_label_new("Log"));
-   return nw;
 }
 
 ///////////////////////////////
@@ -794,29 +779,3 @@ bool place_window(GtkWidget *window) {
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    return false;
 }
-
-// print to syslog
-bool log_print(const char *fmt, ...) {
-   if (!log_buffer) {
-      Log(LOG_WARN, "gtk", "log_print called with no log_buffer");
-      return false;
-   }
-
-   if (!fmt) {
-      printf("log_print sent NULL fmt\n");
-   }
-   va_list ap;
-   va_start(ap, fmt);
-   char outbuf[8096];
-   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
-   va_end(ap);
-
-   GtkTextIter end;
-   gtk_text_buffer_get_end_iter(log_buffer, &end);
-   gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
-   gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-
-   gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(log_view), &end, 0.0, FALSE, 0.0, 0.0);
-   return true;
-}
-
