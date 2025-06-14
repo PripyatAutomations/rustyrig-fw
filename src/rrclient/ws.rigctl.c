@@ -47,6 +47,7 @@ extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
+extern gulong freq_changed_handler_id;
 
 bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    struct mg_str msg_data = msg->data;
@@ -91,10 +92,10 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
 
          if (freq > 0) {
-//            g_signal_handler_block(freq_entry, freq_changed_handler_id);
+            g_signal_handler_block(freq_entry, freq_changed_handler_id);
             Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
             gtk_freq_input_set_value(GTK_FREQ_INPUT(freq_entry), freq);
-//            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
+            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
          }
 
          if (mode && strlen(mode) > 0) {

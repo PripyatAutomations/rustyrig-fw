@@ -29,6 +29,7 @@
 #include "rrclient/ws.h"
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
+extern bool clear_syslog(void);
 extern GtkWidget *init_log_tab(void);
 extern dict *cfg;
 extern time_t now;
@@ -41,19 +42,18 @@ extern time_t poll_block_expire, poll_block_delay;
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
 GtkCssProvider *css_provider = NULL;
-GtkTextBuffer *log_buffer = NULL;
-GtkTextBuffer *text_buffer;
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
 GtkWidget *freq_entry = NULL;
 GtkWidget *mode_combo = NULL;
 GtkWidget *userlist_window = NULL;
-GtkWidget *log_view = NULL;
 GtkWidget *chat_entry = NULL;
 GtkWidget *ptt_button = NULL;
 GtkWidget *main_window = NULL;
 GtkWidget *rx_vol_slider = NULL;
 GtkWidget *toggle_userlist_button = NULL;
+GtkTextBuffer *text_buffer = NULL;
+
 ///////// Tab View //////////
 GtkWidget *notebook = NULL;
 GtkWidget *main_tab = NULL;
@@ -116,8 +116,8 @@ bool ui_print(const char *fmt, ...) {
 
    return false;
 }
+
 gulong mode_changed_handler_id;
-gulong freq_changed_handler_id;
 
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
@@ -268,7 +268,7 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    } else if (strncasecmp(msg + 1, "clear", 5) == 0) {
       gtk_text_buffer_set_text(text_buffer, "", -1);
    } else if (strncasecmp(msg + 1, "clearlog", 8) == 0) {
-      gtk_text_buffer_set_text(log_buffer, "", -1);
+      clear_syslog();
    } else if (strncasecmp(msg + 1, "config", 6) == 0 || strcasecmp(msg + 1, "cfg") == 0) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), config_tab);
       if (index != -1) {
@@ -456,29 +456,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       }
       configure_event_timeout = g_timeout_add(300, on_configure_timeout, NULL);
    }
-
-#if	0
-bool place_window(GtkWidget *window) {
-   const char *cfg_height_s, *cfg_width_s;
-   const char *cfg_x_s, *cfg_y_s;
-
-   if (window == userlist_window) {
-      cfg_height_s = cfg_get("ui.userlist.height");
-      cfg_width_s = cfg_get("ui.userlist.width");
-      cfg_x_s = cfg_get("ui.userlist.x");
-      cfg_y_s = cfg_get("ui.userlist.y");
-   } else if (window == main_window) {
-      cfg_height_s = cfg_get("ui.main.height");
-      cfg_width_s = cfg_get("ui.main.width");
-      cfg_x_s = cfg_get("ui.main.x");
-      cfg_y_s = cfg_get("ui.main.y");
-   } else {
-      return true;
-   }
-   int cfg_height = 600, cfg_width = 800, cfg_x = 0, cfg_y = 0;
-
-#endif
-   return FALSE; // propagate
+   return FALSE;
 }
 
 gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {

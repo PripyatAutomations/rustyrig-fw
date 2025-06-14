@@ -195,6 +195,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
          }
       }
 
+      Log(LOG_DEBUG, "server.syslog", "Got message <%s.%s> %s", subsys, prio, data);
       log_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
       free(ts);
       free(prio);

@@ -63,17 +63,19 @@ static gboolean update_now(gpointer user_data) {
 
 int main(int argc, char *argv[]) {
    bool empty_config = true;
-   logfp = stdout;
-   log_level = LOG_DEBUG;
+
+   // Set a time stamp so logging will work
    now = time(NULL);
    update_timestamp();
+
+   const char *homedir = getenv("HOME");
 
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
    char *realpath = find_file_by_list(configs, cfg_entries);
 
+   // Load the default configuration
    cfg_init(defcfg);
-   logger_init();
 
    if (realpath) {
       config_file = strdup(realpath);
@@ -90,6 +92,9 @@ int main(int argc, char *argv[]) {
      empty_config = true;
      Log(LOG_WARN, "core", "No config file found, saving defaults to ~/.config/rrclient.cfg");
    }
+
+   // Set logging configuration to make our loaded config, in production this will quiet logging down
+   logger_init();
 
    host_init();
 
@@ -124,7 +129,6 @@ int main(int argc, char *argv[]) {
       show_server_chooser();
    }
 
-   const char *homedir = getenv("HOME");
    char pathbuf[PATH_MAX+1];
    memset(pathbuf, 0, sizeof(pathbuf));
 

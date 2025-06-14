@@ -42,7 +42,7 @@ static time_t last_ts_update;
 
 // Do we need to show a timestamp in log messages?
 static bool log_show_ts = false;
-int log_level = LOG_DEBUG;
+int log_level = LOG_CRAZY;	// Default to showing ALL logging
 char latest_timestamp[64];	// Current printed timestamp
 
 /* String constants we use more than a few times */
@@ -181,6 +181,10 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 
    if (priority > log_level) {
       return;
+   }
+
+   if (logfp == NULL) {
+      logfp = stdout;
    }
 
    // If this is a debug message, apply debug filtering

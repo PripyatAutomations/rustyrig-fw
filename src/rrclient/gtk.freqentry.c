@@ -14,6 +14,7 @@ extern struct mg_connection *ws_conn;
 extern bool ui_print(const char *fmt, ...);
 extern time_t poll_block_expire, poll_block_delay;
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq);
+gulong freq_changed_handler_id;
 
 #define GTK_TYPE_FREQ_ENTRY (gtk_freq_input_get_type())
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_input, GTK, FREQ_ENTRY, GtkBox)
@@ -284,7 +285,6 @@ static void gtk_freq_input_init(GtkFreqEntry *fi) {
       gtk_widget_set_can_focus(up_button, FALSE);
       g_object_set_data(G_OBJECT(up_button), "digit-index", GINT_TO_POINTER(i));
       g_object_set_data(G_OBJECT(up_button), "digit-delta", GINT_TO_POINTER(1));
-      g_signal_connect(up_button, "clicked", G_CALLBACK(on_button_clicked), fi);
  
       GtkWidget *entry = gtk_entry_new();
 
@@ -292,18 +292,14 @@ static void gtk_freq_input_init(GtkFreqEntry *fi) {
       gtk_entry_set_width_chars(GTK_ENTRY(entry), 1);
       gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
       gtk_widget_set_size_request(entry, 20, 30);
-      g_signal_connect(entry, "changed", G_CALLBACK(on_digit_entry_changed), fi);
-      gtk_widget_override_font(up_button, font);
-
-      gtk_widget_set_size_request(entry, 20, 30);
-      g_signal_connect(entry, "changed", G_CALLBACK(on_digit_entry_changed), fi);
-      gtk_widget_override_font(entry, font);
 
       GtkWidget *down_button = gtk_button_new_with_label("-");
       gtk_widget_set_can_focus(down_button, FALSE);
       g_object_set_data(G_OBJECT(down_button), "digit-index", GINT_TO_POINTER(i));
       g_object_set_data(G_OBJECT(down_button), "digit-delta", GINT_TO_POINTER(-1));
-      g_signal_connect(down_button, "clicked", G_CALLBACK(on_button_clicked), fi);
+
+      gtk_widget_override_font(up_button, font);
+      gtk_widget_override_font(entry, font);
       gtk_widget_override_font(down_button, font);
 
       gtk_box_pack_start(GTK_BOX(vbox), up_button, FALSE, FALSE, 0);
@@ -318,6 +314,9 @@ static void gtk_freq_input_init(GtkFreqEntry *fi) {
       fi->down_buttons[i] = down_button;
 
       // Connect our signals
+      g_signal_connect(up_button, "clicked", G_CALLBACK(on_button_clicked), fi);
+      g_signal_connect(down_button, "clicked", G_CALLBACK(on_button_clicked), fi);
+      freq_changed_handler_id = g_signal_connect(entry, "changed", G_CALLBACK(on_digit_entry_changed), fi);
       g_signal_connect(fi->digits[i], "activate", G_CALLBACK(on_freq_digit_activate), fi);
       g_signal_connect(fi->digits[i], "focus-in-event", G_CALLBACK(on_freq_focus_in), fi);
       g_signal_connect(fi->digits[i], "focus-out-event", G_CALLBACK(on_freq_focus_out), fi);
@@ -351,8 +350,8 @@ void gtk_freq_input_set_value(GtkFreqEntry *fi, unsigned long freq) {
       gtk_entry_set_text(GTK_ENTRY(fi->digits[i]), digit);
    }
 
-   fi->updating = prev_updating;
    update_frequency_display(fi);
+   fi->updating = prev_updating;
 }
 
 unsigned long gtk_freq_input_get_value(GtkFreqEntry *fi) {

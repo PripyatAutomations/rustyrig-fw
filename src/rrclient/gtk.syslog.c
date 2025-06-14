@@ -48,6 +48,8 @@ extern GtkWidget *main_window;
 extern GtkWidget *notebook;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
+GtkTextBuffer *log_buffer = NULL;
+GtkWidget *log_view = NULL;
 
 // print to syslog
 bool log_print(const char *fmt, ...) {
@@ -72,6 +74,11 @@ bool log_print(const char *fmt, ...) {
 
    gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(log_view), &end, 0.0, FALSE, 0.0, 0.0);
    return true;
+}
+
+bool clear_syslog(void) {
+   gtk_text_buffer_set_text(log_buffer, "", -1);
+   return false;
 }
 
 GtkWidget *init_log_tab(void) {
