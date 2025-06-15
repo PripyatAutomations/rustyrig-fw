@@ -213,7 +213,7 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
 
 // Toggle syslog
 static bool ws_chat_cmd_syslog(http_client_t *cptr, const char *state) {
-   if (client_has_flag(cptr, FLAG_STAFF) || has_priv(cptr->user->uid, "syslog")) {
+   if (client_has_flag(cptr, FLAG_STAFF) || client_has_flag(cptr, FLAG_SYSLOG)) {
       bool new_state = false;
 
       // Parse the state
