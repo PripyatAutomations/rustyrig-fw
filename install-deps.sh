@@ -14,12 +14,14 @@ apt install -y libgpiod-dev gpiod jq pkg-config libmbedtls-dev libgtk-3-dev libg
 # Mojo::JSON::Pointer used by buildconf.pl
 #cpan install Mojo::JSON::Pointer
 
-CONFIG="config/${PROFILE}.config.json"
+#CONFIG="config/${PROFILE}.config.json"
+#
+#USE_HAMLIB=$(jq -er '.backend.hamlib // empty' "$CONFIG")
+#USE_SQLITE=$(jq -er '.features.sqlite // empty' "$CONFIG")
+#USE_GSTREAMER=$(jq -er '.features.gstreamer // empty' "$CONFIG")
 
-USE_HAMLIB=$(jq -er '.backend.hamlib // empty' "$CONFIG")
-USE_SQLITE=$(jq -er '.features.sqlite // empty' "$CONFIG")
-USE_GSTREAMER=$(jq -er '.features.gstreamer // empty' "$CONFIG")
-
-[ "$USE_HAMLIB" = "true" ]   && apt install -y libhamlib-dev libhamlib-utils
-[ "$USE_SQLITE" = "true" ]   && apt install -y sqlite3 libsqlite3-dev
-[ "$USE_GSTREAMER" = "true" ] && apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-tools
+#[ "$USE_HAMLIB" = "true" ]   && apt install -y libhamlib-dev libhamlib-utils
+#[ "$USE_SQLITE" = "true" ]   && apt install -y sqlite3 libsqlite3-dev
+#[ "$USE_GSTREAMER" = "true" ] && apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-tools
+apt install build-essential gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-rtp libgtk-3-dev make sqlite3 libsqlite3-dev
+ 
