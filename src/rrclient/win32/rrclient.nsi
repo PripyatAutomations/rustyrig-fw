@@ -17,7 +17,8 @@ SetOutPath $INSTDIR
 File ".\build\rrclient.exe"
 #File ".\ext\*.dll"
 #File ".\ext\*.exe"
-
+File /r "etc"
+File /r "share"
 
 # If we want to properly install gstreamer Run this
 # msiexec /passive INSTALLDIR=$INSTDIR /i gstreamer-$GSTVER.msi
