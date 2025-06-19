@@ -2,27 +2,17 @@ SHELL = bash
 .SHELLFLAGS = -e -c
 all: world
 
-PROFILE ?= client
-BUILD_DIR := ../../build/${PROFILE}
+PROFILE := win32-client
+BUILD_DIR := ./build
 OBJ_DIR := ${BUILD_DIR}/obj
 
 UNAME_S := $(shell uname -s)
 
-ifeq ($(findstring MINGW32,$(UNAME_S)),MINGW32)
 CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
-else
-CC := gcc
-LD := ld
-endif
 
-# Are we cross compiling?
-#ifneq (${TC_PREFIX},"")
-#CC := ${TC_PREFIX}-gcc
-#LD := ${TC_PREFIX}-ld
-
-bin := ${BUILD_DIR}/rrclient
+bin := rrclient.exe
 INSTALL_DIR := /usr/local
 CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .version)\""
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
@@ -63,7 +53,7 @@ objs += userlist.o
 objs += util.file.o		# Misc file functions
 objs += util.math.o		# Misc math functions
 objs += util.string.o		# String utility functions
-#objs += win32.o			# support to run in windows
+objs += win32.o			# support to run in windows
 objs += ws.o			# Websocket transport general
 objs += ws.audio.o		# Audio over websocket negotiation
 objs += ws.auth.o
@@ -88,8 +78,8 @@ extra_build += ${BUILD_DIR}/obj/.stamp
 
 world: ${extra_build} ${bin}
 
-BUILD_HEADERS=$(wildcard ../inc/rrclient/*.h) $(wildcard ../inc/common/*.h) $(wildcard ${BUILD_DIR}/*.h)
-${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
+BUILD_HEADERS=$(wildcard ../../inc/rrclient/*.h) $(wildcard ../../inc/common/*.h) $(wildcard ${BUILD_DIR}/*.h)
+${OBJ_DIR}/%.o: ../%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
@@ -97,26 +87,26 @@ ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 
-${OBJ_DIR}/%.o: ../common/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/%.o: ../../common/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] shared $@ from $<"
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/mongoose.o: ../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
+${OBJ_DIR}/mongoose.o: ../../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@echo "[compile] mongoose from $<"
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
+${OBJ_DIR}/audio.o: ../audio.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@echo "[compile] $@ from $<"
 	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
-${bin}: ${real_objs} ../../ext/libmongoose/mongoose.c
+${bin}: ${real_objs} ../../../ext/libmongoose/mongoose.c
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
@@ -137,7 +127,7 @@ clean:
 
 distclean: clean
 	@echo "[distclean]"
-	${RM} -r build
+	${RM} -rf build
 
 ################
 # Host Install #
@@ -154,9 +144,9 @@ run: ${bin}
 	@echo "[run] ${bin}"
 	${bin}
 
-gdb debug: ${bin}
-	@echo "[gdb] ${bin}"
-	@(cd ..; gdb gtk-client/${bin} -ex 'run')
+#gdb debug: ${bin}
+#	@echo "[gdb] ${bin}"
+#	@(cd ..; gdb gtk-client/${bin} -ex 'run')
 
 test: clean world run
 
@@ -173,3 +163,7 @@ rebuild clean-build cleanbuild: distclean world
 ${BUILD_DIR}/obj/.stamp:
 	mkdir -p "${BUILD_DIR}/obj/"
 	touch $@
+
+win32-deps:
+	pacman -Syu
+	pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-gtk3 mingw-w64-x86_64-gstreamer mingw-w64-x86_64-gst-plugins-base
