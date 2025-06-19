@@ -42,9 +42,13 @@ time_t poll_block_expire = 0;	// Here we set this to now + config:cat.poll-block
 time_t poll_block_delay = 0;	// ^-- stores the delay
 
 const char *configs[] = { 
+#ifdef _WIN32
    "~/.config/rrclient.cfg",
    "~/.rrclient.cfg",
    "/etc/rrclient.cfg"
+#else
+   "%APPDATA%\rrclient\rrclient.cfg"
+#endif
 };
 
 void shutdown_app(int signum) {

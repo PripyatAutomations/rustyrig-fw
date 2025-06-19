@@ -72,10 +72,10 @@ File /r "etc"
 File /r "share"
 
 # Default config
-SetOutPath "$INSTDIR\config"
+CreateDirectory "$APPDATA\rrclient"
+SetOutPath "$APPDATA\rrclient"
 File "..\..\..\config\rrclient.cfg.example"
-Rename "$INSTDIR\config\rrclient.cfg.example" "$INSTDIR\config\rrclient.cfg"
-
+Rename "$APPDATA\rrclient\rrclient.cfg.example" "$APPDATA\rrclient\rrclient.cfg"
 
 # If we want to properly install gstreamer Run this
 # msiexec /passive INSTALLDIR=$INSTDIR /i gstreamer-$GSTVER.msi
