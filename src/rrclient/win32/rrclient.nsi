@@ -1,6 +1,8 @@
 # Name of the installer
-Outfile "rustyrigs-client-latest.exe"
+!define /date DATE "%Y%m%d"
+Outfile "rrclient-latest.win64.exe"
 
+!define GSTVER=
 # Directory to install to
 InstallDir $PROGRAMFILES\PripyatAutomations\rustyrig-client
 
@@ -11,13 +13,15 @@ Section
 SetOutPath $INSTDIR
 
 # Copy your built binaries (executables, DLLs, etc.)
-File "..\build\client\rrclient.exe"
-#File "path\to\your\gstreamer\*.dll"
-#File "path\to\your\gtk\*.dll"
+File ".\rrclient.exe"
+File ".\ext\*.dll"
+File ".\ext\*.exe"
+
+
+# If we want to properly install gstreamer Run this
+# msiexec /passive INSTALLDIR=$INSTDIR /i gstreamer-$GSTVER.msi
 
 # Create shortcuts
-CreateShortCut "$DESKTOP\rrclient.lnk" "$INSTDIR\app.exe"
+CreateShortCut "$DESKTOP\rrclient.lnk" "$INSTDIR\rrclient.exe"
 
-# Run this
-# msiexec /passive INSTALLDIR=C:\Desired\Folder /i gstreamer-1.0-x86-1.26.2.msi
 SectionEnd

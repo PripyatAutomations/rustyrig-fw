@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\user\\Documents\\GitHub\\rustyrig-fw\\src\\rrclient\\win32\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{76D1672A-1024-4546-AE44-2A5CD3BBC067}|rustyrig gtk client\\rustyrig gtk client.vcxproj|C:\\Users\\user\\Documents\\GitHub\\rustyrig-fw\\src\\rrclient\\win32\\rustyrig gtk client\\win32-main.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{76D1672A-1024-4546-AE44-2A5CD3BBC067}|rustyrig gtk client\\rustyrig gtk client.vcxproj|solutionrelative:rustyrig gtk client\\win32-main.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "win32-main.c",
+              "DocumentMoniker": "C:\\Users\\user\\Documents\\GitHub\\rustyrig-fw\\src\\rrclient\\win32\\rustyrig gtk client\\win32-main.c",
+              "RelativeDocumentMoniker": "rustyrig gtk client\\win32-main.c",
+              "ToolTip": "C:\\Users\\user\\Documents\\GitHub\\rustyrig-fw\\src\\rrclient\\win32\\rustyrig gtk client\\win32-main.c",
+              "RelativeToolTip": "rustyrig gtk client\\win32-main.c",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAUwAEAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2025-06-15T01:43:51.771Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

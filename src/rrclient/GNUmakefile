@@ -21,14 +21,20 @@ LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 CFLAGS += -DMG_TLS=MG_TLS_MBED
 LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 
-# Are we cross compiling?
-ifneq (${TC_PREFIX},"")
-CC := ${TC_PREFIX}-gcc
-LD := ${TC_PREFIX}-ld
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S), MINGW32_NT)
+CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
+LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 else
 CC := gcc
 LD := ld
 endif
+
+# Are we cross compiling?
+#ifneq (${TC_PREFIX},"")
+#CC := ${TC_PREFIX}-gcc
+#LD := ${TC_PREFIX}-ld
 
 ##################
 # Source objects #
@@ -81,7 +87,7 @@ extra_build += ${BUILD_DIR}/obj/.stamp
 world: ${extra_build} ${bin}
 
 BUILD_HEADERS=$(wildcard ../inc/rrclient/*.h) $(wildcard ../inc/common/*.h) $(wildcard ${BUILD_DIR}/*.h)
-${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
+${OBJ_DIR}/%.o: ../%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
@@ -89,26 +95,26 @@ ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 
-${OBJ_DIR}/%.o: ../common/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/%.o: ../../common/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] shared $@ from $<"
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/mongoose.o: ../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
+${OBJ_DIR}/mongoose.o: ../../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@echo "[compile] mongoose from $<"
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
+${OBJ_DIR}/audio.o: ../audio.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@echo "[compile] $@ from $<"
 	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
 
 # Binary also depends on the .stamp file
-${bin}: ${real_objs} ../../ext/libmongoose/mongoose.c
+${bin}: ${real_objs} ../../../ext/libmongoose/mongoose.c
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
 	@ls -a1ls $@
