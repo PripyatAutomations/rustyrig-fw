@@ -8,6 +8,7 @@ OBJ_DIR := ${BUILD_DIR}/obj
 
 UNAME_S := $(shell uname -s)
 
+
 CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
