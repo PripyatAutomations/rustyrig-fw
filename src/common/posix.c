@@ -26,7 +26,9 @@
 #include <string.h>
 #include <fcntl.h>
 #include <pthread.h>
+#ifndef _WIN32
 #include <signal.h>
+#endif
 #include <stdio.h>
 #include <errno.h>
 #include "common/posix.h"
@@ -49,6 +51,7 @@ void host_cleanup(void) {
 //#endif
 }
 
+#ifndef _WIN32
 static void sighandler(int32_t signum) {
    switch(signum) {
       // Convenience signals
@@ -88,9 +91,12 @@ void init_signals(void) {
    signal(SIGUSR1, sighandler);
    signal(SIGUSR2, sighandler);
 }
+#endif
 
 bool host_init(void) {
+#ifndef _WIN32
    init_signals();
+#endif
    return false;
 }
 

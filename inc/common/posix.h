@@ -17,6 +17,7 @@ extern bool file_exists(const char *path);
 // if built for one of the apps
 extern void shutdown_app(int signum);
 
+// in win32.c
 #ifdef _WIN32
 extern char *strndup(const char *s, size_t n);
 #endif
