@@ -16,7 +16,7 @@ CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ..
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
-CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
+CFLAGS += -I../../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
 LDFLAGS +=
 LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
