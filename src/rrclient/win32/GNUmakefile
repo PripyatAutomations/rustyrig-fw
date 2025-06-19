@@ -8,7 +8,6 @@ OBJ_DIR := ${BUILD_DIR}/obj
 
 UNAME_S := $(shell uname -s)
 
-
 CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
@@ -78,23 +77,23 @@ extra_build += ${BUILD_DIR}/obj/.stamp
 world: ${extra_build} ${bin}
 
 BUILD_HEADERS=$(wildcard ../../inc/rrclient/*.h) $(wildcard ../../inc/common/*.h) $(wildcard ${BUILD_DIR}/*.h)
+
 ${OBJ_DIR}/%.o: ../%.c ${BUILD_HEADERS}
-# delete the old object file, so we can't accidentally link against it...
+	# delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $@ from $<"
 	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
-
 ${OBJ_DIR}/%.o: ../../common/%.c ${BUILD_HEADERS}
-# delete the old object file, so we can't accidentally link against it...
+	# delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] shared $@ from $<"
 	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/mongoose.o: ../../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
-# delete the old object file, so we can't accidentally link against it...
+	# delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@echo "[compile] mongoose from $<"
 	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
