@@ -5,21 +5,6 @@ all: world
 PROFILE ?= client
 BUILD_DIR := ../../build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
-bin := ${BUILD_DIR}/rrclient
-INSTALL_DIR := /usr/local
-CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .version)\""
-CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
-LDFLAGS := -lc -lm -g -ggdb -lcrypt
-
-CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
-CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
-LDFLAGS +=
-LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
-LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
-CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
-LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
-CFLAGS += -DMG_TLS=MG_TLS_MBED
-LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 
 UNAME_S := $(shell uname -s)
 
@@ -36,6 +21,22 @@ endif
 #ifneq (${TC_PREFIX},"")
 #CC := ${TC_PREFIX}-gcc
 #LD := ${TC_PREFIX}-ld
+
+bin := ${BUILD_DIR}/rrclient
+INSTALL_DIR := /usr/local
+CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .version)\""
+CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
+LDFLAGS := -lc -lm -g -ggdb -lcrypt
+
+CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
+CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
+LDFLAGS +=
+LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
+LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
+CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
+LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
+CFLAGS += -DMG_TLS=MG_TLS_MBED
+LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 
 ##################
 # Source objects #
