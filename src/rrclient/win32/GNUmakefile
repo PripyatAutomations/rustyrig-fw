@@ -14,7 +14,7 @@ export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 bin := ${BUILD_DIR}/rrclient.exe
 CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ../.version)\"" -lws2_32
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
-LDFLAGS := -lc -lm -g -ggdb -lcrypt
+LDFLAGS := -lm -g -ggdb
 
 CFLAGS += -I../../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
