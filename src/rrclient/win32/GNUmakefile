@@ -12,7 +12,7 @@ LD := x86_64-w64-mingw32-gcc
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 
 bin := ${BUILD_DIR}/rrclient.exe
-CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ../.version)\"" -lws2_32
+CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ../.version)\"" -lws2_32 -DMG_ARCH=MG_ARCH_WIN32
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
 LDFLAGS := -lm -g -ggdb
 
