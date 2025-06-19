@@ -112,7 +112,11 @@ int main(int argc, char *argv[]) {
 
    const char *cfg_audio_debug = cfg_get("audio.debug");
    if (cfg_audio_debug) {
+#ifdef _WIN32
+      SetEnvironmentVariable("GST_DEBUG", cfg_audio_debug);
+#else
       setenv("GST_DEBUG", cfg_audio_debug, 0);
+#endif
    }
 
    ws_init();
