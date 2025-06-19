@@ -84,7 +84,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          if (user) {
 //            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
             struct rr_user *cptr = NULL;
-            if ((cptr = find_client(user))) {
+            if ((cptr = userlist_find(user))) {
                Log(LOG_DEBUG, "ws.cat", "ptt set to %s for cptr:<%x>", (cptr->is_ptt ? "true" : "false"), cptr);
                cptr->is_ptt = ptt;
             }

@@ -67,7 +67,6 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       goto cleanup;
    }
 
-
    if (cmd && strcasecmp(cmd, "userinfo") == 0) {
       if (!user) {
          rv = true;
@@ -75,53 +74,34 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       }
 
       Log(LOG_DEBUG, "ws.talk", "[%s] UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", get_chat_ts(), user, privs, (tx ? "true" : "false"), muted, clones);
-      struct rr_user *cptr = find_or_create_client(user);
 
-      if (cptr) {
-         memset(cptr, 0, sizeof(struct rr_user));
-         snprintf(cptr->name, sizeof(cptr->name), "%s", user);
-         snprintf(cptr->privs, sizeof(cptr->privs), "%s", privs);
-         if (tx) {
-            cptr->is_ptt = true;
-         }
-         if (muted && strcasecmp(muted, "true") == 0) {
-            cptr->is_muted = muted;
-         }
-         if (has_privs(cptr, "admin")) {
-            set_flag(cptr, FLAG_ADMIN);
-         } else if (has_privs(cptr, "owner")) {
-            set_flag(cptr, FLAG_OWNER);
-         }
-         if (has_privs(cptr, "muted")) {
-            set_flag(cptr, FLAG_MUTED);
-            cptr->is_muted = true;
-         }
-         if (has_privs(cptr, "ptt")) {
-            set_flag(cptr, FLAG_PTT);
-         }
-         if (has_privs(cptr, "subscriber")) {
-            set_flag(cptr, FLAG_SUBSCRIBER);
-         }
-         if (has_privs(cptr, "elmer")) {
-            set_flag(cptr, FLAG_ELMER);
-         } else if (has_privs(cptr, "noob")) {
-            set_flag(cptr, FLAG_NOOB);
-         }
-         if (has_privs(cptr, "bot")) {
-            set_flag(cptr, FLAG_SERVERBOT);
-         }
-         if (has_privs(cptr, "listener")) {
-            set_flag(cptr, FLAG_LISTENER);
-         }
-         if (has_privs(cptr, "syslog")) {
-            set_flag(cptr, FLAG_SYSLOG);
-         }
-         if (has_privs(cptr, "tx")) {
-            set_flag(cptr, FLAG_CAN_TX);
-         }
-         userlist_resync_all();
-      } else {
+      struct rr_user tmp = {0};
+
+      snprintf(tmp.name, sizeof(tmp.name), "%s", user);
+      snprintf(tmp.privs, sizeof(tmp.privs), "%s", privs);
+
+      if (tx) tmp.is_ptt = true;
+      if (muted && strcasecmp(muted, "true") == 0) tmp.is_muted = true;
+
+      if (has_privs(&tmp, "admin")) set_flag(&tmp, FLAG_ADMIN);
+      else if (has_privs(&tmp, "owner")) set_flag(&tmp, FLAG_OWNER);
+      if (has_privs(&tmp, "muted")) {
+         set_flag(&tmp, FLAG_MUTED);
+         tmp.is_muted = true;
+      }
+      if (has_privs(&tmp, "ptt")) set_flag(&tmp, FLAG_PTT);
+      if (has_privs(&tmp, "subscriber")) set_flag(&tmp, FLAG_SUBSCRIBER);
+      if (has_privs(&tmp, "elmer")) set_flag(&tmp, FLAG_ELMER);
+      else if (has_privs(&tmp, "noob")) set_flag(&tmp, FLAG_NOOB);
+      if (has_privs(&tmp, "bot")) set_flag(&tmp, FLAG_SERVERBOT);
+      if (has_privs(&tmp, "listener")) set_flag(&tmp, FLAG_LISTENER);
+      if (has_privs(&tmp, "syslog")) set_flag(&tmp, FLAG_SYSLOG);
+      if (has_privs(&tmp, "tx")) set_flag(&tmp, FLAG_CAN_TX);
+
+      if (!userlist_add_or_update(&tmp)) {
          Log(LOG_CRIT, "ws", "OOM in ws_handle_talk_msg");
+      } else {
+         userlist_redraw_gtk();
       }
    } else if (cmd && strcasecmp(cmd, "msg") == 0) {
       char *from = mg_json_get_str(msg_data, "$.talk.from");
@@ -147,7 +127,10 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          goto cleanup;
       }
       
-      struct rr_user *cptr = find_or_create_client(user);
+      struct rr_user *cptr = malloc(sizeof(struct rr_user));
+      memset(cptr, 0, sizeof(struct rr_user));
+      snprintf(cptr->name, sizeof(cptr->name), "%s", user);
+      userlist_add_or_update(cptr);
       ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(), user);
       Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%x>", user, cptr);
       free(ip);
@@ -159,7 +142,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       }
       ui_print("[%s] >> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", --clones);
 
-      struct rr_user *cptr = find_client(user);
+      struct rr_user *cptr = userlist_find(user);
       if (!cptr) {
          free(reason);
          goto cleanup;
@@ -167,7 +150,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
       cptr->clones = clones;
       if (cptr->clones <= 0 ) {
-         delete_client(cptr);
+         userlist_remove_by_name(cptr->name);
       }
       free(reason);
    } else if (cmd && strcasecmp(cmd, "whois") == 0) {

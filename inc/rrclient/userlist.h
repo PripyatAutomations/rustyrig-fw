@@ -24,13 +24,12 @@ struct rr_user {
    struct rr_user *next;
 };
 
-extern bool userlist_add(struct rr_user *cptr);
-extern void userlist_clear(void);
-extern bool userlist_update(struct rr_user *cptr);
-extern bool userlist_remove(const char *name);
-extern void userlist_resync_all(void);
 extern struct rr_user *global_userlist;
-
+extern bool userlist_add_or_update(const struct rr_user *newinfo);
+extern bool userlist_remove_by_name(const char *name);
+extern void userlist_clear_all(void); // destroys the list
+extern struct rr_user *userlist_find(const char *name);
+extern void userlist_redraw_gtk(void);
 //
 extern struct rr_user *find_client(const char *name);
 extern struct rr_user *find_or_create_client(const char *name);

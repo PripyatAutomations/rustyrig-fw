@@ -306,7 +306,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");
       gtk_style_context_remove_class(ctx, "ptt-active");
-      clear_client_list();
+      userlist_clear_all();
       ui_print("[%s] *** DISCONNECTED ***", get_chat_ts());
    }
 }
@@ -379,7 +379,7 @@ bool disconnect_server(void) {
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
       // XXX: im not sure this is acceptable
 //      ws_conn = NULL;
-      clear_client_list();
+      userlist_clear_all();
    }
    return false;
 }
