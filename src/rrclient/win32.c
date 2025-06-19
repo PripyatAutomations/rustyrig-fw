@@ -13,6 +13,10 @@
 #include <stdlib.h>
 
 #ifdef _WIN32
+#include <winsock2.h
+#include <windows.h>
+#include <stdbool.h>
+
 bool win32_init(void) {
    return false;
 }
@@ -48,4 +52,16 @@ char *strcasestr(const char *haystack, const char *needle) {
     return NULL;
 }
 
-#endif
+bool is_windows_dark_mode() {
+    DWORD value = 1;
+    DWORD size = sizeof(DWORD);
+    HKEY hKey;
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+       if (RegQueryValueExA(hKey, "AppsUseLightTheme", NULL, NULL, (LPBYTE)&value, &size) != ERROR_SUCCESS) {
+          value = 1;
+       }
+       RegCloseKey(hKey);
+    }
+    return value == 0;  // 0 means dark mode}
+}
+#endif	// _WIN32

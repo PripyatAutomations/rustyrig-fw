@@ -121,10 +121,15 @@ int main(int argc, char *argv[]) {
 
    ws_init();
    gtk_init(&argc, &argv);
-   audio_init();
-   ws_audio_init();
-   gui_init();
-   g_timeout_add(10, poll_mongoose, NULL);
+#ifdef	_WIN32
+   if (is_windows_dark_mode()) {
+      GtkSettings *settings = gtk_settings_get_default();
+      g_object_set(settings, "gtk-theme-name", "Adwaita",
+                             "gtk-application-prefer-dark-theme", TRUE,
+                             NULL);
+   }
+#endif
+
    g_timeout_add(1000, update_now, NULL);
 
    const char *poll_block_delay_s = cfg_get("cat.poll-blocking");
