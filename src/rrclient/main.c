@@ -128,8 +128,13 @@ int main(int argc, char *argv[]) {
 #ifdef	_WIN32
    if (is_windows_dark_mode()) {
       GtkSettings *settings = gtk_settings_get_default();
-      g_object_set(settings, "gtk-theme-name", "Adwaita",
+      g_object_set(settings, "gtk-theme-name", "Windows10-Dark",
                              "gtk-application-prefer-dark-theme", TRUE,
+                             NULL);
+   } else {
+      GtkSettings *settings = gtk_settings_get_default();
+      g_object_set(settings, "gtk-theme-name", "Windows10",
+                             "gtk-application-prefer-dark-theme", FALSE,
                              NULL);
    }
 #endif
