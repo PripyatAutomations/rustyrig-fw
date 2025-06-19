@@ -143,6 +143,8 @@ void show_server_chooser(void) {
    gtk_container_add(GTK_CONTAINER(win), vbox);
    gtk_window_set_default_size(GTK_WINDOW(win), 300, 200);
 
+   gtk_window_set_title(GTK_WINDOW(win), "Server Choser");
+   
    server_window = win;
    gtk_widget_show_all(win);
 }
