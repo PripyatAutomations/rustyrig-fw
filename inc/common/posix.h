@@ -20,6 +20,7 @@ extern void shutdown_app(int signum);
 // in win32.c
 #ifdef _WIN32
 extern char *strndup(const char *s, size_t n);
+extern char *strcasestr(const char *haystack, const char *needle);
 #endif
 
 #endif	// !defined(__rr_posix_h)

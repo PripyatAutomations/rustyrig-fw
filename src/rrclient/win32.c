@@ -8,6 +8,8 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
 #include <stdbool.h>
+#include <ctype.h>
+#include <string.h>
 
 #ifdef _WIN32
 bool win32_init(void) {
@@ -21,5 +23,27 @@ char *strndup(const char *s, size_t n) {
     memcpy(result, s, len);
     result[len] = '\0';
     return result;
+}
+
+char *strcasestr(const char *haystack, const char *needle) {
+    if (!*needle) {
+	   return (char *)haystack;
+	}
+
+    for (; *haystack; haystack++) {
+        const char *h = haystack;
+        const char *n = needle;
+
+        while (*h && *n && tolower((unsigned char)*h) == tolower((unsigned char)*n)) {
+            h++;
+            n++;
+        }
+
+        if (!*n) {
+		   return (char *)haystack;
+		}
+    }
+
+    return NULL;
 }
 #endif
