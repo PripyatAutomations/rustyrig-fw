@@ -24,7 +24,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 //#include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/http.h"
+//#include "rustyrig/http.h"
 
 #define MAX_DIGITS 10
 

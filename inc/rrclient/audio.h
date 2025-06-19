@@ -24,7 +24,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 //#include "rustyrig/mongoose.h"
-#include "rustyrig/http.h"
+//#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "common/codecneg.h"

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "common/dict.h"
-#include "rustyrig/ws.h"
+//#include "rustyrig/ws.h"
 #include "common/logger.h"
 #define MAX_DIGITS 10
 extern dict *cfg;
