@@ -15,6 +15,14 @@ SetOutPath $INSTDIR
 
 # Copy your built binaries (executables, DLLs, etc.)
 File ".\build\rrclient.exe"
+File "C:\msys64\mingw64\bin\libglib-2.0-0.dll"
+File "C:\msys64\mingw64\bin\libgdk-3-0.dll"
+File "C:\msys64\mingw64\bin\libgstapp-1.0-0.dll"
+File "C:\msys64\mingw64\bin\libgobject-2.0-0.dll"
+File "C:\msys64\mingw64\bin\libgtk-3-0.dll"
+File "C:\msys64\mingw64\bin\libmbedcrypto-16.dll"
+File "C:\msys64\mingw64\bin\libmbedtls-21.dll"
+File "C:\msys64\mingw64\bin\libgstreamer-1.0-0.dll"
 #File ".\ext\*.dll"
 #File ".\ext\*.exe"
 File /r "etc"
