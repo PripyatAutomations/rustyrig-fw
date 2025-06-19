@@ -8,13 +8,20 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rrclient_userlist_h)
 #define	__rrclient_userlist_h
+#define	HTTP_USER_LEN		16		// username length (16 char)
+#define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64
+#define	HTTP_HASH_LEN		40		// sha1
+#define	HTTP_TOKEN_LEN		14		// session-id / nonce length, longer moar secure
+#define	HTTP_UA_LEN		512		// allow 128 bytes
+#define	USER_PRIV_LEN		100		// privileges list
+#define USER_EMAIL_LEN		128		// email address
 
 struct rr_user {
    char   	  name[HTTP_USER_LEN+1];
    char           privs[200];
    time_t	  logged_in;
    time_t         last_heard;
-   u_int32_t      user_flags;
+   uint32_t      user_flags;
    int            clones;
    bool           is_ptt;
    bool           is_muted;
