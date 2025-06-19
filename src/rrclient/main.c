@@ -22,6 +22,10 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+#ifdef _WIN32
+extern bool is_windows_dark_mode();
+#endif
+
 extern bool ws_audio_init(void);
 extern struct mg_mgr mgr;
 extern struct mg_connection *ws_conn;

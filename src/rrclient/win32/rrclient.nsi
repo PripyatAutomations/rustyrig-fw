@@ -1,8 +1,9 @@
 # Name of the installer
 !define /date DATE "%Y%m%d"
-Outfile "rrclient-latest.win64.exe"
+!define OUTFILE "rrclient.win64.${DATE}.exe"
+Outfile "${OUTFILE}"
 
-!define GSTVER=
+#!define GSTVER=
 # Directory to install to
 InstallDir $PROGRAMFILES\PripyatAutomations\rustyrig-client
 
@@ -13,9 +14,9 @@ Section
 SetOutPath $INSTDIR
 
 # Copy your built binaries (executables, DLLs, etc.)
-File ".\rrclient.exe"
-File ".\ext\*.dll"
-File ".\ext\*.exe"
+File ".\build\rrclient.exe"
+#File ".\ext\*.dll"
+#File ".\ext\*.exe"
 
 
 # If we want to properly install gstreamer Run this
@@ -25,3 +26,4 @@ File ".\ext\*.exe"
 CreateShortCut "$DESKTOP\rrclient.lnk" "$INSTDIR\rrclient.exe"
 
 SectionEnd
+
