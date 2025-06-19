@@ -71,6 +71,12 @@ File "C:\msys64\mingw64\bin\libsharpyuv-0.dll"
 File /r "etc"
 File /r "share"
 
+# Default config
+SetOutPath "$INSTDIR\config"
+File "..\..\..\config\rrclient.cfg.example"
+Rename "$INSTDIR\config\rrclient.cfg.example" "$INSTDIR\config\rrclient.cfg"
+
+
 # If we want to properly install gstreamer Run this
 # msiexec /passive INSTALLDIR=$INSTDIR /i gstreamer-$GSTVER.msi
 
