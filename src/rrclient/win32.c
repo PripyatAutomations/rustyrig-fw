@@ -9,6 +9,17 @@
 
 #include <stdbool.h>
 
+#ifdef _WIN32
 bool win32_init(void) {
    return false;
 }
+
+char *strndup(const char *s, size_t n) {
+    size_t len = strnlen(s, n);
+    char *result = (char *)malloc(len + 1);
+    if (!result) return NULL;
+    memcpy(result, s, len);
+    result[len] = '\0';
+    return result;
+}
+#endif
