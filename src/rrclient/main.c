@@ -8,6 +8,7 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #ifdef _WIN32
+#include <winsock2.h>
 #include <windows.h>
 #endif
 
