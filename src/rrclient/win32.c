@@ -13,9 +13,8 @@
 #include <stdlib.h>
 
 #ifdef _WIN32
-#include <winsock2.h
+#include <winsock2.h>
 #include <windows.h>
-#include <stdbool.h>
 
 bool win32_init(void) {
    return false;
