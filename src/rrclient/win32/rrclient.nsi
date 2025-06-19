@@ -54,7 +54,7 @@ File "C:\msys64\mingw64\bin\libpangoft2-1.0-0.dll"
 File "C:\msys64\mingw64\bin\libatk-1.0-0.dll"
 File "C:\msys64\mingw64\bin\libdatrie-1.dll"
 File "C:\msys64\mingw64\bin\libgraphite2.dll"
-File "C:\msys64\mingw64\bin\libexpat-1.dll
+File "C:\msys64\mingw64\bin\libexpat-1.dll"
 File "C:\msys64\mingw64\bin\libbrotlidec.dll"
 File "C:\msys64\mingw64\bin\libbz2-1.dll"
 File "C:\msys64\mingw64\bin\libdeflate.dll"
