@@ -14,7 +14,7 @@ export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 
 bin := rrclient.exe
 INSTALL_DIR := /usr/local
-CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .version)\""
+CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ../.version)\""
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
