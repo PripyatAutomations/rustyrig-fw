@@ -26,6 +26,7 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S), MINGW32_NT)
 CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
+PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 else
 CC := gcc
 LD := ld
