@@ -100,7 +100,6 @@ char *find_file_by_list(const char *files[], int file_count) {
             Log(LOG_INFO, "core", "ffbl: file_exists(%s) returns false", realpath);
             free(realpath);
          }
-         break;
       } else {
          fprintf(stderr, "ffbl: :( files[%d] is NULL in loop", i);
       }
