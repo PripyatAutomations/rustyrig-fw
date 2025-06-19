@@ -1,15 +1,15 @@
 SHELL = bash
 .SHELLFLAGS = -e -c
 all: world
-
+export PATH += /mingw64/bin
 PROFILE := win32-client
 BUILD_DIR := ./build
 OBJ_DIR := ${BUILD_DIR}/obj
 
 UNAME_S := $(shell uname -s)
 
-CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
-LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
+CC := x86_64-w64-mingw32-gcc
+LD := x86_64-w64-mingw32-gcc
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 
 bin := ${BUILD_DIR}/rrclient.exe
