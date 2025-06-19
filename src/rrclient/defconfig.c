@@ -35,8 +35,13 @@ defconfig_t defcfg[] = {
    { "log.level",			"debug", "Log level (audit | crit | warn | info | debug | crazy)" },
    { "log.show-ts",			"true", "Show timestamps in log" },
    { "server.auto-connect",		"",	"Profile name to autoconnect to" },
+ #ifdef _WIN32
    { "ui.gtk.theme",        "Windows10", "Chosen light theme" },
    { "ui.gtk.theme.dark",   "Windows10-Dark", "Chosen dark theme" },
+#else
+   { "ui.gtk.theme",        NULL, 	"Chosen light theme" },
+   { "ui.gtk.theme.dark",   NULL,   "Chosen dark theme" },
+#endif
    { "ui.main.height",			"600",	"Height (px) of main window" },
    { "ui.main.width",			"800",	"Width (px) of main window" },
    { "ui.main.x",			"0",	"X position of main window" },
