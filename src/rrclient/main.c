@@ -7,6 +7,10 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
@@ -99,7 +103,12 @@ int main(int argc, char *argv[]) {
    host_init();
 
    // Set up some debugging
+#ifdef _WIN32
+   SetEnvironmentVariable("GST_DEBUG_DUMP_DOT_DIR", ".");
+#else
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
+#endif
+
    const char *cfg_audio_debug = cfg_get("audio.debug");
    if (cfg_audio_debug) {
       setenv("GST_DEBUG", cfg_audio_debug, 0);
