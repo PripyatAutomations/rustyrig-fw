@@ -1,7 +1,7 @@
 # Name of the installer
 !define /date DATE "%Y%m%d"
-!define OUTFILE "rrclient.win64.$DATE.exe"
-Outfile $OUTFILE
+!define OUTFILE "rrclient.win64.${DATE}.exe"
+Outfile "{OUTFILE}"
 
 #!define GSTVER=
 # Directory to install to
