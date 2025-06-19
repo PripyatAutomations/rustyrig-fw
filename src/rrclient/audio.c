@@ -12,8 +12,16 @@
 // This needs split out into ws.audio.c ws.tx-audio.c for the parts not-relevant to gstreamer.
 // We should keep TX and RX here to make sure things stay in sync
 #include <stdint.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/un.h>
+#endif
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
