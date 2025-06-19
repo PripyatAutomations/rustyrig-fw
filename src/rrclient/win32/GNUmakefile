@@ -1,7 +1,6 @@
 SHELL = bash
 .SHELLFLAGS = -e -c
 all: world
-export PATH += /mingw64/bin
 PROFILE := win32-client
 BUILD_DIR := ./build
 OBJ_DIR := ${BUILD_DIR}/obj
