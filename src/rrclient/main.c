@@ -145,6 +145,7 @@ int main(int argc, char *argv[]) {
 
    g_timeout_add(1000, update_now, NULL);
 
+   gui_init();
    const char *poll_block_delay_s = cfg_get("cat.poll-blocking");
    int cfg_poll_block_delay = 3;
    if (poll_block_delay_s) {
