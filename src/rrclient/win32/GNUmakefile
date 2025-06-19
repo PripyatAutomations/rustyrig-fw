@@ -12,8 +12,7 @@ CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 
-bin := rrclient.exe
-INSTALL_DIR := /usr/local
+bin := ${BUILD_DIR}/rrclient.exe
 CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ../.version)\""
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
@@ -132,17 +131,16 @@ distclean: clean
 # Host Install #
 ################
 install:
-	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
-	cp -av ${bin}  ${INSTALL_DIR}/bin
+	@echo "Windows builds do not need to install. A NSIS installer will be generated soon"
 
 ###################
 # Running on host #
 ###################
-# Run debugger
 run: ${bin}
 	@echo "[run] ${bin}"
 	${bin}
 
+# Run debugger
 #gdb debug: ${bin}
 #	@echo "[gdb] ${bin}"
 #	@(cd ..; gdb gtk-client/${bin} -ex 'run')
