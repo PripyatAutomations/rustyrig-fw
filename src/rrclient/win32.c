@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 
 #ifdef _WIN32
 bool win32_init(void) {
@@ -46,4 +47,5 @@ char *strcasestr(const char *haystack, const char *needle) {
 
     return NULL;
 }
+
 #endif
