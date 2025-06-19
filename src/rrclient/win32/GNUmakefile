@@ -82,7 +82,7 @@ ${OBJ_DIR}/%.o: ../%.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $@ from $<"
-	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 
 ${OBJ_DIR}/%.o: ../../common/%.c ${BUILD_HEADERS}
@@ -90,23 +90,23 @@ ${OBJ_DIR}/%.o: ../../common/%.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] shared $@ from $<"
-	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/mongoose.o: ../../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@echo "[compile] mongoose from $<"
-	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/audio.o: ../audio.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@echo "[compile] $@ from $<"
-	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
 
 # Binary also depends on the .stamp file
 ${bin}: ${real_objs} ../../../ext/libmongoose/mongoose.c
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
-	${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
+	${CC} -o $@ ${real_objs} ${LDFLAGS}
 	@ls -a1ls $@
 	@file $@
 	@size $@
