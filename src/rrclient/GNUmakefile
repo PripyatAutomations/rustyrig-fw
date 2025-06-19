@@ -23,7 +23,7 @@ LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 
 UNAME_S := $(shell uname -s)
 
-ifeq ($(UNAME_S), MINGW32_NT)
+ifeq ($(findstring MINGW32,$(UNAME_S)),MINGW32)
 CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
