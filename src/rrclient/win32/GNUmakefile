@@ -31,9 +31,8 @@ LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 ##################
 # Source objects #
 ##################
-objs += audio.o			# gstreamer based audio
+#objs += audio.o			# gstreamer based audio
 objs += auth.o
-#objs += audio.o		# Audio channel stuff
 objs += chat.o
 objs += codecneg.o
 objs += config.o
