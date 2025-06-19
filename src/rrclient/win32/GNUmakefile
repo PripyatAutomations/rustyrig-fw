@@ -78,21 +78,21 @@ world: ${extra_build} ${bin}
 BUILD_HEADERS=$(wildcard ../../inc/rrclient/*.h) $(wildcard ../../inc/common/*.h) $(wildcard ${BUILD_DIR}/*.h)
 
 ${OBJ_DIR}/%.o: ../%.c ${BUILD_HEADERS}
-	# delete the old object file, so we can't accidentally link against it...
+# delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $@ from $<"
 	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/%.o: ../../common/%.c ${BUILD_HEADERS}
-	# delete the old object file, so we can't accidentally link against it...
+# delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] shared $@ from $<"
 	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/mongoose.o: ../../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
-	# delete the old object file, so we can't accidentally link against it...
+# delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@echo "[compile] mongoose from $<"
 	${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
