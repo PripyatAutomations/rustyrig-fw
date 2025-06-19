@@ -379,7 +379,7 @@ int main(int argc, char **argv) {
 
       // poll the backend (internal or hamlib), if needed
       // XXX: move to config
-      if (ms >= 500) {
+      if (ms >= 1000) {
          // Poll the rig
          rr_be_poll(VFO_A);
          last_rig_poll.tv_sec = loop_start.tv_sec;

@@ -177,13 +177,15 @@ static bool hl_init(void) {
       return true;
    }
 
+   const char *cfg_hamlib_port = cfg_get("backend.hamlib_port");
+
    // XXX: Is this needed or is the simpler code OK?
 /*
    strncpy(hl_rig->state.rigport.pathname, "localhost:4532", sizeof(hl_rig->state.rigport.pathname) - 1);
    hl_rig->state.rigport.pathname[sizeof(hl_rig->state.rigport.pathname) - 1] = '\0';
 */
 
-   rig_set_conf(hl_rig, rig_token_lookup(hl_rig, "rig_pathname"), BACKEND_HAMLIB_PORT);
+   rig_set_conf(hl_rig, rig_token_lookup(hl_rig, "rig_pathname"), (cfg_hamlib_port ? cfg_hamlib_port : BACKEND_HAMLIB_PORT));
 // XXX: this doesnt work on daedalus
 //   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
 

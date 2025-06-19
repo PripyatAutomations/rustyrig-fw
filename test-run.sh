@@ -8,7 +8,8 @@
 
 # If user has rigctld running, try to use it instead...
 if [ -z "$(pidof rigctld)" ]; then
-   ./ft891-rigctld.sh &
+#   ./ft891-rigctld.sh &
+   ./dummy-rigctld.sh &
    sleep 2
 fi
 

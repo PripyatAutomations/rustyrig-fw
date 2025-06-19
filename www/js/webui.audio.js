@@ -1,6 +1,7 @@
 if (!window.webui_inits) window.webui_inits = [];
 
-var audio_codec = "mu16";		// This is our default but we plan to support others via json message to switch soon
+//var audio_codec = "mu16";		// This is our default but we plan to support others via json message to switch soon
+var audio_codec = 'pc16';
 var audio_rate = 16000;			// default for mulaw
 
 // RX context
