@@ -172,5 +172,5 @@ win64-installer: ${INSTALLER} # ${BUILD_DIR}/.stamp-w64dep
 ${INSTALLER}: ${bin}
 	makensis //DOUTFILE=${INSTALLER} win32/rrclient.nsi
 
-icon.res: rustyrig.ico win32/icon.rc
+${OBJ_DIR}/icon.res: rustyrig.ico win32/icon.rc
 	windres.exe win32/icon.rc -O coff -o $@
