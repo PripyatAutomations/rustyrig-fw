@@ -9,7 +9,7 @@ InstallDir $PROGRAMFILES\PripyatAutomations\rustyrig-client
 Section
 SetOutPath $INSTDIR
 # Copy client exe
-File ".\build\rrclient.exe"
+File "..\build\rrclient.exe"
 # Copy needed DLLs
 File "C:\msys64\mingw64\bin\libglib-2.0-0.dll"
 File "C:\msys64\mingw64\bin\libgdk-3-0.dll"
