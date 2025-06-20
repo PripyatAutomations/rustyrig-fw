@@ -167,4 +167,4 @@ INSTALLER=rrclient.win64.${DATE}.exe
 win64-installer: ${INSTALLER} # ${BUILD_DIR}/.stamp-w64dep
 
 ${INSTALLER}: ${bin}
-	makensis //DOUTFILE=${BUILD_DIR}/${INSTALLER} win32/rrclient.nsi
+	makensis //DOUTFILE=${INSTALLER} win32/rrclient.nsi
