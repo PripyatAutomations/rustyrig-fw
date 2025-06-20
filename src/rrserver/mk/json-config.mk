@@ -1,4 +1,3 @@
-
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
 TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
 EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
