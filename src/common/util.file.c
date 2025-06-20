@@ -55,30 +55,56 @@ bool is_dir(const char *path) {
 }
 
 char *expand_path(const char *path) {
-   if (!path) return NULL;
+    if (!path) return NULL;
 
-   if (path[0] == '~') {
-      const char *home = getenv("HOME");
-      if (!home) {
-         return NULL;
-      }
+    if (path[0] == '~') {
+        const char *home = NULL;
 
-      size_t home_len = strlen(home);
-      size_t path_len = strlen(path);
+#ifdef _WIN32
+        home = getenv("USERPROFILE");
+        if (!home) {
+            const char *drive = getenv("HOMEDRIVE");
+            const char *path_part = getenv("HOMEPATH");
+            if (drive && path_part) {
+                size_t drive_len = strlen(drive);
+                size_t path_len = strlen(path_part);
+                home = malloc(drive_len + path_len + 1);
+                if (!home) return NULL;
+                sprintf((char *)home, "%s%s", drive, path_part);
+            } else {
+                return NULL;
+            }
+        }
+#else
+        home = getenv("HOME");
+        if (!home) return NULL;
+#endif
 
-      // Skip '~' and optional '/'
-      const char *suffix = (path[1] == '/') ? path + 2 : path + 1;
+        size_t home_len = strlen(home);
+        size_t path_len = strlen(path);
 
-      char *expanded = malloc(home_len + strlen(suffix) + 2);
-      if (!expanded) {
-         return NULL;
-      }
+        // Skip '~' and optional '/'
+        const char *suffix = (path[1] == '/' || path[1] == '\\') ? path + 2 : path + 1;
 
-      sprintf(expanded, "%s/%s", home, suffix);
-      return expanded;
-   }
+        char *expanded = malloc(home_len + strlen(suffix) + 2); // +1 for '/' or '\' +1 for '\0'
+        if (!expanded) {
+#ifdef _WIN32
+            if (drive && path_part) free((void *)home);  // free if we allocated it
+#endif
+            return NULL;
+        }
 
-   return strdup(path);
+#ifdef _WIN32
+        sprintf(expanded, "%s\\%s", home, suffix);
+        if (drive && path_part) free((void *)home);
+#else
+        sprintf(expanded, "%s/%s", home, suffix);
+#endif
+
+        return expanded;
+    }
+
+    return strdup(path);
 }
 
 // You MUST free this when done with it
