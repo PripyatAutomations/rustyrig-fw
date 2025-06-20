@@ -21,6 +21,10 @@
 #include <fcntl.h>
 #include "common/posix.h"
 #include "common/logger.h"
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 bool file_exists(const char *path) {
 // Support for posix hosts
@@ -58,42 +62,68 @@ char *expand_path(const char *path) {
     if (!path) return NULL;
 
 #ifdef _WIN32
-    // Handle '~' at the beginning (home directory)
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+
+    const char *home = getenv("USERPROFILE");
+    int home_allocated = 0;
+    const char *drive = NULL;
+    const char *path_part = NULL;
+
+    // Handle '~' expansion
     if (path[0] == '~') {
-        const char *home = getenv("USERPROFILE");
+        if (!home) {
+            drive = getenv("HOMEDRIVE");
+            path_part = getenv("HOMEPATH");
+            if (drive && path_part) {
+                size_t drive_len = strlen(drive);
+                size_t path_len = strlen(path_part);
+                char *temp_home = malloc(drive_len + path_len + 1);
+                if (!temp_home) return NULL;
+                sprintf(temp_home, "%s%s", drive, path_part);
+                home = temp_home;
+                home_allocated = 1;
+            } else {
+                return NULL;
+            }
+        }
+
+        // Skip '~' and optional slash
         const char *suffix = (path[1] == '/' || path[1] == '\\') ? path + 2 : path + 1;
 
-        if (!home) return NULL;
+        size_t len = strlen(home) + strlen(suffix) + 2;
+        char *expanded = malloc(len);
+        if (!expanded) {
+            if (home_allocated) free((void *)home);
+            return NULL;
+        }
+        snprintf(expanded, len, "%s\\%s", home, suffix);
 
-        size_t total = strlen(home) + strlen(suffix) + 2;
-        char *result = malloc(total);
-        if (!result) return NULL;
-
-        sprintf(result, "%s\\%s", home, suffix);
-        return result;
+        if (home_allocated) free((void *)home);
+        return expanded;
     }
 
-    // Handle environment variables like %APPDATA%
+    // Handle %VAR% expansion
     char tmp[MAX_PATH];
-    DWORD len = ExpandEnvironmentStringsA(path, tmp, MAX_PATH);
-    if (len == 0 || len > MAX_PATH) {
-        return strdup(path);  // fallback: use as-is
+    DWORD n = ExpandEnvironmentStringsA(path, tmp, MAX_PATH);
+    if (n == 0 || n > MAX_PATH) {
+        return NULL;
     }
 
     return strdup(tmp);
 #else
-    // POSIX: handle ~
+    // POSIX: Handle ~
     if (path[0] == '~') {
         const char *home = getenv("HOME");
         if (!home) return NULL;
 
         const char *suffix = (path[1] == '/') ? path + 2 : path + 1;
-        size_t total = strlen(home) + strlen(suffix) + 2;
-        char *result = malloc(total);
-        if (!result) return NULL;
+        size_t len = strlen(home) + strlen(suffix) + 2;
+        char *expanded = malloc(len);
+        if (!expanded) return NULL;
 
-        sprintf(result, "%s/%s", home, suffix);
-        return result;
+        snprintf(expanded, len, "%s/%s", home, suffix);
+        return expanded;
     }
 
     return strdup(path);
