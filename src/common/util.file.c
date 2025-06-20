@@ -59,18 +59,23 @@ char *expand_path(const char *path) {
 
     if (path[0] == '~') {
         const char *home = NULL;
-
 #ifdef _WIN32
+        int home_allocated = 0;
+        const char *drive = NULL;
+        const char *path_part = NULL;
+
         home = getenv("USERPROFILE");
         if (!home) {
-            const char *drive = getenv("HOMEDRIVE");
-            const char *path_part = getenv("HOMEPATH");
+            drive = getenv("HOMEDRIVE");
+            path_part = getenv("HOMEPATH");
             if (drive && path_part) {
                 size_t drive_len = strlen(drive);
                 size_t path_len = strlen(path_part);
-                home = malloc(drive_len + path_len + 1);
-                if (!home) return NULL;
-                sprintf((char *)home, "%s%s", drive, path_part);
+                char *temp_home = malloc(drive_len + path_len + 1);
+                if (!temp_home) return NULL;
+                sprintf(temp_home, "%s%s", drive, path_part);
+                home = temp_home;
+                home_allocated = 1;
             } else {
                 return NULL;
             }
@@ -80,23 +85,20 @@ char *expand_path(const char *path) {
         if (!home) return NULL;
 #endif
 
-        size_t home_len = strlen(home);
-        size_t path_len = strlen(path);
-
-        // Skip '~' and optional '/'
+        // Skip '~' and optional '/' or '\'
         const char *suffix = (path[1] == '/' || path[1] == '\\') ? path + 2 : path + 1;
 
-        char *expanded = malloc(home_len + strlen(suffix) + 2); // +1 for '/' or '\' +1 for '\0'
+        char *expanded = malloc(strlen(home) + strlen(suffix) + 2); // +1 for separator +1 for null
         if (!expanded) {
 #ifdef _WIN32
-            if (drive && path_part) free((void *)home);  // free if we allocated it
+            if (home_allocated) free((void *)home);
 #endif
             return NULL;
         }
 
 #ifdef _WIN32
         sprintf(expanded, "%s\\%s", home, suffix);
-        if (drive && path_part) free((void *)home);
+        if (home_allocated) free((void *)home);
 #else
         sprintf(expanded, "%s/%s", home, suffix);
 #endif
