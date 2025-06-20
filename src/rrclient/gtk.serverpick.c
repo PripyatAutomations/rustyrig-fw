@@ -47,6 +47,7 @@ static void do_connect_from_tree(GtkTreeView *view) {
          disconnect_server();
          strncpy(active_server, at + 1, sizeof(active_server));
          active_server[sizeof(active_server) - 1] = 0;
+         ui_print("* Switched active server to %s", active_server);
          connect_server();
       }
       g_free(entry);

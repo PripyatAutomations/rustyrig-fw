@@ -127,7 +127,6 @@ int main(int argc, char *argv[]) {
 #endif
    }
 
-   ws_init();
    gtk_init(&argc, &argv);
 #ifdef	_WIN32
    if (is_windows_dark_mode()) {
@@ -146,6 +145,7 @@ int main(int argc, char *argv[]) {
    g_timeout_add(1000, update_now, NULL);
 
    gui_init();
+   ws_init();
    const char *poll_block_delay_s = cfg_get("cat.poll-blocking");
    int cfg_poll_block_delay = 3;
    if (poll_block_delay_s) {
@@ -157,6 +157,7 @@ int main(int argc, char *argv[]) {
    if (autoconnect) {
       memset(active_server, 0, sizeof(active_server));
       snprintf(active_server, sizeof(active_server), "%s", autoconnect);
+      ui_print("* Autoconnect set to profile: %s *", active_server);
       connect_or_disconnect(GTK_BUTTON(conn_button));
    } else {
       show_server_chooser();

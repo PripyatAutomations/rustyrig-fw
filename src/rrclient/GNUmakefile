@@ -47,7 +47,7 @@ endif
 OBJ_DIR := ${BUILD_DIR}/obj
 
 host-info:
-	@echo "uname -s: ${UNAME_S}"
+	@echo "* Building on ${UNAME_S}"
 
 ##################
 # Source objects #
@@ -145,11 +145,13 @@ ${BUILD_DIR}/obj/.stamp:
 # install targets #
 ###################
 windows-install:
-	@echo "Windows builds do not need to install. A NSIS installer will be generated soon"
+	@echo "Windows builds do not need to install. A NSIS installer can be built using win64-installer target"
 
 posix-install:
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av ${bin}  ${INSTALL_DIR}/bin
+
+install: ${real_install}
 
 #################
 # Windows Build #

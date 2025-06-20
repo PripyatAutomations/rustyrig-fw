@@ -259,6 +259,8 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
       const char *url = get_server_property(active_server, "server.url");
+      ui_print("* Connected *");
+
       if (c->is_tls) {
          struct mg_tls_opts opts = { .name = mg_url_host(url) };
 
@@ -282,6 +284,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       const char *login_user = get_server_property(active_server, "server.user");
       ws_connected = true;
       update_connection_button(true, conn_button);
+      ui_print("* Upgraded to WebSocket *");
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-active");
       gtk_style_context_remove_class(ctx, "ptt-idle");
@@ -393,17 +396,14 @@ bool connect_server(void) {
    const char *url = get_server_property(active_server, "server.url");
 
    if (url) {
-      // Connect to WebSocket server
+      gtk_button_set_label(GTK_BUTTON(conn_button), "Connecting...");
+      ui_print("[%s] Connecting to %s", get_chat_ts(), url);
+
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
-      if (strncasecmp(url, "wss://", 6) == 0) {
-         // XXX: any pre-init could go here but is generally handled above on detection of TLS
-      }
 
       if (!ws_conn) {
          ui_print("[%s] Socket connect error", get_chat_ts());
       }
-      gtk_button_set_label(GTK_BUTTON(conn_button), "Connecting...");
-      ui_print("[%s] Connecting to %s", get_chat_ts(), url);
    } else {
       ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", active_server);
    }
@@ -413,8 +413,10 @@ bool connect_server(void) {
 
 bool connect_or_disconnect(GtkButton *button) {
    if (ws_connected) {
+      ui_print("cod: Disconnect");
       disconnect_server();
    } else {
+      ui_print("cod: Connect");
       connect_server();
    }
    return false;
