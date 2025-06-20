@@ -164,7 +164,8 @@ win64-deps:
 DATE=$(shell date +%Y%m%d)
 INSTALLER="rrclient.win64.${DATE}.exe"
 
-win64-installer: # ${BUILD_DIR}/.stamp-w64dep
+win64-installer: ${INSTALLER} # ${BUILD_DIR}/.stamp-w64dep
+
+${INSTALLER}: ${bin}
 	makensis /DOUTFILE"${INSTALLER}" rrclient.nsi
 
-win64-installer: ${INSTALLER}
