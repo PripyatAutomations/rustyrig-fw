@@ -42,6 +42,7 @@ extern struct rr_user *find_client(const char *name);
 extern struct rr_user *find_or_create_client(const char *name);
 extern bool delete_client(struct rr_user *cptr);
 extern bool clear_client_list(void);
+extern struct rr_user *userlist_find(const char *name);
 
 #include "common/client-flags.h"
 

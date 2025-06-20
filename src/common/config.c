@@ -95,7 +95,8 @@ bool cfg_set_defaults(defconfig_t *defaults) {
 //      Log(LOG_DEBUG, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
 
       if (!defaults[i].val) {
-         Log(LOG_DEBUG, "config", "cfg_set_defaults: Skipping key %s as its empty", defaults[i].val);
+         Log(LOG_DEBUG, "config", "cfg_set_defaults: Skipping key %s as its empty", defaults[i].key);
+         i++;
          continue;
       }
 

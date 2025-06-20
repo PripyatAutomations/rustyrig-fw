@@ -53,6 +53,7 @@ static void do_connect_from_tree(GtkTreeView *view) {
       g_free(entry);
    }
    gtk_widget_destroy(server_window);
+   server_window = NULL;
 }
 
 static void on_connect_clicked(GtkButton *btn, gpointer user_data) {
@@ -67,6 +68,7 @@ static gboolean on_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeVi
 static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    if (ev->keyval == GDK_KEY_Escape) {
       gtk_widget_destroy(server_window);
+      server_window = NULL;
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
       GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(gtk_widget_get_toplevel(w)));
       if (GTK_IS_TREE_VIEW(focus)) {

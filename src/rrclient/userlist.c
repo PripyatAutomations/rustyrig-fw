@@ -1,11 +1,3 @@
-//
-// %%%FILE%%%
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
-//
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -19,7 +11,8 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
 #include "common/dict.h"
-//#include "rustyrig/http.h"
+#include "common/posix.h"
+#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
@@ -207,8 +200,12 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
 }
 
 struct rr_user *userlist_find(const char *name) {
-   for (struct rr_user *c = global_userlist; c; c = c->next) {
-      if (!strcasecmp(c->name, name)) return c;
+   struct rr_user *c = global_userlist;
+   while (c) {
+      if (!strcasecmp(c->name, name)) {
+         return c;
+      }
+      c = c->next;
    }
    return NULL;
 }
