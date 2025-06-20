@@ -33,6 +33,7 @@ LDFLAGS += -lws2_32 -lkernel32
 CFLAGS += -DMG_ARCH=MG_ARCH_WIN32
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 real_install := windows-install
+objs += icon.res
 else
 BUILD_DIR := ../../build/${PROFILE}
 INSTALL_DIR := /usr/local
@@ -170,3 +171,6 @@ win64-installer: ${INSTALLER} # ${BUILD_DIR}/.stamp-w64dep
 
 ${INSTALLER}: ${bin}
 	makensis //DOUTFILE=${INSTALLER} win32/rrclient.nsi
+
+icon.res: rustyrig.ico win32/icon.rc
+	windres.exe win32/icon.rc -O coff -o $@
