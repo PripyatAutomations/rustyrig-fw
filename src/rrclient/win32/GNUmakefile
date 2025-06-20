@@ -160,6 +160,17 @@ ${BUILD_DIR}/obj/.stamp:
 	mkdir -p "${BUILD_DIR}/obj/"
 	touch $@
 
-win32-deps:
+${BUILD_DIR}/.stamp-w64dep: win64-deps
+
+win64-deps:
 	pacman -Syu
-	pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-gtk3 mingw-w64-x86_64-gstreamer mingw-w64-x86_64-gst-plugins-base
+	pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-gtk3 mingw-w64-x86_64-gstreamer mingw-w64-x86_64-gst-plugins-base nsis
+	touch ${BUILD_DIR}.stamp-w64dep
+
+INSTALLER=
+
+win64-installer: ${BUILD_DIR}/.stamp-w64dep
+	makensis /DOUTFILE"${INSTALLER}" rrclient.nsi
+
+win64-installer: ${INSTALLER}
+

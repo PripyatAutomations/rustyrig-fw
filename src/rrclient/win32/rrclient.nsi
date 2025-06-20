@@ -1,6 +1,10 @@
 # Name of the installer
 !define /date DATE "%Y%m%d"
-!define OUTFILE "rrclient.win64.${DATE}.exe"
+
+!ifndef OUTFILE
+  !define OUTFILE "rrclient.win64.${DATE}.exe"
+!endif
+
 Outfile "${OUTFILE}"
 
 #!define GSTVER=
@@ -71,6 +75,9 @@ File "C:\msys64\mingw64\bin\libsharpyuv-0.dll"
 File /r "etc"
 File /r "share"
 
+SetOutPath "$INSTDIR\lib\gstreamer-1.0"
+File /r "C:\msys64\mingw64\lib\gstreamer-1.0\*.dll"
+
 # Default config
 # Default config with existence check
 CreateDirectory "$APPDATA\rrclient"
@@ -92,4 +99,3 @@ config_done:
 CreateShortCut "$DESKTOP\rrclient.lnk" "$INSTDIR\rrclient.exe"
 
 SectionEnd
-
