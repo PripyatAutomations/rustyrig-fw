@@ -146,3 +146,8 @@ minimal inet_ntop() for non-posix
 * Add support for configuring masks of what debug level messages will be seen using wildcards
 * Add support for masking out messages such as '-*.noisy'
 ? Add support for rate limiting messages?
+
+[wishlist]
+* Use libbaresip UA to pass control json and audio from gstreamer, so we can use whatever codec we want
+  - Should reduce audio latency even further
+  - Could be a path for non-mongoose builds
