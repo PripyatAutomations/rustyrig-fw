@@ -57,56 +57,47 @@ bool is_dir(const char *path) {
 char *expand_path(const char *path) {
     if (!path) return NULL;
 
-    if (path[0] == '~') {
-        const char *home = NULL;
 #ifdef _WIN32
-        int home_allocated = 0;
-        const char *drive = NULL;
-        const char *path_part = NULL;
-
-        home = getenv("USERPROFILE");
-        if (!home) {
-            drive = getenv("HOMEDRIVE");
-            path_part = getenv("HOMEPATH");
-            if (drive && path_part) {
-                size_t drive_len = strlen(drive);
-                size_t path_len = strlen(path_part);
-                char *temp_home = malloc(drive_len + path_len + 1);
-                if (!temp_home) return NULL;
-                sprintf(temp_home, "%s%s", drive, path_part);
-                home = temp_home;
-                home_allocated = 1;
-            } else {
-                return NULL;
-            }
-        }
-#else
-        home = getenv("HOME");
-        if (!home) return NULL;
-#endif
-
-        // Skip '~' and optional '/' or '\'
+    // Handle '~' at the beginning (home directory)
+    if (path[0] == '~') {
+        const char *home = getenv("USERPROFILE");
         const char *suffix = (path[1] == '/' || path[1] == '\\') ? path + 2 : path + 1;
 
-        char *expanded = malloc(strlen(home) + strlen(suffix) + 2); // +1 for separator +1 for null
-        if (!expanded) {
-#ifdef _WIN32
-            if (home_allocated) free((void *)home);
-#endif
-            return NULL;
-        }
+        if (!home) return NULL;
 
-#ifdef _WIN32
-        sprintf(expanded, "%s\\%s", home, suffix);
-        if (home_allocated) free((void *)home);
+        size_t total = strlen(home) + strlen(suffix) + 2;
+        char *result = malloc(total);
+        if (!result) return NULL;
+
+        sprintf(result, "%s\\%s", home, suffix);
+        return result;
+    }
+
+    // Handle environment variables like %APPDATA%
+    char tmp[MAX_PATH];
+    DWORD len = ExpandEnvironmentStringsA(path, tmp, MAX_PATH);
+    if (len == 0 || len > MAX_PATH) {
+        return strdup(path);  // fallback: use as-is
+    }
+
+    return strdup(tmp);
 #else
-        sprintf(expanded, "%s/%s", home, suffix);
-#endif
+    // POSIX: handle ~
+    if (path[0] == '~') {
+        const char *home = getenv("HOME");
+        if (!home) return NULL;
 
-        return expanded;
+        const char *suffix = (path[1] == '/') ? path + 2 : path + 1;
+        size_t total = strlen(home) + strlen(suffix) + 2;
+        char *result = malloc(total);
+        if (!result) return NULL;
+
+        sprintf(result, "%s/%s", home, suffix);
+        return result;
     }
 
     return strdup(path);
+#endif
 }
 
 // You MUST free this when done with it

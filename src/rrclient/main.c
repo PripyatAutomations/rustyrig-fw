@@ -47,8 +47,8 @@ const char *configs[] = {
    "~/.rrclient.cfg",
    "/etc/rrclient.cfg"
 #else
-   "%APPDATA%\rrclient\rrclient.cfg",
-   ".\rrclient.cfg"
+   "%APPDATA%\\rrclient\\rrclient.cfg",
+   ".\\rrclient.cfg"
 #endif
 };
 
