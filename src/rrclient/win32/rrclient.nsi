@@ -1,24 +1,16 @@
-# Name of the installer
 !define /date DATE "%Y%m%d"
-
 !ifndef OUTFILE
   !define OUTFILE "rrclient.win64.${DATE}.exe"
 !endif
 
 Outfile "${OUTFILE}"
-
-#!define GSTVER=
-# Directory to install to
 InstallDir $PROGRAMFILES\PripyatAutomations\rustyrig-client
 
-# Default section
 Section
-
-# Output path for files
 SetOutPath $INSTDIR
-
-# Copy your built binaries (executables, DLLs, etc.)
+# Copy client exe
 File ".\build\rrclient.exe"
+# Copy needed DLLs
 File "C:\msys64\mingw64\bin\libglib-2.0-0.dll"
 File "C:\msys64\mingw64\bin\libgdk-3-0.dll"
 File "C:\msys64\mingw64\bin\libgstapp-1.0-0.dll"
@@ -69,33 +61,25 @@ File "C:\msys64\mingw64\bin\libwebp-7.dll"
 File "C:\msys64\mingw64\bin\libzstd.dll"
 File "C:\msys64\mingw64\bin\libbrotlicommon.dll"
 File "C:\msys64\mingw64\bin\libsharpyuv-0.dll"
-
 #File ".\ext\*.dll"
 #File ".\ext\*.exe"
 File /r "etc"
 File /r "share"
 
+# Copy gstreamer DLLs
 SetOutPath "$INSTDIR\lib\gstreamer-1.0"
 File /r "C:\msys64\mingw64\lib\gstreamer-1.0\*.dll"
 
 # Default config
-# Default config with existence check
 CreateDirectory "$APPDATA\rrclient"
 SetOutPath "$APPDATA\rrclient"
 File "..\..\..\config\rrclient.cfg.example"
 
-IfFileExists "$APPDATA\rrclient\rrclient.cfg" 0 +2
-  Delete "$APPDATA\rrclient\rrclient.cfg.example" ; Don't overwrite existing config
+IfFileExists "$APPDATA\rrclient\rrclient.cfg" 0 +1
   Goto config_done
-
 Rename "$APPDATA\rrclient\rrclient.cfg.example" "$APPDATA\rrclient\rrclient.cfg"
 
 config_done:
 
-# If we want to properly install gstreamer Run this
-# msiexec /passive INSTALLDIR=$INSTDIR /i gstreamer-$GSTVER.msi
-
-# Create shortcuts
 CreateShortCut "$DESKTOP\rrclient.lnk" "$INSTDIR\rrclient.exe"
-
 SectionEnd
