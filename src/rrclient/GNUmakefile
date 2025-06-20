@@ -13,21 +13,15 @@ SHELL = bash
 .SHELLFLAGS = -e -c
 
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
-CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ../.version)\"" 
+CFLAGS += -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ./.version)\"" 
 CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\""
 CFLAGS += -DMG_TLS=MG_TLS_MBED -D__RRCLIENT=1
-CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .version)\""
-CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
-
-CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
-LDFLAGS +=
+LDFLAGS += -lc -lm -g -ggdb -lcrypt -lmbedcrypto -lmbedtls -lmbedx509
 LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
 LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
-CFLAGS += -DMG_TLS=MG_TLS_MBED
-LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 
 ifeq ($(findstring MINGW64,$(UNAME_S)),MINGW64)
 BUILD_DIR := ./build
@@ -46,7 +40,7 @@ PROFILE ?= client
 bin := ${BUILD_DIR}/rrclient
 CC := gcc
 LD := ld
-LDFLAGS := -lc -lm -g -ggdb -lcrypt
+#LDFLAGS +=
 real_install := posix-install
 endif
 
@@ -56,14 +50,11 @@ OBJ_DIR := ${BUILD_DIR}/obj
 # Source objects #
 ##################
 include mk/common.mk
-
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)
-
 # prepend objdir path to each object
 real_objs := $(foreach x, ${objs}, ${OBJ_DIR}/${x})
 
-################################################################################
 ###############
 # Build Rules #
 ###############
@@ -100,7 +91,6 @@ ${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
 	@echo "[compile] $@ from $<"
 	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
 
-# Binary also depends on the .stamp file
 ${bin}: ${real_objs} ../../ext/libmongoose/mongoose.c
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 	@${CC} -o $@ ${real_objs} ${LDFLAGS}
@@ -124,17 +114,6 @@ distclean: clean
 	@echo "[distclean]"
 	${RM} -rf ${BUILD_DIR}
 
-################
-# Host Install #
-################
-install:
-	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
-	cp -av ${bin}  ${INSTALL_DIR}/bin
-
-###################
-# Running on host #
-###################
-# Run debugger
 run: ${bin}
 	@echo "[run] ${bin}"
 	${bin}
@@ -166,9 +145,12 @@ windows-install:
 	@echo "Windows builds do not need to install. A NSIS installer will be generated soon"
 
 posix-install:
+	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
+	cp -av ${bin}  ${INSTALL_DIR}/bin
 
-#########
-
+#################
+# Windows Build #
+#################
 ${BUILD_DIR}/.stamp-w64dep: win64-deps
 
 win64-deps:
@@ -176,7 +158,8 @@ win64-deps:
 	pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-gtk3 mingw-w64-x86_64-gstreamer mingw-w64-x86_64-gst-plugins-base nsis
 	touch ${BUILD_DIR}.stamp-w64dep
 
-INSTALLER=
+DATE=$(shell date +%Y%m%d)
+INSTALLER="rrclient.win64.${DATE}.exe"
 
 win64-installer: # ${BUILD_DIR}/.stamp-w64dep
 	makensis /DOUTFILE"${INSTALLER}" rrclient.nsi
