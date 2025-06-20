@@ -93,7 +93,7 @@ fw_src = $(fw_objs:.o=.c)
 fwdsp_src = $(fwdsp_objs:.o:.c)
 
 # prepend objdir path to each object
-real_comm_objs := $(foreach x, ${comm_objs}, ${OBJ_DIR}/comm/${x})
+real_comm_objs := $(foreach x, ${comm_objs}, ${OBJ_DIR}/common/${x})
 real_fw_objs := $(foreach x, ${fw_objs}, ${OBJ_DIR}/firmware/${x})
 real_fwdsp_objs := $(foreach x, ${fwdsp_objs}, ${OBJ_DIR}/fwdsp/${x})
 real_fw_objs += ${OBJ_DIR}/firmware/logger.o
@@ -107,7 +107,6 @@ real_fwdsp_objs += ${OBJ_DIR}/fwdsp/config.o
 ###############
 extra_clean += firmware.log
 extra_clean += $(wildcard ${BUILD_DIR}/*.h)
-extra_build += ${BUILD_DIR}/obj/firmware/.stamp
 #extra_build += ${EEPROM_FILE}
 #extra_clean += ${EEPROM_FILE}
 
@@ -119,63 +118,69 @@ BUILD_HEADERS += $(wildcard ../../inc/rustrig/*.h) $(wildcard ${BUILD_DIR}/*.h)
 
 ${OBJ_DIR}/firmware/%.o: %.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
+	@${RM} -f $@
 	@echo "[compile] $@ from $<"
-	@${RM} -f $@
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
-${OBJ_DIR}/comm/%.o: ../common/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/common/%.o: ../common/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
-	@echo "[compile] shared $@ from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@echo "[compile] shared $@ from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 # fwdsp
 ${OBJ_DIR}/fwdsp/%.o: ../fwdsp/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
-	@echo "[compile] $@ from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@echo "[compile] $@ from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
 
 
 ${OBJ_DIR}/fwdsp/config.o: ../common/config.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
-	@echo "[compile] fwdsp:$@ from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@echo "[compile] fwdsp:$@ from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/firmware/config.o: ../common/config.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
-	@echo "[compile] server:$@ from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@echo "[compile] server:$@ from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/fwdsp/logger.o: ../common/logger.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
-	@echo "[compile] fwdsp:$@ from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@echo "[compile] fwdsp:$@ from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/firmware/logger.o: ../common/logger.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
+	@${RM} -f $@
 	@echo "[compile] server:$@ from $<"
-	@${RM} -f $@
-	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
 
-${OBJ_DIR}/comm/mongoose.o: ../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
+${OBJ_DIR}/common/mongoose.o: ../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
-	@echo "[compile] mongoose from $<"
 	@${RM} -f $@
-	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@echo "[compile] mongoose from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
 
-# Binary also depends on the .stamp file
 ${fw_bin}: ${real_fw_objs} ${real_comm_objs}
 	@echo "[Link] firmware ($@) from $(words ${real_fw_objs}) object files..."
-	@${CC} -o $@ ${real_fw_objs} ${real_comm_objs} ${LDFLAGS} || exit 1
+	@${CC} -o $@ ${real_fw_objs} ${real_comm_objs} ${LDFLAGS}
 	@ls -a1ls $@
 	@file $@
 	@size $@
 
-# Binary also depends on the .stamp file
 ${fwdsp_bin}: ${real_fwdsp_objs} ${real_comm_objs}
 	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
 	${CC} -o $@ ${real_fwdsp_objs} ${real_comm_objs} ${LDFLAGS} ${FWDSP_LDFLAGS}
@@ -249,16 +254,3 @@ config/http.users:
 
 include mk/git.mk
 include mk/database.mk
-
-build/client/rrclient: $(wildcard src/common/*.c) $(wildcard src/rrclient/*.c) $(wildcard inc/common/*.h) $(wildcard inc/rrclient/*.h)
-	${MAKE} -C src/rrclient
-
-${BUILD_DIR}/obj/firmware/.stamp:
-	mkdir -p "${BUILD_DIR}/obj/firmware"
-	mkdir -p "${BUILD_DIR}/obj/fwdsp"
-	mkdir -p "${BUILD_DIR}/obj/comm"
-	touch $@
-
-# Launch rrclient, for the lazy
-rrclient: build/client/rrclient
-	./build/client/rrclient
