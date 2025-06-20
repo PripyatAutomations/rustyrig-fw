@@ -22,7 +22,6 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
-//#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"

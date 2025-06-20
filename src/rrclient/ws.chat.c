@@ -23,7 +23,6 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "common/util.file.h"
-//#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"

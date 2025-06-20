@@ -12,7 +12,6 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "../ext/libmongoose/mongoose.h"
-//#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"

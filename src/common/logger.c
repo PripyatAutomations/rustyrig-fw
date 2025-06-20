@@ -132,7 +132,7 @@ int update_timestamp(void) {
       if (strftime(latest_timestamp, sizeof(latest_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
          /* handle the error */
          memset(latest_timestamp, 0, sizeof(latest_timestamp));
-         snprintf(latest_timestamp, sizeof(latest_timestamp), "<%lu>", time(NULL));
+         snprintf(latest_timestamp, sizeof(latest_timestamp), "<%ll>", time(NULL));
       }
    } else {
       return 1;
