@@ -162,7 +162,7 @@ win64-deps:
 	touch ${BUILD_DIR}.stamp-w64dep
 
 DATE=$(shell date +%Y%m%d)
-INSTALLER="rrclient.win64.${DATE}.exe"
+INSTALLER=rrclient.win64.${DATE}.exe
 
 win64-installer: ${INSTALLER} # ${BUILD_DIR}/.stamp-w64dep
 
