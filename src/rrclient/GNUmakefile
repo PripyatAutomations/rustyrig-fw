@@ -1,32 +1,23 @@
-SHELL = bash
-.SHELLFLAGS = -e -c
 all: world
 
-PROFILE ?= client
-BUILD_DIR := ../../build/${PROFILE}
-OBJ_DIR := ${BUILD_DIR}/obj
-
 UNAME_S := $(shell uname -s)
-
-ifeq ($(findstring MINGW32,$(UNAME_S)),MINGW32)
-CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
-LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
-export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
+ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
+   OS := MINGW64
+else ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
+   OS := MSYS
 else
-CC := gcc
-LD := ld
+   OS := POSIX
 endif
 
-# Are we cross compiling?
-#ifneq (${TC_PREFIX},"")
-#CC := ${TC_PREFIX}-gcc
-#LD := ${TC_PREFIX}-ld
+SHELL = bash
+.SHELLFLAGS = -e -c
 
-bin := ${BUILD_DIR}/rrclient
-INSTALL_DIR := /usr/local
+CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
+CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ../.version)\"" 
+CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\""
+CFLAGS += -DMG_TLS=MG_TLS_MBED -D__RRCLIENT=1
 CFLAGS := -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat .version)\""
 CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
-LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
 CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\"" -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
@@ -38,38 +29,33 @@ LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 CFLAGS += -DMG_TLS=MG_TLS_MBED
 LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 
+ifeq ($(findstring MINGW64,$(UNAME_S)),MINGW64)
+BUILD_DIR := ./build
+PROFILE := win32-client
+bin := ${BUILD_DIR}/rrclient.exe
+CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
+LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
+LDFLAGS += -lws2_32 -lkernel32
+CFLAGS += -DMG_ARCH=MG_ARCH_WIN32
+export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
+real_install := windows-install
+else
+BUILD_DIR := ../../build/${PROFILE}
+INSTALL_DIR := /usr/local
+PROFILE ?= client
+bin := ${BUILD_DIR}/rrclient
+CC := gcc
+LD := ld
+LDFLAGS := -lc -lm -g -ggdb -lcrypt
+real_install := posix-install
+endif
+
+OBJ_DIR := ${BUILD_DIR}/obj
+
 ##################
 # Source objects #
 ##################
-objs += audio.o			# gstreamer based audio
-objs += auth.o
-#objs += audio.o		# Audio channel stuff
-objs += chat.o
-objs += codecneg.o
-objs += config.o
-objs += debug.o			# Debug stuff
-objs += defconfig.o
-objs += dict.o			# dictionary object
-objs += gtk.o                   # Support for a GTK user interface
-objs += gtk.editcfg.o
-objs += gtk.freqentry.o		# Frequency Entry Widget
-objs += gtk.serverpick.o        # server picker
-objs += gtk.syslog.o		# syslog tab
-objs += logger.o		# Logging facilities
-objs += main.o			# main loop
-objs += mongoose.o		# Mongoose http/websocket/mqtt library
-objs += posix.o			# support for POSIX hosts (linux or perhaps others)
-objs += userlist.o
-objs += util.file.o		# Misc file functions
-objs += util.math.o		# Misc math functions
-objs += util.string.o		# String utility functions
-#objs += win32.o			# support to run in windows
-objs += ws.o			# Websocket transport general
-objs += ws.audio.o		# Audio over websocket negotiation
-objs += ws.auth.o
-objs += ws.chat.o
-objs += ws.rigctl.o
-objs += ws.tx-audio.o
+include mk/common.mk
 
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)
@@ -94,31 +80,30 @@ ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $@ from $<"
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
-
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/%.o: ../common/%.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] shared $@ from $<"
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/mongoose.o: ../../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it...
 	@${RM} -f $@
 	@echo "[compile] mongoose from $<"
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 ${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@echo "[compile] $@ from $<"
-	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
 
 # Binary also depends on the .stamp file
 ${bin}: ${real_objs} ../../ext/libmongoose/mongoose.c
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
-	@${CC} -o $@ ${real_objs} ${LDFLAGS} || exit 1
+	@${CC} -o $@ ${real_objs} ${LDFLAGS}
 	@ls -a1ls $@
 	@file $@
 	@size $@
@@ -137,7 +122,7 @@ clean:
 
 distclean: clean
 	@echo "[distclean]"
-	${RM} -r build
+	${RM} -rf ${BUILD_DIR}
 
 ################
 # Host Install #
@@ -173,3 +158,27 @@ rebuild clean-build cleanbuild: distclean world
 ${BUILD_DIR}/obj/.stamp:
 	mkdir -p "${BUILD_DIR}/obj/"
 	touch $@
+
+###################
+# install targets #
+###################
+windows-install:
+	@echo "Windows builds do not need to install. A NSIS installer will be generated soon"
+
+posix-install:
+
+#########
+
+${BUILD_DIR}/.stamp-w64dep: win64-deps
+
+win64-deps:
+	pacman -Syu
+	pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-gtk3 mingw-w64-x86_64-gstreamer mingw-w64-x86_64-gst-plugins-base nsis
+	touch ${BUILD_DIR}.stamp-w64dep
+
+INSTALLER=
+
+win64-installer: # ${BUILD_DIR}/.stamp-w64dep
+	makensis /DOUTFILE"${INSTALLER}" rrclient.nsi
+
+win64-installer: ${INSTALLER}
