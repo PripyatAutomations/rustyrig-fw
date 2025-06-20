@@ -72,10 +72,18 @@ File /r "etc"
 File /r "share"
 
 # Default config
+# Default config with existence check
 CreateDirectory "$APPDATA\rrclient"
 SetOutPath "$APPDATA\rrclient"
 File "..\..\..\config\rrclient.cfg.example"
+
+IfFileExists "$APPDATA\rrclient\rrclient.cfg" 0 +2
+  Delete "$APPDATA\rrclient\rrclient.cfg.example" ; Don't overwrite existing config
+  Goto config_done
+
 Rename "$APPDATA\rrclient\rrclient.cfg.example" "$APPDATA\rrclient\rrclient.cfg"
+
+config_done:
 
 # If we want to properly install gstreamer Run this
 # msiexec /passive INSTALLDIR=$INSTDIR /i gstreamer-$GSTVER.msi
