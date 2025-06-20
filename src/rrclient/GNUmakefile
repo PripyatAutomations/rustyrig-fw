@@ -1,4 +1,4 @@
-all: world
+all: host-info world
 
 UNAME_S := $(shell uname -s)
 ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
@@ -45,6 +45,9 @@ real_install := posix-install
 endif
 
 OBJ_DIR := ${BUILD_DIR}/obj
+
+host-info:
+	@echo "uname -s: ${UNAME_S}"
 
 ##################
 # Source objects #
