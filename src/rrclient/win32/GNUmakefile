@@ -169,7 +169,7 @@ win64-deps:
 
 INSTALLER=
 
-win64-installer: ${BUILD_DIR}/.stamp-w64dep
+win64-installer: # ${BUILD_DIR}/.stamp-w64dep
 	makensis /DOUTFILE"${INSTALLER}" rrclient.nsi
 
 win64-installer: ${INSTALLER}
