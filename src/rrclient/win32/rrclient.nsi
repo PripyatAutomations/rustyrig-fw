@@ -3,7 +3,7 @@
   !define OUTFILE "rrclient.win64.${DATE}.exe"
 !endif
 
-Outfile "${OUTFILE}"
+Outfile ".\build\${OUTFILE}"
 InstallDir $PROGRAMFILES\PripyatAutomations\rustyrig-client
 
 Section
