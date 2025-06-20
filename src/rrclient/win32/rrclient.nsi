@@ -3,7 +3,7 @@
   !define OUTFILE "rrclient.win64.${DATE}.exe"
 !endif
 
-Outfile ".\build\${OUTFILE}"
+Outfile "..\build\${OUTFILE}"
 InstallDir $PROGRAMFILES\PripyatAutomations\rustyrig-client
 
 Section
@@ -61,8 +61,6 @@ File "C:\msys64\mingw64\bin\libwebp-7.dll"
 File "C:\msys64\mingw64\bin\libzstd.dll"
 File "C:\msys64\mingw64\bin\libbrotlicommon.dll"
 File "C:\msys64\mingw64\bin\libsharpyuv-0.dll"
-#File ".\ext\*.dll"
-#File ".\ext\*.exe"
 File /r "etc"
 File /r "share"
 
