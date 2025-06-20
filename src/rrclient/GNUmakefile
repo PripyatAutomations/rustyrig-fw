@@ -23,7 +23,7 @@ LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 
-ifeq ($(findstring MINGW64,$(UNAME_S)),MINGW64)
+ifeq ($(findstring MSYS_NT,$(UNAME_S)),MINGW64)
 BUILD_DIR := ./build
 PROFILE := win32-client
 bin := ${BUILD_DIR}/rrclient.exe
