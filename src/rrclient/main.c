@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
    char *realpath = find_file_by_list(configs, cfg_entries);
 
    // Load the default configuration
-   cfg_init(defcfg);
+   cfg_init(default_cfg, defcfg);
 
    if (realpath) {
       config_file = strdup(realpath);

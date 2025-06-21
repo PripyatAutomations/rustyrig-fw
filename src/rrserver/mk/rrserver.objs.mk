@@ -3,7 +3,6 @@ fw_objs += atu.o			# Antenna Tuner
 fw_objs += au.o			# Audio channel stuff
 fw_objs += au.pipe.o		# pipe / socket support
 fw_objs += au.pcm5102.o		# pcm5102 i2s DAC support
-
 fw_objs += au.recording.o		# Support for recording audio to files
 fw_objs += auth.o			# User management
 fw_objs += backend.o		# Support for multiple backends by setting up pointer into appropriate one
@@ -23,6 +22,7 @@ fw_objs += dds.si5351.o		# Si5351 synthesizer
 #fw_objs += eeprom.o		# "EEPROM" configuration storage
 fw_objs += faults.o		# Fault management/alerting
 fw_objs += filters.o		# Control of input/output filters
+fw_objs += fwdsp-mgr.o		# fwdsp manager
 fw_objs += gpio.o		# GPIO controls
 fw_objs += gui.o		# Support for a local user-interface
 fw_objs += gui.fb.o		# Generic LCD (framebuffer) interface

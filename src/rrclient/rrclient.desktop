@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=RustyRig Client
+Comment=Remote client for rustyrig firmware
+Exec=/usr/local/bin/rrclient
+Icon=rustyrig
+Terminal=false
+Type=Application
+Categories=HamRadio

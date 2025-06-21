@@ -24,14 +24,14 @@ extern dict *default_cfg;		// Default configuration
 extern dict *servers;			// Global server list
 extern dict *pipelines;			// fwdsp/rrclient pipelines
 // Functions
-extern bool cfg_set_default(char *key, char *val);
-extern bool cfg_set_defaults(defconfig_t *defaults);
+extern bool cfg_set_default(dict *d, char *key, char *val);
+extern bool cfg_set_defaults(dict *d, defconfig_t *defaults);
 extern dict *cfg_load(const char *path);
 extern const char *cfg_get(char *key);
 extern const char *cfg_get_real(dict *c, char *key);
 extern dict *dict_merge_new(dict *a, dict *b);
 extern int dict_merge(dict *dst, dict *src);
 extern bool cfg_save(const char *path);
-extern bool cfg_init(defconfig_t *defaults);
+extern bool cfg_init(dict *d, defconfig_t *defaults);
 
 #endif	// !defined(__inc_rrclient_config_h)

@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
 
-   cfg_init(defcfg);
+   cfg_init(default_cfg, defcfg);
 
    if (config_file) {
       if (!(cfg = cfg_load(config_file))) {

@@ -17,6 +17,8 @@ dict *default_cfg = NULL;
 
 // Holds a list of servers where applicable (client and fwdsp)
 dict *servers = NULL;
+// Holds the config for fwdsp-related things
+dict *fw_dsp_cfg = NULL;
 
 int dict_merge(dict *dst, dict *src) {
    if (!dst || !src) {
@@ -62,28 +64,29 @@ dict *dict_merge_new(dict *a, dict *b) {
    return merged;
 }
 
-bool cfg_set_default(char *key, char *val) {
-   if (!key) {
-      Log(LOG_DEBUG, "config", "cfg_set_default: key:<%x> is not valid", key);
+bool cfg_set_default(dict *d, char *key, char *val) {
+   if (!key || !d) {
+      Log(LOG_DEBUG, "config", "cfg_set_default: dict:<%x> key:<%x> is not valid", d, key);
       return true;
    }
 
-   Log(LOG_CRAZY, "config", "Setting default for %s to '%s'", key, val);
-   if (dict_add(default_cfg, key, val) != 0) {
-      Log(LOG_WARN, "config", "defcfg failed to set key %s to val at <%x>", key, val);
+   Log(LOG_CRAZY, "config", "Setting default for dict:<%x>/%s to '%s'", d, key, val);
+   if (dict_add(d, key, val) != 0) {
+      Log(LOG_WARN, "config", "defcfg dict:<%x> failed to set key %s to val at <%x>", d, key, val);
       return true;
    }
 
    return false;
 }
 
-bool cfg_set_defaults(defconfig_t *defaults) {
-   if (!defaults) {
-      Log(LOG_CRIT, "config", "cfg_set_defaults: NULL input");
+bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
+   if (!d) {
+      Log(LOG_CRIT, "config", "cfg_set_defaults: NULL dict");
       return true;
    }
 
-   if (!default_cfg) {
+   if (!defaults) {
+      Log(LOG_CRIT, "config", "cfg_set_defaults: NULL input");
       return true;
    }
 
@@ -101,7 +104,7 @@ bool cfg_set_defaults(defconfig_t *defaults) {
       }
 
       Log(LOG_DEBUG, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
-      if (cfg_set_default(defaults[i].key, defaults[i].val)) {
+      if (cfg_set_default(d, defaults[i].key, defaults[i].val)) {
          Log(LOG_CRIT, "config", "cfg_set_defaults: Failed to set key: %s", defaults[i].key);
          warnings++;
       }
@@ -113,13 +116,13 @@ bool cfg_set_defaults(defconfig_t *defaults) {
    return true;
 }
 
-bool cfg_init(defconfig_t *defaults) {
-   if (!default_cfg) {
-      default_cfg = dict_new();
+bool cfg_init(dict *d, defconfig_t *defaults) {
+   if (!d) {
+      d = dict_new();
    }
 
 
-   return cfg_set_defaults(defaults);
+   return cfg_set_defaults(d, defaults);
 }
 
 dict *cfg_load(const char *path) {
