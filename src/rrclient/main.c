@@ -123,6 +123,7 @@ int main(int argc, char *argv[]) {
 
    // Set up some debugging
 #ifdef _WIN32
+   disable_console_quick_edit();
    SetEnvironmentVariable("GST_DEBUG_DUMP_DOT_DIR", ".");
 #else
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);

@@ -37,6 +37,17 @@ void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
    }
 }
 
+void disable_console_quick_edit(void) {
+   HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+   DWORD mode = 0;
+
+   if (!GetConsoleMode(hStdin, &mode)) return;
+
+   // Remove QuickEdit and Insert modes
+   mode &= ~(ENABLE_QUICK_EDIT_MODE | ENABLE_INSERT_MODE);
+   SetConsoleMode(hStdin, mode);
+}
+
 bool win32_init(void) {
    return false;
 }
