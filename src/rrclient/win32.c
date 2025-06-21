@@ -15,7 +15,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
-#include "win32_darkmode.h"
+#include "rrclient/gtk-gui.h"
 #include <gdk/gdkwin32.h>
 
 typedef enum {
