@@ -17,6 +17,7 @@ CFLAGS += -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ./
 CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\""
 CFLAGS += -DMG_TLS=MG_TLS_MBED -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
+#CFLAGS += -DHTTP_DEBUG_CRAZY=1
 LDFLAGS += -lm -g -ggdb -lmbedcrypto -lmbedtls -lmbedx509
 LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
 LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
@@ -41,6 +42,7 @@ PROFILE ?= client
 bin := ${BUILD_DIR}/rrclient
 CC := gcc
 LD := ld
+CFLAGS += -DMG_ARCH=MG_ARCH_UNIX
 LDFLAGS += -lc -lcrypt
 real_install := posix-install
 endif

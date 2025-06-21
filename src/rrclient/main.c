@@ -1,3 +1,12 @@
+//
+// src/rrclient/main.c: Core of the client
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -7,6 +16,7 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
+// This needs to be up here to make sure noone loads windows.h before winsock2.h
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
@@ -75,7 +85,7 @@ static gboolean update_now(gpointer user_data) {
 }
 
 int main(int argc, char *argv[]) {
-   bool empty_config = true;
+   bool empty_config = false;
 
    // Set a time stamp so logging will work
    now = time(NULL);
@@ -143,6 +153,7 @@ int main(int argc, char *argv[]) {
 #endif
 
    g_timeout_add(1000, update_now, NULL);
+   g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
 
    gui_init();
    ws_init();
@@ -168,7 +179,11 @@ int main(int argc, char *argv[]) {
 
    // If we don't couldnt find a config file, save the defaults to ~/.config/rrclient.cfg
    if (homedir && empty_config) {
+#ifdef _WIN32
+      snprintf(pathbuf, sizeof(pathbuf), "%%APPDATA%%\\rrclient\\rrclient.cfg");
+#else
       snprintf(pathbuf, sizeof(pathbuf), "%s/.config/rrclient.cfg", homedir);
+#endif
       if (!file_exists(pathbuf)) {
          Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);
          cfg_save(pathbuf);

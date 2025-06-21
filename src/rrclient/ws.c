@@ -29,6 +29,10 @@
 #include "rrclient/userlist.h"
 #include "common/client-flags.h"
 
+//#ifndef	HTTP_DEBUG_CRAZY
+//#define	HTTP_DEBUG_CRAZY	1
+//#endif
+
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;
 bool ws_connected = false;	// Is RX stream connecte?
@@ -272,7 +276,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &opts);
       }
    } else if (ev == MG_EV_WRITE) {
-#if	0
+#if	defined(HTTP_DEBUG_CRAZY) && 0
       if (sending_in_progress) {
          Log(LOG_DEBUG, "ws", "http_handler: write frame");
          audio_tx_free_frame();
