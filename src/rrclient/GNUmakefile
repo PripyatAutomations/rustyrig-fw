@@ -152,9 +152,14 @@ windows-install:
 
 posix-install:
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
-	cp -av ${bin}  ${INSTALL_DIR}/bin
+	install -Dm755 ${bin} ${INSTALL_DIR}/bin/$(shell basename "${bin}")
+	install -Dm644 rustyrig.png /usr/share/icons/hicolor/48x48/apps/rustyrig.png
+	install -Dm644 rustyrig.desktop /usr/share/applications/rustyrig.desktop
 
 install: ${real_install}
+
+#convert-icon:
+#	convert radio.png -define icon:auto-resize=16,32,48,64,128,256 rustyrig.ico
 
 #################
 # Windows Build #

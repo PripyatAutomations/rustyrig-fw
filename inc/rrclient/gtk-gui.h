@@ -72,6 +72,7 @@ extern gboolean scroll_to_end_idle(gpointer data);
 // Call this *after* the GtkWindow is realized (has a GdkWindow)
 extern void enable_windows_dark_mode_for_gtk_window(GtkWidget *window);
 extern void disable_console_quick_edit(void);
+extern bool set_window_icon(GtkWidget *window, const char *icon_name);
 
 #endif
 

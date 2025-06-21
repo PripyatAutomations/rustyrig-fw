@@ -116,6 +116,38 @@ bool ui_print(const char *fmt, ...) {
    return false;
 }
 
+bool set_window_icon(GtkWidget *window, const char *icon_name) {
+#ifndef _WIN32
+   GError *err = NULL;
+   bool success = false;
+   const char *name = icon_name ? icon_name : "rustyrig";
+
+   gtk_window_set_icon_name(GTK_WINDOW(window), name);
+   // Check if the icon name was registered by attempting to load it
+   GIcon *icon = g_themed_icon_new(name);
+   GtkIconTheme *theme = gtk_icon_theme_get_default();
+   if (gtk_icon_theme_has_icon(theme, name)) {
+      success = true;
+   } else {
+      gchar *local_icon = g_strdup_printf("./%s.png", name);
+      if (gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err)) {
+         success = true;
+      } else {
+         g_warning("Failed to set icon '%s': %s", name, err->message);
+         g_clear_error(&err);
+      }
+      g_free(local_icon);
+   }
+
+   g_object_unref(icon);
+   return success;
+#else
+   (void)window;
+   (void)icon_name;
+   return true; // Assume embedded icon is fine
+#endif
+}
+
 gulong mode_changed_handler_id;
 
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
