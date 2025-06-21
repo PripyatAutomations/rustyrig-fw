@@ -33,7 +33,6 @@
 #include "common/client-flags.h"
 #endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
 
-
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
 extern char latest_timestamp[64];
@@ -243,8 +242,8 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
             now, subsys, log_priority_to_str(priority), ws_json_escaped);
    struct mg_str ms = mg_str(ws_logbuf);
    ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms, WEBSOCKET_OP_TEXT);
+   fprintf(stderr, "syslog sent: %s", ws_logbuf);
 #endif	// !defined(__RRCLIENT)
-
    /* Machdep logging goes here! */
 
    va_end(ap);

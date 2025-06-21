@@ -63,5 +63,6 @@ extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
 extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
 extern bool log_print(const char *fmt, ...);
 extern void gui_edit_config(const char *filepath);
+extern gboolean scroll_to_end_idle(gpointer data);
 
 #endif	// !defined(__rrclient_gtk_gui_h)

@@ -53,7 +53,7 @@ GtkWidget *log_view = NULL;
 // print to syslog
 bool log_print(const char *fmt, ...) {
    if (!log_buffer) {
-      Log(LOG_WARN, "gtk", "log_print called with no log_buffer");
+      fprintf(stderr, "log_print called with no log_buffer");
       return false;
    }
 
@@ -71,7 +71,8 @@ bool log_print(const char *fmt, ...) {
    gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
    gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
 
-   gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(log_view), &end, 0.0, FALSE, 0.0, 0.0);
+   // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
+   g_idle_add(scroll_to_end_idle, log_view);
    return true;
 }
 

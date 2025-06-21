@@ -126,7 +126,7 @@ run: ${bin}
 
 gdb debug: ${bin}
 	@echo "[gdb] ${bin}"
-	@(cd ..; gdb gtk-client/${bin} -ex 'run')
+	gdb ${bin} -ex 'run'
 
 test: clean world run
 

@@ -79,7 +79,7 @@ const char *get_chat_ts(void) {
    return chat_ts;
 }
 
-static gboolean scroll_to_end_idle(gpointer data) {
+gboolean scroll_to_end_idle(gpointer data) {
    GtkTextView *text_view = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
    GtkTextIter end;

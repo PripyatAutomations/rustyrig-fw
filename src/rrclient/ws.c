@@ -83,7 +83,7 @@ struct ws_msg_routes ws_routes[] = {
 //   { .type = "error",	 .cb = on_ws_error },
 //   { .type = "hello",	 .cb = on_ws_hello },
 //   { .type = "ping",	 .cb = on_ws_ping },
-//   { .type = "syslog", .cb = on_ws_syslog },
+//   { .type = "syslog",   .cb = on_ws_syslog },
    { .type = "talk",	 .cb = ws_handle_talk_msg },
    { .type = NULL,	 .cb = NULL }
 };
@@ -162,13 +162,9 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
       char *hello = mg_json_get_str(msg_data, "$.hello");
-      char *codec = mg_json_get_str(msg_data, "$.codec");
-      double rate;
-      mg_json_get_num(msg_data, "$.rate", &rate);
-      ui_print("[%s] *** Server version: %s with codec %s at %.1fKhz ***", get_chat_ts(), hello, codec, rate/1000);
+      ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
       // XXX: Store the codec
       free(hello);
-      free(codec);
       goto cleanup;
    // Check for $.cat field (rigctl message)
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
@@ -263,7 +259,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
       const char *url = get_server_property(active_server, "server.url");
-      ui_print("* Connected *");
+      ui_print("[%s] * Connected *", get_chat_ts());
 
       if (c->is_tls) {
          struct mg_tls_opts opts = { .name = mg_url_host(url) };
@@ -288,7 +284,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       const char *login_user = get_server_property(active_server, "server.user");
       ws_connected = true;
       update_connection_button(true, conn_button);
-      ui_print("* Upgraded to WebSocket *");
+      ui_print("[%s] Connection Upgraded to WebSocket", get_chat_ts());
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-active");
       gtk_style_context_remove_class(ctx, "ptt-idle");
@@ -417,10 +413,10 @@ bool connect_server(void) {
 
 bool connect_or_disconnect(GtkButton *button) {
    if (ws_connected) {
-      ui_print("cod: Disconnect");
+//      ui_print("cod: Disconnect");
       disconnect_server();
    } else {
-      ui_print("cod: Connect");
+//      ui_print("cod: Connect");
       connect_server();
    }
    return false;
