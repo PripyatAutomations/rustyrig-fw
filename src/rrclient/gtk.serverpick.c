@@ -145,7 +145,10 @@ void show_server_chooser(void) {
    gtk_window_set_default_size(GTK_WINDOW(win), 300, 200);
 
    gtk_window_set_title(GTK_WINDOW(win), "Server Choser");
-   
    server_window = win;
    gtk_widget_show_all(win);
+   gtk_widget_realize(server_window);
+#ifdef _WIN32
+   enable_windows_dark_mode_for_gtk_window(server_window);
+#endif
 }

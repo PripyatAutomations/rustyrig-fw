@@ -713,6 +713,11 @@ bool gui_init(void) {
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
    ui_print("[%s] rustyrig client started", get_chat_ts());
 
+   gtk_widget_realize(main_window);
+#ifdef _WIN32
+   enable_windows_dark_mode_for_gtk_window(main_window);
+#endif
+
    return false;
 }
 

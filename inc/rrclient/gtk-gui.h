@@ -65,4 +65,12 @@ extern bool log_print(const char *fmt, ...);
 extern void gui_edit_config(const char *filepath);
 extern gboolean scroll_to_end_idle(gpointer data);
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <windows.h>
+
+// Call this *after* the GtkWindow is realized (has a GdkWindow)
+extern void enable_windows_dark_mode_for_gtk_window(GtkWidget *window);
+#endif
+
 #endif	// !defined(__rrclient_gtk_gui_h)

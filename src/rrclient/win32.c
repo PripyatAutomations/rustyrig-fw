@@ -16,6 +16,39 @@
 #include <winsock2.h>
 #include <windows.h>
 
+// Place this early in main() before creating any windows
+
+#include <windows.h>
+
+typedef enum _PreferredAppMode {
+   Default,
+   AllowDark,
+   ForceDark,
+   ForceLight,
+   Max
+} PreferredAppMode;
+
+typedef BOOL (WINAPI *AllowDarkModeForWindowFn)(HWND, BOOL);
+typedef PreferredAppMode (WINAPI *SetPreferredAppModeFn)(PreferredAppMode);
+
+void enable_windows_dark_title_bar(HWND hwnd)
+{
+   HMODULE hUxtheme = LoadLibraryA("uxtheme.dll");
+   if (!hUxtheme) return;
+
+   SetPreferredAppModeFn SetPreferredAppMode = 
+      (SetPreferredAppModeFn)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(135));
+   if (SetPreferredAppMode)
+      SetPreferredAppMode(AllowDark);
+
+   AllowDarkModeForWindowFn AllowDarkModeForWindow = 
+      (AllowDarkModeForWindowFn)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133));
+   if (AllowDarkModeForWindow)
+      AllowDarkModeForWindow(hwnd, TRUE);
+
+   FreeLibrary(hUxtheme);
+}
+
 bool win32_init(void) {
    return false;
 }
