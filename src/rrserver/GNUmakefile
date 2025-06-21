@@ -224,7 +224,7 @@ install:
 ifeq (${PLATFORM},posix)
 run: ${MASTER_DB} ${EEPROM_FILE} ${fw_bin}
 #	${fw_bin}
-	../../test-run.sh
+	./test-run.sh
 
 gdb debug: ${fw_bin} ${EEPROM_FILE}
 	@echo "[gdb] ${fw_bin}"
