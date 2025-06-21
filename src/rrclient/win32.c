@@ -17,17 +17,8 @@
 #include <windows.h>
 #include "rrclient/gtk-gui.h"
 #include <gdk/gdkwin32.h>
-
-typedef enum {
-   Default,
-   AllowDark,
-   ForceDark,
-   ForceLight,
-   Max
-} PreferredAppMode;
-
-typedef BOOL (WINAPI *AllowDarkModeForWindowFn)(HWND hwnd, BOOL allow);
-typedef PreferredAppMode (WINAPI *SetPreferredAppModeFn)(PreferredAppMode mode);
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
 
 void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
    if (!gtk_widget_get_realized(window)) return;
@@ -35,20 +26,15 @@ void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
    HWND hwnd = GDK_WINDOW_HWND(gtk_widget_get_window(window));
    if (!hwnd) return;
 
-   HMODULE hUxtheme = LoadLibraryA("uxtheme.dll");
-   if (!hUxtheme) return;
-
-   SetPreferredAppModeFn SetPreferredAppMode =
-      (SetPreferredAppModeFn)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(135));
-   if (SetPreferredAppMode)
-      SetPreferredAppMode(AllowDark);
-
-   AllowDarkModeForWindowFn AllowDarkModeForWindow =
-      (AllowDarkModeForWindowFn)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133));
-   if (AllowDarkModeForWindow)
-      AllowDarkModeForWindow(hwnd, TRUE);
-
-   FreeLibrary(hUxtheme);
+   BOOL use_dark = TRUE;
+   // DWMWA_USE_IMMERSIVE_DARK_MODE = 20 or 19 depending on build
+   int attr = 20;
+   HRESULT hr = DwmSetWindowAttribute(hwnd, attr, &use_dark, sizeof(use_dark));
+   if (FAILED(hr)) {
+      // Try fallback for older builds
+      attr = 19;
+      DwmSetWindowAttribute(hwnd, attr, &use_dark, sizeof(use_dark));
+   }
 }
 
 bool win32_init(void) {
