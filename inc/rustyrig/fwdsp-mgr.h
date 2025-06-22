@@ -1,5 +1,5 @@
 //
-// %%%FILE%%%
+// inc/rustyrig/fwdsp-mgr.h
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -18,6 +18,8 @@ enum fwdsp_io_type {
 struct fwdsp_subproc {
    pid_t 	pid;		// Process ID
    char		pl_id[4];	// pipeline ID
+   char         pipeline[512];  // pipeline string
+   bool		is_tx;		// Is this a TX channel?
 
    enum fwdsp_io_type io_type;	// instance io type
    //// Only one of these will be used, either stdin/stdout/stderr or unix_sock depending on above io_type
@@ -32,7 +34,9 @@ struct fwdsp_subproc {
 extern bool fwdsp_init(void);
 extern int fwdsp_find_offset(const char *id);
 extern struct fwdsp_subproc *fwdsp_find_instance(const char *id);
-extern struct fwdsp_subproc *fwdsp_create(const char *id, const char *path, const char *pipeline);
+extern struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx);
+extern struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx);
 extern bool fwdsp_destroy(struct fwdsp_subproc *instance);
+extern bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path);
 
 #endif	// !defined(__rr_fwdsp_mgr_h)

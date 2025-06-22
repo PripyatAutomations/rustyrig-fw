@@ -23,6 +23,7 @@ extern dict *cfg;			// Main configuration
 extern dict *default_cfg;		// Default configuration
 extern dict *servers;			// Global server list
 extern dict *pipelines;			// fwdsp/rrclient pipelines
+
 // Functions
 extern bool cfg_set_default(dict *d, char *key, char *val);
 extern bool cfg_set_defaults(dict *d, defconfig_t *defaults);

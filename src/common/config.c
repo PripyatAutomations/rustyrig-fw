@@ -17,8 +17,6 @@ dict *default_cfg = NULL;
 
 // Holds a list of servers where applicable (client and fwdsp)
 dict *servers = NULL;
-// Holds the config for fwdsp-related things
-dict *fw_dsp_cfg = NULL;
 
 int dict_merge(dict *dst, dict *src) {
    if (!dst || !src) {
@@ -121,7 +119,6 @@ bool cfg_init(dict *d, defconfig_t *defaults) {
       d = dict_new();
    }
 
-
    return cfg_set_defaults(d, defaults);
 }
 
@@ -218,7 +215,8 @@ dict *cfg_load(const char *path) {
          continue;
       }
 
-      if (strncasecmp(this_section, "general", 7) == 0) {
+      if (strncasecmp(this_section, "general", 7) == 0 ||
+          strncasecmp(this_section, "fwdsp", 5) == 0) {
          // Parse configuration line (XXX: GET RID OF STRTOK!)
          key = NULL;
          val = NULL;
@@ -239,9 +237,17 @@ dict *cfg_load(const char *path) {
             continue;
          }
 
-         // Store value
+         // Store value, optionally prefixing it
          Log(LOG_DEBUG, "config", "Set key: %s => %s", key, val);
-         dict_add(newcfg, key, val);
+         if (strncasecmp(this_section, "general", 7) != 0) {
+            char keybuf[128];
+            Log(LOG_CRIT, "config", "section: %s", this_section);
+            memset(keybuf, 0, sizeof(keybuf));
+            snprintf(keybuf, sizeof(keybuf), "%s:%s", this_section, key);
+            dict_add(newcfg, keybuf, val);
+         } else {
+            dict_add(newcfg, key, val);
+         }
       } else if (strncasecmp(this_section, "pipelines", 9) == 0) {
          // Parse configuration line (XXX: GET RID OF STRTOK!)
          key = NULL;

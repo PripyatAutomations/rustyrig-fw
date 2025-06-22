@@ -172,7 +172,7 @@ bool audio_init(void) {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
 
-#if	1 // disabled for now
+#if	0 // disabled for now
    ///////////////
    Log(LOG_INFO, "audio", "Configuring TX audio-path");
 

@@ -38,6 +38,7 @@
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "common/codecneg.h"
+#include "rustyrig/config-paths.h"
 const char *config_file = NULL;
 const char *config_codec = "PC16";
 bool codec_tx_mode = false;
@@ -45,13 +46,6 @@ bool dying = false;
 bool empty_config;
 static GstElement *pipeline = NULL;
 time_t now = -1;                // time() called once a second in main loop to update
-
-const char *configs[] = { 
-   "config/fwdsp.cfg",
-   "fwdsp.cfg",
-   "~/.rrustyrig/fwdsp.cfg",
-   "/etc/rustyrig/fwdsp.cfg"
-};
 
 defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"gstreamer debug level" },

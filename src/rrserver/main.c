@@ -41,6 +41,7 @@
 #include "rustyrig/usb.h"
 #include "rustyrig/dds.h"
 #include "rustyrig/database.h"
+#include "rustyrig/config-paths.h"
 
 //
 // http ui support
@@ -68,13 +69,6 @@ struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
 
 char *config_file = NULL;
-
-const char *configs[] = { 
-   "config/rrserver.cfg",
-   "rrserver.cfg",
-   "~/.rrustyrig/server.cfg",
-   "/etc/rustyrig/server.cfg"
-};
 
 defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"Debug audio? [bool]" },
@@ -174,7 +168,7 @@ int main(int argc, char **argv) {
    int cfg_entries = (sizeof(configs) / sizeof(char *));
    char *realpath = NULL;
 
-   cfg_init(defcfg);
+   cfg_init(default_cfg, defcfg);
 
    if (config_file) {
       if (!(cfg = cfg_load(config_file))) {
