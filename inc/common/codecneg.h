@@ -16,18 +16,21 @@
 
 enum au_codec {
    AU_CODEC_NONE = 0,			// No codec configured
+   AU_CODEC_PCM11,				// 11khz PCM
    AU_CODEC_PCM16,				// 16khz PCM
+   AU_CODEC_PCM22,				// 22khz PCM
    AU_CODEC_PCM44,				// 44.1khz PCM
    AU_CODEC_OPUS,				// OPUS
    AU_CODEC_FLAC,				// FLAC
    AU_CODEC_MULAW8,				// u-law PCM @ 8khz
-   AU_CODEC_MULAW16				// u-law PCM @ 16khz
+   AU_CODEC_MULAW16,				// u-law PCM @ 16khz
+   AU_CODEC_CODEC2				// CODEC2
 };
 
 typedef struct au_codec_mapping {
    enum au_codec  id;
    const char     *magic;         // (4 bytes)
-   int            sample_rate;    // -1 if variable
+   int            rate;    // -1 if variable
 
    // THese properties are set at runtime
    char           *PipelineRx;    // optional user-configured pipeline for RXing this format
@@ -35,6 +38,7 @@ typedef struct au_codec_mapping {
    int            refcount;       // how many clients are using this
    pid_t          pid;            // optional: encoder/decoder process PID
    bool           running;        // flag: pipeline started
+   char		  *label;   // Codec description
 } au_codec_mapping_t;
 
 struct ws_frame {

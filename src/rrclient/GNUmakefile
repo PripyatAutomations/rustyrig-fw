@@ -154,7 +154,7 @@ posix-install:
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	install -Dm755 ${bin} ${INSTALL_DIR}/bin/$(shell basename "${bin}")
 	install -Dm644 rustyrig.png /usr/share/icons/hicolor/48x48/apps/rustyrig.png
-	install -Dm644 rustyrig.desktop /usr/share/applications/rustyrig.desktop
+	install -Dm644 rrclient.desktop /usr/share/applications/rrclient.desktop
 
 install: ${real_install}
 

@@ -9,8 +9,9 @@ INSTALL_DIR = /usr/local
 CONF_DIR := /etc/rustyrig
 
 fw_bin := ${BUILD_DIR}/rrserver
+fwdsp_bin := ${BUILD_DIR}/fwdsp
 
-bins += ${fw_bin}
+bins += ${fw_bin} ${fwdsp_bin}
 
 ifeq (x$(wildcard ${CF}),x)
 $(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
@@ -85,14 +86,20 @@ endif
 include mk/rrserver.objs.mk
 include mk/common.objs.mk
 
+fwdsp_objs += fwdsp-main.o
+
 # translate unprefixed object file names to source file names
 fw_src = $(fw_objs:.o=.c)
+fwdsp_src = $(fwdsp_objs:.o:.c)
 
 # prepend objdir path to each object
 real_comm_objs := $(foreach x, ${comm_objs}, ${OBJ_DIR}/common/${x})
 real_fw_objs := $(foreach x, ${fw_objs}, ${OBJ_DIR}/firmware/${x})
+real_fwdsp_objs := $(foreach x, ${fwdsp_objs}, ${OBJ_DIR}/fwdsp/${x})
 real_fw_objs += ${OBJ_DIR}/firmware/logger.o
 real_fw_objs += ${OBJ_DIR}/firmware/config.o
+real_fwdsp_objs += ${OBJ_DIR}/fwdsp/logger.o
+real_fwdsp_objs += ${OBJ_DIR}/fwdsp/config.o
 
 ################################################################################
 ###############
@@ -123,10 +130,33 @@ ${OBJ_DIR}/common/%.o: ../common/%.c ${BUILD_HEADERS}
 	@mkdir -p $(shell dirname $@)
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
+# fwdsp
+${OBJ_DIR}/fwdsp/%.o: ../fwdsp/%.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@${RM} -f $@
+	@echo "[compile] $@ from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
+
+
+${OBJ_DIR}/fwdsp/config.o: ../common/config.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@${RM} -f $@
+	@echo "[compile] fwdsp:$@ from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
+
 ${OBJ_DIR}/firmware/config.o: ../common/config.c ${BUILD_HEADERS}
 # delete the old object file, so we can't accidentally link against it if compile failed...
 	@${RM} -f $@
 	@echo "[compile] server:$@ from $<"
+	@mkdir -p $(shell dirname $@)
+	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
+
+${OBJ_DIR}/fwdsp/logger.o: ../common/logger.c ${BUILD_HEADERS}
+# delete the old object file, so we can't accidentally link against it if compile failed...
+	@${RM} -f $@
+	@echo "[compile] fwdsp:$@ from $<"
 	@mkdir -p $(shell dirname $@)
 	@${CC} ${CFLAGS} ${FWDSP_CFLAGS} ${extra_cflags} -o $@ -c $<
 
@@ -151,7 +181,14 @@ ${fw_bin}: ${real_fw_objs} ${real_comm_objs}
 	@file $@
 	@size $@
 
-strip: ${fw_bin}
+${fwdsp_bin}: ${real_fwdsp_objs} ${real_comm_objs}
+	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
+	${CC} -o $@ ${real_fwdsp_objs} ${real_comm_objs} ${LDFLAGS} ${FWDSP_LDFLAGS}
+	@ls -a1ls $@
+	@file $@
+	@size $@
+
+strip: ${fw_bin} ${fwdsp_bin}
 	@echo "[strip] ${bins}"
 	@strip $^
 	@ls -a1ls $^
@@ -168,7 +205,7 @@ pack-eeprom: ../../tools/pack-eeprom.pl ${EEPROM_FILE}
 ##################
 clean:
 	@echo "[clean]"
-	${RM} ${bins} ${real_fw_objs} ${extra_clean} ${real_comm_objs}
+	${RM} ${bins} ${real_fwdsp_objs} ${real_fw_objs} ${extra_clean} ${real_comm_objs}
 
 distclean: clean
 	@echo "[distclean]"
@@ -178,7 +215,7 @@ distclean: clean
 install:
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av ${bins}  ${INSTALL_DIR}/bin
-#	cp -av archive-config.sh *-rigctld.sh killall.sh rrclient.sh test-run.sh ${INSTALL_DIR}/bin
+#	cp -av archive-config.sh *-rigctld.sh fwdsp-test.sh killall.sh rrclient.sh test-run.sh ${INSTALL_DIR}/bin
 #	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
  
 ###################

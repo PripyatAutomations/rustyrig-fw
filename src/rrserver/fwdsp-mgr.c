@@ -24,11 +24,13 @@
 #include "common/logger.h"
 #include "rustyrig/fwdsp-mgr.h"
 
+// Some defaults
 defconfig_t defcfg_fwdsp[] = {
    { "codecs.allowed", 	"pc16 mu16 mu08",	"Preferred codecs" },
    { "fwdsp.path",	NULL,			"Path to fwdsp binary" },
    { "subproc.max",	"16",			"Maximum allowed de/encoder processes" },
    { "subproc.debug",	"false",		"Show extra debug messages" },
+   //// XXX: We can put default pipelines here using the syntax pipeline:id.tx and pipeline:id.rx where id is 4 char id
    { NULL,		NULL,			NULL }
 };
 
@@ -39,6 +41,36 @@ bool fwdsp_mgr_ready = false;
 static int active_slots = 0;
 static int max_subprocs = 0;
 struct fwdsp_subproc	*fwdsp_subprocs;
+
+static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
+   Log(LOG_INFO, "fwdsp", "Pipeline %.*s exited (status=%d)", 4, sp->pl_id, status);
+   // Optionally notify websocket clients, or log, etc.
+}
+
+static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
+void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb) {
+   on_fwdsp_exit = cb;
+}
+
+static void fwdsp_sigchld(int sig) {
+   (void)sig;
+   int status;
+   pid_t pid;
+   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+      for (int i = 0; i < max_subprocs; i++) {
+         struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+         if (sp->pid == pid) {
+            Log(LOG_DEBUG, "fwdsp", "Subproc %.*s (pid %d) exited", 4, sp->pl_id, pid);
+            if (on_fwdsp_exit) {
+               on_fwdsp_exit(sp, status);
+            }
+            memset(sp, 0, sizeof(struct fwdsp_subproc));
+            active_slots--;
+            break;
+         }
+      }
+   }
+}
 
 bool fwdsp_init(void) {
    if (fwdsp_mgr_ready) {
@@ -66,6 +98,14 @@ bool fwdsp_init(void) {
       fprintf(stderr, "OOM in fwdsp_init\n");
       exit(1);
    }
+
+   struct sigaction sa = {
+      .sa_handler = fwdsp_sigchld,
+      .sa_flags = SA_RESTART | SA_NOCLDSTOP
+   };
+   sigemptyset(&sa.sa_mask);
+   sigaction(SIGCHLD, &sa, NULL);
+   fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);  // registers your callback
 
    fwdsp_mgr_ready = true;
    return false;

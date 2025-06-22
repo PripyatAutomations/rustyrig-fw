@@ -45,6 +45,7 @@ GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
 GtkWidget *freq_entry = NULL;
 GtkWidget *mode_combo = NULL;
+GtkWidget *width_combo = NULL;
 GtkWidget *userlist_window = NULL;
 GtkWidget *chat_entry = NULL;
 GtkWidget *ptt_button = NULL;
@@ -401,11 +402,11 @@ void update_connection_button(bool connected, GtkWidget *btn) {
    GtkStyleContext *ctx = gtk_widget_get_style_context(btn);
 
    if (connected) {
-      gtk_button_set_label(GTK_BUTTON(btn), "Connected");
+      gtk_button_set_label(GTK_BUTTON(btn), "Online");
       gtk_style_context_remove_class(ctx, "conn-idle");
       gtk_style_context_add_class(ctx, "conn-active");
    } else {
-      gtk_button_set_label(GTK_BUTTON(btn), "Disconnected");
+      gtk_button_set_label(GTK_BUTTON(btn), "Offline");
       gtk_style_context_remove_class(ctx, "conn-active");
       gtk_style_context_add_class(ctx, "conn-idle");
    }
@@ -530,6 +531,32 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
    return FALSE;
 }
 
+GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx) {
+   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+
+   GtkWidget *widget_label = gtk_label_new("TX/RX Codecs");
+
+   GtkComboBoxText *tx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
+   GtkComboBoxText *rx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
+
+   for (int i = 0; au_core_codecs[i].magic; i++) {
+      gtk_combo_box_text_append(tx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
+      gtk_combo_box_text_append(rx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
+   }
+
+   gtk_combo_box_set_active(GTK_COMBO_BOX(tx_combo), 1);
+   gtk_combo_box_set_active(GTK_COMBO_BOX(rx_combo), 1);
+
+   gtk_box_pack_start(GTK_BOX(vbox), widget_label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(rx_combo), FALSE, FALSE, 0);
+
+   if (out_tx) *out_tx = tx_combo;
+   if (out_rx) *out_rx = rx_combo;
+
+   return vbox;
+}
+
 extern char *config_file;		// main.c
 
 static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
@@ -608,7 +635,7 @@ bool gui_init(void) {
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(main_tab), control_box, FALSE, FALSE, 0);
 
-   conn_button = gtk_button_new_with_label("Disconnected");
+   conn_button = gtk_button_new_with_label("Offline");
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
    gtk_style_context_add_class(conn_ctx, "conn-idle");
@@ -617,9 +644,12 @@ bool gui_init(void) {
 
    freq_entry = gtk_freq_input_new();
    GtkWidget *freq_label = gtk_label_new("Hz");
-
-   gtk_box_pack_start(GTK_BOX(control_box), freq_entry, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), freq_entry, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
+
+   GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   GtkWidget *mode_box_label = gtk_label_new("Mode/Width");
+   gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, FALSE, FALSE, 0);
 
    mode_combo = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
@@ -632,8 +662,26 @@ bool gui_init(void) {
    gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 3);
    Log(LOG_CRAZY, "gtk", "mode_combo add callback changed");
    mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
+   gtk_box_pack_start(GTK_BOX(mode_box), mode_combo, FALSE, FALSE, 0);
 
-   gtk_box_pack_start(GTK_BOX(control_box), mode_combo, FALSE, FALSE, 6);
+   // width
+   width_combo = gtk_combo_box_text_new();
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NARR");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NORM");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "WIDE");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), 1);
+   Log(LOG_CRAZY, "gtk", "width_combo add callback changed");
+//   width_changed_handler_id = g_signal_connect(width_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
+   gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 0);
+
+   // Add teh combined box to display
+   gtk_box_pack_start(GTK_BOX(control_box), mode_box, FALSE, FALSE, 6);
+
+   // codec selectors
+   GtkComboBoxText *tx_combo = NULL;
+   GtkComboBoxText *rx_combo = NULL;
+   GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_combo, &rx_combo);
+   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 0);
 
    // RX Volume VBox
    GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);

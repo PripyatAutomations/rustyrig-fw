@@ -103,8 +103,11 @@ static void on_button_clicked(GtkButton *button, gpointer user_data) {
    val += delta;
    if (val < 0) {
       val = 9;
-   }
-   if (val > 9) {
+      if (idx > 0) {
+         GtkWidget *prev_entry = fi->digits[idx - 1];
+         gtk_button_clicked(GTK_BUTTON(fi->down_buttons[idx - 1]));
+      }
+   } else if (val > 9) {
       val = 0;
    }
 
@@ -188,11 +191,8 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
 
             char buf[2] = { '0' + val, '\0' };
             gtk_entry_set_text(GTK_ENTRY(entry), buf);
-
             g_idle_add(reset_entry_selection, entry);
-
-            // Stop further propagation to prevent GTK default focus move
-            g_signal_stop_emission_by_name(GTK_WIDGET(entry), "key-press-event");
+            g_signal_stop_emission_by_name(entry, "key-press-event");
             return TRUE;
          }
 
@@ -204,8 +204,8 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
 
             char buf[2] = { '0' + val, '\0' };
             gtk_entry_set_text(GTK_ENTRY(entry), buf);
-
             g_idle_add(reset_entry_selection, entry);
+            g_signal_stop_emission_by_name(entry, "key-press-event");
             return TRUE;
          }
 
@@ -239,9 +239,25 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
 
          default:
          {
+            if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
+               int digit = event->keyval - GDK_KEY_0;
+               char buf[2] = { '0' + digit, '\0' };
+               gtk_entry_set_text(GTK_ENTRY(entry), buf);
+               g_idle_add(reset_entry_selection, entry);
+
+               if (i + 1 < fi->num_digits) {
+                  gtk_widget_grab_focus(fi->digits[i + 1]);
+                  gtk_editable_set_position(GTK_EDITABLE(fi->digits[i + 1]), -1);
+                  gtk_editable_select_region(GTK_EDITABLE(fi->digits[i + 1]), 0, -1);
+               }
+
+               // 🚫 stop GTK from processing the key normally
+               g_signal_stop_emission_by_name(entry, "key-press-event");
+               return TRUE;
+            }
+
             return FALSE;
          }
-
       }
 
       break; // only match one entry
@@ -275,7 +291,7 @@ static void gtk_freq_input_init(GtkFreqEntry *fi) {
    fi->updating = false;
 
    // Apply small font to buttons and entry
-   PangoFontDescription *font = pango_font_description_from_string("Monospace 10");
+   PangoFontDescription *font = pango_font_description_from_string("Monospace 12");
 
    for (int i = 0; i < MAX_DIGITS; i++) {
       GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -301,13 +317,12 @@ static void gtk_freq_input_init(GtkFreqEntry *fi) {
       gtk_widget_override_font(entry, font);
       gtk_widget_override_font(down_button, font);
 
-      gtk_box_pack_start(GTK_BOX(vbox), up_button, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(vbox), entry, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(vbox), down_button, FALSE, FALSE, 0);
-
-      gtk_box_pack_start(GTK_BOX(fi), vbox, FALSE, FALSE, 0);
-
+      gtk_box_pack_start(GTK_BOX(vbox), up_button, TRUE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(vbox), entry, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(vbox), down_button, TRUE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(fi), vbox, TRUE, TRUE, 0);
       gtk_widget_show_all(vbox);
+
       fi->digits[i] = entry;
       fi->up_buttons[i] = up_button;
       fi->down_buttons[i] = down_button;

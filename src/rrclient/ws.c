@@ -396,7 +396,7 @@ bool connect_server(void) {
    const char *url = get_server_property(active_server, "server.url");
 
    if (url) {
-      gtk_button_set_label(GTK_BUTTON(conn_button), "Connecting...");
+      gtk_button_set_label(GTK_BUTTON(conn_button), "----------");
       ui_print("[%s] Connecting to %s", get_chat_ts(), url);
 
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);

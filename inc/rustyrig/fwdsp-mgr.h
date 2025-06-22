@@ -39,4 +39,7 @@ extern struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_
 extern bool fwdsp_destroy(struct fwdsp_subproc *instance);
 extern bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path);
 
+typedef void (*fwdsp_exit_cb_t)(struct fwdsp_subproc *sp, int status);
+extern void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb);
+
 #endif	// !defined(__rr_fwdsp_mgr_h)

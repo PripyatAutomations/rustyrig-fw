@@ -43,14 +43,17 @@
 // Codec Negotiation //
 ///////////////////////
 au_codec_mapping_t	au_core_codecs[] = {
-    // Codec ID			// Magic	// Sample Rate	// PipelineRx, PipelineTX
-    { AU_CODEC_PCM16,		"PC16",		16000,		 NULL,	NULL, 0, 0, false },
-    { AU_CODEC_PCM44,		"PC44",		44100,		 NULL,	NULL, 0, 0, false },
-    { AU_CODEC_OPUS,		"OPUS",		48000,		 NULL,	NULL, 0, 0, false },
-    { AU_CODEC_FLAC,		"FLAC",		44100,           NULL,	NULL, 0, 0, false },
-    { AU_CODEC_MULAW8,		"MU08",		8000,		 NULL,	NULL, 0, 0, false },
-    { AU_CODEC_MULAW16,		"MU16",		16000,		 NULL,	NULL, 0, 0, false },
-    { AU_CODEC_NONE,		NULL,		0,               NULL,	NULL, 0, 0, false }
+    // Codec ID			// Magic	// Sample Rate	// PipelineRx, PipelineTX 
+    { .id = AU_CODEC_PCM11,	.magic = "PC11", .rate = 11025, .label = "PCM 11khz" },
+    { .id = AU_CODEC_PCM16,	.magic = "PC16", .rate = 16000, .label = "PCM 16khz" },
+    { .id = AU_CODEC_PCM22,	.magic = "PC22", .rate = 22050, .label = "PCM 22khz" },
+    { .id = AU_CODEC_PCM44,	.magic = "PC44", .rate = 44100, .label = "PCM 44khz" },
+    { .id = AU_CODEC_OPUS,	.magic = "OPUS", .rate = 48000, .label = "OPUS" },
+    { .id = AU_CODEC_FLAC,	.magic = "FLAC", .rate = 44100, .label = "FLAC" },
+    { .id = AU_CODEC_MULAW8,	.magic = "MU08", .rate =  8000, .label = "g.711u 8khz" },
+    { .id = AU_CODEC_MULAW16,	.magic = "MU16", .rate = 16000, .label = "g.711u 16khz" },
+    { .id = AU_CODEC_CODEC2,	.magic = "CDC2", .rate =     0, .label = "CODEC2" },
+    { .id = AU_CODEC_NONE,	.magic = NULL,	 .rate =     0, .label = "No audio" }
 };
 audio_settings_t	au_rx_config, au_tx_config;
 
@@ -108,7 +111,7 @@ uint32_t au_codec_get_samplerate(int id) {
 
    for (int i = 0; i < codec_entries; i++) {
       if (au_core_codecs[i].id == id) {
-         return au_core_codecs[i].sample_rate;
+         return au_core_codecs[i].rate;
       }
    }
    
