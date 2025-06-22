@@ -105,12 +105,9 @@ void logger_init(void) {
 }
 
 void logger_end(void) {
-#if	defined(HOST_POSIX)
-/* This really should be HAVE_FS or such, rather than HOST_POSIX as we could log to SD, etc... */
    if (logfp) {
       fclose(logfp);
    }
-#endif
 }
 
 int update_timestamp(void) {
@@ -131,7 +128,7 @@ int update_timestamp(void) {
       if (strftime(latest_timestamp, sizeof(latest_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
          /* handle the error */
          memset(latest_timestamp, 0, sizeof(latest_timestamp));
-         snprintf(latest_timestamp, sizeof(latest_timestamp), "<%llu>", time(NULL));
+         snprintf(latest_timestamp, sizeof(latest_timestamp), "<%ld>", (long)time(NULL));
       }
    } else {
       return 1;

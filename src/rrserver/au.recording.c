@@ -54,7 +54,7 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    /// XXX: These states need to come from looking up the active fwdsp channels (pipelines) we are maintaining
    bool is_tx = false;
    const char *codec = "*";
-   const char tmpbuf[512];
+   char tmpbuf[512];
    memset(tmpbuf, 0, 512);
    size_t tmp_len = snprintf(tmpbuf, 512, "%s/%s.%s.%s", recdir, recording_id, (is_tx ? "tx" : "rx"), codec);
    if (tmp_len > 0) {

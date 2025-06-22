@@ -23,15 +23,11 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
-//#include "../ext/libmongoose/mongoose.h"
-//#include "rustyrig/http.h"
 
 #define MAX_DIGITS 10
 
 G_BEGIN_DECLS
-
 G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkWidget)
-
 G_END_DECLS
 
 struct _GtkFreqInput {

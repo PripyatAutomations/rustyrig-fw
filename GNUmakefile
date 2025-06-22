@@ -1,6 +1,17 @@
+UNAME_S := $(shell uname -s)
+ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
+   OS := MINGW64
+else ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
+   OS := MSYS
+else
+   OS := POSIX
+endif
+ifeq (${OS},POSIX)
 subdirs += fwdsp
-subdirs += rrclient
 subdirs += rrserver
+endif
+subdirs += rrclient
+
 
 all clean deps distclean installworld:
 	@for i in ${subdirs}; do \

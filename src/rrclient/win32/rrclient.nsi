@@ -64,7 +64,7 @@ File "C:\msys64\mingw64\bin\libsharpyuv-0.dll"
 File /r "etc"
 File /r "share"
 
-# Copy gstreamer DLLs
+# Copy gstreamer DLLs - Make sure you have -good and -bad plugins installed
 SetOutPath "$INSTDIR\lib\gstreamer-1.0"
 File /r "C:\msys64\mingw64\lib\gstreamer-1.0\*.dll"
 

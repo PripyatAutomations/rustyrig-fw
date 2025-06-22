@@ -23,8 +23,6 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
-//#include "rustyrig/mongoose.h"
-//#include "rustyrig/http.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk-gui.h"
 #include "common/codecneg.h"
@@ -38,12 +36,10 @@ extern GstElement *tx_pipeline;
 extern GstElement *tx_appsrc;
 extern GstElement *tx_vol_gst_elem;
 extern GstElement *tx_sink;
-extern bool audio_init(void);
 
-//extern void enqueue_frame(uint8_t *data, size_t len);
+extern bool audio_init(void);
 extern void audio_tx_free_frame(void);
 extern void try_send_next_frame(struct mg_connection *c);
-//extern GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);

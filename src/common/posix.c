@@ -13,9 +13,6 @@
  * and deal with POSIX signals
  */
 #include "common/config.h"
-//#if	!defined(HOST_POSIX)
-//#error "This is only valid on host posix, please check the GNUmakefile!"
-//#else
 #include <sys/stat.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -99,5 +96,3 @@ bool host_init(void) {
 #endif
    return false;
 }
-
-//#endif	// HOST_POSIX

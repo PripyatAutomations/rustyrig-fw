@@ -11,14 +11,18 @@
 #include <stdbool.h>
 #include "rrclient/userlist.h"
 
+//// Authentication Core ////
+extern char session_token[HTTP_TOKEN_LEN+1];
 extern char *compute_wire_password(const char *password, const char *nonce);
+
+//// User privileges matching ////
+extern bool match_priv(const char *user_privs, const char *priv);
+extern bool has_privs(struct rr_user *cptr, const char *priv);
+
+//// WebSocket messages related to auth ////
 extern bool ws_send_login(struct mg_connection *c, const char *login_user);
 extern bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passwd, const char *nonce);
 extern bool ws_send_logout(struct mg_connection *c, const char *user, const char *token);
 extern bool ws_send_hello(struct mg_connection *c);
-extern char session_token[HTTP_TOKEN_LEN+1];
-extern bool match_priv(const char *user_privs, const char *priv);
-extern bool has_privs(struct rr_user *cptr, const char *priv);
-
 
 #endif	// !defined(__rrclient_auth_h)

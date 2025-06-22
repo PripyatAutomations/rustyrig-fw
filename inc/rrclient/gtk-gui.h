@@ -25,12 +25,11 @@
 
 #define GTK_TYPE_FREQ_INPUT (gtk_freq_input_get_type())
 G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkBox)
-
 GtkWidget *gtk_freq_input_new(void);
 void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
 unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
 
-inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
+static inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
    union {
       void (*func)(GtkToggleButton *, gpointer);
       gpointer ptr;
@@ -63,7 +62,7 @@ extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
 extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
 extern bool log_print(const char *fmt, ...);
 extern void gui_edit_config(const char *filepath);
-extern gboolean scroll_to_end_idle(gpointer data);
+extern gboolean scroll_to_end(gpointer data);
 
 #ifdef _WIN32
 #include <winsock2.h>

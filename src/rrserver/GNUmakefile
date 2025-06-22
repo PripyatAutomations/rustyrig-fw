@@ -31,7 +31,7 @@ CFLAGS += -DDEBUG_PROTO
 endif
 
 # Parse the config/${PROFILE}.config.json file
-include mk/json-config.mk
+include ../../mk/json-config.mk
 
 FWDSP_CFLAGS += -D__FWDSP
 
@@ -82,8 +82,8 @@ comm_objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 LDFLAGS += -lgpiod
 endif
 
-include mk/rrserver.objs.mk
-include mk/common.objs.mk
+include ../../mk/rrserver.objs.mk
+include ../../mk/common.objs.mk
 
 # translate unprefixed object file names to source file names
 fw_src = $(fw_objs:.o=.c)
@@ -215,5 +215,5 @@ config/http.users:
 	@echo "*** You do not have a config/http.users so i've copied the default file from doc/"
 	cp -i doc/http.users.example config/http.users
 
-include mk/git.mk
-include mk/database.mk
+include ../../mk/git.mk
+include ../../mk/database.mk

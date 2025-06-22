@@ -7,37 +7,8 @@
 #define VERSION "202506.03"
 #define VERSION_MAJOR 0x3170a
 #define VERSION_MINOR 0x3
-#define HARDWARE "sb50"
-#define EEPROM_TYPE_MMAP true
-#undef EEPROM_TYPE_I2C
-#define EEPROM_MMAP_ADDR 0x0000
-#define RR_MAX_AMPS		2
-#define RR_MAX_ATUS		4
-#define RR_MAX_FILTERS		4
-#define RF_TALK_TIMEOUT		300
-#define MASTERDB_PATH "./db/master.db"
-#define MASTERDB_TEMPLATE "./sql/sqlite.master.sql"
-#define CAT_KPA500 true
-#define CAT_YAESU true
 #define FEATURE_GSTREAMER
 #define FEATURE_HTTP
-#define FEATURE_MQTT
-#define FEATURE_SQLITE
-#define BACKEND_HAMLIB
-#define BACKEND_HAMLIB_DEBUG	RIG_DEBUG_WARN
-#define BACKEND_HAMLIB_MODEL	2
-#define BACKEND_HAMLIB_BAUD	38400
-#define BACKEND_HAMLIB_PORT	"localhost:4532"
 #define USE_PROFILING true
-#define LOG_FILE "/tmp/radio-debug.log"
-#define HTTP_USE_TLS 1
-#define HTTP_TLS_KEY "./config/key.pem"
-#define HTTP_TLS_CERT "./config/cert.pem"
-#define HTTP_AUTHDB_PATH	"./config/http.users"
-#define EEPROM_SIZE 1048576
-#define MAX_BANDS 14
-#define HOST_EEPROM_FILE "build/radio/eeprom.bin"
-#define HOST_CAT_PIPE "cat.fifo"
-#define HOST_POSIX
-#define HOST_LINUX	// This should not be here, but i2c depends on it for now
+#define LOG_FILE "rrclient.log"
 #endif

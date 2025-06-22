@@ -27,7 +27,11 @@
 // Some defaults
 defconfig_t defcfg_fwdsp[] = {
    { "codecs.allowed", 	"pc16 mu16 mu08",	"Preferred codecs" },
-   { "fwdsp.path",	NULL,			"Path to fwdsp binary" },
+#ifdef _WIN32
+   { "fwdsp.path",	"fwdsp",			"Path to fwdsp binary" },
+#else
+   { "fwdsp.path",	"fwdsp",			"Path to fwdsp binary" },
+#endif
    { "subproc.max",	"16",			"Maximum allowed de/encoder processes" },
    { "subproc.debug",	"false",		"Show extra debug messages" },
    //// XXX: We can put default pipelines here using the syntax pipeline:id.tx and pipeline:id.rx where id is 4 char id

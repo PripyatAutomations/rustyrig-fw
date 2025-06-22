@@ -190,7 +190,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
          if (strftime(my_timestamp, sizeof(my_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
             // handle the error 
             memset(my_timestamp, 0, sizeof(my_timestamp));
-            snprintf(my_timestamp, sizeof(my_timestamp), "<%llu>", time(NULL));
+            snprintf(my_timestamp, sizeof(my_timestamp), "<%ld>", (long)time(NULL));
          }
       }
 
