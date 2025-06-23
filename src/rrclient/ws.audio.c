@@ -40,11 +40,26 @@ bool ws_audio_init(void) {
    return false;
 }
 
-bool ws_send_capab(struct mg_connection *c) {
-   char *capab_msg = codecneg_send_supported_codecs(au_core_codecs);
+// if passed NULL for codecs, use all available codecs
+bool ws_send_capab(struct mg_connection *c, const char *codecs) {
+   if (!codecs) {
+      char *capab_msg = codecneg_send_supported_codecs(au_core_codecs);
 
-   mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
-   Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
-   free(capab_msg);
+      mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
+      Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
+      free(capab_msg);
+   } else {
+      // Handle common codecs check
+      const char *preferred = cfg_get("codecs.allowed");
+      char *common_codecs = codec_filter_common(preferred, codecs);
+
+      if (common_codecs && strlen(common_codecs) >= 4) {		// valid IDs are 4 char long
+         // emit codec message
+         char msgbuf[1024];
+         snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"payload\": \"%s\" } }", common_codecs);
+         Log(LOG_DEBUG, "ws.audio", "Sending codec request: %s", msgbuf);
+      }
+      free(common_codecs);
+   }     
    return false;
 }

@@ -73,7 +73,7 @@ char *config_file = NULL;
 defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"Debug audio? [bool]" },
   { "audio.record-dir", "./recordings", "TX & RX recordings basedir" },
-  { "audio.prefer-codecs", "mu16 pc16 mu08", "Preferred codec order" },
+  { "codecs.allowed",   "mu16 pc16 mu08", "Preferred codec order" },
   { "log.level",	"debug",	"How noisy should log be?"  }, 
   { "log.show-ts",	"false",        "Show timestamps in log? [bool]" },
 //  { "testkey.defcfg.main", " 1",	"Test key for defconfig" },

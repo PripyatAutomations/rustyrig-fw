@@ -76,9 +76,9 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          double ts;
          mg_json_get_num(msg_data, "$.cat.ts", &ts);
          char *user = mg_json_get_str(msg_data, "$.cat.user");
-         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
+//         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
-         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
+//         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
 
          if (user) {
 //            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
@@ -91,10 +91,10 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
 
          if (freq > 0) {
-            g_signal_handler_block(freq_entry, freq_changed_handler_id);
+//            g_signal_handler_block(freq_entry, freq_changed_handler_id);
             Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
             gtk_freq_input_set_value(GTK_FREQ_INPUT(freq_entry), freq);
-            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
+//            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
          }
 
          if (mode && strlen(mode) > 0) {
@@ -106,8 +106,8 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          free(vfo);
          free(mode);
          free(user);
-      } else {
-         Log(LOG_CRAZY, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
+//      } else {
+//         Log(LOG_CRAZY, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
       }
    } else {
       ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(), msg_data);
@@ -126,7 +126,7 @@ bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
    snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"ptt\", \"vfo\": \"%s\", \"ptt\": \"%s\" } }",
                  vfo, (ptt ? "true" : "false"));
 
-   Log(LOG_CRAZY, "CAT", "Sending: %s", msgbuf);
+   Log(LOG_CRAZY, "ws.cat", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    if (ret < 0) {
       Log(LOG_DEBUG, "cat", "ws_send_ptt_cmd: mg_ws_send error: %d", ret);
@@ -144,7 +144,7 @@ bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"mode\", \"vfo\": \"%s\", \"mode\": \"%s\" } }",
                  vfo, mode);
-   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
+   Log(LOG_DEBUG, "ws.cat", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
    if (ret < 0) {
@@ -162,7 +162,7 @@ bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
    char msgbuf[512];
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"freq\", \"vfo\": \"%s\", \"freq\": %.3f } }", vfo, freq);
-   Log(LOG_DEBUG, "CAT", "Sending: %s", msgbuf);
+   Log(LOG_DEBUG, "ws.cat", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
    if (ret < 0) {

@@ -115,7 +115,25 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
    struct mg_str msg_data = msg->data;
    bool result = false;
 
-   if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
+   if (mg_json_get(msg_data, "$.media.cmd", NULL) > 0) {
+      Log(LOG_DEBUG, "ws.media", "msg_data: %s", msg_data);
+      char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
+      char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
+
+      // Parse the server's capab string and 
+      if (media_cmd && strcasecmp(media_cmd, "capab") == 0) {
+         Log(LOG_DEBUG, "ws.media", "Got CAPAB from server: %s", media_payload);
+      } else {
+         Log(LOG_DEBUG, "ws.media," ">> Unknown media.cmd: %s, .payload: %s", media_cmd, media_payload);
+      }
+      // XXX: We should compare server advertised codecs to our preferred list here
+      const char *preferred = cfg_get("codecs.allowed");
+      char *negotiated_codecs = codec_filter_common(preferred, media_payload);
+      ws_send_capab(c, negotiated_codecs);
+      free(negotiated_codecs);
+      free(media_cmd);
+      free(media_payload);
+   } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
       char ts_buf[32];
       double ping_ts = 0;
       mg_json_get_num(msg_data, "$.ping.ts", &ping_ts);
@@ -295,7 +313,6 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       }
       ws_send_hello(c);
       ws_send_login(c, login_user);
-      ws_send_capab(c);
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
       ws_handle(c, wm);

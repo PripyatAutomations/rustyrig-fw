@@ -289,7 +289,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          result = ws_handle_chat_msg(msg, c);
       }
    } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
-// { media { "cmd": "capab", "payload": "pc16 mu16 mu08" } }
+// { "media": { "cmd": "capab", "payload": "pc16 mu16 mu08" } }
      char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
      char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
 

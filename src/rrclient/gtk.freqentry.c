@@ -105,10 +105,16 @@ static void on_button_clicked(GtkButton *button, gpointer user_data) {
       val = 9;
       if (idx > 0) {
          GtkWidget *prev_entry = fi->digits[idx - 1];
-         gtk_button_clicked(GTK_BUTTON(fi->down_buttons[idx - 1]));
+//         gtk_button_clicked(GTK_BUTTON(fi->down_buttons[idx - 1]));
+         g_signal_emit_by_name(fi->down_buttons[idx - 1], "clicked");
       }
    } else if (val > 9) {
       val = 0;
+      if (idx > 0) {
+         GtkWidget *prev_entry = fi->digits[idx - 1];
+//         gtk_button_clicked(GTK_BUTTON(fi->up_buttons[idx - 1]));
+         g_signal_emit_by_name(fi->up_buttons[idx - 1], "clicked");
+      }
    }
 
    char buf[2] = { '0' + val, 0 };
@@ -185,29 +191,39 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
 
          case GDK_KEY_Up:
          {
+            gtk_bindings_activate_event(G_OBJECT(entry), event); // Block GTK navigation
+
             const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
             int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
             val = (val + 1) % 10;
 
             char buf[2] = { '0' + val, '\0' };
             gtk_entry_set_text(GTK_ENTRY(entry), buf);
-            g_idle_add(reset_entry_selection, entry);
-            g_signal_stop_emission_by_name(entry, "key-press-event");
+
+            gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+            gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+
             return TRUE;
          }
 
          case GDK_KEY_Down:
          {
+            gtk_bindings_activate_event(G_OBJECT(entry), event);  // Prevent GTK default cursor move
+
             const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
             int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-            val = (val + 9) % 10;
+
+            val = (val + 9) % 10;  // decrement with wraparound
 
             char buf[2] = { '0' + val, '\0' };
             gtk_entry_set_text(GTK_ENTRY(entry), buf);
-            g_idle_add(reset_entry_selection, entry);
-            g_signal_stop_emission_by_name(entry, "key-press-event");
+
+            gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+            gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+
             return TRUE;
          }
+
 
          case GDK_KEY_Return:
          {

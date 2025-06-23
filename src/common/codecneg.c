@@ -195,7 +195,7 @@ char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
    }
 
    char msgbuf[1024];
-   snprintf(msgbuf, sizeof(msgbuf), "{ media { \"cmd\": \"capab\", \"payload\": \"%s\" } } }", filtered);
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"payload\": \"%s\" } }", filtered);
    Log(LOG_DEBUG, "codecneg", "Returning capab string: %s", msgbuf);
 
    free(filtered);
@@ -237,30 +237,43 @@ char *codec_filter_common(const char *preferred, const char *available) {
    char *result = NULL;
    size_t res_sz = 0;
 
+   if (!preferred || !available) {
+      Log(LOG_CRIT, "codecneg", "codec_filter_common: preferred:<%x> available:<%x>", preferred, available);
+      return NULL;
+   }
+
    const char *p = preferred;
    while (*p) {
-      while (*p == ' ') p++;  // skip leading spaces
+      while (*p == ' ') p++;
       if (!*p) break;
 
       const char *start = p;
       while (*p && *p != ' ') p++;
       size_t len = p - start;
 
-      if (len == 4 && strstr(available, start) && 
-          (start == preferred || start[-1] == ' ') && 
-          (p[0] == '\0' || p[0] == ' ')) {
-         result = realloc(result, res_sz + len + 2);
-         memcpy(result + res_sz, start, len);
-         res_sz += len;
-         result[res_sz++] = ' ';
-         result[res_sz] = 0;
+      // Now scan `available` token-by-token
+      const char *a = available;
+      while (*a) {
+         while (*a == ' ') a++;
+         if (!*a) break;
+
+         const char *astart = a;
+         while (*a && *a != ' ') a++;
+         size_t alen = a - astart;
+
+         if (len == alen && memcmp(start, astart, len) == 0) {
+            result = realloc(result, res_sz + len + 2);
+            memcpy(result + res_sz, start, len);
+            res_sz += len;
+            result[res_sz++] = ' ';
+            result[res_sz] = 0;
+            break;
+         }
       }
    }
 
-   // Trim trailing space
-   if (res_sz > 0 && result[res_sz - 1] == ' ') {
+   if (res_sz > 0 && result[res_sz - 1] == ' ')
       result[--res_sz] = 0;
-   }
 
    return result;
 }
