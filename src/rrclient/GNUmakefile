@@ -30,7 +30,7 @@ PROFILE := win32-client
 bin := ${BUILD_DIR}/rrclient.exe
 CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
-LDFLAGS += -lws2_32 -lkernel32
+LDFLAGS += -lws2_32 -luser32 -lkernel32
 CFLAGS += -DMG_ARCH=MG_ARCH_WIN32
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 real_install := windows-install
