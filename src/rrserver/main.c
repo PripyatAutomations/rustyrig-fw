@@ -73,6 +73,7 @@ char *config_file = NULL;
 defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"Debug audio? [bool]" },
   { "audio.record-dir", "./recordings", "TX & RX recordings basedir" },
+  { "audio.prefer-codecs", "mu16 pc16 mu08", "Preferred codec order" },
   { "log.level",	"debug",	"How noisy should log be?"  }, 
   { "log.show-ts",	"false",        "Show timestamps in log? [bool]" },
   { "test.key",		" 1",		"Test key" },
@@ -191,15 +192,10 @@ int main(int argc, char **argv) {
      exit(1);
    }
 
-#if	0
-   fprintf(stderr, "----- cfg -----\n");
-   dict_dump(cfg, stderr);
-   fprintf(stderr, "----- @<%x> -----\n", cfg);
-#endif
-
-   srand((unsigned int)now);
    logfp = stdout;
    rig.log_level = LOG_DEBUG;		// startup in debug mode until config loaded
+
+   srand((unsigned int)now);
    host_init();
 
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);

@@ -13,7 +13,7 @@ endif
 subdirs += rrclient
 
 
-all clean deps distclean installworld:
+all world clean deps distclean install:
 	@for i in ${subdirs}; do \
 	   ${MAKE} -C src/$$i $@; \
 	done

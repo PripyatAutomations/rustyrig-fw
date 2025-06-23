@@ -74,13 +74,14 @@ void logger_init(void) {
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
    const char *ll = eeprom_get_str("debug/loglevel");
    log_show_ts = eeprom_get_bool("debug/show_ts");
-#else
+#endif
    const char *ll = cfg_get("log.level");
    const char *t = cfg_get("log.show-ts");
+
    if (t && strcasecmp(t, "true") == 0) {
       log_show_ts = true;
    }
-#endif
+
    if (ll) {
       int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
       for (int i = 0; i < log_levels; i++) {

@@ -176,51 +176,59 @@ void audio_tx_free_frame(void) {
 
 // Generate a message with the codecs we support
 char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
-   char msgbuf[1024];
+   char all_codecs[256] = {0};
    size_t offset = 0;
 
-   offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset,
-                      "{ media { \"cmd\": \"capab\", \"payload\": \"");
-
    for (int i = 0; codecs[i].magic != NULL; i++) {
-      if (offset + 5 >= sizeof(msgbuf)) {
-         Log(LOG_CRIT, "codecneg", "Ran out of space adding codec magic");
-         return NULL;
-      }
-      offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "%s ", codecs[i].magic);
+      if (offset + 5 >= sizeof(all_codecs))
+         break;
+      offset += snprintf(all_codecs + offset, sizeof(all_codecs) - offset, "%s ", codecs[i].magic);
    }
 
-   // Remove trailing space and add closing
-   if (offset > 0 && msgbuf[offset - 1] == ' ')
-      offset--;
+   const char *preferred = cfg_get("audio,preferred-codecs");
+   char *filtered = codec_filter_common(preferred ? preferred : "", all_codecs);
 
-   offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "\" } } }");
+   if (!filtered || !*filtered) {
+      Log(LOG_WARN, "codecneg", "No matching codecs, using all available");
+      filtered = strdup(all_codecs);
+   }
 
-   Log(LOG_DEBUG, "codecneg", "Returning capab string with %zu bytes: %s", offset, msgbuf);
+   char msgbuf[1024];
+   snprintf(msgbuf, sizeof(msgbuf), "{ media { \"cmd\": \"capab\", \"payload\": \"%s\" } } }", filtered);
+   Log(LOG_DEBUG, "codecneg", "Returning capab string: %s", msgbuf);
+
+   free(filtered);
    return strdup(msgbuf);
 }
 
 char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs) {
-   char msgbuf[1024];
+   char all_codecs[256] = {0};
    size_t offset = 0;
 
-   offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "+++MEDIA;cap=\"");
-
    for (int i = 0; codecs[i].magic != NULL; i++) {
-      if (offset + 5 >= sizeof(msgbuf)) {
-         Log(LOG_CRIT, "codecneg", "Ran out of space adding codec magic");
-         return NULL;
-      }
-      offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "%s ", codecs[i].magic);
+      if (offset + 5 >= sizeof(all_codecs))
+         break;
+      offset += snprintf(all_codecs + offset, sizeof(all_codecs) - offset, "%s ", codecs[i].magic);
    }
 
-   // Remove trailing space and add closing
-   if (offset > 0 && msgbuf[offset - 1] == ' ')
-      offset--;
+   const char *preferred = cfg_get("audio,preferred-codecs");
+   char *filtered = codec_filter_common(preferred ? preferred : "", all_codecs);
 
-   offset += snprintf(msgbuf + offset, sizeof(msgbuf) - offset, "\"");
+   if (!filtered || !*filtered) {
+      Log(LOG_WARN, "codecneg", "No matching codecs, using all available");
+      filtered = strdup(all_codecs);
+   }
 
-   Log(LOG_DEBUG, "codecneg", "Returning capab string with %zu bytes: %s", offset, msgbuf);
+   // Trim trailing space just in case
+   size_t len = strlen(filtered);
+   if (len > 0 && filtered[len - 1] == ' ')
+      filtered[len - 1] = '\0';
+
+   char msgbuf[1024];
+   snprintf(msgbuf, sizeof(msgbuf), "+++MEDIA;cap=\"%s\"", filtered);
+   Log(LOG_DEBUG, "codecneg", "Returning capab string: %s", msgbuf);
+
+   free(filtered);
    return strdup(msgbuf);
 }
 
@@ -253,6 +261,7 @@ char *codec_filter_common(const char *preferred, const char *available) {
       result[--res_sz] = 0;
    }
 
+   // XXX: We should probably realloc here to shrink allocation, if on small memory system
    return result;
 }
 

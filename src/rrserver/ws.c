@@ -24,6 +24,7 @@
 #include "rustyrig/i2c.h"
 #include "common/logger.h"
 #include "common/posix.h"
+#include "common/codecneg.h"
 #include "rustyrig/state.h"
 #include "rustyrig/ws.h"
 
@@ -287,6 +288,37 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       if (cmd) {
          result = ws_handle_chat_msg(msg, c);
       }
+   } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
+
+// { media { "cmd": "capab", "payload": "pc16 mu16 mu08" } }
+     char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
+     char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
+
+     // all packets need a command
+     if (!cmd) {
+        result = true;
+        goto cleanup;
+     }
+
+     if (strcasecmp(media_cmd, "capab") == 0) {
+        // Capability negotiation
+        if (media_payload) {
+           const char *preferred = cfg_get("audio.prefer-codecs");
+           if (!preferred) {
+              Log(LOG_CRIT, "ws.media", "media.capab needs audio.prefer-codecs set in config!");
+              result = true;
+              goto cleanup;
+            }
+
+           char *common = codec_filter_common(preferred, media_payload);
+           Log(LOG_INFO, "ws.media", "Common codecs: %s", common);
+           free(common);
+        } else {
+           Log(LOG_CRIT, "ws.media", "media.capab without payload");
+        }
+     }
+     free(media_cmd);
+     free(media_payload);
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
       result = ws_handle_pong(msg, c);
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
