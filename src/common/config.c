@@ -12,7 +12,10 @@
 #include "common/util.file.h"
 #include "common/posix.h"
 
+// User configuration values from config file / ui
 dict *cfg = NULL;
+
+// Hard-coded defaults
 dict *default_cfg = NULL;
 
 // Holds a list of servers where applicable (client and fwdsp)
@@ -68,7 +71,7 @@ bool cfg_set_default(dict *d, char *key, char *val) {
       return true;
    }
 
-   Log(LOG_CRAZY, "config", "Setting default for dict:<%x>/%s to '%s'", d, key, val);
+//   Log(LOG_CRAZY, "config", "Setting default for dict:<%x>/%s to '%s'", d, key, val);
    if (dict_add(d, key, val) != 0) {
       Log(LOG_WARN, "config", "defcfg dict:<%x> failed to set key %s to val at <%x>", d, key, val);
       return true;
@@ -88,7 +91,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
       return true;
    }
 
-   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%x>", defaults);
+//   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%x>", defaults);
 
    int i = 0;
    int warnings = 0;
@@ -101,7 +104,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
          continue;
       }
 
-      Log(LOG_DEBUG, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
+//      Log(LOG_CRAZY, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
       if (cfg_set_default(d, defaults[i].key, defaults[i].val)) {
          Log(LOG_CRIT, "config", "cfg_set_defaults: Failed to set key: %s", defaults[i].key);
          warnings++;
@@ -110,7 +113,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
       i++;
    }
 
-   Log(LOG_DEBUG, "config", "Imported %d default settings with %d warnings", i, warnings);
+//   Log(LOG_DEBUG, "config", "Imported %d default settings with %d warnings", i, warnings);
    return true;
 }
 
@@ -182,11 +185,11 @@ dict *cfg_load(const char *path) {
       // Look for end of comment
       if (*skip == '*' && *skip == '/') {
          in_comment = false;
-         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
+//         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
          continue;
       // Look for start of comment
       } else if (*skip == '/' && *(skip + 1) == '*') {
-         Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
+//         Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
          in_comment = true;
          continue;
       // If we're in a comment still, there's no */ on this line, so continue ignoring input
@@ -196,7 +199,7 @@ dict *cfg_load(const char *path) {
          continue;
       } else if (*skip == '[' && *end == ']') {		// section
          this_section = strndup(skip + 1, strlen(skip) - 2);
-         Log(LOG_CRAZY, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
+//         Log(LOG_CRAZY, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
          continue;
       } else if (*skip == '@') {			// preprocessor
          if (strncasecmp(skip + 1, "if ", 3) == 0) {
@@ -237,15 +240,17 @@ dict *cfg_load(const char *path) {
             continue;
          }
 
-         // Store value, optionally prefixing it
-         Log(LOG_DEBUG, "config", "Set key: %s => %s", key, val);
+
+         // if this isn't general section, it needs a prefix on the key
          if (strncasecmp(this_section, "general", 7) != 0) {
             char keybuf[128];
-            Log(LOG_CRIT, "config", "section: %s", this_section);
+//            Log(LOG_CRIT, "config", "section: %s", this_section);
             memset(keybuf, 0, sizeof(keybuf));
             snprintf(keybuf, sizeof(keybuf), "%s:%s", this_section, key);
+            Log(LOG_CRAZY, "config", "Set key: %s => %s", keybuf, val);
             dict_add(newcfg, keybuf, val);
          } else {
+            Log(LOG_CRAZY, "config", "Set key: %s => %s", key, val);
             dict_add(newcfg, key, val);
          }
       } else if (strncasecmp(this_section, "pipelines", 9) == 0) {
@@ -273,7 +278,7 @@ dict *cfg_load(const char *path) {
          char fullkey[256];
          memset(fullkey, 0, sizeof(fullkey));
          snprintf(fullkey, sizeof(fullkey), "pipeline:%s", key);
-         Log(LOG_DEBUG, "config", "Add pipeline %s => %s", fullkey, val);
+         Log(LOG_CRAZY, "config", "Add pipeline %s => %s", fullkey, val);
          dict_add(newcfg, fullkey, val);
       } else if (strncasecmp(this_section, "server:", 7) == 0) {
          key = NULL;

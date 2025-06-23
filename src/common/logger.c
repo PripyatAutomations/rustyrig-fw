@@ -139,7 +139,6 @@ int update_timestamp(void) {
 
 char *json_escape(const char *in, char *out) {
    size_t len = strlen(in);
-//   char *out = malloc(len * 6 + 1);  // worst case: every char becomes \u00XX
    char *p = out;
 
    for (; *in; in++) {
@@ -172,7 +171,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    va_list ap;
 
    if (!subsys || !fmt) {
-      printf("Invalid Log request: No subsys/fmt\n");
+      fprintf(stderr, "Invalid Log request: No subsys/fmt\n");
       return;
    }
 

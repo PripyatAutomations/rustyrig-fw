@@ -21,19 +21,20 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
+#include "common/util.string.h"
+#include "common/util.file.h"
+#include "common/codecneg.h"
+#include "common/posix.h"
 #include "rustyrig/i2c.h"
 #include "rustyrig/state.h"
 #include "rustyrig/eeprom.h"
-#include "common/logger.h"
 #include "rustyrig/cat.h"
-#include "common/posix.h"
 #include "rustyrig/http.h"
 #include "rustyrig/ws.h"
 #include "rustyrig/auth.h"
 #include "rustyrig/ptt.h"
-#include "common/util.string.h"
-#include "common/util.file.h"
-#include "common/codecneg.h"
+#include "rustyrig/fwdsp-mgr.h"
 
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
@@ -404,14 +405,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 //         snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\", \"codec\": \"%s\", \"rate\": %d }", VERSION, HARDWARE, codec, rate);
          snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         char *my_codecs = codecneg_send_supported_codecs(au_core_codecs);
-         if (my_codecs) {
-            mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-            free(my_codecs);
-            my_codecs = NULL;
-         } else {
-            Log(LOG_CRIT, "http", "codecneg send failed: %d:%s", errno, strerror(errno));
-         }
+         ws_send_capab(c);
       } else {
          Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
          ws_kick_client_by_c(c, "Socket error 314");

@@ -22,6 +22,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "rustyrig/state.h"
 #include "common/logger.h"
+#include "common/codecneg.h"
 #include "rustyrig/fwdsp-mgr.h"
 
 // Some defaults
@@ -322,4 +323,13 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path) {
    }
 
    return true;
+}
+
+bool ws_send_capab(struct mg_connection *c) {
+   char *capab_msg = codecneg_send_supported_codecs(au_core_codecs);
+
+   mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
+   Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
+   free(capab_msg);
+   return false;
 }

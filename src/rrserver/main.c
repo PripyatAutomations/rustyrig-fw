@@ -76,7 +76,7 @@ defconfig_t defcfg[] = {
   { "audio.prefer-codecs", "mu16 pc16 mu08", "Preferred codec order" },
   { "log.level",	"debug",	"How noisy should log be?"  }, 
   { "log.show-ts",	"false",        "Show timestamps in log? [bool]" },
-  { "test.key",		" 1",		"Test key" },
+//  { "testkey.defcfg.main", " 1",	"Test key for defconfig" },
   { NULL,		NULL,		NULL }
 };
 

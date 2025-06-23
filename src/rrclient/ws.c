@@ -291,17 +291,20 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 
       if (!login_user) {
          Log(LOG_CRIT, "core", "server.user not set in config!");
-         exit(1);
+         return;
       }
       ws_send_hello(c);
-      ws_send_capab(c);
       ws_send_login(c, login_user);
+      ws_send_capab(c);
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
       ws_handle(c, wm);
    } else if (ev == MG_EV_ERROR) {
       ui_print("[%s] Socket error: %s", get_chat_ts(), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
+      if (ws_connected) {
+         ui_print("[%s] *** DISCONNECTED ***", get_chat_ts());
+      }
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);
@@ -309,7 +312,6 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       gtk_style_context_add_class(ctx, "ptt-idle");
       gtk_style_context_remove_class(ctx, "ptt-active");
       userlist_clear_all();
-      ui_print("[%s] *** DISCONNECTED ***", get_chat_ts());
    }
 }
 

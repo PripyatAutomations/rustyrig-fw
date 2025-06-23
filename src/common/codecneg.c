@@ -44,15 +44,15 @@
 ///////////////////////
 au_codec_mapping_t	au_core_codecs[] = {
     // Codec ID			// Magic	// Sample Rate	// PipelineRx, PipelineTX 
-    { .id = AU_CODEC_PCM11,	.magic = "PC11", .rate = 11025, .label = "PCM 11khz" },
-    { .id = AU_CODEC_PCM16,	.magic = "PC16", .rate = 16000, .label = "PCM 16khz" },
-    { .id = AU_CODEC_PCM22,	.magic = "PC22", .rate = 22050, .label = "PCM 22khz" },
-    { .id = AU_CODEC_PCM44,	.magic = "PC44", .rate = 44100, .label = "PCM 44khz" },
-    { .id = AU_CODEC_OPUS,	.magic = "OPUS", .rate = 48000, .label = "OPUS" },
-    { .id = AU_CODEC_FLAC,	.magic = "FLAC", .rate = 44100, .label = "FLAC" },
-    { .id = AU_CODEC_MULAW8,	.magic = "MU08", .rate =  8000, .label = "g.711u 8khz" },
-    { .id = AU_CODEC_MULAW16,	.magic = "MU16", .rate = 16000, .label = "g.711u 16khz" },
-    { .id = AU_CODEC_CODEC2,	.magic = "CDC2", .rate =     0, .label = "CODEC2" },
+    { .id = AU_CODEC_PCM11,	.magic = "pc11", .rate = 11025, .label = "PCM 11khz" },
+    { .id = AU_CODEC_PCM16,	.magic = "pc16", .rate = 16000, .label = "PCM 16khz" },
+    { .id = AU_CODEC_PCM22,	.magic = "pc22", .rate = 22050, .label = "PCM 22khz" },
+    { .id = AU_CODEC_PCM44,	.magic = "pc44", .rate = 44100, .label = "PCM 44khz" },
+    { .id = AU_CODEC_OPUS,	.magic = "opus", .rate = 48000, .label = "OPUS" },
+    { .id = AU_CODEC_FLAC,	.magic = "flac", .rate = 44100, .label = "FLAC" },
+    { .id = AU_CODEC_MULAW8,	.magic = "mu08", .rate =  8000, .label = "g.711u 8khz" },
+    { .id = AU_CODEC_MULAW16,	.magic = "mu16", .rate = 16000, .label = "g.711u 16khz" },
+    { .id = AU_CODEC_CODEC2,	.magic = "cdc2", .rate =     0, .label = "CODEC2" },
     { .id = AU_CODEC_NONE,	.magic = NULL,	 .rate =     0, .label = "No audio" }
 };
 audio_settings_t	au_rx_config, au_tx_config;
@@ -99,7 +99,7 @@ const char *au_codec_get_magic(int id) {
 int au_codec_get_id(const char *magic) {
    int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
    for (int i = 0; i < codec_entries; i++) {
-      if (strcmp(au_core_codecs[i].magic, magic) == 0) {
+      if (strcasecmp(au_core_codecs[i].magic, magic) == 0) {
          return au_core_codecs[i].id;
       }
    }
@@ -185,7 +185,8 @@ char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
       offset += snprintf(all_codecs + offset, sizeof(all_codecs) - offset, "%s ", codecs[i].magic);
    }
 
-   const char *preferred = cfg_get("audio,preferred-codecs");
+   const char *preferred = cfg_get("codecs.allowed");
+   Log(LOG_DEBUG, "codecneg", "send_supported: preferred list: %s", preferred ? preferred : "NULL");
    char *filtered = codec_filter_common(preferred ? preferred : "", all_codecs);
 
    if (!filtered || !*filtered) {
@@ -211,7 +212,7 @@ char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs) {
       offset += snprintf(all_codecs + offset, sizeof(all_codecs) - offset, "%s ", codecs[i].magic);
    }
 
-   const char *preferred = cfg_get("audio,preferred-codecs");
+   const char *preferred = cfg_get("codecs.allowed");
    char *filtered = codec_filter_common(preferred ? preferred : "", all_codecs);
 
    if (!filtered || !*filtered) {
@@ -261,7 +262,6 @@ char *codec_filter_common(const char *preferred, const char *available) {
       result[--res_sz] = 0;
    }
 
-   // XXX: We should probably realloc here to shrink allocation, if on small memory system
    return result;
 }
 

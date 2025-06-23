@@ -289,10 +289,11 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          result = ws_handle_chat_msg(msg, c);
       }
    } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
-
 // { media { "cmd": "capab", "payload": "pc16 mu16 mu08" } }
      char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
      char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
+
+     Log(LOG_DEBUG, "ws.media", "Parsing ws.media command %s", cmd);
 
      // all packets need a command
      if (!cmd) {
@@ -303,7 +304,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
      if (strcasecmp(media_cmd, "capab") == 0) {
         // Capability negotiation
         if (media_payload) {
-           const char *preferred = cfg_get("audio.prefer-codecs");
+           const char *preferred = cfg_get("codecs.allowed");
            if (!preferred) {
               Log(LOG_CRIT, "ws.media", "media.capab needs audio.prefer-codecs set in config!");
               result = true;
@@ -311,7 +312,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
             }
 
            char *common = codec_filter_common(preferred, media_payload);
-           Log(LOG_INFO, "ws.media", "Common codecs: %s", common);
+           Log(LOG_INFO, "ws.media", "Client supported codecs: %s, my preferred codecs: %s, negotiated codecs: %s", media_payload, cfg_get("codecs.allowed"), common);
            free(common);
         } else {
            Log(LOG_CRIT, "ws.media", "media.capab without payload");

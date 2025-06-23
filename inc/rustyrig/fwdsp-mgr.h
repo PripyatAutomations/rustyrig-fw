@@ -41,5 +41,6 @@ extern bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path);
 
 typedef void (*fwdsp_exit_cb_t)(struct fwdsp_subproc *sp, int status);
 extern void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb);
+extern bool ws_send_capab(struct mg_connection *c);
 
 #endif	// !defined(__rr_fwdsp_mgr_h)
