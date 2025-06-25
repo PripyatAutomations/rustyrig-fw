@@ -234,9 +234,6 @@ static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t
 #if	0
    if (buf[0] == 'u') {  // PCM-u
    } else if (buf[0] == 'O') {
-#if	defined(FEATURE_OPUS)
-       codec_decode_frame((unsigned char *)buf, len);
-#endif
     }
 #endif
     return false;

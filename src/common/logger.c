@@ -227,7 +227,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    }
    fflush(logfp);
 
-// if not in rrclient code, we should bcast this to users with SYSLOG flag
+// if not in rrclient/fwdsp code, we should bcast this to users with SYSLOG flag
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
    char ws_logbuf[2048];
    char ws_json_escaped[1024];

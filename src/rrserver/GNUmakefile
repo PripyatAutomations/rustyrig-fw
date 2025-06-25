@@ -48,11 +48,6 @@ ifeq (${USE_HAMLIB},true)
 LDFLAGS += -lhamlib
 endif
 
-ifeq (${USE_OPUS},true)
-LDFLAGS += $(shell pkg-config --libs opus)
-CFLAGS += $(shell pkg-config --cflags opus)
-endif
-
 ifeq (${USE_SSL},true)
 CFLAGS += -DMG_TLS=MG_TLS_MBED
 LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509

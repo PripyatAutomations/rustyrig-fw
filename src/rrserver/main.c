@@ -282,9 +282,6 @@ int main(int argc, char **argv) {
    rr_au_init();
    au_unix_socket_init();
 
-#if	defined(FEATURE_OPUS)
-   codec_init();
-#endif
    dds_init();
 
    // Network connectivity

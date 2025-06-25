@@ -6,11 +6,13 @@ else ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
 else
    OS := POSIX
 endif
-ifeq (${OS},POSIX)
-subdirs += fwdsp
-subdirs += rrserver
-endif
+
 subdirs += rrclient
+
+ifeq (${OS},POSIX)
+subdirs += rrserver
+subdirs += fwdsp
+endif
 
 
 all world clean deps distclean install:
