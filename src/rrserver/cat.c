@@ -37,12 +37,12 @@
 #include <string.h>
 #include "../../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/thermal.h"
-#include "rustyrig/power.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/vfo.h"
-#include "rustyrig/cat.h"
+#include "rrserver/state.h"
+#include "rrserver/thermal.h"
+#include "rrserver/power.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/vfo.h"
+#include "rrserver/cat.h"
 
 // Initialize CAT control
 int32_t rr_cat_init(void) {

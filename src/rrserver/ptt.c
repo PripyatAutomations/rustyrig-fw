@@ -23,11 +23,11 @@
 #include <string.h>
 #include "../../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/ptt.h"
-#include "rustyrig/auth.h"
-#include "rustyrig/ws.h"
-#include "rustyrig/http.h"
+#include "rrserver/state.h"
+#include "rrserver/ptt.h"
+#include "rrserver/auth.h"
+#include "rrserver/ws.h"
+#include "rrserver/http.h"
 
 time_t   global_tot_time = 0;		// TOT
 int	 vfos_enabled = 2;		// A + B by default

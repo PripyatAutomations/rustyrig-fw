@@ -19,8 +19,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
-#include "rustyrig/thermal.h"
+#include "rrserver/state.h"
+#include "rrserver/thermal.h"
 #include "common/logger.h"
 
 // Set some sane default values in case the user didn't bother to configure them...

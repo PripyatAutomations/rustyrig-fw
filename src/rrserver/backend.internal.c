@@ -20,14 +20,14 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/thermal.h"
-#include "rustyrig/power.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/vfo.h"
-#include "rustyrig/cat.h"
-#include "rustyrig/backend.h"
-#include "rustyrig/ptt.h"
+#include "rrserver/state.h"
+#include "rrserver/thermal.h"
+#include "rrserver/power.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/vfo.h"
+#include "rrserver/cat.h"
+#include "rrserver/backend.h"
+#include "rrserver/ptt.h"
 
 static rr_vfo_t be_int_get_vfo(rr_vfo_t vfo) {
    return vfo;

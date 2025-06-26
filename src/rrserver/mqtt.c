@@ -25,13 +25,13 @@
 #include <string.h>
 #include <errno.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/state.h"
-#include "rustyrig/eeprom.h"
+#include "rrserver/i2c.h"
+#include "rrserver/state.h"
+#include "rrserver/eeprom.h"
 #include "common/logger.h"
-#include "rustyrig/cat.h"
+#include "rrserver/cat.h"
 #include "common/posix.h"
-#include "rustyrig/mqtt.h"
+#include "rrserver/mqtt.h"
 
 // forward declration
 static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data);

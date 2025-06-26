@@ -25,9 +25,9 @@
 #include <stdio.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/i2c.hal.h"
+#include "rrserver/state.h"
+#include "rrserver/i2c.h"
+#include "rrserver/i2c.hal.h"
 
 static uint32_t file_descriptor = -1;
 static const char *i2c_bus = "/dev/i2c-1";

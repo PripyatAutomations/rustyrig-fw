@@ -17,41 +17,41 @@
 #include <string.h>
 #include <time.h>
 #include "../../ext/libmongoose/mongoose.h"
-#include "rustyrig/amp.h"
-#include "rustyrig/atu.h"
-#include "rustyrig/au.h"
-#include "rustyrig/backend.h"
-#include "rustyrig/cat.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/faults.h"
-#include "rustyrig/filters.h"
-#include "rustyrig/gpio.h"
-#include "rustyrig/gui.h"
-#include "rustyrig/help.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/io.h"
+#include "rrserver/amp.h"
+#include "rrserver/atu.h"
+#include "rrserver/au.h"
+#include "rrserver/backend.h"
+#include "rrserver/cat.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/faults.h"
+#include "rrserver/filters.h"
+#include "rrserver/gpio.h"
+#include "rrserver/gui.h"
+#include "rrserver/help.h"
+#include "rrserver/i2c.h"
+#include "rrserver/io.h"
 #include "common/logger.h"
 #include "common/util.file.h"
-#include "rustyrig/network.h"
+#include "rrserver/network.h"
 #include "common/posix.h"
-#include "rustyrig/ptt.h"
-#include "rustyrig/state.h"
-#include "rustyrig/thermal.h"
-#include "rustyrig/timer.h"
-#include "rustyrig/usb.h"
-#include "rustyrig/dds.h"
-#include "rustyrig/database.h"
-#include "rustyrig/config-paths.h"
+#include "rrserver/ptt.h"
+#include "rrserver/state.h"
+#include "rrserver/thermal.h"
+#include "rrserver/timer.h"
+#include "rrserver/usb.h"
+#include "rrserver/dds.h"
+#include "rrserver/database.h"
+#include "common/config-paths.h"
 
 //
 // http ui support
 //
 #if	defined(FEATURE_HTTP)
-#include "rustyrig/http.h"
-#include "rustyrig/ws.h"
+#include "rrserver/http.h"
+#include "rrserver/ws.h"
 #endif
 #if	defined(FEATURE_MQTT)
-#include "rustyrig/mqtt.h"
+#include "rrserver/mqtt.h"
 #endif
 #if	defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;

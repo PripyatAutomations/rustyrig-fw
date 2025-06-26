@@ -22,8 +22,8 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/faults.h"
+#include "rrserver/state.h"
+#include "rrserver/faults.h"
 
 // Fault Table contains the known faults and their text strings
 struct fault_table fault_table[] = {

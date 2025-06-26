@@ -17,16 +17,16 @@
 #include <string.h>
 #include <time.h>
 #include "../../ext/libmongoose/mongoose.h"
-#include "rustyrig/auth.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/state.h"
-#include "rustyrig/eeprom.h"
+#include "rrserver/auth.h"
+#include "rrserver/i2c.h"
+#include "rrserver/state.h"
+#include "rrserver/eeprom.h"
 #include "common/logger.h"
-#include "rustyrig/cat.h"
+#include "rrserver/cat.h"
 #include "common/posix.h"
-#include "rustyrig/http.h"
-#include "rustyrig/ws.h"
-#include "rustyrig/ptt.h"
+#include "rrserver/http.h"
+#include "rrserver/ws.h"
+#include "rrserver/ptt.h"
 #include "common/client-flags.h"
 #define	CHAT_MIN_REASON_LEN	1
 

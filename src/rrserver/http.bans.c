@@ -23,14 +23,14 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
 #include "common/posix.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/state.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/cat.h"
-#include "rustyrig/http.h"
-#include "rustyrig/ws.h"
-#include "rustyrig/auth.h"
-#include "rustyrig/ptt.h"
+#include "rrserver/i2c.h"
+#include "rrserver/state.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/cat.h"
+#include "rrserver/http.h"
+#include "rrserver/ws.h"
+#include "rrserver/auth.h"
+#include "rrserver/ptt.h"
 #include "common/util.string.h"
 #include "common/util.file.h"
 extern struct mg_mgr mg_mgr;
@@ -41,6 +41,42 @@ bool is_http_banned(const char *ua) {
 }
 
 bool load_http_ua_bans(const char *path) {
+   FILE *fp = fopen(path, "r");
+   char line[1024];
+   while (!feof(fp)) {
+      memset(line, 0, 1024);
+      if (!fgets(line, 1024, fp)) {
+         char *start = line + strspn(line, " \t\r\n");
+         if (start != line) {
+            memmove(line, start, strlen(start) + 1);
+         }
+      }
+      // Skip comments and empty lines
+      if (line[0] == '#' || line[0] == ';' || (strlen(line) > 1 && (line[0] == '/' && line[1] == '/')) || line[0] == '\n') {
+         continue;
+      }
+
+      // Remove trailing \r or \n characters
+      char *end = line + strlen(line) - 1;
+      char *start = NULL;
+      while (end >= line && (*end == '\r' || *end == '\n')) {
+         *end = '\0';
+         end--;
+      }
+
+      // Trim leading spaces (again)
+      start = line + strspn(line, " \t\r\n");
+      if (start != line) {
+         memmove(line, start, strlen(start) + 1);
+      }
+
+      if (line[0] == '\n' || line[0] == '\0') {
+         continue;
+      }
+
+      // If we made it this far, it's probably a valid line, parse it
+   }
+   fclose(fp);
    return false;
 }
 

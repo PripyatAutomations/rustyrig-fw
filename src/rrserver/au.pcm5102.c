@@ -21,11 +21,11 @@
 #include <string.h>
 #include <errno.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
+#include "rrserver/state.h"
 #include "common/logger.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/au.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/i2c.h"
+#include "rrserver/au.h"
 
 #if	defined(FEATURE_PCM5102)
 #if	defined(HOST_POSIX)

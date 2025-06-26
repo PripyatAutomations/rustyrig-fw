@@ -19,8 +19,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
-#include "rustyrig/gpio.h"
+#include "rrserver/state.h"
+#include "rrserver/gpio.h"
 #include "common/logger.h"
 
 #if	defined(HOST_POSIX)

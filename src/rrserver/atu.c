@@ -22,11 +22,11 @@
 #include <string.h>
 #include <errno.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
+#include "rrserver/state.h"
 #include "common/logger.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/atu.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/i2c.h"
+#include "rrserver/atu.h"
 
 // Tell atu_tables we want the data (we are the tuner code)
 #define	ANT_TUNER

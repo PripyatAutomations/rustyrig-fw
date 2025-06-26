@@ -18,7 +18,7 @@
 #include <time.h>
 #if	defined(FEATURE_SQLITE)
 #include <sqlite3.h>
-#include "rustyrig/database.h"
+#include "rrserver/database.h"
 
 sqlite3 *masterdb = NULL;
 

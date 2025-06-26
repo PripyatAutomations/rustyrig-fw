@@ -21,13 +21,13 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
+#include "rrserver/state.h"
 #include "common/codecneg.h"
 #include "common/logger.h"
 #include "common/posix.h"
 #include "common/util.file.h"
-#include "rustyrig/au.h"
-#include "rustyrig/auth.h"
+#include "rrserver/au.h"
+#include "rrserver/auth.h"
 
 #define	RECORDING_ID_LEN	24
 

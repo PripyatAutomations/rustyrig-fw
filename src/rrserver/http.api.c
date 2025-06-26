@@ -21,15 +21,15 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/state.h"
-#include "rustyrig/eeprom.h"
+#include "rrserver/i2c.h"
+#include "rrserver/state.h"
+#include "rrserver/eeprom.h"
 #include "common/logger.h"
-#include "rustyrig/cat.h"
+#include "rrserver/cat.h"
 #include "common/posix.h"
-#include "rustyrig/http.h"
-#include "rustyrig/ws.h"
-#include "rustyrig/auth.h"
+#include "rrserver/http.h"
+#include "rrserver/ws.h"
+#include "rrserver/auth.h"
 #include "common/util.string.h"
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64

@@ -28,10 +28,10 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/cat.h"
-#include "rustyrig/cat.yaesu.h"
-#include "rustyrig/state.h"
-#include "rustyrig/ptt.h"
+#include "rrserver/cat.h"
+#include "rrserver/cat.yaesu.h"
+#include "rrserver/state.h"
+#include "rrserver/ptt.h"
 
 #if	defined(CAT_YAESU)
 // Function stubs for all FT-891 CAT commands

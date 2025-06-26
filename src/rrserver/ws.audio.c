@@ -18,13 +18,13 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-#include "rustyrig/cat.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/i2c.h"
+#include "rrserver/cat.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/i2c.h"
 #include "common/logger.h"
 #include "common/posix.h"
-#include "rustyrig/state.h"
-#include "rustyrig/ws.h"
+#include "rrserver/state.h"
+#include "rrserver/ws.h"
 
 extern struct GlobalState rig;	// Global state
 

@@ -13,8 +13,6 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
-//#include "../ext/libmongoose/mongoose.h"
-//#include "rustyrig/http.h"
 #define	HTTP_USER_LEN		16		// username length (16 char)
 #define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64
 #define	HTTP_HASH_LEN		40		// sha1

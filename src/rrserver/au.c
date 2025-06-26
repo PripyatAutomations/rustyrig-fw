@@ -28,15 +28,15 @@
 #include <fcntl.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/state.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/cat.h"
+#include "rrserver/i2c.h"
+#include "rrserver/state.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/cat.h"
 #include "common/posix.h"
 #include "common/codecneg.h"
-#include "rustyrig/au.h"
-#include "rustyrig/au.pipe.h"
-#include "rustyrig/ws.h"
+#include "rrserver/au.h"
+#include "rrserver/au.pipe.h"
+#include "rrserver/ws.h"
 #include "common/fwdsp-shared.h"
 
 // XXX: This needs moved to config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path

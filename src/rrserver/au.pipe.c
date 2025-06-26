@@ -11,7 +11,7 @@
 // Here we deal with common GUI operations between HMI and framebuffer
 //
 #include "build_config.h"
-#include "rustyrig/au.h"
+#include "rrserver/au.h"
 #include "../../ext/libmongoose//mongoose.h"
 #include <unistd.h>
 #include <fcntl.h>

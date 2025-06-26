@@ -20,8 +20,8 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/protection.h"
+#include "rrserver/state.h"
+#include "rrserver/protection.h"
 
 extern struct GlobalState rig;      // Global state
 

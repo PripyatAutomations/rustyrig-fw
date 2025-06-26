@@ -19,14 +19,14 @@
 #include <time.h>
 #include "../../ext/libmongoose/mongoose.h"
 #include "common/dict.h"
-#include "rustyrig/cat.h"
-#include "rustyrig/codec.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/i2c.h"
+#include "rrserver/cat.h"
+#include "rrserver/codec.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/i2c.h"
 #include "common/logger.h"
 #include "common/posix.h"
-#include "rustyrig/state.h"
-#include "rustyrig/ws.h"
+#include "rrserver/state.h"
+#include "rrserver/ws.h"
 
 /*
  * Here we parse json into a dict

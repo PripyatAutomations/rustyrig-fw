@@ -21,8 +21,8 @@
 #include <ctype.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/vfo.h"
+#include "rrserver/state.h"
+#include "rrserver/vfo.h"
 
 rr_vfo_data_t vfos[MAX_VFOS];
 rr_vfo_t active_vfo = VFO_A;

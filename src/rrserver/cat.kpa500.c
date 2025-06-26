@@ -29,11 +29,11 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/cat.h"
-#include "rustyrig/state.h"
-#include "rustyrig/thermal.h"
-#include "rustyrig/power.h"
-#include "rustyrig/eeprom.h"
+#include "rrserver/cat.h"
+#include "rrserver/state.h"
+#include "rrserver/thermal.h"
+#include "rrserver/power.h"
+#include "rrserver/eeprom.h"
 
 #if	defined(CAT_KPA500)
 // ALC Threshold: 0-210, per band

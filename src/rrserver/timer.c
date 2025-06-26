@@ -21,8 +21,8 @@
 #include <string.h>
 #include "../../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/timer.h"
+#include "rrserver/state.h"
+#include "rrserver/timer.h"
 
 // timer_create_periodic:
 //	Create a timer that occurs every interval milliseconds

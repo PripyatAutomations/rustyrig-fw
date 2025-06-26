@@ -20,16 +20,16 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include "../../ext/libmongoose/mongoose.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/state.h"
-#include "rustyrig/eeprom.h"
+#include "rrserver/i2c.h"
+#include "rrserver/state.h"
+#include "rrserver/eeprom.h"
 #include "common/logger.h"
-#include "rustyrig/cat.h"
+#include "rrserver/cat.h"
 #include "common/posix.h"
-#include "rustyrig/http.h"
-#include "rustyrig/ws.h"
+#include "rrserver/http.h"
+#include "rrserver/ws.h"
 #include "common/util.string.h"
-#include "rustyrig/auth.h"
+#include "rrserver/auth.h"
 #include "common/client-flags.h"
 
 extern struct GlobalState rig;	// Global state
@@ -180,18 +180,18 @@ bool http_save_users(const char *filename) {
 
 // Load users from the file into the global array
 int http_load_users(const char *filename) {
-    Log(LOG_INFO, "auth", "Loading static users from %s", filename);
-    FILE *file = fopen(filename, "r");
+   Log(LOG_INFO, "auth", "Loading static users from %s", filename);
+   FILE *file = fopen(filename, "r");
 
-    if (!file) {
-       return -1;
-    }
+   if (!file) {
+      return -1;
+   }
 
-    memset(http_users, 0, sizeof(http_users));
-    char line[HTTP_WS_MAX_MSG+1];
-    int user_count = 0;
+   memset(http_users, 0, sizeof(http_users));
+   char line[HTTP_WS_MAX_MSG+1];
+   int user_count = 0;
 
-    while (fgets(line, sizeof(line), file) && user_count < HTTP_MAX_USERS) {
+   while (fgets(line, sizeof(line), file) && user_count < HTTP_MAX_USERS) {
       // Trim leading spaces
       char *start = line + strspn(line, " \t\r\n");
       if (start != line) {
@@ -199,7 +199,7 @@ int http_load_users(const char *filename) {
       }
 
       // Skip comments and empty lines
-      if (line[0] == '#' || line[0] == '\n') {
+      if (line[0] == '#' || line[0] == ';' || (strlen(line) > 1 && (line[0] == '/' && line[1] == '/')) || line[0] == '\n') {
          continue;
       }
 

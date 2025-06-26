@@ -21,9 +21,9 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
+#include "rrserver/state.h"
 #if defined(HOST_POSIX) && defined(FEATURE_USB)
-#include "rustyrig/usb.h"
+#include "rrserver/usb.h"
 
 #endif	// defined(HOST_POSIX) && defined(FEATURE_USB)
 

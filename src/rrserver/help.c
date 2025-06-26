@@ -17,13 +17,13 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/state.h"
-#include "rustyrig/eeprom.h"
+#include "rrserver/i2c.h"
+#include "rrserver/state.h"
+#include "rrserver/eeprom.h"
 #include "common/logger.h"
-#include "rustyrig/cat.h"
+#include "rrserver/cat.h"
 #include "common/posix.h"
-#include "rustyrig/io.h"
+#include "rrserver/io.h"
 
 bool send_help(rr_io_context_t *port, const char *topic) {
    return false;

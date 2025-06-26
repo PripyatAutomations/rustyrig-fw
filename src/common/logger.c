@@ -27,9 +27,9 @@
 
 // We don't build these for gtk client or fwdsp
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
-#include "rustyrig/eeprom.h"
+#include "rrserver/eeprom.h"
 #include "common/debug.h"			// Debug message filtering
-#include "rustyrig/ws.h"			// Support for sending the syslog via websocket
+#include "rrserver/ws.h"			// Support for sending the syslog via websocket
 #include "common/client-flags.h"
 #endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
 

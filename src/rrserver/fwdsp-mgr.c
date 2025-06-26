@@ -20,10 +20,10 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
+#include "rrserver/state.h"
 #include "common/logger.h"
 #include "common/codecneg.h"
-#include "rustyrig/fwdsp-mgr.h"
+#include "rrserver/fwdsp-mgr.h"
 
 // Some defaults
 defconfig_t defcfg_fwdsp[] = {

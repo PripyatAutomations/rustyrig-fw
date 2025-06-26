@@ -23,8 +23,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
-#include "rustyrig/power.h"
+#include "rrserver/state.h"
+#include "rrserver/power.h"
 
 // 0: 12V, 1: 48V
 float get_voltage(uint32_t src) {

@@ -21,10 +21,10 @@
 #include <string.h>
 #include <errno.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/i2c.h"
-#include "rustyrig/state.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/network.h"
+#include "rrserver/i2c.h"
+#include "rrserver/state.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/network.h"
 #include "common/logger.h"
 #define	HOST_POSIX
 #if	defined(HOST_POSIX)

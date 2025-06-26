@@ -25,8 +25,8 @@
 #include <sys/socket.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/io.h"
+#include "rrserver/state.h"
+#include "rrserver/io.h"
 
 int rr_io_open(rr_io_context_t *ctx, rr_io_type_t type, const char *path, int port) {
     if (!ctx) {

@@ -30,14 +30,14 @@
 #include <hamlib/rig.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/thermal.h"
-#include "rustyrig/power.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/vfo.h"
-#include "rustyrig/cat.h"
-#include "rustyrig/backend.h"
-#include "rustyrig/ws.h"
+#include "rrserver/state.h"
+#include "rrserver/thermal.h"
+#include "rrserver/power.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/vfo.h"
+#include "rrserver/cat.h"
+#include "rrserver/backend.h"
+#include "rrserver/ws.h"
 static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl

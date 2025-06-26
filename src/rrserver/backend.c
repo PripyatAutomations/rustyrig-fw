@@ -17,14 +17,14 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
-#include "rustyrig/thermal.h"
-#include "rustyrig/power.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/vfo.h"
-#include "rustyrig/cat.h"
-#include "rustyrig/http.h"
-#include "rustyrig/backend.h"
+#include "rrserver/state.h"
+#include "rrserver/thermal.h"
+#include "rrserver/power.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/vfo.h"
+#include "rrserver/cat.h"
+#include "rrserver/http.h"
+#include "rrserver/backend.h"
 
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {

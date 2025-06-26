@@ -19,11 +19,11 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
-#include "rustyrig/ptt.h"
-#include "rustyrig/thermal.h"
-#include "rustyrig/protection.h"
-#include "rustyrig/amp.h"
+#include "rrserver/state.h"
+#include "rrserver/ptt.h"
+#include "rrserver/thermal.h"
+#include "rrserver/protection.h"
+#include "rrserver/amp.h"
 #include "common/logger.h"
 
 #define	MAX_AMPS	4

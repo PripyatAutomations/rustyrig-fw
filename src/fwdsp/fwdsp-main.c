@@ -38,8 +38,9 @@
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "common/codecneg.h"
-#include "rustyrig/config-paths.h"
-const char *config_file = "config/rrserver.cfg";
+#include "common/config-paths.h"
+
+const char *config_file = NULL;
 const char *config_codec = "PC16";
 bool codec_tx_mode = false;
 bool dying = false;

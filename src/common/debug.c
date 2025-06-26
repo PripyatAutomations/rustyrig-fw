@@ -25,7 +25,7 @@
 #include <string.h>
 #include <errno.h>
 #include "common/logger.h"
-//#include "rustyrig/eeprom.h"
+//#include "rrserver/eeprom.h"
 
 bool debug_init(void) {
    // Nothing to do yet

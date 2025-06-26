@@ -16,6 +16,6 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/gui.h"
+#include "rrserver/gui.h"
 #include "common/logger.h"
-#include "rustyrig/state.h"
+#include "rrserver/state.h"

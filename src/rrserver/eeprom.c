@@ -42,10 +42,10 @@
 //
 #endif
 
-#include "rustyrig/state.h"
+#include "rrserver/state.h"
 #include "common/logger.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/i2c.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/i2c.h"
 
 #define	EEPROM_C		// Let the header know we're in the C file
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data

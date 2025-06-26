@@ -19,7 +19,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "rustyrig/eeprom.h"
+#include "rrserver/eeprom.h"
 #include "common/logger.h"
-#include "rustyrig/gui.h"
-#include "rustyrig/waterfall.h"
+#include "rrserver/gui.h"
+#include "rrserver/waterfall.h"

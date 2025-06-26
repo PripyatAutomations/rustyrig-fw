@@ -20,7 +20,7 @@
 #include <string.h>
 #include <errno.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rustyrig/state.h"
+#include "rrserver/state.h"
 #include "common/logger.h"
-#include "rustyrig/eeprom.h"
-#include "rustyrig/io.h"
+#include "rrserver/eeprom.h"
+#include "rrserver/io.h"
