@@ -10,7 +10,7 @@ audit-cppcheck:
 	@echo "**********************"
 	@echo "*** cppcheck audit ***"
 	@echo "**********************"
-	which cppcheck && cppcheck -q -v src/ inc/ --check-level=exhaustive --force -I./inc/ --enable=warning,style  --std=c11
+	which cppcheck && cppcheck --std=c11 -q -v src/ inc/ --check-level=exhaustive --force -I./inc/ --enable=warning #,style 
 
 audit-flawfinder:
 	@echo "********************"

@@ -108,10 +108,6 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
    int i = 0;
 
    while(cptr != NULL) {
-      if (cptr == NULL) {
-         break;
-      }
-
       if (cptr->conn == c) {
          Log(LOG_CRAZY, "http.core", "find_client_by_c <%x> returning index %i: %x", c, i, cptr);
          return cptr;
@@ -129,10 +125,6 @@ http_client_t *http_find_client_by_token(const char *token) {
     int i = 0;
 
     while(cptr != NULL) {
-       if (cptr == NULL) {
-          break;
-       }
-
        if (cptr->token[0] == '\0') {
           continue;
        }
@@ -160,10 +152,6 @@ http_client_t *http_find_client_by_guest_id(int gid) {
    }
 
    while(cptr != NULL) {
-      if (cptr == NULL) {
-         break;
-      }
-
       if (cptr->guest_id == gid) {
          return cptr;
       }
@@ -177,14 +165,14 @@ http_client_t *http_find_client_by_name(const char *name) {
    http_client_t *cptr = http_client_list;
    int i = 0;
 
-   if (name == NULL) {
+   if (!name) {
       return NULL;
    }
 
    while(cptr != NULL) {
       Log(LOG_DEBUG, "http.core", "hfcbn: i: %d user:<%x> chatname: %s", i, cptr->user, cptr->chatname);
       // incomplete entry
-      if (cptr->user == NULL || (cptr->chatname[0] == '\0')) {
+      if (!cptr->user || (cptr->chatname[0] == '\0')) {
          cptr = cptr->next;
          continue;
       }
@@ -206,10 +194,6 @@ void http_dump_clients(void) {
    int i = 0;
 
    while(cptr != NULL) {
-      if (cptr == NULL) {
-         break;
-      }
-
       Log(LOG_DEBUG, "http", " => %d at <%x> %sactive %swebsocket, conn: <%x>, next: <%x> ",
           i, cptr, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->next);
       i++;
@@ -219,7 +203,7 @@ void http_dump_clients(void) {
 
 // Returns HTTP Content-Type for the chosen short name (save some memory)
 const char *http_content_type(const char *type) {
-   if (type == NULL) {
+   if (!type) {
       return NULL;
    }
 
@@ -229,7 +213,7 @@ const char *http_content_type(const char *type) {
 //         type, i, http_res_types[i].shortname);
 
       // end of table marker?
-      if (http_res_types[i].shortname == NULL && http_res_types[i].msg == NULL) {
+      if (!http_res_types[i].shortname && !http_res_types[i].msg) {
          break;
       }
 
@@ -259,14 +243,14 @@ void http_tls_init(void) {
 
    tls_cert = mg_file_read(&mg_fs_posix, HTTP_TLS_CERT);
 
-   if (tls_cert.buf == NULL) {
+   if (!tls_cert.buf) {
       Log(LOG_CRIT, "http.tls", "Unable to load TLS cert from %s", HTTP_TLS_CERT);
       tls_error = true;
    }
 
    tls_key = mg_file_read(&mg_fs_posix, HTTP_TLS_KEY);
 
-   if (tls_key.buf == NULL || tls_key.len <= 1) {
+   if (!tls_key.buf || tls_key.len <= 1) {
       Log(LOG_CRIT, "http.tls", "Unable to load TLS key from %s", HTTP_TLS_KEY);
       tls_error = true;
    }
@@ -364,13 +348,13 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_HTTP_MSG) {
       http_client_t *cptr = http_find_client_by_c(c);
 
-      if (cptr == NULL) {
+      if (!cptr) {
          Log(LOG_CRAZY, "http.core", "ACCEPT: mg_ev_http_msg cptr == NULL, creating new client");
          cptr = http_add_client(c, false);
       }
 
       // Save the user-agent the first time
-      if (cptr->user_agent == NULL) {
+      if (!cptr->user_agent) {
          struct mg_str *ua_hdr = mg_http_get_header(hm, "User-Agent");
          if (ua_hdr != NULL) {
             size_t ua_len = ua_hdr->len < HTTP_UA_LEN ? ua_hdr->len : HTTP_UA_LEN;
@@ -453,7 +437,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 }
 
 bool http_init(struct mg_mgr *mgr) {
-   if (mgr == NULL) {
+   if (!mgr) {
       Log(LOG_CRIT, "http", "http_init passed NULL mgr!");
       return true;
    }
@@ -517,7 +501,7 @@ bool http_init(struct mg_mgr *mgr) {
    }
    prepare_msg(listen_addr, sizeof(listen_addr), "http://%s:%d", inet_ntoa(sa_bind), bind_port);
 
-   if (mg_http_listen(mgr, listen_addr, http_cb, NULL) == NULL) {
+   if (!mg_http_listen(mgr, listen_addr, http_cb, NULL)) {
       Log(LOG_CRIT, "http", "Failed to start http listener");
       exit(1);
    }

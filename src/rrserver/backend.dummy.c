@@ -1,11 +1,14 @@
 //
-// backend.dummy.c
+// backend.dummy.c: This backend just stores and returns values, with some basic sanity checks
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
+// This backend is meant for testing without real hardware. You probably should use hamlib's dummy backend instead
+// but this exists so we can bootstrap on win64 soon...
 #include "build_config.h"
 #include "common/config.h"
 #include <stddef.h>

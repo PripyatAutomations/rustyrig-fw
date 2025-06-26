@@ -60,6 +60,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
 
    if (password == NULL || nonce == NULL) {
       Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%x> or nonce<%x>", password, nonce);
+      free(hex_output);
       return NULL;
    }
 
@@ -295,10 +296,6 @@ static http_client_t *http_find_client_by_nonce(const char *nonce) {
    }
 
    while(cptr != NULL) {
-      if (cptr == NULL) {
-         break;
-      }
-
       if (cptr->nonce[0] == '\0') {
          continue;
       }

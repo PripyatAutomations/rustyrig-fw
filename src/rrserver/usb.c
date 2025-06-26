@@ -26,4 +26,3 @@
 #include "rrserver/usb.h"
 
 #endif	// defined(HOST_POSIX) && defined(FEATURE_USB)
-

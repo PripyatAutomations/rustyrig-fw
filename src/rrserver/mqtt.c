@@ -1,4 +1,3 @@
-//
 // mqtt.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -122,6 +121,8 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
             } else {
                uint8_t response[] = {0, 0};
                mg_mqtt_send_header(c, MQTT_CMD_CONNACK, 0, sizeof(response));
+
+
                mg_send(c, response, sizeof(response));
             }
             break;
@@ -132,7 +133,9 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
             uint8_t qos, resp[256];
             struct mg_str topic;
             int num_topics = 0;
-            while ((pos = mg_mqtt_next_sub(mm, &topic, &qos, pos)) > 0) {
+            memset(resp, 0, sizeof(resp));
+
+            while (((pos = mg_mqtt_next_sub(mm, &topic, &qos, pos)) > 0)) {
                struct sub *sub = calloc(1, sizeof(*sub));
                if (!sub) {
                   Log(LOG_CRIT, "mqtt.req", "SUB empty in MQTT_CMD_SUBSCRIBE");
@@ -152,7 +155,6 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
                }
                resp[num_topics++] = qos;
             }
-            mg_mqtt_send_header(c, MQTT_CMD_SUBACK, 0, num_topics + 2);
             uint16_t id = mg_htons(mm->id);
             mg_send(c, &id, 2);
             mg_send(c, resp, num_topics);
@@ -218,6 +220,7 @@ bool mqtt_client_init(void) {
    memset(mqtt_secret, 0, sizeof(mqtt_secret));
    if (fgets(mqtt_secret, sizeof(mqtt_secret), fp) == NULL) {
       Log(LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno));
+      fclose(fp);
       return true;
    }
 

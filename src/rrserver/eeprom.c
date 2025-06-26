@@ -74,9 +74,6 @@ uint32_t eeprom_offset_index(const char *key) {
 }
 
 const char *eeprom_offset_name(uint32_t idx) {
-   if (idx <= 0)
-      return NULL;
-
    const char *rv = eeprom_layout[idx].key;
 
 #if	defined(NOISY_EEPROM)
@@ -317,7 +314,7 @@ uint32_t eeprom_load_config(void) {
                 snprintf(mbuf, mb_sz, "%0.3f", eeprom_get_float_i(i));
                 break;
            case EE_INT:
-                snprintf(mbuf, mb_sz, "%d", eeprom_get_int_i(i));
+                snprintf(mbuf, mb_sz, "%ud", eeprom_get_int_i(i));
                 break;
            case EE_IP4: {
                 uint8_t ip4[4];

@@ -18,7 +18,7 @@ $(error ***ERROR*** Please create ${CF} first before building -- There is an exa
 endif
 
 CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
-CFLAGS_WARN := -Wall -Wno-unused -pedantic # -Werror
+CFLAGS_WARN := -Wall  -pedantic -Wno-unused # -Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags")) -I../../inc/
@@ -183,7 +183,7 @@ ${fw_bin}: ${real_fw_objs} ${real_comm_objs}
 
 ${fwdsp_bin}: ${real_fwdsp_objs} ${real_comm_objs}
 	@echo "[Link] fwdsp ($@) from $(words ${real_fwdsp_objs}) object files..."
-	${CC} -o $@ ${real_fwdsp_objs} ${real_comm_objs} ${LDFLAGS} ${FWDSP_LDFLAGS}
+	@${CC} -o $@ ${real_fwdsp_objs} ${real_comm_objs} ${LDFLAGS} ${FWDSP_LDFLAGS}
 	@ls -a1ls $@
 	@file $@
 	@size $@

@@ -54,7 +54,7 @@ bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
 // DIE: Makes the server die //
 ///////////////////////////////
 static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
-   if (reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
+   if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "die");
       return true;
    }
@@ -116,11 +116,6 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
       int kicked = 0;
 
       for (acptr = http_client_list; acptr; acptr = acptr->next) {
-         // if acptr is null, we don't have a next entry either, bail to avoid segfault below
-         if (!acptr) {
-            break;
-         }
-
          // skip this one as it's not a valid chat client
          if (!acptr->active || !acptr->is_ws || acptr->chatname[0] == '\0') {
             continue;

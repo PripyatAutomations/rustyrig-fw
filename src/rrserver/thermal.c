@@ -69,6 +69,7 @@ uint32_t get_thermal(uint32_t sensor) {
       }
    } else if (sensor >= 3000 && sensor <= 3099) {
       int unit = sensor - 3000;
+
       if (unit > RR_MAX_FILTERS || unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor, RR_MAX_FILTERS);
          return -1000;

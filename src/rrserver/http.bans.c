@@ -43,6 +43,11 @@ bool is_http_banned(const char *ua) {
 bool load_http_ua_bans(const char *path) {
    FILE *fp = fopen(path, "r");
    char line[1024];
+
+   if (!fp) {
+      return true;
+   }
+
    while (!feof(fp)) {
       memset(line, 0, 1024);
       if (!fgets(line, 1024, fp)) {

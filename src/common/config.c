@@ -183,7 +183,7 @@ dict *cfg_load(const char *path) {
       }
 
       // Look for end of comment
-      if (*skip == '*' && *skip == '/') {
+      if (*skip == '*' && *skip+1== '/') {
          in_comment = false;
 //         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
          continue;

@@ -12,11 +12,12 @@ endif
 SHELL = bash
 .SHELLFLAGS = -e -c
 
-CFLAGS_WARN := -Wall -Wno-unused -pedantic #-Werror
+CFLAGS_WARN := -Wall -pedantic -Wno-unused #-Werror
 CFLAGS += -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ./.version)\"" 
 CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\""
 CFLAGS += -DMG_TLS=MG_TLS_MBED -D__RRCLIENT=1
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
+# Do we want to spew excessive http debugging? This has a performance penalty...
 #CFLAGS += -DHTTP_DEBUG_CRAZY=1
 LDFLAGS += -lm -g -ggdb -lmbedcrypto -lmbedtls -lmbedx509
 LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
@@ -24,6 +25,7 @@ LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 
+# msys2 windows 64bit
 ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
 BUILD_DIR := ./build
 PROFILE := win32-client
@@ -36,6 +38,7 @@ export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 real_install := windows-install
 objs += icon.res
 else
+# POSIX compliant hosts
 PROFILE ?= client
 BUILD_DIR := ../../build/${PROFILE}
 INSTALL_DIR := /usr/local

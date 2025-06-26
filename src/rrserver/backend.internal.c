@@ -7,7 +7,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// Internal backend supports controlling real hardware
+// Internal backend supports controlling real hardware. This needs to be completed before using on
+// a real rig. Feel free to jump in here.
 //
 #include "build_config.h"
 #include "common/config.h"
