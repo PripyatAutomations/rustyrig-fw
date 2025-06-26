@@ -77,6 +77,7 @@ static gboolean poll_mongoose(gpointer user_data) {
 
 static gboolean update_now(gpointer user_data) {
    now = time(NULL);
+
    if (dying) {
       gtk_main_quit();
       return G_SOURCE_REMOVE;  // remove this timeout
@@ -160,6 +161,7 @@ int main(int argc, char *argv[]) {
 
    gui_init();
    ws_init();
+  
    const char *poll_block_delay_s = cfg_get("cat.poll-blocking");
    int cfg_poll_block_delay = 3;
    if (poll_block_delay_s) {

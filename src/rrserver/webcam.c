@@ -19,3 +19,5 @@
 #include "rrserver/gui.h"
 #include "common/logger.h"
 #include "rrserver/state.h"
+
+// Here we deaal with fwdsp -v -t supplied frames
