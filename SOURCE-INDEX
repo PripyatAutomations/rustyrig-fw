@@ -1,72 +1,105 @@
---- Needs updated as of 25-06-13 ---
-amp.c					Amplifier controls (NYI)
-atu.c					Auto-tuning support (NYI)
-au.alsa.c				ALSA audio backend (untested codegpt muck)
-au.c					Audio wrapper
-au.pcm5102.c				PCM5102 DAC support (NYI)
-au.pipe.c				Pipe audio backend (untested codegpt muck)
-au.pipewire.c				Pipewire audio backend  (untested codegpt muck)
-auth.c					User authentication and http user list management
-backend.c				Backend wrapper
-backend.dummy.c				Dummy (NOOP) backend (NYI - use hammylib's dummy)
-backend.hamlib.c			Hamlib (rigctld) backend support
-backend.internal.c			Internal backend (For real radios)
-cat.c					CAT wrapper
-cat.kpa500.c				KPA500-style amplifier CAT parser
-cat.yaesu.c				Yaesu ft891-ish CAT parser
-channels.c				Support for channel memories
-codec.c					Support for audio codecs like OPUS (NYI)
-console.c				Console (TUI) for the server (NYI)
-dds.ad9833.c				DDS: AD9833 (NYI)
-dds.ad9959_stm32.c			DDS: AD9959 with STM32 host; NYI but working code from my control tool that should be trivial to integrate wlater
-dds.c					DDS units (NYI)
-dds.si5351.c				DDS: SI5351 (NYI)
-debug.c					Debug stuff
-dict.c					Support for a simple key-val dict type
-eeprom.c				EEPROM configuration (emulated on posix)
-faults.c				Fault handling
-filters.c				Filter support
-gpio.c					GPIO wrapper
-gui.c					GUI (NYI)
-gui.fb.c				Virtual framebuffer (NYI)
-gui.nextion.c				GUI on Nextion display via serial (NYI)
-help.c					Help system (NYI see /doc on http or doc/ in src tree)
-http.api.c				HTTP api commands
-http.c					HTTP core
-i2c.c					i2c interfaces (NYI)
-i2c.esp32.c
-i2c.linux.c
-i2c.mux.c
-i2c.stm32.c
-io.c					io wrapper
-io.serial.c				Serial target
-io.socket.c				Socket target
-logger.c				system log
-main.c
-mongoose.c				libmongoose http/ws server
-mqtt.c					MQTT control via libmongoose
-network.c				Network utilities
-posix.c					POSIX host stuff
-power.c					Power management
-protection.c				Core of the protection systems
-ptt.c					PTT wrapper; will get consumed into backend.c soon
-radioberry.c				NYI
-thermal.c				Thermal management (NYI)
-timer.c					Timers
-usb.c					NYI
-util.file.c
-util.math.c
-util.string.c
-util.vna.c				NYI; Eventually support to use DDS to do VNA tasks for tuner
-vfo.c					VFO wrapper
-waterfall.c				NYI
-webcam.c				Support for a v4l2 (or maybe pipewire?!) webcam at the station side (NYI)
-ws.audio.c				Audio (PCM) over ws; in work
-ws.bcast.c				Broadcast messages to users with some privileges or everyone
-ws.c					websocket core
-ws.chat.c				chat related ws stuff
-ws.rigctl.c				rigctl over ws
+--- Needs updated as of 25-06-25 ---
+--------
+rrserver
+--------
+src/rrserver/amp.c					Amplifier controls (NYI)
+src/rrserver/atu.c					Auto-tuning support (NYI)
+src/rrserver/au.c					Audio wrapper
+src/rrserver/au.pcm5102.c				PCM5102 DAC support (NYI)
+src/rrserver/au.pipe.c				Pipe audio backend (untested codegpt muck)
+src/rrserver/au.pipewire.c				Pipewire audio backend  (untested codegpt muck)
+src/rrserver/auth.c					User authentication and http user list management
+src/rrserver/backend.c				Backend wrapper
+src/rrserver/backend.dummy.c				Dummy (NOOP) backend (NYI - use hammylib's dummy)
+src/rrserver/backend.hamlib.c			Hamlib (rigctld) backend support
+src/rrserver/backend.internal.c			Internal backend (For real radios)
+src/rrserver/cat.c					CAT wrapper
+src/rrserver/cat.kpa500.c				KPA500-style amplifier CAT parser
+src/rrserver/cat.yaesu.c				Yaesu ft891-ish CAT parser
+src/rrserver/channels.c				Support for channel memories
+src/rrserver/codec.c					Support for audio codecs like OPUS (NYI)
+src/rrserver/console.c				Console (TUI) for the server (NYI)
+src/rrserver/dds.ad9833.c				DDS: AD9833 (NYI)
+src/rrserver/dds.ad9959_stm32.c			DDS: AD9959 with STM32 host; NYI but working code from my control tool that should be trivial to integrate wlater
+src/rrserver/dds.c					DDS units (NYI)
+src/rrserver/dds.si5351.c				DDS: SI5351 (NYI)
+src/rrserver/debug.c					Debug stuff
+src/rrserver/dict.c					Support for a simple key-val dict type
+src/rrserver/eeprom.c				EEPROM configuration (emulated on posix)
+src/rrserver/faults.c				Fault handling
+src/rrserver/filters.c				Filter support
+src/rrserver/gpio.c					GPIO wrapper
+src/rrserver/gui.c					GUI (NYI)
+src/rrserver/gui.fb.c				Virtual framebuffer (NYI)
+src/rrserver/gui.nextion.c				GUI on Nextion display via serial (NYI)
+src/rrserver/help.c					Help system (NYI see /doc on http or doc/ in src tree)
+src/rrserver/http.api.c				HTTP api commands
+src/rrserver/http.c					HTTP core
+src/rrserver/i2c.c					i2c interfaces (NYI)
+src/rrserver/i2c.esp32.c
+src/rrserver/i2c.linux.c
+src/rrserver/i2c.mux.c
+src/rrserver/i2c.stm32.c
+src/rrserver/io.c					io wrapper
+src/rrserver/io.serial.c				Serial target
+src/rrserver/io.socket.c				Socket target
+src/rrserver/logger.c				system log
+src/rrserver/main.c
+src/rrserver/mongoose.c				libmongoose http/ws server
+src/rrserver/mqtt.c					MQTT control via libmongoose
+src/rrserver/network.c				Network utilities
+src/rrserver/posix.c					POSIX host stuff
+src/rrserver/power.c					Power management
+src/rrserver/protection.c				Core of the protection systems
+src/rrserver/ptt.c					PTT wrapper; will get consumed into backend.c soon
+src/rrserver/radioberry.c				NYI
+src/rrserver/thermal.c				Thermal management (NYI)
+src/rrserver/timer.c					Timers
+src/rrserver/usb.c					NYI
+src/rrserver/util.file.c
+src/rrserver/util.math.c
+src/rrserver/util.string.c
+src/rrserver/util.vna.c				NYI; Eventually support to use DDS to do VNA tasks for tuner
+src/rrserver/vfo.c					VFO wrapper
+src/rrserver/waterfall.c				NYI
+src/rrserver/webcam.c				Support for a v4l2 (or maybe pipewire?!) webcam at the station side (NYI)
+src/rrserver/ws.audio.c				Audio (PCM) over ws; in work
+src/rrserver/ws.bcast.c				Broadcast messages to users with some privileges or everyone
+src/rrserver/ws.c					websocket core
+src/rrserver/ws.chat.c				chat related ws stuff
+src/rrserver/ws.rigctl.c				rigctl over ws
 
+------
+Client
+------
+src/rrclient/audio.c
+src/rrclient/auth.c
+src/rrclient/chat.c
+src/rrclient/chat.cmd.c
+src/rrclient/defconfig.c
+src/rrclient/gtk.c
+src/rrclient/gtk.editcfg.c
+src/rrclient/gtk.freqentry.c
+src/rrclient/gtk.serverpick.c
+src/rrclient/gtk.syslog.c
+src/rrclient/gtk.winmgr.c
+src/rrclient/main.c
+src/rrclient/ui.help.c
+src/rrclient/userlist.c
+src/rrclient/win32.c
+src/rrclient/ws.audio.c
+src/rrclient/ws.auth.c
+src/rrclient/ws.c
+src/rrclient/ws.chat.c
+src/rrclient/ws.rigctl.c
+src/rrclient/ws.tx-audio.c
+
+-----
+fwdsp
+-----
+src/fwdsp/fwdsp-main.c
+
+-----
 webui
 -----
 www/js/webui.audio.js
@@ -79,6 +112,7 @@ www/js/webui.notifications.js
 www/js/webui.rigctl.js
 www/js/webui.syslog.js
 
+---
 css
 ---
 www/css/chat.css
