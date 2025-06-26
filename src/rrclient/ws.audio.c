@@ -45,6 +45,9 @@ bool ws_send_capab(struct mg_connection *c, const char *codecs) {
    if (!codecs) {
       char *capab_msg = codecneg_send_supported_codecs(au_core_codecs);
 
+      if (!capab_msg) {
+         return true;
+      }
       mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
       Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
       free(capab_msg);
@@ -52,6 +55,10 @@ bool ws_send_capab(struct mg_connection *c, const char *codecs) {
       // Handle common codecs check
       const char *preferred = cfg_get("codecs.allowed");
       char *common_codecs = codec_filter_common(preferred, codecs);
+
+      if (!common_codecs) {
+         return true;
+      }
 
       if (common_codecs && strlen(common_codecs) >= 4) {		// valid IDs are 4 char long
          // emit codec message
