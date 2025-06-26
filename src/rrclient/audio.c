@@ -1,4 +1,4 @@
-// gtk-client/audio.c: support for using gstreamer for audio streams
+// rrclient/audio.c: support for using gstreamer for audio streams
 // 	https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -293,7 +293,7 @@ bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
    int codec_id  = au_codec_by_id(au->codec);
    char msgbuf[1024];
    memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"control\": { \"codec\": \"%s\", \"rate\": %d, \"active\": %s",
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"codec\": \"%s\", \"rate\": %d, \"active\": %s",
              au_codec_get_magic(codec_id), au_codec_get_samplerate(codec_id), (au->active ? "true" : "off"));
    return true;
 }

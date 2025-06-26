@@ -148,6 +148,8 @@ void show_server_chooser(void) {
    server_window = win;
    gtk_widget_show_all(win);
    gtk_widget_realize(server_window);
+
+   // Set dark mode, if needed, on windows
 #ifdef _WIN32
    enable_windows_dark_mode_for_gtk_window(server_window);
 #endif

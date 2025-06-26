@@ -55,7 +55,7 @@ host-info:
 ##################
 # Source objects #
 ##################
-include mk/common.mk
+include mk/rrclient.mk
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)
 # prepend objdir path to each object
@@ -154,7 +154,10 @@ posix-install:
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	install -Dm755 ${bin} ${INSTALL_DIR}/bin/$(shell basename "${bin}")
 	install -Dm644 rustyrig.png /usr/share/icons/hicolor/48x48/apps/rustyrig.png
-	install -Dm644 rrclient.desktop /usr/share/applications/rrclient.desktop
+	# Transform the .desktop shortcut to use $PREFIX
+	sed rrclient.desktop -e "s%/usr/local/%${PREFIX}%g" > ..tmp.rrclient.desktop
+	install -Dm644 ..tmp.rrclient.desktop /usr/share/applications/rrclient.desktop
+	@${RM} -f ..tmp.rrclient.desktop
 
 install: ${real_install}
 

@@ -83,7 +83,7 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
 
    fclose(stream);
 */  
-  gtk_label_set_markup(GTK_LABEL(label), markup);
+   gtk_label_set_markup(GTK_LABEL(label), markup);
    gtk_container_add(GTK_CONTAINER(content_area), label);
    gtk_widget_show_all(dialog);
    Log(LOG_DEBUG, "gtk", "Connect whois callback response");

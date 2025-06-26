@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 
    gtk_init(&argc, &argv);
 
-   // Ensure windows dark mode &
+    // Ensure windows dark mode &
 #ifdef	_WIN32
    if (is_windows_dark_mode()) {
       GtkSettings *settings = gtk_settings_get_default();

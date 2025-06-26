@@ -82,6 +82,7 @@ struct ws_msg_routes ws_routes[] = {
 //   { .type = "copdec",  .cb = on_ws_codec },
 //   { .type = "error",	 .cb = on_ws_error },
 //   { .type = "hello",	 .cb = on_ws_hello },
+//   { .type = "media",  .cb = on_ws_media },
 //   { .type = "ping",	 .cb = on_ws_ping },
 //   { .type = "syslog",   .cb = on_ws_syslog },
    { .type = "talk",	 .cb = ws_handle_talk_msg },

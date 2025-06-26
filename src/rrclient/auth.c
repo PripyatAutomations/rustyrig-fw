@@ -1,3 +1,11 @@
+//
+// rrclient/auth.c
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -66,7 +74,6 @@ char *hash_passwd(const char *passwd) {
       sprintf(hex_output + (i * 2), "%02x", hash[i]);
    }
    hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
-//   ui_print("[%s] hashed passwd to %s", get_chat_ts(), hex_output);
    return hex_output;
 }
 
@@ -82,7 +89,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
    mg_sha1_ctx ctx;
 
    if (!hex_output) {
-      Log(LOG_CRIT, "auth", "oom in compute_wire_password");
+      fprintf(stderr, "oom in compute_wire_password");
       return NULL;
    }
 
@@ -117,10 +124,10 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512,
                  "{ \"auth\": {"
-                 "     \"cmd\": \"login\", "
-                 "     \"user\": \"%s\""
-                 "   }"
-                 "}", login_user);
+                 " \"cmd\": \"login\", "
+                 " \"user\": \"%s\""
+                 "} }", login_user);
+
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    if (ret < 0) {
       Log(LOG_DEBUG, "auth", "ws_send_login: mg_ws_send error: %d", ret);
@@ -146,15 +153,12 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512,
                  "{ \"auth\": {"
-                 "     \"cmd\": \"pass\", "
-                 "     \"user\": \"%s\","
-                 "     \"pass\": \"%s\","
-                 "     \"token\": \"%s\""
-                 "   }"
-                 "}", user, temp_pw, session_token);
+                 " \"cmd\": \"pass\", "
+                 " \"user\": \"%s\","
+                 " \"pass\": \"%s\","
+                 " \"token\": \"%s\""
+                 "} }", user, temp_pw, session_token);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-//   ui_print("[%s] <== %s", msgbuf, get_chat_ts());
-   //
    free(temp_pw);
    return false;
 }
@@ -168,11 +172,10 @@ bool ws_send_logout(struct mg_connection *c, const char *user, const char *token
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512,
                  "{ \"auth\": {"
-                 "     \"cmd\": \"logout\", "
-                 "     \"user\": \"%s\","
-                 "     \"token\": \"%s\""
-                 "   }"
-                 "}", user, token);
+                 " \"cmd\": \"logout\", "
+                 " \"user\": \"%s\","
+                 " \"token\": \"%s\""
+                 "} }", user, token);
    mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
    return false;
@@ -192,7 +195,7 @@ bool match_priv(const char *user_privs, const char *priv) {
    const char *start = user_privs;
    size_t privlen = strlen(priv);
 
-   Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'", user_privs, priv);
+//   Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'", user_privs, priv);
    if (!user_privs || !priv) {
       return false;
    }
@@ -208,7 +211,7 @@ bool match_priv(const char *user_privs, const char *priv) {
       memcpy(token, start, len);
       token[len] = '\0';
 
-      Log(LOG_CRAZY, "auth", "token=|%s|", token);
+//      Log(LOG_CRAZY, "auth", "token=|%s|", token);
 
       if (strcmp(token, priv) == 0) {
          Log(LOG_CRAZY, "auth", " → exact match");
@@ -218,7 +221,7 @@ bool match_priv(const char *user_privs, const char *priv) {
       if (len >= 2 && token[len - 2] == '.' && token[len - 1] == '*') {
          token[len - 2] = '\0';  // strip .*
          if (strncmp(priv, token, strlen(token)) == 0 && priv[strlen(token)] == '.') {
-            Log(LOG_CRAZY, "auth", " → wildcard match");
+//            Log(LOG_CRAZY, "auth", " → wildcard match");
             return true;
          }
       }

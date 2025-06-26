@@ -1,5 +1,5 @@
 //
-// gtk-client/gtk-gui.c: Core of GTK gui
+// rrclient/gtk-gui.c: Core of GTK gui
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -27,6 +27,7 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern bool clear_syslog(void);
 extern GtkWidget *init_log_tab(void);
@@ -117,38 +118,6 @@ bool ui_print(const char *fmt, ...) {
    return false;
 }
 
-bool set_window_icon(GtkWidget *window, const char *icon_name) {
-#ifndef _WIN32
-   GError *err = NULL;
-   bool success = false;
-   const char *name = icon_name ? icon_name : "rustyrig";
-
-   gtk_window_set_icon_name(GTK_WINDOW(window), name);
-   // Check if the icon name was registered by attempting to load it
-   GIcon *icon = g_themed_icon_new(name);
-   GtkIconTheme *theme = gtk_icon_theme_get_default();
-   if (gtk_icon_theme_has_icon(theme, name)) {
-      success = true;
-   } else {
-      gchar *local_icon = g_strdup_printf("./%s.png", name);
-      if (gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err)) {
-         success = true;
-      } else {
-         g_warning("Failed to set icon '%s': %s", name, err->message);
-         g_clear_error(&err);
-      }
-      g_free(local_icon);
-   }
-
-   g_object_unref(icon);
-   return success;
-#else
-   (void)window;
-   (void)icon_name;
-   return true; // Assume embedded icon is fine
-#endif
-}
-
 gulong mode_changed_handler_id;
 
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
@@ -229,142 +198,12 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    return false;
 }
 
-void show_help(void) {
-   ui_print("******************************************");
-   ui_print("          rustyrig v.%s help", VERSION);
-   ui_print("[Server Commands]");
-   ui_print("   /server [name]          Connect to a server (or default)");
-   ui_print("   /disconnect             Disconnect from server");
-   ui_print("[Chat Commands]");
-   ui_print("   /clear                  Clear chat tab");
-   ui_print("   /clearlog               Clear the syslog tab");
-   ui_print("   /die                    Shut down server");
-//   ui_print("   /edit                   Edit a user");
-   ui_print("   /help                   This help text");
-   ui_print("   /kick [user] [reason]   Kick the user");
-   ui_print("   /me [message]           Send an ACTION");
-   ui_print("   /mute [user] [reason]   Disable controls for user");
-   ui_print("   /names                  Show who's in the chat");
-   ui_print("   /restart [reason]       Restart the server");
-//   ui_print("   /rxmute                  MUTE RX audio");
-   ui_print("   /rxvol [vol;ume]        Set RX volume");
-   ui_print("   /rxunmute               Unmute RX audio");
-//   ui_print("   /txmute                 Mute TX audio");
-//   ui_print("   /txvol [val]            Set TX gain");
-   ui_print("   /unmute [user]          Unmute user");
-   ui_print("   /whois [user]           WHOIS a user");
-   ui_print("   /quit [reason]          End the session");
-   ui_print("");
-   ui_print("[UI Commands]");
-   ui_print("   /chat                   Switch to chat tab");
-   ui_print("   /config | /cfg          Switch to config tab");
-   ui_print("   /log | /syslog          Switch to syslog tab");
-   ui_print("[Key Combinations");
-   ui_print("   alt-1 thru alt-3        Change tabs in main window");
-   ui_print("   alt-u                   Toggle userlist");
-   ui_print("******************************************");
-}
 
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
 
-   // These commands should always be available
-   if (strncasecmp(msg + 1, "server", 6) == 0) {
-      const char *server = msg + 8;
+   parse_chat_input(button, entry);
 
-      if (server && strlen(server) > 1) {
-         ui_print("[%s] * Changing server profile to %s", get_chat_ts(), server);
-         disconnect_server();
-         memset(active_server, 0, sizeof(active_server));
-         snprintf(active_server, sizeof(active_server), "%s", server);
-         Log(LOG_DEBUG, "gtk-gui", "Set server profile to %s by console cmd", active_server);
-         connect_server();
-      } else {
-         show_server_chooser();
-      }
-   } else if (strncasecmp(msg + 1, "disconnect", 10) == 0) {
-      disconnect_server();
-   } else if (strncasecmp(msg + 1, "quit", 4) == 0) {
-      char msgbuf[4096];
-      prepare_msg(msgbuf, sizeof(msgbuf), 
-         "{ \"auth\": { \"cmd\": \"quit\" } }", msg + 5);
-      mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-      dying = true;
-   // Switch tabs
-   } else if (strncasecmp(msg + 1, "chat", 4) == 0) {
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), main_tab);
-      if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
-         gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
-      }
-   } else if (strncasecmp(msg + 1, "clear", 5) == 0) {
-      gtk_text_buffer_set_text(text_buffer, "", -1);
-   } else if (strncasecmp(msg + 1, "clearlog", 8) == 0) {
-      clear_syslog();
-   } else if (strncasecmp(msg + 1, "config", 6) == 0 || strcasecmp(msg + 1, "cfg") == 0) {
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), config_tab);
-      if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
-      }
-   } else if (strncasecmp(msg + 1, "log", 3) == 0 || strcasecmp(msg + 1, "syslog") == 0) {
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), log_tab);
-      if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
-      }
-   } else if (ws_conn && msg && *msg) {			// These commands only work when online
-      if (msg[0] == '/') { // Handle local commands
-         if (strcasecmp(msg + 1, "ban") == 0) {
-         } else if (strncasecmp(msg + 1, "die", 3) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"die\", \"args\": \"%s\" } }", msg + 5);
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strncasecmp(msg + 1, "edit", 4) == 0) {
-         } else if (strncasecmp(msg + 1, "help", 4) == 0) {
-            show_help();
-         } else if (strncasecmp(msg + 1, "kick", 4) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"kick\", \"reason\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strncasecmp(msg + 1, "me", 2) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
-               "\"msg_type\": \"action\" } }", msg + 3);
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strncasecmp(msg + 1, "mute", 4) == 0) {
-         } else if (strncasecmp(msg + 1, "names", 5) == 0) {
-         } else if (strncasecmp(msg + 1, "restart", 7) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"die\", \"reason\": \"%s\" } }", msg);
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else if (strncasecmp(msg + 1, "rxmute", 6) == 0) {
-         } else if (strncasecmp(msg + 1, "rxvol", 5) == 0) {
-            gdouble val = atoi(msg + 7) / 100;
-            gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
-            ui_print("* Set rx-vol to %f", val);
-         } else if (strncasecmp(msg + 1, "rxunmute", 8) == 0) {
-         } else if (strncasecmp(msg + 1, "unmute", 6) == 0) {
-         } else if (strncasecmp(msg + 1, "whois", 4) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"die\", \"restart\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         } else {
-           // Invalid command
-           ui_print("Invalid command: %s", msg);
-         }
-      } else {
-         char msgbuf[4096];
-         prepare_msg(msgbuf, sizeof(msgbuf), 
-            "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
-            "\"msg_type\": \"pub\" } }", msg);
-         
-         mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-      }
-   }
    g_ptr_array_add(input_history, g_strdup(msg));
    history_index = input_history->len;
    gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
@@ -798,46 +637,5 @@ bool gui_init(void) {
    enable_windows_dark_mode_for_gtk_window(main_window);
 #endif
 
-   return false;
-}
-
-bool place_window(GtkWidget *window) {
-   const char *cfg_height_s, *cfg_width_s;
-   const char *cfg_x_s, *cfg_y_s;
-
-   if (window == userlist_window) {
-      cfg_height_s = cfg_get("ui.userlist.height");
-      cfg_width_s = cfg_get("ui.userlist.width");
-      cfg_x_s = cfg_get("ui.userlist.x");
-      cfg_y_s = cfg_get("ui.userlist.y");
-   } else if (window == main_window) {
-      cfg_height_s = cfg_get("ui.main.height");
-      cfg_width_s = cfg_get("ui.main.width");
-      cfg_x_s = cfg_get("ui.main.x");
-      cfg_y_s = cfg_get("ui.main.y");
-   } else {
-      return true;
-   }
-   int cfg_height = 600, cfg_width = 800, cfg_x = 0, cfg_y = 0;
-
-   if (cfg_height_s) {
-      cfg_height = atoi(cfg_height_s);
-   }
-
-   if (cfg_width_s) {
-      cfg_width = atoi(cfg_width_s);
-   }
-
-   // Place the window
-   if (cfg_x) {
-      cfg_x = atoi(cfg_x_s);
-   }
-
-   if (cfg_y) {
-      cfg_y = atoi(cfg_y_s);
-   }
-   gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
-   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
-   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    return false;
 }
