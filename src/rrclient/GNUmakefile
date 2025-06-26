@@ -36,9 +36,9 @@ export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
 real_install := windows-install
 objs += icon.res
 else
+PROFILE ?= client
 BUILD_DIR := ../../build/${PROFILE}
 INSTALL_DIR := /usr/local
-PROFILE ?= client
 bin := ${BUILD_DIR}/rrclient
 CC := gcc
 LD := ld
