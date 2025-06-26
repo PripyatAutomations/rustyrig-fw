@@ -1,4 +1,5 @@
-MASTER_DB := $(strip $(shell cat ${CF} | jq -r ".database.master.path"))
+#MASTER_DB := $(strip $(shell cat ${CF} | jq -r ".database.master.path"))
+MASTER_DB=db/master.db
 ## ifeq (${USE_SQLITE},true)
 CFLAGS += -DUSE_SQLITE
 LDFLAGS += -lsqlite3

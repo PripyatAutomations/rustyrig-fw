@@ -1,6 +1,6 @@
 #if	!defined(__rr_client_flags_h)
 #define	__rr_client_flags_h
-
+#include <stdbool.h>
 #define FLAG_ADMIN       0x00000001		// NYI: Is an admin
 #define	FLAG_OWNER	 0x00000002
 #define FLAG_MUTED       0x00000004		// NYI: FLag set when muted
@@ -15,6 +15,7 @@
 #define	FLAG_ELMER       0x00000800		// user is an elmer, so noobs can TX if they are present
 
 #if	!defined(__RRCLIENT)
+#include "common/http.h"
 extern bool client_has_flag(http_client_t *cptr, uint32_t user_flag);
 extern void client_set_flag(http_client_t *cptr, uint32_t flag);
 extern void client_clear_flag(http_client_t *cptr, uint32_t flag);

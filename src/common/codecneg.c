@@ -31,7 +31,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
-#include "../ext/libmongoose/mongoose.h"
+#include "../../ext/libmongoose/mongoose.h"
 #include "common/config.h"
 #include "common/fwdsp-shared.h"
 #include "common/logger.h"

@@ -138,6 +138,7 @@ int fwdsp_find_offset(const char *id) {
    }
    return -1;
 }
+
 struct fwdsp_subproc *fwdsp_find_instance(const char *id) {
    if (id == NULL) {
       return NULL;

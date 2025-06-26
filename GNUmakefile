@@ -36,3 +36,7 @@ w64-deps w64-rrclient-installer w64-rrclient-portable:
 win64-rrclient-all: w64-rrclient-installer w64-rrclient-portable
 #win64-rrserver-all: w64-rrserver-installer w64-rrserver-portable
 #win64-fwdsp-all: w64-fwdsp-installer w64-fwdsp-portable
+
+
+include mk/database.mk
+include mk/audit.mk
