@@ -1,13 +1,14 @@
 * Add throttled reconnect like webui has
-* makefile cleanup!!!!!!!!!!!!!
 * Finish parsing server messages
 * Implement rest of controls typically used
-* Improved frequency input widget. like the webui
-  - Fix its many bugs
+* Finish GtkFreqEntry widget (gtk.freqentry.c) -- it's buggy!
 * Finish whois/reason dialogs
 * Add more error messages when privileges denied, etc. (server side)
 * Fill out Config tab form which can generate rrclient.cfg
+  - For now we have the text editor, bug check and fix it!
 * Add a start/stop RX audio button for saving bw isntead of just muting
   - or maybe send the mute/unmute to server who will start/stop sending samples
     as well as sending a start/stop message so gstreamer can be paused
-? Implement compressed audio via gstreamer
+
+[win64]
+* Testing and bug fixes

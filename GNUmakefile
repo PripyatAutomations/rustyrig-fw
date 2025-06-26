@@ -30,7 +30,7 @@ rrclient:
 	${MAKE} -C src/rrclient world
 
 # For now we only build rrclient for windows
-w64-deps w64-rrclient-installer w64-rrclient-portable:
+w64-deps win64-installer w64-portable:
 	${MAKE} -C src/rrclient $@
 
 win64-rrclient-all: w64-rrclient-installer w64-rrclient-portable
