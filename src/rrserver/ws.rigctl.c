@@ -76,7 +76,7 @@ static ws_rig_state_t *ws_rigctl_state_diff(rr_vfo_t vfo) {
    }
    memset(update, 0, sizeof(ws_rig_state_t));
 
-   bool u_freq, u_mode, u_width;
+   bool u_freq = false, u_mode = false, u_width = false;
 
    // Only propogate changed fields
    if (old->freq != curr->freq) {
@@ -271,12 +271,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          last_rig_poll.tv_nsec = loop_start.tv_nsec;
 
          rr_vfo_t c_vfo;
-
-         if (vfo == NULL) {
-            c_vfo = VFO_A;
-         } else {
-            c_vfo = vfo_lookup(vfo[0]);
-         }
+         c_vfo = vfo_lookup(vfo[0]);
          cptr->last_heard = now;
 
 #if	0
@@ -310,13 +305,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          rr_vfo_t c_vfo;
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
-
-         if (vfo == NULL) {
-            c_vfo = VFO_A;
-         } else {
-            c_vfo = vfo_lookup(vfo[0]);
-         }
-            
+         c_vfo = vfo_lookup(vfo[0]);
          cptr->last_heard = now;
 
 #if	0

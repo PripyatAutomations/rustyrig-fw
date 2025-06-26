@@ -58,17 +58,22 @@ au_codec_mapping_t	au_core_codecs[] = {
 audio_settings_t	au_rx_config, au_tx_config;
 
 au_codec_mapping_t *au_codec_find_by_magic(const char *magic) {
-   au_codec_mapping_t *rp = au_core_codecs;
-   int codec_count = 0;
+   int max_slots = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
 
-   while (rp) {
+   for (int i = 0; i < max_slots; i++) {
+      au_codec_mapping_t *rp = &au_core_codecs[i];
+
+      if (rp->id == AU_CODEC_NONE && rp->magic == NULL) {
+         Log(LOG_WARN, "codecneg", "codec magic '%s' not found", magic);
+         return NULL;
+      }
+
       if (strncasecmp(rp->magic, magic, 4) == 0) {
-         Log(LOG_DEBUG, "codecneg", "found codec at <%x> for magic '%s'", rp, magic);
+         Log(LOG_DEBUG, "codecneg", "found codec at <%x> for magic '%s (idx:%d)'", rp, magic, i);
          return rp;
       }
    }
 
-   Log(LOG_WARN, "codecneg", "codec magic '%s' not found", magic);
    return NULL;
 }
 
@@ -189,9 +194,15 @@ char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
    Log(LOG_DEBUG, "codecneg", "send_supported: preferred list: %s", preferred ? preferred : "NULL");
    char *filtered = codec_filter_common(preferred ? preferred : "", all_codecs);
 
+/* -- what is this? it probably should go away */ 
    if (!filtered || !*filtered) {
+#if	0
       Log(LOG_WARN, "codecneg", "No matching codecs, using all available");
       filtered = strdup(all_codecs);
+#else
+     Log(LOG_WARN, "codecneg", "No matching codecs in cfg:codecs.allowed, returning NULL");
+     return NULL;
+#endif
    }
 
    char msgbuf[1024];
@@ -215,10 +226,13 @@ char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs) {
    const char *preferred = cfg_get("codecs.allowed");
    char *filtered = codec_filter_common(preferred ? preferred : "", all_codecs);
 
-   if (!filtered || !*filtered) {
+#if	0
       Log(LOG_WARN, "codecneg", "No matching codecs, using all available");
       filtered = strdup(all_codecs);
-   }
+#else
+     Log(LOG_WARN, "codecneg", "No matching codecs in cfg:codecs.allowed, returning NULL");
+     return NULL;
+#endif
 
    // Trim trailing space just in case
    size_t len = strlen(filtered);
@@ -262,7 +276,15 @@ char *codec_filter_common(const char *preferred, const char *available) {
          size_t alen = a - astart;
 
          if (len == alen && memcmp(start, astart, len) == 0) {
-            result = realloc(result, res_sz + len + 2);
+            char *new_result = realloc(result, res_sz + len + 2);
+            if (!new_result) {
+               if (result) {
+                  free(result);
+               }
+               return NULL;
+            }
+            // Go ahead and store it
+            result = new_result;
             memcpy(result + res_sz, start, len);
             res_sz += len;
             result[res_sz++] = ' ';

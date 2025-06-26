@@ -100,6 +100,7 @@ bool ui_print(const char *fmt, ...) {
    char outbuf[8096];
 
    if (!fmt) {
+      va_end(ap);
       return true;
    }
 

@@ -134,6 +134,10 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
             int num_topics = 0;
             while ((pos = mg_mqtt_next_sub(mm, &topic, &qos, pos)) > 0) {
                struct sub *sub = calloc(1, sizeof(*sub));
+               if (!sub) {
+                  Log(LOG_CRIT, "mqtt.req", "SUB empty in MQTT_CMD_SUBSCRIBE");
+                  break;
+               }
                sub->c = c;
                sub->topic = mg_strdup(topic);
                sub->qos = qos;

@@ -44,7 +44,7 @@ const char *config_file = NULL;
 const char *config_codec = "PC16";
 bool codec_tx_mode = false;
 bool dying = false;
-bool empty_config;
+bool empty_config = true;
 static GstElement *pipeline = NULL;
 time_t now = -1;                // time() called once a second in main loop to update
 
@@ -232,7 +232,6 @@ static void send_format_header(int fd, struct audio_config *cfg) {
 }
 
 int main(int argc, char *argv[]) {
-   bool empty_config = true;
    printf("Starting fwdsp v.%s\n", VERSION);
    host_init();
    logfp = stdout;

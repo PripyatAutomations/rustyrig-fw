@@ -294,12 +294,14 @@ dict *cfg_load(const char *path) {
             while (*val == ' ') {
                val++;
             }
-         }
 
-         memset(fullkey, 0, sizeof(fullkey));
-         snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
-         // Store value
-         dict_add(servers, fullkey, val);
+            memset(fullkey, 0, sizeof(fullkey));
+            snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
+            // Store value
+            dict_add(servers, fullkey, val);
+         } else {
+            Log(LOG_CRIT, "config", "Malformed line parsing '%s' at %s:%d", buf, path, line);
+         }
       } else {
          Log(LOG_CRIT, "config", "Unknown configuration section '%s' parsing '%s' at %s:%d", this_section, buf, path, line);
          errors++;
