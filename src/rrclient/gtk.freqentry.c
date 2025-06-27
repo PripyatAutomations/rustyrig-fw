@@ -16,6 +16,7 @@ extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float fre
 gulong freq_changed_handler_id;
 
 #define GTK_TYPE_FREQ_ENTRY (gtk_freq_input_get_type())
+// cppcheck-suppress unknownMacro
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_input, GTK, FREQ_ENTRY, GtkBox)
 
 static void update_frequency_display(GtkFreqEntry *fi);

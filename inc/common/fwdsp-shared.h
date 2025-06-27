@@ -21,6 +21,16 @@ struct audio_config {
    bool tx_mode;
    bool persistent;   // persistent mode, keep reconnecting until fatal signal
    int channel_id;
+   enum {
+     FW_MEDIA_NONE = 0,
+     FW_MEDIA_AUDIO,		// Audio source/sink
+     FW_MEDIA_VIDEO		// Video (rig webcam?)
+   } media_type;
+   enum {
+     FW_DIR_NONE = 0,
+     FW_DIR_SINK,		// Media we are RECEIVING
+     FW_DIR_SOURCE		// Media we are SENDING
+   } media_direction;
 };
 
 struct fwdsp_client {

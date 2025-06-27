@@ -21,7 +21,9 @@
 #define	USER_PRIV_LEN		100		// privileges list
 #define USER_EMAIL_LEN		128		// email address
 
+// cppcheck-suppress unknownMacro
 #define GTK_TYPE_FREQ_INPUT (gtk_freq_input_get_type())
+// cppcheck-suppress unknownMacro
 G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkBox)
 GtkWidget *gtk_freq_input_new(void);
 void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);

@@ -41,7 +41,7 @@
 #include "common/config-paths.h"
 
 const char *config_file = NULL;
-const char *config_codec = "PC16";
+const char *config_codec = "pc16";
 bool codec_tx_mode = false;
 bool dying = false;
 bool empty_config = true;
@@ -116,6 +116,12 @@ static void run_loop(struct audio_config *cfg) {
          continue;
       }
 
+      // XXX: Inform the other side of our codec id
+      char msgbuf[1024];
+      memset(msgbuf, 0, sizeof(msgbuf));
+      snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"fwdsp\", \"codec-id\": \"%s\", \"my-pipeline\": \"%s\", \"type\": \"%s\", \"direction\": \"%s\" } }", config_codec, cfg->pipeline, (cfg->media_type == FW_MEDIA_AUDIO ? "audio" : "video"), (cfg->media_direction == FW_DIR_SOURCE ? "tx" : "rx"));
+      write(sock_fd, &msgbuf, sizeof(msgbuf));
+      // XXX: Blorp this over the connection
 /* XXX: Implement bus signals instead of polling
 GstBus *bus;
 
@@ -237,6 +243,7 @@ int main(int argc, char *argv[]) {
    logfp = stdout;
    log_level = LOG_DEBUG;
 
+
    int opt;
    while ((opt = getopt(argc, argv, "c:f:ht")) != -1) {
       switch (opt) {
@@ -321,11 +328,16 @@ int main(int argc, char *argv[]) {
       .channel_id = -1
    };
 
+   // unless set to video, treat it as audio frames
+   au_cfg.media_type = FW_MEDIA_AUDIO;
+
    // set sane defaults
    if (au_cfg.tx_mode) {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_TX;
+      au_cfg.media_direction = FW_DIR_SINK;
    } else {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_RX;
+      au_cfg.media_direction = FW_DIR_SOURCE;
    }
 
 

@@ -1,3 +1,4 @@
+cppcheck.report.txt
 build/*
 build/
 

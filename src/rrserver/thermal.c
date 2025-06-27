@@ -49,7 +49,7 @@ uint32_t get_thermal(uint32_t sensor) {
       return rig.therm_inlet;
    } else if (sensor >= 1000 && sensor <= 1099) {
       int unit = sensor - 1000;
-      if (unit > RR_MAX_AMPS || unit < 0) {
+      if (unit > RR_MAX_AMPS - 1 || unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor, RR_MAX_AMPS);
          return -1000;
       } else {
@@ -59,7 +59,7 @@ uint32_t get_thermal(uint32_t sensor) {
       }
    } else if (sensor >= 2000 && sensor <= 2099) {
       int unit = sensor - 2000;
-      if (unit > RR_MAX_ATUS || unit < 0) {
+      if (unit > RR_MAX_ATUS - 1|| unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor, RR_MAX_ATUS);
          return -1000;
       } else {
@@ -70,7 +70,7 @@ uint32_t get_thermal(uint32_t sensor) {
    } else if (sensor >= 3000 && sensor <= 3099) {
       int unit = sensor - 3000;
 
-      if (unit > RR_MAX_FILTERS || unit < 0) {
+      if (unit > RR_MAX_FILTERS - 1|| unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor, RR_MAX_FILTERS);
          return -1000;
       } else {
