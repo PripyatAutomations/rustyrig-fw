@@ -28,6 +28,7 @@
 * Make fwdsp instances configured by keys in the config file [fwdsp] section
   - Allow auto-spawning encoders when a client requests a codec/rate
   - Cleanup and stop unused encoders
+	** This is in work as src/rrserver/fwdsp-mgr.c **
 
 [audio.recording]
 * Implement recordings and pass the recording ID to the ptt db log
@@ -62,7 +63,7 @@
   - Maybe a use sqlite3 db for storing persistent data?
 
 [makefile]
-Make things so that make debug forces a make clean & adding make debug if last built without debug (can we use nm or such to check symbols)
+Make things so that make debug forces a make clean & adding make debug if last built without debug (can we use nm or such to check symbols?)
 
 [porting]
 - Shorten strings where possible
