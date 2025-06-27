@@ -159,7 +159,6 @@ dict *cfg_load(const char *path) {
 
    // Support for C style comments
    bool in_comment = false;
-   Log(LOG_DEBUG, "config", "cfg_load enter loop");
    do {
       memset(buf, 0, sizeof(buf));
       fgets(buf, sizeof(buf) - 1, fp);
@@ -307,7 +306,6 @@ dict *cfg_load(const char *path) {
          errors++;
       }
    } while (!feof(fp));
-   Log(LOG_DEBUG, "config", "cfg_load exit loop");
 
    if (errors > 0) {
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with %d warnings/errors",  line, path, errors);
@@ -328,7 +326,7 @@ const char *cfg_get_real(dict *c, char *key) {
    // nope! try default
    if (!p) {
       if (!default_cfg) {
-         Log(LOG_DEBUG, "config", "defcfg not found");
+         Log(LOG_DEBUG, "config", "defcfg not found looking for key %s", key);
          return NULL;
       }
       p = dict_get(default_cfg, key, NULL);

@@ -74,6 +74,7 @@ defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"Debug audio? [bool]" },
   { "audio.record-dir", "./recordings", "TX & RX recordings basedir" },
   { "codecs.allowed",   "mu16 pc16 mu08", "Preferred codec order" },
+  { "fwdsp.hangtime" ,  "60",		"How long should unused (en|de)coders be kept alive after last used?" },
   { "log.level",	"debug",	"How noisy should log be?"  }, 
   { "log.show-ts",	"false",        "Show timestamps in log? [bool]" },
 //  { "testkey.defcfg.main", " 1",	"Test key for defconfig" },

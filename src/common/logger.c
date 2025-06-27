@@ -209,19 +209,19 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    snprintf(log_msg, sizeof(log_msg), "<%s.%s> %s", subsys, log_priority_to_str(priority), msgbuf);
 
    /* Only spew to the serial port if logfile is closed */
-   if (!logfp && (logfp != stdout)) {
+   if (!logfp && (logfp != stdout) && (logfp != stderr)) {
       va_end(ap);
       return;
    }
 
    if (log_show_ts) {
       fprintf(logfp, "[%s] %s\n", latest_timestamp, log_msg);
-      if (logfp != stdout) {
+      if (logfp != stdout && logfp != stderr) {
          fprintf(stdout, "x[%s] %s\n", latest_timestamp, log_msg);
       }
    } else {
       fprintf(logfp, "%s\n", log_msg);
-      if (logfp != stdout) {
+      if (logfp != stdout && logfp != stderr) {
          fprintf(stdout, "x: %s\n", log_msg);
       }
    }

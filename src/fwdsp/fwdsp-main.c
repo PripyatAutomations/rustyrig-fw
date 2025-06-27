@@ -9,12 +9,12 @@
 //
 // Here we handle moving audio between gstreamer and the firmwre.
 // You will typically have two instances running of fwdsp.bin
-// One with the -t argument and another with -r, for TX and RX, respectively
-//
-// Eventually configuration will be moved to config/$PROFILE.fwdsp.json
+// One with the -t argument and another without, for TX and RX, respectively
 //
 // XXX: We need to try our best to stay running after errors
 // XXX: - Auto-reconnect, with increasing backoff
+//
+// src/rrserver/fwdsp-mgr.c handles spawning and stopping (en|de)coders as needed
 //
 #include "build_config.h"
 #include <stdint.h>
@@ -43,6 +43,8 @@
 const char *config_file = NULL;
 const char *config_codec = "pc16";
 bool codec_tx_mode = false;
+bool config_stdio = false;		// use stdio instead of socket
+bool config_video = false;		// is this audio or video stream?
 bool dying = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
@@ -52,7 +54,7 @@ defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"gstreamer debug level" },
   { "log.level",	"debug",	"main log level" }, 
   { "log.show-ts",	"false",	"show timestamps in logs" },
-  { "test.key",		" 1",		"Test key" },
+  { "io.stdio",		"false",	"Use stdio for io instead of AF_UNIX socket" },
   { NULL,		NULL,		NULL }
 };
 
@@ -92,6 +94,33 @@ static GstElement *build_pipeline(const char *pipeline_str, int fd) {
    return gst_parse_launch(pipe_desc, NULL);
 }
 
+static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
+   if (sock_fd <= 0 || !cfg) {
+      return true;
+   }
+
+   // Inform the other side of our codec id, direction, and media type
+   int msg_wrote = 0;
+   char msgbuf[1024];
+   memset(msgbuf, 0, sizeof(msgbuf));
+   snprintf(msgbuf, sizeof(msgbuf), 
+      "{ \"media\": { \"cmd\": \"fwdsp\", \"codec-id\": \"%s\", \"my-pipeline\": \"%s\", \"type\": \"%s\", \"direction\": \"%s\" } }\r\n\r\n",
+      config_codec, cfg->pipeline, (cfg->media_type == FW_MEDIA_AUDIO ? "audio" : "video"), (cfg->media_direction == FW_DIR_SOURCE ? "tx" : "rx"));
+   size_t msg_len = strlen(msgbuf);
+
+   // Make sure we send the whole message
+   while (msg_wrote < msg_len) {
+      size_t this_write = write(sock_fd, &msgbuf, msg_len);
+      if (this_write > 0) {
+         msg_wrote += this_write;
+      } else {
+         Log(LOG_CRIT, "fwdsp", "Failed to write %d bytes of codec info: rv=%d (%d:%s)", msg_len, this_write, errno, strerror(errno));
+      }
+   }
+   Log(LOG_DEBUG, "fwdsp", "Wrote %d of %d bytes |%.*s|", msg_wrote, msg_len, (msg_len - 4), msgbuf);
+   return false;
+}
+
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       int sock_fd = -1;
@@ -116,11 +145,9 @@ static void run_loop(struct audio_config *cfg) {
          continue;
       }
 
-      // XXX: Inform the other side of our codec id
-      char msgbuf[1024];
-      memset(msgbuf, 0, sizeof(msgbuf));
-      snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"fwdsp\", \"codec-id\": \"%s\", \"my-pipeline\": \"%s\", \"type\": \"%s\", \"direction\": \"%s\" } }", config_codec, cfg->pipeline, (cfg->media_type == FW_MEDIA_AUDIO ? "audio" : "video"), (cfg->media_direction == FW_DIR_SOURCE ? "tx" : "rx"));
-      write(sock_fd, &msgbuf, sizeof(msgbuf));
+      // Send the codec information message, telling the backend what sort of data we can work with
+      send_codec_msg(sock_fd, cfg);
+
       // XXX: Blorp this over the connection
 /* XXX: Implement bus signals instead of polling
 GstBus *bus;
@@ -238,14 +265,14 @@ static void send_format_header(int fd, struct audio_config *cfg) {
 }
 
 int main(int argc, char *argv[]) {
-   printf("Starting fwdsp v.%s\n", VERSION);
+   fprintf(stderr, "Starting fwdsp v.%s\n", VERSION);
    host_init();
-   logfp = stdout;
+   logfp = stderr;
    log_level = LOG_DEBUG;
-
+   now = time(NULL);
 
    int opt;
-   while ((opt = getopt(argc, argv, "c:f:ht")) != -1) {
+   while ((opt = getopt(argc, argv, "c:f:hstv")) != -1) {
       switch (opt) {
          case 'c':
             size_t clen = strlen(optarg);
@@ -253,32 +280,39 @@ int main(int argc, char *argv[]) {
                fprintf(stderr, "Codec magic (-c) '%s' *must* be exactly 4 characters\n", optarg);
                exit(1);
             } else {
-               fprintf(stdout, "Setting codec magic to %s\n", optarg);
+               fprintf(stderr, "Setting codec magic to %s\n", optarg);
                config_codec = strdup(optarg);
             }
             break;
          case 'f':
             config_file = strdup(optarg);
             break;
+         case 's':
+            config_stdio = true;
+            break;
          case 't':
             codec_tx_mode = true;
+            break;
+         case 'v':
+            config_video = true;
             break;
          case 'h':
          default:
             fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-t]\n", argv[0]);
             fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
+            fprintf(stderr, "  -s\t\t\tstdio mode\n");
             fprintf(stderr, "  -t\t\t\tTransmit mode\n");
+            fprintf(stderr, "  -v\t\t\tVideo mode\n");
             exit(1);
       }
    }
 
-   // codec_mapping_t *au_codec_find_by_magic(magic);
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
-
    cfg_init(default_cfg, defcfg);
 
+   // If the user specified a config, apply it, else try to find one in a sane place
    if (config_file) {
       if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
@@ -320,6 +354,8 @@ int main(int argc, char *argv[]) {
       setenv("GST_DEBUG", cfg_audio_debug, 0);
    }
 
+   // codec_mapping_t *au_codec_find_by_magic(magic);
+
    struct audio_config au_cfg = {
       .pipeline = NULL,
       .sample_rate = 16000,
@@ -327,9 +363,6 @@ int main(int argc, char *argv[]) {
       .tx_mode = false,
       .channel_id = -1
    };
-
-   // unless set to video, treat it as audio frames
-   au_cfg.media_type = FW_MEDIA_AUDIO;
 
    // set sane defaults
    if (au_cfg.tx_mode) {
@@ -339,7 +372,6 @@ int main(int argc, char *argv[]) {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_RX;
       au_cfg.media_direction = FW_DIR_SOURCE;
    }
-
 
    if (au_cfg.channel_id < 0) {
       au_cfg.channel_id = 0;
@@ -352,13 +384,26 @@ int main(int argc, char *argv[]) {
 
    const char *cfg_pipeline = cfg_get(keybuf);
    if (cfg_pipeline) {
-      Log(LOG_DEBUG, "codec", "# %s", cfg_pipeline);
+      Log(LOG_DEBUG, "codec", "-> full pipeline:\t%s", cfg_pipeline);
       au_cfg.pipeline = cfg_pipeline;
    } else {
-      Log(LOG_CRIT, "fwdsp", "No pipeline configured");
+      Log(LOG_CRIT, "fwdsp", "No pipeline configured for codec id %s", config_codec);
       exit(1);
    }
 
+   const char *cfg_stdio_s = cfg_get("io.stdio");
+   if (config_stdio && strcasecmp(cfg_stdio_s, "true") == 0) {
+      config_stdio = true;
+   }
+
+   // unless set to video, treat it as audio frames
+   if (config_video) {
+      au_cfg.media_type = FW_MEDIA_VIDEO;
+   } else {
+      au_cfg.media_type = FW_MEDIA_AUDIO;
+   }
+
+   // set up gstreamer
    gst_init(&argc, &argv);
    gst_debug_add_log_function(gst_log_handler, NULL, NULL);
 
@@ -366,7 +411,7 @@ int main(int argc, char *argv[]) {
    do {
       now = time(NULL);
       run_loop(&au_cfg);
-      printf("Run took %li sec", (now - last_run));
+      fprintf(stderr, "Run took %li sec", (now - last_run));
       last_run = now;
    } while(au_cfg.persistent);
 
