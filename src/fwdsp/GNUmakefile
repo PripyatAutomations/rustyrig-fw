@@ -83,7 +83,6 @@ comm_objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 LDFLAGS += -lgpiod
 endif
 
-include ../../mk/rrserver.objs.mk
 include ../../mk/common.objs.mk
 
 fwdsp_objs += fwdsp-main.o
@@ -251,6 +250,3 @@ installdep:
 config/http.users:
 	@echo "*** You do not have a config/http.users so i've copied the default file from doc/"
 	cp -i doc/http.users.example config/http.users
-
-include ../../mk/git.mk
-include ../../mk/database.mk
