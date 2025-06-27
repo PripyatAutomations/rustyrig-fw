@@ -29,6 +29,7 @@
   - Allow auto-spawning encoders when a client requests a codec/rate
   - Cleanup and stop unused encoders
 	** This is in work as src/rrserver/fwdsp-mgr.c **
+* Start all decoder (RX) and leave them running, to prevent TX delays after extended idle
 
 [audio.recording]
 * Implement recordings and pass the recording ID to the ptt db log
