@@ -241,7 +241,9 @@ bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    // Kill the subprocess
    if (sp->pid > 0) {
       kill(sp->pid, SIGTERM);
-      usleep(100000); // give it a moment to die
+      const struct timespec ts = { .tv_sec = 1, .tv_nsec = 0 };
+      nanosleep(&ts, NULL);
+
       if (waitpid(sp->pid, NULL, WNOHANG) == 0) {
          kill(sp->pid, SIGKILL); // force kill if still alive
          waitpid(sp->pid, NULL, 0); // reap

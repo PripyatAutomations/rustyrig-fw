@@ -66,6 +66,10 @@ char *expand_path(const char *path) {
     #include <windows.h>
 
     const char *home = getenv("USERPROFILE");
+    if (!home || strlen(home) > 1024) {
+       return NULL;
+    }
+
     int home_allocated = 0;
     const char *drive = NULL;
     const char *path_part = NULL;
@@ -80,7 +84,7 @@ char *expand_path(const char *path) {
                 size_t path_len = strlen(path_part);
                 char *temp_home = malloc(drive_len + path_len + 1);
                 if (!temp_home) return NULL;
-                sprintf(temp_home, "%s%s", drive, path_part);
+                snprintf(temp_home, sizeof(temp_home), "%s%s", drive, path_part);
                 home = temp_home;
                 home_allocated = 1;
             } else {
@@ -136,19 +140,20 @@ char *find_file_by_list(const char *files[], int file_count) {
 
    for (int i = 0; i < file_count; i++) {
       if (files[i]) {
-         char *realpath = expand_path(files[i]);
-         if (!realpath) {
+         char *fullpath = expand_path(files[i]);
+
+         if (!fullpath) {
             continue;
          }
 
-         Log(LOG_INFO, "core", "ffbl: Trying %s", realpath);
-         if (file_exists(realpath)) {
-            Log(LOG_INFO, "core", "ffbl: Returning \"%s\"", realpath);
-            return realpath;
+         Log(LOG_INFO, "core", "ffbl: Trying %s", fullpath);
+         if (file_exists(fullpath)) {
+            Log(LOG_INFO, "core", "ffbl: Returning \"%s\"", fullpath);
+            return fullpath;
          } else {
-            Log(LOG_INFO, "core", "ffbl: file_exists(%s) returns false", realpath);
-            free(realpath);
-			continue;
+            Log(LOG_INFO, "core", "ffbl: file_exists(%s) returns false", fullpath);
+            free(fullpath);
+ 	    continue;
          }
       } else {
          fprintf(stderr, "ffbl: :( files[%d] is NULL in loop", i);

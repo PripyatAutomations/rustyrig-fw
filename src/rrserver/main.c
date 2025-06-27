@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
 
    // load config (posix hosts)
    int cfg_entries = (sizeof(configs) / sizeof(char *));
-   char *realpath = NULL;
+   char *fullpath = NULL;
 
    cfg_init(default_cfg, defcfg);
 
@@ -177,14 +177,14 @@ int main(int argc, char **argv) {
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
       }
-   } else if ((realpath =  find_file_by_list(configs, cfg_entries))) {
-      config_file = strdup(realpath);
-      if (!(cfg = cfg_load(realpath))) {
-         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", realpath);
+   } else if ((fullpath =  find_file_by_list(configs, cfg_entries))) {
+      config_file = strdup(fullpath);
+      if (!(cfg = cfg_load(fullpath))) {
+         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       } else {
-         Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);
+         Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
       }
-      free(realpath);
+      free(fullpath);
    } else {
      // Use default settings and save it to ~/.config/rrclient.cfg
      cfg = default_cfg;
@@ -378,7 +378,8 @@ int main(int argc, char **argv) {
       mg_mgr_poll(&mg_mgr, 0);
 #endif
 
-      usleep(100);
+      const struct timespec ts = { .tv_sec = 0, .tv_nsec = 100000 };
+      nanosleep(&ts, NULL);
 
       // If enabled, calculate loop run time
 #if	defined(USE_PROFILING)

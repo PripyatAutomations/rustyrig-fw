@@ -96,20 +96,20 @@ int main(int argc, char *argv[]) {
 
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
-   char *realpath = find_file_by_list(configs, cfg_entries);
+   char *fullpath = find_file_by_list(configs, cfg_entries);
 
    // Load the default configuration
    cfg_init(default_cfg, defcfg);
 
-   if (realpath) {
-      config_file = strdup(realpath);
-      if (!(cfg = cfg_load(realpath))) {
-         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", realpath);
+   if (fullpath) {
+      config_file = strdup(fullpath);
+      if (!(cfg = cfg_load(fullpath))) {
+         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       } else {
-         Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);
+         Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
       }
       empty_config = false;
-      free(realpath);
+      free(fullpath);
    } else {
      // Use default settings and save it to ~/.config/rrclient.cfg
      cfg = default_cfg;

@@ -279,16 +279,16 @@ int main(int argc, char *argv[]) {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
       }
    } else {
-      char *realpath = find_file_by_list(configs, cfg_entries);
-      if (realpath) {
-         config_file = strdup(realpath);
-         if (!(cfg = cfg_load(realpath))) {
-            Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", realpath);
+      char *fullpath = find_file_by_list(configs, cfg_entries);
+      if (fullpath) {
+         config_file = strdup(fullpath);
+         if (!(cfg = cfg_load(fullpath))) {
+            Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
          } else {
-            Log(LOG_DEBUG, "config", "Loaded config from '%s'", realpath);
+            Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
          }
          empty_config = false;
-         free(realpath);
+         free(fullpath);
       } else {
         // Use default settings and save it to ~/.config/rrclient.cfg
         cfg = default_cfg;
@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
         exit(1);
       }
       // unneeded unless new code added between here and inner else
-//      free(realpath);
+//      free(fullpath);
    }
 #if	0
    fprintf(stderr, "----- cfg -----\n");

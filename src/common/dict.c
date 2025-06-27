@@ -68,7 +68,6 @@ static char * xstrdup(char * s)
     return t ;
 }
 
-
 /**
   This hash function has been taken from an Article in Dr Dobbs Journal.
   There are probably better ones out there but this one does the job.

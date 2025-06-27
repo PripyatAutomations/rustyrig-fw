@@ -36,11 +36,11 @@ char *escape_html(const char *input) {
    char *p = output;
    for (size_t i = 0; i < len; i++) {
       switch (input[i]) {
-         case '<':  p += sprintf(p, "&lt;"); break;
-         case '>':  p += sprintf(p, "&gt;"); break;
-         case '&':  p += sprintf(p, "&amp;"); break;
-         case '"':  p += sprintf(p, "&quot;"); break;
-         case '\'': p += sprintf(p, "&#39;"); break;
+         case '<':  p += snprintf(p, (p - output), "&lt;"); break;
+         case '>':  p += snprintf(p, (p - output), "&gt;"); break;
+         case '&':  p += snprintf(p, (p - output), "&amp;"); break;
+         case '"':  p += snprintf(p, (p - output), "&quot;"); break;
+         case '\'': p += snprintf(p, (p - output), "&#39;"); break;
          default:   *p++ = input[i]; break;
       }
    }

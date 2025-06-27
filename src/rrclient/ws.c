@@ -79,7 +79,6 @@ struct ws_msg_routes ws_routes[] = {
 //   { .type = "alert",	.cb = on_ws_alert },
    { .type = "auth",	  .cb = ws_handle_auth_msg },
    { .type = "cat",	  .cb = ws_handle_rigctl_msg },
-//   { .type = "copdec",  .cb = on_ws_codec },
 //   { .type = "error",	 .cb = on_ws_error },
 //   { .type = "hello",	 .cb = on_ws_hello },
 //   { .type = "media",  .cb = on_ws_media },
@@ -90,6 +89,8 @@ struct ws_msg_routes ws_routes[] = {
 };
 ////
 
+/// We need to switch to using ws_txtframe_dispatch, which means we need to
+// strip down ws_txtframe_process into smaller callbacks
 static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *msg) {
    struct ws_msg_routes *rp = ws_routes;
    int i = 0;
