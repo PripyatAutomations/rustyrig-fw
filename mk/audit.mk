@@ -10,7 +10,7 @@ audit-cppcheck:
 	@echo "**********************"
 	@echo "*** cppcheck audit ***"
 	@echo "**********************"
-	which cppcheck && cppcheck -j8 --std=c11 -q -v src/ inc/ --check-level=exhaustive --force -I./inc/ --enable=warning,performance,portability --inline-suppr --checkers-report=cppcheck.report.txt --language=c
+	which cppcheck && cppcheck -j8 --std=c11 -q -v src/ inc/ --check-level=exhaustive --force -I./inc/ --enable=warning,performance,portability --inline-suppr --checkers-report=audit-logs/cppcheck.report.txt --language=c
 
 audit-flawfinder:
 	@echo "********************"

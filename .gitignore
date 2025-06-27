@@ -1,10 +1,14 @@
-cppcheck.report.txt
-build/*
-build/
+# auditing
+audit-logs/cppcheck.report.txt
 
 # logs
 testbuild.log
 firmware.log
+
+# build artifacts
+build/*
+build/
+
 
 # exported images
 images/*
@@ -34,4 +38,3 @@ state/*.pipe
 state/*.log
 state/*.tmp
 recordings/*.*
-

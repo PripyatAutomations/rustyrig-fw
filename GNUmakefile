@@ -15,7 +15,13 @@ subdirs += fwdsp
 endif
 
 
-all world clean deps distclean install:
+all world clean deps install:
+	@for i in ${subdirs}; do \
+	   ${MAKE} -C src/$$i $@; \
+	done
+
+distclean:
+	${RM} -f audit-logs/*
 	@for i in ${subdirs}; do \
 	   ${MAKE} -C src/$$i $@; \
 	done
