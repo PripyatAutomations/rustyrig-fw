@@ -58,8 +58,6 @@ defconfig_t defcfg[] = {
   { NULL,		NULL,		NULL }
 };
 
-static void send_format_header(int fd, struct audio_config *cfg);
-
 static int connect_unix_socket(const char *path) {
    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -104,8 +102,8 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
    char msgbuf[1024];
    memset(msgbuf, 0, sizeof(msgbuf));
    snprintf(msgbuf, sizeof(msgbuf), 
-      "{ \"media\": { \"cmd\": \"fwdsp\", \"codec-id\": \"%s\", \"my-pipeline\": \"%s\", \"type\": \"%s\", \"direction\": \"%s\" } }\r\n\r\n",
-      config_codec, cfg->pipeline, (cfg->media_type == FW_MEDIA_AUDIO ? "audio" : "video"), (cfg->media_direction == FW_DIR_SOURCE ? "tx" : "rx"));
+      "{ \"media\": { \"cmd\": \"fwdsp\", \"version\": \"%s\", \"codec-id\": \"%s\", \"gst-pipeline\": \"%s\", \"type\": \"%s\", \"direction\": \"%s\" } }\r\n\r\n",
+      VERSION, config_codec, cfg->pipeline, (cfg->media_type == FW_MEDIA_AUDIO ? "audio" : "video"), (cfg->media_direction == FW_DIR_TX ? "tx" : "rx"));
    size_t msg_len = strlen(msgbuf);
 
    // Make sure we send the whole message
@@ -160,7 +158,6 @@ g_signal_connect (bus, "message::error", G_CALLBACK (cb_message_error), NULL);
 g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
 */
 
-//      send_format_header(sock_fd, cfg);
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
          g_printerr("Failed to set pipeline to PLAYING state.\n");
@@ -252,18 +249,6 @@ static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level,
    g_printerr("GST %s: %s\n", gst_debug_level_get_name(level), gst_debug_message_get(message));
 }
 
-// XXX: Finish this
-static void send_format_header(int fd, struct audio_config *cfg) {
-   struct audio_header hdr = {
-      .magic = {'M', 'U', '1', '6'},
-//      .sample_rate = (cfg->sample_rate == 44100) ? 1 : 0,
-      .sample_rate = (cfg->sample_rate),
-//      .format = (uint8_t)cfg->format,
-      .channel_id = (uint8_t)cfg->channel_id
-   };
-   write(fd, &hdr, sizeof(hdr));
-}
-
 int main(int argc, char *argv[]) {
    fprintf(stderr, "Starting fwdsp v.%s\n", VERSION);
    host_init();
@@ -340,11 +325,6 @@ int main(int argc, char *argv[]) {
       // unneeded unless new code added between here and inner else
 //      free(fullpath);
    }
-#if	0
-   fprintf(stderr, "----- cfg -----\n");
-   dict_dump(cfg, stderr);
-   fprintf(stderr, "----- @<%x> -----\n", cfg);
-#endif
    logger_init();
 
    // Set up some debugging
@@ -367,10 +347,10 @@ int main(int argc, char *argv[]) {
    // set sane defaults
    if (au_cfg.tx_mode) {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_TX;
-      au_cfg.media_direction = FW_DIR_SINK;
+      au_cfg.media_direction = FW_DIR_TX;
    } else {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_RX;
-      au_cfg.media_direction = FW_DIR_SOURCE;
+      au_cfg.media_direction = FW_DIR_RX;
    }
 
    if (au_cfg.channel_id < 0) {

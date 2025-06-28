@@ -28,8 +28,8 @@ struct audio_config {
    } media_type;
    enum {
      FW_DIR_NONE = 0,
-     FW_DIR_SINK,		// Media we are RECEIVING
-     FW_DIR_SOURCE		// Media we are SENDING
+     FW_DIR_RX	,		// Media we are RECEIVING
+     FW_DIR_TX			// Media we are SENDING
    } media_direction;
 };
 

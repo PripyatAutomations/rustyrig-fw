@@ -25,13 +25,12 @@
 #include "common/codecneg.h"
 #include "rrserver/fwdsp-mgr.h"
 
-// Some defaults
 defconfig_t defcfg_fwdsp[] = {
    { "codecs.allowed", 	"pc16 mu16 mu08",	"Preferred codecs" },
 #ifdef _WIN32
-   { "fwdsp.path",	"fwdsp",			"Path to fwdsp binary" },
+   { "fwdsp.path",	"fwdsp.exe",		"Path to fwdsp binary" },
 #else
-   { "fwdsp.path",	"fwdsp",			"Path to fwdsp binary" },
+   { "fwdsp.path",	"fwdsp",		"Path to fwdsp binary" },
 #endif
    { "subproc.max",	"16",			"Maximum allowed de/encoder processes" },
    { "subproc.debug",	"false",		"Show extra debug messages" },
@@ -39,13 +38,11 @@ defconfig_t defcfg_fwdsp[] = {
    { NULL,		NULL,			NULL }
 };
 
-////////////
-
 dict *fwdsp_cfg = NULL;
 bool fwdsp_mgr_ready = false;
 static int active_slots = 0;
 static int max_subprocs = 0;
-struct fwdsp_subproc	*fwdsp_subprocs;
+static struct fwdsp_subproc *fwdsp_subprocs;
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
    Log(LOG_INFO, "fwdsp", "Pipeline %.*s exited (status=%d)", 4, sp->pl_id, status);
@@ -53,7 +50,8 @@ static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
 }
 
 static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
-void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb) {
+
+static void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb) {
    on_fwdsp_exit = cb;
 }
 
@@ -61,6 +59,7 @@ static void fwdsp_sigchld(int sig) {
    (void)sig;
    int status;
    pid_t pid;
+
    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
       for (int i = 0; i < max_subprocs; i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
@@ -84,6 +83,7 @@ bool fwdsp_init(void) {
 
    const char *max_subprocs_s = dict_get(fwdsp_cfg, "subproc.max", "4");
    max_subprocs = 0;
+
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
    } else {
@@ -110,13 +110,13 @@ bool fwdsp_init(void) {
    };
    sigemptyset(&sa.sa_mask);
    sigaction(SIGCHLD, &sa, NULL);
-   fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);  // registers your callback
+   fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
 
    fwdsp_mgr_ready = true;
    return false;
 }
 
-int fwdsp_find_offset(const char *id) {
+static int fwdsp_find_offset(const char *id) {
    if (id == NULL) {
       return -1;
    }
@@ -139,7 +139,7 @@ int fwdsp_find_offset(const char *id) {
    return -1;
 }
 
-struct fwdsp_subproc *fwdsp_find_instance(const char *id) {
+static struct fwdsp_subproc *fwdsp_find_instance(const char *id) {
    if (id == NULL) {
       return NULL;
    }
@@ -166,7 +166,7 @@ struct fwdsp_subproc *fwdsp_find_instance(const char *id) {
    return NULL;
 }
 
-struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
+static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
    if (id == NULL) { 
       Log(LOG_CRIT, "fwdsp", "create: Invalid parameters: id:<%x>", id);
       return NULL;
@@ -224,7 +224,7 @@ struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, b
    return NULL;
 }
 
-struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
+static struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(id);
 
    if (!sp) {
@@ -233,7 +233,7 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
    return sp;
 }
 
-bool fwdsp_destroy(struct fwdsp_subproc *sp) {
+static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    if (!sp || sp->pl_id[0] == '\0') {
       return true;
    }
@@ -267,7 +267,7 @@ bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    return true;
 }
 
-bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path) {
+static bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path) {
    if (!sp || !path || !*path) return false;
 
    int in_pipe[2], out_pipe[2], err_pipe[2];
