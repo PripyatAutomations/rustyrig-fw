@@ -119,16 +119,23 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
    return false;
 }
 
+#define STDIN_FD  0
+#define STDOUT_FD 1
+
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       int sock_fd = -1;
 
-      while (sock_fd < 0) {
-         sock_fd = connect_unix_socket(cfg->sock_path);
-
-         if (sock_fd < 0) {
-            fprintf(stderr, "fwdsp: Waiting for socket connection...\n");
-            sleep(1);
+      if (config_stdio) {
+         sock_fd = (cfg->media_direction == FW_DIR_TX) ? STDOUT_FD : STDIN_FD;
+         Log(LOG_DEBUG, "fwdsp", "Using stdio FD=%d for %s", sock_fd, (cfg->media_direction == FW_DIR_TX ? "TX" : "RX"));
+      } else {
+         while (sock_fd < 0) {
+            sock_fd = connect_unix_socket(cfg->sock_path);
+            if (sock_fd < 0) {
+               fprintf(stderr, "fwdsp: Waiting for socket connection...\n");
+               sleep(1);
+            }
          }
       }
 
@@ -236,7 +243,9 @@ g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
 
       gst_object_unref(bus);
       cleanup_pipeline(&pipeline);
-      close(sock_fd);
+      if (!config_stdio) {
+         close(sock_fd);
+      }
    }
 
    sleep(1);
