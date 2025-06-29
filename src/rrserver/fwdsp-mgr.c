@@ -306,7 +306,7 @@ static bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path) {
          dup2(sock_pair[1], 2);
          close(sock_pair[0]);
       }
-      execl(path, path, sp->pipeline, NULL);
+      execl(path, path, sp->pipeline, "-s", NULL);
       perror("execl");
       _exit(127);
    }

@@ -127,6 +127,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
          Log(LOG_DEBUG, "ws.media", "Got CAPAB from server: %s", media_payload);
       } else {
          Log(LOG_DEBUG, "ws.media," ">> Unknown media.cmd: %s, .payload: %s", media_cmd, media_payload);
+         goto local_cleanup;
       }
       // XXX: We should compare server advertised codecs to our preferred list here
       const char *preferred = cfg_get("codecs.allowed");
@@ -136,6 +137,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       } else {
          Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
       }
+local_cleanup:
       free(negotiated_codecs);
       free(media_cmd);
       free(media_payload);

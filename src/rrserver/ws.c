@@ -314,6 +314,28 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
         } else {
            Log(LOG_CRIT, "ws.media", "media.capab without payload");
         }
+     } else if (strcasecmp(media_cmd, "codec") == 0) {
+        char *media_codec = mg_json_get_str(msg_data, "$.media.codec");
+        char *media_channel = mg_json_get_str(msg_data, "$.media.channel");
+
+        if (media_codec && strlen(media_codec) == 4) {
+           if (media_channel) {
+              if (strcasecmp(media_channel, "tx") == 0) {
+                memset(cptr->codec_tx, 0, sizeof(cptr->codec_tx));
+                memcpy(cptr->codec_tx, media_codec, 4);
+              } else if (strcasecmp(media_channel, "rx") == 0) {
+                memset(cptr->codec_rx, 0, sizeof(cptr->codec_rx));
+                memcpy(cptr->codec_rx, media_codec, 4);
+              } else if (strcasecmp(media_channel, "video-rx") == 0) {
+                // NYI
+              } else if (strcasecmp(media_channel, "video-tx") == 0) {
+                // NYI
+              }
+              Log(LOG_DEBUG, "ws.media", "Selected codec for cptr:<%x> -- %s %s", cptr, media_channel, media_codec);
+           }
+        }
+        free(media_codec);
+        free(media_channel);
      }
      free(media_cmd);
      free(media_payload);

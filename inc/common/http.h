@@ -110,6 +110,7 @@ struct http_client {
        CONN_AUDIO_RX,		// RX audio
        CONN_AUDIO_TX		// TX audio
     } connection_type;
+    char   codec_rx[5], codec_tx[5];		// 4 byte ID of the codec for each audio direction
     // This is a little ugly, but this stores pointers to the users associated with elmer/noob system
     union {
        struct http_client *elmers[HTTP_MAX_ELMERS];	// pointer(s) to elmers who have accepted to babysit user (if noob)
