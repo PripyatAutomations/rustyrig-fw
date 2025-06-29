@@ -139,7 +139,7 @@ static void run_loop(struct audio_config *cfg) {
          }
       }
 
-      printf("connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
+      fprintf(stderr, "connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
       pipeline = build_pipeline(cfg->pipeline, sock_fd);
 
       if (!pipeline) {

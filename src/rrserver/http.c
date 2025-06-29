@@ -518,9 +518,16 @@ bool http_init(struct mg_mgr *mgr) {
       tls_bind_port = eeprom_get_int("net/http/tls_port");
 #endif
    }
-   char tls_listen_addr[255];
-   prepare_msg(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_bind), tls_bind_port);
 
+   struct in_addr sa_tls_bind;
+   s = cfg_get("net.http.tls-bind");
+   if (!s || !inet_aton(s, &sa_tls_bind)) {
+#if	defined(USE_EEPROM)
+      eeprom_get_ip4("net/http/bind", &sa_tls_bind);
+#endif
+   }
+   char tls_listen_addr[255];
+   prepare_msg(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_tls_bind), tls_bind_port);
    http_tls_init();
 
    if (mg_http_listen(mgr, tls_listen_addr, http_cb, (void *)1) == NULL) {

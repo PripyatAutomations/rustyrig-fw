@@ -79,23 +79,54 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       snprintf(tmp.name, sizeof(tmp.name), "%s", user);
       snprintf(tmp.privs, sizeof(tmp.privs), "%s", privs);
 
-      if (tx) tmp.is_ptt = true;
-      if (muted && strcasecmp(muted, "true") == 0) tmp.is_muted = true;
+      if (tx) {
+         tmp.is_ptt = true;
+      }
 
-      if (has_privs(&tmp, "admin")) set_flag(&tmp, FLAG_ADMIN);
-      else if (has_privs(&tmp, "owner")) set_flag(&tmp, FLAG_OWNER);
+      if (muted && strcasecmp(muted, "true") == 0) {
+         tmp.is_muted = true;
+      }
+
+      if (has_privs(&tmp, "admin")) {
+         set_flag(&tmp, FLAG_ADMIN);
+      } else if (has_privs(&tmp, "owner")) {
+         set_flag(&tmp, FLAG_OWNER);
+      }
+
       if (has_privs(&tmp, "muted")) {
          set_flag(&tmp, FLAG_MUTED);
          tmp.is_muted = true;
       }
-      if (has_privs(&tmp, "ptt")) set_flag(&tmp, FLAG_PTT);
-      if (has_privs(&tmp, "subscriber")) set_flag(&tmp, FLAG_SUBSCRIBER);
-      if (has_privs(&tmp, "elmer")) set_flag(&tmp, FLAG_ELMER);
-      else if (has_privs(&tmp, "noob")) set_flag(&tmp, FLAG_NOOB);
-      if (has_privs(&tmp, "bot")) set_flag(&tmp, FLAG_SERVERBOT);
-      if (has_privs(&tmp, "listener")) set_flag(&tmp, FLAG_LISTENER);
-      if (has_privs(&tmp, "syslog")) set_flag(&tmp, FLAG_SYSLOG);
-      if (has_privs(&tmp, "tx")) set_flag(&tmp, FLAG_CAN_TX);
+
+      if (has_privs(&tmp, "ptt")) {
+         set_flag(&tmp, FLAG_PTT);
+      }
+
+      if (has_privs(&tmp, "subscriber")) {
+         set_flag(&tmp, FLAG_SUBSCRIBER);
+      }
+
+      if (has_privs(&tmp, "elmer")) {
+         set_flag(&tmp, FLAG_ELMER);
+      } else if (has_privs(&tmp, "noob")) {
+         set_flag(&tmp, FLAG_NOOB);
+      }
+
+      if (has_privs(&tmp, "bot")) {
+         set_flag(&tmp, FLAG_SERVERBOT);
+      }
+
+      if (has_privs(&tmp, "listener")) {
+         set_flag(&tmp, FLAG_LISTENER);
+      }
+
+      if (has_privs(&tmp, "syslog")) {
+         set_flag(&tmp, FLAG_SYSLOG);
+      }
+
+      if (has_privs(&tmp, "tx")) {
+         set_flag(&tmp, FLAG_CAN_TX);
+      }
 
       if (!userlist_add_or_update(&tmp)) {
          Log(LOG_CRIT, "ws", "OOM in ws_handle_talk_msg");
