@@ -14,6 +14,8 @@
 // XXX: We need to try our best to stay running after errors
 // XXX: - Auto-reconnect, with increasing backoff
 //
+// BUGS: A gstreamer wizard could certainly make this a lot better.. Feel free to jump in! ;)
+//
 // src/rrserver/fwdsp-mgr.c handles spawning and stopping (en|de)coders as needed
 //
 #include "build_config.h"
@@ -42,7 +44,7 @@
 
 const char *config_file = NULL;
 const char *config_codec = "pc16";
-bool codec_tx_mode = false;
+bool codec_tx_mode  = false;
 bool config_stdio = false;		// use stdio instead of socket
 bool config_video = false;		// is this audio or video stream?
 bool dying = false;
@@ -349,7 +351,7 @@ int main(int argc, char *argv[]) {
       .pipeline = NULL,
       .sample_rate = 16000,
       .format = 0,
-      .tx_mode = false,
+      .tx_mode = codec_tx_mode,
       .channel_id = -1
    };
 
