@@ -121,6 +121,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       Log(LOG_DEBUG, "ws.media", "msg_data: %s", msg_data);
       char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
       char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
+      char *negotiated_codecs = NULL;
 
       // Parse the server's capab string and 
       if (media_cmd && strcasecmp(media_cmd, "capab") == 0) {
@@ -131,7 +132,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       }
       // XXX: We should compare server advertised codecs to our preferred list here
       const char *preferred = cfg_get("codecs.allowed");
-      char *negotiated_codecs = codec_filter_common(preferred, media_payload);
+      negotiated_codecs = codec_filter_common(preferred, media_payload);
       if (negotiated_codecs) {
          ws_send_capab(c, negotiated_codecs);
       } else {
@@ -310,7 +311,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       const char *login_user = get_server_property(active_server, "server.user");
       ws_connected = true;
       update_connection_button(true, conn_button);
-      ui_print("[%s] Connection Upgraded to WebSocket", get_chat_ts());
+      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-active");
       gtk_style_context_remove_class(ctx, "ptt-idle");

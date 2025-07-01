@@ -95,7 +95,7 @@ void show_network_info(void) {
 #endif
    }
    int tls_bind_port = 0;
-   s = cfg_get("net.http.tls_port");
+   s = cfg_get("net.http.tls-port");
    if (s) {
       tls_bind_port = atoi(s);
 #if	defined(USE_EEPROM)

@@ -177,7 +177,7 @@ static bool hl_init(void) {
       return true;
    }
 
-   const char *cfg_hamlib_port = cfg_get("backend.hamlib_port");
+   const char *cfg_hamlib_port = cfg_get("backend.hamlib-port");
 
    // XXX: Is this needed or is the simpler code OK?
 /*

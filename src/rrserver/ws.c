@@ -293,7 +293,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
      Log(LOG_DEBUG, "ws.media", "Parsing ws.media command %s", cmd);
 
      // all packets need a command
-     if (!cmd) {
+     if (!media_cmd) {
         result = true;
         goto cleanup;
      }

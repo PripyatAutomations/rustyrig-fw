@@ -8,6 +8,7 @@ log.level=crazy
 ;ui.show-pings=false
 # If we want to autoconnect to a server, name it here.
 server.auto-connect=home
+codecs.allowed=pc16 mu16 mu08
 default.volume.rx=50
 default.tx.power=50
 audio.debug=*:3

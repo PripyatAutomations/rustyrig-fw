@@ -199,7 +199,6 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    return false;
 }
 
-
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
 
@@ -272,7 +271,8 @@ static guint configure_event_timeout = 0;
 static int last_x = -1, last_y = -1, last_w = -1, last_h = -1;
 
 static gboolean on_configure_timeout(gpointer data) {
-   Log(LOG_DEBUG, "gtk-ui", "Window moved/resized: x=%d y=%d width=%d height=%d", last_x, last_y, last_w, last_h);
+   GtkWidget *window = (GtkWidget *)data;
+   Log(LOG_DEBUG, "gtk-ui", "Window id:<%x> moved/resized: x=%d y=%d width=%d height=%d", window, last_x, last_y, last_w, last_h);
    configure_event_timeout = 0;
    return G_SOURCE_REMOVE;
 }
@@ -326,7 +326,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
          sprintf(m, "%d", e->height);
          dict_add(cfg, "ui.main.height", m);
       }
-      configure_event_timeout = g_timeout_add(300, on_configure_timeout, NULL);
+      configure_event_timeout = g_timeout_add(300, on_configure_timeout, widget);
    }
    return FALSE;
 }
@@ -426,7 +426,6 @@ static GtkWidget *init_config_tab(void) {
 }
 
 ///////////////////////////////
-
 bool gui_init(void) {
    css_provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css_provider,
@@ -443,6 +442,8 @@ bool gui_init(void) {
 
    input_history = g_ptr_array_new_with_free_func(g_free);
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   Log(LOG_INFO, "gtk", "main_window has id:<%x>", main_window);
+
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 
    const char *s = NULL;
@@ -597,7 +598,6 @@ bool gui_init(void) {
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    Log(LOG_CRAZY, "gtk", "mainwin on add callback focus in");
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
-
 
    const char *cfg_ontop_s = cfg_get("ui.main.on-top");
    const char *cfg_raised_s = cfg_get("ui.main.raised");

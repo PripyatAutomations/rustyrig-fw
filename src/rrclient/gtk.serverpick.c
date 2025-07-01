@@ -92,6 +92,7 @@ void show_server_chooser(void) {
    }
 
    GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   Log(LOG_INFO, "gtk", "serverpicker_window has id:<%x>", win);
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *list = gtk_tree_view_new();
    GtkListStore *store = gtk_list_store_new(1, G_TYPE_STRING);

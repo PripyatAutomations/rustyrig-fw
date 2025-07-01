@@ -197,7 +197,7 @@ char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
 
    char msgbuf[1024];
    snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"payload\": \"%s\" } }", filtered);
-   Log(LOG_DEBUG, "codecneg", "Returning capab string: %s", msgbuf);
+   Log(LOG_CRAZY, "codecneg", "codecneg_send_supported: Returning capab string: %s", msgbuf);
 
    free(filtered);
    return strdup(msgbuf);

@@ -443,8 +443,8 @@ bool http_init(struct mg_mgr *mgr) {
    }
 
 
-   const char *cfg_www_root = cfg_get("net.http.www_root");
-   const char *cfg_404_path = cfg_get("net.http.404_path");
+   const char *cfg_www_root = cfg_get("net.http.www-root");
+   const char *cfg_404_path = cfg_get("net.http.404-path");
 
 #if	defined(USE_EEPROM)
    if (!cfg_www_root) {
@@ -510,7 +510,7 @@ bool http_init(struct mg_mgr *mgr) {
 
 #if	defined(HTTP_USE_TLS)
    int tls_bind_port = 0;
-   s = cfg_get("net.http.tls_port");
+   s = cfg_get("net.http.tls-port");
    if (s) {
       tls_bind_port = atoi(s);
 #if	defined(USE_EEPROM)
