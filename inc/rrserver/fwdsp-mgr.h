@@ -20,6 +20,8 @@ struct fwdsp_subproc {
    char		pl_id[5];	// pipeline ID
    char         pipeline[1024];  // pipeline string
    bool		is_tx;		// Is this a TX channel?
+   int refcount;
+   time_t cleanup_deadline;  // 0 means no timer set
    int chan_id;      // Unique channel ID for this subprocess
    enum fwdsp_io_type io_type;	// instance io type
    //// Only one of these will be used, either stdin/stdout/stderr or unix_sock depending on above io_type
@@ -43,5 +45,7 @@ typedef void (*fwdsp_exit_cb_t)(struct fwdsp_subproc *sp, int status);
 extern bool ws_send_capab(struct mg_connection *c);
 extern bool fwdsp_spawn(struct fwdsp_subproc *sp, bool tx_mode);
 extern int fwdsp_get_chan_id(const char *magic, bool is_tx);
+extern void fwdsp_sweep_expired(void);
+extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);
 
 #endif	// !defined(__rr_fwdsp_mgr_h)

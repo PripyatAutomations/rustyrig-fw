@@ -320,6 +320,7 @@ bool ws_send_capab(struct mg_connection *c) {
    free(capab_msg);
    return false;
 }
+
 struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode) {
    if (!codec_list || !*codec_list) return NULL;
 
@@ -353,4 +354,52 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
 int fwdsp_get_chan_id(const char *magic, bool is_tx) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(magic, is_tx);
    return (sp) ? sp->chan_id : -1;
+}
+
+void fwdsp_sweep_expired(void) {
+   time_t now = time(NULL);
+   for (int i = 0; i < max_subprocs; i++) {
+      struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+      if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 && now >= sp->cleanup_deadline) {
+         Log(LOG_INFO, "fwdsp", "Cleaning up idle pipeline %.*s", 4, sp->pl_id);
+         fwdsp_destroy(sp);
+      }
+   }
+}
+
+int fwdsp_codec_start(enum au_codec id, bool is_tx) {
+   au_codec_mapping_t *c = au_codec_by_id(id);
+   if (!c || !c->magic) return -1;
+
+   if (c->refcount == 0) {
+      struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, is_tx);
+      if (!sp || !fwdsp_spawn(sp, is_tx)) {
+         Log(LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s", c->magic);
+         return -1;
+      }
+   }
+
+   return au_codec_start(id, is_tx);
+}
+
+int fwdsp_codec_stop(enum au_codec id, bool is_tx) {
+   au_codec_mapping_t *c = au_codec_by_id(id);
+   if (!c || !c->magic) return -1;
+
+   int rc = au_codec_stop(id, is_tx);
+   if (rc < 0) return rc;
+
+   if (c->refcount == 0) {
+      struct fwdsp_subproc *sp = fwdsp_find_instance(c->magic, is_tx);
+      if (sp) {
+         const char *hangtime_s = cfg_get("fwdsp.hangtime");
+         int hangtime = hangtime_s ? atoi(hangtime_s) : 5;
+         if (hangtime > 0)
+            sp->cleanup_deadline = time(NULL) + hangtime;
+         else
+            fwdsp_destroy(sp);
+      }
+   }
+
+   return 0;
 }

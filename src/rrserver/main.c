@@ -41,6 +41,7 @@
 #include "rrserver/usb.h"
 #include "rrserver/dds.h"
 #include "rrserver/database.h"
+#include "rrserver/fwdsp-mgr.h"
 #include "common/config-paths.h"
 
 //
@@ -348,6 +349,9 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
       au_unix_socket_poll();
+
+      // deal with timed out en/decoders
+      fwdsp_sweep_expired();
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from

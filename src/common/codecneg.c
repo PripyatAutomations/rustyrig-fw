@@ -123,32 +123,22 @@ uint32_t au_codec_get_samplerate(int id) {
    return 0;
 }
 
-int au_codec_start(enum au_codec id) {
+int au_codec_start(enum au_codec id, bool is_tx) {
    au_codec_mapping_t *c = au_codec_by_id(id);
    if (!c) return -1;
 
-   if (c->refcount == 0) {
-      Log(LOG_INFO, "codec", "Starting pipeline for codec %s", c->magic);
-      // spawn process or set up encoder instance here
-      // e.g., c->pid = fork(); exec pipeline
-      // OR: open pipe/socket/etc
-      c->running = 1;
-   }
+   if (c->refcount == 0)
+      Log(LOG_INFO, "codec", "Starting codec %s (tx=%d)", c->magic, is_tx);
+
    c->refcount++;
    return 0;
 }
 
-int au_codec_stop(enum au_codec id) {
+int au_codec_stop(enum au_codec id, bool is_tx) {
    au_codec_mapping_t *c = au_codec_by_id(id);
    if (!c || c->refcount == 0) return -1;
 
    c->refcount--;
-   if (c->refcount == 0 && c->running) {
-      Log(LOG_INFO, "codec", "Stopping pipeline for codec %s", c->magic);
-      // kill encoder or close pipe/socket
-      // e.g., kill(c->pid, SIGTERM);
-      c->running = 0;
-   }
    return 0;
 }
 

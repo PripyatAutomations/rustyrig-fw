@@ -83,5 +83,7 @@ extern char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs);
 extern char *codec_filter_common(const char *preferred, const char *available);
 extern int codec_assign_channel_id(au_codec_mapping_t *codec, bool tx);
 extern au_codec_mapping_t      au_core_codecs[];
+extern int au_codec_start(enum au_codec id, bool is_tx);
+extern int au_codec_stop(enum au_codec id, bool is_tx);
 
 #endif	// !defined(__common_codecneg_h)
