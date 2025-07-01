@@ -43,6 +43,7 @@ bool fwdsp_mgr_ready = false;
 static int active_slots = 0;
 static int max_subprocs = 0;
 static struct fwdsp_subproc *fwdsp_subprocs;
+static int next_channel_id = 1;
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
    Log(LOG_INFO, "fwdsp", "Pipeline %.*s exited (status=%d)", 4, sp->pl_id, status);
@@ -98,7 +99,7 @@ bool fwdsp_init(void) {
    }
 
    fwdsp_subprocs = calloc(max_subprocs + 1, sizeof(struct fwdsp_subproc));
-   if (fwdsp_subprocs != NULL) {
+   if (!fwdsp_subprocs) {
       // OOM:
       fprintf(stderr, "OOM in fwdsp_init\n");
       exit(1);
@@ -116,54 +117,21 @@ bool fwdsp_init(void) {
    return false;
 }
 
-static int fwdsp_find_offset(const char *id) {
-   if (id == NULL) {
-      return -1;
-   }
+static int fwdsp_find_offset(const char *id, bool is_tx) {
+   if (!id || max_subprocs <= 0) return -1;
 
-   if (max_subprocs <= 0) {
-      Log(LOG_CRIT, "fwdsp", "You need to set fwdsp:subproc.max!");
-      return -1;
-    }
-   
    for (int i = 0; i < max_subprocs; i++) {
-      if ((fwdsp_subprocs[i].pl_id[0] == id[0]) &&
-          (fwdsp_subprocs[i].pl_id[1] == id[1]) &&
-          (fwdsp_subprocs[i].pl_id[2] == id[2]) &&
-          (fwdsp_subprocs[i].pl_id[3] == id[3])) {
-
-         Log(LOG_DEBUG, "fwdsp", "fwdsp_find_instance: Matched offset %d with pipeline ID %.*s", 4, i, fwdsp_subprocs[i].pl_id);
+      if (strncmp(id, fwdsp_subprocs[i].pl_id, 4) == 0 &&
+          fwdsp_subprocs[i].is_tx == is_tx) {
          return i;
-       }
+      }
    }
    return -1;
 }
 
-static struct fwdsp_subproc *fwdsp_find_instance(const char *id) {
-   if (id == NULL) {
-      return NULL;
-   }
-
-   if (max_subprocs <= 0) {
-      Log(LOG_CRIT, "fwdsp", "You need to set fwdsp:subproc.max!");
-      return NULL;
-    }
-   
-   int i = fwdsp_find_offset(id);
-
-   if (i < 0) {
-      Log(LOG_CRIT, "fwdsp", "Couldn't find match for pipeline id %.*s", 4, id);
-      return NULL;
-   }
-
-   if ((fwdsp_subprocs[i].pl_id[0] == id[0]) &&
-       (fwdsp_subprocs[i].pl_id[1] == id[1]) &&
-       (fwdsp_subprocs[i].pl_id[2] == id[2]) &&
-       (fwdsp_subprocs[i].pl_id[3] == id[3])) {
-      Log(LOG_DEBUG, "fwdsp", "fwdsp_find_instance: Matched %.*s", 4, fwdsp_subprocs[i].pl_id);
-      return &fwdsp_subprocs[i];
-    }
-   return NULL;
+static struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx) {
+   int i = fwdsp_find_offset(id, is_tx);
+   return (i >= 0) ? &fwdsp_subprocs[i] : NULL;
 }
 
 static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
@@ -179,7 +147,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
 
    // Find the fwdsp path
    const char *fwdsp_path = dict_get(fwdsp_cfg, "fwdsp.path", NULL);
-   if (!fwdsp_path || fwdsp_path[0] != '\0') {
+   if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set fwdsp:fwdsp.path to point at fwdsp bin");
       return NULL;
    }
@@ -197,6 +165,8 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          memset(sp, 0, sizeof(struct fwdsp_subproc));
          // Fill the struct
          memcpy(sp->pl_id, id, 4);
+         sp->is_tx = is_tx;
+         sp->chan_id = next_channel_id++;
 
 #if	0
          // Find the appropriate pipeline and copy it in
@@ -217,6 +187,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
             case FW_IO_NONE:
                break;
          }
+         fwdsp_spawn(sp, is_tx);
          return sp;
       }
    }
@@ -225,7 +196,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
 }
 
 static struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
-   struct fwdsp_subproc *sp = fwdsp_find_instance(id);
+   struct fwdsp_subproc *sp = fwdsp_find_instance(id, is_tx);
 
    if (!sp) {
       sp = fwdsp_create(id, io_type, is_tx);
@@ -267,8 +238,10 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    return true;
 }
 
-static bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path) {
-   if (!sp || !path || !*path) return false;
+bool fwdsp_spawn(struct fwdsp_subproc *sp, bool tx_mode) {
+   if (!sp) {
+      return false;
+   }
 
    int in_pipe[2], out_pipe[2], err_pipe[2];
    int sock_pair[2];
@@ -291,6 +264,12 @@ static bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path) {
       return false;
    }
 
+   const char *fwdsp_path = dict_get(fwdsp_cfg, "fwdsp.path", NULL);
+   if (!fwdsp_path || fwdsp_path[0] == '\0') {
+      Log(LOG_CRIT, "fwdsp", "You must set fwdsp:fwdsp.path to point at fwdsp bin");
+      return NULL;
+   }
+
    if (pid == 0) {
       // Child
       if (sp->io_type == FW_IO_STDIO) {
@@ -306,7 +285,12 @@ static bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path) {
          dup2(sock_pair[1], 2);
          close(sock_pair[0]);
       }
-      execl(path, path, sp->pipeline, "-s", NULL);
+      // Pass -s so we are hooked to stdio
+      if (tx_mode) {
+         execl(fwdsp_path, fwdsp_path, "-c", sp->pl_id, "-s", "-t", NULL);
+      } else {
+         execl(fwdsp_path, fwdsp_path, "-c", sp->pl_id, "-s", NULL);
+      }
       perror("execl");
       _exit(127);
    }
@@ -335,4 +319,38 @@ bool ws_send_capab(struct mg_connection *c) {
    Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
    free(capab_msg);
    return false;
+}
+struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode) {
+   if (!codec_list || !*codec_list) return NULL;
+
+   char *tmp = strdup(codec_list);
+   if (!tmp) return NULL;
+
+   char *saveptr = NULL;
+   char *token = strtok_r(tmp, " ", &saveptr);
+   while (token) {
+      au_codec_mapping_t *c = au_codec_find_by_magic(token);
+      if (c && c->magic) {
+         struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, tx_mode);
+         if (sp && !sp->pid) {
+            if (!fwdsp_spawn(sp, tx_mode)) {
+               Log(LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s", token);
+               fwdsp_destroy(sp);
+               sp = NULL;
+            }
+         }
+         free(tmp);
+         return sp;
+      }
+      token = strtok_r(NULL, " ", &saveptr);
+   }
+
+   free(tmp);
+   Log(LOG_CRIT, "fwdsp", "No usable codecs found in list: %s", codec_list);
+   return NULL;
+}
+
+int fwdsp_get_chan_id(const char *magic, bool is_tx) {
+   struct fwdsp_subproc *sp = fwdsp_find_instance(magic, is_tx);
+   return (sp) ? sp->chan_id : -1;
 }

@@ -17,10 +17,10 @@ enum fwdsp_io_type {
 
 struct fwdsp_subproc {
    pid_t 	pid;		// Process ID
-   char		pl_id[4];	// pipeline ID
-   char         pipeline[512];  // pipeline string
+   char		pl_id[5];	// pipeline ID
+   char         pipeline[1024];  // pipeline string
    bool		is_tx;		// Is this a TX channel?
-
+   int chan_id;      // Unique channel ID for this subprocess
    enum fwdsp_io_type io_type;	// instance io type
    //// Only one of these will be used, either stdin/stdout/stderr or unix_sock depending on above io_type
    int		fw_stdin;	// redirected stdin
@@ -41,5 +41,7 @@ extern bool fwdsp_init(void);
 typedef void (*fwdsp_exit_cb_t)(struct fwdsp_subproc *sp, int status);
 //extern void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb);
 extern bool ws_send_capab(struct mg_connection *c);
+extern bool fwdsp_spawn(struct fwdsp_subproc *sp, bool tx_mode);
+extern int fwdsp_get_chan_id(const char *magic, bool is_tx);
 
 #endif	// !defined(__rr_fwdsp_mgr_h)

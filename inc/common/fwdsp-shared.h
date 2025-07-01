@@ -1,4 +1,4 @@
-//
+[B//
 // fwdsp-shared.h
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -16,6 +16,7 @@
 struct audio_config {
    const char *pipeline;
    const char *sock_path;
+   char codec_id[5];	// codec ID + null
    int sample_rate;   // e.g. 16000 or 44100
    int format;        // 0 = S16LE, 1 = FLAC, 2 = OPUS
    bool tx_mode;
