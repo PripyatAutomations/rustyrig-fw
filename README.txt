@@ -29,7 +29,7 @@ Installing:
 
 Pipelines
 ---------
-You will want to configure your pipelines in fwdsp.cfg and rrclient.cfg
+You will want to configure your pipelines in rrserver.cfg and rrclient.cfg
 
 These configurations will use a 4 character ID such as mu08 or pc44 for mulaw 8khz or pcm 44.1khz
 
