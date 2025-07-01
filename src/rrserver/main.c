@@ -350,8 +350,6 @@ int main(int argc, char **argv) {
       }
       au_unix_socket_poll();
 
-      // deal with timed out en/decoders
-      fwdsp_sweep_expired();
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
@@ -390,15 +388,14 @@ int main(int argc, char **argv) {
          rr_be_poll(VFO_A);
          last_rig_poll.tv_sec = loop_start.tv_sec;
          last_rig_poll.tv_nsec = loop_start.tv_nsec;
+         // deal with timed out en/decoders
+         fwdsp_sweep_expired();
       }
 
 #if	defined(USE_MONGOOSE)
       // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
       mg_mgr_poll(&mg_mgr, 0);
 #endif
-
-      const struct timespec ts = { .tv_sec = 0, .tv_nsec = 100000 };
-      nanosleep(&ts, NULL);
 
       // If enabled, calculate loop run time
 #if	defined(USE_PROFILING)
@@ -412,6 +409,10 @@ int main(int argc, char **argv) {
          loop_runtime = (TS_ALPHA * current_time) + (1 - TS_ALPHA) * loop_runtime;
       }
 #endif // defined(USE_PROFILING)
+
+      const struct timespec ts = { .tv_sec = 0, .tv_nsec = 100000 };
+      nanosleep(&ts, NULL);
+
       if (dying) {
          break;
       }
@@ -427,7 +428,7 @@ int main(int argc, char **argv) {
 #endif
 
    if (restarting) {
-       restart_rig();
+      restart_rig();
    }
    
    return 0;
