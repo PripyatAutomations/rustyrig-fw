@@ -1,4 +1,5 @@
 all: host-info world
+VERSION=$(shell cat ../../.version)
 
 UNAME_S := $(shell uname -s)
 ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
@@ -13,9 +14,10 @@ SHELL = bash
 .SHELLFLAGS = -e -c
 
 CFLAGS_WARN := -Wall -pedantic -Wno-unused #-Werror
-CFLAGS += -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1 -DVERSION="\"$(shell cat ./.version)\"" 
+CFLAGS += -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1
 CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\""
 CFLAGS += -DMG_TLS=MG_TLS_MBED -D__RRCLIENT=1
+CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0)
 # Do we want to spew excessive http debugging? This has a performance penalty...
 #CFLAGS += -DHTTP_DEBUG_CRAZY=1

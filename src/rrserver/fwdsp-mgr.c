@@ -38,15 +38,14 @@ defconfig_t defcfg_fwdsp[] = {
    { NULL,		NULL,			NULL }
 };
 
-dict *fwdsp_cfg = NULL;
 bool fwdsp_mgr_ready = false;
 static int active_slots = 0;
-static int max_subprocs = 0;
+static int max_subprocs = 4;
 static struct fwdsp_subproc *fwdsp_subprocs;
 static int next_channel_id = 1;
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
-   Log(LOG_INFO, "fwdsp", "Pipeline %.*s exited (status=%d)", 4, sp->pl_id, status);
+   Log(LOG_INFO, "fwdsp", "Pipeline %s: %s at pid %d exited (status=%d)", (sp->is_tx ? "TX" : "RX"), sp->pl_id, sp->pid, status);
    // Optionally notify websocket clients, or log, etc.
 }
 
@@ -57,7 +56,6 @@ static void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb) {
 }
 
 static void fwdsp_sigchld(int sig) {
-   (void)sig;
    int status;
    pid_t pid;
 
@@ -65,7 +63,7 @@ static void fwdsp_sigchld(int sig) {
       for (int i = 0; i < max_subprocs; i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
          if (sp->pid == pid) {
-            Log(LOG_DEBUG, "fwdsp", "Subproc %.*s (pid %d) exited", 4, sp->pl_id, pid);
+            Log(LOG_DEBUG, "fwdsp", "Subproc %s %s (pid %d) exited", (sp->is_tx ? "TX" : "RX"), sp->pl_id, pid);
             if (on_fwdsp_exit) {
                on_fwdsp_exit(sp, status);
             }
@@ -82,7 +80,7 @@ bool fwdsp_init(void) {
       return true;
    }
 
-   const char *max_subprocs_s = dict_get(fwdsp_cfg, "subproc.max", "4");
+   const char *max_subprocs_s = cfg_get("fwdsp:subproc.max");;
    max_subprocs = 0;
 
    if (max_subprocs_s) {
@@ -99,6 +97,7 @@ bool fwdsp_init(void) {
    }
 
    fwdsp_subprocs = calloc(max_subprocs + 1, sizeof(struct fwdsp_subproc));
+
    if (!fwdsp_subprocs) {
       // OOM:
       fprintf(stderr, "OOM in fwdsp_init\n");
@@ -146,9 +145,9 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
    }
 
    // Find the fwdsp path
-   const char *fwdsp_path = dict_get(fwdsp_cfg, "fwdsp.path", NULL);
+   const char *fwdsp_path = cfg_get("fwdsp.path");
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
-      Log(LOG_CRIT, "fwdsp", "You must set fwdsp:fwdsp.path to point at fwdsp bin");
+      Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp bin");
       return NULL;
    }
 
@@ -195,7 +194,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
    return NULL;
 }
 
-static struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
+struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(id, is_tx);
 
    if (!sp) {
@@ -264,9 +263,9 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp, bool tx_mode) {
       return false;
    }
 
-   const char *fwdsp_path = dict_get(fwdsp_cfg, "fwdsp.path", NULL);
+   const char *fwdsp_path = cfg_get("fwdsp.path");
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
-      Log(LOG_CRIT, "fwdsp", "You must set fwdsp:fwdsp.path to point at fwdsp bin");
+      Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp bin");
       return NULL;
    }
 

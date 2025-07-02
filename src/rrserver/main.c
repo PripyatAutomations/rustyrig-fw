@@ -297,8 +297,8 @@ int main(int argc, char **argv) {
 
    rr_au_init();
    au_unix_socket_init();
-
    dds_init();
+   fwdsp_init();
 
    // Network connectivity
 //   show_network_info();

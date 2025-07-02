@@ -77,7 +77,16 @@ bool ws_select_codec(struct mg_connection *c, const char *codec) {
    }
 
    char msgbuf[1024];
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\" } }", codec);
-   Log(LOG_DEBUG, "ws.audio", "Send codec selection: %s", msgbuf);
+   memset(msgbuf, 0, sizeof(msgbuf));
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\", \"channel\": \"rx\" } }", codec);
+   Log(LOG_DEBUG, "ws.audio", "Send RX codec selection: %s", msgbuf);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
+   // and for TX
+   memset(msgbuf, 0, sizeof(msgbuf));
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\", \"channel\": \"tx\" } }", codec);
+   Log(LOG_DEBUG, "ws.audio", "Send TX codec selection: %s", msgbuf);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
    return false;
 }

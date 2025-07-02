@@ -1,5 +1,5 @@
 all: world
-
+VERSION=$(shell cat ../../.version)
 PROFILE ?= radio
 CF := ../../config/${PROFILE}.config.json
 CHANNELS := ../../config/${PROFILE}.channels.json
@@ -24,7 +24,7 @@ LDFLAGS := -lc -lm -g -ggdb -lcrypt
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags")) -I../../inc/
 CFLAGS += -I${BUILD_DIR} -I${BUILD_DIR}/include 
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
-CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
+CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 #CFLAGS += -DUSE_EEPROM
 
 ifneq (x${DEBUG_PROTO},x)

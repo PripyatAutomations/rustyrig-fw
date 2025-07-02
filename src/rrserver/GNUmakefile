@@ -20,10 +20,11 @@ CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
 CFLAGS_WARN := -Wall -Wno-unused -pedantic # -Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
+VERSION=$(shell cat ../../.version)
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags")) -I../../inc/
 CFLAGS += -I${BUILD_DIR} -I${BUILD_DIR}/include 
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
-CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
+CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 #CFLAGS += -DUSE_EEPROM
 
 ifneq (x${DEBUG_PROTO},x)

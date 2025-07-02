@@ -4,9 +4,6 @@
  */
 #if !defined(_config_h)
 #define _config_h
-#define VERSION "202506.03"
-#define VERSION_MAJOR 0x3170a
-#define VERSION_MINOR 0x3
 #define FEATURE_GSTREAMER
 #define FEATURE_HTTP
 #define USE_PROFILING true

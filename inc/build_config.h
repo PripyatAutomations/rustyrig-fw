@@ -4,9 +4,6 @@
  */
 #if !defined(_config_h)
 #define _config_h
-#define VERSION "202506.12"
-#define VERSION_MAJOR 0x3170a
-#define VERSION_MINOR 0xc
 #define HARDWARE "sb50"
 #define EEPROM_TYPE_MMAP true
 #undef EEPROM_TYPE_I2C

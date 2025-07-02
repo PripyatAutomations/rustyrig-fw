@@ -27,6 +27,7 @@
 #include "common/codecneg.h"
 #include "rrserver/state.h"
 #include "rrserver/ws.h"
+#include "rrserver/fwdsp-mgr.h"
 
 extern struct GlobalState rig;	// Global state
 
@@ -286,11 +287,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          result = ws_handle_chat_msg(msg, c);
       }
    } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
-     Log(LOG_DEBUG, "ws.media", "media: %s", msg_data);
      char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
      char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
-
-     Log(LOG_DEBUG, "ws.media", "Parsing ws.media command %s", media_cmd);
 
      // all packets need a command
      if (!media_cmd) {
@@ -319,19 +317,28 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
         char *media_channel = mg_json_get_str(msg_data, "$.media.channel");
 
         if (media_codec && strlen(media_codec) == 4) {
+           Log(LOG_DEBUG, "ws.media", "Selected codec for user %s at cptr:<%x> -- %s %s", cptr->chatname, cptr, media_channel, media_codec);
+           struct fwdsp_subproc *codec_tx_subproc = NULL;
+           struct fwdsp_subproc *codec_rx_subproc = NULL;
+
            if (media_channel) {
               if (strcasecmp(media_channel, "tx") == 0) {
                 memset(cptr->codec_tx, 0, sizeof(cptr->codec_tx));
                 memcpy(cptr->codec_tx, media_codec, 4);
+                codec_rx_subproc = fwdsp_find_or_create(cptr->codec_rx, FW_IO_STDIO, false);
+                Log(LOG_DEBUG, "ws.media", "Started RX codec %s at %x", cptr->codec_rx, codec_rx_subproc);
               } else if (strcasecmp(media_channel, "rx") == 0) {
                 memset(cptr->codec_rx, 0, sizeof(cptr->codec_rx));
                 memcpy(cptr->codec_rx, media_codec, 4);
+                codec_tx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, false);
+                Log(LOG_DEBUG, "ws.media", "Started RX codec %s at %x", cptr->codec_tx, codec_tx_subproc);
               } else if (strcasecmp(media_channel, "video-rx") == 0) {
                 // NYI
               } else if (strcasecmp(media_channel, "video-tx") == 0) {
                 // NYI
+              } else {
+                 Log(LOG_CRIT, "ws.media", "invalid channel for codec message from cptr:<%x>", cptr);
               }
-              Log(LOG_DEBUG, "ws.media", "Selected codec for cptr:<%x> -- %s %s", cptr, media_channel, media_codec);
            }
         } else {
            Log(LOG_DEBUG, "ws.media", "No codec in media.codec cmd");
