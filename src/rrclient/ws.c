@@ -141,6 +141,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
          memset(first_codec, 0, 5);
          // Copy the *first* codec of the negotiated set, as it's our most preferred.
          memcpy(first_codec, negotiated_codecs, 4);
+         Log(LOG_CRAZY, "ws.media", ">> first_codec: %s <<", first_codec);
          ws_select_codec(c, first_codec);
       } else {
          Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");

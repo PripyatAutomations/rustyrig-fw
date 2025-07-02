@@ -286,11 +286,11 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          result = ws_handle_chat_msg(msg, c);
       }
    } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
-// { "media": { "cmd": "capab", "payload": "pc16 mu16 mu08" } }
+     Log(LOG_DEBUG, "ws.media", "media: %s", msg_data);
      char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
      char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
 
-     Log(LOG_DEBUG, "ws.media", "Parsing ws.media command %s", cmd);
+     Log(LOG_DEBUG, "ws.media", "Parsing ws.media command %s", media_cmd);
 
      // all packets need a command
      if (!media_cmd) {
@@ -333,6 +333,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
               }
               Log(LOG_DEBUG, "ws.media", "Selected codec for cptr:<%x> -- %s %s", cptr, media_channel, media_codec);
            }
+        } else {
+           Log(LOG_DEBUG, "ws.media", "No codec in media.codec cmd");
         }
         free(media_codec);
         free(media_channel);
