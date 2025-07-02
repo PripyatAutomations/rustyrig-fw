@@ -15,7 +15,7 @@ if [ -z "$(pidof rigctld)" ]; then
    if [ -f "config/rrserver.cfg" ]; then
       RIGCTLD_SCRIPT=$(grep rigctld.start-script config/rrserver.cfg | cut -f 2 -d '=')
       if [ ! -z "${RIGCTLD_SCRIPT}" ]; then
-         if [ "$(basename ${RIGCTLD_SCRIPT})" -eq "${RIGCTLD_SCRIPT}" ]; then
+         if [ "$(basename ${RIGCTLD_SCRIPT})" == "${RIGCTLD_SCRIPT}" ]; then
             ./${RIGCTLD_SCRIPT}
          else
             ${RIGCTLD_SCRIPT}
