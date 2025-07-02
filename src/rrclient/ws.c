@@ -41,6 +41,7 @@ struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 bool server_ptt_state = false;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
+char *negotiated_codecs = NULL;
 
 static bool sending_in_progress = false;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
@@ -121,7 +122,6 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       Log(LOG_DEBUG, "ws.media", "msg_data: %s", msg_data);
       char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
       char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
-      char *negotiated_codecs = NULL;
 
       // Parse the server's capab string and 
       if (media_cmd && strcasecmp(media_cmd, "capab") == 0) {
@@ -135,14 +135,6 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       negotiated_codecs = codec_filter_common(preferred, media_payload);
       if (negotiated_codecs) {
          ws_send_capab(c, negotiated_codecs);
-
-         char first_codec[5];
-         // Make sure it's all NULLs, so we'll get null terminated string
-         memset(first_codec, 0, 5);
-         // Copy the *first* codec of the negotiated set, as it's our most preferred.
-         memcpy(first_codec, negotiated_codecs, 4);
-         Log(LOG_CRAZY, "ws.media", ">> first_codec: %s <<", first_codec);
-         ws_select_codec(c, first_codec);
       } else {
          Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
       }

@@ -46,6 +46,7 @@ extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
+extern char *negotiated_codecs;		// ws.c
 
 bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    bool rv = false;
@@ -98,6 +99,13 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       free(token);
    } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
       ui_print("[%s] *** Authorized ***", get_chat_ts());
+      char first_codec[5];
+      // Make sure it's all NULLs, so we'll get null terminated string
+      memset(first_codec, 0, 5);
+      // Copy the *first* codec of the negotiated set, as it's our most preferred.
+      memcpy(first_codec, negotiated_codecs, 4);
+      Log(LOG_CRAZY, "ws.media", ">> first_codec: %s <<", first_codec);
+      ws_select_codec(c, first_codec);
    }
 
 cleanup:

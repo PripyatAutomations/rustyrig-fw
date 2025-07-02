@@ -35,6 +35,7 @@ extern struct mg_mgr mgr;
 extern bool ws_connected;
 extern struct mg_connection *ws_conn;
 extern bool server_ptt_state;
+extern char *negotiated_codecs;		// ws.c
 
 bool ws_audio_init(void) {
    return false;
