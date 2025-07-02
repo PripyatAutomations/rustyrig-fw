@@ -1,6 +1,6 @@
 #!/bin/bash
 PORT=/dev/ttyUSB0
-DEBUG=-vvvv
+#DEBUG=-vvvv
 
 (
   stty -F ${PORT} 38400 cs8 -cstopb -parenb
