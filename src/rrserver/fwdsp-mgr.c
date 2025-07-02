@@ -393,7 +393,7 @@ int fwdsp_codec_stop(enum au_codec id, bool is_tx) {
       struct fwdsp_subproc *sp = fwdsp_find_instance(c->magic, is_tx);
       if (sp) {
          const char *hangtime_s = cfg_get("fwdsp.hangtime");
-         int hangtime = hangtime_s ? atoi(hangtime_s) : 5;
+         int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
          if (hangtime > 0)
             sp->cleanup_deadline = time(NULL) + hangtime;
          else

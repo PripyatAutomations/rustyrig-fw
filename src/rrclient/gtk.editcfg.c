@@ -44,9 +44,14 @@ extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
+extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *servers;
+extern GtkWidget *notebook;	// im gtk.c
+extern GtkWidget *toggle_userlist_button; // in gtk.c
+
 extern dict *cfg_load(const char *path);
 
+GtkWidget *config_tab = NULL;
 GtkWidget *cfgedit_window = NULL;
 
 typedef struct {
@@ -233,7 +238,6 @@ void gui_edit_config(const char *filepath) {
    g_signal_connect(window, "destroy", G_CALLBACK(on_destroy), ctx);
 
    gtk_widget_show_all(window);
-
    gtk_widget_realize(window);  // Make sure it's realized
 
    // Set dark mode, if needed, on windows
@@ -242,4 +246,35 @@ void gui_edit_config(const char *filepath) {
 #endif
 
    cfgedit_window = window;
+}
+
+/////////////////////////////
+// Config tab in tab strip //
+/////////////////////////////
+extern char *config_file;		// main.c
+
+static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
+   if (user_data != NULL) {
+      gui_edit_config(user_data);
+   } else {
+      gui_edit_config(config_file);
+   }
+}
+
+GtkWidget *init_config_tab(void) {
+   GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), nw, gtk_label_new("Config"));
+
+   GtkWidget *config_label = gtk_label_new("Configuration will go here...");
+   gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
+
+   GtkWidget *btn = gtk_button_new_with_label("Edit Config");
+   g_signal_connect(btn, "clicked", G_CALLBACK(on_edit_config_button), config_file);
+   gtk_box_pack_start(GTK_BOX(nw), btn, FALSE, FALSE, 0);
+
+   toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
+   gtk_box_pack_start(GTK_BOX(nw), toggle_userlist_button, FALSE, FALSE, 3);
+   Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
+   g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
+   return false;
 }

@@ -55,19 +55,6 @@
 static int dict_resize(dict * d);
 
 
-/** Replacement for strdup() which is not always provided by libc */
-static char * xstrdup(char * s)
-{
-    char * t ;
-    if (!s)
-        return NULL ;
-    t = malloc(strlen(s)+1) ;
-    if (t) {
-        strcpy(t,s);
-    }
-    return t ;
-}
-
 /**
   This hash function has been taken from an Article in Dr Dobbs Journal.
   There are probably better ones out there but this one does the job.
@@ -227,11 +214,11 @@ int dict_add(dict * d, char * key, char * val)
     hash = dict_hash(key);
     slot = dict_lookup(d, key, hash);
     if (slot) {
-        slot->key  = xstrdup(key);
+        slot->key  = strdup(key);
         if (!(slot->key)) {
             return -1 ;
         }
-        slot->val  = val ? xstrdup(val) : val ;
+        slot->val  = val ? strdup(val) : val ;
         if (val && !(slot->val)) {
             free(slot->key);
             return -1 ;

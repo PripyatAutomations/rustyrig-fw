@@ -58,7 +58,7 @@ host-info:
 ##################
 # Source objects #
 ##################
-include ../../mk/rrclient.mk
+include ../../mk/rrclient.objs.mk
 # translate unprefixed object file names to source file names
 src_files = $(objs:.o=.c)
 # prepend objdir path to each object

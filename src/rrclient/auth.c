@@ -208,7 +208,8 @@ bool match_priv(const char *user_privs, const char *priv) {
       if (len >= sizeof(token)) {
          len = sizeof(token) - 1;
       }
-      memcpy(token, start, len);
+      snprintf(token, len, "%s", start);
+//      memcpy(token, start, len);
       token[len] = '\0';
 
 //      Log(LOG_CRAZY, "auth", "token=|%s|", token);

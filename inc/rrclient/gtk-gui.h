@@ -63,6 +63,8 @@ extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
 extern bool log_print(const char *fmt, ...);
 extern void gui_edit_config(const char *filepath);
 extern gboolean scroll_to_end(gpointer data);
+extern GtkWidget *init_config_tab(void);
+extern GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx);		// gtk.codecpicker.c
 
 #ifdef _WIN32
 #include <winsock2.h>
