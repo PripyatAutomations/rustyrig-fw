@@ -322,16 +322,17 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            struct fwdsp_subproc *codec_rx_subproc = NULL;
 
            if (media_channel) {
+              // XXX: Should we store pointers to the subprocs in the user struct? downside is it requires common/http.h to include rrserver/fwdsp-mgr.h or move struct fwdsp_subrpco to common/fwdsp-shared.h
               if (strcasecmp(media_channel, "tx") == 0) {
                 memset(cptr->codec_tx, 0, sizeof(cptr->codec_tx));
                 memcpy(cptr->codec_tx, media_codec, 4);
-                codec_rx_subproc = fwdsp_find_or_create(cptr->codec_rx, FW_IO_STDIO, false);
-                Log(LOG_DEBUG, "ws.media", "Started RX codec %s at %x", cptr->codec_rx, codec_rx_subproc);
+                codec_rx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, false);
+                Log(LOG_DEBUG, "ws.media", "Started TX codec %s at %x", cptr->codec_tx, codec_tx_subproc);
               } else if (strcasecmp(media_channel, "rx") == 0) {
                 memset(cptr->codec_rx, 0, sizeof(cptr->codec_rx));
                 memcpy(cptr->codec_rx, media_codec, 4);
-                codec_tx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, false);
-                Log(LOG_DEBUG, "ws.media", "Started RX codec %s at %x", cptr->codec_tx, codec_tx_subproc);
+                codec_tx_subproc = fwdsp_find_or_create(cptr->codec_rx, FW_IO_STDIO, false);
+                Log(LOG_DEBUG, "ws.media", "Started RX codec %s at %x", cptr->codec_rx, codec_rx_subproc);
               } else if (strcasecmp(media_channel, "video-rx") == 0) {
                 // NYI
               } else if (strcasecmp(media_channel, "video-tx") == 0) {

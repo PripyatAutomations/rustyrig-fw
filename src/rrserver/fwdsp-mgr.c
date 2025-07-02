@@ -135,7 +135,7 @@ static struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx) {
 
 static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
    if (id == NULL) { 
-      Log(LOG_CRIT, "fwdsp", "create: Invalid parameters: id:<%x>", id);
+      Log(LOG_CRIT, "fwdsp", "create: Invalid parameters: id == NULL");
       return NULL;
    }
 
@@ -147,7 +147,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
    // Find the fwdsp path
    const char *fwdsp_path = cfg_get("fwdsp.path");
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
-      Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp bin");
+      Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp binary");
       return NULL;
    }
 
@@ -159,7 +159,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
           (fwdsp_subprocs[i].pl_id[2] == '\0') &&
           (fwdsp_subprocs[i].pl_id[3] == '\0')) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
-         Log(LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %.*s", i, 4, sp->pl_id);
+         Log(LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, sp->pl_id, (is_tx ? "tx" : "rx"));
          // Clear the memory for reuse
          memset(sp, 0, sizeof(struct fwdsp_subproc));
          // Fill the struct
@@ -334,7 +334,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
          struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, tx_mode);
          if (sp && !sp->pid) {
             if (!fwdsp_spawn(sp, tx_mode)) {
-               Log(LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s", token);
+               Log(LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s.%s", token, (tx_mode ? "tx" : "rx"));
                fwdsp_destroy(sp);
                sp = NULL;
             }
@@ -346,7 +346,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
    }
 
    free(tmp);
-   Log(LOG_CRIT, "fwdsp", "No usable codecs found in list: %s", codec_list);
+   Log(LOG_CRIT, "fwdsp", "No usable codecs found in list: %s for %s", codec_list, (tx_mode ? "tx" : "rx"));
    return NULL;
 }
 
@@ -360,7 +360,7 @@ void fwdsp_sweep_expired(void) {
    for (int i = 0; i < max_subprocs; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 && now >= sp->cleanup_deadline) {
-         Log(LOG_INFO, "fwdsp", "Cleaning up idle pipeline %.*s", 4, sp->pl_id);
+         Log(LOG_INFO, "fwdsp", "Cleaning up idle pipeline %s.%s", sp->pl_id, (sp->is_tx ? "tx" : "rx"));
          fwdsp_destroy(sp);
       }
    }
@@ -373,7 +373,7 @@ int fwdsp_codec_start(enum au_codec id, bool is_tx) {
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, is_tx);
       if (!sp || !fwdsp_spawn(sp, is_tx)) {
-         Log(LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s", c->magic);
+         Log(LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", c->magic, (is_tx ? "tx" : "rx"));
          return -1;
       }
    }

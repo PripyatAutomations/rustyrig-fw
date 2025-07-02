@@ -65,29 +65,33 @@ bool ws_send_capab(struct mg_connection *c, const char *codecs) {
          // emit codec message
          char msgbuf[1024];
          snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"payload\": \"%s\" } }", common_codecs);
-         Log(LOG_DEBUG, "ws.audio", "Sending codec request: %s", msgbuf);
+         Log(LOG_DEBUG, "ws.audio", "Sending supported codec list: %s", common_codecs);
+         mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       }
       free(common_codecs);
    }     
    return false;
 }
 
-bool ws_select_codec(struct mg_connection *c, const char *codec) {
+bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx) {
    if (!codec) {
       return true;
    }
 
    char msgbuf[1024];
-   memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\", \"channel\": \"rx\" } }", codec);
-   Log(LOG_DEBUG, "ws.audio", "Send RX codec selection: %s", msgbuf);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
-   // and for TX
-   memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\", \"channel\": \"tx\" } }", codec);
-   Log(LOG_DEBUG, "ws.audio", "Send TX codec selection: %s", msgbuf);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   if (is_tx) {
+      // and for TX
+      memset(msgbuf, 0, sizeof(msgbuf));
+      snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\", \"channel\": \"tx\" } }", codec);
+      Log(LOG_DEBUG, "ws.audio", "Send TX codec selection: %s", msgbuf);
+      mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   } else {
+      memset(msgbuf, 0, sizeof(msgbuf));
+      snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\", \"channel\": \"rx\" } }", codec);
+      Log(LOG_DEBUG, "ws.audio", "Send RX codec selection: %s", msgbuf);
+      mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   }
 
    return false;
 }

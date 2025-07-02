@@ -44,6 +44,6 @@ extern const char *get_server_property(const char *server, const char *prop);
 
 // ws.audio.c
 extern bool ws_audio_init(void);
-extern bool ws_select_codec(struct mg_connection *c, const char *codec);
+extern bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx);
 
 #endif	// !defined(__rrclient_ws_h)

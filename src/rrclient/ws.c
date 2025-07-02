@@ -119,7 +119,6 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
    bool result = false;
 
    if (mg_json_get(msg_data, "$.media.cmd", NULL) > 0) {
-      Log(LOG_DEBUG, "ws.media", "msg_data: %s", msg_data);
       char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
       char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
 
