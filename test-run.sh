@@ -27,12 +27,6 @@ if [ -z "$(pidof rigctld)" ]; then
    sleep 2
 fi
 
-# Start up fwdsp
-./build/${PROFILE}/fwdsp -c pc16 -t &
-sleep 2
-echo "*****************************"
-sleep 2
-
 if [ "$1" == "gdb" ]; then
    gdb ./build/${PROFILE}/rrserver -ex 'run'
 else
