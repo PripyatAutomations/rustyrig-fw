@@ -45,7 +45,7 @@ static struct fwdsp_subproc *fwdsp_subprocs;
 static int next_channel_id = 1;
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
-   Log(LOG_INFO, "fwdsp", "Pipeline %s: %s at pid %d exited (status=%d)", (sp->is_tx ? "TX" : "RX"), sp->pl_id, sp->pid, status);
+   Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id, (sp->is_tx ? "tx" : "rx"), sp->pid, status);
    // Optionally notify websocket clients, or log, etc.
 }
 
@@ -63,7 +63,7 @@ static void fwdsp_sigchld(int sig) {
       for (int i = 0; i < max_subprocs; i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
          if (sp->pid == pid) {
-            Log(LOG_DEBUG, "fwdsp", "Subproc %s %s (pid %d) exited", (sp->is_tx ? "TX" : "RX"), sp->pl_id, pid);
+//            Log(LOG_DEBUG, "fwdsp", "Subproc %s.%s (pid %d) exited", (sp->is_tx ? "tx" : "rx"), sp->pl_id, pid);
             if (on_fwdsp_exit) {
                on_fwdsp_exit(sp, status);
             }
@@ -159,7 +159,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
           (fwdsp_subprocs[i].pl_id[2] == '\0') &&
           (fwdsp_subprocs[i].pl_id[3] == '\0')) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
-         Log(LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, sp->pl_id, (is_tx ? "tx" : "rx"));
+         Log(LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id, (is_tx ? "tx" : "rx"));
          // Clear the memory for reuse
          memset(sp, 0, sizeof(struct fwdsp_subproc));
          // Fill the struct

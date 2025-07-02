@@ -190,15 +190,11 @@ int main(int argc, char **argv) {
    if (config_file) {
       if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
-      } else {
-         Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
       }
    } else if ((fullpath =  find_file_by_list(configs, cfg_entries))) {
       config_file = strdup(fullpath);
       if (!(cfg = cfg_load(fullpath))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
-      } else {
-         Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
       }
       free(fullpath);
    } else {

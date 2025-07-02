@@ -313,32 +313,44 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            Log(LOG_CRIT, "ws.media", "media.capab without payload");
         }
      } else if (strcasecmp(media_cmd, "codec") == 0) {
+        if (cptr->chatname[0] == '\0') {
+           result = true;
+           goto cleanup;
+        }
+
         char *media_codec = mg_json_get_str(msg_data, "$.media.codec");
         char *media_channel = mg_json_get_str(msg_data, "$.media.channel");
 
         if (media_codec && strlen(media_codec) == 4) {
-           Log(LOG_DEBUG, "ws.media", "Selected codec for user %s at cptr:<%x> -- %s %s", cptr->chatname, cptr, media_channel, media_codec);
+           Log(LOG_DEBUG, "ws.media", "Selected %s codec for user %s at cptr:<%x> -- %s.%s", 
+              media_channel, cptr->chatname, cptr, media_codec, media_channel);
            struct fwdsp_subproc *codec_tx_subproc = NULL;
            struct fwdsp_subproc *codec_rx_subproc = NULL;
 
            if (media_channel) {
               // XXX: Should we store pointers to the subprocs in the user struct? downside is it requires common/http.h to include rrserver/fwdsp-mgr.h or move struct fwdsp_subrpco to common/fwdsp-shared.h
               if (strcasecmp(media_channel, "tx") == 0) {
-                memset(cptr->codec_tx, 0, sizeof(cptr->codec_tx));
-                memcpy(cptr->codec_tx, media_codec, 4);
-                codec_rx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, false);
-                Log(LOG_DEBUG, "ws.media", "Started TX codec %s at %x", cptr->codec_tx, codec_tx_subproc);
+                 if (cptr->codec_tx[0] != '\0') {
+                    // XXX: Decrease refcnt on old codec
+                 }
+                 memset(cptr->codec_tx, 0, sizeof(cptr->codec_tx));
+                 memcpy(cptr->codec_tx, media_codec, 4);
+                 codec_rx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, true);
+                 Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.tx at %x", cptr->codec_tx, codec_tx_subproc);
               } else if (strcasecmp(media_channel, "rx") == 0) {
-                memset(cptr->codec_rx, 0, sizeof(cptr->codec_rx));
-                memcpy(cptr->codec_rx, media_codec, 4);
-                codec_tx_subproc = fwdsp_find_or_create(cptr->codec_rx, FW_IO_STDIO, false);
-                Log(LOG_DEBUG, "ws.media", "Started RX codec %s at %x", cptr->codec_rx, codec_rx_subproc);
+                 if (cptr->codec_rx[0] != '\0') {
+                    // XXX: Decrease refcnt on old codec
+                 }
+                 memset(cptr->codec_rx, 0, sizeof(cptr->codec_rx));
+                 memcpy(cptr->codec_rx, media_codec, 4);
+                 codec_tx_subproc = fwdsp_find_or_create(cptr->codec_rx, FW_IO_STDIO, false);
+                 Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.rx at %x", cptr->codec_rx, codec_rx_subproc);
               } else if (strcasecmp(media_channel, "video-rx") == 0) {
-                // NYI
+                 // NYI
               } else if (strcasecmp(media_channel, "video-tx") == 0) {
-                // NYI
+                 // NYI
               } else {
-                 Log(LOG_CRIT, "ws.media", "invalid channel for codec message from cptr:<%x>", cptr);
+                 Log(LOG_CRIT, "ws.media", "invalid channel '%s' for codec message from cptr:<%x>", media_channel, cptr);
               }
            }
         } else {

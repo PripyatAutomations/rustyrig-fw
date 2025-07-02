@@ -20,9 +20,9 @@ struct fwdsp_subproc {
    char		pl_id[5];	// pipeline ID
    char         pipeline[1024];  // pipeline string
    bool		is_tx;		// Is this a TX channel?
-   int refcount;
-   time_t cleanup_deadline;  // 0 means no timer set
-   int chan_id;      // Unique channel ID for this subprocess
+   int 		refcount;
+   time_t 	cleanup_deadline;  // 0 means no timer set
+   int 		chan_id;      // Unique channel ID for this subprocess
    enum fwdsp_io_type io_type;	// instance io type
    //// Only one of these will be used, either stdin/stdout/stderr or unix_sock depending on above io_type
    int		fw_stdin;	// redirected stdin

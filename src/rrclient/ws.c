@@ -131,6 +131,9 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       }
       // XXX: We should compare server advertised codecs to our preferred list here
       const char *preferred = cfg_get("codecs.allowed");
+      if (negotiated_codecs) {
+         free(negotiated_codecs);
+      }
       negotiated_codecs = codec_filter_common(preferred, media_payload);
       if (negotiated_codecs) {
          ws_send_capab(c, negotiated_codecs);
@@ -138,7 +141,6 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
          Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
       }
 local_cleanup:
-      free(negotiated_codecs);
       free(media_cmd);
       free(media_payload);
    } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {

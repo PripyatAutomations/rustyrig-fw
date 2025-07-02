@@ -99,6 +99,14 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       free(token);
    } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
       ui_print("[%s] *** Authorized ***", get_chat_ts());
+
+      if (!negotiated_codecs) {
+         Log(LOG_CRIT, "ws.auth", "No negotiated codecs yet, skipping set initial codec");
+         goto cleanup;
+      } else {
+         Log(LOG_DEBUG, "ws.auth", "Negotiated codecs: %s", negotiated_codecs);
+      }
+
       char first_codec[5];
       // Make sure it's all NULLs, so we'll get null terminated string
       memset(first_codec, 0, 5);
