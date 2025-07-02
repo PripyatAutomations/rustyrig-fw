@@ -11,6 +11,7 @@ objs += gtk.o                   # Support for a GTK user interface
 objs += gtk.codecpicker.o	# codec picker widget
 objs += gtk.editcfg.o		# configuration tab
 objs += gtk.freqentry.o		# Frequency Entry Widget
+objs += gtk.pttbtn.o		# Push To Talk (PTT) button in GUI
 objs += gtk.serverpick.o        # server picker
 objs += gtk.syslog.o		# syslog tab
 objs += gtk.winmgr.o		# window management

@@ -135,6 +135,13 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       negotiated_codecs = codec_filter_common(preferred, media_payload);
       if (negotiated_codecs) {
          ws_send_capab(c, negotiated_codecs);
+
+         char first_codec[5];
+         // Make sure it's all NULLs, so we'll get null terminated string
+         memset(first_codec, 0, 5);
+         // Copy the *first* codec of the negotiated set, as it's our most preferred.
+         memcpy(first_codec, negotiated_codecs, 4);
+         ws_select_codec(c, first_codec);
       } else {
          Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
       }

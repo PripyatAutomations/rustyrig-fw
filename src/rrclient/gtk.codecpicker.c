@@ -68,5 +68,6 @@ GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText 
       *out_rx = rx_combo;
    }
 
+   // XXX: We need to hook a callback up to the changed signal here
    return vbox;
 }

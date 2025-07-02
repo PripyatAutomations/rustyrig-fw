@@ -12,3 +12,7 @@
 
 [win64]
 * Testing and bug fixes
+
+[bluetooth]
+* Support bluetooth PTT buttons
+* Maybe automate routing of headsets when connected, if reasonably feasible?

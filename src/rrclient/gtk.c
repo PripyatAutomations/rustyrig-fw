@@ -6,7 +6,9 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-
+//
+// XXX: Need to break this into pieces and wrap up our custom widgets, soo we can do
+// XXX: nice things like pop-out (floating) VFOs
 #include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -28,7 +30,6 @@
 #include "rrclient/ws.h"
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
-extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern bool clear_syslog(void);
 extern GtkWidget *init_log_tab(void);
 extern dict *cfg;
@@ -41,6 +42,7 @@ extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
+extern GtkWidget *config_tab;
 GtkCssProvider *css_provider = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
@@ -49,17 +51,17 @@ GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
 GtkWidget *userlist_window = NULL;
 GtkWidget *chat_entry = NULL;
-GtkWidget *ptt_button = NULL;
+extern GtkWidget *ptt_button;
 GtkWidget *main_window = NULL;
 GtkWidget *rx_vol_slider = NULL;
 GtkWidget *toggle_userlist_button = NULL;
+GtkWidget *control_box = NULL;
 GtkTextBuffer *text_buffer = NULL;
 
 ///////// Tab View //////////
 GtkWidget *notebook = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
-GtkWidget *config_tab = NULL;
 
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
@@ -156,33 +158,6 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    }
 }
 
-void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
-   const gchar *label = active ? "PTT ON " : "PTT OFF";
-   gtk_button_set_label(GTK_BUTTON(button), label);
-
-   GtkStyleContext *context = gtk_widget_get_style_context(GTK_WIDGET(button));
-   if (active) {
-      gtk_style_context_add_class(context, "ptt-active");
-      gtk_style_context_remove_class(context, "ptt-idle");
-   } else {
-      gtk_style_context_add_class(context, "ptt-idle");
-      gtk_style_context_remove_class(context, "ptt-active");
-   }
-}
-
-void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
-   ptt_active = gtk_toggle_button_get_active(button);
-   update_ptt_button_ui(button, ptt_active);
-
-   poll_block_expire = now + poll_block_delay;
-
-   // Send to server the negated value
-   if (!ptt_active) {
-      ws_send_ptt_cmd(ws_conn, "A", false);
-   } else {
-      ws_send_ptt_cmd(ws_conn, "A", true);
-   }
-}
 
 // Combine some common, safe string handling into one call
 bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
@@ -210,6 +185,7 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 }
 
+// Here we support input history for the chat/control window entry input
 static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
    if (!input_history || input_history->len == 0) {
       return FALSE;
@@ -267,6 +243,9 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
 }
 
 
+///////////////////////////////////////
+// These all belong in gtk.winmgr.c! //
+///////////////////////////////////////
 static guint configure_event_timeout = 0;
 static int last_x = -1, last_y = -1, last_w = -1, last_h = -1;
 
@@ -371,60 +350,6 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
    return FALSE;
 }
 
-GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx) {
-   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-
-   GtkWidget *widget_label = gtk_label_new("TX/RX Codecs");
-
-   GtkComboBoxText *tx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
-   GtkComboBoxText *rx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
-
-   for (int i = 0; au_core_codecs[i].magic; i++) {
-      gtk_combo_box_text_append(tx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
-      gtk_combo_box_text_append(rx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
-   }
-
-   gtk_combo_box_set_active(GTK_COMBO_BOX(tx_combo), 1);
-   gtk_combo_box_set_active(GTK_COMBO_BOX(rx_combo), 1);
-
-   gtk_box_pack_start(GTK_BOX(vbox), widget_label, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(rx_combo), FALSE, FALSE, 0);
-
-   if (out_tx) *out_tx = tx_combo;
-   if (out_rx) *out_rx = rx_combo;
-
-   return vbox;
-}
-
-extern char *config_file;		// main.c
-
-static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
-   if (user_data != NULL) {
-      gui_edit_config(user_data);
-   } else {
-      gui_edit_config(config_file);
-   }
-}
-
-static GtkWidget *init_config_tab(void) {
-   GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), nw, gtk_label_new("Config"));
-
-   GtkWidget *config_label = gtk_label_new("Configuration will go here...");
-   gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
-
-   GtkWidget *btn = gtk_button_new_with_label("Edit Config");
-   g_signal_connect(btn, "clicked", G_CALLBACK(on_edit_config_button), config_file);
-   gtk_box_pack_start(GTK_BOX(nw), btn, FALSE, FALSE, 0);
-
-   toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
-   gtk_box_pack_start(GTK_BOX(nw), toggle_userlist_button, FALSE, FALSE, 3);
-   Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
-   g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
-   return false;
-}
-
 ///////////////////////////////
 bool gui_init(void) {
    css_provider = gtk_css_provider_new();
@@ -473,7 +398,7 @@ bool gui_init(void) {
    main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), main_tab, gtk_label_new("Control"));
 
-   GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(main_tab), control_box, FALSE, FALSE, 0);
 
    conn_button = gtk_button_new_with_label("Offline");

@@ -70,3 +70,14 @@ bool ws_send_capab(struct mg_connection *c, const char *codecs) {
    }     
    return false;
 }
+
+bool ws_select_codec(struct mg_connection *c, const char *codec) {
+   if (!codec) {
+      return true;
+   }
+
+   char msgbuf[1024];
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\" } }", codec);
+   Log(LOG_DEBUG, "ws.audio", "Send codec selection: %s", msgbuf);
+   return false;
+}
