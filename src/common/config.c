@@ -127,7 +127,7 @@ bool cfg_init(dict *d, defconfig_t *defaults) {
 
 dict *cfg_load(const char *path) {
    int line = 0, errors = 0;
-   char buf[768];
+   char buf[32768];
    char *end, *skip,
         *key, *val,
         *this_section = 0;
