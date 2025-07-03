@@ -74,7 +74,7 @@ bool ws_send_capab(struct mg_connection *c, const char *codecs) {
 }
 
 bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx) {
-   if (!codec) {
+   if (!c || !codec) {
       return true;
    }
 

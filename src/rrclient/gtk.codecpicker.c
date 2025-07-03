@@ -41,12 +41,35 @@ extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
 extern GtkWidget *config_tab;
 
+typedef struct {
+   struct mg_connection *conn;
+   bool is_tx;
+} CodecSelectorCtx;
+
+static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
+   CodecSelectorCtx *ctx = user_data;
+   const char *codec = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo));
+
+   Log(LOG_DEBUG, "gtk.codec", "active codec: %s", codec);
+   if (codec) {
+      ws_select_codec(ctx->conn, codec, ctx->is_tx);
+   }
+}
+
 GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx) {
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *widget_label = gtk_label_new("TX/RX Codecs");
 
    GtkComboBoxText *tx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
    GtkComboBoxText *rx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
+
+   CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);
+   CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);
+   tx_ctx->conn = ws_conn;
+   tx_ctx->is_tx = true;
+   rx_ctx->conn = ws_conn;
+   rx_ctx->is_tx = false;
+
 
    for (int i = 0; au_core_codecs[i].magic; i++) {
       gtk_combo_box_text_append(tx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
@@ -68,6 +91,8 @@ GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText 
       *out_rx = rx_combo;
    }
 
-   // XXX: We need to hook a callback up to the changed signal here
+   g_signal_connect(tx_combo, "changed", G_CALLBACK(codec_changed_cb), tx_ctx);
+   g_signal_connect(rx_combo, "changed", G_CALLBACK(codec_changed_cb), rx_ctx);
+
    return vbox;
 }
