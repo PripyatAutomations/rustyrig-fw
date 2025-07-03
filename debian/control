@@ -1,0 +1,19 @@
+Source: rustyrig-fw
+Section: hamradio
+Priority: optional
+Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.1.4
+
+Package: rrclient
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Rusty Rig Client
+ A basic GTK client to access a radio or server running rustyrig firmware.
+
+Package: rrserver
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Rusty Rig Server
+ The reference implementation of rustyrig server in C.
+

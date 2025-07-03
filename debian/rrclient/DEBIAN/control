@@ -1,0 +1,10 @@
+Package: rrclient
+Source: rustyrig-fw
+Version: 20250702
+Architecture: amd64
+Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
+Installed-Size: 7
+Section: hamradio
+Priority: optional
+Description: Rusty Rig Client
+ A basic GTK client to access a radio or server running rustyrig firmware.
