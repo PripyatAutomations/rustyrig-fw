@@ -167,13 +167,6 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          memcpy(sp->pl_id, id, 4);
          sp->is_tx = is_tx;
          sp->chan_id = next_channel_id++;
-
-#if	0
-         // Find the appropriate pipeline and copy it in
-         if (pipeline && strlen(pipeline) > 0) {
-            snprintf(sp->pipeline, sizeof(sp->pipeline),"%s", pipeline);
-         }
-#endif
          sp->io_type = io_type;
          active_slots++;
 
@@ -200,11 +193,16 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
 
    if (!sp) {
       sp = fwdsp_create(id, io_type, is_tx);
+
+      if (!sp) {
+         Log(LOG_CRIT, "fwdsp", "Failure in fwdsp_create call");
+      }
    }
    return sp;
 }
 
 static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
+   // if the slott is zeroed, we just go away
    if (!sp || sp->pl_id[0] == '\0') {
       return true;
    }
@@ -242,8 +240,10 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
       }
    }
 
-   // Clear the struct
+   // Clear the struct, so it'll be found during free-scan
    memset(sp, 0, sizeof(struct fwdsp_subproc));
+
+   // For accounting of subprocesses
    active_slots--;
    return true;
 }
@@ -269,6 +269,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
 
    pid_t pid = fork();
+
    if (pid < 0) {
       perror("fork");
       return false;
@@ -295,7 +296,8 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          dup2(sock_pair[1], 2);
          close(sock_pair[0]);
       }
-      // Pass -s so we are hooked to stdio
+
+      // Pass -s so we are hooked to stdio and -t if TX decoder
       if (sp->is_tx) {
          execl(fwdsp_path, fwdsp_path, "-c", sp->pl_id, "-s", "-t", NULL);
       } else {
@@ -307,6 +309,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 
    // Parent
    sp->pid = pid;
+
    if (sp->io_type == FW_IO_STDIO) {
       close(in_pipe[0]);
       close(out_pipe[1]);
@@ -319,14 +322,15 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       sp->unix_sock = sock_pair[0];
    }
 
+   Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, (sp->is_tx ? "tx": "rx"), sp->pid);
    return true;
 }
 
 bool ws_send_capab(struct mg_connection *c) {
    char *capab_msg = codecneg_send_supported_codecs(au_core_codecs);
 
-   mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
    Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
+   mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
    free(capab_msg);
    return false;
 }
@@ -337,12 +341,14 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
    }
 
    char *tmp = strdup(codec_list);
+
    if (!tmp) {
       return NULL;
    }
 
    char *saveptr = NULL;
    char *token = strtok_r(tmp, " ", &saveptr);
+
    while (token) {
       au_codec_mapping_t *c = au_codec_find_by_magic(token);
 
@@ -374,8 +380,10 @@ int fwdsp_get_chan_id(const char *magic, bool is_tx) {
 
 void fwdsp_sweep_expired(void) {
    time_t now = time(NULL);
+
    for (int i = 0; i < max_subprocs; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 && now >= sp->cleanup_deadline) {
          Log(LOG_INFO, "fwdsp", "Cleaning up idle pipeline %s.%s", sp->pl_id, (sp->is_tx ? "tx" : "rx"));
          fwdsp_destroy(sp);
@@ -385,10 +393,14 @@ void fwdsp_sweep_expired(void) {
 
 int fwdsp_codec_start(enum au_codec id, bool is_tx) {
    au_codec_mapping_t *c = au_codec_by_id(id);
-   if (!c || !c->magic) return -1;
+
+   if (!c || !c->magic) {
+      return -1;
+   }
 
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, is_tx);
+
       if (!sp || !fwdsp_spawn(sp)) {
          Log(LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", c->magic, (is_tx ? "tx" : "rx"));
          return -1;
@@ -400,6 +412,7 @@ int fwdsp_codec_start(enum au_codec id, bool is_tx) {
 
 int fwdsp_codec_stop(enum au_codec id, bool is_tx) {
    au_codec_mapping_t *c = au_codec_by_id(id);
+
    if (!c || !c->magic) {
       return -1;
    }
@@ -415,6 +428,7 @@ int fwdsp_codec_stop(enum au_codec id, bool is_tx) {
       if (sp) {
          const char *hangtime_s = cfg_get("fwdsp.hangtime");
          int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
+
          if (hangtime > 0) {
             sp->cleanup_deadline = time(NULL) + hangtime;
          } else {

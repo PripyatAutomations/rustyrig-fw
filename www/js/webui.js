@@ -136,10 +136,11 @@ function ws_connect() {
 
 function handle_binary_frame(event) {
       if (event.data instanceof ArrayBuffer) {
-//         playAudioPacket(event.data, audio_codec);
-// XXX: we need to pick the codec out of the frame header
-//         playAudioPacket(event.data, "mu16");
-         playAudioPacket(event.data, "pc16");
+         if (typeof audio_codec_rx !== 'string' || audio_codec_rx.length === 0) {
+            playAudioPacket(event.data, audio_codec_rx);
+         } else {
+           playAudioPacket(event.data, "mu08");
+         }
       } else {
          console.log("Invalid binary frame (not ArrayBuffer)");
       }
@@ -165,13 +166,7 @@ function webui_handle_ws_msg(event) {
             ChatBox.Append(`<div class="chat-status notice">ERROR: ${msg}</div>`);
             console.log("NOTICE:", msg);
          } else if (msgObj.hello) {
-            ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello} using codec ${msgObj.codec} at ${msgObj.rate / 1000}Khz</div>`);
-            if (msgObj.rate) {
-               audio_rate = msgObj.rate;
-            }
-            if (msgObj.codec) {
-               audio_codec = msgObj.codec;
-            }
+            ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello}</div>`);
          } else if (msgObj.alert) {
             var alert_from = msgObj.alert.from.toUpperCase();
             var alert_ts = msgObj.alert.ts;
@@ -199,6 +194,13 @@ function webui_handle_ws_msg(event) {
             socket.send(JSON.stringify(newMsg));
          } else if (msgObj.talk) {		// Handle Chat messages
             webui_parse_chat_msg(msgObj);
+         } else if (msgObj.media) {		// Media control messages
+            if (msgObj.rate) {
+               audio_rate_rx = msgObj.rate;
+            }
+            if (msgObj.codec) {
+               audio_codec_rx = msgObj.codec;
+            }
          } else if (msgObj.log) {
             var data = msgObj.log.data;
             // XXX: show in log window

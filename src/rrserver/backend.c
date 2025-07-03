@@ -163,10 +163,11 @@ bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
 
 bool rr_freq_set(rr_vfo_t vfo, float freq) {
    if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->ptt_set == NULL) {
+      Log(LOG_CRIT, "rig", "rr_freq_set called with no active (or broken) backend selected!");
       return true;
    }
 
-//   Log(LOG_AUDIT, "rf", "FREQ set to %.0f", freq);
+   Log(LOG_AUDIT, "rig", "FREQ set to %.0f", freq);
 
    if (rig.backend->api->freq_set(vfo, freq)) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.",

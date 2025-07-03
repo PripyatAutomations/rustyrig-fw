@@ -24,6 +24,7 @@ db/*
 config/*.pem
 config/*.secret
 config/http.users
+config/http.users.*
 
 # Archived configs
 config/archive/*.json

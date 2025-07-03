@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 # Set a default profile (used to find configs, set output folder, etc), if none set
 [ -z "$PROFILE" ] && PROFILE=radio
 
@@ -8,6 +10,7 @@
 # Stop rrsever and fwddsp, if running
 [ ! -z "$(pidof fwdsp)" ] && killall -9 fwdsp
 [ ! -z "$(pidof rrserver)" ] && killall -9 rrserver
+[ -z "$(pactl list short modules | grep rrloop | cut -f 1)" ] && ./pulse-loopback.sh
 
 # If user has rigctld running, try to use it instead of starting our own
 if [ -z "$(pidof rigctld)" ]; then
@@ -33,5 +36,5 @@ else
    ./build/${PROFILE}/rrserver
 fi
 
-# Kill firmware and fwdsp instances
+# Kill firmware/fwdsp instances & tear down pulse rrloop devices
 ./killall.sh

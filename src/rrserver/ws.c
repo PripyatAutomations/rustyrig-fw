@@ -336,8 +336,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
         char *media_channel = mg_json_get_str(msg_data, "$.media.channel");
 
         if (media_codec && strlen(media_codec) == 4) {
-           Log(LOG_DEBUG, "ws.media", "Selected %s codec for user %s at cptr:<%x> -- %s.%s", 
-              media_channel, cptr->chatname, cptr, media_codec, media_channel);
+           Log(LOG_DEBUG, "ws.media", "Selected %s codec %s.%s for user %s at cptr:<%x>", 
+              media_channel,  media_codec, media_channel, cptr->chatname, cptr);
            struct fwdsp_subproc *codec_tx_subproc = NULL;
            struct fwdsp_subproc *codec_rx_subproc = NULL;
 

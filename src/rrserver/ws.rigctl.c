@@ -260,7 +260,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mg_json_get_num(msg_data, "$.cat.freq", &new_freq_d);
          float new_freq = (float)new_freq_d;
 
-         if (vfo == NULL || new_freq < 0) {
+         if (vfo == NULL || new_freq <= 0) {
             Log(LOG_DEBUG, "ws.rigctl", "FREQ set without vfo or freq");
             rv = true;
             goto cleanup;
@@ -274,6 +274,9 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          c_vfo = vfo_lookup(vfo[0]);
          cptr->last_heard = now;
 
+// XXX: We need to implement this everywhere, with a check if the value is redundant (same as before it would be applied)
+// XXX: and bail out before doing anything further. Once this is completed, we can greatly reduce the rate of periodic
+// XXX: state broadcasts down to perhaps every 5 minutes + when the user initially connects
 #if	0
          // tell everyone about it
          char msgbuf[HTTP_WS_MAX_MSG+1];

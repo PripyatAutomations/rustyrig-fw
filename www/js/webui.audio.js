@@ -1,15 +1,17 @@
 if (!window.webui_inits) window.webui_inits = [];
 
-//var audio_codec = "mu16";		// This is our default but we plan to support others via json message to switch soon
-var audio_codec = 'pc16';
-var audio_rate = 16000;			// default for mulaw
+// This is optimized default for our typical use case, remote stations on LTE or starlink where upstream is small-ish
+var audio_codec_rx = "mu16";
+var audio_codec_tx = "pc16";
+var audio_rate_rx = 16000;
+var audio_rate_tx = 16000;
 
 // RX context
-const rxCtx = new AudioContext({ sampleRate: 16000 });
+const rxCtx = new AudioContext({ sampleRate: audio_rate_rx });
 let rxTime = rxCtx.currentTime;
 
 // TX context
-const txCtx = new AudioContext({ sampleRate: 16000 });
+const txCtx = new AudioContext({ sampleRate: audio_rate_tx });
 let txTime = txCtx.currentTime;
 
 // Support volume control
@@ -135,7 +137,38 @@ function playFloat32Samples(float32Data, sampleRate) {
    rxTime += duration;
 }
 
-//$('#rig-rx-vol').on('input', function () {
+function ws_send_capab_msg() {
+   var capab_msg = {
+      "media": {
+         "cmd": "capab",
+         "payload": "pc16 mu16 mu08"
+      }
+   }
+   socket.send(JSON.stringify(capab_msg));
+}
+
+function ws_send_rx_codec(codec) {
+   var codec_msg = {
+      "media": {
+         "cmd": "codec",
+         "codec": codec || "pc16",
+         "channel": "rx"
+      }
+   }
+   socket.send(JSON.stringify(codec_msg));
+}
+
+function ws_send_tx_codec(codec) {
+   var codec_msg = {
+      "media": {
+         "cmd": "codec",
+         "codec": codec || "pc16",
+         "channel": "tx"
+      }
+   }
+   socket.send(JSON.stringify(codec_msg));
+}
+
 $('#rig-rx-vol').change(function() {
    rxGainNode.gain.value = parseFloat($(this).val());
    console.log("RX vol:", rxGainNode.gain.value);
@@ -147,7 +180,7 @@ $('#rig-tx-vol').change(function() {
 });
 
 window.webui_inits.push(function webui_audio_init() {
-//   $('button#use-audio').click(webui_audio_start);
+   $('button#use-audio').click();
 
    // Wait for socket to exist before allowing audio init
    if (!window.socket) {

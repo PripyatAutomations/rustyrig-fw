@@ -192,6 +192,11 @@ function webui_parse_auth_msg(msgObj) {
          }
 
          logged_in = true;
+
+         // Send our codec capabilities and set mu08 as our default rxcodec
+         ws_send_capab_msg();
+         ws_send_rx_codec('mu08');
+
          wm_switch_tab(active_tab);
          var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
          ChatBox.Append('<div><span class="msg-connected">' + my_ts + '&nbsp;***&nbspWelcome back, ' + auth_user + ', You have ' + auth_privs + ' privileges</span></div>');
