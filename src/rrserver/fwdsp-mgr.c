@@ -196,7 +196,11 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
 
       if (!sp) {
          Log(LOG_CRIT, "fwdsp", "Failure in fwdsp_create call");
+      } else {
+         Log(LOG_DEBUG, "fwdsp", "Spawned new instance of fwdsp at %x for codec %s.%s", sp, id, (is_tx ? "tx" : "rx"));
       }
+   } else {
+      Log(LOG_DEBUG, "fwdsp", "Using existing fwdsp instance %x for codec %s.%s", sp, id, (is_tx ? "tx" : "rx"));
    }
    return sp;
 }
@@ -214,10 +218,10 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
       nanosleep(&ts, NULL);
 
       if (waitpid(sp->pid, NULL, WNOHANG) == 0) {
-         kill(sp->pid, SIGKILL); // force kill if still alive
-         waitpid(sp->pid, NULL, 0); // reap
+         kill(sp->pid, SIGKILL);		 // force kill if still alive
+         waitpid(sp->pid, NULL, 0);		// reap
       } else {
-         waitpid(sp->pid, NULL, 0); // normal reap
+         waitpid(sp->pid, NULL, 0);		// normal reap
       }
    }
 
