@@ -1,4 +1,3 @@
-//
 // ws.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -63,6 +62,7 @@ void ws_send_to_name(struct mg_connection *sender, const char *username, struct 
       if (!sender || (current->is_ws && current->conn != sender)) {
          ws_send_to_cptr(sender, current, msg_data, data_type);
       }
+      current = current->next;
    }
 }
 
@@ -232,12 +232,26 @@ static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t
       return true;
    }
 
-#if	0
-   if (buf[0] == 'u') {  // PCM-u
-   } else if (buf[0] == 'O') {
-    }
-#endif
-    return false;
+   // Here we need to pull out the channel ID and send it the users expecting this codec
+   if (len < 8) {
+      // This frame is too small to contain meaningful data, discard it
+      return true;
+   }
+
+   // Copy 4 bytes from the start of the buffer into a NULL-terminated string
+   char codec[5];
+   memset(codec, 0, 5);
+   memcpy(codec, buf, 4);
+
+   // Copy 4 bytes from the buffer into a NULL-terminated string for channel id
+   char channel[5];
+   memset(channel, 0, 5);
+   memcpy(channel, buf, 4);
+
+   // Determine where to send the message, by channel #
+   int chan_num = atoi(channel);
+   Log(LOG_DEBUG, "ws.binframe", "Got message with codec %s for channel %d", codec, channel);
+   return false;
 }
 
 //

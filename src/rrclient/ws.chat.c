@@ -170,7 +170,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          free(reason);
          goto cleanup;
       }
-      ui_print("[%s] >> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", --clones);
+      ui_print("[%s] >>> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", --clones);
 
       struct rr_user *cptr = userlist_find(user);
       if (!cptr) {

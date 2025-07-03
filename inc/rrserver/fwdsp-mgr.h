@@ -43,7 +43,7 @@ extern struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_
 typedef void (*fwdsp_exit_cb_t)(struct fwdsp_subproc *sp, int status);
 //extern void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb);
 extern bool ws_send_capab(struct mg_connection *c);
-extern bool fwdsp_spawn(struct fwdsp_subproc *sp, bool tx_mode);
+extern bool fwdsp_spawn(struct fwdsp_subproc *sp);
 extern int fwdsp_get_chan_id(const char *magic, bool is_tx);
 extern void fwdsp_sweep_expired(void);
 extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);

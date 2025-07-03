@@ -39,6 +39,7 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
    prepare_msg(msgbuf, sizeof(msgbuf),
       "{ \"talk\": { \"error\": { \"ts\": %lu, \"msg\": \"You do not have enough privileges to use '%s' command\" } } }",
          now, action);
+   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    return false;
 }
 
@@ -47,6 +48,7 @@ bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
    prepare_msg(msgbuf, sizeof(msgbuf),
       "{ \"talk\": { \"error\": { \"ts\": %lu, \"msg\": \"You MUST provide a reason for using'%s' command\" } } }",
          now, command);
+   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    return false;
 }
 
@@ -105,12 +107,11 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
 // KICK: Kick a user //
 ///////////////////////
 static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char *reason) {
-/*
    if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "kick");
       return true;
    }
-*/
+
    if (client_has_flag(cptr, FLAG_STAFF)) {
       http_client_t *acptr;
       int kicked = 0;
@@ -129,15 +130,19 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
                cptr->chatname,
                (reason ? reason : "No reason given"));
             Log(LOG_AUDIT, "admin.kick", "%s %s", acptr->chatname, msgbuf);
-//            struct mg_str ms = mg_str(msgbuf);
-//            ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms, WEBSOCKET_OP_TEXT);
+            struct mg_str ms = mg_str(msgbuf);
+            ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms, WEBSOCKET_OP_TEXT);
             ws_kick_client(acptr, msgbuf);
             kicked++;
          }
       }
 
       if (!kicked) {
-         // Maybe inform kicker that no clients matched?
+         char msgbuf[HTTP_WS_MAX_MSG+1];
+         prepare_msg(msgbuf, sizeof(msgbuf),
+             "{ \"talk\": { \"error\": { \"ts\": %lu, \"msg\": \"KICK '%s' command matched no connected users\" } } }",
+             now, target);
+         mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       }
    } else {
       ws_chat_err_noprivs(cptr, "KICK");
@@ -268,7 +273,12 @@ bool ws_send_users(http_client_t *cptr) {
        } else {           // nope, broadcast it
           ws_send_userinfo(current, NULL);
        }
-    current = current->next;
+
+       if (!current->next) {
+          return false;
+       }
+
+       current = current->next;
     }
     return false;
 }

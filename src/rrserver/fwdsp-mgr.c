@@ -117,11 +117,12 @@ bool fwdsp_init(void) {
 }
 
 static int fwdsp_find_offset(const char *id, bool is_tx) {
-   if (!id || max_subprocs <= 0) return -1;
+   if (!id || max_subprocs <= 0) {
+      return -1;
+   }
 
    for (int i = 0; i < max_subprocs; i++) {
-      if (strncmp(id, fwdsp_subprocs[i].pl_id, 4) == 0 &&
-          fwdsp_subprocs[i].is_tx == is_tx) {
+      if (strncmp(id, fwdsp_subprocs[i].pl_id, 4) == 0 && fwdsp_subprocs[i].is_tx == is_tx) {
          return i;
       }
    }
@@ -186,7 +187,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
             case FW_IO_NONE:
                break;
          }
-         fwdsp_spawn(sp, is_tx);
+         fwdsp_spawn(sp);
          return sp;
       }
    }
@@ -224,11 +225,21 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
 
    // Close open fds
    if (sp->io_type == FW_IO_STDIO) {
-      if (sp->fw_stdin  > 0) close(sp->fw_stdin);
-      if (sp->fw_stdout > 0) close(sp->fw_stdout);
-      if (sp->fw_stderr > 0) close(sp->fw_stderr);
+      if (sp->fw_stdin  > 0) {
+         close(sp->fw_stdin);
+      }
+
+      if (sp->fw_stdout > 0) {
+         close(sp->fw_stdout);
+      }
+
+      if (sp->fw_stderr > 0) {
+         close(sp->fw_stderr);
+      }
    } else if (sp->io_type == FW_IO_AF_UNIX) {
-      if (sp->unix_sock > 0) close(sp->unix_sock);
+      if (sp->unix_sock > 0) {
+         close(sp->unix_sock);
+      }
    }
 
    // Clear the struct
@@ -237,7 +248,7 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    return true;
 }
 
-bool fwdsp_spawn(struct fwdsp_subproc *sp, bool tx_mode) {
+bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (!sp) {
       return false;
    }
@@ -285,7 +296,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp, bool tx_mode) {
          close(sock_pair[0]);
       }
       // Pass -s so we are hooked to stdio
-      if (tx_mode) {
+      if (sp->is_tx) {
          execl(fwdsp_path, fwdsp_path, "-c", sp->pl_id, "-s", "-t", NULL);
       } else {
          execl(fwdsp_path, fwdsp_path, "-c", sp->pl_id, "-s", NULL);
@@ -321,19 +332,25 @@ bool ws_send_capab(struct mg_connection *c) {
 }
 
 struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode) {
-   if (!codec_list || !*codec_list) return NULL;
+   if (!codec_list || !*codec_list) {
+      return NULL;
+   }
 
    char *tmp = strdup(codec_list);
-   if (!tmp) return NULL;
+   if (!tmp) {
+      return NULL;
+   }
 
    char *saveptr = NULL;
    char *token = strtok_r(tmp, " ", &saveptr);
    while (token) {
       au_codec_mapping_t *c = au_codec_find_by_magic(token);
+
       if (c && c->magic) {
          struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, tx_mode);
+
          if (sp && !sp->pid) {
-            if (!fwdsp_spawn(sp, tx_mode)) {
+            if (!fwdsp_spawn(sp)) {
                Log(LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s.%s", token, (tx_mode ? "tx" : "rx"));
                fwdsp_destroy(sp);
                sp = NULL;
@@ -372,7 +389,7 @@ int fwdsp_codec_start(enum au_codec id, bool is_tx) {
 
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, is_tx);
-      if (!sp || !fwdsp_spawn(sp, is_tx)) {
+      if (!sp || !fwdsp_spawn(sp)) {
          Log(LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", c->magic, (is_tx ? "tx" : "rx"));
          return -1;
       }
@@ -383,20 +400,26 @@ int fwdsp_codec_start(enum au_codec id, bool is_tx) {
 
 int fwdsp_codec_stop(enum au_codec id, bool is_tx) {
    au_codec_mapping_t *c = au_codec_by_id(id);
-   if (!c || !c->magic) return -1;
+   if (!c || !c->magic) {
+      return -1;
+   }
 
    int rc = au_codec_stop(id, is_tx);
-   if (rc < 0) return rc;
+   if (rc < 0) {
+      return rc;
+   }
 
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_instance(c->magic, is_tx);
+
       if (sp) {
          const char *hangtime_s = cfg_get("fwdsp.hangtime");
          int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
-         if (hangtime > 0)
+         if (hangtime > 0) {
             sp->cleanup_deadline = time(NULL) + hangtime;
-         else
+         } else {
             fwdsp_destroy(sp);
+         }
       }
    }
 
