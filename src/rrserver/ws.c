@@ -349,7 +349,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
                  }
                  memset(cptr->codec_tx, 0, sizeof(cptr->codec_tx));
                  memcpy(cptr->codec_tx, media_codec, 4);
-                 codec_rx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, true);
+                 codec_tx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, true);
                  Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.tx at %x", cptr->codec_tx, codec_tx_subproc);
               } else if (strcasecmp(media_channel, "rx") == 0) {
                  if (cptr->codec_rx[0] != '\0') {
@@ -357,7 +357,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
                  }
                  memset(cptr->codec_rx, 0, sizeof(cptr->codec_rx));
                  memcpy(cptr->codec_rx, media_codec, 4);
-                 codec_tx_subproc = fwdsp_find_or_create(cptr->codec_rx, FW_IO_STDIO, false);
+                 codec_rx_subproc = fwdsp_find_or_create(cptr->codec_rx, FW_IO_STDIO, false);
                  Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.rx at %x", cptr->codec_rx, codec_rx_subproc);
               } else if (strcasecmp(media_channel, "video-rx") == 0) {
                  // NYI
