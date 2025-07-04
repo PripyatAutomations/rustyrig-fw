@@ -12,7 +12,7 @@
 enum fwdsp_io_type {
     FW_IO_NONE = 0,		// invalid
     FW_IO_STDIO,		// stdin/stdout
-    FW_IO_AF_UNIX
+    FW_IO_SOCKET		// socket io
 };
 
 struct fwdsp_io_conn {
@@ -34,9 +34,6 @@ struct fwdsp_subproc {
    int          fw_stdin;
    int          fw_stdout;
    int          fw_stderr;
-
-   // AF_UNIX socket
-   int          unix_sock;
 
    // --- Mongoose tracking for polling ---
    struct mg_connection *mg_stdout_conn;

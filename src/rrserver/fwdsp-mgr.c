@@ -191,8 +191,6 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          switch(io_type) {
             case FW_IO_STDIO:
                break;
-            case FW_IO_AF_UNIX:
-               break;
             default:
             case FW_IO_NONE:
                break;
@@ -255,11 +253,17 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
 
    // Close file descriptors
    if (sp->io_type == FW_IO_STDIO) {
-      if (sp->fw_stdin > 0)  close(sp->fw_stdin);
-      if (sp->fw_stdout > 0) close(sp->fw_stdout);
-      if (sp->fw_stderr > 0) close(sp->fw_stderr);
-   } else if (sp->io_type == FW_IO_AF_UNIX) {
-      if (sp->unix_sock > 0) close(sp->unix_sock);
+      if (sp->fw_stdin > 0)  {
+         close(sp->fw_stdin);
+      }
+
+      if (sp->fw_stdout > 0) {
+         close(sp->fw_stdout);
+      }
+
+      if (sp->fw_stderr > 0) {
+         close(sp->fw_stderr);
+      }
    }
 
    // Clear struct
@@ -307,11 +311,6 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          perror("pipe");
          return false;
       }
-   } else if (sp->io_type == FW_IO_AF_UNIX) {
-      if (socketpair(AF_UNIX, SOCK_STREAM, 0, sock_pair) < 0) {
-         perror("socketpair");
-         return false;
-      }
    }
 
    pid_t pid = fork();
@@ -335,11 +334,6 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          close(in_pipe[1]);
          close(out_pipe[0]);
          close(err_pipe[0]);
-      } else if (sp->io_type == FW_IO_AF_UNIX) {
-         dup2(sock_pair[1], 0);
-         dup2(sock_pair[1], 1);
-         dup2(sock_pair[1], 2);
-         close(sock_pair[0]);
       }
 
       if (sp->is_tx) {
@@ -371,10 +365,6 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          Log(LOG_CRIT, "fwdsp", "Failed to attach fds to event loop for codec %s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
          return false;
       }
-   } else if (sp->io_type == FW_IO_AF_UNIX) {
-      close(sock_pair[1]);
-      sp->unix_sock = sock_pair[0];
-      // optional: attach sp->unix_sock via mg_wrapfd if you want to watch that too
    }
 
    Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid);

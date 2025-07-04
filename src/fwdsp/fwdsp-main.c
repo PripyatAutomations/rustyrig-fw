@@ -21,8 +21,6 @@
 #include "build_config.h"
 #include <stdint.h>
 #include <gst/gst.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +29,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #if	!defined(__FWDSP)
 #define	__FWDSP
 #endif
@@ -45,7 +44,6 @@
 const char *config_file = NULL;
 const char *config_codec = "pc16";
 bool codec_tx_mode  = false;
-bool config_stdio = false;		// use stdio instead of socket
 bool config_video = false;		// is this audio or video stream?
 bool dying = false;
 bool empty_config = true;
@@ -56,28 +54,8 @@ defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"gstreamer debug level" },
   { "log.level",	"debug",	"main log level" }, 
   { "log.show-ts",	"false",	"show timestamps in logs" },
-  { "io.stdio",		"false",	"Use stdio for io instead of AF_UNIX socket" },
   { NULL,		NULL,		NULL }
 };
-
-static int connect_unix_socket(const char *path) {
-   int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-
-   if (fd < 0) {
-      return -1;
-   }
-
-   struct sockaddr_un addr = {0};
-   addr.sun_family = AF_UNIX;
-   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
-
-   if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-      close(fd);
-      return -1;
-   }
-
-   return fd;
-}
 
 static void cleanup_pipeline(GstElement **pipe) {
    if (*pipe) {
@@ -126,20 +104,8 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
 
 static void run_loop(struct audio_config *cfg) {
    while (1) {
-      int sock_fd = -1;
-
-      if (config_stdio) {
-         sock_fd = (cfg->media_direction == FW_DIR_TX) ? STDOUT_FD : STDIN_FD;
-         Log(LOG_DEBUG, "fwdsp", "Using stdio FD=%d for %s", sock_fd, (cfg->media_direction == FW_DIR_TX ? "TX" : "RX"));
-      } else {
-         while (sock_fd < 0) {
-            sock_fd = connect_unix_socket(cfg->sock_path);
-            if (sock_fd < 0) {
-               fprintf(stderr, "fwdsp: Waiting for socket connection...\n");
-               sleep(1);
-            }
-         }
-      }
+      int sock_fd = (cfg->media_direction == FW_DIR_TX) ? STDOUT_FD : STDIN_FD;
+      Log(LOG_DEBUG, "fwdsp", "Using std%s FD=%d for %s", (cfg->media_direction ? "out" : "in"), sock_fd, (cfg->media_direction == FW_DIR_TX ? "TX" : "RX"));
 
       fprintf(stderr, "connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
       pipeline = build_pipeline(cfg->pipeline, sock_fd);
@@ -245,8 +211,13 @@ g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
 
       gst_object_unref(bus);
       cleanup_pipeline(&pipeline);
-      if (!config_stdio) {
+
+      // If a socket instead of stdio, close it here
+      struct stat sb;
+      fstat(sock_fd, &sb);
+      if (sb.st_mode == S_IFSOCK) {
          close(sock_fd);
+         sock_fd = -1;
       }
    }
 
@@ -268,7 +239,7 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
 
    int opt;
-   while ((opt = getopt(argc, argv, "c:f:hstv")) != -1) {
+   while ((opt = getopt(argc, argv, "c:f:htv")) != -1) {
       switch (opt) {
          case 'c':
             size_t clen = strlen(optarg);
@@ -283,9 +254,6 @@ int main(int argc, char *argv[]) {
          case 'f':
             config_file = strdup(optarg);
             break;
-         case 's':
-            config_stdio = true;
-            break;
          case 't':
             codec_tx_mode = true;
             break;
@@ -297,7 +265,6 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-t]\n", argv[0]);
             fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
-            fprintf(stderr, "  -s\t\t\tstdio mode\n");
             fprintf(stderr, "  -t\t\t\tTransmit mode\n");
             fprintf(stderr, "  -v\t\t\tVideo mode\n");
             exit(1);
@@ -380,11 +347,6 @@ int main(int argc, char *argv[]) {
    } else {
       Log(LOG_CRIT, "fwdsp", "No pipeline configured for codec id %s", config_codec);
       exit(1);
-   }
-
-   const char *cfg_stdio_s = cfg_get("io.stdio");
-   if (config_stdio && strcasecmp(cfg_stdio_s, "true") == 0) {
-      config_stdio = true;
    }
 
    // unless set to video, treat it as audio frames
