@@ -1,3 +1,9 @@
+[audio]
+ws.c / fwdsp-mgr.c:
+	ws_txtframe_process: media.codec handling
+	   * Remove codec enum and just pass 4 byte ID
+	   * Use fwdsp_codec_start instead of fwdsp_find_or_create, so we setup all the audio stuff not just the subproc
+
 [eeprom/config]
 * more work to integrate config into eeprom
   - work on dict and just load/save changed parts of the eeprom

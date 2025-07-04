@@ -349,6 +349,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
                  }
                  memset(cptr->codec_tx, 0, sizeof(cptr->codec_tx));
                  memcpy(cptr->codec_tx, media_codec, 4);
+//                 fwdsp_codec_start(
                  codec_tx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, true);
                  Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.tx at %x", cptr->codec_tx, codec_tx_subproc);
               } else if (strcasecmp(media_channel, "rx") == 0) {

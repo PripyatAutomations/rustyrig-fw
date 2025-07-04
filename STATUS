@@ -5,7 +5,8 @@ STATUS
 * gtk-client		WORKING; Similar to webui but without file/image transfer
 * www/rig		MOSTLY WORKING
 * mulaw over websockets	WORKS for RX
-* PCM over websockets	WORKS via gstreamer for RX; TX should work with framing
+* PCM over websockets	WORKS via gstreamer for RX; TX should work with framing - REWRITING to support multiple distinct channels of audio
+			and fully use codec negotation/live change
 * au.pipe		IN WORK
 * backend.hamlib	MOSTLY WORKING
 * backend.internal	DELAYED until backend.hamlib feature complete, then we can cache here

@@ -45,5 +45,4 @@
 
 #if	defined(FEATURE_RADIOBERRY)
 
-
 #endif	// defined(FEATURE_RADIOBERRY)

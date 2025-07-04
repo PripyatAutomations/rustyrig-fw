@@ -43,6 +43,8 @@ static int active_slots = 0;
 static int max_subprocs = 4;
 static struct fwdsp_subproc *fwdsp_subprocs;
 static int next_channel_id = 1;
+extern char *config_file;		// main.c
+extern struct mg_mgr mg_mgr;
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
    Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id, (sp->is_tx ? "tx" : "rx"), sp->pid, status);
@@ -63,7 +65,6 @@ static void fwdsp_sigchld(int sig) {
       for (int i = 0; i < max_subprocs; i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
          if (sp->pid == pid) {
-//            Log(LOG_DEBUG, "fwdsp", "Subproc %s.%s (pid %d) exited", (sp->is_tx ? "tx" : "rx"), sp->pl_id, pid);
             if (on_fwdsp_exit) {
                on_fwdsp_exit(sp, status);
             }
@@ -72,6 +73,20 @@ static void fwdsp_sigchld(int sig) {
             break;
          }
       }
+   }
+}
+
+static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
+   struct fwdsp_io_conn *ctx = c->fn_data;
+
+   if (ev == MG_EV_READ) {
+      struct mg_str *data = (struct mg_str *) ev_data;
+
+      Log(LOG_DEBUG, "fwdsp", "[%s %.*s]",
+          ctx->is_stderr ? "stderr" : "stdout",
+          (int) data->len, data->buf);
+   } else if (ev == MG_EV_CLOSE) {
+      free(ctx);
    }
 }
 
@@ -165,7 +180,9 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          memset(sp, 0, sizeof(struct fwdsp_subproc));
          // Fill the struct
          memcpy(sp->pl_id, id, 4);
-         sp->is_tx = is_tx;
+
+         // We need to INVERT the TX flag here, because the client is telling us which codec it wants for the direction, we must match
+         sp->is_tx = !is_tx;
          sp->chan_id = next_channel_id++;
          sp->io_type = io_type;
          active_slots++;
@@ -206,50 +223,75 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
 }
 
 static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
-   // if the slott is zeroed, we just go away
-   if (!sp || sp->pl_id[0] == '\0') {
-      return true;
+   if (!sp || sp->pl_id[0] == '\0') return true;
+
+#if	0
+   // Disconnect stdout/stderr from event loop
+   if (sp->mg_stdout_conn) {
+      mg_mgr_disconnect(sp->mg_stdout_conn);
+      sp->mg_stdout_conn = NULL;
    }
 
-   // Kill the subprocess
+   if (sp->mg_stderr_conn) {
+      mg_mgr_disconnect(sp->mg_stderr_conn);
+      sp->mg_stderr_conn = NULL;
+   }
+#endif
+
+   // Kill subprocess
    if (sp->pid > 0) {
       kill(sp->pid, SIGTERM);
-      const struct timespec ts = { .tv_sec = 1, .tv_nsec = 0 };
-      nanosleep(&ts, NULL);
+      nanosleep(&(struct timespec){ .tv_sec = 1 }, NULL);
 
       if (waitpid(sp->pid, NULL, WNOHANG) == 0) {
-         kill(sp->pid, SIGKILL);		 // force kill if still alive
-         waitpid(sp->pid, NULL, 0);		// reap
+         kill(sp->pid, SIGKILL);
+         waitpid(sp->pid, NULL, 0);
       } else {
-         waitpid(sp->pid, NULL, 0);		// normal reap
+         waitpid(sp->pid, NULL, 0);
       }
+
+      sp->pid = -1;
    }
 
-   // Close open fds
+   // Close file descriptors
    if (sp->io_type == FW_IO_STDIO) {
-      if (sp->fw_stdin  > 0) {
-         close(sp->fw_stdin);
-      }
-
-      if (sp->fw_stdout > 0) {
-         close(sp->fw_stdout);
-      }
-
-      if (sp->fw_stderr > 0) {
-         close(sp->fw_stderr);
-      }
+      if (sp->fw_stdin > 0)  close(sp->fw_stdin);
+      if (sp->fw_stdout > 0) close(sp->fw_stdout);
+      if (sp->fw_stderr > 0) close(sp->fw_stderr);
    } else if (sp->io_type == FW_IO_AF_UNIX) {
-      if (sp->unix_sock > 0) {
-         close(sp->unix_sock);
-      }
+      if (sp->unix_sock > 0) close(sp->unix_sock);
    }
 
-   // Clear the struct, so it'll be found during free-scan
-   memset(sp, 0, sizeof(struct fwdsp_subproc));
+   // Clear struct
+   memset(sp, 0, sizeof(*sp));
 
-   // For accounting of subprocesses
-   active_slots--;
+   if (active_slots > 0)
+      active_slots--;
+
    return true;
+}
+
+static struct mg_connection *fwdsp_attach_fd_to_mgr(struct mg_mgr *mgr,
+                                                    struct fwdsp_subproc *sp,
+                                                    int fd,
+                                                    bool is_stderr) {
+   struct fwdsp_io_conn *ctx = calloc(1, sizeof(struct fwdsp_io_conn));
+   if (!ctx) {
+      return NULL;
+   }
+
+   ctx->sp = sp;
+   ctx->is_stderr = is_stderr;
+
+   struct mg_connection *c = mg_wrapfd(mgr, fd, fwdsp_read_cb, ctx);
+   if (!c) {
+      Log(LOG_CRIT, "fwdsp", "Failed to wrap fd %d for %s", fd,
+          is_stderr ? "stderr" : "stdout");
+      free(ctx);
+      return NULL;
+   }
+
+   return c;
 }
 
 bool fwdsp_spawn(struct fwdsp_subproc *sp) {
@@ -273,7 +315,6 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
 
    pid_t pid = fork();
-
    if (pid < 0) {
       perror("fork");
       return false;
@@ -282,11 +323,11 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    const char *fwdsp_path = cfg_get("fwdsp.path");
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp bin");
-      return NULL;
+      return false;
    }
 
    if (pid == 0) {
-      // Child
+      // --- Child ---
       if (sp->io_type == FW_IO_STDIO) {
          dup2(in_pipe[0], 0);
          dup2(out_pipe[1], 1);
@@ -301,32 +342,42 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          close(sock_pair[0]);
       }
 
-      // Pass -s so we are hooked to stdio and -t if TX decoder
       if (sp->is_tx) {
-         execl(fwdsp_path, fwdsp_path, "-c", sp->pl_id, "-s", "-t", NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-s", "-t", NULL);
       } else {
-         execl(fwdsp_path, fwdsp_path, "-c", sp->pl_id, "-s", NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-s", NULL);
       }
+
       perror("execl");
       _exit(127);
    }
 
-   // Parent
+   // --- Parent ---
    sp->pid = pid;
 
    if (sp->io_type == FW_IO_STDIO) {
       close(in_pipe[0]);
       close(out_pipe[1]);
       close(err_pipe[1]);
-      sp->fw_stdin = in_pipe[1];
+      sp->fw_stdin  = in_pipe[1];
       sp->fw_stdout = out_pipe[0];
       sp->fw_stderr = err_pipe[0];
+
+      // Hook up stdout/stderr to Mongoose immediately
+      sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, sp);
+      sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, sp);
+
+      if (!sp->mg_stdout_conn || !sp->mg_stderr_conn) {
+         Log(LOG_CRIT, "fwdsp", "Failed to attach fds to event loop for codec %s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
+         return false;
+      }
    } else if (sp->io_type == FW_IO_AF_UNIX) {
       close(sock_pair[1]);
       sp->unix_sock = sock_pair[0];
+      // optional: attach sp->unix_sock via mg_wrapfd if you want to watch that too
    }
 
-   Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, (sp->is_tx ? "tx": "rx"), sp->pid);
+   Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid);
    return true;
 }
 

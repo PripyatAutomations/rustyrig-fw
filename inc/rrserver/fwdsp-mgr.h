@@ -15,22 +15,32 @@ enum fwdsp_io_type {
     FW_IO_AF_UNIX
 };
 
+struct fwdsp_io_conn {
+   struct fwdsp_subproc *sp;
+   bool is_stderr;
+};
+
 struct fwdsp_subproc {
-   pid_t 	pid;		// Process ID
-   char		pl_id[5];	// pipeline ID
-   char         pipeline[1024];  // pipeline string
-   bool		is_tx;		// Is this a TX channel?
-   int 		refcount;
-   time_t 	cleanup_deadline;  // 0 means no timer set
-   int 		chan_id;      // Unique channel ID for this subprocess
-   enum fwdsp_io_type io_type;	// instance io type
-   //// Only one of these will be used, either stdin/stdout/stderr or unix_sock depending on above io_type
-   int		fw_stdin;	// redirected stdin
-   int		fw_stdout;	// redirrcted stdout
-   int		fw_stderr;	// redirected stderr
-   //// -- or --
-   int		unix_sock;	// unix socket
-   /////
+   pid_t        pid;
+   char         pl_id[5];
+   char         pipeline[1024];
+   bool         is_tx;
+   int          refcount;
+   time_t       cleanup_deadline;
+   int          chan_id;
+   enum fwdsp_io_type io_type;
+
+   // stdio pipe FDs
+   int          fw_stdin;
+   int          fw_stdout;
+   int          fw_stderr;
+
+   // AF_UNIX socket
+   int          unix_sock;
+
+   // --- Mongoose tracking for polling ---
+   struct mg_connection *mg_stdout_conn;
+   struct mg_connection *mg_stderr_conn;
 };
 
 extern bool fwdsp_init(void);

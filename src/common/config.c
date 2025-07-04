@@ -423,7 +423,7 @@ bool cfg_save(const char *path) {
    return false;
 }
 
-#if	0
+#if	0		// XXX: Not yet ready: config reload events
 // This handles stuff like restarting audio pipelines, etc
 struct {
    char *kev;
@@ -450,6 +450,7 @@ bool run_reload_events(const char *key) {
    return false;
 }
 
+// XXX: This needs to compare changes and create a dict with the differences in it
 bool cfg_apply_new(dict *oldcfg, dict *newcfg) {
    cfg = newcfg;
    return false;
