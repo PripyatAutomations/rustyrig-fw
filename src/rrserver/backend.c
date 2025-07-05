@@ -109,7 +109,7 @@ bool rr_backend_init(void) {
    be = rr_backend_find(be_name);
 
    if (be == NULL) {
-      Log(LOG_CRIT, "core", "Invalid backend selection %s - please fix config key backend.acive!");
+      Log(LOG_CRIT, "core", "Invalid backend selection %s - please fix config key backend.active!");
       exit(1);
    }
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);

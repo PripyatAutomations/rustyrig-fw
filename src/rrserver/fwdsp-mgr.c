@@ -380,17 +380,6 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    return true;
 }
 
-bool ws_send_capab(struct mg_connection *c) {
-   char *capab_msg = codecneg_send_supported_codecs();
-
-   if (capab_msg) {
-      Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
-      mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
-      free(capab_msg);
-   }
-   return false;
-}
-
 struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode) {
    if (!codec_list || !*codec_list) {
       return NULL;

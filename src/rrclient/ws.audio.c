@@ -41,38 +41,6 @@ bool ws_audio_init(void) {
    return false;
 }
 
-// if passed NULL for codecs, use all available codecs
-bool ws_send_capab(struct mg_connection *c, const char *codecs) {
-   if (!codecs) {
-      char *capab_msg = codecneg_send_supported_codecs();
-
-      if (!capab_msg) {
-         return true;
-      }
-      mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
-      Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
-      free(capab_msg);
-   } else {
-      // Handle common codecs check
-      const char *preferred = cfg_get("codecs.allowed");
-      char *common_codecs = codec_filter_common(preferred, codecs);
-
-      if (!common_codecs) {
-         return true;
-      }
-
-      if (common_codecs && strlen(common_codecs) >= 4) {		// valid IDs are 4 char long
-         // emit codec message
-         char msgbuf[1024];
-         snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"payload\": \"%s\" } }", common_codecs);
-         Log(LOG_DEBUG, "ws.audio", "Sending supported codec list: %s", common_codecs);
-         mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-      }
-      free(common_codecs);
-   }     
-   return false;
-}
-
 bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx) {
    if (!c || !codec) {
       return true;

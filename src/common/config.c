@@ -129,8 +129,10 @@ dict *cfg_load(const char *path) {
    int line = 0, errors = 0;
    char buf[32768];
    char *end, *skip,
-        *key, *val,
-        *this_section = 0;
+        *key, *val;
+   char this_section[128];
+
+   memset(this_section, 0, sizeof(this_section));
 
    log_level = LOG_DEBUG;
 
@@ -184,11 +186,11 @@ dict *cfg_load(const char *path) {
       // Look for end of comment
       if (*skip == '*' && *skip+1== '/') {
          in_comment = false;
-//         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
+         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
          continue;
       // Look for start of comment
       } else if (*skip == '/' && *(skip + 1) == '*') {
-//         Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
+         Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
          in_comment = true;
          continue;
       // If we're in a comment still, there's no */ on this line, so continue ignoring input
@@ -197,8 +199,12 @@ dict *cfg_load(const char *path) {
       } else if ((*skip == '/' && *(skip+1) == '/') || *skip == '#' || *skip == ';') {
          continue;
       } else if (*skip == '[' && *end == ']') {		// section
-         this_section = strndup(skip + 1, strlen(skip) - 2);
-//         Log(LOG_CRAZY, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
+         size_t section_len = sizeof(this_section);
+         size_t skip_len = strlen(skip);
+         size_t copy_len = ((skip_len - 1) > section_len ? section_len : (skip_len - 1));
+         memset(this_section, 0, section_len);
+         snprintf(this_section, copy_len, "%s", skip + 1);
+         Log(LOG_DEBUG, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
          continue;
       } else if (*skip == '@') {			// preprocessor
          if (strncasecmp(skip + 1, "if ", 3) == 0) {
@@ -211,7 +217,7 @@ dict *cfg_load(const char *path) {
       }
 
       // Configuration data *MUST* be inside of a section, no exceptions.
-      if (!this_section) {
+      if (this_section[0] == '\0') {
          fprintf(stderr, "[Debug] config %s has line outside section header at line %d: %s\n", path, line, buf);
          errors++;
          continue;
@@ -242,10 +248,10 @@ dict *cfg_load(const char *path) {
 
          // if this isn't general section, it needs a prefix on the key
          if (strncasecmp(this_section, "general", 7) != 0) {
-            char keybuf[128];
+            char keybuf[384];
 //            Log(LOG_CRIT, "config", "section: %s", this_section);
             memset(keybuf, 0, sizeof(keybuf));
-            snprintf(keybuf, sizeof(keybuf), "%s:%s", this_section, key);
+            snprintf(keybuf, sizeof(keybuf), "%s:%.s", this_section, key);
             Log(LOG_CRAZY, "config", "Set key: %s => %s", keybuf, val);
             dict_add(newcfg, keybuf, val);
          } else {
@@ -276,7 +282,7 @@ dict *cfg_load(const char *path) {
          // Store value
          char fullkey[256];
          memset(fullkey, 0, sizeof(fullkey));
-         snprintf(fullkey, sizeof(fullkey), "pipeline:%s", key);
+         snprintf(fullkey, sizeof(fullkey), "pipeline:%.*s", (int)(sizeof(key) - 1), key);
          Log(LOG_CRAZY, "config", "Add pipeline %s => %s", fullkey, val);
          dict_add(newcfg, fullkey, val);
       } else if (strncasecmp(this_section, "server:", 7) == 0) {
@@ -295,7 +301,7 @@ dict *cfg_load(const char *path) {
             }
 
             memset(fullkey, 0, sizeof(fullkey));
-            snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
+            snprintf(fullkey, sizeof(fullkey), "%s.%.*s", this_section + 7, (int)(sizeof(key) - 1), key);
             // Store value
             dict_add(servers, fullkey, val);
          } else {
@@ -312,6 +318,9 @@ dict *cfg_load(const char *path) {
    } else {
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
    }
+
+   fprintf(stderr, "**** Config Dump ****\n");
+   dict_dump(newcfg, stderr);
    return newcfg;
 }
 

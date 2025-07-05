@@ -134,9 +134,13 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       if (negotiated_codecs) {
          free(negotiated_codecs);
       }
-      negotiated_codecs = codec_filter_common(preferred, media_payload);
+
+      const char *negotiated_codecs = media_capab_prepare(media_payload);
+
       if (negotiated_codecs) {
-         ws_send_capab(c, negotiated_codecs);
+         mg_ws_send(c, negotiated_codecs, strlen(negotiated_codecs), WEBSOCKET_OP_TEXT);
+         free((char *)negotiated_codecs);
+         negotiated_codecs = NULL;
       } else {
          Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
       }

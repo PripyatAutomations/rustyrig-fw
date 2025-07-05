@@ -34,13 +34,13 @@ defconfig_t defcfg[] = {
    { "default.tx.power",		"30",	"Default TX power in watts (float)" },
    { "log.level",			"debug", "Log level (audit | crit | warn | info | debug | crazy)" },
    { "log.show-ts",			"true", "Show timestamps in log" },
-   { "server.auto-connect",		NULL,	"Profile name to autoconnect to" },
- #ifdef _WIN32
+//   { "server.auto-connect",		NULL,	"Profile name to autoconnect to" },
+#ifdef _WIN32
    { "ui.gtk.theme",        "Windows10", "Chosen light theme" },
    { "ui.gtk.theme.dark",   "Windows10-Dark", "Chosen dark theme" },
-#else
-   { "ui.gtk.theme",        NULL, 	"Chosen light theme" },
-   { "ui.gtk.theme.dark",   NULL,   "Chosen dark theme" },
+//#else
+//   { "ui.gtk.theme",        NULL, 	"Chosen light theme" },
+//   { "ui.gtk.theme.dark",   NULL,   "Chosen dark theme" },
 #endif
    { "ui.main.height",			"600",	"Height (px) of main window" },
    { "ui.main.width",			"800",	"Width (px) of main window" },

@@ -389,7 +389,16 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 //         snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\", \"codec\": \"%s\", \"rate\": %d }", VERSION, HARDWARE, codec, rate);
          snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         ws_send_capab(c);
+
+         // Send our capabilities
+         const char *capab_msg = media_capab_prepare(NULL);
+
+         if (capab_msg) {
+            mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
+            free((char *)capab_msg);
+         } else {
+            Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
+         }
       } else {
          Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
          ws_kick_client_by_c(c, "Socket error 314");

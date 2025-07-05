@@ -18,14 +18,20 @@ struct ws_frame {
   uint8_t magic[2];
   uint8_t *data;
   size_t len;
+  enum {
+     WS_MEDIA_NONE = 0,
+     WS_MEDIA_AUDIO,
+     WS_MEDIA_VIDEO,
+     WS_MEDIA_FILE
+  } data_type;
   struct ws_frame *next;
 } __attribute__((packed));
 
 // This is sent as json before any audio samples can be exchanged
 struct audio_header {
-   uint8_t magic[4];	      // e.g. "MU16"
+   char     codec[5];	      // e.g. "mu16"
    uint32_t sample_rate;      // sample rate in hz
-   uint8_t channel_id;	      // Channel ID: 0 for RX, 1 for TX, etc
+   uint8_t  channel_id;	      // Channel ID: 0 for RX, 1 for TX, etc
 }  __attribute__((packed));
 typedef struct audio_header au_header_t;
 
@@ -36,19 +42,10 @@ typedef struct audio_frame {
    struct audio_frame *next;           // next frame
 } au_frame_t;
 
-struct audio_settings {
-    uint32_t		sample_rate;			// sample rate in hz
-    bool		active;				// Is the stream active?
-};
-typedef struct audio_settings audio_settings_t;
-extern void audio_tx_free_frame(void);
-extern audio_settings_t	au_rx_config, au_tx_config;
+// ws_send_media_capab: Send our media.capab message. If codecs is not NULL, send overlapping codecs, else send all preferred codecs.
+extern const char *media_capab_prepare(const char *codecs);
 
-// New stuff
-extern char *codecneg_send_supported_codecs(void);
-extern char *codecneg_send_supported_codecs_plain(void);
+// codec_filter_common: Return a string with only the codecs supported by both parties or NULL. *MUST* be freed if not NULL!
 extern char *codec_filter_common(const char *preferred, const char *available);
-extern int au_codec_start(const char *id, bool is_tx);
-extern int au_codec_stop(const char *id, bool is_tx);
 
 #endif	// !defined(__common_codecneg_h)
