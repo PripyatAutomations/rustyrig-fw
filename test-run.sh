@@ -10,7 +10,7 @@ set -e
 # Stop rrsever and fwddsp, if running
 [ ! -z "$(pidof fwdsp)" ] && killall -9 fwdsp
 [ ! -z "$(pidof rrserver)" ] && killall -9 rrserver
-[ -z "$(pactl list short modules | grep rrloop | cut -f 1)" ] && ./pulse-loopback.sh
+#[ -z "$(pactl list short modules | grep rrloop | cut -f 1)" ] && ./pulse-loopback.sh
 
 # If user has rigctld running, try to use it instead of starting our own
 if [ -z "$(pidof rigctld)" ]; then
@@ -25,8 +25,6 @@ if [ -z "$(pidof rigctld)" ]; then
          fi
       fi
    fi
-#   ./ft891-rigctld.sh &
-   ./dummy-rigctld.sh &
    sleep 2
 fi
 

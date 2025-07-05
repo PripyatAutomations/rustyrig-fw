@@ -4,5 +4,3 @@ TX_LOOP=$(pactl load-module module-null-sink sink_name=rrloop_tx sink_properties
 
 echo "rx_loop=${RX_LOOP}"
 echo "tx_loop=${TX_LOOP}"
-
-

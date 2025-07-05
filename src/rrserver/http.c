@@ -518,33 +518,36 @@ bool http_init(struct mg_mgr *mgr) {
    Log(LOG_INFO, "http", "HTTP listening at %s with www-root at %s", listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
 
 #if	defined(HTTP_USE_TLS)
-   int tls_bind_port = 0;
-   s = cfg_get("net.http.tls-port");
-   if (s) {
-      tls_bind_port = atoi(s);
+   s = cfg_get("net.http.tls-enabled");
+   if (s && strcasecmp(s, "true") == 0) {
+      int tls_bind_port = 0;
+      s = cfg_get("net.http.tls-port");
+      if (s) {
+         tls_bind_port = atoi(s);
 #if	defined(USE_EEPROM)
-   } else {
-      tls_bind_port = eeprom_get_int("net/http/tls_port");
+      } else {
+         tls_bind_port = eeprom_get_int("net/http/tls_port");
 #endif
-   }
+      }
 
-   struct in_addr sa_tls_bind;
-   s = cfg_get("net.http.tls-bind");
-   if (!s || !inet_aton(s, &sa_tls_bind)) {
+      struct in_addr sa_tls_bind;
+      s = cfg_get("net.http.tls-bind");
+      if (!s || !inet_aton(s, &sa_tls_bind)) {
 #if	defined(USE_EEPROM)
-      eeprom_get_ip4("net/http/bind", &sa_tls_bind);
+         eeprom_get_ip4("net/http/bind", &sa_tls_bind);
 #endif
-   }
-   char tls_listen_addr[255];
-   prepare_msg(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_tls_bind), tls_bind_port);
-   http_tls_init();
+      }
+      char tls_listen_addr[255];
+      prepare_msg(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_tls_bind), tls_bind_port);
+      http_tls_init();
 
-   if (mg_http_listen(mgr, tls_listen_addr, http_cb, (void *)1) == NULL) {
-      Log(LOG_CRIT, "http", "Failed to start https listener");
-      exit(1);
-   }
+      if (mg_http_listen(mgr, tls_listen_addr, http_cb, (void *)1) == NULL) {
+         Log(LOG_CRIT, "http", "Failed to start https listener");
+         exit(1);
+      }
 
-   Log(LOG_INFO, "http", "HTTPS listening at %s with www-root at %s", tls_listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
+      Log(LOG_INFO, "http", "HTTPS listening at %s with www-root at %s", tls_listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
+   }
 #endif
 
    return false;
