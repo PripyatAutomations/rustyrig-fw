@@ -25,6 +25,7 @@ struct fwdsp_subproc {
    char         pl_id[5];
    char         pipeline[1024];
    bool         is_tx;
+   bool		is_trancoder;		// is this a transcoder? If so it'll have tc_* below set
    int          refcount;
    time_t       cleanup_deadline;
    int          chan_id;
@@ -36,8 +37,15 @@ struct fwdsp_subproc {
    int          fw_stderr;
 
    // --- Mongoose tracking for polling ---
+   struct mg_connection *mg_stdin_conn;
    struct mg_connection *mg_stdout_conn;
    struct mg_connection *mg_stderr_conn;
+
+   // transcoder stuff
+   char		tc_in_codec[5];			// Input codec
+   int		tc_in_channel;			// Input channel
+   char		tc_out_codec[5];		// Output codec
+   int		tc_out_channel;			// Output channel
 };
 
 extern bool fwdsp_init(void);

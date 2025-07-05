@@ -346,9 +346,9 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       }
 
       if (sp->is_tx) {
-         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-s", "-t", NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-t", NULL);
       } else {
-         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-s", NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, NULL);
       }
 
       perror("execl");
@@ -367,10 +367,17 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       sp->fw_stderr = err_pipe[0];
 
       // Hook up stdout/stderr to Mongoose immediately
-//      sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, sp);
-//      sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, sp);
+      if (sp->fw_stdout) {
+         sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, sp);
+      }
+      if (sp->fw_stderr) {
+         sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, sp);
+      }
+      if (sp->fw_stdin) {
+         sp->mg_stdin_conn = mg_wrapfd(&mg_mgr, sp->fw_stdin, NULL, sp);
+      }
 
-      if (!sp->mg_stdout_conn || !sp->mg_stderr_conn) {
+      if (!sp->mg_stdout_conn || !sp->mg_stderr_conn || !sp->mg_stdin_conn) {
          Log(LOG_CRIT, "fwdsp", "Failed to attach fds to event loop for codec %s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
          return false;
       }
