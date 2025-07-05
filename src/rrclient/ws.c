@@ -42,8 +42,6 @@ bool server_ptt_state = false;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
 char *negotiated_codecs = NULL;
-
-static bool sending_in_progress = false;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
 extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
@@ -304,14 +302,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &opts);
       }
    } else if (ev == MG_EV_WRITE) {
-#if	defined(HTTP_DEBUG_CRAZY) && 0
-      if (sending_in_progress) {
-         Log(LOG_DEBUG, "ws", "http_handler: write frame");
-         audio_tx_free_frame();
-         sending_in_progress = false;
-         try_send_next_frame(c);  // attempt to send the next
-      }
-#endif
+      // Handle writing audio frames one by one
    } else if (ev == MG_EV_WS_OPEN) {
       const char *login_user = get_server_property(active_server, "server.user");
       ws_connected = true;
@@ -446,10 +437,8 @@ bool connect_server(void) {
 
 bool connect_or_disconnect(GtkButton *button) {
    if (ws_connected) {
-//      ui_print("cod: Disconnect");
       disconnect_server();
    } else {
-//      ui_print("cod: Connect");
       connect_server();
    }
    return false;
