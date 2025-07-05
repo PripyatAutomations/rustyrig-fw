@@ -44,7 +44,7 @@ bool ws_audio_init(void) {
 // if passed NULL for codecs, use all available codecs
 bool ws_send_capab(struct mg_connection *c, const char *codecs) {
    if (!codecs) {
-      char *capab_msg = codecneg_send_supported_codecs(au_core_codecs);
+      char *capab_msg = codecneg_send_supported_codecs();
 
       if (!capab_msg) {
          return true;

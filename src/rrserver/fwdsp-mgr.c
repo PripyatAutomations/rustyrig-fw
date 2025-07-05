@@ -25,6 +25,8 @@
 #include "common/codecneg.h"
 #include "rrserver/fwdsp-mgr.h"
 
+#define	FWDSP_MAX_SUBPROCS	100
+
 defconfig_t defcfg_fwdsp[] = {
    { "codecs.allowed", 	"pc16 mu16 mu08",	"Preferred codecs" },
 #ifdef _WIN32
@@ -37,7 +39,7 @@ defconfig_t defcfg_fwdsp[] = {
    //// XXX: We can put default pipelines here using the syntax pipeline:id.tx and pipeline:id.rx where id is 4 char id
    { NULL,		NULL,			NULL }
 };
-
+const char *fwdsp_path = NULL;
 bool fwdsp_mgr_ready = false;
 static int active_slots = 0;
 static int max_subprocs = 4;
@@ -45,13 +47,12 @@ static struct fwdsp_subproc *fwdsp_subprocs;
 static int next_channel_id = 1;
 extern char *config_file;		// main.c
 extern struct mg_mgr mg_mgr;
+static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
    Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id, (sp->is_tx ? "tx" : "rx"), sp->pid, status);
    // Optionally notify websocket clients, or log, etc.
 }
-
-static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
 
 static void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb) {
    on_fwdsp_exit = cb;
@@ -105,20 +106,24 @@ bool fwdsp_init(void) {
       return true;
    }
 
-   // Sanity check, 100 is excessivve but some hams are crazy? ;)
-   if (max_subprocs <= 0 || max_subprocs > 100) {
-      Log(LOG_CRIT, "config", "fwdsp:subproc.max <%d> is invalid: range=0-100", max_subprocs);
+   // Sanity check as some hams are crazy? ;)
+   if (max_subprocs <= 0 || max_subprocs > FWDSP_MAX_SUBPROCS) {
+      Log(LOG_CRIT, "config", "fwdsp:subproc.max <%d> is invalid: range=0-%d", max_subprocs, FWDSP_MAX_SUBPROCS);
       return true;
    }
 
-   fwdsp_subprocs = calloc(max_subprocs + 1, sizeof(struct fwdsp_subproc));
-
+   // if not allocated, try to allocate it
    if (!fwdsp_subprocs) {
-      // OOM:
+      fwdsp_subprocs = calloc(max_subprocs + 1, sizeof(struct fwdsp_subproc));
+   }
+
+   // did we OOM?
+   if (!fwdsp_subprocs) {
       fprintf(stderr, "OOM in fwdsp_init\n");
       exit(1);
    }
 
+   // Setup signal handling for SIGCHLD
    struct sigaction sa = {
       .sa_handler = fwdsp_sigchld,
       .sa_flags = SA_RESTART | SA_NOCLDSTOP
@@ -126,6 +131,13 @@ bool fwdsp_init(void) {
    sigemptyset(&sa.sa_mask);
    sigaction(SIGCHLD, &sa, NULL);
    fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
+
+   // Find the fwdsp path
+   fwdsp_path = cfg_get("fwdsp.path");
+   if (!fwdsp_path || fwdsp_path[0] == '\0') {
+      Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp binary");
+      return NULL;
+   }
 
    fwdsp_mgr_ready = true;
    return false;
@@ -157,13 +169,6 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
 
    if (active_slots >= max_subprocs) {
       Log(LOG_CRIT, "fwdsp", "We're out of fwdsp slots. %d of %d used", active_slots, max_subprocs);
-      return NULL;
-   }
-
-   // Find the fwdsp path
-   const char *fwdsp_path = cfg_get("fwdsp.path");
-   if (!fwdsp_path || fwdsp_path[0] == '\0') {
-      Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp binary");
       return NULL;
    }
 
@@ -221,7 +226,9 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
 }
 
 static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
-   if (!sp || sp->pl_id[0] == '\0') return true;
+   if (!sp || sp->pl_id[0] == '\0') {
+      return true;
+   }
 
 #if	0
    // Disconnect stdout/stderr from event loop
@@ -279,7 +286,9 @@ static struct mg_connection *fwdsp_attach_fd_to_mgr(struct mg_mgr *mgr,
                                                     struct fwdsp_subproc *sp,
                                                     int fd,
                                                     bool is_stderr) {
+
    struct fwdsp_io_conn *ctx = calloc(1, sizeof(struct fwdsp_io_conn));
+
    if (!ctx) {
       return NULL;
    }
@@ -358,8 +367,8 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       sp->fw_stderr = err_pipe[0];
 
       // Hook up stdout/stderr to Mongoose immediately
-      sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, sp);
-      sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, sp);
+//      sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, sp);
+//      sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, sp);
 
       if (!sp->mg_stdout_conn || !sp->mg_stderr_conn) {
          Log(LOG_CRIT, "fwdsp", "Failed to attach fds to event loop for codec %s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
@@ -372,11 +381,13 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 }
 
 bool ws_send_capab(struct mg_connection *c) {
-   char *capab_msg = codecneg_send_supported_codecs(au_core_codecs);
+   char *capab_msg = codecneg_send_supported_codecs();
 
-   Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
-   mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
-   free(capab_msg);
+   if (capab_msg) {
+      Log(LOG_DEBUG, "codecneg", "Sending capab msg: %s", capab_msg);
+      mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
+      free(capab_msg);
+   }
    return false;
 }
 
@@ -394,6 +405,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
    char *saveptr = NULL;
    char *token = strtok_r(tmp, " ", &saveptr);
 
+#if	0
    while (token) {
       au_codec_mapping_t *c = au_codec_find_by_magic(token);
 
@@ -412,7 +424,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
       }
       token = strtok_r(NULL, " ", &saveptr);
    }
-
+#endif
    free(tmp);
    Log(LOG_CRIT, "fwdsp", "No usable codecs found in list: %s for %s", codec_list, (tx_mode ? "tx" : "rx"));
    return NULL;
@@ -436,7 +448,11 @@ void fwdsp_sweep_expired(void) {
    }
 }
 
-int fwdsp_codec_start(enum au_codec id, bool is_tx) {
+int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
+   if (codec_id[0] == '\0') {
+      return -1;
+   }
+#if	0
    au_codec_mapping_t *c = au_codec_by_id(id);
 
    if (!c || !c->magic) {
@@ -453,9 +469,12 @@ int fwdsp_codec_start(enum au_codec id, bool is_tx) {
    }
 
    return au_codec_start(id, is_tx);
+#endif
+   return -1;
 }
 
-int fwdsp_codec_stop(enum au_codec id, bool is_tx) {
+int fwdsp_codec_stop(const char *codec, bool is_tx) {
+#if	0
    au_codec_mapping_t *c = au_codec_by_id(id);
 
    if (!c || !c->magic) {
@@ -481,6 +500,7 @@ int fwdsp_codec_stop(enum au_codec id, bool is_tx) {
          }
       }
    }
+#endif
 
    return 0;
 }

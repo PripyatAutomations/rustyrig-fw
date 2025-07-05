@@ -14,33 +14,6 @@
 #include <ctype.h>
 #include <sys/types.h>
 
-enum au_codec {
-   AU_CODEC_NONE = 0,			// No codec configured
-   AU_CODEC_PCM11,				// 11khz PCM
-   AU_CODEC_PCM16,				// 16khz PCM
-   AU_CODEC_PCM22,				// 22khz PCM
-   AU_CODEC_PCM44,				// 44.1khz PCM
-   AU_CODEC_OPUS,				// OPUS
-   AU_CODEC_FLAC,				// FLAC
-   AU_CODEC_MULAW8,				// u-law PCM @ 8khz
-   AU_CODEC_MULAW16,				// u-law PCM @ 16khz
-   AU_CODEC_CODEC2				// CODEC2
-};
-
-typedef struct au_codec_mapping {
-   enum au_codec  id;
-   const char     *magic;         // (4 bytes)
-   int            rate;    // -1 if variable
-
-   // THese properties are set at runtime
-   char           *PipelineRx;    // optional user-configured pipeline for RXing this format
-   char           *PipelineTx;    // user configured pipeline for transmitting this format
-   int            refcount;       // how many clients are using this
-   pid_t          pid;            // optional: encoder/decoder process PID
-   bool           running;        // flag: pipeline started
-   char		  *label;   // Codec description
-} au_codec_mapping_t;
-
 struct ws_frame {
   uint8_t magic[2];
   uint8_t *data;
@@ -64,26 +37,18 @@ typedef struct audio_frame {
 } au_frame_t;
 
 struct audio_settings {
-    enum au_codec	codec;
     uint32_t		sample_rate;			// sample rate in hz
     bool		active;				// Is the stream active?
 };
 typedef struct audio_settings audio_settings_t;
-extern uint32_t au_codec_get_samplerate(int id);
-extern int au_codec_get_id(const char *magic);
-extern const char *au_codec_get_magic(int id);
-extern au_codec_mapping_t *au_codec_by_id(enum au_codec id);
-extern au_codec_mapping_t *au_codec_find_by_magic(const char *magic);
 extern void audio_tx_free_frame(void);
 extern audio_settings_t	au_rx_config, au_tx_config;
 
 // New stuff
-extern char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs);
-extern char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs);
+extern char *codecneg_send_supported_codecs(void);
+extern char *codecneg_send_supported_codecs_plain(void);
 extern char *codec_filter_common(const char *preferred, const char *available);
-extern int codec_assign_channel_id(au_codec_mapping_t *codec, bool tx);
-extern au_codec_mapping_t      au_core_codecs[];
-extern int au_codec_start(enum au_codec id, bool is_tx);
-extern int au_codec_stop(enum au_codec id, bool is_tx);
+extern int au_codec_start(const char *id, bool is_tx);
+extern int au_codec_stop(const char *id, bool is_tx);
 
 #endif	// !defined(__common_codecneg_h)

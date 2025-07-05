@@ -71,11 +71,13 @@ GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText 
    rx_ctx->conn = ws_conn;
    rx_ctx->is_tx = false;
 
-
+   // XXX: We need to iterate over all the configured pipelines for each direction
+#if	0
    for (int i = 0; au_core_codecs[i].magic; i++) {
       gtk_combo_box_text_append(tx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
       gtk_combo_box_text_append(rx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
    }
+#endif
 
    gtk_combo_box_set_active(GTK_COMBO_BOX(tx_combo), 1);
    gtk_combo_box_set_active(GTK_COMBO_BOX(rx_combo), 1);

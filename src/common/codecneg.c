@@ -39,91 +39,10 @@
 #include "common/util.file.h"
 #include "common/codecneg.h"
 
-///////////////////////
-// Codec Negotiation //
-///////////////////////
-au_codec_mapping_t	au_core_codecs[] = {
-    // Codec ID			// Magic	// Sample Rate	// PipelineRx, PipelineTX 
-    { .id = AU_CODEC_PCM11,	.magic = "pc11", .rate = 11025, .label = "PCM 11khz" },
-    { .id = AU_CODEC_PCM16,	.magic = "pc16", .rate = 16000, .label = "PCM 16khz" },
-    { .id = AU_CODEC_PCM22,	.magic = "pc22", .rate = 22050, .label = "PCM 22khz" },
-    { .id = AU_CODEC_PCM44,	.magic = "pc44", .rate = 44100, .label = "PCM 44khz" },
-    { .id = AU_CODEC_OPUS,	.magic = "opus", .rate = 48000, .label = "OPUS" },
-    { .id = AU_CODEC_FLAC,	.magic = "flac", .rate = 44100, .label = "FLAC" },
-    { .id = AU_CODEC_MULAW8,	.magic = "mu08", .rate =  8000, .label = "g.711u 8khz" },
-    { .id = AU_CODEC_MULAW16,	.magic = "mu16", .rate = 16000, .label = "g.711u 16khz" },
-    { .id = AU_CODEC_CODEC2,	.magic = "cdc2", .rate =     0, .label = "CODEC2" },
-    { .id = AU_CODEC_NONE,	.magic = NULL,	 .rate =     0, .label = "No audio" }
-};
 audio_settings_t	au_rx_config, au_tx_config;
 
-au_codec_mapping_t *au_codec_find_by_magic(const char *magic) {
-   int max_slots = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
-
-   for (int i = 0; i < max_slots; i++) {
-      au_codec_mapping_t *rp = &au_core_codecs[i];
-
-      if (rp->id == AU_CODEC_NONE && rp->magic == NULL) {
-         Log(LOG_WARN, "codecneg", "codec magic '%s' not found", magic);
-         return NULL;
-      }
-
-      if (strncasecmp(rp->magic, magic, 4) == 0) {
-         Log(LOG_DEBUG, "codecneg", "found codec at <%x> for magic '%s (idx:%d)'", rp, magic, i);
-         return rp;
-      }
-   }
-
-   return NULL;
-}
-
-au_codec_mapping_t *au_codec_by_id(enum au_codec id) {
-   int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
-   for (int i = 0; i < codec_entries; i++) {
-      if (au_core_codecs[i].id == id) {
-         Log(LOG_DEBUG, "ws.audio", "Got index %i", i);
-         return &au_core_codecs[i];
-      }
-   }
-   return NULL;
-}
-
-const char *au_codec_get_magic(int id) {
-   int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
-   for (int i = 0; i < codec_entries; i++) {
-      if (au_core_codecs[i].id == AU_CODEC_NONE && !au_core_codecs[i].magic) {
-         break;
-      }
-      if (au_core_codecs[i].id == id) {
-         return au_core_codecs[i].magic;
-      }
-   }
-   return NULL;
-}
-
-int au_codec_get_id(const char *magic) {
-   int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
-   for (int i = 0; i < codec_entries; i++) {
-      if (strcasecmp(au_core_codecs[i].magic, magic) == 0) {
-         return au_core_codecs[i].id;
-      }
-   }
-   return -1;
-}
-
-uint32_t au_codec_get_samplerate(int id) {
-   int codec_entries = sizeof(au_core_codecs) / sizeof(au_codec_mapping_t);
-
-   for (int i = 0; i < codec_entries; i++) {
-      if (au_core_codecs[i].id == id) {
-         return au_core_codecs[i].rate;
-      }
-   }
-   
-   return 0;
-}
-
-int au_codec_start(enum au_codec id, bool is_tx) {
+int au_codec_start(const char *id, bool is_tx) {
+#if	0
    au_codec_mapping_t *c = au_codec_by_id(id);
    if (!c) return -1;
 
@@ -131,14 +50,17 @@ int au_codec_start(enum au_codec id, bool is_tx) {
       Log(LOG_INFO, "codec", "Starting codec %s (tx=%d)", c->magic, is_tx);
 
    c->refcount++;
+#endif
    return 0;
 }
 
-int au_codec_stop(enum au_codec id, bool is_tx) {
+int au_codec_stop(const char *id, bool is_tx) {
+#if	0
    au_codec_mapping_t *c = au_codec_by_id(id);
    if (!c || c->refcount == 0) return -1;
 
    c->refcount--;
+#endif
    return 0;
 }
 
@@ -170,10 +92,10 @@ void audio_tx_free_frame(void) {
 #endif
 
 // Generate a message with the codecs we support
-char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
+char *codecneg_send_supported_codecs(const char *codecs) {
    char all_codecs[256] = {0};
    size_t offset = 0;
-
+#if	0
    for (int i = 0; codecs[i].magic != NULL; i++) {
       if (offset + 5 >= sizeof(all_codecs))
          break;
@@ -201,12 +123,15 @@ char *codecneg_send_supported_codecs(au_codec_mapping_t *codecs) {
 
    free(filtered);
    return strdup(msgbuf);
+#endif
+   return NULL;
 }
 
-char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs) {
+char *codecneg_send_supported_codecs_plain(const char *codecs) {
    char all_codecs[256] = {0};
    size_t offset = 0;
 
+#if	0
    for (int i = 0; codecs[i].magic != NULL; i++) {
       if (offset + 5 >= sizeof(all_codecs))
          break;
@@ -235,6 +160,8 @@ char *codecneg_send_supported_codecs_plain(au_codec_mapping_t *codecs) {
 
    free(filtered);
    return strdup(msgbuf);
+#endif
+   return NULL;
 }
 
 char *codec_filter_common(const char *preferred, const char *available) {
@@ -288,10 +215,4 @@ char *codec_filter_common(const char *preferred, const char *available) {
       result[--res_sz] = 0;
 
    return result;
-}
-
-// Assign a channel ID to send to the server, XXX: NYI
-int codec_assign_channel_id(au_codec_mapping_t *codec, bool tx) {
-   int rv = -1;
-   return rv;
 }
