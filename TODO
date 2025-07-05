@@ -4,6 +4,13 @@
   - Reset password
   - User change own password
 
+[rrclient]
+* Fix PTT button needing clicked twice after TOT fired
+  - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
+* Move the input box to be permanently visible at bottom, with the button bar above it when in chat
+- Make VFO widgets floating
+- Make vfo edit widgets pop up overlapping the affected VFO
+
 [ASAP]
 * Shell + jq script to parse config/*.config.json into a .cfg flat file
 * More audio config stuff, maybe support codec switching.
@@ -13,22 +20,13 @@
 * Test TX halt when PTTing user disconnects.
   - also halt TX by FLAG_NOOB users if the last admin logs out
 * Make rigctl connection autoreconnect in backend.hamlib
-* Fix PTT button needing clicked twice after TOT fired
-  - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
 * Support for at least VFO A & B
-* Move the input box to be permanently visible at bottom, with the button bar above it when in chat
-- Make VFO widgets floating
-- Make vfo edit widgets pop up overlapping the affected VFO
 - Need to review the libmongoose deps and ensure we can still build without mongoose
   for cases it's not appropriate (stand-alone firmware on stm32/esp32 for example)
   where we don't have a network client
 * Move config from eeprom to dict and make a way to stuff cfg dict into eeprom ;)
 
 [fwdsp]
-* Make fwdsp instances configured by keys in the config file [fwdsp] section
-  - Allow auto-spawning encoders when a client requests a codec/rate
-  - Cleanup and stop unused encoders
-	** This is in work as src/rrserver/fwdsp-mgr.c **
 * Start all decoder (RX) and leave them running, to prevent TX delays after extended idle
 
 [audio.recording]
@@ -50,7 +48,7 @@
 - Make mongoose truly optional for the cases it doesn't make sense (small devs)
 
 [webcam]
-- Support for streaming a v4l webcam from the station to the clients O_o
+- Support for streaming a v4l webcam from the station to the clients using gstreamer
 
 [radioberry]
 * Implement support for this thing

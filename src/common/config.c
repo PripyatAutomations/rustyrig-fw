@@ -282,7 +282,7 @@ dict *cfg_load(const char *path) {
          // Store value
          char fullkey[256];
          memset(fullkey, 0, sizeof(fullkey));
-         snprintf(fullkey, sizeof(fullkey), "pipeline:%.*s", (int)(sizeof(key) - 1), key);
+         snprintf(fullkey, sizeof(fullkey), "pipeline:%s", key);
          Log(LOG_CRAZY, "config", "Add pipeline %s => %s", fullkey, val);
          dict_add(newcfg, fullkey, val);
       } else if (strncasecmp(this_section, "server:", 7) == 0) {
@@ -301,7 +301,7 @@ dict *cfg_load(const char *path) {
             }
 
             memset(fullkey, 0, sizeof(fullkey));
-            snprintf(fullkey, sizeof(fullkey), "%s.%.*s", this_section + 7, (int)(sizeof(key) - 1), key);
+            snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
             // Store value
             dict_add(servers, fullkey, val);
          } else {

@@ -12,3 +12,4 @@ ws.c / fwdsp-mgr.c:
     - If eeprom write delay expired, save to eeprom
     - On exit, etc
   - read eeprom into config / channels dict on posix
+* May just compress the flat-file with a light compressor that will spread eeprom wear and pack that into eeprom?
