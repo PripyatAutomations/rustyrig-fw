@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+# XXX: We need to find the rrserver.cfg and use it to locate the password file instead of hardcoding it
 AUTHFILE="${AUTHFILE:-config/http.users}"
 LOCKFILE="$AUTHFILE.lock"
 
