@@ -47,6 +47,5 @@ cat.poll-blocking=1
 server.enabled=true
 #server.url=ws://localhost:8420/ws/
 server.url=wss://localhost:4420/ws/
-server.tx-url=wss://localhost:4420/ws-tx/
 server.user=admin
 server.pass=password
