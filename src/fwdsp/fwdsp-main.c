@@ -66,10 +66,9 @@ static void cleanup_pipeline(GstElement **pipe) {
 }
 
 static GstElement *build_pipeline(const char *pipeline_str, int fd) {
-   char pipe_desc[1024];
-
-   snprintf(pipe_desc, sizeof(pipe_desc), pipeline_str, fd);
-   return gst_parse_launch(pipe_desc, NULL);
+//   char pipe_desc[1024];
+//   snprintf(pipe_desc, sizeof(pipe_desc), pipeline_str, fd);
+   return gst_parse_launch(pipeline_str, NULL);
 }
 
 static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
