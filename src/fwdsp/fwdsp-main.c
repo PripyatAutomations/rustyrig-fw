@@ -65,9 +65,7 @@ static void cleanup_pipeline(GstElement **pipe) {
    }
 }
 
-static GstElement *build_pipeline(const char *pipeline_str, int fd) {
-//   char pipe_desc[1024];
-//   snprintf(pipe_desc, sizeof(pipe_desc), pipeline_str, fd);
+static GstElement *build_pipeline(const char *pipeline_str) {
    return gst_parse_launch(pipeline_str, NULL);
 }
 
@@ -107,7 +105,7 @@ static void run_loop(struct audio_config *cfg) {
       Log(LOG_DEBUG, "fwdsp", "Using std%s FD=%d for %s", (cfg->media_direction ? "out" : "in"), sock_fd, (cfg->media_direction == FW_DIR_TX ? "TX" : "RX"));
 
       fprintf(stderr, "connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
-      pipeline = build_pipeline(cfg->pipeline, sock_fd);
+      pipeline = build_pipeline(cfg->pipeline);
 
       if (!pipeline) {
          fprintf(stderr, "fwdsp: Failed to build pipeline\n");
