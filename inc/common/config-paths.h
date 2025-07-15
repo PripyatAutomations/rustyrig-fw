@@ -3,10 +3,10 @@
 
 static const char *configs[] = { 
 #if	!defined(__RRCLIENT)
-   "/etc/rustyrig/rrserver.cfg"
-   "~/.rustyrig/rrserver.cfg",
+   "~/.config/rrserver.cfg",
    "config/rrserver.cfg",
    "rrserver.cfg",
+   "/etc/rustyrig/rrserver.cfg"
 #else	// __RRCLIENT
 #ifndef _WIN32
    "~/.config/rrclient.cfg",
