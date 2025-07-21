@@ -26,9 +26,19 @@
 
 #define MAX_DIGITS 10
 
-G_BEGIN_DECLS
-G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkWidget)
-G_END_DECLS
+// cppcheck-suppress unknownMacro
+#define GTK_TYPE_FREQ_INPUT (gtk_freq_input_get_type())
+// cppcheck-suppress unknownMacro
+GtkWidget *gtk_freq_input_new(void);
+
+
+static inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
+   union {
+      void (*func)(GtkToggleButton *, gpointer);
+      gpointer ptr;
+   } u = { .func = f };
+   return u.ptr;
+}
 
 struct _GtkFreqInput {
    GtkBox parent_instance;
@@ -41,7 +51,13 @@ struct _GtkFreqInput {
    int num_digits;
 };
 
+G_BEGIN_DECLS
+G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkWidget)
+G_END_DECLS
+
 extern GtkWidget *gtk_freq_input_new(void);
+extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
+extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
 extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
 extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
 

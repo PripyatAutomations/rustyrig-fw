@@ -27,6 +27,7 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+gui_window_t *gui_windows = NULL;
 extern GtkWidget *main_window;
 
 bool place_window(GtkWidget *window) {
@@ -100,4 +101,79 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    (void)icon_name;
    return true; // Assume embedded icon is fine
 #endif
+}
+
+gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
+   if (!gtk_win || !name) {
+      return NULL;
+   }
+
+   for (gui_window_t *x = gui_windows; x; x = x->next) {
+      if (strcmp(x->name, name) == 0) {
+         return x;
+      }
+   }
+
+   // Nope, it doesn't exist, create it
+   gui_window_t *p = malloc(sizeof(gui_window_t));
+   if (!p) {
+     Log(LOG_CRIT, "gtk.winmgr", "OOM creating gui_window_t");
+     abort();
+   }
+
+   memset(p, 0, sizeof(gui_window_t));
+   snprintf(p->name, sizeof(p->name), "%s", name);
+   gui_windows = p;
+   return p;
+}
+
+bool gui_forget_window(gui_window_t *window, const char *name) {
+   if (!window && !name) {
+      return true;
+   }
+
+   gui_window_t *prev = NULL;
+   for (gui_window_t *p = gui_windows; p; p = p->next) {
+      if (window && p->gtk_win == GTK_WINDOW(window)) {
+         if (prev) {
+            prev->next = p->next;
+         }
+         free(p);
+         return false;
+      }
+
+      if (name && strcmp(p->name, name) == 0) {
+         if (prev) {
+            prev->next = p->next;
+         }
+         free(p);
+         return false;
+      }
+      prev = p;
+   }
+   return true;
+}
+
+gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
+   if (!gtk_win && !name) {
+      Log(LOG_WARN, "gtk.winmgr", "gui_find_window called with NULL arguments");
+      return NULL;
+   }
+
+   if (gtk_win) {
+      for (gui_window_t *p = gui_windows; p; p = p->next) {
+         if (p->gtk_win == gtk_win) {
+            return p;
+         }
+      }
+   }
+
+   if (name) {
+      for (gui_window_t *p = gui_windows; p; p = p->next) {
+         if (p && strcmp(p->name, name) == 0) {
+            return p;
+         }
+      }
+   }
+   return NULL;
 }

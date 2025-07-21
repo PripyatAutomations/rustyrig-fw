@@ -322,6 +322,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 
            char *common = codec_filter_common(preferred, media_payload);
            Log(LOG_INFO, "ws.media", "Client supported codecs: %s, my preferred codecs: %s, negotiated codecs: %s", media_payload, cfg_get("codecs.allowed"), common);
+           // XXX: Tell the client the list of negotiated codecs, so it can populate it's codec dropdown
+           // This should look up pipelines associated and only show codecs with configured pipelines
            free(common);
         } else {
            Log(LOG_CRIT, "ws.media", "media.capab without payload");

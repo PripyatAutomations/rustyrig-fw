@@ -13,6 +13,7 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
+#include "rrclient/gtk.freqinput.h"
 #define	HTTP_USER_LEN		16		// username length (16 char)
 #define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64
 #define	HTTP_HASH_LEN		40		// sha1
@@ -21,22 +22,17 @@
 #define	USER_PRIV_LEN		100		// privileges list
 #define USER_EMAIL_LEN		128		// email address
 
-// cppcheck-suppress unknownMacro
-#define GTK_TYPE_FREQ_INPUT (gtk_freq_input_get_type())
-// cppcheck-suppress unknownMacro
-G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkBox)
-GtkWidget *gtk_freq_input_new(void);
-void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
-unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
+struct GuiWindow {
+    char name[128];		// Window name
+    GtkWidget *gtk_win;		// GTK window widget
+    struct GuiWindow *next;
+};
+typedef struct GuiWindow gui_window_t;
 
-static inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
-   union {
-      void (*func)(GtkToggleButton *, gpointer);
-      gpointer ptr;
-   } u = { .func = f };
-   return u.ptr;
-}
-
+extern gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name);
+extern gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name);
+extern bool gui_forget_window(gui_window_t *window, const char *name);
+extern gui_window_t *gui_windows;
 extern bool ui_print(const char *fmt, ...);
 extern void update_connection_button(bool connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, gboolean active);
@@ -58,8 +54,6 @@ extern gulong mode_changed_handler_id;
 extern gulong freq_changed_handler_id;
 extern bool place_window(GtkWidget *window);
 extern void show_server_chooser(void);			// gtk.serverpick.c
-extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
-extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
 extern bool log_print(const char *fmt, ...);
 extern void gui_edit_config(const char *filepath);
 extern gboolean scroll_to_end(gpointer data);
@@ -76,5 +70,6 @@ extern void disable_console_quick_edit(void);
 extern bool set_window_icon(GtkWidget *window, const char *icon_name);
 
 #endif
+
 
 #endif	// !defined(__rrclient_gtk_gui_h)
