@@ -251,7 +251,8 @@ static int last_x = -1, last_y = -1, last_w = -1, last_h = -1;
 
 static gboolean on_configure_timeout(gpointer data) {
    GtkWidget *window = (GtkWidget *)data;
-   Log(LOG_DEBUG, "gtk-ui", "Window id:<%x> moved/resized: x=%d y=%d width=%d height=%d", window, last_x, last_y, last_w, last_h);
+   gui_window_t *p = gui_find_window(window, NULL);
+   Log(LOG_DEBUG, "gtk-ui", "Window '%s' id:<%x> moved/resized: x=%d y=%d width=%d height=%d", (p ? p->name : "UNKNOWN"), window, last_x, last_y, last_w, last_h);
    configure_event_timeout = 0;
    return G_SOURCE_REMOVE;
 }
@@ -367,6 +368,7 @@ bool gui_init(void) {
 
    input_history = g_ptr_array_new_with_free_func(g_free);
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gui_store_window(main_window, "main");
    Log(LOG_INFO, "gtk", "main_window has id:<%x>", main_window);
 
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");

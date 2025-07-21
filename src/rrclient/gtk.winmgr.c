@@ -103,6 +103,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
 #endif
 }
 
+// Store window name / pointer in our list
 gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    if (!gtk_win || !name) {
       return NULL;
@@ -110,6 +111,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 
    for (gui_window_t *x = gui_windows; x; x = x->next) {
       if (strcmp(x->name, name) == 0) {
+         Log(LOG_DEBUG, "gtk.winmgr", "found window:<%x> for gtk_win at <%x>", x->name, x->gtk_win);
          return x;
       }
    }
@@ -123,10 +125,27 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 
    memset(p, 0, sizeof(gui_window_t));
    snprintf(p->name, sizeof(p->name), "%s", name);
-   gui_windows = p;
+   p->gtk_win = gtk_win;
+   Log(LOG_DEBUG, "gtk.winmgr", "storing window <%x> as '%s'", gtk_win, name);
+   if (!gui_windows) {
+      gui_windows = p;
+   } else {
+      gui_window_t *x = gui_windows;
+      // find last window
+      while (x) {
+         if (x->next == NULL) {
+            break;
+         }
+         x = x->next;
+      }
+
+      // Store our new window at the list tail
+      x->next = p;
+   }
    return p;
 }
 
+// Forget about a window
 bool gui_forget_window(gui_window_t *window, const char *name) {
    if (!window && !name) {
       return true;

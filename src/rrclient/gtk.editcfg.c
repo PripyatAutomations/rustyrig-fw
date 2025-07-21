@@ -191,6 +191,7 @@ void gui_edit_config(const char *filepath) {
 
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    Log(LOG_INFO, "gtk", "editcfg_window has id:<%x>", window);
+   gui_store_window(window, "editcfg");
    gtk_window_set_title(GTK_WINDOW(window), filepath);
    gtk_window_set_default_size(GTK_WINDOW(window), 640, 480);
    ctx->window = window;

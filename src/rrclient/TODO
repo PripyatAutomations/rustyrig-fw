@@ -16,3 +16,6 @@
 [bluetooth]
 * Support bluetooth PTT buttons
 * Maybe automate routing of headsets when connected, if reasonably feasible?
+
+[winmgr]
+* Emit a config line showing the window size/position for config save, etc
