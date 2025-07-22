@@ -250,9 +250,34 @@ static guint configure_event_timeout = 0;
 static int last_x = -1, last_y = -1, last_w = -1, last_h = -1;
 
 static gboolean on_configure_timeout(gpointer data) {
+   if (!data) {
+      return true;
+   }
+
    GtkWidget *window = (GtkWidget *)data;
    gui_window_t *p = gui_find_window(window, NULL);
-   Log(LOG_DEBUG, "gtk-ui", "Window '%s' id:<%x> moved/resized: x=%d y=%d width=%d height=%d", (p ? p->name : "UNKNOWN"), window, last_x, last_y, last_w, last_h);
+
+   if (!p) {
+      Log(LOG_DEBUG, "gtk-ui", "No window name for id:<%x>", window);
+   }
+   
+   if (p && p->name[0] != '\0') {
+      char key[256];
+      memset(key, 0, sizeof(key));
+      snprintf(key, sizeof(key), "ui.%s", p->name);
+      char val[256];
+      memset(val, 0, sizeof(val));
+      snprintf(val, sizeof(val), "%d,%d@%d,%d", last_w, last_h, last_x, last_y);
+ 
+       // Save it to the running-config
+       dict_add(cfg, key, val);
+ 
+       Log(LOG_DEBUG, "gtk-ui",
+         "Window %s moved; config >>\t%s=%s",
+         p->name, key, val);
+    }
+
+//   Log(LOG_DEBUG, "gtk-ui", "Window '%s' id:<%x> moved/resized: x=%d y=%d width=%d height=%d", (p ? p->name : "UNKNOWN"), window, last_x, last_y, last_w, last_h);
    configure_event_timeout = 0;
    return G_SOURCE_REMOVE;
 }
