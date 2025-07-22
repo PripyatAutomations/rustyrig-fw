@@ -37,16 +37,9 @@ rrclient:
 
 # For now we only build rrclient for windows
 win64-deps win64-installer win64-portable:
-	${MAKE} -C src/rrclient $@
-
-win64-rrclient-installer win64-rrclient-portable:
 	@for i in ${subdirs}; do \
 	   ${MAKE} -C src/$$i $@; \
 	done
-
-win64-rrclient-all: win64-rrclient-installer win64-rrclient-portable
-#win64-rrserver-all: win64-rrserver-installer win64-rrserver-portable
-#win64-fwdsp-all: win64-fwdsp-installer win64-fwdsp-portable
 
 include mk/database.mk
 include mk/audit.mk
