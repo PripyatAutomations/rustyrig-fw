@@ -303,6 +303,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
      char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
      char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
+     char *media_codecs = mg_json_get_str(msg_data, "$.media.codecs");
 
      // all packets need a command
      if (!media_cmd) {
@@ -321,9 +322,18 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
             }
 
            char *common = codec_filter_common(preferred, media_payload);
+           if (strlen(common) < 4) {
+              result = true;
+              goto cleanup;
+           }
+
            Log(LOG_INFO, "ws.media", "Client supported codecs: %s, my preferred codecs: %s, negotiated codecs: %s", media_payload, cfg_get("codecs.allowed"), common);
            // XXX: Tell the client the list of negotiated codecs, so it can populate it's codec dropdown
            // This should look up pipelines associated and only show codecs with configured pipelines
+           char msgbuf[HTTP_WS_MAX_MSG+1];
+           prepare_msg(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"isupport\", \"codecs\": \"%s\", \"preferred\": \"%s\" } }", common, preferred);
+           mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
            free(common);
         } else {
            Log(LOG_CRIT, "ws.media", "media.capab without payload");
