@@ -31,6 +31,7 @@
 #include "common/util.string.h"
 #include "rrserver/auth.h"
 #include "common/client-flags.h"
+#include "common/codecneg.h"
 
 extern struct GlobalState rig;	// Global state
 
@@ -558,15 +559,9 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Store some timestamps such as when user joined & session will forcibly expire
          cptr->session_start = now;
          cptr->last_heard = now;
+
          // XXX: This might be a bad idea
 //         cptr->session_expiry = now + HTTP_SESSION_LIFETIME;
-
-         // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
-         char resp_buf[HTTP_WS_MAX_MSG+1];
-         prepare_msg(resp_buf, sizeof(resp_buf),
-                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu, \"privs\": \"%s\" } }",
-                     cptr->chatname, token, now, cptr->user->privs);
-         mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
          ////////////////////
          // Set user flags //
@@ -594,6 +589,13 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // Send a ping to the user and expect them to reply within HTTP_PING_TIMEOUT seconds
          cptr->last_heard = now;
+
+         // Send last message (AUTHORIZED) of the login sequence to let client know they are logged in
+         char resp_buf[HTTP_WS_MAX_MSG+1];
+         prepare_msg(resp_buf, sizeof(resp_buf),
+                     "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu, \"privs\": \"%s\" } }",
+                     cptr->chatname, token, now, cptr->user->privs);
+         mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 //         ws_send_ping(cptr);
 
          // blorp out a join to all chat users
@@ -609,6 +611,16 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
              cptr->chatname, cptr, ip, port, cptr->user->clones, cptr->user->max_clones, cptr->user->privs);
+
+         // Send our capabilities
+         const char *capab_msg = media_capab_prepare(NULL);
+
+         if (capab_msg) {
+            mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);
+            free((char *)capab_msg);
+         } else {
+            Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
+         }
 
          // send an initial user-list  message to populate the chat-user-list (cul)
          ws_send_users(cptr);

@@ -331,7 +331,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            char def_codec[5];
            memset(def_codec, 0, 5);
            snprintf(def_codec, sizeof(def_codec), "%s", common);
-           Log(LOG_INFO, "ws.media", "Client <%x> supported codecs: %s, my preferred codecs: %s, negotiated codecs: %s", cptr, media_payload, cfg_get("codecs.allowed"), def_codec);
+           Log(LOG_INFO, "ws.media", "Client %s <%x> supported codecs: %s, my preferred codecs: %s, common codecs: %s, negotiated default codec: %s",
+              cptr->chatname, cptr, media_payload, cfg_get("codecs.allowed"), common, def_codec);
            char msgbuf[HTTP_WS_MAX_MSG+1];
 
            // XXX: We should look up pipelines that are configured so we can only list codecs that can actually be used

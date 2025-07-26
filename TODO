@@ -5,6 +5,7 @@
   - User change own password
 
 [rrclient]
+* Fix userlist updates so joins/quits properly update it
 * Fix PTT button needing clicked twice after TOT fired
   - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
 * Move the input box to be permanently visible at bottom, with the button bar above it when in chat

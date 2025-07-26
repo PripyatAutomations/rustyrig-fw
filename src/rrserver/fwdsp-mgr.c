@@ -42,7 +42,7 @@ defconfig_t defcfg_fwdsp[] = {
 const char *fwdsp_path = NULL;
 bool fwdsp_mgr_ready = false;
 static int active_slots = 0;
-static int max_subprocs = 4;
+static int max_subprocs = FWDSP_MAX_SUBPROCS;
 static struct fwdsp_subproc *fwdsp_subprocs;
 static int next_channel_id = 1;
 extern char *config_file;		// main.c
@@ -97,7 +97,6 @@ bool fwdsp_init(void) {
    }
 
    const char *max_subprocs_s = cfg_get("fwdsp:subproc.max");;
-   max_subprocs = 0;
 
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
@@ -144,11 +143,14 @@ bool fwdsp_init(void) {
 }
 
 static int fwdsp_find_offset(const char *id, bool is_tx) {
-   if (!id || max_subprocs <= 0) {
+   if (!id || max_subprocs <= 0 || !active_slots || !fwdsp_subprocs) {
       return -1;
    }
 
    for (int i = 0; i < max_subprocs; i++) {
+      if (fwdsp_subprocs[i].pl_id[0] == '\0') {
+         continue;
+      }
       if (strncmp(id, fwdsp_subprocs[i].pl_id, 4) == 0 && fwdsp_subprocs[i].is_tx == is_tx) {
          return i;
       }
@@ -169,6 +171,10 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
 
    if (active_slots >= max_subprocs) {
       Log(LOG_CRIT, "fwdsp", "We're out of fwdsp slots. %d of %d used", active_slots, max_subprocs);
+      return NULL;
+   }
+
+   if (!fwdsp_subprocs) {
       return NULL;
    }
 
@@ -434,8 +440,16 @@ int fwdsp_get_chan_id(const char *magic, bool is_tx) {
 void fwdsp_sweep_expired(void) {
    time_t now = time(NULL);
 
+   if (!active_slots) {
+      return;
+   }
+
    for (int i = 0; i < max_subprocs; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+
+      if (!sp) {
+         continue;
+      }
 
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 && now >= sp->cleanup_deadline) {
          Log(LOG_INFO, "fwdsp", "Cleaning up idle pipeline %s.%s", sp->pl_id, (sp->is_tx ? "tx" : "rx"));
