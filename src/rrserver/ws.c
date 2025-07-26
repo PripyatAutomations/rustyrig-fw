@@ -316,24 +316,27 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
         if (media_payload) {
            const char *preferred = cfg_get("codecs.allowed");
            if (!preferred) {
-              Log(LOG_CRIT, "ws.media", "media.capab needs audio.prefer-codecs set in config!");
+              Log(LOG_CRIT, "ws.media", "media.capab needs codecs.allowed set in config!");
               result = true;
               goto cleanup;
             }
 
            char *common = codec_filter_common(preferred, media_payload);
            if (strlen(common) < 4) {
+              free(common);
               result = true;
               goto cleanup;
            }
 
-           Log(LOG_INFO, "ws.media", "Client supported codecs: %s, my preferred codecs: %s, negotiated codecs: %s", media_payload, cfg_get("codecs.allowed"), common);
-           // XXX: Tell the client the list of negotiated codecs, so it can populate it's codec dropdown
-           // This should look up pipelines associated and only show codecs with configured pipelines
+           char def_codec[5];
+           memset(def_codec, 0, 5);
+           snprintf(def_codec, sizeof(def_codec), "%s", common);
+           Log(LOG_INFO, "ws.media", "Client <%x> supported codecs: %s, my preferred codecs: %s, negotiated codecs: %s", cptr, media_payload, cfg_get("codecs.allowed"), def_codec);
            char msgbuf[HTTP_WS_MAX_MSG+1];
-           prepare_msg(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"isupport\", \"codecs\": \"%s\", \"preferred\": \"%s\" } }", common, preferred);
-           mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
+           // XXX: We should look up pipelines that are configured so we can only list codecs that can actually be used
+           prepare_msg(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"isupport\", \"codecs\": \"%s\", \"preferred\": \"%s\" } }", common, def_codec);
+           mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
            free(common);
         } else {
            Log(LOG_CRIT, "ws.media", "media.capab without payload");

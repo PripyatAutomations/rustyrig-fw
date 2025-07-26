@@ -59,6 +59,9 @@ extern void gui_edit_config(const char *filepath);
 extern gboolean scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);
 extern GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx);		// gtk.codecpicker.c
+extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
+extern GtkComboBoxText *tx_combo;
+extern GtkComboBoxText *rx_combo;
 
 #ifdef _WIN32
 #include <winsock2.h>

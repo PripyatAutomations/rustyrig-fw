@@ -41,6 +41,9 @@ extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
 extern GtkWidget *config_tab;
 
+GtkComboBoxText *tx_combo = NULL;
+GtkComboBoxText *rx_combo = NULL;
+
 typedef struct {
    struct mg_connection *conn;
    bool is_tx;
@@ -57,12 +60,33 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
    }
 }
 
+void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id) {
+   char *list = g_strdup(codec_list);
+   char *saveptr = NULL;
+   int index = 0, default_index = -1;
+
+   gtk_combo_box_text_remove_all(combo);
+
+   for (char *tok = strtok_r(list, " ", &saveptr); tok; tok = strtok_r(NULL, " ", &saveptr)) {
+      gtk_combo_box_text_append(combo, tok, tok);
+
+      if (default_id && strcmp(tok, default_id) == 0)
+         default_index = index;
+      index++;
+   }
+
+   if (default_index >= 0)
+      gtk_combo_box_set_active(GTK_COMBO_BOX(combo), default_index);
+
+   g_free(list);
+}
+
 GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx) {
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *widget_label = gtk_label_new("TX/RX Codecs");
 
-   GtkComboBoxText *tx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
-   GtkComboBoxText *rx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
+   tx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
+   rx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
 
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);
    CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);
@@ -70,14 +94,6 @@ GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText 
    tx_ctx->is_tx = true;
    rx_ctx->conn = ws_conn;
    rx_ctx->is_tx = false;
-
-   // XXX: We need to iterate over all the configured pipelines for each direction
-#if	0
-   for (int i = 0; au_core_codecs[i].magic; i++) {
-      gtk_combo_box_text_append(tx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
-      gtk_combo_box_text_append(rx_combo, au_core_codecs[i].magic, au_core_codecs[i].label);
-   }
-#endif
 
    gtk_combo_box_set_active(GTK_COMBO_BOX(tx_combo), 1);
    gtk_combo_box_set_active(GTK_COMBO_BOX(rx_combo), 1);
