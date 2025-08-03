@@ -50,6 +50,29 @@ extern dict *servers;
 GtkTextBuffer *log_buffer = NULL;
 GtkWidget *log_view = NULL;
 
+// backend
+bool log_print_va(const char *fmt, va_list ap) {
+   char outbuf[8096];
+   memset(outbuf, 0, sizeof(outbuf));
+   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
+
+   if (!fmt || !ap) {
+      return true;
+   }
+   if (log_buffer) {
+      GtkTextIter end;
+      gtk_text_buffer_get_end_iter(log_buffer, &end);
+      gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
+      gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
+
+      // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
+      g_idle_add(scroll_to_end, log_view);
+   } else {
+      return true;
+   }
+   return false;
+}
+
 // print to syslog
 bool log_print(const char *fmt, ...) {
    if (!log_buffer) {
@@ -62,18 +85,9 @@ bool log_print(const char *fmt, ...) {
    }
    va_list ap;
    va_start(ap, fmt);
-   char outbuf[8096];
-   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
+   bool rv = log_print_va(fmt, ap);
    va_end(ap);
-
-   GtkTextIter end;
-   gtk_text_buffer_get_end_iter(log_buffer, &end);
-   gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
-   gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-
-   // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
-   g_idle_add(scroll_to_end, log_view);
-   return true;
+   return rv;   
 }
 
 bool clear_syslog(void) {

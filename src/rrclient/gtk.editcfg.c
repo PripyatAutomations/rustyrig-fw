@@ -225,7 +225,7 @@ void gui_edit_config(const char *filepath) {
    gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 3);
 
    GtkWidget *btn_save = gtk_button_new_with_label("Save");
-   GtkWidget *btn_save_as = gtk_button_new_with_label("Save Other");
+   GtkWidget *btn_save_as = gtk_button_new_with_label("Save As");
    GtkWidget *btn_discard = gtk_button_new_with_label("Discard");
 
    gtk_box_pack_end(GTK_BOX(hbox), btn_discard, FALSE, FALSE, 0);

@@ -33,6 +33,10 @@
 #include "common/client-flags.h"
 #endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
 
+#if	defined(__RRCLIENT)
+extern  bool log_print_va(const char *fmt, va_list ap);
+#endif
+
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
 extern char latest_timestamp[64];
@@ -168,8 +172,9 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    char msgbuf[513];
    char ts_log_msg[1025];
    char log_msg[769];
-   va_list ap;
+   va_list ap, ap_c1, ap_c2;
 
+   va_start(ap, fmt);
    if (!subsys || !fmt) {
       fprintf(stderr, "Invalid Log request: No subsys/fmt\n");
       return;
@@ -201,16 +206,19 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 
    /* clear the message buffer */
    memset(msgbuf, 0, sizeof(msgbuf));
+   va_copy(ap_c1, ap);
+   va_copy(ap_c2, ap);
 
-   va_start(ap, fmt);
    /* Expand the format string */
-   vsnprintf(msgbuf, 511, fmt, ap);
+   vsnprintf(msgbuf, 511, fmt, ap_c1);
    memset(log_msg, 0, sizeof(log_msg));
    snprintf(log_msg, sizeof(log_msg), "<%s.%s> %s", subsys, log_priority_to_str(priority), msgbuf);
+   va_end(ap_c1);
 
    /* Only spew to the serial port if logfile is closed */
    if (!logfp && (logfp != stdout) && (logfp != stderr)) {
       va_end(ap);
+      va_end(ap_c2);
       return;
    }
 
@@ -240,8 +248,12 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    struct mg_str ms = mg_str(ws_logbuf);
    ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms, WEBSOCKET_OP_TEXT);
    fprintf(stderr, "syslog sent: %s", ws_logbuf);
+#else
+#if	defined(__RRCLIENT)
+// For rrclient, we send it to the log tab too
+   log_print_va(fmt, ap_c2);
+   va_end(ap_c2);
+#endif
 #endif	// !defined(__RRCLIENT)
-   /* Machdep logging goes here! */
-
    va_end(ap);
 }
