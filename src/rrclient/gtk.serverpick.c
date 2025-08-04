@@ -109,7 +109,8 @@ void show_server_chooser(void) {
 
    // fill store with user@server entries, preselect if it matches active_server
    int rank = 0;
-   char *k, *v;
+   const char *k;
+   char *v;
    GtkTreeIter match_iter;
    gboolean have_match = FALSE;
    while ((rank = dict_enumerate(servers, rank, &k, &v)) >= 0) {

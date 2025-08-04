@@ -27,7 +27,9 @@ int dict_merge(dict *dst, dict *src) {
    }
 
    int rank = 0;
-   char *key, *val;
+   const char *key;
+   char *val;
+//   while ((rank = dict_enumerate(src, rank, &key, &val)) >= 0) {
    while ((rank = dict_enumerate(src, rank, &key, &val)) >= 0) {
       if (dict_add(dst, key, val) != 0) {
          continue;
@@ -42,7 +44,8 @@ dict *dict_merge_new(dict *a, dict *b) {
       return NULL;
    }
 
-   char *key, *val;
+   const char *key;
+   char *val;
    int rank = 0;
 
    // Copy from a
@@ -415,7 +418,8 @@ static void cfg_print_servers(dict *servers, FILE *fp) {
    if (!servers || !fp)
       return;
 
-   char *key, *val;
+   const char *key;
+   char *val;
    int rank = 0;
    dict *seen = dict_new();
 
@@ -442,7 +446,8 @@ static void cfg_print_servers(dict *servers, FILE *fp) {
 
       // Emit all keys with this prefix
       int inner_rank = 0;
-      char *inner_key, *inner_val;
+      const char *inner_key;
+      char *inner_val;
       while ((inner_rank = dict_enumerate(servers, inner_rank, &inner_key, &inner_val)) >= 0) {
          if (strncmp(inner_key, prefix, prefix_len) == 0 && inner_key[prefix_len] == '.') {
             fprintf(fp, "%s=%s\n", inner_key + prefix_len + 1, inner_val ? inner_val : "");
