@@ -9,6 +9,8 @@
 #if	!defined(__inc_rrclient_config_h)
 #define	__inc_rrclient_config_h
 #include <stdbool.h>
+//#include <stdint.h>
+
 #include "common/dict.h"
 
 struct defconfig {
@@ -28,11 +30,25 @@ extern dict *pipelines;			// fwdsp/rrclient pipelines
 extern bool cfg_set_default(dict *d, char *key, char *val);
 extern bool cfg_set_defaults(dict *d, defconfig_t *defaults);
 extern dict *cfg_load(const char *path);
-extern const char *cfg_get(char *key);
-extern const char *cfg_get_real(dict *c, char *key);
+
+// Merge two dicts into a new one, with values from B being preferred. Be sure to dict_free() the result!
 extern dict *dict_merge_new(dict *a, dict *b);
+
+// Merge two dicts into the first
 extern int dict_merge(dict *dst, dict *src);
-extern bool cfg_save(const char *path);
+
+// Save the dict into a file
+extern bool cfg_save(dict *d, const char *path);
+
+// Create a new 
 extern bool cfg_init(dict *d, defconfig_t *defaults);
+
+// Typed lookups
+extern const char *cfg_get(const char *key);
+extern bool cfg_get_bool(const char *key, bool def);
+extern int cfg_get_int(const char *key, int def);
+extern float cfg_get_float(const char *key, float def);
+extern long cfg_get_long(const char *key, long def );
+extern unsigned int cfg_get_uint(const char *key, unsigned int def);
 
 #endif	// !defined(__inc_rrclient_config_h)

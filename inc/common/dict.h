@@ -35,7 +35,7 @@
 
 /** Keypair: holds a key/value pair. Key must be a hashable C string */
 typedef struct _keypair_ {
-    char    * key ;
+    const char    * key ;
     char    * val ;
     unsigned  hash ;
 } keypair ;
@@ -82,7 +82,7 @@ void   dict_free(dict * d);
   the same key, it is overwritten and the previous associated data are freed.
  */
 /*--------------------------------------------------------------------------*/
-int    dict_add(dict * d, char * key, char * val);
+int    dict_add(dict * d, const char * key, char * val);
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -96,7 +96,7 @@ int    dict_add(dict * d, char * key, char * val);
   defval is returned.
  */
 /*--------------------------------------------------------------------------*/
-char * dict_get(dict * d, char * key, char * defval);
+char * dict_get(dict * d, const char * key, char * defval);
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -109,7 +109,7 @@ char * dict_get(dict * d, char * key, char * defval);
   deleted and -1 if the item could not be found or an error occurred.
  */
 /*--------------------------------------------------------------------------*/
-int dict_del(dict * d, char * key);
+int dict_del(dict * d, const char * key);
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -130,7 +130,7 @@ int dict_del(dict * d, char * key);
   See dict_dump() for usage example.
  */
 /*--------------------------------------------------------------------------*/
-int dict_enumerate(dict * d, int rank, char ** key, char ** val);
+int dict_enumerate(dict * d, int rank, const char ** key, char ** val);
 
 /*-------------------------------------------------------------------------*/
 /**

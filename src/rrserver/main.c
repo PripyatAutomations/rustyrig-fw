@@ -303,8 +303,10 @@ int main(int argc, char **argv) {
 // Is mongoose http server enabled?
 #if	defined(FEATURE_HTTP)
 // Is extra mongoose debugging enabled?
-#if	defined(MONGOOSE_DEBUG)
+#if	defined(HTTP_DEBUG_CRAZY)
    mg_log_set(MG_LL_DEBUG);
+#else
+   mg_log_set(MG_LL_ERROR);
 #endif
    http_init(&mg_mgr);
    ws_init(&mg_mgr);

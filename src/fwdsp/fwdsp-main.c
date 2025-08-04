@@ -231,6 +231,8 @@ static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level,
 int main(int argc, char *argv[]) {
    fprintf(stderr, "Starting fwdsp v.%s\n", VERSION);
    host_init();
+
+   // Logging MUST go to stderr!
    logfp = stderr;
    log_level = LOG_DEBUG;
    now = time(NULL);

@@ -100,6 +100,7 @@ bool fwdsp_init(void) {
 
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
+      Log(LOG_DEBUG, "fwdsp-mgr", "fwdsp initializing with %d slots available", max_subprocs);
    } else {
       Log(LOG_CRIT, "config",  "fwdsp:subproc.max must be set in config for fwdsp manager to work!");
       return true;
@@ -114,6 +115,10 @@ bool fwdsp_init(void) {
    // if not allocated, try to allocate it
    if (!fwdsp_subprocs) {
       fwdsp_subprocs = calloc(max_subprocs + 1, sizeof(struct fwdsp_subproc));
+      if (!fwdsp_subprocs) {
+         Log(LOG_CRIT, "fwdsp-mgr", "fwdsp_init failed to allocate fwdsp_subprocs! errno %d", errno);
+         return true;
+      }
    }
 
    // did we OOM?
@@ -181,11 +186,11 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
    // Find the desired pipeline
    // Find an unused slot
    for (int i = 0; i < max_subprocs; i++) {
-      if ((fwdsp_subprocs[i].pl_id[0] == '\0') &&
-          (fwdsp_subprocs[i].pl_id[1] == '\0') &&
-          (fwdsp_subprocs[i].pl_id[2] == '\0') &&
-          (fwdsp_subprocs[i].pl_id[3] == '\0')) {
-         struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+      struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+      if (sp && (sp->pl_id[0] == '\0') &&
+          (sp->pl_id[1] == '\0') &&
+          (sp->pl_id[2] == '\0') &&
+          (sp->pl_id[3] == '\0')) {
          Log(LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id, (is_tx ? "tx" : "rx"));
          // Clear the memory for reuse
          memset(sp, 0, sizeof(struct fwdsp_subproc));

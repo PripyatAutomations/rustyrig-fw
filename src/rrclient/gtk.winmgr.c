@@ -34,37 +34,57 @@ bool place_window(GtkWidget *window) {
    const char *cfg_height_s, *cfg_width_s;
    const char *cfg_x_s, *cfg_y_s;
 
-   if (window == userlist_window) {
-      cfg_height_s = cfg_get("ui.userlist.height");
-      cfg_width_s = cfg_get("ui.userlist.width");
-      cfg_x_s = cfg_get("ui.userlist.x");
-      cfg_y_s = cfg_get("ui.userlist.y");
-   } else if (window == main_window) {
-      cfg_height_s = cfg_get("ui.main.height");
-      cfg_width_s = cfg_get("ui.main.width");
-      cfg_x_s = cfg_get("ui.main.x");
-      cfg_y_s = cfg_get("ui.main.y");
-   } else {
-      return true;
-   }
+   // Some reasonable defaults
    int cfg_height = 600, cfg_width = 800, cfg_x = 0, cfg_y = 0;
 
-   if (cfg_height_s) {
-      cfg_height = atoi(cfg_height_s);
+   // Lookup the window so we can have it's name, etc.
+   gui_window_t *win = gui_find_window(window, NULL);
+
+   if (win) {
+      char key[512];
+      memset(key, 0, sizeof(key));
+      snprintf(key, sizeof(key), "ui.%s", win->name);
+      const char *cfg_full = cfg_get(key);
+      Log(LOG_DEBUG, "gtk.winmgr", "Key %s for window %s returned %s", key, win->name, cfg_full);
+
+      if (cfg_full) {
+         // We found a new-style configuration, parse it
+         if (sscanf(cfg_full, "%d,%d@%d,%d", &cfg_width, &cfg_height, &cfg_x, &cfg_y) == 4) {
+            Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, cfg_width, cfg_height, cfg_x, cfg_y);
+         } else {
+            Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
+            return true;
+         }
+      } else {
+         // Pull individual keys and parse them
+         char full_key[512];
+         prepare_msg(full_key, sizeof(full_key), "ui.%s.height", win->name);
+         cfg_height_s = cfg_get(full_key);
+         if (cfg_height_s) {
+            cfg_height = atoi(cfg_height_s);
+         }
+
+         prepare_msg(full_key, sizeof(full_key), "ui.%s.width", win->name);
+         cfg_width_s = cfg_get(full_key);
+         if (cfg_width_s) {
+            cfg_width = atoi(cfg_width_s);
+         }
+
+         prepare_msg(full_key, sizeof(full_key), "ui.%s.x", win->name);
+         cfg_x_s = cfg_get(full_key);
+         if (cfg_x_s) {
+            cfg_x = atoi(cfg_x_s);
+         }
+
+         prepare_msg(full_key, sizeof(full_key), "ui.%s.y", win->name);
+         cfg_y_s = cfg_get(full_key);
+         if (cfg_y_s) {
+            cfg_y = atoi(cfg_y_s);
+         }
+      }
    }
 
-   if (cfg_width_s) {
-      cfg_width = atoi(cfg_width_s);
-   }
-
-   // Place the window
-   if (cfg_x) {
-      cfg_x = atoi(cfg_x_s);
-   }
-
-   if (cfg_y) {
-      cfg_y = atoi(cfg_y_s);
-   }
+   // Apply the properties to the window
    gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
@@ -153,7 +173,8 @@ bool gui_forget_window(gui_window_t *window, const char *name) {
 
    gui_window_t *prev = NULL;
    for (gui_window_t *p = gui_windows; p; p = p->next) {
-      if (window && p->gtk_win == GTK_WINDOW(window)) {
+      // If window is given and matches, free it, regardless of the title match
+      if (window && (GTK_WINDOW(p->gtk_win) == GTK_WINDOW(window))) {
          if (prev) {
             prev->next = p->next;
          }
@@ -161,6 +182,7 @@ bool gui_forget_window(gui_window_t *window, const char *name) {
          return false;
       }
 
+      // If window can't be found by handle (or NULL handle), search by name to free it
       if (name && strcmp(p->name, name) == 0) {
          if (prev) {
             prev->next = p->next;
@@ -170,6 +192,8 @@ bool gui_forget_window(gui_window_t *window, const char *name) {
       }
       prev = p;
    }
+
+   // report failure (not found)
    return true;
 }
 
@@ -179,6 +203,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
       return NULL;
    }
 
+   // If window is given and matches, return it, regardless of the title match
    if (gtk_win) {
       for (gui_window_t *p = gui_windows; p; p = p->next) {
          if (p->gtk_win == gtk_win) {
@@ -187,6 +212,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
       }
    }
 
+   // If window can't be found by handle (or NULL handle), search by name
    if (name) {
       for (gui_window_t *p = gui_windows; p; p = p->next) {
          if (p && strcmp(p->name, name) == 0) {

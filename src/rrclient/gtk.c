@@ -296,41 +296,19 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
          g_source_remove(configure_event_timeout);
       }
 
-      if (widget == userlist_window) {
-         char m[128];
-         memset(m, 0, 128);
-         sprintf(m, "%d", e->x);
-         dict_add(cfg, "ui.userlist.x", m);
-
-         memset(m, 0, 128);
-         sprintf(m, "%d", e->y);
-         dict_add(cfg, "ui.userlist.y", m);
-
-         memset(m, 0, 128);
-         sprintf(m, "%d", e->width);
-         dict_add(cfg, "ui.userlist.width", m);
-
-         memset(m, 0, 128);
-         sprintf(m, "%d", e->height);
-         dict_add(cfg, "ui.userlist.height", m);
-      } else if (widget == main_window) {
-         char m[128];
-         memset(m, 0, 128);
-         sprintf(m, "%d", e->x);
-         dict_add(cfg, "ui.main.x", m);
-
-         memset(m, 0, 128);
-         sprintf(m, "%d", e->y);
-         dict_add(cfg, "ui.main.y", m);
-
-         memset(m, 0, 128);
-         sprintf(m, "%d", e->width);
-         dict_add(cfg, "ui.main.width", m);
-
-         memset(m, 0, 128);
-         sprintf(m, "%d", e->height);
-         dict_add(cfg, "ui.main.height", m);
+      // Lookup the window name and try to save the new position
+      gui_window_t *win = gui_find_window(widget, NULL);
+      if (win && win->name[0] != '\0') {
+         char key[512];
+         memset(key, 0, sizeof(key));
+         snprintf(key, sizeof(key), "ui.%s", win->name);
+         char val[512];
+         memset(val, 0, sizeof(val));
+         snprintf(val, sizeof(val), "%d,%d@%d,%d", e->width, e->height, e->x, e->y);
+         dict_add(cfg, key, val);
       }
+
+      // Add a timeout to clear the delay before printing the position again
       configure_event_timeout = g_timeout_add(300, on_configure_timeout, widget);
    }
    return FALSE;

@@ -15,7 +15,6 @@
 // many of these need moved to config; decide if runtime or build? (prob build)
 // Limit to 10 backups of authdb retained, this should be sane; we delete older backups
 #define MAX_AUTHDB_BK_INDEX     10
-
 #undef HTTP_DEBUG_CRAZY
 #define	HTTP_MAX_SESSIONS	32		// max sessions total
 #define	HTTP_WS_MAX_MSG		65535		// 64kbytes should be enough per message, even with audio frames

@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
 #endif
       if (!file_exists(pathbuf)) {
          Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);
-         cfg_save(pathbuf);
+         cfg_save(cfg, pathbuf);
          config_file = pathbuf;
       }
    }

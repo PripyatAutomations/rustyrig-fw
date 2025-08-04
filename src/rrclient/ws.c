@@ -263,14 +263,14 @@ bool ws_binframe_process(const char *data, size_t len) {
       return true;
    }
 
-#if	defined(DEBUG_WS_BINFRAMES)
+//#if	defined(DEBUG_WS_BINFRAMES)
    char hex[128] = {0};
    size_t n = len < 16 ? len : 16;
    for (size_t i = 0; i < n; i++) {
       snprintf(hex + i * 3, sizeof(hex) - i * 3, "%02X ", (unsigned char)data[i]);
    }
    Log(LOG_DEBUG, "http.ws", "binary: %zu bytes, hex: %s", len, hex);
-#endif
+//#endif
 
 //   if (data[0] == 'A' && data[1] == 'U') {
       audio_process_frame(data, len);
@@ -362,6 +362,8 @@ void ws_init(void) {
    if (debug && (strcasecmp(debug, "true") == 0 ||
                  strcasecmp(debug, "yes") == 0)) {
       mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
+   } else {
+      mg_log_set(MG_LL_ERROR);
    }
    mg_mgr_init(&mgr);
 

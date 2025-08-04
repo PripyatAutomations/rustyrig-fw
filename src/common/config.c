@@ -91,12 +91,12 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
       return true;
    }
 
-//   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%x>", defaults);
+   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%x>", defaults);
 
    int i = 0;
    int warnings = 0;
    while (defaults[i].key) {
-//      Log(LOG_DEBUG, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
+      Log(LOG_CRAZY, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
 
       if (!defaults[i].val) {
          Log(LOG_DEBUG, "config", "cfg_set_defaults: Skipping key %s as its empty", defaults[i].key);
@@ -104,7 +104,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
          continue;
       }
 
-//      Log(LOG_CRAZY, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
+      Log(LOG_CRAZY, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
       if (cfg_set_default(d, defaults[i].key, defaults[i].val)) {
          Log(LOG_CRIT, "config", "cfg_set_defaults: Failed to set key: %s", defaults[i].key);
          warnings++;
@@ -113,7 +113,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
       i++;
    }
 
-//   Log(LOG_DEBUG, "config", "Imported %d default settings with %d warnings", i, warnings);
+   Log(LOG_DEBUG, "config", "Imported %d default settings with %d warnings", i, warnings);
    return true;
 }
 
@@ -122,7 +122,11 @@ bool cfg_init(dict *d, defconfig_t *defaults) {
       d = dict_new();
    }
 
-   return cfg_set_defaults(d, defaults);
+   // If defaults supplied, apply them
+   if (defaults) {
+      return cfg_set_defaults(d, defaults);
+   }
+   return false;
 }
 
 dict *cfg_load(const char *path) {
@@ -324,13 +328,13 @@ dict *cfg_load(const char *path) {
    return newcfg;
 }
 
-const char *cfg_get_real(dict *c, char *key) {
+const char *cfg_get(const char *key) {
    if (!key) {
       Log(LOG_CRIT, "config", "got cfg_get with NULL key!");
       return NULL;
    }
 
-   const char *p = dict_get(c, key, NULL);
+   const char *p = dict_get(cfg, key, NULL);
 
    // nope! try default
    if (!p) {
@@ -351,13 +355,60 @@ const char *cfg_get_real(dict *c, char *key) {
    return p;
 }
 
-const char *cfg_get(char *key) {
-   if (!key) {
-      Log(LOG_CRIT, "config", "got cfg_get with NULL key!");
-      return NULL;
+bool cfg_get_bool(const char *key, bool def) {
+   if (!cfg || !key) {
+      return def;
    }
 
-   return cfg_get_real(cfg, key);
+   const char *s = cfg_get(key);
+   if (!s) {
+      return def;
+   }
+   if (strcasecmp(s, "true") == 0 ||
+       strcasecmp(s, "yes") == 0 ||
+       strcasecmp(s, "on") == 0 ||
+       strcasecmp(s, "1") == 0) {
+      return true;
+   } else if (strcasecmp(s, "false") == 0 ||
+              strcasecmp(s, "no") == 0 ||
+              strcasecmp(s, "off") == 0 ||
+              strcasecmp(s, "0") == 0) {
+      return false;
+   }
+   // fallthrough, return default
+   return def;
+}
+
+int cfg_get_int(const char *key, int def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = cfg_get(key);
+   if (s) {
+      int val = atoi(s);
+      return val;
+   }
+   return def;
+}
+
+unsigned int cfg_get_uint(const char *key, unsigned int def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = cfg_get(key);
+   if (s) {
+      char *ep = NULL;
+      unsigned int val = (uint32_t)strtoul(s, &ep, 10);
+      // incomplete parse
+      if (*ep != '\0') {
+         return def;
+      } else {
+         return val;
+      }
+   }
+   return def;
 }
 
 static void cfg_print_servers(dict *servers, FILE *fp) {
@@ -404,7 +455,7 @@ static void cfg_print_servers(dict *servers, FILE *fp) {
    dict_free(seen);
 }
 
-bool cfg_save(const char *path) {
+bool cfg_save(dict *d, const char *path) {
    FILE *fp = fopen(path, "w");
    if (!fp) {
       Log(LOG_CRIT, "config", "Failed to open save file: '%s': %d:%s", path, errno, strerror(errno));
@@ -414,7 +465,7 @@ bool cfg_save(const char *path) {
    dict *merged = NULL;
 
    // Right-side argument overrides defaults
-   merged = dict_merge_new(default_cfg, cfg);
+   merged = dict_merge_new(default_cfg, d);
 
    // Dump general settings
    fprintf(fp, "[general]\n");
