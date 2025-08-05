@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
    int opt;
    while ((opt = getopt(argc, argv, "c:f:htv")) != -1) {
       switch (opt) {
-         case 'c':
+         case 'c': {
             size_t clen = strlen(optarg);
             if (clen < 0 || clen > 4) {
                fprintf(stderr, "Codec magic (-c) '%s' *must* be exactly 4 characters\n", optarg);
@@ -250,23 +250,28 @@ int main(int argc, char *argv[]) {
                config_codec = strdup(optarg);
             }
             break;
-         case 'f':
+         }
+         case 'f': {
             config_file = strdup(optarg);
             break;
-         case 't':
+         }
+         case 't': {
             codec_tx_mode = true;
             break;
-         case 'v':
+         }
+         case 'v': { 
             config_video = true;
             break;
+         }
          case 'h':
-         default:
+         default: {
             fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-t]\n", argv[0]);
             fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
             fprintf(stderr, "  -t\t\t\tTransmit mode\n");
             fprintf(stderr, "  -v\t\t\tVideo mode\n");
             exit(1);
+         }
       }
    }
 

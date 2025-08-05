@@ -17,7 +17,7 @@ $(error ***ERROR*** Please create ${CF} first before building -- There is an exa
 endif
 
 CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
-CFLAGS_WARN := -Wall -Wno-unused -pedantic # -Werror
+CFLAGS_WARN := -pedantic -Wall -Wno-unused -Wno-format-truncation # -Werror
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
 VERSION=$(shell cat ../../.version)

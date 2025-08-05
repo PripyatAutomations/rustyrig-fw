@@ -13,7 +13,7 @@ endif
 SHELL = bash
 .SHELLFLAGS = -e -c
 
-CFLAGS_WARN := -Wall -pedantic -Wno-unused #-Werror
+CFLAGS_WARN := -Wall -pedantic -Wno-unused -Wno-format-truncation
 CFLAGS += -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1
 CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\""
 CFLAGS += -DMG_TLS=MG_TLS_MBED -D__RRCLIENT=1

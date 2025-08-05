@@ -32,7 +32,7 @@
       "hamlib_port": "localhost:4532"
    },
    "build": {
-      "cflags": "-fPIC -g",
+      "cflags": "-fPIC -g -Wall -pedantic -std=gnu11",
       "ldflags": "-g",
       "platform": "posix",
       "toolchain": {

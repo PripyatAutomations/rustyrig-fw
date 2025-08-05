@@ -220,7 +220,7 @@ int dict_add(dict * d, const char * key, char * val)
         }
         slot->val  = val ? strdup(val) : val;
         if (val && !(slot->val)) {
-            free(slot->key);
+            free((char *)slot->key);
             return -1;
         }
         slot->hash = hash;
@@ -307,7 +307,7 @@ void dict_free(dict * d) {
 
    for (i = 0; i < d->size; i++) {
       if (d->table[i].key && d->table[i].key != DUMMY_PTR) {
-         free(d->table[i].key);
+         free((char *)d->table[i].key);
          if (d->table[i].val) {
             free(d->table[i].val);
          }
@@ -350,7 +350,7 @@ int dict_del(dict * d, const char * key)
     if (!kp)
         return -1;
     if (kp->key && kp->key!=DUMMY_PTR)
-        free(kp->key);
+        free((char *)kp->key);
     kp->key = DUMMY_PTR;
     if (kp->val)
         free(kp->val);

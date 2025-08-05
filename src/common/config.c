@@ -260,6 +260,7 @@ dict *cfg_load(const char *path) {
             memset(keybuf, 0, sizeof(keybuf));
             snprintf(keybuf, sizeof(keybuf), "%s:%.s", this_section, key);
             Log(LOG_CRAZY, "config", "Set key: %s => %s", keybuf, val);
+            // Store it into the dict for the config we are attempting to load
             dict_add(newcfg, keybuf, val);
          } else {
             Log(LOG_CRAZY, "config", "Set key: %s => %s", key, val);
@@ -328,6 +329,8 @@ dict *cfg_load(const char *path) {
 
    fprintf(stderr, "**** Config Dump ****\n");
    dict_dump(newcfg, stderr);
+
+   // Return the new config and let the caller decide what to do with it
    return newcfg;
 }
 
