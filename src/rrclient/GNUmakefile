@@ -1,5 +1,7 @@
 all: host-info world
 VERSION=$(shell cat ../../.version)
+PROFILE ?= radio
+CF := ../../config/${PROFILE}.config.json
 
 UNAME_S := $(shell uname -s)
 ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
@@ -13,8 +15,9 @@ endif
 SHELL = bash
 .SHELLFLAGS = -e -c
 
-CFLAGS_WARN := -Wall -pedantic -Wno-unused -Wno-format-truncation
-CFLAGS += -std=gnu11 -g -ggdb -O1 -DMG_ENABLE_IPV6=1
+CFLAGS_WARN += $(strip $(shell cat ${CF} | jq -r ".build.cflags_warn")) -I../../inc/
+CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags")) -I../../inc/
+CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclient.log\""
 CFLAGS += -DMG_TLS=MG_TLS_MBED -D__RRCLIENT=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""

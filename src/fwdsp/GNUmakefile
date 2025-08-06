@@ -17,11 +17,11 @@ ifeq (x$(wildcard ${CF}),x)
 $(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
 endif
 
-CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
-CFLAGS_WARN := -Wall -Wno-unused -Wno-format-truncation # -Werror
+CFLAGS_WARN += $(strip $(shell cat ${CF} | jq -r ".build.cflags_warn")) -I../../inc/
+CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags")) -I../../inc/
+CFLAGS += -DMG_ENABLE_IPV6=1
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
-CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags")) -I../../inc/
 CFLAGS += -I${BUILD_DIR} -I${BUILD_DIR}/include 
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""

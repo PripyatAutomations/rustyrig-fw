@@ -2,6 +2,7 @@ all: world
 
 PROFILE ?= radio
 CF := ../../config/${PROFILE}.config.json
+
 CHANNELS := ../../config/${PROFILE}.channels.json
 BUILD_DIR := ../../build/${PROFILE}
 OBJ_DIR := ${BUILD_DIR}/obj
@@ -16,8 +17,9 @@ ifeq (x$(wildcard ${CF}),x)
 $(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
 endif
 
-CFLAGS := -std=gnu11 -g -ggdb -O1 -std=gnu99 -DMG_ENABLE_IPV6=1
-CFLAGS_WARN := -pedantic -Wall -Wno-unused -Wno-format-truncation # -Werror
+CFLAGS_WARN += $(strip $(shell cat ${CF} | jq -r ".build.cflags_warn")) -I../../inc/
+CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags")) -I../../inc/
+CFLAGS += -DMG_ENABLE_IPV6=1
 LDFLAGS := -lc -lm -g -ggdb -lcrypt
 
 VERSION=$(shell cat ../../.version)
