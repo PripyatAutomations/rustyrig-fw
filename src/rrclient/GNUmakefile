@@ -1,7 +1,33 @@
 all: host-info world
 VERSION=$(shell cat ../../.version)
-PROFILE ?= radio
-CF := ../../config/${PROFILE}.config.json
+
+# msys2 windows 64bit
+ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
+BUILD_DIR := ./build
+PROFILE := win32-client
+bin := ${BUILD_DIR}/rrclient.exe
+CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
+LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
+LDFLAGS += -lws2_32 -luser32 -lkernel32
+CFLAGS += -DMG_ARCH=MG_ARCH_WIN32
+export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
+real_install := windows-install
+objs += icon.res
+else
+# POSIX compliant hosts
+PROFILE ?= client
+BUILD_DIR := ../../build/${PROFILE}
+INSTALL_DIR := /usr/local
+bin := ${BUILD_DIR}/rrclient
+CC := gcc
+LD := ld
+CFLAGS += -DMG_ARCH=MG_ARCH_UNIX
+LDFLAGS += -lc -lcrypt
+real_install := posix-install
+endif
+
+#CF := ../../config/${PROFILE}.config.json
+CF := ../../config/radio.config.json
 
 UNAME_S := $(shell uname -s)
 ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
@@ -30,30 +56,6 @@ LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 
-# msys2 windows 64bit
-ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
-BUILD_DIR := ./build
-PROFILE := win32-client
-bin := ${BUILD_DIR}/rrclient.exe
-CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
-LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
-LDFLAGS += -lws2_32 -luser32 -lkernel32
-CFLAGS += -DMG_ARCH=MG_ARCH_WIN32
-export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
-real_install := windows-install
-objs += icon.res
-else
-# POSIX compliant hosts
-PROFILE ?= client
-BUILD_DIR := ../../build/${PROFILE}
-INSTALL_DIR := /usr/local
-bin := ${BUILD_DIR}/rrclient
-CC := gcc
-LD := ld
-CFLAGS += -DMG_ARCH=MG_ARCH_UNIX
-LDFLAGS += -lc -lcrypt
-real_install := posix-install
-endif
 
 OBJ_DIR := ${BUILD_DIR}/obj
 
