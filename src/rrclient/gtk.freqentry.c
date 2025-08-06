@@ -19,7 +19,7 @@ gulong freq_changed_handler_id;
 // cppcheck-suppress unknownMacro
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_input, GTK, FREQ_ENTRY, GtkBox)
 
-static void update_frequency_display(GtkFreqEntry *fi);
+static void update_frequency_display(GtkFreqEntry *fi, bool editing);
 
 struct _GtkFreqEntry {
    GtkBox parent_instance;
@@ -33,6 +33,45 @@ struct _GtkFreqEntry {
 };
 
 G_DEFINE_TYPE(GtkFreqEntry, gtk_freq_input, GTK_TYPE_BOX)
+
+static GtkWidget *get_prev_widget(GtkWidget *widget) {
+   GtkWidget *parent = gtk_widget_get_parent(widget);
+
+   if (!GTK_IS_CONTAINER(parent)) {
+      return NULL;
+   }
+
+   GList *children = gtk_container_get_children(GTK_CONTAINER(parent));
+   for (GList *l = children; l != NULL; l = l->next) {
+      if (l->data == widget) {
+         GtkWidget *prev = (l->prev) ? l->prev->data : NULL;
+         g_list_free(children);
+         return prev;
+      }
+   }
+
+   g_list_free(children);
+   return NULL;
+}
+
+static GtkWidget *get_next_widget(GtkWidget *widget) {
+   GtkWidget *parent = gtk_widget_get_parent(widget);
+   if (!GTK_IS_CONTAINER(parent)) {
+      return NULL;
+   }
+
+   GList *children = gtk_container_get_children(GTK_CONTAINER(parent));
+   for (GList *l = children; l != NULL; l = l->next) {
+      if (l->data == widget) {
+         GtkWidget *next = (l->next) ? l->next->data : NULL;
+         g_list_free(children);
+         return next;
+      }
+   }
+
+   g_list_free(children);
+   return NULL;
+}
 
 static void on_digit_entry_changed(GtkEditable *editable, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
@@ -67,10 +106,10 @@ static void on_digit_entry_changed(GtkEditable *editable, gpointer user_data) {
       gtk_widget_grab_focus(fi->digits[idx + 1]);
    }
 
-   update_frequency_display(fi);
+   update_frequency_display(fi, true);
 }
 
-static void update_frequency_display(GtkFreqEntry *fi) {
+static void update_frequency_display(GtkFreqEntry *fi, bool editing) {
    char buf[MAX_DIGITS + 1] = {0};
    for (int i = 0; i < fi->num_digits; i++) {
       const char *text = gtk_entry_get_text(GTK_ENTRY(fi->digits[i]));
@@ -121,7 +160,7 @@ static void on_button_clicked(GtkButton *button, gpointer user_data) {
    char buf[2] = { '0' + val, 0 };
    gtk_entry_set_text(GTK_ENTRY(fi->digits[idx]), buf);
 
-   update_frequency_display(fi);
+   update_frequency_display(fi, true);
    fi->updating = prev_updating;
 }
 
@@ -131,7 +170,7 @@ static void on_freq_digit_activate(GtkWidget *entry, gpointer user_data) {
 
    poll_block_expire = now + 3;
    fi->updating = true;
-   update_frequency_display(fi); // commits and logs
+   update_frequency_display(fi, false); // commits and logs
    fi->updating = prev_updating;
 }
 
@@ -149,7 +188,7 @@ static gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpoint
       // Force a send
       fi->updating = false;
       poll_block_expire = now + 1;
-      update_frequency_display(fi);
+      update_frequency_display(fi, true);
    }
    fi->updating = prev_updating;
    return FALSE;
@@ -232,7 +271,7 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
                Log(LOG_DEBUG, "gtk.freqentry", "Forcing send CAT cmd on ENTER press");
                fi->updating = false;
             }
-            update_frequency_display(fi);
+            update_frequency_display(fi, false);
             poll_block_expire = 0;
             return TRUE;
          }
@@ -262,11 +301,14 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
                gtk_entry_set_text(GTK_ENTRY(entry), buf);
                g_idle_add(reset_entry_selection, entry);
 
+// pretty sure this needs 
+#if	0
                if (i + 1 < fi->num_digits) {
                   gtk_widget_grab_focus(fi->digits[i + 1]);
                   gtk_editable_set_position(GTK_EDITABLE(fi->digits[i + 1]), -1);
                   gtk_editable_select_region(GTK_EDITABLE(fi->digits[i + 1]), 0, -1);
                }
+#endif
 
                // 🚫 stop GTK from processing the key normally
                g_signal_stop_emission_by_name(entry, "key-press-event");
@@ -381,7 +423,7 @@ void gtk_freq_input_set_value(GtkFreqEntry *fi, unsigned long freq) {
       gtk_entry_set_text(GTK_ENTRY(fi->digits[i]), digit);
    }
 
-   update_frequency_display(fi);
+   update_frequency_display(fi, false);
    fi->updating = prev_updating;
 }
 
