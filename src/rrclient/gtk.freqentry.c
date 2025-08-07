@@ -79,6 +79,8 @@ static GtkWidget *get_next_widget(GtkWidget *widget) {
    return NULL;
 }
 
+// XXX: Remove this
+#if	0
 static void on_digit_entry_changed(GtkEditable *editable, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
    GtkWidget *entry = GTK_WIDGET(editable);
@@ -115,6 +117,52 @@ static void on_digit_entry_changed(GtkEditable *editable, gpointer user_data) {
 
    update_frequency_display(fi, true);
 }
+#else
+static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
+    GtkEntry *entry = GTK_ENTRY(widget);
+
+    int idx = -1;
+    for (int i = 0; i < fi->num_digits; i++) {
+        if (fi->digits[i] == GTK_WIDGET(entry)) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0)
+        return FALSE;
+
+    // Allow navigation, backspace, etc.
+    if (event->keyval == GDK_KEY_BackSpace || event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_Right) {
+       return FALSE;
+    } else if (event->keyval == GDK_KEY_Delete) {
+       gtk_entry_set_text(entry, "0");
+       update_frequency_display(fi, true);
+       return TRUE;
+    }
+
+    // Digit pressed?
+    if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
+        char c = '0' + (event->keyval - GDK_KEY_0);
+        char buf[2] = { c, 0 };
+
+        // Set the digit manually
+        gtk_entry_set_text(entry, buf);
+
+        // Move focus to next entry
+        if (idx + 1 < fi->num_digits)
+            gtk_widget_grab_focus(fi->digits[idx + 1]);
+
+        update_frequency_display(fi, true);
+
+        // Prevent default GTK insertion
+        return TRUE;
+    }
+
+    return FALSE; // Let GTK handle other keys
+}
+#endif
 
 static void update_frequency_display(GtkFreqEntry *fi, bool editing) {
    char buf[MAX_DIGITS + 1] = {0};
@@ -413,7 +461,8 @@ static void gtk_freq_entry_init(GtkFreqEntry *fi) {
       // Connect our signals
       g_signal_connect(up_button, "clicked", G_CALLBACK(on_button_clicked), fi);
       g_signal_connect(down_button, "clicked", G_CALLBACK(on_button_clicked), fi);
-      freq_changed_handler_id = g_signal_connect(entry, "changed", G_CALLBACK(on_digit_entry_changed), fi);
+//      freq_changed_handler_id = g_signal_connect(entry, "changed", G_CALLBACK(on_digit_entry_changed), fi);
+      freq_changed_handler_id = g_signal_connect(entry, "key-press-event", G_CALLBACK(on_digit_key_press), fi);
       g_signal_connect(fi->digits[i], "activate", G_CALLBACK(on_freq_digit_activate), fi);
       g_signal_connect(fi->digits[i], "focus-in-event", G_CALLBACK(on_freq_focus_in), fi);
       g_signal_connect(fi->digits[i], "focus-out-event", G_CALLBACK(on_freq_focus_out), fi);
