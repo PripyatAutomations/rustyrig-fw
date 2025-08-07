@@ -289,7 +289,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       }
       goto cleanup;
    } else if (hello) {
-      Log(LOG_DEBUG, "ws", "Got HELLO from client at c:<%x>: %s", c, hello);
+      Log(LOG_DEBUG, "ws", "Got HELLO from client at mg_conn:<%x>: %s", c, hello);
       cptr->cli_version = malloc(HTTP_UA_LEN);
       memset(cptr->cli_version, 0, HTTP_UA_LEN);
       snprintf(cptr->cli_version, HTTP_UA_LEN, "%s", hello);

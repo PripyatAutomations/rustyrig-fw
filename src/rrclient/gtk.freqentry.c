@@ -301,7 +301,7 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
                gtk_entry_set_text(GTK_ENTRY(entry), buf);
                g_idle_add(reset_entry_selection, entry);
 
-// pretty sure this needs 
+// XXX: pretty sure this needs removed
 #if	0
                if (i + 1 < fi->num_digits) {
                   gtk_widget_grab_focus(fi->digits[i + 1]);

@@ -51,10 +51,10 @@ static GstElement *pipeline = NULL;
 time_t now = -1;                // time() called once a second in main loop to update
 
 defconfig_t defcfg[] = {
-  { "audio.debug",	"false",	"gstreamer debug level" },
-  { "log.level",	"debug",	"main log level" }, 
-  { "log.show-ts",	"false",	"show timestamps in logs" },
-  { NULL,		NULL,		NULL }
+  { "fwdsp:audio.debug", "false",	"gstreamer debug level" },
+  { "log.level",	 "debug",	"main log level" }, 
+  { "log.show-ts",	 "false",	"show timestamps in logs" },
+  { NULL,		 NULL,		NULL }
 };
 
 static void cleanup_pipeline(GstElement **pipe) {
@@ -311,7 +311,7 @@ int main(int argc, char *argv[]) {
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
-   const char *cfg_audio_debug = cfg_get("audio.debug");
+   const char *cfg_audio_debug = cfg_get("fwdsp:audio.debug");
    if (cfg_audio_debug) {
       setenv("GST_DEBUG", cfg_audio_debug, 0);
    }
