@@ -8,11 +8,17 @@
 extern dict *cfg;
 extern time_t now;
 extern bool dying;
+extern bool ui_print(const char *fmt, ...);
+
+// XXX: This needs decoupled from the websocket/mg code and made to use the generic
+// XXX: abstractions, so it'll work over serial etc as well
 extern bool ws_connected;
 extern struct mg_connection *ws_conn;
-extern bool ui_print(const char *fmt, ...);
-extern time_t poll_block_expire, poll_block_delay;
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq);
+
+// XXX: This should be made less ugly; we need to block CAT polling momentarily when
+// XXX: widget is actively being changed, so the server and client aren't fighting each other
+extern time_t poll_block_expire, poll_block_delay;
 gulong freq_changed_handler_id;
 
 #define GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type())
@@ -84,6 +90,7 @@ static void on_digit_entry_changed(GtkEditable *editable, gpointer user_data) {
          break;
       }
    }
+
    if (idx < 0) {
       return;
    }
@@ -280,19 +287,36 @@ static gboolean on_freq_digit_keypress(GtkWidget *entry, GdkEventKey *event, gpo
          case GDK_KEY_ISO_Left_Tab:
          {
             Log(LOG_DEBUG, "gtk.freqentry", "On Key down: %s", (event->state & GDK_SHIFT_MASK) ? "LeftTab" : "Tab");
-            GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(entry));
             GtkDirectionType direction = (event->state & GDK_SHIFT_MASK)
                ? GTK_DIR_TAB_BACKWARD : GTK_DIR_TAB_FORWARD;
-
             GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(fi));
+
+// XXX: Fix this
+#if	0
+            GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(entry));
             if (parent) {
                gtk_widget_child_focus(parent, direction);
             } else {
                Log(LOG_DEBUG, "gtk.freqentry", "On Key down: no parent widget");
             }
             return TRUE;
-         }
+#else
+             GtkWidget *next_tab = NULL;
 
+             if (event->keyval == GDK_KEY_ISO_Left_Tab) {
+                next_tab = get_prev_widget(parent);
+             } else {
+                next_tab = get_next_widget(parent);
+             }
+
+             if (next_tab) {
+                gtk_widget_grab_focus(next_tab);
+              } else {
+                 Log(LOG_DEBUG, "gtk.freqentry", "On Tab: No next_tab to switch to. Direction: %s", (event->keyval == GDK_KEY_ISO_Left_Tab ? "LeftTab" : "Tab"));
+              }
+              return TRUE;
+#endif
+           }
          default:
          {
             if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
