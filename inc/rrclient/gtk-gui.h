@@ -13,7 +13,7 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
-#include "rrclient/gtk.freqinput.h"
+#include "rrclient/gtk.freqentry.h"
 #define	HTTP_USER_LEN		16		// username length (16 char)
 #define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64
 #define	HTTP_HASH_LEN		40		// sha1
@@ -56,7 +56,7 @@ extern bool place_window(GtkWidget *window);
 extern void show_server_chooser(void);			// gtk.serverpick.c
 extern bool log_print(const char *fmt, ...);
 extern void gui_edit_config(const char *filepath);
-extern gboolean scroll_to_end(gpointer data);
+extern gboolean ui_scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);
 extern GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx);		// gtk.codecpicker.c
 extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);

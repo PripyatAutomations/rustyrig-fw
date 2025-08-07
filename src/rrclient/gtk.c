@@ -83,12 +83,12 @@ const char *get_chat_ts(void) {
    return chat_ts;
 }
 
-gboolean scroll_to_end(gpointer data) {
+gboolean ui_scroll_to_end(gpointer data) {
    GtkTextView *text_view = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
    GtkTextIter end;
    if (!data) {
-      printf("scroll_to_end: data == NULL\n");
+      printf("ui_scroll_to_end: data == NULL\n");
       return FALSE;
    }
    gtk_text_buffer_get_end_iter(buffer, &end);
@@ -116,7 +116,7 @@ bool ui_print(const char *fmt, ...) {
    gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
 
    // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
-   g_idle_add(scroll_to_end, text_view);
+   g_idle_add(ui_scroll_to_end, text_view);
 
    return false;
 }

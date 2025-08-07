@@ -66,7 +66,7 @@ bool log_print_va(const char *fmt, va_list ap) {
       gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
 
       // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
-      g_idle_add(scroll_to_end, log_view);
+      g_idle_add(ui_scroll_to_end, log_view);
    } else {
       return true;
    }
