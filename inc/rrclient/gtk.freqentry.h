@@ -27,9 +27,9 @@
 #define MAX_DIGITS 10
 
 // cppcheck-suppress unknownMacro
-#define GTK_TYPE_FREQ_INPUT (gtk_freq_input_get_type())
+#define GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type())
 // cppcheck-suppress unknownMacro
-GtkWidget *gtk_freq_input_new(void);
+GtkWidget *gtk_freq_entry_new(void);
 
 
 static inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
@@ -52,13 +52,13 @@ struct _GtkFreqInput {
 };
 
 G_BEGIN_DECLS
-G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_input, GTK, FREQ_INPUT, GtkWidget)
+G_DECLARE_FINAL_TYPE(GtkFreqInput, gtk_freq_entry, GTK, FREQ_ENTRY, GtkWidget)
 G_END_DECLS
 
-extern GtkWidget *gtk_freq_input_new(void);
-extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
-extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
-extern void gtk_freq_input_set_value(GtkFreqInput *fi, unsigned long freq);
-extern unsigned long gtk_freq_input_get_value(GtkFreqInput *fi);
+extern GtkWidget *gtk_freq_entry_new(void);
+extern void gtk_freq_entry_set_value(GtkFreqInput *fi, unsigned long freq);
+extern unsigned long gtk_freq_entry_get_value(GtkFreqInput *fi);
+extern void gtk_freq_entry_set_value(GtkFreqInput *fi, unsigned long freq);
+extern unsigned long gtk_freq_entry_get_value(GtkFreqInput *fi);
 
 #endif	// !defined(__rrclient_gtk_freqinput_h)

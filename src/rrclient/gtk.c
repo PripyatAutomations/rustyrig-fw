@@ -413,7 +413,7 @@ bool gui_init(void) {
    Log(LOG_CRAZY, "gtk", "conn_button add callback clicked");
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
 
-   freq_entry = gtk_freq_input_new();
+   freq_entry = gtk_freq_entry_new();
    GtkWidget *freq_label = gtk_label_new("Hz");
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);

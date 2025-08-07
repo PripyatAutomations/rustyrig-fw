@@ -15,9 +15,9 @@ extern time_t poll_block_expire, poll_block_delay;
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq);
 gulong freq_changed_handler_id;
 
-#define GTK_TYPE_FREQ_ENTRY (gtk_freq_input_get_type())
+#define GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type())
 // cppcheck-suppress unknownMacro
-G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_input, GTK, FREQ_ENTRY, GtkBox)
+G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_entry, GTK, FREQ_ENTRY, GtkBox)
 
 static void update_frequency_display(GtkFreqEntry *fi, bool editing);
 
@@ -32,7 +32,7 @@ struct _GtkFreqEntry {
    int num_digits;
 };
 
-G_DEFINE_TYPE(GtkFreqEntry, gtk_freq_input, GTK_TYPE_BOX)
+G_DEFINE_TYPE(GtkFreqEntry, gtk_freq_entry, GTK_TYPE_BOX)
 
 static GtkWidget *get_prev_widget(GtkWidget *widget) {
    GtkWidget *parent = gtk_widget_get_parent(widget);
@@ -343,7 +343,7 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
    return FALSE;
 }
 
-static void gtk_freq_input_init(GtkFreqEntry *fi) {
+static void gtk_freq_entry_init(GtkFreqEntry *fi) {
    gtk_orientable_set_orientation(GTK_ORIENTABLE(fi), GTK_ORIENTATION_HORIZONTAL);
    fi->num_digits = MAX_DIGITS;
    bool prev_updating = fi->updating;
@@ -400,14 +400,14 @@ static void gtk_freq_input_init(GtkFreqEntry *fi) {
    fi->updating = prev_updating;
 }
 
-static void gtk_freq_input_class_init(GtkFreqEntryClass *class) {}
+static void gtk_freq_entry_class_init(GtkFreqEntryClass *class) {}
 
-GtkWidget *gtk_freq_input_new(void) {
+GtkWidget *gtk_freq_entry_new(void) {
    GtkWidget *n = g_object_new(GTK_TYPE_FREQ_ENTRY, NULL);
    return n;
 }
 
-void gtk_freq_input_set_value(GtkFreqEntry *fi, unsigned long freq) {
+void gtk_freq_entry_set_value(GtkFreqEntry *fi, unsigned long freq) {
    char buf[MAX_DIGITS + 1];
    snprintf(buf, sizeof(buf), "%0*lu", fi->num_digits, freq);
    bool prev_updating = fi->updating;
@@ -427,7 +427,7 @@ void gtk_freq_input_set_value(GtkFreqEntry *fi, unsigned long freq) {
    fi->updating = prev_updating;
 }
 
-unsigned long gtk_freq_input_get_value(GtkFreqEntry *fi) {
+unsigned long gtk_freq_entry_get_value(GtkFreqEntry *fi) {
    char buf[MAX_DIGITS + 1] = {0};
 
    for (int i = 0; i < fi->num_digits; i++) {
