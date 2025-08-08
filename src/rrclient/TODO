@@ -1,10 +1,6 @@
 * Add throttled reconnect like webui has
 * Finish parsing server messages
-* Implement rest of controls typically used
-* Finish GtkFreqEntry widget (gtk.freqentry.c) -- it's buggy!
-  - Tab/Left-tab should skip the entirety of our widget, not switch between fields of it.
-  - When a digit is entered, we seem to only move to the next if it's a different
-    digit, why?
+* Implement rest of controls typically used (CTCSS tone for FM)
 * Finish whois/reason dialogs
 * Add more error messages when privileges denied, etc. (server side)
 * Fill out Config tab form which can generate rrclient.cfg
