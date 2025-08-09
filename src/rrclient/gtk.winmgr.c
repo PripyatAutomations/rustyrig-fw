@@ -40,6 +40,8 @@ bool place_window(GtkWidget *window) {
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);
 
+   bool win_raised = false, win_modal = false;
+
    if (win) {
       char key[512];
       memset(key, 0, sizeof(key));
@@ -48,12 +50,45 @@ bool place_window(GtkWidget *window) {
       Log(LOG_DEBUG, "gtk.winmgr", "Key %s for window %s returned %s", key, win->name, cfg_full);
 
       if (cfg_full) {
+         Log(LOG_DEBUG, "gtk.winmgr", "cfg_full: %s", cfg_full);
          // We found a new-style configuration, parse it
          if (sscanf(cfg_full, "%d,%d@%d,%d", &cfg_width, &cfg_height, &cfg_x, &cfg_y) == 4) {
             Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, cfg_width, cfg_height, cfg_x, cfg_y);
          } else {
             Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
             return true;
+         }
+         // Parse out options, delimited by | at the end of the string
+         char *opts = strchr(cfg_full, '|');
+         if (opts) {
+            opts++;  /* skip the '|' */
+            while (*opts) {
+               char *end = strchr(opts, '|');
+               if (!end) {
+                  end = opts + strlen(opts);
+               }
+
+               size_t len = end - opts;
+               char opt[32];
+               if (len >= sizeof(opt)) {
+                  len = sizeof(opt)-1;
+               }
+
+               memcpy(opt, opts, len);
+               opt[len] = '\0';
+
+               Log(LOG_DEBUG, "gtk.winmgr", "Window Option: '%s'\n", opt);
+               if (strcasecmp(opt, "raised") == 0) {
+                  win_raised = true;
+               } else if (strcasecmp(opt, "modal") == 0) {
+                  win_modal = true;
+               }
+
+               if (*end == '\0') {
+                  break;
+               }
+               opts = end + 1;
+            }
          }
       } else {
          // Pull individual keys and parse them
@@ -82,8 +117,10 @@ bool place_window(GtkWidget *window) {
             cfg_y = atoi(cfg_y_s);
          }
       }
+   } else {
+      Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
+      return true;
    }
-
    // Apply the properties to the window
    gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
    gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);

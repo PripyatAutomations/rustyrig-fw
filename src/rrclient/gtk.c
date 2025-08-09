@@ -285,9 +285,13 @@ static gboolean on_configure_timeout(gpointer data) {
        // Save it to the running-config
        dict_add(cfg, key, val);
  
-       Log(LOG_DEBUG, "gtk-ui",
-         "Window %s moved; config >>\t%s=%s",
-         p->name, key, val);
+       // Generate a string with the options
+       char opts[512];
+       memset(opts, 0, sizeof(opts));
+       snprintf(opts, sizeof(opts), "%s%s", (p->win_raised ? "|raised" : ""),
+                              (p->win_modal ? "|modal" : ""));
+       Log(LOG_DEBUG, "gtk-ui", "Window %s moved; config >>\t%s=%s%s",
+         p->name, key, val, opts);
     }
 
 //   Log(LOG_DEBUG, "gtk-ui", "Window '%s' id:<%x> moved/resized: x=%d y=%d width=%d height=%d", (p ? p->name : "UNKNOWN"), window, last_x, last_y, last_w, last_h);
@@ -333,6 +337,10 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
    // alt-u works everywhere
    if ((event->state & GDK_MOD1_MASK)) {
       if (event->keyval == GDK_KEY_u) {
+         if (!userlist_window) {
+            Log(LOG_DEBUG, "gtk", "userlist_window is null in alt-u handler");
+            return TRUE;
+         }
          if (gtk_widget_get_visible(userlist_window)) {
             gtk_widget_hide(userlist_window);
          } else {
@@ -344,6 +352,11 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
    }
 
    if ((event->state & GDK_MOD1_MASK)) {
+      if (!main_window) {
+         Log(LOG_DEBUG, "gtk", "main_window is null in alt-# handler");
+         return TRUE;
+      }
+
       if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
          gtk_widget_show_all(main_window);
          place_window(main_window);
@@ -388,31 +401,6 @@ bool gui_init(void) {
    Log(LOG_INFO, "gtk", "main_window has id:<%x>", main_window);
 
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
-
-   const char *s = NULL;
-   int cfg_height_i = 600;
-   int cfg_width_i = 800;
-   int cfg_x_i = 0;
-   int cfg_y_i = 0;
-
-   if ((s = cfg_get("ui.main.height"))) {
-      cfg_height_i = atoi(s);
-   }
-
-   if ((s = cfg_get("ui.main.width"))) {
-      cfg_width_i = atoi(s);
-   }
-
-   if ((s = cfg_get("ui.main.x"))) {
-      cfg_x_i = atoi(s);
-   }
-
-   if ((s = cfg_get("ui.main.y"))) {
-      cfg_y_i = atoi(s);
-   }
-
-   gtk_window_set_default_size(GTK_WINDOW(main_window), cfg_width_i, cfg_height_i);
-   gtk_window_move(GTK_WINDOW(main_window), cfg_x_i, cfg_y_i);
 
    notebook = gtk_notebook_new();
    gtk_container_add(GTK_CONTAINER(main_window), notebook);
@@ -481,7 +469,7 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 6);
 
    // set default value etc. as before
-   s = cfg_get("audio.volume.rx");
+   const char *s = cfg_get("audio.volume.rx");
    int cfg_def_vol_rx = 0;
 
    if (s) {
@@ -547,30 +535,6 @@ bool gui_init(void) {
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    Log(LOG_CRAZY, "gtk", "mainwin on add callback focus in");
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
-
-   const char *cfg_ontop_s = cfg_get("ui.main.on-top");
-   const char *cfg_raised_s = cfg_get("ui.main.raised");
-   bool cfg_ontop = false, cfg_raised = false;
-
-   if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
-      cfg_ontop = true;
-   }
-   
-   if (cfg_raised_s && strcasecmp(cfg_raised_s, "true") == 0) {
-      cfg_raised = true;
-   }
-
-   if (cfg_ontop) {
-      Log(LOG_DEBUG, "gtk-gui", "set main above");
-      gtk_window_set_keep_above(GTK_WINDOW(main_window), TRUE);
-   }
-
-   if (cfg_raised) {
-      if (!main_window) {
-         fprintf(stderr, "wtf?! cfg_raised with main_window NULL\n");
-      }
-      gtk_window_present(GTK_WINDOW(main_window));   
-   }
 
    userlist_window = userlist_init();
 

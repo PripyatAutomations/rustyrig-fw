@@ -194,6 +194,18 @@ void repeater_dialog_show(void) {
         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "15.0");  // 23cm band
         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "20.0");  // 13cm band
         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "25.0");  // 9cm band
+        // Negative offsets
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.6");   // 220 MHz
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.7");   // 2m (144 MHz)
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-1.0");   // 6m (50 MHz)
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-1.6");   // 2m (144 MHz) alternate
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-5.0");   // 6m (50 MHz) alternate
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-5.0");   // 70cm (440 MHz)
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-7.6");   // 70cm (440 MHz) alternate
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-10.0");  // 70cm (440 MHz) alternate
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-15.0");  // 23cm band
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-20.0");  // 13cm band
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-25.0");  // 9cm band
         gtk_combo_box_set_active(GTK_COMBO_BOX(offset_combo), 0);
         gtk_grid_attach(GTK_GRID(grid), offset_combo, 1, 4, 1, 1);
 

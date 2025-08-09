@@ -25,6 +25,8 @@
 struct GuiWindow {
     char name[128];		// Window name
     GtkWidget *gtk_win;		// GTK window widget
+    bool win_raised;		// Raised by default?
+    bool win_modal;		// Always on top
     struct GuiWindow *next;
 };
 typedef struct GuiWindow gui_window_t;

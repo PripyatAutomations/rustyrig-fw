@@ -177,7 +177,7 @@ GtkWidget *userlist_init(void) {
    g_signal_connect(window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
    gtk_widget_show_all(window);
-   place_window(window);
+//   place_window(window);
 
    if (cfg_hidden && (!strcasecmp(cfg_hidden, "true") ||
                       !strcasecmp(cfg_hidden, "yes") ||
@@ -194,7 +194,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
       gtk_widget_hide(userlist_window);
    } else {
       gtk_widget_show_all(userlist_window);
-      place_window(userlist_window);
+//      place_window(userlist_window);
    }
 }
 

@@ -72,7 +72,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          goto cleanup;
       }
 
-      Log(LOG_DEBUG, "ws.talk", "[%s] UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", get_chat_ts(), user, privs, (tx ? "true" : "false"), muted, clones);
+      Log(LOG_DEBUG, "ws.talk", "UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", user, privs, (tx ? "true" : "false"), muted, clones);
 
       struct rr_user tmp = {0};
 
