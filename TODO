@@ -3,7 +3,10 @@
   - Add/edit users
   - Reset password
   - User change own password
-
+* CW-U and CW-L
+   - CW is centered on the CW dial freq; CW-L is center and width below; CW-R is center and width above
+* C4FM
+   - Show FM dailog
 [rrclient]
 * Fix userlist updates so joins/quits properly update it
 * Fix PTT button needing clicked twice after TOT fired

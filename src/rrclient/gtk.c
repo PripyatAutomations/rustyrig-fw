@@ -68,6 +68,9 @@ static int history_index = -1;
 static char chat_ts[9];
 static time_t chat_ts_updated = 0;
 
+extern void repeater_dialog_show(void);
+extern void repeater_dialog_hide(void);
+
 const char *get_chat_ts(void) {
    memset(chat_ts, 0, 9);
 
@@ -87,6 +90,7 @@ gboolean ui_scroll_to_end(gpointer data) {
    GtkTextView *text_view = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
    GtkTextIter end;
+
    if (!data) {
       printf("ui_scroll_to_end: data == NULL\n");
       return FALSE;
@@ -122,11 +126,20 @@ bool ui_print(const char *fmt, ...) {
 }
 
 gulong mode_changed_handler_id;
-
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
+
    if (text) {
+      // Send mode command over websocket as before
       ws_send_mode_cmd(ws_conn, "A", text);
+
+      // Show/hide repeater dialog locally based on FM mode
+      if (g_str_equal(text, "FM")) {
+         repeater_dialog_show();
+      } else {
+         repeater_dialog_hide();
+      }
+
       g_free((gchar *)text);
    }
 }
@@ -381,15 +394,19 @@ bool gui_init(void) {
    int cfg_width_i = 800;
    int cfg_x_i = 0;
    int cfg_y_i = 0;
+
    if ((s = cfg_get("ui.main.height"))) {
       cfg_height_i = atoi(s);
    }
+
    if ((s = cfg_get("ui.main.width"))) {
       cfg_width_i = atoi(s);
    }
+
    if ((s = cfg_get("ui.main.x"))) {
       cfg_x_i = atoi(s);
    }
+
    if ((s = cfg_get("ui.main.y"))) {
       cfg_y_i = atoi(s);
    }
@@ -466,6 +483,7 @@ bool gui_init(void) {
    // set default value etc. as before
    s = cfg_get("audio.volume.rx");
    int cfg_def_vol_rx = 0;
+
    if (s) {
       cfg_def_vol_rx = atoi(s);
    }
@@ -483,6 +501,7 @@ bool gui_init(void) {
 
    s = cfg_get("default.tx.power");
    int cfg_def_pow_tx = 0;
+
    if (s) {
       cfg_def_pow_tx = atoi(s);
    }

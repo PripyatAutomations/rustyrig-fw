@@ -62,6 +62,7 @@ extern GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboB
 extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
+extern GtkWidget *mode_combo;          // if mode_combo is a GtkWidget*
 
 #ifdef _WIN32
 #include <winsock2.h>

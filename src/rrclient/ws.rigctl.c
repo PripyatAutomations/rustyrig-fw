@@ -70,6 +70,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          }  else {
             ptt = false;
          }
+
          server_ptt_state = ptt;
          update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
 
@@ -128,6 +129,7 @@ bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
 
    Log(LOG_CRAZY, "ws.cat", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
    if (ret < 0) {
       Log(LOG_DEBUG, "cat", "ws_send_ptt_cmd: mg_ws_send error: %d", ret);
       return true;
