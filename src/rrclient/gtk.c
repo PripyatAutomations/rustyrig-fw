@@ -68,8 +68,8 @@ static int history_index = -1;
 static char chat_ts[9];
 static time_t chat_ts_updated = 0;
 
-extern void repeater_dialog_show(void);
-extern void repeater_dialog_hide(void);
+extern void fm_dialog_show(void);
+extern void fm_dialog_hide(void);
 
 const char *get_chat_ts(void) {
    memset(chat_ts, 0, 9);
@@ -135,9 +135,9 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 
       // Show/hide repeater dialog locally based on FM mode
       if (g_str_equal(text, "FM")) {
-         repeater_dialog_show();
+         fm_dialog_show();
       } else {
-         repeater_dialog_hide();
+         fm_dialog_hide();
       }
 
       g_free((gchar *)text);
@@ -255,82 +255,6 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
 
-
-///////////////////////////////////////
-// These all belong in gtk.winmgr.c! //
-///////////////////////////////////////
-static guint configure_event_timeout = 0;
-static int last_x = -1, last_y = -1, last_w = -1, last_h = -1;
-
-static gboolean on_configure_timeout(gpointer data) {
-   if (!data) {
-      return true;
-   }
-
-   GtkWidget *window = (GtkWidget *)data;
-   gui_window_t *p = gui_find_window(window, NULL);
-
-   if (!p) {
-      Log(LOG_DEBUG, "gtk-ui", "No window name for id:<%x>", window);
-   }
-   
-   if (p && p->name[0] != '\0') {
-      char key[256];
-      memset(key, 0, sizeof(key));
-      snprintf(key, sizeof(key), "ui.%s", p->name);
-      char val[256];
-      memset(val, 0, sizeof(val));
-      snprintf(val, sizeof(val), "%d,%d@%d,%d", last_w, last_h, last_x, last_y);
- 
-       // Save it to the running-config
-       dict_add(cfg, key, val);
- 
-       // Generate a string with the options
-       char opts[512];
-       memset(opts, 0, sizeof(opts));
-       snprintf(opts, sizeof(opts), "%s%s", (p->win_raised ? "|raised" : ""),
-                              (p->win_modal ? "|modal" : ""));
-       Log(LOG_DEBUG, "gtk-ui", "Window %s moved; config >>\t%s=%s%s",
-         p->name, key, val, opts);
-    }
-
-//   Log(LOG_DEBUG, "gtk-ui", "Window '%s' id:<%x> moved/resized: x=%d y=%d width=%d height=%d", (p ? p->name : "UNKNOWN"), window, last_x, last_y, last_w, last_h);
-   configure_event_timeout = 0;
-   return G_SOURCE_REMOVE;
-}
-
-gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
-   if (event->type == GDK_CONFIGURE) {
-      GdkEventConfigure *e = (GdkEventConfigure *)event;
-
-      last_x = e->x;
-      last_y = e->y;
-      last_w = e->width;
-      last_h = e->height;
-
-      // Restart timeout (debounce)
-      if (configure_event_timeout != 0) {
-         g_source_remove(configure_event_timeout);
-      }
-
-      // Lookup the window name and try to save the new position
-      gui_window_t *win = gui_find_window(widget, NULL);
-      if (win && win->name[0] != '\0') {
-         char key[512];
-         memset(key, 0, sizeof(key));
-         snprintf(key, sizeof(key), "ui.%s", win->name);
-         char val[512];
-         memset(val, 0, sizeof(val));
-         snprintf(val, sizeof(val), "%d,%d@%d,%d", e->width, e->height, e->x, e->y);
-         dict_add(cfg, key, val);
-      }
-
-      // Add a timeout to clear the delay before printing the position again
-      configure_event_timeout = g_timeout_add(300, on_configure_timeout, widget);
-   }
-   return FALSE;
-}
-
 gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    GtkNotebook *notebook = GTK_NOTEBOOK(user_data);
 
@@ -380,7 +304,19 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
    return FALSE;
 }
 
-///////////////////////////////
+gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
+   gui_window_t *ret = NULL;
+
+   if (!window || !name) {
+      return NULL;
+   }
+   
+   ret = gui_store_window(window, name);
+   Log(LOG_INFO, "gtk.winmgr", "new '%s' window <%x> stored at <%x>", name, window, ret);
+
+   return ret;
+}
+
 bool gui_init(void) {
    css_provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css_provider,
@@ -397,9 +333,9 @@ bool gui_init(void) {
 
    input_history = g_ptr_array_new_with_free_func(g_free);
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gui_store_window(main_window, "main");
-   Log(LOG_INFO, "gtk", "main_window has id:<%x>", main_window);
 
+
+   gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 
    notebook = gtk_notebook_new();
@@ -540,13 +476,14 @@ bool gui_init(void) {
 
    gtk_widget_show_all(main_window);
    g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_keypress), notebook);
-   g_signal_connect(main_window, "configure-event", G_CALLBACK(on_window_configure), NULL);
 
    // Focus the chat entry by defualt
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
    ui_print("[%s] rustyrig client started", get_chat_ts());
 
    gtk_widget_realize(main_window);
+   place_window(main_window);
+
 #ifdef _WIN32
    enable_windows_dark_mode_for_gtk_window(main_window);
 #endif

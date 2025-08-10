@@ -4,48 +4,47 @@
 //
 [general]
 ;  audit | crit | warn | info | debug | crazy
-log.level=crazy
-;ui.show-pings=false
+log.level=debug
+ui.show-pings=false
 # If we want to autoconnect to a server, name it here.
-server.auto-connect=home
+;server.auto-connect=home
 codecs.allowed=pc16 mu16 mu08
 default.volume.rx=50
 default.tx.power=50
+;debug.http=true
 audio.debug=*:3
 audio.volume.rx=0
-audio.prefer-codecs=mu16 pc16 mu08
 audio.pipeline.rx.format=time
 ; mulaw (suitable for voice and maybe some digi)
-#audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes caps=audio/x-mulaw,rate=16000,channels=1 ! mulawdec ! volume name=rx-vol ! queue ! pulsesink device=default name=rx-sink client-name=rrclient
+;audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes caps=audio/x-mulaw,rate=16000,channels=1 ! mulawdec ! volume name=rx-vol ! queue ! pulsesink device=default name=rx-sink client-name=rrclient
 ; 16khz PCM for digital modes
-audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrclient
+;audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrclient
+audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=rrloop_rx name=rx-sink client-name=rrclient
 ; 44.1khz PCM for digital modes
 #audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=44100,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrclient
 // TX pipeline
 audio.pipeline.tx.format=time
 ;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
 
-; Window placements for main and userlist
-ui.main.height=768
-ui.main.width=1024
-ui.main.x=1775
-ui.main.y=1139
-ui.main.raise=true
-ui.main.on-top=false
-ui.userlist.hidden=false
-ui.userlist.raised=true
-ui.userlist.on-top=true
-ui.userlist.height=200
-ui.userlist.width=200
-ui.userlist.x=2599
-ui.userlist.y=1958
+; Window placements & options (hidden|modal|raised)
+; Size of -1 will avoid resizing the window and let GTK size it
+ui.userlist=-1,-1@100,100|hidden
+ui.fm-mode=-1,-1@503,365|modal|raised
+ui.serverpick=-1,-1@526,174|modal|raised
+ui.main=999,596@15,514|raised
 
 # Length of time to block CAT updates (in seconds) after a local state change
 cat.poll-blocking=1
 
-[server:home]
+[server:localhost]
 server.enabled=true
-#server.url=ws://localhost:8420/ws/
-server.url=wss://localhost:4420/ws/
+server.url=ws://127.0.0.1:8420/ws/
+server.user=admin
+server.pass=password
+
+[server:localhost-https]
+server.enabled=true
+server.url=ws://127.0.0.1:8420/ws/
+server.tx-url=wss://localhost:4420/ws-tx/
 server.user=admin
 server.pass=password

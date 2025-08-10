@@ -26,7 +26,6 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
-extern gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data);
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *cfg, *servers;
 extern time_t now;
@@ -141,7 +140,6 @@ void show_server_chooser(void) {
    g_signal_connect(win, "key-press-event", G_CALLBACK(on_key), NULL);
    g_signal_connect(list, "row-activated", G_CALLBACK(on_row_activated), NULL); // double-click handler
    g_signal_connect(win, "destroy", G_CALLBACK(on_server_window_destroy), NULL);
-   g_signal_connect(win, "configure-event", G_CALLBACK(on_window_configure), NULL);
 
    gtk_box_pack_start(GTK_BOX(vbox), list, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(vbox), btn, FALSE, FALSE, 0);
@@ -154,6 +152,7 @@ void show_server_chooser(void) {
    gtk_widget_show_all(win);
    gtk_widget_realize(server_window);
 
+   place_window(server_window);
    // Set dark mode, if needed, on windows
 #ifdef _WIN32
    enable_windows_dark_mode_for_gtk_window(server_window);

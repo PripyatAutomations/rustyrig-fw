@@ -27,6 +27,7 @@ struct GuiWindow {
     GtkWidget *gtk_win;		// GTK window widget
     bool win_raised;		// Raised by default?
     bool win_modal;		// Always on top
+    bool win_hidden;		// Hidden from view
     struct GuiWindow *next;
 };
 typedef struct GuiWindow gui_window_t;

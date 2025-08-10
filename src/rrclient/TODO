@@ -15,3 +15,6 @@
 [bluetooth]
 * Support bluetooth PTT buttons
 * Maybe automate routing of headsets when connected, if reasonably feasible?
+
+[cfgedit]
+* Should we dump the in-memory active configuration rather than editing the on-disk file? This would lose comments but is more correct!

@@ -29,6 +29,106 @@
 
 gui_window_t *gui_windows = NULL;
 extern GtkWidget *main_window;
+static guint configure_event_timeout = 0;
+static int last_x = -1, last_y = -1, last_w = -1, last_h = -1;
+
+static gboolean on_configure_timeout(gpointer data) {
+   if (!data) {
+      return true;
+   }
+
+   GtkWidget *window = (GtkWidget *)data;
+   gui_window_t *p = gui_find_window(window, NULL);
+
+   if (!p) {
+      Log(LOG_DEBUG, "gtk-ui", "No window name for id:<%x>", window);
+      return true;
+   }
+   
+   if (p && p->name[0] != '\0') {
+      char key[256];
+      memset(key, 0, sizeof(key));
+      snprintf(key, sizeof(key), "ui.%s", p->name);
+
+      // Generate a string with the options
+      char opts[512];
+      memset(opts, 0, sizeof(opts));
+      snprintf(opts, sizeof(opts), "%s%s",
+                     (p->win_raised ? "|raised" : ""),
+                     (p->win_modal ? "|modal" : ""));
+
+      // Store the value of width,height@x,y|options
+      char val[256];
+      memset(val, 0, sizeof(val));
+      snprintf(val, sizeof(val), "%d,%d@%d,%d%s", last_w, last_h, last_x, last_y, opts);
+ 
+       // Save it to the running-config
+       dict_add(cfg, key, val);
+ 
+       Log(LOG_DEBUG, "gtk-ui", "Window %s moved, cfg:\t%s=%s",
+         p->name, key, val);
+   }
+   configure_event_timeout = 0;
+   return G_SOURCE_REMOVE;
+}
+
+gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
+   if (event->type == GDK_CONFIGURE) {
+      GdkEventConfigure *e = (GdkEventConfigure *)event;
+
+      last_x = e->x;
+      last_y = e->y;
+      last_w = e->width;
+      last_h = e->height;
+
+      // Restart timeout (debounce)
+      if (configure_event_timeout != 0) {
+         g_source_remove(configure_event_timeout);
+      }
+
+      // Lookup the window name and try to save the new position
+      gui_window_t *win = gui_find_window(widget, NULL);
+      if (win && win->name[0] != '\0') {
+         char key[512];
+         memset(key, 0, sizeof(key));
+         snprintf(key, sizeof(key), "ui.%s", win->name);
+         char val[512];
+         memset(val, 0, sizeof(val));
+         snprintf(val, sizeof(val), "%d,%d@%d,%d", e->width, e->height, e->x, e->y);
+         dict_add(cfg, key, val);
+      }
+
+      // Add a timeout to clear the delay before printing the position again
+      configure_event_timeout = g_timeout_add(300, on_configure_timeout, widget);
+   }
+   return FALSE;
+}
+
+gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
+   if (!gtk_win && !name) {
+      Log(LOG_WARN, "gtk.winmgr", "gui_find_window called with NULL arguments");
+      return NULL;
+   }
+
+   // If window is given and matches, return it, regardless of the title match
+   if (gtk_win) {
+      for (gui_window_t *p = gui_windows; p; p = p->next) {
+         if (p->gtk_win == gtk_win) {
+            return p;
+         }
+      }
+   }
+
+   // If window can't be found by handle (or NULL handle), search by name
+   if (name) {
+      for (gui_window_t *p = gui_windows; p; p = p->next) {
+         if (p && strcmp(p->name, name) == 0) {
+            return p;
+         }
+      }
+   }
+   return NULL;
+}
 
 bool place_window(GtkWidget *window) {
    const char *cfg_height_s, *cfg_width_s;
@@ -39,8 +139,6 @@ bool place_window(GtkWidget *window) {
 
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);
-
-   bool win_raised = false, win_modal = false;
 
    if (win) {
       char key[512];
@@ -53,11 +151,12 @@ bool place_window(GtkWidget *window) {
          Log(LOG_DEBUG, "gtk.winmgr", "cfg_full: %s", cfg_full);
          // We found a new-style configuration, parse it
          if (sscanf(cfg_full, "%d,%d@%d,%d", &cfg_width, &cfg_height, &cfg_x, &cfg_y) == 4) {
-            Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, cfg_width, cfg_height, cfg_x, cfg_y);
+            Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, cfg_x, cfg_y, cfg_width, cfg_height);
          } else {
             Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
             return true;
          }
+
          // Parse out options, delimited by | at the end of the string
          char *opts = strchr(cfg_full, '|');
          if (opts) {
@@ -77,11 +176,16 @@ bool place_window(GtkWidget *window) {
                memcpy(opt, opts, len);
                opt[len] = '\0';
 
-               Log(LOG_DEBUG, "gtk.winmgr", "Window Option: '%s'\n", opt);
+               Log(LOG_DEBUG, "gtk.winmgr", "Window Option: %s", opt);
                if (strcasecmp(opt, "raised") == 0) {
-                  win_raised = true;
+                  win->win_raised = true;
+                  gtk_window_present(GTK_WINDOW(window));                 
                } else if (strcasecmp(opt, "modal") == 0) {
-                  win_modal = true;
+                  win->win_modal = true;
+                  gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
+               } else if (strcasecmp(opt, "hidden") == 0) {
+                  win->win_hidden = true;
+                  gtk_widget_hide(window);
                }
 
                if (*end == '\0') {
@@ -90,41 +194,19 @@ bool place_window(GtkWidget *window) {
                opts = end + 1;
             }
          }
-      } else {
-         // Pull individual keys and parse them
-         char full_key[512];
-         prepare_msg(full_key, sizeof(full_key), "ui.%s.height", win->name);
-         cfg_height_s = cfg_get(full_key);
-         if (cfg_height_s) {
-            cfg_height = atoi(cfg_height_s);
-         }
+         // Apply the properties to the window
+         gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
 
-         prepare_msg(full_key, sizeof(full_key), "ui.%s.width", win->name);
-         cfg_width_s = cfg_get(full_key);
-         if (cfg_width_s) {
-            cfg_width = atoi(cfg_width_s);
-         }
-
-         prepare_msg(full_key, sizeof(full_key), "ui.%s.x", win->name);
-         cfg_x_s = cfg_get(full_key);
-         if (cfg_x_s) {
-            cfg_x = atoi(cfg_x_s);
-         }
-
-         prepare_msg(full_key, sizeof(full_key), "ui.%s.y", win->name);
-         cfg_y_s = cfg_get(full_key);
-         if (cfg_y_s) {
-            cfg_y = atoi(cfg_y_s);
+         // If the user specified -1 for width or height, don't resize the window
+         if (cfg_width > 0 && cfg_height > 0) {
+            gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
+            gtk_window_resize(GTK_WINDOW(window), cfg_width, cfg_height);
          }
       }
    } else {
       Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
       return true;
    }
-   // Apply the properties to the window
-   gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
-   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
-   gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
    return false;
 }
 
@@ -168,7 +250,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 
    for (gui_window_t *x = gui_windows; x; x = x->next) {
       if (strcmp(x->name, name) == 0) {
-         Log(LOG_DEBUG, "gtk.winmgr", "found window:<%x> for gtk_win at <%x>", x->name, x->gtk_win);
+         Log(LOG_DEBUG, "gtk.winmgr", "found window %s at <%x> for gtk_win at <%x>", x->name, x, x->gtk_win);
          return x;
       }
    }
@@ -199,6 +281,11 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
       // Store our new window at the list tail
       x->next = p;
    }
+
+   g_signal_connect(gtk_win, "configure-event", G_CALLBACK(on_window_configure), NULL);
+// XXX: Handle window destruction events by calling gui_forget_window
+//   g_signal_connect(window, "delete-event", G_CALLBACK(on_window_delete), NULL);
+//   g_signal_connect(window, "destory", G_CALLBACK(on_window_destroy), NULL);
    return p;
 }
 
@@ -232,30 +319,4 @@ bool gui_forget_window(gui_window_t *window, const char *name) {
 
    // report failure (not found)
    return true;
-}
-
-gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
-   if (!gtk_win && !name) {
-      Log(LOG_WARN, "gtk.winmgr", "gui_find_window called with NULL arguments");
-      return NULL;
-   }
-
-   // If window is given and matches, return it, regardless of the title match
-   if (gtk_win) {
-      for (gui_window_t *p = gui_windows; p; p = p->next) {
-         if (p->gtk_win == gtk_win) {
-            return p;
-         }
-      }
-   }
-
-   // If window can't be found by handle (or NULL handle), search by name
-   if (name) {
-      for (gui_window_t *p = gui_windows; p; p = p->next) {
-         if (p && strcmp(p->name, name) == 0) {
-            return p;
-         }
-      }
-   }
-   return NULL;
 }

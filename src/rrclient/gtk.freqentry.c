@@ -40,6 +40,36 @@ struct _GtkFreqEntry {
 
 G_DEFINE_TYPE(GtkFreqEntry, gtk_freq_entry, GTK_TYPE_BOX)
 
+static GdkRGBA group_color(int group) {
+   GdkRGBA c;
+   // Darker red for Hz (group 3), brighter for GHz (group 0)
+   switch (group) {
+     case 0: // GHz - brightest red
+       gdk_rgba_parse(&c, "#cc4444");
+       break;
+     case 1: // MHz - medium bright red
+       gdk_rgba_parse(&c, "#aa2222");
+       break;
+     case 2: // kHz - darker red
+       gdk_rgba_parse(&c, "#aa2222");
+       break;
+     case 3: // Hz - darkest red
+       gdk_rgba_parse(&c, "#660000");
+       break;
+     default:
+       gdk_rgba_parse(&c, "#ffffff"); // fallback white
+       break;
+   }
+   return c;
+}
+
+static int digit_group(int i) {
+   if (i == 0) return 0;          // GHz
+   else if (i >= 1 && i <= 3) return 1; // MHz
+   else if (i >= 4 && i <= 6) return 2; // kHz
+   else return 3;                 // Hz
+}
+
 static GtkWidget *get_prev_widget(GtkWidget *widget) {
    GtkWidget *parent = gtk_widget_get_parent(widget);
 
@@ -349,6 +379,11 @@ static void gtk_freq_entry_init(GtkFreqEntry *fi) {
        gtk_widget_override_font(up_button, font);
        gtk_widget_override_font(entry, font);
        gtk_widget_override_font(down_button, font);
+
+       int group = digit_group(i);
+       GdkRGBA c = group_color(group);
+
+       gtk_widget_override_background_color(entry, GTK_STATE_FLAG_NORMAL, &c);
 
        gtk_box_pack_start(GTK_BOX(vbox), up_button, TRUE, FALSE, 0);
        gtk_box_pack_start(GTK_BOX(vbox), entry, TRUE, TRUE, 0);

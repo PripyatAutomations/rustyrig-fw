@@ -26,16 +26,12 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
-extern gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data);
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *cfg, *servers;
 extern time_t now;
 extern bool dying;
 extern bool ptt_active;
 extern bool ws_connected;
-
-// repeater_dialog.c
-#include <gtk/gtk.h>
 
 /* Tone lists */
 static const char *ctcss_tones[] = {
@@ -61,7 +57,7 @@ static const char *dcs_tones[] = {
 };
 
 /* Static pointers to widgets */
-static GtkWidget *repeater_dialog = NULL;
+static GtkWidget *fm_dialog = NULL;
 static GtkWidget *tone_type_combo = NULL;
 
 /* Utility to populate tone combos */
@@ -112,19 +108,19 @@ static void on_tone_type_changed(GtkComboBoxText *combo, gpointer user_data) {
     update_tone_dropdowns();
 }
 
-void repeater_dialog_show(void) {
-    if (!repeater_dialog) {
-        repeater_dialog = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-        gtk_window_set_title(GTK_WINDOW(repeater_dialog), "Repeater Settings");
+void fm_dialog_show(void) {
+    if (!fm_dialog) {
+        fm_dialog = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+        gtk_window_set_title(GTK_WINDOW(fm_dialog), "FM Settings");
 
         /* Prevent user from closing the window */
-        g_signal_connect(repeater_dialog, "delete-event", G_CALLBACK(gtk_true), NULL);
+        g_signal_connect(fm_dialog, "delete-event", G_CALLBACK(gtk_true), NULL);
 
         GtkWidget *grid = gtk_grid_new();
         gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
         gtk_grid_set_column_spacing(GTK_GRID(grid), 6);
         gtk_container_set_border_width(GTK_CONTAINER(grid), 8);
-        gtk_container_add(GTK_CONTAINER(repeater_dialog), grid);
+        gtk_container_add(GTK_CONTAINER(fm_dialog), grid);
 
         /* --- UI setup --- */
 
@@ -213,14 +209,16 @@ void repeater_dialog_show(void) {
         /* Initialize combos based on default states */
         update_tone_dropdowns();
 
-        gtk_widget_show_all(repeater_dialog);
+        gtk_widget_show_all(fm_dialog);
     } else {
-        gtk_widget_show(repeater_dialog);
-        gtk_window_present(GTK_WINDOW(repeater_dialog));
+        gtk_widget_show(fm_dialog);
+        gtk_window_present(GTK_WINDOW(fm_dialog));
     }
+    gui_store_window(fm_dialog, "fm-mode");
+    place_window(fm_dialog);
 }
 
-void repeater_dialog_hide(void) {
-    if (repeater_dialog)
-        gtk_widget_hide(repeater_dialog);
+void fm_dialog_hide(void) {
+    if (fm_dialog)
+        gtk_widget_hide(fm_dialog);
 }

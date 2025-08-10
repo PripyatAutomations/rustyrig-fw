@@ -124,17 +124,6 @@ void userlist_redraw_gtk(void) {
 GtkWidget *userlist_init(void) {
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "User List");
-   const char *cfg_ontop_s = cfg_get("ui.userlist.on-top");
-   const char *cfg_raised_s = cfg_get("ui.userlist.raised");
-   const char *cfg_hidden = cfg_get("ui.userlist.hidden");
-
-   if (cfg_ontop_s && strcasecmp(cfg_ontop_s, "true") == 0) {
-      gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
-   }
-
-   if (cfg_raised_s && strcasecmp(cfg_raised_s, "true") == 0) {
-      gtk_window_present(GTK_WINDOW(window));
-   }
 
    GtkListStore *store = gtk_list_store_new(NUM_COLS,
       G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
@@ -173,17 +162,10 @@ GtkWidget *userlist_init(void) {
 
    gtk_container_add(GTK_CONTAINER(window), cul_view);
    g_signal_connect(window, "key-press-event", G_CALLBACK(handle_keypress), window);
-   g_signal_connect(window, "configure-event", G_CALLBACK(on_window_configure), NULL);
    g_signal_connect(window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
    gtk_widget_show_all(window);
-//   place_window(window);
-
-   if (cfg_hidden && (!strcasecmp(cfg_hidden, "true") ||
-                      !strcasecmp(cfg_hidden, "yes") ||
-                      !strcasecmp(cfg_hidden, "on"))) {
-      gtk_widget_hide(window);
-   }
+   place_window(window);
 
    userlist_window = window;
    return window;
@@ -194,7 +176,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
       gtk_widget_hide(userlist_window);
    } else {
       gtk_widget_show_all(userlist_window);
-//      place_window(userlist_window);
+      place_window(userlist_window);
    }
 }
 
