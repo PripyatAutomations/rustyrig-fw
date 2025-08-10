@@ -45,16 +45,16 @@ static GdkRGBA group_color(int group) {
    // Darker red for Hz (group 3), brighter for GHz (group 0)
    switch (group) {
      case 0: // GHz - brightest red
-       gdk_rgba_parse(&c, "#cc4444");
+       gdk_rgba_parse(&c, "#992222");
        break;
      case 1: // MHz - medium bright red
-       gdk_rgba_parse(&c, "#aa2222");
+       gdk_rgba_parse(&c, "#772222");
        break;
      case 2: // kHz - darker red
-       gdk_rgba_parse(&c, "#aa2222");
+       gdk_rgba_parse(&c, "#552222");
        break;
      case 3: // Hz - darkest red
-       gdk_rgba_parse(&c, "#660000");
+       gdk_rgba_parse(&c, "#330000");
        break;
      default:
        gdk_rgba_parse(&c, "#ffffff"); // fallback white

@@ -145,10 +145,9 @@ bool place_window(GtkWidget *window) {
       memset(key, 0, sizeof(key));
       snprintf(key, sizeof(key), "ui.%s", win->name);
       const char *cfg_full = cfg_get(key);
-      Log(LOG_DEBUG, "gtk.winmgr", "Key %s for window %s returned %s", key, win->name, cfg_full);
+      Log(LOG_CRAZY, "gtk.winmgr", "Key %s for window %s returned %s", key, win->name, cfg_full);
 
       if (cfg_full) {
-         Log(LOG_DEBUG, "gtk.winmgr", "cfg_full: %s", cfg_full);
          // We found a new-style configuration, parse it
          if (sscanf(cfg_full, "%d,%d@%d,%d", &cfg_width, &cfg_height, &cfg_x, &cfg_y) == 4) {
             Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, cfg_x, cfg_y, cfg_width, cfg_height);
@@ -176,7 +175,6 @@ bool place_window(GtkWidget *window) {
                memcpy(opt, opts, len);
                opt[len] = '\0';
 
-               Log(LOG_DEBUG, "gtk.winmgr", "Window Option: %s", opt);
                if (strcasecmp(opt, "raised") == 0) {
                   win->win_raised = true;
                   gtk_window_present(GTK_WINDOW(window));                 

@@ -106,8 +106,8 @@ int main(int argc, char *argv[]) {
       if (!(cfg = cfg_load(fullpath))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       } else {
-         fprintf(stderr, "**** cfg:servers ****\n");
-         dict_dump(servers, stderr);
+//         fprintf(stderr, "**** cfg:servers ****\n");
+//         dict_dump(servers, stderr);
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
       }
       empty_config = false;

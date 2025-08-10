@@ -18,3 +18,6 @@
 
 [cfgedit]
 * Should we dump the in-memory active configuration rather than editing the on-disk file? This would lose comments but is more correct!
+
+[gui]
+* Make all windows hide/restore with the main window, even if modal

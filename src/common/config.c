@@ -99,7 +99,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
    int i = 0;
    int warnings = 0;
    while (defaults[i].key) {
-      Log(LOG_CRAZY, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
+//      Log(LOG_CRAZY, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
 
       if (!defaults[i].val) {
          Log(LOG_DEBUG, "config", "cfg_set_defaults: Skipping key %s as its empty", defaults[i].key);
@@ -107,7 +107,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
          continue;
       }
 
-      Log(LOG_CRAZY, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
+//      Log(LOG_CRAZY, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
       if (cfg_set_default(d, defaults[i].key, defaults[i].val)) {
          Log(LOG_CRIT, "config", "cfg_set_defaults: Failed to set key: %s", defaults[i].key);
          warnings++;
@@ -211,7 +211,7 @@ dict *cfg_load(const char *path) {
          size_t copy_len = ((skip_len - 1) > section_len ? section_len : (skip_len - 1));
          memset(this_section, 0, section_len);
          snprintf(this_section, copy_len, "%s", skip + 1);
-         Log(LOG_DEBUG, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
+//         Log(LOG_DEBUG, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
          continue;
       } else if (*skip == '@') {			// preprocessor
          if (strncasecmp(skip + 1, "if ", 3) == 0) {
@@ -259,11 +259,11 @@ dict *cfg_load(const char *path) {
 //            Log(LOG_CRIT, "config", "section: %s", this_section);
             memset(keybuf, 0, sizeof(keybuf));
             snprintf(keybuf, sizeof(keybuf), "%s:%.s", this_section, key);
-            Log(LOG_CRAZY, "config", "Set key: %s => %s", keybuf, val);
+//            Log(LOG_CRAZY, "config", "Set key: %s => %s", keybuf, val);
             // Store it into the dict for the config we are attempting to load
             dict_add(newcfg, keybuf, val);
          } else {
-            Log(LOG_CRAZY, "config", "Set key: %s => %s", key, val);
+//            Log(LOG_CRAZY, "config", "Set key: %s => %s", key, val);
             dict_add(newcfg, key, val);
          }
       } else if (strncasecmp(this_section, "pipelines", 9) == 0) {
@@ -327,8 +327,8 @@ dict *cfg_load(const char *path) {
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
    }
 
-   fprintf(stderr, "**** Config Dump ****\n");
-   dict_dump(newcfg, stderr);
+//   fprintf(stderr, "**** Config Dump ****\n");
+//   dict_dump(newcfg, stderr);
 
    // Return the new config and let the caller decide what to do with it
    return newcfg;
@@ -353,11 +353,6 @@ const char *cfg_get(const char *key) {
    } else {
       Log(LOG_CRAZY, "config", "returning user value '%s' for key '%s", p, key);
    }
-#if	0
-   fprintf(stdout, "-----\n");
-   dict_dump(c, stdout);
-   fprintf(stdout, "-----\n");
-#endif
    return p;
 }
 
