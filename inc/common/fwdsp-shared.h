@@ -32,6 +32,7 @@ struct audio_config {
      FW_DIR_RX	,		// Media we are RECEIVING
      FW_DIR_TX			// Media we are SENDING
    } media_direction;
+   void *buffer;		// Shared memory used to pass audio samples
 };
 
 struct fwdsp_client {

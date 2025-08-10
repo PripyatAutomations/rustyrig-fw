@@ -15,7 +15,7 @@
 // User configuration values from config file / ui
 dict *cfg = NULL;
 
-// Hard-coded defaults
+// Hard-coded defaults (defcfg.c)
 dict *default_cfg = NULL;
 
 // Holds a list of servers where applicable (client and fwdsp)
@@ -29,7 +29,6 @@ int dict_merge(dict *dst, dict *src) {
    int rank = 0;
    const char *key;
    char *val;
-//   while ((rank = dict_enumerate(src, rank, &key, &val)) >= 0) {
    while ((rank = dict_enumerate(src, rank, &key, &val)) >= 0) {
       if (dict_add(dst, key, val) != 0) {
          continue;
@@ -190,22 +189,24 @@ dict *cfg_load(const char *path) {
          continue;
       }
 
-      // Look for end of comment
       if (*skip == '*' && *skip+1== '/') {
+         // End of comment
          in_comment = false;
          Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
          continue;
-      // Look for start of comment
       } else if (*skip == '/' && *(skip + 1) == '*') {
+         // Start of comment
          Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
          in_comment = true;
          continue;
-      // If we're in a comment still, there's no */ on this line, so continue ignoring input
       } else if (in_comment) {
+         // If we're in a comment still, there's no */ on this line, so continue ignoring input
          continue;
       } else if ((*skip == '/' && *(skip+1) == '/') || *skip == '#' || *skip == ';') {
+         // Single line comments
          continue;
-      } else if (*skip == '[' && *end == ']') {		// section
+      } else if (*skip == '[' && *end == ']') {
+         // section open
          size_t section_len = sizeof(this_section);
          size_t skip_len = strlen(skip);
          size_t copy_len = ((skip_len - 1) > section_len ? section_len : (skip_len - 1));
@@ -256,10 +257,11 @@ dict *cfg_load(const char *path) {
          // if this isn't general section, it needs a prefix on the key
          if (strncasecmp(this_section, "general", 7) != 0) {
             char keybuf[384];
-//            Log(LOG_CRIT, "config", "section: %s", this_section);
+//            Log(LOG_CRAZY, "config", "section: %s", this_section);
             memset(keybuf, 0, sizeof(keybuf));
             snprintf(keybuf, sizeof(keybuf), "%s:%.s", this_section, key);
 //            Log(LOG_CRAZY, "config", "Set key: %s => %s", keybuf, val);
+
             // Store it into the dict for the config we are attempting to load
             dict_add(newcfg, keybuf, val);
          } else {
@@ -326,9 +328,6 @@ dict *cfg_load(const char *path) {
    } else {
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
    }
-
-//   fprintf(stderr, "**** Config Dump ****\n");
-//   dict_dump(newcfg, stderr);
 
    // Return the new config and let the caller decide what to do with it
    return newcfg;
@@ -413,8 +412,9 @@ unsigned int cfg_get_uint(const char *key, unsigned int def) {
 }
 
 static void cfg_print_servers(dict *servers, FILE *fp) {
-   if (!servers || !fp)
+   if (!servers || !fp) {
       return;
+   }
 
    const char *key;
    char *val;
@@ -424,20 +424,23 @@ static void cfg_print_servers(dict *servers, FILE *fp) {
    while ((rank = dict_enumerate(servers, rank, &key, &val)) >= 0) {
       // Find the prefix before the first '.'
       char *dot = strchr(key, '.');
-      if (!dot)
+      if (!dot) {
          continue;
+      }
 
       size_t prefix_len = dot - key;
       char prefix[64];
-      if (prefix_len >= sizeof(prefix))
+      if (prefix_len >= sizeof(prefix)) {
          continue;
+      }
 
       strncpy(prefix, key, prefix_len);
       prefix[prefix_len] = '\0';
 
       // Skip if we've already emitted this prefix
-      if (dict_get(seen, prefix, NULL))
+      if (dict_get(seen, prefix, NULL)) {
          continue;
+      }
       dict_add(seen, prefix, "1");
 
       fprintf(fp, "[server:%s]\n", prefix);
@@ -486,22 +489,14 @@ bool cfg_save(dict *d, const char *path) {
    return false;
 }
 
-#if	0		// XXX: Not yet ready: config reload events
-// This handles stuff like restarting audio pipelines, etc
-struct {
-   char *kev;
-   bool (*callback)();
-   char *note;
-   struct reload_event *next;
-} reload_event;
-\
-typedef struct reload_event reload_evt_t;
-
-reload_evt_t *reload_events = NULL;
-//extern reload_evt_t *reload_events;
+reload_event_t *reload_events = NULL;
 
 bool run_reload_events(const char *key) {
-   reload_evt_t *rl = reload_events;
+   if (!reload_events) {
+      return true;
+   }
+
+   reload_event_t *rl = reload_events;
 
    while (rl) {
       if (strcasecmp(rl->key, key) == 0) {
@@ -518,4 +513,9 @@ bool cfg_apply_new(dict *oldcfg, dict *newcfg) {
    cfg = newcfg;
    return false;
 }
-#endif	// not yet
+
+// XXX: Make a function to return a dict of ONLY changes from a -> b
+dict *dict_diff(dict *a, dict *b) {
+   // XXX: Make this work
+   return NULL;
+}

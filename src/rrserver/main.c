@@ -68,34 +68,8 @@ time_t now = -1;		// time() called once a second in main loop to update
 int auto_block_ptt = 0;		// Auto block PTT at boot?
 struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
-
 char *config_file = NULL;
-
-defconfig_t defcfg[] = {
-  { "audio.debug",	"false",	"Debug audio? [bool]" },
-  { "audio.record-dir", "./recordings", "TX & RX recordings basedir" },
-  { "backend.active",   "dummy",        "Backend to use for rig control" },
-  { "codecs.allowed",   "mu16 pc16 mu08", "Preferred codec order" },
-  { "database.master.path", "./db/master.db", "Master database path" },
-  { "database.master.template", "./sql/sqlite.master.sql", "Path to sql file to initialize database" },
-  { "debug.noisy-eeprom", "false",      "Extra debugging msgs from eeprom code?" },
-  { "fwdsp.hangtime" ,  "60",		"How long should unused (en|de)coders be kept alive after last used?" },
-  { "log.level",	"debug",	"How noisy should log be?"  }, 
-  { "log.show-ts",	"false",        "Show timestamps in log? [bool]" },
-  { "net.http.enabled", "true",         "Enable http?" },
-  { "net.http.bind",    "127.0.0.1",    "Address to listen for HTTP" },
-  { "net.http,port",    "8420",         "Port to listen for http on" },
-  { "net.http.authdb",  "./config/http.users", "Path to user database" },
-  { "net.http.authdb_dynamic", "false", "NYI: SQL user storage" },
-  { "net.http.tls-bind", "127.0.0.1",   "Address to listen for HTTPS (TLS)" },
-  { "net.http.tls-enabled", "false",    "Enable HTTPS (TLS) listener?" },
-  { "net.http.www-root", "./www",       "Path to static http content" },
-  { "net.mqtt.enabled",  "false",       "Enable MQTT service listener?" },
-  { "net.mqtt.bind",     "127.0.0.1",   "Address to listen for mqtt" },
-//  { "testkey.defcfg.main", " 1",	"Test key for defconfig" },
-  { NULL,		NULL,		NULL }
-};
-
+extern defconfig_t defcfg[];	// From defcfg.c
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
    rig.faultbeep = 1;
@@ -133,7 +107,6 @@ void shutdown_rig(uint32_t signum) {
 
     dying = 1;
     rr_ptt_set_all_off();
-    au_unix_socket_cleanup();
 }
 
 void restart_rig(void) {
@@ -292,7 +265,6 @@ int main(int argc, char **argv) {
    }
 
    rr_au_init();
-   au_unix_socket_init();
    dds_init();
    fwdsp_init();
 
@@ -346,8 +318,6 @@ int main(int argc, char **argv) {
          rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
-      au_unix_socket_poll();
-
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
