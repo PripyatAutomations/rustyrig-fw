@@ -80,6 +80,10 @@ struct http_res_types {
    char *msg;
 };
 
+// Maximum number of subscribed channels for users
+#define	MAX_RX_CHANNELS		64	// User RX channels
+#define	MAX_TX_CHANNELS		16	// User TX channels
+
 struct http_client {
     bool   active;		// Is this slot actually used or is it free-listed?
     bool   authenticated;       // Is the user fully logged in?
@@ -103,6 +107,12 @@ struct http_client {
     char  *cli_version;		// Client version
     bool   ghost;		// Is the session a ghost?
     time_t ghost_time;		// When did the session become a ghost?
+
+    u_int32_t rx_channels[MAX_RX_CHANNELS];
+    u_int32_t tx_channels[MAX_RX_CHANNELS];
+#if	0
+    // This is for connections between instances (NYI)
+/*
     enum {
        CONN_NONE = 0,
        CONN_RIGUI,		// User-interface (chat and CAT)
@@ -110,6 +120,8 @@ struct http_client {
        CONN_AUDIO_TX		// TX audio
     } connection_type;
     char   codec_rx[5], codec_tx[5];		// 4 byte ID of the codec for each audio direction
+*/
+#endif
     // This is a little ugly, but this stores pointers to the users associated with elmer/noob system
     union {
        struct http_client *elmers[HTTP_MAX_ELMERS];	// pointer(s) to elmers who have accepted to babysit user (if noob)

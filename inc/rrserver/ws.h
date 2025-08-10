@@ -49,7 +49,12 @@ extern bool ws_send_ping(http_client_t *cptr);
 extern bool ws_send_notice(struct mg_connection *c, const char *msg);
 
 // ws.audio.c
-extern void au_send_to_ws(const void *data, size_t len);
+extern void au_send_to_ws(const void *data, size_t len, int channel);
+extern u_int32_t au_find_channel(const char codec[5], bool tx);
+extern u_int32_t au_create_channel(const char codec[5], bool tx);
+extern u_int32_t au_find_or_create_channel(const char codec[5], bool tx);
+extern bool au_send_subscribe(u_int32_t channel);
+extern bool au_send_unsubscribe(u_int32_t channel);
 
 // ws.auth.c
 extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c);
@@ -59,7 +64,6 @@ extern bool send_global_alert(const char *sender, const char *data);
 extern void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, struct mg_str *msg_data, int data_type);
 extern void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data, int data_type);
 extern void ws_blorp_userlist_cb(void *arg);			// timer calls this to send userlists periodically
-extern void broadcast_audio_to_ws_clients(const void *data, size_t len);
 
 // ws.chat.c
 extern bool ws_chat_err_noprivs(http_client_t *cptr, const char *action);

@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "common/codecneg.h"
+
 typedef enum {
     AU_BACKEND_NULL_SINK = 0, // Null sink that discards all input but generates logging statistics
     AU_BACKEND_PIPEWIRE,      // Pipewire interface for Linux hosts

@@ -35,23 +35,37 @@
 
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;
-bool ws_connected = false;	// Is RX stream connecte?
-bool ws_tx_connected = false;	// Is TX stream connected?
-struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
-bool server_ptt_state = false;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
 char *negotiated_codecs = NULL;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
 extern time_t now;
-extern time_t poll_block_expire, poll_block_delay;
-extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
-char active_server[512];
 
+//////////////////////////////////
+// Support for multiple servers //
+//////////////////////////////////
+extern time_t poll_block_expire, poll_block_delay;
+extern char session_token[HTTP_TOKEN_LEN+1];
+
+struct ws_conn_t {
+   bool		connected;	// Are we connected?
+   bool		ptt_active;	// Is PTT raised?
+   struct mg_connection *ws_conn,	// RX stream
+                        *ws_tx_conn;	// TX stream
+};
+
+// XXX: Rework this and everywhere that refers to them to be wrapped in a ws_conn_t
+char active_server[512];
+bool ws_connected = false;	// Is RX stream connecte?
+bool ws_tx_connected = false;	// Is TX stream connected?
+struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
+bool server_ptt_state = false;
+
+// At startup, we try to find the distribution's TLS certificate authority trust store
 const char *default_tls_ca_paths[] = {
    "/etc/ssl/certs/ca-certificates.crt",
    "/etc/pki/tls/certs/ca-bundle.crt",
@@ -64,7 +78,6 @@ const char *default_tls_ca_paths[] = {
 extern bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg);
-
 
 ///////////////////////////////
 // A better way to route ws //
@@ -101,7 +114,7 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
 
    while (rp[i].type) {
       if (rp[i].type && strcasecmp(rp[i].type, type) == 0) {
-         // Match
+         // Matched, dispatch the message
          Log(LOG_CRAZY, "ws.router", "Matched route #%d for message type %s", i, type);
          rp[i].cb(c, msg);
          return false;

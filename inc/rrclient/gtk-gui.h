@@ -28,6 +28,7 @@ struct GuiWindow {
     bool win_raised;		// Raised by default?
     bool win_modal;		// Always on top
     bool win_hidden;		// Hidden from view
+    bool win_nohide;		// Don't hide this window when main window is minimized
     struct GuiWindow *next;
 };
 typedef struct GuiWindow gui_window_t;
@@ -66,6 +67,8 @@ extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list,
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 extern GtkWidget *mode_combo;          // if mode_combo is a GtkWidget*
+extern gui_window_t *ui_new_window(GtkWidget *window, const char *name);
+extern bool set_window_icon(GtkWidget *window, const char *icon_name);
 
 #ifdef _WIN32
 #include <winsock2.h>

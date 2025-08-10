@@ -314,6 +314,7 @@ gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    ret = gui_store_window(window, name);
    Log(LOG_INFO, "gtk.winmgr", "new '%s' window <%x> stored at <%x>", name, window, ret);
 
+   set_window_icon(window, "rustyrig");
    return ret;
 }
 
@@ -333,8 +334,6 @@ bool gui_init(void) {
 
    input_history = g_ptr_array_new_with_free_func(g_free);
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 

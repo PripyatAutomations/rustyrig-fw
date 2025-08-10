@@ -357,6 +357,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            struct fwdsp_subproc *codec_tx_subproc = NULL;
            struct fwdsp_subproc *codec_rx_subproc = NULL;
 
+// XXX: Rewrite this to subscribe rx_channels and rx_channels
+#if	0
            if (media_channel) {
               // XXX: Should we store pointers to the subprocs in the user struct? downside is it requires common/http.h to include rrserver/fwdsp-mgr.h or move struct fwdsp_subrpco to common/fwdsp-shared.h
               if (strcasecmp(media_channel, "tx") == 0) {
@@ -383,6 +385,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
                  Log(LOG_CRIT, "ws.media", "invalid channel '%s' for codec message from cptr:<%x>", media_channel, cptr);
               }
            }
+#endif
         } else {
            Log(LOG_DEBUG, "ws.media", "No codec in media.codec cmd");
         }

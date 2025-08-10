@@ -45,16 +45,16 @@ static GdkRGBA group_color(int group) {
    // Darker red for Hz (group 3), brighter for GHz (group 0)
    switch (group) {
      case 0: // GHz - brightest red
-       gdk_rgba_parse(&c, "#992222");
+       gdk_rgba_parse(&c, "#222288");
        break;
      case 1: // MHz - medium bright red
-       gdk_rgba_parse(&c, "#772222");
+       gdk_rgba_parse(&c, "#992222");
        break;
      case 2: // kHz - darker red
        gdk_rgba_parse(&c, "#552222");
        break;
      case 3: // Hz - darkest red
-       gdk_rgba_parse(&c, "#330000");
+       gdk_rgba_parse(&c, "#220000");
        break;
      default:
        gdk_rgba_parse(&c, "#ffffff"); // fallback white
@@ -350,6 +350,7 @@ static void gtk_freq_entry_init(GtkFreqEntry *fi) {
 
    // Apply small font to buttons and entry
    PangoFontDescription *font = pango_font_description_from_string("Monospace 12");
+   GdkRGBA white = {1, 1, 1, 1};
 
    for (int i = 0; i < MAX_DIGITS; i++) {
        // Insert separator before digits at position 1, 4, 7 (from left)
@@ -370,6 +371,7 @@ static void gtk_freq_entry_init(GtkFreqEntry *fi) {
        gtk_entry_set_width_chars(GTK_ENTRY(entry), 1);
        gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
        gtk_widget_set_size_request(entry, 20, 30);
+       gtk_widget_override_color(entry, GTK_STATE_FLAG_NORMAL, &white);
 
        GtkWidget *down_button = gtk_button_new_with_label("-");
        gtk_widget_set_can_focus(down_button, FALSE);

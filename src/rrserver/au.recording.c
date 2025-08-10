@@ -29,15 +29,8 @@
 #include "rrserver/au.h"
 #include "rrserver/auth.h"
 
+// How long should the random part of the filename be?
 #define	RECORDING_ID_LEN	24
-
-// Returns the ID of of the new recording
-const char *au_recording_start(int channel) {
-   char *recording_id = malloc(RECORDING_ID_LEN+1);
-   generate_nonce(recording_id, sizeof(recording_id));
-
-   return recording_id;
-}
 
 const char *au_recording_mkfilename(const char *recording_id, int channel) {
    char *rv = NULL;
@@ -68,6 +61,19 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    }
    return rv;
 }
+
+// Returns the ID of of the new recording
+const char *au_recording_start(int channel) {
+   char *recording_id = malloc(RECORDING_ID_LEN+1);
+   generate_nonce(recording_id, sizeof(recording_id));
+
+   const char *rec_file = au_recording_mkfilename(recording_id, channel);
+   if (!rec_file) {
+      Log(LOG_CRIT, "au.record", "Failed to generate a random filename for recording. OOM?");
+   }
+   return recording_id;
+}
+
 bool au_recording_stop(const char *id) {
    if (id == NULL) {
       return true;

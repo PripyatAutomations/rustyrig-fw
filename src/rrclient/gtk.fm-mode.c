@@ -1,5 +1,5 @@
 //
-// gtk-client/gtk.serverpick.c: Server selector / editor (will tie into gtk.cfg.c dialog
+// gtk-client/gtk.fm-mode.c: FM mode dialog
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -112,6 +112,7 @@ void fm_dialog_show(void) {
     if (!fm_dialog) {
         fm_dialog = gtk_window_new(GTK_WINDOW_TOPLEVEL);
         gtk_window_set_title(GTK_WINDOW(fm_dialog), "FM Settings");
+        gui_window_t *window_t = ui_new_window(fm_dialog, "fm-mode");
 
         /* Prevent user from closing the window */
         g_signal_connect(fm_dialog, "delete-event", G_CALLBACK(gtk_true), NULL);
@@ -214,7 +215,6 @@ void fm_dialog_show(void) {
         gtk_widget_show(fm_dialog);
         gtk_window_present(GTK_WINDOW(fm_dialog));
     }
-    gui_store_window(fm_dialog, "fm-mode");
     place_window(fm_dialog);
 }
 

@@ -1,0 +1,8 @@
+We need to define some protocol messages the server can use to configure the client
+
+media.capab	- A list of pipeline 4CC's we support
+media.codec	- Overlap of allowed codes and client preferred codecs
+
+rf.freq-limits	- RF frequency limits for the RX and TX sections
+rf.slicer	- Support for configuring hardware that uses FPGA slicing
+                  (Radioberry, Hermeslite, USRP, etc)

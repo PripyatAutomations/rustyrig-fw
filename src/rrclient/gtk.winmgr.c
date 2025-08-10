@@ -176,14 +176,20 @@ bool place_window(GtkWidget *window) {
                opt[len] = '\0';
 
                if (strcasecmp(opt, "raised") == 0) {
+                  // Window should start raised
                   win->win_raised = true;
                   gtk_window_present(GTK_WINDOW(window));                 
                } else if (strcasecmp(opt, "modal") == 0) {
+                  // Window is always-on-top
                   win->win_modal = true;
                   gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
                } else if (strcasecmp(opt, "hidden") == 0) {
+                  // Hide this window by default
                   win->win_hidden = true;
                   gtk_widget_hide(window);
+               } else if (strcasecmp(opt, "no-hide") == 0) {
+                  // Don't hide this window when the main window is minimized
+                  win->win_nohide = true;
                }
 
                if (*end == '\0') {
