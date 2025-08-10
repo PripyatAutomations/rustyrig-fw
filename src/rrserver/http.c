@@ -382,11 +382,6 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          cptr->is_ws = true;
          char msgbuf[512];
          memset(msgbuf, 0, sizeof(msgbuf));
-         // XXX:audio: finish this 
-//         const char *codec = "mulaw";
-         const char *codec = "pcm";
-         int rate = 16000;
-//         snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\", \"codec\": \"%s\", \"rate\": %d }", VERSION, HARDWARE, codec, rate);
          snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       } else {
