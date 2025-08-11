@@ -42,23 +42,6 @@ defconfig_t defcfg[] = {
 //   { "ui.gtk.theme",        NULL, 	"Chosen light theme" },
 //   { "ui.gtk.theme.dark",   NULL,   "Chosen dark theme" },
 #endif
-/*
-   { "ui.main.height",			"600",	"Height (px) of main window" },
-   { "ui.main.width",			"800",	"Width (px) of main window" },
-   { "ui.main.x",			"0",	"X position of main window" },
-   { "ui.main.y",			"200",	"Y position of main window" },
- */
-   { "ui.main.on-top",			"false", "Main window stays above others" },
-   { "ui.main.raised",			"true", "Show the window at startup" },
-/*
-   { "ui.userlist.height",		"300",	"Height of userlist" },
-   { "ui.userlist.width",		"250",	"Width of userlist" },
-   { "ui.userlist.x",			"0",	"X pos of userlist" },
-   { "ui.userlist.y",			"0",	"Y pos of userlist" },
- */
-   { "ui.userlist.on-top",		"false", "Userlist window stays above others" },
-   { "ui.userlist.raised",		"true", "Show userlist at startup" },
-   { "ui.userlist.hidden",		"false", "Hide the userlist?" },
    { "ui.show-pings",			"true", "Show Ping? Pong! notices" },
    { NULL,				NULL, 		NULL }
 };

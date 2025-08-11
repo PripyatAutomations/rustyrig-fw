@@ -71,6 +71,15 @@ const char *au_recording_start(int channel) {
    if (!rec_file) {
       Log(LOG_CRIT, "au.record", "Failed to generate a random filename for recording. OOM?");
    }
+   // Open the recording file for writing
+   FILE *fp = fopen(rec_file, "w");
+
+   if (!fp) {
+      Log(LOG_CRIT, "au.record", "Failed to open file %s for recording of channel %d", rec_file, channel);
+      return NULL;
+   }
+
+   // Store the fd somewhere (active_recordings array?)
    return recording_id;
 }
 
@@ -79,6 +88,18 @@ bool au_recording_stop(const char *id) {
       return true;
    }
 
+   // Find the location of the recording struct (active_recordings array)
+   // Close the fd
+//   fclose(rp->fp);
    free((void *)id);
+   return false;
+}
+
+bool au_attach_gst(const char *id, int channel) {
+   if (channel <= 0 || !id) {
+      return true;
+   }
+
+   // XXX: Find the proper tee to connect to and use shmsink/source to pass data across
    return false;
 }

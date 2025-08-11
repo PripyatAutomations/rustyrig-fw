@@ -293,31 +293,6 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    return true;
 }
 
-static struct mg_connection *fwdsp_attach_fd_to_mgr(struct mg_mgr *mgr,
-                                                    struct fwdsp_subproc *sp,
-                                                    int fd,
-                                                    bool is_stderr) {
-
-   struct fwdsp_io_conn *ctx = calloc(1, sizeof(struct fwdsp_io_conn));
-
-   if (!ctx) {
-      return NULL;
-   }
-
-   ctx->sp = sp;
-   ctx->is_stderr = is_stderr;
-
-   struct mg_connection *c = mg_wrapfd(mgr, fd, fwdsp_read_cb, ctx);
-   if (!c) {
-      Log(LOG_CRIT, "fwdsp", "Failed to wrap fd %d for %s", fd,
-          is_stderr ? "stderr" : "stdout");
-      free(ctx);
-      return NULL;
-   }
-
-   return c;
-}
-
 bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (!sp) {
       return false;

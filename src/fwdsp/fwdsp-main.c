@@ -1,4 +1,6 @@
-// fwdsp-main.c: firmware DSP bridge This is part of rustyrig-fw. 
+//
+// src/rrserver/fwdsp-mgr.c handles spawning and stopping (en|de)coders as needed
+//
 // 	https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -16,8 +18,15 @@
 //
 // BUGS: A gstreamer wizard could certainly make this a lot better.. Feel free to jump in! ;)
 //
-// src/rrserver/fwdsp-mgr.c handles spawning and stopping (en|de)coders as needed
-//
+///////////////////
+// REWRITE NOTES //
+///////////////////
+// We are rewriting this to handle *all* the gstreamer pipelines in a single process, starting and stopping them as needed.
+// To make this happen, we need to support auto-startting codecs in a some kind of controlled order. 
+// On demand startup should happen when a user sends a codec selection message.
+// Reference count pipelines and terminate them if unneeded
+// - This is going to be tricky as we'll need to keep track of inter-pipeline deps
+
 #include "build_config.h"
 #include <stdint.h>
 #include <gst/gst.h>

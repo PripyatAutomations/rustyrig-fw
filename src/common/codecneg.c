@@ -125,8 +125,9 @@ char *codec_filter_common(const char *preferred, const char *available) {
       }
    }
 
-   if (res_sz > 0 && result[res_sz - 1] == ' ')
+   if (res_sz > 0 && result[res_sz - 1] == ' ') {
       result[--res_sz] = 0;
+   }
 
    return result;
 }
