@@ -1,0 +1,9 @@
+* fwdsp-mgr should ensure fwdsp is always running by restartijng it as needed.
+* fwdsp should maintain all configured pipelines
+  - If immortal, ensure the pipeline is always running\
+  - Otherwise, ensure on-demand pipelines start/pause/stop as needed
+
+- Pipeline types
+  - capture: Receive audio from sound devices
+  - sender: Sends audio to sound devices
+  - recoder: Transcodes audio between stream formats

@@ -163,7 +163,7 @@ bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
 
    char msgbuf[512];
    memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"freq\", \"vfo\": \"%s\", \"freq\": %.3f } }", vfo, freq);
+   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"freq\", \"vfo\": \"%s\", \"freq\": %.0f } }", vfo, freq);
    Log(LOG_DEBUG, "ws.cat", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
