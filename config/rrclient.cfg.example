@@ -29,9 +29,9 @@ audio.pipeline.tx.format=time
 ; Window placements & options (hidden|modal|raised)
 ; Size of -1 will avoid resizing the window and let GTK size it
 ui.userlist=-1,-1@100,100|hidden
-ui.fm-mode=-1,-1@503,365|modal|raised
 ui.serverpick=-1,-1@526,174|modal|raised
 ui.main=999,596@15,514|raised
+ui.fm-mode=-1,-1@503,365|modal|raised
 
 # Length of time to block CAT updates (in seconds) after a local state change
 cat.poll-blocking=1

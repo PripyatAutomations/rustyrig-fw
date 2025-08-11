@@ -4,6 +4,9 @@ set -e
 # Set a default profile (used to find configs, set output folder, etc), if none set
 [ -z "$PROFILE" ] && PROFILE=radio
 
+# Make sure ./run/rrserver exists to avoid warnings below
+[ ! -d ./run/rrserver ] && mkdir -p ./run/rrserver
+
 # Force a clean rebuild if rrserver or fwdsp missing
 [ ! -f build/${PROFILE}/rrserver -o ! -f build/${PROFILE}/fwdsp ] && ./build.sh
 
