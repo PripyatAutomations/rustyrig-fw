@@ -189,6 +189,42 @@ dict *cfg_load(const char *path) {
          continue;
       }
 
+      // Handle line continuations ending with '\'
+      while (end >= buf) {
+         // trim trailing spaces/tabs
+         while (end >= buf && (*end == ' ' || *end == '\t')) {
+            *end = '\0';
+            end--;
+         }
+
+         if (*end == '\\') {
+            *end = '\0'; // remove '\'
+            // read next line
+            char contbuf[sizeof(buf)];
+            if (fgets(contbuf, sizeof(contbuf), fp)) {
+               line++;
+               // trim leading whitespace in contbuf
+               char *cont = contbuf;
+               while (*cont == ' ' || *cont == '\t')
+                  cont++;
+               // trim newline from cont
+               char *e2 = cont + strlen(cont) - 1;
+               while (e2 >= cont && (*e2 == '\r' || *e2 == '\n')) {
+                  *e2 = '\0';
+                  e2--;
+               }
+               // append a single space + contbuf to buf
+               strncat(buf, " ", sizeof(buf) - strlen(buf) - 1);
+               strncat(buf, cont, sizeof(buf) - strlen(buf) - 1);
+               // update end pointer for another possible continuation
+               end = buf + strlen(buf) - 1;
+               continue;
+            }
+         }
+         fprintf(stderr, "multiline buffer: %s\n", buf);
+         break;
+      }
+
       if (*skip == '*' && *skip+1== '/') {
          // End of comment
          in_comment = false;

@@ -21,3 +21,4 @@
 
 [gui]
 * Make all windows hide/restore with the main window, even if modal
+* Deal with hidden window attribute
