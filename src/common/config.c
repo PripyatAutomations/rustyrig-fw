@@ -134,13 +134,10 @@ bool cfg_init(dict *d, defconfig_t *defaults) {
 dict *cfg_load(const char *path) {
    int line = 0, errors = 0;
    char buf[32768];
-   char *end, *skip,
-        *key, *val;
+   char *end, *skip, *key, *val;
    char this_section[128];
 
    memset(this_section, 0, sizeof(this_section));
-
-   log_level = LOG_DEBUG;
 
    if (!file_exists(path)) {
       fprintf(stderr, "Can't find config file %s\n", path);
@@ -160,116 +157,119 @@ dict *cfg_load(const char *path) {
       return NULL;
    }
 
-   // rewind configuration file
    fseek(fp, 0, SEEK_SET);
-
    servers = dict_new();
 
-   // Support for C style comments
    bool in_comment = false;
    do {
       memset(buf, 0, sizeof(buf));
-      fgets(buf, sizeof(buf) - 1, fp);
+      if (!fgets(buf, sizeof(buf) - 1, fp)) {
+         break;
+      }
       line++;
 
-      // delete prior whitespace...
+      // skip leading spaces
       skip = buf;
-      while(*skip == ' ')
-        skip++;
+      while (*skip == ' ') {
+         skip++;
+      }
 
-      // Delete trailing newlines
-      end = buf + strlen(buf);
-      do {
-        *end = '\0';
-        end--;
-      } while(*end == '\r' || *end == '\n');
+      // trim trailing newlines
+      end = buf + strlen(buf) - 1;
+      while (end >= buf && (*end == '\r' || *end == '\n')) {
+         *end-- = '\0';
+      }
 
-      // did we eat the whole line?
-      if ((end - skip) <= 0) {
+      if ((end - skip) < 0) {
          continue;
       }
 
-      // Handle line continuations ending with '\'
-      while (end >= buf) {
-          // Trim trailing whitespace first
+      // Handle line continuations
+      while (1) {
+          // Trim trailing newlines
+          while (end >= buf && (*end == '\r' || *end == '\n')) {
+              *end-- = '\0';
+          }
+
+          // Trim trailing spaces/tabs before checking '\'
           while (end >= buf && (*end == ' ' || *end == '\t')) {
-             *end-- = '\0';
+              *end-- = '\0';
           }
 
-          if (*end == '\\') {
-              *end = '\0'; // remove '\'
-
-              char contbuf[sizeof(buf)];
-              if (fgets(contbuf, sizeof(contbuf), fp)) {
-                  line++;
-
-                  // Trim leading whitespace on continuation line
-                  char *cont = contbuf;
-                  while (*cont == ' ' || *cont == '\t') {
-                    cont++;
-                  }
-
-                  // Trim trailing whitespace/newline
-                  char *e2 = cont + strlen(cont) - 1;
-                  while (e2 >= cont && (*e2 == '\r' || *e2 == '\n' || *e2 == ' ' || *e2 == '\t')) {
-                    *e2-- = '\0';
-                  }
-
-                  // Append with exactly one space
-                  if (strlen(buf) > 0) {
-                     strncat(buf, " ", sizeof(buf) - strlen(buf) - 1);
-                  }
-
-                  strncat(buf, cont, sizeof(buf) - strlen(buf) - 1);
-
-                  // Update end pointer in case there's another continuation
-                  end = buf + strlen(buf) - 1;
-                  continue;
-              }
+          if (end < buf || *end != '\\') {
+              // No continuation
+              break;
           }
-          fprintf(stderr, "mlb: %s\n", buf);
-          break;
+
+          // Check if space before '\'
+          bool space_before = (end > buf && *(end - 1) == ' ');
+
+          // Remove the backslash
+          *end = '\0';
+          end--;
+
+          // Also remove trailing spaces before backslash if any remain
+          while (end >= buf && (*end == ' ' || *end == '\t')) {
+              *end-- = '\0';
+          }
+
+          // Read continuation line
+          char contbuf[sizeof(buf)];
+          if (!fgets(contbuf, sizeof(contbuf), fp)) {
+              break;  // EOF or error
+          }
+
+          line++;
+
+          // Trim leading whitespace on continuation line
+          char *cont = contbuf;
+          while (*cont == ' ' || *cont == '\t') {
+             cont++;
+          }
+
+          // Trim trailing whitespace/newlines on continuation line
+          char *e2 = cont + strlen(cont) - 1;
+          while (e2 >= cont && (*e2 == '\r' || *e2 == '\n' || *e2 == ' ' || *e2 == '\t')) {
+              *e2-- = '\0';
+          }
+
+          // Append a space if needed
+          if (space_before && strlen(buf) > 0) {
+              strncat(buf, " ", sizeof(buf) - strlen(buf) - 1);
+          }
+
+          // Append continuation content
+          strncat(buf, cont, sizeof(buf) - strlen(buf) - 1);
+
+          // Update end pointer for next loop iteration
+          end = buf + strlen(buf) - 1;
       }
+
+      // Now print the fully joined line once
+//      fprintf(stderr, "mbi: %s\n", buf);
 
       /////////////////////////////
       // parse the line contents //
       /////////////////////////////
-      if (*skip == '*' && *skip+1== '/') {
-         // End of comment
+      if (*skip == '*' && *(skip + 1) == '/') {
          in_comment = false;
-         Log(LOG_DEBUG, "config", "cfg.end_block_comment: %d", line);
          continue;
       } else if (*skip == '/' && *(skip + 1) == '*') {
-         // Start of comment
-         Log(LOG_DEBUG, "config", "cfg.start_block_comment: %d", line);
          in_comment = true;
          continue;
       } else if (in_comment) {
-         // If we're in a comment still, there's no */ on this line, so continue ignoring input
          continue;
-      } else if ((*skip == '/' && *(skip+1) == '/') || *skip == '#' || *skip == ';') {
-         // Single line comments
+      } else if ((*skip == '/' && *(skip + 1) == '/') || *skip == '#' || *skip == ';') {
          continue;
       } else if (*skip == '[' && *end == ']') {
-         // section open
          size_t section_len = sizeof(this_section);
          size_t skip_len = strlen(skip);
          size_t copy_len = ((skip_len - 1) > section_len ? section_len : (skip_len - 1));
          memset(this_section, 0, section_len);
          snprintf(this_section, copy_len, "%s", skip + 1);
-//         Log(LOG_DEBUG, "config", "cfg.section.open: '%s' [%lu]", this_section, strlen(this_section));
          continue;
-      } else if (*skip == '@') {			// preprocessor
-         if (strncasecmp(skip + 1, "if ", 3) == 0) {
-            /* XXX: finish this */
-         } else if (strncasecmp(skip + 1, "endif", 5) == 0) {
-            /* XXX: finish this */
-         } else if (strncasecmp(skip + 1, "else ", 5) == 0) {
-            /* XXX: finish this */
-         }
       }
 
-      // Configuration data *MUST* be inside of a section, no exceptions.
       if (this_section[0] == '\0') {
          fprintf(stderr, "[Debug] config %s has line outside section header at line %d: %s\n", path, line, buf);
          errors++;
@@ -278,7 +278,6 @@ dict *cfg_load(const char *path) {
 
       if (strncasecmp(this_section, "general", 7) == 0 ||
           strncasecmp(this_section, "fwdsp", 5) == 0) {
-         // Parse configuration line (XXX: GET RID OF STRTOK!)
          key = NULL;
          val = NULL;
          char *eq = strchr(skip, '=');
@@ -287,77 +286,50 @@ dict *cfg_load(const char *path) {
             *eq = '\0';
             key = skip;
             val = eq + 1;
-
-            while (*val == ' ') {
+            while (*val == ' ')
                val++;
-            }
          }
-
-         if (!key && !val) {
-            Log(LOG_DEBUG, "config", "Skipping NULL KV for: %s", skip);
+         if (!key && !val)
             continue;
-         }
 
-
-         // if this isn't general section, it needs a prefix on the key
          if (strncasecmp(this_section, "general", 7) != 0) {
             char keybuf[384];
-//            Log(LOG_CRAZY, "config", "section: %s", this_section);
             memset(keybuf, 0, sizeof(keybuf));
             snprintf(keybuf, sizeof(keybuf), "%s:%.s", this_section, key);
-//            Log(LOG_CRAZY, "config", "Set key: %s => %s", keybuf, val);
-
-            // Store it into the dict for the config we are attempting to load
             dict_add(newcfg, keybuf, val);
          } else {
-//            Log(LOG_CRAZY, "config", "Set key: %s => %s", key, val);
             dict_add(newcfg, key, val);
          }
       } else if (strncasecmp(this_section, "pipelines", 9) == 0) {
-         // Parse configuration line (XXX: GET RID OF STRTOK!)
          key = NULL;
          val = NULL;
          char *eq = strchr(skip, '=');
-
          if (eq) {
             *eq = '\0';
             key = skip;
             val = eq + 1;
-
-            while (*val == ' ') {
+            while (*val == ' ')
                val++;
-            }
          }
-
-         if (!key && !val) {
-            Log(LOG_DEBUG, "config", "Skipping NULL KV for: %s", skip);
+         if (!key && !val)
             continue;
-         }
-
-         // Store value
          char fullkey[256];
          memset(fullkey, 0, sizeof(fullkey));
          snprintf(fullkey, sizeof(fullkey), "pipeline:%s", key);
-         Log(LOG_CRAZY, "config", "Add pipeline %s => %s", fullkey, val);
          dict_add(newcfg, fullkey, val);
       } else if (strncasecmp(this_section, "server:", 7) == 0) {
          key = NULL;
          val = NULL;
          char *eq = strchr(skip, '=');
          char fullkey[256];
-
          if (eq) {
             *eq = '\0';
             key = skip;
             val = eq + 1;
-
-            while (*val == ' ') {
+            while (*val == ' ')
                val++;
-            }
-
             memset(fullkey, 0, sizeof(fullkey));
             snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
-            // Store value
             dict_add(servers, fullkey, val);
          } else {
             Log(LOG_CRIT, "config", "Malformed line parsing '%s' at %s:%d", buf, path, line);
@@ -368,13 +340,11 @@ dict *cfg_load(const char *path) {
       }
    } while (!feof(fp));
 
-   if (errors > 0) {
-      Log(LOG_INFO, "config", "cfg loaded %d lines from %s with %d warnings/errors",  line, path, errors);
-   } else {
+   if (errors > 0)
+      Log(LOG_INFO, "config", "cfg loaded %d lines from %s with %d warnings/errors", line, path, errors);
+   else
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
-   }
 
-   // Return the new config and let the caller decide what to do with it
    return newcfg;
 }
 
@@ -400,28 +370,117 @@ const char *cfg_get(const char *key) {
    return p;
 }
 
+
+// You *MUST* free the return value
+const char *cfg_get_exp(const char *key) {
+   if (!key) {
+      Log(LOG_CRIT, "config", "got cfg_get_exp with NULL key!");
+      return NULL;
+   }
+
+   const char *p = cfg_get(key);
+   if (!p) {
+      Log(LOG_DEBUG, "config", "key '%s' not found", key);
+      return NULL;
+   }
+
+   char *buf = malloc(MAX_CFG_EXP_STRLEN);
+   if (!buf) {
+      fprintf(stderr, "OOM in cfg_get_exp!\n");
+      return NULL;
+   }
+
+   strncpy(buf, p, MAX_CFG_EXP_STRLEN - 1);
+   buf[MAX_CFG_EXP_STRLEN - 1] = '\0';
+
+   for (int depth = 0; depth < MAX_CFG_EXP_RECURSION; depth++) {
+      char tmp[MAX_CFG_EXP_STRLEN];
+      char *dst = tmp;
+      const char *src = buf;
+      int changed = 0;
+
+      while (*src && (dst - tmp) < MAX_CFG_EXP_STRLEN - 1) {
+         if (src[0] == '$' && src[1] == '{') {
+            const char *end = strchr(src + 2, '}');
+
+            if (end) {
+               size_t klen = end - (src + 2);
+               char keybuf[256];
+
+               if (klen >= sizeof(keybuf)) {
+                  klen = sizeof(keybuf) - 1;
+               }
+
+               memcpy(keybuf, src + 2, klen);
+               keybuf[klen] = '\0';
+
+               const char *val = cfg_get(keybuf);
+               if (val) {
+                  size_t vlen = strlen(val);
+                  if ((dst - tmp) + vlen >= MAX_CFG_EXP_STRLEN - 1) {
+                     vlen = MAX_CFG_EXP_STRLEN - 1 - (dst - tmp);
+                  }
+
+                  memcpy(dst, val, vlen);
+                  dst += vlen;
+                  changed = 1;
+               }
+               src = end + 1;
+               continue;
+            }
+         }
+         *dst++ = *src++;
+      }
+      *dst = '\0';
+
+      if (!changed) {
+         break; // No more expansions
+      }
+
+      strncpy(buf, tmp, MAX_CFG_EXP_STRLEN - 1);
+      buf[MAX_CFG_EXP_STRLEN - 1] = '\0';
+   }
+
+   // Shrink the allocation down to it's actual size
+   size_t final_len = strlen(buf) + 1;
+   char *shrunk = realloc(buf, final_len);
+
+   if (shrunk) {
+      buf = shrunk;
+   }
+
+   fprintf(stderr, "exp: returning %lu bytes for key %s => %s\n", final_len, key, buf);
+
+   return buf; // Caller must free
+}
+
+
 bool cfg_get_bool(const char *key, bool def) {
    if (!cfg || !key) {
       return def;
    }
 
-   const char *s = cfg_get(key);
+   const char *s = cfg_get_exp(key);
+   bool rv = def;
+
    if (!s) {
-      return def;
+      return rv;
    }
+
    if (strcasecmp(s, "true") == 0 ||
        strcasecmp(s, "yes") == 0 ||
        strcasecmp(s, "on") == 0 ||
        strcasecmp(s, "1") == 0) {
-      return true;
+      rv = true;
    } else if (strcasecmp(s, "false") == 0 ||
               strcasecmp(s, "no") == 0 ||
               strcasecmp(s, "off") == 0 ||
               strcasecmp(s, "0") == 0) {
-      return false;
+      rv = false;
    }
-   // fallthrough, return default
-   return def;
+
+   free((void *)s);
+   return rv;
 }
 
 int cfg_get_int(const char *key, int def) {
@@ -429,9 +488,10 @@ int cfg_get_int(const char *key, int def) {
       return def;
    }
 
-   const char *s = cfg_get(key);
+   const char *s = cfg_get_exp(key);
    if (s) {
       int val = atoi(s);
+      free((void *)s);
       return val;
    }
    return def;
@@ -442,10 +502,12 @@ unsigned int cfg_get_uint(const char *key, unsigned int def) {
       return def;
    }
 
-   const char *s = cfg_get(key);
+   const char *s = cfg_get_exp(key);
    if (s) {
       char *ep = NULL;
       unsigned int val = (uint32_t)strtoul(s, &ep, 10);
+      free((void *)s);
+
       // incomplete parse
       if (*ep != '\0') {
          return def;

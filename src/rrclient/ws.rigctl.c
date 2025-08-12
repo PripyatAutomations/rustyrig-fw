@@ -100,6 +100,8 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
          if (mode && strlen(mode) > 0) {
             Log(LOG_CRAZY, "ws", "Updating mode_combo: %s", mode);
+
+            // XXX: We need to suppress sending a CAT message
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
          }
 

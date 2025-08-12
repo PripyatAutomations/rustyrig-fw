@@ -121,14 +121,17 @@ static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
 bool audio_init(void) {
    gst_init(NULL, NULL);
 
+#if	0		// Dead code
    Log(LOG_INFO, "audio", "Configuring RX audio-path");
-   const char *rx_pipeline_str = cfg_get("audio.pipeline.rx");
+   const char *rx_pipeline_str = cfg_get_exp("audio.pipeline.rx");
 
    if (!rx_pipeline_str) {
       Log(LOG_CRIT, "audio", "audio.pipeline.rx *MUST* be set in config");
    } else if (strlen(rx_pipeline_str) > 0) {
       Log(LOG_INFO, "audio", "Launching RX pipeline: %s", rx_pipeline_str);
       rx_pipeline = gst_parse_launch(rx_pipeline_str, NULL);
+      free((void *)rx_pipeline_str);
+
       if (!rx_pipeline) {
          return false;
       }
@@ -142,21 +145,23 @@ bool audio_init(void) {
 
       // apply default RX volume
 
-      const char *cfg_rx_volume = cfg_get("audio.volume.rx");
+      const char *cfg_rx_volume_s = cfg_get_exp("audio.volume.rx");
       float vol = 0;
       Log(LOG_DEBUG, "audio", "Setting default RX volume to %s", cfg_rx_volume);
-      if (cfg_rx_volume != NULL) {
-         vol = atoi(cfg_rx_volume);
+      if (cfg_rx_volume_s != NULL) {
+         vol = atoi(cfg_rx_volume_s);
          g_object_set(rx_vol_gst_elem, "volume", vol / 100.0, NULL);
+         free((void *)cfg_rx_volume_s);
       }
 
-      const char *cfg_rx_format = cfg_get("audio.pipeline.rx.format");
+      const char *cfg_rx_format_s = cfg_get_exp("audio.pipeline.rx.format");
       int rx_format = 0;
-      if (cfg_rx_format != NULL && strcasecmp(cfg_rx_format, "bytes") == 0) {
+      if (cfg_rx_format_s != NULL && strcasecmp(cfg_rx_format_s, "bytes") == 0) {
          rx_format = GST_FORMAT_BYTES;
-      } else if (cfg_rx_format && strcasecmp(cfg_rx_format, "time") == 0) {
+      } else if (cfg_rx_format_s && strcasecmp(cfg_rx_format_s, "time") == 0) {
          rx_format = GST_FORMAT_TIME;
       }
+      free((void *)cfg_rx_format_s);
 
       g_object_set(G_OBJECT(rx_appsrc), "format", rx_format,
                    "is-live", TRUE,
@@ -172,16 +177,19 @@ bool audio_init(void) {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
 
+#endif
 #if	0 // disabled for now
    ///////////////
    Log(LOG_INFO, "audio", "Configuring TX audio-path");
 
-   const char *tx_pipeline_str = cfg_get("audio.pipeline.tx");
+   const char *tx_pipeline_str = cfg_get_exp("audio.pipeline.tx");
    if (!tx_pipeline_str || tx_pipeline_str >= 0) {
       Log(LOG_CRIT, "audio", "audio.pipeline.tx *MUST* be set in config for transmit capabilities");
    } else {
       Log(LOG_INFO, "audio", "Launching TX pipeline: %s", tx_pipeline_str);
       tx_pipeline = gst_parse_launch(tx_pipeline_str, NULL);
+      free((void *)tx_pipeline_str);
+
       if (!tx_pipeline) {
          Log(LOG_CRIT, "audio", "Failed to connect tx_pipeline");
          return false;
@@ -201,13 +209,14 @@ bool audio_init(void) {
       gst_object_unref(rx_bus);
 
 #if	0
-      const char *cfg_tx_format = cfg_get("audio.pipeline.tx.format");
+      const char *cfg_tx_format = cfg_get_exp("audio.pipeline.tx.format");
       int tx_format = 0;
       if (cfg_tx_format != NULL && strcasecmp(cfg_tx_format, "bytes") == 0) {
          tx_format = GST_FORMAT_BYTES;
       } else if (cfg_tx_format != NULL && strcasecmp(cfg_tx_format, "time") == 0) {
          tx_format = GST_FORMAT_TIME;
       }
+      free((void *)cfg_tx_format);
 
       gst_object_unref(tx_bus);
 

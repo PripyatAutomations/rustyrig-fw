@@ -138,7 +138,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       if (media_cmd && strcasecmp(media_cmd, "capab") == 0) {
          Log(LOG_DEBUG, "ws.media", "Got CAPAB from server: %s", media_payload);
          // XXX: We should compare server advertised codecs to our preferred list here
-         const char *preferred = cfg_get("codecs.allowed");
+         const char *preferred = cfg_get_exp("codecs.allowed");
          if (negotiated_codecs) {
             free(negotiated_codecs);
          }
@@ -152,6 +152,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
          } else {
             Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
          }
+         free((void *)preferred);
       } else if (media_cmd && strcasecmp(media_cmd, "isupport") == 0) {
          char *media_preferred = mg_json_get_str(msg_data, "$.media.preferred");
          if (media_codecs) {
@@ -371,13 +372,14 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 }
 
 void ws_init(void) {
-   const char *debug = cfg_get("debug.http");
+   const char *debug = cfg_get_exp("debug.http");
    if (debug && (strcasecmp(debug, "true") == 0 ||
                  strcasecmp(debug, "yes") == 0)) {
       mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
    } else {
       mg_log_set(MG_LL_ERROR);
    }
+   free((void *)debug);
    mg_mgr_init(&mgr);
 
 //   tls_ca_path = find_file_by_list(default_tls_ca_paths, sizeof(default_tls_ca_paths) / sizeof(char *));
@@ -394,14 +396,7 @@ void ws_init(void) {
       exit(1);
    }
 
-   const char *cfg_show_pings_s = cfg_get("ui.show-pings");
-
-   if (cfg_show_pings_s && (strcasecmp(cfg_show_pings_s, "true") == 0 ||
-      strcasecmp(cfg_show_pings_s, "yes") == 0)) {
-      cfg_show_pings = true;
-   } else {
-      cfg_show_pings = false;
-   }
+   cfg_show_pings = cfg_get_bool("ui.show-pings", false);
    Log(LOG_DEBUG, "ws", "ws_init finished");
 }
 

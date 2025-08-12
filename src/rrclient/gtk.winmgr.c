@@ -144,7 +144,7 @@ bool place_window(GtkWidget *window) {
       char key[512];
       memset(key, 0, sizeof(key));
       snprintf(key, sizeof(key), "ui.%s", win->name);
-      const char *cfg_full = cfg_get(key);
+      const char *cfg_full = cfg_get_exp(key);
       Log(LOG_CRAZY, "gtk.winmgr", "Key %s for window %s returned %s", key, win->name, cfg_full);
 
       if (cfg_full) {
@@ -153,6 +153,7 @@ bool place_window(GtkWidget *window) {
             Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, cfg_x, cfg_y, cfg_width, cfg_height);
          } else {
             Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
+            free((void *)cfg_full);
             return true;
          }
 
@@ -162,8 +163,26 @@ bool place_window(GtkWidget *window) {
             opts++;  /* skip the '|' */
             while (*opts) {
                char *end = strchr(opts, '|');
+
+               // Is this the last arg?
                if (!end) {
                   end = opts + strlen(opts);
+               }
+
+               // trim trailing whitespace
+               while (*end == ' ' || *end == '\t') {
+                  if (end <= opts) {
+                     break;
+                  }
+                  end--;
+               }
+
+               // trim leading whitespace
+               while (*opts == ' ' || *opts == '\t') {
+                  if (opts >= end) {
+                     break;
+                  }
+                  opts++;
                }
 
                size_t len = end - opts;
@@ -207,6 +226,8 @@ bool place_window(GtkWidget *window) {
             gtk_window_resize(GTK_WINDOW(window), cfg_width, cfg_height);
          }
       }
+      free((void *)cfg_full);
+      cfg_full = NULL;
    } else {
       Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
       return true;
@@ -323,4 +344,30 @@ bool gui_forget_window(gui_window_t *window, const char *name) {
 
    // report failure (not found)
    return true;
+}
+
+// React to minimize/restore events
+gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer user_data) {
+   if (event->changed_mask & GDK_WINDOW_STATE_ICONIFIED) {
+      bool minimized = (event->new_window_state & GDK_WINDOW_STATE_ICONIFIED) != 0;
+
+      if (minimized) {
+         // Main window minimized → minimize others
+         for (gui_window_t *p = gui_windows; p; p = p->next) {
+            if (!p->win_nohide && p->gtk_win) {
+               p->win_stashed = TRUE;
+               gtk_window_iconify(GTK_WINDOW(p->gtk_win));
+            }
+         }
+      } else {
+         // Main window restored → restore others we minimized
+         for (gui_window_t *p = gui_windows; p; p = p->next) {
+            if (p->win_stashed && p->gtk_win) {
+               gtk_window_deiconify(GTK_WINDOW(p->gtk_win));
+               p->win_stashed = FALSE;
+            }
+         }
+      }
+   }
+   return FALSE;
 }

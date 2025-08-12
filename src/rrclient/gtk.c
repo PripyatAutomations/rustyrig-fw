@@ -404,12 +404,7 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 6);
 
    // set default value etc. as before
-   const char *s = cfg_get("audio.volume.rx");
-   int cfg_def_vol_rx = 0;
-
-   if (s) {
-      cfg_def_vol_rx = atoi(s);
-   }
+   int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
    g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
 
@@ -422,12 +417,7 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
    gtk_box_pack_start(GTK_BOX(control_box), tx_power_vbox, TRUE, TRUE, 6);
 
-   s = cfg_get("default.tx.power");
-   int cfg_def_pow_tx = 0;
-
-   if (s) {
-      cfg_def_pow_tx = atoi(s);
-   }
+   int cfg_def_pow_tx = cfg_get_int("default.tx.power", 0);
    gtk_range_set_value(GTK_RANGE(tx_power_slider), cfg_def_pow_tx);
 
    ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
@@ -471,6 +461,8 @@ bool gui_init(void) {
    Log(LOG_CRAZY, "gtk", "mainwin on add callback focus in");
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
 
+   // from gtk-winmgr.c
+   g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    userlist_window = userlist_init();
 
    gtk_widget_show_all(main_window);

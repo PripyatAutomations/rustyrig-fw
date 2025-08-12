@@ -25,10 +25,11 @@
 struct GuiWindow {
     char name[128];		// Window name
     GtkWidget *gtk_win;		// GTK window widget
-    bool win_raised;		// Raised by default?
+    bool win_raised;		// Raised?
     bool win_modal;		// Always on top
     bool win_hidden;		// Hidden from view
     bool win_nohide;		// Don't hide this window when main window is minimized
+    bool win_stashed;		// Was the window hidden because main was minimized? This ensures it's restored
     struct GuiWindow *next;
 };
 typedef struct GuiWindow gui_window_t;
@@ -69,6 +70,7 @@ extern GtkComboBoxText *rx_combo;
 extern GtkWidget *mode_combo;          // if mode_combo is a GtkWidget*
 extern gui_window_t *ui_new_window(GtkWidget *window, const char *name);
 extern bool set_window_icon(GtkWidget *window, const char *icon_name);
+extern gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer user_data);
 
 #ifdef _WIN32
 #include <winsock2.h>

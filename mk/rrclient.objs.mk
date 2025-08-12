@@ -28,7 +28,9 @@ objs += util.string.o		# String utility functions
 objs += win32.o			# support to run in windows
 objs += ws.o			# Websocket transport general
 objs += ws.audio.o		# Audio over websocket negotiation
-objs += ws.auth.o
-objs += ws.chat.o
-objs += ws.rigctl.o
-objs += ws.tx-audio.o
+objs += ws.auth.o		# protocol authentication
+objs += ws.chat.o		# shared chatroom
+objs += ws.file-xfer.o		# file transfer
+objs += ws.rigctl.o		# rig controls
+objs += ws.tx-audio.o		# support for SENDING audio to the server
+

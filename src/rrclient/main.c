@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
 #endif
 
-   const char *cfg_audio_debug = cfg_get("audio.debug");
+   const char *cfg_audio_debug = cfg_get_exp("audio.debug");
    if (cfg_audio_debug) {
 #ifdef _WIN32
       SetEnvironmentVariable("GST_DEBUG", cfg_audio_debug);
@@ -140,7 +140,10 @@ int main(int argc, char *argv[]) {
       setenv("GST_DEBUG", cfg_audio_debug, 0);
 #endif
    }
+   free((void *)cfg_audio_debug);
+   cfg_audio_debug = NULL;
 
+   ////////
    gtk_init(&argc, &argv);
 
     // Ensure windows dark mode &
@@ -164,14 +167,10 @@ int main(int argc, char *argv[]) {
    gui_init();
    ws_init();
   
-   const char *poll_block_delay_s = cfg_get("cat.poll-blocking");
-   int cfg_poll_block_delay = 3;
-   if (poll_block_delay_s) {
-      poll_block_delay = atoi(poll_block_delay_s);
-   }
+   int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
 
    // Should we connect to a server on startup?
-   const char *autoconnect = cfg_get("server.auto-connect");
+   const char *autoconnect = cfg_get_exp("server.auto-connect");
    if (autoconnect) {
       memset(active_server, 0, sizeof(active_server));
       snprintf(active_server, sizeof(active_server), "%s", autoconnect);
@@ -180,6 +179,8 @@ int main(int argc, char *argv[]) {
    } else {
       show_server_chooser();
    }
+   free((void *)autoconnect);
+   autoconnect = NULL;
 
    char pathbuf[PATH_MAX+1];
    memset(pathbuf, 0, sizeof(pathbuf));
@@ -197,6 +198,10 @@ int main(int argc, char *argv[]) {
          config_file = pathbuf;
       }
    }
+
+   const char *val = cfg_get_exp("test.key7");
+   fprintf(stderr, "Read: %s\n", val);
+   free((void *)val);
 
    // start gtk main loop
    gtk_main();

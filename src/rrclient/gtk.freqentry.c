@@ -25,8 +25,6 @@ gulong freq_changed_handler_id;
 // cppcheck-suppress unknownMacro
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_entry, GTK, FREQ_ENTRY, GtkBox)
 
-static void update_frequency_display(GtkFreqEntry *fi, bool editing);
-
 struct _GtkFreqEntry {
    GtkBox parent_instance;
    GtkWidget *digits[MAX_DIGITS];
@@ -34,11 +32,14 @@ struct _GtkFreqEntry {
    GtkWidget *down_buttons[MAX_DIGITS];
    unsigned long freq;
    unsigned long prev_freq;
-   bool	     updating;
+   bool	     editing;
    int num_digits;
 };
 
 G_DEFINE_TYPE(GtkFreqEntry, gtk_freq_entry, GTK_TYPE_BOX)
+
+// fwd decl
+static void freqentry_finalize(GtkFreqEntry *fi);
 
 static GdkRGBA group_color(int group) {
    GdkRGBA c;
@@ -110,140 +111,159 @@ static GtkWidget *get_next_widget(GtkWidget *widget) {
 }
 
 static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
-    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
-    GtkEntry *entry = GTK_ENTRY(widget);
+   GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
+   GtkEntry *entry = GTK_ENTRY(widget);
 
-    int idx = -1;
-    for (int i = 0; i < fi->num_digits; i++) {
-        if (fi->digits[i] == GTK_WIDGET(entry)) {
-            idx = i;
-            break;
-        }
-    }
+   int idx = -1;
+   for (int i = 0; i < fi->num_digits; i++) {
+      if (fi->digits[i] == GTK_WIDGET(entry)) {
+         idx = i;
+         break;
+      }
+   }
 
-    if (idx < 0) {
-        return FALSE;
-     }
+   if (idx < 0) {
+      return FALSE;
+   }
 
-    if (event->keyval == GDK_KEY_Delete) {
-       gtk_entry_set_text(entry, "0");
-       update_frequency_display(fi, true);
-       return TRUE;
-    } else if (event->keyval == GDK_KEY_BackSpace ||
-               event->keyval == GDK_KEY_Left) {
-          int prev = (idx == 0) ? fi->num_digits - 1 : idx - 1;
-          gtk_widget_grab_focus(fi->digits[prev]);
-          gtk_editable_set_position(GTK_EDITABLE(fi->digits[prev]), -1);
-          gtk_editable_select_region(GTK_EDITABLE(fi->digits[prev]), 0, -1);
-          return TRUE;
-    } else if (event->keyval == GDK_KEY_Right) {
-       int next = (idx == fi->num_digits - 1) ? 0 : idx + 1;
-       gtk_widget_grab_focus(fi->digits[next]);
-       gtk_editable_set_position(GTK_EDITABLE(fi->digits[next]), -1);
-       gtk_editable_select_region(GTK_EDITABLE(fi->digits[next]), 0, -1);
-       return TRUE;
-    } else if (event->keyval == GDK_KEY_Up) {
-        const char *text = gtk_entry_get_text(entry);
-        int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
+   if (event->keyval == GDK_KEY_Delete) {
+      gtk_entry_set_text(entry, "0");
+      freqentry_finalize(fi);
+      return TRUE;
+   } else if (event->keyval == GDK_KEY_BackSpace ||
+              event->keyval == GDK_KEY_Left) {
+      int prev = (idx == 0) ? fi->num_digits - 1 : idx - 1;
+      gtk_widget_grab_focus(fi->digits[prev]);
+      gtk_editable_set_position(GTK_EDITABLE(fi->digits[prev]), -1);
+      gtk_editable_select_region(GTK_EDITABLE(fi->digits[prev]), 0, -1);
+      return TRUE;
+   } else if (event->keyval == GDK_KEY_Right) {
+      int next = (idx == fi->num_digits - 1) ? 0 : idx + 1;
+      gtk_widget_grab_focus(fi->digits[next]);
+      gtk_editable_set_position(GTK_EDITABLE(fi->digits[next]), -1);
+      gtk_editable_select_region(GTK_EDITABLE(fi->digits[next]), 0, -1);
+      return TRUE;
+   } else if (event->keyval == GDK_KEY_Up) {
+      const char *text = gtk_entry_get_text(entry);
+      int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
 
-        val++;
-        if (val > 9) {
-            val = 0;
-            if (idx > 0) {
-                // Simulate an Up key press on the digit to the left
-                GdkEventKey carry_event = *event;
-                gtk_widget_event(fi->digits[idx - 1], (GdkEvent *)&carry_event);
-            }
-        }
-
-        char buf[2] = { '0' + val, '\0' };
-        gtk_entry_set_text(entry, buf);
-        gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-        gtk_editable_set_position(GTK_EDITABLE(entry), -1);
-        update_frequency_display(fi, true);
-        return TRUE;
-    } else if (event->keyval == GDK_KEY_Down) {
-        const char *text = gtk_entry_get_text(entry);
-        int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-
-        val--;
-        if (val < 0) {
-            val = 9;
-            if (idx > 0) {
-                // Simulate Down key press on the digit to the left
-                GdkEventKey borrow_event = *event;
-                gtk_widget_event(fi->digits[idx - 1], (GdkEvent *)&borrow_event);
-            }
-        }
-
-        char buf[2] = { '0' + val, '\0' };
-        gtk_entry_set_text(entry, buf);
-        gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-        gtk_editable_set_position(GTK_EDITABLE(entry), -1);
-        update_frequency_display(fi, true);
-        return TRUE;
-    } else if (event->keyval == GDK_KEY_Return) {
-       if (fi->updating) {
-          Log(LOG_DEBUG, "gtk.freqentry", "Forcing send CAT cmd on ENTER press");
-          fi->updating = false;
-       }
-       update_frequency_display(fi, false);
-       poll_block_expire = 0;
-       return TRUE;
-    } else if (event->keyval == GDK_KEY_Tab ||
-               event->keyval == GDK_KEY_ISO_Left_Tab) {
-       Log(LOG_DEBUG, "gtk.freqentry", "On Key down: %s", (event->state & GDK_SHIFT_MASK) ? "LeftTab" : "Tab");
-       GtkDirectionType direction = (event->state & GDK_SHIFT_MASK)
-          ? GTK_DIR_TAB_BACKWARD : GTK_DIR_TAB_FORWARD;
-       GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(fi));
-
-        // XXX: Fix this
-        GtkWidget *next_tab = NULL;
-
-        if (event->keyval == GDK_KEY_ISO_Left_Tab) {
-           next_tab = get_prev_widget(parent);
-        } else {
-           next_tab = get_next_widget(parent);
-        }
-
-        if (next_tab) {
-           gtk_widget_grab_focus(next_tab);
-         } else {
-            Log(LOG_DEBUG, "gtk.freqentry", "On Tab: No next_tab to switch to. Direction: %s", (event->keyval == GDK_KEY_ISO_Left_Tab ? "LeftTab" : "Tab"));
+      val++;
+      if (val > 9) {
+         val = 0;
+         if (idx > 0) {
+            // Simulate an Up key press on the digit to the left
+            GdkEventKey carry_event = *event;
+            gtk_widget_event(fi->digits[idx - 1], (GdkEvent *)&carry_event);
          }
-         return TRUE;
-    } else if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
-        char c = '0' + (event->keyval - GDK_KEY_0);
-        char buf[2] = { c, 0 };
+      }
 
-        // Set the digit manually
-        gtk_entry_set_text(entry, buf);
+      char buf[2] = { '0' + val, '\0' };
+      gtk_entry_set_text(entry, buf);
+      gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+      gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+      fi->editing = true;
+      freqentry_finalize(fi);
+      return TRUE;
+   } else if (event->keyval == GDK_KEY_Down) {
+      const char *text = gtk_entry_get_text(entry);
+      int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
 
-        // Move focus to next entry
-        if (idx + 1 < fi->num_digits)
-            gtk_widget_grab_focus(fi->digits[idx + 1]);
+      val--;
+      if (val < 0) {
+         val = 9;
+         if (idx > 0) {
+            // Simulate Down key press on the digit to the left
+            GdkEventKey borrow_event = *event;
+            gtk_widget_event(fi->digits[idx - 1], (GdkEvent *)&borrow_event);
+         }
+      }
 
-        update_frequency_display(fi, true);
+      char buf[2] = { '0' + val, '\0' };
+      gtk_entry_set_text(entry, buf);
+      gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+      gtk_editable_set_position(GTK_EDITABLE(entry), -1);
 
-        // Prevent default GTK insertion
+      fi->editing = true;
+      freqentry_finalize(fi);
+      return TRUE;
+   } else if (event->keyval == GDK_KEY_Return) {
+      if (fi->editing) {
+         Log(LOG_DEBUG, "gtk.freqentry", "Forcing send CAT cmd on ENTER press");
+         fi->editing = false;
+      }
+      fi->editing = true;
+      freqentry_finalize(fi);
+      poll_block_expire = 0;
+      return TRUE;
+   } else if (event->keyval == GDK_KEY_Tab ||
+              event->keyval == GDK_KEY_ISO_Left_Tab) {
+      Log(LOG_DEBUG, "gtk.freqentry", "On Key down: %s", (event->state & GDK_SHIFT_MASK) ? "LeftTab" : "Tab");
+      GtkDirectionType direction = (event->state & GDK_SHIFT_MASK)
+         ? GTK_DIR_TAB_BACKWARD : GTK_DIR_TAB_FORWARD;
+      GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(fi));
+
+       // XXX: Fix this
+       GtkWidget *next_tab = NULL;
+
+       if (event->keyval == GDK_KEY_ISO_Left_Tab) {
+          next_tab = get_prev_widget(parent);
+       } else {
+          next_tab = get_next_widget(parent);
+       }
+
+       if (next_tab) {
+          gtk_widget_grab_focus(next_tab);
+        } else {
+           Log(LOG_DEBUG, "gtk.freqentry", "On Tab: No next_tab to switch to. Direction: %s", (event->keyval == GDK_KEY_ISO_Left_Tab ? "LeftTab" : "Tab"));
+        }
         return TRUE;
-    }
+   } else if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
+      char c = '0' + (event->keyval - GDK_KEY_0);
+      char buf[2] = { c, 0 };
 
-    return FALSE; // Let GTK handle other keys
+      // Set the digit manually
+      gtk_entry_set_text(entry, buf);
+
+      // Move focus to next entry
+      if (idx + 1 < fi->num_digits)
+          gtk_widget_grab_focus(fi->digits[idx + 1]);
+
+      fi->editing = true;
+      freqentry_finalize(fi);
+
+      // Prevent default GTK insertion
+      return TRUE;
+   }
+
+   return FALSE; // Let GTK handle other keys
 }
 
-static void update_frequency_display(GtkFreqEntry *fi, bool editing) {
+static unsigned long freqentry_read_value(GtkFreqEntry *fi) {
    char buf[MAX_DIGITS + 1] = {0};
+   // Concatenate digits into a buffer
    for (int i = 0; i < fi->num_digits; i++) {
       const char *text = gtk_entry_get_text(GTK_ENTRY(fi->digits[i]));
       buf[i] = (text && *text >= '0' && *text <= '9') ? *text : '0';
    }
 
    unsigned long freq = strtoul(buf, NULL, 10);
+   return freq;
+}
+
+static void freqentry_finalize(GtkFreqEntry *fi) {
+   if (!fi || !fi->editing) {
+      // skip
+      return;
+   }
+
+   unsigned long freq = freqentry_read_value(fi);
+
    // If a frequency is set and we're not still editing the widget, send the CAT command
    if (freq > 0 && (!fi->prev_freq || (fi->freq != freq))) {
-      Log(LOG_DEBUG, "gtk.freqentry", "upd. freq disp: freq: %lu updating: %s: prev_freq: %lu", freq, (fi->updating ? "true" : "false"), fi->prev_freq);
+      Log(LOG_DEBUG, "gtk.freqentry", "edit finalize:: freq: %lu updating: %s: prev_freq: %lu", freq, (fi->editing ? "true" : "false"), fi->prev_freq);
+      // Send the FREQ command then clear our editing state
       ws_send_freq_cmd(ws_conn, "A", freq);
+      fi->editing = false;
       fi->prev_freq = fi->freq;
    }
 }
@@ -257,9 +277,7 @@ static void on_button_clicked(GtkButton *button, gpointer user_data) {
       return;
    }
 
-   bool prev_updating = fi->updating;
-   fi->updating = true;
-
+   fi->editing = true;
    const char *text = gtk_entry_get_text(GTK_ENTRY(fi->digits[idx]));
    int val = (strlen(text) == 1 && text[0] >= '0' && text[0] <= '9') ? text[0] - '0' : 0;
 
@@ -282,19 +300,14 @@ static void on_button_clicked(GtkButton *button, gpointer user_data) {
 
    char buf[2] = { '0' + val, 0 };
    gtk_entry_set_text(GTK_ENTRY(fi->digits[idx]), buf);
-
-   update_frequency_display(fi, true);
-   fi->updating = prev_updating;
+   freqentry_finalize(fi);
 }
 
 static void on_freq_digit_activate(GtkWidget *entry, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
-   bool prev_updating = fi->updating;
-
    poll_block_expire = now + 3;
-   fi->updating = true;
-   update_frequency_display(fi, false); // commits and logs
-   fi->updating = prev_updating;
+   fi->editing = true;
+   freqentry_finalize(fi);
 }
 
 static gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
@@ -305,15 +318,12 @@ static gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointe
 
 static gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
-   bool prev_updating = fi->updating;
 
-   if (fi->updating) {
+   if (fi->editing) {
       // Force a send
-      fi->updating = false;
       poll_block_expire = now + 1;
-      update_frequency_display(fi, true);
+      freqentry_finalize(fi);
    }
-   fi->updating = prev_updating;
    return FALSE;
 }
 
@@ -345,8 +355,7 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
 static void gtk_freq_entry_init(GtkFreqEntry *fi) {
    gtk_orientable_set_orientation(GTK_ORIENTABLE(fi), GTK_ORIENTATION_HORIZONTAL);
    fi->num_digits = MAX_DIGITS;
-   bool prev_updating = fi->updating;
-   fi->updating = false;
+//   fi->editing = false;
 
    // Apply small font to buttons and entry
    PangoFontDescription *font = pango_font_description_from_string("Monospace 12");
@@ -407,7 +416,6 @@ static void gtk_freq_entry_init(GtkFreqEntry *fi) {
    }
 
    pango_font_description_free(font);
-   fi->updating = prev_updating;
 }
 
 static void gtk_freq_entry_class_init(GtkFreqEntryClass *class) {}
@@ -420,9 +428,7 @@ GtkWidget *gtk_freq_entry_new(void) {
 void gtk_freq_entry_set_value(GtkFreqEntry *fi, unsigned long freq) {
    char buf[MAX_DIGITS + 1];
    snprintf(buf, sizeof(buf), "%0*lu", fi->num_digits, freq);
-   bool prev_updating = fi->updating;
    poll_block_expire = now + 2;
-   fi->updating = true;
 
    // Store the OLD frequency then the new one
    fi->prev_freq = fi->freq;
@@ -433,8 +439,7 @@ void gtk_freq_entry_set_value(GtkFreqEntry *fi, unsigned long freq) {
       gtk_entry_set_text(GTK_ENTRY(fi->digits[i]), digit);
    }
 
-   update_frequency_display(fi, false);
-   fi->updating = prev_updating;
+   freqentry_finalize(fi);
 }
 
 unsigned long gtk_freq_entry_get_value(GtkFreqEntry *fi) {

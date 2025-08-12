@@ -1,3 +1,12 @@
+//
+// src/rrclient/userlist.c: Userlist storage & display
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+
 #include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -38,15 +47,15 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
 }
 
 static const char *select_user_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "owner")) return "👑";
-   if (strcasestr(cptr->privs, "admin")) return "⭐";
-   if (strcasestr(cptr->privs, "tx")) return "👤";
+   if (strcasestr(cptr->privs, "owner")) { return "👑"; }
+   if (strcasestr(cptr->privs, "admin")) { return "⭐"; }
+   if (strcasestr(cptr->privs, "tx")) { return "👤"; }
    return "👀";
 }
 
 static const char *select_elmernoob_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "elmer")) return "🧙";
-   if (strcasestr(cptr->privs, "noob")) return "🐣";
+   if (strcasestr(cptr->privs, "elmer")) { return "🧙"; }
+   if (strcasestr(cptr->privs, "noob")) { return "🐣"; }
    return "";
 }
 
@@ -64,7 +73,9 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
    }
 
    struct rr_user *n = calloc(1, sizeof(*n));
-   if (!n) return false;
+   if (!n) {
+      return false;
+   }
    memcpy(n, newinfo, sizeof(*n));
    n->next = NULL;
 
@@ -81,8 +92,11 @@ bool userlist_remove_by_name(const char *name) {
 
    while (c) {
       if (!strcasecmp(c->name, name)) {
-         if (prev) prev->next = c->next;
-         else global_userlist = c->next;
+         if (prev) {
+            prev->next = c->next;
+         } else {
+            global_userlist = c->next;
+         }
          free(c);
          return true;
       }
@@ -119,6 +133,28 @@ void userlist_redraw_gtk(void) {
          COL_ELMERNOOB_ICON, select_elmernoob_icon(c),
          -1);
    }
+}
+
+
+void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
+   // Toggle the userlist
+   if (gtk_widget_get_visible(userlist_window)) {
+      gtk_widget_hide(userlist_window);
+   } else {
+      gtk_widget_show_all(userlist_window);
+      place_window(userlist_window);
+   }
+}
+
+struct rr_user *userlist_find(const char *name) {
+   struct rr_user *c = global_userlist;
+   while (c) {
+      if (!strcasecmp(c->name, name)) {
+         return c;
+      }
+      c = c->next;
+   }
+   return NULL;
 }
 
 GtkWidget *userlist_init(void) {
@@ -169,24 +205,4 @@ GtkWidget *userlist_init(void) {
 
    userlist_window = window;
    return window;
-}
-
-void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
-   if (gtk_widget_get_visible(userlist_window)) {
-      gtk_widget_hide(userlist_window);
-   } else {
-      gtk_widget_show_all(userlist_window);
-      place_window(userlist_window);
-   }
-}
-
-struct rr_user *userlist_find(const char *name) {
-   struct rr_user *c = global_userlist;
-   while (c) {
-      if (!strcasecmp(c->name, name)) {
-         return c;
-      }
-      c = c->next;
-   }
-   return NULL;
 }

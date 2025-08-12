@@ -13,10 +13,16 @@
 
 #include "common/dict.h"
 
+// Maximum length of an expanded string, XXX: Move to header file common/config.h
+#define	MAX_CFG_EXP_STRLEN	65535
+// Maximum depth to recurse when expanding strings (cfg_get_exp)
+#define	MAX_CFG_EXP_RECURSION	6
+
+// Used to store hard coded defaults for kv items
 struct defconfig {
     char *key;
     char *val;
-    char *help;		// Description of the config item
+    char *help;		// Description of the config item for when we someday have a config editor
 };
 typedef struct defconfig defconfig_t;
 
@@ -65,6 +71,7 @@ extern bool run_reload_events(const char *key);
 
 // Typed lookups
 extern const char *cfg_get(const char *key);
+extern const char *cfg_get_exp(const char *key);
 extern bool cfg_get_bool(const char *key, bool def);
 extern int cfg_get_int(const char *key, int def);
 extern float cfg_get_float(const char *key, float def);

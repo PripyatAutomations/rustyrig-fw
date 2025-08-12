@@ -171,8 +171,8 @@ posix-install:
 
 install: ${real_install}
 
-#convert-icon:
-#	convert radio.png -define icon:auto-resize=16,32,48,64,128,256 rustyrig.ico
+convert-icon:
+	convert ../../res/rustyrig.png -define icon:auto-resize=16,32,48,64,128,256 ../../res/rustyrig.ico
 
 #################
 # Windows Build #
@@ -192,5 +192,5 @@ win64-installer: ${INSTALLER} ${BUILD_DIR}/.stamp-win64dep
 ${INSTALLER}: ${bin}
 	makensis //DOUTFILE=${INSTALLER} win32/rrclient.nsi
 
-${OBJ_DIR}/icon.res: rustyrig.ico win32/icon.rc
-	windres.exe win32/icon.rc -O coff -o $@
+${OBJ_DIR}/icon.res: ../../res/rustyrig.ico ../../res/win64-icon.rc
+	windres.exe ../../res/win64-icon.rc -O coff -o $@
