@@ -1,3 +1,9 @@
+rustyrig-fw (20250811) testing; urgency=medium
+
+  * Work on rewriting fwdsp/fwdsp-mgr and improving config file syntax to support multi-line entries
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 11 Aug 2025 21:12:13 -0400
+
 rustyrig-fw (20250702) testing; urgency=medium
 
   * Initial deb package
