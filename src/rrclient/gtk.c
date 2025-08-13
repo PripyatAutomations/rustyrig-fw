@@ -51,11 +51,14 @@ GtkWidget *text_view = NULL;
 GtkWidget *freq_entry = NULL;
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
+extern GtkComboBoxText *tx_combo;
+extern GtkComboBoxText *rx_combo;
+GtkWidget *tx_power_slider = NULL;
+GtkWidget *rx_vol_slider = NULL;
 GtkWidget *userlist_window = NULL;
 GtkWidget *chat_entry = NULL;
 extern GtkWidget *ptt_button;
 GtkWidget *main_window = NULL;
-GtkWidget *rx_vol_slider = NULL;
 GtkWidget *toggle_userlist_button = NULL;
 GtkWidget *control_box = NULL;
 GtkTextBuffer *text_buffer = NULL;
@@ -127,6 +130,10 @@ bool ui_print(const char *fmt, ...) {
    return false;
 }
 
+static gboolean focus_main_later(gpointer data) {
+   gtk_window_present(GTK_WINDOW(data));
+   return FALSE;
+}
 gulong mode_changed_handler_id;
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
@@ -138,6 +145,8 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       // Show/hide repeater dialog locally based on FM mode
       if (g_str_equal(text, "FM")) {
          fm_dialog_show();
+         // But return focus to our main window immediately
+        g_idle_add(focus_main_later, main_window);
       } else {
          fm_dialog_hide();
       }
@@ -283,9 +292,15 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
          return TRUE;
       }
 
-      if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
-         gtk_widget_show_all(main_window);
-         place_window(main_window);
+      // Only for alt-1 thru alt-4 do we raise the main window
+      if (event->keyval == GDK_KEY_1 ||
+          event->keyval == GDK_KEY_2 ||
+          event->keyval == GDK_KEY_3 ||
+          event->keyval == GDK_KEY_4) {
+         if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
+            gtk_widget_show_all(main_window);
+            place_window(main_window);
+         }
       }
 
       switch (event->keyval) {
@@ -301,6 +316,42 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
             break;
          case GDK_KEY_4:
             gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 3);
+            break;
+         case GDK_KEY_C:
+         case GDK_KEY_c:
+            gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+            break;
+         case GDK_KEY_F:
+         case GDK_KEY_f:
+            gtk_widget_grab_focus(GTK_WIDGET(freq_entry));
+            break;
+         case GDK_KEY_H:
+         case GDK_KEY_h:
+            // show_help("KEYBINDINGS");
+            break;
+         case GDK_KEY_M:
+         case GDK_KEY_m:
+            gtk_widget_grab_focus(GTK_WIDGET(mode_combo));
+            break;
+         case GDK_KEY_P:
+         case GDK_KEY_p:
+            gtk_widget_grab_focus(GTK_WIDGET(tx_power_slider));
+            break;
+         case GDK_KEY_R:
+         case GDK_KEY_r:
+            gtk_widget_grab_focus(GTK_WIDGET(rx_combo));
+            break;
+         case GDK_KEY_T:
+         case GDK_KEY_t:
+            gtk_widget_grab_focus(GTK_WIDGET(tx_combo));
+            break;
+         case GDK_KEY_V:
+         case GDK_KEY_v:
+            gtk_widget_grab_focus(GTK_WIDGET(rx_vol_slider));
+            break;
+         case GDK_KEY_W:
+         case GDK_KEY_w:
+            gtk_widget_grab_focus(GTK_WIDGET(width_combo));
             break;
       }
       gtk_window_present(GTK_WINDOW(main_window));
@@ -394,15 +445,13 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(control_box), mode_box, FALSE, FALSE, 6);
 
    // codec selectors
-   GtkComboBoxText *tx_combo = NULL;
-   GtkComboBoxText *rx_combo = NULL;
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_combo, &rx_combo);
    gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 0);
 
    // RX Volume VBox
    GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
-   GtkWidget *rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
 
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, TRUE, TRUE, 1);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 1);
@@ -416,7 +465,7 @@ bool gui_init(void) {
    // TX Power VBox
    GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *tx_power_label = gtk_label_new("TX Power");
-   GtkWidget *tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
 
    gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, TRUE, TRUE, 1);
    gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
