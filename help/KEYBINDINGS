@@ -1,0 +1,34 @@
+[Switch Tabs]
+	alt-1	Control tab
+	alt-2	System log tab
+	alt-3	Config tab
+	alt-4	Admin tab
+
+[Control Tab]
+	alt-c	Focus CHAT input
+	alt-f	Focus FREQ input, in the last field edited
+	alt-m	Focus MODE selector
+	alt-r	Focus RX codec
+	alt-p	Focus TX Power
+	alt-t	Focus TX codec
+	alt-v	Focus RX Volume
+	alt-w	Focus WIDTH selector
+
+[FreqEntry Widget]
+	HOME	Goes to most significant digit of input	
+	END	Goes to least significant digit of input
+	LEFT	Goes to the left one digit, wrapping around at the edge
+	BKSPC	Goes back to the left one digit, without wrap
+	RIGHT	Goest to the right one digit, wrapping around at the edge
+	UP	Increment the digit, with carry
+	DOWN	Decrement the digit, with carry
+	DEL	Zero the current digit without movement
+
+[Chat Input]
+	HOME	Goes to start of input line
+	END	Goes to end of input line
+	PGUP	Scrolls the chat view UP a page
+	PGDN	Scrolls the chat view DOWN a page
+	UP	Retrieve previous lines from the input box history
+	DOWN	Goes to later lines from input box history
+	TAB	Completes a username in the chat, if preceded by @, such as @AD<tab> will complete to ADMIN if they are online

@@ -299,6 +299,9 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
          case GDK_KEY_3:
             gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 2);
             break;
+         case GDK_KEY_4:
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 3);
+            break;
       }
       gtk_window_present(GTK_WINDOW(main_window));
       return TRUE;

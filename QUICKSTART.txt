@@ -1,10 +1,14 @@
 Common to both server and client
 --------------------------------
-git clone http --depth=1 --recurse-submodules git@github.com:PripyatAutomations/rustyrig-fw.git
-cd rustyrig-fw
-sudo ./install-deps.sh
-make
-make install
+   git clone http --depth=1 --recurse-submodules git@github.com:PripyatAutomations/rustyrig-fw.git
+   cd rustyrig-fw
+   sudo ./install-deps.sh
+   make
+   ./test-run.sh to start server
+   ./rrclient.sh to test the client
+
+If it works, you can install with:
+   make install
 
 Server setup below
 -------------------------------------

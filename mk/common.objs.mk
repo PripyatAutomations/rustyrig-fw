@@ -1,6 +1,9 @@
 comm_objs += codecneg.o
 comm_objs += debug.o			# Debug stuff
 comm_objs += dict.o			# dictionary object
+comm_objs += io.o			# Input/Output abstraction/portability
+comm_objs += io.serial.o		# Serial port stuff
+comm_objs += io.socket.o		# Socket operations
 comm_objs += json.o			# turn json into dicts and dicts into json
 comm_objs += util.file.o		# Misc file functions
 comm_objs += util.math.o		# Misc math functions

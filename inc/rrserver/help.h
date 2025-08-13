@@ -9,7 +9,7 @@
 #if	!defined(__rr_help_h)
 #define __rr_help_h
 #include "rrserver/config.h"
-#include "rrserver/io.h"
+#include "common/io.h"
 
 extern  bool send_help(rr_io_context_t *port, const char *topic);
 

@@ -35,71 +35,197 @@
 
 #if	defined(CAT_YAESU)
 // Function stubs for all FT-891 CAT commands
-void rr_cat_yaesu_vfo_a_to_b(const char *args) {}		// VFO A to VFO B
-void rr_cat_yaesu_tuner_control(const char *args) {}	// Antenna Tuner Control
-void rr_cat_yaesu_af_gain(const char *args) {} 		// Read/Set AF gain
-void rr_cat_yaesu_auto_info(const char *args) {}	 	// Enable/Disable Auto Information mode
-void rr_cat_yaesu_vfo_a_to_mem(const char *args) {} 	// Store VFO A to memory channel
-void rr_cat_yaesu_vfo_b_to_a(const char *args) {}		// VFO B to VFO A
-void rr_cat_yaesu_ant_select(const char *args) {} 		// Read/Set Antenna selection
-void rr_cat_yaesu_auto_notch(const char *args) {} 		// Read/Set Auto Notch
-void rr_cat_yaesu_band_down(const char *args) {} 		// Band Down
-void rr_cat_yaesu_band_select(const char *args) { } 	// Band Select
-void rr_cat_yaesu_band_up(const char *args) { } 		// band up
-void rr_cat_yaesu_break_in(const char *args) {} 		// Break-in
-void rr_cat_yaesu_manual_notch(const char *args) {} 	// Manual Notch
-void rr_cat_yaesu_busy(const char *args) { } 		// Busy
-void rr_cat_yaesu_clarifier(const char *args) { } 		// Clarifier
-void rr_cat_yaesu_channel(const char *args) { } 		// Channel
-void rr_cat_yaesu_ctcss_number(const char *arg) { } 	// CTCSS Number
-void rr_cat_yaesu_contour(const char *arg) { } 		// Contour
-void rr_cat_yaesu_cw_spot(const char *arg) { } 		// CW Spot
-void rr_cat_yaesu_ctcss(const char *arg) { } 		// CTCSS
-void rr_cat_yaesu_dimmer(const char *arg) { }		// Dimmer
-void rr_cat_yaesu_down(const char *args) {}		// Down
-void rr_cat_yaesu_encoder_down(const char *args) {}	// Encoder Down
-void rr_cat_yaesu_enter(const char *args) {}		// Enter key
-void rr_cat_yaesu_encoder_up(const char *args) {}		// Encoder Up
-void rr_cat_yaesu_menu(const char *args) {}		// Extended menu commands
-void rr_cat_yaesu_set_vfo_a(const char *args) {}		// Read/Set VFO A frequency
-void rr_cat_yaesu_set_vfo_b(const char *args) {} 		// Read/Set VFO B frequency
-void rr_cat_yaesu_fast_step(const char *args) {}		// Fast Step
-void rr_cat_yaesu_agc_func(const char *args) {}		// AGC Function
-void rr_cat_yaesu_id(const char *args) {}			// IDentification
-void rr_cat_yaesu_info(const char *args) {}		// Get receiver status
-void rr_cat_yaesu_if_shift(const char *args) {}		// IF shift
-void rr_cat_yaesu_cw_key(const char *args) {}		// Send CW Keying
-void rr_cat_yaesu_lock(const char *args) {}		// Read/Set lock status
-void rr_cat_yaesu_mem_to_vfo_a(const char *args) {}	// Memory to VFO A
-void rr_cat_yaesu_mem_channel(const char *args) {} 	// Read/Set Memory Channel data
-void rr_cat_yaesu_mic_gain(const char *args) {}		// Mic Gain
-void rr_cat_yaesu_mode(const char *args) {}		// Read/Set operating mode
-void rr_cat_yaesu_monitor_level(const char *args) {} 	// Monitor Level
-void rr_cat_yaesu_memory_read(const char *args) {} 	// Memory Read
-void rr_cat_yaesu_meter_switch(const char *args) {} 	// Meter Switch
-void rr_cat_yaesu_mem_write_tag(const char *args) {} 	// Memory write & tag
-void rr_cat_yaesu_mem_write(const char *args) {} 		// Memory write
-void rr_cat_yaesu_mox(const char *args) {} 		// MOX
-void rr_cat_yaesu_narrow(const char *args) {} 		// Narrow
-void rr_cat_yaesu_noise_blanker(const char *args) {} 	// Read/Set Noise Blanker
-void rr_cat_yaesu_nb_level(const char *args) {} 		// NB Level
-void rr_cat_yaesu_noise_reduction(const char *args) {} 	// Noise Reduction
-void rr_cat_yaesu_obi(const char *args) {} 		// Opposite Band Info??
-void rr_cat_yaesu_offset(const char *args) {} 		// Offset
-void rr_cat_yaesu_preamp(const char *args) {} 		// Preamp
-void rr_cat_yaesu_playback(const char *args) {} 		// Playback
-void rr_cat_yaesu_preproc(const char *args) {} 		// Preprocessor
-void rr_cat_yaesu_preproc_level(const char *args) {} 	// Preprocessor level
-void rr_cat_yaesu_tx_power(const char *args) {} 		// Read/Set RF Output Power
-void rr_cat_yaesu_power(const char *args) {}		// Toggle power
-void rr_cat_yaesu_qmb_store(const char *args) {} 		// QMB Store
-void rr_cat_yaesu_width(const char *args) {} 		// Width
-void rr_cat_yaesu_s_meter(const char *args) {}		// Read S-meter/SWR/ALC/COMP
-void rr_cat_yaesu_squelch(const char *args) {} 		// Read/Set squelch
-void rr_cat_yaesu_split(const char *args) {} 		// Split
-void rr_cat_yaesu_swap_vfo(const char *args) {} 		// Swap VFOs
-void rr_cat_yaesu_txw(const char *args) {} 		// Read/Set Tuning step
+void rr_cat_yaesu_vfo_a_to_b(const char *args) {
+}		// VFO A to VFO B
 
+void rr_cat_yaesu_tuner_control(const char *args) {
+}	// Antenna Tuner Control
+
+void rr_cat_yaesu_af_gain(const char *args) {
+} 		// Read/Set AF gain
+
+void rr_cat_yaesu_auto_info(const char *args) {
+}	 	// Enable/Disable Auto Information mode
+
+void rr_cat_yaesu_vfo_a_to_mem(const char *args) {
+} 	// Store VFO A to memory channel
+
+void rr_cat_yaesu_vfo_b_to_a(const char *args) {
+}		// VFO B to VFO A
+
+void rr_cat_yaesu_ant_select(const char *args) {
+} 		// Read/Set Antenna selection
+
+void rr_cat_yaesu_auto_notch(const char *args) {
+} 		// Read/Set Auto Notch
+
+void rr_cat_yaesu_band_down(const char *args) {
+} 		// Band Down
+
+void rr_cat_yaesu_band_select(const char *args) {
+} 	// Band Select
+
+void rr_cat_yaesu_band_up(const char *args) {
+} 		// band up
+
+void rr_cat_yaesu_break_in(const char *args) {
+} 		// Break-in
+
+void rr_cat_yaesu_manual_notch(const char *args) {
+} 	// Manual Notch
+
+void rr_cat_yaesu_busy(const char *args) {
+} 		// Busy
+
+void rr_cat_yaesu_clarifier(const char *args) {
+} 		// Clarifier
+
+void rr_cat_yaesu_channel(const char *args) {
+} 		// Channel
+
+void rr_cat_yaesu_ctcss_number(const char *arg) {
+} 	// CTCSS Number
+
+void rr_cat_yaesu_contour(const char *arg) {
+} 		// Contour
+
+void rr_cat_yaesu_cw_spot(const char *arg) {
+} 		// CW Spot
+
+void rr_cat_yaesu_ctcss(const char *arg) {
+} 		// CTCSS
+
+void rr_cat_yaesu_dimmer(const char *arg) {
+}		// Dimmer
+
+void rr_cat_yaesu_down(const char *args) {
+}		// Down
+
+void rr_cat_yaesu_encoder_down(const char *args) {
+}	// Encoder Down
+
+void rr_cat_yaesu_enter(const char *args) {
+}		// Enter key
+
+void rr_cat_yaesu_encoder_up(const char *args) {
+}		// Encoder Up
+
+void rr_cat_yaesu_menu(const char *args) {
+}		// Extended menu commands
+
+void rr_cat_yaesu_set_vfo_a(const char *args) {
+}		// Read/Set VFO A frequency
+
+void rr_cat_yaesu_set_vfo_b(const char *args) {
+} 		// Read/Set VFO B frequency
+
+void rr_cat_yaesu_fast_step(const char *args) {
+}		// Fast Step
+
+void rr_cat_yaesu_agc_func(const char *args) {
+}		// AGC Function
+
+void rr_cat_yaesu_id(const char *args) {
+}			// IDentification
+
+void rr_cat_yaesu_info(const char *args) {
+}		// Get receiver status
+
+void rr_cat_yaesu_if_shift(const char *args) {
+}		// IF shift
+
+void rr_cat_yaesu_cw_key(const char *args) {
+}		// Send CW Keying
+
+void rr_cat_yaesu_lock(const char *args) {
+}		// Read/Set lock status
+
+void rr_cat_yaesu_mem_to_vfo_a(const char *args) {
+}	// Memory to VFO A
+
+void rr_cat_yaesu_mem_channel(const char *args) {
+} 	// Read/Set Memory Channel data
+
+void rr_cat_yaesu_mic_gain(const char *args) {
+}		// Mic Gain
+
+void rr_cat_yaesu_mode(const char *args) {
+}		// Read/Set operating mode
+
+void rr_cat_yaesu_monitor_level(const char *args) {
+} 	// Monitor Level
+
+void rr_cat_yaesu_memory_read(const char *args) {
+} 	// Memory Read
+
+void rr_cat_yaesu_meter_switch(const char *args) {
+} 	// Meter Switch
+
+void rr_cat_yaesu_mem_write_tag(const char *args) {
+} 	// Memory write & tag
+
+void rr_cat_yaesu_mem_write(const char *args) {
+} 		// Memory write
+
+void rr_cat_yaesu_mox(const char *args) {
+} 		// MOX
+
+void rr_cat_yaesu_narrow(const char *args) {
+} 		// Narrow
+
+void rr_cat_yaesu_noise_blanker(const char *args) {
+} 	// Read/Set Noise Blanker
+
+void rr_cat_yaesu_nb_level(const char *args) {
+} 		// NB Level
+
+void rr_cat_yaesu_noise_reduction(const char *args) {
+} 	// Noise Reduction
+
+void rr_cat_yaesu_obi(const char *args) {
+} 		// Opposite Band Info??
+
+void rr_cat_yaesu_offset(const char *args) {
+} 		// Offset
+
+void rr_cat_yaesu_preamp(const char *args) {
+} 		// Preamp
+
+void rr_cat_yaesu_playback(const char *args) {
+} 		// Playback
+
+void rr_cat_yaesu_preproc(const char *args) {
+} 		// Preprocessor
+
+void rr_cat_yaesu_preproc_level(const char *args) {
+} 	// Preprocessor level
+
+void rr_cat_yaesu_tx_power(const char *args) {
+} 		// Read/Set RF Output Power
+
+void rr_cat_yaesu_power(const char *args) {
+}		// Toggle power
+
+void rr_cat_yaesu_qmb_store(const char *args) {
+} 		// QMB Store
+
+void rr_cat_yaesu_width(const char *args) {
+} 		// Width
+
+void rr_cat_yaesu_s_meter(const char *args) {
+}		// Read S-meter/SWR/ALC/COMP
+
+void rr_cat_yaesu_squelch(const char *args) {
+} 		// Read/Set squelch
+
+void rr_cat_yaesu_split(const char *args) {
+} 		// Split
+
+void rr_cat_yaesu_swap_vfo(const char *args) {
+} 		// Swap VFOs
+
+void rr_cat_yaesu_txw(const char *args) {
+} 		// Read/Set Tuning step
 
 // PTT set
 void rr_cat_yaesu_ptt(const char *args) {
@@ -107,12 +233,23 @@ void rr_cat_yaesu_ptt(const char *args) {
 //   ptt_toggle();
 }
 
-void rr_cat_yaesu_unlock(const char *args) {}		// Unlock
-void rr_cat_yaesu_up(const char *args) {} 			// UP
-void rr_cat_yaesu_vfo_mem(const char *args) {}		// VFO/Memory button
-void rr_cat_yaesu_vox_gain(const char *args) {}		// VOX Gain
-void rr_cat_yaesu_vox(const char *args) {}			// VOX
-void rr_cat_yaesu_zero_in(const char *args) {}		// Zero In
+void rr_cat_yaesu_unlock(const char *args) {
+}		// Unlock
+
+void rr_cat_yaesu_up(const char *args) {
+} 			// UP
+
+void rr_cat_yaesu_vfo_mem(const char *args) {
+}		// VFO/Memory button
+
+void rr_cat_yaesu_vox_gain(const char *args) {
+}		// VOX Gain
+
+void rr_cat_yaesu_vox(const char *args) {
+}			// VOX
+
+void rr_cat_yaesu_zero_in(const char *args) {
+}		// Zero In
 
 CATCommand rr_cat_yaesu_commands[] = {
     // cmd, min, max, callback
@@ -195,4 +332,11 @@ bool rr_cat_yaesu_init(void) {
    return false;
 }
 
+bool rr_cat_yaesu_parse(const char *msg) {
+   if (!msg) {
+      return true;
+   }
+
+   return false;
+}
 #endif

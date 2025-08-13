@@ -150,6 +150,10 @@ bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
         Log(LOG_DEBUG, "cat.ws", "got cmd: %s", cmd);
     }
 
+cleanup:
+    free((void *)cmd_str);
+    free((void *)val_str);
+
     return false;
 }
 

@@ -23,7 +23,6 @@
 
 defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"Debug audio? [bool]" },
-  { "audio.record-dir", "./recordings", "TX & RX recordings basedir" },
   { "backend.active",   "dummy",        "Backend to use for rig control" },
   { "codecs.allowed",   "mu16 pc16 mu08", "Preferred codec order" },
   { "database.master.path", "./db/master.db", "Master database path" },
@@ -42,6 +41,7 @@ defconfig_t defcfg[] = {
   { "net.http.www-root", "./www",       "Path to static http content" },
   { "net.mqtt.enabled",  "false",       "Enable MQTT service listener?" },
   { "net.mqtt.bind",     "127.0.0.1",   "Address to listen for mqtt" },
+  { "path.record-dir", "./recordings", "TX & RX recordings basedir" },
 //  { "testkey.defcfg.main", " 1",	"Test key for defconfig" },
   { NULL,		NULL,		NULL }
 };

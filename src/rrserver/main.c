@@ -29,7 +29,7 @@
 #include "rrserver/gui.h"
 #include "rrserver/help.h"
 #include "rrserver/i2c.h"
-#include "rrserver/io.h"
+#include "common/io.h"
 #include "common/logger.h"
 #include "common/util.file.h"
 #include "rrserver/network.h"

@@ -11,7 +11,7 @@
 //
 // IO abstraction layer for portability between hosts
 //
-#include "rrserver/config.h"
+#include "common/config.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -32,7 +32,7 @@ extern void rr_io_close(rr_io_context_t *ctx);
 extern ssize_t rr_io_write(rr_io_context_t *ctx, const char *buffer, size_t len);
 extern bool rr_io_init(void);
 
-#include "rrserver/io.socket.h"
-#include "rrserver/io.serial.h"
+#include "common/io.socket.h"
+#include "common/io.serial.h"
 
 #endif	// !defined(__rr_io_h)

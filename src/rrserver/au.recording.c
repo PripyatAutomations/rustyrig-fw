@@ -38,9 +38,9 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
       return NULL;
    }
 
-   const char *recdir = cfg_get("audio.record-dir");
+   const char *recdir = cfg_get("path.record-dir");
    if (!recdir) {
-      Log(LOG_CRAZY, "au.record", "Please set audio.record-dir in config to enable recording");
+      Log(LOG_CRAZY, "au.record", "Please set path.record-dir in config to enable recording");
       return NULL;
    }
 
