@@ -32,6 +32,7 @@
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
 extern bool clear_syslog(void);
 extern GtkWidget *init_log_tab(void);
+extern GtkWidget *init_admin_tab(void);
 extern dict *cfg;
 extern time_t now;
 extern bool dying;
@@ -43,6 +44,7 @@ extern time_t poll_block_expire, poll_block_delay;
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
 extern GtkWidget *config_tab;
+extern GtkWidget *admin_tab;
 GtkCssProvider *css_provider = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
@@ -455,6 +457,7 @@ bool gui_init(void) {
 
    log_tab = init_log_tab();
    config_tab = init_config_tab();
+   admin_tab = init_admin_tab();
 
    Log(LOG_CRAZY, "gtk", "mainwin on add callback destroy");
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);

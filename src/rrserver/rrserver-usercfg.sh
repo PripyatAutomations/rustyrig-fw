@@ -1,4 +1,6 @@
 #!/bin/bash
+#
+# An ugly little script for editing the users. We should replace this with a section of the webui/GTK client
 set -e
 
 # XXX: We need to find the rrserver.cfg and use it to locate the password file instead of hardcoding it

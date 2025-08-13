@@ -139,8 +139,9 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
          "You have unsaved changes. Discard them?");
       gboolean cancel = gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES;
       gtk_widget_destroy(dialog);
-      if (cancel)
+      if (cancel) {
          return;
+      }
    }
 
    Log(LOG_DEBUG, "config", "Edit config closed without saving for %s", ctx->filepath);
@@ -157,8 +158,9 @@ static gboolean on_destroy(GtkWidget *widget, GdkEvent *event, gpointer user_dat
 static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
    EditorContext *ctx = user_data;
 
-   if (!ctx->modified)
+   if (!ctx->modified) {
       return FALSE;
+   }
 
    GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window),
       GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
@@ -166,8 +168,9 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
    gboolean cancel = gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES;
    gtk_widget_destroy(dialog);
 
-   if (!cancel)
+   if (!cancel) {
       Log(LOG_DEBUG, "config", "Edit config closed without saving for %s", ctx->filepath);
+   }
 
    return cancel;
 }

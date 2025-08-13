@@ -79,10 +79,11 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
    memcpy(n, newinfo, sizeof(*n));
    n->next = NULL;
 
-   if (prev)
+   if (prev) {
       prev->next = n;
-   else
+   } else {
       global_userlist = n;
+   }
 
    return true;
 }

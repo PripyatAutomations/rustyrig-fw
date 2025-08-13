@@ -57,7 +57,7 @@ char *hash_passwd(const char *passwd) {
    mg_sha1_ctx ctx;
 
    if (!hex_output) {
-      Log(LOG_CRIT, "auth", "oom in compute_wire_password");
+      fprintf(stderr, "oom in compute_wire_password?!\n");
       return NULL;
    }
 
@@ -110,7 +110,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
    }
    hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
    Log(LOG_CRAZY, "auth", "passwd %s nonce %s result %s", password, nonce, hex_output);
-   
+
    return hex_output;
 }
 

@@ -8,6 +8,7 @@ objs += debug.o			# Debug stuff
 objs += defconfig.o
 objs += dict.o			# dictionary object
 objs += gtk.o                   # Support for a GTK user interface
+objs += gtk.admin.o		# Admin tab
 objs += gtk.codecpicker.o	# codec picker widget
 objs += gtk.editcfg.o		# configuration tab
 objs += gtk.fm-mode.o		# FM mode dialog

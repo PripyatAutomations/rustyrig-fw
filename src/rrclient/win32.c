@@ -21,10 +21,14 @@
 #pragma comment(lib, "dwmapi.lib")
 
 void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
-   if (!gtk_widget_get_realized(window)) return;
+   if (!gtk_widget_get_realized(window)) {
+      return;
+   }
 
    HWND hwnd = GDK_WINDOW_HWND(gtk_widget_get_window(window));
-   if (!hwnd) return;
+   if (!hwnd) {
+      return;
+   }
 
    BOOL use_dark = TRUE;
    // DWMWA_USE_IMMERSIVE_DARK_MODE = 20 or 19 depending on build
@@ -55,7 +59,10 @@ bool win32_init(void) {
 char *strndup(const char *s, size_t n) {
     size_t len = strnlen(s, n);
     char *result = (char *)malloc(len + 1);
-    if (!result) return NULL;
+    if (!result) {
+       return NULL;
+    }
+
     memcpy(result, s, len);
     result[len] = '\0';
     return result;
@@ -76,8 +83,8 @@ char *strcasestr(const char *haystack, const char *needle) {
         }
 
         if (!*n) {
-		   return (char *)haystack;
-		}
+           return (char *)haystack;
+	}
     }
 
     return NULL;

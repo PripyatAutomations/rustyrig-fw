@@ -200,22 +200,22 @@ bool place_window(GtkWidget *window) {
                   if (strcasecmp(win->name, "main") != 0) {
                      // Hide this window by default
                      win->win_hidden = true;
-                     gtk_widget_hide(window);
+                     gtk_widget_hide(win->gtk_win);
                   }
                } else if (strcasecmp(opt, "minimized") == 0) {
                   win->win_minimized = true;
-                  gtk_window_iconify(GTK_WINDOW(window));
+                  gtk_window_iconify(GTK_WINDOW(win->gtk_win));
                } else if (strcasecmp(opt, "modal") == 0) {
                   // Window is always-on-top
                   win->win_modal = true;
-                  gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
+                  gtk_window_set_keep_above(GTK_WINDOW(win->gtk_win), TRUE);
                } else if (strcasecmp(opt, "no-hide") == 0) {
                   // Don't hide this window when the main window is minimized
                   win->win_nohide = true;
                } else if (strcasecmp(opt, "raised") == 0) {
                   // Window should start raised
                   win->win_raised = true;
-                  gtk_window_present(GTK_WINDOW(window));
+                  gtk_window_present(GTK_WINDOW(win->gtk_win));
                }
 
                if (*end == '\0') {
@@ -225,12 +225,12 @@ bool place_window(GtkWidget *window) {
             }
          }
          // Apply the properties to the window
-         gtk_window_move(GTK_WINDOW(window), cfg_x, cfg_y);
+         gtk_window_move(GTK_WINDOW(win->gtk_win), cfg_x, cfg_y);
 
          // If the user specified -1 for width or height, don't resize the window
          if (cfg_width > 0 && cfg_height > 0) {
-            gtk_window_set_default_size(GTK_WINDOW(window), cfg_width, cfg_height);
-            gtk_window_resize(GTK_WINDOW(window), cfg_width, cfg_height);
+            gtk_window_set_default_size(GTK_WINDOW(win->gtk_win), cfg_width, cfg_height);
+            gtk_window_resize(GTK_WINDOW(win->gtk_win), cfg_width, cfg_height);
          }
       }
       free((void *)cfg_full);
@@ -297,7 +297,8 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    memset(p, 0, sizeof(gui_window_t));
    snprintf(p->name, sizeof(p->name), "%s", name);
    p->gtk_win = gtk_win;
-   Log(LOG_DEBUG, "gtk.winmgr", "storing window <%x> as '%s'", gtk_win, name);
+   Log(LOG_CRAZY, "gtk.winmgr", "storing window <%x> as '%s'", gtk_win, name);
+
    if (!gui_windows) {
       gui_windows = p;
    } else {

@@ -70,13 +70,16 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
    for (char *tok = strtok_r(list, " ", &saveptr); tok; tok = strtok_r(NULL, " ", &saveptr)) {
       gtk_combo_box_text_append(combo, tok, tok);
 
-      if (default_id && strcmp(tok, default_id) == 0)
+      if (default_id && strcmp(tok, default_id) == 0) {
          default_index = index;
+      }
+
       index++;
    }
 
-   if (default_index >= 0)
+   if (default_index >= 0) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(combo), default_index);
+   }
 
    g_free(list);
 }

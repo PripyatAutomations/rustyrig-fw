@@ -59,7 +59,9 @@ bool is_dir(const char *path) {
 }
 
 char *expand_path(const char *path) {
-    if (!path) return NULL;
+    if (!path) {
+       return NULL;
+    }
 
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
@@ -83,7 +85,9 @@ char *expand_path(const char *path) {
                 size_t drive_len = strlen(drive);
                 size_t path_len = strlen(path_part);
                 char *temp_home = malloc(drive_len + path_len + 1);
-                if (!temp_home) return NULL;
+                if (!temp_home) {
+                   return NULL;
+                }
                 snprintf(temp_home, sizeof(temp_home), "%s%s", drive, path_part);
                 home = temp_home;
                 home_allocated = 1;
@@ -98,12 +102,16 @@ char *expand_path(const char *path) {
         size_t len = strlen(home) + strlen(suffix) + 2;
         char *expanded = malloc(len);
         if (!expanded) {
-            if (home_allocated) free((void *)home);
+            if (home_allocated) {
+               free((void *)home);
+            }
             return NULL;
         }
         snprintf(expanded, len, "%s\\%s", home, suffix);
 
-        if (home_allocated) free((void *)home);
+        if (home_allocated) {
+           free((void *)home);
+        }
         return expanded;
     }
 
@@ -119,12 +127,16 @@ char *expand_path(const char *path) {
     // POSIX: Handle ~
     if (path[0] == '~') {
         const char *home = getenv("HOME");
-        if (!home) return NULL;
+        if (!home) {
+           return NULL;
+        }
 
         const char *suffix = (path[1] == '/') ? path + 2 : path + 1;
         size_t len = strlen(home) + strlen(suffix) + 2;
         char *expanded = malloc(len);
-        if (!expanded) return NULL;
+        if (!expanded) {
+           return NULL;
+        }
 
         snprintf(expanded, len, "%s/%s", home, suffix);
         return expanded;
