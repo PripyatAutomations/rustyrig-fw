@@ -36,7 +36,7 @@ extern GtkWidget *config_tab;
 extern GtkWidget *notebook;
 extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
-extern void show_help(void);						// ui.help.c
+extern void show_help(const char *topic);		// ui.help.c
 extern bool clear_syslog(void);
 extern const char *get_chat_ts(void);
 
@@ -104,7 +104,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          } else if (strncasecmp(msg + 1, "edit", 4) == 0) {
          } else if (strncasecmp(msg + 1, "help", 4) == 0) {
-            show_help();
+            show_help(NULL);
          } else if (strncasecmp(msg + 1, "kick", 4) == 0) {
             char msgbuf[4096];
             prepare_msg(msgbuf, sizeof(msgbuf), 
