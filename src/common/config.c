@@ -186,63 +186,63 @@ dict *cfg_load(const char *path) {
 
       // Handle line continuations
       while (1) {
-          // Trim trailing newlines
-          while (end >= buf && (*end == '\r' || *end == '\n')) {
-              *end-- = '\0';
-          }
+         // Trim trailing newlines / carriage returns
+         while (end >= buf && (*end == '\r' || *end == '\n')) {
+            *end-- = '\0';
+         }
 
-          // Trim trailing spaces/tabs before checking '\'
-          while (end >= buf && (*end == ' ' || *end == '\t')) {
-              *end-- = '\0';
-          }
+         // Trim trailing spaces/tabs before checking for '\'
+         while (end >= buf && (*end == ' ' || *end == '\t')) {
+            *end-- = '\0';
+         }
 
-          if (end < buf || *end != '\\') {
-              // No continuation
-              break;
-          }
+         if (end < buf || *end != '\\') {
+            // No continuation
+            break;
+         }
 
-          // Check if space before '\'
-          bool space_before = (end > buf && *(end - 1) == ' ');
+         // Check if space before '\'
+         bool space_before = (end > buf && *(end - 1) == ' ');
 
-          // Remove the backslash
-          *end = '\0';
-          end--;
+         // Remove the backslash
+         *end = '\0';
+         end--;
 
-          // Also remove trailing spaces before backslash if any remain
-          while (end >= buf && (*end == ' ' || *end == '\t')) {
-              *end-- = '\0';
-          }
+         // Also remove trailing spaces before backslash if any remain
+         while (end >= buf && (*end == ' ' || *end == '\t')) {
+            *end-- = '\0';
+         }
 
-          // Read continuation line
-          char contbuf[sizeof(buf)];
-          if (!fgets(contbuf, sizeof(contbuf), fp)) {
-              break;  // EOF or error
-          }
+         // Read continuation line
+         char contbuf[sizeof(buf)];
+         if (!fgets(contbuf, sizeof(contbuf), fp)) {
+            break;  // EOF or error
+         }
 
-          line++;
+         line++;
 
-          // Trim leading whitespace on continuation line
-          char *cont = contbuf;
-          while (*cont == ' ' || *cont == '\t') {
-             cont++;
-          }
+         // Trim leading whitespace on continuation line
+         char *cont = contbuf;
+         while (*cont == ' ' || *cont == '\t') {
+            cont++;
+         }
 
-          // Trim trailing whitespace/newlines on continuation line
-          char *e2 = cont + strlen(cont) - 1;
-          while (e2 >= cont && (*e2 == '\r' || *e2 == '\n' || *e2 == ' ' || *e2 == '\t')) {
-              *e2-- = '\0';
-          }
+         // Trim trailing whitespace/newlines on continuation line
+         char *e2 = cont + strlen(cont) - 1;
+         while (e2 >= cont && (*e2 == '\r' || *e2 == '\n' || *e2 == ' ' || *e2 == '\t')) {
+            *e2-- = '\0';
+         }
 
-          // Append a space if needed
-          if (space_before && strlen(buf) > 0) {
-              strncat(buf, " ", sizeof(buf) - strlen(buf) - 1);
-          }
+         // Append a space if needed
+         if (space_before && strlen(buf) > 0) {
+            strncat(buf, " ", sizeof(buf) - strlen(buf) - 1);
+         }
 
-          // Append continuation content
-          strncat(buf, cont, sizeof(buf) - strlen(buf) - 1);
+         // Append continuation content
+         strncat(buf, cont, sizeof(buf) - strlen(buf) - 1);
 
-          // Update end pointer for next loop iteration
-          end = buf + strlen(buf) - 1;
+         // Update end pointer for next loop iteration
+         end = buf + strlen(buf) - 1;
       }
 
       // Now print the fully joined line once
@@ -286,11 +286,14 @@ dict *cfg_load(const char *path) {
             *eq = '\0';
             key = skip;
             val = eq + 1;
-            while (*val == ' ')
+            while (*val == ' ') {
                val++;
+            }
          }
-         if (!key && !val)
+
+         if (!key && !val) {
             continue;
+         }
 
          if (strncasecmp(this_section, "general", 7) != 0) {
             char keybuf[384];
@@ -308,11 +311,15 @@ dict *cfg_load(const char *path) {
             *eq = '\0';
             key = skip;
             val = eq + 1;
-            while (*val == ' ')
+            while (*val == ' ') {
                val++;
+            }
          }
-         if (!key && !val)
+
+         if (!key && !val) {
             continue;
+         }
+
          char fullkey[256];
          memset(fullkey, 0, sizeof(fullkey));
          snprintf(fullkey, sizeof(fullkey), "pipeline:%s", key);
@@ -326,8 +333,10 @@ dict *cfg_load(const char *path) {
             *eq = '\0';
             key = skip;
             val = eq + 1;
-            while (*val == ' ')
+
+            while (*val == ' ') {
                val++;
+            }
             memset(fullkey, 0, sizeof(fullkey));
             snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
             dict_add(servers, fullkey, val);
@@ -340,10 +349,11 @@ dict *cfg_load(const char *path) {
       }
    } while (!feof(fp));
 
-   if (errors > 0)
+   if (errors > 0) {
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with %d warnings/errors", line, path, errors);
-   else
+   } else {
       Log(LOG_INFO, "config", "cfg loaded %d lines from %s with no errors", line, path);
+   }
 
    return newcfg;
 }
@@ -417,6 +427,7 @@ const char *cfg_get_exp(const char *key) {
                const char *val = cfg_get(keybuf);
                if (val) {
                   size_t vlen = strlen(val);
+
                   if ((dst - tmp) + vlen >= MAX_CFG_EXP_STRLEN - 1) {
                      vlen = MAX_CFG_EXP_STRLEN - 1 - (dst - tmp);
                   }

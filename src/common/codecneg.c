@@ -116,11 +116,13 @@ char *codec_filter_common(const char *preferred, const char *available) {
             }
             // Go ahead and store it
             result = new_result;
-            memcpy(result + res_sz, start, len);
-            res_sz += len;
-            result[res_sz++] = ' ';
-            result[res_sz] = 0;
-            break;
+            if (len + res_sz <= sizeof(result)) {
+               memcpy(result + res_sz, start, len);
+               res_sz += len;
+               result[res_sz++] = ' ';
+               result[res_sz] = 0;
+             }
+             break;
          }
       }
    }

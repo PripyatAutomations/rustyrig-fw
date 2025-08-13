@@ -159,8 +159,10 @@ bool place_window(GtkWidget *window) {
 
          // Parse out options, delimited by | at the end of the string
          char *opts = strchr(cfg_full, '|');
+
          if (opts) {
             opts++;  /* skip the '|' */
+
             while (*opts) {
                char *end = strchr(opts, '|');
 
@@ -194,21 +196,26 @@ bool place_window(GtkWidget *window) {
                memcpy(opt, opts, len);
                opt[len] = '\0';
 
-               if (strcasecmp(opt, "raised") == 0) {
-                  // Window should start raised
-                  win->win_raised = true;
-                  gtk_window_present(GTK_WINDOW(window));                 
+               if (strcasecmp(opt, "hidden") == 0) {
+                  if (strcasecmp(win->name, "main") != 0) {
+                     // Hide this window by default
+                     win->win_hidden = true;
+                     gtk_widget_hide(window);
+                  }
+               } else if (strcasecmp(opt, "minimized") == 0) {
+                  win->win_minimized = true;
+                  gtk_window_iconify(GTK_WINDOW(window));
                } else if (strcasecmp(opt, "modal") == 0) {
                   // Window is always-on-top
                   win->win_modal = true;
                   gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
-               } else if (strcasecmp(opt, "hidden") == 0) {
-                  // Hide this window by default
-                  win->win_hidden = true;
-                  gtk_widget_hide(window);
                } else if (strcasecmp(opt, "no-hide") == 0) {
                   // Don't hide this window when the main window is minimized
                   win->win_nohide = true;
+               } else if (strcasecmp(opt, "raised") == 0) {
+                  // Window should start raised
+                  win->win_raised = true;
+                  gtk_window_present(GTK_WINDOW(window));
                }
 
                if (*end == '\0') {

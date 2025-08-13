@@ -15,7 +15,7 @@ default.tx.power=50
 audio.debug=*:3
 audio.volume.rx=0
 
-; Window placements & options (hidden|modal|raised|no-hide)
+; Window placements & options (hidden|minimized|modal|no-hide|raised)
 ; Size of -1 will avoid resizing the window and let GTK size it
 ui.userlist=-1,-1@100,100|hidden
 ui.serverpick=-1,-1@526,174|modal|raised

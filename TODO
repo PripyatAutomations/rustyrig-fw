@@ -10,14 +10,13 @@
 * Fix userlist updates so joins/quits properly update it
 * Fix PTT button needing clicked twice after TOT fired
   - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
-* Move the input box to be permanently visible at bottom, with the button bar above it when in chat
-- Make VFO widgets floating
-- Make vfo edit widgets pop up overlapping the affected VFO
+? Move the input box to be permanently visible at bottom, with the button bar above it when in chat
+* Make VFO widgets floating
 * C4FM
    - Show FM dailog
 
 [ASAP]
-* Shell + jq script to parse config/*.config.json into a .cfg flat file
+* Shell + jq script to parse config/*.config.json into a basic .cfg flat file
 * More audio config stuff, maybe support codec switching.
   - Support for fwdsp report what codec & rate it's using, so multiple streams can be sent to backend
     - Maybe add transcoding someday
@@ -29,13 +28,13 @@
 - Need to review the libmongoose deps and ensure we can still build without mongoose
   for cases it's not appropriate (stand-alone firmware on stm32/esp32 for example)
   where we don't have a network client
-? Move config from eeprom to dict and make a way to stuff cfg dict into eeprom ;)
+* Move config from eeprom to dict and make a way to stuff cfg dict into eeprom ;)
 
 [fwdsp]
 * Start all decoder (RX) and leave them running, to prevent TX delays after extended idle
 
 [audio.recording]
-* Implement recordings and pass the recording ID to the ptt db log
+* Implement recordings, saved in the ptt database
 
 [misc]
 * Add support for TX quotas (credits) and tracking top talkers
@@ -53,13 +52,13 @@
 - Make mongoose truly optional for the cases it doesn't make sense (small devs)
 
 [webcam]
-- Support for streaming a v4l webcam from the station to the clients using gstreamer
+- Support for streaming gstreamer video (webcam) from the station to the clients using gstreamer
 
 [radioberry]
 * Implement support for this thing
 
 [core]
-* If session is being kicked, check if it has PTT active and drop PTT before kicking
+* If session is being kicked/banned/muted, check if it has PTT active and drop PTT before kicking
 
 [i2c/eeprom]
 - Implement hard coded address for i2c eeprom and a codepath to support it
@@ -103,12 +102,6 @@ minimal inet_ntop() for non-posix
 * Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
 - Make a tool which converts res/eeprom_layout.json (and eeprom_types.json) to a text file like doc/eeprom.txt
 * Fix net/bind to be an ip4 or ip6 type instead of string!
-
-[misc]
-* Add emulation backend using flrig or hamlib
-  - Internally cache the radio state & poll it regularly
-  - Send push events of the diff to client w/ periodic full updates
-  - 'Translate' our yaesu/kpa500 CAT commands by calling backend
 
 [mqtt]
 * Finish mqtt server stuff (via mongoose)

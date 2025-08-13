@@ -26,6 +26,7 @@ struct GuiWindow {
     char name[128];		// Window name
     GtkWidget *gtk_win;		// GTK window widget
     bool win_raised;		// Raised?
+    bool win_minimized;		// Is the window minimized?
     bool win_modal;		// Always on top
     bool win_hidden;		// Hidden from view
     bool win_nohide;		// Don't hide this window when main window is minimized

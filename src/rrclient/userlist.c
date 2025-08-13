@@ -200,7 +200,7 @@ GtkWidget *userlist_init(void) {
    g_signal_connect(window, "key-press-event", G_CALLBACK(handle_keypress), window);
    g_signal_connect(window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
 
-   gtk_widget_show_all(window);
+//   gtk_widget_show_all(window);
    place_window(window);
 
    userlist_window = window;
