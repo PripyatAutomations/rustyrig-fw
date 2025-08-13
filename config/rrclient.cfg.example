@@ -26,12 +26,12 @@ audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,form
 audio.pipeline.tx.format=time
 ;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
 
-; Window placements & options (hidden|modal|raised)
+; Window placements & options (hidden|modal|raised|no-hide)
 ; Size of -1 will avoid resizing the window and let GTK size it
 ui.userlist=-1,-1@100,100|hidden
 ui.serverpick=-1,-1@526,174|modal|raised
-ui.main=999,596@15,514|raised
-ui.fm-mode=-1,-1@503,365|modal|raised
+ui.main=999,596@887,482|raised
+ui.fm-mode=429,212@1473,234|raised|modal
 
 # Length of time to block CAT updates (in seconds) after a local state change
 cat.poll-blocking=1
