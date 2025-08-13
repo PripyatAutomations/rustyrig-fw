@@ -1,3 +1,7 @@
+# local junk (dead code / snippets) not intended for distribution
+junk/*
+junk/*/*
+
 # auditing
 audit-logs/cppcheck.report.txt
 
