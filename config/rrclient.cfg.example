@@ -7,24 +7,13 @@
 log.level=debug
 ui.show-pings=false
 # If we want to autoconnect to a server, name it here.
-;server.auto-connect=home
+;server.auto-connect=localhost
 codecs.allowed=pc16 mu16 mu08
 default.volume.rx=50
 default.tx.power=50
 ;debug.http=true
 audio.debug=*:3
 audio.volume.rx=0
-audio.pipeline.rx.format=time
-; mulaw (suitable for voice and maybe some digi)
-;audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes caps=audio/x-mulaw,rate=16000,channels=1 ! mulawdec ! volume name=rx-vol ! queue ! pulsesink device=default name=rx-sink client-name=rrclient
-; 16khz PCM for digital modes
-;audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrclient
-audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=rrloop_rx name=rx-sink client-name=rrclient
-; 44.1khz PCM for digital modes
-#audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=44100,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrclient
-// TX pipeline
-audio.pipeline.tx.format=time
-;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
 
 ; Window placements & options (hidden|modal|raised|no-hide)
 ; Size of -1 will avoid resizing the window and let GTK size it
