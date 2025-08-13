@@ -192,6 +192,9 @@ bool ws_send_hello(struct mg_connection *c) {
 }
 
 bool match_priv(const char *user_privs, const char *priv) {
+   if (!user_privs || !priv) {
+      return false;
+   }
    const char *start = user_privs;
    size_t privlen = strlen(priv);
 

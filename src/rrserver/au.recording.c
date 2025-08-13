@@ -62,6 +62,15 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    return rv;
 }
 
+struct RecordingData {
+   FILE *fp;
+   const char *rec_id;
+};
+
+#define	MAX_RECORD_OPEN		16
+
+struct RecordingData *active_recordings[MAX_RECORD_OPEN];
+
 // Returns the ID of of the new recording
 const char *au_recording_start(int channel) {
    char *recording_id = malloc(RECORDING_ID_LEN+1);
@@ -80,7 +89,24 @@ const char *au_recording_start(int channel) {
       return NULL;
    }
 
+   struct RecordingData *rd = malloc(sizeof(struct RecordingData));
+   if (!rd) {
+      fprintf(stderr, "OOM in au_recording_start?!\n");
+      fclose(fp);
+      return NULL;
+   }
+
+   memset(rd, 0, sizeof(struct RecordingData));
+   rd->fp = fp;
+   rd->rec_id = recording_id;
+
    // Store the fd somewhere (active_recordings array?)
+   for (int i = 0; i < MAX_RECORD_OPEN - 1; i++) {
+      if (active_recordings[i] == NULL) {
+         active_recordings[i] = rd;
+         break;
+      }
+   }
    return recording_id;
 }
 

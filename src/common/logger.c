@@ -177,6 +177,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    va_start(ap, fmt);
    if (!subsys || !fmt) {
       fprintf(stderr, "Invalid Log request: No subsys/fmt\n");
+      va_end(ap);
       return;
    }
 

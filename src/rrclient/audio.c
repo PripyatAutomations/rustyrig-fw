@@ -84,7 +84,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
 
    if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
       if (map.size > 0 && map.size < 65536) {
-         struct ws_frame *frame = malloc(sizeof(*frame));
+         struct ws_frame *frame = malloc(sizeof(struct ws_frame));
          if (!frame) {
             Log(LOG_CRIT, "audio", "OOM in handle_tx_sample!");
             exit(1);
@@ -97,6 +97,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
          mg_ws_send(ws_tx_conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
 //         ws_tx_conn->pfn = ws_tx_callback;
 //         ws_tx_conn->fn_data = frame;
+         free(frame);
       } else {
          Log(LOG_WARN, "ws.audio", "Discarding oversized buffer: %zu bytes", map.size);
       }

@@ -158,6 +158,10 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       }
       
       struct rr_user *cptr = malloc(sizeof(struct rr_user));
+      if (!cptr) {
+         fprintf(stderr, "oom in ws_handle_chat_msg?!\n");
+         goto cleanup;
+      }
       memset(cptr, 0, sizeof(struct rr_user));
       snprintf(cptr->name, sizeof(cptr->name), "%s", user);
       userlist_add_or_update(cptr);

@@ -52,13 +52,14 @@ GtkWidget *log_view = NULL;
 
 // backend
 bool log_print_va(const char *fmt, va_list ap) {
+   if (!fmt || !ap) {
+      return true;
+   }
+
    char outbuf[8096];
    memset(outbuf, 0, sizeof(outbuf));
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
 
-   if (!fmt || !ap) {
-      return true;
-   }
    if (log_buffer) {
       GtkTextIter end;
       gtk_text_buffer_get_end_iter(log_buffer, &end);

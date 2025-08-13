@@ -449,7 +449,7 @@ const char *cfg_get_exp(const char *key) {
       buf = shrunk;
    }
 
-   fprintf(stderr, "exp: returning %lu bytes for key %s => %s\n", final_len, key, buf);
+   fprintf(stderr, "exp: returning %lu bytes for key %s => %s\n", (unsigned long)final_len, key, buf);
 
    return buf; // Caller must free
 }

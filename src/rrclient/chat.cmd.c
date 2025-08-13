@@ -41,7 +41,15 @@ extern bool clear_syslog(void);
 extern const char *get_chat_ts(void);
 
 bool parse_chat_input(GtkButton *button, gpointer entry) {
+   if (!button || !entry) {
+      return true;
+   }
+
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
+
+   if (!msg || strlen(msg) < 2) {
+      return true;
+   }
 
    // These commands should always be available
    if (strncasecmp(msg + 1, "server", 6) == 0) {
@@ -86,7 +94,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
       }
-   } else if (ws_conn && msg && *msg) {			// These commands only work when online
+   } else if (ws_conn) {
       if (msg[0] == '/') { // Handle local commands
          if (strcasecmp(msg + 1, "ban") == 0) {
          } else if (strncasecmp(msg + 1, "die", 3) == 0) {

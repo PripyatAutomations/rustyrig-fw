@@ -304,7 +304,9 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
       }
 
       // Store our new window at the list tail
-      x->next = p;
+      if (x) {
+         x->next = p;
+      }
    }
 
    g_signal_connect(gtk_win, "configure-event", G_CALLBACK(on_window_configure), NULL);

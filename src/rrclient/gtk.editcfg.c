@@ -282,5 +282,5 @@ GtkWidget *init_config_tab(void) {
    gtk_box_pack_start(GTK_BOX(nw), toggle_userlist_button, FALSE, FALSE, 3);
    Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
    g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
-   return false;
+   return nw;
 }
