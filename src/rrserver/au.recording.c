@@ -70,6 +70,7 @@ const char *au_recording_start(int channel) {
    const char *rec_file = au_recording_mkfilename(recording_id, channel);
    if (!rec_file) {
       Log(LOG_CRIT, "au.record", "Failed to generate a random filename for recording. OOM?");
+      return NULL;
    }
    // Open the recording file for writing
    FILE *fp = fopen(rec_file, "w");

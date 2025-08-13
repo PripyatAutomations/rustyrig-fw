@@ -1,4 +1,4 @@
-*** Needs updated as of 25-06-25 ***
+This should hopefully help with tracking down where things live in the tree
 
 --------
 rrserver
@@ -20,11 +20,12 @@ src/rrserver/cat.yaesu.c			Yaesu ft891-ish CAT parser
 src/rrserver/channels.c				Support for channel memories
 src/rrserver/codec.c				Support for audio codecs like OPUS (NYI)
 src/rrserver/console.c				Console (TUI) for the server (NYI)
+src/rrserver/dds.c				DDS units (NYI)
 src/rrserver/dds.ad9833.c			DDS: AD9833 (NYI)
 src/rrserver/dds.ad9959_stm32.c			DDS: AD9959 with STM32 host; NYI but working code from my control tool that should be trivial to integrate wlater
-src/rrserver/dds.c				DDS units (NYI)
 src/rrserver/dds.si5351.c			DDS: SI5351 (NYI)
 src/rrserver/debug.c				Debug stuff
+src/rrserver/defcfg.c
 src/rrserver/dict.c				Support for a simple key-val dict type
 src/rrserver/eeprom.c				EEPROM configuration (emulated on posix)
 src/rrserver/faults.c				Fault handling
@@ -34,8 +35,9 @@ src/rrserver/gui.c				GUI (NYI)
 src/rrserver/gui.fb.c				Virtual framebuffer (NYI)
 src/rrserver/gui.nextion.c			GUI on Nextion display via serial (NYI)
 src/rrserver/help.c				Help system (NYI see /doc on http or doc/ in src tree)
-src/rrserver/http.api.c				HTTP api commands
 src/rrserver/http.c				HTTP core
+src/rrserver/http.api.c				HTTP api commands
+src/rrserver/http.bans.c
 src/rrserver/i2c.c				i2c interfaces (NYI)
 src/rrserver/i2c.esp32.c
 src/rrserver/i2c.linux.c
@@ -81,6 +83,7 @@ src/rrclient/defconfig.c
 src/rrclient/gtk.c
 src/rrclient/gtk.codecpicker.c
 src/rrclient/gtk.editcfg.c
+src/rrclient/gtk.fm-mode.c
 src/rrclient/gtk.freqentry.c
 src/rrclient/gtk.pttbtn.c
 src/rrclient/gtk.serverpick.c
@@ -94,26 +97,27 @@ src/rrclient/ws.audio.c
 src/rrclient/ws.auth.c
 src/rrclient/ws.c
 src/rrclient/ws.chat.c
+src/rrclient/ws.file-xfer.c
 src/rrclient/ws.rigctl.c
 src/rrclient/ws.tx-audio.c
 
 -----
 fwdsp
 -----
-src/fwdsp/fwdsp-main.c
+src/fwdsp/fwdsp-main.c		Core of the fwdsp interface to gstreamer
 
 -----
 webui
 -----
-www/js/webui.audio.js
-www/js/webui.auth.js
-www/js/webui.chat.js
-www/js/webui.emoji.js
-www/js/webui.filexfer.js
-www/js/webui.js
-www/js/webui.notifications.js
-www/js/webui.rigctl.js
-www/js/webui.syslog.js
+www/js/webui.audio.js		Support for audio in the WebUI
+www/js/webui.auth.js		Authentication related stuff for WebUI
+www/js/webui.chat.js		Chat stuff in WebUI
+www/js/webui.emoji.js		Emoji keyboard in WebUI
+www/js/webui.filexfer.js	File transfer for WebUI
+www/js/webui.js			WebUI
+www/js/webui.notifications.js	Notifications for WebUI events (sounds/alerts)
+www/js/webui.rigctl.js		Rig control / status protocol in WebUI
+www/js/webui.syslog.js		System log tab in WebUI
 
 ---
 css

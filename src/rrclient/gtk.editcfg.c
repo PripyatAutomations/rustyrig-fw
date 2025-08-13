@@ -214,6 +214,11 @@ void gui_edit_config(const char *filepath) {
       long len = ftell(fp);
       rewind(fp);
       char *buf = malloc(len + 1);
+      if (!buf) {
+         fprintf(stderr, "OOM in gui_edit_config?!\n");
+         fclose(fp);
+         return;
+      }
       fread(buf, 1, len, fp);
       buf[len] = '\0';
       gtk_text_buffer_set_text(ctx->buffer, buf, -1);
