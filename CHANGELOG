@@ -1,14 +1,15 @@
-rustyrig-fw (20250812) testing; urgency=medium
+rustyrig-fw (20250813) testing; urgency=medium
 
  * Added multi-line (\ at end of line) support to config files
  * Added variable expansion in config, up to 6 levels and 64kbytes
+ * Added keybindings (see help/KEYBINDINGS)
  * Cleaned up GtkFreqInput widget to not suck
  * Started work on new audio transport stuff using shmem and gstreamer
  * A little Work on catching webui protocol support up to the GTK client
  * Work on documenting the json over websocket protocol 
  * Some small re-arranging of the distribution (icons, etc to res/)
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 12 Aug 2025 20:34:13 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 13 Aug 2025 12:34:13 -0400
 
 rustyrig-fw (20250702) testing; urgency=medium
 
