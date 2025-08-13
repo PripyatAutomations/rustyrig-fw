@@ -29,7 +29,7 @@
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "common/posix.h"
 #include "common/codecneg.h"
 #include "rrserver/au.h"

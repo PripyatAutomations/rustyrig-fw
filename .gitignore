@@ -42,4 +42,5 @@ rrcli/build/*/obj/*
 state/*.pipe
 state/*.log
 state/*.tmp
+run/* run/*/*
 recordings/*.*

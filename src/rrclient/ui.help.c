@@ -27,6 +27,19 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+
+static bool safe_name(const char *name) {
+   // reject empty names or those containing path separators or parent refs
+   if (!name || !*name) {
+      return false;
+   }
+
+   if (strstr(name, "..") || strchr(name, '/') || strchr(name, '\\')) {
+      return false;
+   }
+   return true;
+}
+
 void show_help(const char *topic) {
   if (!topic) {
      ui_print("******************************************");
@@ -63,8 +76,41 @@ void show_help(const char *topic) {
      ui_print("   alt-u                   Toggle userlist");
      ui_print("******************************************");
   } else {
+     char path[256];
+     char line[1024];
+
      // Sanitize the user input
-     // Find the help/ file
-     // Present it to the user with ui_print
+     if (!safe_name(topic)) {
+        ui_print("Invalid help topic");
+        return;
+     }
+
+     // Find the help file
+     const char *help_dir = cfg_get_exp("path.help-dir");
+     // did we get a key from the cfgstore?
+     if (help_dir) {
+        snprintf(path, sizeof(path), "%s/%s", help_dir, topic);
+        free((void *)help_dir);
+     } else {
+        snprintf(path, sizeof(path), "./help/%s", topic);
+     }
+
+     FILE *fp = fopen(path, "r");
+     if (!fp) {
+        ui_print("Help file '%s' not found", path);
+        return;
+     }
+
+     while (fgets(line, sizeof(line), fp)) {
+        size_t len = strlen(line);
+
+        // remove trailing newlines and carriage returns
+        while (len && (line[len-1] == '\n' || line[len-1] == '\r')) {
+           line[--len] = '\0';
+        }
+        // Present it to the user with ui_print
+        ui_print(line);
+     }
+     fclose(fp);
   }
 }

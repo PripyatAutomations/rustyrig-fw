@@ -35,7 +35,7 @@
 #include "rrserver/power.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/vfo.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "rrserver/backend.h"
 #include "rrserver/ws.h"
 static RIG *hl_rig = NULL;	// hamlib Rig interface

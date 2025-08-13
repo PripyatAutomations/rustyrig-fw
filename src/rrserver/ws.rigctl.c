@@ -24,7 +24,7 @@
 #include "rrserver/au.h"
 #include "rrserver/auth.h"
 #include "rrserver/backend.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "common/posix.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"

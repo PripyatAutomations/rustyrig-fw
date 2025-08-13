@@ -28,6 +28,7 @@
  */
 #include "build_config.h"
 #include "common/config.h"
+#include "../ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -35,14 +36,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
-#include "rrserver/state.h"
-#include "rrserver/thermal.h"
-#include "rrserver/power.h"
-#include "rrserver/eeprom.h"
-#include "rrserver/vfo.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 
 // Initialize CAT control
 int32_t rr_cat_init(void) {
@@ -136,6 +131,7 @@ bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
     Log(LOG_CRAZY, "cat.ws", "parsing %d bytes from ws: |%.*s|", msg->data.len, msg->data.len, msg->data.buf);
 
     // Extract "cmd" and "val" from JSON
+#if	0
     const char *cmd_str = mg_json_get_str(msg->data, "$.cat.cmd");
     const char *val_str = mg_json_get_str(msg->data, "$.cat.val");
     Log(LOG_DEBUG, "cat.ws", "cmd: %s, val: %s", cmd_str, val_str);
@@ -153,7 +149,7 @@ bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
 cleanup:
     free((void *)cmd_str);
     free((void *)val_str);
-
+#endif	// 0
     return false;
 }
 

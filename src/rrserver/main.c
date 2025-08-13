@@ -21,7 +21,7 @@
 #include "rrserver/atu.h"
 #include "rrserver/au.h"
 #include "rrserver/backend.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/faults.h"
 #include "rrserver/filters.h"

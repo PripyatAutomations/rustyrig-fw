@@ -25,7 +25,7 @@
 #include "rrserver/power.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/vfo.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "rrserver/backend.h"
 
 static bool be_dummy_init(void) {

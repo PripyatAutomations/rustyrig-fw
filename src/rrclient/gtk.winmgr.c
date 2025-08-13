@@ -277,6 +277,10 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
 #endif
 }
 
+static void on_window_destroy(GtkWidget *w, gpointer user_data) {
+   gui_forget_window((gui_window_t *)user_data, NULL);
+}
+
 // Store window name / pointer in our list
 gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    if (!gtk_win || !name) {
@@ -321,43 +325,41 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
       }
    }
 
-   g_signal_connect(gtk_win, "configure-event", G_CALLBACK(on_window_configure), NULL);
-// XXX: Handle window destruction events by calling gui_forget_window
-//   g_signal_connect(window, "delete-event", G_CALLBACK(on_window_delete), NULL);
-//   g_signal_connect(window, "destory", G_CALLBACK(on_window_destroy), NULL);
+   g_signal_connect(gtk_win, "configure-event", G_CALLBACK(on_window_configure), gtk_win);
+   g_signal_connect(gtk_win, "destroy", G_CALLBACK(on_window_destroy), gtk_win);
    return p;
 }
 
 // Forget about a window
-bool gui_forget_window(gui_window_t *window, const char *name) {
-   if (!window && !name) {
-      return true;
+bool gui_forget_window(gui_window_t *gw, const char *name) {
+   if (!gw && (!name || !*name)) {
+      return false;
    }
 
-   gui_window_t *prev = NULL;
-   for (gui_window_t *p = gui_windows; p; p = p->next) {
-      // If window is given and matches, free it, regardless of the title match
-      if (window && (GTK_WINDOW(p->gtk_win) == GTK_WINDOW(window))) {
-         if (prev) {
-            prev->next = p->next;
-         }
-         free(p);
-         return false;
+   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window called with gw:<%x>, named '%s'", gw, name);
+
+   gui_window_t **pp = &gui_windows;
+   while (*pp) {
+      gui_window_t *p = *pp;
+      bool match = false;
+
+      if (gw && p == gw) {
+         match = true;                              // exact node
+      } else if (gw && p->gtk_win == gw->gtk_win) {
+         match = true;       // same GtkWindow
+      } else if (name && strcmp(p->name, name) == 0) {
+         match = true;    // by name
       }
 
-      // If window can't be found by handle (or NULL handle), search by name to free it
-      if (name && strcmp(p->name, name) == 0) {
-         if (prev) {
-            prev->next = p->next;
-         }
-         free(p);
-         return false;
+      if (match) {
+         *pp = p->next;   // works for head and middle/tail
+         /* do NOT g_free the widget here; destroy signal handles it */
+         free(p);         // just free your list node
+         return true;
       }
-      prev = p;
+      pp = &p->next;
    }
-
-   // report failure (not found)
-   return true;
+   return false;  // not found
 }
 
 // React to minimize/restore events

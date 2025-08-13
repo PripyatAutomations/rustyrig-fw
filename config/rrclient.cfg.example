@@ -14,13 +14,14 @@ default.tx.power=50
 ;debug.http=true
 audio.debug=*:3
 audio.volume.rx=0
+path.help-dir=./help
 
 ; Window placements & options (hidden|minimized|modal|no-hide|raised)
 ; Size of -1 will avoid resizing the window and let GTK size it
 ui.userlist=-1,-1@100,100|hidden
 ui.serverpick=-1,-1@526,174|modal|raised
-ui.main=999,596@887,482|raised
-ui.fm-mode=429,212@1473,234|raised|modal
+ui.main=999,596@889,482|raised
+ui.fm-mode=429,226@1477,233|raised|modal
 
 # Length of time to block CAT updates (in seconds) after a local state change
 cat.poll-blocking=1

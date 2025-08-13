@@ -25,7 +25,7 @@
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
 #include "common/logger.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "common/posix.h"
 #include "rrserver/http.h"
 #include "rrserver/ws.h"

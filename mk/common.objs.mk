@@ -1,3 +1,6 @@
+comm_objs += cat.o			# CAT parsers
+comm_objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
+comm_objs += cat.yaesu.o		# Yaesu CAT protocol
 comm_objs += codecneg.o
 comm_objs += debug.o			# Debug stuff
 comm_objs += dict.o			# dictionary object

@@ -34,6 +34,7 @@ defconfig_t defcfg[] = {
    { "default.tx.power",		"30",	"Default TX power in watts (float)" },
    { "log.level",			"debug", "Log level (audit | crit | warn | info | debug | crazy)" },
    { "log.show-ts",			"true", "Show timestamps in log" },
+   { "path.help-dir",			"./help", "Path to find help-files" },
 //   { "server.auto-connect",		NULL,	"Profile name to autoconnect to" },
 #ifdef _WIN32
    { "ui.gtk.theme",        "Windows10", "Chosen light theme" },

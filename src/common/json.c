@@ -19,7 +19,7 @@
 #include <time.h>
 #include "../../ext/libmongoose/mongoose.h"
 #include "common/dict.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "rrserver/codec.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"

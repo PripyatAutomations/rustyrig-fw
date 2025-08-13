@@ -18,7 +18,7 @@
 #include <limits.h>
 #include <time.h>
 #include "../../ext/libmongoose/mongoose.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"
 #include "common/logger.h"

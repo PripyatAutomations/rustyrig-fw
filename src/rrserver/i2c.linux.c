@@ -21,7 +21,7 @@
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
 #include "common/logger.h"
-#include "rrserver/cat.h"
+#include "common/cat.h"
 #include "common/posix.h"
 #include "rrserver/i2c.hal.h"
 #include <fcntl.h>
