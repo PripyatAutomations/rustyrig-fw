@@ -100,6 +100,8 @@ void show_help(const char *topic) {
         ui_print("Help file '%s' not found", path);
         return;
      }
+     ui_print("********************************");
+     ui_print("* HELP for %s", topic);
 
      while (fgets(line, sizeof(line), fp)) {
         size_t len = strlen(line);

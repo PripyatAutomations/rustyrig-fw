@@ -27,6 +27,7 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+// Linked list of all of our windows, usually 'main' will be the head of the list
 gui_window_t *gui_windows = NULL;
 extern GtkWidget *main_window;
 static guint configure_event_timeout = 0;
@@ -141,6 +142,7 @@ bool place_window(GtkWidget *window) {
 
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);
+   Log(LOG_DEBUG, "gtk.winmgr", "place_window called for window <%x> returned gui_window <%x> named %s", window, win, win->name);
 
    if (win) {
       char key[512];
@@ -278,12 +280,16 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
 }
 
 static void on_window_destroy(GtkWidget *w, gpointer user_data) {
-   gui_forget_window((gui_window_t *)user_data, NULL);
+   gui_window_t *p = gui_find_window(w, NULL);
+   gui_forget_window(p, p->name);
 }
 
 // Store window name / pointer in our list
 gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    if (!gtk_win || !name) {
+      Log(LOG_CRIT, "gui_store_window called with invalid args: name:%s gtk_win: <%x>", name, gtk_win);
+      // XXX: remove this one we debug
+      abort();
       return NULL;
    }
 
@@ -333,6 +339,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 // Forget about a window
 bool gui_forget_window(gui_window_t *gw, const char *name) {
    if (!gw && (!name || !*name)) {
+      Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window called with invalid parameters: gw <%x> name <%x>", gw, name);
       return false;
    }
 
@@ -344,14 +351,18 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
       bool match = false;
 
       if (gw && p == gw) {
-         match = true;                              // exact node
+         Log(LOG_DEBUG, "gtk.winmgr", "match by ptr:%x", gw);
+         match = true;   
       } else if (gw && p->gtk_win == gw->gtk_win) {
+         Log(LOG_DEBUG, "gtk.winmgr", "match by win ptr: %x", gw->gtk_win);
          match = true;       // same GtkWindow
       } else if (name && strcmp(p->name, name) == 0) {
+         Log(LOG_DEBUG, "gtk.winmgr", "match by name: %s", name);
          match = true;    // by name
       }
 
       if (match) {
+         Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: MATCH for window, removing");
          *pp = p->next;   // works for head and middle/tail
          /* do NOT g_free the widget here; destroy signal handles it */
          free(p);         // just free your list node
