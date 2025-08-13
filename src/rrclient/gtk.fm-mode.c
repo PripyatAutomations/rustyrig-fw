@@ -35,25 +35,38 @@ extern bool ws_connected;
 
 /* Tone lists */
 static const char *ctcss_tones[] = {
-    "67.0", "69.3", "71.9", "74.4", "77.0", "79.7", "82.5", "85.4", "88.5",
-    "91.5", "94.8", "97.4", "100.0", "103.5", "107.2", "110.9", "114.8",
-    "118.8", "123.0", "127.3", "131.8", "136.5", "141.3", "146.2", "151.4",
-    "156.7", "162.2", "167.9", "173.8", "179.9", "186.2", "192.8", "203.5",
-    "210.7", "218.1", "225.7", "233.6", "241.8", "250.3", NULL
+   "67.0", "69.3", "71.9", "74.4", "77.0",
+   "79.7", "82.5", "85.4", "88.5", "91.5",
+   "94.8", "97.4", "100.0", "103.5", "107.2",
+   "110.9", "114.8", "118.8", "123.0", "127.3",
+   "131.8", "136.5", "141.3", "146.2", "151.4",
+   "156.7", "162.2", "167.9", "173.8", "179.9",
+   "186.2", "192.8", "203.5", "210.7", "218.1",
+   "225.7", "233.6", "241.8", "250.3", NULL
 };
 
 static const char *dcs_tones[] = {
-    "023", "025", "026", "031", "032", "036", "043", "047", "051", "053",
-    "054", "065", "071", "072", "073", "074", "114", "115", "116", "122",
-    "125", "131", "132", "134", "143", "145", "152", "155", "156", "162",
-    "165", "172", "174", "205", "212", "223", "225", "226", "243", "244",
-    "245", "246", "251", "252", "255", "261", "263", "265", "266", "271",
-    "274", "306", "311", "315", "325", "331", "332", "343", "346", "351",
-    "356", "364", "365", "371", "411", "412", "413", "423", "431", "432",
-    "445", "464", "465", "466", "503", "506", "516", "523", "526", "532",
-    "546", "565", "606", "612", "624", "627", "631", "632", "645", "654",
-    "662", "664", "703", "712", "723", "731", "732", "734", "743", "754",
-    NULL
+   "023", "025", "026", "031", "032",
+   "036", "043", "047", "051", "053",
+   "054", "065", "071", "072", "073",
+   "074", "114", "115", "116", "122",
+   "125", "131", "132", "134", "143",
+   "145", "152", "155", "156", "162",
+   "165", "172", "174", "205", "212",
+   "223", "225", "226", "243", "244",
+   "245", "246", "251", "252", "255",
+   "261", "263", "265", "266", "271",
+   "274", "306", "311", "315", "325",
+   "331", "332", "343", "346", "351",
+   "356", "364", "365", "371", "411",
+   "412", "413", "423", "431", "432",
+   "445", "464", "465", "466", "503",
+   "506", "516", "523", "526", "532",
+   "546", "565", "606", "612", "624",
+   "627", "631", "632", "645", "654",
+   "662", "664", "703", "712", "723",
+   "731", "732", "734", "743", "754",
+   NULL
 };
 
 /* Static pointers to widgets */
@@ -62,54 +75,54 @@ static GtkWidget *tone_type_combo = NULL;
 
 /* Utility to populate tone combos */
 static void populate_tone_combo(GtkComboBoxText *combo, const char **tones) {
-    gtk_combo_box_text_remove_all(combo);
-    for (int i = 0; tones[i]; i++) {
-        gtk_combo_box_text_append_text(combo, tones[i]);
-    }
-    gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
+   gtk_combo_box_text_remove_all(combo);
+   for (int i = 0; tones[i]; i++) {
+      gtk_combo_box_text_append_text(combo, tones[i]);
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
 }
 
 /* Update RX/TX tone combos enable state and contents */
 static void update_tone_dropdowns(void) {
-    const gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode_combo));
-    const gchar *tone_type = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(tone_type_combo));
-    const char **tones = g_strcmp0(tone_type, "DCS") == 0 ? dcs_tones : ctcss_tones;
+   const gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode_combo));
+   const gchar *tone_type = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(tone_type_combo));
+   const char **tones = g_strcmp0(tone_type, "DCS") == 0 ? dcs_tones : ctcss_tones;
 
-    gboolean rx_enabled = FALSE;
-    gboolean tx_enabled = FALSE;
+   gboolean rx_enabled = FALSE;
+   gboolean tx_enabled = FALSE;
 
-    if (mode) {
-       if (g_strcmp0(mode, "RX") == 0 || g_strcmp0(mode, "RX/TX") == 0) {
-          rx_enabled = TRUE;
-       }
-       if (g_strcmp0(mode, "TX") == 0 || g_strcmp0(mode, "RX/TX") == 0) {
-          tx_enabled = TRUE;
-       }
-    }
+   if (mode) {
+      if (g_strcmp0(mode, "RX") == 0 || g_strcmp0(mode, "RX/TX") == 0) {
+         rx_enabled = TRUE;
+      }
+      if (g_strcmp0(mode, "TX") == 0 || g_strcmp0(mode, "RX/TX") == 0) {
+         tx_enabled = TRUE;
+      }
+   }
 
-    gtk_widget_set_sensitive(GTK_WIDGET(rx_combo), rx_enabled);
-    gtk_widget_set_sensitive(GTK_WIDGET(tx_combo), tx_enabled);
+   gtk_widget_set_sensitive(GTK_WIDGET(rx_combo), rx_enabled);
+   gtk_widget_set_sensitive(GTK_WIDGET(tx_combo), tx_enabled);
 
-    if (rx_enabled) {
-       populate_tone_combo(GTK_COMBO_BOX_TEXT(rx_combo), tones);
-    } else {
-       gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(rx_combo));
-    }
+   if (rx_enabled) {
+      populate_tone_combo(GTK_COMBO_BOX_TEXT(rx_combo), tones);
+   } else {
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(rx_combo));
+   }
 
-    if (tx_enabled) {
-       populate_tone_combo(GTK_COMBO_BOX_TEXT(tx_combo), tones);
-    } else {
-       gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(tx_combo));
-    }
+   if (tx_enabled) {
+      populate_tone_combo(GTK_COMBO_BOX_TEXT(tx_combo), tones);
+   } else {
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(tx_combo));
+   }
 }
 
 /* Signal handlers */
 static void on_mode_changed_inner(GtkComboBoxText *combo, gpointer user_data) {
-    update_tone_dropdowns();
+   update_tone_dropdowns();
 }
 
 static void on_tone_type_changed(GtkComboBoxText *combo, gpointer user_data) {
-    update_tone_dropdowns();
+   update_tone_dropdowns();
 }
 
 void fm_dialog_show(void) {
@@ -195,6 +208,7 @@ void fm_dialog_show(void) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "15.0");  // 23cm band
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "20.0");  // 13cm band
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "25.0");  // 9cm band
+
       // Negative offsets
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.6");   // 220 MHz
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.7");   // 2m (144 MHz)
@@ -209,7 +223,6 @@ void fm_dialog_show(void) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-25.0");  // 9cm band
       gtk_combo_box_set_active(GTK_COMBO_BOX(offset_combo), 0);
       gtk_grid_attach(GTK_GRID(grid), offset_combo, 1, 4, 1, 1);
-
 
       /* Initialize combos based on default states */
       update_tone_dropdowns();

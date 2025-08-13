@@ -114,6 +114,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    if (gtk_win) {
       for (gui_window_t *p = gui_windows; p; p = p->next) {
          if (p->gtk_win == gtk_win) {
+//            Log(LOG_DEBUG, "gtk.winmgr", "Returning %s for ptr:<%x>", p->name, gtk_win);
             return p;
          }
       }
@@ -123,6 +124,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    if (name) {
       for (gui_window_t *p = gui_windows; p; p = p->next) {
          if (p && strcmp(p->name, name) == 0) {
+//            Log(LOG_DEBUG, "gtk.winmgr", "Returning %s for name %s", p->name, name);
             return p;
          }
       }
@@ -252,6 +254,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    // Check if the icon name was registered by attempting to load it
    GIcon *icon = g_themed_icon_new(name);
    GtkIconTheme *theme = gtk_icon_theme_get_default();
+
    if (gtk_icon_theme_has_icon(theme, name)) {
       success = true;
    } else {
@@ -303,6 +306,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
       gui_windows = p;
    } else {
       gui_window_t *x = gui_windows;
+
       // find last window
       while (x) {
          if (x->next == NULL) {

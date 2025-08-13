@@ -31,6 +31,7 @@
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
 extern bool clear_syslog(void);
+extern void show_help(const char *topic);
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_admin_tab(void);
 extern dict *cfg;
@@ -62,6 +63,7 @@ GtkWidget *main_window = NULL;
 GtkWidget *toggle_userlist_button = NULL;
 GtkWidget *control_box = NULL;
 GtkTextBuffer *text_buffer = NULL;
+
 
 ///////// Tab View //////////
 GtkWidget *notebook = NULL;
@@ -299,6 +301,7 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
           event->keyval == GDK_KEY_4) {
          if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
             gtk_widget_show_all(main_window);
+            gtk_window_present(GTK_WINDOW(main_window));
             place_window(main_window);
          }
       }
@@ -327,7 +330,7 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
             break;
          case GDK_KEY_H:
          case GDK_KEY_h:
-            // show_help("KEYBINDINGS");
+            show_help("KEYBINDINGS");
             break;
          case GDK_KEY_M:
          case GDK_KEY_m:
@@ -354,7 +357,6 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
             gtk_widget_grab_focus(GTK_WIDGET(width_combo));
             break;
       }
-      gtk_window_present(GTK_WINDOW(main_window));
       return TRUE;
    }
    return FALSE;
