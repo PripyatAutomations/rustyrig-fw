@@ -362,7 +362,7 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
       }
 
       if (match) {
-         Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: MATCH for window, removing");
+         Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: MATCH for window <%x>, removing", gw);
          *pp = p->next;   // works for head and middle/tail
          /* do NOT g_free the widget here; destroy signal handles it */
          free(p);         // just free your list node
