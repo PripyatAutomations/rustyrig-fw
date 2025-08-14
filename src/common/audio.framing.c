@@ -29,15 +29,16 @@
 
 #define AUDIO_HDR_SIZE 4
 
-void pack_audio_frame(uint8_t *out, uint16_t chan_id, uint16_t seq, const void *data, size_t len) {
+size_t pack_audio_frame(uint8_t *out, uint16_t chan_id, uint16_t seq, const void *data, size_t len) {
    uint16_t net_chan = htons(chan_id);
    uint16_t net_seq  = htons(seq);
    memcpy(out,     &net_chan, 2);
    memcpy(out + 2, &net_seq,  2);
    memcpy(out + AUDIO_HDR_SIZE, data, len);
+   return AUDIO_HDR_SIZE + len;
 }
 
-void unpack_audio_frame(const uint8_t *in, uint16_t *chan_id, uint16_t *seq, const uint8_t **payload, size_t payload_len) {
+void unpack_audio_frame(const uint8_t *in, uint16_t *chan_id, uint16_t *seq, const uint8_t **payload) {
    *chan_id = ntohs(*(uint16_t *)(in));
    *seq     = ntohs(*(uint16_t *)(in + 2));
    *payload = in + AUDIO_HDR_SIZE;
