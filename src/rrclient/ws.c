@@ -155,6 +155,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
          free((void *)preferred);
       } else if (media_cmd && strcasecmp(media_cmd, "isupport") == 0) {
          char *media_preferred = mg_json_get_str(msg_data, "$.media.preferred");
+
          if (media_codecs) {
             Log(LOG_DEBUG, "ws.media", "Server negotiated codecs: %s, preferred: %s", media_codecs, media_preferred);
 

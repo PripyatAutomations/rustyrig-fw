@@ -142,14 +142,13 @@ bool place_window(GtkWidget *window) {
 
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);
-   Log(LOG_DEBUG, "gtk.winmgr", "place_window called for window <%x> returned gui_window <%x> named %s", window, win, win->name);
+   Log(LOG_CRAZY, "gtk.winmgr", "place_window: gui_find_window for window <%x> returned gui_window <%x> named |%s|", window, win, win->name);
 
    if (win) {
       char key[512];
       memset(key, 0, sizeof(key));
       snprintf(key, sizeof(key), "ui.%s", win->name);
       const char *cfg_full = cfg_get_exp(key);
-      Log(LOG_CRAZY, "gtk.winmgr", "Key %s for window %s returned %s", key, win->name, cfg_full);
 
       if (cfg_full) {
          // We found a new-style configuration, parse it
@@ -310,7 +309,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    memset(p, 0, sizeof(gui_window_t));
    snprintf(p->name, sizeof(p->name), "%s", name);
    p->gtk_win = gtk_win;
-   Log(LOG_CRAZY, "gtk.winmgr", "storing window <%x> as '%s'", gtk_win, name);
+   Log(LOG_INFO, "gtk.winmgr", "new '%s' window <%x> stored at <%x>", name, gtk_win, p);
 
    if (!gui_windows) {
       gui_windows = p;

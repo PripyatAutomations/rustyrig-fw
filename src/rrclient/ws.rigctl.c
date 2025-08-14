@@ -93,13 +93,13 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
          if (freq > 0) {
 //            g_signal_handler_block(freq_entry, freq_changed_handler_id);
-            Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
+//            Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
             gtk_freq_entry_set_value(GTK_FREQ_ENTRY(freq_entry), freq);
 //            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
          }
 
          if (mode && strlen(mode) > 0) {
-            Log(LOG_CRAZY, "ws", "Updating mode_combo: %s", mode);
+//            Log(LOG_CRAZY, "ws", "Updating mode_combo: %s", mode);
 
             // XXX: We need to suppress sending a CAT message
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
@@ -148,7 +148,7 @@ bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"mode\", \"vfo\": \"%s\", \"mode\": \"%s\" } }",
                  vfo, mode);
-   Log(LOG_DEBUG, "ws.cat", "Sending: %s", msgbuf);
+   Log(LOG_CRAZY, "ws.cat", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
    if (ret < 0) {
@@ -166,7 +166,7 @@ bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
    char msgbuf[512];
    memset(msgbuf, 0, 512);
    snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"freq\", \"vfo\": \"%s\", \"freq\": %.0f } }", vfo, freq);
-   Log(LOG_DEBUG, "ws.cat", "Sending: %s", msgbuf);
+   Log(LOG_CRAZY, "ws.cat", "Sending: %s", msgbuf);
    int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
 
    if (ret < 0) {

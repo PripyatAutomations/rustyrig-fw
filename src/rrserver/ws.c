@@ -212,7 +212,8 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       cptr->last_heard = now;
       cptr->last_ping = 0;
       cptr->ping_attempts = 0;
-      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%li] and last_ping to 0", cptr->chatname, now);
+      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%li] and last_ping to 0",
+          (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), now);
    }
 
 cleanup:
@@ -338,6 +339,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            // XXX: We should look up pipelines that are configured so we can only list codecs that can actually be used
            prepare_msg(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"isupport\", \"codecs\": \"%s\", \"preferred\": \"%s\" } }", common, def_codec);
            mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+           Log(LOG_DEBUG, "ws.media", "Sending supported codecs |%s| with preferred |%s| to client |%s|", common, def_codec, cptr->chatname);
            free(common);
         } else {
            Log(LOG_CRIT, "ws.media", "media.capab without payload");

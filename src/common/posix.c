@@ -53,7 +53,7 @@ static void sighandler(int32_t signum) {
    switch(signum) {
       // Convenience signals
       case SIGHUP:
-         Log(LOG_INFO, "core", "Caught SIGHUP");
+         Log(LOG_CRIT, "core", "Caught SIGHUP, reloading");
          // XXX: Reload from eeprom
          break;
       case SIGUSR1:

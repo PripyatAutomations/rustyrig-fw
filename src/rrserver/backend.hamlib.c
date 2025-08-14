@@ -309,7 +309,7 @@ rr_vfo_data_t *hl_poll(void) {
         
    mp = mg_str(msgbuf);
 
-   Log(LOG_CRAZY, "be.hamlib", "Sending %s", msgbuf);
+//   Log(LOG_CRAZY, "be.hamlib", "Sending %s", msgbuf);
    // Send to everyone, including the sender, which will then display it in various widgets
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
 

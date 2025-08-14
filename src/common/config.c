@@ -12,14 +12,9 @@
 #include "common/util.file.h"
 #include "common/posix.h"
 
-// User configuration values from config file / ui
-dict *cfg = NULL;
-
-// Hard-coded defaults (defcfg.c)
-dict *default_cfg = NULL;
-
-// Holds a list of servers where applicable (client and fwdsp)
-dict *servers = NULL;
+dict *cfg = NULL;			// User configuration values from config file / ui
+dict *default_cfg = NULL;		// Hard-coded defaults (defcfg.c)
+dict *servers = NULL;			// Holds a list of servers where applicable (client and fwdsp)
 
 int dict_merge(dict *dst, dict *src) {
    if (!dst || !src) {
@@ -38,8 +33,15 @@ int dict_merge(dict *dst, dict *src) {
 }
 
 dict *dict_merge_new(dict *a, dict *b) {
+   // XXX: Should this return whichever of a or b exists? I feel NULL makes it more clear the merge failed...
+   if (!a || !b) {
+      Log(LOG_WARN, "dict", "dict_merge_new called with NULL a <%x> or NULL b <%x>", a, b);
+      return NULL;
+   }
+
    dict *merged = dict_new();
    if (!merged) {
+      fprintf(stderr, "OOM in dict_merge_new?!\n");
       return NULL;
    }
 
@@ -50,6 +52,7 @@ dict *dict_merge_new(dict *a, dict *b) {
    // Copy from a
    while ((rank = dict_enumerate(a, rank, &key, &val)) >= 0) {
       if (dict_add(merged, key, val) != 0) {
+         Log(LOG_WARN, "dict", "dict_merge_new: Failed merging A for a:<%x>, b:<%x>", a, b);
          dict_free(merged);
          return NULL;
       }
@@ -59,6 +62,7 @@ dict *dict_merge_new(dict *a, dict *b) {
    // Copy from b (overwriting a’s entries if necessary)
    while ((rank = dict_enumerate(b, rank, &key, &val)) >= 0) {
       if (dict_add(merged, key, val) != 0) {
+         Log(LOG_WARN, "dict", "dict_merge_new: Failed merging B for a:<%x>, b:<%x>", a, b);
          dict_free(merged);
          return NULL;
       }
@@ -69,13 +73,14 @@ dict *dict_merge_new(dict *a, dict *b) {
 
 bool cfg_set_default(dict *d, char *key, char *val) {
    if (!key || !d) {
-      Log(LOG_DEBUG, "config", "cfg_set_default: dict:<%x> key:<%x> is not valid", d, key);
+      Log(LOG_WARN, "config", "cfg_set_default: dict:<%x> key:<%x> is not valid", d, key);
       return true;
    }
 
 //   Log(LOG_CRAZY, "config", "Setting default for dict:<%x>/%s to '%s'", d, key, val);
+
    if (dict_add(d, key, val) != 0) {
-      Log(LOG_WARN, "config", "defcfg dict:<%x> failed to set key %s to val at <%x>", d, key, val);
+      Log(LOG_WARN, "config", "defcfg dict:<%x> failed to set key |%s| to val |%s| at <%x>", d, key, val, val);
       return true;
    }
 
@@ -84,12 +89,12 @@ bool cfg_set_default(dict *d, char *key, char *val) {
 
 bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
    if (!d) {
-      Log(LOG_CRIT, "config", "cfg_set_defaults: NULL dict");
+      Log(LOG_WARN, "config", "cfg_set_defaults: NULL dict");
       return true;
    }
 
    if (!defaults) {
-      Log(LOG_CRIT, "config", "cfg_set_defaults: NULL input");
+      Log(LOG_WARN, "config", "cfg_set_defaults: NULL input");
       return true;
    }
 
@@ -98,24 +103,23 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
    int i = 0;
    int warnings = 0;
    while (defaults[i].key) {
-//      Log(LOG_CRAZY, "config", "csd: key:<%x> val:<%x>", defaults[i].key, defaults[i].val);
-
       if (!defaults[i].val) {
-         Log(LOG_DEBUG, "config", "cfg_set_defaults: Skipping key %s as its empty", defaults[i].key);
+         Log(LOG_CRAZY, "config", "cfg_set_defaults: Skipping key |%s| as its empty", defaults[i].key);
          i++;
          continue;
       }
 
-//      Log(LOG_CRAZY, "config", "cfg_set_defaults: %s => %s", defaults[i].key, defaults[i].val);
+//      Log(LOG_CRAZY, "config", "cfg_set_defaults: |%s| => |%s|", defaults[i].key, defaults[i].val);
+
       if (cfg_set_default(d, defaults[i].key, defaults[i].val)) {
-         Log(LOG_CRIT, "config", "cfg_set_defaults: Failed to set key: %s", defaults[i].key);
+         Log(LOG_WARN, "config", "cfg_set_defaults: Failed to set key: |%s|", defaults[i].key);
          warnings++;
       }
 
       i++;
    }
 
-   Log(LOG_DEBUG, "config", "Imported %d default settings with %d warnings", i, warnings);
+   Log(LOG_INFO, "config", "Imported %d default settings with %d warnings", i, warnings);
    return true;
 }
 
@@ -146,7 +150,7 @@ dict *cfg_load(const char *path) {
 
    dict *newcfg = dict_new();
    if (!newcfg) {
-      Log(LOG_CRIT, "config", "cfg_load OOM creating dict");
+      fprintf(stderr, "OOM in cfg_load?!\n");
       exit(1);
    }
 
@@ -245,9 +249,6 @@ dict *cfg_load(const char *path) {
          end = buf + strlen(buf) - 1;
       }
 
-      // Now print the fully joined line once
-//      fprintf(stderr, "mbi: %s\n", buf);
-
       /////////////////////////////
       // parse the line contents //
       /////////////////////////////
@@ -341,10 +342,10 @@ dict *cfg_load(const char *path) {
             snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
             dict_add(servers, fullkey, val);
          } else {
-            Log(LOG_CRIT, "config", "Malformed line parsing '%s' at %s:%d", buf, path, line);
+            Log(LOG_WARN, "config", "Malformed line parsing |%s| at %s:%d", buf, path, line);
          }
       } else {
-         Log(LOG_CRIT, "config", "Unknown configuration section '%s' parsing '%s' at %s:%d", this_section, buf, path, line);
+         Log(LOG_WARN, "config", "Unknown configuration section |%s| parsing |%s| at %s:%d", this_section, buf, path, line);
          errors++;
       }
    } while (!feof(fp));
@@ -360,7 +361,7 @@ dict *cfg_load(const char *path) {
 
 const char *cfg_get(const char *key) {
    if (!key) {
-      Log(LOG_CRIT, "config", "got cfg_get with NULL key!");
+      Log(LOG_WARN, "config", "got cfg_get with NULL key!");
       return NULL;
    }
 
@@ -369,13 +370,13 @@ const char *cfg_get(const char *key) {
    // nope! try default
    if (!p) {
       if (!default_cfg) {
-         Log(LOG_DEBUG, "config", "defcfg not found looking for key %s", key);
+         Log(LOG_DEBUG, "config", "defcfg not found looking for key |%s|", key);
          return NULL;
       }
       p = dict_get(default_cfg, key, NULL);
-      Log(LOG_DEBUG, "config", "returning default value '%s' for key '%s'", p, key);
+      Log(LOG_DEBUG, "config", "returning default value |%s| for key |%s|", p, key);
    } else {
-      Log(LOG_CRAZY, "config", "returning user value '%s' for key '%s", p, key);
+      Log(LOG_CRAZY, "config", "returning user value |%s| for key |%s|", p, key);
    }
    return p;
 }
@@ -384,13 +385,13 @@ const char *cfg_get(const char *key) {
 // You *MUST* free the return value
 const char *cfg_get_exp(const char *key) {
    if (!key) {
-      Log(LOG_CRIT, "config", "got cfg_get_exp with NULL key!");
+      Log(LOG_WARN, "config", "cfg_get_exp: NULL key!");
       return NULL;
    }
 
    const char *p = cfg_get(key);
    if (!p) {
-      Log(LOG_DEBUG, "config", "key '%s' not found", key);
+      Log(LOG_DEBUG, "config", "cfg_get_exp: key |%s| not found", key);
       return NULL;
    }
 
@@ -460,7 +461,7 @@ const char *cfg_get_exp(const char *key) {
       buf = shrunk;
    }
 
-//   fprintf(stderr, "exp: returning %lu bytes for key %s => %s\n", (unsigned long)final_len, key, buf);
+//   fprintf(stderr, "cfg_get_exp: returning %lu bytes for key %s => %s\n", (unsigned long)final_len, key, buf);
 
    return buf; // Caller must free
 }
@@ -582,7 +583,7 @@ static void cfg_print_servers(dict *servers, FILE *fp) {
 bool cfg_save(dict *d, const char *path) {
    FILE *fp = fopen(path, "w");
    if (!fp) {
-      Log(LOG_CRIT, "config", "Failed to open save file: '%s': %d:%s", path, errno, strerror(errno));
+      Log(LOG_WARN, "config", "Failed to open save file: '%s': %d:%s", path, errno, strerror(errno));
       return true;
    }
 
@@ -618,7 +619,7 @@ bool run_reload_events(const char *key) {
 
    while (rl) {
       if (strcasecmp(rl->key, key) == 0) {
-         Log(LOG_DEBUG, "event", "reload: run callback at <%x> for key '%s'", rl->callback, key);
+         Log(LOG_CRAZY, "event", "reload: run callback at <%x> for key '%s'", rl->callback, key);
          rl->callback(key);
       }
       rl = rl->next;

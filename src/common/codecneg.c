@@ -68,7 +68,7 @@ char *codec_filter_common(const char *preferred, const char *available) {
    size_t res_sz = 0;
 
    if (!preferred || !available) {
-      Log(LOG_CRIT, "codecneg", "codec_filter_common: preferred:<%x> available:<%x>", preferred, available);
+      Log(LOG_WARN, "codecneg", "codec_filter_common: empty list -- preferred:<%x> available:<%x>", preferred, available);
       return NULL;
    }
 
@@ -83,12 +83,9 @@ char *codec_filter_common(const char *preferred, const char *available) {
       }
 
       const char *start = p;
-      while (*p && *p != ' ') {
-         p++;
-      }
+      while (*p && *p != ' ') p++;
       size_t len = p - start;
 
-      // Now scan `available` token-by-token
       const char *a = available;
       while (*a) {
          while (*a == ' ') {
@@ -100,29 +97,21 @@ char *codec_filter_common(const char *preferred, const char *available) {
          }
 
          const char *astart = a;
-         while (*a && *a != ' ') {
-            a++;
-         }
+         while (*a && *a != ' ') a++;
          size_t alen = a - astart;
 
          if (len == alen && memcmp(start, astart, len) == 0) {
             char *new_result = realloc(result, res_sz + len + 2);
-            // we do this to make sure that we free everything
             if (!new_result) {
-               if (result) {
-                  free(result);
-               }
+               free(result);
                return NULL;
             }
-            // Go ahead and store it
             result = new_result;
-            if (len + res_sz <= sizeof(result)) {
-               memcpy(result + res_sz, start, len);
-               res_sz += len;
-               result[res_sz++] = ' ';
-               result[res_sz] = 0;
-             }
-             break;
+            memcpy(result + res_sz, start, len);
+            res_sz += len;
+            result[res_sz++] = ' ';
+            result[res_sz] = '\0';
+            break; // break out of 'available' loop, continue with next preferred
          }
       }
    }
@@ -131,5 +120,6 @@ char *codec_filter_common(const char *preferred, const char *available) {
       result[--res_sz] = 0;
    }
 
+   Log(LOG_DEBUG, "codecneg", "codec_filter_common(|%s|, |%s|) returned |%s|", preferred, available, result);
    return result;
 }

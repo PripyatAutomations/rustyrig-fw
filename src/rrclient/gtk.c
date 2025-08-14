@@ -370,8 +370,6 @@ gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    }
    
    ret = gui_store_window(window, name);
-   Log(LOG_INFO, "gtk.winmgr", "new '%s' window <%x> stored at <%x>", name, window, ret);
-
    set_window_icon(window, "rustyrig");
    return ret;
 }

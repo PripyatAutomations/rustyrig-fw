@@ -86,7 +86,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
       sprintf(hex_output + (i * 2), "%02x", hash[i]);
    }
    hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
-   Log(LOG_CRAZY, "auth", "passwd %s nonce %s result %s", password, nonce, hex_output);
+   Log(LOG_CRAZY, "auth", "passwd |%s| nonce |%s| result |%s|", password, nonce, hex_output);
    
    return hex_output;
 }
@@ -110,10 +110,11 @@ int http_getuid(const char *user) {
       }
 
       if (strcasecmp(up->name, user) == 0) {
-         Log(LOG_CRAZY, "auth", "Found uid %d for username %s", i, user);
+         Log(LOG_CRAZY, "auth", "Found uid %d for username %s", i, up->name);
          return i;
       }
    }
+   Log(LOG_DEBUG, "auth", "http_getuid(%s) returns not-found!", user);
    return -1;
 }
 
@@ -317,7 +318,7 @@ bool match_priv(const char *user_privs, const char *priv) {
    const char *start = user_privs;
    size_t privlen = strlen(priv);
 
-   Log(LOG_CRAZY, "auth", "match_priv(): comparing '%s' to '%s'", user_privs, priv);
+   Log(LOG_CRAZY, "auth", "match_priv(): comparing |%s| to |%s|", user_privs, priv);
    if (user_privs == NULL || priv == NULL) {
       return false;
    }
@@ -333,17 +334,17 @@ bool match_priv(const char *user_privs, const char *priv) {
       memcpy(token, start, len);
       token[len] = '\0';
 
-      Log(LOG_CRAZY, "auth", "token=|%s|", token);
+//      Log(LOG_CRAZY, "auth", "token=|%s|", token);
 
       if (strcmp(token, priv) == 0) {
-         Log(LOG_CRAZY, "auth", " → exact match");
+         Log(LOG_CRAZY, "auth", " → exact match |%s|", token);
          return true;
       }
 
       if (len >= 2 && token[len - 2] == '.' && token[len - 1] == '*') {
          token[len - 2] = '\0';  // strip .*
          if (strncmp(priv, token, strlen(token)) == 0 && priv[strlen(token)] == '.') {
-            Log(LOG_CRAZY, "auth", " → wildcard match");
+            Log(LOG_CRAZY, "auth", " → wildcard match |%s|", token);
             return true;
          }
       }
@@ -407,7 +408,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    struct mg_str msg_data = msg->data;
-   Log(LOG_CRAZY, "ws.auth", "msgbuf: %s", msg_data);
+   Log(LOG_CRAZY, "ws.auth", "msgbuf: %s", msg_data.buf);
    char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
    char *pass = mg_json_get_str(msg_data, "$.auth.pass");
    char *token = mg_json_get_str(msg_data, "$.auth.token");
@@ -514,7 +515,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
       int login_uid = cptr->user->uid;
       if (login_uid < 0 || login_uid > HTTP_MAX_USERS) {
-         Log(LOG_WARN, "auth", "Invalid uid for username %s from IP %s:%d", cptr->chatname, ip, port);
+         Log(LOG_WARN, "auth", "Invalid uid for username |%s| from IP %s:%d", cptr->chatname, ip, port);
          ws_kick_client(cptr, "Invalid login/passowrd");
          rv = true;
          goto cleanup;
@@ -541,7 +542,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          rv = true;
          goto cleanup;
       }
-      Log(LOG_CRAZY, "auth", "Saved: %s, hashed (server): %s, received: %s", up->pass, temp_pw, pass);
+      Log(LOG_CRAZY, "auth", "Saved: |%s|, hashed (server): |%s|, received: |%s|", up->pass, temp_pw, pass);
 
       if (strcmp(temp_pw, pass) == 0) {
          // special handling for guests; we generate a random # prefix for their name
@@ -596,7 +597,9 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      "{ \"auth\": { \"cmd\": \"authorized\", \"user\": \"%s\", \"token\": \"%s\", \"ts\": %lu, \"privs\": \"%s\" } }",
                      cptr->chatname, token, now, cptr->user->privs);
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
-//         ws_send_ping(cptr);
+
+         // XXX: This might be unneeded
+         ws_send_ping(cptr);
 
          // blorp out a join to all chat users
          prepare_msg(resp_buf, sizeof(resp_buf),
@@ -606,7 +609,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          struct mg_str ms = mg_str(resp_buf);
          ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
 
-         // update all users
+         // Send userlist update to all users
          ws_send_users(NULL);
 
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d (clone #%d/%d) with privs: %s",

@@ -33,7 +33,7 @@ bool file_exists(const char *path) {
 
    // Skip file not found and only show other errors
    if (rv != 0) {
-//      Log(LOG_WARN, "core", "file_exists: %s returned %d (%s)", path, errno, strerror(errno));
+      Log(LOG_CRAZY, "core", "file_exists: %s returned %d (%s)", path, errno, strerror(errno));
       return false;
    } else {
       return true;
@@ -47,7 +47,7 @@ bool is_dir(const char *path) {
 
    // Skip file not found and only show other errors
    if (rv != 0) {
-      Log(LOG_WARN, "core", "is_dir: %s returned %d (%s)", path, errno, strerror(errno));
+      Log(LOG_CRAZY, "core", "is_dir: %s returned %d (%s)", path, errno, strerror(errno));
       return false;
    } else {
       if ((sb.st_mode & S_IFMT) == S_IFDIR) {
@@ -158,20 +158,21 @@ char *find_file_by_list(const char *files[], int file_count) {
             continue;
          }
 
-         Log(LOG_INFO, "core", "ffbl: Trying %s", fullpath);
+         Log(LOG_DEBUG, "core", "ffbl: Trying %s", fullpath);
+
          if (file_exists(fullpath)) {
             Log(LOG_INFO, "core", "ffbl: Returning \"%s\"", fullpath);
             return fullpath;
          } else {
-            Log(LOG_INFO, "core", "ffbl: file_exists(%s) returns false", fullpath);
+            Log(LOG_CRAZY, "core", "ffbl: file_exists(%s) returns false", fullpath);
             free(fullpath);
  	    continue;
          }
       } else {
-         fprintf(stderr, "ffbl: :( files[%d] is NULL in loop", i);
+         Log(LOG_WARN, "core", "ffbl: :( files[%d] is NULL in loop", i);
       }
    }
 
-   Log(LOG_DEBUG, "core", "ffbl: Couldn't find a suitable file");
+   Log(LOG_CRIT, "core", "ffbl: Couldn't find a suitable file");
    return NULL;
 }

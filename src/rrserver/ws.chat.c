@@ -349,6 +349,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                         cptr->chatname, data, now, msg_type, chunk_index, total_chunks, filename, filetype);
             free(filetype);
             free(filename);
+            mp = mg_str(msgbuf);
+            // Send to everyone, including the sender, which will then display it as SelfMsg
+            ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
          } else { // or just a chat message
             if (data[0] == '!') {
                char *input = data + 1;  // skip initial '!'
@@ -430,13 +433,13 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\":"
                   " %lu, \"msg_type\": \"%s\" } }",
                            cptr->chatname, escaped_msg, now, msg_type);
+               mp = mg_str(msgbuf);
+               // Send to everyone, including the sender, which will then display it as SelfMsg
+               ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
                free(escaped_msg);
             }
          }
-         mp = mg_str(msgbuf);
 
-         // Send to everyone, including the sender, which will then display it as SelfMsg
-         ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
       } else if (strcasecmp(cmd, "die") == 0) {
          ws_chat_cmd_die(cptr, reason);
       } else if (strcasecmp(cmd, "kick") == 0) {
