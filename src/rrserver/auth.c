@@ -616,7 +616,9 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
              cptr->chatname, cptr, ip, port, cptr->user->clones, cptr->user->max_clones, cptr->user->privs);
 
          // Send our capabilities
-         const char *capab_msg = media_capab_prepare(NULL);
+         const char *my_codecs = cfg_get_exp("codecs.allowed");
+         const char *capab_msg = media_capab_prepare(my_codecs);
+         free((void *)my_codecs);
 
          if (capab_msg) {
             mg_ws_send(c, capab_msg, strlen(capab_msg), WEBSOCKET_OP_TEXT);

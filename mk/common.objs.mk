@@ -1,3 +1,4 @@
+comm_objs += audio.framing.o		# Audio framing stuff
 comm_objs += cat.o			# CAT parsers
 comm_objs += cat.kpa500.o		# amplifier control (KPA-500 mode)
 comm_objs += cat.yaesu.o		# Yaesu CAT protocol

@@ -38,6 +38,7 @@ struct mg_mgr mgr;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
 char *negotiated_codecs = NULL;
+char *server_codecs = NULL;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
 extern time_t now;
 extern const char *get_chat_ts(void);
@@ -134,23 +135,29 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
       char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
       char *media_codecs = mg_json_get_str(msg_data, "$.media.codecs");
 
-      // Parse the server's capab string and 
+      // Parse the server's capab string and store it's capabilities
       if (media_cmd && strcasecmp(media_cmd, "capab") == 0) {
          Log(LOG_DEBUG, "ws.media", "Got CAPAB from server: %s", media_payload);
-         // XXX: We should compare server advertised codecs to our preferred list here
+
          const char *preferred = cfg_get_exp("codecs.allowed");
-         if (negotiated_codecs) {
-            free(negotiated_codecs);
+
+         if (!media_codecs) {
+            Log(LOG_WARN, "ws.media", "Got empty CAPAB from server");
+            goto local_cleanup;
          }
+         if (server_codecs) {
+            free(server_codecs);
+         }
+         server_codecs = strdup(media_codecs);
 
-         const char *negotiated_codecs = media_capab_prepare(media_payload);
+         // Reply with our supported codecs, so the server can negotiate with us
+         const char *codec_msg = media_capab_prepare(preferred);
 
-         if (negotiated_codecs) {
-            mg_ws_send(c, negotiated_codecs, strlen(negotiated_codecs), WEBSOCKET_OP_TEXT);
-            free((char *)negotiated_codecs);
-            negotiated_codecs = NULL;
+         if (codec_msg) {
+            mg_ws_send(c, codec_msg, strlen(codec_msg), WEBSOCKET_OP_TEXT);
+            free((void *)codec_msg);
          } else {
-            Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
+            Log(LOG_CRIT, "ws.media", ">> No codecs enabled locally or failed to generate codec message <<");
          }
          free((void *)preferred);
       } else if (media_cmd && strcasecmp(media_cmd, "isupport") == 0) {
@@ -159,15 +166,19 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
          if (media_codecs) {
             Log(LOG_DEBUG, "ws.media", "Server negotiated codecs: %s, preferred: %s", media_codecs, media_preferred);
 
+            if (negotiated_codecs) {
+               free(negotiated_codecs);
+            }
+            negotiated_codecs = strdup(media_codecs);
+
             char first_codec[5];
             // Make sure it's all NULLs, so we'll get null terminated string
             memset(first_codec, 0, 5);
             // Copy the *first* codec of the negotiated set, as it's our most preferred.
             memcpy(first_codec, media_codecs, 4);
-            Log(LOG_CRAZY, "ws.media", ">> setting initial rx codec to first_codec: %s <<", first_codec);
-            ws_select_codec(c, first_codec, false);
             populate_codec_combo(tx_combo, media_codecs, (media_preferred ? media_preferred : "pc16"));
             populate_codec_combo(rx_combo, media_codecs, (media_preferred ? media_preferred : "pc16"));
+            ws_select_codec(c, first_codec, false);
          } else {
             Log(LOG_DEBUG, "ws.media", "Got media isupport with empty codecs");
          }

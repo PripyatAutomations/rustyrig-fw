@@ -41,6 +41,7 @@
 
 // if passed NULL for codecs, use all available codecs
 const char *media_capab_prepare(const char *codecs) {
+#if	0	// we actually should send ALL our codecs and the server will handle this
    const char *preferred = cfg_get("codecs.allowed");
    char *common = NULL;
    if (codecs) {
@@ -59,6 +60,18 @@ const char *media_capab_prepare(const char *codecs) {
    if (common) {
       free(common);
    }
+
+#endif
+
+   if (!codecs) {
+      return NULL;
+   }
+
+   // emit codec message
+   char msgbuf[1024];
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"payload\": \"%s\" } }", codecs);
+   Log(LOG_DEBUG, "ws.audio", "Sending supported codec list: %s", codecs);
+
 
    return strdup(msgbuf);
 }
