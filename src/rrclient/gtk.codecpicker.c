@@ -54,7 +54,7 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
    const char *codec = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo));
 
    if (codec) {
-      Log(LOG_DEBUG, "gtk.codec", "setting active codec: %s for %s", codec, (ctx->is_tx ? "TX" : "RX"));
+      Log(LOG_CRAZY, "gtk.codecpicker", "setting active codec: %s for %s", codec, (ctx->is_tx ? "TX" : "RX"));
 
       // we need to invert is_tx since we're asking the server to set itself up to match our needs
       ws_select_codec(ctx->conn, codec, !ctx->is_tx);

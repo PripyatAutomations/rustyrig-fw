@@ -228,11 +228,11 @@ void fm_dialog_show(void) {
       update_tone_dropdowns();
 
       gtk_widget_show_all(fm_dialog);
+      place_window(fm_dialog);
    } else {
       gtk_widget_show(fm_dialog);
       gtk_window_present(GTK_WINDOW(fm_dialog));
    }
-   place_window(fm_dialog);
 }
 
 void fm_dialog_hide(void) {

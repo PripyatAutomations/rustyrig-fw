@@ -34,7 +34,8 @@
 #endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
 
 #if	defined(__RRCLIENT)
-extern  bool log_print_va(const char *fmt, va_list ap);
+extern bool log_print_va(const char *fmt, va_list ap);
+extern bool log_print(const char *fmt, ...);
 #endif
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
@@ -172,7 +173,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    char msgbuf[513];
    char ts_log_msg[1025];
    char log_msg[769];
-   va_list ap, ap_c1, ap_c2;
+   va_list ap, ap_c1;
 
    va_start(ap, fmt);
    if (!subsys || !fmt) {
@@ -208,18 +209,16 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    /* clear the message buffer */
    memset(msgbuf, 0, sizeof(msgbuf));
    va_copy(ap_c1, ap);
-   va_copy(ap_c2, ap);
 
    /* Expand the format string */
-   vsnprintf(msgbuf, 511, fmt, ap_c1);
+   vsnprintf(msgbuf, 511, fmt, ap);
    memset(log_msg, 0, sizeof(log_msg));
    snprintf(log_msg, sizeof(log_msg), "<%s.%s> %s", subsys, log_priority_to_str(priority), msgbuf);
-   va_end(ap_c1);
+   va_end(ap);
 
    /* Only spew to the serial port if logfile is closed */
    if (!logfp && (logfp != stdout) && (logfp != stderr)) {
-      va_end(ap);
-      va_end(ap_c2);
+      va_end(ap_c1);
       return;
    }
 
@@ -252,9 +251,8 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 #else
 #if	defined(__RRCLIENT)
 // For rrclient, we send it to the log tab too
-   log_print_va(fmt, ap_c2);
-   va_end(ap_c2);
+   log_print("%s", log_msg);
 #endif
 #endif	// !defined(__RRCLIENT)
-   va_end(ap);
+   va_end(ap_c1);
 }

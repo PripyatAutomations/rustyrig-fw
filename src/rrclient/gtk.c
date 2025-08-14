@@ -58,10 +58,8 @@ GtkWidget *tx_power_slider = NULL;
 GtkWidget *rx_vol_slider = NULL;
 GtkWidget *userlist_window = NULL;
 GtkWidget *chat_entry = NULL;
-extern GtkWidget *ptt_button;
 GtkWidget *main_window = NULL;
 GtkWidget *toggle_userlist_button = NULL;
-GtkWidget *control_box = NULL;
 GtkTextBuffer *text_buffer = NULL;
 
 
@@ -374,33 +372,10 @@ gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    return ret;
 }
 
-bool gui_init(void) {
-   css_provider = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(css_provider,
-      ".ptt-active { background: red; color: white; }"
-      ".ptt-idle { background: #0fc00f; color: white; }"
-      ".conn-active { background: #0fc00f; color: white; }"
-      ".conn-idle { background: red; color: white; }",
-      -1, NULL);
 
-   gtk_style_context_add_provider_for_screen(
-      gdk_screen_get_default(),
-      GTK_STYLE_PROVIDER(css_provider),
-      GTK_STYLE_PROVIDER_PRIORITY_USER);
-
-   input_history = g_ptr_array_new_with_free_func(g_free);
-   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gui_window_t *main_window_t = ui_new_window(main_window, "main");
-   gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
-
-   notebook = gtk_notebook_new();
-   gtk_container_add(GTK_CONTAINER(main_window), notebook);
-
-   main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), main_tab, gtk_label_new("Control"));
-
-   control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   gtk_box_pack_start(GTK_BOX(main_tab), control_box, FALSE, FALSE, 0);
+GtkWidget *create_vfo_box(void) {
+   // Create the control box
+   GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
    conn_button = gtk_button_new_with_label("Offline");
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
@@ -474,14 +449,80 @@ bool gui_init(void) {
    int cfg_def_pow_tx = cfg_get_int("default.tx.power", 0);
    gtk_range_set_value(GTK_RANGE(tx_power_slider), cfg_def_pow_tx);
 
-   ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
-   GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-   gtk_box_pack_start(GTK_BOX(control_box), spacer, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(control_box), ptt_button, FALSE, FALSE, 0);
-   Log(LOG_CRAZY, "gtk", "ptt_button add callback toggled");
-   g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
-   gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-idle");
+   // add a spacer next to PTT
+   GtkWidget *ptt_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), ptt_spacer, TRUE, TRUE, 0);
 
+   // Create PTT button widget
+   GtkWidget *ptt_box = ptt_button_create();
+   gtk_box_pack_start(GTK_BOX(control_box), ptt_box, FALSE, FALSE, 0);
+
+   return control_box;
+}
+
+static gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
+   if (!vfo_box || vfo == '\0') {
+      Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%x> vfo |%c|", vfo_box, vfo);
+      return NULL;
+   }
+
+   // prepare a programmatic name for the VFO
+   char win_name[32];
+   memset(win_name, 0, sizeof(win_name));
+   snprintf(win_name, sizeof(win_name), "vfo-%c", vfo);
+
+   // Lets see if we recognize that window...
+   gui_window_t *vfo_win = gui_find_window(NULL, win_name);
+   if (vfo_win) {
+     // Show the existing window
+     place_window(vfo_win->gtk_win);
+   } else {
+      GtkWidget *vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+      gui_window_t *vfo_win  = ui_new_window(vfo_window, win_name);
+      gtk_window_set_title(GTK_WINDOW(vfo_window), "rustyrig remote client");
+   }
+   return vfo_win;
+}
+
+bool gui_init(void) {
+   css_provider = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(css_provider,
+      ".ptt-active { background: red; color: white; }"
+      ".ptt-idle { background: #0fc00f; color: white; }"
+      ".conn-active { background: #0fc00f; color: white; }"
+      ".conn-idle { background: red; color: white; }",
+      -1, NULL);
+
+   gtk_style_context_add_provider_for_screen(
+      gdk_screen_get_default(),
+      GTK_STYLE_PROVIDER(css_provider),
+      GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+   input_history = g_ptr_array_new_with_free_func(g_free);
+   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gui_window_t *main_window_t = ui_new_window(main_window, "main");
+   gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
+
+   // Attach the notebook to the main window for tabs
+   notebook = gtk_notebook_new();
+   gtk_container_add(GTK_CONTAINER(main_window), notebook);
+
+   main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), main_tab, gtk_label_new("Control"));
+
+   GtkWidget *vfo_a = create_vfo_box();
+
+   // If docked, we wont create a window, but it might be created later similarly
+   bool vfo_docked = cfg_get_bool("vfo-a.docked", true);
+   if (vfo_docked) {
+     // Attach to the main window
+      gtk_box_pack_start(GTK_BOX(main_tab), vfo_a, FALSE, FALSE, 0);
+   } else {
+     // Floating
+     create_vfo_window(vfo_a, 'A');
+   }
+
+   // MAIN tab (alt-1)
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
@@ -507,6 +548,7 @@ bool gui_init(void) {
    Log(LOG_CRAZY, "gtk", "send button add callbak clicked");
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
+   // LOG tab (alt-2)
    log_tab = init_log_tab();
    config_tab = init_config_tab();
    admin_tab = init_admin_tab();

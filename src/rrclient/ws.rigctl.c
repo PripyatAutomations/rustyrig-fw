@@ -30,6 +30,10 @@
 #include "rrclient/userlist.h"
 #include "common/client-flags.h"
 
+extern time_t poll_block_expire, poll_block_delay;
+extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
+extern void fm_dialog_show(void);
+extern void fm_dialog_hide(void);
 extern dict *cfg;		// config.c
 extern struct mg_mgr mgr;
 extern bool ws_connected;
@@ -40,13 +44,15 @@ extern const char *tls_ca_path;
 extern struct mg_str tls_ca_path_str;
 extern bool cfg_show_pings;
 extern time_t now;
-extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
-extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
 extern gulong freq_changed_handler_id;
+
+// Store the previous mode
+// XXX: this needs to go into the per-VFO
+char old_mode[16];
 
 bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    struct mg_str msg_data = msg->data;
@@ -99,10 +105,20 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          }
 
          if (mode && strlen(mode) > 0) {
-//            Log(LOG_CRAZY, "ws", "Updating mode_combo: %s", mode);
-
-            // XXX: We need to suppress sending a CAT message
+            // XXX: We need to suppress sending a CAT message by disabling the changed signal on the mode combo
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+            if (strcasecmp(mode, old_mode) != 0) {
+               if (strcasecmp(mode, "FM") == 0) {
+                  // Show the FM dialog
+                  fm_dialog_show();
+               } else {
+                  // Hide the FM dialog
+                  fm_dialog_hide();
+               }
+            }
+            // save the old mode so we can compare next time
+            memset(old_mode, 0, sizeof(old_mode));
+            snprintf(old_mode, sizeof(old_mode), "%s", mode);
          }
 
          // free memory

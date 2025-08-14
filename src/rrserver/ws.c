@@ -303,7 +303,6 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       }
    } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
      char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
-     char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
      char *media_codecs = mg_json_get_str(msg_data, "$.media.codecs");
 
      // all packets need a command
@@ -314,7 +313,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 
      if (strcasecmp(media_cmd, "capab") == 0) {
         // Capability negotiation
-        if (media_payload) {
+        if (media_codecs) {
            const char *preferred = cfg_get("codecs.allowed");
            if (!preferred) {
               Log(LOG_CRIT, "ws.media", "media.capab needs codecs.allowed set in config!");
@@ -322,7 +321,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
               goto cleanup;
             }
 
-           char *common = codec_filter_common(preferred, media_payload);
+           char *common = codec_filter_common(preferred, media_codecs);
            if (strlen(common) < 4) {
               free(common);
               result = true;
@@ -333,7 +332,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            memset(def_codec, 0, 5);
            snprintf(def_codec, sizeof(def_codec), "%s", common);
            Log(LOG_INFO, "ws.media", "Client %s <%x> supported codecs: %s, my preferred codecs: %s, common codecs: %s, negotiated default codec: %s",
-              cptr->chatname, cptr, media_payload, cfg_get("codecs.allowed"), common, def_codec);
+              cptr->chatname, cptr, media_codecs, cfg_get("codecs.allowed"), common, def_codec);
            char msgbuf[HTTP_WS_MAX_MSG+1];
 
            // XXX: We should look up pipelines that are configured so we can only list codecs that can actually be used
@@ -395,7 +394,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
         free(media_channel);
      }
      free(media_cmd);
-     free(media_payload);
+     free(media_codecs);
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
       result = ws_handle_pong(msg, c);
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {

@@ -77,7 +77,7 @@ bool log_print_va(const char *fmt, va_list ap) {
 // print to syslog
 bool log_print(const char *fmt, ...) {
    if (!log_buffer) {
-      fprintf(stderr, "log_print called with no log_buffer");
+//      fprintf(stderr, "log_print called with no log_buffer");
       return false;
    }
 

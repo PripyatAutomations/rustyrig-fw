@@ -40,21 +40,19 @@ extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
-extern GtkWidget *config_tab;
 extern GtkWidget *control_box;
 GtkWidget *ptt_button = NULL;
 
 void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
-   if (!ws_connected) {
+   const gchar *label = "PTT OFF";
+
+   if (!ws_connected || !active) {
       const gchar *label = "PTT OFF";
       gtk_button_set_label(GTK_BUTTON(button), label);
       return;
    }
-
-   const gchar *label = active ? "PTT ON " : "PTT OFF";
-   gtk_button_set_label(GTK_BUTTON(button), label);
-
    GtkStyleContext *context = gtk_widget_get_style_context(GTK_WIDGET(button));
+
    if (active) {
       gtk_style_context_add_class(context, "ptt-active");
       gtk_style_context_remove_class(context, "ptt-idle");
@@ -64,7 +62,7 @@ void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
    }
 }
 
-void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
+static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    ptt_active = gtk_toggle_button_get_active(button);
    update_ptt_button_ui(button, ptt_active);
 
@@ -79,19 +77,21 @@ void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 }
 
 GtkWidget *ptt_button_create(void) {
-   GtkWidget *newbtn = gtk_toggle_button_new_with_label("PTT OFF");
+   GtkWidget *ptt_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   GtkWidget *ptt_btn = gtk_toggle_button_new_with_label("PTT OFF");
 
-   if (newbtn) {
-      GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-      if (!spacer) {
-         return NULL;
-      }
-
-      gtk_box_pack_start(GTK_BOX(control_box), spacer, TRUE, TRUE, 0);
-      gtk_box_pack_start(GTK_BOX(control_box), ptt_button, FALSE, FALSE, 0);
-      Log(LOG_CRAZY, "gtk", "ptt_button add callback toggled");
-      g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
-      gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-idle");
+   // try to avoid leaking memory due to buggy GUI code...
+   if (!ptt_box || !ptt_btn) {
+      if (ptt_box) { free(ptt_box); }
+      if (ptt_btn) { free(ptt_btn); }
+      fprintf(stderr, "problem creating ptt_box or it's widgets. OOM?\n");
+      return NULL;
    }
-   return newbtn;
+
+   gtk_box_pack_start(GTK_BOX(ptt_box), ptt_button, FALSE, FALSE, 0);
+
+   g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
+   gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-idle");
+
+   return ptt_box;
 }

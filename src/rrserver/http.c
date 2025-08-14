@@ -109,7 +109,7 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
 
    while(cptr != NULL) {
       if (cptr->conn == c) {
-         Log(LOG_CRAZY, "http.core", "find_client_by_c <%x> returning index %i: %x", c, i, cptr);
+         Log(LOG_CRAZY, "http.core", "find_client_by_c <%x> returning index %i: %x |%s|", c, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
          return cptr;
       }
       i++;
@@ -130,14 +130,14 @@ http_client_t *http_find_client_by_token(const char *token) {
        }
 
        if (memcmp(cptr->token, token, strlen(cptr->token)) == 0) {
-          Log(LOG_CRAZY, "http.core", "hfcbt returning index %i for token |%s|", i, token);
+          Log(LOG_CRAZY, "http.core", "find_client_by_token |%s| returning index %i: %x |%s|", token, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
           return cptr;
        }
        i++;
        cptr = cptr->next;
     }
 
-    Log(LOG_CRAZY, "http.core", "hfcbt no matches for token |%s|!", token);
+    Log(LOG_CRAZY, "http.core", "find client: no matches for token |%s|!", token);
     return NULL;
 }
 
@@ -147,7 +147,7 @@ http_client_t *http_find_client_by_guest_id(int gid) {
 
    // this filters out invalid calls
    if (gid <= 1) {
-      Log(LOG_CRAZY, "http", "hfcgid: gid %d isn't valid", gid);
+      Log(LOG_WARN, "http", "find_client_by_guestid: gid %d isn't valid", gid);
       return NULL;
    }
 
@@ -179,7 +179,7 @@ http_client_t *http_find_client_by_name(const char *name) {
 
       // match?
       if (strcasecmp(cptr->chatname, name) == 0) {
-         Log(LOG_DEBUG, "http.core", "hfcb_name found match at index %d for %s", i, name);
+         Log(LOG_DEBUG, "http.core", "hfcb_name |%s| found match at index %d: <%x> |%s|", name, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
          return cptr;
       }
       i++;

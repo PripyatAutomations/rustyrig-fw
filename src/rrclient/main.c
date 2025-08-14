@@ -199,10 +199,6 @@ int main(int argc, char *argv[]) {
       }
    }
 
-   const char *val = cfg_get_exp("test.key7");
-   fprintf(stderr, "Read: %s\n", val);
-   free((void *)val);
-
    // start gtk main loop
    gtk_main();
 

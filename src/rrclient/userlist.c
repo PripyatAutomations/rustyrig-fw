@@ -26,7 +26,6 @@
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
 
-extern gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data);
 extern dict *cfg;
 extern GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
@@ -160,6 +159,7 @@ struct rr_user *userlist_find(const char *name) {
 
 GtkWidget *userlist_init(void) {
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gui_window_t *window_t = ui_new_window(window, "userlist");
    gtk_window_set_title(GTK_WINDOW(window), "User List");
 
    GtkListStore *store = gtk_list_store_new(NUM_COLS,

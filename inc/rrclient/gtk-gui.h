@@ -25,6 +25,11 @@
 struct GuiWindow {
     char name[128];		// Window name
     GtkWidget *gtk_win;		// GTK window widget
+    int	x, y, w, h;		// Location and size
+    int last_x, last_y, last_w, last_h;	// Previous locations (if moving)
+    bool is_moving;		// Is the window being moved?
+    GdkEventConfigure *move_evt;
+
     bool win_raised;		// Raised?
     bool win_minimized;		// Is the window minimized?
     bool win_modal;		// Always on top
@@ -45,27 +50,19 @@ extern void update_ptt_button_ui(GtkToggleButton *button, gboolean active);
 extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text);
 extern gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 extern bool gui_init(void);
-extern void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 extern GtkTextBuffer *text_buffer;
 extern GtkWidget *conn_button;
 extern GtkWidget *text_view;
-extern GtkWidget *freq_entry;
-extern GtkWidget *mode_combo;
 extern GtkWidget *userlist_window;
 extern GtkWidget *log_view;
 extern GtkTextBuffer *log_buffer;
-extern GtkWidget *ptt_button;
 extern GtkWidget *config_tab;
-extern gulong mode_changed_handler_id;
-extern gulong freq_changed_handler_id;
 extern bool place_window(GtkWidget *window);
 extern void show_server_chooser(void);			// gtk.serverpick.c
 extern bool log_print(const char *fmt, ...);
 extern void gui_edit_config(const char *filepath);
 extern gboolean ui_scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);
-extern GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx);		// gtk.codecpicker.c
-extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 extern GtkWidget *mode_combo;          // if mode_combo is a GtkWidget*
@@ -84,5 +81,15 @@ extern bool set_window_icon(GtkWidget *window, const char *icon_name);
 
 #endif
 
+// gtk.pttbtn.c and gtk.freqentry.c debris
+extern GtkWidget *ptt_button_create(void);
+extern GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx);		// gtk.codecpicker.c
+extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
+extern GtkWidget *ptt_button;
+extern GtkWidget *freq_entry;
+extern GtkWidget *mode_combo;
+extern gulong mode_changed_handler_id;
+extern gulong freq_changed_handler_id;
+//extern void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 
 #endif	// !defined(__rrclient_gtk_gui_h)

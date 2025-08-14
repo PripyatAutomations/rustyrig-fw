@@ -110,7 +110,7 @@ int http_getuid(const char *user) {
       }
 
       if (strcasecmp(up->name, user) == 0) {
-         Log(LOG_CRAZY, "auth", "Found uid %d for username %s", i, up->name);
+         Log(LOG_CRAZY, "auth", "Found uid [%d] for username |%s|", i, up->name);
          return i;
       }
    }
@@ -303,14 +303,14 @@ static http_client_t *http_find_client_by_nonce(const char *nonce) {
       }
 
       if (memcmp(cptr->nonce, nonce, strlen(cptr->nonce)) == 0) {
-         Log(LOG_CRAZY, "http.core", "hfcbn returning index %i for nonce |%s|", cptr->nonce);
+         Log(LOG_CRAZY, "http.core", "hfcbn returning index [%i] for nonce |%s|", cptr->nonce);
          return cptr;
       }
       i++;
       cptr = cptr->next;
    }
 
-   Log(LOG_CRAZY, "http.core", "hfcbn %s no matches!", nonce);
+   Log(LOG_CRAZY, "http.core", "hfcbn |%s| no matches!", nonce);
    return NULL;
 }
 
@@ -408,7 +408,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    struct mg_str msg_data = msg->data;
-   Log(LOG_CRAZY, "ws.auth", "msgbuf: %s", msg_data.buf);
+   Log(LOG_CRAZY, "ws.auth", "msgbuf: |%s|", msg_data.buf);
    char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
    char *pass = mg_json_get_str(msg_data, "$.auth.pass");
    char *token = mg_json_get_str(msg_data, "$.auth.token");
@@ -618,7 +618,6 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Send our capabilities
          const char *my_codecs = cfg_get_exp("codecs.allowed");
          const char *capab_msg = media_capab_prepare(my_codecs);
-         Log(LOG_DEBUG, "ws.media", "Made capab message: %s", capab_msg);
          free((void *)my_codecs);
 
          if (capab_msg) {
@@ -717,7 +716,7 @@ bool is_elmer_online(void) {
          continue;
       }
       if (client_has_flag(curr, FLAG_ELMER)) {
-         Log(LOG_CRAZY, "auth", "is_elmer_online: returning cptr:<%x> - %s", curr, curr->chatname);
+         Log(LOG_CRAZY, "auth", "is_elmer_online: returning cptr:<%x> - |%s|", curr, curr->chatname);
          return true;
       }
       curr = curr->next;
