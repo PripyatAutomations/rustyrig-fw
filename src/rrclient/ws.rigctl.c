@@ -56,14 +56,14 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          char *vfo = mg_json_get_str(msg_data, "$.cat.vfo");
          double freq;
          mg_json_get_num(msg_data, "$.cat.state.freq", &freq);
-         char *mode = mg_json_get_str(msg_data, "$.cat.mode");
+         char *mode = mg_json_get_str(msg_data, "$.cat.state.mode");
          double width;
-         mg_json_get_num(msg_data, "$.cat.width", &width);
+         mg_json_get_num(msg_data, "$.cat.state.width", &width);
          double power;
-         mg_json_get_num(msg_data, "$.cat.power", &power);
+         mg_json_get_num(msg_data, "$.cat.state.power", &power);
 
          bool ptt = false;
-         char *ptt_s = mg_json_get_str(msg_data, "$.cat.ptt");
+         char *ptt_s = mg_json_get_str(msg_data, "$.cat.state.ptt");
 
          if (ptt_s && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
             ptt = true;
