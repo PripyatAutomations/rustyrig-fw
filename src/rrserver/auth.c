@@ -618,6 +618,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Send our capabilities
          const char *my_codecs = cfg_get_exp("codecs.allowed");
          const char *capab_msg = media_capab_prepare(my_codecs);
+         Log(LOG_DEBUG, "ws.media", "Made capab message: %s", capab_msg);
          free((void *)my_codecs);
 
          if (capab_msg) {

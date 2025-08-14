@@ -41,37 +41,13 @@
 
 // if passed NULL for codecs, use all available codecs
 const char *media_capab_prepare(const char *codecs) {
-#if	0	// we actually should send ALL our codecs and the server will handle this
-   const char *preferred = cfg_get("codecs.allowed");
-   char *common = NULL;
-   if (codecs) {
-      char *common = codec_filter_common(preferred, codecs);
-
-      if (!common) {
-         return NULL;
-      }
-   }     
-
-   // emit codec message
-   char msgbuf[1024];
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"payload\": \"%s\" } }", (common ? common : preferred));
-   Log(LOG_DEBUG, "ws.audio", "Sending supported codec list: %s", (common ? common : preferred));
-
-   if (common) {
-      free(common);
-   }
-
-#endif
-
    if (!codecs) {
       return NULL;
    }
 
    // emit codec message
    char msgbuf[1024];
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"payload\": \"%s\" } }", codecs);
-   Log(LOG_DEBUG, "ws.audio", "Sending supported codec list: %s", codecs);
-
+   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"capab\", \"codecs\": \"%s\" } }", codecs);
 
    return strdup(msgbuf);
 }
@@ -133,6 +109,6 @@ char *codec_filter_common(const char *preferred, const char *available) {
       result[--res_sz] = 0;
    }
 
-   Log(LOG_DEBUG, "codecneg", "codec_filter_common(|%s|, |%s|) returned |%s|", preferred, available, result);
+   Log(LOG_CRAZY, "codecneg", "codec_filter_common(|%s|, |%s|) returned |%s|", preferred, available, result);
    return result;
 }

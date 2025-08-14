@@ -189,7 +189,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       rv = true;
       goto cleanup;
    } else {
-      Log(LOG_CRAZY, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", cptr->chatname, ts);
+      Log(LOG_CRAZY, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), ts);
    }
 
    char *endptr;
