@@ -7,6 +7,7 @@
 = rrclient =
 ============
 [general]
+* Add mute/unmute button for RX audio which halts sending the samples entirely
 * Add throttled reconnect like webui has
 * Finish parsing server messages
 * Implement rest of controls typically used (CTCSS tone for FM)
@@ -42,10 +43,17 @@
 ===============
 = librustyrig =
 ===============
+[CAT]
+* Implement control over unix pipes in posix mode
+* Implement control over stm32 serial over usb
+
 [logger/debug]
 * Add support for configuring masks of what debug level messages will be seen using wildcards
 * Add support for masking out messages such as '-*.noisy'
 ? Add support for rate limiting messages?
+
+[Porting]
+minimal inet_ntop() for non-posix
 
 ============
 = rrserver =
@@ -60,10 +68,30 @@ ws.c / fwdsp-mgr.c:
 [audit]
 * Add support for TX quotas (credits) and tracking top talkers
 
+[buildconf]
+- Support for loading older (input) eeprom layouts, according to version saved in the EEPROM, for upgrading
+  - see res/archive/*
+* Remove need for offset & key properties
+  - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)
+
 [core]
 * If session is being kicked/banned/muted, check if it has PTT active and drop PTT before kicking
+* Make rigctl connection autoreconnect in backend.hamlib
+* Support for at least VFO A & B
+* Test TX halt when PTTing user disconnects.
+  - also halt TX by FLAG_NOOB users if the last admin logs out
+- Make options to trim it back down for stm32/esp32 hosts
+- Make mongoose truly optional for the cases it doesn't make sense (small devs)
+- Need to review the libmongoose deps and ensure we can still build without mongoose
+  for cases it's not appropriate (stand-alone firmware on stm32/esp32 for example)
+  where we don't have a network client
 
 [eeprom/config]
+* remove need for they key field (why not use the name of the entry itself?) in eeprom_layout
+* fix relative offsets in eeprom_layout
+? Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
+- Make a tool which converts res/eeprom_layout.json (and eeprom_types.json) to a text file like doc/eeprom.txt
+* Fix net/bind to be an ip4 or ip6 type instead of string!
 * more work to integrate config into eeprom
   - work on dict and just load/save changed parts of the eeprom
     - Read into new empty dict
@@ -73,9 +101,45 @@ ws.c / fwdsp-mgr.c:
   - read eeprom into config / channels dict on posix
 * May just compress the flat-file with a light compressor that will spread eeprom wear and pack that into eeprom?
 
+[elmer mode]
+* Implement request and accept|deny for elevate privileges
+  - store which elmers accepted in the acptr->en_data->elmers
+  - store noobs under elmer's en_data->noobs
+  - If either user disconnects, clear these
+  - If last elmer for the noob leaves, disable their privileges
+  - Once an elmer is online, the user can again request elevate
+
+[i2c/eeprom]
+- Implement hard coded address for i2c eeprom and a codepath to support it
+- Should we bypass the eeprom step and read directly from the config & channels.json on posix?
+  - Maybe a use sqlite3 db for storing persistent data?
+
+[makefile]
+- Make things so that make debug forces a make clean & adding make debug if last built without debug (can we use nm or such to check symbols?)
+* Shell + jq script to parse config/*.config.json into a basic .cfg flat file
+
+[mqtt]
+* Finish mqtt server stuff (via mongoose)
+* Implement mqtt client mode, for sending status to existing server(s)
+
+[Network]
+    net/ip4 and net/ip6 split
+    net/prefer_ip4
+    net/ignore_icmp_echo
+    net/ignore_mcast
+    net/ignore_bcast
+
+[porting]
+- Shorten strings where possible
+- Wrap strings for storage as appropriate on micros (stm32? ;)
+
+[radioberry]
+* Implement support for this thing
+
 ============
 = Protocol =
 ============
+* Implement ALERT message that pops up for all users (for shutdown, overheat, SWR alerts).
 * User management
   - Add/edit users
   - Reset password
@@ -94,7 +158,6 @@ ws.c / fwdsp-mgr.c:
 * Send a bundle hash for the app when ws connects, so client can reload assets as needed
 * move stuff to local/sessionStorage so we can reload the script without disconnecting!
   - uodate components in cache when server says a newer version available
-* Implement ALERT message that pops up for all users (for shutdown, overheat, SWR alerts).
 * Change the window title to show unread messages
 - Pasting images
   - Expire incomplete images from memory after a few minutes
@@ -119,88 +182,10 @@ ws.c / fwdsp-mgr.c:
 - Should we allow selecting text for copy/paste?
   - maybe cfg tab option?
 
-=============
-= Old stuff =
-=============
 
-[ASAP]
-* Shell + jq script to parse config/*.config.json into a basic .cfg flat file
-* More audio config stuff, maybe support codec switching.
-  - Support for fwdsp report what codec & rate it's using, so multiple streams can be sent to backend
-    - Maybe add transcoding someday
-* Add mute/unmute button for RX audio which halts sending the samples entirely
-* Test TX halt when PTTing user disconnects.
-  - also halt TX by FLAG_NOOB users if the last admin logs out
-* Make rigctl connection autoreconnect in backend.hamlib
-* Support for at least VFO A & B
-- Need to review the libmongoose deps and ensure we can still build without mongoose
-  for cases it's not appropriate (stand-alone firmware on stm32/esp32 for example)
-  where we don't have a network client
-* Move config from eeprom to dict and make a way to stuff cfg dict into eeprom ;)
-
-
-[elmer mode]
-* Implement request and accept|deny for elevate privileges
-  - store which elmers accepted in the acptr->en_data->elmers
-  - store noobs under elmer's en_data->noobs
-  - If either user disconnects, clear these
-  - If last elmer for the noob leaves, disable their privileges
-  - Once an elmer is online, the user can again request elevate
-
-[embedded]
-- Make options to trim it back down for stm32/esp32 hosts
-- Make mongoose truly optional for the cases it doesn't make sense (small devs)
-
-[webcam]
-- Support for streaming gstreamer video (webcam) from the station to the clients using gstreamer
-
-[radioberry]
-* Implement support for this thing
-
-[i2c/eeprom]
-- Implement hard coded address for i2c eeprom and a codepath to support it
-- Should we bypass the eeprom step and read directly from the config & channels.json on posix?
-  - Maybe a use sqlite3 db for storing persistent data?
-
-[makefile]
-Make things so that make debug forces a make clean & adding make debug if last built without debug (can we use nm or such to check symbols?)
-
-[porting]
-- Shorten strings where possible
-- Wrap strings for storage as appropriate on micros (stm32? ;)
-
-[buildconf]
-- Support for loading older (input) eeprom layouts, according to version saved in the EEPROM, for upgrading
-  - see res/archive/*
-* Remove need for offset & key properties
-  - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)
-
-[Network]
-    net/ip4 and net/ip6 split
-    net/prefer_ip4
-    net/ignore_icmp_echo
-    net/ignore_mcast
-    net/ignore_bcast
-
-[CAT]
-* Implement control over unix pipes in posix mode
-* Implement control over stm32 serial over usb
-
-[Porting]
-minimal inet_ntop() for non-posix
-
-[eeprom]
-* remove need for they key field (why not use the name of the entry itself?) in eeprom_layout
-* fix relative offsets in eeprom_layout
-* Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
-- Make a tool which converts res/eeprom_layout.json (and eeprom_types.json) to a text file like doc/eeprom.txt
-* Fix net/bind to be an ip4 or ip6 type instead of string!
-
-[mqtt]
-* Finish mqtt server stuff (via mongoose)
-* Implement mqtt client mode, for sending status to existing server(s)
-
-[wishlist]
+============
+= wishlist =
+============
 * Use libbaresip UA to pass control json and audio from gstreamer, so we can use whatever codec we want
   - Should reduce audio latency even further
   - Could be a path for non-mongoose builds
