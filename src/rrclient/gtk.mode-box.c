@@ -58,7 +58,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 }
 
 GtkWidget *create_mode_box(void) {
-   GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *mode_box_label = gtk_label_new("Mode/Width");
 
    mode_combo = gtk_combo_box_text_new();
