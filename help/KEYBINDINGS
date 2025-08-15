@@ -20,8 +20,8 @@
 	LEFT	Goes to the left one digit, wrapping around at the edge
 	BKSPC	Goes back to the left one digit, without wrap
 	RIGHT	Goest to the right one digit, wrapping around at the edge
-	UP	Increment the digit, with carry
-	DOWN	Decrement the digit, with carry
+	UP   +	Increment the digit, with carry
+	DOWN -	Decrement the digit, with carry
 	DEL	Zero the current digit without movement
 
 [Chat Input]
