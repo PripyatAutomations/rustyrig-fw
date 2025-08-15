@@ -44,7 +44,7 @@ extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
 extern GtkWidget *main_window;
-extern GtkWidget *notebook;
+extern GtkWidget *main_notebook;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
 GtkTextBuffer *log_buffer = NULL;
@@ -107,6 +107,6 @@ GtkWidget *init_log_tab(void) {
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(log_view), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(log_view), GTK_WRAP_WORD_CHAR);
    gtk_container_add(GTK_CONTAINER(nw), log_view);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), nw, gtk_label_new("Log"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, gtk_label_new("Log"));
    return nw;
 }

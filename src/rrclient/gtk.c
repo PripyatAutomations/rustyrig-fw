@@ -51,7 +51,7 @@ GtkWidget *main_window = NULL;
 GtkWidget *userlist_window = NULL;
 
 GtkWidget *conn_button = NULL;
-GtkWidget *text_view = NULL;
+GtkWidget *chat_textview = NULL;
 GtkWidget *freq_entry = NULL;
 
 GtkCssProvider *css_provider = NULL;
@@ -65,7 +65,7 @@ extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_admin_tab(void);
 extern GtkWidget *config_tab;
 extern GtkWidget *admin_tab;
-GtkWidget *notebook = NULL;
+GtkWidget *main_notebook = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
 
@@ -93,8 +93,8 @@ const char *get_chat_ts(void) {
 }
 
 gboolean ui_scroll_to_end(gpointer data) {
-   GtkTextView *text_view = GTK_TEXT_VIEW(data);
-   GtkTextBuffer *buffer = gtk_text_view_get_buffer(text_view);
+   GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
    GtkTextIter end;
 
    if (!data) {
@@ -102,7 +102,7 @@ gboolean ui_scroll_to_end(gpointer data) {
       return FALSE;
    }
    gtk_text_buffer_get_end_iter(buffer, &end);
-   gtk_text_view_scroll_to_iter(text_view, &end, 0.0, TRUE, 0.0, 1.0);
+   gtk_text_view_scroll_to_iter(chat_textview, &end, 0.0, TRUE, 0.0, 1.0);
    return FALSE; 		// remove the idle handler after it runs
 }
 
@@ -126,7 +126,7 @@ bool ui_print(const char *fmt, ...) {
    gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
 
    // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
-   g_idle_add(ui_scroll_to_end, text_view);
+   g_idle_add(ui_scroll_to_end, chat_textview);
 
    return false;
 }
@@ -238,6 +238,10 @@ static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer us
 
 gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    GtkNotebook *notebook = GTK_NOTEBOOK(user_data);
+
+   if (!notebook || !event) {
+      return true;
+   }
 
    // alt-u works everywhere
    if ((event->state & GDK_MOD1_MASK)) {
@@ -367,10 +371,10 @@ bool gui_init(void) {
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 
    // Attach the notebook to the main window for tabs
-   notebook = gtk_notebook_new();
-   gtk_container_add(GTK_CONTAINER(main_window), notebook);
+   main_notebook = gtk_notebook_new();
+   gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
    main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), main_tab, gtk_label_new("Control"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), main_tab, gtk_label_new("Control"));
 
    ///////////
    // VFO A //
@@ -394,12 +398,12 @@ bool gui_init(void) {
                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
    // Chat view
-   text_view = gtk_text_view_new();
-   text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
-   gtk_text_view_set_editable(GTK_TEXT_VIEW(text_view), FALSE);
-   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(text_view), FALSE);
-   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(text_view), GTK_WRAP_WORD_CHAR);
-   gtk_container_add(GTK_CONTAINER(scrolled), text_view);
+   chat_textview = gtk_text_view_new();
+   text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
+   gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
    gtk_box_pack_start(GTK_BOX(main_tab), scrolled, TRUE, TRUE, 0);
 
    // Chat INPUT
@@ -422,7 +426,7 @@ bool gui_init(void) {
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
-   g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_keypress), notebook);
+   g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_keypress), main_notebook);
 
    gtk_widget_show_all(main_window);
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));

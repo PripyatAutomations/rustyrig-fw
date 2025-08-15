@@ -33,7 +33,7 @@ extern struct mg_connection *ws_conn;
 extern GtkWidget *chat_entry;
 extern GtkWidget *rx_vol_slider;
 extern GtkWidget *config_tab;
-extern GtkWidget *notebook;
+extern GtkWidget *main_notebook;
 extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 extern void show_help(const char *topic);		// ui.help.c
@@ -75,9 +75,9 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       dying = true;
    // Switch tabs
    } else if (strncasecmp(msg + 1, "chat", 4) == 0) {
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), main_tab);
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), main_tab);
       if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
          gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
       }
    } else if (strncasecmp(msg + 1, "clear", 5) == 0) {
@@ -85,14 +85,14 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
    } else if (strncasecmp(msg + 1, "clearlog", 8) == 0) {
       clear_syslog();
    } else if (strncasecmp(msg + 1, "config", 6) == 0 || strcasecmp(msg + 1, "cfg") == 0) {
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), config_tab);
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), config_tab);
       if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
    } else if (strncasecmp(msg + 1, "log", 3) == 0 || strcasecmp(msg + 1, "syslog") == 0) {
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(notebook), log_tab);
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_tab);
       if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), index);
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
    } else if (ws_conn) {
       if (msg[0] == '/') { // Handle local commands

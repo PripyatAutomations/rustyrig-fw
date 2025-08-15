@@ -46,7 +46,7 @@ extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *servers;
-extern GtkWidget *notebook;	// im gtk.c
+extern GtkWidget *main_notebook;	// im gtk.c
 extern GtkWidget *toggle_userlist_button; // in gtk.c
 
 extern dict *cfg_load(const char *path);
@@ -272,7 +272,7 @@ static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
 
 GtkWidget *init_config_tab(void) {
    GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), nw, gtk_label_new("Config"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, gtk_label_new("Config"));
 
    GtkWidget *config_label = gtk_label_new("Configuration will go here...");
    gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);

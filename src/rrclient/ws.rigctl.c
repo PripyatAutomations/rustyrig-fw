@@ -39,7 +39,7 @@ extern struct mg_mgr mgr;
 extern bool ws_connected;
 extern bool ws_tx_connected;
 extern struct mg_connection *ws_conn, *ws_tx_conn;
-//extern bool server_ptt_state;
+extern bool server_ptt_state;
 extern const char *tls_ca_path;
 extern struct mg_str tls_ca_path_str;
 extern bool cfg_show_pings;
@@ -69,7 +69,6 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          mg_json_get_num(msg_data, "$.cat.state.power", &power);
 
 // XXX: PTT
-#if	0
          bool ptt = false;
          char *ptt_s = mg_json_get_str(msg_data, "$.cat.state.ptt");
 
@@ -84,7 +83,6 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 //         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
 //         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
-#endif
 
          double ts;
          mg_json_get_num(msg_data, "$.cat.ts", &ts);
@@ -102,7 +100,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
          if (freq > 0) {
 //            g_signal_handler_block(freq_entry, freq_changed_handler_id);
-            Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
+//            Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
             gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(freq_entry), freq);
 //            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
          }

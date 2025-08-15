@@ -38,7 +38,7 @@ extern bool cfg_show_pings;
 extern time_t now;
 extern time_t poll_block_expire, poll_block_delay;
 extern GtkWidget *main_window;
-extern GtkWidget *notebook;
+extern GtkWidget *main_notebook;
 GtkWidget *admin_view = NULL;
 GtkWidget *admin_tab = NULL;
 
@@ -49,6 +49,6 @@ GtkWidget *init_admin_tab(void) {
 
    // add stuff to the window
    gtk_container_add(GTK_CONTAINER(nw), admin_view);
-   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), nw, gtk_label_new("Admin"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, gtk_label_new("Admin"));
    return nw;
 }
