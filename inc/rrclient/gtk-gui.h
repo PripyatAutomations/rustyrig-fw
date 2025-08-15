@@ -59,8 +59,6 @@ extern bool log_print(const char *fmt, ...);
 extern void gui_edit_config(const char *filepath);
 extern gboolean ui_scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);
-extern GtkComboBoxText *tx_combo;
-extern GtkComboBoxText *rx_combo;
 extern GtkWidget *mode_combo;          // if mode_combo is a GtkWidget*
 extern GtkWidget *width_combo;
 #ifdef _WIN32
@@ -76,7 +74,7 @@ extern bool set_window_icon(GtkWidget *window, const char *icon_name);
 
 // gtk.pttbtn.c and gtk.freqentry.c debris
 extern GtkWidget *ptt_button_create(void);
-extern GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx);		// gtk.codecpicker.c
+extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx);		// gtk.codecpicker.c
 extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
 extern GtkWidget *ptt_button;
 extern GtkWidget *freq_entry;

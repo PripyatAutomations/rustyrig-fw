@@ -46,6 +46,8 @@ extern GtkWidget *main_window;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
 
+extern GtkWidget *tx_codec_combo, *rx_codec_combo;
+
 //////////////////////////////////
 // Support for multiple servers //
 //////////////////////////////////
@@ -176,8 +178,8 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
             memset(first_codec, 0, 5);
             // Copy the *first* codec of the negotiated set, as it's our most preferred.
             memcpy(first_codec, media_codecs, 4);
-            populate_codec_combo(tx_combo, media_codecs, (media_preferred ? media_preferred : "pc16"));
-            populate_codec_combo(rx_combo, media_codecs, (media_preferred ? media_preferred : "pc16"));
+            populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
+            populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
             ws_select_codec(c, first_codec, false);
          } else {
             Log(LOG_DEBUG, "ws.media", "Got media isupport with empty codecs");

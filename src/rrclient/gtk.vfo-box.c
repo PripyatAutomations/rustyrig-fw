@@ -27,6 +27,9 @@
 #include "rrclient/gtk-gui.h"
 #include "rrclient/ws.h"
 
+
+GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
+
 static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    connect_or_disconnect(GTK_BUTTON(button));
 }
@@ -37,6 +40,7 @@ GtkWidget *create_vfo_box(void) {
 
    // ONLINE button
    conn_button = gtk_button_new_with_label("Offline");
+   gtk_widget_set_tooltip_text(conn_button, "Toggle online state");
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
    gtk_style_context_add_class(conn_ctx, "conn-idle");
@@ -55,10 +59,11 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *mode_box = create_mode_box();
    gtk_box_pack_start(GTK_BOX(control_box), mode_box, TRUE, TRUE, 6);
 
-   // codec selectors
-   GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_combo, &rx_combo);
+   // CODEC selectors
+   GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
    gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, TRUE, TRUE, 6);
 
+   // VOLUME selector
    GtkWidget *rx_vol_vbox = create_volbox();
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 0);
 

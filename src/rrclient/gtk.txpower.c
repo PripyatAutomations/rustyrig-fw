@@ -30,9 +30,10 @@
 GtkWidget *tx_power_slider = NULL;
 
 GtkWidget *create_txpower_box(void) {
-   GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+   GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    GtkWidget *tx_power_label = gtk_label_new("TX Power");
    tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   gtk_widget_set_tooltip_text(tx_power_slider, "Transmit Power (0-100%)");
    gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, TRUE, TRUE, 1);
    gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
    int cfg_def_pow_tx = cfg_get_int("default.tx.power", 0);

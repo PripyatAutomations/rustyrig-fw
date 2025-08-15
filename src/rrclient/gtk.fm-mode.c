@@ -33,6 +33,9 @@ extern bool dying;
 extern bool ptt_active;
 extern bool ws_connected;
 
+static GtkWidget *tx_tone_combo = NULL;
+static GtkWidget *rx_tone_combo = NULL;
+
 /* Tone lists */
 static const char *ctcss_tones[] = {
    "67.0", "69.3", "71.9", "74.4", "77.0",
@@ -100,19 +103,19 @@ static void update_tone_dropdowns(void) {
       }
    }
 
-   gtk_widget_set_sensitive(GTK_WIDGET(rx_combo), rx_enabled);
-   gtk_widget_set_sensitive(GTK_WIDGET(tx_combo), tx_enabled);
+   gtk_widget_set_sensitive(GTK_WIDGET(rx_tone_combo), rx_enabled);
+   gtk_widget_set_sensitive(GTK_WIDGET(tx_tone_combo), tx_enabled);
 
    if (rx_enabled) {
-      populate_tone_combo(GTK_COMBO_BOX_TEXT(rx_combo), tones);
+      populate_tone_combo(GTK_COMBO_BOX_TEXT(rx_tone_combo), tones);
    } else {
-      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(rx_combo));
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(rx_tone_combo));
    }
 
    if (tx_enabled) {
-      populate_tone_combo(GTK_COMBO_BOX_TEXT(tx_combo), tones);
+      populate_tone_combo(GTK_COMBO_BOX_TEXT(tx_tone_combo), tones);
    } else {
-      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(tx_combo));
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(tx_tone_combo));
    }
 }
 
@@ -149,6 +152,7 @@ void fm_dialog_show(void) {
 
       /* Mode combo */
       mode_combo = gtk_combo_box_text_new();
+      gtk_widget_set_tooltip_text(mode_combo, "Tone Squelch (CTCSS/PL or DCS)");
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "Off");
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "RX");
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "TX");
@@ -164,6 +168,7 @@ void fm_dialog_show(void) {
 
       /* Tone type combo */
       tone_type_combo = gtk_combo_box_text_new();
+      gtk_widget_set_tooltip_text(tone_type_combo, "Choose CTCSS/PL or DCS");
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_type_combo), "CTCSS");
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tone_type_combo), "DCS");
       gtk_combo_box_set_active(GTK_COMBO_BOX(tone_type_combo), 0);
@@ -176,9 +181,9 @@ void fm_dialog_show(void) {
       gtk_grid_attach(GTK_GRID(grid), rx_label, 0, 2, 1, 1);
 
       /* RX tone combo */
-      rx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
-      tx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
-      gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(rx_combo), 1, 2, 1, 1);
+      rx_tone_combo = gtk_combo_box_text_new();
+      gtk_widget_set_tooltip_text(rx_tone_combo, "Receive squelch tone");
+      gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(rx_tone_combo), 1, 2, 1, 1);
 
       /* TX tone label */
       GtkWidget *tx_label = gtk_label_new("TX Tone:");
@@ -186,8 +191,9 @@ void fm_dialog_show(void) {
       gtk_grid_attach(GTK_GRID(grid), tx_label, 0, 3, 1, 1);
 
       /* TX tone combo */
-      tx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
-      gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(tx_combo), 1, 3, 1, 1);
+      tx_tone_combo = gtk_combo_box_text_new();
+      gtk_widget_set_tooltip_text(tx_tone_combo, "Transmit squelch tone");
+      gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(tx_tone_combo), 1, 3, 1, 1);
 
       /* Repeater offset label */
       GtkWidget *offset_label = gtk_label_new("Repeater Offset (MHz):");
@@ -196,7 +202,25 @@ void fm_dialog_show(void) {
 
       /* Repeater offset combo (editable) */
       GtkWidget *offset_combo = gtk_combo_box_text_new_with_entry();
+      gtk_widget_set_tooltip_text(offset_combo, "Repeater Offset in Mhz");
+
+      // Negative offsets
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-25.0");  // 9cm band
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-20.0");  // 13cm band
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-15.0");  // 23cm band
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-10.0");  // 70cm (440 MHz) alternate
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-7.6");   // 70cm (440 MHz) alternate
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-5.0");   // 70cm (440 MHz)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-5.0");   // 6m (50 MHz) alternate
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-1.6");   // 2m (144 MHz) alternate
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-1.0");   // 6m (50 MHz)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.7");   // 2m (144 MHz)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.6");   // 220 MHz
+
+      // NONE
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "NONE");  // No offset
+
+      // Positive offsets
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "0.6");   // 220 MHz
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "0.7");   // 2m (144 MHz)
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "1.0");   // 6m (50 MHz)
@@ -209,19 +233,9 @@ void fm_dialog_show(void) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "20.0");  // 13cm band
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "25.0");  // 9cm band
 
-      // Negative offsets
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.6");   // 220 MHz
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.7");   // 2m (144 MHz)
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-1.0");   // 6m (50 MHz)
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-1.6");   // 2m (144 MHz) alternate
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-5.0");   // 6m (50 MHz) alternate
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-5.0");   // 70cm (440 MHz)
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-7.6");   // 70cm (440 MHz) alternate
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-10.0");  // 70cm (440 MHz) alternate
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-15.0");  // 23cm band
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-20.0");  // 13cm band
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-25.0");  // 9cm band
-      gtk_combo_box_set_active(GTK_COMBO_BOX(offset_combo), 0);
+
+//      gtk_combo_box_set_active(GTK_COMBO_BOX(offset_combo), 0);
+      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(offset_combo), "NONE");
       gtk_grid_attach(GTK_GRID(grid), offset_combo, 1, 4, 1, 1);
 
       /* Initialize combos based on default states */

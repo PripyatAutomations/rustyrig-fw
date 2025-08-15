@@ -41,8 +41,8 @@ extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
 extern GtkWidget *config_tab;
 
-GtkComboBoxText *tx_combo = NULL;
-GtkComboBoxText *rx_combo = NULL;
+GtkWidget *tx_combo = NULL;
+GtkWidget *rx_combo = NULL;
 
 typedef struct {
    struct mg_connection *conn;
@@ -86,12 +86,14 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
    g_free(list);
 }
 
-GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText **out_rx) {
+GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *widget_label = gtk_label_new("TX/RX Codecs");
 
-   tx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
-   rx_combo = GTK_COMBO_BOX_TEXT(gtk_combo_box_text_new());
+   tx_combo = gtk_combo_box_text_new();
+   gtk_widget_set_tooltip_text(tx_combo, "Transmit codec");
+   rx_combo = gtk_combo_box_text_new();
+   gtk_widget_set_tooltip_text(rx_combo, "Receive codec");
 
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);
    CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);

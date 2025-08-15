@@ -87,6 +87,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 GtkWidget *ptt_button_create(void) {
    GtkWidget *ptt_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
+   gtk_widget_set_tooltip_text(ptt_button, "Push To Talk toggle");
 
    // try to avoid leaking memory due to buggy GUI code...
    if (!ptt_box || !ptt_button) {

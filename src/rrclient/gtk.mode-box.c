@@ -62,6 +62,7 @@ GtkWidget *create_mode_box(void) {
    GtkWidget *mode_box_label = gtk_label_new("Mode/Width");
 
    mode_combo = gtk_combo_box_text_new();
+   gtk_widget_set_tooltip_text(mode_combo, "Modulation Mode");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "AM");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "LSB");
@@ -76,6 +77,8 @@ GtkWidget *create_mode_box(void) {
    gtk_box_pack_start(GTK_BOX(mode_box), mode_combo, TRUE, TRUE, 1);
 
    width_combo = gtk_combo_box_text_new();
+   gtk_widget_set_tooltip_text(width_combo, "Modulation Width");
+   // XXX: This should get populated by available khz widths from server for rig
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NARR");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NORM");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "WIDE");
