@@ -594,25 +594,6 @@ void gtk_freq_entry_set_value(GtkFreqEntry *fi, guint64 freq)
     }
 }
 
-#if	0
-void gtk_freq_entry_set_value(GtkFreqEntry *fi, unsigned long freq) {
-   char buf[MAX_DIGITS + 1];
-   snprintf(buf, sizeof(buf), "%0*lu", fi->num_digits, freq);
-   poll_block_expire = now + 2;
-
-   // Store the OLD frequency then the new one
-   fi->prev_freq = fi->freq;
-   fi->freq = freq;
-
-   for (int i = 0; i < fi->num_digits; i++) {
-      char digit[2] = { (buf[i] >= '0' && buf[i] <= '9') ? buf[i] : '0', 0 };
-      gtk_entry_set_text(GTK_ENTRY(fi->digits[i]), digit);
-   }
-
-   freqentry_finalize(fi);
-}
-#endif
-
 unsigned long gtk_freq_entry_get_value(GtkFreqEntry *fi) {
    char buf[MAX_DIGITS + 1] = {0};
 
