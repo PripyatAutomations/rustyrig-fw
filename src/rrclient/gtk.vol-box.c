@@ -40,8 +40,12 @@ GtkWidget *create_volbox(void) {
    GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
    rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 1);
+//   rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL, 0, 100, 1);
+   gtk_scale_set_digits(GTK_SCALE(rx_vol_slider), 0);
+//   rx_vol_slider = gtk_volume_button_new();
+
+   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 0);
 
    int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);

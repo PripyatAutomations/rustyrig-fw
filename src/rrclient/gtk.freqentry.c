@@ -76,10 +76,15 @@ static GdkRGBA group_color(int group) {
 }
 
 static int digit_group(int i) {
-   if (i == 0) return 0;          // GHz
-   else if (i >= 1 && i <= 3) return 1; // MHz
-   else if (i >= 4 && i <= 6) return 2; // kHz
-   else return 3;                 // Hz
+   if (i == 0) {
+      return 0;		// Ghz
+   } else if (i >= 1 && i <= 3) {
+       return 1; 	// Mhz
+   } else if (i >= 4 && i <= 6) {
+      return 2; 	// kHz
+   } else {
+      return 3;         // Hz
+   }
 }
 
 static GtkWidget *get_prev_widget(GtkWidget *widget) {
@@ -419,8 +424,7 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
    return FALSE;
 }
 
-static void freqentry_bump_digit(GtkFreqEntry *self, int idx, int delta)
-{
+static void freqentry_bump_digit(GtkFreqEntry *self, int idx, int delta) {
     if (idx < 0 || idx >= self->num_digits)
         return;
 
@@ -444,8 +448,7 @@ static void freqentry_bump_digit(GtkFreqEntry *self, int idx, int delta)
     gtk_entry_set_text(GTK_ENTRY(self->digits[idx]), buf);
 }
 
-static gboolean on_toplevel_scroll(GtkWidget *toplevel, GdkEventScroll *event, gpointer user_data)
-{
+static gboolean on_toplevel_scroll(GtkWidget *toplevel, GdkEventScroll *event, gpointer user_data) {
     GtkFreqEntry *self = GTK_FREQ_ENTRY(user_data);
     int idx = self->last_focused_idx;
     if (idx < 0) {
@@ -494,94 +497,94 @@ static void gtk_freq_entry_class_init(GtkFreqEntryClass *class) {
 
 }
 
-GtkWidget *gtk_freq_entry_new(int num_digits)
-{
-    if (num_digits > MAX_DIGITS)
-        num_digits = MAX_DIGITS;
+GtkWidget *gtk_freq_entry_new(int num_digits) {
+   if (num_digits > MAX_DIGITS) {
+       num_digits = MAX_DIGITS;
+   }
 
-    // Pass num_digits via construct property
-    GtkFreqEntry *fi = g_object_new(GTK_TYPE_FREQ_ENTRY, "num-digits", num_digits, NULL);
-    return GTK_WIDGET(fi);
+   // Pass num_digits via construct property
+   GtkFreqEntry *fi = g_object_new(GTK_TYPE_FREQ_ENTRY, "num-digits", num_digits, NULL);
+   return GTK_WIDGET(fi);
 }
 
-void gtk_freq_entry_init(GtkFreqEntry *fi)
-{
-    gtk_orientable_set_orientation(GTK_ORIENTABLE(fi), GTK_ORIENTATION_HORIZONTAL);
+void gtk_freq_entry_init(GtkFreqEntry *fi) {
+   gtk_orientable_set_orientation(GTK_ORIENTABLE(fi), GTK_ORIENTATION_HORIZONTAL);
 
-    // Default values
-    if (fi->num_digits <= 0)
-        fi->num_digits = MAX_DIGITS;
+   // Default values
+   if (fi->num_digits <= 0) {
+      fi->num_digits = MAX_DIGITS;
+   }
 
-    fi->last_focused_idx = -1;
-    fi->scroll_accum_y = 0.0;
-    fi->scroll_accum_x = 0.0;
-    fi->editing = false;
+   fi->last_focused_idx = -1;
+   fi->scroll_accum_y = 0.0;
+   fi->scroll_accum_x = 0.0;
+   fi->editing = false;
 
-    // Allocate arrays
-    fi->digits       = g_new0(GtkWidget*, fi->num_digits);
-    fi->up_buttons   = g_new0(GtkWidget*, fi->num_digits);
-    fi->down_buttons = g_new0(GtkWidget*, fi->num_digits);
+   // Allocate arrays
+   fi->digits       = g_new0(GtkWidget*, fi->num_digits);
+   fi->up_buttons   = g_new0(GtkWidget*, fi->num_digits);
+   fi->down_buttons = g_new0(GtkWidget*, fi->num_digits);
 
-    PangoFontDescription *font = pango_font_description_from_string("Monospace 12");
-    GdkRGBA white = {1, 1, 1, 1};
+   PangoFontDescription *font = pango_font_description_from_string("Monospace 12");
+   GdkRGBA white = {1, 1, 1, 1};
 
-    for (int i = 0; i < fi->num_digits; i++) {
-        if (i == 1 || i == 4 || i == 7) {
-            GtkWidget *sep = gtk_label_new(" ");
-            gtk_box_pack_start(GTK_BOX(fi), sep, FALSE, FALSE, 2);
-        }
+   for (int i = 0; i < fi->num_digits; i++) {
+      if (i == 1 || i == 4 || i == 7) {
+         GtkWidget *sep = gtk_label_new(" ");
+         gtk_box_pack_start(GTK_BOX(fi), sep, FALSE, FALSE, 2);
+      }
 
-        GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+      GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
-        GtkWidget *up_button = gtk_button_new_with_label("+");
-        gtk_widget_set_can_focus(up_button, FALSE);
-        g_object_set_data(G_OBJECT(up_button), "digit-index", GINT_TO_POINTER(i));
-        g_object_set_data(G_OBJECT(up_button), "digit-delta", GINT_TO_POINTER(1));
+      GtkWidget *up_button = gtk_button_new_with_label("+");
+      gtk_widget_set_can_focus(up_button, FALSE);
+      g_object_set_data(G_OBJECT(up_button), "digit-index", GINT_TO_POINTER(i));
+      g_object_set_data(G_OBJECT(up_button), "digit-delta", GINT_TO_POINTER(1));
 
-        GtkWidget *entry = gtk_entry_new();
-        gtk_entry_set_max_length(GTK_ENTRY(entry), 1);
-        gtk_entry_set_width_chars(GTK_ENTRY(entry), 1);
-        gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
-        gtk_widget_set_size_request(entry, 20, 30);
-        gtk_widget_override_color(entry, GTK_STATE_FLAG_NORMAL, &white);
-        gtk_entry_set_text(GTK_ENTRY(entry), "0"); // start zeroed
+      GtkWidget *entry = gtk_entry_new();
+      gtk_entry_set_max_length(GTK_ENTRY(entry), 1);
+      gtk_entry_set_width_chars(GTK_ENTRY(entry), 1);
+      gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
+      gtk_widget_set_size_request(entry, 20, 30);
+      gtk_widget_override_color(entry, GTK_STATE_FLAG_NORMAL, &white);
+      gtk_entry_set_text(GTK_ENTRY(entry), "0"); // start zeroed
 
-        GtkWidget *down_button = gtk_button_new_with_label("-");
-        gtk_widget_set_can_focus(down_button, FALSE);
-        g_object_set_data(G_OBJECT(down_button), "digit-index", GINT_TO_POINTER(i));
-        g_object_set_data(G_OBJECT(down_button), "digit-delta", GINT_TO_POINTER(-1));
+      GtkWidget *down_button = gtk_button_new_with_label("-");
+      gtk_widget_set_can_focus(down_button, FALSE);
+      g_object_set_data(G_OBJECT(down_button), "digit-index", GINT_TO_POINTER(i));
+      g_object_set_data(G_OBJECT(down_button), "digit-delta", GINT_TO_POINTER(-1));
 
-        gtk_widget_override_font(up_button, font);
-        gtk_widget_override_font(entry, font);
-        gtk_widget_override_font(down_button, font);
+      gtk_widget_override_font(up_button, font);
+      gtk_widget_override_font(entry, font);
+      gtk_widget_override_font(down_button, font);
 
-        GdkRGBA c = group_color(digit_group(i));
-        gtk_widget_override_background_color(entry, GTK_STATE_FLAG_NORMAL, &c);
+      GdkRGBA c = group_color(digit_group(i));
+      gtk_widget_override_background_color(entry, GTK_STATE_FLAG_NORMAL, &c);
 
-        gtk_box_pack_start(GTK_BOX(vbox), up_button, TRUE, FALSE, 0);
-        gtk_box_pack_start(GTK_BOX(vbox), entry, TRUE, TRUE, 0);
-        gtk_box_pack_start(GTK_BOX(vbox), down_button, TRUE, FALSE, 0);
-        gtk_box_pack_start(GTK_BOX(fi), vbox, FALSE, FALSE, 0);
-        gtk_widget_show_all(vbox);
+      gtk_box_pack_start(GTK_BOX(vbox), up_button, TRUE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(vbox), entry, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(vbox), down_button, TRUE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(fi), vbox, FALSE, FALSE, 0);
+      gtk_widget_show_all(vbox);
 
-        fi->digits[i] = entry;
-        fi->up_buttons[i] = up_button;
-        fi->down_buttons[i] = down_button;
+      fi->digits[i] = entry;
+      fi->up_buttons[i] = up_button;
+      fi->down_buttons[i] = down_button;
 
-        g_signal_connect(up_button, "clicked", G_CALLBACK(on_button_clicked), fi);
-        g_signal_connect(down_button, "clicked", G_CALLBACK(on_button_clicked), fi);
-        g_signal_connect(entry, "key-press-event", G_CALLBACK(on_digit_key_press), fi);
-        g_signal_connect(entry, "activate", G_CALLBACK(on_freq_digit_activate), fi);
-        g_signal_connect(entry, "focus-in-event", G_CALLBACK(on_freq_focus_in), fi);
-        g_signal_connect(entry, "focus-out-event", G_CALLBACK(on_freq_focus_out), fi);
-        g_signal_connect(entry, "button-press-event", G_CALLBACK(on_freq_digit_button), fi);
-        g_signal_connect(GTK_WIDGET(fi), "realize", G_CALLBACK(on_freqentry_realize), fi);
-    }
+      g_signal_connect(up_button, "clicked", G_CALLBACK(on_button_clicked), fi);
+      g_signal_connect(down_button, "clicked", G_CALLBACK(on_button_clicked), fi);
+      g_signal_connect(entry, "key-press-event", G_CALLBACK(on_digit_key_press), fi);
+      g_signal_connect(entry, "activate", G_CALLBACK(on_freq_digit_activate), fi);
+      g_signal_connect(entry, "focus-in-event", G_CALLBACK(on_freq_focus_in), fi);
+      g_signal_connect(entry, "focus-out-event", G_CALLBACK(on_freq_focus_out), fi);
+      g_signal_connect(entry, "button-press-event", G_CALLBACK(on_freq_digit_button), fi);
+      g_signal_connect(GTK_WIDGET(fi), "realize", G_CALLBACK(on_freqentry_realize), fi);
+   }
 
-    gtk_widget_add_events(GTK_WIDGET(fi), GDK_SCROLL_MASK);
-    g_signal_connect(fi, "scroll-event", G_CALLBACK(on_freqentry_scroll), fi);
+   gtk_widget_add_events(GTK_WIDGET(fi), GDK_SCROLL_MASK);
+   g_signal_connect(fi, "scroll-event", G_CALLBACK(on_freqentry_scroll), fi);
 
-    pango_font_description_free(font);
+   pango_font_description_free(font);
 }
 
 void gtk_freq_entry_set_value(GtkFreqEntry *fi, guint64 freq)
@@ -604,8 +607,7 @@ unsigned long gtk_freq_entry_get_value(GtkFreqEntry *fi) {
    return strtoul(buf, NULL, 10);
 }
 
-void gtk_freq_entry_set_frequency(GtkFreqEntry *fi, unsigned long freq)
-{
+void gtk_freq_entry_set_frequency(GtkFreqEntry *fi, unsigned long freq) {
     if (!fi || fi->num_digits <= 0) {
        return;
     }
@@ -624,7 +626,6 @@ void gtk_freq_entry_set_frequency(GtkFreqEntry *fi, unsigned long freq)
     fi->editing = false;
 }
 
-unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *self)
-{
+unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *self) {
     return self->freq;
 }

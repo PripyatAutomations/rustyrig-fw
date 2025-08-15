@@ -103,9 +103,9 @@ GtkWidget *create_codec_selector_vbox(GtkComboBoxText **out_tx, GtkComboBoxText 
    gtk_combo_box_set_active(GTK_COMBO_BOX(tx_combo), 1);
    gtk_combo_box_set_active(GTK_COMBO_BOX(rx_combo), 1);
 
-   gtk_box_pack_start(GTK_BOX(vbox), widget_label, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(rx_combo), FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(vbox), widget_label, FALSE, FALSE, 1);
+   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(rx_combo), TRUE, TRUE, 1);
 
    if (out_tx) {
       *out_tx = tx_combo;

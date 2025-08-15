@@ -42,6 +42,9 @@ GtkWidget *create_vfo_box(void) {
    gtk_style_context_add_class(conn_ctx, "conn-idle");
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
 
+   GtkWidget *online_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), online_spacer, TRUE, TRUE, 0);
+
    // FREQ selection
    freq_entry = gtk_freq_entry_new(MAX_DIGITS);
    GtkWidget *freq_label = gtk_label_new("Hz");
@@ -50,11 +53,11 @@ GtkWidget *create_vfo_box(void) {
 
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
-   gtk_box_pack_start(GTK_BOX(control_box), mode_box, FALSE, FALSE, 6);
+   gtk_box_pack_start(GTK_BOX(control_box), mode_box, TRUE, TRUE, 6);
 
    // codec selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_combo, &rx_combo);
-   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, TRUE, TRUE, 6);
 
    GtkWidget *rx_vol_vbox = create_volbox();
    gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 0);
@@ -69,7 +72,7 @@ GtkWidget *create_vfo_box(void) {
 
    // Create PTT button widget
    GtkWidget *ptt_box = ptt_button_create();
-   gtk_box_pack_start(GTK_BOX(control_box), ptt_box, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), ptt_box, TRUE, TRUE, 2);
 
    return control_box;
 }

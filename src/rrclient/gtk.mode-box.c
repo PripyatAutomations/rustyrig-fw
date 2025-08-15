@@ -60,7 +60,6 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 GtkWidget *create_mode_box(void) {
    GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    GtkWidget *mode_box_label = gtk_label_new("Mode/Width");
-   gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, FALSE, FALSE, 0);
 
    mode_combo = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
@@ -73,7 +72,8 @@ GtkWidget *create_mode_box(void) {
    gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 3);
 
    mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
-   gtk_box_pack_start(GTK_BOX(mode_box), mode_combo, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(mode_box), mode_combo, TRUE, TRUE, 1);
 
    width_combo = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NARR");
@@ -82,7 +82,7 @@ GtkWidget *create_mode_box(void) {
    gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), 1);
 
 //   width_changed_handler_id = g_signal_connect(width_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
-   gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 1);
 
    return mode_box;
 }

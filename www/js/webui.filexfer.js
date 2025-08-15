@@ -104,7 +104,7 @@ function handle_file_chunk(msgObj) {
    }
 
    if (filetype) {
-      file_chunks[msg_id].filename = filetype;
+      file_chunks[msg_id].filetype = filetype;
    }
  
    file_chunks[msg_id].chunks[chunk_index] = data;
