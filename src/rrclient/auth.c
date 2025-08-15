@@ -109,7 +109,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
       sprintf(hex_output + (i * 2), "%02x", hash[i]);
    }
    hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
-   Log(LOG_CRAZY, "auth", "passwd %s nonce %s result %s", password, nonce, hex_output);
+//   Log(LOG_CRAZY, "auth", "passwd |%s| nonce |%s| result |%s|", password, nonce, hex_output);
 
    return hex_output;
 }

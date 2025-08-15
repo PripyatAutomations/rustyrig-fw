@@ -1,0 +1,42 @@
+//
+// rrclient/gtk.txpower.c: Transmit
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+
+#include "common/config.h"
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <string.h>
+#include <time.h>
+#include <gtk/gtk.h>
+#include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
+#include "../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
+#include "common/dict.h"
+#include "common/posix.h"
+#include "rrclient/auth.h"
+#include "rrclient/gtk-gui.h"
+#include "rrclient/ws.h"
+
+GtkWidget *tx_power_slider = NULL;
+
+GtkWidget *create_txpower_box(void) {
+   GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+   GtkWidget *tx_power_label = gtk_label_new("TX Power");
+   tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
+   int cfg_def_pow_tx = cfg_get_int("default.tx.power", 0);
+   gtk_range_set_value(GTK_RANGE(tx_power_slider), cfg_def_pow_tx);
+
+   return tx_power_vbox;
+}

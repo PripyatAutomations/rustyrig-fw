@@ -89,7 +89,6 @@ GtkWidget *ptt_button_create(void) {
    }
 
    gtk_box_pack_start(GTK_BOX(ptt_box), ptt_button, FALSE, FALSE, 0);
-
    g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-idle");
 

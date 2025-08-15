@@ -373,7 +373,7 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
       return false;
    }
 
-   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window called with gw:<%x>, named '%s'", gw, name);
+   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window called with gw:<%x>, named |%s|", gw, name);
 
    gui_window_t **pp = &gui_windows;
    while (*pp) {
@@ -381,13 +381,13 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
       bool match = false;
 
       if (gw && p == gw) {
-         Log(LOG_DEBUG, "gtk.winmgr", "match by ptr:%x", gw);
+         Log(LOG_DEBUG, "gtk.winmgr", "match by ptr <%x>", gw);
          match = true;   
       } else if (gw && p->gtk_win == gw->gtk_win) {
-         Log(LOG_DEBUG, "gtk.winmgr", "match by win ptr: %x", gw->gtk_win);
+         Log(LOG_DEBUG, "gtk.winmgr", "match by win ptr: <%x> (name: |%s|)", gw->gtk_win, (p->name[0] != '\0' ? p->name : ""));
          match = true;       // same GtkWindow
       } else if (name && strcmp(p->name, name) == 0) {
-         Log(LOG_DEBUG, "gtk.winmgr", "match by name: %s", name);
+         Log(LOG_DEBUG, "gtk.winmgr", "match by name: |%s|", name);
          match = true;    // by name
       }
 

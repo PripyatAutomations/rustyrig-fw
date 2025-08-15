@@ -13,7 +13,7 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
-#include "rrclient/gtk.freqentry.h"
+
 #define	HTTP_USER_LEN		16		// username length (16 char)
 #define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64
 #define	HTTP_HASH_LEN		40		// sha1
@@ -29,7 +29,6 @@ struct GuiWindow {
     int last_x, last_y, last_w, last_h;	// Previous locations (if moving)
     bool is_moving;		// Is the window being moved?
     GdkEventConfigure *move_evt;
-
     bool win_raised;		// Raised?
     bool win_minimized;		// Is the window minimized?
     bool win_modal;		// Always on top
@@ -40,15 +39,12 @@ struct GuiWindow {
 };
 typedef struct GuiWindow gui_window_t;
 
-extern gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name);
-extern gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name);
-extern bool gui_forget_window(gui_window_t *window, const char *name);
-extern gui_window_t *gui_windows;
 extern bool ui_print(const char *fmt, ...);
 extern void update_connection_button(bool connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, gboolean active);
 extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text);
 extern gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+extern gboolean focus_main_later(gpointer data);
 extern bool gui_init(void);
 extern GtkTextBuffer *text_buffer;
 extern GtkWidget *conn_button;
@@ -66,10 +62,7 @@ extern GtkWidget *init_config_tab(void);
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 extern GtkWidget *mode_combo;          // if mode_combo is a GtkWidget*
-extern gui_window_t *ui_new_window(GtkWidget *window, const char *name);
-extern bool set_window_icon(GtkWidget *window, const char *icon_name);
-extern gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer user_data);
-
+extern GtkWidget *width_combo;
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
@@ -91,5 +84,17 @@ extern GtkWidget *mode_combo;
 extern gulong mode_changed_handler_id;
 extern gulong freq_changed_handler_id;
 //extern void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
+
+#include "rrclient/gtk.codecpicker.h"
+#include "rrclient/gtk.editcfg.h"
+#include "rrclient/gtk.freqentry.h"
+#include "rrclient/gtk.fm-mode.h"
+#include "rrclient/gtk.mode-box.h"
+#include "rrclient/gtk.ptt-btn.h"
+#include "rrclient/gtk.serverpick.h"
+#include "rrclient/gtk.txpower.h"
+#include "rrclient/gtk.vfo-box.h"
+#include "rrclient/gtk.vol-box.h"
+#include "rrclient/gtk.winmgr.h"
 
 #endif	// !defined(__rrclient_gtk_gui_h)

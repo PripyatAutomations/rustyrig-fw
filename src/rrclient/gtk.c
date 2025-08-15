@@ -32,38 +32,39 @@
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
 extern bool clear_syslog(void);
 extern void show_help(const char *topic);
-extern GtkWidget *init_log_tab(void);
-extern GtkWidget *init_admin_tab(void);
+
+extern time_t poll_block_expire, poll_block_delay;
 extern dict *cfg;
 extern time_t now;
 extern bool dying;
 extern bool ptt_active;
 extern bool ws_connected;
+
 extern struct mg_connection *ws_conn;
 extern GtkWidget *userlist_init(void);
-extern time_t poll_block_expire, poll_block_delay;
 extern GstElement *rx_vol_gst_elem;		// audio.c
 extern GstElement *rx_pipeline;			// audio.c
-extern GtkWidget *config_tab;
-extern GtkWidget *admin_tab;
-GtkCssProvider *css_provider = NULL;
+extern GtkComboBoxText *tx_combo;
+extern GtkComboBoxText *rx_combo;
+
+GtkWidget *main_window = NULL;
+GtkWidget *userlist_window = NULL;
+
 GtkWidget *conn_button = NULL;
 GtkWidget *text_view = NULL;
 GtkWidget *freq_entry = NULL;
-GtkWidget *mode_combo = NULL;
-GtkWidget *width_combo = NULL;
-extern GtkComboBoxText *tx_combo;
-extern GtkComboBoxText *rx_combo;
-GtkWidget *tx_power_slider = NULL;
-GtkWidget *rx_vol_slider = NULL;
-GtkWidget *userlist_window = NULL;
+
+GtkCssProvider *css_provider = NULL;
+
 GtkWidget *chat_entry = NULL;
-GtkWidget *main_window = NULL;
 GtkWidget *toggle_userlist_button = NULL;
 GtkTextBuffer *text_buffer = NULL;
 
-
 ///////// Tab View //////////
+extern GtkWidget *init_log_tab(void);
+extern GtkWidget *init_admin_tab(void);
+extern GtkWidget *config_tab;
+extern GtkWidget *admin_tab;
 GtkWidget *notebook = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
@@ -71,11 +72,11 @@ GtkWidget *log_tab = NULL;
 static GPtrArray *input_history = NULL;
 static int history_index = -1;
 static char chat_ts[9];
+
+////////////////////
+// Chat timestamp //
+////////////////////
 static time_t chat_ts_updated = 0;
-
-extern void fm_dialog_show(void);
-extern void fm_dialog_hide(void);
-
 const char *get_chat_ts(void) {
    memset(chat_ts, 0, 9);
 
@@ -130,29 +131,9 @@ bool ui_print(const char *fmt, ...) {
    return false;
 }
 
-static gboolean focus_main_later(gpointer data) {
+gboolean focus_main_later(gpointer data) {
    gtk_window_present(GTK_WINDOW(data));
    return FALSE;
-}
-gulong mode_changed_handler_id;
-static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
-   const gchar *text = gtk_combo_box_text_get_active_text(combo);
-
-   if (text) {
-      // Send mode command over websocket as before
-      ws_send_mode_cmd(ws_conn, "A", text);
-
-      // Show/hide repeater dialog locally based on FM mode
-      if (g_str_equal(text, "FM")) {
-         fm_dialog_show();
-         // But return focus to our main window immediately
-        g_idle_add(focus_main_later, main_window);
-      } else {
-         fm_dialog_hide();
-      }
-
-      g_free((gchar *)text);
-   }
 }
 
 void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
@@ -181,7 +162,6 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
       } while (gtk_tree_model_iter_next(model, &iter));
    }
 }
-
 
 // Combine some common, safe string handling into one call
 bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
@@ -251,19 +231,9 @@ void update_connection_button(bool connected, GtkWidget *btn) {
    }
 }
 
-static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
-   connect_or_disconnect(GTK_BUTTON(button));
-}
-
 static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer user_data) {
    gtk_window_set_urgency_hint(GTK_WINDOW(widget), FALSE);
    return FALSE;
-}
-
-void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
-   gdouble val = gtk_range_get_value(range);
-   val /= 100.0;  // scale from 0–100 to 0.0–1.0
-   g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
 
 gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
@@ -369,119 +339,12 @@ gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    
    ret = gui_store_window(window, name);
    set_window_icon(window, "rustyrig");
+
+#ifdef _WIN32
+   enable_windows_dark_mode_for_gtk_window(window);
+#endif
+
    return ret;
-}
-
-
-GtkWidget *create_vfo_box(void) {
-   // Create the control box
-   GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-
-   conn_button = gtk_button_new_with_label("Offline");
-   gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
-   GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
-   gtk_style_context_add_class(conn_ctx, "conn-idle");
-   Log(LOG_CRAZY, "gtk", "conn_button add callback clicked");
-   g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
-
-   freq_entry = gtk_freq_entry_new();
-   GtkWidget *freq_label = gtk_label_new("Hz");
-   gtk_box_pack_start(GTK_BOX(control_box), freq_entry, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
-
-   GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   GtkWidget *mode_box_label = gtk_label_new("Mode/Width");
-   gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, FALSE, FALSE, 0);
-
-   mode_combo = gtk_combo_box_text_new();
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "AM");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "LSB");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "USB");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "D-L");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "D-U");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 3);
-   Log(LOG_CRAZY, "gtk", "mode_combo add callback changed");
-   mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
-   gtk_box_pack_start(GTK_BOX(mode_box), mode_combo, FALSE, FALSE, 0);
-
-   // width
-   width_combo = gtk_combo_box_text_new();
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NARR");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NORM");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "WIDE");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), 1);
-   Log(LOG_CRAZY, "gtk", "width_combo add callback changed");
-//   width_changed_handler_id = g_signal_connect(width_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
-   gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 0);
-
-   // Add teh combined box to display
-   gtk_box_pack_start(GTK_BOX(control_box), mode_box, FALSE, FALSE, 6);
-
-   // codec selectors
-   GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_combo, &rx_combo);
-   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 0);
-
-   // RX Volume VBox
-   GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
-   rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 6);
-
-   // set default value etc. as before
-   int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
-   gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
-   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
-
-   // TX Power VBox
-   GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   GtkWidget *tx_power_label = gtk_label_new("TX Power");
-   tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-
-   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(control_box), tx_power_vbox, TRUE, TRUE, 6);
-
-   int cfg_def_pow_tx = cfg_get_int("default.tx.power", 0);
-   gtk_range_set_value(GTK_RANGE(tx_power_slider), cfg_def_pow_tx);
-
-   // add a spacer next to PTT
-   GtkWidget *ptt_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-   gtk_box_pack_start(GTK_BOX(control_box), ptt_spacer, TRUE, TRUE, 0);
-
-   // Create PTT button widget
-   GtkWidget *ptt_box = ptt_button_create();
-   gtk_box_pack_start(GTK_BOX(control_box), ptt_box, FALSE, FALSE, 0);
-
-   return control_box;
-}
-
-static gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
-   if (!vfo_box || vfo == '\0') {
-      Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%x> vfo |%c|", vfo_box, vfo);
-      return NULL;
-   }
-
-   // prepare a programmatic name for the VFO
-   char win_name[32];
-   memset(win_name, 0, sizeof(win_name));
-   snprintf(win_name, sizeof(win_name), "vfo-%c", vfo);
-
-   // Lets see if we recognize that window...
-   gui_window_t *vfo_win = gui_find_window(NULL, win_name);
-   if (vfo_win) {
-     // Show the existing window
-     place_window(vfo_win->gtk_win);
-   } else {
-      GtkWidget *vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-      gui_window_t *vfo_win  = ui_new_window(vfo_window, win_name);
-      gtk_window_set_title(GTK_WINDOW(vfo_window), "rustyrig remote client");
-   }
-   return vfo_win;
 }
 
 bool gui_init(void) {
@@ -506,12 +369,13 @@ bool gui_init(void) {
    // Attach the notebook to the main window for tabs
    notebook = gtk_notebook_new();
    gtk_container_add(GTK_CONTAINER(main_window), notebook);
-
    main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), main_tab, gtk_label_new("Control"));
 
+   ///////////
+   // VFO A //
+   ///////////
    GtkWidget *vfo_a = create_vfo_box();
-
    // If docked, we wont create a window, but it might be created later similarly
    bool vfo_docked = cfg_get_bool("vfo-a.docked", true);
    if (vfo_docked) {
@@ -519,7 +383,8 @@ bool gui_init(void) {
       gtk_box_pack_start(GTK_BOX(main_tab), vfo_a, FALSE, FALSE, 0);
    } else {
      // Floating
-     create_vfo_window(vfo_a, 'A');
+     gui_window_t *vfo_win = create_vfo_window(vfo_a, 'A');
+     gtk_container_add(GTK_CONTAINER(vfo_win->gtk_win), vfo_a);
    }
 
    // MAIN tab (alt-1)
@@ -528,6 +393,7 @@ bool gui_init(void) {
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
+   // Chat view
    text_view = gtk_text_view_new();
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
    gtk_text_view_set_editable(GTK_TEXT_VIEW(text_view), FALSE);
@@ -536,16 +402,15 @@ bool gui_init(void) {
    gtk_container_add(GTK_CONTAINER(scrolled), text_view);
    gtk_box_pack_start(GTK_BOX(main_tab), scrolled, TRUE, TRUE, 0);
 
+   // Chat INPUT
    chat_entry = gtk_entry_new();
    gtk_box_pack_start(GTK_BOX(main_tab), chat_entry, FALSE, FALSE, 0);
-   Log(LOG_CRAZY, "gtk", "entry add callback activate");
    g_signal_connect(chat_entry, "activate", G_CALLBACK(on_send_button_clicked), chat_entry);
-   Log(LOG_CRAZY, "gtk", "entry add callbak key-press");
    g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
 
+   // SEND the command/message
    GtkWidget *button = gtk_button_new_with_label("Send");
    gtk_box_pack_start(GTK_BOX(main_tab), button, FALSE, FALSE, 0);
-   Log(LOG_CRAZY, "gtk", "send button add callbak clicked");
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
    // LOG tab (alt-2)
@@ -553,28 +418,18 @@ bool gui_init(void) {
    config_tab = init_config_tab();
    admin_tab = init_admin_tab();
 
-   Log(LOG_CRAZY, "gtk", "mainwin on add callback destroy");
-   g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-   Log(LOG_CRAZY, "gtk", "mainwin on add callback focus in");
-   g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
-
-   // from gtk-winmgr.c
+   // Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
-   userlist_window = userlist_init();
-
-   gtk_widget_show_all(main_window);
+   g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+   g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
    g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_keypress), notebook);
 
-   // Focus the chat entry by defualt
+   gtk_widget_show_all(main_window);
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
-   ui_print("[%s] rustyrig client started", get_chat_ts());
-
+   userlist_window = userlist_init();
    gtk_widget_realize(main_window);
    place_window(main_window);
-
-#ifdef _WIN32
-   enable_windows_dark_mode_for_gtk_window(main_window);
-#endif
+   ui_print("[%s] rustyrig client started", get_chat_ts());
 
    return false;
 }
