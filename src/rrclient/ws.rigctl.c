@@ -79,8 +79,8 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          }
 
          server_ptt_state = ptt;
-         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
 //         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
+//         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
 //         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
 

@@ -44,6 +44,10 @@ extern GtkWidget *control_box;
 GtkWidget *ptt_button = NULL;
 
 void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
+   if (!button) {
+      return;
+   }
+
    const gchar *label = "PTT OFF";
 
    if (!ws_connected || !active) {
@@ -63,6 +67,10 @@ void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
 }
 
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
+   if (!button) {
+      return;
+   }
+
    ptt_active = gtk_toggle_button_get_active(button);
    update_ptt_button_ui(button, ptt_active);
 
@@ -78,12 +86,12 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 
 GtkWidget *ptt_button_create(void) {
    GtkWidget *ptt_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   GtkWidget *ptt_btn = gtk_toggle_button_new_with_label("PTT OFF");
+   ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
 
    // try to avoid leaking memory due to buggy GUI code...
-   if (!ptt_box || !ptt_btn) {
+   if (!ptt_box || !ptt_button) {
       if (ptt_box) { free(ptt_box); }
-      if (ptt_btn) { free(ptt_btn); }
+      if (ptt_button) { free(ptt_button); }
       fprintf(stderr, "problem creating ptt_box or it's widgets. OOM?\n");
       return NULL;
    }

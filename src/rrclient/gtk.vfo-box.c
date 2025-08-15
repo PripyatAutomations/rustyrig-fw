@@ -57,6 +57,7 @@ GtkWidget *create_vfo_box(void) {
    gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 0);
 
    GtkWidget *rx_vol_vbox = create_volbox();
+   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 0);
 
    // TX POWER Box
    GtkWidget *tx_power_vbox = create_txpower_box();
@@ -68,7 +69,7 @@ GtkWidget *create_vfo_box(void) {
 
    // Create PTT button widget
    GtkWidget *ptt_box = ptt_button_create();
-   gtk_box_pack_start(GTK_BOX(control_box), ptt_box, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), ptt_box, TRUE, TRUE, 0);
 
    return control_box;
 }

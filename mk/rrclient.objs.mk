@@ -26,6 +26,7 @@ objs += main.o			# main loop
 objs += mongoose.o		# Mongoose http/websocket/mqtt library
 objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 objs += userlist.o
+objs += ui.o			# User interface wrapper (TUI/GTK)
 objs += ui.help.o		# help texts
 objs += util.file.o		# Misc file functions
 objs += util.math.o		# Misc math functions
