@@ -1,4 +1,4 @@
-rustyrig-fw (20250814) testing; urgency=medium
+rustyrig-fw (20250816) testing; urgency=medium
 
  * Added multi-line (\ at end of line) support to config files
  * Added variable expansion in config, up to 6 levels and 64kbytes
@@ -9,8 +9,9 @@ rustyrig-fw (20250814) testing; urgency=medium
  * Work on documenting the json over websocket protocol 
  * Some small re-arranging of the distribution (icons, etc to res/)
  * Fixed codec negotiation, so clients show proper list of available codecs
+ * bug fixes & code cleanup
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 14 Aug 2025 12:34:13 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 16 Aug 2025 05:06:13 -0400
 
 rustyrig-fw (20250702) testing; urgency=medium
 

@@ -16,10 +16,10 @@ build() {
 
 package_rrclient() {
    cd "$srcdir/rr-$pkgver"
-   install -Dm755 rrclient "$pkgdir/usr/bin/rrclient"
+   install -Dm755 build/client/rrclient "$pkgdir/usr/bin/rrclient"
 }
 
 package_rrserver() {
    cd "$srcdir/rr-$pkgver"
-   install -Dm755 rrserver "$pkgdir/usr/bin/rrserver"
+   install -Dm755 build/radio/rrserver "$pkgdir/usr/bin/rrserver"
 }

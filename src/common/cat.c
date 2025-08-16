@@ -139,7 +139,7 @@ bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
     if (cmd_str && val_str) {
         // Copy cmd to a fixed-size buffer and null-terminate
         char cmd[16] = {0};
-        strncpy(cmd, cmd_str, sizeof(cmd) - 1);
+        strncpy(cmd, cmd_str, sizeof(cmd));
 
         // Convert val to an integer
         int val = atoi(val_str);

@@ -164,9 +164,9 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       }
       memset(cptr, 0, sizeof(struct rr_user));
       snprintf(cptr->name, sizeof(cptr->name), "%s", user);
+      Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%x>", user, cptr);
       userlist_add_or_update(cptr);
       ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(), user);
-      Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%x>", user, cptr);
       free(ip);
    } else if (cmd && strcasecmp(cmd, "quit") == 0) {
       char *reason = mg_json_get_str(msg_data, "$.talk.reason");

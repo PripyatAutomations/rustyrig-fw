@@ -139,7 +139,7 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
 
       // Parse the server's capab string and store it's capabilities
       if (media_cmd && strcasecmp(media_cmd, "capab") == 0) {
-         Log(LOG_DEBUG, "ws.media", "Got CAPAB from server: %s", media_payload);
+         Log(LOG_DEBUG, "ws.media", "Got CAPAB from server: %s", media_codecs);
 
          const char *preferred = cfg_get_exp("codecs.allowed");
 

@@ -62,21 +62,27 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
-      if (!strcasecmp(c->name, newinfo->name)) {
+      if (strcasecmp(c->name, newinfo->name) == 0) {
          memcpy(c, newinfo, sizeof(*c));
          c->next = NULL;
+         Log(LOG_DEBUG, "userlist", "Updated entry at <%x> with contents of userinfo at <%x>", c, newinfo);
          return true;
       }
       prev = c;
       c = c->next;
    }
 
-   struct rr_user *n = calloc(1, sizeof(*n));
+//   struct rr_user *n = calloc(1, sizeof(*n));
+   struct rr_user *n = malloc(sizeof(struct rr_user));
    if (!n) {
+      fprintf(stderr, "OOM in userlist_add_or_update\n");
       return false;
    }
-   memcpy(n, newinfo, sizeof(*n));
+
+//   memcpy(n, newinfo, sizeof(*n));
+   memcpy(n, newinfo, sizeof(struct rr_user));
    n->next = NULL;
+   Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%x> in userlist", newinfo->name, newinfo);
 
    if (prev) {
       prev->next = n;
@@ -97,6 +103,7 @@ bool userlist_remove_by_name(const char *name) {
          } else {
             global_userlist = c->next;
          }
+         Log(LOG_DEBUG, "userlist", "Removing user %s at <%x>", name, c);
          free(c);
          return true;
       }
@@ -111,9 +118,11 @@ void userlist_clear_all(void) {
    struct rr_user *c = global_userlist, *next;
    while (c) {
       next = c->next;
+      Log(LOG_CRAZY, "userlist", "Clearing entry at <%x>", c);
       free(c);
       c = next;
    }
+   // Clear the userlist pointer
    global_userlist = NULL;
 }
 
@@ -134,7 +143,6 @@ void userlist_redraw_gtk(void) {
          -1);
    }
 }
-
 
 void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    // Toggle the userlist

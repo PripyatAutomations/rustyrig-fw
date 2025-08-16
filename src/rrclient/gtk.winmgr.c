@@ -130,7 +130,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    if (gtk_win) {
       for (gui_window_t *p = gui_windows; p; p = p->next) {
          if (p->gtk_win == gtk_win) {
-//            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for ptr:<%x>", p->name, gtk_win);
+            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for ptr:<%x>", p->name, gtk_win);
             return p;
          }
       }
@@ -140,7 +140,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    if (name) {
       for (gui_window_t *p = gui_windows; p; p = p->next) {
          if (p && strcmp(p->name, name) == 0) {
-//            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for name %s", p->name, name);
+            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for name %s", p->name, name);
             return p;
          }
       }
@@ -155,7 +155,7 @@ bool place_window(GtkWidget *window) {
 
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);
-//   Log(LOG_CRAZY, "gtk.winmgr", "place_window: gui_find_window for window <%x> returned gui_window <%x> named |%s|", window, win, win->name);
+   Log(LOG_CRAZY, "gtk.winmgr", "place_window: gui_find_window for window <%x> returned gui_window <%x> named |%s|", window, win, win->name);
 
    if (win) {
       char key[512];
@@ -309,10 +309,29 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
 #endif
 }
 
-static void on_window_destroy(GtkWidget *w, gpointer user_data) {
-   gui_window_t *p = gui_find_window(w, NULL);
-   gui_forget_window(p, p->name);
+bool gui_forget_window(gui_window_t *gw, const char *name) {
+   gui_window_t **pp = &gui_windows;
+   while (*pp) {
+      gui_window_t *p = *pp;
+
+      if ((gw && p == gw) || (name && strcmp(p->name, name) == 0)) {
+         Log(LOG_DEBUG, "gtk.winmgr", "forgetting window: %p (%s)", (void*)p, p->name);
+         *pp = p->next;
+         free(p);
+         return true;   // success
+      }
+      pp = &p->next;
+   }
+
+   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: no match for gw:%p name:%s", (void*)gw, name ? name : "(null)");
+   return false;       // failure
 }
+
+static void on_window_destroy(GtkWidget *w, gpointer user_data) {
+   gui_window_t *p = (gui_window_t *)user_data;   // always valid
+   gui_forget_window(p, NULL);
+}
+
 
 // Store window name / pointer in our list
 gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
@@ -362,45 +381,8 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    }
 
    g_signal_connect(gtk_win, "configure-event", G_CALLBACK(on_window_configure), gtk_win);
-   g_signal_connect(gtk_win, "destroy", G_CALLBACK(on_window_destroy), gtk_win);
+   g_signal_connect(gtk_win, "destroy", G_CALLBACK(on_window_destroy), p);
    return p;
-}
-
-// Forget about a window
-bool gui_forget_window(gui_window_t *gw, const char *name) {
-   if (!gw && (!name || !*name)) {
-      Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window called with invalid parameters: gw <%x> name <%x>", gw, name);
-      return false;
-   }
-
-   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window called with gw:<%x>, named |%s|", gw, name);
-
-   gui_window_t **pp = &gui_windows;
-   while (*pp) {
-      gui_window_t *p = *pp;
-      bool match = false;
-
-      if (gw && p == gw) {
-         Log(LOG_DEBUG, "gtk.winmgr", "match by ptr <%x>", gw);
-         match = true;   
-      } else if (gw && p->gtk_win == gw->gtk_win) {
-         Log(LOG_DEBUG, "gtk.winmgr", "match by win ptr: <%x> (name: |%s|)", gw->gtk_win, (p->name[0] != '\0' ? p->name : ""));
-         match = true;       // same GtkWindow
-      } else if (name && strcmp(p->name, name) == 0) {
-         Log(LOG_DEBUG, "gtk.winmgr", "match by name: |%s|", name);
-         match = true;    // by name
-      }
-
-      if (match) {
-         Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: MATCH for window <%x>, removing", gw);
-         *pp = p->next;   // works for head and middle/tail
-         /* do NOT g_free the widget here; destroy signal handles it */
-         free(p);         // just free your list node
-         return true;
-      }
-      pp = &p->next;
-   }
-   return false;  // not found
 }
 
 // React to minimize/restore events
