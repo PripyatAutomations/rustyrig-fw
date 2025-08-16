@@ -351,14 +351,12 @@ static void on_button_clicked(GtkButton *button, gpointer user_data) {
       val = 9;
       if (idx > 0) {
          GtkWidget *prev_entry = fi->digits[idx - 1];
-//         gtk_button_clicked(GTK_BUTTON(fi->down_buttons[idx - 1]));
          g_signal_emit_by_name(fi->down_buttons[idx - 1], "clicked");
       }
    } else if (val > 9) {
       val = 0;
       if (idx > 0) {
          GtkWidget *prev_entry = fi->digits[idx - 1];
-//         gtk_button_clicked(GTK_BUTTON(fi->up_buttons[idx - 1]));
          g_signal_emit_by_name(fi->up_buttons[idx - 1], "clicked");
       }
    }
@@ -490,7 +488,6 @@ static void on_freqentry_realize(GtkWidget *widget, gpointer user_data) {
 
    gtk_widget_add_events(top, GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
    g_signal_connect(top, "scroll-event", G_CALLBACK(on_toplevel_scroll), fi);
-//   Log(LOG_DEBUG, "gtk.freqentry", "connected toplevel scroll handler");
 }
 
 static void gtk_freq_entry_class_init(GtkFreqEntryClass *class) {
@@ -587,8 +584,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fi) {
    pango_font_description_free(font);
 }
 
-void gtk_freq_entry_set_value(GtkFreqEntry *fi, guint64 freq)
-{
+void gtk_freq_entry_set_value(GtkFreqEntry *fi, guint64 freq) {
     /* Assume digits are 0-9 and freq fits in num_digits */
     for (int i = fi->num_digits - 1; i >= 0; i--) {
         int digit = freq % 10;

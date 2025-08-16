@@ -18,11 +18,11 @@ path.help-dir=./help
 
 ; Window placements & options (hidden|minimized|modal|no-hide|raised)
 ; Size of -1 will avoid resizing the window and let GTK size it
-ui.fm-mode=-1,-1@1531,51|raised|modal
-ui.main=952,769@964,307|raised
+ui.serverpick=300,222@1214,677|raised|modal
+ui.main=999,596@889,482|raised
+ui.fm-mode=429,226@1487,199|raised|modal
+ui.userlist=200,354@959,139|raised
 ui.editcfg=640,925@1,151|raised|modal
-ui.userlist=212,201@1299,51
-ui.serverpick=418,244@674,447
 
 # Length of time to block CAT updates (in seconds) after a local state change
 cat.poll-blocking=1
