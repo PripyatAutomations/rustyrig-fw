@@ -101,7 +101,10 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          if (freq > 0) {
 //            g_signal_handler_block(freq_entry, freq_changed_handler_id);
 //            Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
-            gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(freq_entry), freq);
+//            gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(freq_entry), freq);
+            GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);  // cast
+            unsigned long old_freq = gtk_freq_entry_get_frequency(fe);
+            gtk_freq_entry_set_frequency(fe, freq);
 //            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
          }
 
