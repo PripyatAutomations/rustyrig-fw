@@ -39,8 +39,9 @@ rrcli/build/*/*.*
 rrcli/build/*/obj/*
 
 # run-time state and audio recordings
-state/*.pipe
-state/*.log
-state/*.tmp
-run/* run/*/*
+run/*/*.pipe
+run/*/*.log
+run/*/*.tmp
+run/*
+run/*/*
 recordings/*.*

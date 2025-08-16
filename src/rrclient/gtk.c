@@ -302,7 +302,7 @@ gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_da
             break;
          case GDK_KEY_H:
          case GDK_KEY_h:
-            show_help("KEYBINDINGS");
+            show_help("keybindings.hlp");
             break;
          case GDK_KEY_M:
          case GDK_KEY_m:

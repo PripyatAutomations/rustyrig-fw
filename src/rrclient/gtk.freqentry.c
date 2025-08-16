@@ -325,7 +325,7 @@ static void freqentry_finalize(GtkFreqEntry *fi)
    unsigned long freq = freqentry_read_value(fi);
 
    if (freq > 0 && fi->freq != freq) {
-      Log(LOG_DEBUG, "gtk.freqentry", "finalize: %lu (prev %lu)", freq, fi->freq);
+      Log(LOG_CRAZY, "gtk.freqentry", "finalize: %lu (prev %lu)", freq, fi->freq);
       ws_send_freq_cmd(ws_conn, "A", freq);
       fi->prev_freq = fi->freq;
       fi->freq = freq;

@@ -30,9 +30,9 @@
 defconfig_t defcfg_fwdsp[] = {
    { "codecs.allowed", 	"pc16 mu16 mu08",	"Preferred codecs" },
 #ifdef _WIN32
-   { "fwdsp.path",	"fwdsp.exe",		"Path to fwdsp binary" },
+   { "path.fwdsp",	"fwdsp.exe",		"Path to fwdsp binary" },
 #else
-   { "fwdsp.path",	"fwdsp",		"Path to fwdsp binary" },
+   { "path.fwdsp",	"fwdsp",		"Path to fwdsp binary" },
 #endif
    { "subproc.max",	"16",			"Maximum allowed de/encoder processes" },
    { "subproc.debug",	"false",		"Show extra debug messages" },
@@ -137,9 +137,9 @@ bool fwdsp_init(void) {
    fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
 
    // Find the fwdsp path
-   fwdsp_path = cfg_get("fwdsp.path");
+   fwdsp_path = cfg_get("path.fwdsp");
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
-      Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp binary");
+      Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp binary");
       return NULL;
    }
 
@@ -314,9 +314,9 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       return false;
    }
 
-   const char *fwdsp_path = cfg_get("fwdsp.path");
+   const char *fwdsp_path = cfg_get("path.fwdsp");
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
-      Log(LOG_CRIT, "fwdsp", "You must set fwdsp.path to point at fwdsp bin");
+      Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp bin");
       return false;
    }
 

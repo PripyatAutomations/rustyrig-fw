@@ -1,5 +1,10 @@
 #!/bin/bash
 set -e
+VALGRIND_LOG="run/rrclient/valgrind.%p.log"
+VALGRIND_OPTS="--leak-check=full --track-origins=yes"
+
+# XXX: This should go away someday...
+mkdir -p run/rrclient
 
 if [ ! -f ~/.config/rrclient.cfg ]; then
    echo "No config found at ~/.config/rrclient.cfg, copy example? [N/y]"
@@ -12,4 +17,16 @@ if [ ! -f ~/.config/rrclient.cfg ]; then
    fi
 fi
 
-[ -f ~/.config/rrclient.cfg ] && ./build/client/rrclient
+case "$1" in
+   gdb )
+     gdb ./build/client/rrclient -ex run
+     ;;
+
+   valgrind)
+     valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./build/client/rrclient
+     ;;
+
+   *)
+     ./build/client/rrclient
+     ;;
+esac

@@ -148,10 +148,17 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    return NULL;
 }
 
+/*
+    bool win_raised;            // Raised?
+    bool win_minimized;         // Is the window minimized?
+    bool win_modal;             // Always on top
+    bool win_hidden;            // Hidden from view
+    bool win_nohide;            // Don't hide this window when main window is minimized
+    bool win_stashed;           // Was the window hidden because main was minimized? This ens
+*/
 bool place_window(GtkWidget *window) {
    const char *cfg_height_s, *cfg_width_s;
    const char *cfg_x_s, *cfg_y_s;
-
 
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);

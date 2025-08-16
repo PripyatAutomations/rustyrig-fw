@@ -1,5 +1,7 @@
-#!/bin/bash
 set -e
+
+VALGRIND_LOG="run/rrserver/valgrind.%p.log"
+VALGRIND_OPTS="--leak-check=full --track-origins=yes"
 
 # Set a default profile (used to find configs, set output folder, etc), if none set
 [ -z "$PROFILE" ] && PROFILE=radio
@@ -28,11 +30,17 @@ if [ -z "$(pidof rigctld)" ]; then
    sleep 2
 fi
 
-if [ "$1" == "gdb" ]; then
-   gdb ./build/${PROFILE}/rrserver -ex 'run'
-else
-   ./build/${PROFILE}/rrserver
-fi
+case "$1" in
+   gdb)
+      gdb ./build/${PROFILE}/rrserver -ex 'run'
+      ;;
+   valgrind)
+      valgrind $VALGRIND_OPTS --log-file="$VALGRIND_LOG" ./build/${PROFILE}/rrserver
+      ;;
+   *)
+      ./build/${PROFILE}/rrserver
+      ;;
+esac
 
 # Kill firmware/fwdsp instances & tear down pulse rrloop devices
 ./killall.sh

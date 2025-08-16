@@ -188,9 +188,14 @@ run: ${MASTER_DB} ${EEPROM_FILE} ${fw_bin}
 	(cd ../..; ./test-run.sh)
 
 gdb debug: ${fw_bin} ${EEPROM_FILE}
-	@echo "[gdb] ${fw_bin}"
-	@gdb ${fw_bin} -ex 'run'
-	@./killall.sh
+#	@echo "[gdb] ${fw_bin}"
+#	@gdb ${fw_bin} -ex 'run'
+#	@./killall.sh
+	(cd ../..; ./test-run.sh valgrind)
+
+valgrind: ${fw_bin} ${EEPROM_FILE}
+	@echo "[valgrind] ${fw_bin}"
+	(cd ../..; ./test-run.sh valgrind)
 
 test: clean world run
 

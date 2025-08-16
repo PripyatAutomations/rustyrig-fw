@@ -166,9 +166,9 @@ struct rr_user *userlist_find(const char *name) {
 }
 
 GtkWidget *userlist_init(void) {
-   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gui_window_t *window_t = ui_new_window(window, "userlist");
-   gtk_window_set_title(GTK_WINDOW(window), "User List");
+   GtkWidget *new_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gui_window_t *window_t = ui_new_window(new_win, "userlist");
+   gtk_window_set_title(GTK_WINDOW(new_win), "User List");
 
    GtkListStore *store = gtk_list_store_new(NUM_COLS,
       G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
@@ -205,11 +205,9 @@ GtkWidget *userlist_init(void) {
    gtk_tree_view_column_add_attribute(elmernoob_col, elmernoob_icon, "text", COL_ELMERNOOB_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), elmernoob_col);
 
-   gtk_container_add(GTK_CONTAINER(window), cul_view);
-   g_signal_connect(window, "key-press-event", G_CALLBACK(handle_keypress), window);
-   g_signal_connect(window, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
-   place_window(window);
-
-   userlist_window = window;
-   return window;
+   gtk_container_add(GTK_CONTAINER(new_win), cul_view);
+   g_signal_connect(new_win, "key-press-event", G_CALLBACK(handle_keypress), new_win);
+   g_signal_connect(new_win, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
+   place_window(new_win);
+   return new_win;
 }
