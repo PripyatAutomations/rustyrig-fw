@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
 cd ext/libmongoose
-git pull
+git pull origin master
 cd ../..
 git pull
