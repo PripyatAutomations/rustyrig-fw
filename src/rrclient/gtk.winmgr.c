@@ -291,8 +291,11 @@ bool place_window(GtkWidget *window) {
          }
       }
    }
-   gtk_window_set_default_size(GTK_WINDOW(win->gtk_win), win->w, win->h);
-   gtk_window_resize(GTK_WINDOW(win->gtk_win), win->w, win->h);
+
+   if (win->w > 0 && win->h > 0) {
+      gtk_window_set_default_size(GTK_WINDOW(win->gtk_win), win->w, win->h);
+      gtk_window_resize(GTK_WINDOW(win->gtk_win), win->w, win->h);
+   }
 
    // Apply the properties to the window
    if (win->x >= 0 && win->y >= 0) {
