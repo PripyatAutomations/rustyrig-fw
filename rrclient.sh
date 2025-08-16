@@ -23,6 +23,7 @@ case "$1" in
      ;;
 
    valgrind)
+     rm -f run/rrclient/valgrind.*.log
      valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./build/client/rrclient
      ;;
 

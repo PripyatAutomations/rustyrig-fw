@@ -1,5 +1,5 @@
 //
-// rrclient/gtk-gui.c: Core of GTK gui
+// rrclient/gtk.core.c: Core of GTK gui
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -26,7 +26,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
@@ -236,7 +236,7 @@ static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer us
    return FALSE;
 }
 
-gboolean handle_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    GtkNotebook *notebook = GTK_NOTEBOOK(user_data);
 
    if (!notebook || !event) {
@@ -426,13 +426,18 @@ bool gui_init(void) {
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
-   g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_keypress), main_notebook);
+   g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_global_hotkey), main_notebook);
 
    gtk_widget_show_all(main_window);
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+
+   // Generate and display a userlist for this server 
    userlist_window = userlist_init();
+
+   // Make the main window on screen
    gtk_widget_realize(main_window);
    place_window(main_window);
+
    ui_print("[%s] rustyrig client started", get_chat_ts());
 
    return false;

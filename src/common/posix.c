@@ -63,7 +63,6 @@ static void sighandler(int32_t signum) {
       // Fatal signals
       case SIGINT:
       case SIGTERM:
-      case SIGKILL:
 //#if	defined(__RRCLIENT) || defined(__FWDSP)
 //         shutdown_app(0);
 //#else
@@ -82,7 +81,7 @@ void init_signals(void) {
    // Fatal signals
    signal(SIGINT, sighandler);
    signal(SIGTERM, sighandler);
-   signal(SIGKILL, sighandler);
+
    // User signals
    signal(SIGHUP, sighandler);
    signal(SIGUSR1, sighandler);

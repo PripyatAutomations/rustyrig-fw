@@ -35,6 +35,7 @@ case "$1" in
       gdb ./build/${PROFILE}/rrserver -ex 'run'
       ;;
    valgrind)
+      rm -f run/rrserver/valgrind.*.log
       valgrind $VALGRIND_OPTS --log-file="$VALGRIND_LOG" ./build/${PROFILE}/rrserver
       ;;
    *)

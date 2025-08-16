@@ -23,7 +23,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);

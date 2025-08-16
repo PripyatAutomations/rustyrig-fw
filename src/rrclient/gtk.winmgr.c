@@ -24,13 +24,12 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
 // Linked list of all of our windows, usually 'main' will be the head of the list
 gui_window_t *gui_windows = NULL;
 extern GtkWidget *main_window;
-
 static guint configure_event_timeout = 0;
 
 // This is called when the window has stopped moving
@@ -83,7 +82,7 @@ static gboolean on_configure_timeout(gpointer data) {
          snprintf(val, sizeof(val), "%d,%d@%d,%d%s", win->last_w, win->last_h, win->last_x, win->last_y, opts);
 
          // Save it to the running-config
-//       dict_add(cfg, key, val);
+         dict_add(cfg, key, val);
 
          // No, send it as a log message instead
          Log(LOG_DEBUG, "gtk-ui", "Window %s moved, cfg edit:\t%s=%s", win->name, key, val);
@@ -103,11 +102,29 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       // Find our internal window
       gui_window_t *win = gui_find_window(window, NULL);
 
+      // flag the window as in motion
+      win->is_moving = true;
+
+      // Store the move event (but note the X and Y are incorrect due to wm decoration)
       win->move_evt = e;
-      win->last_x = e->x;
-      win->last_y = e->y;
+
+#if	0	// Alternative path to account for wm decoration frame
+      GdkRectangle frame;
+      gdk_window_get_frame_extents(gtk_widget_get_window(window), &frame);
+      win->last_x = frame.x;
+      win->last_y = frame.y;
+      win->last_w = frame.width;
+      win->last_h = frame.height;
+#else
+      // Instead, we should use gtk_window_get_position
+      int x, y;
+      gtk_window_get_position(GTK_WINDOW(window), &x, &y);
+      win->last_x = x;
+      win->last_y = y;
+
       win->last_w = e->width;
       win->last_h = e->height;
+#endif
 
       // Restart timeout (debounce)
       if (configure_event_timeout != 0) {
@@ -115,7 +132,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       }
 
       // Add a timeout to delay printing the position again
-      configure_event_timeout = g_timeout_add(1000, on_configure_timeout, widget);
+      configure_event_timeout = g_timeout_add(1500, on_configure_timeout, widget);
    }
    return FALSE;
 }
@@ -162,13 +179,22 @@ bool place_window(GtkWidget *window) {
 
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);
-//   Log(LOG_CRAZY, "gtk.winmgr", "place_window: gui_find_window for window <%x> returned gui_window <%x> named |%s|", window, win, win->name);
+   Log(LOG_CRAZY, "gtk.winmgr", "place_window: found gtk window <%x> at <%x> named |%s|", window, win, win->name);
 
-   if (win) {
-      char key[512];
-      memset(key, 0, sizeof(key));
-      snprintf(key, sizeof(key), "ui.%s", win->name);
+   if (!win) {
+      Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
+      return true;
+   }
 
+   char key[512];
+   memset(key, 0, sizeof(key));
+   snprintf(key, sizeof(key), "ui.%s", win->name);
+
+   // if we have x/y/h/w saved, use them
+   if (win->last_h > 0 && win->last_w > 0) {
+      Log(LOG_DEBUG, "gtk.winmgr", "place_window |%s| using stored coords (w,h@x,y): %d,%d@%d,%d",
+          (*win->name ? win->name : ""), win->w, win->h, win->x, win->y);
+   } else {
       // If the window doesn't have h/w set, try to get them from the configuration
       const char *cfg_full = cfg_get_exp(key);
 
@@ -263,19 +289,16 @@ bool place_window(GtkWidget *window) {
             }
             free((void *)cfg_full);
          }
-         gtk_window_set_default_size(GTK_WINDOW(win->gtk_win), win->w, win->h);
-         gtk_window_resize(GTK_WINDOW(win->gtk_win), win->w, win->h);
-
-         // Apply the properties to the window
-         if (win->x >= 0 && win->y >= 0) {
-            gtk_window_set_position(GTK_WINDOW(win->gtk_win), GTK_WIN_POS_NONE);
-            gtk_window_move(GTK_WINDOW(win->gtk_win), win->x, win->y);
-            
-         }
       }
-   } else {
-      Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
-      return true;
+   }
+   gtk_window_set_default_size(GTK_WINDOW(win->gtk_win), win->w, win->h);
+   gtk_window_resize(GTK_WINDOW(win->gtk_win), win->w, win->h);
+
+   // Apply the properties to the window
+   if (win->x >= 0 && win->y >= 0) {
+      gtk_window_set_position(GTK_WINDOW(win->gtk_win), GTK_WIN_POS_NONE);
+      gtk_window_move(GTK_WINDOW(win->gtk_win), win->x, win->y);
+      
    }
    return false;
 }

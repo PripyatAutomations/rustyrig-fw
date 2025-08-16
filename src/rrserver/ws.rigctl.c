@@ -274,10 +274,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          c_vfo = vfo_lookup(vfo[0]);
          cptr->last_heard = now;
 
-// XXX: We need to implement this everywhere, with a check if the value is redundant (same as before it would be applied)
-// XXX: and bail out before doing anything further. Once this is completed, we can greatly reduce the rate of periodic
-// XXX: state broadcasts down to perhaps every 5 minutes + when the user initially connects
-#if	0
          // tell everyone about it
          char msgbuf[HTTP_WS_MAX_MSG+1];
          struct mg_str mp;
@@ -286,7 +282,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
              cptr->chatname, new_freq, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-#endif
+
          Log(LOG_AUDIT, "ws.cat", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
          rr_freq_set(c_vfo, new_freq);
       } else if (strcasecmp(cmd, "mode") == 0) {
@@ -311,14 +307,13 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          c_vfo = vfo_lookup(vfo[0]);
          cptr->last_heard = now;
 
-#if	0
          // tell everyone about it
          prepare_msg(msgbuf, sizeof(msgbuf),
             "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"mode\", \"mode\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
             cptr->chatname, mode, vfo, now);
          mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-#endif
+
          Log(LOG_AUDIT, "mode", "User %s set VFO %s MODE to %s", cptr->chatname, vfo, mode);
          rr_mode_t new_mode = vfo_parse_mode(mode);
          if (new_mode != MODE_NONE) {

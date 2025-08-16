@@ -24,7 +24,6 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
 #include "common/codecneg.h"
 
 extern bool audio_enabled;

@@ -22,7 +22,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
 
@@ -40,9 +40,20 @@ enum {
    NUM_COLS
 };
 
+// Instead of destroying the window, hide it...
 static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
    gtk_widget_hide(widget);
    return TRUE;
+}
+
+void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
+   // Toggle the userlist
+   if (gtk_widget_get_visible(userlist_window)) {
+      gtk_widget_hide(userlist_window);
+   } else {
+      gtk_widget_show_all(userlist_window);
+      place_window(userlist_window);
+   }
 }
 
 static const char *select_user_icon(struct rr_user *cptr) {
@@ -58,11 +69,14 @@ static const char *select_elmernoob_icon(struct rr_user *cptr) {
    return "";
 }
 
+// Add or update an entry, matching on name.
+// All old information will be replaced with the new
 bool userlist_add_or_update(const struct rr_user *newinfo) {
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
       if (strcasecmp(c->name, newinfo->name) == 0) {
+         // XXX: We should compare the data, only copying fields that changed?
          memcpy(c, newinfo, sizeof(*c));
          c->next = NULL;
          Log(LOG_DEBUG, "userlist", "Updated entry at <%x> with contents of userinfo at <%x>", c, newinfo);
@@ -72,14 +86,12 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
       c = c->next;
    }
 
-//   struct rr_user *n = calloc(1, sizeof(*n));
    struct rr_user *n = malloc(sizeof(struct rr_user));
    if (!n) {
       fprintf(stderr, "OOM in userlist_add_or_update\n");
       return false;
    }
 
-//   memcpy(n, newinfo, sizeof(*n));
    memcpy(n, newinfo, sizeof(struct rr_user));
    n->next = NULL;
    Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%x> in userlist", newinfo->name, newinfo);
@@ -93,6 +105,7 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
    return true;
 }
 
+// Remove a user from the list, by name. While there should only ever be ONE, this will scan the entire list...
 bool userlist_remove_by_name(const char *name) {
    struct rr_user *c = global_userlist, *prev = NULL;
 
@@ -105,7 +118,6 @@ bool userlist_remove_by_name(const char *name) {
          }
          Log(LOG_DEBUG, "userlist", "Removing user %s at <%x>", name, c);
          free(c);
-         return true;
       }
       prev = c;
       c = c->next;
@@ -114,8 +126,14 @@ bool userlist_remove_by_name(const char *name) {
    return false;
 }
 
+// Clearing the userlist
 void userlist_clear_all(void) {
    struct rr_user *c = global_userlist, *next;
+   if (!c) {
+      return;
+   }
+   Log(LOG_DEBUG, "userlist", "Clearing the userlist");
+
    while (c) {
       next = c->next;
       Log(LOG_CRAZY, "userlist", "Clearing entry at <%x>", c);
@@ -126,6 +144,7 @@ void userlist_clear_all(void) {
    global_userlist = NULL;
 }
 
+// Redraw the userlist
 void userlist_redraw_gtk(void) {
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(cul_view)));
    gtk_list_store_clear(store);
@@ -144,16 +163,8 @@ void userlist_redraw_gtk(void) {
    }
 }
 
-void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
-   // Toggle the userlist
-   if (gtk_widget_get_visible(userlist_window)) {
-      gtk_widget_hide(userlist_window);
-   } else {
-      gtk_widget_show_all(userlist_window);
-      place_window(userlist_window);
-   }
-}
 
+// Find a user in the userlist
 struct rr_user *userlist_find(const char *name) {
    struct rr_user *c = global_userlist;
    while (c) {
@@ -165,6 +176,7 @@ struct rr_user *userlist_find(const char *name) {
    return NULL;
 }
 
+// Assemble a userlist object and return it
 GtkWidget *userlist_init(void) {
    GtkWidget *new_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *window_t = ui_new_window(new_win, "userlist");
@@ -206,7 +218,7 @@ GtkWidget *userlist_init(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), elmernoob_col);
 
    gtk_container_add(GTK_CONTAINER(new_win), cul_view);
-   g_signal_connect(new_win, "key-press-event", G_CALLBACK(handle_keypress), new_win);
+   g_signal_connect(new_win, "key-press-event", G_CALLBACK(handle_global_hotkey), new_win);
    g_signal_connect(new_win, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
    place_window(new_win);
    return new_win;

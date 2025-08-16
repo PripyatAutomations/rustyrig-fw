@@ -21,7 +21,6 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
 #include "rrclient/audio.h"
 #include "common/codecneg.h"
 

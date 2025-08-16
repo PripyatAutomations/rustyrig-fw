@@ -41,7 +41,7 @@
 #include "common/fwdsp-shared.h"
 #include "common/posix.h"
 #include "common/util.file.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/audio.h"
 #include "rrclient/ws.h"
 

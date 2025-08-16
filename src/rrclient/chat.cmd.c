@@ -24,7 +24,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
 extern bool dying;
@@ -60,7 +60,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          disconnect_server();
          memset(active_server, 0, sizeof(active_server));
          snprintf(active_server, sizeof(active_server), "%s", server);
-         Log(LOG_DEBUG, "gtk-gui", "Set server profile to %s by console cmd", active_server);
+         Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", active_server);
          connect_server();
       } else {
          show_server_chooser();

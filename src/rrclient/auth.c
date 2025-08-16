@@ -21,7 +21,7 @@
 #include "common/posix.h"
 #include "../ext/libmongoose/mongoose.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
 
@@ -46,7 +46,7 @@ extern bool restarting;
 extern time_t now;
 extern bool ptt_active;
 extern void shutdown_app(int signum);
-// gtk-gui.c
+// gtk.core.c
 extern const char *get_chat_ts(void);
 
 char session_token[HTTP_TOKEN_LEN+1];

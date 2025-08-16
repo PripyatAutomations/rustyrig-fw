@@ -23,7 +23,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
@@ -137,6 +137,7 @@ GtkWidget *fm_dialog_create(void) {
 
    /* Prevent user from closing the window */
    g_signal_connect(w, "delete-event", G_CALLBACK(gtk_true), NULL);
+   g_signal_connect(w, "key-press-event", G_CALLBACK(handle_global_hotkey), w);
 
    GtkWidget *grid = gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);

@@ -13,7 +13,7 @@
 #include "common/posix.h"
 #include "../ext/libmongoose/mongoose.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk-gui.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
 extern dict *cfg;
