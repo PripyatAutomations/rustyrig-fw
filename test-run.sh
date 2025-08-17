@@ -3,6 +3,7 @@ set -e
 VALGRIND_LOG="run/rrserver/valgrind.%p.log"
 VALGRIND_OPTS="--leak-check=full --track-origins=yes"
 
+mkdir -p ./db
 # Set a default profile (used to find configs, set output folder, etc), if none set
 [ -z "$PROFILE" ] && PROFILE=radio
 
