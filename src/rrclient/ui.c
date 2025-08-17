@@ -17,7 +17,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
@@ -25,8 +24,12 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
+
+#if	defined(USE_GTK)
+#include <gtk/gtk.h>
+#include "rrclient/gtk.core.h"
+#endif
 
 enum GuiMode {
   GUI_MODE_TUI = 0,

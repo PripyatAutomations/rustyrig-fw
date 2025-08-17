@@ -37,8 +37,6 @@ extern dict *cfg;		// config.c
 struct mg_mgr mgr;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
-char *negotiated_codecs = NULL;
-char *server_codecs = NULL;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
 extern time_t now;
 extern const char *get_chat_ts(void);
@@ -78,9 +76,13 @@ const char *default_tls_ca_paths[] = {
 ////////////////////////////////
 ///// ws.*.c message handlers //
 ////////////////////////////////
-extern bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_media_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_ping_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_syslog_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg);
 
 ///////////////////////////////
 // A better way to route ws //
@@ -91,14 +93,14 @@ struct ws_msg_routes {
 };
 
 struct ws_msg_routes ws_routes[] = {
-//   { .type = "alert",	.cb = on_ws_alert },
+   { .type = "alert",	.cb = ws_handle_alert_msg },
    { .type = "auth",	  .cb = ws_handle_auth_msg },
    { .type = "cat",	  .cb = ws_handle_rigctl_msg },
-//   { .type = "error",	 .cb = on_ws_error },
-//   { .type = "hello",	 .cb = on_ws_hello },
-//   { .type = "media",  .cb = on_ws_media },
-//   { .type = "ping",	 .cb = on_ws_ping },
-//   { .type = "syslog",   .cb = on_ws_syslog },
+//   { .type = "error",	 .cb = ws_handle_error_msg },
+//   { .type = "hello",	 .cb = ws_handle_hello_msg },
+   { .type = "media",  .cb = ws_handle_media_msg },
+   { .type = "ping",	 .cb = ws_handle_ping_msg },
+   { .type = "syslog",   .cb = ws_handle_syslog_msg },
    { .type = "talk",	 .cb = ws_handle_talk_msg },
    { .type = NULL,	 .cb = NULL }
 };
@@ -132,118 +134,33 @@ static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *m
    struct mg_str msg_data = msg->data;
    bool result = false;
 
+//   result = ws_txtframe_dispatch(c, msg);
+#if	1
    if (mg_json_get(msg_data, "$.media.cmd", NULL) > 0) {
-      char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
-      char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
-      char *media_codecs = mg_json_get_str(msg_data, "$.media.codecs");
-
-      // Parse the server's capab string and store it's capabilities
-      if (media_cmd && strcasecmp(media_cmd, "capab") == 0) {
-         Log(LOG_DEBUG, "ws.media", "Got CAPAB from server: %s", media_codecs);
-
-         const char *preferred = cfg_get_exp("codecs.allowed");
-
-         if (!media_codecs) {
-            Log(LOG_WARN, "ws.media", "Got empty CAPAB from server");
-            goto local_cleanup;
-         }
-         if (server_codecs) {
-            free(server_codecs);
-         }
-         server_codecs = strdup(media_codecs);
-
-         // Reply with our supported codecs, so the server can negotiate with us
-         const char *codec_msg = media_capab_prepare(preferred);
-
-         if (codec_msg) {
-            mg_ws_send(c, codec_msg, strlen(codec_msg), WEBSOCKET_OP_TEXT);
-            free((void *)codec_msg);
-         } else {
-            Log(LOG_CRIT, "ws.media", ">> No codecs enabled locally or failed to generate codec message <<");
-         }
-         free((void *)preferred);
-      } else if (media_cmd && strcasecmp(media_cmd, "isupport") == 0) {
-         char *media_preferred = mg_json_get_str(msg_data, "$.media.preferred");
-
-         if (media_codecs) {
-            Log(LOG_DEBUG, "ws.media", "Server negotiated codecs: %s, preferred: %s", media_codecs, media_preferred);
-
-            if (negotiated_codecs) {
-               free(negotiated_codecs);
-            }
-            negotiated_codecs = strdup(media_codecs);
-
-            char first_codec[5];
-            // Make sure it's all NULLs, so we'll get null terminated string
-            memset(first_codec, 0, 5);
-            // Copy the *first* codec of the negotiated set, as it's our most preferred.
-            memcpy(first_codec, media_codecs, 4);
-            populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
-            populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
-            ws_select_codec(c, first_codec, false);
-         } else {
-            Log(LOG_DEBUG, "ws.media", "Got media isupport with empty codecs");
-         }
-         free(media_preferred);
-      } else {
-         Log(LOG_DEBUG, "ws.media," ">> Unknown media.cmd: %s, .payload: %s", media_cmd, media_payload);
-         goto local_cleanup;
-      }
-local_cleanup:
-      free(media_cmd);
-      free(media_payload);
-      free(media_codecs);
+      result = ws_handle_media_msg(c, msg);
    } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
-      char ts_buf[32];
-      double ping_ts = 0;
-      mg_json_get_num(msg_data, "$.ping.ts", &ping_ts);
-
-      if (ping_ts > 0) {
-         memset(ts_buf, 0, sizeof(ts_buf));
-         snprintf(ts_buf, sizeof(ts_buf), "%.0f", ping_ts);
-
-         char pong[128];
-         snprintf(pong, sizeof(pong), "{ \"pong\": { \"ts\":\"%s\" } }", ts_buf);
-         mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
-      }
-      if (cfg_show_pings) {
-         ui_print("[%s] * Ping? Pong! *", get_chat_ts());
-      }
-      goto cleanup;
+      result = ws_handle_ping_msg(c, msg);
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
       result = ws_handle_auth_msg(c, msg);
    } else if (mg_json_get(msg_data, "$.alert", NULL) > 0) {
-      char *msg = mg_json_get_str(msg_data, "$.alert.msg");
-      char *from = mg_json_get_str(msg_data, "$.alert.from");
-
-      if (msg) {
-         ui_print("[%s] ALERT: %s !!!", get_chat_ts(), msg);
-      }
-      free(msg);
-      goto cleanup;
-      free(msg);
-      free(from);
-      goto cleanup;
+      result = ws_handle_alert_msg(c, msg);
    } else if (mg_json_get(msg_data, "$.error", NULL) > 0) {
       char *msg = mg_json_get_str(msg_data, "$.error");
       if (msg) {
          ui_print("[%s] ERROR %s !!!", get_chat_ts(), msg);
       }
       free(msg);
-      goto cleanup;
    } else if (mg_json_get(msg_data, "$.notice", NULL) > 0) {
       char *msg = mg_json_get_str(msg_data, "$.notice");
       if (msg) {
          ui_print("[%s] NOTICE %s ***", get_chat_ts(), msg);
       }
       free(msg);
-      goto cleanup;
    } else if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
       char *hello = mg_json_get_str(msg_data, "$.hello");
       ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
       // XXX: Store the codec
       free(hello);
-      goto cleanup;
    // Check for $.cat field (rigctl message)
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
 //      ui_print("[%s] +++ CAT ++ %s", get_chat_ts(), msg_data);
@@ -253,39 +170,14 @@ local_cleanup:
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
 //      result = ws_handle_pong(c, msg);
    } else if (mg_json_get(msg_data, "$.syslog", NULL) > 0) {
-      char *ts = mg_json_get_str(msg_data, "$.syslog.ts");
-      char *prio = mg_json_get_str(msg_data, "$.syslog.prio");
-      char *subsys = mg_json_get_str(msg_data, "$.syslog.subsys");
-      char *data = mg_json_get_str(msg_data, "$.syslog.data");
-      char my_timestamp[64];
-      time_t t;
-      struct tm *tmp;
-      memset(my_timestamp, 0, sizeof(my_timestamp));
-      t = time(NULL);
-
-      if ((tmp = localtime(&t))) {
-         // success, proceed
-         if (strftime(my_timestamp, sizeof(my_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
-            // handle the error 
-            memset(my_timestamp, 0, sizeof(my_timestamp));
-            snprintf(my_timestamp, sizeof(my_timestamp), "<%ld>", (long)time(NULL));
-         }
-      }
-
-      Log(LOG_DEBUG, "server.syslog", "Got message <%s.%s> %s", subsys, prio, data);
-      log_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
-      free(ts);
-      free(prio);
-      free(subsys);
-      free(data);
+     result = ws_handle_syslog_msg(c, msg);
    } else {
       ui_print("[%s] ==> UnknownMsg: %.*s", get_chat_ts(), msg->data.len, msg->data.buf);
    }
-cleanup:
+#endif
    return false;
 }
 
-//      ws_binframe_process(msg->data.buf, msg->data.len);
 bool ws_binframe_process(const char *data, size_t len) {
    if (!data || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
       return true;

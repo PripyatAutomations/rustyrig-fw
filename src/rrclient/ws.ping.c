@@ -1,5 +1,5 @@
 //
-// gtk-client/ws.auth.c
+// gtk-client/ws.ping.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -48,11 +48,11 @@ extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern dict *servers;
 extern char *negotiated_codecs;		// ws.c
 
-bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
+bool ws_handle_ping_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    bool rv = false;
 
    if (!c || !msg) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg:<%x> mg_conn:<%x>", msg, c);
+      Log(LOG_WARN, "http.ws", "ping_msg: got msg:<%x> mg_conn:<%x>", msg, c);
       return true;
    }
 
@@ -65,47 +65,28 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
    if (!msg->data.buf) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
+      Log(LOG_WARN, "http.ws", "ping_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
       return true;
    }
 
    struct mg_str msg_data = msg->data;
-   char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
-   char *nonce = mg_json_get_str(msg_data, "$.auth.nonce");
-   char *user = mg_json_get_str(msg_data, "$.auth.user");
-//   ui_print("[%s] => cmd: '%s', nonce: %s, user: %s", get_chat_ts(), cmd, nonce, user);
 
-   // Must always send a command and username during auth
-   if (!cmd || !user) {
-      rv = true;
-      goto cleanup;
+   char ts_buf[32];
+   double ping_ts = 0;
+   mg_json_get_num(msg_data, "$.ping.ts", &ping_ts);
+
+   if (ping_ts > 0) {
+      memset(ts_buf, 0, sizeof(ts_buf));
+      snprintf(ts_buf, sizeof(ts_buf), "%.0f", ping_ts);
+
+      char pong[128];
+      snprintf(pong, sizeof(pong), "{ \"pong\": { \"ts\":\"%s\" } }", ts_buf);
+      mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
    }
 
-   if (cmd && strcasecmp(cmd, "challenge") == 0) {
-      char *token = mg_json_get_str(msg_data, "$.auth.token");
-
-      if (token) {
-         memset(session_token, 0, HTTP_TOKEN_LEN + 1);
-         snprintf(session_token, HTTP_TOKEN_LEN + 1, "%s", token);
-      } else {
-         ui_print("[%s] ?? Got CHALLENGE without valid token!", get_chat_ts());
-         goto cleanup;
-      }
-
-      ui_print("[%s] *** Sending PASSWD ***", get_chat_ts());
-      const char *login_pass = get_server_property(active_server, "server.pass");
-
-      ws_send_passwd(c, user, login_pass, nonce);
-      free(token);
-   } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
-      ui_print("[%s] *** Authorized ***", get_chat_ts());
-      userlist_redraw_gtk();
-      // XXX: Set online state
+   if (cfg_show_pings) {
+      ui_print("[%s] * Ping? Pong! *", get_chat_ts());
    }
 
-cleanup:
-   free(cmd);
-   free(nonce);
-   free(user);
-   return rv;
+   return false;
 }

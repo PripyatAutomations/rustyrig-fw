@@ -7,6 +7,8 @@ else
    OS := POSIX
 endif
 
+PROFILE ?= radio
+CF := config/${PROFILE}.config.json
 subdirs += rrclient
 
 ifeq (${OS},POSIX)
@@ -43,3 +45,4 @@ win64-deps win64-installer win64-portable:
 
 include mk/database.mk
 include mk/audit.mk
+include mk/json-config.mk

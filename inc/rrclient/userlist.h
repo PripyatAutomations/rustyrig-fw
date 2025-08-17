@@ -16,16 +16,22 @@
 #define	USER_PRIV_LEN		100		// privileges list
 #define USER_EMAIL_LEN		128		// email address
 
+#if	defined(USE_GTK)
+#include <gtk/gtk.h>
+#endif
+
 struct rr_user {
    char   	  name[HTTP_USER_LEN+1];
    char           privs[200];
    time_t	  logged_in;
    time_t         last_heard;
-   uint32_t      user_flags;
+   uint32_t       user_flags;
    int            clones;
    bool           is_ptt;
    bool           is_muted;
+#if	defined(USE_GTK)
    GtkTreeIter iter;   // <-- GTK list row reference
+#endif
    bool in_store;      // <-- whether `iter` is valid
 
    struct rr_user *next;

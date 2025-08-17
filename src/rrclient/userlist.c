@@ -16,19 +16,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
 
 extern dict *cfg;
-extern GtkWidget *userlist_window;
-GtkWidget *cul_view = NULL;
 struct rr_user *global_userlist = NULL;
 
 enum {
@@ -39,22 +35,6 @@ enum {
    COL_ELMERNOOB_ICON,
    NUM_COLS
 };
-
-// Instead of destroying the window, hide it...
-static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
-   gtk_widget_hide(widget);
-   return TRUE;
-}
-
-void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
-   // Toggle the userlist
-   if (gtk_widget_get_visible(userlist_window)) {
-      gtk_widget_hide(userlist_window);
-   } else {
-      gtk_widget_show_all(userlist_window);
-      place_window(userlist_window);
-   }
-}
 
 static const char *select_user_icon(struct rr_user *cptr) {
    if (strcasestr(cptr->privs, "owner")) { return "👑"; }
@@ -102,6 +82,7 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
       global_userlist = n;
    }
 
+   userlist_redraw_gtk();
    return true;
 }
 
@@ -142,6 +123,43 @@ void userlist_clear_all(void) {
    }
    // Clear the userlist pointer
    global_userlist = NULL;
+   userlist_redraw_gtk();
+}
+
+
+// Find a user in the userlist
+struct rr_user *userlist_find(const char *name) {
+   struct rr_user *c = global_userlist;
+   while (c) {
+      if (!strcasecmp(c->name, name)) {
+         return c;
+      }
+      c = c->next;
+   }
+   return NULL;
+}
+
+// XXX: we need to reimplement this part in a TUI version as well
+#if	defined(USE_GTK)
+#include <gtk/gtk.h>
+#include "rrclient/gtk.core.h"
+extern GtkWidget *userlist_window;
+GtkWidget *cul_view = NULL;
+
+// Instead of destroying the window, hide it...
+static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
+   gtk_widget_hide(widget);
+   return TRUE;
+}
+
+void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
+   // Toggle the userlist
+   if (gtk_widget_get_visible(userlist_window)) {
+      gtk_widget_hide(userlist_window);
+   } else {
+      gtk_widget_show_all(userlist_window);
+      place_window(userlist_window);
+   }
 }
 
 // Redraw the userlist
@@ -161,19 +179,6 @@ void userlist_redraw_gtk(void) {
          COL_ELMERNOOB_ICON, select_elmernoob_icon(c),
          -1);
    }
-}
-
-
-// Find a user in the userlist
-struct rr_user *userlist_find(const char *name) {
-   struct rr_user *c = global_userlist;
-   while (c) {
-      if (!strcasecmp(c->name, name)) {
-         return c;
-      }
-      c = c->next;
-   }
-   return NULL;
 }
 
 // Assemble a userlist object and return it
@@ -223,3 +228,4 @@ GtkWidget *userlist_init(void) {
    place_window(new_win);
    return new_win;
 }
+#endif
