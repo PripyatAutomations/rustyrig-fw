@@ -11,6 +11,9 @@ extern time_t now;
 extern bool dying;
 extern bool ui_print(const char *fmt, ...);
 
+//
+// This should be private. Use the accessor functions below in Public API
+//
 struct _GtkFreqEntry {
     GtkBox parent_instance;
 
@@ -255,10 +258,12 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
       freqentry_finalize(fi);
       return TRUE;
    } else if (event->keyval == GDK_KEY_Return) {
-      if (fi->editing) {
+/* XXX: Why is this here?
+      if (gtk_freq_entry_is_editing(fi)) {
          Log(LOG_DEBUG, "gtk.freqentry", "Forcing send CAT cmd on ENTER press");
          freqentry_finalize(fi);
       }
+*/
       poll_block_expire = 0;
       return TRUE;
    } else if (event->keyval == GDK_KEY_Tab ||
@@ -389,11 +394,11 @@ static gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointe
 static gboolean on_freq_focus_out(GtkWidget *entry, GdkEventFocus *event, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
 
-   if (fi->editing) {
+//   if (fi->editing) {
       // Force a send
       poll_block_expire = now + 1;
       freqentry_finalize(fi);
-   }
+//   }
    return FALSE;
 }
 
@@ -422,61 +427,64 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
    return FALSE;
 }
 
-static void freqentry_bump_digit(GtkFreqEntry *self, int idx, int delta) {
-    if (idx < 0 || idx >= self->num_digits)
-        return;
+static void freqentry_bump_digit(GtkFreqEntry *fi, int idx, int delta) {
+   if (idx < 0 || idx >= fi->num_digits) {
+      return;
+   }
 
-    self->editing = TRUE;
+   fi->editing = true;
 
-    const char *text = gtk_entry_get_text(GTK_ENTRY(self->digits[idx]));
-    int val = (text && g_ascii_isdigit(text[0])) ? text[0] - '0' : 0;
+   const char *text = gtk_entry_get_text(GTK_ENTRY(fi->digits[idx]));
+   int val = (text && g_ascii_isdigit(text[0])) ? text[0] - '0' : 0;
 
-    val += delta;
-    if (val > 9) {
-        val = 0;
-        if (idx > 0)
-            g_signal_emit_by_name(self->up_buttons[idx - 1], "clicked");
-    } else if (val < 0) {
-        val = 9;
-        if (idx > 0)
-            g_signal_emit_by_name(self->down_buttons[idx - 1], "clicked");
-    }
+   val += delta;
+   if (val > 9) {
+      val = 0;
+      if (idx > 0) {
+         g_signal_emit_by_name(fi->up_buttons[idx - 1], "clicked");
+      }
+   } else if (val < 0) {
+      val = 9;
+      if (idx > 0) {
+         g_signal_emit_by_name(fi->down_buttons[idx - 1], "clicked");
+      }
+   }
 
-    char buf[2] = { (char)('0' + val), 0 };
-    gtk_entry_set_text(GTK_ENTRY(self->digits[idx]), buf);
+   char buf[2] = { (char)('0' + val), 0 };
+   gtk_entry_set_text(GTK_ENTRY(fi->digits[idx]), buf);
 }
 
 static gboolean on_toplevel_scroll(GtkWidget *toplevel, GdkEventScroll *event, gpointer user_data) {
-    GtkFreqEntry *self = GTK_FREQ_ENTRY(user_data);
-    int idx = self->last_focused_idx;
-    if (idx < 0) {
-        return FALSE;
-    }
+   GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
+   int idx = fi->last_focused_idx;
+   if (idx < 0) {
+      return FALSE;
+   }
 
-    int step = 0;
+   int step = 0;
 
-    if (event->direction == GDK_SCROLL_UP) {
-        step = +1;
-    } else if (event->direction == GDK_SCROLL_DOWN) {
-        step = -1;
-    } else if (event->direction == GDK_SCROLL_SMOOTH) {
-        self->scroll_accum_y += event->delta_y;
+   if (event->direction == GDK_SCROLL_UP) {
+      step = +1;
+   } else if (event->direction == GDK_SCROLL_DOWN) {
+      step = -1;
+   } else if (event->direction == GDK_SCROLL_SMOOTH) {
+      fi->scroll_accum_y += event->delta_y;
 
-        if (self->scroll_accum_y <= -1.0) {
-            step = +1;
-            self->scroll_accum_y = 0.0;
-        } else if (self->scroll_accum_y >= 1.0) {
-            step = -1;
-            self->scroll_accum_y = 0.0;
-        }
-    }
+      if (fi->scroll_accum_y <= -1.0) {
+          step = +1;
+          fi->scroll_accum_y = 0.0;
+      } else if (fi->scroll_accum_y >= 1.0) {
+          step = -1;
+          fi->scroll_accum_y = 0.0;
+      }
+   }
 
-    if (step != 0) {
-        freqentry_bump_digit(self, idx, step);
-        return TRUE;
-    }
+   if (step != 0) {
+      freqentry_bump_digit(fi, idx, step);
+      return TRUE;
+   }
 
-    return FALSE;
+   return FALSE;
 }
 
 static void on_freqentry_realize(GtkWidget *widget, gpointer user_data) {
@@ -622,6 +630,9 @@ void gtk_freq_entry_set_frequency(GtkFreqEntry *fi, unsigned long freq) {
     fi->editing = false;
 }
 
-unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *self) {
-    return self->freq;
+unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *fi) {
+    if (!fi) {
+       return 0;
+    }
+    return fi->freq;
 }

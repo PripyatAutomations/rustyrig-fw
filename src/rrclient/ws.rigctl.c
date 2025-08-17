@@ -25,6 +25,7 @@
 #include "common/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
+#include "rrclient/gtk.freqentry.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
@@ -80,7 +81,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
          server_ptt_state = ptt;
 //         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
-//         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
+         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
 //         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
 
@@ -93,19 +94,24 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
             struct rr_user *cptr = NULL;
             if ((cptr = userlist_find(user))) {
                Log(LOG_DEBUG, "ws.cat", "ptt set to %s for cptr:<%x>", (cptr->is_ptt ? "true" : "false"), cptr);
-//               cptr->is_ptt = ptt;
+               cptr->is_ptt = ptt;
             }
          }
 
 
          if (freq > 0) {
 //            g_signal_handler_block(freq_entry, freq_changed_handler_id);
-//            Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f", freq);
 //            gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(freq_entry), freq);
             GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);  // cast
-            unsigned long old_freq = gtk_freq_entry_get_frequency(fe);
-            gtk_freq_entry_set_frequency(fe, freq);
-//            g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
+            if (gtk_freq_entry_is_editing(fe)) {
+//            if (!fe->editing) {
+               unsigned long old_freq = gtk_freq_entry_get_frequency(fe);
+               gtk_freq_entry_set_frequency(fe, freq);
+//               g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
+               if (freq != old_freq) {
+                  Log(LOG_CRAZY, "ws", "Updating freq_entry: %.0f, old freq: %.0f", freq, old_freq);
+               }
+            }
          }
 
          if (mode && strlen(mode) > 0) {
