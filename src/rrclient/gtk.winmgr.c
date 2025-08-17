@@ -46,7 +46,7 @@ static gboolean on_configure_timeout(gpointer data) {
 
    // if we can't find the window, there's no state
    if (!win) {
-      Log(LOG_DEBUG, "gtk-ui", "No window name for id:<%x>", window);
+//      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%x>", window);
       return true;
    }
 
