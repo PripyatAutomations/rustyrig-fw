@@ -1,5 +1,7 @@
 This is the source for rustyrig.
 
+For now it's easiest just to build/run it from this folder, but installing it should probably work if you adjust paths
+
 It consists of a few parts:
 	src/fwdsp		gstreamer based audio bridge
 	src/rrclient		GTK3 + gstreamer based client
