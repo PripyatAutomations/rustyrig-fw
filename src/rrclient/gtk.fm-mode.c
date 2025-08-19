@@ -26,15 +26,10 @@
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
-extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
-extern dict *cfg, *servers;
+extern dict *cfg;
 extern time_t now;
-extern bool dying;
-extern bool ptt_active;
 extern bool ws_connected;
 
-static GtkWidget *tx_tone_combo = NULL;
-static GtkWidget *rx_tone_combo = NULL;
 
 /* Tone lists */
 static const char *ctcss_tones[] = {
@@ -73,7 +68,8 @@ static const char *dcs_tones[] = {
 };
 
 /* Static pointers to widgets */
-static GtkWidget *fm_dialog = NULL;
+static GtkWidget *tx_tone_combo = NULL;
+static GtkWidget *rx_tone_combo = NULL;
 static GtkWidget *tone_type_combo = NULL;
 
 /* Utility to populate tone combos */
@@ -249,9 +245,13 @@ GtkWidget *fm_dialog_create(void) {
 }
 
 void fm_dialog_show(void) {
-   if (!fm_dialog) {
+   gui_window_t *ui_win = gui_find_window(NULL, "fm-mode");
+   GtkWidget *fm_dialog = NULL;
+
+   if (!ui_win) {
      fm_dialog = fm_dialog_create();
    } else {
+      fm_dialog = ui_win->gtk_win;
       gtk_widget_show(fm_dialog);
       gtk_window_present(GTK_WINDOW(fm_dialog));
    }
@@ -259,7 +259,11 @@ void fm_dialog_show(void) {
 }
 
 void fm_dialog_hide(void) {
-   if (fm_dialog) {
+   gui_window_t *ui_win = gui_find_window(NULL, "fm-mode");
+   GtkWidget *fm_dialog = NULL;
+
+   if (ui_win) {
+      fm_dialog = ui_win->gtk_win;
       gtk_widget_hide(fm_dialog);
    }
 }

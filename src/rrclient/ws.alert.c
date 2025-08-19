@@ -31,14 +31,9 @@
 #include "common/client-flags.h"
 
 extern dict *cfg;		// config.c
-extern struct mg_mgr mgr;
-extern bool ws_connected;
-extern bool ws_tx_connected;
-extern struct mg_connection *ws_conn, *ws_tx_conn;
+extern struct mg_connection *ws_conn;
 extern time_t now;
-extern time_t poll_block_expire, poll_block_delay;
 extern const char *get_chat_ts(void);
-extern GtkWidget *main_window;
 
 bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    bool rv = false;

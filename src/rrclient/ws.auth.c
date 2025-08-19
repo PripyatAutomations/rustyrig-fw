@@ -31,22 +31,10 @@
 #include "common/client-flags.h"
 
 extern dict *cfg;		// config.c
-extern struct mg_mgr mgr;
-extern bool ws_connected;
-extern bool ws_tx_connected;
-extern struct mg_connection *ws_conn, *ws_tx_conn;
-extern bool server_ptt_state;
-extern const char *tls_ca_path;
-extern struct mg_str tls_ca_path_str;
-extern bool cfg_show_pings;
+extern struct mg_connection *ws_conn;
 extern time_t now;
-extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
-extern GtkWidget *main_window;
-extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
-extern dict *servers;
-extern char *negotiated_codecs;		// ws.c
 
 bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    bool rv = false;

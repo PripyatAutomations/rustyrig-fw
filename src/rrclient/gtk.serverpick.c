@@ -29,7 +29,6 @@
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *cfg, *servers;
 extern time_t now;
-extern bool dying;
 extern bool ptt_active;
 extern bool ws_connected;
 

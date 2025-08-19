@@ -38,8 +38,6 @@ extern bool ws_connected;
 extern struct mg_connection *ws_conn;
 extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
-extern GstElement *rx_vol_gst_elem;		// audio.c
-extern GstElement *rx_pipeline;			// audio.c
 extern GtkWidget *control_box;
 GtkWidget *ptt_button = NULL;
 

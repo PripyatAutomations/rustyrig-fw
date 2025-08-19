@@ -5,7 +5,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-
 #include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -22,24 +21,20 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
+#include "common/websocket.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
+extern dict *cfg;				// main.c
+extern time_t now;				// main.c
+
+// XXX: To be removed
+extern struct mg_connection *ws_conn;
+
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
 extern bool clear_syslog(void);
 extern GtkWidget *init_log_tab(void);
-extern dict *cfg;
-extern time_t now;
-extern bool dying;
-extern bool ptt_active;
-extern bool ws_connected;
-extern struct mg_connection *ws_conn;
-extern GtkWidget *userlist_init(void);
-extern time_t poll_block_expire, poll_block_delay;
-extern GstElement *rx_vol_gst_elem;		// audio.c
-extern GstElement *rx_pipeline;			// audio.c
-extern GtkWidget *config_tab;
 
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;

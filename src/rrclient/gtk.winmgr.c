@@ -29,7 +29,6 @@
 
 // Linked list of all of our windows, usually 'main' will be the head of the list
 gui_window_t *gui_windows = NULL;
-extern GtkWidget *main_window;
 static guint configure_event_timeout = 0;
 
 // This is called when the window has stopped moving

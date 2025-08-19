@@ -31,13 +31,10 @@
 #include "common/client-flags.h"
 
 extern dict *cfg;		// config.c
-extern struct mg_mgr mgr;
 extern bool ws_connected;
-extern bool ws_tx_connected;
-extern struct mg_connection *ws_conn, *ws_tx_conn;
+extern struct mg_connection *ws_conn;
 extern time_t now;
 extern const char *get_chat_ts(void);
-extern GtkWidget *main_window;
 extern GtkWidget *tx_codec_combo, *rx_codec_combo;
 char *negotiated_codecs = NULL;
 char *server_codecs = NULL;

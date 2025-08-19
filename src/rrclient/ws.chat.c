@@ -1,4 +1,4 @@
-//
+
 // gtk-client/ws.chat.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -31,21 +31,9 @@
 #include "common/client-flags.h"
 
 extern dict *cfg;		// config.c
-extern struct mg_mgr mgr;
-extern bool ws_connected;
-extern bool ws_tx_connected;
-extern struct mg_connection *ws_conn, *ws_tx_conn;
-extern bool server_ptt_state;
-extern const char *tls_ca_path;
-extern struct mg_str tls_ca_path_str;
-extern bool cfg_show_pings;
+extern struct mg_connection *ws_conn;
 extern time_t now;
-extern time_t poll_block_expire, poll_block_delay;
-extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
-extern GtkWidget *main_window;
-extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
-extern dict *servers;
 
 bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    struct mg_str msg_data = msg->data;
@@ -143,6 +131,9 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       } else if (msg_type && strcasecmp(msg_type, "action") == 0) {
          ui_print("[%s] * %s %s", get_chat_ts(), from, data);
       }
+
+      gui_window_t *win = gui_find_window(NULL, "main");
+      GtkWidget *main_window = win->gtk_win;
 
       if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
          gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);

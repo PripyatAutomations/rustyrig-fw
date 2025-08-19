@@ -27,14 +27,8 @@
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 extern time_t now;
-extern time_t poll_block_expire, poll_block_delay;
-extern char session_token[HTTP_TOKEN_LEN+1];
-extern const char *get_chat_ts(void);
-extern GtkWidget *main_window;
-extern struct mg_mgr mgr;
 extern bool ws_connected;
 extern struct mg_connection *ws_conn;
-extern bool server_ptt_state;
 extern char *negotiated_codecs;		// ws.c
 
 bool ws_audio_init(void) {

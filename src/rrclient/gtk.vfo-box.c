@@ -27,7 +27,6 @@
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
-
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
 
 static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {

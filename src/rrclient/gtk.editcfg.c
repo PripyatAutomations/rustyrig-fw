@@ -29,25 +29,14 @@
 #include "rrclient/userlist.h"
 #include "common/client-flags.h"
 
-extern dict *cfg;		// config.c
+extern dict *cfg;
 extern struct mg_mgr mgr;
 extern bool ws_connected;
-extern bool ws_tx_connected;
-extern struct mg_connection *ws_conn, *ws_tx_conn;
-extern bool server_ptt_state;
-extern const char *tls_ca_path;
-extern struct mg_str tls_ca_path_str;
-extern bool cfg_show_pings;
+extern struct mg_connection *ws_conn;
 extern time_t now;
-extern time_t poll_block_expire, poll_block_delay;
-extern char session_token[HTTP_TOKEN_LEN+1];
-extern const char *get_chat_ts(void);
-extern GtkWidget *main_window;
-extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
-extern dict *servers;
-extern GtkWidget *main_notebook;	// im gtk.c
-extern GtkWidget *toggle_userlist_button; // in gtk.c
+extern GtkWidget *toggle_userlist_button; // userlist.c
+extern GtkWidget *main_notebook;	  // gtk.core.c
 
 extern dict *cfg_load(const char *path);
 

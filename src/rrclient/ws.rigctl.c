@@ -32,23 +32,13 @@
 #include "common/client-flags.h"
 
 extern time_t poll_block_expire, poll_block_delay;
-extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern void fm_dialog_show(void);
 extern void fm_dialog_hide(void);
 extern dict *cfg;		// config.c
-extern struct mg_mgr mgr;
-extern bool ws_connected;
-extern bool ws_tx_connected;
-extern struct mg_connection *ws_conn, *ws_tx_conn;
+extern struct mg_connection *ws_conn;
 extern bool server_ptt_state;
-extern const char *tls_ca_path;
-extern struct mg_str tls_ca_path_str;
-extern bool cfg_show_pings;
 extern time_t now;
-extern char session_token[HTTP_TOKEN_LEN+1];
 extern const char *get_chat_ts(void);
-extern GtkWidget *main_window;
-extern dict *servers;
 extern gulong freq_changed_handler_id;
 
 // Store the previous mode
@@ -103,7 +93,8 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 //            g_signal_handler_block(freq_entry, freq_changed_handler_id);
 //            gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(freq_entry), freq);
             GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);  // cast
-            if (gtk_freq_entry_is_editing(fe)) {
+
+            if (!gtk_freq_entry_is_editing(fe)) {
 //            if (!fe->editing) {
                unsigned long old_freq = gtk_freq_entry_get_frequency(fe);
                gtk_freq_entry_set_frequency(fe, freq);
