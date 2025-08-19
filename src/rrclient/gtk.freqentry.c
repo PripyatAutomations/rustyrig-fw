@@ -129,8 +129,6 @@ static GtkWidget *get_next_widget(GtkWidget *widget) {
    return NULL;
 }
 
-extern double scroll_divider;   // global sensitivity factor
-
 static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
 
@@ -529,6 +527,19 @@ GtkWidget *gtk_freq_entry_new(int num_digits) {
 void gtk_freq_entry_init(GtkFreqEntry *fi) {
    gtk_orientable_set_orientation(GTK_ORIENTABLE(fi), GTK_ORIENTATION_HORIZONTAL);
 
+   const char *gsd_s = cfg_get("ui.freqentry.scroll-divider");
+   double global_scroll_divider = 1.0;
+   float gsd_f = 1.0;
+
+   if (gsd_s) {
+      gsd_f = atof(gsd_s);
+      global_scroll_divider = (double)gsd_f;
+
+      Log(LOG_DEBUG, "gtk.freqentry", "scroll divider: %f", gsd_f);
+   } else {
+      Log(LOG_WARN, "gtk.freqentry", "ui.freqentry.scroll-divider should be set for proper operation");
+   }
+      
    // Default values
    if (fi->num_digits <= 0) {
       fi->num_digits = MAX_DIGITS;
@@ -537,7 +548,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fi) {
    fi->last_focused_idx = -1;
    fi->scroll_accum_y = 0.0;
    fi->scroll_accum_x = 0.0;
-   fi->scroll_divider = 1.0;
+   fi->scroll_divider = (global_scroll_divider ? global_scroll_divider : 1.0);
    fi->editing = false;
 
    // Allocate arrays

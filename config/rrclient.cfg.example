@@ -14,7 +14,8 @@ codecs.allowed=pc16 mu16 mu08
 default.volume.rx=50
 default.tx.power=50
 ;debug.http=true
-audio.debug=*:3
+debug.http.crazy=false
+debug.audio=*:3
 audio.volume.rx=0
 path.help-dir=./help
 

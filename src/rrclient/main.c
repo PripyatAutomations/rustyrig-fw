@@ -31,24 +31,8 @@
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
-#ifdef _WIN32
-extern void win32_check_darkmode(void);
-#endif
-
-extern bool ws_audio_init(void);
-extern struct mg_mgr mgr;
-extern struct mg_connection *ws_conn;
+// from defcfg.c
 extern defconfig_t defcfg[];
-
-const char *config_file = NULL;
-int my_argc = -1;
-char **my_argv = NULL;
-bool dying = false;             // Are we shutting down?
-bool restarting = false;        // Are we restarting?
-time_t now = -1;                // time() called once a second in main loop to update
-bool ptt_active = false;
-time_t poll_block_expire = 0;	// Here we set this to now + config:cat.poll-blocking to prevent rig polling from sclearing local controls
-time_t poll_block_delay = 0;	// ^-- stores the delay
 
 const char *configs[] = { 
 #ifndef _WIN32
@@ -60,6 +44,26 @@ const char *configs[] = {
    ".\\rrclient.cfg"
 #endif
 };
+
+/////
+// should be in ui.*c
+/////
+#ifdef _WIN32
+extern void win32_check_darkmode(void);
+#endif
+
+extern bool ws_audio_init(void);
+extern struct mg_mgr mgr;
+extern struct mg_connection *ws_conn;
+const char *config_file = NULL;
+int my_argc = -1;
+char **my_argv = NULL;
+bool dying = false;             // Are we shutting down?
+bool restarting = false;        // Are we restarting?
+time_t now = -1;                // time() called once a second in main loop to update
+bool ptt_active = false;
+time_t poll_block_expire = 0;	// Here we set this to now + config:cat.poll-blocking to prevent rig polling from sclearing local controls
+time_t poll_block_delay = 0;	// ^-- stores the delay
 
 void shutdown_app(int signum) {
    if (signum > 0) {
@@ -75,6 +79,9 @@ static gboolean poll_mongoose(gpointer user_data) {
    return G_SOURCE_CONTINUE;
 }
 
+/////////////
+// 1hz periodic: Check if dying and shutdown, update now variable
+/////////////
 static gboolean update_now(gpointer user_data) {
    now = time(NULL);
 
@@ -106,8 +113,6 @@ int main(int argc, char *argv[]) {
       if (!(cfg = cfg_load(fullpath))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       } else {
-//         fprintf(stderr, "**** cfg:servers ****\n");
-//         dict_dump(servers, stderr);
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
       }
       empty_config = false;
@@ -122,6 +127,7 @@ int main(int argc, char *argv[]) {
    // Set logging configuration to make our loaded config, in production this will quiet logging down
    logger_init();
 
+   // host-specific setup
    host_init();
 
    // Set up some debugging
@@ -132,16 +138,16 @@ int main(int argc, char *argv[]) {
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
 #endif
 
-   const char *cfg_audio_debug = cfg_get_exp("audio.debug");
-   if (cfg_audio_debug) {
+   const char *cfg_debug_audio = cfg_get_exp("audio.debug");
+   if (cfg_debug_audio) {
 #ifdef _WIN32
-      SetEnvironmentVariable("GST_DEBUG", cfg_audio_debug);
+      SetEnvironmentVariable("GST_DEBUG", cfg_debug_audio);
 #else
-      setenv("GST_DEBUG", cfg_audio_debug, 0);
+      setenv("GST_DEBUG", cfg_debug_audio, 0);
 #endif
    }
-   free((void *)cfg_audio_debug);
-   cfg_audio_debug = NULL;
+   free((void *)cfg_debug_audio);
+   cfg_debug_audio = NULL;
 
    ////////
    gtk_init(&argc, &argv);

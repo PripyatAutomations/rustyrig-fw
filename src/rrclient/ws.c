@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
 #include "common/dict.h"
@@ -29,39 +28,6 @@
 #include "rrclient/userlist.h"
 #include "common/client-flags.h"
 
-extern dict *cfg;		// config.c
-struct mg_mgr mgr;
-const char *tls_ca_path = NULL;
-struct mg_str tls_ca_path_str;
-bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
-extern time_t now;
-extern const char *get_chat_ts(void);
-extern GtkWidget *main_window;
-extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
-extern dict *servers;
-
-extern GtkWidget *tx_codec_combo, *rx_codec_combo;
-
-//////////////////////////////////
-// Support for multiple servers //
-//////////////////////////////////
-extern time_t poll_block_expire, poll_block_delay;
-extern char session_token[HTTP_TOKEN_LEN+1];
-
-struct ws_conn_t {
-   bool		connected;	// Are we connected?
-   bool		ptt_active;	// Is PTT raised?
-   struct mg_connection *ws_conn,	// RX stream
-                        *ws_tx_conn;	// TX stream
-};
-
-// XXX: Rework this and everywhere that refers to them to be wrapped in a ws_conn_t
-char active_server[512];
-bool ws_connected = false;	// Is RX stream connecte?
-bool ws_tx_connected = false;	// Is TX stream connected?
-struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
-bool server_ptt_state = false;
-
 // At startup, we try to find the distribution's TLS certificate authority trust store
 const char *default_tls_ca_paths[] = {
    "/etc/ssl/certs/ca-certificates.crt",
@@ -69,12 +35,47 @@ const char *default_tls_ca_paths[] = {
    "/etc/ssl/cert.pem"
 };
 
+extern dict *cfg;		// config.c
+struct mg_mgr mgr;
+const char *tls_ca_path = NULL;
+struct mg_str tls_ca_path_str;
+bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
+extern time_t now;
+extern const char *get_chat_ts(void);
+extern dict *servers;
+
+#if	defined(USE_GTK)
+#include <gtk/gtk.h>
+extern GtkWidget *main_window;
+extern GtkWidget *tx_codec_combo, *rx_codec_combo;
+extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
+#endif	// defined(USE_GTK)
+
+//////////////
+bool cfg_http_debug_crazy = false;
+
+//////////////////////////////////
+// Support for multiple servers //
+//////////////////////////////////
+extern rr_connection_t *active_connections;
+////
+extern time_t poll_block_expire, poll_block_delay;
+extern char session_token[HTTP_TOKEN_LEN+1];
+char active_server[512];
+bool ws_connected = false;	// Is RX stream connecte?
+bool ws_tx_connected = false;	// Is TX stream connected?
+struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
+bool server_ptt_state = false;
+
 ////////////////////////////////
 ///// ws.*.c message handlers //
 ////////////////////////////////
 extern bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_media_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_notice_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_ping_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_syslog_msg(struct mg_connection *c, struct mg_ws_message *msg);
@@ -92,9 +93,10 @@ struct ws_msg_routes ws_routes[] = {
    { .type = "alert",	.cb = ws_handle_alert_msg },
    { .type = "auth",	  .cb = ws_handle_auth_msg },
    { .type = "cat",	  .cb = ws_handle_rigctl_msg },
-//   { .type = "error",	 .cb = ws_handle_error_msg },
-//   { .type = "hello",	 .cb = ws_handle_hello_msg },
+   { .type = "error",	 .cb = ws_handle_error_msg },
+   { .type = "hello",	 .cb = ws_handle_hello_msg },
    { .type = "media",  .cb = ws_handle_media_msg },
+   { .type = "notice",  .cb = ws_handle_notice_msg },
    { .type = "ping",	 .cb = ws_handle_ping_msg },
    { .type = "syslog",   .cb = ws_handle_syslog_msg },
    { .type = "talk",	 .cb = ws_handle_talk_msg },
@@ -102,76 +104,54 @@ struct ws_msg_routes ws_routes[] = {
 };
 ////
 
+bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg) {
+   struct mg_str msg_data = msg->data;
+
+   if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
+      char *hello = mg_json_get_str(msg_data, "$.hello");
+      ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
+      free(hello);
+   } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
+//      result = ws_handle_pong(c, msg);
+   }
+   return false;
+}
+
 /// We need to switch to using ws_txtframe_dispatch, which means we need to
 // strip down ws_txtframe_process into smaller callbacks
 static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *msg) {
-   struct ws_msg_routes *rp = ws_routes;
-   int i = 0;
-   const char *type = NULL;		// We need to find the outer-most label of the json message
 
-   if (!type) {
+   if (!c || !msg) {
       return true;
    }
 
+   struct ws_msg_routes *rp = ws_routes;
+   int i = 0;
+   char json_req[65];
+   struct mg_str msg_data = msg->data;
+
    while (rp[i].type) {
-      if (rp[i].type && strcasecmp(rp[i].type, type) == 0) {
+      if (!rp[i].type &&!rp[i].cb) {
+         break;
+      }
+
+      memset(json_req, 0, sizeof(json_req));
+      snprintf(json_req, sizeof(json_req), "$.%s", rp[i].type);
+
+      // see if this exists in the json
+      if (mg_json_get(msg_data, json_req, NULL) > 0) {
          // Matched, dispatch the message
-         Log(LOG_CRAZY, "ws.router", "Matched route #%d for message type %s", i, type);
+         if (strcasecmp(rp[i].type, "cat") != 0) {
+            Log(LOG_CRAZY, "ws.router", "Matched route #%d for message type %s", i, rp[i].type);
+         }
          rp[i].cb(c, msg);
          return false;
       }
       i++;
    }
-   
+
+   Log(LOG_CRAZY, "ws.router", "No matches for message: %s", msg_data);
    return true;
-}
-
-static bool ws_txtframe_process(struct mg_connection *c, struct mg_ws_message *msg) {
-   struct mg_str msg_data = msg->data;
-   bool result = false;
-
-//   result = ws_txtframe_dispatch(c, msg);
-#if	1
-   if (mg_json_get(msg_data, "$.media.cmd", NULL) > 0) {
-      result = ws_handle_media_msg(c, msg);
-   } else if (mg_json_get(msg_data, "$.ping", NULL) > 0) {
-      result = ws_handle_ping_msg(c, msg);
-   } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
-      result = ws_handle_auth_msg(c, msg);
-   } else if (mg_json_get(msg_data, "$.alert", NULL) > 0) {
-      result = ws_handle_alert_msg(c, msg);
-   } else if (mg_json_get(msg_data, "$.error", NULL) > 0) {
-      char *msg = mg_json_get_str(msg_data, "$.error");
-      if (msg) {
-         ui_print("[%s] ERROR %s !!!", get_chat_ts(), msg);
-      }
-      free(msg);
-   } else if (mg_json_get(msg_data, "$.notice", NULL) > 0) {
-      char *msg = mg_json_get_str(msg_data, "$.notice");
-      if (msg) {
-         ui_print("[%s] NOTICE %s ***", get_chat_ts(), msg);
-      }
-      free(msg);
-   } else if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
-      char *hello = mg_json_get_str(msg_data, "$.hello");
-      ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
-      // XXX: Store the codec
-      free(hello);
-   // Check for $.cat field (rigctl message)
-   } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-//      ui_print("[%s] +++ CAT ++ %s", get_chat_ts(), msg_data);
-      result = ws_handle_rigctl_msg(c, msg);
-   } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
-      result = ws_handle_talk_msg(c, msg);
-   } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
-//      result = ws_handle_pong(c, msg);
-   } else if (mg_json_get(msg_data, "$.syslog", NULL) > 0) {
-     result = ws_handle_syslog_msg(c, msg);
-   } else {
-      ui_print("[%s] ==> UnknownMsg: %.*s", get_chat_ts(), msg->data.len, msg->data.buf);
-   }
-#endif
-   return false;
 }
 
 bool ws_binframe_process(const char *data, size_t len) {
@@ -204,15 +184,18 @@ bool ws_handle(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
 #if     defined(HTTP_DEBUG_CRAZY)
-   // XXX: This should be moved to an option in config perhaps?
-   Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+   if (cfg_http_debug_crazy) {
+      // XXX: This should be moved to an option in config perhaps?
+      Log(LOG_CRAZY, "http", "WS msg: %.*s", (int) msg->data.len, msg->data.buf);
+   }
 #endif
 
-   // Binary (audio, waterfall) frames
    if (msg->flags & WEBSOCKET_OP_BINARY) {
+      // Binary (audio, waterfall, etc) frames
       ws_binframe_process(msg->data.buf, msg->data.len);
-   } else {     // Text (mostly json) frames
-      ws_txtframe_process(c, msg);
+   } else {
+      // Text (mostly json) frames
+      ws_txtframe_dispatch(c, msg);
    }
    return false;
 }
@@ -244,9 +227,11 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       ws_connected = true;
       update_connection_button(true, conn_button);
       ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
+#if	defined(USE_GTK)
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-active");
       gtk_style_context_remove_class(ctx, "ptt-idle");
+#endif	// defined(USE_GTK)
 
       if (!login_user) {
          Log(LOG_CRIT, "core", "server.user not set in config!");
@@ -266,9 +251,11 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);
+#if	defined(USE_GTK)
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");
       gtk_style_context_remove_class(ctx, "ptt-active");
+#endif	// defined(USE_GTK)
       userlist_clear_all();
    }
 }
@@ -282,8 +269,16 @@ void ws_init(void) {
       mg_log_set(MG_LL_ERROR);
    }
    free((void *)debug);
+   const char *debug_crazy = cfg_get_exp("debug.http.crazy");
+   if (debug_crazy && (strcasecmp(debug_crazy, "true") == 0 ||
+                       strcasecmp(debug_crazy, "yes") == 0)) {
+      cfg_http_debug_crazy = true;
+   }
+   free((void *)debug_crazy);
+         
    mg_mgr_init(&mgr);
 
+// XXX: Fix this
 //   tls_ca_path = find_file_by_list(default_tls_ca_paths, sizeof(default_tls_ca_paths) / sizeof(char *));
    if (!tls_ca_path) {
       tls_ca_path = strdup("*");
@@ -352,7 +347,10 @@ bool connect_server(void) {
    const char *url = get_server_property(active_server, "server.url");
 
    if (url) {
+// XXX:
+#if	defined(USE_GTK)
       gtk_button_set_label(GTK_BUTTON(conn_button), "----------");
+#endif	// defined(USE_GTK)
       ui_print("[%s] Connecting to %s", get_chat_ts(), url);
 
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
@@ -367,6 +365,7 @@ bool connect_server(void) {
    return false;
 }
 
+#if	defined(USE_GTK)
 bool connect_or_disconnect(GtkButton *button) {
    if (ws_connected) {
       disconnect_server();
@@ -375,3 +374,4 @@ bool connect_or_disconnect(GtkButton *button) {
    }
    return false;
 }
+#endif	// defined(USE_GTK)

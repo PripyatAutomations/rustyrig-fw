@@ -8,7 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rrclient_ws_h)
 #define __rrclient_ws_h
-#include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,17 +16,43 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include "common/config.h"
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
 #include "rrclient/auth.h"
 #include "rrclient/audio.h"
+#include "../../ext/libmongoose/mongoose.h"
 #include "common/codecneg.h"
 
 //#define	DEBUG_WS_BINFRAMES		// turn this off soon
 
+enum rr_conn_type {
+   RR_CONN_NONE = 0,
+   RR_CONN_MONGOOSE,				// mongoose socket
+};
+
+struct rr_connection {
+   bool			connected;	// Are we connected?
+   bool			ptt_active;	// Is PTT raised?
+   enum rr_conn_type	*conn_type;		// connection type		
+   struct mg_connection *mg_conn;		// mongoose socket
+   struct mg_connection *ws_conn,	// RX stream
+                        *ws_tx_conn;	// TX stream
+
+   time_t poll_block_expire, poll_block_delay;
+   char session_token[HTTP_TOKEN_LEN+1];
+
+   /////
+   struct rr_connection *next;			// next socket
+};
+typedef struct rr_connection rr_connection_t;
+
+// Connected sessions
+extern rr_connection_t *active_connections;
 extern char active_server[512];
 
+///////
 extern void ws_handler(struct mg_connection *c, int ev, void *ev_data);
 extern void ws_init(void);
 extern void ws_fini(void);

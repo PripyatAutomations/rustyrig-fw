@@ -59,7 +59,7 @@ bool is_dir(const char *path) {
 }
 
 char *expand_path(const char *path) {
-    if (!path) {
+    if (!path || path[0] == '\0') {
        return NULL;
     }
 

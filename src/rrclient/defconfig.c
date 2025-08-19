@@ -13,7 +13,6 @@
 #include "common/posix.h"
 
 defconfig_t defcfg[] = {
-   { "audio.debug",			":*3",	"gstreamer debug level" },
    { "audio.pipeline.rx",		"",	"User choice pipeline for RX" },
    { "audio.pipeline.rx.format",	"",	"User pipeline format (bytes|time) for RX " },
    { "audio.pipeline.tx",		"",	"User choice pipeline for gstreamer TX" },
@@ -30,7 +29,9 @@ defconfig_t defcfg[] = {
    { "audio.volume.rx",			"30",	"Default RX volume" },
    { "audio.volume.tx",			"20",	"Default TX out vol" },
    { "cat.poll-blocking",		"2",	"Sec to block CAT poll messages for input debouncing" },
+   { "debug.audio",			":*3",	"gstreamer debug level" },
    { "debug.http",			"false", "Extra HTTP debugging" },
+   { "debug.http.crazy",		"false", "Insane level of HTTP debugging" },
    { "default.tx.power",		"30",	"Default TX power in watts (float)" },
    { "log.level",			"debug", "Log level (audit | crit | warn | info | debug | crazy)" },
    { "log.show-ts",			"true", "Show timestamps in log" },

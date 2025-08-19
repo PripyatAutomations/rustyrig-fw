@@ -44,7 +44,6 @@ static void do_connect_from_tree(GtkTreeView *view) {
    GtkTreeModel *model;
    GtkTreeIter iter;
 
-
    if (gtk_tree_selection_get_selected(sel, &model, &iter)) {
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
@@ -97,7 +96,6 @@ void show_server_chooser(void) {
 
    GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *gui_win = ui_new_window(win, "serverpick");
-   Log(LOG_INFO, "gtk", "serverpicker_window has id:<%x>", win);
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *list = gtk_tree_view_new();
    GtkListStore *store = gtk_list_store_new(1, G_TYPE_STRING);
@@ -118,8 +116,6 @@ void show_server_chooser(void) {
    GtkTreeIter match_iter;
    gboolean have_match = FALSE;
    while ((rank = dict_enumerate(servers, rank, &k, &v)) >= 0) {
-//      printf("config key: %s -> %s\n", k, v);
-
       if (!g_str_has_suffix(k, ".server.user")) {
          continue;
       }
