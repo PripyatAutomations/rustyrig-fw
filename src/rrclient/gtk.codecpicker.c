@@ -22,6 +22,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "common/websocket.h"
+#include "rrclient/ui.speech.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
@@ -86,8 +87,18 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    GtkWidget *widget_label = gtk_label_new("TX/RX Codecs");
 
    tx_combo = gtk_combo_box_text_new();
+   ui_speech_set(tx_combo,
+              "TX Codec",                 // name
+              "Transmit Codec",           // description
+              UI_ROLE_COMBOBOX,             // role
+              true);                      // focusable
    gtk_widget_set_tooltip_text(tx_combo, "Transmit codec");
    rx_combo = gtk_combo_box_text_new();
+   ui_speech_set(rx_combo,
+              "Receive Codec",            // name
+              "Receiver Codec",           // description
+              UI_ROLE_COMBOBOX,             // role
+              true);                      // focusable
    gtk_widget_set_tooltip_text(rx_combo, "Receive codec");
 
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);

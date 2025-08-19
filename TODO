@@ -58,6 +58,9 @@ minimal inet_ntop() for non-posix
 ============
 = rrserver =
 ============
+[protocol]
+* Instead of blorping out the rig status once a second, lets do broadcasts only when changed or every 30 seconds plus on-connect
+
 [audio]
 ws.c / fwdsp-mgr.c:
 	ws_txtframe_process: media.codec handling

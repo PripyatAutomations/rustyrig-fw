@@ -23,12 +23,13 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "common/util.file.h"
+#include "common/websocket.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
+#include "rrclient/ui.speech.h"
 #include "common/client-flags.h"
-#include "common/websocket.h"
 
 extern dict *cfg;		// config.c
 
@@ -53,5 +54,10 @@ GtkWidget *init_admin_tab(void) {
    // add stuff to the window
    gtk_container_add(GTK_CONTAINER(nw), admin_view);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, gtk_label_new("Admin"));
+   ui_speech_set(nw,
+              "Admin Tab",                // name
+              "Server administration",    // description
+              UI_ROLE_BUTTON,             // role
+              true);                      // focusable
    return nw;
 }
