@@ -7,10 +7,12 @@
 [Control Tab]
 	alt-c	Focus CHAT input
 	alt-f	Focus FREQ input, in the last field edited
-	alt-m	Focus MODE selector
-	alt-r	Focus RX codec
+	alt-h	Show this HELP (or /help keybindings)
+	alt-o	Focus MODE selector
 	alt-p	Focus TX Power
+	alt-r	Focus RX codec
 	alt-t	Focus TX codec
+	alt-u	Toggle userlist window
 	alt-v	Focus RX Volume
 	alt-w	Focus WIDTH selector
 

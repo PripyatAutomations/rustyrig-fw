@@ -28,6 +28,7 @@ objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 objs += userlist.o
 objs += ui.o			# User interface wrapper (TUI/GTK)
 objs += ui.help.o		# help texts
+objs += ui.speech.o		# Support for screener readers
 objs += util.file.o		# Misc file functions
 objs += util.math.o		# Misc math functions
 objs += util.string.o		# String utility functions

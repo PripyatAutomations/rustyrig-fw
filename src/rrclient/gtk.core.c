@@ -243,22 +243,6 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
       return true;
    }
 
-   // alt-u works everywhere
-   if ((event->state & GDK_MOD1_MASK)) {
-      if (event->keyval == GDK_KEY_u) {
-         if (!userlist_window) {
-            Log(LOG_DEBUG, "gtk", "userlist_window is null in alt-u handler");
-            return TRUE;
-         }
-         if (gtk_widget_get_visible(userlist_window)) {
-            gtk_widget_hide(userlist_window);
-         } else {
-            gtk_widget_show_all(userlist_window);
-            place_window(userlist_window);
-         }
-         return TRUE;
-      }
-   }
 
    if ((event->state & GDK_MOD1_MASK)) {
       if (!main_window) {
@@ -304,8 +288,8 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
          case GDK_KEY_h:
             show_help("keybindings.hlp");
             break;
-         case GDK_KEY_M:
-         case GDK_KEY_m:
+         case GDK_KEY_O:
+         case GDK_KEY_o:
             gtk_widget_grab_focus(GTK_WIDGET(mode_combo));
             break;
          case GDK_KEY_P:
@@ -319,6 +303,19 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
          case GDK_KEY_T:
          case GDK_KEY_t:
             gtk_widget_grab_focus(GTK_WIDGET(tx_combo));
+            break;
+         case GDK_KEY_U:
+         case GDK_KEY_u:
+            if (!userlist_window) {
+               Log(LOG_DEBUG, "gtk", "userlist_window is null in alt-u handler");
+               return TRUE;
+            }
+            if (gtk_widget_get_visible(userlist_window)) {
+               gtk_widget_hide(userlist_window);
+            } else {
+               gtk_widget_show_all(userlist_window);
+               place_window(userlist_window);
+            }
             break;
          case GDK_KEY_V:
          case GDK_KEY_v:

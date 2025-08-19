@@ -60,8 +60,6 @@ LDFLAGS += -lm -g -ggdb -lmbedcrypto -lmbedtls -lmbedx509
 LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
-
-
 OBJ_DIR := ${BUILD_DIR}/obj
 
 host-info:
@@ -199,3 +197,8 @@ ${INSTALLER}: ${bin}
 
 ${OBJ_DIR}/icon.res: ../../res/rustyrig.ico ../../res/win64-icon.rc
 	windres.exe ../../res/win64-icon.rc -O coff -o $@
+
+symtab: ${bin}.symtab
+
+${bin}.symtab: ${bin}
+	nm ${bin} |grep -v '.gtk_*' | grep -v '.mg_*'|grep -v '.[Ur].' > $@

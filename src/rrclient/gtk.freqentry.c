@@ -13,7 +13,6 @@ extern bool ui_print(const char *fmt, ...);
 
 //
 // This should be private. Use the accessor functions below in Public API
-//
 struct _GtkFreqEntry {
     GtkBox parent_instance;
 
@@ -643,4 +642,14 @@ bool gtk_freq_entry_is_editing(GtkFreqEntry *fi) {
    }
    return fi->editing;
 }
- 
+
+GtkWidget *gtk_freq_entry_last_touched_digit(GtkFreqEntry *fi) {
+   if (!fi) {
+      return NULL;
+   }
+   int last_focused_idx = fi->last_focused_idx;
+   if (last_focused_idx > 0) {
+      return GTK_WIDGET(fi->digits[last_focused_idx]);
+   }
+   return NULL;
+}

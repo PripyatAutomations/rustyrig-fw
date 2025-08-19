@@ -220,3 +220,8 @@ config/http.users:
 
 include ../../mk/git.mk
 include ../../mk/database.mk
+
+symtab: ${fw_bin}.symtab
+
+${fw_bin}.symtab: ${fw_bin}
+	nm ${fw_bin} | grep -v '.gtk_*' | grep -v '.mg_*'|grep -v '.[Ur].' > $@

@@ -17,7 +17,7 @@ subdirs += fwdsp
 endif
 
 
-all world clean deps install:
+all world clean deps install symtab:
 	@for i in ${subdirs}; do \
 	   ${MAKE} -C src/$$i $@; \
 	done

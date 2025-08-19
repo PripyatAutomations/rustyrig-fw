@@ -250,3 +250,8 @@ installdep:
 config/http.users:
 	@echo "*** You do not have a config/http.users so i've copied the default file from doc/"
 	cp -i doc/http.users.example config/http.users
+
+symtab: ${fwdsp_bin}.symtab
+
+${fwdsp_bin}.symtab: ${fwdsp_bin}
+	nm ${fwdsp_bin} |grep -v '.gtk_*' | grep -v '.mg_*'|grep -v '.[Ur].' > $@
