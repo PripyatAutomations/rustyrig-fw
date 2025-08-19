@@ -1,5 +1,5 @@
-#if	!defined(__rrclient_gtk_gui_h)
-#define	__rrclient_gtk_gui_h
+#if	!defined(__rrclient_gtk_core_h)
+#define	__rrclient_gtk_core_h
 #include "common/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -95,4 +95,4 @@ extern gulong freq_changed_handler_id;
 #include "rrclient/gtk.vol-box.h"
 #include "rrclient/gtk.winmgr.h"
 
-#endif	// !defined(__rrclient_gtk_gui_h)
+#endif	// !defined(__rrclient_gtk_core_h)

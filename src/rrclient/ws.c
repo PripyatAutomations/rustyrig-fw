@@ -29,9 +29,9 @@
 #include "rrclient/userlist.h"
 #include "common/client-flags.h"
 
-//#ifndef	HTTP_DEBUG_CRAZY
-//#define	HTTP_DEBUG_CRAZY	1
-//#endif
+#ifndef	HTTP_DEBUG_CRAZY
+#define	HTTP_DEBUG_CRAZY	1
+#endif
 
 extern dict *cfg;		// config.c
 struct mg_mgr mgr;

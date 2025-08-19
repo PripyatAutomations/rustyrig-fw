@@ -33,16 +33,24 @@ extern bool dying;
 extern bool ptt_active;
 extern bool ws_connected;
 
-GtkWidget *server_window = NULL;
-
 static void do_connect_from_tree(GtkTreeView *view) {
+   gui_window_t *win = gui_find_window(NULL, "serverpick");
+   GtkWidget *server_window = win->gtk_win;
+
+   if (!server_window) {
+      return;
+   }
+
    GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
    GtkTreeModel *model;
    GtkTreeIter iter;
+
+
    if (gtk_tree_selection_get_selected(sel, &model, &iter)) {
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
       const char *at = strchr(entry, '@');
+
       if (at && at[1]) {
          disconnect_server();
          strncpy(active_server, at + 1, sizeof(active_server));
@@ -51,8 +59,8 @@ static void do_connect_from_tree(GtkTreeView *view) {
       }
       g_free(entry);
    }
+   // This will cause the removal in the destroyed callback added by gui_new_window() in gtk.winmgr.c
    gtk_widget_destroy(server_window);
-   server_window = NULL;
 }
 
 static void on_connect_clicked(GtkButton *btn, gpointer user_data) {
@@ -66,8 +74,9 @@ static gboolean on_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeVi
 
 static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    if (ev->keyval == GDK_KEY_Escape) {
+      gui_window_t *win = gui_find_window(NULL, "serverpick");
+      GtkWidget *server_window = win->gtk_win;
       gtk_widget_destroy(server_window);
-      server_window = NULL;
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
       GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(gtk_widget_get_toplevel(w)));
       if (GTK_IS_TREE_VIEW(focus)) {
@@ -79,19 +88,16 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    return FALSE;
 }
 
-void on_server_window_destroy(GtkWidget *widget, gpointer user_data) {
-   server_window = NULL;
-}
-
 void show_server_chooser(void) {
-   if (server_window) {
+   gui_window_t *old_win = gui_find_window(NULL, "serverpick");
+   if (old_win && old_win->gtk_win) {
       Log(LOG_DEBUG, "gtk.serverpick", "show_server_choser() called while already open");
-      gtk_window_present(GTK_WINDOW(server_window));
-
+      gtk_window_present(GTK_WINDOW(old_win->gtk_win));
       return;
    }
 
    GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gui_window_t *gui_win = ui_new_window(win, "serverpick");
    Log(LOG_INFO, "gtk", "serverpicker_window has id:<%x>", win);
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *list = gtk_tree_view_new();
@@ -139,7 +145,6 @@ void show_server_chooser(void) {
    g_signal_connect(btn, "clicked", G_CALLBACK(on_connect_clicked), list);
    g_signal_connect(win, "key-press-event", G_CALLBACK(on_key), NULL);
    g_signal_connect(list, "row-activated", G_CALLBACK(on_row_activated), NULL); // double-click handler
-   g_signal_connect(win, "destroy", G_CALLBACK(on_server_window_destroy), NULL);
 
    gtk_box_pack_start(GTK_BOX(vbox), list, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(vbox), btn, FALSE, FALSE, 0);
@@ -147,14 +152,12 @@ void show_server_chooser(void) {
    gtk_window_set_default_size(GTK_WINDOW(win), 300, 200);
 
    gtk_window_set_title(GTK_WINDOW(win), "Server Choser");
-   server_window = win;
-   gui_window_t *window_t = ui_new_window(win, "serverpick");
    gtk_widget_show_all(win);
-   gtk_widget_realize(server_window);
+   gtk_widget_realize(win);
 
-   place_window(server_window);
+   place_window(win);
    // Set dark mode, if needed, on windows
 #ifdef _WIN32
-   enable_windows_dark_mode_for_gtk_window(server_window);
+   enable_windows_dark_mode_for_gtk_window(win);
 #endif
 }
