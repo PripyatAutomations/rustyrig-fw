@@ -14,6 +14,7 @@
 //// Authentication Core ////
 extern char session_token[HTTP_TOKEN_LEN+1];
 extern char *compute_wire_password(const char *password, const char *nonce);
+extern char *hash_passwd(const char *passwd);
 
 //// User privileges matching ////
 extern bool match_priv(const char *user_privs, const char *priv);
