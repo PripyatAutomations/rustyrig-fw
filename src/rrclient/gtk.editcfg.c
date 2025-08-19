@@ -41,7 +41,6 @@ extern GtkWidget *main_notebook;	  // gtk.core.c
 extern dict *cfg_load(const char *path);
 
 GtkWidget *config_tab = NULL;
-GtkWidget *cfgedit_window = NULL;
 
 typedef struct {
    GtkWidget *window;
@@ -139,11 +138,6 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
    g_free(ctx);
 }
 
-static gboolean on_destroy(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
-   cfgedit_window = NULL;
-   return FALSE;
-}
-
 static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
    EditorContext *ctx = user_data;
 
@@ -165,6 +159,9 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
 }
 
 void gui_edit_config(const char *filepath) {
+   gui_window_t *win = gui_find_window(NULL, "editcfg");
+   GtkWidget *cfgedit_window = win->gtk_win;
+
    if (cfgedit_window) {
       // Focus the window and leave
       gtk_window_present(GTK_WINDOW(cfgedit_window)); 
@@ -233,7 +230,6 @@ void gui_edit_config(const char *filepath) {
    g_signal_connect(btn_save_as, "clicked", G_CALLBACK(on_save_other_clicked), ctx);
    g_signal_connect(btn_discard, "clicked", G_CALLBACK(on_discard_clicked), ctx);
    g_signal_connect(window, "delete-event", G_CALLBACK(on_delete_event), ctx);
-   g_signal_connect(window, "destroy", G_CALLBACK(on_destroy), ctx);
 
    gtk_widget_show_all(window);
    gtk_widget_realize(window);  // Make sure it's realized
@@ -242,8 +238,6 @@ void gui_edit_config(const char *filepath) {
 #ifdef _WIN32
    enable_windows_dark_mode_for_gtk_window(window);
 #endif
-
-   cfgedit_window = window;
 }
 
 /////////////////////////////

@@ -32,7 +32,7 @@
 #include "rrclient/ws.h"
 
 #ifdef _WIN32
-extern bool is_windows_dark_mode();
+extern void win32_check_darkmode(void);
 #endif
 
 extern bool ws_audio_init(void);
@@ -148,17 +148,7 @@ int main(int argc, char *argv[]) {
 
     // Ensure windows dark mode &
 #ifdef	_WIN32
-   if (is_windows_dark_mode()) {
-      GtkSettings *settings = gtk_settings_get_default();
-      g_object_set(settings, "gtk-theme-name", "Windows10-Dark",
-                             "gtk-application-prefer-dark-theme", TRUE,
-                             NULL);
-   } else {
-      GtkSettings *settings = gtk_settings_get_default();
-      g_object_set(settings, "gtk-theme-name", "Windows10",
-                             "gtk-application-prefer-dark-theme", FALSE,
-                             NULL);
-   }
+   win32_check_darkmode();
 #endif
 
    g_timeout_add(1000, update_now, NULL);

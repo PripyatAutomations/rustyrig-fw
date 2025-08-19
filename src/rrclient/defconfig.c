@@ -39,9 +39,9 @@ defconfig_t defcfg[] = {
 #ifdef _WIN32
    { "ui.gtk.theme",        "Windows10", "Chosen light theme" },
    { "ui.gtk.theme.dark",   "Windows10-Dark", "Chosen dark theme" },
-//#else
-//   { "ui.gtk.theme",        NULL, 	"Chosen light theme" },
-//   { "ui.gtk.theme.dark",   NULL,   "Chosen dark theme" },
+#else
+   { "ui.gtk.theme",        NULL, 	"Chosen light theme" },
+   { "ui.gtk.theme.dark",   NULL,   "Chosen dark theme" },
 #endif
    { "ui.show-pings",			"true", "Show Ping? Pong! notices" },
    { NULL,				NULL, 		NULL }

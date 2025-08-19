@@ -102,4 +102,20 @@ bool is_windows_dark_mode() {
     }
     return value == 0;  // 0 means dark mode}
 }
+
+// Ensure windows dark mode
+void win32_check_darkmode(void) {
+   if (is_windows_dark_mode()) {
+      GtkSettings *settings = gtk_settings_get_default();
+      g_object_set(settings, "gtk-theme-name", "Windows10-Dark",
+                             "gtk-application-prefer-dark-theme", TRUE,
+                             NULL);
+   } else {
+      GtkSettings *settings = gtk_settings_get_default();
+      g_object_set(settings, "gtk-theme-name", "Windows10",
+                             "gtk-application-prefer-dark-theme", FALSE,
+                             NULL);
+   }
+}
+
 #endif	// _WIN32
