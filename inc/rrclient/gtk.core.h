@@ -82,6 +82,8 @@ extern GtkWidget *mode_combo;
 extern gulong mode_changed_handler_id;
 extern gulong freq_changed_handler_id;
 //extern void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
+extern bool ui_print_gtk(const char *msg);
+extern bool cfg_use_gtk;
 
 #include "rrclient/gtk.codecpicker.h"
 #include "rrclient/gtk.editcfg.h"

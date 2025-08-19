@@ -21,6 +21,7 @@ struct _GtkFreqEntry {
     GtkWidget **down_buttons;
     int num_digits;
 
+    double scroll_divider;
     unsigned long freq;
     unsigned long prev_freq;
     gboolean editing;
@@ -128,6 +129,8 @@ static GtkWidget *get_next_widget(GtkWidget *widget) {
    return NULL;
 }
 
+extern double scroll_divider;   // global sensitivity factor
+
 static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
 
@@ -143,12 +146,22 @@ static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gp
       return FALSE; // no digit focused, let event propagate
 
    int delta = 0;
-   if (event->direction == GDK_SCROLL_UP ||
-       (event->direction == GDK_SCROLL_SMOOTH && event->delta_y < 0))
+
+   if (event->direction == GDK_SCROLL_UP) {
       delta = 1;
-   else if (event->direction == GDK_SCROLL_DOWN ||
-            (event->direction == GDK_SCROLL_SMOOTH && event->delta_y > 0))
+   } else if (event->direction == GDK_SCROLL_DOWN) {
       delta = -1;
+   } else if (event->direction == GDK_SCROLL_SMOOTH) {
+      fi->scroll_accum_y += event->delta_y;
+
+      if (fi->scroll_accum_y <= -fi->scroll_divider) {
+         delta = 1;
+         fi->scroll_accum_y += fi->scroll_divider;
+      } else if (fi->scroll_accum_y >= fi->scroll_divider) {
+         delta = -1;
+         fi->scroll_accum_y -= fi->scroll_divider;
+      }
+   }
 
    if (delta != 0) {
       fi->editing = true;
@@ -456,6 +469,7 @@ static void freqentry_bump_digit(GtkFreqEntry *fi, int idx, int delta) {
 static gboolean on_toplevel_scroll(GtkWidget *toplevel, GdkEventScroll *event, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
    int idx = fi->last_focused_idx;
+
    if (idx < 0) {
       return FALSE;
    }
@@ -493,6 +507,7 @@ static void on_freqentry_realize(GtkWidget *widget, gpointer user_data) {
       return;
    }
 
+   // Hook up scroll events
    gtk_widget_add_events(top, GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
    g_signal_connect(top, "scroll-event", G_CALLBACK(on_toplevel_scroll), fi);
 }
@@ -522,6 +537,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fi) {
    fi->last_focused_idx = -1;
    fi->scroll_accum_y = 0.0;
    fi->scroll_accum_x = 0.0;
+   fi->scroll_divider = 1.0;
    fi->editing = false;
 
    // Allocate arrays

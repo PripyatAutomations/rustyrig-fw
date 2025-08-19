@@ -1,8 +1,8 @@
 [Switch Tabs]
 	alt-1	Control tab
-	alt-2	System log tab
+	alt-2	Admin tab
 	alt-3	Config tab
-	alt-4	Admin tab
+	alt-4	System log tab
 
 [Control Tab]
 	alt-c	Focus CHAT input

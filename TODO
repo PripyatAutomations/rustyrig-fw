@@ -52,6 +52,9 @@
 * Add support for masking out messages such as '-*.noisy'
 ? Add support for rate limiting messages?
 
+[config]
+* Make config exporter put a comment with the description and default value, if found in defconfig, for each key saved.
+
 [Porting]
 minimal inet_ntop() for non-posix
 

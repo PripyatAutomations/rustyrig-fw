@@ -7,6 +7,9 @@ objs += config.o
 objs += debug.o			# Debug stuff
 objs += defconfig.o
 objs += dict.o			# dictionary object
+
+# Eventually we will support a TUI as well as GTK...
+ifeq (${USE_GTK},true)
 objs += gtk.core.o              # Support for a GTK user interface
 objs += gtk.admin.o		# Admin tab
 objs += gtk.codecpicker.o	# codec picker widget
@@ -21,6 +24,8 @@ objs += gtk.syslog.o		# syslog tab
 objs += gtk.vfo-box.o		# VFO box element
 objs += gtk.vol-box.o		# Volume widget
 objs += gtk.winmgr.o		# window management
+endif
+
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += mongoose.o		# Mongoose http/websocket/mqtt library
@@ -44,4 +49,3 @@ objs += ws.ping.o		# handle ping messages
 objs += ws.rigctl.o		# rig controls
 objs += ws.syslog.o
 objs += ws.tx-audio.o		# support for SENDING audio to the server
-

@@ -47,7 +47,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
          gui_window_t *wp = gui_find_window(NULL, "main");
          if (wp) {
             // But return focus to our main window immediately
-           g_idle_add(focus_main_later, wp->gtk_win);
+            focus_main_later(wp->gtk_win);
          }
       } else {
          fm_dialog_hide();

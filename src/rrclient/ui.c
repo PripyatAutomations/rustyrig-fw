@@ -38,3 +38,43 @@ enum GuiMode {
 
 //
 // XXX: Acutally implement this code
+
+gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
+   gui_window_t *ret = NULL;
+
+   if (!window || !name) {
+      return NULL;
+   }
+   
+   ret = gui_store_window(window, name);
+   set_window_icon(window, "rustyrig");
+
+#ifdef _WIN32
+   enable_windows_dark_mode_for_gtk_window(window);
+#endif
+
+   return ret;
+}
+bool ui_print(const char *fmt, ...) {
+   va_list ap;
+   va_start(ap, fmt);
+   char outbuf[8096];
+
+   if (!fmt) {
+      va_end(ap);
+      return true;
+   }
+
+   memset(outbuf, 0, sizeof(outbuf));
+   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
+   va_end(ap);
+
+#if	defined(USE_GTK)
+   if (cfg_use_gtk) {
+      ui_print_gtk(outbuf);
+   }
+#endif
+
+   // Print to the TUI too...
+   return false;
+}

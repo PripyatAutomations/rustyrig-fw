@@ -17,6 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
+#include <atk/atk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
 #include "common/dict.h"
@@ -28,20 +29,11 @@
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
 #include "common/client-flags.h"
+#include "rrclient/ui.speech.h"
 
 extern dict *cfg;		// config.c
 extern time_t now;
 extern const char *get_chat_ts(void);
-
-// rr_a11y_gtk.c
-#include "rrclient/ui.speech.h"
-#include <stdio.h>
-#include <atk/atk.h>
-
-#ifdef _WIN32
-#include <gdk/gdkwin32.h>
-#include <windows.h>
-#endif
 
 static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
    AtkObject *a11y = gtk_widget_get_accessible(widget);
@@ -64,29 +56,9 @@ static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
    }
 }
 
-#ifdef _WIN32
-static void apply_win(GtkWidget *widget, const ui_speech_hint_t *hint) {
-   HWND hwnd = NULL;
-   if (gtk_widget_get_window(widget)) {
-      hwnd = (HWND) gdk_win32_window_get_handle(gtk_widget_get_window(widget));
-   }
-   if (!hwnd) return;
-
-   // For now: just log (later integrate UIA)
-   fprintf(stderr, "[UIA-STUB] hwnd=%p role=%d name='%s' desc='%s'\n",
-           hwnd,
-           (int)hint->role,
-           hint->name ? hint->name : "(none)",
-           hint->description ? hint->description : "(none)");
-}
-#endif
-
 void ui_speech_apply(GtkWidget *widget, const ui_speech_hint_t *hint) {
    if (!widget || !hint) return;
    apply_gtk(widget, hint);
-#ifdef _WIN32
-   apply_win(widget, hint);
-#endif
 }
 
 void ui_speech_set(GtkWidget *widget,

@@ -6,6 +6,8 @@
 ;  audit | crit | warn | info | debug | crazy
 log.level=debug
 ui.show-pings=false
+# Divide scroll events by this # to get single-steps
+ui.freqentry.scroll-divider=3.0
 # If we want to autoconnect to a server, name it here.
 ;server.auto-connect=localhost
 codecs.allowed=pc16 mu16 mu08

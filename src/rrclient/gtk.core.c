@@ -59,6 +59,7 @@ GtkCssProvider *css_provider = NULL;
 GtkWidget *chat_entry = NULL;
 GtkWidget *toggle_userlist_button = NULL;
 GtkTextBuffer *text_buffer = NULL;
+bool cfg_use_gtk = true;	// Default to using GTK3
 
 ///////// Tab View //////////
 extern GtkWidget *init_log_tab(void);
@@ -77,6 +78,8 @@ static char chat_ts[9];
 // Chat timestamp //
 ////////////////////
 static time_t chat_ts_updated = 0;
+
+// This relies on the periodic tick to update now.
 const char *get_chat_ts(void) {
    memset(chat_ts, 0, 9);
 
@@ -92,6 +95,7 @@ const char *get_chat_ts(void) {
    return chat_ts;
 }
 
+// Scroll to the end of a GtkTextView
 gboolean ui_scroll_to_end(gpointer data) {
    GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
@@ -106,34 +110,27 @@ gboolean ui_scroll_to_end(gpointer data) {
    return FALSE; 		// remove the idle handler after it runs
 }
 
-bool ui_print(const char *fmt, ...) {
-   va_list ap;
-   va_start(ap, fmt);
-   char outbuf[8096];
-
-   if (!fmt) {
-      va_end(ap);
-      return true;
-   }
-
-   memset(outbuf, 0, sizeof(outbuf));
-   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
-   va_end(ap);
-
+bool ui_print_gtk(const char *msg) {
+   // Append our text to the end of the GtkTextView
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(text_buffer, &end);
-   gtk_text_buffer_insert(text_buffer, &end, outbuf, -1);
+   gtk_text_buffer_insert(text_buffer, &end, msg, -1);
    gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
 
    // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
    g_idle_add(ui_scroll_to_end, chat_textview);
-
    return false;
 }
 
-gboolean focus_main_later(gpointer data) {
+// This gets called by our timer when we want to 
+static gboolean focus_main_later_cb(gpointer data) {
    gtk_window_present(GTK_WINDOW(data));
    return FALSE;
+}
+
+gboolean focus_main_later(gpointer data) {
+    GtkWindow *win = GTK_WINDOW(data);
+    return g_idle_add(focus_main_later, win);
 }
 
 void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
@@ -331,23 +328,6 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
    return FALSE;
 }
 
-gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
-   gui_window_t *ret = NULL;
-
-   if (!window || !name) {
-      return NULL;
-   }
-   
-   ret = gui_store_window(window, name);
-   set_window_icon(window, "rustyrig");
-
-#ifdef _WIN32
-   enable_windows_dark_mode_for_gtk_window(window);
-#endif
-
-   return ret;
-}
-
 bool gui_init(void) {
    css_provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css_provider,
@@ -415,9 +395,9 @@ bool gui_init(void) {
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
    // LOG tab (alt-2)
-   log_tab = init_log_tab();
-   config_tab = init_config_tab();
    admin_tab = init_admin_tab();
+   config_tab = init_config_tab();
+   log_tab = init_log_tab();
 
    // Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
