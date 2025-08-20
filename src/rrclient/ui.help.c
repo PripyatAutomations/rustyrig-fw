@@ -71,9 +71,8 @@ void show_help(const char *topic) {
      ui_print("   /chat                   Switch to chat tab");
      ui_print("   /config | /cfg          Switch to config tab");
      ui_print("   /log | /syslog          Switch to syslog tab");
-     ui_print("[Key Combinations");
-     ui_print("   alt-1 thru alt-3        Change tabs in main window");
-     ui_print("   alt-u                   Toggle userlist");
+     ui_print("");
+     ui_print(" See /help keybindings or alt-h for keyboard help!");
      ui_print("******************************************");
   } else {
      char path[256];

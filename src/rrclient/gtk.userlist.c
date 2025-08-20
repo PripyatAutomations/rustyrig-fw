@@ -43,11 +43,15 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
 
 void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    // Toggle the userlist
-   if (gtk_widget_get_visible(userlist_window)) {
-      gtk_widget_hide(userlist_window);
-   } else {
-      gtk_widget_show_all(userlist_window);
-      place_window(userlist_window);
+   gui_window_t *wp = gui_find_window(NULL, "userlist");
+   if (wp) {
+      GtkWidget *userlist_window = wp->gtk_win;
+      if (gtk_widget_get_visible(userlist_window)) {
+         gtk_widget_hide(userlist_window);
+      } else {
+         gtk_widget_show_all(userlist_window);
+         place_window(userlist_window);
+      }
    }
 }
 

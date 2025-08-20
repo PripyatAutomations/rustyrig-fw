@@ -5,6 +5,7 @@
 [general]
 ;  audit | crit | warn | info | debug | crazy
 log.level=debug
+path.help-dir=./help
 ui.show-pings=false
 # Divide scroll events by this # to get single-steps
 ui.freqentry.scroll-divider=3.0

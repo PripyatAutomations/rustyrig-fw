@@ -36,7 +36,6 @@ extern time_t now;
 extern bool chat_init(void);		// gtk.chat.c
 
 GtkWidget *main_window = NULL;
-GtkWidget *userlist_window = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
 
@@ -174,7 +173,7 @@ bool gui_init(void) {
    g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_global_hotkey), main_notebook);
 
    // Generate and display a userlist for this server 
-   userlist_window = userlist_init();
+   userlist_init();
 
    // Make the main window on screen
    gtk_widget_show_all(main_window);

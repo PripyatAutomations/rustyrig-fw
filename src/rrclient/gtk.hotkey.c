@@ -57,68 +57,87 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
       }
 
       switch (event->keyval) {
-         case GDK_KEY_1:
+         case GDK_KEY_1: {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 0);
             gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
             break;
-         case GDK_KEY_2:
+         }
+         case GDK_KEY_2: {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 1);
             break;
-         case GDK_KEY_3:
+         }
+         case GDK_KEY_3: {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 2);
             break;
-         case GDK_KEY_4:
+         }
+         case GDK_KEY_4: {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 3);
             break;
+         }
          case GDK_KEY_C:
-         case GDK_KEY_c:
+         case GDK_KEY_c: {
             gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
             break;
+         }
          case GDK_KEY_F:
-         case GDK_KEY_f:
+         case GDK_KEY_f: {
             gtk_widget_grab_focus(GTK_WIDGET(freq_entry));
             break;
+         }
          case GDK_KEY_H:
-         case GDK_KEY_h:
+         case GDK_KEY_h: {
             show_help("keybindings.hlp");
             break;
+         }
          case GDK_KEY_O:
-         case GDK_KEY_o:
+         case GDK_KEY_o: {
             gtk_widget_grab_focus(GTK_WIDGET(mode_combo));
             break;
+         }
          case GDK_KEY_P:
-         case GDK_KEY_p:
+         case GDK_KEY_p: {
             gtk_widget_grab_focus(GTK_WIDGET(tx_power_slider));
             break;
+         }
          case GDK_KEY_R:
-         case GDK_KEY_r:
+         case GDK_KEY_r: {
             gtk_widget_grab_focus(GTK_WIDGET(rx_combo));
             break;
+         }
          case GDK_KEY_T:
-         case GDK_KEY_t:
+         case GDK_KEY_t: {
             gtk_widget_grab_focus(GTK_WIDGET(tx_combo));
             break;
+         }
          case GDK_KEY_U:
-         case GDK_KEY_u:
-            if (!userlist_window) {
-               Log(LOG_DEBUG, "gtk", "userlist_window is null in alt-u handler");
-               return TRUE;
-            }
-            if (gtk_widget_get_visible(userlist_window)) {
-               gtk_widget_hide(userlist_window);
-            } else {
-               gtk_widget_show_all(userlist_window);
-               place_window(userlist_window);
+         case GDK_KEY_u: {
+            gui_window_t *wp = gui_find_window(NULL, "userlist");
+
+            if (wp) {
+               GtkWidget *userlist_window = wp->gtk_win;
+               if (!userlist_window) {
+                  Log(LOG_DEBUG, "gtk", "userlist_window is null in alt-u handler");
+                  return TRUE;
+               }
+               if (gtk_widget_get_visible(userlist_window)) {
+                  gtk_widget_hide(userlist_window);
+               } else {
+                  gtk_widget_show_all(userlist_window);
+                  place_window(userlist_window);
+               }
             }
             break;
+         }
          case GDK_KEY_V:
-         case GDK_KEY_v:
+         case GDK_KEY_v: {
             gtk_widget_grab_focus(GTK_WIDGET(rx_vol_slider));
             break;
+         }
          case GDK_KEY_W:
-         case GDK_KEY_w:
+         case GDK_KEY_w: {
             gtk_widget_grab_focus(GTK_WIDGET(width_combo));
             break;
+         }
       }
       return TRUE;
    }

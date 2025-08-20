@@ -36,13 +36,18 @@ extern time_t now;
 
 static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
    AtkObject *a11y = gtk_widget_get_accessible(widget);
-   if (!a11y) return;
 
-   if (hint->name)
+   if (!a11y) {
+      return;
+   }
+
+   if (hint->name) {
       atk_object_set_name(a11y, hint->name);
+   }
 
-   if (hint->description)
+   if (hint->description) {
       atk_object_set_description(a11y, hint->description);
+   }
 
    switch (hint->role) {
       case UI_ROLE_BUTTON:   atk_object_set_role(a11y, ATK_ROLE_PUSH_BUTTON); break;
@@ -56,7 +61,10 @@ static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
 }
 
 void ui_speech_apply(GtkWidget *widget, const ui_speech_hint_t *hint) {
-   if (!widget || !hint) return;
+   if (!widget || !hint) {
+      return;
+   }
+
    apply_gtk(widget, hint);
 }
 
