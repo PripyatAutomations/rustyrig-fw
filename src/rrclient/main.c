@@ -31,11 +31,6 @@
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
-// from defconfig.c
-extern defconfig_t defcfg[];
-extern const char *configs[];
-extern const int num_configs;
-
 /////
 // should be in ui.*c
 /////
@@ -43,9 +38,9 @@ extern const int num_configs;
 extern void win32_check_darkmode(void);
 #endif
 
+extern bool cfg_detect_and_load(void);
 extern bool ws_audio_init(void);
 extern struct mg_mgr mgr;
-const char *config_file = NULL;
 int my_argc = -1;
 char **my_argv = NULL;
 bool dying = false;             // Are we shutting down?
@@ -83,35 +78,12 @@ static gboolean update_now(gpointer user_data) {
 }
 
 int main(int argc, char *argv[]) {
-   bool empty_config = false;
 
    // Set a time stamp so logging will work
    now = time(NULL);
    update_timestamp();
 
-   const char *homedir = getenv("HOME");
-
-   // Find and load the configuration file
-   char *fullpath = find_file_by_list(configs, num_configs);
-
-   // Load the default configuration
-   cfg_init(default_cfg, defcfg);
-
-   if (fullpath) {
-      config_file = strdup(fullpath);
-      if (!(cfg = cfg_load(fullpath))) {
-         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
-      } else {
-         Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
-      }
-      empty_config = false;
-      free(fullpath);
-   } else {
-     // Use default settings and save it to ~/.config/rrclient.cfg
-     cfg = default_cfg;
-     empty_config = true;
-     Log(LOG_WARN, "core", "No config file found, saving defaults to ~/.config/rrclient.cfg");
-   }
+   cfg_detect_and_load();
 
    // Set logging configuration to make our loaded config, in production this will quiet logging down
    logger_init();
@@ -166,23 +138,6 @@ int main(int argc, char *argv[]) {
    }
    free((void *)autoconnect);
    autoconnect = NULL;
-
-   char pathbuf[PATH_MAX+1];
-   memset(pathbuf, 0, sizeof(pathbuf));
-
-   // If we don't couldnt find a config file, save the defaults to ~/.config/rrclient.cfg
-   if (homedir && empty_config) {
-#ifdef _WIN32
-      snprintf(pathbuf, sizeof(pathbuf), "%%APPDATA%%\\rrclient\\rrclient.cfg");
-#else
-      snprintf(pathbuf, sizeof(pathbuf), "%s/.config/rrclient.cfg", homedir);
-#endif
-      if (!file_exists(pathbuf)) {
-         Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);
-         cfg_save(cfg, pathbuf);
-         config_file = pathbuf;
-      }
-   }
 
    // start gtk main loop
    gtk_main();

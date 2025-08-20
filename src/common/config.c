@@ -12,6 +12,13 @@
 #include "common/util.file.h"
 #include "common/posix.h"
 
+// from defconfig.c
+extern defconfig_t defcfg[];
+extern const char *configs[];
+extern const int num_configs;
+
+/////
+const char *config_file = NULL;
 dict *cfg = NULL;			// User configuration values from config file / ui
 dict *default_cfg = NULL;		// Hard-coded defaults (defcfg.c)
 dict *servers = NULL;			// Holds a list of servers where applicable (client and fwdsp)
@@ -124,13 +131,43 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
 }
 
 bool cfg_init(dict *d, defconfig_t *defaults) {
+   bool empty_config = false;
+
    if (!d) {
       d = dict_new();
    }
 
+   return false;
+}
+
+bool cfg_detect_and_load(void) {
    // If defaults supplied, apply them
-   if (defaults) {
-      return cfg_set_defaults(d, defaults);
+//   if (defcfg) {
+//      return cfg_set_defaults(d, defcfg);
+//   }
+
+   const char *homedir = getenv("HOME");
+
+   // Find and load the configuration file
+   char *fullpath = find_file_by_list(configs, num_configs);
+
+   // Load the default configuration
+   cfg_init(default_cfg, defcfg);
+
+   if (fullpath) {
+      config_file = strdup(fullpath);
+      if (!(cfg = cfg_load(fullpath))) {
+         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
+      } else {
+         Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
+      }
+//      empty_config = false;
+      free(fullpath);
+   } else {
+     // Use default settings and save it to ~/.config/rrclient.cfg
+     cfg = default_cfg;
+//     empty_config = true;
+     Log(LOG_WARN, "core", "No config file found, saving defaults to ~/.config/rrclient.cfg");
    }
    return false;
 }
@@ -638,3 +675,23 @@ dict *dict_diff(dict *a, dict *b) {
    // XXX: Make this work
    return NULL;
 }
+
+// Config save stuff
+#if	0	// XX: Not yet
+   char pathbuf[PATH_MAX+1];
+   memset(pathbuf, 0, sizeof(pathbuf));
+
+   // If we don't couldnt find a config file, save the defaults to ~/.config/rrclient.cfg
+   if (homedir && empty_config) {
+#ifdef _WIN32
+      snprintf(pathbuf, sizeof(pathbuf), "%%APPDATA%%\\rrclient\\rrclient.cfg");
+#else
+      snprintf(pathbuf, sizeof(pathbuf), "%s/.config/rrclient.cfg", homedir);
+#endif
+      if (!file_exists(pathbuf)) {
+         Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);
+         cfg_save(cfg, pathbuf);
+         config_file = pathbuf;
+      }
+   }
+#endif
