@@ -59,7 +59,8 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 
 GtkWidget *create_mode_box(void) {
    GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-   GtkWidget *mode_box_label = gtk_label_new("Mode/Width");
+   GtkWidget *mode_box_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(mode_box_label), "M<u>o</u>de/<u>W</u>idth");
 
    mode_combo = gtk_combo_box_text_new();
    gtk_widget_set_tooltip_text(mode_combo, "Modulation Mode");

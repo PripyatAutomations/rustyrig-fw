@@ -31,7 +31,8 @@ GtkWidget *tx_power_slider = NULL;
 
 GtkWidget *create_txpower_box(void) {
    GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   GtkWidget *tx_power_label = gtk_label_new("TX Power");
+   GtkWidget *tx_power_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(tx_power_label), "TX <u>P</u>ower");
    tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_widget_set_tooltip_text(tx_power_slider, "Transmit Power (0-100%)");
    gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, TRUE, TRUE, 1);

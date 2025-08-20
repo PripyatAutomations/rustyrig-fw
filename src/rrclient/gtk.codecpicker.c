@@ -84,7 +84,8 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
 
 GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-   GtkWidget *widget_label = gtk_label_new("TX/RX Codecs");
+   GtkWidget *widget_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(widget_label), "<u>T</u>X/<u>R</u>X Codecs");
 
    tx_combo = gtk_combo_box_text_new();
    ui_speech_set(tx_combo,

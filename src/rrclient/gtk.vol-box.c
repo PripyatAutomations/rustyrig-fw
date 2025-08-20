@@ -38,7 +38,8 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
 GtkWidget *create_volbox(void) {
    // RX VOLUME Box
    GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   GtkWidget *rx_vol_label = gtk_label_new("RX Vol");
+   GtkWidget *rx_vol_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(rx_vol_label), "RX <u>V</u>ol");
    rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_widget_set_tooltip_text(rx_vol_slider, "Receive Volume");
    gtk_scale_set_digits(GTK_SCALE(rx_vol_slider), 0);
