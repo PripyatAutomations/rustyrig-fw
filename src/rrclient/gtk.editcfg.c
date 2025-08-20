@@ -160,12 +160,15 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
 
 void gui_edit_config(const char *filepath) {
    gui_window_t *win = gui_find_window(NULL, "editcfg");
-   GtkWidget *cfgedit_window = win->gtk_win;
 
-   if (cfgedit_window) {
-      // Focus the window and leave
-      gtk_window_present(GTK_WINDOW(cfgedit_window)); 
-      return;
+   if (win) {
+      GtkWidget *cfgedit_window = win->gtk_win;
+
+      if (cfgedit_window) {
+         // Focus the window and leave
+         gtk_window_present(GTK_WINDOW(cfgedit_window)); 
+         return;
+      }
    }
 
    if (!filepath) {
