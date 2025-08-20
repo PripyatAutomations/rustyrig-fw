@@ -37,13 +37,13 @@ char *negotiated_codecs = NULL;
 char *server_codecs = NULL;
 
 bool ws_handle_media_msg(struct mg_connection *c, struct mg_ws_message *msg) {
-   struct mg_str msg_data = msg->data;
-   bool rv = false;
-
    if (!c || !msg) {
       Log(LOG_WARN, "http.ws", "media_msg: got msg:<%x> mg_conn:<%x>", msg, c);
       return true;
    }
+
+   struct mg_str msg_data = msg->data;
+   bool rv = false;
 
    char ip[INET6_ADDRSTRLEN];
    int port = c->rem.port;
