@@ -58,7 +58,9 @@ bool cfg_http_debug_crazy = false;
 // Support for multiple servers //
 //////////////////////////////////
 extern rr_connection_t *active_connections;
-////
+
+
+//// OLD way
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 char active_server[512];
@@ -91,17 +93,18 @@ struct ws_msg_routes {
 
 struct ws_msg_routes ws_routes[] = {
    { .type = "alert",	.cb = ws_handle_alert_msg },
-   { .type = "auth",	  .cb = ws_handle_auth_msg },
-   { .type = "cat",	  .cb = ws_handle_rigctl_msg },
-   { .type = "error",	 .cb = ws_handle_error_msg },
-   { .type = "hello",	 .cb = ws_handle_hello_msg },
-   { .type = "media",  .cb = ws_handle_media_msg },
+   { .type = "auth",	.cb = ws_handle_auth_msg },
+   { .type = "cat",	.cb = ws_handle_rigctl_msg },
+   { .type = "error",	.cb = ws_handle_error_msg },
+   { .type = "hello",	.cb = ws_handle_hello_msg },
+   { .type = "media",   .cb = ws_handle_media_msg },
    { .type = "notice",  .cb = ws_handle_notice_msg },
-   { .type = "ping",	 .cb = ws_handle_ping_msg },
-   { .type = "syslog",   .cb = ws_handle_syslog_msg },
-   { .type = "talk",	 .cb = ws_handle_talk_msg },
-   { .type = NULL,	 .cb = NULL }
+   { .type = "ping",    .cb = ws_handle_ping_msg },
+   { .type = "syslog",  .cb = ws_handle_syslog_msg },
+   { .type = "talk",	.cb = ws_handle_talk_msg },
+   { .type = NULL,	.cb = NULL }
 };
+
 ////
 
 bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg) {

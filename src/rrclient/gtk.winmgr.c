@@ -439,3 +439,14 @@ gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer
    }
    return FALSE;
 }
+
+// This gets called by our timer when we want to 
+static gboolean focus_main_later_cb(gpointer data) {
+   gtk_window_present(GTK_WINDOW(data));
+   return FALSE;
+}
+
+gboolean focus_main_later(gpointer data) {
+    GtkWindow *win = GTK_WINDOW(data);
+    return g_idle_add(focus_main_later, win);
+}

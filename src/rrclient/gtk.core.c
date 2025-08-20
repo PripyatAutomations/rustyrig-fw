@@ -95,21 +95,6 @@ const char *get_chat_ts(void) {
    return chat_ts;
 }
 
-// Scroll to the end of a GtkTextView
-gboolean ui_scroll_to_end(gpointer data) {
-   GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
-   GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
-   GtkTextIter end;
-
-   if (!data) {
-      printf("ui_scroll_to_end: data == NULL\n");
-      return FALSE;
-   }
-   gtk_text_buffer_get_end_iter(buffer, &end);
-   gtk_text_view_scroll_to_iter(chat_textview, &end, 0.0, TRUE, 0.0, 1.0);
-   return FALSE; 		// remove the idle handler after it runs
-}
-
 bool ui_print_gtk(const char *msg) {
    // Append our text to the end of the GtkTextView
    GtkTextIter end;
@@ -120,17 +105,6 @@ bool ui_print_gtk(const char *msg) {
    // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
    g_idle_add(ui_scroll_to_end, chat_textview);
    return false;
-}
-
-// This gets called by our timer when we want to 
-static gboolean focus_main_later_cb(gpointer data) {
-   gtk_window_present(GTK_WINDOW(data));
-   return FALSE;
-}
-
-gboolean focus_main_later(gpointer data) {
-    GtkWindow *win = GTK_WINDOW(data);
-    return g_idle_add(focus_main_later, win);
 }
 
 void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
@@ -173,45 +147,6 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    va_end(ap);
 
    return false;
-}
-
-static void on_send_button_clicked(GtkButton *button, gpointer entry) {
-   const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
-
-   parse_chat_input(button, entry);
-
-   g_ptr_array_add(input_history, g_strdup(msg));
-   history_index = input_history->len;
-   gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
-   gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
-}
-
-// Here we support input history for the chat/control window entry input
-static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
-   if (!input_history || input_history->len == 0) {
-      return FALSE;
-   }
-
-   if (event->keyval == GDK_KEY_Up) {
-      if (history_index > 0) {
-         history_index--;
-      }
-   } else if (event->keyval == GDK_KEY_Down) {
-      if (history_index < input_history->len - 1) {
-         history_index++;
-      } else {
-         gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
-         history_index = input_history->len;
-         return TRUE;
-      }
-   } else {
-      return FALSE;
-   }
-
-   const char *text = g_ptr_array_index(input_history, history_index);
-   gtk_entry_set_text(GTK_ENTRY(chat_entry), text);
-   gtk_editable_set_position(GTK_EDITABLE(chat_entry), -1);
-   return TRUE;
 }
 
 void update_connection_button(bool connected, GtkWidget *btn) {
@@ -328,6 +263,103 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
    return FALSE;
 }
 
+/////////////////////////////
+// XXX: Move to gtk.chat.c //
+/////////////////////////////
+// Scroll to the end of a GtkTextView
+gboolean ui_scroll_to_end(gpointer data) {
+   GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
+   GtkTextIter end;
+
+   if (!data) {
+      printf("ui_scroll_to_end: data == NULL\n");
+      return FALSE;
+   }
+   gtk_text_buffer_get_end_iter(buffer, &end);
+   gtk_text_view_scroll_to_iter(chat_textview, &end, 0.0, TRUE, 0.0, 1.0);
+
+   // remove the idle handler after it runs
+   return FALSE;
+}
+
+static void on_send_button_clicked(GtkButton *button, gpointer entry) {
+   const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
+
+   parse_chat_input(button, entry);
+
+   g_ptr_array_add(input_history, g_strdup(msg));
+   history_index = input_history->len;
+   gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
+   gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+}
+
+// Here we support input history for the chat/control window entry input
+static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
+   if (!input_history || input_history->len == 0) {
+      return FALSE;
+   }
+
+   if (event->keyval == GDK_KEY_Up) {
+      if (history_index > 0) {
+         history_index--;
+      }
+   } else if (event->keyval == GDK_KEY_Down) {
+      if (history_index < input_history->len - 1) {
+         history_index++;
+      } else {
+         gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
+         history_index = input_history->len;
+         return TRUE;
+      }
+   } else {
+      return FALSE;
+   }
+
+   const char *text = g_ptr_array_index(input_history, history_index);
+   gtk_entry_set_text(GTK_ENTRY(chat_entry), text);
+   gtk_editable_set_position(GTK_EDITABLE(chat_entry), -1);
+   return TRUE;
+}
+
+GtkWidget *create_chat_box(void) {
+//   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+//   gui_window_t *main_window_t = ui_new_window(main_window, "main");
+   GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   if (!chat_box) {
+      return NULL;
+   }
+
+   GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
+   gtk_widget_set_size_request(scrolled, -1, 200);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
+                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+
+   // Chat view
+   chat_textview = gtk_text_view_new();
+   text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
+   gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
+   gtk_box_pack_start(GTK_BOX(chat_box), scrolled, TRUE, TRUE, 0);
+
+   // Chat INPUT
+   chat_entry = gtk_entry_new();
+   gtk_box_pack_start(GTK_BOX(chat_box), chat_entry, FALSE, FALSE, 0);
+   g_signal_connect(chat_entry, "activate", G_CALLBACK(on_send_button_clicked), chat_entry);
+   g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
+
+   // SEND the command/message
+   GtkWidget *button = gtk_button_new_with_label("Send");
+   gtk_box_pack_start(GTK_BOX(chat_box), button, FALSE, FALSE, 0);
+   g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
+
+   return chat_box;
+}
+
+/////////////////////////
+
 bool gui_init(void) {
    css_provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css_provider,
@@ -369,30 +401,9 @@ bool gui_init(void) {
    }
 
    // MAIN tab (alt-1)
-   GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
-   gtk_widget_set_size_request(scrolled, -1, 200);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
-                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-
-   // Chat view
-   chat_textview = gtk_text_view_new();
-   text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
-   gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
-   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
-   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
-   gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
-   gtk_box_pack_start(GTK_BOX(main_tab), scrolled, TRUE, TRUE, 0);
-
-   // Chat INPUT
-   chat_entry = gtk_entry_new();
-   gtk_box_pack_start(GTK_BOX(main_tab), chat_entry, FALSE, FALSE, 0);
-   g_signal_connect(chat_entry, "activate", G_CALLBACK(on_send_button_clicked), chat_entry);
-   g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
-
-   // SEND the command/message
-   GtkWidget *button = gtk_button_new_with_label("Send");
-   gtk_box_pack_start(GTK_BOX(main_tab), button, FALSE, FALSE, 0);
-   g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
+   // XXX: Need to make this work
+   GtkWidget *chat_box = create_chat_box();
+   gtk_box_pack_start(GTK_BOX(main_tab), chat_box, TRUE, TRUE, 0);
 
    // LOG tab (alt-2)
    admin_tab = init_admin_tab();

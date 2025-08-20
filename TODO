@@ -63,6 +63,7 @@ minimal inet_ntop() for non-posix
 ============
 [protocol]
 * Instead of blorping out the rig status once a second, lets do broadcasts only when changed or every 30 seconds plus on-connect
+* Implement multiple chat channels (bcast)
 
 [audio]
 ws.c / fwdsp-mgr.c:
