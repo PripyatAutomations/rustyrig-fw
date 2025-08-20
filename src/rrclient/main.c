@@ -31,19 +31,10 @@
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 
-// from defcfg.c
+// from defconfig.c
 extern defconfig_t defcfg[];
-
-const char *configs[] = { 
-#ifndef _WIN32
-   "~/.config/rrclient.cfg",
-   "~/.rrclient.cfg",
-   "/etc/rrclient.cfg"
-#else
-   "%APPDATA%\\rrclient\\rrclient.cfg",
-   ".\\rrclient.cfg"
-#endif
-};
+extern const char *configs[];
+extern const int num_configs;
 
 /////
 // should be in ui.*c
@@ -54,7 +45,6 @@ extern void win32_check_darkmode(void);
 
 extern bool ws_audio_init(void);
 extern struct mg_mgr mgr;
-extern struct mg_connection *ws_conn;
 const char *config_file = NULL;
 int my_argc = -1;
 char **my_argv = NULL;
@@ -102,8 +92,7 @@ int main(int argc, char *argv[]) {
    const char *homedir = getenv("HOME");
 
    // Find and load the configuration file
-   int cfg_entries = (sizeof(configs) / sizeof(char *));
-   char *fullpath = find_file_by_list(configs, cfg_entries);
+   char *fullpath = find_file_by_list(configs, num_configs);
 
    // Load the default configuration
    cfg_init(default_cfg, defcfg);

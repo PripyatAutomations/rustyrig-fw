@@ -12,6 +12,19 @@
 #include "common/util.file.h"
 #include "common/posix.h"
 
+const char *configs[] = { 
+#ifndef _WIN32
+   "~/.config/rrclient.cfg",
+   "~/.rrclient.cfg",
+   "/etc/rrclient.cfg"
+#else
+   "%APPDATA%\\rrclient\\rrclient.cfg",
+   ".\\rrclient.cfg"
+#endif
+};
+
+const int num_configs = sizeof(configs) / sizeof(configs[0]);
+
 defconfig_t defcfg[] = {
    { "audio.pipeline.rx",		"",	"User choice pipeline for RX" },
    { "audio.pipeline.rx.format",	"",	"User pipeline format (bytes|time) for RX " },
