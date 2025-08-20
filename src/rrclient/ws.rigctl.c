@@ -75,7 +75,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          mg_json_get_num(msg_data, "$.cat.ts", &ts);
          char *user = mg_json_get_str(msg_data, "$.cat.user");
 
-         if (user) {
+         if (user && *user) {
             Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
             struct rr_user *cptr = NULL;
             if ((cptr = userlist_find(user))) {
