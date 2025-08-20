@@ -10,7 +10,7 @@
 * Add mute/unmute button for RX audio which halts sending the samples entirely
 * Add throttled reconnect like webui has
 * Finish parsing server messages
-* Implement rest of controls typically used (CTCSS tone for FM)
+* Implement rest of controls typically used by hams
 * Finish whois/reason dialogs
 * Add more error messages when privileges denied, etc. (server side)
 * Fill out Config tab form which can generate rrclient.cfg
@@ -21,20 +21,22 @@
 * Fix userlist updates so joins/quits properly update it
 * Fix PTT button needing clicked twice after TOT fired
   - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
-? Move the input box to be permanently visible at bottom, with the button bar above it when in chat
 * Make VFO widgets floating
 * C4FM
-   - Show FM dailog
+   - Show FM dialog
 
-[win64]
+[win64]		MEDIUM
 * Testing and bug fixes
 
-[bluetooth]
+[bluetooth]	LOW PRIORITY
 * Support bluetooth PTT buttons
 * Maybe automate routing of headsets when connected, if reasonably feasible?
 
-[cfgedit]
-* Should we dump the in-memory active configuration rather than editing the on-disk file? This would lose comments but is more correct!
+
+[cfgedit]	URGENT
+* Option to edit on-disk or in-memory configuration
+* Make save config moves the file to .old first
+* Make sure servers are dumped and 
 
 [gui]
 * Make all windows hide/restore with the main window, even if modal
@@ -64,6 +66,9 @@ minimal inet_ntop() for non-posix
 [protocol]
 * Instead of blorping out the rig status once a second, lets do broadcasts only when changed or every 30 seconds plus on-connect
 * Implement multiple chat channels (bcast)
+
+[privileges]
+* Implement user groups that contain privilege sets, then users can be assigned into groups
 
 [audio]
 ws.c / fwdsp-mgr.c:
@@ -106,7 +111,7 @@ ws.c / fwdsp-mgr.c:
     - If eeprom write delay expired, save to eeprom
     - On exit, etc
   - read eeprom into config / channels dict on posix
-* May just compress the flat-file with a light compressor that will spread eeprom wear and pack that into eeprom?
+  ? May just compress the flat-file with a light compressor that will spread eeprom wear and pack that into eeprom?
 
 [elmer mode]
 * Implement request and accept|deny for elevate privileges
@@ -188,7 +193,6 @@ ws.c / fwdsp-mgr.c:
 * Support saving the chat log
 - Should we allow selecting text for copy/paste?
   - maybe cfg tab option?
-
 
 ============
 = wishlist =
