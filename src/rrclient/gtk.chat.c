@@ -149,7 +149,7 @@ GtkWidget *create_chat_box(void) {
    g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
 
    // SEND the command/message
-   GtkWidget *button = gtk_button_new_with_label("Send");
+   GtkWidget *button = gtk_button_new_with_label("Send (enter)");
    gtk_box_pack_start(GTK_BOX(chat_box), button, FALSE, FALSE, 0);
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
