@@ -48,9 +48,10 @@
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "common/codecneg.h"
-#include "common/config-paths.h"
 
-const char *config_file = NULL;
+extern const char *config_file;
+extern const int num_configs;
+
 const char *config_codec = "pc16";
 bool codec_tx_mode  = false;
 bool config_video = false;		// is this audio or video stream?
@@ -58,6 +59,18 @@ bool dying = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
 time_t now = -1;                // time() called once a second in main loop to update
+
+const char *configs[] = { 
+#ifndef _WIN32
+   "~/.config/rrclient.cfg",
+   "~/.rrclient.cfg",
+   "/etc/rrclient.cfg"
+#else
+   "%APPDATA%\\rrclient\\rrclient.cfg",
+   ".\\rrclient.cfg"
+#endif
+};
+const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
 defconfig_t defcfg[] = {
   { "fwdsp:audio.debug", "false",	"gstreamer debug level" },

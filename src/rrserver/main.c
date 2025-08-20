@@ -42,7 +42,6 @@
 #include "rrserver/dds.h"
 #include "rrserver/database.h"
 #include "rrserver/fwdsp-mgr.h"
-#include "common/config-paths.h"
 
 //
 // http ui support
@@ -68,8 +67,12 @@ time_t now = -1;		// time() called once a second in main loop to update
 int auto_block_ptt = 0;		// Auto block PTT at boot?
 struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
-char *config_file = NULL;
-extern defconfig_t defcfg[];	// From defcfg.c
+extern char *config_file;	// from defconfig.c
+extern defconfig_t defcfg[];	// From defconfig.c
+
+extern const char *configs[];
+extern const int num_configs;
+
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
    rig.faultbeep = 1;
@@ -155,7 +158,6 @@ int main(int argc, char **argv) {
    }
 
    // load config (posix hosts)
-   int cfg_entries = (sizeof(configs) / sizeof(char *));
    char *fullpath = NULL;
 
    cfg_init(default_cfg, defcfg);
@@ -164,7 +166,7 @@ int main(int argc, char **argv) {
       if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
-   } else if ((fullpath =  find_file_by_list(configs, cfg_entries))) {
+   } else if ((fullpath =  find_file_by_list(configs, num_configs))) {
       config_file = strdup(fullpath);
       if (!(cfg = cfg_load(fullpath))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);

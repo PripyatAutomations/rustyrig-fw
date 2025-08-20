@@ -19,7 +19,20 @@
 #include "common/logger.h"
 #include "common/util.file.h"
 #include "common/posix.h"
-#include "common/config-paths.h"
+
+const char *configs[] = { 
+#ifndef _WIN32
+   "~/.config/rrserver.cfg",
+   "config/rrserver.cfg",
+   "rrserver.cfg",
+   "/etc/rustyrig/rrserver.cfg"
+#else
+   "%APPDATA%\\rrserver\\rrserver.cfg",
+   ".\\rrserver.cfg"
+#endif
+};
+
+const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
 defconfig_t defcfg[] = {
   { "audio.debug",	"false",	"Debug audio? [bool]" },
