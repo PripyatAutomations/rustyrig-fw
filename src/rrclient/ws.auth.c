@@ -31,10 +31,9 @@
 #include "common/client-flags.h"
 
 extern dict *cfg;		// config.c
-extern struct mg_connection *ws_conn;
 extern time_t now;
+// XXX: This needs moved into the ws_conn
 extern char session_token[HTTP_TOKEN_LEN+1];
-extern const char *get_chat_ts(void);
 
 bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    bool rv = false;
@@ -46,6 +45,7 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
    char ip[INET6_ADDRSTRLEN];
    int port = c->rem.port;
+
    if (c->rem.is_ip6) {
       inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
    } else {
@@ -54,6 +54,7 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
    if (!msg->data.buf) {
       Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
+      // XXX: We should count these and if too many errors in a period of time, kick the user
       return true;
    }
 

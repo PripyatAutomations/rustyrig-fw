@@ -1,5 +1,5 @@
 //
-// rrclient/chat.cmd.c: Core of GTK gui
+// rrclient/chat.cmd.c: Chat stuff that isn't GUI dependent
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -38,7 +38,6 @@ extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 extern void show_help(const char *topic);		// ui.help.c
 extern bool clear_syslog(void);
-extern const char *get_chat_ts(void);
 
 bool parse_chat_input(GtkButton *button, gpointer entry) {
    if (!button || !entry) {
@@ -136,10 +135,14 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
                "{ \"talk\": { \"cmd\": \"die\", \"restart\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          } else {
-           // Invalid command
-           ui_print("Invalid command: %s", msg);
+            char msgbuf[4096];
+            prepare_msg(msgbuf, sizeof(msgbuf), 
+               "{ \"talk\": { \"cmd\": \"%s\" } }", msg + 1);
+            
+            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          }
       } else {
+         // other prefixes, send with prefix
          char msgbuf[4096];
          prepare_msg(msgbuf, sizeof(msgbuf), 
             "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "

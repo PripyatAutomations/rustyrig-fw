@@ -36,8 +36,20 @@ enum GuiMode {
   GUI_MODE_GTK
 } GuiMode;
 
-//
-// XXX: Acutally implement this code
+// Combine some common, safe string handling into one call
+bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
+   if (!buf || !fmt) {
+      return true;
+   }
+
+   va_list ap;
+   memset(buf, 0, len);
+   va_start(ap, fmt);
+   vsnprintf(buf, len, fmt, ap);
+   va_end(ap);
+
+   return false;
+}
 
 gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    gui_window_t *ret = NULL;
@@ -55,6 +67,7 @@ gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
 
    return ret;
 }
+
 bool ui_print(const char *fmt, ...) {
    va_list ap;
    va_start(ap, fmt);

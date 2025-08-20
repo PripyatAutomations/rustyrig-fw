@@ -500,14 +500,15 @@ static gboolean on_toplevel_scroll(GtkWidget *toplevel, GdkEventScroll *event, g
 
 static void on_freqentry_realize(GtkWidget *widget, gpointer user_data) {
    GtkFreqEntry *fi = GTK_FREQ_ENTRY(user_data);
+#if	0	// XXX: GARBAGE
    GtkWidget *top = gtk_widget_get_toplevel(widget);
    if (!GTK_IS_WINDOW(top)) {
       return;
    }
+#endif
 
    // Hook up scroll events
-   gtk_widget_add_events(top, GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
-   g_signal_connect(top, "scroll-event", G_CALLBACK(on_toplevel_scroll), fi);
+//   g_signal_connect(GTK_WIDGET(fi), "scroll-event", G_CALLBACK(on_toplevel_scroll), fi);
 }
 
 static void gtk_freq_entry_class_init(GtkFreqEntryClass *class) {
@@ -613,6 +614,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fi) {
    }
 
    gtk_widget_add_events(GTK_WIDGET(fi), GDK_SCROLL_MASK);
+//   gtk_widget_add_events(GTK_WIDGET(fi), GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
    g_signal_connect(fi, "scroll-event", G_CALLBACK(on_freqentry_scroll), fi);
 
    pango_font_description_free(font);

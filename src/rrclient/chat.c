@@ -15,16 +15,10 @@
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
+#include "rrclient/ui.h"
 
 extern dict *cfg;
-extern bool ws_connected;
 extern time_t now;
-extern bool ptt_active;
-extern bool ws_connected;
-extern struct mg_connection *ws_conn;
-extern GtkWidget *create_user_list_window(void);
-extern time_t poll_block_expire, poll_block_delay;
-extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 
 void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons(

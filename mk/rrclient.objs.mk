@@ -12,16 +12,19 @@ objs += dict.o			# dictionary object
 ifeq (${USE_GTK},true)
 objs += gtk.core.o              # Support for a GTK user interface
 objs += gtk.admin.o		# Admin tab
+objs += gtk.chat.o		# Chat related stuff
 objs += gtk.codecpicker.o	# codec picker widget
 objs += gtk.editcfg.o		# configuration tab
 objs += gtk.fm-mode.o		# FM mode dialog
 objs += gtk.freqentry.o		# Frequency Entry Widget
+objs += gtk.hotkey.o		# Hotkey support
 objs += gtk.mode-box.o		# Modulation Mode / width box
 objs += gtk.ptt-btn.o		# Push To Talk (PTT) button in GUI
 objs += gtk.txpower.o		# TX power box
 objs += gtk.serverpick.o        # server picker
 objs += gtk.syslog.o		# syslog tab
 objs += gtk.vfo-box.o		# VFO box element
+objs += gtk.userlist.o		# GTK part of the userlist
 objs += gtk.vol-box.o		# Volume widget
 objs += gtk.winmgr.o		# window management
 endif

@@ -32,13 +32,9 @@
 #include "common/client-flags.h"
 
 extern time_t poll_block_expire, poll_block_delay;
-extern void fm_dialog_show(void);
-extern void fm_dialog_hide(void);
 extern dict *cfg;		// config.c
-extern struct mg_connection *ws_conn;
 extern bool server_ptt_state;
 extern time_t now;
-extern const char *get_chat_ts(void);
 extern gulong freq_changed_handler_id;
 
 // Store the previous mode
@@ -80,7 +76,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          char *user = mg_json_get_str(msg_data, "$.cat.user");
 
          if (user) {
-//            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
+            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
             struct rr_user *cptr = NULL;
             if ((cptr = userlist_find(user))) {
                Log(LOG_DEBUG, "ws.cat", "ptt set to %s for cptr:<%x>", (cptr->is_ptt ? "true" : "false"), cptr);

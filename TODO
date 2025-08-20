@@ -24,6 +24,10 @@
 * Make VFO widgets floating
 * C4FM
    - Show FM dialog
+* strip of band buttons at the bottom of vfo populated with the bands
+  the radio supports & recall the last frequency on that band, maybe 
+  move to the parts of the band based on the mode too. That be pretty
+  sweet.. but not for any time soon *adds to list*
 
 [win64]		MEDIUM
 * Testing and bug fixes

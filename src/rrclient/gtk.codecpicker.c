@@ -21,7 +21,7 @@
 #include "common/logger.h"
 #include "common/dict.h"
 #include "common/posix.h"
-#include "common/websocket.h"
+#include "common/ws.h"
 #include "rrclient/ui.speech.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"

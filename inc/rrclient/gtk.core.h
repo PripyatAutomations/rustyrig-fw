@@ -43,7 +43,6 @@ extern bool ui_print(const char *fmt, ...);
 extern void update_connection_button(bool connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, gboolean active);
 extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text);
-extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 extern gboolean focus_main_later(gpointer data);
 extern bool gui_init(void);
 extern GtkTextBuffer *text_buffer;
@@ -84,6 +83,7 @@ extern gulong freq_changed_handler_id;
 //extern void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 extern bool ui_print_gtk(const char *msg);
 extern bool cfg_use_gtk;
+extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 
 #include "rrclient/gtk.codecpicker.h"
 #include "rrclient/gtk.editcfg.h"
@@ -96,5 +96,6 @@ extern bool cfg_use_gtk;
 #include "rrclient/gtk.vfo-box.h"
 #include "rrclient/gtk.vol-box.h"
 #include "rrclient/gtk.winmgr.h"
+#include "rrclient/gtk.chat.h"
 
 #endif	// !defined(__rrclient_gtk_core_h)

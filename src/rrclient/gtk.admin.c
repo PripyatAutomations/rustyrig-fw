@@ -23,7 +23,7 @@
 #include "common/dict.h"
 #include "common/posix.h"
 #include "common/util.file.h"
-#include "common/websocket.h"
+#include "common/ws.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
@@ -32,10 +32,6 @@
 #include "common/client-flags.h"
 
 extern dict *cfg;		// config.c
-
-extern struct mg_mgr mgr;
-extern bool ws_connected;
-extern struct mg_connection *ws_conn;
 
 // main.c
 extern time_t now;
@@ -53,7 +49,9 @@ GtkWidget *init_admin_tab(void) {
 
    // add stuff to the window
    gtk_container_add(GTK_CONTAINER(nw), admin_view);
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, gtk_label_new("Admin"));
+   GtkWidget *admin_tab_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(admin_tab_label), "(<u>2</u>) Admin");
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, admin_tab_label);
    ui_speech_set(nw,
               "Admin Tab",                // name
               "Server administration",    // description

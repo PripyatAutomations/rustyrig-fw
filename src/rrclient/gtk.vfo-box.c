@@ -38,7 +38,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
    // ONLINE button
-   conn_button = gtk_button_new_with_label("Offline");
+   conn_button = gtk_button_new_with_label("_Offline");
    gtk_widget_set_tooltip_text(conn_button, "Toggle online state");
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
@@ -50,7 +50,9 @@ GtkWidget *create_vfo_box(void) {
 
    // FREQ selection
    freq_entry = gtk_freq_entry_new(MAX_DIGITS);
-   GtkWidget *freq_label = gtk_label_new("Hz");
+   GtkWidget *freq_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(freq_label), "<u>F</u>req");
+
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
 

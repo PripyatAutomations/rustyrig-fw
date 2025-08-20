@@ -95,6 +95,8 @@ GtkWidget *init_log_tab(void) {
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(log_view), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(log_view), GTK_WRAP_WORD_CHAR);
    gtk_container_add(GTK_CONTAINER(nw), log_view);
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, gtk_label_new("Log"));
+   GtkWidget *syslog_tab_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(syslog_tab_label), "(<u>4</u>) Syslog");
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, syslog_tab_label);
    return nw;
 }

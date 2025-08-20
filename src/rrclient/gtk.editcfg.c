@@ -257,7 +257,10 @@ static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
 
 GtkWidget *init_config_tab(void) {
    GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, gtk_label_new("Config"));
+   GtkWidget *cfg_tab_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(cfg_tab_label), "(<u>3</u>) Config");
+
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, cfg_tab_label);
 
    GtkWidget *config_label = gtk_label_new("Configuration will go here...");
    gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
@@ -268,7 +271,6 @@ GtkWidget *init_config_tab(void) {
 
    toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
    gtk_box_pack_start(GTK_BOX(nw), toggle_userlist_button, FALSE, FALSE, 3);
-   Log(LOG_CRAZY, "gtk", "show userlist button on add callback clicked");
    g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
    return nw;
 }

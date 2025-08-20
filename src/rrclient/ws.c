@@ -41,7 +41,6 @@ const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
 extern time_t now;
-extern const char *get_chat_ts(void);
 extern dict *servers;
 
 #if	defined(USE_GTK)
@@ -114,16 +113,11 @@ bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       char *hello = mg_json_get_str(msg_data, "$.hello");
       ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
       free(hello);
-   } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
-//      result = ws_handle_pong(c, msg);
    }
    return false;
 }
 
-/// We need to switch to using ws_txtframe_dispatch, which means we need to
-// strip down ws_txtframe_process into smaller callbacks
 static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *msg) {
-
    if (!c || !msg) {
       return true;
    }
@@ -144,7 +138,8 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
       // see if this exists in the json
       if (mg_json_get(msg_data, json_req, NULL) > 0) {
          // Matched, dispatch the message
-         if (strcasecmp(rp[i].type, "cat") != 0) {
+         if (cfg_http_debug_crazy && strcasecmp(rp[i].type, "cat") != 0 &&
+             strcasecmp(rp[i].type, "ping") != 0) {
             Log(LOG_CRAZY, "ws.router", "Matched route #%d for message type %s", i, rp[i].type);
          }
          rp[i].cb(c, msg);
@@ -206,7 +201,9 @@ bool ws_handle(struct mg_connection *c, struct mg_ws_message *msg) {
 void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_OPEN) {
 #if	defined(HTTP_DEBUG_CRAZY)
-      c->is_hexdumping = 1;
+      if (cfg_http_debug_crazy) {
+         c->is_hexdumping = 1;
+      }
 #endif
       ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {

@@ -25,6 +25,7 @@
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
 
+// XXX: This needs to go to inc/common/http.h
 #define	HTTP_USER_LEN		16		// username length (16 char)
 #define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64
 #define	HTTP_HASH_LEN		40		// sha1
@@ -34,21 +35,13 @@
 #define USER_EMAIL_LEN		128		// email address
 
 // config.c
-extern bool config_load(const char *path);
 extern dict *cfg;
 
 // main.c
-extern struct mg_mgr mgr;
-extern int my_argc;
-extern char **my_argv;
 extern bool dying;
-extern bool restarting;
 extern time_t now;
-extern bool ptt_active;
-extern void shutdown_app(int signum);
-// gtk.core.c
-extern const char *get_chat_ts(void);
 
+/////////////////////////////////////
 char session_token[HTTP_TOKEN_LEN+1];
 
 char *hash_passwd(const char *passwd) {
@@ -135,7 +128,6 @@ bool match_priv(const char *user_privs, const char *priv) {
          len = sizeof(token) - 1;
       }
       snprintf(token, len, "%s", start);
-//      memcpy(token, start, len);
       token[len] = '\0';
 
 //      Log(LOG_CRAZY, "auth", "token=|%s|", token);
