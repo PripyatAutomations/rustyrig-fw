@@ -25,7 +25,10 @@ static uint64_t gen_id(void) {
 
 static void ws_send_file(struct mg_connection *c, const char *path, const char *mime) {
    FILE *fp = fopen(path, "rb");
-   if (!fp) { MG_ERROR(("%s: open failed", path)); return; }
+   if (!fp) {
+      Log(LOG_CRIT, "ws.file-xfer", "Failed opening file %s - %d:%s", path, errno, strerror(errno));
+      return;
+   }
 
    fseeko(fp, 0, SEEK_END);
    uint64_t fsize = (uint64_t) ftello(fp);
@@ -42,11 +45,16 @@ static void ws_send_file(struct mg_connection *c, const char *path, const char *
 
    // chunk buffer: header(24) + payload
    uint8_t *buf = (uint8_t *) malloc(24 + CHUNK);
-   if (!buf) { fclose(fp); return; }
+   if (!buf) {
+      fclose(fp);
+      return;
+   }
 
    for (uint32_t idx = 0; ; idx++) {
       size_t n = fread(buf + 24, 1, CHUNK, fp);
-      if (n == 0) break;
+      if (n == 0) {
+         break;
+      }
 
       // header pack (LE)
       memcpy(buf + 0,  &id, 8);
@@ -80,8 +88,12 @@ static struct slot g_tbl[64];
 static struct xfer *xf_get(uint64_t id, bool create) {
    for (size_t i = 0; i < MG_ARRAY_SIZE(g_tbl); i++) {
       size_t j = (id + i) % MG_ARRAY_SIZE(g_tbl);
-      if (g_tbl[j].id == id) return &g_tbl[j].xf;
-      if (create && g_tbl[j].id == 0) { g_tbl[j].id = id; return &g_tbl[j].xf; }
+      if (g_tbl[j].id == id) {
+         return &g_tbl[j].xf;
+      }
+      if (create && g_tbl[j].id == 0) {
+         g_tbl[j].id = id; return &g_tbl[j].xf;
+      }
    }
    return NULL;
 }
@@ -89,7 +101,9 @@ static struct xfer *xf_get(uint64_t id, bool create) {
 static void xf_done(uint64_t id) {
    for (size_t j = 0; j < MG_ARRAY_SIZE(g_tbl); j++) {
       if (g_tbl[j].id == id) {
-         if (g_tbl[j].xf.fp) fclose(g_tbl[j].xf.fp);
+         if (g_tbl[j].xf.fp) {
+            fclose(g_tbl[j].xf.fp);
+         }
          memset(&g_tbl[j], 0, sizeof(g_tbl[j]));
          return;
       }
@@ -97,13 +111,17 @@ static void xf_done(uint64_t id) {
 }
 
 static void on_ws_msg(struct mg_connection *c, int ev, void *ev_data) {
-   if (ev != MG_EV_WS_MSG) return;
+   if (ev != MG_EV_WS_MSG) {
+      return;
+   }
    struct mg_ws_message *m = (struct mg_ws_message *) ev_data;
 
    if (m->flags & WEBSOCKET_OP_TEXT) {
       // Parse meta
       struct mg_str type = mg_json_get_str(mg_str_n((char *) m->data.ptr, m->data.len), "$.type");
-      if (mg_strcmp(type, k_meta) != 0) return;
+      if (mg_strcmp(type, k_meta) != 0) {
+         return;
+      }
 
       struct mg_str sid = mg_json_get_str(m->data, "$.id");
       char idbuf[32] = {0};
@@ -112,7 +130,9 @@ static void on_ws_msg(struct mg_connection *c, int ev, void *ev_data) {
       sscanf(idbuf, "%llx", (unsigned long long *) &id);
 
       struct xfer *xf = xf_get(id, true);
-      if (!xf) return;
+      if (!xf) {
+         return;
+      }
       memset(xf, 0, sizeof(*xf));
 
       struct mg_str sname = mg_json_get_str(m->data, "$.name");
@@ -131,20 +151,26 @@ static void on_ws_msg(struct mg_connection *c, int ev, void *ev_data) {
       char out[320];
       mg_snprintf(out, sizeof(out), "recv_%s", xf->name[0] ? xf->name : "file.bin");
       xf->fp = fopen(out, "wb");
-      if (!xf->fp) { xf_done(id); }
+      if (!xf->fp) {
+         xf_done(id);
+      }
       MG_INFO(("Start xfer id=%llx -> %s total=%u size=%llu",
                (unsigned long long) id, out, (unsigned) xf->total, (unsigned long long) xf->size));
       return;
    }
 
    if (m->flags & WEBSOCKET_OP_BINARY) {
-      if (m->data.len < 24) return;
+      if (m->data.len < 24) {
+         return;
+      }
       const uint8_t *p = (const uint8_t *) m->data.ptr;
       uint64_t id; memcpy(&id, p + 0, 8);
       uint32_t idx, n; memcpy(&idx, p + 8, 4); memcpy(&n, p + 12, 4);
 
       struct xfer *xf = xf_get(id, false);
-      if (!xf || !xf->fp) return;
+      if (!xf || !xf->fp) {
+         return;
+      }
 
       // For simplicity we append in arrival order. If you need random access,
       // seek to (idx * chunk_sz) and write fixed-sized chunks except last.

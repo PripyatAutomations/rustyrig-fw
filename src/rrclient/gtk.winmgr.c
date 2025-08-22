@@ -450,3 +450,21 @@ gboolean focus_main_later(gpointer data) {
     GtkWindow *win = GTK_WINDOW(data);
     return g_idle_add(focus_main_later, win);
 }
+
+gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
+   gui_window_t *ret = NULL;
+
+   if (!window || !name) {
+      return NULL;
+   }
+   
+   ret = gui_store_window(window, name);
+   set_window_icon(window, "rustyrig");
+
+   // On windows, we need to set a dark mode hint
+#ifdef _WIN32
+   enable_windows_dark_mode_for_gtk_window(window);
+#endif
+
+   return ret;
+}

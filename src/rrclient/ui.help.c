@@ -40,40 +40,50 @@ static bool safe_name(const char *name) {
    return true;
 }
 
+char *help_main[] = {
+     "******************************************",
+     "          rustyrig client help           *",
+     "******************************************",
+     "",
+     "[Server Commands]",
+     "   /server [name]          Connect to a server (or default)",
+     "   /disconnect             Disconnect from server",
+     "[Chat Commands]",
+     "   /clear                  Clear chat tab",
+     "   /clearlog               Clear the syslog tab",
+     "   /die                    Shut down server",
+//     "   /edit                   Edit a user",
+     "   /help                   This help text",
+     "   /kick [user] [reason]   Kick the user",
+     "   /me [message]           Send an ACTION",
+     "   /mute [user] [reason]   Disable controls for user",
+     "   /names                  Show who's in the chat",
+     "   /restart [reason]       Restart the server",
+//     "   /rxmute                  MUTE RX audio",
+     "   /rxvol [vol;ume]        Set RX volume",
+//     "   /rxunmute               Unmute RX audio",
+//     "   /txvol [val]            Set TX gain",
+     "   /unmute [user]          Unmute user",
+     "   /whois [user]           WHOIS a user",
+     "   /quit [reason]          End the session",
+     "",
+     "[UI Commands]",
+     "   /chat                   Switch to chat tab",
+     "   /config | /cfg          Switch to config tab",
+     "   /log | /syslog          Switch to syslog tab",
+     "",
+     " See /help keybindings or alt-h for keyboard help!",
+     "******************************************",
+     NULL
+};
+
 void show_help(const char *topic) {
   if (!topic) {
-     ui_print("******************************************");
-     ui_print("          rustyrig v.%s help", VERSION);
-     ui_print("[Server Commands]");
-     ui_print("   /server [name]          Connect to a server (or default)");
-     ui_print("   /disconnect             Disconnect from server");
-     ui_print("[Chat Commands]");
-     ui_print("   /clear                  Clear chat tab");
-     ui_print("   /clearlog               Clear the syslog tab");
-     ui_print("   /die                    Shut down server");
-  //   ui_print("   /edit                   Edit a user");
-     ui_print("   /help                   This help text");
-     ui_print("   /kick [user] [reason]   Kick the user");
-     ui_print("   /me [message]           Send an ACTION");
-     ui_print("   /mute [user] [reason]   Disable controls for user");
-     ui_print("   /names                  Show who's in the chat");
-     ui_print("   /restart [reason]       Restart the server");
-  //   ui_print("   /rxmute                  MUTE RX audio");
-     ui_print("   /rxvol [vol;ume]        Set RX volume");
-     ui_print("   /rxunmute               Unmute RX audio");
-  //   ui_print("   /txmute                 Mute TX audio");
-  //   ui_print("   /txvol [val]            Set TX gain");
-     ui_print("   /unmute [user]          Unmute user");
-     ui_print("   /whois [user]           WHOIS a user");
-     ui_print("   /quit [reason]          End the session");
-     ui_print("");
-     ui_print("[UI Commands]");
-     ui_print("   /chat                   Switch to chat tab");
-     ui_print("   /config | /cfg          Switch to config tab");
-     ui_print("   /log | /syslog          Switch to syslog tab");
-     ui_print("");
-     ui_print(" See /help keybindings or alt-h for keyboard help!");
-     ui_print("******************************************");
+     int i = 0;
+     while (help_main[i] != NULL) {
+        ui_print(help_main[i]);
+        i++;
+     }
   } else {
      char path[256];
      char line[1024];

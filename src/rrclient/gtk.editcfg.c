@@ -234,12 +234,8 @@ void gui_edit_config(const char *filepath) {
    g_signal_connect(window, "delete-event", G_CALLBACK(on_delete_event), ctx);
 
    gtk_widget_show_all(window);
-   gtk_widget_realize(window);  // Make sure it's realized
-
-   // Set dark mode, if needed, on windows
-#ifdef _WIN32
-   enable_windows_dark_mode_for_gtk_window(window);
-#endif
+   gtk_widget_realize(window);
+   place_window(window);
 }
 
 /////////////////////////////

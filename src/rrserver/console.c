@@ -34,6 +34,10 @@ bool cons_help(void /*io *port*/) {
 }
 
 struct cons_cmds core_cmds[] = {
+//   { "config", 0, 3, cons_config },
    { "help", 0, 1, cons_help },
+//   { "restart", 0, 3, cons_restart },
+//   { "shutdown", 0, 3, cons_shutdown },
+//   { "user", 0, 3, cons_user },
 //   { NULL, -1, -1, NULL }
 };

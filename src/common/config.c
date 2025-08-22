@@ -133,6 +133,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
 bool cfg_init(dict *d, defconfig_t *defaults) {
    bool empty_config = false;
 
+   // If not existing, create the dictionary for storage
    if (!d) {
       d = dict_new();
    }

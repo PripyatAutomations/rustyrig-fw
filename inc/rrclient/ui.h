@@ -14,4 +14,8 @@
 #include <gtk/gtk.h>
 #endif	// defined(USE_GTK)
 
+#ifdef _WIN32
+extern void win32_check_darkmode(void);
+#endif
+
 #endif	// !defined(__rrclient_ui_h)

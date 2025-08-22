@@ -51,23 +51,6 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    return false;
 }
 
-gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
-   gui_window_t *ret = NULL;
-
-   if (!window || !name) {
-      return NULL;
-   }
-   
-   ret = gui_store_window(window, name);
-   set_window_icon(window, "rustyrig");
-
-#ifdef _WIN32
-   enable_windows_dark_mode_for_gtk_window(window);
-#endif
-
-   return ret;
-}
-
 bool ui_print(const char *fmt, ...) {
    va_list ap;
    va_start(ap, fmt);

@@ -40,7 +40,6 @@ struct mg_mgr mgr;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
-extern time_t now;
 extern dict *servers;
 
 #if	defined(USE_GTK)

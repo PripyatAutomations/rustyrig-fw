@@ -84,6 +84,11 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
             gtk_widget_grab_focus(GTK_WIDGET(freq_entry));
             break;
          }
+         case GDK_KEY_G:
+         case GDK_KEY_g: {
+            gtk_widget_grab_focus(GTK_WIDGET(rx_rig_vol_slider));
+            break;
+         }
          case GDK_KEY_H:
          case GDK_KEY_h: {
             show_help("keybindings.hlp");
