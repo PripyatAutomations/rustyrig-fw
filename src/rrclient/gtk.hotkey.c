@@ -81,7 +81,13 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
          }
          case GDK_KEY_F:
          case GDK_KEY_f: {
-            gtk_widget_grab_focus(GTK_WIDGET(freq_entry));
+            GtkWidget *wp = gtk_freq_entry_last_touched_digit(GTK_FREQ_ENTRY(freq_entry));
+
+            if (wp) {
+               gtk_widget_grab_focus(wp);
+            } else {
+               gtk_widget_grab_focus(GTK_WIDGET(freq_entry));
+            }
             break;
          }
          case GDK_KEY_G:
