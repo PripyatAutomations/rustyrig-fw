@@ -29,6 +29,8 @@
 
 // Linked list of all of our windows, usually 'main' will be the head of the list
 gui_window_t *gui_windows = NULL;
+
+// Timer for delaying window move announcements
 static guint configure_event_timeout = 0;
 
 // This is called when the window has stopped moving
@@ -45,7 +47,7 @@ static gboolean on_configure_timeout(gpointer data) {
 
    // if we can't find the window, there's no state
    if (!win) {
-//      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%x>", window);
+      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%x>", window);
       return true;
    }
 
@@ -53,7 +55,7 @@ static gboolean on_configure_timeout(gpointer data) {
    win->is_moving = false;   
 
    // Is the name set? If not, we can't look the window up (and probably shouldn't even be here!)
-   if (win && win->name[0] != '\0') {
+   if (win->name[0] != '\0') {
       if (win->x != win->last_x ||
           win->y != win->last_y ||
           win->w != win->last_w ||
@@ -114,7 +116,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       win->last_y = frame.y;
       win->last_w = frame.width;
       win->last_h = frame.height;
-#else
+#else // this seems to work OK, but we'll leave the other for testing for now...
       // Instead, we should use gtk_window_get_position
       int x, y;
       gtk_window_get_position(GTK_WINDOW(window), &x, &y);
@@ -164,14 +166,6 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    return NULL;
 }
 
-/*
-    bool win_raised;            // Raised?
-    bool win_minimized;         // Is the window minimized?
-    bool win_modal;             // Always on top
-    bool win_hidden;            // Hidden from view
-    bool win_nohide;            // Don't hide this window when main window is minimized
-    bool win_stashed;           // Was the window hidden because main was minimized? This ens
-*/
 bool place_window(GtkWidget *window) {
    const char *cfg_height_s, *cfg_width_s;
    const char *cfg_x_s, *cfg_y_s;
@@ -361,12 +355,11 @@ static void on_window_destroy(GtkWidget *w, gpointer user_data) {
    gui_forget_window(p, NULL);
 }
 
-
 // Store window name / pointer in our list
 gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    if (!gtk_win || !name) {
       Log(LOG_CRIT, "gui_store_window called with invalid args: name:%s gtk_win: <%x>", name, gtk_win);
-      // XXX: remove this one we debug
+      // XXX: remove this once we debug
       abort();
       return NULL;
    }
@@ -381,8 +374,8 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    // Nope, it doesn't exist, create it
    gui_window_t *p = malloc(sizeof(gui_window_t));
    if (!p) {
-     Log(LOG_CRIT, "gtk.winmgr", "OOM creating gui_window_t");
-     abort();
+      Log(LOG_CRIT, "gtk.winmgr", "OOM creating gui_window_t");
+      abort();
    }
 
    memset(p, 0, sizeof(gui_window_t));

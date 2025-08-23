@@ -30,16 +30,11 @@
 #include "common/client-flags.h"
 
 extern dict *cfg;
-extern struct mg_mgr mgr;
-extern bool ws_connected;
 extern struct mg_connection *ws_conn;
-extern time_t now;
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern GtkWidget *toggle_userlist_button; // userlist.c
 extern GtkWidget *main_notebook;	  // gtk.core.c
-
 extern dict *cfg_load(const char *path);
-
 GtkWidget *config_tab = NULL;
 
 typedef struct {

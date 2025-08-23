@@ -51,6 +51,8 @@ extern GtkWidget *rx_vol_slider;
 
 bool audio_enabled = false;
 bool gst_active = false;
+
+// This probably should go into it's own bit
 GstElement *rx_pipeline = NULL, 	*tx_pipeline = NULL;
 GstElement *rx_appsrc = NULL,   	*tx_appsrc = NULL;
 GstElement *rx_vol_gst_elem = NULL,	*tx_vol_gst_elem = NULL;

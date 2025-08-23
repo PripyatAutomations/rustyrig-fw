@@ -32,7 +32,6 @@
 #include "rrclient/ui.speech.h"
 
 extern dict *cfg;		// config.c
-extern time_t now;
 
 static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
    AtkObject *a11y = gtk_widget_get_accessible(widget);

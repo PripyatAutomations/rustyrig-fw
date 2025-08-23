@@ -31,7 +31,6 @@
 #include "common/client-flags.h"
 
 extern dict *cfg;		// config.c
-extern time_t now;
 
 bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    bool rv = false;

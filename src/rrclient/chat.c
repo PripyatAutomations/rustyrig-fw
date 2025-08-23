@@ -18,7 +18,6 @@
 #include "rrclient/ui.h"
 
 extern dict *cfg;
-extern time_t now;
 
 void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons(
@@ -38,6 +37,7 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
    gtk_label_set_selectable(GTK_LABEL(label), TRUE);
    char *markup = NULL;
    size_t len = 0;
+
 /*
    FILE *stream = open_memstream(&markup, &len);
 
@@ -80,6 +80,7 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
    gtk_label_set_markup(GTK_LABEL(label), markup);
    gtk_container_add(GTK_CONTAINER(content_area), label);
    gtk_widget_show_all(dialog);
+
    Log(LOG_DEBUG, "gtk", "Connect whois callback response");
    g_signal_connect(dialog, "response", G_CALLBACK(gtk_widget_destroy), NULL);
    free(markup);

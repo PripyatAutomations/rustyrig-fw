@@ -1,0 +1,11 @@
+# Treat everything in docs/ as documentation
+doc/* linguist-documentation
+
+# Ignore vendored/minified web assets
+www/js/*.js linguist-vendored
+www/css/*.css linguist-vendored
+www/js/*/*.js linguise-vendored
+
+# Force C files to be counted as C
+*.c linguist-language=C
+*.h linguist-language=C

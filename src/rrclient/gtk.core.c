@@ -30,27 +30,22 @@
 #include "rrclient/ws.h"
 #include "rrclient/gtk.freqentry.h"
 
-extern bool clear_syslog(void);
 extern dict *cfg;
-extern time_t now;
-extern bool chat_init(void);		// gtk.chat.c
-
 GtkWidget *main_window = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
-
-GtkCssProvider *css_provider = NULL;
 GtkWidget *toggle_userlist_button = NULL;
+GtkWidget *main_notebook = NULL;
+GtkWidget *main_tab = NULL;
+GtkWidget *log_tab = NULL;
+GtkCssProvider *css_provider = NULL;
 bool cfg_use_gtk = true;	// Default to using GTK3
 
-///////// Tab View //////////
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_admin_tab(void);
 extern GtkWidget *config_tab;
 extern GtkWidget *admin_tab;
-GtkWidget *main_notebook = NULL;
-GtkWidget *main_tab = NULL;
-GtkWidget *log_tab = NULL;
+extern bool chat_init(void);		// gtk.chat.c
 
 bool ui_print_gtk(const char *msg) {
    // Append our text to the end of the GtkTextView

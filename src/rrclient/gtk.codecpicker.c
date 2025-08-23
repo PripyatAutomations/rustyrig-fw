@@ -28,14 +28,8 @@
 #include "rrclient/ws.h"
 
 extern dict *cfg;				// main.c
-extern time_t now;				// main.c
-
-// XXX: To be removed
 extern struct mg_connection *ws_conn;
-
-extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
 extern bool clear_syslog(void);
-extern GtkWidget *init_log_tab(void);
 
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;

@@ -22,8 +22,6 @@
 
 #define MAX_DIGITS 10
 extern dict *cfg;
-extern time_t now;
-extern bool dying;
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 

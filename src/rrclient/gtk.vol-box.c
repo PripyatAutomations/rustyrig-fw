@@ -36,6 +36,7 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
 
+// Returns a GtkWidget with the volume box
 GtkWidget *create_volbox(void) {
    // RX VOLUME Box
    GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -49,8 +50,8 @@ GtkWidget *create_volbox(void) {
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 0);
 
-/// P put a spacer in here
-GtkWidget *vol_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+/// Put a spacer in here
+   GtkWidget *vol_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), vol_spacer, TRUE, TRUE, 0);
 
 ////
@@ -63,8 +64,8 @@ GtkWidget *vol_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_scale_set_digits(GTK_SCALE(rx_rig_vol_slider), 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_slider, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_label, TRUE, TRUE, 0);
-
 ////
+
    int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
    g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);

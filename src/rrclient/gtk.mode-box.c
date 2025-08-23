@@ -31,7 +31,7 @@
 
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
-extern struct mg_connection *ws_conn, *ws_tx_conn;
+extern struct mg_connection *ws_conn;
 
 gulong mode_changed_handler_id;
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {

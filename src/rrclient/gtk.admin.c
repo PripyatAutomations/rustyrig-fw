@@ -34,13 +34,11 @@
 extern dict *cfg;		// config.c
 
 // main.c
-extern time_t now;
 extern GtkWidget *main_notebook;
 GtkWidget *admin_view = NULL;
 GtkWidget *admin_tab = NULL;
 
 ///////////////////////////////////////////
-
 GtkWidget *init_admin_tab(void) {
    GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw),

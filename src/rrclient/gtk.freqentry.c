@@ -8,8 +8,6 @@
 #define MAX_DIGITS 10
 extern dict *cfg;
 extern time_t now;
-extern bool dying;
-extern bool ui_print(const char *fmt, ...);
 
 //
 // This should be private. Use the accessor functions below in Public API

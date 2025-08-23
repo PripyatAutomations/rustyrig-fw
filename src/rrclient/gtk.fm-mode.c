@@ -27,9 +27,6 @@
 #include "rrclient/ws.h"
 
 extern dict *cfg;
-extern time_t now;
-extern bool ws_connected;
-
 
 /* Tone lists */
 static const char *ctcss_tones[] = {
