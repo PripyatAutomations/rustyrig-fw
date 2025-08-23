@@ -30,6 +30,9 @@
 // Linked list of all of our windows, usually 'main' will be the head of the list
 gui_window_t *gui_windows = NULL;
 
+// Linked list of all our widgets
+gui_widget_t *gui_widgets = NULL;
+
 // Timer for delaying window move announcements
 static guint configure_event_timeout = 0;
 
@@ -460,4 +463,102 @@ gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
 #endif
 
    return ret;
+}
+
+//////////////
+gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
+   if (!widget && !name) {
+      Log(LOG_WARN, "gtk.winmgr", "gui_find_widget called with NULL arguments");
+      return NULL;
+   }
+
+   // If window is given and matches, return it, regardless of the title match
+   if (widget) {
+      for (gui_widget_t *p = gui_widgets; p; p = p->next) {
+         if (p->gtk_widget == widget) {
+            Log(LOG_CRAZY, "gtk.winmgr", "find_widget eturning %s for ptr:<%x>", p->name, widget);
+            return p;
+         }
+      }
+   }
+
+   // If windGET can't be found by handle (or NULL handle), search by name
+   if (name) {
+      for (gui_widget_t *p = gui_widgets; p; p = p->next) {
+         if (p && strcmp(p->name, name) == 0) {
+            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for name %s", p->name, name);
+            return p;
+         }
+      }
+   }
+   return NULL;
+}
+
+bool gui_forget_widget(gui_widget_t *gw, const char *name) {
+   gui_widget_t **pp = &gui_widgets;
+   while (*pp) {
+      gui_widget_t *p = *pp;
+
+      if ((gw && p == gw) || (name && strcmp(p->name, name) == 0)) {
+         Log(LOG_DEBUG, "gtk.winmgr", "forgetting widget: %p (%s)", (void*)p, p->name);
+         *pp = p->next;
+         free(p);
+         return true;   // success
+      }
+      pp = &p->next;
+   }
+
+   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_widget: no match for gw:%p name:%s", (void*)gw, name ? name : "(null)");
+   return false;       // failure
+}
+
+// Store window name / pointer in our list
+gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
+   if (!widget || !name) {
+      Log(LOG_CRIT, "gui_store_widget called with invalid args: name:%s widget: <%x>", name, widget);
+      // XXX: remove this once we debug
+      abort();
+      return NULL;
+   }
+
+   for (gui_widget_t *x = gui_widgets; x; x = x->next) {
+      if (strcmp(x->name, name) == 0) {
+         Log(LOG_DEBUG, "gtk.winmgr", "found widget %s at <%x> for widget at <%x>", x->name, x, x->gtk_widget);
+         return x;
+      }
+   }
+
+   // Nope, it doesn't exist, create it
+   gui_widget_t *p = malloc(sizeof(gui_widget_t));
+   if (!p) {
+      Log(LOG_CRIT, "gtk.winmgr", "OOM creating gui_widget_t");
+      abort();
+   }
+
+   memset(p, 0, sizeof(gui_widget_t));
+   snprintf(p->name, sizeof(p->name), "%s", name);
+   p->gtk_widget = widget;
+   Log(LOG_INFO, "gtk.winmgr", "new '%s' widget <%x> stored at <%x>", name, widget, p);
+
+   if (!gui_widgets) {
+      gui_widgets = p;
+   } else {
+      gui_widget_t *x = gui_widgets;
+
+      // find last widget
+      while (x) {
+         if (x->next == NULL) {
+            break;
+         }
+         x = x->next;
+      }
+
+      // Store our new widget at the list tail
+      if (x) {
+         x->next = p;
+      }
+   }
+
+//   g_signal_connect(widget, "destroy", G_CALLBACK(on_widget_destroy), p);
+   return p;
 }

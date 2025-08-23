@@ -18,6 +18,15 @@ To build:
 	Edit things in config/ as appropriate.
 	Run ./build.sh
 
+Configure:
+	Be sure config/http.users has appropriate contents
+		Try rrserver-usercfg.sh
+
+	Make sure config/radio.config.json is good for your build host
+
+	Edit config/rrserver.cfg for the server
+	Run rrclient, exit it and then add ~/.config/rrclient.cfg to add save server password
+
 To run:
 	./test-run.sh or 'make run'
 

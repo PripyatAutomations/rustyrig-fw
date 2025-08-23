@@ -20,12 +20,11 @@
 #include "rrclient/gtk.freqentry.h"
 #include "rrclient/ui.help.h"
 
-#define MAX_DIGITS 10
 extern dict *cfg;
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 
-gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    GtkNotebook *notebook = GTK_NOTEBOOK(user_data);
 
    gui_window_t *wp = gui_find_window(NULL, "main");
@@ -34,7 +33,6 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
    if (!notebook || !event) {
       return true;
    }
-
 
    if ((event->state & GDK_MOD1_MASK)) {
       if (!main_window) {
@@ -151,4 +149,9 @@ gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer us
       return TRUE;
    }
    return FALSE;
+}
+
+bool gui_hotkey_register(GtkWidget *widget) {
+   g_signal_connect(widget, "key-press-event", G_CALLBACK(gui_global_hotkey_cb), widget);
+   return false;
 }

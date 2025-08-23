@@ -165,7 +165,8 @@ bool gui_init(void) {
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
-   g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_global_hotkey), main_notebook);
+//   g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_global_hotkey), main_notebook);
+   gui_hotkey_register(main_window);
 
    // Generate and display a userlist for this server 
    userlist_init();

@@ -64,6 +64,13 @@ static const char *dcs_tones[] = {
    NULL
 };
 
+static const char *fm_offsets[] = {
+   "-25.0", "-20.0", "-15.0", "-10.0", "-7.6",
+    "-5.0", "-1.6",  "-1.0", "-0.7", "-0.6",
+    "NONE",
+   "0.6",  "0.7",  "1.0",  "1.6",  "5.0",
+   "7.6", "10.0", "15.0", "20.0", "25.0" };
+
 /* Static pointers to widgets */
 static GtkWidget *tx_tone_combo = NULL;
 static GtkWidget *rx_tone_combo = NULL;
@@ -130,7 +137,8 @@ GtkWidget *fm_dialog_create(void) {
 
    /* Prevent user from closing the window */
    g_signal_connect(w, "delete-event", G_CALLBACK(gtk_true), NULL);
-   g_signal_connect(w, "key-press-event", G_CALLBACK(handle_global_hotkey), w);
+//   g_signal_connect(w, "key-press-event", G_CALLBACK(handle_global_hotkey), w);
+   gui_hotkey_register(w);
 
    GtkWidget *grid = gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
@@ -198,38 +206,9 @@ GtkWidget *fm_dialog_create(void) {
    /* Repeater offset combo (editable) */
    GtkWidget *offset_combo = gtk_combo_box_text_new_with_entry();
    gtk_widget_set_tooltip_text(offset_combo, "Repeater Offset in Mhz");
-
-   // Negative offsets
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-25.0");  // 9cm band
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-20.0");  // 13cm band
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-15.0");  // 23cm band
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-10.0");  // 70cm (440 MHz) alternate
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-7.6");   // 70cm (440 MHz) alternate
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-5.0");   // 70cm (440 MHz)
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-5.0");   // 6m (50 MHz) alternate
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-1.6");   // 2m (144 MHz) alternate
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-1.0");   // 6m (50 MHz)
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.7");   // 2m (144 MHz)
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "-0.6");   // 220 MHz
-
-   // NONE
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "NONE");  // No offset
-
-   // Positive offsets
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "0.6");   // 220 MHz
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "0.7");   // 2m (144 MHz)
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "1.0");   // 6m (50 MHz)
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "1.6");   // 2m (144 MHz) alternate
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "5.0");   // 6m (50 MHz) alternate
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "5.0");   // 70cm (440 MHz)
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "7.6");   // 70cm (440 MHz) alternate
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "10.0");  // 70cm (440 MHz) alternate
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "15.0");  // 23cm band
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "20.0");  // 13cm band
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), "25.0");  // 9cm band
-
-
-//   gtk_combo_box_set_active(GTK_COMBO_BOX(offset_combo), 0);
+   for (int i = 0; fm_offsets[i] != NULL; i++) {
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), fm_offsets[i]);
+   }
    set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(offset_combo), "NONE");
    gtk_grid_attach(GTK_GRID(grid), offset_combo, 1, 4, 1, 1);
 

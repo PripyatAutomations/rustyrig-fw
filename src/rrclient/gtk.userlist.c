@@ -116,7 +116,8 @@ GtkWidget *userlist_init(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), elmernoob_col);
 
    gtk_container_add(GTK_CONTAINER(new_win), cul_view);
-   g_signal_connect(new_win, "key-press-event", G_CALLBACK(handle_global_hotkey), new_win);
+//   g_signal_connect(new_win, "key-press-event", G_CALLBACK(handle_global_hotkey), new_win);
+   gui_hotkey_register(new_win);
    g_signal_connect(new_win, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
    place_window(new_win);
    return new_win;
