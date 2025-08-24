@@ -43,10 +43,10 @@ extern bool ws_kick_by_name(const char *name, const char *reason);
 extern bool ws_kick_by_uid(int uid, const char *reason);
 
 extern bool ws_handle_protocol(struct mg_ws_message *msg, struct mg_connection *c);
-extern bool ws_send_error_msg(struct mg_connection *c, const char *scope, const char *msg);
-extern bool ws_send_error(http_client_t *cptr, const char *fmt, ...);
 extern bool ws_send_ping(http_client_t *cptr);
-extern bool ws_send_notice(struct mg_connection *c, const char *msg);
+extern bool ws_send_alert(http_client_t *cptr, const char *fmt, ...);
+extern bool ws_send_error(http_client_t *cptr, const char *fmt, ...);
+extern bool ws_send_notice(struct mg_connection *c, const char *fmt, ...);
 
 // ws.audio.c
 extern void au_send_to_ws(const void *data, size_t len, int channel);

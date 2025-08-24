@@ -407,7 +407,11 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   } else if (strcasecmp(cmd, "freq") == 0) {
                      long real_freq = parse_freq(arg);
                      Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", real_freq, arg, cptr->chatname);
-                     rr_freq_set(active_vfo, real_freq);
+                     if (real_freq >= 0) {
+                        rr_freq_set(active_vfo, real_freq);
+                     } else {
+                        ws_send_error(cptr, "Invalid freq %s provided for !freq", arg);
+                     }
                   } else if (strcasecmp(cmd, "mode") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
                      rr_mode_t new_mode = vfo_parse_mode(arg);
@@ -415,7 +419,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                         rr_set_mode(active_vfo, new_mode);
                      } else {
                         // Alert the client that the mode wasn't succesfully applied
-                        ws_send_error(cptr, "Invalid mode %s provided", arg);
+                        ws_send_error(cptr, "Invalid mode %s provided for !mode", arg);
                      }
                   } else if (strcasecmp(cmd, "power") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);
@@ -426,6 +430,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
                   } else {
                      Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
+                     ws_send_error(cptr, "Ignoring unknown ! command: %s", cmd);
                   }
                }
             } else {			// just a message
@@ -541,12 +546,13 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          snprintf(msgbuf, sizeof(msgbuf),
             "{ \"talk\": { \"cmd\": \"whois\", \"data\": %s, \"ts\": %lu } }",
             whois_data, now);
-//         Log(LOG_DEBUG, "ws.chat", "ws message: %s", msgbuf);
+         Log(LOG_CRAZY, "ws.chat", "ws message whois: %s", msgbuf);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          goto cleanup;
 
 trunc:
          Log(LOG_WARN, "chat", "whois_data truncated");
+         ws_send_alert(cptr, "WHOIS data truncated to %i bytes", written);
          goto cleanup;
       }
    }

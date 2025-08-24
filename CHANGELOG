@@ -3,6 +3,7 @@ rustyrig-fw (20250825) testing; urgency=medium
 * Code cleanup & some static analysis
 * Temporary shell script based launcher for gst pipelines (./gst-test.sh called by test-run.sh)
 * Made rrserver send error/warning messages to the client when invalid input is sent, rather than ignoring the input as previously done
+* Changed mode dropdown to alt-d instead of alt-o
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 25 Aug 2025 05:23:01 -0400
 
