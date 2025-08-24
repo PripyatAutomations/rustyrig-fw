@@ -34,6 +34,9 @@ extern struct GlobalState rig;	// Global state
 
 // Send an error message to the user, informing them they lack the appropriate privileges in chat
 bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
+   if (!action) {
+      return true;
+   }
    Log(LOG_CRAZY, "core", "Unprivileged user %s (uid: %d with privs %s) requested to do %s and was denied", cptr->chatname, cptr->user->uid, cptr->user->privs, action);
    char msgbuf[HTTP_WS_MAX_MSG+1];
    prepare_msg(msgbuf, sizeof(msgbuf),
@@ -410,6 +413,9 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      rr_mode_t new_mode = vfo_parse_mode(arg);
                      if (new_mode != MODE_NONE) {
                         rr_set_mode(active_vfo, new_mode);
+                     } else {
+                        // Alert the client that the mode wasn't succesfully applied
+                        ws_send_error(cptr, "Invalid mode %s provided", arg);
                      }
                   } else if (strcasecmp(cmd, "power") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);

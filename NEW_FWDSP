@@ -7,3 +7,6 @@
   - capture: Receive audio from sound devices
   - sender: Sends audio to sound devices
   - recoder: Transcodes audio between stream formats
+
+----------------------
+* SYNC			Causes the 

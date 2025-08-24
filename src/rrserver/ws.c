@@ -221,7 +221,6 @@ cleanup:
    return rv;
 }
 
-
 // Deal with the binary requests
 static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t len) {
    Log(LOG_DEBUG, "ws.binframe", "Binary frame of %li bytes", len);
@@ -437,54 +436,6 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    return false;
 }
 
-bool ws_send_error_msg(struct mg_connection *c, const char *scope, const char *msg) {
-   if (!c || !scope || !msg) {
-      return true;
-   }
-
-   char msgbuf[HTTP_WS_MAX_MSG+1];
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"%s\": { \"error\": \"%s\", \"ts\": %li } }",
-      scope, msg, now);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-
-   return false;
-}
-
-bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
-   va_list ap;
-   va_start(ap, fmt);
-   char tmpbuf[8192];
-   memset(tmpbuf, 0, sizeof(tmpbuf));
-   vsnprintf(tmpbuf, 8192, fmt, ap);
-
-   char msgbuf[HTTP_WS_MAX_MSG+1];
-   char *escaped_msg = escape_html(tmpbuf);
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"error\": \"%s\", \"ts\": %li }",
-      tmpbuf, now);
-   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-
-   va_end(ap);
-   free(escaped_msg);
-   return false;
-}
-
-bool ws_send_notice(struct mg_connection *c, const char *msg) {
-   if (!c || !msg) {
-      return true;
-   }
-
-   char *escaped_msg = escape_html(msg);
-   char msgbuf[HTTP_WS_MAX_MSG+1];
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"notice\": \"%s\", \"ts\": %li }",
-      escaped_msg, now);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-
-   free(escaped_msg);
-   return false;
-}
 
 bool ws_send_ping(http_client_t *cptr) {
    if (!cptr || !cptr->is_ws) {
@@ -516,5 +467,77 @@ bool ws_send_ping(http_client_t *cptr) {
    prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %li } }", now);
    mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
+   return false;
+}
+
+/////////
+// Send an error message to the user
+bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
+   if (!fmt) {
+      return true;
+   }
+
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   char fullmsg[HTTP_WS_MAX_MSG - 55];
+   memset(msgbuf, 0, sizeof(msgbuf));
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
+   char *escaped_msg = escape_html(fullmsg);
+
+   prepare_msg(msgbuf, sizeof(msgbuf),
+      "{ \"error\": { \"ts\": %lu, \"msg\": \"%s\" } }",
+         now, escaped_msg);
+   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   free(escaped_msg);
+   va_end(ap);
+   return false;
+}
+
+// Send an alert message to the user
+bool ws_send_alert(http_client_t *cptr, const char *fmt, ...) {
+   if (!fmt) {
+      return true;
+   }
+
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   char fullmsg[HTTP_WS_MAX_MSG - 55];
+   memset(msgbuf, 0, sizeof(msgbuf));
+
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
+   char *escaped_msg = escape_html(fullmsg);
+
+   prepare_msg(msgbuf, sizeof(msgbuf),
+      "{ \"alert\": { \"ts\": %lu, \"msg\": \"%s\" } }",
+         now, escaped_msg);
+   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   free(escaped_msg);
+   va_end(ap);
+   return false;
+}
+
+bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
+   if (!c || !fmt) {
+      return true;
+   }
+
+   char msgbuf[HTTP_WS_MAX_MSG+1];
+   char fullmsg[HTTP_WS_MAX_MSG - 55];
+   memset(msgbuf, 0, sizeof(msgbuf));
+
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
+
+   char *escaped_msg = escape_html(fullmsg);
+
+   prepare_msg(msgbuf, sizeof(msgbuf),
+      "{ \"notice\": { \"msg\": \"%s\", \"ts\": %li } }",
+      escaped_msg, now);
+   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+
+   free(escaped_msg);
    return false;
 }

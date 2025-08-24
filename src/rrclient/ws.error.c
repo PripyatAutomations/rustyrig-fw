@@ -57,10 +57,14 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    char *error_msg = mg_json_get_str(msg_data, "$.error.msg");
    char *error_from = mg_json_get_str(msg_data, "$.error.from");
 
-   if (error_msg) {
-      ui_print("[%s] ERROR: <%s> %s !!!", get_chat_ts(), error_from, error_msg);
+   if (!error_from) {
+      error_from = strdup("***SERVER***");
    }
-   free(msg);
+
+   if (error_msg) {
+      ui_print("[%s] ERROR: %s: %s !!!", get_chat_ts(), error_from, error_msg);
+   }
+
    free(error_msg);
    free(error_from);
 

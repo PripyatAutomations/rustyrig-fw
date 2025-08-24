@@ -58,10 +58,13 @@ bool ws_handle_notice_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    char *notice_msg = mg_json_get_str(msg_data, "$.notice.msg");
    char *notice_from = mg_json_get_str(msg_data, "$.notice.from");
 
-   if (notice_msg) {
-      ui_print("[%s] NOTICE: <%s> %s !!!", get_chat_ts(), notice_from, notice_msg);
+   if (!notice_from) {
+      notice_from = strdup("***SERVER***");
    }
-   free(msg);
+
+   if (notice_msg) {
+      ui_print("[%s] NOTICE: %s: %s !!!", get_chat_ts(), notice_from, notice_msg);
+   }
    free(notice_msg);
    free(notice_from);
 

@@ -57,10 +57,14 @@ bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    char *alert_msg = mg_json_get_str(msg_data, "$.alert.msg");
    char *alert_from = mg_json_get_str(msg_data, "$.alert.from");
 
-   if (alert_msg) {
-      ui_print("[%s] ALERT: <%s> %s !!!", get_chat_ts(), alert_from, alert_msg);
+   if (!alert_from) {
+      alert_from = strdup("***SERVER***");
    }
-   free(msg);
+
+
+   if (alert_msg) {
+      ui_print("[%s] ALERT: %s: %s !!!", get_chat_ts(), alert_from, alert_msg);
+   }
    free(alert_msg);
    free(alert_from);
 

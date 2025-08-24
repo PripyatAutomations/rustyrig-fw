@@ -24,6 +24,7 @@
 #include "rrclient/audio.h"
 #include "../../ext/libmongoose/mongoose.h"
 #include "common/codecneg.h"
+#include "common/http.h"
 
 //#define	DEBUG_WS_BINFRAMES		// turn this off soon
 
@@ -64,6 +65,9 @@ extern bool disconnect_server(void);
 extern bool connect_server(void);
 extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
 extern const char *get_server_property(const char *server, const char *prop);
+extern bool ws_send_error(http_client_t *cptr, const char *fmt, ...);
+extern bool ws_send_alert(http_client_t *cptr, const char *fmt, ...);
+extern bool ws_send_notice(http_client_t *cptr, const char *fmt, ...);
 
 #if	defined(USE_GTK)
 extern bool connect_or_disconnect(GtkButton *button);
@@ -72,5 +76,7 @@ extern bool connect_or_disconnect(GtkButton *button);
 // ws.audio.c
 extern bool ws_audio_init(void);
 extern bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx);
+
+// ws.chat.c
 
 #endif	// !defined(__rrclient_ws_h)

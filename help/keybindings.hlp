@@ -6,10 +6,10 @@
 
 [Control Tab]
 	alt-c	Focus CHAT input
+	alt-d	Focus MODE selector
 	alt-f	Focus FREQ input, in the last field edited
 	alt-g	Rig RX Volume control
 	alt-h	Show this HELP (or /help keybindings)
-	alt-o	Focus MODE selector
 	alt-p	Focus TX Power
 	alt-r	Focus RX codec
 	alt-t	Focus TX codec

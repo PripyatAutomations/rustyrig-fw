@@ -63,6 +63,23 @@ void ws_broadcast_with_flags(u_int32_t flags, struct mg_connection *sender, stru
    }
 }
 
+void ws_broadcast_audio(struct mg_connection *sender, struct mg_str *msg_data, int data_type, u_int32_t channel) {
+   if (!msg_data) {
+      return;
+   }
+
+   http_client_t *current = http_client_list;
+   while (current) {
+      // NULL sender means it came from the server itself
+      if ((current->is_ws && current->authenticated) && (current->conn != sender)) {
+         // XXX: Compare the connection's codec 
+//         if (current->rx_codecs[
+//         mg_ws_send(current->conn, msg_data->buf, msg_data->len, data_type);
+      }
+      current = current->next;
+   }
+}
+
 bool send_global_alert(const char *sender, const char *data) {
    if (!data) {
       return true;

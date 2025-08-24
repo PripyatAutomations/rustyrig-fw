@@ -75,6 +75,11 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
             gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
             break;
          }
+         case GDK_KEY_D:
+         case GDK_KEY_d: {
+            gtk_widget_grab_focus(GTK_WIDGET(mode_combo));
+            break;
+         }
          case GDK_KEY_F:
          case GDK_KEY_f: {
             GtkWidget *wp = gtk_freq_entry_last_touched_digit(GTK_FREQ_ENTRY(freq_entry));
@@ -94,11 +99,6 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          case GDK_KEY_H:
          case GDK_KEY_h: {
             show_help("keybindings.hlp");
-            break;
-         }
-         case GDK_KEY_O:
-         case GDK_KEY_o: {
-            gtk_widget_grab_focus(GTK_WIDGET(mode_combo));
             break;
          }
          case GDK_KEY_P:

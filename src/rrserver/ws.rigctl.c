@@ -72,6 +72,7 @@ static ws_rig_state_t *ws_rigctl_state_diff(rr_vfo_t vfo) {
    ws_rig_state_t *update = malloc(sizeof(ws_rig_state_t));
    if (update == NULL) {
       // XXX: we should throw a log message but we're out of memory....
+      fprintf(stderr, "OOM in ws_rigctl_state_diff!\n");
       return NULL;
    }
    memset(update, 0, sizeof(ws_rig_state_t));

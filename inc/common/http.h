@@ -108,6 +108,7 @@ struct http_client {
     bool   ghost;		// Is the session a ghost?
     time_t ghost_time;		// When did the session become a ghost?
 
+    // These contain arrays of audio channel IDs
     u_int32_t rx_channels[MAX_RX_CHANNELS];
     u_int32_t tx_channels[MAX_RX_CHANNELS];
 #if	0
