@@ -71,7 +71,7 @@ GtkWidget *create_mode_box(void) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "D-L");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "D-U");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 3);
+   gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 0);
 
    mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
    gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, TRUE, TRUE, 1);

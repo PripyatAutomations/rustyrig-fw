@@ -50,7 +50,7 @@ static gboolean on_configure_timeout(gpointer data) {
 
    // if we can't find the window, there's no state
    if (!win) {
-      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%x>", window);
+//      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%x>", window);
       return true;
    }
 
@@ -465,14 +465,19 @@ gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    return ret;
 }
 
-//////////////
+/////////////////////
+// Widget tracking //
+/////////////////////
+// this lets us find a widget by name instead of scattering
+// global pointers all over the place.
+//
 gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
    if (!widget && !name) {
       Log(LOG_WARN, "gtk.winmgr", "gui_find_widget called with NULL arguments");
       return NULL;
    }
 
-   // If window is given and matches, return it, regardless of the title match
+   // If widget is given and matches, return it, regardless of the title match
    if (widget) {
       for (gui_widget_t *p = gui_widgets; p; p = p->next) {
          if (p->gtk_widget == widget) {
@@ -482,7 +487,7 @@ gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
       }
    }
 
-   // If windGET can't be found by handle (or NULL handle), search by name
+   // If winget can't be found by handle (or NULL handle), search by name
    if (name) {
       for (gui_widget_t *p = gui_widgets; p; p = p->next) {
          if (p && strcmp(p->name, name) == 0) {
@@ -512,7 +517,7 @@ bool gui_forget_widget(gui_widget_t *gw, const char *name) {
    return false;       // failure
 }
 
-// Store window name / pointer in our list
+// Store widget name / pointer in our list
 gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
    if (!widget || !name) {
       Log(LOG_CRIT, "gui_store_widget called with invalid args: name:%s widget: <%x>", name, widget);
