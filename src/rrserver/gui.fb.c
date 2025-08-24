@@ -58,3 +58,10 @@ gui_fb_state_t *gui_fb_init(gui_fb_state_t *fb) {
 bool gui_fb_update(void) {
    return false;
 }
+
+bool gui_fb_fini(gui_fb_state_t *fb) {
+   if (fb) {
+      free(fb);
+   }
+   return false;
+}

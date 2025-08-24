@@ -38,7 +38,7 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
       return NULL;
    }
 
-   const char *recdir = cfg_get("path.record-dir");
+   const char *recdir = cfg_get_exp("path.record-dir");
    if (!recdir) {
       Log(LOG_CRAZY, "au.record", "Please set path.record-dir in config to enable recording");
       return NULL;
@@ -50,6 +50,9 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    char tmpbuf[512];
    memset(tmpbuf, 0, 512);
    size_t tmp_len = snprintf(tmpbuf, 512, "%s/%s.%s.%s", recdir, recording_id, (is_tx ? "tx" : "rx"), codec);
+   // free the returned value from cfg_get_exp (expanded variable)
+   free((char *)recdir);
+
    if (tmp_len > 0) {
       if (!(rv = strdup(tmpbuf))) {
          Log(LOG_CRIT, "au.record", "OOM in au_recording_mkfilename");
@@ -59,6 +62,7 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    if (rv) {
       Log(LOG_DEBUG, "au.record", "New recording will be saved at %s", rv);
    }
+
    return rv;
 }
 
@@ -66,6 +70,7 @@ struct RecordingData {
    FILE *fp;
    const char *rec_id;
 };
+typedef struct RecordingData recording_data_t;
 
 #define	MAX_RECORD_OPEN		16
 
@@ -110,15 +115,30 @@ const char *au_recording_start(int channel) {
    return recording_id;
 }
 
+
+recording_data_t *au_recording_find(const char *id) {
+   recording_data_t *rp = NULL;
+   for (int i = 0; i < MAX_RECORD_OPEN - 1; i++) {
+      if ((active_recordings[i] != NULL) && active_recordings[i]->rec_id == id) {
+         return active_recordings[i];
+      }
+   }
+   return NULL;
+}
+
 bool au_recording_stop(const char *id) {
    if (id == NULL) {
       return true;
    }
 
+   recording_data_t *rp = au_recording_find(id);
    // Find the location of the recording struct (active_recordings array)
    // Close the fd
-//   fclose(rp->fp);
-   free((void *)id);
+   if (rp->fp) {
+      fclose(rp->fp);
+   }
+
+   free(rp);
    return false;
 }
 
@@ -130,3 +150,5 @@ bool au_attach_gst(const char *id, int channel) {
    // XXX: Find the proper tee to connect to and use shmsink/source to pass data across
    return false;
 }
+
+// XXX: Need to make a function that frees any allocated memory here for shutdown/module reload

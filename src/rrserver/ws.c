@@ -291,8 +291,10 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    } else if (hello) {
       Log(LOG_DEBUG, "ws", "Got HELLO from client at mg_conn:<%x>: %s", c, hello);
       cptr->cli_version = malloc(HTTP_UA_LEN);
-      memset(cptr->cli_version, 0, HTTP_UA_LEN);
-      snprintf(cptr->cli_version, HTTP_UA_LEN, "%s", hello);
+      if (cptr->cli_version) {
+         memset(cptr->cli_version, 0, HTTP_UA_LEN);
+         snprintf(cptr->cli_version, HTTP_UA_LEN, "%s", hello);
+      }
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
       result = ws_handle_rigctl_msg(msg, c);
@@ -313,7 +315,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
      if (strcasecmp(media_cmd, "capab") == 0) {
         // Capability negotiation
         if (media_codecs) {
-           const char *preferred = cfg_get("codecs.allowed");
+           const char *preferred = cfg_get_exp("codecs.allowed");
            if (!preferred) {
               Log(LOG_CRIT, "ws.media", "media.capab needs codecs.allowed set in config!");
               result = true;
@@ -321,6 +323,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
             }
 
            char *common = codec_filter_common(preferred, media_codecs);
+           free(preferred);
+
            if (strlen(common) < 4) {
               free(common);
               result = true;

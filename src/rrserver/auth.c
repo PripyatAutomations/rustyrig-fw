@@ -54,22 +54,22 @@ extern struct GlobalState rig;	// Global state
 //	Print the result as hex and compare it to what the user sent
 //
 // This provides protection against replays by 
+//
+// You *must* free the result
 char *compute_wire_password(const char *password, const char *nonce) {
    unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
-   char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
    mg_sha1_ctx ctx;
 
    if (password == NULL || nonce == NULL) {
       Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%x> or nonce<%x>", password, nonce);
-      free(hex_output);
       return NULL;
    }
 
+   char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
    if (hex_output == NULL) {
       Log(LOG_CRIT, "auth", "oom in compute_wire_password");
       return NULL;
    }
-
    memset((char *)combined, 0, sizeof(combined));
    snprintf((char *)combined, sizeof(combined), "%s+%s", password, nonce);
 
@@ -633,10 +633,10 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> from IP %s:%d gave wrong password. Kicking!", cptr->user, cptr, ip, port);
          ws_kick_client(cptr, "Invalid login/password");
       }
+      free(temp_pw);
    }
 
 cleanup:
-   free(temp_pw);
    free(cmd);
    free(pass);
    free(token);

@@ -85,24 +85,18 @@ void show_network_info(void) {
       return;
    }
 
-   const char *s = cfg_get("net.http.port");
-   int bind_port = 0;
-   if (s) {
-      bind_port = atoi(s);
+   int bind_port = cfg_get_int("net.http.port", 0);
 #if	defined(USE_EEPROM)
-   } else {
+   if (!bind_port) {
       eeprom_get_int("net/http/port");
-#endif
    }
-   int tls_bind_port = 0;
-   s = cfg_get("net.http.tls-port");
-   if (s) {
-      tls_bind_port = atoi(s);
+#endif
+   int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
 #if	defined(USE_EEPROM)
-   } else {
-      eeprom_get_int("net/http/tls_port");
-#endif
+   if (!tls_bind_port) {
+      tls_bind_port = eeprom_get_int("net/http/tls_port");
    }
+#endif
 
 #if	!defined(HOST_POSIX)
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;

@@ -40,7 +40,7 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
    Log(LOG_CRAZY, "core", "Unprivileged user %s (uid: %d with privs %s) requested to do %s and was denied", cptr->chatname, cptr->user->uid, cptr->user->privs, action);
    char msgbuf[HTTP_WS_MAX_MSG+1];
    prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"talk\": { \"error\": { \"ts\": %lu, \"msg\": \"You do not have enough privileges to use '%s' command\" } } }",
+      "{ \"error\": { \"ts\": %lu, \"msg\": \"You do not have enough privileges to use '%s' command\" } }",
          now, action);
    mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    return false;
@@ -49,7 +49,7 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
 bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
    char msgbuf[HTTP_WS_MAX_MSG+1];
    prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"talk\": { \"error\": { \"ts\": %lu, \"msg\": \"You MUST provide a reason for using'%s' command\" } } }",
+      "{ \"error\": { \"ts\": %lu, \"msg\": \"You MUST provide a reason for using'%s' command\" } }",
          now, command);
    mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
    return false;
@@ -63,6 +63,7 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
       ws_chat_error_need_reason(cptr, "die");
       return true;
    }
+
    if (client_has_flag(cptr, FLAG_STAFF)) {
       // Send an ALERRT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -368,7 +369,8 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                }
 
                while (*input) {
-                  while (isspace(*input)) {
+                  // skip spaces and !
+                  while (isspace(*input) || (*input == '!')) {
                      input++;
                   }
 
@@ -394,6 +396,11 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      break;
                   }
 
+                  bool freq_changed = false,
+                       mode_changed = false,
+                       power_changed = false,
+                       width_changed = false;
+
                   if (strcasecmp(cmd, "help") == 0) {
                      ws_send_notice(cptr->conn, "<span>***SERVER***"
                         "<br/>*** !help for VFO commands ***<br>"
@@ -409,28 +416,32 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", real_freq, arg, cptr->chatname);
                      if (real_freq >= 0) {
                         rr_freq_set(active_vfo, real_freq);
+                        freq_changed = true;
                      } else {
                         ws_send_error(cptr, "Invalid freq %s provided for !freq", arg);
                      }
                   } else if (strcasecmp(cmd, "mode") == 0) {
-                     Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
                      rr_mode_t new_mode = vfo_parse_mode(arg);
                      if (new_mode != MODE_NONE) {
+                        mode_changed = true;
+                        Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
                         rr_set_mode(active_vfo, new_mode);
                      } else {
                         // Alert the client that the mode wasn't succesfully applied
                         ws_send_error(cptr, "Invalid mode %s provided for !mode", arg);
                      }
                   } else if (strcasecmp(cmd, "power") == 0) {
+                     power_changed = true;
                      Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);
                   } else if (strcasecmp(cmd, "width") == 0) {
+                     width_changed = true;
                      Log(LOG_DEBUG, "ws.chat", "Got !width %s from %s", arg, cptr->chatname);
                      rr_set_width(active_vfo, arg);
                   } else if (strcasecmp(cmd, "vfo") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
                   } else {
                      Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
-                     ws_send_error(cptr, "Ignoring unknown ! command: %s", cmd);
+                     ws_send_error(cptr, "Ignoring unknown ! command: %s, try !help", cmd);
                   }
                }
             } else {			// just a message
@@ -451,6 +462,17 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             }
          }
 
+#if	0	// XXX: Not yet....
+// XXX: These need moved into a struct array we can walk...
+typedef struct talk_cmd {
+   const char *cmd, bool (*cb)();
+} talk_cmd_t;
+talk_cmd_t talk_commands[] = {
+   { "die",	ws_chat_cmd_die
+};
+
+      } else {
+#else
       } else if (strcasecmp(cmd, "die") == 0) {
          ws_chat_cmd_die(cptr, reason);
       } else if (strcasecmp(cmd, "kick") == 0) {
@@ -555,6 +577,7 @@ trunc:
          ws_send_alert(cptr, "WHOIS data truncated to %i bytes", written);
          goto cleanup;
       }
+#endif
    }
 
 // Cleanup our mg_json_get_str returns from above, its easier to just do it down here

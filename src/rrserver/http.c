@@ -365,8 +365,6 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
             memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
             Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, (cptr->user_agent ? cptr->user_agent : "none"), ua_len);
          }
-      } else {
-         Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> has no User-Agent", c, cptr);
       }
 
       // Send the request to our HTTP router
@@ -394,6 +392,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
       http_client_t *cptr = http_find_client_by_c(c);
+
       // make sure we're not accessing unsafe memory
       if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
          // Does the user hold PTT? if so turn it off
@@ -437,8 +436,8 @@ bool http_init(struct mg_mgr *mgr) {
    }
 
 
-   const char *cfg_www_root = cfg_get("net.http.www-root");
-   const char *cfg_404_path = cfg_get("net.http.404-path");
+   const char *cfg_www_root = cfg_get_exp("net.http.www-root");
+   const char *cfg_404_path = cfg_get_exp("net.http.404-path");
 
 #if	defined(USE_EEPROM)
    if (!cfg_www_root) {
@@ -463,6 +462,8 @@ bool http_init(struct mg_mgr *mgr) {
    } else {
       prepare_msg(www_404_path, sizeof(www_404_path), "%s", WWW_404_FALLBACK);
    }
+   free((char *)cfg_404_path);
+   cfg_404_path = NULL;
 
    // set the www-root if configured
    if (cfg_www_root != NULL) {
@@ -471,6 +472,8 @@ bool http_init(struct mg_mgr *mgr) {
       prepare_msg(www_root, sizeof(www_root), "%s", WWW_ROOT_FALLBACK);
    }
    Log(LOG_CRIT, "http.init", "set www-root to %s", www_root);
+   free((char *)cfg_www_root);
+   cfg_www_root = NULL;
 
    if (http_load_users(HTTP_AUTHDB_PATH) < 0) {
       Log(LOG_WARN, "http.core", "Error loading users from %s", HTTP_AUTHDB_PATH);
@@ -478,21 +481,20 @@ bool http_init(struct mg_mgr *mgr) {
 
    struct in_addr sa_bind;
    char listen_addr[255];
-   int bind_port = 0;
-   const char *s = cfg_get("net.http.port");
-   if (s) {
-      bind_port = atoi(s);
+   int bind_port = cfg_get_int("net.http.port", 0);
 #if	defined(USE_EEPROM)
-   } else {
+   if (!bind_port) {
       bind_port = eeprom_get_int("net/http/port");
-#endif
    }
-   s = cfg_get("net.http.bind");
+#endif
+
+   const char *s = cfg_get("net.http.bind");
    if (!s || !inet_aton(s, &sa_bind)) {
 #if	defined(USE_EEPROM)
       eeprom_get_ip4("net/http/bind", &sa_bind);
 #endif
    }
+   free((char *)s);
    prepare_msg(listen_addr, sizeof(listen_addr), "http://%s:%d", inet_ntoa(sa_bind), bind_port);
 
    if (!mg_http_listen(mgr, listen_addr, http_cb, NULL)) {
@@ -503,25 +505,25 @@ bool http_init(struct mg_mgr *mgr) {
    Log(LOG_INFO, "http", "HTTP listening at %s with www-root at %s", listen_addr, (cfg_www_root ? cfg_www_root: WWW_ROOT_FALLBACK));
 
 #if	defined(HTTP_USE_TLS)
-   s = cfg_get("net.http.tls-enabled");
-   if (s && strcasecmp(s, "true") == 0) {
-      int tls_bind_port = 0;
-      s = cfg_get("net.http.tls-port");
-      if (s) {
-         tls_bind_port = atoi(s);
+   if (cfg_get_bool("net.http.tls-enabled", false)) {
+      int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
+
 #if	defined(USE_EEPROM)
-      } else {
+      if (!tls_bind_port) {
          tls_bind_port = eeprom_get_int("net/http/tls_port");
-#endif
       }
+#endif
 
       struct in_addr sa_tls_bind;
-      s = cfg_get("net.http.tls-bind");
+      s = cfg_get_exp("net.http.tls-bind");
       if (!s || !inet_aton(s, &sa_tls_bind)) {
 #if	defined(USE_EEPROM)
          eeprom_get_ip4("net/http/bind", &sa_tls_bind);
 #endif
       }
+      free((char *)s);
+      s = NULL;
+
       char tls_listen_addr[255];
       prepare_msg(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_tls_bind), tls_bind_port);
       http_tls_init();
@@ -590,6 +592,7 @@ void http_remove_client(struct mg_connection *c) {
 
          Log(LOG_CRAZY, "http", "Removing client at cptr:<%x> with mgconn:<%x> (%d connections / %d users remain)",
              current, c, http_count_connections(), http_count_clients());
+
          if (current->user) {
             if (current->authenticated && current->is_ws) {
                current->user->clones--;
@@ -661,7 +664,6 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    return false;
 }
 
-/////////////
 bool client_has_flag(http_client_t *cptr, u_int32_t user_flag) {
    if (cptr) {
       return (cptr->user_flags & user_flag) != 0;
@@ -681,8 +683,6 @@ void client_clear_flag(http_client_t *cptr, u_int32_t flag) {
       cptr->user_flags &= ~flag;
    }
 }
-
-//////////////
 
 // Counts only websocket clients that are logged in
 int http_count_clients(void) {

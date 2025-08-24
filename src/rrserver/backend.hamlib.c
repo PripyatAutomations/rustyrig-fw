@@ -177,7 +177,7 @@ static bool hl_init(void) {
       return true;
    }
 
-   const char *cfg_hamlib_port = cfg_get("backend.hamlib-port");
+   const char *cfg_hamlib_port = cfg_get_exp("backend.hamlib-port");
 
    // XXX: Is this needed or is the simpler code OK?
 /*
@@ -186,6 +186,8 @@ static bool hl_init(void) {
 */
 
    rig_set_conf(hl_rig, rig_token_lookup(hl_rig, "rig_pathname"), (cfg_hamlib_port ? cfg_hamlib_port : BACKEND_HAMLIB_PORT));
+   free(cfg_hamlib_port);
+
 // XXX: this doesnt work on daedalus
 //   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
 
@@ -231,6 +233,7 @@ static bool hl_fini(void) {
 }
 
 // Here we poll the various meters and state
+// You *MUST* free the returned value
 rr_vfo_data_t *hl_poll(void) {
    // XXX: We need to deal with generating diffs
    // - save the current state as a whole, with a timestamp

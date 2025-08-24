@@ -30,6 +30,7 @@
 #include "rrserver/http.h"
 
 time_t   global_tot_time = 0;		// TOT
+extern time_t   ptt_tot_time;
 int	 vfos_enabled = 2;		// A + B by default
 
 bool rr_ptt_check_blocked(void) {
@@ -56,7 +57,7 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
 
    // set or clear the talk timeout
    if (ptt) {
-      global_tot_time = now + RF_TALK_TIMEOUT;
+      global_tot_time = now + ptt_tot_time;
    } else {
       global_tot_time = 0;
    }

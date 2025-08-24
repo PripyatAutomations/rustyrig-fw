@@ -98,7 +98,7 @@ bool rr_backend_init(void) {
    rr_backend_t *be = NULL;
 
 // This mode only really applies on posix hosts such as linux...
-   const char *be_name = cfg_get("backend.active");
+   const char *be_name = cfg_get_exp("backend.active");
 
 #if	defined(USE_EEPROM)
    if (!be_name) {
@@ -109,9 +109,13 @@ bool rr_backend_init(void) {
    be = rr_backend_find(be_name);
 
    if (be == NULL) {
-      Log(LOG_CRIT, "core", "Invalid backend selection %s - please fix config key backend.active!");
+      Log(LOG_CRIT, "core", "Invalid backend selection %s - please fix config key backend.active!", be_name);
+      free((char *)be_name);
       exit(1);
    }
+
+   free((char *)be_name);
+
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
    rig.backend = be;
 
@@ -249,6 +253,7 @@ bool rr_be_poll(rr_vfo_t vfo) {
 
    // save it to the VFO storage
    memcpy(&vfos[vfo], ret_vfo, sizeof(rr_vfo_data_t));
+   // free the memory given to use
    free(ret_vfo);
    return false;
 }

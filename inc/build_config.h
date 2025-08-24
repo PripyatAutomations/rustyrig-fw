@@ -11,6 +11,8 @@
 #define RR_MAX_AMPS		2
 #define RR_MAX_ATUS		4
 #define RR_MAX_FILTERS		4
+// XXX: Move to cfg:rig*.tot-time and cfg:global.tot-time
+
 #define RF_TALK_TIMEOUT		300
 #define MASTERDB_PATH "./db/master.db"
 #define MASTERDB_TEMPLATE "./sql/sqlite.master.sql"

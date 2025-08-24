@@ -96,11 +96,12 @@ bool fwdsp_init(void) {
       return true;
    }
 
-   const char *max_subprocs_s = cfg_get("fwdsp:subproc.max");;
+   const char *max_subprocs_s = cfg_get_exp("fwdsp:subproc.max");;
 
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
       Log(LOG_DEBUG, "fwdsp-mgr", "fwdsp initializing with %d slots available", max_subprocs);
+      free(max_subprocs_s);
    } else {
       Log(LOG_CRIT, "config",  "fwdsp:subproc.max must be set in config for fwdsp manager to work!");
       return true;
@@ -137,14 +138,20 @@ bool fwdsp_init(void) {
    fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
 
    // Find the fwdsp path
-   fwdsp_path = cfg_get("path.fwdsp");
-   if (!fwdsp_path || fwdsp_path[0] == '\0') {
+   fwdsp_path = cfg_get_exp("path.fwdsp");
+
+   if (!fwdsp_path) {
       Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp binary");
       return NULL;
    }
 
    fwdsp_mgr_ready = true;
    return false;
+}
+
+bool fwdsp_fini(void) {
+   free(fwdsp_path);
+   fwdsp_path = NULL;
 }
 
 static int fwdsp_find_offset(const char *id, bool is_tx) {
@@ -314,7 +321,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       return false;
    }
 
-   const char *fwdsp_path = cfg_get("path.fwdsp");
+   const char *fwdsp_path = cfg_get_exp("path.fwdsp");
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp bin");
       return false;
@@ -336,13 +343,13 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       } else {
          execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, NULL);
       }
-
       perror("execl");
       _exit(127);
    }
 
    // --- Parent ---
    sp->pid = pid;
+   free(fwdsp_path);
 
    if (sp->io_type == FW_IO_STDIO) {
       close(in_pipe[0]);
@@ -480,8 +487,9 @@ int fwdsp_codec_stop(const char *codec, bool is_tx) {
       struct fwdsp_subproc *sp = fwdsp_find_instance(c->magic, is_tx);
 
       if (sp) {
-         const char *hangtime_s = cfg_get("fwdsp.hangtime");
+         const char *hangtime_s = cfg_get_exp("fwdsp.hangtime");
          int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
+         free(hangtime_s);
 
          if (hangtime > 0) {
             sp->cleanup_deadline = time(NULL) + hangtime;

@@ -69,6 +69,7 @@ struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
 extern char *config_file;	// from defconfig.c
 extern defconfig_t defcfg[];	// From defconfig.c
+time_t ptt_tot_time = RF_TALK_TIMEOUT;
 
 extern const char *configs[];
 extern const int num_configs;
@@ -238,10 +239,7 @@ int main(int argc, char **argv) {
 #endif
 
    // apply some configuration from the eeprom
-   s = cfg_get("features.auto-block-ptt");
-   if (s && strcasecmp(s, "true") == 0) {
-      auto_block_ptt = true;
-   }
+   auto_block_ptt = cfg_get_bool("features.auto-block-ptt", false);
 
    if (auto_block_ptt) {
       Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
@@ -302,14 +300,16 @@ int main(int argc, char **argv) {
       // Check faults
       if (check_faults()) {
          Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
+         // XXX: Should we stop PTT and halt here?
       }
 
       // Has the TOT expired?
       if (global_tot_time > 0 && global_tot_time <= now) {
-         Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", RF_TALK_TIMEOUT);
+         http_client_t *talker = whos_talking();
+         Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", ptt_tot_time);
          rr_ptt_set_all_off();
          char msgbuf[HTTP_WS_MAX_MSG+1];
-         prepare_msg(msgbuf, sizeof(msgbuf), "TOT expired, halting TX!");
+         prepare_msg(msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s", (talker ? talker->chatname : "**UNKNOWN***"));
          send_global_alert("***SERVER***", msgbuf);
          global_tot_time = 0;
       }
@@ -332,7 +332,7 @@ int main(int argc, char **argv) {
 #endif
 #if	defined(CAT_KPA500)
 //      memset(buf, 0, PARSE_LINE_LEN);
-//      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
+//      io_read(&amp_io, &buf, PARSE_LINE_LEN - 1);
         rr_cat_parse_amp_line(buf);
 #endif
 //      memset(buf, 0, PARSE_LINE_LEN);
@@ -343,11 +343,12 @@ int main(int argc, char **argv) {
       gui_update();
 
       // Send pings, drop dead connections, etc
-      // XXX: re-enable this asap!
       http_expire_sessions();
 
       // XXX: Check if an LCD/OLED is configured and update it
+
       // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
+
       long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
                 (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
 
