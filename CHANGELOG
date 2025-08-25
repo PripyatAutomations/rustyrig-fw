@@ -4,8 +4,14 @@ rustyrig-fw (20250825) testing; urgency=medium
 * Temporary shell script based launcher for gst pipelines (./gst-test.sh called by test-run.sh)
 * Made rrserver send error/warning messages to the client when invalid input is sent, rather than ignoring the input as previously done
 * Changed mode dropdown to alt-d instead of alt-o
+* Improved config parser:
+  - Multiline entries, put a \ at end of the line, trailing whitespace ignored!
+  - Variable expansion: ${key.name}
+  - Allow stray whitepsace around the = in key/val sections
+  - Whitespaces trailing and leading are properly scrubbed now
+  - Work on reload events, so if/when we add reloading the config without a restart
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 25 Aug 2025 05:23:01 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 25 Aug 2025 23:39:01 -0400
 
 rustyrig-fw (20250816) testing; urgency=medium
 
