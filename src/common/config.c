@@ -216,9 +216,9 @@ dict *cfg_load(const char *path) {
          skip++;
       }
 
-      // trim trailing newlines
+      // trim trailing newlines and whitespace
       end = buf + strlen(buf) - 1;
-      while (end >= buf && (*end == '\r' || *end == '\n')) {
+      while (end >= buf && (*end == '\r' || *end == '\n' || *end == ' ' || *end == '\t')) {
          *end-- = '\0';
       }
 
@@ -325,9 +325,16 @@ dict *cfg_load(const char *path) {
             *eq = '\0';
             key = skip;
             val = eq + 1;
-            while (*val == ' ') {
+            // trim leading whitespace off the value
+            while (*val == ' ' || *val == '\t') {
                val++;
             }
+         }
+
+         // trim trailing whitespace off the key
+         char *key_end = key + strlen(key) - 1;
+         while (key_end >= key && (*key_end == ' ' || *key_end == '\t')) {
+            *key_end-- = '\0';
          }
 
          if (!key && !val) {
@@ -350,7 +357,8 @@ dict *cfg_load(const char *path) {
             *eq = '\0';
             key = skip;
             val = eq + 1;
-            while (*val == ' ') {
+            // trim leading whitespace off the value
+            while (*val == ' ' || *val == '\t') {
                val++;
             }
          }
@@ -373,7 +381,8 @@ dict *cfg_load(const char *path) {
             key = skip;
             val = eq + 1;
 
-            while (*val == ' ') {
+            // trim leading whitespace off the value
+            while (*val == ' ' || *val == '\t') {
                val++;
             }
             memset(fullkey, 0, sizeof(fullkey));
