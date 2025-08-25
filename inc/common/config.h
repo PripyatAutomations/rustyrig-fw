@@ -66,8 +66,6 @@ extern bool cfg_save(dict *d, const char *path);
 // Create a new config
 extern bool cfg_init(dict *d, defconfig_t *defaults);
 
-// Run events for a changed key
-extern bool run_reload_events(const char *key);
 
 // Typed lookups
 extern const char *cfg_get(const char *key);
@@ -77,5 +75,25 @@ extern int cfg_get_int(const char *key, int def);
 extern float cfg_get_float(const char *key, float def);
 extern long cfg_get_long(const char *key, long def );
 extern unsigned int cfg_get_uint(const char *key, unsigned int def);
+
+/////////////
+extern reload_event_t *reload_events;
+// Run events for a changed key
+extern bool run_reload_events(const char *key);
+
+// Find an event in the linked list
+extern reload_event_t *reload_event_find(const char *key, bool (*callback)());
+
+// Add a reload event to the list
+extern reload_event_t *reload_event_add(const char *key, bool (*callback)(), const char *note);
+
+// Remove a reload event from the list
+extern bool reload_event_remove(reload_event_t *evt);
+
+// Dump the list
+extern bool reload_event_list(const char *key);
+
+// Run the reload events for a key
+extern bool reload_event_run(const char *key);
 
 #endif	// !defined(__inc_rrclient_config_h)

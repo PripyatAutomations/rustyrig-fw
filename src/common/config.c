@@ -131,8 +131,6 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
 }
 
 bool cfg_init(dict *d, defconfig_t *defaults) {
-   bool empty_config = false;
-
    // If not existing, create the dictionary for storage
    if (!d) {
       d = dict_new();
@@ -162,12 +160,10 @@ bool cfg_detect_and_load(void) {
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
       }
-//      empty_config = false;
       free(fullpath);
    } else {
      // Use default settings and save it to ~/.config/rrclient.cfg
      cfg = default_cfg;
-//     empty_config = true;
      Log(LOG_WARN, "core", "No config file found, saving defaults to ~/.config/rrclient.cfg");
    }
    return false;
@@ -655,25 +651,6 @@ bool cfg_save(dict *d, const char *path) {
    return false;
 }
 
-reload_event_t *reload_events = NULL;
-
-bool run_reload_events(const char *key) {
-   if (!reload_events) {
-      return true;
-   }
-
-   reload_event_t *rl = reload_events;
-
-   while (rl) {
-      if (strcasecmp(rl->key, key) == 0) {
-         Log(LOG_CRAZY, "event", "reload: run callback at <%x> for key '%s'", rl->callback, key);
-         rl->callback(key);
-      }
-      rl = rl->next;
-   }
-   return false;
-}
-
 // XXX: This needs to compare changes and create a dict with the differences in it
 bool cfg_apply_new(dict *oldcfg, dict *newcfg) {
    cfg = newcfg;
@@ -705,3 +682,105 @@ dict *dict_diff(dict *a, dict *b) {
       }
    }
 #endif
+
+///////////////////
+// Reload Events //
+///////////////////
+// This facility allows us to notify modules when a configuration key is changed
+reload_event_t *reload_events = NULL;
+
+reload_event_t *reload_event_add(const char *key, bool (*callback)(), const char *note) {
+   if (!callback || !key) {
+      return NULL;
+   }
+
+   reload_event_t *r = malloc(sizeof(reload_event_t));
+   if (!r) {
+      fprintf(stderr, "OOM in reload_event_add!\n");
+      return NULL;
+   }
+   memset(r, 0, sizeof(reload_event_t));
+   r->key = strdup(key);
+   r->callback = callback;
+
+   if (note) {
+      r->note = strdup(note);
+   }
+   return NULL;
+}
+
+bool reload_event_list(const char *key) {
+   if (key) {
+   }
+   reload_event_t *r = reload_events;
+
+   Log(LOG_DEBUG, "cfg.reload", "****** rel dump ******\n");
+   while (r) {
+      Log(LOG_DEBUG, "cfg.reload", "* %s has callback at <%x>: %s\n", r->key, r->callback, r->note ? r->note : "*** No note ***");
+   }
+   Log(LOG_DEBUG, "cfg.reload", "**********************\n");
+   return false;
+}
+
+bool reload_event_run(const char *key) {
+   if (!reload_events) {
+      return true;
+   }
+
+   reload_event_t *rl = reload_events;
+
+   while (rl) {
+      if (strcasecmp(rl->key, key) == 0) {
+         Log(LOG_CRAZY, "cfg.reload", "reload: run callback at <%x> for key '%s'", rl->callback, key);
+         rl->callback(key);
+      }
+      rl = rl->next;
+   }
+   return false;
+}
+
+// Find an event in the linked list                                                          
+reload_event_t *reload_event_find(const char *key, bool (*callback)()) {
+   reload_event_t *r = reload_events;
+
+   // one or both must be passed
+   if (!key && !callback) {
+      return NULL;
+   }
+
+   while (r) {
+      bool match_key = false, match_cb = false;
+
+      if (strcasecmp(key, r->key) == 0) {
+         match_key = true;
+      }
+
+      if (callback && r->callback  && callback == r->callback) {
+         match_cb = true;
+      }
+
+      Log(LOG_CRAZY, "cfg.reload",
+          "reload_event_find matched entry at <%x>, key: %s <%x>, callback:%s <%x>",
+          r, (match_key ? "true" : "false"), r->key,
+          (match_cb ? "true" : "false"), r->callback);
+
+      // If (no key or key matches) and (no callback or callback matches), return the entry
+      if ((!key || match_key) && (!callback || match_cb)) {
+         return r;
+      }
+      r = r->next;
+   }
+   return NULL;
+}
+
+// Remove a reload event from the list
+bool reload_event_remove(reload_event_t *evt) {
+   if (!evt) {
+      return true;
+   }
+
+   // Free resources
+   free(evt);
+
+   return false;
+}

@@ -175,7 +175,9 @@ long parse_freq(const char *str) {
    char *end = NULL;
    double val = strtod(str, &end);
 
-   while (isspace(*end)) end++;
+   while (isspace(*end)) {
+      end++;
+   }
 
    // If no suffix provided, guess unit
    if (*end == '\0') {
