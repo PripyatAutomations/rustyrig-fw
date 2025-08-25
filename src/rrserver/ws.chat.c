@@ -442,7 +442,17 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   } else {
                      Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
                      ws_send_error(cptr, "Ignoring unknown ! command: %s, try !help", cmd);
+                     goto cleanup;
                   }
+                  // handle sending an alert
+                  if (freq_changed || mode_changed || power_changed || width_changed) {
+                     char msgbuf[HTTP_WS_MAX_MSG+1];
+                     prepare_msg(msgbuf, sizeof(msgbuf),
+                        "{ \"notice\": { \"ts\": %lu, \"msg\": \"Set rig0\", \"from\": \"%s\" } }",
+                           now, cptr->chatname);
+                  } 
+                  //
+                  goto cleanup;
                }
             } else {			// just a message
                char *escaped_msg = escape_html(data);
