@@ -133,7 +133,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
 bool cfg_init(dict *d, defconfig_t *defaults) {
    // If not existing, create the dictionary for storage
    if (!d) {
-      d = dict_new();
+      return true;
    }
 
    return false;
@@ -149,6 +149,10 @@ bool cfg_detect_and_load(void) {
 
    // Find and load the configuration file
    char *fullpath = find_file_by_list(configs, num_configs);
+
+   if (!default_cfg) {
+      default_cfg = dict_new();
+   }
 
    // Load the default configuration
    cfg_init(default_cfg, defcfg);
@@ -325,6 +329,10 @@ dict *cfg_load(const char *path) {
             while (*val == ' ' || *val == '\t') {
                val++;
             }
+         }
+
+         if (!key) {
+            continue;
          }
 
          // trim trailing whitespace off the key
@@ -706,7 +714,8 @@ reload_event_t *reload_event_add(const char *key, bool (*callback)(), const char
    if (note) {
       r->note = strdup(note);
    }
-   return NULL;
+
+   return r;
 }
 
 bool reload_event_list(const char *key) {

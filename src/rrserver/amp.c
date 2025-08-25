@@ -61,7 +61,7 @@ bool rr_amp_init_all(void) {
 // Called to free memory allocated by the amp subsystem
 // This will be called before reloading
 bool rr_amp_fini(void) {
-   for (int index; index < (MAX_AMPS - 1); index++) {
+   for (int index = 0; index < (MAX_AMPS - 1); index++) {
       if (amp_data[index] != NULL){
          free(amp_data[index]);
          amp_data[index] = NULL;

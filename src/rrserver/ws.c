@@ -323,7 +323,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
             }
 
            char *common = codec_filter_common(preferred, media_codecs);
-           free(preferred);
+           free((char *)preferred);
 
            if (strlen(common) < 4) {
               free(common);
@@ -534,7 +534,7 @@ bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
    va_list ap;
    va_start(ap, fmt);
    vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
-
+   va_end(ap);
    char *escaped_msg = escape_html(fullmsg);
 
    prepare_msg(msgbuf, sizeof(msgbuf),

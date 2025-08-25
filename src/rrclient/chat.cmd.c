@@ -28,7 +28,6 @@
 #include "rrclient/ws.h"
 
 extern bool dying;
-extern bool ws_connected;
 extern struct mg_connection *ws_conn;
 extern GtkWidget *chat_entry;
 extern GtkWidget *rx_vol_slider;

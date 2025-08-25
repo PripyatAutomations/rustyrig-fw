@@ -145,7 +145,9 @@ if (wm->data.len >= sizeof(rrws_frame_header_t)) {
 
 static int connect_unix(const char *path) {
    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-   if (fd < 0) return -1;
+   if (fd < 0) {
+      return -1;
+   }
    struct sockaddr_un addr;
    memset(&addr, 0, sizeof addr);
    addr.sun_family = AF_UNIX;
@@ -158,14 +160,26 @@ static int connect_unix(const char *path) {
 
 static int listen_unix(const char *path) {
    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-   if (fd < 0) return -1;
+
+   if (fd < 0) {
+      return -1;
+   }
+
    struct sockaddr_un addr;
    memset(&addr, 0, sizeof addr);
    addr.sun_family = AF_UNIX;
    strncpy(addr.sun_path, path, sizeof(addr.sun_path)-1);
-   unlink(path); // remove old
-   if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) { close(fd); return -1; }
-   if (listen(fd, 1) < 0) { close(fd); return -1; }
+   unlink(path);
+
+   if (bind(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
+      close(fd);
+      return -1;
+   }
+
+   if (listen(fd, 1) < 0) {
+      close(fd);
+      return -1;
+   }
    int cfd = accept(fd, NULL, NULL);
    close(fd);
    return cfd;
@@ -173,23 +187,44 @@ static int listen_unix(const char *path) {
 
 au_shm_ctx *au_shm_open_reader(const char *path) {
    int fd = connect_unix(path);
-   if (fd < 0) return NULL;
+
+   if (fd < 0) {
+      return NULL;
+   }
+
    au_shm_ctx *ctx = calloc(1, sizeof *ctx);
+   if (!ctx) {
+      return NULL;
+   }
+
    ctx->fd = fd;
    return ctx;
 }
 
 au_shm_ctx *au_shm_open_writer(const char *path) {
    int fd = listen_unix(path);
-   if (fd < 0) return NULL;
+
+   if (fd < 0) {
+      return NULL;
+   }
+
    au_shm_ctx *ctx = calloc(1, sizeof *ctx);
+   if (!ctx) {
+      return NULL;
+   }
+
    ctx->fd = fd;
    return ctx;
 }
 
 void au_shm_close(au_shm_ctx *ctx) {
-   if (!ctx) return;
-   if (ctx->fd >= 0) close(ctx->fd);
+   if (!ctx) {
+      return;
+   }
+
+   if (ctx->fd >= 0) {
+      close(ctx->fd);
+   }
    free(ctx);
 }
 
@@ -198,9 +233,14 @@ int au_shm_read(au_shm_ctx *ctx, void *buf, size_t n) {
    size_t left = n;
    while (left > 0) {
       ssize_t r = read(ctx->fd, p, left);
-      if (r == 0) return -1;         // EOF
+      if (r == 0) {
+         return -1;         // EOF
+      }
+
       if (r < 0) {
-         if (errno == EINTR) continue;
+         if (errno == EINTR) {
+            continue;
+         }
          return -1;
       }
       p += r; left -= r;
@@ -214,7 +254,9 @@ int au_shm_write(au_shm_ctx *ctx, const void *buf, size_t n) {
    while (left > 0) {
       ssize_t w = write(ctx->fd, p, left);
       if (w <= 0) {
-         if (errno == EINTR) continue;
+         if (errno == EINTR) {
+            continue;
+         }
          return -1;
       }
       p += w; left -= w;

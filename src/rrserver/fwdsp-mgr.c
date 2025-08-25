@@ -101,7 +101,7 @@ bool fwdsp_init(void) {
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
       Log(LOG_DEBUG, "fwdsp-mgr", "fwdsp initializing with %d slots available", max_subprocs);
-      free(max_subprocs_s);
+      free((char *)max_subprocs_s);
    } else {
       Log(LOG_CRIT, "config",  "fwdsp:subproc.max must be set in config for fwdsp manager to work!");
       return true;
@@ -150,8 +150,9 @@ bool fwdsp_init(void) {
 }
 
 bool fwdsp_fini(void) {
-   free(fwdsp_path);
+   free((char *)fwdsp_path);
    fwdsp_path = NULL;
+   return false;
 }
 
 static int fwdsp_find_offset(const char *id, bool is_tx) {
@@ -349,7 +350,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 
    // --- Parent ---
    sp->pid = pid;
-   free(fwdsp_path);
+   free((char *)fwdsp_path);
 
    if (sp->io_type == FW_IO_STDIO) {
       close(in_pipe[0]);
