@@ -203,7 +203,7 @@ const char *format_freq(long hz, char *buf, size_t len) {
    if (hz >= 1000000) {
       snprintf(buf, len, "%.3f MHz", hz / 1e6);
    } else if (hz >= 1000) {
-      snprintf(buf, len, "%.1f kHz", hz / 1e3);
+      snprintf(buf, len, "%.1f KHz", hz / 1e3);
    } else {
       snprintf(buf, len, "%ld Hz", hz);
    }

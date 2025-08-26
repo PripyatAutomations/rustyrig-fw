@@ -120,6 +120,8 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    // make sure we're not accessing unsafe memory
    if (cptr->user && cptr->chatname[0] != '\0') {
       if (cptr->active) {
+         ws_send_notice(c, "You have been kicked from the server: %s", reason);
+
          // blorp out a quit to all connected users
          prepare_msg(resp_buf, sizeof(resp_buf),
                      "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"%s\", \"ts\": %li, \"clones\": %d } }",
@@ -205,7 +207,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    time_t ping_expiry = ts_t + HTTP_PING_TIME;
    if ((ping_expiry) < now) {
       Log(LOG_AUDIT, "http.pong", "Late ping for mg_conn:<%x> on cptr:<%x> from %s:%d ts: %li + %li (timeout) < now %li", c, cptr, ip, port, ts_t, HTTP_PING_TIMEOUT, now);
-      ws_kick_client(cptr, "Network Error: PING timeout");
+      ws_kick_client(cptr, "Network Error: PING expired");
       rv = true;
       goto cleanup;
    } else { // The pong response is valid, update the client's data

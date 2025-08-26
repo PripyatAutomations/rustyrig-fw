@@ -414,6 +414,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   } else if (strcasecmp(cmd, "freq") == 0) {
                      long real_freq = parse_freq(arg);
                      Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", real_freq, arg, cptr->chatname);
+
                      if (real_freq >= 0) {
                         rr_freq_set(active_vfo, real_freq);
                         freq_changed = true;
@@ -422,6 +423,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      }
                   } else if (strcasecmp(cmd, "mode") == 0) {
                      rr_mode_t new_mode = vfo_parse_mode(arg);
+
                      if (new_mode != MODE_NONE) {
                         mode_changed = true;
                         Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
@@ -444,6 +446,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      ws_send_error(cptr, "Ignoring unknown ! command: %s, try !help", cmd);
                      goto cleanup;
                   }
+
                   // handle sending an alert
                   if (freq_changed || mode_changed || power_changed || width_changed) {
                      char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -456,18 +459,36 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                }
             } else {			// just a message
                char *escaped_msg = escape_html(data);
+
                if (!escaped_msg) {
                   Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
                   rv = true;
                   goto cleanup;
                }
-               prepare_msg(msgbuf, sizeof(msgbuf),
-                  "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", \"ts\":"
-                  " %lu, \"msg_type\": \"%s\" } }",
-                           cptr->chatname, escaped_msg, now, msg_type);
-               mp = mg_str(msgbuf);
+
+               // XXX: This bit needs to made into a variadic function that is passed
+               // XXX: sets of type, key, value so we can stop making *everything* strings...
+               // XXX:  dict *md = dict_new_ext(VAL_STR, "talk.cmd", "msg", VAL_LONG, "talk.ts", now)
+               // XXX:  char *jp = dict2json(md);
+               // XXX:  mp = mg_str(jp);
+               // XXX:  ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+               
+               dict *md = dict_new();
+               dict_add(md, "talk.cmd", "msg");
+               dict_add(md, "talk.data", escaped_msg);
+               dict_add(md, "talk.from", cptr->chatname);
+               dict_add(md, "talk.msg_type", msg_type);
+               char ts_s[32];
+               prepare_msg(ts_s, sizeof(ts_s), "%lu", now);
+               dict_add(md, "talk.ts", ts_s);
+               char *jp = dict2json(md);
+               fprintf(stderr, "jp: %s\n", jp);
+               dict_free(md);
+               mp = mg_str(jp);
+
                // Send to everyone, including the sender, which will then display it as SelfMsg
                ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+               free(jp);
                free(escaped_msg);
             }
          }

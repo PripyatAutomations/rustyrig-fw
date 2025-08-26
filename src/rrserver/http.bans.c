@@ -35,8 +35,32 @@
 #include "common/util.file.h"
 extern struct mg_mgr mg_mgr;
 
+struct http_ua_ban {
+   char *useragent;	// saved user agent regex
+   char *description;	// Description
+   bool enabled;	// is this ban enabled?
+   struct http_ua_ban *next; // next ban
+};
+typedef struct http_ua_ban http_ua_ban_t;
+
+struct http_ua_ban *http_ua_bans = NULL;
+
 bool is_http_banned(const char *ua) {
+   // No user-agent, return not banned
+   if (!ua) {
+      // XXX: Should we force user-agent to be present? set to true if so
+      return false;
+   }
+
    // Check user-agent against the the user-agent bans
+   struct http_ua_ban *b = http_ua_bans;
+   while (b) {
+      // XXX: regex match the user agent
+      if ( /* ... */ false ) {
+         return true;
+      }
+      b = b->next;
+   }
    return false;
 }
 
@@ -80,6 +104,23 @@ bool load_http_ua_bans(const char *path) {
       }
 
       // If we made it this far, it's probably a valid line, parse it
+      http_ua_ban_t *p = http_ua_bans;
+
+      // find the end of list
+      while (p) {
+         // ensure we return a non-null pointer
+         if (p->next) {
+            p = p->next;
+         } else {
+            break;
+         }
+      }
+
+      // Add to the linked list at the tail
+      if (p) {
+         http_ua_ban_t *new_ban = malloc(sizeof(http_ua_ban_t));
+         p->next = new_ban;
+      }
    }
    fclose(fp);
    return false;

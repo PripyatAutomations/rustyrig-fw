@@ -5,6 +5,7 @@ comm_objs += cat.yaesu.o		# Yaesu CAT protocol
 comm_objs += codecneg.o
 comm_objs += debug.o			# Debug stuff
 comm_objs += dict.o			# dictionary object
+comm_objs += dict2json.o		# support for converting between dict and json
 comm_objs += io.o			# Input/Output abstraction/portability
 comm_objs += io.serial.o		# Serial port stuff
 comm_objs += io.socket.o		# Socket operations
