@@ -1,4 +1,4 @@
-rustyrig-fw (20250825) testing; urgency=medium
+rustyrig-fw (20250826) testing; urgency=medium
 * Improved GtkFreqEntry
 * Code cleanup & some static analysis
 * Temporary shell script based launcher for gst pipelines (./gst-test.sh called by test-run.sh)
@@ -10,8 +10,12 @@ rustyrig-fw (20250825) testing; urgency=medium
   - Allow stray whitepsace around the = in key/val sections
   - Whitespaces trailing and leading are properly scrubbed now
   - Work on reload events, so if/when we add reloading the config without a restart
+* Added dict2json / json2dict (src/common/dict2json.c and inc/common/dict2json.h)
+  - Supports turning a dict into a blob of json for sending to users
+  - Soon will have json to dict, for parsing user messages into an easy to handle dict * object
+* More code cleanup
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 25 Aug 2025 23:39:01 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 26 Aug 2025 01:10:01 -0400
 
 rustyrig-fw (20250816) testing; urgency=medium
 
