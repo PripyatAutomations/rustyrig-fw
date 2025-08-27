@@ -78,6 +78,10 @@ struct RecordingData *active_recordings[MAX_RECORD_OPEN];
 
 // Returns the ID of of the new recording
 const char *au_recording_start(int channel) {
+   if (channel < 0) {
+      return NULL;
+   }
+
    char *recording_id = malloc(RECORDING_ID_LEN+1);
    generate_nonce(recording_id, sizeof(recording_id));
 

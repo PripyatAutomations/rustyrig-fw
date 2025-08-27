@@ -287,6 +287,7 @@ bool ws_send_users(http_client_t *cptr) {
     return false;
 }
 
+// XXX: Once json2dict is implemented, we need to use it here
 bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    if (!msg || !c) {
       return true;
@@ -327,7 +328,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          if (!has_priv(cptr->user->uid, "admin|owner|chat")) {
-            Log(LOG_INFO, "chat", "user %s doesn't have chat privileges but tried to send a message", user);
+            Log(LOG_CRAZY, "chat", "user %s doesn't have chat privileges but tried to send a message", user);
             // XXX: Alert the user that their message was NOT deliverred because they aren't allowed to send it.
             rv = true;
             goto cleanup;
@@ -362,9 +363,10 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                char cmd[16], arg[32];
                size_t cmd_len = sizeof(cmd), arg_len = sizeof(arg);
 
-               if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
+               if (cptr->user->is_muted || !has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
                   /// XXX: we should send an error alert
                   rv = true;
+                  ws_chat_err_noprivs(cptr, "TALK");
                   goto cleanup;
                }
 
@@ -466,24 +468,13 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   goto cleanup;
                }
 
-               // XXX: This bit needs to made into a variadic function that is passed
-               // XXX: sets of type, key, value so we can stop making *everything* strings...
-               // XXX:  dict *md = dict_new_ext(VAL_STR, "talk.cmd", "msg", VAL_LONG, "talk.ts", now)
-               // XXX:  char *jp = dict2json(md);
-               // XXX:  mp = mg_str(jp);
-               // XXX:  ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-               
-               dict *md = dict_new();
-               dict_add(md, "talk.cmd", "msg");
-               dict_add(md, "talk.data", escaped_msg);
-               dict_add(md, "talk.from", cptr->chatname);
-               dict_add(md, "talk.msg_type", msg_type);
-               char ts_s[32];
-               prepare_msg(ts_s, sizeof(ts_s), "%lu", now);
-               dict_add(md, "talk.ts", ts_s);
-               char *jp = dict2json(md);
+               char *jp = dict2json_mkstr(
+                  VAL_STR, "talk.cmd", "msg",
+                  VAL_STR, "talk.data", escaped_msg,
+                  VAL_STR, "talk.from", cptr->chatname,
+                  VAL_STR, "talk.msg_type", msg_type,
+                  VAL_LONG, "talk.ts", now);
                fprintf(stderr, "jp: %s\n", jp);
-               dict_free(md);
                mp = mg_str(jp);
 
                // Send to everyone, including the sender, which will then display it as SelfMsg
@@ -492,16 +483,14 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                free(escaped_msg);
             }
          }
-
 #if	0	// XXX: Not yet....
 // XXX: These need moved into a struct array we can walk...
 typedef struct talk_cmd {
    const char *cmd, bool (*cb)();
 } talk_cmd_t;
 talk_cmd_t talk_commands[] = {
-   { "die",	ws_chat_cmd_die
+   { "die",	ws_chat_cmd_die }
 };
-
       } else {
 #else
       } else if (strcasecmp(cmd, "die") == 0) {

@@ -208,12 +208,14 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          rr_vfo_data_t *dp = &vfos[vfo_id];
          mode_name = vfo_mode_name(dp->mode);
 
-#if	0
          // Log PTT event in the master db
          int channel = -1;
+
+#if	0
          if (channel < 0) {
             Log(LOG_CRIT, "ptt", "Couldn't find channel ID for TX stream, ignoring PTT event");
             rv = true;
+            // XXX: send an error & ptt off notice
             goto cleanup;
          }
 #endif
@@ -229,28 +231,32 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
          cptr->is_ptt = c_state;
 
-#if	0
          if (!cptr->ptt_session) {
             const char *recording = au_recording_start(channel);
             cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, dp->freq, mode_name, dp->width, dp->power, recording);
          } else {
             db_ptt_stop(masterdb, cptr->ptt_session);
          }
-#endif
          // Send to log file & consoles
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
 
          // tell everyone about it
          char msgbuf[HTTP_WS_MAX_MSG+1];
-         struct mg_str mp;
-         prepare_msg(msgbuf, sizeof(msgbuf),
-            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"ptt\", \"ptt\": \"%s\", "
-            "\"vfo\": \"%s\", \"power\": %f, \"freq\": %f, \"width\": %d, "
-            "\"mode\": \"%s\", \"ts\": %lu } }",
-             cptr->chatname, ptt_state, vfo, dp->power,
-             dp->freq, dp->width, mode_name, now);
-         mp = mg_str(msgbuf);
+
+         const char *jp = dict2json_mkstr(
+            VAL_STR, "cat.cmd", "ptt",
+            VAL_FLOATP, "cat.mode", dp->freq, 3,
+            VAL_STR, "cat.mode", mode_name,
+            VAL_FLOATP, "cat.power", dp->power, 3,
+            VAL_STR, "cat.ptt", ptt_state,
+            VAL_STR, "cat.user", cptr->chatname,
+            VAL_STR, "cat.vfo", vfo,
+            VAL_INT, "cat.width", dp->width,
+            VAL_LONG, "cat.ts", now);
+         fprintf(stderr, "jp: %s\n", jp);
+         struct mg_str mp = mg_str(msgbuf);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+         free((char *)jp);
 
          rr_ptt_set(c_vfo, c_state);
          free(ptt_state);
@@ -279,13 +285,17 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
 
          // tell everyone about it
-         char msgbuf[HTTP_WS_MAX_MSG+1];
-         struct mg_str mp;
-         prepare_msg(msgbuf, sizeof(msgbuf),
-            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"freq\", \"freq\": \"%f\", \"vfo\": \"%s\", \"ts\": %lu } }",
-             cptr->chatname, new_freq, vfo, now);
-         mp = mg_str(msgbuf);
+         const char *jp = dict2json_mkstr(
+            VAL_STR, "cat.cmd", "freq",
+            VAL_FLOATP, "cat.freq", new_freq, 3,
+            VAL_LONG, "cat.ts", now,
+            VAL_STR, "cat.user", cptr->chatname,
+            VAL_STR, "cat.vfo", vfo);
+         fprintf(stderr, "jp: %s\n", jp);
+
+         struct mg_str mp = mg_str(jp);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+         free((char *)jp);
 
          Log(LOG_AUDIT, "ws.cat", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
          rr_freq_set(c_vfo, new_freq);
@@ -307,16 +317,21 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          rr_vfo_t c_vfo;
          char msgbuf[HTTP_WS_MAX_MSG+1];
-         struct mg_str mp;
          c_vfo = vfo_lookup(vfo[0]);
          cptr->last_heard = now;
 
          // tell everyone about it
-         prepare_msg(msgbuf, sizeof(msgbuf),
-            "{ \"cat\": { \"user\": \"%s\", \"cmd\": \"mode\", \"mode\": \"%s\", \"vfo\": \"%s\", \"ts\": %lu } }",
-            cptr->chatname, mode, vfo, now);
-         mp = mg_str(msgbuf);
+         const char *jp = dict2json_mkstr(
+            VAL_STR, "cat.cmd", "mode",
+            VAL_STR, "cat.mode", mode,
+            VAL_STR, "cat.user", cptr->chatname,
+            VAL_STR, "cat.vfo", vfo,
+            VAL_LONG, "cat.ts", now);
+         fprintf(stderr, "jp: %s\n", jp);
+         struct mg_str mp = mg_str(jp);
+
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+         free((char *)jp);
 
          Log(LOG_AUDIT, "mode", "User %s set VFO %s MODE to %s", cptr->chatname, vfo, mode);
          rr_mode_t new_mode = vfo_parse_mode(mode);

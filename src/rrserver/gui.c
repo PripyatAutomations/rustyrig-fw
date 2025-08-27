@@ -27,6 +27,8 @@
 #include "rrserver/gui.h"
 
 bool gui_init(void) {
+   // Initialize the TUI
+   // Initialize the GTK stuff if configured
    return false;
 }
 
