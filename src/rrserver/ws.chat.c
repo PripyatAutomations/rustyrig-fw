@@ -245,23 +245,24 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
       return true;
    }
 
-   char buf[256];
-   int len = mg_snprintf(buf, sizeof(buf),
-      "{ \"talk\": { \"cmd\": \"userinfo\", \"user\": \"%s\", "
-      "\"privs\": \"%s\", \"tx\": %s, \"muted\": \"%s\", "
-      "\"clones\": %d } }",
-      cptr->chatname,
-      cptr->user->privs,
-      cptr->is_ptt ? "true" : "false",
-      cptr->user->is_muted ? "true" : "false",
-      cptr->user->clones);
+   const char *jp = dict2json_mkstr(
+      VAL_INT, "talk.clones", cptr->user->clones,
+      VAL_STR, "talk.cmd", "userinfo",
+      VAL_BOOL, "talk.muted", cptr->user->is_muted,
+      VAL_STR, "talk.privs", cptr->user->privs,
+      VAL_STR, "talk.user", cptr->chatname,
+      VAL_LONG, "talk.ts", now,
+      VAL_BOOL, "talk.tx", cptr->is_ptt);
+   fprintf(stderr, "jp: %s\n", jp);
 
-   struct mg_str msg = mg_str_n(buf, len);
+   struct mg_str mp = mg_str(jp);
+
    if (acptr) {
-      ws_send_to_cptr(NULL, acptr, &msg, WEBSOCKET_OP_TEXT);
+      ws_send_to_cptr(NULL, acptr, &mp, WEBSOCKET_OP_TEXT);
    } else {
-      ws_broadcast(NULL, &msg, WEBSOCKET_OP_TEXT);
+      ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
    }
+   free((char *)jp);
    return false;
 }
 
@@ -411,7 +412,6 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                         "&nbsp;&nbsp;&nbsp;!power <power> - Set power (NYI)<br/>"
                         "&nbsp;&nbsp;&nbsp;!vfo <vfo> - Switch VFOs (A|B|C)<br/>"
                         "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (narrow|normal|wide)<br/></span>");
-                     rv = false;
                      goto cleanup;
                   } else if (strcasecmp(cmd, "freq") == 0) {
                      long real_freq = parse_freq(arg);
@@ -423,6 +423,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      } else {
                         ws_send_error(cptr, "Invalid freq %s provided for !freq", arg);
                      }
+                     continue;
                   } else if (strcasecmp(cmd, "mode") == 0) {
                      rr_mode_t new_mode = vfo_parse_mode(arg);
 
@@ -434,15 +435,19 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                         // Alert the client that the mode wasn't succesfully applied
                         ws_send_error(cptr, "Invalid mode %s provided for !mode", arg);
                      }
+                     continue;
                   } else if (strcasecmp(cmd, "power") == 0) {
                      power_changed = true;
                      Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);
+                     continue;
                   } else if (strcasecmp(cmd, "width") == 0) {
                      width_changed = true;
                      Log(LOG_DEBUG, "ws.chat", "Got !width %s from %s", arg, cptr->chatname);
                      rr_set_width(active_vfo, arg);
+                     continue;
                   } else if (strcasecmp(cmd, "vfo") == 0) {
                      Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
+                     continue;
                   } else {
                      Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
                      ws_send_error(cptr, "Ignoring unknown ! command: %s, try !help", cmd);
@@ -468,7 +473,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   goto cleanup;
                }
 
-               char *jp = dict2json_mkstr(
+               const char *jp = dict2json_mkstr(
                   VAL_STR, "talk.cmd", "msg",
                   VAL_STR, "talk.data", escaped_msg,
                   VAL_STR, "talk.from", cptr->chatname,
@@ -479,7 +484,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
                // Send to everyone, including the sender, which will then display it as SelfMsg
                ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-               free(jp);
+               free((char *)jp);
                free(escaped_msg);
             }
          }
