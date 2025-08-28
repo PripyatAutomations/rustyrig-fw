@@ -74,6 +74,8 @@ time_t ptt_tot_time = RF_TALK_TIMEOUT;
 extern const char *configs[];
 extern const int num_configs;
 
+char *rig_name = NULL;
+
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
    rig.faultbeep = 1;
@@ -144,16 +146,19 @@ int main(int argc, char **argv) {
    now = time(NULL);
 
    int opt;
-   while ((opt = getopt(argc, argv, "f:h")) != -1) {
+   while ((opt = getopt(argc, argv, "f:hr:")) != -1) {
       switch (opt) {
          case 'f':
             config_file = strdup(optarg);
             break;
+         case 'r':
+            rig_name = strdup(optarg);
             break;
          case 'h':
          default:
-            fprintf(stderr, "Usage: %s [-f config file]]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-f config file] [-r rigname]\n", argv[0]);
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
+            fprintf(stderr, "  -r\t\t\tRig name (for finding config file\n");
             exit(1);
       }
    }

@@ -211,7 +211,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Log PTT event in the master db
          int channel = -1;
 
-#if	0
+#if	0	// XXX: Need to work out channel subscriptions
          if (channel < 0) {
             Log(LOG_CRIT, "ptt", "Couldn't find channel ID for TX stream, ignoring PTT event");
             rv = true;
