@@ -51,7 +51,7 @@ bool ws_list_channels(http_client_t *cptr) {
       // Send a list of available audio channels to the user
       char *escaped_descr = json_escape(lp->chan_description);
 
-      char *jp = dict2json_mkstr(
+      const char *jp = dict2json_mkstr(
          VAL_STR, "media.cmd", "list-reply",
          VAL_STR, "media.from", cptr->chatname,
          VAL_STR, "media.chan-uuid", lp->chan_uuid,
@@ -63,7 +63,7 @@ bool ws_list_channels(http_client_t *cptr) {
 
       // free the allocated memory
       free(escaped_descr);
-      free(jp);
+      free((char *)jp);
 
       lp = lp->next;
    }

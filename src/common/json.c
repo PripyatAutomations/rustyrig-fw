@@ -34,94 +34,136 @@
  */
 
 static const char *skip_ws(const char *s) {
-   while (*s == ' ' || *s == '\n' || *s == '\t' || *s == '\r') s++;
+   while (*s == ' ' || *s == '\n' || *s == '\t' || *s == '\r') {
+      s++;
+   }
+
    return s;
 }
 
-static const char *parse_string(const char *s, char *out, size_t outlen) {
-   if (*s != '"') return NULL;
+static const char *json_parse_str(const char *s, char *out, size_t outlen) {
+   if (*s != '"') {
+      return NULL;
+   }
    s++;
    size_t i = 0;
+
    while (*s && *s != '"') {
-      if (*s == '\\') s++; // skip escaped char
-      if (i < outlen - 1) out[i++] = *s++;
+      if (*s == '\\') {
+         s++; // skip escaped char
+      }
+
+      if (i < outlen - 1) {
+         out[i++] = *s++;
+      }
       else return NULL;
    }
    out[i] = 0;
-   return (*s == '"') ? s + 1 : NULL;
+   return ((*s == '"') ? s + 1 : NULL);
 }
 
-static const char *parse_value(const char *s, char *path, dict *dptr);
+static const char *json_parse_value(const char *s, char *path, dict *dptr);
 
-static const char *parse_object(const char *s, char *path, dict *dptr) {
-   if (*s != '{') return NULL;
+static const char *json_parse_obj(const char *s, char *path, dict *dptr) {
+   if (*s != '{') {
+      return NULL;
+   }
+
    s = skip_ws(s + 1);
+
    while (*s && *s != '}') {
       char key[128], subpath[256];
       s = skip_ws(s);
-      s = parse_string(s, key, sizeof key);
-      if (!s) return NULL;
+
+      s = json_parse_str(s, key, sizeof key);
+      if (!s) {
+         return NULL;
+      }
+
       s = skip_ws(s);
-      if (*s++ != ':') return NULL;
+      if (*s++ != ':') {
+         return NULL;
+      }
       snprintf(subpath, sizeof subpath, "%s.%s", path, key);
+
       s = skip_ws(s);
-      s = parse_value(s, subpath, dptr);
-      if (!s) return NULL;
+      s = json_parse_value(s, subpath, dptr);
+      if (!s) {
+         return NULL;
+      }
+
       s = skip_ws(s);
-      if (*s == ',') s = skip_ws(s + 1);
+      if (*s == ',') {
+         s = skip_ws(s + 1);
+      }
    }
    return (*s == '}') ? s + 1 : NULL;
 }
 
-static const char *parse_array(const char *s, char *path, dict *dptr) {
-   if (*s != '[') return NULL;
+static const char *json_parse_array(const char *s, char *path, dict *dptr) {
+   if (*s != '[') {
+      return NULL;
+   }
+
    s = skip_ws(s + 1);
    int idx = 0;
    while (*s && *s != ']') {
       char subpath[256];
       snprintf(subpath, sizeof subpath, "%s[%d]", path, idx++);
-      s = parse_value(s, subpath, dptr);
-      if (!s) return NULL;
+      s = json_parse_value(s, subpath, dptr);
+      if (!s) {
+         return NULL;
+      }
+
       s = skip_ws(s);
-      if (*s == ',') s = skip_ws(s + 1);
+      if (*s == ',') {
+         s = skip_ws(s + 1);
+      }
    }
    return (*s == ']') ? s + 1 : NULL;
 }
 
-static const char *parse_primitive(const char *s, char *out, size_t outlen) {
+static const char *json_parse_primitive(const char *s, char *out, size_t outlen) {
    size_t i = 0;
    while (*s && !strchr(",}] \t\r\n", *s)) {
-      if (i < outlen - 1) out[i++] = *s++;
-      else return NULL;
+      if (i < outlen - 1) {
+         out[i++] = *s++;
+      } else {
+         return NULL;
+      }
    }
    out[i] = 0;
    return s;
 }
 
-static const char *parse_value(const char *s, char *path, dict *dptr) {
+static const char *json_parse_value(const char *s, char *path, dict *dptr) {
    s = skip_ws(s);
    if (*s == '"') {
       char val[256];
-      s = parse_string(s, val, sizeof val);
-      if (!s) return NULL;
+      s = json_parse_str(s, val, sizeof val);
+      if (!s) {
+         return NULL;
+      }
       dict_add(dptr, path, val);
       return s;
    } else if (*s == '{') {
-      return parse_object(s, path, dptr);
+      return json_parse_obj(s, path, dptr);
    } else if (*s == '[') {
-      return parse_array(s, path, dptr);
+      return json_parse_array(s, path, dptr);
    } else {
       char val[256];
-      s = parse_primitive(s, val, sizeof val);
-      if (!s) return NULL;
+      s = json_parse_primitive(s, val, sizeof val);
+      if (!s) {
+         return NULL;
+      }
       dict_add(dptr, path, val);
       return s;
    }
 }
 
-void parse_and_flatten(const char *json, dict *dptr) {
+void json_parse_and_flatten(const char *json, dict *dptr) {
    char path[4] = "$";
-   parse_value(json, path, dptr);
+   json_parse_value(json, path, dptr);
 }
 
 /////////////////////////////////
@@ -135,6 +177,11 @@ char *json_escape(const char *s) {
    size_t len = strlen(s);
    // worst case every char becomes \uXXXX (6 bytes) + quotes
    char *out = malloc(len * 6 + 3);
+
+   if (!out) {
+      fprintf(stderr, "OOM in json_escape\n");
+      return NULL;
+   }
    char *p = out;
    *p++ = '"';
 
@@ -189,9 +236,18 @@ char *json_escape(const char *s) {
    return out;
 }
 
-static json_node *make_node(const char *key) {
+static json_node *json_make_node(const char *key) {
    json_node *n = calloc(1, sizeof(*n));
+   if (!n) {
+      fprintf(stderr, "OOM in json_make_node\n");
+      return NULL;
+   }
    n->key = strdup(key);
+   if (!n->key) {
+      fprintf(stderr, "OOM in json_make_node strdup\n");
+      free(n);
+      return NULL;
+   }
    return n;
 }
 
@@ -201,7 +257,10 @@ static json_node *find_child(json_node *parent, const char *key) {
          return c;
       }
    }
-   json_node *n = make_node(key);
+   json_node *n = json_make_node(key);
+   if (!n) {
+      return NULL;
+   }
    n->next = parent->child;
    parent->child = n;
    return n;
@@ -209,6 +268,11 @@ static json_node *find_child(json_node *parent, const char *key) {
 
 static void json_insert(json_node *root, const char *fullkey, const char *val) {
    char *tmp = strdup(fullkey);
+   if (!tmp) {
+      fprintf(stderr, "OOM in json_insert\n");
+       return;
+   }
+
    char *tok = strtok(tmp, ".");
    json_node *cur = root;
 
@@ -216,8 +280,16 @@ static void json_insert(json_node *root, const char *fullkey, const char *val) {
       cur = find_child(cur, tok);
       tok = strtok(NULL, ".");
    }
-   if (cur->value) free(cur->value);
+   if (cur->value) {
+      free(cur->value);
+   }
    cur->value = strdup(val ? val : "UNDEF");
+
+   if (!cur->value) {
+      // XXX: deal with this fault
+      fprintf(stderr, "OOM in json_insert strdup\n");
+   }
+
    free(tmp);
 }
 

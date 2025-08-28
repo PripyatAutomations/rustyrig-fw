@@ -202,10 +202,11 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Gather some data about the VFO
          rr_vfo_t vfo_id = VFO_NONE;
          const char *mode_name = NULL;
-         if (vfo == NULL) {
-            vfo_id = VFO_A;
-         } else {
-            vfo_id = vfo_lookup(vfo[0]);
+
+         vfo_id = vfo_lookup(vfo[0]);
+         if (vfo_id < 0) {
+            rv = true;
+            goto cleanup;
          }
          rr_vfo_data_t *dp = &vfos[vfo_id];
          mode_name = vfo_mode_name(dp->mode);
@@ -242,9 +243,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Send to log file & consoles
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
 
-         // tell everyone about it
-         char msgbuf[HTTP_WS_MAX_MSG+1];
-
          const char *jp = dict2json_mkstr(
             VAL_STR, "cat.cmd", "ptt",
             VAL_FLOATP, "cat.mode", dp->freq, 3,
@@ -256,7 +254,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             VAL_INT, "cat.width", dp->width,
             VAL_LONG, "cat.ts", now);
          fprintf(stderr, "jp: %s\n", jp);
-         struct mg_str mp = mg_str(msgbuf);
+         struct mg_str mp = mg_str(jp);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
          free((char *)jp);
 

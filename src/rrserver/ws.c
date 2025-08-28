@@ -492,14 +492,14 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
    va_start(ap, fmt);
    vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
    char *escaped_msg = escape_html(fullmsg);
-   char *jp = dict2json_mkstr(
+   const char *jp = dict2json_mkstr(
       VAL_STR, "error.msg", escaped_msg,
       VAL_LONG, "error.ts", now);
    fprintf(stderr, "jp: %s\n", jp);
 
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free(escaped_msg);
-   free(jp);
+   free((char *)jp);
 
    va_end(ap);
    return false;
@@ -519,14 +519,14 @@ bool ws_send_alert(http_client_t *cptr, const char *fmt, ...) {
    vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
    char *escaped_msg = escape_html(fullmsg);
 
-   char *jp = dict2json_mkstr(
+   const char *jp = dict2json_mkstr(
       VAL_STR, "alert.msg", escaped_msg,
       VAL_LONG, "alert.ts", now);
    fprintf(stderr, "jp: %s\n", jp);
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
 
    free(escaped_msg);
-   free(jp);
+   free((char *)jp);
 
    va_end(ap);
    return false;
@@ -545,14 +545,14 @@ bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
    vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
    va_end(ap);
    char *escaped_msg = escape_html(fullmsg);
-   char *jp = dict2json_mkstr(
+   const char *jp = dict2json_mkstr(
       VAL_STR, "notice.msg", escaped_msg,
       VAL_LONG, "notice.ts", now);
    fprintf(stderr, "jp: %s\n", jp);
 
    mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
 
-   free(jp);
+   free((char *)jp);
    free(escaped_msg);
    return false;
 }

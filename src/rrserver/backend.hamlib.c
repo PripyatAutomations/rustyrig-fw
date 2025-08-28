@@ -186,7 +186,7 @@ static bool hl_init(void) {
 */
 
    rig_set_conf(hl_rig, rig_token_lookup(hl_rig, "rig_pathname"), (cfg_hamlib_port ? cfg_hamlib_port : BACKEND_HAMLIB_PORT));
-   free(cfg_hamlib_port);
+   free((char *)cfg_hamlib_port);
 
 // XXX: this doesnt work on daedalus
 //   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
