@@ -34,6 +34,7 @@ const char *webcam_common_codecs(const char *our_codecs, const char *cli_codecs)
       return NULL;
    }
    // Find the overlap between our preferred codecs and what the client supports
+   // XXX: Ensure that we only return codecs with pipelines configured
    // No matches
    return NULL;
 }

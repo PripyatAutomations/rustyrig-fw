@@ -28,6 +28,7 @@
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"
+#include "rrserver/ws.mediachan.h"
 #include "common/client-flags.h"
 
 // Messages (client to server):
@@ -36,29 +37,82 @@
 //	UNSUB	- Unsubscribe by UUID, returns OK or ERROR.
 //
 
-typedef struct mediachan_sub {
-   http_client_t        *cptr;			// Client pointer
-   int                   chan_id;			// Channel #, unique only within SESSION
-   struct mediachan_sub *next;		// Next in list
-} mediachan_sub_t;
-
-typedef struct mediachan_list_entry {
-   // Store data about the channel
-   char		chan_uuid[37];		// UUID for the channel
-   char		*chan_description;	// Description of the channel
-
-   //
-   mediachan_sub_t *subs;	// List of subscribers
-   // Pointer to next in list
-   struct media_chan_list_entry *next;
-} mediachan_list_t;
+mediachan_list_t *ws_media_channels = NULL;
 
 bool ws_list_channels(http_client_t *cptr) {
    return false;
 }
 
-// Return the channel ID of this
+// Return the channel ID (slot) for the audio channel in this SESSION
 int ws_subscribe_channel(http_client_t *cptr, const char *chan_uuid) {
    int rv = -1;
    return rv;
+}
+
+// Unsubscribe from a channel
+bool ws_unsubscribe_channel(http_client_t *cptr, int chan_id) {
+   if (!cptr) {
+      return true;
+   }
+
+   return false;
+}
+
+mediachan_list_t *ws_find_channel_by_uuid(const char *chan_uuid) {
+   if (!chan_uuid) {
+      return NULL;
+   }
+
+   mediachan_list_t *lp = ws_media_channels;
+
+   if (!lp) {
+      // No channel found
+      Log(LOG_CRAZY, "ws.media", "find chan by uuid: |%s|, no list", chan_uuid);
+      return NULL;
+   }
+
+   while (lp) {
+      if (lp->chan_uuid[0] != '\0' && strcasecmp(lp->chan_uuid, chan_uuid) == 0) {
+         // This is our match
+         Log(LOG_CRAZY, "ws.media", "find chan by uuid: |%s| returning <%x>", chan_uuid, lp);
+         return lp;
+      }
+      lp = lp->next;
+   }
+
+   return NULL;
+}
+
+mediachan_list_t *ws_find_channel_by_session(http_client_t *cptr, int chan_id) {
+   if (!cptr || chan_id < 0) {
+      return NULL;
+   }
+
+   mediachan_list_t *lp = ws_media_channels;
+
+   if (!lp) {
+      Log(LOG_CRAZY, "ws.media", "find chan by session: cptr:<%x> id:%d", cptr, chan_id);
+      return NULL;
+   }
+
+   // Walk the active channels list
+   while (lp) {
+      // walk the subscribers list for this channel
+      mediachan_sub_t *sub = lp->subs;
+
+      if (!sub) {
+         // No subscribers
+         continue;
+      }
+
+      while (sub) {
+         if ((sub->cptr == cptr) && (sub->chan_id == chan_id)) {
+            Log(LOG_CRAZY, "ws.media", "find chan by session: cptr:<%x> id:%d", cptr, chan_id);
+            return lp;
+         }
+         sub = sub->next;
+      }
+      lp = lp->next;
+   }
+   return NULL;
 }
