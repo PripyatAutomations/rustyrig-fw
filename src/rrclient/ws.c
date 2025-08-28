@@ -57,9 +57,8 @@ bool cfg_http_debug_crazy = false;
 //////////////////////////////////
 extern rr_connection_t *active_connections;
 
-
-//// OLD way
-extern time_t poll_block_expire, poll_block_delay;
+//// OLD way, needs merged into rr_connection_t
+ extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 char active_server[512];
 bool ws_connected = false;	// Is RX stream connecte?
@@ -67,9 +66,9 @@ bool ws_tx_connected = false;	// Is TX stream connected?
 struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 bool server_ptt_state = false;
 
-////////////////////////////////
-///// ws.*.c message handlers //
-////////////////////////////////
+//////////////////////
+// Websocket router //
+//////////////////////
 extern bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg);
@@ -81,9 +80,6 @@ extern bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *
 extern bool ws_handle_syslog_msg(struct mg_connection *c, struct mg_ws_message *msg);
 extern bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg);
 
-///////////////////////////////
-// A better way to route ws //
-///////////////////////////////
 struct ws_msg_routes {
    const char *type;		// auth|ping|talk|cat|alert|error|hello etc
    bool (*cb)(/*struct mg_connection *c, struct mg_ws_message *msg*/);
@@ -102,8 +98,6 @@ struct ws_msg_routes ws_routes[] = {
    { .type = "talk",	.cb = ws_handle_talk_msg },
    { .type = NULL,	.cb = NULL }
 };
-
-////
 
 bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    struct mg_str msg_data = msg->data;

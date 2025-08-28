@@ -25,6 +25,7 @@
 #include "common/logger.h"
 #include "common/cat.h"
 #include "common/posix.h"
+#include "common/json.h"
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"
@@ -40,12 +41,75 @@
 mediachan_list_t *ws_media_channels = NULL;
 
 bool ws_list_channels(http_client_t *cptr) {
+   mediachan_list_t *lp = ws_media_channels;
+   if (!lp) {
+      // Send no available channels error
+      return false;
+   }
+
+   while (lp) {
+      // Send a list of available audio channels to the user
+      char *escaped_descr = json_escape(lp->chan_description);
+
+      char *jp = dict2json_mkstr(
+         VAL_STR, "media.cmd", "list-reply",
+         VAL_STR, "media.from", cptr->chatname,
+         VAL_STR, "media.chan-uuid", lp->chan_uuid,
+         VAL_STR, "media.chan-descr", escaped_descr ? escaped_descr : "*** No description ***",
+         VAL_LONG, "media.ts", now);
+      fprintf(stderr, "jp: %s\n", jp);
+
+      // Send the message to cptr
+
+      // free the allocated memory
+      free(escaped_descr);
+      free(jp);
+
+      lp = lp->next;
+   }
    return false;
 }
 
 // Return the channel ID (slot) for the audio channel in this SESSION
 int ws_subscribe_channel(http_client_t *cptr, const char *chan_uuid) {
    int rv = -1;
+   mediachan_list_t *lp = ws_find_channel_by_uuid(chan_uuid);
+
+   // XXX: Part of me wants to use subscribe for CREATE too...
+   if (!lp) {
+      Log(LOG_CRAZY, "ws.media", "subscribe chan cptr:<%x> uuid: |%s|", cptr, chan_uuid);
+      return -1;
+   }
+
+   // Add client to the channel's subscriber list
+   mediachan_sub_t *sub = malloc(sizeof(mediachan_sub_t));
+
+   if (!sub) {
+      fprintf(stderr, "OOM in ws_subscribe_channel\n");
+      return -1;
+   }
+
+   int chan_id = -1;		// we must find an available channel ID
+
+   // Save things to the subscriber struct
+   sub->cptr = cptr;
+   sub->chan_id = chan_id;
+   sub->chan_ptr = lp;
+
+   // First subscriber
+   if (!lp->subs) {
+      lp->subs = sub;
+   } else {
+      mediachan_sub_t *sp = lp->subs;
+      while (sp) {
+         // add to tail of list
+         if (sp->next == NULL) {
+            sp->next = sub;
+            break;
+         }
+         sp = sp->next;
+      }
+   }
    return rv;
 }
 
@@ -55,6 +119,28 @@ bool ws_unsubscribe_channel(http_client_t *cptr, int chan_id) {
       return true;
    }
 
+   mediachan_list_t *lp = ws_media_channels;
+   if (!lp) {
+      Log(LOG_CRAZY, "ws.media", "unsub chan: no active channels");
+      return false;
+   }
+
+   while (lp) {
+      mediachan_sub_t *sp = lp->subs;
+      if (!sp) {
+         // channel has no subscribers
+         continue;
+      }
+
+      // walk subscribers
+      while (sp) {
+         if ((sp->cptr == cptr) && (sp->chan_id == chan_id)) {
+            return lp;
+         }
+         sp = sp->next;
+      }
+      lp = lp->next;
+   }
    return false;
 }
 

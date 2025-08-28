@@ -142,33 +142,6 @@ int update_timestamp(void) {
    return 0;
 }
 
-char *json_escape(const char *in, char *out) {
-   size_t len = strlen(in);
-   char *p = out;
-
-   for (; *in; in++) {
-      switch (*in) {
-         case '\"': *p++ = '\\'; *p++ = '\"'; break;
-         case '\\': *p++ = '\\'; *p++ = '\\'; break;
-         case '\b': *p++ = '\\'; *p++ = 'b'; break;
-         case '\f': *p++ = '\\'; *p++ = 'f'; break;
-         case '\n': *p++ = '\\'; *p++ = 'n'; break;
-         case '\r': *p++ = '\\'; *p++ = 'r'; break;
-         case '\t': *p++ = '\\'; *p++ = 't'; break;
-         default:
-            if ((unsigned char)*in < 0x20) {
-               sprintf(p, "\\u%04x", *in);
-               p += 6;
-            } else {
-               *p++ = *in;
-            }
-      }
-   }
-
-   *p = '\0';
-   return out;
-}
-
 void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    char msgbuf[513];
    char ts_log_msg[1025];
@@ -238,16 +211,15 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 // if not in rrclient/fwdsp code, we should bcast this to users with SYSLOG flag
 #if	!defined(__RRCLIENT) && !defined(__FWDSP)
    char ws_logbuf[2048];
-   char ws_json_escaped[1024];
-   memset(ws_json_escaped, 0, sizeof(ws_json_escaped));
    memset(ws_logbuf, 0, sizeof(ws_logbuf));
-   json_escape(log_msg, ws_json_escaped);
+   char *ws_json_escaped = json_escape(log_msg);
 
    snprintf(ws_logbuf, sizeof(ws_logbuf), "{ \"syslog\": { \"ts\": %lu, \"subsys\": \"%s\", \"prio\": \"%s\", \"data\": \"%s\" } }",
             now, subsys, log_priority_to_str(priority), ws_json_escaped);
    struct mg_str ms = mg_str(ws_logbuf);
    ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms, WEBSOCKET_OP_TEXT);
    fprintf(stderr, "syslog sent: %s", ws_logbuf);
+   free(ws_json_escape);
 #else
 #if	defined(__RRCLIENT)
 // For rrclient, we send it to the log tab too

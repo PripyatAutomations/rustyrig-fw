@@ -43,6 +43,7 @@ struct mediachan_list_entry {
    mediachan_list_t *next;
 };
 
+// Websocket media channels
 extern mediachan_list_t *ws_media_channels;
 
 ///

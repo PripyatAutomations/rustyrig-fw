@@ -17,15 +17,16 @@
 #include <string.h>
 #include <time.h>
 #include "../../ext/libmongoose/mongoose.h"
+#include "common/logger.h"
+#include "common/cat.h"
+#include "common/posix.h"
+#include "common/json.h"
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "common/logger.h"
 #include "rrserver/au.h"
 #include "rrserver/auth.h"
 #include "rrserver/backend.h"
-#include "common/cat.h"
-#include "common/posix.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"
 #include "rrserver/vfo.h"
@@ -174,6 +175,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    // Support for 'noob' class users who can only control rig if an elmer is present
+   // XXX: Add support for per noob Elmer (link from noob to elmer(s) who have approved their use)
    if (client_has_flag(cptr, FLAG_NOOB) && !is_elmer_online()) {
       Log(LOG_AUDIT, "ws.rigctl", "Ignoring %s command from %s as they're a noob and no elmers are online", cmd, cptr->chatname);
       return true;

@@ -12,7 +12,6 @@
 //#include <stdint.h>
 
 #include "common/dict.h"
-#include "common/dict2json.h"
 
 // Maximum length of an expanded string, XXX: Move to header file common/config.h
 #define	MAX_CFG_EXP_STRLEN	65535

@@ -76,6 +76,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          case GDK_KEY_D:
          case GDK_KEY_d: {
             gtk_widget_grab_focus(GTK_WIDGET(mode_combo));
+            gtk_combo_box_popup(GTK_COMBO_BOX(mode_combo));
             break;
          }
          case GDK_KEY_F:
@@ -107,11 +108,13 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          case GDK_KEY_R:
          case GDK_KEY_r: {
             gtk_widget_grab_focus(GTK_WIDGET(rx_combo));
+            gtk_combo_box_popup(GTK_COMBO_BOX(rx_combo));
             break;
          }
          case GDK_KEY_T:
          case GDK_KEY_t: {
             gtk_widget_grab_focus(GTK_WIDGET(tx_combo));
+            gtk_combo_box_popup(GTK_COMBO_BOX(tx_combo));
             break;
          }
          case GDK_KEY_U:
@@ -141,6 +144,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          case GDK_KEY_W:
          case GDK_KEY_w: {
             gtk_widget_grab_focus(GTK_WIDGET(width_combo));
+            gtk_combo_box_popup(GTK_COMBO_BOX(width_combo));
             break;
          }
       }

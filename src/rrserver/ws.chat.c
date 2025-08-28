@@ -24,6 +24,7 @@
 #include "common/logger.h"
 #include "common/cat.h"
 #include "common/posix.h"
+#include "common/json.h"
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"
@@ -65,7 +66,7 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
    }
 
    if (client_has_flag(cptr, FLAG_STAFF)) {
-      // Send an ALERRT to all connected users
+      // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf),
          "Shutting down due to /die \"%s\" from %s (uid: %d with privs %s)",
@@ -175,7 +176,7 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 
       // broadcast the userinfo so cul updates
       ws_send_userinfo(acptr, NULL);
-      Log(LOG_AUDIT, "admin.mute", msgbuf);
+      Log(LOG_AUDIT, "admin.mute", "%s", msgbuf);
 
       // turn off PTT if this user holds it
       if (acptr->is_ptt) {

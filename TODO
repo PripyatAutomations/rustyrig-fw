@@ -7,9 +7,9 @@
 = rrclient =
 ============
 [general]
+* Support PTT lock; controlled by ctrl or shift clicking PTT button (disable ptt lock by default)
 * Add mute/unmute button for RX audio which halts sending the samples entirely
 * Add throttled reconnect like webui has
-* Finish parsing server messages
 * Implement rest of controls typically used by hams
 * Finish whois/reason dialogs
 * Add more error messages when privileges denied, etc. (server side)
@@ -36,14 +36,12 @@
 * Support bluetooth PTT buttons
 * Maybe automate routing of headsets when connected, if reasonably feasible?
 
-
 [cfgedit]	URGENT
 * Option to edit on-disk or in-memory configuration
 * Make save config moves the file to .old first
 * Make sure servers are dumped and 
 
 [gui]
-* Make all windows hide/restore with the main window, even if modal
 * Deal with hidden window attribute
 
 ===============

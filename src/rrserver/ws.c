@@ -24,6 +24,7 @@
 #include "common/logger.h"
 #include "common/posix.h"
 #include "common/codecneg.h"
+#include "common/json.h"
 #include "rrserver/state.h"
 #include "rrserver/ws.h"
 #include "rrserver/fwdsp-mgr.h"
@@ -121,6 +122,8 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    if (cptr->user && cptr->chatname[0] != '\0') {
       if (cptr->active) {
          ws_send_notice(c, "You have been kicked from the server: %s", reason);
+
+         // XXX: replace with ws_broadcast_quit(cptr);
 
          // blorp out a quit to all connected users
          prepare_msg(resp_buf, sizeof(resp_buf),
@@ -483,19 +486,21 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
       return true;
    }
 
-   char msgbuf[HTTP_WS_MAX_MSG+1];
    char fullmsg[HTTP_WS_MAX_MSG - 55];
-   memset(msgbuf, 0, sizeof(msgbuf));
+   memset(fullmsg, 0, sizeof(fullmsg));
    va_list ap;
    va_start(ap, fmt);
    vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
    char *escaped_msg = escape_html(fullmsg);
+   char *jp = dict2json_mkstr(
+      VAL_STR, "error.msg", escaped_msg,
+      VAL_LONG, "error.ts", now);
+   fprintf(stderr, "jp: %s\n", jp);
 
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"error\": { \"ts\": %lu, \"msg\": \"%s\" } }",
-         now, escaped_msg);
-   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free(escaped_msg);
+   free(jp);
+
    va_end(ap);
    return false;
 }
@@ -506,20 +511,23 @@ bool ws_send_alert(http_client_t *cptr, const char *fmt, ...) {
       return true;
    }
 
-   char msgbuf[HTTP_WS_MAX_MSG+1];
    char fullmsg[HTTP_WS_MAX_MSG - 55];
-   memset(msgbuf, 0, sizeof(msgbuf));
+   memset(fullmsg, 0, sizeof(fullmsg));
 
    va_list ap;
    va_start(ap, fmt);
    vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
    char *escaped_msg = escape_html(fullmsg);
 
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"alert\": { \"ts\": %lu, \"msg\": \"%s\" } }",
-         now, escaped_msg);
-   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   char *jp = dict2json_mkstr(
+      VAL_STR, "alert.msg", escaped_msg,
+      VAL_LONG, "alert.ts", now);
+   fprintf(stderr, "jp: %s\n", jp);
+   mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+
    free(escaped_msg);
+   free(jp);
+
    va_end(ap);
    return false;
 }
@@ -529,21 +537,22 @@ bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
       return true;
    }
 
-   char msgbuf[HTTP_WS_MAX_MSG+1];
    char fullmsg[HTTP_WS_MAX_MSG - 55];
-   memset(msgbuf, 0, sizeof(msgbuf));
+   memset(fullmsg, 0, sizeof(fullmsg));
 
    va_list ap;
    va_start(ap, fmt);
    vsnprintf(fullmsg, sizeof(fullmsg), fmt, ap);
    va_end(ap);
    char *escaped_msg = escape_html(fullmsg);
+   char *jp = dict2json_mkstr(
+      VAL_STR, "notice.msg", escaped_msg,
+      VAL_LONG, "notice.ts", now);
+   fprintf(stderr, "jp: %s\n", jp);
 
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"notice\": { \"msg\": \"%s\", \"ts\": %li } }",
-      escaped_msg, now);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
 
+   free(jp);
    free(escaped_msg);
    return false;
 }
