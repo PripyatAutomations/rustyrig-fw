@@ -51,5 +51,4 @@ fw_objs += ws.o			# Websocket transport general
 fw_objs += ws.audio.o		# Audio (raw / OPUS) over websockets
 fw_objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
 fw_objs += ws.chat.o		# Websocket Chat (talk)
-fw_objs += ws.mediachan.o	# Media channel
 fw_objs += ws.rigctl.o		# Websocket Rig Control (CAT)

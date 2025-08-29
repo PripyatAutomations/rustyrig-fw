@@ -74,13 +74,13 @@ static bool http_help(struct mg_http_message *msg, struct mg_connection *c) {
       snprintf(topic, t_sz, "index");
    }
 
-   snprintf(help_path, h_sz, "%s/help/%s.html", www_root, topic);
-
-   // Sanity check the URL
-   if (check_url(help_path)) {
-      Log(LOG_AUDIT, "http.api", "Naughty URL %s in http_help", help_path);
+   // Sanity check the topic doesnt contain illegal characters like .. or /
+   if (check_url(topic)) {
+      Log(LOG_AUDIT, "http.api", "Topic |%s| contains sketch characters, bailing from http_help", help_path);
       return true;
    }
+
+   snprintf(help_path, h_sz, "%s/help/%s.html", www_root, topic);
 
    if (file_exists(help_path) != true) {
       Log(LOG_AUDIT, "http.api", "help: %s doesn't exist", help_path);

@@ -343,7 +343,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
               cptr->chatname, cptr, media_codecs, cfg_get("codecs.allowed"), common, def_codec);
            char msgbuf[HTTP_WS_MAX_MSG+1];
 
-           // XXX: We should look up pipelines that are configured so we can only list codecs that can actually be used
+           // XXX: We should look up pipelines that are configured, so we can list only codecs that can actually be used
            prepare_msg(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"isupport\", \"codecs\": \"%s\", \"preferred\": \"%s\" } }", common, def_codec);
            mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
            Log(LOG_DEBUG, "ws.media", "Sending supported codecs |%s| with preferred |%s| to client |%s|", common, def_codec, cptr->chatname);
@@ -495,7 +495,6 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
    const char *jp = dict2json_mkstr(
       VAL_STR, "error.msg", escaped_msg,
       VAL_LONG, "error.ts", now);
-   fprintf(stderr, "jp: %s\n", jp);
 
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free(escaped_msg);
@@ -522,7 +521,7 @@ bool ws_send_alert(http_client_t *cptr, const char *fmt, ...) {
    const char *jp = dict2json_mkstr(
       VAL_STR, "alert.msg", escaped_msg,
       VAL_LONG, "alert.ts", now);
-   fprintf(stderr, "jp: %s\n", jp);
+
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
 
    free(escaped_msg);
@@ -548,7 +547,6 @@ bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
    const char *jp = dict2json_mkstr(
       VAL_STR, "notice.msg", escaped_msg,
       VAL_LONG, "notice.ts", now);
-   fprintf(stderr, "jp: %s\n", jp);
 
    mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
 

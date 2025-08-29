@@ -254,7 +254,6 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
       VAL_STR, "talk.user", cptr->chatname,
       VAL_LONG, "talk.ts", now,
       VAL_BOOL, "talk.tx", cptr->is_ptt);
-   fprintf(stderr, "jp: %s\n", jp);
 
    struct mg_str mp = mg_str(jp);
 
@@ -480,7 +479,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   VAL_STR, "talk.from", cptr->chatname,
                   VAL_STR, "talk.msg_type", msg_type,
                   VAL_LONG, "talk.ts", now);
-               fprintf(stderr, "jp: %s\n", jp);
+
                mp = mg_str(jp);
 
                // Send to everyone, including the sender, which will then display it as SelfMsg

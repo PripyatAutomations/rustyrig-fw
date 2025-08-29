@@ -22,14 +22,14 @@
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "common/logger.h"
 #include "common/cat.h"
-#include "common/posix.h"
+#include "common/logger.h"
 #include "common/json.h"
+#include "common/posix.h"
+#include "common/ws.mediachan.h"
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"
-#include "rrserver/ws.mediachan.h"
 #include "common/client-flags.h"
 
 // Messages (client to server):
@@ -115,31 +115,44 @@ int ws_subscribe_channel(http_client_t *cptr, const char *chan_uuid) {
 
 // Unsubscribe from a channel
 bool ws_unsubscribe_channel(http_client_t *cptr, int chan_id) {
-   if (!cptr) {
+   if (!cptr || chan_id <= 0) {
       return true;
    }
 
-   mediachan_list_t *lp = ws_media_channels;
+   mediachan_list_t *lp = ws_find_channel_by_session(cptr, chan_id);
+
    if (!lp) {
       Log(LOG_CRAZY, "ws.media", "unsub chan: no active channels");
       return false;
    }
 
-   while (lp) {
-      mediachan_sub_t *sp = lp->subs;
-      if (!sp) {
-         // channel has no subscribers
-         continue;
+   mediachan_sub_t *sp = lp->subs;
+   if (!sp) {
+      // channel has no subscribers
+      return false;
+   }
+
+   // walk subscribers list
+   mediachan_sub_t *prev_sp = NULL;	// pointer to the previous entry, if present
+
+   while (sp) {
+      if ((sp->cptr == cptr) && (sp->chan_id == chan_id)) {
+         // Remove the entry from the subscriber list
+         if (prev_sp) {
+            prev_sp->next = sp->next;
+            free(sp);
+         } else {
+            // we are the head of the subscriber list, so free it
+            free(lp->subs);
+            // clear the subscribers pointer
+            lp->subs = NULL;
+            return false;
+         }
       }
 
-      // walk subscribers
-      while (sp) {
-         if ((sp->cptr == cptr) && (sp->chan_id == chan_id)) {
-            return lp;
-         }
-         sp = sp->next;
-      }
-      lp = lp->next;
+      // save the old pointer then move on
+      prev_sp = sp;
+      sp = sp->next;
    }
    return false;
 }
@@ -147,7 +160,7 @@ bool ws_unsubscribe_channel(http_client_t *cptr, int chan_id) {
 mediachan_list_t *ws_find_channel_by_uuid(const char *chan_uuid) {
    if (!chan_uuid) {
       return NULL;
-   }
+    }
 
    mediachan_list_t *lp = ws_media_channels;
 

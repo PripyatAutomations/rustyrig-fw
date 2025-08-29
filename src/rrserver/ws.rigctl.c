@@ -253,7 +253,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             VAL_STR, "cat.vfo", vfo,
             VAL_INT, "cat.width", dp->width,
             VAL_LONG, "cat.ts", now);
-         fprintf(stderr, "jp: %s\n", jp);
+
          struct mg_str mp = mg_str(jp);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
          free((char *)jp);
@@ -291,7 +291,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             VAL_LONG, "cat.ts", now,
             VAL_STR, "cat.user", cptr->chatname,
             VAL_STR, "cat.vfo", vfo);
-         fprintf(stderr, "jp: %s\n", jp);
 
          struct mg_str mp = mg_str(jp);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
@@ -327,9 +326,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             VAL_STR, "cat.user", cptr->chatname,
             VAL_STR, "cat.vfo", vfo,
             VAL_LONG, "cat.ts", now);
-         fprintf(stderr, "jp: %s\n", jp);
-         struct mg_str mp = mg_str(jp);
 
+         struct mg_str mp = mg_str(jp);
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
          free((char *)jp);
 
