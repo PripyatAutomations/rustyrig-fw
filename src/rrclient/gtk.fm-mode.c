@@ -27,6 +27,7 @@
 #include "rrclient/ws.h"
 
 extern dict *cfg;
+GtkWidget *fm_mode_combo = NULL;
 
 /* Tone lists */
 static const char *ctcss_tones[] = {
@@ -87,7 +88,7 @@ static void populate_tone_combo(GtkComboBoxText *combo, const char **tones) {
 
 /* Update RX/TX tone combos enable state and contents */
 static void update_tone_dropdowns(void) {
-   const gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode_combo));
+   const gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(fm_mode_combo));
    const gchar *tone_type = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(tone_type_combo));
    const char **tones = g_strcmp0(tone_type, "DCS") == 0 ? dcs_tones : ctcss_tones;
 
@@ -154,15 +155,15 @@ GtkWidget *fm_dialog_create(void) {
    gtk_grid_attach(GTK_GRID(grid), mode_label, 0, 0, 1, 1);
 
    /* Mode combo */
-   mode_combo = gtk_combo_box_text_new();
-   gtk_widget_set_tooltip_text(mode_combo, "Tone Squelch (CTCSS/PL or DCS)");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "Off");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "RX");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "TX");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "RX/TX");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 0);
-   g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed_inner), NULL);
-   gtk_grid_attach(GTK_GRID(grid), mode_combo, 1, 0, 1, 1);
+   fm_mode_combo = gtk_combo_box_text_new();
+   gtk_widget_set_tooltip_text(fm_mode_combo, "Tone Squelch (CTCSS/PL or DCS)");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(fm_mode_combo), "Off");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(fm_mode_combo), "RX");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(fm_mode_combo), "TX");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(fm_mode_combo), "RX/TX");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(fm_mode_combo), 0);
+   g_signal_connect(fm_mode_combo, "changed", G_CALLBACK(on_mode_changed_inner), NULL);
+   gtk_grid_attach(GTK_GRID(grid), fm_mode_combo, 1, 0, 1, 1);
 
    /* Tone type label */
    GtkWidget *tone_type_label = gtk_label_new("Tone Type:");
