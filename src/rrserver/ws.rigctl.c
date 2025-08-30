@@ -245,7 +245,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          const char *jp = dict2json_mkstr(
             VAL_STR, "cat.cmd", "ptt",
-            VAL_FLOATP, "cat.mode", dp->freq, 3,
+            VAL_FLOATP, "cat.freq", dp->freq, 3,
             VAL_STR, "cat.mode", mode_name,
             VAL_FLOATP, "cat.power", dp->power, 3,
             VAL_STR, "cat.ptt", ptt_state,

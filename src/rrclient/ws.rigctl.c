@@ -102,21 +102,34 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
          if (mode && strlen(mode) > 0) {
             // XXX: We need to suppress sending a CAT message by disabling the changed signal on the mode combo
-            set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
-            if (strcasecmp(mode, old_mode) != 0) {
-               if (strcasecmp(mode, "FM") == 0) {
-                  // Show the FM dialog
-                  fm_dialog_show();
-               } else {
-                  // Hide the FM dialog
-                  fm_dialog_hide();
-               }
+
+            if (strcasecmp(mode, "PKTUSB") == 0) {
+               memset(mode, 0, 6);
+               sprintf(mode, "D-U");
+            } else if (strcasecmp(mode, "PKTLSB") == 0) {
+               memset(mode, 0, 6);
+               sprintf(mode, "D-L");
             }
+
+            if (strcasecmp(old_mode, mode) == 0) {
+               goto local_cleanup;
+            }
+
+            Log(LOG_CRAZY, "ws.rigctl", "Set MODE to %s", mode);
+            if (strcasecmp(mode, "FM") == 0) {
+               fm_dialog_show();
+            } else {
+               // Hide the FM dialog
+               fm_dialog_hide();
+            }
+
+            set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+
             // save the old mode so we can compare next time
             memset(old_mode, 0, sizeof(old_mode));
             snprintf(old_mode, sizeof(old_mode), "%s", mode);
          }
-
+local_cleanup:
          // free memory
          free(vfo);
          free(mode);

@@ -33,7 +33,12 @@ GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
 extern struct mg_connection *ws_conn;
 
+static gboolean mode_popup_open = FALSE;
+static void on_mode_popup(GtkComboBox *b, gpointer u)   { mode_popup_open = TRUE; }
+static void on_mode_popdown(GtkComboBox *b, gpointer u) { mode_popup_open = FALSE; }
+
 gulong mode_changed_handler_id;
+
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
 
@@ -58,10 +63,11 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 }
 
 static gboolean on_mode_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
-   Log(LOG_DEBUG, "gtk.mode-box", "keypress handler: keyval: %d (A: %d)", event->keyval, GDK_KEY_a);
    if (!event) {
       return true;
    }
+
+   Log(LOG_DEBUG, "gtk.mode-box", "keypress handler: keyval: %d (A: %d)", event->keyval, GDK_KEY_a);
 
    switch (event->keyval) {
       case GDK_KEY_A:
@@ -111,10 +117,12 @@ static gboolean on_mode_keypress(GtkWidget *widget, GdkEventKey *event, gpointer
 }
 
 GtkWidget *create_mode_box(void) {
+   GtkWidget *mode_combo_wrapper = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *mode_box_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(mode_box_label), "Mo<u>d</u>e/<u>W</u>idth");
 
+   ///////
    mode_combo = gtk_combo_box_text_new();
    gtk_widget_set_tooltip_text(mode_combo, "Modulation Mode");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
@@ -126,14 +134,17 @@ GtkWidget *create_mode_box(void) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
    gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 0);
 
-   mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
-   g_signal_connect(mode_combo, "key-press-event", G_CALLBACK(on_mode_keypress), NULL);
+   gtk_widget_set_can_focus(mode_combo_wrapper, TRUE);
+   gtk_widget_add_events(mode_combo_wrapper, GDK_KEY_PRESS_MASK);
    gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(mode_box), mode_combo, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(mode_combo_wrapper), mode_combo, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(mode_box), mode_combo_wrapper, TRUE, TRUE, 1);
 
+   ///
    width_combo = gtk_combo_box_text_new();
    gtk_widget_set_tooltip_text(width_combo, "Modulation Width");
-   // XXX: This should get populated by available khz widths from server for rig
+
+   // XXX: This should get populated by available khz widths from server for rig too
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NARR");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "NORM");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "WIDE");
@@ -141,6 +152,13 @@ GtkWidget *create_mode_box(void) {
 
 //   width_changed_handler_id = g_signal_connect(width_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
    gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 1);
+
+   ///////
+   mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
+   g_signal_connect(mode_combo_wrapper, "key-press-event", G_CALLBACK(on_mode_keypress), mode_combo);
+   g_signal_connect(mode_combo, "key-press-event", G_CALLBACK(on_mode_keypress), mode_combo);
+   g_signal_connect(mode_combo, "popup",   G_CALLBACK(on_mode_popup),   NULL);
+   g_signal_connect(mode_combo, "popdown", G_CALLBACK(on_mode_popdown), NULL);
 
    return mode_box;
 }
