@@ -87,6 +87,7 @@ extern gulong freq_changed_handler_id;
 extern bool ui_print_gtk(const char *msg);
 extern bool cfg_use_gtk;
 extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+extern gboolean is_widget_or_descendant_focused(GtkWidget *ancestor);
 
 #include "rrclient/gtk.codecpicker.h"
 #include "rrclient/gtk.editcfg.h"

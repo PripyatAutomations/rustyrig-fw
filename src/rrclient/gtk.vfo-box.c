@@ -33,6 +33,33 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    connect_or_disconnect(GTK_BUTTON(button));
 }
 
+typedef struct {
+   GtkWidget *fe;          /* the GtkFreqEntry container */
+   GtkWidget *chat_entry;
+   GtkWidget *mode_combo;
+} VfoKeyData;
+
+static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+   VfoKeyData *d = user_data;
+   if (!d || !GTK_IS_WIDGET(d->fe))
+      return FALSE;
+
+   if (!is_widget_or_descendant_focused(d->fe))
+      return FALSE;    /* ignore keys unless focus is somewhere inside fe */
+
+   if ((event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) &&
+       (event->state & GDK_SHIFT_MASK)) {
+      gtk_widget_grab_focus(d->chat_entry);
+      return TRUE;
+   }
+   else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK)) {
+      gtk_widget_grab_focus(d->mode_combo);
+      return TRUE;
+   }
+
+   return FALSE; /* let other keys be handled normally */
+}
+      
 GtkWidget *create_vfo_box(void) {
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -52,7 +79,6 @@ GtkWidget *create_vfo_box(void) {
    freq_entry = gtk_freq_entry_new(MAX_DIGITS);
    GtkWidget *freq_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(freq_label), "<u>F</u>req");
-
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
 
@@ -79,6 +105,9 @@ GtkWidget *create_vfo_box(void) {
    // Create PTT button widget
    GtkWidget *ptt_box = ptt_button_create();
    gtk_box_pack_start(GTK_BOX(control_box), ptt_box, TRUE, TRUE, 2);
+
+   // This will sort out tab order between previous/next widget
+   g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
 
    return control_box;
 }

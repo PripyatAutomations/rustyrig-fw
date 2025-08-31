@@ -5,6 +5,8 @@
 #include "common/dict.h"
 #include "common/logger.h"
 #include "rrclient/gtk.freqentry.h"
+#include "rrclient/gtk.core.h"
+
 #define MAX_DIGITS 10
 extern dict *cfg;
 extern time_t now;
@@ -30,6 +32,27 @@ struct _GtkFreqEntry {
 };
 
 G_DEFINE_TYPE(GtkFreqEntry, gtk_freq_entry, GTK_TYPE_BOX)
+
+int gtk_freq_entry_num_digits(GtkFreqEntry *fi) {
+   if (!fi) {
+      return -1;
+   }
+
+   return fi->num_digits;
+}
+
+bool gtk_freq_entry_focus_digit(GtkFreqEntry *fi, int digit) {
+   if (!fi) {
+      return NULL;
+   }
+
+   if (digit < 0 || digit > fi->num_digits) {
+      return true;
+   }
+
+   gtk_widget_grab_focus(GTK_WIDGET(fi->digits[digit]));
+   return false;
+}
 
 static inline gpointer cast_func_to_gpointer(void (*f)(GtkToggleButton *, gpointer)) {
    union {
@@ -276,28 +299,28 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
 */
       poll_block_expire = 0;
       return TRUE;
+   //  this is moved to the vfo-box where we'll capture the tab event, see if we're in the freqentry and if so move appropriate, else just fall through
    } else if (event->keyval == GDK_KEY_Tab ||
               event->keyval == GDK_KEY_ISO_Left_Tab) {
-      Log(LOG_DEBUG, "gtk.freqentry", "On Key down: %s", (event->state & GDK_SHIFT_MASK) ? "LeftTab" : "Tab");
+
+      if (!is_widget_or_descendant_focused(GTK_WIDGET(fe))) {
+         return FALSE;   /* ignore if focus is outside fe */
+      }
+
+      Log(LOG_DEBUG, "gtk.freqentry", "On Key down: %s",
+          (event->state & GDK_SHIFT_MASK) ? "LeftTab" : "Tab");
+
       GtkDirectionType direction = (event->state & GDK_SHIFT_MASK)
          ? GTK_DIR_TAB_BACKWARD : GTK_DIR_TAB_FORWARD;
       GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(fe));
 
-       // XXX: Fix this
-       GtkWidget *next_tab = NULL;
-
-       if (event->keyval == GDK_KEY_ISO_Left_Tab) {
-          next_tab = get_prev_widget(parent);
+      if (event->state & GDK_SHIFT_MASK) {
+         gtk_widget_grab_focus(chat_entry);
        } else {
-          next_tab = get_next_widget(parent);
+         gtk_widget_grab_focus(mode_combo);
        }
 
-       if (next_tab) {
-          gtk_widget_grab_focus(next_tab);
-        } else {
-           Log(LOG_DEBUG, "gtk.freqentry", "On Tab: No next_tab to switch to. Direction: %s", (event->keyval == GDK_KEY_ISO_Left_Tab ? "LeftTab" : "Tab"));
-        }
-        return TRUE;
+      return TRUE;
    } else if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
       char c = '0' + (event->keyval - GDK_KEY_0);
       char buf[2] = { c, 0 };

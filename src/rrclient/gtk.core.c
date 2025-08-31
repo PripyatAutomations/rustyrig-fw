@@ -181,3 +181,16 @@ bool gui_init(void) {
 
    return false;
 }
+
+gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
+   GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
+   if (!GTK_IS_WINDOW(toplevel))
+      return FALSE;
+
+   GtkWidget *focused = gtk_window_get_focus(GTK_WINDOW(toplevel));
+   for (GtkWidget *w = focused; w; w = gtk_widget_get_parent(w)) {
+      if (w == ancestor)
+         return TRUE;
+   }
+   return FALSE;
+}

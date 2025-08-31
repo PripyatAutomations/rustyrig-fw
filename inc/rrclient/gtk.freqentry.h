@@ -38,6 +38,8 @@ extern GtkWidget *gtk_freq_entry_last_touched_digit(GtkFreqEntry *fi);
 
 // Query editing status
 extern bool gtk_freq_entry_is_editing(GtkFreqEntry *fi);
+extern bool gtk_freq_entry_focus_digit(GtkFreqEntry *fi, int digit);
+extern int gtk_freq_entry_num_digits(GtkFreqEntry *fi);
 
 G_END_DECLS
 

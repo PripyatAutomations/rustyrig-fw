@@ -1,0 +1,9 @@
+The protocol *WILL* change significantly between now and the first release.
+
+Please feel free to write clients, just be aware the protocol *will* change.
+
+Ideas for the new protocol are welcome, we just need to be able to meet a few goals:
+
+	* Easily parsible in C, perl, and javascript. Other languages welcome.
+	* All control messages must be text, only media can be binary frames.
+	* Binary frames MUST use be same encapsulation on other transports (this makes IRC, etc difficult)

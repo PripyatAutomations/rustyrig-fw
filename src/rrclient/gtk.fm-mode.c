@@ -150,13 +150,13 @@ GtkWidget *fm_dialog_create(void) {
    /* --- UI setup --- */
 
    /* Mode label */
-   GtkWidget *mode_label = gtk_label_new("CTCSS/DCS Mode:");
+   GtkWidget *mode_label = gtk_label_new("Tone mode:");
    gtk_widget_set_halign(mode_label, GTK_ALIGN_START);
    gtk_grid_attach(GTK_GRID(grid), mode_label, 0, 0, 1, 1);
 
    /* Mode combo */
    fm_mode_combo = gtk_combo_box_text_new();
-   gtk_widget_set_tooltip_text(fm_mode_combo, "Tone Squelch (CTCSS/PL or DCS)");
+   gtk_widget_set_tooltip_text(fm_mode_combo, "Tone Squelch (CTCSS or DCS)");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(fm_mode_combo), "Off");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(fm_mode_combo), "RX");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(fm_mode_combo), "TX");
@@ -200,7 +200,7 @@ GtkWidget *fm_dialog_create(void) {
    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(tx_tone_combo), 1, 3, 1, 1);
 
    /* Repeater offset label */
-   GtkWidget *offset_label = gtk_label_new("Repeater Offset (MHz):");
+   GtkWidget *offset_label = gtk_label_new("Rptr Offset (MHz):");
    gtk_widget_set_halign(offset_label, GTK_ALIGN_START);
    gtk_grid_attach(GTK_GRID(grid), offset_label, 0, 4, 1, 1);
 
