@@ -61,6 +61,10 @@ static struct ws_frame *send_queue = NULL;
 static bool sending_in_progress = false;
 
 void try_send_next_frame(struct mg_connection *c) {
+  if (!c) {
+    return;
+  }
+
   if (sending_in_progress || !send_queue) {
      return;
   }
@@ -111,6 +115,10 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
 }
 
 static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
+   if (!msg) {
+      return;
+   }
+
    if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
       GError *err = NULL;
       gchar *debug = NULL;
@@ -275,6 +283,10 @@ void ws_audio_shutdown(void) {
 //
 // Deal with a received audio frame
 bool audio_process_frame(const char *data, size_t len) {
+   if (!data || len <= 0) {
+      return true;
+   }
+
    if (!rx_appsrc || len <= 0) {
       return true;
    }

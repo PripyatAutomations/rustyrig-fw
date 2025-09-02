@@ -3,6 +3,7 @@ objs += auth.o
 objs += chat.o
 objs += chat.cmd.o
 objs += codecneg.o
+objs += connman.o
 objs += config.o
 objs += debug.o			# Debug stuff
 objs += defconfig.o

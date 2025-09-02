@@ -26,8 +26,6 @@ extern GtkComboBoxText *rx_combo;
 extern GtkNotebook *main_notebook;
 
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
-//   GtkNotebook *notebook = GTK_NOTEBOOK(user_data);
-
    gui_window_t *wp = gui_find_window(NULL, "main");
    GtkWidget *main_window = wp->gtk_win;
 
@@ -157,6 +155,9 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 }
 
 bool gui_hotkey_register(GtkWidget *widget) {
+   if (!widget) {
+      return true;
+   }
    g_signal_connect(widget, "key-press-event", G_CALLBACK(gui_global_hotkey_cb), widget);
    return false;
 }

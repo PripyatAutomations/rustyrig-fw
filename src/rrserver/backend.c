@@ -157,6 +157,10 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
 }
 
 bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
+   if (!cptr) {
+      return false;
+   }
+
    // XXX: This is incorrect
    if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->ptt_get == NULL) {
       return false;

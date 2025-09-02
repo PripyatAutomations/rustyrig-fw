@@ -20,6 +20,10 @@
 extern dict *cfg;
 
 void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
+   if (!parent || !json_array) {
+      return;
+   }
+
    GtkWidget *dialog = gtk_dialog_new_with_buttons(
       "Whois Info",
       parent,

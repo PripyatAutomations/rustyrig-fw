@@ -148,6 +148,10 @@ static bool http_backup_authdb(void) {
 }
 
 bool http_save_users(const char *filename) {
+  if (!filename) {
+     return true;
+  }
+
   if (http_backup_authdb()) {
      return true;
   }
@@ -183,6 +187,10 @@ bool http_save_users(const char *filename) {
 
 // Load users from the file into the global array
 int http_load_users(const char *filename) {
+   if (!filename) {
+      return -1;
+   }
+
    Log(LOG_INFO, "auth", "Loading static users from %s", filename);
    FILE *file = fopen(filename, "r");
 
@@ -290,6 +298,10 @@ int http_load_users(const char *filename) {
 
 // find by login challenge
 static http_client_t *http_find_client_by_nonce(const char *nonce) {
+   if (!nonce) {
+      return NULL;
+   }
+
    http_client_t *cptr = http_client_list;
    int i = 0;
 
@@ -315,13 +327,13 @@ static http_client_t *http_find_client_by_nonce(const char *nonce) {
 }
 
 bool match_priv(const char *user_privs, const char *priv) {
-   const char *start = user_privs;
-   size_t privlen = strlen(priv);
-
    Log(LOG_CRAZY, "auth", "match_priv(): comparing |%s| to |%s|", user_privs, priv);
    if (user_privs == NULL || priv == NULL) {
       return false;
    }
+
+   const char *start = user_privs;
+   size_t privlen = strlen(priv);
 
    while (start && *start) {
       const char *end = strchr(start, ',');
@@ -645,6 +657,10 @@ cleanup:
 }
 
 int generate_random_guest_id(int digits) {
+   if (digits < 4) {
+      return -1;
+   }
+
    int num = 0, prev_digit = -1;
 
 try_again:
@@ -670,6 +686,9 @@ try_again:
 }
 
 int generate_nonce(char *buffer, size_t length) {
+   if (!buffer || length <= 0) {
+      return -1;
+   }
    static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
    size_t i;
 

@@ -35,12 +35,12 @@ extern bool cfg_show_pings;
 extern time_t now;
 
 bool ws_handle_ping_msg(struct mg_connection *c, struct mg_ws_message *msg) {
-   bool rv = false;
-
    if (!c || !msg) {
       Log(LOG_WARN, "http.ws", "ping_msg: got msg:<%x> mg_conn:<%x>", msg, c);
       return true;
    }
+
+   bool rv = false;
 
    char ip[INET6_ADDRSTRLEN];
    int port = c->rem.port;

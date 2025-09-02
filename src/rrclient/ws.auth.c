@@ -25,6 +25,7 @@
 #include "common/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
+#include "rrclient/connman.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
@@ -167,6 +168,9 @@ bool ws_send_logout(struct mg_connection *c, const char *user, const char *token
 }
 
 bool ws_send_hello(struct mg_connection *c) {
+   if (!c) {
+      return true;
+   }
    char msgbuf[512];
    const char *codec = "mulaw";
    int rate = 16000;

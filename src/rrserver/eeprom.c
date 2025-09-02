@@ -52,6 +52,10 @@
 
 // Returns either the index of they key in eeprom_layout or -1 if not found
 uint32_t eeprom_offset_index(const char *key) {
+   if (!key) {
+      return -1;
+   }
+
    uint32_t max_entries = -1, idx = -1;
 
    max_entries = (sizeof(eeprom_layout) / sizeof(eeprom_layout[0]));
@@ -89,7 +93,6 @@ uint32_t eeprom_init(void) {
    struct stat sb;
    size_t eeprom_len;
    ssize_t s;
-
 
 #if     defined(HOST_POSI) && defined(EEPROM_READONLY)
    uint32_t fd = open(HOST_EEPROM_FILE, O_RDONLY);

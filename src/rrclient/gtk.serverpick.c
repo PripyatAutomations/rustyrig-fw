@@ -24,6 +24,7 @@
 #include "common/posix.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
+#include "rrclient/connman.h"
 #include "rrclient/ws.h"
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
@@ -33,6 +34,10 @@ extern bool ptt_active;
 extern bool ws_connected;
 
 static void do_connect_from_tree(GtkTreeView *view) {
+   if (!view) {
+      return;
+   }
+
    gui_window_t *win = gui_find_window(NULL, "serverpick");
    GtkWidget *server_window = win->gtk_win;
 
@@ -62,15 +67,25 @@ static void do_connect_from_tree(GtkTreeView *view) {
 }
 
 static void on_connect_clicked(GtkButton *btn, gpointer user_data) {
+   if (!user_data) {
+      return;
+   }
    do_connect_from_tree(GTK_TREE_VIEW(user_data));
 }
 
 static gboolean on_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *col, gpointer user_data) {
+   if (!view) {
+      return TRUE;
+   }
    do_connect_from_tree(view);
    return TRUE;
 }
 
 static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
+   if (!w || !ev) {
+      return FALSE;
+   }
+
    if (ev->keyval == GDK_KEY_Escape) {
       gui_window_t *win = gui_find_window(NULL, "serverpick");
       GtkWidget *server_window = win->gtk_win;

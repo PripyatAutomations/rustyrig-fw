@@ -6,6 +6,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
+// This allows finding and working with a widget by a human readable name, for automation, etc
 
 #include "common/config.h"
 #include <stddef.h>
@@ -97,6 +99,10 @@ static gboolean on_configure_timeout(gpointer data) {
 }
 
 gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
+   if (!widget || !event) {
+      return FALSE;
+   }
+
    if (event->type == GDK_CONFIGURE) {
       GdkEventConfigure *e = (GdkEventConfigure *)event;
 
@@ -170,6 +176,10 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
 }
 
 bool place_window(GtkWidget *window) {
+   if (!window) {
+      return true;
+   }
+
    const char *cfg_height_s, *cfg_width_s;
    const char *cfg_x_s, *cfg_y_s;
 
@@ -303,6 +313,10 @@ bool place_window(GtkWidget *window) {
 }
 
 bool set_window_icon(GtkWidget *window, const char *icon_name) {
+   if (!window || !icon_name) {
+      return true;
+   }
+
 #ifndef _WIN32
    GError *err = NULL;
    bool success = false;
@@ -336,6 +350,10 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
 }
 
 bool gui_forget_window(gui_window_t *gw, const char *name) {
+   if (!gw || !name) {
+      return true;
+   }
+
    gui_window_t **pp = &gui_windows;
    while (*pp) {
       gui_window_t *p = *pp;
@@ -354,6 +372,10 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
 }
 
 static void on_window_destroy(GtkWidget *w, gpointer user_data) {
+   if (!w) {
+      return;
+   }
+
    gui_window_t *p = (gui_window_t *)user_data;   // always valid
    gui_forget_window(p, NULL);
 }
@@ -412,6 +434,10 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 
 // React to minimize/restore events
 gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer user_data) {
+   if (!widget || !event) {
+      return FALSE;
+   }
+
    if (event->changed_mask & GDK_WINDOW_STATE_ICONIFIED) {
       bool minimized = (event->new_window_state & GDK_WINDOW_STATE_ICONIFIED) != 0;
 
@@ -438,21 +464,28 @@ gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer
 
 // This gets called by our timer when we want to 
 static gboolean focus_main_later_cb(gpointer data) {
+   if (!data) {
+      return FALSE;
+   }
+
    gtk_window_present(GTK_WINDOW(data));
    return FALSE;
 }
 
 gboolean focus_main_later(gpointer data) {
-    GtkWindow *win = GTK_WINDOW(data);
-    return g_idle_add(focus_main_later, win);
+   if (!data) {
+      return FALSE;
+   }
+   GtkWindow *win = GTK_WINDOW(data);
+   return g_idle_add(focus_main_later, win);
 }
 
 gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
-   gui_window_t *ret = NULL;
-
    if (!window || !name) {
       return NULL;
    }
+
+   gui_window_t *ret = NULL;
    
    ret = gui_store_window(window, name);
    set_window_icon(window, "rustyrig");
@@ -500,6 +533,9 @@ gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
 }
 
 bool gui_forget_widget(gui_widget_t *gw, const char *name) {
+   if (!gw || !name) {
+      return true;
+   }
    gui_widget_t **pp = &gui_widgets;
    while (*pp) {
       gui_widget_t *p = *pp;
@@ -508,13 +544,13 @@ bool gui_forget_widget(gui_widget_t *gw, const char *name) {
          Log(LOG_DEBUG, "gtk.winmgr", "forgetting widget: %p (%s)", (void*)p, p->name);
          *pp = p->next;
          free(p);
-         return true;   // success
+         return false;
       }
       pp = &p->next;
    }
 
    Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_widget: no match for gw:%p name:%s", (void*)gw, name ? name : "(null)");
-   return false;       // failure
+   return true;
 }
 
 // Store widget name / pointer in our list

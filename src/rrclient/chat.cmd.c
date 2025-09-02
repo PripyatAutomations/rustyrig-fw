@@ -25,6 +25,7 @@
 #include "common/posix.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
+#include "rrclient/connman.h"
 #include "rrclient/ws.h"
 
 extern bool dying;

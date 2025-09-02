@@ -34,6 +34,10 @@
 
 // Extract the memories from eeprom and optionally json file on posix
 bool rr_atu_load_memories(int unit) {
+   if (unit < 0) {
+      return true;
+   }
+
 #if	defined(HOST_POSIX)
    // Open the json configuration file, if present
 #endif
@@ -70,6 +74,10 @@ static rr_atu_tv *tv_is_closest(rr_atu_tv *low, rr_atu_tv *high) {
 
 // XXX: this should load the last used state for this tuner unit
 rr_atu_tv *rr_atu_find_saved_state(int uid) {
+   if (uid < 0) {
+      return NULL;
+   }
+
    rr_atu_tv *closest_low = NULL,
              *closest_high = NULL;
 
@@ -82,6 +90,10 @@ rr_atu_tv *rr_atu_find_saved_state(int uid) {
 
 // Initialize all ATU units
 int rr_atu_init(int uid) {
+   if (uid < 0) {
+     return -1;
+   }
+
    int rv = 0;
    rr_atu_tv *tv = NULL;
    Log(LOG_INFO, "atu", " => ATU #%d initializing", uid);

@@ -33,12 +33,12 @@
 extern dict *cfg;		// config.c
 
 bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
-   bool rv = false;
-
    if (!c || !msg) {
       Log(LOG_WARN, "http.ws", "error_msg: got msg:<%x> mg_conn:<%x>", msg, c);
       return true;
    }
+
+   bool rv = false;
 
    char ip[INET6_ADDRSTRLEN];
    int port = c->rem.port;

@@ -42,6 +42,10 @@ extern gulong freq_changed_handler_id;
 char old_mode[16];
 
 bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
+   if (!c || !msg) {
+      return true;
+   }
+
    struct mg_str msg_data = msg->data;
 
    if (mg_json_get(msg_data, "$.cat", NULL) > 0) {

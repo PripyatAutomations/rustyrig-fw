@@ -31,6 +31,10 @@ GtkWidget *rx_vol_slider = NULL;	// gstreamer volume
 GtkWidget *rx_rig_vol_slider = NULL;	// Rig side setting
 
 void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
+   if (!range || !user_data) {
+      return;
+   }
+
    gdouble val = gtk_range_get_value(range);
    val /= 100.0;  // scale from 0–100 to 0.0–1.0
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
@@ -50,11 +54,10 @@ GtkWidget *create_volbox(void) {
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 0);
 
-/// Put a spacer in here
+   /// Put a spacer in here
    GtkWidget *vol_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), vol_spacer, TRUE, TRUE, 0);
 
-////
    GtkWidget *rx_rig_vol_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(rx_rig_vol_label), "Ri<u>G</u> Vol");
 
@@ -64,7 +67,6 @@ GtkWidget *create_volbox(void) {
    gtk_scale_set_digits(GTK_SCALE(rx_rig_vol_slider), 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_slider, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_label, TRUE, TRUE, 0);
-////
 
    int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);

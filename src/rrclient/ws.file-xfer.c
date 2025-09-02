@@ -24,6 +24,10 @@ static uint64_t gen_id(void) {
 }
 
 static void ws_send_file(struct mg_connection *c, const char *path, const char *mime) {
+   if (!c || !path || !mime) {
+      return;
+   }
+
    FILE *fp = fopen(path, "rb");
    if (!fp) {
       Log(LOG_CRIT, "ws.file-xfer", "Failed opening file %s - %d:%s", path, errno, strerror(errno));

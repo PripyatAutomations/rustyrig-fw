@@ -41,6 +41,10 @@ typedef struct {
 
 static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
    CodecSelectorCtx *ctx = user_data;
+   if (!ctx) {
+      return;
+   }
+
    const char *codec = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo));
 
    if (codec) {
@@ -52,6 +56,10 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
 }
 
 void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id) {
+   if (!codec_list || !combo || !default_id) {
+      return;
+   }
+
    char *list = g_strdup(codec_list);
    char *saveptr = NULL;
    int index = 0, default_index = -1;

@@ -45,14 +45,25 @@ typedef struct {
 } EditorContext;
 
 static void on_buffer_changed(GtkTextBuffer *buffer, gpointer user_data) {
+   if (!user_data) {
+      return;
+   }
    ((EditorContext *)user_data)->modified = TRUE;
 }
 
 static void apply_config(const char *filename) {
+   if (!filename) {
+      return;
+   }
+
    cfg_load(filename);
 }
 
 static void on_save_clicked(GtkButton *btn, gpointer user_data) {
+   if (!user_data) {
+      return;
+   }
+
    EditorContext *ctx = user_data;
    GtkTextIter start, end;
    gtk_text_buffer_get_bounds(ctx->buffer, &start, &end);
@@ -75,6 +86,9 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
 
 static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
    EditorContext *ctx = user_data;
+   if (!ctx) {
+      return;
+   }
 
    GtkWidget *dialog = gtk_file_chooser_dialog_new("Save As",
       GTK_WINDOW(ctx->window),
@@ -116,6 +130,10 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
 static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
    EditorContext *ctx = user_data;
 
+   if (!ctx) {
+      return;
+   }
+
    if (ctx->modified) {
       GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window),
          GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
@@ -136,7 +154,7 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
 static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
    EditorContext *ctx = user_data;
 
-   if (!ctx->modified) {
+   if (!ctx || !ctx->modified) {
       return FALSE;
    }
 
@@ -154,6 +172,10 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
 }
 
 void gui_edit_config(const char *filepath) {
+   if (!filepath) {
+      return;
+   }
+
    gui_window_t *win = gui_find_window(NULL, "editcfg");
 
    if (win) {
@@ -164,10 +186,6 @@ void gui_edit_config(const char *filepath) {
          gtk_window_present(GTK_WINDOW(cfgedit_window)); 
          return;
       }
-   }
-
-   if (!filepath) {
-      return;
    }
 
    Log(LOG_DEBUG, "gtk.editcfg", "Opening %s for editing", filepath);

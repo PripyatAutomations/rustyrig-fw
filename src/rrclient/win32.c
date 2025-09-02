@@ -21,6 +21,10 @@
 #pragma comment(lib, "dwmapi.lib")
 
 void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
+   if (!window) {
+      return;
+   }
+
    if (!gtk_widget_get_realized(window)) {
       return;
    }
@@ -45,7 +49,9 @@ void disable_console_quick_edit(void) {
    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
    DWORD mode = 0;
 
-   if (!GetConsoleMode(hStdin, &mode)) return;
+   if (!GetConsoleMode(hStdin, &mode)) {
+      return;
+   }
 
    // Remove QuickEdit and Insert modes
    mode &= ~(ENABLE_QUICK_EDIT_MODE | ENABLE_INSERT_MODE);
@@ -57,7 +63,12 @@ bool win32_init(void) {
 }
 
 char *strndup(const char *s, size_t n) {
+    if (!s || n < 0) {
+       return NULL;
+    }
+
     size_t len = strnlen(s, n);
+
     char *result = (char *)malloc(len + 1);
     if (!result) {
        return NULL;
@@ -70,8 +81,12 @@ char *strndup(const char *s, size_t n) {
 
 char *strcasestr(const char *haystack, const char *needle) {
     if (!*needle) {
-	   return (char *)haystack;
-	}
+       return (char *)haystack;
+    }
+
+    if (!haystack) {
+       return NULL;
+    }
 
     for (; *haystack; haystack++) {
         const char *h = haystack;
@@ -90,10 +105,11 @@ char *strcasestr(const char *haystack, const char *needle) {
     return NULL;
 }
 
-bool is_windows_dark_mode() {
+bool is_windows_dark_mode(void) {
     DWORD value = 1;
     DWORD size = sizeof(DWORD);
     HKEY hKey;
+
     if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
        if (RegQueryValueExA(hKey, "AppsUseLightTheme", NULL, NULL, (LPBYTE)&value, &size) != ERROR_SUCCESS) {
           value = 1;
@@ -117,5 +133,4 @@ void win32_check_darkmode(void) {
                              NULL);
    }
 }
-
 #endif	// _WIN32

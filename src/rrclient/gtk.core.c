@@ -48,6 +48,10 @@ extern GtkWidget *admin_tab;
 extern bool chat_init(void);		// gtk.chat.c
 
 bool ui_print_gtk(const char *msg) {
+   if (!msg) {
+      return true;
+   }
+
    // Append our text to the end of the GtkTextView
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(text_buffer, &end);
@@ -87,6 +91,10 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
 }
 
 void update_connection_button(bool connected, GtkWidget *btn) {
+   if (!btn) {
+      return;
+   }
+
    GtkStyleContext *ctx = gtk_widget_get_style_context(btn);
 
    if (connected) {
@@ -101,6 +109,10 @@ void update_connection_button(bool connected, GtkWidget *btn) {
 }
 
 static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer user_data) {
+   if (!widget) {
+      return FALSE;
+   }
+
    gtk_window_set_urgency_hint(GTK_WINDOW(widget), FALSE);
    return FALSE;
 }
@@ -183,14 +195,20 @@ bool gui_init(void) {
 }
 
 gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
-   GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
-   if (!GTK_IS_WINDOW(toplevel))
+   if (!ancestor) {
       return FALSE;
+   }
+
+   GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
+   if (!GTK_IS_WINDOW(toplevel)) {
+      return FALSE;
+   }
 
    GtkWidget *focused = gtk_window_get_focus(GTK_WINDOW(toplevel));
    for (GtkWidget *w = focused; w; w = gtk_widget_get_parent(w)) {
-      if (w == ancestor)
+      if (w == ancestor) {
          return TRUE;
+      }
    }
    return FALSE;
 }

@@ -45,9 +45,12 @@ extern time_t now;
 char session_token[HTTP_TOKEN_LEN+1];
 
 char *hash_passwd(const char *passwd) {
+   if (!passwd) {
+      return NULL;
+   }
+
    unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
    char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
-   mg_sha1_ctx ctx;
 
    if (!hex_output) {
       fprintf(stderr, "oom in compute_wire_password?!\n");
@@ -55,18 +58,22 @@ char *hash_passwd(const char *passwd) {
    }
 
    // Compute SHA1 of the combined string
+   mg_sha1_ctx ctx;
    mg_sha1_init(&ctx);
    size_t len = strlen((char *)passwd);  // Cast to (char *) for strlen
    mg_sha1_update(&ctx, (unsigned char *)passwd, len);
-   
-   unsigned char hash[20];  // Store the raw SHA1 hash
+
+   // store the raw sha1 hash   
+   unsigned char hash[20];
    mg_sha1_final(hash, &ctx);
 
    // Convert the raw hash to a hexadecimal string
    for (int i = 0; i < 20; i++) {
       sprintf(hex_output + (i * 2), "%02x", hash[i]);
    }
-   hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
+
+   // Null terminate teh string for libc's sake
+   hex_output[HTTP_HASH_LEN * 2] = '\0';
    return hex_output;
 }
 
@@ -93,15 +100,18 @@ char *compute_wire_password(const char *password, const char *nonce) {
    mg_sha1_init(&ctx);
    size_t len = strlen((char *)combined);  // Cast to (char *) for strlen
    mg_sha1_update(&ctx, (unsigned char *)combined, len);
-   
-   unsigned char hash[20];  // Store the raw SHA1 hash
+
+   // store the raw sha1 hash   
+   unsigned char hash[20];
    mg_sha1_final(hash, &ctx);
 
    // Convert the raw hash to a hexadecimal string
    for (int i = 0; i < 20; i++) {
       sprintf(hex_output + (i * 2), "%02x", hash[i]);
    }
-   hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
+   // NULL terminate the string for libc's sake
+   hex_output[HTTP_HASH_LEN * 2] = '\0';
+
 //   Log(LOG_CRAZY, "auth", "passwd |%s| nonce |%s| result |%s|", password, nonce, hex_output);
 
    return hex_output;
@@ -131,7 +141,6 @@ bool match_priv(const char *user_privs, const char *priv) {
       token[len] = '\0';
 
 //      Log(LOG_CRAZY, "auth", "token=|%s|", token);
-
       if (strcmp(token, priv) == 0) {
          Log(LOG_CRAZY, "auth", " → exact match");
          return true;

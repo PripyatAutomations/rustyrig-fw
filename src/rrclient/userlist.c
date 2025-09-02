@@ -31,6 +31,10 @@ struct rr_user *global_userlist = NULL;
 // Add or update an entry, matching on name.
 // All old information will be replaced with the new
 bool userlist_add_or_update(const struct rr_user *newinfo) {
+   if (!newinfo) {
+      return true;
+   }
+
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
@@ -67,6 +71,10 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
 
 // Remove a user from the list, by name. While there should only ever be ONE, this will scan the entire list...
 bool userlist_remove_by_name(const char *name) {
+   if (!name) {
+      return true;
+   }
+
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
@@ -108,6 +116,10 @@ void userlist_clear_all(void) {
 
 // Find a user in the userlist
 struct rr_user *userlist_find(const char *name) {
+   if (!name) {
+      return NULL;
+   }
+
    struct rr_user *c = global_userlist;
    while (c) {
       if (!strcasecmp(c->name, name)) {

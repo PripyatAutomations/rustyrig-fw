@@ -25,6 +25,7 @@
 #include "common/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
+#include "rrclient/connman.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
@@ -34,6 +35,10 @@ extern dict *cfg;		// config.c
 extern time_t now;
 
 bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
+   if (!c || !msg) {
+      return true;
+   }
+
    struct mg_str msg_data = msg->data;
    char *cmd = mg_json_get_str(msg_data,    "$.talk.cmd");
    char *user = mg_json_get_str(msg_data,   "$.talk.user");

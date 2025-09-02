@@ -130,6 +130,10 @@ rr_mode_t hl_mode_to_rr(rmode_t mode) {
 
 // Destroy the hamlib RIG object
 static void hl_destroy(RIG *hl_rig) {
+   if (!hl_rig) {
+      return;
+   }
+
    rig_close(hl_rig);
    rig_cleanup(hl_rig);
 }

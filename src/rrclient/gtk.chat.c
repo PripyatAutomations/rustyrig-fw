@@ -66,6 +66,10 @@ const char *get_chat_ts(void) {
 
 // Scroll to the end of a GtkTextView
 gboolean ui_scroll_to_end(gpointer data) {
+   if (!data) {
+      return FALSE;
+   }
+
    GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
    GtkTextIter end;
@@ -84,6 +88,10 @@ gboolean ui_scroll_to_end(gpointer data) {
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
 
+   if (!msg) {
+      return;
+   }
+
    parse_chat_input(button, entry);
 
    g_ptr_array_add(input_history, g_strdup(msg));
@@ -94,6 +102,10 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
 
 // Here we support input history for the chat/control window entry input
 static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
+   if (!event || !entry) {
+      return FALSE;
+   }
+
    if (!input_history || input_history->len == 0) {
       return FALSE;
    }

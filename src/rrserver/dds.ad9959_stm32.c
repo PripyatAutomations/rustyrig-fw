@@ -113,112 +113,135 @@ struct ChannelState chan_state[MAX_CHAN];
 
 /////////////////////////////////////////////////
 int open_serial_port(const char *port_name) {
-    int fd = open(port_name, O_RDWR | O_NOCTTY);
-    if (fd == -1) {
-        int my_errno = errno;
-        printf("Error opening serial port at %s: %d:%s\n", port_name, my_errno, strerror(my_errno));
-        exit(EXIT_FAILURE);
-    }
-    return fd;
+   if (!port_name) {
+      return -1;
+   }
+
+   int fd = open(port_name, O_RDWR | O_NOCTTY);
+   if (fd == -1) {
+      int my_errno = errno;
+      printf("Error opening serial port at %s: %d:%s\n", port_name, my_errno, strerror(my_errno));
+      exit(EXIT_FAILURE);
+   }
+   return fd;
 }
 
 void configure_serial_port(int fd) {
-    struct termios tty;
-    memset(&tty, 0, sizeof(tty));
-    if (tcgetattr(fd, &tty) != 0) {
-        perror("tcgetattr");
-        exit(EXIT_FAILURE);
-    }
+   if (fd < 0) {
+     return;
+   }
 
-    cfsetospeed(&tty, BAUD_RATE);
-    cfsetispeed(&tty, BAUD_RATE);
+   struct termios tty;
+   memset(&tty, 0, sizeof(tty));
+   if (tcgetattr(fd, &tty) != 0) {
+      perror("tcgetattr");
+      exit(EXIT_FAILURE);
+   }
 
-    tty.c_cflag |= (CLOCAL | CREAD);
-    tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;
-    tty.c_cflag &= ~PARENB;
-    tty.c_cflag &= ~CSTOPB;
-    tty.c_cflag &= ~CRTSCTS;
-    tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
-    tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
-    tty.c_oflag &= ~OPOST;
-    tty.c_cc[VTIME] = 0;
-    tty.c_cc[VMIN] = 1;
+   cfsetospeed(&tty, BAUD_RATE);
+   cfsetispeed(&tty, BAUD_RATE);
 
-    if (tcsetattr(fd, TCSANOW, &tty) != 0) {
-        perror("tcsetattr");
-        exit(EXIT_FAILURE);
-    }
+   tty.c_cflag |= (CLOCAL | CREAD);
+   tty.c_cflag &= ~CSIZE;
+   tty.c_cflag |= CS8;
+   tty.c_cflag &= ~PARENB;
+   tty.c_cflag &= ~CSTOPB;
+   tty.c_cflag &= ~CRTSCTS;
+   tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+   tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+   tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+   tty.c_oflag &= ~OPOST;
+   tty.c_cc[VTIME] = 0;
+   tty.c_cc[VMIN] = 1;
+
+   if (tcsetattr(fd, TCSANOW, &tty) != 0) {
+      perror("tcsetattr");
+      exit(EXIT_FAILURE);
+   }
 }
 
 void uppercase(char *str) {
-    while (*str) {
-        *str = toupper((unsigned char)*str);
-        str++;
-    }
+   if (!str) {
+      return;
+   }
+
+   while (*str) {
+      *str = toupper((unsigned char)*str);
+      str++;
+   }
 }
 
 double convertPhaseToAngle(int value) {
-    // Convert value to angle in the range 0-360
-    return round(((double)value / 16383.0) * 360.0 * 10) / 10.0; // Round to nearest 0.1 degree
+   // Convert value to angle in the range 0-360
+   return round(((double)value / 16383.0) * 360.0 * 10) / 10.0; // Round to nearest 0.1 degree
 }
 
 int convertAngleToPhase(double angle) {
-    // Convert angle to the range 0-16383
-    return (int)round((angle / 360.0) * 16383);
+   // Convert angle to the range 0-16383
+   return (int)round((angle / 360.0) * 16383);
 }
 
 double convertAmplitudeToPower(int value) {
-    // Convert value to power in the range 0-100%
-    return ((double)value / 1023.0) * 100.0;
+   // Convert value to power in the range 0-100%
+   return ((double)value / 1023.0) * 100.0;
 }
 
 int convertPowerToAmplitude(double power) {
-    // Convert power to the range 0-1023
-    return (int)round((power / 100.0) * 1023);
+   // Convert power to the range 0-1023
+   return (int)round((power / 100.0) * 1023);
 }
 
 double stringToDouble(const char *str) {
-    // Convert string to double
-    return strtod(str, NULL);
+   if (!str) {
+      return 0;
+   }
+
+   // Convert string to double
+   return strtod(str, NULL);
 }
 
 double convert_to_hertz(const char *frequency) {
-    double multiplier = 1.0;
-    char *endptr;
-    double value = strtod(frequency, &endptr);
+   if (!frequency) {
+      return 0.0;
+   }
+   double multiplier = 1.0;
+   char *endptr;
+   double value = strtod(frequency, &endptr);
 
-    if (endptr != frequency) {
-        while (isspace(*endptr)) {
-            endptr++;
-        }
+   if (endptr != frequency) {
+      while (isspace(*endptr)) {
+         endptr++;
+      }
 
-        if (*endptr != '\0') {
-            switch (*endptr) {
-                case 'k': case 'K':
-                    multiplier = 1000.0;
-                    break;
-                case 'm': case 'M':
-                    multiplier = 1000000.0;
-                    break;
-                case 'g': case 'G':
-                    multiplier = 1000000000.0;
-                    break;
-                default:
-                    fprintf(stderr, "Invalid suffix in frequency: %s\n", frequency);
-                    exit(EXIT_FAILURE);
-            }
-        }
-    } else {
-        fprintf(stderr, "Invalid frequency format: %s\n", frequency);
-        exit(EXIT_FAILURE);
-    }
+      if (*endptr != '\0') {
+         switch (*endptr) {
+            case 'k': case 'K':
+               multiplier = 1000.0;
+               break;
+            case 'm': case 'M':
+               multiplier = 1000000.0;
+               break;
+            case 'g': case 'G':
+               multiplier = 1000000000.0;
+               break;
+            default:
+               fprintf(stderr, "Invalid suffix in frequency: %s\n", frequency);
+               exit(EXIT_FAILURE);
+         }
+      }
+   } else {
+      fprintf(stderr, "Invalid frequency format: %s\n", frequency);
+      exit(EXIT_FAILURE);
+   }
 
-    return value * multiplier;
+   return value * multiplier;
 }
 
 void save_config(const char *path) {
+    if (!path) {
+       return;
+    }
+
     // XXX: refresh_channels();
     FILE *fp = fopen(path, "w");
 
@@ -287,6 +310,9 @@ struct cmds cons_cmds[] = {
 };
 
 void send_command(int fd, const char *format, ...) {
+    if (!format || fd < 0) {
+       return;
+    }
     char buffer[BUFFER_SIZE];
     va_list args;
     va_start(args, format);
@@ -566,257 +592,276 @@ void c_sweep(int fd, char *argv[], int argc) {
 }
 
 void c_time(int fd, char *argv[], int argc) {
-    if (argc > 0) {
-       int new_time = atoi(argv[0]);
-       if (new_time < 1 || new_time > 9999) {
-          printf("*** Invalid argument to time: Value %d out of bounds[1-9999]\n", new_time);
-          return;
-       }
-       send_command(fd, "AT+TIME+%d", new_time);
-    }
-    send_command(fd, "AT+TIME");
+   if (argc > 0) {
+      int new_time = atoi(argv[0]);
+      if (new_time < 1 || new_time > 9999) {
+         printf("*** Invalid argument to time: Value %d out of bounds[1-9999]\n", new_time);
+         return;
+      }
+      send_command(fd, "AT+TIME+%d", new_time);
+   }
+   send_command(fd, "AT+TIME");
 }
 
 void c_version(int fd, char *argv[], int argc) {
-    send_command(fd, "AT+VERSION");
+   send_command(fd, "AT+VERSION");
 }
 
 void process_line(int fd, const char *line) {
-    if (debug) {
-       printf("ser_read: %s\n", line);
-    }
+   if (fd < 0 || !line) {
+      return;
+   }
 
-    // XXX: Deal with errors and tracking status from query_device_info commands
-    if (strncmp(line, "OK", 2) == 0) {
-       if (debug) {
-          printf("OK!\n");
-       }
-    } else if (strcmp(line, "ERROR_DATA_OVER_RANGEM") == 0) {
-       printf("*** Invalid argument data: Out of range! Last command was not successful!\n");
-    // capture state messages
-    } else if (strncmp(line, "+AMP=", 5) == 0) {
-       int new_amp = atoi(line+5);
-       chan_state[curr_chan-1].power = new_amp;
-       printf("- Chan %d power: %d (%.1f%%)\n", curr_chan, new_amp, convertAmplitudeToPower(new_amp));
-    } else if (strncmp(line, "+CHANNEL=", 9) == 0) {
-       curr_chan = atoi(line + 9);
-       printf("* Chan %d selected\n", curr_chan);
-       // query channel parameters to cause an update in struct
-       c_mode(fd, NULL, 0);
-    } else if (strncmp(line, "+ENDFRE=", 8) == 0) {
-       chan_state[curr_chan-1].sweep_end_freq = atoi(line+8);
-       printf("- Chan %d sweep end freq: %.0f\n", curr_chan, chan_state[curr_chan-1].sweep_end_freq);
-    } else if (strncmp(line, "+FRE=", 5) == 0) {
-       chan_state[curr_chan-1].freq = atoi(line + 5);
+   if (debug) {
+      printf("ser_read: %s\n", line);
+   }
 
-       printf("- Chan %d freq: %.0f\n", curr_chan, chan_state[curr_chan-1].freq);
-    } else if (strncmp(line, "+MODE=", 6) == 0) {
-       const char *new_mode = line + 6;
-       size_t msz = sizeof(chan_state[curr_chan-1].mode);
+   // XXX: Deal with errors and tracking status from query_device_info commands
+   if (strncmp(line, "OK", 2) == 0) {
+      if (debug) {
+         printf("OK!\n");
+      }
+   } else if (strcmp(line, "ERROR_DATA_OVER_RANGEM") == 0) {
+      printf("*** Invalid argument data: Out of range! Last command was not successful!\n");
+   // capture state messages
+   } else if (strncmp(line, "+AMP=", 5) == 0) {
+      int new_amp = atoi(line+5);
+      chan_state[curr_chan-1].power = new_amp;
+      printf("- Chan %d power: %d (%.1f%%)\n", curr_chan, new_amp, convertAmplitudeToPower(new_amp));
+   } else if (strncmp(line, "+CHANNEL=", 9) == 0) {
+      curr_chan = atoi(line + 9);
+      printf("* Chan %d selected\n", curr_chan);
+      // query channel parameters to cause an update in struct
+      c_mode(fd, NULL, 0);
+   } else if (strncmp(line, "+ENDFRE=", 8) == 0) {
+      chan_state[curr_chan-1].sweep_end_freq = atoi(line+8);
+      printf("- Chan %d sweep end freq: %.0f\n", curr_chan, chan_state[curr_chan-1].sweep_end_freq);
+   } else if (strncmp(line, "+FRE=", 5) == 0) {
+      chan_state[curr_chan-1].freq = atoi(line + 5);
 
-       // zero buffer and save mode for this channel
-       memset(chan_state[curr_chan-1].mode, 0, msz);
-       snprintf(chan_state[curr_chan-1].mode, msz, "%s", new_mode);
-       printf("- Chan %d mode: %s\n", curr_chan, chan_state[curr_chan-1].mode);
+      printf("- Chan %d freq: %.0f\n", curr_chan, chan_state[curr_chan-1].freq);
+   } else if (strncmp(line, "+MODE=", 6) == 0) {
+      const char *new_mode = line + 6;
+      size_t msz = sizeof(chan_state[curr_chan-1].mode);
 
-       if (strcasecmp(new_mode, "SWEEP") == 0) {
-          // query sweep parameters
-          c_startpower(fd, NULL, 0);
-          c_endpower(fd, NULL, 0);
-          c_startfreq(fd, NULL, 0);
-          c_endfreq(fd, NULL, 0);
-          c_time(fd, NULL, 0);
-          c_step(fd, NULL, 0);
-          c_sweep(fd, NULL, 0);
-       } else if (strcasecmp(new_mode, "POINT") == 0) {
-          c_freq(fd, NULL, 0);
-          c_phase(fd, NULL, 0);
-          c_power(fd, NULL, 0);
-       } else if (strcasecmp(new_mode, "FSK2") == 0) {
-          printf("*** Unsupported mode: %s\n", new_mode);
-          return;
-       } else if (strcasecmp(new_mode, "FSK4") == 0) {
-          printf("*** Unsupported mode: %s\n", new_mode);
-          return;
-       } else if (strcasecmp(new_mode, "AM") == 0) {
-          printf("*** Unsupported mode: %s\n", new_mode);
-          return;
-       }
-    } else if (strncmp(line, "+MULT=", 6) == 0) {
-       int tmp_mult = atoi(line+6);
-       if (tmp_mult < 1 || tmp_mult > 20) {
-          printf("*** Invalid mult argument data: Out of range! Last command was not succesful (MULT)!\n");
-          return;
-       }
-       if (tmp_mult != clk_mult) {
-          printf("* Multiplier: changed from %d to %d\n", clk_mult, tmp_mult);
-          clk_mult = tmp_mult;
-       } else {
-          printf("* Multiplier: %d\n", clk_mult);
-       }
-    } else if (strncmp(line, "+PHA=", 5) == 0) {
-       int new_phase = atoi(line + 5);
-       double new_angle = convertPhaseToAngle(new_phase);
-       chan_state[curr_chan-1].phase  = new_phase;
-       printf("- Chan %d phase: %d (%.1f deg)\n", curr_chan, chan_state[curr_chan-1].phase, new_angle);
-    } else if (strncmp(line, "+REF=", 5) == 0) {
-       int tmp_refclk = atoi(line+5);
-       if (tmp_refclk > 0) {
-          if (tmp_refclk != ref_clk) {
-             printf("* ClkRef: changed from %d to %d\n", ref_clk, tmp_refclk);
-             ref_clk = tmp_refclk;
-          } else {
-             printf("* ClkRef: %d Hz\n", ref_clk);
-          }
-       }
-    } else if (strncmp(line, "+ENDAMP=", 8) == 0) {
-       int new_amp = atoi(line+8);
-       if (new_amp != chan_state[curr_chan-1].sweep_end_power) {
-          printf("- Chan %d SWEEP End Power: %d (%.1f%%) (was %d)\n", curr_chan, new_amp, convertAmplitudeToPower(new_amp), chan_state[curr_chan-1].sweep_end_power);
-          chan_state[curr_chan-1].sweep_end_power = new_amp;
-       } else {
-          printf("- Chan %d SWEEP End Power: %d\n", curr_chan, new_amp);
-       }
-    } else if (strncmp(line, "+STARTAMP=", 10) == 0) {
-       int new_amp = atoi(line+10);
-       if (new_amp != chan_state[curr_chan-1].sweep_start_power) {
-          printf("- Chan %d SWEEP Start Power: %d (%.1f%%) (was %d)\n", curr_chan, new_amp, convertAmplitudeToPower(new_amp), chan_state[curr_chan-1].sweep_start_power);
-          chan_state[curr_chan-1].sweep_start_power = new_amp;
-       } else {
-          printf("- Chan %d SWEEP Start Power: %d (%.1f%%)\n", curr_chan, new_amp, convertAmplitudeToPower(new_amp));
-       }
-    } else if (strncmp(line, "+STARTFRE=", 10) == 0) {
-       chan_state[curr_chan-1].sweep_start_freq = atoi(line+10);
-       printf("- Chan %d sweep start freq: %.0f\n", curr_chan, chan_state[curr_chan-1].sweep_start_freq);
-    } else if (strncmp(line, "+STEP=", 6) == 0) {
-       chan_state[curr_chan-1].sweep_step = atoi(line+6);
-       printf("- Chan %d sweep step: %.0f\n", curr_chan, chan_state[curr_chan-1].sweep_step);
-    } else if (strncmp(line, "+SWEEP=", 7) == 0) {
-       if (strncasecmp(line+7, "OFF", 3) == 0) {
-          chan_state[curr_chan-1].sweep_active = 0;
-          printf("- Chan %d sweep inactive\n", curr_chan);
-       } else if (strncasecmp(line+7, "ON", 2) == 0) {
-          chan_state[curr_chan-1].sweep_active = 1;
-          printf("- Chan %d sweep ACTIVE\n", curr_chan);
-       }
-    } else if (strncmp(line, "+TIME=", 6) == 0) {
-       chan_state[curr_chan-1].sweep_time = atoi(line+6);
-       printf("- Chan %d sweep time: %d\n", curr_chan, chan_state[curr_chan-1].sweep_time);
-    } else if (strncmp(line, "+VERSION=", 9) == 0) {
-       memset(brd_ver, 0, sizeof(brd_ver));
-       snprintf(brd_ver, sizeof(brd_ver), "%s", line + 9);
-       printf("* Connected to board version %s\n", brd_ver);
-    } else {
-       printf("Unknown response (chan#%d): %s\n", curr_chan, line);
-    }
+      // zero buffer and save mode for this channel
+      memset(chan_state[curr_chan-1].mode, 0, msz);
+      snprintf(chan_state[curr_chan-1].mode, msz, "%s", new_mode);
+      printf("- Chan %d mode: %s\n", curr_chan, chan_state[curr_chan-1].mode);
+
+      if (strcasecmp(new_mode, "SWEEP") == 0) {
+         // query sweep parameters
+         c_startpower(fd, NULL, 0);
+         c_endpower(fd, NULL, 0);
+         c_startfreq(fd, NULL, 0);
+         c_endfreq(fd, NULL, 0);
+         c_time(fd, NULL, 0);
+         c_step(fd, NULL, 0);
+         c_sweep(fd, NULL, 0);
+      } else if (strcasecmp(new_mode, "POINT") == 0) {
+         c_freq(fd, NULL, 0);
+         c_phase(fd, NULL, 0);
+         c_power(fd, NULL, 0);
+      } else if (strcasecmp(new_mode, "FSK2") == 0) {
+         printf("*** Unsupported mode: %s\n", new_mode);
+         return;
+      } else if (strcasecmp(new_mode, "FSK4") == 0) {
+         printf("*** Unsupported mode: %s\n", new_mode);
+         return;
+      } else if (strcasecmp(new_mode, "AM") == 0) {
+         printf("*** Unsupported mode: %s\n", new_mode);
+         return;
+      }
+   } else if (strncmp(line, "+MULT=", 6) == 0) {
+      int tmp_mult = atoi(line+6);
+      if (tmp_mult < 1 || tmp_mult > 20) {
+         printf("*** Invalid mult argument data: Out of range! Last command was not succesful (MULT)!\n");
+         return;
+      }
+      if (tmp_mult != clk_mult) {
+         printf("* Multiplier: changed from %d to %d\n", clk_mult, tmp_mult);
+         clk_mult = tmp_mult;
+      } else {
+         printf("* Multiplier: %d\n", clk_mult);
+      }
+   } else if (strncmp(line, "+PHA=", 5) == 0) {
+      int new_phase = atoi(line + 5);
+      double new_angle = convertPhaseToAngle(new_phase);
+      chan_state[curr_chan-1].phase  = new_phase;
+      printf("- Chan %d phase: %d (%.1f deg)\n", curr_chan, chan_state[curr_chan-1].phase, new_angle);
+   } else if (strncmp(line, "+REF=", 5) == 0) {
+      int tmp_refclk = atoi(line+5);
+      if (tmp_refclk > 0) {
+         if (tmp_refclk != ref_clk) {
+            printf("* ClkRef: changed from %d to %d\n", ref_clk, tmp_refclk);
+            ref_clk = tmp_refclk;
+         } else {
+            printf("* ClkRef: %d Hz\n", ref_clk);
+         }
+      }
+   } else if (strncmp(line, "+ENDAMP=", 8) == 0) {
+      int new_amp = atoi(line+8);
+      if (new_amp != chan_state[curr_chan-1].sweep_end_power) {
+         printf("- Chan %d SWEEP End Power: %d (%.1f%%) (was %d)\n", curr_chan, new_amp, convertAmplitudeToPower(new_amp), chan_state[curr_chan-1].sweep_end_power);
+         chan_state[curr_chan-1].sweep_end_power = new_amp;
+      } else {
+         printf("- Chan %d SWEEP End Power: %d\n", curr_chan, new_amp);
+      }
+   } else if (strncmp(line, "+STARTAMP=", 10) == 0) {
+      int new_amp = atoi(line+10);
+      if (new_amp != chan_state[curr_chan-1].sweep_start_power) {
+         printf("- Chan %d SWEEP Start Power: %d (%.1f%%) (was %d)\n", curr_chan, new_amp, convertAmplitudeToPower(new_amp), chan_state[curr_chan-1].sweep_start_power);
+         chan_state[curr_chan-1].sweep_start_power = new_amp;
+      } else {
+         printf("- Chan %d SWEEP Start Power: %d (%.1f%%)\n", curr_chan, new_amp, convertAmplitudeToPower(new_amp));
+      }
+   } else if (strncmp(line, "+STARTFRE=", 10) == 0) {
+      chan_state[curr_chan-1].sweep_start_freq = atoi(line+10);
+      printf("- Chan %d sweep start freq: %.0f\n", curr_chan, chan_state[curr_chan-1].sweep_start_freq);
+   } else if (strncmp(line, "+STEP=", 6) == 0) {
+      chan_state[curr_chan-1].sweep_step = atoi(line+6);
+      printf("- Chan %d sweep step: %.0f\n", curr_chan, chan_state[curr_chan-1].sweep_step);
+   } else if (strncmp(line, "+SWEEP=", 7) == 0) {
+      if (strncasecmp(line+7, "OFF", 3) == 0) {
+         chan_state[curr_chan-1].sweep_active = 0;
+         printf("- Chan %d sweep inactive\n", curr_chan);
+      } else if (strncasecmp(line+7, "ON", 2) == 0) {
+         chan_state[curr_chan-1].sweep_active = 1;
+         printf("- Chan %d sweep ACTIVE\n", curr_chan);
+      }
+   } else if (strncmp(line, "+TIME=", 6) == 0) {
+      chan_state[curr_chan-1].sweep_time = atoi(line+6);
+      printf("- Chan %d sweep time: %d\n", curr_chan, chan_state[curr_chan-1].sweep_time);
+   } else if (strncmp(line, "+VERSION=", 9) == 0) {
+      memset(brd_ver, 0, sizeof(brd_ver));
+      snprintf(brd_ver, sizeof(brd_ver), "%s", line + 9);
+      printf("* Connected to board version %s\n", brd_ver);
+   } else {
+      printf("Unknown response (chan#%d): %s\n", curr_chan, line);
+   }
 }
 
 void serial_read_cb(int fd) {
-    static char read_buffer[BUFFER_SIZE];
-    static int buffer_index = 0;
-    char c;
-    ssize_t nbytes = read(fd, &c, 1);
-    if (nbytes > 0) {
-        if (c == '\r' || c == '\n') {
-            if (buffer_index > 0) {
-                read_buffer[buffer_index] = '\0'; 	// Null-terminate the string
-                process_line(fd, read_buffer);
-                buffer_index = 0;
-            }
-        } else {
-            if (buffer_index < BUFFER_SIZE - 1) {
-                read_buffer[buffer_index++] = c;
-            } else {
-                printf("overflow!\n");
-            }
-        }
-    }
+   if (fd < 0) {
+      return;
+   }
+   static char read_buffer[BUFFER_SIZE];
+   static int buffer_index = 0;
+   char c;
+   ssize_t nbytes = read(fd, &c, 1);
+   if (nbytes > 0) {
+      if (c == '\r' || c == '\n') {
+         if (buffer_index > 0) {
+            read_buffer[buffer_index] = '\0'; 	// Null-terminate the string
+            process_line(fd, read_buffer);
+            buffer_index = 0;
+         }
+      } else {
+         if (buffer_index < BUFFER_SIZE - 1) {
+            read_buffer[buffer_index++] = c;
+         } else {
+            printf("overflow!\n");
+         }
+      }
+   }
 }
 
 void handle_command(int fd, const char *input) {
-    char *command = strtok((char *)input, " \t\r\n");
+   if (!input) {
+      return;
+   }
 
-    // no command given, skip so it doesn't end up in history if we ever implement it...
-    if (command == NULL) {
-        return;
-    }
+   char *command = strtok((char *)input, " \t\r\n");
 
-    // iterate over all the known commands
-    int i = 0;
-    while (cons_cmds[i].name != NULL) {
-        if (strcasecmp(command, cons_cmds[i].name) == 0) {
-            char *args[MAX_ARGS];
-            int num_args = 0;
-            char *arg = strtok(NULL, " \t\r\n");
+   // no command given, skip so it doesn't end up in history if we ever implement it...
+   if (command == NULL) {
+       return;
+   }
 
-            while (arg != NULL && num_args < MAX_ARGS) {
-                args[num_args++] = arg;
-                arg = strtok(NULL, " \t\r\n");
-            }
+   // iterate over all the known commands
+   int i = 0;
+   while (cons_cmds[i].name != NULL) {
+      if (strcasecmp(command, cons_cmds[i].name) == 0) {
+         char *args[MAX_ARGS];
+         int num_args = 0;
+         char *arg = strtok(NULL, " \t\r\n");
 
-            if (num_args < cons_cmds[i].min_args || num_args > cons_cmds[i].max_args) {
-                printf("Usage: %s %s\n", cons_cmds[i].name, cons_cmds[i].msg);
-            } else {
-                cons_cmds[i].func(fd, args, num_args);
-            }
-            return;
-        }
-        i++;
-    }
+         while (arg != NULL && num_args < MAX_ARGS) {
+            args[num_args++] = arg;
+            arg = strtok(NULL, " \t\r\n");
+         }
 
-    printf("Unknown command: %s\n", command);
+         if (num_args < cons_cmds[i].min_args || num_args > cons_cmds[i].max_args) {
+            printf("Usage: %s %s\n", cons_cmds[i].name, cons_cmds[i].msg);
+         } else {
+            cons_cmds[i].func(fd, args, num_args);
+         }
+         return;
+      }
+      i++;
+   }
+
+   printf("Unknown command: %s\n", command);
 }
 
 void show_help(int argc, char **argv) {
-    printf("Usage: %s [option] - Control AD9959+stm32 DDS VFO board from ch*na\n", argv[0]);
-    printf("\t-h\t\tThis help message\n");
-    printf("\t-p\t\tSerial port path\n");
-    printf("\t-d\t\tDebug level\n");
+   if (!argv || argc < 1) {
+      return;
+   }
+
+   printf("Usage: %s [option] - Control AD9959+stm32 DDS VFO board from ch*na\n", argv[0]);
+   printf("\t-h\t\tThis help message\n");
+   printf("\t-p\t\tSerial port path\n");
+   printf("\t-d\t\tDebug level\n");
 }
 
 void load_script(const char *path) {
-    // check if file exists
-    // open file
-    FILE *fp = fopen(path, "r");
-    char line[512];
+   if (!path) {
+      return;
+   }
 
-    if (fp == NULL) {
-       int my_errno = errno;
+   // check if file exists
+   // open file
+   FILE *fp = fopen(path, "r");
+   char line[512];
 
-       printf("Error opening script %s: %d (%s)", path, my_errno, strerror(my_errno));
-    }
+   if (fp == NULL) {
+      int my_errno = errno;
 
-    // read file & loop over it
-    while (fgets(line, sizeof(line), fp) != NULL) {
-       // clean line endings...
-       if (line[strlen(line) - 1] == '\n' || line[strlen(line) - 1] == '\r') {
-          line[strlen(line) - 1] = '\0';
-       }
-       if (line[strlen(line) - 1] == '\n' || line[strlen(line) - 1] == '\r') {
-          line[strlen(line) - 1] = '\0';
-       }
+      printf("Error opening script %s: %d (%s)", path, my_errno, strerror(my_errno));
+   }
 
-       // Remove trailing whitespace
-       int len = strlen(line);
-       while (len > 0 && isspace(line[len - 1])) {
-           line[len - 1] = '\0';
-           len--;
-       }
+   // read file & loop over it
+   while (fgets(line, sizeof(line), fp) != NULL) {
+      // clean line endings...
+      if (line[strlen(line) - 1] == '\n' || line[strlen(line) - 1] == '\r') {
+         line[strlen(line) - 1] = '\0';
+      }
+      if (line[strlen(line) - 1] == '\n' || line[strlen(line) - 1] == '\r') {
+         line[strlen(line) - 1] = '\0';
+      }
 
-       // Skip leading whitespace
-       char *cmd_start = line;
-       while (isspace(*cmd_start)) {
-           cmd_start++;
-       }
+      // Remove trailing whitespace
+      int len = strlen(line);
+      while (len > 0 && isspace(line[len - 1])) {
+          line[len - 1] = '\0';
+          len--;
+      }
 
-       // skip single-line comments (we don't support multi-line)
-       if (cmd_start[0] == '#' || cmd_start[0] == ';' || (cmd_start[0] == '/' && cmd_start[1] == '/')) {
-          continue;
-       }
-    }
+      // Skip leading whitespace
+      char *cmd_start = line;
+      while (isspace(*cmd_start)) {
+          cmd_start++;
+      }
 
-    // close file
-    fclose(fp);
+      // skip single-line comments (we don't support multi-line)
+      if (cmd_start[0] == '#' || cmd_start[0] == ';' || (cmd_start[0] == '/' && cmd_start[1] == '/')) {
+         continue;
+      }
+   }
+
+   // close file
+   fclose(fp);
 }
 
 int main(int argc, char **argv) {

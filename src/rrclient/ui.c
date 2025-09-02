@@ -52,14 +52,13 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
 }
 
 bool ui_print(const char *fmt, ...) {
+   if (!fmt) {
+      return true;
+   }
+
    va_list ap;
    va_start(ap, fmt);
    char outbuf[8096];
-
-   if (!fmt) {
-      va_end(ap);
-      return true;
-   }
 
    memset(outbuf, 0, sizeof(outbuf));
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);

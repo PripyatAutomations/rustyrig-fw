@@ -34,6 +34,9 @@
 extern dict *cfg;		// config.c
 
 static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
+   if (!widget || !hint) {
+      return;
+   }
    AtkObject *a11y = gtk_widget_get_accessible(widget);
 
    if (!a11y) {
@@ -72,6 +75,10 @@ void ui_speech_set(GtkWidget *widget,
                    const char *description,
                    ui_role_t role,
                    bool focusable) {
+   if (!widget || !name || !description) {
+      return;
+   }
+
    ui_speech_hint_t hint = {
       .name = name,
       .description = description,

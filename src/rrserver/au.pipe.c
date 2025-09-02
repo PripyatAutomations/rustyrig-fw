@@ -38,22 +38,38 @@
 #include "common/fwdsp-shared.h"
 
 bool pipe_init(rr_au_pipe_device_t *device, const char *pipe_name) {
-    device->pipe_fd = open(pipe_name, O_RDWR);
-    return device->pipe_fd >= 0;
+   if (!device || !pipe_name) {
+      return true;
+   }
+
+   device->pipe_fd = open(pipe_name, O_RDWR);
+   return device->pipe_fd >= 0;
 }
 
 bool pipe_write_samples(rr_au_pipe_device_t *device, const void *samples, size_t size) {
-    return write(device->pipe_fd, samples, size) == size;
+   if (!device || !samples || size <= 0) {
+      return true;
+   }
+
+   return write(device->pipe_fd, samples, size) == size;
 }
 
 bool pipe_read_samples(rr_au_pipe_device_t *device, void *buffer, size_t size) {
-    return read(device->pipe_fd, buffer, size) == size;
+   if (!device || !buffer || size <= 0) {
+      return true;
+   }
+
+   return read(device->pipe_fd, buffer, size) == size;
 }
 
 void pipe_cleanup(rr_au_pipe_device_t *device) {
-    if (device->pipe_fd >= 0) {
-       close(device->pipe_fd);
-    }
+   if (!device) {
+      return;
+   }
+
+   if (device->pipe_fd >= 0) {
+      close(device->pipe_fd);
+   }
 }
 
 rr_au_backend_interface_t au_backend_pipe = {
@@ -74,6 +90,10 @@ int rx_server_fd = -1;
 int rx_client_fd = -1;
 
 int setup_rx_unix_socket_server(const char *path) {
+   if (!path) {
+      return -1;
+   }
+
    struct sockaddr_un addr = {0};
    int fd;
 
@@ -111,14 +131,14 @@ int setup_rx_unix_socket_server(const char *path) {
    return fd;
 }
 
-void close_client() {
+void close_client(void) {
    if (rx_client_fd >= 0) {
       close(rx_client_fd);
       rx_client_fd = -1;
    }
 }
 
-void close_server() {
+void close_server(void ) {
    if (rx_server_fd >= 0) {
       close(rx_server_fd);
       rx_server_fd = -1;

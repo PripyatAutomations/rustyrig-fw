@@ -30,6 +30,9 @@
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
 
 static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
+   if (!button) {
+      return;
+   }
    connect_or_disconnect(GTK_BUTTON(button));
 }
 
@@ -40,6 +43,10 @@ typedef struct {
 } VfoKeyData;
 
 static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+   if (!widget || !event || !user_data) {
+      return FALSE;
+   }
+
    VfoKeyData *d = user_data;
    if (!d || !GTK_IS_WIDGET(d->fe))
       return FALSE;

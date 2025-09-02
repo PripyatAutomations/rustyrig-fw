@@ -34,6 +34,7 @@
 
 const char *au_recording_mkfilename(const char *recording_id, int channel) {
    char *rv = NULL;
+
    if (!recording_id || channel < 0) {
       return NULL;
    }
@@ -121,6 +122,10 @@ const char *au_recording_start(int channel) {
 
 
 recording_data_t *au_recording_find(const char *id) {
+   if (!id) {
+      return NULL;
+   }
+
    recording_data_t *rp = NULL;
    for (int i = 0; i < MAX_RECORD_OPEN - 1; i++) {
       if ((active_recordings[i] != NULL) && active_recordings[i]->rec_id == id) {

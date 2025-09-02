@@ -30,6 +30,7 @@
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/ui.h"
+#include "rrclient/connman.h"
 #include "rrclient/ws.h"
 
 extern bool cfg_detect_and_load(void);
@@ -53,15 +54,17 @@ void shutdown_app(int signum) {
    dying = true;
 }
 
-// For polling mongoose from glib
+////////////////////////////////////
+// For polling mongoose from glib //
+////////////////////////////////////
 static gboolean poll_mongoose(gpointer user_data) {
    mg_mgr_poll(&mgr, 0);
    return G_SOURCE_CONTINUE;
 }
 
-/////////////
-// 1hz periodic: Check if dying and shutdown, update now variable
-/////////////
+////////////////////////////////////////////////////////////////////
+// 1hz periodic: Check if dying and shutdown, update now variable //
+////////////////////////////////////////////////////////////////////
 static gboolean update_now(gpointer user_data) {
    now = time(NULL);
 
@@ -81,9 +84,9 @@ int main(int argc, char *argv[]) {
    logger_init();
    host_init();
 
-   // AUDIO debugging
    const char *cfg_debug_audio = cfg_get_exp("audio.debug");
    if (cfg_debug_audio) {
+      // Set the GST_DEBUG environment variable, before spawning subprocesses
 #ifdef _WIN32
       SetEnvironmentVariable("GST_DEBUG", cfg_debug_audio);
 #else
@@ -93,10 +96,7 @@ int main(int argc, char *argv[]) {
    free((void *)cfg_debug_audio);
    cfg_debug_audio = NULL;
 
-   /////////////////////////////////////////
    gtk_init(&argc, &argv);
-
-
 
 #ifdef _WIN32
    // Disable edit mode in the console, so copy/paste is more usable
@@ -121,16 +121,25 @@ int main(int argc, char *argv[]) {
 
    // Should we connect to a server on startup?
    const char *autoconnect = cfg_get_exp("server.auto-connect");
+
    if (autoconnect) {
-      memset(active_server, 0, sizeof(active_server));
-      snprintf(active_server, sizeof(active_server), "%s", autoconnect);
-      ui_print("* Autoconnect set to profile: %s *", active_server);
-      connect_or_disconnect(GTK_BUTTON(conn_button));
+      char *tv = strdup(autoconnect);
+      // Split this on ',' and connect to allow configured servers
+      char *sp = strtok(tv, ",");
+      while (sp) {
+         char this_server[256];
+         memset(this_server, 0, sizeof(this_server));
+         snprintf(this_server, sizeof(this_server), "%s", sp);
+         ui_print("* Autoconnecing to profile: %s *", this_server);
+         sp = strtok(NULL, ",");
+         connect_or_disconnect(GTK_BUTTON(conn_button));
+      }
+      free(tv);
+      free((void *)autoconnect);
+      autoconnect = NULL;
    } else {
       show_server_chooser();
    }
-   free((void *)autoconnect);
-   autoconnect = NULL;
 
    // start gtk main loop
    gtk_main();

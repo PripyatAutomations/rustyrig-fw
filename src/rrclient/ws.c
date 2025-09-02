@@ -23,6 +23,7 @@
 #include "common/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
+#include "rrclient/connman.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
@@ -35,12 +36,11 @@ const char *default_tls_ca_paths[] = {
    "/etc/ssl/cert.pem"
 };
 
-extern dict *cfg;		// config.c
+extern dict *cfg;				// config.c
 struct mg_mgr mgr;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
-extern dict *servers;
 
 #if	defined(USE_GTK)
 #include <gtk/gtk.h>
@@ -49,22 +49,7 @@ extern GtkWidget *tx_codec_combo, *rx_codec_combo;
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 #endif	// defined(USE_GTK)
 
-//////////////
 bool cfg_http_debug_crazy = false;
-
-//////////////////////////////////
-// Support for multiple servers //
-//////////////////////////////////
-extern rr_connection_t *active_connections;
-
-//// OLD way, needs merged into rr_connection_t
- extern time_t poll_block_expire, poll_block_delay;
-extern char session_token[HTTP_TOKEN_LEN+1];
-char active_server[512];
-bool ws_connected = false;	// Is RX stream connecte?
-bool ws_tx_connected = false;	// Is TX stream connected?
-struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
-bool server_ptt_state = false;
 
 //////////////////////
 // Websocket router //
@@ -100,6 +85,10 @@ struct ws_msg_routes ws_routes[] = {
 };
 
 bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg) {
+   if (!c || !msg) {
+      return true;
+   }
+
    struct mg_str msg_data = msg->data;
 
    if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
@@ -121,7 +110,8 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
    struct mg_str msg_data = msg->data;
 
    while (rp[i].type) {
-      if (!rp[i].type &&!rp[i].cb) {
+      // End of table marker
+      if (!rp[i].type && !rp[i].cb) {
          break;
       }
 
@@ -150,18 +140,16 @@ bool ws_binframe_process(const char *data, size_t len) {
       return true;
    }
 
-//#if	defined(DEBUG_WS_BINFRAMES)
+#if	defined(DEBUG_WS_BINFRAMES)
    char hex[128] = {0};
    size_t n = len < 16 ? len : 16;
    for (size_t i = 0; i < n; i++) {
       snprintf(hex + i * 3, sizeof(hex) - i * 3, "%02X ", (unsigned char)data[i]);
    }
    Log(LOG_DEBUG, "http.ws", "binary: %zu bytes, hex: %s", len, hex);
-//#endif
+#endif
 
-//   if (data[0] == 'A' && data[1] == 'U') {
-      audio_process_frame(data, len);
-//   }
+   audio_process_frame(data, len);
    return false;
 }
 
@@ -192,6 +180,10 @@ bool ws_handle(struct mg_connection *c, struct mg_ws_message *msg) {
 }
 
 void http_handler(struct mg_connection *c, int ev, void *ev_data) {
+   if (!c || !ev_data) {
+      return;
+   }
+
    if (ev == MG_EV_OPEN) {
 #if	defined(HTTP_DEBUG_CRAZY)
       if (cfg_http_debug_crazy) {
@@ -220,6 +212,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       ws_connected = true;
       update_connection_button(true, conn_button);
       ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
+
 #if	defined(USE_GTK)
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-active");
@@ -293,78 +286,3 @@ void ws_init(void) {
 void ws_fini(void) {
    mg_mgr_free(&mgr);
 }
-
-const char *get_server_property(const char *server, const char *prop) {
-   char *rv = NULL;
-
-   if (!server || !prop) {
-      Log(LOG_CRIT, "ws", "get_server_prop with null server:<%x> or prop:<%x>");
-      return NULL;
-   }
-
-   char fullkey[1024];
-   memset(fullkey, 0, sizeof(fullkey));
-   snprintf(fullkey, sizeof(fullkey), "%s.%s", server, prop);
-   rv = dict_get(servers, fullkey, NULL);
-#if	defined(DEBUG_CONFIG) || defined(DEBUG_CONFIG_SERVER)
-   ui_print("Looking up server key: %s returned %s", fullkey, (rv ? rv : "NULL"));
-   dict_dump(servers, stdout);
-#endif
-   return rv;
-}
-
-///////////////////////////////////////////////////////////
-// Handle properly connect, disconnect, and error events //
-///////////////////////////////////////////////////////////
-bool disconnect_server(void) {
-   if (ws_connected) {
-      if (ws_conn) {
-         ws_conn->is_closing = 1;
-      }
-      ws_connected = false;
-      gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
-      // XXX: im not sure this is acceptable
-//      ws_conn = NULL;
-      userlist_clear_all();
-   }
-   return false;
-}
-
-bool connect_server(void) {
-   // This could recurse in an ugly way if not careful...
-   if (active_server[0] == '\0') {
-      show_server_chooser();
-      return true;
-   }
-
-   const char *url = get_server_property(active_server, "server.url");
-
-   if (url) {
-// XXX:
-#if	defined(USE_GTK)
-      gtk_button_set_label(GTK_BUTTON(conn_button), "----------");
-#endif	// defined(USE_GTK)
-      ui_print("[%s] Connecting to %s", get_chat_ts(), url);
-
-      ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
-
-      if (!ws_conn) {
-         ui_print("[%s] Socket connect error", get_chat_ts());
-      }
-   } else {
-      ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", active_server);
-   }
-
-   return false;
-}
-
-#if	defined(USE_GTK)
-bool connect_or_disconnect(GtkButton *button) {
-   if (ws_connected) {
-      disconnect_server();
-   } else {
-      connect_server();
-   }
-   return false;
-}
-#endif	// defined(USE_GTK)

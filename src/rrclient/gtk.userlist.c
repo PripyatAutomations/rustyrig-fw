@@ -37,6 +37,10 @@ GtkWidget *cul_view = NULL;
 
 // Instead of destroying the window, hide it...
 static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
+   if (!widget || !event) {
+      return TRUE;
+   }
+
    gtk_widget_hide(widget);
    return TRUE;
 }
@@ -44,6 +48,7 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
 void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    // Toggle the userlist
    gui_window_t *wp = gui_find_window(NULL, "userlist");
+
    if (wp) {
       GtkWidget *userlist_window = wp->gtk_win;
       if (gtk_widget_get_visible(userlist_window)) {
