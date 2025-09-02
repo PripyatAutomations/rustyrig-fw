@@ -36,7 +36,7 @@
 extern struct GlobalState rig;	// Global state
 
 ///////////////////
-#define	WS_RIGCTL_FORCE_INTERVAL	30		// every 30 seconds, send a full update
+#define	WS_RIGCTL_FORCE_INTERVAL	60		// every 60 seconds, send a full update
 
 // XXX: Merge with existing rr_vfo_data_t
 // This ugly mess needs sorted out asap ;)
@@ -211,10 +211,10 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          rr_vfo_data_t *dp = &vfos[vfo_id];
          mode_name = vfo_mode_name(dp->mode);
 
-         // Log PTT event in the master db
          int channel = -1;
-
 #if	0	// XXX: Need to work out channel subscriptions
+
+         // XXX: We need to look up the channel ID for RX *FROM* the client
          if (channel < 0) {
             Log(LOG_CRIT, "ptt", "Couldn't find channel ID for TX stream, ignoring PTT event");
             rv = true;
@@ -234,6 +234,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
          cptr->is_ptt = c_state;
 
+         // Start/stop PTT session
          if (!cptr->ptt_session) {
             const char *recording = au_recording_start(channel);
             cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, dp->freq, mode_name, dp->width, dp->power, recording);

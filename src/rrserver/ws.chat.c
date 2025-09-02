@@ -403,6 +403,10 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                        mode_changed = false,
                        power_changed = false,
                        width_changed = false;
+                  rr_mode_t new_mode;
+                  long new_freq;
+                  float new_power;
+                  char *new_width;
 
                   if (strcasecmp(cmd, "help") == 0) {
                      ws_send_notice(cptr->conn, "<span>***SERVER***"
@@ -414,18 +418,18 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                         "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (narrow|normal|wide)<br/></span>");
                      goto cleanup;
                   } else if (strcasecmp(cmd, "freq") == 0) {
-                     long real_freq = parse_freq(arg);
-                     Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", real_freq, arg, cptr->chatname);
+                     new_freq = parse_freq(arg);
+                     Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", new_freq, arg, cptr->chatname);
 
-                     if (real_freq >= 0) {
-                        rr_freq_set(active_vfo, real_freq);
+                     if (new_freq >= 0) {
+                        rr_freq_set(active_vfo, new_freq);
                         freq_changed = true;
                      } else {
                         ws_send_error(cptr, "Invalid freq %s provided for !freq", arg);
                      }
                      continue;
                   } else if (strcasecmp(cmd, "mode") == 0) {
-                     rr_mode_t new_mode = vfo_parse_mode(arg);
+                     new_mode = vfo_parse_mode(arg);
 
                      if (new_mode != MODE_NONE) {
                         mode_changed = true;
@@ -438,10 +442,12 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      continue;
                   } else if (strcasecmp(cmd, "power") == 0) {
                      power_changed = true;
-                     Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);
+                     new_power = atof(arg);
+                     Log(LOG_DEBUG, "ws.chat", "Got !power |%s| %.3f from %s", arg, new_power, cptr->chatname);
                      continue;
                   } else if (strcasecmp(cmd, "width") == 0) {
                      width_changed = true;
+                     new_width = arg;
                      Log(LOG_DEBUG, "ws.chat", "Got !width %s from %s", arg, cptr->chatname);
                      rr_set_width(active_vfo, arg);
                      continue;
@@ -461,7 +467,22 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                         "{ \"notice\": { \"ts\": %lu, \"msg\": \"Set rig0\", \"from\": \"%s\" } }",
                            now, cptr->chatname);
                   } 
+
                   //
+                  const char *jp = dict2json_mkstr(
+                     VAL_FLOATP, "cat.state.freq", new_freq, 3,
+                     VAL_STR, "cat.state.mode", new_mode,
+                     VAL_FLOATP, "cat.state.power", new_power, 3,
+                     VAL_STR, "cat.state.ptt", rig.backend->api->ptt_get(active_vfo) ? "true" : "false",
+                     VAL_STR, "cat.user", cptr->chatname,
+                     VAL_STR, "cat.state.vfo", active_vfo,
+                     VAL_INT, "cat.state.width", new_width,
+                     VAL_LONG, "cat.ts", now);
+
+                  struct mg_str mp = mg_str(jp);
+                  ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+                  free((char *)jp);
+
                   goto cleanup;
                }
             } else {			// just a message

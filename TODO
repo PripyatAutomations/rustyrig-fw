@@ -47,6 +47,10 @@
 ===============
 = librustyrig =
 ===============
+* track rx bytes & tx bytes in the session
+	- all
+	- text, media (binary)
+* rework all the json parsing to use more advanced APIs
 [CAT]
 * Implement control over unix pipes in posix mode
 * Implement control over stm32 serial over usb
