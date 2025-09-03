@@ -104,6 +104,7 @@ cleanup:
 
 bool ws_send_login(struct mg_connection *c, const char *login_user) {
    if (!c || !login_user) {
+      Log(LOG_DEBUG, "ws.auth", "send_login c:<%x> login_user:<%x> |%s|", c, login_user, login_user);
       return true;
    }
 
@@ -153,6 +154,7 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
 
 bool ws_send_logout(struct mg_connection *c, const char *user, const char *token) {
    if (!user || !token || !c) {
+      Log(LOG_DEBUG, "ws.auth", "send_logout c:<%x> user:<%x> |%s|", c, user, user);
       return true;
    }
 
@@ -171,6 +173,7 @@ bool ws_send_logout(struct mg_connection *c, const char *user, const char *token
 
 bool ws_send_hello(struct mg_connection *c) {
    if (!c) {
+      Log(LOG_DEBUG, "ws.auth", "send_hello c:<%x>", c);
       return true;
    }
    char msgbuf[512];

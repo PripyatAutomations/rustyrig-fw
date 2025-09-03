@@ -329,7 +329,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    }
  
    if (ev == MG_EV_OPEN) {
-//      c->is_hexdumping = 1;
+      c->is_hexdumping = 1;
    } else if (ev == MG_EV_CONNECT) {
       if (c->is_tls) {
          Log(LOG_DEBUG, "http", "Initializing TLS");

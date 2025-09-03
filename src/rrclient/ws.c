@@ -87,6 +87,7 @@ struct ws_msg_routes ws_routes[] = {
 
 bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg) {
+      Log(LOG_DEBUG, "ws", "hello: c:<%x> msg:<%x>", c, msg);
       return true;
    }
 
@@ -102,6 +103,7 @@ bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
 static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg) {
+      Log(LOG_DEBUG, "ws", "txtframe_dispatch: c:<%x> msg:<%x>", c, msg);
       return true;
    }
 
@@ -110,6 +112,7 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
    char json_req[65];
    struct mg_str msg_data = msg->data;
 
+   // Walk the table of handlers
    while (rp[i].type) {
       // End of table marker
       if (!rp[i].type && !rp[i].cb) {
@@ -138,6 +141,7 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
 
 bool ws_binframe_process(const char *data, size_t len) {
    if (!data || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
+      Log(LOG_DEBUG, "ws", "binframe_process: data:<%x> len: %d", data, len);
       return true;
    }
 
@@ -182,6 +186,7 @@ bool ws_handle(struct mg_connection *c, struct mg_ws_message *msg) {
 
 void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (!c || !ev_data) {
+      Log(LOG_DEBUG, "ws", "binframe_process: c:<%x> ev: %d ev_data:<%x>", c, ev, ev_data);
       return;
    }
 
@@ -212,12 +217,12 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 
       ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
       const char *login_user = get_server_property(this_server, "server.user");
-      Log(LOG_DEBUG, "ws", "ev_ws_open: server: |%s| user: |%s|", server_name, login_user);
+      Log(LOG_DEBUG, "ws", "ev_ws_connect: server: |%s| user: |%s|", server_name, login_user);
       ws_connected = true;
       update_connection_button(true, conn_button);
 
       if (!login_user) {
-         Log(LOG_CRIT, "core", "server.user not set in config!");
+         Log(LOG_CRIT, "ws", "server.user not set in config!");
          return;
       }
       ws_send_hello(c);

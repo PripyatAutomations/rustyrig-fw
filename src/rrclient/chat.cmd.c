@@ -61,7 +61,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
 //         memset(active_server, 0, sizeof(active_server));
 //         snprintf(active_server, sizeof(active_server), "%s", server);
          if (server_name) {
-            free(server_name);
+            free((char *)server_name);
             server_name = strdup(server);
 
             if (!server_name) {

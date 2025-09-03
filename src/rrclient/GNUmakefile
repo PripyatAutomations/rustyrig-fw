@@ -55,8 +55,8 @@ CFLAGS += -I../../inc -I${BUILD_DIR} -I${BUILD_DIR}/include -DLOGFILE="\"rrclien
 CFLAGS += -DMG_TLS=MG_TLS_MBED -D__RRCLIENT=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 # Do we want to spew excessive http debugging? This has a performance penalty...
-#CFLAGS += -DHTTP_DEBUG_CRAZY=1
-#CFLAGS += -DDEBUG_WS_BINFRAMES=1
+CFLAGS += -DHTTP_DEBUG_CRAZY=1
+CFLAGS += -DDEBUG_WS_BINFRAMES=1
 LDFLAGS += -lm -g -ggdb -lmbedcrypto -lmbedtls -lmbedx509
 LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
