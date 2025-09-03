@@ -51,6 +51,7 @@ const char *server_name = NULL;
 
 rr_connection_t *connection_find(const char *server) {
    if (!server) {
+      Log(LOG_DEBUG, "connman", "connection_find without server");
       return NULL;
    }
 
@@ -69,6 +70,7 @@ rr_connection_t *connection_find(const char *server) {
 
 bool connection_create(const char *server) {
    if (!server) {
+      Log(LOG_DEBUG, "connman", "connection_create without server");
       return true;
    }
 
@@ -88,6 +90,7 @@ bool connection_create(const char *server) {
 
 bool connection_remove(rr_connection_t *conn) {
    if (!conn) {
+      Log(LOG_DEBUG, "connman", "connection_remove called with no connection ptr");
       return true;
    }
    return false;
@@ -117,6 +120,8 @@ const char *get_server_property(const char *server, const char *prop) {
 // Handle properly connect, disconnect, and error events //
 ///////////////////////////////////////////////////////////
 bool disconnect_server(const char *server) {
+   Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
+
    if (ws_connected) {
       if (ws_conn) {
          ws_conn->is_closing = 1;
@@ -133,7 +138,8 @@ bool disconnect_server(const char *server) {
 // XXX: pass pointer to the server structure
 bool connect_server(const char *server) {
    if (!server) {
-      return true;
+      Log(LOG_DEBUG, "connman", "connect_server with no server name!");
+
    }
    const char *url = get_server_property(server, "server.url");
    Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", server, url);
@@ -162,6 +168,9 @@ bool connect_or_disconnect(const char *server, GtkButton *button) {
    if (ws_connected) {
       disconnect_server(server);
    } else {
+      if (!server_name) {
+         server_name = strdup(server);
+      }
       connect_server(server);
    }
    return false;

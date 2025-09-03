@@ -201,8 +201,20 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       Log(LOG_DEBUG, "ws", "ev_ws_connect");
 //      const char *this_server = http_servername(c);
       const char *this_server = server_name;
+      ui_print("[%s] * Connected to %s*", get_chat_ts(), this_server);
+
+
+      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
+      ws_connected = true;
+      update_connection_button(true, conn_button);
+
+   } else if (ev == MG_EV_WRITE) {
+      // Handle writing audio frames one by one
+   } else if (ev == MG_EV_WS_OPEN) {
+//      const char *this_server = http_servername(c);
+      const char *this_server = server_name;		// XXX: remove me
+      Log(LOG_DEBUG, "ws", "ev_ws_open: |%s|", this_server);
       const char *url = get_server_property(this_server, "server.url");
-      ui_print("[%s] * Connected *", get_chat_ts());
 
       if (c->is_tls) {
          struct mg_tls_opts opts = { .name = mg_url_host(url) };
@@ -215,24 +227,15 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &opts);
       }
 
-      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
       const char *login_user = get_server_property(this_server, "server.user");
       Log(LOG_DEBUG, "ws", "ev_ws_connect: server: |%s| user: |%s|", server_name, login_user);
-      ws_connected = true;
-      update_connection_button(true, conn_button);
-
       if (!login_user) {
          Log(LOG_CRIT, "ws", "server.user not set in config!");
          return;
       }
+
       ws_send_hello(c);
       ws_send_login(c, login_user);
-   } else if (ev == MG_EV_WRITE) {
-      // Handle writing audio frames one by one
-   } else if (ev == MG_EV_WS_OPEN) {
-      Log(LOG_DEBUG, "ws", "ev_ws_open");
-//      const char *this_server = http_servername(c);
-      const char *this_server = server_name;
 
 #if	defined(USE_GTK)
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
