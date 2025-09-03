@@ -33,11 +33,14 @@
 #include "rrclient/userlist.h"
 #include "common/client-flags.h"
 
+// Server connections
 rr_connection_t *active_connections;
 bool ws_connected = false;	// Is RX stream connecte?
 bool ws_tx_connected = false;	// Is TX stream connected?
 struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 bool server_ptt_state = false;
+// XXX: this needs to go away and be replaced with http_find_servername(c)
+const char *server_name = NULL;
 
 extern rr_connection_t *active_connections;
 extern struct mg_mgr mgr;
@@ -46,8 +49,6 @@ extern dict *servers;
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
-
-const char *server_name = NULL;
 
 rr_connection_t *connection_find(const char *server) {
    if (!server) {

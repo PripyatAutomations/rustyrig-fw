@@ -36,6 +36,7 @@ extern time_t now;
 
 bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg) {
+      Log(LOG_DEBUG, "ws.chat", "handle_talk_msg: c:<%x> msg:<%x>", c, msg);
       return true;
    }
 
