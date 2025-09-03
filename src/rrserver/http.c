@@ -337,6 +337,20 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          opts.ca = mg_str("*");
          mg_tls_init(c, &opts);
       }
+
+      http_client_t *cptr = http_find_client_by_c(c);
+
+      if (cptr) {
+         Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
+         cptr->is_ws = true;
+         char msgbuf[512];
+         memset(msgbuf, 0, sizeof(msgbuf));
+         snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
+         mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+      } else {
+         Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
+         ws_kick_client_by_c(c, "Socket error 314");
+      }
    } else if (ev == MG_EV_ACCEPT) {
       Log(LOG_CRAZY, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
 #if	defined(HTTP_USE_TLS)
@@ -373,19 +387,6 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
-      http_client_t *cptr = http_find_client_by_c(c);
-
-      if (cptr) {
-         Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
-         cptr->is_ws = true;
-         char msgbuf[512];
-         memset(msgbuf, 0, sizeof(msgbuf));
-         snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rustyrig %s on %s\" }", VERSION, HARDWARE);
-         mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-      } else {
-         Log(LOG_CRIT, "http", "Conn mg_conn:<%x> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
-         ws_kick_client_by_c(c, "Socket error 314");
-      }
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
       ws_handle(msg, c);
@@ -394,7 +395,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       http_client_t *cptr = http_find_client_by_c(c);
 
       // make sure we're not accessing unsafe memory
-      if (cptr != NULL && cptr->user != NULL && cptr->chatname[0] != '\0') {
+      if (cptr && cptr->user && cptr->chatname[0] != '\0') {
          // Does the user hold PTT? if so turn it off
          if (cptr->is_ptt) {
             rr_ptt_set_all_off();

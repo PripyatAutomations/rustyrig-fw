@@ -33,23 +33,21 @@
 #include "rrclient/userlist.h"
 #include "common/client-flags.h"
 
-extern rr_connection_t *active_connections;
-extern struct mg_mgr mgr;
-extern dict *cfg;
-extern dict *servers;
 rr_connection_t *active_connections;
-
-char active_server[512];
 bool ws_connected = false;	// Is RX stream connecte?
 bool ws_tx_connected = false;	// Is TX stream connected?
 struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 bool server_ptt_state = false;
+
+extern rr_connection_t *active_connections;
+extern struct mg_mgr mgr;
+extern dict *cfg;
+extern dict *servers;
 extern time_t poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
-
-// ws.c
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 
+const char *server_name = NULL;
 
 rr_connection_t *connection_find(const char *server) {
    if (!server) {
@@ -61,6 +59,7 @@ rr_connection_t *connection_find(const char *server) {
    while (cptr) {
       if (strcasecmp(cptr->name, server) == 0) {
          Log(LOG_CRAZY, "connman", "Found server |%s| at <%x>", server, cptr);
+         server_name = strdup(server);
          return cptr;
       }
       cptr = cptr->next;
@@ -117,7 +116,7 @@ const char *get_server_property(const char *server, const char *prop) {
 ///////////////////////////////////////////////////////////
 // Handle properly connect, disconnect, and error events //
 ///////////////////////////////////////////////////////////
-bool disconnect_server(void) {
+bool disconnect_server(const char *server) {
    if (ws_connected) {
       if (ws_conn) {
          ws_conn->is_closing = 1;
@@ -132,14 +131,12 @@ bool disconnect_server(void) {
 }
 
 // XXX: pass pointer to the server structure
-bool connect_server(void) {
-   // This could recurse in an ugly way if not careful...
-   if (active_server[0] == '\0') {
-      show_server_chooser();
+bool connect_server(const char *server) {
+   if (!server) {
       return true;
    }
-
-   const char *url = get_server_property(active_server, "server.url");
+   const char *url = get_server_property(server, "server.url");
+   Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", server, url);
 
    if (url) {
 // XXX:
@@ -154,19 +151,43 @@ bool connect_server(void) {
          ui_print("[%s] Socket connect error", get_chat_ts());
       }
    } else {
-      ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", active_server);
+      ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", server);
    }
 
    return false;
 }
 
 #if	defined(USE_GTK)
-bool connect_or_disconnect(GtkButton *button) {
+bool connect_or_disconnect(const char *server, GtkButton *button) {
    if (ws_connected) {
-      disconnect_server();
+      disconnect_server(server);
    } else {
-      connect_server();
+      connect_server(server);
    }
    return false;
 }
 #endif	// defined(USE_GTK)
+
+void connman_autoconnect(void) {
+   // Should we connect to a server on startup?
+   const char *autoconnect = cfg_get_exp("server.auto-connect");
+
+   if (autoconnect) {
+      char *tv = strdup(autoconnect);
+      // Split this on ',' and connect to allow configured servers
+      char *sp = strtok(tv, ",");
+      while (sp) {
+         char this_server[256];
+         memset(this_server, 0, sizeof(this_server));
+         snprintf(this_server, sizeof(this_server), "%s", sp);
+         ui_print("* Autoconnecing to profile: %s *", this_server);
+         sp = strtok(NULL, ",");
+         connect_or_disconnect(this_server, GTK_BUTTON(conn_button));
+      }
+      free(tv);
+      free((void *)autoconnect);
+      autoconnect = NULL;
+   } else {
+      show_server_chooser();
+   }
+}

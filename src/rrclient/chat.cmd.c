@@ -38,6 +38,7 @@ extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 extern void show_help(const char *topic);		// ui.help.c
 extern bool clear_syslog(void);
+extern const char *server_name;				// connman.c XXX: to remove ASAP for multiserver
 
 bool parse_chat_input(GtkButton *button, gpointer entry) {
    if (!button || !entry) {
@@ -56,16 +57,26 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
 
       if (server && strlen(server) > 1) {
          ui_print("[%s] * Changing server profile to %s", get_chat_ts(), server);
-         disconnect_server();
-         memset(active_server, 0, sizeof(active_server));
-         snprintf(active_server, sizeof(active_server), "%s", server);
-         Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", active_server);
-         connect_server();
+         disconnect_server(server);
+//         memset(active_server, 0, sizeof(active_server));
+//         snprintf(active_server, sizeof(active_server), "%s", server);
+         if (server_name) {
+            free(server_name);
+            server_name = strdup(server);
+
+            if (!server_name) {
+               fprintf(stderr, "OOM in parse_chat_input /server\n");
+               return true;
+            }
+         }
+         Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", server);
+         connect_server(server);
       } else {
+         ui_print("Try /server servername to connect");
          show_server_chooser();
       }
    } else if (strncasecmp(msg + 1, "disconnect", 10) == 0) {
-      disconnect_server();
+      disconnect_server(server_name);
    } else if (strncasecmp(msg + 1, "quit", 4) == 0) {
       char msgbuf[4096];
       prepare_msg(msgbuf, sizeof(msgbuf), 

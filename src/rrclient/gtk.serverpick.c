@@ -32,6 +32,7 @@ extern dict *cfg, *servers;
 extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
+extern const char *server_name;                         // connman.c XXX: to remove ASAP for multiserver
 
 static void do_connect_from_tree(GtkTreeView *view) {
    if (!view) {
@@ -55,10 +56,10 @@ static void do_connect_from_tree(GtkTreeView *view) {
       const char *at = strchr(entry, '@');
 
       if (at && at[1]) {
-         disconnect_server();
-         strncpy(active_server, at + 1, sizeof(active_server));
-         active_server[sizeof(active_server) - 1] = 0;
-         connect_server();
+         disconnect_server(server_name);
+         free((char *)server_name);
+         server_name = strdup(at + 1);
+         connect_server(server_name);
       }
       g_free(entry);
    }
@@ -104,7 +105,7 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
 void show_server_chooser(void) {
    gui_window_t *old_win = gui_find_window(NULL, "serverpick");
    if (old_win && old_win->gtk_win) {
-      Log(LOG_DEBUG, "gtk.serverpick", "show_server_choser() called while already open");
+      Log(LOG_DEBUG, "gtk.serverpick", "show_server_chooser() called while already open");
       gtk_window_present(GTK_WINDOW(old_win->gtk_win));
       return;
    }
@@ -124,7 +125,7 @@ void show_server_chooser(void) {
    GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(list));
    gtk_tree_selection_set_mode(sel, GTK_SELECTION_SINGLE);
 
-   // fill store with user@server entries, preselect if it matches active_server
+   // fill store with user@server entries, preselect if it matches server_name
    int rank = 0;
    const char *k;
    char *v;
@@ -141,7 +142,7 @@ void show_server_chooser(void) {
       gtk_list_store_append(store, &iter);
       gtk_list_store_set(store, &iter, 0, user, -1);
 
-      if (!have_match && strcmp(server, active_server) == 0) {
+      if (!have_match && strcmp(server, server_name) == 0) {
          match_iter = iter;
          have_match = TRUE;
       }

@@ -47,12 +47,17 @@ typedef struct rr_connection rr_connection_t;
 // Connected sessions
 extern char active_server[512];
 extern rr_connection_t *active_connections;
-extern bool disconnect_server(void);
-extern bool connect_server(void);
+extern bool disconnect_server(const char *server);
+extern bool connect_server(const char *server);
 extern bool ws_connected;
 extern bool ws_tx_connected;
 extern struct mg_connection *ws_conn, *ws_tx_conn;
 extern bool server_ptt_state;
 extern const char *get_server_property(const char *server, const char *prop);
+
+#if	defined(USE_GTK)
+extern bool connect_or_disconnect(const char *server, GtkButton *button);
+#endif
+
 
 #endif	// !defined(__rrclient_connman_h)

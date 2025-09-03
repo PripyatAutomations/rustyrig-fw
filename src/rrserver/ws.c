@@ -31,6 +31,27 @@
 
 extern struct GlobalState rig;	// Global state
 
+struct ws_msg_routes {
+   const char *type;		// auth|ping|talk|cat|alert|error|hello etc
+   bool        auth_reqd;	// Is this only for authenticated users?
+   bool      (*cb)(/*struct mg_connection *c, struct mg_ws_message *msg*/);
+};
+
+// XXX: We need to move to a similar arrangement as the client,
+// XXX: so these can be properly split across multiple source files
+// XXX: and accessed in a pleasant way...
+#if	0
+struct ws_msg_routes ws_routes[] = {
+   { .type = "auth", .cb = ws_handle_auth_msg, .auth_reqd = false },
+   { .type = "cat",  .cb = ws_handle_cat_msg, .auth_reqd = true },
+   { .type = "hello", .cb = ws_handle_hell_msg, .auth_reqd = false },
+   { .type = "media", .cb = ws_handle_media_msg, .auth_reqd = true },
+   { .type = "ping", .cb = ws_handle_ping_msg, .auth_reqd = false },
+   { .type = "pong", .cb = ws_handle_pong_msg, .auth_reqd = false },
+   { .type = "talk", .cb = ws_handle_talk_msg, .auth_reqd = true },
+};
+#endif
+
 bool ws_init(struct mg_mgr *mgr) {
    if (!mgr) {
       Log(LOG_CRIT, "ws", "ws_init called with NULL mgr");
@@ -276,9 +297,11 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 
    // Update the last-heard time for the user
    http_client_t *cptr = http_find_client_by_c(c);
-   if (cptr) {
-      cptr->last_heard = now;
+   if (!cptr) {
+      Log(LOG_CRAZY, "ws", "message from unauthenticated user at c:<%x>", c);
+      return true;
    }
+   cptr->last_heard = now;
 
    // Handle ping messages
    if (ping) {

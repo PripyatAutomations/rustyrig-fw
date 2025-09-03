@@ -33,6 +33,8 @@
 
 extern dict *cfg;		// config.c
 extern time_t now;
+extern const char *server_name;                         // connman.c XXX: to remove ASAP for multiserver
+
 // XXX: This needs moved into the ws_conn
 extern char session_token[HTTP_TOKEN_LEN+1];
 
@@ -83,7 +85,7 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       }
 
       ui_print("[%s] *** Sending PASSWD ***", get_chat_ts());
-      const char *login_pass = get_server_property(active_server, "server.pass");
+      const char *login_pass = get_server_property(server_name, "server.pass");
 
       ws_send_passwd(c, user, login_pass, nonce);
       free(token);

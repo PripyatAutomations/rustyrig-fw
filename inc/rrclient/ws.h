@@ -42,10 +42,6 @@ extern bool ws_send_error(http_client_t *cptr, const char *fmt, ...);
 extern bool ws_send_alert(http_client_t *cptr, const char *fmt, ...);
 extern bool ws_send_notice(http_client_t *cptr, const char *fmt, ...);
 
-#if	defined(USE_GTK)
-extern bool connect_or_disconnect(GtkButton *button);
-#endif
-
 // ws.audio.c
 extern bool ws_audio_init(void);
 extern bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx);

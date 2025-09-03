@@ -34,6 +34,7 @@
 #include "rrclient/ws.h"
 
 extern bool cfg_detect_and_load(void);
+extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
 extern struct mg_mgr mgr;
 bool dying = false;             // Are we shutting down?
@@ -119,27 +120,8 @@ int main(int argc, char *argv[]) {
    // How long to suppress hamlib/etc polling during CAT control?  
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
 
-   // Should we connect to a server on startup?
-   const char *autoconnect = cfg_get_exp("server.auto-connect");
-
-   if (autoconnect) {
-      char *tv = strdup(autoconnect);
-      // Split this on ',' and connect to allow configured servers
-      char *sp = strtok(tv, ",");
-      while (sp) {
-         char this_server[256];
-         memset(this_server, 0, sizeof(this_server));
-         snprintf(this_server, sizeof(this_server), "%s", sp);
-         ui_print("* Autoconnecing to profile: %s *", this_server);
-         sp = strtok(NULL, ",");
-         connect_or_disconnect(GTK_BUTTON(conn_button));
-      }
-      free(tv);
-      free((void *)autoconnect);
-      autoconnect = NULL;
-   } else {
-      show_server_chooser();
-   }
+   // Auto-connect if configured
+   connman_autoconnect();
 
    // start gtk main loop
    gtk_main();

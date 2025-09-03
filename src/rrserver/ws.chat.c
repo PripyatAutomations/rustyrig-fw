@@ -38,6 +38,11 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
    if (!action) {
       return true;
    }
+
+   if (!cptr->user) {
+      return true;
+   }
+
    Log(LOG_CRAZY, "core", "Unprivileged user %s (uid: %d with privs %s) requested to do %s and was denied", cptr->chatname, cptr->user->uid, cptr->user->privs, action);
    char msgbuf[HTTP_WS_MAX_MSG+1];
    prepare_msg(msgbuf, sizeof(msgbuf),
@@ -65,6 +70,10 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
       return true;
    }
 
+   if (!cptr->user) {
+      return true;
+   }
+
    if (client_has_flag(cptr, FLAG_STAFF)) {
       // Send an ALERT to all connected users
       char msgbuf[HTTP_WS_MAX_MSG+1];
@@ -88,6 +97,10 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
 static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
    if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "RESTART");
+      return true;
+   }
+
+   if (!cptr->user) {
       return true;
    }
 
@@ -160,6 +173,10 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
 // MUTE: Mute a user //
 ///////////////////////
 static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char *reason) {
+   if (!cptr->user) {
+      return true;
+   }
+
    if (client_has_flag(cptr, FLAG_STAFF)) {
       http_client_t *acptr = http_find_client_by_name(target);
       if (!acptr) {
@@ -194,6 +211,10 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 // UNMUTE: Unmute a user //
 ///////////////////////////
 static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
+   if (!cptr->user) {
+      return true;
+   }
+
    if (client_has_flag(cptr, FLAG_STAFF)) {
       http_client_t *acptr = http_find_client_by_name(target);
       if (!acptr) {
@@ -302,6 +323,11 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       Log(LOG_DEBUG, "chat", "talk parse, cptr == NULL, c: <%x>", c);
       return true;
    }
+
+   if (!cptr->user) {
+      return true;
+   }
+
    cptr->last_heard = now;
 
    char *token = mg_json_get_str(msg_data, "$.talk.token");

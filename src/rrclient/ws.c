@@ -41,6 +41,7 @@ struct mg_mgr mgr;
 const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
+extern const char *server_name;		// XXX: This needs to go away when we go multi-server
 
 #if	defined(USE_GTK)
 #include <gtk/gtk.h>
@@ -192,7 +193,10 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 #endif
       ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
-      const char *url = get_server_property(active_server, "server.url");
+      Log(LOG_DEBUG, "ws", "ev_ws_connect");
+//      const char *this_server = http_servername(c);
+      const char *this_server = server_name;
+      const char *url = get_server_property(this_server, "server.url");
       ui_print("[%s] * Connected *", get_chat_ts());
 
       if (c->is_tls) {
@@ -205,19 +209,12 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          }
          mg_tls_init(c, &opts);
       }
-   } else if (ev == MG_EV_WRITE) {
-      // Handle writing audio frames one by one
-   } else if (ev == MG_EV_WS_OPEN) {
-      const char *login_user = get_server_property(active_server, "server.user");
+
+      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
+      const char *login_user = get_server_property(this_server, "server.user");
+      Log(LOG_DEBUG, "ws", "ev_ws_open: server: |%s| user: |%s|", server_name, login_user);
       ws_connected = true;
       update_connection_button(true, conn_button);
-      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
-
-#if	defined(USE_GTK)
-      GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
-      gtk_style_context_add_class(ctx, "ptt-active");
-      gtk_style_context_remove_class(ctx, "ptt-idle");
-#endif	// defined(USE_GTK)
 
       if (!login_user) {
          Log(LOG_CRIT, "core", "server.user not set in config!");
@@ -225,15 +222,25 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       }
       ws_send_hello(c);
       ws_send_login(c, login_user);
+   } else if (ev == MG_EV_WRITE) {
+      // Handle writing audio frames one by one
+   } else if (ev == MG_EV_WS_OPEN) {
+      Log(LOG_DEBUG, "ws", "ev_ws_open");
+//      const char *this_server = http_servername(c);
+      const char *this_server = server_name;
+
+#if	defined(USE_GTK)
+      GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
+      gtk_style_context_add_class(ctx, "ptt-active");
+      gtk_style_context_remove_class(ctx, "ptt-idle");
+#endif	// defined(USE_GTK)
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
       ws_handle(c, wm);
    } else if (ev == MG_EV_ERROR) {
       ui_print("[%s] Socket error: %s", get_chat_ts(), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
-      if (ws_connected) {
-         ui_print("[%s] *** DISCONNECTED ***", get_chat_ts());
-      }
+      ui_print("[%s] *** DISCONNECTED ***", get_chat_ts());
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);
