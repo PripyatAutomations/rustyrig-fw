@@ -202,12 +202,6 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      const char *this_server = http_servername(c);
       const char *this_server = server_name;
       ui_print("[%s] * Connected to %s*", get_chat_ts(), this_server);
-
-
-      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
-      ws_connected = true;
-      update_connection_button(true, conn_button);
-
    } else if (ev == MG_EV_WRITE) {
       // Handle writing audio frames one by one
    } else if (ev == MG_EV_WS_OPEN) {
@@ -226,6 +220,10 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          }
          mg_tls_init(c, &opts);
       }
+
+      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
+      ws_connected = true;
+      update_connection_button(true, conn_button);
 
       const char *login_user = get_server_property(this_server, "server.user");
       Log(LOG_DEBUG, "ws", "ev_ws_connect: server: |%s| user: |%s|", server_name, login_user);

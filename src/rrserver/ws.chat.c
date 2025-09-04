@@ -35,7 +35,7 @@ extern struct GlobalState rig;	// Global state
 
 // Send an error message to the user, informing them they lack the appropriate privileges in chat
 bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
-   if (!action) {
+   if (!action || !cptr) {
       return true;
    }
 
@@ -53,6 +53,9 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
 }
 
 bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
+   if (!cptr || !command) {
+      return true;
+   }
    char msgbuf[HTTP_WS_MAX_MSG+1];
    prepare_msg(msgbuf, sizeof(msgbuf),
       "{ \"error\": { \"ts\": %lu, \"msg\": \"You MUST provide a reason for using'%s' command\" } }",
@@ -65,6 +68,10 @@ bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
 // DIE: Makes the server die //
 ///////////////////////////////
 static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
+   if (!cptr) {
+      return true;
+   }
+
    if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "die");
       return true;
@@ -95,6 +102,10 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
 // RESTART: Make the server restart //
 //////////////////////////////////////
 static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
+   if (!cptr) {
+      return true;
+   }
+
    if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "RESTART");
       return true;
@@ -125,6 +136,16 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
 // KICK: Kick a user //
 ///////////////////////
 static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char *reason) {
+   if (!cptr) {
+      return true;
+   }
+
+   if (!target) {
+      // XXX: send an error response 'No target given'
+      ws_send_error(cptr, "No target given for KICK");
+      return true;
+   }
+
    if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
       ws_chat_error_need_reason(cptr, "kick");
       return true;
@@ -173,7 +194,13 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
 // MUTE: Mute a user //
 ///////////////////////
 static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char *reason) {
-   if (!cptr->user) {
+   if (!cptr || !cptr->user) {
+      return true;
+   }
+
+   if (!target) {
+      // XXX: send an error response 'No target given'
+      ws_send_error(cptr, "No target given for MUTE");
       return true;
    }
 
@@ -211,6 +238,16 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 // UNMUTE: Unmute a user //
 ///////////////////////////
 static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
+   if (!cptr) {
+      return true;
+   }
+
+   if (!target) {
+      // XXX: send an error response 'No target given'
+      ws_send_error(cptr, "No target given for UNMUTE");
+      return true;
+   }
+
    if (!cptr->user) {
       return true;
    }
@@ -239,6 +276,10 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
 
 // Toggle syslog
 static bool ws_chat_cmd_syslog(http_client_t *cptr, const char *state) {
+   if (!cptr || !state) {
+      return true;
+   }
+
    if (client_has_flag(cptr, FLAG_STAFF) || client_has_flag(cptr, FLAG_SYSLOG)) {
       bool new_state = false;
 
@@ -289,24 +330,27 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
 
 // Send info on all online users to the user
 bool ws_send_users(http_client_t *cptr) {
-    http_client_t *current = http_client_list;
-    
-    // iterate over all the users
-    while (current) {
-       // should this be sent to a single user?
-       if (cptr) {
-          ws_send_userinfo(current, cptr);
-       } else {           // nope, broadcast it
-          ws_send_userinfo(current, NULL);
-       }
+   if (!cptr) {
+      return true;
+   }
+   http_client_t *current = http_client_list;
+   
+   // iterate over all the users
+   while (current) {
+      // should this be sent to a single user?
+      if (cptr) {
+         ws_send_userinfo(current, cptr);
+      } else {           // nope, broadcast it
+         ws_send_userinfo(current, NULL);
+      }
 
-       if (!current->next) {
-          return false;
-       }
+      if (!current->next) {
+         return false;
+      }
 
-       current = current->next;
-    }
-    return false;
+      current = current->next;
+   }
+   return false;
 }
 
 // XXX: Once json2dict is implemented, we need to use it here

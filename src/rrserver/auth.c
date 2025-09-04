@@ -452,6 +452,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
       }
 
+      // handle disabled accounts
       if (cptr->user == NULL || cptr->user->enabled == false) {
          Log(LOG_AUDIT, "auth.users", "User account %s is disabled", user);
          rv = true;
@@ -610,7 +611,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                      cptr->chatname, token, now, cptr->user->privs);
          mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
 
-         // XXX: This might be unneeded
+         // send a ping, XXX: this might be a duplicate, confirm?
          ws_send_ping(cptr);
 
          // blorp out a join to all chat users

@@ -104,6 +104,10 @@ static bool check_url(const char *path) {
 }
 
 http_client_t *http_find_client_by_c(struct mg_connection *c) {
+   if (!c) {
+      return NULL;
+   }
+
    http_client_t *cptr = http_client_list;
    int i = 0;
 
@@ -121,6 +125,10 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
 }
 
 http_client_t *http_find_client_by_token(const char *token) {
+   if (!token) {
+      return NULL;
+   }
+
     http_client_t *cptr = http_client_list;
     int i = 0;
 
@@ -272,6 +280,10 @@ void http_tls_init(void) {
 bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
    struct mg_http_serve_opts opts = http_opts;
 
+   if (!msg) {
+      return true;
+   }
+
    // Copy URI into null-terminated buffer
    char path[4096];
    memset(path, 0, sizeof(path));
@@ -318,6 +330,10 @@ bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
 
 ///// Main HTTP callback
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
+   if (!c || !ev_data) {
+      return;
+   }
+
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
    char ip[INET6_ADDRSTRLEN];  // Buffer to hold IPv4 or IPv6 address
@@ -575,6 +591,7 @@ void http_remove_client(struct mg_connection *c) {
       Log(LOG_CRIT, "http", "http_remove_client passed NULL mg_conn?!");
       return;
    }
+
    http_client_t *prev = NULL;
    http_client_t *current = http_client_list;
 
