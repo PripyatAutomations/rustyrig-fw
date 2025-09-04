@@ -112,6 +112,11 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
    char json_req[65];
    struct mg_str msg_data = msg->data;
 
+   char buf[HTTP_WS_MAX_MSG+1];
+   memset(buf, 0, sizeof(buf));
+   memcpy(buf, msg_data.buf, msg_data.len);
+   fprintf(stderr, "recv ws => %s\n", buf);
+
    // Walk the table of handlers
    while (rp[i].type) {
       // End of table marker

@@ -39,7 +39,7 @@ extern GtkWidget *main_notebook;
 extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 extern void show_help(const char *topic);		// ui.help.c
-extern bool clear_syslog(void);
+extern bool syslog_clear(void);
 extern const char *server_name;				// connman.c XXX: to remove ASAP for multiserver
 
 bool parse_chat_input(GtkButton *button, gpointer entry) {
@@ -98,7 +98,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
    } else if (strncasecmp(msg + 1, "clear", 5) == 0) {
       gtk_text_buffer_set_text(text_buffer, "", -1);
    } else if (strncasecmp(msg + 1, "clearlog", 8) == 0) {
-      clear_syslog();
+      syslog_clear();
    } else if (strncasecmp(msg + 1, "config", 6) == 0 || strcasecmp(msg + 1, "cfg") == 0) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), config_tab);
       if (index != -1) {
@@ -163,7 +163,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          char *escaped_msg = json_escape(msg);
 
          prepare_msg(msgbuf, sizeof(msgbuf), 
-            "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
+            "{ \"talk\": { \"cmd\": \"msg\", \"data\": %s, "
             "\"msg_type\": \"pub\" } }", escaped_msg);
          free(escaped_msg);
          mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);

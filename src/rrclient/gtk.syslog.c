@@ -80,7 +80,7 @@ bool log_print(const char *fmt, ...) {
    return rv;   
 }
 
-bool clear_syslog(void) {
+bool syslog_clear(void) {
    gtk_text_buffer_set_text(log_buffer, "", -1);
    return false;
 }

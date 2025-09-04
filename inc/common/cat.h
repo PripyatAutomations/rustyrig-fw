@@ -1,5 +1,5 @@
 //
-// cat.h
+// cat.h: Interface to the CAT parsers
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -10,6 +10,7 @@
 #define	_rr_cat_control_h
 #include "common/config.h"
 
+// Maximum arguments
 #define	MAX_ARGS	12
 
 typedef enum rr_cat_req_type {
@@ -46,11 +47,7 @@ extern struct rr_cat_cmd cmd_kpa500[];
 extern int32_t rr_cat_parse_amp_line(char *line);
 extern int32_t rr_cat_printf(char *str, ...);
 
-#if	1	//defined(FEATURE_HTTP)
-//#include "rrserver/mongoose.h"
-// for websocket.c
 extern bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg);
-#endif	// defined(FEATURE_HTTP)
 
 #include "common/cat.kpa500.h"
 #include "common/cat.yaesu.h"

@@ -28,7 +28,7 @@
 #include "rrclient/ws.h"
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
-extern bool clear_syslog(void);
+extern bool syslog_clear(void);
 extern GtkWidget *init_log_tab(void);
 extern dict *cfg;
 extern time_t now;

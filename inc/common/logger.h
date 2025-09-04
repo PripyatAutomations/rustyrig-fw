@@ -37,5 +37,5 @@ extern void logger_init(void);
 extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
 extern char latest_timestamp[64];
 extern int update_timestamp(void);
-#endif	// !defined(__rr_common_logger_h)
 
+#endif	// !defined(__rr_common_logger_h)

@@ -288,6 +288,12 @@ static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t
 ///
 static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
+
+   char buf[HTTP_WS_MAX_MSG+1];
+   memset(buf, 0, sizeof(buf));
+   memcpy(buf, msg_data.buf, msg_data.len);
+   fprintf(stderr, "recv ws => %s\n", buf);
+
    char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
    char *data = mg_json_get_str(msg_data, "$.talk.data");
    char *target =  mg_json_get_str(msg_data, "$.talk.args.target");

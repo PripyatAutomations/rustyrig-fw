@@ -29,7 +29,7 @@
 
 extern dict *cfg;				// main.c
 extern struct mg_connection *ws_conn;
-extern bool clear_syslog(void);
+extern bool syslog_clear(void);
 
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;
