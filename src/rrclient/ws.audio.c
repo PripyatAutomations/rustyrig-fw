@@ -1,5 +1,5 @@
 //
-// gtk-client/ws.audio.c: Websocket audio framing / header stuff - WIP
+// rrclient/ws.audio.c: Websocket audio framing / header stuff - WIP
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

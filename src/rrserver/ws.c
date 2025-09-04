@@ -42,13 +42,15 @@ struct ws_msg_routes {
 // XXX: and accessed in a pleasant way...
 #if	0
 struct ws_msg_routes ws_routes[] = {
-   { .type = "auth", .cb = ws_handle_auth_msg, .auth_reqd = false },
-   { .type = "cat",  .cb = ws_handle_cat_msg, .auth_reqd = true },
-   { .type = "hello", .cb = ws_handle_hell_msg, .auth_reqd = false },
+   { .type = "auth",  .cb = ws_handle_auth_msg,  .auth_reqd = false },
+   { .type = "cat",   .cb = ws_handle_cat_msg,   .auth_reqd = true },
+   { .type = "hello", .cb = ws_handle_hell_msg,  .auth_reqd = false },
    { .type = "media", .cb = ws_handle_media_msg, .auth_reqd = true },
-   { .type = "ping", .cb = ws_handle_ping_msg, .auth_reqd = false },
-   { .type = "pong", .cb = ws_handle_pong_msg, .auth_reqd = false },
-   { .type = "talk", .cb = ws_handle_talk_msg, .auth_reqd = true },
+   { .type = "ping",  .cb = ws_handle_ping_msg,  .auth_reqd = false },
+   { .type = "pong",  .cb = ws_handle_pong_msg,  .auth_reqd = false },
+   { .type = "talk",  .cb = ws_handle_talk_msg,  .auth_reqd = true },
+   { .type = "talk.cmd", .cb = ws_handle_talk_cmd, .auth_reqd = false },
+   { .type = "talk.quit", .cb = ws_handle_quit,  .auth_reqd = false },
 };
 #endif
 

@@ -22,7 +22,9 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
 #include "common/dict.h"
+#include "common/json.h"
 #include "common/posix.h"
+#include "common/util.string.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/connman.h"
@@ -42,12 +44,14 @@ extern const char *server_name;				// connman.c XXX: to remove ASAP for multiser
 
 bool parse_chat_input(GtkButton *button, gpointer entry) {
    if (!button || !entry) {
+      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: button:<%x> entry:<%x>", button, entry);
       return true;
    }
 
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
 
-   if (!msg || strlen(msg) < 2) {
+   if (!msg || strlen(msg) < 1) {
+      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%x> is empty", msg);
       return true;
    }
 
@@ -60,6 +64,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          disconnect_server(server);
 //         memset(active_server, 0, sizeof(active_server));
 //         snprintf(active_server, sizeof(active_server), "%s", server);
+
          if (server_name) {
             free((char *)server_name);
             server_name = strdup(server);
@@ -153,12 +158,14 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
             mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
          }
       } else {
-         // other prefixes, send with prefix
+         // not a match
          char msgbuf[4096];
+         char *escaped_msg = json_escape(msg);
+
          prepare_msg(msgbuf, sizeof(msgbuf), 
             "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
-            "\"msg_type\": \"pub\" } }", msg);
-         
+            "\"msg_type\": \"pub\" } }", escaped_msg);
+         free(escaped_msg);
          mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       }
    }

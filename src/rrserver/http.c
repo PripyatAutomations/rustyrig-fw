@@ -374,8 +374,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &tls_opts);
       }
 #endif
-   } else
-   if (ev == MG_EV_HTTP_MSG) {
+   } else if (ev == MG_EV_HTTP_MSG) {
       http_client_t *cptr = http_find_client_by_c(c);
 
       if (!cptr) {
@@ -403,6 +402,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          http_static(hm, c);
       }
    } else if (ev == MG_EV_WS_OPEN) {
+      Log(LOG_CRAZY, "http.core", "WS OPEN for c:<%x>", c);
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
       ws_handle(msg, c);
@@ -414,6 +414,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       if (cptr && cptr->user && cptr->chatname[0] != '\0') {
          // Does the user hold PTT? if so turn it off
          if (cptr->is_ptt) {
+            // XXX: This should only turn off PTT for the rig they are using!
             rr_ptt_set_all_off();
             cptr->is_ptt = false;
          }

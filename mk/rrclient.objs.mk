@@ -29,7 +29,7 @@ objs += gtk.userlist.o		# GTK part of the userlist
 objs += gtk.vol-box.o		# Volume widget
 objs += gtk.winmgr.o		# window management
 endif
-
+objs += json.o
 objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += mongoose.o		# Mongoose http/websocket/mqtt library
@@ -49,9 +49,8 @@ objs += ws.auth.o		# protocol authentication
 objs += ws.chat.o		# shared chatroom
 objs += ws.error.o		# Error notices
 objs += ws.file-xfer.o		# file transfer
-objs += ws.media.o		# handle ping messages
+objs += ws.media.o		# handle audio/video media transfer
 objs += ws.notice.o		# Notices
 objs += ws.ping.o		# handle ping messages
 objs += ws.rigctl.o		# rig controls
 objs += ws.syslog.o
-objs += ws.tx-audio.o		# support for SENDING audio to the server

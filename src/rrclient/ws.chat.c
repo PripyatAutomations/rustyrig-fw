@@ -1,5 +1,5 @@
 
-// gtk-client/ws.chat.c
+// rrclient/ws.chat.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -19,16 +19,18 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "common/logger.h"
 #include "common/dict.h"
+#include "common/http.h"
+#include "common/json.h"
+#include "common/logger.h"
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk.core.h"
 #include "rrclient/connman.h"
-#include "rrclient/ws.h"
+#include "rrclient/gtk.core.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
+#include "rrclient/ws.h"
 #include "common/client-flags.h"
 
 extern dict *cfg;		// config.c

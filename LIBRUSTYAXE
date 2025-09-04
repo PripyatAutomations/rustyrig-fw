@@ -1,0 +1,3 @@
+src/common/ will soon become librustyaxe.so / librustyaxe.dll
+
+More code will be merged into common as the trees are cleaned up.

@@ -35,7 +35,6 @@ fw_objs += main.o			# main loop
 comm_objs += mongoose.o		# Mongoose http/websocket/mqtt library
 #fw_objs += mqtt.o			# Support for MQTT via mongoose
 fw_objs += network.o		# Network control
-fw_objs += power.o			# Power monitoring and management
 fw_objs += protection.o		# Protection features
 fw_objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 fw_objs += radioberry.o		# Radioberry device support

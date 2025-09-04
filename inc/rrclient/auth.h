@@ -9,6 +9,7 @@
 #if     !defined(__rrclient_auth_h)
 #define __rrclient_auth_h
 #include <stdbool.h>
+#include "common/http.h"
 #include "rrclient/userlist.h"
 
 //// Authentication Core ////

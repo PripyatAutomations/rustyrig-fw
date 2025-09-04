@@ -369,8 +369,11 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    if (!cptr->user) {
+      Log(LOG_WARN, "chat", "talk parse, cptr:<%x> ->user NULL", cptr);
       return true;
    }
+
+   Log(LOG_CRAZY, "chat", "RX from cptr:<%x> (%s) => %.*s", cptr, cptr->chatname, msg_data.len, msg_data.buf);
 
    cptr->last_heard = now;
 
@@ -394,6 +397,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // If the message is empty, just return success
          if (strlen(data) == 0) {
+            Log(LOG_CRAZY, "chat", "talk msg has no data");
             rv = false;
             goto cleanup;
          }
@@ -401,6 +405,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          if (!has_priv(cptr->user->uid, "admin|owner|chat")) {
             Log(LOG_CRAZY, "chat", "user %s doesn't have chat privileges but tried to send a message", user);
             // XXX: Alert the user that their message was NOT deliverred because they aren't allowed to send it.
+            ws_send_error(cptr, "You do not have CHAT privilege.");
             rv = true;
             goto cleanup;
          }
@@ -410,6 +415,7 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // sanity check
          if (!user) {
+            Log(LOG_CRAZY, "chat", "talk parse, msg has no user field");
             rv = true;
             goto cleanup;
          }
@@ -556,7 +562,8 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
                   goto cleanup;
                }
             } else {			// just a message
-               char *escaped_msg = escape_html(data);
+//               char *escaped_msg = escape_html(data);
+               char *escaped_msg = json_escape(data);
 
                if (!escaped_msg) {
                   Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");

@@ -11,6 +11,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#if	defined(USE_GTK)
+#include <gtk/gtk.h>
+#endif	// defined(USE_GTK)
+
 ///////
 // many of these need moved to config; decide if runtime or build? (prob build)
 // Limit to 10 backups of authdb retained, this should be sane; we delete older backups
@@ -45,6 +49,24 @@
 #define	HTTP_API_RIGPOLL_PAUSE	2		// time to delay polling the rig after a freq message on ws.cat
 
 // WF (waterfall) protocol
+
+// XXX: Merge this with http_user
+struct rr_user {
+   char   	  name[HTTP_USER_LEN+1];
+   char           privs[200];
+   time_t	  logged_in;
+   time_t         last_heard;
+   uint32_t       user_flags;
+   int            clones;
+   bool           is_ptt;
+   bool           is_muted;
+#if	defined(USE_GTK)
+   GtkTreeIter iter;   // <-- GTK list row reference
+#endif
+   bool in_store;      // <-- whether `iter` is valid
+
+   struct rr_user *next;
+};
 
 // http.users entry
 struct http_user {
