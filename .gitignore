@@ -45,3 +45,6 @@ run/*/*.tmp
 run/*
 run/*/*
 recordings/*.*
+
+# clang-tools artifacts
+src/*/compile_commands.json

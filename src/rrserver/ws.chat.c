@@ -179,7 +179,7 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
       if (!kicked) {
          char msgbuf[HTTP_WS_MAX_MSG+1];
          prepare_msg(msgbuf, sizeof(msgbuf),
-             "{ \"talk\": { \"error\": { \"ts\": %lu, \"msg\": \"KICK '%s' command matched no connected users\" } } }",
+             "{ \"error\": { \"ts\": %lu, \"msg\": \"KICK '%s' command matched no connected users\" } }",
              now, target);
          mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
       }

@@ -19,7 +19,7 @@ endif
 
 all world clean deps install symtab:
 	@for i in ${subdirs}; do \
-	   ${MAKE} -C src/$$i $@; \
+	   ${MAKE} -C src/$$i $@ || exit 1; \
 	done
 
 distclean:
@@ -40,7 +40,7 @@ rrclient:
 # For now we only build rrclient for windows
 win64-deps win64-installer win64-portable:
 	@for i in ${subdirs}; do \
-	   ${MAKE} -C src/$$i $@; \
+	   ${MAKE} -C src/$$i $@ || exit 1; \
 	done
 
 include mk/database.mk

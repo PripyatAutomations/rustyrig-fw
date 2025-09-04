@@ -35,7 +35,6 @@ float get_current(uint32_t src) {
    return 0.0;
 }
 
-
 float get_swr(uint32_t amp) {
    return 0.0;
 }
