@@ -1,4 +1,5 @@
 #!/bin/bash
+# XXX: this isn't ready for use yet
 set -e
 
 if [ -z "$2" ]; then
@@ -6,11 +7,10 @@ if [ -z "$2" ]; then
    exit 1
 fi
 
-find ./inc ./src \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 clang-rename-19 \
-  -old-name="$1" \
-  -new-name="$2" \
-  -dry-run \
-  -p ./compile_commands.json
-
-#  -i \
-#  \( -name '*.c' -o -name '*.h' -o -path '../../inc/common/*.h' -o -path '../common/*.c' \) \
+for i in fwdsp rrclient rrserver; do
+   find ./inc/common ./src/common ./inc/$i ./$i \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 clang-rename-19 \
+     -qualified-name="$1" \
+     -new-name="$2" \
+     -i \
+     -p ./src/$i
+done
