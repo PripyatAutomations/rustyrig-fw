@@ -72,8 +72,8 @@ extern const char *cfg_get(const char *key);
 extern const char *cfg_get_exp(const char *key);
 extern bool cfg_get_bool(const char *key, bool def);
 extern int cfg_get_int(const char *key, int def);
-extern float cfg_get_float(const char *key, float def);
-extern long cfg_get_long(const char *key, long def );
+//extern float cfg_get_float(const char *key, float def);
+//extern long cfg_get_long(const char *key, long def );
 extern unsigned int cfg_get_uint(const char *key, unsigned int def);
 
 /////////////

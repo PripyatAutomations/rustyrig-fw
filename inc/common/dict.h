@@ -28,6 +28,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <math.h>
 
 /*---------------------------------------------------------------------------
                             Additional types
@@ -56,7 +59,7 @@ typedef struct _dict_ {
   Constructor for the dict object.
  */
 /*--------------------------------------------------------------------------*/
-dict * dict_new(void);
+extern dict * dict_new(void);
 
 
 /*-------------------------------------------------------------------------*/
@@ -68,7 +71,7 @@ dict * dict_new(void);
   This function will deallocate a dictionary and all data it holds.
  */
 /*--------------------------------------------------------------------------*/
-void   dict_free(dict * d);
+extern void   dict_free(dict * d);
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -82,7 +85,7 @@ void   dict_free(dict * d);
   the same key, it is overwritten and the previous associated data are freed.
  */
 /*--------------------------------------------------------------------------*/
-int    dict_add(dict * d, const char * key, char * val);
+extern int    dict_add(dict * d, const char * key, char * val);
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -96,7 +99,7 @@ int    dict_add(dict * d, const char * key, char * val);
   defval is returned.
  */
 /*--------------------------------------------------------------------------*/
-char * dict_get(dict * d, const char * key, char * defval);
+extern char * dict_get(dict * d, const char * key, char * defval);
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -109,7 +112,7 @@ char * dict_get(dict * d, const char * key, char * defval);
   deleted and -1 if the item could not be found or an error occurred.
  */
 /*--------------------------------------------------------------------------*/
-int dict_del(dict * d, const char * key);
+extern int dict_del(dict * d, const char * key);
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -130,7 +133,7 @@ int dict_del(dict * d, const char * key);
   See dict_dump() for usage example.
  */
 /*--------------------------------------------------------------------------*/
-int dict_enumerate(dict * d, int rank, const char ** key, char ** val);
+extern int dict_enumerate(dict * d, int rank, const char ** key, char ** val);
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -145,7 +148,16 @@ int dict_enumerate(dict * d, int rank, const char ** key, char ** val);
   This function is mostly meant for debugging purposes.
  */
 /*--------------------------------------------------------------------------*/
-void   dict_dump(dict * d, FILE * out);
+extern void   dict_dump(dict * d, FILE * out);
+
+// Wrappers
+extern int dict_get_int(dict *d, const char *key, int def);
+extern bool dict_get_bool(dict *d, const char *key, bool def);
+extern float dict_get_float(dict *d, const char *key, float def);
+extern double dict_get_double(dict *d, const char *key, double def);
+//extern long dict_get_long(dict *d, const char *key, long def);
+extern unsigned int dict_get_uint(dict *d, const char *key, unsigned int def);
+extern const char *dict_get_exp(dict *d, const char *key);
 
 #endif
 

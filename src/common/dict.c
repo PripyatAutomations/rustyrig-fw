@@ -22,6 +22,8 @@
 #include <string.h>
 
 #include "common/dict.h"
+#include "common/logger.h"
+#include "common/util.math.h"
 
 /*---------------------------------------------------------------------------
                                 Defines
@@ -398,4 +400,192 @@ void dict_dump(dict * d, FILE * out)
         fprintf(out, "%20s=%s\n", key, val ? val : "UNDEF");
     }
     return;
+}
+
+////////////////////////////////////////////////////
+// rustyaxe additions, all bugs below are mine ;) //
+////////////////////////////////////////////////////
+bool dict_get_bool(dict *d, const char *key, bool def) {
+   if (!d || !key) {
+      return def;
+   }
+
+   const char *s = dict_get_exp(d, key);
+   bool rv = def;
+
+   if (!s) {
+      return rv;
+   }
+
+   if (strcasecmp(s, "true") == 0 ||
+       strcasecmp(s, "yes") == 0 ||
+       strcasecmp(s, "on") == 0 ||
+       strcasecmp(s, "1") == 0) {
+      rv = true;
+   } else if (strcasecmp(s, "false") == 0 ||
+              strcasecmp(s, "no") == 0 ||
+              strcasecmp(s, "off") == 0 ||
+              strcasecmp(s, "0") == 0) {
+      rv = false;
+   }
+
+   free((void *)s);
+   return rv;
+}
+
+int dict_get_int(dict *d, const char *key, int def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = dict_get_exp(d, key);
+   if (s) {
+      int val = atoi(s);
+      free((void *)s);
+      return val;
+   }
+   return def;
+}
+
+unsigned int dict_get_uint(dict *d, const char *key, unsigned int def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = dict_get_exp(d, key);
+   if (s) {
+      char *ep = NULL;
+      unsigned int val = (uint32_t)strtoul(s, &ep, 10);
+      free((void *)s);
+
+      // incomplete parse
+      if (*ep != '\0') {
+         return def;
+      } else {
+         return val;
+      }
+   }
+   return def;
+}
+
+double dict_get_double(dict *d, const char *key, double def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = dict_get_exp(d, key);
+
+   if (s) {
+      double val = safe_atod(s);
+      free((void *)s);
+      if (val == NAN) {
+         return def;
+      }
+   }
+   return def;
+}
+
+float dict_get_float(dict *d, const char *key, float def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = dict_get_exp(d, key);
+
+   if (s) {
+      float val = safe_atof(s);
+      free((void *)s);
+      if (val == NAN) {
+         return def;
+      }
+   }
+   return def;
+}
+
+// You *MUST* free the return value
+const char *dict_get_exp(dict *d, const char *key) {
+   if (!d) {
+      return NULL;
+   }
+
+   if (!key) {
+      Log(LOG_WARN, "config", "dict_get_exp: NULL key!");
+      return NULL;
+   }
+
+   const char *p = dict_get(d, key, NULL);
+   if (!p) {
+      Log(LOG_DEBUG, "config", "dict_get_exp: key |%s| not found", key);
+      dict_dump(d, stderr);
+      return NULL;
+   }
+
+   char *buf = malloc(MAX_CFG_EXP_STRLEN);
+   if (!buf) {
+      fprintf(stderr, "OOM in dict_get_exp!\n");
+      return NULL;
+   }
+
+   strncpy(buf, p, MAX_CFG_EXP_STRLEN - 1);
+   buf[MAX_CFG_EXP_STRLEN - 1] = '\0';
+
+   for (int depth = 0; depth < MAX_CFG_EXP_RECURSION; depth++) {
+      char tmp[MAX_CFG_EXP_STRLEN];
+      char *dst = tmp;
+      const char *src = buf;
+      int changed = 0;
+
+      while (*src && (dst - tmp) < MAX_CFG_EXP_STRLEN - 1) {
+         if (src[0] == '$' && src[1] == '{') {
+            const char *end = strchr(src + 2, '}');
+
+            if (end) {
+               size_t klen = end - (src + 2);
+               char keybuf[256];
+
+               if (klen >= sizeof(keybuf)) {
+                  klen = sizeof(keybuf) - 1;
+               }
+
+               memcpy(keybuf, src + 2, klen);
+               keybuf[klen] = '\0';
+
+               const char *val = cfg_get(keybuf);
+               if (val) {
+                  size_t vlen = strlen(val);
+
+                  if ((dst - tmp) + vlen >= MAX_CFG_EXP_STRLEN - 1) {
+                     vlen = MAX_CFG_EXP_STRLEN - 1 - (dst - tmp);
+                  }
+
+                  memcpy(dst, val, vlen);
+                  dst += vlen;
+                  changed = 1;
+               }
+               src = end + 1;
+               continue;
+            }
+         }
+         *dst++ = *src++;
+      }
+      *dst = '\0';
+
+      if (!changed) {
+         break; // No more expansions
+      }
+
+      strncpy(buf, tmp, MAX_CFG_EXP_STRLEN - 1);
+      buf[MAX_CFG_EXP_STRLEN - 1] = '\0';
+   }
+
+   // Shrink the allocation down to it's actual size
+   size_t final_len = strlen(buf) + 1;
+   char *shrunk = realloc(buf, final_len);
+
+   if (shrunk) {
+      buf = shrunk;
+   }
+
+//   fprintf(stderr, "dict_get_exp: returning %lu bytes for key %s => %s\n", (unsigned long)final_len, key, buf);
+   return buf;
 }

@@ -33,11 +33,11 @@
 extern dict *cfg;		// config.c
 extern time_t now;
 
-bool ws_handle_syslog_msg(struct mg_connection *c, struct mg_ws_message *msg) {
+bool ws_handle_syslog_msg(struct mg_connection *c, dict *d) {
    bool rv = false;
 
-   if (!c || !msg) {
-      Log(LOG_WARN, "http.ws", "syslog_msg: got msg:<%x> mg_conn:<%x>", msg, c);
+   if (!c || !d) {
+      Log(LOG_WARN, "http.ws", "syslog_msg: got d:<%x> mg_conn:<%x>", d, c);
       return true;
    }
 
@@ -49,16 +49,10 @@ bool ws_handle_syslog_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
    }
 
-   if (!msg->data.buf) {
-      Log(LOG_WARN, "http.ws", "syslog_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
-      return true;
-   }
-
-   struct mg_str msg_data = msg->data;
-   char *ts = mg_json_get_str(msg_data, "$.syslog.ts");
-   char *prio = mg_json_get_str(msg_data, "$.syslog.prio");
-   char *subsys = mg_json_get_str(msg_data, "$.syslog.subsys");
-   char *data = mg_json_get_str(msg_data, "$.syslog.data");
+   char *ts = dict_get(d, "syslog.ts", NULL);
+   char *prio = dict_get(d, "syslog.prio", NULL);
+   char *subsys = dict_get(d, "syslog.subsys", NULL);
+   char *data = dict_get(d, "syslog.data", NULL);
    char my_timestamp[64];
    time_t t;
    struct tm *tmp;
@@ -76,10 +70,5 @@ bool ws_handle_syslog_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
    Log(LOG_DEBUG, "server.syslog", "Got message <%s.%s> %s", subsys, prio, data);
    log_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
-   free(ts);
-   free(prio);
-   free(subsys);
-   free(data);
-
    return false;
 }

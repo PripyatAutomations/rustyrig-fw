@@ -437,13 +437,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    }
 
 cleanup:
-//   free(cmd);
-//   free(data);
-//   free(target);
-//   free(msg_type);
-//   free(hello);
-//   free(ping);
-
+   dict_free(d);
    return false;
 }
 

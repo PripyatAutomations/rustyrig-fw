@@ -9,4 +9,7 @@
 #if	!defined(__rr_util_math_h)
 #define	__rr_util_math_h
 
+extern float safe_atof(const char *s);
+extern double safe_atod(const char *s);
+
 #endif	// !defined(__rr_util_math_h)

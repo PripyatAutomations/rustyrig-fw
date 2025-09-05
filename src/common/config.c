@@ -433,153 +433,25 @@ const char *cfg_get(const char *key) {
 }
 
 
-// You *MUST* free the return value
-const char *cfg_get_exp(const char *key) {
-   if (!key) {
-      Log(LOG_WARN, "config", "cfg_get_exp: NULL key!");
-      return NULL;
-   }
-
-   const char *p = cfg_get(key);
-   if (!p) {
-      Log(LOG_DEBUG, "config", "cfg_get_exp: key |%s| not found", key);
-      return NULL;
-   }
-
-   char *buf = malloc(MAX_CFG_EXP_STRLEN);
-   if (!buf) {
-      fprintf(stderr, "OOM in cfg_get_exp!\n");
-      return NULL;
-   }
-
-   strncpy(buf, p, MAX_CFG_EXP_STRLEN - 1);
-   buf[MAX_CFG_EXP_STRLEN - 1] = '\0';
-
-   for (int depth = 0; depth < MAX_CFG_EXP_RECURSION; depth++) {
-      char tmp[MAX_CFG_EXP_STRLEN];
-      char *dst = tmp;
-      const char *src = buf;
-      int changed = 0;
-
-      while (*src && (dst - tmp) < MAX_CFG_EXP_STRLEN - 1) {
-         if (src[0] == '$' && src[1] == '{') {
-            const char *end = strchr(src + 2, '}');
-
-            if (end) {
-               size_t klen = end - (src + 2);
-               char keybuf[256];
-
-               if (klen >= sizeof(keybuf)) {
-                  klen = sizeof(keybuf) - 1;
-               }
-
-               memcpy(keybuf, src + 2, klen);
-               keybuf[klen] = '\0';
-
-               const char *val = cfg_get(keybuf);
-               if (val) {
-                  size_t vlen = strlen(val);
-
-                  if ((dst - tmp) + vlen >= MAX_CFG_EXP_STRLEN - 1) {
-                     vlen = MAX_CFG_EXP_STRLEN - 1 - (dst - tmp);
-                  }
-
-                  memcpy(dst, val, vlen);
-                  dst += vlen;
-                  changed = 1;
-               }
-               src = end + 1;
-               continue;
-            }
-         }
-         *dst++ = *src++;
-      }
-      *dst = '\0';
-
-      if (!changed) {
-         break; // No more expansions
-      }
-
-      strncpy(buf, tmp, MAX_CFG_EXP_STRLEN - 1);
-      buf[MAX_CFG_EXP_STRLEN - 1] = '\0';
-   }
-
-   // Shrink the allocation down to it's actual size
-   size_t final_len = strlen(buf) + 1;
-   char *shrunk = realloc(buf, final_len);
-
-   if (shrunk) {
-      buf = shrunk;
-   }
-
-//   fprintf(stderr, "cfg_get_exp: returning %lu bytes for key %s => %s\n", (unsigned long)final_len, key, buf);
-
-   return buf; // Caller must free
-}
-
 
 bool cfg_get_bool(const char *key, bool def) {
-   if (!cfg || !key) {
-      return def;
-   }
-
-   const char *s = cfg_get_exp(key);
-   bool rv = def;
-
-   if (!s) {
-      return rv;
-   }
-
-   if (strcasecmp(s, "true") == 0 ||
-       strcasecmp(s, "yes") == 0 ||
-       strcasecmp(s, "on") == 0 ||
-       strcasecmp(s, "1") == 0) {
-      rv = true;
-   } else if (strcasecmp(s, "false") == 0 ||
-              strcasecmp(s, "no") == 0 ||
-              strcasecmp(s, "off") == 0 ||
-              strcasecmp(s, "0") == 0) {
-      rv = false;
-   }
-
-   free((void *)s);
-   return rv;
+   return dict_get_bool(cfg, key, def);
 }
 
 int cfg_get_int(const char *key, int def) {
-   if (!key) {
-      return def;
-   }
-
-   const char *s = cfg_get_exp(key);
-   if (s) {
-      int val = atoi(s);
-      free((void *)s);
-      return val;
-   }
-   return def;
+   return dict_get_int(cfg, key, def);
 }
 
 unsigned int cfg_get_uint(const char *key, unsigned int def) {
-   if (!key) {
-      return def;
-   }
-
-   const char *s = cfg_get_exp(key);
-   if (s) {
-      char *ep = NULL;
-      unsigned int val = (uint32_t)strtoul(s, &ep, 10);
-      free((void *)s);
-
-      // incomplete parse
-      if (*ep != '\0') {
-         return def;
-      } else {
-         return val;
-      }
-   }
-   return def;
+   return dict_get_uint(cfg, key, def);
 }
+
+// You *MUST* free the return value
+const char *cfg_get_exp(const char *key) {
+   return dict_get_exp(cfg, key);
+}
+
+////////////////////////////
 
 static void cfg_print_servers(dict *servers, FILE *fp) {
    if (!servers || !fp) {
@@ -793,3 +665,4 @@ bool reload_event_remove(reload_event_t *evt) {
 
    return false;
 }
+

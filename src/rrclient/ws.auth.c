@@ -38,11 +38,11 @@ extern const char *server_name;                         // connman.c XXX: to rem
 // XXX: This needs moved into the ws_conn
 extern char session_token[HTTP_TOKEN_LEN+1];
 
-bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
+bool ws_handle_auth_msg(struct mg_connection *c, dict *d) {
    bool rv = false;
 
-   if (!c || !msg) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg:<%x> mg_conn:<%x>", msg, c);
+   if (!c || !d) {
+      Log(LOG_WARN, "http.ws", "auth_msg: got msg mg_conn:<%x> msg:<%x>", c, d);
       return true;
    }
 
@@ -55,16 +55,9 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
    }
 
-   if (!msg->data.buf) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
-      // XXX: We should count these and if too many errors in a period of time, kick the user
-      return true;
-   }
-
-   struct mg_str msg_data = msg->data;
-   char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
-   char *nonce = mg_json_get_str(msg_data, "$.auth.nonce");
-   char *user = mg_json_get_str(msg_data, "$.auth.user");
+   char *cmd = dict_get(d, "auth.cmd", NULL);
+   char *nonce = dict_get(d, "auth.nonce", NULL);
+   char *user = dict_get(d, "auth.user", NULL);
 //   ui_print("[%s] => cmd: '%s', nonce: %s, user: %s", get_chat_ts(), cmd, nonce, user);
 
    // Must always send a command and username during auth
@@ -74,7 +67,7 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
    if (cmd && strcasecmp(cmd, "challenge") == 0) {
-      char *token = mg_json_get_str(msg_data, "$.auth.token");
+      char *token = dict_get(d, "auth.token", NULL);
 
       if (token) {
          memset(session_token, 0, HTTP_TOKEN_LEN + 1);
@@ -88,7 +81,6 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       const char *login_pass = get_server_property(server_name, "server.pass");
 
       ws_send_passwd(c, user, login_pass, nonce);
-      free(token);
    } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
       ui_print("[%s] *** Authorized ***", get_chat_ts());
       userlist_redraw_gtk();
@@ -96,9 +88,6 @@ bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
 cleanup:
-   free(cmd);
-   free(nonce);
-   free(user);
    return rv;
 }
 

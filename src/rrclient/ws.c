@@ -56,20 +56,20 @@ bool cfg_http_debug_crazy = false;
 //////////////////////
 // Websocket router //
 //////////////////////
-extern bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_auth_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_media_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_notice_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_ping_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_syslog_msg(struct mg_connection *c, struct mg_ws_message *msg);
-extern bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg);
+extern bool ws_handle_alert_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_auth_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_error_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_hello_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_media_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_notice_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_ping_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_syslog_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_talk_msg(struct mg_connection *c, dict *d);
 
 struct ws_msg_routes {
    const char *type;		// auth|ping|talk|cat|alert|error|hello etc
-   bool (*cb)(/*struct mg_connection *c, struct mg_ws_message *msg*/);
+   bool (*cb)();
 };
 
 struct ws_msg_routes ws_routes[] = {
@@ -86,18 +86,15 @@ struct ws_msg_routes ws_routes[] = {
    { .type = NULL,	.cb = NULL }
 };
 
-bool ws_handle_hello_msg(struct mg_connection *c, struct mg_ws_message *msg) {
-   if (!c || !msg) {
-      Log(LOG_DEBUG, "ws", "hello: c:<%x> msg:<%x>", c, msg);
+bool ws_handle_hello_msg(struct mg_connection *c, dict *d) {
+   if (!c || !d) {
+      Log(LOG_DEBUG, "ws", "hello: c:<%x> d:<%x>", c, d);
       return true;
    }
 
-   struct mg_str msg_data = msg->data;
-
-   if (mg_json_get(msg_data, "$.hello", NULL) > 0) {
-      char *hello = mg_json_get_str(msg_data, "$.hello");
+   char *hello = dict_get(d, "hello", NULL);
+   if (hello) {
       ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
-      free(hello);
    }
    return false;
 }
@@ -108,16 +105,20 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
       return true;
    }
 
-   struct ws_msg_routes *rp = ws_routes;
    int i = 0;
    char json_req[65];
    struct mg_str msg_data = msg->data;
 
+   // Copy to a null terminated buffer
    char buf[HTTP_WS_MAX_MSG+1];
    memset(buf, 0, sizeof(buf));
    memcpy(buf, msg_data.buf, msg_data.len);
-//   fprintf(stderr, "recv ws => %s\n", buf);
+
+   // and expand into a dict, which is freed in cleanup below
    dict *d = json2dict(buf);
+
+   // Pointer to available routes
+   struct ws_msg_routes *rp = ws_routes;
 
    // Walk the table of handlers
    while (rp[i].type) {
@@ -136,11 +137,15 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
              strcasecmp(rp[i].type, "ping") != 0) {
             Log(LOG_CRAZY, "ws.router", "Matched route #%d for message type %s", i, rp[i].type);
          }
-         rp[i].cb(c, msg);
+
+         rp[i].cb(c, d);
+         free(d);
          return false;
       }
       i++;
    }
+
+   free(d);
 
    Log(LOG_CRAZY, "ws.router", "No matches for message: %s", msg_data);
    return true;

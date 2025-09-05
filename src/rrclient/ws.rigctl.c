@@ -21,6 +21,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
 #include "common/dict.h"
+#include "common/json.h"
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "rrclient/auth.h"
@@ -41,33 +42,22 @@ extern gulong freq_changed_handler_id;
 // XXX: this needs to go into the per-VFO
 char old_mode[16];
 
-bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
-   if (!c || !msg) {
+bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
+   if (!c || !d) {
+      Log(LOG_DEBUG, "ws.rigctl", "handle_rigctl_msg invalid args: c:<%x> d:<%x>", c, d);
       return true;
    }
 
-   struct mg_str msg_data = msg->data;
-
-   if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
+   if (dict_get(d, "cat.state.mode", NULL)) {
       if (poll_block_expire < now) {
-         char *vfo = mg_json_get_str(msg_data, "$.cat.vfo");
-         double freq;
-         mg_json_get_num(msg_data, "$.cat.state.freq", &freq);
-         char *mode = mg_json_get_str(msg_data, "$.cat.state.mode");
-         double width;
-         mg_json_get_num(msg_data, "$.cat.state.width", &width);
-         double power;
-         mg_json_get_num(msg_data, "$.cat.state.power", &power);
+         char *vfo = dict_get(d, "cat.state.vfo", NULL);
+         double freq = dict_get_double(d, "cat.state.freq", 0.0);
+         char *mode = dict_get(d, "cat.state.mode", NULL);
+         double width = dict_get_double(d, "cat.state.width", 0.0);
+         double power = dict_get_double(d, "cat.state.power", 0.0);
 
 // XXX: PTT
-         bool ptt = false;
-         char *ptt_s = mg_json_get_str(msg_data, "$.cat.state.ptt");
-
-         if (ptt_s && ptt_s[0] != '\0' && strcasecmp(ptt_s, "true") == 0) {
-            ptt = true;
-         }  else {
-            ptt = false;
-         }
+         bool ptt = dict_get_bool(d, "cat.state.ptt", false);
 
          server_ptt_state = ptt;
 //         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
@@ -75,9 +65,8 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
 //         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
 
-         double ts;
-         mg_json_get_num(msg_data, "$.cat.ts", &ts);
-         char *user = mg_json_get_str(msg_data, "$.cat.user");
+         int ts = dict_get_int(d, "cat.ts", 0);
+         char *user = dict_get(d, "cat.user", NULL);
 
          if (user && *user) {
 //            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
@@ -133,18 +122,15 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, struct mg_ws_message *msg) {
             memset(old_mode, 0, sizeof(old_mode));
             snprintf(old_mode, sizeof(old_mode), "%s", mode);
          }
-local_cleanup:
-         // free memory
-         free(vfo);
-         free(mode);
-         free(user);
-//      } else {
-//         Log(LOG_CRAZY, "ws.cat", "Polling blocked for %d seconds", (poll_block_expire - now));
       }
    } else {
-      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(), msg_data);
-      Log(LOG_DEBUG, "ws.cat", "Unknown msg: %s", msg->data);
+      char *json_msg = dict2json(d);
+      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(), json_msg);
+      Log(LOG_DEBUG, "ws.cat", "Unknown msg: %s", json_msg);
+      free(json_msg);
    }
+
+local_cleanup:
    return false;
 }
 

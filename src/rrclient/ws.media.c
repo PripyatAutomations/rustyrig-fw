@@ -36,13 +36,12 @@ extern GtkWidget *tx_codec_combo, *rx_codec_combo;
 char *negotiated_codecs = NULL;
 char *server_codecs = NULL;
 
-bool ws_handle_media_msg(struct mg_connection *c, struct mg_ws_message *msg) {
-   if (!c || !msg) {
-      Log(LOG_WARN, "http.ws", "media_msg: got msg:<%x> mg_conn:<%x>", msg, c);
+bool ws_handle_media_msg(struct mg_connection *c, dict *d) {
+   if (!c || !d) {
+      Log(LOG_WARN, "http.ws", "media_msg: got d:<%x> mg_conn:<%x>", d, c);
       return true;
    }
 
-   struct mg_str msg_data = msg->data;
    bool rv = false;
 
    char ip[INET6_ADDRSTRLEN];
@@ -53,26 +52,21 @@ bool ws_handle_media_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
    }
 
-   if (!msg->data.buf) {
-      Log(LOG_WARN, "http.ws", "media_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
-      return true;
-   }
-
-   // past here, we MUST call local_cleanup
-   char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
-   char *media_payload = mg_json_get_str(msg_data, "$.media.payload");
-   char *media_codecs = mg_json_get_str(msg_data, "$.media.codecs");
+   char *media_cmd = dict_get(d, "media.cmd", NULL);
+   char *media_payload = dict_get(d, "media.payload", NULL);
+   char *media_codecs = dict_get(d, "media.codecs", NULL);
 
    // Parse the server's capab string and store it's capabilities
    if (media_cmd && strcasecmp(media_cmd, "capab") == 0) {
       Log(LOG_DEBUG, "ws.media", "Got CAPAB from server: %s", media_codecs);
 
-      const char *preferred = cfg_get_exp("codecs.allowed");
+      const char *preferred = dict_get_exp(d, "codecs.allowed");
 
       if (!media_codecs) {
          Log(LOG_WARN, "ws.media", "Got empty CAPAB from server");
-         goto local_cleanup;
+         goto cleanup;
       }
+
       if (server_codecs) {
          free(server_codecs);
       }
@@ -89,7 +83,7 @@ bool ws_handle_media_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       }
       free((void *)preferred);
    } else if (media_cmd && strcasecmp(media_cmd, "isupport") == 0) {
-      char *media_preferred = mg_json_get_str(msg_data, "$.media.preferred");
+      char *media_preferred = dict_get(d, "media.preferred", NULL);
 
       if (media_codecs) {
          Log(LOG_DEBUG, "ws.media", "Server negotiated codecs: %s, preferred: %s", media_codecs, media_preferred);
@@ -110,15 +104,10 @@ bool ws_handle_media_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       } else {
          Log(LOG_DEBUG, "ws.media", "Got media isupport with empty codecs");
       }
-      free(media_preferred);
    } else {
       Log(LOG_DEBUG, "ws.media," ">> Unknown media.cmd: %s, .payload: %s", media_cmd, media_payload);
-      goto local_cleanup;
+      goto cleanup;
    }
-local_cleanup:
-   free(media_cmd);
-   free(media_payload);
-   free(media_codecs);
+cleanup:
    return false;
 }
-

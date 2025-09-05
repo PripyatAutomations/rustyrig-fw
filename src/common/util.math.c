@@ -17,4 +17,54 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
+#include <math.h>
+#include <ctype.h>
 #include "common/util.math.h"
+
+float safe_atof(const char *s) {
+    if (!s || !*s) {
+       return NAN;
+    }
+
+    errno = 0;
+    char *end;
+    float val = strtof(s, &end);
+
+    if (errno != 0) {
+       return NAN;            // overflow/underflow
+    }
+
+    while (*end && isspace((unsigned char)*end)) {
+       end++;
+    }
+
+    if (*end != '\0') {
+       return NAN;          // junk at end
+    }
+
+    return val;
+}
+
+double safe_atod(const char *s) {
+    if (!s || !*s) {
+       return NAN;
+    }
+    errno = 0;
+    char *end;
+    double val = strtod(s, &end);
+
+    if (errno != 0) {
+       return NAN;
+    }
+
+    while (*end && isspace((unsigned char)*end)) {
+       end++;
+    }
+
+    if (*end != '\0') {
+       return NAN;
+    }
+
+    return val;
+}

@@ -46,3 +46,9 @@ win64-deps win64-installer win64-portable:
 include mk/database.mk
 include mk/audit.mk
 include mk/json-config.mk
+
+client-gdb:
+	gdb build/client/rrclient -ex run
+
+server-gdb:
+	gdb build/radio/rrserver -ex run

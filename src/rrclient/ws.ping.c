@@ -34,9 +34,9 @@ extern dict *cfg;		// config.c
 extern bool cfg_show_pings;
 extern time_t now;
 
-bool ws_handle_ping_msg(struct mg_connection *c, struct mg_ws_message *msg) {
-   if (!c || !msg) {
-      Log(LOG_WARN, "http.ws", "ping_msg: got msg:<%x> mg_conn:<%x>", msg, c);
+bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
+   if (!c || !d) {
+      Log(LOG_WARN, "http.ws", "ping_msg: got d:<%x> mg_conn:<%x>", d, c);
       return true;
    }
 
@@ -50,16 +50,12 @@ bool ws_handle_ping_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
    }
 
-   if (!msg->data.buf) {
-      Log(LOG_WARN, "http.ws", "ping_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
-      return true;
-   }
-
-   struct mg_str msg_data = msg->data;
-
    char ts_buf[32];
+   char *ping_ts_s = dict_get(d, "ping.ts", NULL);
    double ping_ts = 0;
-   mg_json_get_num(msg_data, "$.ping.ts", &ping_ts);
+   if (ping_ts_s) {
+      ping_ts = atof(ping_ts_s);
+   }
 
    if (ping_ts > 0) {
       memset(ts_buf, 0, sizeof(ts_buf));
