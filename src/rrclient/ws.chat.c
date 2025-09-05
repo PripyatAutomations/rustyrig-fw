@@ -132,6 +132,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, struct mg_ws_message *msg) {
       char *data = mg_json_get_str(msg_data, "$.talk.data");
       char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
 
+      // Support public messages and action (/me)
       if (msg_type && strcasecmp(msg_type, "pub") == 0) {
          ui_print("[%s] <%s> %s", get_chat_ts(), from, data);
       } else if (msg_type && strcasecmp(msg_type, "action") == 0) {

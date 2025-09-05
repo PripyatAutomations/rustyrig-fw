@@ -245,7 +245,6 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
 cleanup:
-   free(ts);
    return rv;
 }
 
@@ -283,23 +282,23 @@ static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t
 }
 
 //
-////
-// This needs optimized!
-///
+// Handle a TEXT ws message
+//
 static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
 
    char buf[HTTP_WS_MAX_MSG+1];
    memset(buf, 0, sizeof(buf));
    memcpy(buf, msg_data.buf, msg_data.len);
-   fprintf(stderr, "recv ws => %s\n", buf);
+//   fprintf(stderr, "recv ws => %s\n", buf);
+   dict *d = json2dict(buf);
 
-   char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
-   char *data = mg_json_get_str(msg_data, "$.talk.data");
-   char *target =  mg_json_get_str(msg_data, "$.talk.args.target");
-   char *msg_type =  mg_json_get_str(msg_data, "$.type");
-   char *hello = mg_json_get_str(msg_data, "$.hello");
-   char *ping = mg_json_get_str(msg_data, "$.ping");
+   char *cmd = dict_get(d, "talk.cmd", NULL);
+   char *data = dict_get(d, "talk.data", NULL);
+   char *target = dict_get(d, "talk.args.target", NULL);
+   char *msg_type = dict_get(d, "type", NULL);
+   char *hello = dict_get(d, "hello", NULL);
+   char *ping = dict_get(d, "ping", NULL);
 
    bool result = false;
 
@@ -314,19 +313,20 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    // Handle ping messages
    if (ping) {
       char ts_buf[32];
-      char *ping_ts = mg_json_get_str(msg_data, "$.ping.ts");
+      char *ping_ts = dict_get(d, "ping.ts", NULL);
+
       if (ping_ts) {
          snprintf(ts_buf, sizeof(ts_buf), "%s", ping_ts);
 
          char pong[128];
          snprintf(pong, sizeof(pong), "{\"type\":\"pong\",\"ts\":%s", ts_buf);
          mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
-         free(ping_ts);
       }
       goto cleanup;
    } else if (hello) {
       Log(LOG_DEBUG, "ws", "Got HELLO from client at mg_conn:<%x>: %s", c, hello);
       cptr->cli_version = malloc(HTTP_UA_LEN);
+
       if (cptr->cli_version) {
          memset(cptr->cli_version, 0, HTTP_UA_LEN);
          snprintf(cptr->cli_version, HTTP_UA_LEN, "%s", hello);
@@ -339,8 +339,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
          result = ws_handle_chat_msg(msg, c);
       }
    } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
-     char *media_cmd = mg_json_get_str(msg_data, "$.media.cmd");
-     char *media_codecs = mg_json_get_str(msg_data, "$.media.codecs");
+     char *media_cmd = dict_get(d, "media.cmd", NULL);
+     char *media_codecs = dict_get(d, "media.codecs", NULL);
 
      // all packets need a command
      if (!media_cmd) {
@@ -388,8 +388,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            goto cleanup;
         }
 
-        char *media_codec = mg_json_get_str(msg_data, "$.media.codec");
-        char *media_channel = mg_json_get_str(msg_data, "$.media.channel");
+        char *media_codec = dict_get(d, "media.codec", NULL);
+        char *media_channel = dict_get(d, "media.channel", NULL);
 
         if (media_codec && strlen(media_codec) == 4) {
            Log(LOG_DEBUG, "ws.media", "Selected %s codec %s.%s for user %s at cptr:<%x>", 
@@ -429,11 +429,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
         } else {
            Log(LOG_DEBUG, "ws.media", "No codec in media.codec cmd");
         }
-        free(media_codec);
-        free(media_channel);
      }
-     free(media_cmd);
-     free(media_codecs);
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
       result = ws_handle_pong(msg, c);
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
@@ -441,12 +437,12 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    }
 
 cleanup:
-   free(cmd);
-   free(data);
-   free(target);
-   free(msg_type);
-   free(hello);
-   free(ping);
+//   free(cmd);
+//   free(data);
+//   free(target);
+//   free(msg_type);
+//   free(hello);
+//   free(ping);
 
    return false;
 }

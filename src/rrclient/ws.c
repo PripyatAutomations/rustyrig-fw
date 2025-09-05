@@ -19,6 +19,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "common/logger.h"
 #include "common/dict.h"
+#include "common/json.h"
 #include "common/posix.h"
 #include "common/util.file.h"
 #include "rrclient/auth.h"
@@ -115,7 +116,8 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
    char buf[HTTP_WS_MAX_MSG+1];
    memset(buf, 0, sizeof(buf));
    memcpy(buf, msg_data.buf, msg_data.len);
-   fprintf(stderr, "recv ws => %s\n", buf);
+//   fprintf(stderr, "recv ws => %s\n", buf);
+   dict *d = json2dict(buf);
 
    // Walk the table of handlers
    while (rp[i].type) {

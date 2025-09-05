@@ -19,7 +19,6 @@
 #include "common/logger.h"
 #include "rrserver/state.h"
 #include "rrserver/thermal.h"
-#include "rrserver/power.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/vfo.h"
 #include "common/cat.h"

@@ -60,5 +60,7 @@ extern char *json_escape(const char *s);
 // XXX: Rework these eventually to use be static inline bit to wrap normal string versions of these...
 // You must free ->ptr when you are done or memory will be leaked
 extern const char *dict2json_mkstr(int first_type, ...);
+extern void json_parse_and_flatten(const char *json, dict *dptr);
+extern dict *json2dict(const char *json);
 
 #endif	// !defined(__common_json_h)
