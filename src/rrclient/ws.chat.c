@@ -53,7 +53,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       clones = atof(clones_s);
    }
    bool rv = false;
-   bool tx = dict_get_bool(d, "talk.tx", false);
+   bool tx = dict_get_bool(d, "talk.state.tx", false);
 
    if (!cmd) {
       rv = true;
