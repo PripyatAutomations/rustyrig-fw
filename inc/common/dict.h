@@ -155,7 +155,8 @@ extern int dict_get_int(dict *d, const char *key, int def);
 extern bool dict_get_bool(dict *d, const char *key, bool def);
 extern float dict_get_float(dict *d, const char *key, float def);
 extern double dict_get_double(dict *d, const char *key, double def);
-//extern long dict_get_long(dict *d, const char *key, long def);
+extern long dict_get_long(dict *d, const char *key, long def);
+extern long long dict_get_llong(dict *d, const char *key, long long def);
 extern unsigned int dict_get_uint(dict *d, const char *key, unsigned int def);
 extern const char *dict_get_exp(dict *d, const char *key);
 

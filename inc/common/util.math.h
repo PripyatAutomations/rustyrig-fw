@@ -11,5 +11,7 @@
 
 extern float safe_atof(const char *s);
 extern double safe_atod(const char *s);
+extern long safe_atol(const char *s);
+extern long long safe_atoll(const char *s);
 
 #endif	// !defined(__rr_util_math_h)

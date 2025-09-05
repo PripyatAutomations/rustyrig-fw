@@ -21,6 +21,8 @@
 #include "common/cat.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"
+#include "common/dict.h"
+#include "common/json.h"
 #include "common/logger.h"
 #include "common/posix.h"
 #include "rrserver/state.h"
@@ -85,15 +87,17 @@ bool send_global_alert(const char *sender, const char *data) {
       return true;
    }
 
-   char msgbuf[HTTP_WS_MAX_MSG+1];
-   struct mg_str mp;
-   char *escaped_msg = escape_html(data);
-   prepare_msg(msgbuf, sizeof(msgbuf), 
-      "{ \"alert\": { \"from\": \"%s\", \"msg\": \"%s\", \"ts\": %lu } }",
-      sender, escaped_msg, now);
-   mp = mg_str(msgbuf);
+   const char *escaped_msg = escape_html(data);
+
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "alert.from", sender,
+      VAL_STR, "alert.msg", escaped_msg,
+      VAL_LONG, "alert.ts", now);
+
+   struct mg_str mp = mg_str(jp);
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-   free(escaped_msg);
+   free((char *)escaped_msg);
+   free((char *)jp);
 
    return false;
 }

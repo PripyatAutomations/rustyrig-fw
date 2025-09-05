@@ -35,7 +35,6 @@
 
 extern struct GlobalState rig;	// Global state
 
-///////////////////
 #define	WS_RIGCTL_FORCE_INTERVAL	60		// every 60 seconds, send a full update
 
 // XXX: Merge with existing rr_vfo_data_t

@@ -45,10 +45,14 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
 
    Log(LOG_CRAZY, "core", "Unprivileged user %s (uid: %d with privs %s) requested to do %s and was denied", cptr->chatname, cptr->user->uid, cptr->user->privs, action);
    char msgbuf[HTTP_WS_MAX_MSG+1];
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"error\": { \"ts\": %lu, \"msg\": \"You do not have enough privileges to use '%s' command\" } }",
-         now, action);
-   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   prepare_msg(msgbuf, sizeof(msgbuf), "You do not have enough privileges to use '%s' command", now, action);
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "error.msg", msgbuf,
+      VAL_LONG, "error.ts", now);
+
+   mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
+
    return false;
 }
 
@@ -57,10 +61,14 @@ bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
       return true;
    }
    char msgbuf[HTTP_WS_MAX_MSG+1];
-   prepare_msg(msgbuf, sizeof(msgbuf),
-      "{ \"error\": { \"ts\": %lu, \"msg\": \"You MUST provide a reason for using'%s' command\" } }",
-         now, command);
-   mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   prepare_msg(msgbuf, sizeof(msgbuf), "You MUST provide a reason for using'%s' command", now, command);
+
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "error.msg", msgbuf,
+      VAL_LONG, "error.ts", now);
+
+   mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
    return false;
 }
 
@@ -178,10 +186,14 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
 
       if (!kicked) {
          char msgbuf[HTTP_WS_MAX_MSG+1];
-         prepare_msg(msgbuf, sizeof(msgbuf),
-             "{ \"error\": { \"ts\": %lu, \"msg\": \"KICK '%s' command matched no connected users\" } }",
-             now, target);
-         mg_ws_send(cptr->conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+         prepare_msg(msgbuf, sizeof(msgbuf), "KICK '%s' command matched no connected users", now, target);
+
+         const char *jp = dict2json_mkstr(
+            VAL_STR, "error.msg", msgbuf,
+            VAL_LONG, "error.ts", now);
+
+         mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+         free((char *)jp);
       }
    } else {
       ws_chat_err_noprivs(cptr, "KICK");
@@ -354,13 +366,12 @@ bool ws_send_users(http_client_t *cptr) {
 }
 
 // XXX: Once json2dict is implemented, we need to use it here
-bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
-   if (!msg || !c) {
+bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
+   if (!c || !d) {
       return true;
    }
 
    bool rv = true;
-   struct mg_str msg_data = msg->data;
    http_client_t *cptr = http_find_client_by_c(c);
 
    if (!cptr) {
@@ -373,19 +384,22 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       return true;
    }
 
-   Log(LOG_CRAZY, "chat", "RX from cptr:<%x> (%s) => %.*s", cptr, cptr->chatname, msg_data.len, msg_data.buf);
+   // XXX: remove this asap
+   char *json_data = dict2json(d);
+   Log(LOG_CRAZY, "chat", "RX from cptr:<%x> (%s) => %.*s", cptr, cptr->chatname, json_data);
+   free(json_data);
 
    cptr->last_heard = now;
 
-   char *token = mg_json_get_str(msg_data, "$.talk.token");
-   char *cmd = mg_json_get_str(msg_data, "$.talk.cmd");
-   char *data = mg_json_get_str(msg_data, "$.talk.data");
-   char *target = mg_json_get_str(msg_data, "$.talk.args.target");
-   char *reason = mg_json_get_str(msg_data, "$.talk.args.reason");
-   char *msg_type = mg_json_get_str(msg_data, "$.talk.msg_type");
+   char *token = dict_get(d, "talk.token", NULL);
+   char *cmd = dict_get(d, "talk.cmd", NULL);
+   char *data = dict_get(d, "talk.data", NULL);
+   char *target = dict_get(d, "talk.target", NULL);
+   char *reason = dict_get(d, "talk.args.reason", NULL);
+   char *msg_type = dict_get(d, "talk.msg_type", NULL);
    char *user = cptr->chatname;
-   long chunk_index = mg_json_get_long(msg_data, "$.talk.chunk_index", 0);
-   long total_chunks = mg_json_get_long(msg_data, "$.talk.total_chunks", 0);
+   long chunk_index = dict_get_long(d, "talk.chunk_index", 0);
+   long total_chunks = dict_get_long(d, "talk.total_chunks", 0);
 
    if (cmd) {
       if (strcasecmp(cmd, "msg") == 0) {
@@ -422,180 +436,24 @@ bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          // handle a file chunk
          if (msg_type && strcmp(msg_type, "file_chunk") == 0) {
-            char *filetype = mg_json_get_str(msg_data, "$.talk.filetype");
-            char *filename = mg_json_get_str(msg_data, "$.talk.filename");
-            prepare_msg(msgbuf, sizeof(msgbuf),
-                        "{ \"talk\": { \"from\": \"%s\", \"cmd\": \"msg\", \"data\": \"%s\", "
-                        "\"ts\": %lu, \"msg_type\": \"%s\", \"chunk_index\": %ld, "
-                        "\"total_chunks\": %ld, \"filename\": \"%s\", \"filetype\": \"%s\" } }",
-                        cptr->chatname, data, now, msg_type, chunk_index, total_chunks, filename, filetype);
-            free(filetype);
-            free(filename);
-            mp = mg_str(msgbuf);
+            char *filetype = dict_get(d, "talk.filetype", NULL);
+            char *filename = dict_get(d, "talk.filename", NULL);
+            const char *jp = dict2json_mkstr(
+               VAL_DOUBLE, "talk.chunk_index", chunk_index,
+               VAL_STR, "talk.cmd", "msg",
+               VAL_STR, "talk.data", data,
+               VAL_STR, "talk.from", cptr->chatname,
+               VAL_STR, "talk.msg_type", msg_type,
+               VAL_DOUBLE, "talk.total_chunks", total_chunks,
+               VAL_STR, "talk.filename", filename,
+               VAL_STR, "talk.filetype", filetype,
+               VAL_LONG, "talk.ts", now);
+
+            mp = mg_str(jp);
             // Send to everyone, including the sender, which will then display it as SelfMsg
             ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-         } else { // or just a chat message
-            if (data[0] == '!') {
-               char *input = data + 1;  // skip initial '!'
-               char cmd[16], arg[32];
-               size_t cmd_len = sizeof(cmd), arg_len = sizeof(arg);
-
-               if (cptr->user->is_muted || !has_priv(cptr->user->uid, "admin|owner|tx|noob")) {
-                  /// XXX: we should send an error alert
-                  rv = true;
-                  ws_chat_err_noprivs(cptr, "TALK");
-                  goto cleanup;
-               }
-
-               while (*input) {
-                  // skip spaces and !
-                  while (isspace(*input) || (*input == '!')) {
-                     input++;
-                  }
-
-                  // extract command
-                  size_t i = 0;
-                  while (*input && !isspace(*input) && i < cmd_len - 1) {
-                     cmd[i++] = *input++;
-                  }
-                  cmd[i] = '\0';
-
-                  while (isspace(*input)) {
-                    input++;
-                  }
-
-                  // extract argument
-                  i = 0;
-                  while (*input && !isspace(*input) && i < arg_len - 1) {
-                     arg[i++] = *input++;
-                  }
-                  arg[i] = '\0';
-
-                  if (*cmd == '\0' || *arg == '\0') {
-                     break;
-                  }
-
-                  bool freq_changed = false,
-                       mode_changed = false,
-                       power_changed = false,
-                       width_changed = false;
-                  rr_mode_t new_mode;
-                  long new_freq;
-                  float new_power;
-                  char *new_width;
-
-                  if (strcasecmp(cmd, "help") == 0) {
-                     ws_send_notice(cptr->conn, "<span>***SERVER***"
-                        "<br/>*** !help for VFO commands ***<br>"
-                        "&nbsp;&nbsp;&nbsp;!freq <freq> - Set frequency to <freq> - can be 7200 7.2m 7200000 etc form<br/>"
-                        "&nbsp;&nbsp;&nbsp;!mode <mode> - Set mode to CW|AM|LSB|USB|FM|DL|DU<br/>"
-                        "&nbsp;&nbsp;&nbsp;!power <power> - Set power (NYI)<br/>"
-                        "&nbsp;&nbsp;&nbsp;!vfo <vfo> - Switch VFOs (A|B|C)<br/>"
-                        "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (narrow|normal|wide)<br/></span>");
-                     goto cleanup;
-                  } else if (strcasecmp(cmd, "freq") == 0) {
-                     new_freq = parse_freq(arg);
-                     Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", new_freq, arg, cptr->chatname);
-
-                     if (new_freq >= 0) {
-                        rr_freq_set(active_vfo, new_freq);
-                        freq_changed = true;
-                     } else {
-                        ws_send_error(cptr, "Invalid freq %s provided for !freq", arg);
-                     }
-                     continue;
-                  } else if (strcasecmp(cmd, "mode") == 0) {
-                     new_mode = vfo_parse_mode(arg);
-
-                     if (new_mode != MODE_NONE) {
-                        mode_changed = true;
-                        Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
-                        rr_set_mode(active_vfo, new_mode);
-                     } else {
-                        // Alert the client that the mode wasn't succesfully applied
-                        ws_send_error(cptr, "Invalid mode %s provided for !mode", arg);
-                     }
-                     continue;
-                  } else if (strcasecmp(cmd, "power") == 0) {
-                     power_changed = true;
-                     new_power = atof(arg);
-                     Log(LOG_DEBUG, "ws.chat", "Got !power |%s| %.3f from %s", arg, new_power, cptr->chatname);
-                     continue;
-                  } else if (strcasecmp(cmd, "width") == 0) {
-                     width_changed = true;
-                     new_width = arg;
-                     Log(LOG_DEBUG, "ws.chat", "Got !width %s from %s", arg, cptr->chatname);
-                     rr_set_width(active_vfo, arg);
-                     continue;
-                  } else if (strcasecmp(cmd, "vfo") == 0) {
-                     Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
-                     continue;
-                  } else {
-                     Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
-                     ws_send_error(cptr, "Ignoring unknown ! command: %s, try !help", cmd);
-                     goto cleanup;
-                  }
-
-                  // handle sending an alert
-                  if (freq_changed || mode_changed || power_changed || width_changed) {
-                     char msgbuf[HTTP_WS_MAX_MSG+1];
-                     prepare_msg(msgbuf, sizeof(msgbuf),
-                        "{ \"notice\": { \"ts\": %lu, \"msg\": \"Set rig0\", \"from\": \"%s\" } }",
-                           now, cptr->chatname);
-                  } 
-
-                  //
-                  const char *jp = dict2json_mkstr(
-                     VAL_FLOATP, "cat.state.freq", new_freq, 3,
-                     VAL_STR, "cat.state.mode", new_mode,
-                     VAL_FLOATP, "cat.state.power", new_power, 3,
-                     VAL_STR, "cat.state.ptt", rig.backend->api->ptt_get(active_vfo) ? "true" : "false",
-                     VAL_STR, "cat.user", cptr->chatname,
-                     VAL_STR, "cat.state.vfo", active_vfo,
-                     VAL_INT, "cat.state.width", new_width,
-                     VAL_LONG, "cat.ts", now);
-
-                  struct mg_str mp = mg_str(jp);
-                  ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-                  free((char *)jp);
-
-                  goto cleanup;
-               }
-            } else {			// just a message
-//               char *escaped_msg = escape_html(data);
-               char *escaped_msg = json_escape(data);
-
-               if (!escaped_msg) {
-                  Log(LOG_CRIT, "oom", "OOM in ws_handle_chat_msg!");
-                  rv = true;
-                  goto cleanup;
-               }
-
-               const char *jp = dict2json_mkstr(
-                  VAL_STR, "talk.cmd", "msg",
-                  VAL_STR, "talk.data", escaped_msg,
-                  VAL_STR, "talk.from", cptr->chatname,
-                  VAL_STR, "talk.msg_type", msg_type,
-                  VAL_LONG, "talk.ts", now);
-
-               mp = mg_str(jp);
-
-               // Send to everyone, including the sender, which will then display it as SelfMsg
-               ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-               free((char *)jp);
-               free(escaped_msg);
-            }
+            free((void *)jp);
          }
-#if	0	// XXX: Not yet....
-// XXX: These need moved into a struct array we can walk...
-typedef struct talk_cmd {
-   const char *cmd, bool (*cb)();
-} talk_cmd_t;
-talk_cmd_t talk_commands[] = {
-   { "die",	ws_chat_cmd_die }
-};
-      } else {
-#else
       } else if (strcasecmp(cmd, "die") == 0) {
          ws_chat_cmd_die(cptr, reason);
       } else if (strcasecmp(cmd, "kick") == 0) {
@@ -700,16 +558,9 @@ trunc:
          ws_send_alert(cptr, "WHOIS data truncated to %i bytes", written);
          goto cleanup;
       }
-#endif
    }
 
 // Cleanup our mg_json_get_str returns from above, its easier to just do it down here
 cleanup:
-   free(token);
-   free(cmd);
-   free(data);
-   free(target);
-   free(reason);
-   free(msg_type);
    return rv;
 }

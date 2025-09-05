@@ -68,3 +68,36 @@ double safe_atod(const char *s) {
 
     return val;
 }
+
+/* Return long, or 0 on error */
+long safe_atol(const char *s) {
+   if (!s) {
+      return 0;
+   }
+
+   char *end;
+   errno = 0;
+   long v = strtol(s, &end, 10);
+
+   if (end == s || errno != 0) {
+      return 0;
+   }
+
+   return v;
+}
+
+/* Return long long, or 0 on error */
+long long safe_atoll(const char *s) {
+   if (!s) {
+      return 0;
+   }
+
+   char *end;
+   errno = 0;
+   long long v = strtoll(s, &end, 10);
+
+   if (end == s || errno != 0) {
+      return 0;
+   }
+   return v;
+}

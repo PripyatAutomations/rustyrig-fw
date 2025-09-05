@@ -502,6 +502,40 @@ float dict_get_float(dict *d, const char *key, float def) {
    return def;
 }
 
+long dict_get_long(dict *d, const char *key, long def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = dict_get_exp(d, key);
+
+   if (s) {
+      long val = safe_atol(s);
+      free((void *)s);
+      if (val == NAN) {
+         return def;
+      }
+   }
+   return def;
+}
+
+long long dict_get_llong(dict *d, const char *key, long long def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = dict_get_exp(d, key);
+
+   if (s) {
+      long long val = safe_atol(s);
+      free((void *)s);
+      if (val == NAN) {
+         return def;
+      }
+   }
+   return def;
+}
+
 // You *MUST* free the return value
 const char *dict_get_exp(dict *d, const char *key) {
    if (!d) {

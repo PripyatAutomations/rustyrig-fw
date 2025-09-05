@@ -336,7 +336,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
       if (cmd) {
-         result = ws_handle_chat_msg(msg, c);
+         result = ws_handle_chat_msg(c, d);
       }
    } else if (mg_json_get(msg_data, "$.media", NULL) > 0) {
      char *media_cmd = dict_get(d, "media.cmd", NULL);

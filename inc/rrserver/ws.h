@@ -9,6 +9,7 @@
 #if	!defined(__rr_ws_h)
 #define __rr_ws_h
 //#include "rrserver/mongoose.h"
+#include "common/dict.h"
 #include "rrserver/http.h"
 
 struct ws_client {
@@ -67,7 +68,7 @@ extern void ws_blorp_userlist_cb(void *arg);			// timer calls this to send userl
 
 // ws.chat.c
 extern bool ws_chat_err_noprivs(http_client_t *cptr, const char *action);
-extern bool ws_handle_chat_msg(struct mg_ws_message *msg, struct mg_connection *c);
+extern bool ws_handle_chat_msg(struct mg_connection *c, dict *d);
 extern bool ws_send_users(http_client_t *cptr);
 extern bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr);
 
