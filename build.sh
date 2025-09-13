@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
-mkdir -p audit-logs build
+# Create directories distclean removed
+mkdir -p audit-logs build db
 make distclean
 make -j 8 world

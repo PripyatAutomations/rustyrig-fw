@@ -2,12 +2,8 @@ objs += audio.o			# gstreamer based audio
 objs += auth.o
 objs += chat.o
 objs += chat.cmd.o
-objs += codecneg.o
 objs += connman.o
-objs += config.o
-objs += debug.o			# Debug stuff
 objs += defconfig.o
-objs += dict.o			# dictionary object
 
 # Eventually we will support a TUI as well as GTK...
 ifeq (${USE_GTK},true)
@@ -30,10 +26,8 @@ objs += gtk.vol-box.o		# Volume widget
 objs += gtk.winmgr.o		# window management
 endif
 objs += json.o
-objs += logger.o		# Logging facilities
 objs += main.o			# main loop
 objs += mongoose.o		# Mongoose http/websocket/mqtt library
-objs += posix.o			# support for POSIX hosts (linux or perhaps others)
 objs += userlist.o
 objs += ui.o			# User interface wrapper (TUI/GTK)
 objs += ui.help.o		# help texts

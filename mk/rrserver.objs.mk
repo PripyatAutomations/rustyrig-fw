@@ -32,7 +32,6 @@ fw_objs += i2c.o		# i2c abstraction
 fw_objs += i2c.linux.o
 fw_objs += i2c.mux.o		# i2c multiplexor support
 fw_objs += main.o			# main loop
-comm_objs += mongoose.o		# Mongoose http/websocket/mqtt library
 #fw_objs += mqtt.o			# Support for MQTT via mongoose
 fw_objs += network.o		# Network control
 fw_objs += protection.o		# Protection features

@@ -1,6 +1,7 @@
 rustyrig-fw (20250912) testing; urgency=medium
 * More code cleanup
 * Re-arranged the source tree to support potentially merging the client and server into a single program
+* Cleaned up the tree to be less intimidating to new users ;)
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 12 Sep 2025 22:40:01 -0400
 

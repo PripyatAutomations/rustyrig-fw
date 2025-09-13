@@ -12,7 +12,6 @@ include mk/compile.mk
 include mk/git.mk
 include mk/database.mk
 include mk/audit.mk
-include mk/librustyaxe.mk
 include mk/libmongoose.mk
 include mk/eeprom.mk
 
@@ -33,10 +32,7 @@ ifeq (${PLATFORM},posix)
 LDFLAGS += -lgpiod
 endif
 
-real_comm_objs := $(foreach x, ${comm_objs}, ${OBJ_DIR}/librustyaxe/${x})
 real_fw_objs := $(foreach x, ${fw_objs}, ${OBJ_DIR}/firmware/${x})
-real_fw_objs += ${OBJ_DIR}/firmware/logger.o
-real_fw_objs += ${OBJ_DIR}/firmware/config.o
 src_files = $(objs:.o=.c)
 real_objs := $(foreach x, ${objs}, ${OBJ_DIR}/${x})
 
@@ -50,9 +46,9 @@ ${OBJ_DIR}/firmware/%.o: %.c ${BUILD_HEADERS}
 	@mkdir -p $(shell dirname $@)
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
-${fw_bin}: ${real_fw_objs} ${real_comm_objs}
+${fw_bin}: ${real_fw_objs}
 	@echo "[Link] firmware ($@) from $(words ${real_fw_objs}) object files..."
-	@${CC} -o $@ ${real_fw_objs} ${real_comm_objs} ${LDFLAGS}
+	@${CC} -o $@ ${real_fw_objs} ${LDFLAGS}
 	@ls -a1ls $@
 	@file $@
 	@size $@
@@ -73,18 +69,12 @@ ${OBJ_DIR}/%.o: %.c ${BUILD_HEADERS}
 	@echo "[compile] $@ from $<"
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
-${OBJ_DIR}/%.o: ../librustyaxe/%.c ${BUILD_HEADERS}
-	@${RM} -f $@
-	@mkdir -p $(shell dirname $@)
-	@echo "[compile] shared $@ from $<"
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
-
 ${OBJ_DIR}/audio.o: audio.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@echo "[compile] $@ from $<"
 	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
 
-${bin}: ${real_objs} ext/libmongoose/mongoose.c
+${bin}: ${real_objs}
 	@echo "[Link] $@ from $(words ${real_objs}) object files..."
 	@${CC} -o $@ ${real_objs} ${LDFLAGS}
 	@ls -a1ls $@
@@ -110,10 +100,10 @@ include mk/clean.mk
 world: ${extra_build} ${bins}
 
 fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${fwdsp_objs}
-	${CC} ${LDFLAGS} -o $@ $^
+	${CC} ${LDFLAGS} ${LDFLAGS_FWDSP} -o $@ $^
 
 rrclient: ${BUILD_HEADERS} ${librustyaxe} ${rrclient_objs}
-	${CC} ${LDFLAGS} -o $@ $^
+	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ $^
 
 rrserver: ${BUILD_HEADERS} ${librustyaxe} ${rrserver_objs}
-	${CC} ${LDFLAGS} -o $@ $^
+	${CC} ${LDFLAGS} ${LDFLAGS_RRSERVER} -o $@ $^

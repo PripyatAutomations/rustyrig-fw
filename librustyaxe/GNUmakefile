@@ -1,6 +1,6 @@
 all: world
 
-CFLAGS := -Wall -O2 -fPIC -ggdb -g -I../ -I${BUILD_DIR}/
+CFLAGS := -Wall -O2 -fPIC -ggdb -g -I../ -I${BUILD_DIR}/ -Wno-unused
 LDFLAGS := -shared
 
 libs := librustyaxe.so
