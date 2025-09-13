@@ -109,7 +109,7 @@ rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${OBJ_DIR}/rrclient/${x})
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
 
 bin/fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${fwdsp_real_objs}
-	${CC} ${LDFLAGS} ${LDFLAGS_FWDSP} -lrustyaxe -lmongoose -o $@ ${fwdsp_real_objs} ${gst_ldflags}
+	${CC} -o $@ ${fwdsp_real_objs} ${gst_ldflags} ${LDFLAGS} ${LDFLAGS_FWDSP} -lrustyaxe -lmongoose
 #	@ls -a1ls $@
 	@file $@
 	@size $@

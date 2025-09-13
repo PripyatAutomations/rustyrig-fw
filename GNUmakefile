@@ -21,7 +21,7 @@ extra_clean_targets += clean-librustyaxe
 BUILD_HEADERS += $(wildcard inc/rrserver/*.h) $(wildcard inc/rrclient/*.h)
 BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h) $(wildcard ${OBJ_DIR}/*.h)
 
-bins := bin/rrclient bin/rrserver # bin/fwdsp
+bins := bin/rrclient bin/rrserver bin/fwdsp
 fwdsp_src = $(fwdsp_objs:.o=.c)
 rrclient_src = $(rrclent_objs:.o=.c)
 rrserver_src = $(rrserver_objs:.o=.c)
@@ -40,6 +40,7 @@ clean-librustyaxe:
 
 include mk/resource.mk
 include mk/debug.mk
+include mk/fwdsp.objs.mk
 include mk/rrclient.objs.mk
 include mk/rrserver.objs.mk
 include mk/compile.mk
