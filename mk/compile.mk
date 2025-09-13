@@ -26,7 +26,6 @@ CFLAGS += -DMG_ARCH=MG_ARCH_UNIX
 
 endif
 
-
 ifeq (${USE_GTK},true)
 CFLAGS += -DUSE_GTK=1 $(shell pkg-config --cflags gtk+-3.0)
 gtk_ldflags += $(shell pkg-config --libs gtk+-3.0)
@@ -110,26 +109,26 @@ rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
 
 bin/fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${fwdsp_real_objs}
 	${CC} -o $@ ${fwdsp_real_objs} ${gst_ldflags} ${LDFLAGS} ${LDFLAGS_FWDSP} -lrustyaxe -lmongoose
-#	@ls -a1ls $@
+	@ls -a1ls $@
 	@file $@
 	@size $@
 
 bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrclient_real_objs}
 	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrclient_real_objs} -lrustyaxe -lmongoose ${gtk_ldflags} ${gst_ldflags}
-#	@ls -a1ls $@
+	@ls -a1ls $@
 	@file $@
 	@size $@
 
 bin/rrserver: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
 	${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lmongoose ${LDFLAGS} ${LDFLAGS_RRSERVER}
-#	@ls -a1ls $@
+	@ls -a1ls $@
 	@file $@
 	@size $@
 
 strip: ${bins}
 	@echo "[strip] ${bins}"
 	@strip $^
-#	@ls -a1ls $^
+	@ls -a1ls $^
 
 ${OBJ_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS}
 	@${RM} -f $@

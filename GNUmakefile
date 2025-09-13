@@ -13,7 +13,7 @@ include mk/libmongoose.mk
 include mk/eeprom.mk
 
 extra_clean += $(wildcard ${OBJ_DIR}/*.h) $(wildcard */compile_commands.json)
-extra_clean += ${EEPROM_FILE}
+extra_clean += ${EEPROM_FILE} librustyaxe.so
 extra_clean += firmware.log
 extra_clean_targets += clean-librustyaxe
 
