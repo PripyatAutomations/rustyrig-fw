@@ -1,5 +1,5 @@
 //
-// common/audio.framing.c: Utilities for framing audio in client & server
+// librustyaxe/audio.framing.c: Utilities for framing audio in client & server
 //
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,7 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -28,10 +28,10 @@
 // XXX: We probably need to wrap htons/ntohs for use with win64, confirm this soon
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "common/logger.h"
-#include "common/debug.h"			// Debug message filtering
-#include "common/client-flags.h"
-#include "common/audio.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/debug.h"			// Debug message filtering
+#include "librustyaxe/client-flags.h"
+#include "librustyaxe/audio.h"
 
 struct au_shm_ctx {
    int fd;

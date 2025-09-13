@@ -21,9 +21,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "common/dict.h"
-#include "common/logger.h"
-#include "common/util.math.h"
+#include "librustyaxe/dict.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/util.math.h"
 
 /*---------------------------------------------------------------------------
                                 Defines

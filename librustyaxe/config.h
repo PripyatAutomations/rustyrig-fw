@@ -11,9 +11,9 @@
 #include <stdbool.h>
 //#include <stdint.h>
 
-#include "common/dict.h"
+#include "librustyaxe/dict.h"
 
-// Maximum length of an expanded string, XXX: Move to header file common/config.h
+// Maximum length of an expanded string, XXX: Move to header file librustyaxe/config.h
 #define	MAX_CFG_EXP_STRLEN	65535
 // Maximum depth to recurse when expanding strings (cfg_get_exp)
 #define	MAX_CFG_EXP_RECURSION	6

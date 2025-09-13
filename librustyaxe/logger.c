@@ -10,7 +10,7 @@
  * support logging to a a few places
  *	Targets: syslog console flash (file)
  */
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,16 +22,9 @@
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
-#include "../ext/libmongoose/mongoose.h"
-#include "common/logger.h"
-
-// We don't build these for gtk client or fwdsp
-#if	!defined(__RRCLIENT) && !defined(__FWDSP)
-#include "rrserver/eeprom.h"
-#include "common/debug.h"			// Debug message filtering
-#include "rrserver/ws.h"			// Support for sending the syslog via websocket
-#include "common/client-flags.h"
-#endif	// !defined(__RRCLIENT) && !defined(__FWDSP)
+#include "librustyaxe/logger.h"
+#include "librustyaxe/debug.h"
+#include "librustyaxe/client-flags.h"
 
 #if	defined(__RRCLIENT)
 extern bool log_print_va(const char *fmt, va_list ap);
@@ -75,8 +68,8 @@ const char *log_priority_to_str(logpriority_t priority) {
    return s_prio_none;
 }
 
-void logger_init(void) {
-#if	!defined(__RRCLIENT) && !defined(__FWDSP)
+void logger_init(const char *logfile) {
+#if	0
    const char *ll = eeprom_get_str("debug/loglevel");
    log_show_ts = eeprom_get_bool("debug/show_ts");
 #endif
@@ -101,10 +94,10 @@ void logger_init(void) {
    }
 
    if (!logfp) {
-      logfp = fopen(LOGFILE, "a+");
+      logfp = fopen(logfile, "a+");
 
       if (!logfp) {
-         Log(LOG_CRIT, "core", "Couldn't open log file at %s - %d:%s", LOGFILE, errno, strerror(errno));
+         Log(LOG_CRIT, "core", "Couldn't open log file at %s - %d:%s", logfile, errno, strerror(errno));
          return;
       }
    }
@@ -209,7 +202,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    fflush(logfp);
 
 // if not in rrclient/fwdsp code, we should bcast this to users with SYSLOG flag
-#if	!defined(__RRCLIENT) && !defined(__FWDSP)
+#if	0
    char ws_logbuf[2048];
    memset(ws_logbuf, 0, sizeof(ws_logbuf));
    char *ws_json_escaped = json_escape(log_msg);
@@ -220,11 +213,10 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms, WEBSOCKET_OP_TEXT);
    fprintf(stderr, "syslog sent: %s", ws_logbuf);
    free(ws_json_escape);
-#else
-#if	defined(__RRCLIENT)
-// For rrclient, we send it to the log tab too
-   log_print("%s", log_msg);
 #endif
+
+#if	defined(__RRCLIENT)
+   log_print("%s", log_msg);		// print in log tab of client
 #endif	// !defined(__RRCLIENT)
    va_end(ap_c1);
 }

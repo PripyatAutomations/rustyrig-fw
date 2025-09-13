@@ -1,37 +1,29 @@
 //
-// common/json.c
+// librustyaxe/json.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "build_config.h"
-#include "common/config.h"
+//#include "build_config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <string.h>
-#include <limits.h>
-#include <time.h>
-#include "../../ext/libmongoose/mongoose.h"
-#include "common/dict.h"
-#include "common/cat.h"
-#include "common/logger.h"
-#include "common/posix.h"
-#include "common/json.h"
-#include "rrserver/codec.h"
-#include "rrserver/eeprom.h"
-#include "rrserver/i2c.h"
-#include "rrserver/state.h"
-#include "rrserver/ws.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
+#include <time.h>
+#include "librustyaxe/dict.h"
+#include "librustyaxe/cat.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/posix.h"
+#include "librustyaxe/json.h"
 
 static const char *json_parse_value(const char *s, const char *path, dict *d);
 

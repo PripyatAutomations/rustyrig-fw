@@ -26,8 +26,8 @@
  *
  * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
-#include "build_config.h"
-#include "common/config.h"
+//#include "build_config.h"
+#include "librustyaxe/config.h"
 #include "../ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -36,8 +36,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "common/logger.h"
-#include "common/cat.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/cat.h"
 
 // Initialize CAT control
 int32_t rr_cat_init(void) {

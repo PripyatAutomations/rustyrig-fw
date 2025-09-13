@@ -11,8 +11,8 @@
 #include <stdarg.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include "common/config.h"
-#include "common/debug.h"
+#include "librustyaxe/config.h"
+#include "librustyaxe/debug.h"
 
 enum LogPriority {
       LOG_NONE = -1,
@@ -33,7 +33,7 @@ extern int log_level;
 typedef enum LogPriority logpriority_t;
 extern void Log(logpriority_t priority, const char *subsys, const char *fmt, ...);
 extern void logger_setup(void);
-extern void logger_init(void);
+extern void logger_init(const char *logfile);
 extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
 extern char latest_timestamp[64];
 extern int update_timestamp(void);

@@ -1,4 +1,4 @@
-// common/codecneg.c: support for using gstreamer for audio streams
+// librustyaxe/codecneg.c: support for using gstreamer for audio streams
 // 	https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -31,13 +31,12 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
-#include "common/config.h"
-#include "../../ext/libmongoose/mongoose.h"
-#include "common/fwdsp-shared.h"
-#include "common/logger.h"
-#include "common/posix.h"
-#include "common/util.file.h"
-#include "common/codecneg.h"
+#include "librustyaxe/config.h"
+#include "librustyaxe/fwdsp-shared.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/posix.h"
+#include "librustyaxe/util.file.h"
+#include "librustyaxe/codecneg.h"
 
 // if passed NULL for codecs, use all available codecs
 const char *media_capab_prepare(const char *codecs) {

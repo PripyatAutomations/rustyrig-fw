@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(_rr_cat_control_h)
 #define	_rr_cat_control_h
-#include "common/config.h"
+#include "librustyaxe/config.h"
 
 // Maximum arguments
 #define	MAX_ARGS	12
@@ -47,9 +47,9 @@ extern struct rr_cat_cmd cmd_kpa500[];
 extern int32_t rr_cat_parse_amp_line(char *line);
 extern int32_t rr_cat_printf(char *str, ...);
 
-extern bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg);
+//extern bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg);
 
-#include "common/cat.kpa500.h"
-#include "common/cat.yaesu.h"
+#include "librustyaxe/cat.kpa500.h"
+#include "librustyaxe/cat.yaesu.h"
 
 #endif	// !defined(_rr_cat_control_h)

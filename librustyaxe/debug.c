@@ -14,7 +14,7 @@
 //
 // See the 'help debug' command in console to set this up
 
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 //#include "rrserver/eeprom.h"
 
 bool debug_init(void) {

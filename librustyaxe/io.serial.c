@@ -9,8 +9,8 @@
 /*
  * Support for serial transports for console, cat, and debugging
  */
-#include "build_config.h"
-#include "common/config.h"
+//#include "build_config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,8 +18,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "common/io.h"
-#include "common/logger.h"
+#include "librustyaxe/io.h"
+#include "librustyaxe/logger.h"
 
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>

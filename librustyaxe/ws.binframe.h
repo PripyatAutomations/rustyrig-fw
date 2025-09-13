@@ -1,5 +1,5 @@
 //
-// inc/common/ws.binframe.h: Websocket binary frame wrapping
+// inc/librustyaxe/ws.binframe.h: Websocket binary frame wrapping
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -9,7 +9,7 @@
 
 #if	!defined(__rrclient_ws_binframe_h)
 #define	__rrclient_ws_binframe_h
-#include "common/config.h"
+#include "librustyaxe/config.h"
 
 
 #define	BINFRAME_AUDIO	0x01
