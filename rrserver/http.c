@@ -741,6 +741,6 @@ http_client_t *whos_talking(void) {
 
    return NULL;
 }
-#include "../../ext/libmongoose/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 
 #endif	// defined(FEATURE_HTTP)

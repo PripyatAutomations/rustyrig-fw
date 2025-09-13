@@ -1,46 +1,33 @@
-# local junk (dead code / snippets) not intended for distribution
 junk/*
 junk/*/*
-
-# automated coverage esting reports
 audit-logs/*
 audit-logs/*/*
-
-# logs
 testbuild.log
 firmware.log
-
-# build artifacts
 build/
 build/*
 build/*/*
 build/*/*.*
 build/*/obj/*
-
-# clang-tools artifacts
 */compile_commands.json
-
-# exported images
 images/*
 images
-
-# user database & certs
 db/*
 config/*.pem
 config/*.secret
 config/http.users
 config/http.users.*
 config/archive/*
-
-# run-time state and audio recordings
 run/*/*.pipe
 run/*/*.log
 run/*/*.tmp
 run/*
 run/*/*
 recordings/*.*
-
-
 librustyaxe/*.o
 librustyaxe/*.so
 librustyaxe/*.dll
+*.so
+bin/fwdsp
+bin/rrclient
+bin/rrserver

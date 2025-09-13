@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../../ext/libmongoose/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
 #include "rrserver/state.h"
 #include "rrserver/ptt.h"

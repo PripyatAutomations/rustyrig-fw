@@ -1,7 +1,7 @@
 # New and improved GNU makefile
 all: world
 
-librustyaxe := librustyaxe/librustyaxe.so
+librustyaxe := librustyaxe.so
 
 VERSION=$(shell cat .version)
 DATE=$(shell date +%Y%m%d)
@@ -12,7 +12,7 @@ include mk/database.mk
 include mk/libmongoose.mk
 include mk/eeprom.mk
 
-extra_clean += $(wildcard ${OBJ_DIR}/*.h)
+extra_clean += $(wildcard ${OBJ_DIR}/*.h) $(wildcard */compile_commands.json)
 extra_clean += ${EEPROM_FILE}
 extra_clean += firmware.log
 extra_clean_targets += clean-librustyaxe
@@ -21,8 +21,7 @@ extra_clean_targets += clean-librustyaxe
 BUILD_HEADERS += $(wildcard inc/rrserver/*.h) $(wildcard inc/rrclient/*.h)
 BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h) $(wildcard ${OBJ_DIR}/*.h)
 
-short_bins := rrclient rrserver # fwdsp
-bins += $(foreach x, ${short_bins}, ${OBJ_DIR}/${x})
+bins := bin/rrclient bin/rrserver # bin/fwdsp
 fwdsp_src = $(fwdsp_objs:.o=.c)
 rrclient_src = $(rrclent_objs:.o=.c)
 rrserver_src = $(rrserver_objs:.o=.c)

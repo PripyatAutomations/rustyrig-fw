@@ -1,6 +1,6 @@
 set -e
 
-VALGRIND_LOG="run/rrserver/valgrind.%p.log"
+VALGRIND_LOG="audit-log/valgrind.rrserver.%p.log"
 VALGRIND_OPTS="--leak-check=full --track-origins=yes"
 
 mkdir -p ./db
@@ -8,7 +8,7 @@ mkdir -p ./db
 [ -z "$PROFILE" ] && PROFILE=radio
 
 # Force a clean rebuild if rrserver or fwdsp missing
-[ ! -f build/${PROFILE}/rrserver -o ! -f build/${PROFILE}/fwdsp ] && ./build.sh
+[ ! -f bin/rrserver ] && ./build.sh
 
 # Stop rrsever and fwddsp, if running
 [ ! -z "$(pidof fwdsp)" ] && killall -9 fwdsp
@@ -33,16 +33,16 @@ fi
 
 case "$1" in
    gdb)
-      gdb ./build/${PROFILE}/rrserver -ex 'run'
+      gdb ./bin/rrserver -ex 'run'
       ;;
    valgrind)
-      rm -f run/rrserver/valgrind.*.log
-      valgrind $VALGRIND_OPTS --log-file="$VALGRIND_LOG" ./build/${PROFILE}/rrserver
+      rm -f audit-logs/valgrind.rrserver*.log
+      valgrind $VALGRIND_OPTS --log-file="$VALGRIND_LOG" ./bin/rrserver
       ;;
    *)
-      ./build/${PROFILE}/rrserver
+      ./bin/rrserver
       ;;
 esac
 
 # Kill firmware/fwdsp instances & tear down pulse rrloop devices
-./killall.sh
+./shutdown.sh

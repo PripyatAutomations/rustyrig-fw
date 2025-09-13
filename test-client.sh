@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-VALGRIND_LOG="run/rrclient/valgrind.%p.log"
+VALGRIND_LOG="audit-logs/valgrind.rrclient.%p.log"
 VALGRIND_OPTS="--leak-check=full --track-origins=yes"
 
 # XXX: This should go away someday...
@@ -19,15 +19,15 @@ fi
 
 case "$1" in
    gdb )
-     gdb ./build/client/rrclient -ex run
+     gdb ./build/rrclient -ex run
      ;;
 
    valgrind)
-     rm -f run/rrclient/valgrind.*.log
-     valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./build/client/rrclient
+     rm -f audit-logs/valgrind.rrclient.*.log
+     valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./build/rrclient
      ;;
 
    *)
-     ./build/client/rrclient
+     ./build/rrclient
      ;;
 esac

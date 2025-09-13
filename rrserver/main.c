@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "../../ext/libmongoose/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 #include "rrserver/amp.h"
 #include "rrserver/atu.h"
 #include "rrserver/au.h"
@@ -216,7 +216,7 @@ int main(int argc, char **argv) {
 
 //   i2c_init();
    gui_init();
-   logger_init();
+   logger_init(LOGFILE);
 
    // Print the serial #
    const char *s = cfg_get("device.serial");

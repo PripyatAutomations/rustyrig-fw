@@ -1,4 +1,4 @@
-PROFILE ?= radio
+PROFILE ?= release
 CF := config/${PROFILE}.config.json
 
 ifeq (x$(wildcard ${CF}),x)

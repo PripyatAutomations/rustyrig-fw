@@ -5,7 +5,8 @@ LDFLAGS := -shared
 CFLAGS += $(shell pkg-config --cflags mbedtls)
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 
-libs := librustyaxe.so
+librustyaxe := ../librustyaxe.so
+libs := ${librustyaxe}
 
 # !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librr_objs += /g'
 librr_objs += audio.framing.o
@@ -29,7 +30,7 @@ librr_objs += util.string.o
 librr_objs += ws.mediachan.o
 
 
-librustyaxe.so: ${librr_objs} GNUmakefile
+${librustyaxe}: ${librr_objs} GNUmakefile
 	@echo "[link] $@ from $(words $^) objects"
 	@${CC} ${LDFLAGS} -o $@ ${librr_objs}
 

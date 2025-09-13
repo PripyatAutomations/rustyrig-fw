@@ -17,7 +17,7 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-#include "../../ext/libmongoose/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/cat.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"

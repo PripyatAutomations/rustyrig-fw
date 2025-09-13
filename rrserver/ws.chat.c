@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "../../ext/libmongoose/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 #include "rrserver/auth.h"
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"

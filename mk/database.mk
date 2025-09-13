@@ -10,6 +10,7 @@ LDFLAGS += -lsqlite3
 
 ${MASTER_DB}:
 	mkdir -p $(shell dirname "${MASTER_DB}")
+	mkdir -p audit-logs build db
 	sqlite3 $@ < "${MASTER_TEMPLATE}"
 
 dump-ptt:

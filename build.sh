@@ -9,7 +9,5 @@
 # Ensure we stop on errors
 set -euo pipefail
 
-# Create directories distclean removed
-mkdir -p audit-logs build db
 make distclean
 make -j $NCPU world

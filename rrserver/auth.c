@@ -19,7 +19,7 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-#include "../../ext/libmongoose/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"

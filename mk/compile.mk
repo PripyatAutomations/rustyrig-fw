@@ -1,6 +1,3 @@
-PROFILE ?= release
-CF := config/${PROFILE}.config.json
-
 UNAME_S := $(shell uname -s)
 ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
    OS := MINGW64
@@ -58,7 +55,7 @@ CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 #CFLAGS += -DUSE_EEPROM
 
-LDFLAGS += -L. -L./librustyaxe
+LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
 LDFLAGS += -lc -lm -g -ggdb -lcrypt
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 
@@ -111,28 +108,28 @@ fwdsp_real_objs := $(foreach x, ${fwdsp_objs}, ${OBJ_DIR}/fwdsp/${x})
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${OBJ_DIR}/rrclient/${x})
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
 
-fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${fwdsp_real_objs}
+bin/fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${fwdsp_real_objs}
 	${CC} ${LDFLAGS} ${LDFLAGS_FWDSP} -lrustyaxe -lmongoose -o $@ ${fwdsp_real_objs} ${gst_ldflags}
-	@ls -a1ls $@
+#	@ls -a1ls $@
 	@file $@
 	@size $@
 
-rrclient: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrclient_real_objs}
+bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrclient_real_objs}
 	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrclient_real_objs} -lrustyaxe -lmongoose ${gtk_ldflags} ${gst_ldflags}
-	@ls -a1ls $@
+#	@ls -a1ls $@
 	@file $@
 	@size $@
 
-rrserver: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrserver_real_objs}
-	${CC} ${LDFLAGS} ${LDFLAGS_RRSERVER} -lrustyaxe -lmongoose -o $@ ${rrserver_real_objs} 
-	@ls -a1ls $@
+bin/rrserver: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
+	${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lmongoose ${LDFLAGS} ${LDFLAGS_RRSERVER}
+#	@ls -a1ls $@
 	@file $@
 	@size $@
 
 strip: ${bins}
 	@echo "[strip] ${bins}"
 	@strip $^
-	@ls -a1ls $^
+#	@ls -a1ls $^
 
 ${OBJ_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS}
 	@${RM} -f $@
@@ -146,7 +143,7 @@ ${OBJ_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS}
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
-${OBJ_DIR}/rrserve/%.o: rrserver/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

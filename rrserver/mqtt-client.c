@@ -11,7 +11,7 @@
 // To enable SSL/TLS, see https://mongoose.ws/tutorials/tls/#how-to-build
 
 #include "build_config.h"
-#include "../../ext/libmongoose/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 
 static const char *s_url = "mqtt://broker.hivemq.com:1883";
 static const char *s_sub_topic = "mg/+/test";     // Publish topic
