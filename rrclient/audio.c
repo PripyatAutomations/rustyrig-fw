@@ -304,6 +304,8 @@ bool audio_process_frame(const char *data, size_t len) {
    GstFlowReturn ret;
    g_signal_emit_by_name(rx_appsrc, "push-buffer", buffer, &ret);
    gst_buffer_unref(buffer);
+
+   return false;
 }
 
 

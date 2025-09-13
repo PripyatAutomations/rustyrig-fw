@@ -10,6 +10,6 @@ endif
 
 distclean: clean
 	@echo "[distclean]"
-	${RM} -rf ${BUILD_DIR}
+	${RM} -rf ${OBJ_DIR}
 	${RM} -r audit-logs/ build/ config/archive db/ run/
 	${RM} -f *.log

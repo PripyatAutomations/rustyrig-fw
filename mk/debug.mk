@@ -8,10 +8,10 @@ symtabs: ${symtabs}
 	nm $< | grep -v '.gtk_*' | grep -v '.mg_*'|grep -v '.[Ur].' > $@
 
 client-gdb:
-	gdb build/client/rrclient -ex run
+	gdb ./rrclient -ex run
 
 server-gdb:
-	gdb build/radio/rrserver -ex run
+	gdb ./rrserver -ex run
 
 server-valgrind: ${fw_bin} ${EEPROM_FILE}
 	@echo "[valgrind] ${fw_bin}"

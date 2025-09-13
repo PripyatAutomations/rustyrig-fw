@@ -1,3 +1,6 @@
+PROFILE ?= release
+CF := config/${PROFILE}.config.json
+
 UNAME_S := $(shell uname -s)
 ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
    OS := MINGW64
@@ -7,15 +10,10 @@ else
    OS := POSIX
 endif
 
-USE_GTK=true
-
-
 # msys2 windows 64bit
 ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
 
-BUILD_DIR := ./build
-PROFILE := win32-client
-bin := ${BUILD_DIR}/rrclient.exe
+bin := ./rrclient.exe
 CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LDFLAGS += -lws2_32 -luser32 -lkernel32
@@ -26,14 +24,11 @@ objs += icon.res
 else
 
 # POSIX compliant hosts
-PROFILE ?= client
-BUILD_DIR ?= build/${PROFILE}
 INSTALL_DIR ?= /usr/local
 CFLAGS += -DMG_ARCH=MG_ARCH_UNIX
 
 endif
 
-CF := config/${PROFILE}.config.json
 
 ifeq (${USE_GTK},true)
 CFLAGS += -DUSE_GTK=1 $(shell pkg-config --cflags gtk+-3.0)
@@ -52,18 +47,13 @@ endif
 #SHELL = bash
 #.SHELLFLAGS = -e -c
 
-OBJ_DIR := ${BUILD_DIR}/obj
-
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += $(shell pkg-config --cflags mbedtls)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
-CFLAGS += -I./ -I../ -I./inc -I${BUILD_DIR} -I${BUILD_DIR}/include
-CFLAGS += -DMG_TLS=MG_TLS_MBED
+CFLAGS += -I./ -I../ -I./inc
 CFLAGS += -DMG_ENABLE_IPV6=1
-CFLAGS += -DHTTP_DEBUG_CRAZY=1
-CFLAGS += -DDEBUG_WS_BINFRAMES=1
+CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
-CFLAGS += -I${BUILD_DIR} -I${BUILD_DIR}/include 
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 #CFLAGS += -DUSE_EEPROM
@@ -71,6 +61,7 @@ CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 LDFLAGS += -L. -L./librustyaxe
 LDFLAGS += -lc -lm -g -ggdb -lcrypt
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
+
 gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
 
@@ -115,3 +106,48 @@ endif
 
 host-info:
 	@echo "* Building on ${UNAME_S}"
+
+fwdsp_real_objs := $(foreach x, ${fwdsp_objs}, ${OBJ_DIR}/fwdsp/${x})
+rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${OBJ_DIR}/rrclient/${x})
+rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
+
+fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${fwdsp_real_objs}
+	${CC} ${LDFLAGS} ${LDFLAGS_FWDSP} -lrustyaxe -lmongoose -o $@ ${fwdsp_real_objs} ${gst_ldflags}
+	@ls -a1ls $@
+	@file $@
+	@size $@
+
+rrclient: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrclient_real_objs}
+	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrclient_real_objs} -lrustyaxe -lmongoose ${gtk_ldflags} ${gst_ldflags}
+	@ls -a1ls $@
+	@file $@
+	@size $@
+
+rrserver: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrserver_real_objs}
+	${CC} ${LDFLAGS} ${LDFLAGS_RRSERVER} -lrustyaxe -lmongoose -o $@ ${rrserver_real_objs} 
+	@ls -a1ls $@
+	@file $@
+	@size $@
+
+strip: ${bins}
+	@echo "[strip] ${bins}"
+	@strip $^
+	@ls -a1ls $^
+
+${OBJ_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS}
+	@${RM} -f $@
+	@mkdir -p $(shell dirname $@)
+	@echo "[compile] $< => $@"
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+
+${OBJ_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS}
+	@${RM} -f $@
+	@mkdir -p $(shell dirname $@)
+	@echo "[compile] $< => $@"
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+
+${OBJ_DIR}/rrserve/%.o: rrserver/%.c ${BUILD_HEADERS}
+	@${RM} -f $@
+	@mkdir -p $(shell dirname $@)
+	@echo "[compile] $< => $@"
+	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<

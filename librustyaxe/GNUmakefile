@@ -36,7 +36,7 @@ librustyaxe.so: ${librr_objs} GNUmakefile
 world: ${libs}
 
 %.o:%.c
-	@echo "[compile] $@ => $<"
+	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS} -o $@ -c $<
 
 clean:
