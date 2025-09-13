@@ -16,7 +16,7 @@
  *	i2c connected parts
  */
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include "../../ext/libmongoose/mongoose.h"
 #include <stdio.h>
 #include <stddef.h>
@@ -43,7 +43,7 @@
 #endif
 
 #include "rrserver/state.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"
 

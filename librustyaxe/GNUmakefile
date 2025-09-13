@@ -28,13 +28,14 @@ librr_objs += ws.mediachan.o
 
 
 librustyaxe.so: ${librr_objs}
-	${CC} ${LDFLAGS} -o $@ $^
+	@echo "[link] $@ from $(words $^) objects"
+	@${CC} ${LDFLAGS} -o $@ $^
 
 world: ${libs}
 
-
 %.o:%.c
-	${CC} ${CFLAGS} -o $@ -c $<
+	@echo "[compile] $@ => $<"
+	@${CC} ${CFLAGS} -o $@ -c $<
 
 clean:
 	@echo "[clean]"

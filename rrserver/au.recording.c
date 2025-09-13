@@ -12,7 +12,7 @@
 // Most of the ugly bits should go in the per-backend sources
 //
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,10 +21,10 @@
 #include <unistd.h>
 #include <string.h>
 #include "rrserver/state.h"
-#include "common/codecneg.h"
-#include "common/logger.h"
-#include "common/posix.h"
-#include "common/util.file.h"
+#include "librustyaxe/codecneg.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/posix.h"
+#include "librustyaxe/util.file.h"
 #include "rrserver/au.h"
 #include "rrserver/auth.h"
 

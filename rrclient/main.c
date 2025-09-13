@@ -22,11 +22,11 @@
 #include <windows.h>
 #endif
 
-#include "common/logger.h"
-#include "common/dict.h"
-#include "common/posix.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/dict.h"
+#include "librustyaxe/posix.h"
 #include "../ext/libmongoose/mongoose.h"
-#include "common/util.file.h"
+#include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/ui.h"
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
    update_timestamp();
    cfg_detect_and_load();
-   logger_init();
+   logger_init(LOGFILE);
    host_init();
 
    const char *cfg_debug_audio = cfg_get_exp("audio.debug");

@@ -10,7 +10,7 @@
 // This backend is meant for testing without real hardware. You probably should use hamlib's dummy backend instead
 // but this exists so we can bootstrap on win64 soon...
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,12 +19,12 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 #include "rrserver/state.h"
 #include "rrserver/thermal.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/vfo.h"
-#include "common/cat.h"
+#include "librustyaxe/cat.h"
 #include "rrserver/backend.h"
 
 static bool be_dummy_init(void) {

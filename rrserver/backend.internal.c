@@ -11,7 +11,7 @@
 // a real rig. Feel free to jump in here.
 //
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,12 +20,12 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 #include "rrserver/state.h"
 #include "rrserver/thermal.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/vfo.h"
-#include "common/cat.h"
+#include "librustyaxe/cat.h"
 #include "rrserver/backend.h"
 #include "rrserver/ptt.h"
 

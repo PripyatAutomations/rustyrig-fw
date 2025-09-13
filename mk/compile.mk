@@ -20,21 +20,15 @@ LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LDFLAGS += -lws2_32 -luser32 -lkernel32
 CFLAGS += -DMG_ARCH=MG_ARCH_WIN32
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
-real_install := windows-install
 objs += icon.res
 
 else
 
 # POSIX compliant hosts
 PROFILE ?= client
-BUILD_DIR := build/${PROFILE}
-INSTALL_DIR := /usr/local
-bin := ${BUILD_DIR}/rrclient
-CC := gcc
-LD := ld
+BUILD_DIR ?= build/${PROFILE}
+INSTALL_DIR ?= /usr/local
 CFLAGS += -DMG_ARCH=MG_ARCH_UNIX
-LDFLAGS += -lc -lcrypt
-real_install := posix-install
 
 endif
 
@@ -61,7 +55,7 @@ OBJ_DIR := ${BUILD_DIR}/obj
 
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
-CFLAGS += -I./ -I../ -I${BUILD_DIR} -I${BUILD_DIR}/include
+CFLAGS += -I./ -I../ -I./inc -I${BUILD_DIR} -I${BUILD_DIR}/include
 CFLAGS += -DMG_TLS=MG_TLS_MBED
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1
@@ -123,4 +117,3 @@ endif
 
 host-info:
 	@echo "* Building on ${UNAME_S}"
-

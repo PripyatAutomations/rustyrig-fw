@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "common/dict.h"
-#include "common/logger.h"
+#include "librustyaxe/dict.h"
+#include "librustyaxe/logger.h"
 #include "rrclient/gtk.freqentry.h"
 #include "rrclient/gtk.core.h"
 

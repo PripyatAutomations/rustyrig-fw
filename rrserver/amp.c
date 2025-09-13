@@ -10,7 +10,7 @@
 // Amplifier module management
 //
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -24,7 +24,7 @@
 #include "rrserver/thermal.h"
 #include "rrserver/protection.h"
 #include "rrserver/amp.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 
 #define	MAX_AMPS	4
 typedef struct rr_amp_state {

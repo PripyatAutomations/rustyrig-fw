@@ -6,11 +6,11 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include "common/dict.h"
-#include "common/config.h"
-#include "common/logger.h"
-#include "common/util.file.h"
-#include "common/posix.h"
+#include "librustyaxe/dict.h"
+#include "librustyaxe/config.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/util.file.h"
+#include "librustyaxe/posix.h"
 
 const char *configs[] = { 
 #if    !defined(__RRCLIENT)

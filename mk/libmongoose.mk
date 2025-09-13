@@ -1,10 +1,9 @@
-${OBJ_DIR}/librustyaxe/mongoose.o: ext/libmongoose/mongoose.c ${BUILD_HEADERS}
-	@${RM} -f $@
-	@echo "[compile] mongoose from $<"
-	@mkdir -p $(shell dirname $@)
-	@${CC} ${CFLAGS} ${extra_cflags} -o $@ -c $<
+libmongoose := libmongoose.so
 
-${OBJ_DIR}/mongoose.o: ../ext/libmongoose/mongoose.c ${BUILD_HEADERS}
-	@${RM} -f $@
-	@echo "[compile] mongoose from $<"
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+${libmongoose}: ${BUILD_DIR}/mongoose.o
+	@echo "[link] $@ from $<"
+	${CC} ${LDFLAGS} -lmbedcrypto -lmbedtls -lmbedx509 -shared -fPIC -o $@ $^
+
+${BUILD_DIR}/mongoose.o: ext/libmongoose/mongoose.c
+	@echo "[compile] $@ from $<"
+	${CC} ${CFLAGS} -o $@ -c $<

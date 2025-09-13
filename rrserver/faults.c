@@ -12,7 +12,7 @@
  * Log them and disable TX, if needed
  */
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 #include "rrserver/state.h"
 #include "rrserver/faults.h"
 

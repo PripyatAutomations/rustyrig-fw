@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,9 +16,9 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "common/logger.h"
-#include "common/dict.h"
-#include "common/posix.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/dict.h"
+#include "librustyaxe/posix.h"
 #include "../ext/libmongoose/mongoose.h"
 #include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
