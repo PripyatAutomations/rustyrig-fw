@@ -1,7 +1,15 @@
 #!/bin/bash
-set -e
+# A bash wrapper to invoke make with some good defaults for parallel build
+: "${NCPU:=$(getconf _NPROCESSORS_ONLN 2>/dev/null \
+          || getconf NPROCESSORS_ONLN 2>/dev/null \
+          || nproc 2>/dev/null \
+          || sysctl -n hw.ncpu 2>/dev/null \
+          || echo 1)}"
+
+# Ensure we stop on errors
+set -euo pipefail
 
 # Create directories distclean removed
 mkdir -p audit-logs build db
 make distclean
-make -j 8 world
+make -j $NCPU world

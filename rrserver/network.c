@@ -11,7 +11,7 @@
  *
  */
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -25,7 +25,7 @@
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/network.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 #define	HOST_POSIX
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>

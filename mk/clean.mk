@@ -11,5 +11,5 @@ endif
 distclean: clean
 	@echo "[distclean]"
 	${RM} -rf ${BUILD_DIR}
-	${RM} -r build/ config/archive run/ db/
+	${RM} -r audit-logs/ build/ config/archive db/ run/
 	${RM} -f *.log

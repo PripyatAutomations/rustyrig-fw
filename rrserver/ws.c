@@ -6,7 +6,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,14 +17,14 @@
 #include <limits.h>
 #include <time.h>
 #include "../../ext/libmongoose/mongoose.h"
-#include "common/cat.h"
+#include "librustyaxe/cat.h"
 #include "rrserver/codec.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"
-#include "common/logger.h"
-#include "common/posix.h"
-#include "common/codecneg.h"
-#include "common/json.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/posix.h"
+#include "librustyaxe/codecneg.h"
+#include "librustyaxe/json.h"
 #include "rrserver/state.h"
 #include "rrserver/ws.h"
 #include "rrserver/fwdsp-mgr.h"
@@ -400,7 +400,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 // XXX: Rewrite this to subscribe rx_channels and rx_channels
 #if	0
            if (media_channel) {
-              // XXX: Should we store pointers to the subprocs in the user struct? downside is it requires common/http.h to include rrserver/fwdsp-mgr.h or move struct fwdsp_subrpco to common/fwdsp-shared.h
+              // XXX: Should we store pointers to the subprocs in the user struct? downside is it requires librustyaxe/http.h to include rrserver/fwdsp-mgr.h or move struct fwdsp_subrpco to librustyaxe/fwdsp-shared.h
               if (strcasecmp(media_channel, "tx") == 0) {
                  if (cptr->codec_tx[0] != '\0') {
                     // XXX: Decrease refcnt on old codec

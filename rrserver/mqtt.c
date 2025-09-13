@@ -12,7 +12,7 @@
 // but for now focus will be on server
 //
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 
 #if	defined(FEATURE_MQTT)
 #include <stddef.h>
@@ -27,9 +27,9 @@
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "common/logger.h"
-#include "common/cat.h"
-#include "common/posix.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/cat.h"
+#include "librustyaxe/posix.h"
 #include "rrserver/mqtt.h"
 
 // forward declration

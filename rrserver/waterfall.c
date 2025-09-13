@@ -10,7 +10,7 @@
 // to be sent either to display or network client
 //
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include "../ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -20,6 +20,6 @@
 #include <unistd.h>
 #include <string.h>
 #include "rrserver/eeprom.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 #include "rrserver/gui.h"
 #include "rrserver/waterfall.h"

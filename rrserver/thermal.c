@@ -10,7 +10,7 @@
 // Thermal monitoring and shutdown feature
 //
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,7 +21,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "rrserver/state.h"
 #include "rrserver/thermal.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 
 // Set some sane default values in case the user didn't bother to configure them...
 struct ThermalLimits thermal_limits = {

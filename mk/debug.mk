@@ -1,11 +1,11 @@
 
-symtab: ${fw_bin}.symtab ${bin}.symtab 
+symtabs += $(foreach x, ${bins}, ${x}.symtab)
 
-${fw_bin}.symtab: ${fw_bin}
-	nm ${fw_bin} | grep -v '.gtk_*' | grep -v '.mg_*'|grep -v '.[Ur].' > $@
+symtabs: ${symtabs}
+	@echo "Built $(words ${symtabs}) symtabs"
 
-${bin}.symtab: ${bin}
-	nm ${bin} |grep -v '.gtk_*' | grep -v '.mg_*'|grep -v '.[Ur].' > $@
+%.symtab: %
+	nm $< | grep -v '.gtk_*' | grep -v '.mg_*'|grep -v '.[Ur].' > $@
 
 client-gdb:
 	gdb build/client/rrclient -ex run

@@ -16,7 +16,7 @@
 //	interface/display/hmi: HMI file to upload to display
 //
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -27,7 +27,7 @@
 #include <errno.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "rrserver/state.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"
 #include "rrserver/gui.h"

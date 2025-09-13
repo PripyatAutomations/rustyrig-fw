@@ -9,6 +9,7 @@ endif
 
 USE_GTK=true
 
+
 # msys2 windows 64bit
 ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
 
@@ -36,7 +37,7 @@ CF := config/${PROFILE}.config.json
 
 ifeq (${USE_GTK},true)
 CFLAGS += -DUSE_GTK=1 $(shell pkg-config --cflags gtk+-3.0)
-LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
+gtk_ldflags += $(shell pkg-config --libs gtk+-3.0)
 endif
 
 UNAME_S := $(shell uname -s)
@@ -54,6 +55,7 @@ endif
 OBJ_DIR := ${BUILD_DIR}/obj
 
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+CFLAGS += $(shell pkg-config --cflags mbedtls)
 CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 CFLAGS += -I./ -I../ -I./inc -I${BUILD_DIR} -I${BUILD_DIR}/include
 CFLAGS += -DMG_TLS=MG_TLS_MBED
@@ -66,10 +68,11 @@ CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 #CFLAGS += -DUSE_EEPROM
 
-LDFLAGS := -lc -lm -g -ggdb -lcrypt
-LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
-LDFLAGS += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
-LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
+LDFLAGS += -L. -L./librustyaxe
+LDFLAGS += -lc -lm -g -ggdb -lcrypt
+LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
+gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
+gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
 
 FWDSP_CFLAGS += -D__FWDSP
 RRCLIENT_CFLAGS += -D__RRCLIENT=1
@@ -99,11 +102,6 @@ LD := ${TC_PREFIX}-ld
 else
 CC := gcc
 LD := ld
-endif
-
-ifeq (${USE_GSTREAMER},true)
-FWDSP_CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
-FWDSP_LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 endif
 
 ifeq (${USE_SQLITE},true)

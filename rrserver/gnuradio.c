@@ -10,7 +10,7 @@
 // Here we managed attached Direct Digital Synthesizer devices
 //
 #include "build_config.h"
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -22,4 +22,4 @@
 #include <errno.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "rrserver/state.h"
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
