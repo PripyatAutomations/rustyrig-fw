@@ -1,0 +1,15 @@
+Ideally you'll have at least 2 serial ports available - one for CAT and one for debug logging.
+If using a posix host, you can always use sockets or pipes.
+
+Set them in the config json below.
+
+Edit config/$profile.config.json to reflect your target.
+
+Optionally create/edit config/$profile.channels.json to add preset channel memories.
+
+$profile.config.json
+--------------------
+
+$profile.channels.json
+----------------------
+

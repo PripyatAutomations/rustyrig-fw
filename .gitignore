@@ -2,26 +2,27 @@
 junk/*
 junk/*/*
 
-# auditing
-audit-logs/cppcheck.report.txt
+# automated coverage esting reports
+audit-logs/*
+audit-logs/*/*
 
 # logs
 testbuild.log
 firmware.log
 
 # build artifacts
-build/*
 build/
+build/*
+build/*/*
+build/*/*.*
+build/*/obj/*
 
+# clang-tools artifacts
+*/compile_commands.json
 
 # exported images
 images/*
 images
-
-# build artifacts
-build/*/*
-build/*/*.*
-build/*/obj/*
 
 # user database & certs
 db/*
@@ -29,14 +30,7 @@ config/*.pem
 config/*.secret
 config/http.users
 config/http.users.*
-
-# Archived configs
-config/archive/*.json
-
-rrcli/build/*
-rrcli/build/*/*
-rrcli/build/*/*.*
-rrcli/build/*/obj/*
+config/archive/*
 
 # run-time state and audio recordings
 run/*/*.pipe
@@ -46,5 +40,3 @@ run/*
 run/*/*
 recordings/*.*
 
-# clang-tools artifacts
-src/*/compile_commands.json

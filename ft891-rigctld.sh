@@ -1,1 +1,0 @@
-src/rrserver/ft891-rigctld.sh

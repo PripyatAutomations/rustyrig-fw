@@ -1,0 +1,4 @@
+See res/eeprom_layout.json for layout and res/eeprom_types.json for type definition...
+
+Address		Size	Description
+00 00		02	Firmware Version

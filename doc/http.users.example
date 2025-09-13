@@ -1,0 +1,25 @@
+# Format is uid:name:enabled:password:email:maxclones:permissions
+
+# Examples:
+# admin / admin and guest / guest below
+0:ADMIN:1:d033e22ae348aeb5660fc2140aec35850c4da997:none:3:admin,edit,view,radio,tx,elmer
+1:GUEST:1:35675e68f4b5af7b995d9205ad0fc43842f16450:none:3:view,chat
+2:NOOB:1:34bcdf98deb05825ee8f40bad4b5912df89b0b95:none:2:chat,noob
+
+################
+# uid: userid
+# name: username
+# enabled: 1 for enabled, 0 for disabled
+# password: hash like so: echo -n "yourpasswd" | sha1sum
+# email: Email address of the user
+# maxclones: Maximum # of sessions allowed
+# permissions
+################
+# * admin	- Most sys privileges besides editing users
+# * owner	- Complete privileges, can edit users and see full syslog
+# * chat	- Chat privileges (for guests, etc)
+# * elmer	- Elmer flag lets the user set themselves in elmer mode (to supervise noob users)
+# * noob	- Can only control rig with an elmer flagged user logged in
+# * syslog	- Can see the full system log
+# * tx		- Can transmit
+# * view	- Can view the chat/rig ui/waterfall and listen to audio
