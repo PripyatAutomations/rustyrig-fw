@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rrclient_ui_h)
 #define	__rrclient_ui_h
-#include "common/config.h"
+#include "librustyaxe/config.h"
 
 #if	defined(USE_GTK)
 #include <gtk/gtk.h>

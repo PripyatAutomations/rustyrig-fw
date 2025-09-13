@@ -7,10 +7,10 @@ if [ -z "$2" ]; then
    exit 1
 fi
 
-for i in fwdsp rrclient rrserver; do
-   find ./inc/common ./src/common ./inc/$i ./$i \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 clang-rename-19 \
+for i in fwdsp rrclient rrserver do
+   find ./inc/librustyaxe/ ./inc/$i ./$i \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 clang-rename-19 \
      -qualified-name="$1" \
      -new-name="$2" \
      -i \
-     -p ./src/$i
+     -p ./$i
 done

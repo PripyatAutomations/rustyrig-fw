@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-for i in src/rrserver src/rrclient src/fwdsp; do
+for i in fwdsp rrclient rrserver; do
    OLDPWD=$(pwd)
    cd $i
    rm -f compile_commands.json

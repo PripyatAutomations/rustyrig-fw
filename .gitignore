@@ -40,3 +40,7 @@ run/*
 run/*/*
 recordings/*.*
 
+
+librustyaxe/*.o
+librustyaxe/*.so
+librustyaxe/*.dll

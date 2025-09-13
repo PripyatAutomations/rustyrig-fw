@@ -42,12 +42,12 @@
 #if	!defined(__FWDSP)
 #define	__FWDSP
 #endif
-#include "common/config.h"
-#include "common/fwdsp-shared.h"
-#include "common/logger.h"
-#include "common/posix.h"
-#include "common/util.file.h"
-#include "common/codecneg.h"
+#include "librustyaxe/config.h"
+#include "librustyaxe/fwdsp-shared.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/posix.h"
+#include "librustyaxe/util.file.h"
+#include "librustyaxe/codecneg.h"
 
 extern const char *config_file;
 extern const int num_configs;
@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
       // unneeded unless new code added between here and inner else
 //      free(fullpath);
    }
-   logger_init();
+   logger_init("fwdsp.log");
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);

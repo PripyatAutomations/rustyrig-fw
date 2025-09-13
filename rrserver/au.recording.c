@@ -20,7 +20,6 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../ext/libmongoose/mongoose.h"
 #include "rrserver/state.h"
 #include "common/codecneg.h"
 #include "common/logger.h"

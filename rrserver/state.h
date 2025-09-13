@@ -12,7 +12,7 @@
 #include "rrserver/config.h"
 #include <time.h>
 #include <stdbool.h>
-#include "common/logger.h"
+#include "librustyaxe/logger.h"
 #include "rrserver/backend.h"
 #include "rrserver/atu.h"		// for rr_atu_tv
 #define	PARSE_LINE_LEN	512

@@ -10,7 +10,7 @@
 #define __rr_audio_h
 #include <stdbool.h>
 #include <stddef.h>
-#include "common/codecneg.h"
+#include "librustyaxe/codecneg.h"
 
 typedef enum {
     AU_BACKEND_NULL_SINK = 0, // Null sink that discards all input but generates logging statistics

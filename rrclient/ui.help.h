@@ -9,7 +9,7 @@
 
 #if	!defined(__rrclient_ui_help_h)
 #define	__rrclient_ui_help_h
-#include "common/config.h"
+#include "librustyaxe/config.h"
 
 extern void show_help(const char *topic);
 

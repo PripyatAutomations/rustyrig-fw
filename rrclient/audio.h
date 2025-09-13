@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rrclient_audio_h)
 #define __rrclient_audio_h
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,11 +20,11 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
-#include "common/logger.h"
-#include "common/dict.h"
-#include "common/posix.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/dict.h"
+#include "librustyaxe/posix.h"
 #include "rrclient/auth.h"
-#include "common/codecneg.h"
+#include "librustyaxe/codecneg.h"
 
 extern bool audio_enabled;
 extern bool gst_active;

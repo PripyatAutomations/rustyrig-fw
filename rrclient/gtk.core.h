@@ -1,6 +1,6 @@
 #if	!defined(__rrclient_gtk_core_h)
 #define	__rrclient_gtk_core_h
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -10,9 +10,9 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "common/logger.h"
-#include "common/dict.h"
-#include "common/posix.h"
+#include "librustyaxe/logger.h"
+#include "librustyaxe/dict.h"
+#include "librustyaxe/posix.h"
 
 #define	HTTP_USER_LEN		16		// username length (16 char)
 #define	HTTP_PASS_LEN		40		// sha1: 40, sha256: 64

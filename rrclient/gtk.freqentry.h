@@ -9,7 +9,7 @@
 
 #if	!defined(__rrclient_gtk_freqinput_h)
 #define	__rrclient_gtk_freqinput_h
-#include "common/config.h"
+#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,7 +20,7 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include <glib.h>
-#include "common/dict.h"
+#include "librustyaxe/dict.h"
 
 #define MAX_DIGITS 10
 

@@ -1,3 +1,9 @@
+rustyrig-fw (20250912) testing; urgency=medium
+* More code cleanup
+* Re-arranged the source tree to support potentially merging the client and server into a single program
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 12 Sep 2025 22:40:01 -0400
+
 rustyrig-fw (20250827) testing; urgency=medium
 * Improved GtkFreqEntry
 * Code cleanup & some static analysis
