@@ -9,5 +9,10 @@
 # Ensure we stop on errors
 set -euo pipefail
 
+if [ ! -f ext/libmongoose/mongoose.c ]; then
+   git submodule init
+   git submodule update
+fi
+
 make distclean
 make -j $NCPU world
