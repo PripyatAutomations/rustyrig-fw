@@ -439,6 +439,11 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
             ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
             Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
          }
+
+         cptr->user->clones--;
+         if (cptr->user->clones < 0) {
+            cptr->user->clones = 0;
+         }
       } else {
           // This is very noisy as it includes http requests for assets; maybe we can filter them out more?
          Log(LOG_CRAZY, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
@@ -452,7 +457,6 @@ bool http_init(struct mg_mgr *mgr) {
       Log(LOG_CRIT, "http", "http_init passed NULL mgr!");
       return true;
    }
-
 
    const char *cfg_www_root = cfg_get_exp("net.http.www-root");
    const char *cfg_404_path = cfg_get_exp("net.http.404-path");

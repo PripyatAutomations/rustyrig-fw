@@ -4,9 +4,9 @@ For now it's easiest just to build/run it from this folder, but installing it sh
 
 Take a look at the deps in install-deps.sh or use it (if on debian-like distros) or manually install them. Ignore the commented lines, they're for bare metal builds someday
 It consists of a few parts:
-	src/fwdsp		gstreamer based audio bridge
-	src/rrclient		GTK3 + gstreamer based client
-	src/rrserver		backend server
+	fwdsp/			gstreamer based audio bridge
+	rrclient/		GTK3 + gstreamer based client
+	rrserver/		backend server
 	www/			WebUI (served by rrserver)
 
 
@@ -20,24 +20,26 @@ To build:
 
 Configure:
 	Be sure config/http.users has appropriate contents
-		Try rrserver-usercfg.sh
+		Try user-edit.sh
 
 	Make sure config/radio.config.json is good for your build host
 
 	Edit config/rrserver.cfg for the server
-	Run rrclient, exit it and then add ~/.config/rrclient.cfg to add save server password
 
 To run:
 	./test-run.sh or 'make run'
 
 To run client:
-	./build/client/rrclient
-
+	Either start the client and exit it, to create a default config or --
+		cp config/rrclient.cfg.example ~/.config/rrclient.cfg
+	Then run it
+		./test-client.sh
 
 Installing:
 	make install
 
 
+You can put server config in ~/.config/rrserver.cfg or /etc/rustyrig/rrserver.cfg
 
 Pipelines
 ---------
