@@ -26,7 +26,6 @@
 #include "rrclient/gtk.core.h"
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"
-#include "rrclient/audio.h"
 #include "rrclient/userlist.h"
 #include "librustyaxe/client-flags.h"
 
@@ -166,7 +165,7 @@ bool ws_binframe_process(const char *data, size_t len) {
    Log(LOG_DEBUG, "http.ws", "binary: %zu bytes, hex: %s", len, hex);
 #endif
 
-   audio_process_frame(data, len);
+//   audio_process_frame(data, len);
    return false;
 }
 

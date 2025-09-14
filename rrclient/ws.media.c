@@ -100,7 +100,7 @@ bool ws_handle_media_msg(struct mg_connection *c, dict *d) {
          memcpy(first_codec, media_codecs, 4);
          populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
          populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
-         ws_select_codec(c, first_codec, false);
+//         ws_select_codec(c, first_codec, false);
       } else {
          Log(LOG_DEBUG, "ws.media", "Got media isupport with empty codecs");
       }

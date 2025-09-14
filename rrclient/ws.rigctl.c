@@ -28,7 +28,6 @@
 #include "rrclient/gtk.core.h"
 #include "rrclient/gtk.freqentry.h"
 #include "rrclient/ws.h"
-#include "rrclient/audio.h"
 #include "rrclient/userlist.h"
 #include "librustyaxe/client-flags.h"
 

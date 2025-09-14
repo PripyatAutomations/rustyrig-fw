@@ -1,10 +1,10 @@
 UNAME_S := $(shell uname -s)
 ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
-   OS := MINGW64
+OS := MINGW64
 else ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
-   OS := MSYS
+OS := MSYS
 else
-   OS := POSIX
+OS := POSIX
 endif
 
 # msys2 windows 64bit
@@ -31,17 +31,8 @@ CFLAGS += -DUSE_GTK=1 $(shell pkg-config --cflags gtk+-3.0)
 gtk_ldflags += $(shell pkg-config --libs gtk+-3.0)
 endif
 
-UNAME_S := $(shell uname -s)
-ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
-   OS := MINGW64
-else ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
-   OS := MSYS
-else
-   OS := POSIX
-endif
-
-#SHELL = bash
-#.SHELLFLAGS = -e -c
+SHELL = bash
+.SHELLFLAGS = -e -c
 
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += $(shell pkg-config --cflags mbedtls)

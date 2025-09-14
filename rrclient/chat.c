@@ -14,7 +14,7 @@
 #include "librustyaxe/posix.h"
 #include "../ext/libmongoose/mongoose.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk.core.h"
+//#include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
 #include "rrclient/ui.h"
 

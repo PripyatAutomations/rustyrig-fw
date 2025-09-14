@@ -22,12 +22,8 @@
 #include "librustyaxe/logger.h"
 #include "librustyaxe/dict.h"
 #include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
-#include "rrclient/auth.h"
 #include "rrclient/gtk.core.h"
 #include "rrclient/ws.h"
-#include "rrclient/audio.h"
-#include "rrclient/userlist.h"
 #include "librustyaxe/client-flags.h"
 
 extern dict *cfg;		// config.c

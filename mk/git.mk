@@ -1,4 +1,3 @@
-
 update:
 	git pull
 	git submodule init

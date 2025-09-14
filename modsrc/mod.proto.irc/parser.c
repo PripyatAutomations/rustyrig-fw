@@ -1,3 +1,6 @@
+#include "librustyaxe/irc.struct.h"
+#include "librustyaxe/irc.parser.h"
+
 typedef struct rusty_client {
   int sock_fd;		// 	  // Socket file descriptor
   struct mg_connection *mg_conn;  // Store socket or mongoose connection

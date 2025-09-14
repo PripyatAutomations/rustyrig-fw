@@ -29,7 +29,6 @@
 #include "rrclient/userlist.h"
 #include "rrclient/ui.h"
 #include "rrclient/gtk.core.h"
-#include "rrclient/audio.h"
 #include "rrclient/userlist.h"
 #include "librustyaxe/client-flags.h"
 

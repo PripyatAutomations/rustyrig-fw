@@ -371,7 +371,6 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
       return true;
    }
 
-   bool rv = true;
    http_client_t *cptr = http_find_client_by_c(c);
 
    if (!cptr) {
@@ -405,23 +404,20 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
       if (strcasecmp(cmd, "msg") == 0) {
          if (!data) {
             Log(LOG_DEBUG, "chat", "got msg for cptr <%x> with no data: chatname: %s", cptr, user);
-            rv = true;
-            goto cleanup;
+            return true;
          }
 
          // If the message is empty, just return success
          if (strlen(data) == 0) {
             Log(LOG_CRAZY, "chat", "talk msg has no data");
-            rv = false;
-            goto cleanup;
+            return false;
          }
 
          if (!has_priv(cptr->user->uid, "admin|owner|chat")) {
             Log(LOG_CRAZY, "chat", "user %s doesn't have chat privileges but tried to send a message", user);
             // XXX: Alert the user that their message was NOT deliverred because they aren't allowed to send it.
             ws_send_error(cptr, "You do not have CHAT privilege.");
-            rv = true;
-            goto cleanup;
+            return true;
          }
 
          struct mg_str mp;
@@ -430,8 +426,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
          // sanity check
          if (!user) {
             Log(LOG_CRAZY, "chat", "talk parse, msg has no user field");
-            rv = true;
-            goto cleanup;
+            return true;
          }
 
          // handle a file chunk
@@ -453,6 +448,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             // Send to everyone, including the sender, which will then display it as SelfMsg
             ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
             free((void *)jp);
+            return false;
          }
       } else if (strcasecmp(cmd, "die") == 0) {
          ws_chat_cmd_die(cptr, reason);
@@ -472,16 +468,14 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
          if (!target) {
             // XXX: Send a warning to the user informing that they must specify a target username
             Log(LOG_DEBUG, "chat", "whois with no target");
-            rv = true;
-            goto cleanup;
+            return true;
          }
          char msgbuf[HTTP_WS_MAX_MSG + 1];
          http_client_t *acptr = http_client_list;
 
          if (!acptr) {
             Log(LOG_DEBUG, "chat", "whois no users online?!?");
-            rv = true;
-            goto cleanup;
+            return true;
          }
 
          // create the full message
@@ -551,16 +545,13 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             whois_data, now);
          Log(LOG_CRAZY, "ws.chat", "ws message whois: %s", msgbuf);
          mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-         goto cleanup;
+         return false;
 
 trunc:
          Log(LOG_WARN, "chat", "whois_data truncated");
          ws_send_alert(cptr, "WHOIS data truncated to %i bytes", written);
-         goto cleanup;
+         return true;
       }
    }
-
-// Cleanup our mg_json_get_str returns from above, its easier to just do it down here
-cleanup:
-   return rv;
+   return true;
 }
