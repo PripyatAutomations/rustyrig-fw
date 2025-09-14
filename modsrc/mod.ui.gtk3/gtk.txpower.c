@@ -24,7 +24,7 @@
 #include "librustyaxe/dict.h"
 #include "librustyaxe/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk.core.h"
+#include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/ws.h"
 
 GtkWidget *tx_power_slider = NULL;

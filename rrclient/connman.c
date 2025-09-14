@@ -28,9 +28,9 @@
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
 #include "rrclient/ui.h"
-#include "rrclient/gtk.core.h"
 #include "rrclient/userlist.h"
 #include "librustyaxe/client-flags.h"
+#include "mod.ui.gtk3/gtk.core.h"
 
 // Server connections
 rr_connection_t *active_connections;

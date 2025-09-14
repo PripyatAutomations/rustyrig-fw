@@ -12,8 +12,8 @@
 #include <stdbool.h>
 #include "librustyaxe/dict.h"
 #include "librustyaxe/logger.h"
-#include "rrclient/gtk.freqentry.h"
-#include "rrclient/gtk.core.h"
+#include "mod.ui.gtk3/gtk.freqentry.h"
+#include "mod.ui.gtk3/gtk.core.h"
 
 #define MAX_DIGITS 10
 extern dict *cfg;

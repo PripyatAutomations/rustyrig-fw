@@ -30,6 +30,28 @@ ifeq (${PLATFORM},posix)
 LDFLAGS += -lgpiod
 endif
 
+include fwdsp/rules.mk
+include rrclient/rules.mk
+include rrserver/rules.mk
+include mk/install.mk
+include mk/win64.mk
+include mk/audit.mk
+include mk/clean.mk
+include mk/git.mk
+include mk/debug.mk
+include mk/resource.mk
+include mk/compile.mk
+
+${OBJ_DIR}/build_config.h: ${EEPROM_FILE}
+#${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
+
+${OBJ_DIR}/.stamp:
+	mkdir -p ${OBJ_DIR}
+	touch $@
+
+world: ${OBJ_DIR}/.stamp ${extra_build} ${bins}
+
+# Wrap librustyaxe makefile, so it gets build/cleaned with us
 librustyaxe_src = $(wildcard librustyaxe/*.c) $(wildcard librustyaxe/*.h)
 
 ${librustyaxe}: ${librustyaxe_src}
@@ -37,24 +59,3 @@ ${librustyaxe}: ${librustyaxe_src}
 
 clean-librustyaxe:
 	${MAKE} -C librustyaxe distclean
-
-include mk/resource.mk
-include mk/debug.mk
-include fwdsp/rules.mk
-include rrclient/rules.mk
-include rrserver/rules.mk
-include mk/compile.mk
-include mk/install.mk
-include mk/win64.mk
-include mk/audit.mk
-include mk/clean.mk
-include mk/git.mk
-
-${OBJ_DIR}/build_config.h: ${EEPROM_FILE}
-${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
-
-${OBJ_DIR}/.stamp:
-	mkdir -p ${OBJ_DIR}
-	touch $@
-
-world: ${OBJ_DIR}/.stamp ${extra_build} ${bins}

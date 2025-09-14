@@ -27,7 +27,7 @@
 
 #if	defined(USE_GTK)
 #include <gtk/gtk.h>
-#include "rrclient/gtk.core.h"
+#include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;
 extern struct rr_user *global_userlist;		// userlist.c

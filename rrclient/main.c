@@ -28,7 +28,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk.core.h"
+#include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/ui.h"
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"

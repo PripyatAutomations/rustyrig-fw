@@ -53,7 +53,7 @@ gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
 
 FWDSP_CFLAGS += -D__FWDSP
-RRCLIENT_CFLAGS += -D__RRCLIENT=1
+CFLAGS_RRCLIENT += -D__RRCLIENT=1
 
 ifeq (${USE_LIBUNWIND},true)
 CFLAGS += -fno-omit-frame-pointer -Og -gdwarf -DUSE_LIBUNWIND
@@ -94,47 +94,8 @@ endif
 host-info:
 	@echo "* Building on ${UNAME_S}"
 
-fwdsp_real_objs := $(foreach x, ${fwdsp_objs}, ${OBJ_DIR}/fwdsp/${x})
-rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${OBJ_DIR}/rrclient/${x})
-rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
-
-bin/fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${fwdsp_real_objs}
-	${CC} -o $@ ${fwdsp_real_objs} ${gst_ldflags} ${LDFLAGS} ${LDFLAGS_FWDSP} -lrustyaxe -lmongoose
-	@ls -a1ls $@
-	@file $@
-	@size $@
-
-bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrclient_real_objs}
-	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrclient_real_objs} -lrustyaxe -lmongoose ${gtk_ldflags} ${gst_ldflags}
-	@ls -a1ls $@
-	@file $@
-	@size $@
-
-bin/rrserver: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
-	${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lmongoose ${LDFLAGS} ${LDFLAGS_RRSERVER}
-	@ls -a1ls $@
-	@file $@
-	@size $@
 
 strip: ${bins}
 	@echo "[strip] ${bins}"
 	@strip $^
 	@ls -a1ls $^
-
-${OBJ_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS}
-	@${RM} -f $@
-	@mkdir -p $(shell dirname $@)
-	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
-
-${OBJ_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS}
-	@${RM} -f $@
-	@mkdir -p $(shell dirname $@)
-	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
-
-${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS}
-	@${RM} -f $@
-	@mkdir -p $(shell dirname $@)
-	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<

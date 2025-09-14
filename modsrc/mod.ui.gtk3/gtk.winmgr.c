@@ -36,7 +36,7 @@
 #include "librustyaxe/dict.h"
 #include "librustyaxe/posix.h"
 #include "rrclient/auth.h"
-#include "rrclient/gtk.core.h"
+#include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/ws.h"
 
 // Linked list of all of our windows, usually 'main' will be the head of the list

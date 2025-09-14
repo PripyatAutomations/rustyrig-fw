@@ -89,18 +89,18 @@ extern bool cfg_use_gtk;
 extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 extern gboolean is_widget_or_descendant_focused(GtkWidget *ancestor);
 
-#include "rrclient/gtk.codecpicker.h"
-#include "rrclient/gtk.editcfg.h"
-#include "rrclient/gtk.freqentry.h"
-#include "rrclient/gtk.fm-mode.h"
-#include "rrclient/gtk.mode-box.h"
-#include "rrclient/gtk.ptt-btn.h"
-#include "rrclient/gtk.serverpick.h"
-#include "rrclient/gtk.txpower.h"
-#include "rrclient/gtk.vfo-box.h"
-#include "rrclient/gtk.vol-box.h"
-#include "rrclient/gtk.winmgr.h"
-#include "rrclient/gtk.chat.h"
-#include "rrclient/gtk.hotkey.h"
+#include "mod.ui.gtk3/gtk.codecpicker.h"
+#include "mod.ui.gtk3/gtk.editcfg.h"
+#include "mod.ui.gtk3/gtk.freqentry.h"
+#include "mod.ui.gtk3/gtk.fm-mode.h"
+#include "mod.ui.gtk3/gtk.mode-box.h"
+#include "mod.ui.gtk3/gtk.ptt-btn.h"
+#include "mod.ui.gtk3/gtk.serverpick.h"
+#include "mod.ui.gtk3/gtk.txpower.h"
+#include "mod.ui.gtk3/gtk.vfo-box.h"
+#include "mod.ui.gtk3/gtk.vol-box.h"
+#include "mod.ui.gtk3/gtk.winmgr.h"
+#include "mod.ui.gtk3/gtk.chat.h"
+#include "mod.ui.gtk3/gtk.hotkey.h"
 
 #endif	// !defined(__rrclient_gtk_core_h)

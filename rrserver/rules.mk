@@ -50,3 +50,17 @@ rrserver_objs += ws.audio.o		# Audio (raw / OPUS) over websockets
 rrserver_objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
 rrserver_objs += ws.chat.o		# Websocket Chat (talk)
 rrserver_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
+
+rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
+
+${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS}
+	@${RM} -f $@
+	@mkdir -p $(shell dirname $@)
+	@echo "[compile] $< => $@"
+	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+
+bin/rrserver: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
+	${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lmongoose ${LDFLAGS} ${LDFLAGS_RRSERVER}
+	@ls -a1ls $@
+	@file $@
+	@size $@

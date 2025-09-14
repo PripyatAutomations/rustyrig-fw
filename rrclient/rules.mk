@@ -44,4 +44,26 @@ rrclient_objs += ws.ping.o		# handle ping messages
 rrclient_objs += ws.rigctl.o		# rig controls
 rrclient_objs += ws.syslog.o
 
+rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${OBJ_DIR}/rrclient/${x})
+
 CFLAGS_RRCLIENT += -I./modsrc/
+
+${OBJ_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS}
+	@${RM} -f $@
+	@mkdir -p $(shell dirname $@)
+	@echo "[compile] $< => $@"
+	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+
+# as soon as we complete loadable modules, this must go away!
+${OBJ_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS}
+	@${RM} -f $@
+	@mkdir -p $(shell dirname $@)
+	@echo "[compile] $< => $@"
+	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+
+
+bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrclient_real_objs}
+	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrclient_real_objs} -lrustyaxe -lmongoose ${gtk_ldflags} ${gst_ldflags}
+	@ls -a1ls $@
+	@file $@
+	@size $@
