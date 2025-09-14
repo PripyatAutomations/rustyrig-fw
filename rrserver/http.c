@@ -113,7 +113,7 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
 
    while(cptr != NULL) {
       if (cptr->conn == c) {
-         Log(LOG_CRAZY, "http.core", "find_client_by_c <%x> returning index %i: %x |%s|", c, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
+//         Log(LOG_CRAZY, "http.core", "find_client_by_c <%x> returning index %i: %x |%s|", c, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
          return cptr;
       }
       i++;

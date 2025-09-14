@@ -216,8 +216,8 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       Log(LOG_WARN, "http.ws", "ws_handle_pong: PONG from user with no timestamp");
       rv = true;
       goto cleanup;
-   } else {
-      Log(LOG_CRAZY, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), ts);
+//   } else {
+//      Log(LOG_CRAZY, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), ts);
    }
 
    char *endptr;
@@ -240,8 +240,9 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       cptr->last_heard = now;
       cptr->last_ping = 0;
       cptr->ping_attempts = 0;
-      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%li] and last_ping to 0",
-          (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), now);
+// XXX: crazy logging
+//      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%li] and last_ping to 0",
+//          (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), now);
    }
 
 cleanup:
@@ -489,9 +490,9 @@ bool ws_send_ping(http_client_t *cptr) {
    if (cptr->ping_attempts > 1) {
       Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
           cptr->chatname, cptr, now, cptr->ping_attempts);
-   } else {
-      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
-          cptr->chatname, cptr, now, cptr->ping_attempts);
+//   } else {
+//      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
+//          cptr->chatname, cptr, now, cptr->ping_attempts);
    }
 
    prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %li } }", now);

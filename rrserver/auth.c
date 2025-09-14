@@ -86,7 +86,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
       sprintf(hex_output + (i * 2), "%02x", hash[i]);
    }
    hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
-   Log(LOG_CRAZY, "auth", "passwd |%s| nonce |%s| result |%s|", password, nonce, hex_output);
+//   Log(LOG_CRAZY, "auth", "passwd |%s| nonce |%s| result |%s|", password, nonce, hex_output);
    
    return hex_output;
 }
@@ -114,7 +114,7 @@ int http_getuid(const char *user) {
          return i;
       }
    }
-   Log(LOG_DEBUG, "auth", "http_getuid(%s) returns not-found!", user);
+//   Log(LOG_DEBUG, "auth", "http_getuid(%s) returns not-found!", user);
    return -1;
 }
 
@@ -315,7 +315,7 @@ static http_client_t *http_find_client_by_nonce(const char *nonce) {
       }
 
       if (memcmp(cptr->nonce, nonce, strlen(cptr->nonce)) == 0) {
-         Log(LOG_CRAZY, "http.core", "hfcbn returning index [%i] for nonce |%s|", cptr->nonce);
+//         Log(LOG_CRAZY, "http.core", "hfcbn returning index [%i] for nonce |%s|", cptr->nonce);
          return cptr;
       }
       i++;
@@ -327,7 +327,7 @@ static http_client_t *http_find_client_by_nonce(const char *nonce) {
 }
 
 bool match_priv(const char *user_privs, const char *priv) {
-   Log(LOG_CRAZY, "auth", "match_priv(): comparing |%s| to |%s|", user_privs, priv);
+//   Log(LOG_CRAZY, "auth", "match_priv(): comparing |%s| to |%s|", user_privs, priv);
    if (user_privs == NULL || priv == NULL) {
       return false;
    }
@@ -349,14 +349,14 @@ bool match_priv(const char *user_privs, const char *priv) {
 //      Log(LOG_CRAZY, "auth", "token=|%s|", token);
 
       if (strcmp(token, priv) == 0) {
-         Log(LOG_CRAZY, "auth", " → exact match |%s|", token);
+//         Log(LOG_CRAZY, "auth", " → exact match |%s|", token);
          return true;
       }
 
       if (len >= 2 && token[len - 2] == '.' && token[len - 1] == '*') {
          token[len - 2] = '\0';  // strip .*
          if (strncmp(priv, token, strlen(token)) == 0 && priv[strlen(token)] == '.') {
-            Log(LOG_CRAZY, "auth", " → wildcard match |%s|", token);
+//            Log(LOG_CRAZY, "auth", " → wildcard match |%s|", token);
             return true;
          }
       }
