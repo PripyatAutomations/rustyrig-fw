@@ -190,5 +190,23 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
    return NULL;
 }
 
+GtkWidget *server_edit_create(serverlist_t *sp) {
+   // Show the server edit dialog
+   GtkWidget *w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   if (!w) {
+      return NULL;
+   }
 
-//GtkWidget *server_edit_create(void) {	// XXX: Need to pass a server list entry
+   gtk_window_set_title(GTK_WINDOW(w), "Server Editor");
+   gui_window_t *window_t = ui_new_window(w, "serveredit");
+   if (!window_t) {
+      // XXX: Free w
+   }
+
+   // If sp passed, populate with the server's details
+   if (sp) {
+      //
+   }
+   
+   return w;
+}

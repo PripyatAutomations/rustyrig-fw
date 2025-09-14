@@ -20,6 +20,7 @@ librr_objs += dict.o
 librr_objs += io.o
 librr_objs += io.serial.o
 librr_objs += io.socket.o
+#librr_objs += irc.parser.o
 librr_objs += json.o
 librr_objs += logger.o
 librr_objs += module.o

@@ -208,7 +208,9 @@ GtkWidget *fm_dialog_create(void) {
    GtkWidget *offset_combo = gtk_combo_box_text_new_with_entry();
    gtk_widget_set_tooltip_text(offset_combo, "Repeater Offset in Mhz");
    for (int i = 0; fm_offsets[i] != NULL; i++) {
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), fm_offsets[i]);
+      if (fm_offsets[i]) {
+         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), fm_offsets[i]);
+      }
    }
    set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(offset_combo), "NONE");
    gtk_grid_attach(GTK_GRID(grid), offset_combo, 1, 4, 1, 1);
