@@ -66,11 +66,9 @@ static const char *dcs_tones[] = {
 };
 
 static const char *fm_offsets[] = {
-   "-25.0", "-20.0", "-15.0", "-10.0", "-7.6",
-    "-5.0", "-1.6",  "-1.0", "-0.7", "-0.6",
-    "NONE",
-   "0.6",  "0.7",  "1.0",  "1.6",  "5.0",
-   "7.6", "10.0", "15.0", "20.0", "25.0" };
+   "-25.0", "-20.0", "-15.0", "-10.0", "-7.6", "-5.0", "-1.6",  "-1.0", "-0.7", "-0.6",
+   "NONE",
+   "0.6",  "0.7",  "1.0",  "1.6",  "5.0", "7.6", "10.0", "15.0", "20.0", "25.0" };
 
 /* Static pointers to widgets */
 static GtkWidget *tx_tone_combo = NULL;
@@ -207,9 +205,12 @@ GtkWidget *fm_dialog_create(void) {
    /* Repeater offset combo (editable) */
    GtkWidget *offset_combo = gtk_combo_box_text_new_with_entry();
    gtk_widget_set_tooltip_text(offset_combo, "Repeater Offset in Mhz");
+
    for (int i = 0; fm_offsets[i] != NULL; i++) {
       if (fm_offsets[i]) {
          gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), fm_offsets[i]);
+      } else {
+         fprintf(stderr, "fm_offsets empty\n");
       }
    }
    set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(offset_combo), "NONE");

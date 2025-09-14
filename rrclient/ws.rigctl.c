@@ -109,13 +109,14 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
             }
 
             Log(LOG_CRAZY, "ws.rigctl", "Set MODE to %s", mode);
+#if	0	// XXX: re-enable fm-mode
             if (strcasecmp(mode, "FM") == 0) {
                fm_dialog_show();
             } else {
                // Hide the FM dialog
                fm_dialog_hide();
             }
-
+#endif
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
 
             // save the old mode so we can compare next time
