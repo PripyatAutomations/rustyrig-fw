@@ -19,15 +19,15 @@ fi
 
 case "$1" in
    gdb )
-     gdb ./build/rrclient -ex run
+     gdb ./bin/rrclient -ex run
      ;;
 
    valgrind)
      rm -f audit-logs/valgrind.rrclient.*.log
-     valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./build/rrclient
+     valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./bin/rrclient
      ;;
 
    *)
-     ./build/rrclient
+     ./bin/rrclient
      ;;
 esac

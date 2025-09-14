@@ -7,18 +7,19 @@ rrclient_objs += defconfig.o
 
 # Eventually we will support a TUI as well as GTK...
 ifeq (${USE_GTK},true)
-rrclient_objs += gtk.core.o              # Support for a GTK user interface
+rrclient_objs += gtk.core.o             # Support for a GTK user interface
 rrclient_objs += gtk.admin.o		# Admin tab
 rrclient_objs += gtk.chat.o		# Chat related stuff
 rrclient_objs += gtk.codecpicker.o	# codec picker widget
 rrclient_objs += gtk.editcfg.o		# configuration tab
 rrclient_objs += gtk.fm-mode.o		# FM mode dialog
-rrclient_objs += gtk.freqentry.o		# Frequency Entry Widget
+rrclient_objs += gtk.freqentry.o	# Frequency Entry Widget
 rrclient_objs += gtk.hotkey.o		# Hotkey support
 rrclient_objs += gtk.mode-box.o		# Modulation Mode / width box
 rrclient_objs += gtk.ptt-btn.o		# Push To Talk (PTT) button in GUI
 rrclient_objs += gtk.txpower.o		# TX power box
-rrclient_objs += gtk.serverpick.o        # server picker
+rrclient_objs += gtk.serveredit.o	# Serve editor
+rrclient_objs += gtk.serverpick.o       # server picker
 rrclient_objs += gtk.syslog.o		# syslog tab
 rrclient_objs += gtk.vfo-box.o		# VFO box element
 rrclient_objs += gtk.userlist.o		# GTK part of the userlist

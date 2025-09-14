@@ -38,6 +38,7 @@ world: ${libs}
 
 %.o:%.c
 	@echo "[compile] $< => $@"
+	@${RM} $@
 	@${CC} ${CFLAGS} -o $@ -c $<
 
 clean:

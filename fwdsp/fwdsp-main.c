@@ -299,7 +299,6 @@ int main(int argc, char *argv[]) {
 
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
-   cfg_init(default_cfg, defcfg);
 
    // If the user specified a config, apply it, else try to find one in a sane place
    if (config_file) {

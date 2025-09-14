@@ -13,12 +13,6 @@
 #include "librustyaxe/posix.h"
 
 const char *configs[] = { 
-#if    !defined(__RRCLIENT)
-   "~/.config/rrserver.cfg",
-   "config/rrserver.cfg",
-   "rrserver.cfg",
-   "/etc/rustyrig/rrserver.cfg"
-#else  // __RRCLIENT
 #ifndef _WIN32
    "~/.config/rrclient.cfg",
    "~/.rrclient.cfg",
@@ -26,7 +20,6 @@ const char *configs[] = {
 #else
    "%APPDATA%\\rrclient\\rrclient.cfg",
    ".\\rrclient.cfg"
-#endif
 #endif
 };
 

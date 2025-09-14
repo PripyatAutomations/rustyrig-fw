@@ -14,8 +14,6 @@
 
 // from defconfig.c
 extern defconfig_t defcfg[];
-extern const char *configs[];
-extern const int num_configs;
 
 /////
 const char *config_file = NULL;
@@ -130,16 +128,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
    return true;
 }
 
-bool cfg_init(dict *d, defconfig_t *defaults) {
-   // If not existing, create the dictionary for storage
-   if (!d) {
-      return true;
-   }
-
-   return false;
-}
-
-bool cfg_detect_and_load(void) {
+bool cfg_detect_and_load(const char *configs[], int num_configs) {
    // If defaults supplied, apply them
 //   if (defcfg) {
 //      return cfg_set_defaults(d, defcfg);
@@ -153,9 +142,6 @@ bool cfg_detect_and_load(void) {
    if (!default_cfg) {
       default_cfg = dict_new();
    }
-
-   // Load the default configuration
-   cfg_init(default_cfg, defcfg);
 
    if (fullpath) {
       config_file = strdup(fullpath);

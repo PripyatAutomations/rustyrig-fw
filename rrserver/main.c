@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
    // load config (posix hosts)
    char *fullpath = NULL;
 
-   cfg_init(default_cfg, defcfg);
+//   cfg_init(default_cfg, defcfg);
 
    if (config_file) {
       if (!(cfg = cfg_load(config_file))) {

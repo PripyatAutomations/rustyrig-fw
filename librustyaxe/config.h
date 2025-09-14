@@ -64,8 +64,7 @@ extern int dict_merge(dict *dst, dict *src);
 extern bool cfg_save(dict *d, const char *path);
 
 // Create a new config
-extern bool cfg_init(dict *d, defconfig_t *defaults);
-
+extern bool cfg_detect_and_load(const char *configs[], int num_configs);
 
 // Typed lookups
 extern const char *cfg_get(const char *key);

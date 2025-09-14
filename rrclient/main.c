@@ -33,10 +33,15 @@
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"
 
-extern bool cfg_detect_and_load(void);
+extern const char *configs[]; // from defcfg.c
+extern const int num_configs;
+extern char *config_file;       // from defconfig.c
+
+extern bool cfg_detect_and_load(const char *configs[], int num_configs);
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
 extern struct mg_mgr mgr;
+
 bool dying = false;             // Are we shutting down?
 bool restarting = false;        // Are we restarting?
 time_t now = -1;                // time() called once a second in main loop to update
@@ -78,10 +83,31 @@ static gboolean update_now(gpointer user_data) {
 }
 
 int main(int argc, char *argv[]) {
+   char *fullpath = NULL;                                                                                                     
+
    // Set a time stamp so logging will work
    now = time(NULL);
    update_timestamp();
-   cfg_detect_and_load();
+
+//   cfg_detect_and_load(configs, num_configs);
+
+   if (config_file) {
+      if (!(cfg = cfg_load(config_file))) {
+         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
+      }
+   } else if ((fullpath =  find_file_by_list(configs, num_configs))) {
+      config_file = strdup(fullpath);
+      if (!(cfg = cfg_load(fullpath))) {
+         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
+      }
+      free(fullpath);
+   } else {
+     // Use default settings and save it to ~/.config/rrclient.cfg
+     cfg = default_cfg;
+     fprintf(stderr, "No config found :(\n");
+     exit(1);
+   }
+
    logger_init(LOGFILE);
    host_init();
 
