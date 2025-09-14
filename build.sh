@@ -9,6 +9,13 @@
 # Ensure we stop on errors
 set -euo pipefail
 
+SUDO=$(which sudo)
+
+X=$(pkg-config --cflags gstreamer-1.0)
+if [ $? != 0 ]; then
+   $SUDO ./install-deps.sh
+fi
+
 if [ ! -f ext/libmongoose/mongoose.c ]; then
    git submodule init
    git submodule update
