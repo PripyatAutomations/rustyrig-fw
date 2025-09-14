@@ -40,9 +40,9 @@ clean-librustyaxe:
 
 include mk/resource.mk
 include mk/debug.mk
-include mk/fwdsp.objs.mk
-include mk/rrclient.objs.mk
-include mk/rrserver.objs.mk
+include fwdsp/rules.mk
+include rrclient/rules.mk
+include rrserver/rules.mk
 include mk/compile.mk
 include mk/install.mk
 include mk/win64.mk
