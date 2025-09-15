@@ -430,6 +430,12 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
             cptr->cli_version = NULL;
          }
 
+         // reduce the # of clones for the user / reset to 0
+         cptr->user->clones--;
+         if (cptr->user->clones < 0) {
+            cptr->user->clones = 0;
+         }
+
          if (cptr->active) {
             // blorp out a quit to all connected users
             prepare_msg(resp_buf, sizeof(resp_buf),
@@ -440,10 +446,6 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
             Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
          }
 
-         cptr->user->clones--;
-         if (cptr->user->clones < 0) {
-            cptr->user->clones = 0;
-         }
       } else {
           // This is very noisy as it includes http requests for assets; maybe we can filter them out more?
          Log(LOG_CRAZY, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);

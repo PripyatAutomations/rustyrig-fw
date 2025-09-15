@@ -37,7 +37,6 @@ struct au_shm_ctx {
    int fd;
 };
 
-
 #define AUDIO_HDR_SIZE 4
 
 size_t pack_audio_frame(uint8_t *out, uint16_t chan_id, uint16_t seq, const void *data, size_t len) {
@@ -99,49 +98,7 @@ if (wm->data.len >= sizeof(rrws_frame_header_t)) {
       rrws_write_exact(shmfd_out, pl, fh.payload_len);
    }
 }
-
-int listen_shm_socket(const char *path) {
-   int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-   if (fd < 0) {
-      return -1;
-   }
-
-   struct sockaddr_un addr;
-   memset(&addr, 0, sizeof(addr));
-   addr.sun_family = AF_UNIX;
-   strncpy(addr.sun_path, path, sizeof(addr.sun_path)-1);
-
-   unlink(path); // ensure not already there
-   if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-      close(fd);
-      return -1;
-   }
-   if (listen(fd, 1) < 0) {
-      close(fd);
-      return -1;
-   }
-   int conn = accept(fd, NULL, NULL);
-   close(fd);
-   return conn;
-}
-
-// in your WS handler:
-static int shmfd_out = -1;
-if (shmfd_out < 0) {
-   shmfd_out = listen_shm_socket("/tmp/rrws-audio-out");
-}
-
-if (wm->data.len >= sizeof(rrws_frame_header_t)) {
-   rrws_frame_header_t fh;
-   memcpy(&fh, wm->data.ptr, sizeof fh);
-   const uint8_t *pl = (uint8_t *)wm->data.ptr + sizeof fh;
-   if (fh.payload_len <= wm->data.len - sizeof fh) {
-      rrws_write_exact(shmfd_out, pl, fh.payload_len);
-   }
-}
-
-#endif	// 0
-
+#endif
 
 static int connect_unix(const char *path) {
    int fd = socket(AF_UNIX, SOCK_STREAM, 0);

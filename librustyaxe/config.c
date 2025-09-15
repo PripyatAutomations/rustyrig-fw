@@ -418,8 +418,6 @@ const char *cfg_get(const char *key) {
    return p;
 }
 
-
-
 bool cfg_get_bool(const char *key, bool def) {
    return dict_get_bool(cfg, key, def);
 }
@@ -651,4 +649,3 @@ bool reload_event_remove(reload_event_t *evt) {
 
    return false;
 }
-

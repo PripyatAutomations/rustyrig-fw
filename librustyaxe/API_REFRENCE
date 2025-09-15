@@ -1,0 +1,138 @@
+audio.framing.c:
+	size_t pack_audio_frame(uint8_t *out, uint16_t chan_id, uint16_t seq, const void *data, size_t len)
+	void unpack_audio_frame(const uint8_t *in, uint16_t *chan_id, uint16_t *seq, const uint8_t **payload)
+	int listen_shm_socket(const char *path)
+	au_shm_ctx *au_shm_open_reader(const char *path)
+	au_shm_ctx *au_shm_open_writer(const char *path)
+	void au_shm_close(au_shm_ctx *ctx)
+	int au_shm_read(au_shm_ctx *ctx, void *buf, size_t n)
+	int au_shm_write(au_shm_ctx *ctx, const void *buf, size_t n)
+
+cat.c:
+	int32_t rr_cat_init(void)
+	int32_t rr_cat_printf(char *str, ...)
+	int32_t rr_cat_parse_line_real(char *line)
+	int32_t rr_cat_parse_line(char *line)
+	bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg)
+
+cat.kpa500.c:
+	int32_t rr_cat_parse_amp_line(char *line)
+	bool rr_cat_kpa500_init(void)
+
+cat.yaesu.c:
+	bool rr_cat_yaesu_init(void)
+	bool rr_cat_yaesu_parse(const char *msg)
+
+codecneg.c:
+	const char *media_capab_prepare(const char *codecs)
+	char *codec_filter_common(const char *preferred, const char *available)
+
+config.c:
+	extern defconfig_t defcfg[]
+	const char *config_file
+	dict *cfg
+	dict *default_cfg
+	dict *servers
+	int dict_merge(dict *dst, dict *src)
+	dict *dict_merge_new(dict *a, dict *b)
+	bool cfg_set_default(dict *d, char *key, char *val)
+	bool cfg_set_defaults(dict *d, defconfig_t *defaults)
+	bool cfg_detect_and_load(const char *configs[], int num_configs)
+	dict *cfg_load(const char *path)
+	const char *cfg_get(const char *key)
+	bool cfg_get_bool(const char *key, bool def)
+	int cfg_get_int(const char *key, int def)
+	unsigned int cfg_get_uint(const char *key, unsigned int def)
+	const char *cfg_get_exp(const char *key)
+	bool cfg_save(dict *d, const char *path)
+	bool cfg_apply_new(dict *oldcfg, dict *newcfg)
+	dict *dict_diff(dict *a, dict *b)
+	reload_event_t *reload_events
+	reload_event_t *reload_event_add(const char *key, bool (*callback)(), const char *note)
+	bool reload_event_list(const char *key)
+	bool reload_event_run(const char *key)
+	reload_event_t *reload_event_find(const char *key, bool (*callback)())
+	bool reload_event_remove(reload_event_t *evt)
+	
+
+debug.c:
+	bool debug_init(void)
+	bool debug_filter(const char *subsys, const char *fmt)
+
+dict.c:
+	int dict_add(dict * d, const char * key, char * val)
+	dict * dict_new(void)
+	void dict_free(dict * d)
+	char * dict_get(dict * d, const char * key, char * defval)
+	int dict_del(dict * d, const char * key)
+	int dict_enumerate(dict * d, int rank, const char ** key, char ** val)
+	void dict_dump(dict * d, FILE * out)
+	bool dict_get_bool(dict *d, const char *key, bool def)
+	int dict_get_int(dict *d, const char *key, int def)
+	unsigned int dict_get_uint(dict *d, const char *key, unsigned int def)
+	double dict_get_double(dict *d, const char *key, double def)
+	float dict_get_float(dict *d, const char *key, float def)
+	long dict_get_long(dict *d, const char *key, long def)
+	long long dict_get_llong(dict *d, const char *key, long long def)
+	const char *dict_get_exp(dict *d, const char *key)
+
+io.c:
+	int rr_io_open(rr_io_context_t *ctx, rr_io_type_t type, const char *path, int port)
+	ssize_t rr_io_read(rr_io_context_t *ctx, char *buffer, size_t len)
+	ssize_t rr_io_write(rr_io_context_t *ctx, const char *buffer, size_t len)
+	void rr_io_close(rr_io_context_t *ctx)
+	bool rr_io_init(void)
+
+json.c:
+	char *json_escape(const char *s)
+	char *dict2json(dict *d)
+	void dict_import_va(dict *d, int first_type, va_list ap)
+	void dict_import(dict *d, int first_type, ...)
+	dict *dict_new_ext(int first_type, ...)
+	const char *dict2json_mkstr(int first_type, ...)
+	dict *json2dict(const char *json)
+	void json_parse_and_flatten(const char *json, dict *dptr)
+
+logger.c:
+	extern char latest_timestamp[64]
+	extern time_t now
+	const char *log_priority_to_str(logpriority_t priority)
+	void logger_init(const char *logfile)
+	void logger_end(void)
+	int update_timestamp(void)
+	void Log(logpriority_t priority, const char *subsys, const char *fmt, ...)
+
+module.c:
+	bool rusty_load_module(const char *path)
+	bool rusty_unload_module(const char *name)
+
+posix.c:
+	extern bool dying
+	extern void shutdown_app(int signum)
+	void host_cleanup(void)
+	void init_signals(void)
+	bool host_init(void)
+
+util.file.c:
+	long long safe_atoll(const char *s)
+	bool is_dir(const char *path)
+	char *expand_path(const char *path)
+	char *find_file_by_list(const char *files[], int file_count)
+
+util.math.c:
+	float safe_atof(const char *s)
+	double safe_atod(const char *s)
+	long safe_atol(const char *s)
+	long long safe_atoll(const char *s)
+
+util.string.c:
+	char *escape_html(const char *input)
+	void hash_to_hex(char *dest, const uint8_t *hash, size_t len)
+
+ws.mediacache.c:
+	mediachan_list_t *ws_media_channels
+	bool ws_list_channels(http_client_t *cptr)
+	int ws_subscribe_channel(http_client_t *cptr, const char *chan_uuid)
+	bool ws_unsubscribe_channel(http_client_t *cptr, int chan_id)
+	mediachan_list_t *ws_find_channel_by_uuid(const char *chan_uuid)
+	mediachan_list_t *ws_find_channel_by_session(http_client_t *cptr, int chan_id)
