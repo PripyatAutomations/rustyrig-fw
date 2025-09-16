@@ -23,10 +23,19 @@ enum LogPriority {
       LOG_DEBUG,
       LOG_CRAZY
 };
+
 struct log_priority {
    enum LogPriority	prio;
    const char 		*msg;
 };
+
+struct log_callback {
+   enum LogPriority	 prio;
+   const char           *msg;
+   bool                (*callback)(const char *fmt, va_list ap);
+   struct log_callback *next;
+};
+
 
 extern FILE *logfp;
 extern int log_level;
@@ -38,5 +47,9 @@ extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
 extern char latest_timestamp[64];
 extern int update_timestamp(void);
 extern enum LogPriority log_priority_from_str(const char *priority);
+
+// Add a callback to the Log() call
+extern bool log_add_callback(bool (*log_va_cb)(const char *fmt, va_list ap));
+extern bool log_remove_callback(struct log_callback *log_callback);
 
 #endif	// !defined(__rr_common_logger_h)

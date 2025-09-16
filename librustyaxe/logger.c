@@ -42,51 +42,12 @@ static bool log_show_ts = false;
 int log_level = LOG_CRAZY;	// Default to showing ALL logging
 char latest_timestamp[64];	// Current printed timestamp
 
-struct log_callback {
-   enum LogPriority	 prio;
-   const char           *msg;
-   bool                (*callback)(const char *fmt, va_list ap);
-   struct log_callback *next;
-};
-
 static struct log_callback *log_callbacks = NULL;
 
 /* String constants we use more than a few times */
 const char s_prio_none[] = " NONE";
 
-bool log_add_callback(bool (*log_va_cb)(const char *fmt, va_list ap)) {
-   struct log_callback *newcb = malloc(sizeof(struct log_callback));
-
-   if (!newcb) {
-      fprintf(stderr, "OOM in log_set_callback!\n");
-      return true;
-   }
-   memset(newcb, 0, sizeof(struct log_callback));
-   newcb->callback = log_va_cb;
-
-   if (log_callbacks) {
-      // find the end
-      struct log_callback *prev = NULL;
-      struct log_callback *i = log_callbacks;
-
-      while (i) {
-         // continue the loop
-         prev = i;
-         i = i->next;
-      }
-
-      if (prev) {
-         prev->next = newcb;
-      }
-   } else {
-      // first entry, pop it at the top of the list
-      log_callbacks = newcb;
-   }
-   return false;
-}
-
 static struct log_priority log_priorities[] = {
-
    { .prio = LOG_AUDIT,	.msg = "audit" },
    { .prio = LOG_CRIT,	.msg = "crit" },
    { .prio = LOG_WARN,	.msg = "warn" },
@@ -163,7 +124,7 @@ void logger_end(void) {
 }
 
 int update_timestamp(void) {
-   time_t t;
+      time_t t;
    struct tm *tmp;
 
    // If we've already updated this second or have gone back in time, return success, to save CPU
@@ -251,14 +212,60 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       fflush(logfp);
    }
 
+   // if there are registered log callbacks, call them
    if (log_callbacks) {
       struct log_callback *lp = log_callbacks;
       while (lp) {
          if (lp->callback) {
-            lp->callback(fmt, ap);
+            lp->callback(fmt, ap_c1);
          }
          lp = lp->next;
       }
    }
    va_end(ap_c1);
+}
+
+bool log_remove_callback(struct log_callback *log_callback) {
+   struct log_callback *prev = NULL, *i = log_callbacks;
+   while (i) {
+      if (i == log_callback) {
+         prev->next = i;
+         free(i);
+         break;
+      }
+      prev = i;
+      i = i->next;
+   }
+   return false;
+}
+
+bool log_add_callback(bool (*log_va_cb)(const char *fmt, va_list ap)) {
+   struct log_callback *newcb = malloc(sizeof(struct log_callback));
+
+   if (!newcb) {
+      fprintf(stderr, "OOM in log_set_callback!\n");
+      return true;
+   }
+   memset(newcb, 0, sizeof(struct log_callback));
+   newcb->callback = log_va_cb;
+
+   if (log_callbacks) {
+      // find the end
+      struct log_callback *prev = NULL;
+      struct log_callback *i = log_callbacks;
+
+      while (i) {
+         // continue the loop
+         prev = i;
+         i = i->next;
+      }
+
+      if (prev) {
+         prev->next = newcb;
+      }
+   } else {
+      // first entry, pop it at the top of the list
+      log_callbacks = newcb;
+   }
+   return false;
 }
