@@ -25,6 +25,7 @@
 #include "librustyaxe/cat.h"
 #include "librustyaxe/posix.h"
 #include "librustyaxe/json.h"
+#include "librustyaxe/util.string.h"
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"

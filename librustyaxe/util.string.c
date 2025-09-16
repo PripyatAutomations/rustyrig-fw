@@ -64,3 +64,17 @@ void hash_to_hex(char *dest, const uint8_t *hash, size_t len) {
 
    dest[len * 2] = '\0';
 }
+
+bool parse_bool(const char *str) {
+   if (!str) {
+      return false;
+   }
+
+   if (strcasecmp(str, "true") == 0 ||
+       strcasecmp(str, "yes") == 0 ||
+       strcasecmp(str, "on") == 0 ||
+       strcasecmp(str, "1") == 0) {
+      return true;
+   }
+   return false;
+}

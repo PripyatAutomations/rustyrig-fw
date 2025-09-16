@@ -9,7 +9,10 @@
 #if	!defined(__rr_util_string_h)
 #define __rr_util_string_h
 
+#include <stdbool.h>
+
 extern char *escape_html(const char *input);
 extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
+extern bool parse_bool(const char *str);
 
 #endif	// !defined(__rr_util_string_h)

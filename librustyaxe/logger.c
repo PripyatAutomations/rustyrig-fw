@@ -54,7 +54,7 @@ static struct log_callback *log_callbacks = NULL;
 /* String constants we use more than a few times */
 const char s_prio_none[] = " NONE";
 
-bool log_add_callback(bool (*log_val_cb)(const char *fmt, va_list ap)) {
+bool log_add_callback(bool (*log_va_cb)(const char *fmt, va_list ap)) {
    struct log_callback *newcb = malloc(sizeof(struct log_callback));
 
    if (!newcb) {
