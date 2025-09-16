@@ -295,16 +295,10 @@ static bool ws_chat_cmd_syslog(http_client_t *cptr, const char *state) {
    if (client_has_flag(cptr, FLAG_STAFF) || client_has_flag(cptr, FLAG_SYSLOG)) {
       bool new_state = false;
 
-      // Parse the state
-      if ((strcasecmp(state, "on") == 0) ||
-          (strcasecmp(state, "true") == 0) ||
-          (strcasecmp(state, "yes") == 0)) {
-         new_state = true;
+      new_state = parse_bool(state);
+      if (new_state) {
          client_set_flag(cptr, FLAG_SYSLOG);
-      } else if ((strcasecmp(state, "off") == 0) ||
-                 (strcasecmp(state, "false") == 0) ||
-                 (strcasecmp(state, "no") == 0)) {
-         new_state = false;
+      } else {
          client_clear_flag(cptr, FLAG_SYSLOG);
       }
    } else {

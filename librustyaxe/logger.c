@@ -10,6 +10,11 @@
  * support logging to a a few places
  *	Targets: syslog console flash (file)
  */
+//
+// XXX: Need to implement filtering like this:
+// XXX:	core.log-level=*:crit audio:crit core:debug ws:debug gtk:crit gtk.editserver:crazy
+// XXX: where core.* and core mean the same. etc
+
 #include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -26,11 +31,6 @@
 #include "librustyaxe/debug.h"
 #include "librustyaxe/client-flags.h"
 
-#if	defined(__RRCLIENT)
-extern bool log_print_va(const char *fmt, va_list ap);
-extern bool log_print(const char *fmt, ...);
-#endif
-
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
 extern char latest_timestamp[64];
@@ -42,10 +42,51 @@ static bool log_show_ts = false;
 int log_level = LOG_CRAZY;	// Default to showing ALL logging
 char latest_timestamp[64];	// Current printed timestamp
 
+struct log_callback {
+   enum LogPriority	 prio;
+   const char           *msg;
+   bool                (*callback)(const char *fmt, va_list ap);
+   struct log_callback *next;
+};
+
+static struct log_callback *log_callbacks = NULL;
+
 /* String constants we use more than a few times */
 const char s_prio_none[] = " NONE";
 
+bool log_add_callback(bool (*log_val_cb)(const char *fmt, va_list ap)) {
+   struct log_callback *newcb = malloc(sizeof(struct log_callback));
+
+   if (!newcb) {
+      fprintf(stderr, "OOM in log_set_callback!\n");
+      return true;
+   }
+   memset(newcb, 0, sizeof(struct log_callback));
+   newcb->callback = log_va_cb;
+
+   if (log_callbacks) {
+      // find the end
+      struct log_callback *prev = NULL;
+      struct log_callback *i = log_callbacks;
+
+      while (i) {
+         // continue the loop
+         prev = i;
+         i = i->next;
+      }
+
+      if (prev) {
+         prev->next = newcb;
+      }
+   } else {
+      // first entry, pop it at the top of the list
+      log_callbacks = newcb;
+   }
+   return false;
+}
+
 static struct log_priority log_priorities[] = {
+
    { .prio = LOG_AUDIT,	.msg = "audit" },
    { .prio = LOG_CRIT,	.msg = "crit" },
    { .prio = LOG_WARN,	.msg = "warn" },
@@ -56,6 +97,18 @@ static struct log_priority log_priorities[] = {
 };
 
 FILE	*logfp = NULL;
+
+enum LogPriority log_priority_from_str(const char *priority) {
+   int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
+
+   for (int i = 0; i < log_levels; i++) {
+      if (strcasecmp(log_priorities[i].msg, priority) == 0) {
+         return log_priorities[i].prio;
+      }
+   }
+   return LOG_NONE;
+}
+
 
 const char *log_priority_to_str(logpriority_t priority) {
    int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
@@ -69,15 +122,15 @@ const char *log_priority_to_str(logpriority_t priority) {
 }
 
 void logger_init(const char *logfile) {
-#if	0
-   const char *ll = eeprom_get_str("debug/loglevel");
+   const char *ll = NULL;
+#if	defined(USE_EEPROM)
+   ll = eeprom_get_str("debug/loglevel");
    log_show_ts = eeprom_get_bool("debug/show_ts");
 #endif
-   const char *ll = cfg_get("log.level");
-   const char *t = cfg_get("log.show-ts");
 
-   if (t && strcasecmp(t, "true") == 0) {
-      log_show_ts = true;
+   if (!ll) {
+      ll = cfg_get("log.level");
+      log_show_ts = cfg_get_bool("log.show-ts", false);
    }
 
    if (ll) {
@@ -183,40 +236,29 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    va_end(ap);
 
    /* Only spew to the serial port if logfile is closed */
-   if (!logfp && (logfp != stdout) && (logfp != stderr)) {
-      va_end(ap_c1);
-      return;
+   if (logfp) {
+      if (log_show_ts) {
+         fprintf(logfp, "[%s] %s\n", latest_timestamp, log_msg);
+         if (logfp != stdout && logfp != stderr) {
+            fprintf(stdout, "x[%s] %s\n", latest_timestamp, log_msg);
+         }
+      } else {
+         fprintf(logfp, "%s\n", log_msg);
+         if (logfp != stdout && logfp != stderr) {
+            fprintf(stdout, "x: %s\n", log_msg);
+         }
+      }
+      fflush(logfp);
    }
 
-   if (log_show_ts) {
-      fprintf(logfp, "[%s] %s\n", latest_timestamp, log_msg);
-      if (logfp != stdout && logfp != stderr) {
-         fprintf(stdout, "x[%s] %s\n", latest_timestamp, log_msg);
-      }
-   } else {
-      fprintf(logfp, "%s\n", log_msg);
-      if (logfp != stdout && logfp != stderr) {
-         fprintf(stdout, "x: %s\n", log_msg);
+   if (log_callbacks) {
+      struct log_callback *lp = log_callbacks;
+      while (lp) {
+         if (lp->callback) {
+            lp->callback(fmt, ap);
+         }
+         lp = lp->next;
       }
    }
-   fflush(logfp);
-
-// if not in rrclient/fwdsp code, we should bcast this to users with SYSLOG flag
-#if	0
-   char ws_logbuf[2048];
-   memset(ws_logbuf, 0, sizeof(ws_logbuf));
-   char *ws_json_escaped = json_escape(log_msg);
-
-   snprintf(ws_logbuf, sizeof(ws_logbuf), "{ \"syslog\": { \"ts\": %lu, \"subsys\": \"%s\", \"prio\": \"%s\", \"data\": \"%s\" } }",
-            now, subsys, log_priority_to_str(priority), ws_json_escaped);
-   struct mg_str ms = mg_str(ws_logbuf);
-   ws_broadcast_with_flags(FLAG_SYSLOG, NULL, &ms, WEBSOCKET_OP_TEXT);
-   fprintf(stderr, "syslog sent: %s", ws_logbuf);
-   free(ws_json_escape);
-#endif
-
-#if	defined(__RRCLIENT)
-   log_print("%s", log_msg);		// print in log tab of client
-#endif	// !defined(__RRCLIENT)
    va_end(ap_c1);
 }

@@ -37,5 +37,6 @@ extern void logger_init(const char *logfile);
 extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
 extern char latest_timestamp[64];
 extern int update_timestamp(void);
+extern enum LogPriority log_priority_from_str(const char *priority);
 
 #endif	// !defined(__rr_common_logger_h)
