@@ -208,7 +208,6 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       prepare_msg(msgbuf, sizeof(msgbuf),
          "Kicking client from %s:%d who has no cptr?!?!!?",
          ip, port);
-      Log(LOG_AUDIT, "http.pong", msgbuf);
       ws_kick_client_by_c(c, msgbuf);
       rv = true;
       goto cleanup;
@@ -220,8 +219,8 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       Log(LOG_WARN, "http.ws", "ws_handle_pong: PONG from user with no timestamp");
       rv = true;
       goto cleanup;
-//   } else {
-//      Log(LOG_CRAZY, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), ts);
+   } else {
+      Log(LOG_CRAZY, "http.ws", "ws_handle_pong: PONG from user %s with ts:|%s|", (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), ts);
    }
 
    char *endptr;
@@ -244,12 +243,12 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
       cptr->last_heard = now;
       cptr->last_ping = 0;
       cptr->ping_attempts = 0;
-// XXX: crazy logging
-//      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%li] and last_ping to 0",
-//          (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), now);
+      Log(LOG_CRAZY, "http.pong", "Reset user %s last_heard to now:[%li] and last_ping to 0",
+          (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"), now);
    }
 
 cleanup:
+   free(ts);
    return rv;
 }
 
@@ -469,15 +468,14 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
 
    // Binary (audio, waterfall) frames
    if (msg->flags & WEBSOCKET_OP_BINARY) {
-      Log(LOG_DEBUG, "ws", "Binary frame: %li bytes", msg->data.len);
+      Log(LOG_CRAZY, "ws.binframe", "Binary frame: %li bytes", msg->data.len);
       ws_binframe_process(c, msg->data.buf, msg->data.len);
    } else {	// Text (mostly json) frames
-//      Log(LOG_DEBUG, "ws", "Text frame: %li bytes", msg->data.len);
+      Log(LOG_CRAZY, "ws", "Text frame: %li bytes", msg->data.len);
       ws_txtframe_process(msg, c);
    }
    return false;
 }
-
 
 bool ws_send_ping(http_client_t *cptr) {
    if (!cptr || !cptr->is_ws) {
@@ -501,9 +499,9 @@ bool ws_send_ping(http_client_t *cptr) {
    if (cptr->ping_attempts > 1) {
       Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
           cptr->chatname, cptr, now, cptr->ping_attempts);
-//   } else {
-//      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
-//          cptr->chatname, cptr, now, cptr->ping_attempts);
+   } else {
+      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
+          cptr->chatname, cptr, now, cptr->ping_attempts);
    }
 
    const char *jp = dict2json_mkstr(VAL_ULONG, "ping.ts", now);

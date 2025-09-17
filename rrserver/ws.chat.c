@@ -97,7 +97,6 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
          "Shutting down due to /die \"%s\" from %s (uid: %d with privs %s)",
          (reason ? reason : "No reason given"),
          cptr->chatname, cptr->user->uid, cptr->user->privs);
-      Log(LOG_AUDIT, "core", msgbuf);
       send_global_alert("***SERVER***", msgbuf);
       dying = 1;
    } else {
@@ -131,7 +130,6 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
          "Shutting down due to /restart from %s (uid: %d with privs %s): %s",
          cptr->chatname, cptr->user->uid, cptr->user->privs, reason);
       send_global_alert("***SERVER***", msgbuf);
-      Log(LOG_AUDIT, "core", msgbuf);
       dying = 1;		// flag that this should be the last iteration
       restarting = 1;		// flag that we should restart after processing the alert
    } else {
@@ -233,7 +231,6 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 
       // broadcast the userinfo so cul updates
       ws_send_userinfo(acptr, NULL);
-      Log(LOG_AUDIT, "admin.mute", "%s", msgbuf);
 
       // turn off PTT if this user holds it
       if (acptr->is_ptt) {
@@ -277,7 +274,6 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
       prepare_msg(msgbuf, sizeof(msgbuf), "%s UNMUTEd by %s",
          target, cptr->chatname);
       send_global_alert("***SERVER***", msgbuf);
-      Log(LOG_AUDIT, "admin.unmute", msgbuf);
       // broadcast the userinfo so cul updates
       ws_send_userinfo(acptr, NULL);
    } else {
@@ -380,7 +376,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
 
    // XXX: remove this asap
    char *json_data = dict2json(d);
-   Log(LOG_CRAZY, "chat", "RX from cptr:<%x> (%s) => %.*s", cptr, cptr->chatname, json_data);
+   Log(LOG_CRAZY, "chat", "handle chat msg: RX from cptr:<%x> (%s) => json: %.*s", cptr, cptr->chatname, json_data);
    free(json_data);
 
    cptr->last_heard = now;
@@ -421,6 +417,8 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             Log(LOG_CRAZY, "chat", "talk parse, msg has no user field");
             return true;
          }
+
+         Log(LOG_CRAZY, "ws.chat", "msg type:%s from %s: |%s|", msg_type, cptr->chatname, data);
 
          // handle a file chunk
          if (msg_type) {

@@ -165,14 +165,11 @@ void load_filters_from_config(void) {
    free(copy);
 }
 
-// Return true if message should be shown
 bool debug_filter(const char *subsys, logpriority_t msg_level) {
-   struct log_filter *f = filters;
-   struct log_filter *best = NULL;
+   struct log_filter *f = filters, *best = NULL;
 
    while (f) {
       if (fnmatch(f->pattern, subsys, 0) == 0) {
-         // Pick the most specific (longest) match
          if (!best || strlen(f->pattern) > strlen(best->pattern)) {
             best = f;
          }
@@ -181,11 +178,14 @@ bool debug_filter(const char *subsys, logpriority_t msg_level) {
    }
 
    if (best) {
+      // normal compare
       return msg_level <= best->level;
    }
 
-   return true; // no filter matches → allow all
+   // default reject unless critical
+   return msg_level <= LOG_CRIT;
 }
+
 
 // Dump all filters
 void log_dump_filters(void) {

@@ -393,7 +393,7 @@ int main(int argc, char **argv) {
       }
 #if	defined(USE_PROFILING)
    // XXX: Every 5 minutes we should save the loop runtime average
-//      Log(LOG_INFO, "loop", "Last mainloop runtime: %.6f seconds", loop_runtime);
+      Log(LOG_CRAZY, "profile", "Last mainloop runtime: %.6f seconds", loop_runtime);
 #endif // defined(USE_PROFILING)
    }
    host_cleanup();

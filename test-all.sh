@@ -1,6 +1,10 @@
 #!/bin/bash
 SESSION="rustyrig"
 
+if [ ! -x bin/rrclient -o ! -x bin/rrserver ]; then
+   ./build.sh
+fi
+
 if command -v tmux >/dev/null 2>&1; then
    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
       tmux new-session -d -s "$SESSION" './test-server.sh'   # window 0 for server

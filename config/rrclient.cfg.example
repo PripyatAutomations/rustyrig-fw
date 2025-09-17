@@ -4,8 +4,7 @@
 //
 [general]
 ;  audit | crit | warn | info | debug | crazy
-;log.level=debug
-log.level=crazy
+log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy
 path.help-dir=./help
 ui.show-pings=false
 # Divide scroll events by this # to get single-steps

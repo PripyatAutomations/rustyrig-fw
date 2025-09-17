@@ -31,6 +31,9 @@
 // How long should the random part of the filename be?
 #define	RECORDING_ID_LEN	24
 
+// Only warn that recording directory is unset the first time
+bool recdir_unset_warned = false;
+
 const char *au_recording_mkfilename(const char *recording_id, int channel) {
    char *rv = NULL;
 
@@ -39,8 +42,14 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    }
 
    const char *recdir = cfg_get_exp("path.record-dir");
+
    if (!recdir) {
-      Log(LOG_CRAZY, "au.record", "Please set path.record-dir in config to enable recording");
+      // have we NOT warned the user yet?
+      if (!recdir_unset_warned) {
+         Log(LOG_WARN, "au.record", "Please set path.record-dir in config to enable recording");
+         recdir_unset_warned = true;
+      }
+      // either way, we've failed, so return NULL....
       return NULL;
    }
 

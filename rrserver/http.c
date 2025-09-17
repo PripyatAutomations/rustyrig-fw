@@ -22,14 +22,15 @@
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
+#include "librustyaxe/cat.h"
+#include "librustyaxe/codecneg.h"
+#include "librustyaxe/json.h"
 #include "librustyaxe/util.string.h"
 #include "librustyaxe/util.file.h"
-#include "librustyaxe/codecneg.h"
 #include "librustyaxe/posix.h"
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "librustyaxe/cat.h"
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/auth.h"
@@ -113,7 +114,7 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
 
    while(cptr != NULL) {
       if (cptr->conn == c) {
-//         Log(LOG_CRAZY, "http.core", "find_client_by_c <%x> returning index %i: %x |%s|", c, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
+         Log(LOG_CRAZY, "http.core", "find_client_by_c <%x> returning index %i: %x |%s|", c, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
          return cptr;
       }
       i++;
@@ -178,7 +179,7 @@ http_client_t *http_find_client_by_name(const char *name) {
    }
 
    while(cptr != NULL) {
-      Log(LOG_DEBUG, "http.core", "hfcbn: i: %d user:<%x> chatname: %s", i, cptr->user, cptr->chatname);
+      Log(LOG_CRAZY, "http.core", "find client by name: i: %d user:<%x> chatname: %s", i, cptr->user, cptr->chatname);
       // incomplete entry
       if (!cptr->user || (cptr->chatname[0] == '\0')) {
          cptr = cptr->next;
@@ -187,13 +188,13 @@ http_client_t *http_find_client_by_name(const char *name) {
 
       // match?
       if (strcasecmp(cptr->chatname, name) == 0) {
-         Log(LOG_DEBUG, "http.core", "hfcb_name |%s| found match at index %d: <%x> |%s|", name, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
+         Log(LOG_CRAZY, "http.core", "find client by name |%s| found match at index %d: <%x> |%s|", name, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
          return cptr;
       }
       i++;
       cptr = cptr->next;
    }
-   Log(LOG_DEBUG, "http.core", "hfcb_name found no results for %s, index was %d", name, i);
+   Log(LOG_DEBUG, "http.core", "find client by name found no results for %s, index was %d", name, i);
    return NULL;
 }
 
@@ -337,6 +338,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
    char ip[INET6_ADDRSTRLEN];  // Buffer to hold IPv4 or IPv6 address
+   memset(ip, 0, INET6_ADDRSTRLEN);
+
    int port = c->rem.port;
    if (c->rem.is_ip6) {
       inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
@@ -353,11 +356,12 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          opts.ca = mg_str("*");
          mg_tls_init(c, &opts);
       }
-
    } else if (ev == MG_EV_ACCEPT) {
       Log(LOG_CRAZY, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
+
 #if	defined(HTTP_USE_TLS)
       if (c->fn_data != NULL) {
+         Log(LOG_CRAZY, "http", "Init TLS for mg_conn:<%x> from %s:%d", c, ip, port);
          mg_tls_init(c, &tls_opts);
       }
 #endif
@@ -377,6 +381,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
             
             // allocate the memory
             cptr->user_agent = malloc(ua_len);
+            if (!cptr->user_agent) {
+               fprintf(stderr, "OOM in http_cb EV_HTTP_MSG\n");
+               return;
+            }
             memset(cptr->user_agent, 0, ua_len);
             memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
             Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, (cptr->user_agent ? cptr->user_agent : "none"), ua_len);
@@ -393,7 +401,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       http_client_t *cptr = http_find_client_by_c(c);
 
       if (cptr) {
-         Log(LOG_INFO, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
+         Log(LOG_DEBUG, "http", "Conn mg_conn:<%x> from %s:%d upgraded to ws with cptr:<%x>", c, ip, port, cptr);
          cptr->is_ws = true;
          char msgbuf[512];
          memset(msgbuf, 0, sizeof(msgbuf));
@@ -409,7 +417,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
       http_client_t *cptr = http_find_client_by_c(c);
-      Log(LOG_DEBUG, "http", "http_cb for cptr:<%x> c:<%x>", cptr, c);
+      Log(LOG_DEBUG, "http", "http_cb MG_EV_CLOSE for cptr:<%x> c:<%x>", cptr, c);
 
       // make sure we're not accessing unsafe memory
       if (cptr && cptr->user && cptr->chatname[0] != '\0') {
@@ -432,6 +440,8 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
 
          // reduce the # of clones for the user / reset to 0
+         Log(LOG_CRAZY, "http", "Departing user %s had %d clones", cptr->chatname, cptr->user->clones);
+
          cptr->user->clones--;
          if (cptr->user->clones < 0) {
             cptr->user->clones = 0;
@@ -439,17 +449,19 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 
          if (cptr->active) {
             // blorp out a quit to all connected users
-            prepare_msg(resp_buf, sizeof(resp_buf),
-                        "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"connection closed\", \"ts\": %lu, \"clones\": %d } }",
-                        cptr->chatname, now, cptr->user->clones);
-            struct mg_str ms = mg_str(resp_buf);
+            const char *jp = dict2json_mkstr(
+               VAL_STR, "talk.cmd", "quit",
+               VAL_STR, "talk.user", cptr->chatname,
+               VAL_ULONG, "talk.ts", now,
+               VAL_STR, "talk.reason", "connection closed",
+               VAL_INT, "talk.clones", cptr->user->clones);
+            struct mg_str ms = mg_str(jp);
             ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
+            free((char *)jp);
             Log(LOG_AUDIT, "auth", "User %s on mg_conn:<%x> cptr:<%x> from %s:%d disconnected", cptr->chatname, c, cptr, ip, port);
          }
-
-      } else {
-          // This is very noisy as it includes http requests for assets; maybe we can filter them out more?
-         Log(LOG_CRAZY, "auth", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
+      } else {	// This one makes a BUNCH of noise due to webui loading
+         Log(LOG_CRAZY, "auth.extreme", "Unauthenticated client on mg_conn:<%x> from %s:%d disconnected", c, ip, port);
       }
       http_remove_client(c);
    }
@@ -570,7 +582,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    http_client_t *cptr = (http_client_t *)malloc(sizeof(http_client_t));
 
    if (!cptr) {
-      Log(LOG_WARN, "http", "Failed to allocate memory for new client");
+      fprintf(stderr, "OOM in http_add_client\n");
       return NULL;
    }
    memset(cptr, 0, sizeof(http_client_t));
@@ -589,7 +601,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    cptr->next = http_client_list;
    http_client_list = cptr;
 
-   Log(LOG_INFO, "http", "Added new client at cptr:<%x> (%d clients and %d sessions total now)", cptr, http_count_connections(), http_count_clients());
+   Log(LOG_DEBUG, "http", "Added new client at cptr:<%x> (%d clients and %d sessions total now)", cptr, http_count_connections(), http_count_clients());
    return cptr;
 }
 
@@ -625,7 +637,7 @@ void http_remove_client(struct mg_connection *c) {
             }
 
             if (current->user->clones < 0) {
-               Log(LOG_INFO, "http", "Client at cptr:<%x> has %d clones??", current, current->user->clones);
+               Log(LOG_WARN, "http", "Client at cptr:<%x> has %d clones??", current, current->user->clones);
                current->user->clones = 0;
             }
          }

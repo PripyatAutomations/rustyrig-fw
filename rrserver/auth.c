@@ -86,7 +86,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
       sprintf(hex_output + (i * 2), "%02x", hash[i]);
    }
    hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
-//   Log(LOG_CRAZY, "auth", "passwd |%s| nonce |%s| result |%s|", password, nonce, hex_output);
+   Log(LOG_CRAZY, "auth", "passwd |%s| nonce |%s| result |%s|", password, nonce, hex_output);
    
    return hex_output;
 }
@@ -114,7 +114,7 @@ int http_getuid(const char *user) {
          return i;
       }
    }
-//   Log(LOG_DEBUG, "auth", "http_getuid(%s) returns not-found!", user);
+   Log(LOG_CRAZY, "auth", "http_getuid(%s) returns not-found!", user);
    return -1;
 }
 
@@ -174,7 +174,7 @@ bool http_save_users(const char *filename) {
      }
 
      if (up->name[0] != '\0' && up->pass[0] != '\0') {
-        Log(LOG_INFO, "auth", " => %s %sabled with privileges: %s", up->name, (up->enabled ? "en" :"dis"),  up->privs);
+        Log(LOG_DEBUG, "auth", " => %s %sabled with privileges: %s", up->name, (up->enabled ? "en" :"dis"),  up->privs);
         fprintf(file, "%d:%s:%d:%s:%s\n", up->uid, up->name, up->enabled, up->pass, (up->privs[0] != '\0' ? up->privs : "none"));
         users_saved++;
      }
@@ -276,7 +276,7 @@ int http_load_users(const char *filename) {
             case 6: // Privileges
                if (token != NULL) {
                   strncpy(up->privs, token, USER_PRIV_LEN);
-                  Log(LOG_INFO, "auth", "load_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_clones=%d",
+                  Log(LOG_DEBUG, "auth", "load_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_clones=%d",
                       uid,
                       (up->name[0]  != '\0' ? up->name  : "none"),
                       (up->email[0] != '\0' ? up->email : "none"),
@@ -315,7 +315,7 @@ static http_client_t *http_find_client_by_nonce(const char *nonce) {
       }
 
       if (memcmp(cptr->nonce, nonce, strlen(cptr->nonce)) == 0) {
-//         Log(LOG_CRAZY, "http.core", "hfcbn returning index [%i] for nonce |%s|", cptr->nonce);
+         Log(LOG_CRAZY, "http.core", "hfcbn returning index [%i] for nonce |%s|", cptr->nonce);
          return cptr;
       }
       i++;
@@ -327,7 +327,7 @@ static http_client_t *http_find_client_by_nonce(const char *nonce) {
 }
 
 bool match_priv(const char *user_privs, const char *priv) {
-//   Log(LOG_CRAZY, "auth", "match_priv(): comparing |%s| to |%s|", user_privs, priv);
+   Log(LOG_CRAZY, "auth", "match_priv(): comparing |%s| to |%s|", user_privs, priv);
    if (user_privs == NULL || priv == NULL) {
       return false;
    }
@@ -346,17 +346,17 @@ bool match_priv(const char *user_privs, const char *priv) {
       memcpy(token, start, len);
       token[len] = '\0';
 
-//      Log(LOG_CRAZY, "auth", "token=|%s|", token);
+      Log(LOG_CRAZY, "auth", "token=|%s|", token);
 
       if (strcmp(token, priv) == 0) {
-//         Log(LOG_CRAZY, "auth", " → exact match |%s|", token);
+         Log(LOG_CRAZY, "auth", " → exact match |%s|", token);
          return true;
       }
 
       if (len >= 2 && token[len - 2] == '.' && token[len - 1] == '*') {
          token[len - 2] = '\0';  // strip .*
          if (strncmp(priv, token, strlen(token)) == 0 && priv[strlen(token)] == '.') {
-//            Log(LOG_CRAZY, "auth", " → wildcard match |%s|", token);
+            Log(LOG_CRAZY, "auth", " → wildcard match |%s|", token);
             return true;
          }
       }
@@ -420,7 +420,6 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    struct mg_str msg_data = msg->data;
-   Log(LOG_CRAZY, "ws.auth", "msgbuf: |%s|", msg_data.buf);
    char *cmd = mg_json_get_str(msg_data, "$.auth.cmd");
    char *pass = mg_json_get_str(msg_data, "$.auth.pass");
    char *token = mg_json_get_str(msg_data, "$.auth.token");

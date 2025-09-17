@@ -76,6 +76,8 @@ minimal inet_ntop() for non-posix
 [protocol]
 * Instead of blorping out the rig status once a second, lets do broadcasts only when changed or every 30 seconds plus on-connect
 * Implement multiple chat channels (bcast)
+* Fix KICK message so clients will know they've been disconnected
+* Detect if a client socket closes
 
 [privileges]
 * Implement user groups that contain privilege sets, then users can be assigned into groups
