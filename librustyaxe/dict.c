@@ -550,7 +550,7 @@ const char *dict_get_exp(dict *d, const char *key) {
    const char *p = dict_get(d, key, NULL);
    if (!p) {
       Log(LOG_DEBUG, "config", "dict_get_exp: key |%s| not found", key);
-      dict_dump(d, stderr);
+//      dict_dump(d, stderr);
       return NULL;
    }
 

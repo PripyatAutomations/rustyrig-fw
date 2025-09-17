@@ -115,49 +115,31 @@ void log_clear_filters(void) {
    filters = NULL;
 }
 
-bool debug_filter(const char *subsys, logpriority_t msg_level) {
-   struct log_filter *f = filters;
-   struct log_filter *best = NULL;
-
-   while (f) {
-      if (fnmatch(f->pattern, subsys, 0) == 0) { // wildcard match
-         // pick the most specific (longest) match
-         if (!best || strlen(f->pattern) > strlen(best->pattern)) {
-            best = f;
-         }
-      }
-      f = f->next;
+// Load filters from config string
+void load_filters_from_config(void) {
+   const char *cfg = cfg_get_exp("log.level");  // or "log.filters"
+   if (!cfg) {
+      return;
    }
-
-   if (best) {
-      return msg_level <= best->level;
-   }
-
-   // if no filter matches, allow everything
-   return true;
-}
-
-static void load_filters_from_config(void) {
-   const char *cfg = cfg_get_exp("log.filters"); // must be freed
-   if (!cfg) return;
 
    char *copy = strdup(cfg);
    free((void *)cfg);
 
    char *tok = copy;
    while (*tok) {
-      // Skip leading whitespace
-      while (isspace((unsigned char)*tok)) tok++;
+      while (isspace((unsigned char)*tok)) {
+         tok++;
+      }
 
-      // Find delimiter (space or comma)
       char *end = tok;
-      while (*end && *end != ',' && !isspace((unsigned char)*end)) end++;
+      while (*end && *end != ',' && !isspace((unsigned char)*end)) {
+         end++;
+      }
 
       if (*end) {
          *end = '\0';
       }
 
-      // Split into subsys:level
       char *sep = strchr(tok, ':');
       if (sep) {
          *sep = '\0';
@@ -165,7 +147,7 @@ static void load_filters_from_config(void) {
          const char *level_str = sep + 1;
          logpriority_t level = log_priority_from_str(level_str);
 
-         // Ensure www.* also matches plain www
+         // If pattern ends with ".*", also add plain version
          size_t len = strlen(subsys);
          if (len >= 2 && strcmp(subsys + len - 2, ".*") == 0) {
             char *plain = strdup(subsys);
@@ -177,12 +159,62 @@ static void load_filters_from_config(void) {
          log_add_filter(subsys, level);
       }
 
-      // Move to next token
       tok = end + 1;
    }
 
    free(copy);
 }
+
+// Return true if message should be shown
+bool debug_filter(const char *subsys, logpriority_t msg_level) {
+   struct log_filter *f = filters;
+   struct log_filter *best = NULL;
+
+   while (f) {
+      if (fnmatch(f->pattern, subsys, 0) == 0) {
+         // Pick the most specific (longest) match
+         if (!best || strlen(f->pattern) > strlen(best->pattern)) {
+            best = f;
+         }
+      }
+      f = f->next;
+   }
+
+   if (best) {
+      return msg_level <= best->level;
+   }
+
+   return true; // no filter matches → allow all
+}
+
+// Dump all filters
+void log_dump_filters(void) {
+   printf("---- Log Filters ----\n");
+   struct log_filter *f = filters;
+   while (f) {
+      printf("  '%s' = %d (%s)\n", f->pattern, f->level,
+         log_priority_to_str(f->level));
+      f = f->next;
+   }
+   printf("-------------------\n");
+}
+
+// Test whether a given subsystem + level would pass
+void log_test_subsys(const char *subsys, logpriority_t level) {
+   bool show = debug_filter(subsys, level);
+   printf("Subsys '%s' %s level %d (%s) -> %s\n",
+      subsys, (level == LOG_CRAZY) ? "CRAZY" :
+               (level == LOG_DEBUG) ? "DEBUG" :
+               (level == LOG_INFO) ? "INFO" :
+               (level == LOG_WARN) ? "WARN" :
+               (level == LOG_CRIT) ? "CRIT" :
+               (level == LOG_AUDIT) ? "AUDIT" : "NONE",
+      level,
+      log_priority_to_str(level),
+      show ? "PASS" : "DROP");
+}
+
+///////////////////////////////////////////
 
 void logger_init(const char *logfile) {
    const char *ll = NULL;
@@ -213,6 +245,7 @@ void logger_init(const char *logfile) {
 
    // Load fine-grained filters from config
    load_filters_from_config();
+   log_dump_filters();
 }
 
 void logger_end(void) {
@@ -269,10 +302,6 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    if (!subsys || !fmt) {
       fprintf(stderr, "Invalid Log request: No subsys/fmt\n");
       va_end(ap);
-      return;
-   }
-
-   if (priority > log_level) {
       return;
    }
 
