@@ -22,6 +22,15 @@ CREATE TABLE ptt_log (
    record_file TEXT
 );
 
+CREATE TABLE chat_msg (
+   msg_id INTEGER PRIMARY KEY AUTOINCREMENT,
+   msg_ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+   msg_src TEXT NOT NULL,
+   msg_dest TEXT DEFAULT NULL,
+   msg_type TEXT NOT NULL,
+   msg_data TEXT NOT NULL
+);
+
 -- Users
 CREATE TABLE users (
    uid INTEGER PRIMARY KEY,         -- unique user ID

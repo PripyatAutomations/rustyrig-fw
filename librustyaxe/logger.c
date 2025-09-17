@@ -28,13 +28,6 @@
 #include "librustyaxe/logger.h"
 #include "librustyaxe/client-flags.h"
 
-struct log_filter {
-    char *pattern;            // subsystem name or wildcard, e.g. "www.*"
-    logpriority_t level;      // max log level to show
-    struct log_filter *next;
-};
-
-static struct log_filter *filters = NULL;
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
@@ -85,6 +78,14 @@ const char *log_priority_to_str(logpriority_t priority) {
    }
    return s_prio_none;
 }
+
+struct log_filter {
+    char *pattern;            // subsystem name or wildcard, e.g. "www.*"
+    logpriority_t level;      // max log level to show
+    struct log_filter *next;
+};
+
+static struct log_filter *filters = NULL;
 
 bool log_add_filter(const char *pattern, logpriority_t level) {
     struct log_filter *f = malloc(sizeof(*f));
@@ -186,7 +187,6 @@ bool debug_filter(const char *subsys, logpriority_t msg_level) {
    return msg_level <= LOG_CRIT;
 }
 
-
 // Dump all filters
 void log_dump_filters(void) {
    printf("---- Log Filters ----\n");
@@ -214,8 +214,9 @@ void log_test_subsys(const char *subsys, logpriority_t level) {
       show ? "PASS" : "DROP");
 }
 
-///////////////////////////////////////////
-
+//////////////////////////////
+// Actual log handling code //
+//////////////////////////////
 void logger_init(const char *logfile) {
    const char *ll = NULL;
 #if defined(USE_EEPROM)

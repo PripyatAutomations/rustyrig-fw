@@ -26,6 +26,7 @@
 #include "librustyaxe/posix.h"
 #include "librustyaxe/json.h"
 #include "librustyaxe/util.string.h"
+#include "rrserver/database.h"
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"
@@ -446,6 +447,15 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                return false;
             } else if (strcasecmp(msg_type, "pub") == 0 ||
                 strcasecmp(msg_type, "action") == 0) {
+               const char *channel = "***MAIN***";
+               // XXX: Here we should do content filtering, if enabled
+               bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname,
+                                             channel, msg_type, data);
+               if (db_res) {
+                  fprintf(stderr, "db_add_chat_msg failed\n");
+               }
+
+               // Relay the message
                const char *jp = dict2json_mkstr(
                   VAL_STR, "talk.cmd", "msg",
                   VAL_STR, "talk.data", data,

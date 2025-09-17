@@ -138,4 +138,29 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
    sqlite3_finalize(stmt);
    return success;
 }
+
+
+bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type, const char *msg_data) {
+   if (!db || !msg_src || !msg_dest || !msg_type || !msg_data) {
+      return false;
+   }
+
+   const char *sql = "INSERT INTO chat_msg (msg_ts, msg_src, msg_dest, msg_type, msg_data) VALUES (?, ?, ?, ?, ?);";
+
+   sqlite3_stmt *stmt;
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      return false;
+   }
+
+   sqlite3_bind_int(stmt, 1, msg_ts);
+   sqlite3_bind_text(stmt, 2, msg_src, -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 3, msg_dest, -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 4, msg_type, -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 5, msg_data, -1, SQLITE_STATIC);
+
+   bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+   sqlite3_finalize(stmt);
+   return success;
+}
+
 #endif
