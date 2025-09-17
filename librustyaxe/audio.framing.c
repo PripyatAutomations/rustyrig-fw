@@ -29,7 +29,6 @@
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
-#include "librustyaxe/debug.h"			// Debug message filtering
 #include "librustyaxe/client-flags.h"
 #include "librustyaxe/audio.h"
 

@@ -132,6 +132,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       char *data = dict_get(d, "talk.data", NULL);
       char *msg_type = dict_get(d, "talk.msg_type", NULL);
 
+      Log(LOG_CRAZY, "ws.chat", "msg: type=%s from=%s data=|%s", msg_type, from, data);
       // Support public messages and action (/me)
       if (msg_type && strcasecmp(msg_type, "pub") == 0) {
          ui_print("[%s] <%s> %s", get_chat_ts(), from, data);

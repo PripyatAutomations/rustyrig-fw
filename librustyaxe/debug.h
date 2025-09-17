@@ -12,6 +12,6 @@
 #include <stdint.h>
 
 extern bool debug_init(void);
-extern bool debug_filter(const char *subsys, const char *fmt);
+extern bool debug_filter(const char *subsys, logpriority_t level);
 
 #endif	// !defined(__rr_debug_h)

@@ -73,29 +73,29 @@ rr_vfo_t vfo_lookup(const char vfo) {
    return c_vfo;
 }
 
-const char vfo_name(rr_vfo_t vfo) {
+const char *vfo_name(rr_vfo_t vfo) {
    switch(vfo) {
       case VFO_A:
-         return 'A';
+         return "A";
          break;
       case VFO_B:
-         return 'B';
+         return "B";
          break;
       case VFO_C:
-         return 'C';
+         return "C";
          break;
       case VFO_D:
-         return 'D';
+         return "D";
          break;
       case VFO_E:
-         return 'E';
+         return "E";
          break;
       case VFO_NONE:
       default:
-         return '*';
+         return "*";
          break;
    }
-   return '*';
+   return "*";
 }
 
 rr_mode_t vfo_parse_mode(const char *mode) {

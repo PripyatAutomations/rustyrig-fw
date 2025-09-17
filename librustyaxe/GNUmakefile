@@ -30,21 +30,22 @@ librr_objs += util.math.o
 librr_objs += util.string.o
 librr_objs += ws.mediachan.o
 
+real_librr_objs := $(foreach x, ${librr_objs}, obj/${x})
 
-${librustyaxe}: ${librr_objs} GNUmakefile
+${librustyaxe}: ${real_librr_objs} GNUmakefile
 	@echo "[link] $@ from $(words $^) objects"
-	@${CC} ${LDFLAGS} -o $@ ${librr_objs}
+	@${CC} ${LDFLAGS} -o $@ ${real_librr_objs}
 
 world: ${libs}
 
-%.o:%.c
+obj/%.o:%.c
 	@echo "[compile] $< => $@"
 	@${RM} $@
 	@${CC} ${CFLAGS} -o $@ -c $<
 
 clean:
 	@echo "[clean]"
-	${RM} -f ${librr_objs} librustyaxe.so
+	${RM} -f ${real_librr_objs} librustyaxe.so
 
 distclean: clean
 	@echo "[distclean]"

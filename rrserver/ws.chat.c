@@ -392,8 +392,6 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
    char *reason = dict_get(d, "talk.args.reason", NULL);
    char *msg_type = dict_get(d, "talk.msg_type", NULL);
    char *user = cptr->chatname;
-   long chunk_index = dict_get_long(d, "talk.chunk_index", 0);
-   long total_chunks = dict_get_long(d, "talk.total_chunks", 0);
 
    if (cmd) {
       if (strcasecmp(cmd, "msg") == 0) {
@@ -425,25 +423,47 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
          }
 
          // handle a file chunk
-         if (msg_type && strcmp(msg_type, "file_chunk") == 0) {
-            char *filetype = dict_get(d, "talk.filetype", NULL);
-            char *filename = dict_get(d, "talk.filename", NULL);
-            const char *jp = dict2json_mkstr(
-               VAL_DOUBLE, "talk.chunk_index", chunk_index,
-               VAL_STR, "talk.cmd", "msg",
-               VAL_STR, "talk.data", data,
-               VAL_STR, "talk.from", cptr->chatname,
-               VAL_STR, "talk.msg_type", msg_type,
-               VAL_DOUBLE, "talk.total_chunks", total_chunks,
-               VAL_STR, "talk.filename", filename,
-               VAL_STR, "talk.filetype", filetype,
-               VAL_LONG, "talk.ts", now);
+         if (msg_type) {
+            if (strcasecmp(msg_type, "file_chunk") == 0) {
+               char *filetype = dict_get(d, "talk.filetype", NULL);
+               char *filename = dict_get(d, "talk.filename", NULL);
+               long chunk_index = dict_get_long(d, "talk.chunk_index", 0);
+               long total_chunks = dict_get_long(d, "talk.total_chunks", 0);
 
-            mp = mg_str(jp);
-            // Send to everyone, including the sender, which will then display it as SelfMsg
-            ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-            free((void *)jp);
-            return false;
+               const char *jp = dict2json_mkstr(
+                  VAL_DOUBLE, "talk.chunk_index", chunk_index,
+                  VAL_STR, "talk.cmd", "msg",
+                  VAL_STR, "talk.data", data,
+                  VAL_STR, "talk.from", cptr->chatname,
+                  VAL_STR, "talk.msg_type", msg_type,
+                  VAL_DOUBLE, "talk.total_chunks", total_chunks,
+                  VAL_STR, "talk.filename", filename,
+                  VAL_STR, "talk.filetype", filetype,
+                  VAL_LONG, "talk.ts", now);
+
+               mp = mg_str(jp);
+               // Send to everyone, including the sender, which will then display it as SelfMsg
+               ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+               free((void *)jp);
+               return false;
+            } else if (strcasecmp(msg_type, "pub") == 0 ||
+                strcasecmp(msg_type, "action") == 0) {
+               const char *jp = dict2json_mkstr(
+                  VAL_STR, "talk.cmd", "msg",
+                  VAL_STR, "talk.data", data,
+                  VAL_STR, "talk.from", cptr->chatname,
+                  VAL_STR, "talk.msg_type", msg_type,
+                  VAL_LONG, "talk.ts", now);
+
+               mp = mg_str(jp);
+
+               // Send to everyone, including the sender, which will then display it as SelfMsg
+               ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+               free((void *)jp);
+               return false;
+            } else {
+               Log(LOG_DEBUG, "ws.chat", "unknown message type: %s", msg_type);
+            }
          }
       } else if (strcasecmp(cmd, "die") == 0) {
          ws_chat_cmd_die(cptr, reason);
@@ -465,6 +485,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             Log(LOG_DEBUG, "chat", "whois with no target");
             return true;
          }
+
          char msgbuf[HTTP_WS_MAX_MSG + 1];
          http_client_t *acptr = http_client_list;
 
@@ -473,6 +494,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             return true;
          }
 
+#if	0
          // create the full message
          memset(msgbuf, 0, sizeof(msgbuf));
          int clone_idx = 0;
@@ -535,17 +557,20 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
          remaining -= written;
 
          // Send the full message
-         snprintf(msgbuf, sizeof(msgbuf),
-            "{ \"talk\": { \"cmd\": \"whois\", \"data\": %s, \"ts\": %lu } }",
-            whois_data, now);
+         const char *jp = dict2json_mkstr(
+            VAL_STR, "talk.cmd", "whois",
+            VAL_STR, "talk.data", whois_data,
+            VAL_ULONG, "talk.ts", now);
          Log(LOG_CRAZY, "ws.chat", "ws message whois: %s", msgbuf);
-         mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+         mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+         free((void *)jp);
          return false;
 
 trunc:
          Log(LOG_WARN, "chat", "whois_data truncated");
          ws_send_alert(cptr, "WHOIS data truncated to %i bytes", written);
          return true;
+#endif
       }
    }
    return true;

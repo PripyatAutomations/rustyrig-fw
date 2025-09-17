@@ -32,7 +32,7 @@ bool debug_init(void) {
    return false;
 }
 
-bool debug_filter(const char *subsys, const char *fmt) {
+bool debug_filter(const char *subsys, logpriority_t level) {
    // XXX: Figure out if the debug level is desired by the user and if so return true
    return true;
 

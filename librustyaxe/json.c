@@ -361,7 +361,6 @@ char *dict2json(dict *d) {
    return out.buf;
 }
 
-// worker that takes a va_list
 void dict_import_va(dict *d, int first_type, va_list ap) {
    int type = first_type;
 
@@ -372,6 +371,13 @@ void dict_import_va(dict *d, int first_type, va_list ap) {
          case VAL_STR: {
             const char *val = va_arg(ap, const char *);
             dict_add(d, key, (char *)val);
+            break;
+         }
+         case VAL_CHAR: {
+            int val = va_arg(ap, int);
+            char buf[2] = {0};
+            snprintf(buf, sizeof(buf), "%c", val);
+            dict_add(d, key, buf);
             break;
          }
          case VAL_INT: {
@@ -388,15 +394,20 @@ void dict_import_va(dict *d, int first_type, va_list ap) {
             dict_add(d, key, buf);
             break;
          }
-         case VAL_FLOAT: {
-            double v = va_arg(ap, double);  // floats promote to double
-            float val = (float)v;
+         case VAL_ULONG: {
+            unsigned long val = va_arg(ap, unsigned long);
             char buf[32];
-            snprintf(buf, sizeof(buf), "%f", val);
+            snprintf(buf, sizeof(buf), "%lu", val);
             dict_add(d, key, buf);
             break;
          }
-
+         case VAL_FLOAT: {
+            double v = va_arg(ap, double);  // floats promote to double
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%f", (float)v);
+            dict_add(d, key, buf);
+            break;
+         }
          case VAL_DOUBLE: {
             double val = va_arg(ap, double);
             char buf[64];
@@ -424,34 +435,27 @@ void dict_import_va(dict *d, int first_type, va_list ap) {
             snprintf(buf, sizeof(buf), "%.*f", prec, val);
             dict_add(d, key, buf);
             break;
-         }         default:
-            // eat an extra va_arg if we don't know the type to keep aligned
+         }
+         default: {
+            // eat an extra va_arg if we don't know the type
             (void)va_arg(ap, void *);
             break;
+         }
       }
 
       type = va_arg(ap, int);
    }
 }
 
-void dict_import(dict *d, int first_type, ...) {
+void dict_import_real(dict *d, int first_type, ...) {
    va_list ap;
    va_start(ap, first_type);
    dict_import_va(d, first_type, ap);
    va_end(ap);
-}
-
-dict *dict_new_ext(int first_type, ...) {
-   dict *d = dict_new();
-   va_list ap;
-   va_start(ap, first_type);
-   dict_import_va(d, first_type, ap);
-   va_end(ap);
-   return d;
 }
 
 // Higher-level: build a dict from varargs, send it, free it
-const char *dict2json_mkstr(int first_type, ...) {
+const char *dict2json_mkstr_real(int first_type, ...) {
    dict *d = dict_new();
 
    va_list ap;

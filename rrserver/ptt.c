@@ -22,6 +22,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
+#include "librustyaxe/dict.h"
+#include "librustyaxe/json.h"
 #include "librustyaxe/logger.h"
 #include "rrserver/state.h"
 #include "rrserver/ptt.h"
@@ -68,11 +70,17 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
       Log(LOG_WARN, "ptt", "no backend");
    }
 
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "cat.state.vfo", vfo_name(vfo),
+      VAL_FLOAT, "cat.state.freq", hl_state.freq,
+      VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode),
+      VAL_INT, "cat.state.width", hl_state.width,
+      VAL_BOOL, "cat.state.ptt", ptt,
+      VAL_ULONG, "cat.state.ts", now);
    // and send a CAT message with the state
-   prepare_msg(msgbuf, sizeof(msgbuf), "{ \"cat\": { \"state\": { \"vfo\": \"%c\", \"freq\": %f, \"mode\": \"%s\", \"width\": %d, \"ptt\": \"%s\" }, \"ts\": %lu  } }",
-       vfo_name(vfo), (hl_state.freq), rig_strrmode(hl_state.rmode), hl_state.width, (ptt ? "true" : "false"), now);
-   struct mg_str mp = mg_str(msgbuf);
+   struct mg_str mp = mg_str(jp);
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+   free((void *)jp);
 
    return ptt;
 }

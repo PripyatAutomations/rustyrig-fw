@@ -409,6 +409,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
       http_client_t *cptr = http_find_client_by_c(c);
+      Log(LOG_DEBUG, "http", "http_cb for cptr:<%x> c:<%x>", cptr, c);
 
       // make sure we're not accessing unsafe memory
       if (cptr && cptr->user && cptr->chatname[0] != '\0') {

@@ -83,7 +83,10 @@ static gboolean update_now(gpointer user_data) {
 }
 
 int main(int argc, char *argv[]) {
-   char *fullpath = NULL;                                                                                                     
+   char *fullpath = NULL;       
+
+   // Add callback for logging to syslog tab of ui
+   log_add_callback(log_print_va);
 
    // Set a time stamp so logging will work
    now = time(NULL);

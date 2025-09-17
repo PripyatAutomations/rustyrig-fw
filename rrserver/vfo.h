@@ -65,7 +65,7 @@ struct rr_vfo_data {
 typedef struct rr_vfo_data rr_vfo_data_t;
 extern bool set_vfo_frequency(rr_vfo_type_t vfo_type, uint32_t input, float freq);
 extern rr_vfo_t vfo_lookup(const char vfo);
-extern const char vfo_name(rr_vfo_t vfo);
+extern const char *vfo_name(rr_vfo_t vfo);
 extern rr_mode_t vfo_parse_mode(const char *mode);
 extern const char *vfo_mode_name(rr_mode_t mode);
 extern long parse_freq(const char *str);

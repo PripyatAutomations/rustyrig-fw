@@ -12,7 +12,6 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include "librustyaxe/config.h"
-#include "librustyaxe/debug.h"
 
 enum LogPriority {
       LOG_NONE = -1,
@@ -28,6 +27,7 @@ struct log_priority {
    enum LogPriority	prio;
    const char 		*msg;
 };
+typedef enum LogPriority logpriority_t;
 
 struct log_callback {
    enum LogPriority	 prio;
@@ -36,10 +36,10 @@ struct log_callback {
    struct log_callback *next;
 };
 
+#include "librustyaxe/debug.h"
 
 extern FILE *logfp;
 extern int log_level;
-typedef enum LogPriority logpriority_t;
 extern void Log(logpriority_t priority, const char *subsys, const char *fmt, ...);
 extern void logger_setup(void);
 extern void logger_init(const char *logfile);

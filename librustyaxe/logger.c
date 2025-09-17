@@ -28,7 +28,6 @@
 #include <time.h>
 #include <errno.h>
 #include "librustyaxe/logger.h"
-#include "librustyaxe/debug.h"
 #include "librustyaxe/client-flags.h"
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
@@ -163,6 +162,10 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    }
 
    if (priority > log_level) {
+      return;
+   }
+
+   if (!debug_filter(subsys, priority)) {
       return;
    }
 

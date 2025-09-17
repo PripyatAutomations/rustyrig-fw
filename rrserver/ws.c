@@ -149,11 +149,15 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
          // XXX: replace with ws_broadcast_quit(cptr);
 
          // blorp out a quit to all connected users
-         prepare_msg(resp_buf, sizeof(resp_buf),
-                     "{ \"talk\": { \"cmd\": \"quit\", \"user\": \"%s\", \"reason\": \"%s\", \"ts\": %li, \"clones\": %d } }",
-                     cptr->chatname, reason, now, cptr->user->clones - 1);
-         struct mg_str ms = mg_str(resp_buf);
+         const char *jp = dict2json_mkstr(
+            VAL_STR,   "talk.cmd", "quit",
+            VAL_STR,   "talk.user", cptr->chatname,
+            VAL_STR,   "talk.reason", reason,
+            VAL_ULONG, "talk.ts", now,
+            VAL_INT,   "talk.clones", cptr->user->clones - 1);
+         struct mg_str ms = mg_str(jp);
          ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
+         free((void *)jp);
       }
    }
 
@@ -168,10 +172,10 @@ bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
    }
 
    // Tell their client they've been disconnected
-   prepare_msg(resp_buf, sizeof(resp_buf), 
-      "{ \"auth\": { \"error\": \"Client kicked: %s\" } }",
-      (reason ? reason : "no reason given"));
-   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+   prepare_msg(resp_buf, sizeof(resp_buf), "Client kicked: %s", (reason ? reason : "no reason given"));
+   const char *jp = dict2json_mkstr(VAL_STR, "auth.error", resp_buf);
+   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((void *)jp);
    mg_ws_send(c, "", 0, WEBSOCKET_OP_CLOSE);
 
    http_remove_client(c);
@@ -321,7 +325,11 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 
          char pong[128];
          snprintf(pong, sizeof(pong), "{\"type\":\"pong\",\"ts\":%s", ts_buf);
-         mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
+         const char *jp = dict2json_mkstr(
+                          VAL_STR, "type", "pong",
+                          VAL_STR, "ts", ping_ts);
+         mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+         free((void *)jp);
       }
       goto cleanup;
    } else if (hello) {
@@ -374,10 +382,13 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            Log(LOG_INFO, "ws.media", "Client %s <%x> supported codecs: %s, my preferred codecs: %s, common codecs: %s, negotiated default codec: %s",
               cptr->chatname, cptr, media_codecs, cfg_get("codecs.allowed"), common, def_codec);
            char msgbuf[HTTP_WS_MAX_MSG+1];
-
-           // XXX: We should look up pipelines that are configured, so we can list only codecs that can actually be used
-           prepare_msg(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"isupport\", \"codecs\": \"%s\", \"preferred\": \"%s\" } }", common, def_codec);
-           mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+           const char *jp = dict2json_mkstr(
+              VAL_STR, "media.cmd", "isupport",
+              VAL_STR, "media.codecs", common,
+              VAL_STR, "media.preferred", def_codec,
+              VAL_ULONG, "media.ts", now);
+           mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+           free((void *)jp);
            Log(LOG_DEBUG, "ws.media", "Sending supported codecs |%s| with preferred |%s| to client |%s|", common, def_codec, cptr->chatname);
            free(common);
         } else {
@@ -495,8 +506,9 @@ bool ws_send_ping(http_client_t *cptr) {
 //          cptr->chatname, cptr, now, cptr->ping_attempts);
    }
 
-   prepare_msg(resp_buf, sizeof(resp_buf), "{ \"ping\": { \"ts\": %li } }", now);
-   mg_ws_send(c, resp_buf, strlen(resp_buf), WEBSOCKET_OP_TEXT);
+   const char *jp = dict2json_mkstr(VAL_ULONG, "ping.ts", now);
+   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((void *)jp);
 
    return false;
 }
@@ -516,7 +528,7 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
    char *escaped_msg = escape_html(fullmsg);
    const char *jp = dict2json_mkstr(
       VAL_STR, "error.msg", escaped_msg,
-      VAL_LONG, "error.ts", now);
+      VAL_ULONG, "error.ts", now);
 
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free(escaped_msg);
@@ -542,7 +554,7 @@ bool ws_send_alert(http_client_t *cptr, const char *fmt, ...) {
 
    const char *jp = dict2json_mkstr(
       VAL_STR, "alert.msg", escaped_msg,
-      VAL_LONG, "alert.ts", now);
+      VAL_ULONG, "alert.ts", now);
 
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
 
@@ -568,10 +580,9 @@ bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
    char *escaped_msg = escape_html(fullmsg);
    const char *jp = dict2json_mkstr(
       VAL_STR, "notice.msg", escaped_msg,
-      VAL_LONG, "notice.ts", now);
+      VAL_ULONG, "notice.ts", now);
 
    mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-
    free((char *)jp);
    free(escaped_msg);
    return false;

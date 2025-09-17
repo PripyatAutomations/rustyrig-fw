@@ -23,15 +23,17 @@ typedef struct json_node {
 } json_node;
 
 typedef enum {
-   VAL_END    = 0,
-   VAL_STR    = 1,
-   VAL_INT    = 2,
-   VAL_LONG   = 3,
-   VAL_FLOAT  = 4,
-   VAL_DOUBLE = 5,
-   VAL_BOOL   = 6,
-   VAL_FLOATP = 7,  // float with precision specified
-   VAL_DOUBLEP = 8  // double with precision specified
+   VAL_END = 0,
+   VAL_STR,
+   VAL_INT,
+   VAL_LONG,
+   VAL_ULONG,
+   VAL_FLOAT,
+   VAL_DOUBLE,
+   VAL_BOOL,
+   VAL_FLOATP,  // float with precision specified
+   VAL_DOUBLEP, // double with precision specified
+   VAL_CHAR	    // a single character/byte (%c)
 } val_type_t;
 
 /*
@@ -52,15 +54,19 @@ typedef enum {
  */
 extern char *dict2json(dict *d);
 extern dict *dict_new_ext(int first_type, ...);
-extern void dict_import(dict *d, int first_type, ...);
+extern void dict_import_real(dict *d, int first_type, ...);
 extern void dict_import_va(dict *d, int first_type, va_list ap);
+
+#define dict_import(d, ...) dict_import_va((d), __VA_ARGS__, VAL_END)
 
 extern char *json_escape(const char *s);
 
 // XXX: Rework these eventually to use be static inline bit to wrap normal string versions of these...
 // You must free ->ptr when you are done or memory will be leaked
-extern const char *dict2json_mkstr(int first_type, ...);
+extern const char *dict2json_mkstr_real(int first_type, ...);
+#define dict2json_mkstr(...) dict2json_mkstr_real(__VA_ARGS__, VAL_END)
 extern void json_parse_and_flatten(const char *json, dict *dptr);
 extern dict *json2dict(const char *json);
+
 
 #endif	// !defined(__common_json_h)
