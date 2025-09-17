@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
    update_timestamp();
 
+// XXX: what this is? why is commented? can removed???
 //   cfg_detect_and_load(configs, num_configs);
 
    if (config_file) {

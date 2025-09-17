@@ -20,7 +20,7 @@
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
+#include "librustyaxe/json.h"
 #include "librustyaxe/posix.h"
 #include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
@@ -98,15 +98,13 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
    }
 
    ui_print("[%s] *** Sending LOGIN ***", get_chat_ts());
-   char msgbuf[512];
-   memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512,
-                 "{ \"auth\": {"
-                 " \"cmd\": \"login\", "
-                 " \"user\": \"%s\""
-                 "} }", login_user);
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "auth.cmd", "login",
+      VAL_STR, "auth.user", login_user);
 
-   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   int ret = mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
+
    if (ret < 0) {
       Log(LOG_DEBUG, "auth", "ws_send_login: mg_ws_send error: %d", ret);
       return true;
@@ -127,16 +125,13 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
       return true;
    }
 
-   char msgbuf[512];
-   memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512,
-                 "{ \"auth\": {"
-                 " \"cmd\": \"pass\", "
-                 " \"user\": \"%s\","
-                 " \"pass\": \"%s\","
-                 " \"token\": \"%s\""
-                 "} }", user, temp_pw, session_token);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "auth.cmd", "pass",
+      VAL_STR, "auth.user", user,
+      VAL_STR, "auth.pass", temp_pw,
+      VAL_STR, "auth.token", session_token);
+   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
    free(temp_pw);
    return false;
 }
@@ -149,13 +144,12 @@ bool ws_send_logout(struct mg_connection *c, const char *user, const char *token
 
    char msgbuf[512];
    memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512,
-                 "{ \"auth\": {"
-                 " \"cmd\": \"logout\", "
-                 " \"user\": \"%s\","
-                 " \"token\": \"%s\""
-                 "} }", user, token);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "auth.cmd", "logout",
+      VAL_STR, "auth.user", user,
+      VAL_STR, "auth.token", token);
+   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
 
    return false;
 }
@@ -168,8 +162,9 @@ bool ws_send_hello(struct mg_connection *c) {
    char msgbuf[512];
    const char *codec = "mulaw";
    int rate = 16000;
-   memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"hello\": \"rrclient %s\", \"codec\": \"%s\", \"rate\": %d }", VERSION, codec, rate);
-   mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   const char *jp = dict2json_mkstr(VAL_STR, "hello", VERSION);
+   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
+
    return false;
 }

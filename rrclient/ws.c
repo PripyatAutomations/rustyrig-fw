@@ -144,7 +144,7 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
       i++;
    }
 
-   free(d);
+   dict_free(d);
 
    Log(LOG_CRAZY, "ws.router", "No matches for message: %s", msg_data);
    return true;

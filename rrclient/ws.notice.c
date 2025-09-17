@@ -21,6 +21,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
 #include "librustyaxe/dict.h"
+#include "librustyaxe/json.h"
 #include "librustyaxe/posix.h"
 #include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
@@ -55,9 +56,17 @@ bool ws_handle_notice_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
    struct mg_str msg_data = msg->data;
-   char *notice_msg = mg_json_get_str(msg_data, "$.notice.msg");
-   char *notice_from = mg_json_get_str(msg_data, "$.notice.from");
 
+   char buf[HTTP_WS_MAX_MSG+1];
+   memset(buf, 0, sizeof(buf));
+   memcpy(buf, msg_data.buf, msg_data.len);
+
+   // and expand into a dict, which is freed in cleanup below
+   dict *d = json2dict(buf);
+
+   char *notice_msg = dict_get(d, "notice.msg", NULL);
+   char *notice_from = dict_get(d, "notice.from", NULL);
+   // Copy to a null terminated buffer
    if (!notice_from) {
       notice_from = strdup("***SERVER***");
    }
@@ -65,8 +74,8 @@ bool ws_handle_notice_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (notice_msg) {
       ui_print("[%s] NOTICE: %s: %s !!!", get_chat_ts(), notice_from, notice_msg);
    }
-   free(notice_msg);
-   free(notice_from);
+
+   dict_free(d);
 
    return false;
 }

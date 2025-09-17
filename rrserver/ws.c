@@ -316,14 +316,9 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 
    // Handle ping messages
    if (ping) {
-      char ts_buf[32];
       char *ping_ts = dict_get(d, "ping.ts", NULL);
 
       if (ping_ts) {
-         snprintf(ts_buf, sizeof(ts_buf), "%s", ping_ts);
-
-         char pong[128];
-         snprintf(pong, sizeof(pong), "{\"type\":\"pong\",\"ts\":%s", ts_buf);
          const char *jp = dict2json_mkstr(
                           VAL_STR, "type", "pong",
                           VAL_STR, "ts", ping_ts);

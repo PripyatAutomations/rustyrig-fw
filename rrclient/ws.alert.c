@@ -20,7 +20,7 @@
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
+#include "librustyaxe/json.h"
 #include "librustyaxe/posix.h"
 #include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/ws.h"
@@ -50,8 +50,16 @@ bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
    struct mg_str msg_data = msg->data;
-   char *alert_msg = mg_json_get_str(msg_data, "$.alert.msg");
-   char *alert_from = mg_json_get_str(msg_data, "$.alert.from");
+
+   // Copy to a null terminated buffer
+   char buf[HTTP_WS_MAX_MSG+1];
+   memset(buf, 0, sizeof(buf));
+   memcpy(buf, msg_data.buf, msg_data.len);
+
+   // and expand into a dict, which is freed in cleanup below
+   dict *d = json2dict(buf);
+   char *alert_msg = dict_get(d, "alert.msg", NULL);
+   char *alert_from = dict_get(d, "alert.from", NULL);
 
    if (!alert_from) {
       alert_from = strdup("***SERVER***");
@@ -61,8 +69,8 @@ bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (alert_msg) {
       ui_print("[%s] ALERT: %s: %s !!!", get_chat_ts(), alert_from, alert_msg);
    }
-   free(alert_msg);
-   free(alert_from);
+
+   dict_free(d);
 
    return false;
 }

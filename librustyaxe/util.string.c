@@ -49,6 +49,34 @@ char *escape_html(const char *input) {
    return output;
 }
 
+// the opposite, no free needed
+void unescape_html(char *s) {
+   char *r = s;   // read pointer
+   char *w = s;   // write pointer
+
+   while (*r) {
+      if (*r == '&') {
+         if (!strncmp(r, "&lt;", 4)) {
+            *w++ = '<'; r += 4;
+         } else if (!strncmp(r, "&gt;", 4)) {
+            *w++ = '>'; r += 4;
+         } else if (!strncmp(r, "&amp;", 5)) {
+            *w++ = '&'; r += 5;
+         } else if (!strncmp(r, "&quot;", 6)) {
+            *w++ = '"'; r += 6;
+         } else if (!strncmp(r, "&#39;", 5)) {
+            *w++ = '\''; r += 5;
+         } else {
+            *w++ = *r++; // unknown entity, copy literally
+         }
+      } else {
+         *w++ = *r++;
+      }
+   }
+   *w = '\0';
+}
+
+////
 void hash_to_hex(char *dest, const uint8_t *hash, size_t len) {
    if (!dest || !hash || len <= 0) {
       return;

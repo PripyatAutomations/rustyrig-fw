@@ -21,6 +21,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
 #include "librustyaxe/dict.h"
+#include "librustyaxe/json.h"
 #include "librustyaxe/posix.h"
 #include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
@@ -62,8 +63,10 @@ bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
       snprintf(ts_buf, sizeof(ts_buf), "%.0f", ping_ts);
 
       char pong[128];
-      snprintf(pong, sizeof(pong), "{ \"pong\": { \"ts\":\"%s\" } }", ts_buf);
-      mg_ws_send(c, pong, strlen(pong), WEBSOCKET_OP_TEXT);
+      const char *jp = dict2json_mkstr(
+         VAL_STR, "pong.ts", ts_buf);
+      mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+      free((char *)jp);
    }
 
    if (cfg_show_pings) {

@@ -30,11 +30,12 @@
 #include <hamlib/rig.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
+#include "librustyaxe/cat.h"
+#include "librustyaxe/json.h"
 #include "rrserver/state.h"
 #include "rrserver/thermal.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/vfo.h"
-#include "librustyaxe/cat.h"
 #include "rrserver/backend.h"
 #include "rrserver/ws.h"
 static RIG *hl_rig = NULL;	// hamlib Rig interface
@@ -296,28 +297,23 @@ rr_vfo_data_t *hl_poll(void) {
 
    // send to all users
    struct mg_str mp;
-   char msgbuf[4096];
    http_client_t *talker = whos_talking();
 
-   prepare_msg(msgbuf, sizeof(msgbuf),
-       "{ \"cat\": { \"state\": { \"vfo\": "
-                    "\"A\", \"freq\": %f, "
-                    "\"mode\": \"%s\", "
-                    "\"width\": %d, "
-                    "\"ptt\": \"%s\", "
-                    "\"power\": %d"
-                " }, \"ts\": %lu ,"
-                " \"user\": \"%s\""
-       " } }",
-       (hl_state.freq), rig_strrmode(hl_state.rmode), hl_state.width,
-       (hl_state.ptt ? "true" : "false"),
-       hl_state.power, now, (talker ? talker->chatname : ""));
-        
-   mp = mg_str(msgbuf);
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "cat.state.vfo", "A",
+      VAL_FLOAT, "cat.state.freq", hl_state.freq,
+      VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode),
+      VAL_INT, "cat.state.width", hl_state.width,
+      VAL_BOOL, "cat.state.ptt", hl_state.ptt,
+      VAL_INT, "cat.state.power", hl_state.power,
+      VAL_ULONG, "cat.ts", now,
+      VAL_STR, "cat.user", (talker ? talker->chatname : ""));
+   mp = mg_str(jp);
 
-   Log(LOG_CRAZY, "be.hamlib", "Sending %s", msgbuf);
+   Log(LOG_CRAZY, "be.hamlib", "Sending %s", jp);
    // Send to everyone, including the sender, which will then display it in various widgets
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+   free((char *)jp);
 
    return rv;
 }

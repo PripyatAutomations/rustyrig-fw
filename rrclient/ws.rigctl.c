@@ -139,13 +139,15 @@ bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt) {
       return true;
    }
 
-   char msgbuf[512];
-   memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"ptt\", \"vfo\": \"%s\", \"ptt\": \"%s\" } }",
-                 vfo, (ptt ? "true" : "false"));
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "cat.cmd", "ptt",
+      VAL_STR, "cat.vfo", vfo,
+      VAL_BOOL, "cat.ptt", ptt,
+      VAL_ULONG, "cat.ts", now);
 
-   Log(LOG_CRAZY, "ws.cat", "Sending: %s", msgbuf);
-   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   Log(LOG_CRAZY, "ws.cat", "Sending: %s", jp);
+   int ret = mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
 
    if (ret < 0) {
       Log(LOG_DEBUG, "cat", "ws_send_ptt_cmd: mg_ws_send error: %d", ret);
@@ -161,10 +163,15 @@ bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const char *mode
 
    char msgbuf[512];
    memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"mode\", \"vfo\": \"%s\", \"mode\": \"%s\" } }",
-                 vfo, mode);
-   Log(LOG_CRAZY, "ws.cat", "Sending: %s", msgbuf);
-   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "cat.cmd", "mode",
+      VAL_STR, "cat.vfo", vfo,
+      VAL_STR, "cat.mode", mode,
+      VAL_ULONG, "cat.ts", now);
+
+   Log(LOG_CRAZY, "ws.cat", "Sending: %s", jp);
+   int ret = mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
 
    if (ret < 0) {
       Log(LOG_DEBUG, "cat", "ws_send_mode_cmd: mg_ws_send error: %d", ret);
@@ -180,9 +187,14 @@ bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
 
    char msgbuf[512];
    memset(msgbuf, 0, 512);
-   snprintf(msgbuf, 512, "{ \"cat\": { \"cmd\": \"freq\", \"vfo\": \"%s\", \"freq\": %.0f } }", vfo, freq);
-   Log(LOG_CRAZY, "ws.cat", "Sending: %s", msgbuf);
-   int ret = mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "cat.cmd", "freq",
+      VAL_STR, "cat.vfo", vfo,
+      VAL_FLOAT, "cat.freq", freq,
+      VAL_ULONG, "cat.ts", now);
+   Log(LOG_CRAZY, "ws.cat", "Sending: %s", jp);
+   int ret = mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
 
    if (ret < 0) {
       Log(LOG_DEBUG, "cat", "ws_send_mode_cmd: mg_ws_send error: %d", ret);

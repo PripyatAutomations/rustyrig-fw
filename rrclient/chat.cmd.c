@@ -60,8 +60,6 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       if (server && strlen(server) > 1) {
          ui_print("[%s] * Changing server profile to %s", get_chat_ts(), server);
          disconnect_server(server);
-//         memset(active_server, 0, sizeof(active_server));
-//         snprintf(active_server, sizeof(active_server), "%s", server);
 
          if (server_name) {
             free((char *)server_name);
@@ -81,12 +79,11 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
    } else if (strncasecmp(msg + 1, "disconnect", 10) == 0) {
       disconnect_server(server_name);
    } else if (strncasecmp(msg + 1, "quit", 4) == 0) {
-      char msgbuf[4096];
-      prepare_msg(msgbuf, sizeof(msgbuf), 
-         "{ \"auth\": { \"cmd\": \"quit\" } }", msg + 5);
-      mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+      const char *jp = dict2json_mkstr(VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", msg + 5);
+      mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+      free((char *)jp);
       dying = true;
-   // Switch tabs
+      // Switch tabs
    } else if (strncasecmp(msg + 1, "chat", 4) == 0) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), main_tab);
       if (index != -1) {
@@ -111,31 +108,34 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       if (msg[0] == '/') { // Handle local commands
          if (strcasecmp(msg + 1, "ban") == 0) {
          } else if (strncasecmp(msg + 1, "die", 3) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"die\", \"args\": \"%s\" } }", msg + 5);
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+            const char *jp = dict2json_mkstr(
+               VAL_STR, "talk.cmd", "die",
+               VAL_STR, "talk.args", msg + 5);
+            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+            free((char *)jp);
          } else if (strncasecmp(msg + 1, "edit", 4) == 0) {
          } else if (strncasecmp(msg + 1, "help", 4) == 0) {
             show_help(NULL);
          } else if (strncasecmp(msg + 1, "kick", 4) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"kick\", \"reason\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+            const char *jp = dict2json_mkstr(
+               VAL_STR, "talk.cmd", "kick",
+               VAL_STR, "talk.reason", msg + 6);
+            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+            free((char *)jp);
          } else if (strncasecmp(msg + 1, "me", 2) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"msg\", \"data\": \"%s\", "
-               "\"msg_type\": \"action\" } }", msg + 3);
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+            const char *jp = dict2json_mkstr(
+               VAL_STR, "talk.cmd", "msg",
+               VAL_STR, "talk.data", msg + 3,
+               VAL_STR, "talk.msg_type", "action");
+            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
          } else if (strncasecmp(msg + 1, "mute", 4) == 0) {
          } else if (strncasecmp(msg + 1, "names", 5) == 0) {
          } else if (strncasecmp(msg + 1, "restart", 7) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"die\", \"reason\": \"%s\" } }", msg);
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+            const char *jp = dict2json_mkstr(
+               VAL_STR, "talk.cmd", "die",
+               VAL_STR, "talk.reason", msg + 5);
+            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+            free((char *)jp);
          } else if (strncasecmp(msg + 1, "rxmute", 6) == 0) {
          } else if (strncasecmp(msg + 1, "rxvol", 5) == 0) {
             gdouble val = atoi(msg + 7) / 100;
@@ -144,27 +144,28 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          } else if (strncasecmp(msg + 1, "rxunmute", 8) == 0) {
          } else if (strncasecmp(msg + 1, "unmute", 6) == 0) {
          } else if (strncasecmp(msg + 1, "whois", 4) == 0) {
-            char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"die\", \"restart\": \"%s\", \"args\": { \"reason\": \"%s\" } } }", msg, "No reason given");
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+            const char *jp = dict2json_mkstr(
+               VAL_STR, "talk.cmd", "whois",
+               VAL_STR, "talk.args", msg + 7);
+            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+            free((char *)jp);
          } else {
             char msgbuf[4096];
-            prepare_msg(msgbuf, sizeof(msgbuf), 
-               "{ \"talk\": { \"cmd\": \"%s\" } }", msg + 1);
-            
-            mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+            const char *jp = dict2json_mkstr(
+               VAL_STR, "talk.cmd", msg + 1);
+            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+            free((char *)jp);
          }
       } else {
          // not a match
-         char msgbuf[4096];
          char *escaped_msg = json_escape(msg);
-
-         prepare_msg(msgbuf, sizeof(msgbuf), 
-            "{ \"talk\": { \"cmd\": \"msg\", \"data\": %s, "
-            "\"msg_type\": \"pub\" } }", escaped_msg);
+         const char *jp = dict2json_mkstr(
+            VAL_STR, "talk.cmd", "msg",
+            VAL_STR, "talk.data", escaped_msg,
+            VAL_STR, "talk.msg_type", "pub");
          free(escaped_msg);
-         mg_ws_send(ws_conn, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
+         mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+         free((char *)jp);
       }
    }
    return false;

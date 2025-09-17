@@ -163,13 +163,21 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
    cptr->last_heard = now;	// avoid unneeded keep-alives
 
-   char *cmd = mg_json_get_str(msg_data, "$.cat.cmd");
-   char *vfo = mg_json_get_str(msg_data, "$.cat.vfo");
-   char *state = mg_json_get_str(msg_data, "$.cat.state");
+   // Copy to a null terminated buffer
+   char buf[HTTP_WS_MAX_MSG+1];
+   memset(buf, 0, sizeof(buf));
+   memcpy(buf, msg_data.buf, msg_data.len);
+
+   // and expand into a dict, which is freed in cleanup below
+   dict *d = json2dict(buf);
+   char *cmd = dict_get(d, "cat.cmd", NULL);
+   char *vfo = dict_get(d, "cat.vfo", NULL);
+   char *state = dict_get(d, "cat.state", NULL);
 
    if (cptr->user->is_muted) {
       Log(LOG_AUDIT, "ws.rigctl", "Ignoring %s command from %s as they are muted!", cmd, cptr->chatname);
       // XXX: Inform the user they are muted and can't use rigctl
+      dict_free(d);
       return true;
    }
 
@@ -177,6 +185,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    // XXX: Add support for per noob Elmer (link from noob to elmer(s) who have approved their use)
    if (client_has_flag(cptr, FLAG_NOOB) && !is_elmer_online()) {
       Log(LOG_AUDIT, "ws.rigctl", "Ignoring %s command from %s as they're a noob and no elmers are online", cmd, cptr->chatname);
+      dict_free(d);
       return true;
    }
 
@@ -184,15 +193,15 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       // XXX: This needs split up to move functionality to ptt.c
       if (strcasecmp(cmd, "ptt") == 0) {
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
-            rv = true;
-            goto cleanup;
+            dict_free(d);
+            return true;
          }
 
          char *ptt_state = mg_json_get_str(msg_data, "$.cat.ptt");
          if (vfo == NULL || ptt_state == NULL) {
             Log(LOG_DEBUG, "ws.rigctl", "PTT set without vfo or ptt_state");
-            rv = true;
-            goto cleanup;
+            dict_free(d);
+            return true;
          }
 
          rr_vfo_t c_vfo = vfo_lookup(vfo[0]);
@@ -204,8 +213,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          vfo_id = vfo_lookup(vfo[0]);
          if (vfo_id < 0) {
-            rv = true;
-            goto cleanup;
+            dict_free(d);
+            return true;
          }
          rr_vfo_data_t *dp = &vfos[vfo_id];
          mode_name = vfo_mode_name(dp->mode);
@@ -216,9 +225,9 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // XXX: We need to look up the channel ID for RX *FROM* the client
          if (channel < 0) {
             Log(LOG_CRIT, "ptt", "Couldn't find channel ID for TX stream, ignoring PTT event");
-            rv = true;
+            dict_free(d);
+            return true;
             // XXX: send an error & ptt off notice
-            goto cleanup;
          }
 #endif
 
@@ -262,8 +271,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          free(ptt_state);
       } else if (strcasecmp(cmd, "freq") == 0) {
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
-            rv = true;
-            goto cleanup;
+            dict_free(d);
+            return true;
          }
 
          double new_freq_d;
@@ -272,8 +281,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
          if (vfo == NULL || new_freq <= 0) {
             Log(LOG_DEBUG, "ws.rigctl", "FREQ set without vfo or freq");
-            rv = true;
-            goto cleanup;
+            dict_free(d);
+            return true;
          }
 
          // XXX: We should do a latency test at the start of the session and optimize this per-user from there
@@ -302,16 +311,16 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          char *mode = mg_json_get_str(msg_data, "$.cat.mode");
 
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
-            rv = true;
             free(mode);
-            goto cleanup;
+            dict_free(d);
+            return true;
          }
 
          if (vfo == NULL || mode == NULL) {
             Log(LOG_DEBUG, "ws.rigctl", "MODE set without vfo:<%x> or mode:<%x>", vfo, mode);
-            rv = true;
             free(mode);
-            goto cleanup;
+            dict_free(d);
+            return true;
          }
 
          rr_vfo_t c_vfo;
@@ -343,9 +352,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       }
    }
 
-cleanup:
-   free(cmd);
-   free(state);
-   free(vfo);
-   return rv;
+   dict_free(d);
+   return true;
 }

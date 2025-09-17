@@ -317,10 +317,11 @@ bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
    }
 
    int codec_id  = au_codec_by_id(au->codec);
-   char msgbuf[1024];
-   memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"codec\": \"%s\", \"rate\": %d, \"active\": %s",
-             au_codec_get_magic(codec_id), au_codec_get_samplerate(codec_id), (au->active ? "true" : "off"));
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "media.codec", au_codec_get_magic(codec_id),
+      VAL_INT, "media.rate", au_codec_get_samplerate(codec_id),
+      VAL_BOOL, "media.active", au->active);
+   free((char *)jp);
    return true;
 }
 #endif

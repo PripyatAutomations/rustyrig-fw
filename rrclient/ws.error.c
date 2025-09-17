@@ -20,7 +20,7 @@
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
+#include "librustyaxe/json.h"
 #include "librustyaxe/posix.h"
 #include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
@@ -54,8 +54,15 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
    struct mg_str msg_data = msg->data;
-   char *error_msg = mg_json_get_str(msg_data, "$.error.msg");
-   char *error_from = mg_json_get_str(msg_data, "$.error.from");
+   char buf[HTTP_WS_MAX_MSG+1];
+   memset(buf, 0, sizeof(buf));
+   memcpy(buf, msg_data.buf, msg_data.len);
+
+   // and expand into a dict, which is freed in cleanup below
+   dict *d = json2dict(buf);
+
+   char *error_msg = dict_get(d, "error.msg", NULL);
+   char *error_from = dict_get(d, "error.from", NULL);
 
    if (!error_from) {
       error_from = strdup("***SERVER***");
@@ -64,9 +71,7 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (error_msg) {
       ui_print("[%s] ERROR: %s: %s !!!", get_chat_ts(), error_from, error_msg);
    }
-
-   free(error_msg);
-   free(error_from);
+   dict_free(d);
 
    return false;
 }

@@ -40,20 +40,13 @@ bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx) {
       return true;
    }
 
-   char msgbuf[1024];
-
-   if (is_tx) {
-      // and for TX
-      memset(msgbuf, 0, sizeof(msgbuf));
-      snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\", \"channel\": \"tx\" } }", codec);
-      Log(LOG_DEBUG, "ws.audio", "Send TX codec selection: %s", msgbuf);
-      mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-   } else {
-      memset(msgbuf, 0, sizeof(msgbuf));
-      snprintf(msgbuf, sizeof(msgbuf), "{ \"media\": { \"cmd\": \"codec\", \"codec\": \"%s\", \"channel\": \"rx\" } }", codec);
-      Log(LOG_DEBUG, "ws.audio", "Send RX codec selection: %s", msgbuf);
-      mg_ws_send(c, msgbuf, strlen(msgbuf), WEBSOCKET_OP_TEXT);
-   }
+   const char *jp = dict2json_mkstr(
+      VAL_STR, "media.cmd", "codec",
+      VAL_STR, "media.codec", codec,
+      VAL_STR, "media.channel", (is_tx ? "tx" : "rx"));		// XXX: replace this with UUIDs
+   Log(LOG_DEBUG, "ws.audio", "Send %s codec selection: %s", (is_tx ? "TX" : "RX"), jp);
+   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free((char *)jp);
 
    return false;
 }
