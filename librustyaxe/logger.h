@@ -36,8 +36,6 @@ struct log_callback {
    struct log_callback *next;
 };
 
-#include "librustyaxe/debug.h"
-
 extern FILE *logfp;
 extern int log_level;
 extern void Log(logpriority_t priority, const char *subsys, const char *fmt, ...);
@@ -51,5 +49,10 @@ extern enum LogPriority log_priority_from_str(const char *priority);
 // Add a callback to the Log() call
 extern bool log_add_callback(bool (*log_va_cb)(const char *fmt, va_list ap));
 extern bool log_remove_callback(struct log_callback *log_callback);
+
+// Filters
+extern bool log_add_filter(const char *pattern, logpriority_t level);
+extern void log_clear_filters(void);
+extern bool debug_filter(const char *subsys, logpriority_t msg_level);
 
 #endif	// !defined(__rr_common_logger_h)

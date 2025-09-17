@@ -52,12 +52,15 @@
 	- text, media (binary)
 * rework all the json parsing to use more advanced APIs
 
+===============
+= librustyaxe =
+===============
+
 [CAT]
 * Implement control over unix pipes in posix mode
 * Implement control over stm32 serial over usb
 
-[logger/debug]
-* Add support for configuring masks of what debug level messages will be seen using wildcards
+[logger]
 * Add support for masking out messages such as '-*.noisy'
 ? Add support for rate limiting messages?
 

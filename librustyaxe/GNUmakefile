@@ -15,7 +15,6 @@ librr_objs += cat.kpa500.o
 librr_objs += cat.yaesu.o
 librr_objs += codecneg.o
 librr_objs += config.o
-librr_objs += debug.o
 librr_objs += dict.o
 librr_objs += io.o
 librr_objs += io.serial.o

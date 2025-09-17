@@ -11,10 +11,6 @@
  *	Targets: syslog console flash (file)
  */
 //
-// XXX: Need to implement filtering like this:
-// XXX:	core.log-level=*:crit audio:crit core:debug ws:debug gtk:crit gtk.editserver:crazy
-// XXX: where core.* and core mean the same. etc
-
 #include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
@@ -23,12 +19,22 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
+#include <fnmatch.h>
 #include "librustyaxe/logger.h"
 #include "librustyaxe/client-flags.h"
+
+struct log_filter {
+    char *pattern;            // subsystem name or wildcard, e.g. "www.*"
+    logpriority_t level;      // max log level to show
+    struct log_filter *next;
+};
+
+static struct log_filter *filters = NULL;
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
@@ -69,7 +75,6 @@ enum LogPriority log_priority_from_str(const char *priority) {
    return LOG_NONE;
 }
 
-
 const char *log_priority_to_str(logpriority_t priority) {
    int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
 
@@ -81,9 +86,107 @@ const char *log_priority_to_str(logpriority_t priority) {
    return s_prio_none;
 }
 
+bool log_add_filter(const char *pattern, logpriority_t level) {
+    struct log_filter *f = malloc(sizeof(*f));
+    if (!f) {
+       fprintf(stderr, "OOM in log_add_filter\n");
+       return true;
+    }
+
+    f->pattern = strdup(pattern);
+    if (!f->pattern) {
+       free(f);
+       return true;
+    }
+    f->level = level;
+    f->next = filters;
+    filters = f;
+    return false;
+}
+
+void log_clear_filters(void) {
+   struct log_filter *f = filters;
+   while (f) {
+      struct log_filter *next = f->next;
+      free(f->pattern);
+      free(f);
+      f = next;
+   }
+   filters = NULL;
+}
+
+bool debug_filter(const char *subsys, logpriority_t msg_level) {
+   struct log_filter *f = filters;
+   struct log_filter *best = NULL;
+
+   while (f) {
+      if (fnmatch(f->pattern, subsys, 0) == 0) { // wildcard match
+         // pick the most specific (longest) match
+         if (!best || strlen(f->pattern) > strlen(best->pattern)) {
+            best = f;
+         }
+      }
+      f = f->next;
+   }
+
+   if (best) {
+      return msg_level <= best->level;
+   }
+
+   // if no filter matches, allow everything
+   return true;
+}
+
+static void load_filters_from_config(void) {
+   const char *cfg = cfg_get_exp("log.filters"); // must be freed
+   if (!cfg) return;
+
+   char *copy = strdup(cfg);
+   free((void *)cfg);
+
+   char *tok = copy;
+   while (*tok) {
+      // Skip leading whitespace
+      while (isspace((unsigned char)*tok)) tok++;
+
+      // Find delimiter (space or comma)
+      char *end = tok;
+      while (*end && *end != ',' && !isspace((unsigned char)*end)) end++;
+
+      if (*end) {
+         *end = '\0';
+      }
+
+      // Split into subsys:level
+      char *sep = strchr(tok, ':');
+      if (sep) {
+         *sep = '\0';
+         const char *subsys = tok;
+         const char *level_str = sep + 1;
+         logpriority_t level = log_priority_from_str(level_str);
+
+         // Ensure www.* also matches plain www
+         size_t len = strlen(subsys);
+         if (len >= 2 && strcmp(subsys + len - 2, ".*") == 0) {
+            char *plain = strdup(subsys);
+            plain[len-2] = '\0';
+            log_add_filter(plain, level);
+            free(plain);
+         }
+
+         log_add_filter(subsys, level);
+      }
+
+      // Move to next token
+      tok = end + 1;
+   }
+
+   free(copy);
+}
+
 void logger_init(const char *logfile) {
    const char *ll = NULL;
-#if	defined(USE_EEPROM)
+#if defined(USE_EEPROM)
    ll = eeprom_get_str("debug/loglevel");
    log_show_ts = eeprom_get_bool("debug/show_ts");
 #endif
@@ -94,36 +197,44 @@ void logger_init(const char *logfile) {
    }
 
    if (ll) {
-      int log_levels = (sizeof(log_priorities) / sizeof(struct log_priority));
-      for (int i = 0; i < log_levels; i++) {
-         if (strcasecmp(log_priorities[i].msg, ll) == 0) {
-            log_level = log_priorities[i].prio;
-            Log(LOG_INFO, "core", "Setting log_level to %d (%s)", log_priorities[i].prio, log_priorities[i].msg);
-            break;
-         }
-      }
+      log_level = log_priority_from_str(ll);
+      Log(LOG_INFO, "core", "Setting log_level to %d (%s)", log_level, ll);
    } else {
       log_level = LOG_DEBUG;
    }
 
    if (!logfp) {
-      logfp = fopen(logfile, "a+");
-
+      logfp = logfile ? fopen(logfile, "a+") : stdout;
       if (!logfp) {
-         Log(LOG_CRIT, "core", "Couldn't open log file at %s - %d:%s", logfile, errno, strerror(errno));
-         return;
+         fprintf(stderr, "Couldn't open log file %s, falling back to stdout\n", logfile);
+         logfp = stdout;
       }
    }
+
+   // Load fine-grained filters from config
+   load_filters_from_config();
 }
 
 void logger_end(void) {
-   if (logfp) {
+   if (logfp && logfp != stdout && logfp != stderr) {
       fclose(logfp);
    }
+   logfp = NULL;
+
+   // free all registered callbacks
+   struct log_callback *lp = log_callbacks;
+   while (lp) {
+      struct log_callback *next = lp->next;
+      free(lp);
+      lp = next;
+   }
+   log_callbacks = NULL;
+
+   // free all filters
+   log_clear_filters();
 }
 
 int update_timestamp(void) {
-      time_t t;
    struct tm *tmp;
 
    // If we've already updated this second or have gone back in time, return success, to save CPU
@@ -133,14 +244,13 @@ int update_timestamp(void) {
 
    last_ts_update = now;
    memset(latest_timestamp, 0, sizeof(latest_timestamp));
-   t = time(NULL);
 
-   if ((tmp = localtime(&t))) {
+   if ((tmp = localtime(&now))) {
       /* success, proceed */
       if (strftime(latest_timestamp, sizeof(latest_timestamp), "%Y/%m/%d %H:%M:%S", tmp) == 0) {
          /* handle the error */
          memset(latest_timestamp, 0, sizeof(latest_timestamp));
-         snprintf(latest_timestamp, sizeof(latest_timestamp), "<%ld>", (long)time(NULL));
+         snprintf(latest_timestamp, sizeof(latest_timestamp), "<%lu>", (unsigned long)now);
       }
    } else {
       return 1;
@@ -155,6 +265,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    va_list ap, ap_c1;
 
    va_start(ap, fmt);
+
    if (!subsys || !fmt) {
       fprintf(stderr, "Invalid Log request: No subsys/fmt\n");
       va_end(ap);
@@ -173,25 +284,15 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       logfp = stdout;
    }
 
-   // If this is a debug message, apply debug filtering
-   // XXX: Finish this bit someday or remove it
-/*
-   if (priority == LOG_DEBUG) {
-      if (debug_filter(subsys, fmt) == false) {
-         // if we get false back, drop the message
-         return;
-      }
-   }
-*/
-
    // this is arranged so that it will return if called more than once a second
    if (log_show_ts) {
       update_timestamp();
    }
 
+   va_copy(ap_c1, ap);
+
    /* clear the message buffer */
    memset(msgbuf, 0, sizeof(msgbuf));
-   va_copy(ap_c1, ap);
 
    /* Expand the format string */
    vsnprintf(msgbuf, 511, fmt, ap);
@@ -220,7 +321,10 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       struct log_callback *lp = log_callbacks;
       while (lp) {
          if (lp->callback) {
-            lp->callback(fmt, ap_c1);
+            va_list cb_ap;
+            va_copy(cb_ap, ap_c1);
+            lp->callback(fmt, cb_ap);
+            va_end(cb_ap);
          }
          lp = lp->next;
       }
@@ -232,14 +336,19 @@ bool log_remove_callback(struct log_callback *log_callback) {
    struct log_callback *prev = NULL, *i = log_callbacks;
    while (i) {
       if (i == log_callback) {
-         prev->next = i;
+         if (prev) {
+            prev->next = i->next;
+         } else {
+            log_callbacks = i->next;
+         }
+
          free(i);
-         break;
+         return true;  // signal success
       }
       prev = i;
       i = i->next;
    }
-   return false;
+   return false;  // callback not found
 }
 
 bool log_add_callback(bool (*log_va_cb)(const char *fmt, va_list ap)) {

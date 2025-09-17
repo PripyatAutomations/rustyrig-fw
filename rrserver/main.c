@@ -192,7 +192,6 @@ int main(int argc, char **argv) {
    host_init();
 
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);
-   debug_init();			// Initialize debug	
    initialize_state();			// Load default values
 
 #if	defined(FEATURE_SQLITE)
