@@ -1,3 +1,9 @@
+rustyrig-fw (20250917) testing; urgency=medium
+* much more integration of dict2json and json2dict for safe json creation and cleaner parsers
+* added a bug where messages unintentionally get quoted
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 17 Sep 2025 03:28:00 -0400
+
 rustyrig-fw (20250912) testing; urgency=medium
 * More code cleanup
 * Re-arranged the source tree to support potentially merging the client and server into a single program
