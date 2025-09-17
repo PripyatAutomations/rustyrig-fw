@@ -51,6 +51,16 @@ RX and TX do not refer to radio role, but rather the direction of the stream its
 
 
 
+
+test-all.sh
+-----------
+If you have tmux or screen available, this script will launch a new session
+running the server and client in their own windows.
+
+You can watch the debug messages this way.
+
+Note you can filter the log messages by editing log.level in the appropriate config file ;)
+
 ---------
 
 Good luck!
