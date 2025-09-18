@@ -46,7 +46,6 @@ bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
       inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
    }
 
-   char ts_buf[32];
    time_t ping_ts = dict_get_time_t(d, "ping.ts", 0);
 
    if (ping_ts) {
@@ -54,6 +53,8 @@ bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
          VAL_ULONG, "pong.ts", ping_ts);
       mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
       free((char *)jp);
+   } else {
+      ui_print("*** Empty ping?? ***");
    }
 
    if (cfg_show_pings) {

@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/logger.h>
 #include <librustyaxe/util.math.h>
@@ -468,7 +469,6 @@ unsigned int dict_get_uint(dict *d, const char *key, unsigned int def) {
    return def;
 }
 
-
 time_t dict_get_time_t(dict *d, const char *key, time_t def) {
    if (!key) {
       return def;
@@ -479,16 +479,25 @@ time_t dict_get_time_t(dict *d, const char *key, time_t def) {
       char *ep = NULL;
       errno = 0;
       long long val = strtoll(s, &ep, 10);
-      free((void *)s);
+
+      // Skip trailing whitespace
+      while (*ep && isspace((unsigned char)*ep)) {
+         ep++;
+      }
 
       if (*ep != '\0' || errno == ERANGE) {
-         return def;   // incomplete parse or out of range
-      } else {
-         return (time_t)val;
+         fprintf(stderr, "dict_get_time_t: failed parse for key '%s', val='%s'\n", key, s);
+         free((void *)s);
+         return def;
       }
+
+      free((void *)s);
+      return (time_t)val;
    }
+
    return def;
 }
+
 double dict_get_double(dict *d, const char *key, double def) {
    if (!key) {
       return def;

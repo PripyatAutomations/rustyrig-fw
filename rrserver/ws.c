@@ -316,12 +316,12 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
 
    // Handle ping messages
    if (ping) {
-      char *ping_ts = dict_get(d, "ping.ts", NULL);
+      time_t ping_ts = dict_get_time_t(d, "ping.ts", 0);
 
       if (ping_ts) {
          const char *jp = dict2json_mkstr(
                           VAL_STR, "type", "pong",
-                          VAL_STR, "ts", ping_ts);
+                          VAL_ULONG, "ts", ping_ts);
          mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
          free((void *)jp);
       }

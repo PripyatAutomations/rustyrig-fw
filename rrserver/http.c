@@ -331,7 +331,7 @@ bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
 
 ///// Main HTTP callback
 static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
-   if (!c || !ev_data) {
+   if (!c) {
       return;
    }
 
@@ -348,7 +348,9 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
    }
  
    if (ev == MG_EV_OPEN) {
-      c->is_hexdumping = 1;
+      if (cfg_get_bool("net.http.hex-dump", false)) {
+         c->is_hexdumping = 1;
+      }
    } else if (ev == MG_EV_CONNECT) {
       if (c->is_tls) {
          Log(LOG_DEBUG, "http", "Initializing TLS");
@@ -375,24 +377,26 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 
       // Save the user-agent the first time
       if (!cptr->user_agent) {
-         struct mg_str *ua_hdr = mg_http_get_header(hm, "User-Agent");
-         if (ua_hdr != NULL) {
-            size_t ua_len = ua_hdr->len < HTTP_UA_LEN ? ua_hdr->len : HTTP_UA_LEN;
-            
-            // allocate the memory
-            cptr->user_agent = malloc(ua_len);
-            if (!cptr->user_agent) {
-               fprintf(stderr, "OOM in http_cb EV_HTTP_MSG\n");
-               return;
+         if (hm) {
+            struct mg_str *ua_hdr = mg_http_get_header(hm, "User-Agent");
+            if (ua_hdr != NULL) {
+               size_t ua_len = ua_hdr->len < HTTP_UA_LEN ? ua_hdr->len : HTTP_UA_LEN;
+               
+               // allocate the memory
+               cptr->user_agent = malloc(ua_len);
+               if (!cptr->user_agent) {
+                  fprintf(stderr, "OOM in http_cb EV_HTTP_MSG\n");
+                  return;
+               }
+               memset(cptr->user_agent, 0, ua_len);
+               memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
+               Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, (cptr->user_agent ? cptr->user_agent : "none"), ua_len);
             }
-            memset(cptr->user_agent, 0, ua_len);
-            memcpy(cptr->user_agent, ua_hdr->buf, ua_len);
-            Log(LOG_DEBUG, "http.core", "New session c:<%x> cptr:<%x> User-Agent: %s (%d)", c, cptr, (cptr->user_agent ? cptr->user_agent : "none"), ua_len);
          }
       }
 
       // Send the request to our HTTP router
-      if (http_dispatch_route(hm, c) == true) {
+      if (hm && http_dispatch_route(hm, c) == true) {
          Log(LOG_CRAZY, "http.core", "fall through to http_static");
          http_static(hm, c);
       }
@@ -441,11 +445,6 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 
          // reduce the # of clones for the user / reset to 0
          Log(LOG_CRAZY, "http", "Departing user %s had %d clones", cptr->chatname, cptr->user->clones);
-
-         cptr->user->clones--;
-         if (cptr->user->clones < 0) {
-            cptr->user->clones = 0;
-         }
 
          if (cptr->active) {
             // blorp out a quit to all connected users

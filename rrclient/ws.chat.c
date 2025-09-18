@@ -128,15 +128,17 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       char *target = dict_get(d, "talk.target", NULL);
       time_t ts = dict_get_time_t(d, "talk.ts", now);
 
-      Log(LOG_CRAZY, "ws.chat", "chat: %s %s <%s> %s", msg_type, target, from, data);
-      char *unesc_data = strdup(data);
-      unescape_html(data);
+      if (strcasecmp(msg_type, "action") == 0) {
+         Log(LOG_CRAZY, "ws.chat", "chat: %s * %s %s", target, from, data);
+      } else {
+         Log(LOG_CRAZY, "ws.chat", "chat: %s <%s> %s", target, from, data);
+      }
 
       // Support public messages and action (/me)
       if (msg_type && strcasecmp(msg_type, "pub") == 0) {
-         ui_print("[%s] <%s> %s", get_chat_ts(ts), from, unesc_data);
+         ui_print("[%s] <%s> %s", get_chat_ts(ts), from, data);
       } else if (msg_type && strcasecmp(msg_type, "action") == 0) {
-         ui_print("[%s] * %s %s", get_chat_ts(ts), from, unesc_data);
+         ui_print("[%s] * %s %s", get_chat_ts(ts), from, data);
       }
 
       gui_window_t *win = gui_find_window(NULL, "main");
@@ -145,7 +147,6 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
          gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
       }
-      free(unesc_data);
    } else if (cmd && strcasecmp(cmd, "join") == 0) {
       char *ip = dict_get(d, "talk.ip", NULL);
       time_t ts = dict_get_time_t(d, "talk.ts", now);

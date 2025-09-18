@@ -154,12 +154,10 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          }
       } else {
          // not a match
-         char *escaped_msg = escape_html(msg);
          const char *jp = dict2json_mkstr(
             VAL_STR, "talk.cmd", "msg",
-            VAL_STR, "talk.data", escaped_msg,
+            VAL_STR, "talk.data", msg,
             VAL_STR, "talk.msg_type", "pub");
-         free(escaped_msg);
          mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
          free((char *)jp);
       }
