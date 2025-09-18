@@ -9,4 +9,4 @@ SZ_CSS=$(cat www/css/*.css | wc -l)
 SZ_SH=$(cat *.sh tools/*.sh | wc -l)
 SZ_SQL=$(cat sql/*.sql | wc -l)
 SZ_TTL=$((${SZ_C_SHARED} + ${SZ_C} + ${SZ_C_RRCLI} + ${SZ_PL} + ${SZ_JS} + ${SZ_HTML} + ${SZ_CSS} + ${SZ_SH} + ${SZ_SQL}))
-echo "Lines of code in librustyaxe: C ${SZ_C_SHARED}, rrserver: C ${SZ_C}, rrclient: C ${SZ_C_RRCLI}. WebUI: JavaScript ${SZ_JS}, HTML ${SZ_HTML}, CSS ${SZ_CSS}. BuildEnv: Perl ${SZ_PL}, Shell ${SZ_SH}, SQL ${SZ_SQL}. Grand Total of ${SZ_TTL} lines of new code."
+echo "Lines of code in librustyaxe: C ${SZ_C_SHARED}, rrserver: C ${SZ_C}, rrclient: C ${SZ_C_RRCLI}. WebUI: JavaScript ${SZ_JS}, HTML ${SZ_HTML}, CSS ${SZ_CSS}. BuildEnv: Perl ${SZ_PL}, Shell ${SZ_SH}, SQL ${SZ_SQL}. Grand Total of ${SZ_TTL} lines of unique code."

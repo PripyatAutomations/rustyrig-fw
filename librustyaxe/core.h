@@ -1,0 +1,13 @@
+#include <librustyaxe/config.h>
+#include <librustyaxe/dict.h>
+#include <librustyaxe/fwdsp-shared.h>
+#include <librustyaxe/io.h>
+#include <librustyaxe/io.serial.h>
+#include <librustyaxe/io.socket.h>
+#include <librustyaxe/irc.struct.h>
+#include <librustyaxe/json.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/posix.h>
+#include <librustyaxe/util.file.h>
+#include <librustyaxe/util.math.h>
+#include <librustyaxe/util.string.h>

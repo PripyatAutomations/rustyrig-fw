@@ -249,7 +249,7 @@ void rr_cat_yaesu_vox(const char *args) {
 void rr_cat_yaesu_zero_in(const char *args) {
 }		// Zero In
 
-CATCommand rr_cat_yaesu_commands[] = {
+CATCommandTable rr_cat_yaesu_commands[] = {
     // cmd, min, max, callback
     { "AB", 0, 1, rr_cat_yaesu_vfo_a_to_b },		// VFO A to VFO B
     { "AC", 1, 1, rr_cat_yaesu_tuner_control },		// Antenna Tuner Control

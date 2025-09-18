@@ -18,3 +18,6 @@ dump-ptt:
 
 dump-log:
 	echo "select * from audit_log;" | sqlite3 "${MASTER_DB}"
+
+dump-chat:
+	echo "select * from chat_log;" | sqlite3 "${MASTER_DB}"

@@ -6,8 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "build_config.h"
-#include "librustyaxe/config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,6 +14,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include "build_config.h"
+#include "librustyaxe/config.h"
+#include "librustyaxe/logger.h"
 #if	defined(FEATURE_SQLITE)
 #include <sqlite3.h>
 #include "rrserver/database.h"
@@ -49,6 +50,7 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled,
 
    sqlite3_stmt *stmt;
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_WARN, "db", "failed preparing statement in db_add_user: %s", sqlite3_errmsg(db));
       return false;
    }
 
@@ -74,6 +76,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 
    sqlite3_stmt *stmt;
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_WARN, "db", "failed preparing statement in db_add_audit_event: %s", sqlite3_errmsg(db));
       return false;
    }
 
@@ -100,6 +103,7 @@ int db_ptt_start(sqlite3 *db, const char *username,
 
    sqlite3_stmt *stmt;
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_WARN, "db", "failed preparing statement in db_ptt_start: %s", sqlite3_errmsg(db));
       return -1;
    }
 
@@ -129,6 +133,7 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
 
    sqlite3_stmt *stmt;
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_WARN, "db", "failed preparing statement in db_ptt_stop: %s", sqlite3_errmsg(db));
       return false;
    }
 
@@ -142,13 +147,16 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
 
 bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type, const char *msg_data) {
    if (!db || !msg_src || !msg_dest || !msg_type || !msg_data) {
+      Log(LOG_WARN, "db", "invalid arguments db:<%x> ts:%lu src:<%x> dest:<%x> type:<%x> data:<%x>",
+          db, msg_ts, msg_src, msg_dest, msg_type, msg_data);
       return false;
    }
 
-   const char *sql = "INSERT INTO chat_msg (msg_ts, msg_src, msg_dest, msg_type, msg_data) VALUES (?, ?, ?, ?, ?);";
+   const char *sql = "INSERT INTO chat_log (msg_ts, msg_src, msg_dest, msg_type, msg_data) VALUES (?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_WARN, "db", "failed preparing statement in db_add_chat_msg: %s", sqlite3_errmsg(db));
       return false;
    }
 

@@ -390,6 +390,12 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
    char *msg_type = dict_get(d, "talk.msg_type", NULL);
    char *user = cptr->chatname;
 
+   // set a default of &localrig, but use target if passed
+   const char *channel = "&localrig";
+   if (target) {
+      channel = target;
+   }
+
    if (cmd) {
       if (strcasecmp(cmd, "msg") == 0) {
          if (!data) {
@@ -419,7 +425,11 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             return true;
          }
 
-         Log(LOG_CRAZY, "ws.chat", "msg type:%s from %s: |%s|", msg_type, cptr->chatname, data);
+         if (strcasecmp(msg_type, "action") == 0) {
+            Log(LOG_CRAZY, "ws.chat", "%s * %s%s", channel, cptr->chatname, data);
+         } else {
+            Log(LOG_CRAZY, "ws.chat", "%s <%s> %s", channel, cptr->chatname, data);
+         }
 
          // handle a file chunk
          if (msg_type) {
@@ -446,20 +456,23 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                free((void *)jp);
                return false;
             } else if (strcasecmp(msg_type, "pub") == 0 ||
-                strcasecmp(msg_type, "action") == 0) {
-               const char *channel = "***MAIN***";
+               strcasecmp(msg_type, "action") == 0) {
+
                // XXX: Here we should do content filtering, if enabled
-               bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname,
-                                             channel, msg_type, data);
-               if (db_res) {
-                  fprintf(stderr, "db_add_chat_msg failed\n");
+
+               // Log to database, if allowed
+               if (cfg_get_bool("chat.log", false)) {
+                  bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
+                  if (!db_res) {
+                     fprintf(stderr, "db_add_chat_msg failed\n");
+                  }
                }
 
-               // Relay the message
                const char *jp = dict2json_mkstr(
                   VAL_STR, "talk.cmd", "msg",
                   VAL_STR, "talk.data", data,
                   VAL_STR, "talk.from", cptr->chatname,
+                  VAL_STR, "talk.target", channel,
                   VAL_STR, "talk.msg_type", msg_type,
                   VAL_LONG, "talk.ts", now);
 

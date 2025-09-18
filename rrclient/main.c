@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -28,7 +27,11 @@
 #include "../ext/libmongoose/mongoose.h"
 #include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
+
+#include <gtk/gtk.h>
 #include "mod.ui.gtk3/gtk.core.h"
+#include "mod.ui.gtk3/gtk.alertdialog.h"
+
 #include "rrclient/ui.h"
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"
@@ -82,6 +85,17 @@ static gboolean update_now(gpointer user_data) {
    return G_SOURCE_CONTINUE;
 }
 
+static void dialog_test(void) {
+   // dialog setup
+   gui_window_t *win = gui_find_window(NULL, "main");
+   GtkWidget *main_window = win->gtk_win;
+
+   alert_dialog(GTK_WINDOW(main_window), MSG_INFO, "This is info");
+   alert_dialog(GTK_WINDOW(main_window), MSG_WARNING, "This is warning");
+   alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, "This is error");
+   alert_dialog(GTK_WINDOW(main_window), MSG_QUESTION, "This is question");
+}
+
 int main(int argc, char *argv[]) {
    char *fullpath = NULL;       
 
@@ -91,6 +105,7 @@ int main(int argc, char *argv[]) {
    // Set a time stamp so logging will work
    now = time(NULL);
    update_timestamp();
+
 
 // XXX: what this is? why is commented? can removed???
 //   cfg_detect_and_load(configs, num_configs);
@@ -129,6 +144,8 @@ int main(int argc, char *argv[]) {
 
    gtk_init(&argc, &argv);
 
+   alert_dialogs_init();
+
 #ifdef _WIN32
    // Disable edit mode in the console, so copy/paste is more usable
    disable_console_quick_edit();
@@ -153,6 +170,7 @@ int main(int argc, char *argv[]) {
    // Auto-connect if configured
    connman_autoconnect();
 
+   dialog_test();
    // start gtk main loop
    gtk_main();
 

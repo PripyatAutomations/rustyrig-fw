@@ -66,7 +66,9 @@ bool ws_handle_syslog_msg(struct mg_connection *c, dict *d) {
       }
    }
 
+   logpriority_t log_priority = log_priority_from_str(prio);
+
    Log(LOG_DEBUG, "server.syslog", "Got message <%s.%s> %s", subsys, prio, data);
-   log_print("[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
+   log_print(log_priority, subsys, "[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
    return false;
 }

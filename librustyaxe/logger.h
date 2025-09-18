@@ -32,7 +32,7 @@ typedef enum LogPriority logpriority_t;
 struct log_callback {
    enum LogPriority	 prio;
    const char           *msg;
-   bool                (*callback)(const char *fmt, va_list ap);
+   bool                (*callback)(logpriority_t priority, const char *subsys, const char *fmt, va_list ap);
    struct log_callback *next;
 };
 
@@ -47,7 +47,7 @@ extern int update_timestamp(void);
 extern enum LogPriority log_priority_from_str(const char *priority);
 
 // Add a callback to the Log() call
-extern bool log_add_callback(bool (*log_va_cb)(const char *fmt, va_list ap));
+extern bool log_add_callback(bool (*log_va_cb)(logpriority_t priority, const char *subsys,  const char *fmt, va_list ap));
 extern bool log_remove_callback(struct log_callback *log_callback);
 
 // Filters

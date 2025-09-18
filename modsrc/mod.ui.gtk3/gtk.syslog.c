@@ -39,7 +39,7 @@ GtkTextBuffer *log_buffer = NULL;
 GtkWidget *log_view = NULL;
 
 // backend
-bool log_print_va(const char *fmt, va_list ap) {
+bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    if (!fmt || !ap) {
       return true;
    }
@@ -63,7 +63,7 @@ bool log_print_va(const char *fmt, va_list ap) {
 }
 
 // print to syslog
-bool log_print(const char *fmt, ...) {
+bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    if (!fmt) {
       printf("log_print sent NULL fmt\n");
    }
@@ -75,7 +75,7 @@ bool log_print(const char *fmt, ...) {
 
    va_list ap;
    va_start(ap, fmt);
-   bool rv = log_print_va(fmt, ap);
+   bool rv = log_print_va(priority, subsys, fmt, ap);
    va_end(ap);
    return rv;   
 }

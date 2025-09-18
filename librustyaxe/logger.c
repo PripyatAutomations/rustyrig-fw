@@ -353,7 +353,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
          if (lp->callback) {
             va_list cb_ap;
             va_copy(cb_ap, ap_c1);
-            lp->callback(fmt, cb_ap);
+            lp->callback(priority, subsys, fmt, cb_ap);
             va_end(cb_ap);
          }
          lp = lp->next;
@@ -381,7 +381,7 @@ bool log_remove_callback(struct log_callback *log_callback) {
    return false;  // callback not found
 }
 
-bool log_add_callback(bool (*log_va_cb)(const char *fmt, va_list ap)) {
+bool log_add_callback(bool (*log_va_cb)(logpriority_t priority, const char *subsys, const char *fmt, va_list ap)) {
    struct log_callback *newcb = malloc(sizeof(struct log_callback));
 
    if (!newcb) {

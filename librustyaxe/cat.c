@@ -39,6 +39,83 @@
 #include "librustyaxe/logger.h"
 #include "librustyaxe/cat.h"
 
+static CATCommand *cat_commands = NULL;
+
+static CATCommand *find_or_create_command(const char *cmd) {
+   CATCommand *c = cat_commands;
+
+   while (c) {
+      if (strcmp(c->cmd, cmd) == 0) {
+         return c;
+      }
+      c = c->next;
+   }
+
+   CATCommand *newc = calloc(1, sizeof(*newc));
+   if (!newc) {
+      return NULL;
+   }
+
+   newc->cmd = strdup(cmd);
+   newc->callbacks = NULL;
+   newc->next = cat_commands;
+   cat_commands = newc;
+
+   return newc;
+}
+
+bool cat_register_callback(const char *cmd, CATCallback cb) {
+   CATCommand *c = find_or_create_command(cmd);
+   if (!c) {
+      return false;
+   }
+
+   CATCallbackNode *n = calloc(1, sizeof(*n));
+   if (!n) {
+      return false;
+   }
+   n->cb = cb;
+
+   // append at end
+   CATCallbackNode **p = &c->callbacks;
+   while (*p) p = &(*p)->next;
+   *p = n;
+
+   return true;
+}
+
+bool cat_invoke_callbacks(const char *cmd, const char *args) {
+   CATCommand *c = cat_commands;
+   while (c) {
+      if (strcmp(c->cmd, cmd) == 0) {
+         CATCallbackNode *n = c->callbacks;
+         while (n) {
+            n->cb(args);
+            n = n->next;
+         }
+         return true;
+      }
+      c = c->next;
+   }
+   return false; // unknown command
+}
+
+bool cat_register_builtin_array(const CATBuiltin *arr) {
+   if (!arr) {
+      return false;
+   }
+
+   for (const CATBuiltin *p = arr; p->cmd != NULL; p++) {
+      if (p->cb) {
+         if (!cat_register_callback(p->cmd, p->cb)) {
+            return false;
+         }
+      }
+   }
+   return true;
+}
+
+
 // Initialize CAT control
 int32_t rr_cat_init(void) {
    Log(LOG_INFO, "cat", "Initializing CAT interfaces");

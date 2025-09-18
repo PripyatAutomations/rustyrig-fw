@@ -216,6 +216,97 @@ char *json_escape(const char *s) {
    return out;
 }
 
+// unescape JSON string (expects surrounding quotes, returns malloc'd buffer)
+char *json_unescape(const char *s) {
+   if (!s) {
+      return NULL;
+   }
+
+   size_t len = strlen(s);
+   if (len < 2 || s[0] != '"' || s[len-1] != '"') {
+      fprintf(stderr, "Invalid JSON string: %s\n", s);
+      return NULL;
+   }
+
+   // worst case: input shrinks, so allocate len+1
+   char *out = malloc(len);
+   if (!out) {
+      fprintf(stderr, "OOM in json_unescape\n");
+      return NULL;
+   }
+
+   const char *p = s + 1;        // skip opening quote
+   const char *end = s + len - 1; // before closing quote
+   char *q = out;
+
+   while (p < end) {
+      if (*p == '\\') {
+         p++;
+         if (p >= end) {
+            break;
+         }
+
+         switch (*p) {
+            case '\"': *q++ = '\"'; break;
+            case '\\': *q++ = '\\'; break;
+            case '/':  *q++ = '/';  break;
+            case 'b':  *q++ = '\b'; break;
+            case 'f':  *q++ = '\f'; break;
+            case 'n':  *q++ = '\n'; break;
+            case 'r':  *q++ = '\r'; break;
+            case 't':  *q++ = '\t'; break;
+            case 'u': {
+               if (end - p < 4) { // not enough chars
+                  fprintf(stderr, "Invalid \\u escape\n");
+                  free(out);
+                  return NULL;
+               }
+               unsigned code = 0;
+               for (int i = 0; i < 4; i++) {
+                  p++;
+                  if (p >= end) {
+                     free(out);
+                     return NULL;
+                  }
+
+                  char c = *p;
+                  code <<= 4;
+                  if (c >= '0' && c <= '9') {
+                     code |= c - '0';
+                  } else if (c >= 'a' && c <= 'f') {
+                     code |= c - 'a' + 10;
+                  } else if (c >= 'A' && c <= 'F') {
+                     code |= c - 'A' + 10;
+                  } else {
+                     free(out);
+                     return NULL;
+                  }
+               }
+               if (code < 0x80) {
+                  *q++ = code;
+               } else if (code < 0x800) {
+                  *q++ = 0xC0 | (code >> 6);
+                  *q++ = 0x80 | (code & 0x3F);
+               } else {
+                  *q++ = 0xE0 | (code >> 12);
+                  *q++ = 0x80 | ((code >> 6) & 0x3F);
+                  *q++ = 0x80 | (code & 0x3F);
+               }
+               break;
+            }
+            default:
+               *q++ = *p; // unknown escape, just copy
+               break;
+         }
+      } else {
+         *q++ = *p;
+      }
+      p++;
+   }
+   *q = '\0';
+   return out;
+}
+
 static json_node *json_make_node(const char *key) {
    json_node *n = calloc(1, sizeof(*n));
    if (!n) {

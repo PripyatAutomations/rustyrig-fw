@@ -34,6 +34,30 @@ typedef struct {
     uint8_t min_args;
     uint8_t max_args;
     void (*rr_cat_yaesu_r)(const char *args);
+} CATCommandTable;
+
+// User callback signature
+typedef void (*CATCallback)(const char *args);
+
+// Built-in command table entries
+typedef struct {
+   const char *cmd;
+   int min_args;
+   int max_args;
+   CATCallback cb;
+} CATBuiltin;
+
+// Linked list node for callbacks
+typedef struct CATCallbackNode {
+   CATCallback cb;
+   struct CATCallbackNode *next;
+} CATCallbackNode;
+
+// Linked list of commands
+typedef struct CATCommand {
+   char *cmd;
+   CATCallbackNode *callbacks;
+   struct CATCommand *next;
 } CATCommand;
 
 extern int32_t rr_cat_printf(char *str, ...);
@@ -41,13 +65,12 @@ extern int32_t rr_cat_parse_line(char *line);
 extern int32_t rr_cat_init(void);
 extern int32_t rr_cat_parse_line_real(char *line);
 extern int32_t rr_cat_parse_line(char *line);
-
-// rr_cat_kpa500.c
-extern struct rr_cat_cmd cmd_kpa500[];
 extern int32_t rr_cat_parse_amp_line(char *line);
 extern int32_t rr_cat_printf(char *str, ...);
-
 //extern bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg);
+extern bool cat_register_callback(const char *cmd, CATCallback cb);
+extern bool cat_invoke_callbacks(const char *cmd, const char *args);
+extern bool cat_register_builtin_array(const CATBuiltin *arr);
 
 #include "librustyaxe/cat.kpa500.h"
 #include "librustyaxe/cat.yaesu.h"

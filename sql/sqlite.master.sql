@@ -22,7 +22,7 @@ CREATE TABLE ptt_log (
    record_file TEXT
 );
 
-CREATE TABLE chat_msg (
+CREATE TABLE chat_log (
    msg_id INTEGER PRIMARY KEY AUTOINCREMENT,
    msg_ts DATETIME DEFAULT CURRENT_TIMESTAMP,
    msg_src TEXT NOT NULL,

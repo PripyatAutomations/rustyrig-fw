@@ -158,7 +158,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          }
       } else {
          // not a match
-         char *escaped_msg = json_escape(msg);
+         char *escaped_msg = escape_html(msg);
          const char *jp = dict2json_mkstr(
             VAL_STR, "talk.cmd", "msg",
             VAL_STR, "talk.data", escaped_msg,

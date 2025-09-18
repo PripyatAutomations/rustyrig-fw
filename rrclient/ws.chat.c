@@ -25,6 +25,7 @@
 #include "librustyaxe/logger.h"
 #include "librustyaxe/posix.h"
 #include "librustyaxe/util.file.h"
+#include "librustyaxe/util.string.h"
 #include "rrclient/auth.h"
 #include "rrclient/connman.h"
 #include "mod.ui.gtk3/gtk.core.h"
@@ -133,11 +134,14 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       char *msg_type = dict_get(d, "talk.msg_type", NULL);
 
       Log(LOG_CRAZY, "ws.chat", "msg type=%s from=|%s| data=|%s|", msg_type, from, data);
+      char *unesc_data = strdup(data);
+      unescape_html(data);
+
       // Support public messages and action (/me)
       if (msg_type && strcasecmp(msg_type, "pub") == 0) {
-         ui_print("[%s] <%s> %s", get_chat_ts(), from, data);
+         ui_print("[%s] <%s> %s", get_chat_ts(), from, unesc_data);
       } else if (msg_type && strcasecmp(msg_type, "action") == 0) {
-         ui_print("[%s] * %s %s", get_chat_ts(), from, data);
+         ui_print("[%s] * %s %s", get_chat_ts(), from, unesc_data);
       }
 
       gui_window_t *win = gui_find_window(NULL, "main");
@@ -146,6 +150,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
          gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
       }
+      free(unesc_data);
    } else if (cmd && strcasecmp(cmd, "join") == 0) {
       char *ip = dict_get(d, "talk.ip", NULL);
 

@@ -1,3 +1,10 @@
+rustyrig-fw (20250917.02) testing; urgency=medium
+* Added alert/warning/error dialog in main window for ui.gtk3
+* Cleaned up the logger bits so now log.level fully supports multiple levels and * for default
+* Removed last of the audio remnants
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 17 Sep 2025 03:28:00 -0400
+
 rustyrig-fw (20250917) testing; urgency=medium
 * much more integration of dict2json and json2dict for safe json creation and cleaner parsers
 * added a bug where messages unintentionally get quoted

@@ -8,6 +8,7 @@ rrclient_objs += defconfig.o
 ifeq (${USE_GTK},true)
 rrclient_objs += gtk.core.o             # Support for a GTK user interface
 rrclient_objs += gtk.admin.o		# Admin tab
+rrclient_objs += gtk.alertdialog.o	# alert/error/warning dialogs
 rrclient_objs += gtk.chat.o		# Chat related stuff
 rrclient_objs += gtk.codecpicker.o	# codec picker widget
 rrclient_objs += gtk.editcfg.o		# configuration tab
@@ -52,18 +53,18 @@ ${OBJ_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 # as soon as we complete loadable modules, this must go away!
 ${OBJ_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 
 bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrclient_real_objs}
-	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrclient_real_objs} -lrustyaxe -lmongoose ${gtk_ldflags} ${gst_ldflags}
+	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrclient_real_objs} -lrustyaxe -lmongoose ${gtk_ldflags} ${gst_ldflags} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

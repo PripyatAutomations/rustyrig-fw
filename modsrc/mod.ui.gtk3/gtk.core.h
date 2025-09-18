@@ -58,8 +58,8 @@ extern bool gui_init(void);
 extern GtkWidget *conn_button;
 extern bool place_window(GtkWidget *window);
 extern void show_server_chooser(void);			// gtk.serverpick.c
-extern bool log_print(const char *fmt, ...);
-extern bool log_print_va(const char *fmt, va_list ap);
+extern bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...);
+extern bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap);
 extern void gui_edit_config(const char *filepath);
 extern gboolean ui_scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);

@@ -1,5 +1,6 @@
 #!/bin/bash
 SESSION="rustyrig"
+WAIT=5
 
 if [ ! -x bin/rrclient -o ! -x bin/rrserver ]; then
    ./build.sh
@@ -9,7 +10,7 @@ if command -v tmux >/dev/null 2>&1; then
    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
       tmux new-session -d -s "$SESSION" './test-server.sh'   # window 0 for server
       tmux new-window -t "$SESSION" -n client                 # creates window 1, just a shell
-      tmux send-keys -t "$SESSION:client" "echo 'Waiting 10s before starting client...'; sleep 10; ./test-client.sh" C-m
+      tmux send-keys -t "$SESSION:client" "echo 'Waiting ${WAIT}s before starting client...'; sleep ${WAIT}; ./test-client.sh" C-m
       tmux attach -t "$SESSION"
    else
       echo "Tmux session '$SESSION' already exists."
@@ -23,7 +24,7 @@ elif command -v screen >/dev/null 2>&1; then
       # Window 1: client (just opens a shell first)
       screen -S "$SESSION" -X screen bash
       # Send commands to the last created window
-      screen -S "$SESSION" -p 1 -X stuff $'echo "Waiting 20s before starting client..."\nsleep 20\n./test-client.sh\n'
+      screen -S "$SESSION" -p 1 -X stuff $'echo "Waiting ${WAIT}s before starting client..."\nsleep ${WAIT}\n./test-client.sh\n'
       
       # Attach
       screen -r "$SESSION"

@@ -7,6 +7,7 @@
 = rrclient =
 ============
 [general]
+* Since we've added log replay on join (rrserver.cfg:general/chat.replay-lines)
 * Support PTT lock; controlled by ctrl or shift clicking PTT button (disable ptt lock by default)
 * Add mute/unmute button for RX audio which halts sending the samples entirely
 * Add throttled reconnect like webui has
@@ -59,6 +60,7 @@
 [CAT]
 * Implement control over unix pipes in posix mode
 * Implement control over stm32 serial over usb
+* Merge rr_cat_cmd and CATCommandTable
 
 [logger]
 * Add support for masking out messages such as '-*.noisy'
