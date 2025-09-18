@@ -2,6 +2,8 @@ rustyrig-fw (20250917.02) testing; urgency=medium
 * Added alert/warning/error dialog in main window for ui.gtk3
 * Cleaned up the logger bits so now log.level fully supports multiple levels and * for default
 * Removed last of the audio remnants
+* Added chat logging in database (rrserver.cfg:general/chat.log) with optional replay on join (chat.replay-lines)
+   - Needs implemented in rrclient
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 17 Sep 2025 03:28:00 -0400
 
