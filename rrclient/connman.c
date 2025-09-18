@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // XXX: This needs finished to fully support multiple connections in one client
-#include "librustyaxe/config.h"
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,19 +18,14 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/config.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
 #include "rrclient/ui.h"
 #include "rrclient/userlist.h"
-#include "librustyaxe/client-flags.h"
 #include "mod.ui.gtk3/gtk.core.h"
+#include <librustyaxe/client-flags.h>
 
 // Server connections
 rr_connection_t *active_connections;
@@ -38,6 +33,7 @@ bool ws_connected = false;	// Is RX stream connecte?
 bool ws_tx_connected = false;	// Is TX stream connected?
 struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 bool server_ptt_state = false;
+
 // XXX: this needs to go away and be replaced with http_find_servername(c)
 const char *server_name = NULL;
 
@@ -45,7 +41,7 @@ extern rr_connection_t *active_connections;
 extern struct mg_mgr mgr;
 extern dict *cfg;
 extern dict *servers;
-extern time_t poll_block_expire, poll_block_delay;
+extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 
@@ -149,12 +145,12 @@ bool connect_server(const char *server) {
 #if	defined(USE_GTK)
       gtk_button_set_label(GTK_BUTTON(conn_button), "----------");
 #endif	// defined(USE_GTK)
-      ui_print("[%s] Connecting to %s", get_chat_ts(), url);
+      ui_print("[%s] Connecting to %s", get_chat_ts(now), url);
 
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
 
       if (!ws_conn) {
-         ui_print("[%s] Socket connect error", get_chat_ts());
+         ui_print("[%s] Socket connect error", get_chat_ts(now));
       }
    } else {
       ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", server);

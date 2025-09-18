@@ -42,28 +42,6 @@ GtkWidget *chat_textview = NULL;
 GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;
 
-////////////////////
-// Chat timestamp //
-////////////////////
-static char chat_ts[9];
-static time_t chat_ts_updated = 0;
-
-// This relies on the periodic tick to update now.
-const char *get_chat_ts(void) {
-   memset(chat_ts, 0, 9);
-
-   if (chat_ts_updated == 0) {
-      chat_ts_updated = now = time(NULL);
-   }
-
-   if (chat_ts_updated <= now) {
-      chat_ts_updated = now;
-      struct tm *ti = localtime(&now);
-      int rv = strftime(chat_ts, 9, "%H:%M:%S", ti);
-   }
-   return chat_ts;
-}
-
 // Scroll to the end of a GtkTextView
 gboolean ui_scroll_to_end(gpointer data) {
    if (!data) {

@@ -20,10 +20,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "librustyaxe/dict.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/util.math.h"
+#include <errno.h>
+#include <librustyaxe/dict.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/util.math.h>
 
 /*---------------------------------------------------------------------------
                                 Defines
@@ -468,6 +468,27 @@ unsigned int dict_get_uint(dict *d, const char *key, unsigned int def) {
    return def;
 }
 
+
+time_t dict_get_time_t(dict *d, const char *key, time_t def) {
+   if (!key) {
+      return def;
+   }
+
+   const char *s = dict_get_exp(d, key);
+   if (s) {
+      char *ep = NULL;
+      errno = 0;
+      long long val = strtoll(s, &ep, 10);
+      free((void *)s);
+
+      if (*ep != '\0' || errno == ERANGE) {
+         return def;   // incomplete parse or out of range
+      } else {
+         return (time_t)val;
+      }
+   }
+   return def;
+}
 double dict_get_double(dict *d, const char *key, double def) {
    if (!key) {
       return def;

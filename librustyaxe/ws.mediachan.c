@@ -7,7 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,12 +16,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "librustyaxe/cat.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/ws.mediachan.h"
-#include "librustyaxe/client-flags.h"
+#include <librustyaxe/cat.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/json.h>
+#include <librustyaxe/posix.h>
+#include <librustyaxe/ws.mediachan.h>
+#include <librustyaxe/client-flags.h>
 
 extern time_t now;
 

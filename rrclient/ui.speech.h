@@ -1,7 +1,6 @@
 #if	!defined(__rrclient_ui_speech_h)
 #define	__rrclient_ui_speech_h
-#include "librustyaxe/config.h"
-//#include "rrclient/ui.h"
+#include <librustyaxe/config.h>
 #pragma once
 #include <gtk/gtk.h>
 #include <stdbool.h>

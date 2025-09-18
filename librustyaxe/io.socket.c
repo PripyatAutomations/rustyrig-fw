@@ -10,7 +10,7 @@
 // Socket backend for io subsys
 //
 //#include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,6 +19,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-//#include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/io.h"
+//#include "../ext/libmongoose/mongoose.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/io.h>

@@ -14,10 +14,10 @@ ${MASTER_DB}:
 	sqlite3 $@ < "${MASTER_TEMPLATE}"
 
 dump-ptt:
-	echo "select * from ptt_log order BY start_time;" | sqlite3 "${MASTER_DB}"
+	echo "select * from ptt_log order by start_time desc limit 50;" | sqlite3 "${MASTER_DB}"
 
 dump-log:
-	echo "select * from audit_log;" | sqlite3 "${MASTER_DB}"
+	echo "select * from audit_log order by timestamp desc limit 50;" | sqlite3 "${MASTER_DB}"
 
 dump-chat:
-	echo "select * from chat_log;" | sqlite3 "${MASTER_DB}"
+	echo "select * from chat_log order by msg_ts desc limit 50;" | sqlite3 "${MASTER_DB}"

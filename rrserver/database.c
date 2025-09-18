@@ -171,4 +171,13 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
    return success;
 }
 
+bool db_send_chat_replay(http_client_t *cptr, const char *channel) {
+   // retrieve the lines from database
+   // For first message, send Replay Start message to client
+   // send the message to the user
+   // cleanup memory allocations
+   // send Reply Complete message to client
+   return false;
+}
+
 #endif

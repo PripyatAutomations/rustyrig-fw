@@ -7,8 +7,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
 #define	__RRCLIENT	1
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,17 +19,12 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
-#include "librustyaxe/client-flags.h"
+#include <librustyaxe/client-flags.h>
 
 extern time_t poll_block_expire, poll_block_delay;
 extern dict *cfg;		// config.c
@@ -46,6 +41,8 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
       Log(LOG_DEBUG, "ws.rigctl", "handle_rigctl_msg invalid args: c:<%x> d:<%x>", c, d);
       return true;
    }
+
+   time_t ts = dict_get_time_t(d, "cat.ts", now);
 
    if (dict_get(d, "cat.state.mode", NULL)) {
       if (poll_block_expire < now) {
@@ -125,7 +122,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
       }
    } else {
       char *json_msg = dict2json(d);
-      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(), json_msg);
+      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(ts), json_msg);
       Log(LOG_DEBUG, "ws.cat", "Unknown msg: %s", json_msg);
       free(json_msg);
    }

@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,17 +18,13 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.string.h"
 #include "rrclient/auth.h"
 #include <mod.ui.gtk3/gtk.core.h>
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"
 
 extern bool dying;
+extern time_t now;
 extern struct mg_connection *ws_conn;
 extern GtkWidget *chat_entry;
 extern GtkWidget *rx_vol_slider;
@@ -58,7 +54,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       const char *server = msg + 8;
 
       if (server && strlen(server) > 1) {
-         ui_print("[%s] * Changing server profile to %s", get_chat_ts(), server);
+         ui_print("[%s] * Changing server profile to %s", get_chat_ts(now), server);
          disconnect_server(server);
 
          if (server_name) {

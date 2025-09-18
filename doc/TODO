@@ -8,6 +8,8 @@
 ============
 [general]
 * Since we've added log replay on join (rrserver.cfg:general/chat.replay-lines)
+  - Change get_chat_ts to take a time_t optionally and show the date instead of just time, if before today
+    - This should make replay make a little more sense to new users
 * Support PTT lock; controlled by ctrl or shift clicking PTT button (disable ptt lock by default)
 * Add mute/unmute button for RX audio which halts sending the samples entirely
 * Add throttled reconnect like webui has

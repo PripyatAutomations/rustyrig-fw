@@ -12,7 +12,7 @@
  * Namely we use optionally use pipes instead of real serial ports
  * and deal with POSIX signals
  */
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <sys/stat.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -28,8 +28,8 @@
 #endif
 #include <stdio.h>
 #include <errno.h>
-#include "librustyaxe/posix.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/posix.h>
+#include <librustyaxe/logger.h>
 
 extern bool dying;
 

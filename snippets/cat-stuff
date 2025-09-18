@@ -1,0 +1,39 @@
+CATBuiltin rr_cat_yaesu_commands[] = {
+   { "FA", 1, 1, rr_cat_yaesu_set_vfo_a },
+   { "FB", 1, 1, rr_cat_yaesu_set_vfo_b },
+   { "MD", 1, 1, rr_cat_yaesu_mode },
+   { "TX", 1, 1, rr_cat_yaesu_ptt },
+   // ... all others ...
+   { NULL, -1, -1, NULL }   // terminator
+};
+
+bool rr_cat_yaesu_init(void) {
+   Log(LOG_INFO, "cat", "Rig CAT control (yaesu emu) initialized");
+   cat_register_builtin_array(rr_cat_yaesu_commands);
+   return true;
+}
+
+bool rr_cat_yaesu_parse(const char *msg) {
+   if (!msg || strlen(msg) < 2)
+      return false;
+
+   char cmd[3] = { msg[0], msg[1], 0 };
+   const char *args = msg + 2;
+
+   if (!cat_invoke_callbacks(cmd, args)) {
+      Log(LOG_WARN, "cat", "Unknown CAT command: %s", cmd);
+      return false;
+   }
+   return true;
+}
+
+//////////
+// in module
+//////////
+static void my_logger(const char *args) {
+   Log(LOG_INFO, "cat", "Extra logger: args=%s", args);
+}
+
+void my_module_init(void) {
+   cat_register_callback("FA", my_logger);
+}

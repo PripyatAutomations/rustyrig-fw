@@ -11,7 +11,7 @@
 // 	We use backends in socket.c, serial.c, and friends to support this
 //
 //#include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -23,9 +23,9 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-//#include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/io.h"
+//#include "../ext/libmongoose/mongoose.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/io.h>
 
 int rr_io_open(rr_io_context_t *ctx, rr_io_type_t type, const char *path, int port) {
     if (!ctx) {

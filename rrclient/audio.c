@@ -34,16 +34,16 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
-#include "librustyaxe/config.h"
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/codecneg.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/fwdsp-shared.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
-#include "rrclient/gtk.core.h"
-#include "rrclient/audio.h"
-#include "rrclient/ws.h"
+#include <librustyaxe/config.h>
+#include <librustyaxe/codecneg.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/fwdsp-shared.h>
+#include <librustyaxe/posix.h>
+#include <librustyaxe/util.file.h>
+#include "rrclient/gtk.core.h>
+#include "rrclient/audio.h>
+#include "rrclient/ws.h>
 
 extern dict *cfg;		// main.c
 extern struct mg_connection *ws_conn, *ws_tx_conn;

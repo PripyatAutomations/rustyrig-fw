@@ -7,8 +7,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
 #define	__RRCLIENT	1
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,18 +19,15 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
-#include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
-#include "librustyaxe/client-flags.h"
+#include "mod.ui.gtk3/gtk.core.h"
+#include <librustyaxe/client-flags.h>
 
 extern dict *cfg;		// config.c
+extern time_t now;
 
 bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg) {
@@ -63,13 +60,14 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
    char *error_msg = dict_get(d, "error.msg", NULL);
    char *error_from = dict_get(d, "error.from", NULL);
+   time_t ts = dict_get_time_t(d, "error.ts", now);
 
    if (!error_from) {
       error_from = strdup("***SERVER***");
    }
 
    if (error_msg) {
-      ui_print("[%s] ERROR: %s: %s !!!", get_chat_ts(), error_from, error_msg);
+      ui_print("[%s] ERROR: %s: %s !!!", get_chat_ts(ts), error_from, error_msg);
    }
    dict_free(d);
 

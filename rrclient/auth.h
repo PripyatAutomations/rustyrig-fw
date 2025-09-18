@@ -9,7 +9,7 @@
 #if     !defined(__rrclient_auth_h)
 #define __rrclient_auth_h
 #include <stdbool.h>
-#include "librustyaxe/http.h"
+#include <librustyaxe/http.h>
 #include "rrclient/userlist.h"
 
 //// Authentication Core ////

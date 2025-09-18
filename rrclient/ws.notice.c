@@ -7,8 +7,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
 #define	__RRCLIENT	1
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,17 +19,12 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
 #include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
-#include "librustyaxe/client-flags.h"
+#include <librustyaxe/client-flags.h>
 
 extern dict *cfg;		// config.c
 extern time_t now;
@@ -66,13 +61,15 @@ bool ws_handle_notice_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
    char *notice_msg = dict_get(d, "notice.msg", NULL);
    char *notice_from = dict_get(d, "notice.from", NULL);
+   time_t ts = dict_get_time_t(d, "notice.ts", now);
+
    // Copy to a null terminated buffer
    if (!notice_from) {
       notice_from = strdup("***SERVER***");
    }
 
    if (notice_msg) {
-      ui_print("[%s] NOTICE: %s: %s !!!", get_chat_ts(), notice_from, notice_msg);
+      ui_print("[%s] NOTICE: %s: %s !!!", get_chat_ts(ts), notice_from, notice_msg);
    }
 
    dict_free(d);

@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
+#include <librustyaxe/core.h>
 #define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
@@ -19,17 +19,13 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
 #include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
-#include "librustyaxe/client-flags.h"
+#include <librustyaxe/client-flags.h>
 
 extern dict *cfg;		// config.c
 extern time_t now;
@@ -58,7 +54,9 @@ bool ws_handle_auth_msg(struct mg_connection *c, dict *d) {
    char *cmd = dict_get(d, "auth.cmd", NULL);
    char *nonce = dict_get(d, "auth.nonce", NULL);
    char *user = dict_get(d, "auth.user", NULL);
-//   ui_print("[%s] => cmd: '%s', nonce: %s, user: %s", get_chat_ts(), cmd, nonce, user);
+   time_t ts = dict_get_time_t(d, "auth.ts", now);
+
+//   ui_print("[%s] => cmd: '%s', nonce: %s, user: %s", get_chat_ts(ts), cmd, nonce, user);
 
    // Must always send a command and username during auth
    if (!cmd || !user) {
@@ -68,21 +66,22 @@ bool ws_handle_auth_msg(struct mg_connection *c, dict *d) {
 
    if (cmd && strcasecmp(cmd, "challenge") == 0) {
       char *token = dict_get(d, "auth.token", NULL);
+      time_t ts = dict_get_time_t(d, "auth.ts", now);
 
       if (token) {
          memset(session_token, 0, HTTP_TOKEN_LEN + 1);
          snprintf(session_token, HTTP_TOKEN_LEN + 1, "%s", token);
       } else {
-         ui_print("[%s] ?? Got CHALLENGE without valid token!", get_chat_ts());
+         ui_print("[%s] ?? Got CHALLENGE without valid token!", get_chat_ts(ts));
          goto cleanup;
       }
 
-      ui_print("[%s] *** Sending PASSWD ***", get_chat_ts());
+      ui_print("[%s] *** Sending PASSWD ***", get_chat_ts(ts));
       const char *login_pass = get_server_property(server_name, "server.pass");
 
       ws_send_passwd(c, user, login_pass, nonce);
    } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
-      ui_print("[%s] *** Authorized ***", get_chat_ts());
+      ui_print("[%s] *** Authorized ***", get_chat_ts(ts));
       userlist_redraw_gtk();
       // XXX: Set online state
    }
@@ -97,7 +96,7 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
       return true;
    }
 
-   ui_print("[%s] *** Sending LOGIN ***", get_chat_ts());
+   ui_print("[%s] *** Sending LOGIN ***", get_chat_ts(now));
    const char *jp = dict2json_mkstr(
       VAL_STR, "auth.cmd", "login",
       VAL_STR, "auth.user", login_user);

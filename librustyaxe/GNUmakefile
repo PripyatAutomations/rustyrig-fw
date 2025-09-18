@@ -27,6 +27,7 @@ librr_objs += posix.o
 librr_objs += util.file.o
 librr_objs += util.math.o
 librr_objs += util.string.o
+librr_objs += util.time.o
 librr_objs += ws.mediachan.o
 
 real_librr_objs := $(foreach x, ${librr_objs}, obj/${x})
@@ -36,6 +37,7 @@ ${librustyaxe}: ${real_librr_objs} GNUmakefile
 	@${CC} ${LDFLAGS} -o $@ ${real_librr_objs}
 
 world: ${libs}
+
 
 obj/%.o:%.c
 	@echo "[compile] $< => $@"

@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(_rr_cat_kpa500_h)
 #define	_rr_cat_kpa500_h
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 
 extern bool rr_cat_kpa500_init(void);
 

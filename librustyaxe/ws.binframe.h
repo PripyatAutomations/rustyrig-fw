@@ -9,8 +9,7 @@
 
 #if	!defined(__rrclient_ws_binframe_h)
 #define	__rrclient_ws_binframe_h
-#include "librustyaxe/config.h"
-
+#include <librustyaxe/config.h>
 
 #define	BINFRAME_AUDIO	0x01
 #define	BINFRAME_VIDEO	0x02

@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(_rr_cat_control_h)
 #define	_rr_cat_control_h
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 
 // Maximum arguments
 #define	MAX_ARGS	12
@@ -72,7 +72,7 @@ extern bool cat_register_callback(const char *cmd, CATCallback cb);
 extern bool cat_invoke_callbacks(const char *cmd, const char *args);
 extern bool cat_register_builtin_array(const CATBuiltin *arr);
 
-#include "librustyaxe/cat.kpa500.h"
-#include "librustyaxe/cat.yaesu.h"
+#include <librustyaxe/cat.kpa500.h>
+#include <librustyaxe/cat.yaesu.h>
 
 #endif	// !defined(_rr_cat_control_h)

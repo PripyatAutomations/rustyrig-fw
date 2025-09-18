@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
-#include "librustyaxe/util.string.h"
+#include <librustyaxe/util.string.h>
 
 // You *MUST* free the return value when you are done!
 char *escape_html(const char *input) {

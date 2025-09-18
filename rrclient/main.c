@@ -21,11 +21,11 @@
 #include <windows.h>
 #endif
 
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/dict.h>
+#include <librustyaxe/posix.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/util.file.h"
+#include <librustyaxe/util.file.h>
 #include "rrclient/auth.h"
 
 #include <gtk/gtk.h>
@@ -85,16 +85,6 @@ static gboolean update_now(gpointer user_data) {
    return G_SOURCE_CONTINUE;
 }
 
-static void dialog_test(void) {
-   // dialog setup
-   gui_window_t *win = gui_find_window(NULL, "main");
-   GtkWidget *main_window = win->gtk_win;
-
-   alert_dialog(GTK_WINDOW(main_window), MSG_INFO, "This is info");
-   alert_dialog(GTK_WINDOW(main_window), MSG_WARNING, "This is warning");
-   alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, "This is error");
-   alert_dialog(GTK_WINDOW(main_window), MSG_QUESTION, "This is question");
-}
 
 int main(int argc, char *argv[]) {
    char *fullpath = NULL;       
@@ -170,7 +160,6 @@ int main(int argc, char *argv[]) {
    // Auto-connect if configured
    connman_autoconnect();
 
-   dialog_test();
    // start gtk main loop
    gtk_main();
 

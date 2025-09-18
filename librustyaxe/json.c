@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //#include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,11 +19,11 @@
 #include <ctype.h>
 #include <limits.h>
 #include <time.h>
-#include "librustyaxe/dict.h"
-#include "librustyaxe/cat.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/json.h"
+#include <librustyaxe/dict.h>
+#include <librustyaxe/cat.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/posix.h>
+#include <librustyaxe/json.h>
 
 static const char *json_parse_value(const char *s, const char *path, dict *d);
 

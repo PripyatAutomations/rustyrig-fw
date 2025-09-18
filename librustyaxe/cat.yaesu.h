@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(_rr_cat_yaesu_h)
 #define	_rr_cat_yaesu_h
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 
 extern void rr_cat_yaesu_vfo_a_to_b(const char *args);		// VFO A to VFO B
 extern void rr_cat_yaesu_tuner_control(const char *args);		// Antenna Tuner Control

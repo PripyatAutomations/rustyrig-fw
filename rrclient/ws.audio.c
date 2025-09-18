@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,14 +18,14 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
-#include "rrclient/auth.h"
-#include "rrclient/gtk.core.h"
-#include "rrclient/ws.h"
-#include "rrclient/audio.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/dict.h>
+#include <librustyaxe/posix.h>
+#include <librustyaxe/util.file.h>
+#include "rrclient/auth.h>
+#include "rrclient/gtk.core.h>
+#include "rrclient/ws.h>
+#include "rrclient/audio.h>
 extern time_t now;
 extern bool ws_connected;
 extern struct mg_connection *ws_conn;

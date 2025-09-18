@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "librustyaxe/config.h"
+#include <librustyaxe/core.h>
 #define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
@@ -17,17 +17,12 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
 #include "rrclient/auth.h"
 #include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
-#include "librustyaxe/client-flags.h"
+#include <librustyaxe/client-flags.h>
 
 // At startup, we try to find the distribution's TLS certificate authority trust store
 const char *default_tls_ca_paths[] = {
@@ -36,6 +31,7 @@ const char *default_tls_ca_paths[] = {
    "/etc/ssl/cert.pem"
 };
 
+extern time_t now;
 extern dict *cfg;				// config.c
 struct mg_mgr mgr;
 const char *tls_ca_path = NULL;
@@ -93,7 +89,7 @@ bool ws_handle_hello_msg(struct mg_connection *c, dict *d) {
 
    char *hello = dict_get(d, "hello", NULL);
    if (hello) {
-      ui_print("[%s] *** Server version: %s ***", get_chat_ts(), hello);
+      ui_print("[%s] *** Server version: %s ***", get_chat_ts(now), hello);
    }
    return false;
 }
@@ -212,7 +208,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       Log(LOG_DEBUG, "ws", "ev_ws_connect");
 //      const char *this_server = http_servername(c);
       const char *this_server = server_name;
-      ui_print("[%s] * Connected to %s*", get_chat_ts(), this_server);
+      ui_print("[%s] * Connected to %s*", get_chat_ts(now), this_server);
    } else if (ev == MG_EV_WRITE) {
       // Handle writing audio frames one by one
    } else if (ev == MG_EV_WS_OPEN) {
@@ -232,7 +228,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &opts);
       }
 
-      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts());
+      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts(now));
       ws_connected = true;
       update_connection_button(true, conn_button);
 
@@ -255,9 +251,9 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
       ws_handle(c, wm);
    } else if (ev == MG_EV_ERROR) {
-      ui_print("[%s] Socket error: %s", get_chat_ts(), (char *)ev_data);
+      ui_print("[%s] Socket error: %s", get_chat_ts(now), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
-      ui_print("[%s] *** DISCONNECTED ***", get_chat_ts());
+      ui_print("[%s] *** DISCONNECTED ***", get_chat_ts(now));
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);

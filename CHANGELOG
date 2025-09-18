@@ -4,6 +4,7 @@ rustyrig-fw (20250917.02) testing; urgency=medium
 * Removed last of the audio remnants
 * Added chat logging in database (rrserver.cfg:general/chat.log) with optional replay on join (chat.replay-lines)
    - Needs implemented in rrclient
+* Added dict_get_time_t
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 17 Sep 2025 03:28:00 -0400
 

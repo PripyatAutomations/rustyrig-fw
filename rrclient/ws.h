@@ -16,15 +16,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "librustyaxe/config.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/config.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/dict.h>
+#include <librustyaxe/posix.h>
 #include "rrclient/auth.h"
 #include "rrclient/audio.h"
 #include "ext/libmongoose/mongoose.h"
-#include "librustyaxe/codecneg.h"
-#include "librustyaxe/http.h"
+#include <librustyaxe/codecneg.h>
+#include <librustyaxe/http.h>
 
 extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
 extern void ws_init(void);

@@ -11,7 +11,7 @@
 #include <stdarg.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 
 enum LogPriority {
       LOG_NONE = -1,

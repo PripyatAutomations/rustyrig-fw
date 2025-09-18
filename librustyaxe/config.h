@@ -11,7 +11,7 @@
 #include <stdbool.h>
 //#include <stdint.h>
 
-#include "librustyaxe/dict.h"
+#include <librustyaxe/dict.h>
 
 // Maximum length of an expanded string, XXX: Move to header file librustyaxe/config.h
 #define	MAX_CFG_EXP_STRLEN	65535

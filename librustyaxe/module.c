@@ -22,8 +22,8 @@
 #include <time.h>
 #include <errno.h>
 #include <dlfcn.h>
-#include "librustyaxe/config.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/config.h>
+#include <librustyaxe/logger.h>
 
 #define	RUSTY_MODULE_API_VER	100
 

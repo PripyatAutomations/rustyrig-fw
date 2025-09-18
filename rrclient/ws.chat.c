@@ -7,8 +7,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
 #define	__RRCLIENT	1
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,20 +19,13 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/http.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
-#include "librustyaxe/util.string.h"
 #include "rrclient/auth.h"
 #include "rrclient/connman.h"
 #include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/audio.h"
 #include "rrclient/userlist.h"
 #include "rrclient/ws.h"
-#include "librustyaxe/client-flags.h"
+#include <librustyaxe/client-flags.h>
 
 extern dict *cfg;		// config.c
 extern time_t now;
@@ -132,16 +125,18 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       char *from = dict_get(d, "talk.from", NULL);
       char *data = dict_get(d, "talk.data", NULL);
       char *msg_type = dict_get(d, "talk.msg_type", NULL);
+      char *target = dict_get(d, "talk.target", NULL);
+      time_t ts = dict_get_time_t(d, "talk.ts", now);
 
-      Log(LOG_CRAZY, "ws.chat", "msg type=%s from=|%s| data=|%s|", msg_type, from, data);
+      Log(LOG_CRAZY, "ws.chat", "chat: %s %s <%s> %s", msg_type, target, from, data);
       char *unesc_data = strdup(data);
       unescape_html(data);
 
       // Support public messages and action (/me)
       if (msg_type && strcasecmp(msg_type, "pub") == 0) {
-         ui_print("[%s] <%s> %s", get_chat_ts(), from, unesc_data);
+         ui_print("[%s] <%s> %s", get_chat_ts(ts), from, unesc_data);
       } else if (msg_type && strcasecmp(msg_type, "action") == 0) {
-         ui_print("[%s] * %s %s", get_chat_ts(), from, unesc_data);
+         ui_print("[%s] * %s %s", get_chat_ts(ts), from, unesc_data);
       }
 
       gui_window_t *win = gui_find_window(NULL, "main");
@@ -153,6 +148,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       free(unesc_data);
    } else if (cmd && strcasecmp(cmd, "join") == 0) {
       char *ip = dict_get(d, "talk.ip", NULL);
+      time_t ts = dict_get_time_t(d, "talk.ts", now);
 
       if (!user || !ip) {
          goto cleanup;
@@ -167,13 +163,15 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       snprintf(cptr->name, sizeof(cptr->name), "%s", user);
       Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%x>", user, cptr);
       userlist_add_or_update(cptr);
-      ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(), user);
+      ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(ts), user);
    } else if (cmd && strcasecmp(cmd, "quit") == 0) {
       char *reason = dict_get(d, "talk.reason", NULL);
       if (!user || !reason) {
          goto cleanup;
       }
-      ui_print("[%s] >>> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(), user, reason ? reason : "No reason given", --clones);
+
+      time_t ts = dict_get_time_t(d, "talk.ts", now);
+      ui_print("[%s] >>> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(ts), user, reason ? reason : "No reason given", --clones);
 
       struct rr_user *cptr = userlist_find(user);
       if (!cptr) {
