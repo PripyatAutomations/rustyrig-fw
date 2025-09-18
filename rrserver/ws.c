@@ -6,7 +6,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,14 +17,14 @@
 #include <limits.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/cat.h"
+#include <librustyaxe/cat.h>
 #include "rrserver/codec.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/codecneg.h"
-#include "librustyaxe/json.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/posix.h>
+#include <librustyaxe/codecneg.h>
+#include <librustyaxe/json.h>
 #include "rrserver/state.h"
 #include "rrserver/ws.h"
 #include "rrserver/fwdsp-mgr.h"

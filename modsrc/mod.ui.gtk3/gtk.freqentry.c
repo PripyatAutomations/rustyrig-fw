@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "librustyaxe/dict.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/dict.h>
+#include <librustyaxe/logger.h>
 #include "mod.ui.gtk3/gtk.freqentry.h"
 #include "mod.ui.gtk3/gtk.core.h"
 

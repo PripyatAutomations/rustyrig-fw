@@ -9,7 +9,7 @@
 //
 // XXX: Need to break this into pieces and wrap up our custom widgets, soo we can do
 // XXX: nice things like pop-out (floating) VFOs
-#include "librustyaxe/config.h"
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,15 +22,13 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/posix.h"
 #include "rrclient/auth.h"
-#include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/ws.h"
+#include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
 
 extern dict *cfg;
+extern time_t now;
 GtkWidget *main_window = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
@@ -189,7 +187,7 @@ bool gui_init(void) {
    gtk_widget_realize(main_window);
    place_window(main_window);
 
-   ui_print("[%s] rustyrig client started", get_chat_ts());
+   ui_print("[%s] rustyrig client started", get_chat_ts(now));
 
    return false;
 }

@@ -7,7 +7,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we deal with http requests using mongoose
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #if	defined(FEATURE_HTTP)
 #include <stdio.h>
 #include <string.h>
@@ -21,13 +21,13 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/cat.h"
-#include "librustyaxe/codecneg.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/util.string.h"
-#include "librustyaxe/util.file.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/cat.h>
+#include <librustyaxe/codecneg.h>
+#include <librustyaxe/json.h>
+#include <librustyaxe/util.string.h>
+#include <librustyaxe/util.file.h>
+#include <librustyaxe/posix.h>
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"

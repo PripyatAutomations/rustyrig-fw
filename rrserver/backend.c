@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,12 +16,12 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/logger.h>
 #include "rrserver/state.h"
 #include "rrserver/thermal.h"
 #include "rrserver/eeprom.h"
 #include "rrserver/vfo.h"
-#include "librustyaxe/cat.h"
+#include <librustyaxe/cat.h>
 #include "rrserver/http.h"
 #include "rrserver/backend.h"
 

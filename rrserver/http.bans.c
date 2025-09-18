@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #if	defined(FEATURE_HTTP)
 #include <stdio.h>
 #include <string.h>
@@ -21,18 +21,18 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/posix.h>
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "librustyaxe/cat.h"
+#include <librustyaxe/cat.h>
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/auth.h"
 #include "rrserver/ptt.h"
-#include "librustyaxe/util.string.h"
-#include "librustyaxe/util.file.h"
+#include <librustyaxe/util.string.h>
+#include <librustyaxe/util.file.h>
 extern struct mg_mgr mg_mgr;
 
 struct http_ua_ban {

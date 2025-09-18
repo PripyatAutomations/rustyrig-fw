@@ -13,7 +13,7 @@
  * powering down the PAs (such as for relay changes in tuning or filters).
  */
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,9 +22,9 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/dict.h>
+#include <librustyaxe/json.h>
+#include <librustyaxe/logger.h>
 #include "rrserver/state.h"
 #include "rrserver/ptt.h"
 #include "rrserver/auth.h"

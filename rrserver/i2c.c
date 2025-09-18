@@ -10,7 +10,7 @@
  * Here we deal with i2c messages, most importantly logging them
  */
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/logger.h>
 #include "rrserver/state.h"
 #include "rrserver/i2c.h"
 #include "rrserver/i2c.hal.h"

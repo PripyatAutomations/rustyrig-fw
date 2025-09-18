@@ -15,10 +15,10 @@
 #include <string.h>
 #include <time.h>
 #include "build_config.h"
-#include "librustyaxe/config.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/core.h>
 #if	defined(FEATURE_SQLITE)
 #include <sqlite3.h>
+#include <librustyaxe/core.h>
 #include "rrserver/database.h"
 
 sqlite3 *masterdb = NULL;

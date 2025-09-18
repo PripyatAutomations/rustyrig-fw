@@ -12,7 +12,7 @@
  * Build conf will generate the LC tables used below (atu_tables.h)
  */
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -23,7 +23,7 @@
 #include <errno.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "rrserver/state.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/logger.h>
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"
 #include "rrserver/atu.h"

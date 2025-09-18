@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,16 +18,16 @@
 #include <limits.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/cat.h"
+#include <librustyaxe/cat.h>
 #include "rrserver/eeprom.h"
 #include "rrserver/i2c.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/json.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/dict.h>
+#include <librustyaxe/json.h>
+#include <librustyaxe/logger.h>
+#include <librustyaxe/posix.h>
 #include "rrserver/state.h"
 #include "rrserver/ws.h"
-#include "librustyaxe/client-flags.h"
+#include <librustyaxe/client-flags.h>
 
 extern struct GlobalState rig;	// Global state
 

@@ -12,7 +12,7 @@
 // Most of the ugly bits should go in the per-backend sources
 //
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -27,17 +27,17 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/logger.h>
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "librustyaxe/cat.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/codecneg.h"
+#include <librustyaxe/cat.h>
+#include <librustyaxe/posix.h>
+#include <librustyaxe/codecneg.h>
 #include "rrserver/au.h"
 #include "rrserver/au.pipe.h"
 #include "rrserver/ws.h"
-#include "librustyaxe/fwdsp-shared.h"
+#include <librustyaxe/fwdsp-shared.h>
 
 // XXX: This needs moved to config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path
 

@@ -6,7 +6,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,7 +17,7 @@
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "rrserver/gui.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/logger.h>
 #include "rrserver/state.h"
 
 // Here we deaal with fwdsp -v -t supplied frames for webcams

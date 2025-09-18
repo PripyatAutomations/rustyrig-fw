@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,9 +16,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "librustyaxe/logger.h"
-#include "librustyaxe/util.file.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/util.file.h>
+#include <librustyaxe/posix.h>
 
 const char *configs[] = { 
 #ifndef _WIN32

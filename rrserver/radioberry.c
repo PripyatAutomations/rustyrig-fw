@@ -10,7 +10,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -24,7 +24,7 @@
 #include "rrserver/atu.h"
 #include "rrserver/au.h"
 #include "rrserver/backend.h"
-#include "librustyaxe/cat.h"
+#include <librustyaxe/cat.h>
 #include "rrserver/eeprom.h"
 #include "rrserver/faults.h"
 #include "rrserver/filters.h"
@@ -32,10 +32,10 @@
 #include "rrserver/gui.h"
 #include "rrserver/help.h"
 #include "rrserver/i2c.h"
-#include "librustyaxe/io.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/io.h>
+#include <librustyaxe/logger.h>
 #include "rrserver/network.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/posix.h>
 #include "rrserver/ptt.h"
 #include "rrserver/state.h"
 #include "rrserver/thermal.h"

@@ -1,6 +1,7 @@
 #include <librustyaxe/config.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/fwdsp-shared.h>
+#include <librustyaxe/http.h>
 #include <librustyaxe/io.h>
 #include <librustyaxe/io.serial.h>
 #include <librustyaxe/io.socket.h>

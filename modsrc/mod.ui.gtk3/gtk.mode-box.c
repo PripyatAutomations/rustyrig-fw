@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
@@ -19,15 +19,15 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/posix.h"
-#include "librustyaxe/util.file.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/dict.h>
+#include <librustyaxe/posix.h>
+#include <librustyaxe/util.file.h>
 #include "rrclient/auth.h"
 #include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/ws.h"
 #include "rrclient/audio.h"
-#include "librustyaxe/client-flags.h"
+#include <librustyaxe/client-flags.h>
 
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;

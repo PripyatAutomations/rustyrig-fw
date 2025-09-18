@@ -192,7 +192,7 @@ bool ws_handle(struct mg_connection *c, struct mg_ws_message *msg) {
 }
 
 void http_handler(struct mg_connection *c, int ev, void *ev_data) {
-   if (!c || !ev_data) {
+   if (!c) {
       Log(LOG_DEBUG, "ws", "binframe_process: c:<%x> ev: %d ev_data:<%x>", c, ev, ev_data);
       return;
    }
@@ -249,7 +249,9 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 #endif	// defined(USE_GTK)
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
-      ws_handle(c, wm);
+      if (wm) {
+         ws_handle(c, wm);
+      }
    } else if (ev == MG_EV_ERROR) {
       ui_print("[%s] Socket error: %s", get_chat_ts(now), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {

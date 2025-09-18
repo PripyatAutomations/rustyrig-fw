@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #if	defined(HOST_POSIX)
 #include <stddef.h>
 #include <stdarg.h>
@@ -20,9 +20,9 @@
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/cat.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/cat.h>
+#include <librustyaxe/posix.h>
 #include "rrserver/i2c.hal.h"
 #include <fcntl.h>
 #include <unistd.h>

@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,9 +20,9 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "librustyaxe/logger.h"
-#include "librustyaxe/dict.h"
-#include "librustyaxe/posix.h"
+#include <librustyaxe/logger.h>
+#include <librustyaxe/dict.h>
+#include <librustyaxe/posix.h>
 #include "rrclient/auth.h"
 #include "mod.ui.gtk3/gtk.core.h"
 #include "rrclient/connman.h"

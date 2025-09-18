@@ -9,7 +9,7 @@
 #if	!defined(__rr_ws_h)
 #define __rr_ws_h
 //#include "rrserver/mongoose.h"
-#include "librustyaxe/dict.h"
+#include <librustyaxe/dict.h>
 #include "rrserver/http.h"
 
 struct ws_client {

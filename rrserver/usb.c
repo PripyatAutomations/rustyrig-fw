@@ -12,7 +12,7 @@
  * For now, we only support stm32, feel free to write linux USB gadget support
  */
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

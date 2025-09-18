@@ -10,7 +10,7 @@
  * Support for a console interface to the radio via io abstraction (socket|serial|pipe|ws)
  */
 #include "build_config.h"
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -25,7 +25,7 @@
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include "librustyaxe/logger.h"
+#include <librustyaxe/logger.h>
 #include "rrserver/console.h"
 #include "rrserver/help.h"
 

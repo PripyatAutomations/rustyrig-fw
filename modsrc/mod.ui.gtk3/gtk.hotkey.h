@@ -1,6 +1,6 @@
 #if	!defined(__rrclient_gtk_hotkey_h)
 #define	__rrclient_gtk_hotkey_h
-#include "librustyaxe/config.h"
+#include <librustyaxe/config.h>
 
 extern bool gui_hotkey_register(GtkWidget *widget);
 
