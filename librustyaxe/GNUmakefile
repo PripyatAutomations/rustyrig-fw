@@ -15,6 +15,7 @@ librr_objs += cat.kpa500.o
 librr_objs += cat.yaesu.o
 librr_objs += codecneg.o
 librr_objs += config.o
+librr_objs += daemon.o
 librr_objs += dict.o
 librr_objs += io.o
 librr_objs += io.serial.o
@@ -22,14 +23,17 @@ librr_objs += io.socket.o
 #librr_objs += irc.parser.o
 librr_objs += json.o
 librr_objs += logger.o
+librr_objs += maidenhead.o
 librr_objs += module.o
 librr_objs += posix.o
+librr_objs += ringbuffer.o
 librr_objs += util.file.o
 librr_objs += util.math.o
 librr_objs += util.string.o
 librr_objs += util.time.o
 librr_objs += ws.mediachan.o
 
+headers := $(wildcard *.h)
 real_librr_objs := $(foreach x, ${librr_objs}, obj/${x})
 
 ${librustyaxe}: ${real_librr_objs} GNUmakefile
@@ -39,7 +43,7 @@ ${librustyaxe}: ${real_librr_objs} GNUmakefile
 world: ${libs}
 
 
-obj/%.o:%.c
+obj/%.o:%.c ${headers}
 	@echo "[compile] $< => $@"
 	@${RM} $@
 	@${CC} ${CFLAGS} -o $@ -c $<

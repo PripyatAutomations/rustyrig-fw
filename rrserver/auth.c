@@ -626,22 +626,6 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // send a ping, XXX: this might be a duplicate, confirm?
          ws_send_ping(cptr);
 
-         // blorp out a join to all chat users
-         jp = dict2json_mkstr(
-            VAL_STR, "talk.cmd", "join",
-            VAL_STR, "talk.user", cptr->chatname,
-            VAL_ULONG, "talk.ts", now,
-            VAL_STR, "talk.ip", ip,
-            VAL_STR, "talk.privs", cptr->user->privs,
-            VAL_BOOL, "talk.muted", cptr->user->is_muted,
-            VAL_INT, "talk.clones", cptr->user->clones);
-         struct mg_str ms = mg_str(jp);
-         ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
-         free((char *)jp);
-
-         // Send userlist update to all users
-         ws_send_users(NULL);
-
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
              cptr->chatname, cptr, ip, port, cptr->user->clones, cptr->user->max_clones, cptr->user->privs);
 
@@ -657,8 +641,30 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             Log(LOG_CRIT, "ws.media", ">> No codecs negotiated");
          }
 
+         /////////////////////
+         // XXX: We should move this out to it's own function like join_channel(cptr, "&localrig");
+         // blorp out a join to all chat users
+         jp = dict2json_mkstr(
+            VAL_STR, "talk.cmd", "join",
+            VAL_STR, "talk.target", "&localrig",
+            VAL_STR, "talk.user", cptr->chatname,
+            VAL_ULONG, "talk.ts", now,
+            VAL_STR, "talk.ip", ip,
+            VAL_STR, "talk.privs", cptr->user->privs,
+            VAL_BOOL, "talk.muted", cptr->user->is_muted,
+            VAL_INT, "talk.clones", cptr->user->clones);
+         struct mg_str ms = mg_str(jp);
+         ws_broadcast(NULL, &ms, WEBSOCKET_OP_TEXT);
+         free((char *)jp);
+
+         // Send userlist update to all users
+         ws_send_users(NULL);
+
          // send an initial user-list  message to populate the chat-user-list (cul)
-         ws_send_users(cptr);
+//         ws_send_users(cptr);
+
+         // Send chat replay to the user
+//         chat_replay_send(cptr, channel);
       } else {
          Log(LOG_AUDIT, "auth", "User %s on cptr <%x> from IP %s:%d gave wrong password. Kicking!", cptr->user, cptr, ip, port);
          ws_kick_client(cptr, "Invalid login/password");

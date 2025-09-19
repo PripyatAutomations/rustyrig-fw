@@ -638,7 +638,7 @@ const char *dict_get_exp(dict *d, const char *key) {
          break; // No more expansions
       }
 
-      strncpy(buf, tmp, MAX_CFG_EXP_STRLEN - 2);
+      strncpy(buf, tmp, MAX_CFG_EXP_STRLEN);
       buf[MAX_CFG_EXP_STRLEN - 1] = '\0';
    }
 

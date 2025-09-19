@@ -1,3 +1,7 @@
+#if	!defined(__librustyaxe_core_h)
+#define	__librustyaxe_core_h
+#include <stdbool.h>
+#include <stdint.h>
 #include <librustyaxe/config.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/fwdsp-shared.h>
@@ -13,3 +17,13 @@
 #include <librustyaxe/util.math.h>
 #include <librustyaxe/util.string.h>
 #include <librustyaxe/util.time.h>
+#include <librustyaxe/daemon.h>
+#include <librustyaxe/maidenhead.h>
+#include <librustyaxe/ringbuffer.h>
+
+static inline bool toggle(bool *v) {
+   *v = !v;
+   return *v;
+}
+
+#endif	// !defined(__librustyaxe_core_h)

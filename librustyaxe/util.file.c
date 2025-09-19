@@ -58,6 +58,48 @@ bool is_dir(const char *path) {
    return false;
 }
 
+bool is_link(const char *path) {
+   struct stat sb;
+
+   if (stat(path, &sb) != 0) {
+      return false;
+   }
+
+   if (S_ISLNK(sb.st_mode)) {
+      return true;
+   }
+
+   return false;
+}
+
+bool is_fifo(const char *path) {
+   struct stat sb;
+
+   if (stat(path, &sb) != 0) {
+      return false;
+   }
+
+   if (S_ISFIFO(sb.st_mode)) {
+      return true;
+   }
+
+   return false;
+}
+
+bool is_file(const char *path) {
+   struct stat sb;
+
+   if (stat(path, &sb) != 0) {
+      return false;
+   }
+
+   if (S_ISREG(sb.st_mode)) {
+      return true;
+   }
+
+   return false;
+}
+
 char *expand_path(const char *path) {
     if (!path || path[0] == '\0') {
        return NULL;
