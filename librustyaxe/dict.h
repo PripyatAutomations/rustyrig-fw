@@ -60,7 +60,7 @@ typedef union {
    double     d;
    char       c;    // single char/byte
    void      *p;    // generic pointer
-} value_t;
+} dict_value_t;
 
 /** Keypair: holds a key/value pair. Key must be a hashable C string */
 typedef struct _keypair_ {
@@ -70,7 +70,7 @@ typedef struct _keypair_ {
       time_t    updated;
    } metadata;
    val_type_t	val_type;
-   value_t     val;
+   dict_value_t     val;
    unsigned  hash;
 } keypair;
 

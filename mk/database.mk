@@ -19,14 +19,14 @@ CHAT_LINES := 50
 
 dump-ptt:
 	@echo "*** PTT Log (Last ${PTT_LINES} lines) ***"
-	echo "select * from ptt_log order by start_time desc limit ${PTT_LINES};" | sqlite3 "${MASTER_DB}"
+	echo "select * from ptt_log order by start_time asc limit ${PTT_LINES};" | sqlite3 "${MASTER_DB}"
 
 dump-log:
 	@echo "*** Main Log (Last ${LOG_LINES} lines) ***"
-	echo "select * from audit_log order by timestamp desc limit ${LOG_LINES};" | sqlite3 "${MASTER_DB}"
+	echo "select * from audit_log order by timestamp asc limit ${LOG_LINES};" | sqlite3 "${MASTER_DB}"
 
 dump-chat:
 	@echo "*** CHAT Log (Last ${CHAT_LINES} lines) ***"
-	echo "select * from chat_log order by msg_ts desc limit ${CHAT_LINES};" | sqlite3 "${MASTER_DB}"
+	echo "select * from chat_log order by msg_ts asc limit ${CHAT_LINES};" | sqlite3 "${MASTER_DB}"
 
 dump-all: dump-log dump-chat dump-ptt

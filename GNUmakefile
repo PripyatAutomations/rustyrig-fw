@@ -30,6 +30,8 @@ ifeq (${PLATFORM},posix)
 LDFLAGS += -lgpiod
 endif
 
+librustyaxe_headers := $(wildcard librustyaxe/*.h)
+
 include fwdsp/rules.mk
 include rrclient/rules.mk
 include rrserver/rules.mk

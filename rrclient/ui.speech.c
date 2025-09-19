@@ -1,5 +1,5 @@
 // 
-// rrclient/ui.speech.c: Support for screen readers
+// rrclient/ui.speech.c: Support for screen readers/speech
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -50,6 +50,7 @@ static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
       atk_object_set_description(a11y, hint->description);
    }
 
+   // XXX: Why dont we just store teh ATK_ROLE??
    switch (hint->role) {
       case UI_ROLE_BUTTON:   atk_object_set_role(a11y, ATK_ROLE_PUSH_BUTTON); break;
       case UI_ROLE_ENTRY:    atk_object_set_role(a11y, ATK_ROLE_ENTRY); break;
