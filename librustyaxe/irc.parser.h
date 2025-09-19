@@ -1,3 +1,6 @@
+#if	!defined(__irc_parser_h)
+#define	__irc_parser_h
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -8,7 +11,19 @@
 #include <librustyaxe/json.h>
 #include <librustyaxe/irc.struct.h>
 
-// belongs in parser.h
+// Parse the irc message into tokens
 extern irc_message_t *irc_parse_message(const char *msg);
-extern bool irc_dispatch_message(irc_callback_t *callbacks, irc_message_t *mp);
-extern bool irc_callback(const char *msg);
+
+// Dispatch the irc message to the appropriate handler
+extern bool irc_dispatch_message(irc_message_t *mp);
+
+// Handle an IRC message (parse and dispatch)
+extern bool irc_process_message(const char *msg);
+
+// Add a callback to the list
+extern bool irc_register_callback(irc_callback_t *cb);
+
+// Remove a callback from the list
+extern bool irc_remove_callback(irc_callback_t *cb);
+
+#endif	// !defined(__irc_parser_h)

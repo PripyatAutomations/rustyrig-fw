@@ -76,6 +76,22 @@ dict.c:
 	long long dict_get_llong(dict *d, const char *key, long long def)
 	const char *dict_get_exp(dict *d, const char *key)
 
+irc.parser.c:
+	// Parse the irc message into tokens
+	irc_message_t *irc_parse_message(const char *msg)
+
+	// Dispatch the irc message to the appropriate handler
+	bool irc_dispatch_message(irc_message_t *mp)
+
+	// Handle an IRC message (parse and dispatch)
+	bool irc_process_message(const char *msg)
+
+	// Add a callback to the list
+	bool irc_register_callback(irc_callback_t *cb)
+
+	// Remove a callback from the list
+	bool irc_remove_callback(irc_callback_t *cb)
+	
 io.c:
 	int rr_io_open(rr_io_context_t *ctx, rr_io_type_t type, const char *path, int port)
 	ssize_t rr_io_read(rr_io_context_t *ctx, char *buffer, size_t len)

@@ -9,6 +9,7 @@ typedef struct irc_callback {
    int  max_args_client;		// Maximum args from a client
    int	max_args_server;		// Maximum args from a server
    bool (*callback)();			// callback
+   struct irc_callback *next;
 } irc_callback_t;
 
 typedef struct irc_message {
