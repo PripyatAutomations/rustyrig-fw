@@ -52,6 +52,7 @@ rrserver_objs += ws.chat.o		# Websocket Chat (talk)
 rrserver_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
+extra_clean += ${rrserver_real_objs}
 
 ${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers}
 	@${RM} -f $@

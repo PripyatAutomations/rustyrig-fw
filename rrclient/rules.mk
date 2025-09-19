@@ -46,6 +46,7 @@ rrclient_objs += ws.rigctl.o		# rig controls
 rrclient_objs += ws.syslog.o
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${OBJ_DIR}/rrclient/${x})
+extra_clean += ${rrclient_real_objs}
 
 CFLAGS_RRCLIENT += -I./modsrc/
 

@@ -22,10 +22,10 @@
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
 #include <librustyaxe/util.file.h>
-#include "rrclient/auth.h>
-#include "rrclient/gtk.core.h>
-#include "rrclient/ws.h>
-#include "rrclient/audio.h>
+#include "rrclient/auth.h"
+#include "rrclient/gtk.core.h"
+#include "rrclient/ws.h"
+#include "rrclient/audio.h"
 extern time_t now;
 extern bool ws_connected;
 extern struct mg_connection *ws_conn;

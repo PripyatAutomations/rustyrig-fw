@@ -1,6 +1,16 @@
 #if	!defined(__librustyaxe_irc_h)
 #define	__librustyaxe_irc_h
+
+// common IRC structures
 #include <librustyaxe/irc.struct.h>
+
+// IRC commands
+#include <librustyaxe/irc.commands.h>
+
+// Numeric responses from servers
+#include <librustyaxe/irc.numerics.h>
+
+// core protocol parser
 #include <librustyaxe/irc.parser.h>
 
 #endif	// !defined(__librustyaxe_irc_h)

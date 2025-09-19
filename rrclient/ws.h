@@ -26,7 +26,6 @@
 #include <librustyaxe/codecneg.h>
 #include <librustyaxe/http.h>
 
-extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
 extern void ws_init(void);
 extern void ws_fini(void);
 

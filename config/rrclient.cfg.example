@@ -16,8 +16,8 @@ server.auto-connect=localhost
 codecs.allowed=pc16 mu16 mu08
 default.volume.rx=50
 default.tx.power=50
-debug.http=true
-debug.http.crazy=true
+debug.http=false
+debug.http.crazy=false
 debug.audio=*:3
 
 ; Window placements & options (hidden|minimized|modal|no-hide|raised)

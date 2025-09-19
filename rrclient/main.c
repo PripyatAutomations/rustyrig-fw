@@ -31,7 +31,6 @@
 #include <gtk/gtk.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.alertdialog.h"
-
 #include "rrclient/ui.h"
 #include "rrclient/connman.h"
 #include "rrclient/ws.h"

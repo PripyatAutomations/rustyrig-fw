@@ -21,7 +21,6 @@
 #include <librustyaxe/logger.h>
 #include <librustyaxe/json.h>
 #include "mod.ui.gtk3/gtk.core.h"
-#include "mod.ui.gtk3/gtk.alertdialog.h"
 
 extern dict *cfg, *servers;
 extern time_t now;

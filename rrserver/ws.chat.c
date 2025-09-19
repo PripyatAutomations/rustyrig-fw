@@ -458,9 +458,83 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             } else if (strcasecmp(msg_type, "pub") == 0 ||
                strcasecmp(msg_type, "action") == 0) {
 
+               fprintf(stderr, "%s: %s\n", msg_type, data);
                // XXX: Here we should do content filtering, if enabled
 
-               // Log to database, if allowed
+               // Check for commands
+               if (data[0] == '!') {
+                  char *input = data + 1;  // skip initial '!'
+                  char cmd[16], arg[32];
+                  size_t cmd_len = sizeof(cmd), arg_len = sizeof(arg);
+
+                  if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
+                     /// XXX: we should send an error alert
+                     return true;;
+                  }
+
+                  while (*input) {
+                     while (isspace(*input)) {
+                        input++;
+                     }
+
+                     // extract command
+                     size_t i = 0;
+                     while (*input && !isspace(*input) && i < cmd_len - 1) {
+                        cmd[i++] = *input++;
+                     }
+                     cmd[i] = '\0';
+
+                     while (isspace(*input)) {
+                       input++;
+                     }
+
+                     // extract argument
+                     i = 0;
+                     while (*input && !isspace(*input) && i < arg_len - 1) {
+                        arg[i++] = *input++;
+                     }
+                     arg[i] = '\0';
+
+                     if (*cmd == '\0' || *arg == '\0') {
+                        break;
+                     }
+
+                     if (strcasecmp(cmd, "help") == 0) {
+                        // XXX: These should move to help/ and get served via that mechanism
+                        ws_send_notice(cptr->conn, "<span>***SERVER***"
+                           "<br/>*** !help for VFO commands ***<br>"
+                           "&nbsp;&nbsp;&nbsp;!freq <freq> - Set frequency to <freq> - can be 7200 7.2m 7200000 etc form<br/>"
+                           "&nbsp;&nbsp;&nbsp;!mode <mode> - Set mode to CW|AM|LSB|USB|FM|DL|DU<br/>"
+                           "&nbsp;&nbsp;&nbsp;!power <power> - Set power (NYI)<br/>"
+                           "&nbsp;&nbsp;&nbsp;!vfo <vfo> - Switch VFOs (A|B|C)<br/>"
+                           "&nbsp;&nbsp;&nbsp;!width <width> - Set passband width (narrow|normal|wide)<br/></span>");
+                        return false;
+                     } else if (strcasecmp(cmd, "freq") == 0) {
+                        long real_freq = parse_freq(arg);
+                        Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", real_freq, arg, cptr->chatname);
+                        rr_freq_set(active_vfo, real_freq);
+                     } else if (strcasecmp(cmd, "mode") == 0) {
+                        Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
+                        rr_mode_t new_mode = vfo_parse_mode(arg);
+                        if (new_mode != MODE_NONE) {
+                           rr_set_mode(active_vfo, new_mode);
+                        }
+                     } else if (strcasecmp(cmd, "power") == 0) {
+                        Log(LOG_DEBUG, "ws.chat", "Got !power %s from %s", arg, cptr->chatname);
+                     } else if (strcasecmp(cmd, "width") == 0) {
+                        Log(LOG_DEBUG, "ws.chat", "Got !width %s from %s", arg, cptr->chatname);
+                        rr_set_width(active_vfo, arg);
+                     } else if (strcasecmp(cmd, "vfo") == 0) {
+                        Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
+                     } else {
+                        Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
+                     }
+                  }
+               }
+
+               return false;
+
+               // Log to database, if configured
                if (cfg_get_bool("chat.log", false)) {
                   bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
                   if (!db_res) {

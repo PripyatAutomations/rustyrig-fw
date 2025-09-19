@@ -657,8 +657,8 @@ void http_expire_sessions(void) {
    http_client_t *cptr = http_client_list;
    int expired = 0;
 
-   while (cptr != NULL) {
-      if (cptr && cptr->is_ws) {
+   while (cptr) {
+      if (cptr->is_ws) {
          // Expired session?
          if (cptr->session_expiry > 0 && cptr->session_expiry <= now) {
             expired++;
@@ -682,6 +682,7 @@ void http_expire_sessions(void) {
             ws_send_ping(cptr);
          }
       }
+
       cptr = cptr->next;
    }
 }
