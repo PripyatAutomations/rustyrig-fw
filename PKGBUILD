@@ -1,6 +1,6 @@
 # Build with makepkg -f
-pkgname=('rrclient' 'rrserver')
-pkgver=20250702
+pkgname=('rrclient' 'rrserver' 'rrserver-fwdsp')
+pkgver=20250918
 pkgrel=1
 pkgdesc="rustyrig-fw client and server"
 arch=('x86_64')
@@ -22,4 +22,9 @@ package_rrclient() {
 package_rrserver() {
    cd "$srcdir/rr-$pkgver"
    install -Dm755 build/radio/rrserver "$pkgdir/usr/bin/rrserver"
+}
+
+package_fwdsp() {
+   cd "$srcdir/rr-$pkgver"
+   install -Dm755 build/radio/fwdsp "$pkgdir/usr/bin/fwdsp"
 }

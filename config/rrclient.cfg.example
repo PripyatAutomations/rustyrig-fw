@@ -1,22 +1,41 @@
 ; Comments can begin with // # or ;   - We now support C style /* */ comments too
-//
 // most settings go in [general] setting, servers are called [server:name] where name is short name for it
 //
 [general]
-;  audit | crit | warn | info | debug | crazy
-log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy
+
+; subsys:level -- levels:  audit | crit | warn | info | debug | crazy
+log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy ws.auth:crazy 
 path.help-dir=./help
 ui.show-pings=false
+
 # Divide scroll events by this # to get single-steps
 ui.freqentry.scroll-divider=3.0
+
 # If we want to autoconnect to a server, name it here.
-;server.auto-connect=home
+server.auto-connect=localhost
 codecs.allowed=pc16 mu16 mu08
 default.volume.rx=50
 default.tx.power=50
-;debug.http=true
+debug.http=true
 debug.http.crazy=true
 debug.audio=*:3
+
+; Window placements & options (hidden|minimized|modal|no-hide|raised)
+; Size of -1 will avoid resizing the window and let GTK size it
+ui.editcfg=640,925@1,151|raised|modal
+ui.fm-mode=429,226@1487,199|raised|modal
+ui.main=1043,907@770,1206|raised
+ui.serverpick=300,222@1214,677|raised|modal
+ui.userlist=200,354@959,139|hidden
+
+# Length of time to block CAT updates (in seconds) after a local state change
+cat.poll-blocking=1
+
+; stylesheet
+;ui.stylesheet.dark=
+;ui.stylesheet.light=
+
+;;;;;;;;;; disabled for now ;;;;;;;
 audio.volume.rx=35
 rig0.volume.rx=50
 audio.pipeline.rx.format=time
@@ -31,27 +50,8 @@ audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,form
 audio.pipeline.tx.format=time
 ;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
 
-; Window placements & options (hidden|minimized|modal|no-hide|raised)
-; Size of -1 will avoid resizing the window and let GTK size it
-ui.serverpick=300,222@1214,677|raised|modal
-ui.main=999,596@889,482
-ui.fm-mode=429,226@1487,199|raised|modal
-ui.userlist=200,354@959,139|hidden|
-#raised|no-hide
-ui.editcfg=640,925@1,151|raised|modal
-
-# Length of time to block CAT updates (in seconds) after a local state change
-cat.poll-blocking=1
-
-[server:localhost]
+[server:local]
 server.enabled=true
-server.url=ws://127.0.0.1:8420/ws/
-server.user=admin
-server.pass=password
-
-[server:localhost-https]
-server.enabled=true
-server.url=ws://127.0.0.1:8420/ws/
-server.tx-url=wss://localhost:4420/ws-tx/
+server.url=ws://localhost:8420/ws/
 server.user=admin
 server.pass=password

@@ -205,7 +205,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 #endif
       ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
-      Log(LOG_DEBUG, "ws", "ev_ws_connect");
+      Log(LOG_CRAZY, "ws", "ev_ws_connect");
 //      const char *this_server = http_servername(c);
       const char *this_server = server_name;
       ui_print("[%s] * Connected to %s*", get_chat_ts(now), this_server);
@@ -214,7 +214,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_WS_OPEN) {
 //      const char *this_server = http_servername(c);
       const char *this_server = server_name;		// XXX: remove me
-      Log(LOG_DEBUG, "ws", "ev_ws_open: |%s|", this_server);
+      Log(LOG_CRAZY, "ws", "ev_ws_open: |%s|", this_server);
       const char *url = get_server_property(this_server, "server.url");
 
       if (c->is_tls) {

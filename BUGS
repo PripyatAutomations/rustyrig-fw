@@ -1,5 +1,2 @@
-[rrserver]
-  * clients aren't properly removed sometimes or clone count isnt being reset as users cant login due to excess clones
-
 [rrclient]
   * Fix fm mode dialog related crash (ws.rigctl.c commented out)

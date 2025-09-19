@@ -1,6 +1,11 @@
 *.o
 *.so
 *.dll
+firmware.log
+rrclient.log
+rrserver.log
+testbuild.log
+
 */compile_commands.json
 */*/compile_commands.json
 audit-logs/*
@@ -9,13 +14,14 @@ bin/*
 build/*
 build/*/*
 build/*/obj/*
+config/*.crt
+config/*.cert
 config/*.pem
 config/*.secret
 config/http.users
-config/http.users.*
+config/http.users*
 config/archive/*
 db/*
-firmware.log
 images/*
 junk/*
 junk/*/*
@@ -25,4 +31,3 @@ librustyaxe/*.dll
 run/*
 run/*/*
 recordings/*
-testbuild.log
