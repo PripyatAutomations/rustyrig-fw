@@ -22,20 +22,6 @@ typedef struct json_node {
    struct json_node *next;       // next sibling
 } json_node;
 
-typedef enum {
-   VAL_END = 0,
-   VAL_STR,
-   VAL_INT,
-   VAL_LONG,
-   VAL_ULONG,
-   VAL_FLOAT,
-   VAL_DOUBLE,
-   VAL_BOOL,
-   VAL_FLOATP,  // float with precision specified
-   VAL_DOUBLEP, // double with precision specified
-   VAL_CHAR	    // a single character/byte (%c)
-} val_type_t;
-
 /*
  * dict2jsonump - Convert a dict into a JSON string.
  *

@@ -5,30 +5,18 @@
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
-/*-------------------------------------------------------------------------*/
-/**
-   @file    dict.c
-   @author  N. Devillard
-   @date    Apr 2011
-   @brief   Dictionary object
-*/
-/*--------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------
-                                Includes
- ---------------------------------------------------------------------------*/
+//   @file    dict.c
+//   @author  N. Devillard
+//   @date    Apr 2011
+//   @brief   Dictionary object
+//   @note    Heavily modified by rustyaxe; added support for multiple types, conversions, etc
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <librustyaxe/dict.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/util.math.h>
+#include <librustyaxe/core.h>
 
-/*---------------------------------------------------------------------------
-                                Defines
- ---------------------------------------------------------------------------*/
 /** Minimum dictionary size to start with */
 #define DICT_MIN_SZ     8
 
@@ -56,7 +44,6 @@
 
 /* Forward definitions */
 static int dict_resize(dict * d);
-
 
 /**
   This hash function has been taken from an Article in Dr Dobbs Journal.
@@ -131,40 +118,40 @@ static keypair * dict_lookup(dict * d, const char * key, unsigned hash) {
     unsigned    i;
     unsigned    perturb;
 
-    if (!d || !key)
-        return NULL;
+    if (!d || !key) {
+       return NULL;
+   }
 
     i = hash & (d->size-1);
     /* Look for empty slot */
     ep = d->table + i;
     if (ep->key == NULL || ep->key==key) {
-        return ep;
+       return ep;
     }
     if (ep->key == DUMMY_PTR) {
-        freeslot = ep;
+       freeslot = ep;
     } else {
-        if (ep->hash == hash &&
-            !strcmp(key, ep->key)) {
-                return ep;
-        }
-        freeslot = NULL;
+       if (ep->hash == hash && !strcmp(key, ep->key)) {
+          return ep;
+       }
+       freeslot = NULL;
     }
     for (perturb = hash; ; perturb >>= PERTURB_SHIFT) {
-        i = (i<<2) + i + perturb + 1;
-        i &= (d->size-1);
-        ep = d->table + i;
-        if (ep->key == NULL) {
-            return freeslot == NULL ? ep : freeslot;
-        }
-        if ((ep->key == key) ||
-            (ep->hash == hash &&
-             ep->key  != DUMMY_PTR &&
-             !strcmp(ep->key, key))) {
-            return ep;
-        }
-        if (ep->key==DUMMY_PTR && freeslot == NULL) {
-            freeslot = ep;
-        }
+       i = (i<<2) + i + perturb + 1;
+       i &= (d->size-1);
+       ep = d->table + i;
+
+       if (ep->key == NULL) {
+          return freeslot == NULL ? ep : freeslot;
+       }
+
+       if ((ep->key == key) || (ep->hash == hash && ep->key  != DUMMY_PTR && !strcmp(ep->key, key))) {
+          return ep;
+       }
+
+       if (ep->key==DUMMY_PTR && freeslot == NULL) {
+          freeslot = ep;
+       }
     }
     return NULL;
 }
@@ -185,15 +172,16 @@ static int dict_add_p(dict * d, const char * key, char * val) {
 #endif
    hash = dict_hash(key);
    slot = dict_lookup(d, key, hash);
+
    if (slot) {
-      slot->key  = key;
-      slot->val  = val;
+      slot->key = key;
+      slot->val.s = val;
       slot->hash = hash;
       d->used++;
       d->fill++;
  
-      if ((3*d->fill) >= (d->size*2)) {
-         if (dict_resize(d)!=0) {
+      if ((3 * d->fill) >= (d->size * 2)) {
+         if (dict_resize(d) != 0) {
             return -1;
          }
       }
@@ -202,8 +190,7 @@ static int dict_add_p(dict * d, const char * key, char * val) {
 }
 
 /** Add an item to a dictionary by copying key/val into the dict. */
-int dict_add(dict * d, const char * key, char * val)
-{
+int dict_add(dict * d, const char * key, char * val) {
     unsigned  hash;
     keypair * slot;
 
@@ -221,16 +208,16 @@ int dict_add(dict * d, const char * key, char * val)
         if (!(slot->key)) {
             return -1;
         }
-        slot->val  = val ? strdup(val) : val;
-        if (val && !(slot->val)) {
+        slot->val.s  = val ? strdup(val) : val;
+        if (val && !(slot->val.s)) {
             free((char *)slot->key);
             return -1;
         }
         slot->hash = hash;
         d->used++;
         d->fill++;
-        if ((3*d->fill) >= (d->size*2)) {
-            if (dict_resize(d)!=0) {
+        if ((3 * d->fill) >= (d->size * 2)) {
+            if (dict_resize(d) != 0) {
                 return -1;
             }
         }
@@ -239,8 +226,7 @@ int dict_add(dict * d, const char * key, char * val)
 }
 
 /** Resize a dictionary */
-static int dict_resize(dict * d)
-{
+static int dict_resize(dict * d) {
     unsigned      newsize;
     keypair      *oldtable;
     unsigned      i;
@@ -277,7 +263,7 @@ static int dict_resize(dict * d)
     d->fill  = 0;
     for (i = 0; i < oldsize; i++) {
         if (oldtable[i].key && (oldtable[i].key!=DUMMY_PTR)) {
-            dict_add_p(d, oldtable[i].key, oldtable[i].val);
+            dict_add_p(d, oldtable[i].key, oldtable[i].val.s);
         }
     }
     free(oldtable);
@@ -311,8 +297,8 @@ void dict_free(dict * d) {
    for (i = 0; i < d->size; i++) {
       if (d->table[i].key && d->table[i].key != DUMMY_PTR) {
          free((char *)d->table[i].key);
-         if (d->table[i].val) {
-            free(d->table[i].val);
+         if (d->table[i].val.s) {
+            free(d->table[i].val.s);
          }
       }
    }
@@ -322,85 +308,92 @@ void dict_free(dict * d) {
 }
 
 /** Public: get an item from a dict */
-char * dict_get(dict * d, const char * key, char * defval)
-{
-    keypair * kp;
-    unsigned  hash;
+char * dict_get(dict * d, const char * key, char * defval) {
+   keypair * kp;
+   unsigned  hash;
 
-    if (!d || !key)
-        return defval;
+   if (!d || !key) {
+     return defval;
+   }
 
-    hash = dict_hash(key);
-    kp = dict_lookup(d, key, hash);
+   hash = dict_hash(key);
+   kp = dict_lookup(d, key, hash);
 
-    if (kp) {
-        return kp->val;
-    }
-    return defval;
+   if (kp) {
+      return kp->val.s;
+   }
+   return defval;
 }
 
 /** Public: delete an item in a dict */
-int dict_del(dict * d, const char * key)
-{
-    unsigned    hash;
-    keypair *   kp;
+int dict_del(dict * d, const char * key) {
+   unsigned    hash;
+   keypair    *kp;
 
-    if (!d || !key)
-        return -1;
+   if (!d || !key) {
+      return -1;
+   }
 
-    hash = dict_hash(key);
-    kp = dict_lookup(d, key, hash);
-    if (!kp)
-        return -1;
-    if (kp->key && kp->key!=DUMMY_PTR)
-        free((char *)kp->key);
-    kp->key = DUMMY_PTR;
-    if (kp->val)
-        free(kp->val);
-    kp->val = NULL;
-    d->used --;
-    return 0;
+   hash = dict_hash(key);
+   kp = dict_lookup(d, key, hash);
+   if (!kp) {
+      return -1;
+   }
+
+   if (kp->key && kp->key!=DUMMY_PTR) {
+      free((char *)kp->key);
+   }
+
+   kp->key = DUMMY_PTR;
+   if (kp->val.s) {
+      free(kp->val.s);
+   }
+   kp->val.s = NULL;
+   d->used --;
+   return 0;
 }
 
 /** Public: enumerate a dictionary */
-int dict_enumerate(dict * d, int rank, const char ** key, char ** val)
-{
-    if (!d || !key || !val || (rank<0))
-        return -1;
+int dict_enumerate(dict * d, int rank, const char ** key, char ** val) {
+   if (!d || !key || !val || (rank<0)) {
+      return -1;
+   }
 
-    while ((d->table[rank].key == NULL || d->table[rank].key==DUMMY_PTR) &&
-           (rank<d->size))
-        rank++;
+   while ((d->table[rank].key == NULL || d->table[rank].key==DUMMY_PTR) && (rank<d->size)) {
+      rank++;
+   }
 
-    if (rank>=d->size) {
-        *key = NULL;
-        *val = NULL;
-        rank = -1;
-    } else {
-        *key = d->table[rank].key;
-        *val = d->table[rank].val;
-        rank++;
-    }
-    return rank;
+   if (rank>=d->size) {
+      *key = NULL;
+      *val = NULL;
+      rank = -1;
+   } else {
+      *key = d->table[rank].key;
+      *val = d->table[rank].val.s;
+      rank++;
+   }
+   return rank;
 }
 
 /** Public: dump a dict to a file pointer */
-void dict_dump(dict * d, FILE * out)
-{
-    const char * key;
-    char * val;
-    int    rank=0;
+void dict_dump(dict * d, FILE * out) {
+   const char * key;
+   char * val;
+   int    rank=0;
 
-    if (!d || !out)
-        return;
+   if (!d || !out) {
+      return;
+   }
 
-    while (1) {
-        rank = dict_enumerate(d, rank, &key, &val);
-        if (rank<0)
-            break;
-        fprintf(out, "%20s=%s\n", key, val ? val : "UNDEF");
-    }
-    return;
+   while (1) {
+      rank = dict_enumerate(d, rank, &key, &val);
+
+      if (rank < 0) {
+         break;
+      }
+      fprintf(out, "%20s=%s\n", key, val ? val : "UNDEF");
+   }
+   return;
 }
 
 ////////////////////////////////////////////////////

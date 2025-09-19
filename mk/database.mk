@@ -13,11 +13,20 @@ ${MASTER_DB}:
 	mkdir -p audit-logs build db
 	sqlite3 $@ < "${MASTER_TEMPLATE}"
 
+PTT_LINES := 50
+LOG_LINES := 50
+CHAT_LINES := 50
+
 dump-ptt:
-	echo "select * from ptt_log order by start_time desc limit 50;" | sqlite3 "${MASTER_DB}"
+	@echo "*** PTT Log (Last ${PTT_LINES} lines) ***"
+	echo "select * from ptt_log order by start_time desc limit ${PTT_LINES};" | sqlite3 "${MASTER_DB}"
 
 dump-log:
-	echo "select * from audit_log order by timestamp desc limit 50;" | sqlite3 "${MASTER_DB}"
+	@echo "*** Main Log (Last ${LOG_LINES} lines) ***"
+	echo "select * from audit_log order by timestamp desc limit ${LOG_LINES};" | sqlite3 "${MASTER_DB}"
 
 dump-chat:
-	echo "select * from chat_log order by msg_ts desc limit 50;" | sqlite3 "${MASTER_DB}"
+	@echo "*** CHAT Log (Last ${CHAT_LINES} lines) ***"
+	echo "select * from chat_log order by msg_ts desc limit ${CHAT_LINES};" | sqlite3 "${MASTER_DB}"
+
+dump-all: dump-log dump-chat dump-ptt

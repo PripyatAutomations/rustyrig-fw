@@ -56,7 +56,7 @@ ${OBJ_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS}
 	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 # as soon as we complete loadable modules, this must go away!
-${OBJ_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

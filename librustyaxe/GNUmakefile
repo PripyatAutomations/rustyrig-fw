@@ -27,12 +27,14 @@ librr_objs += maidenhead.o
 librr_objs += module.o
 librr_objs += posix.o
 librr_objs += ringbuffer.o
+# XXX: This needs cleanup to remove remnants of termbox/old logger
+#librr_objs += subproc.o
 librr_objs += util.file.o
 librr_objs += util.math.o
 librr_objs += util.string.o
 librr_objs += util.time.o
 librr_objs += ws.mediachan.o
-
+librr_srcs := $(librr_objs:.o=.c)
 headers := $(wildcard *.h)
 real_librr_objs := $(foreach x, ${librr_objs}, obj/${x})
 
@@ -42,8 +44,9 @@ ${librustyaxe}: ${real_librr_objs} GNUmakefile
 
 world: ${libs}
 
+${librr_srcs}: GNUmakefile ${headers}
 
-obj/%.o:%.c ${headers}
+obj/%.o:%.c GNUmakefile ${headers}
 	@echo "[compile] $< => $@"
 	@${RM} $@
 	@${CC} ${CFLAGS} -o $@ -c $<

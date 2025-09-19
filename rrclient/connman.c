@@ -8,6 +8,8 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // XXX: This needs finished to fully support multiple connections in one client
+// XXX: GTK bits should be shifted to modsrc/mod.ui.gtk3/gtk.server{editor,picker}.c
+//
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>

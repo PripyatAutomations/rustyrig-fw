@@ -36,11 +36,41 @@
             Additional types
  ---------------------------------------------------------------------------*/
 
+typedef enum {
+   VAL_END = 0,
+   VAL_STR,
+   VAL_INT,
+   VAL_LONG,
+   VAL_ULONG,
+   VAL_FLOAT,
+   VAL_DOUBLE,
+   VAL_BOOL,
+   VAL_FLOATP,   // float with precision specified
+   VAL_DOUBLEP,  // double with precision specified
+   VAL_CHAR,     // a single character/byte (%c)
+   VAL_PTR	 // Void * pointer
+} val_type_t;
+
+typedef union {
+   char      *s;    // string
+   int        i;
+   long       l;
+   unsigned long ul;
+   float      f;
+   double     d;
+   char       c;    // single char/byte
+   void      *p;    // generic pointer
+} value_t;
+
 /** Keypair: holds a key/value pair. Key must be a hashable C string */
 typedef struct _keypair_ {
-   const char   * key;
-   // XXX: We should have a union here & the type enum
-   char   * val;
+   const char  *key;
+   struct {
+      time_t    create;
+      time_t    updated;
+   } metadata;
+   val_type_t	val_type;
+   value_t     val;
    unsigned  hash;
 } keypair;
 

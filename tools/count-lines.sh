@@ -1,7 +1,7 @@
 #!/bin/bash
 SZ_C=$(ls rrserver/*.[ch] | grep -v mongoose | xargs cat | wc -l)
 SZ_C_SHARED=$(ls librustyaxe/*.[ch] | grep -v mongoose | xargs cat | wc -l)
-SZ_C_RRCLI=$(ls rrclient/*.[ch] | grep -v mongoose | xargs cat | wc -l)
+SZ_C_RRCLI=$((ls rrclient/*.[ch]; find modsrc -type f -name \*.h; find modsrc -type f -name \*.c) | grep -v mongoose | xargs cat | wc -l)
 SZ_PL=$(cat tools/*.pl | wc -l)
 SZ_JS=$(cat www/js/webui*.js |wc -l)
 SZ_HTML=$(cat www/index.html | wc -l)

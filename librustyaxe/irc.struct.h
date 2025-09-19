@@ -1,3 +1,4 @@
+
 #if	!defined(__libirc_struct_h)
 #define	__libirc_struct_h
 

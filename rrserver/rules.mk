@@ -53,7 +53,7 @@ rrserver_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
 
-${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
