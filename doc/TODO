@@ -179,6 +179,8 @@ ws.c / fwdsp-mgr.c:
 =========
 = WebUI =
 =========
+* Sometimes logging in doesnt work when page has sat at login screen a very long time or server restarted since loaded. Why?
+  - I suspect we're opening the websocket way too early...
 * Sync protocol with native client additions
 * mute the join/parts when reconecting
 * Send user-info when they join instead of every time CUL is updated
