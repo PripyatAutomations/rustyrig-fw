@@ -51,8 +51,6 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
          char *mode = dict_get(d, "cat.state.mode", NULL);
          double width = dict_get_double(d, "cat.state.width", 0.0);
          double power = dict_get_double(d, "cat.state.power", 0.0);
-
-// XXX: PTT
          bool ptt = dict_get_bool(d, "cat.state.ptt", false);
 
          server_ptt_state = ptt;
@@ -105,7 +103,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
             }
 
             Log(LOG_CRAZY, "ws.rigctl", "Set MODE to %s", mode);
-#if	0	// XXX: re-enable fm-mode
+#if	1	// XXX: re-enable fm-mode
             if (strcasecmp(mode, "FM") == 0) {
                fm_dialog_show();
             } else {

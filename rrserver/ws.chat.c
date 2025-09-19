@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,17 +21,14 @@
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/cat.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/json.h>
-#include <librustyaxe/util.string.h>
 #include "rrserver/database.h"
 #include "rrserver/http.h"
 #include "rrserver/ws.h"
 #include "rrserver/ptt.h"
 #include <librustyaxe/client-flags.h>
-#define	CHAT_MIN_REASON_LEN	1
+
+// minimum reason length for kick/ban/etc
+#define	CHAT_MIN_REASON_LEN	10
 
 extern struct GlobalState rig;	// Global state
 
@@ -366,7 +363,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
    http_client_t *cptr = http_find_client_by_c(c);
 
    if (!cptr) {
-      Log(LOG_DEBUG, "chat", "talk parse, cptr == NULL, c: <%x>", c);
+      Log(LOG_DEBUG, "chat", "talk parse, cptr is NULL, c: <%x>", c);
       return true;
    }
 
@@ -425,12 +422,6 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             return true;
          }
 
-         if (strcasecmp(msg_type, "action") == 0) {
-            Log(LOG_CRAZY, "ws.chat", "%s * %s%s", channel, cptr->chatname, data);
-         } else {
-            Log(LOG_CRAZY, "ws.chat", "%s <%s> %s", channel, cptr->chatname, data);
-         }
-
          // handle a file chunk
          if (msg_type) {
             if (strcasecmp(msg_type, "file_chunk") == 0) {
@@ -458,12 +449,15 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             } else if (strcasecmp(msg_type, "pub") == 0 ||
                strcasecmp(msg_type, "action") == 0) {
 
-               fprintf(stderr, "%s: %s\n", msg_type, data);
-               // XXX: Here we should do content filtering, if enabled
+               if (strcasecmp(msg_type, "action") == 0) {
+                  Log(LOG_CRAZY, "ws.chat", "%s * %s%s", channel, cptr->chatname, data);
+               } else {
+                  Log(LOG_CRAZY, "ws.chat", "%s <%s> %s", channel, cptr->chatname, data);
+               }
 
                // Check for commands
                if (data[0] == '!') {
-                  char *input = data + 1;  // skip initial '!'
+                  char *input = data;
                   char cmd[16], arg[32];
                   size_t cmd_len = sizeof(cmd), arg_len = sizeof(arg);
 
@@ -473,7 +467,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                   }
 
                   while (*input) {
-                     while (isspace(*input)) {
+                     while (isspace(*input) || (*input == '!')) {
                         input++;
                      }
 
@@ -528,52 +522,45 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                         Log(LOG_DEBUG, "ws.chat", "Got !vfo %s from %s", arg, cptr->chatname);
                      } else {
                         Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
+                        return false;
                      }
                   }
-               }
 
-               return false;
-
-               // Log to database, if configured
-               if (cfg_get_bool("chat.log", false)) {
-                  bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
-                  if (!db_res) {
-                     fprintf(stderr, "db_add_chat_msg failed\n");
+                  // these events shouldn't get relayed because the CAT events generated *will* be relayed
+                  return false;
+               } else { // Chat message
+                  // Check if this is to a local channel. If not, relay it
+                  if (channel[0] != '&') {
+                     // Send the message to all connected servers
                   }
+
+                  // Log to database, if configured
+                  if (cfg_get_bool("chat.log", false)) {
+                     bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
+                     if (!db_res) {
+                        fprintf(stderr, "db_add_chat_msg failed\n");
+                     }
+                  }
+
+                  const char *jp = dict2json_mkstr(
+                     VAL_STR, "talk.cmd", "msg",
+                     VAL_STR, "talk.data", data,
+                     VAL_STR, "talk.from", cptr->chatname,
+                     VAL_STR, "talk.target", channel,
+                     VAL_STR, "talk.msg_type", msg_type,
+                     VAL_LONG, "talk.ts", now);
+
+                  mp = mg_str(jp);
+
+                  // Send to everyone, including the sender, which will then display it as SelfMsg
+                  ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+                  free((void *)jp);
+                  return false;
                }
-
-               const char *jp = dict2json_mkstr(
-                  VAL_STR, "talk.cmd", "msg",
-                  VAL_STR, "talk.data", data,
-                  VAL_STR, "talk.from", cptr->chatname,
-                  VAL_STR, "talk.target", channel,
-                  VAL_STR, "talk.msg_type", msg_type,
-                  VAL_LONG, "talk.ts", now);
-
-               mp = mg_str(jp);
-
-               // Send to everyone, including the sender, which will then display it as SelfMsg
-               ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-               free((void *)jp);
-               return false;
             } else {
                Log(LOG_DEBUG, "ws.chat", "unknown message type: %s", msg_type);
             }
          }
-      } else if (strcasecmp(cmd, "die") == 0) {
-         ws_chat_cmd_die(cptr, reason);
-      } else if (strcasecmp(cmd, "kick") == 0) {
-         ws_chat_cmd_kick(cptr, target, reason);
-      } else if (strcasecmp(cmd, "mute") == 0) {
-         ws_chat_cmd_mute(cptr, target, reason);
-      } else if (strcasecmp(cmd, "names") == 0) {
-         ws_send_users(cptr);
-      } else if (strcasecmp(cmd, "restart") == 0) {
-         ws_chat_cmd_restart(cptr, reason);
-      } else if (strcasecmp(cmd, "syslog") == 0) {
-         ws_chat_cmd_syslog(cptr, target);
-      } else if (strcasecmp(cmd, "unmute") == 0) {
-         ws_chat_cmd_unmute(cptr, target);
       } else if (strcasecmp(cmd, "whois") == 0) {
          if (!target) {
             // XXX: Send a warning to the user informing that they must specify a target username
@@ -588,84 +575,21 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
             Log(LOG_DEBUG, "chat", "whois no users online?!?");
             return true;
          }
-
-#if	0
-         // create the full message
-         memset(msgbuf, 0, sizeof(msgbuf));
-         int clone_idx = 0;
-         char whois_data[HTTP_WS_MAX_MSG / 2];
-         char *wp = whois_data;
-         size_t remaining = sizeof(whois_data);
-         int written;
-
-         written = snprintf(wp, remaining, "[");
-
-         if (written < 0 || (size_t)written >= remaining) {
-            goto trunc;
-         }
-         wp += written;
-         remaining -= written;
-
-         while (acptr) {
-            if (strcasecmp(acptr->chatname, target) != 0) {
-               acptr = acptr->next;
-               continue;
-            }
-
-            if (!acptr->user) {
-               acptr = acptr->next;
-               continue;
-            }
-
-            http_user_t *up = acptr->user;
-
-            // Add comma if not the first
-            if (clone_idx > 0) {
-               written = snprintf(wp, remaining, ",");
-               if (written < 0 || (size_t)written >= remaining)
-                  goto trunc;
-               wp += written;
-               remaining -= written;
-            }
-
-            written = snprintf(wp, remaining,
-               "{ \"username\": \"%s\", \"clone\": %d, \"email\": \"%s\", \"privs\": \"%s\", \"connected\": %lu, \"last_heard\": %lu, \"ua\": \"%s\", \"muted\": \"%s\"  }",
-               acptr->chatname, clone_idx++, up->email, up->privs,
-               acptr->session_start, acptr->last_heard,
-               acptr->user_agent ? acptr->user_agent : "Unknown",
-               acptr->user->is_muted ? "true" : "false");
-
-            if (written < 0 || (size_t)written >= remaining) {
-               goto trunc;
-            }
-            wp += written;
-            remaining -= written;
-
-            acptr = acptr->next;
-         }
-
-         written = snprintf(wp, remaining, "]");
-         if (written < 0 || (size_t)written >= remaining) {
-            goto trunc;
-         }
-         wp += written;
-         remaining -= written;
-
-         // Send the full message
-         const char *jp = dict2json_mkstr(
-            VAL_STR, "talk.cmd", "whois",
-            VAL_STR, "talk.data", whois_data,
-            VAL_ULONG, "talk.ts", now);
-         Log(LOG_CRAZY, "ws.chat", "ws message whois: %s", msgbuf);
-         mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-         free((void *)jp);
-         return false;
-
-trunc:
-         Log(LOG_WARN, "chat", "whois_data truncated");
-         ws_send_alert(cptr, "WHOIS data truncated to %i bytes", written);
-         return true;
-#endif
+// XXX: These don't belong here?
+      } else if (strcasecmp(cmd, "die") == 0) {
+         ws_chat_cmd_die(cptr, reason);
+      } else if (strcasecmp(cmd, "kick") == 0) {
+         ws_chat_cmd_kick(cptr, target, reason);
+      } else if (strcasecmp(cmd, "mute") == 0) {
+         ws_chat_cmd_mute(cptr, target, reason);
+      } else if (strcasecmp(cmd, "names") == 0) {
+         ws_send_users(cptr);
+      } else if (strcasecmp(cmd, "restart") == 0) {
+         ws_chat_cmd_restart(cptr, reason);
+      } else if (strcasecmp(cmd, "syslog") == 0) {
+         ws_chat_cmd_syslog(cptr, target);
+      } else if (strcasecmp(cmd, "unmute") == 0) {
+         ws_chat_cmd_unmute(cptr, target);
       }
    }
    return true;

@@ -112,7 +112,7 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
    http_client_t *cptr = http_client_list;
    int i = 0;
 
-   while(cptr != NULL) {
+   while(cptr) {
       if (cptr->conn == c) {
          Log(LOG_CRAZY, "http.core", "find_client_by_c <%x> returning index %i: %x |%s|", c, i, cptr, (*cptr->chatname ? cptr->chatname : "<UNAUTHENTICATED>"));
          return cptr;
@@ -133,7 +133,7 @@ http_client_t *http_find_client_by_token(const char *token) {
     http_client_t *cptr = http_client_list;
     int i = 0;
 
-    while(cptr != NULL) {
+    while(cptr) {
        if (cptr->token[0] == '\0') {
           continue;
        }
@@ -160,7 +160,7 @@ http_client_t *http_find_client_by_guest_id(int gid) {
       return NULL;
    }
 
-   while(cptr != NULL) {
+   while(cptr) {
       if (cptr->guest_id == gid) {
          return cptr;
       }
@@ -178,7 +178,7 @@ http_client_t *http_find_client_by_name(const char *name) {
       return NULL;
    }
 
-   while(cptr != NULL) {
+   while(cptr) {
       Log(LOG_CRAZY, "http.core", "find client by name: i: %d user:<%x> chatname: %s", i, cptr->user, cptr->chatname);
       // incomplete entry
       if (!cptr->user || (cptr->chatname[0] == '\0')) {
@@ -202,7 +202,7 @@ void http_dump_clients(void) {
    http_client_t *cptr = http_client_list;
    int i = 0;
 
-   while(cptr != NULL) {
+   while(cptr) {
       Log(LOG_DEBUG, "http", " => %d at <%x> %sactive %swebsocket, conn: <%x>, next: <%x> ",
           i, cptr, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->next);
       i++;
@@ -362,7 +362,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       Log(LOG_CRAZY, "http", "Accepted connection on mg_conn:<%x> from %s:%d", c, ip, port);
 
 #if	defined(HTTP_USE_TLS)
-      if (c->fn_data != NULL) {
+      if (c->fn_data) {
          Log(LOG_CRAZY, "http", "Init TLS for mg_conn:<%x> from %s:%d", c, ip, port);
          mg_tls_init(c, &tls_opts);
       }
@@ -371,7 +371,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       http_client_t *cptr = http_find_client_by_c(c);
 
       if (!cptr) {
-         Log(LOG_CRAZY, "http.core", "ACCEPT: mg_ev_http_msg cptr == NULL, creating new client");
+         Log(LOG_CRAZY, "http.core", "ACCEPT: mg_ev_http_msg cptr doesn't exist, creating");
          cptr = http_add_client(c, false);
       }
 
@@ -379,7 +379,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       if (!cptr->user_agent) {
          if (hm) {
             struct mg_str *ua_hdr = mg_http_get_header(hm, "User-Agent");
-            if (ua_hdr != NULL) {
+            if (ua_hdr) {
                size_t ua_len = ua_hdr->len < HTTP_UA_LEN ? ua_hdr->len : HTTP_UA_LEN;
                
                // allocate the memory
@@ -433,12 +433,12 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
 
          // Free the resources, if any, for the user_agent
-         if (cptr->user_agent != NULL) {
+         if (cptr->user_agent) {
             free(cptr->user_agent);
             cptr->user_agent = NULL;
          }
 
-         if (cptr->cli_version != NULL) {
+         if (cptr->cli_version) {
             free(cptr->cli_version);
             cptr->cli_version = NULL;
          }
@@ -493,7 +493,7 @@ bool http_init(struct mg_mgr *mgr) {
 #endif
 
    // store the 404 path if available
-   if (cfg_404_path != NULL) {
+   if (cfg_404_path) {
       prepare_msg(www_404_path, sizeof(www_404_path), "%s", WWW_404_FALLBACK);
    } else {
       prepare_msg(www_404_path, sizeof(www_404_path), "%s", WWW_404_FALLBACK);
@@ -502,7 +502,7 @@ bool http_init(struct mg_mgr *mgr) {
    cfg_404_path = NULL;
 
    // set the www-root if configured
-   if (cfg_www_root != NULL) {
+   if (cfg_www_root) {
       prepare_msg(www_root, sizeof(www_root), "%s", cfg_www_root);
    } else { // use the defaults
       prepare_msg(www_root, sizeof(www_root), "%s", WWW_ROOT_FALLBACK);
@@ -564,7 +564,7 @@ bool http_init(struct mg_mgr *mgr) {
       prepare_msg(tls_listen_addr, sizeof(tls_listen_addr), "https://%s:%d", inet_ntoa(sa_tls_bind), tls_bind_port);
       http_tls_init();
 
-      if (mg_http_listen(mgr, tls_listen_addr, http_cb, (void *)1) == NULL) {
+      if (!mg_http_listen(mgr, tls_listen_addr, http_cb, (void *)1)) {
          Log(LOG_CRIT, "http", "Failed to start https listener");
          exit(1);
       }
@@ -606,7 +606,7 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
 
 // Remove a client (WebSocket or HTTP) from the list
 void http_remove_client(struct mg_connection *c) {
-   if (c == NULL) {
+   if (!c) {
       Log(LOG_CRIT, "http", "http_remove_client passed NULL mg_conn?!");
       return;
    }
@@ -616,12 +616,12 @@ void http_remove_client(struct mg_connection *c) {
 
    c->is_closing = 1;
 
-   while (current != NULL) {
+   while (current) {
       if (current->conn == c) {
          // Found the client to remove, mark it dead
          current->active = false;
 
-         if (prev == NULL) {
+         if (!prev) {
             http_client_list = current->next;
          } else {
             prev->next = current->next;
@@ -689,7 +689,7 @@ void http_expire_sessions(void) {
 
 // Combine some common, safe string handling into one call
 bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
-   if (buf == NULL || fmt == NULL) {
+   if (!buf || !fmt) {
       return true;
    }
 
@@ -726,7 +726,7 @@ void client_clear_flag(http_client_t *cptr, u_int32_t flag) {
 int http_count_clients(void) {
    int c = 0;
    http_client_t *cptr = http_client_list;
-   while (cptr != NULL) {
+   while (cptr) {
       if (cptr->authenticated && cptr->is_ws) {
          c++;
       }
@@ -739,7 +739,7 @@ int http_count_clients(void) {
 int http_count_connections(void) {
    int c = 0;
    http_client_t *cptr = http_client_list;
-   while (cptr != NULL) {
+   while (cptr) {
       c++;
       cptr = cptr->next;
    }
@@ -750,7 +750,7 @@ int http_count_connections(void) {
 http_client_t *whos_talking(void) {
    http_client_t *cptr = http_client_list;
 
-   while (cptr != NULL) {
+   while (cptr) {
       if (cptr->authenticated && cptr->is_ptt) {
          Log(LOG_CRAZY, "http", "whos_talking: returning cptr:<%x> - %s", cptr, cptr->chatname);
          return cptr;

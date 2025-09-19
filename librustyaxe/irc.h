@@ -4,6 +4,9 @@
 // common IRC structures
 #include <librustyaxe/irc.struct.h>
 
+// channel and user modes
+#include <librustyaxe/irc.modes.h>
+
 // IRC commands
 #include <librustyaxe/irc.commands.h>
 

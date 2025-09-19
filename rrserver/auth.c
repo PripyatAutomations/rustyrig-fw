@@ -99,7 +99,7 @@ http_user_t http_users[HTTP_MAX_USERS];
 
 // This is used in ws.* too, so not static
 int http_getuid(const char *user) {
-   if (user == NULL) {
+   if (!user) {
       return -1;
    }
 
@@ -170,7 +170,7 @@ bool http_save_users(const char *filename) {
   for (int i = 0; i < HTTP_MAX_USERS; i++) {
      http_user_t *up = &http_users[i];
 
-     if (up == NULL) {
+     if (!up) {
         return true;
      }
 
@@ -239,34 +239,34 @@ int http_load_users(const char *filename) {
       while (token && i < 7) {
          switch (i) {
             case 0: // uid
-               if (token != NULL) {
+               if (token) {
                   uid = atoi(token);
                   up = &http_users[uid];
                   up->uid = uid;
                }
                break;
             case 1: // Username
-               if (token != NULL) {
+               if (token) {
                   strncpy(up->name, token, HTTP_USER_LEN);
                }
                break;
             case 2: // Enabled flag
-               if (token != NULL) {
+               if (token) {
                   up->enabled = atoi(token);
                }
                break;
             case 3: // Password hash
-               if (token != NULL) {
+               if (token) {
                   strncpy(up->pass, token, HTTP_PASS_LEN);
                }
                break;
             case 4: // Email
-               if (token != NULL) {
+               if (token) {
                   strncpy(up->email, token, USER_EMAIL_LEN);
                }
                break;
             case 5: // max_clones limit
-               if (token != NULL) {
+               if (token) {
                   int tval = atoi(token);
                   if (tval < 0 || tval > HTTP_MAX_SESSIONS) {
                      Log(LOG_CRIT, "auth.core", "Loading user %s has invalid maxclones: %d (min: 1, max: %d)", up->name, tval, HTTP_MAX_SESSIONS);
@@ -275,7 +275,7 @@ int http_load_users(const char *filename) {
                }
                break;
             case 6: // Privileges
-               if (token != NULL) {
+               if (token) {
                   strncpy(up->privs, token, USER_PRIV_LEN);
                   Log(LOG_DEBUG, "auth", "load_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_clones=%d",
                       uid,
@@ -310,7 +310,7 @@ static http_client_t *http_find_client_by_nonce(const char *nonce) {
       return NULL;
    }
 
-   while(cptr != NULL) {
+   while(cptr) {
       if (cptr->nonce[0] == '\0') {
          continue;
       }
@@ -435,7 +435,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    char *temp_pw = NULL;
 
    // Must always send a command and username during auth
-   if (cmd == NULL || (user == NULL && token == NULL)) {
+   if (!cmd || (!user && !token)) {
       return true;
    }
 
@@ -696,7 +696,7 @@ try_again:
    }
 
    http_client_t *cptr = http_client_list;
-   while (cptr != NULL) {
+   while (cptr) {
       // if we match an existing number, start over
       if (cptr->guest_id == num) {
          goto try_again;
@@ -732,7 +732,7 @@ bool is_admin_online(void) {
    }
 
    http_client_t *curr = http_client_list;
-   while (curr != NULL) {
+   while (curr) {
       if (!curr->is_ws || !curr->authenticated || curr->user == NULL) {
          return false;
       }
@@ -751,8 +751,8 @@ bool is_elmer_online(void) {
    }
 
    http_client_t *curr = http_client_list;
-   while (curr != NULL) {
-      if (!curr->is_ws || !curr->authenticated || curr->user == NULL) {
+   while (curr) {
+      if (!curr->is_ws || !curr->authenticated || !curr->user) {
          continue;
       }
       if (client_has_flag(curr, FLAG_ELMER)) {

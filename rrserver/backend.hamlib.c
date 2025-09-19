@@ -223,12 +223,12 @@ static bool hl_freq_set(rr_vfo_t vfo, float freq) {
 }
 
 static bool hl_fini(void) {
-   if (hl_rig == NULL) {
+   if (!hl_rig) {
       Log(LOG_WARN, "hamlib", "hl_fini called but hl_rig == NULL");
       return true;
    }
 
-   if (hl_rig != NULL) {
+   if (hl_rig) {
       hl_destroy(hl_rig);
    }
    hl_rig = NULL;
@@ -246,7 +246,7 @@ rr_vfo_data_t *hl_poll(void) {
    int rc = -1;
 
    rr_vfo_data_t *rv = malloc(sizeof(rr_vfo_data_t));
-   if (rv == NULL) {
+   if (!rv) {
       printf("OOM in hl_poll!\n");
       return NULL;
    }

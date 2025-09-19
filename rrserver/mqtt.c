@@ -53,12 +53,12 @@ bool mqtt_init(struct mg_mgr *mgr) {
 
    snprintf(listen_addr, sizeof(listen_addr), "mqtt://%s:%d", inet_ntoa(sa_bind), bind_port);
 
-   if (mgr == NULL) {
+   if (!mgr) {
       Log(LOG_CRIT, "mqtt", "mqtt_init %s failed", listen_addr);
       return true;
    }
 
-   if (mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL) == NULL) {
+   if (!mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL)) {
       Log(LOG_CRIT, "http", "Failed to start http listener");
       exit(1);
    }
@@ -82,13 +82,13 @@ static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg,
 
    topic->len = (size_t) (((unsigned) buf[0]) << 8 | buf[1]);
    topic->buf = (char *) buf + 2;
-   new_pos = pos + 2 + topic->len + (qos == NULL ? 0 : 1);
+   new_pos = pos + 2 + topic->len + (!qos ? 0 : 1);
 
    if ((size_t) new_pos > msg->dgram.len) {
       return 0;
    }
 
-   if (qos != NULL) {
+   if (qos) {
       *qos = buf[2 + topic->len];
    }
 
@@ -98,7 +98,7 @@ static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg,
 size_t mg_mqtt_next_sub(struct mg_mqtt_message *msg, struct mg_str *topic,
                         uint8_t *qos, size_t pos) {
     uint8_t tmp;
-    return mg_mqtt_next_topic(msg, topic, qos == NULL ? &tmp : qos, pos);
+    return mg_mqtt_next_topic(msg, topic, !qos ? &tmp : qos, pos);
 }
 
 size_t mg_mqtt_next_unsub(struct mg_mqtt_message *msg, struct mg_str *topic,
@@ -163,7 +163,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
          case MQTT_CMD_PUBLISH: {
             // Client published message. Push to all subscribed channels
             Log(LOG_DEBUG, "mqtt.debug", "PUB %p [%.*s] -> [%.*s]", c->fd, (int) mm->data.len, mm->data.buf, (int) mm->topic.len, mm->topic.buf);
-            for (struct sub *sub = s_subs; sub != NULL; sub = sub->next) {
+            for (struct sub *sub = s_subs; sub; sub = sub->next) {
                if (mg_match(mm->topic, sub->topic, NULL)) {
                   struct mg_mqtt_opts pub_opts;
                   memset(&pub_opts, 0, sizeof(pub_opts));
@@ -186,7 +186,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
       // c->is_hexdumping = 1;
    } else if (ev == MG_EV_CLOSE) {
       // Client disconnects. Remove from the subscription list
-      for (struct sub *next, *sub = s_subs; sub != NULL; sub = next) {
+      for (struct sub *next, *sub = s_subs; sub; sub = next) {
          next = sub->next;
          if (c != sub->c) {
             continue;
@@ -212,13 +212,13 @@ bool mqtt_client_init(void) {
       return false;
    }
 
-   if ((fp = fopen(secret_file, "r")) == NULL) {
+   if (!(fp = fopen(secret_file, "r"))) {
       Log(LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno));
       return false;
    }
 
    memset(mqtt_secret, 0, sizeof(mqtt_secret));
-   if (fgets(mqtt_secret, sizeof(mqtt_secret), fp) == NULL) {
+   if (!fgets(mqtt_secret, sizeof(mqtt_secret), fp)) {
       Log(LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno));
       fclose(fp);
       return true;

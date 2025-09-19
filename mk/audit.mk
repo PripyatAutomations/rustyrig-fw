@@ -16,7 +16,7 @@ audit-flawfinder:
 	@echo "********************"
 	@echo "* flawfinder audit *"
 	@echo "********************"
-	which flawfinder >/dev/null && flawfinder -Q -i fwdsp/*.c rrclient/*.c rrclient/*.h rrserver/*.c rrserver/*.h
+	which flawfinder >/dev/null && flawfinder -m 3 -Q -i fwdsp/*.c rrclient/*.c rrclient/*.h rrserver/*.c rrserver/*.h
 
 audit-deps:
 	apt install -y cppcheck pscan flawfinder

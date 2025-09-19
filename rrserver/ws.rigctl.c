@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,10 +17,6 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/cat.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/json.h>
 #include "rrserver/i2c.h"
 #include "rrserver/state.h"
 #include "rrserver/eeprom.h"
@@ -70,7 +66,7 @@ static ws_rig_state_t *ws_rigctl_state_diff(rr_vfo_t vfo) {
 
    // allocate some storage for the diff values
    ws_rig_state_t *update = malloc(sizeof(ws_rig_state_t));
-   if (update == NULL) {
+   if (!update) {
       // XXX: we should throw a log message but we're out of memory....
       fprintf(stderr, "OOM in ws_rigctl_state_diff!\n");
       return NULL;
@@ -142,7 +138,7 @@ static bool ws_rig_state_send(rr_vfo_t vfo) {
       diff = &vfo_states[vfo];
    } else {
       ws_rigctl_state_diff(vfo);
-      if (diff == NULL) {
+      if (!diff) {
          return false;
       }
    }
@@ -157,7 +153,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    http_client_t *cptr = http_find_client_by_c(c);
    bool rv = false;
 
-   if (cptr == NULL) {
+   if (!cptr) {
       Log(LOG_DEBUG, "ws.rigctl", "rig parse, cptr == NULL, c: <%x>", c);
       return true;
    }
@@ -198,7 +194,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          char *ptt_state = mg_json_get_str(msg_data, "$.cat.ptt");
-         if (vfo == NULL || ptt_state == NULL) {
+         if (!vfo || !ptt_state) {
             Log(LOG_DEBUG, "ws.rigctl", "PTT set without vfo or ptt_state");
             dict_free(d);
             return true;
@@ -279,7 +275,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mg_json_get_num(msg_data, "$.cat.freq", &new_freq_d);
          float new_freq = (float)new_freq_d;
 
-         if (vfo == NULL || new_freq <= 0) {
+         if (!vfo || new_freq <= 0) {
             Log(LOG_DEBUG, "ws.rigctl", "FREQ set without vfo or freq");
             dict_free(d);
             return true;
@@ -316,7 +312,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             return true;
          }
 
-         if (vfo == NULL || mode == NULL) {
+         if (!vfo || !mode) {
             Log(LOG_DEBUG, "ws.rigctl", "MODE set without vfo:<%x> or mode:<%x>", vfo, mode);
             free(mode);
             dict_free(d);

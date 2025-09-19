@@ -75,14 +75,14 @@ static const char *rr_vfo_name(rr_vfo_t vfo) {
 
 // Get the backend structure based on the name
 rr_backend_t *rr_backend_find(const char *name) {
-   if (name == NULL) {
+   if (!name) {
       return NULL;
    }
 
    int items = (sizeof(available_backends) / sizeof(struct rr_backends));
    for (int i = 0; i < items; i++) {
       rr_backend_t *bp = available_backends[i].backend;
-      if (bp == NULL) {
+      if (!bp) {
          return NULL;
       }
 
@@ -107,7 +107,7 @@ bool rr_backend_init(void) {
 
    be = rr_backend_find(be_name);
 
-   if (be == NULL) {
+   if (!be) {
       Log(LOG_CRIT, "core", "Invalid backend selection %s - please fix config key backend.active!", be_name);
       free((char *)be_name);
       exit(1);
@@ -118,12 +118,12 @@ bool rr_backend_init(void) {
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
    rig.backend = be;
 
-   if (be->api == NULL) {
+   if (!be->api) {
       Log(LOG_CRIT, "core", "Backend %s doesn't have api pointer", be->name);
       return true;
    }
 
-   if (be->api->backend_init == NULL) {
+   if (!be->api->backend_init) {
       Log(LOG_CRIT, "core", "Backend %s doesn't have backend_init()!", be->name);
       return true;
    }
@@ -135,7 +135,7 @@ bool rr_backend_init(void) {
 // XXX: We need to work out how we'll deal with CAT commands directly (not via http/ws) as they wont have cptr
 // XXX: but we will have a user struct available since they're logged in.. hmmm
 bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
-   if (cptr == NULL || cptr->user == NULL) {
+   if (!cptr || !cptr->user) {
       Log(LOG_CRIT, "rig", "Got be_set_ptt without a user!");
       return true;
    }
@@ -143,7 +143,7 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
    // Sqawk audit log and Apply PTT if we made it this far
    Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
 
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->ptt_set == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
       return true;
    }
 
@@ -161,7 +161,7 @@ bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
    }
 
    // XXX: This is incorrect
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->ptt_get == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_get) {
       return false;
    }
    bool rv = rig.backend->api->ptt_get(vfo);
@@ -169,7 +169,7 @@ bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
 }
 
 bool rr_freq_set(rr_vfo_t vfo, float freq) {
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->ptt_set == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
       Log(LOG_CRIT, "rig", "rr_freq_set called with no active (or broken) backend selected!");
       return true;
    }
@@ -183,7 +183,7 @@ bool rr_freq_set(rr_vfo_t vfo, float freq) {
 }
 
 float rr_freq_get(rr_vfo_t vfo) {
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->freq_get == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->freq_get) {
       return false;
    }
    return rig.backend->api->freq_get(vfo);

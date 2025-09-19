@@ -215,7 +215,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
 
    struct mg_str msg_data = msg->data;
    
-   if ((ts = mg_json_get_str(msg_data, "$.pong.ts")) == NULL) {
+   if (!(ts = mg_json_get_str(msg_data, "$.pong.ts"))) {
       Log(LOG_WARN, "http.ws", "ws_handle_pong: PONG from user with no timestamp");
       rv = true;
       goto cleanup;

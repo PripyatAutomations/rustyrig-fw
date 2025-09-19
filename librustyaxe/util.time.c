@@ -108,3 +108,34 @@ time_t dhms2time_t(const char *str) {
    free(copy);  // Free the memory allocated for the copy
    return seconds;
 }
+
+char *time_t2dhms(time_t seconds) {
+   if (seconds <= 0) {
+      return strdup("0s");
+   }
+
+   struct {
+      char unit;
+      time_t secs;
+   } parts[] = {
+      { 'y', 365*24*60*60 },
+      { 'w', 7*24*60*60 },
+      { 'd', 24*60*60 },
+      { 'h', 60*60 },
+      { 'm', 60 },
+      { 's', 1 },
+   };
+
+   char buf[128] = {0};  // big enough for practical output
+   char *p = buf;
+
+   for (size_t i = 0; i < sizeof(parts)/sizeof(parts[0]); i++) {
+      if (seconds >= parts[i].secs) {
+         time_t val = seconds / parts[i].secs;
+         seconds %= parts[i].secs;
+         p += sprintf(p, "%ld%c", (long)val, parts[i].unit);
+      }
+   }
+
+   return strdup(buf);
+}

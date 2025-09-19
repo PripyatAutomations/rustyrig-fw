@@ -177,7 +177,7 @@ static struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx) {
 }
 
 static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
-   if (id == NULL) { 
+   if (!id) { 
       Log(LOG_CRIT, "fwdsp", "create: Invalid parameters: id == NULL");
       return NULL;
    }

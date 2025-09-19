@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
    initialize_state();			// Load default values
 
 #if	defined(FEATURE_SQLITE)
-   if ((masterdb = db_open(MASTERDB_PATH)) == NULL) {
+   if (!(masterdb = db_open(MASTERDB_PATH))) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(31);
    }

@@ -149,8 +149,8 @@ uint32_t eeprom_read_block(uint8_t *buf, size_t offset, size_t len) {
    }
 
    // Check for memory mapped style EEPROMs
-   if (rig.eeprom_mmap != NULL) {
-      if (buf == NULL || offset <= 0 || len <= 0) {
+   if (rig.eeprom_mmap) {
+      if (!buf || offset <= 0 || len <= 0) {
          return -1;
       }
 
@@ -172,7 +172,7 @@ uint32_t eeprom_write(size_t offset, uint8_t data) {
    }
 
    // Check for memory-mapped EEPROM
-   if (rig.eeprom_mmap != NULL) {
+   if (rig.eeprom_mmap) {
       uint8_t *ptr = (uint8_t *)rig.eeprom_mmap + offset; // Correct pointer arithmetic
       *ptr = data; // Write data to the mapped EEPROM memory
    } else {
@@ -195,7 +195,7 @@ void *eeprom_read(size_t offset) {
    }
 
    // for host mode or other memory mapped
-   if (rig.eeprom_mmap != NULL) {
+   if (rig.eeprom_mmap) {
       res = (void *)(rig.eeprom_mmap + offset);
    }
    return res;
@@ -215,7 +215,7 @@ uint32_t eeprom_checksum_generate(void) {
    uint32_t sum = 0;
 
    // Check for memory mapped style EEPROMs
-   if (rig.eeprom_mmap != NULL) {
+   if (rig.eeprom_mmap) {
       sum = mg_crc32(0, (char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
    }
 
@@ -228,7 +228,7 @@ bool eeprom_validate_checksum(void) {
    uint32_t *chksum_addr = (uint32_t *)(&rig.eeprom_mmap[EEPROM_SIZE - 4]);
 
    // Check for memory mapped style EEPROMs
-   if (rig.eeprom_mmap != NULL) {
+   if (rig.eeprom_mmap) {
       curr_sum = *(uint32_t *)chksum_addr;
       calc_sum = eeprom_checksum_generate();
    }
@@ -238,7 +238,7 @@ bool eeprom_validate_checksum(void) {
       Log(LOG_CRIT, "eeprom", "* Verify checksum failed: calculated <%x> but read <%x> *", calc_sum, curr_sum);
 
       // if the eeprom is mmapped, free it
-      if (rig.eeprom_mmap != NULL) {
+      if (rig.eeprom_mmap) {
          munmap(rig.eeprom_mmap, rig.eeprom_size);
          rig.eeprom_mmap = NULL;
       }
@@ -499,7 +499,7 @@ const char *eeprom_get_str(const char *key) {
 }
 
 struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin) {
-   if (sin == NULL || rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+   if (!sin || rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
       return NULL;
    }
 
