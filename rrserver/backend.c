@@ -190,14 +190,14 @@ float rr_freq_get(rr_vfo_t vfo) {
 }
 
 float rr_get_power(rr_vfo_t vfo) {
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->power_get == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->power_get) {
       return false;
    }
    return rig.backend->api->power_get(vfo);
 }
 
 bool rr_set_power(rr_vfo_t vfo, float power) {
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->power_set == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->power_set) {
       return false;
    }
    bool rv = rig.backend->api->power_set(vfo, power);
@@ -205,14 +205,14 @@ bool rr_set_power(rr_vfo_t vfo, float power) {
 }
 
 uint16_t rr_get_width(rr_vfo_t vfo) {
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->width_get == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->width_get) {
       return false;
    }
    return rig.backend->api->width_get(vfo);
 }
 
 bool rr_set_width(rr_vfo_t vfo, const char *width) {
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->width_set == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->width_set) {
       return false;
    }
    bool rv = rig.backend->api->width_set(vfo, width);
@@ -222,7 +222,7 @@ bool rr_set_width(rr_vfo_t vfo, const char *width) {
 rr_mode_t rr_get_mode(rr_vfo_t vfo) {
    rr_mode_t mode = MODE_NONE;
 
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->mode_get == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->mode_get) {
       return false;
    }
    mode = rig.backend->api->mode_get(vfo);
@@ -232,7 +232,7 @@ rr_mode_t rr_get_mode(rr_vfo_t vfo) {
 
 bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
    bool rv = false;
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->mode_set == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->mode_set) {
       return false;
    }
 
@@ -245,12 +245,12 @@ bool rr_be_poll(rr_vfo_t vfo) {
       return true;
    }
 
-   if (rig.backend == NULL || rig.backend->api == NULL || rig.backend->api->backend_poll == NULL) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->backend_poll) {
       return true;
    }
 
    rr_vfo_data_t *ret_vfo = rig.backend->api->backend_poll();
-   if (ret_vfo == NULL) {
+   if (!ret_vfo) {
       return true;
    }
 

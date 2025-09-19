@@ -54,17 +54,17 @@ bool rr_atu_load_memories(int unit) {
 
 static rr_atu_tv *tv_is_closest(rr_atu_tv *low, rr_atu_tv *high) {
    // shortcut for invalid calls
-   if (low == NULL && high == NULL) {
+   if (!low && !high) {
       return NULL;
    }
 
    // If only high value provided, return it
-   if (low == NULL && high != NULL) {
+   if (!low && high) {
       return high;
    }
 
    // if only low value provided, return it
-   if (high == NULL && low != NULL) {
+   if (!high && low) {
       return low;
    }
 
@@ -98,7 +98,7 @@ int rr_atu_init(int uid) {
    rr_atu_tv *tv = NULL;
    Log(LOG_INFO, "atu", " => ATU #%d initializing", uid);
    // do we have saved tuning parameters for this unit?
-   if ((tv = rr_atu_find_saved_state(uid)) != NULL) {
+   if ((tv = rr_atu_find_saved_state(uid))) {
       // Apply them
    }
 

@@ -56,9 +56,9 @@ uint32_t radio_gpiochip_init(const char *chipname) {
 #if	defined(HOST_POSIX)
    struct gpiod_chip *tmp = NULL;
 
-   if ((tmp = gpiod_chip_open(chipname)) == NULL) {
+   if (!(tmp = gpiod_chip_open(chipname))) {
 // XXX: v1 api remnant, safe to remove?
-//   if ((tmp = gpiod_chip_open_by_name(chipname)) == NULL) {
+//   if (!(tmp = gpiod_chip_open_by_name(chipname))) {
       Log(LOG_CRIT, "gpio", "error opening gpio chip %s", chipname);
       return -1;
    }
@@ -66,7 +66,7 @@ uint32_t radio_gpiochip_init(const char *chipname) {
    bool slot_found = false;
    for (i = 0; i < MAX_GPIOCHIPS; i++) {
       // find the first empty slot
-      if (!gpiochips[i].active && gpiochips[i].chip == NULL) {
+      if (!gpiochips[i].active && !gpiochips[i].chip) {
          slot_found = true;
          break;
       }

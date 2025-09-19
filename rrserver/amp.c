@@ -42,7 +42,7 @@ bool rr_amp_init(uint8_t index) {
 
    Log(LOG_INFO, "amp", " => Unit #%d initializing", index);
 
-   if (amp_data[index] == NULL) {
+   if (!amp_data[index]) {
       amp_data[index] = malloc(sizeof(rr_amp_state_t));
       memset(amp_data[index], 0, sizeof(rr_amp_state_t));
    } else {
@@ -62,7 +62,7 @@ bool rr_amp_init_all(void) {
 // This will be called before reloading
 bool rr_amp_fini(void) {
    for (int index = 0; index < (MAX_AMPS - 1); index++) {
-      if (amp_data[index] != NULL){
+      if (amp_data[index]) {
          free(amp_data[index]);
          amp_data[index] = NULL;
       }

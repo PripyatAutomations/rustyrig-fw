@@ -120,7 +120,7 @@ const char *au_recording_start(int channel) {
 
    // Store the fd somewhere (active_recordings array?)
    for (int i = 0; i < MAX_RECORD_OPEN - 1; i++) {
-      if (active_recordings[i] == NULL) {
+      if (!active_recordings[i]) {
          active_recordings[i] = rd;
          break;
       }
@@ -136,7 +136,7 @@ recording_data_t *au_recording_find(const char *id) {
 
    recording_data_t *rp = NULL;
    for (int i = 0; i < MAX_RECORD_OPEN - 1; i++) {
-      if ((active_recordings[i] != NULL) && active_recordings[i]->rec_id == id) {
+      if ((active_recordings[i]) && active_recordings[i]->rec_id == id) {
          return active_recordings[i];
       }
    }
@@ -144,7 +144,7 @@ recording_data_t *au_recording_find(const char *id) {
 }
 
 bool au_recording_stop(const char *id) {
-   if (id == NULL) {
+   if (!id) {
       return true;
    }
 

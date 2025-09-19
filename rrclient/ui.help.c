@@ -77,7 +77,7 @@ char *help_main[] = {
 void show_help(const char *topic) {
   if (!topic) {
      int i = 0;
-     while (help_main[i] != NULL) {
+     while (help_main[i]) {
         ui_print(help_main[i]);
         i++;
      }

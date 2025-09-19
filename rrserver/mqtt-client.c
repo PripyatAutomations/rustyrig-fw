@@ -76,7 +76,7 @@ static void timer_fn(void *arg) {
                                .topic = mg_str(s_pub_topic),
                                .version = 4,
                                .message = mg_str("bye")};
-   if (s_conn == NULL) {
+   if (!s_conn) {
       s_conn = mg_mqtt_connect(mgr, s_url, &opts, fn, NULL);
    }
 }
@@ -87,13 +87,13 @@ int main(int argc, char *argv[]) {
 
   // Parse command-line flags
   for (i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-u") == 0 && argv[i + 1] != NULL) {
+    if (strcmp(argv[i], "-u") == 0 && argv[i + 1]) {
       s_url = argv[++i];
-    } else if (strcmp(argv[i], "-p") == 0 && argv[i + 1] != NULL) {
+    } else if (strcmp(argv[i], "-p") == 0 && argv[i + 1]) {
       s_pub_topic = argv[++i];
-    } else if (strcmp(argv[i], "-s") == 0 && argv[i + 1] != NULL) {
+    } else if (strcmp(argv[i], "-s") == 0 && argv[i + 1]) {
       s_sub_topic = argv[++i];
-    } else if (strcmp(argv[i], "-v") == 0 && argv[i + 1] != NULL) {
+    } else if (strcmp(argv[i], "-v") == 0 && argv[i + 1]) {
       mg_log_set(atoi(argv[++i]));
     } else {
       MG_ERROR(("Unknown option: %s. Usage:", argv[i]));

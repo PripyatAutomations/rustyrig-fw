@@ -238,54 +238,48 @@ int http_load_users(const char *filename) {
 
       while (token && i < 7) {
          switch (i) {
-            case 0: // uid
-               if (token) {
-                  uid = atoi(token);
-                  up = &http_users[uid];
-                  up->uid = uid;
-               }
+            case 0: { // uid
+               uid = atoi(token);
+               up = &http_users[uid];
+               up->uid = uid;
                break;
-            case 1: // Username
-               if (token) {
-                  strncpy(up->name, token, HTTP_USER_LEN);
-               }
+            }
+            case 1: { // Username
+               strncpy(up->name, token, HTTP_USER_LEN);
                break;
-            case 2: // Enabled flag
-               if (token) {
-                  up->enabled = atoi(token);
-               }
+            }
+            case 2: { // Enabled flag
+               up->enabled = atoi(token);
                break;
-            case 3: // Password hash
-               if (token) {
-                  strncpy(up->pass, token, HTTP_PASS_LEN);
-               }
+            }
+            case 3: { // Password hash
+               strncpy(up->pass, token, HTTP_PASS_LEN);
                break;
-            case 4: // Email
-               if (token) {
-                  strncpy(up->email, token, USER_EMAIL_LEN);
-               }
+            }
+            case 4: {// Email
+               strncpy(up->email, token, USER_EMAIL_LEN);
                break;
-            case 5: // max_clones limit
-               if (token) {
-                  int tval = atoi(token);
-                  if (tval < 0 || tval > HTTP_MAX_SESSIONS) {
-                     Log(LOG_CRIT, "auth.core", "Loading user %s has invalid maxclones: %d (min: 1, max: %d)", up->name, tval, HTTP_MAX_SESSIONS);
-                  }
-                  up->max_clones = tval;
+            }
+            case 5: { // max_clones limit
+               int val = atoi(token);
+
+               if (val < 0 || val > HTTP_MAX_SESSIONS) {
+                  Log(LOG_CRIT, "auth.core", "Loading user %s has invalid maxclones: %d (min: 1, max: %d)", up->name, val, HTTP_MAX_SESSIONS);
                }
+               up->max_clones = val;
                break;
-            case 6: // Privileges
-               if (token) {
-                  strncpy(up->privs, token, USER_PRIV_LEN);
-                  Log(LOG_DEBUG, "auth", "load_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_clones=%d",
-                      uid,
-                      (up->name[0]  != '\0' ? up->name  : "none"),
-                      (up->email[0] != '\0' ? up->email : "none"),
-                      (up->enabled  ? "true" : "false"),
-                      (up->privs[0] != '\0' ? up->privs : "none"),
-                      up->max_clones);
-               }
+            }
+            case 6: { // Privileges
+               strncpy(up->privs, token, USER_PRIV_LEN);
+               Log(LOG_DEBUG, "auth", "load_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_clones=%d",
+                   uid,
+                   (up->name[0]  != '\0' ? up->name  : "none"),
+                   (up->email[0] != '\0' ? up->email : "none"),
+                   (up->enabled  ? "true" : "false"),
+                   (up->privs[0] != '\0' ? up->privs : "none"),
+                   up->max_clones);
                break;
+            }
          }
          token = strtok(NULL, ":");
          i++;

@@ -38,7 +38,7 @@ gui_fb_state_t *gui_fb_init(gui_fb_state_t *fb) {
                 new_width = 0;
 
    // If framebuffer not passed to us, allocate one to return
-   if (fb == NULL) {
+   if (!fb) {
       if (!(fb = malloc(sizeof(gui_fb_state_t)))) {
          Log(LOG_CRIT, "fb", "out of mem. allocating fb_state");
          return NULL;

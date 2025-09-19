@@ -159,7 +159,7 @@ bool audio_init(void) {
       const char *cfg_rx_volume_s = cfg_get_exp("audio.volume.rx");
       float vol = 0;
       Log(LOG_DEBUG, "audio", "Setting default RX volume to %s", cfg_rx_volume);
-      if (cfg_rx_volume_s != NULL) {
+      if (cfg_rx_volume_s) {
          vol = atoi(cfg_rx_volume_s);
          g_object_set(rx_vol_gst_elem, "volume", vol / 100.0, NULL);
          free((void *)cfg_rx_volume_s);
@@ -167,7 +167,7 @@ bool audio_init(void) {
 
       const char *cfg_rx_format_s = cfg_get_exp("audio.pipeline.rx.format");
       int rx_format = 0;
-      if (cfg_rx_format_s != NULL && strcasecmp(cfg_rx_format_s, "bytes") == 0) {
+      if (cfg_rx_format_s && strcasecmp(cfg_rx_format_s, "bytes") == 0) {
          rx_format = GST_FORMAT_BYTES;
       } else if (cfg_rx_format_s && strcasecmp(cfg_rx_format_s, "time") == 0) {
          rx_format = GST_FORMAT_TIME;
@@ -222,9 +222,9 @@ bool audio_init(void) {
 #if	0
       const char *cfg_tx_format = cfg_get_exp("audio.pipeline.tx.format");
       int tx_format = 0;
-      if (cfg_tx_format != NULL && strcasecmp(cfg_tx_format, "bytes") == 0) {
+      if (cfg_tx_format && strcasecmp(cfg_tx_format, "bytes") == 0) {
          tx_format = GST_FORMAT_BYTES;
-      } else if (cfg_tx_format != NULL && strcasecmp(cfg_tx_format, "time") == 0) {
+      } else if (cfg_tx_format && strcasecmp(cfg_tx_format, "time") == 0) {
          tx_format = GST_FORMAT_TIME;
       }
       free((void *)cfg_tx_format);
