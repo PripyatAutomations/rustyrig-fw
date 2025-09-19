@@ -1,8 +1,10 @@
-This is the source for rustyrig.
+This is the source for rustyrig remote station.
 
-For now it's easiest just to build/run it from this folder, but installing it should probably work if you adjust paths
+For now it's easiest just to build/run it from this folder, but installing it should probably work.
 
-Take a look at the deps in install-deps.sh or use it (if on debian-like distros) or manually install them. Ignore the commented lines, they're for bare metal builds someday
+Take a look at the deps in install-deps.sh or use it  or manually install them.
+Currently it only supports debian-based systems. Contributions always welcome!
+
 It consists of a few parts:
 	fwdsp/			gstreamer based audio bridge
 	rrclient/		GTK3 + gstreamer based client
@@ -10,9 +12,7 @@ It consists of a few parts:
 	www/			WebUI (served by rrserver)
 
 
-You can configure things in config/ or put your .cfg files in ~/.config/
-and the program will find them.
-
+Config files go in config/ or ~/.config/
 
 To build:
 	Edit things in config/ as appropriate.
@@ -20,26 +20,39 @@ To build:
 
 Configure:
 	Be sure config/http.users has appropriate contents
-		Try user-edit.sh
+		Try user-edit.sh - report bugs!
 
-	Make sure config/radio.config.json is good for your build host
+	Make sure config/radio.config.json is good for your build host (probably if linux or msys2)
+
+	Copy config/rrclient.cfg.example to ~/.config then edit the servers
+		cp -i config/rrclient.cfg.example ~/.config
 
 	Edit config/rrserver.cfg for the server
+	This can go in ~/.config/rrserver.cfg or /etc/rustyrig/rrserver.cfg too.
 
-To run:
-	./test-run.sh or 'make run'
+To run server:
+	./test-server
 
 To run client:
-	Either start the client and exit it, to create a default config or --
-		cp config/rrclient.cfg.example ~/.config/rrclient.cfg
-	Then run it
-		./test-client.sh
+	./test-client.sh
 
-Installing:
+test-all.sh:
+	If you have tmux or screen available, this script will launch a new session
+	running the server and client in their own windows.
+
+	You can watch the debug messages this way.
+
+	Note you can filter the log messages by editing log.level in the appropriate config file ;)
+
+
+Installing:	Probably BROKEN, but you can try it
 	make install
 
 
-You can put server config in ~/.config/rrserver.cfg or /etc/rustyrig/rrserver.cfg
+
+Packaging
+---------
+Early work to package for arch and debian is present. Feel free to contribute to packaging/testing.
 
 Pipelines
 ---------
@@ -50,17 +63,8 @@ These configurations will use a 4 character ID such as mu08 or pc44 for mulaw 8k
 RX and TX do not refer to radio role, but rather the direction of the stream itself.
 
 
-
-
-test-all.sh
------------
-If you have tmux or screen available, this script will launch a new session
-running the server and client in their own windows.
-
-You can watch the debug messages this way.
-
-Note you can filter the log messages by editing log.level in the appropriate config file ;)
-
 ---------
 
 Good luck!
+
+- rustyaxe
