@@ -13,9 +13,8 @@
 #include <librustyaxe/json.h>
 #include <librustyaxe/posix.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrclient/auth.h"
-#include "rrclient/ws.h"
-#include "rrclient/ui.h"
+#include <rrclient/auth.h>
+#include <rrclient/ui.h>
 
 extern dict *cfg;
 

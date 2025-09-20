@@ -2,6 +2,7 @@ librrprotocol ?= librrprotocol.so
 libs += ${librrprotocol}
 
 # !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librrprotocol_objs += /g'
+librrprotocol_objs += http.o
 librrprotocol_objs += websocket.o
 librrprotocol_objs += ws.bcast.o
 librrprotocol_objs += ws.ping.o
@@ -19,9 +20,9 @@ librrprotocol-pre:
 
 ${librrprotocol}: librrprotocol-pre ${real_librrprotocol_objs} ${librrprotocol_headers} GNUmakefile librrprotocol/rules.mk
 	@echo "[link] $@ from $(words ${real_librrprotocol_objs}) objects"
-	@${CC} ${LDFLAGS} -lm -fPIC -shared -o $@ ${real_librrprotocol_objs}
+	@${CC} ${LDFLAGS} -lm -fPIC -shared -o $@ ${real_librrprotocol_objs} || exit 2
 
 ${BUILD_DIR}/librrprotocol/%.o:librrprotocol/%.c GNUmakefile ${librrprotocol_headers}
 	@echo "[compile] $< => $@"
 	@${RM} $@
-	@${CC} ${CFLAGS} -o $@ -c $<
+	@${CC} ${CFLAGS} -o $@ -c $< || exit 2

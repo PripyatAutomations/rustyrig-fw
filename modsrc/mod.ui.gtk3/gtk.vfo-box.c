@@ -23,7 +23,6 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/auth.h>
 #include <rrclient/connman.h>
-#include <rrclient/ws.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;

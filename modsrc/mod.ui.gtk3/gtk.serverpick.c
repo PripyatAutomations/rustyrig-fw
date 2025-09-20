@@ -21,7 +21,6 @@
 #include "../ext/libmongoose/mongoose.h"
 #include <rrclient/auth.h>
 #include <rrclient/connman.h>
-#include <rrclient/ws.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);

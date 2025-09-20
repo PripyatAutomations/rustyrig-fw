@@ -7,8 +7,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we deal with http requests using mongoose
 #include "build_config.h"
-#include <librustyaxe/config.h>
-#if	defined(FEATURE_HTTP)
+#include <librustyaxe/core.h>
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -20,22 +19,9 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
+#include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/cat.h>
-#include <librustyaxe/codecneg.h>
-#include <librustyaxe/json.h>
-#include <librustyaxe/util.string.h>
-#include <librustyaxe/util.file.h>
-#include <librustyaxe/posix.h>
-#include <rrserver/i2c.h>
-#include <rrserver/state.h>
-#include <rrserver/eeprom.h>
-#include <rrserver/http.h>
-#include <rrserver/ws.h>
-#include <rrserver/auth.h>
-#include <rrserver/ptt.h>
-#include <rrserver/fwdsp-mgr.h>
+#include <librrprotocol/rrprotocol.h>
 
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
@@ -44,6 +30,7 @@
 #endif
 
 extern struct mg_mgr mg_mgr;
+extern time_t now;
 
 // This defines a hard-coded fallback path for httpd root, if not set in config
 #if	defined(HOST_POSIX)
@@ -428,7 +415,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          // Does the user hold PTT? if so turn it off
          if (cptr->is_ptt) {
             // XXX: This should only turn off PTT for the rig they are using!
-            rr_ptt_set_all_off();
+//            rr_ptt_set_all_off();
             cptr->is_ptt = false;
          }
 
@@ -740,6 +727,3 @@ http_client_t *whos_talking(void) {
 
    return NULL;
 }
-#include "../ext/libmongoose/mongoose.h"
-
-#endif	// defined(FEATURE_HTTP)

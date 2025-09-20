@@ -18,12 +18,11 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrclient/auth.h"
+#include <rrclient/auth.h>
+#include <rrclient/userlist.h>
+#include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
-#include "rrclient/ws.h"
-#include "rrclient/userlist.h"
-#include <librrprotocol/rrprotocol.h>
 
 extern time_t poll_block_expire, poll_block_delay;
 extern dict *cfg;		// config.c

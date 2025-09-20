@@ -4,6 +4,9 @@
 // common IRC structures
 #include <librustyaxe/irc.struct.h>
 
+// CAPABilities crud
+#include <librustyaxe/irc.capab.h>
+
 // channel and user modes
 #include <librustyaxe/irc.modes.h>
 
@@ -17,3 +20,5 @@
 #include <librustyaxe/irc.parser.h>
 
 #endif	// !defined(__librustyaxe_irc_h)
+
+

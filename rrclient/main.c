@@ -29,11 +29,10 @@
 #include "rrclient/auth.h"
 
 #include <gtk/gtk.h>
-#include "mod.ui.gtk3/gtk.core.h"
-#include "mod.ui.gtk3/gtk.alertdialog.h"
-#include "rrclient/ui.h"
-#include "rrclient/connman.h"
-#include "rrclient/ws.h"
+#include <mod.ui.gtk3/gtk.core.h>
+#include <mod.ui.gtk3/gtk.alertdialog.h>
+#include <rrclient/ui.h>
+#include <rrclient/connman.h>
 
 extern const char *configs[]; // from defcfg.c
 extern const int num_configs;

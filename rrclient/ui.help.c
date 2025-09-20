@@ -20,9 +20,8 @@
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/core.h>
-#include "rrclient/auth.h"
+#include <rrclient/auth.h>
 #include "mod.ui.gtk3/gtk.core.h"
-#include "rrclient/ws.h"
 
 
 static bool safe_name(const char *name) {

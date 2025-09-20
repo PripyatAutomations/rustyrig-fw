@@ -34,7 +34,6 @@
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/auth.h>
-#include <rrclient/ws.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 // Linked list of all of our windows, usually 'main' will be the head of the list

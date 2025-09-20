@@ -44,9 +44,9 @@ librustyaxe-pre:
 
 ${librustyaxe}: librustyaxe-pre ${real_librustyaxe_objs} ${librustyaxe_headers} GNUmakefile librustyaxe/rules.mk
 	@echo "[link] $@ from $(words ${real_librustyaxe_objs}) objects"
-	@${CC} ${LDFLAGS} -lm -fPIC -shared -o $@ ${real_librustyaxe_objs}
+	@${CC} ${LDFLAGS} -lm -fPIC -shared -o $@ ${real_librustyaxe_objs} || exit 2
 
 ${BUILD_DIR}/librustyaxe/%.o:librustyaxe/%.c GNUmakefile ${librustyaxe_headers}
 	@echo "[compile] $< => $@"
 	@${RM} $@
-	@${CC} ${CFLAGS} -o $@ -c $<
+	@${CC} ${CFLAGS} -o $@ -c $< || exit 2

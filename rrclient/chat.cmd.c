@@ -18,10 +18,9 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrclient/auth.h"
+#include <rrclient/auth.h>
 #include <mod.ui.gtk3/gtk.core.h>
-#include "rrclient/connman.h"
-#include "rrclient/ws.h"
+#include <rrclient/connman.h>
 
 extern bool dying;
 extern time_t now;

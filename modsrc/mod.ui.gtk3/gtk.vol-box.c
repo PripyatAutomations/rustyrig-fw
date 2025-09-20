@@ -22,7 +22,6 @@
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/auth.h>
-#include <rrclient/ws.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 GtkWidget *rx_vol_slider = NULL;	// gstreamer volume

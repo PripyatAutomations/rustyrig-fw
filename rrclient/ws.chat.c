@@ -24,7 +24,6 @@
 #include <rrclient/connman.h>
 #include <rrclient/audio.h>
 #include <rrclient/userlist.h>
-#include <rrclient/ws.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c

@@ -19,7 +19,6 @@
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/auth.h>
-#include <rrclient/ws.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 

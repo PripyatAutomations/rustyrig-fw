@@ -9,8 +9,8 @@
 #if	!defined(__rr_backend_h)
 #define	__rr_backend_h
 #include <stdbool.h>
-#include "rrserver/http.h"
-#include "rrserver/vfo.h"
+#include <librrprotocol/http.h>
+#include <rrserver/vfo.h>
 
 struct rr_backend_funcs {
    // Backend management

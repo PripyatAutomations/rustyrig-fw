@@ -23,8 +23,7 @@
 #include <librustyaxe/logger.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
-#include "rrclient/auth.h"
-#include "rrclient/ws.h"
+#include <rrclient/auth.h>
 
 #if	defined(USE_GTK)
 #include <gtk/gtk.h>

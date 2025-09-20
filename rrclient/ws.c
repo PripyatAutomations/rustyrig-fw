@@ -20,7 +20,6 @@
 #include "mod.ui.gtk3/gtk.core.h"
 #include <rrclient/auth.h>
 #include <rrclient/connman.h>
-#include <rrclient/ws.h>
 #include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
 

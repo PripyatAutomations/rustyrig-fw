@@ -56,14 +56,14 @@ ${OBJ_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
 # as soon as we complete loadable modules, this must go away!
 ${OBJ_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk #${librustyaxe_headers} $[librrprotocol_headers}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
 bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs}
 	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrclient_real_objs} -lrustyaxe -lrrprotocol -lmongoose ${gtk_ldflags} ${gst_ldflags} || exit 2

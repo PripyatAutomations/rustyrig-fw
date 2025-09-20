@@ -20,10 +20,9 @@
 #include <librustyaxe/logger.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
-#include "rrclient/auth.h"
-#include "rrclient/ws.h"
-#include "rrclient/userlist.h"
-#include "rrclient/ui.h"
+#include <rrclient/auth.h>
+#include <rrclient/userlist.h>
+#include <rrclient/ui.h>
 
 extern dict *cfg;
 struct rr_user *global_userlist = NULL;

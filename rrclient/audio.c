@@ -41,9 +41,8 @@
 #include <librustyaxe/fwdsp-shared.h>
 #include <librustyaxe/posix.h>
 #include <librustyaxe/util.file.h>
-#include "rrclient/gtk.core.h"
-#include "rrclient/audio.h"
-#include "rrclient/ws.h"
+#include <rrclient/gtk.core.h>
+#include <rrclient/audio.h>
 
 extern dict *cfg;		// main.c
 extern struct mg_connection *ws_conn, *ws_tx_conn;

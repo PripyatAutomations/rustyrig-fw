@@ -9,7 +9,7 @@
 #include <librustyaxe/io.h>
 #include <librustyaxe/io.serial.h>
 #include <librustyaxe/io.socket.h>
-//#include <librustyaxe/irc.struct.h>
+#include <librustyaxe/irc.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/logger.h>
 #include <librustyaxe/posix.h>

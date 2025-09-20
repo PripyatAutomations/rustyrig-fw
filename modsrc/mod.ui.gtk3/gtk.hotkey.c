@@ -25,7 +25,6 @@
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
 #include <rrclient/auth.h>
-#include <rrclient/ws.h>
 #include <rrclient/ui.help.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"

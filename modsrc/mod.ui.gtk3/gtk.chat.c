@@ -27,7 +27,6 @@
 #include <rrclient/auth.h>
 #include <rrclient/ui.help.h>
 #include <rrclient/ui.speech.h>
-#include <rrclient/ws.h>
 
 extern dict *cfg;		// main.c
 extern time_t now;		// main.c
