@@ -28,14 +28,14 @@
 #include <librustyaxe/util.string.h>
 #include <librustyaxe/util.file.h>
 #include <librustyaxe/posix.h>
-#include "rrserver/i2c.h"
-#include "rrserver/state.h"
-#include "rrserver/eeprom.h"
-#include "rrserver/http.h"
-#include "rrserver/ws.h"
-#include "rrserver/auth.h"
-#include "rrserver/ptt.h"
-#include "rrserver/fwdsp-mgr.h"
+#include <rrserver/i2c.h>
+#include <rrserver/state.h>
+#include <rrserver/eeprom.h>
+#include <rrserver/http.h>
+#include <rrserver/ws.h>
+#include <rrserver/auth.h>
+#include <rrserver/ptt.h>
+#include <rrserver/fwdsp-mgr.h>
 
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
@@ -700,26 +700,6 @@ bool prepare_msg(char *buf, size_t len, const char *fmt, ...) {
    va_end(ap);
 
    return false;
-}
-
-bool client_has_flag(http_client_t *cptr, u_int32_t user_flag) {
-   if (cptr) {
-      return (cptr->user_flags & user_flag) != 0;
-   }
-
-   return false;
-}
-
-void client_set_flag(http_client_t *cptr, u_int32_t flag) {
-   if (cptr) {
-      cptr->user_flags |= flag;
-   }
-}
-
-void client_clear_flag(http_client_t *cptr, u_int32_t flag) {
-   if (cptr) {
-      cptr->user_flags &= ~flag;
-   }
 }
 
 // Counts only websocket clients that are logged in

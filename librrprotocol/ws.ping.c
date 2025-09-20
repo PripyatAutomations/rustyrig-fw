@@ -17,18 +17,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrclient/auth.h"
-#include "mod.ui.gtk3/gtk.core.h"
-#include "rrclient/ws.h"
-#include "rrclient/audio.h"
-#include "rrclient/userlist.h"
-#include <librustyaxe/client-flags.h>
+//#include "rrclient/ws.h"
 
-extern dict *cfg;		// config.c
-extern bool cfg_show_pings;
-extern time_t now;
+//extern dict *cfg;		// config.c
+//extern bool cfg_show_pings;
 
 bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
@@ -53,12 +46,12 @@ bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
       mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
       free((char *)jp);
    } else {
-      ui_print("*** Empty ping?? ***");
+      Log(LOG_WARN, "ws.ping", "*** Empty ping?? ***");
    }
 
-   if (cfg_show_pings) {
-      ui_print("[%s] * Ping? Pong! *", get_chat_ts(ping_ts));
-   }
+//   if (cfg_show_pings) {
+//      Log(LOG_DENUG, "* Ping? Pong! %lu *", ping_ts);
+//   }
 
    return false;
 }

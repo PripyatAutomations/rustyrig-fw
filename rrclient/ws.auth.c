@@ -8,7 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
 #include <librustyaxe/core.h>
-#define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,13 +18,13 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrclient/auth.h"
 #include "mod.ui.gtk3/gtk.core.h"
-#include "rrclient/connman.h"
-#include "rrclient/ws.h"
-#include "rrclient/audio.h"
-#include "rrclient/userlist.h"
-#include <librustyaxe/client-flags.h>
+#include <rrclient/auth.h>
+#include <rrclient/connman.h>
+#include <rrclient/ws.h>
+#include <rrclient/audio.h>
+#include <rrclient/userlist.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c
 extern time_t now;

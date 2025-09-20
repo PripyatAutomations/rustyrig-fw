@@ -3,6 +3,9 @@ libs += ${librrprotocol}
 
 # !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librrprotocol_objs += /g'
 librrprotocol_objs += websocket.o
+librrprotocol_objs += ws.bcast.o
+librrprotocol_objs += ws.ping.o
+librrprotocol_objs += ws.mediachan.o
 
 extra_clean += ${librustyaxe_objs} ${librustyaxe}
 librrprotocol_headers := $(wildcard librrprotocol/*.h)

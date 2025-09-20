@@ -6,8 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/config.h>
-#define	__RRCLIENT	1
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,16 +18,11 @@
 #include <gtk/gtk.h>
 #include <atk/atk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/dict.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/util.file.h>
-#include "rrclient/auth.h"
-//#include "rrclient/gtk.core.h"
-#include "rrclient/ws.h"
-#include "rrclient/userlist.h"
-#include <librustyaxe/client-flags.h>
-#include "rrclient/ui.speech.h"
+#include <rrclient/auth.h>
+#include <rrclient/ws.h>
+#include <rrclient/userlist.h>
+#include <rrclient/ui.speech.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c
 

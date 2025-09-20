@@ -20,8 +20,8 @@
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "mod.ui.gtk3/gtk.core.h"
-#include "rrclient/ws.h"
-#include <librustyaxe/client-flags.h>
+#include <rrclient/ws.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c
 extern time_t now;

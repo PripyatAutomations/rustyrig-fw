@@ -11,7 +11,7 @@
  *	Targets: syslog console flash (file)
  */
 //
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -25,9 +25,7 @@
 #include <time.h>
 #include <errno.h>
 #include <fnmatch.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/client-flags.h>
-
+#include <librrprotocol/rrprotocol.h>
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main

@@ -22,8 +22,8 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrclient/auth.h"
-#include "rrclient/ws.h"
+#include <rrclient/auth.h>
+#include <rrclient/ws.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
 

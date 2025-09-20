@@ -42,9 +42,8 @@ rrclient_objs += ws.auth.o		# protocol authentication
 rrclient_objs += ws.chat.o		# shared chatroom
 rrclient_objs += ws.error.o		# Error notices
 rrclient_objs += ws.file-xfer.o		# file transfer
-rrclient_objs += ws.media.o		# handle audio/video media transfer
+rrclient_objs += ws.media.o
 rrclient_objs += ws.notice.o		# Notices
-rrclient_objs += ws.ping.o		# handle ping messages
 rrclient_objs += ws.rigctl.o		# rig controls
 rrclient_objs += ws.syslog.o
 

@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,13 +17,11 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/dict.h>
-#include <librustyaxe/posix.h>
-#include "rrclient/auth.h"
-#include "rrclient/ws.h"
-#include "rrclient/userlist.h"
-#include "rrclient/ui.h"
+#include <librrprotocol/rrprotocol.h>
+#include <rrclient/auth.h>
+#include <rrclient/ws.h>
+#include <rrclient/userlist.h>
+#include <rrclient/ui.h>
 
 #if	defined(USE_GTK)
 #include <gtk/gtk.h>

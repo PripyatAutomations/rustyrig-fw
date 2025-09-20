@@ -19,13 +19,13 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrclient/auth.h"
-#include "rrclient/connman.h"
 #include "mod.ui.gtk3/gtk.core.h"
-#include "rrclient/audio.h"
-#include "rrclient/userlist.h"
-#include "rrclient/ws.h"
-#include <librustyaxe/client-flags.h>
+#include <rrclient/auth.h>
+#include <rrclient/connman.h>
+#include <rrclient/audio.h>
+#include <rrclient/userlist.h>
+#include <rrclient/ws.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c
 extern time_t now;
@@ -62,6 +62,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
 
       Log(LOG_DEBUG, "ws.talk", "UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", user, privs, (tx ? "true" : "false"), muted, clones);
 
+#if	0
       struct rr_user tmp = {0};
 
       snprintf(tmp.name, sizeof(tmp.name), "%s", user);
@@ -76,44 +77,44 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       }
 
       if (has_privs(&tmp, "admin")) {
-         set_flag(&tmp, FLAG_ADMIN);
+         client_set_flag(&tmp, FLAG_ADMIN);
       } else if (has_privs(&tmp, "owner")) {
-         set_flag(&tmp, FLAG_OWNER);
+         client_set_flag(&tmp, FLAG_OWNER);
       }
 
       if (has_privs(&tmp, "muted")) {
-         set_flag(&tmp, FLAG_MUTED);
+         client_set_flag(&tmp, FLAG_MUTED);
          tmp.is_muted = true;
       }
 
       if (has_privs(&tmp, "ptt")) {
-         set_flag(&tmp, FLAG_PTT);
+         client_set_flag(&tmp, FLAG_PTT);
       }
 
       if (has_privs(&tmp, "subscriber")) {
-         set_flag(&tmp, FLAG_SUBSCRIBER);
+         client_set_flag(&tmp, FLAG_SUBSCRIBER);
       }
 
       if (has_privs(&tmp, "elmer")) {
-         set_flag(&tmp, FLAG_ELMER);
+         client_set_flag(&tmp, FLAG_ELMER);
       } else if (has_privs(&tmp, "noob")) {
-         set_flag(&tmp, FLAG_NOOB);
+         client_set_flag(&tmp, FLAG_NOOB);
       }
 
       if (has_privs(&tmp, "bot")) {
-         set_flag(&tmp, FLAG_SERVERBOT);
+         client_set_flag(&tmp, FLAG_SERVERBOT);
       }
 
       if (has_privs(&tmp, "listener")) {
-         set_flag(&tmp, FLAG_LISTENER);
+         client_set_flag(&tmp, FLAG_LISTENER);
       }
 
       if (has_privs(&tmp, "syslog")) {
-         set_flag(&tmp, FLAG_SYSLOG);
+         client_set_flag(&tmp, FLAG_SYSLOG);
       }
 
       if (has_privs(&tmp, "tx")) {
-         set_flag(&tmp, FLAG_CAN_TX);
+         client_set_flag(&tmp, FLAG_CAN_TX);
       }
 
       if (!userlist_add_or_update(&tmp)) {
@@ -121,6 +122,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       } else {
          userlist_redraw_gtk();
       }
+#endif
    } else if (cmd && strcasecmp(cmd, "msg") == 0) {
       char *from = dict_get(d, "talk.from", NULL);
       char *data = dict_get(d, "talk.data", NULL);

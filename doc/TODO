@@ -39,7 +39,6 @@
 [cfgedit]	URGENT
 * Option to edit on-disk or in-memory configuration
 * Make save config moves the file to .old first
-* Make sure servers are dumped and 
 
 ===============
 = librustyrig =
@@ -47,7 +46,6 @@
 * track rx bytes & tx bytes in the session
 	- all
 	- text, media (binary)
-* rework all the json parsing to use more advanced APIs
 
 ===============
 = librustyaxe =
@@ -100,7 +98,7 @@ ws.c / fwdsp-mgr.c:
   - also halt TX by FLAG_NOOB users if the last elmer logs out
 
 [eeprom/config]
-* remove need for they key field (why not use the name of the entry itself?) in eeprom_layout
+* remove need for the key field (why not use the name of the entry itself?) in eeprom_layout
 * fix relative offsets in eeprom_layout
 ? Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
 - Make a tool which converts res/eeprom_layout.json (and eeprom_types.json) to a text file like doc/eeprom.txt

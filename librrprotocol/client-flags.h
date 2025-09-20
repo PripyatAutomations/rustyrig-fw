@@ -17,13 +17,8 @@
 #define	FLAG_NOOB        0x00000400		// user can only use ws.cat if owner|admin logged in
 #define	FLAG_ELMER       0x00000800		// user is an elmer, so noobs can TX if they are present
 
-#if	!defined(__RRCLIENT)
-#include <librustyaxe/http.h>
-extern bool client_has_flag(http_client_t *cptr, uint32_t user_flag);
-extern void client_set_flag(http_client_t *cptr, uint32_t flag);
-extern void client_clear_flag(http_client_t *cptr, uint32_t flag);
-#else
-static inline bool has_flag(struct rr_user *cptr, uint32_t user_flag) {
+
+static inline bool client_has_flag(http_client_t *cptr, u_int32_t user_flag) {
    if (cptr) {
       return (cptr->user_flags & user_flag) != 0;
    }
@@ -31,17 +26,16 @@ static inline bool has_flag(struct rr_user *cptr, uint32_t user_flag) {
    return false;
 }
 
-static inline void set_flag(struct rr_user *cptr, uint32_t flag) {
+static inline void client_set_flag(http_client_t *cptr, u_int32_t flag) {
    if (cptr) {
       cptr->user_flags |= flag;
    }
 }
 
-static inline void clear_flag(struct rr_user *cptr, uint32_t flag) {
+static inline void client_clear_flag(http_client_t *cptr, u_int32_t flag) {
    if (cptr) {
       cptr->user_flags &= ~flag;
    }
 }
-#endif	// __RRCLIENT
 
 #endif	// !defined(__rr_client_flags_h)

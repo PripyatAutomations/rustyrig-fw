@@ -53,6 +53,6 @@ extern struct rr_user *userlist_find(const char *name);
 extern GtkWidget *userlist_init(void);
 #endif	// defined(USE_GTK)
 
-#include <librustyaxe/client-flags.h>
+#include <librrprotocol/client-flags.h>
 
 #endif	// !defined(__rrclient_userlist_h)

@@ -1,6 +1,6 @@
 librustyaxe ?= librustyaxe.so
 # !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librustyaxe_objs += /g'
-librustyaxe_objs += audio.framing.o
+#librustyaxe_objs += audio.framing.o
 librustyaxe_objs += cat.o
 librustyaxe_objs += cat.kpa500.o
 librustyaxe_objs += cat.yaesu.o
@@ -28,7 +28,6 @@ librustyaxe_objs += util.file.o
 librustyaxe_objs += util.math.o
 librustyaxe_objs += util.string.o
 librustyaxe_objs += util.time.o
-librustyaxe_objs += ws.mediachan.o
 extra_clean += ${librustyaxe_objs} ${librustyaxe}
 
 librustyaxe_headers := $(wildcard librustyaxe/*.h)

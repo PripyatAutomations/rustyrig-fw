@@ -17,12 +17,12 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrclient/auth.h"
 #include "mod.ui.gtk3/gtk.core.h"
-#include "rrclient/connman.h"
-#include "rrclient/ws.h"
-#include "rrclient/userlist.h"
-#include <librustyaxe/client-flags.h>
+#include <rrclient/auth.h>
+#include <rrclient/connman.h>
+#include <rrclient/ws.h>
+#include <rrclient/userlist.h>
+#include <librrprotocol/rrprotocol.h>
 
 // At startup, we try to find the distribution's TLS certificate authority trust store
 const char *default_tls_ca_paths[] = {

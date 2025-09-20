@@ -7,7 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#define	__RRCLIENT	1
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -24,7 +23,7 @@
 #include "mod.ui.gtk3/gtk.freqentry.h"
 #include "rrclient/ws.h"
 #include "rrclient/userlist.h"
-#include <librustyaxe/client-flags.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern time_t poll_block_expire, poll_block_delay;
 extern dict *cfg;		// config.c

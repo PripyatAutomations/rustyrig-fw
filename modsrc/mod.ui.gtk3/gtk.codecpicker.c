@@ -21,11 +21,11 @@
 #include <librustyaxe/logger.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
-#include <librustyaxe/ws.h>
-#include "rrclient/ui.speech.h"
-#include "rrclient/auth.h"
+#include <librrprotocol/ws.h>
+#include <rrclient/ui.speech.h>
+#include <rrclient/auth.h>
+#include <rrclient/ws.h>
 #include "mod.ui.gtk3/gtk.core.h"
-#include "rrclient/ws.h"
 
 extern dict *cfg;				// main.c
 extern struct mg_connection *ws_conn;

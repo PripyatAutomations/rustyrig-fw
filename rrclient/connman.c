@@ -27,7 +27,7 @@
 #include "rrclient/ui.h"
 #include "rrclient/userlist.h"
 #include "mod.ui.gtk3/gtk.core.h"
-#include <librustyaxe/client-flags.h>
+#include <librrprotocol/rrprotocol.h>
 
 // Server connections
 rr_connection_t *active_connections;

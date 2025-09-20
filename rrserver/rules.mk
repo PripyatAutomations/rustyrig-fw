@@ -50,7 +50,6 @@ rrserver_objs += waterfall.o		# Support for rendering waterfalls
 rrserver_objs += webcam.o		# Webcam (v4l2) streaming to a canvas
 rrserver_objs += ws.o			# Websocket transport general
 rrserver_objs += ws.audio.o		# Audio (raw / OPUS) over websockets
-rrserver_objs += ws.bcast.o		# Broadcasts over websocket (chat, rig status, etc)
 rrserver_objs += ws.chat.o		# Websocket Chat (talk)
 rrserver_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 
