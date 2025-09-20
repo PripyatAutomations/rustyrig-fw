@@ -63,13 +63,8 @@ bool ws_handle_notice_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    char *notice_from = dict_get(d, "notice.from", NULL);
    time_t ts = dict_get_time_t(d, "notice.ts", now);
 
-   // Copy to a null terminated buffer
-   if (!notice_from) {
-      notice_from = strdup("***SERVER***");
-   }
-
    if (notice_msg) {
-      ui_print("[%s] NOTICE: %s: %s !!!", get_chat_ts(ts), notice_from, notice_msg);
+      ui_print("[%s] NOTICE: %s: %s !!!", get_chat_ts(ts), (notice_from ? notice_from : "***SERVER***"), notice_msg);
    }
 
    dict_free(d);

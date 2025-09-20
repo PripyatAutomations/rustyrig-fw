@@ -2,3 +2,4 @@
 *.o
 *.dll
 obj/*.o
+obj/librustyaxe/*.o

@@ -1,3 +1,6 @@
+rrserver := bin/rrserver
+bins += ${rrserver}
+
 rrserver_objs += amp.o			# Amplifier management
 rrserver_objs += atu.o			# Antenna Tuner
 rrserver_objs += au.o			# Audio channel stuff
@@ -54,14 +57,14 @@ rrserver_objs += ws.rigctl.o		# Websocket Rig Control (CAT)
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
-${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers}
+${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-bin/rrserver: ${BUILD_HEADERS} ${librustyaxe} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
-	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lmongoose ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
+bin/rrserver: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
+	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lmongoose ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

@@ -25,6 +25,9 @@ db/*
 images/*
 junk/*
 junk/*/*
+librrprotocol/*.o
+librrprotocol/*.so
+librrprotocol/*.dll
 librustyaxe/*.o
 librustyaxe/*.so
 librustyaxe/*.dll

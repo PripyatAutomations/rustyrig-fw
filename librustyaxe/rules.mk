@@ -1,41 +1,53 @@
-
-# !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librr_objs += /g'
-librr_objs += audio.framing.o
-librr_objs += cat.o
-librr_objs += cat.kpa500.o
-librr_objs += cat.yaesu.o
-librr_objs += codecneg.o
-librr_objs += config.o
-librr_objs += daemon.o
-librr_objs += dict.o
-librr_objs += io.o
-librr_objs += io.serial.o
-librr_objs += io.socket.o
-librr_objs += irc.capab.o
-librr_objs += irc.commands.o
-librr_objs += irc.modes.o
-librr_objs += irc.numerics.o
-librr_objs += irc.parser.o
-librr_objs += json.o
-librr_objs += logger.o
-librr_objs += maidenhead.o
-librr_objs += module.o
-librr_objs += posix.o
-librr_objs += ringbuffer.o
+librustyaxe ?= librustyaxe.so
+# !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librustyaxe_objs += /g'
+librustyaxe_objs += audio.framing.o
+librustyaxe_objs += cat.o
+librustyaxe_objs += cat.kpa500.o
+librustyaxe_objs += cat.yaesu.o
+librustyaxe_objs += codecneg.o
+librustyaxe_objs += config.o
+librustyaxe_objs += daemon.o
+librustyaxe_objs += dict.o
+librustyaxe_objs += io.o
+librustyaxe_objs += io.serial.o
+librustyaxe_objs += io.socket.o
+librustyaxe_objs += irc.capab.o
+librustyaxe_objs += irc.commands.o
+librustyaxe_objs += irc.modes.o
+librustyaxe_objs += irc.numerics.o
+librustyaxe_objs += irc.parser.o
+librustyaxe_objs += json.o
+librustyaxe_objs += logger.o
+librustyaxe_objs += maidenhead.o
+librustyaxe_objs += module.o
+librustyaxe_objs += posix.o
+librustyaxe_objs += ringbuffer.o
 # XXX: This needs cleanup to remove remnants of termbox/old logger
-#librr_objs += subproc.o
-librr_objs += util.file.o
-librr_objs += util.math.o
-librr_objs += util.string.o
-librr_objs += util.time.o
-librr_objs += ws.mediachan.o
-librr_srcs := $(librr_objs:.o=.c)
-librr_headers := $(wildcard *.h)
+#librustyaxe_objs += subproc.o
+librustyaxe_objs += util.file.o
+librustyaxe_objs += util.math.o
+librustyaxe_objs += util.string.o
+librustyaxe_objs += util.time.o
+librustyaxe_objs += ws.mediachan.o
+extra_clean += ${librustyaxe_objs} ${librustyaxe}
 
-ifeq (x${OBJ_DIR}, x)
-real_librr_objs := $(foreach x, ${librr_objs}, obj/${x})
-else
-real_librr_objs := $(foreach x, ${librr_objs}, ${OBJ_DIR}/${x})
-endif
+librustyaxe_headers := $(wildcard librustyaxe/*.h)
+librustyaxe_src = $(wildcard librustyaxe/*.c) $(wildcard librustyaxe/*.h)
 
-${librr_srcs}: GNUmakefile ${librr_headers} rules.mk
+real_librustyaxe_objs := $(foreach x, ${librustyaxe_objs}, ${BUILD_DIR}/librustyaxe/${x})
+
+libs += ${librustyaxe}
+
+${librustyaxe_srcs}: GNUmakefile ${librustyaxe_headers} librustyaxe/rules.mk
+
+librustyaxe-pre:
+	mkdir -p ${BUILD_DIR}/librustyaxe
+
+${librustyaxe}: librustyaxe-pre ${real_librustyaxe_objs} ${librustyaxe_headers} GNUmakefile librustyaxe/rules.mk
+	@echo "[link] $@ from $(words ${real_librustyaxe_objs}) objects"
+	@${CC} ${LDFLAGS} -lm -fPIC -shared -o $@ ${real_librustyaxe_objs}
+
+${BUILD_DIR}/librustyaxe/%.o:librustyaxe/%.c GNUmakefile ${librustyaxe_headers}
+	@echo "[compile] $< => $@"
+	@${RM} $@
+	@${CC} ${CFLAGS} -o $@ -c $<
