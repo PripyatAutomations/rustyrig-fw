@@ -601,12 +601,16 @@ const char *dict2json_mkstr_real(int first_type, ...) {
 // parse JSON value (object, array, string, primitive)
 static const char *json_parse_value(const char *s, const char *path, dict *d) {
    s = skip_ws(s);
-   if (!*s) return NULL;
+   if (!*s) {
+      return NULL;
+   }
 
    if (*s == '"') {
       char *val = NULL;
       s = json_parse_str(s, &val);
-      if (!s) return NULL;
+      if (!s) {
+         return NULL;
+      }
       dict_add(d, path, val);
       free(val);
       return s;
@@ -617,7 +621,9 @@ static const char *json_parse_value(const char *s, const char *path, dict *d) {
    } else {
       char *val = NULL;
       s = json_parse_primitive(s, &val);
-      if (!s) return NULL;
+      if (!s) {
+         return NULL;
+      }
       dict_add(d, path, val);
       free(val);
       return s;
@@ -627,7 +633,9 @@ static const char *json_parse_value(const char *s, const char *path, dict *d) {
 // public API: parse JSON into flattened dict
 dict *json2dict(const char *json) {
    dict *d = dict_new();
-   if (!d) return NULL;
+   if (!d) {
+      return NULL;
+   }
 
    const char *res = json_parse_value(json, "", d); // start with empty root path
    if (!res) {
