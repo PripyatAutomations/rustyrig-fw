@@ -31,7 +31,9 @@ static const char *json_parse_value(const char *s, const char *path, dict *d);
 static char *path_append(const char *base, const char *suffix) {
    size_t len = strlen(base) + strlen(suffix) + 2; // +1 for dot or brackets, +1 for \0
    char *newpath = malloc(len);
-   if (!newpath) return NULL;
+   if (!newpath) {
+      return NULL;
+   }
 
    if (suffix[0] == '[') {  // array index
       snprintf(newpath, len, "%s%s", base, suffix);
@@ -48,31 +50,43 @@ static char *path_append(const char *base, const char *suffix) {
 
 // helper: skip whitespace
 static const char *skip_ws(const char *s) {
-   while (*s && isspace((unsigned char)*s)) s++;
+   while (*s && isspace((unsigned char)*s)) {
+      s++;
+   }
    return s;
 }
 
 
 // parse JSON string into a C string
 static const char *json_parse_str(const char *s, char **out) {
-   if (*s != '"') return NULL;
+   if (*s != '"') {
+      return NULL;
+   }
    s++;
    const char *start = s;
    size_t len = 0;
 
    while (*s && *s != '"') {
-      if (*s == '\\') s++;  // skip escaped char
+      if (*s == '\\') {
+         s++;  // skip escaped char
+      }
       s++; len++;
    }
 
-   if (*s != '"') return NULL;
+   if (*s != '"') {
+      return NULL;
+   }
 
    *out = malloc(len + 1);
-   if (!*out) return NULL;
+   if (!*out) {
+      return NULL;
+   }
 
    size_t j = 0;
    for (const char *p = start; p < s; p++, j++) {
-      if (*p == '\\') p++;
+      if (*p == '\\') {
+         p++;
+      }
       (*out)[j] = *p;
    }
    (*out)[j] = '\0';
@@ -86,7 +100,9 @@ static const char *json_parse_primitive(const char *s, char **out) {
    while (*s && !strchr(",]} \t\r\n", *s)) s++;
    size_t len = s - start;
    *out = malloc(len + 1);
-   if (!*out) return NULL;
+   if (!*out) {
+      return NULL;
+   }
    memcpy(*out, start, len);
    (*out)[len] = '\0';
    return s;
@@ -94,29 +110,42 @@ static const char *json_parse_primitive(const char *s, char **out) {
 
 // parse JSON object
 static const char *json_parse_obj(const char *s, const char *path, dict *d) {
-   if (*s != '{') return NULL;
+   if (*s != '{') {
+      return NULL;
+   }
    s = skip_ws(s + 1);
 
    while (*s && *s != '}') {
       s = skip_ws(s);
       char *key = NULL;
       s = json_parse_str(s, &key);
-      if (!s) return NULL;
+      if (!s) {
+         return NULL;
+      }
 
       s = skip_ws(s);
-      if (*s++ != ':') { free(key); return NULL; }
+      if (*s++ != ':') {
+         free(key);
+         return NULL;
+      }
 
       char *newpath = path_append(path, key);
       free(key);
-      if (!newpath) return NULL;
+      if (!newpath) {
+         return NULL;
+      }
 
       s = skip_ws(s);
       s = json_parse_value(s, newpath, d);
       free(newpath);
-      if (!s) return NULL;
+      if (!s) {
+         return NULL;
+      }
 
       s = skip_ws(s);
-      if (*s == ',') s++;
+      if (*s == ',') {
+         s++;
+      }
    }
 
    return (*s == '}') ? s + 1 : NULL;
@@ -124,7 +153,9 @@ static const char *json_parse_obj(const char *s, const char *path, dict *d) {
 
 // parse JSON array
 static const char *json_parse_array(const char *s, const char *path, dict *d) {
-   if (*s != '[') return NULL;
+   if (*s != '[') {
+      return NULL;
+   }
    s = skip_ws(s + 1);
    int idx = 0;
 
@@ -133,15 +164,21 @@ static const char *json_parse_array(const char *s, const char *path, dict *d) {
       snprintf(idxbuf, sizeof(idxbuf), "[%d]", idx++);
 
       char *newpath = path_append(path, idxbuf);
-      if (!newpath) return NULL;
+      if (!newpath) {
+         return NULL;
+      }
 
       s = skip_ws(s);
       s = json_parse_value(s, newpath, d);
       free(newpath);
-      if (!s) return NULL;
+      if (!s) {
+         return NULL;
+      }
 
       s = skip_ws(s);
-      if (*s == ',') s++;
+      if (*s == ',') {
+         s++;
+      }
    }
 
    return (*s == ']') ? s + 1 : NULL;
