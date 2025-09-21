@@ -18,11 +18,10 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <rrclient/auth.h>
-#include "mod.ui.gtk3/gtk.core.h"
 #include <rrclient/audio.h>
 #include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
+//#include <mod.ui.gtk3/gtk.core.h>
 
 extern dict *cfg;		// config.c
 extern time_t now;
@@ -92,8 +91,9 @@ bool ws_handle_media_msg(struct mg_connection *c, dict *d) {
          memset(first_codec, 0, 5);
          // Copy the *first* codec of the negotiated set, as it's our most preferred.
          memcpy(first_codec, media_codecs, 4);
-         populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
-         populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
+// XXX: need to move this to the GTK code and have it as a callback
+//         populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
+//         populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_codec_combo), media_codecs, (media_preferred ? media_preferred : "pc16"));
 //         ws_select_codec(c, first_codec, false);
       } else {
          Log(LOG_DEBUG, "ws.media", "Got media isupport with empty codecs");

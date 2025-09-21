@@ -21,7 +21,6 @@
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/auth.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c

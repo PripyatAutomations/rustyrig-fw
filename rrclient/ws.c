@@ -18,7 +18,6 @@
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
 #include "mod.ui.gtk3/gtk.core.h"
-#include <rrclient/auth.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
@@ -267,7 +266,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    }
 }
 
-void ws_init(void) {
+void ws_client_init(void) {
    const char *debug = cfg_get_exp("debug.http");
    if (debug && (strcasecmp(debug, "true") == 0 ||
                  strcasecmp(debug, "yes") == 0)) {

@@ -17,19 +17,14 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrserver/auth.h"
-#include "rrserver/i2c.h"
-#include "rrserver/state.h"
-#include "rrserver/eeprom.h"
-#include "rrserver/database.h"
-#include "rrserver/http.h"
-#include "rrserver/ws.h"
-#include "rrserver/ptt.h"
-#include <librustyaxe/client-flags.h>
+#include <rrserver/database.h>
+#include <rrserver/ptt.h>
+#include <librrprotocol/rrprotocol.h>
 
 // minimum reason length for kick/ban/etc
 #define	CHAT_MIN_REASON_LEN	10
-
+extern time_t now;
+extern bool dying, restarting;
 extern struct GlobalState rig;	// Global state
 
 // Send an error message to the user, informing them they lack the appropriate privileges in chat
@@ -454,9 +449,9 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                } else {
                   Log(LOG_CRAZY, "ws.chat", "%s <%s> %s", channel, cptr->chatname, data);
                }
-
                // Check for commands
                if (data[0] == '!') {
+#if	0
                   char *input = data;
                   char cmd[16], arg[32];
                   size_t cmd_len = sizeof(cmd), arg_len = sizeof(arg);
@@ -528,6 +523,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
 
                   // these events shouldn't get relayed because the CAT events generated *will* be relayed
                   return false;
+#endif
                } else { // Chat message
                   // Check if this is to a local channel. If not, relay it
                   if (channel[0] != '&') {

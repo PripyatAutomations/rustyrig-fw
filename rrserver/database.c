@@ -18,7 +18,7 @@
 #include <librustyaxe/core.h>
 #if	defined(FEATURE_SQLITE)
 #include <sqlite3.h>
-#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #include "rrserver/database.h"
 
 sqlite3 *masterdb = NULL;

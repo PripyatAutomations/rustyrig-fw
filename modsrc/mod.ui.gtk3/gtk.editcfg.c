@@ -18,7 +18,6 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <rrclient/auth.h>
 #include <rrclient/audio.h>
 #include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>

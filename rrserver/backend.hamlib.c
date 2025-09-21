@@ -16,7 +16,7 @@
 // directly called outside of this module. You should use the backend API instead.
 //
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -29,15 +29,13 @@
 #if	defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/cat.h>
-#include <librustyaxe/json.h>
-#include "rrserver/state.h"
-#include "rrserver/thermal.h"
-#include "rrserver/eeprom.h"
-#include "rrserver/vfo.h"
-#include "rrserver/backend.h"
-#include "rrserver/ws.h"
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/state.h>
+#include <rrserver/thermal.h>
+#include <rrserver/eeprom.h>
+#include <rrserver/vfo.h>
+#include <rrserver/backend.h>
+#include <rrserver/ws.h>
 static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl

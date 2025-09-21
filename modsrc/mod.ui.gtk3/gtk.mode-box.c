@@ -22,7 +22,6 @@
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
 #include <librustyaxe/util.file.h>
-#include <rrclient/auth.h>
 #include <rrclient/audio.h>
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"

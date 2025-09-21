@@ -20,7 +20,6 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <rrclient/auth.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>

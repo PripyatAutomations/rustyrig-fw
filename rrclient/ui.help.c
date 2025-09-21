@@ -20,7 +20,6 @@
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/core.h>
-#include <rrclient/auth.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 

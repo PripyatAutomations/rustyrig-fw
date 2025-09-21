@@ -9,6 +9,7 @@
 #if	!defined(__rr_auth_h)
 #define	__rr_auth_h
 #include <librrprotocol/http.h>
+#include <librrprotocol/codecneg.h>
 
 extern http_user_t http_users[HTTP_MAX_USERS];
 extern int http_getuid(const char *user);

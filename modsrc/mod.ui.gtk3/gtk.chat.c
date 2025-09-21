@@ -22,11 +22,10 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "mod.ui.gtk3/gtk.core.h"
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/auth.h>
 #include <rrclient/ui.help.h>
 #include <rrclient/ui.speech.h>
+#include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;		// main.c
 extern time_t now;		// main.c

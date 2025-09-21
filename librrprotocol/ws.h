@@ -18,11 +18,7 @@
 #include <time.h>
 #include "ext/libmongoose/mongoose.h"
 #include <librustyaxe/core.h>
-#include <rrclient/auth.h>
-#include <rrclient/audio.h>
-#include <librustyaxe/codecneg.h>
-#include <librustyaxe/http.h>
-#include <librrprotocol/http.h>
+#include <librrprotocol/rrprotocol.h>
 
 struct ws_client {
     struct mg_connection *conn;

@@ -12,22 +12,16 @@
 // Most of the ugly bits should go in the per-backend sources
 //
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <string.h>
-#include "rrserver/state.h"
-#include <librustyaxe/codecneg.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/util.file.h>
-#include "rrserver/au.h"
-#include "rrserver/auth.h"
-
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/state.h>
+#include <rrserver/au.h>
 // How long should the random part of the filename be?
 #define	RECORDING_ID_LEN	24
 

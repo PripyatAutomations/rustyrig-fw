@@ -20,7 +20,6 @@
 #include <librustyaxe/logger.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
-#include <rrclient/auth.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 

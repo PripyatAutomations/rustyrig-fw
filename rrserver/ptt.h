@@ -8,7 +8,8 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_pt_h)
 #define	__rr_pt_h
-#include "rrserver/config.h"
+#include <rrserver/config.h>
+#include <rrserver/vfo.h>
 
 extern bool rr_ptt_check_blocked(void);
 extern bool rr_ptt_set_blocked(bool blocked);

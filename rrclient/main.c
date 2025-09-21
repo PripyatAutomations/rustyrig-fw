@@ -21,13 +21,8 @@
 #include <windows.h>
 #endif
 
-#include <librustyaxe/logger.h>
-#include <librustyaxe/dict.h>
-#include <librustyaxe/posix.h>
+#include <librustyaxe/core.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/util.file.h>
-#include "rrclient/auth.h"
-
 #include <gtk/gtk.h>
 #include <mod.ui.gtk3/gtk.core.h>
 #include <mod.ui.gtk3/gtk.alertdialog.h>
@@ -42,6 +37,7 @@ extern bool cfg_detect_and_load(const char *configs[], int num_configs);
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
 extern struct mg_mgr mgr;
+extern void ws_client_init(void);
 
 bool dying = false;             // Are we shutting down?
 bool restarting = false;        // Are we restarting?
@@ -150,7 +146,7 @@ int main(int argc, char *argv[]) {
    g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
 
    gui_init();
-   ws_init();
+   ws_client_init();
 
    // How long to suppress hamlib/etc polling during CAT control?  
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);

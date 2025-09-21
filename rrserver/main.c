@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,41 +17,34 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrserver/amp.h"
-#include "rrserver/atu.h"
-#include "rrserver/au.h"
-#include "rrserver/backend.h"
 #include <librustyaxe/cat.h>
-#include "rrserver/eeprom.h"
-#include "rrserver/faults.h"
-#include "rrserver/filters.h"
-#include "rrserver/gpio.h"
-#include "rrserver/gui.h"
-#include "rrserver/help.h"
-#include "rrserver/i2c.h"
-#include <librustyaxe/io.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/util.file.h>
-#include "rrserver/network.h"
-#include <librustyaxe/posix.h>
-#include "rrserver/ptt.h"
-#include "rrserver/state.h"
-#include "rrserver/thermal.h"
-#include "rrserver/timer.h"
-#include "rrserver/usb.h"
-#include "rrserver/dds.h"
-#include "rrserver/database.h"
-#include "rrserver/fwdsp-mgr.h"
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/amp.h>
+#include <rrserver/atu.h>
+#include <rrserver/au.h>
+#include <rrserver/backend.h>
+#include <rrserver/eeprom.h>
+#include <rrserver/faults.h>
+#include <rrserver/filters.h>
+#include <rrserver/gpio.h>
+#include <rrserver/gui.h>
+#include <rrserver/help.h>
+#include <rrserver/i2c.h>
+#include <rrserver/network.h>
+#include <rrserver/ptt.h>
+#include <rrserver/state.h>
+#include <rrserver/thermal.h>
+#include <rrserver/timer.h>
+#include <rrserver/usb.h>
+#include <rrserver/dds.h>
+#include <rrserver/database.h>
+#include <rrserver/fwdsp-mgr.h>
 
 //
 // http ui support
 //
-#if	defined(FEATURE_HTTP)
-#include "rrserver/http.h"
-#include "rrserver/ws.h"
-#endif
 #if	defined(FEATURE_MQTT)
-#include "rrserver/mqtt.h"
+#include <rrserver/mqtt.h>
 #endif
 #if	defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;

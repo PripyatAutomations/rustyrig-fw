@@ -1,7 +1,6 @@
 rrclient := bin/rrclient
-bins += ${rrclient}
+#bins += ${rrclient}
 
-rrclient_objs += auth.o
 rrclient_objs += chat.o
 rrclient_objs += chat.cmd.o
 rrclient_objs += connman.o
@@ -36,15 +35,14 @@ rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
 rrclient_objs += ui.help.o		# help texts
 rrclient_objs += ui.speech.o		# Support for screener readers
 rrclient_objs += win32.o		# support to run in windows
-rrclient_objs += ws.o			# Websocket transport general
+#rrclient_objs += ws.o			# Websocket transport general
 rrclient_objs += ws.alert.o		# Audio over websocket negotiation
-rrclient_objs += ws.auth.o		# protocol authentication
+#rrclient_objs += ws.auth.o		# protocol authentication
 rrclient_objs += ws.chat.o		# shared chatroom
 rrclient_objs += ws.error.o		# Error notices
 rrclient_objs += ws.file-xfer.o		# file transfer
-rrclient_objs += ws.media.o
 rrclient_objs += ws.notice.o		# Notices
-rrclient_objs += ws.rigctl.o		# rig controls
+#rrclient_objs += ws.rigctl.o		# rig controls
 rrclient_objs += ws.syslog.o
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${OBJ_DIR}/rrclient/${x})

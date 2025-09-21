@@ -22,7 +22,6 @@
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
 #include <librustyaxe/util.file.h>
-#include <rrclient/auth.h>
 #include <rrclient/gtk.core.h>
 #include <rrclient/audio.h>
 extern time_t now;

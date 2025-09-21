@@ -9,7 +9,7 @@
 //
 // codec negotiation should call fwdsp_create 
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,10 +20,9 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrserver/state.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/codecneg.h>
-#include "rrserver/fwdsp-mgr.h"
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/state.h>
+#include <rrserver/fwdsp-mgr.h>
 
 #define	FWDSP_MAX_SUBPROCS	100
 

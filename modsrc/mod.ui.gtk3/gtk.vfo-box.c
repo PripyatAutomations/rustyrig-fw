@@ -21,7 +21,6 @@
 #include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/auth.h>
 #include <rrclient/connman.h>
 #include "mod.ui.gtk3/gtk.core.h"
 

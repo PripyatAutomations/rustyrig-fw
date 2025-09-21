@@ -13,7 +13,7 @@
  * powering down the PAs (such as for relay changes in tuning or filters).
  */
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,14 +22,9 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/dict.h>
-#include <librustyaxe/json.h>
-#include <librustyaxe/logger.h>
-#include "rrserver/state.h"
-#include "rrserver/ptt.h"
-#include "rrserver/auth.h"
-#include "rrserver/ws.h"
-#include "rrserver/http.h"
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/state.h>
+#include <rrserver/ptt.h>
 
 time_t   global_tot_time = 0;		// TOT
 extern time_t   ptt_tot_time;

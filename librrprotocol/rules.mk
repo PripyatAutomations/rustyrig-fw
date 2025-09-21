@@ -2,9 +2,13 @@ librrprotocol ?= librrprotocol.so
 libs += ${librrprotocol}
 
 # !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librrprotocol_objs += /g'
+librrprotocol_objs += auth.o
+librrprotocol_objs += codecneg.o
 librrprotocol_objs += http.o
 librrprotocol_objs += websocket.o
 librrprotocol_objs += ws.bcast.o
+librrprotocol_objs += ws.chat.o
+librrprotocol_objs += ws.media.o
 librrprotocol_objs += ws.ping.o
 librrprotocol_objs += ws.mediachan.o
 

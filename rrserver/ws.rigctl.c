@@ -17,18 +17,11 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrserver/i2c.h"
-#include "rrserver/state.h"
-#include "rrserver/eeprom.h"
-#include "rrserver/au.h"
-#include "rrserver/auth.h"
-#include "rrserver/backend.h"
-#include "rrserver/ws.h"
-#include "rrserver/ptt.h"
-#include "rrserver/vfo.h"
-#include "rrserver/database.h"
-#include <librustyaxe/client-flags.h>
+#include <rrserver/backend.h>
+#include <rrserver/database.h>
+#include <librrprotocol/rrprotocol.h>
 
+extern time_t now;
 extern struct GlobalState rig;	// Global state
 
 #define	WS_RIGCTL_FORCE_INTERVAL	60		// every 60 seconds, send a full update
@@ -238,6 +231,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
          cptr->is_ptt = c_state;
 
+#if	0
          // Start/stop PTT session
          if (!cptr->ptt_session) {
             const char *recording = au_recording_start(channel);
@@ -245,6 +239,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          } else {
             db_ptt_stop(masterdb, cptr->ptt_session);
          }
+#endif
          // Send to log file & consoles
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
 

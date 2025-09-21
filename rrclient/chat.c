@@ -1,4 +1,4 @@
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -8,12 +8,8 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/dict.h>
-#include <librustyaxe/json.h>
-#include <librustyaxe/posix.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <rrclient/auth.h>
+#include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
 
 extern dict *cfg;

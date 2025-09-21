@@ -31,12 +31,9 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <librustyaxe/fwdsp-shared.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/util.file.h>
-#include <librustyaxe/codecneg.h>
+#include <librrprotocol/rrprotocol.h>
 
 // if passed NULL for codecs, use all available codecs
 const char *media_capab_prepare(const char *codecs) {

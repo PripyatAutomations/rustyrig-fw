@@ -23,7 +23,6 @@
 #include <librustyaxe/posix.h>
 #include <librrprotocol/ws.h>
 #include <rrclient/ui.speech.h>
-#include <rrclient/auth.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;				// main.c

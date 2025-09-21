@@ -13,6 +13,8 @@
 #include <gtk/gtk.h>
 #endif
 
+#include <librrprotocol/rrprotocol.h>
+
 enum {
    COL_PRIV_ICON,
    COL_USERNAME,
