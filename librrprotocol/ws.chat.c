@@ -227,7 +227,7 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 
       // turn off PTT if this user holds it
       if (acptr->is_ptt) {
-         rr_ptt_set_all_off();
+//         rr_ptt_set_all_off();
          acptr->is_ptt = false;
       }
    } else {
@@ -532,10 +532,11 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
 
                   // Log to database, if configured
                   if (cfg_get_bool("chat.log", false)) {
-                     bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
-                     if (!db_res) {
-                        fprintf(stderr, "db_add_chat_msg failed\n");
-                     }
+// XXX: readd
+//                     bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
+//                     if (!db_res) {
+//                        fprintf(stderr, "db_add_chat_msg failed\n");
+//                     }
                   }
 
                   const char *jp = dict2json_mkstr(

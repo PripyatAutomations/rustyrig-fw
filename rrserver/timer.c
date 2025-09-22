@@ -11,7 +11,7 @@
  * independent manner.
  */
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,9 +20,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include "rrserver/state.h"
-#include "rrserver/timer.h"
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/timer.h>
 
 // timer_create_periodic:
 //	Create a timer that occurs every interval milliseconds

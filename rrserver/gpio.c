@@ -10,7 +10,7 @@
  * Here we deal with gpio on our various platforms
  */
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,9 +19,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrserver/state.h"
-#include "rrserver/gpio.h"
-#include <librustyaxe/logger.h>
+#include <rrserver/gpio.h>
+#include <librrprotocol/rrprotocol.h>
 
 #if	defined(HOST_POSIX)
 #include <stdio.h>

@@ -20,14 +20,18 @@
 //#define CAT_YAESU true
 #define FEATURE_GSTREAMER
 #define FEATURE_HTTP
-#define FEATURE_MQTT
 #define FEATURE_SQLITE
+
+#if	0
+#define FEATURE_MQTT
 #define BACKEND_HAMLIB
 #define BACKEND_HAMLIB_DEBUG	RIG_DEBUG_WARN
 #define BACKEND_HAMLIB_MODEL	2
 #define BACKEND_HAMLIB_BAUD	38400
 #define BACKEND_HAMLIB_PORT	"localhost:4532"
 #define USE_PROFILING true
+#endif
+
 #define LOG_FILE "/tmp/radio-debug.log"
 #define HTTP_USE_TLS 1
 #define HTTP_TLS_KEY "./config/key.pem"

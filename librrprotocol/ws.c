@@ -6,7 +6,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,18 +18,11 @@
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/cat.h>
-#include "rrserver/codec.h"
-#include "rrserver/eeprom.h"
-#include "rrserver/i2c.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/codecneg.h>
-#include <librustyaxe/json.h>
-#include "rrserver/state.h"
-#include "rrserver/ws.h"
-#include "rrserver/fwdsp-mgr.h"
+#include <rrserver/codec.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern struct GlobalState rig;	// Global state
+extern time_t now;
 
 struct ws_msg_routes {
    const char *type;		// auth|ping|talk|cat|alert|error|hello etc
@@ -53,6 +46,10 @@ struct ws_msg_routes ws_routes[] = {
    { .type = "talk.quit", .cb = ws_handle_quit,  .auth_reqd = false },
 };
 #endif
+
+bool rrproto_ws_connect(int server) {
+   return false;
+}
 
 bool ws_init(struct mg_mgr *mgr) {
    if (!mgr) {
@@ -144,7 +141,8 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    // make sure we're not accessing unsafe memory
    if (cptr->user && cptr->chatname[0] != '\0') {
       if (cptr->active) {
-         ws_send_notice(c, "You have been kicked from the server: %s", reason);
+// XXX: readd this
+//         ws_send_notice(c, "You have been kicked from the server: %s", reason);
 
          // XXX: replace with ws_broadcast_quit(cptr);
 
@@ -336,7 +334,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       }
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-      result = ws_handle_rigctl_msg(msg, c);
+// XXX: readd
+//      result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
       if (cmd) {
          result = ws_handle_chat_msg(c, d);
@@ -439,7 +438,8 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
       result = ws_handle_pong(msg, c);
    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
-      result = ws_handle_auth_msg(msg, c);
+// XXX: readd this
+//      result = ws_handle_auth_msg(msg, c);
    }
 
 cleanup:
@@ -579,4 +579,8 @@ bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
    free((char *)jp);
    free(escaped_msg);
    return false;
+}
+
+void ws_fini(struct mg_mgr *mgr) {
+   mg_mgr_free(mgr);
 }

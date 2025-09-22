@@ -25,7 +25,7 @@
 #include <time.h>
 #include <errno.h>
 #include <fnmatch.h>
-#include <librrprotocol/rrprotocol.h>
+//#include <librrprotocol/rrprotocol.h>
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main

@@ -10,7 +10,7 @@
  * Deal with things related to the VFO, such as reconfiguring DDS(es)
  */
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,9 +20,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include "rrserver/state.h"
-#include "rrserver/vfo.h"
+#include <librrprotocol/rrprotocol.h>
 
 rr_vfo_data_t vfos[MAX_VFOS];
 rr_vfo_t active_vfo = VFO_A;

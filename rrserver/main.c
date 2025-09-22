@@ -19,26 +19,14 @@
 #include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/cat.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/amp.h>
-#include <rrserver/atu.h>
-#include <rrserver/au.h>
-#include <rrserver/backend.h>
-#include <rrserver/eeprom.h>
 #include <rrserver/faults.h>
-#include <rrserver/filters.h>
 #include <rrserver/gpio.h>
-#include <rrserver/gui.h>
+//#include <rrserver/gui.h>
 #include <rrserver/help.h>
-#include <rrserver/i2c.h>
-#include <rrserver/network.h>
 #include <rrserver/ptt.h>
-#include <rrserver/state.h>
 #include <rrserver/thermal.h>
 #include <rrserver/timer.h>
-#include <rrserver/usb.h>
-#include <rrserver/dds.h>
 #include <rrserver/database.h>
-#include <rrserver/fwdsp-mgr.h>
 
 //
 // http ui support
@@ -46,6 +34,7 @@
 #if	defined(FEATURE_MQTT)
 #include <rrserver/mqtt.h>
 #endif
+
 #if	defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;
 #endif
@@ -77,25 +66,6 @@ static uint32_t load_defaults(void) {
    return 0;
 }
 
-// Zeroize our memory structures
-static uint32_t initialize_state(void) {
-   memset(&rig, 0, sizeof(struct GlobalState));
-
-   for (int i = 0; i < RR_MAX_AMPS; i++) {
-       memset(&rig.amps[i], 0, sizeof(struct AmpState));
-   }
-
-   for (int i = 0; i < RR_MAX_ATUS; i++) {
-      memset(&rig.atus[i], 0, sizeof(struct ATUState));
-   }
-
-   for (int i = 0; i < RR_MAX_FILTERS; i++) {
-      memset(&rig.filters[i], 0, sizeof(struct FilterState));
-   }
-
-   load_defaults();
-   return 0;
-}
 
 void shutdown_rig(uint32_t signum) {
     if (signum >= 0) {
@@ -105,7 +75,7 @@ void shutdown_rig(uint32_t signum) {
     }
 
     dying = 1;
-    rr_ptt_set_all_off();
+//    rr_ptt_set_all_off();
 }
 
 void restart_rig(void) {
@@ -185,7 +155,8 @@ int main(int argc, char **argv) {
    host_init();
 
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);
-   initialize_state();			// Load default values
+   memset(&rig, 0, sizeof(struct GlobalState));
+   load_defaults();
 
 #if	defined(FEATURE_SQLITE)
    if (!(masterdb = db_open(MASTERDB_PATH))) {
@@ -207,7 +178,7 @@ int main(int argc, char **argv) {
 #endif
 
 //   i2c_init();
-   gui_init();
+//   gui_init();
    logger_init(LOGFILE);
 
    // Print the serial #
@@ -225,9 +196,9 @@ int main(int argc, char **argv) {
 
    // Initialize add-in cards
    // XXX: This should be done by enumerating the bus eventually
-   filter_init_all();
-   rr_amp_init_all();
-   rr_atu_init_all();
+//   filter_init_all();
+//   rr_amp_init_all();
+//   rr_atu_init_all();
 
 #if	defined(USE_EEPROM)
    if (!s) {
@@ -240,7 +211,7 @@ int main(int argc, char **argv) {
 
    if (auto_block_ptt) {
       Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
-      rr_ptt_set_blocked(true);
+//      rr_ptt_set_blocked(true);
    }
 
    if (rr_io_init()) {
@@ -249,11 +220,15 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
+// XXX: readd
+#if	0
    if (rr_backend_init()) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
+
+#endif
 
    if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
@@ -261,9 +236,9 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-   rr_au_init();
-   dds_init();
-   fwdsp_init();
+//   rr_au_init();
+//   dds_init();
+//   fwdsp_init();
 
    // Network connectivity
 //   show_network_info();
@@ -301,6 +276,7 @@ int main(int argc, char **argv) {
       }
 
       // Has the TOT expired?
+#if	0
       if (global_tot_time > 0 && global_tot_time <= now) {
          http_client_t *talker = whos_talking();
          Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", ptt_tot_time);
@@ -317,6 +293,7 @@ int main(int argc, char **argv) {
          rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
+#endif
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
@@ -337,7 +314,7 @@ int main(int argc, char **argv) {
 //      rr_cons_parse_line(buf);
 
       // Redraw the GUI virtual framebuffer, update nextion
-      gui_update();
+//      gui_update();
 
       // Send pings, drop dead connections, etc
       http_expire_sessions();
@@ -357,7 +334,7 @@ int main(int argc, char **argv) {
          last_rig_poll.tv_sec = loop_start.tv_sec;
          last_rig_poll.tv_nsec = loop_start.tv_nsec;
          // deal with timed out en/decoders
-         fwdsp_sweep_expired();
+//         fwdsp_sweep_expired();
       }
 
 #if	defined(USE_MONGOOSE)
@@ -386,7 +363,7 @@ int main(int argc, char **argv) {
       }
 #if	defined(USE_PROFILING)
    // XXX: Every 5 minutes we should save the loop runtime average
-      Log(LOG_CRAZY, "profile", "Last mainloop runtime: %.6f seconds", loop_runtime);
+//      Log(LOG_CRAZY, "profile", "Last mainloop runtime: %.6f seconds", loop_runtime);
 #endif // defined(USE_PROFILING)
    }
    host_cleanup();

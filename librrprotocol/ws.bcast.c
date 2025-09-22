@@ -18,13 +18,10 @@
 #include <limits.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <rrserver/eeprom.h>
-#include <rrserver/i2c.h>
-#include <rrserver/state.h>
-#include <rrserver/ws.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern struct GlobalState rig;	// Global state
+extern time_t now;
 
 // Broadcast a message to all WebSocket clients (using http_client_list)
 void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data, int data_type) {

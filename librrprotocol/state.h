@@ -9,12 +9,11 @@
 // This file contains the structures used for statistics and state
 #if	!defined(__rr_state_h)
 #define	__rr_state_h
-#include "rrserver/config.h"
 #include <time.h>
 #include <stdbool.h>
-#include <librustyaxe/logger.h>
-#include "rrserver/backend.h"
-#include "rrserver/atu.h"		// for rr_atu_tv
+
+#include "build_config.h"
+
 #define	PARSE_LINE_LEN	512
 
 // TX Low Pass Filters
@@ -77,7 +76,7 @@ struct ATUState {
    float power_fwd,			// Measured forward power
          power_rev;			// Measured reflected power
    float thermal;			// Reported temperature or -1000 if not available
-   rr_atu_tv *tv;			// Active tuning values
+//   rr_atu_tv *tv;			// Active tuning values
 };
 
 struct FilterState {

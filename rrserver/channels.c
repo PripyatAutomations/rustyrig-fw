@@ -10,7 +10,7 @@
  * Support for channel memories (load/save/edit)
  */
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,7 +19,4 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "rrserver/i2c.h"
-#include "rrserver/state.h"
-#include "rrserver/eeprom.h"
-#include <librustyaxe/logger.h>
+#include <librrprotocol/rrprotocol.h>

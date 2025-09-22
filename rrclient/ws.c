@@ -302,7 +302,3 @@ void ws_client_init(void) {
    cfg_show_pings = cfg_get_bool("ui.show-pings", false);
    Log(LOG_DEBUG, "ws", "ws_init finished");
 }
-
-void ws_fini(void) {
-   mg_mgr_free(&mgr);
-}

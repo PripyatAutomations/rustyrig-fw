@@ -23,7 +23,6 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/state.h>
 #include <rrserver/ptt.h>
 
 time_t   global_tot_time = 0;		// TOT

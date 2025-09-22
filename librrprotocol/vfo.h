@@ -13,7 +13,6 @@
 //
 #if	!defined(__rr_vfo_h)
 #define	__rr_vfo_h
-#include "rrserver/config.h"
 #include <stdint.h>
 #include <stdbool.h>
 

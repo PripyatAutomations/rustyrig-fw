@@ -17,9 +17,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
+//#include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "mod.ui.gtk3/gtk.core.h"
+//#include "mod.ui.gtk3/gtk.core.h"
 #include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c
@@ -69,7 +69,8 @@ bool ws_handle_alert_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
    if (alert_msg) {
-      ui_print("[%s] ALERT: %s: %s !!!", get_chat_ts(alert_ts), alert_from, alert_msg);
+// XXX: readd this
+//      ui_print("[%s] ALERT: %s: %s !!!", get_chat_ts(alert_ts), alert_from, alert_msg);
    }
 
    dict_free(d);

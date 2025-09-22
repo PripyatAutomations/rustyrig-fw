@@ -158,6 +158,6 @@ int main(int argc, char *argv[]) {
    gtk_main();
 
    // Cleanup
-   ws_fini();
+   ws_fini(&mgr);
    return 0;
 }

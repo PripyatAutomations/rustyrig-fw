@@ -16,10 +16,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
+//#include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
-#include "mod.ui.gtk3/gtk.core.h"
+//#include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;		// config.c
 extern time_t now;
@@ -62,6 +62,7 @@ bool ws_handle_syslog_msg(struct mg_connection *c, dict *d) {
    logpriority_t log_priority = log_priority_from_str(prio);
 
    Log(LOG_DEBUG, "server.syslog", "Got message <%s.%s> %s", subsys, prio, data);
-   log_print(log_priority, subsys, "[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
+// XXX: readd this
+//   log_print(log_priority, subsys, "[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
    return false;
 }

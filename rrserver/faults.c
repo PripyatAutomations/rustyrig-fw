@@ -12,7 +12,7 @@
  * Log them and disable TX, if needed
  */
 #include "build_config.h"
-#include <librustyaxe/config.h>
+#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,9 +21,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include "rrserver/state.h"
-#include "rrserver/faults.h"
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/faults.h>
 
 // Fault Table contains the known faults and their text strings
 struct fault_table fault_table[] = {

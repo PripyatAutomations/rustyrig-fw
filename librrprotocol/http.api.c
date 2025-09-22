@@ -22,9 +22,6 @@
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/i2c.h>
-#include <rrserver/state.h>
-#include <rrserver/eeprom.h>
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
 #else

@@ -16,11 +16,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
+//#include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <rrclient/audio.h>
 #include <rrclient/userlist.h>
-#include "mod.ui.gtk3/gtk.core.h"
+//#include "mod.ui.gtk3/gtk.core.h"
 #include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c
@@ -64,7 +64,8 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
    if (error_msg) {
-      ui_print("[%s] ERROR: %s: %s !!!", get_chat_ts(ts), error_from, error_msg);
+// XXX: readd this
+//      ui_print("[%s] ERROR: %s: %s !!!", get_chat_ts(ts), error_from, error_msg);
    }
    dict_free(d);
 

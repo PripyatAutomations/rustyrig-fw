@@ -17,7 +17,6 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <rrserver/backend.h>
 #include <rrserver/database.h>
 #include <librrprotocol/rrprotocol.h>
 
@@ -258,7 +257,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
          free((char *)jp);
 
-         rr_ptt_set(c_vfo, c_state);
+// XXX: readd this
+//         rr_ptt_set(c_vfo, c_state);
          free(ptt_state);
       } else if (strcasecmp(cmd, "freq") == 0) {
          if (!has_priv(cptr->user->uid, "admin|owner|tx|noob") || cptr->user->is_muted) {
@@ -277,8 +277,9 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          // XXX: We should do a latency test at the start of the session and optimize this per-user from there
-         last_rig_poll.tv_sec = (loop_start.tv_sec + HTTP_API_RIGPOLL_PAUSE);
-         last_rig_poll.tv_nsec = loop_start.tv_nsec;
+// XXX: readd this
+//         last_rig_poll.tv_sec = (loop_start.tv_sec + HTTP_API_RIGPOLL_PAUSE);
+//         last_rig_poll.tv_nsec = loop_start.tv_nsec;
 
          rr_vfo_t c_vfo;
          c_vfo = vfo_lookup(vfo[0]);

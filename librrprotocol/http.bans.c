@@ -21,14 +21,7 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/cat.h>
-#include <librustyaxe/util.string.h>
-#include <librustyaxe/util.file.h>
-#include <rrserver/i2c.h>
-#include <rrserver/state.h>
-#include <rrserver/eeprom.h>
+#include <librrprotocol/rrprotocol.h>
 #include <rrserver/ptt.h>
 extern struct mg_mgr mg_mgr;
 

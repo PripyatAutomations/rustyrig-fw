@@ -17,12 +17,7 @@
 #include <string.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/cat.h>
-#include <rrserver/state.h>
-#include <rrserver/thermal.h>
-#include <rrserver/eeprom.h>
-#include <rrserver/vfo.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/backend.h>
 
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {
@@ -33,12 +28,12 @@ struct rr_backends {
 static struct rr_backends available_backends[] = {
 // A generic background which tracks state and pretends to do whatever the user asks
     // Support for real rustyrig hardware
-    { "internal",		&rr_backend_internal },
+//    { "internal",		&rr_backend_internal },
     // Support for dummy (No Op) backend
 //    { "dummy",			&rr_backend_dummy },
     // A backend using hamlib's rigctld as the target. For legacy radios
 #if	defined(BACKEND_HAMLIB)
-    { "hamlib",			&rr_backend_hamlib },
+//    { "hamlib",			&rr_backend_hamlib },
 #endif	// defined(BACKEND_HAMLIB)
    { NULL,			NULL }
 };
@@ -115,7 +110,8 @@ bool rr_backend_init(void) {
    free((char *)be_name);
 
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
-   rig.backend = be;
+// XXX: readd
+//   rig.backend = be;
 
    if (!be->api) {
       Log(LOG_CRIT, "core", "Backend %s doesn't have api pointer", be->name);
@@ -127,7 +123,8 @@ bool rr_backend_init(void) {
       return true;
    }
 
-   rig.backend->api->backend_init();
+// XXX: readd
+//   rig.backend->api->backend_init();
    return false;
 }
 
@@ -142,6 +139,7 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
    // Sqawk audit log and Apply PTT if we made it this far
    Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
 
+/* XXX: readd
    if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
       return true;
    }
@@ -151,6 +149,7 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
           rr_vfo_name(vfo), bool2str(state));
       return true;
    }
+*/
    return false;
 }
 
@@ -159,15 +158,19 @@ bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
       return false;
    }
 
+/* XXX: readd
    // XXX: This is incorrect
    if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_get) {
       return false;
    }
    bool rv = rig.backend->api->ptt_get(vfo);
    return rv;
+*/
+   return false;
 }
 
 bool rr_freq_set(rr_vfo_t vfo, float freq) {
+/* XXX: readd
    if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
       Log(LOG_CRIT, "rig", "rr_freq_set called with no active (or broken) backend selected!");
       return true;
@@ -178,64 +181,84 @@ bool rr_freq_set(rr_vfo_t vfo, float freq) {
           rr_vfo_name(vfo), freq);
       return true;
    }
+*/
    return false;
 }
 
 float rr_freq_get(rr_vfo_t vfo) {
+/* XXX: readd
    if (!rig.backend || !rig.backend->api || !rig.backend->api->freq_get) {
       return false;
    }
    return rig.backend->api->freq_get(vfo);
+*/
+   return 0;
 }
 
 float rr_get_power(rr_vfo_t vfo) {
+/* XXX: readd
    if (!rig.backend || !rig.backend->api || !rig.backend->api->power_get) {
-      return false;
+      return 0;
    }
    return rig.backend->api->power_get(vfo);
+*/
+   return 0;
 }
 
 bool rr_set_power(rr_vfo_t vfo, float power) {
+/* XXX: readd
    if (!rig.backend || !rig.backend->api || !rig.backend->api->power_set) {
       return false;
    }
    bool rv = rig.backend->api->power_set(vfo, power);
    return rv;
+*/
+   return false;
 }
 
 uint16_t rr_get_width(rr_vfo_t vfo) {
+/* XXX: readd
    if (!rig.backend || !rig.backend->api || !rig.backend->api->width_get) {
       return false;
    }
    return rig.backend->api->width_get(vfo);
+*/
+   return 0;
 }
 
 bool rr_set_width(rr_vfo_t vfo, const char *width) {
+/* XXX: readd
    if (!rig.backend || !rig.backend->api || !rig.backend->api->width_set) {
       return false;
    }
    bool rv = rig.backend->api->width_set(vfo, width);
    return rv;
+*/
+   return false;
 }
 
 rr_mode_t rr_get_mode(rr_vfo_t vfo) {
    rr_mode_t mode = MODE_NONE;
+/* XXX: readd
 
    if (!rig.backend || !rig.backend->api || !rig.backend->api->mode_get) {
       return false;
    }
    mode = rig.backend->api->mode_get(vfo);
-
+*/
    return mode;
 }
 
 bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
    bool rv = false;
+/* XXX: readd
+
    if (!rig.backend || !rig.backend->api || !rig.backend->api->mode_set) {
       return false;
    }
 
    rv = rig.backend->api->mode_set(vfo, mode);
+*/
    return rv;
 }
 
@@ -244,6 +267,7 @@ bool rr_be_poll(rr_vfo_t vfo) {
       return true;
    }
 
+/* XXX: readd
    if (!rig.backend || !rig.backend->api || !rig.backend->api->backend_poll) {
       return true;
    }
@@ -257,5 +281,6 @@ bool rr_be_poll(rr_vfo_t vfo) {
    memcpy(&vfos[vfo], ret_vfo, sizeof(rr_vfo_data_t));
    // free the memory given to use
    free(ret_vfo);
+*/
    return false;
 }
