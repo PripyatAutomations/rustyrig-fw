@@ -1,4 +1,13 @@
+
 This is the source for rustyrig remote station.
+
+
+***Currently broken while I restructure things****
+Hopefully this will be sorted by the weekend (9/28)
+
+I'm moving all protocol related stuff to a shared library, so the repo is broken for a bit while I work.
+
+------------------------
 
 For now it's easiest just to build/run it from this folder, but installing it should probably work.
 
