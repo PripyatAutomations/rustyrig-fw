@@ -18,9 +18,9 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "mod.ui.gtk3/gtk.core.h"
-#include <rrclient/connman.h>
-#include <rrclient/userlist.h>
+//#include "mod.ui.gtk3/gtk.core.h"
+//#include <rrclient/connman.h>
+//#include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c
@@ -134,17 +134,18 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
 
       // Support public messages and action (/me)
       if (msg_type && strcasecmp(msg_type, "pub") == 0) {
-         ui_print("[%s] <%s> %s", get_chat_ts(ts), from, data);
+//         ui_print("[%s] <%s> %s", get_chat_ts(ts), from, data);
       } else if (msg_type && strcasecmp(msg_type, "action") == 0) {
-         ui_print("[%s] * %s %s", get_chat_ts(ts), from, data);
+//         ui_print("[%s] * %s %s", get_chat_ts(ts), from, data);
       }
-
+#if	0
       gui_window_t *win = gui_find_window(NULL, "main");
       GtkWidget *main_window = win->gtk_win;
 
       if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
          gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
       }
+#endif
    } else if (cmd && strcasecmp(cmd, "join") == 0) {
       char *ip = dict_get(d, "talk.ip", NULL);
       time_t ts = dict_get_time_t(d, "talk.ts", now);
@@ -161,8 +162,8 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       memset(cptr, 0, sizeof(struct rr_user));
       snprintf(cptr->name, sizeof(cptr->name), "%s", user);
       Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%x>", user, cptr);
-      userlist_add_or_update(cptr);
-      ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(ts), user);
+//      userlist_add_or_update(cptr);
+//      ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(ts), user);
    } else if (cmd && strcasecmp(cmd, "quit") == 0) {
       char *reason = dict_get(d, "talk.reason", NULL);
       if (!user || !reason) {
@@ -170,8 +171,8 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       }
 
       time_t ts = dict_get_time_t(d, "talk.ts", now);
-      ui_print("[%s] >>> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(ts), user, reason ? reason : "No reason given", --clones);
-
+//      ui_print("[%s] >>> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(ts), user, reason ? reason : "No reason given", --clones);
+#if	0
       struct rr_user *cptr = userlist_find(user);
       if (!cptr) {
          goto cleanup;
@@ -181,10 +182,11 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       if (cptr->clones <= 0 ) {
          userlist_remove_by_name(cptr->name);
       }
+#endif
    } else if (cmd && strcasecmp(cmd, "whois") == 0) {
       const char *whois_msg = dict_get(d, "talk.data", NULL);
-      ui_print("[%s] >>> WHOIS %s", user);
-      ui_print("[%s]   %s", whois_msg);
+//      ui_print("[%s] >>> WHOIS %s", user);
+//      ui_print("[%s]   %s", whois_msg);
    }
 
 cleanup:

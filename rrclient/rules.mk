@@ -36,9 +36,6 @@ rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
 rrclient_objs += ui.help.o		# help texts
 rrclient_objs += ui.speech.o		# Support for screener readers
 rrclient_objs += win32.o		# support to run in windows
-rrclient_objs += ws.o			# Websocket transport general
-rrclient_objs += ws.chat.o		# shared chatroom
-rrclient_objs += ws.rigctl.o		# rig controls
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${OBJ_DIR}/rrclient/${x})
 extra_clean += ${rrclient_real_objs}

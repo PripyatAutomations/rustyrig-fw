@@ -18,10 +18,10 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <rrclient/userlist.h>
+//#include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
-#include "mod.ui.gtk3/gtk.core.h"
-#include "mod.ui.gtk3/gtk.freqentry.h"
+//#include "mod.ui.gtk3/gtk.core.h"
+//#include "mod.ui.gtk3/gtk.freqentry.h"
 
 extern time_t poll_block_expire, poll_block_delay;
 extern dict *cfg;		// config.c
@@ -49,26 +49,30 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
          double width = dict_get_double(d, "cat.state.width", 0.0);
          double power = dict_get_double(d, "cat.state.power", 0.0);
          bool ptt = dict_get_bool(d, "cat.state.ptt", false);
-
+#if	0
          server_ptt_state = ptt;
 //         g_signal_handlers_block_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
          update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), server_ptt_state);
 //         g_signal_handlers_unblock_by_func(ptt_button, cast_func_to_gpointer(on_ptt_toggled), NULL);
-
+#endif
          int ts = dict_get_int(d, "cat.ts", 0);
          char *user = dict_get(d, "cat.user", NULL);
 
          if (user && *user) {
 //            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
             struct rr_user *cptr = NULL;
+// XXX: readd this
+#if	0
             if ((cptr = userlist_find(user))) {
                Log(LOG_DEBUG, "ws.cat", "ptt set to %s for cptr:<%x>", (cptr->is_ptt ? "true" : "false"), cptr);
                cptr->is_ptt = ptt;
             }
+#endif
          }
 
 
+#if	0
          if (freq > 0) {
 //            g_signal_handler_block(freq_entry, freq_changed_handler_id);
             GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);  // cast
@@ -83,7 +87,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
 //               g_signal_handler_unblock(freq_entry, freq_changed_handler_id);
             }
          }
-
+#endif
          if (mode && strlen(mode) > 0) {
             // XXX: We need to suppress sending a CAT message by disabling the changed signal on the mode combo
 
@@ -100,15 +104,15 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
             }
 
             Log(LOG_CRAZY, "ws.rigctl", "Set MODE to %s", mode);
-#if	1	// XXX: re-enable fm-mode
+#if	0	// XXX: re-enable fm-mode
             if (strcasecmp(mode, "FM") == 0) {
                fm_dialog_show();
             } else {
                // Hide the FM dialog
                fm_dialog_hide();
             }
-#endif
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+#endif
 
             // save the old mode so we can compare next time
             memset(old_mode, 0, sizeof(old_mode));
@@ -117,7 +121,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
       }
    } else {
       char *json_msg = dict2json(d);
-      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(ts), json_msg);
+//      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(ts), json_msg);
       Log(LOG_DEBUG, "ws.cat", "Unknown msg: %s", json_msg);
       free(json_msg);
    }

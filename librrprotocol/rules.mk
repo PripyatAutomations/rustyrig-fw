@@ -15,6 +15,8 @@ librrprotocol_objs += ws.audio.o
 librrprotocol_objs += ws.auth.o
 librrprotocol_objs += ws.bcast.o
 librrprotocol_objs += ws.chat.o
+librrprotocol_objs += ws.chat.cli.o
+librrprotocol_objs += ws.cli.o
 librrprotocol_objs += ws.error.o
 librrprotocol_objs += ws.file-xfer.o
 librrprotocol_objs += ws.media.o
@@ -22,6 +24,7 @@ librrprotocol_objs += ws.mediachan.o
 librrprotocol_objs += ws.notice.o
 librrprotocol_objs += ws.ping.o
 librrprotocol_objs += ws.rigctl.o
+librrprotocol_objs += ws.rigctl.cli.o
 librrprotocol_objs += ws.syslog.o
 
 extra_clean += ${librustyaxe_objs} ${librustyaxe}

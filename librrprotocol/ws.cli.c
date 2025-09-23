@@ -17,9 +17,9 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "mod.ui.gtk3/gtk.core.h"
-#include <rrclient/connman.h>
-#include <rrclient/userlist.h>
+///#include "mod.ui.gtk3/gtk.core.h"
+//#include <rrclient/connman.h>
+//#include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
 
 // At startup, we try to find the distribution's TLS certificate authority trust store
@@ -87,7 +87,7 @@ bool ws_handle_hello_msg(struct mg_connection *c, dict *d) {
 
    char *hello = dict_get(d, "hello", NULL);
    if (hello) {
-      ui_print("[%s] *** Server version: %s ***", get_chat_ts(now), hello);
+//      ui_print("[%s] *** Server version: %s ***", get_chat_ts(now), hello);
    }
    return false;
 }
@@ -166,7 +166,7 @@ bool ws_binframe_process(const char *data, size_t len) {
 //
 // Handle a websocket request (see http.c/http_cb for case ev == MG_EV_WS_MSG)
 //
-bool ws_handle(struct mg_connection *c, struct mg_ws_message *msg) {
+bool ws_handle_cli(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg || !msg->data.buf) {
       Log(LOG_DEBUG, "http.ws", "ws_handle got c <%x> msg <%x> data <%x>", c, msg , (msg ? msg->data.buf : NULL));
       return true;
@@ -201,18 +201,20 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          c->is_hexdumping = 1;
       }
 #endif
-      ws_conn = c; 
+// XXX: readd this
+//      ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
       Log(LOG_CRAZY, "ws", "ev_ws_connect");
 //      const char *this_server = http_servername(c);
       const char *this_server = server_name;
-      ui_print("[%s] * Connected to %s*", get_chat_ts(now), this_server);
+//      ui_print("[%s] * Connected to %s*", get_chat_ts(now), this_server);
    } else if (ev == MG_EV_WRITE) {
       // Handle writing audio frames one by one
    } else if (ev == MG_EV_WS_OPEN) {
 //      const char *this_server = http_servername(c);
       const char *this_server = server_name;		// XXX: remove me
       Log(LOG_CRAZY, "ws", "ev_ws_open: |%s|", this_server);
+#if	0
       const char *url = get_server_property(this_server, "server.url");
 
       if (c->is_tls) {
@@ -226,9 +228,10 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &opts);
       }
 
-      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts(now));
-      ws_connected = true;
-      update_connection_button(true, conn_button);
+// XXX: readd this
+//      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts(now));
+//      ws_connected = true;
+//      update_connection_button(true, conn_button);
 
       const char *login_user = get_server_property(this_server, "server.user");
       Log(LOG_DEBUG, "ws", "ev_ws_connect: server: |%s| user: |%s|", server_name, login_user);
@@ -236,11 +239,11 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          Log(LOG_CRIT, "ws", "server.user not set in config!");
          return;
       }
-
       ws_send_hello(c);
       ws_send_login(c, login_user);
+#endif
 
-#if	defined(USE_GTK)
+#if	defined(USE_GTK) && 0
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-active");
       gtk_style_context_remove_class(ctx, "ptt-idle");
@@ -248,21 +251,23 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
       if (wm) {
-         ws_handle(c, wm);
+         ws_handle_cli(c, wm);
       }
    } else if (ev == MG_EV_ERROR) {
-      ui_print("[%s] Socket error: %s", get_chat_ts(now), (char *)ev_data);
+//      ui_print("[%s] Socket error: %s", get_chat_ts(now), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
-      ui_print("[%s] *** DISCONNECTED ***", get_chat_ts(now));
-      ws_connected = false;
-      ws_conn = NULL;
-      update_connection_button(false, conn_button);
-#if	defined(USE_GTK)
+// XXX: readd this
+//      ui_print("[%s] *** DISCONNECTED ***", get_chat_ts(now));
+//      ws_connected = false;
+//      ws_conn = NULL;
+//      update_connection_button(false, conn_button);
+#if	defined(USE_GTK) && 0
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");
       gtk_style_context_remove_class(ctx, "ptt-active");
 #endif	// defined(USE_GTK)
-      userlist_clear_all();
+// XXX: readd this
+//      userlist_clear_all();
    }
 }
 
