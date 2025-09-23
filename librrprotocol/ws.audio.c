@@ -19,7 +19,7 @@
 #include <limits.h>
 #include <time.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/audio.h>
+//#include <rrclient/audio.h>
 extern time_t now;
 extern bool ws_connected;
 extern struct mg_connection *ws_conn;

@@ -1,4 +1,4 @@
-rustyrig-fw (20250919) testing; urgency=medium
+rustyrig-fw (20250922) testing; urgency=medium
 * Added alert/warning/error dialog in main window for ui.gtk3
 * Cleaned up the logger bits so now log.level fully supports multiple levels and * for default
 * Removed last of the audio remnants
@@ -6,12 +6,13 @@ rustyrig-fw (20250919) testing; urgency=medium
    - Needs implemented in rrclient
 * Added dict_get_time_t
 * Re-added ! commands in rrserver ws.chat.c
+* Started work to split protocol related code out to librrprotocol/
+* Work on loadable modules support
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 19 Sep 2025 02:58:00 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 22 Sep 2025 14:08:00 -0400
 
 rustyrig-fw (20250917) testing; urgency=medium
 * much more integration of dict2json and json2dict for safe json creation and cleaner parsers
-* added a bug where messages unintentionally get quoted
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 17 Sep 2025 03:28:00 -0400
 

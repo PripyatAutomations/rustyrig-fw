@@ -8,8 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_timer_h)
 #define	__rr_timer_h
-#include "rrserver/config.h"
-//#include "rrserver/mongoose.h"
 
 extern bool timer_create_periodic(int interval, int repeats, void (*callback)());
 extern bool timer_create_oneshot(int delay, void (*callback)());

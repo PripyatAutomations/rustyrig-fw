@@ -37,7 +37,6 @@ rrclient_objs += ui.help.o		# help texts
 rrclient_objs += ui.speech.o		# Support for screener readers
 rrclient_objs += win32.o		# support to run in windows
 rrclient_objs += ws.o			# Websocket transport general
-rrclient_objs += ws.auth.o		# protocol authentication
 rrclient_objs += ws.chat.o		# shared chatroom
 rrclient_objs += ws.rigctl.o		# rig controls
 

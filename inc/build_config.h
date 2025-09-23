@@ -22,6 +22,7 @@
 #define FEATURE_HTTP
 #define FEATURE_SQLITE
 
+// XXX: This needs moved to config/loadable modules
 #if	0
 #define FEATURE_MQTT
 #define BACKEND_HAMLIB
@@ -32,7 +33,8 @@
 #define USE_PROFILING true
 #endif
 
-#define LOG_FILE "/tmp/radio-debug.log"
+#define	USE_MONGOOSE
+
 #define HTTP_USE_TLS 1
 #define HTTP_TLS_KEY "./config/key.pem"
 #define HTTP_TLS_CERT "./config/cert.pem"

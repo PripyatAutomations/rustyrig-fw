@@ -22,7 +22,6 @@
 #include <arpa/inet.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/ptt.h>
 extern struct mg_mgr mg_mgr;
 
 struct http_ua_ban {

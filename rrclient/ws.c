@@ -50,7 +50,7 @@ bool cfg_http_debug_crazy = false;
 // Websocket router //
 //////////////////////
 extern bool ws_handle_alert_msg(struct mg_connection *c, dict *d);
-extern bool ws_handle_auth_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_client_auth_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_error_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_hello_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_media_msg(struct mg_connection *c, dict *d);
@@ -67,7 +67,7 @@ struct ws_msg_routes {
 
 struct ws_msg_routes ws_routes[] = {
    { .type = "alert",	.cb = ws_handle_alert_msg },
-   { .type = "auth",	.cb = ws_handle_auth_msg },
+   { .type = "auth",	.cb = ws_handle_client_auth_msg },
    { .type = "cat",	.cb = ws_handle_rigctl_msg },
    { .type = "error",	.cb = ws_handle_error_msg },
    { .type = "hello",	.cb = ws_handle_hello_msg },

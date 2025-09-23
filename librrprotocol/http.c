@@ -383,11 +383,10 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
 
       // Send the request to our HTTP router
-// XXX: readd
-//      if (hm && http_dispatch_route(hm, c) == true) {
-//         Log(LOG_CRAZY, "http.core", "fall through to http_static");
-//         http_static(hm, c);
-//      }
+      if (hm && http_dispatch_route(hm, c) == true) {
+         Log(LOG_CRAZY, "http.core", "fall through to http_static");
+         http_static(hm, c);
+      }
    } else if (ev == MG_EV_WS_OPEN) {
       Log(LOG_CRAZY, "http.core", "WS OPEN for c:<%x>", c);
       http_client_t *cptr = http_find_client_by_c(c);
@@ -405,7 +404,7 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
-// XXX: readd
+// XXX: readd this
 //      ws_handle(msg, c);
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];

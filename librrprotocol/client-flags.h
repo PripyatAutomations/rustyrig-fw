@@ -1,8 +1,6 @@
 #if	!defined(__rr_client_flags_h)
 #define	__rr_client_flags_h
 #include <stdbool.h>
-//
-// This needs cleaned up to not depend on rrclient/userlist.h
 
 #define FLAG_ADMIN       0x00000001		// NYI: Is an admin
 #define	FLAG_OWNER	 0x00000002

@@ -12,6 +12,7 @@ librrprotocol_objs += vfo.o
 librrprotocol_objs += ws.o
 librrprotocol_objs += ws.alert.o
 librrprotocol_objs += ws.audio.o
+librrprotocol_objs += ws.auth.o
 librrprotocol_objs += ws.bcast.o
 librrprotocol_objs += ws.chat.o
 librrprotocol_objs += ws.error.o

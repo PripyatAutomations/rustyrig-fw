@@ -8,7 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_help_h)
 #define __rr_help_h
-#include "rrserver/config.h"
 #include <librustyaxe/io.h>
 
 extern  bool send_help(rr_io_context_t *port, const char *topic);

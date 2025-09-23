@@ -20,17 +20,13 @@
 #include <librustyaxe/cat.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
-#include <rrserver/gpio.h>
-//#include <rrserver/gui.h>
 #include <rrserver/help.h>
 #include <rrserver/ptt.h>
 #include <rrserver/thermal.h>
 #include <rrserver/timer.h>
 #include <rrserver/database.h>
 
-//
 // http ui support
-//
 #if	defined(FEATURE_MQTT)
 #include <rrserver/mqtt.h>
 #endif
@@ -49,14 +45,12 @@ time_t now = -1;		// time() called once a second in main loop to update
 int auto_block_ptt = 0;		// Auto block PTT at boot?
 struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
+time_t ptt_tot_time = RF_TALK_TIMEOUT;
+char *rig_name = NULL;
 extern char *config_file;	// from defconfig.c
 extern defconfig_t defcfg[];	// From defconfig.c
-time_t ptt_tot_time = RF_TALK_TIMEOUT;
-
 extern const char *configs[];
 extern const int num_configs;
-
-char *rig_name = NULL;
 
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
@@ -65,7 +59,6 @@ static uint32_t load_defaults(void) {
    rig.tr_delay = 50;
    return 0;
 }
-
 
 void shutdown_rig(uint32_t signum) {
     if (signum >= 0) {
@@ -99,8 +92,7 @@ int main(int argc, char **argv) {
    my_argv = argv;
 
    // loop time calculation
-
-#if	defined(USE_PROFILING)
+#if	defined(USE_PROFILING) && 0
    struct timespec loop_end = { .tv_sec = 0, .tv_nsec = 0 };
    double loop_runtime = 0.0, current_time;
 #endif // defined(USE_PROFILING)
@@ -142,7 +134,6 @@ int main(int argc, char **argv) {
       }
       free(fullpath);
    } else {
-     // Use default settings and save it to ~/.config/rrclient.cfg
      cfg = default_cfg;
      fprintf(stderr, "No config found :(\n");
      exit(1);
@@ -168,7 +159,7 @@ int main(int argc, char **argv) {
    mg_mgr_init(&mg_mgr);
 #endif
    timer_init();
-   gpio_init();
+//   gpio_init();
 
 #if	defined(USE_EEPROM)
    // if able to connect to EEPROM, load and apply settings
@@ -220,15 +211,11 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-// XXX: readd
-#if	0
    if (rr_backend_init()) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
-
-#endif
 
    if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
@@ -256,8 +243,8 @@ int main(int argc, char **argv) {
    ws_init(&mg_mgr);
 #endif
 #if	defined(FEATURE_MQTT)
-//   mqtt_init(&mg_mgr);
-//   mqtt_client_init();
+   mqtt_init(&mg_mgr);
+   mqtt_client_init();
 #endif
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 

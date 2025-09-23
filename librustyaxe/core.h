@@ -11,6 +11,7 @@
 #include <librustyaxe/irc.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/logger.h>
+#include <librustyaxe/module.h>
 #include <librustyaxe/posix.h>
 #include <librustyaxe/util.file.h>
 #include <librustyaxe/util.math.h>

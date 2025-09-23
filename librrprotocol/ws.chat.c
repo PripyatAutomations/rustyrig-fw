@@ -17,8 +17,8 @@
 #include <string.h>
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
-#include <rrserver/database.h>
-#include <rrserver/ptt.h>
+//#include <rrserver/database.h>
+//#include <rrserver/ptt.h>
 #include <librrprotocol/rrprotocol.h>
 
 // minimum reason length for kick/ban/etc
@@ -530,14 +530,16 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                      // Send the message to all connected servers
                   }
 
+// XXX: readd
+#if	0
                   // Log to database, if configured
                   if (cfg_get_bool("chat.log", false)) {
-// XXX: readd
-//                     bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
-//                     if (!db_res) {
-//                        fprintf(stderr, "db_add_chat_msg failed\n");
-//                     }
+                     bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
+                     if (!db_res) {
+                        fprintf(stderr, "db_add_chat_msg failed\n");
+                     }
                   }
+#endif
 
                   const char *jp = dict2json_mkstr(
                      VAL_STR, "talk.cmd", "msg",

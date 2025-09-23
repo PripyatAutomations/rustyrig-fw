@@ -152,9 +152,9 @@ bool cfg_detect_and_load(const char *configs[], int num_configs) {
       }
       free(fullpath);
    } else {
-     // Use default settings and save it to ~/.config/rrclient.cfg
+     // Use default settings and save it to default
      cfg = default_cfg;
-     Log(LOG_WARN, "core", "No config file found, saving defaults to ~/.config/rrclient.cfg");
+     Log(LOG_WARN, "core", "No config file found, saving defaults");
    }
    return false;
 }

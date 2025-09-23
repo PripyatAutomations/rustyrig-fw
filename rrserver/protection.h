@@ -8,7 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_protection_h)
 #define	__rr_protecion_h
-#include "rrserver/config.h"
 
 extern bool rr_protect_warmup_pending(int amp_idx);
 extern bool protection_lockout(const char *reason);

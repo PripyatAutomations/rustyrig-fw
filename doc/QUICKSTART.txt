@@ -1,12 +1,12 @@
 Common to both server and client
 --------------------------------
-   git clone http --depth=1 --recurse-submodules git@github.com:PripyatAutomations/rustyrig-fw.git
+   git clone http --depth=1 --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
    cd rustyrig-fw
    sudo ./install-deps.sh
    ... Edit config/rrclient.cfg.example config/rrserver.cfg and config/radio.config.json (build config) as needed
-   make
+   ./build.sh
    ./test-run.sh to start server
-   ./rrclient.sh to test the client
+   ./test-client.sh to test the client
 
 If it works, you can install with:
    make install
@@ -49,14 +49,5 @@ You can use 'make run' to start it up with audio etc automatically without insta
 	firefox	https://localhost:4420/
 
 
-
--- If building fails, try ./build.sh instead of make
-
-Audio Setup
-------------
-If you are installing this permanently:
-Copy fwdsp-test.sh somewhere and edit it.
-Run it and it will connect to the server, if running and handle the audio transfers
-
 --
-See STATUS for status of subsystems.
+See doc/STATUS for status of subsystems.

@@ -6,14 +6,12 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__rrserver_http_h)
-#define __rrserver_http_h
+#if	!defined(__http_h)
+#define __http_h
 #include <stdbool.h>
 #include <stdint.h>
 #include <arpa/inet.h>
 #include "ext/libmongoose/mongoose.h"
-
-#include <gtk/gtk.h>
 
 ///////
 // many of these need moved to config; decide if runtime or build? (prob build)
@@ -60,9 +58,6 @@ struct rr_user {
    int            clones;
    bool           is_ptt;
    bool           is_muted;
-#if	defined(USE_GTK)
-   GtkTreeIter iter;   // <-- GTK list row reference
-#endif
    bool in_store;      // <-- whether `iter` is valid
 
    struct rr_user *next;

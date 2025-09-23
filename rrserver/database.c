@@ -16,11 +16,13 @@
 #include <time.h>
 #include "build_config.h"
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+
 #if	defined(FEATURE_SQLITE)
 #include <sqlite3.h>
-#include <librrprotocol/rrprotocol.h>
-#include "rrserver/database.h"
+#include <rrserver/database.h>
 
+// database handle
 sqlite3 *masterdb = NULL;
 
 sqlite3 *db_open(const char *path) {
@@ -28,7 +30,12 @@ sqlite3 *db_open(const char *path) {
       return NULL;
    }
 
-   sqlite3 *db;
+   if (masterdb) {
+      Log(LOG_CRIT, "db", "Master database already open");
+      return masterdb;
+   }
+
+   sqlite3 *db = NULL;
 
    if (sqlite3_open(path, &db) == SQLITE_OK) {
       return db;
@@ -39,7 +46,6 @@ sqlite3 *db_open(const char *path) {
 bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled,
                      const char *password, const char *email,
                      int maxclones, const char *permissions) {
-
    if (!db || !name || !password || !email || !permissions) {
       return true;
    }
@@ -179,5 +185,4 @@ bool db_send_chat_replay(http_client_t *cptr, const char *channel) {
    // send Reply Complete message to client
    return false;
 }
-
 #endif

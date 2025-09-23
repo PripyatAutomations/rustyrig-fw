@@ -18,7 +18,6 @@
 #include <time.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/cat.h>
-#include <rrserver/codec.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern struct GlobalState rig;	// Global state

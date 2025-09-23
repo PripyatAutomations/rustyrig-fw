@@ -7,8 +7,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#if	!defined(__rrclient_ws_binframe_h)
-#define	__rrclient_ws_binframe_h
+#if	!defined(_ws_binframe_h)
+#define	_ws_binframe_h
 #include <librustyaxe/config.h>
 
 #define	BINFRAME_AUDIO	0x01
@@ -29,4 +29,4 @@ typedef struct bin_frame {
    void		*frame_payload;
 } bin_frame_t;
 
-#endif	// !defined(__rrclient_ws_binframe_h)
+#endif	// !defined(_ws_binframe_h)

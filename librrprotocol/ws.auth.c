@@ -18,9 +18,9 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
-#include "mod.ui.gtk3/gtk.core.h"
+//#include <mod.ui.gtk3/gtk.core.h>
 #include <rrclient/connman.h>
-#include <rrclient/audio.h>
+//#include <rrclient/audio.h>
 #include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
 
@@ -31,7 +31,7 @@ extern const char *server_name;                         // connman.c XXX: to rem
 // XXX: This needs moved into the ws_conn
 extern char session_token[HTTP_TOKEN_LEN+1];
 
-bool ws_handle_auth_msg(struct mg_connection *c, dict *d) {
+bool ws_handle_client_auth_msg(struct mg_connection *c, dict *d) {
    bool rv = false;
 
    if (!c || !d) {
@@ -69,17 +69,17 @@ bool ws_handle_auth_msg(struct mg_connection *c, dict *d) {
          memset(session_token, 0, HTTP_TOKEN_LEN + 1);
          snprintf(session_token, HTTP_TOKEN_LEN + 1, "%s", token);
       } else {
-         ui_print("[%s] ?? Got CHALLENGE without valid token!", get_chat_ts(ts));
+//         ui_print("[%s] ?? Got CHALLENGE without valid token!", get_chat_ts(ts));
          goto cleanup;
       }
 
-      ui_print("[%s] *** Sending PASSWD ***", get_chat_ts(ts));
+//      ui_print("[%s] *** Sending PASSWD ***", get_chat_ts(ts));
       const char *login_pass = get_server_property(server_name, "server.pass");
 
       ws_send_passwd(c, user, login_pass, nonce);
    } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
-      ui_print("[%s] *** Authorized ***", get_chat_ts(ts));
-      userlist_redraw_gtk();
+//      ui_print("[%s] *** Authorized ***", get_chat_ts(ts));
+//      userlist_redraw_gtk();
       // XXX: Set online state
    }
 
@@ -93,7 +93,7 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
       return true;
    }
 
-   ui_print("[%s] *** Sending LOGIN ***", get_chat_ts(now));
+//   ui_print("[%s] *** Sending LOGIN ***", get_chat_ts(now));
    const char *jp = dict2json_mkstr(
       VAL_STR, "auth.cmd", "login",
       VAL_STR, "auth.user", login_user);
