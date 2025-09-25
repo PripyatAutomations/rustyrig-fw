@@ -8,6 +8,7 @@ rustyrig-fw (20250922) testing; urgency=medium
 * Re-added ! commands in rrserver ws.chat.c
 * Started work to split protocol related code out to librrprotocol/
 * Work on loadable modules support
+* Adding irc support to librustyaxe (client for now, server soon) -- see irc-test.c
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 22 Sep 2025 14:08:00 -0400
 

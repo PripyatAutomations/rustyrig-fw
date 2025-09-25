@@ -18,7 +18,7 @@
 
 // core protocol parser
 #include <librustyaxe/irc.parser.h>
+#include <librustyaxe/irc.client.h>
+#include <librustyaxe/irc.server.h>
 
 #endif	// !defined(__librustyaxe_irc_h)
-
-

@@ -61,7 +61,7 @@ bool irc_dispatch_message(irc_message_t *mp) {
          if (p->callback) {
             p->callback(mp);
          } else {
-            Log(LOG_CRAZY, "dispatcher", "Callback in irc_callbacks:<%x> empty for %s", p, mp->args[1]);
+            Log(LOG_CRAZY, "dispatcher", "Callback in irc_callbacks:<%p> empty for %s", p, mp->args[1]);
          }
       }
 
@@ -79,7 +79,7 @@ bool irc_process_message(const char *msg) {
       // release the memory used for the message
       free(mp);
    } else {
-      Log(LOG_DEBUG, "irc.parser", "Failed parsing msg:<%x>: |%s|", msg, msg);
+      Log(LOG_DEBUG, "irc.parser", "Failed parsing msg:<%p>: |%s|", msg, msg);
       return true;
    }
 
@@ -100,7 +100,7 @@ bool irc_register_callback(irc_callback_t *cb) {
    while (p) {
       if (p == cb) {
          // already in the list, complain and return error
-         Log(LOG_CRIT, "irc.parser", "irc_register_callback: callback at <%x> for message |%s| already registered!", cb, p->message);
+         Log(LOG_CRIT, "irc.parser", "irc_register_callback: callback at <%p> for message |%s| already registered!", cb, p->message);
          return true;
       }
 
@@ -135,7 +135,7 @@ bool irc_remove_callback(irc_callback_t *cb) {
    while (p) {
       if (p == cb) {
          // already in the list, complain and return error
-         Log(LOG_CRIT, "irc.parser", "irc_register_callback: callback at <%x> for message |%s| already registered!", cb, p->message);
+         Log(LOG_CRIT, "irc.parser", "irc_register_callback: callback at <%p> for message |%s| already registered!", cb, p->message);
          return true;
       }
 

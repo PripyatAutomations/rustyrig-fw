@@ -1,1 +1,1 @@
-../rrclient/GNUmakefile
+../librrprotocol/GNUmakefile

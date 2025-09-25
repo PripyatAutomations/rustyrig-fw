@@ -6,7 +6,20 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <errno.h>
+#include <ev.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <librustyaxe/irc.struct.h>
+
+#define	HOSTLEN	256
+#define	NETLEN	64
+#define	NICKLEN	48
+#define	PASSLEN 128
+
+#define	RECVQLEN	16384		// read, but unprocessed data from the server
+#define	SENDQLEN	16384		// data waiting to be sent to the server
 
 typedef bool (*irc_command_cb)(const char *prefix, int argc, char **argv);
 
@@ -50,5 +63,26 @@ typedef struct irc_callback {
    struct irc_callback *next;
 } irc_callback_t;
 
+
+typedef struct server_cfg {
+    char 	host[HOSTLEN+1];
+    char 	network[NETLEN+1];
+    char        pass[PASSLEN+1];
+    char        nick[NICKLEN+1];
+    int 	port;
+    int		priority;
+    bool	tls;
+    struct server_cfg *next;
+} server_cfg_t;
+
+typedef struct irc_client {
+   server_cfg_t *server;
+   bool		 connected;		// is it connected?
+   char          nick[NICKLEN+1];
+   int		 fd;			// socket fd
+   char		 recvq[RECVQLEN+1];
+   char          sendq[SENDQLEN+1];
+   ev_io io_watcher;
+} irc_client_t;
 
 #endif	// !defined(__libirc_struct_h)
