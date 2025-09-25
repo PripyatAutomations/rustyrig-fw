@@ -35,40 +35,6 @@ typedef struct irc_message {
    char **argv;
 } irc_message_t;
 
-typedef bool (*irc_command_cb)(irc_message_t *mp);
-
-// XXX: we need to merge this into irc_command_cb
-typedef struct irc_callback {
-   char *message;			// IRC command
-   int	min_args_client;		// Minimum args from a client
-   int	min_args_server;		// Minimum args from a server
-   int  max_args_client;		// Maximum args from a client
-   int	max_args_server;		// Maximum args from a server
-   bool (*callback)();			// callback
-   struct irc_callback *next;
-} irc_callback_t;
-
-
-typedef struct {
-   const char     *name;
-   const char     *desc;
-   irc_command_cb  cb;
-} irc_command_t;
-
-
-typedef struct {
-   int code;
-   const char *name;
-   const char *desc;
-   bool (*cb)(const irc_message_t *msg);
-} irc_numeric_t;
-
-typedef struct {
-   const char *name;
-   const char *desc;
-} irc_cap_t;
-
-
 typedef struct server_cfg {
     char 	host[HOSTLEN+1];
     char 	network[NETLEN+1];
@@ -90,5 +56,38 @@ typedef struct irc_client {
    char          sendq[SENDQLEN+1];
    ev_io io_watcher;
 } irc_client_t;
+
+typedef bool (*irc_command_cb)(irc_client_t *cptr, irc_message_t *mp);
+
+// XXX: we need to merge this into irc_command_cb
+typedef struct irc_callback {
+   char *message;			// IRC command
+   int	min_args_client;		// Minimum args from a client
+   int	min_args_server;		// Minimum args from a server
+   int  max_args_client;		// Maximum args from a client
+   int	max_args_server;		// Maximum args from a server
+   bool (*callback)();			// callback
+   struct irc_callback *next;
+} irc_callback_t;
+
+
+typedef struct {
+   const char     *name;
+   const char     *desc;
+   irc_command_cb  cb;
+} irc_command_t;
+
+typedef struct {
+   int code;
+   const char *name;
+   const char *desc;
+   bool (*cb)(const irc_message_t *msg);
+} irc_numeric_t;
+
+typedef struct {
+   const char *name;
+   const char *desc;
+} irc_cap_t;
+
 
 #endif	// !defined(__libirc_struct_h)

@@ -263,6 +263,7 @@ int main(int argc, char **argv) {
    now = time(NULL);
    char *fullpath = NULL;
 
+
    Log(LOG_INFO, "core", "irc-test starting");
 
    struct ev_loop *loop = EV_DEFAULT;
@@ -281,7 +282,9 @@ int main(int argc, char **argv) {
        free(fullpath);
    }
 
-   logger_init("irc-test.log");
+   const char *logfile = cfg_get_exp("log.file");
+   logger_init((logfile ? logfile : "irc-test.log"));
+   free((char *)logfile);
 
    const char *debug = cfg_get_exp("debug.sockets");
    if (debug && parse_bool(debug)) {

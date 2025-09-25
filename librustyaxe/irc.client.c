@@ -78,10 +78,10 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    cptr->fd = fd;
 
    // Register fd with libev
-   ev_io_init(&cptr->io_watcher, irc_io_cb, fd, EV_WRITE | EV_READ);
+   ev_io_init(&cptr->io_watcher, irc_io_cb, cptr->fd, EV_WRITE | EV_READ);
    ev_io_start(EV_DEFAULT, &cptr->io_watcher);
 
-   Log(LOG_INFO, "irc", "connecting to %s:%d (fd=%d)", srv->host, srv->port, fd);
+   Log(LOG_INFO, "irc", "connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
 
    // Send login
    return cptr;
@@ -98,8 +98,9 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
         ev_io_set(w, cptr->fd, EV_READ);
 
         // Send PASS if configured
-        if (cptr->server->pass[0])
+        if (cptr->server->pass[0]) {
             dprintf(cptr->fd, "PASS %s\r\n", cptr->server->pass);
+        }
 
         // Send NICK
         dprintf(cptr->fd, "NICK %s\r\n", cptr->nick);

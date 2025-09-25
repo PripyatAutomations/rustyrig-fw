@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <librustyaxe/core.h>
 
-bool irc_builtin_ping_cb(irc_message_t *mp) {
+bool irc_builtin_ping_cb(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_CRAZY, "irc", "Got PING %s from server", mp->argv[1]);
    // pull out the message argument from argv[2]
    // reply with the message data
