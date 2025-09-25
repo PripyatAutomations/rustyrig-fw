@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fnmatch.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -40,7 +41,7 @@ int dict_merge(dict *dst, dict *src) {
 dict *dict_merge_new(dict *a, dict *b) {
    // XXX: Should this return whichever of a or b exists? I feel NULL makes it more clear the merge failed...
    if (!a || !b) {
-      Log(LOG_WARN, "dict", "dict_merge_new called with NULL a <%x> or NULL b <%x>", a, b);
+      Log(LOG_WARN, "dict", "dict_merge_new called with NULL a <%p> or NULL b <%p>", a, b);
       return NULL;
    }
 
@@ -57,7 +58,7 @@ dict *dict_merge_new(dict *a, dict *b) {
    // Copy from a
    while ((rank = dict_enumerate(a, rank, &key, &val)) >= 0) {
       if (dict_add(merged, key, val) != 0) {
-         Log(LOG_WARN, "dict", "dict_merge_new: Failed merging A for a:<%x>, b:<%x>", a, b);
+         Log(LOG_WARN, "dict", "dict_merge_new: Failed merging A for a:<%p>, b:<%p>", a, b);
          dict_free(merged);
          return NULL;
       }
@@ -67,7 +68,7 @@ dict *dict_merge_new(dict *a, dict *b) {
    // Copy from b (overwriting a’s entries if necessary)
    while ((rank = dict_enumerate(b, rank, &key, &val)) >= 0) {
       if (dict_add(merged, key, val) != 0) {
-         Log(LOG_WARN, "dict", "dict_merge_new: Failed merging B for a:<%x>, b:<%x>", a, b);
+         Log(LOG_WARN, "dict", "dict_merge_new: Failed merging B for a:<%p>, b:<%p>", a, b);
          dict_free(merged);
          return NULL;
       }
@@ -78,14 +79,14 @@ dict *dict_merge_new(dict *a, dict *b) {
 
 bool cfg_set_default(dict *d, char *key, char *val) {
    if (!key || !d) {
-      Log(LOG_WARN, "config", "cfg_set_default: dict:<%x> key:<%x> is not valid", d, key);
+      Log(LOG_WARN, "config", "cfg_set_default: dict:<%p> key:<%p> is not valid", d, key);
       return true;
    }
 
-//   Log(LOG_CRAZY, "config", "Setting default for dict:<%x>/%s to '%s'", d, key, val);
+//   Log(LOG_CRAZY, "config", "Setting default for dict:<%p>/%s to '%s'", d, key, val);
 
    if (dict_add(d, key, val) != 0) {
-      Log(LOG_WARN, "config", "defcfg dict:<%x> failed to set key |%s| to val |%s| at <%x>", d, key, val, val);
+      Log(LOG_WARN, "config", "defcfg dict:<%p> failed to set key |%s| to val |%s| at <%p>", d, key, val, val);
       return true;
    }
 
@@ -103,7 +104,7 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
       return true;
    }
 
-   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%x>", defaults);
+   Log(LOG_CRAZY, "config", "cfg_set_defaults: Loading defaults from <%p>", defaults);
 
    int i = 0;
    int warnings = 0;
@@ -155,6 +156,75 @@ bool cfg_detect_and_load(const char *configs[], int num_configs) {
      // Use default settings and save it to default
      cfg = default_cfg;
      Log(LOG_WARN, "core", "No config file found, saving defaults");
+   }
+   return false;
+}
+
+cfg_cb_list_t *cfg_callbacks = NULL;
+
+bool cfg_add_callback(const char *path, const char *section, bool (*cb)()) {
+   if (!section || !cb) {
+      return true;
+   }
+
+   Log(LOG_CRAZY, "config", "add_cb: path=%s section=%s cb=<%p>", path, section, (void *)cb);
+
+   cfg_cb_list_t *new_cb = malloc(sizeof(cfg_cb_list_t));
+   if (!new_cb) {
+      fprintf(stderr, "OOM in cfg_add_callback\n");
+      return true;
+   }
+
+   new_cb->path = path;
+   new_cb->section = section;
+   new_cb->callback = cb;
+
+   Log(LOG_CRAZY, "config", "Stored config callback cb:<%p> for section:|%s| path:|%s|", cb, section, path);
+
+   // store our new callback
+   if (!cfg_callbacks) {
+      cfg_callbacks = new_cb;
+   } else {
+      // Find the end of the list
+      cfg_cb_list_t *cbp = cfg_callbacks;
+
+      while (cbp) {
+         if (!cbp->next) {
+            cbp->next = new_cb;
+            break;
+         }
+         cbp = cbp->next;
+      }
+   }
+
+   return false;
+}
+
+static bool cfg_dispatch_callback(const char *path, int line, const char *section, const char *buf) {
+   if (!path || !section || !buf) {
+      return true;
+   }
+
+   if (!cfg_callbacks) {
+      return false;
+   }
+
+   // Lookup the callback
+   cfg_cb_list_t *cbp = cfg_callbacks;
+
+   while (cbp) {
+      if (fnmatch(cbp->section, section, 0) == 0) {
+         if (!cbp->path || (fnmatch(cbp->path, path, 0) == 0)) {
+            Log(LOG_CRAZY, "config", "cfg_dispatch_callback: Found callback at <%p> for section %s (%s) in path %s (%s)", cbp->callback, section, cbp->section, path, cbp->path);
+
+            if (cbp->callback) {
+               cbp->callback(path, line, section, buf);
+            } else {
+               Log(LOG_CRIT, "config", "cfg_dispatch_callback: This callback at <%p> for section |%s| path |%s| doesn't have a valid function attached", cbp, section, path);
+            }
+         }
+      }
+      cbp = cbp->next;
    }
    return false;
 }
@@ -301,8 +371,7 @@ dict *cfg_load(const char *path) {
          continue;
       }
 
-      if (strncasecmp(this_section, "general", 7) == 0 ||
-          strncasecmp(this_section, "fwdsp", 5) == 0) {
+      if (strncasecmp(this_section, "general", 7) == 0) {
          key = NULL;
          val = NULL;
          char *eq = strchr(skip, '=');
@@ -381,7 +450,7 @@ dict *cfg_load(const char *path) {
          } else {
             Log(LOG_WARN, "config", "Malformed line parsing |%s| at %s:%d", buf, path, line);
          }
-      } else {
+      } else if (cfg_dispatch_callback(path, line, this_section, buf)) {
          Log(LOG_WARN, "config", "Unknown configuration section |%s| parsing |%s| at %s:%d", this_section, buf, path, line);
          errors++;
       }
@@ -563,6 +632,7 @@ reload_event_t *reload_event_add(const char *key, bool (*callback)(), const char
       fprintf(stderr, "OOM in reload_event_add!\n");
       return NULL;
    }
+
    memset(r, 0, sizeof(reload_event_t));
    r->key = strdup(key);
    r->callback = callback;
@@ -571,36 +641,32 @@ reload_event_t *reload_event_add(const char *key, bool (*callback)(), const char
       r->note = strdup(note);
    }
 
+   // find end of the list and append it
+   reload_event_t *ep = reload_events;
+   while (ep) {
+      if (!ep->next) {
+         ep->next = r;
+         break;
+      }
+      ep = ep->next;
+   }
    return r;
 }
 
 bool reload_event_list(const char *key) {
-   if (key) {
-   }
-   reload_event_t *r = reload_events;
-
-   Log(LOG_DEBUG, "cfg.reload", "****** rel dump ******\n");
-   while (r) {
-      Log(LOG_DEBUG, "cfg.reload", "* %s has callback at <%x>: %s\n", r->key, r->callback, r->note ? r->note : "*** No note ***");
-   }
-   Log(LOG_DEBUG, "cfg.reload", "**********************\n");
-   return false;
-}
-
-bool reload_event_run(const char *key) {
-   if (!reload_events) {
+   if (!key) {
       return true;
    }
 
-   reload_event_t *rl = reload_events;
+   reload_event_t *r = reload_events;
 
-   while (rl) {
-      if (strcasecmp(rl->key, key) == 0) {
-         Log(LOG_CRAZY, "cfg.reload", "reload: run callback at <%x> for key '%s'", rl->callback, key);
-         rl->callback(key);
-      }
-      rl = rl->next;
+   Log(LOG_DEBUG, "cfg.reload", "****** rel dump ******\n");
+   r = reload_event_find(key, NULL);
+   while (r) {
+      Log(LOG_DEBUG, "cfg.reload", "* %s has callback at <%p>: %s\n", r->key, r->callback, r->note ? r->note : "*** No note ***");
+      r = r->next;
    }
+   Log(LOG_DEBUG, "cfg.reload", "**********************\n");
    return false;
 }
 
@@ -625,7 +691,7 @@ reload_event_t *reload_event_find(const char *key, bool (*callback)()) {
       }
 
       Log(LOG_CRAZY, "cfg.reload",
-          "reload_event_find matched entry at <%x>, key: %s <%x>, callback:%s <%x>",
+          "reload_event_find matched entry at <%p>, key: %s <%p>, callback:%s <%p>",
           r, (match_key ? "true" : "false"), r->key,
           (match_cb ? "true" : "false"), r->callback);
 
@@ -636,6 +702,19 @@ reload_event_t *reload_event_find(const char *key, bool (*callback)()) {
       r = r->next;
    }
    return NULL;
+}
+
+bool reload_event_run(const char *key) {
+   if (!reload_events) {
+      return false;
+   }
+
+   reload_event_t *rl = reload_event_find(key, NULL);
+   if (rl) {
+      Log(LOG_CRAZY, "cfg.reload", "reload: run callback at <%p> for key '%s'", rl->callback, key);
+      rl->callback(key);
+   }
+   return false;
 }
 
 // Remove a reload event from the list

@@ -53,7 +53,7 @@ char *codec_filter_common(const char *preferred, const char *available) {
    size_t res_sz = 0;
 
    if (!preferred || !available) {
-      Log(LOG_WARN, "codecneg", "codec_filter_common: empty list -- preferred:<%x> available:<%x>", preferred, available);
+      Log(LOG_WARN, "codecneg", "codec_filter_common: empty list -- preferred:<%p> available:<%p>", preferred, available);
       return NULL;
    }
 

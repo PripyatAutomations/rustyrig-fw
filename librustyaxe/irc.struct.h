@@ -15,13 +15,13 @@
 
 #define	HOSTLEN	256
 #define	NETLEN	64
+#define	USERLEN	16
 #define	NICKLEN	48
 #define	PASSLEN 128
 
 #define	RECVQLEN	16384		// read, but unprocessed data from the server
 #define	SENDQLEN	16384		// data waiting to be sent to the server
 
-typedef bool (*irc_command_cb)(const char *prefix, int argc, char **argv);
 
 typedef struct {
    char mode;          // mode letter, e.g. 'o', 'v', 'k'
@@ -30,16 +30,31 @@ typedef struct {
    bool arg_unset;     // requires argument when being unset
 } irc_mode_t;
 
+typedef struct irc_message {
+   int    argc;				// number of arguments
+   char **argv;
+} irc_message_t;
+
+typedef bool (*irc_command_cb)(irc_message_t *mp);
+
+// XXX: we need to merge this into irc_command_cb
+typedef struct irc_callback {
+   char *message;			// IRC command
+   int	min_args_client;		// Minimum args from a client
+   int	min_args_server;		// Minimum args from a server
+   int  max_args_client;		// Maximum args from a client
+   int	max_args_server;		// Maximum args from a server
+   bool (*callback)();			// callback
+   struct irc_callback *next;
+} irc_callback_t;
+
+
 typedef struct {
    const char     *name;
    const char     *desc;
    irc_command_cb  cb;
 } irc_command_t;
 
-typedef struct irc_message {
-   int    argc;				// number of arguments
-   char **args;
-} irc_message_t;
 
 typedef struct {
    int code;
@@ -53,22 +68,13 @@ typedef struct {
    const char *desc;
 } irc_cap_t;
 
-typedef struct irc_callback {
-   char *message;			// IRC command
-   int	min_args_client;		// Minimum args from a client
-   int	min_args_server;		// Minimum args from a server
-   int  max_args_client;		// Maximum args from a client
-   int	max_args_server;		// Maximum args from a server
-   bool (*callback)();			// callback
-   struct irc_callback *next;
-} irc_callback_t;
-
 
 typedef struct server_cfg {
     char 	host[HOSTLEN+1];
     char 	network[NETLEN+1];
-    char        pass[PASSLEN+1];
     char        nick[NICKLEN+1];
+    char        ident[USERLEN+1];
+    char        pass[PASSLEN+1];
     int 	port;
     int		priority;
     bool	tls;

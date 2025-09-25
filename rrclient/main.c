@@ -90,10 +90,6 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
    update_timestamp();
 
-
-// XXX: what this is? why is commented? can removed???
-//   cfg_detect_and_load(configs, num_configs);
-
    if (config_file) {
       if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);

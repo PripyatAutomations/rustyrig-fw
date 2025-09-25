@@ -90,7 +90,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
             GtkWidget *wp = gtk_freq_entry_last_touched_digit(GTK_FREQ_ENTRY(freq_entry));
 
             if (wp) {
-               Log(LOG_CRAZY, "gtk.hotkey", "Switching to digit at <%x>", wp);
+               Log(LOG_CRAZY, "gtk.hotkey", "Switching to digit at <%p>", wp);
                gtk_widget_grab_focus(wp);
             } else {
                Log(LOG_CRAZY, "gtk.hotkey", "No last digit saved, defaulting to left-most");

@@ -58,7 +58,7 @@ static gboolean on_configure_timeout(gpointer data) {
 
    // if we can't find the window, there's no state
    if (!win) {
-//      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%x>", window);
+//      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%p>", window);
       return true;
    }
 
@@ -163,7 +163,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    if (gtk_win) {
       for (gui_window_t *p = gui_windows; p; p = p->next) {
          if (p->gtk_win == gtk_win) {
-//            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for ptr:<%x>", p->name, gtk_win);
+//            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for ptr:<%p>", p->name, gtk_win);
             return p;
          }
       }
@@ -191,7 +191,7 @@ bool place_window(GtkWidget *window) {
 
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);
-   Log(LOG_CRAZY, "gtk.winmgr", "place_window: found gtk window <%x> at <%x> named |%s|", window, win, win->name);
+   Log(LOG_CRAZY, "gtk.winmgr", "place_window: found gtk window <%p> at <%p> named |%s|", window, win, win->name);
 
    if (!win) {
       Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
@@ -389,7 +389,7 @@ static void on_window_destroy(GtkWidget *w, gpointer user_data) {
 // Store window name / pointer in our list
 gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    if (!gtk_win || !name) {
-      Log(LOG_CRIT, "gui_store_window called with invalid args: name:%s gtk_win: <%x>", name, gtk_win);
+      Log(LOG_CRIT, "gui_store_window called with invalid args: name:%s gtk_win: <%p>", name, gtk_win);
       // XXX: remove this once we debug
       abort();
       return NULL;
@@ -397,7 +397,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 
    for (gui_window_t *x = gui_windows; x; x = x->next) {
       if (strcmp(x->name, name) == 0) {
-         Log(LOG_DEBUG, "gtk.winmgr", "found window %s at <%x> for gtk_win at <%x>", x->name, x, x->gtk_win);
+         Log(LOG_DEBUG, "gtk.winmgr", "found window %s at <%p> for gtk_win at <%p>", x->name, x, x->gtk_win);
          return x;
       }
    }
@@ -412,7 +412,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    memset(p, 0, sizeof(gui_window_t));
    snprintf(p->name, sizeof(p->name), "%s", name);
    p->gtk_win = gtk_win;
-   Log(LOG_INFO, "gtk.winmgr", "new '%s' window <%x> stored at <%x>", name, gtk_win, p);
+   Log(LOG_INFO, "gtk.winmgr", "new '%s' window <%p> stored at <%p>", name, gtk_win, p);
 
    if (!gui_windows) {
       gui_windows = p;
@@ -520,7 +520,7 @@ gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
    if (widget) {
       for (gui_widget_t *p = gui_widgets; p; p = p->next) {
          if (p->gtk_widget == widget) {
-            Log(LOG_CRAZY, "gtk.winmgr", "find_widget eturning %s for ptr:<%x>", p->name, widget);
+            Log(LOG_CRAZY, "gtk.winmgr", "find_widget eturning %s for ptr:<%p>", p->name, widget);
             return p;
          }
       }
@@ -562,7 +562,7 @@ bool gui_forget_widget(gui_widget_t *gw, const char *name) {
 // Store widget name / pointer in our list
 gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
    if (!widget || !name) {
-      Log(LOG_CRIT, "gui_store_widget called with invalid args: name:%s widget: <%x>", name, widget);
+      Log(LOG_CRIT, "gui_store_widget called with invalid args: name:%s widget: <%p>", name, widget);
       // XXX: remove this once we debug
       abort();
       return NULL;
@@ -570,7 +570,7 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
 
    for (gui_widget_t *x = gui_widgets; x; x = x->next) {
       if (strcmp(x->name, name) == 0) {
-         Log(LOG_DEBUG, "gtk.winmgr", "found widget %s at <%x> for widget at <%x>", x->name, x, x->gtk_widget);
+         Log(LOG_DEBUG, "gtk.winmgr", "found widget %s at <%p> for widget at <%p>", x->name, x, x->gtk_widget);
          return x;
       }
    }
@@ -585,7 +585,7 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
    memset(p, 0, sizeof(gui_widget_t));
    snprintf(p->name, sizeof(p->name), "%s", name);
    p->gtk_widget = widget;
-   Log(LOG_INFO, "gtk.winmgr", "new '%s' widget <%x> stored at <%x>", name, widget, p);
+   Log(LOG_INFO, "gtk.winmgr", "new '%s' widget <%p> stored at <%p>", name, widget, p);
 
    if (!gui_widgets) {
       gui_widgets = p;

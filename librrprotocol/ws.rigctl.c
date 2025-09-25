@@ -146,7 +146,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
 
    if (!cptr) {
-      Log(LOG_DEBUG, "ws.rigctl", "rig parse, cptr == NULL, c: <%x>", c);
+      Log(LOG_DEBUG, "ws.rigctl", "rig parse, cptr == NULL, c: <%p>", c);
       return true;
    }
    cptr->last_heard = now;	// avoid unneeded keep-alives
@@ -309,7 +309,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          }
 
          if (!vfo || !mode) {
-            Log(LOG_DEBUG, "ws.rigctl", "MODE set without vfo:<%x> or mode:<%x>", vfo, mode);
+            Log(LOG_DEBUG, "ws.rigctl", "MODE set without vfo:<%p> or mode:<%p>", vfo, mode);
             free(mode);
             dict_free(d);
             return true;

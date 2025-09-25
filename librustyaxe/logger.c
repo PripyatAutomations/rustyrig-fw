@@ -32,10 +32,10 @@
 extern char latest_timestamp[64];
 extern time_t now;
 static time_t last_ts_update;
+bool log_stdout = true;
 
 // Do we need to show a timestamp in log messages?
 static bool log_show_ts = false;
-int log_level = LOG_CRAZY;	// Default to showing ALL logging
 char latest_timestamp[64];	// Current printed timestamp
 
 static struct log_callback *log_callbacks = NULL;
@@ -164,8 +164,15 @@ void load_filters_from_config(void) {
    free(copy);
 }
 
+#define	DEFAULT_LOG_LEVEL	LOG_DEBUG
+
 bool debug_filter(const char *subsys, logpriority_t msg_level) {
    struct log_filter *f = filters, *best = NULL;
+
+   if (!f && msg_level > DEFAULT_LOG_LEVEL) {
+//      fprintf(stderr, "!f: %d > %d\n", msg_level, DEFAULT_LOG_LEVEL);
+      return true;
+   }
 
    while (f) {
       if (fnmatch(f->pattern, subsys, 0) == 0) {
@@ -177,12 +184,15 @@ bool debug_filter(const char *subsys, logpriority_t msg_level) {
    }
 
    if (best) {
-      // normal compare
-      return msg_level <= best->level;
+//      fprintf(stderr, "msg: %d best: %d\n", msg_level, best->level);
+
+      if (best->level <= msg_level) {
+         return true;
+      }
+      return false;
    }
 
-   // default reject unless critical
-   return msg_level <= LOG_CRIT;
+   return false;
 }
 
 // Dump all filters
@@ -228,27 +238,28 @@ void logger_init(const char *logfile) {
    }
 
    if (ll) {
-      log_level = log_priority_from_str(ll);
-      Log(LOG_INFO, "core", "Setting log_level to %d (%s)", log_level, ll);
+      Log(LOG_INFO, "core", "Setting log filters to %s", ll);
    } else {
-      log_level = LOG_DEBUG;
+      ll = strdup("*:info");
    }
 
    if (!logfp) {
-      logfp = logfile ? fopen(logfile, "a+") : stdout;
+      logfp = fopen(logfile, "a+");
       if (!logfp) {
          fprintf(stderr, "Couldn't open log file %s, falling back to stdout\n", logfile);
          logfp = stdout;
       }
    }
 
+   log_stdout = cfg_get_bool("log.stdout", false);
+
    // Load fine-grained filters from config
    load_filters_from_config();
-   log_dump_filters();
+//   log_dump_filters();
 }
 
 void logger_end(void) {
-   if (logfp && logfp != stdout && logfp != stderr) {
+   if (logfp && (logfp != stdout && logfp != stderr)) {
       fclose(logfp);
    }
    logfp = NULL;
@@ -304,12 +315,9 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       return;
    }
 
-   if (!debug_filter(subsys, priority)) {
+   if (debug_filter(subsys, priority)) {
+//      fprintf(stderr, "skip %s:%d\n", subsys, priority);
       return;
-   }
-
-   if (logfp == NULL) {
-      logfp = stdout;
    }
 
    // this is arranged so that it will return if called more than once a second
@@ -317,6 +325,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       update_timestamp();
    }
 
+   // make a clean copy for callback calls to copy :P
    va_copy(ap_c1, ap);
 
    /* clear the message buffer */
@@ -328,20 +337,22 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    snprintf(log_msg, sizeof(log_msg), "<%s.%s> %s", subsys, log_priority_to_str(priority), msgbuf);
    va_end(ap);
 
-   /* Only spew to the serial port if logfile is closed */
    if (logfp) {
       if (log_show_ts) {
          fprintf(logfp, "[%s] %s\n", latest_timestamp, log_msg);
-         if (logfp != stdout && logfp != stderr) {
-            fprintf(stdout, "x[%s] %s\n", latest_timestamp, log_msg);
-         }
       } else {
          fprintf(logfp, "%s\n", log_msg);
-         if (logfp != stdout && logfp != stderr) {
-            fprintf(stdout, "x: %s\n", log_msg);
-         }
       }
       fflush(logfp);
+   }
+
+   /* Only spew to the console if logfile is closed or log.stdout == true, but avoid duplicating messages */
+   if ((!logfp || log_stdout) && (logfp != stdout)) {
+      if (log_show_ts) {
+         fprintf(stdout, "[%s] %s\n", latest_timestamp, log_msg);
+      } else {
+         fprintf(stdout, "%s\n", log_msg);
+      }
    }
 
    // if there are registered log callbacks, call them
@@ -351,6 +362,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
          if (lp->callback) {
             va_list cb_ap;
             va_copy(cb_ap, ap_c1);
+            fprintf(stderr, "log cb: <%p> called\n");
             lp->callback(priority, subsys, fmt, cb_ap);
             va_end(cb_ap);
          }

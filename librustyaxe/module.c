@@ -95,7 +95,7 @@ bool rr_load_module(const char *name) {
       rv = false;
       goto done;
    }
-   Log(LOG_DEBUG, "module", "rr_load_module: Module %s opened from %s at <%x>", name, mod_path, dp);
+   Log(LOG_DEBUG, "module", "rr_load_module: Module %s opened from %s at <%p>", name, mod_path, dp);
    rr_module_t *mp = malloc(sizeof(rr_module_t));
 
    if (!mp) {

@@ -773,7 +773,7 @@ GtkWidget *gtk_freq_entry_last_touched_digit(GtkFreqEntry *fe) {
 
    int last_focused_idx = fe->last_focused_idx;
    if (last_focused_idx > 0) {
-      Log(LOG_DEBUG, "gtk.freqentry", "gtk_freq_entry_get_last_touched_digit: returning idx %d @ <%x>", last_focused_idx, fe->digits[last_focused_idx]);
+      Log(LOG_DEBUG, "gtk.freqentry", "gtk_freq_entry_get_last_touched_digit: returning idx %d @ <%p>", last_focused_idx, fe->digits[last_focused_idx]);
       return GTK_WIDGET(fe->digits[last_focused_idx]);
    }
    Log(LOG_DEBUG, "gtk.freqentry", "gtk_freq_entry_get_last_touched_digit: No return: %d", last_focused_idx);

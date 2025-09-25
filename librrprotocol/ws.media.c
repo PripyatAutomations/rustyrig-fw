@@ -30,7 +30,7 @@ char *server_codecs = NULL;
 
 bool ws_handle_media_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
-      Log(LOG_WARN, "http.ws", "media_msg: got d:<%x> mg_conn:<%x>", d, c);
+      Log(LOG_WARN, "http.ws", "media_msg: got d:<%p> mg_conn:<%p>", d, c);
       return true;
    }
 

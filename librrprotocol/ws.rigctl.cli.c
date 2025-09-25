@@ -33,15 +33,16 @@ extern gulong freq_changed_handler_id;
 // XXX: this needs to go into the per-VFO
 char old_mode[16];
 
-bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
+bool ws_handle_rigctl_cli_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
-      Log(LOG_DEBUG, "ws.rigctl", "handle_rigctl_msg invalid args: c:<%x> d:<%x>", c, d);
+      Log(LOG_DEBUG, "ws.rigctl", "handle_rigctl_msg invalid args: c:<%p> d:<%p>", c, d);
       return true;
    }
 
    time_t ts = dict_get_time_t(d, "cat.ts", now);
 
    if (dict_get(d, "cat.state.mode", NULL)) {
+#if	0
       if (poll_block_expire < now) {
          char *vfo = dict_get(d, "cat.state.vfo", NULL);
          double freq = dict_get_double(d, "cat.state.freq", 0.0);
@@ -60,12 +61,12 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
          char *user = dict_get(d, "cat.user", NULL);
 
          if (user && *user) {
-//            Log(LOG_DEBUG, "ws.cat", "user:<%x> = |%s|", user, user);
+//            Log(LOG_DEBUG, "ws.cat", "user:<%p> = |%s|", user, user);
             struct rr_user *cptr = NULL;
 // XXX: readd this
 #if	0
             if ((cptr = userlist_find(user))) {
-               Log(LOG_DEBUG, "ws.cat", "ptt set to %s for cptr:<%x>", (cptr->is_ptt ? "true" : "false"), cptr);
+               Log(LOG_DEBUG, "ws.cat", "ptt set to %s for cptr:<%p>", (cptr->is_ptt ? "true" : "false"), cptr);
                cptr->is_ptt = ptt;
             }
 #endif
@@ -119,6 +120,7 @@ bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d) {
             snprintf(old_mode, sizeof(old_mode), "%s", mode);
          }
       }
+#endif
    } else {
       char *json_msg = dict2json(d);
 //      ui_print("[%s] ==> CAT: Unknown msg -- %s", get_chat_ts(ts), json_msg);

@@ -52,7 +52,9 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    int fd = -1;
    for (rp = res; rp != NULL; rp = rp->ai_next) {
       fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-      if (fd == -1) continue;
+      if (fd == -1) {
+         continue;
+      }
 
       fcntl(fd, F_SETFL, O_NONBLOCK);
 
@@ -79,41 +81,68 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    ev_io_init(&cptr->io_watcher, irc_io_cb, fd, EV_WRITE | EV_READ);
    ev_io_start(EV_DEFAULT, &cptr->io_watcher);
 
-   Log(LOG_INFO, "irc", "connecting to %s:%d (fd=%d)",
-       srv->host, srv->port, fd);
+   Log(LOG_INFO, "irc", "connecting to %s:%d (fd=%d)", srv->host, srv->port, fd);
 
+   // Send login
    return cptr;
 }
 
 static void irc_io_cb(EV_P_ ev_io *w, int revents) {
-   irc_client_t *cptr = (irc_client_t *)(((char*)w) - offsetof(irc_client_t, io_watcher));
+    irc_client_t *cptr = (irc_client_t *)(((char*)w) - offsetof(irc_client_t, io_watcher));
 
-   if (revents & EV_WRITE) {
-      // connection established
-      Log(LOG_INFO, "irc", "connected to %s:%d", cptr->server->host, cptr->server->port);
+    if (revents & EV_WRITE) {
+        Log(LOG_INFO, "irc", "connected to %s:%d",
+            cptr->server->host, cptr->server->port);
 
-      // Stop watching for write
-      ev_io_set(w, cptr->fd, EV_READ);
+        // Stop watching for write, continue reading
+        ev_io_set(w, cptr->fd, EV_READ);
 
-      // Send initial handshake
-      char buf[256];
-      snprintf(buf, sizeof(buf), "NICK %s\r\nUSER %s 0 * :%s\r\n",
-               cptr->nick, cptr->nick, cptr->nick);
-      send(cptr->fd, buf, strlen(buf), 0);
-   }
+        // Send PASS if configured
+        if (cptr->server->pass[0])
+            dprintf(cptr->fd, "PASS %s\r\n", cptr->server->pass);
 
-   if (revents & EV_READ) {
-      char buf[512];
-      ssize_t n = recv(cptr->fd, buf, sizeof(buf)-1, 0);
-      if (n <= 0) {
-         Log(LOG_INFO, "irc", "disconnected");
-         ev_io_stop(EV_A_ w);
-         close(cptr->fd);
-         return;
-      }
-      buf[n] = '\0';
-      Log(LOG_DEBUG, "irc", "recv: %s", buf);
+        // Send NICK
+        dprintf(cptr->fd, "NICK %s\r\n", cptr->nick);
 
-      // TODO: pass to IRC parser
-   }
+        // Send USER: ident, mode=0, unused=*, realname=nick
+        const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
+        dprintf(cptr->fd, "USER %s 0 * :%s\r\n", ident, cptr->nick);
+
+        cptr->connected = true;
+    }
+
+    if (revents & EV_READ) {
+        char buf[512];
+        ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);
+        if (n <= 0) {
+            Log(LOG_INFO, "irc", "disconnected");
+            ev_io_stop(EV_A_ w);
+            close(cptr->fd);
+            cptr->connected = false;
+            return;
+        }
+
+        // Append received data to recvq
+        size_t cur_len = strlen(cptr->recvq);
+        if ((size_t)n + cur_len >= RECVQLEN) {
+            Log(LOG_WARN, "irc", "recvq overflow, dropping data");
+            cptr->recvq[0] = '\0';
+            cur_len = 0;
+        }
+        memcpy(cptr->recvq + cur_len, buf, n);
+        cptr->recvq[cur_len + n] = '\0';
+
+        // Process all complete \r\n-terminated lines
+        char *line;
+        while ((line = strstr(cptr->recvq, "\r\n"))) {
+            *line = '\0';  // terminate the line
+
+            // Parse and dispatch the line
+            irc_process_message(cptr->recvq);
+
+            // Shift remaining data to front
+            size_t rem = strlen(line + 2);
+            memmove(cptr->recvq, line + 2, rem + 1);
+        }
+    }
 }

@@ -358,18 +358,18 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
    http_client_t *cptr = http_find_client_by_c(c);
 
    if (!cptr) {
-      Log(LOG_DEBUG, "chat", "talk parse, cptr is NULL, c: <%x>", c);
+      Log(LOG_DEBUG, "chat", "talk parse, cptr is NULL, c: <%p>", c);
       return true;
    }
 
    if (!cptr->user) {
-      Log(LOG_WARN, "chat", "talk parse, cptr:<%x> ->user NULL", cptr);
+      Log(LOG_WARN, "chat", "talk parse, cptr:<%p> ->user NULL", cptr);
       return true;
    }
 
    // XXX: remove this asap
    char *json_data = dict2json(d);
-   Log(LOG_CRAZY, "chat", "handle chat msg: RX from cptr:<%x> (%s) => json: %.*s", cptr, cptr->chatname, json_data);
+   Log(LOG_CRAZY, "chat", "handle chat msg: RX from cptr:<%p> (%s) => json: %.*s", cptr, cptr->chatname, json_data);
    free(json_data);
 
    cptr->last_heard = now;
@@ -391,7 +391,7 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
    if (cmd) {
       if (strcasecmp(cmd, "msg") == 0) {
          if (!data) {
-            Log(LOG_DEBUG, "chat", "got msg for cptr <%x> with no data: chatname: %s", cptr, user);
+            Log(LOG_DEBUG, "chat", "got msg for cptr <%p> with no data: chatname: %s", cptr, user);
             return true;
          }
 

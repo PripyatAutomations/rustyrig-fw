@@ -153,7 +153,7 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
 
 bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type, const char *msg_data) {
    if (!db || !msg_src || !msg_dest || !msg_type || !msg_data) {
-      Log(LOG_WARN, "db", "invalid arguments db:<%x> ts:%lu src:<%x> dest:<%x> type:<%x> data:<%x>",
+      Log(LOG_WARN, "db", "invalid arguments db:<%p> ts:%lu src:<%p> dest:<%p> type:<%p> data:<%p>",
           db, msg_ts, msg_src, msg_dest, msg_type, msg_data);
       return false;
    }

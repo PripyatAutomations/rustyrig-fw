@@ -28,7 +28,7 @@ bool ws_handle_syslog_msg(struct mg_connection *c, dict *d) {
    bool rv = false;
 
    if (!c || !d) {
-      Log(LOG_WARN, "http.ws", "syslog_msg: got d:<%x> mg_conn:<%x>", d, c);
+      Log(LOG_WARN, "http.ws", "syslog_msg: got d:<%p> mg_conn:<%p>", d, c);
       return true;
    }
 

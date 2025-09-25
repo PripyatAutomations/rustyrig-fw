@@ -36,14 +36,14 @@ extern const char *server_name;				// connman.c XXX: to remove ASAP for multiser
 
 bool parse_chat_input(GtkButton *button, gpointer entry) {
    if (!button || !entry) {
-      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: button:<%x> entry:<%x>", button, entry);
+      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: button:<%p> entry:<%p>", button, entry);
       return true;
    }
 
    const gchar *msg = gtk_entry_get_text(GTK_ENTRY(chat_entry));
 
    if (!msg || strlen(msg) < 1) {
-      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%x> is empty", msg);
+      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%p> is empty", msg);
       return true;
    }
 

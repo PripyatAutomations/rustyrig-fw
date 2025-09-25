@@ -3,8 +3,19 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <librustyaxe/irc.h>
+#include <librustyaxe/core.h>
 
+bool irc_builtin_ping_cb(irc_message_t *mp) {
+   Log(LOG_CRAZY, "irc", "Got PING %s from server", mp->argv[1]);
+   // pull out the message argument from argv[2]
+   // reply with the message data
+   return false;
+}
+
+bool irc_builtin_pong_cb() {
+   Log(LOG_CRAZY, "irc", "Got PONG from server");
+   return false;
+}
 const irc_command_t irc_commands[] = {
    // --- Core client registration ---
    { .name = "PASS",    .desc = "Set connection password",          .cb = NULL },
@@ -37,8 +48,8 @@ const irc_command_t irc_commands[] = {
    { .name = "AWAY",    .desc = "Set/unset away message",           .cb = NULL },
 
    // --- Connection maintenance ---
-   { .name = "PING",    .desc = "Server keepalive ping",            .cb = NULL },
-   { .name = "PONG",    .desc = "Reply to ping",                    .cb = NULL },
+   { .name = "PING",    .desc = "Server keepalive ping",            .cb = irc_builtin_ping_cb },
+   { .name = "PONG",    .desc = "Reply to ping",                    .cb = irc_builtin_pong_cb },
 
    // --- Server queries ---
    { .name = "VERSION", .desc = "Request server version",           .cb = NULL },

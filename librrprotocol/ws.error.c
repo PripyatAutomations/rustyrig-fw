@@ -27,7 +27,7 @@ extern time_t now;
 
 bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg) {
-      Log(LOG_WARN, "http.ws", "error_msg: got msg:<%x> mg_conn:<%x>", msg, c);
+      Log(LOG_WARN, "http.ws", "error_msg: got msg:<%p> mg_conn:<%p>", msg, c);
       return true;
    }
 
@@ -42,7 +42,7 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    }
 
    if (!msg->data.buf) {
-      Log(LOG_WARN, "http.ws", "error_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
+      Log(LOG_WARN, "http.ws", "error_msg: got msg from msg_conn:<%p> from %s:%d -- msg:<%p> with no data ptr", c, ip, port, msg);
       return true;
    }
 

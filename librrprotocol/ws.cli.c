@@ -81,7 +81,7 @@ struct ws_msg_routes ws_routes[] = {
 
 bool ws_handle_hello_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
-      Log(LOG_DEBUG, "ws", "hello: c:<%x> d:<%x>", c, d);
+      Log(LOG_DEBUG, "ws", "hello: c:<%p> d:<%p>", c, d);
       return true;
    }
 
@@ -94,7 +94,7 @@ bool ws_handle_hello_msg(struct mg_connection *c, dict *d) {
 
 static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg) {
-      Log(LOG_DEBUG, "ws", "txtframe_dispatch: c:<%x> msg:<%x>", c, msg);
+      Log(LOG_DEBUG, "ws", "txtframe_dispatch: c:<%p> msg:<%p>", c, msg);
       return true;
    }
 
@@ -146,7 +146,7 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
 
 bool ws_binframe_process(const char *data, size_t len) {
    if (!data || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
-      Log(LOG_DEBUG, "ws", "binframe_process: data:<%x> len: %d", data, len);
+      Log(LOG_DEBUG, "ws", "binframe_process: data:<%p> len: %d", data, len);
       return true;
    }
 
@@ -168,7 +168,7 @@ bool ws_binframe_process(const char *data, size_t len) {
 //
 bool ws_handle_cli(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg || !msg->data.buf) {
-      Log(LOG_DEBUG, "http.ws", "ws_handle got c <%x> msg <%x> data <%x>", c, msg , (msg ? msg->data.buf : NULL));
+      Log(LOG_DEBUG, "http.ws", "ws_handle got c <%p> msg <%p> data <%p>", c, msg , (msg ? msg->data.buf : NULL));
       return true;
    }
 
@@ -191,7 +191,7 @@ bool ws_handle_cli(struct mg_connection *c, struct mg_ws_message *msg) {
 
 void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (!c) {
-      Log(LOG_DEBUG, "ws", "binframe_process: c:<%x> ev: %d ev_data:<%x>", c, ev, ev_data);
+      Log(LOG_DEBUG, "ws", "binframe_process: c:<%p> ev: %d ev_data:<%p>", c, ev, ev_data);
       return;
    }
 
@@ -206,14 +206,14 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    } else if (ev == MG_EV_CONNECT) {
       Log(LOG_CRAZY, "ws", "ev_ws_connect");
 //      const char *this_server = http_servername(c);
-      const char *this_server = server_name;
+//      const char *this_server = server_name;
 //      ui_print("[%s] * Connected to %s*", get_chat_ts(now), this_server);
    } else if (ev == MG_EV_WRITE) {
       // Handle writing audio frames one by one
    } else if (ev == MG_EV_WS_OPEN) {
 //      const char *this_server = http_servername(c);
-      const char *this_server = server_name;		// XXX: remove me
-      Log(LOG_CRAZY, "ws", "ev_ws_open: |%s|", this_server);
+//      const char *this_server = server_name;		// XXX: remove me
+//      Log(LOG_CRAZY, "ws", "ev_ws_open: |%s|", this_server);
 #if	0
       const char *url = get_server_property(this_server, "server.url");
 
@@ -298,7 +298,7 @@ void ws_client_init(void) {
    if (tls_ca_path) {
       // turn it into a mongoose string
       tls_ca_path_str = mg_str(tls_ca_path);
-      Log(LOG_DEBUG, "ws", "Setting TLS CA path to <%x> %s with target mg_str at <%x>", tls_ca_path, tls_ca_path, tls_ca_path_str);
+      Log(LOG_DEBUG, "ws", "Setting TLS CA path to <%p> %s with target mg_str at <%p>", tls_ca_path, tls_ca_path, tls_ca_path_str);
    } else {
       Log(LOG_CRIT, "ws", "unable to find TLS CA file");
       exit(1);

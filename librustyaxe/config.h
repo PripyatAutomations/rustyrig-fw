@@ -26,6 +26,13 @@ struct defconfig {
 };
 typedef struct defconfig defconfig_t;
 
+typedef struct cfg_cb_list {
+   const char *section;
+   const char *path;
+   bool (*callback)(const char *path, int line, const char *section, const char *buf);
+   struct cfg_cb_list *next;
+} cfg_cb_list_t;
+
 // This handles stuff like restarting audio pipelines, etc
 struct reload_event {
    char *key;
@@ -74,6 +81,9 @@ extern int cfg_get_int(const char *key, int def);
 //extern float cfg_get_float(const char *key, float def);
 //extern long cfg_get_long(const char *key, long def );
 extern unsigned int cfg_get_uint(const char *key, unsigned int def);
+
+///////////
+extern bool cfg_add_callback(const char *path, const char *section, bool (*cb)());
 
 /////////////
 extern reload_event_t *reload_events;

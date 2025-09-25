@@ -30,14 +30,78 @@ irc_message_t *irc_parse_message(const char *msg) {
       return NULL;
    }
 
-   irc_message_t *mp = malloc(sizeof(irc_message_t));
+   irc_message_t *mp = calloc(1, sizeof(*mp));
    if (!mp) {
       fprintf(stderr, "OOM in irc_parse_message\n");
       return NULL;
    }
-   memset(mp, 0, sizeof(irc_message_t));
 
-   return NULL;
+   const char *p = msg;
+   char *dup = strdup(msg);
+   if (!dup) {
+      free(mp);
+      return NULL;
+   }
+
+   // We’ll fill args here
+   char **argv = NULL;
+   int argc = 0;
+
+   char *s = dup;
+
+   // Prefix
+   if (*s == ':') {
+      s++;
+      char *space = strchr(s, ' ');
+      if (space) {
+         *space = '\0';
+      }
+
+      argv = realloc(argv, sizeof(char*) * (argc + 1));
+      argv[argc++] = strdup(s);
+      if (space) {
+         s = space + 1;
+      } else {
+         s = NULL;
+      }
+   }
+
+   // Now command + params
+   while (s && *s) {
+      while (*s == ' ') {
+         s++;   // skip spaces
+      }
+
+      if (!*s) {
+         break;
+      }
+
+      if (*s == ':') {
+         // Trailing param: rest of line is one arg
+         s++;
+         argv = realloc(argv, sizeof(char*) * (argc + 1));
+         argv[argc++] = strdup(s);
+         break;
+      } else {
+         char *space = strchr(s, ' ');
+         if (space) {
+            *space = '\0';
+         }
+
+         argv = realloc(argv, sizeof(char*) * (argc + 1));
+         argv[argc++] = strdup(s);
+         if (space) {
+            s = space + 1;
+         }
+         else s = NULL;
+      }
+   }
+
+   free(dup);
+
+   mp->argc = argc;
+   mp->argv = argv;
+   return mp;
 }
 
 bool irc_dispatch_message(irc_message_t *mp) {
@@ -46,8 +110,11 @@ bool irc_dispatch_message(irc_message_t *mp) {
       return true;
    }
 
+   Log(LOG_CRAZY, "irc.parser", "%s: Parser returned %d arguments: sender(%s) cmd(%s) arg1(%s) arg2(%s)", __FUNCTION__, mp->argc,
+       mp->argv[0], mp->argv[1], mp->argv[2]);
+
    if (!irc_callbacks) {
-      // XXX: cry about uninitialized callbacks
+      Log(LOG_CRIT, "irc.parser", "%s: no callbacks configured while searching for |%s|", __FUNCTION__, mp->argv[1]);
       return true;
    }
 
@@ -57,11 +124,12 @@ bool irc_dispatch_message(irc_message_t *mp) {
 
    irc_callback_t *p = irc_callbacks;
    while (p) {
-      if (strcasecmp(p->message, mp->args[1]) == 0) {
+      if (strcasecmp(p->message, mp->argv[1]) == 0) {
          if (p->callback) {
+            Log(LOG_DEBUG, "dispatcher", "Callback for %s is <%x>", mp->argv[1], p);
             p->callback(mp);
          } else {
-            Log(LOG_CRAZY, "dispatcher", "Callback in irc_callbacks:<%p> empty for %s", p, mp->args[1]);
+            Log(LOG_CRAZY, "dispatcher", "Callback in irc_callbacks:<%p> empty for %s", p, mp->argv[1]);
          }
       }
 
@@ -72,16 +140,21 @@ bool irc_dispatch_message(irc_message_t *mp) {
 
 bool irc_process_message(const char *msg) {
    irc_message_t *mp = irc_parse_message(msg);
-
-   if (mp) {
-      irc_dispatch_message(mp);
-
-      // release the memory used for the message
-      free(mp);
-   } else {
+   if (!mp) {
       Log(LOG_DEBUG, "irc.parser", "Failed parsing msg:<%p>: |%s|", msg, msg);
       return true;
    }
+
+   irc_dispatch_message(mp);
+
+   // Free memory used for the message
+   if (mp->argv) {
+      for (int i = 0; i < mp->argc; i++) {
+         free(mp->argv[i]);
+      }
+      free(mp->argv);
+   }
+   free(mp);
 
    return false;
 }

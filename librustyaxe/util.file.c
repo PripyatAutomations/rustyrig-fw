@@ -190,7 +190,7 @@ char *expand_path(const char *path) {
 
 // You MUST free this when done with it
 char *find_file_by_list(const char *files[], int file_count) {
-   Log(LOG_DEBUG, "core", "find_file_by_list: We have %d entries in set", file_count);
+   Log(LOG_CRAZY, "core", "%s: We have %d entries in set", __FUNCTION__, file_count);
 
    for (int i = 0; i < file_count; i++) {
       if (files[i]) {
@@ -200,21 +200,21 @@ char *find_file_by_list(const char *files[], int file_count) {
             continue;
          }
 
-         Log(LOG_DEBUG, "core", "ffbl: Trying %s", fullpath);
+         Log(LOG_CRAZY, "core", "%s: Trying %s", __FUNCTION__, fullpath);
 
          if (file_exists(fullpath)) {
-            Log(LOG_INFO, "core", "ffbl: Returning \"%s\"", fullpath);
+            Log(LOG_CRAZY, "core", "%s: Returning \"%s\"", __FUNCTION__, fullpath);
             return fullpath;
          } else {
-            Log(LOG_CRAZY, "core", "ffbl: file_exists(%s) returns false", fullpath);
+            Log(LOG_CRAZY, "core", "%s: file_exists(%s) returns false", __FUNCTION__, fullpath);
             free(fullpath);
  	    continue;
          }
       } else {
-         Log(LOG_WARN, "core", "ffbl: :( files[%d] is NULL in loop", i);
+         Log(LOG_WARN, "core", "%s: :( files[%d] is NULL in loop", __FUNCTION__, i);
       }
    }
 
-   Log(LOG_CRIT, "core", "ffbl: Couldn't find a suitable file");
+   Log(LOG_CRIT, "core", "%s: Couldn't find a suitable file", __FUNCTION__);
    return NULL;
 }

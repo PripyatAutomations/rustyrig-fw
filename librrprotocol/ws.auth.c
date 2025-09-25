@@ -36,7 +36,7 @@ bool ws_handle_client_auth_msg(struct mg_connection *c, dict *d) {
 
 #if	0
    if (!c || !d) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg mg_conn:<%x> msg:<%x>", c, d);
+      Log(LOG_WARN, "http.ws", "auth_msg: got msg mg_conn:<%p> msg:<%p>", c, d);
       return true;
    }
 
@@ -91,7 +91,7 @@ cleanup:
 
 bool ws_send_login(struct mg_connection *c, const char *login_user) {
    if (!c || !login_user) {
-      Log(LOG_DEBUG, "ws.auth", "send_login c:<%x> login_user:<%x> |%s|", c, login_user, login_user);
+      Log(LOG_DEBUG, "ws.auth", "send_login c:<%p> login_user:<%p> |%s|", c, login_user, login_user);
       return true;
    }
 
@@ -113,7 +113,7 @@ bool ws_send_login(struct mg_connection *c, const char *login_user) {
 // Hashes the user stored password with the server nonce and returns it
 bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passwd, const char *nonce) {
    if (!c || !user || !passwd || !nonce) {
-      Log(LOG_CRIT, "auth", "ws_send_passwd with invalid parameters, c:<%x> user:<%x> passwd:<%x> nonce:<%x>", c, user, passwd, nonce);
+      Log(LOG_CRIT, "auth", "ws_send_passwd with invalid parameters, c:<%p> user:<%p> passwd:<%p> nonce:<%p>", c, user, passwd, nonce);
       return true;
    }
 
@@ -136,7 +136,7 @@ bool ws_send_passwd(struct mg_connection *c, const char *user, const char *passw
 
 bool ws_send_logout(struct mg_connection *c, const char *user, const char *token) {
    if (!user || !token || !c) {
-      Log(LOG_DEBUG, "ws.auth", "send_logout c:<%x> user:<%x> |%s|", c, user, user);
+      Log(LOG_DEBUG, "ws.auth", "send_logout c:<%p> user:<%p> |%s|", c, user, user);
       return true;
    }
 
@@ -154,7 +154,7 @@ bool ws_send_logout(struct mg_connection *c, const char *user, const char *token
 
 bool ws_send_hello(struct mg_connection *c) {
    if (!c) {
-      Log(LOG_DEBUG, "ws.auth", "send_hello c:<%x>", c);
+      Log(LOG_DEBUG, "ws.auth", "send_hello c:<%p>", c);
       return true;
    }
    char msgbuf[512];

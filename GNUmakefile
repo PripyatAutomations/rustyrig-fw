@@ -31,6 +31,7 @@ ifeq (${PLATFORM},posix)
 LDFLAGS += -lgpiod
 endif
 
+extra_clean += ${librustyaxe} librustyaxe/irc-test
 include fwdsp/rules.mk
 include librustyaxe/rules.mk
 include librrprotocol/rules.mk
@@ -53,3 +54,6 @@ ${OBJ_DIR}/.stamp:
 	touch $@
 
 world: ${OBJ_DIR}/.stamp ${extra_build} ${bins}
+
+irc-test: ${librustyaxe}
+	${MAKE} -C librustyaxe ../bin/irc-test

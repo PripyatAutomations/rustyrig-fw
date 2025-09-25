@@ -65,7 +65,7 @@ int ws_subscribe_channel(http_client_t *cptr, const char *chan_uuid) {
 
    // XXX: Part of me wants to use subscribe for CREATE too...
    if (!lp) {
-      Log(LOG_CRAZY, "ws.media", "subscribe chan cptr:<%x> uuid: |%s|", cptr, chan_uuid);
+      Log(LOG_CRAZY, "ws.media", "subscribe chan cptr:<%p> uuid: |%s|", cptr, chan_uuid);
       return -1;
    }
 
@@ -161,7 +161,7 @@ mediachan_list_t *ws_find_channel_by_uuid(const char *chan_uuid) {
    while (lp) {
       if (lp->chan_uuid[0] != '\0' && strcasecmp(lp->chan_uuid, chan_uuid) == 0) {
          // This is our match
-         Log(LOG_CRAZY, "ws.media", "find chan by uuid: |%s| returning <%x>", chan_uuid, lp);
+         Log(LOG_CRAZY, "ws.media", "find chan by uuid: |%s| returning <%p>", chan_uuid, lp);
          return lp;
       }
       lp = lp->next;
@@ -178,7 +178,7 @@ mediachan_list_t *ws_find_channel_by_session(http_client_t *cptr, int chan_id) {
    mediachan_list_t *lp = ws_media_channels;
 
    if (!lp) {
-      Log(LOG_CRAZY, "ws.media", "find chan by session: cptr:<%x> id:%d", cptr, chan_id);
+      Log(LOG_CRAZY, "ws.media", "find chan by session: cptr:<%p> id:%d", cptr, chan_id);
       return NULL;
    }
 
@@ -194,7 +194,7 @@ mediachan_list_t *ws_find_channel_by_session(http_client_t *cptr, int chan_id) {
 
       while (sub) {
          if ((sub->cptr == cptr) && (sub->chan_id == chan_id)) {
-            Log(LOG_CRAZY, "ws.media", "find chan by session: cptr:<%x> id:%d", cptr, chan_id);
+            Log(LOG_CRAZY, "ws.media", "find chan by session: cptr:<%p> id:%d", cptr, chan_id);
             return lp;
          }
          sub = sub->next;

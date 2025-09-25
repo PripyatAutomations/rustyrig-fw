@@ -119,7 +119,7 @@ GtkWidget *create_vfo_box(void) {
 
 gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
    if (!vfo_box || vfo == '\0') {
-      Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%x> vfo |%c|", vfo_box, vfo);
+      Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%p> vfo |%c|", vfo_box, vfo);
       return NULL;
    }
 

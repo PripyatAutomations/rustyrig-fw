@@ -28,7 +28,7 @@ extern time_t now;
 
 bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
-      Log(LOG_DEBUG, "ws.chat", "handle_talk_msg: c:<%x> d:<%x>", c, d);
+      Log(LOG_DEBUG, "ws.chat", "handle_talk_msg: c:<%p> d:<%p>", c, d);
       return true;
    }
 
@@ -161,7 +161,7 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       }
       memset(cptr, 0, sizeof(struct rr_user));
       snprintf(cptr->name, sizeof(cptr->name), "%s", user);
-      Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%x>", user, cptr);
+      Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%p>", user, cptr);
 //      userlist_add_or_update(cptr);
 //      ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(ts), user);
    } else if (cmd && strcasecmp(cmd, "quit") == 0) {

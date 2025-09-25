@@ -89,7 +89,7 @@ char *compute_wire_password(const char *password, const char *nonce) {
    mg_sha1_ctx ctx;
 
    if (password == NULL || nonce == NULL) {
-      Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%x> or nonce<%x>", password, nonce);
+      Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%p> or nonce<%p>", password, nonce);
       return NULL;
    }
 
@@ -424,7 +424,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
 
    if (c == NULL || msg == NULL) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg:<%x> mg_conn:<%x>", msg, c);
+      Log(LOG_WARN, "http.ws", "auth_msg: got msg:<%p> mg_conn:<%p>", msg, c);
       return true;
    }
 
@@ -437,7 +437,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    if (msg->data.buf == NULL) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
+      Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%p> from %s:%d -- msg:<%p> with no data ptr", c, ip, port, msg);
       return true;
    }
 
@@ -462,11 +462,11 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
    if (strcasecmp(cmd, "login") == 0) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
-      Log(LOG_AUDIT, "auth", "Login request from user %s on mg_conn:<%x> from %s:%d", user, c, ip, port);
+      Log(LOG_AUDIT, "auth", "Login request from user %s on mg_conn:<%p> from %s:%d", user, c, ip, port);
 
       http_client_t *cptr = http_find_client_by_c(c);
       if (cptr == NULL) {
-         Log(LOG_CRIT, "auth", "Discarding login request on mg_conn:<%x> from %s:%d due to NULL cptr?!?!!?", c, ip, port);
+         Log(LOG_CRIT, "auth", "Discarding login request on mg_conn:<%p> from %s:%d due to NULL cptr?!?!!?", c, ip, port);
          dict_free(d);
          return true;
       }
@@ -505,7 +505,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             return true;
          }
       } else {
-         Log(LOG_CRIT, "auth.users", "login request has no cptr->user for cptr:<%x>?!", cptr);
+         Log(LOG_CRIT, "auth.users", "login request has no cptr->user for cptr:<%p>?!", cptr);
       }
       const char *jp = dict2json_mkstr(
          VAL_STR, "auth.cmd", "challenge",
@@ -514,10 +514,10 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          VAL_STR, "auth.token", cptr->token);
       mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
       free((char *)jp);
-      Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%x> with token |%s|", cptr->nonce, cptr, cptr->token);
+      Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%p> with token |%s|", cptr->nonce, cptr, cptr->token);
    } else if (strcasecmp(cmd, "logout") == 0 || strcasecmp(cmd, "quit") == 0) {
       http_client_t *cptr = http_find_client_by_c(c);
-      Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x>",
+      Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%p> mg_conn:<%p>",
           (cptr->chatname[0] != '\0' ? cptr->chatname : ""),
           cptr, c);
       ws_kick_client_by_c(c, "Logged out. 73!");
@@ -525,7 +525,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       bool guest = false;
 
       if (pass == NULL || token == NULL) {
-         Log(LOG_DEBUG, "auth", "auth pass command without password <%x> / token <%x>", pass, token);
+         Log(LOG_DEBUG, "auth", "auth pass command without password <%p> / token <%p>", pass, token);
          ws_kick_client_by_c(c, "auth.pass message incomplete/invalid. Goodbye");
          dict_free(d);
          return true;
@@ -581,7 +581,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
       temp_pw = compute_wire_password(up->pass, nonce);
       if (temp_pw == NULL) {
-         Log(LOG_WARN, "auth", "Got NULL return from compute_wire_password for mg_conn:<%x>, kicking!", c);
+         Log(LOG_WARN, "auth", "Got NULL return from compute_wire_password for mg_conn:<%p>, kicking!", c);
          dict_free(d);
          return true;
       }
@@ -647,7 +647,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // send a ping, XXX: this might be a duplicate, confirm?
          ws_send_ping(cptr);
 
-         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
+         Log(LOG_AUDIT, "auth", "User %s on cptr <%p> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
              cptr->chatname, cptr, ip, port, cptr->user->clones, cptr->user->max_clones, cptr->user->privs);
 
          // Send our capabilities
@@ -687,7 +687,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Send chat replay to the user
 //         chat_replay_send(cptr, channel);
       } else {
-         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> from IP %s:%d gave wrong password. Kicking!", cptr->user, cptr, ip, port);
+         Log(LOG_AUDIT, "auth", "User %s on cptr <%p> from IP %s:%d gave wrong password. Kicking!", cptr->user, cptr, ip, port);
          ws_kick_client(cptr, "Invalid login/password");
       }
       free(temp_pw);
@@ -777,7 +777,7 @@ bool is_elmer_online(void) {
          continue;
       }
       if (client_has_flag(curr, FLAG_ELMER)) {
-         Log(LOG_CRAZY, "auth", "is_elmer_online: returning cptr:<%x> - |%s|", curr, curr->chatname);
+         Log(LOG_CRAZY, "auth", "is_elmer_online: returning cptr:<%p> - |%s|", curr, curr->chatname);
          return true;
       }
       curr = curr->next;

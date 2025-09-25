@@ -40,7 +40,7 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
          // XXX: We should compare the data, only copying fields that changed?
          memcpy(c, newinfo, sizeof(*c));
          c->next = NULL;
-         Log(LOG_DEBUG, "userlist", "Updated entry at <%x> with contents of userinfo at <%x>", c, newinfo);
+         Log(LOG_DEBUG, "userlist", "Updated entry at <%p> with contents of userinfo at <%p>", c, newinfo);
          return true;
       }
       prev = c;
@@ -55,7 +55,7 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
 
    memcpy(n, newinfo, sizeof(struct rr_user));
    n->next = NULL;
-   Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%x> in userlist", newinfo->name, newinfo);
+   Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%p> in userlist", newinfo->name, newinfo);
 
    if (prev) {
       prev->next = n;
@@ -82,7 +82,7 @@ bool userlist_remove_by_name(const char *name) {
          } else {
             global_userlist = c->next;
          }
-         Log(LOG_DEBUG, "userlist", "Removing user %s at <%x>", name, c);
+         Log(LOG_DEBUG, "userlist", "Removing user %s at <%p>", name, c);
          free(c);
       }
       prev = c;
@@ -102,7 +102,7 @@ void userlist_clear_all(void) {
 
    while (c) {
       next = c->next;
-      Log(LOG_CRAZY, "userlist", "Clearing entry at <%x>", c);
+      Log(LOG_CRAZY, "userlist", "Clearing entry at <%p>", c);
       free(c);
       c = next;
    }

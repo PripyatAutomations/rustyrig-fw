@@ -55,7 +55,7 @@ rr_connection_t *connection_find(const char *server) {
 
    while (cptr) {
       if (strcasecmp(cptr->name, server) == 0) {
-         Log(LOG_CRAZY, "connman", "Found server |%s| at <%x>", server, cptr);
+         Log(LOG_CRAZY, "connman", "Found server |%s| at <%p>", server, cptr);
          server_name = strdup(server);
          return cptr;
       }
@@ -95,7 +95,7 @@ bool connection_remove(rr_connection_t *conn) {
 
 const char *get_server_property(const char *server, const char *prop) {
    if (!server || !prop) {
-      Log(LOG_CRIT, "ws", "get_server_prop with null server:<%x> or prop:<%x>");
+      Log(LOG_CRIT, "ws", "get_server_prop with null server:<%p> or prop:<%p>");
       return NULL;
    }
 

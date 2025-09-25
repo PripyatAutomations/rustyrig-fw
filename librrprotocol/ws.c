@@ -72,7 +72,7 @@ void ws_send_to_cptr(struct mg_connection *sender, http_client_t *cptr, struct m
 // Send to all logged in instances of the user
 void ws_send_to_name(struct mg_connection *sender, const char *username, struct mg_str *msg_data, int data_type) {
    if (!sender || !username || !msg_data) {
-      Log(LOG_CRIT, "ws", "ws_send_to_name passed incomplete data; sender:<%x>, username:<%x>, msg_data:<%x>", sender, username, msg_data);
+      Log(LOG_CRIT, "ws", "ws_send_to_name passed incomplete data; sender:<%p>, username:<%p>, msg_data:<%p>", sender, username, msg_data);
       return;
    }
 
@@ -119,7 +119,7 @@ bool ws_kick_by_uid(int uid, const char *reason) {
 bool ws_kick_client(http_client_t *cptr, const char *reason) {
    // skip freeing resources if no client structure
    if (!cptr || !cptr->conn) {
-      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%x> has mg_conn <%x> and is invalid", cptr, (cptr ? cptr->conn : NULL));
+      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%p> has mg_conn <%p> and is invalid", cptr, (cptr ? cptr->conn : NULL));
       return true;
    }
 
@@ -184,7 +184,7 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    char *ts = NULL;
 
    if (!c || !msg || !msg->data.buf) {
-      Log(LOG_CRAZY, "http.ws", "ws_handle_pong got msg <%x> c <%x> data <%x>", msg, c, (msg ? msg->data.buf : NULL));
+      Log(LOG_CRAZY, "http.ws", "ws_handle_pong got msg <%p> c <%p> data <%p>", msg, c, (msg ? msg->data.buf : NULL));
       rv = true;
       goto cleanup;
    }
@@ -225,14 +225,14 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    time_t ts_t = strtoll(ts, &endptr, 10);
 
    if (errno == ERANGE || ts_t < 0 || ts_t > LONG_MAX || *endptr != '\0') {
-      Log(LOG_WARN, "http.pong", "Got invalid ts |%s| from client <%x>", ts, c);
+      Log(LOG_WARN, "http.pong", "Got invalid ts |%s| from client <%p>", ts, c);
       rv = true;
       goto cleanup;
    }
 
    time_t ping_expiry = ts_t + HTTP_PING_TIME;
    if ((ping_expiry) < now) {
-      Log(LOG_AUDIT, "http.pong", "Late ping for mg_conn:<%x> on cptr:<%x> from %s:%d ts: %li + %li (timeout) < now %li", c, cptr, ip, port, ts_t, HTTP_PING_TIMEOUT, now);
+      Log(LOG_AUDIT, "http.pong", "Late ping for mg_conn:<%p> on cptr:<%p> from %s:%d ts: %li + %li (timeout) < now %li", c, cptr, ip, port, ts_t, HTTP_PING_TIMEOUT, now);
       ws_kick_client(cptr, "Network Error: PING expired");
       rv = true;
       goto cleanup;
@@ -256,7 +256,7 @@ static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t
    http_client_t *cptr = http_find_client_by_c(c);
 
    if (!cptr) {
-      Log(LOG_CRIT, "ws.binframe", "Binary frame from client at <%x> with no http session. Ignoring!");
+      Log(LOG_CRIT, "ws.binframe", "Binary frame from client at <%p> with no http session. Ignoring!");
       return true;
    }
 
@@ -306,7 +306,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    // Update the last-heard time for the user
    http_client_t *cptr = http_find_client_by_c(c);
    if (!cptr) {
-      Log(LOG_CRAZY, "ws", "message from unauthenticated user at c:<%x>", c);
+      Log(LOG_CRAZY, "ws", "message from unauthenticated user at c:<%p>", c);
       return true;
    }
    cptr->last_heard = now;
@@ -324,7 +324,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       }
       goto cleanup;
    } else if (hello) {
-      Log(LOG_DEBUG, "ws", "Got HELLO from client at mg_conn:<%x>: %s", c, hello);
+      Log(LOG_DEBUG, "ws", "Got HELLO from client at mg_conn:<%p>: %s", c, hello);
       cptr->cli_version = malloc(HTTP_UA_LEN);
 
       if (cptr->cli_version) {
@@ -371,7 +371,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            char def_codec[5];
            memset(def_codec, 0, 5);
            snprintf(def_codec, sizeof(def_codec), "%s", common);
-           Log(LOG_INFO, "ws.media", "Client %s <%x> supported codecs: %s, my preferred codecs: %s, common codecs: %s, negotiated default codec: %s",
+           Log(LOG_INFO, "ws.media", "Client %s <%p> supported codecs: %s, my preferred codecs: %s, common codecs: %s, negotiated default codec: %s",
               cptr->chatname, cptr, media_codecs, cfg_get("codecs.allowed"), common, def_codec);
            char msgbuf[HTTP_WS_MAX_MSG+1];
            const char *jp = dict2json_mkstr(
@@ -396,7 +396,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
         char *media_channel = dict_get(d, "media.channel", NULL);
 
         if (media_codec && strlen(media_codec) == 4) {
-           Log(LOG_DEBUG, "ws.media", "Selected %s codec %s.%s for user %s at cptr:<%x>", 
+           Log(LOG_DEBUG, "ws.media", "Selected %s codec %s.%s for user %s at cptr:<%p>", 
               media_channel,  media_codec, media_channel, cptr->chatname, cptr);
            struct fwdsp_subproc *codec_tx_subproc = NULL;
            struct fwdsp_subproc *codec_rx_subproc = NULL;
@@ -412,7 +412,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
                  memset(cptr->codec_tx, 0, sizeof(cptr->codec_tx));
                  memcpy(cptr->codec_tx, media_codec, 4);
                  codec_tx_subproc = fwdsp_find_or_create(cptr->codec_tx, FW_IO_STDIO, true);
-                 Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.tx at %x", cptr->codec_tx, codec_tx_subproc);
+                 Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.tx at %p", cptr->codec_tx, codec_tx_subproc);
               } else if (strcasecmp(media_channel, "rx") == 0) {
                  if (cptr->codec_rx[0] != '\0') {
                     // XXX: Decrease refcnt on old codec
@@ -420,13 +420,13 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
                  memset(cptr->codec_rx, 0, sizeof(cptr->codec_rx));
                  memcpy(cptr->codec_rx, media_codec, 4);
                  codec_rx_subproc = fwdsp_find_or_create(cptr->codec_rx, FW_IO_STDIO, false);
-                 Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.rx at %x", cptr->codec_rx, codec_rx_subproc);
+                 Log(LOG_DEBUG, "ws.media", "Started fwdsp %s.rx at %p", cptr->codec_rx, codec_rx_subproc);
               } else if (strcasecmp(media_channel, "video-rx") == 0) {
                  // NYI
               } else if (strcasecmp(media_channel, "video-tx") == 0) {
                  // NYI
               } else {
-                 Log(LOG_CRIT, "ws.media", "invalid channel '%s' for codec message from cptr:<%x>", media_channel, cptr);
+                 Log(LOG_CRIT, "ws.media", "invalid channel '%s' for codec message from cptr:<%p>", media_channel, cptr);
               }
            }
 #endif
@@ -451,7 +451,7 @@ cleanup:
 //
 bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    if (!c || !msg || !msg->data.buf) {
-      Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%x> c <%x> data <%x>", msg, c, (msg ? msg->data.buf : NULL));
+      Log(LOG_DEBUG, "http.ws", "ws_handle got msg <%p> c <%p> data <%p>", msg, c, (msg ? msg->data.buf : NULL));
       return true;
    }
 
@@ -481,7 +481,7 @@ bool ws_send_ping(http_client_t *cptr) {
    struct mg_connection *c = cptr->conn;
 
    if (!cptr || !cptr->conn) {
-      Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%x> has mg_conn:<%x> and is invalid", cptr, (cptr ? cptr->conn : NULL));
+      Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%p> has mg_conn:<%p> and is invalid", cptr, (cptr ? cptr->conn : NULL));
       return true;
    }
 
@@ -491,10 +491,10 @@ bool ws_send_ping(http_client_t *cptr) {
 
    // only bother making noise if the first attempt failed, send the first ping to crazy level log
    if (cptr->ping_attempts > 1) {
-      Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
+      Log(LOG_DEBUG, "ping", "sending ping to user %s on cptr:<%p> with ts:[%li] attempt %d",
           cptr->chatname, cptr, now, cptr->ping_attempts);
    } else {
-      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%x> with ts:[%li] attempt %d",
+      Log(LOG_CRAZY, "ping", "sending ping to user %s on cptr:<%p> with ts:[%li] attempt %d",
           cptr->chatname, cptr, now, cptr->ping_attempts);
    }
 
