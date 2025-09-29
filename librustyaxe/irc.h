@@ -1,6 +1,8 @@
 #if	!defined(__librustyaxe_irc_h)
 #define	__librustyaxe_irc_h
 
+#include <librustyaxe/list.h>
+
 // common IRC structures
 #include <librustyaxe/irc.struct.h>
 

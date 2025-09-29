@@ -189,7 +189,6 @@ bool debug_filter(const char *subsys, logpriority_t msg_level) {
       if (best->level <= msg_level) {
          return true;
       }
-      return false;
    }
 
    return false;

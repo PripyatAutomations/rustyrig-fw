@@ -1,6 +1,8 @@
 #if	!defined(__librustyaxe_list_h)
 #define __librustyaxe_list_h
 
+#include <stdbool.h>
+
 enum rrlist_direction {
    LIST_TAIL = 0,
    LIST_HEAD

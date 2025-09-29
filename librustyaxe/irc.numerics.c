@@ -3,73 +3,108 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <librustyaxe/irc.h>
+#include <librustyaxe/core.h>
+
+bool irc_builtin_num_print(irc_client_t *cptr, irc_message_t *mp) {
+   if (!mp || mp->argc <= 0) {
+      return false;
+   }
+
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 0; i < mp->argc; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos,
+                       "%s%s", (i > 0 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[argc: %d] %s *** %s ***", mp->argc, (mp->argc > 0 ? mp->argv[1] : "?"), buf);
+
+   return false;
+}
+
+bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
+   Log(LOG_DEBUG, "irc", "[%d] *** %s ***", mp->argc, mp->argv[2]);
+   cptr->connected = true;
+   return false;
+}
+
+bool irc_builtin_num376(irc_client_t *cptr, irc_message_t *mp) {
+   Log(LOG_DEBUG, "irc", "End of MOTD");
+   dprintf(cptr->fd, "JOIN &localrig\r\n");
+   dprintf(cptr->fd, "JOIN #rustyrig\r\n");
+
+   return false;
+}
 
 const irc_numeric_t irc_numerics[] = {
    // --- Connection / welcome ---
-   { 001, "RPL_WELCOME",   "Welcome to the Internet Relay Network",   .cb = NULL },
-   { 002, "RPL_YOURHOST",  "Your host information",                   .cb = NULL },
-   { 003, "RPL_CREATED",   "Server creation time",                    .cb = NULL },
-   { 004, "RPL_MYINFO",    "Server info and supported modes",         .cb = NULL },
-   { 005, "RPL_ISUPPORT",  "Supported features (IRCv3 tokens)",       .cb = NULL },
+   { .code =  1, .name = "RPL_WELCOME",            .desc = "Welcome to the Internet Relay Network",   .cb = irc_builtin_num001 },
+   { .code =  2, .name = "RPL_YOURHOST",           .desc = "Your host information",                   .cb = irc_builtin_num_print },
+   { .code =  3, .name = "RPL_CREATED",            .desc = "Server creation time",                    .cb = irc_builtin_num_print },
+   { .code =  4, .name = "RPL_MYINFO",             .desc = "Server info and supported modes",         .cb = irc_builtin_num_print },
+   { .code =  5, .name = "RPL_ISUPPORT",           .desc = "Supported features (IRCv3 tokens)",       .cb = irc_builtin_num_print },
 
    // --- Channel / names ---
-   { 322, "RPL_LIST",      "Channel list entry",                      .cb = NULL },
-   { 323, "RPL_LISTEND",   "End of channel list",                     .cb = NULL },
-   { 324, "RPL_CHANNELMODEIS", "Channel modes",                       .cb = NULL },
-   { 329, "RPL_CREATIONTIME",  "Channel creation time",                .cb = NULL },
-   { 332, "RPL_TOPIC",     "Channel topic",                           .cb = NULL },
-   { 333, "RPL_TOPICWHOTIME", "Topic set by/at",                      .cb = NULL },
-   { 353, "RPL_NAMREPLY",  "Names in a channel",                      .cb = NULL },
-   { 366, "RPL_ENDOFNAMES","End of NAMES list",                       .cb = NULL },
+   { .code =  322, .name = "RPL_LIST",             .desc = "Channel list entry",                      .cb = NULL },
+   { .code =  323, .name = "RPL_LISTEND",          .desc = "End of channel list",                     .cb = NULL },
+   { .code =  324, .name = "RPL_CHANNELMODEIS",    .desc = "Channel modes",                           .cb = NULL },
+   { .code =  329, .name = "RPL_CREATIONTIME",     .desc = "Channel creation time",                   .cb = NULL },
+   { .code =  332, .name = "RPL_TOPIC",            .desc = "Channel topic",                           .cb = NULL },
+   { .code =  333, .name = "RPL_TOPICWHOTIME",     .desc = "Topic set by/at",                         .cb = NULL },
+   { .code =  353, .name = "RPL_NAMREPLY",         .desc = "Names in a channel",                      .cb = NULL },
+   { .code =  366, .name = "RPL_ENDOFNAMES",       .desc = "End of NAMES list",                       .cb = NULL },
 
    // --- WHO / WHOIS ---
-   { 311, "RPL_WHOISUSER", "WHOIS: user info",                        .cb = NULL },
-   { 312, "RPL_WHOISSERVER","WHOIS: server info",                     .cb = NULL },
-   { 313, "RPL_WHOISOPERATOR","WHOIS: operator status",               .cb = NULL },
-   { 317, "RPL_WHOISIDLE", "WHOIS: idle time",                        .cb = NULL },
-   { 318, "RPL_ENDOFWHOIS","End of WHOIS reply",                      .cb = NULL },
-   { 319, "RPL_WHOISCHANNELS","WHOIS: channels",                      .cb = NULL },
-   { 352, "RPL_WHOREPLY",  "WHO reply",                               .cb = NULL },
-   { 315, "RPL_ENDOFWHO",  "End of WHO reply",                        .cb = NULL },
+   { .code =  311, .name = "RPL_WHOISUSER",        .desc = "WHOIS: user info",                        .cb = NULL },
+   { .code =  312, .name = "RPL_WHOISSERVER",      .desc = "WHOIS: server info",                      .cb = NULL },
+   { .code =  313, .name = "RPL_WHOISOPERATOR",    .desc = "WHOIS: operator status",                  .cb = NULL },
+   { .code =  317, .name = "RPL_WHOISIDLE",        .desc = "WHOIS: idle time",                        .cb = NULL },
+   { .code =  318, .name = "RPL_ENDOFWHOIS",       .desc = "End of WHOIS reply",                      .cb = NULL },
+   { .code =  319, .name = "RPL_WHOISCHANNELS",    .desc = "WHOIS: channels",                         .cb = NULL },
+   { .code =  352, .name = "RPL_WHOREPLY",         .desc = "WHO reply",                               .cb = NULL },
+   { .code =  315, .name = "RPL_ENDOFWHO",         .desc = "End of WHO reply",                        .cb = NULL },
 
    // --- Server / MOTD ---
-   { 375, "RPL_MOTDSTART", "MOTD start",                              .cb = NULL },
-   { 372, "RPL_MOTD",      "MOTD line",                               .cb = NULL },
-   { 376, "RPL_ENDOFMOTD", "End of MOTD",                             .cb = NULL },
+   { .code =  375, .name = "RPL_MOTDSTART",        .desc = "MOTD start",                              .cb = NULL },
+   { .code =  372, .name = "RPL_MOTD",             .desc = "MOTD line",                               .cb = NULL },
+   { .code =  376, .name = "RPL_ENDOFMOTD",        .desc = "End of MOTD",                             .cb = irc_builtin_num376 },
 
    // --- Errors ---
-   { 401, "ERR_NOSUCHNICK","No such nick/channel",                    .cb = NULL },
-   { 402, "ERR_NOSUCHSERVER","No such server",                        .cb = NULL },
-   { 403, "ERR_NOSUCHCHANNEL","No such channel",                      .cb = NULL },
-   { 404, "ERR_CANNOTSENDTOCHAN","Cannot send to channel",            .cb = NULL },
-   { 405, "ERR_TOOMANYCHANNELS","Too many channels",                  .cb = NULL },
-   { 421, "ERR_UNKNOWNCOMMAND","Unknown command",                     .cb = NULL },
-   { 432, "ERR_ERRONEUSNICKNAME","Erroneous nickname",                .cb = NULL },
-   { 433, "ERR_NICKNAMEINUSE","Nickname already in use",              .cb = NULL },
-   { 436, "ERR_NICKCOLLISION","Nickname collision",                   .cb = NULL },
-   { 451, "ERR_NOTREGISTERED","You have not registered",              .cb = NULL },
-   { 461, "ERR_NEEDMOREPARAMS","Not enough parameters",               .cb = NULL },
-   { 462, "ERR_ALREADYREGISTRED","You may not reregister",            .cb = NULL },
-   { 464, "ERR_PASSWDMISMATCH","Password incorrect",                  .cb = NULL },
-   { 465, "ERR_YOUREBANNEDCREEP","You are banned from this server",  .cb = NULL },
-   { 471, "ERR_CHANNELISFULL","Channel is full",                      .cb = NULL },
-   { 473, "ERR_INVITEONLYCHAN","Invite-only channel",                 .cb = NULL },
-   { 474, "ERR_BANNEDFROMCHAN","Banned from channel",                 .cb = NULL },
-   { 475, "ERR_BADCHANNELKEY","Bad channel key",                      .cb = NULL },
-   { 482, "ERR_CHANOPRIVSNEEDED","Channel operator privileges needed",.cb = NULL },
-   { 491, "ERR_NOOPERHOST","No O-lines for your host",                .cb = NULL },
+   { .code =  401, .name = "ERR_NOSUCHNICK",       .desc = "No such nick/channel",                    .cb = NULL },
+   { .code =  402, .name = "ERR_NOSUCHSERVER",     .desc = "No such server",                          .cb = NULL },
+   { .code =  403, .name = "ERR_NOSUCHCHANNEL",    .desc = "No such channel",                         .cb = NULL },
+   { .code =  404, .name = "ERR_CANNOTSENDTOCHAN", .desc = "Cannot send to channel",                  .cb = NULL },
+   { .code =  405, .name = "ERR_TOOMANYCHANNELS",  .desc = "Too many channels",                       .cb = NULL },
+   { .code =  421, .name = "ERR_UNKNOWNCOMMAND",   .desc = "Unknown command",                         .cb = NULL },
+   { .code =  432, .name = "ERR_ERRONEUSNICKNAME", .desc = "Erroneous nickname",                      .cb = NULL },
+   { .code =  433, .name = "ERR_NICKNAMEINUSE",    .desc = "Nickname already in use",                 .cb = NULL },
+   { .code =  436, .name = "ERR_NICKCOLLISION",    .desc = "Nickname collision",                      .cb = NULL },
+   { .code =  451, .name = "ERR_NOTREGISTERED",    .desc = "You have not registered",                 .cb = NULL },
+   { .code =  461, .name = "ERR_NEEDMOREPARAMS",   .desc = "Not enough parameters",                   .cb = NULL },
+   { .code =  462, .name = "ERR_ALREADYREGISTRED", .desc = "You may not reregister",                  .cb = NULL },
+   { .code =  464, .name = "ERR_PASSWDMISMATCH",   .desc = "Password incorrect",                      .cb = NULL },
+   { .code =  465, .name = "ERR_YOUREBANNEDCREEP", .desc = "You are banned from this server",         .cb = NULL },
+   { .code =  471, .name = "ERR_CHANNELISFULL",    .desc = "Channel is full",                         .cb = NULL },
+   { .code =  473, .name = "ERR_INVITEONLYCHAN",   .desc = "Invite-only channel",                     .cb = NULL },
+   { .code =  474, .name = "ERR_BANNEDFROMCHAN",   .desc = "Banned from channel",                     .cb = NULL },
+   { .code =  475, .name = "ERR_BADCHANNELKEY",    .desc = "Bad channel key",                         .cb = NULL },
+   { .code =  482, .name = "ERR_CHANOPRIVSNEEDED", .desc = "Channel operator privileges needed",      .cb = NULL },
+   { .code =  491, .name = "ERR_NOOPERHOST",       .desc = "No O-lines for your host",                .cb = NULL },
 
    // --- IRCv3 / extensions ---
-   { 900, "RPL_LOGGEDIN",   "SASL authentication successful",         .cb = NULL },
-   { 901, "RPL_LOGGEDOUT",  "SASL logged out",                        .cb = NULL },
-   { 902, "ERR_NICKLOCKED", "SASL nick is locked",                    .cb = NULL },
-   { 903, "RPL_SASLSUCCESS","SASL auth success (deprecated alias)",   .cb = NULL },
-   { 904, "ERR_SASLFAIL",   "SASL authentication failed",             .cb = NULL },
-   { 905, "ERR_SASLTOOLONG","SASL message too long",                  .cb = NULL },
-   { 906, "ERR_SASLABORTED","SASL authentication aborted",            .cb = NULL },
-   { 907, "ERR_SASLALREADY","SASL already authenticated",             .cb = NULL },
-   { 908, "RPL_SASLMECHS",  "Available SASL mechanisms",              .cb = NULL },
-
-   { 0, .cb = NULL, .cb = NULL, .cb = NULL } // terminator
+   { .code =  900, .name = "RPL_LOGGEDIN",         .desc = "SASL authentication successful",          .cb = NULL },
+   { .code =  901, .name = "RPL_LOGGEDOUT",        .desc = "SASL logged out",                         .cb = NULL },
+   { .code =  902, .name = "ERR_NICKLOCKED",       .desc = "SASL nick is locked",                     .cb = NULL },
+   { .code =  903, .name = "RPL_SASLSUCCESS",      .desc = "SASL auth success (deprecated alias)" ,   .cb = NULL },
+   { .code =  904, .name = "ERR_SASLFAIL",         .desc = "SASL authentication failed",              .cb = NULL },
+   { .code =  905, .name = "ERR_SASLTOOLONG",      .desc = "SASL message too long",                   .cb = NULL },
+   { .code =  906, .name = "ERR_SASLABORTED",      .desc = "SASL authentication aborted",             .cb = NULL },
+   { .code =  907, .name = "ERR_SASLALREADY",      .desc = "SASL already authenticated",              .cb = NULL },
+   { .code =  908, .name = "RPL_SASLMECHS",        .desc = "Available SASL mechanisms",               .cb = NULL },
+   { .code =  0,   .name = NULL,                   .desc = NULL ,                                     .cb = NULL } // terminator
 };

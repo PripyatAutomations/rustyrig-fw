@@ -13,15 +13,14 @@
 #include <sys/socket.h>
 #include <librustyaxe/irc.struct.h>
 
-#define	HOSTLEN	256
-#define	NETLEN	64
-#define	USERLEN	16
-#define	NICKLEN	48
-#define	PASSLEN 128
-
+#define	IRC_MSGLEN	1024		// extended for IRCv3
+#define	NICKLEN		48
+#define	PASSLEN 	128
+#define	USERLEN		16
+#define	HOSTLEN		256
+#define	NETLEN		64
 #define	RECVQLEN	16384		// read, but unprocessed data from the server
 #define	SENDQLEN	16384		// data waiting to be sent to the server
-
 
 typedef struct {
    char mode;          // mode letter, e.g. 'o', 'v', 'k'
@@ -33,6 +32,7 @@ typedef struct {
 typedef struct irc_message {
    int    argc;				// number of arguments
    char **argv;
+   char  *prefix;			// server prefix, if given
 } irc_message_t;
 
 typedef struct server_cfg {
@@ -50,10 +50,13 @@ typedef struct server_cfg {
 typedef struct irc_client {
    server_cfg_t *server;
    bool		 connected;		// is it connected?
-   char          nick[NICKLEN+1];
+   bool		 is_server;		// is this a server? If so, we'll send relayed commands to it
+   char          nick[NICKLEN + 1];
+   char          user[USERLEN + 1];
+   char          hostname[HOSTLEN + 1];	// hostname/servername
    int		 fd;			// socket fd
-   char		 recvq[RECVQLEN+1];
-   char          sendq[SENDQLEN+1];
+   char		 recvq[RECVQLEN + 1];
+   char          sendq[SENDQLEN + 1];
    ev_io io_watcher;
 } irc_client_t;
 
@@ -61,19 +64,22 @@ typedef bool (*irc_command_cb)(irc_client_t *cptr, irc_message_t *mp);
 
 // XXX: we need to merge this into irc_command_cb
 typedef struct irc_callback {
-   char *message;			// IRC command
+   char *cmd;				// IRC command
+   int  numeric;			// IRC numeric
+   char *desc;
    int	min_args_client;		// Minimum args from a client
    int	min_args_server;		// Minimum args from a server
    int  max_args_client;		// Maximum args from a client
    int	max_args_server;		// Maximum args from a server
-   bool (*callback)();			// callback
+   irc_command_cb  cb;
+   bool		  relayed;		// is this message to be sent to other links?
    struct irc_callback *next;
 } irc_callback_t;
-
 
 typedef struct {
    const char     *name;
    const char     *desc;
+   bool		  relayed;		// is this message to be sent to other links?
    irc_command_cb  cb;
 } irc_command_t;
 
@@ -81,13 +87,12 @@ typedef struct {
    int code;
    const char *name;
    const char *desc;
-   bool (*cb)(const irc_message_t *msg);
+   irc_command_cb  cb;
 } irc_numeric_t;
 
 typedef struct {
    const char *name;
    const char *desc;
 } irc_cap_t;
-
 
 #endif	// !defined(__libirc_struct_h)

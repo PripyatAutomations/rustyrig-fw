@@ -29,8 +29,7 @@ ev_io stdin_watcher;
 ev_timer timeout_watcher;
 
 server_cfg_t *server_list = NULL;
-rrlist_t *client_connections = NULL;
-
+rrlist_t *irc_client_conns = NULL;
 const char *configs[] = {
    "~/.config/irc-test.cfg"
 };
@@ -222,13 +221,17 @@ bool autoconnect(void) {
                  if (!prev) {
                      // insert at head
                      node->next = temp_list;
-                     if (temp_list) temp_list->prev = node;
+                     if (temp_list) {
+                        temp_list->prev = node;
+                     }
                      temp_list = node;
                  } else {
                      // insert after prev
                      node->next = prev->next;
                      node->prev = prev;
-                     if (prev->next) prev->next->prev = node;
+                     if (prev->next) {
+                        prev->next->prev = node;
+                     }
                      prev->next = node;
                  }
              }
@@ -242,14 +245,12 @@ bool autoconnect(void) {
                  (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
              irc_client_t *cli;
-
              if (cli = irc_cli_connect(srv)) {
                 // Add to the connection list
-                Log(LOG_INFO, "connman", "test connect to %s", srv->host);
+                rrlist_add(&irc_client_conns, cli, LIST_TAIL);
              }
              node = node->next;
          }
-
          sp = strtok(NULL, " ,");
       }
       free(tv);
@@ -262,7 +263,6 @@ bool autoconnect(void) {
 int main(int argc, char **argv) {
    now = time(NULL);
    char *fullpath = NULL;
-
 
    Log(LOG_INFO, "core", "irc-test starting");
 
@@ -286,6 +286,10 @@ int main(int argc, char **argv) {
    logger_init((logfile ? logfile : "irc-test.log"));
    free((char *)logfile);
 
+   // XXX: These need to go into the irc_init() or irc_client_init/irc_server_init functions as appropriate!
+   irc_register_default_callbacks();
+   irc_register_default_numeric_callbacks();
+
    const char *debug = cfg_get_exp("debug.sockets");
    if (debug && parse_bool(debug)) {
       mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
@@ -304,6 +308,8 @@ int main(int argc, char **argv) {
 
    // XXX: this needs moved to main loop and modified to check if each network has a connection
    autoconnect();
+   irc_set_conn_pool(irc_client_conns);
+
    while (!dying) {
       ev_run(loop, 0);
    }

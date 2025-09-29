@@ -90,26 +90,30 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
 static void irc_io_cb(EV_P_ ev_io *w, int revents) {
     irc_client_t *cptr = (irc_client_t *)(((char*)w) - offsetof(irc_client_t, io_watcher));
 
+    // is this right?
     if (revents & EV_WRITE) {
-        Log(LOG_INFO, "irc", "connected to %s:%d",
-            cptr->server->host, cptr->server->port);
+       if (!cptr->connected) {
+          Log(LOG_INFO, "irc", "connected to %s:%d",
+              cptr->server->host, cptr->server->port);
 
-        // Stop watching for write, continue reading
-        ev_io_set(w, cptr->fd, EV_READ);
+          // Stop watching for write, continue reading
+          ev_io_set(w, cptr->fd, EV_READ);
 
-        // Send PASS if configured
-        if (cptr->server->pass[0]) {
-            dprintf(cptr->fd, "PASS %s\r\n", cptr->server->pass);
-        }
+          // Send PASS if configured
+          if (cptr->server->pass[0]) {
+              dprintf(cptr->fd, "PASS %s\r\n", cptr->server->pass);
+          }
 
-        // Send NICK
-        dprintf(cptr->fd, "NICK %s\r\n", cptr->nick);
+          // Send NICK
+          dprintf(cptr->fd, "NICK %s\r\n", cptr->nick);
 
-        // Send USER: ident, mode=0, unused=*, realname=nick
-        const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
-        dprintf(cptr->fd, "USER %s 0 * :%s\r\n", ident, cptr->nick);
-
-        cptr->connected = true;
+          // Send USER: ident, mode=0, unused=*, realname=nick
+          const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
+          dprintf(cptr->fd, "USER %s 0 * :%s\r\n", ident, cptr->nick);
+          cptr->connected = true;
+       } else {
+          Log(LOG_DEBUG, "irc", "already connected");
+       }
     }
 
     if (revents & EV_READ) {
@@ -139,7 +143,7 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
             *line = '\0';  // terminate the line
 
             // Parse and dispatch the line
-            irc_process_message(cptr->recvq);
+            irc_process_message(cptr, cptr->recvq);
 
             // Shift remaining data to front
             size_t rem = strlen(line + 2);

@@ -42,7 +42,9 @@ irc_mode_t *irc_find_cmode(char c) {
    irc_mode_t *modes = irc_channel_modes;
 
    for (; modes->mode; modes++) {
-      if (modes->mode == c) return modes;
+      if (modes->mode == c) {
+         return modes;
+      }
    }
    return NULL;
 }
@@ -51,7 +53,9 @@ irc_mode_t *irc_find_umode(char c) {
    irc_mode_t *modes = irc_user_modes;
 
    for (; modes->mode; modes++) {
-      if (modes->mode == c) return modes;
+      if (modes->mode == c) {
+         return modes;
+      }
    }
    return NULL;
 }
