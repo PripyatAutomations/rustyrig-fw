@@ -44,21 +44,25 @@ librustyaxe-pre:
 	mkdir -p ${BUILD_DIR}/librustyaxe
 
 ${librustyaxe}: librustyaxe-pre ${real_librustyaxe_objs} ${librustyaxe_headers} GNUmakefile
+	@${RM} -f $@
 	@echo "[link] $@ from $(words ${real_librustyaxe_objs}) objects"
 	@${CC} ${LDFLAGS} -lm -lev -fPIC -shared -o $@ ${real_librustyaxe_objs} || exit 2
 
 ${BUILD_DIR}/librustyaxe/%.o:librustyaxe/%.c GNUmakefile ${librustyaxe_headers}
-	@echo "[compile] $< => $@"
 	@${RM} $@
+	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS} -o $@ -c $< || exit 2
 
 #########
 
 bin/irc-test: ${BUILD_DIR}/irc-test.o ${librustyaxe} ${libmongoose}
+	@${RM} $@
 	$(CC) $(LDFLAGS) -L. -o $@ $< -lrustyaxe -lm -lmongoose -lreadline -lev
 
 ${BUILD_DIR}/irc-test.o: librustyaxe/irc-test.c $(wildcard *.h)
-	$(CC) $(CFLAGS) -I. -I.. -o $@ -c $<
+	@${RM} $@
+	@echo "[compile] $< => $@"
+	@$(CC) $(CFLAGS) -I. -I.. -o $@ -c $<
 
 extra_clean += irc-test ${BUILD_DIR}/irc-test.o
 

@@ -30,6 +30,42 @@ ev_timer timeout_watcher;
 
 server_cfg_t *server_list = NULL;
 rrlist_t *irc_client_conns = NULL;
+
+typedef struct cli_command {
+   char *cmd;
+   char *desc;
+   bool (*cb)(const char *cmd);
+} cli_command_t;
+
+bool cli_help(const char *cmd) {
+   return false;
+}
+
+bool cli_join(const char *cmd) {
+   return false;
+}
+
+bool cli_me(const char *cmd) {
+   return false;
+}
+
+bool cli_part(const char *cmd) {
+   return false;
+}
+
+bool cli_quit(const char *cmd) {
+   return false;
+}
+
+cli_command_t cli_commands[] = {
+   { .cmd = "/help", .cb = cli_help, .desc = "Show help message" },
+   { .cmd = "/join", .cb = cli_join, .desc = "Join a channel" },
+   { .cmd = "/me",   .cb = cli_join, .desc = "Send an action to the current channel" },
+   { .cmd = "/part", .cb = cli_join, .desc = "leave a channel" },
+   { .cmd = "/quit", .cb = cli_quit, .desc = "Exit the program" },
+   { .cmd = NULL,    .cb = NULL, .desc = NULL }
+};
+
 const char *configs[] = {
    "~/.config/irc-test.cfg"
 };

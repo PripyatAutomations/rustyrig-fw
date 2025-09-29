@@ -211,7 +211,7 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    if (!nm) {
-      Log(LOG_CRAZY, "dispatcher", "Matched %d of %d callbacks for %s", nm, nc, mp->argv[0]);
+      Log(LOG_DEBUG, "dispatcher", "Matched %d of %d callbacks for %s", nm, nc, mp->argv[0]);
    }
 
    return false;
