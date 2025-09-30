@@ -17,6 +17,7 @@
 #include <librustyaxe/module.h>
 #include <librustyaxe/posix.h>
 #include <librustyaxe/ringbuffer.h>
+#include <librustyaxe/tui.h>
 #include <librustyaxe/util.file.h>
 #include <librustyaxe/util.math.h>
 #include <librustyaxe/util.string.h>

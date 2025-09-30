@@ -4,12 +4,13 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#define LOG_LINES 10
+#define LOG_LINES 300
 #define STATUS_LINES 1
 #define STATUS_LEN 256
 
-extern void add_log(const char *msg);
-extern bool update_status(const char *status);
+extern void add_log(const char *fmt, ...);
+extern bool update_status(const char *fmt, ...);
 extern bool tui_init(void);
+extern void redraw_screen(void);
 
 #endif	// !defined(__librustyaxe_tui_h)

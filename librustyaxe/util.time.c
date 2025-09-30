@@ -139,3 +139,9 @@ char *time_t2dhms(time_t seconds) {
 
    return strdup(buf);
 }
+
+void format_timestamp(time_t t, char *buf, size_t buflen) {
+   struct tm tm;
+   localtime_r(&t, &tm);  // or gmtime_r(&t, &tm) for UTC
+   strftime(buf, buflen, "[%Y/%m/%d %H:%M:%S]", &tm);
+}

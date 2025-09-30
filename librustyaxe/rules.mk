@@ -25,6 +25,7 @@ librustyaxe_objs += posix.o
 librustyaxe_objs += ringbuffer.o
 # XXX: This needs cleanup to remove remnants of termbox/old logger
 #librustyaxe_objs += subproc.o
+librustyaxe_objs += tui.o
 librustyaxe_objs += util.file.o
 librustyaxe_objs += util.math.o
 librustyaxe_objs += util.string.o
@@ -46,7 +47,7 @@ librustyaxe-pre:
 ${librustyaxe}: librustyaxe-pre ${real_librustyaxe_objs} ${librustyaxe_headers} GNUmakefile
 	@${RM} -f $@
 	@echo "[link] $@ from $(words ${real_librustyaxe_objs}) objects"
-	@${CC} ${LDFLAGS} -lm -lev -fPIC -shared -o $@ ${real_librustyaxe_objs} || exit 2
+	@${CC} ${LDFLAGS} -fPIC -shared -o $@ ${real_librustyaxe_objs}  -lm -lev -lreadline || exit 2
 
 ${BUILD_DIR}/librustyaxe/%.o:librustyaxe/%.c GNUmakefile ${librustyaxe_headers}
 	@${RM} $@
@@ -57,7 +58,7 @@ ${BUILD_DIR}/librustyaxe/%.o:librustyaxe/%.c GNUmakefile ${librustyaxe_headers}
 
 bin/irc-test: ${BUILD_DIR}/irc-test.o ${librustyaxe} ${libmongoose}
 	@${RM} $@
-	$(CC) $(LDFLAGS) -L. -o $@ $< -lrustyaxe -lm -lmongoose -lreadline -lev
+	$(CC) $(LDFLAGS) -L. -o $@ $< -lrustyaxe -lm -lmongoose -lreadline -lev -lreadline
 
 ${BUILD_DIR}/irc-test.o: librustyaxe/irc-test.c $(wildcard *.h)
 	@${RM} $@

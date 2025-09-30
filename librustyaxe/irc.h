@@ -23,4 +23,15 @@
 #include <librustyaxe/irc.client.h>
 #include <librustyaxe/irc.server.h>
 
+static inline char *irc_name(irc_client_t *cptr) {
+   if (cptr->server && cptr->server->network[0]) {
+      return cptr->server->network;
+   } else if (cptr->nick[0]) {
+      return cptr->nick;
+   } else if (cptr->hostname[0]) {
+      return cptr->hostname;
+   }
+   return NULL;
+}
+
 #endif	// !defined(__librustyaxe_irc_h)

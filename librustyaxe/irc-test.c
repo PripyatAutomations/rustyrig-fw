@@ -186,26 +186,11 @@ bool add_server(const char *network, const char *str) {
    return true;
 }
 
-static void stdin_rl_cb(char *line) {
-   if (!line) {
-      dying = true;
-      return;
-   }
-
-   if (*line) {
-      add_history(line);
-   }
-
-   add_log(line);
-   update_status(NULL);
-   free(line);
-}
-
 static bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
    char *np = strchr(section, ':');
    if (np) {
       np++;
-      Log(LOG_CRAZY, "network", "network %s adding server: %s", np, buf);
+      add_log("network %s adding server: %s", np, buf);
       add_server(np, buf);
    }
    return false;
@@ -236,13 +221,13 @@ bool autoconnect(void) {
          char this_network[256];
          memset(this_network, 0, sizeof(this_network));
          snprintf(this_network, sizeof(this_network), "%s", sp);
-         Log(LOG_INFO, "network", "autoconnect network: %s", sp);
+         add_log("autoconnect network: %s", sp);
          rrlist_t *temp_list = NULL;  // head of temporary list
 
          server_cfg_t *srvp = server_list;
          while (srvp) {
              if (strcasecmp(srvp->network, this_network) == 0) {
-                 Log(LOG_CRAZY, "connman", "=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
+                 add_log("=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
                  // Wrap server pointer in a list node
                  rrlist_t *node = malloc(sizeof(rrlist_t));
                  node->ptr = srvp;
@@ -279,7 +264,7 @@ bool autoconnect(void) {
          rrlist_t *node = temp_list;
          while (node) {
              server_cfg_t *srv = node->ptr;
-             Log(LOG_INFO, "connman", "Trying %s://%s@%s:%d priority=%d",
+             add_log("Trying %s://%s@%s:%d priority=%d",
                  (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
              irc_client_t *cli;
@@ -302,21 +287,21 @@ int main(int argc, char **argv) {
    now = time(NULL);
    char *fullpath = NULL;
 
-   tui_init();
-   Log(LOG_INFO, "core", "irc-test starting");
+   add_log("irc-test starting");
 
    struct ev_loop *loop = EV_DEFAULT;
    ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
    ev_io_start (loop, &stdin_watcher);
    ev_timer_init(&timeout_watcher, mongoose_timer_cb, 0., 0.1);
    ev_timer_start(loop, &timeout_watcher);
+   tui_init();
 
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
    if ((fullpath = find_file_by_list(configs, num_configs))) {
       if (!(cfg = cfg_load(fullpath))) {
-         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
+         add_log("Couldn't load config \"%s\", using defaults instead", fullpath);
        }
        free(fullpath);
    }
@@ -339,12 +324,6 @@ int main(int argc, char **argv) {
 
    mg_mgr_init(&mgr);
 
-   // setup readline
-   rl_catch_signals = 0;
-   rl_callback_handler_install(NULL, stdin_rl_cb);
-   int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-   fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
-
    // XXX: this needs moved to main loop and modified to check if each network has a connection
    autoconnect();
    irc_set_conn_pool(irc_client_conns);
@@ -354,7 +333,6 @@ int main(int argc, char **argv) {
    }
 
    // cleanup
-   rl_callback_handler_remove();
    mg_mgr_free(&mgr);
    logger_end();
    dict_free(cfg);

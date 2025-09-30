@@ -61,8 +61,6 @@ irc_message_t *irc_parse_message(const char *msg) {
       return NULL;
    }
 
-//   Log(LOG_CRAZY, "irc.parser", "Parsing: |%s|", msg);
-
    char **argv = NULL;
    int argc = 0;
    char *s = dup;
@@ -131,14 +129,6 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
       return true;
    }
 
-#if	0	// extra messages
-   Log(LOG_CRAZY, "irc.parser", "argc=%d 0=|%s| 1=|%s| 2=%s 3=%s", mp->argc,
-       mp->argv[0]  ? mp->argv[0] : "(null)",
-       mp->argc > 1 ? mp->argv[1] : "",
-       mp->argc > 2 ? mp->argv[2] : "",
-       mp->argc > 3 ? mp->argv[3] : "");
-#endif
-
    if (!irc_callbacks) {
       Log(LOG_CRIT, "irc.parser", "%s: no callbacks configured while searching for |%s|", __FUNCTION__, mp->argv[0]);
       return true;
@@ -161,13 +151,12 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
          return true;
       } else {
          is_numeric = true;
-//         fprintf(stderr, "parsed_numeric: %d\n", parsed_numeric);
       }
    }
 
    while (p) {
       nc++;
-//      Log(LOG_DEBUG, "dispatcher", "CB <%p> cmd: <%p> numeric: %d mp: <%p>", p->cb, p->cmd, p->numeric, mp->argv);
+      Log(LOG_DEBUG, "dispatcher", "CB <%p> cmd: <%p> numeric: %d mp: <%p>", p->cb, p->cmd, p->numeric, mp->argv);
 
       if (is_numeric) {
           if (!p->numeric) {
@@ -178,21 +167,24 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
 
           if (parsed_numeric == p->numeric) {
              if (p->cb) {
-//                Log(LOG_CRAZY, "dispatcher", "Callback for %s is <%p>, passing %d args", mp->argv[0], p->cb, mp->argc);
+                Log(LOG_CRAZY, "dispatcher", "Callback for %s is <%p>, passing %d args", mp->argv[0], p->cb, mp->argc);
                 nm++;
                 p->cb(cptr, mp);
-//             } else {
-//                Log(LOG_WARN, "dispatcher", "Callback in irc_callbacks:<%p> has no target fn for %s", p, mp->argv[0]);
+             } else {
+                Log(LOG_WARN, "dispatcher", "Callback in irc_callbacks:<%p> has no target fn for %s", p, mp->argv[0]);
+                add_log("Unsupported numeric/command: %s", mp->argv[0]);
              }
+             return false;
           }
       } else if (mp->argv[0]) {	// commands
           if (strcasecmp(p->cmd, mp->argv[0]) == 0) {
              if (p->cb) {
-//                Log(LOG_CRAZY, "dispatcher", "Callback for %s is <%p>, passing %d args", mp->argv[0], p->cb, mp->argc);
+                Log(LOG_CRAZY, "dispatcher", "Callback for %s is <%p>, passing %d args", mp->argv[0], p->cb, mp->argc);
                 nm++;
                 p->cb(cptr, mp);
-//             } else {
-//                Log(LOG_CRAZY, "dispatcher", "Callback in irc_callbacks:<%p> has no target fn for %s", p, mp->argv[0]);
+             } else {
+                Log(LOG_CRAZY, "dispatcher", "Callback in irc_callbacks:<%p> has no target fn for %s", p, mp->argv[0]);
+                add_log("Unsupported numeric/command: %s", mp->argv[0]);
              }
 
              // Handle relayed commands
@@ -200,19 +192,15 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
                 Log(LOG_CRAZY, "irc.relay", "Sending %s msg outward", mp->argv[0]);
                 irc_sendto_all(irc_connections, cptr, mp);
              }
+             return false;
           }
-
-          // we shouldn't have more than one in the list with the same name...
-          return false;
       } else {
          Log(LOG_CRIT, "dispatcher", "Error parsing message: %s", mp->argv[0]);
       }
       p = p->next;
    }
 
-   if (!nm) {
-      Log(LOG_DEBUG, "dispatcher", "Matched %d of %d callbacks for %s", nm, nc, mp->argv[0]);
-   }
+   Log(LOG_DEBUG, "dispatcher", "Matched %d of %d callbacks for %s", nm, nc, mp->argv[0]);
 
    return false;
 }
@@ -396,14 +384,12 @@ bool irc_register_default_numeric_callbacks(void) {
       cb->cb = numeric->cb ? numeric->cb : NULL;
 
       if (irc_register_callback(cb)) {
-         Log(LOG_CRIT, "irc", "Failed to register numeric %d (%s)", numeric->code, numeric->name);
+         Log(LOG_CRIT, "irc", "Failed to register numeric %03d (%s)", numeric->code, numeric->name);
          free(cb->cmd);
          free(cb);
          return false;
       } else {
-         if (numeric->cb) {
-            Log(LOG_DEBUG, "irc", "Registered numeric handler for %d (%s): %s at <%p>", numeric->code, numeric->name, numeric->desc, numeric->cb);
-         }
+         Log(LOG_DEBUG, "irc", "Registered numeric handler for %03d (%s): %s at <%p>", numeric->code, numeric->name, numeric->desc, numeric->cb);
       }
 
       numeric++;

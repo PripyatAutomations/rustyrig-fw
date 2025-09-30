@@ -31,6 +31,7 @@
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
 extern char latest_timestamp[64];
+extern bool tui_enabled;
 extern time_t now;
 static time_t last_ts_update;
 bool log_stdout = true;
@@ -307,13 +308,13 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    char log_msg[769];
    va_list ap, ap_c1;
 
-   va_start(ap, fmt);
-
    if (!subsys || !fmt) {
       fprintf(stderr, "Invalid Log request: No subsys/fmt\n");
       va_end(ap);
       return;
    }
+
+   va_start(ap, fmt);
 
    if (debug_filter(subsys, priority)) {
 //      fprintf(stderr, "skip %s:%d\n", subsys, priority);
@@ -346,19 +347,16 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       fflush(logfp);
    }
 
-#if	0	// replaced by tui
-   /* Only spew to the console if logfile is closed or log.stdout == true, but avoid duplicating messages */
-   if ((!logfp || log_stdout) && (logfp != stdout)) {
-      if (log_show_ts) {
-         fprintf(stdout, "[%s] %s\n", latest_timestamp, log_msg);
-      } else {
-         fprintf(stdout, "%s\n", log_msg);
+   if (!tui_enabled) {
+      /* Only spew to the console if logfile is closed or log.stdout == true, but avoid duplicating messages */
+      if ((!logfp || log_stdout) && (logfp != stdout)) {
+         if (log_show_ts) {
+            fprintf(stdout, "[%s] %s\n", latest_timestamp, log_msg);
+         } else {
+            fprintf(stdout, "%s\n", log_msg);
+         }
       }
    }
-#else
-   add_log(log_msg);
-   update_status("Status: connected");
-#endif
 
    // if there are registered log callbacks, call them
    if (log_callbacks) {

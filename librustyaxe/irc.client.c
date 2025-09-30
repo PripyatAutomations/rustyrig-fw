@@ -69,8 +69,8 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    freeaddrinfo(res);
 
    if (fd == -1) {
-      Log(LOG_CRIT, "irc", "could not connect to %s:%d",
-          srv->host, srv->port);
+      Log(LOG_CRIT, "irc", "could not connect to %s://%s:%d", (srv->tls ? "ircs" : "irc"), srv->host, srv->port);
+      add_log("Couldn't connect to %s://%s:%d", (srv->tls ? "ircs" : "irc"), srv->host, srv->port);
       free(cptr);
       return NULL;
    }
@@ -82,6 +82,7 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    ev_io_start(EV_DEFAULT, &cptr->io_watcher);
 
    Log(LOG_INFO, "irc", "connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
+   add_log("connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
 
    // Send login
    return cptr;
@@ -93,8 +94,8 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
     // is this right?
     if (revents & EV_WRITE) {
        if (!cptr->connected) {
-          Log(LOG_INFO, "irc", "connected to %s:%d",
-              cptr->server->host, cptr->server->port);
+          Log(LOG_INFO, "irc", "connected to %s:%d", cptr->server->host, cptr->server->port);
+          add_log("connected to %s:%d", cptr->server->host, cptr->server->port);
 
           // Stop watching for write, continue reading
           ev_io_set(w, cptr->fd, EV_READ);
@@ -113,6 +114,7 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
           cptr->connected = true;
        } else {
           Log(LOG_DEBUG, "irc", "already connected");
+          add_log("Already connected!");
        }
     }
 
@@ -121,6 +123,8 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
         ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);
         if (n <= 0) {
             Log(LOG_INFO, "irc", "disconnected");
+            update_status("Status: Offline");
+            add_log("Disconnected");
             ev_io_stop(EV_A_ w);
             close(cptr->fd);
             cptr->connected = false;
