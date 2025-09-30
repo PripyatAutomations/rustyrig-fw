@@ -16,6 +16,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/tui.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -195,7 +196,8 @@ static void stdin_rl_cb(char *line) {
       add_history(line);
    }
 
-   printf("\nread: %s\n", line);
+   add_log(line);
+   update_status(NULL);
    free(line);
 }
 
@@ -300,6 +302,7 @@ int main(int argc, char **argv) {
    now = time(NULL);
    char *fullpath = NULL;
 
+   tui_init();
    Log(LOG_INFO, "core", "irc-test starting");
 
    struct ev_loop *loop = EV_DEFAULT;
@@ -338,7 +341,7 @@ int main(int argc, char **argv) {
 
    // setup readline
    rl_catch_signals = 0;
-   rl_callback_handler_install("> ", stdin_rl_cb);
+   rl_callback_handler_install(NULL, stdin_rl_cb);
    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 

@@ -25,6 +25,7 @@
 #include <time.h>
 #include <errno.h>
 #include <fnmatch.h>
+#include <librustyaxe/tui.h>
 //#include <librrprotocol/rrprotocol.h>
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
@@ -345,6 +346,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       fflush(logfp);
    }
 
+#if	0	// replaced by tui
    /* Only spew to the console if logfile is closed or log.stdout == true, but avoid duplicating messages */
    if ((!logfp || log_stdout) && (logfp != stdout)) {
       if (log_show_ts) {
@@ -353,6 +355,10 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
          fprintf(stdout, "%s\n", log_msg);
       }
    }
+#else
+   add_log(log_msg);
+   update_status("Status: connected");
+#endif
 
    // if there are registered log callbacks, call them
    if (log_callbacks) {
