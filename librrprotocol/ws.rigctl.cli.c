@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
+//#include <gtk/gtk.h>
 #include "../ext/libmongoose/mongoose.h"
 //#include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
@@ -27,7 +27,7 @@ extern time_t poll_block_expire, poll_block_delay;
 extern dict *cfg;		// config.c
 extern bool server_ptt_state;
 extern time_t now;
-extern gulong freq_changed_handler_id;
+//extern gulong freq_changed_handler_id;
 
 // Store the previous mode
 // XXX: this needs to go into the per-VFO

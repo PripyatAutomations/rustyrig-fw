@@ -6,9 +6,72 @@
 #include <librustyaxe/core.h>
 
 bool irc_builtin_num_print(irc_client_t *cptr, irc_message_t *mp) {
-   if (!mp || mp->argc <= 0) {
+   if (!mp || mp->argc <= 3) {
       return false;
    }
+
+   char buf[1024];
+   memset(buf, 0, 1024);
+   size_t pos = 0;
+
+   for (int i = 2; i < mp->argc; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos,
+                       "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] %s *** %s ***", irc_name(cptr), (mp->argc > 0 ? mp->argv[1] : "?"), buf);
+   tui_append_log("[{green}%s{reset}] *** %s ***", irc_name(cptr), buf);
+   return false;
+}
+
+bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
+   Log(LOG_DEBUG, "irc", "[%s] *** %s ***", irc_name(cptr), mp->argv[2]);
+   tui_append_log("[{green}%s{reset}] *** %s ***", irc_name(cptr), mp->argv[2]);
+   cptr->connected = true;
+   tui_update_status("Status: {bright-green}Connected{reset} [{green}%s{reset}]", irc_name(cptr));
+   return false;
+}
+
+bool irc_builtin_num004(irc_client_t *cptr, irc_message_t *mp) {
+   Log(LOG_DEBUG, "irc", "[%s] *** %s ***", irc_name(cptr), mp->argv[2]);
+   tui_append_log("[{green}%s{reset}] *** %s ***", irc_name(cptr), mp->argv[2]);
+   return false;
+}
+
+bool irc_builtin_num005(irc_client_t *cptr, irc_message_t *mp) {
+   if (!mp || mp->argc <= 3) {
+      return false;
+   }
+
+   char buf[1024];
+   memset(buf, 0, 1024);
+   size_t pos = 0;
+
+   for (int i = 2; i < mp->argc; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos,
+                       "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] %s *** %s ***", irc_name(cptr), (mp->argc > 0 ? mp->argv[1] : "?"), buf);
+   tui_append_log("[{green}%s{reset}] *** %s ***", irc_name(cptr), buf);
+   return false;
+}
+
+bool irc_builtin_num251(irc_client_t *cptr, irc_message_t *mp) {
+   if (!mp || mp->argc <= 0) {
+      return true;
+   }
+
+   char *nick = mp->argv[2];
+   char *server = mp->argv[3];
+   char *info = mp->argv[4];
 
    char buf[1024];
    size_t pos = 0;
@@ -22,17 +85,9 @@ bool irc_builtin_num_print(irc_client_t *cptr, irc_message_t *mp) {
       pos += n;
    }
 
-   Log(LOG_DEBUG, "irc", "[%s] %s *** %s ***", irc_name(cptr), (mp->argc > 0 ? mp->argv[1] : "?"), buf);
-   add_log("[%s] *** %s ***", irc_name(cptr), buf);
+   Log(LOG_DEBUG, "irc", "[%s] 251: %s", irc_name(cptr), buf);
+   tui_append_log("[{green}%s{reset}] 251 %s", irc_name(cptr), buf);
 
-   return false;
-}
-
-bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
-   Log(LOG_DEBUG, "irc", "[%d] *** %s ***", irc_name(cptr), mp->argv[2]);
-   add_log("[%s] *** %s ***", irc_name(cptr), mp->argv[2]);
-   cptr->connected = true;
-   update_status("Status: Connected [%s]", irc_name(cptr));
    return false;
 }
 
@@ -46,7 +101,7 @@ bool irc_builtin_num311(irc_client_t *cptr, irc_message_t *mp) {
    char *host = mp->argv[4];
    char *realname = mp->argv[6];
    Log(LOG_DEBUG, "irc", "[%s] whois: %s!%s@%s <%s>", irc_name(cptr), nick, ident, host, realname);
-   add_log("[%s] * %s!%s@%s <%s>", irc_name(cptr), nick, ident, host, realname);
+   tui_append_log("[{green}%s{reset}] * %s!%s@%s <%s>", irc_name(cptr), nick, ident, host, realname);
    return false;
 }
 
@@ -64,7 +119,7 @@ bool irc_builtin_num312(irc_client_t *cptr, irc_message_t *mp) {
 
    for (int i = 2; i < mp->argc; i++) {
       int n = snprintf(buf + pos, sizeof(buf) - pos,
-                       "%s[%d] %s", (i > 2 ? " " : ""), i, mp->argv[i] ? mp->argv[i] : "");
+                       "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
          break;
       }
@@ -72,7 +127,7 @@ bool irc_builtin_num312(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] whois: %s is on server %s: %s", irc_name(cptr), nick, server, info);
-   add_log("[%s] * %s is on server %s: %s", irc_name(cptr), nick, server, info);
+   tui_append_log("[{green}%s{reset}] * %s is on server %s: %s", irc_name(cptr), nick, server, info);
 
    return false;
 }
@@ -94,8 +149,8 @@ bool irc_builtin_num313(irc_client_t *cptr, irc_message_t *mp) {
       pos += n;
    }
 
-   Log(LOG_DEBUG, "irc", "[%s] whois: %s", buf, irc_name(cptr));
-   add_log("[%s] *** 313 %s ***", buf, irc_name(cptr));
+   Log(LOG_DEBUG, "irc", "[%s] whois: {green}%s{reset}", buf, irc_name(cptr));
+   tui_append_log("[{green}%s{reset}] *** 313 %s ***", buf, irc_name(cptr));
 
    return false;
 }
@@ -116,7 +171,7 @@ bool irc_builtin_num317(irc_client_t *cptr, irc_message_t *mp) {
    format_timestamp(signon_t, signon_date, sizeof(signon_date));
 
    Log(LOG_DEBUG, "irc", "[%s] whois: %s connected at %s (idle %s)",  irc_name(cptr), nick, signon_date, idle_ts);
-   add_log("[%s] * %s connected at %s (idle %s)", irc_name(cptr), nick, signon_date, idle_ts);
+   tui_append_log("[{green}%s{reset}] * {bright-cyan}%s{reset} connected at {green}%s{reset} (idle {green}%s{reset})", irc_name(cptr), nick, signon_date, idle_ts);
    free(idle_ts);
 
    return false;
@@ -128,7 +183,7 @@ bool irc_builtin_num318(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] whois: End of whois for %s", irc_name(cptr), mp->argv[1]);
-   add_log("[%s] *** End of WHOIS %s ***", irc_name(cptr), mp->argv[1]);
+   tui_append_log("[{green}%s{reset}] *** End of WHOIS {bright-cyan}%s{reset} ***", irc_name(cptr), mp->argv[1]);
 
    return false;
 }
@@ -152,7 +207,7 @@ bool irc_builtin_num319(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] whois: %s is in channels: %s", irc_name(cptr), nick, buf);
-   add_log("[%s] * %s is in channels: %s", irc_name(cptr), nick, buf);
+   tui_append_log("[{green}%s{reset}] * %s is in channels: {bright-magenta}%s{reset}", irc_name(cptr), nick, buf);
 
    return false;
 }
@@ -175,7 +230,7 @@ bool irc_builtin_num353(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] names: %s", irc_name(cptr), buf);
-   add_log("[%s] *** %s ***", irc_name(cptr), buf);
+   tui_append_log("[{green}%s{reset}] *** %s ***", irc_name(cptr), buf);
 
    return false;
 }
@@ -186,14 +241,14 @@ bool irc_builtin_num366(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] End of names for %s", irc_name(cptr), mp->argv[2]);
-   add_log("[%s] *** End of NAMES %s ***", irc_name(cptr), mp->argv[2]);
+   tui_append_log("[{green}%s{reset}] *** End of NAMES {bright-magenta}%s{reset} ***", irc_name(cptr), mp->argv[2]);
 
    return false;
 }
 
 bool irc_builtin_num371(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_DEBUG, "irc", "[%s] Start of MOTD", irc_name(cptr));
-   add_log("[%s] *** Start of MOTD ***", irc_name(cptr));
+   tui_append_log("[{green}%s{reset}] *** Start of MOTD ***", irc_name(cptr));
 
    return false;
 }
@@ -204,17 +259,21 @@ bool irc_builtin_num372(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] MOTD: %s", irc_name(cptr), mp->argv[2]);
-   add_log("[%s] %s", irc_name(cptr), mp->argv[2]);
+   tui_append_log("[{green}%s{reset}] %s", irc_name(cptr), mp->argv[2]);
    return false;
 }
 
 bool irc_builtin_num376(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_DEBUG, "irc", "[%s] End of MOTD", irc_name(cptr));
-   add_log("[%s] *** End of MOTD ***", irc_name(cptr));
-   dprintf(cptr->fd, "JOIN &localrig\r\n");
-   dprintf(cptr->fd, "JOIN #rustyrig\r\n");
-   dprintf(cptr->fd, "WHOIS cornholio\r\n");
-   dprintf(cptr->fd, "PRIVMSG radio :hello\r\n");
+   tui_append_log("[{green}%s{reset}] *** End of MOTD ***", irc_name(cptr));
+
+   // send some test commands
+   const char *site_id = "RPLYWVCL31";
+   const char *rig_id = "ft891";
+   dprintf(cptr->fd, "JOIN &%s\r\n", rig_id);
+   dprintf(cptr->fd, "JOIN #%s.%s\r\n", site_id, rig_id);
+   dprintf(cptr->fd, "WHOIS %s\r\n", cptr->nick);
+   tui_append_log("{bright-cyan}>>>{reset} Attached to rig {bright-cyan}%s.%s{reset} via {bright-magenta}IRC{reset} transport [{green}%s{reset}] {bright-cyan}<<<{reset}", site_id, rig_id, cptr->server->network);
 
    return false;
 }
@@ -238,7 +297,7 @@ bool irc_builtin_num421(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s]: %s => %s", irc_name(cptr), nick, buf);
-   add_log("[%s] * %s => %s", irc_name(cptr), nick, buf);
+   tui_append_log("[{green}%s{reset}] * %s Unknown Command => %s", irc_name(cptr), nick, buf);
 
    return false;
 }
@@ -249,7 +308,7 @@ bool irc_builtin_num433(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] Nickname already in use: %s", irc_name(cptr), mp->argv[2]);
-   add_log("[%s] *** Nickname already in use: %s  ***", irc_name(cptr), mp->argv[2]);
+   tui_append_log("[{green}%s{reset}] *** Nickname already in use: {bright-cyan}%s{reset}  ***", irc_name(cptr), mp->argv[2]);
    return false;
 }
 
@@ -258,8 +317,14 @@ const irc_numeric_t irc_numerics[] = {
    { .code =  1, .name = "RPL_WELCOME",            .desc = "Welcome to the Internet Relay Network",   .cb = irc_builtin_num001 },
    { .code =  2, .name = "RPL_YOURHOST",           .desc = "Your host information",                   .cb = irc_builtin_num_print },
    { .code =  3, .name = "RPL_CREATED",            .desc = "Server creation time",                    .cb = irc_builtin_num_print },
-   { .code =  4, .name = "RPL_MYINFO",             .desc = "Server info and supported modes",         .cb = irc_builtin_num_print },
-   { .code =  5, .name = "RPL_ISUPPORT",           .desc = "Supported features (IRCv3 tokens)",       .cb = irc_builtin_num_print },
+   { .code =  4, .name = "RPL_MYINFO",             .desc = "Server info and supported modes",         .cb = irc_builtin_num004 },
+   { .code =  5, .name = "RPL_ISUPPORT",           .desc = "Supported features (IRCv3 tokens)",       .cb = irc_builtin_num005 },
+   { .code = 251, .name = "RPL_LUSERCLIENT",	   .desc = "Online local users",		      .cb = irc_builtin_num_print },
+   { .code = 254, .name = "RPL_LUSERCHANNELS",	   .desc = "Channels on server",		      .cb = irc_builtin_num_print },
+   { .code = 255, .name = "RPL_LUSERME",	   .desc = "Local users",	                      .cb = irc_builtin_num_print },
+   { .code = 265, .name = "RPL_LOCALUSERS",	   .desc = "Local users",	                      .cb = irc_builtin_num_print },
+   { .code = 266, .name = "RPL_GLOBALUSERS",	   .desc = "Global users",	                      .cb = irc_builtin_num_print },
+   { .code = 250, .name = "RPL_UNKNOWN",	   .desc = "XXX",                                     .cb = irc_builtin_num_print },
 
    // --- Channel / names ---
    { .code =  322, .name = "RPL_LIST",             .desc = "Channel list entry",                      .cb = NULL },
@@ -285,6 +350,8 @@ const irc_numeric_t irc_numerics[] = {
    { .code =  375, .name = "RPL_MOTDSTART",        .desc = "MOTD start",                              .cb = irc_builtin_num371 },
    { .code =  372, .name = "RPL_MOTD",             .desc = "MOTD line",                               .cb = irc_builtin_num372 },
    { .code =  376, .name = "RPL_ENDOFMOTD",        .desc = "End of MOTD",                             .cb = irc_builtin_num376 },
+   { .code =  378, .name = "RPL_UNKNOWN2",	   .desc = "XXX",                                     .cb = irc_builtin_num_print },
+   { .code =  379, .name = "RPL_UNKNOWN3",	   .desc = "XXX",                                     .cb = irc_builtin_num_print },
 
    // --- Errors ---
    { .code =  401, .name = "ERR_NOSUCHNICK",       .desc = "No such nick/channel",                    .cb = NULL },

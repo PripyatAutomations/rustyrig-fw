@@ -365,7 +365,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
          if (lp->callback) {
             va_list cb_ap;
             va_copy(cb_ap, ap_c1);
-            fprintf(stderr, "log cb: <%p> called\n");
+//            fprintf(stderr, "log cb: <%p> called\n");
             lp->callback(priority, subsys, fmt, cb_ap);
             va_end(cb_ap);
          }

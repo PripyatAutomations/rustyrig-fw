@@ -70,7 +70,7 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
 
    if (fd == -1) {
       Log(LOG_CRIT, "irc", "could not connect to %s://%s:%d", (srv->tls ? "ircs" : "irc"), srv->host, srv->port);
-      add_log("Couldn't connect to %s://%s:%d", (srv->tls ? "ircs" : "irc"), srv->host, srv->port);
+      tui_append_log("Couldn't connect to %s://%s:%d", (srv->tls ? "ircs" : "irc"), srv->host, srv->port);
       free(cptr);
       return NULL;
    }
@@ -82,7 +82,7 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    ev_io_start(EV_DEFAULT, &cptr->io_watcher);
 
    Log(LOG_INFO, "irc", "connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
-   add_log("connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
+   tui_append_log("connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
 
    // Send login
    return cptr;
@@ -95,14 +95,18 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
     if (revents & EV_WRITE) {
        if (!cptr->connected) {
           Log(LOG_INFO, "irc", "connected to %s:%d", cptr->server->host, cptr->server->port);
-          add_log("connected to %s:%d", cptr->server->host, cptr->server->port);
+          tui_append_log("[%s] connected to %s:%d", cptr->server->network, cptr->server->host, cptr->server->port);
 
           // Stop watching for write, continue reading
           ev_io_set(w, cptr->fd, EV_READ);
 
           // Send PASS if configured
           if (cptr->server->pass[0]) {
-              dprintf(cptr->fd, "PASS %s\r\n", cptr->server->pass);
+             if (cptr->server->account[0]) {
+                dprintf(cptr->fd, "PASS %s:%s\r\n", cptr->server->account, cptr->server->pass);
+             } else {
+                dprintf(cptr->fd, "PASS %s\r\n", cptr->server->pass);
+             }
           }
 
           // Send NICK
@@ -114,7 +118,7 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
           cptr->connected = true;
        } else {
           Log(LOG_DEBUG, "irc", "already connected");
-          add_log("Already connected!");
+          tui_append_log("[%s] Already connected!", cptr->server->network);
        }
     }
 
@@ -123,8 +127,8 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
         ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);
         if (n <= 0) {
             Log(LOG_INFO, "irc", "disconnected");
-            update_status("Status: Offline");
-            add_log("Disconnected");
+            tui_update_status("Status: {red}Offline{reset}");
+            tui_append_log("[%s] Disconnected", cptr->server->network);
             ev_io_stop(EV_A_ w);
             close(cptr->fd);
             cptr->connected = false;

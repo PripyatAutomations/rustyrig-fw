@@ -74,6 +74,12 @@ bool irc_sendto_all(rrlist_t *conn_list, irc_client_t *cptr, irc_message_t *mp) 
          acptr = (irc_client_t *)lptr->ptr;
       }
 
+      // skip cptr
+      if (cptr && acptr == cptr) {
+         lptr = lptr->next;
+         continue;
+      }
+
       if (acptr && acptr->is_server && acptr->fd) {
          // Send to the client
          dprintf(acptr->fd, "%s\r\n", msg);

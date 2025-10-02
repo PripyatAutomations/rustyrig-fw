@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <librustyaxe/irc.struct.h>
 
+#define	LOGINLEN	240		// an email address
 #define	IRC_MSGLEN	1024		// extended for IRCv3
 #define	NICKLEN		48
 #define	PASSLEN 	128
@@ -36,11 +37,12 @@ typedef struct irc_message {
 } irc_message_t;
 
 typedef struct server_cfg {
-    char 	host[HOSTLEN+1];
-    char 	network[NETLEN+1];
-    char        nick[NICKLEN+1];
-    char        ident[USERLEN+1];
-    char        pass[PASSLEN+1];
+    char 	host[HOSTLEN + 1];
+    char 	network[NETLEN + 1];
+    char        nick[NICKLEN + 1];
+    char        ident[USERLEN + 1];
+    char        account[LOGINLEN + 1];
+    char        pass[PASSLEN + 1];
     int 	port;
     int		priority;
     bool	tls;
@@ -51,6 +53,7 @@ typedef struct irc_client {
    server_cfg_t *server;
    bool		 connected;		// is it connected?
    bool		 is_server;		// is this a server? If so, we'll send relayed commands to it
+   char          account[LOGINLEN + 1];
    char          nick[NICKLEN + 1];
    char          user[USERLEN + 1];
    char          hostname[HOSTLEN + 1];	// hostname/servername

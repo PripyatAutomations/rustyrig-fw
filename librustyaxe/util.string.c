@@ -106,3 +106,47 @@ bool parse_bool(const char *str) {
    }
    return false;
 }
+
+int split_args(char *line, char ***argv_out) {
+   int argc = 0;
+   int cap = 8;
+   char **argv = malloc(cap * sizeof(char *));
+   char *p = line;
+
+   while (*p) {
+      while (*p && isspace((unsigned char)*p)) {
+         p++;
+      }
+      if (!*p) {
+         break;
+      }
+      if (argc >= cap) {
+         cap *= 2;
+         argv = realloc(argv, cap * sizeof(char *));
+      }
+      argv[argc++] = p;
+      while (*p && !isspace((unsigned char)*p)) {
+         p++;
+      }
+      if (*p) {
+         *p++ = '\0';
+      }
+   }
+
+   *argv_out = argv;
+   return argc;
+}
+
+int ansi_strlen(const char *s) {
+   int len = 0;
+   while (*s) {
+      if (*s == '\033') {           // start of escape
+         while (*s && *s != 'm') s++; // skip until 'm'
+         if (*s) s++;
+      } else {
+         len++;
+         s++;
+      }
+   }
+   return len;
+}

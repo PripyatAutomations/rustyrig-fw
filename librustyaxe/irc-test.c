@@ -21,13 +21,15 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <ev.h>
+#define	MAX_WINDOWS	32
 
 bool dying = false;
 time_t now = 0;
 struct mg_mgr mgr;
 
 ev_io stdin_watcher;
-ev_timer timeout_watcher;
+ev_timer mongoose_watcher;
+static ev_timer tui_clock_watcher;
 
 server_cfg_t *server_list = NULL;
 rrlist_t *irc_client_conns = NULL;
@@ -35,34 +37,100 @@ rrlist_t *irc_client_conns = NULL;
 typedef struct cli_command {
    char *cmd;
    char *desc;
-   bool (*cb)(const char *cmd);
+   bool (*cb)(int argc, char **argv);
 } cli_command_t;
 
-bool cli_help(const char *cmd) {
+typedef struct irc_window {
+   char *name;			// window name
+   char *target;		// channel/nick target
+   irc_client_t *cptr;		// client pointer
+} irc_window_t;
+
+irc_window_t irc_windows[MAX_WINDOWS];
+int active_window = 0;
+
+bool assign_window(int i, irc_client_t *cptr) {
+   if (!cptr || (i < 0 || i > MAX_WINDOWS)) {
+      return true;
+   }
+
+   irc_window_t *aw = &irc_windows[i];
+   aw->name = cptr->nick;
+   aw->target = cptr->nick;
+   aw->cptr = cptr;
+
    return false;
 }
 
-bool cli_join(const char *cmd) {
+bool cli_help(int argc, char **argv) {
    return false;
 }
 
-bool cli_me(const char *cmd) {
+bool cli_join(int argc, char **argv) {
+   if (argc < 1) {
+      return true;
+   }
+
+   irc_window_t *wp = &irc_windows[active_window];
+
+   if (wp) {
+      // There's a window here at least...
+      if (wp->cptr) {
+         tui_append_log("* Joining %s", argv[1]);
+         dprintf(wp->cptr->fd, "JOIN %s\r\n", argv[1]);
+      }
+   }
    return false;
 }
 
-bool cli_part(const char *cmd) {
+bool cli_me(int argc, char **argv) {
    return false;
 }
 
-bool cli_quit(const char *cmd) {
+bool cli_part(int argc, char **argv) {
+   if (argc < 1) {
+      return true;
+   }
+
+   irc_window_t *wp = &irc_windows[active_window];
+
+   if (wp) {
+      // There's a window here at least...
+      if (wp->cptr) {
+         tui_append_log("* Leaving %s", argv[1]);
+         char partmsg[256];
+         memset(partmsg, 0, sizeof(partmsg));
+
+         if (argc >= 3) {
+           memset(partmsg, 0, 256);
+           size_t pos = 0;
+
+           for (int i = 2; i < argc; i++) {
+              int n = snprintf(partmsg + pos, sizeof(partmsg) - pos,
+                               "%s%s", (i > 2 ? " " : ""), argv[i] ? argv[i] : "");
+              if (n < 0 || (size_t)n >= sizeof(partmsg) - pos) {
+                 break;
+              }
+              pos += n;
+           }
+         }
+         dprintf(wp->cptr->fd, "PART %s%s\r\n", argv[1], partmsg);
+      }
+   }
    return false;
+}
+
+bool cli_quit(int argc, char **argv) {
+   tui_append_log("Goodbye!");
+   exit(0);
+   return false;	// unreached, but shuts up the scanner...
 }
 
 cli_command_t cli_commands[] = {
    { .cmd = "/help", .cb = cli_help, .desc = "Show help message" },
    { .cmd = "/join", .cb = cli_join, .desc = "Join a channel" },
-   { .cmd = "/me",   .cb = cli_join, .desc = "Send an action to the current channel" },
-   { .cmd = "/part", .cb = cli_join, .desc = "leave a channel" },
+   { .cmd = "/me",   .cb = cli_me, .desc = "Send an action to the current channel" },
+   { .cmd = "/part", .cb = cli_part, .desc = "leave a channel" },
    { .cmd = "/quit", .cb = cli_quit, .desc = "Exit the program" },
    { .cmd = NULL,    .cb = NULL, .desc = NULL }
 };
@@ -190,7 +258,7 @@ static bool config_network_cb(const char *path, int line, const char *section, c
    char *np = strchr(section, ':');
    if (np) {
       np++;
-      add_log("network %s adding server: %s", np, buf);
+      tui_append_log("network %s adding server: %s", np, buf);
       add_server(np, buf);
    }
    return false;
@@ -221,13 +289,13 @@ bool autoconnect(void) {
          char this_network[256];
          memset(this_network, 0, sizeof(this_network));
          snprintf(this_network, sizeof(this_network), "%s", sp);
-         add_log("autoconnect network: %s", sp);
+         tui_append_log("autoconnect network: %s", sp);
          rrlist_t *temp_list = NULL;  // head of temporary list
 
          server_cfg_t *srvp = server_list;
          while (srvp) {
              if (strcasecmp(srvp->network, this_network) == 0) {
-                 add_log("=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
+                 tui_append_log("=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
                  // Wrap server pointer in a list node
                  rrlist_t *node = malloc(sizeof(rrlist_t));
                  node->ptr = srvp;
@@ -264,13 +332,14 @@ bool autoconnect(void) {
          rrlist_t *node = temp_list;
          while (node) {
              server_cfg_t *srv = node->ptr;
-             add_log("Trying %s://%s@%s:%d priority=%d",
+             tui_append_log("Trying %s://%s@%s:%d priority=%d",
                  (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
              irc_client_t *cli;
              if (cli = irc_cli_connect(srv)) {
                 // Add to the connection list
                 rrlist_add(&irc_client_conns, cli, LIST_TAIL);
+                assign_window(active_window, cli);
              }
              node = node->next;
          }
@@ -283,25 +352,94 @@ bool autoconnect(void) {
    return false;
 }
 
+bool irc_input_cb(int argc, char **args) {
+   if (!cli_commands || !args || argc <= 0) {
+      return true;
+   }
+
+   if (args[0][0] == '/') {
+      // if there's a command here, call its callback
+      for (cli_command_t *c = cli_commands; c->cmd && c->cb; c++) {
+         if (strcasecmp(c->cmd, args[0]) == 0) {
+            if (c->cb) {
+               c->cb(argc, args);
+               return false;
+            }
+         }
+      }
+      tui_append_log("no callback for %s found", args[0]);
+      return true;
+   }
+
+   // Send it to the active target
+   irc_window_t *wp = &irc_windows[active_window];
+
+   if (wp) {
+      // There's a window here at least...
+      if (wp->cptr) {
+         char buf[1024];
+         memset(buf, 0, 1024);
+         size_t pos = 0;
+
+         for (int i = 0; i < argc; i++) {
+            int n = snprintf(buf + pos, sizeof(buf) - pos,
+                             "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
+            if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+               break;
+            }
+            pos += n;
+         }
+         dprintf(wp->cptr->fd, "PRIVMSG %s :%s", wp->target, buf);
+
+         // Is it a channel?
+         if (buf[0] == '&' || buf[0] == '#') {
+            // We'll see it when it's echoed back, so don't do anything
+         } else {
+            // Nickname target, show it on the screen
+            tui_append_log("-> %s: %s", wp->target, buf);
+         }
+      }
+   }
+   return false;
+}
+
+static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
+   (void)w; (void)revents;
+//   tui_redraw_screen();
+   tui_draw_clock();
+}
+
+void tui_start_clock_timer(struct ev_loop *loop) {
+   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 1.0, 1.0); // start after 1s, repeat every 1s
+   ev_timer_start(loop, &tui_clock_watcher);
+}
+
+// Stop the timer (optional)
+void tui_stop_clock_timer(struct ev_loop *loop) {
+   ev_timer_stop(loop, &tui_clock_watcher);
+}
+
 int main(int argc, char **argv) {
    now = time(NULL);
    char *fullpath = NULL;
 
-   add_log("irc-test starting");
+   tui_append_log("irc-test starting");
 
    struct ev_loop *loop = EV_DEFAULT;
    ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
    ev_io_start (loop, &stdin_watcher);
-   ev_timer_init(&timeout_watcher, mongoose_timer_cb, 0., 0.1);
-   ev_timer_start(loop, &timeout_watcher);
+   ev_timer_init(&mongoose_watcher, mongoose_timer_cb, 0., 0.1);
+   ev_timer_start(loop, &mongoose_watcher);
+   tui_start_clock_timer(loop);
    tui_init();
+   tui_set_rl_cb(irc_input_cb);
 
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
    if ((fullpath = find_file_by_list(configs, num_configs))) {
       if (!(cfg = cfg_load(fullpath))) {
-         add_log("Couldn't load config \"%s\", using defaults instead", fullpath);
+         tui_append_log("Couldn't load config \"%s\", using defaults instead", fullpath);
        }
        free(fullpath);
    }
