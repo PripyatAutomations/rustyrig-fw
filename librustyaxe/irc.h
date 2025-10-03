@@ -23,6 +23,8 @@
 #include <librustyaxe/irc.client.h>
 #include <librustyaxe/irc.server.h>
 
+extern bool irc_init(void);
+
 static inline char *irc_name(irc_client_t *cptr) {
    if (cptr->server && cptr->server->network[0]) {
       return cptr->server->network;

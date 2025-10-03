@@ -1,3 +1,13 @@
+rustyrig-fw (20251003) testing; urgency=medium
+* Cleanup and work on tui
+* Work on irc client support in librustyaxe
+  - Bug fixes & features
+* bin/irc-test - Add small irc client for testing the librustyaxe TUI and IRC client-side bits
+* Bug fixes in librustyaxe: config & logger
+* Start of work on events system in librustyaxe, for module callbacks
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 03 Oct 2025 03:45:00 -0400
+
 rustyrig-fw (20250922) testing; urgency=medium
 * Added alert/warning/error dialog in main window for ui.gtk3
 * Cleaned up the logger bits so now log.level fully supports multiple levels and * for default

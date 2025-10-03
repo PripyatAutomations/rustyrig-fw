@@ -188,9 +188,11 @@ static void stdin_rl_cb(char *line) {
    if (tui_rl_cb) {
       tui_rl_cb(argc, args);
    }
-
    free(args);
    free(line);
+
+   tui_redraw_screen();
+   tui_redraw_clock();
 }
 
 static int handle_pgup(int count, int key) {
@@ -311,7 +313,7 @@ void tui_redraw_screen(void) {
    fflush(stdout);
 }
 
-void tui_draw_clock(void) {
+void tui_redraw_clock(void) {
    if (!tui_enabled) {
       return;
    }
@@ -333,8 +335,12 @@ void tui_draw_clock(void) {
 
    // Move cursor to second-to-last row, far-right minus visible width + 1
    int col = width - clock_visible_len;  // 0-based index for the first char
-   if (col < 0) col = 0;                // safety for very narrow terminals
+   if (col < 0) {
+      col = 0;                // safety for very narrow terminals
+   }
+   printf("\033[s"); // save cursor
    printf("\033[%d;%dH%s\033[0m", term_rows - 1, col + 1, clock_colored);
+   printf("\033[u"); // restore cursor
 
    free(clock_colored);
 

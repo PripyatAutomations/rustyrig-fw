@@ -406,7 +406,7 @@ bool irc_input_cb(int argc, char **args) {
 static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
    (void)w; (void)revents;
 //   tui_redraw_screen();
-   tui_draw_clock();
+   tui_redraw_clock();
 }
 
 void tui_start_clock_timer(struct ev_loop *loop) {
@@ -438,7 +438,7 @@ int main(int argc, char **argv) {
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
    if ((fullpath = find_file_by_list(configs, num_configs))) {
-      if (!(cfg = cfg_load(fullpath))) {
+      if (fullpath && !(cfg = cfg_load(fullpath))) {
          tui_append_log("Couldn't load config \"%s\", using defaults instead", fullpath);
        }
        free(fullpath);
@@ -448,10 +448,7 @@ int main(int argc, char **argv) {
    logger_init((logfile ? logfile : "irc-test.log"));
    free((char *)logfile);
 
-   // XXX: These need to go into the irc_init() or irc_client_init/irc_server_init functions as appropriate!
-   irc_register_default_callbacks();
-   irc_register_default_numeric_callbacks();
-
+   // Initialize sockets / libmongoose
    const char *debug = cfg_get_exp("debug.sockets");
    if (debug && parse_bool(debug)) {
       mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
@@ -462,7 +459,8 @@ int main(int argc, char **argv) {
 
    mg_mgr_init(&mgr);
 
-   // XXX: this needs moved to main loop and modified to check if each network has a connection
+   // XXX: this needs moved to module_init in mod.proto.irc
+   irc_init();
    autoconnect();
    irc_set_conn_pool(irc_client_conns);
 

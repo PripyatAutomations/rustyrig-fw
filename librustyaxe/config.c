@@ -21,6 +21,7 @@ const char *config_file = NULL;
 dict *cfg = NULL;			// User configuration values from config file / ui
 dict *default_cfg = NULL;		// Hard-coded defaults (defcfg.c)
 dict *servers = NULL;			// Holds a list of servers where applicable (client and fwdsp)
+cfg_cb_list_t *cfg_callbacks = NULL;
 
 int dict_merge(dict *dst, dict *src) {
    if (!dst || !src) {
@@ -130,11 +131,6 @@ bool cfg_set_defaults(dict *d, defconfig_t *defaults) {
 }
 
 bool cfg_detect_and_load(const char *configs[], int num_configs) {
-   // If defaults supplied, apply them
-//   if (defcfg) {
-//      return cfg_set_defaults(d, defcfg);
-//   }
-
    const char *homedir = getenv("HOME");
 
    // Find and load the configuration file
@@ -160,7 +156,6 @@ bool cfg_detect_and_load(const char *configs[], int num_configs) {
    return false;
 }
 
-cfg_cb_list_t *cfg_callbacks = NULL;
 
 bool cfg_add_callback(const char *path, const char *section, bool (*cb)()) {
    if (!section || !cb) {
@@ -213,7 +208,7 @@ static bool cfg_dispatch_callback(const char *path, int line, const char *sectio
    cfg_cb_list_t *cbp = cfg_callbacks;
 
    while (cbp) {
-      if (fnmatch(cbp->section, section, 0) == 0) {
+      if (cbp->section && fnmatch(cbp->section, section, 0) == 0) {
          if (!cbp->path || (fnmatch(cbp->path, path, 0) == 0)) {
             Log(LOG_CRAZY, "config", "cfg_dispatch_callback: Found callback at <%p> for section %s (%s) in path %s (%s)", cbp->callback, section, cbp->section, path, cbp->path);
 

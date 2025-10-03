@@ -3,3 +3,9 @@
 
 [librrprotocol]
   * Work on librrprotocol cleanup
+
+[librustayxe]
+* Fix TUI crash when started *not* in tmux or screen
+  - Not sure whats happening but it seems related to config callbacks
+
+[irc-test]
