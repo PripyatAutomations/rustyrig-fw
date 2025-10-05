@@ -13,7 +13,7 @@ bool irc_builtin_ping_cb(irc_client_t *cptr, irc_message_t *mp) {
    if (data) {
       Log(LOG_DEBUG, "irc.parser", "[%s] Ping? Pong! |%s|", irc_name(cptr), data);
 //      tui_append_log("[{green}%s{reset}] {green}Ping? {red}Pong!{reset} %s", irc_name(cptr), data);
-      dprintf(cptr->fd, "PONG :%s\r\n", data);
+      irc_send(cptr, "PONG :%s\r\n", data);
    } else {
       Log(LOG_CRIT, "irc.parser", "[%s] Empty ping from cptr:<%p>", irc_name(cptr), cptr);
    }

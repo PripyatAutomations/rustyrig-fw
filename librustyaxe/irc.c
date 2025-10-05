@@ -48,6 +48,37 @@ bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
 //      prefix = my_name;
    }
 
-//   dprintf(cptr->fd, "%s", 
+   char msg[512];
+   memset(msg, 0, sizeof(msg));
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(msg, sizeof(msg), fmt, ap);
+
+   // XXX: replace this with real socket io ;)
+   dprintf(cptr->fd, "%s\r\n", msg);
+   va_end(ap);
    return false;
 }
+
+//
+// This will create a dict containing various things which we'll allow substituting
+//
+dict *irc_generate_vars(irc_client_t *cptr, const char *chan) {
+   dict *d = dict_new();
+
+   if (!d) {
+      Log(LOG_CRIT, "irc", "OOM in irc_generate_vars");
+      return NULL;
+   }
+
+   if (cptr) {
+      dict_add(d, "nick", cptr->nick);
+   }
+
+   if (chan) {
+      dict_add(d, "chan", chan);
+   }
+
+   return d;
+}
+

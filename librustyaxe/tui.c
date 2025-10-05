@@ -22,38 +22,17 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 
-#define	TUI_MAX_WINDOWS	32
-
+// Is the TUI enabled?
 bool tui_enabled = true;
+
+// Pointer to our readline callback, which should be set by tui_set_rl_cb()
 static bool (*tui_rl_cb)(int argc, char **args) = NULL;
 
-static char status_line[STATUS_LEN] = "Status: {red}OFFLINE{reset}...";
+// These get updated by update_term_size() on SIGWINCH (terminal resize) and in tui_init()
 static int term_rows = 24;  // default lines
 static int term_cols = 80;  // default width
 
-// XXX: These need moved to a struct per-window (tui_window_t)
-static char *scrollback_buffer[LOG_LINES];
-static int log_head = 0;
-static int scroll_offset = 0;
-
-typedef struct {
-   const char *tag;
-   const char *code;
-} ansi_entry_t;
-
-typedef struct tui_theme_data {
-   char         *name;
-   ansi_entry_t *ansi_entry;
-} tui_theme_data_t;
-
-typedef struct tui_window {
-   ansi_entry_t    *default_bg, *default_fg;
-   char            *buffer[LOG_LINES];
-   int              log_head;
-   int              scroll_offset;
-   char             title[32];   // optional: name for the window
-} tui_window_t;
-
+static char status_line[STATUS_LEN] = "Status: {red}OFFLINE{reset}...";
 static tui_window_t *tui_windows[TUI_MAX_WINDOWS];
 static int tui_active_win = 0;
 static int tui_num_windows = 0;
@@ -174,8 +153,7 @@ char *tui_colorize_string(const char *input) {
 }
 
 ////////////
-
-static tui_window_t *active_window(void) {
+tui_window_t *active_window(void) {
    if (tui_num_windows == 0 || !tui_windows[tui_active_win]) {
       // lazy create a default window
       tui_windows[0] = calloc(1, sizeof(tui_window_t));
@@ -258,8 +236,10 @@ static int handle_pgup(int count, int key) {
    }
 
    w->scroll_offset += page;
-   if (w->scroll_offset > LOG_LINES - 1) {
-      w->scroll_offset = LOG_LINES - 1;
+
+   int max_scroll = (w->log_count > term_rows) ? (w->log_count - 1) : 0;
+   if (w->scroll_offset > max_scroll) {
+      w->scroll_offset = max_scroll;
    }
 
    tui_redraw_screen();
@@ -492,23 +472,33 @@ void tui_append_log(const char *fmt, ...) {
    tui_redraw_screen();
 }
 
-bool tui_update_status(const char *fmt, ...) {
+bool tui_update_status(tui_window_t *win, const char *fmt, ...) {
    if (!tui_enabled) {
       return true;
    }
 
    if (fmt) {
-      char msgbuf[513];
+      char tmpbuf[513];
       va_list ap;
-
       va_start(ap, fmt);
-      /* clear the message buffer */
-      memset(msgbuf, 0, sizeof(msgbuf));
-
-      /* Expand the format string */
-      vsnprintf(msgbuf, 512, fmt, ap);
-      char *colored = tui_colorize_string(msgbuf);
+      memset(tmpbuf, 0, sizeof(tmpbuf));
+      vsnprintf(tmpbuf, sizeof(tmpbuf) - 1, fmt, ap);
       va_end(ap);
+
+      dict *vars = dict_new();
+      if (win) {
+         dict_add(vars, "win.title", win->title ? win->title : "main");
+         char scroll_val[16];
+         snprintf(scroll_val, sizeof(scroll_val), "%d", win->scroll_offset);
+         dict_add(vars, "win.scroll", scroll_val);
+      }
+
+      // render string with ${var} expansion + color
+      char *colored = tui_render_string(vars, NULL, "%s", tmpbuf);
+
+      dict_free(vars);
+
+      // update the status line
       strncpy(status_line, colored, sizeof(status_line) - 1);
       free(colored);
       status_line[sizeof(status_line) - 1] = '\0';
@@ -516,4 +506,87 @@ bool tui_update_status(const char *fmt, ...) {
 
    tui_redraw_screen();
    return false;
+}
+
+// This will take a dict with variables for us to escape anywhere we see ${variable}
+// We then process {color} escapes.
+char *tui_render_string(dict *data, const char *title, const char *fmt, ...) {
+   if (!fmt) {
+      return NULL;
+   }
+
+   char *processed = malloc(TUI_STRING_LEN);
+   if (!processed) {
+      fprintf(stderr, "OOM in tui_render_string\n");
+      return NULL;
+   }
+
+   // Step 1: expand printf escapes
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(processed, TUI_STRING_LEN, fmt, ap);
+   va_end(ap);
+
+   // Step 2: expand ${var} and ${var:default} using dict
+   char *expanded = malloc(TUI_STRING_LEN);
+   if (!expanded) {
+      free(processed);
+      fprintf(stderr, "OOM in tui_render_string\n");
+      return NULL;
+   }
+   memset(expanded, 0, TUI_STRING_LEN);
+
+   const char *src = processed;
+   char *dst = expanded;
+
+   while (*src && (dst - expanded) < (TUI_STRING_LEN - 1)) {
+      if (src[0] == '$' && src[1] == '{') {
+         const char *end = strchr(src + 2, '}');
+         if (end) {
+            size_t varlen = end - (src + 2);
+            char varspec[256];
+            if (varlen >= sizeof(varspec)) {
+               varlen = sizeof(varspec) - 1;
+            }
+            strncpy(varspec, src + 2, varlen);
+            varspec[varlen] = '\0';
+
+            // Split on ':' → varname:default
+            char *colon = strchr(varspec, ':');
+            const char *varname = varspec;
+            const char *fallback = NULL;
+            if (colon) {
+               *colon = '\0';
+               fallback = colon + 1;
+            }
+
+            const char *val = dict_get(data, varname, NULL);
+            if (!val && fallback) {
+               val = fallback;
+            }
+
+            if (val) {
+               size_t vlen = strlen(val);
+               if ((dst - expanded) + vlen < TUI_STRING_LEN - 1) {
+                  memcpy(dst, val, vlen);
+                  dst += vlen;
+               }
+            }
+
+            src = end + 1;
+            continue;
+         }
+      }
+
+      *dst++ = *src++;
+   }
+   *dst = '\0';
+
+   // Step 3: colorize
+   char *colorized = tui_colorize_string(expanded);
+
+   free(processed);
+   free(expanded);
+
+   return colorized;   // caller must free
 }

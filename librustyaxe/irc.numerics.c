@@ -31,7 +31,7 @@ bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_DEBUG, "irc", "[%s] *** %s ***", irc_name(cptr), mp->argv[2]);
    tui_append_log("[{green}%s{reset}] *** %s ***", irc_name(cptr), mp->argv[2]);
    cptr->connected = true;
-   tui_update_status("Status: {bright-green}Connected{reset} [{green}%s{reset}]", irc_name(cptr));
+   tui_update_status(active_window(), "Status: {bright-green}Connected{reset} [{green}%s{reset}]", irc_name(cptr));
    return false;
 }
 
@@ -270,11 +270,21 @@ bool irc_builtin_num376(irc_client_t *cptr, irc_message_t *mp) {
    // send some test commands
    const char *site_id = "RPLYWVCL31";
    const char *rig_id = "ft891";
-   dprintf(cptr->fd, "JOIN &%s\r\n", rig_id);
-   dprintf(cptr->fd, "JOIN #%s.%s\r\n", site_id, rig_id);
-   dprintf(cptr->fd, "WHOIS %s\r\n", cptr->nick);
+   irc_send(cptr, "JOIN &%s\r\n", rig_id);
+//   irc_send(cptr, "JOIN #%s.%s\r\n", site_id, rig_id);
+   irc_send(cptr, "WHOIS %s\r\n", cptr->nick);
    tui_append_log("{bright-cyan}>>>{reset} Attached to rig {bright-cyan}%s.%s{reset} via {bright-magenta}IRC{reset} transport [{green}%s{reset}] {bright-cyan}<<<{reset}", site_id, rig_id, cptr->server->network);
 
+   return false;
+}
+
+bool irc_builtin_num401(irc_client_t *cptr, irc_message_t *mp) {
+   if (mp->argc < 2) {
+      return true;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] No such nickname: %s", irc_name(cptr), mp->argv[2]);
+   tui_append_log("[{green}%s{reset}] No such nickname: %s", irc_name(cptr), mp->argv[2]);
    return false;
 }
 
@@ -354,7 +364,7 @@ const irc_numeric_t irc_numerics[] = {
    { .code =  379, .name = "RPL_UNKNOWN3",	   .desc = "XXX",                                     .cb = irc_builtin_num_print },
 
    // --- Errors ---
-   { .code =  401, .name = "ERR_NOSUCHNICK",       .desc = "No such nick/channel",                    .cb = NULL },
+   { .code =  401, .name = "ERR_NOSUCHNICK",       .desc = "No such nick/channel",                    .cb = irc_builtin_num401 },
    { .code =  402, .name = "ERR_NOSUCHSERVER",     .desc = "No such server",                          .cb = NULL },
    { .code =  403, .name = "ERR_NOSUCHCHANNEL",    .desc = "No such channel",                         .cb = NULL },
    { .code =  404, .name = "ERR_CANNOTSENDTOCHAN", .desc = "Cannot send to channel",                  .cb = NULL },

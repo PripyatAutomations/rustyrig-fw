@@ -103,18 +103,18 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
           // Send PASS if configured
           if (cptr->server->pass[0]) {
              if (cptr->server->account[0]) {
-                dprintf(cptr->fd, "PASS %s:%s\r\n", cptr->server->account, cptr->server->pass);
+                irc_send(cptr, "PASS %s:%s\r\n", cptr->server->account, cptr->server->pass);
              } else {
-                dprintf(cptr->fd, "PASS %s\r\n", cptr->server->pass);
+                irc_send(cptr, "PASS %s\r\n", cptr->server->pass);
              }
           }
 
           // Send NICK
-          dprintf(cptr->fd, "NICK %s\r\n", cptr->nick);
+          irc_send(cptr, "NICK %s\r\n", cptr->nick);
 
           // Send USER: ident, mode=0, unused=*, realname=nick
           const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
-          dprintf(cptr->fd, "USER %s 0 * :%s\r\n", ident, cptr->nick);
+          irc_send(cptr, "USER %s 0 * :%s\r\n", ident, cptr->nick);
           cptr->connected = true;
        } else {
           Log(LOG_DEBUG, "irc", "already connected");
@@ -127,7 +127,7 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
         ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);
         if (n <= 0) {
             Log(LOG_INFO, "irc", "disconnected");
-            tui_update_status("Status: {red}Offline{reset}");
+            tui_update_status(active_window(), "Status: {red}Offline{reset}");
             tui_append_log("[%s] Disconnected", cptr->server->network);
             ev_io_stop(EV_A_ w);
             close(cptr->fd);

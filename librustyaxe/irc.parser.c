@@ -184,7 +184,7 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
                 p->cb(cptr, mp);
              } else {
                 Log(LOG_CRAZY, "dispatcher", "Callback in irc_callbacks:<%p> has no target fn for %s", p, mp->argv[0]);
-                tui_append_log("[%s] Unsupported numeric/command: %s", irc_name(cptr), mp->argv[0]);
+                tui_append_log("[{green}%s{reset}] Unsupported numeric/command: %s", irc_name(cptr), mp->argv[0]);
              }
 
              // Handle relayed commands

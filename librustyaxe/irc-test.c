@@ -40,6 +40,7 @@ typedef struct cli_command {
    bool (*cb)(int argc, char **argv);
 } cli_command_t;
 
+// This needs absorbed into the tui_window_t!
 typedef struct irc_window {
    char *name;			// window name
    char *target;		// channel/nick target
@@ -47,16 +48,16 @@ typedef struct irc_window {
 } irc_window_t;
 
 irc_window_t irc_windows[MAX_WINDOWS];
-int active_window = 0;
+int curr_irc_win = 0;
 
-bool assign_window(int i, irc_client_t *cptr) {
+bool assign_window(int i, irc_client_t *cptr, char *target) {
    if (!cptr || (i < 0 || i > MAX_WINDOWS)) {
       return true;
    }
 
    irc_window_t *aw = &irc_windows[i];
    aw->name = cptr->nick;
-   aw->target = cptr->nick;
+   aw->target = target;
    aw->cptr = cptr;
 
    return false;
@@ -71,13 +72,13 @@ bool cli_join(int argc, char **argv) {
       return true;
    }
 
-   irc_window_t *wp = &irc_windows[active_window];
+   irc_window_t *wp = &irc_windows[curr_irc_win];
 
    if (wp) {
       // There's a window here at least...
       if (wp->cptr) {
          tui_append_log("* Joining %s", argv[1]);
-         dprintf(wp->cptr->fd, "JOIN %s\r\n", argv[1]);
+         irc_send(wp->cptr, "JOIN %s\r\n", argv[1]);
       }
    }
    return false;
@@ -92,7 +93,7 @@ bool cli_part(int argc, char **argv) {
       return true;
    }
 
-   irc_window_t *wp = &irc_windows[active_window];
+   irc_window_t *wp = &irc_windows[curr_irc_win];
 
    if (wp) {
       // There's a window here at least...
@@ -106,15 +107,14 @@ bool cli_part(int argc, char **argv) {
            size_t pos = 0;
 
            for (int i = 2; i < argc; i++) {
-              int n = snprintf(partmsg + pos, sizeof(partmsg) - pos,
-                               "%s%s", (i > 2 ? " " : ""), argv[i] ? argv[i] : "");
+              int n = snprintf(partmsg + pos, sizeof(partmsg) - pos, "%s%s", (i > 2 ? " " : ""), argv[i] ? argv[i] : "");
               if (n < 0 || (size_t)n >= sizeof(partmsg) - pos) {
                  break;
               }
               pos += n;
            }
          }
-         dprintf(wp->cptr->fd, "PART %s%s\r\n", argv[1], partmsg);
+         irc_send(wp->cptr, "PART %s%s\r\n", argv[1], partmsg);
       }
    }
    return false;
@@ -192,10 +192,14 @@ bool add_server(const char *network, const char *str) {
    const char *p = str;
 
    // Strip scheme
-   if (strncmp(p, "ircs://", 7) == 0) {
+   if (strncasecmp(p, "ircs://", 7) == 0) {
       p += 7;
       new_cfg->tls = true;
-   } else if (strncmp(p, "irc://", 6) == 0) {
+   } else if (strncasecmp(p, "irc://", 6) == 0) {
+      p += 6;
+   } else if (strncasecmp(p, "ws://", 5) == 0) {
+      p += 5;
+   } else if (strncasecmp(p, "wss://", 6) == 0) {
       p += 6;
    }
 
@@ -254,6 +258,7 @@ bool add_server(const char *network, const char *str) {
    return true;
 }
 
+// Callback for the config parser for 'network:*' section
 static bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
    char *np = strchr(section, ':');
    if (np) {
@@ -276,14 +281,15 @@ static void mongoose_timer_cb(EV_P_ ev_timer *w, int revents) {
 
 // XXX: upgrade this to be able to be called periodicly
 // XXX: It should check for check for a connect to each network
+// XXX: Need to add support for ws/wss connections
 bool autoconnect(void) {
    // Handle connecting to servers in networks.auto
    const char *networks = cfg_get_exp("networks.auto");
+
    if (networks) {
       char *tv = strdup(networks);
       // Split this on ',' and connect to allow configured networks
       char *sp = strtok(tv, ", ");
-
 
       while (sp) {
          char this_network[256];
@@ -294,54 +300,54 @@ bool autoconnect(void) {
 
          server_cfg_t *srvp = server_list;
          while (srvp) {
-             if (strcasecmp(srvp->network, this_network) == 0) {
-                 tui_append_log("=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
-                 // Wrap server pointer in a list node
-                 rrlist_t *node = malloc(sizeof(rrlist_t));
-                 node->ptr = srvp;
-                 node->prev = node->next = NULL;
+            if (strcasecmp(srvp->network, this_network) == 0) {
+               tui_append_log("=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
+               // Wrap server pointer in a list node
+               rrlist_t *node = malloc(sizeof(rrlist_t));
+               node->ptr = srvp;
+               node->prev = node->next = NULL;
 
-                 // Insert into temp_list sorted by priority (descending)
-                 rrlist_t *cur = temp_list;
-                 rrlist_t *prev = NULL;
-                 while (cur && ((server_cfg_t *)cur->ptr)->priority >= srvp->priority) {
-                     prev = cur;
-                     cur = cur->next;
-                 }
+               // Insert into temp_list sorted by priority (descending)
+               rrlist_t *cur = temp_list;
+               rrlist_t *prev = NULL;
+               while (cur && ((server_cfg_t *)cur->ptr)->priority >= srvp->priority) {
+                   prev = cur;
+                   cur = cur->next;
+               }
 
-                 if (!prev) {
-                     // insert at head
-                     node->next = temp_list;
-                     if (temp_list) {
-                        temp_list->prev = node;
-                     }
-                     temp_list = node;
-                 } else {
-                     // insert after prev
-                     node->next = prev->next;
-                     node->prev = prev;
-                     if (prev->next) {
-                        prev->next->prev = node;
-                     }
-                     prev->next = node;
-                 }
-             }
-             srvp = srvp->next;
+               if (!prev) {
+                  // insert at head
+                  node->next = temp_list;
+                  if (temp_list) {
+                    temp_list->prev = node;
+                  }
+                  temp_list = node;
+               } else {
+                  // insert after prev
+                  node->next = prev->next;
+                  node->prev = prev;
+                  if (prev->next) {
+                    prev->next->prev = node;
+                  }
+                  prev->next = node;
+               }
+            }
+            srvp = srvp->next;
          }
 
          rrlist_t *node = temp_list;
          while (node) {
-             server_cfg_t *srv = node->ptr;
-             tui_append_log("Trying %s://%s@%s:%d priority=%d",
-                 (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
+            server_cfg_t *srv = node->ptr;
+            tui_append_log("Trying %s://%s@%s:%d priority=%d", (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
-             irc_client_t *cli;
-             if (cli = irc_cli_connect(srv)) {
-                // Add to the connection list
-                rrlist_add(&irc_client_conns, cli, LIST_TAIL);
-                assign_window(active_window, cli);
-             }
-             node = node->next;
+            irc_client_t *cli;
+            if (cli = irc_cli_connect(srv)) {
+               // Add to the connection list
+               rrlist_add(&irc_client_conns, cli, LIST_TAIL);
+
+               assign_window(curr_irc_win, cli, "status");
+            }
+            node = node->next;
          }
          sp = strtok(NULL, " ,");
       }
@@ -372,7 +378,7 @@ bool irc_input_cb(int argc, char **args) {
    }
 
    // Send it to the active target
-   irc_window_t *wp = &irc_windows[active_window];
+   irc_window_t *wp = &irc_windows[curr_irc_win];
 
    if (wp) {
       // There's a window here at least...
@@ -389,10 +395,10 @@ bool irc_input_cb(int argc, char **args) {
             }
             pos += n;
          }
-         dprintf(wp->cptr->fd, "PRIVMSG %s :%s", wp->target, buf);
+         irc_send(wp->cptr, "PRIVMSG %s :%s\r\n", wp->target, buf);
 
          // Is it a channel?
-         if (buf[0] == '&' || buf[0] == '#') {
+         if (wp->target[0] == '&' || wp->target[0] == '#') {
             // We'll see it when it's echoed back, so don't do anything
          } else {
             // Nickname target, show it on the screen
@@ -405,7 +411,6 @@ bool irc_input_cb(int argc, char **args) {
 
 static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
    (void)w; (void)revents;
-//   tui_redraw_screen();
    tui_redraw_clock();
 }
 
@@ -424,7 +429,6 @@ int main(int argc, char **argv) {
    char *fullpath = NULL;
 
    tui_init();
-
    tui_append_log("irc-test starting");
 
    struct ev_loop *loop = EV_DEFAULT;
@@ -441,8 +445,8 @@ int main(int argc, char **argv) {
    if ((fullpath = find_file_by_list(configs, num_configs))) {
       if (fullpath && !(cfg = cfg_load(fullpath))) {
          tui_append_log("Couldn't load config \"%s\", using defaults instead", fullpath);
-       }
-       free(fullpath);
+      }
+      free(fullpath);
    }
 
    const char *logfile = cfg_get_exp("log.file");
@@ -467,6 +471,7 @@ int main(int argc, char **argv) {
 
    while (!dying) {
       ev_run(loop, 0);
+      usleep(200);
    }
 
    // cleanup
