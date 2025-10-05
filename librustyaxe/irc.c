@@ -26,3 +26,28 @@ bool irc_init(void) {
    irc_register_default_numeric_callbacks();
    return false;
 }
+
+bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
+   if (!cptr) {
+      return true;
+   }
+
+   if (!fmt) {
+      return false;
+   }
+
+   if (cptr->fd <= 0) {
+      Log(LOG_CRIT, "irc", "irc_send to cptr:<%x> who has fd: %d", cptr, cptr->fd);
+      return true;
+   }
+
+   char *prefix = NULL;
+
+   if (!cptr->is_server) {
+      // Ensure we send a prefix, if this is a not a server
+//      prefix = my_name;
+   }
+
+//   dprintf(cptr->fd, "%s", 
+   return false;
+}

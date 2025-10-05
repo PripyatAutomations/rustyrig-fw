@@ -1,3 +1,11 @@
+===============
+= librustyaxe =
+===============
+* Add multi-window with alt- to switch
+  - Per screen scrollback buffer & offset storage
+* Implement theme support
+* Scrolling of the scrollback for each window
+
 =========
 = fwdsp =
 =========

@@ -1,4 +1,3 @@
-//
 // irc.parser.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -23,20 +22,41 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 
-bool tui_enabled = true;
+#define	TUI_MAX_WINDOWS	32
 
+bool tui_enabled = true;
 static bool (*tui_rl_cb)(int argc, char **args) = NULL;
-static char *log_buffer[LOG_LINES];
-static int log_head = 0;
+
 static char status_line[STATUS_LEN] = "Status: {red}OFFLINE{reset}...";
 static int term_rows = 24;  // default lines
 static int term_cols = 80;  // default width
+
+// XXX: These need moved to a struct per-window (tui_window_t)
+static char *scrollback_buffer[LOG_LINES];
+static int log_head = 0;
 static int scroll_offset = 0;
 
 typedef struct {
    const char *tag;
    const char *code;
 } ansi_entry_t;
+
+typedef struct tui_theme_data {
+   char         *name;
+   ansi_entry_t *ansi_entry;
+} tui_theme_data_t;
+
+typedef struct tui_window {
+   ansi_entry_t    *default_bg, *default_fg;
+   char            *buffer[LOG_LINES];
+   int              log_head;
+   int              scroll_offset;
+   char             title[32];   // optional: name for the window
+} tui_window_t;
+
+static tui_window_t *tui_windows[TUI_MAX_WINDOWS];
+static int tui_active_win = 0;
+static int tui_num_windows = 0;
 
 static const ansi_entry_t ansi_table[] = {
    // Reset
@@ -92,8 +112,23 @@ static const ansi_entry_t ansi_table[] = {
    { "bg-bright-cyan",   "\033[106m" },
    { "bg-bright-white",  "\033[107m" },
 
+   // list end
    { NULL, NULL }
 };
+
+/* XXX: How do we deal with this properly?
+static struct tui_theme_data[] = {
+   { "bgcolor",		"bright-black" },
+   { "chans",		"bright-magenta" },
+   { "clock.digit",	"cyan" },
+   { "clock.seperator",	"bright-black" },
+   { "msg.connected",	"bright-green" },
+   { "msg.offline",	"bright-red" },
+   { "nicks",		"bright-cyan" },
+   { "normal",		"white" },
+   {
+};
+*/
 
 static const char *ansi_code(const char *tag) {
    for (int i = 0; ansi_table[i].tag; i++) {
@@ -136,6 +171,22 @@ char *tui_colorize_string(const char *input) {
    }
    *dst = '\0';
    return out;
+}
+
+////////////
+
+static tui_window_t *active_window(void) {
+   if (tui_num_windows == 0 || !tui_windows[tui_active_win]) {
+      // lazy create a default window
+      tui_windows[0] = calloc(1, sizeof(tui_window_t));
+      if (!tui_windows[0]) {
+         return NULL;
+      }
+      strncpy(tui_windows[0]->title, "main", sizeof(tui_windows[0]->title)-1);
+      tui_num_windows = 1;
+      tui_active_win = 0;
+   }
+   return tui_windows[tui_active_win];
 }
 
 // Read the terminal size and update our size to match
@@ -196,31 +247,107 @@ static void stdin_rl_cb(char *line) {
 }
 
 static int handle_pgup(int count, int key) {
-   scroll_offset += count;
-   if (scroll_offset > LOG_LINES - 1) {
-      scroll_offset = LOG_LINES - 1;
+   tui_window_t *w = active_window();
+   if (!w) {
+      return 0;
    }
+
+   int page = term_rows - 3;    // one screen minus status/prompt
+   if (page < 1) {
+      page = 1;
+   }
+
+   w->scroll_offset += page;
+   if (w->scroll_offset > LOG_LINES - 1) {
+      w->scroll_offset = LOG_LINES - 1;
+   }
+
    tui_redraw_screen();
+   tui_redraw_clock();
    return 0;
 }
 
 static int handle_pgdn(int count, int key) {
-   scroll_offset -= count;
-   if (scroll_offset < 0) {
-      scroll_offset = 0;
+   tui_window_t *w = active_window();
+   if (!w) {
+      return 0;
    }
+
+   int page = term_rows - 3;
+   if (page < 1) {
+      page = 1;
+   }
+
+   w->scroll_offset -= page;
+   if (w->scroll_offset < 0) {
+      w->scroll_offset = 0;
+   }
+
+   tui_redraw_screen();
+   tui_redraw_clock();
+   return 0;
+}
+
+static int handle_alt_number(int c, int key) {
+   int num = key - '1'; // Alt-1 = window 0
+   if (key == '0') num = 9; // Alt-0 -> window 9
+   if (num < tui_num_windows) {
+      tui_active_win = num;
+      tui_redraw_screen();
+   }
+   return 0;
+}
+
+static int handle_alt_left(int c, int key) {
+   tui_active_win = (tui_active_win - 1 + tui_num_windows) % tui_num_windows;
+   tui_redraw_screen();
+   return 0;
+}
+
+static int handle_alt_right(int c, int key) {
+   tui_active_win = (tui_active_win + 1) % tui_num_windows;
    tui_redraw_screen();
    return 0;
 }
 
 static void setup_keys(void) {
-   rl_bind_keyseq("\033[5~", handle_pgup);   // PgUp
-   rl_bind_keyseq("\033[6~", handle_pgdn);   // PgDn
+   rl_bind_keyseq("\033[5~", handle_pgup);
+   rl_bind_keyseq("\033[6~", handle_pgdn);
+
+   // Alt-1..0
+   for (int i = '1'; i <= '9'; i++) {
+      char seq[8];
+      snprintf(seq, sizeof(seq), "\033%c", i); // ESC 1, ESC 2 ...
+      rl_bind_keyseq(seq, handle_alt_number);
+   }
+   rl_bind_keyseq("\0330", handle_alt_number);
+
+   // Alt-left / Alt-right
+   rl_bind_keyseq("\033[1;3D", handle_alt_left);
+   rl_bind_keyseq("\033[1;3C", handle_alt_right);
+}
+
+static tui_window_t *tui_window_create(const char *title) {
+   tui_window_t *w = calloc(1, sizeof(tui_window_t));   // <-- calloc, not malloc
+   if (!w) {
+      return NULL;
+   }
+   strncpy(w->title, title ? title : "main", sizeof(w->title)-1);
+   w->log_head = 0;
+   w->scroll_offset = 0;
+   return w;
 }
 
 bool tui_init(void) {
    tui_enabled = true;
-   // setup readline
+
+   // ensure at least one window
+   if (tui_num_windows == 0) {
+      tui_windows[0] = tui_window_create("main");
+      tui_num_windows = 1;
+      tui_active_win = 0;
+   }
+
    rl_catch_signals = 0;
    rl_callback_handler_install(NULL, stdin_rl_cb);
    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
@@ -228,7 +355,7 @@ bool tui_init(void) {
    signal(SIGWINCH, sigwinch_handler);
    update_term_size();
    tui_redraw_screen();
-   printf("\033[%d;1H", term_rows); // move cursor to input line
+   printf("\033[%d;1H", term_rows);
    fflush(stdout);
 
    setup_keys();
@@ -250,23 +377,17 @@ void tui_redraw_screen(void) {
    // Clear entire screen
    printf("\033[H\033[2J");
 
-   // Determine how many log lines fit above status+prompt
-   int log_lines_to_print = term_rows - 3; // 1 status + 1 input + 1 extra blank
+   tui_window_t *w = active_window();
+   int log_lines_to_print = term_rows - 3;
    if (log_lines_to_print > LOG_LINES) {
       log_lines_to_print = LOG_LINES;
    }
 
-   // Start index in circular buffer
-   int start = (log_head - log_lines_to_print + LOG_LINES) % LOG_LINES;
+   int start = (w->log_head - log_lines_to_print - w->scroll_offset + LOG_LINES) % LOG_LINES;
 
-   // Print log lines
    for (int i = 0; i < log_lines_to_print; i++) {
       int idx = (start + i) % LOG_LINES;
-      if (log_buffer[idx]) {
-         printf("%s\n", log_buffer[idx]);
-      } else {
-         printf("\n");
-      }
+      printf("%s\n", w->buffer[idx] ? w->buffer[idx] : "");
    }
 
    // Extra blank line to force terminal scroll
@@ -354,22 +475,20 @@ void tui_append_log(const char *fmt, ...) {
 
    char msgbuf[513];
    va_list ap;
-
    va_start(ap, fmt);
-   memset(msgbuf, 0, sizeof(msgbuf));
-   vsnprintf(msgbuf, sizeof(msgbuf) - 1, fmt, ap);
+   vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
    va_end(ap);
 
    char *colored = tui_colorize_string(msgbuf);
 
-   if (log_buffer[log_head]) {
-      free(log_buffer[log_head]);
+   tui_window_t *w = active_window();
+   if (w && w->buffer[w->log_head]) {
+      free(w->buffer[w->log_head]);
    }
 
-   // Take ownership of the newly allocated string
-   log_buffer[log_head] = colored ? colored : strdup(msgbuf);
+   w->buffer[w->log_head] = colored ? colored : strdup(msgbuf);
+   w->log_head = (w->log_head + 1) % LOG_LINES;
 
-   log_head = (log_head + 1) % LOG_LINES;
    tui_redraw_screen();
 }
 

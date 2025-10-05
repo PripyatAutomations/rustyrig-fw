@@ -423,6 +423,8 @@ int main(int argc, char **argv) {
    now = time(NULL);
    char *fullpath = NULL;
 
+   tui_init();
+
    tui_append_log("irc-test starting");
 
    struct ev_loop *loop = EV_DEFAULT;
@@ -431,7 +433,6 @@ int main(int argc, char **argv) {
    ev_timer_init(&mongoose_watcher, mongoose_timer_cb, 0., 0.1);
    ev_timer_start(loop, &mongoose_watcher);
    tui_start_clock_timer(loop);
-   tui_init();
    tui_set_rl_cb(irc_input_cb);
 
    // add our configuration callbacks

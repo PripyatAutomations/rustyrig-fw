@@ -9,6 +9,7 @@ librustyaxe_objs += dict.o
 librustyaxe_objs += io.o
 librustyaxe_objs += io.serial.o
 librustyaxe_objs += io.socket.o
+librustyaxe_objs += irc.o
 librustyaxe_objs += irc.capab.o
 librustyaxe_objs += irc.client.o
 librustyaxe_objs += irc.commands.o

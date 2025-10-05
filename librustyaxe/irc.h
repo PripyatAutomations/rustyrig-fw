@@ -24,6 +24,7 @@
 #include <librustyaxe/irc.server.h>
 
 extern bool irc_init(void);
+extern bool irc_send(irc_client_t *cptr, const char *fmt, ...);
 
 static inline char *irc_name(irc_client_t *cptr) {
    if (cptr->server && cptr->server->network[0]) {
@@ -35,5 +36,6 @@ static inline char *irc_name(irc_client_t *cptr) {
    }
    return NULL;
 }
+
 
 #endif	// !defined(__librustyaxe_irc_h)
