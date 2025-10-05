@@ -224,50 +224,6 @@ static void stdin_rl_cb(char *line) {
    tui_redraw_clock();
 }
 
-static int handle_pgup(int count, int key) {
-   tui_window_t *w = active_window();
-   if (!w) {
-      return 0;
-   }
-
-   int page = term_rows - 3;    // one screen minus status/prompt
-   if (page < 1) {
-      page = 1;
-   }
-
-   w->scroll_offset += page;
-
-   int max_scroll = (w->log_count > term_rows) ? (w->log_count - 1) : 0;
-   if (w->scroll_offset > max_scroll) {
-      w->scroll_offset = max_scroll;
-   }
-
-   tui_redraw_screen();
-   tui_redraw_clock();
-   return 0;
-}
-
-static int handle_pgdn(int count, int key) {
-   tui_window_t *w = active_window();
-   if (!w) {
-      return 0;
-   }
-
-   int page = term_rows - 3;
-   if (page < 1) {
-      page = 1;
-   }
-
-   w->scroll_offset -= page;
-   if (w->scroll_offset < 0) {
-      w->scroll_offset = 0;
-   }
-
-   tui_redraw_screen();
-   tui_redraw_clock();
-   return 0;
-}
-
 static int handle_alt_number(int c, int key) {
    int num = key - '1'; // Alt-1 = window 0
    if (key == '0') num = 9; // Alt-0 -> window 9
@@ -290,6 +246,53 @@ static int handle_alt_right(int c, int key) {
    return 0;
 }
 
+// --- PgUp / PgDn handlers with partial last page support ---
+static int handle_pgup(int count, int key) {
+   tui_window_t *w = active_window();
+   if (!w) {
+      return 0;
+   }
+
+   int page = term_rows - 3; // screen minus status+input
+   if (page < 1) {
+      page = 1;
+   }
+
+   int max_scroll = (w->log_count > page) ? (w->log_count - page) : 0;
+
+   if (w->scroll_offset + page > max_scroll) {
+      w->scroll_offset = max_scroll; // stop at top of buffer
+   } else {
+      w->scroll_offset += page;
+   }
+
+   tui_redraw_screen();
+   tui_redraw_clock();
+   return 0;
+}
+
+static int handle_pgdn(int count, int key) {
+   tui_window_t *w = active_window();
+   if (!w) {
+      return 0;
+   }
+
+   int page = term_rows - 3;
+   if (page < 1) {
+      page = 1;
+   }
+
+   if (w->scroll_offset - page < 0) {
+      w->scroll_offset = 0; // stop at bottom of buffer
+   } else {
+      w->scroll_offset -= page;
+   }
+
+   tui_redraw_screen();
+   tui_redraw_clock();
+   return 0;
+}
+
 static void setup_keys(void) {
    rl_bind_keyseq("\033[5~", handle_pgup);
    rl_bind_keyseq("\033[6~", handle_pgdn);
@@ -306,6 +309,8 @@ static void setup_keys(void) {
    rl_bind_keyseq("\033[1;3D", handle_alt_left);
    rl_bind_keyseq("\033[1;3C", handle_alt_right);
 }
+
+
 
 static tui_window_t *tui_window_create(const char *title) {
    tui_window_t *w = calloc(1, sizeof(tui_window_t));   // <-- calloc, not malloc
@@ -347,6 +352,8 @@ bool tui_fini(void) {
    return false;
 }
 
+
+#if	0
 void tui_redraw_screen(void) {
    if (!tui_enabled) {
       return;
@@ -414,6 +421,60 @@ void tui_redraw_screen(void) {
    fflush(stdout);
 }
 
+#else
+
+void tui_redraw_screen(void) {
+   if (!tui_enabled) {
+      return;
+   }
+
+   update_term_size();
+
+   printf("\033[H\033[2J"); // clear screen
+
+   tui_window_t *w = active_window();
+   if (!w) {
+      return;
+   }
+
+   int log_lines_to_print = term_rows - 3;
+   if (log_lines_to_print > LOG_LINES) {
+      log_lines_to_print = LOG_LINES;
+   }
+
+   int filled = w->log_count;
+   if (filled > log_lines_to_print) {
+      filled = log_lines_to_print;
+   }
+
+   // start printing from newest line - scroll_offset - visible lines
+   int start = (w->log_head + LOG_LINES - w->scroll_offset - filled) % LOG_LINES;
+
+   for (int i = 0; i < filled; i++) {
+      int idx = (start + i) % LOG_LINES;
+      if (w->buffer[idx]) {
+         printf("%s\n", w->buffer[idx]);
+      } else {
+         printf("\n");
+      }
+   }
+
+   // fill remaining screen if buffer smaller than screen
+   for (int i = filled; i < log_lines_to_print; i++) {
+      printf("\n");
+   }
+
+   // status line
+   printf("\033[%d;1H", term_rows - 1);
+   printf("%-*s", term_cols, status_line);
+
+   // input line
+   printf("\033[%d;1H\033[K", term_rows);
+
+   fflush(stdout);
+}
+#endif
+
 void tui_redraw_clock(void) {
    if (!tui_enabled) {
       return;
@@ -453,6 +514,40 @@ void tui_append_log(const char *fmt, ...) {
       return;
    }
 
+   tui_window_t *w = active_window();
+   if (!w) {
+      return;
+   }
+
+   char msgbuf[513];
+   va_list ap;
+   va_start(ap, fmt);
+   memset(msgbuf, 0, sizeof(msgbuf));
+   vsnprintf(msgbuf, sizeof(msgbuf) - 1, fmt, ap);
+   va_end(ap);
+
+   char *colored = tui_colorize_string(msgbuf);
+
+   if (w->buffer[w->log_head]) {
+      free(w->buffer[w->log_head]);
+   }
+
+   w->buffer[w->log_head] = colored ? colored : strdup(msgbuf);
+
+   w->log_head = (w->log_head + 1) % LOG_LINES;
+   if (w->log_count < LOG_LINES) {
+      w->log_count++;
+   }
+
+   tui_redraw_screen();
+}
+
+#if	0
+void tui_append_log(const char *fmt, ...) {
+   if (!tui_enabled) {
+      return;
+   }
+
    char msgbuf[513];
    va_list ap;
    va_start(ap, fmt);
@@ -471,6 +566,7 @@ void tui_append_log(const char *fmt, ...) {
 
    tui_redraw_screen();
 }
+#endif
 
 bool tui_update_status(tui_window_t *win, const char *fmt, ...) {
    if (!tui_enabled) {
