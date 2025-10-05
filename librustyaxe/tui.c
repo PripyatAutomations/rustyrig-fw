@@ -31,7 +31,7 @@ static bool (*tui_rl_cb)(int argc, char **args) = NULL;
 static int term_rows = 24;  // default lines
 static int term_cols = 80;  // default width
 
-static char status_line[STATUS_LEN] = "Status: {red}OFFLINE{reset}...";
+static char status_line[STATUS_LEN] = "{bright-black}[{red}OFFLINE{bright-black}]{reset}";
 static tui_window_t *tui_windows[TUI_MAX_WINDOWS];
 static int tui_active_win = 0;
 static int tui_num_windows = 0;
@@ -315,21 +315,30 @@ static int handle_pgdn(int count, int key) {
    return 0;
 }
 
+static int handle_ptt_button(int count, int key) {
+   tui_window_t *w = active_window();
+   if (!w) {
+      return 0;
+   }
+
+   tui_print_win(w->title, "* F13 (PTT) pressed!");
+   return 0;
+}
+
 static void setup_keys(void) {
+   rl_bind_keyseq("\033[1;3D", handle_alt_left);
+   rl_bind_keyseq("\033[1;3C", handle_alt_right);
    rl_bind_keyseq("\033[5~", handle_pgup);
    rl_bind_keyseq("\033[6~", handle_pgdn);
+   rl_bind_keyseq("\033[25~", handle_ptt_button);	// F13
 
-   // Alt-1..0
+   // Alt-1...0 for win 1-10
    for (int i = '1'; i <= '9'; i++) {
       char seq[8];
       snprintf(seq, sizeof(seq), "\033%c", i); // ESC 1, ESC 2 ...
       rl_bind_keyseq(seq, handle_alt_number);
    }
    rl_bind_keyseq("\0330", handle_alt_number);
-
-   // Alt-left / Alt-right
-   rl_bind_keyseq("\033[1;3D", handle_alt_left);
-   rl_bind_keyseq("\033[1;3C", handle_alt_right);
 }
 
 tui_window_t *tui_window_create(const char *title) {
@@ -440,7 +449,7 @@ tui_window_t *tui_window_focus(const char *title) {
          if (tw->title[0] == '&' || tw->title[0] == '#') {
             win_color = "{bright-magenta}";
          }
-         tui_update_status(active_window(), "Status: {bright-green}Connected{reset} [{green}%s{reset}] {bright-black}[%s%s{bright-black}]{reset}", network, win_color, tw->title);
+         tui_update_status(active_window(), "{bright-black}[{bright-green}online{bright-black}] [{green}%s{bright-black}] [%s%s{bright-black}]{reset}", network, win_color, tw->title);
          return tui_windows[i];
       }
    }
@@ -637,7 +646,6 @@ bool tui_update_status(tui_window_t *win, const char *fmt, ...) {
 
       // render string with ${var} expansion + color
       char *colored = tui_render_string(vars, NULL, "%s", tmpbuf);
-
       dict_free(vars);
 
       // update the status line

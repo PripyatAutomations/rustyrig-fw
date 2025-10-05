@@ -1,16 +1,15 @@
 //
-// inc/rrclient/config.h
+// inc/librustyaxe/config.h
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__inc_rrclient_config_h)
-#define	__inc_rrclient_config_h
+#if	!defined(__inc_config_h)
+#define	__inc_config_h
 #include <stdbool.h>
-//#include <stdint.h>
-
+#include <stdint.h>
 #include <librustyaxe/dict.h>
 
 // Maximum length of an expanded string, XXX: Move to header file librustyaxe/config.h
@@ -105,4 +104,4 @@ extern bool reload_event_list(const char *key);
 // Run the reload events for a key
 extern bool reload_event_run(const char *key);
 
-#endif	// !defined(__inc_rrclient_config_h)
+#endif	// !defined(__inc_config_h)

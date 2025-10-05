@@ -127,7 +127,7 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
         ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);
         if (n <= 0) {
             Log(LOG_INFO, "irc", "disconnected");
-            tui_update_status(active_window(), "Status: {red}Offline{reset}");
+            tui_update_status(active_window(), "{bright-black}[{red}Offline{bright-black}]{reset}");
             tui_print_win("status", "[%s] Disconnected", cptr->server->network);
             ev_io_stop(EV_A_ w);
             close(cptr->fd);

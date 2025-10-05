@@ -40,9 +40,6 @@ typedef struct cli_command {
    bool (*cb)(int argc, char **argv);
 } cli_command_t;
 
-bool cli_help(int argc, char **argv) {
-   return false;
-}
 
 bool cli_join(int argc, char **argv) {
    if (argc < 1) {
@@ -119,14 +116,35 @@ bool cli_quit(int argc, char **argv) {
    return false;	// unreached, but shuts up the scanner...
 }
 
+extern bool cli_help(int argc, char **argv);
+
 cli_command_t cli_commands[] = {
    { .cmd = "/help", .cb = cli_help, .desc = "Show help message" },
    { .cmd = "/join", .cb = cli_join, .desc = "Join a channel" },
-   { .cmd = "/me",   .cb = cli_me, .desc = "Send an action to the current channel" },
+   { .cmd = "/me",   .cb = cli_me, .desc = "\tSend an action to the current channel" },
    { .cmd = "/part", .cb = cli_part, .desc = "leave a channel" },
    { .cmd = "/quit", .cb = cli_quit, .desc = "Exit the program" },
    { .cmd = NULL,    .cb = NULL, .desc = NULL }
 };
+
+bool cli_help(int argc, char **argv) {
+   tui_window_t *wp = active_window();
+   if (!wp) {
+      return true;
+   }
+
+   tui_print_win(wp->title, "*** Available commands ***");
+   for (int i = 0; cli_commands[i].cmd; i++) {
+      tui_print_win(wp->title, "   %s\t\t%s", cli_commands[i].cmd, cli_commands[i].desc);
+   }
+   tui_print_win(wp->title, ""); 
+   tui_print_win(wp->title, "*** Keyboard Shortcuts ***"); 
+   tui_print_win(wp->title, "   alt-X (1-0)\t\tSwitch to window 1-10");
+   tui_print_win(wp->title, "   alt-left\t\tSwitch to previous win");
+   tui_print_win(wp->title, "   alt-right\t\tSwitch to next win");
+   tui_print_win(wp->title, "   F13\t\t\tPTT toggle");
+   return false;
+}
 
 const char *configs[] = {
    "~/.config/irc-test.cfg"

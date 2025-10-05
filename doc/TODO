@@ -1,11 +1,16 @@
 ===============
 = librustyaxe =
 ===============
+* Replace readline/history with our own versions that are more terminal aware
 * Implement theme support
   - Make some common variables passed to theme engine via a dict
     * $nick $chan $prefix $cmd $args $arg0...$argX where X is $argc
 * Finish multiple windows support
   - Rework tui_print_win() to take a tui_window_t instead of window title
+* IRC
+  - make things less coupled to the tui
+  - Implement per-channel user lists, so we can populate the tab completion in readline
+  - For QUITs, send them to all channel windows that the user is a member of
 
 =========
 = fwdsp =

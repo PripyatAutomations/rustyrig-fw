@@ -31,7 +31,7 @@ bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_DEBUG, "irc", "[%s] *** %s ***", irc_name(cptr), mp->argv[2]);
    tui_print_win("status", "[{green}%s{reset}] *** %s ***", irc_name(cptr), mp->argv[2]);
    cptr->connected = true;
-   tui_update_status(active_window(), "Status: {bright-green}Connected{reset} [{green}%s{reset}]", irc_name(cptr));
+   tui_update_status(active_window(), "{bright-black}[{bright-yellow}Logging in{bright-black}]{reset} {bright-black}[{green}%s{bright-black}]{reset}", irc_name(cptr));
    tui_window_t *tw = active_window();
    if (tw) {
       // set the window's cptr
