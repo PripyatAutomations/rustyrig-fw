@@ -1,4 +1,4 @@
-// irc.parser.c
+// tui.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -8,7 +8,6 @@
 //
 // Socket backend for io subsys
 //
-//#include "build_config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -153,17 +152,36 @@ char *tui_colorize_string(const char *input) {
 }
 
 ////////////
+tui_window_t *tui_window_find(const char *title) {
+   if (!title) {
+      return NULL;
+   }
+
+   for (int i = 0; i < tui_num_windows; i++) {
+      if (tui_windows[i] && strcmp(tui_windows[i]->title, title) == 0) {
+         return tui_windows[i];
+      }
+   }
+   return NULL;
+}
+
 tui_window_t *active_window(void) {
-   if (tui_num_windows == 0 || !tui_windows[tui_active_win]) {
-      // lazy create a default window
+   if (tui_num_windows == 0) {
+      // no windows exist, create a default one
       tui_windows[0] = calloc(1, sizeof(tui_window_t));
       if (!tui_windows[0]) {
          return NULL;
       }
-      strncpy(tui_windows[0]->title, "main", sizeof(tui_windows[0]->title)-1);
+      strncpy(tui_windows[0]->title, "main", sizeof(tui_windows[0]->title) - 1);
+      tui_windows[0]->title[sizeof(tui_windows[0]->title) - 1] = '\0';
       tui_num_windows = 1;
       tui_active_win = 0;
    }
+
+   if (tui_active_win < 0 || tui_active_win >= tui_num_windows) {
+      tui_active_win = tui_num_windows - 1; // fallback to last window
+   }
+
    return tui_windows[tui_active_win];
 }
 
@@ -173,7 +191,6 @@ static void update_term_size(void) {
    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
       term_rows = ws.ws_row;
       term_cols = ws.ws_col;
-//      fprintf(stderr, "tui", "tty sz: %d x %d", term_cols, term_rows);
    } else {
       fprintf(stderr, "failed TIOCGWINSZ %d: %s\n", errno, strerror(errno));
    }
@@ -193,7 +210,6 @@ static void sigwinch_handler(int signum) {
    update_term_size();
    tui_redraw_screen();
 }
-
 
 bool tui_set_rl_cb(bool (*cb)(int argc, char **args)) {
    if (cb) {
@@ -221,28 +237,36 @@ static void stdin_rl_cb(char *line) {
    free(line);
 
    tui_redraw_screen();
-   tui_redraw_clock();
 }
 
 static int handle_alt_number(int c, int key) {
-   int num = key - '1'; // Alt-1 = window 0
-   if (key == '0') num = 9; // Alt-0 -> window 9
-   if (num < tui_num_windows) {
-      tui_active_win = num;
+   int num = key - '1';         // Alt-1 = window 0
+   if (key == '0') {
+      num = 9;                  // Alt-0 -> window 9
+   }
+
+   if (num >= 0 && num < tui_num_windows) {
+      tui_window_focus(tui_windows[num]->title);
       tui_redraw_screen();
    }
    return 0;
 }
 
 static int handle_alt_left(int c, int key) {
-   tui_active_win = (tui_active_win - 1 + tui_num_windows) % tui_num_windows;
-   tui_redraw_screen();
+   if (tui_num_windows > 0) {
+      int next = (tui_active_win - 1 + tui_num_windows) % tui_num_windows;
+      tui_window_focus(tui_windows[next]->title);
+      tui_redraw_screen();
+   }
    return 0;
 }
 
 static int handle_alt_right(int c, int key) {
-   tui_active_win = (tui_active_win + 1) % tui_num_windows;
-   tui_redraw_screen();
+   if (tui_num_windows > 0) {
+      int next = (tui_active_win + 1) % tui_num_windows;
+      tui_window_focus(tui_windows[next]->title);
+      tui_redraw_screen();
+   }
    return 0;
 }
 
@@ -267,7 +291,6 @@ static int handle_pgup(int count, int key) {
    }
 
    tui_redraw_screen();
-   tui_redraw_clock();
    return 0;
 }
 
@@ -289,7 +312,6 @@ static int handle_pgdn(int count, int key) {
    }
 
    tui_redraw_screen();
-   tui_redraw_clock();
    return 0;
 }
 
@@ -310,25 +332,130 @@ static void setup_keys(void) {
    rl_bind_keyseq("\033[1;3C", handle_alt_right);
 }
 
+tui_window_t *tui_window_create(const char *title) {
+   if (!title || !*title) {
+      title = "status";
+   }
 
+   // Check if a window with this title already exists
+   tui_window_t *w = tui_window_find(title);
+   if (w) {
+      return w;
+   }
 
-static tui_window_t *tui_window_create(const char *title) {
-   tui_window_t *w = calloc(1, sizeof(tui_window_t));   // <-- calloc, not malloc
-   if (!w) {
+   // Not found, create new
+   if (tui_num_windows >= TUI_MAX_WINDOWS) {
+      tui_print_win(active_window()->title,
+                    "No more windows available: TUI_MAX_WINDOWS: %d", TUI_MAX_WINDOWS);
       return NULL;
    }
-   strncpy(w->title, title ? title : "main", sizeof(w->title)-1);
-   w->log_head = 0;
-   w->scroll_offset = 0;
+
+   // Nope, lets create it
+   w = calloc(1, sizeof(*w));
+   if (!w) {
+      fprintf(stderr, "OOM in tui_window_create!\n");
+      return NULL;
+   }
+
+   strncpy(w->title, title, sizeof(w->title) - 1);
+   w->title[sizeof(w->title) - 1] = '\0';
+
+   tui_windows[tui_num_windows++] = w;
+
    return w;
+}
+
+void tui_window_destroy(tui_window_t *w) {
+   if (!w) {
+      return;
+   }
+
+   int destroyed_index = -1;
+
+   // Find and remove from global list
+   for (int i = 0; i < tui_num_windows; i++) {
+      if (tui_windows[i] == w) {
+         destroyed_index = i;
+         for (int j = i; j < tui_num_windows - 1; j++) {
+            tui_windows[j] = tui_windows[j + 1];
+         }
+         tui_windows[--tui_num_windows] = NULL;
+         break;
+      }
+   }
+
+   if (destroyed_index == -1) {
+      free(w);
+      return;
+   }
+
+   // Pick a new active window if needed
+   if (tui_num_windows == 0) {
+      tui_active_win = -1;  // no windows left
+   } else {
+      // if the destroyed window was active, or active index is now invalid, pick previous or first
+      if (tui_active_win >= tui_num_windows || tui_active_win == destroyed_index) {
+         if (destroyed_index > 0) {
+            tui_active_win = destroyed_index - 1;
+         } else {
+            tui_active_win = 0;
+         }
+      } else if (tui_active_win > destroyed_index) {
+         tui_active_win--;  // shift left because of removed slot
+      }
+   }
+   free(w);
+
+   if (tui_windows[tui_active_win]) {
+      tui_window_focus(tui_windows[tui_active_win]->title);
+   } else {
+      tui_redraw_screen();
+   }
+}
+
+const char *tui_window_get_active_title(void) {
+    tui_window_t *w = active_window();
+    return w ? w->title : NULL;
+}
+
+tui_window_t *tui_window_focus(const char *title) {
+   if (!title) {
+      return NULL;
+   }
+
+   for (int i = 0; i < tui_num_windows; i++) {
+      if (strcmp(tui_windows[i]->title, title) == 0) {
+         tui_window_t *tw = tui_windows[i];
+         tui_active_win = i;
+
+         // try to determine the network name to show
+         const char *network = "offline";
+         if (tw->cptr) {
+            irc_client_t *cptr = tw->cptr;
+            if (cptr && cptr->server && cptr->server->network) {
+               network = cptr->server->network;
+            }
+         }
+         char *win_color = "{bright-cyan}";
+         if (tw->title[0] == '&' || tw->title[0] == '#') {
+            win_color = "{bright-magenta}";
+         }
+         tui_update_status(active_window(), "Status: {bright-green}Connected{reset} [{green}%s{reset}] {bright-black}[%s%s{bright-black}]{reset}", network, win_color, tw->title);
+         return tui_windows[i];
+      }
+   }
+
+   return NULL;
 }
 
 bool tui_init(void) {
    tui_enabled = true;
 
+   rl_attempted_completion_function = tui_completion_cb;
+
    // ensure at least one window
    if (tui_num_windows == 0) {
-      tui_windows[0] = tui_window_create("main");
+      tui_windows[0] = tui_window_create("status");
       tui_num_windows = 1;
       tui_active_win = 0;
    }
@@ -351,77 +478,6 @@ bool tui_fini(void) {
    rl_callback_handler_remove();
    return false;
 }
-
-
-#if	0
-void tui_redraw_screen(void) {
-   if (!tui_enabled) {
-      return;
-   }
-
-   update_term_size();
-
-   // Clear entire screen
-   printf("\033[H\033[2J");
-
-   tui_window_t *w = active_window();
-   int log_lines_to_print = term_rows - 3;
-   if (log_lines_to_print > LOG_LINES) {
-      log_lines_to_print = LOG_LINES;
-   }
-
-   int start = (w->log_head - log_lines_to_print - w->scroll_offset + LOG_LINES) % LOG_LINES;
-
-   for (int i = 0; i < log_lines_to_print; i++) {
-      int idx = (start + i) % LOG_LINES;
-      printf("%s\n", w->buffer[idx] ? w->buffer[idx] : "");
-   }
-
-   // Extra blank line to force terminal scroll
-   printf("\n");
-
-   // Print status line on second-to-last row
-   printf("\033[%d;1H", term_rows - 1);
-
-   int width = term_cols;
-
-   // Truncate status_line based on visible width, reserving space for clock
-   int clock_visible_len = 10; // [HH:MM:SS]
-   int max_status_width = width - clock_visible_len;
-   if (max_status_width < 0) {
-      max_status_width = 0;
-   }
-
-   char status_trunc[1024];
-   int printed = 0;
-   const char *src = status_line;
-   char *dst = status_trunc;
-   while (*src && printed < max_status_width) {
-      if (*src == '\033') { // copy ANSI escape sequence
-         *dst++ = *src++;
-         while (*src && *src != 'm') {
-            *dst++ = *src++;
-         }
-
-         if (*src) {
-            *dst++ = *src++;
-         }
-      } else {
-         *dst++ = *src++;
-         printed++;
-      }
-   }
-   *dst = '\0';
-
-   printf("%-*s", max_status_width, status_trunc);
-
-   // Move to bottom row and clear it for input
-   printf("\033[%d;1H\033[K", term_rows);
-
-   fflush(stdout);
-}
-
-#else
 
 void tui_redraw_screen(void) {
    if (!tui_enabled) {
@@ -468,12 +524,13 @@ void tui_redraw_screen(void) {
    printf("\033[%d;1H", term_rows - 1);
    printf("%-*s", term_cols, status_line);
 
+   tui_redraw_clock();
+
    // input line
    printf("\033[%d;1H\033[K", term_rows);
 
    fflush(stdout);
 }
-#endif
 
 void tui_redraw_clock(void) {
    if (!tui_enabled) {
@@ -509,64 +566,53 @@ void tui_redraw_clock(void) {
    fflush(stdout);
 }
 
-void tui_append_log(const char *fmt, ...) {
-   if (!tui_enabled) {
-      return;
-   }
+void tui_print_win(const char *target, const char *fmt, ...) {
+    if (!tui_enabled) {
+       return;
+    }
 
-   tui_window_t *w = active_window();
-   if (!w) {
-      return;
-   }
+    tui_window_t *w = NULL;
 
-   char msgbuf[513];
-   va_list ap;
-   va_start(ap, fmt);
-   memset(msgbuf, 0, sizeof(msgbuf));
-   vsnprintf(msgbuf, sizeof(msgbuf) - 1, fmt, ap);
-   va_end(ap);
+    // find window by title
+    if (target) {
+       for (int i = 0; i < tui_num_windows; i++) {
+          if (tui_windows[i] && strcmp(tui_windows[i]->title, target) == 0) {
+             w = tui_windows[i];
+             break;
+          }
+       }
+    }
 
-   char *colored = tui_colorize_string(msgbuf);
+    // fallback to active window
+    if (!w) {
+        w = active_window();
+    }
 
-   if (w->buffer[w->log_head]) {
-      free(w->buffer[w->log_head]);
-   }
+    if (!w) {
+        return;
+    }
 
-   w->buffer[w->log_head] = colored ? colored : strdup(msgbuf);
+    char msgbuf[513];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(msgbuf, sizeof(msgbuf) - 1, fmt, ap);
+    va_end(ap);
 
-   w->log_head = (w->log_head + 1) % LOG_LINES;
-   if (w->log_count < LOG_LINES) {
-      w->log_count++;
-   }
+    char *colored = tui_colorize_string(msgbuf);
 
-   tui_redraw_screen();
+    if (w->buffer[w->log_head]) {
+        free(w->buffer[w->log_head]);
+    }
+
+    w->buffer[w->log_head] = colored ? colored : strdup(msgbuf);
+    w->log_head = (w->log_head + 1) % LOG_LINES;
+    if (w->log_count < LOG_LINES) {
+        w->log_count++;
+    }
+
+    tui_redraw_screen();
 }
 
-#if	0
-void tui_append_log(const char *fmt, ...) {
-   if (!tui_enabled) {
-      return;
-   }
-
-   char msgbuf[513];
-   va_list ap;
-   va_start(ap, fmt);
-   vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
-   va_end(ap);
-
-   char *colored = tui_colorize_string(msgbuf);
-
-   tui_window_t *w = active_window();
-   if (w && w->buffer[w->log_head]) {
-      free(w->buffer[w->log_head]);
-   }
-
-   w->buffer[w->log_head] = colored ? colored : strdup(msgbuf);
-   w->log_head = (w->log_head + 1) % LOG_LINES;
-
-   tui_redraw_screen();
-}
-#endif
 
 bool tui_update_status(tui_window_t *win, const char *fmt, ...) {
    if (!tui_enabled) {
@@ -583,7 +629,7 @@ bool tui_update_status(tui_window_t *win, const char *fmt, ...) {
 
       dict *vars = dict_new();
       if (win) {
-         dict_add(vars, "win.title", win->title ? win->title : "main");
+         dict_add(vars, "win.title", win->title ? win->title : "status");
          char scroll_val[16];
          snprintf(scroll_val, sizeof(scroll_val), "%d", win->scroll_offset);
          dict_add(vars, "win.scroll", scroll_val);
@@ -678,7 +724,6 @@ char *tui_render_string(dict *data, const char *title, const char *fmt, ...) {
    }
    *dst = '\0';
 
-   // Step 3: colorize
    char *colorized = tui_colorize_string(expanded);
 
    free(processed);

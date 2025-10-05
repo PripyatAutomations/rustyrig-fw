@@ -25,7 +25,7 @@ extern time_t now;
 ////////////////////
 // Chat timestamp //
 ////////////////////
-static char chat_ts[32];
+static char chat_ts[256];
 static time_t chat_ts_updated = 0;
 
 const char *get_chat_ts(time_t ts) {
@@ -47,7 +47,7 @@ const char *get_chat_ts(time_t ts) {
    // Check if the message is from today
    if (tmsg.tm_year == tcurr.tm_year &&
        tmsg.tm_yday == tcurr.tm_yday) {
-      strftime(chat_ts, sizeof(chat_ts), "%H:%M:%S", &tmsg);
+      strftime(chat_ts, sizeof(chat_ts), "{bright-black}[{cyan}%H{bright-black}:{cyan}%M{bright-black}:{cyan}%S{bright-black}]{reset}", &tmsg);
    } else {
       strftime(chat_ts, sizeof(chat_ts), "%a %b %d %H:%M:%S", &tmsg);
    }

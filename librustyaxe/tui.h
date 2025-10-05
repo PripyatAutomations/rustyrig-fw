@@ -27,13 +27,14 @@ typedef struct tui_window {
    int              log_head;
    int              scroll_offset;
    int              log_count;
-   char             title[32];
+   char             title[64];
+   irc_client_t    *cptr;		// associated irc client connection, if any
 } tui_window_t;
 
 extern bool tui_init(void);
 extern char *tui_colorize_string(const char *input);
-extern void tui_append_log(const char *fmt, ...);
-extern tui_window_t *active_window(void);
+
+extern void tui_print_win(const char *target, const char *fmt, ...);
 
 // Input handler (for readline)
 extern bool tui_set_rl_cb(bool (*cb)(int argc, char **argv));
@@ -45,5 +46,16 @@ extern void tui_redraw_clock(void);
 
 // Apply theme and escapable data
 extern char *tui_render_string(dict *data, const char *title, const char *fmt, ...);
+
+// from tui.completion.c:
+extern char **tui_completion_cb(const char* text, int start, int end);
+
+////////
+extern tui_window_t *tui_window_find(const char *title);
+extern tui_window_t *tui_window_create(const char *title);
+extern tui_window_t *active_window(void);
+extern tui_window_t *tui_window_focus(const char *title);
+extern void tui_window_destroy(tui_window_t *w);
+extern const char *tui_window_get_active_title(void);
 
 #endif	// !defined(__librustyaxe_tui_h)

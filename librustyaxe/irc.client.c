@@ -70,7 +70,7 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
 
    if (fd == -1) {
       Log(LOG_CRIT, "irc", "could not connect to %s://%s:%d", (srv->tls ? "ircs" : "irc"), srv->host, srv->port);
-      tui_append_log("Couldn't connect to %s://%s:%d", (srv->tls ? "ircs" : "irc"), srv->host, srv->port);
+      tui_print_win("status", "Couldn't connect to %s://%s:%d", (srv->tls ? "ircs" : "irc"), srv->host, srv->port);
       free(cptr);
       return NULL;
    }
@@ -82,7 +82,7 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    ev_io_start(EV_DEFAULT, &cptr->io_watcher);
 
    Log(LOG_INFO, "irc", "connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
-   tui_append_log("connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
+   tui_print_win("status", "connecting to %s:%d (fd=%d)", srv->host, srv->port, cptr->fd);
 
    // Send login
    return cptr;
@@ -95,7 +95,7 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
     if (revents & EV_WRITE) {
        if (!cptr->connected) {
           Log(LOG_INFO, "irc", "connected to %s:%d", cptr->server->host, cptr->server->port);
-          tui_append_log("[%s] connected to %s:%d", cptr->server->network, cptr->server->host, cptr->server->port);
+          tui_print_win("status", "[%s] connected to %s:%d", cptr->server->network, cptr->server->host, cptr->server->port);
 
           // Stop watching for write, continue reading
           ev_io_set(w, cptr->fd, EV_READ);
@@ -103,22 +103,22 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
           // Send PASS if configured
           if (cptr->server->pass[0]) {
              if (cptr->server->account[0]) {
-                irc_send(cptr, "PASS %s:%s\r\n", cptr->server->account, cptr->server->pass);
+                irc_send(cptr, "PASS %s:%s", cptr->server->account, cptr->server->pass);
              } else {
-                irc_send(cptr, "PASS %s\r\n", cptr->server->pass);
+                irc_send(cptr, "PASS %s", cptr->server->pass);
              }
           }
 
           // Send NICK
-          irc_send(cptr, "NICK %s\r\n", cptr->nick);
+          irc_send(cptr, "NICK %s", cptr->nick);
 
           // Send USER: ident, mode=0, unused=*, realname=nick
           const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
-          irc_send(cptr, "USER %s 0 * :%s\r\n", ident, cptr->nick);
+          irc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
           cptr->connected = true;
        } else {
           Log(LOG_DEBUG, "irc", "already connected");
-          tui_append_log("[%s] Already connected!", cptr->server->network);
+          tui_print_win("status", "[%s] Already connected!", cptr->server->network);
        }
     }
 
@@ -128,7 +128,7 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
         if (n <= 0) {
             Log(LOG_INFO, "irc", "disconnected");
             tui_update_status(active_window(), "Status: {red}Offline{reset}");
-            tui_append_log("[%s] Disconnected", cptr->server->network);
+            tui_print_win("status", "[%s] Disconnected", cptr->server->network);
             ev_io_stop(EV_A_ w);
             close(cptr->fd);
             cptr->connected = false;

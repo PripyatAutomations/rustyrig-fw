@@ -40,29 +40,6 @@ typedef struct cli_command {
    bool (*cb)(int argc, char **argv);
 } cli_command_t;
 
-// This needs absorbed into the tui_window_t!
-typedef struct irc_window {
-   char *name;			// window name
-   char *target;		// channel/nick target
-   irc_client_t *cptr;		// client pointer
-} irc_window_t;
-
-irc_window_t irc_windows[MAX_WINDOWS];
-int curr_irc_win = 0;
-
-bool assign_window(int i, irc_client_t *cptr, char *target) {
-   if (!cptr || (i < 0 || i > MAX_WINDOWS)) {
-      return true;
-   }
-
-   irc_window_t *aw = &irc_windows[i];
-   aw->name = cptr->nick;
-   aw->target = target;
-   aw->cptr = cptr;
-
-   return false;
-}
-
 bool cli_help(int argc, char **argv) {
    return false;
 }
@@ -72,13 +49,13 @@ bool cli_join(int argc, char **argv) {
       return true;
    }
 
-   irc_window_t *wp = &irc_windows[curr_irc_win];
+   tui_window_t *wp = active_window();
 
    if (wp) {
       // There's a window here at least...
       if (wp->cptr) {
-         tui_append_log("* Joining %s", argv[1]);
-         irc_send(wp->cptr, "JOIN %s\r\n", argv[1]);
+         tui_print_win("status", "* Joining %s", argv[1]);
+         irc_send(wp->cptr, "JOIN %s", argv[1]);
       }
    }
    return false;
@@ -93,12 +70,18 @@ bool cli_part(int argc, char **argv) {
       return true;
    }
 
-   irc_window_t *wp = &irc_windows[curr_irc_win];
+   tui_window_t *wp = active_window();
 
    if (wp) {
       // There's a window here at least...
       if (wp->cptr) {
-         tui_append_log("* Leaving %s", argv[1]);
+         char *target = wp->title;
+
+         if (argv[1]) {
+            target = argv[1];
+         }
+
+         tui_print_win("status", "* Leaving %s", target);
          char partmsg[256];
          memset(partmsg, 0, sizeof(partmsg));
 
@@ -114,14 +97,24 @@ bool cli_part(int argc, char **argv) {
               pos += n;
            }
          }
-         irc_send(wp->cptr, "PART %s%s\r\n", argv[1], partmsg);
+         irc_send(wp->cptr, "PART %s%s", target, partmsg);
       }
    }
    return false;
 }
 
 bool cli_quit(int argc, char **argv) {
-   tui_append_log("Goodbye!");
+   tui_window_t *wp = active_window();
+   tui_print_win(wp->title, "Goodbye!");
+
+   if (wp) {
+      // There's a window here at least...
+      if (wp->cptr) {
+         irc_send(wp->cptr, "QUIT :rustyrig client %s", VERSION);
+         sleep(1);
+      }
+   }
+   
    exit(0);
    return false;	// unreached, but shuts up the scanner...
 }
@@ -263,7 +256,7 @@ static bool config_network_cb(const char *path, int line, const char *section, c
    char *np = strchr(section, ':');
    if (np) {
       np++;
-      tui_append_log("network %s adding server: %s", np, buf);
+      tui_print_win("status", "network %s adding server: %s", np, buf);
       add_server(np, buf);
    }
    return false;
@@ -295,13 +288,13 @@ bool autoconnect(void) {
          char this_network[256];
          memset(this_network, 0, sizeof(this_network));
          snprintf(this_network, sizeof(this_network), "%s", sp);
-         tui_append_log("autoconnect network: %s", sp);
+         tui_print_win("status", "autoconnect network: %s", sp);
          rrlist_t *temp_list = NULL;  // head of temporary list
 
          server_cfg_t *srvp = server_list;
          while (srvp) {
             if (strcasecmp(srvp->network, this_network) == 0) {
-               tui_append_log("=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
+               tui_print_win("status", "=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
                // Wrap server pointer in a list node
                rrlist_t *node = malloc(sizeof(rrlist_t));
                node->ptr = srvp;
@@ -338,14 +331,12 @@ bool autoconnect(void) {
          rrlist_t *node = temp_list;
          while (node) {
             server_cfg_t *srv = node->ptr;
-            tui_append_log("Trying %s://%s@%s:%d priority=%d", (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
+            tui_print_win("status", "Trying %s://%s@%s:%d priority=%d", (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
             irc_client_t *cli;
             if (cli = irc_cli_connect(srv)) {
                // Add to the connection list
                rrlist_add(&irc_client_conns, cli, LIST_TAIL);
-
-               assign_window(curr_irc_win, cli, "status");
             }
             node = node->next;
          }
@@ -355,6 +346,38 @@ bool autoconnect(void) {
       free((void *)networks);
       networks = NULL;
    }
+   return false;
+}
+
+bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **args) {
+   char buf[1024];
+   memset(buf, 0, 1024);
+   size_t pos = 0;
+   char *target = wp->title;
+
+   for (int i = 0; i < argc; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos,
+                       "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+   Log(LOG_DEBUG, "irc", "sending privmsg to %s", target);
+   irc_send(wp->cptr, "PRIVMSG %s :%s", target, buf);
+
+
+   if (*buf == '\001') {
+      // CTCP
+      if (strncasecmp(buf + 1, "ACTION", 6) == 0) {
+         Log(LOG_INFO, "irc", "[%s] * %s / %s %s", irc_name(cptr), target, cptr->nick, buf + 8);
+         tui_print_win(wp->title, "%s * %s %s", get_chat_ts(0), cptr->nick, buf + 8);
+      }
+   } else {
+      Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
+      tui_print_win(wp->title, "%s <%s> %s", get_chat_ts(0), cptr->nick, buf);
+   }
+
    return false;
 }
 
@@ -373,37 +396,17 @@ bool irc_input_cb(int argc, char **args) {
             }
          }
       }
-      tui_append_log("no callback for %s found", args[0]);
+      tui_print_win(active_window()->title, "no callback for %s found", args[0]);
       return true;
    }
 
    // Send it to the active target
-   irc_window_t *wp = &irc_windows[curr_irc_win];
+   tui_window_t *wp = active_window();
 
    if (wp) {
       // There's a window here at least...
       if (wp->cptr) {
-         char buf[1024];
-         memset(buf, 0, 1024);
-         size_t pos = 0;
-
-         for (int i = 0; i < argc; i++) {
-            int n = snprintf(buf + pos, sizeof(buf) - pos,
-                             "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
-            if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
-               break;
-            }
-            pos += n;
-         }
-         irc_send(wp->cptr, "PRIVMSG %s :%s\r\n", wp->target, buf);
-
-         // Is it a channel?
-         if (wp->target[0] == '&' || wp->target[0] == '#') {
-            // We'll see it when it's echoed back, so don't do anything
-         } else {
-            // Nickname target, show it on the screen
-            tui_append_log("-> %s: %s", wp->target, buf);
-         }
+         irc_send_privmsg(wp->cptr, wp, argc, args);
       }
    }
    return false;
@@ -429,7 +432,7 @@ int main(int argc, char **argv) {
    char *fullpath = NULL;
 
    tui_init();
-   tui_append_log("irc-test starting");
+   tui_print_win("status", "irc-test starting");
 
    struct ev_loop *loop = EV_DEFAULT;
    ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
@@ -444,7 +447,7 @@ int main(int argc, char **argv) {
 
    if ((fullpath = find_file_by_list(configs, num_configs))) {
       if (fullpath && !(cfg = cfg_load(fullpath))) {
-         tui_append_log("Couldn't load config \"%s\", using defaults instead", fullpath);
+         tui_print_win("status", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
    }
@@ -471,7 +474,7 @@ int main(int argc, char **argv) {
 
    while (!dying) {
       ev_run(loop, 0);
-      usleep(200);
+      usleep(500);
    }
 
    // cleanup

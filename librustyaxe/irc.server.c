@@ -82,7 +82,7 @@ bool irc_sendto_all(rrlist_t *conn_list, irc_client_t *cptr, irc_message_t *mp) 
 
       if (acptr && acptr->is_server && acptr->fd) {
          // Send to the client
-         irc_send(acptr, "%s\r\n", msg);
+         irc_send(acptr, "%s", msg);
       }
 
       lptr = lptr->next;

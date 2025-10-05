@@ -9,7 +9,6 @@
 //
 // Socket backend for io subsys
 //
-//#include "build_config.h"
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -76,9 +75,8 @@ dict *irc_generate_vars(irc_client_t *cptr, const char *chan) {
    }
 
    if (chan) {
-      dict_add(d, "chan", chan);
+      dict_add(d, "chan", (char *)chan);
    }
 
    return d;
 }
-

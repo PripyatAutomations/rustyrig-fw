@@ -5,7 +5,7 @@
   - Make some common variables passed to theme engine via a dict
     * $nick $chan $prefix $cmd $args $arg0...$argX where X is $argc
 * Finish multiple windows support
-* 
+  - Rework tui_print_win() to take a tui_window_t instead of window title
 
 =========
 = fwdsp =

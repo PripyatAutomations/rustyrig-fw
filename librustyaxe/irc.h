@@ -37,5 +37,4 @@ static inline char *irc_name(irc_client_t *cptr) {
    return NULL;
 }
 
-
 #endif	// !defined(__librustyaxe_irc_h)
