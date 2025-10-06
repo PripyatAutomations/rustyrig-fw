@@ -39,14 +39,6 @@ bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
          tw->cptr = cptr;
       }
       tui_window_focus(tw->title);
-
-
-#if	0
-      // status window
-      if (!tui_windows[0]->cptr) { 
-         tui_windows[0]->cptr = cptr;
-      }
-#endif
    }
    return false;
 }

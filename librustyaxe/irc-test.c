@@ -102,12 +102,12 @@ bool cli_part(int argc, char **argv) {
 bool cli_quit(int argc, char **argv) {
    tui_window_t *wp = tui_active_window();
    tui_print_win(wp, "Goodbye!");
+   tui_raw_mode(false);
 
    if (wp) {
       // There's a window here at least...
       if (wp->cptr) {
          irc_send(wp->cptr, "QUIT :rustyrig client %s exiting, 73!", VERSION);
-         sleep(1);
       }
    }
    
@@ -296,35 +296,100 @@ static bool config_network_cb(const char *path, int line, const char *section, c
    return false;
 }
 
-static bool irc_input_cb(int argc, char **args) {
-   if (!cli_commands || !args || argc <= 0) {
+static bool irc_input_cb(const char *input) {
+   if (!cli_commands || !input || !*input) {
       return true;
    }
 
-   if (args[0][0] == '/') {
-      // if there's a command here, call its callback
+   // Make a mutable copy
+   char buf[TUI_INPUTLEN];
+   strncpy(buf, input, sizeof(buf) - 1);
+   buf[sizeof(buf) - 1] = '\0';
+
+   // Tokenize into argc/argv
+   int argc = 0;
+   char *argv[64];   // max 64 tokens
+   char *tok = strtok(buf, " \t");
+   while (tok && argc < (int)(sizeof(argv) / sizeof(argv[0]))) {
+      argv[argc++] = tok;
+      tok = strtok(NULL, " \t");
+   }
+
+   if (argc == 0) {
+      return true;
+   }
+
+   if (argv[0][0] == '/') {
       for (cli_command_t *c = cli_commands; c->cmd && c->cb; c++) {
-         if (strcasecmp(c->cmd, args[0]) == 0) {
+         if (strcasecmp(c->cmd, argv[0]) == 0) {
             if (c->cb) {
-               c->cb(argc, args);
+               c->cb(argc, argv);
                return false;
             }
          }
       }
-      tui_print_win(tui_active_window(), "no callback for %s found", args[0]);
+
+      tui_print_win(tui_active_window(), "no callback for %s found", argv[0]);
       return true;
    }
 
-   // Send it to the active target
+   // Send to active window target
    tui_window_t *wp = tui_active_window();
+   if (wp && wp->cptr) {
+      irc_send_privmsg(wp->cptr, wp, argc, argv);
+   }
 
-   if (wp) {
-      // There's a window here at least...
-      if (wp->cptr) {
-         irc_send_privmsg(wp->cptr, wp, argc, args);
+   return false;
+}
+
+///////////////
+typedef enum {
+   ESC_NONE = 0,
+   ESC_GOT_ESC,
+   ESC_GOT_BRACKET,
+   ESC_GOT_TILDE
+} esc_state_t;
+
+static esc_state_t esc_state = ESC_NONE;
+static char esc_buf[8];
+static int esc_len = 0;
+
+static void handle_escape_sequence(void) {
+   if (esc_len == 2 && esc_buf[0] == '\033') {
+      // Alt + number
+      if (esc_buf[1] >= '1' && esc_buf[1] <= '9') {
+         tui_win_swap(0, esc_buf[1]);
+      } 
+      else if (esc_buf[1] == '0') {
+         tui_win_swap(0, '0');
+      }
+   } 
+   else if (esc_len == 3 && esc_buf[0] == '\033' && esc_buf[1] == '[') {
+      // Arrow keys
+      if (esc_buf[2] == 'C') {
+         handle_alt_right(0, 0);
+      } 
+      else if (esc_buf[2] == 'D') {
+         handle_alt_left(0, 0);
+      }
+   } 
+   else if (esc_len >= 4 && esc_buf[0] == '\033' && esc_buf[1] == '[') {
+      // F-keys / PgUp / PgDn (~ terminated)
+      if (esc_buf[esc_len - 1] == '~') {
+         if (strncmp(&esc_buf[2], "5", esc_len - 3) == 0) {
+            handle_pgup(0, 0);
+         } 
+         else if (strncmp(&esc_buf[2], "6", esc_len - 3) == 0) {
+            handle_pgdn(0, 0);
+         } 
+         else if (strncmp(&esc_buf[2], "25", esc_len - 3) == 0) {
+            handle_ptt_button(0, 0);
+         }
       }
    }
-   return false;
+
+   esc_state = ESC_NONE;
+   esc_len = 0;
 }
 
 static void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
@@ -341,52 +406,32 @@ static void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
    if (c == '\r' || c == '\n') {
       // Enter pressed
       win->input_buf[win->input_len] = '\0';
-
       if (win->input_len > 0) {
-         // tokenize into argc/argv
-         int argc = 0;
-         char *argv[32];   // fixed max args for now
-         char *p = win->input_buf;
-
-         while (*p && argc < 32) {
-            while (*p && isspace((unsigned char)*p)) {
-               *p++ = '\0';
-            }
-            if (*p) {
-               argv[argc++] = p;
-               while (*p && !isspace((unsigned char)*p)) {
-                  p++;
-               }
-            }
-         }
-
-         if (argc > 0) {
-            irc_input_cb(argc, argv);
-         }
-
+         irc_input_cb(win->input_buf);  // pass full string
          win->input_len = 0;
          win->input_buf[0] = '\0';
       }
-
-      tui_redraw_screen();
+      tui_update_input_line(win);
    } else if (c == 0x7f) {
       // Backspace
       if (win->input_len > 0) {
          win->input_len--;
          win->input_buf[win->input_len] = '\0';
       }
-      tui_redraw_screen();
+      tui_update_input_line(win);
    } else if (c >= 0x20 && c < 0x7f) {
       // Printable ASCII
       if (win->input_len < TUI_INPUTLEN - 1) {
          win->input_buf[win->input_len++] = c;
          win->input_buf[win->input_len] = '\0';
       }
-      tui_redraw_screen();
+      tui_update_input_line(win);
    }
-   // TODO: arrow key handling later
+   // TODO: add arrow key handling later
 }
 
+
+///////////////
 // XXX: upgrade this to be able to be called by a timer
 // XXX: It should check for an existing connection to each network
 // XXX: Need to add support for ws/wss connections
@@ -539,7 +584,6 @@ int main(int argc, char **argv) {
    ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
    ev_io_start (loop, &stdin_watcher);
    tui_start_clock_timer(loop);
-   tui_set_rl_cb(irc_input_cb);
 
    // XXX: this needs moved to module_init in mod.proto.irc
    irc_init();

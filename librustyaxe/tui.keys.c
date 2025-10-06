@@ -21,42 +21,14 @@
 #include <termios.h>
 #include <unistd.h>
 
+extern int tui_win_swap(int c, int key);
+extern int handle_alt_left(int c, int key);
+extern int handle_alt_right(int c, int key);
+
 static struct termios orig_termios;
 
-static int tui_win_swap(int c, int key) {
-   int num = key - '1';         // Alt-1 = window 0
-
-   if (key == '0') {
-      num = 9;                  // Alt-0 -> window 9
-   }
-
-   if (num >= 0 && num < tui_num_windows) {
-      tui_window_focus(tui_windows[num]->title);
-      tui_redraw_screen();
-   }
-   return 0;
-}
-
-static int handle_alt_left(int c, int key) {
-   if (tui_num_windows > 0) {
-      int next = (tui_active_win - 1 + tui_num_windows) % tui_num_windows;
-      tui_window_focus(tui_windows[next]->title);
-      tui_redraw_screen();
-   }
-   return 0;
-}
-
-static int handle_alt_right(int c, int key) {
-   if (tui_num_windows > 0) {
-      int next = (tui_active_win + 1) % tui_num_windows;
-      tui_window_focus(tui_windows[next]->title);
-      tui_redraw_screen();
-   }
-   return 0;
-}
-
 // --- PgUp / PgDn handlers with partial last page support ---
-static int handle_pgup(int count, int key) {
+int handle_pgup(int count, int key) {
    tui_window_t *w = tui_active_window();
    if (!w) {
       return 0;
@@ -79,7 +51,7 @@ static int handle_pgup(int count, int key) {
    return 0;
 }
 
-static int handle_pgdn(int count, int key) {
+int handle_pgdn(int count, int key) {
    tui_window_t *w = tui_active_window();
    if (!w) {
       return 0;
@@ -100,7 +72,7 @@ static int handle_pgdn(int count, int key) {
    return 0;
 }
 
-static int handle_ptt_button(int count, int key) {
+int handle_ptt_button(int count, int key) {
    tui_window_t *w = tui_active_window();
    if (!w) {
       return 0;
@@ -126,26 +98,5 @@ void tui_raw_mode(bool enabled) {
    } else {
       tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
    }
-}
-
-static void setup_keys(void) {
-   int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-   fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
-/*
-   rl_bind_keyseq("\033[1;3D", handle_alt_left);
-   rl_bind_keyseq("\033[1;3C", handle_alt_right);
-   rl_bind_keyseq("\033[5~", handle_pgup);
-   rl_bind_keyseq("\033[6~", handle_pgdn);
-   rl_bind_keyseq("\033[25~", handle_ptt_button);	// F13
-
-   // Alt-1...0 for win 1-10
-   for (int i = '1'; i <= '9'; i++) {
-      char seq[8];
-      snprintf(seq, sizeof(seq), "\033%c", i); // ESC 1, ESC 2 ...
-      rl_bind_keyseq(seq, tui_win_swap);
-   }
-   rl_bind_keyseq("\0330", tui_win_swap);
-*/
-   tui_raw_mode(true);
 }
 

@@ -11,6 +11,7 @@
   - make things less coupled to the tui
   - Implement per-channel user lists, so we can populate the tab completion in readline
   - For QUITs, send them to all channel windows that the user is a member of
+* rework Log() and tui_print_win() a little so there's a variant i can call with a va_list, so i can make a function that blorps into the user interface as well as the log file
 
 =========
 = fwdsp =

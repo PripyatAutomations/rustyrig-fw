@@ -197,3 +197,35 @@ void tui_window_init(void) {
       tui_active_win = 0;
    }
 }
+
+int tui_win_swap(int c, int key) {
+   int num = key - '1';         // Alt-1 = window 0
+
+   if (key == '0') {
+      num = 9;                  // Alt-0 -> window 9
+   }
+
+   if (num >= 0 && num < tui_num_windows) {
+      tui_window_focus(tui_windows[num]->title);
+      tui_redraw_screen();
+   }
+   return 0;
+}
+
+int handle_alt_left(int c, int key) {
+   if (tui_num_windows > 0) {
+      int next = (tui_active_win - 1 + tui_num_windows) % tui_num_windows;
+      tui_window_focus(tui_windows[next]->title);
+      tui_redraw_screen();
+   }
+   return 0;
+}
+
+int handle_alt_right(int c, int key) {
+   if (tui_num_windows > 0) {
+      int next = (tui_active_win + 1) % tui_num_windows;
+      tui_window_focus(tui_windows[next]->title);
+      tui_redraw_screen();
+   }
+   return 0;
+}

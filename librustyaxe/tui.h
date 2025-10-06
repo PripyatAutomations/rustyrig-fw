@@ -28,5 +28,9 @@ extern void tui_print_win(tui_window_t *win, const char *fmt, ...);
 
 // tui.keys.c
 extern void tui_raw_mode(bool enabled);
+extern int handle_ptt_button(int count, int key);
+extern int handle_pgdn(int count, int key);
+extern int handle_pgup(int count, int key);
+extern void tui_update_input_line(tui_window_t *w);
 
 #endif	// !defined(__librustyaxe_tui_h)

@@ -24,5 +24,9 @@ extern tui_window_t *tui_window_focus(const char *title);
 extern void tui_window_destroy(tui_window_t *w);
 extern const char *tui_window_get_active_title(void);
 extern void tui_window_init(void);
+extern int tui_win_swap(int c, int key);
+extern int handle_alt_left(int c, int key);
+extern int handle_alt_right(int c, int key);
+extern void tui_window_update_topline(const char *line);
 
 #endif	// !defined(__librustyaxe_tui_window_h)

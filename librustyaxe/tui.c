@@ -72,11 +72,17 @@ int tui_cols(void) {
 }
 
 bool tui_init(void) {
-   // SIGnal WINdow CHange
+   update_term_size();
+
+   // set SIGnal WINdow CHange handler
    signal(SIGWINCH, sigwinch_handler);
 
-   update_term_size();
+   // force raw input mode
+   tui_raw_mode(true);
+   // set up windowing
    tui_window_init();
+
+   // draw the initial screen
    tui_redraw_screen();
 
    printf("\033[%d;1H", term_rows);
@@ -126,6 +132,7 @@ void tui_redraw_screen(void) {
    for (int i = 0; i < filled; i++) {
       int idx = (start + i) % LOG_LINES;
       printf("\033[%d;1H", i + 2); // logs start at row 2
+
       if (w->buffer[idx]) {
          printf("%s", w->buffer[idx]);
       }
@@ -316,5 +323,35 @@ void tui_draw_input(tui_window_t *w, int term_rows) {
    term_move(term_rows, 1);
    printf("> %s", w->input_buf ? w->input_buf : "");
    term_clrtoeol();
+   fflush(stdout);
+}
+
+void tui_window_update_topline(const char *line) {
+   if (!tui_enabled || !line) {
+      return;
+   }
+
+   // Move cursor to the top-left
+   printf("\033[1;1H");
+
+   // Clear the line
+   printf("\033[2K");
+
+   // Print the new content
+   printf("%s", line);
+
+   // Make sure output is flushed
+   fflush(stdout);
+}
+
+void tui_update_input_line(tui_window_t *w) {
+   if (!w) { return; }
+
+   char prompt[512];
+   memset(prompt, 0, sizeof(prompt));
+   snprintf(prompt, sizeof(prompt), "{bright-cyan}%sX{cyan}>{reset}", w->title);
+   char *color = tui_colorize_string(prompt);
+   printf("\033[%d;1H\033[2K%s %s", term_rows, color, w->input_buf);
+   free(color);
    fflush(stdout);
 }
