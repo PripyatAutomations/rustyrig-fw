@@ -19,8 +19,6 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <rrclient/userlist.h>
 #include "mod.ui.gtk3/gtk.core.h"

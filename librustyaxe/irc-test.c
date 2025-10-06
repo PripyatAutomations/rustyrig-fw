@@ -12,23 +12,20 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <time.h>
+#include <termios.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
-#include "../ext/libmongoose/mongoose.h"
-#include <readline/readline.h>
-#include <readline/history.h>
 #include <ev.h>
 #define	MAX_WINDOWS	32
 
 bool dying = false;
+bool debug_sockets = false;
 time_t now = 0;
-struct mg_mgr mgr;
 
 ev_io stdin_watcher;
-ev_timer mongoose_watcher;
 static ev_timer tui_clock_watcher;
 
 server_cfg_t *server_list = NULL;
@@ -40,18 +37,20 @@ typedef struct cli_command {
    bool (*cb)(int argc, char **argv);
 } cli_command_t;
 
+////
+bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **args);
 
 bool cli_join(int argc, char **argv) {
    if (argc < 1) {
       return true;
    }
 
-   tui_window_t *wp = active_window();
+   tui_window_t *wp = tui_active_window();
 
    if (wp) {
       // There's a window here at least...
       if (wp->cptr) {
-         tui_print_win("status", "* Joining %s", argv[1]);
+         tui_print_win(tui_window_find("status"), "* Joining %s", argv[1]);
          irc_send(wp->cptr, "JOIN %s", argv[1]);
       }
    }
@@ -67,7 +66,7 @@ bool cli_part(int argc, char **argv) {
       return true;
    }
 
-   tui_window_t *wp = active_window();
+   tui_window_t *wp = tui_active_window();
 
    if (wp) {
       // There's a window here at least...
@@ -78,7 +77,7 @@ bool cli_part(int argc, char **argv) {
             target = argv[1];
          }
 
-         tui_print_win("status", "* Leaving %s", target);
+         tui_print_win(tui_window_find("status"), "* Leaving %s", target);
          char partmsg[256];
          memset(partmsg, 0, sizeof(partmsg));
 
@@ -101,19 +100,35 @@ bool cli_part(int argc, char **argv) {
 }
 
 bool cli_quit(int argc, char **argv) {
-   tui_window_t *wp = active_window();
-   tui_print_win(wp->title, "Goodbye!");
+   tui_window_t *wp = tui_active_window();
+   tui_print_win(wp, "Goodbye!");
 
    if (wp) {
       // There's a window here at least...
       if (wp->cptr) {
-         irc_send(wp->cptr, "QUIT :rustyrig client %s", VERSION);
+         irc_send(wp->cptr, "QUIT :rustyrig client %s exiting, 73!", VERSION);
          sleep(1);
       }
    }
    
    exit(0);
    return false;	// unreached, but shuts up the scanner...
+}
+
+bool cli_win(int argc, char **argv) {
+   if (argc < 1) {
+      return true;
+   }
+
+   int id = atoi(argv[1]);
+   tui_print_win(tui_active_window(), "ID: %s", argv[1]);
+   if (id < 1 || id > TUI_MAX_WINDOWS) {
+      tui_print_win(tui_active_window(), "Invalid window %d, must be between 1 and %d", id, TUI_MAX_WINDOWS);
+      return true;
+   }
+
+   tui_window_focus_id(id);
+   return false;
 }
 
 extern bool cli_help(int argc, char **argv);
@@ -124,25 +139,26 @@ cli_command_t cli_commands[] = {
    { .cmd = "/me",   .cb = cli_me, .desc = "\tSend an action to the current channel" },
    { .cmd = "/part", .cb = cli_part, .desc = "leave a channel" },
    { .cmd = "/quit", .cb = cli_quit, .desc = "Exit the program" },
+   { .cmd = "/win",  .cb = cli_win,  .desc = "Change windows" },
    { .cmd = NULL,    .cb = NULL, .desc = NULL }
 };
 
 bool cli_help(int argc, char **argv) {
-   tui_window_t *wp = active_window();
+   tui_window_t *wp = tui_active_window();
    if (!wp) {
       return true;
    }
 
-   tui_print_win(wp->title, "*** Available commands ***");
+   tui_print_win(wp, "*** Available commands ***");
    for (int i = 0; cli_commands[i].cmd; i++) {
-      tui_print_win(wp->title, "   %s\t\t%s", cli_commands[i].cmd, cli_commands[i].desc);
+      tui_print_win(wp, "   %s\t\t%s", cli_commands[i].cmd, cli_commands[i].desc);
    }
-   tui_print_win(wp->title, ""); 
-   tui_print_win(wp->title, "*** Keyboard Shortcuts ***"); 
-   tui_print_win(wp->title, "   alt-X (1-0)\t\tSwitch to window 1-10");
-   tui_print_win(wp->title, "   alt-left\t\tSwitch to previous win");
-   tui_print_win(wp->title, "   alt-right\t\tSwitch to next win");
-   tui_print_win(wp->title, "   F13\t\t\tPTT toggle");
+   tui_print_win(wp, ""); 
+   tui_print_win(wp, "*** Keyboard Shortcuts ***"); 
+   tui_print_win(wp, "   alt-X (1-0)\t\tSwitch to window 1-10");
+   tui_print_win(wp, "   alt-left\t\tSwitch to previous win");
+   tui_print_win(wp, "   alt-right\t\tSwitch to next win");
+   tui_print_win(wp, "   F13\t\t\tPTT toggle");
    return false;
 }
 
@@ -274,24 +290,105 @@ static bool config_network_cb(const char *path, int line, const char *section, c
    char *np = strchr(section, ':');
    if (np) {
       np++;
-      tui_print_win("status", "network %s adding server: %s", np, buf);
+      tui_print_win(tui_window_find("status"), "network %s adding server: %s", np, buf);
       add_server(np, buf);
    }
    return false;
 }
 
-static void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
-   if (revents & EV_READ) {
-      rl_callback_read_char();   // let readline handle it
+static bool irc_input_cb(int argc, char **args) {
+   if (!cli_commands || !args || argc <= 0) {
+      return true;
    }
+
+   if (args[0][0] == '/') {
+      // if there's a command here, call its callback
+      for (cli_command_t *c = cli_commands; c->cmd && c->cb; c++) {
+         if (strcasecmp(c->cmd, args[0]) == 0) {
+            if (c->cb) {
+               c->cb(argc, args);
+               return false;
+            }
+         }
+      }
+      tui_print_win(tui_active_window(), "no callback for %s found", args[0]);
+      return true;
+   }
+
+   // Send it to the active target
+   tui_window_t *wp = tui_active_window();
+
+   if (wp) {
+      // There's a window here at least...
+      if (wp->cptr) {
+         irc_send_privmsg(wp->cptr, wp, argc, args);
+      }
+   }
+   return false;
 }
 
-static void mongoose_timer_cb(EV_P_ ev_timer *w, int revents) {
-   mg_mgr_poll(&mgr, 0);   // non-blocking poll
+static void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
+   char c;
+   if (read(STDIN_FILENO, &c, 1) <= 0) {
+      return;
+   }
+
+   tui_window_t *win = tui_active_window();
+   if (!win) {
+      return;
+   }
+
+   if (c == '\r' || c == '\n') {
+      // Enter pressed
+      win->input_buf[win->input_len] = '\0';
+
+      if (win->input_len > 0) {
+         // tokenize into argc/argv
+         int argc = 0;
+         char *argv[32];   // fixed max args for now
+         char *p = win->input_buf;
+
+         while (*p && argc < 32) {
+            while (*p && isspace((unsigned char)*p)) {
+               *p++ = '\0';
+            }
+            if (*p) {
+               argv[argc++] = p;
+               while (*p && !isspace((unsigned char)*p)) {
+                  p++;
+               }
+            }
+         }
+
+         if (argc > 0) {
+            irc_input_cb(argc, argv);
+         }
+
+         win->input_len = 0;
+         win->input_buf[0] = '\0';
+      }
+
+      tui_redraw_screen();
+   } else if (c == 0x7f) {
+      // Backspace
+      if (win->input_len > 0) {
+         win->input_len--;
+         win->input_buf[win->input_len] = '\0';
+      }
+      tui_redraw_screen();
+   } else if (c >= 0x20 && c < 0x7f) {
+      // Printable ASCII
+      if (win->input_len < TUI_INPUTLEN - 1) {
+         win->input_buf[win->input_len++] = c;
+         win->input_buf[win->input_len] = '\0';
+      }
+      tui_redraw_screen();
+   }
+   // TODO: arrow key handling later
 }
 
-// XXX: upgrade this to be able to be called periodicly
-// XXX: It should check for check for a connect to each network
+// XXX: upgrade this to be able to be called by a timer
+// XXX: It should check for an existing connection to each network
 // XXX: Need to add support for ws/wss connections
 bool autoconnect(void) {
    // Handle connecting to servers in networks.auto
@@ -306,13 +403,13 @@ bool autoconnect(void) {
          char this_network[256];
          memset(this_network, 0, sizeof(this_network));
          snprintf(this_network, sizeof(this_network), "%s", sp);
-         tui_print_win("status", "autoconnect network: %s", sp);
+         tui_print_win(tui_window_find("status"), "autoconnect network: %s", sp);
          rrlist_t *temp_list = NULL;  // head of temporary list
 
          server_cfg_t *srvp = server_list;
          while (srvp) {
             if (strcasecmp(srvp->network, this_network) == 0) {
-               tui_print_win("status", "=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
+               tui_print_win(tui_window_find("status"), "=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
                // Wrap server pointer in a list node
                rrlist_t *node = malloc(sizeof(rrlist_t));
                node->ptr = srvp;
@@ -349,7 +446,7 @@ bool autoconnect(void) {
          rrlist_t *node = temp_list;
          while (node) {
             server_cfg_t *srv = node->ptr;
-            tui_print_win("status", "Trying %s://%s@%s:%d priority=%d", (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
+            tui_print_win(tui_window_find("status"), "Trying %s://%s@%s:%d priority=%d", (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
             irc_client_t *cli;
             if (cli = irc_cli_connect(srv)) {
@@ -389,46 +486,16 @@ bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **arg
       // CTCP
       if (strncasecmp(buf + 1, "ACTION", 6) == 0) {
          Log(LOG_INFO, "irc", "[%s] * %s / %s %s", irc_name(cptr), target, cptr->nick, buf + 8);
-         tui_print_win(wp->title, "%s * %s %s", get_chat_ts(0), cptr->nick, buf + 8);
+         tui_print_win(wp, "%s * %s %s", get_chat_ts(0), cptr->nick, buf + 8);
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
-      tui_print_win(wp->title, "%s <%s> %s", get_chat_ts(0), cptr->nick, buf);
+      tui_print_win(wp, "%s <%s> %s", get_chat_ts(0), cptr->nick, buf);
    }
 
    return false;
 }
 
-bool irc_input_cb(int argc, char **args) {
-   if (!cli_commands || !args || argc <= 0) {
-      return true;
-   }
-
-   if (args[0][0] == '/') {
-      // if there's a command here, call its callback
-      for (cli_command_t *c = cli_commands; c->cmd && c->cb; c++) {
-         if (strcasecmp(c->cmd, args[0]) == 0) {
-            if (c->cb) {
-               c->cb(argc, args);
-               return false;
-            }
-         }
-      }
-      tui_print_win(active_window()->title, "no callback for %s found", args[0]);
-      return true;
-   }
-
-   // Send it to the active target
-   tui_window_t *wp = active_window();
-
-   if (wp) {
-      // There's a window here at least...
-      if (wp->cptr) {
-         irc_send_privmsg(wp->cptr, wp, argc, args);
-      }
-   }
-   return false;
-}
 
 static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
    (void)w; (void)revents;
@@ -436,11 +503,10 @@ static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
 }
 
 void tui_start_clock_timer(struct ev_loop *loop) {
-   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 1.0, 1.0); // start after 1s, repeat every 1s
+   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 0, 1.0); // start after 0s, repeat every 1s
    ev_timer_start(loop, &tui_clock_watcher);
 }
 
-// Stop the timer (optional)
 void tui_stop_clock_timer(struct ev_loop *loop) {
    ev_timer_stop(loop, &tui_clock_watcher);
 }
@@ -450,55 +516,46 @@ int main(int argc, char **argv) {
    char *fullpath = NULL;
 
    tui_init();
-   tui_print_win("status", "irc-test starting");
-
-   struct ev_loop *loop = EV_DEFAULT;
-   ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
-   ev_io_start (loop, &stdin_watcher);
-   ev_timer_init(&mongoose_watcher, mongoose_timer_cb, 0., 0.1);
-   ev_timer_start(loop, &mongoose_watcher);
-   tui_start_clock_timer(loop);
-   tui_set_rl_cb(irc_input_cb);
+   tui_print_win(tui_window_find("status"), "irc-test starting");
 
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
    if ((fullpath = find_file_by_list(configs, num_configs))) {
       if (fullpath && !(cfg = cfg_load(fullpath))) {
-         tui_print_win("status", "Couldn't load config \"%s\", using defaults instead", fullpath);
+         tui_print_win(tui_window_find("status"), "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
    }
 
+   // apply some global configuration
    const char *logfile = cfg_get_exp("log.file");
    logger_init((logfile ? logfile : "irc-test.log"));
    free((char *)logfile);
+   debug_sockets = cfg_get_bool("debug.sockets", false);
 
-   // Initialize sockets / libmongoose
-   const char *debug = cfg_get_exp("debug.sockets");
-   if (debug && parse_bool(debug)) {
-      mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
-   } else {
-      mg_log_set(MG_LL_ERROR);
-   }
-   free((void *)debug);
-
-   mg_mgr_init(&mgr);
+   // Setup stdio & clock
+   struct ev_loop *loop = EV_DEFAULT;
+   ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
+   ev_io_start (loop, &stdin_watcher);
+   tui_start_clock_timer(loop);
+   tui_set_rl_cb(irc_input_cb);
 
    // XXX: this needs moved to module_init in mod.proto.irc
    irc_init();
    autoconnect();
    irc_set_conn_pool(irc_client_conns);
 
-   while (!dying) {
-      ev_run(loop, 0);
-      usleep(500);
-   }
+   ////////////////
+   ev_run(loop, 0);
 
-   // cleanup
-   mg_mgr_free(&mgr);
+   /////////////
+   // cleanup //
+   /////////////
    logger_end();
    dict_free(cfg);
+   tui_stop_clock_timer(loop);
+   tui_raw_mode(false);
 
    return 0;
 }

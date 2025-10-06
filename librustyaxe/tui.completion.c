@@ -16,8 +16,6 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/ioctl.h>
-#include <readline/readline.h>
-#include <readline/history.h>
 #include <stdbool.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
@@ -48,6 +46,7 @@ char *tui_completion_generator(const char* text, int state) {
 
 // This is the function readline calls for completion
 char **tui_completion_cb(const char* text, int start, int end) {
-   rl_attempted_completion_over = 1;
-   return rl_completion_matches(text, tui_completion_generator);
+//   rl_attempted_completion_over = 1;
+//   return rl_completion_matches(text, tui_completion_generator);
+   return NULL;
 }

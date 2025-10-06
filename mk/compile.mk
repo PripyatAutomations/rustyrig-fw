@@ -36,7 +36,7 @@ SHELL = bash
 
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += $(shell pkg-config --cflags mbedtls)
-CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
+#CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 CFLAGS += -I./ -I../ -I./inc
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
@@ -49,20 +49,20 @@ LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
 LDFLAGS += -lc -lm -g -ggdb -lcrypt
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 
-gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
-gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
+#gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
+#gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
 
 FWDSP_CFLAGS += -D__FWDSP
 CFLAGS_RRCLIENT += -D__RRCLIENT=1
 
-ifeq (${USE_LIBUNWIND},true)
-CFLAGS += -fno-omit-frame-pointer -Og -gdwarf -DUSE_LIBUNWIND
-LDFLAGS += -lunwind
+#ifeq (${USE_LIBUNWIND},true)
+#CFLAGS += -fno-omit-frame-pointer -Og -gdwarf -DUSE_LIBUNWIND
+#LDFLAGS += -lunwind
 
-ifeq ($(shell uname -m),x86_64)
-LDFLAGS += -lunwind-x86_64
-endif
-endif
+#ifeq ($(shell uname -m),x86_64)
+#LDFLAGS += -lunwind-x86_64
+#endif
+#endif
 
 ifeq (${USE_HAMLIB},true)
 LDFLAGS += -lhamlib
@@ -93,7 +93,6 @@ endif
 
 host-info:
 	@echo "* Building on ${UNAME_S}"
-
 
 strip: ${bins}
 	@echo "[strip] ${bins}"

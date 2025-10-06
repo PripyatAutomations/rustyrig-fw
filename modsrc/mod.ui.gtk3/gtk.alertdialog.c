@@ -16,8 +16,6 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 

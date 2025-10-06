@@ -16,6 +16,8 @@
 #define	MAX_CFG_EXP_STRLEN	65535
 // Maximum depth to recurse when expanding strings (cfg_get_exp)
 #define	MAX_CFG_EXP_RECURSION	6
+// maximum supported section callbacks
+#define CONFIG_MAX_CALLBACKS    512
 
 // Used to store hard coded defaults for kv items
 struct defconfig {

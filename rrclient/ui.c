@@ -17,8 +17,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 

@@ -27,11 +27,11 @@ extern bool irc_init(void);
 extern bool irc_send(irc_client_t *cptr, const char *fmt, ...);
 
 static inline char *irc_name(irc_client_t *cptr) {
-   if (cptr->server && cptr->server->network[0]) {
+   if (cptr && cptr->server && cptr->server->network[0]) {
       return cptr->server->network;
-   } else if (cptr->nick[0]) {
+   } else if (cptr && cptr->nick[0]) {
       return cptr->nick;
-   } else if (cptr->hostname[0]) {
+   } else if (cptr && cptr->hostname[0]) {
       return cptr->hostname;
    }
    return NULL;

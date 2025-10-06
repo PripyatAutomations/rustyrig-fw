@@ -12,7 +12,7 @@ bool irc_builtin_ping_cb(irc_client_t *cptr, irc_message_t *mp) {
    // reply with the message data
    if (data) {
       Log(LOG_DEBUG, "irc.parser", "[%s] Ping? Pong! |%s|", irc_name(cptr), data);
-//      tui_print_win("status", "[{green}%s{reset}] {green}Ping? {red}Pong!{reset} %s", irc_name(cptr), data);
+      tui_print_win(tui_window_find("status"), "[{green}%s{reset}] {green}Ping? {red}Pong!{reset} %s", irc_name(cptr), data);
       irc_send(cptr, "PONG :%s", data);
    } else {
       Log(LOG_CRIT, "irc.parser", "[%s] Empty ping from cptr:<%p>", irc_name(cptr), cptr);
@@ -44,7 +44,7 @@ bool irc_builtin_notice_cb(irc_client_t *cptr, irc_message_t *mp) {
    memset(tmp_nick, 0, NICKLEN + 1);
    snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
    Log(LOG_INFO, "irc", "*notice* %s <%s> %s", irc_name(cptr), mp->argv[1], tmp_nick, mp->argv[2]);
-   tui_print_win("status", "[%s] *notice* %s <%s> %s", irc_name(cptr), mp->argv[1], tmp_nick, mp->argv[2]);
+   tui_print_win(tui_window_find("status"), "[%s] *notice* %s <%s> %s", cfg_get("networks.auto"), mp->argv[1], tmp_nick, mp->argv[2]);
 
    return false;
 }
@@ -66,12 +66,12 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
    if (*mp->argv[2] == '\001') {
       // CTCP
       if (strncasecmp(mp->argv[2] + 1, "ACTION", 6) == 0) {
-         Log(LOG_INFO, "irc", "[%s] * %s / %s %s", irc_name(cptr), win_title, tmp_nick, mp->argv[2] + 8);
-         tui_print_win(win_title, "%s * %s %s", get_chat_ts(0), tmp_nick, mp->argv[2] + 8);
+         Log(LOG_INFO, "irc", "[%s] * %s / %s %s", cfg_get("networks.auto"), win_title, tmp_nick, mp->argv[2] + 8);
+         tui_print_win(tui_window_find(win_title), "%s * %s %s", get_chat_ts(0), tmp_nick, mp->argv[2] + 8);
       }
    } else {
-      Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), win_title, tmp_nick, mp->argv[2]);
-      tui_print_win(win_title, "%s <%s> %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
+      Log(LOG_INFO, "irc", "[%s] %s <%s> %s", cfg_get("networks.auto"), win_title, tmp_nick, mp->argv[2]);
+      tui_print_win(tui_window_find(win_title), "%s <%s> %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
    }
 
    return false;
@@ -99,8 +99,8 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
 
    // XXX: Determine if this is our client and if so, try tui_window_create
 
-   Log(LOG_INFO, "irc", "[%s] * %s joined %s", irc_name(cptr), tmp_nick, mp->argv[1]);
-   tui_print_win(win_title, "[{green}%s{reset}] * %s {cyan}joined {bright-magenta}%s{reset}", irc_name(cptr), tmp_nick, mp->argv[1]);
+   Log(LOG_INFO, "irc", "[%s] * %s joined %s", cfg_get("networks.auto"), tmp_nick, mp->argv[1]);
+   tui_print_win(tui_window_find(win_title), "[{green}%s{reset}] * %s {cyan}joined {bright-magenta}%s{reset}", cfg_get("networks.auto"), tmp_nick, mp->argv[1]);
 
    tui_window_t *tw = tui_window_create(mp->argv[1]);
    tw->cptr = cptr;
@@ -109,6 +109,11 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
 }
 
 bool irc_builtin_part_cb(irc_client_t *cptr, irc_message_t *mp) {
+   if (!cptr) {
+      Log(LOG_CRIT, "irc", "%s: No cptr given", __FUNCTION__);
+      return true;
+   }
+
    if (!mp->prefix || !mp->argv[1]) {
       return true;
    }
@@ -125,7 +130,7 @@ bool irc_builtin_part_cb(irc_client_t *cptr, irc_message_t *mp) {
       }
    }
 
-   Log(LOG_INFO, "irc", "[%s] * %s left %s", irc_name(cptr), tmp_nick, win_title);
+   Log(LOG_INFO, "irc", "[%s] * %s left %s", cfg_get("networks.auto"), tmp_nick, win_title);
 
    if (strcmp(cptr->nick, tmp_nick) == 0) {
       // Find and destroy the window
@@ -133,13 +138,13 @@ bool irc_builtin_part_cb(irc_client_t *cptr, irc_message_t *mp) {
       if (w) {
          tui_window_destroy(w);
       }
-      tui_print_win("status",
+      tui_print_win(tui_window_find("status"),
                     "[{green}%s{reset}] * %s {cyan}left {bright-magenta}%s{reset}",
-                    irc_name(cptr), tmp_nick, win_title);
+                    cfg_get("networks.auto"), tmp_nick, win_title);
    } else {
-      tui_print_win(win_title,
+      tui_print_win(tui_window_find(win_title),
                     "[{green}%s{reset}] * %s {cyan}left {bright-magenta}%s{reset}",
-                    irc_name(cptr), tmp_nick, win_title);
+                    cfg_get("networks.auto"), tmp_nick, win_title);
    }
 
    return false;
@@ -163,8 +168,8 @@ bool irc_builtin_quit_cb(irc_client_t *cptr, irc_message_t *mp) {
 
    memset(tmp_nick, 0, NICKLEN + 1);
    snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
-   Log(LOG_INFO, "irc", "[%s] * %s has QUIT: (%s)", irc_name(cptr), tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
-   tui_print_win(win_title, "[{green}%s{reset}] * %s has {cyan}QUIT{reset}: (%s)", irc_name(cptr), tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
+   Log(LOG_INFO, "irc", "[%s] * %s has QUIT: \"%s\"", cfg_get("networks.auto"), tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
+   tui_print_win(tui_window_find(win_title), "[{green}%s{reset}] * %s has {cyan}QUIT{reset}: \"%s\"", cfg_get("networks.auto"), tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
 
    return false;
 }

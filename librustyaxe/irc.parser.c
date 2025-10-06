@@ -172,7 +172,7 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
                 p->cb(cptr, mp);
              } else {
                 Log(LOG_WARN, "dispatcher", "Callback in irc_callbacks:<%p> has no target fn for %s", p, mp->argv[0]);
-                tui_print_win("status", "[%s] Unsupported numeric/command: %s", irc_name(cptr), mp->argv[0]);
+                tui_print_win(tui_window_find("status"), "[%s] Unsupported numeric/command: %s", irc_name(cptr), mp->argv[0]);
              }
              return false;
           }
@@ -184,7 +184,7 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
                 p->cb(cptr, mp);
              } else {
                 Log(LOG_CRAZY, "dispatcher", "Callback in irc_callbacks:<%p> has no target fn for %s", p, mp->argv[0]);
-                tui_print_win("status", "[{green}%s{reset}] Unsupported numeric/command: %s", irc_name(cptr), mp->argv[0]);
+                tui_print_win(tui_window_find("status"), "[{green}%s{reset}] Unsupported numeric/command: %s", irc_name(cptr), mp->argv[0]);
              }
 
              // Handle relayed commands
@@ -201,7 +201,7 @@ bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "dispatcher", "Matched %d of %d callbacks for %s", nm, nc, mp->argv[0]);
-   tui_print_win("status", "Matched %d of %d callbacks for %s", nm, nc, mp->argv[0]);
+   tui_print_win(tui_window_find("status"), "Matched %d of %d callbacks for %s", nm, nc, mp->argv[0]);
 
    return false;
 }

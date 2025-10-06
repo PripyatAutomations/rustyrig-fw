@@ -13,10 +13,8 @@
 #include <librustyaxe/util.file.h>
 #include <librustyaxe/posix.h>
 
-// from defconfig.c
 extern defconfig_t defcfg[];
 
-/////
 const char *config_file = NULL;
 dict *cfg = NULL;			// User configuration values from config file / ui
 dict *default_cfg = NULL;		// Hard-coded defaults (defcfg.c)
@@ -156,25 +154,31 @@ bool cfg_detect_and_load(const char *configs[], int num_configs) {
    return false;
 }
 
-
 bool cfg_add_callback(const char *path, const char *section, bool (*cb)()) {
    if (!section || !cb) {
       return true;
    }
 
-   Log(LOG_CRAZY, "config", "add_cb: path=%s section=%s cb=<%p>", path, section, (void *)cb);
+   Log(LOG_DEBUG, "config", "add_cb: path=%s section=%s cb=<%p>", path, section, (void *)cb);
 
    cfg_cb_list_t *new_cb = malloc(sizeof(cfg_cb_list_t));
+   memset(new_cb, 0, sizeof(cfg_cb_list_t));
+
    if (!new_cb) {
       fprintf(stderr, "OOM in cfg_add_callback\n");
       return true;
    }
 
-   new_cb->path = path;
-   new_cb->section = section;
+   if (path) {
+      new_cb->path = strdup(path);
+   }
+
+   if (section) {
+      new_cb->section = strdup(section);
+   }
    new_cb->callback = cb;
 
-   Log(LOG_CRAZY, "config", "Stored config callback cb:<%p> for section:|%s| path:|%s|", cb, section, path);
+   Log(LOG_DEBUG, "config", "Stored config callback cb:<%p> for section:|%s| path:|%s|", cb, section, path);
 
    // store our new callback
    if (!cfg_callbacks) {
@@ -200,26 +204,32 @@ static bool cfg_dispatch_callback(const char *path, int line, const char *sectio
       return true;
    }
 
-   if (!cfg_callbacks) {
+   cfg_cb_list_t *cbp = cfg_callbacks, *prev = NULL;
+   if (!cbp) {
       return false;
    }
 
-   // Lookup the callback
-   cfg_cb_list_t *cbp = cfg_callbacks;
-
-   while (cbp) {
+   Log(LOG_CRIT, "config", "cfg_dispatch_callback: starting cbp=%p", cbp);
+   int i = 0;
+   while (cbp && i < CONFIG_MAX_CALLBACKS) {
       if (cbp->section && fnmatch(cbp->section, section, 0) == 0) {
          if (!cbp->path || (fnmatch(cbp->path, path, 0) == 0)) {
-            Log(LOG_CRAZY, "config", "cfg_dispatch_callback: Found callback at <%p> for section %s (%s) in path %s (%s)", cbp->callback, section, cbp->section, path, cbp->path);
+            Log(LOG_DEBUG, "config", "cfg_dispatch_callback: Found callback at <%p> for section %s (%s) in path %s (%s)", cbp->callback, section, cbp->section, path, cbp->path);
 
             if (cbp->callback) {
                cbp->callback(path, line, section, buf);
             } else {
-               Log(LOG_CRIT, "config", "cfg_dispatch_callback: This callback at <%p> for section |%s| path |%s| doesn't have a valid function attached", cbp, section, path);
+               Log(LOG_WARN, "config", "cfg_dispatch_callback: This callback at <%p> for section |%s| path |%s| doesn't have a valid function attached", cbp, section, path);
             }
          }
       }
+      i++;
+      prev = cbp;
       cbp = cbp->next;
+      fprintf(stderr, "prev;<%x> cbp:<%x> list:<%x>\n", prev, cbp, cfg_callbacks);
+   }
+   if (true || i > 50) {
+      Log(LOG_WARN, "config", "%s: made %d iterations for cbp:<%x>", __FUNCTION__, i, cfg_callbacks);
    }
    return false;
 }
@@ -366,6 +376,7 @@ dict *cfg_load(const char *path) {
          continue;
       }
 
+// XXX: All sections except general below will eventually be moved to callbacks
       if (strncasecmp(this_section, "general", 7) == 0) {
          key = NULL;
          val = NULL;
@@ -403,28 +414,6 @@ dict *cfg_load(const char *path) {
          } else {
             dict_add(newcfg, key, val);
          }
-      } else if (strncasecmp(this_section, "pipelines", 9) == 0) {
-         key = NULL;
-         val = NULL;
-         char *eq = strchr(skip, '=');
-         if (eq) {
-            *eq = '\0';
-            key = skip;
-            val = eq + 1;
-            // trim leading whitespace off the value
-            while (*val == ' ' || *val == '\t') {
-               val++;
-            }
-         }
-
-         if (!key && !val) {
-            continue;
-         }
-
-         char fullkey[256];
-         memset(fullkey, 0, sizeof(fullkey));
-         snprintf(fullkey, sizeof(fullkey), "pipeline:%s", key);
-         dict_add(newcfg, fullkey, val);
       } else if (strncasecmp(this_section, "server:", 7) == 0) {
          key = NULL;
          val = NULL;
