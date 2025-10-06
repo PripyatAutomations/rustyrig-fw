@@ -100,3 +100,20 @@ void tui_raw_mode(bool enabled) {
    }
 }
 
+extern bool irc_input_cb(const char *input);
+void handle_enter_key(tui_window_t *win, int *cursor_pos) {
+   if (!win) return;
+
+   win->input_buf[win->input_len] = '\0';
+   if (win->input_len > 0) {
+//      add_history(win->input_buf);
+      irc_input_cb(win->input_buf);
+      win->input_len = 0;
+      win->input_buf[0] = '\0';
+   }
+
+   *cursor_pos = 0;
+
+   // Do *not* print '\n'; just redraw at bottom line
+   tui_update_input_line();
+}

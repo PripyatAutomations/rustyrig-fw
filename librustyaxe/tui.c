@@ -20,6 +20,20 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 
+ev_io stdin_watcher;
+void stdin_ev_cb(EV_P_ ev_io *w, int revents);
+
+static char input_buf[TUI_INPUTLEN];
+static int  input_len = 0;
+static int  cursor_pos = 0;
+
+#define INPUT_HISTORY_MAX 64
+//static char *input_history[INPUT_HISTORY_MAX];
+static char input_history[HISTORY_LINES][TUI_INPUTLEN];
+
+static int history_count = 0;
+static int history_index = -1;
+
 // Is the TUI enabled?
 bool tui_enabled = true;
 
@@ -72,6 +86,10 @@ int tui_cols(void) {
 }
 
 bool tui_init(void) {
+   struct ev_loop *loop = EV_DEFAULT;
+   ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
+   ev_io_start (loop, &stdin_watcher);
+
    update_term_size();
 
    // set SIGnal WINdow CHange handler
@@ -113,7 +131,7 @@ void tui_redraw_screen(void) {
    if (w->status_line) {
       printf("%-*s", term_cols, w->status_line);
    } else {
-      printf("%-*s", term_cols, ""); // blank if none
+      printf("%-*s", term_cols, w->title);
    }
 
    // --- Log area ---
@@ -148,22 +166,8 @@ void tui_redraw_screen(void) {
    // --- Bottom status line ---
    printf("\033[%d;1H", term_rows - 1);
    printf("%-*s", term_cols, status_line);
-
    tui_redraw_clock();
-
-   // --- Input line ---
-   char *prompt = NULL;
-   if (*w->title == '&' || *w->title == '#') {
-      prompt = tui_render_string(NULL, "{bright-magenta}%s{cyan}>{reset}", w->title);
-   } else {
-      prompt = tui_render_string(NULL, "{bright-cyan}%s{cyan}>{reset}", w->title);
-   }
-   printf("\033[%d;1H", term_rows);
-   printf("%s ", prompt);
-   term_clrtoeol();
-   free(prompt);
-
-   fflush(stdout);
+   tui_update_input_line();
 }
 
 void tui_redraw_clock(void) {
@@ -314,18 +318,6 @@ char *tui_render_string(dict *data, const char *title, const char *fmt, ...) {
    return colorized;   // caller must free
 }
 
-// Draw input line at bottom
-void tui_draw_input(tui_window_t *w, int term_rows) {
-   if (!w) {
-      return;
-   }
-
-   term_move(term_rows, 1);
-   printf("> %s", w->input_buf ? w->input_buf : "");
-   term_clrtoeol();
-   fflush(stdout);
-}
-
 void tui_window_update_topline(const char *line) {
    if (!tui_enabled || !line) {
       return;
@@ -344,14 +336,145 @@ void tui_window_update_topline(const char *line) {
    fflush(stdout);
 }
 
-void tui_update_input_line(tui_window_t *w) {
-   if (!w) { return; }
+static int visible_length(const char *s) {
+   int len = 0;
+   for (const char *p = s; *p; p++) {
+      if (*p == '{') {
+         while (*p && *p != '}') p++;  // skip color markup
+      } else {
+         len++;
+      }
+   }
+   return len;
+}
+
+void tui_update_input_line(void) {
+   tui_window_t *win = tui_active_window();
+   if (!win) return;
 
    char prompt[512];
-   memset(prompt, 0, sizeof(prompt));
-   snprintf(prompt, sizeof(prompt), "{bright-cyan}%sX{cyan}>{reset}", w->title);
+   snprintf(prompt, sizeof(prompt), "{bright-cyan}%s{cyan}>{reset}", win->title);
    char *color = tui_colorize_string(prompt);
-   printf("\033[%d;1H\033[2K%s %s", term_rows, color, w->input_buf);
+
+   printf("\033[%d;1H\033[2K", term_rows);
+   printf("%s %s", color, input_buf);
+
+   int prompt_len = visible_length(prompt);
+   printf("\033[%d;%dH", term_rows, prompt_len + cursor_pos + 2);
+
    free(color);
    fflush(stdout);
+}
+
+///////////////
+typedef enum {
+   ESC_NONE = 0,
+   ESC_GOT_ESC,
+   ESC_GOT_BRACKET,
+   ESC_GOT_TILDE
+} esc_state_t;
+
+// escape parsing and input editing
+//static esc_state_t esc_state = ESC_NONE;
+static int esc_state = 0;
+static char esc_buf[8];
+static int esc_len = 0;
+
+static void handle_escape_sequence(void) {
+   if (esc_len == 2 && esc_buf[0] == '\033') {
+      // ALT + number
+      if (esc_buf[1] >= '1' && esc_buf[1] <= '9') {
+         tui_win_swap(0, esc_buf[1]);
+      } else if (esc_buf[1] == '0') {
+         tui_win_swap(0, '0');
+      }
+   } else if (esc_len >= 3 && esc_buf[0] == '\033' && esc_buf[1] == '[') {
+      // ALT + arrows (often ESC [ 1 ; 3 C)
+      if (esc_buf[2] == 'C' || strstr(esc_buf, "[1;3C")) {
+         handle_alt_right(0, 0);
+      } else if (esc_buf[2] == 'D' || strstr(esc_buf, "[1;3D")) {
+         handle_alt_left(0, 0);
+      } else if (strstr(esc_buf, "[5~")) {
+         handle_pgup(0, 0);
+      } else if (strstr(esc_buf, "[6~")) {
+         handle_pgdn(0, 0);
+      }
+   }
+
+   esc_state = 0;
+   esc_len = 0;
+}
+
+static void add_history(const char *line) {
+#if	0
+   if (!line || !*line) {
+      return;
+   }
+
+   if (history_count >= INPUT_HISTORY_MAX) {
+      free(input_history[0]);
+      memmove(input_history, input_history + 1, sizeof(char *) * (INPUT_HISTORY_MAX - 1));
+      history_count--;
+   }
+
+   input_history[history_count++] = strdup(line);
+   history_index = history_count; // reset browsing
+#endif
+}
+
+bool (*tui_readline_cb)(const char *input) = NULL;
+
+void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
+   unsigned char c;
+   if (read(STDIN_FILENO, &c, 1) <= 0) return;
+
+   if (esc_state) {
+      esc_buf[esc_len++] = c;
+      if (esc_len >= sizeof(esc_buf) || (!iscntrl(c) && c != '[' && c != ';' && c != '~'))
+         handle_escape_sequence();
+      return;
+   }
+
+   if (c == '\033') { // ESC
+      esc_state = 1;
+      esc_len = 0;
+      esc_buf[esc_len++] = c;
+      return;
+   }
+
+   // Normal character handling below
+   if (c == '\r' || c == '\n') {
+      input_buf[input_len] = '\0';
+      if (input_len > 0) {
+         add_history(input_buf);
+         if (tui_readline_cb) {
+            tui_readline_cb(input_buf);
+         }
+         input_len = 0;
+         input_buf[0] = '\0';
+      }
+      cursor_pos = 0;
+      tui_update_input_line();
+      return;
+   }
+
+   if (c == 0x7f) { // backspace
+      if (cursor_pos > 0 && input_len > 0) {
+         memmove(&input_buf[cursor_pos-1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
+         input_len--;
+         cursor_pos--;
+      }
+      tui_update_input_line();
+      return;
+   }
+
+   if (c >= 0x20 && c < 0x7f) { // printable
+      if (input_len < TUI_INPUTLEN - 1) {
+         memmove(&input_buf[cursor_pos+1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
+         input_buf[cursor_pos] = c;
+         input_len++;
+         cursor_pos++;
+      }
+      tui_update_input_line();
+   }
 }

@@ -340,13 +340,23 @@ bool irc_builtin_num433(irc_client_t *cptr, irc_message_t *mp) {
    return false;
 }
 
+bool irc_builtin_num461(irc_client_t *cptr, irc_message_t *mp) {
+   if (mp->argc < 2) {
+      return true;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] Not enough parameters:: %s", irc_name(cptr), mp->argv[2]);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] Not enough parameters: {bright-magenta}%s{reset}", irc_name(cptr), mp->argv[2]);
+   return false;
+}
+
 const irc_numeric_t irc_numerics[] = {
    // --- Connection / welcome ---
-   { .code =  1, .name = "RPL_WELCOME",            .desc = "Welcome to the Internet Relay Network",   .cb = irc_builtin_num001 },
-   { .code =  2, .name = "RPL_YOURHOST",           .desc = "Your host information",                   .cb = irc_builtin_num_print },
-   { .code =  3, .name = "RPL_CREATED",            .desc = "Server creation time",                    .cb = irc_builtin_num_print },
-   { .code =  4, .name = "RPL_MYINFO",             .desc = "Server info and supported modes",         .cb = irc_builtin_num004 },
-   { .code =  5, .name = "RPL_ISUPPORT",           .desc = "Supported features (IRCv3 tokens)",       .cb = irc_builtin_num005 },
+   { .code =   1, .name = "RPL_WELCOME",            .desc = "Welcome to the Internet Relay Network",   .cb = irc_builtin_num001 },
+   { .code =   2, .name = "RPL_YOURHOST",           .desc = "Your host information",                   .cb = irc_builtin_num_print },
+   { .code =   3, .name = "RPL_CREATED",            .desc = "Server creation time",                    .cb = irc_builtin_num_print },
+   { .code =   4, .name = "RPL_MYINFO",             .desc = "Server info and supported modes",         .cb = irc_builtin_num004 },
+   { .code =   5, .name = "RPL_ISUPPORT",           .desc = "Supported features (IRCv3 tokens)",       .cb = irc_builtin_num005 },
    { .code = 251, .name = "RPL_LUSERCLIENT",	   .desc = "Online local users",		      .cb = irc_builtin_num_print },
    { .code = 254, .name = "RPL_LUSERCHANNELS",	   .desc = "Channels on server",		      .cb = irc_builtin_num_print },
    { .code = 255, .name = "RPL_LUSERME",	   .desc = "Local users",	                      .cb = irc_builtin_num_print },
@@ -392,7 +402,7 @@ const irc_numeric_t irc_numerics[] = {
    { .code =  433, .name = "ERR_NICKNAMEINUSE",    .desc = "Nickname already in use",                 .cb = irc_builtin_num433 },
    { .code =  436, .name = "ERR_NICKCOLLISION",    .desc = "Nickname collision",                      .cb = NULL },
    { .code =  451, .name = "ERR_NOTREGISTERED",    .desc = "You have not registered",                 .cb = NULL },
-   { .code =  461, .name = "ERR_NEEDMOREPARAMS",   .desc = "Not enough parameters",                   .cb = NULL },
+   { .code =  461, .name = "ERR_NEEDMOREPARAMS",   .desc = "Not enough parameters",                   .cb = irc_builtin_num461 },
    { .code =  462, .name = "ERR_ALREADYREGISTRED", .desc = "You may not reregister",                  .cb = NULL },
    { .code =  464, .name = "ERR_PASSWDMISMATCH",   .desc = "Password incorrect",                      .cb = NULL },
    { .code =  465, .name = "ERR_YOUREBANNEDCREEP", .desc = "You are banned from this server",         .cb = NULL },

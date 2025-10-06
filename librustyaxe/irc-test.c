@@ -20,27 +20,26 @@
 #include <librustyaxe/tui.h>
 #include <ev.h>
 #define	MAX_WINDOWS	32
+#define INPUT_HISTORY_MAX 64
 
 bool dying = false;
 bool debug_sockets = false;
 time_t now = 0;
 
-ev_io stdin_watcher;
 static ev_timer tui_clock_watcher;
-
 server_cfg_t *server_list = NULL;
 rrlist_t *irc_client_conns = NULL;
 
 typedef struct cli_command {
    char *cmd;
    char *desc;
-   bool (*cb)(int argc, char **argv);
+   bool (*cb)(int argc, char **args);
 } cli_command_t;
 
 ////
 bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **args);
 
-bool cli_join(int argc, char **argv) {
+bool cli_join(int argc, char **args) {
    if (argc < 1) {
       return true;
    }
@@ -50,18 +49,35 @@ bool cli_join(int argc, char **argv) {
    if (wp) {
       // There's a window here at least...
       if (wp->cptr) {
-         tui_print_win(tui_window_find("status"), "* Joining %s", argv[1]);
-         irc_send(wp->cptr, "JOIN %s", argv[1]);
+         tui_print_win(tui_window_find("status"), "* Joining %s", args[1]);
+         irc_send(wp->cptr, "JOIN %s", args[1]);
       }
    }
    return false;
 }
 
-bool cli_me(int argc, char **argv) {
+bool cli_me(int argc, char **args) {
+   char buf[1024];
+   memset(buf, 0, 1024);
+   size_t pos = 0;
+   tui_window_t *wp = tui_active_window();
+   char *target = wp->title;
+
+   for (int i = 1; i < argc; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos,
+                       "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+   Log(LOG_DEBUG, "irc", "sending ACTION to %s", target);
+   irc_send(wp->cptr, "PRIVMSG %s :\001ACTION %s\001", target, buf);
+   tui_print_win(wp, "%s * %s %s", get_chat_ts(0), wp->cptr->nick, buf);
    return false;
 }
 
-bool cli_part(int argc, char **argv) {
+bool cli_part(int argc, char **args) {
    if (argc < 1) {
       return true;
    }
@@ -73,8 +89,8 @@ bool cli_part(int argc, char **argv) {
       if (wp->cptr) {
          char *target = wp->title;
 
-         if (argv[1]) {
-            target = argv[1];
+         if (args[1]) {
+            target = args[1];
          }
 
          tui_print_win(tui_window_find("status"), "* Leaving %s", target);
@@ -86,7 +102,7 @@ bool cli_part(int argc, char **argv) {
            size_t pos = 0;
 
            for (int i = 2; i < argc; i++) {
-              int n = snprintf(partmsg + pos, sizeof(partmsg) - pos, "%s%s", (i > 2 ? " " : ""), argv[i] ? argv[i] : "");
+              int n = snprintf(partmsg + pos, sizeof(partmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
               if (n < 0 || (size_t)n >= sizeof(partmsg) - pos) {
                  break;
               }
@@ -99,7 +115,7 @@ bool cli_part(int argc, char **argv) {
    return false;
 }
 
-bool cli_quit(int argc, char **argv) {
+bool cli_quit(int argc, char **args) {
    tui_window_t *wp = tui_active_window();
    tui_print_win(wp, "Goodbye!");
    tui_raw_mode(false);
@@ -115,13 +131,14 @@ bool cli_quit(int argc, char **argv) {
    return false;	// unreached, but shuts up the scanner...
 }
 
-bool cli_win(int argc, char **argv) {
+bool cli_win(int argc, char **args) {
    if (argc < 1) {
       return true;
    }
 
-   int id = atoi(argv[1]);
-   tui_print_win(tui_active_window(), "ID: %s", argv[1]);
+   int id = atoi(args[1]);
+//   tui_print_win(tui_active_window(), "ID: %s", args[1]);
+
    if (id < 1 || id > TUI_MAX_WINDOWS) {
       tui_print_win(tui_active_window(), "Invalid window %d, must be between 1 and %d", id, TUI_MAX_WINDOWS);
       return true;
@@ -131,7 +148,7 @@ bool cli_win(int argc, char **argv) {
    return false;
 }
 
-extern bool cli_help(int argc, char **argv);
+extern bool cli_help(int argc, char **args);
 
 cli_command_t cli_commands[] = {
    { .cmd = "/help", .cb = cli_help, .desc = "Show help message" },
@@ -143,7 +160,7 @@ cli_command_t cli_commands[] = {
    { .cmd = NULL,    .cb = NULL, .desc = NULL }
 };
 
-bool cli_help(int argc, char **argv) {
+bool cli_help(int argc, char **args) {
    tui_window_t *wp = tui_active_window();
    if (!wp) {
       return true;
@@ -296,7 +313,7 @@ static bool config_network_cb(const char *path, int line, const char *section, c
    return false;
 }
 
-static bool irc_input_cb(const char *input) {
+bool irc_input_cb(const char *input) {
    if (!cli_commands || !input || !*input) {
       return true;
    }
@@ -306,12 +323,12 @@ static bool irc_input_cb(const char *input) {
    strncpy(buf, input, sizeof(buf) - 1);
    buf[sizeof(buf) - 1] = '\0';
 
-   // Tokenize into argc/argv
+   // Tokenize into argc/args
    int argc = 0;
-   char *argv[64];   // max 64 tokens
+   char *args[64];   // max 64 tokens
    char *tok = strtok(buf, " \t");
-   while (tok && argc < (int)(sizeof(argv) / sizeof(argv[0]))) {
-      argv[argc++] = tok;
+   while (tok && argc < (int)(sizeof(args) / sizeof(args[0]))) {
+      args[argc++] = tok;
       tok = strtok(NULL, " \t");
    }
 
@@ -319,115 +336,27 @@ static bool irc_input_cb(const char *input) {
       return true;
    }
 
-   if (argv[0][0] == '/') {
+   if (args[0][0] == '/') {
       for (cli_command_t *c = cli_commands; c->cmd && c->cb; c++) {
-         if (strcasecmp(c->cmd, argv[0]) == 0) {
+         if (strcasecmp(c->cmd, args[0]) == 0) {
             if (c->cb) {
-               c->cb(argc, argv);
+               c->cb(argc, args);
                return false;
             }
          }
       }
 
-      tui_print_win(tui_active_window(), "no callback for %s found", argv[0]);
+      tui_print_win(tui_active_window(), "no callback for %s found", args[0]);
       return true;
    }
 
    // Send to active window target
    tui_window_t *wp = tui_active_window();
    if (wp && wp->cptr) {
-      irc_send_privmsg(wp->cptr, wp, argc, argv);
+      irc_send_privmsg(wp->cptr, wp, argc, args);
    }
 
    return false;
-}
-
-///////////////
-typedef enum {
-   ESC_NONE = 0,
-   ESC_GOT_ESC,
-   ESC_GOT_BRACKET,
-   ESC_GOT_TILDE
-} esc_state_t;
-
-static esc_state_t esc_state = ESC_NONE;
-static char esc_buf[8];
-static int esc_len = 0;
-
-static void handle_escape_sequence(void) {
-   if (esc_len == 2 && esc_buf[0] == '\033') {
-      // Alt + number
-      if (esc_buf[1] >= '1' && esc_buf[1] <= '9') {
-         tui_win_swap(0, esc_buf[1]);
-      } 
-      else if (esc_buf[1] == '0') {
-         tui_win_swap(0, '0');
-      }
-   } 
-   else if (esc_len == 3 && esc_buf[0] == '\033' && esc_buf[1] == '[') {
-      // Arrow keys
-      if (esc_buf[2] == 'C') {
-         handle_alt_right(0, 0);
-      } 
-      else if (esc_buf[2] == 'D') {
-         handle_alt_left(0, 0);
-      }
-   } 
-   else if (esc_len >= 4 && esc_buf[0] == '\033' && esc_buf[1] == '[') {
-      // F-keys / PgUp / PgDn (~ terminated)
-      if (esc_buf[esc_len - 1] == '~') {
-         if (strncmp(&esc_buf[2], "5", esc_len - 3) == 0) {
-            handle_pgup(0, 0);
-         } 
-         else if (strncmp(&esc_buf[2], "6", esc_len - 3) == 0) {
-            handle_pgdn(0, 0);
-         } 
-         else if (strncmp(&esc_buf[2], "25", esc_len - 3) == 0) {
-            handle_ptt_button(0, 0);
-         }
-      }
-   }
-
-   esc_state = ESC_NONE;
-   esc_len = 0;
-}
-
-static void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
-   char c;
-   if (read(STDIN_FILENO, &c, 1) <= 0) {
-      return;
-   }
-
-   tui_window_t *win = tui_active_window();
-   if (!win) {
-      return;
-   }
-
-   if (c == '\r' || c == '\n') {
-      // Enter pressed
-      win->input_buf[win->input_len] = '\0';
-      if (win->input_len > 0) {
-         irc_input_cb(win->input_buf);  // pass full string
-         win->input_len = 0;
-         win->input_buf[0] = '\0';
-      }
-      tui_update_input_line(win);
-   } else if (c == 0x7f) {
-      // Backspace
-      if (win->input_len > 0) {
-         win->input_len--;
-         win->input_buf[win->input_len] = '\0';
-      }
-      tui_update_input_line(win);
-   } else if (c >= 0x20 && c < 0x7f) {
-      // Printable ASCII
-      if (win->input_len < TUI_INPUTLEN - 1) {
-         win->input_buf[win->input_len++] = c;
-         win->input_buf[win->input_len] = '\0';
-      }
-      tui_update_input_line(win);
-   }
-   // TODO: add arrow key handling later
 }
 
 
@@ -556,10 +485,12 @@ void tui_stop_clock_timer(struct ev_loop *loop) {
    ev_timer_stop(loop, &tui_clock_watcher);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **args) {
    now = time(NULL);
    char *fullpath = NULL;
 
+   // set our input callback
+   tui_readline_cb = irc_input_cb;
    tui_init();
    tui_print_win(tui_window_find("status"), "irc-test starting");
 
@@ -581,8 +512,6 @@ int main(int argc, char **argv) {
 
    // Setup stdio & clock
    struct ev_loop *loop = EV_DEFAULT;
-   ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
-   ev_io_start (loop, &stdin_watcher);
    tui_start_clock_timer(loop);
 
    // XXX: this needs moved to module_init in mod.proto.irc

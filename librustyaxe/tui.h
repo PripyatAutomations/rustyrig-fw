@@ -2,10 +2,11 @@
 #define __librustyaxe_tui_h
 
 #define	TUI_STRING_LEN	1024
-#define LOG_LINES 300
-#define STATUS_LINES 1
-#define STATUS_LEN 256
+#define LOG_LINES 	300
+#define STATUS_LINES 	1
+#define STATUS_LEN 	256
 #define	TUI_MAX_WINDOWS	32
+#define	HISTORY_LINES	50
 
 #include <librustyaxe/tui.theme.h>
 #include <librustyaxe/tui.window.h>
@@ -31,6 +32,8 @@ extern void tui_raw_mode(bool enabled);
 extern int handle_ptt_button(int count, int key);
 extern int handle_pgdn(int count, int key);
 extern int handle_pgup(int count, int key);
-extern void tui_update_input_line(tui_window_t *w);
+extern void handle_enter_key(tui_window_t *win, int *cursor_pos);
+extern void tui_update_input_line(void);
+extern bool (*tui_readline_cb)(const char *input);
 
 #endif	// !defined(__librustyaxe_tui_h)
