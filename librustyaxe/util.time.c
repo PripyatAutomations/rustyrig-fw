@@ -28,12 +28,8 @@ extern time_t now;
 static char chat_ts[256];
 static time_t chat_ts_updated = 0;
 
-const char *stopped_clock = "[12:34:56]";
-
 const char *get_chat_ts(time_t ts) {
    time_t now = time(NULL);
-
-   return stopped_clock;
 
    // If this is "live now", allow caching per second
    if (ts == 0 || ts >= now) {

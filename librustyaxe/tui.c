@@ -27,13 +27,6 @@ static char input_buf[TUI_INPUTLEN];
 static int  input_len = 0;
 static int  cursor_pos = 0;
 
-#define INPUT_HISTORY_MAX 64
-//static char *input_history[INPUT_HISTORY_MAX];
-static char input_history[HISTORY_LINES][TUI_INPUTLEN];
-
-static int history_count = 0;
-static int history_index = -1;
-
 // Is the TUI enabled?
 bool tui_enabled = true;
 
@@ -366,6 +359,9 @@ void tui_update_input_line(void) {
    fflush(stdout);
 }
 
+
+///////////////
+
 ///////////////
 typedef enum {
    ESC_NONE = 0,
@@ -380,46 +376,71 @@ static int esc_state = 0;
 static char esc_buf[8];
 static int esc_len = 0;
 
-static void handle_escape_sequence(void) {
+static void handle_escape_sequence(tui_window_t *win) {
+   esc_buf[esc_len] = '\0'; // null-terminate for safety
+
    if (esc_len == 2 && esc_buf[0] == '\033') {
-      // ALT + number
+      // ALT + digit
       if (esc_buf[1] >= '1' && esc_buf[1] <= '9') {
          tui_win_swap(0, esc_buf[1]);
       } else if (esc_buf[1] == '0') {
          tui_win_swap(0, '0');
       }
-   } else if (esc_len >= 3 && esc_buf[0] == '\033' && esc_buf[1] == '[') {
-      // ALT + arrows (often ESC [ 1 ; 3 C)
-      if (esc_buf[2] == 'C' || strstr(esc_buf, "[1;3C")) {
-         handle_alt_right(0, 0);
-      } else if (esc_buf[2] == 'D' || strstr(esc_buf, "[1;3D")) {
-         handle_alt_left(0, 0);
-      } else if (strstr(esc_buf, "[5~")) {
-         handle_pgup(0, 0);
-      } else if (strstr(esc_buf, "[6~")) {
-         handle_pgdn(0, 0);
+   }
+   else if (esc_len >= 3 && esc_buf[0] == '\033' && esc_buf[1] == '[') {
+      char final = esc_buf[esc_len-1];
+
+      // arrows
+      if (final == 'A') {
+         const char *h = history_prev();
+         if (h) {
+            strncpy(win->input_buf, h, TUI_INPUTLEN);
+            win->input_len = strlen(h);
+            cursor_pos = win->input_len;
+            tui_update_input_line();
+         }
+      } else if (final == 'B') {
+         const char *h = history_next();
+         if (h) {
+            strncpy(win->input_buf, h, TUI_INPUTLEN);
+            win->input_len = strlen(h);
+            cursor_pos = win->input_len;
+            tui_update_input_line();
+         }
+      } else if (final == 'C') {
+         if (cursor_pos < win->input_len) { 
+            cursor_pos++;
+         }
+         tui_update_input_line();
+      } else if (final == 'D') {
+         if (cursor_pos > 0) {
+            cursor_pos--;
+         }
+         tui_update_input_line();
+      } else if (final == '~') { // PgUp/PgDn/Home/End/F13
+         int code = atoi(&esc_buf[2]);
+         if (code == 5) {
+            handle_pgup(0,0);
+         } else if (code == 6) {
+            handle_pgdn(0,0);
+         } else if (code == 1 || code == 7) {
+            cursor_pos = 0;
+            tui_update_input_line();
+         } else if (code == 4 || code == 8) {
+            cursor_pos = win->input_len;
+            tui_update_input_line();
+         } else if (code == 25) {
+            handle_ptt_button(0,0);
+         }
+      }  else if (strstr(esc_buf, "[1;3C")) { // Alt + Left/Right arrows 
+         handle_alt_right(0,0);
+      } else if (strstr(esc_buf, "[1;3D")) {
+         handle_alt_left(0,0);
       }
    }
 
    esc_state = 0;
    esc_len = 0;
-}
-
-static void add_history(const char *line) {
-#if	0
-   if (!line || !*line) {
-      return;
-   }
-
-   if (history_count >= INPUT_HISTORY_MAX) {
-      free(input_history[0]);
-      memmove(input_history, input_history + 1, sizeof(char *) * (INPUT_HISTORY_MAX - 1));
-      history_count--;
-   }
-
-   input_history[history_count++] = strdup(line);
-   history_index = history_count; // reset browsing
-#endif
 }
 
 bool (*tui_readline_cb)(const char *input) = NULL;
@@ -430,8 +451,21 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
 
    if (esc_state) {
       esc_buf[esc_len++] = c;
-      if (esc_len >= sizeof(esc_buf) || (!iscntrl(c) && c != '[' && c != ';' && c != '~'))
-         handle_escape_sequence();
+      tui_window_t *w = tui_active_window();
+
+      // Terminate sequence if:
+      //   - We hit '~' (end of PgUp/PgDn etc)
+      //   - We hit a letter (A–Z or a–z)
+      if (c == '~' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+         handle_escape_sequence(w);
+         return;
+      }
+
+      if (esc_len >= (int)sizeof(esc_buf)) {
+         handle_escape_sequence(w); // safety flush
+         return;
+      }
+
       return;
    }
 
@@ -445,8 +479,9 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
    // Normal character handling below
    if (c == '\r' || c == '\n') {
       input_buf[input_len] = '\0';
+
       if (input_len > 0) {
-         add_history(input_buf);
+         history_add(input_buf);
          if (tui_readline_cb) {
             tui_readline_cb(input_buf);
          }
