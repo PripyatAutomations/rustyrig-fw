@@ -7,7 +7,7 @@ ls-src:
 ifeq (irc-test.c,$(wildcard irc-test.c))
 irc-test: irc-test.o ../librustyaxe.so
 	${RM} -f $@
-	$(CC) $(LDFLAGS) -L.. -o $@ $< -lrustyaxe -lmongoose -lm
+	$(CC)  -L.. -o $@ $< -lrustyaxe -lmongoose -lm $(LDFLAGS)
 
 irc-test.o: irc-test.c $(wildcard *.h)
 	${RM} -f $@

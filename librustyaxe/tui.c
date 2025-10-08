@@ -78,20 +78,22 @@ int tui_cols(void) {
    return term_cols;
 }
 
-bool tui_init(void) {
-   struct ev_loop *loop = EV_DEFAULT;
-   ev_io_init (&stdin_watcher, stdin_ev_cb, /*STDIN_FILENO*/ 0, EV_READ);
-   ev_io_start (loop, &stdin_watcher);
+extern void tui_keys_init(struct ev_loop *loop);	// tui.keys.c
 
+bool tui_init(void) {
    update_term_size();
 
    // set SIGnal WINdow CHange handler
    signal(SIGWINCH, sigwinch_handler);
 
-   // force raw input mode
-   tui_raw_mode(true);
    // set up windowing
    tui_window_init();
+
+   // force raw input mode
+   tui_raw_mode(true);
+
+   struct ev_loop *loop = EV_DEFAULT;
+   tui_keys_init(loop);
 
    // draw the initial screen
    tui_redraw_screen();
@@ -357,159 +359,4 @@ void tui_update_input_line(void) {
 
    free(color);
    fflush(stdout);
-}
-
-
-///////////////
-
-///////////////
-typedef enum {
-   ESC_NONE = 0,
-   ESC_GOT_ESC,
-   ESC_GOT_BRACKET,
-   ESC_GOT_TILDE
-} esc_state_t;
-
-// escape parsing and input editing
-//static esc_state_t esc_state = ESC_NONE;
-static int esc_state = 0;
-static char esc_buf[8];
-static int esc_len = 0;
-
-static void handle_escape_sequence(tui_window_t *win) {
-   esc_buf[esc_len] = '\0'; // null-terminate for safety
-
-   if (esc_len == 2 && esc_buf[0] == '\033') {
-      // ALT + digit
-      if (esc_buf[1] >= '1' && esc_buf[1] <= '9') {
-         tui_win_swap(0, esc_buf[1]);
-      } else if (esc_buf[1] == '0') {
-         tui_win_swap(0, '0');
-      }
-   }
-   else if (esc_len >= 3 && esc_buf[0] == '\033' && esc_buf[1] == '[') {
-      char final = esc_buf[esc_len-1];
-
-      // arrows
-      if (final == 'A') {
-         const char *h = history_prev();
-         if (h) {
-            strncpy(win->input_buf, h, TUI_INPUTLEN);
-            win->input_len = strlen(h);
-            cursor_pos = win->input_len;
-            tui_update_input_line();
-         }
-      } else if (final == 'B') {
-         const char *h = history_next();
-         if (h) {
-            strncpy(win->input_buf, h, TUI_INPUTLEN);
-            win->input_len = strlen(h);
-            cursor_pos = win->input_len;
-            tui_update_input_line();
-         }
-      } else if (final == 'C') {
-         if (cursor_pos < win->input_len) { 
-            cursor_pos++;
-         }
-         tui_update_input_line();
-      } else if (final == 'D') {
-         if (cursor_pos > 0) {
-            cursor_pos--;
-         }
-         tui_update_input_line();
-      } else if (final == '~') { // PgUp/PgDn/Home/End/F13
-         int code = atoi(&esc_buf[2]);
-         if (code == 5) {
-            handle_pgup(0,0);
-         } else if (code == 6) {
-            handle_pgdn(0,0);
-         } else if (code == 1 || code == 7) {
-            cursor_pos = 0;
-            tui_update_input_line();
-         } else if (code == 4 || code == 8) {
-            cursor_pos = win->input_len;
-            tui_update_input_line();
-         } else if (code == 25) {
-            handle_ptt_button(0,0);
-         }
-      }  else if (strstr(esc_buf, "[1;3C")) { // Alt + Left/Right arrows 
-         handle_alt_right(0,0);
-      } else if (strstr(esc_buf, "[1;3D")) {
-         handle_alt_left(0,0);
-      }
-   }
-
-   esc_state = 0;
-   esc_len = 0;
-}
-
-bool (*tui_readline_cb)(const char *input) = NULL;
-
-void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
-   unsigned char c;
-   if (read(STDIN_FILENO, &c, 1) <= 0) return;
-
-   if (esc_state) {
-      esc_buf[esc_len++] = c;
-      tui_window_t *w = tui_active_window();
-
-      // Terminate sequence if:
-      //   - We hit '~' (end of PgUp/PgDn etc)
-      //   - We hit a letter (A–Z or a–z)
-      if (c == '~' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-         handle_escape_sequence(w);
-         return;
-      }
-
-      if (esc_len >= (int)sizeof(esc_buf)) {
-         handle_escape_sequence(w); // safety flush
-         return;
-      }
-
-      return;
-   }
-
-   if (c == '\033') { // ESC
-      esc_state = 1;
-      esc_len = 0;
-      esc_buf[esc_len++] = c;
-      return;
-   }
-
-   // Normal character handling below
-   if (c == '\r' || c == '\n') {
-      input_buf[input_len] = '\0';
-
-      if (input_len > 0) {
-         history_add(input_buf);
-         if (tui_readline_cb) {
-            tui_readline_cb(input_buf);
-         }
-         input_len = 0;
-         input_buf[0] = '\0';
-      }
-      cursor_pos = 0;
-      tui_update_input_line();
-      return;
-   }
-
-   if (c == 0x7f) { // backspace
-      if (cursor_pos > 0 && input_len > 0) {
-         memmove(&input_buf[cursor_pos-1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
-         input_len--;
-         cursor_pos--;
-      }
-      tui_update_input_line();
-      return;
-   }
-
-   if (c >= 0x20 && c < 0x7f) { // printable
-      if (input_len < TUI_INPUTLEN - 1) {
-         memmove(&input_buf[cursor_pos+1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
-         input_buf[cursor_pos] = c;
-         input_len++;
-         cursor_pos++;
-      }
-      tui_update_input_line();
-   }
 }

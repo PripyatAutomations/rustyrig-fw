@@ -71,7 +71,7 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", cfg_get("networks.auto"), win_title, tmp_nick, mp->argv[2]);
-      tui_print_win(tui_window_find(win_title), "%s <%s> %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
+      tui_print_win(tui_window_find(win_title), "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
    }
 
    return false;
