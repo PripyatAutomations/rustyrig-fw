@@ -67,7 +67,7 @@ ${BUILD_DIR}/librustyaxe/%.o:librustyaxe/%.c GNUmakefile ${librustyaxe_headers}
 
 bin/irc-test: ${BUILD_DIR}/irc-test.o ${librustyaxe}
 	@${RM} $@
-	$(CC) -L. -o $@ $< -lrustyaxe -lm -lev $(LDFLAGS) 
+	$(CC) -L. -o $@ $< -lrustyaxe -lm -lev -ltinfo $(LDFLAGS) 
 
 ${BUILD_DIR}/irc-test.o: librustyaxe/irc-test.c $(wildcard *.h)
 	@${RM} $@

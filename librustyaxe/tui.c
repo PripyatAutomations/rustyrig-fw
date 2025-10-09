@@ -23,9 +23,9 @@
 ev_io stdin_watcher;
 void stdin_ev_cb(EV_P_ ev_io *w, int revents);
 
-static char input_buf[TUI_INPUTLEN];
-static int  input_len = 0;
-static int  cursor_pos = 0;
+extern char input_buf[TUI_INPUTLEN];
+extern int  input_len;
+extern int  cursor_pos;
 
 // Is the TUI enabled?
 bool tui_enabled = true;
@@ -95,6 +95,7 @@ bool tui_init(void) {
    struct ev_loop *loop = EV_DEFAULT;
    tui_keys_init(loop);
 
+   tui_window_update_topline("Chikin r tasty");
    // draw the initial screen
    tui_redraw_screen();
 
@@ -344,19 +345,22 @@ static int visible_length(const char *s) {
 }
 
 void tui_update_input_line(void) {
-   tui_window_t *win = tui_active_window();
-   if (!win) return;
+   if (!tui_enabled) {
+      return;
+   }
+
+   tui_window_t *win = tui_active_window(); // always show prompt for current window
 
    char prompt[512];
    snprintf(prompt, sizeof(prompt), "{bright-cyan}%s{cyan}>{reset}", win->title);
-   char *color = tui_colorize_string(prompt);
+   char *color_prompt = tui_colorize_string(prompt);
 
    printf("\033[%d;1H\033[2K", term_rows);
-   printf("%s %s", color, input_buf);
+   printf("%s %s", color_prompt, input_buf);
 
    int prompt_len = visible_length(prompt);
    printf("\033[%d;%dH", term_rows, prompt_len + cursor_pos + 2);
 
-   free(color);
+   free(color_prompt);
    fflush(stdout);
 }

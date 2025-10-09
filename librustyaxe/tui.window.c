@@ -166,6 +166,7 @@ tui_window_t *tui_window_focus(const char *title) {
             win_color = "{bright-magenta}";
          }
          tui_update_status(tui_active_window(), "{bright-black}[{bright-green}online{bright-black}] [{green}%s{bright-black}] [%s%s{bright-black}]{reset}", network, win_color, tw->title);
+         tui_update_input_line();
          return tui_windows[i];
       }
    }
