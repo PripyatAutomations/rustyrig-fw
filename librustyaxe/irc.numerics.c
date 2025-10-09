@@ -48,6 +48,7 @@ bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
 //   irc_send(cptr, "JOIN &%s", rig_id);
 //   irc_send(cptr, "JOIN #%s.%s", site_id, rig_id);
    irc_send(cptr, "WHOIS %s", cptr->nick);
+   tui_print_win(tui_window_find("status"), "{bright-cyan}>>>{reset} Attached to rig {bright-cyan}%s.%s{reset} via {bright-magenta}IRC{reset} transport [{green}%s{reset}] {bright-cyan}<<<{reset}", site_id, rig_id, cptr->server->network);
    return false;
 }
 
@@ -282,8 +283,6 @@ bool irc_builtin_num372(irc_client_t *cptr, irc_message_t *mp) {
 bool irc_builtin_num376(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_DEBUG, "irc", "[%s] End of MOTD", irc_name(cptr));
    tui_print_win(tui_window_find("status"), "[{green}%s{reset}] *** End of MOTD ***", irc_name(cptr));
-
-   tui_print_win(tui_window_find("status"), "{bright-cyan}>>>{reset} Attached to rig {bright-cyan}%s.%s{reset} via {bright-magenta}IRC{reset} transport [{green}%s{reset}] {bright-cyan}<<<{reset}", site_id, rig_id, cptr->server->network);
 
    return false;
 }
