@@ -40,6 +40,7 @@ bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
       }
       tui_window_focus(tw->title);
    }
+   irc_send(cptr, "MODE %s +ix", cptr->nick);
    return false;
 }
 

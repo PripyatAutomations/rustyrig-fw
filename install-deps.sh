@@ -27,9 +27,7 @@ if [ -f "${DEBVER}" ]; then
     #[ "$USE_HAMLIB" = "true" ]   && apt install -y libhamlib-dev libhamlib-utils
     #[ "$USE_SQLITE" = "true" ]   && apt install -y sqlite3 libsqlite3-dev
     #[ "$USE_GSTREAMER" = "true" ] && apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-tools
-    apt install build-essential libgpiod-dev gpiod jq pkg-config libmbedtls-dev libgtk-3-dev libgstreamer-plugins-base1.0-0 libgstreamer1.0-dev	gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-rtp libgtk-3-dev make sqlite3 libsqlite3-dev
-    apt install libhamlib-dev libev-dev
-     
+    apt install build-essential libgpiod-dev gpiod jq pkg-config libmbedtls-dev libgtk-3-dev libgstreamer-plugins-base1.0-0 libgstreamer1.0-dev	gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-rtp libgtk-3-dev make sqlite3 libsqlite3-dev libhamlib-dev libev-dev libwebsockets-dev     
     #sudo apt install build-essential gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-rtp libgtk-3-dev make libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-plugins-base-apps libmbedtls-dev libhamlib-dev libhamlib-dev jq libsqlite3-dev sqlite3-tools sqlite3 sqlite3-pcre libgpiod-dev libhamlib-utils
     #sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
 fi

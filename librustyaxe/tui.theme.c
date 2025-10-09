@@ -134,27 +134,55 @@ char *tui_colorize_string(const char *input) {
 }
 
 void tui_print_win(tui_window_t *win, const char *fmt, ...) {
-   if (!tui_enabled || !win || !fmt) {
-      return;
-   }
+   if (!tui_enabled || !win || !fmt) return;
 
    char msgbuf[513];
    va_list ap;
    va_start(ap, fmt);
-   vsnprintf(msgbuf, sizeof(msgbuf) - 1, fmt, ap);
+   vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
    va_end(ap);
 
    char *colored = tui_colorize_string(msgbuf);
+   if (!colored) return;
 
-   if (win->buffer[win->log_head]) {
-      free(win->buffer[win->log_head]);
+   int width = tui_cols();
+   const char *p = colored;
+
+   while (*p) {
+      int col = 0;
+      const char *line_start = p;
+      const char *last_break = p;
+
+      // ANSI-aware column counting
+      while (*p && col < width) {
+         if (*p == '\033' && *(p+1) == '[') { // start of ANSI sequence
+            p++;
+            while (*p && *p != 'm') p++;
+            if (*p) p++;
+         } else {
+            col++;
+            last_break = ++p;
+         }
+      }
+
+      // Copy slice into heap memory
+      size_t slice_len = last_break - line_start;
+      char *line = malloc(slice_len + 1);
+      if (!line) break;
+      memcpy(line, line_start, slice_len);
+      line[slice_len] = '\0';
+
+      // Free old line safely
+      if (win->buffer[win->log_head]) {
+         free(win->buffer[win->log_head]);
+         win->buffer[win->log_head] = NULL;
+      }
+
+      win->buffer[win->log_head] = line;
+      win->log_head = (win->log_head + 1) % LOG_LINES;
+      if (win->log_count < LOG_LINES) win->log_count++;
    }
-   win->buffer[win->log_head] = colored;
 
-   win->log_head = (win->log_head + 1) % LOG_LINES;
-   if (win->log_count < LOG_LINES) {
-      win->log_count++;
-   }
-
+   free(colored);
    tui_redraw_screen();
 }

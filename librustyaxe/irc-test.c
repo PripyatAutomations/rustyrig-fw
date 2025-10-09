@@ -77,6 +77,94 @@ bool cli_me(int argc, char **args) {
    return false;
 }
 
+bool cli_msg(int argc, char **args) {
+   if (argc < 2) {
+      // XXX: cry not enough args
+      return true;
+   }
+
+   tui_window_t *wp = NULL;
+   bool new_win = false;
+
+   if (*args[1]) {
+      wp = tui_window_find(args[1]);
+      if (!wp) {
+         new_win = true;
+         wp = tui_window_create(args[1]);
+      }
+   }
+   
+   if (!wp) {
+      wp = tui_active_window();
+   }
+
+   // There's a window here at least...
+   if (wp->cptr) {
+      char *target = args[1];
+
+      if (args[1]) {
+         target = args[1];
+      }
+
+      char fullmsg[502];
+      memset(fullmsg, 0, sizeof(fullmsg));
+      size_t pos = 0;
+
+      for (int i = 2; i < argc; i++) {
+         int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
+         if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+            break;
+         }
+         pos += n;
+      }
+      tui_print_win(wp, "-> %s %s", target, fullmsg);
+      irc_send(wp->cptr, "PRIVMSG %s :%s", target, fullmsg);
+   }
+   return false;
+}
+
+bool cli_notice(int argc, char **args) {
+   if (argc < 2) {
+      // XXX: cry not enough args
+      return true;
+   }
+
+   tui_window_t *wp = NULL;
+   if (*args[1]) {
+      wp = tui_window_find(args[1]);
+   } else {
+      wp = tui_active_window();
+   }
+
+   if (wp) {
+      // There's a window here at least...
+      if (wp->cptr) {
+         char *target = args[1];
+
+         if (args[1]) {
+            target = args[1];
+         }
+
+         char fullmsg[502];
+         memset(fullmsg, 0, sizeof(fullmsg));
+         size_t pos = 0;
+
+         for (int i = 2; i < argc; i++) {
+            int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
+            if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+               break;
+            }
+            pos += n;
+         }
+         irc_send(wp->cptr, "NOTICE %s :%s", target, fullmsg);
+         tui_print_win(wp, "-> *%s* %s", target, fullmsg);
+      }
+      return false;
+   }
+
+   return true;
+}
+
 bool cli_part(int argc, char **args) {
    if (argc < 1) {
       return true;
@@ -151,13 +239,15 @@ bool cli_win(int argc, char **args) {
 extern bool cli_help(int argc, char **args);
 
 cli_command_t cli_commands[] = {
-   { .cmd = "/help", .cb = cli_help, .desc = "Show help message" },
-   { .cmd = "/join", .cb = cli_join, .desc = "Join a channel" },
-   { .cmd = "/me",   .cb = cli_me, .desc = "\tSend an action to the current channel" },
-   { .cmd = "/part", .cb = cli_part, .desc = "leave a channel" },
-   { .cmd = "/quit", .cb = cli_quit, .desc = "Exit the program" },
-   { .cmd = "/win",  .cb = cli_win,  .desc = "Change windows" },
-   { .cmd = NULL,    .cb = NULL, .desc = NULL }
+   { .cmd = "/help",   .cb = cli_help,   .desc = "Show help message" },
+   { .cmd = "/join",   .cb = cli_join,   .desc = "Join a channel" },
+   { .cmd = "/me",     .cb = cli_me,     .desc = "\tSend an action to the current channel" },
+   { .cmd = "/msg",    .cb = cli_msg,    .desc = "Send a private message" },
+   { .cmd = "/notice", .cb = cli_notice, .desc = "Send a private notice" },
+   { .cmd = "/part",   .cb = cli_part,   .desc = "leave a channel" },
+   { .cmd = "/quit",   .cb = cli_quit,   .desc = "Exit the program" },
+   { .cmd = "/win",    .cb = cli_win,    .desc = "Change windows" },
+   { .cmd = NULL,      .cb = NULL,       .desc = NULL }
 };
 
 bool cli_help(int argc, char **args) {
@@ -346,14 +436,18 @@ bool irc_input_cb(const char *input) {
          }
       }
 
-      tui_print_win(tui_active_window(), "no callback for %s found", args[0]);
+      tui_print_win(tui_active_window(), "* Huh?! What you say?! I dont understand '%s'", args[0]);
       return true;
    }
 
    // Send to active window target
    tui_window_t *wp = tui_active_window();
    if (wp && wp->cptr) {
-      irc_send_privmsg(wp->cptr, wp, argc, args);
+      if (strcasecmp(wp->title, "status") == 0) {
+         tui_print_win(tui_active_window(), "** Huh? What you say??? **");
+      } else {
+         irc_send_privmsg(wp->cptr, wp, argc, args);
+      }
    }
 
    return false;

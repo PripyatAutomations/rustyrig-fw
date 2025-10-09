@@ -344,6 +344,7 @@ static int visible_length(const char *s) {
    return len;
 }
 
+#if	0
 void tui_update_input_line(void) {
    if (!tui_enabled) {
       return;
@@ -360,6 +361,50 @@ void tui_update_input_line(void) {
 
    int prompt_len = visible_length(prompt);
    printf("\033[%d;%dH", term_rows, prompt_len + cursor_pos + 2);
+
+   free(color_prompt);
+   fflush(stdout);
+}
+#endif
+
+void tui_update_input_line(void) {
+   if (!tui_enabled) return;
+
+   tui_window_t *win = tui_active_window();
+   if (!win) return;
+
+   int width = term_cols; // terminal width
+   int prompt_len = visible_length(win->title) + 1; // title + '>'
+
+   // --- prepare colored prompt ---
+   char prompt[512];
+   snprintf(prompt, sizeof(prompt), "{bright-cyan}%s{cyan}>{reset}", win->title);
+   char *color_prompt = tui_colorize_string(prompt);
+
+   // --- compute visible slice of input ---
+   int max_input_width = width - prompt_len - 1; // leave 1 column buffer
+   int start_col = 0;
+
+   if (input_len > max_input_width) {
+      if (cursor_pos < max_input_width) start_col = 0;
+      else if (cursor_pos > input_len - 1) start_col = input_len - max_input_width;
+      else start_col = cursor_pos - max_input_width + 1;
+   }
+
+   int slice_len = input_len - start_col;
+   if (slice_len > max_input_width) slice_len = max_input_width;
+
+   char buf[max_input_width + 1];
+   memcpy(buf, &input_buf[start_col], slice_len);
+   buf[slice_len] = '\0';
+
+   // --- redraw line ---
+   printf("\033[%d;1H\033[2K", term_rows); // move to last row & clear line
+   printf("%s %s", color_prompt, buf);
+
+   // --- move cursor to visible position ---
+   int cursor_screen = cursor_pos - start_col + prompt_len + 2;
+   printf("\033[%d;%dH", term_rows, cursor_screen);
 
    free(color_prompt);
    fflush(stdout);

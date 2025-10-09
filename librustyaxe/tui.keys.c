@@ -187,60 +187,96 @@ bool (*tui_readline_cb)(const char *input) = NULL;
 static TermKey *tk = NULL;
 static ev_io stdin_watcher;
 
+
+void stdin_ev_cb(EV_P_ ev_io *w, int revents);
+
+void tui_keys_init(struct ev_loop *loop) {
+   tk = termkey_new(STDIN_FILENO, TERMKEY_FLAG_CTRLC | TERMKEY_FLAG_RAW);
+   termkey_set_canonflags(tk, TERMKEY_CANON_DELBS);
+   termkey_set_flags(tk, termkey_get_flags(tk) | TERMKEY_FLAG_NOTERMIOS);
+   fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+   ev_io_init(&stdin_watcher, stdin_ev_cb, STDIN_FILENO, EV_READ);
+   ev_io_start(loop, &stdin_watcher);
+}
+
 void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
    TermKeyResult res;
    TermKeyKey key;
-   int handled = 0;
 
    termkey_advisereadable(tk);
-   while ((res = termkey_getkey(tk, &key)) != TERMKEY_RES_NONE) {
-      if (res == TERMKEY_RES_EOF) {
-         break;
-      }
-      if (res == TERMKEY_RES_AGAIN) {
-         return;  // no more keys      int handled = 0;
-      }
 
-      Log(LOG_CRIT, "tui.key", "key: type=%d code=%d mod=%d", key.type, key.code.codepoint, key.modifiers);
+   while ((res = termkey_getkey(tk, &key)) != TERMKEY_RES_NONE) {
+      if (res == TERMKEY_RES_EOF) break;
+      if (res == TERMKEY_RES_AGAIN) return;
 
       tui_window_t *win = tui_active_window();
-      if (!win) {
-         continue;
+      if (!win) continue;
+
+      int handled = 0;
+
+      // --- compute 'c' for debug / line editing ---
+      int c = 0;
+      if (key.type == TERMKEY_TYPE_UNICODE) {
+         c = key.code.codepoint;
+      } else if (key.type == TERMKEY_TYPE_KEYSYM) {
+         switch (key.code.sym) {
+            case TERMKEY_SYM_BACKSPACE: c = 0x08; break;
+            case TERMKEY_SYM_DELETE:    c = TERMKEY_SYM_DELETE; break;
+            case TERMKEY_SYM_ENTER:     c = '\n'; break;
+            default:                    c = key.code.sym; break;
+         }
       }
 
-      if (key.type == TERMKEY_TYPE_KEYSYM) { // --- Hotkeys: Page/Arrow/Alt ---
-         switch (key.code.sym) {
-            case TERMKEY_SYM_ENTER: {
-                  tui_window_t *win = tui_active_window();
-                  handle_enter_key(win, 0);
+      // --- log the key for debugging ---
+      Log(LOG_CRAZY, "tui.key", "key: type=%d code=%d mod=%d c=%d", key.type, key.code.codepoint, key.modifiers, c);
 
-                  // clear global input buffer
-                  input_len = 0;
-                  cursor_pos = 0;
-                  memset(input_buf, 0, TUI_INPUTLEN);
-                  handled = 1;
-               }
+      // --- Hotkeys / special keys ---
+      if (key.type == TERMKEY_TYPE_KEYSYM) {
+         switch (key.code.sym) {
+            case TERMKEY_SYM_ENTER:
+               handle_enter_key(win, 0);
+               input_len = 0;
+               cursor_pos = 0;
+               memset(input_buf, 0, sizeof(input_buf));
+               handled = 1;
                break;
+
             case TERMKEY_SYM_PAGEUP:
                handled = handle_pgup(1, key.code.sym);
                break;
+
             case TERMKEY_SYM_PAGEDOWN:
                handled = handle_pgdn(1, key.code.sym);
                break;
+
             case TERMKEY_SYM_LEFT:
-               if (key.modifiers & TERMKEY_KEYMOD_ALT) {
-                  handled = handle_alt_left(1, key.code.sym);
-               } else if (cursor_pos > 0) {
-                  cursor_pos--;
+               if (key.modifiers & TERMKEY_KEYMOD_CTRL) {
+                   // move cursor to start of previous word
+                   while (cursor_pos > 0 && input_buf[cursor_pos-1] == ' ') cursor_pos--;
+                   while (cursor_pos > 0 && input_buf[cursor_pos-1] != ' ') cursor_pos--;
+                   handled = 1;
+               } else if (key.modifiers & TERMKEY_KEYMOD_ALT) {
+                   handled = handle_alt_left(1, key.code.sym);
+               } else {
+                   if (cursor_pos > 0) cursor_pos--;
+                   handled = 1;
                }
                break;
             case TERMKEY_SYM_RIGHT:
-               if (key.modifiers & TERMKEY_KEYMOD_ALT) {
-                  handled = handle_alt_right(1, key.code.sym);
-               } else if (cursor_pos < input_len) {
-                     cursor_pos++;
+               if (key.modifiers & TERMKEY_KEYMOD_CTRL) {
+                   // move cursor to start of next word
+                   while (cursor_pos < input_len && input_buf[cursor_pos] != ' ') cursor_pos++;
+                   while (cursor_pos < input_len && input_buf[cursor_pos] == ' ') cursor_pos++;
+                   handled = 1;
+               } else if (key.modifiers & TERMKEY_KEYMOD_ALT) {
+                   handled = handle_alt_right(1, key.code.sym);
+               } else {
+                   if (cursor_pos < input_len) cursor_pos++;
+                   handled = 1;
                }
                break;
+
+
             case TERMKEY_SYM_UP: {
                const char *prev = history_prev();
                if (prev) {
@@ -264,84 +300,101 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                break;
             }
             default:
-               // Alt + number window switching
-               if ((key.modifiers & TERMKEY_KEYMOD_ALT) && key.code.sym >= '0' && key.code.sym <= '9') {
+               if ((key.modifiers & TERMKEY_KEYMOD_ALT) &&
+                   key.code.sym >= '0' && key.code.sym <= '9') {
                   handled = tui_win_swap(1, key.code.sym - '0');
                }
                break;
          }
-#if	0
-      } else if (key.type == TERMKEY_TYPE_FUNCTION) {
-         if (key.code.func == TERMKEY_SYM_F12) {
-            handled = handle_ptt_button(1, key.code.func);
-         }
-#endif
       }
 
-      // --- Unicode / line editing ---
+      // --- Ctrl line editing ---
+      if (!handled && (key.modifiers & TERMKEY_KEYMOD_CTRL)) {
+         switch (c) {
+            case 'A':
+            case 'a':
+               cursor_pos = 0;
+               handled = 1;
+               break;
+            case 'E':
+            case 'e':
+               cursor_pos = input_len;
+               handled = 1;
+               break;
+            case 'U':
+            case 'u':
+               input_len = 0;
+               cursor_pos = 0;
+               input_buf[0] = '\0';
+               handled = 1;
+               break;
+            case 'W':
+            case 'w': {
+               if (cursor_pos > 0) {
+                  int i = cursor_pos - 1;
+                  while (i >= 0 && input_buf[i] == ' ') {
+                     i--;
+                  }
+                  while (i >= 0 && input_buf[i] != ' ') {
+                     i--;
+                  }
+                  int start = i + 1;
+                  memmove(&input_buf[start], &input_buf[cursor_pos], input_len - cursor_pos + 1);
+                  input_len -= (cursor_pos - start);
+                  cursor_pos = start;
+               }
+               handled = 1;
+               break;
+            }
+            case 0x08: // Ctrl-H
+               if (cursor_pos > 0) {
+                  memmove(&input_buf[cursor_pos - 1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
+                  cursor_pos--;
+                  input_len--;
+               }
+               handled = 1;
+               break;
+         }
+      }
+
+      // --- Backspace / Delete / Enter ---
       if (!handled) {
-         if (key.type == TERMKEY_TYPE_UNICODE) {
-            Log(LOG_CRIT, "tui.key", "DEFkey: type=%d code=%d mod=%d", key.type, key.code.codepoint, key.modifiers);
-            if (input_len < TUI_INPUTLEN-1) {
-               input_buf[input_len++] = key.code.codepoint;
-               input_buf[input_len] = '\0';
-               cursor_pos++;
-            }
-            tui_update_input_line();
-         } else if (key.type == TERMKEY_TYPE_KEYSYM) {
-            switch (key.code.sym) {
-               case TERMKEY_SYM_HOME: cursor_pos = 0; break;
-               case TERMKEY_SYM_END: cursor_pos = input_len; break;
-               case TERMKEY_SYM_BACKSPACE:
-                  if (input_len > 0) {
-                     input_buf[--input_len] = '\0';
-                     cursor_pos--;
-                  }
-                  break;
-               // Ctrl line editing
-               case 'A':
-                  if (key.modifiers & TERMKEY_KEYMOD_CTRL) {
-                     cursor_pos = 0;
-                  }
-                  break;
-               case 'E':
-                  if (key.modifiers & TERMKEY_KEYMOD_CTRL) {
-                     cursor_pos = input_len;
-                  }
-                  break;
-               case 'U':
-                  if (key.modifiers & TERMKEY_KEYMOD_CTRL) {
-                     input_len = 0;
-                     input_buf[0] = '\0';
-                  }
-                  break;
-               case 'W':
-                  if (key.modifiers & TERMKEY_KEYMOD_CTRL) {
-                     int i = input_len - 1;
-                     while (i >= 0 && input_buf[i] == ' ') {
-                        i--;
-                     }
-                     while (i >= 0 && input_buf[i] != ' ') {
-                        i--;
-                     }
-                     input_len = i + 1;
-                     input_buf[input_len] = '\0';
-                  }
-                  break;
-               case '\n': handle_enter_key(win, 0); break;
-               default: break;
-            }
+         switch (c) {
+            case '\n':
+               handle_enter_key(win, 0);
+               input_len = cursor_pos = 0;
+               input_buf[0] = '\0';
+               handled = 1;
+               break;
+            case 0x08: case 0x7f:
+               if (cursor_pos > 0) {
+                  memmove(&input_buf[cursor_pos - 1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
+                  cursor_pos--;
+                  input_len--;
+               }
+               handled = 1;
+               break;
+            case TERMKEY_SYM_DELETE:
+               if (cursor_pos < input_len) {
+                  memmove(&input_buf[cursor_pos], &input_buf[cursor_pos + 1], input_len - cursor_pos);
+                  input_len--;
+               }
+               handled = 1;
+               break;
          }
       }
-   }
-   tui_update_input_line();
-}
 
-void tui_keys_init(struct ev_loop *loop) {
-   tk = termkey_new(STDIN_FILENO, TERMKEY_FLAG_CTRLC | TERMKEY_FLAG_RAW);
-   termkey_set_canonflags(tk, TERMKEY_CANON_DELBS);
-   termkey_set_flags(tk, termkey_get_flags(tk) | TERMKEY_FLAG_NOTERMIOS);
-   fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
-   ev_io_init(&stdin_watcher, stdin_ev_cb, STDIN_FILENO, EV_READ);
-   ev_io_start(loop, &stdin_watcher);
+      // --- Insert printable Unicode ---
+      if (!handled && key.type == TERMKEY_TYPE_UNICODE && c >= 0x20) {
+         if (input_len < TUI_INPUTLEN - 1) {
+            memmove(&input_buf[cursor_pos + 1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
+            input_buf[cursor_pos++] = c;
+            input_len++;
+         }
+         handled = 1;
+      }
+
+      // --- Redraw after any modification ---
+      if (handled) tui_update_input_line();
+   }
 }
