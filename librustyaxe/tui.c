@@ -33,7 +33,7 @@ bool tui_enabled = true;
 // These get updated by update_term_size() on SIGWINCH (terminal resize) and in tui_init()
 static int term_rows = 24;  // default lines
 static int term_cols = 80;  // default width
-static char status_line[STATUS_LEN] = "{bright-black}[{red}OFFLINE{bright-black}]{reset}";
+static char status_line[STATUS_LEN];
 
 // Read the terminal size and update our size to match
 static void update_term_size(void) {
@@ -81,6 +81,9 @@ int tui_cols(void) {
 extern void tui_keys_init(struct ev_loop *loop);	// tui.keys.c
 
 bool tui_init(void) {
+   char *color = tui_colorize_string("{bright-black}[{red}OFFLINE{bright-black}]{reset}");
+   snprintf(status_line, STATUS_LEN, "%s", color);
+   free(color);
    update_term_size();
 
    // set SIGnal WINdow CHange handler

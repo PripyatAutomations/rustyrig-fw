@@ -18,10 +18,14 @@
 static void irc_io_cb(EV_P_ ev_io *w, int revents);
 
 irc_client_t *irc_cli_connect(server_cfg_t *srv) {
-   if (!srv) return NULL;
+   if (!srv) {
+      return NULL;
+   }
 
    irc_client_t *cptr = calloc(1, sizeof(*cptr));
-   if (!cptr) return NULL;
+   if (!cptr) {
+      return NULL;
+   }
 
    cptr->server = srv;
    snprintf(cptr->nick, sizeof(cptr->nick), "%s", srv->nick[0] ? srv->nick : "nonick");

@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <librustyaxe/core.h>
 
+const char *site_id = "RPLYWVCL31";
+const char *rig_id = "ft891";
+
 bool irc_builtin_num_print(irc_client_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc <= 3) {
       return false;
@@ -40,7 +43,11 @@ bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
       }
       tui_window_focus(tw->title);
    }
-   irc_send(cptr, "MODE %s +ix", cptr->nick);
+   irc_send(cptr, "MODE %s +ixg", cptr->nick);
+   // send some test commands
+//   irc_send(cptr, "JOIN &%s", rig_id);
+//   irc_send(cptr, "JOIN #%s.%s", site_id, rig_id);
+   irc_send(cptr, "WHOIS %s", cptr->nick);
    return false;
 }
 
@@ -276,12 +283,6 @@ bool irc_builtin_num376(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_DEBUG, "irc", "[%s] End of MOTD", irc_name(cptr));
    tui_print_win(tui_window_find("status"), "[{green}%s{reset}] *** End of MOTD ***", irc_name(cptr));
 
-   // send some test commands
-   const char *site_id = "RPLYWVCL31";
-   const char *rig_id = "ft891";
-   irc_send(cptr, "JOIN &%s", rig_id);
-   irc_send(cptr, "JOIN #%s.%s", site_id, rig_id);
-   irc_send(cptr, "WHOIS %s", cptr->nick);
    tui_print_win(tui_window_find("status"), "{bright-cyan}>>>{reset} Attached to rig {bright-cyan}%s.%s{reset} via {bright-magenta}IRC{reset} transport [{green}%s{reset}] {bright-cyan}<<<{reset}", site_id, rig_id, cptr->server->network);
 
    return false;

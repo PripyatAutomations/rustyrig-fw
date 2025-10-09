@@ -194,7 +194,7 @@ void tui_keys_init(struct ev_loop *loop) {
    tk = termkey_new(STDIN_FILENO, TERMKEY_FLAG_CTRLC | TERMKEY_FLAG_RAW);
    termkey_set_canonflags(tk, TERMKEY_CANON_DELBS);
    termkey_set_flags(tk, termkey_get_flags(tk) | TERMKEY_FLAG_NOTERMIOS);
-   fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+//   fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
    ev_io_init(&stdin_watcher, stdin_ev_cb, STDIN_FILENO, EV_READ);
    ev_io_start(loop, &stdin_watcher);
 }
