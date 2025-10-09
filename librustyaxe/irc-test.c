@@ -268,20 +268,21 @@ extern bool cli_help(int argc, char **args);
 
 cli_command_t cli_commands[] = {
 //   { .cmd = "/deop",   .cb = cli_deop,   .desc = "Take chan operator status from user" },
-//   { .cmd = "/devoice",   .cb = cli_devoice,   .desc = "Take chan voice status from user" },
+//   { .cmd = "/devoice",.cb = cli_devoice,.desc = "Take chan voice status from user" },
    { .cmd = "/help",   .cb = cli_help,   .desc = "Show help message" },
-//   { .cmd = "/invite",   .cb = cli_invite,   .desc = "Invite user to channel" },
+//   { .cmd = "/invite", .cb = cli_invite, .desc = "Invite user to channel" },
    { .cmd = "/join",   .cb = cli_join,   .desc = "Join a channel" },
 //   { .cmd = "/kick",   .cb = cli_kick,   .desc = "Remove user from channel" },
    { .cmd = "/me",     .cb = cli_me,     .desc = "\tSend an action to the current channel" },
    { .cmd = "/msg",    .cb = cli_msg,    .desc = "Send a private message" },
    { .cmd = "/notice", .cb = cli_notice, .desc = "Send a private notice" },
-//   { .cmd = "/op",   .cb = cli_op,   .desc = "Give chan operator status to user" },
+//   { .cmd = "/op",     .cb = cli_op,     .desc = "Give chan operator status to user" },
    { .cmd = "/part",   .cb = cli_part,   .desc = "leave a channel" },
    { .cmd = "/quit",   .cb = cli_quit,   .desc = "Exit the program" },
    { .cmd = "/quote",  .cb = cli_quote,  .desc = "Send a raw IRC command" },
+//   { .cmd = "/topic",  .cb = cli_topic,  .desc = "Set channel topic" },
    { .cmd = "/win",    .cb = cli_win,    .desc = "Change windows" },
-//   { .cmd = "/voice",   .cb = cli_voice,   .desc = "Give chan voice status to user" },
+//   { .cmd = "/voice",  .cb = cli_voice,  .desc = "Give chan voice status to user" },
    { .cmd = NULL,      .cb = NULL,       .desc = NULL }
 };
 
