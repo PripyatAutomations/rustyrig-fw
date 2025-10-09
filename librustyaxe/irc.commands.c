@@ -102,7 +102,7 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
-      tui_print_win(tw, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
+      tui_print_win(tw, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
    }
 
    return false;
@@ -131,11 +131,10 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
 
    // XXX: Determine if this is our client and if so, try tui_window_create
    Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
-   tui_print_win(tui_window_find(win_title), "[{green}%s{reset}] * %s {cyan}joined {bright-magenta}%s{reset}", network, tmp_nick, mp->argv[1]);
+   tui_print_win(tui_window_find(win_title), "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
 
    tui_window_t *tw = tui_window_create(mp->argv[1]);
    tw->cptr = cptr;
-   tui_print_win(tw, "%s * Joined channel {bright-magenta}%s{reset}", get_chat_ts(0), mp->argv[1]);
 
    return false;
 }
@@ -172,12 +171,12 @@ bool irc_builtin_part_cb(irc_client_t *cptr, irc_message_t *mp) {
          tui_window_destroy(w);
       }
       tui_print_win(tui_window_find("status"),
-                    "[{green}%s{reset}] * %s {cyan}left {bright-magenta}%s{reset}",
-                    network, tmp_nick, win_title);
+                    "%s [{green}%s{reset}] * {bright-cyan}%s{reset} left {bright-magenta}%s{reset}",
+                    get_chat_ts(0), network, tmp_nick, win_title);
    } else {
       tui_print_win(tui_window_find(win_title),
-                    "[{green}%s{reset}] * %s {cyan}left {bright-magenta}%s{reset}",
-                    network, tmp_nick, win_title);
+                    "%s [{green}%s{reset}] * {bright-cyan}%s{reset} left {bright-magenta}%s{reset}",
+                    get_chat_ts(0), network, tmp_nick, win_title);
    }
 
    return false;

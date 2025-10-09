@@ -36,7 +36,6 @@ typedef struct cli_command {
    bool (*cb)(int argc, char **args);
 } cli_command_t;
 
-////
 bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **args);
 
 bool cli_join(int argc, char **args) {
@@ -91,6 +90,7 @@ bool cli_msg(int argc, char **args) {
       if (!wp) {
          new_win = true;
          wp = tui_window_create(args[1]);
+         wp->cptr = tui_active_window()->cptr;
       }
    }
    
@@ -100,7 +100,7 @@ bool cli_msg(int argc, char **args) {
 
    // There's a window here at least...
    if (wp->cptr) {
-      char *target = args[1];
+      char *target = wp->title;
 
       if (args[1]) {
          target = args[1];
@@ -130,39 +130,44 @@ bool cli_notice(int argc, char **args) {
    }
 
    tui_window_t *wp = NULL;
+   bool new_win = false;
+
    if (*args[1]) {
       wp = tui_window_find(args[1]);
-   } else {
+      if (!wp) {
+         new_win = true;
+         wp = tui_window_create(args[1]);
+         wp->cptr = tui_active_window()->cptr;
+      }
+   }
+   
+   if (!wp) {
       wp = tui_active_window();
    }
 
-   if (wp) {
-      // There's a window here at least...
-      if (wp->cptr) {
-         char *target = args[1];
+   // There's a window here at least...
+   if (wp->cptr) {
+      char *target = wp->title;
 
-         if (args[1]) {
-            target = args[1];
-         }
-
-         char fullmsg[502];
-         memset(fullmsg, 0, sizeof(fullmsg));
-         size_t pos = 0;
-
-         for (int i = 2; i < argc; i++) {
-            int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
-            if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
-               break;
-            }
-            pos += n;
-         }
-         irc_send(wp->cptr, "NOTICE %s :%s", target, fullmsg);
-         tui_print_win(wp, "-> *%s* %s", target, fullmsg);
+      if (args[1]) {
+         target = args[1];
       }
-      return false;
-   }
 
-   return true;
+      char fullmsg[502];
+      memset(fullmsg, 0, sizeof(fullmsg));
+      size_t pos = 0;
+
+      for (int i = 2; i < argc; i++) {
+         int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
+         if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+            break;
+         }
+         pos += n;
+      }
+      tui_print_win(wp, "-> *%s* %s", target, fullmsg);
+      irc_send(wp->cptr, "NOTICE %s :%s", target, fullmsg);
+   }
+   return false;
 }
 
 bool cli_part(int argc, char **args) {
@@ -558,7 +563,7 @@ bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **arg
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
-      tui_print_win(wp, "%s <%s> %s", get_chat_ts(0), cptr->nick, buf);
+      tui_print_win(wp, "%s {bright-black}<{cyan}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, buf);
    }
 
    return false;

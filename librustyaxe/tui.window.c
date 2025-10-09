@@ -154,7 +154,7 @@ tui_window_t *tui_window_focus(const char *title) {
          tui_active_win = i;
 
          // try to determine the network name to show
-         const char *network = "offline";
+         const char *network = "unknown";
          if (tw->cptr) {
             irc_client_t *cptr = tw->cptr;
             if (cptr && cptr->server && cptr->server->network) {
