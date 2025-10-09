@@ -224,6 +224,29 @@ bool cli_quit(int argc, char **args) {
    return false;	// unreached, but shuts up the scanner...
 }
 
+bool cli_quote(int argc, char **args) {
+   if (argc < 1) {
+      // XXX: cry not enough args
+      return true;
+   }
+
+   tui_window_t *wp = tui_active_window();
+   char fullmsg[502];
+   memset(fullmsg, 0, sizeof(fullmsg));
+   size_t pos = 0;
+
+   for (int i = 1; i < argc; i++) {
+      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+         break;
+      }
+      pos += n;
+   }
+   tui_print_win(wp, "-raw-> %s", fullmsg);
+   irc_send(wp->cptr, "%s", fullmsg);
+   return false;
+}
+
 bool cli_win(int argc, char **args) {
    if (argc < 1) {
       return true;
@@ -244,14 +267,21 @@ bool cli_win(int argc, char **args) {
 extern bool cli_help(int argc, char **args);
 
 cli_command_t cli_commands[] = {
+//   { .cmd = "/deop",   .cb = cli_deop,   .desc = "Take chan operator status from user" },
+//   { .cmd = "/devoice",   .cb = cli_devoice,   .desc = "Take chan voice status from user" },
    { .cmd = "/help",   .cb = cli_help,   .desc = "Show help message" },
+//   { .cmd = "/invite",   .cb = cli_invite,   .desc = "Invite user to channel" },
    { .cmd = "/join",   .cb = cli_join,   .desc = "Join a channel" },
+//   { .cmd = "/kick",   .cb = cli_kick,   .desc = "Remove user from channel" },
    { .cmd = "/me",     .cb = cli_me,     .desc = "\tSend an action to the current channel" },
    { .cmd = "/msg",    .cb = cli_msg,    .desc = "Send a private message" },
    { .cmd = "/notice", .cb = cli_notice, .desc = "Send a private notice" },
+//   { .cmd = "/op",   .cb = cli_op,   .desc = "Give chan operator status to user" },
    { .cmd = "/part",   .cb = cli_part,   .desc = "leave a channel" },
    { .cmd = "/quit",   .cb = cli_quit,   .desc = "Exit the program" },
+   { .cmd = "/quote",  .cb = cli_quote,  .desc = "Send a raw IRC command" },
    { .cmd = "/win",    .cb = cli_win,    .desc = "Change windows" },
+//   { .cmd = "/voice",   .cb = cli_voice,   .desc = "Give chan voice status to user" },
    { .cmd = NULL,      .cb = NULL,       .desc = NULL }
 };
 
@@ -270,7 +300,7 @@ bool cli_help(int argc, char **args) {
    tui_print_win(wp, "   alt-X (1-0)\t\tSwitch to window 1-10");
    tui_print_win(wp, "   alt-left\t\tSwitch to previous win");
    tui_print_win(wp, "   alt-right\t\tSwitch to next win");
-   tui_print_win(wp, "   F13\t\t\tPTT toggle");
+   tui_print_win(wp, "   F12\t\t\tPTT toggle");
    return false;
 }
 

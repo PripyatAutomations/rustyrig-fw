@@ -129,12 +129,12 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
    memset(tmp_nick, 0, NICKLEN + 1);
    snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
 
-   // XXX: Determine if this is our client and if so, try tui_window_create
-   Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
-   tui_print_win(tui_window_find(win_title), "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
-
    tui_window_t *tw = tui_window_create(mp->argv[1]);
    tw->cptr = cptr;
+
+   Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
+   tui_print_win(tw, "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
+
 
    return false;
 }
