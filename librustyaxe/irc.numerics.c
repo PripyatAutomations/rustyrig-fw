@@ -118,7 +118,7 @@ bool irc_builtin_num311(irc_client_t *cptr, irc_message_t *mp) {
    char *host = mp->argv[4];
    char *realname = mp->argv[6];
    Log(LOG_DEBUG, "irc", "[%s] whois: %s!%s@%s <%s>", irc_name(cptr), nick, ident, host, realname);
-   tui_print_win(tui_window_find("status"), "[{green}%s{reset}] * %s!%s@%s <%s>", irc_name(cptr), nick, ident, host, realname);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] * %s!%s@%s <%s>", irc_name(cptr), nick, ident, host, realname);
    return false;
 }
 
@@ -144,7 +144,7 @@ bool irc_builtin_num312(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] whois: %s is on server %s: %s", irc_name(cptr), nick, server, info);
-   tui_print_win(tui_window_find("status"), "[{green}%s{reset}] * %s is on server %s: %s", irc_name(cptr), nick, server, info);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] * %s is on server %s: %s", irc_name(cptr), nick, server, info);
 
    return false;
 }
@@ -167,7 +167,7 @@ bool irc_builtin_num313(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] whois: {green}%s{reset}", buf, irc_name(cptr));
-   tui_print_win(tui_window_find("status"), "[{green}%s{reset}] *** 313 %s ***", buf, irc_name(cptr));
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] *** 313 %s ***", buf, irc_name(cptr));
 
    return false;
 }
@@ -188,7 +188,7 @@ bool irc_builtin_num317(irc_client_t *cptr, irc_message_t *mp) {
    format_timestamp(signon_t, signon_date, sizeof(signon_date));
 
    Log(LOG_DEBUG, "irc", "[%s] whois: %s connected at %s (idle %s)",  irc_name(cptr), nick, signon_date, idle_ts);
-   tui_print_win(tui_window_find("status"), "[{green}%s{reset}] * {bright-cyan}%s{reset} connected at {green}%s{reset} (idle {green}%s{reset})", irc_name(cptr), nick, signon_date, idle_ts);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] * {bright-cyan}%s{reset} connected at {green}%s{reset} (idle {green}%s{reset})", irc_name(cptr), nick, signon_date, idle_ts);
    free(idle_ts);
 
    return false;
@@ -200,7 +200,7 @@ bool irc_builtin_num318(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] whois: End of whois for %s", irc_name(cptr), mp->argv[1]);
-   tui_print_win(tui_window_find("status"), "[{green}%s{reset}] *** End of WHOIS {bright-cyan}%s{reset} ***", irc_name(cptr), mp->argv[1]);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] *** End of WHOIS {bright-cyan}%s{reset} ***", irc_name(cptr), mp->argv[1]);
 
    return false;
 }
@@ -224,7 +224,7 @@ bool irc_builtin_num319(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] whois: %s is in channels: %s", irc_name(cptr), nick, buf);
-   tui_print_win(tui_window_find("status"), "[{green}%s{reset}] * %s is in channels: {bright-magenta}%s{reset}", irc_name(cptr), nick, buf);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] * %s is in channels: {bright-black}|{bright-magenta}%s{bright-black}|{reset} ", irc_name(cptr), nick, buf);
 
    return false;
 }
@@ -254,7 +254,7 @@ bool irc_builtin_num332(irc_client_t *cptr, irc_message_t *mp) {
    tui_window_t *tw = tui_window_find(chan);
    if (tw) {
       memset(tw->status_line, 0, sizeof(tw->status_line));
-      snprintf(tw->status_line, sizeof(tw->status_line), "%s", topic);
+      snprintf(tw->status_line, sizeof(tw->status_line), "{green}*{reset} %s", topic);
       tui_redraw_screen();
    }
 

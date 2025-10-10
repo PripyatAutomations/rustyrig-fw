@@ -171,10 +171,6 @@ bool cli_notice(int argc, char **args) {
 }
 
 bool cli_part(int argc, char **args) {
-   if (argc < 1) {
-      return true;
-   }
-
    tui_window_t *wp = tui_active_window();
 
    if (wp) {
@@ -182,7 +178,7 @@ bool cli_part(int argc, char **args) {
       if (wp->cptr) {
          char *target = wp->title;
 
-         if (args[1]) {
+         if (argc >= 2 && args[1]) {
             target = args[1];
          }
 
@@ -247,6 +243,17 @@ bool cli_quote(int argc, char **args) {
    return false;
 }
 
+bool cli_whois(int argc, char **args) {
+   if (argc > 1) {
+      char *target = args[1];
+      tui_window_t *wp = tui_active_window();
+
+      irc_send(wp->cptr, "WHOIS %s", target);
+      return false;
+   }
+   return true;
+}
+
 bool cli_win(int argc, char **args) {
    if (argc < 1) {
       return true;
@@ -288,6 +295,7 @@ cli_command_t cli_commands[] = {
 //   { .cmd = "/topic",  .cb = cli_topic,  .desc = "Set channel topic" },
    { .cmd = "/win",    .cb = cli_win,    .desc = "Change windows" },
 //   { .cmd = "/voice",  .cb = cli_voice,  .desc = "Give chan voice status to user" },
+   { .cmd = "/whois",  .cb = cli_whois,  .desc = "Show client information" },
    { .cmd = NULL,      .cb = NULL,       .desc = NULL }
 };
 
@@ -599,7 +607,7 @@ bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **arg
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
-      tui_print_win(wp, "%s {bright-black}<{cyan}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, buf);
+      tui_print_win(wp, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, buf);
    }
 
    return false;

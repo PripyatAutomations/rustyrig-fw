@@ -141,11 +141,30 @@ int ansi_strlen(const char *s) {
    int len = 0;
    while (*s) {
       if (*s == '\033') {           // start of escape
-         while (*s && *s != 'm') s++; // skip until 'm'
-         if (*s) s++;
+         while (*s && *s != 'm') {
+            s++; // skip until 'm'
+         }
+
+         if (*s) {
+            s++;
+         }
       } else {
          len++;
          s++;
+      }
+   }
+   return len;
+}
+
+int visible_length(const char *s) {
+   int len = 0;
+   for (const char *p = s; *p; p++) {
+      if (*p == '{') {
+         while (*p && *p != '}') {
+            p++;  // skip color markup
+         }
+      } else {
+         len++;
       }
    }
    return len;

@@ -128,9 +128,11 @@ void tui_redraw_screen(void) {
    // --- Top status line ---
    printf("\033[1;1H"); // move to row 1, col 1
    if (w->status_line) {
-      printf("%-*s", term_cols, w->status_line);
+      char *colored = tui_colorize_string(w->status_line);
+      printf(" %-*s", visible_length(colored), colored);
+      free(colored);
    } else {
-      printf("%-*s", term_cols, w->title);
+      printf(" [%-*s]", term_cols, w->title);
    }
 
    // --- Log area ---
@@ -334,41 +336,6 @@ void tui_window_update_topline(const char *line) {
    // Make sure output is flushed
    fflush(stdout);
 }
-
-static int visible_length(const char *s) {
-   int len = 0;
-   for (const char *p = s; *p; p++) {
-      if (*p == '{') {
-         while (*p && *p != '}') p++;  // skip color markup
-      } else {
-         len++;
-      }
-   }
-   return len;
-}
-
-#if	0
-void tui_update_input_line(void) {
-   if (!tui_enabled) {
-      return;
-   }
-
-   tui_window_t *win = tui_active_window(); // always show prompt for current window
-
-   char prompt[512];
-   snprintf(prompt, sizeof(prompt), "{bright-cyan}%s{cyan}>{reset}", win->title);
-   char *color_prompt = tui_colorize_string(prompt);
-
-   printf("\033[%d;1H\033[2K", term_rows);
-   printf("%s %s", color_prompt, input_buf);
-
-   int prompt_len = visible_length(prompt);
-   printf("\033[%d;%dH", term_rows, prompt_len + cursor_pos + 2);
-
-   free(color_prompt);
-   fflush(stdout);
-}
-#endif
 
 void tui_update_input_line(void) {
    if (!tui_enabled) return;

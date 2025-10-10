@@ -15,7 +15,9 @@
 
 #define	LOGINLEN	240		// an email address
 #define	IRC_MSGLEN	1024		// extended for IRCv3
-#define	NICKLEN		48
+#define	CHANLEN		64		// channel name length
+#define	NICKLEN		40		// nick name length
+#define	TOPICLEN	256
 #define	PASSLEN 	128
 #define	USERLEN		16
 #define	HOSTLEN		256
@@ -35,6 +37,23 @@ typedef struct irc_message {
    char **argv;
    char  *prefix;			// server prefix, if given
 } irc_message_t;
+
+typedef struct irc_chan_user {
+   char  nick[NICKLEN + 1];
+
+   struct irc_chan_user *next;		// list pointer
+} irc_chan_user_t;
+
+typedef struct irc_channel {
+   char             name[CHANLEN + 1];
+   char             mode[16];
+   char             topic[TOPICLEN + 1];
+   int              users;
+   irc_chan_user_t *members;
+   // XXX: Add Bans, Exceptions lists?
+
+   struct irc_channel *next;		// list pointer
+} irc_channel_t;
 
 typedef struct server_cfg {
     char 	host[HOSTLEN + 1];

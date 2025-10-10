@@ -18,5 +18,6 @@ extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
 extern bool parse_bool(const char *str);
 extern int split_args(char *line, char ***argv_out);
 extern int ansi_strlen(const char *s);
+extern int visible_length(const char *s);
 
 #endif	// !defined(__rr_util_string_h)

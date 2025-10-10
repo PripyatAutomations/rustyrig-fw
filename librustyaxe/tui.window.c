@@ -57,10 +57,6 @@ tui_window_t *tui_window_find(const char *title) {
 }
 
 tui_window_t *tui_window_create(const char *title) {
-   if (!title || !*title) {
-      title = "status";
-   }
-
    // Check if a window with this title already exists
    tui_window_t *w = tui_window_find(title);
    if (w) {
@@ -83,7 +79,7 @@ tui_window_t *tui_window_create(const char *title) {
 
    strncpy(w->title, title, sizeof(w->title) - 1);
    memset(w->status_line, 0, sizeof(w->status_line));
-   snprintf(w->status_line, sizeof(w->status_line), "%s", title);
+   snprintf(w->status_line, sizeof(w->status_line), title);
    w->title[sizeof(w->title) - 1] = '\0';
 
    // save the window
@@ -196,6 +192,9 @@ void tui_window_init(void) {
    // ensure at least one window
    if (tui_num_windows == 0) {
       tui_windows[0] = tui_window_create("status");
+      char *sl = tui_windows[0]->status_line;
+      memset(sl, 0, sizeof(tui_windows[0]->status_line));
+      snprintf(sl, sizeof(sl), "%s", " status window");
       tui_num_windows = 1;
       tui_active_win = 0;
    }

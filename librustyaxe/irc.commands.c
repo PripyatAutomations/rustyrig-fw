@@ -12,7 +12,7 @@ bool irc_builtin_ping_cb(irc_client_t *cptr, irc_message_t *mp) {
    // reply with the message data
    if (data) {
       Log(LOG_DEBUG, "irc.parser", "[%s] Ping? Pong! |%s|", irc_name(cptr), data);
-      tui_print_win(tui_window_find("status"), "[{green}%s{reset}] {green}Ping? {red}Pong!{reset} %s", irc_name(cptr), data);
+//      tui_print_win(tui_window_find("status"), "[{green}%s{reset}] {green}Ping? {red}Pong!{reset} %s", irc_name(cptr), data);
       irc_send(cptr, "PONG :%s", data);
    } else {
       Log(LOG_CRIT, "irc.parser", "[%s] Empty ping from cptr:<%p>", irc_name(cptr), cptr);
@@ -92,18 +92,23 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
       win_title = mp->argv[1];
    }
 
-   tui_window_t *tw = tui_window_find(win_title);
+   tui_window_t *wp = tui_window_find(win_title);
 
    if (*mp->argv[2] == '\001') {
       // CTCP
       if (strncasecmp(mp->argv[2] + 1, "ACTION", 6) == 0) {
          Log(LOG_INFO, "irc", "[%s] * %s / %s %s", network, win_title, tmp_nick, mp->argv[2] + 8);
-         tui_print_win(tw, "%s * %s %s", get_chat_ts(0), tmp_nick, mp->argv[2] + 8);
+         tui_print_win(wp, "%s * %s %s", get_chat_ts(0), tmp_nick, mp->argv[2] + 8);
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
-      tui_print_win(tw, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
+      if (strcasestr(mp->argv[2], cptr->nick) == 0) {
+         tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, mp->argv[2]);
+      } else {
+         tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, mp->argv[2]);
+      }
    }
+
 
    return false;
 }
@@ -138,7 +143,6 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
 
    Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
    tui_print_win(tw, "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
-
 
    return false;
 }
@@ -218,14 +222,24 @@ bool irc_builtin_topic_cb(irc_client_t *cptr, irc_message_t *mp) {
       return true;
    }
 
+   char *network = cptr->server->network;
+   char *chan = mp->argv[1];
+   char *topic = mp->argv[2];
+
    char *nick_end = strchr(nick, '!');
    char tmp_nick[NICKLEN + 1];
-   char *network = cptr->server->network;
    size_t nicklen = (nick_end - nick);
 
    memset(tmp_nick, 0, NICKLEN + 1);
    snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
-   Log(LOG_CRIT,  "irc", "prefix: %s argc: %d arg0: %s arg1: %s arg2: %s", mp->prefix, mp->argc, mp->argv[0], mp->argv[1], mp->argv[2]);
+
+   tui_window_t *tw = tui_window_find(chan);
+   if (tw) {
+      memset(tw->status_line, 0, sizeof(tw->status_line));
+      snprintf(tw->status_line, sizeof(tw->status_line), "{green}*{reset} %s", topic);
+      tui_redraw_screen();
+   }
+
    return false;
 }
 
