@@ -226,10 +226,10 @@ static bool cfg_dispatch_callback(const char *path, int line, const char *sectio
       i++;
       prev = cbp;
       cbp = cbp->next;
-      fprintf(stderr, "prev;<%x> cbp:<%x> list:<%x>\n", prev, cbp, cfg_callbacks);
+      fprintf(stderr, "prev;<%p> cbp:<%p> list:<%p>\n", prev, cbp, cfg_callbacks);
    }
    if (true || i > 50) {
-      Log(LOG_WARN, "config", "%s: made %d iterations for cbp:<%x>", __FUNCTION__, i, cfg_callbacks);
+      Log(LOG_WARN, "config", "%s: made %d iterations for cbp:<%p>", __FUNCTION__, i, cfg_callbacks);
    }
    return false;
 }

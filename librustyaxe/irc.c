@@ -36,7 +36,7 @@ bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
    }
 
    if (cptr->fd <= 0) {
-      Log(LOG_CRIT, "irc", "irc_send to cptr:<%x> who has fd: %d", cptr, cptr->fd);
+      Log(LOG_CRIT, "irc", "irc_send to cptr:<%p> who has fd: %d", cptr, cptr->fd);
       return true;
    }
 

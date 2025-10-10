@@ -49,7 +49,7 @@ tui_window_t *tui_window_find(const char *title) {
    }
 
    for (int i = 0; i < tui_num_windows; i++) {
-      if (tui_windows[i] && strcmp(tui_windows[i]->title, title) == 0) {
+      if (tui_windows[i] && strcasecmp(tui_windows[i]->title, title) == 0) {
          return tui_windows[i];
       }
    }
@@ -82,6 +82,8 @@ tui_window_t *tui_window_create(const char *title) {
    }
 
    strncpy(w->title, title, sizeof(w->title) - 1);
+   memset(w->status_line, 0, sizeof(w->status_line));
+   snprintf(w->status_line, sizeof(w->status_line), "%s", title);
    w->title[sizeof(w->title) - 1] = '\0';
 
    // save the window
@@ -229,4 +231,24 @@ int handle_alt_right(int c, int key) {
       tui_redraw_screen();
    }
    return 0;
+}
+
+bool tui_clear_scrollback(tui_window_t *w) {
+   if (!w) {
+      return true;
+   }
+
+   for (int i = 0; i < LOG_LINES; i++) {
+      if (w->buffer[i]) {
+         free(w->buffer[i]);
+         w->buffer[i] = NULL;
+      }
+   }
+
+   w->log_head = 0;
+   w->log_count = 0;
+   w->scroll_offset = 0;
+
+   tui_redraw_screen();
+   return false;
 }

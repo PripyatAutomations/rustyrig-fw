@@ -27,5 +27,6 @@ extern int tui_win_swap(int c, int key);
 extern int handle_alt_left(int c, int key);
 extern int handle_alt_right(int c, int key);
 extern void tui_window_update_topline(const char *line);
+extern bool tui_clear_scrollback(tui_window_t *w);
 
 #endif	// !defined(__librustyaxe_tui_window_h)

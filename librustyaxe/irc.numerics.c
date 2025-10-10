@@ -229,8 +229,40 @@ bool irc_builtin_num319(irc_client_t *cptr, irc_message_t *mp) {
    return false;
 }
 
+bool irc_builtin_num332(irc_client_t *cptr, irc_message_t *mp) {
+   if (!mp || mp->argc <= 0) {
+      return true;
+   }
+
+   char *nick = mp->argv[1];
+   char *chan = mp->argv[2];
+   char *topic = mp->argv[3];
+
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 3; i < mp->argc; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos,
+                       "%s%s", (i > 3 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+//   tui_print_win(tui_window_find("status"), "prefix: %s argc: %d arg0: %s arg1: %s arg2: %s arg3 %s", mp->prefix, mp->argc, mp->argv[0], mp->argv[1], mp->argv[2], mp->argv[3]);
+   tui_window_t *tw = tui_window_find(chan);
+   if (tw) {
+      memset(tw->status_line, 0, sizeof(tw->status_line));
+      snprintf(tw->status_line, sizeof(tw->status_line), "%s", topic);
+      tui_redraw_screen();
+   }
+
+   return false;
+}
+
 bool irc_builtin_num353(irc_client_t *cptr, irc_message_t *mp) {
-   if (!mp || mp->argc <= 2) {
+   if (!mp || mp->argc <= 3) {
       return false;
    }
 
@@ -247,7 +279,7 @@ bool irc_builtin_num353(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] names: %s", irc_name(cptr), buf);
-   tui_print_win(tui_window_find("status"), "[{green}%s{reset}] *** %s ***", irc_name(cptr), buf);
+   tui_print_win(tui_window_find(mp->argv[3]), "%s [{green}%s{reset}] *** %s ***", get_chat_ts(0), irc_name(cptr), buf);
 
    return false;
 }
@@ -258,7 +290,7 @@ bool irc_builtin_num366(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] End of names for %s", irc_name(cptr), mp->argv[2]);
-   tui_print_win(tui_window_find("status"), "[{green}%s{reset}] *** End of NAMES {bright-magenta}%s{reset} ***", irc_name(cptr), mp->argv[2]);
+   tui_print_win(tui_window_find(mp->argv[2]), "%s [{green}%s{reset}] *** End of NAMES {bright-magenta}%s{reset} ***", get_chat_ts(0), irc_name(cptr), mp->argv[2]);
 
    return false;
 }
@@ -370,7 +402,7 @@ const irc_numeric_t irc_numerics[] = {
    { .code =  323, .name = "RPL_LISTEND",          .desc = "End of channel list",                     .cb = NULL },
    { .code =  324, .name = "RPL_CHANNELMODEIS",    .desc = "Channel modes",                           .cb = NULL },
    { .code =  329, .name = "RPL_CREATIONTIME",     .desc = "Channel creation time",                   .cb = NULL },
-   { .code =  332, .name = "RPL_TOPIC",            .desc = "Channel topic",                           .cb = NULL },
+   { .code =  332, .name = "RPL_TOPIC",            .desc = "Channel topic",                           .cb = irc_builtin_num332 },
    { .code =  333, .name = "RPL_TOPICWHOTIME",     .desc = "Topic set by/at",                         .cb = NULL },
    { .code =  353, .name = "RPL_NAMREPLY",         .desc = "Names in a channel",                      .cb = irc_builtin_num353 },
    { .code =  366, .name = "RPL_ENDOFNAMES",       .desc = "End of NAMES list",                       .cb = irc_builtin_num366 },

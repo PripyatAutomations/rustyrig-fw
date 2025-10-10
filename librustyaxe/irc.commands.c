@@ -112,6 +112,7 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
    char *nick = mp->prefix;
 
    if (!nick) {
+      Log(LOG_CRIT, "irc", "join_cb with no prefix! mp:<%p>", mp);
       return true;
    }
 
@@ -120,6 +121,8 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
    size_t nicklen = (nick_end - nick);
 
    if (nicklen <= 0) {
+      // XXX: we should handle messages without full masks here
+      Log(LOG_CRIT, "irc", "join_cb nicklen <= 0: %d", nicklen);
       return true;
    }
 
@@ -131,6 +134,7 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
 
    tui_window_t *tw = tui_window_create(mp->argv[1]);
    tw->cptr = cptr;
+   tui_window_focus(tw->title);
 
    Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
    tui_print_win(tw, "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
@@ -207,6 +211,24 @@ bool irc_builtin_quit_cb(irc_client_t *cptr, irc_message_t *mp) {
    return false;
 }
 
+bool irc_builtin_topic_cb(irc_client_t *cptr, irc_message_t *mp) {
+   char *nick = mp->prefix;
+
+   if (!nick) {
+      return true;
+   }
+
+   char *nick_end = strchr(nick, '!');
+   char tmp_nick[NICKLEN + 1];
+   char *network = cptr->server->network;
+   size_t nicklen = (nick_end - nick);
+
+   memset(tmp_nick, 0, NICKLEN + 1);
+   snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
+   Log(LOG_CRIT,  "irc", "prefix: %s argc: %d arg0: %s arg1: %s arg2: %s", mp->prefix, mp->argc, mp->argv[0], mp->argv[1], mp->argv[2]);
+   return false;
+}
+
 const irc_command_t irc_commands[] = {
    { .name = "ERROR",   .desc = "ERROR response",                   .cb = irc_builtin_error_cb },
 
@@ -221,7 +243,7 @@ const irc_command_t irc_commands[] = {
    { .name = "JOIN",    .desc = "Join channel(s)",                  .cb = irc_builtin_join_cb, .relayed = true },
    { .name = "PART",    .desc = "Leave channel(s)",                 .cb = irc_builtin_part_cb, .relayed = true },
    { .name = "MODE",    .desc = "Set or query channel/user modes",  .cb = NULL, .relayed = true },
-   { .name = "TOPIC",   .desc = "Get/set channel topic",            .cb = NULL, .relayed = true },
+   { .name = "TOPIC",   .desc = "Get/set channel topic",            .cb = irc_builtin_topic_cb, .relayed = true },
    { .name = "NAMES",   .desc = "List users in channel(s)",         .cb = NULL },
    { .name = "LIST",    .desc = "List channels",                    .cb = NULL },
    { .name = "INVITE",  .desc = "Invite user to channel",           .cb = NULL, .relayed = true },

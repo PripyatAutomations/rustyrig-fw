@@ -264,9 +264,14 @@ bool cli_win(int argc, char **args) {
    return false;
 }
 
+bool cli_clear(int argc, char **args) {
+   tui_clear_scrollback(tui_active_window());
+   return false;
+}
 extern bool cli_help(int argc, char **args);
 
 cli_command_t cli_commands[] = {
+   { .cmd = "/clear",  .cb = cli_clear,  .desc = "Clear the scrollback" },
 //   { .cmd = "/deop",   .cb = cli_deop,   .desc = "Take chan operator status from user" },
 //   { .cmd = "/devoice",.cb = cli_devoice,.desc = "Take chan voice status from user" },
    { .cmd = "/help",   .cb = cli_help,   .desc = "Show help message" },
