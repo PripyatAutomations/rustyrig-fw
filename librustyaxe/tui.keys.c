@@ -220,10 +220,18 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
          c = key.code.codepoint;
       } else if (key.type == TERMKEY_TYPE_KEYSYM) {
          switch (key.code.sym) {
-            case TERMKEY_SYM_BACKSPACE: c = 0x08; break;
-            case TERMKEY_SYM_DELETE:    c = TERMKEY_SYM_DELETE; break;
-            case TERMKEY_SYM_ENTER:     c = '\n'; break;
-            default:                    c = key.code.sym; break;
+            case TERMKEY_SYM_BACKSPACE:
+               c = 0x08;
+               break;
+            case TERMKEY_SYM_DELETE:
+               c = TERMKEY_SYM_DELETE;
+               break;
+            case TERMKEY_SYM_ENTER:
+               c = '\n';
+               break;
+            default:
+               c = key.code.sym;
+               break;
          }
       }
 
@@ -249,6 +257,16 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                handled = handle_pgdn(1, key.code.sym);
                break;
 
+            case TERMKEY_SYM_HOME:
+               cursor_pos = 0;
+               handled = 1;
+               break;
+
+            case TERMKEY_SYM_END:
+               cursor_pos = input_len;
+               handled = 1;
+               break;
+
             case TERMKEY_SYM_LEFT:
                if (key.modifiers & TERMKEY_KEYMOD_CTRL) {
                    // move cursor to start of previous word
@@ -262,6 +280,7 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                    handled = 1;
                }
                break;
+
             case TERMKEY_SYM_RIGHT:
                if (key.modifiers & TERMKEY_KEYMOD_CTRL) {
                    // move cursor to start of next word
@@ -288,6 +307,7 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                handled = 1;
                break;
             }
+
             case TERMKEY_SYM_DOWN: {
                const char *next = history_next();
                if (next) {
@@ -299,6 +319,7 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                handled = 1;
                break;
             }
+
             default:
                if ((key.modifiers & TERMKEY_KEYMOD_ALT) &&
                    key.code.sym >= '0' && key.code.sym <= '9') {
