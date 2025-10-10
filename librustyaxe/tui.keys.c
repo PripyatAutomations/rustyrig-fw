@@ -346,7 +346,11 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                handled = 1;
                break;
             }
-            case 0x08: // Ctrl-H
+            case 'X':
+            case 'x': {
+               // Switch to the next server
+            }
+            case 0x08: { // Ctrl-H
                if (cursor_pos > 0) {
                   memmove(&input_buf[cursor_pos - 1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
                   cursor_pos--;
@@ -354,6 +358,7 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                }
                handled = 1;
                break;
+            }
          }
       }
 
