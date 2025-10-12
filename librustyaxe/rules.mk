@@ -11,6 +11,7 @@ librustyaxe_objs += config.o
 librustyaxe_objs += dict.o
 librustyaxe_objs += driver-csi.o
 librustyaxe_objs += driver-ti.o
+librustyaxe_objs += event-bus.o
 #librustyaxe_objs += io.o
 #librustyaxe_objs += io.serial.o
 #librustyaxe_objs += io.socket.o
@@ -23,6 +24,7 @@ librustyaxe_objs += irc.numerics.o
 librustyaxe_objs += irc.parser.o
 librustyaxe_objs += irc.server.o
 librustyaxe_objs += json.o
+librustyaxe_objs += kvstore.o
 librustyaxe_objs += list.o
 librustyaxe_objs += logger.o
 librustyaxe_objs += maidenhead.o
@@ -64,16 +66,3 @@ ${BUILD_DIR}/librustyaxe/%.o:librustyaxe/%.c GNUmakefile ${librustyaxe_headers}
 	@${RM} $@
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS} -o $@ -c $< || exit 2
-
-bin/irc-test: ${BUILD_DIR}/irc-test.o ${librustyaxe}
-	@${RM} $@
-	$(CC) -L. -o $@ $< -lrustyaxe -lm -lev -ltinfo $(LDFLAGS) 
-
-${BUILD_DIR}/irc-test.o: librustyaxe/irc-test.c $(wildcard *.h)
-	@${RM} $@
-	@echo "[compile] $< => $@"
-	@$(CC) $(CFLAGS) -I. -I.. -o $@ -c $<
-
-extra_clean += irc-test ${BUILD_DIR}/irc-test.o
-
-bins += bin/irc-test

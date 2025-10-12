@@ -10,6 +10,8 @@
 #include <librustyaxe/io.serial.h>
 #include <librustyaxe/io.socket.h>
 #include <librustyaxe/irc.h>
+#include <librustyaxe/event-bus.h>
+#include <librustyaxe/kvstore.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/list.h>
 #include <librustyaxe/logger.h>

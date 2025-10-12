@@ -5,30 +5,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
-
-typedef enum { KV_ARRAY=0, KV_BST } kv_type_t;
-
-typedef struct kv_node {
-   char *key;
-   void *value;
-   struct kv_node *left;
-   struct kv_node *right;
-} kv_node_t;
-
-typedef struct {
-   void *ptr;        // array or BST root
-   size_t count;
-   size_t cap;
-   kv_type_t type;
-} kv_list_t;
-
-typedef struct {
-   kv_list_t *prefix_index;
-   size_t prefix_size;
-   kv_type_t type;
-} kv_store_t;
-
-#define DEFAULT_PREFIX_SIZE 65536
+#include <librustyaxe/kvstore.h>
 
 // ---------------- helpers ----------------
 static uint16_t prefix_index_key(const char *key) {
@@ -350,6 +327,7 @@ kv_store_t *kv_create_and_load(kv_type_t type, size_t prefix_size, ...) {
    return store;
 }
 
+#if	0
 // ----------------- example -----------------
 int main(void) {
    kv_store_t *store = kv_create_and_load(KV_BST, 0,
@@ -369,3 +347,4 @@ int main(void) {
    kv_destroy(store);
    return 0;
 }
+#endif

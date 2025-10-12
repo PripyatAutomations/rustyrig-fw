@@ -226,7 +226,7 @@ void tui_window_init(void) {
    }
 }
 
-int tui_win_swap(int c, int key) {
+int tui_window_swap(int c, int key) {
    int num = key - '1';         // Alt-1 = window 0
 
    if (key == '0') {

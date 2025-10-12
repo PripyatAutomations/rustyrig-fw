@@ -3,6 +3,8 @@ set -e
 
 [ ! -x bin/irc-test ] && ./build.sh
 
+rm -f /tmp/irc-test.log irc-test.log
+
 case "$1" in
    gdb )
      gdb ./bin/irc-test -ex run

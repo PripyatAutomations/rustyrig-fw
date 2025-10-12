@@ -34,6 +34,7 @@ endif
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include fwdsp/rules.mk
 include librustyaxe/rules.mk
+include newcli/rules.mk
 #include librrprotocol/rules.mk
 #include rrclient/rules.mk
 #include rrserver/rules.mk

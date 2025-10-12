@@ -33,6 +33,7 @@ typedef struct cli_command {
    char *cmd;
    char *desc;
    bool (*cb)(int argc, char **args);
+   event_cb_t (*event_cb)(const char *event, void *data, irc_client_t *cptr, void *user);
 } cli_command_t;
 
 bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **args);
@@ -718,9 +719,53 @@ void tui_stop_clock_timer(struct ev_loop *loop) {
    ev_timer_stop(loop, &tui_clock_watcher);
 }
 
+/////////////////
+// local hooks //
+/////////////////
+static void on_privmsg(const char *event, void *data, irc_client_t *cptr, void *user) {
+   irc_message_t *mp = data;
+   char *nick = mp->prefix;
+   char *nick_end = strchr(nick, '!');
+   char tmp_nick[NICKLEN + 1];
+   char *network = cptr->server->network;
+   size_t nicklen = (nick_end - nick);
+
+   memset(tmp_nick, 0, NICKLEN + 1);
+   snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
+
+   Log(LOG_CRIT, "irc.event", "on_privmsg: argc %d args0 %s args1 %s", mp->argc, mp->argv[0], mp->argv[1]);
+   char *win_title = tmp_nick;
+   // Is this a query or channel message?
+   bool is_private = true;
+
+   if (*mp->argv[1] == '&' || *mp->argv[1] == '#') {
+      is_private = false;
+      win_title = mp->argv[1];
+   }
+
+   tui_window_t *wp = tui_window_find(win_title);
+   if (!wp) {
+      wp = tui_active_window();
+   }
+
+   if (!nick) {
+      return;
+   }
+
+   Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
+   if (strcasestr(mp->argv[2], cptr->nick) == 0) {
+      tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
+   } else {
+      tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
+   }
+   return;
+}
+
 int main(int argc, char **args) {
    now = time(NULL);
    char *fullpath = NULL;
+
+   event_init();
 
    // set our input callback
    tui_readline_cb = irc_input_cb;
@@ -749,6 +794,7 @@ int main(int argc, char **args) {
 
    // XXX: this needs moved to module_init in mod.proto.irc
    irc_init();
+   event_on("irc.privmsg", on_privmsg, NULL);
    autoconnect();
    irc_set_conn_pool(irc_client_conns);
 

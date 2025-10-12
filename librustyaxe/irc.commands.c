@@ -7,6 +7,7 @@
 
 bool irc_builtin_error_cb(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_CRIT, "irc", "[%s] Got ERROR from server: |%s|", irc_name(cptr), (mp->argv[1] ? mp->argv[1] : "(null)"));
+   event_emit("irc.error", cptr, mp);
    tui_print_win(tui_active_window(), "{red}>>> {bright-red}ERROR:{bright-cyan} %s {red}<<<{reset}", mp->argv[1]);
    return false;
 }
@@ -41,6 +42,7 @@ bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
 
    Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
    tui_print_win(tw, "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
+   event_emit("irc.join", cptr, mp);
 
    return false;
 }
@@ -76,6 +78,7 @@ bool irc_builtin_notice_cb(irc_client_t *cptr, irc_message_t *mp) {
 
    Log(LOG_INFO, "irc", "*notice* %s <%s> %s", irc_name(cptr), mp->argv[1], tmp_nick, mp->argv[2]);
    tui_print_win(tui_window_find("status"), "[%s] *%s* <%s> %s", network, mp->argv[1], tmp_nick, mp->argv[2]);
+   event_emit("irc.notice", cptr, mp);
 
    return false;
 }
@@ -119,6 +122,7 @@ bool irc_builtin_part_cb(irc_client_t *cptr, irc_message_t *mp) {
                     "%s [{green}%s{reset}] * {bright-cyan}%s{reset} left {bright-magenta}%s{reset}",
                     get_chat_ts(0), network, tmp_nick, win_title);
    }
+   event_emit("irc.part", cptr, mp);
 
    return false;
 }
@@ -136,11 +140,13 @@ bool irc_builtin_ping_cb(irc_client_t *cptr, irc_message_t *mp) {
       Log(LOG_CRIT, "irc.parser", "[%s] Empty ping from cptr:<%p>", irc_name(cptr), cptr);
    }
 
+   event_emit("irc.ping", cptr, mp);
    return false;
 }
 
 bool irc_builtin_pong_cb(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_CRAZY, "irc", "[%s] Got PONG from server: |%s|", irc_name(cptr), (mp->argv[1] ? mp->argv[1] : "(null)"));
+   event_emit("irc.pong", cptr, mp);
    return false;
 }
 
@@ -174,8 +180,8 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    if (*mp->argv[2] == '\001') {
-      // CTCP parser (yuck)
-      // Command
+      // CTCP parser
+      // - Command
       char cmd[64];
       memset(cmd,0, 64);
       char *scp = mp->argv[2] + 1;
@@ -201,33 +207,28 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
       }
    
       // CTCP handling
-      tui_print_win(tui_active_window(), "%s {bright-yellow}*** CTCP{reset} from {bright-cyan}%s{reset} cmd: %s data: %s {bright-yellow}***{reset} ", get_chat_ts(0), tmp_nick, cmd, data);
+      tui_print_win(tui_window_find("status"), "%s {bright-yellow}*** CTCP{reset} from {bright-cyan}%s{reset} cmd: %s data: %s {bright-yellow}***{reset} ", get_chat_ts(0), tmp_nick, cmd, data);
 
       if (strcasecmp(cmd, "ACTION") == 0) { // action is technically a CTCP
          Log(LOG_INFO, "irc", "[%s] * %s / %s %s", network, win_title, tmp_nick, data);
          tui_print_win(wp, "%s * %s %s", get_chat_ts(0), tmp_nick, data);
       } else if (strcasecmp(cmd, "PING") == 0) {
-         tui_print_win(tui_window_find("status"), "%s %s CTCP PING from %s: %s", get_chat_ts(0), network, tmp_nick, data);
+         tui_print_win(tui_active_window(), "%s [{green}%s{reset} %s {bright-yellow}*PING*{reset} %s", get_chat_ts(0), network, tmp_nick, data);
          irc_send(cptr, "NOTICE %s :\001PING %s\001", tmp_nick,  data);
       } else if (strcasecmp(cmd, "RRCALL") == 0) {
          Log(LOG_INFO, "irc", "[%s] CTCP RRCALL from %s: %s", network, tmp_nick, data);
-         tui_print_win(wp, "%s %s CTCP RRCALL from %s: %s", get_chat_ts(0), network, tmp_nick, data);
+         tui_print_win(tui_active_window(), "%s [{green}%s{reset}] {bright-yellow}*RRCALL*{reset} from %s: %s", get_chat_ts(0), network, tmp_nick, data);
       } else if (strcasecmp(cmd, "VERSION") == 0) {
-         tui_print_win(tui_window_find("status"), "%s %s *VERSION*", get_chat_ts(0), tmp_nick);
+         tui_print_win(tui_window_find("status"), "%s [[green}%s{reset}] %s {bright-yellow}*VERSION*{reset} ", get_chat_ts(0), network, tmp_nick);
          Log(LOG_INFO, "irc", "[%s] CTCP VERSION from %s", network, tmp_nick);
          irc_send(cptr, "NOTICE %s :\001VERSION rustyrig %s\001", tmp_nick, VERSION);
       }
 
-      // XXX: Process user hooks
+      // CTCP handler needs to remove the \001 characters internally!
+      event_emit("irc.ctcp", cptr, mp);
    } else { // Normal messages
-      Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
-      if (strcasestr(mp->argv[2], cptr->nick) == 0) {
-         tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
-      } else {
-         tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
-      }
-
-      // XXX: Process user hooks
+      tui_print_win(tui_window_find("status"), "%s {bright-yellow}*** PRIVMSG{reset} from {bright-cyan}%s{reset} msg: %s {bright-yellow}***{reset} ", get_chat_ts(0), tmp_nick, mp->argv[2]);
+      event_emit("irc.privmsg", cptr, mp);
    }
 
    return false;
@@ -254,6 +255,7 @@ bool irc_builtin_quit_cb(irc_client_t *cptr, irc_message_t *mp) {
    char *network = cptr->server->network;
    Log(LOG_INFO, "irc", "[%s] * %s has QUIT: \"%s\"", network, tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
    tui_print_win(tui_window_find(win_title), "[{green}%s{reset}] * %s has {cyan}QUIT{reset}: \"%s\"", network, tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
+   event_emit("irc.quit", cptr, mp);
 
    return false;
 }
@@ -283,6 +285,8 @@ bool irc_builtin_topic_cb(irc_client_t *cptr, irc_message_t *mp) {
       tui_redraw_screen();
    }
 
+   event_emit("irc.topic", cptr, mp);
+
    return false;
 }
 
@@ -291,24 +295,25 @@ const irc_command_t irc_commands[] = {
 
    // --- Core client registration ---
    { .name = "PASS",    .desc = "Set connection password",          .cb = NULL },
-   { .name = "NICK",    .desc = "Set/change nickname",              .cb = NULL, .relayed = true },
-   { .name = "USER",    .desc = "Set user info (registration)",     .cb = NULL, .relayed = true },
+   { .name = "NICK",    .desc = "Set/change nickname",              .cb = NULL, .relayed = true, .event_key = "irc.nick" },
+   { .name = "USER",    .desc = "Set user info (registration)",     .cb = NULL, .relayed = true},
    { .name = "SERVICE", .desc = "Register a new service",           .cb = NULL, .relayed = true },
-   { .name = "QUIT",    .desc = "Disconnect from server",           .cb = irc_builtin_quit_cb },
+   { .name = "QUIT",    .desc = "Disconnect from server",           .cb = irc_builtin_quit_cb, .event_key = "irc.quit" },
 
    // --- Channel management ---
-   { .name = "JOIN",    .desc = "Join channel(s)",                  .cb = irc_builtin_join_cb, .relayed = true },
-   { .name = "PART",    .desc = "Leave channel(s)",                 .cb = irc_builtin_part_cb, .relayed = true },
-   { .name = "MODE",    .desc = "Set or query channel/user modes",  .cb = NULL, .relayed = true },
-   { .name = "TOPIC",   .desc = "Get/set channel topic",            .cb = irc_builtin_topic_cb, .relayed = true },
-   { .name = "NAMES",   .desc = "List users in channel(s)",         .cb = NULL },
-   { .name = "LIST",    .desc = "List channels",                    .cb = NULL },
-   { .name = "INVITE",  .desc = "Invite user to channel",           .cb = NULL, .relayed = true },
-   { .name = "KICK",    .desc = "Kick user from channel",           .cb = NULL, .relayed = true },
+   { .name = "JOIN",    .desc = "Join channel(s)",                  .cb = irc_builtin_join_cb, .relayed = true, .event_key = "irc.join" },
+   { .name = "PART",    .desc = "Leave channel(s)",                 .cb = irc_builtin_part_cb, .relayed = true, .event_key = "irc.part" },
+   { .name = "MODE",    .desc = "Set or query channel/user modes",  .cb = NULL, .relayed = true, .event_key = "irc.mode" },
+   { .name = "TOPIC",   .desc = "Get/set channel topic",            .cb = irc_builtin_topic_cb, .relayed = true, .event_key = "irc.topic" },
+   { .name = "NAMES",   .desc = "List users in channel(s)",         .cb = NULL, .event_key = "irc.names" },
+   { .name = "LIST",    .desc = "List channels",                    .cb = NULL, .event_key = "irc.list" },
+   { .name = "INVITE",  .desc = "Invite user to channel",           .cb = NULL, .relayed = true, .event_key = "irc.invite" },
+   { .name = "KICK",    .desc = "Kick user from channel",           .cb = NULL, .relayed = true, .event_key = "irc.kick" },
 
    // --- Messaging ---
+   // XXX: Right now we handle privmsg in the 
    { .name = "PRIVMSG", .desc = "Send message to user/channel",     .cb = irc_builtin_privmsg_cb, .relayed = true },
-   { .name = "NOTICE",  .desc = "Send notice (no auto-reply)",      .cb = irc_builtin_notice_cb, .relayed = true },
+   { .name = "NOTICE",  .desc = "Send notice (no auto-reply)",      .cb = irc_builtin_notice_cb, .relayed = true, .event_key = "irc.notice" },
 
    // --- Queries / info ---
    { .name = "WHO",     .desc = "List users by mask/channel",       .cb = NULL },

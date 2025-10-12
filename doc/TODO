@@ -2,8 +2,6 @@
 = librustyaxe =
 ===============
 * Event notifications support
-  - Allow many callbacks for each event, with a priority (optional)
-    * Use -1 for to process events in order registered
 * Finish theme support
   - Make some common variables passed to theme engine via a dict
     * $nick $chan $prefix $cmd $args $arg0...$argX where X is $argc

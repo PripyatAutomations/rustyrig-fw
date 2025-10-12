@@ -319,6 +319,14 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                handled = 1;
                break;
             }
+            case '1': case '2': case '3': case '4': case '5':
+            case '6': case '7': case '8': case '9': case '0': {
+               if (key.modifiers & TERMKEY_KEYMOD_ALT) {
+                  tui_print_win(tui_window_find("status"), "Got win swap to %d", c);
+                  tui_window_swap(0, c);
+               }
+               break;
+            }
 
             default:
                if ((key.modifiers & TERMKEY_KEYMOD_ALT) &&

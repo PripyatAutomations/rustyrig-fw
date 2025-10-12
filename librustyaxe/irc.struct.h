@@ -11,7 +11,6 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <librustyaxe/irc.struct.h>
 
 #define	LOGINLEN	240		// an email address
 #define	IRC_MSGLEN	1024		// extended for IRCv3
@@ -26,30 +25,30 @@
 #define	SENDQLEN	16384		// data waiting to be sent to the server
 #define	AUTOJOIN_LEN	1024		// auto-join channels
 
+
 typedef struct {
-   char mode;          // mode letter, e.g. 'o', 'v', 'k'
-   const char *desc;   // description
-   bool arg_set;       // requires argument when being set
-   bool arg_unset;     // requires argument when being unset
+   char          mode;          // mode letter, e.g. 'o', 'v', 'k'
+   const char   *desc;          // description
+   bool          arg_set;       // requires argument when being set
+   bool          arg_unset;     // requires argument when being unset
 } irc_mode_t;
 
 typedef struct irc_message {
-   int    argc;				// number of arguments
-   char **argv;
-   char  *prefix;			// server prefix, if given
+   int           argc;				// number of arguments
+   char        **argv;
+   char         *prefix;			// server prefix, if given
 } irc_message_t;
 
 typedef struct irc_chan_user {
-   char  nick[NICKLEN + 1];
-
+   char          nick[NICKLEN + 1];
    struct irc_chan_user *next;		// list pointer
 } irc_chan_user_t;
 
 typedef struct irc_channel {
-   char             name[CHANLEN + 1];
-   char             mode[16];
-   char             topic[TOPICLEN + 1];
-   int              users;
+   char          name[CHANLEN + 1];
+   char          mode[16];
+   char          topic[TOPICLEN + 1];
+   int           users;
    irc_chan_user_t *members;
    // XXX: Add Bans, Exceptions lists?
 
@@ -57,16 +56,16 @@ typedef struct irc_channel {
 } irc_channel_t;
 
 typedef struct server_cfg {
-    char 	host[HOSTLEN + 1];
-    char 	network[NETLEN + 1];
-    char        nick[NICKLEN + 1];
-    char        ident[USERLEN + 1];
-    char        account[LOGINLEN + 1];
-    char        pass[PASSLEN + 1];
-    char	autojoin[AUTOJOIN_LEN + 1];		
-    int 	port;
-    int		priority;
-    bool	tls;
+    char 	 host[HOSTLEN + 1];
+    char 	 network[NETLEN + 1];
+    char         nick[NICKLEN + 1];
+    char         ident[USERLEN + 1];
+    char         account[LOGINLEN + 1];
+    char         pass[PASSLEN + 1];
+    char         autojoin[AUTOJOIN_LEN + 1];		
+    int 	 port;
+    int		 priority;
+    bool	 tls;
     struct server_cfg *next;
 } server_cfg_t;
 
@@ -85,38 +84,44 @@ typedef struct irc_client {
 } irc_client_t;
 
 typedef bool (*irc_command_cb)(irc_client_t *cptr, irc_message_t *mp);
+#include <librustyaxe/event-bus.h>
 
 // XXX: we need to merge this into irc_command_cb
 typedef struct irc_callback {
-   char *cmd;				// IRC command
-   int  numeric;			// IRC numeric
-   char *desc;
-   int	min_args_client;		// Minimum args from a client
-   int	min_args_server;		// Minimum args from a server
-   int  max_args_client;		// Maximum args from a client
-   int	max_args_server;		// Maximum args from a server
+   char         *cmd;				// IRC command
+   int           numeric;			// IRC numeric
+   char         *desc;
+   int	         min_args_client;		// Minimum args from a client
+   int	         min_args_server;		// Minimum args from a server
+   int           max_args_client;		// Maximum args from a client
+   int	         max_args_server;		// Maximum args from a server
    irc_command_cb  cb;
-   bool		  relayed;		// is this message to be sent to other links?
+   char         *event_key;			// event callback key
+   bool		 relayed;		// is this message to be sent to other links?
    struct irc_callback *next;
 } irc_callback_t;
 
 typedef struct {
-   const char     *name;
-   const char     *desc;
-   bool		  relayed;		// is this message to be sent to other links?
-   irc_command_cb  cb;
+   const char    *name;
+   const char    *desc;
+   bool		 relayed;		// is this message to be sent to other links?
+   char         *event_key;			// event callback key
+   event_cb_t    event_cb;			// event callback function
+   irc_command_cb cb;
 } irc_command_t;
 
 typedef struct {
-   int code;
-   const char *name;
-   const char *desc;
-   irc_command_cb  cb;
+   int            code;
+   const char    *name;
+   const char    *desc;
+   irc_command_cb cb;
+   char          *event_key;
+   event_cb_t     event_cb;
 } irc_numeric_t;
 
 typedef struct {
-   const char *name;
-   const char *desc;
+   const char    *name;
+   const char    *desc;
 } irc_cap_t;
 
 #endif	// !defined(__libirc_struct_h)
