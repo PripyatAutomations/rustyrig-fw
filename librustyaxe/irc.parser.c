@@ -348,7 +348,7 @@ bool irc_register_default_callbacks(void) {
          return false;
       } else {
          if (cmd->cb) {
-            Log(LOG_DEBUG, "irc", "Registered handler for command %s: %s at <%p>", cmd->name, cmd->desc, cmd->cb);
+            Log(LOG_CRAZY, "irc", "Registered handler for command %s: %s at <%p>", cmd->name, cmd->desc, cmd->cb);
          }
       }
 
@@ -390,7 +390,7 @@ bool irc_register_default_numeric_callbacks(void) {
          free(cb);
          return false;
       } else {
-         Log(LOG_DEBUG, "irc", "Registered numeric handler for %03d (%s): %s at <%p>", numeric->code, numeric->name, numeric->desc, numeric->cb);
+         Log(LOG_CRAZY, "irc", "Registered numeric handler for %03d (%s): %s at <%p>", numeric->code, numeric->name, numeric->desc, numeric->cb);
       }
 
       numeric++;

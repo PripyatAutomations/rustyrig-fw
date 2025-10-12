@@ -88,9 +88,14 @@ tui_window_t *tui_window_create(const char *title) {
    return w;
 }
 
-void tui_window_destroy(tui_window_t *w) {
+bool tui_window_destroy(tui_window_t *w) {
    if (!w) {
-      return;
+      return true;
+   }
+
+   if (strcasecmp(w->title, "status") == 0) {
+      tui_print_win(tui_active_window(), "{red}*** {bright-red}Can't destroy status window! {red}***{reset}.");
+      return false;
    }
 
    int destroyed_index = -1;
@@ -98,6 +103,7 @@ void tui_window_destroy(tui_window_t *w) {
    // Find and remove from global list
    for (int i = 0; i < tui_num_windows; i++) {
       if (tui_windows[i] == w) {
+         tui_print_win(tui_window_find("status"), "* Closed window %d (%s)", i, w->title);
          destroyed_index = i;
          for (int j = i; j < tui_num_windows - 1; j++) {
             tui_windows[j] = tui_windows[j + 1];
@@ -109,7 +115,7 @@ void tui_window_destroy(tui_window_t *w) {
 
    if (destroyed_index == -1) {
       free(w);
-      return;
+      return true;
    }
 
    // Pick a new active window if needed
@@ -134,6 +140,26 @@ void tui_window_destroy(tui_window_t *w) {
    } else {
       tui_redraw_screen();
    }
+   return false;
+}
+
+bool tui_window_destroy_id(int id) {
+   if (id < 1 || id > tui_num_windows) {
+      tui_print_win(tui_active_window(),
+         "{bright-red}Invalid window %d, must be between 2 and %d{reset}.", id, tui_num_windows);
+      return true;
+   }
+
+   // shift down to zero-based index
+   tui_window_t *tw = tui_windows[id - 1];
+   if (tw) {
+      return tui_window_destroy(tw);
+   } else {
+      return true;
+   }
+
+   // we shouldnt make it here, so return error
+   return true;
 }
 
 const char *tui_window_get_active_title(void) {
@@ -175,7 +201,7 @@ tui_window_t *tui_window_focus(const char *title) {
 tui_window_t *tui_window_focus_id(int id) {
    if (id < 1 || id > tui_num_windows) {
       tui_print_win(tui_active_window(),
-         "Invalid window %d, must be between 1 and %d", id, tui_num_windows);
+         "{bright-red}Invalid window %d, must be between 1 and %d{reset}.", id, tui_num_windows);
       return NULL;
    }
 

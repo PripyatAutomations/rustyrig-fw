@@ -95,10 +95,24 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
    tui_window_t *wp = tui_window_find(win_title);
 
    if (*mp->argv[2] == '\001') {
-      // CTCP
+      // CTCP handling
       if (strncasecmp(mp->argv[2] + 1, "ACTION", 6) == 0) {
+         size_t s_len = strlen(mp->argv[2]);
+         // Remove trailing '\001'
+         if (s_len > 0 && mp->argv[2][s_len] == '\001') {
+            mp->argv[2][s_len] = '\0';
+         }
+
          Log(LOG_INFO, "irc", "[%s] * %s / %s %s", network, win_title, tmp_nick, mp->argv[2] + 8);
          tui_print_win(wp, "%s * %s %s", get_chat_ts(0), tmp_nick, mp->argv[2] + 8);
+      } else if (strncasecmp(mp->argv[2] + 1, "VERSION", 7) == 0) {
+         Log(LOG_INFO, "irc", "[%s] CTCP VERSION from %s", network, tmp_nick);
+         tui_print_win(wp, "%s %s *VERSION*", get_chat_ts(0), tmp_nick);
+         // Send a version reply
+         irc_send(wp->cptr, "NOTICE %s :\001VERSION %s\001", VERSION);
+      } else if (strncasecmp(mp->argv[2] + 1, "RRCALL", 6) == 0) {
+         Log(LOG_INFO, "irc", "[%s] CTCP RRCALL from %s: %s", network, tmp_nick, mp->argv[3]);
+         tui_print_win(wp, "%s %s CTCP RRCALL from %s: %s", get_chat_ts(0), network, tmp_nick, mp->argv[3]);
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);

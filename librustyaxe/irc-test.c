@@ -1,5 +1,4 @@
-//
-// a simple IRC client intended to showcase some of the features of librustyaxe
+   // a simple IRC client intended to showcase some of the features of librustyaxe
 // while helping me test the irc protocol bits
 //
 #include <stdio.h>
@@ -259,6 +258,26 @@ bool cli_win(int argc, char **args) {
       return true;
    }
 
+   if (strcasecmp(args[1], "close") == 0) {
+      Log(LOG_CRIT, "test", "argc: %d args0: %s args1: %s", argc, args[0], args[1]);
+      if (argc < 2) {
+         return true;
+      }
+
+      int id = -1;
+      if (argc >= 3) {
+         id = atoi(args[2]);
+      } else {
+         return tui_window_destroy(tui_active_window());
+      }
+
+      if (id > 0) {
+         tui_window_destroy_id(id);
+         return false;
+      }
+      return true;
+   }
+
    int id = atoi(args[1]);
 //   tui_print_win(tui_active_window(), "ID: %s", args[1]);
 
@@ -345,8 +364,19 @@ static void parse_server_opts(server_cfg_t *cfg, const char *opts) {
 
             if (strcasecmp(key, "priority") == 0) {
                cfg->priority = atoi(val);
+            } else if (strcasecmp(key, "autojoin") == 0) {
+               if (cfg->autojoin[0] == '\0') {
+                  snprintf(cfg->autojoin, sizeof(cfg->autojoin), "%s", val);
+               } else {
+                  size_t len = strlen(cfg->autojoin);
+                  if (len + 1 < sizeof(cfg->autojoin)) {          // +1 for comma
+                     strncat(cfg->autojoin, ",", sizeof(cfg->autojoin) - len - 1);
+                     strncat(cfg->autojoin, val, sizeof(cfg->autojoin) - strlen(cfg->autojoin) - 1);
+                  } else {
+                     Log(LOG_CRIT, "cfg", "autojoin buffer full, cannot append %s", val);
+                  }
+               }
             }
-            // add more options here
          }
       }
 
@@ -444,10 +474,70 @@ bool add_server(const char *network, const char *str) {
 // Callback for the config parser for 'network:*' section
 static bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
    char *np = strchr(section, ':');
+//   tui_print_win(tui_active_window(), "np: %s section: %s, path: %s, buf: %s", np + 1, section, path, buf);
+
    if (np) {
       np++;
-      tui_print_win(tui_window_find("status"), "network %s adding server: %s", np, buf);
-      add_server(np, buf);
+      if (strncasecmp(buf, "autojoin", 8) == 0) {
+         char *tmpbuf = strdup(buf);
+         if (!tmpbuf) {
+            fprintf(stderr, "OOM in config_network_cb!\n");
+            return true;
+         }
+
+         char *val = strchr(tmpbuf, '=');
+         if (!val || !val[1]) {
+            Log(LOG_CRIT, "irc", "config error: autojoin missing value: %s", buf);
+            free(tmpbuf);
+            return false;
+         }
+
+         *val++ = '\0';  // split at '='
+         while (*val == ' ' || *val == '\t') {
+            val++;
+         }
+
+//         tui_print_win(tui_active_window(), "np: %s buf: %s val: %s", np, buf, val);
+
+         if (strlen(val) < 2) {
+            Log(LOG_CRIT, "irc", "config error: autojoin invalid: %s", buf);
+            free(tmpbuf);
+            return false;
+         }
+
+         char key[256];
+         snprintf(key, sizeof(key), "network.%s.autojoin", np);
+         Log(LOG_DEBUG, "irc", "Adding autojoin for %s: %s", np, val);
+         tui_print_win(tui_active_window(), "[{green}%s{reset}] Setting autojoin: %s", np, val);
+         const char *x = cfg_get(key);
+         if (!x) {
+            tui_print_win(tui_window_find("status"), "add key: %s val: %s", key, val);
+            dict_add(cfg, key, val);
+         } else {
+            char buf[1024];
+            memset(buf, 0, 1024);
+            snprintf(buf, sizeof(buf), "%s", x);
+
+            size_t len = strlen(buf);
+            if (len + 1 < sizeof(buf)) {          // +1 for comma
+               strncat(buf, ",", sizeof(buf) - len - 1);
+               strncat(buf, val, sizeof(buf) - strlen(buf) - 1);
+               tui_print_win(tui_window_find("status"), "update: %s => %s", key, buf);
+               dict_add(cfg, key, buf);
+            } else {
+               Log(LOG_CRIT, "cfg", "autojoin buffer full, cannot append %s", val);
+            }
+         }
+
+         free(tmpbuf);
+      } else {
+         tui_print_win(tui_window_find("status"), "[{green}%s{reset}] adding server: %s", np, buf);
+         add_server(np, buf);
+      }
+      return false;
+   } else {
+      // invalid section for this callback
+      return true;
    }
    return false;
 }
@@ -485,7 +575,7 @@ bool irc_input_cb(const char *input) {
          }
       }
 
-      tui_print_win(tui_active_window(), "* Huh?! What you say?! I dont understand '%s'", args[0]);
+      tui_print_win(tui_active_window(), "{red}*** {bright-red}Huh?! What you say?! I dont understand '%s' {red}***{reset}.", args[0]);
       return true;
    }
 
@@ -493,7 +583,7 @@ bool irc_input_cb(const char *input) {
    tui_window_t *wp = tui_active_window();
    if (wp && wp->cptr) {
       if (strcasecmp(wp->title, "status") == 0) {
-         tui_print_win(tui_active_window(), "** Huh? What you say??? **");
+         tui_print_win(tui_active_window(), "{red}*** {bright-red}Huh? What you say??? {red}***{reset}.");
       } else {
          irc_send_privmsg(wp->cptr, wp, argc, args);
       }

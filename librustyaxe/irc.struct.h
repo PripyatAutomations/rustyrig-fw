@@ -24,6 +24,7 @@
 #define	NETLEN		64
 #define	RECVQLEN	16384		// read, but unprocessed data from the server
 #define	SENDQLEN	16384		// data waiting to be sent to the server
+#define	AUTOJOIN_LEN	1024		// auto-join channels
 
 typedef struct {
    char mode;          // mode letter, e.g. 'o', 'v', 'k'
@@ -62,6 +63,7 @@ typedef struct server_cfg {
     char        ident[USERLEN + 1];
     char        account[LOGINLEN + 1];
     char        pass[PASSLEN + 1];
+    char	autojoin[AUTOJOIN_LEN + 1];		
     int 	port;
     int		priority;
     bool	tls;

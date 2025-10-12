@@ -1,3 +1,6 @@
+//
+// irc.numerics.c: Default handlers for common IRC numerics.
+//
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -44,10 +47,58 @@ bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
       tui_window_focus(tw->title);
    }
    irc_send(cptr, "MODE %s +ixg", cptr->nick);
-   // send some test commands
-//   irc_send(cptr, "JOIN &%s", rig_id);
-//   irc_send(cptr, "JOIN #%s.%s", site_id, rig_id);
+
+   // Handle autojoin if configured
+   // Per Server:
+   if (*cptr->server->autojoin) {
+      char *aj = strdup(cptr->server->autojoin);  // safe copy to modify
+      char *tok, *saveptr = NULL;
+
+      for (tok = strtok_r(aj, ",", &saveptr); tok; tok = strtok_r(NULL, ",", &saveptr)) {
+         char *chan = tok;
+         char *key  = strchr(tok, ':');
+         if (key) {
+            *key++ = '\0';  // split channel:key
+            irc_send(cptr, "JOIN %s %s", chan, key);
+         } else {
+            irc_send(cptr, "JOIN %s", chan);
+         }
+      }
+
+      free(aj);
+   }
+
+   // Per network
+   char key[256];
+   memset(key, 0, 256);
+   snprintf(key, 256, "network.%s.autojoin", cptr->server->network);
+
+   const char *net_aj = cfg_get_exp(key);
+
+   if (net_aj && *net_aj) {
+      char *aj = strdup(net_aj);  // safe copy to modify
+      char *tok, *saveptr = NULL;
+
+      for (tok = strtok_r(aj, ",", &saveptr); tok; tok = strtok_r(NULL, ",", &saveptr)) {
+         char *chan = tok;
+         char *key  = strchr(tok, ':');
+         if (key) {
+            *key++ = '\0';  // split channel:key
+            irc_send(cptr, "JOIN %s %s", chan, key);
+         } else {
+            irc_send(cptr, "JOIN %s", chan);
+         }
+      }
+
+      free(aj);
+   } else {
+      tui_print_win(tui_active_window(), "net_aj: key %s returned %s", key, net_aj);
+   }
+   free((char *)net_aj);
+
+   // Blorp a WHOIS for ourself
    irc_send(cptr, "WHOIS %s", cptr->nick);
+
    tui_print_win(tui_window_find("status"), "{bright-cyan}>>>{reset} Attached to rig {bright-cyan}%s.%s{reset} via {bright-magenta}IRC{reset} transport [{green}%s{reset}] {bright-cyan}<<<{reset}", site_id, rig_id, cptr->server->network);
    return false;
 }
@@ -325,7 +376,7 @@ bool irc_builtin_num401(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] No such nickname: %s", irc_name(cptr), mp->argv[2]);
-   tui_print_win(tui_active_window(), "[{green}%s{reset}] No such nickname: {bright-cyan}%s{reset}", irc_name(cptr), mp->argv[2]);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] No such nickname: {bright-cyan}%s{reset}.", irc_name(cptr), mp->argv[2]);
    return false;
 }
 
@@ -335,7 +386,7 @@ bool irc_builtin_num403(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] No such channel: %s", irc_name(cptr), mp->argv[2]);
-   tui_print_win(tui_active_window(), "[{green}%s{reset}] No such channel: {bright-magenta}%s{reset}", irc_name(cptr), mp->argv[2]);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] No such channel: {bright-magenta}%s{reset}.", irc_name(cptr), mp->argv[2]);
    return false;
 }
 
@@ -379,7 +430,7 @@ bool irc_builtin_num461(irc_client_t *cptr, irc_message_t *mp) {
    }
 
    Log(LOG_DEBUG, "irc", "[%s] Not enough parameters:: %s", irc_name(cptr), mp->argv[2]);
-   tui_print_win(tui_active_window(), "[{green}%s{reset}] Not enough parameters: {bright-magenta}%s{reset}", irc_name(cptr), mp->argv[2]);
+   tui_print_win(tui_active_window(), "[{green}%s{reset}] Not enough parameters: {bright-magenta}%s{reset} ", irc_name(cptr), mp->argv[2]);
    return false;
 }
 

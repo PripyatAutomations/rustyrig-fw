@@ -355,6 +355,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
          } else {
             fprintf(stdout, "%s\n", log_msg);
          }
+         fflush(stdout);
       }
    }
 

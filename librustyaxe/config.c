@@ -219,7 +219,7 @@ static bool cfg_dispatch_callback(const char *path, int line, const char *sectio
             if (cbp->callback) {
                cbp->callback(path, line, section, buf);
             } else {
-               Log(LOG_WARN, "config", "cfg_dispatch_callback: This callback at <%p> for section |%s| path |%s| doesn't have a valid function attached", cbp, section, path);
+               Log(LOG_WARN, "config", "cfg_dispatch_callback: The callback at <%p> for section |%s| path |%s| doesn't have a valid function attached", cbp, section, path);
             }
          }
       }
@@ -228,7 +228,7 @@ static bool cfg_dispatch_callback(const char *path, int line, const char *sectio
       cbp = cbp->next;
       fprintf(stderr, "prev;<%p> cbp:<%p> list:<%p>\n", prev, cbp, cfg_callbacks);
    }
-   if (true || i > 50) {
+   if (i > 10) {
       Log(LOG_WARN, "config", "%s: made %d iterations for cbp:<%p>", __FUNCTION__, i, cfg_callbacks);
    }
    return false;
