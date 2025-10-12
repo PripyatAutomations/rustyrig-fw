@@ -5,31 +5,43 @@
 #include <stdbool.h>
 #include <librustyaxe/core.h>
 
-bool irc_builtin_ping_cb(irc_client_t *cptr, irc_message_t *mp) {
-   // pull out the message argument from argv[2]
-   const char *data = mp->argv[1];
-
-   // reply with the message data
-   if (data) {
-      Log(LOG_DEBUG, "irc.parser", "[%s] Ping? Pong! |%s|", irc_name(cptr), data);
-//      tui_print_win(tui_window_find("status"), "[{green}%s{reset}] {green}Ping? {red}Pong!{reset} %s", irc_name(cptr), data);
-      irc_send(cptr, "PONG :%s", data);
-   } else {
-      Log(LOG_CRIT, "irc.parser", "[%s] Empty ping from cptr:<%p>", irc_name(cptr), cptr);
-   }
-
-   return false;
-}
-
-bool irc_builtin_pong_cb(irc_client_t *cptr, irc_message_t *mp) {
-   Log(LOG_CRAZY, "irc", "[%s] Got PONG from server: |%s|", irc_name(cptr), (mp->argv[1] ? mp->argv[1] : "(null)"));
-   return false;
-}
-
-
 bool irc_builtin_error_cb(irc_client_t *cptr, irc_message_t *mp) {
    Log(LOG_CRIT, "irc", "[%s] Got ERROR from server: |%s|", irc_name(cptr), (mp->argv[1] ? mp->argv[1] : "(null)"));
    tui_print_win(tui_active_window(), "{red}>>> {bright-red}ERROR:{bright-cyan} %s {red}<<<{reset}", mp->argv[1]);
+   return false;
+}
+
+bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
+   char *nick = mp->prefix;
+
+   if (!nick) {
+      Log(LOG_CRIT, "irc", "join_cb with no prefix! mp:<%p>", mp);
+      return true;
+   }
+
+   char *nick_end = strchr(nick, '!');
+   char tmp_nick[NICKLEN + 1];
+   size_t nicklen = (nick_end - nick);
+
+   if (nicklen <= 0) {
+      // XXX: we should handle messages without full masks here
+      Log(LOG_CRIT, "irc", "join_cb nicklen <= 0: %d", nicklen);
+      return true;
+   }
+
+   char *win_title = mp->argv[1];
+   char *network = cptr->server->network;
+
+   memset(tmp_nick, 0, NICKLEN + 1);
+   snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
+
+   tui_window_t *tw = tui_window_create(mp->argv[1]);
+   tw->cptr = cptr;
+   tui_window_focus(mp->argv[1]);
+
+   Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
+   tui_print_win(tw, "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
+
    return false;
 }
 
@@ -64,99 +76,6 @@ bool irc_builtin_notice_cb(irc_client_t *cptr, irc_message_t *mp) {
 
    Log(LOG_INFO, "irc", "*notice* %s <%s> %s", irc_name(cptr), mp->argv[1], tmp_nick, mp->argv[2]);
    tui_print_win(tui_window_find("status"), "[%s] *%s* <%s> %s", network, mp->argv[1], tmp_nick, mp->argv[2]);
-
-   return false;
-}
-
-bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
-   char *nick = mp->prefix;
-
-   if (!nick) {
-      return true;
-   }
-
-   char *nick_end = strchr(nick, '!');
-   char tmp_nick[NICKLEN + 1];
-   char *network = cptr->server->network;
-   size_t nicklen = (nick_end - nick);
-
-   memset(tmp_nick, 0, NICKLEN + 1);
-   snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
-
-   char *win_title = tmp_nick;
-   // Is this a query or channel message?
-   bool is_private = true;
-
-   if (*mp->argv[1] == '&' || *mp->argv[1] == '#') {
-      is_private = false;
-      win_title = mp->argv[1];
-   }
-
-   tui_window_t *wp = tui_window_find(win_title);
-
-   if (*mp->argv[2] == '\001') {
-      // CTCP handling
-      if (strncasecmp(mp->argv[2] + 1, "ACTION", 6) == 0) {
-         size_t s_len = strlen(mp->argv[2]);
-         // Remove trailing '\001'
-         if (s_len > 0 && mp->argv[2][s_len] == '\001') {
-            mp->argv[2][s_len] = '\0';
-         }
-
-         Log(LOG_INFO, "irc", "[%s] * %s / %s %s", network, win_title, tmp_nick, mp->argv[2] + 8);
-         tui_print_win(wp, "%s * %s %s", get_chat_ts(0), tmp_nick, mp->argv[2] + 8);
-      } else if (strncasecmp(mp->argv[2] + 1, "VERSION", 7) == 0) {
-         Log(LOG_INFO, "irc", "[%s] CTCP VERSION from %s", network, tmp_nick);
-         tui_print_win(wp, "%s %s *VERSION*", get_chat_ts(0), tmp_nick);
-         // Send a version reply
-         irc_send(wp->cptr, "NOTICE %s :\001VERSION %s\001", VERSION);
-      } else if (strncasecmp(mp->argv[2] + 1, "RRCALL", 6) == 0) {
-         Log(LOG_INFO, "irc", "[%s] CTCP RRCALL from %s: %s", network, tmp_nick, mp->argv[3]);
-         tui_print_win(wp, "%s %s CTCP RRCALL from %s: %s", get_chat_ts(0), network, tmp_nick, mp->argv[3]);
-      }
-   } else {
-      Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
-      if (strcasestr(mp->argv[2], cptr->nick) == 0) {
-         tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, mp->argv[2]);
-      } else {
-         tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, mp->argv[2]);
-      }
-   }
-
-
-   return false;
-}
-
-bool irc_builtin_join_cb(irc_client_t *cptr, irc_message_t *mp) {
-   char *nick = mp->prefix;
-
-   if (!nick) {
-      Log(LOG_CRIT, "irc", "join_cb with no prefix! mp:<%p>", mp);
-      return true;
-   }
-
-   char *nick_end = strchr(nick, '!');
-   char tmp_nick[NICKLEN + 1];
-   size_t nicklen = (nick_end - nick);
-
-   if (nicklen <= 0) {
-      // XXX: we should handle messages without full masks here
-      Log(LOG_CRIT, "irc", "join_cb nicklen <= 0: %d", nicklen);
-      return true;
-   }
-
-   char *win_title = mp->argv[1];
-   char *network = cptr->server->network;
-
-   memset(tmp_nick, 0, NICKLEN + 1);
-   snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
-
-   tui_window_t *tw = tui_window_create(mp->argv[1]);
-   tw->cptr = cptr;
-   tui_window_focus(tw->title);
-
-   Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
-   tui_print_win(tw, "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
 
    return false;
 }
@@ -199,6 +118,116 @@ bool irc_builtin_part_cb(irc_client_t *cptr, irc_message_t *mp) {
       tui_print_win(tui_window_find(win_title),
                     "%s [{green}%s{reset}] * {bright-cyan}%s{reset} left {bright-magenta}%s{reset}",
                     get_chat_ts(0), network, tmp_nick, win_title);
+   }
+
+   return false;
+}
+
+bool irc_builtin_ping_cb(irc_client_t *cptr, irc_message_t *mp) {
+   // pull out the message argument from argv[2]
+   const char *data = mp->argv[1];
+
+   // reply with the message data
+   if (data) {
+      Log(LOG_DEBUG, "irc.parser", "[%s] Ping? Pong! |%s|", irc_name(cptr), data);
+//      tui_print_win(tui_window_find("status"), "[{green}%s{reset}] {green}Ping? {red}Pong!{reset} %s", irc_name(cptr), data);
+      irc_send(cptr, "PONG :%s", data);
+   } else {
+      Log(LOG_CRIT, "irc.parser", "[%s] Empty ping from cptr:<%p>", irc_name(cptr), cptr);
+   }
+
+   return false;
+}
+
+bool irc_builtin_pong_cb(irc_client_t *cptr, irc_message_t *mp) {
+   Log(LOG_CRAZY, "irc", "[%s] Got PONG from server: |%s|", irc_name(cptr), (mp->argv[1] ? mp->argv[1] : "(null)"));
+   return false;
+}
+
+bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
+   char *nick = mp->prefix;
+
+   if (!nick) {
+      return true;
+   }
+
+   char *nick_end = strchr(nick, '!');
+   char tmp_nick[NICKLEN + 1];
+   char *network = cptr->server->network;
+   size_t nicklen = (nick_end - nick);
+
+   memset(tmp_nick, 0, NICKLEN + 1);
+   snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
+
+   char *win_title = tmp_nick;
+   // Is this a query or channel message?
+   bool is_private = true;
+
+   if (*mp->argv[1] == '&' || *mp->argv[1] == '#') {
+      is_private = false;
+      win_title = mp->argv[1];
+   }
+
+   tui_window_t *wp = tui_window_find(win_title);
+   if (!wp) {
+      wp = tui_active_window();
+   }
+
+   if (*mp->argv[2] == '\001') {
+      // CTCP parser (yuck)
+      // Command
+      char cmd[64];
+      memset(cmd,0, 64);
+      char *scp = mp->argv[2] + 1;
+      char *ecp = strchr(scp, ' ');
+      size_t ecl = strlen(scp);
+
+      if (!ecp ) {
+         ecp = scp + ecl;
+      }
+      *ecp = '\0';
+      snprintf(cmd, 64, "%.*s", (ecp - scp), scp);
+
+      // data
+      char *sdp = ecp + 1;
+      size_t edl = strlen(sdp);
+      char *edp = sdp + edl;
+      char *data = sdp;
+      if (edl > 0) {
+        // Remove the CTCP \001 ending
+        *edp = '\0';
+      } else {
+         edp = NULL;
+      }
+   
+      // CTCP handling
+      tui_print_win(tui_active_window(), "%s {bright-yellow}*** CTCP{reset} from {bright-cyan}%s{reset} cmd: %s data: %s {bright-yellow}***{reset} ", get_chat_ts(0), tmp_nick, cmd, data);
+
+      if (strcasecmp(cmd, "ACTION") == 0) { // action is technically a CTCP
+         Log(LOG_INFO, "irc", "[%s] * %s / %s %s", network, win_title, tmp_nick, data);
+         tui_print_win(wp, "%s * %s %s", get_chat_ts(0), tmp_nick, data);
+      } else if (strcasecmp(cmd, "PING") == 0) {
+         tui_print_win(tui_window_find("status"), "%s %s CTCP PING from %s: %s", get_chat_ts(0), network, tmp_nick, data);
+         irc_send(cptr, "NOTICE %s :\001PING %s\001", tmp_nick,  data);
+      } else if (strcasecmp(cmd, "RRCALL") == 0) {
+         Log(LOG_INFO, "irc", "[%s] CTCP RRCALL from %s: %s", network, tmp_nick, data);
+         tui_print_win(wp, "%s %s CTCP RRCALL from %s: %s", get_chat_ts(0), network, tmp_nick, data);
+      } else if (strcasecmp(cmd, "VERSION") == 0) {
+         tui_print_win(tui_window_find("status"), "%s %s *VERSION*", get_chat_ts(0), tmp_nick);
+         Log(LOG_INFO, "irc", "[%s] CTCP VERSION from %s", network, tmp_nick);
+         irc_send(cptr, "NOTICE %s :\001VERSION rustyrig %s\001", tmp_nick, VERSION);
+      }
+
+      // XXX: Process user hooks
+   } else { // Normal messages
+      Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
+      if (strcasestr(mp->argv[2], cptr->nick) == 0) {
+         tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
+      } else {
+         tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s", get_chat_ts(0), tmp_nick, mp->argv[2]);
+      }
+
+      // XXX: Process user hooks
    }
 
    return false;
