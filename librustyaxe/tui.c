@@ -114,21 +114,17 @@ bool tui_fini(void) {
 }
 
 void tui_redraw_screen(void) {
-   if (!tui_enabled) {
-      return;
-   }
+   if (!tui_enabled) return;
 
    update_term_size();
 
    printf("\033[H\033[2J"); // clear screen
 
    tui_window_t *w = tui_active_window();
-   if (!w) {
-      return;
-   }
+   if (!w) return;
 
    // --- Top status line ---
-   printf("\033[1;1H"); // move to row 1, col 1
+   printf("\033[1;1H");
    if (w->status_line) {
       char *colored = tui_colorize_string(w->status_line);
       printf(" %-*s", visible_length(colored), colored);
@@ -138,63 +134,50 @@ void tui_redraw_screen(void) {
    }
 
    // --- Log area ---
-   int log_lines_to_print = term_rows - 3; // top status + bottom status + input
-   if (log_lines_to_print > LOG_LINES) {
-      log_lines_to_print = LOG_LINES;
-   }
-
-   int filled = w->log_count;
-   if (filled > log_lines_to_print) {
-      filled = log_lines_to_print;
-   }
-
+   int log_area_rows = term_rows - 3; // top + bottom + input
+   int filled = (w->log_count > log_area_rows) ? log_area_rows : w->log_count;
    int start = (w->log_head + LOG_LINES - w->scroll_offset - filled) % LOG_LINES;
 
-   for (int i = 0; i < filled; i++) {
+   int row = 2; // first row for logs
+   for (int i = 0; i < filled && row < term_rows - 1; i++) {
       int idx = (start + i) % LOG_LINES;
-      printf("\033[%d;1H", i + 2); // logs start at row 2
+      if (!w->buffer[idx]) continue;
 
-      if (w->buffer[idx]) {
-         const char *p = w->buffer[idx];
-         int row = i + 2;
+      const char *p = w->buffer[idx];
+      while (*p && row < term_rows - 1) {
+         int col = 0;
+         const char *line_start = p;
+         const char *last_break = p;
 
-         while (*p && row < term_rows - 1) {
-            int col = 0;
-            const char *line_start = p;
-            const char *last_break = p;
-
-            // Count visible characters, skip ANSI sequences
-            while (*p && col < term_cols) {
-               if (*p == '\033' && *(p+1) == '[') {
-                  p++;
-                  while (*p && *p != 'm') p++;
-                  if (*p) p++;
-               } else {
-                  col++;
-                  last_break = ++p;
-               }
+         // Count visible chars, skip ANSI
+         while (*p && col < term_cols) {
+            if (*p == '\033' && *(p+1) == '[') {
+               p++;
+               while (*p && *p != 'm') p++;
+               if (*p) p++;
+            } else {
+               col++;
+               last_break = ++p;
             }
-
-            // Print this slice
-            printf("\033[%d;1H", row);
-            fwrite(line_start, 1, last_break - line_start, stdout);
-            term_clrtoeol();
-            row++;
          }
-      }
 
-      term_clrtoeol();
+         // Print slice
+         printf("\033[%d;1H", row++);
+         fwrite(line_start, 1, last_break - line_start, stdout);
+         term_clrtoeol();
+      }
    }
 
    // Fill remaining log space with blanks
-   for (int i = filled; i < log_lines_to_print; i++) {
-      printf("\033[%d;1H", i + 2);
+   while (row < term_rows - 1) {
+      printf("\033[%d;1H", row++);
       term_clrtoeol();
    }
 
    // --- Bottom status line ---
    printf("\033[%d;1H", term_rows - 1);
    printf("%-*s", term_cols, status_line);
+
    tui_redraw_clock();
    tui_update_input_line();
 }

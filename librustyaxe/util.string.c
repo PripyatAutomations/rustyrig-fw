@@ -156,16 +156,29 @@ int ansi_strlen(const char *s) {
    return len;
 }
 
+// Returns the number of visible characters in a string (ignores ANSI escapes)
 int visible_length(const char *s) {
    int len = 0;
-   for (const char *p = s; *p; p++) {
-      if (*p == '{') {
+   const char *p = s;
+
+   while (*p) {
+      if (*p == '\033' && *(p+1) == '[') {  // ANSI sequence
+         p += 2; // skip \033[
+         while (*p && *p != 'm') {
+            p++;
+         }
+         if (*p) {
+            p++;
+         }
+      } else if (*p == '{') {
          while (*p && *p != '}') {
             p++;  // skip color markup
          }
       } else {
          len++;
+         p++;
       }
    }
+
    return len;
 }

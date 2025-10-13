@@ -165,11 +165,11 @@ char *irc_to_tui_colors(const char *in) {
    // ^C##[,##] for fg/bg colors
    // ^B bold, ^U underline, ^R reverse, ^O reset, ^_ underline, ^I italic (rare)
    const char *colors[] = {
-      "white",          // 0
+      "bright-white",   // 0
       "black",          // 1
       "blue",           // 2
       "green",          // 3
-      "red",            // 4
+      "bright-red",     // 4
       "brown",          // 5
       "magenta",        // 6
       "orange",         // 7
