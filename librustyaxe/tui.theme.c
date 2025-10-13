@@ -33,7 +33,14 @@ static const ansi_entry_t ansi_table[] = {
    { "reverse",      "\033[7m" },
    { "hidden",       "\033[8m" },
    { "strike",       "\033[9m" },
-
+   { "bold-off",      "\033[22m" },  // turns off bold/dim
+   { "dim-off",       "\033[22m" },  // same as bold-off
+   { "italic-off",    "\033[23m" },  // turns off italic
+   { "underline-off", "\033[24m" },  // turns off underline
+   { "blink-off",     "\033[25m" },  // turns off blink
+   { "reverse-off",   "\033[27m" },  // turns off reverse/inverse
+   { "hidden-off",    "\033[28m" },  // turns off hidden
+   { "strike-off",    "\033[29m" },  // turns off strike-through
    // Normal foreground colors
    { "black",        "\033[30m" },
    { "red",          "\033[31m" },

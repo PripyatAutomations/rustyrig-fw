@@ -2,6 +2,7 @@ rustyrig-fw (20251012) testing; urgency=medium
 * Much work on tui
   - Keybindings for line editing (^A/^E/^W/^U)
   - Keybindings for window movement (alt-1...0)
+  - moved linewrapping to the tui_redraw_screen to allow clean window resizing
 * Implemented the event system
 * renamed irc-test to rrcli
 * Start of work on loadable modules

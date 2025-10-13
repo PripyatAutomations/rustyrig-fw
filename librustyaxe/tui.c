@@ -348,124 +348,6 @@ void tui_window_update_topline(const char *line) {
    fflush(stdout);
 }
 
-#if	0
-void tui_update_input_line(void) {
-   if (!tui_enabled) {
-      return;
-   }
-
-   tui_window_t *win = tui_active_window();
-   if (!win) {
-      return;
-   }
-
-   int width = term_cols;
-
-   // --- build visible input buffer with placeholders ---
-   char buf[2048];
-   int buf_pos = 0;
-   int screen_cols[input_len + 1]; // map each input char -> screen column
-   int cols = 0;
-
-   for (int i = 0; i < input_len; i++) {
-      unsigned char c = input_buf[i];
-
-      switch (c) {
-         case 0x01: {
-            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{ctrl-A}");
-            break;
-         }
-         case 0x02: {
-            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{bold}B{reset}");
-            break;
-         }
-         case 0x03: {
-            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{reverse}C{reset}");
-            break;
-         }
-         case 0x0F: {
-            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{reset}");
-            break;
-         }
-         case 0x16: {
-            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{reverse}V{reset}");
-            break;
-         }
-         case 0x1D: {
-            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{underline}I{reset}");
-            break;
-         }
-         case 0x1F: {
-            // Placeholder occupies exactly 1 visible column
-            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{underline}_{reset}");
-            break;
-         }
-         default: {
-            if (c >= 0x20 && c <= 0x7E) {
-               buf[buf_pos] = c;
-               buf_pos++;
-            } else {
-               buf[buf_pos] = '?';
-               buf_pos++;
-            }
-            break;
-         }
-      }
-
-      // each input char counts as exactly one visible column
-      cols++;
-      screen_cols[i] = cols;
-   }
-
-   buf[buf_pos] = '\0';
-
-   // --- determine cursor_screen_pos ---
-   int cursor_screen_pos = 0;
-
-   if (cursor_pos == 0) {
-      cursor_screen_pos = 0;
-   } else if (cursor_pos < input_len) {
-      cursor_screen_pos = screen_cols[cursor_pos - 1];
-   } else if (cursor_pos == input_len) {
-      cursor_screen_pos = screen_cols[input_len - 1] + 1;
-   }
-
-   // --- colorize entire line ---
-   char *colorized_line = tui_colorize_string(buf);
-
-   // --- compute visible slice ---
-   int prompt_len = visible_length(win->title) + 2; // title + '>' + space
-   int max_input_width = width - prompt_len - 1;
-   int start_col = 0;
-
-   if (cursor_screen_pos > max_input_width) {
-      start_col = cursor_screen_pos - max_input_width;
-   }
-
-   char slice[2048];
-   strncpy(slice, &colorized_line[start_col], max_input_width);
-   slice[max_input_width] = '\0';
-
-   // --- prepare colored prompt ---
-   char prompt[512];
-   snprintf(prompt, sizeof(prompt), "{bright-cyan}%s{cyan}>{reset}", win->title);
-   char *color_prompt = tui_colorize_string(prompt);
-
-   // --- redraw line ---
-   printf("\033[%d;1H\033[2K", term_rows);
-   printf("%s%s", color_prompt, slice);
-
-   // --- move cursor ---
-   int cursor_screen = cursor_screen_pos - start_col + prompt_len;
-   printf("\033[%d;%dH", term_rows, cursor_screen + 1);
-
-   free(color_prompt);
-   free(colorized_line);
-   fflush(stdout);
-}
-
-#endif
-
 void tui_update_input_line(void) {
    if (!tui_enabled) {
       return;
@@ -506,7 +388,7 @@ void tui_update_input_line(void) {
             break;
          }
          case 0x1D: { // Ctrl-] italic
-            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{underline}I{underline-off}");
+            buf_pos += snprintf(&buf[buf_pos], sizeof(buf) - buf_pos, "{italic}I{italic-off}");
             break;
          }
          case 0x1F: { // Ctrl-_ underline toggle
