@@ -19,6 +19,8 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 
+bool tui_colors = true;
+
 static const ansi_entry_t ansi_table[] = {
    { "reset",        "\033[0m" },
 
@@ -102,20 +104,22 @@ static const char *ansi_code(const char *tag) {
    return NULL;
 }
 
-
 char *tui_colorize_string(const char *in) {
-   if (!in) return NULL;
+   if (!in) {
+      return NULL;
+   }
 
    size_t len = strlen(in);
-   char *out = malloc(len * 8 + 64);
-   if (!out) return NULL;
+   char *out = malloc(len * 8 + 64); // enough for ANSI codes
+   if (!out) {
+      return NULL;
+   }
 
    const char *p = in;
    char *o = out;
 
    while (*p) {
       if (*p == '{') {
-         // find closing brace
          const char *end = strchr(p, '}');
          if (!end) {
             *o++ = *p++;
@@ -124,19 +128,24 @@ char *tui_colorize_string(const char *in) {
 
          size_t key_len = end - (p+1);
          char key[64];
-         if (key_len >= sizeof(key)) key_len = sizeof(key)-1;
+         if (key_len >= sizeof(key)) {
+            key_len = sizeof(key)-1;
+         }
          memcpy(key, p+1, key_len);
          key[key_len] = '\0';
 
-         // look up ansi code
-         const ansi_entry_t *ae;
-         for (ae = ansi_table; ae->tag; ae++) {
-            if (strcmp(ae->tag, key) == 0) {
-               o += sprintf(o, "%s", ae->code);
-               break;
+         // if TUI colors are enabled, insert them
+         if (tui_colors) {
+            // look up ANSI escape
+            const ansi_entry_t *ae;
+            for (ae = ansi_table; ae->tag; ae++) {
+               if (strcmp(ae->tag, key) == 0) {
+                  o += sprintf(o, "%s", ae->code);
+                  break;
+               }
             }
          }
-
+         // if tui_colors == 0, just skip the {key} sequence
          p = end + 1;
       } else {
          *o++ = *p++;
@@ -237,7 +246,6 @@ void tui_print_win(tui_window_t *win, const char *fmt, ...) {
 
    char msgbuf[513];
    va_list ap;
-
    va_start(ap, fmt);
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
    va_end(ap);
@@ -247,53 +255,78 @@ void tui_print_win(tui_window_t *win, const char *fmt, ...) {
       return;
    }
 
-   int width = tui_cols();
-   const char *p = colored;
+   // Copy whole message as a single buffer entry
+   char *line = strdup(colored);
+   free(colored);
+   if (!line) {
+      return;
+   }
+
+   // Free old line safely
+   if (win->buffer[win->log_head]) {
+      free(win->buffer[win->log_head]);
+      win->buffer[win->log_head] = NULL;
+   }
+
+   win->buffer[win->log_head] = line;
+   win->log_head = (win->log_head + 1) % LOG_LINES;
+   if (win->log_count < LOG_LINES) {
+      win->log_count++;
+   }
+
+   tui_redraw_screen();
+}
+
+char *strip_mirc_formatting(const char *input) {
+   if (!input) {
+      return NULL;
+   }
+
+   size_t len = strlen(input);
+   char *out = malloc(len + 1);
+   if (!out) {
+      return NULL;
+   }
+
+   const char *p = input;
+   char *q = out;
 
    while (*p) {
-      int col = 0;
-      const char *line_start = p;
-      const char *last_break = p;
+      unsigned char c = *p;
 
-      // ANSI-aware column counting
-      while (*p && col < width) {
-         if (*p == '\033' && *(p + 1) == '[') {
+      if (c == 0x02  // Bold
+          || c == 0x1D // Italic
+          || c == 0x1F // Underline
+          || c == 0x0F // Reset
+          || c == 0x11 // Reverse (mIRC specific)
+      ) {
+         p++; // skip formatting
+      } 
+      else if (c == 0x03) { // Color
+         p++;
+         // skip up to two digits for foreground
+         if (isdigit((unsigned char)*p)) {
             p++;
-            while (*p && *p != 'm') {
-               p++;
-            }
-            if (*p) {
-               p++;
-            }
-         } else {
-            col++;
-            last_break = ++p;
          }
-      }
-
-      // Copy slice into heap memory
-      size_t slice_len = last_break - line_start;
-      char *line = malloc(slice_len + 1);
-      if (!line) {
-         break;
-      }
-
-      memcpy(line, line_start, slice_len);
-      line[slice_len] = '\0';
-
-      // Free old line safely
-      if (win->buffer[win->log_head]) {
-         free(win->buffer[win->log_head]);
-         win->buffer[win->log_head] = NULL;
-      }
-
-      win->buffer[win->log_head] = line;
-      win->log_head = (win->log_head + 1) % LOG_LINES;
-      if (win->log_count < LOG_LINES) {
-         win->log_count++;
+         if (isdigit((unsigned char)*p)) {
+            p++;
+         }
+         // optionally skip comma and up to two digits for background
+         if (*p == ',') {
+            p++;
+            if (isdigit((unsigned char)*p)) {
+               p++;
+            }
+            if (isdigit((unsigned char)*p)) {
+               p++;
+            }
+         }
+      } 
+      else {
+         *q++ = *p++;
       }
    }
 
-   free(colored);
-   tui_redraw_screen();
+   *q = '\0';
+   return out;
 }

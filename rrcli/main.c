@@ -28,6 +28,7 @@ extern void rr_set_irc_conn_pool(void);
 
 bool dying = false;
 bool debug_sockets = false;
+bool mirc_colors = true;
 time_t now = 0;
 static ev_timer tui_clock_watcher;
 
@@ -190,13 +191,19 @@ static void on_privmsg(const char *event, void *data, irc_client_t *cptr, void *
 
    Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
 
-   char *colored = irc_to_tui_colors(mp->argv[2]);
+   char *colored = NULL;
+   if (mirc_colors) {
+      colored = irc_to_tui_colors(mp->argv[2]);
+   } else {
+      colored = strip_mirc_formatting(mp->argv[2]);
+   }
 
    if (strcasestr(mp->argv[2], cptr->nick) == 0) {
       tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ", get_chat_ts(0), tmp_nick, colored);
    } else {
       tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s{reset} ", get_chat_ts(0), tmp_nick, colored);
    }
+
    free(colored);
    return;
 }
@@ -234,6 +241,7 @@ int main(int argc, char **args) {
 
    // XXX: this needs moved to module_init in mod.proto.irc
    irc_init();
+   mirc_colors = cfg_get_bool("irc.colors", false);
    event_on("irc.privmsg", on_privmsg, NULL);
    rr_set_irc_conn_pool();
    autoconnect();

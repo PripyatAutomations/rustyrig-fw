@@ -89,6 +89,8 @@ bool tui_init(void) {
    // set SIGnal WINdow CHange handler
    signal(SIGWINCH, sigwinch_handler);
 
+   tui_colors = cfg_get_bool("tui.use-color", true);
+
    // set up windowing
    tui_window_init();
 
@@ -153,8 +155,34 @@ void tui_redraw_screen(void) {
       printf("\033[%d;1H", i + 2); // logs start at row 2
 
       if (w->buffer[idx]) {
-         printf("%s", w->buffer[idx]);
+         const char *p = w->buffer[idx];
+         int row = i + 2;
+
+         while (*p && row < term_rows - 1) {
+            int col = 0;
+            const char *line_start = p;
+            const char *last_break = p;
+
+            // Count visible characters, skip ANSI sequences
+            while (*p && col < term_cols) {
+               if (*p == '\033' && *(p+1) == '[') {
+                  p++;
+                  while (*p && *p != 'm') p++;
+                  if (*p) p++;
+               } else {
+                  col++;
+                  last_break = ++p;
+               }
+            }
+
+            // Print this slice
+            printf("\033[%d;1H", row);
+            fwrite(line_start, 1, last_break - line_start, stdout);
+            term_clrtoeol();
+            row++;
+         }
       }
+
       term_clrtoeol();
    }
 
