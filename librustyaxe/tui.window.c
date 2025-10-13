@@ -237,6 +237,7 @@ int tui_window_swap(int c, int key) {
       tui_window_focus(tui_windows[num]->title);
       tui_redraw_screen();
    }
+//   tui_print_win(tui_window_find("status"), "Swap to window %d", num + 1);
    return 0;
 }
 

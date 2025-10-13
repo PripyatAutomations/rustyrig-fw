@@ -37,13 +37,15 @@ static const ansi_entry_t ansi_table[] = {
    { "red",          "\033[31m" },
    { "green",        "\033[32m" },
    { "yellow",       "\033[33m" },
+   { "brown",        "\033[38;5;94m" },  // mIRC-style brown
    { "blue",         "\033[34m" },
    { "magenta",      "\033[35m" },
    { "cyan",         "\033[36m" },
    { "white",        "\033[37m" },
+   { "orange",       "\033[38;5;208m" }, // mIRC-style orange
 
    // Bright foreground colors
-   { "bright-black", "\033[90m" },
+   { "bright-black", "\033[90m" },       // ensure bright-black exists
    { "bright-red",   "\033[91m" },
    { "bright-green", "\033[92m" },
    { "bright-yellow","\033[93m" },
@@ -57,10 +59,12 @@ static const ansi_entry_t ansi_table[] = {
    { "bg-red",       "\033[41m" },
    { "bg-green",     "\033[42m" },
    { "bg-yellow",    "\033[43m" },
+   { "bg-brown",     "\033[48;5;94m" },
    { "bg-blue",      "\033[44m" },
    { "bg-magenta",   "\033[45m" },
    { "bg-cyan",      "\033[46m" },
    { "bg-white",     "\033[47m" },
+   { "bg-orange",    "\033[48;5;208m" },
 
    // Bright backgrounds
    { "bg-bright-black",  "\033[100m" },
@@ -72,7 +76,6 @@ static const ansi_entry_t ansi_table[] = {
    { "bg-bright-cyan",   "\033[106m" },
    { "bg-bright-white",  "\033[107m" },
 
-   // list end
    { NULL, NULL }
 };
 
@@ -99,37 +102,131 @@ static const char *ansi_code(const char *tag) {
    return NULL;
 }
 
-char *tui_colorize_string(const char *input) {
-   size_t outcap = strlen(input) * 8 + 1;
-   char *out = malloc(outcap);
+
+char *tui_colorize_string(const char *in) {
+   if (!in) return NULL;
+
+   size_t len = strlen(in);
+   char *out = malloc(len * 8 + 64);
+   if (!out) return NULL;
+
+   const char *p = in;
+   char *o = out;
+
+   while (*p) {
+      if (*p == '{') {
+         // find closing brace
+         const char *end = strchr(p, '}');
+         if (!end) {
+            *o++ = *p++;
+            continue;
+         }
+
+         size_t key_len = end - (p+1);
+         char key[64];
+         if (key_len >= sizeof(key)) key_len = sizeof(key)-1;
+         memcpy(key, p+1, key_len);
+         key[key_len] = '\0';
+
+         // look up ansi code
+         const ansi_entry_t *ae;
+         for (ae = ansi_table; ae->tag; ae++) {
+            if (strcmp(ae->tag, key) == 0) {
+               o += sprintf(o, "%s", ae->code);
+               break;
+            }
+         }
+
+         p = end + 1;
+      } else {
+         *o++ = *p++;
+      }
+   }
+
+   *o = '\0';
+   return out;
+}
+
+char *irc_to_tui_colors(const char *in) {
+   if (!in) {
+      return NULL;
+   }
+
+   // IRC color codes
+   // ^C##[,##] for fg/bg colors
+   // ^B bold, ^U underline, ^R reverse, ^O reset, ^_ underline, ^I italic (rare)
+   const char *colors[] = {
+      "white",          // 0
+      "black",          // 1
+      "blue",           // 2
+      "green",          // 3
+      "red",            // 4
+      "brown",          // 5
+      "magenta",        // 6
+      "orange",         // 7
+      "bright-yellow",  // 8
+      "bright-green",   // 9
+      "cyan",           // 10
+      "bright-cyan",    // 11
+      "bright-blue",    // 12
+      "bright-magenta", // 13
+      "bright-black",   // 14
+      "white"           // 15
+   };
+
+   char *out = malloc(strlen(in) * 8 + 64);
    if (!out) {
       return NULL;
    }
 
-   char *dst = out;
-   const char *src = input;
+   const unsigned char *p = (const unsigned char *)in;
+   char *o = out;
 
-   while (*src) {
-      if (*src == '{') {
-         const char *end = strchr(src, '}');
-         if (end) {
-            size_t len = end - src - 1;
-            if (len > 0 && len < 64) {
-               char tag[64];
-               memcpy(tag, src + 1, len);
-               tag[len] = '\0';
-               const char *code = ansi_code(tag);
-               if (code) {
-                  dst += sprintf(dst, "%s", code);
-                  src = end + 1;
-                  continue;
-               }
+   while (*p) {
+      if (*p == 0x03) { // ^C color
+         p++;
+         int fg = -1, bg = -1;
+
+         if (isdigit(p[0]) && isdigit(p[1])) {
+            fg = (p[0] - '0') * 10 + (p[1] - '0');
+            p += 2;
+         } else if (isdigit(p[0])) {
+            fg = p[0] - '0';
+            p++;
+         }
+
+         if (*p == ',' && isdigit(p[1])) {
+            p++;
+            if (isdigit(p[0]) && isdigit(p[1])) {
+               bg = (p[0] - '0') * 10 + (p[1] - '0');
+               p += 2;
+            } else {
+               bg = p[0] - '0';
+               p++;
             }
          }
+
+         if (fg >= 0 && fg < 16) {
+            o += sprintf(o, "{%s}", colors[fg]);
+         }
+         if (bg >= 0 && bg < 16) {
+            o += sprintf(o, "{bg-%s}", colors[bg]);
+         }
+         continue;
       }
-      *dst++ = *src++;
+
+      switch (*p) {
+         case 0x02: o += sprintf(o, "{bold}"); break;       // ^B
+         case 0x1F: o += sprintf(o, "{underline}"); break;  // ^_
+         case 0x16: o += sprintf(o, "{reverse}"); break;    // ^V
+         case 0x0F: o += sprintf(o, "{reset}"); break;      // ^O
+         case 0x1D: o += sprintf(o, "{italic}"); break;     // ^]
+         default: *o++ = *p; break;
+      }
+      p++;
    }
-   *dst = '\0';
+
+   *o = '\0';
    return out;
 }
 
@@ -140,6 +237,7 @@ void tui_print_win(tui_window_t *win, const char *fmt, ...) {
 
    char msgbuf[513];
    va_list ap;
+
    va_start(ap, fmt);
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
    va_end(ap);
@@ -159,9 +257,11 @@ void tui_print_win(tui_window_t *win, const char *fmt, ...) {
 
       // ANSI-aware column counting
       while (*p && col < width) {
-         if (*p == '\033' && *(p+1) == '[') { // start of ANSI sequence
+         if (*p == '\033' && *(p + 1) == '[') {
             p++;
-            while (*p && *p != 'm') p++;
+            while (*p && *p != 'm') {
+               p++;
+            }
             if (*p) {
                p++;
             }
@@ -177,6 +277,7 @@ void tui_print_win(tui_window_t *win, const char *fmt, ...) {
       if (!line) {
          break;
       }
+
       memcpy(line, line_start, slice_len);
       line[slice_len] = '\0';
 

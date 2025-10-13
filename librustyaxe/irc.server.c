@@ -35,7 +35,7 @@ void irc_build_message(const irc_message_t *mp, char *msg, size_t msglen) {
 
       // Last argument → prefix with ':'
       if (i == mp->argc - 1 && (strchr(arg, ' ') || arg[0] == ':')) {
-         pos += snprintf(msg + pos, msglen - pos, ":%s", arg);
+         pos += snprintf(msg + pos, msglen - pos, " :%s", arg);
       } else {
          pos += snprintf(msg + pos, msglen - pos, "%s%s",
                          (i > 0 ? " " : ""), arg);

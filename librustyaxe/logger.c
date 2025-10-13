@@ -45,13 +45,15 @@ static struct log_callback *log_callbacks = NULL;
 /* String constants we use more than a few times */
 const char s_prio_none[] = " NONE";
 
+// Here we define our logo priorities to be used everywhere else
 static struct log_priority log_priorities[] = {
-   { .prio = LOG_AUDIT,	.msg = "audit" },
-   { .prio = LOG_CRIT,	.msg = "crit" },
-   { .prio = LOG_WARN,	.msg = "warn" },
-   { .prio = LOG_INFO,	.msg = "info" },
-   { .prio = LOG_DEBUG,	.msg = "debug" },
-   { .prio = LOG_CRAZY, .msg = "crazy" },
+   { .prio = LOG_AUDIT,	.msg = "audit" },		// Auditing events
+   { .prio = LOG_CRIT,	.msg = "crit" },		// Critical problems
+   { .prio = LOG_WARN,	.msg = "warn" },		// Warnings
+   { .prio = LOG_INFO,	.msg = "info" },		// Useful information of a non-important nature
+   { .prio = LOG_DEBUG,	.msg = "debug" },		// Most commonly useful for debugging problems, a balance of verbosity and speed
+   { .prio = LOG_CRAZY, .msg = "crazy" },		// Many usually useless messages, which can aid with debugging but too noisy for typical debugging use
+   { .prio = LOG_BLITZKREIG, .msg = "blitz" },		// unmanagably noisy and will slow the program greatly - for debugging only!
    { .prio = LOG_NONE,	.msg = s_prio_none }		// invalid entry
 };
 

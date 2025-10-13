@@ -22,7 +22,7 @@
 #include <termios.h>
 #include <unistd.h>
 
-extern int tui_win_swap(int c, int key);
+extern int tui_window_swap(int c, int key);
 extern int handle_alt_left(int c, int key);
 extern int handle_alt_right(int c, int key);
 
@@ -236,7 +236,7 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
       }
 
       // --- log the key for debugging ---
-      Log(LOG_CRAZY, "tui.key", "key: type=%d code=%d mod=%d c=%d", key.type, key.code.codepoint, key.modifiers, c);
+      Log(LOG_DEBUG, "tui.key", "key: type=%d code=%d mod=%d c=%d", key.type, key.code.codepoint, key.modifiers, c);
 
       // --- Hotkeys / special keys ---
       if (key.type == TERMKEY_TYPE_KEYSYM) {
@@ -319,19 +319,10 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                handled = 1;
                break;
             }
-            case '1': case '2': case '3': case '4': case '5':
-            case '6': case '7': case '8': case '9': case '0': {
-               if (key.modifiers & TERMKEY_KEYMOD_ALT) {
-                  tui_print_win(tui_window_find("status"), "Got win swap to %d", c);
-                  tui_window_swap(0, c);
-               }
-               break;
-            }
-
             default:
                if ((key.modifiers & TERMKEY_KEYMOD_ALT) &&
                    key.code.sym >= '0' && key.code.sym <= '9') {
-                  handled = tui_win_swap(1, key.code.sym - '0');
+                  handled = tui_window_swap(1, key.code.sym - '0');
                }
                break;
          }
@@ -339,24 +330,56 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
 
       // --- Ctrl line editing ---
       if (!handled && (key.modifiers & TERMKEY_KEYMOD_CTRL)) {
+         char insert = 0;
          switch (c) {
+            case '_': {
+               insert = 0x1F; // Underline (alternate)
+               break;
+            }
             case 'A':
-            case 'a':
+            case 'a': {
                cursor_pos = 0;
                handled = 1;
                break;
+            }
+            case 'B':
+            case 'b': {
+               insert = 0x02; // Bold
+               break;
+            }
+            case 'C':
+            case 'c': {
+               insert = 0x03; // Color code
+               break;
+            }
             case 'E':
             case 'e':
                cursor_pos = input_len;
                handled = 1;
                break;
+            case 'I':
+            case 'i': {
+               insert = 0x1D; // Underline
+               break;
+            }
+            case 'O':
+            case 'o': {
+               insert = 0x0F; // Reset
+               break;
+            }
             case 'U':
-            case 'u':
+            case 'u': {
                input_len = 0;
                cursor_pos = 0;
                input_buf[0] = '\0';
                handled = 1;
                break;
+            }
+            case 'V':
+            case 'v': {
+               insert = 0x16; // Reverse
+               break;
+            }
             case 'W':
             case 'w': {
                if (cursor_pos > 0) {
@@ -378,6 +401,7 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
             case 'X':
             case 'x': {
                // Switch to the next server
+               break;
             }
             case 0x08: { // Ctrl-H
                if (cursor_pos > 0) {
@@ -388,6 +412,14 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                handled = 1;
                break;
             }
+         }
+
+         if (insert && input_len < TUI_INPUTLEN - 1) {
+            memmove(&input_buf[cursor_pos + 1], &input_buf[cursor_pos], input_len - cursor_pos + 1);
+            input_buf[cursor_pos] = insert;
+            cursor_pos++;
+            input_len++;
+            handled = 1;
          }
       }
 
@@ -408,6 +440,14 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                }
                handled = 1;
                break;
+            case '1': case '2': case '3': case '4': case '5':
+            case '6': case '7': case '8': case '9': case '0': {
+               if (key.modifiers & TERMKEY_KEYMOD_ALT) {
+                  tui_window_swap(1, c);
+                  handled = 1;
+               }
+               break;
+            }
             case TERMKEY_SYM_DELETE:
                if (cursor_pos < input_len) {
                   memmove(&input_buf[cursor_pos], &input_buf[cursor_pos + 1], input_len - cursor_pos);

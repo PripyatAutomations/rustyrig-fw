@@ -15,12 +15,13 @@
 
 enum LogPriority {
       LOG_NONE = -1,
-      LOG_CRIT,
-      LOG_AUDIT,
-      LOG_WARN,
-      LOG_INFO,
-      LOG_DEBUG,
-      LOG_CRAZY
+      LOG_CRIT,			// Auditing events
+      LOG_AUDIT,		// Critical problems
+      LOG_WARN,			// Warnings
+      LOG_INFO,			// Useful information of a non-important nature
+      LOG_DEBUG,		// Most commonly useful for debugging problems, a balance of verbosity and speed
+      LOG_CRAZY,		// Many usually useless messages, which can aid with debugging but too noisy for typical debugging use
+      LOG_BLITZKREIG		// unmanagably noisy and will slow the program greatly - for debugging only!
 };
 
 struct log_priority {

@@ -1,3 +1,14 @@
+rustyrig-fw (20251012) testing; urgency=medium
+* Much work on tui
+  - Keybindings for line editing (^A/^E/^W/^U)
+  - Keybindings for window movement (alt-1...0)
+* Implemented the event system
+* renamed irc-test to rrcli
+* Start of work on loadable modules
+  - Will register their desired events via event_on_list() stdargs mass loader
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 12 Oct 2025 22:47:00 -0400
+
 rustyrig-fw (20251003) testing; urgency=medium
 * Cleanup and work on tui
 * Work on irc client support in librustyaxe

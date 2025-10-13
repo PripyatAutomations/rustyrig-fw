@@ -1,16 +1,15 @@
 ===============
 = librustyaxe =
 ===============
-* Event notifications support
 * Finish theme support
-  - Make some common variables passed to theme engine via a dict
-    * $nick $chan $prefix $cmd $args $arg0...$argX where X is $argc
 * IRC
   - make things less coupled to the tui, so we can chose which ui to load
   - Implement per-channel user lists, so we can populate the tab completion
   - For QUITs, send them to all channel windows that the user is a member of
   - Finish client support
   - Start on server support
+  - Use char *irc_to_tui_colors(const char *in);
+
 * rework Log() and tui_print_win() a little so there's a variant i can
     call with a va_list, so i can make a function that blorps into the
     user interface as well as the log file

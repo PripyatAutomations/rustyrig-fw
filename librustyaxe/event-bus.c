@@ -50,6 +50,7 @@ void event_emit(const char *event, irc_client_t *cptr, void *data) {
 
    for (size_t i = 0; i < list->count; i++) {
       event_listener_t *l = ((void**)list->ptr)[i];
+      Log(LOG_CRAZY, "event", "Event %s from cptr:<%p> with data:<%p> user:<%p", event, cptr, data, l->user);
       l->cb(event, data, cptr, l->user);
    }
 }
