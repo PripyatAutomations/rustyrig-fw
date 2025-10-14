@@ -213,9 +213,7 @@ int main(int argc, char **args) {
    char *fullpath = NULL;
 
    event_init();
-
-   // set our input callback
-   tui_readline_cb = irc_input_cb;
+   tui_readline_cb = irc_input_cb;	// set our input callback
    tui_init();
    tui_print_win(tui_window_find("status"), "rrcli starting");
 
@@ -246,7 +244,6 @@ int main(int argc, char **args) {
    rr_set_irc_conn_pool();
    autoconnect();
 
-   ////////////////
    ev_run(loop, 0);
 
    /////////////

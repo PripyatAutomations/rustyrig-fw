@@ -4,3 +4,6 @@
 [submodule "www"]
 	path = www
 	url = https://github.com/PripyatAutomations/rustyrig-www.git
+[submodule "ext/libev"]
+	path = ext/libev
+	url = https://github.com/enki/libev.git

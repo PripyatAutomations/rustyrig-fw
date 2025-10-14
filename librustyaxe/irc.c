@@ -54,6 +54,7 @@ bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
    vsnprintf(msg, sizeof(msg), fmt, ap);
 
    // XXX: replace this with real socket io ;)
+   Log(LOG_DEBUG, "net", "send(%d): %d bytes: %s", cptr->fd, strlen(msg), msg);
    dprintf(cptr->fd, "%s\r\n", msg);
    va_end(ap);
    return false;

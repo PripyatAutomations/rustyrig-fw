@@ -76,11 +76,15 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
 
       // Send login
       if (cptr->server->pass[0]) {
+         Log(LOG_CRIT, "irc", "calling send auth from %s()", __FUNCTION__);
+
          if (cptr->server->account[0])
             irc_send(cptr, "PASS %s:%s", cptr->server->account, cptr->server->pass);
          else
             irc_send(cptr, "PASS %s", cptr->server->pass);
       }
+//      const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
+//      irc_send(cptr, "NICK %s\r\nUSER %s 0 * :%s", cptr->nick, ident, cptr->nick);
       irc_send(cptr, "NICK %s", cptr->nick);
       const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
       irc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
@@ -119,6 +123,8 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
          else
             irc_send(cptr, "PASS %s", cptr->server->pass);
       }
+//      const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
+//      irc_send(cptr, "NICK %s\r\nUSER %s 0 * :%s", cptr->nick, ident, cptr->nick);
       irc_send(cptr, "NICK %s", cptr->nick);
       const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
       irc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
@@ -127,6 +133,8 @@ static void irc_io_cb(EV_P_ ev_io *w, int revents) {
    if (revents & EV_READ) {
       char buf[512];
       ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);
+      Log(LOG_DEBUG, "net", "recv(%d): %d bytes: %s", cptr->fd, n, buf);
+
       if (n <= 0) {
          ev_io_stop(EV_A_ w);
          close(cptr->fd);

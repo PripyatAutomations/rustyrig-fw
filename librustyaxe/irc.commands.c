@@ -207,7 +207,7 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
       }
    
       // CTCP handling
-      tui_print_win(tui_window_find("status"), "%s {bright-yellow}*** CTCP{reset} from {bright-cyan}%s{reset} cmd: %s data: %s {bright-yellow}***{reset} ", get_chat_ts(0), tmp_nick, cmd, data);
+//      tui_print_win(tui_window_find("status"), "%s {bright-yellow}*** CTCP{reset} from {bright-cyan}%s{reset} cmd: %s data: %s {bright-yellow}***{reset} ", get_chat_ts(0), tmp_nick, cmd, data);
 
       if (strcasecmp(cmd, "ACTION") == 0) { // action is technically a CTCP
          Log(LOG_INFO, "irc", "[%s] * %s / %s %s", network, win_title, tmp_nick, data);
@@ -227,7 +227,7 @@ bool irc_builtin_privmsg_cb(irc_client_t *cptr, irc_message_t *mp) {
       // CTCP handler needs to remove the \001 characters internally!
       event_emit("irc.ctcp", cptr, mp);
    } else { // Normal messages
-      tui_print_win(tui_window_find("status"), "%s {bright-yellow}*** PRIVMSG{reset} from {bright-cyan}%s{reset} msg: %s {bright-yellow}***{reset} ", get_chat_ts(0), tmp_nick, mp->argv[2]);
+//      tui_print_win(tui_window_find("status"), "%s {bright-yellow}*** PRIVMSG{reset} from {bright-cyan}%s{reset} msg: %s {bright-yellow}***{reset} ", get_chat_ts(0), tmp_nick, mp->argv[2]);
       event_emit("irc.privmsg", cptr, mp);
    }
 

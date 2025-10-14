@@ -41,6 +41,7 @@ static const ansi_entry_t ansi_table[] = {
    { "reverse-off",   "\033[27m" },  // turns off reverse/inverse
    { "hidden-off",    "\033[28m" },  // turns off hidden
    { "strike-off",    "\033[29m" },  // turns off strike-through
+
    // Normal foreground colors
    { "black",        "\033[30m" },
    { "red",          "\033[31m" },
@@ -203,31 +204,39 @@ char *irc_to_tui_colors(const char *in) {
          p++;
          int fg = -1, bg = -1;
 
-         if (isdigit(p[0]) && isdigit(p[1])) {
-            fg = (p[0] - '0') * 10 + (p[1] - '0');
-            p += 2;
-         } else if (isdigit(p[0])) {
+         // --- parse foreground (1–2 digits) ---
+         if (isdigit((unsigned char)p[0])) {
             fg = p[0] - '0';
             p++;
-         }
-
-         if (*p == ',' && isdigit(p[1])) {
-            p++;
-            if (isdigit(p[0]) && isdigit(p[1])) {
-               bg = (p[0] - '0') * 10 + (p[1] - '0');
-               p += 2;
-            } else {
-               bg = p[0] - '0';
+            if (isdigit((unsigned char)p[0])) {
+               fg = fg * 10 + (p[0] - '0');
                p++;
             }
          }
 
-         if (fg >= 0 && fg < 16) {
+         // --- parse optional background ---
+         if (*p == ',') {
+            p++;
+            if (isdigit((unsigned char)p[0])) {
+               bg = p[0] - '0';
+               p++;
+               if (isdigit((unsigned char)p[0])) {
+                  bg = bg * 10 + (p[0] - '0');
+                  p++;
+               }
+            }
+         }
+
+         // clamp and output
+         if (fg >= 0 && fg < 16)
             o += sprintf(o, "{%s}", colors[fg]);
-         }
-         if (bg >= 0 && bg < 16) {
+         if (bg >= 0 && bg < 16)
             o += sprintf(o, "{bg-%s}", colors[bg]);
-         }
+
+         // skip any remaining digits or commas (safety)
+         while (isdigit((unsigned char)*p) || *p == ',')
+            p++;
+
          continue;
       }
 
@@ -251,7 +260,7 @@ void tui_print_win(tui_window_t *win, const char *fmt, ...) {
       return;
    }
 
-   char msgbuf[513];
+   char msgbuf[2048];
    va_list ap;
    va_start(ap, fmt);
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);

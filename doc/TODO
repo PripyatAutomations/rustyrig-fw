@@ -3,6 +3,7 @@
 ===============
 * Finish theme support
 * IRC
+  - handle failed connections/nick in use/other common signon errors gracefully
   - make things less coupled to the tui, so we can chose which ui to load
   - Implement per-channel user lists, so we can populate the tab completion
   - For QUITs, send them to all channel windows that the user is a member of

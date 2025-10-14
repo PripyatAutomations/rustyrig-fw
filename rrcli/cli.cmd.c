@@ -232,6 +232,41 @@ bool cli_quote(int argc, char **args) {
    return false;
 }
 
+bool cli_topic(int argc, char **args) {
+   tui_window_t *wp = tui_active_window();
+
+   if (wp) {
+      // There's a window here at least...
+      if (wp->cptr) {
+         char *target = wp->title;
+
+         if (*target != '&' && *target != '#') {
+            tui_print_win(tui_active_window(), "* TOPIC is only valid for channel windows!");
+            return true;
+         }
+
+         char msg[300];
+         memset(msg, 0, sizeof(msg));
+
+         if (argc >= 3) {
+           memset(msg, 0, 256);
+           size_t pos = 0;
+
+           for (int i = 2; i < argc; i++) {
+              int n = snprintf(msg + pos, sizeof(msg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
+              if (n < 0 || (size_t)n >= sizeof(msg) - pos) {
+                 break;
+              }
+              pos += n;
+           }
+         }
+         tui_print_win(tui_active_window(), "msg: %s", msg);
+         irc_send(wp->cptr, "TOPIC %s :%s", target, msg);
+      }
+   }
+   return false;
+}
+
 bool cli_whois(int argc, char **args) {
    if (argc > 1) {
       char *target = args[1];
@@ -301,7 +336,7 @@ cli_command_t cli_commands[] = {
    { .cmd = "/part",   .cb = cli_part,   .desc = "leave a channel" },
    { .cmd = "/quit",   .cb = cli_quit,   .desc = "Exit the program" },
    { .cmd = "/quote",  .cb = cli_quote,  .desc = "Send a raw IRC command" },
-//   { .cmd = "/topic",  .cb = cli_topic,  .desc = "Set channel topic" },
+   { .cmd = "/topic",  .cb = cli_topic,  .desc = "Set channel topic" },
    { .cmd = "/win",    .cb = cli_win,    .desc = "Change windows" },
 //   { .cmd = "/voice",  .cb = cli_voice,  .desc = "Give chan voice status to user" },
    { .cmd = "/whois",  .cb = cli_whois,  .desc = "Show client information" },
