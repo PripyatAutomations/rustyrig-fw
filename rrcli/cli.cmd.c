@@ -248,19 +248,18 @@ bool cli_topic(int argc, char **args) {
          char msg[300];
          memset(msg, 0, sizeof(msg));
 
-         if (argc >= 3) {
+         if (argc >= 2) {
            memset(msg, 0, 256);
            size_t pos = 0;
 
-           for (int i = 2; i < argc; i++) {
-              int n = snprintf(msg + pos, sizeof(msg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
+           for (int i = 1; i < argc; i++) {
+              int n = snprintf(msg + pos, sizeof(msg) - pos, "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
               if (n < 0 || (size_t)n >= sizeof(msg) - pos) {
                  break;
               }
               pos += n;
            }
          }
-         tui_print_win(tui_active_window(), "msg: %s", msg);
          irc_send(wp->cptr, "TOPIC %s :%s", target, msg);
       }
    }
@@ -320,7 +319,6 @@ bool cli_clear(int argc, char **args) {
    return false;
 }
 extern bool cli_help(int argc, char **args);
-
 cli_command_t cli_commands[] = {
    { .cmd = "/clear",  .cb = cli_clear,  .desc = "Clear the scrollback" },
 //   { .cmd = "/deop",   .cb = cli_deop,   .desc = "Take chan operator status from user" },

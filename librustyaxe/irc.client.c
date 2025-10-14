@@ -15,7 +15,7 @@
 #include <librustyaxe/core.h>
 #include <ev.h>
 
-static void irc_io_cb(EV_P_ ev_io *w, int revents);
+void irc_io_cb(EV_P_ ev_io *w, int revents);
 
 irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    if (!srv) {
@@ -97,65 +97,3 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    return cptr;
 }
 
-static void irc_io_cb(EV_P_ ev_io *w, int revents) {
-   irc_client_t *cptr = (irc_client_t *)(((char*)w) - offsetof(irc_client_t, io_watcher));
-
-   if (revents & EV_WRITE && !cptr->connected) {
-      int err = 0;
-      socklen_t len = sizeof(err);
-      getsockopt(cptr->fd, SOL_SOCKET, SO_ERROR, &err, &len);
-      if (err != 0) {
-         ev_io_stop(EV_A_ w);
-         close(cptr->fd);
-         cptr->connected = false;
-         return;
-      }
-
-      // Connected!
-      cptr->connected = true;
-      ev_io_set(w, cptr->fd, EV_READ);
-      ev_io_start(EV_A_ w);
-
-      // Send login
-      if (cptr->server->pass[0]) {
-         if (cptr->server->account[0])
-            irc_send(cptr, "PASS %s:%s", cptr->server->account, cptr->server->pass);
-         else
-            irc_send(cptr, "PASS %s", cptr->server->pass);
-      }
-//      const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
-//      irc_send(cptr, "NICK %s\r\nUSER %s 0 * :%s", cptr->nick, ident, cptr->nick);
-      irc_send(cptr, "NICK %s", cptr->nick);
-      const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
-      irc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
-   }
-
-   if (revents & EV_READ) {
-      char buf[512];
-      ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);
-      Log(LOG_DEBUG, "net", "recv(%d): %d bytes: %s", cptr->fd, n, buf);
-
-      if (n <= 0) {
-         ev_io_stop(EV_A_ w);
-         close(cptr->fd);
-         cptr->connected = false;
-         return;
-      }
-
-      size_t cur_len = strlen(cptr->recvq);
-      if ((size_t)n + cur_len >= RECVQLEN) {
-         cptr->recvq[0] = '\0';
-         cur_len = 0;
-      }
-      memcpy(cptr->recvq + cur_len, buf, n);
-      cptr->recvq[cur_len + n] = '\0';
-
-      char *line;
-      while ((line = strstr(cptr->recvq, "\r\n"))) {
-         *line = '\0';
-         irc_process_message(cptr, cptr->recvq);
-         size_t rem = strlen(line + 2);
-         memmove(cptr->recvq, line + 2, rem + 1);
-      }
-   }
-}

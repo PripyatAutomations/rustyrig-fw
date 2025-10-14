@@ -8,7 +8,6 @@
 //
 // Socket backend for io subsys
 //
-//#include "build_config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -19,6 +18,14 @@
 #include <stdbool.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
+
+/*
+completion:
+  - This needs to become aware of the focused window
+   if line starts with / and no space: cli_command_t.cmd
+   if word starts with & or #, check channels joined
+   Else, show users in current channel if a channel window
+ */  
 
 char *tui_completion_generator(const char* text, int state) {
    static int list_index, len;

@@ -46,6 +46,9 @@ bool irc_builtin_num001(irc_client_t *cptr, irc_message_t *mp) {
       }
       tui_window_focus(tw->title);
    }
+
+   event_emit("irc.connected", cptr, mp);
+
    irc_send(cptr, "MODE %s +ix", cptr->nick);
 
    // Handle autojoin if configured
@@ -434,6 +437,30 @@ bool irc_builtin_num461(irc_client_t *cptr, irc_message_t *mp) {
    return false;
 }
 
+bool irc_builtin_num482(irc_client_t *cptr, irc_message_t *mp) {
+   if (!mp || mp->argc < 2) {
+      return false;
+   }
+
+   char buf[1024];
+   char *target = mp->argv[2];
+   size_t pos = 0;
+
+   for (int i = 3; i < mp->argc; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos,
+                       "%s{%d}%s", (i > 3 ? " " : ""), i, mp->argv[i] ? mp->argv[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s]: %s: %s", irc_name(cptr), target, buf);
+   tui_print_win(tui_window_find(target), "%s [{green}%s{reset}] * You're not a channel operator: %s", get_chat_ts(0), irc_name(cptr), target, buf);
+
+   return false;
+}
+
 const irc_numeric_t irc_numerics[] = {
    // --- Connection / welcome ---
    { .code =   1, .name = "RPL_WELCOME",            .desc = "Welcome to the Internet Relay Network",   .cb = irc_builtin_num001 },
@@ -494,7 +521,7 @@ const irc_numeric_t irc_numerics[] = {
    { .code =  473, .name = "ERR_INVITEONLYCHAN",   .desc = "Invite-only channel",                     .cb = NULL },
    { .code =  474, .name = "ERR_BANNEDFROMCHAN",   .desc = "Banned from channel",                     .cb = NULL },
    { .code =  475, .name = "ERR_BADCHANNELKEY",    .desc = "Bad channel key",                         .cb = NULL },
-   { .code =  482, .name = "ERR_CHANOPRIVSNEEDED", .desc = "Channel operator privileges needed",      .cb = NULL },
+   { .code =  482, .name = "ERR_CHANOPRIVSNEEDED", .desc = "Channel operator privileges needed",      .cb = irc_builtin_num482 },
    { .code =  491, .name = "ERR_NOOPERHOST",       .desc = "No O-lines for your host",                .cb = NULL },
 
    // --- IRCv3 / extensions ---
