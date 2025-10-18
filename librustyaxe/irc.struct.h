@@ -78,6 +78,7 @@ typedef struct irc_client {
    char          user[USERLEN + 1];
    char          hostname[HOSTLEN + 1];	// hostname/servername
    int		 fd;			// socket fd
+   bool          sent_login;
    char		 recvq[RECVQLEN + 1];
    char          sendq[SENDQLEN + 1];
    ev_io io_watcher;

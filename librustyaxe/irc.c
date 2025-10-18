@@ -124,51 +124,6 @@ bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
 void irc_io_cb(EV_P_ ev_io *w, int revents) {
    irc_client_t *cptr = (irc_client_t *)(((char*)w) - offsetof(irc_client_t, io_watcher));
 
-   if (revents & EV_WRITE) {
-      if (!cptr->connected) {
-         int err = 0;
-         socklen_t len = sizeof(err);
-         if (getsockopt(cptr->fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0) {
-            Log(LOG_CRIT, "irc", "getsockopt failed");
-            ev_io_stop(EV_A_ w);
-            close(cptr->fd);
-            cptr->connected = false;
-            return;
-         }
-
-         if (err != 0) {
-            Log(LOG_CRIT, "irc", "connect failed: %s", strerror(err));
-            ev_io_stop(EV_A_ w);
-            close(cptr->fd);
-            cptr->connected = false;
-            return;
-         }
-
-         // connected successfully
-         cptr->connected = true;
-         Log(LOG_DEBUG, "irc", "non-blocking connect completed");
-
-         // switch watcher to read
-         ev_io_set(EV_A_ w, cptr->fd, EV_READ);
-
-         // send login messages
-         if (cptr->server->pass[0]) {
-            if (cptr->server->account[0])
-               irc_send(cptr, "PASS %s:%s", cptr->server->account, cptr->server->pass);
-            else
-               irc_send(cptr, "PASS %s", cptr->server->pass);
-         }
-         const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
-         irc_send(cptr, "NICK %s", cptr->nick);
-         irc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
-      }
-
-      irc_try_send(cptr);
-      if (strchr(cptr->sendq, '\r') == NULL) {
-         ev_io_set(EV_A_ w, cptr->fd, EV_READ);
-      }
-   }
-
    if (revents & EV_READ) {
       char buf[512];
       ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);
@@ -179,6 +134,8 @@ void irc_io_cb(EV_P_ ev_io *w, int revents) {
          return;
       }
 
+      buf[n] = '\0';
+
       // append to recvq safely
       size_t cur_len = strlen(cptr->recvq);
       if (cur_len + n >= RECVQLEN) {
@@ -186,7 +143,6 @@ void irc_io_cb(EV_P_ ev_io *w, int revents) {
          cptr->recvq[0] = '\0';
          cur_len = 0;
       }
-
       memcpy(cptr->recvq + cur_len, buf, n);
       cur_len += n;
       cptr->recvq[cur_len] = '\0';
@@ -198,11 +154,33 @@ void irc_io_cb(EV_P_ ev_io *w, int revents) {
          *end = '\0';
          Log(LOG_DEBUG, "net", "processing line: [%s]", start);
          irc_process_message(cptr, start);
+
+         // send login on first server message
+         if (!cptr->sent_login) {
+            if (cptr->server->pass[0]) {
+               if (cptr->server->account[0])
+                  irc_send(cptr, "PASS %s:%s", cptr->server->account, cptr->server->pass);
+               else
+                  irc_send(cptr, "PASS %s", cptr->server->pass);
+            }
+            irc_send(cptr, "NICK %s", cptr->nick);
+            const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
+            irc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
+            cptr->sent_login = true;
+         }
+
          start = end + 2;
       }
 
       // move leftover partial line to front
       size_t leftover = strlen(start);
       memmove(cptr->recvq, start, leftover + 1);
+   }
+
+   if (revents & EV_WRITE) {
+      irc_try_send(cptr);
+      if (strchr(cptr->sendq, '\r') == NULL) {
+         ev_io_set(EV_A_ w, cptr->fd, EV_READ);
+      }
    }
 }
