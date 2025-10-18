@@ -49,23 +49,26 @@ dict *irc_generate_vars(irc_client_t *cptr, const char *chan) {
 }
 
 static void irc_try_send(irc_client_t *cptr) {
-   if (!cptr || cptr->fd <= 0)
+   if (!cptr || cptr->fd <= 0) {
       return;
+   }
 
    size_t len = 0;
-
-   // Find how much of sendq is complete messages ending with \r\n
    char *p = cptr->sendq;
+
+   // find how much of sendq is complete messages ending with \r\n
    while ((p = strstr(p, "\r\n"))) {
-      len = (p - cptr->sendq) + 2;  // include \r\n
+      len = (p - cptr->sendq) + 2;
       p += 2;
    }
 
-   if (len == 0)
-      return; // no complete message to send yet
+   if (len == 0) {
+      return;
+   }
 
    ssize_t n = send(cptr->fd, cptr->sendq, len, 0);
-   Log(LOG_CRIT, "irc", "send(%d) to cptr:<%p>: %d bytes: %.*s", cptr->fd, cptr, n, len, cptr->sendq);
+   Log(LOG_CRIT, "irc", "send(%d) to cptr:<%p>: %d bytes: %.*s",
+       cptr->fd, cptr, (int)n, (int)len, cptr->sendq);
 
    if (n < 0) {
       if (errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -76,10 +79,19 @@ static void irc_try_send(irc_client_t *cptr) {
       return;
    }
 
-   if ((size_t)n < len)
-      memmove(cptr->sendq, cptr->sendq + n, len - n + 1);
-   else
-      memmove(cptr->sendq, cptr->sendq + len, strlen(cptr->sendq + len) + 1);
+   if ((size_t)n < len) {
+      // partial send, move remaining to front
+      memmove(cptr->sendq, cptr->sendq + n, len - n);
+      cptr->sendq[len - n] = '\0';
+   } else {
+      // full send, move any leftover queued messages
+      size_t remaining = strlen(cptr->sendq + len);
+      if (remaining > 0) {
+         memmove(cptr->sendq, cptr->sendq + len, remaining + 1);
+      } else {
+         cptr->sendq[0] = '\0';
+      }
+   }
 }
 
 bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
