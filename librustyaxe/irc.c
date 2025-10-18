@@ -83,8 +83,9 @@ static void irc_try_send(irc_client_t *cptr) {
 }
 
 bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
-   if (!cptr || !fmt || cptr->fd <= 0)
+   if (!cptr || !fmt || cptr->fd <= 0) {
       return false;
+   }
 
    char msg[512];
    va_list ap;
@@ -98,7 +99,7 @@ bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
       return false;
    }
 
-   // append message + \r\n
+   // append message + CRLF
    size_t cur_len = strlen(cptr->sendq);
    memcpy(cptr->sendq + cur_len, msg, msglen);
    cur_len += msglen;
@@ -106,12 +107,16 @@ bool irc_send(irc_client_t *cptr, const char *fmt, ...) {
    cptr->sendq[cur_len++] = '\n';
    cptr->sendq[cur_len] = '\0';
 
-   // attempt to send complete messages
+   // attempt to send immediately
    irc_try_send(cptr);
 
-   // ensure EV_WRITE is watching
-   ev_io_set(&cptr->io_watcher, cptr->fd, EV_READ | EV_WRITE);
-   ev_io_start(EV_DEFAULT, &cptr->io_watcher);
+   // watch for EV_WRITE only if there’s still data
+   if (cptr->sendq[0] != '\0') {
+      ev_io_set(&cptr->io_watcher, cptr->fd, EV_READ | EV_WRITE);
+      ev_io_start(EV_DEFAULT, &cptr->io_watcher);
+   } else {
+      ev_io_set(&cptr->io_watcher, cptr->fd, EV_READ);
+   }
 
    return true;
 }
@@ -120,10 +125,46 @@ void irc_io_cb(EV_P_ ev_io *w, int revents) {
    irc_client_t *cptr = (irc_client_t *)(((char*)w) - offsetof(irc_client_t, io_watcher));
 
    if (revents & EV_WRITE) {
-      irc_try_send(cptr);
+      if (!cptr->connected) {
+         int err = 0;
+         socklen_t len = sizeof(err);
+         if (getsockopt(cptr->fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0) {
+            Log(LOG_CRIT, "irc", "getsockopt failed");
+            ev_io_stop(EV_A_ w);
+            close(cptr->fd);
+            cptr->connected = false;
+            return;
+         }
 
+         if (err != 0) {
+            Log(LOG_CRIT, "irc", "connect failed: %s", strerror(err));
+            ev_io_stop(EV_A_ w);
+            close(cptr->fd);
+            cptr->connected = false;
+            return;
+         }
+
+         // connected successfully
+         cptr->connected = true;
+         Log(LOG_DEBUG, "irc", "non-blocking connect completed");
+
+         // switch watcher to read
+         ev_io_set(EV_A_ w, cptr->fd, EV_READ);
+
+         // send login messages
+         if (cptr->server->pass[0]) {
+            if (cptr->server->account[0])
+               irc_send(cptr, "PASS %s:%s", cptr->server->account, cptr->server->pass);
+            else
+               irc_send(cptr, "PASS %s", cptr->server->pass);
+         }
+         const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
+         irc_send(cptr, "NICK %s", cptr->nick);
+         irc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
+      }
+
+      irc_try_send(cptr);
       if (strchr(cptr->sendq, '\r') == NULL) {
-         // no complete messages left, stop write watcher
          ev_io_set(EV_A_ w, cptr->fd, EV_READ);
       }
    }

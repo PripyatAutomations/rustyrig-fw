@@ -1,0 +1,21 @@
+Many things trigger an event notification, sent to any interested subscribers.
+We dispatch events to all subscribers, passing the irc_message_t which has a
+parameterized version of a single IRC message.
+
+
+[irc]
+	irc.connected
+	irc.ctcp
+	irc.disconnected
+	irc.error
+	irc.join
+	irc.notice
+	irc.part
+	irc.ping
+	irc.pong
+	irc.privmsg
+	irc.quit
+	irc.topic
+
+[log]
+	log.$subsys.$level

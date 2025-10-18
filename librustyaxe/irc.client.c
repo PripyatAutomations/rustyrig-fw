@@ -47,17 +47,25 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
    int fd = -1;
    for (rp = res; rp != NULL; rp = rp->ai_next) {
       fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-      if (fd == -1) continue;
+      if (fd == -1) {
+         continue;
+      }
 
       fcntl(fd, F_SETFL, O_NONBLOCK);
 
       int rc = connect(fd, rp->ai_addr, rp->ai_addrlen);
-      if (rc < 0 && errno != EINPROGRESS) {
+      Log(LOG_DEBUG, "irc.net", "connect with fd: %d rc=%d errno=%d", fd, rc, errno);
+
+      if (rc == 0) {
+         cptr->connected = true;
+         break;
+      } else if (errno == EINPROGRESS) {
+         cptr->connected = false;
+         break;
+      } else {
          close(fd);
          fd = -1;
-         continue;
       }
-      break;
    }
    freeaddrinfo(res);
 
@@ -68,32 +76,26 @@ irc_client_t *irc_cli_connect(server_cfg_t *srv) {
 
    cptr->fd = fd;
 
-   if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
-      // Immediate connection
-      cptr->connected = true;
+   if (cptr->connected) {
       ev_io_init(&cptr->io_watcher, irc_io_cb, fd, EV_READ);
       ev_io_start(EV_DEFAULT, &cptr->io_watcher);
 
-      // Send login
-      if (cptr->server->pass[0]) {
+      if (srv->pass[0]) {
          Log(LOG_CRIT, "irc", "calling send auth from %s()", __FUNCTION__);
-
-         if (cptr->server->account[0])
-            irc_send(cptr, "PASS %s:%s", cptr->server->account, cptr->server->pass);
-         else
-            irc_send(cptr, "PASS %s", cptr->server->pass);
+         if (srv->account[0]) {
+            irc_send(cptr, "PASS %s:%s", srv->account, srv->pass);
+         } else {
+            irc_send(cptr, "PASS %s", srv->pass);
+         }
       }
-//      const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
-//      irc_send(cptr, "NICK %s\r\nUSER %s 0 * :%s", cptr->nick, ident, cptr->nick);
+
+      const char *ident = srv->ident[0] ? srv->ident : cptr->nick;
       irc_send(cptr, "NICK %s", cptr->nick);
-      const char *ident = cptr->server->ident[0] ? cptr->server->ident : cptr->nick;
       irc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
    } else {
-      // Connection in progress
       ev_io_init(&cptr->io_watcher, irc_io_cb, fd, EV_WRITE);
       ev_io_start(EV_DEFAULT, &cptr->io_watcher);
    }
 
    return cptr;
 }
-

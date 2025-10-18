@@ -183,7 +183,6 @@ void tui_redraw_screen(void) {
 }
 
 void tui_redraw_clock(void) {
-   return;
    if (!tui_enabled) {
       return;
    }

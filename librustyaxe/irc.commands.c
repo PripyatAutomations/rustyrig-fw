@@ -248,14 +248,20 @@ bool irc_builtin_quit_cb(irc_client_t *cptr, irc_message_t *mp) {
    if (nicklen <= 0) {
       return true;
    }
-   char *win_title = mp->argv[1];
-
    memset(tmp_nick, 0, NICKLEN + 1);
    snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
+
    char *network = cptr->server->network;
    Log(LOG_INFO, "irc", "[%s] * %s has QUIT: \"%s\"", network, tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
-   tui_print_win(tui_window_find(win_title), "[{green}%s{reset}] * %s has {cyan}QUIT{reset}: \"%s\"", network, tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
    event_emit("irc.quit", cptr, mp);
+
+   // XXX: This needs to show a notice in all common channels instead of just status
+   // XXX: We should loop over the screen buffers & see if this user is a member; if so, display the message in that window
+//   for (int i = 0; i < TUI_MAX_WINDOWS; i++) {
+//      tui_window_t *wp = tui_windows[i];
+      tui_window_t *wp = tui_window_find("status");
+      tui_print_win(wp, "[{green}%s{reset}] {red}* {bright-cyan}%s{cyan} has disconnected.{reset}: \"%s\"", network, tmp_nick, (mp->argv[1] ? mp->argv[1] : "No reason given."));
+//   }
 
    return false;
 }
