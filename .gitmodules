@@ -1,9 +1,12 @@
-[submodule "ext/libmongoose"]
-	path = ext/libmongoose
-	url = https://github.com/cesanta/mongoose.git
-[submodule "www"]
-	path = www
-	url = https://github.com/PripyatAutomations/rustyrig-www.git
 [submodule "ext/libev"]
 	path = ext/libev
 	url = https://github.com/enki/libev.git
+[submodule "ext/wslay"]
+	path = ext/wslay
+	url = https://github.com/tatsuhiro-t/wslay.git
+[submodule "ext/sqlite"]
+	path = ext/sqlite
+	url = https://github.com/sqlite/sqlite.git
+[submodule "ext/mbedtls"]
+	path = ext/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git

@@ -48,7 +48,7 @@ void irc_build_message(const irc_message_t *mp, char *msg, size_t msglen) {
    }
 }
 
-bool irc_sendto_all(rrlist_t *conn_list, irc_client_t *cptr, irc_message_t *mp) {
+bool irc_sendto_all(rrlist_t *conn_list, irc_conn_t *cptr, irc_message_t *mp) {
    if (!mp) {
       // This message isn't valid
       return true;
@@ -69,9 +69,9 @@ bool irc_sendto_all(rrlist_t *conn_list, irc_client_t *cptr, irc_message_t *mp) 
 
    // Walk the list
    while (lptr) {
-      irc_client_t *acptr = NULL;
+      irc_conn_t *acptr = NULL;
       if (lptr->ptr) {
-         acptr = (irc_client_t *)lptr->ptr;
+         acptr = (irc_conn_t *)lptr->ptr;
       }
 
       // skip cptr

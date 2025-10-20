@@ -77,7 +77,9 @@ static void *bst_lookup(kv_node_t *node, const char *key) {
 }
 
 static void bst_free(kv_node_t *node) {
-   if (!node) return;
+   if (!node) {
+      return;
+   }
 
    bst_free(node->left);
    bst_free(node->right);
@@ -152,7 +154,9 @@ kv_store_t *kv_create(size_t prefix_size, kv_type_t type) {
 }
 
 void kv_destroy(kv_store_t *store) {
-   if (!store) return;
+   if (!store) {
+      return;
+   }
 
    for (size_t i = 0; i < store->prefix_size; i++) {
       kv_list_t *list = &store->prefix_index[i];

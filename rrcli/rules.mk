@@ -1,9 +1,11 @@
 rrcli := bin/rrcli
 bins += ${rrcli}
 
+rrcli_objs += cfg.network.o
 rrcli_objs += cli.cmd.o
 rrcli_objs += irc.servers.o
 rrcli_objs += main.o
+rrcli_objs += m_privmsg.o
 
 rrcli_real_objs := $(foreach x, ${rrcli_objs}, ${OBJ_DIR}/rrcli/${x})
 

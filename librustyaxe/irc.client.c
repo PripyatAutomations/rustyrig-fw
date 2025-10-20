@@ -17,12 +17,12 @@
 
 void irc_io_cb(EV_P_ ev_io *w, int revents);
 
-irc_client_t *irc_cli_connect(server_cfg_t *srv) {
+irc_conn_t *irc_cli_connect(server_cfg_t *srv) {
    if (!srv) {
       return NULL;
    }
 
-   irc_client_t *cptr = calloc(1, sizeof(*cptr));
+   irc_conn_t *cptr = calloc(1, sizeof(*cptr));
    if (!cptr) {
       return NULL;
    }

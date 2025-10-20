@@ -22,10 +22,10 @@ typedef struct cli_command {
    char *cmd;
    char *desc;
    bool (*cb)(int argc, char **args);
-   event_cb_t (*event_cb)(const char *event, void *data, irc_client_t *cptr, void *user);
+   event_cb_t (*event_cb)(const char *event, void *data, irc_conn_t *cptr, void *user);
 } cli_command_t;
 
-bool irc_send_privmsg(irc_client_t *cptr, tui_window_t *wp, int argc, char **args);
+bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args);
 
 bool cli_join(int argc, char **args) {
    if (argc < 1) {

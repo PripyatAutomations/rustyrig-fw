@@ -23,7 +23,6 @@ BUILD_HEADERS += $(wildcard rrserver/*.h) $(wildcard rrclient/*.h)
 BUILD_HEADERS += $(wildcard librrprotocol/*.h)
 BUILD_HEADERS += $(wildcard librustyaxe/*.h)
 
-fwdsp_src = $(fwdsp_objs:.o=.c)
 rrclient_src = $(rrclent_objs:.o=.c)
 rrserver_src = $(rrserver_objs:.o=.c)
 
@@ -32,7 +31,6 @@ LDFLAGS += -lgpiod
 endif
 
 extra_clean += ${librustyaxe} librustyaxe/irc-test
-include fwdsp/rules.mk
 include librustyaxe/rules.mk
 include rrcli/rules.mk
 #include librrprotocol/rules.mk

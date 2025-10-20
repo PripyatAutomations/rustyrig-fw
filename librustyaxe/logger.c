@@ -210,21 +210,6 @@ void log_dump_filters(void) {
    printf("-------------------\n");
 }
 
-// Test whether a given subsystem + level would pass
-void log_test_subsys(const char *subsys, logpriority_t level) {
-   bool show = debug_filter(subsys, level);
-   printf("Subsys '%s' %s level %d (%s) -> %s\n",
-      subsys, (level == LOG_CRAZY) ? "CRAZY" :
-               (level == LOG_DEBUG) ? "DEBUG" :
-               (level == LOG_INFO) ? "INFO" :
-               (level == LOG_WARN) ? "WARN" :
-               (level == LOG_CRIT) ? "CRIT" :
-               (level == LOG_AUDIT) ? "AUDIT" : "NONE",
-      level,
-      log_priority_to_str(level),
-      show ? "PASS" : "DROP");
-}
-
 //////////////////////////////
 // Actual log handling code //
 //////////////////////////////

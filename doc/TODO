@@ -19,16 +19,6 @@
 * TUI: Prevent scrolling of the buffer when content is added, if not at the bottom
 
 ============
-= irc-test =
-============
-* Implement tab completion using the userlists, for channel windows
-
-=========
-= fwdsp =
-=========
-* Start all decoder (RX) and leave them running, to prevent TX delays after extended idle
-
-============
 = rrclient =
 ============
 [general]

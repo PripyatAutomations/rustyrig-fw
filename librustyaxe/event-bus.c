@@ -38,7 +38,7 @@ void event_on(const char *event, event_cb_t cb, void *user) {
 }
 
 /* emit */
-void event_emit(const char *event, irc_client_t *cptr, void *data) {
+void event_emit(const char *event, irc_conn_t *cptr, void *data) {
    if (!event_store || !event) {
       return;
    }

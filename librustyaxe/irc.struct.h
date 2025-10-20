@@ -41,6 +41,8 @@ typedef struct irc_message {
 
 typedef struct irc_chan_user {
    char          nick[NICKLEN + 1];
+   bool		is_op;
+   bool		is_voice;
    struct irc_chan_user *next;		// list pointer
 } irc_chan_user_t;
 
@@ -70,21 +72,21 @@ typedef struct server_cfg {
 } server_cfg_t;
 
 typedef struct irc_client {
-   server_cfg_t *server;
+   server_cfg_t *server;		// server config data (if a client)
    bool		 connected;		// is it connected?
+   bool          sent_login;		// have we sent login?
    bool		 is_server;		// is this a server? If so, we'll send relayed commands to it
    char          account[LOGINLEN + 1];
    char          nick[NICKLEN + 1];
    char          user[USERLEN + 1];
    char          hostname[HOSTLEN + 1];	// hostname/servername
    int		 fd;			// socket fd
-   bool          sent_login;
    char		 recvq[RECVQLEN + 1];
    char          sendq[SENDQLEN + 1];
    ev_io io_watcher;
-} irc_client_t;
+} irc_conn_t;
 
-typedef bool (*irc_command_cb)(irc_client_t *cptr, irc_message_t *mp);
+typedef bool (*irc_command_cb)(irc_conn_t *cptr, irc_message_t *mp);
 #include <librustyaxe/event-bus.h>
 
 // XXX: we need to merge this into irc_command_cb

@@ -18,7 +18,6 @@ extern defconfig_t defcfg[];
 const char *config_file = NULL;
 dict *cfg = NULL;			// User configuration values from config file / ui
 dict *default_cfg = NULL;		// Hard-coded defaults (defcfg.c)
-dict *servers = NULL;			// Holds a list of servers where applicable (client and fwdsp)
 cfg_cb_list_t *cfg_callbacks = NULL;
 
 int dict_merge(dict *dst, dict *src) {
@@ -38,7 +37,6 @@ int dict_merge(dict *dst, dict *src) {
 }
 
 dict *dict_merge_new(dict *a, dict *b) {
-   // XXX: Should this return whichever of a or b exists? I feel NULL makes it more clear the merge failed...
    if (!a || !b) {
       Log(LOG_WARN, "dict", "dict_merge_new called with NULL a <%p> or NULL b <%p>", a, b);
       return NULL;
@@ -261,7 +259,6 @@ dict *cfg_load(const char *path) {
    }
 
    fseek(fp, 0, SEEK_SET);
-   servers = dict_new();
 
    bool in_comment = false;
    do {
@@ -376,7 +373,6 @@ dict *cfg_load(const char *path) {
          continue;
       }
 
-// XXX: All sections except general below will eventually be moved to callbacks
       if (strncasecmp(this_section, "general", 7) == 0) {
          key = NULL;
          val = NULL;
@@ -413,26 +409,6 @@ dict *cfg_load(const char *path) {
             dict_add(newcfg, keybuf, val);
          } else {
             dict_add(newcfg, key, val);
-         }
-      } else if (strncasecmp(this_section, "server:", 7) == 0) {
-         key = NULL;
-         val = NULL;
-         char *eq = strchr(skip, '=');
-         char fullkey[256];
-         if (eq) {
-            *eq = '\0';
-            key = skip;
-            val = eq + 1;
-
-            // trim leading whitespace off the value
-            while (*val == ' ' || *val == '\t') {
-               val++;
-            }
-            memset(fullkey, 0, sizeof(fullkey));
-            snprintf(fullkey, sizeof(fullkey), "%s.%s", this_section + 7, key);
-            dict_add(servers, fullkey, val);
-         } else {
-            Log(LOG_WARN, "config", "Malformed line parsing |%s| at %s:%d", buf, path, line);
          }
       } else if (cfg_dispatch_callback(path, line, this_section, buf)) {
          Log(LOG_WARN, "config", "Unknown configuration section |%s| parsing |%s| at %s:%d", this_section, buf, path, line);
@@ -488,58 +464,6 @@ const char *cfg_get_exp(const char *key) {
    return dict_get_exp(cfg, key);
 }
 
-////////////////////////////
-
-static void cfg_print_servers(dict *servers, FILE *fp) {
-   if (!servers || !fp) {
-      return;
-   }
-
-   const char *key;
-   char *val;
-   int rank = 0;
-   dict *seen = dict_new();
-
-   while ((rank = dict_enumerate(servers, rank, &key, &val)) >= 0) {
-      // Find the prefix before the first '.'
-      char *dot = strchr(key, '.');
-      if (!dot) {
-         continue;
-      }
-
-      size_t prefix_len = dot - key;
-      char prefix[64];
-      if (prefix_len >= sizeof(prefix)) {
-         continue;
-      }
-
-      strncpy(prefix, key, prefix_len);
-      prefix[prefix_len] = '\0';
-
-      // Skip if we've already emitted this prefix
-      if (dict_get(seen, prefix, NULL)) {
-         continue;
-      }
-      dict_add(seen, prefix, "1");
-
-      fprintf(fp, "[server:%s]\n", prefix);
-
-      // Emit all keys with this prefix
-      int inner_rank = 0;
-      const char *inner_key;
-      char *inner_val;
-      while ((inner_rank = dict_enumerate(servers, inner_rank, &inner_key, &inner_val)) >= 0) {
-         if (strncmp(inner_key, prefix, prefix_len) == 0 && inner_key[prefix_len] == '.') {
-            fprintf(fp, "%s=%s\n", inner_key + prefix_len + 1, inner_val ? inner_val : "");
-         }
-      }
-
-      fputc('\n', fp);
-   }
-
-   dict_free(seen);
-}
-
 bool cfg_save(dict *d, const char *path) {
    FILE *fp = fopen(path, "w");
    if (!fp) {
@@ -558,9 +482,6 @@ bool cfg_save(dict *d, const char *path) {
 
    // Release the memory used
    dict_free(merged);
-
-   // Print the server sections
-   cfg_print_servers(servers, fp);
 
    fflush(fp);
    fclose(fp);

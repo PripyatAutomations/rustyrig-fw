@@ -34,7 +34,7 @@
 typedef struct rr_module_hook {
    char                 *name;		// name for calling
    enum {
-      CB_MSG = 0,		// MeSsaGe with length (default)
+      CB_MSG = 0,		// irc_message_t (default)
       CB_ARGV,			// argument list & count
       CB_VOID,			// no arguments
    } callback_type;
@@ -55,24 +55,20 @@ char *concat_path(const char *dir, const char *file, const char *suffix) {
 
    return tmp;
 }
+
 char *rr_find_module(const char *name) {
    // Try to find mod path and return it in an allocated string
 
    const char *cpath = cfg_get_exp("path.modules");
-   char *tmp;
+   char *tmp = NULL;
+
    if (cpath) {
       tmp = concat_path(cpath, name, NULL);
-
-      if (file_exists(tmp)) {
-         free((char *)cpath);
-         return(tmp);
-      }
       free((char *)cpath);
    }
-   return NULL;
+   return tmp;
 }
 
-/////////////////////////
 bool rr_load_module(const char *name) {
    bool rv = true;
 

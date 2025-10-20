@@ -123,7 +123,7 @@ irc_message_t *irc_parse_message(const char *msg) {
    return mp;
 }
 
-bool irc_dispatch_message(irc_client_t *cptr, irc_message_t *mp) {
+bool irc_dispatch_message(irc_conn_t *cptr, irc_message_t *mp) {
    if (!mp) {
       // XXX: cry about null message pointer
       return true;
@@ -215,7 +215,7 @@ bool irc_set_conn_pool(rrlist_t *conn_list) {
    return false;
 }
 
-bool irc_process_message(irc_client_t *cptr, const char *msg) {
+bool irc_process_message(irc_conn_t *cptr, const char *msg) {
    irc_message_t *mp = irc_parse_message(msg);
 
    if (!mp) {
@@ -268,7 +268,9 @@ bool irc_remove_callback(irc_callback_t *cb) {
 ////////////////////////////////////////////////////////////////
 // Register default command and numeric callbacks in our list //
 ////////////////////////////////////////////////////////////////
-
+//
+// XXX: This needs to be worked to use our kvstore stuff, so we don't have to walk the list every time an event happens
+//
 // load default callbacks, if not already set
 bool irc_register_callback(irc_callback_t *cb) {
    if (!cb) {
@@ -285,6 +287,10 @@ bool irc_register_callback(irc_callback_t *cb) {
       if (p == cb) {
          // already in the list, free the old entry and replace it
          Log(LOG_CRIT, "irc.parser", "irc_register_callback: callback at <%p> for message |%s| already registered, replacing!", cb, p->cmd);
+
+         if (p->event_key) { // free event-key, if strdup()'d
+            free(p->event_key);
+         }
 
          if (p->cmd) {	// free name, if strdup()'d
             free(p->cmd);
@@ -341,6 +347,10 @@ bool irc_register_default_callbacks(void) {
       cb->cb = cmd->cb ? cmd->cb : NULL;
       cb->relayed = cmd->relayed;
 
+      if (cmd->event_key) {
+         cb->event_key = strdup(cmd->event_key);
+      }
+
       if (irc_register_callback(cb)) {
          Log(LOG_CRIT, "irc", "Failed to register callback for %s", cmd->name);
          free(cb->cmd);
@@ -383,6 +393,10 @@ bool irc_register_default_numeric_callbacks(void) {
       cb->max_args_server = 16;
       cb->numeric = numeric->code;
       cb->cb = numeric->cb ? numeric->cb : NULL;
+
+      if (numeric->event_key) {
+         cb->event_key = strdup(numeric->event_key);
+      }
 
       if (irc_register_callback(cb)) {
          Log(LOG_CRIT, "irc", "Failed to register numeric %03d (%s)", numeric->code, numeric->name);

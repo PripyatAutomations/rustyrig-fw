@@ -180,7 +180,7 @@ tui_window_t *tui_window_focus(const char *title) {
          // try to determine the network name to show
          const char *network = "unknown";
          if (tw->cptr) {
-            irc_client_t *cptr = tw->cptr;
+            irc_conn_t *cptr = tw->cptr;
             if (cptr && cptr->server && cptr->server->network) {
                network = cptr->server->network;
             }

@@ -114,14 +114,18 @@ bool tui_fini(void) {
 }
 
 void tui_redraw_screen(void) {
-   if (!tui_enabled) return;
+   if (!tui_enabled) {
+      return;
+   }
 
    update_term_size();
 
    printf("\033[H\033[2J"); // clear screen
 
    tui_window_t *w = tui_active_window();
-   if (!w) return;
+   if (!w) {
+      return;
+   }
 
    // --- Top status line ---
    printf("\033[1;1H");
@@ -141,7 +145,9 @@ void tui_redraw_screen(void) {
    int row = 2; // first row for logs
    for (int i = 0; i < filled && row < term_rows - 1; i++) {
       int idx = (start + i) % LOG_LINES;
-      if (!w->buffer[idx]) continue;
+      if (!w->buffer[idx]) {
+         continue;
+      }
 
       const char *p = w->buffer[idx];
       while (*p && row < term_rows - 1) {
@@ -448,6 +454,10 @@ void tui_update_input_line(void) {
    printf(" \033[%d;1H\033[2K", term_rows);
    printf("%s%s", color_prompt, slice); // prompt includes space now
 
+   // if there's nothing typed by the user, skip forward one character, to leave a space
+   if (strlen(slice) <= 0) {
+      prompt_len++;
+   }
    // --- move cursor ---
    int cursor_screen = cursor_screen_pos - start_col + prompt_len;
    printf("\033[%d;%dH", term_rows, cursor_screen);
