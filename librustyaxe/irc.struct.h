@@ -100,14 +100,16 @@ typedef struct irc_callback {
    int	         max_args_server;		// Maximum args from a server
    irc_command_cb  cb;
    char         *event_key;			// event callback key
-   bool		 relayed;		// is this message to be sent to other links?
+   bool		 relayed;			// is this message to be sent to other links?
+   bool		 unidle;			// does this clear idle on the user?
    struct irc_callback *next;
 } irc_callback_t;
 
 typedef struct {
    const char    *name;
    const char    *desc;
-   bool		 relayed;		// is this message to be sent to other links?
+   bool		 relayed;			// is this message to be sent to other links?
+   bool		 unidle;			// clears idle for the user
    char         *event_key;			// event callback key
    event_cb_t    event_cb;			// event callback function
    irc_command_cb cb;
@@ -120,6 +122,7 @@ typedef struct {
    irc_command_cb cb;
    char          *event_key;
    event_cb_t     event_cb;
+   bool		 unidle;			// clears idle for the user
 } irc_numeric_t;
 
 typedef struct {

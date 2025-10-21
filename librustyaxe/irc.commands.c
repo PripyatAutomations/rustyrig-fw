@@ -310,16 +310,16 @@ const irc_command_t irc_commands[] = {
    { .name = "JOIN",    .desc = "Join channel(s)",                  .event_key = "irc.join", .cb = irc_builtin_join_cb, .relayed = true },
    { .name = "PART",    .desc = "Leave channel(s)",                 .event_key = "irc.part", .cb = irc_builtin_part_cb, .relayed = true },
    { .name = "MODE",    .desc = "Set or query channel/user modes",  .event_key = "irc.mode", .cb = NULL, .relayed = true },
-   { .name = "TOPIC",   .desc = "Get/set channel topic",            .event_key = "irc.topic", .cb = irc_builtin_topic_cb, .relayed = true },
+   { .name = "TOPIC",   .desc = "Get/set channel topic",            .event_key = "irc.topic", .cb = irc_builtin_topic_cb, .relayed = true, .unidle = true },
    { .name = "NAMES",   .desc = "List users in channel(s)",         .event_key = "irc.names", .cb = NULL },
    { .name = "LIST",    .desc = "List channels",                    .event_key = "irc.list", .cb = NULL },
-   { .name = "INVITE",  .desc = "Invite user to channel",           .event_key = "irc.invite", .cb = NULL, .relayed = true },
+   { .name = "INVITE",  .desc = "Invite user to channel",           .event_key = "irc.invite", .cb = NULL, .relayed = true, .unidle = true },
    { .name = "KICK",    .desc = "Kick user from channel",           .event_key = "irc.kick", .cb = NULL, .relayed = true },
 
    // --- Messaging ---
    // XXX: Right now we handle privmsg in the 
-   { .name = "PRIVMSG", .desc = "Send message to user/channel",     .event_key = "irc.privmsg", .cb = irc_builtin_privmsg_cb, .relayed = true },
-   { .name = "NOTICE",  .desc = "Send notice (no auto-reply)",      .event_key = "irc.notice", .cb = irc_builtin_notice_cb, .relayed = true },
+   { .name = "PRIVMSG", .desc = "Send message to user/channel",     .event_key = "irc.privmsg", .cb = irc_builtin_privmsg_cb, .relayed = true, .unidle = true },
+   { .name = "NOTICE",  .desc = "Send notice (no auto-reply)",      .event_key = "irc.notice", .cb = irc_builtin_notice_cb, .relayed = true, .unidle = true },
 
    // --- Queries / info ---
    { .name = "WHO",     .desc = "List users by mask/channel",       .event_key = "irc.who", .cb = NULL },

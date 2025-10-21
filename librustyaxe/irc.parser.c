@@ -345,7 +345,8 @@ bool irc_register_default_callbacks(void) {
       cb->min_args_server = 0;
       cb->max_args_server = 16;
       cb->cb = cmd->cb ? cmd->cb : NULL;
-      cb->relayed = cmd->relayed;
+      cb->relayed = cmd->relayed;	// should it be relayed to other clients/servers?
+      cb->unidle = cmd->unidle;		// does this clear idle for the user?
 
       if (cmd->event_key) {
          cb->event_key = strdup(cmd->event_key);
@@ -379,7 +380,8 @@ bool irc_register_default_numeric_callbacks(void) {
       }
 
       cb->cmd = strdup(numeric->name);
-      cb->relayed = false;
+      cb->relayed = false;			// numerics are never relayed
+      cb->unidle = numeric->unidle;		// does this clear idle for the user?
 
       if (!cb->cmd) {
          Log(LOG_CRIT, "irc", "OOM allocating cmd string for %s", numeric->name);
