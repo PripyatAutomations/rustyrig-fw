@@ -17,13 +17,16 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
+#if	defined(USE_MONGOOSE)
+#include "../ext/libmongoose/mongoose.h"
+extern struct mg_connection *ws_conn;
+#endif	// defined(USE_MONGOOSE)
+
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
-extern struct mg_connection *ws_conn;
 
 static gboolean mode_popup_open = FALSE;
 static void on_mode_popup(GtkComboBox *b, gpointer u)   { mode_popup_open = TRUE; }
@@ -36,7 +39,9 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 
    if (text) {
       // Send mode command over websocket as before
+#if	defined(USE_MONGOOSE)
       ws_send_mode_cmd(ws_conn, "A", text);
+#endif	// defined(USE_MONGOOSE)
 
       // Show/hide repeater dialog locally based on FM mode
       if (g_str_equal(text, "FM")) {

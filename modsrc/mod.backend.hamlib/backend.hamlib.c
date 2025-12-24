@@ -28,7 +28,9 @@
 // This only gets drug in if we have features/backend/hamlib=true
 #if	defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
+#if	defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
+#endif
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/thermal.h>
 #include <rrserver/eeprom.h>
@@ -290,6 +292,7 @@ rr_vfo_data_t *hl_poll(void) {
    rv->power = hl_state.power;
 
    // send to all users
+#if	defined(USE_MONGOOSE)
    struct mg_str mp;
    http_client_t *talker = whos_talking();
 
@@ -303,10 +306,13 @@ rr_vfo_data_t *hl_poll(void) {
       VAL_ULONG, "cat.ts", now,
       VAL_STR, "cat.user", (talker ? talker->chatname : ""));
    mp = mg_str(jp);
-
+#endif
    Log(LOG_CRAZY, "be.hamlib", "Sending %s", jp);
+
    // Send to everyone, including the sender, which will then display it in various widgets
+#if	defined(USE_MONGOOSE)
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+#endif
    free((char *)jp);
 
    return rv;

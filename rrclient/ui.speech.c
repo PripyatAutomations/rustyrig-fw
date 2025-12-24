@@ -17,7 +17,9 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include <atk/atk.h>
+#if	defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
+#endif
 #include <rrclient/userlist.h>
 #include <rrclient/ui.speech.h>
 #include <librrprotocol/rrprotocol.h>

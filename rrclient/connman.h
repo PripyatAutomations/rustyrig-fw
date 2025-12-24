@@ -17,7 +17,9 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-//#include "ext/libmongoose/mongoose.h"
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 

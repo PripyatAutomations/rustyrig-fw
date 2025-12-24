@@ -22,8 +22,10 @@ extern time_t now;
 // XXX: This needs decoupled from the websocket/mg code and made to use the generic
 // XXX: abstractions, so it'll work over serial etc as well
 extern bool ws_connected;
+#if	defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq);
+#endif	// defined(USE_MONGOOSE)
 
 // XXX: This should be made less ugly; we need to block CAT polling momentarily when
 // XXX: widget is actively being changed, so the server and client aren't fighting each other
@@ -389,7 +391,9 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
 
    if (freq > 0 && fe->freq != freq) {
       Log(LOG_CRAZY, "gtk.freqentry", "finalize: %lu (prev %lu)", freq, fe->freq);
+#if	defined(USE_MONGOOSE)
       ws_send_freq_cmd(ws_conn, "A", freq);
+#endif	// defined(USE_MONGOOSE)
       fe->prev_freq = fe->freq;
       fe->freq = freq;
       fe->editing = false;

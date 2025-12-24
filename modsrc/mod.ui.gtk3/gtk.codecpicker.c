@@ -15,7 +15,6 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/logger.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
@@ -23,15 +22,21 @@
 #include <rrclient/ui.speech.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-extern dict *cfg;				// main.c
+#if	defined(USE_MONGOOSE)
+#include "../ext/libmongoose/mongoose.h"
 extern struct mg_connection *ws_conn;
+#endif	// defined(USE_MONGOOSE)
+
+extern dict *cfg;				// main.c
 extern bool syslog_clear(void);
 
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;
 
 typedef struct {
+#if	defined(USE_MONGOOSE)
    struct mg_connection *conn;
+#endif	// defined(USE_MONGOOSE)
    bool is_tx;
 } CodecSelectorCtx;
 
@@ -102,9 +107,11 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
 
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);
    CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);
-   tx_ctx->conn = ws_conn;
    tx_ctx->is_tx = true;
+#if	defined(USE_MONGOOSE)
+   tx_ctx->conn = ws_conn;
    rx_ctx->conn = ws_conn;
+#endif	// defined(USE_MONGOOSE)
    rx_ctx->is_tx = false;
 
    gtk_combo_box_set_active(GTK_COMBO_BOX(tx_combo), 1);

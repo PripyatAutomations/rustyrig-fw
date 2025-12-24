@@ -17,13 +17,16 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
 #include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-extern dict *cfg;
+#if	defined(USE_MONGOOSE)
+#include "../ext/libmongoose/mongoose.h"
 extern struct mg_connection *ws_conn;
+#endif	// defined(USE_MONGOOSE)
+
+extern dict *cfg;
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern GtkWidget *toggle_userlist_button; // userlist.c
 extern GtkWidget *main_notebook;	  // gtk.core.c

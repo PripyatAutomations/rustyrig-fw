@@ -17,13 +17,17 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
 #include <mod.ui.gtk3/gtk.core.h>
 #include <rrclient/connman.h>
 
 extern bool dying;
 extern time_t now;
+
+#if	defined(USE_MONGOOSE)
+#include "../ext/libmongoose/mongoose.h"
 extern struct mg_connection *ws_conn;
+#endif
+
 extern GtkWidget *chat_entry;
 extern GtkWidget *rx_vol_slider;
 extern GtkWidget *config_tab;
@@ -74,7 +78,9 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       disconnect_server(server_name);
    } else if (strncasecmp(msg, "/quit", 4) == 0) {
       const char *jp = dict2json_mkstr(VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", msg + 5);
+#if	defined(USE_MONGOOSE)
       mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif
       free((char *)jp);
       dying = true;
       // Switch tabs
@@ -98,6 +104,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
+#if	defined(USE_MONGOOSE)
    } else if (ws_conn) {
       if (msg[0] == '/') { // Handle local commands
          if (strcasecmp(msg, "/ban") == 0) {
@@ -159,6 +166,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
          free((char *)jp);
       }
+#endif	// defined(USE_MONGOOSE)
    }
    return false;
 }

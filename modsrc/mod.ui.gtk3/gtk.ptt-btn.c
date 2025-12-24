@@ -17,9 +17,12 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
+
+#if	defined(USE_MONGOOSE)
+#include "../ext/libmongoose/mongoose.h"
+#endif	// defined(USE_MONGOOSE)
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);	// chat.cmd.c
 extern bool syslog_clear(void);
@@ -70,9 +73,13 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 
    // Send to server the negated value
    if (!ptt_active) {
+#if	defined(USE_MONGOOSE)
       ws_send_ptt_cmd(ws_conn, "A", false);
+#endif	// defined(USE_MONGOOSE)
    } else {
+#if	defined(USE_MONGOOSE)
       ws_send_ptt_cmd(ws_conn, "A", true);
+#endif	// defined(USE_MONGOOSE)
    }
 }
 

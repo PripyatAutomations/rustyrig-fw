@@ -34,7 +34,7 @@ extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk
 include rrcli/rules.mk
 include librrprotocol/rules.mk
-#include rrclient/rules.mk
+include rrclient/rules.mk
 include rrserver/rules.mk
 include mk/install.mk
 #include mk/win64.mk

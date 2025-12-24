@@ -16,7 +16,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#if	defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
+#endif	// defined(USE_MONGOOSE)
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>

@@ -3,7 +3,9 @@
 
 typedef struct rusty_client {
   int sock_fd;		// 	  // Socket file descriptor
+#if	defined(USE_MONGOOSE)
   struct mg_connection *mg_conn;  // Store socket or mongoose connection
+#endif
 } client_t;
 
 // return false if success, true if error

@@ -19,7 +19,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#if	defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
+#endif
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
@@ -31,19 +33,21 @@
 rr_connection_t *active_connections;
 bool ws_connected = false;	// Is RX stream connecte?
 bool ws_tx_connected = false;	// Is TX stream connected?
-struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 bool server_ptt_state = false;
 
 // XXX: this needs to go away and be replaced with http_find_servername(c)
 const char *server_name = NULL;
 
 extern rr_connection_t *active_connections;
-extern struct mg_mgr mgr;
 extern dict *cfg;
 extern dict *servers;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
+#if	defined(USE_MONGOOSE)
+struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
+extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
+#endif	// defined(USE_MONGOOSE)
 
 rr_connection_t *connection_find(const char *server) {
    if (!server) {
@@ -119,9 +123,11 @@ bool disconnect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
 
    if (ws_connected) {
+#if	defined(USE_MONGOOSE)
       if (ws_conn) {
          ws_conn->is_closing = 1;
       }
+#endif	// defined(USE_MONGOOSE)
       ws_connected = false;
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
       // XXX: im not sure this is acceptable
@@ -147,11 +153,13 @@ bool connect_server(const char *server) {
 #endif	// defined(USE_GTK)
       ui_print("[%s] Connecting to %s", get_chat_ts(now), url);
 
+#if	defined(USE_MONGOOSE)
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
 
       if (!ws_conn) {
          ui_print("[%s] Socket connect error", get_chat_ts(now));
       }
+#endif	// defined(USE_MONGOOSE)
    } else {
       ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", server);
    }

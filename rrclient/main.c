@@ -22,7 +22,9 @@
 #endif
 
 #include <librustyaxe/core.h>
+#if	defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
+#endif
 #include <gtk/gtk.h>
 #include <mod.ui.gtk3/gtk.core.h>
 #include <mod.ui.gtk3/gtk.alertdialog.h>
@@ -36,7 +38,10 @@ extern char *config_file;       // from defconfig.c
 extern bool cfg_detect_and_load(const char *configs[], int num_configs);
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
+
+#if	defined(USE_MONGOOSE)
 extern struct mg_mgr mgr;
+#endif	// defined(USE_MONGOOSE)
 extern void ws_client_init(void);
 
 bool dying = false;             // Are we shutting down?
@@ -61,7 +66,9 @@ void shutdown_app(int signum) {
 // For polling mongoose from glib //
 ////////////////////////////////////
 static gboolean poll_mongoose(gpointer user_data) {
+#if	defined(USE_MONGOOSE)
    mg_mgr_poll(&mgr, 0);
+#endif	// defined(USE_MONGOOSE)
    return G_SOURCE_CONTINUE;
 }
 
@@ -154,6 +161,8 @@ int main(int argc, char *argv[]) {
    gtk_main();
 
    // Cleanup
+#if	defined(USE_MONGOOSE)
    ws_fini(&mgr);
+#endif	// defined(USE_MONGOOSE)
    return 0;
 }
