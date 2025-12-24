@@ -26,6 +26,7 @@
 extern dict *cfg;		// config.c
 extern time_t now;
 
+#if	defined(USE_MONGOOSE)
 bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
       Log(LOG_DEBUG, "ws.chat", "handle_talk_msg: c:<%p> d:<%p>", c, d);
@@ -192,3 +193,4 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
 cleanup:
    return false;
 }
+#endif	// defined(USE_MONGOOSE)

@@ -17,6 +17,7 @@ extern defconfig_t defcfg[];
 
 const char *config_file = NULL;
 dict *cfg = NULL;			// User configuration values from config file / ui
+dict *servers = NULL;
 dict *default_cfg = NULL;		// Hard-coded defaults (defcfg.c)
 cfg_cb_list_t *cfg_callbacks = NULL;
 
