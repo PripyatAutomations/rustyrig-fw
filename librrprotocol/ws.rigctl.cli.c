@@ -17,7 +17,7 @@
 #include <string.h>
 #include <time.h>
 //#include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 //#include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
 //#include "mod.ui.gtk3/gtk.core.h"
@@ -33,6 +33,7 @@ extern time_t now;
 // XXX: this needs to go into the per-VFO
 char old_mode[16];
 
+#if	defined(USE_MONGOOSE)
 bool ws_handle_rigctl_cli_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
       Log(LOG_DEBUG, "ws.rigctl", "handle_rigctl_msg invalid args: c:<%p> d:<%p>", c, d);
@@ -200,3 +201,5 @@ bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq) {
    }
    return false;
 }
+
+#endif	// USE_MONGOOSE

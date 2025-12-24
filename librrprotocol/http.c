@@ -20,7 +20,7 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include <time.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 
 #if	defined(HOST_POSIX)
@@ -29,7 +29,6 @@
 #define	HTTP_MAX_ROUTES	20
 #endif
 
-extern struct mg_mgr mg_mgr;
 extern time_t now;
 
 // This defines a hard-coded fallback path for httpd root, if not set in config
@@ -49,6 +48,9 @@ static char www_headers[32768];
 static char www_404_path[PATH_MAX];
 http_client_t *http_client_list = NULL;
 
+#if	defined(USE_MONGOOSE)
+extern struct mg_mgr mg_mgr;
+
 static const struct mg_http_serve_opts http_opts = {
 #if	0
    .extra_headers = www_headers,
@@ -56,6 +58,8 @@ static const struct mg_http_serve_opts http_opts = {
    .page404 = www_404_path,
    .root_dir = www_root
 };
+#endif // defined(USE_MONGOOSE)
+
 
 // XXX: Need to remove Content-Type: from these and just store that here
 static const char content_type[] = "Content-Type: ";
@@ -91,6 +95,7 @@ static bool check_url(const char *path) {
    return false;
 }
 
+#if	defined(USE_MONGOOSE)
 http_client_t *http_find_client_by_c(struct mg_connection *c) {
    if (!c) {
       return NULL;
@@ -111,11 +116,12 @@ http_client_t *http_find_client_by_c(struct mg_connection *c) {
    Log(LOG_CRAZY, "http.core", "find_client_by_c <%p> no matches!", c);
    return NULL;
 }
+#endif	// defined(USE_MONGOOSE)
 
 http_client_t *http_find_client_by_token(const char *token) {
-   if (!token) {
-      return NULL;
-   }
+    if (!token) {
+       return NULL;
+    }
 
     http_client_t *cptr = http_client_list;
     int i = 0;
@@ -190,8 +196,10 @@ void http_dump_clients(void) {
    int i = 0;
 
    while(cptr) {
+#if	defined(USE_MONGOOSE)
       Log(LOG_DEBUG, "http", " => %d at <%p> %sactive %swebsocket, conn: <%p>, next: <%p> ",
           i, cptr, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "), cptr->conn, cptr->next);
+#endif	// defined(USE_MONGOOSE)
       i++;
       cptr = cptr->next;
    }
@@ -225,6 +233,7 @@ const char *http_content_type(const char *type) {
    return "text/plain\r\n";
 }
 
+#if	defined(USE_MONGOOSE)
 //
 // Support for using HTTPS
 //
@@ -262,8 +271,9 @@ void http_tls_init(void) {
       Log(LOG_INFO, "http.tls", "TLS initialized succesfully, |cert: <%lu @ %p>| |key: <%lu @ %p>",
          tls_cert.len, tls_cert, tls_key.len, tls_key.buf);
    }
+
 }
-#endif
+#endif // HTTP_USE_TLS
 
 bool http_static(struct mg_http_message *msg, struct mg_connection *c) {
    struct mg_http_serve_opts opts = http_opts;
@@ -581,7 +591,9 @@ http_client_t *http_add_client(struct mg_connection *c, bool is_ws) {
    cptr->connected = now;
    cptr->authenticated = false;
    cptr->active = true;
+#if	defined(USE_MONGOOSE)
    cptr->conn = c;
+#endif
    cptr->is_ws = is_ws;
 
    // Add to the top of the list
@@ -638,6 +650,8 @@ void http_remove_client(struct mg_connection *c) {
    }
 }
 
+#endif	// defined(USE_MONGOOSE)
+
 //
 // Called periodically to remove sessions that have existed too long
 //
@@ -653,7 +667,9 @@ void http_expire_sessions(void) {
             time_t last_heard = now - cptr->last_heard;
             Log(LOG_AUDIT, "http.auth", "Kicking expired session on cptr:<%p> (%lu sec old, last heard %lu sec ago) for user %s",
                 cptr, HTTP_SESSION_LIFETIME, last_heard, cptr->chatname);
+#if	defined(USE_MONGOOSE)
             ws_kick_client(cptr, "Login session expired!");
+#endif	// defined(USE_MONGOOSE)
             continue;
          }
 
@@ -661,13 +677,19 @@ void http_expire_sessions(void) {
          if (cptr->last_ping != 0 && (now - cptr->last_ping) > HTTP_PING_TIMEOUT) {
             if (cptr->ping_attempts >= HTTP_PING_TRIES) {
                Log(LOG_AUDIT, "http.auth", "Client conn at cptr:<%p> for user %s ping timed out, disconnecting", cptr, cptr->chatname);
+#if	defined(USE_MONGOOSE)
                ws_kick_client(cptr, "Ping timeout");
+#endif	// defined(USE_MONGOOSE)
             } else {           // try again
+#if	defined(USE_MONGOOSE)
                ws_send_ping(cptr);
+#endif	// defined(USE_MONGOOSE)
             }
          } else if (cptr->last_ping == 0 && (now - cptr->last_heard) >= HTTP_PING_TIME) {
             // Time to send the first ping
+#if	defined(USE_MONGOOSE)
             ws_send_ping(cptr);
+#endif	// defined(USE_MONGOOSE)
          }
       }
 

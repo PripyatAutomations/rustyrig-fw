@@ -10,7 +10,7 @@ INSTALLER=rrclient.win64.${DATE}.exe
 
 include mk/json-config.mk
 include mk/database.mk
-include mk/libmongoose.mk
+#include mk/libmongoose.mk
 include mk/eeprom.mk
 
 extra_clean += $(wildcard ${OBJ_DIR}/*.h) $(wildcard */compile_commands.json)
@@ -33,9 +33,9 @@ endif
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk
 include rrcli/rules.mk
-#include librrprotocol/rules.mk
+include librrprotocol/rules.mk
 #include rrclient/rules.mk
-#include rrserver/rules.mk
+include rrserver/rules.mk
 include mk/install.mk
 #include mk/win64.mk
 include mk/audit.mk

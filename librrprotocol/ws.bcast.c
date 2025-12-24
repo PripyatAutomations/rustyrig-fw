@@ -17,12 +17,13 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 
 extern struct GlobalState rig;	// Global state
 extern time_t now;
 
+#if	defined(USE_MONGOOSE)
 // Broadcast a message to all WebSocket clients (using http_client_list)
 void ws_broadcast(struct mg_connection *sender, struct mg_str *msg_data, int data_type) {
    if (!msg_data) {
@@ -73,6 +74,8 @@ void ws_broadcast_audio(struct mg_connection *sender, struct mg_str *msg_data, i
       current = current->next;
    }
 }
+#endif	// defined(USE_MONGOOSE)
+
 
 bool send_global_alert(const char *sender, const char *data) {
    if (!data) {
@@ -86,8 +89,10 @@ bool send_global_alert(const char *sender, const char *data) {
       VAL_STR, "alert.msg", escaped_msg,
       VAL_LONG, "alert.ts", now);
 
+#if	defined(USE_MONGOOSE)
    struct mg_str mp = mg_str(jp);
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+#endif
    free((char *)escaped_msg);
    free((char *)jp);
 

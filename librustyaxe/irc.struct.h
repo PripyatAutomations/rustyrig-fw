@@ -24,7 +24,7 @@
 #define	RECVQLEN	16384		// read, but unprocessed data from the server
 #define	SENDQLEN	16384		// data waiting to be sent to the server
 #define	AUTOJOIN_LEN	1024		// auto-join channels
-
+#define USER_HASHSZ 127  // prime number
 
 typedef struct {
    char          mode;          // mode letter, e.g. 'o', 'v', 'k'
@@ -40,21 +40,24 @@ typedef struct irc_message {
 } irc_message_t;
 
 typedef struct irc_chan_user {
-   char          nick[NICKLEN + 1];
-   bool		is_op;
-   bool		is_voice;
-   struct irc_chan_user *next;		// list pointer
+    char nick[NICKLEN + 1];
+    bool is_op;       // @
+    bool is_voice;    // +
+    bool is_halfop;   // % optional
+    struct irc_chan_user *next;  // hash bucket chain
 } irc_chan_user_t;
 
 typedef struct irc_channel {
-   char          name[CHANLEN + 1];
-   char          mode[16];
-   char          topic[TOPICLEN + 1];
-   int           users;
-   irc_chan_user_t *members;
-   // XXX: Add Bans, Exceptions lists?
+    char name[CHANLEN + 1];
+    char mode[16];
+    char topic[TOPICLEN + 1];
+    int users;
 
-   struct irc_channel *next;		// list pointer
+    bool names_in_progress;
+    bool userlist_complete;
+
+    irc_chan_user_t *user_table[USER_HASHSZ];  // hash table of users
+    struct irc_channel *next;                   // list of channels
 } irc_channel_t;
 
 typedef struct server_cfg {

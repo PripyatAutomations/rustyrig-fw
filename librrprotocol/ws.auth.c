@@ -17,7 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 //#include <mod.ui.gtk3/gtk.core.h>
 #include <rrclient/connman.h>
 //#include <rrclient/audio.h>
@@ -30,6 +30,8 @@ extern const char *server_name;                         // connman.c XXX: to rem
 
 // XXX: This needs moved into the ws_conn
 extern char session_token[HTTP_TOKEN_LEN+1];
+
+#if	defined(USE_MONGOOSE)
 
 bool ws_handle_client_auth_msg(struct mg_connection *c, dict *d) {
    bool rv = false;
@@ -166,3 +168,4 @@ bool ws_send_hello(struct mg_connection *c) {
 
    return false;
 }
+#endif

@@ -17,7 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 //#include <rrclient/userlist.h>
 #include <librrprotocol/rrprotocol.h>
 //#include <mod.ui.gtk3/gtk.core.h>
@@ -28,6 +28,7 @@ extern GtkWidget *tx_codec_combo, *rx_codec_combo;
 char *negotiated_codecs = NULL;
 char *server_codecs = NULL;
 
+#if	defined(USE_MONGOOSE)
 bool ws_handle_media_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
       Log(LOG_WARN, "http.ws", "media_msg: got d:<%p> mg_conn:<%p>", d, c);
@@ -104,3 +105,5 @@ bool ws_handle_media_msg(struct mg_connection *c, dict *d) {
 cleanup:
    return false;
 }
+
+#endif	// defined(USE_MONGOOSE)

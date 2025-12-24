@@ -24,7 +24,7 @@ ${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rule
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 bin/rrserver: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
-	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lmongoose -lev ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
+	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lev ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

@@ -19,7 +19,7 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-//#include "../ext/libmongoose/mongoose.h"
+#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 
 extern struct GlobalState rig;	// Global state
@@ -41,90 +41,6 @@ extern time_t now;
 /////////////////////////////////////
 char session_token[HTTP_TOKEN_LEN+1];
 
-char *hash_passwd(const char *passwd) {
-   if (!passwd) {
-      return NULL;
-   }
-
-   unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
-   char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
-
-   if (!hex_output) {
-      fprintf(stderr, "oom in compute_wire_password?!\n");
-      return NULL;
-   }
-
-   unsigned char hash[20];
-   size_t len = strlen((char *)passwd);  // Cast to (char *) for strlen
-#if	defined(USE_MONGOOSE)
-   // Compute SHA1 of the combined string
-   mg_sha1_ctx ctx;
-   mg_sha1_init(&ctx);
-   mg_sha1_update(&ctx, (unsigned char *)passwd, len);
-
-   // store the raw sha1 hash   
-   mg_sha1_final(hash, &ctx);
-#endif
-   // XXX: SHA1 is broken here!
-
-   // Convert the raw hash to a hexadecimal string
-   for (int i = 0; i < 20; i++) {
-      sprintf(hex_output + (i * 2), "%02x", hash[i]);
-   }
-
-   // Null terminate teh string for libc's sake
-   hex_output[HTTP_HASH_LEN * 2] = '\0';
-   return hex_output;
-}
-
-//////////////////////////////////////////
-// Compute wire password:
-//
-// How it works:
-//	Take password hash from the database and append "+" nonce
-//	Print the result as hex and compare it to what the user sent
-//
-// This provides protection against replays by 
-//
-// You *must* free the result
-char *compute_wire_password(const char *password, const char *nonce) {
-   unsigned char combined[(HTTP_HASH_LEN * 2)+ 1];
-#if	defined(USE_MONGOOSE)
-   mg_sha1_ctx ctx;
-#endif // USE_MONGOOSE
-
-   if (password == NULL || nonce == NULL) {
-      Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%p> or nonce<%p>", password, nonce);
-      return NULL;
-   }
-
-   char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);  // Allocate space for hex string
-   if (hex_output == NULL) {
-      Log(LOG_CRIT, "auth", "oom in compute_wire_password");
-      return NULL;
-   }
-   memset((char *)combined, 0, sizeof(combined));
-   snprintf((char *)combined, sizeof(combined), "%s+%s", password, nonce);
-
-   size_t len = strlen((char *)combined);  // Cast to (char *) for strlen
-   unsigned char hash[20];  // Store the raw SHA1 hash
-#if	defined(USE_MONGOOSE)
-   // Compute SHA1 of the combined string
-   mg_sha1_init(&ctx);
-   mg_sha1_update(&ctx, (unsigned char *)combined, len);
-   
-   mg_sha1_final(hash, &ctx);
-#endif // USE_MONGOOSE
-
-   // Convert the raw hash to a hexadecimal string
-   for (int i = 0; i < 20; i++) {
-      sprintf(hex_output + (i * 2), "%02x", hash[i]);
-   }
-   hex_output[HTTP_HASH_LEN * 2] = '\0';  // Null-terminate the string
-   Log(LOG_CRAZY, "auth", "passwd |%s| nonce |%s| result |%s|", password, nonce, hex_output);
-   
-   return hex_output;
-}
 
 //
 // HTTP Basic-auth user
@@ -427,12 +343,11 @@ bool has_priv(int uid, const char *priv) {
    return false;
 }
 
-#if	defined(USE_MONGOOSE)
 bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    bool rv = false;
 
    if (c == NULL || msg == NULL) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg:<%p> mg_conn:<%p>", msg, c);
+      Log(LOG_WARN, "http.ws", "auth_msg: got msg:<%x> mg_conn:<%x>", msg, c);
       return true;
    }
 
@@ -445,7 +360,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    }
 
    if (msg->data.buf == NULL) {
-      Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%p> from %s:%d -- msg:<%p> with no data ptr", c, ip, port, msg);
+      Log(LOG_WARN, "http.ws", "auth_msg: got msg from msg_conn:<%x> from %s:%d -- msg:<%x> with no data ptr", c, ip, port, msg);
       return true;
    }
 
@@ -470,11 +385,11 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
    if (strcasecmp(cmd, "login") == 0) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
-      Log(LOG_AUDIT, "auth", "Login request from user %s on mg_conn:<%p> from %s:%d", user, c, ip, port);
+      Log(LOG_AUDIT, "auth", "Login request from user %s on mg_conn:<%x> from %s:%d", user, c, ip, port);
 
       http_client_t *cptr = http_find_client_by_c(c);
       if (cptr == NULL) {
-         Log(LOG_CRIT, "auth", "Discarding login request on mg_conn:<%p> from %s:%d due to NULL cptr?!?!!?", c, ip, port);
+         Log(LOG_CRIT, "auth", "Discarding login request on mg_conn:<%x> from %s:%d due to NULL cptr?!?!!?", c, ip, port);
          dict_free(d);
          return true;
       }
@@ -513,7 +428,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             return true;
          }
       } else {
-         Log(LOG_CRIT, "auth.users", "login request has no cptr->user for cptr:<%p>?!", cptr);
+         Log(LOG_CRIT, "auth.users", "login request has no cptr->user for cptr:<%x>?!", cptr);
       }
       const char *jp = dict2json_mkstr(
          VAL_STR, "auth.cmd", "challenge",
@@ -522,10 +437,10 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          VAL_STR, "auth.token", cptr->token);
       mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
       free((char *)jp);
-      Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%p> with token |%s|", cptr->nonce, cptr, cptr->token);
+      Log(LOG_CRAZY, "auth", "Sending login challenge |%s| to user at cptr <%x> with token |%s|", cptr->nonce, cptr, cptr->token);
    } else if (strcasecmp(cmd, "logout") == 0 || strcasecmp(cmd, "quit") == 0) {
       http_client_t *cptr = http_find_client_by_c(c);
-      Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%p> mg_conn:<%p>",
+      Log(LOG_DEBUG, "auth", "Logout request from %s (cptr:<%x> mg_conn:<%x>",
           (cptr->chatname[0] != '\0' ? cptr->chatname : ""),
           cptr, c);
       ws_kick_client_by_c(c, "Logged out. 73!");
@@ -533,7 +448,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
       bool guest = false;
 
       if (pass == NULL || token == NULL) {
-         Log(LOG_DEBUG, "auth", "auth pass command without password <%p> / token <%p>", pass, token);
+         Log(LOG_DEBUG, "auth", "auth pass command without password <%x> / token <%x>", pass, token);
          ws_kick_client_by_c(c, "auth.pass message incomplete/invalid. Goodbye");
          dict_free(d);
          return true;
@@ -589,7 +504,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
 
       temp_pw = compute_wire_password(up->pass, nonce);
       if (temp_pw == NULL) {
-         Log(LOG_WARN, "auth", "Got NULL return from compute_wire_password for mg_conn:<%p>, kicking!", c);
+         Log(LOG_WARN, "auth", "Got NULL return from compute_wire_password for mg_conn:<%x>, kicking!", c);
          dict_free(d);
          return true;
       }
@@ -655,7 +570,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // send a ping, XXX: this might be a duplicate, confirm?
          ws_send_ping(cptr);
 
-         Log(LOG_AUDIT, "auth", "User %s on cptr <%p> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
+         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> logged in from IP %s:%d (clone #%d/%d) with privs: %s",
              cptr->chatname, cptr, ip, port, cptr->user->clones, cptr->user->max_clones, cptr->user->privs);
 
          // Send our capabilities
@@ -695,7 +610,7 @@ bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          // Send chat replay to the user
 //         chat_replay_send(cptr, channel);
       } else {
-         Log(LOG_AUDIT, "auth", "User %s on cptr <%p> from IP %s:%d gave wrong password. Kicking!", cptr->user, cptr, ip, port);
+         Log(LOG_AUDIT, "auth", "User %s on cptr <%x> from IP %s:%d gave wrong password. Kicking!", cptr->user, cptr, ip, port);
          ws_kick_client(cptr, "Invalid login/password");
       }
       free(temp_pw);
@@ -705,7 +620,6 @@ cleanup:
    dict_free(d);
    return rv;
 }
-#endif	// USE_MONGOOSE
 
 int generate_random_guest_id(int digits) {
    if (digits < 4) {
@@ -734,62 +648,4 @@ try_again:
       cptr = cptr->next;
    }
    return num;
-}
-
-int generate_nonce(char *buffer, size_t length) {
-   if (!buffer || length <= 0) {
-      return -1;
-   }
-   static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-   size_t i;
-
-   if (length < 8) {
-      length = 8;
-   }
-
-   for (i = 0; i < (length - 2); i++) {
-      buffer[i] = base64_chars[rand() % 64];
-   }
-
-   buffer[length] = '\0';
-   return length;
-}
-
-// is an admin or owner online?
-bool is_admin_online(void) {
-   if (http_client_list == NULL) {
-      return false;
-   }
-
-   http_client_t *curr = http_client_list;
-   while (curr) {
-      if (!curr->is_ws || !curr->authenticated || curr->user == NULL) {
-         return false;
-      }
-      if (has_priv(curr->user->uid, "admin|owner")) {
-         return true;
-      }
-      curr = curr->next;
-   }
-   return false;
-}
-
-// is an elmer online?
-bool is_elmer_online(void) {
-   if (http_client_list == NULL) {
-      return false;
-   }
-
-   http_client_t *curr = http_client_list;
-   while (curr) {
-      if (!curr->is_ws || !curr->authenticated || !curr->user) {
-         continue;
-      }
-      if (client_has_flag(curr, FLAG_ELMER)) {
-         Log(LOG_CRAZY, "auth", "is_elmer_online: returning cptr:<%p> - |%s|", curr, curr->chatname);
-         return true;
-      }
-      curr = curr->next;
-   }
-   return false;
 }

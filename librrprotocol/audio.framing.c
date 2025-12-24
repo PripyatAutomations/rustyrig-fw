@@ -27,7 +27,7 @@
 #include <errno.h>
 // XXX: We probably need to wrap htons/ntohs for use with win64, confirm this soon
 #include <arpa/inet.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 
 struct au_shm_ctx {

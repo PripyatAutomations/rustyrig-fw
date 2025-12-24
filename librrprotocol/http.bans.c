@@ -20,7 +20,7 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 extern struct mg_mgr mg_mgr;
 

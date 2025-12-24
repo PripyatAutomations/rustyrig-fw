@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <arpa/inet.h>
-#include "ext/libmongoose/mongoose.h"
+//#include "ext/libmongoose/mongoose.h"
 
 ///////
 // many of these need moved to config; decide if runtime or build? (prob build)
@@ -115,7 +115,7 @@ struct http_client {
     time_t last_ping;		// If client is pending timeout, this will contain the time a ping was sent to check for dead connection
     int    ping_attempts;	// How many times have we tried to ping the client without answer?
     http_user_t *user;		// pointer to http user, once login is sent. DO NOT TRUST IF authenticated != true!
-    struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
+//    struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
     char   token[HTTP_TOKEN_LEN+1]; // Session token
     char   nonce[HTTP_TOKEN_LEN+1]; // Authentication nonce - only used between challenge & pass stages
     int    guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
@@ -155,6 +155,7 @@ extern int http_count_clients(void);
 extern int http_count_connections(void);
 
 extern http_client_t *whos_talking(void);			// returns NULL or a pointer to the cptr of user PTTing
+#if	0
 extern bool http_init(struct mg_mgr *mgr);
 extern http_client_t *http_add_client(struct mg_connection *c, bool is_ws);
 extern void http_remove_client(struct mg_connection *c);
@@ -162,6 +163,7 @@ extern http_client_t *http_find_client_by_c(struct mg_connection *c);
 extern http_client_t *http_find_client_by_token(const char *token);
 extern http_client_t *http_find_client_by_guest_id(int gid);
 extern http_client_t *http_find_client_by_name(const char *name);
+#endif	// 0
 extern void http_expire_sessions(void);                                        // ping clients, drop pinged out ones, etc
 extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file
@@ -170,7 +172,7 @@ extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
 extern const char *http_content_type(const char *type);
 
 // http.api.c:
-extern bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c);
+// extern bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c);
 
 //////////////////
 extern http_client_t *http_client_list;

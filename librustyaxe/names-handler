@@ -1,0 +1,9 @@
+on 353:
+    if (!channel->names_in_progress)
+        clear_userlist(channel);
+    channel->names_in_progress = true;
+    append_users_from_353(channel, userlist_segment);
+
+on 356:
+	channel->names_in_progress = false;
+	channel->userlist_complete = true;

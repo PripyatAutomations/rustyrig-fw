@@ -17,6 +17,7 @@ librustyaxe_objs += event-bus.o
 #librustyaxe_objs += io.socket.o
 librustyaxe_objs += irc.o
 librustyaxe_objs += irc.capab.o
+librustyaxe_objs += irc.channel.o
 librustyaxe_objs += irc.client.o
 librustyaxe_objs += irc.commands.o
 librustyaxe_objs += irc.modes.o

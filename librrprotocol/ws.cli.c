@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 ///#include "mod.ui.gtk3/gtk.core.h"
 //#include <rrclient/connman.h>
 //#include <rrclient/userlist.h>
@@ -31,9 +31,11 @@ const char *default_tls_ca_paths[] = {
 
 extern time_t now;
 extern dict *cfg;				// config.c
+#if	defined(USE_MONGOOSE)
 struct mg_mgr mgr;
-const char *tls_ca_path = NULL;
 struct mg_str tls_ca_path_str;
+#endif
+const char *tls_ca_path = NULL;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
 extern const char *server_name;		// XXX: This needs to go away when we go multi-server
 
@@ -49,6 +51,7 @@ bool cfg_http_debug_crazy = false;
 //////////////////////
 // Websocket router //
 //////////////////////
+#if	defined(USE_MONGOOSE)
 extern bool ws_handle_alert_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_client_auth_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_error_msg(struct mg_connection *c, dict *d);
@@ -144,6 +147,8 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
    return true;
 }
 
+#endif	// defined(USE_MONGOOSE)
+
 bool ws_binframe_process(const char *data, size_t len) {
    if (!data || len <= 10) {			// no real packet will EVER be under 10 bytes, even a keep-alive
       Log(LOG_DEBUG, "ws", "binframe_process: data:<%p> len: %d", data, len);
@@ -166,6 +171,8 @@ bool ws_binframe_process(const char *data, size_t len) {
 //
 // Handle a websocket request (see http.c/http_cb for case ev == MG_EV_WS_MSG)
 //
+
+#if	defined(USE_MONGOOSE)
 bool ws_handle_cli(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg || !msg->data.buf) {
       Log(LOG_DEBUG, "http.ws", "ws_handle got c <%p> msg <%p> data <%p>", c, msg , (msg ? msg->data.buf : NULL));
@@ -271,13 +278,18 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
    }
 }
 
+#endif	// defined(USE_MONGOOSE)
 void ws_client_init(void) {
    const char *debug = cfg_get_exp("debug.http");
    if (debug && (strcasecmp(debug, "true") == 0 ||
                  strcasecmp(debug, "yes") == 0)) {
+#if	defined(USE_MONGOOSE)
       mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
+#endif
    } else {
+#if	defined(USE_MONGOOSE)
       mg_log_set(MG_LL_ERROR);
+#endif
    }
    free((void *)debug);
    const char *debug_crazy = cfg_get_exp("debug.http.crazy");
@@ -286,8 +298,10 @@ void ws_client_init(void) {
       cfg_http_debug_crazy = true;
    }
    free((void *)debug_crazy);
-         
+
+#if	defined(USE_MONGOOSE)
    mg_mgr_init(&mgr);
+#endif
 
 // XXX: Fix this
 //   tls_ca_path = find_file_by_list(default_tls_ca_paths, sizeof(default_tls_ca_paths) / sizeof(char *));
@@ -296,9 +310,11 @@ void ws_client_init(void) {
    }
 
    if (tls_ca_path) {
+#if	defined(USE_MONGOOSE)
       // turn it into a mongoose string
       tls_ca_path_str = mg_str(tls_ca_path);
       Log(LOG_DEBUG, "ws", "Setting TLS CA path to <%p> %s with target mg_str at <%p>", tls_ca_path, tls_ca_path, tls_ca_path_str);
+#endif
    } else {
       Log(LOG_CRIT, "ws", "unable to find TLS CA file");
       exit(1);

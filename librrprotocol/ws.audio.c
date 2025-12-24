@@ -8,7 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
 #include <librustyaxe/core.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -22,13 +22,14 @@
 //#include <rrclient/audio.h>
 extern time_t now;
 extern bool ws_connected;
-extern struct mg_connection *ws_conn;
+//extern struct mg_connection *ws_conn;
 extern char *negotiated_codecs;		// ws.c
 
 bool ws_audio_init(void) {
    return false;
 }
 
+#if	0
 bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx) {
    if (!c || !codec) {
       return true;
@@ -39,11 +40,13 @@ bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx) {
       VAL_STR, "media.codec", codec,
       VAL_STR, "media.channel", (is_tx ? "tx" : "rx"));		// XXX: replace this with UUIDs
    Log(LOG_DEBUG, "ws.audio", "Send %s codec selection: %s", (is_tx ? "TX" : "RX"), jp);
-   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+//   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free((char *)jp);
 
    return false;
 }
+
+#endif
 
 static bool is_in_array(const uint32_t *arr, size_t len, uint32_t id) {
    for (size_t i = 0; i < len; i++) {
@@ -58,8 +61,10 @@ extern struct GlobalState rig;	// Global state
 
 // Send to all users subscribed to this channel #
 void au_send_to_ws(const void *data, size_t len, int channel) {
+#if	0
 //   struct mg_str msg = mg_str_n((const char *)data, len);
 //   ws_broadcast(NULL, &msg, WEBSOCKET_OP_BINARY);
+
    struct mg_connection *c;
    http_client_t *current = http_client_list;
    while (current) {
@@ -76,6 +81,7 @@ void au_send_to_ws(const void *data, size_t len, int channel) {
       }
       current = current->next;
    }
+#endif
 }
 
 // Find an existing channel

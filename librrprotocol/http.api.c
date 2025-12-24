@@ -20,7 +20,7 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
@@ -42,7 +42,8 @@
 //////////////////////////////////////
 // Deal with HTTP API requests here //
 //////////////////////////////////////
-#if	0
+
+#if	defined(USE_MONGOOSE)
 static bool http_help(struct mg_http_message *msg, struct mg_connection *c) {
    size_t h_sz = PATH_MAX;
    size_t t_sz = 128;
@@ -80,7 +81,6 @@ static bool http_help(struct mg_http_message *msg, struct mg_connection *c) {
    mg_http_serve_file(c, msg, help_path, &http_opts);
    return false;
 }
-#endif
 
 static bool http_api_ping(struct mg_http_message *msg, struct mg_connection *c) {
    // XXX: We should send back the first GET argument
@@ -176,3 +176,4 @@ bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c) 
    return true; // No match found, let static handler take over
 }
 #endif	// defined(FEATURE_HTTP)
+#endif // defined(USE_MONGOOSE)

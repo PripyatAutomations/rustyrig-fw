@@ -17,7 +17,7 @@
 #include <string.h>
 #include <time.h>
 //#include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 //#include <rrclient/userlist.h>
 //#include "mod.ui.gtk3/gtk.core.h"
 #include <librrprotocol/rrprotocol.h>
@@ -25,6 +25,7 @@
 extern dict *cfg;		// config.c
 extern time_t now;
 
+#if	0
 bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg) {
       Log(LOG_WARN, "http.ws", "error_msg: got msg:<%p> mg_conn:<%p>", msg, c);
@@ -70,3 +71,4 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
    return false;
 }
+#endif

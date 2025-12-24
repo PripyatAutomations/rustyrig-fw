@@ -1,0 +1,11 @@
+Command protocol
+	[rig-id] [command] [argc] <{arg0...argc}>
+	Ex:
+		rplywvac01-ft891 TUNE 1 7200000
+
+Status message
+	[rig-id] @[status-code] 
+
+	Ex:
+		:rplywvac01-ft891 RIGINFO 
+

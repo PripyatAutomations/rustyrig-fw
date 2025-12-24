@@ -23,6 +23,9 @@
 #include <librustyaxe/irc.client.h>
 #include <librustyaxe/irc.server.h>
 
+// Channel stuff
+#include <librustyaxe/irc.channel.h>
+
 extern bool irc_init(void);
 extern bool irc_send(irc_conn_t *cptr, const char *fmt, ...);
 

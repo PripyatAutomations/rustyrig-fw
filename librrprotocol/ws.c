@@ -16,7 +16,7 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/cat.h>
 #include <librrprotocol/rrprotocol.h>
 
@@ -50,6 +50,7 @@ bool rrproto_ws_connect(int server) {
    return false;
 }
 
+#if	0
 bool ws_init(struct mg_mgr *mgr) {
    if (!mgr) {
       Log(LOG_CRIT, "ws", "ws_init called with NULL mgr");
@@ -86,6 +87,8 @@ void ws_send_to_name(struct mg_connection *sender, const char *username, struct 
    }
 }
 
+#endif
+
 bool ws_kick_by_name(const char *name, const char *reason) {
    if (!http_client_list) {
       return true;
@@ -94,7 +97,9 @@ bool ws_kick_by_name(const char *name, const char *reason) {
    http_client_t *curr = http_client_list;
    while (curr) {
       if (strcasecmp(name, curr->chatname) == 0) {
+#if	defined(USE_MONGOOSE)
          ws_kick_client(curr, reason);
+#endif	// USE_MONGOOSE
       }
       curr = curr->next;
    }
@@ -109,7 +114,10 @@ bool ws_kick_by_uid(int uid, const char *reason) {
    http_client_t *curr = http_client_list;
    while (curr) {
       if (uid == curr->user->uid) {
+#if	defined(USE_MONGOOSE)
          ws_kick_client(curr, reason);
+#endif	// defined(USE_MONGOOSE)
+
       }
       curr = curr->next;
    }
@@ -118,11 +126,17 @@ bool ws_kick_by_uid(int uid, const char *reason) {
 
 bool ws_kick_client(http_client_t *cptr, const char *reason) {
    // skip freeing resources if no client structure
-   if (!cptr || !cptr->conn) {
-      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%p> has mg_conn <%p> and is invalid", cptr, (cptr ? cptr->conn : NULL));
+   if (!cptr) {
+      Log(LOG_DEBUG, "auth", "ws_kick_client with NULL cptr and reason: %s", (reason ? reason : "(none)"));
       return true;
    }
 
+#if	defined(USE_MONGOOSE)
+   if (!cptr->conn) {
+      Log(LOG_DEBUG, "auth", "ws_kick_client for cptr <%p> has mg_conn <%p> and is invalid", cptr, (cptr ? cptr->conn : NULL));
+      return true;
+   }
+#endif	// defined(USE_MONGOOSE)
    // If we have a client structure attached, release it's resources
    if (cptr->user_agent) {
       free(cptr->user_agent);
@@ -135,6 +149,7 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    }
 
    char resp_buf[HTTP_WS_MAX_MSG+1];
+#if	defined(USE_MONGOOSE)
    struct mg_connection *c = cptr->conn;
 
    // make sure we're not accessing unsafe memory
@@ -159,8 +174,11 @@ bool ws_kick_client(http_client_t *cptr, const char *reason) {
    }
 
    return ws_kick_client_by_c(cptr->conn, reason);
+#endif // defined(USE_MONGOOSE)
+   return true;
 }
 
+#if	defined(USE_MONGOOSE)
 bool ws_kick_client_by_c(struct mg_connection *c, const char *reason) {
    char resp_buf[HTTP_WS_MAX_MSG+1];
 
@@ -471,6 +489,8 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    return false;
 }
 
+#endif	// defined(USE_MONGOOSE)
+
 bool ws_send_ping(http_client_t *cptr) {
    if (!cptr || !cptr->is_ws) {
       return true;
@@ -478,12 +498,17 @@ bool ws_send_ping(http_client_t *cptr) {
 
    // XXX: Send a ping, so they'll have something to respond to, to acknowledge life
    char resp_buf[HTTP_WS_MAX_MSG+1];
-   struct mg_connection *c = cptr->conn;
 
-   if (!cptr || !cptr->conn) {
+   if (!cptr) {
+      Log(LOG_DEBUG, "auth", "ws_send_ping for null cptr!");
+      return true;
+   }
+#if	defined(USE_MONGOOSE)
+   if (!cptr->conn) {
       Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%p> has mg_conn:<%p> and is invalid", cptr, (cptr ? cptr->conn : NULL));
       return true;
    }
+#endif // defined(USE_MONGOOSE)
 
    // Make sure that timeout will happen if no response
    cptr->last_ping = now;
@@ -499,7 +524,10 @@ bool ws_send_ping(http_client_t *cptr) {
    }
 
    const char *jp = dict2json_mkstr(VAL_ULONG, "ping.ts", now);
+#if	defined(USE_MONGOOSE)
+   struct mg_connection *c = cptr->conn;
    mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif // defined(USE_MONGOOSE)
    free((void *)jp);
 
    return false;
@@ -522,7 +550,10 @@ bool ws_send_error(http_client_t *cptr, const char *fmt, ...) {
       VAL_STR, "error.msg", escaped_msg,
       VAL_ULONG, "error.ts", now);
 
+#if	defined(USE_MONGOOSE)
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif // defined(USE_MONGOOSE)
+
    free(escaped_msg);
    free((char *)jp);
 
@@ -548,7 +579,9 @@ bool ws_send_alert(http_client_t *cptr, const char *fmt, ...) {
       VAL_STR, "alert.msg", escaped_msg,
       VAL_ULONG, "alert.ts", now);
 
+#if	defined(USE_MONGOOSE)
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif // defined(USE_MONGOOSE)
 
    free(escaped_msg);
    free((char *)jp);
@@ -557,6 +590,7 @@ bool ws_send_alert(http_client_t *cptr, const char *fmt, ...) {
    return false;
 }
 
+#if	defined(USE_MONGOOSE)
 bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
    if (!c || !fmt) {
       return true;
@@ -583,3 +617,4 @@ bool ws_send_notice(struct mg_connection *c, const char *fmt, ...) {
 void ws_fini(struct mg_mgr *mgr) {
    mg_mgr_free(mgr);
 }
+#endif // defined(USE_MONGOOSE)

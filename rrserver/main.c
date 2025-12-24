@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/cat.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
@@ -205,11 +205,13 @@ int main(int argc, char **argv) {
 //      rr_ptt_set_blocked(true);
    }
 
+#if	0
    if (rr_io_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
       set_fault(FAULT_IO_ERROR);
       exit(1);
    }
+#endif
 
    if (rr_backend_init()) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
@@ -217,11 +219,13 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
+#if	0
    if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
       exit(1);
    }
+#endif
 
 //   rr_au_init();
 //   dds_init();
@@ -231,6 +235,7 @@ int main(int argc, char **argv) {
 //   show_network_info();
 //   show_pin_info();
 
+#if	defined(USE_MONGOOSE)
 // Is mongoose http server enabled?
 #if	defined(FEATURE_HTTP)
 // Is extra mongoose debugging enabled?
@@ -239,13 +244,15 @@ int main(int argc, char **argv) {
 #else
    mg_log_set(MG_LL_ERROR);
 #endif
-   http_init(&mg_mgr);
-   ws_init(&mg_mgr);
+//   http_init(&mg_mgr);
+//   ws_init(&mg_mgr);
 #endif
 #if	defined(FEATURE_MQTT)
    mqtt_init(&mg_mgr);
    mqtt_client_init();
 #endif
+#endif	// USE_MONGOOSE
+
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
    // Main loop

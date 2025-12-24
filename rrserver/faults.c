@@ -20,7 +20,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
 

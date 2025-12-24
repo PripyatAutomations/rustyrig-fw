@@ -342,9 +342,20 @@ bool irc_builtin_num366(irc_conn_t *cptr, irc_message_t *mp) {
    if (mp->argc < 3) {
       return true;
    }
+   char *chan = mp->argv[2];
+   irc_channel_t *chptr = NULL;
 
-   Log(LOG_DEBUG, "irc", "[%s] End of names for %s", irc_name(cptr), mp->argv[2]);
-   tui_print_win(tui_window_find(mp->argv[2]), "%s [{green}%s{reset}] *** End of NAMES {bright-magenta}%s{reset} ***", get_chat_ts(0), irc_name(cptr), mp->argv[2]);
+   if (!chan) {
+      return true;
+   }
+   
+//   chptr = irc_channel_find(chan);
+   Log(LOG_DEBUG, "irc", "[%s] End of names for %s", irc_name(cptr), chan);
+   tui_print_win(tui_window_find(mp->argv[2]), "%s [{green}%s{reset}] *** End of NAMES {bright-magenta}%s{reset} ***", get_chat_ts(0), irc_name(cptr), chan);
+
+   if (chptr) {
+      chan_end_names(chptr);
+   }
 
    return false;
 }

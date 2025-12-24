@@ -30,7 +30,8 @@ bool irc_builtin_join_cb(irc_conn_t *cptr, irc_message_t *mp) {
       return true;
    }
 
-   char *win_title = mp->argv[1];
+   char *chan = mp->argv[1];
+   char *win_title = (*chan ? chan : "status");
    char *network = cptr->server->network;
 
    memset(tmp_nick, 0, NICKLEN + 1);
@@ -42,8 +43,12 @@ bool irc_builtin_join_cb(irc_conn_t *cptr, irc_message_t *mp) {
 
    Log(LOG_INFO, "irc", "[%s] * %s joined %s", network, tmp_nick, mp->argv[1]);
    tui_print_win(tw, "%s [{green}%s{reset}] * {bright-cyan}%s{reset} joined {bright-magenta}%s{reset}", get_chat_ts(0), network, tmp_nick, mp->argv[1]);
+
+   // XXX: We need to embed this into the parser, so unknown commands will pass through too...
    event_emit("irc.join", cptr, mp);
 
+   // XXX: We need to attach the channel to the server instead of the connection?
+//   irc_channel_t *ch = irc_channel_add(/* server, */ cptr, chan);
    return false;
 }
 

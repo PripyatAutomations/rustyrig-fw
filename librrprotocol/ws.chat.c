@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 //#include <rrserver/database.h>
 //#include <rrserver/ptt.h>
 #include <librrprotocol/rrprotocol.h>
@@ -44,7 +44,9 @@ bool ws_chat_err_noprivs(http_client_t *cptr, const char *action) {
       VAL_STR, "error.msg", msgbuf,
       VAL_LONG, "error.ts", now);
 
+#if	defined(USE_MONGOOSE)
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif
    free((char *)jp);
 
    return false;
@@ -61,7 +63,9 @@ bool ws_chat_error_need_reason(http_client_t *cptr, const char *command) {
       VAL_STR, "error.msg", msgbuf,
       VAL_LONG, "error.ts", now);
 
+#if	defined(USE_MONGOOSE)
    mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif
    free((char *)jp);
    return false;
 }
@@ -90,7 +94,9 @@ static bool ws_chat_cmd_die(http_client_t *cptr, const char *reason) {
          "Shutting down due to /die \"%s\" from %s (uid: %d with privs %s)",
          (reason ? reason : "No reason given"),
          cptr->chatname, cptr->user->uid, cptr->user->privs);
+#if	defined(USE_MONGOOSE)
       send_global_alert("***SERVER***", msgbuf);
+#endif
       dying = 1;
    } else {
       ws_chat_err_noprivs(cptr, "DIE");
@@ -122,7 +128,9 @@ static bool ws_chat_cmd_restart(http_client_t *cptr, const char *reason) {
       prepare_msg(msgbuf, sizeof(msgbuf),
          "Shutting down due to /restart from %s (uid: %d with privs %s): %s",
          cptr->chatname, cptr->user->uid, cptr->user->privs, reason);
+#if	defined(USE_MONGOOSE)
       send_global_alert("***SERVER***", msgbuf);
+#endif
       dying = 1;		// flag that this should be the last iteration
       restarting = 1;		// flag that we should restart after processing the alert
    } else {
@@ -141,13 +149,17 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
    }
 
    if (!target) {
+#if	defined(USE_MONGOOSE)
       // XXX: send an error response 'No target given'
       ws_send_error(cptr, "No target given for KICK");
+#endif
       return true;
    }
 
    if (!reason || strlen(reason) < CHAT_MIN_REASON_LEN) {
+#if	defined(USE_MONGOOSE)
       ws_chat_error_need_reason(cptr, "kick");
+#endif
       return true;
    }
 
@@ -169,9 +181,11 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
                cptr->chatname,
                (reason ? reason : "No reason given"));
             Log(LOG_AUDIT, "admin.kick", "%s %s", acptr->chatname, msgbuf);
+#if	defined(USE_MONGOOSE)
             struct mg_str ms = mg_str(msgbuf);
             ws_broadcast_with_flags(FLAG_STAFF, NULL, &ms, WEBSOCKET_OP_TEXT);
             ws_kick_client(acptr, msgbuf);
+#endif
             kicked++;
          }
       }
@@ -184,7 +198,9 @@ static bool ws_chat_cmd_kick(http_client_t *cptr, const char *target, const char
             VAL_STR, "error.msg", msgbuf,
             VAL_LONG, "error.ts", now);
 
+#if	defined(USE_MONGOOSE)
          mg_ws_send(cptr->conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif
          free((char *)jp);
       }
    } else {
@@ -204,7 +220,9 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
 
    if (!target) {
       // XXX: send an error response 'No target given'
+#if	defined(USE_MONGOOSE)
       ws_send_error(cptr, "No target given for MUTE");
+#endif
       return true;
    }
 
@@ -220,10 +238,12 @@ static bool ws_chat_cmd_mute(http_client_t *cptr, const char *target, const char
       prepare_msg(msgbuf, sizeof(msgbuf), "%s MUTEd by %s: Reason: %s",
          target, cptr->chatname,
          (reason ? reason : "No reason given"));
+#if	defined(USE_MONGOOSE)
       send_global_alert("***SERVER***", msgbuf);
 
       // broadcast the userinfo so cul updates
       ws_send_userinfo(acptr, NULL);
+#endif
 
       // turn off PTT if this user holds it
       if (acptr->is_ptt) {
@@ -247,7 +267,9 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
 
    if (!target) {
       // XXX: send an error response 'No target given'
+#if	defined(USE_MONGOOSE)
       ws_send_error(cptr, "No target given for UNMUTE");
+#endif
       return true;
    }
 
@@ -266,9 +288,11 @@ static bool ws_chat_cmd_unmute(http_client_t *cptr, const char *target) {
       char msgbuf[HTTP_WS_MAX_MSG+1];
       prepare_msg(msgbuf, sizeof(msgbuf), "%s UNMUTEd by %s",
          target, cptr->chatname);
+#if	defined(USE_MONGOOSE)
       send_global_alert("***SERVER***", msgbuf);
       // broadcast the userinfo so cul updates
       ws_send_userinfo(acptr, NULL);
+#endif
    } else {
       ws_chat_err_noprivs(cptr, "UNMUTE");
       return true;
@@ -298,6 +322,7 @@ static bool ws_chat_cmd_syslog(http_client_t *cptr, const char *state) {
    return false;
 }
 
+#if	defined(USE_MONGOOSE)
 // Send the updated userinfo for a single user; see ws_send_users below for everyone
 bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
    if (!cptr || !cptr->authenticated || !cptr->user) {
@@ -323,6 +348,7 @@ bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr) {
    free((char *)jp);
    return false;
 }
+#endif
 
 // Send info on all online users to the user
 bool ws_send_users(http_client_t *cptr) {
@@ -334,11 +360,13 @@ bool ws_send_users(http_client_t *cptr) {
    // iterate over all the users
    while (current) {
       // should this be sent to a single user?
+#if	defined(USE_MONGOOSE)
       if (cptr) {
          ws_send_userinfo(current, cptr);
       } else {           // nope, broadcast it
          ws_send_userinfo(current, NULL);
       }
+#endif
 
       if (!current->next) {
          return false;
@@ -349,6 +377,7 @@ bool ws_send_users(http_client_t *cptr) {
    return false;
 }
 
+#if	defined(USE_MONGOOSE)
 // XXX: Once json2dict is implemented, we need to use it here
 bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
@@ -593,3 +622,5 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
    }
    return true;
 }
+#endif	// defined(USE_MONGOOSE)
+

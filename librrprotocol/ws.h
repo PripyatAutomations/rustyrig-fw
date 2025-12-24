@@ -16,12 +16,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "ext/libmongoose/mongoose.h"
+//#include "ext/libmongoose/mongoose.h"
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
 struct ws_client {
-    struct mg_connection *conn;
+//    struct mg_connection *conn;
     struct ws_client *next;  // Next client in the list
 };
 
@@ -37,11 +37,12 @@ typedef struct ws_audio_frame ws_audio_frame_t;
 
 struct ws_conn {
    bool			 ws_connected;
-   struct mg_connection *ws_conn;
+//   struct mg_connection *ws_conn;
    
 };
 typedef struct ws_conn ws_conn_t;
 
+#if	0
 
 //extern void ws_init(void);
 extern void ws_fini(struct mg_mgr *mgr);
@@ -108,5 +109,7 @@ extern bool ws_send_alert(http_client_t *cptr, const char *fmt, ...);
 // ws.audio.c
 extern bool ws_audio_init(void);
 extern bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx);
+
+#endif	// 0
 
 #endif	// !defined(__rr_ws_h)

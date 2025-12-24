@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 
 rr_vfo_data_t vfos[MAX_VFOS];

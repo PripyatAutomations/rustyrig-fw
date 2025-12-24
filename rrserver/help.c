@@ -16,7 +16,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 
 bool send_help(rr_io_context_t *port, const char *topic) {

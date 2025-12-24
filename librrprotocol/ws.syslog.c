@@ -17,13 +17,14 @@
 #include <string.h>
 #include <time.h>
 //#include <gtk/gtk.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <librrprotocol/rrprotocol.h>
 //#include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;		// config.c
 extern time_t now;
 
+#if	defined(USE_MONGOOSE)
 bool ws_handle_syslog_msg(struct mg_connection *c, dict *d) {
    bool rv = false;
 
@@ -66,3 +67,5 @@ bool ws_handle_syslog_msg(struct mg_connection *c, dict *d) {
 //   log_print(log_priority, subsys, "[%s] <%s.%s> %s", my_timestamp, subsys, prio, data);
    return false;
 }
+
+#endif	// defined(USE_MONGOOSE)

@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <rrserver/database.h>
 #include <librrprotocol/rrprotocol.h>
 
@@ -140,6 +140,7 @@ static bool ws_rig_state_send(rr_vfo_t vfo) {
    return false;
 }
 
+#if	defined(USE_MONGOOSE)
 bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    struct mg_str msg_data = msg->data;
    http_client_t *cptr = http_find_client_by_c(c);
@@ -347,3 +348,4 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
    dict_free(d);
    return true;
 }
+#endif	// USE_MONGOOSE

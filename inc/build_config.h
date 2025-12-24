@@ -33,7 +33,8 @@
 #define USE_PROFILING true
 #endif
 
-#define	USE_MONGOOSE
+// Removing
+//#define	USE_MONGOOSE
 
 #define HTTP_USE_TLS 1
 #define HTTP_TLS_KEY "./config/key.pem"

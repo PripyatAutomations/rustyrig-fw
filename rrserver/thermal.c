@@ -18,7 +18,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../ext/libmongoose/mongoose.h"
+//#include "../ext/libmongoose/mongoose.h"
 #include <rrserver/thermal.h>
 #include <librrprotocol/rrprotocol.h>
 
