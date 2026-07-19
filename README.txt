@@ -3,8 +3,10 @@ This is the source for rustyrig remote station.
 
 
 ***Currently broken while I restructure things****
-Hopefully this will be sorted by the weekend (9/28)
-
+- Slowly making progress on this again (7/19)
+  - All programs at least again run, need to repair libmongoose based builds
+    and get back to working with it. We can make non-mongoose versions work
+    again soon. Right now i want to try to support mongoose where possible.
 I'm moving all protocol related stuff to a shared library, so the repo is broken for a bit while I work.
 
 ------------------------
