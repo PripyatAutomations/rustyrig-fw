@@ -1,5 +1,5 @@
 //
-// rrclient/ui.c: User interface wrapper (for GTK and TUI)
+// rrgtk/ui.c: User interface wrapper (for GTK and TUI)
 //
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //

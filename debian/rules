@@ -8,5 +8,5 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	# install both to staging dirs
-	make install DESTDIR=$(CURDIR)/debian/rrclient PREFIX=/usr CLIENT_ONLY=1
+	make install DESTDIR=$(CURDIR)/debian/rrgtk PREFIX=/usr CLIENT_ONLY=1
 	make install DESTDIR=$(CURDIR)/debian/rrserver PREFIX=/usr SERVER_ONLY=1

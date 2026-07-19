@@ -7,8 +7,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#if	!defined(__rrclient_gtk_freqinput_h)
-#define	__rrclient_gtk_freqinput_h
+#if	!defined(__rrgtk_gtk_freqinput_h)
+#define	__rrgtk_gtk_freqinput_h
 #include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -43,4 +43,4 @@ extern int gtk_freq_entry_num_digits(GtkFreqEntry *fi);
 
 G_END_DECLS
 
-#endif	// !defined(__rrclient_gtk_freqinput_h)
+#endif	// !defined(__rrgtk_gtk_freqinput_h)

@@ -1,5 +1,5 @@
-#if	!defined(__rrclient_gtk_core_h)
-#define	__rrclient_gtk_core_h
+#if	!defined(__rrgtk_gtk_core_h)
+#define	__rrgtk_gtk_core_h
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -103,4 +103,4 @@ extern gboolean is_widget_or_descendant_focused(GtkWidget *ancestor);
 #include "mod.ui.gtk3/gtk.hotkey.h"
 #include "mod.ui.gtk3/gtk.alertdialog.h"
 
-#endif	// !defined(__rrclient_gtk_core_h)
+#endif	// !defined(__rrgtk_gtk_core_h)

@@ -12,7 +12,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #endif
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/ui.h>
+#include <rrgtk/ui.h>
 
 extern dict *cfg;
 

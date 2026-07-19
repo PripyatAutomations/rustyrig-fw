@@ -1,5 +1,5 @@
 //
-// src/rrclient/main.c: Core of the client
+// src/rrgtk/main.c: Core of the client
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -28,8 +28,8 @@
 #include <gtk/gtk.h>
 #include <mod.ui.gtk3/gtk.core.h>
 #include <mod.ui.gtk3/gtk.alertdialog.h>
-#include <rrclient/ui.h>
-#include <rrclient/connman.h>
+#include <rrgtk/ui.h>
+#include <rrgtk/connman.h>
 
 extern const char *configs[]; // from defcfg.c
 extern const int num_configs;
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
       }
       free(fullpath);
    } else {
-     // Use default settings and save it to ~/.config/rrclient.cfg
+     // Use default settings and save it to ~/.config/rrgtk.cfg
      cfg = default_cfg;
      fprintf(stderr, "No config found :(\n");
      exit(1);

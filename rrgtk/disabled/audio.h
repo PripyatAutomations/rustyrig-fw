@@ -6,8 +6,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rrclient_audio_h)
-#define __rrclient_audio_h
+#if     !defined(__rrgtk_audio_h)
+#define __rrgtk_audio_h
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -40,4 +40,4 @@ extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
 extern bool ws_send_capab(struct mg_connection *c, const char *codecs);
 
-#endif	// !defined(__rrclient_audio_h)
+#endif	// !defined(__rrgtk_audio_h)

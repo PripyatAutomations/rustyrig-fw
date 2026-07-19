@@ -1,5 +1,5 @@
-#if	!defined(__rrclient_gtk_codecpicker_h)
-#define	__rrclient_gtk_codecpicker_h
+#if	!defined(__rrgtk_gtk_codecpicker_h)
+#define	__rrgtk_gtk_codecpicker_h
 #include <librustyaxe/config.h>
 
-#endif	// !defined(__rrclient_gtk_codecpicker_h)
+#endif	// !defined(__rrgtk_gtk_codecpicker_h)

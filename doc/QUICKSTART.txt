@@ -3,7 +3,7 @@ Common to both server and client
    git clone http --depth=1 --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
    cd rustyrig-fw
    sudo ./install-deps.sh
-   ... Edit config/rrclient.cfg.example config/rrserver.cfg and config/radio.config.json (build config) as needed
+   ... Edit config/rrgtk.cfg.example config/rrserver.cfg and config/radio.config.json (build config) as needed
    ./build.sh
    ./test-run.sh to start server
    ./test-client.sh to test the client

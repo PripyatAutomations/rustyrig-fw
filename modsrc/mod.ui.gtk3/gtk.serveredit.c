@@ -1,5 +1,5 @@
 //
-// rrclient/gtk.serveredit.c: Server editor
+// rrgtk/gtk.serveredit.c: Server editor
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

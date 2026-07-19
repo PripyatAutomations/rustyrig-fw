@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=RustyRig Client
 Comment=Remote client (WS) for rustyrig firmware
-Exec=/usr/local/bin/rrclient
+Exec=/usr/local/bin/rrgtk
 Icon=rustyrig
 Terminal=false
 Type=Application

@@ -1,5 +1,5 @@
 //
-// rrclient/ws.ping.c
+// rrgtk/ws.ping.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -18,7 +18,7 @@
 #include <string.h>
 #include <time.h>
 //#include "../ext/libmongoose/mongoose.h"
-//#include "rrclient/ws.h"
+//#include "rrgtk/ws.h"
 
 //extern dict *cfg;		// config.c
 //extern bool cfg_show_pings;

@@ -1,4 +1,4 @@
-// rrclient/audio.c: support for using gstreamer for audio streams
+// rrgtk/audio.c: support for using gstreamer for audio streams
 // 	https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -41,8 +41,8 @@
 #include <librustyaxe/fwdsp-shared.h>
 #include <librustyaxe/posix.h>
 #include <librustyaxe/util.file.h>
-#include <rrclient/gtk.core.h>
-#include <rrclient/audio.h>
+#include <rrgtk/gtk.core.h>
+#include <rrgtk/audio.h>
 
 extern dict *cfg;		// main.c
 extern struct mg_connection *ws_conn, *ws_tx_conn;

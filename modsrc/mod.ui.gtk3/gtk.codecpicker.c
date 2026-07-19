@@ -1,4 +1,4 @@
-// rrclient/gtk.codecpicker.c: codec choser stuff
+// rrgtk/gtk.codecpicker.c: codec choser stuff
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -19,7 +19,7 @@
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
 #include <librrprotocol/ws.h>
-#include <rrclient/ui.speech.h>
+#include <rrgtk/ui.speech.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 #if	defined(USE_MONGOOSE)

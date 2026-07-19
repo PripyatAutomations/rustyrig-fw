@@ -507,12 +507,12 @@ dict *dict_diff(dict *a, dict *b) {
    char pathbuf[PATH_MAX+1];
    memset(pathbuf, 0, sizeof(pathbuf));
 
-   // If we don't couldnt find a config file, save the defaults to ~/.config/rrclient.cfg
+   // If we don't couldnt find a config file, save the defaults to ~/.config/rrgtk.cfg
    if (homedir && empty_config) {
 #ifdef _WIN32
-      snprintf(pathbuf, sizeof(pathbuf), "%%APPDATA%%\\rrclient\\rrclient.cfg");
+      snprintf(pathbuf, sizeof(pathbuf), "%%APPDATA%%\\rrgtk\\rrgtk.cfg");
 #else
-      snprintf(pathbuf, sizeof(pathbuf), "%s/.config/rrclient.cfg", homedir);
+      snprintf(pathbuf, sizeof(pathbuf), "%s/.config/rrgtk.cfg", homedir);
 #endif
       if (!file_exists(pathbuf)) {
          Log(LOG_CRIT, "main", "Saving default config to %s since it doesn't exist", pathbuf);

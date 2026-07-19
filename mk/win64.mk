@@ -8,7 +8,7 @@ win64-deps:
 win64-installer: ${INSTALLER} ${OBJ_DIR}/.stamp-win64dep
 
 ${INSTALLER}: ${bin}
-	makensis //DOUTFILE=${INSTALLER} win32/rrclient.nsi
+	makensis //DOUTFILE=${INSTALLER} win32/rrgtk.nsi
 
 ${OBJ_DIR}/icon.res: ../res/rustyrig.ico ../res/win64-icon.rc
 	windres.exe ../res/win64-icon.rc -O coff -o $@

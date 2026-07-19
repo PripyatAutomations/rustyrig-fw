@@ -1,5 +1,5 @@
 //
-// rrclient/gtk.winmgr.c: Handle window manager relations
+// rrgtk/gtk.winmgr.c: Handle window manager relations
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -10,7 +10,7 @@
 // This allows finding and working with a widget by a human readable name, for automation, etc
 
 //
-// rrclient/gtk.winmgr.c: Handle window manager relations
+// rrgtk/gtk.winmgr.c: Handle window manager relations
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -326,7 +326,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
 #ifndef _WIN32
    GError *err = NULL;
    bool success = false;
-   const char *name = icon_name ? icon_name : "rustyrig";
+   const char *name = icon_name ? icon_name : "res/rustyrig";
 
    gtk_window_set_icon_name(GTK_WINDOW(window), name);
    // Check if the icon name was registered by attempting to load it

@@ -3,7 +3,7 @@
 ##################
 clean: ${extra_clean_targets}
 	@echo "[clean]"
-	${RM} ${bins} ${rrserver_objs} ${rrclient_objs} ${extra_clean}
+	${RM} ${bins} ${rrserver_objs} ${rrgtk_objs} ${extra_clean} *.log
 ifneq (y${extra_clean_targets},y)
 	${MAKE} ${extra_clean_targets}
 endif

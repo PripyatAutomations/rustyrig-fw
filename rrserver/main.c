@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-//#include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/cat.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
@@ -32,6 +31,7 @@
 #endif
 
 #if	defined(USE_MONGOOSE)
+#include "../ext/libmongoose/mongoose.h"
 struct mg_mgr mg_mgr;
 #endif
 
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
    my_argv = argv;
 
    // loop time calculation
-#if	defined(USE_PROFILING) && 0
+#if	defined(USE_PROFILING)
    struct timespec loop_end = { .tv_sec = 0, .tv_nsec = 0 };
    double loop_runtime = 0.0, current_time;
 #endif // defined(USE_PROFILING)

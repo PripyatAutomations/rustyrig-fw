@@ -1,5 +1,5 @@
 // 
-// rrclient/ui.speech.c: Support for screen readers/speech
+// rrgtk/ui.speech.c: Support for screen readers/speech
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -20,8 +20,8 @@
 #if	defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
 #endif
-#include <rrclient/userlist.h>
-#include <rrclient/ui.speech.h>
+#include <rrgtk/userlist.h>
+#include <rrgtk/ui.speech.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c

@@ -1,5 +1,5 @@
-#if	!defined(__rrclient_gtk_winmgr_h)
-#define	__rrclient_gtk_winmgr_h
+#if	!defined(__rrgtk_gtk_winmgr_h)
+#define	__rrgtk_gtk_winmgr_h
 #include <librustyaxe/config.h>
 
 extern gui_window_t *ui_new_window(GtkWidget *window, const char *name);
@@ -15,4 +15,4 @@ extern gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name);
 extern bool gui_forget_widget(gui_widget_t *gw, const char *name);
 extern gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name);
 
-#endif	// !defined(__rrclient_gtk_winmgr_h)
+#endif	// !defined(__rrgtk_gtk_winmgr_h)

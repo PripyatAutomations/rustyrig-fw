@@ -2,7 +2,7 @@
 SESSION="rustyrig"
 WAIT=5
 
-if [ ! -x bin/rrclient -o ! -x bin/rrserver ]; then
+if [ ! -x bin/rrgtk -o ! -x bin/rrserver ]; then
    ./build.sh
 fi
 

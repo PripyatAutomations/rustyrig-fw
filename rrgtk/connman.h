@@ -1,13 +1,13 @@
 //
-// rrclient/connman.h
+// rrgtk/connman.h
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rrclient_connman_h)
-#define __rrclient_connman_h
+#if     !defined(__rrgtk_connman_h)
+#define __rrgtk_connman_h
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -64,4 +64,4 @@ extern bool connect_or_disconnect(const char *server, GtkButton *button);
 #endif
 
 
-#endif	// !defined(__rrclient_connman_h)
+#endif	// !defined(__rrgtk_connman_h)

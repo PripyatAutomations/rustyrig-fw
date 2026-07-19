@@ -14,12 +14,12 @@
 
 const char *configs[] = { 
 #ifndef _WIN32
-   "~/.config/rrclient.cfg",
-   "~/.rrclient.cfg",
-   "/etc/rrclient.cfg"
+   "~/.config/rrgtk.cfg",
+   "~/.rrgtk.cfg",
+   "/etc/rrgtk.cfg"
 #else
-   "%APPDATA%\\rrclient\\rrclient.cfg",
-   ".\\rrclient.cfg"
+   "%APPDATA%\\rrgtk\\rrgtk.cfg",
+   ".\\rrgtk.cfg"
 #endif
 };
 

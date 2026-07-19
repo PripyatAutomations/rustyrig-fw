@@ -1,5 +1,5 @@
 //
-// rrclient/ws.error.c
+// rrgtk/ws.error.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -18,7 +18,7 @@
 #include <time.h>
 //#include <gtk/gtk.h>
 //#include "../ext/libmongoose/mongoose.h"
-//#include <rrclient/userlist.h>
+//#include <rrgtk/userlist.h>
 //#include "mod.ui.gtk3/gtk.core.h"
 #include <librrprotocol/rrprotocol.h>
 

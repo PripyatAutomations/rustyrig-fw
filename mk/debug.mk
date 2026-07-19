@@ -8,7 +8,7 @@ symtabs: ${symtabs}
 	nm $< | grep -v '.gtk_*' | grep -v '.mg_*'|grep -v '.[Ur].' > $@
 
 client-gdb:
-	gdb ./bin/rrclient -ex run
+	gdb ./bin/rrgtk -ex run
 
 server-gdb:
 	gdb ./bin/rrserver -ex run

@@ -7,10 +7,10 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#if	!defined(__rrclient_ui_help_h)
-#define	__rrclient_ui_help_h
+#if	!defined(__rrgtk_ui_help_h)
+#define	__rrgtk_ui_help_h
 #include <librustyaxe/config.h>
 
 extern void show_help(const char *topic);
 
-#endif	// !defined(__rrclient_ui_help_h)
+#endif	// !defined(__rrgtk_ui_help_h)

@@ -1,13 +1,13 @@
 //
-// inc/rrclient/userlist.h
+// inc/rrgtk/userlist.h
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__rrclient_userlist_h)
-#define	__rrclient_userlist_h
+#if	!defined(__rrgtk_userlist_h)
+#define	__rrgtk_userlist_h
 
 #if	defined(USE_GTK)
 #include <gtk/gtk.h>
@@ -57,4 +57,4 @@ extern GtkWidget *userlist_init(void);
 
 #include <librrprotocol/client-flags.h>
 
-#endif	// !defined(__rrclient_userlist_h)
+#endif	// !defined(__rrgtk_userlist_h)

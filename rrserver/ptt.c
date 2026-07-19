@@ -21,7 +21,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-//#include "../ext/libmongoose/mongoose.h"
+#if     defined(USE_MONGOOSE)
+#include "../ext/libmongoose/mongoose.h"
+#endif
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/ptt.h>
 

@@ -1,5 +1,5 @@
-#if	!defined(__rrclient_ui_speech_h)
-#define	__rrclient_ui_speech_h
+#if	!defined(__rrgtk_ui_speech_h)
+#define	__rrgtk_ui_speech_h
 #include <librustyaxe/config.h>
 #pragma once
 #include <gtk/gtk.h>
@@ -34,4 +34,4 @@ extern void ui_speech_set(GtkWidget *widget,
                    bool focusable);
 
 
-#endif	// !defined(__rrclient_ui_speech_h)
+#endif	// !defined(__rrgtk_ui_speech_h)

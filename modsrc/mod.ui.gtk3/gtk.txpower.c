@@ -1,5 +1,5 @@
 //
-// rrclient/gtk.txpower.c: Transmit
+// rrgtk/gtk.txpower.c: Transmit
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

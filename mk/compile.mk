@@ -10,7 +10,7 @@ endif
 # msys2 windows 64bit
 ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
 
-bin := ./rrclient.exe
+bin := ./rrgtk.exe
 CC := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LDFLAGS += -lws2_32 -luser32 -lkernel32

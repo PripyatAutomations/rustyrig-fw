@@ -1,5 +1,5 @@
 //
-// src/rrclient/connman.c: Connection Manager
+// src/rrgtk/connman.c: Connection Manager
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -22,10 +22,10 @@
 #if	defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
 #endif
-#include <rrclient/connman.h>
-#include <rrclient/userlist.h>
-#include <rrclient/ui.h>
-#include <rrclient/userlist.h>
+#include <rrgtk/connman.h>
+#include <rrgtk/userlist.h>
+#include <rrgtk/ui.h>
+#include <rrgtk/userlist.h>
 #include <mod.ui.gtk3/gtk.core.h>
 #include <librrprotocol/rrprotocol.h>
 

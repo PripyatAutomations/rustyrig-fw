@@ -1,5 +1,5 @@
 
-// rrclient/ws.chat.c
+// rrgtk/ws.chat.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -19,8 +19,8 @@
 #include <gtk/gtk.h>
 //#include "../ext/libmongoose/mongoose.h"
 //#include "mod.ui.gtk3/gtk.core.h"
-//#include <rrclient/connman.h>
-//#include <rrclient/userlist.h>
+//#include <rrgtk/connman.h>
+//#include <rrgtk/userlist.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c

@@ -1,5 +1,5 @@
 //
-// rrclient/gtk.vfo-box.c: VFO control widget
+// rrgtk/gtk.vfo-box.c: VFO control widget
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -21,7 +21,7 @@
 #include "../ext/libmongoose/mongoose.h"
 #endif	// defined(USE_MONGOOSE)
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/connman.h>
+#include <rrgtk/connman.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;

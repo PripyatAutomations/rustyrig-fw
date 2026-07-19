@@ -1,5 +1,5 @@
 //
-// rrclient/ws.file-xfer.c: Support for sending files such as screen shots or audio recordings.
+// rrgtk/ws.file-xfer.c: Support for sending files such as screen shots or audio recordings.
 //
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //

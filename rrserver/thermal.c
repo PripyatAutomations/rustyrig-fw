@@ -18,7 +18,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-//#include "../ext/libmongoose/mongoose.h"
+#if     defined(USE_MONGOOSE)
+#include "../ext/libmongoose/mongoose.h"
+#endif
 #include <rrserver/thermal.h>
 #include <librrprotocol/rrprotocol.h>
 

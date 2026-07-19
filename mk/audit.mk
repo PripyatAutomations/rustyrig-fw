@@ -4,7 +4,7 @@ audit-printf:
 	@echo "****************************"
 	@echo "*** Audit Format Strings ***"
 	@echo "****************************"
-	which pscan >/dev/null && pscan -w librustyaxe/*.[ch] rrclient/*.c rrclient/*.h rrserver/*.c rrserver/*.h
+	which pscan >/dev/null && pscan -w librustyaxe/*.[ch] rrgtk/*.c rrgtk/*.h rrserver/*.c rrserver/*.h
 
 audit-cppcheck:
 	@echo "**********************"

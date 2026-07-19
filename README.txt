@@ -16,7 +16,7 @@ Currently it only supports debian-based systems. Contributions always welcome!
 
 It consists of a few parts:
 	fwdsp/			gstreamer based audio bridge
-	rrclient/		GTK3 + gstreamer based client
+	rrgtk/		GTK3 + gstreamer based client
 	rrserver/		backend server
 	www/			WebUI (served by rrserver)
 
@@ -33,8 +33,8 @@ Configure:
 
 	Make sure config/radio.config.json is good for your build host (probably if linux or msys2)
 
-	Copy config/rrclient.cfg.example to ~/.config then edit the servers
-		cp -i config/rrclient.cfg.example ~/.config
+	Copy config/rrgtk.cfg.example to ~/.config then edit the servers
+		cp -i config/rrgtk.cfg.example ~/.config
 
 	Edit config/rrserver.cfg for the server
 	This can go in ~/.config/rrserver.cfg or /etc/rustyrig/rrserver.cfg too.
@@ -65,7 +65,7 @@ Early work to package for arch and debian is present. Feel free to contribute to
 
 Pipelines
 ---------
-You will want to configure your pipelines in rrserver.cfg and rrclient.cfg
+You will want to configure your pipelines in rrserver.cfg and rrgtk.cfg
 
 These configurations will use a 4 character ID such as mu08 or pc44 for mulaw 8khz or pcm 44.1khz
 

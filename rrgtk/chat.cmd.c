@@ -1,5 +1,5 @@
 //
-// rrclient/chat.cmd.c: Chat stuff that isn't GUI dependent
+// rrgtk/chat.cmd.c: Chat stuff that isn't GUI dependent
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -18,7 +18,7 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include <mod.ui.gtk3/gtk.core.h>
-#include <rrclient/connman.h>
+#include <rrgtk/connman.h>
 
 extern bool dying;
 extern time_t now;

@@ -18,9 +18,9 @@
 
 * TUI: Prevent scrolling of the buffer when content is added, if not at the bottom
 
-============
-= rrclient =
-============
+=========
+= rrgtk =
+=========
 [general]
 * Since we've added log replay on join (rrserver.cfg:general/chat.replay-lines)
   - Change get_chat_ts to take a time_t optionally and show the date instead of just time, if before today
@@ -31,7 +31,7 @@
 * Add throttled reconnect like webui has
 * Implement rest of controls typically used by hams
 * Finish whois/reason dialogs
-* Fill out Config tab form which can generate rrclient.cfg
+* Fill out Config tab form which can generate rrgtk.cfg
   - For now we have the text editor, bug check and fix it!
 * Add a start/stop RX audio button for saving bw isntead of just muting
   - or maybe send the mute/unmute to server who will start/stop sending samples

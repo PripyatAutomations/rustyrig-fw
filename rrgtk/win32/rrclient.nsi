@@ -1,6 +1,6 @@
 !define /date DATE "%Y%m%d"
 !ifndef OUTFILE
-  !define OUTFILE "rrclient.win64.${DATE}.exe"
+  !define OUTFILE "rrgtk.win64.${DATE}.exe"
 !endif
 
 Outfile "..\build\${OUTFILE}"
@@ -9,7 +9,7 @@ InstallDir $PROGRAMFILES\PripyatAutomations\rustyrig-client
 Section
 SetOutPath $INSTDIR
 # Copy client exe
-File "..\build\rrclient.exe"
+File "..\build\rrgtk.exe"
 # Copy needed DLLs
 File "C:\msys64\mingw64\bin\libglib-2.0-0.dll"
 File "C:\msys64\mingw64\bin\libgdk-3-0.dll"
@@ -69,15 +69,15 @@ SetOutPath "$INSTDIR\lib\gstreamer-1.0"
 File /r "C:\msys64\mingw64\lib\gstreamer-1.0\*.dll"
 
 # Default config
-CreateDirectory "$APPDATA\rrclient"
-SetOutPath "$APPDATA\rrclient"
-File "..\..\..\config\rrclient.cfg.example"
+CreateDirectory "$APPDATA\rrgtk"
+SetOutPath "$APPDATA\rrgtk"
+File "..\..\..\config\rrgtk.cfg.example"
 
-IfFileExists "$APPDATA\rrclient\rrclient.cfg" 0 +1
+IfFileExists "$APPDATA\rrgtk\rrgtk.cfg" 0 +1
   Goto config_done
-Rename "$APPDATA\rrclient\rrclient.cfg.example" "$APPDATA\rrclient\rrclient.cfg"
+Rename "$APPDATA\rrgtk\rrgtk.cfg.example" "$APPDATA\rrgtk\rrgtk.cfg"
 
 config_done:
 
-CreateShortCut "$DESKTOP\rrclient.lnk" "$INSTDIR\rrclient.exe"
+CreateShortCut "$DESKTOP\rrgtk.lnk" "$INSTDIR\rrgtk.exe"
 SectionEnd

@@ -1,5 +1,5 @@
 # Build with makepkg -f
-pkgname=('rrclient' 'rrserver' 'rrserver-fwdsp')
+pkgname=('rrgtk' 'rrserver' 'rrserver-fwdsp')
 pkgver=20250918
 pkgrel=1
 pkgdesc="rustyrig-fw client and server"
@@ -14,9 +14,9 @@ build() {
    make
 }
 
-package_rrclient() {
+package_rrgtk() {
    cd "$srcdir/rr-$pkgver"
-   install -Dm755 build/client/rrclient "$pkgdir/usr/bin/rrclient"
+   install -Dm755 build/client/rrgtk "$pkgdir/usr/bin/rrgtk"
 }
 
 package_rrserver() {

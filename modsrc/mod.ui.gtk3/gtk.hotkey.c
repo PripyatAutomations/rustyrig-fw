@@ -1,5 +1,5 @@
 //
-// rrclient/gtk.winmgr.c: Handle hotkeys
+// rrgtk/gtk.winmgr.c: Handle hotkeys
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -24,7 +24,7 @@
 #include <librustyaxe/logger.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/posix.h>
-#include <rrclient/ui.help.h>
+#include <rrgtk/ui.help.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
 

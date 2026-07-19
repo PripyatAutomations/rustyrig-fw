@@ -1,5 +1,5 @@
 //
-// rrclient/gtk.core.c: Core of GTK gui
+// rrgtk/gtk.core.c: Core of GTK gui
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -22,7 +22,7 @@
 #if	defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
 #endif	// defined(USE_MONGOOSE)
-#include <rrclient/userlist.h>
+#include <rrgtk/userlist.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
 

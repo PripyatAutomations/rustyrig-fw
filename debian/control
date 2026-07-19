@@ -5,7 +5,7 @@ Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.1.4
 
-Package: rrclient
+Package: rrgtk
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Rusty Rig Client

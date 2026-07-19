@@ -18,8 +18,6 @@ extern int db_ptt_start(sqlite3 *db, const char *username, double frequency, con
 extern bool db_ptt_stop(sqlite3 *db, int session_id);
 extern bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type, const char *msg_data);
 
-
-
 //
 extern sqlite3 *masterdb;
 
