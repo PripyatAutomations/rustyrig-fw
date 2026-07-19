@@ -23,18 +23,18 @@
 #define FEATURE_SQLITE
 
 // XXX: This needs moved to config/loadable modules
-#if	1
-#define FEATURE_MQTT
 #define BACKEND_HAMLIB
 #define BACKEND_HAMLIB_DEBUG	RIG_DEBUG_WARN
 #define BACKEND_HAMLIB_MODEL	2
 #define BACKEND_HAMLIB_BAUD	38400
 #define BACKEND_HAMLIB_PORT	"localhost:4532"
+
+#if	0
+#define FEATURE_MQTT
 #define USE_PROFILING true
 #endif
 
-// Removing
-#define	USE_MONGOOSE
+//#define	USE_MONGOOSE
 
 #define HTTP_USE_TLS 1
 #define HTTP_TLS_KEY "./config/key.pem"
