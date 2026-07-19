@@ -3,7 +3,7 @@
 *.dll
 firmware.log
 irc-test.log
-rrclient.log
+rrgtk.log
 rrserver.log
 testbuild.log
 
@@ -35,3 +35,6 @@ librustyaxe/*.dll
 run/*
 run/*/*
 recordings/*
+rrcli.log
+rrgtk.log
+rrserver.log

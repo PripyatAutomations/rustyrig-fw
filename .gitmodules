@@ -10,3 +10,6 @@
 [submodule "ext/mbedtls"]
 	path = ext/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "ext/libmongoose"]
+	path = ext/libmongoose
+	url = https://github.com/cesanta/mongoose.git
