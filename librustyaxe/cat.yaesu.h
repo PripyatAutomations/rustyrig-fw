@@ -82,6 +82,6 @@ extern void rr_cat_yaesu_vox_gain(const char *args);		// VOX Gain
 extern void rr_cat_yaesu_vox(const char *args);			// VOX
 extern void rr_cat_yaesu_zero_in(const char *args);		// Zero In
 extern bool rr_cat_yaesu_init(void);
-extern CATCommand rr_cat_yaesu_commands[];
+extern CATCommandTable rr_cat_yaesu_commands[];
 
 #endif	// !defined(_rr_cat_yaesu_h)

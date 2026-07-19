@@ -11,7 +11,6 @@
 #define	__rr_state_h
 #include <time.h>
 #include <stdbool.h>
-
 #include "build_config.h"
 
 #define	PARSE_LINE_LEN	512
@@ -47,7 +46,7 @@ enum BPFSelection {
     BPF_12_10M				// 12 - 10M BPF
 };
 
-
+#if	0	// remove from librustyaxe/cat.h ASAP
 // State of the amplifier module
 struct AmpState {
    uint32_t   alc[MAX_BANDS];		// ALC: 0-210, per band
@@ -62,6 +61,7 @@ struct AmpState {
    bool       warmup_required;		// If true, we will enforce a warmup time
    uint32_t   warmup_time;		// Warmup time required for device
 };
+#endif
 
 // State of the all tunings: PA & Matching Units
 enum TuningState {
@@ -113,6 +113,7 @@ struct GlobalState {
    float		power_tx_watts; // Lifetime total watts used transmitting
 
    // Sub-units
+
    struct AmpState 	amps[RR_MAX_AMPS];
    struct ATUState 	atus[RR_MAX_ATUS];
    struct FilterState 	filters[RR_MAX_FILTERS];

@@ -1,8 +1,8 @@
 #if	!defined(__rrprotocol_h)
 #define	__rrprotocol_h
 
+#include <librustyaxe/cat.h>
 #include <librrprotocol/vfo.h>
-
 #include <librrprotocol/auth.h>
 #include <librrprotocol/backend.h>
 #include <librrprotocol/http.h>

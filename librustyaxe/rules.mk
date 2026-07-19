@@ -3,9 +3,9 @@ LDFLAGS +=$(call pkgconfig, --libs tinfo)
 
 librustyaxe ?= ../librustyaxe.so
 # !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librustyaxe_objs += /g'
-#librustyaxe_objs += cat.o
-#librustyaxe_objs += cat.kpa500.o
-#librustyaxe_objs += cat.yaesu.o
+librustyaxe_objs += cat.o
+librustyaxe_objs += cat.kpa500.o
+librustyaxe_objs += cat.yaesu.o
 librustyaxe_objs += config.o
 #librustyaxe_objs += daemon.o
 librustyaxe_objs += dict.o

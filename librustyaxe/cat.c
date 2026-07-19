@@ -26,7 +26,7 @@
  *
  * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
-//#include "build_config.h"
+#include "build_config.h"
 #include <librustyaxe/config.h>
 #include "../ext/libmongoose/mongoose.h"
 #include <stddef.h>

@@ -97,11 +97,20 @@ irc_message_t *irc_parse_message(const char *msg) {
       while (*s == ' ') {
          s++;
       }
+
       if (!*s) {
          break;
       }
 
+      // resize the array
+      // XXX: Do we need to sanitize the new
+//      char *old_argv = argv;
       argv = realloc(argv, sizeof(char*) * (argc + 1));
+//      if (argv != old_argv) {
+         // we reallocated the string somewhere else
+//      } else {
+//	}
+
       if (*s == ':') {
          s++;
          argv[argc++] = strdup(s);

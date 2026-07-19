@@ -16,8 +16,9 @@
 #define RF_TALK_TIMEOUT		300
 #define MASTERDB_PATH "./db/master.db"
 #define MASTERDB_TEMPLATE "./sql/sqlite.master.sql"
+// This one breaks build but should be sorted out soon.
 //#define CAT_KPA500 true
-//#define CAT_YAESU true
+#define CAT_YAESU true
 #define FEATURE_GSTREAMER
 #define FEATURE_HTTP
 #define FEATURE_SQLITE

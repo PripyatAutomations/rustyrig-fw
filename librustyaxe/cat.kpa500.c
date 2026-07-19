@@ -18,7 +18,7 @@
  * CAT_YAESU: Yaesu FT-891/991A rig control protocol
  * You can enable both protocols or just one.
  */
-//#include "build_config.h"
+#include "build_config.h"
 #include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -222,7 +222,7 @@ static int32_t rr_cat_kpa500_standby(struct AmpState *amp, char *args) {
 }
 
 static int32_t rr_cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
-   uint32_t standby = amp->output_target[amp->current_band];
+   uint32_t power = amp->output_target[amp->current_band];
    if (args != NULL) {
       uint32_t tmp = atoi(args);
 
@@ -234,9 +234,9 @@ static int32_t rr_cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
          tmp = 1;
       }
 
-      amp->output_target[amp->current_band] = standby = tmp;
+      amp->output_target[amp->current_band] = power = tmp;
    }
-   rr_cat_printf("^PJ%03d", standby);
+   rr_cat_printf("^PJ%03d", power);
    return 0;
 }
 
