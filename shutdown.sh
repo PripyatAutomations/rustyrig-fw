@@ -2,9 +2,9 @@
 FWPID=$(pidof rrserver)
 DSPPID=$(pidof fwdsp)
 
-killall -TERM rrserver
+killall -11 rrserver fwdsp rrgtk rrcli
 sleep 3
-killall -9 rrserver fwdsp
+killall -9 rrserver fwdsp rrgtk rrcli
 sleep 0.1
 [ ! -z "${FWPID}" -o ! -z "${DSPPID}" ] && echo "Killed rrserver [${FWPID}] and fwdsp [${DSPPID}]"
 

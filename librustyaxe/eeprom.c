@@ -221,6 +221,7 @@ uint32_t eeprom_checksum_generate(void) {
 #if	defined(USE_MONGOOSE)
       sum = mg_crc32(0, (char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
 #else
+      sum = crc32(0, (char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
 #endif
    }
 
@@ -581,6 +582,15 @@ uint32_t crc32(uint32_t crc, const void *data, size_t len) {
    static uint32_t table[256];
    static int init = 0;
 
+#if	0
+   printf("len=%zu ptr=%p\n", (size_t)(EEPROM_SIZE - 4), rig.eeprom_mmap);
+   printf("%02x %02x %02x %02x\n",
+      ((uint8_t *)rig.eeprom_mmap)[0],
+      ((uint8_t *)rig.eeprom_mmap)[1],
+      ((uint8_t *)rig.eeprom_mmap)[2],
+      ((uint8_t *)rig.eeprom_mmap)[3]);
+#endif
+
    if (!init) {
       for (uint32_t i = 0; i < 256; i++) {
          uint32_t c = i;
@@ -597,5 +607,6 @@ uint32_t crc32(uint32_t crc, const void *data, size_t len) {
    while (len--)
       crc = table[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
 
+//   printf("crc=%08x\n", crc32(0, rig.eeprom_mmap, EEPROM_SIZE - 4));
    return crc ^ 0xFFFFFFFFU;
 }
