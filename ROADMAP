@@ -1,0 +1,14 @@
+rrserver
+--------
+Firmware process which runs on Linux host
+
+rrcli
+-----
+IRC-like TUI client
+
+rrgtk
+-----
+GTK3+gstreamer client for remote operation
+
+
+Eventually rrcli and rrgtk will be merged into one program, hopefully.
