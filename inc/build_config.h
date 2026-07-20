@@ -45,7 +45,7 @@
 #define HTTP_AUTHDB_PATH	"./config/http.users"
 #define EEPROM_SIZE 1048576
 #define MAX_BANDS 14
-#define HOST_EEPROM_FILE "build/radio/eeprom.bin"
+#define HOST_EEPROM_FILE "build/release/eeprom.bin"
 #define HOST_CAT_PIPE "cat.fifo"
 #define HOST_POSIX
 #define HOST_LINUX	// This should not be here, but i2c depends on it for now

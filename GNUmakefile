@@ -52,7 +52,7 @@ ${OBJ_DIR}/.stamp:
 	mkdir -p ${OBJ_DIR}
 	touch $@
 
-world: ${OBJ_DIR}/.stamp ${extra_build} ${bins}
+world: ${OBJ_DIR}/.stamp ${extra_build} ${bins} pack-eeprom
 
 irc-test: ${librustyaxe}
 	${MAKE} -C librustyaxe ../bin/irc-test
