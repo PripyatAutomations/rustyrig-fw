@@ -12,6 +12,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include "build_config.h"
+#include <librustyaxe/cat.h>
 
 #define	PARSE_LINE_LEN	512
 
@@ -46,7 +47,7 @@ enum BPFSelection {
     BPF_12_10M				// 12 - 10M BPF
 };
 
-#if	0	// remove from librustyaxe/cat.h ASAP
+// remove from librustyaxe/cat.h ASAP
 // State of the amplifier module
 struct AmpState {
    uint32_t   alc[MAX_BANDS];		// ALC: 0-210, per band
@@ -61,7 +62,6 @@ struct AmpState {
    bool       warmup_required;		// If true, we will enforce a warmup time
    uint32_t   warmup_time;		// Warmup time required for device
 };
-#endif
 
 // State of the all tunings: PA & Matching Units
 enum TuningState {
@@ -87,7 +87,6 @@ struct FilterState {
 
 struct GlobalState {
    logpriority_t log_level;		// Minimum log level to show
-   rr_backend_t	*backend;		// Selected backend (set in main.c)
    bool  tx_blocked;			// is TX blocked (user control)?
    bool  ptt;				// Are we transmitting?
    bool  faultbeep;			// Beep on faults

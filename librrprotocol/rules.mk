@@ -4,7 +4,6 @@ libs += ${librrprotocol}
 # !ls *.c|sed 's/.c$/.o/g'|sed 's/^/librrprotocol_objs += /g'
 librrprotocol_objs += auth.o
 #librrprotocol_objs += auth.hash.o
-librrprotocol_objs += backend.o
 librrprotocol_objs += codecneg.o
 librrprotocol_objs += http.o
 librrprotocol_objs += http.api.o

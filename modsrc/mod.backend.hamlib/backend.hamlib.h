@@ -11,6 +11,7 @@
 
 #if     defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
+#include <rrserver/backend.h>
 // Exposed interface is entirely via the rr_backend_t. Someday these might become modules
 extern rr_backend_t rr_backend_hamlib;
 

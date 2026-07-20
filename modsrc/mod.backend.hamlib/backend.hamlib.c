@@ -24,7 +24,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-
+#include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 // This only gets drug in if we have features/backend/hamlib=true
 #if	defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
@@ -33,7 +33,8 @@
 #endif
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/thermal.h>
-#include <rrserver/eeprom.h>
+#include <librustyaxe/eeprom.h>
+#include <rrserver/backend.h>
 static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl
@@ -306,14 +307,14 @@ rr_vfo_data_t *hl_poll(void) {
       VAL_ULONG, "cat.ts", now,
       VAL_STR, "cat.user", (talker ? talker->chatname : ""));
    mp = mg_str(jp);
-#endif
    Log(LOG_CRAZY, "be.hamlib", "Sending %s", jp);
+#endif
 
    // Send to everyone, including the sender, which will then display it in various widgets
 #if	defined(USE_MONGOOSE)
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-#endif
    free((char *)jp);
+#endif
 
    return rv;
 }

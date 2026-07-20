@@ -97,5 +97,6 @@ extern float eeprom_get_float_i(uint32_t idx);
 extern uint32_t get_serial_number(void);
 extern struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin);
 extern void show_pin_info(void);
+extern uint32_t crc32(uint32_t crc, const void *data, size_t len);
 
 #endif	// !defined(__rr_eeprom_h)

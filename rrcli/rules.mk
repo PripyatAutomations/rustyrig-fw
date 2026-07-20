@@ -16,11 +16,13 @@ ${BUILD_DIR}/rrcli/.stamp:
 ${rrcli}: ${BUILD_DIR}/rrcli/.stamp ${rrcli_real_objs} ${librustyaxe}
 	@${RM} $@
 	$(CC) -L. -o $@ ${rrcli_real_objs} -lrustyaxe -lm -lev -ltinfo $(LDFLAGS) 
+	@ls -a1ls $@
+	@file $@
+	@size $@
 
 ${BUILD_DIR}/rrcli/%.o: rrcli/%.c $(wildcard librustyaxe/*.h)
 	@${RM} $@
 	@echo "[compile] $< => $@"
 	@$(CC) $(CFLAGS) -I. -I.. -o $@ -c $<
-
 
 extra_clean += ${rrcli} ${rrcli_real_objs}

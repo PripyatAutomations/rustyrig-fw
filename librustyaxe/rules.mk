@@ -11,6 +11,7 @@ librustyaxe_objs += config.o
 librustyaxe_objs += dict.o
 librustyaxe_objs += driver-csi.o
 librustyaxe_objs += driver-ti.o
+librustyaxe_objs += eeprom.o
 librustyaxe_objs += event-bus.o
 #librustyaxe_objs += io.o
 #librustyaxe_objs += io.serial.o

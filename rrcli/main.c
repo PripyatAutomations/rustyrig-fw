@@ -17,6 +17,7 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
+#include <librrprotocol/state.h>
 #include <ev.h>
 #define	MAX_WINDOWS	32
 #define INPUT_HISTORY_MAX 64
@@ -32,6 +33,8 @@ bool debug_sockets = false;
 bool mirc_colors = true;
 time_t now = 0;
 static ev_timer tui_clock_watcher;
+
+struct GlobalState rig;
 
 // XXX: These need to be static
 

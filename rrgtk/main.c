@@ -38,6 +38,7 @@ extern char *config_file;       // from defconfig.c
 extern bool cfg_detect_and_load(const char *configs[], int num_configs);
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
+struct GlobalState rig;
 
 #if	defined(USE_MONGOOSE)
 extern struct mg_mgr mgr;

@@ -1,0 +1,64 @@
+{
+   "groups": {
+      "BEACON": {
+         "0": { "name": "WWV 2.5Mhz", "freq": 2500000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "1": { "name": "WWV 5Mhz", "freq": 5000000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "2": { "name": "WWV 10Mhz", "freq": 10000000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "3": { "name": "WWV 15Mhz", "freq": 15000000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "4": { "name": "WWV 20Mhz", "freq": 20000000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "5": { "name": "WWV 25Mhz", "freq": 25000000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "6": { "name": "CHU 3.33Mhz", "freq": 3333333, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "7": { "name": "CHU 7.85Mhz", "freq": 7850000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "8": { "name": "CHU 14.67Mhz", "freq": 14670000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "9": { "name": "RWM 4.996Mhz", "freq": 4996000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "10": { "name": "RWM 9.996Mhz", "freq": 9996000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 },
+         "11": { "name": "RWM 14.996Mhz", "freq": 14996000, "bandwidth": "12000", "mode": "AM", "tx_power": 0 }
+      },
+      "CALLING": {
+         "0": { "name": "2M FM CALL", "freq": 146520000, "bandwidth": "3000", "mode": "WBFM", "tx_power": 100 },
+         "1": { "name": "10M FM CALL", "freq": 29600000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 },
+         "2": { "name": "160M AM CALL", "freq": 1885000, "bandwidth": "6000", "mode": "AM", "tx_power": 100 },
+         "3": { "name": "80M AM CALL", "freq": 3885000, "bandwidth": "6000", "mode": "AM", "tx_power": 100 },
+         "4": { "name": "40M AM CALL", "freq": 7290000, "bandwidth": "6000", "mode": "AM", "tx_power": 100 },
+         "5": { "name": "10M FM CALL", "freq": 29600000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 },
+         "6": { "name": "10M US CALL", "freq": 28400000, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "7": { "name": "30M USB (AU)", "freq": 10125000, "bandwidth": "300", "mode": "USB", "tx_power": 0 }
+      },
+      "WASTELAND": {
+         "0": { "name": "80M Wasteland", "freq": 3840000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "1": { "name": "40M Wasteland", "freq": 7200000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "2": { "name": "20M Wasteland", "freq": 14313000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "3": { "name": "11M CB Channel 6 (Super Bowl)", "freq": 27025000, "bandwidth": "6000", "mode": "AM", "tx_power": 1000 },
+         "4": { "name": "11M Freeband Common", "freq": 27405000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "5": { "name": "11M AU Calling", "freq": 27355000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "6": { "name": "17M Wasteland", "freq": 18150000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "7": { "name": "6900 LSB Pirate Zone", "freq": 6900000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "8": { "name": "7055 Wild Zone", "freq": 7055000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "9": { "name": "7275 LSB Ops", "freq": 7275000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "10": { "name": "14325 USB Drama", "freq": 14325000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "11": { "name": "14350 Oddities", "freq": 14350000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 }
+      },
+      "FREEBAND": {
+         "0": { "name": "27555 Calling", "freq": 27555000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "1": { "name": "CB CH 38 LSB", "freq": 27385000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "2": { "name": "CB CH 6 AM", "freq": 27025000, "bandwidth": "6000", "mode": "AM", "tx_power": 1000 },
+         "3": { "name": "Freeband USB", "freq": 27405000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 },
+         "4": { "name": "15M Freeband", "freq": 21400000, "bandwidth": "3000", "mode": "USB", "tx_power": 1000 }
+      },
+      "CHAT": {
+         "0": { "name": "80M AM Window", "freq": 3870000, "bandwidth": "6000", "mode": "AM", "tx_power": 1000 },
+         "1": { "name": "3950 Night Ops", "freq": 3950000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "2": { "name": "7295 Chat Zone", "freq": 7295000, "bandwidth": "3000", "mode": "LSB", "tx_power": 1000 },
+         "3": { "name": "144.200 USB", "freq": 144200000, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "4": { "name": "146.420 FM Chat", "freq": 146420000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 },
+         "5": { "name": "147.000 FM Repeater", "freq": 147000000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 },
+         "6": { "name": "432.100 USB", "freq": 432100000, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "7": { "name": "446.000 Simplex", "freq": 446000000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 }
+      },
+      "60M": {
+         "0": { "name": "60M CH1 (Common voice)", "freq": 5330500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "1": { "name": "60M CH 2", "freq": 5346500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "2": { "name": "60M CH 5", "freq": 5371500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 }
+      }
+   }
+}

@@ -17,8 +17,10 @@
 #include <string.h>
 //#include "../ext/libmongoose/mongoose.h"
 #include <librustyaxe/cat.h>
+#include <librustyaxe/eeprom.h>
+#include <rrserver/backend.h>
 #include <librrprotocol/rrprotocol.h>
-
+#include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {
     const char		*name;
@@ -33,7 +35,7 @@ static struct rr_backends available_backends[] = {
 //    { "dummy",			&rr_backend_dummy },
     // A backend using hamlib's rigctld as the target. For legacy radios
 #if	defined(BACKEND_HAMLIB)
-//    { "hamlib",			&rr_backend_hamlib },
+    { "hamlib",			&rr_backend_hamlib },
 #endif	// defined(BACKEND_HAMLIB)
    { NULL,			NULL }
 };

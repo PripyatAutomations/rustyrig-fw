@@ -17,6 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/cat.h>
+#include <librustyaxe/eeprom.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
 #include <rrserver/help.h>
@@ -24,6 +25,7 @@
 #include <rrserver/thermal.h>
 #include <rrserver/timer.h>
 #include <rrserver/database.h>
+#include <rrserver/backend.h>
 
 // http ui support
 #if	defined(FEATURE_MQTT)
@@ -36,8 +38,8 @@ struct mg_mgr mg_mgr;
 #endif
 
 #define	TS_ALPHA	0.1	// Weight for the moving average
-int my_argc = -1;
-char **my_argv = NULL;
+
+
 bool dying = 0;                 // Are we shutting down?
 bool restarting = 0;		// Are we restarting?
 struct GlobalState rig;         // Global state
@@ -47,6 +49,12 @@ struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
 time_t ptt_tot_time = RF_TALK_TIMEOUT;
 char *rig_name = NULL;
+
+// These are used for restarting ourself using exec()
+int my_argc = -1;
+char **my_argv = NULL;
+
+// Things that probably should be in headers... ;)
 extern char *config_file;	// from defconfig.c
 extern defconfig_t defcfg[];	// From defconfig.c
 extern const char *configs[];
@@ -219,13 +227,11 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-#if	0
    if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
       exit(1);
    }
-#endif
 
 //   rr_au_init();
 //   dds_init();
@@ -269,8 +275,8 @@ int main(int argc, char **argv) {
          // XXX: Should we stop PTT and halt here?
       }
 
-      // Has the TOT expired?
 #if	0
+      // Has the TOT expired?
       if (global_tot_time > 0 && global_tot_time <= now) {
          http_client_t *talker = whos_talking();
          Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", ptt_tot_time);
@@ -280,6 +286,7 @@ int main(int argc, char **argv) {
          send_global_alert("***SERVER***", msgbuf);
          global_tot_time = 0;
       }
+#endif
 
       // Check thermals
       if (are_we_on_fire()) {
@@ -287,7 +294,6 @@ int main(int argc, char **argv) {
          rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
-#endif
 
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from

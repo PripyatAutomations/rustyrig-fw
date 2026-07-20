@@ -42,7 +42,7 @@ extra_clean += ${rrgtk_real_objs}
 
 CFLAGS_RRCLIENT += -I./modsrc/
 
-${OBJ_DIR}/rrgtk/%.o: rrgtk/%.c ${BUILD_HEADERS}
+${OBJ_DIR}/rrgtk/%.o: rrgtk/%.c ${BUILD_HEADERS} GNUmakefile rrgtk/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

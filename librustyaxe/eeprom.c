@@ -43,11 +43,14 @@
 #endif
 
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/eeprom.h>
+#include <librustyaxe/eeprom.h>
 #include <rrserver/i2c.h>
 
 #define	EEPROM_C		// Let the header know we're in the C file
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data
+
+// from main.c
+extern struct GlobalState rig;
 
 // Returns either the index of they key in eeprom_layout or -1 if not found
 uint32_t eeprom_offset_index(const char *key) {
@@ -215,7 +218,10 @@ uint32_t eeprom_checksum_generate(void) {
 
    // Check for memory mapped style EEPROMs
    if (rig.eeprom_mmap) {
+#if	defined(USE_MONGOOSE)
       sum = mg_crc32(0, (char *)rig.eeprom_mmap, EEPROM_SIZE - 4);
+#else
+#endif
    }
 
    return sum;
@@ -569,4 +575,27 @@ void show_pin_info(void) {
       snprintf(reset_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/reset"));
       Log(LOG_INFO, "eeprom", "*** Master PIN: %s, Factory Reset PIN: %s (set pin/show to 0 to hide!) ***", master_pin, reset_pin);
    }
+}
+
+uint32_t crc32(uint32_t crc, const void *data, size_t len) {
+   static uint32_t table[256];
+   static int init = 0;
+
+   if (!init) {
+      for (uint32_t i = 0; i < 256; i++) {
+         uint32_t c = i;
+         for (int j = 0; j < 8; j++)
+            c = (c & 1) ? (c >> 1) ^ 0xEDB88320U : (c >> 1);
+         table[i] = c;
+      }
+      init = 1;
+   }
+
+   crc ^= 0xFFFFFFFFU;
+
+   const uint8_t *p = data;
+   while (len--)
+      crc = table[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
+
+   return crc ^ 0xFFFFFFFFU;
 }

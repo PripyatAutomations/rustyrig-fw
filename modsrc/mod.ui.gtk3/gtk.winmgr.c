@@ -494,7 +494,8 @@ gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    gui_window_t *ret = NULL;
    
    ret = gui_store_window(window, name);
-   set_window_icon(window, "rustyrig");
+   // XXX: Need to fix this
+   set_window_icon(window, "res/rustyrig");
 
    // On windows, we need to set a dark mode hint
 #ifdef _WIN32
