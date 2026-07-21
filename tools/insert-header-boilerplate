@@ -1,0 +1,23 @@
+#!/bin/bash
+BP="doc/HEADER-BOILERPLATE"
+
+[ -z "$1" ] && exit 1
+
+if [ ! -f "$1" ]; then
+   echo "File \"$1\" doesnt exist?!"
+   exit 1
+fi
+
+if [ ! -f "${BP}" ]; then
+   echo "No boilerplate in ${BP} bailing!"
+fi
+
+echo "* Adding boilerplate from $BP to $1"
+
+
+#echo "- Boilerplate"
+cat $BP > "$1.tmp"
+#echo "- Content"
+cat "$1" >> "$1.tmp"
+mv "$1.tmp" "$1"
+#echo "- Done!"

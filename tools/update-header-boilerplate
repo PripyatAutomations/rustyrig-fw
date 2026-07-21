@@ -1,0 +1,3 @@
+#!/bin/bash
+HEADER_MATCH="MIT license"
+grep -L "${HEADER_MATCH}" */*.h | xargs -d '\n' -n 1 ./tools/insert-header-boilerplate
