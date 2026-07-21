@@ -11,7 +11,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <arpa/inet.h>
-//#include "ext/libmongoose/mongoose.h"
+#include "build_config.h"
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif	// defined(USE_MONGOOSE)
 
 ///////
 // many of these need moved to config; decide if runtime or build? (prob build)
@@ -155,7 +158,7 @@ extern int http_count_clients(void);
 extern int http_count_connections(void);
 
 extern http_client_t *whos_talking(void);			// returns NULL or a pointer to the cptr of user PTTing
-#if	0
+#if	defined(USE_MONGOOSE)
 extern bool http_init(struct mg_mgr *mgr);
 extern http_client_t *http_add_client(struct mg_connection *c, bool is_ws);
 extern void http_remove_client(struct mg_connection *c);
@@ -163,7 +166,7 @@ extern http_client_t *http_find_client_by_c(struct mg_connection *c);
 extern http_client_t *http_find_client_by_token(const char *token);
 extern http_client_t *http_find_client_by_guest_id(int gid);
 extern http_client_t *http_find_client_by_name(const char *name);
-#endif	// 0
+#endif	// defined(USE_MONGOOSE)
 extern void http_expire_sessions(void);                                        // ping clients, drop pinged out ones, etc
 extern void http_dump_clients(void);
 extern bool http_save_users(const char *filename);			// save active users to config file

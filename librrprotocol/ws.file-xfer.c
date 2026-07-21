@@ -8,7 +8,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // 3-space indentation please :)
-//#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
+#include "ext/libmongoose/mongoose.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>

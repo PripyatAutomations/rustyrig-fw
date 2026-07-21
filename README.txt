@@ -22,6 +22,7 @@ It consists of a few parts:
 	rrserver/		backend server
 	www/			WebUI (served by rrserver)
 
+You probably will want to run ./install-deps.sh (apt based for now)
 
 Config files go in config/ or ~/.config/
 

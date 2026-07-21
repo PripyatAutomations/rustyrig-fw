@@ -6,7 +6,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we deal with http requests using mongoose
-#include "build_config.h"
 #include <librustyaxe/core.h>
 #include <stdio.h>
 #include <string.h>

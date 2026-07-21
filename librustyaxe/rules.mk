@@ -31,6 +31,7 @@ librustyaxe_objs += list.o
 librustyaxe_objs += logger.o
 librustyaxe_objs += maidenhead.o
 librustyaxe_objs += module.o
+librustyaxe_objs += mongoose.o
 librustyaxe_objs += posix.o
 librustyaxe_objs += ringbuffer.o
 # XXX: This needs cleanup to remove remnants of termbox/old logger
@@ -65,6 +66,11 @@ ${librustyaxe}: librustyaxe-pre ${real_librustyaxe_objs} ${librustyaxe_headers} 
 	@${CC} -fPIC -shared -o $@ ${real_librustyaxe_objs}  -lm -lev -ltinfo ${LDFLAGS}|| exit 2
 
 ${BUILD_DIR}/librustyaxe/%.o:librustyaxe/%.c GNUmakefile ${librustyaxe_headers}
+	@${RM} $@
+	@echo "[compile] $< => $@"
+	@${CC} ${CFLAGS} -o $@ -c $< || exit 2
+
+${BUILD_DIR}/librustyaxe/mongoose.o:ext/libmongoose/mongoose.c GNUmakefile ${librustyaxe_headers}
 	@${RM} $@
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS} -o $@ -c $< || exit 2

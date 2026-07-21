@@ -9,7 +9,6 @@
 /*
  * Deal with things related to the VFO, such as reconfiguring DDS(es)
  */
-#include "build_config.h"
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>

@@ -6,9 +6,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "build_config.h"
 #include <librustyaxe/core.h>
-//#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

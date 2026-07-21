@@ -8,6 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_ws_h)
 #define __rr_ws_h
+#include "build_config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -42,8 +43,7 @@ struct ws_conn {
 };
 typedef struct ws_conn ws_conn_t;
 
-#if	0
-
+#if	defined(USE_MONGOOSE)
 //extern void ws_init(void);
 extern void ws_fini(struct mg_mgr *mgr);
 extern bool ws_init(struct mg_mgr *mgr);
@@ -109,7 +109,6 @@ extern bool ws_send_alert(http_client_t *cptr, const char *fmt, ...);
 // ws.audio.c
 extern bool ws_audio_init(void);
 extern bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx);
-
-#endif	// 0
+#endif	// defined(USE_MONGOOSE)
 
 #endif	// !defined(__rr_ws_h)

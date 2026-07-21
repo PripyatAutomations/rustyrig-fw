@@ -1,1 +1,1 @@
-../librrprotocol/GNUmakefile
+../rrcli/GNUmakefile

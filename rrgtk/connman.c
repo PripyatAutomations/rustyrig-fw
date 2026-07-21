@@ -10,6 +10,7 @@
 // XXX: This needs finished to fully support multiple connections in one client
 // XXX: GTK bits should be shifted to modsrc/mod.ui.gtk3/gtk.server{editor,picker}.c
 //
+#include "build_config.h"
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>

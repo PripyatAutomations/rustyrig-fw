@@ -8,6 +8,7 @@ librrprotocol_objs += codecneg.o
 librrprotocol_objs += http.o
 librrprotocol_objs += http.api.o
 librrprotocol_objs += http.bans.o
+# Disabled, need to figure out and merge these with the bits from auth*
 #librrprotocol_objs += newauth.o
 #librrprotocol_objs += is.o
 librrprotocol_objs += vfo.o
@@ -29,6 +30,8 @@ librrprotocol_objs += ws.rigctl.o
 librrprotocol_objs += ws.rigctl.cli.o
 librrprotocol_objs += ws.syslog.o
 
+librrprotocol_cflags := ${CFLAGS} -I./modsrc/ -I./ -I./inc
+
 extra_clean += ${librustyaxe_objs} ${librustyaxe}
 librrprotocol_headers := $(wildcard librrprotocol/*.h)
 librrprotocol_src = $(wildcard librrprotocol/*.c) $(wildcard librrprotocol/*.h)
@@ -46,4 +49,4 @@ ${librrprotocol}: librrprotocol-pre ${real_librrprotocol_objs} ${librrprotocol_h
 ${BUILD_DIR}/librrprotocol/%.o:librrprotocol/%.c GNUmakefile ${librrprotocol_headers}
 	@echo "[compile] $< => $@"
 	@${RM} $@
-	@${CC} ${CFLAGS} -o $@ -c $< || exit 2
+	${CC} ${librrprotocol_cflags} -o $@ -c $< || exit 2

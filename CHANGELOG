@@ -1,3 +1,11 @@
+rustyrig-fw (20260721) testing; urgeny=medium
+* Cleaned up code a bit until everything at least compiles and runs
+* Repaired libmongoose-based functionality (rrgtk/rrserver)
+  - We will work on merging rrcli and rrgtk into one program and making rrserver support our irc based protocol as well as http api
+    - This will require an alternative for libmongoose be found for http server, json handling, and a few other misc functions.
+      ! Need to work on librrprotocol auth bits to remove dependancy on mongoose
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, Jul 21 2026 12:10:45 -0400
+
 rustyrig-fw (20251012) testing; urgency=medium
 * Much work on tui
   - Keybindings for line editing (^A/^E/^W/^U)

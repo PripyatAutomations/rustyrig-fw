@@ -8,6 +8,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

@@ -51,7 +51,7 @@ void unpack_audio_frame(const uint8_t *in, uint16_t *chan_id, uint16_t *seq, con
    *payload = in + AUDIO_HDR_SIZE;
 }
 
-#if	0
+#if	defined(USE_SHM)
 /////////////////
 int listen_shm_socket(const char *path) {
    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -95,7 +95,7 @@ if (wm->data.len >= sizeof(rrws_frame_header_t)) {
       rrws_write_exact(shmfd_out, pl, fh.payload_len);
    }
 }
-#endif
+#endif	// defined(USE_SHM)
 
 static int connect_unix(const char *path) {
    int fd = socket(AF_UNIX, SOCK_STREAM, 0);

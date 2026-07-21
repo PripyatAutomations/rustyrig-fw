@@ -1,20 +1,25 @@
 rrserver := bin/rrserver
 bins += ${rrserver}
+rrserver_objs += amp.o
+rrserver_objs += atu.o
 rrserver_objs += backend.o
+rrserver_objs += backend.hamlib.o
 #rrserver_objs += channels.o		# Channel Memories
-#rrserver_objs += console.o		# Console support
+rrserver_objs += console.o		# Console support
 rrserver_objs += database.o		# sqlite3 database stuff
 rrserver_objs += defconfig.o		# Default configuration
 rrserver_objs += faults.o		# Fault management/alerting
-#rrserver_objs += gpio.o		# GPIO controls
+rrserver_objs += filters.o
+rrserver_objs += gpio.o		# GPIO controls
 rrserver_objs += help.o		# support for help menus from filesystem, if available
 rrserver_objs += i2c.o
 rrserver_objs += main.o			# main loop
+rrserver_objs += network.o
 rrserver_objs += protection.o		# Protection features
 rrserver_objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 rrserver_objs += thermal.o		# Thermal management
 rrserver_objs += timer.o			# Timers support
-rrserver_objs += backend.hamlib.o
+rrserver_objs += webcam.o
 
 CFLAGS_RRSERVER += -I./modsrc/
 

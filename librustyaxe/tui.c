@@ -458,6 +458,7 @@ void tui_update_input_line(void) {
    if (strlen(slice) <= 0) {
       prompt_len++;
    }
+
    // --- move cursor ---
    int cursor_screen = cursor_screen_pos - start_col + prompt_len;
    printf("\033[%d;%dH", term_rows, cursor_screen);

@@ -9,6 +9,7 @@ DATE=$(shell date +%Y%m%d)
 INSTALLER=rrgtk.win64.${DATE}.exe
 
 include mk/json-config.mk
+include mk/compile.mk
 include mk/database.mk
 #include mk/libmongoose.mk
 include mk/eeprom.mk
@@ -43,7 +44,6 @@ include mk/clean.mk
 include mk/git.mk
 include mk/debug.mk
 include mk/resource.mk
-include mk/compile.mk
 
 ${OBJ_DIR}/build_config.h: ${EEPROM_FILE}
 ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)

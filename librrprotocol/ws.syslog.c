@@ -7,7 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,10 +15,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-//#include <gtk/gtk.h>
-//#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-//#include "mod.ui.gtk3/gtk.core.h"
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 
 extern dict *cfg;		// config.c
 extern time_t now;
@@ -36,9 +36,9 @@ bool ws_handle_syslog_msg(struct mg_connection *c, dict *d) {
    char ip[INET6_ADDRSTRLEN];
    int port = c->rem.port;
    if (c->rem.is_ip6) {
-      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET6, c->rem.ip6, ip, sizeof(ip));
    } else {
-      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET, &c->rem.ip4, ip, sizeof(ip));
    }
 
    char *ts = dict_get(d, "syslog.ts", NULL);

@@ -1,1 +1,1 @@
-../rrclient/GNUmakefile
+../rrcli/GNUmakefile

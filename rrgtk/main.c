@@ -22,8 +22,9 @@
 #endif
 
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 #endif
 #include <gtk/gtk.h>
 #include <mod.ui.gtk3/gtk.core.h>

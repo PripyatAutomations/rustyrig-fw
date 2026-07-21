@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "build_config.h"
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -234,7 +233,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->last_heard = now;
          cptr->is_ptt = c_state;
 
-#if	0
          // Start/stop PTT session
          if (!cptr->ptt_session) {
             const char *recording = au_recording_start(channel);
@@ -242,7 +240,7 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          } else {
             db_ptt_stop(masterdb, cptr->ptt_session);
          }
-#endif
+
          // Send to log file & consoles
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);
 
