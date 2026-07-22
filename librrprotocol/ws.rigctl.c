@@ -15,9 +15,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-//#include "../ext/libmongoose/mongoose.h"
+#include <rrserver/backend.h>
 #include <rrserver/database.h>
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 
 extern time_t now;
 extern struct GlobalState rig;	// Global state
@@ -234,12 +237,15 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          cptr->is_ptt = c_state;
 
          // Start/stop PTT session
+// XXX: Need to move this into a event...
+#if	0
          if (!cptr->ptt_session) {
             const char *recording = au_recording_start(channel);
             cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, dp->freq, mode_name, dp->width, dp->power, recording);
          } else {
             db_ptt_stop(masterdb, cptr->ptt_session);
          }
+#endif
 
          // Send to log file & consoles
          Log(LOG_AUDIT, "ptt", "User %s set PTT to %s on vfo %s", cptr->chatname, (c_state ? "true" : "false"), vfo);

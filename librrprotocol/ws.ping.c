@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-//#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 //#include "rrgtk/ws.h"
 
 //extern dict *cfg;		// config.c
@@ -35,9 +35,9 @@ bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
    char ip[INET6_ADDRSTRLEN];
    int port = c->rem.port;
    if (c->rem.is_ip6) {
-      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET6, c->rem.addr.ip6, ip, sizeof(ip));
    } else {
-      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET, &c->rem.addr.ip4, ip, sizeof(ip));
    }
 
    time_t ping_ts = dict_get_time_t(d, "ping.ts", 0);

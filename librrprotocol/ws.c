@@ -209,9 +209,9 @@ static bool ws_handle_pong(struct mg_ws_message *msg, struct mg_connection *c) {
    char ip[INET6_ADDRSTRLEN];  // Buffer to hold IPv4 or IPv6 address
    int port = c->rem.port;
    if (c->rem.is_ip6) {
-      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET6, c->rem.addr.ip6, ip, sizeof(ip));
    } else {
-      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET, &c->rem.addr.ip4, ip, sizeof(ip));
    }
 
    http_client_t *cptr = http_find_client_by_c(c);

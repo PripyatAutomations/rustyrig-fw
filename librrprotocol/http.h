@@ -118,7 +118,9 @@ struct http_client {
     time_t last_ping;		// If client is pending timeout, this will contain the time a ping was sent to check for dead connection
     int    ping_attempts;	// How many times have we tried to ping the client without answer?
     http_user_t *user;		// pointer to http user, once login is sent. DO NOT TRUST IF authenticated != true!
-//    struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
+#if	defined(USE_MONGOOSE)
+    struct mg_connection *conn; // Connection pointer (HTTP or WebSocket)
+#endif
     char   token[HTTP_TOKEN_LEN+1]; // Session token
     char   nonce[HTTP_TOKEN_LEN+1]; // Authentication nonce - only used between challenge & pass stages
     int    guest_id;		// 4 digit unique id for guest users in chat/etc for comfort
@@ -131,9 +133,7 @@ struct http_client {
     // These contain arrays of audio channel IDs
     u_int32_t rx_channels[MAX_RX_CHANNELS];
     u_int32_t tx_channels[MAX_RX_CHANNELS];
-#if	0
     // This is for connections between instances (NYI)
-/*
     enum {
        CONN_NONE = 0,
        CONN_RIGUI,		// User-interface (chat and CAT)
@@ -141,8 +141,7 @@ struct http_client {
        CONN_AUDIO_TX		// TX audio
     } connection_type;
     char   codec_rx[5], codec_tx[5];		// 4 byte ID of the codec for each audio direction
-*/
-#endif
+
     // This is a little ugly, but this stores pointers to the users associated with elmer/noob system
     union {
        struct http_client *elmers[HTTP_MAX_ELMERS];	// pointer(s) to elmers who have accepted to babysit user (if noob)
@@ -166,6 +165,9 @@ extern http_client_t *http_find_client_by_c(struct mg_connection *c);
 extern http_client_t *http_find_client_by_token(const char *token);
 extern http_client_t *http_find_client_by_guest_id(int gid);
 extern http_client_t *http_find_client_by_name(const char *name);
+// http.api.c:
+extern bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c);
+
 #endif	// defined(USE_MONGOOSE)
 extern void http_expire_sessions(void);                                        // ping clients, drop pinged out ones, etc
 extern void http_dump_clients(void);
@@ -173,9 +175,7 @@ extern bool http_save_users(const char *filename);			// save active users to con
 extern char *escape_html(const char *input);
 extern bool prepare_msg(char *buf, size_t len, const char *fmt, ...);
 extern const char *http_content_type(const char *type);
-
-// http.api.c:
-// extern bool http_dispatch_route(struct mg_http_message *msg,  struct mg_connection *c);
+extern bool check_url(const char *path);
 
 //////////////////
 extern http_client_t *http_client_list;

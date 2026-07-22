@@ -6,7 +6,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we deal with http requests using mongoose
-#include <librustyaxe/core.h>
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -19,8 +18,9 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include <time.h>
-//#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include "ext/libmongoose/mongoose.h"
 
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64
@@ -51,9 +51,7 @@ http_client_t *http_client_list = NULL;
 extern struct mg_mgr mg_mgr;
 
 static const struct mg_http_serve_opts http_opts = {
-#if	0
    .extra_headers = www_headers,
-#endif
    .page404 = www_404_path,
    .root_dir = www_root
 };
@@ -90,7 +88,7 @@ static struct http_res_types http_res_types[] = {
 
 // Perform various checks on synthesized URLs to make sure the user isn't up to anything shady...
 // XXX: Implement these!
-static bool check_url(const char *path) {
+bool check_url(const char *path) {
    return false;
 }
 
@@ -338,9 +336,9 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
 
    int port = c->rem.port;
    if (c->rem.is_ip6) {
-      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET6, c->rem.addr.ip6, ip, sizeof(ip));
    } else {
-      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET, &c->rem.addr.ip4, ip, sizeof(ip));
    }
  
    if (ev == MG_EV_OPEN) {

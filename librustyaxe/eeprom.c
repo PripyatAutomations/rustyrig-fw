@@ -43,7 +43,6 @@
 #endif
 
 #include <librrprotocol/rrprotocol.h>
-#include <librustyaxe/eeprom.h>
 #include <rrserver/i2c.h>
 
 #define	EEPROM_C		// Let the header know we're in the C file

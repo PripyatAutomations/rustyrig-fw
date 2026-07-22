@@ -16,7 +16,7 @@ LD := /mingw64/bin/x86_64-w64-mingw32-gcc.exe
 LDFLAGS += -lws2_32 -luser32 -lkernel32
 CFLAGS += -DMG_ARCH=MG_ARCH_WIN32
 export PKG_CONFIG_PATH := /mingw64/lib/pkgconfig/
-objs += icon.res
+objs += ${OBJ_DIR}/icon.res
 
 else
 

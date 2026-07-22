@@ -36,9 +36,9 @@ bool ws_handle_syslog_msg(struct mg_connection *c, dict *d) {
    char ip[INET6_ADDRSTRLEN];
    int port = c->rem.port;
    if (c->rem.is_ip6) {
-      inet_ntop(AF_INET6, c->rem.ip6, ip, sizeof(ip));
+      inet_ntop(AF_INET6, c->rem.addr.ip6, ip, sizeof(ip));
    } else {
-      inet_ntop(AF_INET, &c->rem.ip4, ip, sizeof(ip));
+      inet_ntop(AF_INET, &c->rem.addr.ip4, ip, sizeof(ip));
    }
 
    char *ts = dict_get(d, "syslog.ts", NULL);
