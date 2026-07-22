@@ -8,7 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_ws_h)
 #define __rr_ws_h
-#include "build_config.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,12 +16,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-//#include "ext/libmongoose/mongoose.h"
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 
 struct ws_client {
-//    struct mg_connection *conn;
+    struct mg_connection *conn;
     struct ws_client *next;  // Next client in the list
 };
 
@@ -38,7 +39,7 @@ typedef struct ws_audio_frame ws_audio_frame_t;
 
 struct ws_conn {
    bool			 ws_connected;
-//   struct mg_connection *ws_conn;
+   struct mg_connection *ws_conn;
    
 };
 typedef struct ws_conn ws_conn_t;
@@ -77,7 +78,7 @@ extern bool au_send_subscribe(u_int32_t channel);
 extern bool au_send_unsubscribe(u_int32_t channel);
 
 // ws.auth.c
-//extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c);
+extern bool ws_handle_auth_msg(struct mg_ws_message *msg, struct mg_connection *c);
 
 // ws_bcast.c
 extern bool send_global_alert(const char *sender, const char *data);
@@ -96,7 +97,6 @@ extern bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr);
 
 // Handle incoming messages
 extern void ws_handler(struct mg_connection *c, int ev, void *ev_data);
-//extern bool ws_binframe_process(const char *data, size_t len);
 
 // Send messages
 extern bool ws_send_ptt_cmd(struct mg_connection *c, const char *vfo, bool ptt);
@@ -109,6 +109,8 @@ extern bool ws_send_alert(http_client_t *cptr, const char *fmt, ...);
 // ws.audio.c
 extern bool ws_audio_init(void);
 extern bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx);
+extern bool ws_binframe_process_mg(struct mg_connection *c, const char *buf, size_t len);
 #endif	// defined(USE_MONGOOSE)
+extern bool ws_binframe_process(const char *data, size_t len);
 
 #endif	// !defined(__rr_ws_h)

@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/core.h>
 #define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
@@ -16,11 +15,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-//#include "../ext/libmongoose/mongoose.h"
 ///#include "mod.ui.gtk3/gtk.core.h"
 //#include <rrgtk/connman.h>
 //#include <rrgtk/userlist.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 
 // At startup, we try to find the distribution's TLS certificate authority trust store
 const char *default_tls_ca_paths[] = {

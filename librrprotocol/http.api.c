@@ -43,6 +43,12 @@
 //////////////////////////////////////
 
 #if	defined(USE_MONGOOSE)
+const struct mg_http_serve_opts http_opts = {
+   .extra_headers = www_headers,
+   .page404 = www_404_path,
+   .root_dir = www_root
+};
+
 static bool http_help(struct mg_http_message *msg, struct mg_connection *c) {
    size_t h_sz = PATH_MAX;
    size_t t_sz = 128;

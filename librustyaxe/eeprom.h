@@ -6,7 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(___rr_eeprom_h)
+#if	!defined(__rr_eeprom_h)
 #define	__rr_eeprom_h
 
 // This will prevent loading with a newer EEPROM version and someday will force an upgrade if older

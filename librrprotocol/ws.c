@@ -15,9 +15,11 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-//#include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/cat.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if     defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 
 extern struct GlobalState rig;	// Global state
 extern time_t now;
@@ -267,7 +269,7 @@ cleanup:
 }
 
 // Deal with the binary requests
-static bool ws_binframe_process(struct mg_connection *c, const char *buf, size_t len) {
+bool ws_binframe_process_mg(struct mg_connection *c, const char *buf, size_t len) {
    Log(LOG_DEBUG, "ws.binframe", "Binary frame of %li bytes", len);
 
    http_client_t *cptr = http_find_client_by_c(c);
@@ -480,7 +482,7 @@ bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c) {
    // Binary (audio, waterfall) frames
    if (msg->flags & WEBSOCKET_OP_BINARY) {
       Log(LOG_CRAZY, "ws.binframe", "Binary frame: %li bytes", msg->data.len);
-      ws_binframe_process(c, msg->data.buf, msg->data.len);
+      ws_binframe_process_mg(c, msg->data.buf, msg->data.len);
    } else {	// Text (mostly json) frames
       Log(LOG_CRAZY, "ws", "Text frame: %li bytes", msg->data.len);
       ws_txtframe_process(msg, c);

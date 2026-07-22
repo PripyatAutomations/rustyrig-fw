@@ -6,8 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,11 +13,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-//#include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/cat.h>
-#include <librustyaxe/eeprom.h>
-#include <rrserver/backend.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if     defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {

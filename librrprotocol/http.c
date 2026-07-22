@@ -41,22 +41,15 @@ extern time_t now;
 #define	WWW_404_FALLBACK	"fs:www/404.html"
 #endif	// defined(HOST_POSIX).else
 
-static char www_root[PATH_MAX];
+char www_root[PATH_MAX];
 static char www_fw_ver[128];
-static char www_headers[32768];
-static char www_404_path[PATH_MAX];
+char www_headers[32768];
+char www_404_path[PATH_MAX];
 http_client_t *http_client_list = NULL;
 
 #if	defined(USE_MONGOOSE)
 extern struct mg_mgr mg_mgr;
-
-static const struct mg_http_serve_opts http_opts = {
-   .extra_headers = www_headers,
-   .page404 = www_404_path,
-   .root_dir = www_root
-};
 #endif // defined(USE_MONGOOSE)
-
 
 // XXX: Need to remove Content-Type: from these and just store that here
 static const char content_type[] = "Content-Type: ";

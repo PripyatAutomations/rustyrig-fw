@@ -17,7 +17,6 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/cat.h>
-#include <librustyaxe/eeprom.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
 #include <rrserver/help.h>
