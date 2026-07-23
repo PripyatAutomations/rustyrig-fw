@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
@@ -71,50 +70,53 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       }
 
       if (has_privs(&tmp, "admin")) {
-         client_set_flag(&tmp, FLAG_ADMIN);
+         tmp.user_flags |= FLAG_ADMIN;
       } else if (has_privs(&tmp, "owner")) {
-         client_set_flag(&tmp, FLAG_OWNER);
+         tmp.user_flags |= FLAG_OWNER;
       }
 
       if (has_privs(&tmp, "muted")) {
-         client_set_flag(&tmp, FLAG_MUTED);
+         tmp.user_flags |= FLAG_MUTED;
          tmp.is_muted = true;
       }
 
       if (has_privs(&tmp, "ptt")) {
-         client_set_flag(&tmp, FLAG_PTT);
+         tmp.user_flags |= FLAG_PTT;
       }
 
       if (has_privs(&tmp, "subscriber")) {
-         client_set_flag(&tmp, FLAG_SUBSCRIBER);
+         tmp.user_flags |= FLAG_SUBSCRIBER;
       }
 
       if (has_privs(&tmp, "elmer")) {
-         client_set_flag(&tmp, FLAG_ELMER);
+         tmp.user_flags |= FLAG_ELMER;
       } else if (has_privs(&tmp, "noob")) {
-         client_set_flag(&tmp, FLAG_NOOB);
+         tmp.user_flags |= FLAG_NOOB;
       }
 
       if (has_privs(&tmp, "bot")) {
-         client_set_flag(&tmp, FLAG_SERVERBOT);
+         tmp.user_flags |= FLAG_SERVERBOT;
       }
 
       if (has_privs(&tmp, "listener")) {
-         client_set_flag(&tmp, FLAG_LISTENER);
+         tmp.user_flags |= FLAG_LISTENER;
       }
 
       if (has_privs(&tmp, "syslog")) {
-         client_set_flag(&tmp, FLAG_SYSLOG);
+         tmp.user_flags |= FLAG_SYSLOG;
       }
 
       if (has_privs(&tmp, "tx")) {
-         client_set_flag(&tmp, FLAG_CAN_TX);
+         tmp.user_flags |= FLAG_CAN_TX;
       }
 
-      if (!userlist_add_or_update(&tmp)) {
+      struct rr_user *ui_user = calloc(1, sizeof(*ui_user));
+      if (!ui_user) {
          Log(LOG_CRIT, "ws", "OOM in ws_handle_talk_msg");
       } else {
-         userlist_redraw_gtk();
+         memcpy(ui_user, &tmp, sizeof(*ui_user));
+         event_emit("http.userinfo", NULL, ui_user);
+         free(ui_user);
       }
    } else if (cmd && strcasecmp(cmd, "msg") == 0) {
       char *from = dict_get(d, "talk.from", NULL);
@@ -151,16 +153,14 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
          goto cleanup;
       }
       
-      struct rr_user *cptr = malloc(sizeof(struct rr_user));
+      struct rr_user *cptr = calloc(1, sizeof(struct rr_user));
       if (!cptr) {
          fprintf(stderr, "oom in ws_handle_chat_msg?!\n");
          goto cleanup;
       }
-      memset(cptr, 0, sizeof(struct rr_user));
       snprintf(cptr->name, sizeof(cptr->name), "%s", user);
       Log(LOG_DEBUG, "ws.join", "New user %s has cptr:<%p>", user, cptr);
-//      userlist_add_or_update(cptr);
-//      ui_print("[%s] >>> %s connected to the radio <<<", get_chat_ts(ts), user);
+      event_emit("http.userjoin", NULL, cptr);
    } else if (cmd && strcasecmp(cmd, "quit") == 0) {
       char *reason = dict_get(d, "talk.reason", NULL);
       if (!user || !reason) {
@@ -169,17 +169,17 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
 
       time_t ts = dict_get_time_t(d, "talk.ts", now);
 //      ui_print("[%s] >>> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(ts), user, reason ? reason : "No reason given", --clones);
-      struct rr_user *cptr = userlist_find(user);
-      if (!cptr) {
+      char *quit_user = strdup(user);
+      if (!quit_user) {
          goto cleanup;
       }
-
-      cptr->clones = clones;
-      if (cptr->clones <= 0 ) {
-         userlist_remove_by_name(cptr->name);
-      }
+      event_emit("http.userquit", NULL, quit_user);
+      free(quit_user);
    } else if (cmd && strcasecmp(cmd, "whois") == 0) {
       const char *whois_msg = dict_get(d, "talk.data", NULL);
+      if (whois_msg) {
+         event_emit("http.whois", NULL, (void *)whois_msg);
+      }
 //      ui_print("[%s] >>> WHOIS %s", user);
 //      ui_print("[%s]   %s", whois_msg);
    }

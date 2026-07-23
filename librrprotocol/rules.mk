@@ -29,6 +29,7 @@ librrprotocol_objs += ws.ping.o
 librrprotocol_objs += ws.rigctl.o
 librrprotocol_objs += ws.rigctl.cli.o
 librrprotocol_objs += ws.syslog.o
+librrprotocol_objs += ws.compat.o
 
 librrprotocol_cflags := ${CFLAGS} -I./modsrc/ -I./ -I./inc
 

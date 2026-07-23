@@ -20,6 +20,19 @@
 #include "ext/libmongoose/mongoose.h"
 #endif
 #include <rrserver/backend.h>
+#include <rrserver/database.h>
+
+sqlite3 *masterdb = NULL;
+
+bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type, const char *msg_data) {
+   (void)db;
+   (void)msg_ts;
+   (void)msg_src;
+   (void)msg_dest;
+   (void)msg_type;
+   (void)msg_data;
+   return false;
+}
 
 // minimum reason length for kick/ban/etc
 #define	CHAT_MIN_REASON_LEN	10

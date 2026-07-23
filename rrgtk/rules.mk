@@ -6,6 +6,7 @@ rrgtk_objs += chat.o
 rrgtk_objs += chat.cmd.o
 rrgtk_objs += connman.o
 rrgtk_objs += defconfig.o
+rrgtk_objs += events.o
 
 # Eventually we will support a TUI as well as GTK...
 ifeq (${USE_GTK},true)

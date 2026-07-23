@@ -31,6 +31,7 @@
 #include <mod.ui.gtk3/gtk.alertdialog.h>
 #include <rrgtk/ui.h>
 #include <rrgtk/connman.h>
+#include <rrgtk/userlist.h>
 
 extern const char *configs[]; // from defcfg.c
 extern const int num_configs;
@@ -39,6 +40,7 @@ extern char *config_file;       // from defconfig.c
 extern bool cfg_detect_and_load(const char *configs[], int num_configs);
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
+extern void rrgtk_register_events(void);
 struct GlobalState rig;
 
 #if	defined(USE_MONGOOSE)
@@ -150,7 +152,9 @@ int main(int argc, char *argv[]) {
    g_timeout_add(1000, update_now, NULL);   // 1hz periodic timer
    g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
 
+   event_init();
    gui_init();
+   rrgtk_register_events();
    ws_client_init();
 
    // How long to suppress hamlib/etc polling during CAT control?  

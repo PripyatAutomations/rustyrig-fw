@@ -85,6 +85,8 @@ struct FilterState {
    float thermal;			// Thermal state of Final Transistor
 };
 
+struct rr_backend;
+
 struct GlobalState {
    logpriority_t log_level;		// Minimum log level to show
    bool  tx_blocked;			// is TX blocked (user control)?
@@ -116,6 +118,7 @@ struct GlobalState {
    struct AmpState 	amps[RR_MAX_AMPS];
    struct ATUState 	atus[RR_MAX_ATUS];
    struct FilterState 	filters[RR_MAX_FILTERS];
+   struct rr_backend *backend;
 
 #if	defined(HOST_POSIX)   // Host build fd's/buffers/etc
    uint32_t		eeprom_fd;

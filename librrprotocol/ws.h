@@ -67,7 +67,6 @@ extern bool ws_handle_protocol(struct mg_ws_message *msg, struct mg_connection *
 extern bool ws_send_ping(http_client_t *cptr);
 extern bool ws_send_alert(http_client_t *cptr, const char *fmt, ...);
 extern bool ws_send_error(http_client_t *cptr, const char *fmt, ...);
-//extern bool ws_send_notice(struct mg_connection *c, const char *fmt, ...);
 
 // ws.audio.c
 extern void au_send_to_ws(const void *data, size_t len, int channel);
@@ -93,7 +92,7 @@ extern bool ws_send_users(http_client_t *cptr);
 extern bool ws_send_userinfo(http_client_t *cptr, http_client_t *acptr);
 
 // ws.rigctl.c
-//extern bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c);
+extern bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c);
 
 // Handle incoming messages
 extern void ws_handler(struct mg_connection *c, int ev, void *ev_data);
@@ -104,7 +103,8 @@ extern bool ws_send_mode_cmd(struct mg_connection *c, const char *vfo, const cha
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq);
 extern bool ws_send_error(http_client_t *cptr, const char *fmt, ...);
 extern bool ws_send_alert(http_client_t *cptr, const char *fmt, ...);
-//extern bool ws_send_notice(http_client_t *cptr, const char *fmt, ...);
+extern bool ws_send_notice(struct mg_connection *c, const char *fmt, ...);
+
 
 // ws.audio.c
 extern bool ws_audio_init(void);

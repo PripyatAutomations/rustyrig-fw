@@ -20,9 +20,27 @@
 #if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 #endif
+#include <rrserver/backend.h>
 
 extern struct GlobalState rig;	// Global state
 extern time_t now;
+
+#if defined(USE_MONGOOSE)
+enum fwdsp_io_type {
+   FW_IO_NONE = 0,
+   FW_IO_STDIO,
+   FW_IO_SOCKET
+};
+struct fwdsp_subproc {
+   int dummy;
+};
+struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
+   (void)id;
+   (void)io_type;
+   (void)is_tx;
+   return NULL;
+}
+#endif
 
 struct ws_msg_routes {
    const char *type;		// auth|ping|talk|cat|alert|error|hello etc

@@ -26,7 +26,11 @@
 #endif
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/state.h>
+#include <rrserver/backend.h>
 #include <rrserver/ptt.h>
+#if defined(BACKEND_HAMLIB)
+#include <modsrc/mod.backend.hamlib/backend.hamlib.h>
+#endif
 
 time_t   global_tot_time = 0;		// TOT
 extern time_t   ptt_tot_time;
@@ -70,9 +74,15 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
 
    const char *jp = dict2json_mkstr(
       VAL_STR, "cat.state.vfo", vfo_name(vfo),
+#if defined(BACKEND_HAMLIB)
       VAL_FLOAT, "cat.state.freq", hl_state.freq,
       VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode),
       VAL_INT, "cat.state.width", hl_state.width,
+#else
+      VAL_FLOAT, "cat.state.freq", 0.0,
+      VAL_STR, "cat.state.mode", "NONE",
+      VAL_INT, "cat.state.width", 0,
+#endif
       VAL_BOOL, "cat.state.ptt", ptt,
       VAL_ULONG, "cat.state.ts", now);
    // and send a CAT message with the state

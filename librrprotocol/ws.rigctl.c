@@ -18,6 +18,18 @@
 #include <rrserver/backend.h>
 #include <rrserver/database.h>
 #include <librrprotocol/rrprotocol.h>
+
+bool rr_set_width(rr_vfo_t vfo, const char *width) {
+   (void)vfo;
+   (void)width;
+   return false;
+}
+
+bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
+   (void)vfo;
+   (void)mode;
+   return false;
+}
 #if	defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 #endif

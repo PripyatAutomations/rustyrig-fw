@@ -39,13 +39,8 @@ struct mg_str tls_ca_path_str;
 const char *tls_ca_path = NULL;
 bool cfg_show_pings = true;			// set ui.show-pings=false in config to hide
 extern const char *server_name;		// XXX: This needs to go away when we go multi-server
-
-#if	defined(USE_GTK)
-#include <gtk/gtk.h>
-extern GtkWidget *main_window;
-extern GtkWidget *tx_codec_combo, *rx_codec_combo;
-extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
-#endif	// defined(USE_GTK)
+extern bool ws_connected;
+extern const char *get_server_property(const char *server, const char *prop);
 
 bool cfg_http_debug_crazy = false;
 
@@ -60,27 +55,27 @@ extern bool ws_handle_hello_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_media_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_notice_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_ping_msg(struct mg_connection *c, dict *d);
-extern bool ws_handle_rigctl_msg(struct mg_connection *c, dict *d);
+extern bool ws_handle_rigctl_cli_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_syslog_msg(struct mg_connection *c, dict *d);
 extern bool ws_handle_talk_msg(struct mg_connection *c, dict *d);
 
 struct ws_msg_routes {
    const char *type;		// auth|ping|talk|cat|alert|error|hello etc
-   bool (*cb)();
+   bool (*cb)(struct mg_connection *c, dict *d);
 };
 
 struct ws_msg_routes ws_routes_cli[] = {
-   { .type = "alert",	.cb = ws_handle_alert_msg },
-   { .type = "auth",	.cb = ws_handle_client_auth_msg },
-   { .type = "cat",	.cb = ws_handle_rigctl_msg },
-   { .type = "error",	.cb = ws_handle_error_msg },
-   { .type = "hello",	.cb = ws_handle_hello_msg },
-   { .type = "media",   .cb = ws_handle_media_msg },
-   { .type = "notice",  .cb = ws_handle_notice_msg },
-   { .type = "ping",    .cb = ws_handle_ping_msg },
-   { .type = "syslog",  .cb = ws_handle_syslog_msg },
-   { .type = "talk",	.cb = ws_handle_talk_msg },
-   { .type = NULL,	.cb = NULL }
+   { .type = "alert",  .cb = ws_handle_alert_msg },
+   { .type = "auth",   .cb = ws_handle_client_auth_msg },
+   { .type = "cat",    .cb = ws_handle_rigctl_cli_msg },
+   { .type = "error",  .cb = ws_handle_error_msg },
+   { .type = "hello",  .cb = ws_handle_hello_msg },
+   { .type = "media",  .cb = ws_handle_media_msg },
+   { .type = "notice", .cb = ws_handle_notice_msg },
+   { .type = "ping",   .cb = ws_handle_ping_msg },
+   { .type = "syslog", .cb = ws_handle_syslog_msg },
+   { .type = "talk",   .cb = ws_handle_talk_msg },
+   { .type = NULL,     .cb = NULL }
 };
 
 bool ws_handle_hello_msg(struct mg_connection *c, dict *d) {
@@ -222,6 +217,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      const char *this_server = http_servername(c);
 //      const char *this_server = server_name;		// XXX: remove me
 //      Log(LOG_CRAZY, "ws", "ev_ws_open: |%s|", this_server);
+      const char *this_server = server_name;
       const char *url = get_server_property(this_server, "server.url");
 
       if (c->is_tls) {
@@ -239,6 +235,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts(now));
 //      update_connection_button(true, conn_button);
       ws_connected = true;
+      event_emit("http.connected", NULL, NULL);
 
       const char *login_user = get_server_property(this_server, "server.user");
       Log(LOG_DEBUG, "ws", "ev_ws_connect: server: |%s| user: |%s|", server_name, login_user);
@@ -267,6 +264,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      ws_connected = false;
 //      ws_conn = NULL;
 //      update_connection_button(false, conn_button);
+      event_emit("http.disconnected", NULL, NULL);
 #if	defined(USE_GTK) && 0
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");

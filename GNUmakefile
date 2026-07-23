@@ -24,7 +24,7 @@ BUILD_HEADERS += $(wildcard rrserver/*.h) $(wildcard rrgtk/*.h)
 BUILD_HEADERS += $(wildcard librrprotocol/*.h)
 BUILD_HEADERS += $(wildcard librustyaxe/*.h)
 
-rrgtk_src = $(rrclent_objs:.o=.c)
+rrgtk_src = $(rrgtk_objs:.o=.c)
 rrserver_src = $(rrserver_objs:.o=.c)
 
 ifeq (${PLATFORM},posix)

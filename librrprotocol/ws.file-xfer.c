@@ -14,13 +14,31 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <errno.h>
+#include <string.h>
 
 #define CHUNK 32768
 
 static uint64_t gen_id(void) {
-   uint64_t x = mg_millis();
-   x ^= (uint64_t)mg_random();  // not cryptographic, just uniqueness
+   uint64_t x = (uint64_t) mg_millis();
+   uint8_t rnd[8];
+   mg_random(rnd, sizeof(rnd));
+   memcpy(&x, rnd, sizeof(x));
+   x ^= (uint64_t) mg_millis();
    return x ? x : 1;
+}
+
+static const char *rr_basename(const char *path) {
+   if (!path) {
+      return "file.bin";
+   }
+   const char *base = path;
+   for (const char *p = path; *p; ++p) {
+      if (*p == '/' || *p == '\\') {
+         base = p + 1;
+      }
+   }
+   return base;
 }
 
 static void ws_send_file(struct mg_connection *c, const char *path, const char *mime) {
@@ -44,7 +62,7 @@ static void ws_send_file(struct mg_connection *c, const char *path, const char *
    // meta (text frame)
    mg_ws_printf(c, WEBSOCKET_OP_TEXT,
       "{\"type\":\"file_meta\",\"id\":\"%llx\",\"name\":\"%s\",\"mime\":\"%s\",\"size\":%llu,\"chunk\":%u,\"total\":%u}",
-      (unsigned long long) id, mg_basename(path), mime ? mime : "application/octet-stream",
+      (unsigned long long) id, rr_basename(path), mime ? mime : "application/octet-stream",
       (unsigned long long) fsize, (unsigned) CHUNK, (unsigned) total);
 
    // chunk buffer: header(24) + payload
@@ -83,15 +101,16 @@ struct xfer {
    FILE *fp;
 };
 
-static struct mg_str k_meta = MG_STR("file_meta");
+static struct mg_str k_meta = { .buf = "file_meta", .len = sizeof("file_meta") - 1 };
 
 // Simple open-addressing table; replace with your own map if you have one
 struct slot { uint64_t id; struct xfer xf; };
 static struct slot g_tbl[64];
 
 static struct xfer *xf_get(uint64_t id, bool create) {
-   for (size_t i = 0; i < MG_ARRAY_SIZE(g_tbl); i++) {
-      size_t j = (id + i) % MG_ARRAY_SIZE(g_tbl);
+   size_t count = sizeof(g_tbl) / sizeof(g_tbl[0]);
+   for (size_t i = 0; i < count; i++) {
+      size_t j = (id + i) % count;
       if (g_tbl[j].id == id) {
          return &g_tbl[j].xf;
       }
@@ -103,7 +122,8 @@ static struct xfer *xf_get(uint64_t id, bool create) {
 }
 
 static void xf_done(uint64_t id) {
-   for (size_t j = 0; j < MG_ARRAY_SIZE(g_tbl); j++) {
+   size_t count = sizeof(g_tbl) / sizeof(g_tbl[0]);
+   for (size_t j = 0; j < count; j++) {
       if (g_tbl[j].id == id) {
          if (g_tbl[j].xf.fp) {
             fclose(g_tbl[j].xf.fp);
@@ -122,14 +142,19 @@ static void on_ws_msg(struct mg_connection *c, int ev, void *ev_data) {
 
    if (m->flags & WEBSOCKET_OP_TEXT) {
       // Parse meta
-      struct mg_str type = mg_json_get_str(mg_str_n((char *) m->data.ptr, m->data.len), "$.type");
-      if (mg_strcmp(type, k_meta) != 0) {
+      char *type = mg_json_get_str(mg_str_n(m->data.buf, m->data.len), "$.type");
+      if (!type || mg_strcmp(mg_str(type), k_meta) != 0) {
+         mg_free(type);
          return;
       }
+      mg_free(type);
 
-      struct mg_str sid = mg_json_get_str(m->data, "$.id");
+      char *sid = mg_json_get_str(m->data, "$.id");
       char idbuf[32] = {0};
-      mg_snprintf(idbuf, sizeof(idbuf), "%.*s", (int) sid.len, sid.ptr);
+      if (sid) {
+         mg_snprintf(idbuf, sizeof(idbuf), "%s", sid);
+         mg_free(sid);
+      }
       uint64_t id = 0;
       sscanf(idbuf, "%llx", (unsigned long long *) &id);
 
@@ -139,14 +164,16 @@ static void on_ws_msg(struct mg_connection *c, int ev, void *ev_data) {
       }
       memset(xf, 0, sizeof(*xf));
 
-      struct mg_str sname = mg_json_get_str(m->data, "$.name");
-      struct mg_str smime = mg_json_get_str(m->data, "$.mime");
-      struct mg_str ssz   = mg_json_get_str(m->data, "$.size");
-      struct mg_str schunk= mg_json_get_str(m->data, "$.chunk");
-      struct mg_str stotal= mg_json_get_str(m->data, "$.total");
-
-      mg_snprintf(xf->name, sizeof(xf->name), "%.*s", (int) sname.len, sname.ptr);
-      mg_snprintf(xf->mime, sizeof(xf->mime), "%.*s", (int) smime.len, smime.ptr);
+      char *sname = mg_json_get_str(m->data, "$.name");
+      char *smime = mg_json_get_str(m->data, "$.mime");
+      if (sname) {
+         mg_snprintf(xf->name, sizeof(xf->name), "%s", sname);
+         mg_free(sname);
+      }
+      if (smime) {
+         mg_snprintf(xf->mime, sizeof(xf->mime), "%s", smime);
+         mg_free(smime);
+      }
       xf->size     = (uint64_t) mg_json_get_long(m->data, "$.size", 0);
       xf->chunk_sz = (uint32_t) mg_json_get_long(m->data, "$.chunk", 32768);
       xf->total    = (uint32_t) mg_json_get_long(m->data, "$.total", 0);
@@ -167,7 +194,7 @@ static void on_ws_msg(struct mg_connection *c, int ev, void *ev_data) {
       if (m->data.len < 24) {
          return;
       }
-      const uint8_t *p = (const uint8_t *) m->data.ptr;
+      const uint8_t *p = (const uint8_t *) m->data.buf;
       uint64_t id; memcpy(&id, p + 0, 8);
       uint32_t idx, n; memcpy(&idx, p + 8, 4); memcpy(&n, p + 12, 4);
 

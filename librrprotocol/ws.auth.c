@@ -45,9 +45,9 @@ bool ws_handle_client_auth_msg(struct mg_connection *c, dict *d) {
    int port = c->rem.port;
 
    if (c->rem.is_ip6) {
-      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET6, c->rem.addr.ip6, ip, sizeof(ip));
    } else {
-      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET, &c->rem.addr.ip4, ip, sizeof(ip));
    }
 
    char *cmd = dict_get(d, "auth.cmd", NULL);
