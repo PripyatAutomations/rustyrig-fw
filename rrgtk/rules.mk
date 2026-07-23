@@ -40,23 +40,23 @@ rrgtk_objs += win32.o		# support to run in windows
 rrgtk_real_objs := $(foreach x, ${rrgtk_objs}, ${OBJ_DIR}/rrgtk/${x})
 extra_clean += ${rrgtk_real_objs}
 
-CFLAGS_RRCLIENT += -I./modsrc/
+CFLAGS_RRCLI += -I./modsrc/
 
 ${OBJ_DIR}/rrgtk/%.o: rrgtk/%.c ${BUILD_HEADERS} GNUmakefile rrgtk/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
+	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
 # as soon as we complete loadable modules, this must go away!
 ${OBJ_DIR}/rrgtk/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS} GNUmakefile rrgtk/rules.mk #${librustyaxe_headers} $[librrprotocol_headers}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_RRCLIENT} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
+	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
 bin/rrgtk: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrgtk_real_objs}
-	${CC} ${LDFLAGS} ${LDFLAGS_RRCLIENT} -o $@ ${rrgtk_real_objs} -lrustyaxe -lrrprotocol -lev ${gtk_ldflags} ${gst_ldflags} || exit 2
+	${CC} ${LDFLAGS} ${LDFLAGS_RRCLI} -o $@ ${rrgtk_real_objs} -lrustyaxe -lrrprotocol -lev ${gtk_ldflags} ${gst_ldflags} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

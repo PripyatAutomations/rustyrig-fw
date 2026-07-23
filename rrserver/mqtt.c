@@ -205,6 +205,7 @@ bool mqtt_client_init(void) {
    FILE *fp = NULL;
    // XXX: This should come from config:net.mqtt-client.secret-file
    const char *secret_file = "./config/mqtt-cli.secret";
+
    if (!file_exists(secret_file)) {
       Log(LOG_CRIT, "mqtt.cli", "Secret file '%s' doesn't exist", secret_file);
       return false;

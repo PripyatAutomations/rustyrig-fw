@@ -53,7 +53,7 @@ LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 #gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
 
 FWDSP_CFLAGS += -D__FWDSP
-CFLAGS_RRCLIENT += -D__RRCLIENT=1
+CFLAGS_RRCLI += -D__RRCLI=1
 
 #ifeq (${USE_LIBUNWIND},true)
 #CFLAGS += -fno-omit-frame-pointer -Og -gdwarf -DUSE_LIBUNWIND

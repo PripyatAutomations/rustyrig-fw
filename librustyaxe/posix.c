@@ -39,7 +39,7 @@ extern void shutdown_app(int signum);
 void host_cleanup(void) {
     printf("Goodbye!\n");
     // Unlink the cat pipe
-//#if	!defined(__RRCLIENT) && !defined(__FWDSP)
+//#if	!defined(__RRCLI) && !defined(__FWDSP)
 //    if (rig.catpipe_fd >= 0) {
 //       close(rig.catpipe_fd);
 //       rig.catpipe_fd = -1;
@@ -63,7 +63,7 @@ static void sighandler(int32_t signum) {
       // Fatal signals
       case SIGINT:
       case SIGTERM:
-//#if	defined(__RRCLIENT) || defined(__FWDSP)
+//#if	defined(__RRCLI) || defined(__FWDSP)
 //         shutdown_app(0);
 //#else
 //         shutdown_rig(0);

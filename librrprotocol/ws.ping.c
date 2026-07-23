@@ -7,7 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#define	__RRCLIENT	1
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>

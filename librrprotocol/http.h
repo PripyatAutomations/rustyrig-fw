@@ -151,7 +151,7 @@ struct http_client {
 };
 typedef struct http_client http_client_t;
 
-#if	!defined(__RRCLIENT)
+#if	!defined(__RRCLI)
 ////////////////////////////////////////////////////////
 extern int http_count_clients(void);
 extern int http_count_connections(void);
