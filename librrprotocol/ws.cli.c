@@ -70,7 +70,7 @@ struct ws_msg_routes {
    bool (*cb)();
 };
 
-struct ws_msg_routes ws_routes[] = {
+struct ws_msg_routes ws_routes_cli[] = {
    { .type = "alert",	.cb = ws_handle_alert_msg },
    { .type = "auth",	.cb = ws_handle_client_auth_msg },
    { .type = "cat",	.cb = ws_handle_rigctl_msg },
@@ -116,7 +116,7 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
    dict *d = json2dict(buf);
 
    // Pointer to available routes
-   struct ws_msg_routes *rp = ws_routes;
+   struct ws_msg_routes *rp = ws_routes_cli;
 
    // Walk the table of handlers
    while (rp[i].type) {

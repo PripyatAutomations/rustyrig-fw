@@ -530,7 +530,8 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                      } else if (strcasecmp(cmd, "freq") == 0) {
                         long real_freq = parse_freq(arg);
                         Log(LOG_DEBUG, "ws.chat", "Got !freq %lu (%s) from %s", real_freq, arg, cptr->chatname);
-                        rr_freq_set(active_vfo, real_freq);
+// XXX: Fix this to be an event
+//                        rr_freq_set(active_vfo, real_freq);
                      } else if (strcasecmp(cmd, "mode") == 0) {
                         Log(LOG_DEBUG, "ws.chat", "Got !mode %s from %s", arg, cptr->chatname);
                         rr_mode_t new_mode = vfo_parse_mode(arg);

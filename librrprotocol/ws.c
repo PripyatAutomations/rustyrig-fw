@@ -33,17 +33,17 @@ struct ws_msg_routes {
 // XXX: We need to move to a similar arrangement as the client,
 // XXX: so these can be properly split across multiple source files
 // XXX: and accessed in a pleasant way...
-#if	0
+#if	defined(USE_MONGOOSE)
 struct ws_msg_routes ws_routes[] = {
    { .type = "auth",  .cb = ws_handle_auth_msg,  .auth_reqd = false },
-   { .type = "cat",   .cb = ws_handle_cat_msg,   .auth_reqd = true },
-   { .type = "hello", .cb = ws_handle_hell_msg,  .auth_reqd = false },
-   { .type = "media", .cb = ws_handle_media_msg, .auth_reqd = true },
-   { .type = "ping",  .cb = ws_handle_ping_msg,  .auth_reqd = false },
-   { .type = "pong",  .cb = ws_handle_pong_msg,  .auth_reqd = false },
-   { .type = "talk",  .cb = ws_handle_talk_msg,  .auth_reqd = true },
-   { .type = "talk.cmd", .cb = ws_handle_talk_cmd, .auth_reqd = false },
-   { .type = "talk.quit", .cb = ws_handle_quit,  .auth_reqd = false },
+//   { .type = "cat",   .cb = ws_handle_cat_msg,   .auth_reqd = true },
+//   { .type = "hello", .cb = ws_handle_hello_msg,  .auth_reqd = false },
+//   { .type = "media", .cb = ws_handle_media_msg, .auth_reqd = true },
+//   { .type = "ping",  .cb = ws_handle_ping_msg,  .auth_reqd = false },
+//   { .type = "pong",  .cb = ws_handle_pong_msg,  .auth_reqd = false },
+//   { .type = "talk",  .cb = ws_handle_talk_msg,  .auth_reqd = true },
+//   { .type = "talk.cmd", .cb = ws_handle_talk_cmd, .auth_reqd = false },
+//   { .type = "talk.quit", .cb = ws_handle_quit,  .auth_reqd = false },
 };
 #endif
 
@@ -51,7 +51,7 @@ bool rrproto_ws_connect(int server) {
    return false;
 }
 
-#if	0
+#if	defined(USE_MONGOOSE)
 bool ws_init(struct mg_mgr *mgr) {
    if (!mgr) {
       Log(LOG_CRIT, "ws", "ws_init called with NULL mgr");
@@ -88,7 +88,7 @@ void ws_send_to_name(struct mg_connection *sender, const char *username, struct 
    }
 }
 
-#endif
+#endif // defined(USE_MONGOOSE)
 
 bool ws_kick_by_name(const char *name, const char *reason) {
    if (!http_client_list) {
@@ -421,6 +421,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
            struct fwdsp_subproc *codec_rx_subproc = NULL;
 
 // XXX: Rewrite this to subscribe rx_channels and rx_channels
+//#if	defined(USE_MONGOOSE)
 #if	0
            if (media_channel) {
               // XXX: Should we store pointers to the subprocs in the user struct? downside is it requires librustyaxe/http.h to include rrserver/fwdsp-mgr.h or move struct fwdsp_subrpco to librustyaxe/fwdsp-shared.h

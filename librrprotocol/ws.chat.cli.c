@@ -7,7 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,16 +16,15 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-//#include "../ext/libmongoose/mongoose.h"
-//#include "mod.ui.gtk3/gtk.core.h"
-//#include <rrgtk/connman.h>
-//#include <rrgtk/userlist.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
 
 extern dict *cfg;		// config.c
 extern time_t now;
 
-#if	defined(USE_MONGOOSE)
 bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
    if (!c || !d) {
       Log(LOG_DEBUG, "ws.chat", "handle_talk_msg: c:<%p> d:<%p>", c, d);

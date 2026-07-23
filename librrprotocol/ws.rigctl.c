@@ -306,7 +306,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          free((char *)jp);
 
          Log(LOG_AUDIT, "ws.cat", "User %s set VFO %s FREQ to %.0f hz", cptr->chatname, vfo, new_freq);
-         rr_freq_set(c_vfo, new_freq);
+// XXX: Implement this as an event
+//         rr_freq_set(c_vfo, new_freq);
       } else if (strcasecmp(cmd, "mode") == 0) {
          char *mode = mg_json_get_str(msg_data, "$.cat.mode");
 
@@ -343,7 +344,8 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          Log(LOG_AUDIT, "mode", "User %s set VFO %s MODE to %s", cptr->chatname, vfo, mode);
          rr_mode_t new_mode = vfo_parse_mode(mode);
          if (new_mode != MODE_NONE) {
-            rr_set_mode(c_vfo, new_mode);
+// XXX: Implement this as an event
+//            rr_set_mode(c_vfo, new_mode);
          }
          free(mode);
       } else {

@@ -7,7 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,16 +15,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-//#include <gtk/gtk.h>
-//#include "../ext/libmongoose/mongoose.h"
-//#include <rrgtk/userlist.h>
-//#include "mod.ui.gtk3/gtk.core.h"
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif	// defined(USE_MONGOOSE)
 extern dict *cfg;		// config.c
 extern time_t now;
 
-#if	0
+#if	defined(USE_MONGOOSE)
 bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    if (!c || !msg) {
       Log(LOG_WARN, "http.ws", "error_msg: got msg:<%p> mg_conn:<%p>", msg, c);
@@ -37,9 +35,9 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
    char ip[INET6_ADDRSTRLEN];
    int port = c->rem.port;
    if (c->rem.is_ip6) {
-      inet_ntop(AF_INET6, c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET6, c->rem.addr.ip6, ip, sizeof(ip));
    } else {
-      inet_ntop(AF_INET, &c->rem.ip, ip, sizeof(ip));
+      inet_ntop(AF_INET, &c->rem.addr.ip4, ip, sizeof(ip));
    }
 
    if (!msg->data.buf) {
@@ -71,4 +69,5 @@ bool ws_handle_error_msg(struct mg_connection *c, struct mg_ws_message *msg) {
 
    return false;
 }
-#endif
+#endif	// defined(USE_MONGOOSE)
+

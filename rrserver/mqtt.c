@@ -11,10 +11,7 @@
 // We eventually will support both client and server roles
 // but for now focus will be on server
 //
-#include "build_config.h"
-#include <librustyaxe/core.h>
 
-#if	defined(FEATURE_MQTT)
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -23,12 +20,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "../ext/libmongoose/mongoose.h"
+#include "build_config.h"
+#include <librustyaxe/core.h>
+#if	defined(FEATURE_MQTT)
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif	// defined(USE_MONGOOSE)
 #include <rrserver/i2c.h>
-#include <rrserver/eeprom.h>
-#include <librustyaxe/logger.h>
 #include <librustyaxe/cat.h>
-#include <librustyaxe/posix.h>
 #include <rrserver/mqtt.h>
 
 // forward declration
