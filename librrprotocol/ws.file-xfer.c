@@ -15,7 +15,6 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#if	0
 #define CHUNK 32768
 
 static uint64_t gen_id(void) {
@@ -206,5 +205,3 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
 
 // Example: call ws_send_file(c, "/path/to/file.png", "image/png") after WS is open
 */
-
-#endif	// 0

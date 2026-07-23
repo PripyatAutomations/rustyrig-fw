@@ -581,7 +581,7 @@ uint32_t crc32(uint32_t crc, const void *data, size_t len) {
    static uint32_t table[256];
    static int init = 0;
 
-#if	0
+#if	defined(DEBUG_EEPROM)
    printf("len=%zu ptr=%p\n", (size_t)(EEPROM_SIZE - 4), rig.eeprom_mmap);
    printf("%02x %02x %02x %02x\n",
       ((uint8_t *)rig.eeprom_mmap)[0],

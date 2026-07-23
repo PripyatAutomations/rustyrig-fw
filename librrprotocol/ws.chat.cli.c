@@ -57,7 +57,6 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
 
       Log(LOG_DEBUG, "ws.talk", "UserInfo: %s has privs '%s' (TX: %s, Muted: %s, clones: %.0f)", user, privs, (tx ? "true" : "false"), muted, clones);
 
-#if	0
       struct rr_user tmp = {0};
 
       snprintf(tmp.name, sizeof(tmp.name), "%s", user);
@@ -117,7 +116,6 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       } else {
          userlist_redraw_gtk();
       }
-#endif
    } else if (cmd && strcasecmp(cmd, "msg") == 0) {
       char *from = dict_get(d, "talk.from", NULL);
       char *data = dict_get(d, "talk.data", NULL);
@@ -171,7 +169,6 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
 
       time_t ts = dict_get_time_t(d, "talk.ts", now);
 //      ui_print("[%s] >>> %s disconnected from the radio: %s (%.0f clones left)<<<", get_chat_ts(ts), user, reason ? reason : "No reason given", --clones);
-#if	0
       struct rr_user *cptr = userlist_find(user);
       if (!cptr) {
          goto cleanup;
@@ -181,7 +178,6 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
       if (cptr->clones <= 0 ) {
          userlist_remove_by_name(cptr->name);
       }
-#endif
    } else if (cmd && strcasecmp(cmd, "whois") == 0) {
       const char *whois_msg = dict_get(d, "talk.data", NULL);
 //      ui_print("[%s] >>> WHOIS %s", user);

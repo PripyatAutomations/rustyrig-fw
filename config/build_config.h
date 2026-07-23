@@ -29,7 +29,6 @@
 //#define CAT_KPA500 true
 #define CAT_YAESU true
 #define FEATURE_GSTREAMER
-#define FEATURE_HTTP
 #define FEATURE_SQLITE
 
 // XXX: This needs moved to config/loadable modules
@@ -39,12 +38,11 @@
 #define BACKEND_HAMLIB_BAUD	38400
 #define BACKEND_HAMLIB_PORT	"localhost:4532"
 
-#if	0
-#define FEATURE_MQTT
-#define USE_PROFILING true
-#endif
 
+//#define USE_PROFILING true
 #define	USE_MONGOOSE
+#define FEATURE_MQTT
+#define FEATURE_HTTP
 
 #define HTTP_USE_TLS 1
 #define HTTP_TLS_KEY "./config/key.pem"
@@ -57,3 +55,26 @@
 #define HOST_POSIX
 #define HOST_LINUX	// This should not be here, but i2c depends on it for now
 #endif
+./librrprotocol/auth.h
+./librrprotocol/http.c
+./librrprotocol/ws.audio.c
+./librrprotocol/ws.auth.c
+./librrprotocol/ws.c
+./librrprotocol/ws.chat.c
+./librrprotocol/ws.chat.cli.c
+./librrprotocol/ws.cli.c
+./librrprotocol/ws.file-xfer.c
+./librrprotocol/ws.rigctl.c
+./librrprotocol/ws.rigctl.cli.c
+./librustyaxe/cat.c
+./librustyaxe/config.c
+./librustyaxe/eeprom.c
+./librustyaxe/kvstore.c
+./librustyaxe/subproc.c
+./modsrc/mod.ui.gtk3/gtk.winmgr.c
+./rrgtk/chat.c
+./rrgtk/disabled/audio.c
+./rrserver/disabled/dds.ad9959_stm32.c
+./rrserver/disabled/fwdsp-mgr.c
+./rrserver/main.c
+./rrserver/ptt.c

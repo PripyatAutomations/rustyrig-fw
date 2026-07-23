@@ -62,7 +62,6 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    }
 
 // XXX: Fix this!
-#if	0
    if (rig.backend && rig.backend->api) {
       rig.backend->api->ptt_set(vfo, ptt);
    } else {
@@ -80,7 +79,6 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    struct mg_str mp = mg_str(jp);
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
    free((void *)jp);
-#endif
 
    return ptt;
 }

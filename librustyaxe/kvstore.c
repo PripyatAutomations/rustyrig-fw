@@ -330,25 +330,3 @@ kv_store_t *kv_create_and_load(kv_type_t type, size_t prefix_size, ...) {
    va_end(ap);
    return store;
 }
-
-#if	0
-// ----------------- example -----------------
-int main(void) {
-   kv_store_t *store = kv_create_and_load(KV_BST, 0,
-       "#a", "val1",
-       "#b", "val2",
-       "#cX", "val3",
-       NULL
-   );
-
-   printf("#a -> %s\n", (char*)kv_lookup(store, "#a"));
-   printf("#b -> %s\n", (char*)kv_lookup(store, "#b"));
-   printf("#cX -> %s\n", (char*)kv_lookup(store, "#cX"));
-
-   kv_remove(store, "#b");
-   printf("#b -> %s\n", (char*)kv_lookup(store, "#b"));
-
-   kv_destroy(store);
-   return 0;
-}
-#endif

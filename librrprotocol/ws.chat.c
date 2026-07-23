@@ -480,7 +480,6 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                }
                // Check for commands
                if (data[0] == '!') {
-#if	0
                   char *input = data;
                   char cmd[16], arg[32];
                   size_t cmd_len = sizeof(cmd), arg_len = sizeof(arg);
@@ -553,7 +552,6 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
 
                   // these events shouldn't get relayed because the CAT events generated *will* be relayed
                   return false;
-#endif
                } else { // Chat message
                   // Check if this is to a local channel. If not, relay it
                   if (channel[0] != '&') {
@@ -561,7 +559,6 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                   }
 
 // XXX: readd
-#if	0
                   // Log to database, if configured
                   if (cfg_get_bool("chat.log", false)) {
                      bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
@@ -569,7 +566,6 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
                         fprintf(stderr, "db_add_chat_msg failed\n");
                      }
                   }
-#endif
 
                   const char *jp = dict2json_mkstr(
                      VAL_STR, "talk.cmd", "msg",

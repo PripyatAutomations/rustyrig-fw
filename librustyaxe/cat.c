@@ -208,7 +208,6 @@ bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
     Log(LOG_CRAZY, "cat.ws", "parsing %d bytes from ws: |%.*s|", msg->data.len, msg->data.len, msg->data.buf);
 
     // Extract "cmd" and "val" from JSON
-#if	0
     const char *cmd_str = mg_json_get_str(msg->data, "$.cat.cmd");
     const char *val_str = mg_json_get_str(msg->data, "$.cat.val");
     Log(LOG_DEBUG, "cat.ws", "cmd: %s, val: %s", cmd_str, val_str);
@@ -226,7 +225,6 @@ bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message *msg) {
 cleanup:
     free((void *)cmd_str);
     free((void *)val_str);
-#endif	// 0
     return false;
 }
 

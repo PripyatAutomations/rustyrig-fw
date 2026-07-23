@@ -36,7 +36,6 @@ extern char session_token[HTTP_TOKEN_LEN+1];
 bool ws_handle_client_auth_msg(struct mg_connection *c, dict *d) {
    bool rv = false;
 
-#if	0
    if (!c || !d) {
       Log(LOG_WARN, "http.ws", "auth_msg: got msg mg_conn:<%p> msg:<%p>", c, d);
       return true;
@@ -87,7 +86,6 @@ bool ws_handle_client_auth_msg(struct mg_connection *c, dict *d) {
    }
 
 cleanup:
-#endif
    return rv;
 }
 

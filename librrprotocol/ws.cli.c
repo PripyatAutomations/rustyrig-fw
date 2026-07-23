@@ -222,7 +222,6 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      const char *this_server = http_servername(c);
 //      const char *this_server = server_name;		// XXX: remove me
 //      Log(LOG_CRAZY, "ws", "ev_ws_open: |%s|", this_server);
-#if	0
       const char *url = get_server_property(this_server, "server.url");
 
       if (c->is_tls) {
@@ -236,10 +235,10 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &opts);
       }
 
-// XXX: readd this
+// XXX: Make this send an event CONNECTED
 //      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts(now));
-//      ws_connected = true;
 //      update_connection_button(true, conn_button);
+      ws_connected = true;
 
       const char *login_user = get_server_property(this_server, "server.user");
       Log(LOG_DEBUG, "ws", "ev_ws_connect: server: |%s| user: |%s|", server_name, login_user);
@@ -249,7 +248,6 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       }
       ws_send_hello(c);
       ws_send_login(c, login_user);
-#endif
 
 #if	defined(USE_GTK) && 0
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);

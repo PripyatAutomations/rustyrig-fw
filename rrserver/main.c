@@ -212,13 +212,11 @@ int main(int argc, char **argv) {
 //      rr_ptt_set_blocked(true);
    }
 
-#if	0
    if (rr_io_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
       set_fault(FAULT_IO_ERROR);
       exit(1);
    }
-#endif
 
    if (rr_backend_init()) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
@@ -274,7 +272,6 @@ int main(int argc, char **argv) {
          // XXX: Should we stop PTT and halt here?
       }
 
-#if	0
       // Has the TOT expired?
       if (global_tot_time > 0 && global_tot_time <= now) {
          http_client_t *talker = whos_talking();
@@ -285,7 +282,6 @@ int main(int argc, char **argv) {
          send_global_alert("***SERVER***", msgbuf);
          global_tot_time = 0;
       }
-#endif
 
       // Check thermals
       if (are_we_on_fire()) {
