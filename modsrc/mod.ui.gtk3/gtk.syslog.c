@@ -7,7 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,12 +16,13 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 #endif	// defined(USE_MONGOOSE)
 #include <rrgtk/userlist.h>
 #include "mod.ui.gtk3/gtk.core.h"
-#include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;		// config.c
 extern struct mg_connection *ws_conn;

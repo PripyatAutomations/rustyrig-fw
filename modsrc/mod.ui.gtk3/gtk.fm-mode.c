@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,10 +15,11 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif	// defined(USE_MONGOOSE)
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;

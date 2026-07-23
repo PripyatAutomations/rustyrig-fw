@@ -8,7 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // This allows finding and working with a widget by a human readable name, for automation, etc
-#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,12 +17,10 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
+#include <librustyaxe/core.h>
 #if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 #endif	// defined(USE_MONGOOSE)
-#include <librustyaxe/logger.h>
-#include <librustyaxe/dict.h>
-#include <librustyaxe/posix.h>
 #include <rrgtk/ui.help.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"

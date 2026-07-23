@@ -16,10 +16,11 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include "mod.ui.gtk3/gtk.core.h"
 
 

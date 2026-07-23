@@ -7,8 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include <librustyaxe/core.h>
-#include <librrprotocol/rrprotocol.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,6 +16,7 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 

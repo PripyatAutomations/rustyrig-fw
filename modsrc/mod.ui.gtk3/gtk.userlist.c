@@ -7,7 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,9 +16,8 @@
 #include <string.h>
 #include <time.h>
 #if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 #endif	// defined(USE_MONGOOSE)
-#include <librrprotocol/rrprotocol.h>
 #include <rrgtk/userlist.h>
 #include <rrgtk/ui.h>
 

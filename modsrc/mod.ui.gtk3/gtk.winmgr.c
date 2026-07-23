@@ -19,7 +19,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // This allows finding and working with a widget by a human readable name, for automation, etc
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -29,10 +28,11 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif	// defined(USE_MONGOOSE)
 #include "mod.ui.gtk3/gtk.core.h"
 
 // Linked list of all of our windows, usually 'main' will be the head of the list

@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/core.h>
 #define	__RRCLIENT	1
 #include <stddef.h>
 #include <stdarg.h>
@@ -18,11 +17,12 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include <rrgtk/userlist.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 #if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 extern struct mg_connection *ws_conn;
 #endif	// defined(USE_MONGOOSE)
 

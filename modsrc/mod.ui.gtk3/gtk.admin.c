@@ -17,10 +17,10 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif	// defined(USE_MONGOOSE)
 //#include <rrgtk/audio.h>
 #include <rrgtk/ui.speech.h>
 #include "mod.ui.gtk3/gtk.core.h"

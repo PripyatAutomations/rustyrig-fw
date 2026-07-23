@@ -10,8 +10,6 @@
 // XXX: This needs finished to fully support multiple connections in one client
 // XXX: GTK bits should be shifted to modsrc/mod.ui.gtk3/gtk.server{editor,picker}.c
 //
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,15 +18,16 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 #endif
 #include <rrgtk/connman.h>
 #include <rrgtk/userlist.h>
 #include <rrgtk/ui.h>
 #include <rrgtk/userlist.h>
 #include <mod.ui.gtk3/gtk.core.h>
-#include <librrprotocol/rrprotocol.h>
 
 // Server connections
 rr_connection_t *active_connections;

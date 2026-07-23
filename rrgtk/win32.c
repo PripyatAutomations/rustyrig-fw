@@ -12,6 +12,12 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
+
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>

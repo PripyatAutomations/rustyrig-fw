@@ -47,12 +47,13 @@ include mk/resource.mk
 
 ${OBJ_DIR}/build_config.h: ${EEPROM_FILE}
 ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
+	${MAKE} pack-eeprom
 
 ${OBJ_DIR}/.stamp:
 	mkdir -p ${OBJ_DIR}
 	touch $@
 
-world: ${OBJ_DIR}/.stamp ${extra_build} ${bins} pack-eeprom
+world: ${OBJ_DIR}/.stamp ${extra_build} ${bins}
 
 irc-test: ${librustyaxe}
 	${MAKE} -C librustyaxe ../bin/irc-test
