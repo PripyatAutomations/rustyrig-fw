@@ -21,6 +21,8 @@ rrserver_objs += protection.o		# Protection features
 rrserver_objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 rrserver_objs += thermal.o		# Thermal management
 rrserver_objs += timer.o		# Timers support
+#rrserver_objs += 
+rrserver_objs += unwind.o
 rrserver_objs += webcam.o
 
 CFLAGS_RRSERVER += -I./modsrc/
