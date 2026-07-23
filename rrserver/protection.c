@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <string.h>
 #if     defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h;"
+#include "ext/libmongoose/mongoose.h"
 #endif
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/protection.h>

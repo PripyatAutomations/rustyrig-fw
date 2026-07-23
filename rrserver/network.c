@@ -20,9 +20,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 #include <rrserver/i2c.h>
-#include <rrserver/eeprom.h>
+#include <librustyaxe/core.h>
 #include <rrserver/network.h>
 #include <librrprotocol/rrprotocol.h>
 #define	HOST_POSIX
@@ -138,11 +138,11 @@ void show_network_info(void) {
    Log(LOG_INFO, "net", "Name Servers: %s, %s", s_dns1, s_dns2);
 #else
    // print what addresses our bind will apply to
-   const char *listenaddr = cfg_get("net.http.bind");
+   char *listenaddr = cfg_get("net.http.bind");
 
 #if	defined(USE_EEPROM)
    if (!listenaddr) {
-      *listenaddr = eeprom_get_str("net/http/bind");
+      listenaddr = (char *)eeprom_get_str("net/http/bind");
    }
 #endif
 

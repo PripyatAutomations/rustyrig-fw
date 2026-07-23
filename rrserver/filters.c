@@ -21,9 +21,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <rrserver/eeprom.h>
+#include "ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
 #include <rrserver/filters.h>
 #define	FILTERS_C
 //#include "filter_tables.h"
