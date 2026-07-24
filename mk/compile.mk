@@ -36,7 +36,6 @@ SHELL = bash
 
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += $(shell pkg-config --cflags mbedtls)
-#CFLAGS += $(shell pkg-config --cflags gstreamer-1.0)
 CFLAGS += -I./ -I../ -I./inc
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
@@ -49,8 +48,8 @@ LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
 LDFLAGS += -lc -lm -g -ggdb -lcrypt
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 
-#gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
-#gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
+gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
+gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
 
 FWDSP_CFLAGS += -D__FWDSP
 CFLAGS_RRCLI += -D__RRCLI=1

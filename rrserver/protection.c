@@ -9,8 +9,6 @@
 //
 // Here we deal with SWR protection
 //
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,10 +16,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#if     defined(USE_MONGOOSE)
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 #endif
-#include <librrprotocol/rrprotocol.h>
 #include <rrserver/protection.h>
 
 extern struct GlobalState rig;      // Global state

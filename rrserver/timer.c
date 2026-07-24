@@ -10,8 +10,6 @@
  * Here we implement timers (periodic and one-shot) in a platform
  * independent manner.
  */
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,10 +17,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#if     defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <rrserver/timer.h>
 
 // timer_create_periodic:

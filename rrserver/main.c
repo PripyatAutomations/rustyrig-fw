@@ -6,8 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -17,7 +15,6 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/cat.h>
-#include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
 #include <rrserver/help.h>
 #include <rrserver/ptt.h>
@@ -28,6 +25,8 @@
 #include <rrserver/gpio.h>
 #include <rrserver/gui.h>
 #include <rrserver/network.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 // http ui support
 #if	defined(FEATURE_MQTT)
@@ -35,12 +34,11 @@
 #endif
 
 #if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
+#include "ext/libmongoose/mongoose.h"
 struct mg_mgr mg_mgr;
 #endif
 
 #define	TS_ALPHA	0.1	// Weight for the moving average
-
 
 bool dying = 0;                 // Are we shutting down?
 bool restarting = 0;		// Are we restarting?

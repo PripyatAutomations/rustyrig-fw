@@ -14,7 +14,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "build_config.h"
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 

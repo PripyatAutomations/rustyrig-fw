@@ -11,8 +11,6 @@
  *
  * Log them and disable TX, if needed
  */
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,11 +18,13 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#if     defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if     defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <rrserver/faults.h>
+#include <rrserver/protection.h>
 
 // Fault Table contains the known faults and their text strings
 struct fault_table fault_table[] = {
@@ -108,7 +108,7 @@ bool check_faults(void) {
       // XXX: We should check if fatal or alarm
       if (fault_is_fatal(rig.fault_code)) {
          Log(LOG_CRIT, "faults", "Fault [%d] has occurred and we cannot continue! Halting to prevent damage! Total faults: %d", rig.fault_code, rig.faults);
-//         protection_lockout("FAULT");
+         protection_lockout("FAULT");
          return true;
       }
    }

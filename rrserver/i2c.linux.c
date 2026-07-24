@@ -6,9 +6,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include "build_config.h"
-#include <librustyaxe/core.h>
-#if	defined(HOST_POSIX)
+
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,15 +14,17 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../ext/libmongoose/mongoose.h"
-#include <rrserver/i2c.h>
-#include <rrserver/eeprom.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/cat.h>
-#include <librustyaxe/posix.h>
-#include <rrserver/i2c.hal.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
+#include <rrserver/i2c.h>
+#include <rrserver/eeprom.h>
+#include <rrserver/i2c.hal.h>
+#if	defined(HOST_POSIX)
 #include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
 

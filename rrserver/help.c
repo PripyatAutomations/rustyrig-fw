@@ -7,8 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Here we support a help system, if filesystem is present
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,10 +14,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#if     defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 
 bool send_help(rr_io_context_t *port, const char *topic) {
    return false;

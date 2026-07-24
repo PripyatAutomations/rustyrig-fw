@@ -26,7 +26,7 @@ struct mg_mgr mgr;
 struct mg_connection *ws_conn = NULL;
 bool ws_connected = false;
 char session_token[HTTP_TOKEN_LEN+1] = {0};
-
+const char *login_user = NULL;
 const char *get_server_property(const char *server, const char *prop) {
     if (!server || !prop) {
        return NULL;
@@ -97,7 +97,7 @@ static void rrcli_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
        event_emit("http.connected", NULL, NULL);
        tui_print_win(tui_window_find("status"), "Connected to server");
 
-       const char *login_user = cfg_get_exp("server.user");
+       login_user = cfg_get_exp("server.user");
        if (login_user) {
           const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrcli");
           mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);

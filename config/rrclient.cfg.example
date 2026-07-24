@@ -50,7 +50,7 @@ audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,form
 audio.pipeline.tx.format=time
 ;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
 
-[server:localhost]
+[server:local]
 server.enabled=true
 server.url=ws://localhost:8420/ws/
 server.user=admin

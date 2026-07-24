@@ -20,14 +20,13 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "build_config.h"
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #if	defined(FEATURE_MQTT)
 #if	defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 #endif	// defined(USE_MONGOOSE)
 #include <rrserver/i2c.h>
-#include <librustyaxe/cat.h>
 #include <rrserver/mqtt.h>
 
 // forward declration

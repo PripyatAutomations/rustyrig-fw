@@ -2,6 +2,7 @@ rrgtk := bin/rrgtk
 
 bins += ${rrgtk}
 
+rrgtk_objs += audio.o
 rrgtk_objs += chat.o
 rrgtk_objs += chat.cmd.o
 rrgtk_objs += connman.o
@@ -41,7 +42,7 @@ rrgtk_objs += win32.o		# support to run in windows
 rrgtk_real_objs := $(foreach x, ${rrgtk_objs}, ${OBJ_DIR}/rrgtk/${x})
 extra_clean += ${rrgtk_real_objs}
 
-CFLAGS_RRCLI += -I./modsrc/
+CFLAGS += -I./modsrc/ -I/usr/include/gstreamer-1.0/
 
 ${OBJ_DIR}/rrgtk/%.o: rrgtk/%.c ${BUILD_HEADERS} GNUmakefile rrgtk/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
 	@${RM} -f $@

@@ -1,8 +1,18 @@
+Immediate needs
+---------------
+rrcli: in websocket protocol, chat should automatically open in window #2 since only one room (for now)
+irc: IRC protocol will be used to link sites, with large messages enabled (16k)
+www: Fix userlist to show all users not just self + users joined later
+
+
+
+------------------------
+
 ------------
 - Critical -
 ------------
-* Finish the refactor and cleanup the mess it's created
-* Generate build_config.h from ${PROFILE}.config.json probably in pack-eeprom
+* Generate inc/build_config.h from ${PROFILE}.config.json
+  - probably in pack-eeprom
   - Maybe split tools/pack-eeprom into pack-eeprom and generate-headers
 
 ===============
@@ -100,7 +110,7 @@ minimal inet_ntop() for non-posix
 * Implement user groups that contain privilege sets, then users can be assigned into groups
 
 [audio]
-ws.c / fwdsp-mgr.c:
+ws.c / fwdsp/fwdsp-mgr.c:
 	ws_txtframe_process: media.codec handling
 	   * Remove codec enum and just pass 4 byte ID
 	   * Use fwdsp_codec_start instead of fwdsp_find_or_create, so we setup all the audio stuff not just the subproc

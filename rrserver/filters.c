@@ -11,8 +11,6 @@
  *
  * Build conf will generate the filter tables (filter_tables.h) in builddir
  */
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,8 +19,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "ext/libmongoose/mongoose.h"
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <rrserver/filters.h>
 #define	FILTERS_C
 //#include "filter_tables.h"

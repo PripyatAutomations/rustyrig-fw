@@ -30,18 +30,17 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <gtk/gtk.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
-#include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/config.h>
-#include <librustyaxe/codecneg.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/fwdsp-shared.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/util.file.h>
-#include <rrgtk/gtk.core.h>
+#include <librrprotocol/codecneg.h>
+#include <mod.ui.gtk3/gtk.core.h>
 #include <rrgtk/audio.h>
 
 extern dict *cfg;		// main.c

@@ -37,6 +37,7 @@ bool server_ptt_state = false;
 
 // XXX: this needs to go away and be replaced with http_find_servername(c)
 const char *server_name = NULL;
+const char *login_user = NULL;
 
 extern rr_connection_t *active_connections;
 extern dict *cfg;

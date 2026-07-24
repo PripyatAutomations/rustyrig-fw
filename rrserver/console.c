@@ -9,8 +9,6 @@
 /*
  * Support for a console interface to the radio via io abstraction (socket|serial|pipe|ws)
  */
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,10 +19,10 @@
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>
 #endif
-#include "../ext/libmongoose/mongoose.h"
+#include <librrprotocol/rrprotocol.h>
+#include <librustyaxe/core.h>
 #include <rrserver/console.h>
 #include <rrserver/help.h>
-#include <librrprotocol/rrprotocol.h>
 
 bool cons_help(void /*io *port*/) {
    return false;

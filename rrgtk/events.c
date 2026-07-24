@@ -13,6 +13,7 @@
 #include <mod.ui.gtk3/gtk.core.h>
 #include <librustyaxe/logger.h>
 
+extern const char *login_user;	// from connman.c
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern GtkWidget *main_window;
 extern GtkTextBuffer *log_buffer;
@@ -36,6 +37,7 @@ static void rrgtk_handle_connection_event(const char *event, void *data, irc_con
 
    if (strcmp(event, "http.connected") == 0) {
       update_connection_button(true, conn_button);
+      login_user = cfg_get_exp("server.user");
    } else if (strcmp(event, "http.disconnected") == 0) {
       update_connection_button(false, conn_button);
    } else if (strcmp(event, "http.error") == 0) {
@@ -167,15 +169,21 @@ static void rrgtk_handle_talk_msg_event(const char *event, void *data, irc_conn_
     (void)event;
     (void)cptr;
     (void)user;
+    char *prefix = "";
+
     struct talk_msg_event_data *tmed = (struct talk_msg_event_data *)data;
     if (!tmed || !tmed->from[0] || !tmed->data[0]) {
        return;
     }
 
+    if (login_user != NULL && tmed->from[0] != '\0' && strcmp(tmed->from, login_user) == 0) {
+       prefix = "=> ";
+    }
+
     if (strcasecmp(tmed->msg_type, "action") == 0) {
-       ui_print("%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+       ui_print("%s%s * %s %s", prefix, get_chat_ts(tmed->ts), tmed->from, tmed->data);
     } else {
-       ui_print("%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+       ui_print("%s%s {yellow}<{reset}%s{yellow}>{reset} %s", prefix, get_chat_ts(tmed->ts), tmed->from, tmed->data);
     }
 }
 

@@ -107,7 +107,7 @@ int rr_atu_init(int uid) {
 int rr_atu_init_all(void) {
    int rv = 0;
    int tuners = 1;
-//   tuners = eeprom_get_int("hw/atus");
+   tuners = eeprom_get_int("hw/atus");
 
    Log(LOG_INFO, "atu", "Initializing all ATUs (%d total)", tuners);
 

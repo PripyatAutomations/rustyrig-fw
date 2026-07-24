@@ -12,8 +12,6 @@
  * we also deal with the PA_INHIBIT lines which allow momentarily stopping RF output without
  * powering down the PAs (such as for relay changes in tuning or filters).
  */
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,11 +19,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#if     defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <librrprotocol/state.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
 #if defined(BACKEND_HAMLIB)
