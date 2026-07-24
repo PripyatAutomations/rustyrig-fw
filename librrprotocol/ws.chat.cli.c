@@ -118,25 +118,38 @@ bool ws_handle_talk_msg(struct mg_connection *c, dict *d) {
          event_emit("http.userinfo", NULL, ui_user);
          free(ui_user);
       }
-   } else if (cmd && strcasecmp(cmd, "msg") == 0) {
-      char *from = dict_get(d, "talk.from", NULL);
-      char *data = dict_get(d, "talk.data", NULL);
-      char *msg_type = dict_get(d, "talk.msg_type", NULL);
-      char *target = dict_get(d, "talk.target", NULL);
-      time_t ts = dict_get_time_t(d, "talk.ts", now);
+    } else if (cmd && strcasecmp(cmd, "msg") == 0) {
+       char *from = dict_get(d, "talk.from", NULL);
+       char *data = dict_get(d, "talk.data", NULL);
+       char *msg_type = dict_get(d, "talk.msg_type", NULL);
+       char *target = dict_get(d, "talk.target", NULL);
+       time_t ts = dict_get_time_t(d, "talk.ts", now);
 
-      if (strcasecmp(msg_type, "action") == 0) {
-         Log(LOG_CRAZY, "ws.chat", "chat: %s * %s %s", target, from, data);
-      } else {
-         Log(LOG_CRAZY, "ws.chat", "chat: %s <%s> %s", target, from, data);
-      }
+       if (strcasecmp(msg_type, "action") == 0) {
+          Log(LOG_CRAZY, "ws.chat", "chat: %s * %s %s", target, from, data);
+       } else {
+          Log(LOG_CRAZY, "ws.chat", "chat: %s <%s> %s", target, from, data);
+       }
 
-      // Support public messages and action (/me)
-      if (msg_type && strcasecmp(msg_type, "pub") == 0) {
-//         ui_print("[%s] <%s> %s", get_chat_ts(ts), from, data);
-      } else if (msg_type && strcasecmp(msg_type, "action") == 0) {
-//         ui_print("[%s] * %s %s", get_chat_ts(ts), from, data);
-      }
+       if (from && data) {
+          struct talk_msg_event_data {
+             char from[128];
+             char data[4096];
+             char target[128];
+             char msg_type[32];
+             time_t ts;
+          } *tmed = calloc(1, sizeof(*tmed));
+
+          if (tmed) {
+             snprintf(tmed->from, sizeof(tmed->from), "%s", from);
+             snprintf(tmed->data, sizeof(tmed->data), "%s", data);
+             snprintf(tmed->target, sizeof(tmed->target), "%s", target ? target : "");
+             snprintf(tmed->msg_type, sizeof(tmed->msg_type), "%s", msg_type ? msg_type : "pub");
+             tmed->ts = ts;
+             event_emit("talk.msg", NULL, tmed);
+             free(tmed);
+          }
+       }
 #if	0
       gui_window_t *win = gui_find_window(NULL, "main");
       GtkWidget *main_window = win->gtk_win;

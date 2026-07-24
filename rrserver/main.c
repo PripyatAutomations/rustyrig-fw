@@ -247,7 +247,7 @@ int main(int argc, char **argv) {
 #else
    mg_log_set(MG_LL_ERROR);
 #endif
-//   http_init(&mg_mgr);
+   http_init(&mg_mgr);
 //   ws_init(&mg_mgr);
 #endif
 #if	defined(FEATURE_MQTT)

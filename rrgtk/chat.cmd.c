@@ -60,7 +60,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       const char *server = msg + 8;
 
       if (server && strlen(server) > 1) {
-         ui_print("[%s] * Changing server profile to %s", get_chat_ts(now), server);
+          ui_print("%s * Changing server profile to %s", get_chat_ts(now), server);
          disconnect_server(server);
 
          if (server_name) {

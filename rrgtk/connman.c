@@ -143,13 +143,13 @@ bool connect_server(const char *server) {
 #if	defined(USE_GTK)
       gtk_button_set_label(GTK_BUTTON(conn_button), "----------");
 #endif	// defined(USE_GTK)
-      ui_print("[%s] Connecting to %s", get_chat_ts(now), url);
+       ui_print("%s Connecting to %s", get_chat_ts(now), url);
 
 #if	defined(USE_MONGOOSE)
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
 
       if (!ws_conn) {
-         ui_print("[%s] Socket connect error", get_chat_ts(now));
+          ui_print("%s Socket connect error", get_chat_ts(now));
       }
 #endif	// defined(USE_MONGOOSE)
    } else {

@@ -221,13 +221,11 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
 
-         if (str && strcmp(str, text) == 0) {
-            g_signal_handler_block(combo, mode_changed_handler_id);
-            gtk_combo_box_set_active(GTK_COMBO_BOX(combo), index);
-            g_signal_handler_unblock(combo, mode_changed_handler_id);
-            g_free(str);
-            return;
-         }
+          if (str && strcmp(str, text) == 0) {
+             gtk_combo_box_set_active(GTK_COMBO_BOX(combo), index);
+             g_free(str);
+             return;
+          }
          g_free(str);
          index++;
       } while (gtk_tree_model_iter_next(model, &iter));
@@ -333,7 +331,7 @@ bool gui_init(void) {
    gtk_widget_realize(main_window);
    place_window(main_window);
 
-   ui_print("[%s] rustyrig client started", get_chat_ts(now));
+    ui_print("%s rustyrig client started", get_chat_ts(now));
 
    return false;
 }

@@ -14,7 +14,13 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
+#include <librrprotocol/rrprotocol.h>
 #include <ev.h>
+#if defined(USE_MONGOOSE)
+extern struct mg_connection *ws_conn;
+extern bool ws_connected;
+extern bool rrcli_send_chat(const char *data);
+#endif
 extern bool dying;
 extern time_t now;
 
@@ -25,91 +31,70 @@ typedef struct cli_command {
    event_cb_t (*event_cb)(const char *event, void *data, irc_conn_t *cptr, void *user);
 } cli_command_t;
 
-bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args);
+
 
 bool cli_join(int argc, char **args) {
-   if (argc < 1) {
-      return true;
-   }
-
-   tui_window_t *wp = tui_active_window();
-
-   if (wp) {
-      // There's a window here at least...
-      if (wp->cptr) {
-         tui_print_win(tui_window_find("status"), "* Joining %s", args[1]);
-         irc_send(wp->cptr, "JOIN %s", args[1]);
-      }
-   }
-   return false;
+    (void)argc; (void)args;
+    tui_print_win(tui_active_window(), "{yellow}JOIN is not supported over WebSocket{reset}");
+    return false;
 }
 
 bool cli_me(int argc, char **args) {
-   char buf[1024];
-   memset(buf, 0, 1024);
-   size_t pos = 0;
-   tui_window_t *wp = tui_active_window();
-   char *target = wp->title;
-
-   for (int i = 1; i < argc; i++) {
-      int n = snprintf(buf + pos, sizeof(buf) - pos,
-                       "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
-      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
-         break;
-      }
-      pos += n;
-   }
-   Log(LOG_DEBUG, "irc", "sending ACTION to %s", target);
-   irc_send(wp->cptr, "PRIVMSG %s :\001ACTION %s\001", target, buf);
-   tui_print_win(wp, "%s * %s %s", get_chat_ts(0), wp->cptr->nick, buf);
-   return false;
+    char buf[1024];
+    memset(buf, 0, 1024);
+    size_t pos = 0;
+    for (int i = 1; i < argc; i++) {
+       int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
+       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+          break;
+       }
+       pos += n;
+    }
+    const char *jp = dict2json_mkstr(
+       VAL_STR, "talk.cmd", "msg",
+       VAL_STR, "talk.data", buf,
+       VAL_STR, "talk.msg_type", "action");
+#if defined(USE_MONGOOSE)
+    if (ws_conn) {
+       mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+    }
+#endif
+    free((void *)jp);
+    return false;
 }
 
 bool cli_msg(int argc, char **args) {
-   if (argc < 2) {
-      // XXX: cry not enough args
-      return true;
-   }
+    if (argc < 2) {
+       return true;
+    }
 
-   tui_window_t *wp = NULL;
-   bool new_win = false;
+    char *target = args[1];
+    char fullmsg[502];
+    memset(fullmsg, 0, sizeof(fullmsg));
+    size_t pos = 0;
 
-   if (*args[1]) {
-      wp = tui_window_find(args[1]);
-      if (!wp) {
-         new_win = true;
-         wp = tui_window_create(args[1]);
-         wp->cptr = tui_active_window()->cptr;
-      }
-   }
-   
-   if (!wp) {
-      wp = tui_active_window();
-   }
+    for (int i = 2; i < argc; i++) {
+       int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
+       if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+          break;
+       }
+       pos += n;
+    }
 
-   // There's a window here at least...
-   if (wp->cptr) {
-      char *target = wp->title;
+    tui_window_t *wp = tui_active_window();
+    tui_print_win(wp, "-> %s %s", target, fullmsg);
 
-      if (args[1]) {
-         target = args[1];
-      }
-
-      char fullmsg[502];
-      memset(fullmsg, 0, sizeof(fullmsg));
-      size_t pos = 0;
-
-      for (int i = 2; i < argc; i++) {
-         int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
-         if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
-            break;
-         }
-         pos += n;
-      }
-      tui_print_win(wp, "-> %s %s", target, fullmsg);
-      irc_send(wp->cptr, "PRIVMSG %s :%s", target, fullmsg);
-   }
-   return false;
+    const char *jp = dict2json_mkstr(
+       VAL_STR, "talk.cmd", "msg",
+       VAL_STR, "talk.data", fullmsg,
+       VAL_STR, "talk.target", target);
+#if defined(USE_MONGOOSE)
+    if (ws_conn) {
+       mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+    }
+#endif
+    free((void *)jp);
+    return false;
 }
 
 bool cli_notice(int argc, char **args) {
@@ -153,60 +138,24 @@ bool cli_notice(int argc, char **args) {
          }
          pos += n;
       }
-      tui_print_win(wp, "-> *%s* %s", target, fullmsg);
-      irc_send(wp->cptr, "NOTICE %s :%s", target, fullmsg);
+       tui_print_win(wp, "-> *%s* %s", target, fullmsg);
+       tui_print_win(wp, "{yellow}NOTICE is not supported over WebSocket{reset}");
    }
    return false;
 }
 
 bool cli_part(int argc, char **args) {
-   tui_window_t *wp = tui_active_window();
-
-   if (wp) {
-      // There's a window here at least...
-      if (wp->cptr) {
-         char *target = wp->title;
-
-         if (argc >= 2 && args[1]) {
-            target = args[1];
-         }
-
-         tui_print_win(tui_window_find("status"), "* Leaving %s", target);
-         char partmsg[256];
-         memset(partmsg, 0, sizeof(partmsg));
-
-         if (argc >= 3) {
-           memset(partmsg, 0, 256);
-           size_t pos = 0;
-
-           for (int i = 2; i < argc; i++) {
-              int n = snprintf(partmsg + pos, sizeof(partmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
-              if (n < 0 || (size_t)n >= sizeof(partmsg) - pos) {
-                 break;
-              }
-              pos += n;
-           }
-         }
-         irc_send(wp->cptr, "PART %s%s", target, partmsg);
-      }
-   }
-   return false;
+    (void)argc; (void)args;
+    tui_print_win(tui_active_window(), "{yellow}PART is not supported over WebSocket{reset}");
+    return false;
 }
 
 bool cli_quit(int argc, char **args) {
-   tui_window_t *wp = tui_active_window();
-   tui_print_win(wp, "Goodbye!");
-   tui_raw_mode(false);
-
-   if (wp) {
-      // There's a window here at least...
-      if (wp->cptr) {
-         irc_send(wp->cptr, "QUIT :rustyrig client %s exiting, 73!", VERSION);
-      }
-   }
-   
-   exit(0);
-   return false;	// unreached, but shuts up the scanner...
+    (void)argc; (void)args;
+    tui_window_t *wp = tui_active_window();
+    tui_print_win(wp, "Goodbye!");
+    dying = true;
+    return false;
 }
 
 bool cli_quote(int argc, char **args) {
@@ -227,54 +176,21 @@ bool cli_quote(int argc, char **args) {
       }
       pos += n;
    }
-   tui_print_win(wp, "-raw-> %s", fullmsg);
-   irc_send(wp->cptr, "%s", fullmsg);
-   return false;
+    tui_print_win(wp, "-raw-> %s", fullmsg);
+    tui_print_win(wp, "{yellow}QUOTE is not supported over WebSocket{reset}");
+    return false;
 }
 
 bool cli_topic(int argc, char **args) {
-   tui_window_t *wp = tui_active_window();
-
-   if (wp) {
-      // There's a window here at least...
-      if (wp->cptr) {
-         char *target = wp->title;
-
-         if (*target != '&' && *target != '#') {
-            tui_print_win(tui_active_window(), "* TOPIC is only valid for channel windows!");
-            return true;
-         }
-
-         char msg[300];
-         memset(msg, 0, sizeof(msg));
-
-         if (argc >= 2) {
-           memset(msg, 0, 256);
-           size_t pos = 0;
-
-           for (int i = 1; i < argc; i++) {
-              int n = snprintf(msg + pos, sizeof(msg) - pos, "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
-              if (n < 0 || (size_t)n >= sizeof(msg) - pos) {
-                 break;
-              }
-              pos += n;
-           }
-         }
-         irc_send(wp->cptr, "TOPIC %s :%s", target, msg);
-      }
-   }
-   return false;
+    (void)argc; (void)args;
+    tui_print_win(tui_active_window(), "{yellow}TOPIC is not supported over WebSocket{reset}");
+    return false;
 }
 
 bool cli_whois(int argc, char **args) {
-   if (argc > 1) {
-      char *target = args[1];
-      tui_window_t *wp = tui_active_window();
-
-      irc_send(wp->cptr, "WHOIS %s", target);
-      return false;
-   }
-   return true;
+    (void)argc; (void)args;
+    tui_print_win(tui_active_window(), "{yellow}WHOIS is not supported over WebSocket{reset}");
+    return false;
 }
 
 bool cli_win(int argc, char **args) {
@@ -320,25 +236,19 @@ bool cli_clear(int argc, char **args) {
 }
 extern bool cli_help(int argc, char **args);
 cli_command_t cli_commands[] = {
-   { .cmd = "/clear",  .cb = cli_clear,  .desc = "Clear the scrollback" },
-//   { .cmd = "/deop",   .cb = cli_deop,   .desc = "Take chan operator status from user" },
-//   { .cmd = "/devoice",.cb = cli_devoice,.desc = "Take chan voice status from user" },
-   { .cmd = "/help",   .cb = cli_help,   .desc = "Show help message" },
-//   { .cmd = "/invite", .cb = cli_invite, .desc = "Invite user to channel" },
-   { .cmd = "/join",   .cb = cli_join,   .desc = "Join a channel" },
-//   { .cmd = "/kick",   .cb = cli_kick,   .desc = "Remove user from channel" },
-   { .cmd = "/me",     .cb = cli_me,     .desc = "\tSend an action to the current channel" },
-   { .cmd = "/msg",    .cb = cli_msg,    .desc = "Send a private message" },
-   { .cmd = "/notice", .cb = cli_notice, .desc = "Send a private notice" },
-//   { .cmd = "/op",     .cb = cli_op,     .desc = "Give chan operator status to user" },
-   { .cmd = "/part",   .cb = cli_part,   .desc = "leave a channel" },
-   { .cmd = "/quit",   .cb = cli_quit,   .desc = "Exit the program" },
-   { .cmd = "/quote",  .cb = cli_quote,  .desc = "Send a raw IRC command" },
-   { .cmd = "/topic",  .cb = cli_topic,  .desc = "Set channel topic" },
-   { .cmd = "/win",    .cb = cli_win,    .desc = "Change windows" },
-//   { .cmd = "/voice",  .cb = cli_voice,  .desc = "Give chan voice status to user" },
-   { .cmd = "/whois",  .cb = cli_whois,  .desc = "Show client information" },
-   { .cmd = NULL,      .cb = NULL,       .desc = NULL }
+    { .cmd = "/clear",  .cb = cli_clear,  .desc = "Clear the scrollback" },
+    { .cmd = "/help",   .cb = cli_help,   .desc = "Show help message" },
+    { .cmd = "/join",   .cb = cli_join,   .desc = "Join a channel (N/A over WS)" },
+    { .cmd = "/me",     .cb = cli_me,     .desc = "\tSend an action to the current channel" },
+    { .cmd = "/msg",    .cb = cli_msg,    .desc = "Send a private message" },
+    { .cmd = "/notice", .cb = cli_notice, .desc = "Send a private notice (N/A over WS)" },
+    { .cmd = "/part",   .cb = cli_part,   .desc = "leave a channel (N/A over WS)" },
+    { .cmd = "/quit",   .cb = cli_quit,   .desc = "Exit the program" },
+    { .cmd = "/quote",  .cb = cli_quote,  .desc = "Send a raw command (N/A over WS)" },
+    { .cmd = "/topic",  .cb = cli_topic,  .desc = "Set channel topic (N/A over WS)" },
+    { .cmd = "/win",    .cb = cli_win,    .desc = "Change windows" },
+    { .cmd = "/whois",  .cb = cli_whois,  .desc = "Show client information (N/A over WS)" },
+    { .cmd = NULL,      .cb = NULL,       .desc = NULL }
 };
 
 bool cli_help(int argc, char **args) {
@@ -397,15 +307,31 @@ bool irc_input_cb(const char *input) {
       return true;
    }
 
-   // Send to active window target
-   tui_window_t *wp = tui_active_window();
-   if (wp && wp->cptr) {
-      if (strcasecmp(wp->title, "status") == 0) {
-         tui_print_win(tui_active_window(), "{red}*** {bright-red}Huh? What you say??? {red}***{reset}.");
-      } else {
-         irc_send_privmsg(wp->cptr, wp, argc, args);
-      }
-   }
+     // Send to active window target
+     tui_window_t *wp = tui_active_window();
+     if (wp) {
+        if (strcasecmp(wp->title, "status") == 0) {
+           tui_print_win(tui_active_window(), "{red}*** {bright-red}Huh? What you say??? {red}***{reset}.");
+        } else {
+#if defined(USE_MONGOOSE)
+           if (!ws_connected) {
+              tui_print_win(wp, "{red}*** Not connected to server ***{reset}");
+              return false;
+           }
+#endif
+           char fullmsg[502];
+           memset(fullmsg, 0, sizeof(fullmsg));
+           size_t pos = 0;
+           for (int i = 0; i < argc; i++) {
+              int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
+              if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+                 break;
+              }
+              pos += n;
+           }
+           rrcli_send_chat(fullmsg);
+        }
+     }
 
    return false;
 }

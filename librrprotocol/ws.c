@@ -348,19 +348,28 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
    }
    cptr->last_heard = now;
 
-   // Handle ping messages
-   if (ping) {
-      time_t ping_ts = dict_get_time_t(d, "ping.ts", 0);
+    // Handle ping messages
+    if (ping) {
+       time_t ping_ts = dict_get_time_t(d, "ping.ts", 0);
 
-      if (ping_ts) {
-         const char *jp = dict2json_mkstr(
-                          VAL_STR, "type", "pong",
-                          VAL_ULONG, "ts", ping_ts);
-         mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-         free((void *)jp);
-      }
-      goto cleanup;
-   } else if (hello) {
+       if (ping_ts) {
+          const char *jp = dict2json_mkstr(
+                           VAL_STR, "type", "pong",
+                           VAL_ULONG, "ts", ping_ts);
+          mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+          free((void *)jp);
+       }
+       goto cleanup;
+    }
+
+    // Handle pong messages (responses to server-initiated pings)
+    time_t pong_ts = dict_get_time_t(d, "pong.ts", 0);
+    if (pong_ts && cptr) {
+       cptr->last_ping = 0;
+       cptr->ping_attempts = 0;
+       Log(LOG_CRAZY, "http.pong", "Received pong from user %s for ts:%li", cptr->chatname, pong_ts);
+       goto cleanup;
+    } else if (hello) {
       Log(LOG_DEBUG, "ws", "Got HELLO from client at mg_conn:<%p>: %s", c, hello);
       cptr->cli_version = malloc(HTTP_UA_LEN);
 
@@ -471,10 +480,9 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
      }
    } else if (mg_json_get(msg_data, "$.pong", NULL) > 0) {
       result = ws_handle_pong(msg, c);
-   } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
-// XXX: readd this
-//      result = ws_handle_auth_msg(msg, c);
-   }
+    } else if (mg_json_get(msg_data, "$.auth", NULL) > 0) {
+       result = ws_handle_auth_msg(msg, c);
+    }
 
 cleanup:
    dict_free(d);
@@ -540,12 +548,12 @@ bool ws_send_ping(http_client_t *cptr) {
           cptr->chatname, cptr, now, cptr->ping_attempts);
    }
 
-   const char *jp = dict2json_mkstr(VAL_ULONG, "ping.ts", now);
+    char ping_buf[64];
+    snprintf(ping_buf, sizeof(ping_buf), "{\"ping\":{\"ts\":%li}}", now);
 #if	defined(USE_MONGOOSE)
-   struct mg_connection *c = cptr->conn;
-   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+    struct mg_connection *c = cptr->conn;
+    mg_ws_send(c, ping_buf, strlen(ping_buf), WEBSOCKET_OP_TEXT);
 #endif // defined(USE_MONGOOSE)
-   free((void *)jp);
 
    return false;
 }

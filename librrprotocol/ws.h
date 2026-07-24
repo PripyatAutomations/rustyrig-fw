@@ -48,7 +48,7 @@ typedef struct ws_conn ws_conn_t;
 //extern void ws_init(void);
 extern void ws_fini(struct mg_mgr *mgr);
 extern bool ws_init(struct mg_mgr *mgr);
-//extern bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c);
+extern bool ws_handle(struct mg_ws_message *msg, struct mg_connection *c);
 extern void ws_add_client(struct mg_connection *c);
 extern void ws_remove_client(struct mg_connection *c);
 

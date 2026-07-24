@@ -402,10 +402,9 @@ static void http_cb(struct mg_connection *c, int ev, void *ev_data) {
          Log(LOG_CRIT, "http", "Conn mg_conn:<%p> from %s:%d kicked: No cptr but tried to start ws", c, ip, port);
          ws_kick_client_by_c(c, "Socket error 314");
       }
-   } else if (ev == MG_EV_WS_MSG) {
-      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
-// XXX: readd this
-//      ws_handle(msg, c);
+    } else if (ev == MG_EV_WS_MSG) {
+       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
+       ws_handle(msg, c);
    } else if (ev == MG_EV_CLOSE) {
       char resp_buf[HTTP_WS_MAX_MSG+1];
       http_client_t *cptr = http_find_client_by_c(c);

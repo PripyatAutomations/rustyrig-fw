@@ -346,21 +346,30 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
       }
    }
 
-   // if there are registered log callbacks, call them
-   if (log_callbacks) {
-      struct log_callback *lp = log_callbacks;
-      while (lp) {
-         if (lp->callback) {
-            va_list cb_ap;
-            va_copy(cb_ap, ap_c1);
-//            fprintf(stderr, "log cb: <%p> called\n");
-            lp->callback(priority, subsys, fmt, cb_ap);
-            va_end(cb_ap);
-         }
-         lp = lp->next;
-      }
-   }
-   va_end(ap_c1);
+     // if there are registered log callbacks, call them
+     if (log_callbacks) {
+        struct log_callback *lp = log_callbacks;
+        while (lp) {
+           if (lp->callback) {
+              va_list cb_ap;
+              va_copy(cb_ap, ap_c1);
+  //            fprintf(stderr, "log cb: <%p> called\n");
+              lp->callback(priority, subsys, fmt, cb_ap);
+              va_end(cb_ap);
+           }
+           lp = lp->next;
+        }
+     }
+
+    struct log_event_data *led = malloc(sizeof(*led));
+    if (led) {
+       led->priority = priority;
+       strncpy(led->subsys, subsys, sizeof(led->subsys) - 1);
+       snprintf(led->message, sizeof(led->message), "%s", log_msg);
+       event_emit("log.message", NULL, led);
+       free(led);
+    }
+     va_end(ap_c1);
 }
 
 bool log_remove_callback(struct log_callback *log_callback) {

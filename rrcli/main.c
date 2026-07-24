@@ -17,15 +17,20 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
-#include <librrprotocol/state.h>
+#include <librustyaxe/logger.h>
+#include <librrprotocol/rrprotocol.h>
 #include <ev.h>
 #define	MAX_WINDOWS	32
 #define INPUT_HISTORY_MAX 64
 
 extern bool irc_input_cb(const char *input);
-extern bool autoconnect(void);
-extern void rr_set_irc_conn_pool(void);
-extern void on_privmsg(const char *event, void *data, irc_conn_t *cptr, void *user);
+extern bool rrcli_autoconnect(void);
+extern bool rrcli_connect(const char *url);
+extern bool rrcli_disconnect(void);
+extern void rrcli_poll_events(void);
+#if defined(USE_MONGOOSE)
+extern struct mg_mgr mgr;
+#endif
 
 struct ev_loop *loop = NULL;
 bool dying = false;
@@ -33,6 +38,14 @@ bool debug_sockets = false;
 bool mirc_colors = true;
 time_t now = 0;
 static ev_timer tui_clock_watcher;
+static ev_timer ws_poll_watcher;
+
+static void ws_poll_cb(EV_P_ ev_timer *w, int revents) {
+    (void)w; (void)revents;
+#if defined(USE_MONGOOSE)
+    rrcli_poll_events();
+#endif
+}
 
 struct GlobalState rig;
 
@@ -60,11 +73,50 @@ static void tui_stop_clock_timer(struct ev_loop *loop) {
 }
 
 bool rrcli_cleanup(void) {
-   logger_end();
-   dict_free(cfg);
-   tui_stop_clock_timer(loop);
-   tui_raw_mode(false);
-   return false;
+    logger_end();
+    dict_free(cfg);
+    tui_stop_clock_timer(loop);
+    tui_raw_mode(false);
+    return false;
+}
+
+static void rrcli_handle_log_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+    (void)event;
+    (void)cptr;
+    (void)user;
+    struct log_event_data *led = (struct log_event_data *)data;
+    if (!led || !led->message[0]) {
+       return;
+    }
+    tui_window_t *status = tui_window_find("status");
+    if (status) {
+       tui_print_win(status, "%s", led->message);
+    }
+}
+
+struct talk_msg_event_data {
+    char from[128];
+    char data[4096];
+    char target[128];
+    char msg_type[32];
+    time_t ts;
+};
+
+static void rrcli_handle_talk_msg_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+    (void)event;
+    (void)cptr;
+    (void)user;
+    struct talk_msg_event_data *tmed = (struct talk_msg_event_data *)data;
+    if (!tmed || !tmed->from[0] || !tmed->data[0]) {
+       return;
+    }
+
+    tui_window_t *wp = tui_active_window();
+    if (strcasecmp(tmed->msg_type, "action") == 0) {
+       tui_print_win(wp, "%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+    } else {
+       tui_print_win(wp, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s{reset}", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+    }
 }
 
 /////////////////
@@ -91,23 +143,25 @@ int main(int argc, char **args) {
       free(fullpath);
    }
 
-   // apply some global configuration
-   const char *logfile = cfg_get_exp("log.file");
-   logger_init((logfile ? logfile : "rrcli.log"));
-   free((char *)logfile);
-   debug_sockets = cfg_get_bool("debug.sockets", false);
+    // apply some global configuration
+    const char *logfile = cfg_get_exp("log.file");
+    logger_init((logfile ? logfile : "rrcli.log"));
+    free((char *)logfile);
+    debug_sockets = cfg_get_bool("debug.sockets", false);
+    event_on("log.message", rrcli_handle_log_event, NULL);
+    event_on("talk.msg", rrcli_handle_talk_msg_event, NULL);
 
-   // Setup stdio & clock
-   tui_start_clock_timer(loop);
+    // Setup stdio & clock
+    tui_start_clock_timer(loop);
 
-   // XXX: this needs moved to module_init in mod.proto.irc
-   irc_init();
-   mirc_colors = cfg_get_bool("irc.colors", false);
-   event_on("irc.privmsg", on_privmsg, NULL);
-   rr_set_irc_conn_pool();
-   autoconnect();
+#if defined(USE_MONGOOSE)
+    mg_mgr_init(&mgr);
+    ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
+    ev_timer_start(loop, &ws_poll_watcher);
+    rrcli_autoconnect();
+#endif
 
-   ev_run(loop, 0);
+    ev_run(loop, 0);
 
    /////////////
    // cleanup //

@@ -72,19 +72,24 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
       Log(LOG_WARN, "ptt", "no backend");
    }
 
-   const char *jp = dict2json_mkstr(
-      VAL_STR, "cat.state.vfo", vfo_name(vfo),
+    const char *jp;
 #if defined(BACKEND_HAMLIB)
-      VAL_FLOAT, "cat.state.freq", hl_state.freq,
-      VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode),
-      VAL_INT, "cat.state.width", hl_state.width,
+    jp = dict2json_mkstr(
+       VAL_STR, "cat.state.vfo", vfo_name(vfo),
+       VAL_FLOAT, "cat.state.freq", hl_state.freq,
+       VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode),
+       VAL_INT, "cat.state.width", hl_state.width,
+       VAL_BOOL, "cat.state.ptt", ptt,
+       VAL_ULONG, "cat.state.ts", now);
 #else
-      VAL_FLOAT, "cat.state.freq", 0.0,
-      VAL_STR, "cat.state.mode", "NONE",
-      VAL_INT, "cat.state.width", 0,
+    jp = dict2json_mkstr(
+       VAL_STR, "cat.state.vfo", vfo_name(vfo),
+       VAL_FLOAT, "cat.state.freq", 0.0,
+       VAL_STR, "cat.state.mode", "NONE",
+       VAL_INT, "cat.state.width", 0,
+       VAL_BOOL, "cat.state.ptt", ptt,
+       VAL_ULONG, "cat.state.ts", now);
 #endif
-      VAL_BOOL, "cat.state.ptt", ptt,
-      VAL_ULONG, "cat.state.ts", now);
    // and send a CAT message with the state
    struct mg_str mp = mg_str(jp);
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);

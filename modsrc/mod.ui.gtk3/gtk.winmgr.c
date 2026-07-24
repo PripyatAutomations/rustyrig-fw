@@ -189,14 +189,15 @@ bool place_window(GtkWidget *window) {
    const char *cfg_height_s, *cfg_width_s;
    const char *cfg_x_s, *cfg_y_s;
 
-   // Lookup the window so we can have it's name, etc.
-   gui_window_t *win = gui_find_window(window, NULL);
-   Log(LOG_CRAZY, "gtk.winmgr", "place_window: found gtk window <%p> at <%p> named |%s|", window, win, win->name);
+    // Lookup the window so we can have it's name, etc.
+    gui_window_t *win = gui_find_window(window, NULL);
 
-   if (!win) {
-      Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
-      return true;
-   }
+    if (!win) {
+       Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
+       return true;
+    }
+
+    Log(LOG_CRAZY, "gtk.winmgr", "place_window: found gtk window <%p> at <%p> named |%s|", window, win, win->name);
 
    char key[512];
    memset(key, 0, sizeof(key));

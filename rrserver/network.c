@@ -138,7 +138,7 @@ void show_network_info(void) {
    Log(LOG_INFO, "net", "Name Servers: %s, %s", s_dns1, s_dns2);
 #else
    // print what addresses our bind will apply to
-   char *listenaddr = cfg_get("net.http.bind");
+    const char *listenaddr = cfg_get("net.http.bind");
 
 #if	defined(USE_EEPROM)
    if (!listenaddr) {

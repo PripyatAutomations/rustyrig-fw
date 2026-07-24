@@ -31,10 +31,16 @@ struct log_priority {
 typedef enum LogPriority logpriority_t;
 
 struct log_callback {
-   enum LogPriority	 prio;
-   const char           *msg;
-   bool                (*callback)(logpriority_t priority, const char *subsys, const char *fmt, va_list ap);
-   struct log_callback *next;
+    enum LogPriority	 prio;
+    const char           *msg;
+    bool                (*callback)(logpriority_t priority, const char *subsys, const char *fmt, va_list ap);
+    struct log_callback *next;
+};
+
+struct log_event_data {
+    logpriority_t priority;
+    char subsys[64];
+    char message[1024];
 };
 
 extern FILE *logfp;
