@@ -1,19 +1,7 @@
-*** Right now this is NOT usable while i restructure it. Feel free to jump in and help! ***
-
 This is the source for rustyrig remote station.
 
+Currently we're in the middle of some restructuring to help reduce duplication between clients.
 
-***Currently broken while I restructure things****
-- Slowly making progress on this again (7/23)
-  - All programs at least again run, need to repair libmongoose based builds
-    and get back to working with it. We can make non-mongoose versions work
-    again soon. Right now i want to try to support mongoose where possible.
-  - Moving all gtk stuff out of the libraries into rrgtk properly is going
-    to require adding events & callbacks for the gtk bits, so we can handle
-    them appropriate in rrcli and rrgtk
-I'm moving all protocol related stuff to a shared library, so the repo is broken for a bit while I work.
-
-------------------------
 
 For now it's easiest just to build/run it from this folder, but installing it should probably work.
 
@@ -21,10 +9,11 @@ Take a look at the deps in install-deps.sh or use it  or manually install them.
 Currently it only supports debian-based systems. Contributions always welcome!
 
 It consists of a few parts:
-	fwdsp/			gstreamer based audio bridge
+	fwdsp/		gstreamer based audio bridge
+	rrcli/		TUI client that feels like IRC but with hotkeys for PTT, etc.
 	rrgtk/		GTK3 + gstreamer based client
-	rrserver/		backend server
-	www/			WebUI (served by rrserver)
+	rrserver/	backend server
+	www/		WebUI (served by rrserver) - in PripyatAutomations/rustyrig-www repo
 
 You probably will want to run ./install-deps.sh (apt based for now)
 

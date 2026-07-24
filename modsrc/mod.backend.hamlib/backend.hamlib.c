@@ -15,8 +15,6 @@
 // Notice that most functions are static, this is because they should NEVER be 
 // directly called outside of this module. You should use the backend API instead.
 //
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -24,14 +22,15 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 // This only gets drug in if we have features/backend/hamlib=true
 #if	defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
-#if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif
-#include <librrprotocol/rrprotocol.h>
 #include <rrserver/thermal.h>
 #include <librustyaxe/eeprom.h>
 #include <rrserver/backend.h>
@@ -39,15 +38,17 @@ static RIG *hl_rig = NULL;	// hamlib Rig interface
 static bool hl_init(void);	// fwd decl
 static bool hl_fini(void);	// fwd decl
 
-// enum rig_debug_level_e {
-//     RIG_DEBUG_NONE = 0, /*!< no bug reporting */
-//     RIG_DEBUG_BUG,      /*!< serious bug */
-//     RIG_DEBUG_ERR,      /*!< error case (e.g. protocol, memory allocation) */
-//     RIG_DEBUG_WARN,     /*!< warning */
-//     RIG_DEBUG_VERBOSE,  /*!< verbose */
-//     RIG_DEBUG_TRACE,    /*!< tracing */
-//     RIG_DEBUG_CACHE     /*!< caching */
-// };
+#if	0
+enum rig_debug_level_e {
+     RIG_DEBUG_NONE = 0, /*!< no bug reporting */
+     RIG_DEBUG_BUG,      /*!< serious bug */
+     RIG_DEBUG_ERR,      /*!< error case (e.g. protocol, memory allocation) */
+     RIG_DEBUG_WARN,     /*!< warning */
+     RIG_DEBUG_VERBOSE,  /*!< verbose */
+     RIG_DEBUG_TRACE,    /*!< tracing */
+     RIG_DEBUG_CACHE     /*!< caching */
+};
+#endif
 static int32_t hamlib_debug_level = RIG_DEBUG_ERR; // RIG_DEBUG_VERBOSE;
 hamlib_state_t hl_state;
 
@@ -250,13 +251,11 @@ rr_vfo_data_t *hl_poll(void) {
    memset(rv, 0, sizeof(rr_vfo_t));
 
    // Do VFO_A for now
-/*
    memset(&hl_state, 0, sizeof(hamlib_state_t));
    if ((rc = rig_set_vfo(hl_rig, RIG_VFO_A)) != RIG_OK) {
       Log(LOG_WARN, "be.hamlib", "SET VFO A failed: %s", rigerror(rc));
-      return true;
+      return NULL;
    }
-*/
 
    if ((rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq)) != RIG_OK) {
       Log(LOG_WARN, "be.hamlib", "GET VFO_A freq failed: %s", rigerror(rc));
@@ -276,18 +275,18 @@ rr_vfo_data_t *hl_poll(void) {
       Log(LOG_WARN, "be.hamlib", "GET VFO_A power failed: %s", rigerror(rc));
    }
 
-/*
    Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
        (hl_state.ptt ? "ON" : "off"),
        (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
        hl_state.width, hl_state.power);
- */
+
    // Pack the data into a vfo_data struct to send back to our caller
    rv->freq = hl_state.freq;
    rv->width = hl_state.width;
-//   const char *tmode = rig_strrmode(hl_state.rmode);
-//   rv->mode = vfo_parse_mode(tmode);
+   const char *tmode = rig_strrmode(hl_state.rmode);
+   rv->mode = vfo_parse_mode(tmode);
    rv->mode = hl_mode_to_rr(hl_state.rmode);
+
    // XXX: finish this
    rv->width = hl_state.width;
    rv->power = hl_state.power;

@@ -38,6 +38,8 @@ static void rrgtk_handle_connection_event(const char *event, void *data, irc_con
       update_connection_button(true, conn_button);
    } else if (strcmp(event, "http.disconnected") == 0) {
       update_connection_button(false, conn_button);
+   } else if (strcmp(event, "http.error") == 0) {
+      ui_print("{red}* http error *{reset}");
    }
 }
 
@@ -173,12 +175,13 @@ static void rrgtk_handle_talk_msg_event(const char *event, void *data, irc_conn_
     if (strcasecmp(tmed->msg_type, "action") == 0) {
        ui_print("%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
     } else {
-       ui_print("%s <%s> %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+       ui_print("%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
     }
 }
 
 void rrgtk_register_events(void) {
     event_on("http.connected", rrgtk_handle_connection_event, NULL);
+    event_on("http.error", rrgtk_handle_connection_event, NULL);
     event_on("http.disconnected", rrgtk_handle_connection_event, NULL);
     event_on("http.rig.ptt", rrgtk_handle_ptt_event, NULL);
     event_on("http.rig.freq", rrgtk_handle_freq_event, NULL);

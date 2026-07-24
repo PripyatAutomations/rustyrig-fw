@@ -25,6 +25,9 @@
 #include <rrserver/timer.h>
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
+#include <rrserver/gpio.h>
+#include <rrserver/gui.h>
+#include <rrserver/network.h>
 
 // http ui support
 #if	defined(FEATURE_MQTT)
@@ -75,7 +78,7 @@ void shutdown_rig(uint32_t signum) {
     }
 
     dying = 1;
-//    rr_ptt_set_all_off();
+    rr_ptt_set_all_off();
 }
 
 void restart_rig(void) {
@@ -128,8 +131,6 @@ int main(int argc, char **argv) {
    // load config (posix hosts)
    char *fullpath = NULL;
 
-//   cfg_init(default_cfg, defcfg);
-
    if (config_file) {
       if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
@@ -166,7 +167,7 @@ int main(int argc, char **argv) {
    mg_mgr_init(&mg_mgr);
 #endif
    timer_init();
-//   gpio_init();
+   gpio_init();
 
 #if	defined(USE_EEPROM)
    // if able to connect to EEPROM, load and apply settings
@@ -176,7 +177,7 @@ int main(int argc, char **argv) {
 #endif
 
 //   i2c_init();
-//   gui_init();
+   gui_init();
    logger_init(LOGFILE);
 
    // Print the serial #
@@ -209,7 +210,7 @@ int main(int argc, char **argv) {
 
    if (auto_block_ptt) {
       Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
-//      rr_ptt_set_blocked(true);
+      rr_ptt_set_blocked(true);
    }
 
    if (rr_io_init()) {
@@ -235,8 +236,8 @@ int main(int argc, char **argv) {
 //   fwdsp_init();
 
    // Network connectivity
-//   show_network_info();
-//   show_pin_info();
+   show_network_info();
+   show_pin_info();
 
 #if	defined(USE_MONGOOSE)
 // Is mongoose http server enabled?

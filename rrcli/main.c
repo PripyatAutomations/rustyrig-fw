@@ -58,16 +58,6 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 extern bool config_network_cb(const char *path, int line, const char *section, const char *buf);
 
-static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
-   (void)w; (void)revents;
-   tui_redraw_clock();
-}
-
-static void tui_start_clock_timer(struct ev_loop *loop) {
-   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 0, 1.0); // start after 0s, repeat every 1s
-   ev_timer_start(loop, &tui_clock_watcher);
-}
-
 static void tui_stop_clock_timer(struct ev_loop *loop) {
    ev_timer_stop(loop, &tui_clock_watcher);
 }
@@ -77,8 +67,25 @@ bool rrcli_cleanup(void) {
     dict_free(cfg);
     tui_stop_clock_timer(loop);
     tui_raw_mode(false);
+    exit(0);
     return false;
 }
+
+static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
+   (void)w; (void)revents;
+
+   if (dying) {
+      rrcli_cleanup();
+   }
+   tui_redraw_clock();
+}
+
+static void tui_start_clock_timer(struct ev_loop *loop) {
+   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 0, 1.0); // start after 0s, repeat every 1s
+
+   ev_timer_start(loop, &tui_clock_watcher);
+}
+
 
 static void rrcli_handle_log_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
     (void)event;
@@ -122,7 +129,6 @@ static void rrcli_handle_talk_msg_event(const char *event, void *data, irc_conn_
 /////////////////
 // local hooks //
 /////////////////
-
 int main(int argc, char **args) {
    now = time(NULL);
    loop = EV_DEFAULT;
@@ -143,25 +149,24 @@ int main(int argc, char **args) {
       free(fullpath);
    }
 
-    // apply some global configuration
-    const char *logfile = cfg_get_exp("log.file");
-    logger_init((logfile ? logfile : "rrcli.log"));
-    free((char *)logfile);
-    debug_sockets = cfg_get_bool("debug.sockets", false);
-    event_on("log.message", rrcli_handle_log_event, NULL);
-    event_on("talk.msg", rrcli_handle_talk_msg_event, NULL);
+   // apply some global configuration
+   const char *logfile = cfg_get_exp("log.file");
+   logger_init((logfile ? logfile : "rrcli.log"));
+   free((char *)logfile);
+   debug_sockets = cfg_get_bool("debug.sockets", false);
+   event_on("log.message", rrcli_handle_log_event, NULL);
+   event_on("talk.msg", rrcli_handle_talk_msg_event, NULL);
 
-    // Setup stdio & clock
-    tui_start_clock_timer(loop);
+   // Setup stdio & clock
+   tui_start_clock_timer(loop);
 
 #if defined(USE_MONGOOSE)
-    mg_mgr_init(&mgr);
-    ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
-    ev_timer_start(loop, &ws_poll_watcher);
-    rrcli_autoconnect();
+   mg_mgr_init(&mgr);
+   ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
+   ev_timer_start(loop, &ws_poll_watcher);
+   rrcli_autoconnect();
 #endif
-
-    ev_run(loop, 0);
+   ev_run(loop, 0);
 
    /////////////
    // cleanup //

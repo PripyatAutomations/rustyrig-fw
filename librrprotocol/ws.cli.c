@@ -14,9 +14,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-///#include "mod.ui.gtk3/gtk.core.h"
-//#include <rrgtk/connman.h>
-//#include <rrgtk/userlist.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #if	defined(USE_MONGOOSE)
@@ -208,15 +205,9 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      ws_conn = c; 
    } else if (ev == MG_EV_CONNECT) {
       Log(LOG_CRAZY, "ws", "ev_ws_connect");
-//      const char *this_server = http_servername(c);
-//      const char *this_server = server_name;
-//      ui_print("[%s] * Connected to %s*", get_chat_ts(now), this_server);
    } else if (ev == MG_EV_WRITE) {
       // Handle writing audio frames one by one
    } else if (ev == MG_EV_WS_OPEN) {
-//      const char *this_server = http_servername(c);
-//      const char *this_server = server_name;		// XXX: remove me
-//      Log(LOG_CRAZY, "ws", "ev_ws_open: |%s|", this_server);
       const char *this_server = server_name;
       const char *url = get_server_property(this_server, "server.url");
 
@@ -231,9 +222,6 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          mg_tls_init(c, &opts);
       }
 
-// XXX: Make this send an event CONNECTED
-//      ui_print("[%s] *** Connection Upgraded to WebSocket ***", get_chat_ts(now));
-//      update_connection_button(true, conn_button);
       ws_connected = true;
       event_emit("http.connected", NULL, NULL);
 
@@ -257,6 +245,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          ws_handle_cli(c, wm);
       }
    } else if (ev == MG_EV_ERROR) {
+      event_emit("http.error", NULL, NULL);
 //      ui_print("[%s] Socket error: %s", get_chat_ts(now), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
 // XXX: readd this

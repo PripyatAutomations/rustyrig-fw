@@ -12,6 +12,9 @@ rrserver_objs += defconfig.o		# Default configuration
 rrserver_objs += faults.o		# Fault management/alerting
 rrserver_objs += filters.o
 rrserver_objs += gpio.o			# GPIO controls
+rrserver_objs += gui.o
+rrserver_objs += gui.fb.o
+rrserver_objs += gui.nextion.o
 rrserver_objs += help.o			# support for help menus from filesystem, if available
 rrserver_objs += i2c.o
 rrserver_objs += main.o			# main loop
@@ -36,7 +39,7 @@ ${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rule
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/rrserver/%.o: modsrc/mod.backend.hamlib/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
+${OBJ_DIR}/rrserver/%.o: modsrc/mod.backend.hamlib/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} build/${PROFILE}/eeprom_types.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

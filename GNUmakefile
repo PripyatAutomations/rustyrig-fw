@@ -46,7 +46,7 @@ include mk/debug.mk
 include mk/resource.mk
 
 ${OBJ_DIR}/build_config.h: ${EEPROM_FILE}
-${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json) pack-eeprom
+${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
 
 ${OBJ_DIR}/.stamp:
 	mkdir -p ${OBJ_DIR}

@@ -13,8 +13,6 @@
 // the waterfall, which is rendered outside of the overall GUI
 // then drawn into the main VFB or sent over the network to client
 //
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -23,9 +21,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <rrserver/eeprom.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <rrserver/i2c.h>
 #include <rrserver/gui.h>
 #include <rrserver/gui.fb.h>

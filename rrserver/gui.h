@@ -13,7 +13,16 @@
 // push images to a canvas on nextion for waterfall, etc
 #if	!defined(__rr_gui_h)
 #define	__rr_gui_h
-#include "rrserver/config.h"
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #include "rrserver/gui.fb.h"
 #include "rrserver/gui.nextion.h"
 

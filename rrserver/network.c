@@ -10,8 +10,6 @@
  * Support for network transport for console, cat, and debugging
  *
  */
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,11 +18,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
+#endif
 #include <rrserver/i2c.h>
 #include <librustyaxe/core.h>
 #include <rrserver/network.h>
-#include <librrprotocol/rrprotocol.h>
 #define	HOST_POSIX
 #if	defined(HOST_POSIX)
 #include <sys/socket.h>

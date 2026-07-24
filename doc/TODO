@@ -2,6 +2,8 @@
 - Critical -
 ------------
 * Finish the refactor and cleanup the mess it's created
+* Generate build_config.h from ${PROFILE}.config.json probably in pack-eeprom
+  - Maybe split tools/pack-eeprom into pack-eeprom and generate-headers
 
 ===============
 = librustyaxe =
@@ -27,6 +29,7 @@
 = rrgtk =
 =========
 [general]
+* Fix PTT button so that it changes colors properly (it stays red with PTT OFF text if not acknowledged by server)
 * Since we've added log replay on join (rrserver.cfg:general/chat.replay-lines)
   - Change get_chat_ts to take a time_t optionally and show the date instead of just time, if before today
     - This should make replay make a little more sense to new users

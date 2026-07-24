@@ -8,7 +8,16 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if	!defined(__rr_gui_nextion_h)
 #define	__rr_gui_nextion_h
-#include "rrserver/config.h"
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern bool gui_nextion_init(void);
 extern bool gui_nextion_update(void);
