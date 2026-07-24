@@ -1,0 +1,57 @@
+; Comments can begin with // # or ;   - We now support C style /* */ comments too
+// most settings go in [general] setting, servers are called [server:name] where name is short name for it
+//
+[general]
+
+; subsys:level -- levels:  audit | crit | warn | info | debug | crazy
+log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy ws.auth:crazy 
+path.help-dir=./help
+ui.show-pings=false
+
+# Divide scroll events by this # to get single-steps
+ui.freqentry.scroll-divider=3.0
+
+# If we want to autoconnect to a server, name it here.
+server.auto-connect=localhost
+codecs.allowed=pc16 mu16 mu08
+default.volume.rx=50
+default.tx.power=50
+debug.http=false
+debug.http.crazy=false
+debug.audio=*:3
+
+; Window placements & options (hidden|minimized|modal|no-hide|raised)
+; Size of -1 will avoid resizing the window and let GTK size it
+ui.editcfg=640,625@1,151|raised|modal
+ui.fm-mode=429,226@1,199|raised|modal
+ui.main=1043,607@0,0|raised
+ui.serverpick=300,222@1214,677|raised|modal
+ui.userlist=200,354@959,139|hidden
+
+# Length of time to block CAT updates (in seconds) after a local state change
+cat.poll-blocking=1
+
+; stylesheet
+;ui.stylesheet.dark=
+;ui.stylesheet.light=
+
+;;;;;;;;;; disabled for now ;;;;;;;
+audio.volume.rx=35
+rig0.volume.rx=50
+audio.pipeline.rx.format=time
+; mulaw (suitable for voice and maybe some digi)
+;audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes caps=audio/x-mulaw,rate=16000,channels=1 ! mulawdec ! volume name=rx-vol ! queue ! pulsesink device=default name=rx-sink client-name=rrclient
+; 16khz PCM for digital modes
+;audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrclient
+audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=rrloop_rx name=rx-sink client-name=rrclient
+; 44.1khz PCM for digital modes
+#audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=44100,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrclient
+// TX pipeline
+audio.pipeline.tx.format=time
+;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
+
+[server:localhost]
+server.enabled=true
+server.url=ws://localhost:8420/ws/
+server.user=admin
+server.pass=password

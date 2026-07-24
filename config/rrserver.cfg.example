@@ -1,0 +1,256 @@
+[general]
+core.daemonize=false
+; used for test-server.sh to know which rigctld to start
+rigctld.start-script=tools/dummy-rigctld.sh
+# If enabled, we will allow autospawning fwdsp instances which transcode between codecs; see *.tt in pipelines section below for pipelines
+codecs.allow-transcoding=true
+codecs.allowed=pc16 mu16 mu08 opus flac
+# Transcoding video could get very CPU heavy quickly
+codecs.allow-transcoding.video=false
+codecs.allowed.video=h264 vp8 vp9
+;backend.active=dummy
+backend.active=hamlib
+backend.hamlib=true
+backend.hamlib-debug=warn
+backend.hamlib-model=2
+;backend.hamlib-baud=38400
+;backend.hamlib-port=localhost:4532
+backend.hamlib-port=127.0.0.1:4532
+debug.noisy_eeprom=true
+; Log chat messages in sqlite3?
+chat.log=true
+; If logging is enabled, should we replay a bit of history when the user joins?
+chat.replay-lines=20
+; How long should we let unused fwdsp instances linger before stopping?/
+fwdsp.hangtime=30
+;log.type=file
+;log.mode=0660
+;log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy
+log.level=*:crazy
+log.show-ts=true
+debug.mongoose=false
+debug.profiling=true
+#eeprom.addr=0x0000
+#eeprom.size=1048576
+#eeprom.type=mmap
+#eeprom.readonly=false
+features.auto-block-ptt=false
+#interface.amp.port=
+#interface.pipe.enabled=true
+#interface.cat.enabled=true
+console.enabled=true
+console.type=stdio
+net.http.enabled=true
+net.http.bind=0.0.0.0
+net.http.port=8420
+net.http.authdb-dynamic=false
+net.http.tls-enabled=true
+net.http.tls-bind=0.0.0.0
+net.http.tls-port=4420
+net.mqtt.enabled=true
+net.mqtt.bind=0.0.0.0
+net.mqtt.port=8833
+net.mqtt-client.enabled=false
+net.mqtt-client.server=10.217.1.219
+net.mqtt-client.port=8833,
+net.mqtt-client.user=rustyrig-ft891
+owner.call=N0CALL
+owner.privs=US/General
+pin.show=true
+pin.master=012345
+pin.reset=76543210
+station.call=N0CALL
+station.grid=AA00aa
+
+; audio shortcuts
+au.rig0.rx=pulsesrc device=alsa_input.usb-Creative_Technology_Ltd_Sound_Blaster_X-Fi_Go__Pro_00315403-00.analog-stereo
+au.rig0.rx.rate=48000
+au.rig0.tx=pulsesink device=alsa_output.usb-Creative_Technology_Ltd_Sound_Blaster_X-Fi_Go__Pro_00315403-00.analog-stereo
+au.rig0.tx.rate=48000
+
+; Paths for various things; keys should be unified to path.* ASAP
+path.db.master=./db/master.db
+path.db.master.template=./sql/sqlite.master.sql
+path.pid-file=./run/rrserver.pid
+path.modules=./modules
+;log.file=./rrserver.log
+net.http.authdb=./config/http.users
+#interface.pipe=/tmp/rustyrig.amp.sock
+#interface.cat.port=pipe:/tmp/rustyrig.cat.sock
+net.http.404-path=./www/404.shtml
+net.http.tls-cert=./config/cert.pem
+net.http.tls-key=./config/key.pem
+net.mqtt-client.secret-file=./config/mqtt-cli.secret
+net.http.ua-bans=./config/ua-bans.txt
+net.http.www-root=./www
+net.http.hex-dump=false
+path.sock-dir=./run/rrserver
+path.record-dir=./recordings
+# fwdsp binary
+;path.fwdsp=/usr/local/bin/fwdsp
+path.fwdsp=fwdsp
+
+# modules directory (NYI)
+;path.mod-dir=/usr/lib/modules/rustyrig/rrserver/
+path.mod-dir=./modules/rrserver/
+
+##########################
+
+[fwdsp]
+; Don't allow more than 24 subprocs
+subproc.max=24
+subproc.debug=false
+audio.debug=false
+log.level=debug
+log.show-ts=false
+
+[pipelines]
+; options: immortal (always restarted), dynamic (will be started as needed), disabled; comma delimited
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Sound Device Connection ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Capture audio from the connected rig's mic-input
+cap-rig0-rx-raw48=immortal| \
+   ${au.rig0.rx} ! \
+   audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=${au.rig0.rx.rate} ! \
+   queue ! tee name=t-cap-rig0-rx ! \
+   shmsink socket-path=${path.sock-dir}/cap-rig0-rx-raw48.shm shm-size=1048576 wait-for-connection=false
+
+; Send data out using the connected rig (via speaker out)
+send-rig0-tx-raw48=immortal| \
+   shmsrc socket-path=${path.sock-dir}/send-rig0-tx-raw48.shm ! \
+   audioconvert ! audioresample ! audio/x-raw,rate=${au.rig0.tx.rate} ! \
+   ${au.rig0.tx}
+
+;;;;;;;;
+; Need to insert some kind of 'bus' for the rig0 RX stream, so we can switch to mirroring data in here from
+; the MONITOR (TX audio) stream for rig0, so when someone TX's everyone else hears it as if MON were enabled in a traditional
+; receiver.
+;;;;;;;;;
+
+;;;;;;;;;;;;;;;;
+;
+#input-selector name=rxsel
+#   pad 0: shmsrc(cap-rig0-rx-raw48.shm)  # rig receiver audio
+#   pad 1: shmsrc(send-rig0-tx-raw48.shm) # TX bus monitor audio
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Encode things we are sending TO the clients ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; This will create 16khz PCM for streaming TO clients
+enc-rig0-tx-pc16.deps=cap-rig0-tx-raw48
+enc-rig0-tx-pc16=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/cap-rig0-rx-raw48.shm ! \
+   audioconvert ! audioresample ! audio/x-raw,rate=16000 ! \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-pc16.shm
+
+; This will create 16khz mulaw ADPCM for streaming TO clients
+enc-rig0-tx-mu16.deps=cap-rig0-tx-raw48
+enc-rig0-tx-mu16=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-rx-raw48.shm ! \
+   audioconvert ! audioresample ! audio/x-raw,rate=16000 ! \
+   mulawenc ! \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-mu16.shm
+
+; This will create 8khz mulaw ADPCM for streaming TO clients
+enc-rig0-tx-mu08.deps=cap-rig0-tx-raw48
+enc-rig0-tx-mu08=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-rx-raw48.shm ! \
+   audioconvert ! audioresample ! audio/x-raw,rate=8000 ! \
+   mulawenc ! \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-mu08.shm
+
+; This will create OPUS stream for streaming TO clients (web users?)
+enc-rig0-tx-opus.deps=cap-rig0-tx-raw48
+enc-rig0-tx-opus=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-rx-raw48.shm ! \
+   opusenc ! \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-opus.shm
+
+; This will create FLAC stream for streaming TO clients
+enc-rig0-tx-flac.deps=cap-rig0-tx-raw48
+enc-rig0-tx-flac=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-rx-raw48.shm ! \
+   flacenc ! \
+   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-flac.shm
+
+
+;;;;;;;;;;;;;;;
+; Transcoding ;
+;;;;;;;;;;;;;;;
+; Convert pc16 TX audio to raw PCM at 16khz for mixing into the RX audio when users TX
+recode-rig0-tx-pc16=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
+   audioconvert ! audioresample ! audio/x-raw,rate=16000 ! \
+   shmsink socket-path=${path.sock-dir}/send-rig0-pc16
+
+; Convert mu16 TX audio to mulaw @ 16khz for mixing into the RX audio when users TX
+recode-rig0-tx-mu16=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
+   audioconvert ! audioresample ! audio/x-raw,rate=16000 ! \
+   mulawenc ! \
+   shmsink socket-path=${path.sock-dir}/send-rig0-mu16.shm
+
+; Convert mu08 TX audio to mulaw @ 16khz for mixing into the RX audio when users TX
+recode-rig0-tx-mu08=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
+   audioconvert ! audioresample ! audio/x-raw,rate=8000 ! \
+   mulawenc ! \
+   shmsink socket-path=${path.sock-dir}/send-rig0-mu08.shm
+
+; Convert opus TX audio to mulaw @ 16khz for mixing into the RX audio when users TX
+recode-rig0-tx-opus=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
+   audioconvert ! audioresample ! \
+   opusenc ! \
+   shmsink socket-path=${path.sock-dir}/send-rig0-opus.shm
+
+; Convert flac TX audio to mulaw @ 16khz for mixing into the RX audio when users TX
+recode-rig0-tx-flac=dynamic| \
+   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
+   audioconvert ! audioresample ! \
+   flacenc ! \
+   shmsink socket-path=${path.sock-dir}/send-rig0-flac.shm
+
+################
+# Audit Alerts #
+################
+# NYI: Once this is implemented, it will support sending notifications
+# of various kinds (push|email) to targets defined by user rules
+[alerts]
+group ADMINS add has-priv admin
+group ADMINS add has-priv owner
+group CAN-TX add has-priv tx
+event hw-fail email @ADMINS
+
+; Time-out timer expired
+event ptt-tot push @CAN-TX
+
+; Push to talk START
+event ptt-start push @ADMINS
+
+; Push to talk END
+event ptt-end push @ADMINS
+
+; Alerts for when a user is banned
+event ban email ADMIN
+event ban push @ADMINS
+
+; Alerts for when a user is kicked
+event kick email ADMIN
+event kick push @ADMINS
+
+; Alerts for connect/disconnect of users
+event login push @ADMINS
+event logout push @ADMINS
+
+; Alerts for automated spam detection in chat
+event spam email ADMIN
+event spam push @ADMINS
+
+#################
+# Addon Modules #
+#################
+# NYI: Support for loadable modules
+[modules]
