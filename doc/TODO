@@ -3,7 +3,9 @@ Immediate needs
 rrcli: in websocket protocol, chat should automatically open in window #2 since only one room (for now)
 irc: IRC protocol will be used to link sites, with large messages enabled (16k)
 www: Fix userlist to show all users not just self + users joined later
-
+librustyaxe: Make modules able to register their event handlers on loading
+librustyaxe: Ensure modules are completely freed and unloaded. Use dicts or memblocks for internal storage
+librustyaxe: Add memblocks, simple allocator who maintains small allocations (replace malloc,realloc,free,etc) with page tracking for release on module unload
 
 
 ------------------------
@@ -218,10 +220,10 @@ ws.c / fwdsp/fwdsp-mgr.c:
 * Support saving the chat log
 - Should we allow selecting text for copy/paste?
   - maybe cfg tab option?
+- Message replay
 
 ============
 = wishlist =
 ============
-* Use libbaresip UA to pass control json and audio from gstreamer, so we can use whatever codec we want
+* Use libbaresip UA to pass control via SIP and audio from gstreamer over RTP, so we can use whatever codec we want
   - Should reduce audio latency even further
-  - Could be a path for non-mongoose builds
