@@ -9,7 +9,6 @@
 //
 // Here we deal with common GUI operations between HMI and framebuffer
 //
-#include "build_config.h"
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -24,13 +23,14 @@
 #include <stdio.h>
 #include <sys/un.h>
 #include <fcntl.h>
-#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <rrserver/i2c.h>
-#include <rrserver/eeprom.h>
 #include <rrserver/au.h>
 #include <rrserver/au.pipe.h>
-#include <librustyaxe/cat.h>
-#include <librustyaxe/codecneg.h>
 #include <librustyaxe/fwdsp-shared.h>
 
 bool pipe_init(rr_au_pipe_device_t *device, const char *pipe_name) {

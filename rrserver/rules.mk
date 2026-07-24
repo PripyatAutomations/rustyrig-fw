@@ -1,6 +1,9 @@
 rrserver := bin/rrserver
 bins += ${rrserver}
 
+rrserver_objs += au.o
+rrserver_objs += au.pipe.o
+rrserver_objs += au.recording.o
 rrserver_objs += amp.o
 rrserver_objs += atu.o
 rrserver_objs += backend.o

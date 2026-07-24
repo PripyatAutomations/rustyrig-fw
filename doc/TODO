@@ -6,7 +6,7 @@ www: Fix userlist to show all users not just self + users joined later
 librustyaxe: Make modules able to register their event handlers on loading
 librustyaxe: Ensure modules are completely freed and unloaded. Use dicts or memblocks for internal storage
 librustyaxe: Add memblocks, simple allocator who maintains small allocations (replace malloc,realloc,free,etc) with page tracking for release on module unload
-
+rrgtk: Add auto-reconnect with back off like webui has
 
 ------------------------
 
