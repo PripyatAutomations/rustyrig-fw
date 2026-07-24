@@ -1,3 +1,9 @@
+rustyrig-fw (20260724) testing; urgeny=medium
+* Lot of cleanup. rrserver and rrgtk run and work now
+  - Need to resolve issues in backend/backend.hamlib stuff
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, Jul 24 2026 11:19:45 -0400
+
 rustyrig-fw (20260721) testing; urgeny=medium
 * Cleaned up code a bit until everything at least compiles and runs
 * Repaired libmongoose-based functionality (rrgtk/rrserver)
