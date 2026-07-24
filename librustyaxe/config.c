@@ -17,7 +17,6 @@ extern defconfig_t defcfg[];
 
 const char *config_file = NULL;
 dict *cfg = NULL;			// User configuration values from config file / ui
-dict *servers = NULL;
 dict *default_cfg = NULL;		// Hard-coded defaults (defcfg.c)
 cfg_cb_list_t *cfg_callbacks = NULL;
 
@@ -259,9 +258,9 @@ dict *cfg_load(const char *path) {
       return NULL;
    }
 
-   fseek(fp, 0, SEEK_SET);
+    fseek(fp, 0, SEEK_SET);
 
-   bool in_comment = false;
+    bool in_comment = false;
    do {
       memset(buf, 0, sizeof(buf));
       if (!fgets(buf, sizeof(buf) - 1, fp)) {
@@ -374,47 +373,57 @@ dict *cfg_load(const char *path) {
          continue;
       }
 
-      if (strncasecmp(this_section, "general", 7) == 0) {
-         key = NULL;
-         val = NULL;
-         char *eq = strchr(skip, '=');
+       if (strncasecmp(this_section, "general", 7) == 0) {
+          key = NULL;
+          val = NULL;
+          char *eq = strchr(skip, '=');
 
-         if (eq) {
-            *eq = '\0';
-            key = skip;
-            val = eq + 1;
-            // trim leading whitespace off the value
-            while (*val == ' ' || *val == '\t') {
-               val++;
-            }
-         }
+          if (eq) {
+             *eq = '\0';
+             key = skip;
+             val = eq + 1;
+             while (*val == ' ' || *val == '\t') {
+                val++;
+             }
+          }
 
-         if (!key) {
-            continue;
-         }
+          if (!key) {
+             continue;
+          }
 
-         // trim trailing whitespace off the key
-         char *key_end = key + strlen(key) - 1;
-         while (key_end >= key && (*key_end == ' ' || *key_end == '\t')) {
-            *key_end-- = '\0';
-         }
+          char *key_end = key + strlen(key) - 1;
+          while (key_end >= key && (*key_end == ' ' || *key_end == '\t')) {
+             *key_end-- = '\0';
+          }
 
-         if (!key && !val) {
-            continue;
-         }
+          if (!key && !val) {
+             continue;
+          }
 
-         if (strncasecmp(this_section, "general", 7) != 0) {
-            char keybuf[384];
-            memset(keybuf, 0, sizeof(keybuf));
-            snprintf(keybuf, sizeof(keybuf), "%s:%.s", this_section, key);
-            dict_add(newcfg, keybuf, val);
-         } else {
-            dict_add(newcfg, key, val);
-         }
-      } else if (cfg_dispatch_callback(path, line, this_section, buf)) {
-         Log(LOG_WARN, "config", "Unknown configuration section |%s| parsing |%s| at %s:%d", this_section, buf, path, line);
-         errors++;
-      }
+          dict_add(newcfg, key, val);
+        } else if (strncasecmp(this_section, "server:", 7) == 0) {
+           key = NULL;
+           val = NULL;
+           char *eq = strchr(skip, '=');
+           char fullkey[256];
+
+           if (eq) {
+              *eq = '\0';
+              key = skip;
+              val = eq + 1;
+              while (*val == ' ' || *val == '\t') {
+                 val++;
+              }
+              memset(fullkey, 0, sizeof(fullkey));
+              snprintf(fullkey, sizeof(fullkey), "server:%s.%s", this_section + 7, key);
+              dict_add(newcfg, fullkey, val);
+           } else {
+              Log(LOG_WARN, "config", "Malformed line parsing |%s| at %s:%d", buf, path, line);
+           }
+       } else if (cfg_dispatch_callback(path, line, this_section, buf)) {
+          Log(LOG_WARN, "config", "Unknown configuration section |%s| parsing |%s| at %s:%d", this_section, buf, path, line);
+          errors++;
+       }
    } while (!feof(fp));
 
    if (errors > 0) {
@@ -465,30 +474,96 @@ const char *cfg_get_exp(const char *key) {
    return dict_get_exp(cfg, key);
 }
 
-bool cfg_save(dict *d, const char *path) {
-   FILE *fp = fopen(path, "w");
-   if (!fp) {
-      Log(LOG_WARN, "config", "Failed to open save file: '%s': %d:%s", path, errno, strerror(errno));
-      return true;
+static void cfg_print_servers(dict *d, FILE *fp) {
+   if (!d || !fp) {
+      return;
    }
 
-   dict *merged = NULL;
+   const char *key;
+   char *val;
+   int rank = 0;
+   dict *seen = dict_new();
 
-   // Right-side argument overrides defaults
-   merged = dict_merge_new(default_cfg, d);
+   while ((rank = dict_enumerate(d, rank, &key, &val)) >= 0) {
+      if (strncmp(key, "server:", 7) != 0) {
+         continue;
+      }
 
-   // Dump general settings
-   fprintf(fp, "[general]\n");
-   dict_dump(merged, fp);
+      const char *name_start = key + 7;
+      const char *dot = strchr(name_start, '.');
+      if (!dot) {
+         continue;
+      }
 
-   // Release the memory used
-   dict_free(merged);
+      size_t name_len = dot - name_start;
+      char name[64];
+      if (name_len >= sizeof(name)) {
+         continue;
+      }
 
-   fflush(fp);
-   fclose(fp);
+      strncpy(name, name_start, name_len);
+      name[name_len] = '\0';
 
-   return false;
+      if (dict_get(seen, name, NULL)) {
+         continue;
+      }
+      dict_add(seen, name, "1");
+
+      fprintf(fp, "[server:%s]\n", name);
+
+      int inner_rank = 0;
+      const char *inner_key;
+      char *inner_val;
+      while ((inner_rank = dict_enumerate(d, inner_rank, &inner_key, &inner_val)) >= 0) {
+         if (strncmp(inner_key, "server:", 7) == 0) {
+            const char *inner_name = inner_key + 7;
+            if (strncmp(inner_name, name, name_len) == 0 && inner_name[name_len] == '.') {
+               fprintf(fp, "%s=%s\n", inner_name + name_len + 1, inner_val ? inner_val : "");
+            }
+         }
+      }
+
+      fputc('\n', fp);
+   }
+
+   dict_free(seen);
 }
+
+bool cfg_save(dict *d, const char *path) {
+    FILE *fp = fopen(path, "w");
+    if (!fp) {
+       Log(LOG_WARN, "config", "Failed to open save file: '%s': %d:%s", path, errno, strerror(errno));
+       return true;
+    }
+
+    dict *merged = NULL;
+
+    // Right-side argument overrides defaults
+    merged = dict_merge_new(default_cfg, d);
+
+    // Dump general settings (skip server: keys)
+    fprintf(fp, "[general]\n");
+    int rank = 0;
+    const char *key;
+    char *val;
+    while ((rank = dict_enumerate(merged, rank, &key, &val)) >= 0) {
+       if (strncmp(key, "server:", 7) == 0) {
+          continue;
+       }
+       fprintf(fp, "%s=%s\n", key, val ? val : "");
+    }
+
+    // Release the memory used
+    dict_free(merged);
+
+    // Print the server sections
+    cfg_print_servers(d, fp);
+
+    fflush(fp);
+    fclose(fp);
+
+    return false;
+ }
 
 // XXX: This needs to compare changes and create a dict with the differences in it
 bool cfg_apply_new(dict *oldcfg, dict *newcfg) {

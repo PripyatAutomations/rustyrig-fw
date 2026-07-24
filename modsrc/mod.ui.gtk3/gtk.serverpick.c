@@ -24,7 +24,7 @@
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
-extern dict *cfg, *servers;
+extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
@@ -127,13 +127,18 @@ void show_server_chooser(void) {
    char *v;
    GtkTreeIter match_iter;
    gboolean have_match = FALSE;
-   while ((rank = dict_enumerate(servers, rank, &k, &v)) >= 0) {
-      if (!g_str_has_suffix(k, ".server.user")) {
-         continue;
-      }
-      char server[32], user[64];
-      sscanf(k, "%31[^.].server.user", server);
-      snprintf(user, sizeof user, "%s@%s", v, server);
+    while ((rank = dict_enumerate(cfg, rank, &k, &v)) >= 0) {
+       if (!g_str_has_suffix(k, ".server.user")) {
+          continue;
+       }
+       const char *name_start = strchr(k, ':');
+       if (!name_start) {
+          continue;
+       }
+       name_start++;
+       char server[32], user[64];
+       sscanf(name_start, "%31[^.]", server);
+       snprintf(user, sizeof user, "%s@%s", v, server);
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
       gtk_list_store_set(store, &iter, 0, user, -1);

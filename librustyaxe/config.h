@@ -46,7 +46,6 @@ typedef struct reload_event reload_event_t;
 // Data storage dicts
 extern dict *cfg;			// Main configuration
 extern dict *default_cfg;		// Default configuration
-extern dict *servers;			// Global server list
 extern dict *pipelines;			// fwdsp/rrgtk pipelines
 
 // Events to run on config reload

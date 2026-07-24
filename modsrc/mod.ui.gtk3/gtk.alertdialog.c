@@ -19,7 +19,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-extern dict *cfg, *servers;
+extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
 

@@ -40,7 +40,6 @@ const char *server_name = NULL;
 
 extern rr_connection_t *active_connections;
 extern dict *cfg;
-extern dict *servers;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 #if	defined(USE_MONGOOSE)
@@ -103,17 +102,10 @@ const char *get_server_property(const char *server, const char *prop) {
       return NULL;
    }
 
-   char *rv = NULL;
-
    char fullkey[1024];
    memset(fullkey, 0, sizeof(fullkey));
-   snprintf(fullkey, sizeof(fullkey), "%s.%s", server, prop);
-   rv = dict_get(servers, fullkey, NULL);
-#if	defined(DEBUG_CONFIG) || defined(DEBUG_CONFIG_SERVER)
-   ui_print("Looking up server key: %s returned %s", fullkey, (rv ? rv : "NULL"));
-   dict_dump(servers, stdout);
-#endif
-   return rv;
+   snprintf(fullkey, sizeof(fullkey), "server:%s.%s", server, prop);
+   return dict_get(cfg, fullkey, NULL);
 }
 
 ///////////////////////////////////////////////////////////

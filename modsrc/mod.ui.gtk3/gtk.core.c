@@ -9,6 +9,7 @@
 //
 // XXX: Need to break this into pieces and wrap up our custom widgets, soo we can do
 // XXX: nice things like pop-out (floating) VFOs
+#include <glib.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -45,18 +46,163 @@ extern GtkWidget *config_tab;
 extern GtkWidget *admin_tab;
 extern bool chat_init(void);		// gtk.chat.c
 
+static const struct {
+    const char *tag;
+    const char *pango;
+} pango_color_map[] = {
+    { "black",          "black" },
+    { "red",            "red" },
+    { "green",          "green" },
+    { "yellow",         "yellow" },
+    { "blue",           "blue" },
+    { "magenta",        "magenta" },
+    { "cyan",           "cyan" },
+    { "white",          "white" },
+    { "bright-black",   "#808080" },
+    { "bright-red",     "#ff0000" },
+    { "bright-green",   "#00ff00" },
+    { "bright-yellow",  "#ffff00" },
+    { "bright-blue",    "#0000ff" },
+    { "bright-magenta", "#ff00ff" },
+    { "bright-cyan",    "#00ffff" },
+    { "bright-white",   "#ffffff" },
+    { "brown",          "#804000" },
+    { "orange",         "#ff8000" },
+    { "bg-black",       "black" },
+    { "bg-red",         "red" },
+    { "bg-green",       "green" },
+    { "bg-yellow",      "yellow" },
+    { "bg-blue",        "blue" },
+    { "bg-magenta",     "magenta" },
+    { "bg-cyan",        "cyan" },
+    { "bg-white",       "white" },
+    { "bg-bright-black","#808080" },
+    { "bg-bright-red",  "#ff0000" },
+    { "bg-bright-green","#00ff00" },
+    { "bg-bright-yellow","#ffff00" },
+    { "bg-bright-blue", "#0000ff" },
+    { "bg-bright-magenta","#ff00ff" },
+    { "bg-bright-cyan", "#00ffff" },
+    { "bg-bright-white","#ffffff" },
+    { "bg-brown",       "#804000" },
+    { "bg-orange",      "#ff8000" },
+    { NULL, NULL }
+};
+
+static const char *pango_color_for_tag(const char *tag, bool *is_bg) {
+    *is_bg = (strncmp(tag, "bg-", 3) == 0);
+    for (int i = 0; pango_color_map[i].tag; i++) {
+        if (strcmp(tag, pango_color_map[i].tag) == 0) {
+            return pango_color_map[i].pango;
+        }
+    }
+    return NULL;
+}
+
+char *gtk_colorize_string(const char *in) {
+    if (!in) return NULL;
+
+    size_t len = strlen(in);
+    char *out = malloc(len * 8 + 64);
+    if (!out) return NULL;
+
+    char *o = out;
+    bool bold = false, italic = false, underline = false;
+    const char *fg = NULL, *bg = NULL;
+
+    const char *p = in;
+    while (*p) {
+        if (*p == '{') {
+            const char *end = strchr(p, '}');
+            if (!end) {
+                *o++ = *p++;
+                continue;
+            }
+
+            size_t key_len = (size_t)(end - (p + 1));
+            char key[64];
+            if (key_len >= sizeof(key)) key_len = sizeof(key) - 1;
+            memcpy(key, p + 1, key_len);
+            key[key_len] = '\0';
+
+            if (strcmp(key, "reset") == 0) {
+                if (fg || bg) {
+                    o += sprintf(o, "</span>");
+                    fg = bg = NULL;
+                }
+                if (bold) { o += sprintf(o, "</b>"); bold = false; }
+                if (italic) { o += sprintf(o, "</i>"); italic = false; }
+                if (underline) { o += sprintf(o, "</u>"); underline = false; }
+            } else if (strcmp(key, "bold") == 0) {
+                if (!bold) { o += sprintf(o, "<b>"); bold = true; }
+            } else if (strcmp(key, "italic") == 0) {
+                if (!italic) { o += sprintf(o, "<i>"); italic = true; }
+            } else if (strcmp(key, "underline") == 0) {
+                if (!underline) { o += sprintf(o, "<u>"); underline = true; }
+            } else if (strcmp(key, "bold-off") == 0) {
+                if (bold) { o += sprintf(o, "</b>"); bold = false; }
+            } else if (strcmp(key, "italic-off") == 0) {
+                if (italic) { o += sprintf(o, "</i>"); italic = false; }
+            } else if (strcmp(key, "underline-off") == 0) {
+                if (underline) { o += sprintf(o, "</u>"); underline = false; }
+            } else {
+                bool is_bg = false;
+                const char *pango_color = pango_color_for_tag(key, &is_bg);
+                if (pango_color) {
+                    if (fg || bg) {
+                        o += sprintf(o, "</span>");
+                        fg = bg = NULL;
+                    }
+                    o += sprintf(o, "<span");
+                    if (!is_bg) {
+                        o += sprintf(o, " foreground=\"%s\"", pango_color);
+                        fg = pango_color;
+                    } else {
+                        o += sprintf(o, " background=\"%s\"", pango_color);
+                        bg = pango_color;
+                    }
+                    o += sprintf(o, ">");
+                }
+            }
+
+            p = end + 1;
+        } else {
+            const char *next = strchr(p, '{');
+            size_t chunk_len = next ? (size_t)(next - p) : strlen(p);
+
+            char *escaped = g_markup_escape_text(p, (gint)chunk_len);
+            o += sprintf(o, "%s", escaped);
+            g_free(escaped);
+
+            p += chunk_len;
+        }
+    }
+
+    if (fg || bg) o += sprintf(o, "</span>");
+    if (bold) o += sprintf(o, "</b>");
+    if (italic) o += sprintf(o, "</i>");
+    if (underline) o += sprintf(o, "</u>");
+
+    *o = '\0';
+    return out;
+}
+
 bool ui_print_gtk(const char *msg) {
    if (!msg) {
       return true;
    }
 
-   // Append our text to the end of the GtkTextView
+   char *colored = gtk_colorize_string(msg);
+   if (!colored) {
+      return true;
+   }
+
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(text_buffer, &end);
-   gtk_text_buffer_insert(text_buffer, &end, msg, -1);
+   gtk_text_buffer_insert_markup(text_buffer, &end, colored, -1);
    gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
+   g_free(colored);
 
-   // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
    g_idle_add(ui_scroll_to_end, chat_textview);
    return false;
 }

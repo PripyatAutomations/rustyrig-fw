@@ -84,6 +84,7 @@ extern GtkWidget *mode_combo;
 extern gulong mode_changed_handler_id;
 extern gulong freq_changed_handler_id;
 extern bool ui_print_gtk(const char *msg);
+extern char *gtk_colorize_string(const char *in);
 extern bool cfg_use_gtk;
 extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 extern gboolean is_widget_or_descendant_focused(GtkWidget *ancestor);
