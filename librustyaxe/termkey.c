@@ -1397,7 +1397,7 @@ size_t termkey_strfkey(TermKey *tk, char *buffer, size_t len, TermKeyKey *key, T
         if(l <= 0) return pos;
         pos += l;
 
-        l = snprintf(buffer + pos, len - pos, " @ (%u,%u)", col, line);
+        l = snprintf(buffer + pos, len - pos, " @ (%i,%i)", col, line);
       }
     }
     break;

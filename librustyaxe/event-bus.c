@@ -25,15 +25,27 @@ void event_on(const char *event, event_cb_t cb, void *user) {
    kv_list_t *list = kv_lookup(event_store, event);
    if (!list) {
       list = calloc(1, sizeof(*list));
+      // XXX: Make this more graceful
+      if (!list) {
+         abort();
+      }
       list->type = KV_ARRAY;
       kv_insert(event_store, event, list);
    }
 
    event_listener_t *l = calloc(1, sizeof(*l));
+   // XXX: make this more graceful
+   if (!l) {
+      abort();
+   }
    l->cb = cb;
    l->user = user;
 
    list->ptr = realloc(list->ptr, sizeof(void*) * (list->count + 1));
+   // XXX: make this more graceful
+   if (!list->ptr) {
+      abort();
+   }
    ((void**)list->ptr)[list->count++] = l;
 }
 

@@ -117,12 +117,17 @@ int split_args(char *line, char ***argv_out) {
       while (*p && isspace((unsigned char)*p)) {
          p++;
       }
+
       if (!*p) {
          break;
       }
+
       if (argc >= cap) {
          cap *= 2;
-         argv = realloc(argv, cap * sizeof(char *));
+
+         if ((cap <= 0) || (argv = realloc(argv, cap * sizeof(char *))) == NULL) {
+            abort();
+         }
       }
       argv[argc++] = p;
       while (*p && !isspace((unsigned char)*p)) {

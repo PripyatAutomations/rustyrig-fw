@@ -36,9 +36,10 @@ static void rrgtk_handle_connection_event(const char *event, void *data, irc_con
    (void)data;
 
    if (strcmp(event, "http.connected") == 0) {
+      // XXX: Here we need to set login_user
       update_connection_button(true, conn_button);
-      login_user = cfg_get_exp("server.user");
    } else if (strcmp(event, "http.disconnected") == 0) {
+      login_user = NULL;
       update_connection_button(false, conn_button);
    } else if (strcmp(event, "http.error") == 0) {
       ui_print("{red}* http error *{reset}");
@@ -176,7 +177,9 @@ static void rrgtk_handle_talk_msg_event(const char *event, void *data, irc_conn_
        return;
     }
 
-    if (login_user != NULL && tmed->from[0] != '\0' && strcmp(tmed->from, login_user) == 0) {
+    ui_print("tmed->from: %s, login_user: %s", tmed->from, login_user);
+
+    if (login_user != NULL && strcmp(tmed->from, login_user) == 0) {
        prefix = "=> ";
     }
 

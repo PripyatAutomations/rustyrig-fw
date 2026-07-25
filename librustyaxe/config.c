@@ -137,7 +137,10 @@ bool cfg_detect_and_load(const char *configs[], int num_configs) {
    }
 
    if (fullpath) {
-      config_file = strdup(fullpath);
+      if ((config_file = strdup(fullpath)) == NULL) {
+         abort();
+      }
+
       if (!(cfg = cfg_load(fullpath))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       } else {
@@ -160,6 +163,9 @@ bool cfg_add_callback(const char *path, const char *section, bool (*cb)()) {
    Log(LOG_DEBUG, "config", "add_cb: path=%s section=%s cb=<%p>", path, section, (void *)cb);
 
    cfg_cb_list_t *new_cb = malloc(sizeof(cfg_cb_list_t));
+   if (new_cb == NULL) {
+      abort();
+   }
    memset(new_cb, 0, sizeof(cfg_cb_list_t));
 
    if (!new_cb) {
@@ -168,11 +174,15 @@ bool cfg_add_callback(const char *path, const char *section, bool (*cb)()) {
    }
 
    if (path) {
-      new_cb->path = strdup(path);
+      if ((new_cb->path = strdup(path)) == NULL) {
+         abort();
+      }
    }
 
    if (section) {
-      new_cb->section = strdup(section);
+      if ((new_cb->section = strdup(section)) == NULL) {
+         abort();
+      }
    }
    new_cb->callback = cb;
 
@@ -446,7 +456,9 @@ const char *cfg_get(const char *key) {
    // nope! try default
    if (!p) {
       if (!default_cfg) {
+#if	defined(DEBUG_CONFIG)
          Log(LOG_DEBUG, "config", "defcfg not found looking for key |%s|", key);
+#endif
          return NULL;
       }
       p = dict_get(default_cfg, key, NULL);
@@ -609,17 +621,22 @@ reload_event_t *reload_event_add(const char *key, bool (*callback)(), const char
    }
 
    reload_event_t *r = malloc(sizeof(reload_event_t));
-   if (!r) {
+   if (r == NULL) {
       fprintf(stderr, "OOM in reload_event_add!\n");
       return NULL;
    }
 
    memset(r, 0, sizeof(reload_event_t));
-   r->key = strdup(key);
+   if ((r->key = strdup(key)) == NULL) {
+      abort();
+   }
+
    r->callback = callback;
 
    if (note) {
-      r->note = strdup(note);
+      if ((r->note = strdup(note)) == NULL) {
+         abort();
+      }
    }
 
    // find end of the list and append it

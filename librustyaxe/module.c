@@ -46,6 +46,10 @@ rr_module_t *modules = NULL;
 
 char *concat_path(const char *dir, const char *file, const char *suffix) {
    char *tmp = malloc(PATH_MAX + 1);
+   if (tmp == NULL) {
+      abort();
+   }
+
    memset(tmp, 0, PATH_MAX + 1);
    if (suffix) {
       snprintf(tmp, PATH_MAX, "%s/%s.%s", dir, file, suffix);
@@ -94,15 +98,20 @@ bool rr_load_module(const char *name) {
    Log(LOG_DEBUG, "module", "rr_load_module: Module %s opened from %s at <%p>", name, mod_path, dp);
    rr_module_t *mp = malloc(sizeof(rr_module_t));
 
-   if (!mp) {
+   if (mp == NULL) {
       fprintf(stderr, "OOM in rr_load_module!\n");
       return true;
    }
    memset(mp, 0, sizeof(rr_module_t));
 
    mp->dlptr = dp;
-   mp->mod_path = strdup(mod_path);
-   mp->mod_name = strdup(name);
+   if ((mp->mod_path = strdup(mod_path)) == NULL) {
+      abort();
+   }
+
+   if ((mp->mod_name = strdup(name)) == NULL) {
+      abort();
+   }
 
    rr_module_event_t *ep = dlsym(mp->dlptr, "modinfo");
 
@@ -138,7 +147,10 @@ bool rr_load_module(const char *name) {
          lp = lp->next;
          i++;
       }
-      lp->next = mp;
+
+      if (lp != NULL) {
+         lp->next = mp;
+      }
    }
 
    // XXX: Call initialization function for the new module

@@ -49,6 +49,7 @@ ${OBJ_DIR}/rrserver/%.o: modsrc/mod.backend.hamlib/%.c ${BUILD_HEADERS} GNUmakef
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
+	@echo "[link] $< => $@"
 	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lev ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
 	@ls -a1ls $@
 	@file $@

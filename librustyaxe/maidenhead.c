@@ -50,6 +50,12 @@ Coordinates maidenhead2latlon(const char *locator) {
    const char *lp = locator;				// pointer to locator we'll use
    Coordinates c = { .latitude = 0, .longitude = 0, .precision = 0, .error = true };
    double field, square, subsquare, extsquare, precsquare;
+
+
+   if (locator == NULL) {
+      return c;
+   }
+
    int len = strlen(locator);
 
    // If invalid grid square, return 0,0 to indicate it
@@ -68,6 +74,7 @@ Coordinates maidenhead2latlon(const char *locator) {
       if ((lp = complete_mh(locator)) == NULL) {
          // Invalid (uneven length?) grid square passed
          fprintf(stdout, "+ERROR grid squares must be 4-10 digits (A-Z, 0-9) long and even length.\n");
+         return c;
       }
    }
 
@@ -166,4 +173,3 @@ double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
    double distance = RADIUS_EARTH * c;
    return distance;
 }
-

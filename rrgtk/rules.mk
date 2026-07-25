@@ -58,7 +58,8 @@ ${OBJ_DIR}/rrgtk/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS} GNUmakefile rrgtk/
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
 bin/rrgtk: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrgtk_real_objs}
-	${CC} ${LDFLAGS} ${LDFLAGS_RRCLI} -o $@ ${rrgtk_real_objs} -lrustyaxe -lrrprotocol -lev ${gtk_ldflags} ${gst_ldflags} || exit 2
+	@echo "[link] $< => $@"
+	@${CC} ${LDFLAGS} ${LDFLAGS_RRCLI} -o $@ ${rrgtk_real_objs} -lrustyaxe -lrrprotocol -lev ${gtk_ldflags} ${gst_ldflags} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

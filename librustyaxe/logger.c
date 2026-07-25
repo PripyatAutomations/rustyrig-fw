@@ -11,7 +11,6 @@
  *	Targets: syslog console flash (file)
  */
 //
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -25,8 +24,8 @@
 #include <time.h>
 #include <errno.h>
 #include <fnmatch.h>
-#include <librustyaxe/tui.h>
-//#include <librrprotocol/rrprotocol.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 /* This should be updated only once per second, by a call to update_timestamp from main thread */
 // These are in main
@@ -87,45 +86,49 @@ struct log_filter {
     struct log_filter *next;
 };
 
-static struct log_filter *filters = NULL;
+static struct log_filter *log_filters = NULL;
 
 bool log_add_filter(const char *pattern, logpriority_t level) {
     struct log_filter *f = malloc(sizeof(*f));
-    if (!f) {
+    if (f == NULL) {
        fprintf(stderr, "OOM in log_add_filter\n");
        return true;
     }
 
-    f->pattern = strdup(pattern);
-    if (!f->pattern) {
+    
+    if ((f->pattern = strdup(pattern)) == NULL) {
        free(f);
        return true;
     }
     f->level = level;
-    f->next = filters;
-    filters = f;
+    f->next = log_filters;
+    log_filters = f;
     return false;
 }
 
-void log_clear_filters(void) {
-   struct log_filter *f = filters;
+void log_clear_log_filters(void) {
+   struct log_filter *f = log_filters;
    while (f) {
       struct log_filter *next = f->next;
       free(f->pattern);
       free(f);
       f = next;
    }
-   filters = NULL;
+   log_filters = NULL;
 }
 
-// Load filters from config string
-void load_filters_from_config(void) {
-   const char *cfg = cfg_get_exp("log.level");  // or "log.filters"
+// Load log_filters from config string
+void load_log_filters_from_config(void) {
+   const char *cfg = cfg_get_exp("log.level");  // or "log.log_filters"
    if (!cfg) {
       return;
    }
 
    char *copy = strdup(cfg);
+   // XXX: make this more graceful
+   if (copy == NULL) {
+      abort();
+   }
    free((void *)cfg);
 
    char *tok = copy;
@@ -154,6 +157,10 @@ void load_filters_from_config(void) {
          size_t len = strlen(subsys);
          if (len >= 2 && strcmp(subsys + len - 2, ".*") == 0) {
             char *plain = strdup(subsys);
+            // XXX: make this fail more gracefully
+            if (plain == NULL) {
+               abort();
+            }
             plain[len-2] = '\0';
             log_add_filter(plain, level);
             free(plain);
@@ -171,7 +178,7 @@ void load_filters_from_config(void) {
 #define	DEFAULT_LOG_LEVEL	LOG_DEBUG
 
 bool debug_filter(const char *subsys, logpriority_t msg_level) {
-   struct log_filter *f = filters, *best = NULL;
+   struct log_filter *f = log_filters, *best = NULL;
 
    if (!f && msg_level > DEFAULT_LOG_LEVEL) {
 //      fprintf(stderr, "!f: %d > %d\n", msg_level, DEFAULT_LOG_LEVEL);
@@ -198,10 +205,10 @@ bool debug_filter(const char *subsys, logpriority_t msg_level) {
    return false;
 }
 
-// Dump all filters
-void log_dump_filters(void) {
+// Dump all log_filters
+void log_dump_log_filters(void) {
    printf("---- Log Filters ----\n");
-   struct log_filter *f = filters;
+   struct log_filter *f = log_filters;
    while (f) {
       printf("  '%s' = %d (%s)\n", f->pattern, f->level,
          log_priority_to_str(f->level));
@@ -217,20 +224,9 @@ void logger_init(const char *logfile) {
    const char *ll = NULL;
 #if defined(USE_EEPROM)
    ll = eeprom_get_str("debug/loglevel");
-   log_show_ts = eeprom_get_bool("debug/show_ts");
 #endif
 
-   if (!ll) {
-      ll = cfg_get("log.level");
-      log_show_ts = cfg_get_bool("log.show-ts", false);
-   }
-
-   if (ll) {
-      Log(LOG_INFO, "core", "Setting log filters to %s", ll);
-   } else {
-      ll = strdup("*:info");
-   }
-
+   log_show_ts = eeprom_get_bool("debug/show_ts");
    if (!logfp) {
       logfp = fopen(logfile, "a+");
       if (!logfp) {
@@ -239,11 +235,11 @@ void logger_init(const char *logfile) {
       }
    }
 
-   log_stdout = cfg_get_bool("log.stdout", false);
+   log_stdout = cfg_get_bool("log.stdout", true);
 
-   // Load fine-grained filters from config
-   load_filters_from_config();
-//   log_dump_filters();
+   // Load fine-grained log_filters from config
+   load_log_filters_from_config();
+//   log_dump_log_filters();
 }
 
 void logger_end(void) {
@@ -261,8 +257,8 @@ void logger_end(void) {
    }
    log_callbacks = NULL;
 
-   // free all filters
-   log_clear_filters();
+   // free all log_filters
+   log_clear_log_filters();
 }
 
 int update_timestamp(void) {
@@ -297,7 +293,6 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 
    if (!subsys || !fmt) {
       fprintf(stderr, "Invalid Log request: No subsys/fmt\n");
-      va_end(ap);
       return;
    }
 

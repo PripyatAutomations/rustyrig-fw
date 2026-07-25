@@ -43,5 +43,4 @@ extern int subproc_respawn_corpses(void);
 extern bool subproc_start(int slot);
 extern int subproc_create(const char *name, const char *path, const char **argv, int argc);
 
-#endif
 #endif	// !defined(_subproc_h)

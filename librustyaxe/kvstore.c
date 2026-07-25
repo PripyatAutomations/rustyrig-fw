@@ -37,7 +37,14 @@ static int kv_array_bsearch(kv_node_t **arr, size_t count, const char *key) {
 static kv_node_t *bst_insert(kv_node_t *node, const char *key, void *val) {
    if (!node) {
       kv_node_t *n = calloc(1, sizeof(*n));
+      // XXX: make this more graceful
+      if (n == NULL) {
+         abort();
+      }
       n->key = strdup(key);
+      if (n->key == NULL) {
+         abort();
+      }
       n->value = val;
       return n;
    }
@@ -219,7 +226,15 @@ int kv_insert(kv_store_t *store, const char *key, void *val) {
       memmove(&arr[pos + 1], &arr[pos], (list->count - pos) * sizeof(kv_node_t*));
 
       kv_node_t *node = calloc(1, sizeof(*node));
+      if (node == NULL) {
+         abort();
+      }
+
       node->key = strdup(suffix);
+      if (node->key == NULL) {
+         abort();
+      }
+
       node->value = val;
       arr[pos] = node;
       list->count++;

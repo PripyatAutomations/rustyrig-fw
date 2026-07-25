@@ -87,6 +87,10 @@ irc_message_t *irc_parse_message(const char *msg) {
             *space = '\0';
          }
          argv = realloc(argv, sizeof(char*) * (argc + 1));
+         // XXX: make this more graceful
+         if (argv == NULL) {
+            abort();
+         }
          argv[argc++] = strdup(s);
          s = space ? space + 1 : NULL;
       }
@@ -106,6 +110,10 @@ irc_message_t *irc_parse_message(const char *msg) {
       // XXX: Do we need to sanitize the new
 //      char *old_argv = argv;
       argv = realloc(argv, sizeof(char*) * (argc + 1));
+      // XXX: make this more graceful
+      if (argv == NULL) {
+         abort();
+      }
 //      if (argv != old_argv) {
          // we reallocated the string somewhere else
 //      } else {

@@ -39,8 +39,8 @@ uint32_t radio_find_gpiochip(const char *name) {
          return i;
       }
    }
-   return -1;
 #endif
+   return -1;
 }
 
 uint32_t radio_gpiochip_init(const char *chipname) {

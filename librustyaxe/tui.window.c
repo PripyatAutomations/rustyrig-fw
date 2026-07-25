@@ -79,7 +79,7 @@ tui_window_t *tui_window_create(const char *title) {
 
    strncpy(w->title, title, sizeof(w->title) - 1);
    memset(w->status_line, 0, sizeof(w->status_line));
-   snprintf(w->status_line, sizeof(w->status_line), title);
+   snprintf(w->status_line, sizeof(w->status_line), "%s", title);
    w->title[sizeof(w->title) - 1] = '\0';
 
    // save the window
@@ -119,8 +119,8 @@ bool tui_window_destroy(tui_window_t *w) {
    }
 
    // Pick a new active window if needed
-   if (tui_num_windows == 0) {
-      tui_active_win = -1;  // no windows left
+   if (tui_num_windows < 0) {
+      tui_active_win = 0;  // no windows left
    } else {
       // if the destroyed window was active, or active index is now invalid, pick previous or first
       if (tui_active_win >= tui_num_windows || tui_active_win == destroyed_index) {
@@ -135,7 +135,7 @@ bool tui_window_destroy(tui_window_t *w) {
    }
    free(w);
 
-   if (tui_windows[tui_active_win]) {
+   if (tui_active_win >= 0 && tui_windows[tui_active_win]) {
       tui_window_focus(tui_windows[tui_active_win]->title);
    } else {
       tui_redraw_screen();
