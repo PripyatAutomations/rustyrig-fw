@@ -223,7 +223,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       }
 
       ws_connected = true;
-      event_emit("http.connected", NULL, NULL);
+      event_emit("connected", NULL, NULL);
 
       const char *login_user = get_server_property(this_server, "server.user");
       Log(LOG_DEBUG, "ws", "ev_ws_connect: server: |%s| user: |%s|", server_name, login_user);
@@ -245,7 +245,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
          ws_handle_cli(c, wm);
       }
    } else if (ev == MG_EV_ERROR) {
-      event_emit("http.error", NULL, NULL);
+      event_emit("error", NULL, NULL);
 //      ui_print("[%s] Socket error: %s", get_chat_ts(now), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
 // XXX: readd this
@@ -253,7 +253,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      ws_connected = false;
 //      ws_conn = NULL;
 //      update_connection_button(false, conn_button);
-      event_emit("http.disconnected", NULL, NULL);
+      event_emit("disconnected", NULL, NULL);
 #if	defined(USE_GTK) && 0
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_style_context_add_class(ctx, "ptt-idle");

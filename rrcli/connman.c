@@ -58,7 +58,7 @@ static void rrcli_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
              mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
              free((void *)jp);
           } else if (pong_ts) {
-             Log(LOG_CRAZY, "http.pong", "Received pong ts:%s", pong_ts);
+             Log(LOG_CRAZY, "pong", "Received pong ts:%s", pong_ts);
           } else if (cmd && strcasecmp(cmd, "msg") == 0) {
              char *from = dict_get(d, "talk.from", NULL);
              char *data = dict_get(d, "talk.data", NULL);
@@ -94,7 +94,7 @@ static void rrcli_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
        }
     } else if (ev == MG_EV_WS_OPEN) {
        ws_connected = true;
-       event_emit("http.connected", NULL, NULL);
+       event_emit("connected", NULL, NULL);
        tui_print_win(tui_window_find("status"), "Connected to server");
 
        login_user = cfg_get_exp("server.user");
@@ -109,7 +109,7 @@ static void rrcli_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
        }
     } else if (ev == MG_EV_CLOSE) {
        ws_connected = false;
-       event_emit("http.disconnected", NULL, NULL);
+       event_emit("disconnected", NULL, NULL);
        tui_print_win(tui_window_find("status"), "Disconnected from server");
     }
 }
@@ -137,6 +137,11 @@ bool rrcli_send_chat(const char *data) {
        VAL_STR, "talk.cmd", "msg",
        VAL_STR, "talk.data", data,
        VAL_STR, "talk.msg_type", "pub");
+
+    if (!jp) {
+       return true;
+    }
+
     mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
     free((void *)jp);
     return false;

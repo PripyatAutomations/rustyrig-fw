@@ -1,5 +1,5 @@
 //
-// librustyaxe/audio.framing.c: Utilities for framing audio in client & server
+// librrprotocol/audio.framing.c: Utilities for framing audio in client & server
 //
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //

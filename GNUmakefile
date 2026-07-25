@@ -21,8 +21,8 @@ extra_clean += firmware.log
 BUILD_HEADERS += $(wildcard ${OBJ_DIR}/eeprom_layout.h)
 BUILD_HEADERS += $(wildcard ${OBJ_DIR}/*.h)
 BUILD_HEADERS += $(wildcard rrserver/*.h) $(wildcard rrgtk/*.h)
-BUILD_HEADERS += $(wildcard librrprotocol/*.h)
-BUILD_HEADERS += $(wildcard librustyaxe/*.h)
+BUILD_HEADERS += $(wildcard inc/librrprotocol/*.h)
+BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h)
 
 rrgtk_src = $(rrgtk_objs:.o=.c)
 rrserver_src = $(rrserver_objs:.o=.c)

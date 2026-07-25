@@ -154,6 +154,8 @@ bool cli_quit(int argc, char **args) {
     (void)argc; (void)args;
     tui_window_t *wp = tui_active_window();
     tui_print_win(wp, "Goodbye!");
+
+    // Set the dying flag so main loop with cleanly exit
     dying = true;
     return false;
 }

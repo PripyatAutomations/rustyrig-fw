@@ -1,4 +1,3 @@
-
 symtabs += $(foreach x, ${bins}, ${x}.symtab)
 
 symtabs: ${symtabs}

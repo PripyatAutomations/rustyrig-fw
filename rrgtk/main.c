@@ -37,7 +37,6 @@ extern const char *configs[]; // from defcfg.c
 extern const int num_configs;
 extern char *config_file;       // from defconfig.c
 
-extern bool cfg_detect_and_load(const char *configs[], int num_configs);
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
 extern void rrgtk_register_events(void);

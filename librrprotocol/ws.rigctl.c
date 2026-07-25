@@ -223,8 +223,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
          mode_name = vfo_mode_name(dp->mode);
 
          int channel = -1;
-#if	0	// XXX: Need to work out channel subscriptions
-
          // XXX: We need to look up the channel ID for RX *FROM* the client
          if (channel < 0) {
             Log(LOG_CRIT, "ptt", "Couldn't find channel ID for TX stream, ignoring PTT event");
@@ -232,7 +230,6 @@ bool ws_handle_rigctl_msg(struct mg_ws_message *msg, struct mg_connection *c) {
             return true;
             // XXX: send an error & ptt off notice
          }
-#endif
 
          // turn PTT state requested into a boolean value
          if (strcasecmp(ptt_state, "true") == 0 || strcasecmp(ptt_state, "on") == 0) {

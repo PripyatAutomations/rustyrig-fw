@@ -1,8 +1,8 @@
 // we want strdup()
 #define _XOPEN_SOURCE 600
 
-#include "termkey.h"
-#include "termkey-internal.h"
+#include <librustyaxe/termkey.h>
+#include <librustyaxe/termkey-internal.h>
 
 #ifdef HAVE_UNIBILIUM
 # include <unibilium.h>

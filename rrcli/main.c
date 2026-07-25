@@ -152,7 +152,10 @@ int main(int argc, char **args) {
    // apply some global configuration
    const char *logfile = cfg_get_exp("log.file");
    logger_init((logfile ? logfile : "rrcli.log"));
-   free((char *)logfile);
+   if (logfile) {
+      free((char *)logfile);	// _exp versions MUST be freed
+      logfile = NULL;
+   }
    debug_sockets = cfg_get_bool("debug.sockets", false);
    event_on("log.message", rrcli_handle_log_event, NULL);
    event_on("talk.msg", rrcli_handle_talk_msg_event, NULL);

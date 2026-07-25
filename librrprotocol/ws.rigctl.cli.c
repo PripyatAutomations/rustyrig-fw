@@ -49,7 +49,7 @@ bool ws_handle_rigctl_cli_msg(struct mg_connection *c, dict *d) {
          double power = dict_get_double(d, "cat.state.power", 0.0);
          bool ptt = dict_get_bool(d, "cat.state.ptt", false);
          server_ptt_state = ptt;
-         event_emit("http.rig.ptt", NULL, &server_ptt_state);
+         event_emit("rig.ptt", NULL, &server_ptt_state);
 
          int ts = dict_get_int(d, "cat.ts", 0);
          char *user = dict_get(d, "cat.user", NULL);
@@ -66,7 +66,7 @@ bool ws_handle_rigctl_cli_msg(struct mg_connection *c, dict *d) {
 
 
          if (freq > 0) {
-            event_emit("http.rig.freq", NULL, &freq);
+            event_emit("rig.freq", NULL, &freq);
          }
 
          if (mode && strlen(mode) > 0) {
@@ -84,6 +84,7 @@ bool ws_handle_rigctl_cli_msg(struct mg_connection *c, dict *d) {
                goto local_cleanup;
             }
 
+// XXX: need to fix FM mode dialog crash ASAP
             Log(LOG_CRAZY, "ws.rigctl", "Set MODE to %s", mode);
             if (strcasecmp(mode, "FM") == 0) {
 //               fm_dialog_show();
@@ -91,7 +92,7 @@ bool ws_handle_rigctl_cli_msg(struct mg_connection *c, dict *d) {
                // Hide the FM dialog
 //               fm_dialog_hide();
             }
-            event_emit("http.rig.mode", NULL, mode);
+            event_emit("rig.mode", NULL, mode);
 
             // save the old mode so we can compare next time
             memset(old_mode, 0, sizeof(old_mode));

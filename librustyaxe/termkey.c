@@ -1,5 +1,5 @@
-#include "termkey.h"
-#include "termkey-internal.h"
+#include <librustyaxe/termkey.h>
+#include <librustyaxe/termkey-internal.h>
 
 #include <ctype.h>
 #include <errno.h>

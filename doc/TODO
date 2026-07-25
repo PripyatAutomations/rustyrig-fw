@@ -7,6 +7,7 @@ librustyaxe: Make modules able to register their event handlers on loading
 librustyaxe: Ensure modules are completely freed and unloaded. Use dicts or memblocks for internal storage
 librustyaxe: Add memblocks, simple allocator who maintains small allocations (replace malloc,realloc,free,etc) with page tracking for release on module unload
 rrgtk: Add auto-reconnect with back off like webui has
+rrgtk/rrcli: Merge tui_print_win and ui_print to be a single call who always takes a window (tab for rrgtk) parameter. This will reduce some duplication (syslog and chat tab printing for example) in rrgtk
 
 ------------------------
 

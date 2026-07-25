@@ -127,7 +127,3 @@ struct rr_user *userlist_find(const char *name) {
    }
    return NULL;
 }
-
-// XXX: we need to reimplement this part in a TUI version as well
-#if	defined(USE_GTK)
-#endif

@@ -34,11 +34,11 @@ librrprotocol_objs += ws.compat.o
 librrprotocol_cflags := ${CFLAGS} -I./modsrc/ -I./ -I./inc
 
 extra_clean += ${librustyaxe_objs} ${librustyaxe}
-librrprotocol_headers := $(wildcard librrprotocol/*.h)
-librrprotocol_src = $(wildcard librrprotocol/*.c) $(wildcard librrprotocol/*.h)
+librrprotocol_headers := $(wildcard inc/librrprotocol/*.h)
+librrprotocol_src = $(wildcard librrprotocol/*.c)
 
 real_librrprotocol_objs := $(foreach x, ${librrprotocol_objs}, ${BUILD_DIR}/librrprotocol/${x})
-${librrprotocol_srcs}: GNUmakefile ${librrprotocol_headers} librrprotocol/rules.mk
+${librrprotocol_src}: GNUmakefile ${librrprotocol_headers} librrprotocol/rules.mk
 
 librrprotocol-pre:
 	mkdir -p ${BUILD_DIR}/librrprotocol/

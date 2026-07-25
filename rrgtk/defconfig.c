@@ -47,7 +47,7 @@ defconfig_t defcfg[] = {
    { "log.show-ts",			"true", "Show timestamps in log" },
    { "path.help-dir",			"./help", "Path to find help-files" },
    { "rig0.volume.rx",			"50",	"rig0: Speaker volume" },
-//   { "server.auto-connect",		NULL,	"Profile name to autoconnect to" },
+//   { "server.auto-connect",		NULL,	"Profile name to autoconnect on start" },
 #ifdef _WIN32
    { "ui.gtk.theme",        "Windows10", "Chosen light theme" },
    { "ui.gtk.theme.dark",   "Windows10-Dark", "Chosen dark theme" },

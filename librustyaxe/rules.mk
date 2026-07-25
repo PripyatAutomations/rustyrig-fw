@@ -47,15 +47,15 @@ librustyaxe_objs += util.math.o
 librustyaxe_objs += util.string.o
 librustyaxe_objs += util.time.o
 
-librustyaxe_headers := $(wildcard librustyaxe/*.h)
-librustyaxe_src = $(wildcard librustyaxe/*.c) $(wildcard librustyaxe/*.h)
+librustyaxe_headers := $(wildcard inc/librustyaxe/*.h)
+librustyaxe_src = $(wildcard librustyaxe/*.c)
 
 real_librustyaxe_objs := $(foreach x, ${librustyaxe_objs}, ${BUILD_DIR}/librustyaxe/${x})
 extra_clean += ${real_librustyaxe_objs} ${librustyaxe}
 
 libs += ${librustyaxe}
 
-${librustyaxe_srcs}: GNUmakefile ${librustyaxe_headers}
+${librustyaxe_src}: GNUmakefile ${librustyaxe_headers}
 
 librustyaxe-pre:
 	mkdir -p ${BUILD_DIR}/librustyaxe

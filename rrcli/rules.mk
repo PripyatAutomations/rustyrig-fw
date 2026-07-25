@@ -21,7 +21,7 @@ ${rrcli}: ${BUILD_DIR}/rrcli/.stamp ${rrcli_real_objs} ${librustyaxe} ${librrpro
 	@file $@
 	@size $@
 
-${BUILD_DIR}/rrcli/%.o: rrcli/%.c $(wildcard librustyaxe/*.h)
+${BUILD_DIR}/rrcli/%.o: rrcli/%.c ${librrprotocol_headers} ${librustyaxe_headers}
 	@${RM} $@
 	@echo "[compile] $< => $@"
 	@$(CC) $(CFLAGS) -I. -I.. -o $@ -c $<

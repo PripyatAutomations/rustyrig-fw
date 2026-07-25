@@ -184,6 +184,6 @@ extern char www_root[PATH_MAX];
 extern char www_headers[32768];
 extern char www_404_path[PATH_MAX];
 extern const struct mg_http_serve_opts http_opts;
-#endif	// !defined(__RCLIENT)
+#endif	// !defined(__RRCLI)
 
 #endif
