@@ -191,9 +191,9 @@ static void rrgtk_handle_talk_msg_event(const char *event, void *data, irc_conn_
 }
 
 void rrgtk_register_events(void) {
-    event_on("http.connected", rrgtk_handle_connection_event, NULL);
-    event_on("http.error", rrgtk_handle_connection_event, NULL);
-    event_on("http.disconnected", rrgtk_handle_connection_event, NULL);
+    event_on("connected", rrgtk_handle_connection_event, NULL);
+    event_on("error", rrgtk_handle_connection_event, NULL);
+    event_on("disconnected", rrgtk_handle_connection_event, NULL);
     event_on("http.rig.ptt", rrgtk_handle_ptt_event, NULL);
     event_on("http.rig.freq", rrgtk_handle_freq_event, NULL);
     event_on("http.rig.mode", rrgtk_handle_mode_event, NULL);

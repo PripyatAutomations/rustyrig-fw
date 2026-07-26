@@ -207,6 +207,7 @@ bool debug_filter(const char *subsys, logpriority_t msg_level) {
 
 // Dump all log_filters
 void log_dump_log_filters(void) {
+   printf("---------------------\n");
    printf("---- Log Filters ----\n");
    struct log_filter *f = log_filters;
    while (f) {
@@ -214,7 +215,7 @@ void log_dump_log_filters(void) {
          log_priority_to_str(f->level));
       f = f->next;
    }
-   printf("-------------------\n");
+   printf("---------------------\n");
 }
 
 //////////////////////////////
@@ -239,7 +240,7 @@ void logger_init(const char *logfile) {
 
    // Load fine-grained log_filters from config
    load_log_filters_from_config();
-//   log_dump_log_filters();
+   log_dump_log_filters();
 }
 
 void logger_end(void) {

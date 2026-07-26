@@ -17,7 +17,7 @@ use Config;
 use Getopt::Std;
 use IO::Handle;
 use JSON;
-#use Data::Dumper;
+use Data::Dumper;
 #use Devel::Peek;
 #use MIME::Base64;
 use POSIX qw(strftime);
@@ -36,7 +36,7 @@ Hash::Merge::set_behavior('RIGHT_PRECEDENT');
 
 # Logging output related things
 #$Data::Dumper::Terse = 1;
-#$Data::Dumper::Indent = 1;       # mild pretty print
+$Data::Dumper::Indent = 1;       # mild pretty print
 #$Data::Dumper::Useqq = 1;        # print strings in double quotes
 STDOUT->autoflush(1);
 
@@ -854,11 +854,11 @@ sub generate_config_h {
          printf $fh "#define FEATURE_ALSA\n";
       }
 
-      if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat_kpa500'})) {
+      if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat-kpa500'})) {
          printf $fh "#define CAT_KPA500 true\n";
       }
 
-      if (defined($config->{features}{'cat-yaesu'}) && match_boolean($config->{features}{'cat_yaesu'})) {
+      if (defined($config->{features}{'cat-yaesu'}) && match_boolean($config->{features}{'cat-yaesu'})) {
          printf $fh "#define CAT_YAESU true\n";
       }
 
@@ -912,14 +912,14 @@ sub generate_config_h {
          }
          printf $fh "#define BACKEND_HAMLIB_DEBUG\t%s\n", $dt;
       }
-      if (defined($config->{'backend'}{'hamlib_model'})) {
-         printf $fh "#define BACKEND_HAMLIB_MODEL\t%d\n", $config->{'backend'}{'hamlib_model'};
+      if (defined($config->{'backend'}{'hamlib-model'})) {
+         printf $fh "#define BACKEND_HAMLIB_MODEL\t%d\n", $config->{'backend'}{'hamlib-model'};
       }
-      if (defined($config->{'backend'}{'hamlib_baud'})) {
-         printf $fh "#define BACKEND_HAMLIB_BAUD\t%d\n", $config->{'backend'}{'hamlib_baud'};
+      if (defined($config->{'backend'}{'hamlib-baud'})) {
+         printf $fh "#define BACKEND_HAMLIB_BAUD\t%d\n", $config->{'backend'}{'hamlib-baud'};
       }
-      if (defined($config->{'backend'}{'hamlib_port'})) {
-         printf $fh "#define BACKEND_HAMLIB_PORT\t\"%s\"\n", $config->{'backend'}{'hamlib_port'};
+      if (defined($config->{'backend'}{'hamlib-port'})) {
+         printf $fh "#define BACKEND_HAMLIB_PORT\t\"%s\"\n", $config->{'backend'}{'hamlib-port'};
       }
    }
 
@@ -934,7 +934,7 @@ sub generate_config_h {
          print $fh "#define LOG_FILE \"$logfile\"\n";
       }
 
-      if (defined($config->{'debug'}{'noisy_eeprom'}) && match_boolean($config->{debug}{'noisy_eeprom'})) {
+      if (defined($config->{'debug'}{'noisy-eeprom'}) && match_boolean($config->{debug}{'noisy-eeprom'})) {
          printf $fh "#define NOISY_EEPROM true\n";
       }
       my $mg_debug = $config->{'debug'}{'mongoose'};
@@ -943,11 +943,11 @@ sub generate_config_h {
    }
    if (defined($config->{'net'})) {
       if (defined($config->{'net'}{'http'}{'enabled'}) && match_boolean($config->{'net'}{'http'}{'enabled'})) {
-         my $tls_enabled = $config->{'net'}{'http'}{'tls_enabled'};
+         my $tls_enabled = $config->{'net'}{'http'}{'tls-enabled'};
          if (defined($tls_enabled) && match_boolean($tls_enabled)) {
             printf $fh "#define HTTP_USE_TLS 1\n";
-            printf $fh "#define HTTP_TLS_KEY \"%s\"\n", $config->{'net'}{'http'}{'tls_key'};
-            printf $fh "#define HTTP_TLS_CERT \"%s\"\n", $config->{'net'}{'http'}{'tls_cert'};
+            printf $fh "#define HTTP_TLS_KEY \"%s\"\n", $config->{'net'}{'http'}{'tls-key'};
+            printf $fh "#define HTTP_TLS_CERT \"%s\"\n", $config->{'net'}{'http'}{'tls-cert'};
          }
          my $authdb = $config->{'net'}{'http'}{'authdb'};
          if (defined($authdb)) {
@@ -967,8 +967,8 @@ sub generate_config_h {
    printf $fh "#define EEPROM_SIZE %d\n", $config->{eeprom}{size};
 
    my $max_bands = '';
-   if (defined($config->{features}{'max_bands'})) {
-      $max_bands = $config->{features}{'max_bands'};
+   if (defined($config->{features}{'max-bands'})) {
+      $max_bands = $config->{features}{'max-bands'};
    } else {
       $max_bands = 10;
    }
