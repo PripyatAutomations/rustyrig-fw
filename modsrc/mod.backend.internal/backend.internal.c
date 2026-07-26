@@ -24,6 +24,7 @@
 #endif
 #include <rrserver/thermal.h>
 #include <rrserver/ptt.h>
+#include <rrserver/backend.h>
 
 static rr_vfo_t be_int_get_vfo(rr_vfo_t vfo) {
    return vfo;

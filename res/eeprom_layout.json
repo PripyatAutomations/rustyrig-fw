@@ -1,102 +1,102 @@
 {
-   "debug.loglevel": {
+   "debug/loglevel": {
       "offset": 0,
       "type": "str",
       "key": "debug.loglevel",
       "size": 6
    },
-   "dev.serial": {
+   "dev/serial": {
        "offset": 7,
        "type": "int",
        "key":  "dev.serial",
        "default": 1
    },
-   "dev.hwversion": {
+   "dev/hwversion": {
        "offset": 11,
        "type": "int",
        "key": "dev.hwversion"
    },
-   "eeprom.version": {
+   "eeprom/version": {
        "offset": "15",
        "type": "int",
        "key": "eeprom.version"
    },
-   "features.auto-block-ptt": {
+   "features/auto-block-ptt": {
        "offset": 19,
        "type": "bool",
        "key": "features.auto-block-ptt"
    },
-   "fw.major": {
+   "fw/major": {
        "offset": 23,
        "type": "int",
        "key":  "fw.major"
    },
-   "fw.minor": {
+   "fw/minor": {
        "offset": 27,
        "type": "int",
        "key":  "fw.minor"
    },
-   "hw.atus": {
+   "hw/atus": {
        "offset": 31,
        "type": "int",
        "key": "hw.atus",
        "size": 1
    },
-   "hw.amps": {
+   "hw/amps": {
        "offset": 35,
        "type": "int",
        "key": "hw.amps",
        "size": 1
    },
-   "net.bind": {
+   "net/bind": {
        "offset": 39,
        "type": "str",
        "size": 32,
        "key": "net.bind"
    },
-   "net.dns1": {
+   "net/dns1": {
        "offset": 71,
        "type": "ip4",
        "key": "net.dns1",
        "default": "1.1.1.1"
    },
-   "net.dns2": {
+   "net/dns2": {
        "offset": 75,
        "type": "ip4",
        "key": "net.dns2",
        "default": "4.2.2.2"
    },
-   "net.gw": {
+   "net/gw": {
        "offset": 79,
        "type": "ip4",
        "key": "net.gw",
        "default": "192.168.100.100"
    },
-   "net.interface": {
+   "net/interface": {
       "offset": 83,
       "type": "str",
       "size": "6",
       "key": "net.interface"
    },
-   "net.ip": {
+   "net/ip": {
        "offset": 89,
        "type": "ip4",
        "key": "net.ip",
        "default": "192.168.100.100"
    },
-   "net.mask": {
+   "net/mask": {
        "offset": 93,
        "type": "ip4",
        "key": "net.mask",
        "default": "255.255.255.0"
    },
-   "net.mtu": {
+   "net/mtu": {
        "offset": 97,
        "type": "int",
        "key": "net.mtu",
        "default": 1500
    },
-   "net.vlan": {
+   "net/vlan": {
        "offset": 101,
        "type": "int",
        "key": "net.vlan",
@@ -158,78 +158,78 @@
        "type": "grid",
        "key": "station.grid"
    },
-   "therm.encl-alarm": {
+   "therm/encl-alarm": {
        "offset": 166,
        "type": "int",
        "key": "therm.encl-alarm"
    },
-   "therm.encl-max": {
+   "therm/encl-max": {
        "offset": 170,
        "type": "int",
        "key": "therm.encl-max"
    },
-   "therm.encl-target": {
+   "therm/encl-target": {
        "offset": 174,
        "type": "int",
        "key": "therm.encl-target"
    },
-   "therm.final-alarm": {
+   "therm/final-alarm": {
        "offset": 178,
        "type": "int",
        "key": "therm.final-alarm"
    },
-   "therm.final-max": {
+   "therm/final-max": {
        "offset": 182,
        "type": "int",
        "key": "therm.final-max"
    },
-   "therm.final-target": {
+   "therm/final-target": {
        "offset": 186,
        "type": "int",
        "key": "therm.final-target"
    },
-   "therm.inlet-alarm": {
+   "therm/inlet-alarm": {
        "offset": 190,
        "type": "int",
        "key": "therm.inlet-alarm"
    },
-   "therm.inlet-max": {
+   "therm/inlet-max": {
        "offset": 194,
        "type": "int",
        "key": "therm.inlet-max"
    },
-   "therm.inlet-target": {
+   "therm/inlet-target": {
        "offset": 198,
        "type": "int",
        "key": "therm.inlet-target"
    },
-   "therm.lpf-alarm": {
+   "therm/lpf-alarm": {
        "offset": 202,
        "type": "int",
        "key": "therm.lpf-alarm"
    },
-   "therm.lpf-max": {
+   "therm/lpf-max": {
        "offset": 206,
        "type": "int",
        "key": "therm.lpf-max"
    },
-   "therm.lpf-target": {
+   "therm/lpf-target": {
        "offset": 210,
        "type": "int",
        "key": "therm.lpf-target"
    },
-   "net.http.bind": {
+   "net/http/bind": {
        "offset": 218,
        "type": "ip4",
        "key": "net.http.bind"
    },
-   "net.http.port": {
+   "net/http/port": {
        "offset": 222,
        "type": "int",
        "key": "net.http.port",
        "default": 8420
    },
-   "net.http.enabled": {
+   "net/http/enabled": {
        "offset": 230,
        "type": "bool",
        "key": "net.http.enabled"
@@ -255,21 +255,21 @@
        "key": "debug.show-ts",
        "default": "true"
    },
-   "net.http.www-root": {
+   "net/http/www-root": {
        "offset": 249,
        "size": 101,
        "type": "str",
        "key": "net.http.www-root",
        "default": "../www"
    },
-   "net.http.404-path": {
+   "net/http/404-path": {
        "offset": 249,
        "size": 101,
        "type": "str",
        "key": "net.http.404-path",
        "default": "../www/404.shtml"
    },
-   "net.http.tls-port": {
+   "net/http/tls-port": {
        "offset": 350,
        "type": "int",
        "key": "net.http.tls-port",
@@ -305,7 +305,7 @@
        "key": "atu-tv",
        "comment": "Antenna Matching Unit stored LC values"
    },
-   "eeprom.checksum": {
+   "eeprom/checksum": {
        "offset": 1048572,
        "size": 4,
        "type": "int",

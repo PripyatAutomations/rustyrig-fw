@@ -30,11 +30,14 @@ Configure:
 	Make sure config/radio.config.json is good for your build host (probably if linux or msys2)
 
 	Copy config/rrgtk.cfg.example to ~/.config then edit the servers
-		cp -i config/rrgtk.cfg.example ~/.config/rrgtk.cfg
-		cp -i config/rrserver.cfg ~/.config/rrserver.conf
+		cp -i config/rrgtk.cfg.example config/rrgtk.cfg
+		cp -i config/rrserver.cfg.example config/rrserver.cfg
 
 	Edit config/rrserver.cfg for the server (examples in config/release.config.json)
 	This can go in ~/.config/rrserver.cfg or /etc/rustyrig/rrserver.cfg too.
+
+	Make TLS self-signed certs (or disable tls but webui audio cant work)
+	./tools/gen-selfsigned-tls-certs
 
 To run server:
 	./test-server

@@ -49,7 +49,7 @@ ${OBJ_DIR}/rrserver/%.o: modsrc/mod.backend.hamlib/%.c ${BUILD_HEADERS} GNUmakef
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-${OBJ_DIR}/rrserver/%.o: modsrc/mod.backend.internal/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} build/${PROFILE}/eeprom_types.h
+${OBJ_DIR}/rrserver/backend.internal.o: modsrc/mod.backend.internal/backend.internal.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} build/${PROFILE}/eeprom_types.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
