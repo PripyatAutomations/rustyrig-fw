@@ -87,9 +87,9 @@
    },
    "features": {
       "alsa": "false",
-      "auto_block_ptt": "false",
-      "cat_kpa500": "true",
-      "cat_yaesu": "true",
+      "auto-block-ptt": "false",
+      "cat-kpa500": "true",
+      "cat-yaesu": "true",
       "gstreamer": "true",
       "gtk": "true",
       "http": "true",

@@ -464,10 +464,10 @@ bool http_init(struct mg_mgr *mgr) {
 
 #if	defined(USE_EEPROM)
    if (!cfg_www_root) {
-      cfg_www_root = eeprom_get_str("net/http/www_root");
+      cfg_www_root = eeprom_get_str("net.http.www-root");
    }
    if (!cfg_404_path) {
-      cfg_404_path = eeprom_get_str("net/http/404_path");
+      cfg_404_path = eeprom_get_str("net.http.404-path");
    }
 #endif
 
@@ -507,14 +507,14 @@ bool http_init(struct mg_mgr *mgr) {
    int bind_port = cfg_get_int("net.http.port", 0);
 #if	defined(USE_EEPROM)
    if (!bind_port) {
-      bind_port = eeprom_get_int("net/http/port");
+      bind_port = eeprom_get_int("net.http.port");
    }
 #endif
 
    const char *s = cfg_get("net.http.bind");
    if (!s || !inet_aton(s, &sa_bind)) {
 #if	defined(USE_EEPROM)
-      eeprom_get_ip4("net/http/bind", &sa_bind);
+      eeprom_get_ip4("net.http.bind", &sa_bind);
 #endif
    }
    free((char *)s);
@@ -533,7 +533,7 @@ bool http_init(struct mg_mgr *mgr) {
 
 #if	defined(USE_EEPROM)
       if (!tls_bind_port) {
-         tls_bind_port = eeprom_get_int("net/http/tls_port");
+         tls_bind_port = eeprom_get_int("net.http.tls_port");
       }
 #endif
 
@@ -541,7 +541,7 @@ bool http_init(struct mg_mgr *mgr) {
       s = cfg_get_exp("net.http.tls-bind");
       if (!s || !inet_aton(s, &sa_tls_bind)) {
 #if	defined(USE_EEPROM)
-         eeprom_get_ip4("net/http/bind", &sa_tls_bind);
+         eeprom_get_ip4("net.http.bind", &sa_tls_bind);
 #endif
       }
       free((char *)s);

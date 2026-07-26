@@ -1,8 +1,8 @@
-PROFILE ?= release
+PROFILE ?= radio
 CF := config/${PROFILE}.config.json
 
 ifeq (x$(wildcard ${CF}),x)
-$(error ***ERROR*** Please create ${CF} first before building -- There is an example at doc/radio.json.example you can use)
+$(error ***ERROR*** Please create ${CF} first before building -- There is an example at config/radio.json.example you can use)
 endif
 
 USE_GTK=true

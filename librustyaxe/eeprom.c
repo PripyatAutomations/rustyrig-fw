@@ -15,9 +15,11 @@
  *	memory mapped eeprom/flash devices with direct reading/writing
  *	i2c connected parts
  */
-#include "build_config.h"
 #include <librustyaxe/core.h>
-#include "../ext/libmongoose/mongoose.h"
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -564,16 +566,16 @@ void show_pin_info(void) {
    if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
       return;
    }
-   int show = eeprom_get_int("pin/show");
+   int show = eeprom_get_int("pin.show");
 
    if (show) {
       char master_pin[PIN_LEN + 1];
       char reset_pin[PIN_LEN + 1];
       memset(master_pin, 0, PIN_LEN + 1);
       memset(reset_pin, 0, PIN_LEN + 1);
-      snprintf(master_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/master"));
-      snprintf(reset_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/reset"));
-      Log(LOG_INFO, "eeprom", "*** Master PIN: %s, Factory Reset PIN: %s (set pin/show to 0 to hide!) ***", master_pin, reset_pin);
+      snprintf(master_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin.master"));
+      snprintf(reset_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin.reset"));
+      Log(LOG_INFO, "eeprom", "*** Master PIN: %s, Factory Reset PIN: %s (set pin.show to 0 to hide!) ***", master_pin, reset_pin);
    }
 }
 

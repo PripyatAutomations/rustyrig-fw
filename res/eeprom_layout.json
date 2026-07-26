@@ -1,296 +1,296 @@
 {
-   "debug/loglevel": {
+   "debug.loglevel": {
       "offset": 0,
       "type": "str",
-      "key": "debug/loglevel",
+      "key": "debug.loglevel",
       "size": 6
    },
-   "dev/serial": {
+   "dev.serial": {
        "offset": 7,
        "type": "int",
-       "key":  "dev/serial",
+       "key":  "dev.serial",
        "default": 1
    },
-   "dev/hwversion": {
+   "dev.hwversion": {
        "offset": 11,
        "type": "int",
-       "key": "dev/hwversion"
+       "key": "dev.hwversion"
    },
-   "eeprom/version": {
+   "eeprom.version": {
        "offset": "15",
        "type": "int",
-       "key": "eeprom/version"
+       "key": "eeprom.version"
    },
-   "features/auto_block_ptt": {
+   "features.auto-block-ptt": {
        "offset": 19,
        "type": "bool",
-       "key": "features/auto_block_ptt"
+       "key": "features.auto-block-ptt"
    },
-   "fw/major": {
+   "fw.major": {
        "offset": 23,
        "type": "int",
-       "key":  "fw/major"
+       "key":  "fw.major"
    },
-   "fw/minor": {
+   "fw.minor": {
        "offset": 27,
        "type": "int",
-       "key":  "fw/minor"
+       "key":  "fw.minor"
    },
-   "hw/atus": {
+   "hw.atus": {
        "offset": 31,
        "type": "int",
-       "key": "hw/atus",
+       "key": "hw.atus",
        "size": 1
    },
-   "hw/amps": {
+   "hw.amps": {
        "offset": 35,
        "type": "int",
-       "key": "hw/amps",
+       "key": "hw.amps",
        "size": 1
    },
-   "net/bind": {
+   "net.bind": {
        "offset": 39,
        "type": "str",
        "size": 32,
-       "key": "net/bind"
+       "key": "net.bind"
    },
-   "net/dns1": {
+   "net.dns1": {
        "offset": 71,
        "type": "ip4",
-       "key": "net/dns1",
+       "key": "net.dns1",
        "default": "1.1.1.1"
    },
-   "net/dns2": {
+   "net.dns2": {
        "offset": 75,
        "type": "ip4",
-       "key": "net/dns2",
+       "key": "net.dns2",
        "default": "4.2.2.2"
    },
-   "net/gw": {
+   "net.gw": {
        "offset": 79,
        "type": "ip4",
-       "key": "net/gw",
+       "key": "net.gw",
        "default": "192.168.100.100"
    },
-   "net/interface": {
+   "net.interface": {
       "offset": 83,
       "type": "str",
       "size": "6",
-      "key": "net/interface"
+      "key": "net.interface"
    },
-   "net/ip": {
+   "net.ip": {
        "offset": 89,
        "type": "ip4",
-       "key": "net/ip",
+       "key": "net.ip",
        "default": "192.168.100.100"
    },
-   "net/mask": {
+   "net.mask": {
        "offset": 93,
        "type": "ip4",
-       "key": "net/mask",
+       "key": "net.mask",
        "default": "255.255.255.0"
    },
-   "net/mtu": {
+   "net.mtu": {
        "offset": 97,
        "type": "int",
-       "key": "net/mtu",
+       "key": "net.mtu",
        "default": 1500
    },
-   "net/vlan": {
+   "net.vlan": {
        "offset": 101,
        "type": "int",
-       "key": "net/vlan",
+       "key": "net.vlan",
        "default": 1
    },
-   "owner/call": {
+   "owner.call": {
        "offset": 105,
        "type": "call",
-       "key": "owner/call",
+       "key": "owner.call",
        "default": "N0CALL"
    },
-   "owner/privs": {
+   "owner.privs": {
        "offset": 121,
        "type": "class",
-       "key": "owner/privs",
-       "default": "US/General"
+       "key": "owner.privs",
+       "default": "US.General"
    },
-   "pin/master": {
+   "pin.master": {
        "offset": 123,
        "size": 8,
        "type": "str",
-       "key": "pin/master",
+       "key": "pin.master",
        "default": "01234567"
    },
-   "pin/reset": {
+   "pin.reset": {
        "offset": 131,
        "size": 8,
        "type": "str",
-       "key": "pin/reset",
+       "key": "pin.reset",
        "default": "76543210"
    },
-   "pin/show": {
+   "pin.show": {
        "offset": 139,
        "type": "bool",
-       "key": "pin/show"
+       "key": "pin.show"
    },
-   "rfdecks/lowband/curr_band": {
+   "rfdecks.lowband.curr-band": {
        "offset": 140,
        "size": 1,
        "type": "int",
-       "key": "rfdecks/lowband/curr_band",
+       "key": "rfdecks.lowband.curr-band",
        "default": 0
    },
-   "rfdecks/highband/curr_band": {
+   "rfdecks.highband.curr-band": {
        "offset": 141,
        "size": 1,
        "type": "int",
-       "key": "rfdecks/highband/curr_band",
+       "key": "rfdecks.highband.curr-band",
        "default": 0
    },
-   "station/call": {
+   "station.call": {
        "offset": 142,
        "type": "call",
-       "key": "station/call",
+       "key": "station.call",
        "default": "N0CALL"
    },
-   "station/grid": {
+   "station.grid": {
        "offset": 158,
        "type": "grid",
-       "key": "station/grid"
+       "key": "station.grid"
    },
-   "therm/encl_alarm": {
+   "therm.encl-alarm": {
        "offset": 166,
        "type": "int",
-       "key": "therm/encl_alarm"
+       "key": "therm.encl-alarm"
    },
-   "therm/encl_max": {
+   "therm.encl-max": {
        "offset": 170,
        "type": "int",
-       "key": "therm/encl_max"
+       "key": "therm.encl-max"
    },
-   "therm/encl_target": {
+   "therm.encl-target": {
        "offset": 174,
        "type": "int",
-       "key": "therm/encl_target"
+       "key": "therm.encl-target"
    },
-   "therm/final_alarm": {
+   "therm.final-alarm": {
        "offset": 178,
        "type": "int",
-       "key": "therm/final_alarm"
+       "key": "therm.final-alarm"
    },
-   "therm/final_max": {
+   "therm.final-max": {
        "offset": 182,
        "type": "int",
-       "key": "therm/final_max"
+       "key": "therm.final-max"
    },
-   "therm/final_target": {
+   "therm.final-target": {
        "offset": 186,
        "type": "int",
-       "key": "therm/final_target"
+       "key": "therm.final-target"
    },
-   "therm/inlet_alarm": {
+   "therm.inlet-alarm": {
        "offset": 190,
        "type": "int",
-       "key": "therm/inlet_alarm"
+       "key": "therm.inlet-alarm"
    },
-   "therm/inlet_max": {
+   "therm.inlet-max": {
        "offset": 194,
        "type": "int",
-       "key": "therm/inlet_max"
+       "key": "therm.inlet-max"
    },
-   "therm/inlet_target": {
+   "therm.inlet-target": {
        "offset": 198,
        "type": "int",
-       "key": "therm/inlet_target"
+       "key": "therm.inlet-target"
    },
-   "therm/lpf_alarm": {
+   "therm.lpf-alarm": {
        "offset": 202,
        "type": "int",
-       "key": "therm/lpf_alarm"
+       "key": "therm.lpf-alarm"
    },
-   "therm/lpf_max": {
+   "therm.lpf-max": {
        "offset": 206,
        "type": "int",
-       "key": "therm/lpf_max"
+       "key": "therm.lpf-max"
    },
-   "therm/lpf_target": {
+   "therm.lpf-target": {
        "offset": 210,
        "type": "int",
-       "key": "therm/lpf_target"
+       "key": "therm.lpf-target"
    },
-   "net/http/bind": {
+   "net.http.bind": {
        "offset": 218,
        "type": "ip4",
-       "key": "net/http/bind"
+       "key": "net.http.bind"
    },
-   "net/http/port": {
+   "net.http.port": {
        "offset": 222,
        "type": "int",
-       "key": "net/http/port",
+       "key": "net.http.port",
        "default": 8420
    },
-   "net/http/enabled": {
+   "net.http.enabled": {
        "offset": 230,
        "type": "bool",
-       "key": "net/http/enabled"
+       "key": "net.http.enabled"
    },
-   "net/mqtt/bind": {
+   "net.mqtt.bind": {
        "offset": 231,
        "type": "ip4",
-       "key": "net/mqtt/bind"
+       "key": "net.mqtt.bind"
    },
-   "net/mqtt/port": {
+   "net.mqtt.port": {
        "offset": 239,
        "type": "int",
-       "key": "net/mqtt/port"
+       "key": "net.mqtt.port"
    },
-   "net/mqtt/enabled": {
+   "net.mqtt.enabled": {
        "offset": 247,
        "type": "bool",
-       "key": "net/mqtt/enabled"
+       "key": "net.mqtt.enabled"
    },
-   "debug/show_ts": {
+   "debug.show-ts": {
        "offset": 248,
        "type": "bool",
-       "key": "debug/show_ts",
+       "key": "debug.show-ts",
        "default": "true"
    },
-   "net/http/www_root": {
+   "net.http.www-root": {
        "offset": 249,
        "size": 101,
        "type": "str",
-       "key": "net/http/www_root",
-       "default": "./www"
+       "key": "net.http.www-root",
+       "default": "../www"
    },
-   "net/http/404_path": {
+   "net.http.404-path": {
        "offset": 249,
        "size": 101,
        "type": "str",
-       "key": "net/http/404_path",
-       "default": "./www/404.shtml"
+       "key": "net.http.404-path",
+       "default": "../www/404.shtml"
    },
-   "net/http/tls_port": {
+   "net.http.tls-port": {
        "offset": 350,
        "type": "int",
-       "key": "net/http/tls_port",
+       "key": "net.http.tls-port",
        "default": 4420
    },
-   "backend/active": {
+   "backend.active": {
        "offset": 358,
        "type": "str",
        "size": 10,
-       "key": "backend/active",
+       "key": "backend.active",
        "default": "internal"
    },
-   "chan_header": {
+   "chan-header": {
        "offset": 100000,
-       "type": "packed:chan_header",
-       "key": "chan_header"
+       "type": "packed:chan-header",
+       "key": "chan-header"
    },
-   "chan_groups": {
+   "chan-groups": {
        "offset": 100100,
-       "type": "packed:chan_groups",
-       "key": "chan_groups"
+       "type": "packed:chan-groups",
+       "key": "chan-groups"
    },
    "channels": {
        "offset": 101000,
@@ -298,18 +298,18 @@
        "type": "packed:channel",
        "key": "channels"
    },
-   "atu_tv": {
+   "atu-tv": {
        "offset": 200000,
        "size": 16384,
-       "type": "packed:atu_tv",
-       "key": "atu_tv",
+       "type": "packed:atu-tv",
+       "key": "atu-tv",
        "comment": "Antenna Matching Unit stored LC values"
    },
-   "eeprom/checksum": {
+   "eeprom.checksum": {
        "offset": 1048572,
        "size": 4,
        "type": "int",
-       "key": "eeprom/checksum",
+       "key": "eeprom.checksum",
        "protect": 1
    }
 }

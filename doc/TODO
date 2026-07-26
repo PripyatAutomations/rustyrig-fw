@@ -3,11 +3,15 @@ Immediate needs
 rrcli: in websocket protocol, chat should automatically open in window #2 since only one room (for now)
 irc: IRC protocol will be used to link sites, with large messages enabled (16k)
 www: Fix userlist to show all users not just self + users joined later
+librustyaxe: Merge cfg_get_* and eeprom_get_* so we have just cfg_get_* 
+  - we should just load the whole eeprom into the config dict at startup???
+  - deal with debug.* vs log.* keys that need merged
 librustyaxe: Make modules able to register their event handlers on loading
 librustyaxe: Ensure modules are completely freed and unloaded. Use dicts or memblocks for internal storage
 librustyaxe: Add memblocks, simple allocator who maintains small allocations (replace malloc,realloc,free,etc) with page tracking for release on module unload
 rrgtk: Add auto-reconnect with back off like webui has
 rrgtk/rrcli: Merge tui_print_win and ui_print to be a single call who always takes a window (tab for rrgtk) parameter. This will reduce some duplication (syslog and chat tab printing for example) in rrgtk
+*: Need to fully use the event system so we can avoid lib* calling back directly into program code
 
 ------------------------
 
@@ -142,7 +146,7 @@ ws.c / fwdsp/fwdsp-mgr.c:
 * more work to integrate config into eeprom
   - work on dict and just load/save changed parts of the eeprom
     - Read into new empty dict
-    - dict_diff to get changed keys (include option to for unique flags only / both / only changed)
+    - dict_diff to get changed keys (include option to get unique flags only / both / only changed)
     - If eeprom write delay expired, save to eeprom
     - On exit, etc
   - read eeprom into config / channels dict on posix

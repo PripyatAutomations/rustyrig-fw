@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
 
 #if	defined(USE_EEPROM)
    if (!s) {
-      auto_block_ptt = eeprom_get_bool("features/auto_block_ptt");
+      auto_block_ptt = eeprom_get_bool("features.auto-block-ptt");
    }
 #endif
 

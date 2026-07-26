@@ -854,11 +854,11 @@ sub generate_config_h {
          printf $fh "#define FEATURE_ALSA\n";
       }
 
-      if (defined($config->{features}{'cat_kpa500'}) && match_boolean($config->{features}{'cat_kpa500'})) {
+      if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat_kpa500'})) {
          printf $fh "#define CAT_KPA500 true\n";
       }
 
-      if (defined($config->{features}{'cat_yaesu'}) && match_boolean($config->{features}{'cat_yaesu'})) {
+      if (defined($config->{features}{'cat-yaesu'}) && match_boolean($config->{features}{'cat_yaesu'})) {
          printf $fh "#define CAT_YAESU true\n";
       }
 

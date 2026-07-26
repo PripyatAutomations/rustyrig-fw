@@ -223,10 +223,10 @@ void log_dump_log_filters(void) {
 void logger_init(const char *logfile) {
    const char *ll = NULL;
 #if defined(USE_EEPROM)
-   ll = eeprom_get_str("debug/loglevel");
+   ll = eeprom_get_str("debug.loglevel");
 #endif
 
-   log_show_ts = eeprom_get_bool("debug/show_ts");
+   log_show_ts = eeprom_get_bool("debug.show-ts");
    if (!logfp) {
       logfp = fopen(logfile, "a+");
       if (!logfp) {

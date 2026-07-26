@@ -95,7 +95,7 @@ bool rr_backend_init(void) {
 
 #if	defined(USE_EEPROM)
    if (!be_name) {
-      be_name = eeprom_get_str("backend/active");
+      be_name = eeprom_get_str("backend.active");
    }
 #endif
 

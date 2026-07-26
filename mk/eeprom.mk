@@ -1,4 +1,4 @@
-pack-eeprom: tools/pack-eeprom.pl ${EEPROM_FILE}
+pack-eeprom: tools/pack-eeprom.pl ${CF} ${CHANNELS}
 	@echo "[pack-eeprom]" 
 	set -e; ./tools/pack-eeprom.pl ${PROFILE}
 

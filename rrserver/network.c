@@ -88,13 +88,13 @@ void show_network_info(void) {
    int bind_port = cfg_get_int("net.http.port", 0);
 #if	defined(USE_EEPROM)
    if (!bind_port) {
-      eeprom_get_int("net/http/port");
+      eeprom_get_int("net.http.port");
    }
 #endif
    int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
 #if	defined(USE_EEPROM)
    if (!tls_bind_port) {
-      tls_bind_port = eeprom_get_int("net/http/tls_port");
+      tls_bind_port = eeprom_get_int("net.http.tls-port");
    }
 #endif
 
@@ -107,7 +107,7 @@ void show_network_info(void) {
    }
 
    if (!s || (vlan < 0 || vlan > 4095)) {
-      eeprom_get_int("net/vlan");
+      eeprom_get_int("net.vlan");
    }
 
    int mtu = 0;
@@ -116,14 +116,14 @@ void show_network_info(void) {
       mtu = atoi(s);
    }
    if (mtu < 500 || mtu > 10000) {
-      eeprom_get_int("net/mtu");
+      eeprom_get_int("net.mtu");
    }
-   eeprom_get_ip4("net/ip", &sa_ip);
-   eeprom_get_ip4("net/mask", &sa_mask);
-   eeprom_get_ip4("net/gw", &sa_gw);
-   eeprom_get_ip4("net/dns1", &sa_dns1);
-   eeprom_get_ip4("net/dns2", &sa_dns2);
-   const char *iface = eeprom_get_str("net/interface");
+   eeprom_get_ip4("net.ip", &sa_ip);
+   eeprom_get_ip4("net.mask", &sa_mask);
+   eeprom_get_ip4("net.gw", &sa_gw);
+   eeprom_get_ip4("net.dns1", &sa_dns1);
+   eeprom_get_ip4("net.dns2", &sa_dns2);
+   const char *iface = eeprom_get_str("net.interface");
 
    Log(LOG_INFO, "net", "*** Network Configuration ***");
    Log(LOG_INFO, "net", "  Interface: %s\tCurrent VLAN: %d\tMTU: %d\tMode: Static", iface, vlan, mtu);
@@ -143,7 +143,7 @@ void show_network_info(void) {
 
 #if	defined(USE_EEPROM)
    if (!listenaddr) {
-      listenaddr = (char *)eeprom_get_str("net/http/bind");
+      listenaddr = (char *)eeprom_get_str("net.http.bind");
    }
 #endif
 
