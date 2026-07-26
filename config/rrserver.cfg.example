@@ -23,11 +23,11 @@ chat.log=true
 chat.replay-lines=20
 ; How long should we let unused fwdsp instances linger before stopping?/
 fwdsp.hangtime=30
-;log.type=file
-;log.mode=0660
-;log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy
-log.level=*:crazy
-log.show-ts=true
+debug.logtype=file
+debug.logmode=0660
+debug.log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy
+;debug.loglevel=*:crazy
+debug.show-ts=true
 debug.mongoose=false
 debug.profiling=true
 #eeprom.addr=0x0000
@@ -222,32 +222,32 @@ recode-rig0-tx-flac=dynamic| \
 group ADMINS add has-priv admin
 group ADMINS add has-priv owner
 group CAN-TX add has-priv tx
-event hw-fail email @ADMINS
+event hw-fail email !ADMINS
 
 ; Time-out timer expired
-event ptt-tot push @CAN-TX
+event ptt-tot push !CAN-TX
 
 ; Push to talk START
-event ptt-start push @ADMINS
+event ptt-start push !ADMINS
 
 ; Push to talk END
-event ptt-end push @ADMINS
+event ptt-end push !ADMINS
 
 ; Alerts for when a user is banned
 event ban email ADMIN
-event ban push @ADMINS
+event ban push !ADMINS
 
 ; Alerts for when a user is kicked
 event kick email ADMIN
-event kick push @ADMINS
+event kick push !ADMINS
 
 ; Alerts for connect/disconnect of users
-event login push @ADMINS
-event logout push @ADMINS
+event login push !ADMINS
+event logout push !ADMINS
 
 ; Alerts for automated spam detection in chat
 event spam email ADMIN
-event spam push @ADMINS
+event spam push !ADMINS
 
 #################
 # Addon Modules #

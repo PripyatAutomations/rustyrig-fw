@@ -42,7 +42,7 @@ CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
-#CFLAGS += -DUSE_EEPROM
+CFLAGS += -DUSE_EEPROM -DHOST_EEPROM_FILE="\"build/radio/eeprom.bin\""
 
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
 LDFLAGS += -lc -lm -g -ggdb -lcrypt

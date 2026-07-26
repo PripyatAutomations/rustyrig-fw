@@ -119,7 +119,7 @@ void log_clear_log_filters(void) {
 
 // Load log_filters from config string
 void load_log_filters_from_config(void) {
-   const char *cfg = cfg_get_exp("log.level");  // or "log.log_filters"
+   const char *cfg = cfg_get_exp("debug.loglevel");  // or "log.log_filters"
    if (!cfg) {
       return;
    }
@@ -235,7 +235,7 @@ void logger_init(const char *logfile) {
       }
    }
 
-   log_stdout = cfg_get_bool("log.stdout", true);
+   log_stdout = cfg_get_bool("debug.log.stdout", true);
 
    // Load fine-grained log_filters from config
    load_log_filters_from_config();
