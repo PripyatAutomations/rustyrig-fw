@@ -1,5 +1,5 @@
 //
-// rrgtk/chat.cmd.c: Chat stuff that isn't GUI dependent
+// rrclient/chat.cmd.c: Chat stuff that isn't GUI dependent
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -18,11 +18,8 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <mod.ui.gtk3/gtk.core.h>
-#include <rrgtk/connman.h>
+#include <rrclient/connman.h>
 
 extern bool dying;
 extern time_t now;

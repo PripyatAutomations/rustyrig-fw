@@ -10,8 +10,8 @@ Currently it only supports debian-based systems. Contributions always welcome!
 
 It consists of a few parts:
 	fwdsp/		gstreamer based audio bridge
-	rrcli/		TUI client that feels like IRC but with hotkeys for PTT, etc.
-	rrgtk/		GTK3 + gstreamer based client
+	rrclient/	TUI client that feels like IRC but with hotkeys for PTT, etc.
+			* USE_GTK will enable the GTK3 interface too! (use -t to force TUI)
 	rrserver/	backend server
 	www/		WebUI (served by rrserver) - in PripyatAutomations/rustyrig-www repo
 

@@ -1,16 +1,16 @@
 #!/bin/bash
 set -e
-VALGRIND_LOG="audit-logs/valgrind.rrgtk.%p.log"
+VALGRIND_LOG="audit-logs/valgrind.rrclient.%p.log"
 VALGRIND_OPTS="--leak-check=full --track-origins=yes"
 
 # XXX: This should go away someday...
-mkdir -p run/rrgtk
+mkdir -p run/rrclient
 
-if [ ! -f ~/.config/rrgtk.cfg ]; then
-   echo "No config found at ~/.config/rrgtk.cfg, copy example? [N/y]"
+if [ ! -f ~/.config/rrclient.cfg ]; then
+   echo "No config found at ~/.config/rrclient.cfg, copy example? [N/y]"
    read line
    if [ "${line}" == "y" -o "${line}" == "Y" ]; then
-      cp config/rrgtk.cfg.example ~/.config/rrgtk.cfg
+      cp config/rrclient.cfg.example ~/.config/rrclient.cfg
    else
       echo "Skipping!"
       exit 1
@@ -19,15 +19,15 @@ fi
 
 case "$1" in
    gdb )
-     gdb ./bin/rrgtk -ex run
+     gdb ./bin/rrclient -ex run
      ;;
 
    valgrind)
-     rm -f audit-logs/valgrind.rrgtk.*.log
-     valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./bin/rrgtk
+     rm -f audit-logs/valgrind.rrclient.*.log
+     valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./bin/rrclient
      ;;
 
    *)
-     ./bin/rrgtk
+     ./bin/rrclient
      ;;
 esac

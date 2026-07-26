@@ -1,5 +1,5 @@
 //
-// rrgtk/ui.help.c: Core of GTK gui
+// rrclient/ui.help.c: Core of GTK gui
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

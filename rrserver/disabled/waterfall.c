@@ -9,9 +9,6 @@
 // Here we support plotting a waterfall onto virtual fb
 // to be sent either to display or network client
 //
-#include "build_config.h"
-#include <librustyaxe/config.h>
-#include "../ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,7 +16,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "rrserver/eeprom.h"
-#include <librustyaxe/logger.h>
-#include "rrserver/gui.h"
-#include "rrserver/waterfall.h"
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/gui.h>
+#include <rrserver/waterfall.h>

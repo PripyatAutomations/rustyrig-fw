@@ -26,10 +26,6 @@
 #include <fcntl.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
-#include <rrserver/i2c.h>
 #include <rrserver/au.h>
 #include <rrserver/au.pipe.h>
 #include <librustyaxe/fwdsp-shared.h>

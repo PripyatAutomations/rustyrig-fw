@@ -1,5 +1,5 @@
 //
-// rrgtk/gtk.freqentry.c: Modulation mode/width widget
+// rrclient/gtk.freqentry.c: Modulation mode/width widget
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

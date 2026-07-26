@@ -16,13 +16,15 @@
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <ev.h>
+
 #if defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
 extern bool ws_connected;
-extern bool rrcli_send_chat(const char *data);
+extern bool rrclient_send_chat(const char *data);
 #endif
 extern bool dying;
 extern time_t now;
+extern bool ui_mode_gui;
 
 typedef struct cli_command {
    char *cmd;
@@ -30,8 +32,6 @@ typedef struct cli_command {
    bool (*cb)(int argc, char **args);
    event_cb_t (*event_cb)(const char *event, void *data, irc_conn_t *cptr, void *user);
 } cli_command_t;
-
-
 
 bool cli_join(int argc, char **args) {
     (void)argc; (void)args;
@@ -54,6 +54,7 @@ bool cli_me(int argc, char **args) {
        VAL_STR, "talk.cmd", "msg",
        VAL_STR, "talk.data", buf,
        VAL_STR, "talk.msg_type", "action");
+
 #if defined(USE_MONGOOSE)
     if (ws_conn) {
        mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
@@ -200,40 +201,44 @@ bool cli_win(int argc, char **args) {
       return true;
    }
 
-   if (strcasecmp(args[1], "close") == 0) {
-      Log(LOG_CRIT, "test", "argc: %d args0: %s args1: %s", argc, args[0], args[1]);
-      if (argc < 2) {
+   if (!ui_mode_gui) {
+      if (strcasecmp(args[1], "close") == 0) {
+         Log(LOG_CRIT, "test", "argc: %d args0: %s args1: %s", argc, args[0], args[1]);
+         if (argc < 2) {
+            return true;
+         }
+
+         int id = -1;
+         if (argc >= 3) {
+            id = atoi(args[2]);
+         } else {
+            return tui_window_destroy(tui_active_window());
+         }
+
+         if (id > 0) {
+            tui_window_destroy_id(id);
+            return false;
+         }
          return true;
       }
 
-      int id = -1;
-      if (argc >= 3) {
-         id = atoi(args[2]);
-      } else {
-         return tui_window_destroy(tui_active_window());
+      int id = atoi(args[1]);
+
+      tui_print_win(tui_active_window(), "ID: %s", args[1]);
+      if (id < 1 || id > TUI_MAX_WINDOWS) {
+         tui_print_win(tui_active_window(), "Invalid window %d, must be between 1 and %d", id, TUI_MAX_WINDOWS);
+         return true;
       }
 
-      if (id > 0) {
-         tui_window_destroy_id(id);
-         return false;
-      }
-      return true;
+      tui_window_focus_id(id);
    }
-
-   int id = atoi(args[1]);
-//   tui_print_win(tui_active_window(), "ID: %s", args[1]);
-
-   if (id < 1 || id > TUI_MAX_WINDOWS) {
-      tui_print_win(tui_active_window(), "Invalid window %d, must be between 1 and %d", id, TUI_MAX_WINDOWS);
-      return true;
-   }
-
-   tui_window_focus_id(id);
    return false;
 }
 
 bool cli_clear(int argc, char **args) {
-   tui_clear_scrollback(tui_active_window());
+   if (!ui_mode_gui) {
+      tui_clear_scrollback(tui_active_window());
+   }
    return false;
 }
 extern bool cli_help(int argc, char **args);
@@ -254,26 +259,28 @@ cli_command_t cli_commands[] = {
 };
 
 bool cli_help(int argc, char **args) {
-   tui_window_t *wp = tui_active_window();
-   if (!wp) {
-      return true;
-   }
+   if (!ui_mode_gui) {
+      tui_window_t *wp = tui_active_window();
+      if (!wp) {
+         return true;
+      }
 
-   tui_print_win(wp, "*** Available commands ***");
-   for (int i = 0; cli_commands[i].cmd; i++) {
-      tui_print_win(wp, "   %s\t\t%s", cli_commands[i].cmd, cli_commands[i].desc);
+      tui_print_win(wp, "*** Available commands ***");
+      for (int i = 0; cli_commands[i].cmd; i++) {
+         tui_print_win(wp, "   %s\t\t%s", cli_commands[i].cmd, cli_commands[i].desc);
+      }
+      tui_print_win(wp, ""); 
+      tui_print_win(wp, "*** Keyboard Shortcuts ***"); 
+      tui_print_win(wp, "   alt-X (1-0)\t\tSwitch to window 1-10");
+      tui_print_win(wp, "   alt-left\t\tSwitch to previous win");
+      tui_print_win(wp, "   alt-right\t\tSwitch to next win");
+      tui_print_win(wp, "   F12\t\t\tPTT toggle");
    }
-   tui_print_win(wp, ""); 
-   tui_print_win(wp, "*** Keyboard Shortcuts ***"); 
-   tui_print_win(wp, "   alt-X (1-0)\t\tSwitch to window 1-10");
-   tui_print_win(wp, "   alt-left\t\tSwitch to previous win");
-   tui_print_win(wp, "   alt-right\t\tSwitch to next win");
-   tui_print_win(wp, "   F12\t\t\tPTT toggle");
    return false;
 }
 
-bool irc_input_cb(const char *input) {
-   if (!cli_commands || !input || !*input) {
+bool tui_input_cb(const char *input) {
+   if (cli_commands[0].cmd == NULL || !input || !*input) {
       return true;
    }
 
@@ -331,7 +338,7 @@ bool irc_input_cb(const char *input) {
               }
               pos += n;
            }
-           rrcli_send_chat(fullmsg);
+           rrclient_send_chat(fullmsg);
         }
      }
 

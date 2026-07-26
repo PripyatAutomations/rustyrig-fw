@@ -1,5 +1,5 @@
 //
-// rrgtk/ws.auth.c
+// rrclient/ws.auth.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -16,13 +16,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
-//#include "../ext/libmongoose/mongoose.h"
-//#include <mod.ui.gtk3/gtk.core.h>
-#include <rrgtk/connman.h>
-//#include <rrgtk/audio.h>
-#include <rrgtk/userlist.h>
 #include <librrprotocol/rrprotocol.h>
+// XXX: This needs REMOVED (should be in client or rrprotocol)
+#include <rrclient/connman.h>
+#include <rrclient/userlist.h>
 
 extern dict *cfg;		// config.c
 extern time_t now;

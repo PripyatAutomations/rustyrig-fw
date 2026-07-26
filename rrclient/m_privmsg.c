@@ -60,7 +60,7 @@ void on_privmsg(const char *event, void *data, irc_conn_t *cptr, void *user) {
    size_t nicklen = (nick_end - nick);
 
    memset(tmp_nick, 0, NICKLEN + 1);
-   snprintf(tmp_nick, NICKLEN + 1, "%.*s", nicklen, nick);
+   snprintf(tmp_nick, NICKLEN + 1, "%.*s", (int)nicklen, nick);
 
    Log(LOG_CRIT, "irc.event", "on_privmsg: argc %d args0 %s args1 %s", mp->argc, mp->argv[0], mp->argv[1]);
    char *win_title = tmp_nick;

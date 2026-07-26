@@ -20,11 +20,6 @@
 #include <errno.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
-#include <rrserver/i2c.h>
-#include <librustyaxe/core.h>
 #include <rrserver/network.h>
 #define	HOST_POSIX
 #if	defined(HOST_POSIX)

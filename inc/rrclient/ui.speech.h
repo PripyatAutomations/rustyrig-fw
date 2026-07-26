@@ -4,8 +4,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__rrgtk_ui_speech_h)
-#define	__rrgtk_ui_speech_h
+#if	!defined(__rrclient_ui_speech_h)
+#define	__rrclient_ui_speech_h
 #include <librustyaxe/config.h>
 #pragma once
 #include <gtk/gtk.h>
@@ -40,4 +40,4 @@ extern void ui_speech_set(GtkWidget *widget,
                    bool focusable);
 
 
-#endif	// !defined(__rrgtk_ui_speech_h)
+#endif	// !defined(__rrclient_ui_speech_h)

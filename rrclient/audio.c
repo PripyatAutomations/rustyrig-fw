@@ -1,4 +1,4 @@
-// rrgtk/audio.c: support for using gstreamer for audio streams
+// rrclient/audio.c: support for using gstreamer for audio streams
 // 	https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -41,7 +41,7 @@
 #include <gst/app/gstappsink.h>
 #include <librrprotocol/codecneg.h>
 #include <mod.ui.gtk3/gtk.core.h>
-#include <rrgtk/audio.h>
+#include <rrclient/audio.h>
 
 extern dict *cfg;		// main.c
 extern struct mg_connection *ws_conn, *ws_tx_conn;

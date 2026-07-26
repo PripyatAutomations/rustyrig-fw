@@ -1,5 +1,5 @@
 //
-// rrgtk/gtk.alertdialog.c: Show an alert/error/warning dialog
+// rrclient/gtk.alertdialog.c: Show an alert/error/warning dialog
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.

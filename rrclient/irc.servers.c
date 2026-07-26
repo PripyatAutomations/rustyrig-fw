@@ -217,7 +217,7 @@ bool autoconnect(void) {
             tui_print_win(tui_window_find("status"), "Trying %s://%s@%s:%d priority=%d", (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
             irc_conn_t *cli;
-            if (cli = irc_cli_connect(srv)) {
+            if ((cli = irc_cli_connect(srv))) {
                // Add to the connection list
                rrlist_add(&irc_client_conns, cli, LIST_TAIL);
             }

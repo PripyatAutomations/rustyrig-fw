@@ -9,8 +9,6 @@
 //
 // Amplifier module management
 //
-#include "build_config.h"
-#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,12 +16,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #include <rrserver/ptt.h>
 #include <rrserver/thermal.h>
 #include <rrserver/protection.h>
 #include <rrserver/amp.h>
-#include <librustyaxe/logger.h>
 
 #define	MAX_AMPS	4
 typedef struct rr_amp_state {

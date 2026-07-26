@@ -1,5 +1,5 @@
 //
-// rrgtk/gtk.serverpick.c: Server selector / editor (will tie into gtk.cfg.c dialog
+// rrclient/gtk.serverpick.c: Server selector / editor (will tie into gtk.cfg.c dialog
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -20,7 +20,7 @@
 #if	defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 #endif	// defined(USE_MONGOOSE)
-#include <rrgtk/connman.h>
+#include <rrclient/connman.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);

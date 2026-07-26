@@ -6,7 +6,7 @@ librrprotocol := librrprotocol.so
 
 VERSION=$(shell cat .version)
 DATE=$(shell date +%Y%m%d)
-INSTALLER=rrgtk.win64.${DATE}.exe
+INSTALLER=rrclient.win64.${DATE}.exe
 
 include mk/json-config.mk
 include mk/compile.mk
@@ -20,11 +20,11 @@ extra_clean += firmware.log
 
 BUILD_HEADERS += $(wildcard ${OBJ_DIR}/eeprom_layout.h)
 BUILD_HEADERS += $(wildcard ${OBJ_DIR}/*.h)
-BUILD_HEADERS += $(wildcard rrserver/*.h) $(wildcard rrgtk/*.h)
+BUILD_HEADERS += $(wildcard rrserver/*.h) $(wildcard rrclient/*.h)
 BUILD_HEADERS += $(wildcard inc/librrprotocol/*.h)
 BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h)
 
-rrgtk_src = $(rrgtk_objs:.o=.c)
+rrclient_src = $(rrclient_objs:.o=.c)
 rrserver_src = $(rrserver_objs:.o=.c)
 
 ifeq (${PLATFORM},posix)
@@ -33,9 +33,10 @@ endif
 
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk
-include rrcli/rules.mk
+# This is being merged ijnto rrclient
+#include rrcli/rules.mk
 include librrprotocol/rules.mk
-include rrgtk/rules.mk
+include rrclient/rules.mk
 include rrserver/rules.mk
 include mk/install.mk
 #include mk/win64.mk

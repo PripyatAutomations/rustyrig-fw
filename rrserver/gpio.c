@@ -18,9 +18,6 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <rrserver/gpio.h>
 
 #if	defined(HOST_POSIX)

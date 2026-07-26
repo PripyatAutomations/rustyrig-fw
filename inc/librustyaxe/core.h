@@ -35,6 +35,10 @@
 #include <librustyaxe/util.string.h>
 #include <librustyaxe/util.time.h>
 
+#if     defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif  // defined(USE_MONGOOSE)
+
 static inline bool toggle(bool *v) {
    *v = !v;
    return *v;

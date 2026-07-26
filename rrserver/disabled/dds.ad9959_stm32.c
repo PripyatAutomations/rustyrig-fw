@@ -14,8 +14,6 @@
 //
 // Code repurposed from my ad9959-util tool
 //
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -25,7 +23,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/eeprom.h>
 #include <rrserver/i2c.h>

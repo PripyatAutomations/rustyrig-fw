@@ -17,10 +17,6 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
-
 bool send_help(rr_io_context_t *port, const char *topic) {
    return false;
 }

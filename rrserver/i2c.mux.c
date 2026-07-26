@@ -20,8 +20,5 @@
 #include <errno.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <rrserver/eeprom.h>
 #include <rrserver/i2c.h>

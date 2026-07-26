@@ -11,8 +11,6 @@
  *
  * Build conf will generate the LC tables used below (atu_tables.h)
  */
-#include "build_config.h"
-#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,10 +19,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/eeprom.h>
-#include <rrserver/i2c.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #include <rrserver/atu.h>
 
 // Tell atu_tables we want the data (we are the tuner code)

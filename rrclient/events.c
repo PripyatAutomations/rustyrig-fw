@@ -1,5 +1,5 @@
 //
-// rrgtk/events.c: GTK-side event listeners for shared protocol events
+// rrclient/events.c: GTK-side event listeners for shared protocol events
 //
 #include <stddef.h>
 #include <stdlib.h>
@@ -8,8 +8,8 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrgtk/connman.h>
-#include <rrgtk/userlist.h>
+#include <rrclient/connman.h>
+#include <rrclient/userlist.h>
 #include <mod.ui.gtk3/gtk.core.h>
 #include <librustyaxe/logger.h>
 
@@ -19,7 +19,7 @@ extern GtkWidget *main_window;
 extern GtkTextBuffer *log_buffer;
 extern GtkWidget *log_view;
 
-static void rrgtk_display_log_message(const char *msg) {
+static void rrclient_display_log_message(const char *msg) {
     if (!log_buffer || !msg) {
        return;
     }
@@ -30,7 +30,7 @@ static void rrgtk_display_log_message(const char *msg) {
     g_idle_add(ui_scroll_to_end, log_view);
 }
 
-static void rrgtk_handle_connection_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_connection_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)data;
@@ -46,7 +46,7 @@ static void rrgtk_handle_connection_event(const char *event, void *data, irc_con
    }
 }
 
-static void rrgtk_handle_ptt_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_ptt_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
@@ -61,7 +61,7 @@ static void rrgtk_handle_ptt_event(const char *event, void *data, irc_conn_t *cp
    }
 }
 
-static void rrgtk_handle_freq_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_freq_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
@@ -77,7 +77,7 @@ static void rrgtk_handle_freq_event(const char *event, void *data, irc_conn_t *c
    }
 }
 
-static void rrgtk_handle_mode_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_mode_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
@@ -89,7 +89,7 @@ static void rrgtk_handle_mode_event(const char *event, void *data, irc_conn_t *c
    set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
 }
 
-static void rrgtk_handle_userinfo_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_userinfo_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
@@ -99,11 +99,11 @@ static void rrgtk_handle_userinfo_event(const char *event, void *data, irc_conn_
 
    struct rr_user *info = (struct rr_user *)data;
    if (!userlist_add_or_update(info)) {
-      Log(LOG_CRIT, "rrgtk.events", "OOM in userlist_add_or_update");
+      Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 }
 
-static void rrgtk_handle_userjoin_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_userjoin_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
@@ -113,11 +113,11 @@ static void rrgtk_handle_userjoin_event(const char *event, void *data, irc_conn_
 
    struct rr_user *info = (struct rr_user *)data;
    if (!userlist_add_or_update(info)) {
-      Log(LOG_CRIT, "rrgtk.events", "OOM in userlist_add_or_update");
+      Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 }
 
-static void rrgtk_handle_userquit_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_userquit_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
@@ -133,7 +133,7 @@ static void rrgtk_handle_userquit_event(const char *event, void *data, irc_conn_
    userlist_remove_by_name(name);
 }
 
-static void rrgtk_handle_whois_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_whois_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
     (void)event;
     (void)cptr;
     (void)user;
@@ -147,7 +147,7 @@ static void rrgtk_handle_whois_event(const char *event, void *data, irc_conn_t *
     }
 }
 
-static void rrgtk_handle_log_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_log_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
     (void)event;
     (void)cptr;
     (void)user;
@@ -155,7 +155,7 @@ static void rrgtk_handle_log_event(const char *event, void *data, irc_conn_t *cp
     if (!led || !led->message[0]) {
        return;
     }
-    rrgtk_display_log_message(led->message);
+    rrclient_display_log_message(led->message);
 }
 
 struct talk_msg_event_data {
@@ -166,7 +166,7 @@ struct talk_msg_event_data {
     time_t ts;
 };
 
-static void rrgtk_handle_talk_msg_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_talk_msg_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
     (void)event;
     (void)cptr;
     (void)user;
@@ -190,17 +190,17 @@ static void rrgtk_handle_talk_msg_event(const char *event, void *data, irc_conn_
     }
 }
 
-void rrgtk_register_events(void) {
-    event_on("connected", rrgtk_handle_connection_event, NULL);
-    event_on("error", rrgtk_handle_connection_event, NULL);
-    event_on("disconnected", rrgtk_handle_connection_event, NULL);
-    event_on("http.rig.ptt", rrgtk_handle_ptt_event, NULL);
-    event_on("http.rig.freq", rrgtk_handle_freq_event, NULL);
-    event_on("http.rig.mode", rrgtk_handle_mode_event, NULL);
-    event_on("http.userinfo", rrgtk_handle_userinfo_event, NULL);
-    event_on("http.userjoin", rrgtk_handle_userjoin_event, NULL);
-    event_on("http.userquit", rrgtk_handle_userquit_event, NULL);
-    event_on("http.whois", rrgtk_handle_whois_event, NULL);
-    event_on("log.message", rrgtk_handle_log_event, NULL);
-    event_on("talk.msg", rrgtk_handle_talk_msg_event, NULL);
+void rrclient_register_events(void) {
+    event_on("connected", rrclient_handle_connection_event, NULL);
+    event_on("error", rrclient_handle_connection_event, NULL);
+    event_on("disconnected", rrclient_handle_connection_event, NULL);
+    event_on("http.rig.ptt", rrclient_handle_ptt_event, NULL);
+    event_on("http.rig.freq", rrclient_handle_freq_event, NULL);
+    event_on("http.rig.mode", rrclient_handle_mode_event, NULL);
+    event_on("http.userinfo", rrclient_handle_userinfo_event, NULL);
+    event_on("http.userjoin", rrclient_handle_userjoin_event, NULL);
+    event_on("http.userquit", rrclient_handle_userquit_event, NULL);
+    event_on("http.whois", rrclient_handle_whois_event, NULL);
+    event_on("log.message", rrclient_handle_log_event, NULL);
+    event_on("talk.msg", rrclient_handle_talk_msg_event, NULL);
 }

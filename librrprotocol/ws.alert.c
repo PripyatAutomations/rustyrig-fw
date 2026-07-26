@@ -1,5 +1,5 @@
 //
-// rrgtk/ws.alert.c
+// rrclient/ws.alert.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -15,13 +15,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-//#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "../ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
-//#include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;		// config.c
 extern time_t now;

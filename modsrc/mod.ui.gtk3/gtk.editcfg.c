@@ -1,5 +1,5 @@
 //
-// rrgtk/gtk.editcfg.h
+// rrclient/gtk.editcfg.h
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -16,9 +16,9 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#include <rrgtk/userlist.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrclient/userlist.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
 #if	defined(USE_MONGOOSE)

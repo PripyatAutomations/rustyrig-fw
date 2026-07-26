@@ -16,9 +16,6 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <rrserver/gui.h>
 
 // Here we deaal with fwdsp -v -t supplied frames for webcams

@@ -1,5 +1,5 @@
 //
-// rrgtk/gtk.winmgr.c: Handle hotkeys
+// rrclient/gtk.winmgr.c: Handle hotkeys
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -21,7 +21,7 @@
 #if	defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 #endif	// defined(USE_MONGOOSE)
-#include <rrgtk/ui.help.h>
+#include <rrclient/ui.help.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
 

@@ -18,10 +18,6 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
-#include <rrserver/protection.h>
 
 extern struct GlobalState rig;      // Global state
 

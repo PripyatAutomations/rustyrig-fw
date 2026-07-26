@@ -15,9 +15,6 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {

@@ -12,6 +12,7 @@ librustyaxe: Add memblocks, simple allocator who maintains small allocations (re
 librrprotocol: Move all mongoose related bits to here
 librrprotocol: Move all irc related bits to here
 rrgtk: Add auto-reconnect with back off like webui has
+rrclient: Add -T option to force TUI and -X to force X11, refusing to open without
 rrgtk/rrcli: Merge tui_print_win and ui_print to be a single call who always takes a window (tab for rrgtk) parameter. This will reduce some duplication (syslog and chat tab printing for example) in rrgtk
 *: Need to fully use the event system so we can avoid lib* calling back directly into program code
 

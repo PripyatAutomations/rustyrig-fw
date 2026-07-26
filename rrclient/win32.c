@@ -1,5 +1,5 @@
 //
-// rrgtk/win32.c
+// rrclient/win32.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -21,7 +21,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
-#include "rrgtk/gtk.core.h"
+#include "rrclient/gtk.core.h"
 #include <gdk/gdkwin32.h>
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")

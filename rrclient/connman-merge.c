@@ -1,5 +1,5 @@
 //
-// rrcli/connman.c: Connection Manager for rrcli TUI client
+// rrclient/connman.c: Connection Manager for rrclient TUI client
 //
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,12 +7,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
-#include <librustyaxe/logger.h>
 #include <librrprotocol/rrprotocol.h>
-#if defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <ev.h>
 
 extern dict *cfg;
@@ -22,11 +17,14 @@ extern bool dying;
 extern bool debug_sockets;
 
 #if defined(USE_MONGOOSE)
-struct mg_mgr mgr;
-struct mg_connection *ws_conn = NULL;
-bool ws_connected = false;
+extern struct mg_mgr mgr;
+extern struct mg_connection *ws_conn;
+extern bool ws_connected;
+extern const char *login_user;
+
 char session_token[HTTP_TOKEN_LEN+1] = {0};
-const char *login_user = NULL;
+
+#if	0
 const char *get_server_property(const char *server, const char *prop) {
     if (!server || !prop) {
        return NULL;
@@ -35,8 +33,9 @@ const char *get_server_property(const char *server, const char *prop) {
     snprintf(fullkey, sizeof(fullkey), "server:%s.%s", server, prop);
     return cfg_get_exp(fullkey);
 }
+#endif
 
-static void rrcli_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
+static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
     (void)c;
     if (ev == MG_EV_WS_MSG) {
        struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
@@ -99,7 +98,7 @@ static void rrcli_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
 
        login_user = cfg_get_exp("server.user");
        if (login_user) {
-          const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrcli");
+          const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient");
           mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
           free((void *)jp);
 
@@ -114,13 +113,13 @@ static void rrcli_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
     }
 }
 
-bool rrcli_connect(const char *url) {
+bool rrclient_connect(const char *url) {
     if (!url) {
        return true;
     }
 
     tui_print_win(tui_window_find("status"), "Connecting to %s", url);
-    ws_conn = mg_ws_connect(&mgr, url, rrcli_ws_handler, NULL, NULL);
+    ws_conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
 
     if (!ws_conn) {
        tui_print_win(tui_window_find("status"), "Connection failed");
@@ -129,7 +128,7 @@ bool rrcli_connect(const char *url) {
     return false;
 }
 
-bool rrcli_send_chat(const char *data) {
+bool rrclient_send_chat(const char *data) {
     if (!ws_conn || !data) {
        return true;
     }
@@ -147,7 +146,7 @@ bool rrcli_send_chat(const char *data) {
     return false;
 }
 
-bool rrcli_send(const char *json) {
+bool rrclient_send(const char *json) {
     if (!ws_conn || !json) {
        return true;
     }
@@ -155,7 +154,7 @@ bool rrcli_send(const char *json) {
     return false;
 }
 
-bool rrcli_disconnect(void) {
+bool rrclient_disconnect(void) {
     if (ws_conn) {
        ws_conn->is_closing = 1;
        ws_conn = NULL;
@@ -164,12 +163,12 @@ bool rrcli_disconnect(void) {
     return false;
 }
 
-void rrcli_poll_events(void) {
+void rrclient_poll_events(void) {
     mg_mgr_poll(&mgr, 0);
 }
 #endif
 
-bool rrcli_autoconnect(void) {
+bool rrclient_autoconnect(void) {
     const char *server = cfg_get_exp("server.auto-connect");
     if (server) {
        char server_name[256];
@@ -180,7 +179,7 @@ bool rrcli_autoconnect(void) {
        snprintf(fullkey, sizeof(fullkey), "server:%s.server.url", server_name);
        const char *url = cfg_get_exp(fullkey);
        if (url) {
-          rrcli_connect(url);
+          rrclient_connect(url);
           free((void *)url);
        }
     }

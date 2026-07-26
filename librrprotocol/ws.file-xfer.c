@@ -1,5 +1,5 @@
 //
-// rrgtk/ws.file-xfer.c: Support for sending files such as screen shots or audio recordings.
+// rrclient/ws.file-xfer.c: Support for sending files such as screen shots or audio recordings.
 //
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -8,14 +8,14 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // 3-space indentation please :)
-#include <librustyaxe/core.h>
-#include "ext/libmongoose/mongoose.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <errno.h>
 #include <string.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 #define CHUNK 32768
 

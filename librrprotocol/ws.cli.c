@@ -1,5 +1,5 @@
 // 
-// rrgtk/ws.c
+// rrclient/ws.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -16,9 +16,6 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 
 // At startup, we try to find the distribution's TLS certificate authority trust store
 const char *default_tls_ca_paths[] = {

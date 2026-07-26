@@ -1,5 +1,5 @@
 //
-// rrgtk/gtk.winmgr.c: Handle window manager relations
+// rrclient/gtk.winmgr.c: Handle window manager relations
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -10,7 +10,7 @@
 // This allows finding and working with a widget by a human readable name, for automation, etc
 
 //
-// rrgtk/gtk.winmgr.c: Handle window manager relations
+// rrclient/gtk.winmgr.c: Handle window manager relations
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
