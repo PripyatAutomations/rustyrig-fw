@@ -1,0 +1,9 @@
+Here's some of the things we've added to basic IRC protocol to support our needs.
+DCC AUDIO
+---------
+Here we send a message with the IP and port to connect for RTP media:
+	DCC AUDIO host port-ear port-mouth session-key
+
+	The server will advertise a port pair for two-way audio
+	Ear and mouth are relative to the CLIENT meaning they LISTEN on the
+	EAR port and TRANSMIT on the MOUTH port.

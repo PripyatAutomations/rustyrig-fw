@@ -11,6 +11,15 @@ librrprotocol_objs += http.bans.o
 # Disabled, need to figure out and merge these with the bits from auth*
 #librrprotocol_objs += newauth.o
 #librrprotocol_objs += is.o
+librrprotocol_objs += irc.o
+librrprotocol_objs += irc.capab.o
+librrprotocol_objs += irc.channel.o
+librrprotocol_objs += irc.client.o
+librrprotocol_objs += irc.commands.o
+librrprotocol_objs += irc.modes.o
+librrprotocol_objs += irc.numerics.o
+librrprotocol_objs += irc.parser.o
+librrprotocol_objs += irc.server.o
 librrprotocol_objs += vfo.o
 librrprotocol_objs += ws.o
 librrprotocol_objs += ws.alert.o
@@ -33,7 +42,7 @@ librrprotocol_objs += ws.compat.o
 
 librrprotocol_cflags := ${CFLAGS} -I./modsrc/ -I./ -I./inc
 
-extra_clean += ${librustyaxe_objs} ${librustyaxe}
+extra_clean += ${librrprotocol_objs} ${librrprotocol}
 librrprotocol_headers := $(wildcard inc/librrprotocol/*.h)
 librrprotocol_src = $(wildcard librrprotocol/*.c)
 

@@ -4,33 +4,33 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__librustyaxe_irc_h)
-#define	__librustyaxe_irc_h
+#if	!defined(__librrprotocol_irc_h)
+#define	__librrprotocol_irc_h
 
 #include <librustyaxe/list.h>
 
 // common IRC structures
-#include <librustyaxe/irc.struct.h>
+#include <librrprotocol/irc.struct.h>
 
 // CAPABilities crud
-#include <librustyaxe/irc.capab.h>
+#include <librrprotocol/irc.capab.h>
 
 // channel and user modes
-#include <librustyaxe/irc.modes.h>
+#include <librrprotocol/irc.modes.h>
 
 // IRC commands
-#include <librustyaxe/irc.commands.h>
+#include <librrprotocol/irc.commands.h>
 
 // Numeric responses from servers
-#include <librustyaxe/irc.numerics.h>
+#include <librrprotocol/irc.numerics.h>
 
 // core protocol parser
-#include <librustyaxe/irc.parser.h>
-#include <librustyaxe/irc.client.h>
-#include <librustyaxe/irc.server.h>
+#include <librrprotocol/irc.parser.h>
+#include <librrprotocol/irc.client.h>
+#include <librrprotocol/irc.server.h>
 
 // Channel stuff
-#include <librustyaxe/irc.channel.h>
+#include <librrprotocol/irc.channel.h>
 
 extern bool irc_init(void);
 extern bool irc_send(irc_conn_t *cptr, const char *fmt, ...);
@@ -46,4 +46,4 @@ static inline char *irc_name(irc_conn_t *cptr) {
    return NULL;
 }
 
-#endif	// !defined(__librustyaxe_irc_h)
+#endif	// !defined(__librrprotocol_irc_h)

@@ -144,11 +144,8 @@ void tui_raw_mode(bool enabled) {
       raw.c_cc[VMIN] = 1;
       raw.c_cc[VTIME] = 0;
 
-///
       cfmakeraw(&raw);
       tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-///
-
       tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
    } else {
       tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
@@ -236,7 +233,7 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
       }
 
       // --- log the key for debugging ---
-      Log(LOG_DEBUG, "tui.key", "key: type=%d code=%d mod=%d c=%d", key.type, key.code.codepoint, key.modifiers, c);
+//      Log(LOG_DEBUG, "tui.key", "key: type=%d code=%d mod=%d c=%d", key.type, key.code.codepoint, key.modifiers, c);
 
       // --- Hotkeys / special keys ---
       if (key.type == TERMKEY_TYPE_KEYSYM) {
@@ -359,7 +356,7 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                break;
             case 'I':
             case 'i': {
-               insert = 0x1D; // Underline
+               insert = 0x1D; // Italic
                break;
             }
             case 'O':
@@ -367,17 +364,16 @@ void stdin_ev_cb(EV_P_ ev_io *w, int revents) {
                insert = 0x0F; // Reset
                break;
             }
+            case 'R':
+            case 'r':
+               insert = 0x16;	// Reverse (not well supported)
+               break;
             case 'U':
             case 'u': {
                input_len = 0;
                cursor_pos = 0;
                input_buf[0] = '\0';
                handled = 1;
-               break;
-            }
-            case 'V':
-            case 'v': {
-               insert = 0x16; // Reverse
                break;
             }
             case 'W':

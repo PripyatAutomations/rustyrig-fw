@@ -8,6 +8,7 @@ rrserver_objs += amp.o
 rrserver_objs += atu.o
 rrserver_objs += backend.o
 rrserver_objs += backend.hamlib.o
+rrserver_objs += backend.internal.o
 rrserver_objs += channels.o		# Channel Memories
 rrserver_objs += console.o		# Console support
 rrserver_objs += database.o		# sqlite3 database stuff
@@ -43,6 +44,12 @@ ${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rule
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 ${OBJ_DIR}/rrserver/%.o: modsrc/mod.backend.hamlib/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} build/${PROFILE}/eeprom_types.h
+	@${RM} -f $@
+	@mkdir -p $(shell dirname $@)
+	@echo "[compile] $< => $@"
+	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+
+${OBJ_DIR}/rrserver/%.o: modsrc/mod.backend.internal/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} build/${PROFILE}/eeprom_types.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

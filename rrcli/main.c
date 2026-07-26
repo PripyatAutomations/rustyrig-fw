@@ -34,6 +34,7 @@ extern struct mg_mgr mgr;
 
 struct ev_loop *loop = NULL;
 bool dying = false;
+bool restarting = false;
 bool debug_sockets = false;
 bool mirc_colors = true;
 time_t now = 0;

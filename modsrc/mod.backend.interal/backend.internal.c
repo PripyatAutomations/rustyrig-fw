@@ -10,8 +10,6 @@
 // Internal backend supports controlling real hardware. This needs to be completed before using on
 // a real rig. Feel free to jump in here.
 //
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,12 +17,13 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../ext/libmongoose/mongoose.h"
-#include <rrserver/thermal.h>
-#include <rrserver/eeprom.h>
-#include <rrserver/ptt.h>
-#include <librustyaxe/cat.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include <ext/libmongoose/mongoose.h>
+#endif
+#include <rrserver/thermal.h>
+#include <rrserver/ptt.h>
 
 static rr_vfo_t be_int_get_vfo(rr_vfo_t vfo) {
    return vfo;

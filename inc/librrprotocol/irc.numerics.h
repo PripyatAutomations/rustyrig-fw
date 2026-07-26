@@ -8,7 +8,7 @@
 
 #if	!defined(__irc_numeric_h)
 #define __irc_numeric_h
-#include <librustyaxe/irc.struct.h>
+#include <librrprotocol/irc.struct.h>
 
 extern const irc_numeric_t irc_numerics[];
 

@@ -29,13 +29,13 @@
 #include <librrprotocol/rrprotocol.h>
 
 // http ui support
-#if	defined(FEATURE_MQTT)
-#include <rrserver/mqtt.h>
-#endif
-
 #if	defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 struct mg_mgr mg_mgr;
+#endif
+
+#if	defined(FEATURE_MQTT)
+#include <rrserver/mqtt.h>
 #endif
 
 #define	TS_ALPHA	0.1	// Weight for the moving average

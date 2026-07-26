@@ -16,7 +16,7 @@
 #include <librustyaxe/dict.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/list.h>
-#include <librustyaxe/irc.struct.h>
+#include <librrprotocol/irc.struct.h>
 
 // Parse the irc message into tokens
 extern irc_message_t *irc_parse_message(const char *msg);

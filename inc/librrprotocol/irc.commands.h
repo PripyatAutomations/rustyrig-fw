@@ -4,13 +4,15 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__irc_modes_h)
-#define __irc_modes_h
-#include <librustyaxe/irc.struct.h>
+#if !defined(__irc_commands_h)
+#define __irc_commands_h
+#include <stdlib.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <librrprotocol/irc.struct.h>
 
-extern irc_mode_t *irc_find_cmode(char c);
-extern irc_mode_t *irc_find_umode(char c);
-extern irc_mode_t irc_user_modes[];
-extern irc_mode_t irc_channel_modes[];
+extern const irc_command_t irc_commands[];
 
-#endif	// !defined(__irc_modes_h)
+#endif /* !defined(__irc_commands_h) */

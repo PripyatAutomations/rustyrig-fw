@@ -3,7 +3,8 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <librustyaxe/irc.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 const irc_cap_t irc_capabilities[] = {
    { "multi-prefix", "Server may send multiple nick prefixes (@+nick)" },

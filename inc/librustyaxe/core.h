@@ -19,7 +19,7 @@
 #include <librustyaxe/io.h>
 #include <librustyaxe/io.serial.h>
 #include <librustyaxe/io.socket.h>
-#include <librustyaxe/irc.h>
+#include <librrprotocol/irc.h>
 #include <librustyaxe/event-bus.h>
 #include <librustyaxe/kvstore.h>
 #include <librustyaxe/json.h>

@@ -1,4 +1,5 @@
-#include <librustyaxe/irc.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 //
 // As any who have spent much time around IRC will know, this list will never
