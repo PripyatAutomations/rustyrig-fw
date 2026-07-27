@@ -98,11 +98,6 @@ struct GlobalState {
    uint32_t   fault_code;		// Current fault code
    uint32_t   faults;			// Faults since last cleared
    uint32_t   tr_delay;			// T/R delay
-   bool       eeprom_ready;		// EEPROM initialized
-   bool       eeprom_dirty;		// EEPROM needs written out
-   bool       eeprom_corrupted;		// EEPROM is corrupted; prompt before write out
-   time_t     eeprom_saved;		// When was EEPROM last written out?
-   time_t     eeprom_changed;		// When was a setting last changed that needs written to EEPROM?
 
    // Thermals
    float therm_inlet;			// Air inlet temp
@@ -121,9 +116,6 @@ struct GlobalState {
    struct rr_backend *backend;
 
 #if	defined(HOST_POSIX)   // Host build fd's/buffers/etc
-   uint32_t		eeprom_fd;
-   u_int8_t		*eeprom_mmap;
-   size_t		eeprom_size;
    uint32_t		logfile_fd;
    uint32_t		catpipe_fd;
 #endif	// defined(HOST_POSIX)

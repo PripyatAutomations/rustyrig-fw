@@ -18,8 +18,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/gui.h>
 
-// Here we deaal with fwdsp -v -t supplied frames for webcams
-
+// Here we deal with fwdsp -v -t supplied frames for webcams
 const char *webcam_common_codecs(const char *our_codecs, const char *cli_codecs) {
    if (!our_codecs) {
       Log(LOG_CRIT, "webcam", "webcam_common_codecs: You should probably configure some video codecs in config: codecs.allowed.video, returning no codecs");

@@ -116,11 +116,12 @@ static bool ws_rig_state_poll(rr_vfo_t vfo) {
    memset(old, 0, sizeof(ws_rig_state_t));
    memcpy(old, curr, sizeof(ws_rig_state_t));
 
+#if	0	// XXX: Re-enable this
    // Poll the backend 
    if (rig.backend && rig.backend->api && rig.backend->api->backend_poll) {
       rig.backend->api->backend_poll();
    }
-
+#endif
    return false;
 }
 

@@ -221,11 +221,13 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
+#if	defined(FEATURE_CAT)
    if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
       exit(1);
    }
+#endif
 
 //   rr_au_init();
 //   dds_init();
@@ -291,6 +293,7 @@ int main(int argc, char **argv) {
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
       // XXX: Iterate over them: console, amp, rig
       // We limit line length to 512
+#if	defined(FEATURE_CAT)
 #if	defined(CAT_YAESU)
       memset(buf, 0, PARSE_LINE_LEN);
       // io_read(&cat_io, &buf, PARSE_LINE_LEN - 1);
@@ -300,6 +303,7 @@ int main(int argc, char **argv) {
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&amp_io, &buf, PARSE_LINE_LEN - 1);
         rr_cat_parse_amp_line(buf);
+#endif
 #endif
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);

@@ -28,7 +28,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/au.h>
 #include <rrserver/au.pipe.h>
-#include <librustyaxe/fwdsp-shared.h>
+#include <fwdsp/fwdsp-shared.h>
 
 // XXX: This needs moved to config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path
 

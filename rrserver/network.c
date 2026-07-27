@@ -76,7 +76,7 @@ static void net_print_listeners(const char *listenaddr) {
 // Here we have to provide a common interface with serial
 // transport for cons, cat, and debug
 void show_network_info(void) {
-   if (rig.eeprom_ready != 1 || rig.eeprom_corrupted == 1) {
+   if (eeprom_ready != 1 || eeprom_corrupted == 1) {
       return;
    }
 

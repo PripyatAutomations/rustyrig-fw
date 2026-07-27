@@ -33,13 +33,12 @@ endif
 
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk
-# This is being merged ijnto rrclient
-#include rrcli/rules.mk
 include librrprotocol/rules.mk
-include rrclient/rules.mk
 include rrserver/rules.mk
+include rrclient/rules.mk
+include fwdsp/rules.mk
 include mk/install.mk
-#include mk/win64.mk
+include mk/win64.mk
 include mk/audit.mk
 include mk/clean.mk
 include mk/git.mk

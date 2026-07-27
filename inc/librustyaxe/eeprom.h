@@ -98,5 +98,18 @@ extern uint32_t get_serial_number(void);
 extern struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin);
 extern void show_pin_info(void);
 extern uint32_t crc32(uint32_t crc, const void *data, size_t len);
+//////////
+extern bool       eeprom_ready;		// EEPROM initialized
+extern bool       eeprom_dirty;		// EEPROM needs written out
+extern bool       eeprom_corrupted;		// EEPROM is corrupted; prompt before write out
+extern time_t     eeprom_saved;		// When was EEPROM last written out?
+extern time_t     eeprom_changed;		// When was a setting last changed that needs written to EEPROM?
+
+
+#if	defined(HOST_POSIX)
+extern uint32_t		eeprom_fd;
+extern u_int8_t		*eeprom_mmap;
+extern size_t		eeprom_size;
+#endif	// defined(HOST_POSIX)
 
 #endif	// !defined(__rr_eeprom_h)

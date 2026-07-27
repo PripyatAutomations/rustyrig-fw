@@ -26,6 +26,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/au.h>
 #include <rrserver/au.pipe.h>
+#include <fwdsp/fwdsp-shared.h>
 
 bool pipe_init(rr_au_pipe_device_t *device, const char *pipe_name) {
    if (!device || !pipe_name) {

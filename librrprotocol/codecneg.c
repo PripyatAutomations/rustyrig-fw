@@ -12,7 +12,6 @@
 // Here we manage negotiating codecs that are supported between both sides
 // and framing audio.
 //
-#include <librustyaxe/core.h>
 #include <stdint.h>
 #ifdef _WIN32
 #include <winsock2.h>
@@ -32,8 +31,9 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
-#include <librustyaxe/fwdsp-shared.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <fwdsp/fwdsp-shared.h>
 
 // if passed NULL for codecs, use all available codecs
 const char *media_capab_prepare(const char *codecs) {
