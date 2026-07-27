@@ -320,8 +320,6 @@ int main(int argc, char *argv[]) {
       logfile = NULL;
    }
    debug_sockets = cfg_get_bool("debug.sockets", false);
-   event_on("log.message", rrclient_handle_log_event, NULL);
-   event_on("talk.msg", rrclient_handle_talk_msg_event, NULL);
 
    const char *cfg_debug_audio = cfg_get_exp("audio.debug");
    if (cfg_debug_audio) {
@@ -372,7 +370,7 @@ int main(int argc, char *argv[]) {
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
 
    ws_client_init();
-   connman_autoconnect();
+//   connman_autoconnect();
 
    if (ui_mode_gui) {
       // start gtk main loop

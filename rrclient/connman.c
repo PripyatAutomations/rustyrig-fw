@@ -55,17 +55,6 @@ extern const char *login_user;
 
 char session_token[HTTP_TOKEN_LEN+1] = {0};
 
-#if	0
-const char *get_server_property(const char *server, const char *prop) {
-    if (!server || !prop) {
-       return NULL;
-    }
-    char fullkey[1024];
-    snprintf(fullkey, sizeof(fullkey), "server:%s.%s", server, prop);
-    return cfg_get_exp(fullkey);
-}
-#endif
-
 static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
     (void)c;
     if (ev == MG_EV_WS_MSG) {
@@ -265,7 +254,6 @@ bool connection_remove(rr_connection_t *conn) {
    return false;
 }
 
-
 const char *get_server_property(const char *server, const char *prop) {
    if (!server || !prop) {
       Log(LOG_CRIT, "ws", "get_server_prop with null server:<%p> or prop:<%p>");
@@ -308,7 +296,7 @@ bool connect_server(const char *server) {
 
    if (url) {
 #if	defined(USE_GTK)
-      gtk_button_set_label(GTK_BUTTON(conn_button), "----------");
+      gtk_button_set_label(GTK_BUTTON(conn_button), "connecting");
 #endif	// defined(USE_GTK)
        ui_print("%s Connecting to %s", get_chat_ts(now), url);
 
