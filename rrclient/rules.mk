@@ -1,21 +1,13 @@
 rrclient := bin/rrclient
-
 bins += ${rrclient}
 
-rrclient_objs += cfg.network.o
-rrclient_objs += cli.cmd.o
-rrclient_objs += irc.servers.o
-rrclient_objs += m_privmsg.o
-
 rrclient_objs += audio.o
-rrclient_objs += chat.o
-rrclient_objs += chat.cmd.o
+rrclient_objs += chat.whois.o
+rrclient_objs += cfg.network.o
+rrclient_objs += commands.o
 rrclient_objs += connman.o
-rrclient_objs += connman-merge.o
 rrclient_objs += defconfig.o
 rrclient_objs += events.o
-
-# Eventually we will support a TUI as well as GTK...
 ifeq (${USE_GTK},true)
 rrclient_objs += gtk.core.o             # Support for a GTK user interface
 rrclient_objs += gtk.admin.o		# Admin tab
@@ -38,7 +30,10 @@ rrclient_objs += gtk.vol-box.o		# Volume widget
 rrclient_objs += gtk.winmgr.o		# window management
 endif
 
+rrclient_objs += irc.servers.o
+rrclient_objs += m_privmsg.o
 rrclient_objs += main.o			# main loop
+rrclient_objs += tui.input.o		# TUI input handling
 rrclient_objs += userlist.o
 rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
 rrclient_objs += ui.help.o		# help texts

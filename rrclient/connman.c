@@ -1,5 +1,5 @@
 //
-// src/rrclient/connman.c: Connection Manager
+// rrclient/connman.c: Connection Manager
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -8,8 +8,8 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // XXX: This needs finished to fully support multiple connections in one client
-// XXX: GTK bits should be shifted to modsrc/mod.ui.gtk3/gtk.server{editor,picker}.c
 //
+
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,13 +18,16 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <ev.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 #include <rrclient/userlist.h>
+#if	defined(USE_GTK)
 #include <mod.ui.gtk3/gtk.core.h>
+#endif
 
 // Server connections
 rr_connection_t *active_connections;
@@ -35,16 +38,185 @@ bool server_ptt_state = false;
 // XXX: this needs to go away and be replaced with http_find_servername(c)
 const char *server_name = NULL;
 const char *login_user = NULL;
-
 extern rr_connection_t *active_connections;
 extern dict *cfg;
+extern struct ev_loop *loop;
+extern bool dying;
+extern bool debug_sockets;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN+1];
 #if	defined(USE_MONGOOSE)
 struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
-#endif	// defined(USE_MONGOOSE)
+extern struct mg_connection *ws_conn;
+extern bool ws_connected;
+extern const char *login_user;
+
+char session_token[HTTP_TOKEN_LEN+1] = {0};
+
+#if	0
+const char *get_server_property(const char *server, const char *prop) {
+    if (!server || !prop) {
+       return NULL;
+    }
+    char fullkey[1024];
+    snprintf(fullkey, sizeof(fullkey), "server:%s.%s", server, prop);
+    return cfg_get_exp(fullkey);
+}
+#endif
+
+static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
+    (void)c;
+    if (ev == MG_EV_WS_MSG) {
+       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
+
+       if (msg && msg->data.buf) {
+          char buf[HTTP_WS_MAX_MSG+1];
+          memset(buf, 0, sizeof(buf));
+          memcpy(buf, msg->data.buf, msg->data.len);
+          dict *d = json2dict(buf);
+          if (!d) {
+             return;
+          }
+
+          char *cmd = dict_get(d, "talk.cmd", NULL);
+          char *pong_ts = dict_get(d, "pong.ts", NULL);
+          char *ping_ts = dict_get(d, "ping.ts", NULL);
+
+          if (ping_ts) {
+             const char *jp = dict2json_mkstr(VAL_STR, "type", "pong", VAL_ULONG, "ts", atol(ping_ts));
+             mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+             free((void *)jp);
+          } else if (pong_ts) {
+             Log(LOG_CRAZY, "pong", "Received pong ts:%s", pong_ts);
+          } else if (cmd && strcasecmp(cmd, "msg") == 0) {
+             char *from = dict_get(d, "talk.from", NULL);
+             char *data = dict_get(d, "talk.data", NULL);
+             char *msg_type = dict_get(d, "talk.msg_type", NULL);
+             char *target = dict_get(d, "talk.target", NULL);
+             time_t ts = dict_get_time_t(d, "talk.ts", now);
+
+             if (from && data) {
+                struct talk_msg_event_data {
+                   char from[128];
+                   char data[4096];
+                   char target[128];
+                   char msg_type[32];
+                   time_t ts;
+                } *tmed = calloc(1, sizeof(*tmed));
+                if (tmed) {
+                   snprintf(tmed->from, sizeof(tmed->from), "%s", from);
+                   snprintf(tmed->data, sizeof(tmed->data), "%s", data);
+                   snprintf(tmed->target, sizeof(tmed->target), "%s", target ? target : "");
+                   snprintf(tmed->msg_type, sizeof(tmed->msg_type), "%s", msg_type ? msg_type : "pub");
+                   tmed->ts = ts;
+                   event_emit("talk.msg", NULL, tmed);
+                   free(tmed);
+                }
+             }
+          } else if (dict_get(d, "hello", NULL)) {
+             Log(LOG_DEBUG, "ws", "Got hello from server");
+          } else if (dict_get(d, "auth.cmd", NULL)) {
+             Log(LOG_DEBUG, "ws", "Got auth message");
+          }
+
+          dict_free(d);
+       }
+    } else if (ev == MG_EV_WS_OPEN) {
+       ws_connected = true;
+       event_emit("connected", NULL, NULL);
+       tui_print_win(tui_window_find("status"), "Connected to server");
+
+       login_user = cfg_get_exp("server.user");
+       if (login_user) {
+          const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient");
+          mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+          free((void *)jp);
+
+          jp = dict2json_mkstr(VAL_STR, "auth.cmd", "login", VAL_STR, "auth.user", login_user);
+          mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+          free((void *)jp);
+       }
+    } else if (ev == MG_EV_CLOSE) {
+       ws_connected = false;
+       event_emit("disconnected", NULL, NULL);
+       tui_print_win(tui_window_find("status"), "Disconnected from server");
+    }
+}
+
+bool rrclient_connect(const char *url) {
+    if (!url) {
+       return true;
+    }
+
+    tui_print_win(tui_window_find("status"), "Connecting to %s", url);
+    ws_conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
+
+    if (!ws_conn) {
+       tui_print_win(tui_window_find("status"), "Connection failed");
+       return true;
+    }
+    return false;
+}
+
+bool rrclient_send_chat(const char *data) {
+    if (!ws_conn || !data) {
+       return true;
+    }
+    const char *jp = dict2json_mkstr(
+       VAL_STR, "talk.cmd", "msg",
+       VAL_STR, "talk.data", data,
+       VAL_STR, "talk.msg_type", "pub");
+
+    if (!jp) {
+       return true;
+    }
+
+    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+    free((void *)jp);
+    return false;
+}
+
+bool rrclient_send(const char *json) {
+    if (!ws_conn || !json) {
+       return true;
+    }
+    mg_ws_send(ws_conn, json, strlen(json), WEBSOCKET_OP_TEXT);
+    return false;
+}
+
+bool rrclient_disconnect(void) {
+    if (ws_conn) {
+       ws_conn->is_closing = 1;
+       ws_conn = NULL;
+    }
+    ws_connected = false;
+    return false;
+}
+
+void rrclient_poll_events(void) {
+    mg_mgr_poll(&mgr, 0);
+}
+#endif
+
+bool rrclient_autoconnect(void) {
+    const char *server = cfg_get_exp("server.auto-connect");
+    if (server) {
+       char server_name[256];
+       snprintf(server_name, sizeof(server_name), "%s", server);
+       free((void *)server);
+
+       char fullkey[1024];
+       snprintf(fullkey, sizeof(fullkey), "server:%s.server.url", server_name);
+       const char *url = cfg_get_exp(fullkey);
+       if (url) {
+          rrclient_connect(url);
+          free((void *)url);
+       }
+    }
+    return false;
+}
 
 rr_connection_t *connection_find(const char *server) {
    if (!server) {
@@ -120,8 +292,6 @@ bool disconnect_server(const char *server) {
 #endif	// defined(USE_MONGOOSE)
       ws_connected = false;
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
-      // XXX: im not sure this is acceptable
-//      ws_conn = NULL;
       userlist_clear_all();
    }
    return false;
@@ -137,7 +307,6 @@ bool connect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", server, url);
 
    if (url) {
-// XXX:
 #if	defined(USE_GTK)
       gtk_button_set_label(GTK_BUTTON(conn_button), "----------");
 #endif	// defined(USE_GTK)
@@ -177,6 +346,10 @@ void connman_autoconnect(void) {
 
    if (autoconnect) {
       char *tv = strdup(autoconnect);
+
+      if (!tv) {
+         abort();
+      }
       // Split this on ',' and connect to allow configured servers
       char *sp = strtok(tv, ",");
       while (sp) {

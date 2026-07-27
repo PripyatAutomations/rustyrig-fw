@@ -16,18 +16,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 
 #if	defined(USE_GTK)
 #include <gtk/gtk.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #endif
 
+extern bool ui_mode_gui;	// main.c
 enum GuiMode {
   GUI_MODE_TUI = 0,
   GUI_MODE_GTK
@@ -47,7 +44,7 @@ bool ui_print(const char *fmt, ...) {
    va_end(ap);
 
 #if	defined(USE_GTK)
-   if (cfg_use_gtk) {
+   if (ui_mode_gui) {
       ui_print_gtk(outbuf);
    }
 #endif

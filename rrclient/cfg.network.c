@@ -1,3 +1,10 @@
+// rrclient/cfg.network.c: [network] config block parser
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,16 +19,31 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
 #include <ev.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#define MAX_WINDOWS     32
+#define INPUT_HISTORY_MAX 64
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <windows.h>
+#endif
+#include <rrclient/ui.h>
+#include <rrclient/connman.h>
+
+extern bool ui_mode_gui;
 
 extern bool add_server(const char *network, const char *str);
 
 // Callback for the config parser for 'network:*' section
 bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
    char *np = strchr(section, ':');
-//   tui_print_win(tui_active_window(), "np: %s section: %s, path: %s, buf: %s", np + 1, section, path, buf);
+   if (ui_mode_gui) {
+      ui_print("np: %s section: %s, path: %s, buf: %s", np + 1, section, path, buf);
+   } else {
+      tui_print_win(tui_active_window(), "np: %s section: %s, path: %s, buf: %s", np + 1, section, path, buf);
+   }
 
    if (np) {
       np++;
@@ -44,7 +66,11 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
             val++;
          }
 
-//         tui_print_win(tui_active_window(), "np: %s buf: %s val: %s", np, buf, val);
+         if (ui_mode_gui) {
+            ui_print("np: %s buf: %s val: %s", np, buf, val);
+         } else {
+            tui_print_win(tui_active_window(), "np: %s buf: %s val: %s", np, buf, val);
+         }
 
          if (strlen(val) < 2) {
             Log(LOG_CRIT, "irc", "config error: autojoin invalid: %s", buf);

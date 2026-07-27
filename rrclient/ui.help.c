@@ -18,9 +18,6 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include "mod.ui.gtk3/gtk.core.h"
 
 
@@ -73,7 +70,7 @@ char *help_main[] = {
      NULL
 };
 
-void show_help(const char *topic) {
+void gui_show_help(const char *topic) {
   if (!topic) {
      int i = 0;
      while (help_main[i]) {

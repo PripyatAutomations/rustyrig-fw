@@ -1,3 +1,13 @@
+//
+// rrclient/defconfig.c: Here we store the hard-coded default configuration
+//                    which is used for keys missing in the user's config
+//
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -10,14 +20,14 @@
 #include <librrprotocol/rrprotocol.h>
 
 const char *configs[] = { 
-#ifndef _WIN32
+#ifdef _WIN32
+   "%APPDATA%\\rrclient\\rrclient.cfg",
+   ".\\rrclient.cfg"
+#else
    "./config/rrclient.cfg",
    "~/.config/rrclient.cfg",
    "~/.rrclient.cfg",
    "/etc/rrclient.cfg"
-#else
-   "%APPDATA%\\rrclient\\rrclient.cfg",
-   ".\\rrclient.cfg"
 #endif
 };
 
@@ -50,11 +60,11 @@ defconfig_t defcfg[] = {
    { "rig0.volume.rx",			"50",	"rig0: Speaker volume" },
 //   { "server.auto-connect",		NULL,	"Profile name to autoconnect on start" },
 #ifdef _WIN32
-   { "ui.gtk.theme",        "Windows10", "Chosen light theme" },
-   { "ui.gtk.theme.dark",   "Windows10-Dark", "Chosen dark theme" },
+   { "ui.gtk.theme",        		"Windows10", "Chosen light theme" },
+   { "ui.gtk.theme.dark",   		"Windows10-Dark", "Chosen dark theme" },
 #else
-   { "ui.gtk.theme",        NULL, 	"Chosen light theme" },
-   { "ui.gtk.theme.dark",   NULL,   "Chosen dark theme" },
+   { "ui.gtk.theme",     	  	NULL, 	"Chosen light theme" },
+   { "ui.gtk.theme.dark",		NULL,   "Chosen dark theme" },
 #endif
    { "ui.show-pings",			"true", "Show Ping? Pong! notices" },
    { NULL,				NULL, 		NULL }

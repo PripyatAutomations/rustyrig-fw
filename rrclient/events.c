@@ -1,6 +1,12 @@
 //
 // rrclient/events.c: GTK-side event listeners for shared protocol events
+// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -192,15 +198,15 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, irc_co
 
 void rrclient_register_events(void) {
     event_on("connected", rrclient_handle_connection_event, NULL);
-    event_on("error", rrclient_handle_connection_event, NULL);
     event_on("disconnected", rrclient_handle_connection_event, NULL);
-    event_on("http.rig.ptt", rrclient_handle_ptt_event, NULL);
-    event_on("http.rig.freq", rrclient_handle_freq_event, NULL);
-    event_on("http.rig.mode", rrclient_handle_mode_event, NULL);
-    event_on("http.userinfo", rrclient_handle_userinfo_event, NULL);
-    event_on("http.userjoin", rrclient_handle_userjoin_event, NULL);
-    event_on("http.userquit", rrclient_handle_userquit_event, NULL);
-    event_on("http.whois", rrclient_handle_whois_event, NULL);
-    event_on("log.message", rrclient_handle_log_event, NULL);
-    event_on("talk.msg", rrclient_handle_talk_msg_event, NULL);
+    event_on("error", rrclient_handle_connection_event, NULL);
+    event_on("join", rrclient_handle_userjoin_event, NULL);
+    event_on("log", rrclient_handle_log_event, NULL);
+    event_on("privmsg", rrclient_handle_talk_msg_event, NULL);
+    event_on("quit", rrclient_handle_userquit_event, NULL);
+    event_on("rig.ptt", rrclient_handle_ptt_event, NULL);
+    event_on("rig.freq", rrclient_handle_freq_event, NULL);
+    event_on("rig.mode", rrclient_handle_mode_event, NULL);
+    event_on("userinfo", rrclient_handle_userinfo_event, NULL);
+    event_on("whois", rrclient_handle_whois_event, NULL);
 }

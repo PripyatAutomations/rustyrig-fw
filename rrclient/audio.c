@@ -32,15 +32,14 @@
 #include <stdbool.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
+#include <librrprotocol/codecneg.h>
+#if	defined(USE_GTK)
 #include <gtk/gtk.h>
+#include <mod.ui.gtk3/gtk.core.h>
+#endif
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
-#include <librrprotocol/codecneg.h>
-#include <mod.ui.gtk3/gtk.core.h>
 #include <rrclient/audio.h>
 
 extern dict *cfg;		// main.c

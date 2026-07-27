@@ -1,12 +1,6 @@
 *.o
 *.so
 *.dll
-firmware.log
-irc-test.log
-rrgtk.log
-rrserver.log
-testbuild.log
-
 */compile_commands.json
 */*/compile_commands.json
 audit-logs/*
@@ -34,6 +28,5 @@ librustyaxe/*.dll
 run/*
 run/*/*
 recordings/*
-rrcli.log
-rrgtk.log
 rrserver.log
+rrclient.log

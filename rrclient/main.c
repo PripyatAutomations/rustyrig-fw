@@ -1,5 +1,5 @@
 //
-// src/rrclient/main.c: Core of the client
+// rrclient/main.c: Core of the client
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -7,6 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
+#include <getopt.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -46,7 +47,7 @@ extern struct mg_mgr mgr;
 
 extern const char *configs[]; // from defcfg.c
 extern const int num_configs;
-extern char *config_file;       // from defconfig.c
+extern char *config_file;
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
 extern void rrclient_register_events(void);
@@ -91,12 +92,12 @@ void shutdown_app(int signum) {
 ////////////////////////////////////
 // For polling mongoose from glib //
 ////////////////////////////////////
-static gboolean poll_mongoose(gpointer user_data) {
 #if	defined(USE_MONGOOSE)
+static gboolean poll_mongoose(gpointer user_data) {
    mg_mgr_poll(&mgr, 0);
-#endif	// defined(USE_MONGOOSE)
    return G_SOURCE_CONTINUE;
 }
+#endif	// defined(USE_MONGOOSE)
 
 ////////////////////////////////////////////////////////////////////
 // 1hz periodic: Check if dying and shutdown, update now variable //
@@ -203,17 +204,75 @@ bool rrclient_cleanup(void) {
     return false;
 }
 
+void show_help(int argc, char **argv) {
+   printf("%s [-T] [-c config] [-h]\n", argv[0]);
+   printf("\t-T\t\tTUI only mode (no X11)\n");
+   printf("\t-c config\tChose an alternative configuration file\n");
+   printf("\t-h\t\tHelp\n");
+}
+
+////////////////////////////
 int main(int argc, char *argv[]) {
+   char *display = getenv("DISPLAY");
    char *fullpath = NULL;       
    loop = EV_DEFAULT;
+   int c;
+   int digit_optind = 0;
+
 
    // Set a time stamp so logging will work
    now = time(NULL);
    update_timestamp();
 
+   // Let's do commandline parsing here
+   // -T: Always force TUI (no X11)
+   while (1) {
+       int this_option_optind = optind ? optind : 1;
+       int option_index = 0;
+       static struct option long_options[] = {
+           {"config",  required_argument, 0,  'c'},
+           {"tui",     no_argument,       0,  'T' },
+           {"help",    no_argument,       0,  'h' },
+           {0,         0,                 0,   0 }
+       };
+
+       c = getopt_long(argc, argv, "Thc:021", long_options, &option_index);
+
+       if (c == -1)
+           break;
+
+       switch (c) {
+       case 'c':
+           printf("Using config file: %s\n", optarg);
+           config_file = strdup(optarg);
+           break;
+
+       case 'h':
+           show_help(argc, argv);
+           exit(0);
+           break;
+
+       case 'T':
+           ui_mode_gui = false;
+           break;
+
+       case '?':
+           break;
+
+       default:
+           printf("?? getopt returned character code 0%o ??\n", c);
+       }
+   }
+
+   if (optind < argc) {
+       printf("non-option ARGV-elements: ");
+       while (optind < argc)
+           printf("%s ", argv[optind++]);
+       printf("\n");
+   }
+
    event_init();
    host_init();
-   char *display = getenv("DISPLAY");
 
    if (!display) {
       ui_mode_gui = false;
@@ -226,6 +285,8 @@ int main(int argc, char *argv[]) {
       if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
+      free(config_file);
+      config_file = NULL;
    } else if ((fullpath =  find_file_by_list(configs, num_configs))) {
       config_file = strdup(fullpath);
       if (!(cfg = cfg_load(fullpath))) {
@@ -286,7 +347,10 @@ int main(int argc, char *argv[]) {
 #if	defined(USE_GTK)
    } else {
       g_timeout_add(1000, update_now, NULL);   // 1hz periodic timer
+
+#if	defined(USE_MONGOOSE)
       g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
+#endif	// defined(USE_MONGOOSE)
       gtk_init(&argc, &argv);
 #ifdef _WIN32
       // Disable edit mode in the console, so copy/paste is more usable
@@ -300,14 +364,15 @@ int main(int argc, char *argv[]) {
    }
 
    alert_dialogs_init();
+
+   // Register all of our core event handlers
    rrclient_register_events();
 
    // How long to suppress hamlib/etc polling during CAT control?  
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
 
    ws_client_init();
-//   connman_autoconnect();
-//   rrclient_autoconnect();
+   connman_autoconnect();
 
    if (ui_mode_gui) {
       // start gtk main loop

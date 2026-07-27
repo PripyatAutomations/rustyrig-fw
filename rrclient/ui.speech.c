@@ -18,9 +18,6 @@
 #include <atk/atk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <rrclient/userlist.h>
 #include <rrclient/ui.speech.h>
 

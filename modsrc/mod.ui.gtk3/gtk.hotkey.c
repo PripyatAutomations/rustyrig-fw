@@ -103,7 +103,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
          case GDK_KEY_H:
          case GDK_KEY_h: {
-            show_help("keybindings.hlp");
+            gui_show_help("keybindings.hlp");
             break;
          }
          case GDK_KEY_P:

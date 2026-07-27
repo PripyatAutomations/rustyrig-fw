@@ -28,9 +28,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-// http ui support
 #if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
 struct mg_mgr mg_mgr;
 #endif
 
