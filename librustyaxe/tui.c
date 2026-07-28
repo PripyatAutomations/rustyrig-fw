@@ -18,7 +18,7 @@
 #include <sys/ioctl.h>
 #include <stdbool.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
+#include <librrprotocol/rrprotocol.h>
 
 ev_io stdin_watcher;
 void stdin_ev_cb(EV_P_ ev_io *w, int revents);

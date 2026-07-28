@@ -9,7 +9,6 @@
 /*
  * Deal with things related to the VFO, such as reconfiguring DDS(es)
  */
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,7 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
-//#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
 rr_vfo_data_t vfos[MAX_VFOS];

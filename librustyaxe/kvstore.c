@@ -1,11 +1,11 @@
 //
-// Test of faster storage type 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
-#include <librustyaxe/kvstore.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 // ---------------- helpers ----------------
 static uint16_t prefix_index_key(const char *key) {

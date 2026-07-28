@@ -16,8 +16,6 @@
  *
  * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
-#include "build_config.h"
-#include <librustyaxe/config.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -26,10 +24,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include "../ext/libmongoose/mongoose.h"
-#include <librustyaxe/logger.h>
-#include <librustyaxe/cat.h>
-#include <librustyaxe/cat.yaesu.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 #if	defined(CAT_YAESU)
 // Function stubs for all FT-891 CAT commands

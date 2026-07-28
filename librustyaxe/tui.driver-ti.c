@@ -1,5 +1,7 @@
 // we want strdup()
 #define _XOPEN_SOURCE 600
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 #include <librustyaxe/termkey.h>
 #include <librustyaxe/termkey-internal.h>

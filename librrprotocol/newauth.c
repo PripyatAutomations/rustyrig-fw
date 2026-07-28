@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/core.h>
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -18,7 +17,7 @@
 #include <string.h>
 #include <limits.h>
 #include <arpa/inet.h>
-#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern struct GlobalState rig;	// Global state

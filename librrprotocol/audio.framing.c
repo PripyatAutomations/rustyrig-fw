@@ -7,7 +7,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -27,7 +26,7 @@
 #include <errno.h>
 // XXX: We probably need to wrap htons/ntohs for use with win64, confirm this soon
 #include <arpa/inet.h>
-//#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
 struct au_shm_ctx {

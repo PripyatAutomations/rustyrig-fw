@@ -1,4 +1,3 @@
-#include <librustyaxe/core.h>
 #include <signal.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -9,6 +8,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 int pidfd = -1;
 const char *pidfile = NULL;

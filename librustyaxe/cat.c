@@ -26,9 +26,6 @@
  *
  * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
  */
-#include "build_config.h"
-#include <librustyaxe/config.h>
-#include "../ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -36,8 +33,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/cat.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 static CATCommand *cat_commands = NULL;
 

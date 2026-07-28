@@ -19,8 +19,6 @@
 #include <librrprotocol/rrprotocol.h>
 
 #if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-
 extern dict *cfg;		// config.c
 extern time_t now;
 

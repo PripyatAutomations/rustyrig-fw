@@ -12,8 +12,9 @@
 #include <ctype.h>
 #include <time.h>
 #include <netdb.h>
-#include <librustyaxe/core.h>
 #include <ev.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 void irc_io_cb(EV_P_ ev_io *w, int revents);
 

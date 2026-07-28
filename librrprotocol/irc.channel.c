@@ -2,6 +2,7 @@
 // Channel handling
 //
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 unsigned irc_hash_nick(const char *nick) {
    unsigned h = 5381;

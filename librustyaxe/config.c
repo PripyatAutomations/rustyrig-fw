@@ -7,11 +7,8 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include <librustyaxe/dict.h>
-#include <librustyaxe/config.h>
-#include <librustyaxe/logger.h>
-#include <librustyaxe/util.file.h>
-#include <librustyaxe/posix.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern defconfig_t defcfg[];
 

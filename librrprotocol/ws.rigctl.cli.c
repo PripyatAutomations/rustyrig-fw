@@ -17,9 +17,6 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 
 extern time_t poll_block_expire, poll_block_delay;
 extern dict *cfg;		// config.c

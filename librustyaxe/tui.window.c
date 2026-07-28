@@ -17,7 +17,7 @@
 #include <sys/ioctl.h>
 #include <stdbool.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
+#include <librrprotocol/rrprotocol.h>
 
 // Private state
 static tui_window_t *tui_windows[TUI_MAX_WINDOWS];

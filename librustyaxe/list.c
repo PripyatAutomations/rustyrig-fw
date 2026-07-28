@@ -1,4 +1,6 @@
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+
 rrlist_t *rrlist_find_by_ptr(rrlist_t *list, void *ptr) {
    if (!list || !ptr) {
       return NULL;

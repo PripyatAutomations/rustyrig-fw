@@ -15,9 +15,8 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
-#include <rrserver/backend.h>
-#include <rrserver/database.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/backend.h>
 
 bool rr_set_width(rr_vfo_t vfo, const char *width) {
    (void)vfo;

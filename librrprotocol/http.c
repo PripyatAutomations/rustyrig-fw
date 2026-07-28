@@ -20,7 +20,6 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include "ext/libmongoose/mongoose.h"
 
 #if	defined(HOST_POSIX)
 #define	HTTP_MAX_ROUTES	64

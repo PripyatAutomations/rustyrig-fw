@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 const char *site_id = "RPLYWVCL31";
 const char *rig_id = "ft891";

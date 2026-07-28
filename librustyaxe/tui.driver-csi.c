@@ -1,8 +1,10 @@
+#include <stdio.h>
+#include <string.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/termkey.h>
 #include <librustyaxe/termkey-internal.h>
 
-#include <stdio.h>
-#include <string.h>
 
 // There are 64 codes 0x40 - 0x7F
 static int keyinfo_initialised = 0;

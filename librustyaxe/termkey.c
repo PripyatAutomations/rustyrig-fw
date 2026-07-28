@@ -1,5 +1,3 @@
-#include <librustyaxe/termkey.h>
-#include <librustyaxe/termkey-internal.h>
 
 #include <ctype.h>
 #include <errno.h>
@@ -11,6 +9,10 @@
 #include <string.h>
 
 #include <stdio.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#include <librustyaxe/termkey.h>
+#include <librustyaxe/termkey-internal.h>
 
 #ifdef _MSC_VER
 # define strcaseeq(a,b) (_stricmp(a,b) == 0)

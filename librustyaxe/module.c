@@ -24,6 +24,7 @@
 #include <dlfcn.h>
 #include <limits.h>
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 //
 // Here we deal with loading and unloading modules

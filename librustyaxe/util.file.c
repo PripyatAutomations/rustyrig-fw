@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,12 +18,12 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <librustyaxe/posix.h>
-#include <librustyaxe/logger.h>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 bool file_exists(const char *path) {
 // Support for posix hosts

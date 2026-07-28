@@ -8,6 +8,8 @@
 #include <string.h>
 #include <math.h>
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+
 #define RADIUS_EARTH 6371.0 // Earth's radius in kilometers
 
 double rad2deg(double rad) {

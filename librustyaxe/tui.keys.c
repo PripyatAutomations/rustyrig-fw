@@ -16,12 +16,11 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <stdbool.h>
-#include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
-#include <librustyaxe/termkey.h>
 #include <termios.h>
 #include <unistd.h>
-
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#include <librustyaxe/termkey.h>
 extern int tui_window_swap(int c, int key);
 extern int handle_alt_left(int c, int key);
 extern int handle_alt_right(int c, int key);

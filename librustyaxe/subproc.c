@@ -22,6 +22,7 @@
 //#include <termbox2/termbox2.h>
 #include <ev.h>
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 //extern TextArea *msgbox;
 //extern int y;			// from ui.c

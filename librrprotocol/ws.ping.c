@@ -7,7 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,11 +15,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "ext/libmongoose/mongoose.h"
-//#include "rrclient/ws.h"
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
-//extern dict *cfg;		// config.c
-//extern bool cfg_show_pings;
+extern dict *cfg;		// config.c
+extern bool cfg_show_pings;
 
 #if	defined(USE_MONGOOSE)
 bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
@@ -49,9 +48,9 @@ bool ws_handle_ping_msg(struct mg_connection *c, dict *d) {
       Log(LOG_WARN, "ws.ping", "*** Empty ping?? ***");
    }
 
-//   if (cfg_show_pings) {
-//      Log(LOG_DENUG, "* Ping? Pong! %lu *", ping_ts);
-//   }
+   if (cfg_show_pings) {
+      Log(LOG_DEBUG, "ws.ping", "* Ping? Pong! %lld *", ping_ts);
+   }
 
    return false;
 }

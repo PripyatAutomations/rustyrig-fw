@@ -16,14 +16,11 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <rrserver/backend.h>
-#include <rrserver/database.h>
 
-sqlite3 *masterdb = NULL;
-
+// XXX: Move this to rrserver's event handler for chat.msg
+//sqlite3 *masterdb = NULL;
+/*
 bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type, const char *msg_data) {
    (void)db;
    (void)msg_ts;
@@ -33,6 +30,7 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
    (void)msg_data;
    return false;
 }
+*/
 
 // minimum reason length for kick/ban/etc
 #define	CHAT_MIN_REASON_LEN	10
@@ -574,10 +572,11 @@ bool ws_handle_chat_msg(struct mg_connection *c, dict *d) {
 // XXX: readd
                   // Log to database, if configured
                   if (cfg_get_bool("chat.log", false)) {
-                     bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
-                     if (!db_res) {
-                        fprintf(stderr, "db_add_chat_msg failed\n");
-                     }
+// XXX: move this to rrserver chat.mgs handler
+//                     bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
+//                     if (!db_res) {
+//                        fprintf(stderr, "db_add_chat_msg failed\n");
+//                     }
                   }
 
                   const char *jp = dict2json_mkstr(

@@ -1,12 +1,13 @@
 /*
  * A reusable implementation of a ring buffer with timestamps for FIFO usage
  */
-#include <librustyaxe/core.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 #include <errno.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 rb_buffer_t *rb_create(int max_size, const char *name) {
    rb_buffer_t *buffer = malloc(sizeof(rb_buffer_t));

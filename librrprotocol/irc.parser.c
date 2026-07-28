@@ -10,7 +10,6 @@
 // Socket backend for io subsys
 //
 //#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,6 +18,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 extern const irc_command_t irc_commands[];
 

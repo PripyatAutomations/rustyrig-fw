@@ -8,6 +8,7 @@
 #define	__librustyaxe_core_h
 #include <stdbool.h>
 #include <stdint.h>
+#include "build_config.h"
 #include <librustyaxe/cat.h>
 //#include <librustyaxe/event-bus.h>
 //#include <librustyaxe/subproc.h>

@@ -1,7 +1,6 @@
 //
 // Stuff strictly related to IRC server
 //
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -14,8 +13,9 @@
 #include <ctype.h>
 #include <time.h>
 #include <netdb.h>
-#include <librustyaxe/core.h>
 #include <ev.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 // Recompose IRC message from irc_message_t
 void irc_build_message(const irc_message_t *mp, char *msg, size_t msglen) {

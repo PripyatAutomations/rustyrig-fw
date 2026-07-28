@@ -5,6 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 int generate_nonce(char *buffer, size_t length) {
    if (!buffer || length <= 0) {

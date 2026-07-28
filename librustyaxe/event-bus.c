@@ -1,12 +1,10 @@
 //
 // event-bus.c: Here we implement a way to hook various events by name
-#include <librustyaxe/core.h>
-#include <librustyaxe/kvstore.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <librustyaxe/kvstore.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 static kv_store_t *event_store = NULL;
 

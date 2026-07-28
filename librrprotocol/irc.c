@@ -9,7 +9,6 @@
 //
 // Socket backend for io subsys
 //
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,6 +17,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 bool irc_init(void) {
    // XXX: These need to go into the irc_init() or irc_client_init/irc_server_init functions as appropriate!

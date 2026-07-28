@@ -1,5 +1,7 @@
 #include <stdbool.h>
 #include <time.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 __attribute__((weak)) const char *server_name = NULL;
 __attribute__((weak)) bool ws_connected = false;

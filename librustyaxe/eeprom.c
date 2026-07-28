@@ -13,13 +13,7 @@
  * We support the following:
  *	mmaping a file on posix hosts
  *	memory mapped eeprom/flash devices with direct reading/writing
- *	i2c connected parts
  */
-#include <librustyaxe/core.h>
-#include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -29,6 +23,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 // support for file-backed emulated eeproms
 #if	defined(HOST_POSIX)
@@ -43,9 +39,6 @@
 #if	defined(HOST_STM32)
 //
 #endif
-
-#include <librrprotocol/rrprotocol.h>
-#include <rrserver/i2c.h>
 
 #define	EEPROM_C		// Let the header know we're in the C file
 #include "eeprom_layout.h"		// in $builddir/ and contains offset/size/type data

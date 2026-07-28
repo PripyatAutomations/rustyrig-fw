@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,10 +15,8 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
 
 extern struct GlobalState rig;	// Global state
 extern time_t now;

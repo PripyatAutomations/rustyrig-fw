@@ -6,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/config.h>
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -20,7 +19,8 @@
 #include <errno.h>
 #include <math.h>
 #include <ctype.h>
-#include <librustyaxe/util.math.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 float safe_atof(const char *s) {
     if (!s || !*s) {

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 bool irc_builtin_error_cb(irc_conn_t *cptr, irc_message_t *mp) {
    Log(LOG_CRIT, "irc", "[%s] Got ERROR from server: |%s|", irc_name(cptr), (mp->argv[1] ? mp->argv[1] : "(null)"));
