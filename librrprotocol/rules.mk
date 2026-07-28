@@ -49,10 +49,11 @@ librrprotocol_src = $(wildcard librrprotocol/*.c)
 real_librrprotocol_objs := $(foreach x, ${librrprotocol_objs}, ${BUILD_DIR}/librrprotocol/${x})
 ${librrprotocol_src}: GNUmakefile ${librrprotocol_headers} librrprotocol/rules.mk
 
-librrprotocol-pre:
+${BUILD_DIR}/librrprotocol/.timestamp:
 	mkdir -p ${BUILD_DIR}/librrprotocol/
+	@touch ${BUILD_DIR}/librrprotocol/.timestamp
 
-${librrprotocol}: librrprotocol-pre ${real_librrprotocol_objs} ${librrprotocol_headers} GNUmakefile librrprotocol/rules.mk
+${librrprotocol}: ${BUILD_DIR}/librrprotocol/.timestamp GNUmakefile librrprotocol/rules.mk ${real_librrprotocol_objs} ${librrprotocol_headers} 
 	@echo "[link] $@ from $(words ${real_librrprotocol_objs}) objects"
 	@${CC} ${LDFLAGS} -lm -fPIC -shared -o $@ ${real_librrprotocol_objs} || exit 2
 

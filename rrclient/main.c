@@ -107,7 +107,11 @@ static gboolean update_now(gpointer user_data) {
 
    if (dying) {
       // we should handle local shutdown here
-      gtk_main_quit();
+#if	defined(USE_GTK)
+      if (ui_mode_gui) {
+         gtk_main_quit();
+      }
+#endif
       return G_SOURCE_REMOVE;  // remove this timeout
    }
    return G_SOURCE_CONTINUE;

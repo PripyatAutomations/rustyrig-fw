@@ -48,10 +48,11 @@ libs += ${librustyaxe}
 
 ${librustyaxe_src}: GNUmakefile ${librustyaxe_headers}
 
-librustyaxe-pre:
+${BUILD_DIR}/librustyaxe/.timestamp:
 	mkdir -p ${BUILD_DIR}/librustyaxe
+	@touch ${BUILD_DIR}/librustyaxe/.timestamp
 
-${librustyaxe}: librustyaxe-pre ${real_librustyaxe_objs} ${librustyaxe_headers} GNUmakefile
+${librustyaxe}: ${BUILD_DIR}/librustyaxe/.timestamp ${real_librustyaxe_objs} ${librustyaxe_headers} GNUmakefile
 	@${RM} -f $@
 	@echo "[link] $@ from $(words ${real_librustyaxe_objs}) objects"
 	@${CC} -fPIC -shared -o $@ ${real_librustyaxe_objs}  -lm -lev -ltinfo ${LDFLAGS}|| exit 2
