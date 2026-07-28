@@ -1,5 +1,6 @@
 Immediate needs
 ---------------
+*: Merge USE_* and FEATURE_*
 rrcli: in websocket protocol, chat should automatically open in window #2 since only one room (for now)
 irc: IRC protocol will be used to link sites, with large messages enabled (16k)
 www: Fix userlist to show all users not just self + users joined later
