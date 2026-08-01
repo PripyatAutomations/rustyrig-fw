@@ -36,18 +36,43 @@ static void rrclient_display_log_message(const char *msg) {
     g_idle_add(ui_scroll_to_end, log_view);
 }
 
+static void rrclient_update_connection_ui(bool connected) {
+#if defined(USE_GTK)
+   if (!conn_button) {
+      return;
+   }
+
+   update_connection_button(connected, conn_button);
+
+   GtkStyleContext *ctx = gtk_widget_get_style_context(GTK_WIDGET(conn_button));
+   if (!ctx) {
+      return;
+   }
+
+   if (connected) {
+      gtk_style_context_add_class(ctx, "ptt-active");
+      gtk_style_context_remove_class(ctx, "ptt-idle");
+   } else {
+      gtk_style_context_remove_class(ctx, "ptt-active");
+      gtk_style_context_add_class(ctx, "ptt-idle");
+   }
+#else
+   (void)connected;
+#endif
+}
+
 static void rrclient_handle_connection_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)data;
 
-   if (strcmp(event, "http.connected") == 0) {
+   if (strcmp(event, "http.connected") == 0 || strcmp(event, "connected") == 0) {
       // XXX: Here we need to set login_user
-      update_connection_button(true, conn_button);
-   } else if (strcmp(event, "http.disconnected") == 0) {
+      rrclient_update_connection_ui(true);
+   } else if (strcmp(event, "http.disconnected") == 0 || strcmp(event, "disconnected") == 0) {
       login_user = NULL;
-      update_connection_button(false, conn_button);
-   } else if (strcmp(event, "http.error") == 0) {
+      rrclient_update_connection_ui(false);
+   } else if (strcmp(event, "http.error") == 0 || strcmp(event, "error") == 0) {
       ui_print("{red}* http error *{reset}");
    }
 }
@@ -197,16 +222,28 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, irc_co
 }
 
 void rrclient_register_events(void) {
+    event_on("http.connected", rrclient_handle_connection_event, NULL);
+    event_on("http.disconnected", rrclient_handle_connection_event, NULL);
+    event_on("http.error", rrclient_handle_connection_event, NULL);
     event_on("connected", rrclient_handle_connection_event, NULL);
     event_on("disconnected", rrclient_handle_connection_event, NULL);
     event_on("error", rrclient_handle_connection_event, NULL);
+
+    event_on("http.userjoin", rrclient_handle_userjoin_event, NULL);
+    event_on("http.userquit", rrclient_handle_userquit_event, NULL);
+    event_on("http.userinfo", rrclient_handle_userinfo_event, NULL);
+    event_on("http.whois", rrclient_handle_whois_event, NULL);
+
     event_on("join", rrclient_handle_userjoin_event, NULL);
-    event_on("log", rrclient_handle_log_event, NULL);
-    event_on("privmsg", rrclient_handle_talk_msg_event, NULL);
     event_on("quit", rrclient_handle_userquit_event, NULL);
+    event_on("userinfo", rrclient_handle_userinfo_event, NULL);
+    event_on("whois", rrclient_handle_whois_event, NULL);
+
+    event_on("log", rrclient_handle_log_event, NULL);
+    event_on("talk.msg", rrclient_handle_talk_msg_event, NULL);
+    event_on("privmsg", rrclient_handle_talk_msg_event, NULL);
+
     event_on("rig.ptt", rrclient_handle_ptt_event, NULL);
     event_on("rig.freq", rrclient_handle_freq_event, NULL);
     event_on("rig.mode", rrclient_handle_mode_event, NULL);
-    event_on("userinfo", rrclient_handle_userinfo_event, NULL);
-    event_on("whois", rrclient_handle_whois_event, NULL);
 }

@@ -6,11 +6,6 @@ librrprotocol_objs += auth.o
 #librrprotocol_objs += auth.hash.o
 librrprotocol_objs += codecneg.o
 librrprotocol_objs += http.o
-librrprotocol_objs += http.api.o
-librrprotocol_objs += http.bans.o
-# Disabled, need to figure out and merge these with the bits from auth*
-#librrprotocol_objs += newauth.o
-#librrprotocol_objs += is.o
 librrprotocol_objs += irc.o
 librrprotocol_objs += irc.capab.o
 librrprotocol_objs += irc.channel.o
@@ -20,10 +15,18 @@ librrprotocol_objs += irc.modes.o
 librrprotocol_objs += irc.numerics.o
 librrprotocol_objs += irc.parser.o
 librrprotocol_objs += irc.server.o
+librrprotocol_objs += irc.user.o
+librrprotocol_objs += http.api.o
+librrprotocol_objs += http.bans.o
+# Disabled, need to figure out and merge these with the bits from auth*
+#librrprotocol_objs += newauth.o
+#librrprotocol_objs += is.o
 librrprotocol_objs += vfo.o
 librrprotocol_objs += ws.o
 librrprotocol_objs += ws.alert.o
 librrprotocol_objs += ws.audio.o
+librrprotocol_objs += au_gst.o
+librrprotocol_objs += rrclient.o
 librrprotocol_objs += ws.auth.o
 librrprotocol_objs += ws.bcast.o
 librrprotocol_objs += ws.chat.o
@@ -42,22 +45,21 @@ librrprotocol_objs += ws.compat.o
 
 librrprotocol_cflags := ${CFLAGS} -I./modsrc/ -I./ -I./inc
 
-extra_clean += ${librrprotocol_objs} ${librrprotocol}
-librrprotocol_headers := $(wildcard inc/librrprotocol/*.h)
-librrprotocol_src = $(wildcard librrprotocol/*.c)
+extra_clean += ${librustyaxe_objs} ${librustyaxe}
+librrprotocol_headers := $(wildcard librrprotocol/*.h)
+librrprotocol_src = $(wildcard librrprotocol/*.c) $(wildcard librrprotocol/*.h)
 
 real_librrprotocol_objs := $(foreach x, ${librrprotocol_objs}, ${BUILD_DIR}/librrprotocol/${x})
-${librrprotocol_src}: GNUmakefile ${librrprotocol_headers} librrprotocol/rules.mk
+${librrprotocol_srcs}: GNUmakefile ${librrprotocol_headers} librrprotocol/rules.mk
 
-${BUILD_DIR}/librrprotocol/.timestamp:
+librrprotocol-pre:
 	mkdir -p ${BUILD_DIR}/librrprotocol/
-	@touch ${BUILD_DIR}/librrprotocol/.timestamp
 
-${librrprotocol}: ${BUILD_DIR}/librrprotocol/.timestamp GNUmakefile librrprotocol/rules.mk ${real_librrprotocol_objs} ${librrprotocol_headers} 
+${librrprotocol}: librrprotocol-pre ${real_librrprotocol_objs} ${librrprotocol_headers} GNUmakefile librrprotocol/rules.mk
 	@echo "[link] $@ from $(words ${real_librrprotocol_objs}) objects"
 	@${CC} ${LDFLAGS} -lm -fPIC -shared -o $@ ${real_librrprotocol_objs} || exit 2
 
 ${BUILD_DIR}/librrprotocol/%.o:librrprotocol/%.c GNUmakefile ${librrprotocol_headers}
 	@echo "[compile] $< => $@"
 	@${RM} $@
-	@${CC} ${librrprotocol_cflags} -o $@ -c $< || exit 2
+	${CC} ${librrprotocol_cflags} -o $@ -c $< || exit 2

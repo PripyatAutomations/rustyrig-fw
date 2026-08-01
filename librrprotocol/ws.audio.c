@@ -6,6 +6,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+#include <librustyaxe/core.h>
+#include "ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,17 +17,18 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
-#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-//#include <rrclient/audio.h>
-
+#include <librrprotocol/au_gst.h>
+//#include <rrgtk/audio.h>
 extern time_t now;
 extern bool ws_connected;
 //extern struct mg_connection *ws_conn;
-extern char *negotiated_codecs;		// ws.c
+extern char *negotiated_codecs; 		// ws.c
 
 bool ws_audio_init(void) {
-   return false;
+   // Initialize optional GStreamer-based audio support. If GStreamer is not
+   // enabled in the build this will be a no-op.
+   return gst_audio_init();
 }
 
 bool ws_select_codec(struct mg_connection *c, const char *codec, bool is_tx) {

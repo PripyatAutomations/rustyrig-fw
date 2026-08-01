@@ -1,5 +1,5 @@
 // 
-// rrclient/ws.c
+// rrgtk/ws.c
 // 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -15,7 +15,11 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
+#if	defined(USE_MONGOOSE)
+#include "ext/libmongoose/mongoose.h"
+#endif
 
 // At startup, we try to find the distribution's TLS certificate authority trust store
 const char *default_tls_ca_paths[] = {
@@ -124,6 +128,17 @@ static bool ws_txtframe_dispatch(struct mg_connection *c, struct mg_ws_message *
             Log(LOG_CRAZY, "ws.router", "Matched route #%d for message type %s", i, rp[i].type);
          }
 
+         /* Emit a generic event for this raw websocket message type so
+            other parts of the system can listen to socket-level messages
+            without depending on the current in-process handlers. The
+            existing handler is still called afterwards for backward
+            compatibility. */
+         char evname[64];
+         memset(evname, 0, sizeof(evname));
+         snprintf(evname, sizeof(evname), "ws.msg.%s", rp[i].type);
+         event_emit(evname, NULL, d);
+
+         /* Call existing handler to preserve current behavior, then free the dict. */
          rp[i].cb(c, d);
          free(d);
          return false;
@@ -220,7 +235,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       }
 
       ws_connected = true;
-      event_emit("connected", NULL, NULL);
+      event_emit("http.connected", NULL, NULL);
 
       const char *login_user = get_server_property(this_server, "server.user");
       Log(LOG_DEBUG, "ws", "ev_ws_connect: server: |%s| user: |%s|", server_name, login_user);
@@ -231,18 +246,13 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       ws_send_hello(c);
       ws_send_login(c, login_user);
 
-#if	defined(USE_GTK) && 0
-      GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
-      gtk_style_context_add_class(ctx, "ptt-active");
-      gtk_style_context_remove_class(ctx, "ptt-idle");
-#endif	// defined(USE_GTK)
    } else if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = (struct mg_ws_message *)ev_data;
       if (wm) {
          ws_handle_cli(c, wm);
       }
    } else if (ev == MG_EV_ERROR) {
-      event_emit("error", NULL, NULL);
+      event_emit("http.error", NULL, NULL);
 //      ui_print("[%s] Socket error: %s", get_chat_ts(now), (char *)ev_data);
    } else if (ev == MG_EV_CLOSE) {
 // XXX: readd this
@@ -250,12 +260,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 //      ws_connected = false;
 //      ws_conn = NULL;
 //      update_connection_button(false, conn_button);
-      event_emit("disconnected", NULL, NULL);
-#if	defined(USE_GTK) && 0
-      GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
-      gtk_style_context_add_class(ctx, "ptt-idle");
-      gtk_style_context_remove_class(ctx, "ptt-active");
-#endif	// defined(USE_GTK)
+      event_emit("http.disconnected", NULL, NULL);
 // XXX: readd this
 //      userlist_clear_all();
    }

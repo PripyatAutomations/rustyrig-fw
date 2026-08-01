@@ -38,6 +38,23 @@ bool server_ptt_state = false;
 // XXX: this needs to go away and be replaced with http_find_servername(c)
 const char *server_name = NULL;
 const char *login_user = NULL;
+
+static const char *rrclient_resolve_server_name(const char *requested_server) {
+   if (requested_server && *requested_server) {
+      return requested_server;
+   }
+
+   const char *autoconnect = cfg_get_exp("server.auto-connect");
+   if (autoconnect && *autoconnect) {
+      return autoconnect;
+   }
+
+   if (server_name && *server_name) {
+      return server_name;
+   }
+
+   return NULL;
+}
 extern rr_connection_t *active_connections;
 extern dict *cfg;
 extern struct ev_loop *loop;
@@ -287,12 +304,14 @@ bool disconnect_server(const char *server) {
 
 // XXX: pass pointer to the server structure
 bool connect_server(const char *server) {
-   if (!server) {
+   const char *resolved_server = rrclient_resolve_server_name(server);
+   if (!resolved_server) {
       Log(LOG_DEBUG, "connman", "connect_server with no server name!");
-
+      return true;
    }
-   const char *url = get_server_property(server, "server.url");
-   Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", server, url);
+
+   const char *url = get_server_property(resolved_server, "server.url");
+   Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", resolved_server, url);
 
    if (url) {
 #if	defined(USE_GTK)
@@ -308,7 +327,7 @@ bool connect_server(const char *server) {
       }
 #endif	// defined(USE_MONGOOSE)
    } else {
-      ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", server);
+      ui_print("[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", resolved_server);
    }
 
    return false;
@@ -316,13 +335,22 @@ bool connect_server(const char *server) {
 
 #if	defined(USE_GTK)
 bool connect_or_disconnect(const char *server, GtkButton *button) {
+   (void)button;
+
+   const char *resolved_server = rrclient_resolve_server_name(server);
+   if (!resolved_server) {
+      Log(LOG_WARN, "connman", "connect_or_disconnect called with no server");
+      return true;
+   }
+
    if (ws_connected) {
-      disconnect_server(server);
+      disconnect_server(resolved_server);
    } else {
-      if (!server_name) {
-         server_name = strdup(server);
+      if (!server_name || strcmp(server_name, resolved_server) != 0) {
+         free((void *)server_name);
+         server_name = strdup(resolved_server);
       }
-      connect_server(server);
+      connect_server(resolved_server);
    }
    return false;
 }

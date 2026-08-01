@@ -37,7 +37,7 @@ extern bool dying;
 extern time_t now;
 
 /////////////////////////////////////
-char session_token[HTTP_TOKEN_LEN+1];
+char session_token[HTTP_TOKEN_LEN+1] = {0};
 
 char *hash_passwd(const char *passwd) {
    if (!passwd) {
