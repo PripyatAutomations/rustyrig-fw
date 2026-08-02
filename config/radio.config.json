@@ -26,10 +26,10 @@
    "backend": {
       "active": "hamlib",
       "hamlib": "true",
-      "hamlib_debug": "warn",
-      "hamlib_model": 2,
-      "hamlib_baud": 38400,
-      "hamlib_port": "localhost:4532"
+      "hamlib-debug": "warn",
+      "hamlib-model": 2,
+      "hamlib-baud": 38400,
+      "hamlib-port": "localhost:4532"
    },
    "build": {
       "cflags": "-fPIC -g -ggdb -O1 -std=gnu11",
@@ -65,14 +65,14 @@
       }
    },
    "debug": {
-      "noisy_eeprom": "false",
+      "noisy-eeprom": "false",
       "logfile": "/tmp/radio-debug.log",
       "logtype": "file",
       "logmode": "0660",
       "loglevel": "debug",
       "mongoose": "false",
       "profiling": "true",
-      "show_ts": "true",
+      "show-ts": "true",
       "targets": "*"
    },
    "dev": {

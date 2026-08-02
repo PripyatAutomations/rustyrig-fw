@@ -1,32 +1,49 @@
-*.o
-*.so
-*.dll
+# Automated testing tool artifacts
 */compile_commands.json
 */*/compile_commands.json
 audit-logs/*
 audit-logs/*/*
+
+# Built libraries
+*.o
+*.so
+*.dll
+
+# Built binaries
 bin/*
+
+# Built objects
 build/*
 build/*/*
 build/*/obj/*
+
+# Private data
 config/*.crt
 config/*.cert
 config/*.pem
 config/*.secret
 config/http.users
+
+# Archived (backup) configurations
 config/archive/*
+
+# contact database
 db/*
+
+# Built firmware images
 images/*
+
+# Unsorted crap developers are staging for import
 junk/*
 junk/*/*
-librrprotocol/*.o
-librrprotocol/*.so
-librrprotocol/*.dll
-librustyaxe/*.o
-librustyaxe/*.so
-librustyaxe/*.dll
+
+# Run-time state
 run/*
 run/*/*
+
+# Audio
 recordings/*
+
+# Log files
 rrserver.log
 rrclient.log

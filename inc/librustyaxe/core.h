@@ -10,8 +10,7 @@
 #include <stdint.h>
 #include "build_config.h"
 #include <librustyaxe/cat.h>
-//#include <librustyaxe/event-bus.h>
-//#include <librustyaxe/subproc.h>
+#include <librustyaxe/subproc.h>
 #include <librustyaxe/config.h>
 #include <librustyaxe/daemon.h>
 #include <librustyaxe/dict.h>

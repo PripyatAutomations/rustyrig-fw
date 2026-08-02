@@ -1,0 +1,76 @@
+============
+= rrserver =
+============
+[protocol]
+* Instead of blorping out the rig status once a second, lets do broadcasts only when changed or every 30 seconds plus on-connect
+* Implement multiple chat channels (bcast)
+
+[privileges]
+* Implement user groups that contain privilege sets, then users can be assigned into groups
+
+[audio]
+ws.c / fwdsp/fwdsp-mgr.c:
+	ws_txtframe_process: media.codec handling
+	   * Remove codec enum and just pass 4 byte ID
+	   * Use fwdsp_codec_start instead of fwdsp_find_or_create, so we setup all the audio stuff not just the subproc
+* Finish implement recordings, saved in the ptt database & path.record
+
+[audit]
+* Add support for TX quotas (credits) and tracking top talkers
+
+[buildconf]
+- Support for loading older (input) eeprom layouts, according to version saved in the EEPROM, for upgrading
+  - see res/archive/*
+* Remove need for offset & key properties
+  - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)
+
+[core]
+* Support for at least VFO A & B
+* Test TX halt when PTTing user disconnects.
+  - also halt TX by FLAG_NOOB users if the last elmer logs out
+
+[eeprom/config]
+* remove need for the key field (why not use the name of the entry itself?) in eeprom_layout
+* fix relative offsets in eeprom_layout
+? Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
+- Make a tool which converts res/eeprom_layout.json (and eeprom_types.json) to a text file like doc/eeprom.txt
+* Fix net/bind to be an ip4 or ip6 type instead of string!
+* more work to integrate config into eeprom
+  - work on dict and just load/save changed parts of the eeprom
+    - Read into new empty dict
+    - dict_diff to get changed keys (include option to get unique flags only / both / only changed)
+    - If eeprom write delay expired, save to eeprom
+    - On exit, etc
+  - read eeprom into config / channels dict on posix
+  ? May just compress the flat-file with a light compressor that will spread eeprom wear and pack that into eeprom?
+
+[elmer mode]
+* Implement request and accept|deny for elevate privileges
+  - store which elmers accepted in the acptr->en_data->elmers
+  - store noobs under elmer's en_data->noobs
+  - If either user disconnects, clear these
+  - If last elmer for the noob leaves, disable their privileges
+  - Once an elmer is online, the user can again request elevate
+
+[i2c/eeprom]
+- Implement hard coded address for i2c eeprom and a codepath to support it
+- Should we bypass the eeprom step and read directly from the config & channels.json on posix?
+  - Maybe a use sqlite3 db for storing persistent data?
+
+[makefile]
+- Make things so that make debug forces a make clean & adding make debug if last built without debug (can we use nm or such to check symbols?)
+* Shell + jq script to parse config/*.config.json into a basic .cfg flat file
+
+[mqtt]
+* Finish mqtt server stuff (via mongoose)
+* Implement mqtt client mode, for sending status to existing server(s)
+
+[Network]
+    net.ip4 and net.ip6 split
+    net.prefer_ip4
+    net.ignore_icmp_echo
+    net.ignore_mcast
+    net.ignore_bcast
+
+[radioberry]
+* Implement support for this thing

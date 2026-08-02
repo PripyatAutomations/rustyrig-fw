@@ -14,7 +14,6 @@
 #include <librrprotocol/connman.h>
 
 #if defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
 extern struct mg_mgr mgr; // provided by the application that uses mongoose
 #endif
 

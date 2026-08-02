@@ -102,52 +102,52 @@
        "key": "net.vlan",
        "default": 1
    },
-   "owner.call": {
+   "owner/call": {
        "offset": 105,
        "type": "call",
        "key": "owner.call",
        "default": "N0CALL"
    },
-   "owner.privs": {
+   "owner/privs": {
        "offset": 121,
        "type": "class",
        "key": "owner.privs",
        "default": "US.General"
    },
-   "pin.master": {
+   "pin/master": {
        "offset": 123,
        "size": 8,
        "type": "str",
        "key": "pin.master",
        "default": "01234567"
    },
-   "pin.reset": {
+   "pin/reset": {
        "offset": 131,
        "size": 8,
        "type": "str",
        "key": "pin.reset",
        "default": "76543210"
    },
-   "pin.show": {
+   "pin/show": {
        "offset": 139,
        "type": "bool",
        "key": "pin.show"
    },
-   "rfdecks.lowband.curr-band": {
+   "rfdecks/lowband/curr-band": {
        "offset": 140,
        "size": 1,
        "type": "int",
        "key": "rfdecks.lowband.curr-band",
        "default": 0
    },
-   "rfdecks.highband.curr-band": {
+   "rfdecks/highband/curr-band": {
        "offset": 141,
        "size": 1,
        "type": "int",
        "key": "rfdecks.highband.curr-band",
        "default": 0
    },
-   "station.call": {
+   "station/call": {
        "offset": 142,
        "type": "call",
        "key": "station.call",
@@ -234,22 +234,22 @@
        "type": "bool",
        "key": "net.http.enabled"
    },
-   "net.mqtt.bind": {
+   "net/mqtt/bind": {
        "offset": 231,
        "type": "ip4",
        "key": "net.mqtt.bind"
    },
-   "net.mqtt.port": {
+   "net/mqtt/port": {
        "offset": 239,
        "type": "int",
        "key": "net.mqtt.port"
    },
-   "net.mqtt.enabled": {
+   "net/mqtt.enabled": {
        "offset": 247,
        "type": "bool",
        "key": "net.mqtt.enabled"
    },
-   "debug.show-ts": {
+   "debug/show-ts": {
        "offset": 248,
        "type": "bool",
        "key": "debug.show-ts",
@@ -275,7 +275,7 @@
        "key": "net.http.tls-port",
        "default": 4420
    },
-   "backend.active": {
+   "backend/active": {
        "offset": 358,
        "type": "str",
        "size": 10,

@@ -1,3 +1,7 @@
+rustyrig-fw (20260802) testing; urgency=medium
+* More cleanup, fixed eeprom handling & moved most things to eventbus events
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  
+
 rustyrig-fw (20260724) testing; urgeny=medium
 * Lot of cleanup. rrserver and rrgtk run and work now
   - Need to resolve issues in backend/backend.hamlib stuff

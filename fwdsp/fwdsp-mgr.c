@@ -8,8 +8,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // codec negotiation should call fwdsp_create 
-#include "build_config.h"
-#include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -19,7 +17,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/wait.h>
-#include "../ext/libmongoose/mongoose.h"
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/fwdsp-mgr.h>
 
@@ -28,9 +26,9 @@
 defconfig_t defcfg_fwdsp[] = {
    { "codecs.allowed", 	"pc16 mu16 mu08",	"Preferred codecs" },
 #ifdef _WIN32
-   { "path.fwdsp",	"fwdsp.exe",		"Path to fwdsp binary" },
+   { "path.fwdsp",	"bin/fwdsp.exe",	"Path to fwdsp binary" },
 #else
-   { "path.fwdsp",	"fwdsp",		"Path to fwdsp binary" },
+   { "path.fwdsp",	"bin/fwdsp",		"Path to fwdsp binary" },
 #endif
    { "subproc.max",	"16",			"Maximum allowed de/encoder processes" },
    { "subproc.debug",	"false",		"Show extra debug messages" },
@@ -247,8 +245,9 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
       return true;
    }
 
-#if	0
    // Disconnect stdout/stderr from event loop
+   // XXX: this was crashing! should be ok now
+#if	defined(USE_MONGOOSE)
    if (sp->mg_stdout_conn) {
       mg_mgr_disconnect(sp->mg_stdout_conn);
       sp->mg_stdout_conn = NULL;
@@ -259,7 +258,6 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
       sp->mg_stderr_conn = NULL;
    }
 #endif
-
    // Kill subprocess
    if (sp->pid > 0) {
       kill(sp->pid, SIGTERM);
@@ -393,7 +391,6 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
    char *saveptr = NULL;
    char *token = strtok_r(tmp, " ", &saveptr);
 
-#if	0
    while (token) {
       au_codec_mapping_t *c = au_codec_find_by_magic(token);
 
@@ -412,7 +409,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
       }
       token = strtok_r(NULL, " ", &saveptr);
    }
-#endif
+
    free(tmp);
    Log(LOG_CRIT, "fwdsp", "No usable codecs found in list: %s for %s", codec_list, (tx_mode ? "tx" : "rx"));
    return NULL;
@@ -448,7 +445,6 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
    if (codec_id[0] == '\0') {
       return -1;
    }
-#if	0
    au_codec_mapping_t *c = au_codec_by_id(id);
 
    if (!c || !c->magic) {
@@ -465,12 +461,10 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
    }
 
    return au_codec_start(id, is_tx);
-#endif
    return -1;
 }
 
 int fwdsp_codec_stop(const char *codec, bool is_tx) {
-#if	0
    au_codec_mapping_t *c = au_codec_by_id(id);
 
    if (!c || !c->magic) {
@@ -497,7 +491,6 @@ int fwdsp_codec_stop(const char *codec, bool is_tx) {
          }
       }
    }
-#endif
 
    return 0;
 }

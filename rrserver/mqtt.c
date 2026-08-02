@@ -39,8 +39,8 @@ static struct sub *s_subs = NULL;
 bool mqtt_init(struct mg_mgr *mgr) {
    struct in_addr sa_bind;
    char listen_addr[255];
-   int bind_port = eeprom_get_int("net.mqtt.port");
-   eeprom_get_ip4("net.mqtt.bind", &sa_bind);
+   int bind_port = eeprom_get_int("net/mqtt/port");
+   eeprom_get_ip4("net/mqtt/bind", &sa_bind);
 
    memset(listen_addr, 0, sizeof(listen_addr));
 

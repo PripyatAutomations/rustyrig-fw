@@ -224,10 +224,10 @@ void log_dump_log_filters(void) {
 void logger_init(const char *logfile) {
    const char *ll = NULL;
 #if defined(USE_EEPROM)
-   ll = eeprom_get_str("debug.loglevel");
+   ll = eeprom_get_str("debug/loglevel");
 #endif
 
-   log_show_ts = eeprom_get_bool("debug.show-ts");
+   log_show_ts = eeprom_get_bool("debug/show-ts");
    if (!logfp) {
       logfp = fopen(logfile, "a+");
       if (!logfp) {
@@ -236,7 +236,7 @@ void logger_init(const char *logfile) {
       }
    }
 
-   log_stdout = cfg_get_bool("debug.log.stdout", true);
+   log_stdout = cfg_get_bool("debug/log/stdout", true);
 
    // Load fine-grained log_filters from config
    load_log_filters_from_config();

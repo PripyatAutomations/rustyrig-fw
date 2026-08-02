@@ -267,6 +267,7 @@ int main(int argc, char *argv[]) {
 
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *));
+   default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
 
    // If the user specified a config, apply it, else try to find one in a sane place
@@ -277,7 +278,8 @@ int main(int argc, char *argv[]) {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
       }
    } else {
-      char *fullpath = find_file_by_list(configs, cfg_entries);
+//      char *fullpath = find_file_by_list(configs, cfg_entries);
+      char *fullpath = "config/fwdsp.cfg";
       if (fullpath) {
          config_file = strdup(fullpath);
          if (!(cfg = cfg_load(fullpath))) {
@@ -286,7 +288,7 @@ int main(int argc, char *argv[]) {
             Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
          }
          empty_config = false;
-         free(fullpath);
+//         free(fullpath);
       } else {
         // Use default settings and save it to ~/.config/rrclient.cfg
         cfg = default_cfg;

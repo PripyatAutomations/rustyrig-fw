@@ -531,8 +531,6 @@ struct in_addr *eeprom_get_ip4(const char *key, struct in_addr *sin) {
    return sin;
 }
 
-
-
 bool eeprom_get_bool_i(uint32_t idx) {
    if (eeprom_ready != 1 || eeprom_corrupted == 1) {
       return NULL;
@@ -569,15 +567,15 @@ void show_pin_info(void) {
    if (eeprom_ready != 1 || eeprom_corrupted == 1) {
       return;
    }
-   int show = eeprom_get_int("pin.show");
+   int show = eeprom_get_int("pin/show");
 
    if (show) {
       char master_pin[PIN_LEN + 1];
       char reset_pin[PIN_LEN + 1];
       memset(master_pin, 0, PIN_LEN + 1);
       memset(reset_pin, 0, PIN_LEN + 1);
-      snprintf(master_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin.master"));
-      snprintf(reset_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin.reset"));
+      snprintf(master_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/master"));
+      snprintf(reset_pin, PIN_LEN + 1, "%s", eeprom_get_str("pin/reset"));
       Log(LOG_INFO, "eeprom", "*** Master PIN: %s, Factory Reset PIN: %s (set pin.show to 0 to hide!) ***", master_pin, reset_pin);
    }
 }
