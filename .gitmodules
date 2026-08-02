@@ -16,3 +16,9 @@
 [submodule "www"]
 	path = www
 	url = https://github.com/PripyatAutomations/rustyrig-www
+[submodule "librustyaxe"]
+	path = librustyaxe
+	url = https://github.com/PripyatAutomations/librustyaxe
+[submodule "librrprotocol"]
+	path = librrprotocol
+	url = https://github.com/PripyatAutomations/librrprotocol.git
