@@ -119,7 +119,7 @@ void log_clear_log_filters(void) {
 
 // Load log_filters from config string
 void load_log_filters_from_config(void) {
-   const char *cfg = cfg_get_exp("debug.loglevel");  // or "log.log_filters"
+   const char *cfg = cfg_get_exp("debug/loglevel");  // or "log.log_filters"
    if (!cfg) {
       return;
    }

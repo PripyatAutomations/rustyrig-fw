@@ -15,7 +15,8 @@
 #define EEPROM_TYPE_MMAP true
 #undef EEPROM_TYPE_I2C
 #define EEPROM_MMAP_ADDR 0x0000
-//#define	NOISY_EEPROM true
+#define EEPROM_READONLY
+#define	NOISY_EEPROM true
 #define RR_MAX_AMPS		2
 #define RR_MAX_ATUS		4
 #define RR_MAX_FILTERS		4

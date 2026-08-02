@@ -62,4 +62,4 @@ ${librrprotocol}: librrprotocol-pre ${real_librrprotocol_objs} ${librrprotocol_h
 ${BUILD_DIR}/librrprotocol/%.o:librrprotocol/%.c GNUmakefile ${librrprotocol_headers}
 	@echo "[compile] $< => $@"
 	@${RM} $@
-	${CC} ${librrprotocol_cflags} -o $@ -c $< || exit 2
+	@${CC} ${librrprotocol_cflags} -o $@ -c $< || exit 2
