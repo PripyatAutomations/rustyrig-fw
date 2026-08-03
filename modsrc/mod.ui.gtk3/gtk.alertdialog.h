@@ -1,5 +1,5 @@
-#if	!defined(__gtk_alertdialog_h)
-#define	__gtk_alertdialog_h
+#if     !defined(__gtk_alertdialog_h)
+#define __gtk_alertdialog_h
 
 typedef enum {
    MSG_ERROR,
@@ -19,4 +19,4 @@ extern void alert_dialog_register(AlertType kind, GtkMessageType gtk_type, const
 extern void alert_dialogs_init(void);
 extern void alert_dialog(GtkWindow *parent, AlertType kind, const char *msg);
 
-#endif	// !defined(__gtk_alertdialog_h)
+#endif // !defined(__gtk_alertdialog_h)

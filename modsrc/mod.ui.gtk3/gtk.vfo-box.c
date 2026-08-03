@@ -1,6 +1,6 @@
 //
 // rrclient/gtk.vfo-box.c: VFO control widget
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -18,9 +18,9 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
+#endif // defined(USE_MONGOOSE)
 #include <rrclient/connman.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
@@ -31,7 +31,7 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    if (!button) {
       return;
    }
-   connect_or_disconnect(server_name, GTK_BUTTON(button));
+   connect_or_disconnect( server_name, GTK_BUTTON(button) );
 }
 
 typedef struct {
@@ -44,27 +44,24 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
    if (!widget || !event || !user_data) {
       return FALSE;
    }
-
    VfoKeyData *d = user_data;
-   if (!d || !GTK_IS_WIDGET(d->fe))
+   if ( !d || !GTK_IS_WIDGET(d->fe) )
       return FALSE;
-
-   if (!is_widget_or_descendant_focused(d->fe))
+   if ( !is_widget_or_descendant_focused(d->fe) )
       return FALSE;    /* ignore keys unless focus is somewhere inside fe */
-
-   if ((event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) &&
-       (event->state & GDK_SHIFT_MASK)) {
+   if ( (event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) &&
+        (event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->chat_entry);
-      return TRUE;
-   }
-   else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK)) {
-      gtk_widget_grab_focus(d->mode_combo);
-      return TRUE;
-   }
 
+      return TRUE;
+   }else if ( event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
+      gtk_widget_grab_focus(d->mode_combo);
+
+      return TRUE;
+   }
    return FALSE; /* let other keys be handled normally */
 }
-      
+
 GtkWidget *create_vfo_box(void) {
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -119,23 +116,24 @@ GtkWidget *create_vfo_box(void) {
 
 gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
    if (!vfo_box || vfo == '\0') {
-      Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%p> vfo |%c|", vfo_box, vfo);
+      Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%p> vfo |%c|", vfo_box,
+         vfo);
+
       return NULL;
    }
-
    // prepare a programmatic name for the VFO
    char win_name[32];
-   memset(win_name, 0, sizeof(win_name));
+   memset( win_name, 0, sizeof(win_name) );
    snprintf(win_name, sizeof(win_name), "vfo-%c", vfo);
 
    // Lets see if we recognize that window...
    gui_window_t *vfo_win = gui_find_window(NULL, win_name);
    if (vfo_win) {
-     // Show the existing window
-     place_window(vfo_win->gtk_win);
+      // Show the existing window
+      place_window(vfo_win->gtk_win);
    } else {
       GtkWidget *vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-      gui_window_t *vfo_win  = ui_new_window(vfo_window, win_name);
+      gui_window_t *vfo_win = ui_new_window(vfo_window, win_name);
       gtk_window_set_title(GTK_WINDOW(vfo_window), "rustyrig remote client");
    }
    return vfo_win;

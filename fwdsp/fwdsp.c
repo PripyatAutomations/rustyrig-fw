@@ -1,5 +1,5 @@
-// fwdsp-main.c: firmware DSP bridge This is part of rustyrig-fw. 
-// 	https://github.com/pripyatautomations/rustyrig-fw
+// fwdsp-main.c: firmware DSP bridge This is part of rustyrig-fw.
+//    https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -29,8 +29,8 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <sys/stat.h>
-#if	!defined(__FWDSP)
-#define	__FWDSP
+#if     !defined(__FWDSP)
+#define __FWDSP
 #endif
 #include <librustyaxe/core.h>
 #include <fwdsp/fwdsp-shared.h>
@@ -41,8 +41,8 @@ extern defconfig_t defcfg[];
 
 const char *config_file = NULL;
 const char *config_codec = "pc16";
-bool codec_tx_mode  = false;
-bool config_video = false;		// is this audio or video stream?
+bool codec_tx_mode = false;
+bool config_video = false;              // is this audio or video stream?
 bool dying = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
@@ -64,14 +64,14 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
    if (sock_fd <= 0 || !cfg) {
       return true;
    }
-
    // Inform the other side of our codec id, direction, and media type
    int msg_wrote = 0;
    char msgbuf[1024];
-   memset(msgbuf, 0, sizeof(msgbuf));
-   snprintf(msgbuf, sizeof(msgbuf), 
+   memset( msgbuf, 0, sizeof(msgbuf) );
+   snprintf( msgbuf, sizeof(msgbuf),
       "{ \"media\": { \"cmd\": \"fwdsp\", \"version\": \"%s\", \"codec-id\": \"%s\", \"gst-pipeline\": \"%s\", \"type\": \"%s\", \"direction\": \"%s\" } }\r\n\r\n",
-      VERSION, config_codec, cfg->pipeline, (cfg->media_type == FW_MEDIA_AUDIO ? "audio" : "video"), (cfg->media_direction == FW_DIR_TX ? "tx" : "rx"));
+      VERSION, config_codec, cfg->pipeline, (cfg->media_type == FW_MEDIA_AUDIO ? "audio" : "video"),
+      (cfg->media_direction == FW_DIR_TX ? "tx" : "rx") );
    size_t msg_len = strlen(msgbuf);
 
    // Make sure we send the whole message
@@ -80,24 +80,27 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
       if (this_write > 0) {
          msg_wrote += this_write;
       } else {
-         Log(LOG_CRIT, "fwdsp", "Failed to write %d bytes of codec info: rv=%d (%d:%s)", msg_len, this_write, errno, strerror(errno));
+         Log( LOG_CRIT, "fwdsp", "Failed to write %d bytes of codec info: rv=%d (%d:%s)", msg_len,
+            this_write, errno, strerror(errno) );
       }
    }
-   Log(LOG_DEBUG, "fwdsp", "Wrote %d of %d bytes |%.*s|", msg_wrote, msg_len, (msg_len - 4), msgbuf);
+   Log(LOG_DEBUG, "fwdsp", "Wrote %d of %d bytes |%.*s|", msg_wrote, msg_len, (msg_len - 4),
+      msgbuf);
+
    return false;
 }
 
-#define STDIN_FD  0
+#define STDIN_FD 0
 #define STDOUT_FD 1
 
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       int sock_fd = (cfg->media_direction == FW_DIR_TX) ? STDOUT_FD : STDIN_FD;
-      Log(LOG_DEBUG, "fwdsp", "Using std%s FD=%d for %s", (cfg->media_direction ? "out" : "in"), sock_fd, (cfg->media_direction == FW_DIR_TX ? "TX" : "RX"));
+      Log( LOG_DEBUG, "fwdsp", "Using std%s FD=%d for %s", (cfg->media_direction ? "out" : "in"),
+         sock_fd, (cfg->media_direction == FW_DIR_TX ? "TX" : "RX") );
 
       fprintf(stderr, "connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
       pipeline = build_pipeline(cfg->pipeline);
-
       if (!pipeline) {
          fprintf(stderr, "fwdsp: Failed to build pipeline\n");
          cleanup_pipeline(&pipeline);
@@ -105,21 +108,20 @@ static void run_loop(struct audio_config *cfg) {
          sleep(1);
          continue;
       }
-
       // Send the codec information message, telling the backend what sort of data we can work with
       send_codec_msg(sock_fd, cfg);
 
       // XXX: Blorp this over the connection
 /* XXX: Implement bus signals instead of polling
-GstBus *bus;
+   GstBus *bus;
 
-[..]
+   [..]
 
-bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
-gst_bus_add_signal_watch (bus);
-g_signal_connect (bus, "message::error", G_CALLBACK (cb_message_error), NULL);
-g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
-*/
+   bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
+   gst_bus_add_signal_watch (bus);
+   g_signal_connect (bus, "message::error", G_CALLBACK (cb_message_error), NULL);
+   g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
+ */
 
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
@@ -137,40 +139,38 @@ g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
             exit(1);
          }
       }
-
       GstBus *bus = gst_element_get_bus(pipeline);
       GstMessage *msg = gst_bus_timed_pop_filtered(bus, 5 * GST_SECOND,
-          GST_MESSAGE_ERROR | GST_MESSAGE_EOS | GST_MESSAGE_STATE_CHANGED);
-
+         GST_MESSAGE_ERROR | GST_MESSAGE_EOS | GST_MESSAGE_STATE_CHANGED);
       if (msg != NULL) {
          GError *err;
          gchar *debug_info;
 
-         switch (GST_MESSAGE_TYPE(msg)) {
-            case GST_MESSAGE_ERROR:
-               gst_message_parse_error(msg, &err, &debug_info);
-               g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
-               g_printerr("Debug info: %s\n", debug_info ? debug_info : "none");
-               g_clear_error(&err);
-               g_free(debug_info);
-               break;
+         switch ( GST_MESSAGE_TYPE(msg) ) {
+         case GST_MESSAGE_ERROR:
+            gst_message_parse_error(msg, &err, &debug_info);
+            g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
+            g_printerr("Debug info: %s\n", debug_info ? debug_info : "none");
+            g_clear_error(&err);
+            g_free(debug_info);
+            break;
 
-            case GST_MESSAGE_EOS:
-               g_print("End-Of-Stream reached.\n");
-               break;
+         case GST_MESSAGE_EOS:
+            g_print("End-Of-Stream reached.\n");
+            break;
 
-            case GST_MESSAGE_STATE_CHANGED:
-               if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline)) {
-                  GstState old_state, new_state, pending_state;
-                  gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
-                  g_print("Pipeline state changed from %s to %s.\n",
-                          gst_element_state_get_name(old_state), gst_element_state_get_name(new_state));
-               }
-               break;
+         case GST_MESSAGE_STATE_CHANGED:
+            if ( GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
+               GstState old_state, new_state, pending_state;
+               gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
+               g_print( "Pipeline state changed from %s to %s.\n",
+                  gst_element_state_get_name(old_state), gst_element_state_get_name(new_state) );
+            }
+            break;
 
-            default:
-               // Not expected
-               break;
+         default:
+            // Not expected
+            break;
          }
 
          gst_message_unref(msg);
@@ -180,7 +180,6 @@ g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
       while (!dying) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND,
             GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
-
          if (msg) {
             if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
                GError *err;
@@ -196,7 +195,6 @@ g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
             gst_message_unref(msg);
          }
       }
-
       gst_object_unref(bus);
       cleanup_pipeline(&pipeline);
 
@@ -208,15 +206,13 @@ g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
          sock_fd = -1;
       }
    }
-
    sleep(1);
 }
 
-static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level,
-                            const gchar *file, const gchar *function,
-                            gint line, GObject *object, GstDebugMessage *message,
-                            gpointer user_data) {
-   g_printerr("GST %s: %s\n", gst_debug_level_get_name(level), gst_debug_message_get(message));
+static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level, const gchar *file,
+                            const gchar *function, gint line, GObject *object,
+                            GstDebugMessage *message, gpointer user_data) {
+   g_printerr( "GST %s: %s\n", gst_debug_level_get_name(level), gst_debug_message_get(message) );
 }
 
 int main(int argc, char *argv[]) {
@@ -228,51 +224,49 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
 
    int opt;
-   while ((opt = getopt(argc, argv, "c:f:htv")) != -1) {
+   while ( ( opt = getopt(argc, argv, "c:f:htv") ) != -1 ) {
       switch (opt) {
-         case 'c': {
-            size_t clen = strlen(optarg);
-            if (clen < 0 || clen > 4) {
-               fprintf(stderr, "Codec magic (-c) '%s' *must* be exactly 4 characters\n", optarg);
-               exit(1);
-            } else {
-               fprintf(stderr, "Setting codec magic to %s\n", optarg);
-               config_codec = strdup(optarg);
-            }
-            break;
-         }
-         case 'f': {
-            config_file = strdup(optarg);
-            break;
-         }
-         case 't': {
-            codec_tx_mode = true;
-            break;
-         }
-         case 'v': { 
-            config_video = true;
-            break;
-         }
-         case 'h':
-         default: {
-            fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-t]\n", argv[0]);
-            fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
-            fprintf(stderr, "  -f\t\t\tFile name of config\n");
-            fprintf(stderr, "  -t\t\t\tTransmit mode\n");
-            fprintf(stderr, "  -v\t\t\tVideo mode\n");
+      case 'c': {
+         size_t clen = strlen(optarg);
+         if (clen < 0 || clen > 4) {
+            fprintf(stderr, "Codec magic (-c) '%s' *must* be exactly 4 characters\n", optarg);
             exit(1);
+         } else {
+            fprintf(stderr, "Setting codec magic to %s\n", optarg);
+            config_codec = strdup(optarg);
          }
+         break;
+      }
+      case 'f': {
+         config_file = strdup(optarg);
+         break;
+      }
+      case 't': {
+         codec_tx_mode = true;
+         break;
+      }
+      case 'v': {
+         config_video = true;
+         break;
+      }
+      case 'h':
+      default: {
+         fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-t]\n", argv[0]);
+         fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
+         fprintf(stderr, "  -f\t\t\tFile name of config\n");
+         fprintf(stderr, "  -t\t\t\tTransmit mode\n");
+         fprintf(stderr, "  -v\t\t\tVideo mode\n");
+         exit(1);
+      }
       }
    }
-
    // Find and load the configuration file
-   int cfg_entries = (sizeof(configs) / sizeof(char *));
+   int cfg_entries = ( sizeof(configs) / sizeof(char *) );
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
-
    // If the user specified a config, apply it, else try to find one in a sane place
    if (config_file) {
-      if (!(cfg = cfg_load(config_file))) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
@@ -282,7 +276,7 @@ int main(int argc, char *argv[]) {
       char *fullpath = "config/fwdsp.cfg";
       if (fullpath) {
          config_file = strdup(fullpath);
-         if (!(cfg = cfg_load(fullpath))) {
+         if ( !( cfg = cfg_load(fullpath) ) ) {
             Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
          } else {
             Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
@@ -290,11 +284,11 @@ int main(int argc, char *argv[]) {
          empty_config = false;
 //         free(fullpath);
       } else {
-        // Use default settings and save it to ~/.config/rrclient.cfg
-        cfg = default_cfg;
-        empty_config = true;
-        fprintf(stderr, "No config found :(\n");
-        exit(1);
+         // Use default settings and save it to ~/.config/rrclient.cfg
+         cfg = default_cfg;
+         empty_config = true;
+         fprintf(stderr, "No config found :(\n");
+         exit(1);
       }
       // unneeded unless new code added between here and inner else
 //      free(fullpath);
@@ -307,7 +301,6 @@ int main(int argc, char *argv[]) {
    if (cfg_audio_debug) {
       setenv("GST_DEBUG", cfg_audio_debug, 0);
    }
-
    // codec_mapping_t *au_codec_find_by_magic(magic);
 
    struct audio_config au_cfg = {
@@ -317,7 +310,6 @@ int main(int argc, char *argv[]) {
       .tx_mode = codec_tx_mode,
       .channel_id = -1
    };
-
    // set sane defaults
    if (au_cfg.tx_mode) {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_TX;
@@ -326,14 +318,13 @@ int main(int argc, char *argv[]) {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_RX;
       au_cfg.media_direction = FW_DIR_RX;
    }
-
    if (au_cfg.channel_id < 0) {
       au_cfg.channel_id = 0;
    }
-
    char keybuf[256];
-   memset(keybuf, 0, sizeof(keybuf));
-   snprintf(keybuf, sizeof(keybuf), "pipeline:%s.%s", config_codec, (codec_tx_mode ? "tx" : "rx"));
+   memset( keybuf, 0, sizeof(keybuf) );
+   snprintf( keybuf, sizeof(keybuf), "pipeline:%s.%s", config_codec,
+      (codec_tx_mode ? "tx" : "rx") );
    Log(LOG_DEBUG, "codec", "Selecting pipeline '%s' from config --", keybuf);
 
    const char *cfg_pipeline = cfg_get(keybuf);
@@ -344,27 +335,25 @@ int main(int argc, char *argv[]) {
       Log(LOG_CRIT, "fwdsp", "No pipeline configured for codec id %s", config_codec);
       exit(1);
    }
-
    // unless set to video, treat it as audio frames
    if (config_video) {
       au_cfg.media_type = FW_MEDIA_VIDEO;
    } else {
       au_cfg.media_type = FW_MEDIA_AUDIO;
    }
-
    // set up gstreamer
    gst_init(&argc, &argv);
    gst_debug_add_log_function(gst_log_handler, NULL, NULL);
 
    time_t last_run = 0;
-   do {
+   do{
       now = time(NULL);
       run_loop(&au_cfg);
-      fprintf(stderr, "Run took %li sec", (now - last_run));
+      fprintf( stderr, "Run took %li sec", (now - last_run) );
       last_run = now;
    } while(au_cfg.persistent);
-
    host_cleanup();
+
    return 0;
 }
 

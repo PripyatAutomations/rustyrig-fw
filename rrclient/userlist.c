@@ -1,6 +1,6 @@
 //
 // src/rrclient/userlist.c: Userlist storage & display
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -29,38 +29,38 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
    if (!newinfo) {
       return true;
    }
-
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
       if (strcasecmp(c->name, newinfo->name) == 0) {
          // XXX: We should compare the data, only copying fields that changed?
-         memcpy(c, newinfo, sizeof(*c));
+         memcpy( c, newinfo, sizeof(*c) );
          c->next = NULL;
-         Log(LOG_DEBUG, "userlist", "Updated entry at <%p> with contents of userinfo at <%p>", c, newinfo);
+         Log(LOG_DEBUG, "userlist", "Updated entry at <%p> with contents of userinfo at <%p>", c,
+            newinfo);
+
          return true;
       }
       prev = c;
       c = c->next;
    }
-
-   struct rr_user *n = malloc(sizeof(struct rr_user));
+   struct rr_user *n = malloc( sizeof(struct rr_user) );
    if (!n) {
       fprintf(stderr, "OOM in userlist_add_or_update\n");
+
       return false;
    }
-
-   memcpy(n, newinfo, sizeof(struct rr_user));
+   memcpy( n, newinfo, sizeof(struct rr_user) );
    n->next = NULL;
-   Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%p> in userlist", newinfo->name, newinfo);
-
+   Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%p> in userlist",
+      newinfo->name, newinfo);
    if (prev) {
       prev->next = n;
    } else {
       global_userlist = n;
    }
-
    userlist_redraw_gtk();
+
    return true;
 }
 
@@ -69,11 +69,10 @@ bool userlist_remove_by_name(const char *name) {
    if (!name) {
       return true;
    }
-
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
-      if (!strcasecmp(c->name, name)) {
+      if (!strcasecmp(c->name, name) ) {
          if (prev) {
             prev->next = c->next;
          } else {
@@ -85,7 +84,6 @@ bool userlist_remove_by_name(const char *name) {
       prev = c;
       c = c->next;
    }
-
    return false;
 }
 
@@ -114,10 +112,9 @@ struct rr_user *userlist_find(const char *name) {
    if (!name) {
       return NULL;
    }
-
    struct rr_user *c = global_userlist;
    while (c) {
-      if (!strcasecmp(c->name, name)) {
+      if (!strcasecmp(c->name, name) ) {
          return c;
       }
       c = c->next;

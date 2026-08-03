@@ -1,6 +1,6 @@
 //
 // rrclient/gtk.mode-box.c: Modulation mode/width widget
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -20,31 +20,33 @@
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "../ext/libmongoose/mongoose.h"
 extern struct mg_connection *ws_conn;
-#endif	// defined(USE_MONGOOSE)
+#endif // defined(USE_MONGOOSE)
 
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
 
 static gboolean mode_popup_open = FALSE;
-static void on_mode_popup(GtkComboBox *b, gpointer u)   { mode_popup_open = TRUE; }
-static void on_mode_popdown(GtkComboBox *b, gpointer u) { mode_popup_open = FALSE; }
+static void on_mode_popup(GtkComboBox *b, gpointer u) {
+   mode_popup_open = TRUE;
+}
+static void on_mode_popdown(GtkComboBox *b, gpointer u) {
+   mode_popup_open = FALSE;
+}
 
 gulong mode_changed_handler_id;
 
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
-
    if (text) {
       // Send mode command over websocket as before
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
       ws_send_mode_cmd(ws_conn, "A", text);
-#endif	// defined(USE_MONGOOSE)
-
+#endif // defined(USE_MONGOOSE)
       // Show/hide repeater dialog locally based on FM mode
-      if (g_str_equal(text, "FM")) {
+      if ( g_str_equal(text, "FM") ) {
          fm_dialog_show();
          gui_window_t *wp = gui_find_window(NULL, "main");
          if (wp) {
@@ -54,8 +56,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       } else {
          fm_dialog_hide();
       }
-
-      g_free((gchar *)text);
+      g_free( (gchar *)text );
    }
 }
 
@@ -63,53 +64,53 @@ static gboolean on_mode_keypress(GtkWidget *widget, GdkEventKey *event, gpointer
    if (!event) {
       return true;
    }
-
    Log(LOG_DEBUG, "gtk.mode-box", "keypress handler: keyval: %d (A: %d)", event->keyval, GDK_KEY_a);
 
    switch (event->keyval) {
-      case GDK_KEY_A:
-      case GDK_KEY_a: {
-         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "AM");
-         fprintf(stderr, "FM\n");
-         break;
-      }
-      case GDK_KEY_C:
-      case GDK_KEY_c: {
-         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
-         fprintf(stderr, "FM\n");
-         break;
-      }
-      case GDK_KEY_D:
-      case GDK_KEY_d: {
-         const char *cur = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode_combo));
-         // Get the value of mode_combo, so we can go to D-U if already in D-U
-         if (strcasecmp(cur, "D-L") == 0) {
-            set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "D-U");
-         } else {
-            set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "D-L");
-         }
-         fprintf(stderr, "FM\n");
-         break;
-      }
-      case GDK_KEY_F:
-      case GDK_KEY_f: {
-         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
-         fprintf(stderr, "FM\n");
-         break;
-      }
-      case GDK_KEY_L:
-      case GDK_KEY_l: {
-         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "LSB");
-         fprintf(stderr, "FM\n");
-         break;
-      }
-      case GDK_KEY_U:
-      case GDK_KEY_u: {
-         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "USB");
-         fprintf(stderr, "FM\n");
-         break;
-      }
+   case GDK_KEY_A:
+   case GDK_KEY_a: {
+      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "AM");
+      fprintf(stderr, "FM\n");
+      break;
    }
+   case GDK_KEY_C:
+   case GDK_KEY_c: {
+      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
+      fprintf(stderr, "FM\n");
+      break;
+   }
+   case GDK_KEY_D:
+   case GDK_KEY_d: {
+      const char *cur = gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(mode_combo) );
+      // Get the value of mode_combo, so we can go to D-U if already in D-U
+      if (strcasecmp(cur, "D-L") == 0) {
+         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "D-U");
+      } else {
+         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "D-L");
+      }
+      fprintf(stderr, "FM\n");
+      break;
+   }
+   case GDK_KEY_F:
+   case GDK_KEY_f: {
+      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
+      fprintf(stderr, "FM\n");
+      break;
+   }
+   case GDK_KEY_L:
+   case GDK_KEY_l: {
+      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "LSB");
+      fprintf(stderr, "FM\n");
+      break;
+   }
+   case GDK_KEY_U:
+   case GDK_KEY_u: {
+      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "USB");
+      fprintf(stderr, "FM\n");
+      break;
+   }
+   }
+
    return FALSE;
 }
 
@@ -151,10 +152,12 @@ GtkWidget *create_mode_box(void) {
    gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 1);
 
    ///////
-   mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
-   g_signal_connect(mode_combo_wrapper, "key-press-event", G_CALLBACK(on_mode_keypress), mode_combo);
+   mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed),
+      NULL);
+   g_signal_connect(mode_combo_wrapper, "key-press-event", G_CALLBACK(on_mode_keypress),
+      mode_combo);
    g_signal_connect(mode_combo, "key-press-event", G_CALLBACK(on_mode_keypress), mode_combo);
-   g_signal_connect(mode_combo, "popup",   G_CALLBACK(on_mode_popup),   NULL);
+   g_signal_connect(mode_combo, "popup", G_CALLBACK(on_mode_popup), NULL);
    g_signal_connect(mode_combo, "popdown", G_CALLBACK(on_mode_popdown), NULL);
 
    return mode_box;

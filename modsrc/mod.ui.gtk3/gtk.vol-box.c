@@ -1,6 +1,6 @@
 //
 // rrclient/gtk.vol-box.c: Transmit power
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -18,19 +18,18 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
+#endif // defined(USE_MONGOOSE)
 #include "mod.ui.gtk3/gtk.core.h"
 
-GtkWidget *rx_vol_slider = NULL;	// gstreamer volume
-GtkWidget *rx_rig_vol_slider = NULL;	// Rig side setting
+GtkWidget *rx_vol_slider = NULL;        // gstreamer volume
+GtkWidget *rx_rig_vol_slider = NULL;    // Rig side setting
 
 void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    if (!range || !user_data) {
       return;
    }
-
    gdouble val = gtk_range_get_value(range);
    val /= 100.0;  // scale from 0–100 to 0.0–1.0
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
@@ -66,6 +65,7 @@ GtkWidget *create_volbox(void) {
 
    int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
+
 //   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
    return rx_vol_vbox;
 }

@@ -1,6 +1,6 @@
 //
 // rrclient/gtk.txpower.c: Transmit
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -18,9 +18,9 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
+#endif // defined(USE_MONGOOSE)
 #include "mod.ui.gtk3/gtk.core.h"
 
 GtkWidget *tx_power_slider = NULL;

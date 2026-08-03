@@ -30,10 +30,9 @@ static void parse_server_opts(server_cfg_t *cfg, const char *opts) {
    while (p && *p) {
       const char *delim = strchr(p, '|');
       size_t len = delim ? (size_t)(delim - p) : strlen(p);
-
       if (len > 0) {
          char buf[256];
-         if (len >= sizeof(buf)) {
+         if (len >= sizeof(buf) ) {
             len = sizeof(buf) - 1;
          }
          memcpy(buf, p, len);
@@ -44,7 +43,6 @@ static void parse_server_opts(server_cfg_t *cfg, const char *opts) {
             *eq = '\0';
             const char *key = buf;
             const char *val = eq + 1;
-
             if (strcasecmp(key, "priority") == 0) {
                cfg->priority = atoi(val);
             } else if (strcasecmp(key, "autojoin") == 0) {
@@ -52,7 +50,7 @@ static void parse_server_opts(server_cfg_t *cfg, const char *opts) {
                   snprintf(cfg->autojoin, sizeof(cfg->autojoin), "%s", val);
                } else {
                   size_t len = strlen(cfg->autojoin);
-                  if (len + 1 < sizeof(cfg->autojoin)) {          // +1 for comma
+                  if (len + 1 < sizeof(cfg->autojoin) ) {           // +1 for comma
                      strncat(cfg->autojoin, ",", sizeof(cfg->autojoin) - len - 1);
                      strncat(cfg->autojoin, val, sizeof(cfg->autojoin) - strlen(cfg->autojoin) - 1);
                   } else {
@@ -62,7 +60,6 @@ static void parse_server_opts(server_cfg_t *cfg, const char *opts) {
             }
          }
       }
-
       if (!delim) {
          break;
       }
@@ -74,19 +71,16 @@ bool add_server(const char *network, const char *str) {
    if (!str || !network) {
       return false;
    }
-
-   server_cfg_t *new_cfg = calloc(1, sizeof(*new_cfg));
+   server_cfg_t *new_cfg = calloc( 1, sizeof(*new_cfg) );
    if (!new_cfg) {
       fprintf(stderr, "OOM in add_server\n");
       abort();
    }
-
    snprintf(new_cfg->network, sizeof(new_cfg->network), "%s", network);
    new_cfg->priority = 0;
    new_cfg->tls = false;
 
    const char *p = str;
-
    // Strip scheme
    if (strncasecmp(p, "ircs://", 7) == 0) {
       p += 7;
@@ -98,13 +92,12 @@ bool add_server(const char *network, const char *str) {
    } else if (strncasecmp(p, "wss://", 6) == 0) {
       p += 6;
    }
-
    // Split host and options
    const char *opts = strchr(p, '|');
    size_t hostlen = opts ? (size_t)(opts - p) : strlen(p);
 
    char hostbuf[256];
-   if (hostlen >= sizeof(hostbuf)) {
+   if (hostlen >= sizeof(hostbuf) ) {
       hostlen = sizeof(hostbuf) - 1;
    }
    memcpy(hostbuf, p, hostlen);
@@ -124,7 +117,6 @@ bool add_server(const char *network, const char *str) {
       }
       memmove(hostbuf, at + 1, strlen(at + 1) + 1);
    }
-
    // Parse host[:port]
    char *colon = strchr(hostbuf, ':');
    if (colon) {
@@ -134,12 +126,10 @@ bool add_server(const char *network, const char *str) {
       new_cfg->port = new_cfg->tls ? 6697 : 6667;
    }
    snprintf(new_cfg->host, sizeof(new_cfg->host), "%s", hostbuf);
-
    // Parse options if present
    if (opts) {
       parse_server_opts(new_cfg, opts + 1);
    }
-
    // Append to global list
    if (!server_list) {
       server_list = new_cfg;
@@ -150,7 +140,6 @@ bool add_server(const char *network, const char *str) {
       }
       sp->next = new_cfg;
    }
-
    return true;
 }
 
@@ -161,7 +150,6 @@ bool add_server(const char *network, const char *str) {
 bool autoconnect(void) {
    // Handle connecting to servers in networks.auto
    const char *networks = cfg_get_exp("networks.auto");
-
    if (networks) {
       char *tv = strdup(networks);
       // Split this on ',' and connect to allow configured networks
@@ -169,7 +157,7 @@ bool autoconnect(void) {
 
       while (sp) {
          char this_network[256];
-         memset(this_network, 0, sizeof(this_network));
+         memset( this_network, 0, sizeof(this_network) );
          snprintf(this_network, sizeof(this_network), "%s", sp);
          tui_print_win(tui_window_find("status"), "autoconnect network: %s", sp);
          rrlist_t *temp_list = NULL;  // head of temporary list
@@ -177,25 +165,26 @@ bool autoconnect(void) {
          server_cfg_t *srvp = server_list;
          while (srvp) {
             if (strcasecmp(srvp->network, this_network) == 0) {
-               tui_print_win(tui_window_find("status"), "=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"), srvp->host, srvp->port, srvp->priority);
+               tui_print_win(tui_window_find("status"),
+                  "=> Add server: %s://%s:%d with priority %d", (srvp->tls ? "ircs" : "irc"),
+                  srvp->host, srvp->port, srvp->priority);
                // Wrap server pointer in a list node
-               rrlist_t *node = malloc(sizeof(rrlist_t));
+               rrlist_t *node = malloc( sizeof(rrlist_t) );
                node->ptr = srvp;
                node->prev = node->next = NULL;
 
                // Insert into temp_list sorted by priority (descending)
                rrlist_t *cur = temp_list;
                rrlist_t *prev = NULL;
-               while (cur && ((server_cfg_t *)cur->ptr)->priority >= srvp->priority) {
-                   prev = cur;
-                   cur = cur->next;
+               while (cur && ( (server_cfg_t *)cur->ptr)->priority >= srvp->priority) {
+                  prev = cur;
+                  cur = cur->next;
                }
-
                if (!prev) {
                   // insert at head
                   node->next = temp_list;
                   if (temp_list) {
-                    temp_list->prev = node;
+                     temp_list->prev = node;
                   }
                   temp_list = node;
                } else {
@@ -203,21 +192,21 @@ bool autoconnect(void) {
                   node->next = prev->next;
                   node->prev = prev;
                   if (prev->next) {
-                    prev->next->prev = node;
+                     prev->next->prev = node;
                   }
                   prev->next = node;
                }
             }
             srvp = srvp->next;
          }
-
          rrlist_t *node = temp_list;
          while (node) {
             server_cfg_t *srv = node->ptr;
-            tui_print_win(tui_window_find("status"), "Trying %s://%s@%s:%d priority=%d", (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
+            tui_print_win(tui_window_find("status"), "Trying %s://%s@%s:%d priority=%d",
+               (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
             irc_conn_t *cli;
-            if ((cli = irc_cli_connect(srv))) {
+            if ( (cli = irc_cli_connect(srv) ) ) {
                // Add to the connection list
                rrlist_add(&irc_client_conns, cli, LIST_TAIL);
             }
@@ -226,7 +215,7 @@ bool autoconnect(void) {
          sp = strtok(NULL, " ,");
       }
       free(tv);
-      free((void *)networks);
+      free( (void *)networks );
       networks = NULL;
    }
    return false;

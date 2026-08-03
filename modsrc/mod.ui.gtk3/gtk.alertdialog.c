@@ -1,6 +1,6 @@
 //
 // rrclient/gtk.alertdialog.c: Show an alert/error/warning dialog
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -51,15 +51,10 @@ void alert_dialog(GtkWindow *parent, AlertType kind, const char *msg) {
    }
    AlertDialogStyle *def = &alert_dialog_styles[kind];
 
-   GtkWidget *dialog = gtk_message_dialog_new(
-      parent,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      def->gtk_type,
-      GTK_BUTTONS_OK,
-      "%s", msg
-   );
+   GtkWidget *dialog = gtk_message_dialog_new(parent,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, def->gtk_type, GTK_BUTTONS_OK, "%s", msg);
 
    gtk_window_set_title(GTK_WINDOW(dialog), def->title);
-   gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_dialog_run( GTK_DIALOG(dialog) );
    gtk_widget_destroy(dialog);
 }

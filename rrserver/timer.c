@@ -1,6 +1,6 @@
 //
 // timer.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -24,13 +24,13 @@
 // timer_create_periodic:
 //	Create a timer that occurs every interval milliseconds
 //	Repeats can be used to create a timer that only happens a few times
-// 		Use repeats = 0 for unlimited repeats
+//       Use repeats = 0 for unlimited repeats
 //	callback
-bool timer_create_periodic(int interval, int repeats, void (*callback)()) {
+bool timer_create_periodic( int interval, int repeats, void (*callback) () ) {
    return false;
 }
 
-bool timer_create_oneshot(int delay, void (*callback)()) {
+bool timer_create_oneshot( int delay, void (*callback) () ) {
    return false;
 }
 
@@ -42,5 +42,6 @@ bool timer_run(void) {
 // initialize the timer subsystem
 bool timer_init(void) {
    Log(LOG_INFO, "timer", "Initialized timers");
+
    return false;
 }

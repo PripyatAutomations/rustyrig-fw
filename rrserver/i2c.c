@@ -1,6 +1,6 @@
 //
 // i2c.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -32,8 +32,8 @@ static const char *i2c_bus = "/dev/i2c-1";
 // Initialize i2c communications
 // addr: My address
 /*
-uint32_t i2c_init(uint32_t bus, uint32_t addr) {
+   uint32_t i2c_init(uint32_t bus, uint32_t addr) {
     Log(LOG_INFO, "i2c", "Initializing i2c bus %d, my address is [0x%x]", bus, addr);
     return 0;
-}
-*/
+   }
+ */

@@ -1,6 +1,6 @@
 //
 // rrclient/gtk.serveredit.c: Server editor
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -17,9 +17,9 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
+#endif // defined(USE_MONGOOSE)
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;
@@ -39,10 +39,9 @@ typedef struct serverlist {
    struct serverlist *next;
 } serverlist_t;
 
-bool server_parse_url(const char *url, char *host, int *port,
-                      char *user, char *pass, server_proto_t *proto) {
+bool server_parse_url(const char *url, char *host, int *port, char *user, char *pass,
+                      server_proto_t *proto) {
    const char *p = url;
-
    // Scheme
    if (strncmp(p, "ws://", 5) == 0) {
       *proto = SERVER_WS;
@@ -55,7 +54,6 @@ bool server_parse_url(const char *url, char *host, int *port,
    } else {
       return false;
    }
-
    // Optional user[:pass]@
    const char *at = strchr(p, '@');
    if (at) {
@@ -81,12 +79,10 @@ bool server_parse_url(const char *url, char *host, int *port,
       user[0] = '\0';
       pass[0] = '\0';
    }
-
    // Host[:port]
    const char *slash = strchr(p, '/');
    const char *hostend = slash ? slash : p + strlen(p);
    const char *colon = memchr(p, ':', hostend - p);
-
    if (colon) {
       size_t hlen = colon - p;
       if (hlen >= 256) {
@@ -101,28 +97,26 @@ bool server_parse_url(const char *url, char *host, int *port,
       }
       memcpy(host, p, hlen); host[hlen] = '\0';
    }
-
    return true;
 }
 
 serverlist_t *serverlist_add(const char *name, const char *url) {
-   serverlist_t *sp = malloc(sizeof(serverlist_t));
+   serverlist_t *sp = malloc( sizeof(serverlist_t) );
    if (!sp) {
       return NULL;
    }
-   memset(sp, 0, sizeof(*sp));
+   memset( sp, 0, sizeof(*sp) );
 
    char host[256];
    int port = -1;
    char user[HTTP_USER_LEN];
    char pass[HTTP_PASS_LEN];
    server_proto_t proto;
-
-   if (!server_parse_url(url, host, &port, user, pass, &proto)) {
+   if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
       free(sp);
+
       return NULL;
    }
-
    sp->name = strdup(name ? name : "");
    sp->host = strdup(host);
    sp->port = port;
@@ -130,14 +124,13 @@ serverlist_t *serverlist_add(const char *name, const char *url) {
    sp->pass = strdup(pass);
    sp->proto = proto;
    sp->next = NULL;
-
    if (!sp->name || !sp->host || !sp->user || !sp->pass) {
       free(sp->name); free(sp->host);
       free(sp->user); free(sp->pass);
       free(sp);
+
       return NULL;
    }
-
    return sp;
 }
 
@@ -155,12 +148,11 @@ void serverlist_free(serverlist_t *sp) {
 // --- lookup helpers ---
 
 serverlist_t *serverlist_find_by_name(serverlist_t *head, const char *name) {
-   for (serverlist_t *sp = head; sp; sp = sp->next) {
+   for (serverlist_t *sp = head;sp;sp = sp->next) {
       if (strcmp(sp->name, name) == 0) {
          return sp;
       }
    }
-
    return NULL;
 }
 
@@ -168,12 +160,10 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
    char host[256], user[HTTP_USER_LEN], pass[HTTP_PASS_LEN];
    int port = -1;
    server_proto_t proto;
-
-   if (!server_parse_url(url, host, &port, user, pass, &proto)) {
+   if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
       return NULL;
    }
-
-   for (serverlist_t *sp = head; sp; sp = sp->next) {
+   for (serverlist_t *sp = head;sp;sp = sp->next) {
       if (sp->port == port &&
           sp->proto == proto &&
           strcmp(sp->host, host) == 0 &&
@@ -191,17 +181,14 @@ GtkWidget *server_edit_create(serverlist_t *sp) {
    if (!w) {
       return NULL;
    }
-
    gtk_window_set_title(GTK_WINDOW(w), "Server Editor");
    gui_window_t *window_t = ui_new_window(w, "serveredit");
    if (!window_t) {
       // XXX: Free w
    }
-
    // If sp passed, populate with the server's details
    if (sp) {
       //
    }
-   
    return w;
 }

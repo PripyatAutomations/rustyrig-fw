@@ -25,9 +25,9 @@ bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args)
    size_t pos = 0;
    char *target = wp->title;
 
-   for (int i = 0; i < argc; i++) {
-      int n = snprintf(buf + pos, sizeof(buf) - pos,
-                       "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
+   for (int i = 0;i < argc;i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 0 ? " " : ""),
+         args[i] ? args[i] : "");
       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
          break;
       }
@@ -35,8 +35,6 @@ bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args)
    }
    Log(LOG_DEBUG, "irc", "sending privmsg to %s", target);
    irc_send(wp->cptr, "PRIVMSG %s :%s", target, buf);
-
-
    if (*buf == '\001') {
       // CTCP
       if (strncasecmp(buf + 1, "ACTION", 6) == 0) {
@@ -45,9 +43,9 @@ bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args)
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
-      tui_print_win(wp, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, buf);
+      tui_print_win(wp, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s",
+         get_chat_ts(0), cptr->nick, buf);
    }
-
    return false;
 }
 
@@ -62,25 +60,22 @@ void on_privmsg(const char *event, void *data, irc_conn_t *cptr, void *user) {
    memset(tmp_nick, 0, NICKLEN + 1);
    snprintf(tmp_nick, NICKLEN + 1, "%.*s", (int)nicklen, nick);
 
-   Log(LOG_CRIT, "irc.event", "on_privmsg: argc %d args0 %s args1 %s", mp->argc, mp->argv[0], mp->argv[1]);
+   Log(LOG_CRIT, "irc.event", "on_privmsg: argc %d args0 %s args1 %s", mp->argc, mp->argv[0],
+      mp->argv[1]);
    char *win_title = tmp_nick;
    // Is this a query or channel message?
    bool is_private = true;
-
    if (*mp->argv[1] == '&' || *mp->argv[1] == '#') {
       is_private = false;
       win_title = mp->argv[1];
    }
-
    tui_window_t *wp = tui_window_find(win_title);
    if (!wp) {
       wp = tui_active_window();
    }
-
    if (!nick) {
       return;
    }
-
    Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
 
    char *colored = NULL;
@@ -89,13 +84,14 @@ void on_privmsg(const char *event, void *data, irc_conn_t *cptr, void *user) {
    } else {
       colored = strip_mirc_formatting(mp->argv[2]);
    }
-
    if (strcasestr(mp->argv[2], cptr->nick) == 0) {
-      tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ", get_chat_ts(0), tmp_nick, colored);
+      tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ",
+         get_chat_ts(0), tmp_nick, colored);
    } else {
-      tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s{reset} ", get_chat_ts(0), tmp_nick, colored);
+      tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s{reset} ",
+         get_chat_ts(0), tmp_nick, colored);
    }
-
    free(colored);
+
    return;
 }

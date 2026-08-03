@@ -1,6 +1,6 @@
 //
 // au.c: Handle receiving/sending audio between this service and audio backends such as fwdsp for gstreamer
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -33,40 +33,39 @@
 // XXX: This needs moved to config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path
 
 rr_au_backend_interface_t au_backend_null = {
-    .backend_type = AU_BACKEND_NULL_SINK,
-    .init = NULL,
-    .write_samples = NULL,
-    .read_samples = NULL,
-    .cleanup = NULL
+   .backend_type = AU_BACKEND_NULL_SINK,
+   .init = NULL,
+   .write_samples = NULL,
+   .read_samples = NULL,
+   .cleanup = NULL
 };
 
 bool rr_au_init(void) {
-    rr_au_backend_interface_t *be = &au_backend_null;
-
-    // Initialize the selected backend
-    if (be && be->init) {
-        return be->init();
-    }
-    return true;
+   rr_au_backend_interface_t *be = &au_backend_null;
+   // Initialize the selected backend
+   if (be && be->init) {
+      return be->init();
+   }
+   return true;
 }
 
-bool rr_au_write_samples(rr_au_backend_interface_t *be ,const void *samples, size_t size) {
-    if (be->write_samples) {
-        return be->write_samples(samples, size);
-    }
-    return false;
+bool rr_au_write_samples(rr_au_backend_interface_t *be, const void *samples, size_t size) {
+   if (be->write_samples) {
+      return be->write_samples(samples, size);
+   }
+   return false;
 }
 
 rr_au_sample_t **rr_au_read_samples(rr_au_backend_interface_t *be) {
-    if (be->read_samples) {
-        return be->read_samples();
-    }
-    return NULL;
+   if (be->read_samples) {
+      return be->read_samples();
+   }
+   return NULL;
 }
 
 void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev) {
-    if (be->cleanup) {
-        be->cleanup(dev);
-    }
+   if (be->cleanup) {
+      be->cleanup(dev);
+   }
 }
 

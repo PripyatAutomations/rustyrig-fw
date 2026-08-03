@@ -4,20 +4,17 @@
 #include <stdio.h>
 #include "build_config.h"
 
-#if	defined(USE_LIBUNWIND)
+#if     defined(USE_LIBUNWIND)
 #include <libunwind.h>
 void print_stacktrace(void) {
    unw_cursor_t cursor;
    unw_context_t context;
-
    if (unw_getcontext(&context) != 0) {
       return;
    }
-
    if (unw_init_local(&cursor, &context) != 0) {
       return;
    }
-
    while (unw_step(&cursor) > 0) {
       char name[256];
       unw_word_t offset;

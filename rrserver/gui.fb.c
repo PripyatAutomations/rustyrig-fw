@@ -1,6 +1,6 @@
 //
 // gui.fb.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -29,24 +29,23 @@
 
 gui_fb_state_t *gui_fb_init(gui_fb_state_t *fb) {
    // XXX: Get these from eeprom
-   uint8_t	new_depth = 0,
-                new_height = 0,
-                new_width = 0;
-
+   uint8_t new_depth = 0,
+           new_height = 0,
+           new_width = 0;
    // If framebuffer not passed to us, allocate one to return
    if (!fb) {
-      if (!(fb = malloc(sizeof(gui_fb_state_t)))) {
+      if (!(fb = malloc( sizeof(gui_fb_state_t) ) ) ) {
          Log(LOG_CRIT, "fb", "out of mem. allocating fb_state");
+
          return NULL;
       }
-
-      memset(fb, 0, sizeof(gui_fb_state_t));
-      if (!(fb->framebuffer = malloc(new_depth * new_height * new_width))) {
+      memset( fb, 0, sizeof(gui_fb_state_t) );
+      if (!(fb->framebuffer = malloc(new_depth * new_height * new_width) ) ) {
          free(fb);
+
          return NULL;
       }
    }
-
    return fb;
 }
 

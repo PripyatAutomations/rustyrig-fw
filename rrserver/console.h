@@ -1,13 +1,13 @@
 //
 // console.h
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__rr_console_h)
-#define	__rr_console_h
+#if     !defined(__rr_console_h)
+#define __rr_console_h
 
 #include "build_config.h"
 #include <stdbool.h>
@@ -18,4 +18,4 @@ struct cons_cmds {
        max_args;
    bool (*hndlr)();
 };
-#endif	// !defined(__rr_console_h)
+#endif // !defined(__rr_console_h)

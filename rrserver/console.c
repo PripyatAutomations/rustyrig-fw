@@ -1,6 +1,6 @@
 //
 // console.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -16,7 +16,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#if	defined(HOST_POSIX)
+#if     defined(HOST_POSIX)
 #include <sys/socket.h>
 #endif
 #include <librrprotocol/rrprotocol.h>

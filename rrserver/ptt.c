@@ -1,6 +1,6 @@
 //
 // ptt.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -27,68 +27,59 @@
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 #endif
 
-time_t   global_tot_time = 0;		// TOT
-extern time_t   ptt_tot_time;
-int	 vfos_enabled = 2;		// A + B by default
+time_t global_tot_time = 0;             // TOT
+extern time_t ptt_tot_time;
+int vfos_enabled = 2;                   // A + B by default
 
 bool rr_ptt_check_blocked(void) {
-    if (rig.tx_blocked) {
-       return true;
-     }
-     return false;
+   if (rig.tx_blocked) {
+      return true;
+   }
+   return false;
 }
 
 bool rr_ptt_set_blocked(bool blocked) {
-   Log(LOG_AUDIT, "ptt", "PTT %sBLOCKED", (blocked ? "" : "un"));
+   Log( LOG_AUDIT, "ptt", "PTT %sBLOCKED", (blocked ? "" : "un") );
    rig.tx_blocked = blocked;
+
    return blocked;
 }
 
 // For CAT to call
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
-   char msgbuf[HTTP_WS_MAX_MSG+1];
-
-   if (rr_ptt_check_blocked()) {
+   char msgbuf[HTTP_WS_MAX_MSG + 1];
+   if (rr_ptt_check_blocked() ) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
+
       return false;
    }
-
    // set or clear the talk timeout
    if (ptt) {
       global_tot_time = now + ptt_tot_time;
    } else {
       global_tot_time = 0;
    }
-
 // XXX: Fix this!
    if (rig.backend && rig.backend->api) {
       rig.backend->api->ptt_set(vfo, ptt);
    } else {
       Log(LOG_WARN, "ptt", "no backend");
    }
-
-    const char *jp;
+   const char *jp;
 #if defined(BACKEND_HAMLIB)
-    jp = dict2json_mkstr(
-       VAL_STR, "cat.state.vfo", vfo_name(vfo),
-       VAL_FLOAT, "cat.state.freq", hl_state.freq,
-       VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode),
-       VAL_INT, "cat.state.width", hl_state.width,
-       VAL_BOOL, "cat.state.ptt", ptt,
-       VAL_ULONG, "cat.state.ts", now);
+   jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", vfo_name(vfo), VAL_FLOAT, "cat.state.freq",
+      hl_state.freq, VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT,
+      "cat.state.width", hl_state.width, VAL_BOOL, "cat.state.ptt", ptt, VAL_ULONG, "cat.state.ts",
+      now);
 #else
-    jp = dict2json_mkstr(
-       VAL_STR, "cat.state.vfo", vfo_name(vfo),
-       VAL_FLOAT, "cat.state.freq", 0.0,
-       VAL_STR, "cat.state.mode", "NONE",
-       VAL_INT, "cat.state.width", 0,
-       VAL_BOOL, "cat.state.ptt", ptt,
-       VAL_ULONG, "cat.state.ts", now);
+   jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", vfo_name(vfo), VAL_FLOAT, "cat.state.freq", 0.0,
+      VAL_STR, "cat.state.mode", "NONE", VAL_INT, "cat.state.width", 0, VAL_BOOL, "cat.state.ptt",
+      ptt, VAL_ULONG, "cat.state.ts", now);
 #endif
    // and send a CAT message with the state
    struct mg_str mp = mg_str(jp);
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-   free((void *)jp);
+   free( (void *)jp );
 
    return ptt;
 }
@@ -99,10 +90,9 @@ bool rr_ptt_toggle(rr_vfo_t vfo) {
 
 bool rr_ptt_set_all_off(void) {
    Log(LOG_AUDIT, "core", "PTT turned off for all VFOs!");
-   for (int i = 1; i < vfos_enabled; i++) {
+   for (int i = 1;i < vfos_enabled;i++) {
       rr_ptt_set(i, false);
    }
-
    global_tot_time = 0;
 
    return false;

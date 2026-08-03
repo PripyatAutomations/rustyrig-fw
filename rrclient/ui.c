@@ -1,7 +1,7 @@
 //
 // rrclient/ui.c: User interface wrapper (for GTK and TUI)
 //
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -19,31 +19,30 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
 #include <gtk/gtk.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #endif
 
-extern bool ui_mode_gui;	// main.c
+extern bool ui_mode_gui;        // main.c
 enum GuiMode {
-  GUI_MODE_TUI = 0,
-  GUI_MODE_GTK
+   GUI_MODE_TUI = 0,
+   GUI_MODE_GTK
 } GuiMode;
 
 bool ui_print(const char *fmt, ...) {
    if (!fmt) {
       return true;
    }
-
    va_list ap;
    va_start(ap, fmt);
    char outbuf[8096];
 
-   memset(outbuf, 0, sizeof(outbuf));
+   memset( outbuf, 0, sizeof(outbuf) );
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
    va_end(ap);
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
    if (ui_mode_gui) {
       ui_print_gtk(outbuf);
    }

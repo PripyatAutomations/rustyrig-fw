@@ -17,7 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 #endif
 #include <librustyaxe/core.h>
@@ -25,24 +25,24 @@
 
 enum rr_conn_type {
    RR_CONN_NONE = 0,
-   RR_CONN_MONGOOSE,				// mongoose socket
+   RR_CONN_MONGOOSE,                            // mongoose socket
 };
 
 struct rr_connection {
-   char                 name[256];	// server name
-   bool			connected;	// Are we connected?
-   bool			ptt_active;	// Is PTT raised?
-   enum rr_conn_type	*conn_type;	// connection type		
-#if	defined(USE_MONGOOSE)
-   struct mg_connection *mg_conn;	// mongoose socket
-   struct mg_connection *ws_conn,	// RX stream
-                        *ws_tx_conn;	// TX stream
+   char name[256];                      // server name
+   bool connected;                      // Are we connected?
+   bool ptt_active;                     // Is PTT raised?
+   enum rr_conn_type    *conn_type;     // connection type
+#if     defined(USE_MONGOOSE)
+   struct mg_connection *mg_conn;       // mongoose socket
+   struct mg_connection *ws_conn,       // RX stream
+                        *ws_tx_conn;    // TX stream
 #endif
    time_t poll_block_expire, poll_block_delay;
-   char session_token[HTTP_TOKEN_LEN+1];
+   char session_token[HTTP_TOKEN_LEN + 1];
 
    /////
-   struct rr_connection *next;			// next socket
+   struct rr_connection *next;                  // next socket
 };
 typedef struct rr_connection rr_connection_t;
 
@@ -53,16 +53,16 @@ extern bool disconnect_server(const char *server);
 extern bool connect_server(const char *server);
 extern bool ws_connected;
 extern bool ws_tx_connected;
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn, *ws_tx_conn;
 #endif
 extern bool server_ptt_state;
 extern const char *get_server_property(const char *server, const char *prop);
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
 extern bool connect_or_disconnect(const char *server, GtkButton *button);
 #endif
 
 extern bool config_network_cb(const char *path, int line, const char *section, const char *buf);
 
-#endif	// !defined(__rrclient_connman_h)
+#endif // !defined(__rrclient_connman_h)

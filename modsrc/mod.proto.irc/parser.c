@@ -2,9 +2,9 @@
 #include "librustyaxe/irc.parser.h"
 
 typedef struct rusty_client {
-  int sock_fd;		// 	  // Socket file descriptor
-#if	defined(USE_MONGOOSE)
-  struct mg_connection *mg_conn;  // Store socket or mongoose connection
+   int sock_fd;         //      // Socket file descriptor
+#if     defined(USE_MONGOOSE)
+   struct mg_connection *mg_conn; // Store socket or mongoose connection
 #endif
 } client_t;
 
@@ -31,17 +31,17 @@ rusty_module_hook_t proto_irc_hooks[] = {
 // Module file header
 typedef struct rusty_module_header {
    // Module API version
-   unsigned int		mod_api_ver;
-   char			*mod_author;
-   char			*mod_copyright;
-   char			*mod_ver;
-   rusty_module_hook_t	*static_hooks[];
+   unsigned int mod_api_ver;
+   char                 *mod_author;
+   char                 *mod_copyright;
+   char                 *mod_ver;
+   rusty_module_hook_t  *static_hooks[];
 } rusty_module_header_t;
 
 rusty_module_header_t mod_proto_irc = {
-      .mod_api_ver = RUSTY_MODULE_API_VER,
-      .mod_author = "rustyaxe <rustyaxe@istabpeople.com>",
-      .mod_copyright = "Copyright 2025 rustyaxe. Released under MIT license",
-      .mod_ver = VERSION,
-      .static_hooks = proto_irc_hooks
+   .mod_api_ver = RUSTY_MODULE_API_VER,
+   .mod_author = "rustyaxe <rustyaxe@istabpeople.com>",
+   .mod_copyright = "Copyright 2025 rustyaxe. Released under MIT license",
+   .mod_ver = VERSION,
+   .static_hooks = proto_irc_hooks
 };

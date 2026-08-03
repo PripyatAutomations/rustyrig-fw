@@ -1,6 +1,6 @@
 //
 // rrclient/gtk.syslog.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -18,13 +18,13 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
+#endif // defined(USE_MONGOOSE)
 #include <rrclient/userlist.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-extern dict *cfg;		// config.c
+extern dict *cfg;               // config.c
 extern struct mg_connection *ws_conn;
 extern time_t now;
 extern GtkWidget *main_notebook;
@@ -37,11 +37,9 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    if (!fmt || !ap) {
       return true;
    }
-
    char outbuf[8096];
-   memset(outbuf, 0, sizeof(outbuf));
+   memset( outbuf, 0, sizeof(outbuf) );
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
-
    if (log_buffer) {
       GtkTextIter end;
       gtk_text_buffer_get_end_iter(log_buffer, &end);
@@ -61,31 +59,31 @@ bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...)
    if (!fmt) {
       printf("log_print sent NULL fmt\n");
    }
-
    if (!log_buffer) {
 //      fprintf(stderr, "log_print called with no log_buffer");
       return false;
    }
-
    va_list ap;
    va_start(ap, fmt);
    bool rv = log_print_va(priority, subsys, fmt, ap);
    va_end(ap);
-   return rv;   
+
+   return rv;
 }
 
 bool syslog_clear(void) {
    gtk_text_buffer_set_text(log_buffer, "", -1);
+
    return false;
 }
 
 GtkWidget *init_log_tab(void) {
    GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw),
-                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC,
+      GTK_POLICY_AUTOMATIC);
 
    log_view = gtk_text_view_new();
-   log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(log_view));
+   log_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(log_view) );
    gtk_text_view_set_editable(GTK_TEXT_VIEW(log_view), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(log_view), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(log_view), GTK_WRAP_WORD_CHAR);
@@ -93,5 +91,6 @@ GtkWidget *init_log_tab(void) {
    GtkWidget *syslog_tab_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(syslog_tab_label), "(<u>4</u>) Syslog");
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, syslog_tab_label);
+
    return nw;
 }

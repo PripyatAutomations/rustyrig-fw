@@ -1,13 +1,13 @@
 //
 // backend.hamlib.h
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__rr_backend_hamlib_h)
-#define	__rr_backend_hamlib_h
+#if     !defined(__rr_backend_hamlib_h)
+#define __rr_backend_hamlib_h
 
 #if     defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
@@ -29,6 +29,6 @@ typedef struct hamlib_state {
 } hamlib_state_t;
 
 extern hamlib_state_t hl_state;
-#endif	// defined(BACKEND_HAMLIB)
+#endif // defined(BACKEND_HAMLIB)
 
-#endif	// !defined(__rr_backend_hamlib_h)
+#endif // !defined(__rr_backend_hamlib_h)

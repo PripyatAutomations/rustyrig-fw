@@ -1,6 +1,6 @@
 //
 // rrclient/commands.c: Chat stuff that isn't GUI dependent
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -32,19 +32,18 @@ extern bool dying;
 extern bool ui_mode_gui;
 extern time_t now;
 
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
 extern bool ws_connected;
 extern bool rrclient_send_chat(const char *data);
 #endif
 
-extern client_cmd_t client_cmds[];	// from commands.c
+extern client_cmd_t client_cmds[];      // from commands.c
 
 bool tui_input_cb(const char *input) {
    if (client_cmds[0].cmd == NULL || !input || !*input) {
       return true;
    }
-
    // Make a mutable copy
    char buf[TUI_INPUTLEN];
    strncpy(buf, input, sizeof(buf) - 1);
@@ -54,54 +53,56 @@ bool tui_input_cb(const char *input) {
    int argc = 0;
    char *args[64];   // max 64 tokens
    char *tok = strtok(buf, " \t");
-   while (tok && argc < (int)(sizeof(args) / sizeof(args[0]))) {
+   while (tok && argc < (int)(sizeof(args) / sizeof(args[0]) ) ) {
       args[argc++] = tok;
       tok = strtok(NULL, " \t");
    }
-
    if (argc == 0) {
       return true;
    }
-
    if (args[0][0] == '/') {
-      for (client_cmd_t *c = client_cmds; c->cmd && c->cb; c++) {
+      for (client_cmd_t *c = client_cmds;c->cmd && c->cb;c++) {
          if (strcasecmp(c->cmd, args[0]) == 0) {
             if (c->cb) {
                c->cb(argc, args);
+
                return false;
             }
          }
       }
+      tui_print_win(tui_active_window(),
+         "{red}*** {bright-red}Huh?! What you say?! I dont understand '%s' {red}***{reset}.",
+         args[0]);
 
-      tui_print_win(tui_active_window(), "{red}*** {bright-red}Huh?! What you say?! I dont understand '%s' {red}***{reset}.", args[0]);
       return true;
    }
-
-     // Send to active window target
-     tui_window_t *wp = tui_active_window();
-     if (wp) {
-        if (strcasecmp(wp->title, "status") == 0) {
-           tui_print_win(tui_active_window(), "{red}*** {bright-red}Huh? What you say??? {red}***{reset}.");
-        } else {
+   // Send to active window target
+   tui_window_t *wp = tui_active_window();
+   if (wp) {
+      if (strcasecmp(wp->title, "status") == 0) {
+         tui_print_win(tui_active_window(),
+            "{red}*** {bright-red}Huh? What you say??? {red}***{reset}.");
+      } else {
 #if defined(USE_MONGOOSE)
-           if (!ws_connected) {
-              tui_print_win(wp, "{red}*** Not connected to server ***{reset}");
-              return false;
-           }
-#endif
-           char fullmsg[502];
-           memset(fullmsg, 0, sizeof(fullmsg));
-           size_t pos = 0;
-           for (int i = 0; i < argc; i++) {
-              int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
-              if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
-                 break;
-              }
-              pos += n;
-           }
-           rrclient_send_chat(fullmsg);
-        }
-     }
+         if (!ws_connected) {
+            tui_print_win(wp, "{red}*** Not connected to server ***{reset}");
 
+            return false;
+         }
+#endif
+         char fullmsg[502];
+         memset( fullmsg, 0, sizeof(fullmsg) );
+         size_t pos = 0;
+         for (int i = 0;i < argc;i++) {
+            int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""),
+               args[i] ? args[i] : "");
+            if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+               break;
+            }
+            pos += n;
+         }
+         rrclient_send_chat(fullmsg);
+      }
+   }
    return false;
 }

@@ -1,6 +1,6 @@
 //
 // rrclient/gtk.fm-mode.c: FM mode dialog
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -17,9 +17,9 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
-#endif	// defined(USE_MONGOOSE)
+#endif // defined(USE_MONGOOSE)
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;
@@ -62,9 +62,10 @@ static const char *dcs_tones[] = {
 };
 
 static const char *fm_offsets[] = {
-   "-25.0", "-20.0", "-15.0", "-10.0", "-7.6", "-5.0", "-1.6",  "-1.0", "-0.7", "-0.6",
+   "-25.0", "-20.0", "-15.0", "-10.0", "-7.6", "-5.0", "-1.6", "-1.0", "-0.7", "-0.6",
    "NONE",
-   "0.6",  "0.7",  "1.0",  "1.6",  "5.0", "7.6", "10.0", "15.0", "20.0", "25.0" };
+   "0.6", "0.7", "1.0", "1.6", "5.0", "7.6", "10.0", "15.0", "20.0", "25.0"
+};
 
 /* Static pointers to widgets */
 static GtkWidget *tx_tone_combo = NULL;
@@ -74,7 +75,7 @@ static GtkWidget *tone_type_combo = NULL;
 /* Utility to populate tone combos */
 static void populate_tone_combo(GtkComboBoxText *combo, const char **tones) {
    gtk_combo_box_text_remove_all(combo);
-   for (int i = 0; tones[i]; i++) {
+   for (int i = 0;tones[i];i++) {
       gtk_combo_box_text_append_text(combo, tones[i]);
    }
    gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
@@ -82,13 +83,13 @@ static void populate_tone_combo(GtkComboBoxText *combo, const char **tones) {
 
 /* Update RX/TX tone combos enable state and contents */
 static void update_tone_dropdowns(void) {
-   const gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(fm_mode_combo));
-   const gchar *tone_type = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(tone_type_combo));
+   const gchar *mode = gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(fm_mode_combo) );
+   const gchar *tone_type =
+      gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(tone_type_combo) );
    const char **tones = g_strcmp0(tone_type, "DCS") == 0 ? dcs_tones : ctcss_tones;
 
    gboolean rx_enabled = FALSE;
    gboolean tx_enabled = FALSE;
-
    if (mode) {
       if (g_strcmp0(mode, "RX") == 0 || g_strcmp0(mode, "RX/TX") == 0) {
          rx_enabled = TRUE;
@@ -97,20 +98,17 @@ static void update_tone_dropdowns(void) {
          tx_enabled = TRUE;
       }
    }
-
    gtk_widget_set_sensitive(GTK_WIDGET(rx_tone_combo), rx_enabled);
    gtk_widget_set_sensitive(GTK_WIDGET(tx_tone_combo), tx_enabled);
-
    if (rx_enabled) {
       populate_tone_combo(GTK_COMBO_BOX_TEXT(rx_tone_combo), tones);
    } else {
-      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(rx_tone_combo));
+      gtk_combo_box_text_remove_all( GTK_COMBO_BOX_TEXT(rx_tone_combo) );
    }
-
    if (tx_enabled) {
       populate_tone_combo(GTK_COMBO_BOX_TEXT(tx_tone_combo), tones);
    } else {
-      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(tx_tone_combo));
+      gtk_combo_box_text_remove_all( GTK_COMBO_BOX_TEXT(tx_tone_combo) );
    }
 }
 
@@ -202,7 +200,7 @@ GtkWidget *fm_dialog_create(void) {
    GtkWidget *offset_combo = gtk_combo_box_text_new_with_entry();
    gtk_widget_set_tooltip_text(offset_combo, "Repeater Offset in Mhz");
 
-   for (int i = 0; fm_offsets[i] != NULL; i++) {
+   for (int i = 0;fm_offsets[i] != NULL;i++) {
       if (fm_offsets[i]) {
          gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), fm_offsets[i]);
       } else {
@@ -223,13 +221,12 @@ GtkWidget *fm_dialog_create(void) {
 void fm_dialog_show(void) {
    gui_window_t *ui_win = gui_find_window(NULL, "fm-mode");
    GtkWidget *fm_dialog = NULL;
-
    if (!ui_win) {
-     fm_dialog = fm_dialog_create();
+      fm_dialog = fm_dialog_create();
    } else {
       fm_dialog = ui_win->gtk_win;
       gtk_widget_show(fm_dialog);
-      gtk_window_present(GTK_WINDOW(fm_dialog));
+      gtk_window_present( GTK_WINDOW(fm_dialog) );
    }
    place_window(fm_dialog);
 }
@@ -237,7 +234,6 @@ void fm_dialog_show(void) {
 void fm_dialog_hide(void) {
    gui_window_t *ui_win = gui_find_window(NULL, "fm-mode");
    GtkWidget *fm_dialog = NULL;
-
    if (ui_win) {
       fm_dialog = ui_win->gtk_win;
       gtk_widget_hide(fm_dialog);

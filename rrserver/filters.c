@@ -1,6 +1,6 @@
 //
 // filters.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -22,23 +22,25 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/filters.h>
-#define	FILTERS_C
+#define FILTERS_C
 //#include "filter_tables.h"
 
 int filter_init(int fid) {
-    int rv = -1;
-    Log(LOG_INFO, "filt", " => Filter #%d initialized", fid);
-    return rv;
+   int rv = -1;
+   Log(LOG_INFO, "filt", " => Filter #%d initialized", fid);
+
+   return rv;
 }
 
 // Enumate all filters from configuration and init them
 int filter_init_all(void) {
-    int rv = 0;
-    int i = 0;
+   int rv = 0;
+   int i = 0;
 
-    // Walk the configured filters and set them up
-    Log(LOG_INFO, "filt", "Initializing all filters");
-    filter_init(i);
-    Log(LOG_INFO, "filt", "Filter setup complete");
-    return rv;
+   // Walk the configured filters and set them up
+   Log(LOG_INFO, "filt", "Initializing all filters");
+   filter_init(i);
+   Log(LOG_INFO, "filt", "Filter setup complete");
+
+   return rv;
 }

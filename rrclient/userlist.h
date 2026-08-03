@@ -1,15 +1,15 @@
 //
 // inc/rrclient/userlist.h
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__rrclient_userlist_h)
-#define	__rrclient_userlist_h
+#if     !defined(__rrclient_userlist_h)
+#define __rrclient_userlist_h
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
 #include <gtk/gtk.h>
 #endif
 
@@ -25,15 +25,25 @@ enum {
 };
 
 static inline const char *select_user_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "owner")) { return "👑"; }
-   if (strcasestr(cptr->privs, "admin")) { return "⭐"; }
-   if (strcasestr(cptr->privs, "tx")) { return "👤"; }
+   if (strcasestr(cptr->privs, "owner") ) {
+      return "👑";
+   }
+   if (strcasestr(cptr->privs, "admin") ) {
+      return "⭐";
+   }
+   if (strcasestr(cptr->privs, "tx") ) {
+      return "👤";
+   }
    return "👀";
 }
 
 static inline const char *select_elmernoob_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "elmer")) { return "🧙"; }
-   if (strcasestr(cptr->privs, "noob")) { return "🐣"; }
+   if (strcasestr(cptr->privs, "elmer") ) {
+      return "🧙";
+   }
+   if (strcasestr(cptr->privs, "noob") ) {
+      return "🐣";
+   }
    return "";
 }
 
@@ -51,10 +61,10 @@ extern bool delete_client(struct rr_user *cptr);
 extern bool clear_client_list(void);
 extern struct rr_user *userlist_find(const char *name);
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
 extern GtkWidget *userlist_init(void);
-#endif	// defined(USE_GTK)
+#endif // defined(USE_GTK)
 
 #include <librrprotocol/client-flags.h>
 
-#endif	// !defined(__rrclient_userlist_h)
+#endif // !defined(__rrclient_userlist_h)

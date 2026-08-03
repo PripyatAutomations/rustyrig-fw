@@ -1,14 +1,14 @@
 //
 // gtk.freqentry.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#if	!defined(__rrclient_gtk_freqinput_h)
-#define	__rrclient_gtk_freqinput_h
+#if     !defined(__rrclient_gtk_freqinput_h)
+#define __rrclient_gtk_freqinput_h
 #include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -26,7 +26,7 @@
 
 G_BEGIN_DECLS
 
-#define GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type())
+#define GTK_TYPE_FREQ_ENTRY ( gtk_freq_entry_get_type() )
 
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_entry, GTK, FREQ_ENTRY, GtkBox)
 
@@ -43,4 +43,4 @@ extern int gtk_freq_entry_num_digits(GtkFreqEntry *fi);
 
 G_END_DECLS
 
-#endif	// !defined(__rrclient_gtk_freqinput_h)
+#endif // !defined(__rrclient_gtk_freqinput_h)

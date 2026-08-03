@@ -1,6 +1,6 @@
 //
 // protection.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -26,7 +26,6 @@ bool rr_protect_warmup_pending(int amp_idx) {
    if (amp_idx < 0) {
       return false;
    }
-
    // Lookup warmup-required and warmup-time for the passed amp
 
    // Return no, no warmup needed
@@ -35,5 +34,6 @@ bool rr_protect_warmup_pending(int amp_idx) {
 
 bool protection_lockout(const char *reason) {
    rig.tx_blocked = true;
+
    return false;
 }

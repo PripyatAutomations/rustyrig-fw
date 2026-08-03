@@ -1,6 +1,6 @@
 //
 // backend.hamlib.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -12,7 +12,7 @@
 // This mostly exists to help test the rest of the firmware but
 // could probably be used as a proxy for legacy rigs too
 //
-// Notice that most functions are static, this is because they should NEVER be 
+// Notice that most functions are static, this is because they should NEVER be
 // directly called outside of this module. You should use the backend API instead.
 //
 #include <stddef.h>
@@ -24,29 +24,29 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 #include "ext/libmongoose/mongoose.h"
 #endif
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 // This only gets drug in if we have features/backend/hamlib=true
-#if	defined(BACKEND_HAMLIB)
+#if     defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
 #include <rrserver/thermal.h>
 #include <librustyaxe/eeprom.h>
 #include <rrserver/backend.h>
-static RIG *hl_rig = NULL;	// hamlib Rig interface
-static bool hl_init(void);	// fwd decl
-static bool hl_fini(void);	// fwd decl
+static RIG *hl_rig = NULL;      // hamlib Rig interface
+static bool hl_init(void);      // fwd decl
+static bool hl_fini(void);      // fwd decl
 
-#if	0
+#if     0
 enum rig_debug_level_e {
-     RIG_DEBUG_NONE = 0, /*!< no bug reporting */
-     RIG_DEBUG_BUG,      /*!< serious bug */
-     RIG_DEBUG_ERR,      /*!< error case (e.g. protocol, memory allocation) */
-     RIG_DEBUG_WARN,     /*!< warning */
-     RIG_DEBUG_VERBOSE,  /*!< verbose */
-     RIG_DEBUG_TRACE,    /*!< tracing */
-     RIG_DEBUG_CACHE     /*!< caching */
+   RIG_DEBUG_NONE = 0,   /*!< no bug reporting */
+   RIG_DEBUG_BUG,        /*!< serious bug */
+   RIG_DEBUG_ERR,        /*!< error case (e.g. protocol, memory allocation) */
+   RIG_DEBUG_WARN,       /*!< warning */
+   RIG_DEBUG_VERBOSE,    /*!< verbose */
+   RIG_DEBUG_TRACE,      /*!< tracing */
+   RIG_DEBUG_CACHE       /*!< caching */
 };
 #endif
 static int32_t hamlib_debug_level = RIG_DEBUG_ERR; // RIG_DEBUG_VERBOSE;
@@ -54,33 +54,35 @@ hamlib_state_t hl_state;
 
 // Return hamlib VFO from rr VFO id
 static vfo_t hl_get_vfo(rr_vfo_t vfo) {
-   switch(vfo) {
-      case VFO_A:
-         return RIG_VFO_A;
-         break;
-      case VFO_B:
-         return RIG_VFO_B;
-         break;
-      case VFO_C:
-         return RIG_VFO_C;
-         break;
-      case VFO_D:
-         return RIG_VFO_N(3);
-         break;
-      case VFO_E:
-         return RIG_VFO_N(4);
-         break;
-      case VFO_NONE:
-      default:
-         return RIG_VFO_NONE;
-         break;
+   switch (vfo) {
+   case VFO_A:
+      return RIG_VFO_A;
+      break;
+   case VFO_B:
+      return RIG_VFO_B;
+      break;
+   case VFO_C:
+      return RIG_VFO_C;
+      break;
+   case VFO_D:
+      return RIG_VFO_N(3);
+      break;
+   case VFO_E:
+      return RIG_VFO_N(4);
+      break;
+   case VFO_NONE:
+   default:
+      return RIG_VFO_NONE;
+      break;
    }
+
    return RIG_VFO_NONE;
 }
 
 rr_mode_t hl_mode_get(rr_vfo_t vfo) {
    int rv = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width);
    Log(LOG_DEBUG, "hl_mode_get", "rv: %d mode: %lu width: %d", rv, hl_state.rmode, hl_state.width);
+
    return MODE_NONE;
 }
 
@@ -131,7 +133,6 @@ static void hl_destroy(RIG *hl_rig) {
    if (!hl_rig) {
       return;
    }
-
    rig_close(hl_rig);
    rig_cleanup(hl_rig);
 }
@@ -139,15 +140,16 @@ static void hl_destroy(RIG *hl_rig) {
 static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
    vfo_t hl_vfo = hl_get_vfo(vfo);
    int ret = -1;
-
    if (state == true) {
-      if ((ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_ON)) != RIG_OK) {
-         Log(LOG_CRIT, "backend.hamlib", "Failed to enable PTT: %s\n", rigerror(ret));
+      if ( ( ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_ON) ) != RIG_OK ) {
+         Log( LOG_CRIT, "backend.hamlib", "Failed to enable PTT: %s\n", rigerror(ret) );
+
          return true;
       }
    } else {
-      if ((ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_OFF)) != RIG_OK) {
-         fprintf(stderr, "Failed to disable PTT: %s\n", rigerror(ret));
+      if ( ( ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_OFF) ) != RIG_OK ) {
+         fprintf( stderr, "Failed to disable PTT: %s\n", rigerror(ret) );
+
          return true;
       }
    }
@@ -159,48 +161,46 @@ static bool hl_init(void) {
    int ret;
 
    // Config values are stored in build_config.h as #defines for now
-#if	defined(BACKEND_HAMLIB_MODEL)
+#if     defined(BACKEND_HAMLIB_MODEL)
    rig_model_t model = BACKEND_HAMLIB_MODEL;
 #else
    rig_model_t model = RIG_MODEL_NETRIGCTL;  // Use NET rigctl (model 2)
 #endif
    // Set debug level, if configured
    // XXX: We should probably make this a run-time configuration
-#if	defined(BACKEND_HAMLIB_DEBUG)
+#if     defined(BACKEND_HAMLIB_DEBUG)
    rig_set_debug(BACKEND_HAMLIB_DEBUG);
 #else
    rig_set_debug(hamlib_debug_level);
 #endif
 
    hl_rig = rig_init(model);
-
    if (!hl_rig) {
       fprintf(stderr, "Failed to initialize rig\n");
+
       return true;
    }
-
    const char *cfg_hamlib_port = cfg_get_exp("backend.hamlib-port");
 
    // XXX: Is this needed or is the simpler code OK?
 /*
    strncpy(hl_rig->state.rigport.pathname, "localhost:4532", sizeof(hl_rig->state.rigport.pathname) - 1);
    hl_rig->state.rigport.pathname[sizeof(hl_rig->state.rigport.pathname) - 1] = '\0';
-*/
+ */
 
-   rig_set_conf(hl_rig, rig_token_lookup(hl_rig, "rig_pathname"), (cfg_hamlib_port ? cfg_hamlib_port : BACKEND_HAMLIB_PORT));
-   free((char *)cfg_hamlib_port);
-
+   rig_set_conf( hl_rig, rig_token_lookup(hl_rig, "rig_pathname"),
+      (cfg_hamlib_port ? cfg_hamlib_port : BACKEND_HAMLIB_PORT) );
+   free( (char *)cfg_hamlib_port );
 // XXX: this doesnt work on daedalus
 //   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
-
    // Open connection to rigctld
-   if ((ret = rig_open(hl_rig)) != RIG_OK) {
-      fprintf(stderr, "Failed to connect to rigctld: %s\n", rigerror(ret));
+   if ( ( ret = rig_open(hl_rig) ) != RIG_OK ) {
+      fprintf( stderr, "Failed to connect to rigctld: %s\n", rigerror(ret) );
       rig_cleanup(hl_rig);
       shutdown_rig(100);
+
       return true;
    }
-
    // Activate VFO A
    rig_set_vfo(hl_rig, RIG_VFO_A);
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
@@ -210,22 +210,21 @@ static bool hl_init(void) {
 
 static bool hl_freq_set(rr_vfo_t vfo, float freq) {
    int ret = -1;
-
    // Set frequency
-   if ((ret = rig_set_freq(hl_rig, RIG_VFO_A, freq)) != RIG_OK) {
-      Log(LOG_WARN, "ws.rigctl", "Failed to set frequency: %s", rigerror(ret));
+   if ( ( ret = rig_set_freq(hl_rig, RIG_VFO_A, freq) ) != RIG_OK ) {
+      Log( LOG_WARN, "ws.rigctl", "Failed to set frequency: %s", rigerror(ret) );
+
       return true;
    }
-
    return false;
 }
 
 static bool hl_fini(void) {
    if (!hl_rig) {
       Log(LOG_WARN, "hamlib", "hl_fini called but hl_rig == NULL");
+
       return true;
    }
-
    if (hl_rig) {
       hl_destroy(hl_rig);
    }
@@ -243,42 +242,39 @@ rr_vfo_data_t *hl_poll(void) {
    // - Elsewhere, in backend.c, we'll compare current + last, every call to send_rig_status
    int rc = -1;
 
-   rr_vfo_data_t *rv = malloc(sizeof(rr_vfo_data_t));
+   rr_vfo_data_t *rv = malloc( sizeof(rr_vfo_data_t) );
    if (!rv) {
       printf("OOM in hl_poll!\n");
+
       return NULL;
    }
-   memset(rv, 0, sizeof(rr_vfo_t));
+   memset( rv, 0, sizeof(rr_vfo_t) );
 
    // Do VFO_A for now
-   memset(&hl_state, 0, sizeof(hamlib_state_t));
-   if ((rc = rig_set_vfo(hl_rig, RIG_VFO_A)) != RIG_OK) {
-      Log(LOG_WARN, "be.hamlib", "SET VFO A failed: %s", rigerror(rc));
+   memset( &hl_state, 0, sizeof(hamlib_state_t) );
+   if ( ( rc = rig_set_vfo(hl_rig, RIG_VFO_A) ) != RIG_OK ) {
+      Log( LOG_WARN, "be.hamlib", "SET VFO A failed: %s", rigerror(rc) );
+
       return NULL;
    }
-
-   if ((rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq)) != RIG_OK) {
-      Log(LOG_WARN, "be.hamlib", "GET VFO_A freq failed: %s", rigerror(rc));
+   if ( ( rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq) ) != RIG_OK ) {
+      Log( LOG_WARN, "be.hamlib", "GET VFO_A freq failed: %s", rigerror(rc) );
       free(rv);
+
       return NULL;
    }
-
-   if ((rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width)) != RIG_OK) {
-      Log(LOG_WARN, "be.hamlib", "GET VFO_A mode failed: %s", rigerror(rc));
+   if ( ( rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width) ) != RIG_OK ) {
+      Log( LOG_WARN, "be.hamlib", "GET VFO_A mode failed: %s", rigerror(rc) );
    }
-
-   if ((rc = rig_get_ptt(hl_rig, RIG_VFO_CURR, &hl_state.ptt)) != RIG_OK) {
-      Log(LOG_WARN, "be.hamlib", "GET VFO_A ptt failed: %s", rigerror(rc));
+   if ( ( rc = rig_get_ptt(hl_rig, RIG_VFO_CURR, &hl_state.ptt) ) != RIG_OK ) {
+      Log( LOG_WARN, "be.hamlib", "GET VFO_A ptt failed: %s", rigerror(rc) );
    }
-
-   if ((rc = rig_get_strength(hl_rig, RIG_VFO_CURR, &hl_state.power)) != RIG_OK) {
-      Log(LOG_WARN, "be.hamlib", "GET VFO_A power failed: %s", rigerror(rc));
+   if ( ( rc = rig_get_strength(hl_rig, RIG_VFO_CURR, &hl_state.power) ) != RIG_OK ) {
+      Log( LOG_WARN, "be.hamlib", "GET VFO_A power failed: %s", rigerror(rc) );
    }
-
    Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
-       (hl_state.ptt ? "ON" : "off"),
-       (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
-       hl_state.width, hl_state.power);
+      (hl_state.ptt ? "ON" : "off"), (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
+      hl_state.width, hl_state.power);
 
    // Pack the data into a vfo_data struct to send back to our caller
    rv->freq = hl_state.freq;
@@ -292,27 +288,23 @@ rr_vfo_data_t *hl_poll(void) {
    rv->power = hl_state.power;
 
    // send to all users
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
    struct mg_str mp;
    http_client_t *talker = whos_talking();
 
-   const char *jp = dict2json_mkstr(
-      VAL_STR, "cat.state.vfo", "A",
-      VAL_FLOAT, "cat.state.freq", hl_state.freq,
-      VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode),
-      VAL_INT, "cat.state.width", hl_state.width,
-      VAL_BOOL, "cat.state.ptt", hl_state.ptt,
-      VAL_INT, "cat.state.power", hl_state.power,
-      VAL_ULONG, "cat.ts", now,
-      VAL_STR, "cat.user", (talker ? talker->chatname : ""));
+   const char *jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", "A", VAL_FLOAT, "cat.state.freq",
+      hl_state.freq, VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT,
+      "cat.state.width", hl_state.width, VAL_BOOL, "cat.state.ptt", hl_state.ptt, VAL_INT,
+      "cat.state.power", hl_state.power, VAL_ULONG, "cat.ts", now, VAL_STR, "cat.user",
+      (talker ? talker->chatname : "") );
    mp = mg_str(jp);
    Log(LOG_CRAZY, "be.hamlib", "Sending %s", jp);
 #endif
 
    // Send to everyone, including the sender, which will then display it in various widgets
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
-   free((char *)jp);
+   free( (char *)jp );
 #endif
 
    return rv;
@@ -325,12 +317,11 @@ bool hl_power_set(rr_vfo_t vfo, float power) {
 float hl_power_get(rr_vfo_t vfo) {
    value_t power;
    int rv = rig_get_level(hl_rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &power);
-
    if (rv != RIG_OK) {
       Log(LOG_CRIT, "hl_power_get", "failed: %d", rv);
    }
-
    Log(LOG_DEBUG, "hl_power_get", "read: %f", power.f);
+
    return 0;
 }
 
@@ -339,7 +330,6 @@ bool hl_mode_set(rr_vfo_t vfo, rr_mode_t mode) {
    if (rv == RIG_OK) {
       return false;
    }
-
    return true;
 }
 
@@ -352,17 +342,18 @@ uint16_t hl_width_get(rr_vfo_t vfo) {
 bool hl_width_set(rr_vfo_t vfo, const char *width) {
    int rv = -1;
    if (strcasecmp(width, "narrow") == 0 || strcasecmp(width, "nar") == 0) {
-      rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, 
-                   rig_passband_narrow(hl_rig, hl_state.rmode));
+      rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode,
+         rig_passband_narrow(hl_rig, hl_state.rmode) );
    } else if (strcasecmp(width, "normal") == 0 || strcasecmp(width, "norm") == 0) {
       rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, RIG_PASSBAND_NORMAL);
    } else if (strcasecmp(width, "wide") == 0) {
-      rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, 
-                   rig_passband_wide(hl_rig, hl_state.rmode));
+      rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode,
+         rig_passband_wide(hl_rig, hl_state.rmode) );
    } else {
       Log(LOG_WARN, "be.hl", "Unknown width %s - try narrow|normal|wide!", width);
    }
    Log(LOG_INFO, "be.hl", "Set width to %s: rv=%d");
+
    return false;
 }
 
@@ -382,4 +373,4 @@ rr_backend_t rr_backend_hamlib = {
    .api = &rr_backend_hamlib_api,
 };
 
-#endif	// defined(BACKEND_HAMLIB)
+#endif // defined(BACKEND_HAMLIB)

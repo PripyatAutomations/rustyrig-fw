@@ -1,6 +1,6 @@
 //
 // main.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -28,21 +28,21 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;
 #endif
 
-#if	defined(FEATURE_MQTT)
+#if     defined(FEATURE_MQTT)
 #include <rrserver/mqtt.h>
 #endif
 
-#define	TS_ALPHA	0.1	// Weight for the moving average
+#define TS_ALPHA 0.1            // Weight for the moving average
 
 bool dying = 0;                 // Are we shutting down?
-bool restarting = 0;		// Are we restarting?
+bool restarting = 0;            // Are we restarting?
 struct GlobalState rig;         // Global state
-time_t now = -1;		// time() called once a second in main loop to update
-int auto_block_ptt = 0;		// Auto block PTT at boot?
+time_t now = -1;                // time() called once a second in main loop to update
+int auto_block_ptt = 0;         // Auto block PTT at boot?
 struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
 struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
 time_t ptt_tot_time = RF_TALK_TIMEOUT;
@@ -53,8 +53,8 @@ int my_argc = -1;
 char **my_argv = NULL;
 
 // Things that probably should be in headers... ;)
-extern char *config_file;	// from defconfig.c
-extern defconfig_t defcfg[];	// From defconfig.c
+extern char *config_file;       // from defconfig.c
+extern defconfig_t defcfg[];    // From defconfig.c
 extern const char *configs[];
 extern const int num_configs;
 
@@ -63,18 +63,18 @@ static uint32_t load_defaults(void) {
    rig.faultbeep = 1;
    rig.bc_standby = 1;
    rig.tr_delay = 50;
+
    return 0;
 }
 
 void shutdown_rig(uint32_t signum) {
-    if (signum >= 0) {
-       Log(LOG_CRIT, "core", "Shutting down by signal %d", signum);
-    } else {
-       Log(LOG_CRIT, "core", "Shutting down due to internal error: %d", -signum);
-    }
-
-    dying = 1;
-    rr_ptt_set_all_off();
+   if (signum >= 0) {
+      Log(LOG_CRIT, "core", "Shutting down by signal %d", signum);
+   } else {
+      Log(LOG_CRIT, "core", "Shutting down due to internal error: %d", -signum);
+   }
+   dying = 1;
+   rr_ptt_set_all_off();
 }
 
 void restart_rig(void) {
@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
    my_argv = argv;
 
    // loop time calculation
-#if	defined(USE_PROFILING)
+#if     defined(USE_PROFILING)
    struct timespec loop_end = { .tv_sec = 0, .tv_nsec = 0 };
    double loop_runtime = 0.0, current_time;
 #endif // defined(USE_PROFILING)
@@ -107,65 +107,62 @@ int main(int argc, char **argv) {
    now = time(NULL);
 
    int opt;
-   while ((opt = getopt(argc, argv, "f:hr:")) != -1) {
+   while ( (opt = getopt(argc, argv, "f:hr:") ) != -1) {
       switch (opt) {
-         case 'f':
-            config_file = strdup(optarg);
-            break;
-         case 'r':
-            rig_name = strdup(optarg);
-            break;
-         case 'h':
-         default:
-            fprintf(stderr, "Usage: %s [-f config file] [-r rigname]\n", argv[0]);
-            fprintf(stderr, "  -f\t\t\tFile name of config\n");
-            fprintf(stderr, "  -r\t\t\tRig name (for finding config file\n");
-            exit(1);
+      case 'f':
+         config_file = strdup(optarg);
+         break;
+      case 'r':
+         rig_name = strdup(optarg);
+         break;
+      case 'h':
+      default:
+         fprintf(stderr, "Usage: %s [-f config file] [-r rigname]\n", argv[0]);
+         fprintf(stderr, "  -f\t\t\tFile name of config\n");
+         fprintf(stderr, "  -r\t\t\tRig name (for finding config file\n");
+         exit(1);
       }
    }
-
    // load config (posix hosts)
    char *fullpath = NULL;
-
    if (config_file) {
-      if (!(cfg = cfg_load(config_file))) {
+      if (!(cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
-   } else if ((fullpath =  find_file_by_list(configs, num_configs))) {
+   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
-      if (!(cfg = cfg_load(fullpath))) {
+      if (!(cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
    } else {
-     cfg = default_cfg;
-     fprintf(stderr, "No config found :(\n");
-     exit(1);
+      cfg = default_cfg;
+      fprintf(stderr, "No config found :(\n");
+      exit(1);
    }
-
    logfp = stdout;
-   rig.log_level = LOG_DEBUG;		// startup in debug mode until config loaded
+   rig.log_level = LOG_DEBUG;           // startup in debug mode until config loaded
 
-   srand((unsigned int)now);
+   srand( (unsigned int)now );
    host_init();
 
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);
-   memset(&rig, 0, sizeof(struct GlobalState));
+   memset( &rig, 0, sizeof(struct GlobalState) );
    load_defaults();
 
-#if	defined(FEATURE_SQLITE)
-   if (!(masterdb = db_open(MASTERDB_PATH))) {
+#if     defined(FEATURE_SQLITE)
+   if (!(masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(31);
    }
-#endif	// defined(FEATURE_SQLITE)
-#if	defined(USE_MONGOOSE)
+#endif // defined(FEATURE_SQLITE)
+#if     defined(USE_MONGOOSE)
    mg_mgr_init(&mg_mgr);
 #endif
    timer_init();
    gpio_init();
 
-#if	defined(USE_EEPROM)
+#if     defined(USE_EEPROM)
    // if able to connect to EEPROM, load and apply settings
    if (eeprom_init() == 0) {
       eeprom_load_config();
@@ -182,7 +179,7 @@ int main(int argc, char **argv) {
    if (s) {
       serial_tmp = atoi(s);
    }
-#if	defined(USE_EEPROM)
+#if     defined(USE_EEPROM)
    if (!s || serial_tmp == 0) {
       rig.serial = get_serial_number();
    }
@@ -195,7 +192,7 @@ int main(int argc, char **argv) {
 //   rr_amp_init_all();
 //   rr_atu_init_all();
 
-#if	defined(USE_EEPROM)
+#if     defined(USE_EEPROM)
    if (!s) {
       auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
    }
@@ -203,26 +200,23 @@ int main(int argc, char **argv) {
 
    // apply some configuration from the eeprom
    auto_block_ptt = cfg_get_bool("features.auto-block-ptt", false);
-
    if (auto_block_ptt) {
-      Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
+      Log(LOG_INFO, "core",
+         "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
       rr_ptt_set_blocked(true);
    }
-
-   if (rr_io_init()) {
+   if (rr_io_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
       set_fault(FAULT_IO_ERROR);
       exit(1);
    }
-
-   if (rr_backend_init()) {
+   if (rr_backend_init() ) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
-
-#if	defined(FEATURE_CAT)
-   if (rr_cat_init()) {
+#if     defined(FEATURE_CAT)
+   if (rr_cat_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
       exit(1);
@@ -237,11 +231,11 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
 // Is mongoose http server enabled?
-#if	defined(FEATURE_HTTP)
+#if     defined(FEATURE_HTTP)
 // Is extra mongoose debugging enabled?
-#if	defined(HTTP_DEBUG_CRAZY)
+#if     defined(HTTP_DEBUG_CRAZY)
    mg_log_set(MG_LL_DEBUG);
 #else
    mg_log_set(MG_LL_ERROR);
@@ -249,60 +243,57 @@ int main(int argc, char **argv) {
    http_init(&mg_mgr);
 //   ws_init(&mg_mgr);
 #endif
-#if	defined(FEATURE_MQTT)
+#if     defined(FEATURE_MQTT)
    mqtt_init(&mg_mgr);
    mqtt_client_init();
 #endif
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
    // Main loop
-   while(1) {
+   while (1) {
       // save the current time
       clock_gettime(CLOCK_MONOTONIC, &loop_start);
       now = time(NULL);
 
       char buf[512];
-
       // Check faults
-      if (check_faults()) {
+      if (check_faults() ) {
          Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
          // XXX: Should we stop PTT and halt here?
       }
-
       // Has the TOT expired?
       if (global_tot_time > 0 && global_tot_time <= now) {
          http_client_t *talker = whos_talking();
          Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", ptt_tot_time);
          rr_ptt_set_all_off();
-         char msgbuf[HTTP_WS_MAX_MSG+1];
-         prepare_msg(msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s", (talker ? talker->chatname : "**UNKNOWN***"));
+         char msgbuf[HTTP_WS_MAX_MSG + 1];
+         prepare_msg( msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s",
+            (talker ? talker->chatname : "**UNKNOWN***") );
          send_global_alert("***SERVER***", msgbuf);
          global_tot_time = 0;
       }
-
       // Check thermals
-      if (are_we_on_fire()) {
+      if (are_we_on_fire() ) {
          rr_ptt_set_all_off();
          rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
-
       // XXX: we need to pass io structs
       /// XXX: Determine which (pipes|devices|sockets) are needing read from
       // XXX: Iterate over them: console, amp, rig
       // We limit line length to 512
-#if	defined(FEATURE_CAT)
-#if	defined(CAT_YAESU)
+#if     defined(FEATURE_CAT)
+#if     defined(CAT_YAESU)
       memset(buf, 0, PARSE_LINE_LEN);
       // io_read(&cat_io, &buf, PARSE_LINE_LEN - 1);
       rr_cat_parse_line(buf);
 #endif
-#if	defined(CAT_KPA500)
+#if     defined(CAT_KPA500)
 //      memset(buf, 0, PARSE_LINE_LEN);
 //      io_read(&amp_io, &buf, PARSE_LINE_LEN - 1);
-        rr_cat_parse_amp_line(buf);
+      rr_cat_parse_amp_line(buf);
 #endif
 #endif
 //      memset(buf, 0, PARSE_LINE_LEN);
@@ -321,7 +312,6 @@ int main(int argc, char **argv) {
 
       long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
                 (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
-
       // poll the backend (internal or hamlib), if needed
       // XXX: move to config
       if (ms >= 1000) {
@@ -332,18 +322,16 @@ int main(int argc, char **argv) {
          // deal with timed out en/decoders
 //         fwdsp_sweep_expired();
       }
-
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
       // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
       mg_mgr_poll(&mg_mgr, 0);
 #endif
 
       // If enabled, calculate loop run time
-#if	defined(USE_PROFILING)
+#if     defined(USE_PROFILING)
       clock_gettime(CLOCK_MONOTONIC, &loop_end);
-      current_time = (loop_end.tv_sec - loop_start.tv_sec) + 
+      current_time = (loop_end.tv_sec - loop_start.tv_sec) +
                      (loop_end.tv_nsec - loop_start.tv_nsec) / 1e9;
-
       if (loop_runtime == 0.0) {
          loop_runtime = current_time;
       } else {
@@ -353,24 +341,21 @@ int main(int argc, char **argv) {
 
       const struct timespec ts = { .tv_sec = 0, .tv_nsec = 100000 };
       nanosleep(&ts, NULL);
-
       if (dying) {
          break;
       }
-#if	defined(USE_PROFILING)
-   // XXX: Every 5 minutes we should save the loop runtime average
+#if     defined(USE_PROFILING)
+      // XXX: Every 5 minutes we should save the loop runtime average
 //      Log(LOG_CRAZY, "profile", "Last mainloop runtime: %.6f seconds", loop_runtime);
 #endif // defined(USE_PROFILING)
    }
    host_cleanup();
 
-#if	defined(USE_MONGOOSE)
+#if     defined(USE_MONGOOSE)
    mg_mgr_free(&mg_mgr);
 #endif
-
    if (restarting) {
       restart_rig();
    }
-   
    return 0;
 }

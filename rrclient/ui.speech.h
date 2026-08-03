@@ -4,8 +4,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if	!defined(__rrclient_ui_speech_h)
-#define	__rrclient_ui_speech_h
+#if     !defined(__rrclient_ui_speech_h)
+#define __rrclient_ui_speech_h
 #include <librustyaxe/config.h>
 #pragma once
 #include <gtk/gtk.h>
@@ -33,11 +33,8 @@ extern void ui_speech_apply(GtkWidget *widget, const ui_speech_hint_t *hint);
 /**
  * Convenience wrapper: pass fields directly instead of building a struct.
  */
-extern void ui_speech_set(GtkWidget *widget,
-                   const char *name,
-                   const char *description,
-                   ui_role_t role,
-                   bool focusable);
+extern void ui_speech_set(GtkWidget *widget, const char *name, const char *description,
+                          ui_role_t role, bool focusable);
 
 
-#endif	// !defined(__rrclient_ui_speech_h)
+#endif // !defined(__rrclient_ui_speech_h)
