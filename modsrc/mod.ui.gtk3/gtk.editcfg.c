@@ -45,7 +45,7 @@ static void on_buffer_changed(GtkTextBuffer *buffer, gpointer user_data) {
    if (!user_data) {
       return;
    }
-   ( (EditorContext *)user_data)->modified = TRUE;
+   ( (EditorContext *)user_data )->modified = TRUE;
 }
 
 static void apply_config(const char *filename) {

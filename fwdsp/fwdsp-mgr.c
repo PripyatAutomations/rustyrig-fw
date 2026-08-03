@@ -73,7 +73,7 @@ static void fwdsp_sigchld(int sig) {
    int status;
    pid_t pid;
 
-   while ( (pid = waitpid(-1, &status, WNOHANG) ) > 0) {
+   while ( ( pid = waitpid(-1, &status, WNOHANG) ) > 0 ) {
       for (int i = 0;i < max_subprocs;i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
          if (sp->pid == pid) {
@@ -203,10 +203,10 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
    // Find an unused slot
    for (int i = 0;i < max_subprocs;i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
-      if (sp && (sp->pl_id[0] == '\0') &&
-          (sp->pl_id[1] == '\0') &&
-          (sp->pl_id[2] == '\0') &&
-          (sp->pl_id[3] == '\0') ) {
+      if ( sp && (sp->pl_id[0] == '\0') &&
+           (sp->pl_id[1] == '\0') &&
+           (sp->pl_id[2] == '\0') &&
+           (sp->pl_id[3] == '\0') ) {
          Log( LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id,
             (is_tx ? "tx" : "rx") );
          // Clear the memory for reuse
@@ -223,13 +223,13 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
 
          // Connect IO
          switch (io_type) {
-         case FW_IO_STDIO: {
-            break;
-         }
-         default:
-         case FW_IO_NONE: {
-            break;
-         }
+            case FW_IO_STDIO: {
+               break;
+            }
+            default:
+            case FW_IO_NONE: {
+               break;
+            }
          }
          fwdsp_spawn(sp);
 
@@ -313,7 +313,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    int in_pipe[2], out_pipe[2], err_pipe[2];
    int sock_pair[2];
    if (sp->io_type == FW_IO_STDIO) {
-      if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
+      if ( pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
          perror("pipe");
 
          return false;
@@ -398,7 +398,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
       if (c && c->magic) {
          struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, tx_mode);
          if (sp && !sp->pid) {
-            if (!fwdsp_spawn(sp) ) {
+            if ( !fwdsp_spawn(sp) ) {
                Log( LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s.%s", token,
                   (tx_mode ? "tx" : "rx") );
                fwdsp_destroy(sp);
@@ -453,7 +453,7 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
    }
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, is_tx);
-      if (!sp || !fwdsp_spawn(sp) ) {
+      if ( !sp || !fwdsp_spawn(sp) ) {
          Log( LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", c->magic,
             (is_tx ? "tx" : "rx") );
 

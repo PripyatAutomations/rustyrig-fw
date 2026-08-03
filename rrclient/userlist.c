@@ -74,7 +74,7 @@ bool userlist_remove_by_name(const char *name) {
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
-      if ( !strcasecmp(c->name, name) ) {
+      if (!strcasecmp(c->name, name) ) {
          if (prev) {
             prev->next = c->next;
          } else {
@@ -116,7 +116,7 @@ struct rr_user *userlist_find(const char *name) {
    }
    struct rr_user *c = global_userlist;
    while (c) {
-      if ( !strcasecmp(c->name, name) ) {
+      if (!strcasecmp(c->name, name) ) {
          return c;
       }
       c = c->next;

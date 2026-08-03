@@ -195,9 +195,9 @@ char *gtk_colorize_string(const char *in) {
             *o++ = *p++;
             continue;
          }
-         size_t key_len = (size_t)(end - (p + 1) );
+         size_t key_len = (size_t)( end - (p + 1) );
          char key[64];
-         if (key_len >= sizeof(key) ) {
+         if ( key_len >= sizeof(key) ) {
             key_len = sizeof(key) - 1;
          }
          memcpy(key, p + 1, key_len);
@@ -314,7 +314,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    GtkTreeModel *model = gtk_combo_box_get_model( GTK_COMBO_BOX(combo) );
    GtkTreeIter iter;
    int index = 0;
-   if (gtk_tree_model_get_iter_first(model, &iter) ) {
+   if ( gtk_tree_model_get_iter_first(model, &iter) ) {
       do{
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
@@ -326,7 +326,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          }
          g_free(str);
          index++;
-      } while (gtk_tree_model_iter_next(model, &iter) );
+      } while ( gtk_tree_model_iter_next(model, &iter) );
    }
 }
 
@@ -434,11 +434,11 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
       return FALSE;
    }
    GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
-   if (!GTK_IS_WINDOW(toplevel) ) {
+   if ( !GTK_IS_WINDOW(toplevel) ) {
       return FALSE;
    }
    GtkWidget *focused = gtk_window_get_focus( GTK_WINDOW(toplevel) );
-   for (GtkWidget *w = focused;w;w = gtk_widget_get_parent(w) ) {
+   for ( GtkWidget *w = focused;w;w = gtk_widget_get_parent(w) ) {
       if (w == ancestor) {
          return TRUE;
       }

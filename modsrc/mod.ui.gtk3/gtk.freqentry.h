@@ -27,7 +27,7 @@
 
 G_BEGIN_DECLS
 
-#define GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type() )
+#define GTK_TYPE_FREQ_ENTRY ( gtk_freq_entry_get_type() )
 
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_entry, GTK, FREQ_ENTRY, GtkBox)
 

@@ -31,11 +31,11 @@ bool gui_init(void) {
 
 bool gui_update(void) {
    // Refresh Nextion display if present
-   if ( gui_nextion_update() ) {
+   if (gui_nextion_update() ) {
       return true;
    }
    // Refresh the framebuffer (for LED and HTTP)
-   if ( gui_fb_update() ) {
+   if (gui_fb_update() ) {
       return true;
    }
    return false;

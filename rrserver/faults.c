@@ -80,7 +80,7 @@ struct fault_table fault_table[] = {
 int fault_priority(uint32_t code) {
    // XXX: We need to look this up in the fault table and figure out the
    // priority
-   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
+   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
       for (int i = 0;i < items;i++) {
          if (fault_table[i].code == code) {
@@ -92,7 +92,7 @@ int fault_priority(uint32_t code) {
 }
 
 const char *fault_get_type_str(uint32_t code) {
-   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
+   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
       for (int i = 0;i < items;i++) {
          if (fault_table[i].code == code) {
@@ -106,7 +106,7 @@ const char *fault_get_type_str(uint32_t code) {
 // All faults trigger an alarm light, but only some are fatal and will cause a
 // shutdown
 bool fault_is_fatal(uint32_t code) {
-   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
+   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
       for (int i = 0;i < items;i++) {
          if (fault_table[i].code == code) {
@@ -122,7 +122,7 @@ uint32_t set_fault(uint32_t fault) {
    rig.faults++;
 
    const char *fault_type = fault_get_type_str(fault);
-   if ( fault_priority(fault) > fault_priority(rig.fault_code) ) {
+   if (fault_priority(fault) > fault_priority(rig.fault_code) ) {
       Log(LOG_CRIT, "faults",
          "FAULT: New fault %s is higher priority than last (%d > %d), raised fault level!",
          fault_type, fault, rig.fault_code);
@@ -138,7 +138,7 @@ uint32_t set_fault(uint32_t fault) {
 bool check_faults(void) {
    if (rig.fault_code != 0) {
       // XXX: We should check if fatal or alarm
-      if ( fault_is_fatal(rig.fault_code) ) {
+      if (fault_is_fatal(rig.fault_code) ) {
          Log(LOG_CRIT, "faults",
             "Fault [%d] has occurred and we cannot continue! Halting to prevent damage! Total faults: %d",
             rig.fault_code, rig.faults);

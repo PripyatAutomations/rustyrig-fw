@@ -50,7 +50,7 @@ bool rr_ptt_set_blocked(bool blocked) {
 // For CAT to call
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    char msgbuf[HTTP_WS_MAX_MSG + 1];
-   if ( rr_ptt_check_blocked() ) {
+   if (rr_ptt_check_blocked() ) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
       return false;
