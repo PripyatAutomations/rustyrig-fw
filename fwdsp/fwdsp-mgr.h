@@ -1,6 +1,7 @@
 //
 // inc/rrserver/fwdsp-mgr.h
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -25,7 +26,8 @@ struct fwdsp_subproc {
    char pl_id[5];
    char pipeline[1024];
    bool is_tx;
-   bool is_trancoder;                   // is this a transcoder? If so it'll have tc_* below set
+   bool is_trancoder;                   // is this a transcoder? If so it'll
+                                        // have tc_* below set
    int refcount;
    time_t cleanup_deadline;
    int chan_id;
@@ -51,7 +53,8 @@ struct fwdsp_subproc {
 extern bool fwdsp_init(void);
 //extern int fwdsp_find_offset(const char *id);
 //extern struct fwdsp_subproc *fwdsp_find_instance(const char *id);
-//extern struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx);
+//extern struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type
+// io_type, bool is_tx);
 extern struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type,
                                                   bool is_tx);
 //extern bool fwdsp_destroy(struct fwdsp_subproc *instance);

@@ -1,6 +1,7 @@
 //
 // au.h
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -13,7 +14,8 @@
 #include <librrprotocol/codecneg.h>
 
 typedef enum {
-   AU_BACKEND_NULL_SINK = 0,  // Null sink that discards all input but generates logging statistics
+   AU_BACKEND_NULL_SINK = 0,  // Null sink that discards all input but generates
+                              // logging statistics
    AU_BACKEND_PIPEWIRE,       // Pipewire interface for Linux hosts
    AU_BACKEND_I2S,            // For ESP32 PCM5102, etc.
    AU_BACKEND_ALSA,           // ALSA backend
@@ -48,7 +50,8 @@ typedef struct au_recording_instance au_recording_t;
 extern void au_unix_socket_init(void);
 // Cleanup the UNIX domain socket server and any client connections
 extern void au_unix_socket_cleanup(void);
-// Poll the UNIX socket server and client; handle new connections and incoming audio data
+// Poll the UNIX socket server and client; handle new connections and incoming
+// audio data
 extern void au_unix_socket_poll(void);
 extern const char *au_recording_start(int channel);
 extern bool au_recording_stop(const char *id);

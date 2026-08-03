@@ -1,6 +1,7 @@
 //
 // gui.nextion.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -11,9 +12,9 @@
 //
 // You'll need to specify the hmi file and serial port in config!
 // See the following config keys:
-//	interface/display/type: "nextion"
-//	interface/display/port: serial port for the display
-//	interface/display/hmi: HMI file to upload to display
+// interface/display/type: "nextion"
+// interface/display/port: serial port for the display
+// interface/display/hmi: HMI file to upload to display
 //
 #include <stddef.h>
 #include <stdarg.h>

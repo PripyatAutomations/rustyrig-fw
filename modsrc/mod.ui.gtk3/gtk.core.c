@@ -1,13 +1,15 @@
 //
 // rrclient/gtk.core.c: Core of GTK gui
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// XXX: Need to break this into pieces and wrap up our custom widgets, soo we can do
+// XXX: Need to break this into pieces and wrap up our custom widgets, soo we
+// can do
 // XXX: nice things like pop-out (floating) VFOs
 #include <glib.h>
 #include <stddef.h>
@@ -49,43 +51,117 @@ static const struct {
    const char *tag;
    const char *pango;
 } pango_color_map[] = {
-   { "black", "black" },
-   { "red", "red" },
-   { "green", "green" },
-   { "yellow", "yellow" },
-   { "blue", "blue" },
-   { "magenta", "magenta" },
-   { "cyan", "cyan" },
-   { "white", "white" },
-   { "bright-black", "#808080" },
-   { "bright-red", "#ff0000" },
-   { "bright-green", "#00ff00" },
-   { "bright-yellow", "#ffff00" },
-   { "bright-blue", "#0000ff" },
-   { "bright-magenta", "#ff00ff" },
-   { "bright-cyan", "#00ffff" },
-   { "bright-white", "#ffffff" },
-   { "brown", "#804000" },
-   { "orange", "#ff8000" },
-   { "bg-black", "black" },
-   { "bg-red", "red" },
-   { "bg-green", "green" },
-   { "bg-yellow", "yellow" },
-   { "bg-blue", "blue" },
-   { "bg-magenta", "magenta" },
-   { "bg-cyan", "cyan" },
-   { "bg-white", "white" },
-   { "bg-bright-black", "#808080" },
-   { "bg-bright-red", "#ff0000" },
-   { "bg-bright-green", "#00ff00" },
-   { "bg-bright-yellow", "#ffff00" },
-   { "bg-bright-blue", "#0000ff" },
-   { "bg-bright-magenta", "#ff00ff" },
-   { "bg-bright-cyan", "#00ffff" },
-   { "bg-bright-white", "#ffffff" },
-   { "bg-brown", "#804000" },
-   { "bg-orange", "#ff8000" },
-   { NULL, NULL }
+   {
+      "black", "black"
+   },
+   {
+      "red", "red"
+   },
+   {
+      "green", "green"
+   },
+   {
+      "yellow", "yellow"
+   },
+   {
+      "blue", "blue"
+   },
+   {
+      "magenta", "magenta"
+   },
+   {
+      "cyan", "cyan"
+   },
+   {
+      "white", "white"
+   },
+   {
+      "bright-black", "#808080"
+   },
+   {
+      "bright-red", "#ff0000"
+   },
+   {
+      "bright-green", "#00ff00"
+   },
+   {
+      "bright-yellow", "#ffff00"
+   },
+   {
+      "bright-blue", "#0000ff"
+   },
+   {
+      "bright-magenta", "#ff00ff"
+   },
+   {
+      "bright-cyan", "#00ffff"
+   },
+   {
+      "bright-white", "#ffffff"
+   },
+   {
+      "brown", "#804000"
+   },
+   {
+      "orange", "#ff8000"
+   },
+   {
+      "bg-black", "black"
+   },
+   {
+      "bg-red", "red"
+   },
+   {
+      "bg-green", "green"
+   },
+   {
+      "bg-yellow", "yellow"
+   },
+   {
+      "bg-blue", "blue"
+   },
+   {
+      "bg-magenta", "magenta"
+   },
+   {
+      "bg-cyan", "cyan"
+   },
+   {
+      "bg-white", "white"
+   },
+   {
+      "bg-bright-black", "#808080"
+   },
+   {
+      "bg-bright-red", "#ff0000"
+   },
+   {
+      "bg-bright-green", "#00ff00"
+   },
+   {
+      "bg-bright-yellow", "#ffff00"
+   },
+   {
+      "bg-bright-blue", "#0000ff"
+   },
+   {
+      "bg-bright-magenta", "#ff00ff"
+   },
+   {
+      "bg-bright-cyan", "#00ffff"
+   },
+   {
+      "bg-bright-white", "#ffffff"
+   },
+   {
+      "bg-brown", "#804000"
+   },
+   {
+      "bg-orange", "#ff8000"
+   },
+   {
+      NULL, NULL
+   }
 };
 
 static const char *pango_color_for_tag(const char *tag, bool *is_bg) {
@@ -99,10 +175,14 @@ static const char *pango_color_for_tag(const char *tag, bool *is_bg) {
 }
 
 char *gtk_colorize_string(const char *in) {
-   if (!in) return NULL;
+   if (!in) {
+      return NULL;
+   }
    size_t len = strlen(in);
    char *out = malloc(len * 8 + 64);
-   if (!out) return NULL;
+   if (!out) {
+      return NULL;
+   }
    char *o = out;
    bool bold = false, italic = false, underline = false;
    const char *fg = NULL, *bg = NULL;
@@ -115,9 +195,11 @@ char *gtk_colorize_string(const char *in) {
             *o++ = *p++;
             continue;
          }
-         size_t key_len = (size_t)( end - (p + 1) );
+         size_t key_len = (size_t)(end - (p + 1) );
          char key[64];
-         if ( key_len >= sizeof(key) ) key_len = sizeof(key) - 1;
+         if (key_len >= sizeof(key) ) {
+            key_len = sizeof(key) - 1;
+         }
          memcpy(key, p + 1, key_len);
          key[key_len] = '\0';
          if (strcmp(key, "reset") == 0) {
@@ -189,10 +271,18 @@ char *gtk_colorize_string(const char *in) {
          p += chunk_len;
       }
    }
-   if (fg || bg) o += sprintf(o, "</span>");
-   if (bold) o += sprintf(o, "</b>");
-   if (italic) o += sprintf(o, "</i>");
-   if (underline) o += sprintf(o, "</u>");
+   if (fg || bg) {
+      o += sprintf(o, "</span>");
+   }
+   if (bold) {
+      o += sprintf(o, "</b>");
+   }
+   if (italic) {
+      o += sprintf(o, "</i>");
+   }
+   if (underline) {
+      o += sprintf(o, "</u>");
+   }
    *o = '\0';
 
    return out;
@@ -224,7 +314,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    GtkTreeModel *model = gtk_combo_box_get_model( GTK_COMBO_BOX(combo) );
    GtkTreeIter iter;
    int index = 0;
-   if ( gtk_tree_model_get_iter_first(model, &iter) ) {
+   if (gtk_tree_model_get_iter_first(model, &iter) ) {
       do{
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
@@ -236,7 +326,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          }
          g_free(str);
          index++;
-      } while( gtk_tree_model_iter_next(model, &iter) );
+      } while (gtk_tree_model_iter_next(model, &iter) );
    }
 }
 
@@ -291,7 +381,8 @@ bool gui_init(void) {
    // VFO A //
    ///////////
    GtkWidget *vfo_a = create_vfo_box();
-   // If docked, we wont create a window, but it might be created later similarly
+   // If docked, we wont create a window, but it might be created later
+   // similarly
    bool vfo_docked = cfg_get_bool("vfo-a.docked", true);
    if (vfo_docked) {
       // Attach to the main window
@@ -320,7 +411,8 @@ bool gui_init(void) {
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
-//   g_signal_connect(main_window, "key-press-event", G_CALLBACK(handle_global_hotkey), main_notebook);
+//   g_signal_connect(main_window, "key-press-event",
+// G_CALLBACK(handle_global_hotkey), main_notebook);
    gui_hotkey_register(main_window);
 
    // Generate and display a userlist for this server
@@ -342,11 +434,11 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
       return FALSE;
    }
    GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
-   if ( !GTK_IS_WINDOW(toplevel) ) {
+   if (!GTK_IS_WINDOW(toplevel) ) {
       return FALSE;
    }
    GtkWidget *focused = gtk_window_get_focus( GTK_WINDOW(toplevel) );
-   for ( GtkWidget *w = focused;w;w = gtk_widget_get_parent(w) ) {
+   for (GtkWidget *w = focused;w;w = gtk_widget_get_parent(w) ) {
       if (w == ancestor) {
          return TRUE;
       }

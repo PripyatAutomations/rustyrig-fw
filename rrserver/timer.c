@@ -1,14 +1,15 @@
 //
 // timer.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /*
- * Here we implement timers (periodic and one-shot) in a platform
- * independent manner.
+ * Here we implement timers (periodic and one-shot) in a platform independent
+ * manner.
  */
 #include <stddef.h>
 #include <stdarg.h>
@@ -22,10 +23,10 @@
 #include <rrserver/timer.h>
 
 // timer_create_periodic:
-//	Create a timer that occurs every interval milliseconds
-//	Repeats can be used to create a timer that only happens a few times
+// Create a timer that occurs every interval milliseconds
+// Repeats can be used to create a timer that only happens a few times
 //       Use repeats = 0 for unlimited repeats
-//	callback
+// callback
 bool timer_create_periodic( int interval, int repeats, void (*callback) () ) {
    return false;
 }

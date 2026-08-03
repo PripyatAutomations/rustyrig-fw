@@ -1,5 +1,6 @@
 // mqtt.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -50,7 +51,7 @@ bool mqtt_init(struct mg_mgr *mgr) {
 
       return true;
    }
-   if (!mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL) ) {
+   if ( !mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL) ) {
       Log(LOG_CRIT, "http", "Failed to start http listener");
       exit(1);
    }
@@ -69,10 +70,10 @@ static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg, struct mg_str *top
    if (pos >= msg->dgram.len) {
       return 0;
    }
-   topic->len = (size_t) ( ( (unsigned) buf[0]) << 8 | buf[1]);
+   topic->len = (size_t) ( ( (unsigned) buf[0] ) << 8 | buf[1] );
    topic->buf = (char *) buf + 2;
    new_pos = pos + 2 + topic->len + (!qos ? 0 : 1);
-   if ( (size_t) new_pos > msg->dgram.len) {
+   if ( (size_t) new_pos > msg->dgram.len ) {
       return 0;
    }
    if (qos) {
@@ -105,7 +106,9 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
          } else if (mm->dgram.buf[8] != 4) {
             Log(LOG_DEBUG, "mqtt.debug", "Unsupported MQTT version %d", mm->dgram.buf[8]);
          } else {
-            uint8_t response[] = { 0, 0 };
+            uint8_t response[] = {
+               0, 0
+            };
             mg_mqtt_send_header( c, MQTT_CMD_CONNACK, 0, sizeof(response) );
 
 
@@ -121,7 +124,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
          int num_topics = 0;
          memset( resp, 0, sizeof(resp) );
 
-         while ( ( (pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0) ) {
+         while ( ( ( pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0 ) ) {
             struct sub *sub = calloc( 1, sizeof(*sub) );
             if (!sub) {
                Log(LOG_CRIT, "mqtt.req", "SUB empty in MQTT_CMD_SUBSCRIBE");
@@ -137,7 +140,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
             // Change '+' to '*' for topic matching using mg_match
             for (size_t i = 0;i < sub->topic.len;i++) {
                if (sub->topic.buf[i] == '+') {
-                  ( (char *) sub->topic.buf)[i] = '*';
+                  ( (char *) sub->topic.buf )[i] = '*';
                }
             }
             resp[num_topics++] = qos;
@@ -152,7 +155,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
          Log(LOG_DEBUG, "mqtt.debug", "PUB %p [%.*s] -> [%.*s]", c->fd, (int) mm->data.len,
             mm->data.buf, (int) mm->topic.len, mm->topic.buf);
          for (struct sub *sub = s_subs;sub;sub = sub->next) {
-            if (mg_match(mm->topic, sub->topic, NULL) ) {
+            if ( mg_match(mm->topic, sub->topic, NULL) ) {
                struct mg_mqtt_opts pub_opts;
                memset( &pub_opts, 0, sizeof(pub_opts) );
                pub_opts.topic = mm->topic;
@@ -164,7 +167,8 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
          break;
       }
       case MQTT_CMD_PINGREQ: {
-         // The server must send a PINGRESP packet in response to a PINGREQ packet [MQTT-3.12.4-1]
+         // The server must send a PINGRESP packet in response to a PINGREQ
+         // packet [MQTT-3.12.4-1]
          Log(LOG_DEBUG, "mqtt.debug", "PINGREQ %p -> PINGRESP", c->fd);
          mg_mqtt_send_header(c, MQTT_CMD_PINGRESP, 0, 0);
          break;
@@ -195,19 +199,19 @@ bool mqtt_client_init(void) {
    FILE *fp = NULL;
    // XXX: This should come from config:net.mqtt-client.secret-file
    const char *secret_file = "./config/mqtt-cli.secret";
-   if (!file_exists(secret_file) ) {
+   if ( !file_exists(secret_file) ) {
       Log(LOG_CRIT, "mqtt.cli", "Secret file '%s' doesn't exist", secret_file);
 
       return false;
    }
-   if (!(fp = fopen(secret_file, "r") ) ) {
+   if ( !( fp = fopen(secret_file, "r") ) ) {
       Log( LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno,
          strerror(errno) );
 
       return false;
    }
    memset( mqtt_secret, 0, sizeof(mqtt_secret) );
-   if (!fgets(mqtt_secret, sizeof(mqtt_secret), fp) ) {
+   if ( !fgets(mqtt_secret, sizeof(mqtt_secret), fp) ) {
       Log( LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno,
          strerror(errno) );
       fclose(fp);
@@ -215,7 +219,7 @@ bool mqtt_client_init(void) {
       return true;
    }
    char *end = mqtt_secret + strlen(mqtt_secret) - 1;
-   while (end >= mqtt_secret && (*end == '\r' || *end == '\n') ) {
+   while ( end >= mqtt_secret && (*end == '\r' || *end == '\n') ) {
       *end = '\0';
       end--;
    }

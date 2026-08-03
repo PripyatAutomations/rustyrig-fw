@@ -1,6 +1,7 @@
 //
 // rrclient/main.c: Core of the client
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -75,7 +76,9 @@ static void ws_poll_cb(EV_P_ ev_timer *w, int revents) {
 }
 
 bool ptt_active = false;
-time_t poll_block_expire = 0;   // Here we set this to now + config:cat.poll-blocking to prevent rig polling from sclearing local controls
+time_t poll_block_expire = 0;   // Here we set this to now +
+                                // config:cat.poll-blocking to prevent rig
+                                // polling from sclearing local controls
 time_t poll_block_delay = 0;    // ^-- stores the delay
 
 void shutdown_app(int signum) {
@@ -130,7 +133,8 @@ static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
 }
 
 static void tui_start_clock_timer(struct ev_loop *loop) {
-   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 0, 1.0); // start after 0s, repeat every 1s
+   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 0, 1.0); // start after 0s,
+                                                            // repeat every 1s
    ev_timer_start(loop, &tui_clock_watcher);
 }
 
@@ -233,41 +237,56 @@ int main(int argc, char *argv[]) {
       int this_option_optind = optind ? optind : 1;
       int option_index = 0;
       static struct option long_options[] = {
-         { "config", required_argument, 0, 'c' },
-         { "tui", no_argument, 0, 'T' },
-         { "help", no_argument, 0, 'h' },
-         { 0, 0, 0, 0 }
+         {
+            "config", required_argument, 0, 'c'
+         },
+         {
+            "tui", no_argument, 0, 'T'
+         },
+         {
+            "help", no_argument, 0, 'h'
+         },
+         {
+            0, 0, 0, 0
+         }
       };
 
       c = getopt_long(argc, argv, "Thc:021", long_options, &option_index);
-      if (c == -1)
+      if (c == -1) {
          break;
+      }
       switch (c) {
-      case 'c':
+      case 'c': {
          printf("Using config file: %s\n", optarg);
          config_file = strdup(optarg);
          break;
+      }
 
-      case 'h':
+      case 'h': {
          show_help(argc, argv);
          exit(0);
          break;
+      }
 
-      case 'T':
+      case 'T': {
          ui_mode_gui = false;
          break;
+      }
 
-      case '?':
+      case '?': {
          break;
+      }
 
-      default:
+      default: {
          printf("?? getopt returned character code 0%o ??\n", c);
+      }
       }
    }
    if (optind < argc) {
       printf("non-option ARGV-elements: ");
-      while (optind < argc)
+      while (optind < argc) {
          printf("%s ", argv[optind++]);
+      }
       printf("\n");
    }
    event_init();
@@ -278,14 +297,14 @@ int main(int argc, char *argv[]) {
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
       free(config_file);
       config_file = NULL;
-   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
+   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
-      if (!(cfg = cfg_load(fullpath) ) ) {
+      if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -295,8 +314,8 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "No config found :(\n");
       exit(1);
    }
-   if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
-      if (fullpath && !(cfg = cfg_load(fullpath) ) ) {
+   if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
+      if ( fullpath && !( cfg = cfg_load(fullpath) ) ) {
          if (!ui_mode_gui) {
             tui_print_win(tui_window_find("status"),
                "Couldn't load config \"%s\", using defaults instead", fullpath);

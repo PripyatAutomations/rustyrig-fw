@@ -1,6 +1,7 @@
 //
 // faults.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -25,28 +26,61 @@
 
 // Fault Table contains the known faults and their text strings
 struct fault_table fault_table[] = {
-   // FAULT		   Fatal?		String
-   { FAULT_NONE, false, "None" },
-   { FAULT_STUCK_RELAY, true, "RELAY" },
-   { FAULT_INLET_THERMAL, true, "THERM_IN" },
-   { FAULT_TOO_HOT, true, "THERM_BOX" },
-   { FAULT_HIGH_SWR, true, "SWR" },
-   { FAULT_FINAL_THERMAL, true, "THERM_FIN" },
-   { FAULT_FINAL_LOW_CURRENT, true, "F. Lo Curr" },
-   { FAULT_FINAL_HIGH_CURRENT, true, "F. Hi Curr" },
-   { FAULT_FINAL_LOW_VOLT, true, "F. Lo Volt" },
-   { FAULT_FINAL_HIGH_VOLT, true, "F. Hi Volt" },
-   { FAULT_TOT_TIMEOUT, true, "TIMEOUT" },
-   { FAULT_WARMING_UP, false, "Warming Up" },
-   { FAULT_IO_ERROR, false, "IO INIT" },
-   { FAULT_BACKEND_ERR, false, "BACKEND" },
-   { FAULT_CAT_ERROR, false, "CAT INIT" },
-   { FAULT_UNKNOWN, true, "Unknown" },
+   // FAULT       Fatal?      String
+   {
+      FAULT_NONE, false, "None"
+   },
+   {
+      FAULT_STUCK_RELAY, true, "RELAY"
+   },
+   {
+      FAULT_INLET_THERMAL, true, "THERM_IN"
+   },
+   {
+      FAULT_TOO_HOT, true, "THERM_BOX"
+   },
+   {
+      FAULT_HIGH_SWR, true, "SWR"
+   },
+   {
+      FAULT_FINAL_THERMAL, true, "THERM_FIN"
+   },
+   {
+      FAULT_FINAL_LOW_CURRENT, true, "F. Lo Curr"
+   },
+   {
+      FAULT_FINAL_HIGH_CURRENT, true, "F. Hi Curr"
+   },
+   {
+      FAULT_FINAL_LOW_VOLT, true, "F. Lo Volt"
+   },
+   {
+      FAULT_FINAL_HIGH_VOLT, true, "F. Hi Volt"
+   },
+   {
+      FAULT_TOT_TIMEOUT, true, "TIMEOUT"
+   },
+   {
+      FAULT_WARMING_UP, false, "Warming Up"
+   },
+   {
+      FAULT_IO_ERROR, false, "IO INIT"
+   },
+   {
+      FAULT_BACKEND_ERR, false, "BACKEND"
+   },
+   {
+      FAULT_CAT_ERROR, false, "CAT INIT"
+   },
+   {
+      FAULT_UNKNOWN, true, "Unknown"
+   },
 };
 
 int fault_priority(uint32_t code) {
-   // XXX: We need to look this up in the fault table and figure out the priority
-   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
+   // XXX: We need to look this up in the fault table and figure out the
+   // priority
+   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
       for (int i = 0;i < items;i++) {
          if (fault_table[i].code == code) {
@@ -58,7 +92,7 @@ int fault_priority(uint32_t code) {
 }
 
 const char *fault_get_type_str(uint32_t code) {
-   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
+   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
       for (int i = 0;i < items;i++) {
          if (fault_table[i].code == code) {
@@ -69,9 +103,10 @@ const char *fault_get_type_str(uint32_t code) {
    return NULL;
 }
 
-// All faults trigger an alarm light, but only some are fatal and will cause a shutdown
+// All faults trigger an alarm light, but only some are fatal and will cause a
+// shutdown
 bool fault_is_fatal(uint32_t code) {
-   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
+   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
       for (int i = 0;i < items;i++) {
          if (fault_table[i].code == code) {
@@ -87,7 +122,7 @@ uint32_t set_fault(uint32_t fault) {
    rig.faults++;
 
    const char *fault_type = fault_get_type_str(fault);
-   if (fault_priority(fault) > fault_priority(rig.fault_code) ) {
+   if ( fault_priority(fault) > fault_priority(rig.fault_code) ) {
       Log(LOG_CRIT, "faults",
          "FAULT: New fault %s is higher priority than last (%d > %d), raised fault level!",
          fault_type, fault, rig.fault_code);
@@ -103,7 +138,7 @@ uint32_t set_fault(uint32_t fault) {
 bool check_faults(void) {
    if (rig.fault_code != 0) {
       // XXX: We should check if fatal or alarm
-      if (fault_is_fatal(rig.fault_code) ) {
+      if ( fault_is_fatal(rig.fault_code) ) {
          Log(LOG_CRIT, "faults",
             "Fault [%d] has occurred and we cannot continue! Halting to prevent damage! Total faults: %d",
             rig.fault_code, rig.faults);

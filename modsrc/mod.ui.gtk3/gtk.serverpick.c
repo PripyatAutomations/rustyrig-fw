@@ -1,6 +1,8 @@
 //
-// rrclient/gtk.serverpick.c: Server selector / editor (will tie into gtk.cfg.c dialog
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+// rrclient/gtk.serverpick.c: Server selector / editor (will tie into gtk.cfg.c
+// dialog
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -28,7 +30,9 @@ extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
-extern const char *server_name;                         // connman.c XXX: to remove ASAP for multiserver
+extern const char *server_name;                         // connman.c XXX: to
+                                                        // remove ASAP for
+                                                        // multiserver
 
 static void do_connect_from_tree(GtkTreeView *view) {
    if (!view) {
@@ -42,7 +46,7 @@ static void do_connect_from_tree(GtkTreeView *view) {
    GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
    GtkTreeModel *model;
    GtkTreeIter iter;
-   if ( gtk_tree_selection_get_selected(sel, &model, &iter) ) {
+   if (gtk_tree_selection_get_selected(sel, &model, &iter) ) {
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
       const char *at = strchr(entry, '@');
@@ -54,7 +58,8 @@ static void do_connect_from_tree(GtkTreeView *view) {
       }
       g_free(entry);
    }
-   // This will cause the removal in the destroyed callback added by gui_new_window() in gtk.winmgr.c
+   // This will cause the removal in the destroyed callback added by
+   // gui_new_window() in gtk.winmgr.c
    gtk_widget_destroy(server_window);
 }
 
@@ -85,7 +90,7 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
       gtk_widget_destroy(server_window);
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
       GtkWidget *focus = gtk_window_get_focus( GTK_WINDOW( gtk_widget_get_toplevel(w) ) );
-      if ( GTK_IS_TREE_VIEW(focus) ) {
+      if (GTK_IS_TREE_VIEW(focus) ) {
          do_connect_from_tree( GTK_TREE_VIEW(focus) );
       }
       return TRUE;
@@ -123,8 +128,8 @@ void show_server_chooser(void) {
    char *v;
    GtkTreeIter match_iter;
    gboolean have_match = FALSE;
-   while ( ( rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0 ) {
-      if ( !g_str_has_suffix(k, ".server.user") ) {
+   while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
+      if (!g_str_has_suffix(k, ".server.user") ) {
          continue;
       }
       const char *name_start = strchr(k, ':');
@@ -149,7 +154,8 @@ void show_server_chooser(void) {
    GtkWidget *btn = gtk_button_new_with_label("Connect");
    g_signal_connect(btn, "clicked", G_CALLBACK(on_connect_clicked), list);
    g_signal_connect(win, "key-press-event", G_CALLBACK(on_key), NULL);
-   g_signal_connect(list, "row-activated", G_CALLBACK(on_row_activated), NULL); // double-click handler
+   g_signal_connect(list, "row-activated", G_CALLBACK(on_row_activated), NULL); // double-click
+                                                                                // handler
 
    gtk_box_pack_start(GTK_BOX(vbox), list, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(vbox), btn, FALSE, FALSE, 0);

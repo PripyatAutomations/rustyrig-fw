@@ -1,6 +1,7 @@
 //
 // au.pipe.c: Pipe/socket interface for audio samples
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -81,7 +82,9 @@ int setup_rx_unix_socket_server(const char *path) {
    if (!path) {
       return -1;
    }
-   struct sockaddr_un addr = { 0 };
+   struct sockaddr_un addr = {
+      0
+   };
    int fd;
 
    fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -168,9 +171,11 @@ void au_unix_socket_poll(void) {
    ssize_t n = read( rx_client_fd, buf, sizeof(buf) );
    if (n > 0) {
 // XXX: We need to find the channel ID associated with the connection
-// XXX: Then send it using void au_send_to_ws(const void *data, size_t len, int channel) {
+// XXX: Then send it using void au_send_to_ws(const void *data, size_t len, int
+// channel) {
 // XXX: Dead code
-//      Log(LOG_DEBUG, "audio", "Read %zd bytes from UNIX socket client (fd=%d)", n, rx_client_fd);
+//      Log(LOG_DEBUG, "audio", "Read %zd bytes from UNIX socket client
+// (fd=%d)", n, rx_client_fd);
 //      broadcast_audio_to_ws_clients(buf, n);
    } else if (n == 0) {
       // Client closed connection

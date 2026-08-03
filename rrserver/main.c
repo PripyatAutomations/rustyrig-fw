@@ -1,6 +1,7 @@
 //
 // main.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -25,6 +26,9 @@
 #include <rrserver/gpio.h>
 #include <rrserver/gui.h>
 #include <rrserver/network.h>
+#include <rrserver/amp.h>
+#include <rrserver/atu.h>
+#include <rrserver/filters.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
@@ -41,10 +45,15 @@ struct mg_mgr mg_mgr;
 bool dying = 0;                 // Are we shutting down?
 bool restarting = 0;            // Are we restarting?
 struct GlobalState rig;         // Global state
-time_t now = -1;                // time() called once a second in main loop to update
+time_t now = -1;                // time() called once a second in main loop to
+                                // update
 int auto_block_ptt = 0;         // Auto block PTT at boot?
-struct timespec last_rig_poll = { .tv_sec = 0, .tv_nsec = 0 };
-struct timespec loop_start = { .tv_sec = 0, .tv_nsec = 0 };
+struct timespec last_rig_poll = {
+   .tv_sec = 0, .tv_nsec = 0
+};
+struct timespec loop_start = {
+   .tv_sec = 0, .tv_nsec = 0
+};
 time_t ptt_tot_time = RF_TALK_TIMEOUT;
 char *rig_name = NULL;
 
@@ -99,39 +108,45 @@ int main(int argc, char **argv) {
 
    // loop time calculation
 #if     defined(USE_PROFILING)
-   struct timespec loop_end = { .tv_sec = 0, .tv_nsec = 0 };
+   struct timespec loop_end = {
+      .tv_sec = 0, .tv_nsec = 0
+   };
    double loop_runtime = 0.0, current_time;
+   time_t last_profstat = 0;
 #endif // defined(USE_PROFILING)
 
    // Initialize some early state
    now = time(NULL);
 
    int opt;
-   while ( (opt = getopt(argc, argv, "f:hr:") ) != -1) {
+   while ( ( opt = getopt(argc, argv, "f:hr:") ) != -1 ) {
       switch (opt) {
-      case 'f':
+      case 'f': {
          config_file = strdup(optarg);
          break;
-      case 'r':
+      }
+      case 'r': {
          rig_name = strdup(optarg);
          break;
+      }
       case 'h':
-      default:
+      default: {
          fprintf(stderr, "Usage: %s [-f config file] [-r rigname]\n", argv[0]);
          fprintf(stderr, "  -f\t\t\tFile name of config\n");
          fprintf(stderr, "  -r\t\t\tRig name (for finding config file\n");
          exit(1);
       }
+      }
    }
    // load config (posix hosts)
    char *fullpath = NULL;
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
-   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
+   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
-      if (!(cfg = cfg_load(fullpath) ) ) {
+      if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -141,7 +156,8 @@ int main(int argc, char **argv) {
       exit(1);
    }
    logfp = stdout;
-   rig.log_level = LOG_DEBUG;           // startup in debug mode until config loaded
+   rig.log_level = LOG_DEBUG;           // startup in debug mode until config
+                                        // loaded
 
    srand( (unsigned int)now );
    host_init();
@@ -151,7 +167,7 @@ int main(int argc, char **argv) {
    load_defaults();
 
 #if     defined(FEATURE_SQLITE)
-   if (!(masterdb = db_open(MASTERDB_PATH) ) ) {
+   if ( !( masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(31);
    }
@@ -188,9 +204,9 @@ int main(int argc, char **argv) {
 
    // Initialize add-in cards
    // XXX: This should be done by enumerating the bus eventually
-//   filter_init_all();
-//   rr_amp_init_all();
-//   rr_atu_init_all();
+   filter_init_all();
+   rr_amp_init_all();
+   rr_atu_init_all();
 
 #if     defined(USE_EEPROM)
    if (!s) {
@@ -205,18 +221,18 @@ int main(int argc, char **argv) {
          "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
       rr_ptt_set_blocked(true);
    }
-   if (rr_io_init() ) {
+   if ( rr_io_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
       set_fault(FAULT_IO_ERROR);
       exit(1);
    }
-   if (rr_backend_init() ) {
+   if ( rr_backend_init() ) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
 #if     defined(FEATURE_CAT)
-   if (rr_cat_init() ) {
+   if ( rr_cat_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
       exit(1);
@@ -259,7 +275,7 @@ int main(int argc, char **argv) {
 
       char buf[512];
       // Check faults
-      if (check_faults() ) {
+      if ( check_faults() ) {
          Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
          // XXX: Should we stop PTT and halt here?
       }
@@ -275,7 +291,7 @@ int main(int argc, char **argv) {
          global_tot_time = 0;
       }
       // Check thermals
-      if (are_we_on_fire() ) {
+      if ( are_we_on_fire() ) {
          rr_ptt_set_all_off();
          rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
@@ -323,7 +339,8 @@ int main(int argc, char **argv) {
 //         fwdsp_sweep_expired();
       }
 #if     defined(USE_MONGOOSE)
-      // Process Mongoose HTTP and MQTT events, this should be at the end of loop so all data is ready
+      // Process Mongoose HTTP and MQTT events, this should be at the end of
+      // loop so all data is ready
       mg_mgr_poll(&mg_mgr, 0);
 #endif
 
@@ -339,14 +356,21 @@ int main(int argc, char **argv) {
       }
 #endif // defined(USE_PROFILING)
 
-      const struct timespec ts = { .tv_sec = 0, .tv_nsec = 100000 };
+      const struct timespec ts = {
+         .tv_sec = 0, .tv_nsec = 100000
+      };
       nanosleep(&ts, NULL);
       if (dying) {
          break;
       }
 #if     defined(USE_PROFILING)
-      // XXX: Every 5 minutes we should save the loop runtime average
-//      Log(LOG_CRAZY, "profile", "Last mainloop runtime: %.6f seconds", loop_runtime);
+      if (now > last_profstat + 300) {
+         last_profstat = now;
+
+         // XXX: Every 5 minutes we should save the loop runtime average instead
+         // of the most recent
+         Log(LOG_CRAZY, "profile", "Last mainloop runtime: %.6f seconds", loop_runtime);
+      }
 #endif // defined(USE_PROFILING)
    }
    host_cleanup();

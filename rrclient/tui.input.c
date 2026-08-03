@@ -1,6 +1,7 @@
 //
 // rrclient/commands.c: Chat stuff that isn't GUI dependent
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -53,7 +54,7 @@ bool tui_input_cb(const char *input) {
    int argc = 0;
    char *args[64];   // max 64 tokens
    char *tok = strtok(buf, " \t");
-   while (tok && argc < (int)(sizeof(args) / sizeof(args[0]) ) ) {
+   while ( tok && argc < (int)( sizeof(args) / sizeof(args[0]) ) ) {
       args[argc++] = tok;
       tok = strtok(NULL, " \t");
    }

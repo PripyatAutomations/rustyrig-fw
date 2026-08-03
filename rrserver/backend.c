@@ -1,6 +1,7 @@
 //
 // backend.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -23,16 +24,21 @@ struct rr_backends {
 };
 
 static struct rr_backends available_backends[] = {
-// A generic background which tracks state and pretends to do whatever the user asks
+// A generic background which tracks state and pretends to do whatever the user
+// asks
 // Support for real rustyrig hardware
-//    { "internal",		&rr_backend_internal },
+//    { "internal",     &rr_backend_internal },
 // Support for dummy (No Op) backend
-//    { "dummy",			&rr_backend_dummy },
+//    { "dummy",        &rr_backend_dummy },
 // A backend using hamlib's rigctld as the target. For legacy radios
 #if     defined(BACKEND_HAMLIB)
-   { "hamlib", &rr_backend_hamlib },
+   {
+      "hamlib", &rr_backend_hamlib
+   },
 #endif // defined(BACKEND_HAMLIB)
-   { NULL, NULL }
+   {
+      NULL, NULL
+   }
 };
 
 static const char *s_true = "true";
@@ -47,19 +53,25 @@ static const char *bool2str(bool val) {
 
 static const char *rr_vfo_name(rr_vfo_t vfo) {
    switch (vfo) {
-   case VFO_A:
+   case VFO_A: {
       return "A";
-   case VFO_B:
+   }
+   case VFO_B: {
       return "B";
-   case VFO_C:
+   }
+   case VFO_C: {
       return "C";
-   case VFO_D:
+   }
+   case VFO_D: {
       return "D";
-   case VFO_E:
+   }
+   case VFO_E: {
       return "E";
+   }
    case VFO_NONE:
-   default:
+   default: {
       return "-";
+   }
    }
 
    return "-";
@@ -70,7 +82,7 @@ rr_backend_t *rr_backend_find(const char *name) {
    if (!name) {
       return NULL;
    }
-   int items = (sizeof(available_backends) / sizeof(struct rr_backends) );
+   int items = ( sizeof(available_backends) / sizeof(struct rr_backends) );
    for (int i = 0;i < items;i++) {
       rr_backend_t *bp = available_backends[i].backend;
       if (!bp) {
@@ -122,7 +134,8 @@ bool rr_backend_init(void) {
    return false;
 }
 
-// XXX: We need to work out how we'll deal with CAT commands directly (not via http/ws) as they wont have cptr
+// XXX: We need to work out how we'll deal with CAT commands directly (not via
+// http/ws) as they wont have cptr
 // XXX: but we will have a user struct available since they're logged in.. hmmm
 bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
    if (!cptr || !cptr->user) {
@@ -135,7 +148,7 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
    if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
       return true;
    }
-   if (rig.backend->api->ptt_set(vfo, state) ) {
+   if ( rig.backend->api->ptt_set(vfo, state) ) {
       Log( LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.", rr_vfo_name(vfo),
          bool2str(state) );
 
@@ -163,7 +176,7 @@ bool rr_freq_set(rr_vfo_t vfo, float freq) {
 
       return true;
    }
-   if (rig.backend->api->freq_set(vfo, freq) ) {
+   if ( rig.backend->api->freq_set(vfo, freq) ) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.", rr_vfo_name(vfo), freq);
 
       return true;

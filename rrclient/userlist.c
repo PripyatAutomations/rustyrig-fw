@@ -1,6 +1,7 @@
 //
 // src/rrclient/userlist.c: Userlist storage & display
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -64,7 +65,8 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
    return true;
 }
 
-// Remove a user from the list, by name. While there should only ever be ONE, this will scan the entire list...
+// Remove a user from the list, by name. While there should only ever be ONE,
+// this will scan the entire list...
 bool userlist_remove_by_name(const char *name) {
    if (!name) {
       return true;
@@ -72,7 +74,7 @@ bool userlist_remove_by_name(const char *name) {
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
-      if (!strcasecmp(c->name, name) ) {
+      if ( !strcasecmp(c->name, name) ) {
          if (prev) {
             prev->next = c->next;
          } else {
@@ -114,7 +116,7 @@ struct rr_user *userlist_find(const char *name) {
    }
    struct rr_user *c = global_userlist;
    while (c) {
-      if (!strcasecmp(c->name, name) ) {
+      if ( !strcasecmp(c->name, name) ) {
          return c;
       }
       c = c->next;

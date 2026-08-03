@@ -1,13 +1,15 @@
 //
 // rrclient/gtk.chat.c: Chat stuff
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// XXX: Need to break this into pieces and wrap up our custom widgets, soo we can do
+// XXX: Need to break this into pieces and wrap up our custom widgets, soo we
+// can do
 // XXX: nice things like pop-out (floating) VFOs
 #include <stddef.h>
 #include <stdarg.h>

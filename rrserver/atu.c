@@ -1,6 +1,7 @@
 //
 // atu.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -87,7 +88,7 @@ int rr_atu_init(int uid) {
    rr_atu_tv *tv = NULL;
    Log(LOG_INFO, "atu", " => ATU #%d initializing", uid);
    // do we have saved tuning parameters for this unit?
-   if ( (tv = rr_atu_find_saved_state(uid) ) ) {
+   if ( ( tv = rr_atu_find_saved_state(uid) ) ) {
       // Apply them
    }
    return rv;
@@ -102,7 +103,7 @@ int rr_atu_init_all(void) {
 
    // XXX: Iterate over the available ATUs and collect the return values
    for (int i = 0;i < tuners;i++) {
-      if (rr_atu_init(i) ) {
+      if ( rr_atu_init(i) ) {
          rv++;
       }
    }

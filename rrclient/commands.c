@@ -1,6 +1,7 @@
 //
 // rrclient/commands.c: Chat stuff that isn't GUI dependent
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -51,7 +52,9 @@ extern GtkWidget *log_tab;
 
 extern void gui_show_help(const char *topic);           // ui.help.c
 extern bool syslog_clear(void);
-extern const char *server_name;                         // connman.c XXX: to remove ASAP for multiserver
+extern const char *server_name;                         // connman.c XXX: to
+                                                        // remove ASAP for
+                                                        // multiserver
 
 bool parse_chat_input(GtkButton *button, gpointer entry) {
    if (!button || !entry) {
@@ -127,7 +130,8 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
 #endif
 #if     defined(USE_MONGOOSE)
    } else if (ws_conn) {
-      if (msg[0] == '/') { // Handle local commands
+      if (msg[0] == '/') {
+         // Handle local commands
          if (strcasecmp(msg, "/ban") == 0) {
          } else if (strncasecmp(msg, "/die", 3) == 0) {
             const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "die", VAL_STR, "talk.args",
@@ -397,19 +401,45 @@ bool cmd_clear(int argc, char **args) {
 
 extern bool cmd_help(int argc, char **args);
 client_cmd_t client_cmds[] = {
-   { .cmd = "/clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
-   { .cmd = "/help", .cb = cmd_help, .desc = "Show help message" },
-   { .cmd = "/join", .cb = cmd_join, .desc = "Join a channel (N/A over WS)" },
-   { .cmd = "/me", .cb = cmd_me, .desc = "\tSend an action to the current channel" },
-   { .cmd = "/msg", .cb = cmd_msg, .desc = "Send a private message" },
-   { .cmd = "/notice", .cb = cmd_notice, .desc = "Send a private notice (N/A over WS)" },
-   { .cmd = "/part", .cb = cmd_part, .desc = "leave a channel (N/A over WS)" },
-   { .cmd = "/quit", .cb = cmd_quit, .desc = "Exit the program" },
-   { .cmd = "/quote", .cb = cmd_quote, .desc = "Send a raw command (N/A over WS)" },
-   { .cmd = "/topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)" },
-   { .cmd = "/win", .cb = cmd_win, .desc = "Change windows" },
-   { .cmd = "/whois", .cb = cmd_whois, .desc = "Show client information (N/A over WS)" },
-   { .cmd = NULL, .cb = NULL, .desc = NULL }
+   {
+      .cmd = "/clear", .cb = cmd_clear, .desc = "Clear the scrollback"
+   },
+   {
+      .cmd = "/help", .cb = cmd_help, .desc = "Show help message"
+   },
+   {
+      .cmd = "/join", .cb = cmd_join, .desc = "Join a channel (N/A over WS)"
+   },
+   {
+      .cmd = "/me", .cb = cmd_me, .desc = "\tSend an action to the current channel"
+   },
+   {
+      .cmd = "/msg", .cb = cmd_msg, .desc = "Send a private message"
+   },
+   {
+      .cmd = "/notice", .cb = cmd_notice, .desc = "Send a private notice (N/A over WS)"
+   },
+   {
+      .cmd = "/part", .cb = cmd_part, .desc = "leave a channel (N/A over WS)"
+   },
+   {
+      .cmd = "/quit", .cb = cmd_quit, .desc = "Exit the program"
+   },
+   {
+      .cmd = "/quote", .cb = cmd_quote, .desc = "Send a raw command (N/A over WS)"
+   },
+   {
+      .cmd = "/topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)"
+   },
+   {
+      .cmd = "/win", .cb = cmd_win, .desc = "Change windows"
+   },
+   {
+      .cmd = "/whois", .cb = cmd_whois, .desc = "Show client information (N/A over WS)"
+   },
+   {
+      .cmd = NULL, .cb = NULL, .desc = NULL
+   }
 };
 
 bool cmd_help(int argc, char **args) {

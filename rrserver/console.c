@@ -1,13 +1,15 @@
 //
 // console.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /*
- * Support for a console interface to the radio via io abstraction (socket|serial|pipe|ws)
+ * Support for a console interface to the radio via io abstraction
+ * (socket|serial|pipe|ws)
  */
 #include <stddef.h>
 #include <stdarg.h>
@@ -30,7 +32,9 @@ bool cons_help(void /*io *port*/) {
 
 struct cons_cmds core_cmds[] = {
 //   { "config", 0, 3, cons_config },
-   { "help", 0, 1, cons_help },
+   {
+      "help", 0, 1, cons_help
+   },
 //   { "restart", 0, 3, cons_restart },
 //   { "shutdown", 0, 3, cons_shutdown },
 //   { "user", 0, 3, cons_user },

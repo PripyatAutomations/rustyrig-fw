@@ -1,6 +1,7 @@
 //
 // rrclient/userlist.c: Userlist storage & display
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -46,7 +47,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    gui_window_t *wp = gui_find_window(NULL, "userlist");
    if (wp) {
       GtkWidget *userlist_window = wp->gtk_win;
-      if ( gtk_widget_get_visible(userlist_window) ) {
+      if (gtk_widget_get_visible(userlist_window) ) {
          gtk_widget_hide(userlist_window);
       } else {
          gtk_widget_show_all(userlist_window);
@@ -111,7 +112,8 @@ GtkWidget *userlist_init(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), elmernoob_col);
 
    gtk_container_add(GTK_CONTAINER(new_win), cul_view);
-//   g_signal_connect(new_win, "key-press-event", G_CALLBACK(handle_global_hotkey), new_win);
+//   g_signal_connect(new_win, "key-press-event",
+// G_CALLBACK(handle_global_hotkey), new_win);
    gui_hotkey_register(new_win);
    g_signal_connect(new_win, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
    place_window(new_win);

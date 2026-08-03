@@ -14,9 +14,11 @@
 // XXX: We need to try our best to stay running after errors
 // XXX: - Auto-reconnect, with increasing backoff
 //
-// BUGS: A gstreamer wizard could certainly make this a lot better.. Feel free to jump in! ;)
+// BUGS: A gstreamer wizard could certainly make this a lot better.. Feel free
+// to jump in! ;)
 //
-// src/rrserver/fwdsp-mgr.c handles spawning and stopping (en|de)coders as needed
+// src/rrserver/fwdsp-mgr.c handles spawning and stopping (en|de)coders as
+// needed
 //
 #include <stdint.h>
 #include <gst/gst.h>
@@ -46,7 +48,8 @@ bool config_video = false;              // is this audio or video stream?
 bool dying = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
-time_t now = -1;                // time() called once a second in main loop to update
+time_t now = -1;                // time() called once a second in main loop to
+                                // update
 
 static void cleanup_pipeline(GstElement **pipe) {
    if (*pipe) {
@@ -108,19 +111,20 @@ static void run_loop(struct audio_config *cfg) {
          sleep(1);
          continue;
       }
-      // Send the codec information message, telling the backend what sort of data we can work with
+      // Send the codec information message, telling the backend what sort of
+      // data we can work with
       send_codec_msg(sock_fd, cfg);
 
       // XXX: Blorp this over the connection
-/* XXX: Implement bus signals instead of polling
-   GstBus *bus;
-
-   [..]
-
-   bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
-   gst_bus_add_signal_watch (bus);
-   g_signal_connect (bus, "message::error", G_CALLBACK (cb_message_error), NULL);
-   g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
+/* XXX: Implement bus signals instead of polling GstBus *bus;
+ *
+ *  [..]
+ *
+ *  bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
+ *  gst_bus_add_signal_watch (bus);
+ *  g_signal_connect (bus, "message::error", G_CALLBACK (cb_message_error),
+ * NULL);
+ *  g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
  */
 
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
@@ -146,31 +150,35 @@ static void run_loop(struct audio_config *cfg) {
          GError *err;
          gchar *debug_info;
 
-         switch ( GST_MESSAGE_TYPE(msg) ) {
-         case GST_MESSAGE_ERROR:
+         switch (GST_MESSAGE_TYPE(msg) ) {
+         case GST_MESSAGE_ERROR: {
             gst_message_parse_error(msg, &err, &debug_info);
             g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
             g_printerr("Debug info: %s\n", debug_info ? debug_info : "none");
             g_clear_error(&err);
             g_free(debug_info);
             break;
+         }
 
-         case GST_MESSAGE_EOS:
+         case GST_MESSAGE_EOS: {
             g_print("End-Of-Stream reached.\n");
             break;
+         }
 
-         case GST_MESSAGE_STATE_CHANGED:
-            if ( GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
+         case GST_MESSAGE_STATE_CHANGED: {
+            if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
                GstState old_state, new_state, pending_state;
                gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
                g_print( "Pipeline state changed from %s to %s.\n",
                   gst_element_state_get_name(old_state), gst_element_state_get_name(new_state) );
             }
             break;
+         }
 
-         default:
+         default: {
             // Not expected
             break;
+         }
          }
 
          gst_message_unref(msg);
@@ -224,7 +232,7 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
 
    int opt;
-   while ( ( opt = getopt(argc, argv, "c:f:htv") ) != -1 ) {
+   while ( (opt = getopt(argc, argv, "c:f:htv") ) != -1) {
       switch (opt) {
       case 'c': {
          size_t clen = strlen(optarg);
@@ -261,12 +269,13 @@ int main(int argc, char *argv[]) {
       }
    }
    // Find and load the configuration file
-   int cfg_entries = ( sizeof(configs) / sizeof(char *) );
+   int cfg_entries = (sizeof(configs) / sizeof(char *) );
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
-   // If the user specified a config, apply it, else try to find one in a sane place
+   // If the user specified a config, apply it, else try to find one in a sane
+   // place
    if (config_file) {
-      if ( !( cfg = cfg_load(config_file) ) ) {
+      if (!(cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
@@ -276,7 +285,7 @@ int main(int argc, char *argv[]) {
       char *fullpath = "config/fwdsp.cfg";
       if (fullpath) {
          config_file = strdup(fullpath);
-         if ( !( cfg = cfg_load(fullpath) ) ) {
+         if (!(cfg = cfg_load(fullpath) ) ) {
             Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
          } else {
             Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
@@ -351,7 +360,7 @@ int main(int argc, char *argv[]) {
       run_loop(&au_cfg);
       fprintf( stderr, "Run took %li sec", (now - last_run) );
       last_run = now;
-   } while(au_cfg.persistent);
+   } while (au_cfg.persistent);
    host_cleanup();
 
    return 0;

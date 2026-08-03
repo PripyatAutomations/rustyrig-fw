@@ -1,5 +1,6 @@
 // rrclient/cfg.network.c: [network] config block parser
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -90,7 +91,8 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
             snprintf(buf, sizeof(buf), "%s", x);
 
             size_t len = strlen(buf);
-            if (len + 1 < sizeof(buf) ) {           // +1 for comma
+            if ( len + 1 < sizeof(buf) ) {
+               // +1 for comma
                strncat(buf, ",", sizeof(buf) - len - 1);
                strncat(buf, val, sizeof(buf) - strlen(buf) - 1);
                tui_print_win(tui_window_find("status"), "update: %s => %s", key, buf);

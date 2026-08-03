@@ -1,6 +1,7 @@
 //
 // rrclient/connman.c: Connection Manager
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -67,7 +68,9 @@ extern struct mg_connection *ws_conn;
 extern bool ws_connected;
 extern const char *login_user;
 
-char session_token[HTTP_TOKEN_LEN + 1] = { 0 };
+char session_token[HTTP_TOKEN_LEN + 1] = {
+   0
+};
 
 static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
    (void)c;
@@ -116,9 +119,9 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
                   free(tmed);
                }
             }
-         } else if (dict_get(d, "hello", NULL) ) {
+         } else if ( dict_get(d, "hello", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got hello from server");
-         } else if (dict_get(d, "auth.cmd", NULL) ) {
+         } else if ( dict_get(d, "auth.cmd", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got auth message");
          }
          dict_free(d);
@@ -242,7 +245,8 @@ bool connection_create(const char *server) {
 
       return true;
    }
-   // Look up the connection properties from the server blocks and return true if not found
+   // Look up the connection properties from the server blocks and return true
+   // if not found
    rr_connection_t *cptr = connection_find(server);
    if (cptr) {
       // Server already exists

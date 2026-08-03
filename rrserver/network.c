@@ -1,6 +1,7 @@
 //
 // network.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -47,16 +48,16 @@ static void net_print_listeners(const char *listenaddr) {
       int family = ifa->ifa_addr->sa_family;
       if (family == AF_INET || family == AF_INET6) {
          void *addr_ptr = (family == AF_INET)
-             ? (void *)&( (struct sockaddr_in *)ifa->ifa_addr)->sin_addr
-             : (void *)&( (struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
-         if (!inet_ntop( family, addr_ptr, addr, sizeof(addr) ) ) {
+             ? (void *)&( (struct sockaddr_in *)ifa->ifa_addr )->sin_addr
+             : (void *)&( (struct sockaddr_in6 *)ifa->ifa_addr )->sin6_addr;
+         if ( !inet_ntop( family, addr_ptr, addr, sizeof(addr) ) ) {
             Log( LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno) );
             continue;
          }
-         if (!listenaddr ||
-             strcmp(addr, listenaddr) == 0 ||
-             (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
-             (strcmp(listenaddr, "::") == 0 && family == AF_INET6) ) {
+         if ( !listenaddr ||
+              strcmp(addr, listenaddr) == 0 ||
+              (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
+              (strcmp(listenaddr, "::") == 0 && family == AF_INET6) ) {
             Log(LOG_INFO, "net", " => %s: %s", ifa->ifa_name, addr);
          }
       }
@@ -91,7 +92,7 @@ void show_network_info(void) {
    if (s) {
       vlan = atoi(s);
    }
-   if (!s || (vlan < 0 || vlan > 4095) ) {
+   if ( !s || (vlan < 0 || vlan > 4095) ) {
       eeprom_get_int("net/vlan");
    }
    int mtu = 0;

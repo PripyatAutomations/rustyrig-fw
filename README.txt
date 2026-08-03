@@ -20,8 +20,19 @@ You probably will want to run ./install-deps.sh (apt based for now)
 Config files go in config/ or ~/.config/
 
 To build:
-	Edit things in config/ as appropriate.
+
+	# Clone the repo and submodules
+	git clone http://github.com/pripyatautomations/rustyrig-fw --depth=1
+	cd rustyrig-fw
+	git submodule init
+	git submodule update --depth=1
+
+	# Edit things in config/ as appropriate.
+	- config/radio.config.json
+	- config/build_config.h (eventually will be built by scripts from prior file)
+
 	Run ./build.sh
+
 
 Configure:
 	Be sure config/http.users has appropriate contents

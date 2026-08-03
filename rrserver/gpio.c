@@ -1,6 +1,7 @@
 //
 // gpio.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -27,9 +28,11 @@
 radio_gpiochip gpiochips[MAX_GPIOCHIPS];
 #endif
 
-// right now we only support one gpio chip, but this wrapper should ease transition
+// right now we only support one gpio chip, but this wrapper should ease
+// transition
 uint32_t radio_find_gpiochip(const char *name) {
-// On posix hosts, such as linux on pi, we use libgpiod to access gpio, add other platforms here
+// On posix hosts, such as linux on pi, we use libgpiod to access gpio, add
+// other platforms here
 #if     defined(HOST_POSIX)
    for (uint32_t i = 0;i < MAX_GPIOCHIPS;i++) {
       if (strcasecmp(gpiochips[i].key, name) == 0) {
@@ -44,15 +47,16 @@ uint32_t radio_find_gpiochip(const char *name) {
 uint32_t radio_gpiochip_init(const char *chipname) {
    uint32_t i = -1;
    // Does it already exist?
-   if ( (i = radio_find_gpiochip(chipname) ) != -1) {
+   if ( ( i = radio_find_gpiochip(chipname) ) != -1 ) {
       Log(LOG_WARN, "gpio", "gpio chip %s is already initialized at index %d", i);
 
       return -1;
    }
-// On posix hosts, such as linux on pi, we use libgpiod to access gpio, add other platforms here
+// On posix hosts, such as linux on pi, we use libgpiod to access gpio, add
+// other platforms here
 #if     defined(HOST_POSIX)
    struct gpiod_chip *tmp = NULL;
-   if (!(tmp = gpiod_chip_open(chipname) ) ) {
+   if ( !( tmp = gpiod_chip_open(chipname) ) ) {
 // XXX: v1 api remnant, safe to remove?
 //   if (!(tmp = gpiod_chip_open_by_name(chipname))) {
       Log(LOG_CRIT, "gpio", "error opening gpio chip %s", chipname);

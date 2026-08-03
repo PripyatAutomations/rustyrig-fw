@@ -1,6 +1,7 @@
 //
 // inc/rrclient/userlist.h
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -25,23 +26,23 @@ enum {
 };
 
 static inline const char *select_user_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "owner") ) {
+   if ( strcasestr(cptr->privs, "owner") ) {
       return "👑";
    }
-   if (strcasestr(cptr->privs, "admin") ) {
+   if ( strcasestr(cptr->privs, "admin") ) {
       return "⭐";
    }
-   if (strcasestr(cptr->privs, "tx") ) {
+   if ( strcasestr(cptr->privs, "tx") ) {
       return "👤";
    }
    return "👀";
 }
 
 static inline const char *select_elmernoob_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "elmer") ) {
+   if ( strcasestr(cptr->privs, "elmer") ) {
       return "🧙";
    }
-   if (strcasestr(cptr->privs, "noob") ) {
+   if ( strcasestr(cptr->privs, "noob") ) {
       return "🐣";
    }
    return "";

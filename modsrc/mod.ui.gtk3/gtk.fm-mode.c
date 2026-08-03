@@ -1,6 +1,7 @@
 //
 // rrclient/gtk.fm-mode.c: FM mode dialog
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -130,7 +131,8 @@ GtkWidget *fm_dialog_create(void) {
 
    /* Prevent user from closing the window */
    g_signal_connect(w, "delete-event", G_CALLBACK(gtk_true), NULL);
-//   g_signal_connect(w, "key-press-event", G_CALLBACK(handle_global_hotkey), w);
+//   g_signal_connect(w, "key-press-event", G_CALLBACK(handle_global_hotkey),
+// w);
    gui_hotkey_register(w);
 
    GtkWidget *grid = gtk_grid_new();

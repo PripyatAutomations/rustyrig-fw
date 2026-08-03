@@ -1,24 +1,28 @@
 //
 // rrclient/gtk.winmgr.c: Handle window manager relations
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// This allows finding and working with a widget by a human readable name, for automation, etc
+// This allows finding and working with a widget by a human readable name, for
+// automation, etc
 
 //
 // rrclient/gtk.winmgr.c: Handle window manager relations
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// This allows finding and working with a widget by a human readable name, for automation, etc
+// This allows finding and working with a widget by a human readable name, for
+// automation, etc
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -35,7 +39,8 @@
 #endif // defined(USE_MONGOOSE)
 #include "mod.ui.gtk3/gtk.core.h"
 
-// Linked list of all of our windows, usually 'main' will be the head of the list
+// Linked list of all of our windows, usually 'main' will be the head of the
+// list
 gui_window_t *gui_windows = NULL;
 
 // Linked list of all our widgets
@@ -61,7 +66,8 @@ static gboolean on_configure_timeout(gpointer data) {
    }
    // If timeout is called, window has stopped moving
    win->is_moving = false;
-   // Is the name set? If not, we can't look the window up (and probably shouldn't even be here!)
+   // Is the name set? If not, we can't look the window up (and probably
+   // shouldn't even be here!)
    if (win->name[0] != '\0') {
       if (win->x != win->last_x ||
           win->y != win->last_y ||
@@ -117,7 +123,8 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       // flag the window as in motion
       win->is_moving = true;
 
-      // Store the move event (but note the X and Y are incorrect due to wm decoration)
+      // Store the move event (but note the X and Y are incorrect due to wm
+      // decoration)
       win->move_evt = e;
 
 #if     0       // Alternative path to account for wm decoration frame
@@ -157,7 +164,8 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    if (gtk_win) {
       for (gui_window_t *p = gui_windows;p;p = p->next) {
          if (p->gtk_win == gtk_win) {
-//            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for ptr:<%p>", p->name, gtk_win);
+//            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for ptr:<%p>", p->name,
+// gtk_win);
             return p;
          }
       }
@@ -166,7 +174,8 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    if (name) {
       for (gui_window_t *p = gui_windows;p;p = p->next) {
          if (p && strcmp(p->name, name) == 0) {
-//            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for name %s", p->name, name);
+//            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for name %s", p->name,
+// name);
             return p;
          }
       }
@@ -199,7 +208,8 @@ bool place_window(GtkWidget *window) {
       Log(LOG_DEBUG, "gtk.winmgr", "place_window |%s| using stored coords (w,h@x,y): %d,%d@%d,%d",
          (*win->name ? win->name : ""), win->w, win->h, win->x, win->y);
    } else {
-      // If the window doesn't have h/w set, try to get them from the configuration
+      // If the window doesn't have h/w set, try to get them from the
+      // configuration
       const char *cfg_full = cfg_get_exp(key);
       if (cfg_full) {
          int cfg_height = 0, cfg_width = 0, cfg_x = 0, cfg_y = 0;
@@ -250,7 +260,7 @@ bool place_window(GtkWidget *window) {
                }
                size_t len = end - opts;
                char opt[32];
-               if ( len >= sizeof(opt) ) {
+               if (len >= sizeof(opt) ) {
                   len = sizeof(opt) - 1;
                }
                memcpy(opt, opts, len);
@@ -311,11 +321,11 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    // Check if the icon name was registered by attempting to load it
    GIcon *icon = g_themed_icon_new(name);
    GtkIconTheme *theme = gtk_icon_theme_get_default();
-   if ( gtk_icon_theme_has_icon(theme, name) ) {
+   if (gtk_icon_theme_has_icon(theme, name) ) {
       success = true;
    } else {
       gchar *local_icon = g_strdup_printf("./%s.png", name);
-      if ( gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
+      if (gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
          success = true;
       } else {
          g_warning("Failed to set icon '%s': %s", name, err->message);

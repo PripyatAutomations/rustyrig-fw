@@ -1,6 +1,7 @@
 //
 // rrclient/events.c: GTK-side event listeners for shared protocol events
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -100,7 +101,7 @@ static void rrclient_handle_freq_event(const char *event, void *data, irc_conn_t
    double freq = *(double *)data;
    GtkWidget *entry = freq_entry;
    GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
-   if (!gtk_freq_entry_is_editing(fe) ) {
+   if ( !gtk_freq_entry_is_editing(fe) ) {
       gtk_freq_entry_set_frequency(fe, (unsigned long)freq);
    }
 }
@@ -126,7 +127,7 @@ static void rrclient_handle_userinfo_event(const char *event, void *data, irc_co
       return;
    }
    struct rr_user *info = (struct rr_user *)data;
-   if (!userlist_add_or_update(info) ) {
+   if ( !userlist_add_or_update(info) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 }
@@ -140,7 +141,7 @@ static void rrclient_handle_userjoin_event(const char *event, void *data, irc_co
       return;
    }
    struct rr_user *info = (struct rr_user *)data;
-   if (!userlist_add_or_update(info) ) {
+   if ( !userlist_add_or_update(info) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 }

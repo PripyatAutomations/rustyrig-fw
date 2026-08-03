@@ -1,6 +1,7 @@
 //
 // defcfg.c: Default configuration for rrserver
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -35,9 +36,19 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
 defconfig_t defcfg[] = {
-   { "codecs.allowed", "mu16 pc16 mu08", "Preferred codec order" },
-   { "fwdsp:audio.debug", "false", "gstreamer debug level" },
-   { "log.level", "debug", "main log level" },
-   { "log.show-ts", "false", "show timestamps in logs" },
-   { NULL, NULL, NULL }
+   {
+      "codecs.allowed", "mu16 pc16 mu08", "Preferred codec order"
+   },
+   {
+      "fwdsp:audio.debug", "false", "gstreamer debug level"
+   },
+   {
+      "log.level", "debug", "main log level"
+   },
+   {
+      "log.show-ts", "false", "show timestamps in logs"
+   },
+   {
+      NULL, NULL, NULL
+   }
 };

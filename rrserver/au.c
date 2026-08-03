@@ -1,6 +1,8 @@
 //
-// au.c: Handle receiving/sending audio between this service and audio backends such as fwdsp for gstreamer
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+// au.c: Handle receiving/sending audio between this service and audio backends
+// such as fwdsp for gstreamer
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -30,7 +32,8 @@
 #include <rrserver/au.pipe.h>
 #include <fwdsp/fwdsp-shared.h>
 
-// XXX: This needs moved to config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path
+// XXX: This needs moved to
+// config/${profile}.fwdsp.json:fwdsp.channels.name['rx'].path
 
 rr_au_backend_interface_t au_backend_null = {
    .backend_type = AU_BACKEND_NULL_SINK,
@@ -68,4 +71,3 @@ void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev) {
       be->cleanup(dev);
    }
 }
-

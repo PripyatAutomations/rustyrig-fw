@@ -9,7 +9,8 @@
 //
 // Here we handle moving audio between the server and gstreamer
 //
-// This needs split out into ws.audio.c ws.tx-audio.c for the parts not-relevant to gstreamer.
+// This needs split out into ws.audio.c ws.tx-audio.c for the parts not-relevant
+// to gstreamer.
 // We should keep TX and RX here to make sure things stay in sync
 #include <stdint.h>
 #ifdef _WIN32
@@ -81,7 +82,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
    }
    GstBuffer *buffer = gst_sample_get_buffer(sample);
    GstMapInfo map;
-   if (gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
+   if ( gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
       if (map.size > 0 && map.size < 65536) {
          struct ws_frame *frame = malloc( sizeof(struct ws_frame) );
          if (!frame) {
@@ -167,7 +168,8 @@ bool audio_init(void) {
       // XXX: Set this once our latency detector works
       //   gst_pipeline_set_latency(GST_PIPELINE(rx_pipeline), 0);
       gst_element_set_state(rx_pipeline, GST_STATE_PLAYING);
-//      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "rx-pipeline");
+//      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline),
+// GST_DEBUG_GRAPH_SHOW_ALL, "rx-pipeline");
    } else {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
@@ -229,7 +231,8 @@ bool audio_init(void) {
       // XXX: Set this once our latency detector works
       //   gst_pipeline_set_latency(GST_PIPELINE(tx_pipeline), 0);
       gst_element_set_state(tx_pipeline, GST_STATE_PLAYING);
-//      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "tx-pipeline");
+//      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline),
+// GST_DEBUG_GRAPH_SHOW_ALL, "tx-pipeline");
    }
 #endif
 
@@ -271,7 +274,8 @@ bool audio_process_frame(const char *data, size_t len) {
 
    // Add PTS and duration
    static GstClockTime timestamp = 0;
-   GstClockTime duration = gst_util_uint64_scale(len, GST_SECOND, 16000 * 2);  // 16-bit mono
+   GstClockTime duration = gst_util_uint64_scale(len, GST_SECOND, 16000 * 2);  // 16-bit
+                                                                               // mono
    GST_BUFFER_PTS(buffer) = timestamp;
    GST_BUFFER_DURATION(buffer) = duration;
    timestamp += duration;

@@ -23,9 +23,15 @@ bool irc_socket_connected(client_t *cptr, const char *msg_data, size_t msg_len) 
    return false;
 }
 rusty_module_hook_t proto_irc_hooks[] = {
-   { "socket.closed", CB_MSG, &irc_socket_closed, NULL },
-   { "socket.connected", CB_MSG, &irc_socket_connected, NULL },
-   { "socket.ready", CB_MSG, &irc_socket_ready, NULL }
+   {
+      "socket.closed", CB_MSG, &irc_socket_closed, NULL
+   },
+   {
+      "socket.connected", CB_MSG, &irc_socket_connected, NULL
+   },
+   {
+      "socket.ready", CB_MSG, &irc_socket_ready, NULL
+   }
 };
 
 // Module file header

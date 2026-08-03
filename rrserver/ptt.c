@@ -1,6 +1,7 @@
 //
 // ptt.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -9,8 +10,9 @@
 /*
  * Handle PTT and all interlocks preventing it's use
  *
- * we also deal with the PA_INHIBIT lines which allow momentarily stopping RF output without
- * powering down the PAs (such as for relay changes in tuning or filters).
+ * we also deal with the PA_INHIBIT lines which allow momentarily stopping RF
+ * output without powering down the PAs (such as for relay changes in tuning or
+ * filters).
  */
 #include <stddef.h>
 #include <stdarg.h>
@@ -48,7 +50,7 @@ bool rr_ptt_set_blocked(bool blocked) {
 // For CAT to call
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    char msgbuf[HTTP_WS_MAX_MSG + 1];
-   if (rr_ptt_check_blocked() ) {
+   if ( rr_ptt_check_blocked() ) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
       return false;

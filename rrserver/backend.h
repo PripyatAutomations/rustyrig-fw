@@ -1,6 +1,7 @@
 //
 // backend.h
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -15,15 +16,16 @@ struct rr_backend_funcs {
    // Backend management
    bool (*backend_init)(void);                          // Startup
    bool (*backend_fini)(void);                          // Shutdown
-   rr_vfo_data_t *(*backend_poll)(void);                // Called periodically to get the rig status
+   rr_vfo_data_t *(*backend_poll)(void);                // Called periodically
+                                                        // to get the rig status
 
    ////////////////////////////////////////
    // Rig control
-//   bool		(*af_gain)(const char *args);
-//   bool		(*copy_vfo_b_to_a)(const char *args);
-//   bool		(*copy_vfo_a_to_b)(const char *args);
-//   bool		(*freq_vfo_a)(const char *args);
-//   bool		(*mode_vfo_a)(const char *args);
+//   bool      (*af_gain)(const char *args);
+//   bool      (*copy_vfo_b_to_a)(const char *args);
+//   bool      (*copy_vfo_a_to_b)(const char *args);
+//   bool      (*freq_vfo_a)(const char *args);
+//   bool      (*mode_vfo_a)(const char *args);
 
    bool (*ptt_set)(rr_vfo_t vfo, bool state);
    bool (*ptt_get)(rr_vfo_t vfo);
@@ -42,8 +44,11 @@ typedef struct rr_backend_funcs rr_backend_funcs_t;
 
 struct rr_backend {
    const char           *name;
-   void                 *backend_data_ptr;              // Pointer to backend RIG struct or similar
-   bool dummy_mode;                                     // In Dummy Mode, state will be kept but VFO/PTT/etc are faked
+   void                 *backend_data_ptr;              // Pointer to backend
+                                                        // RIG struct or similar
+   bool dummy_mode;                                     // In Dummy Mode, state
+                                                        // will be kept but
+                                                        // VFO/PTT/etc are faked
    rr_backend_funcs_t   *api;
 };
 typedef struct rr_backend rr_backend_t;

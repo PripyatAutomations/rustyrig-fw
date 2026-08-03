@@ -1,6 +1,7 @@
 //
 // gtk.freqentry.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -26,7 +27,7 @@
 
 G_BEGIN_DECLS
 
-#define GTK_TYPE_FREQ_ENTRY ( gtk_freq_entry_get_type() )
+#define GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type() )
 
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_entry, GTK, FREQ_ENTRY, GtkBox)
 

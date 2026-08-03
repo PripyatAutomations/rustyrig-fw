@@ -1,6 +1,7 @@
 //
 // rrclient/chat.whois.c: Chat related stuff
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -38,45 +39,38 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
    char *markup = NULL;
    size_t len = 0;
 
-/*
    FILE *stream = open_memstream(&markup, &len);
 
    int idx = 0;
- #if	0	// XXX: clean this up
-      const char *username = mg_json_get_str(elem, "$.username")
-      const char *email = (strlen(v = mg_json_get_str(elem, "$.email")) ? v : "(none)");
-      const char *privs = (strlen(v = mg_json_get_str(elem, "$.privs")) ? v : "None");
-      const char *ua = (strlen(v = mg_json_get_str(elem, "$.ua")) ? v : "Unknown");
-      const char *muted = (strlen(v = mg_json_get_str(elem, "$.muted")) ? v : "false");
+#if     0       // XXX: clean this up
+   const char *username = mg_json_get_str(elem, "$.username")
+                          const char *email = (strlen( v = mg_json_get_str(elem,
+      "$.email") ) ? v : "(none)");
+   const char *privs = (strlen( v = mg_json_get_str(elem, "$.privs") ) ? v : "None");
+   const char *ua = (strlen( v = mg_json_get_str(elem, "$.ua") ) ? v : "Unknown");
+   const char *muted = (strlen( v = mg_json_get_str(elem, "$.muted") ) ? v : "false");
 
-      long connected = mg_json_get_long(elem, "$.connected", 0);
-      long last_heard = mg_json_get_long(elem, "$.last_heard", 0);
-      int clones = (int) mg_json_get_long(elem, "$.clones", 0);
+   long connected = mg_json_get_long(elem, "$.connected", 0);
+   long last_heard = mg_json_get_long(elem, "$.last_heard", 0);
+   int clones = (int) mg_json_get_long(elem, "$.clones", 0);
 
-      fprintf(stream,
-         "<b>User:</b> %s\n"
-         "<b>Email:</b> %s\n"
-         "<b>Privileges:</b> %s\n"
-         "%s"
-         "<b>Clones:</b> #%d\n"
-         "<b>Connected:</b> %s\n"
-         "<b>Last Heard:</b> %s\n"
-         "<b>User-Agent:</b> <tt>%s</tt>\n"
-         "<hr/>\n",
-         username,
-         email,
-         privs,
-         (strcmp(muted, "true") == 0) ? "<span foreground=\"red\"><b>This user is muted.</b></span>\n" : "",
-         clones,
-         ctime((time_t*)&connected),
-         ctime((time_t*)&last_heard),
-         ua
-      );
-   }
- #endif
+   fprintf(stream, "<b>User:</b> %s\n"
+      "<b>Email:</b> %s\n"
+      "<b>Privileges:</b> %s\n"
+      "%s"
+      "<b>Clones:</b> #%d\n"
+      "<b>Connected:</b> %s\n"
+      "<b>Last Heard:</b> %s\n"
+      "<b>User-Agent:</b> <tt>%s</tt>\n"
+      "<hr/>\n", username, email, privs,
+      (strcmp(muted,
+         "true") == 0) ? "<span foreground=\"red\"><b>This user is muted.</b></span>\n" : "",
+      clones, ctime( (time_t*)&connected ), ctime( (time_t*)&last_heard ), ua);
+}
+#endif
 
    fclose(stream);
- */
+
    gtk_label_set_markup(GTK_LABEL(label), markup);
    gtk_container_add(GTK_CONTAINER(content_area), label);
    gtk_widget_show_all(dialog);

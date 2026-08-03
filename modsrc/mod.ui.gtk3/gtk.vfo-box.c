@@ -1,6 +1,7 @@
 //
 // rrclient/gtk.vfo-box.c: VFO control widget
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -45,16 +46,18 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
       return FALSE;
    }
    VfoKeyData *d = user_data;
-   if ( !d || !GTK_IS_WIDGET(d->fe) )
+   if (!d || !GTK_IS_WIDGET(d->fe) ) {
       return FALSE;
-   if ( !is_widget_or_descendant_focused(d->fe) )
+   }
+   if (!is_widget_or_descendant_focused(d->fe) ) {
       return FALSE;    /* ignore keys unless focus is somewhere inside fe */
+   }
    if ( (event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) &&
         (event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->chat_entry);
 
       return TRUE;
-   }else if ( event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
+   }else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->mode_combo);
 
       return TRUE;

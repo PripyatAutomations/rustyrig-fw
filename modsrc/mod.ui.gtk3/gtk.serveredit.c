@@ -1,6 +1,7 @@
 //
 // rrclient/gtk.serveredit.c: Server editor
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -112,7 +113,7 @@ serverlist_t *serverlist_add(const char *name, const char *url) {
    char user[HTTP_USER_LEN];
    char pass[HTTP_PASS_LEN];
    server_proto_t proto;
-   if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
+   if (!server_parse_url(url, host, &port, user, pass, &proto) ) {
       free(sp);
 
       return NULL;
@@ -160,7 +161,7 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
    char host[256], user[HTTP_USER_LEN], pass[HTTP_PASS_LEN];
    int port = -1;
    server_proto_t proto;
-   if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
+   if (!server_parse_url(url, host, &port, user, pass, &proto) ) {
       return NULL;
    }
    for (serverlist_t *sp = head;sp;sp = sp->next) {

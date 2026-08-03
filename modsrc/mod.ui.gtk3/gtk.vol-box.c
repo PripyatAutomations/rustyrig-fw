@@ -1,6 +1,7 @@
 //
 // rrclient/gtk.vol-box.c: Transmit power
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -66,6 +67,7 @@ GtkWidget *create_volbox(void) {
    int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
 
-//   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
+//   g_signal_connect(rx_vol_slider, "value-changed",
+// G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
    return rx_vol_vbox;
 }

@@ -1,6 +1,7 @@
 //
 // rrclient/ui.help.c: Core of GTK gui
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -26,7 +27,7 @@ static bool safe_name(const char *name) {
    if (!name || !*name) {
       return false;
    }
-   if (strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
+   if ( strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
       return false;
    }
    return true;
@@ -80,7 +81,7 @@ void gui_show_help(const char *topic) {
       char path[256];
       char line[1024];
       // Sanitize the user input
-      if (!safe_name(topic) ) {
+      if ( !safe_name(topic) ) {
          ui_print("Invalid help topic");
 
          return;
@@ -103,11 +104,11 @@ void gui_show_help(const char *topic) {
       ui_print("********************************");
       ui_print("* HELP for %s", topic);
 
-      while (fgets(line, sizeof(line), fp) ) {
+      while ( fgets(line, sizeof(line), fp) ) {
          size_t len = strlen(line);
 
          // remove trailing newlines and carriage returns
-         while (len && (line[len - 1] == '\n' || line[len - 1] == '\r') ) {
+         while ( len && (line[len - 1] == '\n' || line[len - 1] == '\r') ) {
             line[--len] = '\0';
          }
          // Present it to the user with ui_print

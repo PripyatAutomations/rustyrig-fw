@@ -15,7 +15,8 @@
 #define HTTP_USER_LEN 16                        // username length (16 char)
 #define HTTP_PASS_LEN 40                        // sha1: 40, sha256: 64
 #define HTTP_HASH_LEN 40                        // sha1
-#define HTTP_TOKEN_LEN 14                       // session-id / nonce length, longer moar secure
+#define HTTP_TOKEN_LEN 14                       // session-id / nonce length,
+                                                // longer moar secure
 #define HTTP_UA_LEN 512                         // allow 128 bytes
 #define USER_PRIV_LEN 100                       // privileges list
 #define USER_EMAIL_LEN 128                      // email address
@@ -34,8 +35,10 @@ struct GuiWindow {
    bool win_minimized;          // Is the window minimized?
    bool win_modal;              // Always on top
    bool win_hidden;             // Hidden from view
-   bool win_nohide;             // Don't hide this window when main window is minimized
-   bool win_stashed;            // Was the window hidden because main was minimized? This ensures it's restored
+   bool win_nohide;             // Don't hide this window when main window is
+                                // minimized
+   bool win_stashed;            // Was the window hidden because main was
+                                // minimized? This ensures it's restored
    struct GuiWindow *next;
 };
 typedef struct GuiWindow gui_window_t;

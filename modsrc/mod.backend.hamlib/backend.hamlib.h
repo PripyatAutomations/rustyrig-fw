@@ -1,6 +1,7 @@
 //
 // backend.hamlib.h
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -12,7 +13,8 @@
 #if     defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
 #include <rrserver/backend.h>
-// Exposed interface is entirely via the rr_backend_t. Someday these might become modules
+// Exposed interface is entirely via the rr_backend_t. Someday these might
+// become modules
 extern rr_backend_t rr_backend_hamlib;
 
 typedef struct hamlib_state {

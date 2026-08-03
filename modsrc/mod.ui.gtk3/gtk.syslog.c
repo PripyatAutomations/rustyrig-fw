@@ -1,6 +1,7 @@
 //
 // rrclient/gtk.syslog.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -46,7 +47,8 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
       gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
       gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
 
-      // Scroll after the current main loop iteration, this ensures widget is fully drawn and scroll will be complete
+      // Scroll after the current main loop iteration, this ensures widget is
+      // fully drawn and scroll will be complete
       g_idle_add(ui_scroll_to_end, log_view);
    } else {
       return true;

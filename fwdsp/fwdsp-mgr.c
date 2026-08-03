@@ -1,6 +1,7 @@
 //
 // fwp-manager.c: Deal with starting and stopping fwdsp instances as needed
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -24,16 +25,29 @@
 #define FWDSP_MAX_SUBPROCS 100
 
 defconfig_t defcfg_fwdsp[] = {
-   { "codecs.allowed", "pc16 mu16 mu08", "Preferred codecs" },
+   {
+      "codecs.allowed", "pc16 mu16 mu08", "Preferred codecs"
+   },
 #ifdef _WIN32
-   { "path.fwdsp", "bin/fwdsp.exe", "Path to fwdsp binary" },
+   {
+      "path.fwdsp", "bin/fwdsp.exe", "Path to fwdsp binary"
+   },
 #else
-   { "path.fwdsp", "bin/fwdsp", "Path to fwdsp binary" },
+   {
+      "path.fwdsp", "bin/fwdsp", "Path to fwdsp binary"
+   },
 #endif
-   { "subproc.max", "16", "Maximum allowed de/encoder processes" },
-   { "subproc.debug", "false", "Show extra debug messages" },
-   //// XXX: We can put default pipelines here using the syntax pipeline:id.tx and pipeline:id.rx where id is 4 char id
-   { NULL, NULL, NULL }
+   {
+      "subproc.max", "16", "Maximum allowed de/encoder processes"
+   },
+   {
+      "subproc.debug", "false", "Show extra debug messages"
+   },
+   //// XXX: We can put default pipelines here using the syntax pipeline:id.tx
+   // and pipeline:id.rx where id is 4 char id
+   {
+      NULL, NULL, NULL
+   }
 };
 const char *fwdsp_path = NULL;
 bool fwdsp_mgr_ready = false;
@@ -59,7 +73,7 @@ static void fwdsp_sigchld(int sig) {
    int status;
    pid_t pid;
 
-   while ( ( pid = waitpid(-1, &status, WNOHANG) ) > 0 ) {
+   while ( (pid = waitpid(-1, &status, WNOHANG) ) > 0) {
       for (int i = 0;i < max_subprocs;i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
          if (sp->pid == pid) {
@@ -90,7 +104,7 @@ bool fwdsp_init(void) {
    if (fwdsp_mgr_ready) {
       return true;
    }
-   const char *max_subprocs_s = cfg_get_exp("fwdsp:subproc.max");;
+   const char *max_subprocs_s = cfg_get_exp("fwdsp:subproc.max");
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
       Log(LOG_DEBUG, "fwdsp-mgr", "fwdsp initializing with %d slots available", max_subprocs);
@@ -189,10 +203,10 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
    // Find an unused slot
    for (int i = 0;i < max_subprocs;i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
-      if ( sp && (sp->pl_id[0] == '\0') &&
-           (sp->pl_id[1] == '\0') &&
-           (sp->pl_id[2] == '\0') &&
-           (sp->pl_id[3] == '\0') ) {
+      if (sp && (sp->pl_id[0] == '\0') &&
+          (sp->pl_id[1] == '\0') &&
+          (sp->pl_id[2] == '\0') &&
+          (sp->pl_id[3] == '\0') ) {
          Log( LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id,
             (is_tx ? "tx" : "rx") );
          // Clear the memory for reuse
@@ -200,7 +214,8 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          // Fill the struct
          memcpy(sp->pl_id, id, 4);
 
-         // We need to INVERT the TX flag here, because the client is telling us which codec it wants for the direction, we must match
+         // We need to INVERT the TX flag here, because the client is telling us
+         // which codec it wants for the direction, we must match
          sp->is_tx = !is_tx;
          sp->chan_id = next_channel_id++;
          sp->io_type = io_type;
@@ -208,11 +223,13 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
 
          // Connect IO
          switch (io_type) {
-         case FW_IO_STDIO:
+         case FW_IO_STDIO: {
             break;
+         }
          default:
-         case FW_IO_NONE:
+         case FW_IO_NONE: {
             break;
+         }
          }
          fwdsp_spawn(sp);
 
@@ -283,8 +300,9 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    }
    // Clear struct
    memset( sp, 0, sizeof(*sp) );
-   if (active_slots > 0)
+   if (active_slots > 0) {
       active_slots--;
+   }
    return true;
 }
 
@@ -295,7 +313,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    int in_pipe[2], out_pipe[2], err_pipe[2];
    int sock_pair[2];
    if (sp->io_type == FW_IO_STDIO) {
-      if ( pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
+      if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
          perror("pipe");
 
          return false;
@@ -380,7 +398,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
       if (c && c->magic) {
          struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, tx_mode);
          if (sp && !sp->pid) {
-            if ( !fwdsp_spawn(sp) ) {
+            if (!fwdsp_spawn(sp) ) {
                Log( LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s.%s", token,
                   (tx_mode ? "tx" : "rx") );
                fwdsp_destroy(sp);
@@ -435,7 +453,7 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
    }
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, is_tx);
-      if ( !sp || !fwdsp_spawn(sp) ) {
+      if (!sp || !fwdsp_spawn(sp) ) {
          Log( LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", c->magic,
             (is_tx ? "tx" : "rx") );
 

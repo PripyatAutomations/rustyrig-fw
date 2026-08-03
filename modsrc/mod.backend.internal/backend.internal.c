@@ -1,13 +1,15 @@
 //
 // backend.internal.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// Internal backend supports controlling real hardware. This needs to be completed before using on
+// Internal backend supports controlling real hardware. This needs to be
+// completed before using on
 // a real rig. Feel free to jump in here.
 //
 #include <stddef.h>
@@ -33,13 +35,13 @@ static rr_vfo_t be_int_get_vfo(rr_vfo_t vfo) {
 static bool be_int_ptt_set(rr_vfo_t vfo, bool state) {
    int ret = -1;
    if (state == true) {
-      if ( ( ret = rr_ptt_set(vfo, true) ) != false ) {
+      if ( (ret = rr_ptt_set(vfo, true) ) != false) {
          Log(LOG_CRIT, "backend.internal", "Failed to enable PTT");
 
          return true;
       }
    } else {
-      if ( ( ret = rr_ptt_set(vfo, false) ) != false ) {
+      if ( (ret = rr_ptt_set(vfo, false) ) != false) {
          fprintf(stderr, "Failed to disable PTT");
 
          return true;

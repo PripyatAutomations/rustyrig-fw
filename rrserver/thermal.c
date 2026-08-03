@@ -1,6 +1,7 @@
 //
 // thermal.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -20,7 +21,8 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/thermal.h>
 
-// Set some sane default values in case the user didn't bother to configure them...
+// Set some sane default values in case the user didn't bother to configure
+// them...
 struct ThermalLimits thermal_limits = {
    .encl_max = 140,
    .encl_warn = 130,
@@ -34,11 +36,11 @@ struct ThermalLimits thermal_limits = {
 
 // Get thermals:
 // Sensor #s:
-//	0	Case ambient temp
-//	1	Inlet air temp
-//	10xx	Final on PA xx
-//	20xx	ATU xx
-//	30xx	Filter xx
+// 0  Case ambient temp
+// 1  Inlet air temp
+// 10xx  Final on PA xx
+// 20xx  ATU xx
+// 30xx  Filter xx
 uint32_t get_thermal(uint32_t sensor) {
    if (sensor == 0) {
       return rig.therm_enclosure;

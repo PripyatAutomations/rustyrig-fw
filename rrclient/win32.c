@@ -1,6 +1,7 @@
 //
 // rrclient/win32.c
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -14,14 +15,11 @@
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
-#include "rrclient/gtk.core.h"
+#include <rrclient/gtk.core.h>
 #include <gdk/gdkwin32.h>
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
@@ -30,7 +28,7 @@ void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
    if (!window) {
       return;
    }
-   if (!gtk_widget_get_realized(window) ) {
+   if ( !gtk_widget_get_realized(window) ) {
       return;
    }
    HWND hwnd = GDK_WINDOW_HWND( gtk_widget_get_window(window) );
@@ -41,7 +39,7 @@ void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
    // DWMWA_USE_IMMERSIVE_DARK_MODE = 20 or 19 depending on build
    int attr = 20;
    HRESULT hr = DwmSetWindowAttribute( hwnd, attr, &use_dark, sizeof(use_dark) );
-   if (FAILED(hr) ) {
+   if ( FAILED(hr) ) {
       // Try fallback for older builds
       attr = 19;
       DwmSetWindowAttribute( hwnd, attr, &use_dark, sizeof(use_dark) );
@@ -51,7 +49,7 @@ void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
 void disable_console_quick_edit(void) {
    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
    DWORD mode = 0;
-   if (!GetConsoleMode(hStdin, &mode) ) {
+   if ( !GetConsoleMode(hStdin, &mode) ) {
       return;
    }
    // Remove QuickEdit and Insert modes
@@ -90,7 +88,7 @@ char *strcasestr(const char *haystack, const char *needle) {
       const char *h = haystack;
       const char *n = needle;
 
-      while (*h && *n && tolower( (unsigned char)*h ) == tolower( (unsigned char)*n ) ) {
+      while ( *h && *n && tolower( (unsigned char)*h ) == tolower( (unsigned char)*n ) ) {
          h++;
          n++;
       }
@@ -119,7 +117,7 @@ bool is_windows_dark_mode(void) {
 
 // Ensure windows dark mode
 void win32_check_darkmode(void) {
-   if (is_windows_dark_mode() ) {
+   if ( is_windows_dark_mode() ) {
       GtkSettings *settings = gtk_settings_get_default();
       g_object_set(settings, "gtk-theme-name", "Windows10-Dark",
          "gtk-application-prefer-dark-theme", TRUE, NULL);

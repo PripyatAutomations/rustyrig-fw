@@ -1,5 +1,6 @@
 // rrclient/gtk.codecpicker.c: codec choser stuff
-//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -47,7 +48,8 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       Log( LOG_CRAZY, "gtk.codecpicker", "setting active codec: %s for %s", codec,
          (ctx->is_tx ? "TX" : "RX") );
 
-      // we need to invert is_tx since we're asking the server to set itself up to match our needs
+      // we need to invert is_tx since we're asking the server to set itself up
+      // to match our needs
 //      ws_select_codec(ctx->conn, codec, !ctx->is_tx);
    }
 }
@@ -62,7 +64,7 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
 
    gtk_combo_box_text_remove_all(combo);
 
-   for ( char *tok = strtok_r(list, " ", &saveptr);tok;tok = strtok_r(NULL, " ", &saveptr) ) {
+   for (char *tok = strtok_r(list, " ", &saveptr);tok;tok = strtok_r(NULL, " ", &saveptr) ) {
       Log(LOG_CRAZY, "gtk.codecpicker", "Adding codec |%s| to list <%x>", tok, combo);
       gtk_combo_box_text_append(combo, tok, tok);
       if (default_id && strcmp(tok, default_id) == 0) {
