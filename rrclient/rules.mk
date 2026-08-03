@@ -30,7 +30,6 @@ rrclient_objs += gtk.vol-box.o		# Volume widget
 rrclient_objs += gtk.winmgr.o		# window management
 endif
 
-rrclient_objs += irc.servers.o
 rrclient_objs += m_privmsg.o
 rrclient_objs += main.o			# main loop
 rrclient_objs += tui.input.o		# TUI input handling

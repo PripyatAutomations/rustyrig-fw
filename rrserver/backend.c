@@ -17,6 +17,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
+#include <modsrc/mod.backend.internal/backend.internal.h>
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {
    const char          *name;
@@ -27,7 +28,7 @@ static struct rr_backends available_backends[] = {
 // A generic background which tracks state and pretends to do whatever the user
 // asks
 // Support for real rustyrig hardware
-//    { "internal",     &rr_backend_internal },
+   { "internal",     &rr_backend_internal },
 // Support for dummy (No Op) backend
 //    { "dummy",        &rr_backend_dummy },
 // A backend using hamlib's rigctld as the target. For legacy radios
@@ -117,8 +118,7 @@ bool rr_backend_init(void) {
    free( (char *)be_name );
 
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
-// XXX: readd
-//   rig.backend = be;
+   rig.backend = be;
    if (!be->api) {
       Log(LOG_CRIT, "core", "Backend %s doesn't have api pointer", be->name);
 
@@ -129,8 +129,7 @@ bool rr_backend_init(void) {
 
       return true;
    }
-// XXX: readd
-//   rig.backend->api->backend_init();
+   rig.backend->api->backend_init();
    return false;
 }
 

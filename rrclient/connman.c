@@ -66,7 +66,6 @@ extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 extern struct mg_connection *ws_conn;
 extern bool ws_connected;
-extern const char *login_user;
 
 char session_token[HTTP_TOKEN_LEN + 1] = {
    0
@@ -131,8 +130,9 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       event_emit("connected", NULL, NULL);
       tui_print_win(tui_window_find("status"), "Connected to server");
 
-      login_user = cfg_get_exp("server.user");
-      if (login_user) {
+      char *xp = cfg_get_exp("server.user");
+      if (xp) {
+         login_user = xp;
          const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient");
          mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
          free( (void *)jp );

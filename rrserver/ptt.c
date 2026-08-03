@@ -61,13 +61,14 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    } else {
       global_tot_time = 0;
    }
-// XXX: Fix this!
    if (rig.backend && rig.backend->api) {
       rig.backend->api->ptt_set(vfo, ptt);
    } else {
       Log(LOG_WARN, "ptt", "no backend");
    }
    const char *jp;
+
+// XXX: This does NOT belong here. backend interface must be backend agnostic!
 #if defined(BACKEND_HAMLIB)
    jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", vfo_name(vfo), VAL_FLOAT, "cat.state.freq",
       hl_state.freq, VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT,

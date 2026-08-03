@@ -4,6 +4,8 @@ Immediate needs
 *: Make eeprom and cfg_get keys consistent somehow
 *: Need to fully use the event system so we can avoid lib* calling back directly into program code
 
+rrserver: move auth stuff (user/privs/etc) to sqlite on posix host
+  - on non-posix hosts, these should be compacted and stored in eeprom fields
 rrcli: in websocket protocol, chat should automatically open in window #2 since only one room (for now)
 irc: IRC protocol will be used to link sites, with large messages enabled (16k)
 www: Fix userlist to show all users not just self + users joined later

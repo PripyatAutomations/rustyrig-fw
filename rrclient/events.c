@@ -18,7 +18,6 @@
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <mod.ui.gtk3/gtk.core.h>
-#include <librustyaxe/logger.h>
 
 extern const char *login_user;   // from connman.c
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
@@ -65,13 +64,13 @@ static void rrclient_handle_connection_event(const char *event, void *data, irc_
    (void)cptr;
    (void)user;
    (void)data;
-   if (strcmp(event, "http.connected") == 0 || strcmp(event, "connected") == 0) {
+   if (strcasecmp(event, "connected") == 0) {
       // XXX: Here we need to set login_user
       rrclient_update_connection_ui(true);
-   } else if (strcmp(event, "http.disconnected") == 0 || strcmp(event, "disconnected") == 0) {
+   } else if (strcasecmp(event, "goodbye") == 0 || strcasecmp(event, "disconnect") == 0) {
       login_user = NULL;
       rrclient_update_connection_ui(false);
-   } else if (strcmp(event, "http.error") == 0 || strcmp(event, "error") == 0) {
+   } else if (strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {
       ui_print("{red}* http error *{reset}");
    }
 }
@@ -217,12 +216,13 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, irc_co
    }
 }
 
+/*
+ * Initialize the events we care about receiving
+ */
 void rrclient_register_events(void) {
-   event_on("http.connected", rrclient_handle_connection_event, NULL);
-   event_on("http.disconnected", rrclient_handle_connection_event, NULL);
-   event_on("http.error", rrclient_handle_connection_event, NULL);
    event_on("connected", rrclient_handle_connection_event, NULL);
    event_on("disconnected", rrclient_handle_connection_event, NULL);
+   event_on("http.error", rrclient_handle_connection_event, NULL);
    event_on("error", rrclient_handle_connection_event, NULL);
 
    event_on("http.userjoin", rrclient_handle_userjoin_event, NULL);
