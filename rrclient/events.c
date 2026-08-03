@@ -20,7 +20,7 @@
 #include <mod.ui.gtk3/gtk.core.h>
 #include <librustyaxe/logger.h>
 
-extern const char *login_user;  // from connman.c
+extern const char *login_user;   // from connman.c
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern GtkWidget *main_window;
 extern GtkTextBuffer *log_buffer;

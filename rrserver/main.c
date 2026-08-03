@@ -42,12 +42,12 @@ struct mg_mgr mg_mgr;
 
 #define TS_ALPHA 0.1            // Weight for the moving average
 
-bool dying = 0;                 // Are we shutting down?
-bool restarting = 0;            // Are we restarting?
-struct GlobalState rig;         // Global state
-time_t now = -1;                // time() called once a second in main loop to
-                                // update
-int auto_block_ptt = 0;         // Auto block PTT at boot?
+bool dying = 0;                  // Are we shutting down?
+bool restarting = 0;             // Are we restarting?
+struct GlobalState rig;          // Global state
+time_t now = -1;                 // time() called once a second in main loop to
+                                 // update
+int auto_block_ptt = 0;          // Auto block PTT at boot?
 struct timespec last_rig_poll = {
    .tv_sec = 0, .tv_nsec = 0
 };
@@ -62,8 +62,8 @@ int my_argc = -1;
 char **my_argv = NULL;
 
 // Things that probably should be in headers... ;)
-extern char *config_file;       // from defconfig.c
-extern defconfig_t defcfg[];    // From defconfig.c
+extern char *config_file;        // from defconfig.c
+extern defconfig_t defcfg[];     // From defconfig.c
 extern const char *configs[];
 extern const int num_configs;
 
@@ -156,8 +156,8 @@ int main(int argc, char **argv) {
       exit(1);
    }
    logfp = stdout;
-   rig.log_level = LOG_DEBUG;           // startup in debug mode until config
-                                        // loaded
+   rig.log_level = LOG_DEBUG;            // startup in debug mode until config
+                                         // loaded
 
    srand( (unsigned int)now );
    host_init();

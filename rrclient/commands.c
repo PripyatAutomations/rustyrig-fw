@@ -50,11 +50,11 @@ extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 #endif // defined(USE_GTK)
 
-extern void gui_show_help(const char *topic);           // ui.help.c
+extern void gui_show_help(const char *topic);            // ui.help.c
 extern bool syslog_clear(void);
-extern const char *server_name;                         // connman.c XXX: to
-                                                        // remove ASAP for
-                                                        // multiserver
+extern const char *server_name;                          // connman.c XXX: to
+                                                         // remove ASAP for
+                                                         // multiserver
 
 bool parse_chat_input(GtkButton *button, gpointer entry) {
    if (!button || !entry) {
@@ -204,7 +204,7 @@ bool cmd_me(int argc, char **args) {
    char buf[1024];
    memset(buf, 0, 1024);
    size_t pos = 0;
-   for (int i = 1;i < argc;i++) {
+   for (int i = 1 ; i < argc ; i++) {
       int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 1 ? " " : ""),
          args[i] ? args[i] : "");
       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
@@ -234,7 +234,7 @@ bool cmd_msg(int argc, char **args) {
    memset( fullmsg, 0, sizeof(fullmsg) );
    size_t pos = 0;
 
-   for (int i = 2;i < argc;i++) {
+   for (int i = 2 ; i < argc ; i++) {
       int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""),
          args[i] ? args[i] : "");
       if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
@@ -285,7 +285,7 @@ bool cmd_notice(int argc, char **args) {
       memset( fullmsg, 0, sizeof(fullmsg) );
       size_t pos = 0;
 
-      for (int i = 2;i < argc;i++) {
+      for (int i = 2 ; i < argc ; i++) {
          int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""),
             args[i] ? args[i] : "");
          if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
@@ -327,7 +327,7 @@ bool cmd_quote(int argc, char **args) {
    memset( fullmsg, 0, sizeof(fullmsg) );
    size_t pos = 0;
 
-   for (int i = 1;i < argc;i++) {
+   for (int i = 1 ; i < argc ; i++) {
       int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 1 ? " " : ""),
          args[i] ? args[i] : "");
       if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
@@ -449,7 +449,7 @@ bool cmd_help(int argc, char **args) {
          return true;
       }
       tui_print_win(wp, "*** Available commands ***");
-      for (int i = 0;client_cmds[i].cmd;i++) {
+      for (int i = 0 ; client_cmds[i].cmd ; i++) {
          tui_print_win(wp, "   %s\t\t%s", client_cmds[i].cmd, client_cmds[i].desc);
       }
       tui_print_win(wp, "");

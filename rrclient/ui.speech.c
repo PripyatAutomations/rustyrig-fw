@@ -22,7 +22,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/ui.speech.h>
 
-extern dict *cfg;               // config.c
+extern dict *cfg;                // config.c
 
 static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
    if (!widget || !hint) {

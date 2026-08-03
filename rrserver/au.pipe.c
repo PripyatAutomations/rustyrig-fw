@@ -158,7 +158,7 @@ void au_unix_socket_poll(void) {
       fcntl(client_fd, F_SETFL, O_NONBLOCK);
       rx_client_fd = client_fd;
 
-      return; // accept one connection per poll, or loop if you want multiple
+      return;  // accept one connection per poll, or loop if you want multiple
    } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
       perror("accept");
    }

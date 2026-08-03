@@ -36,7 +36,7 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
 }
 
 typedef struct {
-   GtkWidget *fe;          /* the GtkFreqEntry container */
+   GtkWidget *fe;           /* the GtkFreqEntry container */
    GtkWidget *chat_entry;
    GtkWidget *mode_combo;
 } VfoKeyData;
@@ -50,7 +50,7 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
       return FALSE;
    }
    if ( !is_widget_or_descendant_focused(d->fe) ) {
-      return FALSE;    /* ignore keys unless focus is somewhere inside fe */
+      return FALSE;     /* ignore keys unless focus is somewhere inside fe */
    }
    if ( (event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) &&
         (event->state & GDK_SHIFT_MASK) ) {
@@ -62,7 +62,7 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
 
       return TRUE;
    }
-   return FALSE; /* let other keys be handled normally */
+   return FALSE;  /* let other keys be handled normally */
 }
 
 GtkWidget *create_vfo_box(void) {

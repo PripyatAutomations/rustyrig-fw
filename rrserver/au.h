@@ -42,7 +42,7 @@ extern void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev);
 
 //////////
 struct au_recording_instance {
-   int channel;                 // Audio channel ID
+   int channel;                  // Audio channel ID
 };
 typedef struct au_recording_instance au_recording_t;
 

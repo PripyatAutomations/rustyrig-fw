@@ -137,7 +137,7 @@ static GdkRGBA digit_group_color(int group) {
          break;
       }
       default: {
-         gdk_rgba_parse(&c, "#ffffff"); // fallback white
+         gdk_rgba_parse(&c, "#ffffff");  // fallback white
          break;
       }
    }
@@ -147,13 +147,13 @@ static GdkRGBA digit_group_color(int group) {
 
 static int digit_group(int i) {
    if (i == 0) {
-      return 0;         // Ghz
+      return 0;          // Ghz
    } else if (i >= 1 && i <= 3) {
-      return 1;         // Mhz
+      return 1;          // Mhz
    } else if (i >= 4 && i <= 6) {
-      return 2;         // kHz
+      return 2;          // kHz
    } else {
-      return 3;         // Hz
+      return 3;          // Hz
    }
 }
 
@@ -166,7 +166,7 @@ static GtkWidget *get_prev_widget(GtkWidget *widget) {
       return NULL;
    }
    GList *children = gtk_container_get_children( GTK_CONTAINER(parent) );
-   for (GList *l = children;l != NULL;l = l->next) {
+   for (GList *l = children ; l != NULL ; l = l->next) {
       if (l->data == widget) {
          GtkWidget *prev = (l->prev) ? l->prev->data : NULL;
          g_list_free(children);
@@ -188,7 +188,7 @@ static GtkWidget *get_next_widget(GtkWidget *widget) {
       return NULL;
    }
    GList *children = gtk_container_get_children( GTK_CONTAINER(parent) );
-   for (GList *l = children;l != NULL;l = l->next) {
+   for (GList *l = children ; l != NULL ; l = l->next) {
       if (l->data == widget) {
          GtkWidget *next = (l->next) ? l->next->data : NULL;
          g_list_free(children);
@@ -209,14 +209,14 @@ static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gp
 
    // Find focused digit
    int idx = -1;
-   for (int i = 0;i < fe->num_digits;i++) {
+   for (int i = 0 ; i < fe->num_digits ; i++) {
       if ( gtk_widget_has_focus(fe->digits[i]) ) {
          idx = i;
          break;
       }
    }
    if (idx < 0) {
-      return FALSE; // no digit focused, let event propagate
+      return FALSE;  // no digit focused, let event propagate
 
    }
    int delta = 0;
@@ -261,7 +261,7 @@ static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gp
       poll_block_expire = now + 1;
       freqentry_finalize(fe);
 
-      return TRUE; // handled
+      return TRUE;  // handled
    }
    return FALSE;
 }
@@ -274,7 +274,7 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
    GtkEntry *entry = GTK_ENTRY(widget);
 
    int idx = -1;
-   for (int i = 0;i < fe->num_digits;i++) {
+   for (int i = 0 ; i < fe->num_digits ; i++) {
       if ( fe->digits[i] == GTK_WIDGET(entry) ) {
          idx = i;
          break;
@@ -358,7 +358,7 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
    } else if (event->keyval == GDK_KEY_Tab ||
               event->keyval == GDK_KEY_ISO_Left_Tab) {
       if ( !is_widget_or_descendant_focused( GTK_WIDGET(fe) ) ) {
-         return FALSE;   /* ignore if focus is outside fe */
+         return FALSE;    /* ignore if focus is outside fe */
       }
       Log(LOG_DEBUG, "gtk.freqentry", "On Key down: %s",
          (event->state & GDK_SHIFT_MASK) ? "LeftTab" : "Tab");
@@ -390,7 +390,7 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
       // Prevent default GTK insertion
       return TRUE;
    }
-   return FALSE; // Let GTK handle other keys
+   return FALSE;  // Let GTK handle other keys
 }
 
 static unsigned long freqentry_read_value(GtkFreqEntry *fe) {
@@ -401,7 +401,7 @@ static unsigned long freqentry_read_value(GtkFreqEntry *fe) {
       0
    };
    // Concatenate digits into a buffer
-   for (int i = 0;i < fe->num_digits;i++) {
+   for (int i = 0 ; i < fe->num_digits ; i++) {
       const char *text = gtk_entry_get_text( GTK_ENTRY(fe->digits[i]) );
       buf[i] = (text && *text >= '0' && *text <= '9') ? *text : '0';
    }
@@ -479,7 +479,7 @@ static gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointe
    gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
 
    fe->editing = true;
-   for (int i = 0;i < fe->num_digits;i++) {
+   for (int i = 0 ; i < fe->num_digits ; i++) {
       if (fe->digits[i] == entry) {
          fe->last_focused_idx = i;
          break;
@@ -715,7 +715,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
       1, 1, 1, 1
    };
 
-   for (int i = 0;i < fe->num_digits;i++) {
+   for (int i = 0 ; i < fe->num_digits ; i++) {
       if (i == 1 || i == 4 || i == 7) {
          GtkWidget *sep = gtk_label_new(" ");
          gtk_box_pack_start(GTK_BOX(fe), sep, FALSE, FALSE, 2);
@@ -733,7 +733,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
       gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
       gtk_widget_set_size_request(entry, 20, 30);
       gtk_widget_override_color(entry, GTK_STATE_FLAG_NORMAL, &white);
-      gtk_entry_set_text(GTK_ENTRY(entry), "0"); // start zeroed
+      gtk_entry_set_text(GTK_ENTRY(entry), "0");  // start zeroed
 
       GtkWidget *down_button = gtk_button_new_with_label("-");
       gtk_widget_set_can_focus(down_button, FALSE);
@@ -781,7 +781,7 @@ void gtk_freq_entry_set_value(GtkFreqEntry *fe, guint64 freq) {
       return;
    }
    /* Assume digits are 0-9 and freq fits in num_digits */
-   for (int i = fe->num_digits - 1;i >= 0;i--) {
+   for (int i = fe->num_digits - 1 ; i >= 0 ; i--) {
       int digit = freq % 10;
       gtk_entry_set_text( GTK_ENTRY(fe->digits[i]), g_strdup_printf("%d", digit) );
       freq /= 10;
@@ -796,7 +796,7 @@ unsigned long gtk_freq_entry_get_value(GtkFreqEntry *fe) {
       0
    };
 
-   for (int i = 0;i < fe->num_digits;i++) {
+   for (int i = 0 ; i < fe->num_digits ; i++) {
       const char *text = gtk_entry_get_text( GTK_ENTRY(fe->digits[i]) );
       buf[i] = (text[0] >= '0' && text[0] <= '9') ? text[0] : '0';
    }
@@ -811,7 +811,7 @@ void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long freq) {
    char buf[MAX_DIGITS + 1];
    snprintf(buf, sizeof(buf), "%0*lu", fe->num_digits, freq);
 
-   for (int i = 0;i < fe->num_digits;i++) {
+   for (int i = 0 ; i < fe->num_digits ; i++) {
       char digit_buf[2] = {
          buf[i], 0
       };

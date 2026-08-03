@@ -36,12 +36,13 @@ bool rr_atu_load_memories(int unit) {
 #if     defined(HOST_POSIX)
    // Open the json configuration file, if present
 #endif
+
    // Look up ATU memory header
    int active_slots = 0;
 
    // Get the eeprom offset of the start of ATU mem slots
    // Look up ATU channels defined by the header
-   for (int i = 0;i < active_slots;i++) {
+   for (int i = 0 ; i < active_slots ; i++) {
       // Apply offset to base_addr
    }
    return false;
@@ -102,7 +103,7 @@ int rr_atu_init_all(void) {
    Log(LOG_INFO, "atu", "Initializing all ATUs (%d total)", tuners);
 
    // XXX: Iterate over the available ATUs and collect the return values
-   for (int i = 0;i < tuners;i++) {
+   for (int i = 0 ; i < tuners ; i++) {
       if (rr_atu_init(i) ) {
          rv++;
       }

@@ -39,13 +39,13 @@ GtkWidget *main_notebook = NULL;
 GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
 GtkCssProvider *css_provider = NULL;
-bool cfg_use_gtk = true;        // Default to using GTK3
+bool cfg_use_gtk = true;         // Default to using GTK3
 
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_admin_tab(void);
 extern GtkWidget *config_tab;
 extern GtkWidget *admin_tab;
-extern bool chat_init(void);            // gtk.chat.c
+extern bool chat_init(void);             // gtk.chat.c
 
 static const struct {
    const char *tag;
@@ -166,7 +166,7 @@ static const struct {
 
 static const char *pango_color_for_tag(const char *tag, bool *is_bg) {
    *is_bg = (strncmp(tag, "bg-", 3) == 0);
-   for (int i = 0;pango_color_map[i].tag;i++) {
+   for (int i = 0 ; pango_color_map[i].tag ; i++) {
       if (strcmp(tag, pango_color_map[i].tag) == 0) {
          return pango_color_map[i].pango;
       }
@@ -438,7 +438,7 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
       return FALSE;
    }
    GtkWidget *focused = gtk_window_get_focus( GTK_WINDOW(toplevel) );
-   for ( GtkWidget *w = focused;w;w = gtk_widget_get_parent(w) ) {
+   for ( GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
       if (w == ancestor) {
          return TRUE;
       }

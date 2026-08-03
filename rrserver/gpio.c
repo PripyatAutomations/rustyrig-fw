@@ -34,7 +34,7 @@ uint32_t radio_find_gpiochip(const char *name) {
 // On posix hosts, such as linux on pi, we use libgpiod to access gpio, add
 // other platforms here
 #if     defined(HOST_POSIX)
-   for (uint32_t i = 0;i < MAX_GPIOCHIPS;i++) {
+   for (uint32_t i = 0 ; i < MAX_GPIOCHIPS ; i++) {
       if (strcasecmp(gpiochips[i].key, name) == 0) {
          return i;
       }
@@ -64,7 +64,7 @@ uint32_t radio_gpiochip_init(const char *chipname) {
       return -1;
    }
    bool slot_found = false;
-   for (i = 0;i < MAX_GPIOCHIPS;i++) {
+   for (i = 0 ; i < MAX_GPIOCHIPS ; i++) {
       // find the first empty slot
       if (!gpiochips[i].active && !gpiochips[i].chip) {
          slot_found = true;

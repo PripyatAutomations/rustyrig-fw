@@ -41,7 +41,7 @@ static void net_print_listeners(const char *listenaddr) {
       Log( LOG_CRIT, "net", "getifaddrs: %s", strerror(errno) );
       exit(EXIT_FAILURE);
    }
-   for (ifa = ifaddr;ifa;ifa = ifa->ifa_next) {
+   for (ifa = ifaddr ; ifa ; ifa = ifa->ifa_next) {
       if (!ifa->ifa_addr) {
          continue;
       }

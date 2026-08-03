@@ -55,7 +55,7 @@ static int active_slots = 0;
 static int max_subprocs = FWDSP_MAX_SUBPROCS;
 static struct fwdsp_subproc *fwdsp_subprocs;
 static int next_channel_id = 1;
-extern char *config_file;               // main.c
+extern char *config_file;                // main.c
 extern struct mg_mgr mg_mgr;
 static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
 
@@ -74,7 +74,7 @@ static void fwdsp_sigchld(int sig) {
    pid_t pid;
 
    while ( ( pid = waitpid(-1, &status, WNOHANG) ) > 0 ) {
-      for (int i = 0;i < max_subprocs;i++) {
+      for (int i = 0 ; i < max_subprocs ; i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
          if (sp->pid == pid) {
             if (on_fwdsp_exit) {
@@ -168,7 +168,7 @@ static int fwdsp_find_offset(const char *id, bool is_tx) {
    if (!id || max_subprocs <= 0 || !active_slots || !fwdsp_subprocs) {
       return -1;
    }
-   for (int i = 0;i < max_subprocs;i++) {
+   for (int i = 0 ; i < max_subprocs ; i++) {
       if (fwdsp_subprocs[i].pl_id[0] == '\0') {
          continue;
       }
@@ -201,7 +201,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
    }
    // Find the desired pipeline
    // Find an unused slot
-   for (int i = 0;i < max_subprocs;i++) {
+   for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
       if ( sp && (sp->pl_id[0] == '\0') &&
            (sp->pl_id[1] == '\0') &&
@@ -429,7 +429,7 @@ void fwdsp_sweep_expired(void) {
    if (!active_slots) {
       return;
    }
-   for (int i = 0;i < max_subprocs;i++) {
+   for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
       if (!sp) {
          continue;

@@ -20,7 +20,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-extern struct GlobalState rig;      // Global state
+extern struct GlobalState rig;       // Global state
 
 // Warmup protection
 bool rr_protect_warmup_pending(int amp_idx) {

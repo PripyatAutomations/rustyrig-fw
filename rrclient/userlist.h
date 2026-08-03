@@ -51,7 +51,7 @@ static inline const char *select_elmernoob_icon(struct rr_user *cptr) {
 extern struct rr_user *global_userlist;
 extern bool userlist_add_or_update(const struct rr_user *newinfo);
 extern bool userlist_remove_by_name(const char *name);
-extern void userlist_clear_all(void); // destroys the list
+extern void userlist_clear_all(void);  // destroys the list
 extern struct rr_user *userlist_find(const char *name);
 extern void userlist_redraw_gtk(void);
 

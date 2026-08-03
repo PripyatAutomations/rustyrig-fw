@@ -44,6 +44,7 @@ include mk/clean.mk
 include mk/git.mk
 include mk/debug.mk
 include mk/resource.mk
+include mk/packaging.mk
 
 ${OBJ_DIR}/build_config.h: ${EEPROM_FILE}
 ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)

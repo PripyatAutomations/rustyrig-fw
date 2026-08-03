@@ -61,3 +61,5 @@ bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${
 	@ls -a1ls $@
 	@file $@
 	@size $@
+
+rrserver-deps:

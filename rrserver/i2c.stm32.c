@@ -24,7 +24,7 @@
 extern I2C_HandleTypeDef hi2c1;
 
 int i2c_init(void) {
-   return 0;  // Assume hi2c1 is initialized in main.c
+   return 0;   // Assume hi2c1 is initialized in main.c
 }
 
 int i2c_write(uint8_t addr, const uint8_t *data, size_t len) {

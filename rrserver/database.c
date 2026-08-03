@@ -125,7 +125,7 @@ int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char
    int row_id = (int)sqlite3_last_insert_rowid(db);
    sqlite3_finalize(stmt);
 
-   return row_id;  // Caller should store this to end the session
+   return row_id;   // Caller should store this to end the session
 }
 
 bool db_ptt_stop(sqlite3 *db, int session_id) {

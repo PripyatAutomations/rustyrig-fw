@@ -46,7 +46,7 @@
 extern struct mg_mgr mgr;
 #endif // defined(USE_MONGOOSE)
 
-extern const char *configs[]; // from defcfg.c
+extern const char *configs[];  // from defcfg.c
 extern const int num_configs;
 extern char *config_file;
 extern void connman_autoconnect(void);
@@ -76,10 +76,10 @@ static void ws_poll_cb(EV_P_ ev_timer *w, int revents) {
 }
 
 bool ptt_active = false;
-time_t poll_block_expire = 0;   // Here we set this to now +
-                                // config:cat.poll-blocking to prevent rig
-                                // polling from sclearing local controls
-time_t poll_block_delay = 0;    // ^-- stores the delay
+time_t poll_block_expire = 0;    // Here we set this to now +
+                                 // config:cat.poll-blocking to prevent rig
+                                 // polling from sclearing local controls
+time_t poll_block_delay = 0;     // ^-- stores the delay
 
 void shutdown_app(int signum) {
    if (signum > 0) {
@@ -115,7 +115,7 @@ static gboolean update_now(gpointer user_data) {
       }
 #endif
 
-      return G_SOURCE_REMOVE;  // remove this timeout
+      return G_SOURCE_REMOVE;   // remove this timeout
    }
    return G_SOURCE_CONTINUE;
 }
@@ -133,8 +133,8 @@ static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
 }
 
 static void tui_start_clock_timer(struct ev_loop *loop) {
-   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 0, 1.0); // start after 0s,
-                                                            // repeat every 1s
+   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 0, 1.0);  // start after 0s,
+                                                             // repeat every 1s
    ev_timer_start(loop, &tui_clock_watcher);
 }
 
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
    const char *logfile = cfg_get_exp("log.file");
    logger_init( (logfile ? logfile : "rrclient.log") );
    if (logfile) {
-      free( (char *)logfile );    // _exp versions MUST be freed
+      free( (char *)logfile );     // _exp versions MUST be freed
       logfile = NULL;
    }
    debug_sockets = cfg_get_bool("debug.sockets", false);
@@ -351,16 +351,16 @@ int main(int argc, char *argv[]) {
    cfg_debug_audio = NULL;
    // Setup stdio & clock
    if (!ui_mode_gui) {
-      tui_readline_cb = tui_input_cb;   // set our input callback
+      tui_readline_cb = tui_input_cb;    // set our input callback
       tui_init();
       tui_print_win(tui_window_find("status"), "rrcli starting");
       tui_start_clock_timer(loop);
 #if     defined(USE_GTK)
    } else {
-      g_timeout_add(1000, update_now, NULL);   // 1hz periodic timer
+      g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
 
 #if     defined(USE_MONGOOSE)
-      g_timeout_add(10, poll_mongoose, NULL);  // Poll Mongoose every 10ms
+      g_timeout_add(10, poll_mongoose, NULL);   // Poll Mongoose every 10ms
 #endif // defined(USE_MONGOOSE)
       gtk_init(&argc, &argv);
 #ifdef _WIN32

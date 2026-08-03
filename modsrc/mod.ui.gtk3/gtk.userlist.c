@@ -27,7 +27,7 @@
 #include "mod.ui.gtk3/gtk.core.h"
 
 extern dict *cfg;
-extern struct rr_user *global_userlist;         // userlist.c
+extern struct rr_user *global_userlist;          // userlist.c
 
 extern GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
@@ -61,7 +61,7 @@ void userlist_redraw_gtk(void) {
    GtkListStore *store = GTK_LIST_STORE( gtk_tree_view_get_model( GTK_TREE_VIEW(cul_view) ) );
    gtk_list_store_clear(store);
 
-   for (struct rr_user *c = global_userlist;c;c = c->next) {
+   for (struct rr_user *c = global_userlist ; c ; c = c->next) {
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
 

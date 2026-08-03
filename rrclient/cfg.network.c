@@ -62,7 +62,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
 
             return false;
          }
-         *val++ = '\0';  // split at '='
+         *val++ = '\0';   // split at '='
          while (*val == ' ' || *val == '\t') {
             val++;
          }

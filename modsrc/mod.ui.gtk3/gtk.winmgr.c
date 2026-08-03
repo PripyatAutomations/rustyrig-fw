@@ -162,7 +162,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    }
    // If window is given and matches, return it, regardless of the title match
    if (gtk_win) {
-      for (gui_window_t *p = gui_windows;p;p = p->next) {
+      for (gui_window_t *p = gui_windows ; p ; p = p->next) {
          if (p->gtk_win == gtk_win) {
 //            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for ptr:<%p>", p->name,
 // gtk_win);
@@ -172,7 +172,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
    }
    // If window can't be found by handle (or NULL handle), search by name
    if (name) {
-      for (gui_window_t *p = gui_windows;p;p = p->next) {
+      for (gui_window_t *p = gui_windows ; p ; p = p->next) {
          if (p && strcmp(p->name, name) == 0) {
 //            Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for name %s", p->name,
 // name);
@@ -236,7 +236,7 @@ bool place_window(GtkWidget *window) {
          // Parse out options, delimited by | at the end of the string
          char *opts = strchr(cfg_full, '|');
          if (opts) {
-            opts++;  /* skip the '|' */
+            opts++;   /* skip the '|' */
 
             while (*opts) {
                char *end = strchr(opts, '|');
@@ -340,7 +340,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    (void)window;
    (void)icon_name;
 
-   return true; // Assume embedded icon is fine
+   return true;  // Assume embedded icon is fine
 #endif
 }
 
@@ -356,21 +356,21 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
          *pp = p->next;
          free(p);
 
-         return true;   // success
+         return true;    // success
       }
       pp = &p->next;
    }
    Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: no match for gw:%p name:%s", (void*)gw,
       name ? name : "(null)");
 
-   return false;       // failure
+   return false;        // failure
 }
 
 static void on_window_destroy(GtkWidget *w, gpointer user_data) {
    if (!w) {
       return;
    }
-   gui_window_t *p = (gui_window_t *)user_data;   // always valid
+   gui_window_t *p = (gui_window_t *)user_data;    // always valid
    gui_forget_window(p, NULL);
 }
 
@@ -384,7 +384,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 
       return NULL;
    }
-   for (gui_window_t *x = gui_windows;x;x = x->next) {
+   for (gui_window_t *x = gui_windows ; x ; x = x->next) {
       if (strcmp(x->name, name) == 0) {
          Log(LOG_DEBUG, "gtk.winmgr", "found window %s at <%p> for gtk_win at <%p>", x->name, x,
             x->gtk_win);
@@ -434,7 +434,7 @@ gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer
       bool minimized = (event->new_window_state & GDK_WINDOW_STATE_ICONIFIED) != 0;
       if (minimized) {
          // Main window minimized → minimize others
-         for (gui_window_t *p = gui_windows;p;p = p->next) {
+         for (gui_window_t *p = gui_windows ; p ; p = p->next) {
             if (!p->win_nohide && p->gtk_win) {
                p->win_stashed = TRUE;
                gtk_window_iconify( GTK_WINDOW(p->gtk_win) );
@@ -442,7 +442,7 @@ gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer
          }
       } else {
          // Main window restored → restore others we minimized
-         for (gui_window_t *p = gui_windows;p;p = p->next) {
+         for (gui_window_t *p = gui_windows ; p ; p = p->next) {
             if (p->win_stashed && p->gtk_win) {
                gtk_window_deiconify( GTK_WINDOW(p->gtk_win) );
                p->win_stashed = FALSE;
@@ -504,7 +504,7 @@ gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
    }
    // If widget is given and matches, return it, regardless of the title match
    if (widget) {
-      for (gui_widget_t *p = gui_widgets;p;p = p->next) {
+      for (gui_widget_t *p = gui_widgets ; p ; p = p->next) {
          if (p->gtk_widget == widget) {
             Log(LOG_CRAZY, "gtk.winmgr", "find_widget eturning %s for ptr:<%p>", p->name, widget);
 
@@ -514,7 +514,7 @@ gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
    }
    // If winget can't be found by handle (or NULL handle), search by name
    if (name) {
-      for (gui_widget_t *p = gui_widgets;p;p = p->next) {
+      for (gui_widget_t *p = gui_widgets ; p ; p = p->next) {
          if (p && strcmp(p->name, name) == 0) {
             Log(LOG_CRAZY, "gtk.winmgr", "Returning %s for name %s", p->name, name);
 
@@ -557,7 +557,7 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
 
       return NULL;
    }
-   for (gui_widget_t *x = gui_widgets;x;x = x->next) {
+   for (gui_widget_t *x = gui_widgets ; x ; x = x->next) {
       if (strcmp(x->name, name) == 0) {
          Log(LOG_DEBUG, "gtk.winmgr", "found widget %s at <%p> for widget at <%p>", x->name, x,
             x->gtk_widget);

@@ -82,7 +82,7 @@ int fault_priority(uint32_t code) {
    // priority
    int items = (sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
-      for (int i = 0;i < items;i++) {
+      for (int i = 0 ; i < items ; i++) {
          if (fault_table[i].code == code) {
             return fault_table[i].code;
          }
@@ -94,7 +94,7 @@ int fault_priority(uint32_t code) {
 const char *fault_get_type_str(uint32_t code) {
    int items = (sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
-      for (int i = 0;i < items;i++) {
+      for (int i = 0 ; i < items ; i++) {
          if (fault_table[i].code == code) {
             return fault_table[i].msg;
          }
@@ -108,7 +108,7 @@ const char *fault_get_type_str(uint32_t code) {
 bool fault_is_fatal(uint32_t code) {
    int items = (sizeof(fault_table) / sizeof(struct fault_table) );
    if (items > 0) {
-      for (int i = 0;i < items;i++) {
+      for (int i = 0 ; i < items ; i++) {
          if (fault_table[i].code == code) {
             return fault_table[i].fatal;
          }

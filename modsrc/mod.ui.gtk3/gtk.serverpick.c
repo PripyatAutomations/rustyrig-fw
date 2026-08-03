@@ -30,9 +30,9 @@ extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
 extern bool ws_connected;
-extern const char *server_name;                         // connman.c XXX: to
-                                                        // remove ASAP for
-                                                        // multiserver
+extern const char *server_name;                          // connman.c XXX: to
+                                                         // remove ASAP for
+                                                         // multiserver
 
 static void do_connect_from_tree(GtkTreeView *view) {
    if (!view) {
@@ -154,8 +154,8 @@ void show_server_chooser(void) {
    GtkWidget *btn = gtk_button_new_with_label("Connect");
    g_signal_connect(btn, "clicked", G_CALLBACK(on_connect_clicked), list);
    g_signal_connect(win, "key-press-event", G_CALLBACK(on_key), NULL);
-   g_signal_connect(list, "row-activated", G_CALLBACK(on_row_activated), NULL); // double-click
-                                                                                // handler
+   g_signal_connect(list, "row-activated", G_CALLBACK(on_row_activated), NULL);  // double-click
+                                                                                 // handler
 
    gtk_box_pack_start(GTK_BOX(vbox), list, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(vbox), btn, FALSE, FALSE, 0);

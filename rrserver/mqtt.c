@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+
 #if     defined(FEATURE_MQTT)
 #include <rrserver/mqtt.h>
 
@@ -36,6 +37,9 @@ struct sub {
    uint8_t qos;
 };
 static struct sub *s_subs = NULL;
+
+// Are we debugging (hexdump) mqtt?
+bool mqtt_debug_sock = false;
 
 bool mqtt_init(struct mg_mgr *mgr) {
    struct in_addr sa_bind;
@@ -118,7 +122,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
          case MQTT_CMD_SUBSCRIBE: {
             // Client subscribes
-            size_t pos = 4;  // Initial topic offset, where ID ends
+            size_t pos = 4;   // Initial topic offset, where ID ends
             uint8_t qos, resp[256];
             struct mg_str topic;
             int num_topics = 0;
@@ -138,7 +142,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
                   sub->topic.buf);
 
                // Change '+' to '*' for topic matching using mg_match
-               for (size_t i = 0;i < sub->topic.len;i++) {
+               for (size_t i = 0 ; i < sub->topic.len ; i++) {
                   if (sub->topic.buf[i] == '+') {
                      ( (char *) sub->topic.buf)[i] = '*';
                   }
@@ -154,7 +158,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
             // Client published message. Push to all subscribed channels
             Log(LOG_DEBUG, "mqtt.debug", "PUB %p [%.*s] -> [%.*s]", c->fd, (int) mm->data.len,
                mm->data.buf, (int) mm->topic.len, mm->topic.buf);
-            for (struct sub *sub = s_subs;sub;sub = sub->next) {
+            for (struct sub *sub = s_subs ; sub ; sub = sub->next) {
                if (mg_match(mm->topic, sub->topic, NULL) ) {
                   struct mg_mqtt_opts pub_opts;
                   memset( &pub_opts, 0, sizeof(pub_opts) );
@@ -175,10 +179,12 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
       }
    } else if (ev == MG_EV_ACCEPT) {
-      // c->is_hexdumping = 1;
+      if (mqtt_debug_sock) {
+         c->is_hexdumping = 1;
+      }
    } else if (ev == MG_EV_CLOSE) {
       // Client disconnects. Remove from the subscription list
-      for (struct sub *next, *sub = s_subs;sub;sub = next) {
+      for (struct sub *next, *sub = s_subs ; sub ; sub = next) {
          next = sub->next;
          if (c != sub->c) {
             continue;
@@ -197,8 +203,10 @@ char mqtt_secret[128];
 
 bool mqtt_client_init(void) {
    FILE *fp = NULL;
-   // XXX: This should come from config:net.mqtt-client.secret-file
-   const char *secret_file = "./config/mqtt-cli.secret";
+
+   mqtt_user = cfg_get("net.mqtt-client.user");
+   mqtt_host = cfg_get("net.mqtt-client.host");
+   const char *secret_file = cfg_get("net.mqtt-client.secret-file");
    if (!file_exists(secret_file) ) {
       Log(LOG_CRIT, "mqtt.cli", "Secret file '%s' doesn't exist", secret_file);
 

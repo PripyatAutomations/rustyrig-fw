@@ -25,7 +25,7 @@ bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args)
    size_t pos = 0;
    char *target = wp->title;
 
-   for (int i = 0;i < argc;i++) {
+   for (int i = 0 ; i < argc ; i++) {
       int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 0 ? " " : ""),
          args[i] ? args[i] : "");
       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {

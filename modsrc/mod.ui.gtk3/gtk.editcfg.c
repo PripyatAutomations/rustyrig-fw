@@ -29,8 +29,8 @@ extern struct mg_connection *ws_conn;
 
 extern dict *cfg;
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
-extern GtkWidget *toggle_userlist_button; // userlist.c
-extern GtkWidget *main_notebook;          // gtk.core.c
+extern GtkWidget *toggle_userlist_button;  // userlist.c
+extern GtkWidget *main_notebook;           // gtk.core.c
 extern dict *cfg_load(const char *path);
 GtkWidget *config_tab = NULL;
 
@@ -230,7 +230,7 @@ void gui_edit_config(const char *filepath) {
 /////////////////////////////
 // Config tab in tab strip //
 /////////////////////////////
-extern char *config_file;               // main.c
+extern char *config_file;                // main.c
 
 static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
    if (user_data != NULL) {

@@ -76,7 +76,7 @@ static GtkWidget *tone_type_combo = NULL;
 /* Utility to populate tone combos */
 static void populate_tone_combo(GtkComboBoxText *combo, const char **tones) {
    gtk_combo_box_text_remove_all(combo);
-   for (int i = 0;tones[i];i++) {
+   for (int i = 0 ; tones[i] ; i++) {
       gtk_combo_box_text_append_text(combo, tones[i]);
    }
    gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
@@ -202,7 +202,7 @@ GtkWidget *fm_dialog_create(void) {
    GtkWidget *offset_combo = gtk_combo_box_text_new_with_entry();
    gtk_widget_set_tooltip_text(offset_combo, "Repeater Offset in Mhz");
 
-   for (int i = 0;fm_offsets[i] != NULL;i++) {
+   for (int i = 0 ; fm_offsets[i] != NULL ; i++) {
       if (fm_offsets[i]) {
          gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(offset_combo), fm_offsets[i]);
       } else {

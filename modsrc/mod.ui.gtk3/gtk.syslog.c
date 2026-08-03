@@ -25,7 +25,7 @@
 #include <rrclient/userlist.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-extern dict *cfg;               // config.c
+extern dict *cfg;                // config.c
 extern struct mg_connection *ws_conn;
 extern time_t now;
 extern GtkWidget *main_notebook;

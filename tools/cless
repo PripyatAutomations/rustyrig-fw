@@ -1,0 +1,7 @@
+#!/bin/bash
+[ -z "$1" ] && {
+   echo "$0: Need a filename!"
+   exit 1
+}
+
+pygmentize $1 | less -R

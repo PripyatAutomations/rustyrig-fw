@@ -173,7 +173,7 @@
          "enabled": "false",
          "server": "10.237.1.239",
          "port": 8833,
-         "user": "rustyrig-ft891",
+         "user": "rr-ft891",
          "secret-file": "./config/mqtt-cli.secret"
       }
    },

@@ -29,9 +29,9 @@
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 #endif
 
-time_t global_tot_time = 0;             // TOT
+time_t global_tot_time = 0;              // TOT
 extern time_t ptt_tot_time;
-int vfos_enabled = 2;                   // A + B by default
+int vfos_enabled = 2;                    // A + B by default
 
 bool rr_ptt_check_blocked(void) {
    if (rig.tx_blocked) {
@@ -92,7 +92,7 @@ bool rr_ptt_toggle(rr_vfo_t vfo) {
 
 bool rr_ptt_set_all_off(void) {
    Log(LOG_AUDIT, "core", "PTT turned off for all VFOs!");
-   for (int i = 1;i < vfos_enabled;i++) {
+   for (int i = 1 ; i < vfos_enabled ; i++) {
       rr_ptt_set(i, false);
    }
    global_tot_time = 0;

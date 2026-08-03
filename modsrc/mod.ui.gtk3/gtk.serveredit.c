@@ -31,11 +31,11 @@ typedef enum {
 } server_proto_t;
 
 typedef struct serverlist {
-   char *name;          // friendly name
-   char *host;          // host from URL
-   int port;            // parsed port
-   char *user;          // optional user
-   char *pass;          // optional pass
+   char *name;           // friendly name
+   char *host;           // host from URL
+   int port;             // parsed port
+   char *user;           // optional user
+   char *pass;           // optional pass
    server_proto_t proto;
    struct serverlist *next;
 } serverlist_t;
@@ -149,7 +149,7 @@ void serverlist_free(serverlist_t *sp) {
 // --- lookup helpers ---
 
 serverlist_t *serverlist_find_by_name(serverlist_t *head, const char *name) {
-   for (serverlist_t *sp = head;sp;sp = sp->next) {
+   for (serverlist_t *sp = head ; sp ; sp = sp->next) {
       if (strcmp(sp->name, name) == 0) {
          return sp;
       }
@@ -164,7 +164,7 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
    if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
       return NULL;
    }
-   for (serverlist_t *sp = head;sp;sp = sp->next) {
+   for (serverlist_t *sp = head ; sp ; sp = sp->next) {
       if (sp->port == port &&
           sp->proto == proto &&
           strcmp(sp->host, host) == 0 &&

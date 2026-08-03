@@ -30,20 +30,20 @@ enum rr_conn_type {
 };
 
 struct rr_connection {
-   char name[256];                      // server name
-   bool connected;                      // Are we connected?
-   bool ptt_active;                     // Is PTT raised?
-   enum rr_conn_type    *conn_type;     // connection type
+   char name[256];                       // server name
+   bool connected;                       // Are we connected?
+   bool ptt_active;                      // Is PTT raised?
+   enum rr_conn_type    *conn_type;      // connection type
 #if     defined(USE_MONGOOSE)
-   struct mg_connection *mg_conn;       // mongoose socket
+   struct mg_connection *mg_conn;        // mongoose socket
    struct mg_connection *ws_conn,       // RX stream
-                        *ws_tx_conn;    // TX stream
+                        *ws_tx_conn;     // TX stream
 #endif
    time_t poll_block_expire, poll_block_delay;
    char session_token[HTTP_TOKEN_LEN + 1];
 
    /////
-   struct rr_connection *next;                  // next socket
+   struct rr_connection *next;                   // next socket
 };
 typedef struct rr_connection rr_connection_t;
 

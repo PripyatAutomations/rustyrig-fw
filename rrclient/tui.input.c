@@ -39,7 +39,7 @@ extern bool ws_connected;
 extern bool rrclient_send_chat(const char *data);
 #endif
 
-extern client_cmd_t client_cmds[];      // from commands.c
+extern client_cmd_t client_cmds[];       // from commands.c
 
 bool tui_input_cb(const char *input) {
    if (client_cmds[0].cmd == NULL || !input || !*input) {
@@ -52,7 +52,7 @@ bool tui_input_cb(const char *input) {
 
    // Tokenize into argc/args
    int argc = 0;
-   char *args[64];   // max 64 tokens
+   char *args[64];    // max 64 tokens
    char *tok = strtok(buf, " \t");
    while (tok && argc < (int)(sizeof(args) / sizeof(args[0]) ) ) {
       args[argc++] = tok;
@@ -62,7 +62,7 @@ bool tui_input_cb(const char *input) {
       return true;
    }
    if (args[0][0] == '/') {
-      for (client_cmd_t *c = client_cmds;c->cmd && c->cb;c++) {
+      for (client_cmd_t *c = client_cmds ; c->cmd && c->cb ; c++) {
          if (strcasecmp(c->cmd, args[0]) == 0) {
             if (c->cb) {
                c->cb(argc, args);
@@ -94,7 +94,7 @@ bool tui_input_cb(const char *input) {
          char fullmsg[502];
          memset( fullmsg, 0, sizeof(fullmsg) );
          size_t pos = 0;
-         for (int i = 0;i < argc;i++) {
+         for (int i = 0 ; i < argc ; i++) {
             int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""),
                args[i] ? args[i] : "");
             if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {

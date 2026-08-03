@@ -16,7 +16,7 @@
 
 // Pipe-specific audio device structure
 typedef struct {
-   int pipe_fd;   // File descriptor for the pipe/socket
+   int pipe_fd;    // File descriptor for the pipe/socket
 } rr_au_pipe_device_t;
 
 // Initialize a pipe for audio communication

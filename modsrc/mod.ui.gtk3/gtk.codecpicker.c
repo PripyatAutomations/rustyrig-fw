@@ -25,7 +25,7 @@
 extern struct mg_connection *ws_conn;
 #endif // defined(USE_MONGOOSE)
 
-extern dict *cfg;                               // main.c
+extern dict *cfg;                                // main.c
 extern bool syslog_clear(void);
 
 GtkWidget *tx_combo = NULL;
@@ -64,7 +64,7 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
 
    gtk_combo_box_text_remove_all(combo);
 
-   for ( char *tok = strtok_r(list, " ", &saveptr);tok;tok = strtok_r(NULL, " ", &saveptr) ) {
+   for ( char *tok = strtok_r(list, " ", &saveptr) ; tok ; tok = strtok_r(NULL, " ", &saveptr) ) {
       Log(LOG_CRAZY, "gtk.codecpicker", "Adding codec |%s| to list <%x>", tok, combo);
       gtk_combo_box_text_append(combo, tok, tok);
       if (default_id && strcmp(tok, default_id) == 0) {
@@ -87,13 +87,13 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    ui_speech_set(tx_combo, "TX Codec",                 // name
       "Transmit Codec",                   // description
       UI_ROLE_COMBOBOX,                     // role
-      true);                              // focusable
+      true);                               // focusable
    gtk_widget_set_tooltip_text(tx_combo, "Transmit codec");
    rx_combo = gtk_combo_box_text_new();
    ui_speech_set(rx_combo, "Receive Codec",            // name
       "Receiver Codec",                   // description
       UI_ROLE_COMBOBOX,                     // role
-      true);                              // focusable
+      true);                               // focusable
    gtk_widget_set_tooltip_text(rx_combo, "Receive codec");
 
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);

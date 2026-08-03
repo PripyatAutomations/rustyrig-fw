@@ -25,7 +25,7 @@
 #include "mod.ui.gtk3/gtk.core.h"
 #endif
 
-extern bool ui_mode_gui;        // main.c
+extern bool ui_mode_gui;         // main.c
 enum GuiMode {
    GUI_MODE_TUI = 0,
    GUI_MODE_GTK

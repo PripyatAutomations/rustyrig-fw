@@ -13,11 +13,11 @@
 
 // A tuning value
 struct rr_atu_tv {
-   float frequency;             // Frequency in hz
-   float L;                     // Inductance selected
-   float C;                     // Capacitance selected
-   bool bypass;                 // Bypass tuner?
-   bool hi_z;                   // Hi-Z switch
+   float frequency;              // Frequency in hz
+   float L;                      // Inductance selected
+   float C;                      // Capacitance selected
+   bool bypass;                  // Bypass tuner?
+   bool hi_z;                    // Hi-Z switch
 };
 typedef struct rr_atu_tv rr_atu_tv;
 

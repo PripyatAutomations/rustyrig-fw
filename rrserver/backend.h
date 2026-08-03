@@ -14,10 +14,11 @@
 
 struct rr_backend_funcs {
    // Backend management
-   bool (*backend_init)(void);                          // Startup
-   bool (*backend_fini)(void);                          // Shutdown
-   rr_vfo_data_t *(*backend_poll)(void);                // Called periodically
-                                                        // to get the rig status
+   bool (*backend_init)(void);                           // Startup
+   bool (*backend_fini)(void);                           // Shutdown
+   rr_vfo_data_t *(*backend_poll)(void);                 // Called periodically
+                                                         // to get the rig
+                                                         // status
 
    ////////////////////////////////////////
    // Rig control
@@ -44,11 +45,13 @@ typedef struct rr_backend_funcs rr_backend_funcs_t;
 
 struct rr_backend {
    const char           *name;
-   void                 *backend_data_ptr;              // Pointer to backend
-                                                        // RIG struct or similar
-   bool dummy_mode;                                     // In Dummy Mode, state
-                                                        // will be kept but
-                                                        // VFO/PTT/etc are faked
+   void                 *backend_data_ptr;               // Pointer to backend
+                                                         // RIG struct or
+                                                         // similar
+   bool dummy_mode;                                      // In Dummy Mode, state
+                                                         // will be kept but
+                                                         // VFO/PTT/etc are
+                                                         // faked
    rr_backend_funcs_t   *api;
 };
 typedef struct rr_backend rr_backend_t;

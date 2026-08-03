@@ -44,12 +44,12 @@ extern defconfig_t defcfg[];
 const char *config_file = NULL;
 const char *config_codec = "pc16";
 bool codec_tx_mode = false;
-bool config_video = false;              // is this audio or video stream?
+bool config_video = false;               // is this audio or video stream?
 bool dying = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
-time_t now = -1;                // time() called once a second in main loop to
-                                // update
+time_t now = -1;                 // time() called once a second in main loop to
+                                 // update
 
 static void cleanup_pipeline(GstElement **pipe) {
    if (*pipe) {

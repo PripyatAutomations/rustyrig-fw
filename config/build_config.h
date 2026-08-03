@@ -40,6 +40,7 @@
 
 
 //#define USE_PROFILING true
+//#define USE_EV
 #define	USE_MONGOOSE
 #define FEATURE_MQTT
 #define FEATURE_HTTP

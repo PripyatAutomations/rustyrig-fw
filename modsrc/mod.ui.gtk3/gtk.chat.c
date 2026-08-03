@@ -29,9 +29,9 @@
 #include <rrclient/ui.speech.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-extern dict *cfg;               // main.c
-extern time_t now;              // main.c
-extern bool cfg_use_gtk;        // gtk.core.c
+extern dict *cfg;                // main.c
+extern time_t now;               // main.c
+extern bool cfg_use_gtk;         // gtk.core.c
 
 ///////////////
 static GPtrArray *input_history = NULL;

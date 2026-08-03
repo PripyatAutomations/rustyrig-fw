@@ -39,9 +39,9 @@
 #define FAULT_UNKNOWN 0x64
 
 struct fault_table {
-   uint32_t code;                       // error code
-   bool fatal;                          // Is this a fatal error?
-   char msg[16];                        // message string
+   uint32_t code;                        // error code
+   bool fatal;                           // Is this a fatal error?
+   char msg[16];                         // message string
 };
 
 extern struct fault_table fault_table[];

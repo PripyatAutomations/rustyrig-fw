@@ -23,30 +23,30 @@
 
 // GUI (GTK) window
 struct GuiWindow {
-   char name[128];              // Window name
+   char name[128];               // Window name
 #if     defined(USE_GTK)
    GdkEventConfigure *move_evt;
-   GtkWidget *gtk_win;          // GTK window widget
+   GtkWidget *gtk_win;           // GTK window widget
 #endif
-   int x, y, w, h;              // Location and size
-   int last_x, last_y, last_w, last_h;  // Previous locations (if moving)
-   bool is_moving;              // Is the window being moved?
-   bool win_raised;             // Raised?
-   bool win_minimized;          // Is the window minimized?
-   bool win_modal;              // Always on top
-   bool win_hidden;             // Hidden from view
-   bool win_nohide;             // Don't hide this window when main window is
-                                // minimized
-   bool win_stashed;            // Was the window hidden because main was
-                                // minimized? This ensures it's restored
+   int x, y, w, h;               // Location and size
+   int last_x, last_y, last_w, last_h;   // Previous locations (if moving)
+   bool is_moving;               // Is the window being moved?
+   bool win_raised;              // Raised?
+   bool win_minimized;           // Is the window minimized?
+   bool win_modal;               // Always on top
+   bool win_hidden;              // Hidden from view
+   bool win_nohide;              // Don't hide this window when main window is
+                                 // minimized
+   bool win_stashed;             // Was the window hidden because main was
+                                 // minimized? This ensures it's restored
    struct GuiWindow *next;
 };
 typedef struct GuiWindow gui_window_t;
 
 struct GuiWidget {
    char name[128];
-   GtkWidget *gtk_widget;       // GtkWidget for the widget
-   struct GuiWidget *next;      // next in list
+   GtkWidget *gtk_widget;        // GtkWidget for the widget
+   struct GuiWidget *next;       // next in list
 };
 typedef struct GuiWidget gui_widget_t;
 
@@ -58,13 +58,13 @@ extern gboolean focus_main_later(gpointer data);
 extern bool gui_init(void);
 extern GtkWidget *conn_button;
 extern bool place_window(GtkWidget *window);
-extern void show_server_chooser(void);                  // gtk.serverpick.c
+extern void show_server_chooser(void);                   // gtk.serverpick.c
 extern bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...);
 extern bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap);
 extern void gui_edit_config(const char *filepath);
 extern gboolean ui_scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);
-extern GtkWidget *mode_combo;          // if mode_combo is a GtkWidget*
+extern GtkWidget *mode_combo;           // if mode_combo is a GtkWidget*
 extern GtkWidget *width_combo;
 
 #ifdef _WIN32
@@ -79,7 +79,7 @@ extern bool set_window_icon(GtkWidget *window, const char *icon_name);
 #endif
 
 extern GtkWidget *ptt_button_create(void);
-extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx);           // gtk.codecpicker.c
+extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx);            // gtk.codecpicker.c
 extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list,
                                  const char *default_id);
 extern GtkWidget *ptt_button;

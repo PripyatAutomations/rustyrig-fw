@@ -32,8 +32,8 @@
 
 // Server connections
 rr_connection_t *active_connections;
-bool ws_connected = false;      // Is RX stream connecte?
-bool ws_tx_connected = false;   // Is TX stream connected?
+bool ws_connected = false;       // Is RX stream connecte?
+bool ws_tx_connected = false;    // Is TX stream connected?
 bool server_ptt_state = false;
 
 // XXX: this needs to go away and be replaced with http_find_servername(c)

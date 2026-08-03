@@ -22,7 +22,7 @@
 #include <rrclient/ui.speech.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-extern dict *cfg;               // config.c
+extern dict *cfg;                // config.c
 
 // main.c
 extern GtkWidget *main_notebook;
@@ -43,7 +43,7 @@ GtkWidget *init_admin_tab(void) {
    ui_speech_set(nw, "Admin Tab",                // name
       "Server administration",            // description
       UI_ROLE_BUTTON,                     // role
-      true);                              // focusable
+      true);                               // focusable
 
    return nw;
 }

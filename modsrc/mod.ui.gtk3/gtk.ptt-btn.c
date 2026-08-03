@@ -25,7 +25,7 @@
 #include "ext/libmongoose/mongoose.h"
 #endif // defined(USE_MONGOOSE)
 
-extern bool parse_chat_input(GtkButton *button, gpointer entry);        // chat.cmd.c
+extern bool parse_chat_input(GtkButton *button, gpointer entry);         // chat.cmd.c
 extern bool syslog_clear(void);
 extern GtkWidget *init_log_tab(void);
 extern dict *cfg;

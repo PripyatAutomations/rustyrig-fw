@@ -24,15 +24,15 @@
 #endif // defined(USE_MONGOOSE)
 #include "mod.ui.gtk3/gtk.core.h"
 
-GtkWidget *rx_vol_slider = NULL;        // gstreamer volume
-GtkWidget *rx_rig_vol_slider = NULL;    // Rig side setting
+GtkWidget *rx_vol_slider = NULL;         // gstreamer volume
+GtkWidget *rx_rig_vol_slider = NULL;     // Rig side setting
 
 void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    if (!range || !user_data) {
       return;
    }
    gdouble val = gtk_range_get_value(range);
-   val /= 100.0;  // scale from 0–100 to 0.0–1.0
+   val /= 100.0;   // scale from 0–100 to 0.0–1.0
    g_object_set(G_OBJECT(user_data), "volume", val, NULL);
 }
 

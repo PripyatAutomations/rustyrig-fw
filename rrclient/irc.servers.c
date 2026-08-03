@@ -161,7 +161,7 @@ bool autoconnect(void) {
          memset( this_network, 0, sizeof(this_network) );
          snprintf(this_network, sizeof(this_network), "%s", sp);
          tui_print_win(tui_window_find("status"), "autoconnect network: %s", sp);
-         rrlist_t *temp_list = NULL;  // head of temporary list
+         rrlist_t *temp_list = NULL;   // head of temporary list
 
          server_cfg_t *srvp = server_list;
          while (srvp) {

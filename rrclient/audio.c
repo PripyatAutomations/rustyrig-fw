@@ -43,7 +43,7 @@
 #include <gst/app/gstappsink.h>
 #include <rrclient/audio.h>
 
-extern dict *cfg;               // main.c
+extern dict *cfg;                // main.c
 extern struct mg_connection *ws_conn, *ws_tx_conn;
 extern GtkWidget *rx_vol_slider;
 
@@ -274,8 +274,8 @@ bool audio_process_frame(const char *data, size_t len) {
 
    // Add PTS and duration
    static GstClockTime timestamp = 0;
-   GstClockTime duration = gst_util_uint64_scale(len, GST_SECOND, 16000 * 2);  // 16-bit
-                                                                               // mono
+   GstClockTime duration = gst_util_uint64_scale(len, GST_SECOND, 16000 * 2);   // 16-bit
+                                                                                // mono
    GST_BUFFER_PTS(buffer) = timestamp;
    GST_BUFFER_DURATION(buffer) = duration;
    timestamp += duration;

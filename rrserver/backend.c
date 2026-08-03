@@ -83,7 +83,7 @@ rr_backend_t *rr_backend_find(const char *name) {
       return NULL;
    }
    int items = (sizeof(available_backends) / sizeof(struct rr_backends) );
-   for (int i = 0;i < items;i++) {
+   for (int i = 0 ; i < items ; i++) {
       rr_backend_t *bp = available_backends[i].backend;
       if (!bp) {
          return NULL;

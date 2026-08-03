@@ -84,7 +84,7 @@ char *strcasestr(const char *haystack, const char *needle) {
    if (!haystack) {
       return NULL;
    }
-   for (;*haystack;haystack++) {
+   for ( ; *haystack ; haystack++) {
       const char *h = haystack;
       const char *n = needle;
 
@@ -112,7 +112,7 @@ bool is_windows_dark_mode(void) {
       }
       RegCloseKey(hKey);
    }
-   return value == 0;   // 0 means dark mode}
+   return value == 0;    // 0 means dark mode}
 }
 
 // Ensure windows dark mode

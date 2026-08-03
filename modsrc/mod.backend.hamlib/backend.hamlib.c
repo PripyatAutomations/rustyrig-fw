@@ -36,9 +36,9 @@
 #include <rrserver/thermal.h>
 #include <librustyaxe/eeprom.h>
 #include <rrserver/backend.h>
-static RIG *hl_rig = NULL;      // hamlib Rig interface
-static bool hl_init(void);      // fwd decl
-static bool hl_fini(void);      // fwd decl
+static RIG *hl_rig = NULL;       // hamlib Rig interface
+static bool hl_init(void);       // fwd decl
+static bool hl_fini(void);       // fwd decl
 
 #if     0
 enum rig_debug_level_e {
@@ -51,7 +51,7 @@ enum rig_debug_level_e {
    RIG_DEBUG_CACHE       /*!< caching */
 };
 #endif
-static int32_t hamlib_debug_level = RIG_DEBUG_ERR; // RIG_DEBUG_VERBOSE;
+static int32_t hamlib_debug_level = RIG_DEBUG_ERR;  // RIG_DEBUG_VERBOSE;
 hamlib_state_t hl_state;
 
 // Return hamlib VFO from rr VFO id
@@ -172,7 +172,7 @@ static bool hl_init(void) {
 #if     defined(BACKEND_HAMLIB_MODEL)
    rig_model_t model = BACKEND_HAMLIB_MODEL;
 #else
-   rig_model_t model = RIG_MODEL_NETRIGCTL;  // Use NET rigctl (model 2)
+   rig_model_t model = RIG_MODEL_NETRIGCTL;   // Use NET rigctl (model 2)
 #endif
    // Set debug level, if configured
    // XXX: We should probably make this a run-time configuration

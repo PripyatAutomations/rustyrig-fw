@@ -101,7 +101,7 @@ bool are_we_on_fire(void) {
          thermal_limits.encl_warn);
    }
    // Check each installed module
-   for (int i = 0;i < RR_MAX_AMPS;i++) {
+   for (int i = 0 ; i < RR_MAX_AMPS ; i++) {
       if (rig.amps[i].thermal >= thermal_limits.final_max) {
          Log(LOG_CRIT, "therm", "THERMAL ALARM: AMP %d %d > %d degF!", i, rig.amps[i].thermal,
             thermal_limits.final_max);

@@ -17,11 +17,11 @@
 struct audio_config {
    const char *pipeline;
    const char *sock_path;
-   char codec_id[5];    // codec ID + null
-   int sample_rate;   // e.g. 16000 or 44100
-   int format;        // 0 = S16LE, 1 = FLAC, 2 = OPUS
+   char codec_id[5];     // codec ID + null
+   int sample_rate;    // e.g. 16000 or 44100
+   int format;         // 0 = S16LE, 1 = FLAC, 2 = OPUS
    bool tx_mode;
-   bool persistent;   // persistent mode, keep reconnecting until fatal signal
+   bool persistent;    // persistent mode, keep reconnecting until fatal signal
    int channel_id;
    enum {
       FW_MEDIA_NONE = 0,
@@ -33,11 +33,11 @@ struct audio_config {
       FW_DIR_RX,                // Media we are RECEIVING
       FW_DIR_TX                 // Media we are SENDING
    } media_direction;
-   void *buffer;                // Shared memory used to pass audio samples
+   void *buffer;                 // Shared memory used to pass audio samples
 };
 
 struct fwdsp_client {
-   int fd;                     // file descriptor for socket/pipe
+   int fd;                      // file descriptor for socket/pipe
    enum {
       FWDSP_CLI_NONE = 0,
       FWDSP_CLI_RX,            // RX audio path

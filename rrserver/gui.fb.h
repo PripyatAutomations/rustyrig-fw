@@ -17,7 +17,7 @@
 struct gui_fb_state {
    uint8_t fb_width,
            fb_height,
-           fb_depth;                    // bits per pixel
+           fb_depth;                     // bits per pixel
    uint8_t     *framebuffer;
 };
 typedef struct gui_fb_state gui_fb_state_t;
