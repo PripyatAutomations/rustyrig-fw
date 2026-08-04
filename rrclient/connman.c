@@ -130,7 +130,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       event_emit("connected", NULL, NULL);
       tui_print_win(tui_window_find("status"), "Connected to server");
 
-      char *xp = cfg_get_exp("server.user");
+      const char *xp = cfg_get_exp("server.user");
       if (xp) {
          login_user = xp;
          const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient");
