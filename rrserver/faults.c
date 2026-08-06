@@ -21,8 +21,11 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/globalstate.h>
 #include <rrserver/faults.h>
 #include <rrserver/protection.h>
+
+extern struct GlobalState rig;          // Global state
 
 // Fault Table contains the known faults and their text strings
 struct fault_table fault_table[] = {

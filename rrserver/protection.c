@@ -19,6 +19,7 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/globalstate.h>
 
 extern struct GlobalState rig;       // Global state
 

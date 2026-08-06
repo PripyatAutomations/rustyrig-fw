@@ -49,19 +49,19 @@ extern struct mg_mgr mgr;
 extern const char *configs[];  // from defcfg.c
 extern const int num_configs;
 extern char *config_file;
+
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
 extern void rrclient_register_events(void);
-extern bool tui_input_cb(const char *input);
 extern bool rrclient_autoconnect(void);
 extern bool rrclient_connect(const char *url);
 extern bool rrclient_disconnect(void);
 extern void rrclient_poll_events(void);
 extern void ws_client_init(void);
+extern bool tui_input_cb(const char *input);
 static ev_timer tui_clock_watcher;
 static ev_timer ws_poll_watcher;
 struct ev_loop *loop = NULL;
-struct GlobalState rig;
 bool rrclient_cleanup(void);
 bool mirc_colors = true;
 bool ui_mode_gui = true;
@@ -202,6 +202,8 @@ bool rrclient_cleanup(void) {
    } else {
       // Do stuff here for GTK cleanup
    }
+
+   // Shut down sockets
 #if     defined(USE_MONGOOSE)
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
@@ -225,7 +227,6 @@ int main(int argc, char *argv[]) {
    loop = EV_DEFAULT;
    int c;
    int digit_optind = 0;
-
 
    // Set a time stamp so logging will work
    now = time(NULL);

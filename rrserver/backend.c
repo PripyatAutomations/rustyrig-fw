@@ -16,8 +16,11 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/globalstate.h>
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 #include <modsrc/mod.backend.internal/backend.internal.h>
+extern struct GlobalState rig;          // Global state
+
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {
    const char          *name;

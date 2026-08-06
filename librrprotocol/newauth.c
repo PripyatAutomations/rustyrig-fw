@@ -21,8 +21,6 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-extern struct GlobalState rig;   // Global state
-
 // This defines a hard-coded fallback path for httpd root, if not set in config
 #if     defined(HOST_POSIX)
 #if     !defined(INSTALL_PREFIX)

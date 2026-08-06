@@ -25,8 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-// XXX: We probably need to wrap htons/ntohs for use with win64, confirm this
-// soon
+// XXX: We probably need to wrap htons/ntohs for use with win64, confirm this soon
 #include <arpa/inet.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>

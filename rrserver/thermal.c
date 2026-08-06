@@ -18,8 +18,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <librustyaxe/core.h>
-#include <librrprotocol/rrprotocol.h>
+#include <rrserver/globalstate.h>
 #include <rrserver/thermal.h>
+#include <librrprotocol/rrprotocol.h>
+
+extern struct GlobalState rig;
 
 // Set some sane default values in case the user didn't bother to configure
 // them...

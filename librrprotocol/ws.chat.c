@@ -38,7 +38,6 @@
 #define CHAT_MIN_REASON_LEN 10
 extern time_t now;
 extern bool dying, restarting;
-extern struct GlobalState rig;   // Global state
 
 // Send an error message to the user, informing them they lack the appropriate
 // privileges in chat

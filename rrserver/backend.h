@@ -12,6 +12,8 @@
 #include <stdbool.h>
 #include <librrprotocol/rrprotocol.h>
 
+#include <rrserver/globalstate.h>
+
 struct rr_backend_funcs {
    // Backend management
    bool (*backend_init)(void);                           // Startup

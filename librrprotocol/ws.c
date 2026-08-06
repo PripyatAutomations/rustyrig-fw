@@ -17,9 +17,8 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/backend.h>
+//#include <rrserver/backend.h>
 
-extern struct GlobalState rig;   // Global state
 extern time_t now;
 
 #if defined(USE_MONGOOSE)
@@ -370,8 +369,7 @@ static bool ws_txtframe_process(struct mg_ws_message *msg, struct mg_connection 
       }
       goto cleanup;
    } else if (mg_json_get(msg_data, "$.cat", NULL) > 0) {
-// XXX: readd
-//      result = ws_handle_rigctl_msg(msg, c);
+      result = ws_handle_rigctl_msg(msg, c);
    } else if (mg_json_get(msg_data, "$.talk", NULL) > 0) {
       if (cmd) {
          result = ws_handle_chat_msg(c, d);

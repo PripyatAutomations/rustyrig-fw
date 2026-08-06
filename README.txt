@@ -27,12 +27,6 @@ To build:
 	git submodule init
 	git submodule update --depth=1
 
-	# Edit things in config/ as appropriate.
-	- config/radio.config.json
-	- config/build_config.h (eventually will be built by scripts from prior file)
-
-	Run ./build.sh
-
 
 Configure:
 	Be sure config/http.users has appropriate contents
@@ -40,8 +34,8 @@ Configure:
 
 	Make sure config/radio.config.json is good for your build host (probably if linux or msys2)
 
-	Copy config/rrgtk.cfg.example to ~/.config then edit the servers
-		cp -i config/rrgtk.cfg.example config/rrgtk.cfg
+	Copy config/rrclient.cfg.example to ~/.config then edit the servers
+		cp -i config/rrclient.cfg.example config/rrclient.cfg
 		cp -i config/rrserver.cfg.example config/rrserver.cfg
 
 	Edit config/rrserver.cfg for the server (examples in config/release.config.json)
@@ -76,7 +70,7 @@ Early work to package for arch and debian is present. Feel free to contribute to
 
 Pipelines
 ---------
-You will want to configure your pipelines in rrserver.cfg and rrgtk.cfg
+You will want to configure your pipelines in rrserver.cfg and rrclient.cfg
 
 These configurations will use a 4 character ID such as mu08 or pc44 for mulaw 8khz or pcm 44.1khz
 

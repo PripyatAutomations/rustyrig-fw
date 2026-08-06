@@ -34,7 +34,6 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
 }
 
 extern time_t now;
-extern struct GlobalState rig;   // Global state
 
 #define WS_RIGCTL_FORCE_INTERVAL 60                     // every 60 seconds,
                                                         // send a full update
@@ -103,6 +102,7 @@ static ws_rig_state_t *ws_rigctl_state_diff(rr_vfo_t vfo) {
 }
 
 // Save the old state then poll the rig
+// XXX: this should be throttled
 static bool ws_rig_state_poll(rr_vfo_t vfo) {
    // shortcut pointers
    ws_rig_state_t *curr = &vfo_states[vfo],
@@ -112,7 +112,7 @@ static bool ws_rig_state_poll(rr_vfo_t vfo) {
    memset( old, 0, sizeof(ws_rig_state_t) );
    memcpy( old, curr, sizeof(ws_rig_state_t) );
 
-#if     1       // XXX: Re-enable this
+#if	0
    // Poll the backend
    if (rig.backend && rig.backend->api && rig.backend->api->backend_poll) {
       rig.backend->api->backend_poll();

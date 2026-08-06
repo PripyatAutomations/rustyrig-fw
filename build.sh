@@ -18,7 +18,7 @@ fi
 
 if [ ! -f ext/libmongoose/mongoose.c ]; then
    git submodule init
-   git submodule update
+   git submodule update --depth=1
 fi
 
 make distclean

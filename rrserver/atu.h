@@ -21,6 +21,16 @@ struct rr_atu_tv {
 };
 typedef struct rr_atu_tv rr_atu_tv;
 
+// Antenna Matching Unit current state
+struct ATUState {
+   float power_fwd,                     // Measured forward power
+         power_rev;                      // Measured reflected power
+   float thermal;                        // Reported temperature or -1000 if not
+                                         // available
+//   rr_atu_tv *tv;        // Active tuning values
+};
+
+
 extern int rr_atu_init(int uid);
 extern int rr_atu_init_all(void);
 extern bool rr_atu_load_memories(int unit);

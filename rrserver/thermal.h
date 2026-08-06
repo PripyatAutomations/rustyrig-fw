@@ -10,6 +10,8 @@
 #if     !defined(__rr_thermal_h)
 #define __rr_thermal_h
 
+#include <rrserver/globalstate.h>
+
 typedef struct ThermalLimits {
    int32_t encl_warn;
    int32_t encl_max;

@@ -23,14 +23,17 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
 #if defined(BACKEND_HAMLIB)
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
 #endif
 
-time_t global_tot_time = 0;              // TOT
+extern struct GlobalState rig;          // Global state
 extern time_t ptt_tot_time;
+
+time_t global_tot_time = 0;              // TOT
 int vfos_enabled = 2;                    // A + B by default
 
 bool rr_ptt_check_blocked(void) {

@@ -19,7 +19,6 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-extern struct GlobalState rig;   // Global state
 extern time_t now;
 
 #if     defined(USE_MONGOOSE)

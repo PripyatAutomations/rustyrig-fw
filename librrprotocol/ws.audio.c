@@ -7,8 +7,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librustyaxe/core.h>
-#include "ext/libmongoose/mongoose.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -18,12 +16,10 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
+#include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/au_gst.h>
-//#include <rrgtk/audio.h>
 extern time_t now;
-extern bool ws_connected;
-//extern struct mg_connection *ws_conn;
 extern char *negotiated_codecs;                  // ws.c
 
 bool ws_audio_init(void) {
@@ -55,7 +51,6 @@ static bool is_in_array(const uint32_t *arr, size_t len, uint32_t id) {
    }
    return false;
 }
-extern struct GlobalState rig;   // Global state
 
 // Send to all users subscribed to this channel #
 void au_send_to_ws(const void *data, size_t len, int channel) {

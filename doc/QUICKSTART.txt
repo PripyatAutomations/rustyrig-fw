@@ -1,15 +1,19 @@
 Common to both server and client
 --------------------------------
-   git clone http --depth=1 --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
-   cd rustyrig-fw
-   sudo ./install-deps.sh
-   ... Edit config/rrclient.cfg config/rrserver.cfg and config/radio.config.json (build config) as needed
-   ./build.sh
-   ./test-run.sh to start server
-   ./test-client.sh to test the client
+	git clone http://github.com/pripyatautomations/rustyrig-fw --depth=1
+	cd rustyrig-fw
+	git submodule init
+	git submodule update --depth=1
 
-If it works, you can install with:
-   make install
+	sudo ./install-deps.sh
+
+	# Edit things in config/ as appropriate.
+	- config/radio.config.json
+	- config/build_config.h (eventually will be built by scripts from prior file)
+
+	./build.sh
+   	./test-run.sh to start server
+  	./test-client.sh to test the client
 
 Server setup below
 -------------------------------------
@@ -48,6 +52,8 @@ You can use 'make run' to start it up with audio etc automatically without insta
    Open a browser and connect to the http (port 8420) or https (port 4420):
 	firefox	https://localhost:4420/
 
+You should probably use https otherwise crypto.subtle isn't available so we
+cant sha1!
 
 --
 See doc/STATUS for status of subsystems.
