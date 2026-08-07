@@ -3,7 +3,8 @@ Immediate needs
 *: Merge USE_* and FEATURE_*
 *: Make eeprom and cfg_get keys consistent somehow
 *: Need to fully use the event system so we can avoid lib* calling back directly into program code
-
+*: Make all events contain JSON data
+   - Document all the messages
 rrserver: move auth stuff (user/privs/etc) to sqlite on posix host
   - on non-posix hosts, these should be compacted and stored in eeprom fields
 rrcli: in websocket protocol, chat should automatically open in window #2 since only one room (for now)
