@@ -1,7 +1,7 @@
 Immediate needs
 ---------------
 *: Merge USE_* and FEATURE_*
-*: Make eeprom and cfg_get keys consistent somehow
+*: Make eeprom and cfg_get keys consistent somehow and cfg override the eeprom?
 *: Need to fully use the event system so we can avoid lib* calling back directly into program code
 *: Make all events contain JSON data
    - Document all the messages

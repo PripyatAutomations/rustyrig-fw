@@ -31,8 +31,8 @@ bool irc_init(void) {
 }
 
 //
-// This will create a dict containing various things which we'll allow
-// substituting
+// This will create a dict containing a restricted set of state things which we'll allow
+// substituting in log files, messages, etc.
 dict *irc_generate_vars(irc_conn_t *cptr, const char *chan) {
    dict *d = dict_new();
    if (!d) {
@@ -49,6 +49,7 @@ dict *irc_generate_vars(irc_conn_t *cptr, const char *chan) {
    return d;
 }
 
+// Send as much of this user's sendq as we can
 static void irc_try_send(irc_conn_t *cptr) {
    if (!cptr || cptr->fd <= 0) {
       return;
@@ -158,6 +159,7 @@ void irc_io_cb(EV_P_ ev_io *w, int revents) {
          *end = '\0';
          Log(LOG_DEBUG, "net", "processing line: [%s]", start);
          irc_process_message(cptr, start);
+
          // send login on first server message
          if (!cptr->sent_login) {
             tui_print_win(tui_active_window(),

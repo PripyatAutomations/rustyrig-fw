@@ -17,7 +17,6 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-//#include <rrserver/backend.h>
 
 extern time_t now;
 

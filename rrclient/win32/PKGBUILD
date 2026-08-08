@@ -1,19 +1,18 @@
-# Maintainer: Alexey Pavlov <alexpux@gmail.com>
-
-_realname=gedit
+# XXX: This is not complete. I used gedit's PKGBUILD as a template and havent had time to touch windows again... ;)
+_realname=rrclient
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
 pkgver=48.2
 pkgrel=1
-pkgdesc="A text editor for GNOME (mingw-w64)"
+pkgdesc="A GTK and TUI client for the RustyRig firmware (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
-url="https://gedit-technology.github.io/apps/gedit/"
-msys2_repository_url='https://gitlab.gnome.org/World/gedit/gedit/'
+url="https://github.com/PripyatAutomations/rustyrig-fw/"
+msys2_repository_url='https://github.com/PripyatAutomations/rustyrig-fw/'
 msys2_references=(
-  "cpe: cpe:/a:gnome:gedit"
+  "cpe: cpe:/a:rrclient"
 )
-license=('spdx:GPL-2.0-or-later')
+license=('MIT')
 depends=("${MINGW_PACKAGE_PREFIX}-cairo"
          "${MINGW_PACKAGE_PREFIX}-gdk-pixbuf2"
          "${MINGW_PACKAGE_PREFIX}-gettext-runtime"
@@ -42,7 +41,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-yelp-tools"
              "${MINGW_PACKAGE_PREFIX}-desktop-file-utils"
              "git")
-optdepends=("${MINGW_PACKAGE_PREFIX}-gedit-plugins: Additional features")
+# XXX: Fix this
 source=("git+https://gitlab.gnome.org/GNOME/gedit.git#tag=${pkgver}"
         "git+https://gitlab.gnome.org/GNOME/libgd.git"
         "0001-workaround-no-delayed-loading.patch")
