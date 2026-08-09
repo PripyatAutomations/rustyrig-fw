@@ -1,5 +1,5 @@
 #if     !defined(__rrclient_gtk_winmgr_h)
-#define __rrclient_gtk_winmgr_h
+#define	__rrclient_gtk_winmgr_h
 #include <librustyaxe/config.h>
 
 extern gui_window_t *ui_new_window(GtkWidget *window, const char *name);

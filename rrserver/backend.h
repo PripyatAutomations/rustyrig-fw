@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_backend_h)
-#define __rr_backend_h
+#define	__rr_backend_h
 #include <stdbool.h>
 #include <librrprotocol/rrprotocol.h>
 

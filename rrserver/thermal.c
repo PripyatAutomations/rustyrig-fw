@@ -51,6 +51,7 @@ uint32_t get_thermal(uint32_t sensor) {
       return rig.therm_inlet;
    } else if (sensor >= 1000 && sensor <= 1099) {
       int unit = sensor - 1000;
+
       if (unit > RR_MAX_AMPS - 1 || unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor,
             RR_MAX_AMPS);
@@ -64,6 +65,7 @@ uint32_t get_thermal(uint32_t sensor) {
       }
    } else if (sensor >= 2000 && sensor <= 2099) {
       int unit = sensor - 2000;
+
       if (unit > RR_MAX_ATUS - 1 || unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor,
             RR_MAX_ATUS);
@@ -77,6 +79,7 @@ uint32_t get_thermal(uint32_t sensor) {
       }
    } else if (sensor >= 3000 && sensor <= 3099) {
       int unit = sensor - 3000;
+
       if (unit > RR_MAX_FILTERS - 1 || unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor,
             RR_MAX_FILTERS);
@@ -89,6 +92,7 @@ uint32_t get_thermal(uint32_t sensor) {
          return temp;
       }
    }
+
    return -1;
 }
 
@@ -99,10 +103,12 @@ bool are_we_on_fire(void) {
       Log(LOG_CRIT, "therm", "THERMAL WARNING: Enclosure %d > %d degF!", rig.therm_enclosure,
          thermal_limits.encl_warn);
    }
+
    if (rig.therm_inlet >= thermal_limits.inlet_warn) {
       Log(LOG_CRIT, "therm", "THERMAL WARNING: Inlet %d > %d degF!", rig.therm_enclosure,
          thermal_limits.encl_warn);
    }
+
    // Check each installed module
    for (int i = 0 ; i < RR_MAX_AMPS ; i++) {
       if (rig.amps[i].thermal >= thermal_limits.final_max) {
@@ -111,11 +117,13 @@ bool are_we_on_fire(void) {
 
          return true;
       }
+
       if (rig.amps[i].thermal >= thermal_limits.final_warn) {
          Log(LOG_CRIT, "therm", "THERMAL WARNING: ANP %d %d > %d degF!", i, rig.amps[i].thermal,
             thermal_limits.final_warn);
       }
    }
+
    // Return TRUE on any max at or exceeded
    if (rig.therm_enclosure >= thermal_limits.encl_max) {
       Log(LOG_CRIT, "therm", "THERMAL ALARM: Case %d > %d degF!", rig.therm_enclosure,
@@ -123,11 +131,13 @@ bool are_we_on_fire(void) {
 
       return true;
    }
+
    if (rig.therm_inlet >= thermal_limits.inlet_max) {
       Log(LOG_CRIT, "therm", "THERMAL ALARM: Inlet %d > %d degF!", rig.therm_inlet,
          thermal_limits.inlet_max);
 
       return true;
    }
+
    return false;
 }

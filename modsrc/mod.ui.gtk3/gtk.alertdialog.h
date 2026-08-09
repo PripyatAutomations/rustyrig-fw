@@ -1,5 +1,5 @@
 #if     !defined(__gtk_alertdialog_h)
-#define __gtk_alertdialog_h
+#define	__gtk_alertdialog_h
 
 typedef enum {
    MSG_ERROR,

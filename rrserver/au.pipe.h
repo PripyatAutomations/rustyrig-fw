@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rr_au_pipe_h)
-#define __rr_au_pipe_h
+#define	__rr_au_pipe_h
 
 #include <stdbool.h>
 #include <stddef.h>

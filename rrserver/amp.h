@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_amp_h)
-#define __rr_amp_h
+#define	__rr_amp_h
 
 // remove from librustyaxe/cat.h ASAP
 // State of the amplifier module

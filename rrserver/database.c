@@ -29,15 +29,18 @@ sqlite3 *db_open(const char *path) {
    if (!path) {
       return NULL;
    }
+
    if (masterdb) {
       Log(LOG_CRIT, "db", "Master database already open");
 
       return masterdb;
    }
    sqlite3 *db = NULL;
+
    if (sqlite3_open(path, &db) == SQLITE_OK) {
       return db;
    }
+
    return NULL;
 }
 
@@ -51,6 +54,7 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const cha
                      "VALUES (?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
+
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       Log( LOG_WARN, "db", "failed preparing statement in db_add_user: %s", sqlite3_errmsg(db) );
 
@@ -78,6 +82,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    const char *sql = "INSERT INTO audit_log (username, event_type, details) VALUES (?, ?, ?);";
 
    sqlite3_stmt *stmt;
+
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       Log( LOG_WARN, "db", "failed preparing statement in db_add_audit_event: %s",
          sqlite3_errmsg(db) );
@@ -106,6 +111,7 @@ int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char
       "VALUES (?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
+
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       Log( LOG_WARN, "db", "failed preparing statement in db_ptt_start: %s", sqlite3_errmsg(db) );
 
@@ -117,6 +123,7 @@ int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char
    sqlite3_bind_int(stmt, 4, bandwidth);
    sqlite3_bind_double(stmt, 5, power);
    sqlite3_bind_text(stmt, 6, record_file, -1, SQLITE_STATIC);
+
    if (sqlite3_step(stmt) != SQLITE_DONE) {
       sqlite3_finalize(stmt);
 
@@ -135,6 +142,7 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
    const char *sql = "UPDATE ptt_log SET end_time = CURRENT_TIMESTAMP WHERE id = ?;";
 
    sqlite3_stmt *stmt;
+
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       Log( LOG_WARN, "db", "failed preparing statement in db_ptt_stop: %s", sqlite3_errmsg(db) );
 
@@ -161,6 +169,7 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
       "INSERT INTO chat_log (msg_ts, msg_src, msg_dest, msg_type, msg_data) VALUES (?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
+
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       Log( LOG_WARN, "db", "failed preparing statement in db_add_chat_msg: %s",
          sqlite3_errmsg(db) );

@@ -25,7 +25,7 @@
 #include <rrserver/atu.h>
 
 // Tell atu_tables we want the data (we are the tuner code)
-#define ANT_TUNER
+#define	ANT_TUNER
 //#include "atu_tables.h"
 
 // Extract the memories from eeprom and optionally json file on posix
@@ -45,6 +45,7 @@ bool rr_atu_load_memories(int unit) {
    for (int i = 0 ; i < active_slots ; i++) {
       // Apply offset to base_addr
    }
+
    return false;
 }
 
@@ -53,14 +54,17 @@ static rr_atu_tv *tv_is_closest(rr_atu_tv *low, rr_atu_tv *high) {
    if (!low && !high) {
       return NULL;
    }
+
    // If only high value provided, return it
    if (!low && high) {
       return high;
    }
+
    // if only low value provided, return it
    if (!high && low) {
       return low;
    }
+
    // fallthru case
    return NULL;
 }
@@ -88,10 +92,12 @@ int rr_atu_init(int uid) {
    int rv = 0;
    rr_atu_tv *tv = NULL;
    Log(LOG_INFO, "atu", " => ATU #%d initializing", uid);
+
    // do we have saved tuning parameters for this unit?
-   if ( (tv = rr_atu_find_saved_state(uid) ) ) {
+   if ( ( tv = rr_atu_find_saved_state(uid) ) ) {
       // Apply them
    }
+
    return rv;
 }
 
@@ -100,14 +106,19 @@ int rr_atu_init_all(void) {
    int tuners = 1;
    tuners = eeprom_get_int("hw/atus");
 
+   if (tuners < 0) {
+      tuners = 0;
+   }
+
    Log(LOG_INFO, "atu", "Initializing all ATUs (%d total)", tuners);
 
    // XXX: Iterate over the available ATUs and collect the return values
    for (int i = 0 ; i < tuners ; i++) {
-      if (rr_atu_init(i) ) {
+      if ( rr_atu_init(i) ) {
          rv++;
       }
    }
+
    Log(LOG_INFO, "atu", "ATU setup complete with %d warning/issues", rv);
 
    return -rv;

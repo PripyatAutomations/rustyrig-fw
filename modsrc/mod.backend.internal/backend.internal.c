@@ -31,19 +31,21 @@ static rr_vfo_t be_int_get_vfo(rr_vfo_t vfo) {
 
 static bool be_int_ptt_set(rr_vfo_t vfo, bool state) {
    int ret = -1;
+
    if (state == true) {
-      if ( ( ret = rr_ptt_set(vfo, true) ) != false ) {
+      if ( (ret = rr_ptt_set(vfo, true) ) != false) {
          Log(LOG_CRIT, "backend.internal", "Failed to enable PTT");
 
          return true;
       }
    } else {
-      if ( ( ret = rr_ptt_set(vfo, false) ) != false ) {
+      if ( (ret = rr_ptt_set(vfo, false) ) != false) {
          fprintf(stderr, "Failed to disable PTT");
 
          return true;
       }
    }
+
    return false;
 }
 

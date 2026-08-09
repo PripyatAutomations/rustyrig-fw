@@ -22,7 +22,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/network.h>
-#define HOST_POSIX
+#define	HOST_POSIX
 #if     defined(HOST_POSIX)
 #include <sys/socket.h>
 #include <ifaddrs.h>
@@ -34,34 +34,41 @@
 static void net_print_listeners(const char *listenaddr) {
    struct ifaddrs *ifaddr, *ifa;
    char addr[INET6_ADDRSTRLEN];
+
    if (!listenaddr) {
       return;
    }
+
    if (getifaddrs(&ifaddr) == -1) {
       Log( LOG_CRIT, "net", "getifaddrs: %s", strerror(errno) );
       exit(EXIT_FAILURE);
    }
+
    for (ifa = ifaddr ; ifa ; ifa = ifa->ifa_next) {
       if (!ifa->ifa_addr) {
          continue;
       }
       int family = ifa->ifa_addr->sa_family;
+
       if (family == AF_INET || family == AF_INET6) {
          void *addr_ptr = (family == AF_INET)
-             ? (void *)&( (struct sockaddr_in *)ifa->ifa_addr)->sin_addr
-             : (void *)&( (struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
-         if (!inet_ntop( family, addr_ptr, addr, sizeof(addr) ) ) {
+             ? (void *)&( (struct sockaddr_in *)ifa->ifa_addr )->sin_addr
+             : (void *)&( (struct sockaddr_in6 *)ifa->ifa_addr )->sin6_addr;
+
+         if ( !inet_ntop( family, addr_ptr, addr, sizeof(addr) ) ) {
             Log( LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno) );
             continue;
          }
-         if (!listenaddr ||
-             strcmp(addr, listenaddr) == 0 ||
-             (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
-             (strcmp(listenaddr, "::") == 0 && family == AF_INET6) ) {
+
+         if ( !listenaddr ||
+              strcmp(addr, listenaddr) == 0 ||
+              (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
+              (strcmp(listenaddr, "::") == 0 && family == AF_INET6) ) {
             Log(LOG_INFO, "net", " => %s: %s", ifa->ifa_name, addr);
          }
       }
    }
+
    freeifaddrs(ifaddr);
 }
 #endif
@@ -74,12 +81,14 @@ void show_network_info(void) {
    }
    int bind_port = cfg_get_int("net.http.port", 0);
 #if     defined(USE_EEPROM)
+
    if (!bind_port) {
       eeprom_get_int("net/http/port");
    }
 #endif
    int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
 #if     defined(USE_EEPROM)
+
    if (!tls_bind_port) {
       tls_bind_port = eeprom_get_int("net/http/tls-port");
    }
@@ -89,17 +98,21 @@ void show_network_info(void) {
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;
    int vlan = 0;
    s = cfg_get("net.vlan");
+
    if (s) {
       vlan = atoi(s);
    }
-   if (!s || (vlan < 0 || vlan > 4095) ) {
+
+   if ( !s || (vlan < 0 || vlan > 4095) ) {
       eeprom_get_int("net/vlan");
    }
    int mtu = 0;
    s = cfg_get("net.mtu");
+
    if (s) {
       mtu = atoi(s);
    }
+
    if (mtu < 500 || mtu > 10000) {
       eeprom_get_int("net/mtu");
    }
@@ -128,10 +141,12 @@ void show_network_info(void) {
    const char *listenaddr = cfg_get("net.http.bind");
 
 #if     defined(USE_EEPROM)
+
    if (!listenaddr) {
       listenaddr = (char *)eeprom_get_str("net/http/bind");
    }
 #endif
+
    if (listenaddr) {
       Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port,
          tls_bind_port);

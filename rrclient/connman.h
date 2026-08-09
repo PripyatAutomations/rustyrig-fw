@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rrclient_connman_h)
-#define __rrclient_connman_h
+#define	__rrclient_connman_h
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

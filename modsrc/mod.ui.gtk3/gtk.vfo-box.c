@@ -46,22 +46,26 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
       return FALSE;
    }
    VfoKeyData *d = user_data;
-   if ( !d || !GTK_IS_WIDGET(d->fe) ) {
+
+   if (!d || !GTK_IS_WIDGET(d->fe) ) {
       return FALSE;
    }
-   if ( !is_widget_or_descendant_focused(d->fe) ) {
+
+   if (!is_widget_or_descendant_focused(d->fe) ) {
       return FALSE;     /* ignore keys unless focus is somewhere inside fe */
    }
+
    if ( (event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) &&
         (event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->chat_entry);
 
       return TRUE;
-   }else if ( event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
+   }else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->mode_combo);
 
       return TRUE;
    }
+
    return FALSE;  /* let other keys be handled normally */
 }
 
@@ -131,6 +135,7 @@ gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
 
    // Lets see if we recognize that window...
    gui_window_t *vfo_win = gui_find_window(NULL, win_name);
+
    if (vfo_win) {
       // Show the existing window
       place_window(vfo_win->gtk_win);
@@ -139,5 +144,6 @@ gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
       gui_window_t *vfo_win = ui_new_window(vfo_window, win_name);
       gtk_window_set_title(GTK_WINDOW(vfo_window), "rustyrig remote client");
    }
+
    return vfo_win;
 }

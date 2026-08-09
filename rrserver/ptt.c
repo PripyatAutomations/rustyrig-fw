@@ -40,6 +40,7 @@ bool rr_ptt_check_blocked(void) {
    if (rig.tx_blocked) {
       return true;
    }
+
    return false;
 }
 
@@ -53,17 +54,20 @@ bool rr_ptt_set_blocked(bool blocked) {
 // For CAT to call
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    char msgbuf[HTTP_WS_MAX_MSG + 1];
-   if (rr_ptt_check_blocked() ) {
+
+   if ( rr_ptt_check_blocked() ) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
       return false;
    }
+
    // set or clear the talk timeout
    if (ptt) {
       global_tot_time = now + ptt_tot_time;
    } else {
       global_tot_time = 0;
    }
+
    if (rig.backend && rig.backend->api) {
       rig.backend->api->ptt_set(vfo, ptt);
    } else {
@@ -96,9 +100,11 @@ bool rr_ptt_toggle(rr_vfo_t vfo) {
 
 bool rr_ptt_set_all_off(void) {
    Log(LOG_AUDIT, "core", "PTT turned off for all VFOs!");
+
    for (int i = 1 ; i < vfos_enabled ; i++) {
       rr_ptt_set(i, false);
    }
+
    global_tot_time = 0;
 
    return false;

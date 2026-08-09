@@ -45,10 +45,12 @@ rr_au_backend_interface_t au_backend_null = {
 
 bool rr_au_init(void) {
    rr_au_backend_interface_t *be = &au_backend_null;
+
    // Initialize the selected backend
    if (be && be->init) {
       return be->init();
    }
+
    return true;
 }
 
@@ -56,6 +58,7 @@ bool rr_au_write_samples(rr_au_backend_interface_t *be, const void *samples, siz
    if (be->write_samples) {
       return be->write_samples(samples, size);
    }
+
    return false;
 }
 
@@ -63,6 +66,7 @@ rr_au_sample_t **rr_au_read_samples(rr_au_backend_interface_t *be) {
    if (be->read_samples) {
       return be->read_samples();
    }
+
    return NULL;
 }
 

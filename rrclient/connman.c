@@ -45,12 +45,15 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
       return requested_server;
    }
    const char *autoconnect = cfg_get_exp("server.auto-connect");
+
    if (autoconnect && *autoconnect) {
       return autoconnect;
    }
+
    if (server_name && *server_name) {
       return server_name;
    }
+
    return NULL;
 }
 extern rr_connection_t *active_connections;
@@ -73,19 +76,23 @@ char session_token[HTTP_TOKEN_LEN + 1] = {
 
 static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
    (void)c;
+
    if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
+
       if (msg && msg->data.buf) {
          char buf[HTTP_WS_MAX_MSG + 1];
          memset( buf, 0, sizeof(buf) );
          memcpy(buf, msg->data.buf, msg->data.len);
          dict *d = json2dict(buf);
+
          if (!d) {
             return;
          }
          char *cmd = dict_get(d, "talk.cmd", NULL);
          char *pong_ts = dict_get(d, "pong.ts", NULL);
          char *ping_ts = dict_get(d, "ping.ts", NULL);
+
          if (ping_ts) {
             const char *jp = dict2json_mkstr( VAL_STR, "type", "pong", VAL_ULONG, "ts",
                atol(ping_ts) );
@@ -99,6 +106,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
             char *msg_type = dict_get(d, "talk.msg_type", NULL);
             char *target = dict_get(d, "talk.target", NULL);
             time_t ts = dict_get_time_t(d, "talk.ts", now);
+
             if (from && data) {
                struct talk_msg_event_data {
                   char from[128];
@@ -107,6 +115,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
                   char msg_type[32];
                   time_t ts;
                } *tmed = calloc( 1, sizeof(*tmed) );
+
                if (tmed) {
                   snprintf(tmed->from, sizeof(tmed->from), "%s", from);
                   snprintf(tmed->data, sizeof(tmed->data), "%s", data);
@@ -118,9 +127,9 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
                   free(tmed);
                }
             }
-         } else if (dict_get(d, "hello", NULL) ) {
+         } else if ( dict_get(d, "hello", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got hello from server");
-         } else if (dict_get(d, "auth.cmd", NULL) ) {
+         } else if ( dict_get(d, "auth.cmd", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got auth message");
          }
          dict_free(d);
@@ -131,6 +140,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       tui_print_win(tui_window_find("status"), "Connected to server");
 
       const char *xp = cfg_get_exp("server.user");
+
       if (xp) {
          login_user = xp;
          const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient");
@@ -154,11 +164,13 @@ bool rrclient_connect(const char *url) {
    }
    tui_print_win(tui_window_find("status"), "Connecting to %s", url);
    ws_conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
+
    if (!ws_conn) {
       tui_print_win(tui_window_find("status"), "Connection failed");
 
       return true;
    }
+
    return false;
 }
 
@@ -168,6 +180,7 @@ bool rrclient_send_chat(const char *data) {
    }
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", data, VAL_STR,
       "talk.msg_type", "pub");
+
    if (!jp) {
       return true;
    }
@@ -203,6 +216,7 @@ void rrclient_poll_events(void) {
 
 bool rrclient_autoconnect(void) {
    const char *server = cfg_get_exp("server.auto-connect");
+
    if (server) {
       char server_name[256];
       snprintf(server_name, sizeof(server_name), "%s", server);
@@ -211,11 +225,13 @@ bool rrclient_autoconnect(void) {
       char fullkey[1024];
       snprintf(fullkey, sizeof(fullkey), "server:%s.server.url", server_name);
       const char *url = cfg_get_exp(fullkey);
+
       if (url) {
          rrclient_connect(url);
          free( (void *)url );
       }
    }
+
    return false;
 }
 
@@ -248,12 +264,14 @@ bool connection_create(const char *server) {
    // Look up the connection properties from the server blocks and return true
    // if not found
    rr_connection_t *cptr = connection_find(server);
+
    if (cptr) {
       // Server already exists
       Log(LOG_WARN, "connman", "Connection for server |%s| already exists", server);
 
       return true;
    }
+
    // Connect to the server
 
    // Add to the connection list
@@ -266,6 +284,7 @@ bool connection_remove(rr_connection_t *conn) {
 
       return true;
    }
+
    return false;
 }
 
@@ -287,8 +306,10 @@ const char *get_server_property(const char *server, const char *prop) {
 ///////////////////////////////////////////////////////////
 bool disconnect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
+
    if (ws_connected) {
 #if     defined(USE_MONGOOSE)
+
       if (ws_conn) {
          ws_conn->is_closing = 1;
       }
@@ -297,12 +318,14 @@ bool disconnect_server(const char *server) {
       gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
       userlist_clear_all();
    }
+
    return false;
 }
 
 // XXX: pass pointer to the server structure
 bool connect_server(const char *server) {
    const char *resolved_server = rrclient_resolve_server_name(server);
+
    if (!resolved_server) {
       Log(LOG_DEBUG, "connman", "connect_server with no server name!");
 
@@ -310,6 +333,7 @@ bool connect_server(const char *server) {
    }
    const char *url = get_server_property(resolved_server, "server.url");
    Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", resolved_server, url);
+
    if (url) {
 #if     defined(USE_GTK)
       gtk_button_set_label(GTK_BUTTON(conn_button), "connecting");
@@ -318,6 +342,7 @@ bool connect_server(const char *server) {
 
 #if     defined(USE_MONGOOSE)
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
+
       if (!ws_conn) {
          ui_print( "%s Socket connect error", get_chat_ts(now) );
       }
@@ -327,6 +352,7 @@ bool connect_server(const char *server) {
          "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
          resolved_server);
    }
+
    return false;
 }
 
@@ -335,11 +361,13 @@ bool connect_or_disconnect(const char *server, GtkButton *button) {
    (void)button;
 
    const char *resolved_server = rrclient_resolve_server_name(server);
+
    if (!resolved_server) {
       Log(LOG_WARN, "connman", "connect_or_disconnect called with no server");
 
       return true;
    }
+
    if (ws_connected) {
       disconnect_server(resolved_server);
    } else {
@@ -349,6 +377,7 @@ bool connect_or_disconnect(const char *server, GtkButton *button) {
       }
       connect_server(resolved_server);
    }
+
    return false;
 }
 #endif // defined(USE_GTK)
@@ -356,8 +385,10 @@ bool connect_or_disconnect(const char *server, GtkButton *button) {
 void connman_autoconnect(void) {
    // Should we connect to a server on startup?
    const char *autoconnect = cfg_get_exp("server.auto-connect");
+
    if (autoconnect) {
       char *tv = strdup(autoconnect);
+
       if (!tv) {
          abort();
       }

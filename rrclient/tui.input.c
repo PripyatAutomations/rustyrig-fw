@@ -54,13 +54,15 @@ bool tui_input_cb(const char *input) {
    int argc = 0;
    char *args[64];    // max 64 tokens
    char *tok = strtok(buf, " \t");
-   while (tok && argc < (int)(sizeof(args) / sizeof(args[0]) ) ) {
+   while ( tok && argc < (int)( sizeof(args) / sizeof(args[0]) ) ) {
       args[argc++] = tok;
       tok = strtok(NULL, " \t");
    }
+
    if (argc == 0) {
       return true;
    }
+
    if (args[0][0] == '/') {
       for (client_cmd_t *c = client_cmds ; c->cmd && c->cb ; c++) {
          if (strcasecmp(c->cmd, args[0]) == 0) {
@@ -71,6 +73,7 @@ bool tui_input_cb(const char *input) {
             }
          }
       }
+
       tui_print_win(tui_active_window(),
          "{red}*** {bright-red}Huh?! What you say?! I dont understand '%s' {red}***{reset}.",
          args[0]);
@@ -79,12 +82,14 @@ bool tui_input_cb(const char *input) {
    }
    // Send to active window target
    tui_window_t *wp = tui_active_window();
+
    if (wp) {
       if (strcasecmp(wp->title, "status") == 0) {
          tui_print_win(tui_active_window(),
             "{red}*** {bright-red}Huh? What you say??? {red}***{reset}.");
       } else {
 #if defined(USE_MONGOOSE)
+
          if (!ws_connected) {
             tui_print_win(wp, "{red}*** Not connected to server ***{reset}");
 
@@ -94,16 +99,20 @@ bool tui_input_cb(const char *input) {
          char fullmsg[502];
          memset( fullmsg, 0, sizeof(fullmsg) );
          size_t pos = 0;
+
          for (int i = 0 ; i < argc ; i++) {
             int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""),
                args[i] ? args[i] : "");
+
             if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
                break;
             }
             pos += n;
          }
+
          rrclient_send_chat(fullmsg);
       }
    }
+
    return false;
 }

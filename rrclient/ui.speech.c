@@ -29,15 +29,19 @@ static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
       return;
    }
    AtkObject *a11y = gtk_widget_get_accessible(widget);
+
    if (!a11y) {
       return;
    }
+
    if (hint->name) {
       atk_object_set_name(a11y, hint->name);
    }
+
    if (hint->description) {
       atk_object_set_description(a11y, hint->description);
    }
+
    // XXX: Why dont we just store teh ATK_ROLE??
    switch (hint->role) {
       case UI_ROLE_BUTTON: {

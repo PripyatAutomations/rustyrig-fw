@@ -13,7 +13,7 @@
 // Most times, we'll be using vfb over websocket, but it'd be nice to
 // push images to a canvas on nextion for waterfall, etc
 #if     !defined(__rr_gui_h)
-#define __rr_gui_h
+#define	__rr_gui_h
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

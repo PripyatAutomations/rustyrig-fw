@@ -23,8 +23,8 @@
 #include <ev.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#define MAX_WINDOWS 32
-#define INPUT_HISTORY_MAX 64
+#define	MAX_WINDOWS 32
+#define	INPUT_HISTORY_MAX 64
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -40,22 +40,27 @@ extern bool add_server(const char *network, const char *str);
 // Callback for the config parser for 'network:*' section
 bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
    char *np = strchr(section, ':');
+
    if (ui_mode_gui) {
       ui_print("np: %s section: %s, path: %s, buf: %s", np + 1, section, path, buf);
    } else {
       tui_print_win(tui_active_window(), "np: %s section: %s, path: %s, buf: %s", np + 1, section,
          path, buf);
    }
+
    if (np) {
       np++;
+
       if (strncasecmp(buf, "autojoin", 8) == 0) {
          char *tmpbuf = strdup(buf);
+
          if (!tmpbuf) {
             fprintf(stderr, "OOM in config_network_cb!\n");
 
             return true;
          }
          char *val = strchr(tmpbuf, '=');
+
          if (!val || !val[1]) {
             Log(LOG_CRIT, "irc", "config error: autojoin missing value: %s", buf);
             free(tmpbuf);
@@ -66,11 +71,13 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          while (*val == ' ' || *val == '\t') {
             val++;
          }
+
          if (ui_mode_gui) {
             ui_print("np: %s buf: %s val: %s", np, buf, val);
          } else {
             tui_print_win(tui_active_window(), "np: %s buf: %s val: %s", np, buf, val);
          }
+
          if (strlen(val) < 2) {
             Log(LOG_CRIT, "irc", "config error: autojoin invalid: %s", buf);
             free(tmpbuf);
@@ -82,6 +89,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          Log(LOG_DEBUG, "irc", "Adding autojoin for %s: %s", np, val);
          tui_print_win(tui_active_window(), "[{green}%s{reset}] Setting autojoin: %s", np, val);
          const char *x = cfg_get(key);
+
          if (!x) {
             tui_print_win(tui_window_find("status"), "add key: %s val: %s", key, val);
             dict_add(cfg, key, val);
@@ -91,7 +99,8 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
             snprintf(buf, sizeof(buf), "%s", x);
 
             size_t len = strlen(buf);
-            if (len + 1 < sizeof(buf) ) {
+
+            if ( len + 1 < sizeof(buf) ) {
                // +1 for comma
                strncat(buf, ",", sizeof(buf) - len - 1);
                strncat(buf, val, sizeof(buf) - strlen(buf) - 1);
@@ -106,10 +115,12 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          tui_print_win(tui_window_find("status"), "[{green}%s{reset}] adding server: %s", np, buf);
          add_server(np, buf);
       }
+
       return false;
    } else {
       // invalid section for this callback
       return true;
    }
+
    return false;
 }

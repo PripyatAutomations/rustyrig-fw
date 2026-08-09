@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rrclient_audio_h)
-#define __rrclient_audio_h
+#define	__rrclient_audio_h
 #include <librustyaxe/core.h>
 #include <stddef.h>
 #include <stdarg.h>

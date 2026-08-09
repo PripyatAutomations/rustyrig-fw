@@ -62,6 +62,7 @@ void try_send_next_frame(struct mg_connection *c) {
    if (!c) {
       return;
    }
+
    if (sending_in_progress || !send_queue) {
       return;
    }
@@ -72,9 +73,11 @@ void try_send_next_frame(struct mg_connection *c) {
 
 GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
    GstSample *sample = gst_app_sink_pull_sample( GST_APP_SINK(sink) );
+
    if (!sample) {
       return GST_FLOW_ERROR;
    }
+
    if (!ws_tx_conn) {
       gst_sample_unref(sample);
 
@@ -82,9 +85,11 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
    }
    GstBuffer *buffer = gst_sample_get_buffer(sample);
    GstMapInfo map;
-   if (gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
+
+   if ( gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
       if (map.size > 0 && map.size < 65536) {
          struct ws_frame *frame = malloc( sizeof(struct ws_frame) );
+
          if (!frame) {
             Log(LOG_CRIT, "audio", "OOM in handle_tx_sample!");
             exit(1);
@@ -111,6 +116,7 @@ static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
    if (!msg) {
       return;
    }
+
    if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
       GError *err = NULL;
       gchar *debug = NULL;
@@ -127,18 +133,21 @@ bool audio_init(void) {
 // This is re-enabled old stuff
    Log(LOG_INFO, "audio", "Configuring RX audio-path");
    const char *rx_pipeline_str = cfg_get_exp("audio.pipeline.rx");
+
    if (!rx_pipeline_str) {
       Log(LOG_CRIT, "audio", "audio.pipeline.rx *MUST* be set in config");
    } else if (strlen(rx_pipeline_str) > 0) {
       Log(LOG_INFO, "audio", "Launching RX pipeline: %s", rx_pipeline_str);
       rx_pipeline = gst_parse_launch(rx_pipeline_str, NULL);
       free( (void *)rx_pipeline_str );
+
       if (!rx_pipeline) {
          return false;
       }
       // Attach controls
       rx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(rx_pipeline), "rx-vol");
       rx_appsrc = gst_bin_get_by_name(GST_BIN(rx_pipeline), "rx-src");
+
       if (!rx_appsrc) {
          return false;
       }
@@ -147,6 +156,7 @@ bool audio_init(void) {
       const char *cfg_rx_volume_s = cfg_get_exp("audio.volume.rx");
       float vol = 0;
       Log(LOG_DEBUG, "audio", "Setting default RX volume to %s", cfg_rx_volume_s);
+
       if (cfg_rx_volume_s) {
          vol = atoi(cfg_rx_volume_s);
          g_object_set(rx_vol_gst_elem, "volume", vol / 100.0, NULL);
@@ -154,6 +164,7 @@ bool audio_init(void) {
       }
       const char *cfg_rx_format_s = cfg_get_exp("audio.pipeline.rx.format");
       int rx_format = 0;
+
       if (cfg_rx_format_s && strcasecmp(cfg_rx_format_s, "bytes") == 0) {
          rx_format = GST_FORMAT_BYTES;
       } else if (cfg_rx_format_s && strcasecmp(cfg_rx_format_s, "time") == 0) {
@@ -168,8 +179,7 @@ bool audio_init(void) {
       // XXX: Set this once our latency detector works
       //   gst_pipeline_set_latency(GST_PIPELINE(rx_pipeline), 0);
       gst_element_set_state(rx_pipeline, GST_STATE_PLAYING);
-      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline),
- GST_DEBUG_GRAPH_SHOW_ALL, "rx-pipeline");
+      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "rx-pipeline");
    } else {
       Log(LOG_DEBUG, "audio", "Empty audio.pipeline.tx");
    }
@@ -178,12 +188,14 @@ bool audio_init(void) {
    Log(LOG_INFO, "audio", "Configuring TX audio-path");
 
    const char *tx_pipeline_str = cfg_get_exp("audio.pipeline.tx");
+
    if (!tx_pipeline_str || strlen(tx_pipeline_str) <= 0) {
       Log(LOG_CRIT, "audio", "audio.pipeline.tx *MUST* be set in config for transmit capabilities");
    } else {
       Log(LOG_INFO, "audio", "Launching TX pipeline: %s", tx_pipeline_str);
       tx_pipeline = gst_parse_launch(tx_pipeline_str, NULL);
       free( (void *)tx_pipeline_str );
+
       if (!tx_pipeline) {
          Log(LOG_CRIT, "audio", "Failed to connect tx_pipeline");
 
@@ -192,6 +204,7 @@ bool audio_init(void) {
       // Attach stuff
       tx_vol_gst_elem = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-vol");
       tx_appsrc = gst_bin_get_by_name(GST_BIN(tx_pipeline), "tx-sink");
+
       if (!tx_appsrc) {
          Log(LOG_CRIT, "audio", "Failed to connect tx_appsrc");
 
@@ -205,6 +218,7 @@ bool audio_init(void) {
 #if     1
       const char *cfg_tx_format = cfg_get_exp("audio.pipeline.tx.format");
       int tx_format = 0;
+
       if (cfg_tx_format && strcasecmp(cfg_tx_format, "bytes") == 0) {
          tx_format = GST_FORMAT_BYTES;
       } else if (cfg_tx_format && strcasecmp(cfg_tx_format, "time") == 0) {
@@ -230,8 +244,7 @@ bool audio_init(void) {
       // XXX: Set this once our latency detector works
       //   gst_pipeline_set_latency(GST_PIPELINE(tx_pipeline), 0);
       gst_element_set_state(tx_pipeline, GST_STATE_PLAYING);
-      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline),
- GST_DEBUG_GRAPH_SHOW_ALL, "tx-pipeline");
+      gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "tx-pipeline");
    }
 #endif
 
@@ -244,15 +257,18 @@ void ws_audio_shutdown(void) {
       gst_object_unref(rx_pipeline);
       rx_pipeline = NULL;
    }
+
    if (rx_appsrc) {
       gst_object_unref(rx_appsrc);
       rx_appsrc = NULL;
    }
+
    if (tx_pipeline) {
       gst_element_set_state(tx_pipeline, GST_STATE_NULL);
       gst_object_unref(tx_pipeline);
       tx_pipeline = NULL;
    }
+
    if (tx_appsrc) {
       gst_object_unref(tx_appsrc);
       tx_appsrc = NULL;
@@ -265,6 +281,7 @@ bool audio_process_frame(const char *data, size_t len) {
    if (!data || len <= 0) {
       return true;
    }
+
    if (!rx_appsrc || len <= 0) {
       return true;
    }

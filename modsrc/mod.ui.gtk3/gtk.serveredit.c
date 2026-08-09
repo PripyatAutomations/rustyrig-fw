@@ -43,6 +43,7 @@ typedef struct serverlist {
 bool server_parse_url(const char *url, char *host, int *port, char *user, char *pass,
                       server_proto_t *proto) {
    const char *p = url;
+
    // Scheme
    if (strncmp(p, "ws://", 5) == 0) {
       *proto = SERVER_WS;
@@ -57,11 +58,14 @@ bool server_parse_url(const char *url, char *host, int *port, char *user, char *
    }
    // Optional user[:pass]@
    const char *at = strchr(p, '@');
+
    if (at) {
       const char *colon = memchr(p, ':', at - p);
+
       if (colon) {
          size_t ulen = colon - p;
          size_t plen = at - colon - 1;
+
          if (ulen >= HTTP_USER_LEN || plen >= HTTP_PASS_LEN) {
             return false;
          }
@@ -69,6 +73,7 @@ bool server_parse_url(const char *url, char *host, int *port, char *user, char *
          memcpy(pass, colon + 1, plen); pass[plen] = '\0';
       } else {
          size_t ulen = at - p;
+
          if (ulen >= HTTP_USER_LEN) {
             return false;
          }
@@ -84,8 +89,10 @@ bool server_parse_url(const char *url, char *host, int *port, char *user, char *
    const char *slash = strchr(p, '/');
    const char *hostend = slash ? slash : p + strlen(p);
    const char *colon = memchr(p, ':', hostend - p);
+
    if (colon) {
       size_t hlen = colon - p;
+
       if (hlen >= 256) {
          return false;
       }
@@ -93,16 +100,19 @@ bool server_parse_url(const char *url, char *host, int *port, char *user, char *
       *port = atoi(colon + 1);
    } else {
       size_t hlen = hostend - p;
+
       if (hlen >= 256) {
          return false;
       }
       memcpy(host, p, hlen); host[hlen] = '\0';
    }
+
    return true;
 }
 
 serverlist_t *serverlist_add(const char *name, const char *url) {
    serverlist_t *sp = malloc( sizeof(serverlist_t) );
+
    if (!sp) {
       return NULL;
    }
@@ -113,7 +123,8 @@ serverlist_t *serverlist_add(const char *name, const char *url) {
    char user[HTTP_USER_LEN];
    char pass[HTTP_PASS_LEN];
    server_proto_t proto;
-   if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
+
+   if (!server_parse_url(url, host, &port, user, pass, &proto) ) {
       free(sp);
 
       return NULL;
@@ -125,6 +136,7 @@ serverlist_t *serverlist_add(const char *name, const char *url) {
    sp->pass = strdup(pass);
    sp->proto = proto;
    sp->next = NULL;
+
    if (!sp->name || !sp->host || !sp->user || !sp->pass) {
       free(sp->name); free(sp->host);
       free(sp->user); free(sp->pass);
@@ -132,6 +144,7 @@ serverlist_t *serverlist_add(const char *name, const char *url) {
 
       return NULL;
    }
+
    return sp;
 }
 
@@ -154,6 +167,7 @@ serverlist_t *serverlist_find_by_name(serverlist_t *head, const char *name) {
          return sp;
       }
    }
+
    return NULL;
 }
 
@@ -161,9 +175,11 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
    char host[256], user[HTTP_USER_LEN], pass[HTTP_PASS_LEN];
    int port = -1;
    server_proto_t proto;
-   if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
+
+   if (!server_parse_url(url, host, &port, user, pass, &proto) ) {
       return NULL;
    }
+
    for (serverlist_t *sp = head ; sp ; sp = sp->next) {
       if (sp->port == port &&
           sp->proto == proto &&
@@ -173,23 +189,28 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
          return sp;
       }
    }
+
    return NULL;
 }
 
 GtkWidget *server_edit_create(serverlist_t *sp) {
    // Show the server edit dialog
    GtkWidget *w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+
    if (!w) {
       return NULL;
    }
    gtk_window_set_title(GTK_WINDOW(w), "Server Editor");
    gui_window_t *window_t = ui_new_window(w, "serveredit");
+
    if (!window_t) {
       // XXX: Free w
    }
+
    // If sp passed, populate with the server's details
    if (sp) {
       //
    }
+
    return w;
 }

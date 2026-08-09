@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
 #if     !defined(__rrclient_gtk_freqinput_h)
-#define __rrclient_gtk_freqinput_h
+#define	__rrclient_gtk_freqinput_h
 #include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -23,11 +23,11 @@
 #include <glib.h>
 #include <librustyaxe/dict.h>
 
-#define MAX_DIGITS 10
+#define	MAX_DIGITS 10
 
 G_BEGIN_DECLS
 
-#define GTK_TYPE_FREQ_ENTRY ( gtk_freq_entry_get_type() )
+#define	GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type() )
 
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_entry, GTK, FREQ_ENTRY, GtkBox)
 

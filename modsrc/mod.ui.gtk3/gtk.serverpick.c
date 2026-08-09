@@ -40,16 +40,19 @@ static void do_connect_from_tree(GtkTreeView *view) {
    }
    gui_window_t *win = gui_find_window(NULL, "serverpick");
    GtkWidget *server_window = win->gtk_win;
+
    if (!server_window) {
       return;
    }
    GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
    GtkTreeModel *model;
    GtkTreeIter iter;
-   if ( gtk_tree_selection_get_selected(sel, &model, &iter) ) {
+
+   if (gtk_tree_selection_get_selected(sel, &model, &iter) ) {
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
       const char *at = strchr(entry, '@');
+
       if (at && at[1]) {
          disconnect_server(server_name);
          free( (char *)server_name );
@@ -84,22 +87,27 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    if (!w || !ev) {
       return FALSE;
    }
+
    if (ev->keyval == GDK_KEY_Escape) {
       gui_window_t *win = gui_find_window(NULL, "serverpick");
       GtkWidget *server_window = win->gtk_win;
       gtk_widget_destroy(server_window);
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
       GtkWidget *focus = gtk_window_get_focus( GTK_WINDOW( gtk_widget_get_toplevel(w) ) );
-      if ( GTK_IS_TREE_VIEW(focus) ) {
+
+      if (GTK_IS_TREE_VIEW(focus) ) {
          do_connect_from_tree( GTK_TREE_VIEW(focus) );
       }
+
       return TRUE;
    }
+
    return FALSE;
 }
 
 void show_server_chooser(void) {
    gui_window_t *old_win = gui_find_window(NULL, "serverpick");
+
    if (old_win && old_win->gtk_win) {
       Log(LOG_DEBUG, "gtk.serverpick", "show_server_chooser() called while already open");
       gtk_window_present( GTK_WINDOW(old_win->gtk_win) );
@@ -128,11 +136,12 @@ void show_server_chooser(void) {
    char *v;
    GtkTreeIter match_iter;
    gboolean have_match = FALSE;
-   while ( ( rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0 ) {
-      if ( !g_str_has_suffix(k, ".server.user") ) {
+   while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
+      if (!g_str_has_suffix(k, ".server.user") ) {
          continue;
       }
       const char *name_start = strchr(k, ':');
+
       if (!name_start) {
          continue;
       }
@@ -143,11 +152,13 @@ void show_server_chooser(void) {
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
       gtk_list_store_set(store, &iter, 0, user, -1);
+
       if (!have_match && strcmp(server, server_name) == 0) {
          match_iter = iter;
          have_match = TRUE;
       }
    }
+
    if (have_match) {
       gtk_tree_selection_select_iter(sel, &match_iter);
    }

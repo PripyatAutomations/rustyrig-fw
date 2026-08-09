@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_console_h)
-#define __rr_console_h
+#define	__rr_console_h
 
 #include "build_config.h"
 #include <stdbool.h>

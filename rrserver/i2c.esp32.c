@@ -21,7 +21,7 @@
 #include <rrserver/i2c_hal.h>
 #include <rrserver/driver/i2c.h>
 
-#define I2C_MASTER_PORT I2C_NUM_0
+#define	I2C_MASTER_PORT I2C_NUM_0
 
 int i2c_init(void) {
    i2c_config_t conf = {

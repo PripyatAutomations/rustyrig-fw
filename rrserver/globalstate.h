@@ -1,4 +1,4 @@
-#if	!defined(__RRSERVER_GLOBALSTATE_H)
+#if     !defined(__RRSERVER_GLOBALSTATE_H)
 #define	__RRSERVER_GLOBALSTATE_H
 #include "build_config.h"
 #include <rrserver/amp.h>
@@ -40,5 +40,4 @@ struct GlobalState {
 #endif // defined(HOST_POSIX)
 };
 
-#endif	// !defined(__RRSERVER_GLOBALSTATE_H)
-
+#endif // !defined(__RRSERVER_GLOBALSTATE_H)

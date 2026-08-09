@@ -46,6 +46,7 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
       c = c->next;
    }
    struct rr_user *n = malloc( sizeof(struct rr_user) );
+
    if (!n) {
       fprintf(stderr, "OOM in userlist_add_or_update\n");
 
@@ -55,6 +56,7 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
    n->next = NULL;
    Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%p> in userlist",
       newinfo->name, newinfo);
+
    if (prev) {
       prev->next = n;
    } else {
@@ -74,7 +76,7 @@ bool userlist_remove_by_name(const char *name) {
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
-      if (!strcasecmp(c->name, name) ) {
+      if ( !strcasecmp(c->name, name) ) {
          if (prev) {
             prev->next = c->next;
          } else {
@@ -92,6 +94,7 @@ bool userlist_remove_by_name(const char *name) {
 // Clearing the userlist
 void userlist_clear_all(void) {
    struct rr_user *c = global_userlist, *next;
+
    if (!c) {
       return;
    }
@@ -116,7 +119,7 @@ struct rr_user *userlist_find(const char *name) {
    }
    struct rr_user *c = global_userlist;
    while (c) {
-      if (!strcasecmp(c->name, name) ) {
+      if ( !strcasecmp(c->name, name) ) {
          return c;
       }
       c = c->next;

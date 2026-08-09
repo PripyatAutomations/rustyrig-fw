@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_backend_hamlib_h)
-#define __rr_backend_hamlib_h
+#define	__rr_backend_hamlib_h
 
 #if     defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>

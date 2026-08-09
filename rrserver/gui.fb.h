@@ -11,7 +11,7 @@
 // Support for rendering to a framebuffer
 //
 #if     !defined(__rr_gui_fb_h)
-#define __rr_gui_fb_h
+#define	__rr_gui_fb_h
 #include "build_config.h"
 
 struct gui_fb_state {

@@ -28,12 +28,14 @@ const char *webcam_common_codecs(const char *our_codecs, const char *cli_codecs)
 
       return NULL;
    }
+
    if (!cli_codecs) {
       // XXX: Send a notice to the user that their client is misconfigured
       Log(LOG_DEBUG, "webcam", "webcam_common_codecs: Client sent an empty video codec list");
 
       return NULL;
    }
+
    // Find the overlap between our preferred codecs and what the client supports
    // XXX: Ensure that we only return codecs with pipelines configured
    // No matches

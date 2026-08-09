@@ -44,6 +44,7 @@ void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
       return;
    }
    const gchar *label = "PTT OFF";
+
    if (!ws_connected || !active) {
       const gchar *label = "PTT OFF";
       gtk_button_set_label(GTK_BUTTON(button), label);
@@ -51,6 +52,7 @@ void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
       return;
    }
    GtkStyleContext *context = gtk_widget_get_style_context( GTK_WIDGET(button) );
+
    if (active) {
       gtk_style_context_add_class(context, "ptt-active");
       gtk_style_context_remove_class(context, "ptt-idle");
@@ -68,6 +70,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    update_ptt_button_ui(button, ptt_active);
 
    poll_block_expire = now + poll_block_delay;
+
    // Send to server the negated value
    if (!ptt_active) {
 #if     defined(USE_MONGOOSE)
@@ -84,11 +87,13 @@ GtkWidget *ptt_button_create(void) {
    GtkWidget *ptt_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
    gtk_widget_set_tooltip_text(ptt_button, "Push To Talk toggle");
+
    // try to avoid leaking memory due to buggy GUI code...
    if (!ptt_box || !ptt_button) {
       if (ptt_box) {
          free(ptt_box);
       }
+
       if (ptt_button) {
          free(ptt_button);
       }

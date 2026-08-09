@@ -31,8 +31,8 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#define MAX_WINDOWS 32
-#define INPUT_HISTORY_MAX 64
+#define	MAX_WINDOWS 32
+#define	INPUT_HISTORY_MAX 64
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -107,9 +107,11 @@ static gboolean poll_mongoose(gpointer user_data) {
 ////////////////////////////////////////////////////////////////////
 static gboolean update_now(gpointer user_data) {
    now = time(NULL);
+
    if (dying) {
       // we should handle local shutdown here
 #if     defined(USE_GTK)
+
       if (ui_mode_gui) {
          gtk_main_quit();
       }
@@ -117,6 +119,7 @@ static gboolean update_now(gpointer user_data) {
 
       return G_SOURCE_REMOVE;   // remove this timeout
    }
+
    return G_SOURCE_CONTINUE;
 }
 
@@ -126,6 +129,7 @@ static void tui_stop_clock_timer(struct ev_loop *loop) {
 
 static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
    (void)w; (void)revents;
+
    if (dying) {
       rrclient_cleanup();
    }
@@ -144,11 +148,14 @@ static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *c
    (void)user;
 
    struct log_event_data *led = (struct log_event_data *)data;
+
    if (!led || !led->message[0]) {
       return;
    }
+
    if (!ui_mode_gui) {
       tui_window_t *status = tui_window_find("status");
+
       if (status) {
          tui_print_win(status, "%s", led->message);
       }
@@ -172,10 +179,12 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
    (void)user;
 
    struct talk_msg_event_data *tmed = (struct talk_msg_event_data *)data;
+
    if (!tmed || !tmed->from[0] || !tmed->data[0]) {
       return;
    }
    tui_window_t *wp = tui_active_window();
+
    if (strcasecmp(tmed->msg_type, "action") == 0) {
       if (!ui_mode_gui) {
          tui_print_win(wp, "%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
@@ -196,6 +205,7 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
 bool rrclient_cleanup(void) {
    logger_end();
    dict_free(cfg);
+
    if (!ui_mode_gui) {
       tui_stop_clock_timer(loop);
       tui_raw_mode(false);
@@ -253,9 +263,11 @@ int main(int argc, char *argv[]) {
       };
 
       c = getopt_long(argc, argv, "Thc:021", long_options, &option_index);
+
       if (c == -1) {
          break;
       }
+
       switch (c) {
          case 'c': {
             printf("Using config file: %s\n", optarg);
@@ -283,6 +295,7 @@ int main(int argc, char *argv[]) {
          }
       }
    }
+
    if (optind < argc) {
       printf("non-option ARGV-elements: ");
       while (optind < argc) {
@@ -292,20 +305,23 @@ int main(int argc, char *argv[]) {
    }
    event_init();
    host_init();
+
    if (!display) {
       ui_mode_gui = false;
    }
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
+
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
       free(config_file);
       config_file = NULL;
-   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
+   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
-      if (!(cfg = cfg_load(fullpath) ) ) {
+
+      if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -315,8 +331,9 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "No config found :(\n");
       exit(1);
    }
-   if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
-      if (fullpath && !(cfg = cfg_load(fullpath) ) ) {
+
+   if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
+      if ( fullpath && !( cfg = cfg_load(fullpath) ) ) {
          if (!ui_mode_gui) {
             tui_print_win(tui_window_find("status"),
                "Couldn't load config \"%s\", using defaults instead", fullpath);
@@ -330,6 +347,7 @@ int main(int argc, char *argv[]) {
    // apply some global configuration
    const char *logfile = cfg_get_exp("log.file");
    logger_init( (logfile ? logfile : "rrclient.log") );
+
    if (logfile) {
       free( (char *)logfile );     // _exp versions MUST be freed
       logfile = NULL;
@@ -337,6 +355,7 @@ int main(int argc, char *argv[]) {
    debug_sockets = cfg_get_bool("debug.sockets", false);
 
    const char *cfg_debug_audio = cfg_get_exp("audio.debug");
+
    if (cfg_debug_audio) {
       // Set the GST_DEBUG environment variable, before spawning subprocesses
 #ifdef _WIN32
@@ -350,6 +369,7 @@ int main(int argc, char *argv[]) {
    }
    free( (void *)cfg_debug_audio );
    cfg_debug_audio = NULL;
+
    // Setup stdio & clock
    if (!ui_mode_gui) {
       tui_readline_cb = tui_input_cb;    // set our input callback
@@ -383,6 +403,7 @@ int main(int argc, char *argv[]) {
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
 
    ws_client_init();
+
 //   connman_autoconnect();
    if (ui_mode_gui) {
       // start gtk main loop

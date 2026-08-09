@@ -28,12 +28,15 @@ bool irc_send_privmsg(rrconn_t *cptr, tui_window_t *wp, int argc, char **args) {
    for (int i = 0 ; i < argc ; i++) {
       int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 0 ? " " : ""),
          args[i] ? args[i] : "");
+
       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
          break;
       }
       pos += n;
    }
+
    Log(LOG_DEBUG, "irc", "sending privmsg to %s", target);
+
 // XXX: re-enable this
 //   irc_send(wp->cptr, "PRIVMSG %s :%s", target, buf);
    if (*buf == '\001') {
@@ -47,6 +50,7 @@ bool irc_send_privmsg(rrconn_t *cptr, tui_window_t *wp, int argc, char **args) {
       tui_print_win(wp, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s",
          get_chat_ts(0), cptr->nick, buf);
    }
+
    return false;
 }
 
@@ -66,25 +70,30 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
    char *win_title = tmp_nick;
    // Is this a query or channel message?
    bool is_private = true;
+
    if (*mp->argv[1] == '&' || *mp->argv[1] == '#') {
       is_private = false;
       win_title = mp->argv[1];
    }
    tui_window_t *wp = tui_window_find(win_title);
+
    if (!wp) {
       wp = tui_active_window();
    }
+
    if (!nick) {
       return;
    }
    Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
 
    char *colored = NULL;
+
    if (mirc_colors) {
       colored = irc_to_tui_colors(mp->argv[2]);
    } else {
       colored = strip_mirc_formatting(mp->argv[2]);
    }
+
    if (strcasestr(mp->argv[2], cptr->nick) == 0) {
       tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ",
          get_chat_ts(0), tmp_nick, colored);

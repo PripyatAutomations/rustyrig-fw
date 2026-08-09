@@ -41,6 +41,7 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    char outbuf[8096];
    memset( outbuf, 0, sizeof(outbuf) );
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
+
    if (log_buffer) {
       GtkTextIter end;
       gtk_text_buffer_get_end_iter(log_buffer, &end);
@@ -53,6 +54,7 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    } else {
       return true;
    }
+
    return false;
 }
 
@@ -61,6 +63,7 @@ bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...)
    if (!fmt) {
       printf("log_print sent NULL fmt\n");
    }
+
    if (!log_buffer) {
 //      fprintf(stderr, "log_print called with no log_buffer");
       return false;

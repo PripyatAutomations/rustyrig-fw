@@ -40,7 +40,7 @@ struct mg_mgr mg_mgr;
 #include <rrserver/mqtt.h>
 #endif
 
-#define TS_ALPHA 0.1            // Weight for the moving average
+#define	TS_ALPHA 0.1           // Weight for the moving average
 
 bool dying = 0;                  // Are we shutting down?
 bool restarting = 0;             // Are we restarting?
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
    now = time(NULL);
 
    int opt;
-   while ( (opt = getopt(argc, argv, "f:hr:") ) != -1) {
+   while ( ( opt = getopt(argc, argv, "f:hr:") ) != -1 ) {
       switch (opt) {
          case 'f': {
             config_file = strdup(optarg);
@@ -140,13 +140,15 @@ int main(int argc, char **argv) {
    }
    // load config (posix hosts)
    char *fullpath = NULL;
+
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
-   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
+   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
-      if (!(cfg = cfg_load(fullpath) ) ) {
+
+      if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -167,7 +169,8 @@ int main(int argc, char **argv) {
    load_defaults();
 
 #if     defined(FEATURE_SQLITE)
-   if (!(masterdb = db_open(MASTERDB_PATH) ) ) {
+
+   if ( !( masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(31);
    }
@@ -179,6 +182,7 @@ int main(int argc, char **argv) {
    gpio_init();
 
 #if     defined(USE_EEPROM)
+
    // if able to connect to EEPROM, load and apply settings
    if (eeprom_init() == 0) {
       eeprom_load_config();
@@ -192,10 +196,12 @@ int main(int argc, char **argv) {
    // Print the serial #
    const char *s = cfg_get("device.serial");
    int serial_tmp = 0;
+
    if (s) {
       serial_tmp = atoi(s);
    }
 #if     defined(USE_EEPROM)
+
    if (!s || serial_tmp == 0) {
       rig.serial = get_serial_number();
    }
@@ -209,6 +215,7 @@ int main(int argc, char **argv) {
    rr_atu_init_all();
 
 #if     defined(USE_EEPROM)
+
    if (!s) {
       auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
    }
@@ -216,23 +223,27 @@ int main(int argc, char **argv) {
 
    // apply some configuration from the eeprom
    auto_block_ptt = cfg_get_bool("features.auto-block-ptt", false);
+
    if (auto_block_ptt) {
       Log(LOG_INFO, "core",
          "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
       rr_ptt_set_blocked(true);
    }
-   if (rr_io_init() ) {
+
+   if ( rr_io_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
       set_fault(FAULT_IO_ERROR);
       exit(1);
    }
-   if (rr_backend_init() ) {
+
+   if ( rr_backend_init() ) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
 #if     defined(FEATURE_CAT)
-   if (rr_cat_init() ) {
+
+   if ( rr_cat_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
       exit(1);
@@ -274,11 +285,13 @@ int main(int argc, char **argv) {
       now = time(NULL);
 
       char buf[512];
+
       // Check faults
-      if (check_faults() ) {
+      if ( check_faults() ) {
          Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
          // XXX: Should we stop PTT and halt here?
       }
+
       // Has the TOT expired?
       if (global_tot_time > 0 && global_tot_time <= now) {
          http_client_t *talker = whos_talking();
@@ -290,8 +303,9 @@ int main(int argc, char **argv) {
          send_global_alert("***SERVER***", msgbuf);
          global_tot_time = 0;
       }
+
       // Check thermals
-      if (are_we_on_fire() ) {
+      if ( are_we_on_fire() ) {
          rr_ptt_set_all_off();
          rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
@@ -328,6 +342,7 @@ int main(int argc, char **argv) {
 
       long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
                 (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
+
       // poll the backend (internal or hamlib), if needed
       // XXX: move to config
       if (ms >= 1000) {
@@ -349,6 +364,7 @@ int main(int argc, char **argv) {
       clock_gettime(CLOCK_MONOTONIC, &loop_end);
       current_time = (loop_end.tv_sec - loop_start.tv_sec) +
                      (loop_end.tv_nsec - loop_start.tv_nsec) / 1e9;
+
       if (loop_runtime == 0.0) {
          loop_runtime = current_time;
       } else {
@@ -360,10 +376,12 @@ int main(int argc, char **argv) {
          .tv_sec = 0, .tv_nsec = 100000
       };
       nanosleep(&ts, NULL);
+
       if (dying) {
          break;
       }
 #if     defined(USE_PROFILING)
+
       if (now > last_profstat + 300) {
          last_profstat = now;
 
@@ -378,8 +396,10 @@ int main(int argc, char **argv) {
 #if     defined(USE_MONGOOSE)
    mg_mgr_free(&mg_mgr);
 #endif
+
    if (restarting) {
       restart_rig();
    }
+
    return 0;
 }

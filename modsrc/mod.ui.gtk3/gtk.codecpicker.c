@@ -40,10 +40,12 @@ typedef struct {
 
 static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
    CodecSelectorCtx *ctx = user_data;
+
    if (!ctx) {
       return;
    }
    const char *codec = gtk_combo_box_get_active_id( GTK_COMBO_BOX(combo) );
+
    if (codec) {
       Log( LOG_CRAZY, "gtk.codecpicker", "setting active codec: %s for %s", codec,
          (ctx->is_tx ? "TX" : "RX") );
@@ -64,14 +66,16 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
 
    gtk_combo_box_text_remove_all(combo);
 
-   for ( char *tok = strtok_r(list, " ", &saveptr) ; tok ; tok = strtok_r(NULL, " ", &saveptr) ) {
+   for (char *tok = strtok_r(list, " ", &saveptr) ; tok ; tok = strtok_r(NULL, " ", &saveptr) ) {
       Log(LOG_CRAZY, "gtk.codecpicker", "Adding codec |%s| to list <%x>", tok, combo);
       gtk_combo_box_text_append(combo, tok, tok);
+
       if (default_id && strcmp(tok, default_id) == 0) {
          default_index = index;
       }
       index++;
    }
+
    if (default_index >= 0) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(combo), default_index);
    }
@@ -111,9 +115,11 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    gtk_box_pack_start(GTK_BOX(vbox), widget_label, FALSE, FALSE, 1);
    gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), TRUE, TRUE, 1);
    gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(rx_combo), TRUE, TRUE, 1);
+
    if (out_tx) {
       *out_tx = tx_combo;
    }
+
    if (out_rx) {
       *out_rx = rx_combo;
    }

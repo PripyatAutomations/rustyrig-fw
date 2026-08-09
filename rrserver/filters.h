@@ -8,17 +8,17 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_filters_h)
-#define __rr_filters_h
+#define	__rr_filters_h
 
 // Filter type
 #include <stdint.h>
 #include "build_config.h"
 
-#define FILTER_NONE 0x0000
-#define FILTER_LPF 0x0001
-#define FILTER_BPF 0x0002
-#define FILTER_HPF 0x0004
-#define FILTER_NOTCH 0x0010
+#define	FILTER_NONE 0x0000
+#define	FILTER_LPF 0x0001
+#define	FILTER_BPF 0x0002
+#define	FILTER_HPF 0x0004
+#define	FILTER_NOTCH 0x0010
 
 // TX Low Pass Filters
 // Ideally these need to be moved to the build config

@@ -32,7 +32,7 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #if     !defined(__FWDSP)
-#define __FWDSP
+#define	__FWDSP
 #endif
 #include <librustyaxe/core.h>
 #include <fwdsp/fwdsp-shared.h>
@@ -80,6 +80,7 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
    // Make sure we send the whole message
    while (msg_wrote < msg_len) {
       size_t this_write = write(sock_fd, &msgbuf, msg_len);
+
       if (this_write > 0) {
          msg_wrote += this_write;
       } else {
@@ -93,8 +94,8 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
    return false;
 }
 
-#define STDIN_FD 0
-#define STDOUT_FD 1
+#define	STDIN_FD 0
+#define	STDOUT_FD 1
 
 static void run_loop(struct audio_config *cfg) {
    while (1) {
@@ -104,6 +105,7 @@ static void run_loop(struct audio_config *cfg) {
 
       fprintf(stderr, "connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
       pipeline = build_pipeline(cfg->pipeline);
+
       if (!pipeline) {
          fprintf(stderr, "fwdsp: Failed to build pipeline\n");
          cleanup_pipeline(&pipeline);
@@ -128,9 +130,11 @@ static void run_loop(struct audio_config *cfg) {
  */
 
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
+
       if (ret == GST_STATE_CHANGE_FAILURE) {
          g_printerr("Failed to set pipeline to PLAYING state.\n");
          GstMessage *msg = gst_bus_poll(gst_element_get_bus(pipeline), GST_MESSAGE_ERROR, 0);
+
          if (msg) {
             GError *err;
             gchar *debug_info;
@@ -146,11 +150,12 @@ static void run_loop(struct audio_config *cfg) {
       GstBus *bus = gst_element_get_bus(pipeline);
       GstMessage *msg = gst_bus_timed_pop_filtered(bus, 5 * GST_SECOND,
          GST_MESSAGE_ERROR | GST_MESSAGE_EOS | GST_MESSAGE_STATE_CHANGED);
+
       if (msg != NULL) {
          GError *err;
          gchar *debug_info;
 
-         switch ( GST_MESSAGE_TYPE(msg) ) {
+         switch (GST_MESSAGE_TYPE(msg) ) {
             case GST_MESSAGE_ERROR: {
                gst_message_parse_error(msg, &err, &debug_info);
                g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
@@ -166,7 +171,7 @@ static void run_loop(struct audio_config *cfg) {
             }
 
             case GST_MESSAGE_STATE_CHANGED: {
-               if ( GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
+               if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
                   GstState old_state, new_state, pending_state;
                   gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
                   g_print( "Pipeline state changed from %s to %s.\n",
@@ -188,6 +193,7 @@ static void run_loop(struct audio_config *cfg) {
       while (!dying) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND,
             GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
+
          if (msg) {
             if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
                GError *err;
@@ -209,6 +215,7 @@ static void run_loop(struct audio_config *cfg) {
       // If a socket instead of stdio, close it here
       struct stat sb;
       fstat(sock_fd, &sb);
+
       if (sb.st_mode == S_IFSOCK) {
          close(sock_fd);
          sock_fd = -1;
@@ -232,10 +239,11 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
 
    int opt;
-   while ( ( opt = getopt(argc, argv, "c:f:htv") ) != -1 ) {
+   while ( (opt = getopt(argc, argv, "c:f:htv") ) != -1) {
       switch (opt) {
          case 'c': {
             size_t clen = strlen(optarg);
+
             if (clen < 0 || clen > 4) {
                fprintf(stderr, "Codec magic (-c) '%s' *must* be exactly 4 characters\n", optarg);
                exit(1);
@@ -269,13 +277,14 @@ int main(int argc, char *argv[]) {
       }
    }
    // Find and load the configuration file
-   int cfg_entries = ( sizeof(configs) / sizeof(char *) );
+   int cfg_entries = (sizeof(configs) / sizeof(char *) );
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
+
    // If the user specified a config, apply it, else try to find one in a sane
    // place
    if (config_file) {
-      if ( !( cfg = cfg_load(config_file) ) ) {
+      if (!(cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
@@ -283,9 +292,11 @@ int main(int argc, char *argv[]) {
    } else {
 //      char *fullpath = find_file_by_list(configs, cfg_entries);
       char *fullpath = "config/fwdsp.cfg";
+
       if (fullpath) {
          config_file = strdup(fullpath);
-         if ( !( cfg = cfg_load(fullpath) ) ) {
+
+         if (!(cfg = cfg_load(fullpath) ) ) {
             Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
          } else {
             Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
@@ -307,6 +318,7 @@ int main(int argc, char *argv[]) {
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
    const char *cfg_audio_debug = cfg_get("fwdsp:audio.debug");
+
    if (cfg_audio_debug) {
       setenv("GST_DEBUG", cfg_audio_debug, 0);
    }
@@ -319,6 +331,7 @@ int main(int argc, char *argv[]) {
       .tx_mode = codec_tx_mode,
       .channel_id = -1
    };
+
    // set sane defaults
    if (au_cfg.tx_mode) {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_TX;
@@ -327,6 +340,7 @@ int main(int argc, char *argv[]) {
       au_cfg.sock_path = DEFAULT_SOCKET_PATH_RX;
       au_cfg.media_direction = FW_DIR_RX;
    }
+
    if (au_cfg.channel_id < 0) {
       au_cfg.channel_id = 0;
    }
@@ -337,6 +351,7 @@ int main(int argc, char *argv[]) {
    Log(LOG_DEBUG, "codec", "Selecting pipeline '%s' from config --", keybuf);
 
    const char *cfg_pipeline = cfg_get(keybuf);
+
    if (cfg_pipeline) {
       Log(LOG_DEBUG, "codec", "-> full pipeline:\t%s", cfg_pipeline);
       au_cfg.pipeline = cfg_pipeline;
@@ -344,6 +359,7 @@ int main(int argc, char *argv[]) {
       Log(LOG_CRIT, "fwdsp", "No pipeline configured for codec id %s", config_codec);
       exit(1);
    }
+
    // unless set to video, treat it as audio frames
    if (config_video) {
       au_cfg.media_type = FW_MEDIA_VIDEO;

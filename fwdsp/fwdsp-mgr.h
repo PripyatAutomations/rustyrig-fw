@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_fwdsp_mgr_h)
-#define __rr_fwdsp_mgr_h
+#define	__rr_fwdsp_mgr_h
 
 enum fwdsp_io_type {
    FW_IO_NONE = 0,              // invalid

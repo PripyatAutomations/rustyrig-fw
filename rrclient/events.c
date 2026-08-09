@@ -38,15 +38,18 @@ static void rrclient_display_log_message(const char *msg) {
 
 static void rrclient_update_connection_ui(bool connected) {
 #if defined(USE_GTK)
+
    if (!conn_button) {
       return;
    }
    update_connection_button(connected, conn_button);
 
    GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(conn_button) );
+
    if (!ctx) {
       return;
    }
+
    if (connected) {
       gtk_style_context_add_class(ctx, "ptt-active");
       gtk_style_context_remove_class(ctx, "ptt-idle");
@@ -64,6 +67,7 @@ static void rrclient_handle_connection_event(const char *event, void *data, rrco
    (void)cptr;
    (void)user;
    (void)data;
+
    if (strcasecmp(event, "connected") == 0) {
       // XXX: Here we need to set login_user
       rrclient_update_connection_ui(true);
@@ -79,37 +83,40 @@ static void rrclient_handle_ptt_event(const char *event, void *data, rrconn_t *c
    (void)cptr;
    (void)user;
    (void)event;
+
    if (!data) {
       return;
    }
    bool active = *(bool *)data;
+
    if (ptt_button) {
       update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), active);
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
    }
 }
 
-static void rrclient_handle_freq_event(const char *event, void *data, rrconn_t *cptr,
-                                       void *user) {
+static void rrclient_handle_freq_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
+
    if (!data || !freq_entry) {
       return;
    }
    double freq = *(double *)data;
    GtkWidget *entry = freq_entry;
    GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
-   if (!gtk_freq_entry_is_editing(fe) ) {
+
+   if ( !gtk_freq_entry_is_editing(fe) ) {
       gtk_freq_entry_set_frequency(fe, (unsigned long)freq);
    }
 }
 
-static void rrclient_handle_mode_event(const char *event, void *data, rrconn_t *cptr,
-                                       void *user) {
+static void rrclient_handle_mode_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
+
    if (!data || !mode_combo) {
       return;
    }
@@ -122,11 +129,13 @@ static void rrclient_handle_userinfo_event(const char *event, void *data, rrconn
    (void)cptr;
    (void)user;
    (void)event;
+
    if (!data) {
       return;
    }
    struct rr_user *info = (struct rr_user *)data;
-   if (!userlist_add_or_update(info) ) {
+
+   if ( !userlist_add_or_update(info) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 }
@@ -136,11 +145,13 @@ static void rrclient_handle_userjoin_event(const char *event, void *data, rrconn
    (void)cptr;
    (void)user;
    (void)event;
+
    if (!data) {
       return;
    }
    struct rr_user *info = (struct rr_user *)data;
-   if (!userlist_add_or_update(info) ) {
+
+   if ( !userlist_add_or_update(info) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 }
@@ -150,25 +161,28 @@ static void rrclient_handle_userquit_event(const char *event, void *data, rrconn
    (void)cptr;
    (void)user;
    (void)event;
+
    if (!data) {
       return;
    }
    char *name = (char *)data;
+
    if (!name) {
       return;
    }
    userlist_remove_by_name(name);
 }
 
-static void rrclient_handle_whois_event(const char *event, void *data, rrconn_t *cptr,
-                                        void *user) {
+static void rrclient_handle_whois_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)cptr;
    (void)user;
+
    if (!data) {
       return;
    }
    const char *whois_msg = (const char *)data;
+
    if (whois_msg && main_window) {
       ui_show_whois_dialog(GTK_WINDOW(main_window), whois_msg);
    }
@@ -179,6 +193,7 @@ static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *c
    (void)cptr;
    (void)user;
    struct log_event_data *led = (struct log_event_data *)data;
+
    if (!led || !led->message[0]) {
       return;
    }
@@ -201,13 +216,16 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
    char *prefix = "";
 
    struct talk_msg_event_data *tmed = (struct talk_msg_event_data *)data;
+
    if (!tmed || !tmed->from[0] || !tmed->data[0]) {
       return;
    }
    ui_print("tmed->from: %s, login_user: %s", tmed->from, login_user);
+
    if (login_user != NULL && strcmp(tmed->from, login_user) == 0) {
       prefix = "=> ";
    }
+
    if (strcasecmp(tmed->msg_type, "action") == 0) {
       ui_print("%s%s * %s %s", prefix, get_chat_ts(tmed->ts), tmed->from, tmed->data);
    } else {

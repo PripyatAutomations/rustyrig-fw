@@ -166,11 +166,13 @@ static const struct {
 
 static const char *pango_color_for_tag(const char *tag, bool *is_bg) {
    *is_bg = (strncmp(tag, "bg-", 3) == 0);
+
    for (int i = 0 ; pango_color_map[i].tag ; i++) {
       if (strcmp(tag, pango_color_map[i].tag) == 0) {
          return pango_color_map[i].pango;
       }
    }
+
    return NULL;
 }
 
@@ -180,6 +182,7 @@ char *gtk_colorize_string(const char *in) {
    }
    size_t len = strlen(in);
    char *out = malloc(len * 8 + 64);
+
    if (!out) {
       return NULL;
    }
@@ -191,28 +194,34 @@ char *gtk_colorize_string(const char *in) {
    while (*p) {
       if (*p == '{') {
          const char *end = strchr(p, '}');
+
          if (!end) {
             *o++ = *p++;
             continue;
          }
-         size_t key_len = (size_t)( end - (p + 1) );
+         size_t key_len = (size_t)(end - (p + 1) );
          char key[64];
-         if ( key_len >= sizeof(key) ) {
+
+         if (key_len >= sizeof(key) ) {
             key_len = sizeof(key) - 1;
          }
          memcpy(key, p + 1, key_len);
          key[key_len] = '\0';
+
          if (strcmp(key, "reset") == 0) {
             if (fg || bg) {
                o += sprintf(o, "</span>");
                fg = bg = NULL;
             }
+
             if (bold) {
                o += sprintf(o, "</b>"); bold = false;
             }
+
             if (italic) {
                o += sprintf(o, "</i>"); italic = false;
             }
+
             if (underline) {
                o += sprintf(o, "</u>"); underline = false;
             }
@@ -243,12 +252,14 @@ char *gtk_colorize_string(const char *in) {
          } else {
             bool is_bg = false;
             const char *pango_color = pango_color_for_tag(key, &is_bg);
+
             if (pango_color) {
                if (fg || bg) {
                   o += sprintf(o, "</span>");
                   fg = bg = NULL;
                }
                o += sprintf(o, "<span");
+
                if (!is_bg) {
                   o += sprintf(o, " foreground=\"%s\"", pango_color);
                   fg = pango_color;
@@ -271,15 +282,19 @@ char *gtk_colorize_string(const char *in) {
          p += chunk_len;
       }
    }
+
    if (fg || bg) {
       o += sprintf(o, "</span>");
    }
+
    if (bold) {
       o += sprintf(o, "</b>");
    }
+
    if (italic) {
       o += sprintf(o, "</i>");
    }
+
    if (underline) {
       o += sprintf(o, "</u>");
    }
@@ -293,6 +308,7 @@ bool ui_print_gtk(const char *msg) {
       return true;
    }
    char *colored = gtk_colorize_string(msg);
+
    if (!colored) {
       return true;
    }
@@ -314,10 +330,12 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    GtkTreeModel *model = gtk_combo_box_get_model( GTK_COMBO_BOX(combo) );
    GtkTreeIter iter;
    int index = 0;
-   if ( gtk_tree_model_get_iter_first(model, &iter) ) {
+
+   if (gtk_tree_model_get_iter_first(model, &iter) ) {
       do{
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
+
          if (str && strcmp(str, text) == 0) {
             gtk_combo_box_set_active(GTK_COMBO_BOX(combo), index);
             g_free(str);
@@ -326,7 +344,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          }
          g_free(str);
          index++;
-      } while ( gtk_tree_model_iter_next(model, &iter) );
+      } while (gtk_tree_model_iter_next(model, &iter) );
    }
 }
 
@@ -335,6 +353,7 @@ void update_connection_button(bool connected, GtkWidget *btn) {
       return;
    }
    GtkStyleContext *ctx = gtk_widget_get_style_context(btn);
+
    if (connected) {
       gtk_button_set_label(GTK_BUTTON(btn), "Online");
       gtk_style_context_remove_class(ctx, "conn-idle");
@@ -384,6 +403,7 @@ bool gui_init(void) {
    // If docked, we wont create a window, but it might be created later
    // similarly
    bool vfo_docked = cfg_get_bool("vfo-a.docked", true);
+
    if (vfo_docked) {
       // Attach to the main window
       gtk_box_pack_start(GTK_BOX(main_tab), vfo_a, FALSE, FALSE, 0);
@@ -434,14 +454,17 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
       return FALSE;
    }
    GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
-   if ( !GTK_IS_WINDOW(toplevel) ) {
+
+   if (!GTK_IS_WINDOW(toplevel) ) {
       return FALSE;
    }
    GtkWidget *focused = gtk_window_get_focus( GTK_WINDOW(toplevel) );
-   for ( GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
+
+   for (GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
       if (w == ancestor) {
          return TRUE;
       }
    }
+
    return FALSE;
 }

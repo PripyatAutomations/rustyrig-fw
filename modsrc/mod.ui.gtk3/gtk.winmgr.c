@@ -59,6 +59,7 @@ static gboolean on_configure_timeout(gpointer data) {
 
    // Find our internal window
    gui_window_t *win = gui_find_window(window, NULL);
+
    // if we can't find the window, there's no state
    if (!win) {
 //      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%p>", window);
@@ -66,6 +67,7 @@ static gboolean on_configure_timeout(gpointer data) {
    }
    // If timeout is called, window has stopped moving
    win->is_moving = false;
+
    // Is the name set? If not, we can't look the window up (and probably
    // shouldn't even be here!)
    if (win->name[0] != '\0') {
@@ -111,6 +113,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
    if (!widget || !event) {
       return FALSE;
    }
+
    if (event->type == GDK_CONFIGURE) {
       GdkEventConfigure *e = (GdkEventConfigure *)event;
 
@@ -144,6 +147,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       win->last_w = e->width;
       win->last_h = e->height;
 #endif
+
       // Restart timeout (debounce)
       if (configure_event_timeout != 0) {
          g_source_remove(configure_event_timeout);
@@ -151,6 +155,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       // Add a timeout to delay printing the position again
       configure_event_timeout = g_timeout_add(1500, on_configure_timeout, widget);
    }
+
    return FALSE;
 }
 
@@ -160,6 +165,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
 
       return NULL;
    }
+
    // If window is given and matches, return it, regardless of the title match
    if (gtk_win) {
       for (gui_window_t *p = gui_windows ; p ; p = p->next) {
@@ -170,6 +176,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
          }
       }
    }
+
    // If window can't be found by handle (or NULL handle), search by name
    if (name) {
       for (gui_window_t *p = gui_windows ; p ; p = p->next) {
@@ -180,6 +187,7 @@ gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name) {
          }
       }
    }
+
    return NULL;
 }
 
@@ -192,6 +200,7 @@ bool place_window(GtkWidget *window) {
 
    // Lookup the window so we can have it's name, etc.
    gui_window_t *win = gui_find_window(window, NULL);
+
    if (!win) {
       Log(LOG_DEBUG, "gtk.winmgr", "place_window with NULL window");
 
@@ -203,6 +212,7 @@ bool place_window(GtkWidget *window) {
    char key[512];
    memset( key, 0, sizeof(key) );
    snprintf(key, sizeof(key), "ui.%s", win->name);
+
    // if we have x/y/h/w saved, use them
    if (win->last_h > 0 && win->last_w > 0) {
       Log(LOG_DEBUG, "gtk.winmgr", "place_window |%s| using stored coords (w,h@x,y): %d,%d@%d,%d",
@@ -211,16 +221,20 @@ bool place_window(GtkWidget *window) {
       // If the window doesn't have h/w set, try to get them from the
       // configuration
       const char *cfg_full = cfg_get_exp(key);
+
       if (cfg_full) {
          int cfg_height = 0, cfg_width = 0, cfg_x = 0, cfg_y = 0;
+
          // We found a new-style configuration, parse it
          if (sscanf(cfg_full, "%d,%d@%d,%d", &cfg_width, &cfg_height, &cfg_x, &cfg_y) == 4) {
             // Save the location into the window
             win->x = cfg_x;
             win->y = cfg_y;
+
             if (cfg_width > 0) {
                win->w = cfg_width;
             }
+
             if (cfg_height > 0) {
                win->h = cfg_height;
             }
@@ -235,11 +249,13 @@ bool place_window(GtkWidget *window) {
          }
          // Parse out options, delimited by | at the end of the string
          char *opts = strchr(cfg_full, '|');
+
          if (opts) {
             opts++;   /* skip the '|' */
 
             while (*opts) {
                char *end = strchr(opts, '|');
+
                // Is this the last arg?
                if (!end) {
                   end = opts + strlen(opts);
@@ -260,11 +276,13 @@ bool place_window(GtkWidget *window) {
                }
                size_t len = end - opts;
                char opt[32];
-               if ( len >= sizeof(opt) ) {
+
+               if (len >= sizeof(opt) ) {
                   len = sizeof(opt) - 1;
                }
                memcpy(opt, opts, len);
                opt[len] = '\0';
+
                if (strcasecmp(opt, "hidden") == 0) {
                   if (strcasecmp(win->name, "main") != 0) {
                      // Hide this window by default
@@ -286,6 +304,7 @@ bool place_window(GtkWidget *window) {
                   win->win_raised = true;
                   gtk_window_present( GTK_WINDOW(win->gtk_win) );
                }
+
                if (*end == '\0') {
                   break;
                }
@@ -295,16 +314,19 @@ bool place_window(GtkWidget *window) {
          }
       }
    }
+
    if (win->w > 0 && win->h > 0) {
       gtk_window_set_default_size(GTK_WINDOW(win->gtk_win), win->w, win->h);
       gtk_window_resize(GTK_WINDOW(win->gtk_win), win->w, win->h);
    }
+
    // Apply the properties to the window
    if (win->x >= 0 && win->y >= 0) {
       gtk_window_set_position(GTK_WINDOW(win->gtk_win), GTK_WIN_POS_NONE);
       gtk_window_move(GTK_WINDOW(win->gtk_win), win->x, win->y);
 
    }
+
    return false;
 }
 
@@ -321,11 +343,13 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    // Check if the icon name was registered by attempting to load it
    GIcon *icon = g_themed_icon_new(name);
    GtkIconTheme *theme = gtk_icon_theme_get_default();
-   if ( gtk_icon_theme_has_icon(theme, name) ) {
+
+   if (gtk_icon_theme_has_icon(theme, name) ) {
       success = true;
    } else {
       gchar *local_icon = g_strdup_printf("./%s.png", name);
-      if ( gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
+
+      if (gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
          success = true;
       } else {
          g_warning("Failed to set icon '%s': %s", name, err->message);
@@ -351,6 +375,7 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
    gui_window_t **pp = &gui_windows;
    while (*pp) {
       gui_window_t *p = *pp;
+
       if ( (gw && p == gw) || (name && strcmp(p->name, name) == 0) ) {
          Log(LOG_DEBUG, "gtk.winmgr", "forgetting window: %p (%s)", (void*)p, p->name);
          *pp = p->next;
@@ -384,6 +409,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 
       return NULL;
    }
+
    for (gui_window_t *x = gui_windows ; x ; x = x->next) {
       if (strcmp(x->name, name) == 0) {
          Log(LOG_DEBUG, "gtk.winmgr", "found window %s at <%p> for gtk_win at <%p>", x->name, x,
@@ -392,8 +418,10 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
          return x;
       }
    }
+
    // Nope, it doesn't exist, create it
    gui_window_t *p = malloc( sizeof(gui_window_t) );
+
    if (!p) {
       Log(LOG_CRIT, "gtk.winmgr", "OOM creating gui_window_t");
       abort();
@@ -402,6 +430,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    snprintf(p->name, sizeof(p->name), "%s", name);
    p->gtk_win = gtk_win;
    Log(LOG_INFO, "gtk.winmgr", "new '%s' window <%p> stored at <%p>", name, gtk_win, p);
+
    if (!gui_windows) {
       gui_windows = p;
    } else {
@@ -414,6 +443,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
          }
          x = x->next;
       }
+
       // Store our new window at the list tail
       if (x) {
          x->next = p;
@@ -430,8 +460,10 @@ gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer
    if (!widget || !event) {
       return FALSE;
    }
+
    if (event->changed_mask & GDK_WINDOW_STATE_ICONIFIED) {
       bool minimized = (event->new_window_state & GDK_WINDOW_STATE_ICONIFIED) != 0;
+
       if (minimized) {
          // Main window minimized → minimize others
          for (gui_window_t *p = gui_windows ; p ; p = p->next) {
@@ -450,6 +482,7 @@ gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer
          }
       }
    }
+
    return FALSE;
 }
 
@@ -502,6 +535,7 @@ gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
 
       return NULL;
    }
+
    // If widget is given and matches, return it, regardless of the title match
    if (widget) {
       for (gui_widget_t *p = gui_widgets ; p ; p = p->next) {
@@ -512,6 +546,7 @@ gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
          }
       }
    }
+
    // If winget can't be found by handle (or NULL handle), search by name
    if (name) {
       for (gui_widget_t *p = gui_widgets ; p ; p = p->next) {
@@ -522,6 +557,7 @@ gui_widget_t *gui_find_widget(GtkWidget *widget, const char *name) {
          }
       }
    }
+
    return NULL;
 }
 
@@ -532,6 +568,7 @@ bool gui_forget_widget(gui_widget_t *gw, const char *name) {
    gui_widget_t **pp = &gui_widgets;
    while (*pp) {
       gui_widget_t *p = *pp;
+
       if ( (gw && p == gw) || (name && strcmp(p->name, name) == 0) ) {
          Log(LOG_DEBUG, "gtk.winmgr", "forgetting widget: %p (%s)", (void*)p, p->name);
          *pp = p->next;
@@ -557,6 +594,7 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
 
       return NULL;
    }
+
    for (gui_widget_t *x = gui_widgets ; x ; x = x->next) {
       if (strcmp(x->name, name) == 0) {
          Log(LOG_DEBUG, "gtk.winmgr", "found widget %s at <%p> for widget at <%p>", x->name, x,
@@ -565,8 +603,10 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
          return x;
       }
    }
+
    // Nope, it doesn't exist, create it
    gui_widget_t *p = malloc( sizeof(gui_widget_t) );
+
    if (!p) {
       Log(LOG_CRIT, "gtk.winmgr", "OOM creating gui_widget_t");
       abort();
@@ -575,6 +615,7 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
    snprintf(p->name, sizeof(p->name), "%s", name);
    p->gtk_widget = widget;
    Log(LOG_INFO, "gtk.winmgr", "new '%s' widget <%p> stored at <%p>", name, widget, p);
+
    if (!gui_widgets) {
       gui_widgets = p;
    } else {
@@ -587,11 +628,13 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
          }
          x = x->next;
       }
+
       // Store our new widget at the list tail
       if (x) {
          x->next = p;
       }
    }
+
 //   g_signal_connect(widget, "destroy", G_CALLBACK(on_widget_destroy), p);
    return p;
 }

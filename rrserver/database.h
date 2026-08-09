@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_database_h)
-#define __rr_database_h
+#define	__rr_database_h
 #if     defined(FEATURE_SQLITE)
 #include <sqlite3.h>
 

@@ -42,6 +42,7 @@ bool pipe_write_samples(rr_au_pipe_device_t *device, const void *samples, size_t
    if (!device || !samples || size <= 0) {
       return true;
    }
+
    return write(device->pipe_fd, samples, size) == size;
 }
 
@@ -49,6 +50,7 @@ bool pipe_read_samples(rr_au_pipe_device_t *device, void *buffer, size_t size) {
    if (!device || !buffer || size <= 0) {
       return true;
    }
+
    return read(device->pipe_fd, buffer, size) == size;
 }
 
@@ -56,6 +58,7 @@ void pipe_cleanup(rr_au_pipe_device_t *device) {
    if (!device) {
       return;
    }
+
    if (device->pipe_fd >= 0) {
       close(device->pipe_fd);
    }
@@ -88,6 +91,7 @@ int setup_rx_unix_socket_server(const char *path) {
    int fd;
 
    fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
    if (fd < 0) {
       perror("socket");
 
@@ -97,18 +101,21 @@ int setup_rx_unix_socket_server(const char *path) {
 
    addr.sun_family = AF_UNIX;
    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+
    if (bind( fd, (struct sockaddr *)&addr, sizeof(addr) ) < 0) {
       perror("bind");
       close(fd);
 
       return -1;
    }
+
    if (listen(fd, 5) < 0) {
       perror("listen");
       close(fd);
 
       return -1;
    }
+
    // Make the socket non-blocking
    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
       perror("fcntl");
@@ -138,6 +145,7 @@ void close_server(void ) {
 
 void au_unix_socket_init(void) {
    rx_server_fd = setup_rx_unix_socket_server(DEFAULT_SOCKET_PATH_RX);
+
    if (rx_server_fd < 0) {
       Log(LOG_DEBUG, "au", "Failed to create UNIX server socket");
    }
@@ -151,6 +159,7 @@ void au_unix_socket_cleanup(void) {
 void au_unix_socket_poll(void) {
    // Accept new connections if any
    int client_fd = accept(rx_server_fd, NULL, NULL);
+
    if (client_fd >= 0) {
       Log(LOG_INFO, "audio", "fwdsp connected on UNIX socket (fd=%d)", client_fd);
 
@@ -162,6 +171,7 @@ void au_unix_socket_poll(void) {
    } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
       perror("accept");
    }
+
    if (rx_client_fd < 0) {
       // No connected client
       return;
@@ -169,6 +179,7 @@ void au_unix_socket_poll(void) {
    // Read from the client socket
    uint8_t buf[800];
    ssize_t n = read( rx_client_fd, buf, sizeof(buf) );
+
    if (n > 0) {
 // XXX: We need to find the channel ID associated with the connection
 // XXX: Then send it using void au_send_to_ws(const void *data, size_t len, int

@@ -35,23 +35,27 @@ extern GtkNotebook *main_notebook;
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    gui_window_t *wp = gui_find_window(NULL, "main");
    GtkWidget *main_window = wp->gtk_win;
+
    if (!main_notebook || !event) {
       return true;
    }
+
    if ( (event->state & GDK_MOD1_MASK) ) {
       if (!main_window) {
          Log(LOG_DEBUG, "gtk", "main_window is null in alt-# handler");
 
          return TRUE;
       }
+
       // raise main window if a tab is selected
       if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
-         if ( !gtk_window_is_active( GTK_WINDOW(main_window) ) ) {
+         if (!gtk_window_is_active( GTK_WINDOW(main_window) ) ) {
             gtk_widget_show_all(main_window);
             gtk_window_present( GTK_WINDOW(main_window) );
             place_window(main_window);
          }
       }
+
       switch (event->keyval) {
          case GDK_KEY_1: {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 0);
@@ -84,6 +88,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          case GDK_KEY_F:
          case GDK_KEY_f: {
             GtkWidget *wp = gtk_freq_entry_last_touched_digit( GTK_FREQ_ENTRY(freq_entry) );
+
             if (wp) {
                Log(LOG_CRAZY, "gtk.hotkey", "Switching to digit at <%p>", wp);
                gtk_widget_grab_focus(wp);
@@ -124,14 +129,17 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          case GDK_KEY_U:
          case GDK_KEY_u: {
             gui_window_t *wp = gui_find_window(NULL, "userlist");
+
             if (wp) {
                GtkWidget *userlist_window = wp->gtk_win;
+
                if (!userlist_window) {
                   Log(LOG_DEBUG, "gtk", "userlist_window is null in alt-u handler");
 
                   return TRUE;
                }
-               if ( gtk_widget_get_visible(userlist_window) ) {
+
+               if (gtk_widget_get_visible(userlist_window) ) {
                   gtk_widget_hide(userlist_window);
                } else {
                   gtk_widget_show_all(userlist_window);
@@ -155,6 +163,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 
       return TRUE;
    }
+
    return FALSE;
 }
 

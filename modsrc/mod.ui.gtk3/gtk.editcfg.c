@@ -7,7 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#define __RRCLI 1
+#define	__RRCLI 1
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -45,7 +45,7 @@ static void on_buffer_changed(GtkTextBuffer *buffer, gpointer user_data) {
    if (!user_data) {
       return;
    }
-   ( (EditorContext *)user_data )->modified = TRUE;
+   ( (EditorContext *)user_data)->modified = TRUE;
 }
 
 static void apply_config(const char *filename) {
@@ -65,6 +65,7 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
    gchar *text = gtk_text_buffer_get_text(ctx->buffer, &start, &end, FALSE);
 
    FILE *fp = fopen(ctx->filepath, "w");
+
    if (fp) {
       fwrite(text, 1, strlen(text), fp);
       fclose(fp);
@@ -81,6 +82,7 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
 
 static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
    EditorContext *ctx = user_data;
+
    if (!ctx) {
       return;
    }
@@ -90,6 +92,7 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
 
    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), "config.cfg");
+
    if (gtk_dialog_run( GTK_DIALOG(dialog) ) == GTK_RESPONSE_ACCEPT) {
       char *filename = gtk_file_chooser_get_filename( GTK_FILE_CHOOSER(dialog) );
       GtkTextIter start, end;
@@ -97,6 +100,7 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
       gchar *text = gtk_text_buffer_get_text(ctx->buffer, &start, &end, FALSE);
 
       FILE *fp = fopen(filename, "w");
+
       if (fp) {
          fwrite(text, 1, strlen(text), fp);
          fclose(fp);
@@ -104,6 +108,7 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
 
          GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL,
             GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "Apply new config from \"%s\"?", filename);
+
          if (gtk_dialog_run( GTK_DIALOG(confirm) ) == GTK_RESPONSE_YES) {
             apply_config(filename);
          }
@@ -117,14 +122,17 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
 
 static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
    EditorContext *ctx = user_data;
+
    if (!ctx) {
       return;
    }
+
    if (ctx->modified) {
       GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL,
          GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO, "You have unsaved changes. Discard them?");
       gboolean cancel = gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
       gtk_widget_destroy(dialog);
+
       if (cancel) {
          return;
       }
@@ -137,6 +145,7 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
 
 static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
    EditorContext *ctx = user_data;
+
    if (!ctx || !ctx->modified) {
       return FALSE;
    }
@@ -144,9 +153,11 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
       GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO, "You have unsaved changes. Close anyway?");
    gboolean cancel = gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
    gtk_widget_destroy(dialog);
+
    if (!cancel) {
       Log(LOG_DEBUG, "config", "Edit config closed without saving for %s", ctx->filepath);
    }
+
    return cancel;
 }
 
@@ -155,8 +166,10 @@ void gui_edit_config(const char *filepath) {
       return;
    }
    gui_window_t *win = gui_find_window(NULL, "editcfg");
+
    if (win) {
       GtkWidget *cfgedit_window = win->gtk_win;
+
       if (cfgedit_window) {
          // Focus the window and leave
          gtk_window_present( GTK_WINDOW(cfgedit_window) );
@@ -189,11 +202,13 @@ void gui_edit_config(const char *filepath) {
    g_signal_connect(ctx->buffer, "changed", G_CALLBACK(on_buffer_changed), ctx);
 
    FILE *fp = fopen(filepath, "r");
+
    if (fp) {
       fseek(fp, 0, SEEK_END);
       long len = ftell(fp);
       rewind(fp);
       char *buf = malloc(len + 1);
+
       if (!buf) {
          fprintf(stderr, "OOM in gui_edit_config?!\n");
          fclose(fp);

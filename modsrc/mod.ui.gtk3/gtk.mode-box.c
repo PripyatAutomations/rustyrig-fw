@@ -41,15 +41,18 @@ gulong mode_changed_handler_id;
 
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
+
    if (text) {
       // Send mode command over websocket as before
 #if     defined(USE_MONGOOSE)
       ws_send_mode_cmd(ws_conn, "A", text);
 #endif // defined(USE_MONGOOSE)
+
       // Show/hide repeater dialog locally based on FM mode
-      if ( g_str_equal(text, "FM") ) {
+      if (g_str_equal(text, "FM") ) {
          fm_dialog_show();
          gui_window_t *wp = gui_find_window(NULL, "main");
+
          if (wp) {
             // But return focus to our main window immediately
             focus_main_later(wp->gtk_win);
@@ -83,6 +86,7 @@ static gboolean on_mode_keypress(GtkWidget *widget, GdkEventKey *event, gpointer
       case GDK_KEY_D:
       case GDK_KEY_d: {
          const char *cur = gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(mode_combo) );
+
          // Get the value of mode_combo, so we can go to D-U if already in D-U
          if (strcasecmp(cur, "D-L") == 0) {
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "D-U");

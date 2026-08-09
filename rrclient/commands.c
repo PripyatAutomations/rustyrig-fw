@@ -63,20 +63,25 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       return true;
    }
    const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
+
    if (!msg || strlen(msg) < 1) {
       Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%p> is empty", msg);
 
       return true;
    }
+
    // These commands should always be available
    if (strncasecmp(msg, "/server", 6) == 0) {
       const char *server = msg + 8;
+
       if (server && strlen(server) > 1) {
          ui_print("%s * Changing server profile to %s", get_chat_ts(now), server);
          disconnect_server(server);
+
          if (server_name) {
             free( (char *)server_name );
             server_name = strdup(server);
+
             if (!server_name) {
                fprintf(stderr, "OOM in parse_chat_input /server\n");
 
@@ -102,6 +107,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
    } else if (strncasecmp(msg, "/chat", 4) == 0) {
 #if     defined(USE_GTK)
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), main_tab);
+
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
          gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
@@ -118,12 +124,14 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       syslog_clear();
    } else if (strncasecmp(msg, "/config", 6) == 0 || strcasecmp(msg, "/cfg") == 0) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), config_tab);
+
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
    } else if (strncasecmp(msg, "/log", 3) == 0 || strcasecmp(msg, "/syslog") == 0) {
 #if     defined(USE_GTK)
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_tab);
+
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
@@ -189,6 +197,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       }
 #endif // defined(USE_MONGOOSE)
    }
+
    return false;
 }
 
@@ -204,18 +213,22 @@ bool cmd_me(int argc, char **args) {
    char buf[1024];
    memset(buf, 0, 1024);
    size_t pos = 0;
+
    for (int i = 1 ; i < argc ; i++) {
       int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 1 ? " " : ""),
          args[i] ? args[i] : "");
+
       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
          break;
       }
       pos += n;
    }
+
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", buf, VAL_STR,
       "talk.msg_type", "action");
 
 #if defined(USE_MONGOOSE)
+
    if (ws_conn) {
       mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    }
@@ -237,17 +250,20 @@ bool cmd_msg(int argc, char **args) {
    for (int i = 2 ; i < argc ; i++) {
       int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""),
          args[i] ? args[i] : "");
+
       if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
          break;
       }
       pos += n;
    }
+
    tui_window_t *wp = tui_active_window();
    tui_print_win(wp, "-> %s %s", target, fullmsg);
 
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", fullmsg,
       VAL_STR, "talk.target", target);
 #if defined(USE_MONGOOSE)
+
    if (ws_conn) {
       mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    }
@@ -264,20 +280,25 @@ bool cmd_notice(int argc, char **args) {
    }
    tui_window_t *wp = NULL;
    bool new_win = false;
+
    if (*args[1]) {
       wp = tui_window_find(args[1]);
+
       if (!wp) {
          new_win = true;
          wp = tui_window_create(args[1]);
          wp->cptr = tui_active_window()->cptr;
       }
    }
+
    if (!wp) {
       wp = tui_active_window();
    }
+
    // There's a window here at least...
    if (wp->cptr) {
       char *target = wp->title;
+
       if (args[1]) {
          target = args[1];
       }
@@ -288,14 +309,17 @@ bool cmd_notice(int argc, char **args) {
       for (int i = 2 ; i < argc ; i++) {
          int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""),
             args[i] ? args[i] : "");
+
          if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
             break;
          }
          pos += n;
       }
+
       tui_print_win(wp, "-> *%s* %s", target, fullmsg);
       tui_print_win(wp, "{yellow}NOTICE is not supported over WebSocket{reset}");
    }
+
    return false;
 }
 
@@ -330,11 +354,13 @@ bool cmd_quote(int argc, char **args) {
    for (int i = 1 ; i < argc ; i++) {
       int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 1 ? " " : ""),
          args[i] ? args[i] : "");
+
       if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
          break;
       }
       pos += n;
    }
+
    tui_print_win(wp, "-raw-> %s", fullmsg);
    tui_print_win(wp, "{yellow}QUOTE is not supported over WebSocket{reset}");
 
@@ -359,28 +385,34 @@ bool cmd_win(int argc, char **args) {
    if (argc < 1) {
       return true;
    }
+
    if (!ui_mode_gui) {
       if (strcasecmp(args[1], "close") == 0) {
          Log(LOG_CRIT, "test", "argc: %d args0: %s args1: %s", argc, args[0], args[1]);
+
          if (argc < 2) {
             return true;
          }
          int id = -1;
+
          if (argc >= 3) {
             id = atoi(args[2]);
          } else {
             return tui_window_destroy( tui_active_window() );
          }
+
          if (id > 0) {
             tui_window_destroy_id(id);
 
             return false;
          }
+
          return true;
       }
       int id = atoi(args[1]);
 
       tui_print_win(tui_active_window(), "ID: %s", args[1]);
+
       if (id < 1 || id > TUI_MAX_WINDOWS) {
          tui_print_win(tui_active_window(), "Invalid window %d, must be between 1 and %d", id,
             TUI_MAX_WINDOWS);
@@ -389,6 +421,7 @@ bool cmd_win(int argc, char **args) {
       }
       tui_window_focus_id(id);
    }
+
    return false;
 }
 
@@ -396,6 +429,7 @@ bool cmd_clear(int argc, char **args) {
    if (!ui_mode_gui) {
       tui_clear_scrollback( tui_active_window() );
    }
+
    return false;
 }
 
@@ -445,13 +479,16 @@ client_cmd_t client_cmds[] = {
 bool cmd_help(int argc, char **args) {
    if (!ui_mode_gui) {
       tui_window_t *wp = tui_active_window();
+
       if (!wp) {
          return true;
       }
       tui_print_win(wp, "*** Available commands ***");
+
       for (int i = 0 ; client_cmds[i].cmd ; i++) {
          tui_print_win(wp, "   %s\t\t%s", client_cmds[i].cmd, client_cmds[i].desc);
       }
+
       tui_print_win(wp, "");
       tui_print_win(wp, "*** Keyboard Shortcuts ***");
       tui_print_win(wp, "   alt-X (1-0)\t\tSwitch to window 1-10");
@@ -459,5 +496,6 @@ bool cmd_help(int argc, char **args) {
       tui_print_win(wp, "   alt-right\t\tSwitch to next win");
       tui_print_win(wp, "   F12\t\t\tPTT toggle");
    }
+
    return false;
 }

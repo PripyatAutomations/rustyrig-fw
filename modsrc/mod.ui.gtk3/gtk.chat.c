@@ -48,6 +48,7 @@ gboolean ui_scroll_to_end(gpointer data) {
    GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
    GtkTextIter end;
+
    if (!data) {
       printf("ui_scroll_to_end: data == NULL\n");
 
@@ -62,6 +63,7 @@ gboolean ui_scroll_to_end(gpointer data) {
 
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
+
    if (!msg) {
       return;
    }
@@ -78,9 +80,11 @@ static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointe
    if (!event || !entry) {
       return FALSE;
    }
+
    if (!input_history || input_history->len == 0) {
       return FALSE;
    }
+
    if (event->keyval == GDK_KEY_Up) {
       if (history_index > 0) {
          history_index--;
@@ -108,6 +112,7 @@ GtkWidget *create_chat_box(void) {
 //   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 //   gui_window_t *main_window_t = ui_new_window(main_window, "main");
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+
    if (!chat_box) {
       return NULL;
    }

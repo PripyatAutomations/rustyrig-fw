@@ -24,7 +24,7 @@
 #if     defined(HOST_POSIX)
 #include <stdio.h>
 #include <gpiod.h>              // Linux hosts
-#define MAX_GPIOCHIPS 8
+#define	MAX_GPIOCHIPS 8
 radio_gpiochip gpiochips[MAX_GPIOCHIPS];
 #endif
 
@@ -34,11 +34,13 @@ uint32_t radio_find_gpiochip(const char *name) {
 // On posix hosts, such as linux on pi, we use libgpiod to access gpio, add
 // other platforms here
 #if     defined(HOST_POSIX)
+
    for (uint32_t i = 0 ; i < MAX_GPIOCHIPS ; i++) {
       if (strcasecmp(gpiochips[i].key, name) == 0) {
          return i;
       }
    }
+
 #endif
 
    return -1;
@@ -46,8 +48,9 @@ uint32_t radio_find_gpiochip(const char *name) {
 
 uint32_t radio_gpiochip_init(const char *chipname) {
    uint32_t i = -1;
+
    // Does it already exist?
-   if ( (i = radio_find_gpiochip(chipname) ) != -1) {
+   if ( ( i = radio_find_gpiochip(chipname) ) != -1 ) {
       Log(LOG_WARN, "gpio", "gpio chip %s is already initialized at index %d", i);
 
       return -1;
@@ -56,7 +59,8 @@ uint32_t radio_gpiochip_init(const char *chipname) {
 // other platforms here
 #if     defined(HOST_POSIX)
    struct gpiod_chip *tmp = NULL;
-   if (!(tmp = gpiod_chip_open(chipname) ) ) {
+
+   if ( !( tmp = gpiod_chip_open(chipname) ) ) {
 // XXX: v1 api remnant, safe to remove?
 //   if (!(tmp = gpiod_chip_open_by_name(chipname))) {
       Log(LOG_CRIT, "gpio", "error opening gpio chip %s", chipname);
@@ -64,6 +68,7 @@ uint32_t radio_gpiochip_init(const char *chipname) {
       return -1;
    }
    bool slot_found = false;
+
    for (i = 0 ; i < MAX_GPIOCHIPS ; i++) {
       // find the first empty slot
       if (!gpiochips[i].active && !gpiochips[i].chip) {
@@ -71,7 +76,9 @@ uint32_t radio_gpiochip_init(const char *chipname) {
          break;
       }
    }
+
 #endif
+
    if (slot_found) {
       Log(LOG_INFO, "gpio", "Initializing GPIO chip %s at index %i [ptr: %x]", chipname, i, tmp);
       gpiochips[i].chip = tmp;

@@ -97,6 +97,7 @@ rr_mode_t hl_mode_get(rr_vfo_t vfo) {
 // Convert between internal and hamlib IDs for modes
 rmode_t hl_mode(rr_mode_t mode) {
    rmode_t rv = RIG_MODE_NONE;
+
    if (mode == MODE_CW) {
       return RIG_MODE_CW;
    } else if (mode == MODE_AM) {
@@ -112,12 +113,14 @@ rmode_t hl_mode(rr_mode_t mode) {
    } else if (mode == MODE_DL) {
       return RIG_MODE_PKTLSB;
    }
+
    return RIG_MODE_NONE;
 }
 
 // Convert between internal and hamlib IDs for modes
 rr_mode_t hl_mode_to_rr(rmode_t mode) {
    rr_mode_t rv = MODE_NONE;
+
    if (mode == RIG_MODE_CW) {
       return MODE_CW;
    } else if (mode == RIG_MODE_AM) {
@@ -133,6 +136,7 @@ rr_mode_t hl_mode_to_rr(rmode_t mode) {
    } else if (mode == RIG_MODE_PKTLSB) {
       return MODE_DL;
    }
+
    return RIG_MODE_NONE;
 }
 
@@ -148,19 +152,21 @@ static void hl_destroy(RIG *hl_rig) {
 static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
    vfo_t hl_vfo = hl_get_vfo(vfo);
    int ret = -1;
+
    if (state == true) {
-      if ( ( ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_ON) ) != RIG_OK ) {
+      if ( (ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_ON) ) != RIG_OK) {
          Log( LOG_CRIT, "backend.hamlib", "Failed to enable PTT: %s\n", rigerror(ret) );
 
          return true;
       }
    } else {
-      if ( ( ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_OFF) ) != RIG_OK ) {
+      if ( (ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_OFF) ) != RIG_OK) {
          fprintf( stderr, "Failed to disable PTT: %s\n", rigerror(ret) );
 
          return true;
       }
    }
+
    return false;
 }
 
@@ -183,6 +189,7 @@ static bool hl_init(void) {
 #endif
 
    hl_rig = rig_init(model);
+
    if (!hl_rig) {
       fprintf(stderr, "Failed to initialize rig\n");
 
@@ -201,10 +208,11 @@ static bool hl_init(void) {
    rig_set_conf( hl_rig, rig_token_lookup(hl_rig, "rig_pathname"),
       (cfg_hamlib_port ? cfg_hamlib_port : BACKEND_HAMLIB_PORT) );
    free( (char *)cfg_hamlib_port );
+
 // XXX: this doesnt work on daedalus
 //   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
    // Open connection to rigctld
-   if ( ( ret = rig_open(hl_rig) ) != RIG_OK ) {
+   if ( (ret = rig_open(hl_rig) ) != RIG_OK) {
       fprintf( stderr, "Failed to connect to rigctld: %s\n", rigerror(ret) );
       rig_cleanup(hl_rig);
       shutdown_rig(100);
@@ -220,12 +228,14 @@ static bool hl_init(void) {
 
 static bool hl_freq_set(rr_vfo_t vfo, float freq) {
    int ret = -1;
+
    // Set frequency
-   if ( ( ret = rig_set_freq(hl_rig, RIG_VFO_A, freq) ) != RIG_OK ) {
+   if ( (ret = rig_set_freq(hl_rig, RIG_VFO_A, freq) ) != RIG_OK) {
       Log( LOG_WARN, "ws.rigctl", "Failed to set frequency: %s", rigerror(ret) );
 
       return true;
    }
+
    return false;
 }
 
@@ -235,6 +245,7 @@ static bool hl_fini(void) {
 
       return true;
    }
+
    if (hl_rig) {
       hl_destroy(hl_rig);
    }
@@ -254,6 +265,7 @@ rr_vfo_data_t *hl_poll(void) {
    int rc = -1;
 
    rr_vfo_data_t *rv = malloc( sizeof(rr_vfo_data_t) );
+
    if (!rv) {
       printf("OOM in hl_poll!\n");
 
@@ -263,24 +275,29 @@ rr_vfo_data_t *hl_poll(void) {
 
    // Do VFO_A for now
    memset( &hl_state, 0, sizeof(hamlib_state_t) );
-   if ( ( rc = rig_set_vfo(hl_rig, RIG_VFO_A) ) != RIG_OK ) {
+
+   if ( (rc = rig_set_vfo(hl_rig, RIG_VFO_A) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "SET VFO A failed: %s", rigerror(rc) );
 
       return NULL;
    }
-   if ( ( rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq) ) != RIG_OK ) {
+
+   if ( (rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A freq failed: %s", rigerror(rc) );
       free(rv);
 
       return NULL;
    }
-   if ( ( rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width) ) != RIG_OK ) {
+
+   if ( (rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A mode failed: %s", rigerror(rc) );
    }
-   if ( ( rc = rig_get_ptt(hl_rig, RIG_VFO_CURR, &hl_state.ptt) ) != RIG_OK ) {
+
+   if ( (rc = rig_get_ptt(hl_rig, RIG_VFO_CURR, &hl_state.ptt) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A ptt failed: %s", rigerror(rc) );
    }
-   if ( ( rc = rig_get_strength(hl_rig, RIG_VFO_CURR, &hl_state.power) ) != RIG_OK ) {
+
+   if ( (rc = rig_get_strength(hl_rig, RIG_VFO_CURR, &hl_state.power) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A power failed: %s", rigerror(rc) );
    }
    Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
@@ -329,6 +346,7 @@ bool hl_power_set(rr_vfo_t vfo, float power) {
 float hl_power_get(rr_vfo_t vfo) {
    value_t power;
    int rv = rig_get_level(hl_rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &power);
+
    if (rv != RIG_OK) {
       Log(LOG_CRIT, "hl_power_get", "failed: %d", rv);
    }
@@ -339,9 +357,11 @@ float hl_power_get(rr_vfo_t vfo) {
 
 bool hl_mode_set(rr_vfo_t vfo, rr_mode_t mode) {
    int rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_mode(mode), RIG_PASSBAND_NORMAL);
+
    if (rv == RIG_OK) {
       return false;
    }
+
    return true;
 }
 
@@ -353,6 +373,7 @@ uint16_t hl_width_get(rr_vfo_t vfo) {
 
 bool hl_width_set(rr_vfo_t vfo, const char *width) {
    int rv = -1;
+
    if (strcasecmp(width, "narrow") == 0 || strcasecmp(width, "nar") == 0) {
       rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode,
          rig_passband_narrow(hl_rig, hl_state.rmode) );

@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_backend_internal_h)
-#define __rr_backend_internal_h
+#define	__rr_backend_internal_h
 
 extern rr_backend_t rr_backend_internal;
 

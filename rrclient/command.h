@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rrclient_command_h)
-#define __rrclient_command_h
+#define	__rrclient_command_h
 #include <librustyaxe/config.h>
 #include <librustyaxe/struct.h>
 #include <librustyaxe/event-bus.h>

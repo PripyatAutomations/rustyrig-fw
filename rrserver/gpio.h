@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_gpio_h)
-#define __rr_gpio_h
+#define	__rr_gpio_h
 #include "build_config.h"
 #include <stdbool.h>
 
@@ -19,7 +19,7 @@ extern const uint32_t max__rr_gpiochips;
 // Include uc specific gpio
 #endif
 
-#define GPIO_KEYLEN 8
+#define	GPIO_KEYLEN 8
 struct GPIO_pin {
    char key[GPIO_KEYLEN + 1];
    struct gpiod_chip    *gpiochip;

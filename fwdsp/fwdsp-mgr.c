@@ -22,7 +22,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/fwdsp-mgr.h>
 
-#define FWDSP_MAX_SUBPROCS 100
+#define	FWDSP_MAX_SUBPROCS 100
 
 defconfig_t defcfg_fwdsp[] = {
    {
@@ -73,9 +73,10 @@ static void fwdsp_sigchld(int sig) {
    int status;
    pid_t pid;
 
-   while ( ( pid = waitpid(-1, &status, WNOHANG) ) > 0 ) {
+   while ( (pid = waitpid(-1, &status, WNOHANG) ) > 0) {
       for (int i = 0 ; i < max_subprocs ; i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+
          if (sp->pid == pid) {
             if (on_fwdsp_exit) {
                on_fwdsp_exit(sp, status);
@@ -90,6 +91,7 @@ static void fwdsp_sigchld(int sig) {
 
 static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct fwdsp_io_conn *ctx = c->fn_data;
+
    if (ev == MG_EV_READ) {
       struct mg_str *data = (struct mg_str *) ev_data;
 
@@ -105,6 +107,7 @@ bool fwdsp_init(void) {
       return true;
    }
    const char *max_subprocs_s = cfg_get_exp("fwdsp:subproc.max");
+
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
       Log(LOG_DEBUG, "fwdsp-mgr", "fwdsp initializing with %d slots available", max_subprocs);
@@ -114,6 +117,7 @@ bool fwdsp_init(void) {
 
       return true;
    }
+
    // Sanity check as some hams are crazy? ;)
    if (max_subprocs <= 0 || max_subprocs > FWDSP_MAX_SUBPROCS) {
       Log(LOG_CRIT, "config", "fwdsp:subproc.max <%d> is invalid: range=0-%d", max_subprocs,
@@ -121,9 +125,11 @@ bool fwdsp_init(void) {
 
       return true;
    }
+
    // if not allocated, try to allocate it
    if (!fwdsp_subprocs) {
       fwdsp_subprocs = calloc( max_subprocs + 1, sizeof(struct fwdsp_subproc) );
+
       if (!fwdsp_subprocs) {
          Log(LOG_CRIT, "fwdsp-mgr", "fwdsp_init failed to allocate fwdsp_subprocs! errno %d",
             errno);
@@ -131,6 +137,7 @@ bool fwdsp_init(void) {
          return true;
       }
    }
+
    // did we OOM?
    if (!fwdsp_subprocs) {
       fprintf(stderr, "OOM in fwdsp_init\n");
@@ -147,6 +154,7 @@ bool fwdsp_init(void) {
 
    // Find the fwdsp path
    fwdsp_path = cfg_get_exp("path.fwdsp");
+
    if (!fwdsp_path) {
       Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp binary");
 
@@ -168,14 +176,17 @@ static int fwdsp_find_offset(const char *id, bool is_tx) {
    if (!id || max_subprocs <= 0 || !active_slots || !fwdsp_subprocs) {
       return -1;
    }
+
    for (int i = 0 ; i < max_subprocs ; i++) {
       if (fwdsp_subprocs[i].pl_id[0] == '\0') {
          continue;
       }
+
       if (strncmp(id, fwdsp_subprocs[i].pl_id, 4) == 0 && fwdsp_subprocs[i].is_tx == is_tx) {
          return i;
       }
    }
+
    return -1;
 }
 
@@ -191,22 +202,26 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
 
       return NULL;
    }
+
    if (active_slots >= max_subprocs) {
       Log(LOG_CRIT, "fwdsp", "We're out of fwdsp slots. %d of %d used", active_slots, max_subprocs);
 
       return NULL;
    }
+
    if (!fwdsp_subprocs) {
       return NULL;
    }
+
    // Find the desired pipeline
    // Find an unused slot
    for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
-      if ( sp && (sp->pl_id[0] == '\0') &&
-           (sp->pl_id[1] == '\0') &&
-           (sp->pl_id[2] == '\0') &&
-           (sp->pl_id[3] == '\0') ) {
+
+      if (sp && (sp->pl_id[0] == '\0') &&
+          (sp->pl_id[1] == '\0') &&
+          (sp->pl_id[2] == '\0') &&
+          (sp->pl_id[3] == '\0') ) {
          Log( LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id,
             (is_tx ? "tx" : "rx") );
          // Clear the memory for reuse
@@ -236,6 +251,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          return sp;
       }
    }
+
    Log(LOG_CRIT, "fwdsp", "Out of subproc slots?! %d > %d", active_slots, max_subprocs);
 
    return NULL;
@@ -243,8 +259,10 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
 
 struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(id, is_tx);
+
    if (!sp) {
       sp = fwdsp_create(id, io_type, is_tx);
+
       if (!sp) {
          Log(LOG_CRIT, "fwdsp", "Failure in fwdsp_create call");
       } else {
@@ -255,6 +273,7 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
       Log( LOG_DEBUG, "fwdsp", "Using existing fwdsp instance %x for codec %s.%s", sp, id,
          (is_tx ? "tx" : "rx") );
    }
+
    return sp;
 }
 
@@ -265,19 +284,23 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    // Disconnect stdout/stderr from event loop
    // XXX: this was crashing! should be ok now
 #if     defined(USE_MONGOOSE)
+
    if (sp->mg_stdout_conn) {
       mg_mgr_disconnect(sp->mg_stdout_conn);
       sp->mg_stdout_conn = NULL;
    }
+
    if (sp->mg_stderr_conn) {
       mg_mgr_disconnect(sp->mg_stderr_conn);
       sp->mg_stderr_conn = NULL;
    }
 #endif
+
    // Kill subprocess
    if (sp->pid > 0) {
       kill(sp->pid, SIGTERM);
       nanosleep(&(struct timespec) { .tv_sec = 1 }, NULL);
+
       if (waitpid(sp->pid, NULL, WNOHANG) == 0) {
          kill(sp->pid, SIGKILL);
          waitpid(sp->pid, NULL, 0);
@@ -286,23 +309,28 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
       }
       sp->pid = -1;
    }
+
    // Close file descriptors
    if (sp->io_type == FW_IO_STDIO) {
       if (sp->fw_stdin > 0) {
          close(sp->fw_stdin);
       }
+
       if (sp->fw_stdout > 0) {
          close(sp->fw_stdout);
       }
+
       if (sp->fw_stderr > 0) {
          close(sp->fw_stderr);
       }
    }
    // Clear struct
    memset( sp, 0, sizeof(*sp) );
+
    if (active_slots > 0) {
       active_slots--;
    }
+
    return true;
 }
 
@@ -312,25 +340,29 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
    int in_pipe[2], out_pipe[2], err_pipe[2];
    int sock_pair[2];
+
    if (sp->io_type == FW_IO_STDIO) {
-      if ( pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
+      if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
          perror("pipe");
 
          return false;
       }
    }
    pid_t pid = fork();
+
    if (pid < 0) {
       perror("fork");
 
       return false;
    }
    const char *fwdsp_path = cfg_get_exp("path.fwdsp");
+
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp bin");
 
       return false;
    }
+
    if (pid == 0) {
       // --- Child ---
       if (sp->io_type == FW_IO_STDIO) {
@@ -341,6 +373,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          close(out_pipe[0]);
          close(err_pipe[0]);
       }
+
       if (sp->is_tx) {
          execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-t", NULL);
       } else {
@@ -352,6 +385,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    // --- Parent ---
    sp->pid = pid;
    free( (char *)fwdsp_path );
+
    if (sp->io_type == FW_IO_STDIO) {
       close(in_pipe[0]);
       close(out_pipe[1]);
@@ -359,16 +393,20 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       sp->fw_stdin = in_pipe[1];
       sp->fw_stdout = out_pipe[0];
       sp->fw_stderr = err_pipe[0];
+
       // Hook up stdout/stderr to Mongoose immediately
       if (sp->fw_stdout) {
          sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, sp);
       }
+
       if (sp->fw_stderr) {
          sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, sp);
       }
+
       if (sp->fw_stdin) {
          sp->mg_stdin_conn = mg_wrapfd(&mg_mgr, sp->fw_stdin, NULL, sp);
       }
+
       if (!sp->mg_stdout_conn || !sp->mg_stderr_conn || !sp->mg_stdin_conn) {
          Log(LOG_CRIT, "fwdsp", "Failed to attach fds to event loop for codec %s.%s", sp->pl_id,
             sp->is_tx ? "tx" : "rx");
@@ -387,6 +425,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
       return NULL;
    }
    char *tmp = strdup(codec_list);
+
    if (!tmp) {
       return NULL;
    }
@@ -395,10 +434,12 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
 
    while (token) {
       au_codec_mapping_t *c = au_codec_find_by_magic(token);
+
       if (c && c->magic) {
          struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, tx_mode);
+
          if (sp && !sp->pid) {
-            if ( !fwdsp_spawn(sp) ) {
+            if (!fwdsp_spawn(sp) ) {
                Log( LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s.%s", token,
                   (tx_mode ? "tx" : "rx") );
                fwdsp_destroy(sp);
@@ -426,14 +467,18 @@ int fwdsp_get_chan_id(const char *magic, bool is_tx) {
 
 void fwdsp_sweep_expired(void) {
    time_t now = time(NULL);
+
    if (!active_slots) {
       return;
    }
+
    for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+
       if (!sp) {
          continue;
       }
+
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 &&
           now >= sp->cleanup_deadline) {
          Log( LOG_INFO, "fwdsp", "Cleaning up idle pipeline %s.%s", sp->pl_id,
@@ -448,18 +493,22 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
       return -1;
    }
    au_codec_mapping_t *c = au_codec_by_id(id);
+
    if (!c || !c->magic) {
       return -1;
    }
+
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, is_tx);
-      if ( !sp || !fwdsp_spawn(sp) ) {
+
+      if (!sp || !fwdsp_spawn(sp) ) {
          Log( LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", c->magic,
             (is_tx ? "tx" : "rx") );
 
          return -1;
       }
    }
+
    return au_codec_start(id, is_tx);
 
    return -1;
@@ -467,19 +516,24 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
 
 int fwdsp_codec_stop(const char *codec, bool is_tx) {
    au_codec_mapping_t *c = au_codec_by_id(id);
+
    if (!c || !c->magic) {
       return -1;
    }
    int rc = au_codec_stop(id, is_tx);
+
    if (rc < 0) {
       return rc;
    }
+
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_instance(c->magic, is_tx);
+
       if (sp) {
          const char *hangtime_s = cfg_get_exp("fwdsp.hangtime");
          int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
          free(hangtime_s);
+
          if (hangtime > 0) {
             sp->cleanup_deadline = time(NULL) + hangtime;
          } else {
@@ -487,5 +541,6 @@ int fwdsp_codec_stop(const char *codec, bool is_tx) {
          }
       }
    }
+
    return 0;
 }

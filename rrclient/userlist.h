@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rrclient_userlist_h)
-#define __rrclient_userlist_h
+#define	__rrclient_userlist_h
 
 #if     defined(USE_GTK)
 #include <gtk/gtk.h>
@@ -26,25 +26,30 @@ enum {
 };
 
 static inline const char *select_user_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "owner") ) {
+   if ( strcasestr(cptr->privs, "owner") ) {
       return "👑";
    }
-   if (strcasestr(cptr->privs, "admin") ) {
+
+   if ( strcasestr(cptr->privs, "admin") ) {
       return "⭐";
    }
-   if (strcasestr(cptr->privs, "tx") ) {
+
+   if ( strcasestr(cptr->privs, "tx") ) {
       return "👤";
    }
+
    return "👀";
 }
 
 static inline const char *select_elmernoob_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "elmer") ) {
+   if ( strcasestr(cptr->privs, "elmer") ) {
       return "🧙";
    }
-   if (strcasestr(cptr->privs, "noob") ) {
+
+   if ( strcasestr(cptr->privs, "noob") ) {
       return "🐣";
    }
+
    return "";
 }
 
