@@ -21,7 +21,6 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-
 // is an admin or owner online?
 bool is_admin_online(void) {
    if (http_client_list == NULL) {

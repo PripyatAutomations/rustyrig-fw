@@ -19,7 +19,7 @@
 #include <librrprotocol/irc.h>
 #include <librrprotocol/ws.h>
 #include <librrprotocol/ws.binframe.h>
-#include <librrprotocol/ws.mediachan.h>
+//#include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/state.h>
 #include <librrprotocol/client-flags.h>
 

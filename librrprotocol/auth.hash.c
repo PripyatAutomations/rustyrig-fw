@@ -26,6 +26,7 @@ int generate_nonce(char *buffer, size_t length) {
    return length;
 }
 
+#if	defined(USE_MONGOOSE)
 char *hash_passwd(const char *passwd) {
    if (!passwd) {
       return NULL;
@@ -34,7 +35,7 @@ char *hash_passwd(const char *passwd) {
    char *hex_output = (char *)malloc(HTTP_HASH_LEN * 2 + 1);   // Allocate space
                                                                // for hex string
    if (!hex_output) {
-      fprintf(stderr, "oom in compute_wire_password?!\n");
+      fprintf(stderr, "oom in hash_passwd?!\n");
 
       return NULL;
    }
@@ -70,9 +71,11 @@ char *hash_passwd(const char *passwd) {
 // You *must* free the result
 char *compute_wire_password(const char *password, const char *nonce) {
    unsigned char combined[(HTTP_HASH_LEN * 2) + 1];
+#if     defined(USE_MONGOOSE)
    mg_sha1_ctx ctx;
+#endif // USE_MONGOOSE
    if (password == NULL || nonce == NULL) {
-      Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%x> or nonce<%x>",
+      Log(LOG_CRIT, "auth", "wtf compute_wire_password called with NULL password<%p> or nonce<%p>",
          password, nonce);
 
       return NULL;
@@ -87,13 +90,15 @@ char *compute_wire_password(const char *password, const char *nonce) {
    memset( (char *)combined, 0, sizeof(combined) );
    snprintf( (char *)combined, sizeof(combined), "%s+%s", password, nonce );
 
+   size_t len = strlen( (char *)combined );   // Cast to (char *) for strlen
+   unsigned char hash[20];   // Store the raw SHA1 hash
+#if     defined(USE_MONGOOSE)
    // Compute SHA1 of the combined string
    mg_sha1_init(&ctx);
-   size_t len = strlen( (char *)combined );   // Cast to (char *) for strlen
    mg_sha1_update(&ctx, (unsigned char *)combined, len);
 
-   unsigned char hash[20];   // Store the raw SHA1 hash
    mg_sha1_final(hash, &ctx);
+#endif // USE_MONGOOSE
 
    // Convert the raw hash to a hexadecimal string
    for (int i = 0 ; i < 20 ; i++) {
@@ -104,3 +109,5 @@ char *compute_wire_password(const char *password, const char *nonce) {
 
    return hex_output;
 }
+
+#endif	// defined(USE_MONGOOSE)

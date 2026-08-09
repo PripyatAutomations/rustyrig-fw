@@ -1,7 +1,9 @@
 //
+// Vadlidate incoming messages from websocket and dispatch them as events
 //
-//
+// Enable 
 
+#define	DEBUG_PROTO_UNKNOWN
 typedef struct ws_proto_handler {
    char *cmd;				// Command tag
    int   min_arg,
@@ -19,56 +21,113 @@ typedef struct ws_arg {
    bool required;
 } ws_arg_t;
 
+typedef struct rrconn {
+#if	defined(USE_MONGOOSE)
+  struct mg_connection *mg;
+#endif	// defined(USE_MONGOOSE)
+} rrconn_t;
+
 ////////////////////////////////////////
-bool cli_ws_alert(dict *msg) {
+#if	defined(DEBUG_PROTO_UNKNOWN)
+bool	ws_proto_debug_unknowns = true;
+#else
+bool	ws_proto_debug_unknowns = false;
+#endif	// defined(DEBUG_PROTO_UNKNOWN)
+
+////////////////
+// Validators //
+////////////////
+bool ws_msg_alert(dict *msg) {
    char *a_msg = dict_get(msg, "alert.msg", NULL);
    char *a_from = dict_get(msg, "alert.from", NULL);
    char *a_ts = dict_get(msg, "alert.ts", NULL);
 
-   // Validate the message
-   ///////////////////////
+   //////////////////////////
+   // Validate the message //
+   //////////////////////////
    if (!a_msg || !a_from || !a_ts) {
       // We're missing parameters
       return true;
    }
 
+   event_emit("alert", NULL, msg);
+
    return false;
 }
 
-bool cli_ws_privmsg(dict *msg) {
+bool ws_msg_cat(dict *msg) {
+   char *ts = dict_get(msg, "cat.ts", NULL);
+   char *from = dict_get(msg, "cat.from", NULL);
+   char *data = dict_get(msg, "cat.data", NULL);
+
+   //////////////////////////
+   // Validate the message //
+   //////////////////////////
+   if (!ts || !prio || !subsys || !data) {
+      // We're missing critical parameters, discard it for now
+      return true;
+   }
+
+   event_emit("cat", NULL, msg);
    return false;
 }
 
-bool cli_ws_syslog(dict *msg) {
+bool ws_msg_privmsg(dict *msg) {
+   char *ts = dict_get(msg, "privmsg.ts", NULL);
+   char *from = dict_get(msg, "privmsg.from", NULL);
+   char *data = dict_get(msg, "privmsg.data", NULL);
+
+   //////////////////////////
+   // Validate the message //
+   //////////////////////////
+   if (!ts || !prio || !subsys || !data) {
+      // We're missing critical parameters, discard it for now
+      return true;
+   }
+
+   event_emit("privmsg", NULL, msg);
+   return false;
+}
+
+bool ws_msg_syslog(rrconn_t *cptr, dict *msg) {
    char *ts = dict_get(msg, "syslog.ts", NULL);
    char *prio = dict_get(msg, "syslog.prio", NULL);
    char *subsys = dict_get(msg, "syslog.subsys", NULL);
    char *data = dict_et(msg, "syslog.data", NULL);
 
-   // Validate the message
-   ///////////////////////
+   //////////////////////////
+   // Validate the message //
+   //////////////////////////
    if (!ts || !prio || !subsys || !data) {
-      // We're missing parameters
+      // We're missing parameters, just discard it for now
       return true;
    }
 
-   event_emit("syslog", msg);
+   event_emit("syslog", cptr, msg);
    return false;
 }
 
-ws_proto_handler_t ws_proto_handlers_cli[] = {
-  { .cmd = "alert",   .func = cli_ws_alert },
-  { .cmd = "privmsg", .func = cli_ws_privmsg },
-  { .cmd = "syslog",  .func = cli_ws_syslog },
+ws_proto_handler_t ws_proto_handlers[] = {
+  { .cmd = "alert",   .func = ws_msg_alert },
+  { .cmd = "cat",     .func = ws_msg_cat },
+  { .cmd = "privmsg", .func = ws_msg_privmsg },
+  { .cmd = "syslog",  .func = ws_msg_syslog },
   { .cmd = NULL }
 };
 
-///////////////
-bool srv_ws_cat(dict *msg) {
+// Dispatch an incoming websocket message to it's appropriate
+// validator who will send it on or throw an error
+bool ws_proto_dispatch(rrconn_t *cptr, dict *msg) {
+   ws_proto_handler_t *wp = ws_proto_handlers;
+
+   while (wp) {
+      // This is gross
+      if (wp->cmd && wp->cmd[0]) {
+         char *tp = dict_get(msg, wp->cmd, NULL);
+         if (strcasecmp(wp->cmd, tp) == 0) {
+         }
+      }
+      wp = wp->next;
+   }
    return false;
 }
-
-ws_proto_handler_t ws_proto_handlers_srv[] = {
-  { .cmd = "cat",      .func = srv_ws_cat },
-  { .cmd = NULL }
-};
