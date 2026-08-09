@@ -21,4 +21,4 @@
 	url = https://github.com/PripyatAutomations/librustyaxe
 [submodule "librrprotocol"]
 	path = librrprotocol
-	url = https://github.com/PripyatAutomations/librrprotocol.git
+	url = https://github.com/PripyatAutomations/librrprotocol

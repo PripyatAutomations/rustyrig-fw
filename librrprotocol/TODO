@@ -1,6 +1,0 @@
-[Merge]
-* ws.c / ws.cli.c / wsnew.c
-  - We want to make the protocol handling the same on client/server
-    - Send an event with the JSON message along
-    - The program will listen for the events it wants (librusty/event-bus.[ch])
-
