@@ -46,7 +46,6 @@ void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
    const gchar *label = "PTT OFF";
 
    if (!ws_connected || !active) {
-      const gchar *label = "PTT OFF";
       gtk_button_set_label(GTK_BUTTON(button), label);
 
       return;
@@ -57,7 +56,7 @@ void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
       gtk_style_context_add_class(context, "ptt-active");
       gtk_style_context_remove_class(context, "ptt-idle");
    } else {
-      gtk_style_context_add_class(context, "ptt-idle");
+      gtk_style_context_add_class(context, "ptt-pending");
       gtk_style_context_remove_class(context, "ptt-active");
    }
 }

@@ -311,7 +311,7 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
       }
       // XXX: we need to pass io structs
-      /// XXX: Determine which (pipes|devices|sockets) are needing read from
+      // XXX: Determine which (pipes|devices|sockets) are needing read from
       // XXX: Iterate over them: console, amp, rig
       // We limit line length to 512
 #if     defined(FEATURE_CAT)

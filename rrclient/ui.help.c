@@ -21,7 +21,6 @@
 #include <librrprotocol/rrprotocol.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
-
 static bool safe_name(const char *name) {
    // reject empty names or those containing path separators or parent refs
    if (!name || !*name) {

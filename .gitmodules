@@ -1,6 +1,3 @@
-[submodule "ext/libev"]
-	path = ext/libev
-	url = https://github.com/enki/libev.git
 [submodule "ext/wslay"]
 	path = ext/wslay
 	url = https://github.com/tatsuhiro-t/wslay.git

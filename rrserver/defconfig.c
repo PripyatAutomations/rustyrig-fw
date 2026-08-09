@@ -40,7 +40,7 @@ defconfig_t defcfg[] = {
       "audio.debug", "false", "Debug audio? [bool]"
    },
    {
-      "backend.active", "dummy", "Backend to use for rig control"
+      "backend.active", "internal", "Backend to use for rig control"
    },
    {
       "codecs.allowed", "mu16 pc16 mu08", "Preferred codec order"

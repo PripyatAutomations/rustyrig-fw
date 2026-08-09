@@ -638,3 +638,14 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
 //   g_signal_connect(widget, "destroy", G_CALLBACK(on_widget_destroy), p);
    return p;
 }
+
+/////////////
+bool flash_main_win(void) {
+      gui_window_t *win = gui_find_window(NULL, "main");
+      GtkWidget *main_window = win->gtk_win;
+
+      if (!gtk_window_is_active( GTK_WINDOW(main_window) ) ) {
+         gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
+      }
+      return false;
+}

@@ -404,7 +404,7 @@ int main(int argc, char *argv[]) {
 
    ws_client_init();
 
-//   connman_autoconnect();
+   connman_autoconnect();
    if (ui_mode_gui) {
       // start gtk main loop
       gtk_main();

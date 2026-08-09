@@ -32,7 +32,7 @@
 
 // Server connections
 rr_connection_t *active_connections;
-bool ws_connected = false;       // Is RX stream connecte?
+bool ws_connected = false;       // Is RX stream connected?
 bool ws_tx_connected = false;    // Is TX stream connected?
 bool server_ptt_state = false;
 
@@ -63,6 +63,7 @@ extern bool dying;
 extern bool debug_sockets;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN + 1];
+
 #if     defined(USE_MONGOOSE)
 struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 extern struct mg_mgr mgr;
@@ -93,6 +94,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          char *pong_ts = dict_get(d, "pong.ts", NULL);
          char *ping_ts = dict_get(d, "ping.ts", NULL);
 
+         // It's a ping, so we should reply to it with a pong then fall through to cleanup
          if (ping_ts) {
             const char *jp = dict2json_mkstr( VAL_STR, "type", "pong", VAL_ULONG, "ts",
                atol(ping_ts) );
@@ -108,24 +110,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
             time_t ts = dict_get_time_t(d, "talk.ts", now);
 
             if (from && data) {
-               struct talk_msg_event_data {
-                  char from[128];
-                  char data[4096];
-                  char target[128];
-                  char msg_type[32];
-                  time_t ts;
-               } *tmed = calloc( 1, sizeof(*tmed) );
-
-               if (tmed) {
-                  snprintf(tmed->from, sizeof(tmed->from), "%s", from);
-                  snprintf(tmed->data, sizeof(tmed->data), "%s", data);
-                  snprintf(tmed->target, sizeof(tmed->target), "%s", target ? target : "");
-                  snprintf(tmed->msg_type, sizeof(tmed->msg_type), "%s",
-                     msg_type ? msg_type : "pub");
-                  tmed->ts = ts;
-                  event_emit("talk.msg", NULL, tmed);
-                  free(tmed);
-               }
+               event_emit("talk.msg", NULL, buf);
             }
          } else if ( dict_get(d, "hello", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got hello from server");
@@ -136,21 +121,18 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       }
    } else if (ev == MG_EV_WS_OPEN) {
       ws_connected = true;
-      event_emit("connected", NULL, NULL);
-      tui_print_win(tui_window_find("status"), "Connected to server");
+      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
-      const char *xp = cfg_get_exp("server.user");
-
-      if (xp) {
-         login_user = xp;
-         const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient");
-         mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-         free( (void *)jp );
-
-         jp = dict2json_mkstr(VAL_STR, "auth.cmd", "login", VAL_STR, "auth.user", login_user);
-         mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-         free( (void *)jp );
+      char buf[HTTP_WS_MAX_MSG + 1] = { 0 };
+      if (msg && msg->data.buf) {
+         memset( buf, 0, sizeof(buf) );
+         memcpy(buf, msg->data.buf, msg->data.len);
       }
+      event_emit("connected", NULL, buf);
+      tui_print_win(tui_window_find("status"), "Connected to server");
+      const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient", VAL_STR, "hello.version", VERSION);
+      mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+      free( (void *)jp );
    } else if (ev == MG_EV_CLOSE) {
       ws_connected = false;
       event_emit("disconnected", NULL, NULL);
@@ -306,6 +288,11 @@ const char *get_server_property(const char *server, const char *prop) {
 ///////////////////////////////////////////////////////////
 bool disconnect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
+
+   GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
+   gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
+   gtk_style_context_add_class(ctx, "conn-idle");
+   gtk_style_context_remove_class(ctx, "conn-active");
 
    if (ws_connected) {
 #if     defined(USE_MONGOOSE)

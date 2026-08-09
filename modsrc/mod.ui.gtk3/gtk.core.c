@@ -378,6 +378,7 @@ bool gui_init(void) {
    css_provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css_provider, ".ptt-active { background: red; color: white; }"
       ".ptt-idle { background: #0fc00f; color: white; }"
+      ".ptt-pending { background: yellow; color: black; }"
       ".conn-active { background: #0fc00f; color: white; }"
       ".conn-idle { background: red; color: white; }", -1, NULL);
 
