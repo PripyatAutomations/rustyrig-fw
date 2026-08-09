@@ -19,7 +19,7 @@
 extern time_t now;
 extern bool dying, debug_sockets, mirc_colors;
 
-bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args) {
+bool irc_send_privmsg(rrconn_t *cptr, tui_window_t *wp, int argc, char **args) {
    char buf[1024];
    memset(buf, 0, 1024);
    size_t pos = 0;
@@ -34,7 +34,8 @@ bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args)
       pos += n;
    }
    Log(LOG_DEBUG, "irc", "sending privmsg to %s", target);
-   irc_send(wp->cptr, "PRIVMSG %s :%s", target, buf);
+// XXX: re-enable this
+//   irc_send(wp->cptr, "PRIVMSG %s :%s", target, buf);
    if (*buf == '\001') {
       // CTCP
       if (strncasecmp(buf + 1, "ACTION", 6) == 0) {
@@ -49,7 +50,7 @@ bool irc_send_privmsg(irc_conn_t *cptr, tui_window_t *wp, int argc, char **args)
    return false;
 }
 
-void on_privmsg(const char *event, void *data, irc_conn_t *cptr, void *user) {
+void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
    irc_message_t *mp = data;
    char *nick = mp->prefix;
    char *nick_end = strchr(nick, '!');

@@ -12,7 +12,7 @@
 const char *site_id = "RPLYWVCL31";
 const char *rig_id = "ft891";
 
-bool irc_builtin_num_print(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num_print(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc <= 3) {
       return false;
    }
@@ -36,7 +36,7 @@ bool irc_builtin_num_print(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num001(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num001(rrconn_t *cptr, irc_message_t *mp) {
    Log(LOG_DEBUG, "irc", "[%s] *** %s ***", irc_name(cptr), mp->argv[2]);
    tui_print_win(tui_window_find("status"), "%s [{green}%s{reset}] *** %s ***", get_chat_ts(0),
       irc_name(cptr), mp->argv[2]);
@@ -109,7 +109,7 @@ bool irc_builtin_num001(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num004(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num004(rrconn_t *cptr, irc_message_t *mp) {
    Log(LOG_DEBUG, "irc", "[%s] *** %s ***", irc_name(cptr), mp->argv[2]);
    tui_print_win(tui_window_find("status"), "%s [{green}%s{reset}] *** %s ***", get_chat_ts(0),
       irc_name(cptr), mp->argv[2]);
@@ -117,7 +117,7 @@ bool irc_builtin_num004(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num005(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num005(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc <= 3) {
       return false;
    }
@@ -141,7 +141,7 @@ bool irc_builtin_num005(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num251(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num251(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc <= 0) {
       return true;
    }
@@ -167,7 +167,7 @@ bool irc_builtin_num251(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num311(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num311(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc < 7) {
       return true;
    }
@@ -182,7 +182,7 @@ bool irc_builtin_num311(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num312(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num312(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc <= 0) {
       return true;
    }
@@ -208,7 +208,7 @@ bool irc_builtin_num312(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num313(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num313(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc <= 0) {
       return false;
    }
@@ -230,7 +230,7 @@ bool irc_builtin_num313(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num317(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num317(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc < 4) {
       return false;
    }
@@ -254,7 +254,7 @@ bool irc_builtin_num317(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num318(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num318(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc < 1) {
       return false;
    }
@@ -266,7 +266,7 @@ bool irc_builtin_num318(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num319(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num319(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc < 2) {
       return false;
    }
@@ -290,7 +290,7 @@ bool irc_builtin_num319(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num332(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num332(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc <= 0) {
       return true;
    }
@@ -321,7 +321,7 @@ bool irc_builtin_num332(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num353(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num353(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc <= 3) {
       return false;
    }
@@ -343,7 +343,7 @@ bool irc_builtin_num353(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num366(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num366(rrconn_t *cptr, irc_message_t *mp) {
    if (mp->argc < 3) {
       return true;
    }
@@ -363,7 +363,7 @@ bool irc_builtin_num366(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num371(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num371(rrconn_t *cptr, irc_message_t *mp) {
    Log( LOG_DEBUG, "irc", "[%s] Start of MOTD", irc_name(cptr) );
    tui_print_win( tui_window_find("status"), "%s [{green}%s{reset}] *** Start of MOTD ***",
       get_chat_ts(0), irc_name(cptr) );
@@ -371,7 +371,7 @@ bool irc_builtin_num371(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num372(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num372(rrconn_t *cptr, irc_message_t *mp) {
    if (mp->argc < 2) {
       return true;
    }
@@ -382,7 +382,7 @@ bool irc_builtin_num372(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num376(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num376(rrconn_t *cptr, irc_message_t *mp) {
    Log( LOG_DEBUG, "irc", "[%s] End of MOTD", irc_name(cptr) );
    tui_print_win( tui_window_find("status"), "%s [{green}%s{reset}] *** End of MOTD ***",
       get_chat_ts(0), irc_name(cptr) );
@@ -390,7 +390,7 @@ bool irc_builtin_num376(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num401(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num401(rrconn_t *cptr, irc_message_t *mp) {
    if (mp->argc < 2) {
       return true;
    }
@@ -402,7 +402,7 @@ bool irc_builtin_num401(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num403(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num403(rrconn_t *cptr, irc_message_t *mp) {
    if (mp->argc < 2) {
       return true;
    }
@@ -414,7 +414,7 @@ bool irc_builtin_num403(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num421(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num421(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc < 2) {
       return false;
    }
@@ -437,7 +437,7 @@ bool irc_builtin_num421(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num433(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num433(rrconn_t *cptr, irc_message_t *mp) {
    if (mp->argc < 2) {
       return true;
    }
@@ -449,7 +449,7 @@ bool irc_builtin_num433(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num461(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num461(rrconn_t *cptr, irc_message_t *mp) {
    if (mp->argc < 2) {
       return true;
    }
@@ -461,7 +461,7 @@ bool irc_builtin_num461(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_num482(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_num482(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc < 2) {
       return false;
    }

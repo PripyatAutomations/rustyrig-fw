@@ -7,7 +7,6 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__irc_modes_h)
 #define __irc_modes_h
-#include <librrprotocol/irc.struct.h>
 
 extern irc_mode_t *irc_find_cmode(char c);
 extern irc_mode_t *irc_find_umode(char c);

@@ -59,7 +59,7 @@ static void rrclient_update_connection_ui(bool connected) {
 #endif
 }
 
-static void rrclient_handle_connection_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_connection_event(const char *event, void *data, rrconn_t *cptr,
                                              void *user) {
    (void)cptr;
    (void)user;
@@ -75,7 +75,7 @@ static void rrclient_handle_connection_event(const char *event, void *data, irc_
    }
 }
 
-static void rrclient_handle_ptt_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_ptt_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    (void)event;
@@ -89,7 +89,7 @@ static void rrclient_handle_ptt_event(const char *event, void *data, irc_conn_t 
    }
 }
 
-static void rrclient_handle_freq_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_freq_event(const char *event, void *data, rrconn_t *cptr,
                                        void *user) {
    (void)cptr;
    (void)user;
@@ -105,7 +105,7 @@ static void rrclient_handle_freq_event(const char *event, void *data, irc_conn_t
    }
 }
 
-static void rrclient_handle_mode_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_mode_event(const char *event, void *data, rrconn_t *cptr,
                                        void *user) {
    (void)cptr;
    (void)user;
@@ -117,7 +117,7 @@ static void rrclient_handle_mode_event(const char *event, void *data, irc_conn_t
    set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
 }
 
-static void rrclient_handle_userinfo_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_userinfo_event(const char *event, void *data, rrconn_t *cptr,
                                            void *user) {
    (void)cptr;
    (void)user;
@@ -131,7 +131,7 @@ static void rrclient_handle_userinfo_event(const char *event, void *data, irc_co
    }
 }
 
-static void rrclient_handle_userjoin_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_userjoin_event(const char *event, void *data, rrconn_t *cptr,
                                            void *user) {
    (void)cptr;
    (void)user;
@@ -145,7 +145,7 @@ static void rrclient_handle_userjoin_event(const char *event, void *data, irc_co
    }
 }
 
-static void rrclient_handle_userquit_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_userquit_event(const char *event, void *data, rrconn_t *cptr,
                                            void *user) {
    (void)cptr;
    (void)user;
@@ -160,7 +160,7 @@ static void rrclient_handle_userquit_event(const char *event, void *data, irc_co
    userlist_remove_by_name(name);
 }
 
-static void rrclient_handle_whois_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_whois_event(const char *event, void *data, rrconn_t *cptr,
                                         void *user) {
    (void)event;
    (void)cptr;
@@ -174,7 +174,7 @@ static void rrclient_handle_whois_event(const char *event, void *data, irc_conn_
    }
 }
 
-static void rrclient_handle_log_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)cptr;
    (void)user;
@@ -193,7 +193,7 @@ struct talk_msg_event_data {
    time_t ts;
 };
 
-static void rrclient_handle_talk_msg_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn_t *cptr,
                                            void *user) {
    (void)event;
    (void)cptr;

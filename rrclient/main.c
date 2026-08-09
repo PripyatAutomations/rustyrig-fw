@@ -138,7 +138,7 @@ static void tui_start_clock_timer(struct ev_loop *loop) {
    ev_timer_start(loop, &tui_clock_watcher);
 }
 
-static void rrclient_handle_log_event(const char *event, void *data, irc_conn_t *cptr, void *user) {
+static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)cptr;
    (void)user;
@@ -165,7 +165,7 @@ struct talk_msg_event_data {
    time_t ts;
 };
 
-static void rrclient_handle_talk_msg_event(const char *event, void *data, irc_conn_t *cptr,
+static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn_t *cptr,
                                            void *user) {
    (void)event;
    (void)cptr;

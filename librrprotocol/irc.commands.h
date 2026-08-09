@@ -12,8 +12,8 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <librrprotocol/irc.struct.h>
+#include <librustyaxe/struct.h>
 
-extern const irc_command_t irc_commands[];
+//extern const irc_command_t irc_commands[];
 
 #endif /* !defined(__irc_commands_h) */

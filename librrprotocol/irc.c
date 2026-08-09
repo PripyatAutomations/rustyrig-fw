@@ -33,7 +33,7 @@ bool irc_init(void) {
 //
 // This will create a dict containing a restricted set of state things which we'll allow
 // substituting in log files, messages, etc.
-dict *irc_generate_vars(irc_conn_t *cptr, const char *chan) {
+dict *irc_generate_vars(rrconn_t *cptr, const char *chan) {
    dict *d = dict_new();
    if (!d) {
       Log(LOG_CRIT, "irc", "OOM in irc_generate_vars");
@@ -50,7 +50,7 @@ dict *irc_generate_vars(irc_conn_t *cptr, const char *chan) {
 }
 
 // Send as much of this user's sendq as we can
-static void irc_try_send(irc_conn_t *cptr) {
+static void irc_try_send(rrconn_t *cptr) {
    if (!cptr || cptr->fd <= 0) {
       return;
    }
@@ -91,7 +91,7 @@ static void irc_try_send(irc_conn_t *cptr) {
    }
 }
 
-bool irc_send(irc_conn_t *cptr, const char *fmt, ...) {
+bool irc_send(rrconn_t *cptr, const char *fmt, ...) {
    if (!cptr || !fmt || cptr->fd <= 0) {
       return false;
    }
@@ -128,7 +128,7 @@ bool irc_send(irc_conn_t *cptr, const char *fmt, ...) {
 }
 
 void irc_io_cb(EV_P_ ev_io *w, int revents) {
-   irc_conn_t *cptr = (irc_conn_t *)( ( (char*)w ) - offsetof(irc_conn_t, io_watcher) );
+   rrconn_t *cptr = (rrconn_t *)( ( (char*)w ) - offsetof(rrconn_t, io_watcher) );
    if (revents & EV_READ) {
       char buf[512];
       ssize_t n = recv(cptr->fd, buf, sizeof(buf), 0);

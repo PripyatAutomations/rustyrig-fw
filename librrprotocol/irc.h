@@ -9,10 +9,7 @@
 #define __librrprotocol_irc_h
 
 #include <librustyaxe/list.h>
-
-// common IRC structures
-#include <librrprotocol/irc.struct.h>
-
+#include <librustyaxe/struct.h>
 // CAPABilities crud
 #include <librrprotocol/irc.capab.h>
 
@@ -34,9 +31,9 @@
 #include <librrprotocol/irc.channel.h>
 
 extern bool irc_init(void);
-extern bool irc_send(irc_conn_t *cptr, const char *fmt, ...);
+extern bool irc_send(rrconn_t *cptr, const char *fmt, ...);
 
-static inline char *irc_name(irc_conn_t *cptr) {
+static inline char *irc_name(rrconn_t *cptr) {
    if (cptr && cptr->server && cptr->server->network[0]) {
       return cptr->server->network;
    } else if (cptr && cptr->nick[0]) {

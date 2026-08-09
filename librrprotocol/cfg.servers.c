@@ -22,7 +22,7 @@ static server_cfg_t *server_list = NULL;
 static rrlist_t *irc_client_conns = NULL;
 
 void rr_set_irc_conn_pool(void) {
-   irc_set_conn_pool(irc_client_conns);
+//   irc_set_conn_pool(irc_client_conns);
 }
 
 static void parse_server_opts(server_cfg_t *cfg, const char *opts) {
@@ -208,11 +208,13 @@ bool autoconnect(void) {
 //            tui_print_win(tui_window_find("status"), "Trying %s://%s@%s:%d priority=%d",
 //               (srv->tls ? "ircs" : "irc"), srv->nick, srv->host, srv->port, srv->priority);
 
-            irc_conn_t *cli;
+#if	0
+            rrconn_t *cli;
             if ( (cli = irc_cli_connect(srv) ) ) {
                // Add to the connection list
                rrlist_add(&irc_client_conns, cli, LIST_TAIL);
             }
+#endif
             node = node->next;
          }
          sp = strtok(NULL, " ,");

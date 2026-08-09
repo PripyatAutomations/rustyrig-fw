@@ -132,7 +132,7 @@ irc_message_t *irc_parse_message(const char *msg) {
    return mp;
 }
 
-bool irc_dispatch_message(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_dispatch_message(rrconn_t *cptr, irc_message_t *mp) {
    if (!mp) {
       // XXX: cry about null message pointer
       return true;
@@ -231,7 +231,7 @@ bool irc_set_conn_pool(rrlist_t *conn_list) {
    return false;
 }
 
-bool irc_process_message(irc_conn_t *cptr, const char *msg) {
+bool irc_process_message(rrconn_t *cptr, const char *msg) {
    irc_message_t *mp = irc_parse_message(msg);
    if (!mp) {
       Log(LOG_DEBUG, "irc.parser", "Failed parsing msg:<%p>: |%s|", msg, msg);

@@ -6,7 +6,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-bool irc_builtin_error_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_error_cb(rrconn_t *cptr, irc_message_t *mp) {
    Log( LOG_CRIT, "irc", "[%s] Got ERROR from server: |%s|", irc_name(cptr),
       (mp->argv[1] ? mp->argv[1] : "(null)") );
    event_emit("irc.error", cptr, mp);
@@ -16,7 +16,7 @@ bool irc_builtin_error_cb(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_join_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_join_cb(rrconn_t *cptr, irc_message_t *mp) {
    char *nick = mp->prefix;
    if (!nick) {
       Log(LOG_CRIT, "irc", "join_cb with no prefix! mp:<%p>", mp);
@@ -58,7 +58,7 @@ bool irc_builtin_join_cb(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_notice_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_notice_cb(rrconn_t *cptr, irc_message_t *mp) {
    char *nick = mp->prefix;
    if (!nick) {
       return true;
@@ -90,7 +90,7 @@ bool irc_builtin_notice_cb(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_part_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_part_cb(rrconn_t *cptr, irc_message_t *mp) {
    if (!cptr) {
       Log(LOG_CRIT, "irc", "%s: No cptr given", __FUNCTION__);
 
@@ -133,7 +133,7 @@ bool irc_builtin_part_cb(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_ping_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_ping_cb(rrconn_t *cptr, irc_message_t *mp) {
    // pull out the message argument from argv[2]
    const char *data = mp->argv[1];
    // reply with the message data
@@ -150,7 +150,7 @@ bool irc_builtin_ping_cb(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_pong_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_pong_cb(rrconn_t *cptr, irc_message_t *mp) {
    Log( LOG_CRAZY, "irc", "[%s] Got PONG from server: |%s|", irc_name(cptr),
       (mp->argv[1] ? mp->argv[1] : "(null)") );
    event_emit("irc.pong", cptr, mp);
@@ -158,7 +158,7 @@ bool irc_builtin_pong_cb(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_privmsg_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_privmsg_cb(rrconn_t *cptr, irc_message_t *mp) {
    char *nick = mp->prefix;
    if (!nick) {
       return true;
@@ -244,7 +244,7 @@ bool irc_builtin_privmsg_cb(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_quit_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_quit_cb(rrconn_t *cptr, irc_message_t *mp) {
    char *nick = mp->prefix;
    if (!nick) {
       return true;
@@ -278,7 +278,7 @@ bool irc_builtin_quit_cb(irc_conn_t *cptr, irc_message_t *mp) {
    return false;
 }
 
-bool irc_builtin_topic_cb(irc_conn_t *cptr, irc_message_t *mp) {
+bool irc_builtin_topic_cb(rrconn_t *cptr, irc_message_t *mp) {
    char *nick = mp->prefix;
    if (!nick) {
       return true;

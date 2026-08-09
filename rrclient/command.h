@@ -10,12 +10,14 @@
 #if     !defined(__rrclient_command_h)
 #define __rrclient_command_h
 #include <librustyaxe/config.h>
+#include <librustyaxe/struct.h>
+#include <librustyaxe/event-bus.h>
 
 typedef struct client_cmd {
    char *cmd;
    char *desc;
    bool (*cb)(int argc, char **args);
-   event_cb_t (*event_cb)(const char *event, void *data, irc_conn_t *cptr, void *user);
+   event_cb_t (*event_cb)(const char *event, void *data, rrconn_t *cptr, void *user);
 } client_cmd_t;
 
 #endif // !defined(__rrclient_config_h)
