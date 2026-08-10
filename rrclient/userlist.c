@@ -26,25 +26,35 @@ struct rr_user *global_userlist = NULL;
 
 // Add or update an entry, matching on name.
 // All old information will be replaced with the new
-bool userlist_add_or_update(const struct rr_user *newinfo) {
-   if (!newinfo) {
+bool userlist_add_or_update(dict *d) {
+   if (!d) {
       return true;
    }
    struct rr_user *c = global_userlist, *prev = NULL;
+   char *t_privs = dict_get(d, "talk.privs", NULL);
+   char *t_user = dict_get(d, "talk.user", NULL);
+   char *t_ip = dict_get(d, "talk.ip", NULL);
+   char *t_cmd = dict_get(d, "talk.cmd", NULL);
+   char *t_muted = dict_get(d, "talk.muted", NULL);
+   int t_clones = dict_get_int(d, "talk.clones", 0);
+   char *t_target = dict_get(d, "talk.target", NULL);
+   time_t t_ts = dict_get_time_t(d, "talk.ts", 0);
 
-   while (c) {
-      if (strcasecmp(c->name, newinfo->name) == 0) {
-         // XXX: We should compare the data, only copying fields that changed?
-         memcpy( c, newinfo, sizeof(*c) );
-         c->next = NULL;
-         Log(LOG_DEBUG, "userlist", "Updated entry at <%p> with contents of userinfo at <%p>", c,
-            newinfo);
-
-         return true;
+   for (struct rr_user *c = global_userlist; c; c = c->next) {
+      if (strcasecmp(c->name, t_user) == 0) {
+         // Free the user struct if possible
+         struct rr_user *next = c->next;
+         if (prev) {
+            prev->next = next;
+         }
+         Log(LOG_DEBUG, "userlist", "Freeing userlist entry at <%p>", c);
+         free((void *)c);
+         c = next;
+         continue;
       }
-      prev = c;
-      c = c->next;
    }
+   // we should be at the end of the list...
+
    struct rr_user *n = malloc( sizeof(struct rr_user) );
 
    if (!n) {
@@ -52,10 +62,14 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
 
       return false;
    }
-   memcpy( n, newinfo, sizeof(struct rr_user) );
+   memset(n, 0, sizeof(struct rr_user));
+   memcpy( n->name, t_user, sizeof(n->name) );
+   memcpy( n->privs, t_privs, sizeof(n->privs) );
+   n->clones = t_clones;
    n->next = NULL;
+
    Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%p> in userlist",
-      newinfo->name, newinfo);
+      n->name, n);
 
    if (prev) {
       prev->next = n;
@@ -63,7 +77,6 @@ bool userlist_add_or_update(const struct rr_user *newinfo) {
       global_userlist = n;
    }
    userlist_redraw_gtk();
-
    return true;
 }
 

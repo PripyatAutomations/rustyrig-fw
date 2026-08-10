@@ -380,6 +380,7 @@ bool gui_init(void) {
       ".ptt-idle { background: #0fc00f; color: white; }"
       ".ptt-pending { background: yellow; color: black; }"
       ".conn-active { background: #0fc00f; color: white; }"
+      ".conn-pending { background: yellow; color: black; }"
       ".conn-idle { background: red; color: white; }", -1, NULL);
 
    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),

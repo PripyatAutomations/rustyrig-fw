@@ -58,9 +58,11 @@ static void rrclient_update_connection_ui(bool connected) {
 
    if (connected) {
       gtk_style_context_remove_class(ctx, "conn-idle");
+      gtk_style_context_remove_class(ctx, "conn-pending");
       gtk_style_context_add_class(ctx, "conn-active");
    } else {
       gtk_style_context_remove_class(ctx, "conn-active");
+      gtk_style_context_remove_class(ctx, "conn-pending");
       gtk_style_context_add_class(ctx, "conn-idle");
    }
 #else
@@ -70,10 +72,6 @@ static void rrclient_update_connection_ui(bool connected) {
 
 static void rrclient_handle_connection_event(const char *event, const char *data, rrconn_t *cptr,
                                              void *user) {
-   (void)cptr;
-   (void)user;
-   (void)data;
-
    if (strcasecmp(event, "connecting") == 0) {
       ui_print("[%s] *** Connecting ***", get_chat_ts(now));
    } else if (strcasecmp(event, "connected") == 0) {
@@ -102,10 +100,6 @@ static void rrclient_handle_connection_event(const char *event, const char *data
 }
 
 static void rrclient_handle_ptt_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)cptr;
-   (void)user;
-   (void)event;
-
    if (!data) {
       return;
    }
@@ -118,10 +112,6 @@ static void rrclient_handle_ptt_event(const char *event, const char *data, rrcon
 }
 
 static void rrclient_handle_freq_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)cptr;
-   (void)user;
-   (void)event;
-
    if (!data || !freq_entry) {
       return;
    }
@@ -135,10 +125,6 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
 }
 
 static void rrclient_handle_mode_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)cptr;
-   (void)user;
-   (void)event;
-
    if (!data || !mode_combo) {
       return;
    }
@@ -148,42 +134,33 @@ static void rrclient_handle_mode_event(const char *event, const char *data, rrco
 
 static void rrclient_handle_userinfo_event(const char *event, const char *data, rrconn_t *cptr,
                                            void *user) {
-   (void)cptr;
-   (void)user;
-   (void)event;
-
    if (!data) {
       return;
    }
-   struct rr_user *info = (struct rr_user *)data;
 
-   if ( !userlist_add_or_update(info) ) {
+   dict *d = json2dict(data);
+
+   if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
+   dict_free(d);
 }
 
 static void rrclient_handle_userjoin_event(const char *event, const char *data, rrconn_t *cptr,
                                            void *user) {
-   (void)cptr;
-   (void)user;
-   (void)event;
-
    if (!data) {
       return;
    }
-   struct rr_user *info = (struct rr_user *)data;
 
-   if ( !userlist_add_or_update(info) ) {
+   dict *d = json2dict(data);
+
+   if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 }
 
 static void rrclient_handle_userquit_event(const char *event, const char *data, rrconn_t *cptr,
                                            void *user) {
-   (void)cptr;
-   (void)user;
-   (void)event;
-
    if (!data) {
       return;
    }
@@ -196,10 +173,6 @@ static void rrclient_handle_userquit_event(const char *event, const char *data, 
 }
 
 static void rrclient_handle_whois_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)cptr;
-   (void)user;
-
    if (!data) {
       return;
    }
@@ -211,9 +184,6 @@ static void rrclient_handle_whois_event(const char *event, const char *data, rrc
 }
 
 static void rrclient_handle_log_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)cptr;
-   (void)user;
    struct log_event_data *led = (struct log_event_data *)data;
 
    if (!led || !led->message[0]) {
@@ -232,10 +202,6 @@ struct talk_msg_event_data {
 
 static void rrclient_handle_talk_msg_event(const char *event, const char *data, rrconn_t *cptr,
                                            void *user) {
-   (void)event;
-   (void)cptr;
-   (void)user;
-
    if (!data) {
       return;
    }

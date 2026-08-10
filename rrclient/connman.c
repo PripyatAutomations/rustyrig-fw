@@ -292,6 +292,7 @@ bool disconnect_server(const char *server) {
    GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
    gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
    gtk_style_context_add_class(ctx, "conn-idle");
+   gtk_style_context_remove_class(ctx, "conn-pending");
    gtk_style_context_remove_class(ctx, "conn-active");
 
    if (ws_connected) {
@@ -323,7 +324,13 @@ bool connect_server(const char *server) {
 
    if (url) {
 #if     defined(USE_GTK)
-      gtk_button_set_label(GTK_BUTTON(conn_button), "connecting");
+      GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
+      gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
+      gtk_style_context_add_class(ctx, "conn-pending");
+      gtk_style_context_remove_class(ctx, "conn-active");
+      gtk_style_context_remove_class(ctx, "conn-idle");
+      gtk_button_set_label(GTK_BUTTON(conn_button), "trying..");
+
 #endif // defined(USE_GTK)
       ui_print("%s Connecting to %s", get_chat_ts(now), url);
 
