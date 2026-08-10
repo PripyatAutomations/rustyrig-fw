@@ -30,6 +30,7 @@ bool userlist_add_or_update(dict *d) {
    if (!d) {
       return true;
    }
+#if	0
    struct rr_user *c = global_userlist, *prev = NULL;
    char *t_privs = dict_get(d, "talk.privs", NULL);
    char *t_user = dict_get(d, "talk.user", NULL);
@@ -77,6 +78,7 @@ bool userlist_add_or_update(dict *d) {
       global_userlist = n;
    }
    userlist_redraw_gtk();
+#endif
    return true;
 }
 

@@ -216,6 +216,8 @@ static void rrclient_handle_talk_msg_event(const char *event, const char *data, 
    time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
    const char *msg_type = dict_get(d, "talk.msg_type", NULL);
    const char *msg_data = dict_get(d, "talk.data", NULL);
+   fprintf(stderr, "[talk.msg]\n");
+   dict_dump(d, stderr);
 
    if (strcasecmp(msg_type, "action") == 0) {
       ui_print("%s * %s %s", get_chat_ts(msg_ts), from, msg_data);
@@ -237,6 +239,7 @@ static void rrclient_handle_alert_event(const char *event, const char *data, rrc
 
    dict *d = json2dict(data);
    dict_dump(d, stderr);
+   fprintf(stderr, "[alert]\n");
 
    const char *from = dict_get(d, "talk.from", NULL);
    time_t msg_ts = dict_get_time_t(d, "alert.ts", 0);
@@ -252,6 +255,24 @@ static void rrclient_handle_autherr_event(const char *event, const char *data, r
    }
 
    dict *d = json2dict(data);
+   fprintf(stderr, "[auth.error]\n");
+   dict_dump(d, stderr);
+/*
+   const char *from = dict_get(d, "talk.from", NULL);
+   time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
+   const char *msg_type = dict_get(d, "talk.msg_type", NULL);
+   const char *msg_data = dict_get(d, "talk.data", NULL);
+*/
+   dict_free(d);
+}
+
+static void rrclient_handle_catcmd_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   fprintf(stderr, "[cat.cmd]\n");
    dict_dump(d, stderr);
 /*
    const char *from = dict_get(d, "talk.from", NULL);
@@ -292,6 +313,8 @@ void rrclient_register_events(void) {
    // Log events
    event_on("log", rrclient_handle_log_event, NULL);
 
+   // CAT controls
+   event_on("cat.cmd", rrclient_handle_catcmd_event, NULL);
    event_on("rig.ptt", rrclient_handle_ptt_event, NULL);
    event_on("rig.freq", rrclient_handle_freq_event, NULL);
    event_on("rig.mode", rrclient_handle_mode_event, NULL);
