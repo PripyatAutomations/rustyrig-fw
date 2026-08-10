@@ -8,14 +8,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: debian-latest
 
     steps:
     - uses: actions/checkout@v4
     - name: configure
-      run: make buildconf PROFILE=github
+      run: make buildconf PROFILE=radio
     - name: make
-      run: make PROFILE=github
+      run: make PROFILE=radio
 #    - name: make check
 #      run: make check
 #    - name: make distcheck

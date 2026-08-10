@@ -30,7 +30,7 @@ bool userlist_add_or_update(dict *d) {
    if (!d) {
       return true;
    }
-#if	0
+#if     0
    struct rr_user *c = global_userlist, *prev = NULL;
    char *t_privs = dict_get(d, "talk.privs", NULL);
    char *t_user = dict_get(d, "talk.user", NULL);
@@ -41,19 +41,21 @@ bool userlist_add_or_update(dict *d) {
    char *t_target = dict_get(d, "talk.target", NULL);
    time_t t_ts = dict_get_time_t(d, "talk.ts", 0);
 
-   for (struct rr_user *c = global_userlist; c; c = c->next) {
+   for (struct rr_user *c = global_userlist ; c ; c = c->next) {
       if (strcasecmp(c->name, t_user) == 0) {
          // Free the user struct if possible
          struct rr_user *next = c->next;
+
          if (prev) {
             prev->next = next;
          }
          Log(LOG_DEBUG, "userlist", "Freeing userlist entry at <%p>", c);
-         free((void *)c);
+         free( (void *)c );
          c = next;
          continue;
       }
    }
+
    // we should be at the end of the list...
 
    struct rr_user *n = malloc( sizeof(struct rr_user) );
@@ -63,14 +65,13 @@ bool userlist_add_or_update(dict *d) {
 
       return false;
    }
-   memset(n, 0, sizeof(struct rr_user));
+   memset( n, 0, sizeof(struct rr_user) );
    memcpy( n->name, t_user, sizeof(n->name) );
    memcpy( n->privs, t_privs, sizeof(n->privs) );
    n->clones = t_clones;
    n->next = NULL;
 
-   Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%p> in userlist",
-      n->name, n);
+   Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
    if (prev) {
       prev->next = n;
@@ -79,6 +80,7 @@ bool userlist_add_or_update(dict *d) {
    }
    userlist_redraw_gtk();
 #endif
+
    return true;
 }
 
@@ -91,7 +93,7 @@ bool userlist_remove_by_name(const char *name) {
    struct rr_user *c = global_userlist, *prev = NULL;
 
    while (c) {
-      if ( !strcasecmp(c->name, name) ) {
+      if (!strcasecmp(c->name, name) ) {
          if (prev) {
             prev->next = c->next;
          } else {
@@ -134,7 +136,7 @@ struct rr_user *userlist_find(const char *name) {
    }
    struct rr_user *c = global_userlist;
    while (c) {
-      if ( !strcasecmp(c->name, name) ) {
+      if (!strcasecmp(c->name, name) ) {
          return c;
       }
       c = c->next;

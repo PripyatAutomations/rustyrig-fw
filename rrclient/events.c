@@ -1,5 +1,5 @@
 //
-// rrclient/events.c: GTK-side event listeners for shared protocol events
+// rrclient/events.c: event listeners for shared protocol events from librrprotocol
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
@@ -32,6 +31,7 @@ static void rrclient_display_log_message(const char *msg) {
       return;
    }
 #if defined(USE_GTK)
+
    if (ui_mode == GUI_MODE_GTK) {
       GtkTextIter end;
       gtk_text_buffer_get_end_iter(log_buffer, &end);
@@ -50,7 +50,8 @@ static void rrclient_update_connection_ui(bool connected) {
    }
    update_connection_button(connected, conn_button);
 
-   // XXX: This should move to authenticated, so we show yellow 'til server has approved us...
+   // XXX: This should move to authenticated, so we show yellow 'til server has
+   // approved us...
    if (ui_mode == GUI_MODE_GTK) {
       GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(conn_button) );
 
@@ -74,10 +75,11 @@ static void rrclient_update_connection_ui(bool connected) {
 static void rrclient_handle_connection_event(const char *event, const char *data, rrconn_t *cptr,
                                              void *user) {
    if (strcasecmp(event, "connecting") == 0) {
-      ui_print("[%s] *** Connecting ***", get_chat_ts(now));
+      ui_print( "[%s] *** Connecting ***", get_chat_ts(now) );
    } else if (strcasecmp(event, "connected") == 0) {
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
+
       if (login_user) {
          free( (void *)login_user );
       }
@@ -90,7 +92,7 @@ static void rrclient_handle_connection_event(const char *event, const char *data
          login_user = NULL;
       }
       rrclient_update_connection_ui(false);
-      ui_print("[%s] *** DISCONNECTED ***", get_chat_ts(now));
+      ui_print( "[%s] *** DISCONNECTED ***", get_chat_ts(now) );
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);
@@ -100,49 +102,55 @@ static void rrclient_handle_connection_event(const char *event, const char *data
    }
 }
 
-static void rrclient_handle_ptt_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_ptt_event(const char *event, const char *data, rrconn_t *cptr,
+                                      void *user) {
    if (!data) {
       return;
    }
    bool active = *(bool *)data;
 
    if (ptt_button) {
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
       if (ui_mode == GUI_MODE_GTK) {
          update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), active);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
       }
-#endif	// defined(USE_GTK)
+#endif // defined(USE_GTK)
    }
 }
 
-static void rrclient_handle_freq_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_freq_event(const char *event, const char *data, rrconn_t *cptr,
+                                       void *user) {
    if (!data || !freq_entry) {
       return;
    }
    double freq = *(double *)data;
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
    if (ui_mode == GUI_MODE_GTK) {
       GtkWidget *entry = freq_entry;
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
 
-      if ( !gtk_freq_entry_is_editing(fe) ) {
+      if (!gtk_freq_entry_is_editing(fe) ) {
          gtk_freq_entry_set_frequency(fe, (unsigned long)freq);
       }
    }
-#endif	// defined(USE_GTK)
+#endif // defined(USE_GTK)
 }
 
-static void rrclient_handle_mode_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_mode_event(const char *event, const char *data, rrconn_t *cptr,
+                                       void *user) {
    if (!data || !mode_combo) {
       return;
    }
    const char *mode = (const char *)data;
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
    if (ui_mode == GUI_MODE_GTK) {
       set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
    }
-#endif	// defined(USE_GTK)
+#endif // defined(USE_GTK)
 }
 
 static void rrclient_handle_userinfo_event(const char *event, const char *data, rrconn_t *cptr,
@@ -153,7 +161,7 @@ static void rrclient_handle_userinfo_event(const char *event, const char *data, 
 
    dict *d = json2dict(data);
 
-   if ( !userlist_add_or_update(d) ) {
+   if (!userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
    dict_free(d);
@@ -167,7 +175,7 @@ static void rrclient_handle_userjoin_event(const char *event, const char *data, 
 
    dict *d = json2dict(data);
 
-   if ( !userlist_add_or_update(d) ) {
+   if (!userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 }
@@ -185,7 +193,8 @@ static void rrclient_handle_userquit_event(const char *event, const char *data, 
    userlist_remove_by_name(name);
 }
 
-static void rrclient_handle_whois_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_whois_event(const char *event, const char *data, rrconn_t *cptr,
+                                        void *user) {
    if (!data) {
       return;
    }
@@ -196,7 +205,8 @@ static void rrclient_handle_whois_event(const char *event, const char *data, rrc
    }
 }
 
-static void rrclient_handle_log_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_log_event(const char *event, const char *data, rrconn_t *cptr,
+                                      void *user) {
    struct log_event_data *led = (struct log_event_data *)data;
 
    if (!led || !led->message[0]) {
@@ -225,14 +235,14 @@ static void rrclient_handle_talk_msg_event(const char *event, const char *data, 
       if (login_user != NULL && strcmp(from, login_user) == 0) {
          ui_print("%s {yellow}=>{reset} %s", get_chat_ts(msg_ts), msg_data);
       } else {
-         ui_print("%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(msg_ts),
-            from, msg_data);
+         ui_print("%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
       }
    }
    dict_free(d);
 }
 
-static void rrclient_handle_alert_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_alert_event(const char *event, const char *data, rrconn_t *cptr,
+                                        void *user) {
    if (!data) {
       return;
    }
@@ -249,7 +259,8 @@ static void rrclient_handle_alert_event(const char *event, const char *data, rrc
    dict_free(d);
 }
 
-static void rrclient_handle_autherr_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_autherr_event(const char *event, const char *data, rrconn_t *cptr,
+                                          void *user) {
    if (!data) {
       return;
    }
@@ -258,15 +269,16 @@ static void rrclient_handle_autherr_event(const char *event, const char *data, r
    fprintf(stderr, "[auth.error]\n");
    dict_dump(d, stderr);
 /*
-   const char *from = dict_get(d, "talk.from", NULL);
-   time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
-   const char *msg_type = dict_get(d, "talk.msg_type", NULL);
-   const char *msg_data = dict_get(d, "talk.data", NULL);
-*/
+ *  const char *from = dict_get(d, "talk.from", NULL);
+ *  time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
+ *  const char *msg_type = dict_get(d, "talk.msg_type", NULL);
+ *  const char *msg_data = dict_get(d, "talk.data", NULL);
+ */
    dict_free(d);
 }
 
-static void rrclient_handle_catcmd_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_catcmd_event(const char *event, const char *data, rrconn_t *cptr,
+                                         void *user) {
    if (!data) {
       return;
    }
@@ -275,11 +287,11 @@ static void rrclient_handle_catcmd_event(const char *event, const char *data, rr
    fprintf(stderr, "[cat.cmd]\n");
    dict_dump(d, stderr);
 /*
-   const char *from = dict_get(d, "talk.from", NULL);
-   time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
-   const char *msg_type = dict_get(d, "talk.msg_type", NULL);
-   const char *msg_data = dict_get(d, "talk.data", NULL);
-*/
+ *  const char *from = dict_get(d, "talk.from", NULL);
+ *  time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
+ *  const char *msg_type = dict_get(d, "talk.msg_type", NULL);
+ *  const char *msg_data = dict_get(d, "talk.data", NULL);
+ */
    dict_free(d);
 }
 

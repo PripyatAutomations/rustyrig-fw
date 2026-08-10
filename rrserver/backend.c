@@ -89,7 +89,7 @@ rr_backend_t *rr_backend_find(const char *name) {
    if (!name) {
       return NULL;
    }
-   int items = ( sizeof(available_backends) / sizeof(struct rr_backends) );
+   int items = (sizeof(available_backends) / sizeof(struct rr_backends) );
 
    for (int i = 0 ; i < items ; i++) {
       rr_backend_t *bp = available_backends[i].backend;
@@ -164,7 +164,7 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
       return true;
    }
 
-   if ( rig.backend->api->ptt_set(vfo, state) ) {
+   if (rig.backend->api->ptt_set(vfo, state) ) {
       Log( LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.", rr_vfo_name(vfo),
          bool2str(state) );
 
@@ -195,7 +195,7 @@ bool rr_freq_set(rr_vfo_t vfo, float freq) {
       return true;
    }
 
-   if ( rig.backend->api->freq_set(vfo, freq) ) {
+   if (rig.backend->api->freq_set(vfo, freq) ) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.", rr_vfo_name(vfo), freq);
 
       return true;

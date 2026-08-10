@@ -53,7 +53,7 @@ bool tui_input_cb(const char *input) {
    int argc = 0;
    char *args[64];    // max 64 tokens
    char *tok = strtok(buf, " \t");
-   while ( tok && argc < (int)( sizeof(args) / sizeof(args[0]) ) ) {
+   while (tok && argc < (int)(sizeof(args) / sizeof(args[0]) ) ) {
       args[argc++] = tok;
       tok = strtok(NULL, " \t");
    }

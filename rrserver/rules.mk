@@ -13,6 +13,7 @@ rrserver_objs += channels.o		# Channel Memories
 rrserver_objs += console.o		# Console support
 rrserver_objs += database.o		# sqlite3 database stuff
 rrserver_objs += defconfig.o		# Default configuration
+rrserver_objs += events.o
 rrserver_objs += faults.o		# Fault management/alerting
 rrserver_objs += filters.o
 rrserver_objs += gpio.o			# GPIO controls

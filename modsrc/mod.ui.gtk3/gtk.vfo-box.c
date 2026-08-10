@@ -47,11 +47,11 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
    }
    VfoKeyData *d = user_data;
 
-   if (!d || !GTK_IS_WIDGET(d->fe) ) {
+   if ( !d || !GTK_IS_WIDGET(d->fe) ) {
       return FALSE;
    }
 
-   if (!is_widget_or_descendant_focused(d->fe) ) {
+   if ( !is_widget_or_descendant_focused(d->fe) ) {
       return FALSE;     /* ignore keys unless focus is somewhere inside fe */
    }
 
@@ -60,7 +60,7 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
       gtk_widget_grab_focus(d->chat_entry);
 
       return TRUE;
-   }else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
+   } else if ( event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->mode_combo);
 
       return TRUE;

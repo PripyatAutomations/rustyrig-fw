@@ -36,6 +36,7 @@ bool ui_print(const char *fmt, ...) {
    va_end(ap);
 
 #if     defined(USE_GTK)
+
    if (ui_mode == GUI_MODE_GTK) {
       ui_print_gtk(outbuf);
    }

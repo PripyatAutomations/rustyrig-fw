@@ -155,7 +155,7 @@ static void run_loop(struct audio_config *cfg) {
          GError *err;
          gchar *debug_info;
 
-         switch (GST_MESSAGE_TYPE(msg) ) {
+         switch ( GST_MESSAGE_TYPE(msg) ) {
             case GST_MESSAGE_ERROR: {
                gst_message_parse_error(msg, &err, &debug_info);
                g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
@@ -171,7 +171,7 @@ static void run_loop(struct audio_config *cfg) {
             }
 
             case GST_MESSAGE_STATE_CHANGED: {
-               if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
+               if ( GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
                   GstState old_state, new_state, pending_state;
                   gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
                   g_print( "Pipeline state changed from %s to %s.\n",
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
 
    int opt;
-   while ( (opt = getopt(argc, argv, "c:f:htv") ) != -1) {
+   while ( ( opt = getopt(argc, argv, "c:f:htv") ) != -1 ) {
       switch (opt) {
          case 'c': {
             size_t clen = strlen(optarg);
@@ -277,14 +277,14 @@ int main(int argc, char *argv[]) {
       }
    }
    // Find and load the configuration file
-   int cfg_entries = (sizeof(configs) / sizeof(char *) );
+   int cfg_entries = ( sizeof(configs) / sizeof(char *) );
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
 
    // If the user specified a config, apply it, else try to find one in a sane
    // place
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
@@ -296,7 +296,7 @@ int main(int argc, char *argv[]) {
       if (fullpath) {
          config_file = strdup(fullpath);
 
-         if (!(cfg = cfg_load(fullpath) ) ) {
+         if ( !( cfg = cfg_load(fullpath) ) ) {
             Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
          } else {
             Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);

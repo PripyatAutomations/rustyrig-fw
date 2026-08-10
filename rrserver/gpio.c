@@ -50,7 +50,7 @@ uint32_t radio_gpiochip_init(const char *chipname) {
    uint32_t i = -1;
 
    // Does it already exist?
-   if ( ( i = radio_find_gpiochip(chipname) ) != -1 ) {
+   if ( (i = radio_find_gpiochip(chipname) ) != -1) {
       Log(LOG_WARN, "gpio", "gpio chip %s is already initialized at index %d", i);
 
       return -1;
@@ -60,7 +60,7 @@ uint32_t radio_gpiochip_init(const char *chipname) {
 #if     defined(HOST_POSIX)
    struct gpiod_chip *tmp = NULL;
 
-   if ( !( tmp = gpiod_chip_open(chipname) ) ) {
+   if (!(tmp = gpiod_chip_open(chipname) ) ) {
 // XXX: v1 api remnant, safe to remove?
 //   if (!(tmp = gpiod_chip_open_by_name(chipname))) {
       Log(LOG_CRIT, "gpio", "error opening gpio chip %s", chipname);

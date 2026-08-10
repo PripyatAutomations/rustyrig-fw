@@ -91,7 +91,8 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          char *pong_ts = dict_get(d, "pong.ts", NULL);
          char *ping_ts = dict_get(d, "ping.ts", NULL);
 
-         // It's a ping, so we should reply to it with a pong then fall through to cleanup
+         // It's a ping, so we should reply to it with a pong then fall through
+         // to cleanup
          if (ping_ts) {
             const char *jp = dict2json_mkstr( VAL_STR, "type", "pong", VAL_ULONG, "ts",
                atol(ping_ts) );
@@ -109,9 +110,9 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
             if (from && data) {
                event_emit("talk.msg", NULL, buf);
             }
-         } else if ( dict_get(d, "hello", NULL) ) {
+         } else if (dict_get(d, "hello", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got hello from server");
-         } else if ( dict_get(d, "auth.cmd", NULL) ) {
+         } else if (dict_get(d, "auth.cmd", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got auth message");
          }
          dict_free(d);
@@ -120,14 +121,18 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       ws_connected = true;
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
-      char buf[HTTP_WS_MAX_MSG + 1] = { 0 };
+      char buf[HTTP_WS_MAX_MSG + 1] = {
+         0
+      };
+
       if (msg && msg->data.buf) {
          memset( buf, 0, sizeof(buf) );
          memcpy(buf, msg->data.buf, msg->data.len);
       }
       event_emit("connected", NULL, buf);
       tui_print_win(tui_window_find("status"), "Connected to server");
-      const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient", VAL_STR, "hello.version", VERSION);
+      const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient", VAL_STR, "hello.version",
+         VERSION);
       mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
       free( (void *)jp );
    } else if (ev == MG_EV_CLOSE) {
@@ -286,7 +291,8 @@ const char *get_server_property(const char *server, const char *prop) {
 bool disconnect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
    if (ui_mode == GUI_MODE_GTK) {
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
@@ -294,7 +300,7 @@ bool disconnect_server(const char *server) {
       gtk_style_context_remove_class(ctx, "conn-pending");
       gtk_style_context_remove_class(ctx, "conn-active");
    }
-#endif	// defined(USE_GTK)
+#endif // defined(USE_GTK)
 
    if (ws_connected) {
 #if     defined(USE_MONGOOSE)
@@ -324,7 +330,8 @@ bool connect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", resolved_server, url);
 
    if (url) {
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
       if (ui_mode == GUI_MODE_GTK) {
          GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
          gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");

@@ -83,7 +83,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
    GstBuffer *buffer = gst_sample_get_buffer(sample);
    GstMapInfo map;
 
-   if ( gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
+   if (gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
       if (map.size > 0 && map.size < 65536) {
          struct ws_frame *frame = malloc( sizeof(struct ws_frame) );
 
