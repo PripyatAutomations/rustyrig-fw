@@ -46,7 +46,7 @@ CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 CFLAGS += -DUSE_EEPROM -DHOST_EEPROM_FILE="\"build/radio/eeprom.bin\""
 
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
-LDFLAGS += -lc -lm -g -ggdb -lcrypt
+LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd 
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 
 gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)

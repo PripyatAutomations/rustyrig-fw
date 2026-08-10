@@ -204,14 +204,6 @@ static void rrclient_handle_log_event(const char *event, const char *data, rrcon
    rrclient_display_log_message(led->message);
 }
 
-struct talk_msg_event_data {
-   char from[128];
-   char data[4096];
-   char target[128];
-   char msg_type[32];
-   time_t ts;
-};
-
 static void rrclient_handle_talk_msg_event(const char *event, const char *data, rrconn_t *cptr,
                                            void *user) {
    if (!data) {
@@ -237,10 +229,27 @@ static void rrclient_handle_talk_msg_event(const char *event, const char *data, 
    dict_free(d);
 }
 
+static void rrclient_handle_alert_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   dict_dump(d, stderr);
+
+   const char *from = dict_get(d, "talk.from", NULL);
+   time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
+   const char *msg_type = dict_get(d, "talk.msg_type", NULL);
+   const char *msg_data = dict_get(d, "talk.data", NULL);
+
+   dict_free(d);
+}
+
 /*
  * Initialize the events we care about receiving
  */
 void rrclient_register_events(void) {
+   event_on("alert", rrclient_handle_alert_event, NULL);
    event_on("connecting", rrclient_handle_connection_event, NULL);
    event_on("connected", rrclient_handle_connection_event, NULL);
    event_on("disconnected", rrclient_handle_connection_event, NULL);

@@ -46,7 +46,7 @@ bool tui_input_cb(const char *input) {
    }
    // Make a mutable copy
    char buf[TUI_INPUTLEN];
-   strncpy(buf, input, sizeof(buf) - 1);
+   strlcpy(buf, input, sizeof(buf) - 1);
    buf[sizeof(buf) - 1] = '\0';
 
    // Tokenize into argc/args
