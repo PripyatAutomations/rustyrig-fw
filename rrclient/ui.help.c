@@ -16,10 +16,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include "mod.ui.gtk3/gtk.core.h"
+#include <rrclient/ui.h>
 
 static bool safe_name(const char *name) {
    // reject empty names or those containing path separators or parent refs

@@ -34,10 +34,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/codecneg.h>
-#if     defined(USE_GTK)
-#include <gtk/gtk.h>
-#include <mod.ui.gtk3/gtk.core.h>
-#endif
+#include <rrclient/ui.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>

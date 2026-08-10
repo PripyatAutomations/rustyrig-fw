@@ -30,7 +30,6 @@
 #include <ev.h>
 
 extern bool dying;
-extern bool ui_mode_gui;
 extern time_t now;
 
 #if     defined(USE_MONGOOSE)

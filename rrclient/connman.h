@@ -18,9 +18,6 @@
 #include <string.h>
 #include <time.h>
 #include <gtk/gtk.h>
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
@@ -59,10 +56,7 @@ extern struct mg_connection *ws_conn, *ws_tx_conn;
 #endif
 extern bool server_ptt_state;
 extern const char *get_server_property(const char *server, const char *prop);
-
-#if     defined(USE_GTK)
-extern bool connect_or_disconnect(const char *server, GtkButton *button);
-#endif
+extern bool connect_or_disconnect(const char *server);
 
 extern bool config_network_cb(const char *path, int line, const char *section, const char *buf);
 

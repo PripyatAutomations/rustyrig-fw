@@ -15,11 +15,11 @@
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrclient/ui.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
-#include <rrclient/gtk.core.h>
 #include <gdk/gdkwin32.h>
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")

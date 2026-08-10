@@ -19,17 +19,9 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrclient/ui.h>
 
-#if     defined(USE_GTK)
-#include <gtk/gtk.h>
-#include "mod.ui.gtk3/gtk.core.h"
-#endif
-
-extern bool ui_mode_gui;         // main.c
-enum GuiMode {
-   GUI_MODE_TUI = 0,
-   GUI_MODE_GTK
-} GuiMode;
+enum GuiMode ui_mode = GUI_MODE_TUI;
 
 bool ui_print(const char *fmt, ...) {
    if (!fmt) {
@@ -44,8 +36,7 @@ bool ui_print(const char *fmt, ...) {
    va_end(ap);
 
 #if     defined(USE_GTK)
-
-   if (ui_mode_gui) {
+   if (ui_mode == GUI_MODE_GTK) {
       ui_print_gtk(outbuf);
    }
 #endif

@@ -32,7 +32,7 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    if (!button) {
       return;
    }
-   connect_or_disconnect( server_name, GTK_BUTTON(button) );
+   connect_or_disconnect( server_name );
 }
 
 typedef struct {

@@ -17,9 +17,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
-#if defined(USE_GTK)
-#include <mod.ui.gtk3/gtk.core.h>
-#endif
+#include <rrclient/ui.h>
 
 extern const char *login_user;   // from connman.c
 #if defined(USE_GTK)
@@ -34,11 +32,13 @@ static void rrclient_display_log_message(const char *msg) {
       return;
    }
 #if defined(USE_GTK)
-   GtkTextIter end;
-   gtk_text_buffer_get_end_iter(log_buffer, &end);
-   gtk_text_buffer_insert(log_buffer, &end, msg, -1);
-   gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-   g_idle_add(ui_scroll_to_end, log_view);
+   if (ui_mode == GUI_MODE_GTK) {
+      GtkTextIter end;
+      gtk_text_buffer_get_end_iter(log_buffer, &end);
+      gtk_text_buffer_insert(log_buffer, &end, msg, -1);
+      gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
+      g_idle_add(ui_scroll_to_end, log_view);
+   }
 #endif
 }
 
@@ -50,23 +50,23 @@ static void rrclient_update_connection_ui(bool connected) {
    }
    update_connection_button(connected, conn_button);
 
-   GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(conn_button) );
+   if (ui_mode == GUI_MODE_GTK) {
+      GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(conn_button) );
 
-   if (!ctx) {
-      return;
-   }
+      if (!ctx) {
+         return;
+      }
 
-   if (connected) {
-      gtk_style_context_remove_class(ctx, "conn-idle");
-      gtk_style_context_remove_class(ctx, "conn-pending");
-      gtk_style_context_add_class(ctx, "conn-active");
-   } else {
-      gtk_style_context_remove_class(ctx, "conn-active");
-      gtk_style_context_remove_class(ctx, "conn-pending");
-      gtk_style_context_add_class(ctx, "conn-idle");
+      if (connected) {
+         gtk_style_context_remove_class(ctx, "conn-idle");
+         gtk_style_context_remove_class(ctx, "conn-pending");
+         gtk_style_context_add_class(ctx, "conn-active");
+      } else {
+         gtk_style_context_remove_class(ctx, "conn-active");
+         gtk_style_context_remove_class(ctx, "conn-pending");
+         gtk_style_context_add_class(ctx, "conn-idle");
+      }
    }
-#else
-   (void)connected;
 #endif
 }
 
@@ -106,8 +106,12 @@ static void rrclient_handle_ptt_event(const char *event, const char *data, rrcon
    bool active = *(bool *)data;
 
    if (ptt_button) {
-      update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), active);
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
+#if	defined(USE_GTK)
+      if (ui_mode == GUI_MODE_GTK) {
+         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), active);
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
+      }
+#endif	// defined(USE_GTK)
    }
 }
 
@@ -116,12 +120,16 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
       return;
    }
    double freq = *(double *)data;
-   GtkWidget *entry = freq_entry;
-   GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
+#if	defined(USE_GTK)
+   if (ui_mode == GUI_MODE_GTK) {
+      GtkWidget *entry = freq_entry;
+      GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
 
-   if ( !gtk_freq_entry_is_editing(fe) ) {
-      gtk_freq_entry_set_frequency(fe, (unsigned long)freq);
+      if ( !gtk_freq_entry_is_editing(fe) ) {
+         gtk_freq_entry_set_frequency(fe, (unsigned long)freq);
+      }
    }
+#endif	// defined(USE_GTK)
 }
 
 static void rrclient_handle_mode_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -129,7 +137,11 @@ static void rrclient_handle_mode_event(const char *event, const char *data, rrco
       return;
    }
    const char *mode = (const char *)data;
-   set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+#if	defined(USE_GTK)
+   if (ui_mode == GUI_MODE_GTK) {
+      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+   }
+#endif	// defined(USE_GTK)
 }
 
 static void rrclient_handle_userinfo_event(const char *event, const char *data, rrconn_t *cptr,

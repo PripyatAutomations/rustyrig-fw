@@ -64,7 +64,6 @@ static ev_timer ws_poll_watcher;
 struct ev_loop *loop = NULL;
 bool rrclient_cleanup(void);
 bool mirc_colors = true;
-bool ui_mode_gui = true;
 bool dying = false;
 bool restarting = false;
 bool debug_sockets = false;
@@ -112,7 +111,7 @@ static gboolean update_now(gpointer user_data) {
       // we should handle local shutdown here
 #if     defined(USE_GTK)
 
-      if (ui_mode_gui) {
+      if (ui_mode == GUI_MODE_GTK) {
          gtk_main_quit();
       }
 #endif
@@ -153,7 +152,7 @@ static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *c
       return;
    }
 
-   if (!ui_mode_gui) {
+   if (ui_mode == GUI_MODE_TUI) {
       tui_window_t *status = tui_window_find("status");
 
       if (status) {
@@ -186,13 +185,13 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
    tui_window_t *wp = tui_active_window();
 
    if (strcasecmp(tmed->msg_type, "action") == 0) {
-      if (!ui_mode_gui) {
+      if (ui_mode == GUI_MODE_TUI) {
          tui_print_win(wp, "%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
       } else {
          ui_print("%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
       }
    } else {
-      if (!ui_mode_gui) {
+      if (ui_mode == GUI_MODE_TUI) {
          tui_print_win(wp, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s{reset}",
             get_chat_ts(tmed->ts), tmed->from, tmed->data);
       } else {
@@ -206,7 +205,7 @@ bool rrclient_cleanup(void) {
    logger_end();
    dict_free(cfg);
 
-   if (!ui_mode_gui) {
+   if (ui_mode == GUI_MODE_TUI) {
       tui_stop_clock_timer(loop);
       tui_raw_mode(false);
    } else {
@@ -241,6 +240,13 @@ int main(int argc, char *argv[]) {
    // Set a time stamp so logging will work
    now = time(NULL);
    update_timestamp();
+
+   // set a default based on if $DISPLAY is set
+   if (display) {
+      ui_mode = GUI_MODE_GTK;
+   } else {
+      ui_mode = GUI_MODE_TUI;
+   }
 
    // Let's do commandline parsing here
    // -T: Always force TUI (no X11)
@@ -282,7 +288,7 @@ int main(int argc, char *argv[]) {
          }
 
          case 'T': {
-            ui_mode_gui = false;
+            ui_mode = GUI_MODE_TUI;
             break;
          }
 
@@ -306,9 +312,6 @@ int main(int argc, char *argv[]) {
    event_init();
    host_init();
 
-   if (!display) {
-      ui_mode_gui = false;
-   }
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
@@ -334,7 +337,7 @@ int main(int argc, char *argv[]) {
 
    if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       if ( fullpath && !( cfg = cfg_load(fullpath) ) ) {
-         if (!ui_mode_gui) {
+         if (ui_mode == GUI_MODE_TUI) {
             tui_print_win(tui_window_find("status"),
                "Couldn't load config \"%s\", using defaults instead", fullpath);
          } else {
@@ -371,7 +374,7 @@ int main(int argc, char *argv[]) {
    cfg_debug_audio = NULL;
 
    // Setup stdio & clock
-   if (!ui_mode_gui) {
+   if (ui_mode == GUI_MODE_TUI) {
       tui_readline_cb = tui_input_cb;    // set our input callback
       tui_init();
       tui_print_win(tui_window_find("status"), "rrcli starting");
@@ -405,7 +408,7 @@ int main(int argc, char *argv[]) {
    ws_client_init();
 
    connman_autoconnect();
-   if (ui_mode_gui) {
+   if (ui_mode == GUI_MODE_GTK) {
       // start gtk main loop
       gtk_main();
    } else {

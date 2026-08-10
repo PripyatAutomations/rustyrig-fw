@@ -15,10 +15,16 @@
 #include <gtk/gtk.h>
 #include <mod.ui.gtk3/gtk.core.h>
 #include <mod.ui.gtk3/gtk.alertdialog.h>
+#endif	// defined(USE_GTK)
+
+enum GuiMode {
+   GUI_MODE_TUI = 0,
+   GUI_MODE_GTK
+};
 
 #ifdef _WIN32
 extern void win32_check_darkmode(void);
-#endif
-#endif
+#endif	// WIN32
+extern enum GuiMode ui_mode;	// in ui.c
 
 #endif // !defined(__rrclient_ui_h)

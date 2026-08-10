@@ -27,10 +27,10 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/command.h>
+#include <rrclient/ui.h>
 #include <ev.h>
 
 extern bool dying;
-extern bool ui_mode_gui;
 extern time_t now;
 
 #if     defined(USE_MONGOOSE)
@@ -40,8 +40,6 @@ extern bool rrclient_send_chat(const char *data);
 #endif
 
 #if     defined(USE_GTK)
-#include <gtk/gtk.h>
-#include <mod.ui.gtk3/gtk.core.h>
 extern GtkWidget *chat_entry;
 extern GtkWidget *rx_vol_slider;
 extern GtkWidget *config_tab;
@@ -114,7 +112,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       }
 #endif
    } else if (strncasecmp(msg, "/clear", 5) == 0) {
-      if (!ui_mode_gui) {
+      if (ui_mode == GUI_MODE_TUI) {
 #if     defined(USE_GTK)
       } else {
          gtk_text_buffer_set_text(text_buffer, "", -1);
@@ -167,9 +165,10 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
             free( (char *)jp );
          } else if (strncasecmp(msg, "/rxmute", 6) == 0) {
          } else if (strncasecmp(msg, "/rxvol", 5) == 0) {
-            if (!ui_mode_gui) {
+            if (ui_mode == GUI_MODE_TUI) {
+               // do stuff
 #if     defined(USE_GTK)
-            } else {
+            } else if (ui_mode == GUI_MODE_GTK) {
                gdouble val = atoi(msg + 7) / 100;
                gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
                ui_print("* Set rx-vol to %f", val);
@@ -386,7 +385,7 @@ bool cmd_win(int argc, char **args) {
       return true;
    }
 
-   if (!ui_mode_gui) {
+   if (ui_mode == GUI_MODE_TUI) {
       if (strcasecmp(args[1], "close") == 0) {
          Log(LOG_CRIT, "test", "argc: %d args0: %s args1: %s", argc, args[0], args[1]);
 
@@ -426,7 +425,7 @@ bool cmd_win(int argc, char **args) {
 }
 
 bool cmd_clear(int argc, char **args) {
-   if (!ui_mode_gui) {
+   if (ui_mode == GUI_MODE_TUI) {
       tui_clear_scrollback( tui_active_window() );
    }
 
@@ -477,7 +476,7 @@ client_cmd_t client_cmds[] = {
 };
 
 bool cmd_help(int argc, char **args) {
-   if (!ui_mode_gui) {
+   if (ui_mode == GUI_MODE_TUI) {
       tui_window_t *wp = tui_active_window();
 
       if (!wp) {

@@ -26,9 +26,6 @@
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 #include <rrclient/userlist.h>
-#if     defined(USE_GTK)
-#include <mod.ui.gtk3/gtk.core.h>
-#endif
 
 // Server connections
 rr_connection_t *active_connections;
@@ -289,11 +286,15 @@ const char *get_server_property(const char *server, const char *prop) {
 bool disconnect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
 
-   GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
-   gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
-   gtk_style_context_add_class(ctx, "conn-idle");
-   gtk_style_context_remove_class(ctx, "conn-pending");
-   gtk_style_context_remove_class(ctx, "conn-active");
+#if	defined(USE_GTK)
+   if (ui_mode == GUI_MODE_GTK) {
+      GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
+      gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
+      gtk_style_context_add_class(ctx, "conn-idle");
+      gtk_style_context_remove_class(ctx, "conn-pending");
+      gtk_style_context_remove_class(ctx, "conn-active");
+   }
+#endif	// defined(USE_GTK)
 
    if (ws_connected) {
 #if     defined(USE_MONGOOSE)
@@ -323,14 +324,15 @@ bool connect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", resolved_server, url);
 
    if (url) {
-#if     defined(USE_GTK)
-      GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
-      gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
-      gtk_style_context_add_class(ctx, "conn-pending");
-      gtk_style_context_remove_class(ctx, "conn-active");
-      gtk_style_context_remove_class(ctx, "conn-idle");
-      gtk_button_set_label(GTK_BUTTON(conn_button), "trying..");
-
+#if	defined(USE_GTK)
+      if (ui_mode == GUI_MODE_GTK) {
+         GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
+         gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
+         gtk_style_context_add_class(ctx, "conn-pending");
+         gtk_style_context_remove_class(ctx, "conn-active");
+         gtk_style_context_remove_class(ctx, "conn-idle");
+         gtk_button_set_label(GTK_BUTTON(conn_button), "trying..");
+      }
 #endif // defined(USE_GTK)
       ui_print("%s Connecting to %s", get_chat_ts(now), url);
 
@@ -350,10 +352,7 @@ bool connect_server(const char *server) {
    return false;
 }
 
-#if     defined(USE_GTK)
-bool connect_or_disconnect(const char *server, GtkButton *button) {
-   (void)button;
-
+bool connect_or_disconnect(const char *server) {
    const char *resolved_server = rrclient_resolve_server_name(server);
 
    if (!resolved_server) {
@@ -374,7 +373,6 @@ bool connect_or_disconnect(const char *server, GtkButton *button) {
 
    return false;
 }
-#endif // defined(USE_GTK)
 
 void connman_autoconnect(void) {
    // Should we connect to a server on startup?
@@ -394,7 +392,7 @@ void connman_autoconnect(void) {
          snprintf(this_server, sizeof(this_server), "%s", sp);
          ui_print("* Autoconnecting to profile: %s *", this_server);
          sp = strtok(NULL, ",");
-         connect_or_disconnect( this_server, GTK_BUTTON(conn_button) );
+         connect_or_disconnect( this_server );
       }
       free(tv);
       free( (void *)autoconnect );

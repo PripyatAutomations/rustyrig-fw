@@ -33,15 +33,13 @@
 #include <rrclient/ui.h>
 #include <rrclient/connman.h>
 
-extern bool ui_mode_gui;
-
 extern bool add_server(const char *network, const char *str);
 
 // Callback for the config parser for 'network:*' section
 bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
    char *np = strchr(section, ':');
 
-   if (ui_mode_gui) {
+   if (ui_mode == GUI_MODE_GTK) {
       ui_print("np: %s section: %s, path: %s, buf: %s", np + 1, section, path, buf);
    } else {
       tui_print_win(tui_active_window(), "np: %s section: %s, path: %s, buf: %s", np + 1, section,
@@ -72,7 +70,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
             val++;
          }
 
-         if (ui_mode_gui) {
+         if (ui_mode == GUI_MODE_GTK) {
             ui_print("np: %s buf: %s val: %s", np, buf, val);
          } else {
             tui_print_win(tui_active_window(), "np: %s buf: %s val: %s", np, buf, val);
