@@ -207,6 +207,9 @@ void gui_edit_config(const char *filepath) {
       fseek(fp, 0, SEEK_END);
       long len = ftell(fp);
       rewind(fp);
+      if (errno) {
+         Log(LOG_CRIT, "config.edit", "rewind() returned %d", errno);
+      }
       char *buf = malloc(len + 1);
 
       if (!buf) {

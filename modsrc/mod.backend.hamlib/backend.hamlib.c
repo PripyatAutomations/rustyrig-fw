@@ -276,13 +276,14 @@ rr_vfo_data_t *hl_poll(void) {
 
    if ( ( rc = rig_set_vfo(hl_rig, RIG_VFO_A) ) != RIG_OK ) {
       Log( LOG_WARN, "be.hamlib", "SET VFO A failed: %s", rigerror(rc) );
+      free( (void *)rv );
 
       return NULL;
    }
 
    if ( ( rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq) ) != RIG_OK ) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A freq failed: %s", rigerror(rc) );
-      free(rv);
+      free( (void *)rv );
 
       return NULL;
    }

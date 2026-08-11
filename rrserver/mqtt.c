@@ -249,6 +249,7 @@ bool mqtt_client_init(void) {
    Log(LOG_DEBUG, "mqtt.cli", "Connect to mqtt: user=\"%s\", pass=\"%s\", host=\"%s:%d\"",
       mqtt_user, mqtt_secret, mqtt_host, mqtt_port);
 
+   fclose(fp);
    return false;
 }
 

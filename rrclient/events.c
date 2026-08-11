@@ -137,7 +137,7 @@ static void rrclient_handle_ptt_event(const char *event, const char *data, rrcon
 
 static void rrclient_handle_freq_event(const char *event, const char *data, rrconn_t *cptr,
                                        void *user) {
-   if (!data || !freq_entry) {
+   if (!data) {
       return;
    }
    dict *d = json2dict(data);
