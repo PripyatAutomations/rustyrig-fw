@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 VALGRIND_LOG="audit-logs/valgrind.rrclient.%p.log"
-VALGRIND_OPTS="--leak-check=full --track-origins=yes"
+VALGRIND_OPTS="--leak-check=full --track-origins=yes --show-leak-kinds=all"
 
 # XXX: This should go away someday...
 mkdir -p run/rrclient

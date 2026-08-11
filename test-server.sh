@@ -1,7 +1,7 @@
 set -e
 
 VALGRIND_LOG="audit-log/valgrind.rrserver.%p.log"
-VALGRIND_OPTS="--leak-check=full --track-origins=yes"
+VALGRIND_OPTS="--leak-check=full --track-origins=yes --show-leak-kinds=all"
 
 mkdir -p ./db
 # Set a default profile (used to find configs, set output folder, etc), if none set

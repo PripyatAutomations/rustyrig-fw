@@ -11,7 +11,9 @@ audit-cppcheck:
 	@echo "**********************"
 	@echo "*** cppcheck audit ***"
 	@echo "**********************"
-	@which cppcheck >/dev/null && cppcheck -j8 --std=c11 -q -v --check-level=exhaustive --force -I./inc/ --enable=warning,performance,portability --inline-suppr --checkers-report=audit-logs/cppcheck.report.txt --language=c ${audit_files}
+	@which cppcheck >/dev/null && cppcheck -j8 --std=c11 -q -v --check-level=exhaustive --force \
+		-I./inc/ --enable=warning,performance,portability --inline-suppr --std=c11 \
+		--checkers-report=audit-logs/cppcheck.report.txt --language=c ${audit_files}
 
 audit-flawfinder:
 	@echo "********************"

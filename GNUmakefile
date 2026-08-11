@@ -36,7 +36,7 @@ include librustyaxe/rules.mk
 include librrprotocol/rules.mk
 include rrserver/rules.mk
 include rrclient/rules.mk
-include fwdsp/rules.mk
+#include fwdsp/rules.mk
 include mk/install.mk
 include mk/win64.mk
 include mk/audit.mk

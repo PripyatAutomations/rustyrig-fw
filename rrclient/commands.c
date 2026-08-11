@@ -475,7 +475,7 @@ client_cmd_t client_cmds[] = {
    }
 };
 
-char *help_msg[] = {
+const char *help_msg[] = {
       "*** Keyboard Shortcuts ***",
       "   alt-X (1-0)\t\tSwitch to window 1-10",
       "   alt-left\t\tSwitch to previous win",

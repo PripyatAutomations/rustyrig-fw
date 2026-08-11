@@ -35,7 +35,7 @@ extern bool cfg_use_gtk;         // gtk.core.c
 
 ///////////////
 static GPtrArray *input_history = NULL;
-static int history_index = -1;
+static unsigned int history_index = -1;
 GtkWidget *chat_textview = NULL;
 GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;

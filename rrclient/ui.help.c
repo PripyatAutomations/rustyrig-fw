@@ -33,7 +33,7 @@ static bool safe_name(const char *name) {
    return true;
 }
 
-char *help_main[] = {
+const char *help_main[] = {
    "******************************************",
    "          rustyrig client help           *",
    "******************************************",

@@ -43,7 +43,7 @@ bool pipe_write_samples(rr_au_pipe_device_t *device, const void *samples, size_t
       return true;
    }
 
-   return write(device->pipe_fd, samples, size) == size;
+   return (write(device->pipe_fd, samples, size) == size);
 }
 
 bool pipe_read_samples(rr_au_pipe_device_t *device, void *buffer, size_t size) {
@@ -168,7 +168,7 @@ void au_unix_socket_poll(void) {
       rx_client_fd = client_fd;
 
       return;  // accept one connection per poll, or loop if you want multiple
-   } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+   } else if (errno != EAGAIN) {
       perror("accept");
    }
 
@@ -194,7 +194,7 @@ void au_unix_socket_poll(void) {
       close(rx_client_fd);
       rx_client_fd = -1;
    } else if (n < 0) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      if (errno == EAGAIN) {
          // No data available, not an error
          return;
       }

@@ -77,11 +77,7 @@ static uint32_t load_defaults(void) {
 }
 
 void shutdown_rig(uint32_t signum) {
-   if (signum >= 0) {
-      Log(LOG_CRIT, "core", "Shutting down by signal %d", signum);
-   } else {
-      Log(LOG_CRIT, "core", "Shutting down due to internal error: %d", -signum);
-   }
+   Log(LOG_CRIT, "core", "Shutting down by signal %d", signum);
    dying = 1;
    rr_ptt_set_all_off();
 }

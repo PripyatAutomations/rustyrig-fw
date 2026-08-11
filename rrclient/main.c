@@ -61,7 +61,7 @@ extern void ws_client_init(void);
 extern bool tui_input_cb(const char *input);
 static ev_timer tui_clock_watcher;
 static ev_timer ws_poll_watcher;
-struct ev_loop *loop = NULL;
+struct ev_loop *loop_main = NULL;
 bool rrclient_cleanup(void);
 bool mirc_colors = true;
 bool dying = false;
@@ -195,7 +195,7 @@ bool rrclient_cleanup(void) {
    dict_free(cfg);
 
    if (ui_mode == GUI_MODE_TUI) {
-      tui_stop_clock_timer(loop);
+      tui_stop_clock_timer(loop_main);
       tui_raw_mode(false);
    } else {
       // Do stuff here for GTK cleanup
@@ -222,7 +222,7 @@ void show_help(int argc, char **argv) {
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
    char *fullpath = NULL;
-   loop = EV_DEFAULT;
+   loop_main = EV_DEFAULT;
    int c;
    int digit_optind = 0;
 
@@ -371,7 +371,7 @@ int main(int argc, char *argv[]) {
       tui_readline_cb = tui_input_cb;    // set our input callback
       tui_init();
       tui_print_win(tui_window_find("status"), "rrcli starting");
-      tui_start_clock_timer(loop);
+      tui_start_clock_timer(loop_main);
 #if     defined(USE_GTK)
    } else {
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
@@ -410,7 +410,7 @@ int main(int argc, char *argv[]) {
       ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
       ev_timer_start(loop, &ws_poll_watcher);
 #endif
-      ev_run(loop, 0);
+      ev_run(loop_main, 0);
    }
    rrclient_cleanup();
 

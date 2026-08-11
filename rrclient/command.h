@@ -14,8 +14,8 @@
 #include <librustyaxe/event-bus.h>
 
 typedef struct client_cmd {
-   char *cmd;
-   char *desc;
+   const char *cmd;
+   const char *desc;
    bool (*cb)(int argc, char **args);
    event_cb_t (*event_cb)(const char *event, void *data, rrconn_t *cptr, void *user);
 } client_cmd_t;
