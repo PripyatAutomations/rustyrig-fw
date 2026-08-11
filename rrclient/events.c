@@ -140,7 +140,11 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
    if (!data || !freq_entry) {
       return;
    }
-   double freq = *(double *)data;
+   dict *d = json2dict(data);
+   fprintf(stderr, "[freq]\n");
+   dict_dump(d, stderr);
+   long freq = dict_get_long(d, "cat.state.freq", 0);
+
 #if     defined(USE_GTK)
 
    if (ui_mode == GUI_MODE_GTK) {
@@ -148,10 +152,11 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
 
       if (!gtk_freq_entry_is_editing(fe) ) {
-         gtk_freq_entry_set_frequency(fe, (unsigned long)freq);
+         gtk_freq_entry_set_frequency(fe, freq);
       }
    }
 #endif // defined(USE_GTK)
+   dict_free(d);
 }
 
 static void rrclient_handle_mode_event(const char *event, const char *data, rrconn_t *cptr,

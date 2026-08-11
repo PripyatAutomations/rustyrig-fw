@@ -70,7 +70,6 @@ bool debug_sockets = false;
 time_t now = 0;
 
 static void ws_poll_cb(EV_P_ ev_timer *w, int revents) {
-   (void)w; (void)revents;
    rrclient_poll_events();
 }
 
@@ -127,8 +126,6 @@ static void tui_stop_clock_timer(struct ev_loop *loop) {
 }
 
 static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
-   (void)w; (void)revents;
-
    if (dying) {
       rrclient_cleanup();
    }
@@ -142,10 +139,6 @@ static void tui_start_clock_timer(struct ev_loop *loop) {
 }
 
 static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)cptr;
-   (void)user;
-
    struct log_event_data *led = (struct log_event_data *)data;
 
    if (!led || !led->message[0]) {
@@ -173,10 +166,6 @@ struct talk_msg_event_data {
 
 static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn_t *cptr,
                                            void *user) {
-   (void)event;
-   (void)cptr;
-   (void)user;
-
    struct talk_msg_event_data *tmed = (struct talk_msg_event_data *)data;
 
    if (!tmed || !tmed->from[0] || !tmed->data[0]) {

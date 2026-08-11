@@ -318,7 +318,7 @@ rr_vfo_data_t *hl_poll(void) {
    struct mg_str mp;
    http_client_t *talker = whos_talking();
 
-   const char *jp = dict2json_mkstr( VAL_STR, "cat.state.vfo", "A", VAL_FLOAT, "cat.state.freq",
+   const char *jp = dict2json_mkstr( VAL_STR, "cat.state.vfo", "A", VAL_LONG, "cat.state.freq",
       hl_state.freq, VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT,
       "cat.state.width", hl_state.width, VAL_BOOL, "cat.state.ptt", hl_state.ptt, VAL_INT,
       "cat.state.power", hl_state.power, VAL_ULONG, "cat.ts", now, VAL_STR, "cat.user",

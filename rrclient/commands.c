@@ -475,6 +475,15 @@ client_cmd_t client_cmds[] = {
    }
 };
 
+char *help_msg[] = {
+      "*** Keyboard Shortcuts ***",
+      "   alt-X (1-0)\t\tSwitch to window 1-10",
+      "   alt-left\t\tSwitch to previous win",
+      "   alt-right\t\tSwitch to next win",
+      "   F12\t\t\tPTT toggle",
+      NULL
+};
+
 bool cmd_help(int argc, char **args) {
    if (ui_mode == GUI_MODE_TUI) {
       tui_window_t *wp = tui_active_window();
@@ -488,12 +497,11 @@ bool cmd_help(int argc, char **args) {
          tui_print_win(wp, "   %s\t\t%s", client_cmds[i].cmd, client_cmds[i].desc);
       }
 
-      tui_print_win(wp, "");
-      tui_print_win(wp, "*** Keyboard Shortcuts ***");
-      tui_print_win(wp, "   alt-X (1-0)\t\tSwitch to window 1-10");
-      tui_print_win(wp, "   alt-left\t\tSwitch to previous win");
-      tui_print_win(wp, "   alt-right\t\tSwitch to next win");
-      tui_print_win(wp, "   F12\t\t\tPTT toggle");
+      for (int i = 0; i < sizeof(help_msg) / sizeof(help_msg[0]); i++) {
+         if (help_msg[i]) {
+            tui_print_win(wp, "%s", help_msg[i]);
+         }
+      }
    }
 
    return false;

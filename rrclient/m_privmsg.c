@@ -55,8 +55,18 @@ bool irc_send_privmsg(rrconn_t *cptr, tui_window_t *wp, int argc, char **args) {
 }
 
 void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
    irc_message_t *mp = data;
+
    char *nick = mp->prefix;
+
+   if (!nick) {
+      return;
+   }
+
    char *nick_end = strchr(nick, '!');
    char tmp_nick[NICKLEN + 1];
    char *network = cptr->server->network;
@@ -81,9 +91,6 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
       wp = tui_active_window();
    }
 
-   if (!nick) {
-      return;
-   }
    Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
 
    char *colored = NULL;

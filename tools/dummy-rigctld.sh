@@ -1,4 +1,5 @@
 #!/bin/bash
-PORT=/dev/ttyUSB1
+#PORT=/dev/ttyUSB1
 #DEBUG=-vvvv
-rigctld -o -m 1 -P RIG ${DEBUG}
+#rigctld -o -m 1 -P RIG ${DEBUG}
+flrig & (sleep 3; rigctld -m 4 -o)

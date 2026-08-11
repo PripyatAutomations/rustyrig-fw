@@ -26,7 +26,7 @@ extern time_t now;
 extern bool ws_connected;
 #if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
-extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, float freq);
+extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, long freq);
 #endif // defined(USE_MONGOOSE)
 
 // XXX: This should be made less ugly; we need to block CAT polling momentarily
