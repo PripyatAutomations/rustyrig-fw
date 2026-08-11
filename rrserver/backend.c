@@ -188,7 +188,7 @@ bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
    return rv;
 }
 
-bool rr_freq_set(rr_vfo_t vfo, float freq) {
+bool rr_freq_set(rr_vfo_t vfo, int freq) {
    if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
       Log(LOG_CRIT, "rig", "rr_freq_set called with no active (or broken) backend selected!");
 

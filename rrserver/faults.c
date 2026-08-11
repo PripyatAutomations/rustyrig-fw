@@ -49,22 +49,22 @@ struct fault_table fault_table[] = {
       FAULT_FINAL_THERMAL, true, "THERM_FIN"
    },
    {
-      FAULT_FINAL_LOW_CURRENT, true, "F. Lo Curr"
+      FAULT_FINAL_LOW_CURRENT, true, "F Lo Curr"
    },
    {
-      FAULT_FINAL_HIGH_CURRENT, true, "F. Hi Curr"
+      FAULT_FINAL_HIGH_CURRENT, true, "F Hi Curr"
    },
    {
-      FAULT_FINAL_LOW_VOLT, true, "F. Lo Volt"
+      FAULT_FINAL_LOW_VOLT, true, "F Lo Volt"
    },
    {
-      FAULT_FINAL_HIGH_VOLT, true, "F. Hi Volt"
+      FAULT_FINAL_HIGH_VOLT, true, "F Hi Volt"
    },
    {
       FAULT_TOT_TIMEOUT, true, "TIMEOUT"
    },
    {
-      FAULT_WARMING_UP, false, "Warming Up"
+      FAULT_WARMING_UP, false, "WARM UP"
    },
    {
       FAULT_IO_ERROR, false, "IO INIT"
@@ -76,7 +76,7 @@ struct fault_table fault_table[] = {
       FAULT_CAT_ERROR, false, "CAT INIT"
    },
    {
-      FAULT_UNKNOWN, true, "Unknown"
+      FAULT_UNKNOWN, true, "UNK. ERR"
    },
 };
 

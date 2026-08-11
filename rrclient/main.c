@@ -373,6 +373,10 @@ int main(int argc, char *argv[]) {
    free( (void *)cfg_debug_audio );
    cfg_debug_audio = NULL;
 
+#if     defined(USE_MONGOOSE)
+   g_timeout_add(10, poll_mongoose, NULL);   // Poll Mongoose every 10ms
+#endif // defined(USE_MONGOOSE)
+
    // Setup stdio & clock
    if (ui_mode == GUI_MODE_TUI) {
       tui_readline_cb = tui_input_cb;    // set our input callback
@@ -383,9 +387,6 @@ int main(int argc, char *argv[]) {
    } else {
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
 
-#if     defined(USE_MONGOOSE)
-      g_timeout_add(10, poll_mongoose, NULL);   // Poll Mongoose every 10ms
-#endif // defined(USE_MONGOOSE)
       gtk_init(&argc, &argv);
 #ifdef _WIN32
       // Disable edit mode in the console, so copy/paste is more usable

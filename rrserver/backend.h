@@ -38,7 +38,7 @@ struct rr_backend_funcs {
    float (*power_get)(rr_vfo_t vfo);
    rr_mode_t (*mode_get)(rr_vfo_t vfo);
    bool (*mode_set)(rr_vfo_t vfo, rr_mode_t mode);
-   bool (*freq_set)(rr_vfo_t vfo, float freq);
+   bool (*freq_set)(rr_vfo_t vfo, int freq);
    float (*freq_get)(rr_vfo_t vfo);
    uint16_t (*width_get)(rr_vfo_t vfo);
    bool (*width_set)(rr_vfo_t vfo, const char *width);
@@ -65,7 +65,7 @@ extern bool rr_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state);
 extern float rr_get_power(rr_vfo_t vfo);
 extern bool rr_set_power(rr_vfo_t vfo, float power);
 extern float rr_freq_get(rr_vfo_t vfo);
-extern bool rr_freq_set(rr_vfo_t vfo, float freq);
+extern bool rr_freq_set(rr_vfo_t vfo, int freq);
 extern bool rr_be_poll(rr_vfo_t vfo);
 extern uint16_t rr_get_width(rr_vfo_t vfo);
 extern bool rr_set_width(rr_vfo_t vfo, const char *width);

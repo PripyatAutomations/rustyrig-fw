@@ -75,7 +75,7 @@ static void rrclient_update_connection_ui(bool connected) {
 static void rrclient_handle_connection_event(const char *event, const char *data, rrconn_t *cptr,
                                              void *user) {
    if (strcasecmp(event, "connecting") == 0) {
-      ui_print( "[%s] *** Connecting ***", get_chat_ts(now) );
+      ui_print( "%s *** Connecting ***", get_chat_ts(now) );
    } else if (strcasecmp(event, "connected") == 0) {
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
@@ -85,6 +85,7 @@ static void rrclient_handle_connection_event(const char *event, const char *data
       }
       login_user = strdup(user);
       rrclient_update_connection_ui(true);
+      ui_print( "%s *** Connected ***", get_chat_ts(now) );
       dict_free(d);
    } else if (strcasecmp(event, "goodbye") == 0 || strcasecmp(event, "disconnect") == 0) {
       if (login_user) {
@@ -92,13 +93,14 @@ static void rrclient_handle_connection_event(const char *event, const char *data
          login_user = NULL;
       }
       rrclient_update_connection_ui(false);
-      ui_print( "[%s] *** DISCONNECTED ***", get_chat_ts(now) );
+      ui_print( "%s *** DISCONNECTED ***", get_chat_ts(now) );
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);
       userlist_clear_all();
    } else if (strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {
       ui_print("{red}* http error *{reset}");
+      rrclient_update_connection_ui(false);
    }
 }
 
@@ -107,7 +109,20 @@ static void rrclient_handle_ptt_event(const char *event, const char *data, rrcon
    if (!data) {
       return;
    }
-   bool active = *(bool *)data;
+
+   dict *d = json2dict(data);
+   const char *cat_user = dict_get(d, "cat.user", NULL);
+   time_t msg_ts = dict_get_time_t(d, "cat.ts", 0);
+   const char *cat_mode = dict_get(d, "cat.state.mode", NULL);
+   const char *cat_vfo = dict_get(d, "cat.state.vfo", NULL);
+   bool active = dict_get_bool(d, "cat.state.ptt", false);
+
+   int cat_freq = dict_get_int(d, "cat.state.freq", 0.0);
+   int cat_width = dict_get_int(d, "cat.state.width", 0);
+   int cat_power = dict_get_int(d, "cat.state.power", 0);
+
+   fprintf(stderr, "[rig.ptt]\n");
+   dict_dump(d, stderr);
 
    if (ptt_button) {
 #if     defined(USE_GTK)
@@ -178,6 +193,7 @@ static void rrclient_handle_userjoin_event(const char *event, const char *data, 
    if (!userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
+   dict_free(d);
 }
 
 static void rrclient_handle_userquit_event(const char *event, const char *data, rrconn_t *cptr,
@@ -311,10 +327,6 @@ void rrclient_register_events(void) {
    event_on("http.error", rrclient_handle_connection_event, NULL);
 
    // Chat/userlist related
-   event_on("http.userinfo", rrclient_handle_userinfo_event, NULL);
-   event_on("http.userjoin", rrclient_handle_userjoin_event, NULL);
-   event_on("http.userquit", rrclient_handle_userquit_event, NULL);
-   event_on("http.whois", rrclient_handle_whois_event, NULL);
    event_on("join", rrclient_handle_userjoin_event, NULL);
    event_on("privmsg", rrclient_handle_talk_msg_event, NULL);
    event_on("quit", rrclient_handle_userquit_event, NULL);

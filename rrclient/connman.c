@@ -310,7 +310,7 @@ bool disconnect_server(const char *server) {
       }
 #endif // defined(USE_MONGOOSE)
       ws_connected = false;
-      gtk_button_set_label(GTK_BUTTON(conn_button), "Connect");
+      gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
       userlist_clear_all();
    }
 

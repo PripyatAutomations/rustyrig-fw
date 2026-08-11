@@ -26,10 +26,8 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif
 #include <modsrc/mod.backend.hamlib/backend.hamlib.h>
+
 // This only gets drug in if we have features/backend/hamlib=true
 #if     defined(BACKEND_HAMLIB)
 #include <hamlib/rig.h>
@@ -199,8 +197,8 @@ static bool hl_init(void) {
 
    // XXX: Is this needed or is the simpler code OK?
 /*
- *  strncpy(hl_rig->state.rigport.pathname, "localhost:4532",
- * sizeof(hl_rig->state.rigport.pathname) - 1);
+ *  strlcpy(hl_rig->state.rigport.pathname, "localhost:4532",
+ * sizeof(hl_rig->state.rigport.pathname));
  *  hl_rig->state.rigport.pathname[sizeof(hl_rig->state.rigport.pathname) - 1] =
  * '\0';
  */
@@ -226,7 +224,7 @@ static bool hl_init(void) {
    return false;
 }
 
-static bool hl_freq_set(rr_vfo_t vfo, float freq) {
+static bool hl_freq_set(rr_vfo_t vfo, int freq) {
    int ret = -1;
 
    // Set frequency

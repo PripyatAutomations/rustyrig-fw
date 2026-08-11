@@ -28,58 +28,68 @@ struct rr_user *global_userlist = NULL;
 // All old information will be replaced with the new
 bool userlist_add_or_update(dict *d) {
    if (!d) {
+      return false;
+   }
+
+   char *t_privs  = dict_get(d, "talk.privs", NULL);
+   char *t_user   = dict_get(d, "talk.user", NULL);
+   int   t_clones = dict_get_int(d, "talk.clones", 0);
+
+   if (!t_user) {
+      return false;
+   }
+
+   struct rr_user *c = userlist_find(t_user);
+
+   if (c) {
+      Log(LOG_INFO, "userlist",
+          "Updating userlist entry for %s at <%p>", t_user, c);
+
+      memset(c->name, 0, sizeof(c->name));
+      strlcpy(c->name, t_user, sizeof(c->name));
+
+      memset(c->privs, 0, sizeof(c->privs));
+      if (t_privs) {
+         strlcpy(c->privs, t_privs, sizeof(c->privs));
+      }
+
+      c->clones = t_clones;
+
+      userlist_redraw_gtk();
       return true;
    }
-#if     0
-   struct rr_user *c = global_userlist, *prev = NULL;
-   char *t_privs = dict_get(d, "talk.privs", NULL);
-   char *t_user = dict_get(d, "talk.user", NULL);
-   char *t_ip = dict_get(d, "talk.ip", NULL);
-   char *t_cmd = dict_get(d, "talk.cmd", NULL);
-   char *t_muted = dict_get(d, "talk.muted", NULL);
-   int t_clones = dict_get_int(d, "talk.clones", 0);
-   char *t_target = dict_get(d, "talk.target", NULL);
-   time_t t_ts = dict_get_time_t(d, "talk.ts", 0);
 
-   for (struct rr_user *c = global_userlist ; c ; c = c->next) {
-      if (strcasecmp(c->name, t_user) == 0) {
-         // Free the user struct if possible
-         struct rr_user *next = c->next;
-
-         if (prev) {
-            prev->next = next;
-         }
-         Log(LOG_DEBUG, "userlist", "Freeing userlist entry at <%p>", c);
-         free( (void *)c );
-         c = next;
-         continue;
-      }
-   }
-
-   // we should be at the end of the list...
-
-   struct rr_user *n = malloc( sizeof(struct rr_user) );
+   struct rr_user *n = calloc(1, sizeof(*n));
 
    if (!n) {
       fprintf(stderr, "OOM in userlist_add_or_update\n");
-
       return false;
    }
-   memset( n, 0, sizeof(struct rr_user) );
-   memcpy( n->name, t_user, sizeof(n->name) );
-   memcpy( n->privs, t_privs, sizeof(n->privs) );
-   n->clones = t_clones;
-   n->next = NULL;
 
-   Log(LOG_DEBUG, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
+   strlcpy(n->name, t_user, sizeof(n->name));
 
-   if (prev) {
-      prev->next = n;
-   } else {
-      global_userlist = n;
+   if (t_privs) {
+      strlcpy(n->privs, t_privs, sizeof(n->privs) );
    }
+
+   n->clones = t_clones;
+
+   /* Append to the end of the list. */
+   if (!global_userlist) {
+      global_userlist = n;
+   } else {
+      c = global_userlist;
+      while (c->next) {
+         c = c->next;
+      }
+      c->next = n;
+   }
+
+   Log(LOG_INFO, "userlist",
+       "Storing new userlist entry for %s at <%p> in userlist",
+       n->name, n);
+
    userlist_redraw_gtk();
-#endif
 
    return true;
 }
@@ -88,23 +98,33 @@ bool userlist_add_or_update(dict *d) {
 // this will scan the entire list...
 bool userlist_remove_by_name(const char *name) {
    if (!name) {
-      return true;
+      return false;
    }
-   struct rr_user *c = global_userlist, *prev = NULL;
+
+   struct rr_user *c = global_userlist;
+   struct rr_user *prev = NULL;
 
    while (c) {
-      if (!strcasecmp(c->name, name) ) {
+      if (!strcasecmp(c->name, name)) {
+         struct rr_user *next = c->next;
+
          if (prev) {
-            prev->next = c->next;
+            prev->next = next;
          } else {
-            global_userlist = c->next;
+            global_userlist = next;
          }
-         Log(LOG_DEBUG, "userlist", "Removing user %s at <%p>", name, c);
+
+         Log(LOG_DEBUG, "userlist",
+             "Removing user %s at <%p>", name, c);
+
          free(c);
+         return true;
       }
+
       prev = c;
       c = c->next;
    }
+
    return false;
 }
 
@@ -127,7 +147,6 @@ void userlist_clear_all(void) {
    global_userlist = NULL;
    userlist_redraw_gtk();
 }
-
 
 // Find a user in the userlist
 struct rr_user *userlist_find(const char *name) {

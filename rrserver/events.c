@@ -27,6 +27,8 @@ static void rrserver_handle_talkmsg_event(const char *event, const char *data, r
    dict *d = json2dict(data);
    fprintf(stderr, "[talk.msg]\n");
    dict_dump(d, stderr);
+   // XXX: we should dispatch chat messages to the rest of the software and log the chat
+
    dict_free(d);
 }
 
