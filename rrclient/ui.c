@@ -23,32 +23,44 @@
 
 enum GuiMode ui_mode = UI_MODE_TUI;
 
+bool ui_vprint(const char *window, const char *fmt, va_list ap) {
+   if (!fmt) {
+      return true;
+   }
+
+   if (ui_mode == UI_MODE_GTK) {
+#if defined(USE_GTK)
+      va_list aq;
+      va_copy(aq, ap);
+
+      ui_print_gtk(window, fmt, aq);
+      va_end(aq);
+#endif
+   }
+
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *win = tui_window_find(window);
+
+      if (!win) {
+         /* Try to figure out if this is a special window */
+      }
+
+      tui_vprint(win, fmt, ap);
+   }
+
+   return false;
+}
+
 bool ui_print(const char *window, const char *fmt, ...) {
    if (!fmt) {
       return true;
    }
+
    va_list ap;
    va_start(ap, fmt);
-   char outbuf[8096];
-
-   memset( outbuf, 0, sizeof(outbuf) );
-   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
+   bool ret = ui_vprint(window, fmt, ap);
    va_end(ap);
 
-
-   if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
-      ui_print_gtk(outbuf);
-#endif
-   } else {
-      tui_window_t *win = tui_window_find(window);
-
-      if (!win) {
-         // Try to figure out if this is a special window
-      }
-      tui_vprint(win, fmt, ap);
-   }
-
-   // Print to the TUI too...
-   return false;
+   return ret;
 }
+

@@ -304,19 +304,32 @@ char *gtk_colorize_string(const char *in) {
    return out;
 }
 
-bool ui_print_gtk(const char *msg) {
-   if (!msg) {
+bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
+   if (!fmt) {
       return true;
    }
-   char *colored = gtk_colorize_string(msg);
+
+   char msgbuf[8096];
+
+   va_list aq;
+   va_copy(aq, ap);
+   vsnprintf(msgbuf, sizeof(msgbuf), fmt, aq);
+   va_end(aq);
+
+   char *colored = gtk_colorize_string(msgbuf);
 
    if (!colored) {
       return true;
    }
+
    GtkTextIter end;
+
    gtk_text_buffer_get_end_iter(text_buffer, &end);
-   gtk_text_buffer_insert_markup(text_buffer, &end, colored, -1);
-   gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
+   gtk_text_buffer_insert_markup(
+      text_buffer, &end, colored, -1);
+   gtk_text_buffer_insert(
+      text_buffer, &end, "\n", 1);
+
    g_free(colored);
 
    g_idle_add(ui_scroll_to_end, chat_textview);

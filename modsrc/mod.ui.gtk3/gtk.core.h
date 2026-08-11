@@ -86,7 +86,7 @@ extern GtkWidget *freq_entry;
 extern GtkWidget *mode_combo;
 extern gulong mode_changed_handler_id;
 extern gulong freq_changed_handler_id;
-extern bool ui_print_gtk(const char *msg);
+extern bool ui_print_gtk(const char *window, const char *fmt, va_list ap);
 extern char *gtk_colorize_string(const char *in);
 extern bool cfg_use_gtk;
 extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
