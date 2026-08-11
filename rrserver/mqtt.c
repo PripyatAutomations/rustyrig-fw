@@ -81,7 +81,7 @@ static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg, struct mg_str *top
    topic->buf = (char *) buf + 2;
    new_pos = pos + 2 + topic->len + (!qos ? 0 : 1);
 
-   if ( (size_t) new_pos > msg->dgram.len) {
+   if ( new_pos > msg->dgram.len) {
       return 0;
    }
 
