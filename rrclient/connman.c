@@ -128,7 +128,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          memcpy(buf, msg->data.buf, msg->data.len);
       }
       event_emit("connected", NULL, buf);
-      tui_print_win(tui_window_find("status"), "Connected to server");
+      ui_print(NULL, "status", "Connected to server");
       const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient", VAL_STR, "hello.version",
          VERSION);
       mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
@@ -136,7 +136,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
    } else if (ev == MG_EV_CLOSE) {
       ws_connected = false;
       event_emit("disconnected", NULL, NULL);
-      tui_print_win(tui_window_find("status"), "Disconnected from server");
+      ui_print(NULL, "status", "Disconnected from server");
    }
 }
 
@@ -144,11 +144,11 @@ bool rrclient_connect(const char *url) {
    if (!url) {
       return true;
    }
-   tui_print_win(tui_window_find("status"), "Connecting to %s", url);
+   ui_print(NULL, "status", "Connecting to %s", url);
    ws_conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
 
    if (!ws_conn) {
-      tui_print_win(tui_window_find("status"), "Connection failed");
+      ui_print(NULL, "status", "Connection failed");
 
       return true;
    }
@@ -291,7 +291,7 @@ bool disconnect_server(const char *server) {
 
 #if     defined(USE_GTK)
 
-   if (ui_mode == GUI_MODE_GTK) {
+   if (ui_mode == UI_MODE_GTK) {
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
       gtk_style_context_add_class(ctx, "conn-idle");
@@ -308,7 +308,10 @@ bool disconnect_server(const char *server) {
       }
 #endif // defined(USE_MONGOOSE)
       ws_connected = false;
+
+#if     defined(USE_GTK)
       gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
+#endif	// defined(USE_GTK)
       userlist_clear_all();
    }
 
@@ -330,26 +333,26 @@ bool connect_server(const char *server) {
    if (url) {
 #if     defined(USE_GTK)
 
-      if (ui_mode == GUI_MODE_GTK) {
+      if (ui_mode == UI_MODE_GTK) {
          GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
          gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
          gtk_style_context_add_class(ctx, "conn-pending");
          gtk_style_context_remove_class(ctx, "conn-active");
          gtk_style_context_remove_class(ctx, "conn-idle");
          gtk_button_set_label(GTK_BUTTON(conn_button), "trying..");
-      }
+      } else
 #endif // defined(USE_GTK)
-      ui_print("%s Connecting to %s", get_chat_ts(now), url);
+         ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
 
 #if     defined(USE_MONGOOSE)
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
 
       if (!ws_conn) {
-         ui_print( "%s Socket connect error", get_chat_ts(now) );
+         ui_print(NULL, "%s Socket connect error", get_chat_ts(now) );
       }
 #endif // defined(USE_MONGOOSE)
    } else {
-      ui_print(
+      ui_print(NULL,
          "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
          resolved_server);
    }
@@ -395,7 +398,7 @@ void connman_autoconnect(void) {
          char this_server[256];
          memset( this_server, 0, sizeof(this_server) );
          snprintf(this_server, sizeof(this_server), "%s", sp);
-         ui_print("* Autoconnecting to profile: %s *", this_server);
+         ui_print(NULL, "* Autoconnecting to profile: %s *", this_server);
          sp = strtok(NULL, ",");
          connect_or_disconnect( this_server );
       }

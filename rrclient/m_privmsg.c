@@ -14,12 +14,14 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
+#include <rrclient/ui.h>
 #include <ev.h>
 
 extern time_t now;
 extern bool dying, debug_sockets, mirc_colors;
 
-bool irc_send_privmsg(rrconn_t *cptr, tui_window_t *wp, int argc, char **args) {
+bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args) {
+#if	0	// fix this
    char buf[1024];
    memset(buf, 0, 1024);
    size_t pos = 0;
@@ -43,13 +45,14 @@ bool irc_send_privmsg(rrconn_t *cptr, tui_window_t *wp, int argc, char **args) {
       // CTCP
       if (strncasecmp(buf + 1, "ACTION", 6) == 0) {
          Log(LOG_INFO, "irc", "[%s] * %s / %s %s", irc_name(cptr), target, cptr->nick, buf + 8);
-         tui_print_win(wp, "%s * %s %s", get_chat_ts(0), cptr->nick, buf + 8);
+         ui_print(window, "%s * %s %s", get_chat_ts(0), cptr->nick, buf + 8);
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
-      tui_print_win(wp, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s",
+      ui_print(window, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s",
          get_chat_ts(0), cptr->nick, buf);
    }
+#endif
 
    return false;
 }
@@ -85,11 +88,6 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
       is_private = false;
       win_title = mp->argv[1];
    }
-   tui_window_t *wp = tui_window_find(win_title);
-
-   if (!wp) {
-      wp = tui_active_window();
-   }
 
    Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
 
@@ -102,10 +100,10 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
    }
 
    if (strcasestr(mp->argv[2], cptr->nick) == 0) {
-      tui_print_win(wp, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ",
+      ui_print(NULL, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ",
          get_chat_ts(0), tmp_nick, colored);
    } else {
-      tui_print_win(wp, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s{reset} ",
+      ui_print(NULL, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s{reset} ",
          get_chat_ts(0), tmp_nick, colored);
    }
    free(colored);

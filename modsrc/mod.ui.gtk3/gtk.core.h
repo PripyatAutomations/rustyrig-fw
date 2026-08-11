@@ -50,7 +50,6 @@ struct GuiWidget {
 };
 typedef struct GuiWidget gui_widget_t;
 
-extern bool ui_print(const char *fmt, ...);
 extern void update_connection_button(bool connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, gboolean active);
 extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text);

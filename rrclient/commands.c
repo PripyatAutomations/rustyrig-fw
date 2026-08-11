@@ -73,7 +73,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       const char *server = msg + 8;
 
       if (server && strlen(server) > 1) {
-         ui_print("%s * Changing server profile to %s", get_chat_ts(now), server);
+         ui_print(NULL, "%s * Changing server profile to %s", get_chat_ts(now), server);
          disconnect_server(server);
 
          if (server_name) {
@@ -89,7 +89,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", server);
          connect_server(server);
       } else {
-         ui_print("Try /server servername to connect");
+         ui_print(NULL, "Try /server servername to connect");
          show_server_chooser();
       }
    } else if (strncasecmp(msg, "/disconnect", 10) == 0) {
@@ -112,7 +112,8 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
       }
 #endif
    } else if (strncasecmp(msg, "/clear", 5) == 0) {
-      if (ui_mode == GUI_MODE_TUI) {
+      if (ui_mode == UI_MODE_TUI) {
+         tui_clear_scrollback(tui_active_window());
 #if     defined(USE_GTK)
       } else {
          gtk_text_buffer_set_text(text_buffer, "", -1);
@@ -165,13 +166,13 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
             free( (char *)jp );
          } else if (strncasecmp(msg, "/rxmute", 6) == 0) {
          } else if (strncasecmp(msg, "/rxvol", 5) == 0) {
-            if (ui_mode == GUI_MODE_TUI) {
+            if (ui_mode == UI_MODE_TUI) {
                // do stuff
 #if     defined(USE_GTK)
-            } else if (ui_mode == GUI_MODE_GTK) {
+            } else if (ui_mode == UI_MODE_GTK) {
                gdouble val = atoi(msg + 7) / 100;
                gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
-               ui_print("* Set rx-vol to %f", val);
+               ui_print(NULL, "* Set rx-vol to %f", val);
 #endif
             }
          } else if (strncasecmp(msg, "/rxunmute", 8) == 0) {
@@ -203,7 +204,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
 //////////////////
 bool cmd_join(int argc, char **args) {
    (void)argc; (void)args;
-   tui_print_win(tui_active_window(), "{yellow}JOIN is not supported over WebSocket{reset}");
+   ui_print(NULL, "{yellow}JOIN is not supported over WebSocket{reset}");
 
    return false;
 }
@@ -256,8 +257,7 @@ bool cmd_msg(int argc, char **args) {
       pos += n;
    }
 
-   tui_window_t *wp = tui_active_window();
-   tui_print_win(wp, "-> %s %s", target, fullmsg);
+   ui_print(NULL, "-> %s %s", target, fullmsg);
 
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", fullmsg,
       VAL_STR, "talk.target", target);
@@ -277,6 +277,7 @@ bool cmd_notice(int argc, char **args) {
       // XXX: cry not enough args
       return true;
    }
+#if	0
    tui_window_t *wp = NULL;
    bool new_win = false;
 
@@ -315,24 +316,24 @@ bool cmd_notice(int argc, char **args) {
          pos += n;
       }
 
-      tui_print_win(wp, "-> *%s* %s", target, fullmsg);
-      tui_print_win(wp, "{yellow}NOTICE is not supported over WebSocket{reset}");
+      ui_print(wp, "-> *%s* %s", target, fullmsg);
+      ui_print(wp, "{yellow}NOTICE is not supported over WebSocket{reset}");
    }
+#endif
 
    return false;
 }
 
 bool cmd_part(int argc, char **args) {
    (void)argc; (void)args;
-   tui_print_win(tui_active_window(), "{yellow}PART is not supported over WebSocket{reset}");
+   ui_print(NULL, "{yellow}PART is not supported over WebSocket{reset}");
 
    return false;
 }
 
 bool cmd_quit(int argc, char **args) {
    (void)argc; (void)args;
-   tui_window_t *wp = tui_active_window();
-   tui_print_win(wp, "Goodbye!");
+   ui_print(NULL, "Goodbye!");
 
    // Set the dying flag so main loop with cleanly exit
    dying = true;
@@ -345,7 +346,6 @@ bool cmd_quote(int argc, char **args) {
       // XXX: cry not enough args
       return true;
    }
-   tui_window_t *wp = tui_active_window();
    char fullmsg[502];
    memset( fullmsg, 0, sizeof(fullmsg) );
    size_t pos = 0;
@@ -360,22 +360,22 @@ bool cmd_quote(int argc, char **args) {
       pos += n;
    }
 
-   tui_print_win(wp, "-raw-> %s", fullmsg);
-   tui_print_win(wp, "{yellow}QUOTE is not supported over WebSocket{reset}");
+   ui_print(NULL, "-raw-> %s", fullmsg);
+   ui_print(NULL, "{yellow}QUOTE is not supported over WebSocket{reset}");
 
    return false;
 }
 
 bool cmd_topic(int argc, char **args) {
    (void)argc; (void)args;
-   tui_print_win(tui_active_window(), "{yellow}TOPIC is not supported over WebSocket{reset}");
+   ui_print(NULL, "{yellow}TOPIC is not supported over WebSocket{reset}");
 
    return false;
 }
 
 bool cmd_whois(int argc, char **args) {
    (void)argc; (void)args;
-   tui_print_win(tui_active_window(), "{yellow}WHOIS is not supported over WebSocket{reset}");
+   ui_print(NULL, "{yellow}WHOIS is not supported over WebSocket{reset}");
 
    return false;
 }
@@ -385,7 +385,7 @@ bool cmd_win(int argc, char **args) {
       return true;
    }
 
-   if (ui_mode == GUI_MODE_TUI) {
+   if (ui_mode == UI_MODE_TUI) {
       if (strcasecmp(args[1], "close") == 0) {
          Log(LOG_CRIT, "test", "argc: %d args0: %s args1: %s", argc, args[0], args[1]);
 
@@ -410,10 +410,10 @@ bool cmd_win(int argc, char **args) {
       }
       int id = atoi(args[1]);
 
-      tui_print_win(tui_active_window(), "ID: %s", args[1]);
+      ui_print(NULL, "ID: %s", args[1]);
 
       if (id < 1 || id > TUI_MAX_WINDOWS) {
-         tui_print_win(tui_active_window(), "Invalid window %d, must be between 1 and %d", id,
+         ui_print(NULL, "Invalid window %d, must be between 1 and %d", id,
             TUI_MAX_WINDOWS);
 
          return true;
@@ -425,7 +425,7 @@ bool cmd_win(int argc, char **args) {
 }
 
 bool cmd_clear(int argc, char **args) {
-   if (ui_mode == GUI_MODE_TUI) {
+   if (ui_mode == UI_MODE_TUI) {
       tui_clear_scrollback( tui_active_window() );
    }
 
@@ -485,21 +485,16 @@ const char *help_msg[] = {
 };
 
 bool cmd_help(int argc, char **args) {
-   if (ui_mode == GUI_MODE_TUI) {
-      tui_window_t *wp = tui_active_window();
-
-      if (!wp) {
-         return true;
-      }
-      tui_print_win(wp, "*** Available commands ***");
+   if (ui_mode == UI_MODE_TUI) {
+      ui_print(NULL, "*** Available commands ***");
 
       for (int i = 0 ; client_cmds[i].cmd ; i++) {
-         tui_print_win(wp, "   %s\t\t%s", client_cmds[i].cmd, client_cmds[i].desc);
+         ui_print(NULL, "   %s\t\t%s", client_cmds[i].cmd, client_cmds[i].desc);
       }
 
       for (int i = 0; i < sizeof(help_msg) / sizeof(help_msg[0]); i++) {
          if (help_msg[i]) {
-            tui_print_win(wp, "%s", help_msg[i]);
+            ui_print(NULL, "%s", help_msg[i]);
          }
       }
    }

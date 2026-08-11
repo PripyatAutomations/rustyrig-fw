@@ -26,6 +26,7 @@
 #include <gtk/gtk.h>
 #endif
 #include <rrclient/userlist.h>
+#include <rrclient/ui.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
 

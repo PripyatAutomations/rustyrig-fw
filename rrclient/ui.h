@@ -18,13 +18,14 @@
 #endif // defined(USE_GTK)
 
 enum GuiMode {
-   GUI_MODE_TUI = 0,
-   GUI_MODE_GTK
+   UI_MODE_TUI = 0,
+   UI_MODE_GTK
 };
 
 #ifdef _WIN32
 extern void win32_check_darkmode(void);
 #endif // WIN32
 extern enum GuiMode ui_mode;    // in ui.c
+extern bool ui_print(const char *window, const char *fmt, ...);
 
 #endif // !defined(__rrclient_ui_h)

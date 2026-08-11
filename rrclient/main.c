@@ -110,7 +110,7 @@ static gboolean update_now(gpointer user_data) {
       // we should handle local shutdown here
 #if     defined(USE_GTK)
 
-      if (ui_mode == GUI_MODE_GTK) {
+      if (ui_mode == UI_MODE_GTK) {
          gtk_main_quit();
       }
 #endif
@@ -145,15 +145,7 @@ static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *c
       return;
    }
 
-   if (ui_mode == GUI_MODE_TUI) {
-      tui_window_t *status = tui_window_find("status");
-
-      if (status) {
-         tui_print_win(status, "%s", led->message);
-      }
-   } else {
-      ui_print("<log> %s", led->message);
-   }
+   ui_print("status", "%s", led->message);
 }
 
 struct talk_msg_event_data {
@@ -171,22 +163,11 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
    if (!tmed || !tmed->from[0] || !tmed->data[0]) {
       return;
    }
-   tui_window_t *wp = tui_active_window();
-
    if (strcasecmp(tmed->msg_type, "action") == 0) {
-      if (ui_mode == GUI_MODE_TUI) {
-         tui_print_win(wp, "%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
-      } else {
-         ui_print("%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
-      }
+      ui_print(NULL, "%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
    } else {
-      if (ui_mode == GUI_MODE_TUI) {
-         tui_print_win(wp, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s{reset}",
-            get_chat_ts(tmed->ts), tmed->from, tmed->data);
-      } else {
-         ui_print("%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s{reset}",
-            get_chat_ts(tmed->ts), tmed->from, tmed->data);
-      }
+      ui_print(NULL, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s{reset}",
+         get_chat_ts(tmed->ts), tmed->from, tmed->data);
    }
 }
 
@@ -194,7 +175,7 @@ bool rrclient_cleanup(void) {
    logger_end();
    dict_free(cfg);
 
-   if (ui_mode == GUI_MODE_TUI) {
+   if (ui_mode == UI_MODE_TUI) {
       tui_stop_clock_timer(loop_main);
       tui_raw_mode(false);
    } else {
@@ -232,9 +213,9 @@ int main(int argc, char *argv[]) {
 
    // set a default based on if $DISPLAY is set
    if (display) {
-      ui_mode = GUI_MODE_GTK;
+      ui_mode = UI_MODE_GTK;
    } else {
-      ui_mode = GUI_MODE_TUI;
+      ui_mode = UI_MODE_TUI;
    }
 
    // Let's do commandline parsing here
@@ -277,7 +258,7 @@ int main(int argc, char *argv[]) {
          }
 
          case 'T': {
-            ui_mode = GUI_MODE_TUI;
+            ui_mode = UI_MODE_TUI;
             break;
          }
 
@@ -326,12 +307,7 @@ int main(int argc, char *argv[]) {
 
    if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
       if (fullpath && !(cfg = cfg_load(fullpath) ) ) {
-         if (ui_mode == GUI_MODE_TUI) {
-            tui_print_win(tui_window_find("status"),
-               "Couldn't load config \"%s\", using defaults instead", fullpath);
-         } else {
-            ui_print("{red}* ERROR *{reset} Couldn't load config '%s', using defaults", fullpath);
-         }
+         ui_print(NULL, "{red}* ERROR *{reset} Couldn't load config '%s', using defaults", fullpath);
       }
       free(fullpath);
       fullpath = NULL;
@@ -367,10 +343,10 @@ int main(int argc, char *argv[]) {
 #endif // defined(USE_MONGOOSE)
 
    // Setup stdio & clock
-   if (ui_mode == GUI_MODE_TUI) {
+   if (ui_mode == UI_MODE_TUI) {
       tui_readline_cb = tui_input_cb;    // set our input callback
       tui_init();
-      tui_print_win(tui_window_find("status"), "rrcli starting");
+      ui_print("status", "rrcli starting");
       tui_start_clock_timer(loop_main);
 #if     defined(USE_GTK)
    } else {
@@ -399,10 +375,8 @@ int main(int argc, char *argv[]) {
 
    connman_autoconnect();
 
-   if (ui_mode == GUI_MODE_GTK) {
       // start gtk main loop
-      gtk_main();
-   } else {
+   if (ui_mode == UI_MODE_TUI) {
       // Here we run the TUI main loop
 #if defined(USE_MONGOOSE)
       mg_mgr_init(&mgr);
@@ -411,6 +385,10 @@ int main(int argc, char *argv[]) {
       ev_timer_start(loop, &ws_poll_watcher);
 #endif
       ev_run(loop_main, 0);
+#if	defined(USE_GTK)
+   } else if (ui_mode == UI_MODE_GTK) {
+      gtk_main();
+#endif
    }
    rrclient_cleanup();
 

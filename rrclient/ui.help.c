@@ -74,7 +74,7 @@ void gui_show_help(const char *topic) {
    if (!topic) {
       int i = 0;
       while (help_main[i]) {
-         ui_print(help_main[i]);
+         ui_print(NULL, help_main[i]);
          i++;
       }
    } else {
@@ -83,7 +83,7 @@ void gui_show_help(const char *topic) {
 
       // Sanitize the user input
       if (!safe_name(topic) ) {
-         ui_print("Invalid help topic");
+         ui_print(NULL, "Invalid help topic");
 
          return;
       }
@@ -100,12 +100,12 @@ void gui_show_help(const char *topic) {
       FILE *fp = fopen(path, "r");
 
       if (!fp) {
-         ui_print("Help file '%s' not found", path);
+         ui_print(NULL, "Help file '%s' not found", path);
 
          return;
       }
-      ui_print("********************************");
-      ui_print("* HELP for %s", topic);
+      ui_print(NULL, "********************************");
+      ui_print(NULL, "* HELP for %s", topic);
 
       while (fgets(line, sizeof(line), fp) ) {
          size_t len = strlen(line);
@@ -115,7 +115,7 @@ void gui_show_help(const char *topic) {
             line[--len] = '\0';
          }
          // Present it to the user with ui_print
-         ui_print(line);
+         ui_print(NULL, line);
       }
       fclose(fp);
    }

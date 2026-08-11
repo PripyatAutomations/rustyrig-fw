@@ -10,11 +10,11 @@
 #if     !defined(__rrclient_userlist_h)
 #define	__rrclient_userlist_h
 
-#if     defined(USE_GTK)
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#if	defined(USE_GTK)
 #include <gtk/gtk.h>
 #endif
-
-#include <librrprotocol/rrprotocol.h>
 
 enum {
    COL_PRIV_ICON,

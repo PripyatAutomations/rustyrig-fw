@@ -27,6 +27,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/command.h>
+#include <rrclient/ui.h>
 #include <ev.h>
 
 extern bool dying;
@@ -73,45 +74,36 @@ bool tui_input_cb(const char *input) {
          }
       }
 
-      tui_print_win(tui_active_window(),
+      ui_print(NULL,
          "{red}*** {bright-red}Huh?! What you say?! I dont understand '%s' {red}***{reset}.",
          args[0]);
 
       return true;
    }
    // Send to active window target
-   tui_window_t *wp = tui_active_window();
-
-   if (wp) {
-      if (strcasecmp(wp->title, "status") == 0) {
-         tui_print_win(tui_active_window(),
-            "{red}*** {bright-red}Huh? What you say??? {red}***{reset}.");
-      } else {
 #if defined(USE_MONGOOSE)
 
-         if (!ws_connected) {
-            tui_print_win(wp, "{red}*** Not connected to server ***{reset}");
+   if (!ws_connected) {
+      ui_print(NULL, "{red}*** Not connected to server ***{reset}");
 
-            return false;
-         }
-#endif
-         char fullmsg[502];
-         memset( fullmsg, 0, sizeof(fullmsg) );
-         size_t pos = 0;
-
-         for (int i = 0 ; i < argc ; i++) {
-            int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""),
-               args[i] ? args[i] : "");
-
-            if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
-               break;
-            }
-            pos += n;
-         }
-
-         rrclient_send_chat(fullmsg);
-      }
+      return false;
    }
+#endif
+   char fullmsg[502];
+   memset( fullmsg, 0, sizeof(fullmsg) );
+   size_t pos = 0;
+
+   for (int i = 0 ; i < argc ; i++) {
+      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""),
+         args[i] ? args[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   rrclient_send_chat(fullmsg);
 
    return false;
 }

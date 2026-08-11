@@ -21,9 +21,9 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
 
-enum GuiMode ui_mode = GUI_MODE_TUI;
+enum GuiMode ui_mode = UI_MODE_TUI;
 
-bool ui_print(const char *fmt, ...) {
+bool ui_print(const char *window, const char *fmt, ...) {
    if (!fmt) {
       return true;
    }
@@ -35,12 +35,19 @@ bool ui_print(const char *fmt, ...) {
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
    va_end(ap);
 
-#if     defined(USE_GTK)
 
-   if (ui_mode == GUI_MODE_GTK) {
+   if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
       ui_print_gtk(outbuf);
-   }
 #endif
+   } else {
+      tui_window_t *win = tui_window_find(window);
+
+      if (!win) {
+         // Try to figure out if this is a special window
+      }
+      tui_vprint(win, fmt, ap);
+   }
 
    // Print to the TUI too...
    return false;

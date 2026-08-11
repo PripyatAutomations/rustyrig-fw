@@ -32,7 +32,7 @@ static void rrclient_display_log_message(const char *msg) {
    }
 #if defined(USE_GTK)
 
-   if (ui_mode == GUI_MODE_GTK) {
+   if (ui_mode == UI_MODE_GTK) {
       GtkTextIter end;
       gtk_text_buffer_get_end_iter(log_buffer, &end);
       gtk_text_buffer_insert(log_buffer, &end, msg, -1);
@@ -52,7 +52,7 @@ static void rrclient_update_connection_ui(bool connected) {
 
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
-   if (ui_mode == GUI_MODE_GTK) {
+   if (ui_mode == UI_MODE_GTK) {
       GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(conn_button) );
 
       if (!ctx) {
@@ -75,7 +75,7 @@ static void rrclient_update_connection_ui(bool connected) {
 static void rrclient_handle_connection_event(const char *event, const char *data, rrconn_t *cptr,
                                              void *user) {
    if (strcasecmp(event, "connecting") == 0) {
-      ui_print( "%s *** Connecting ***", get_chat_ts(now) );
+      ui_print(NULL, "%s *** Connecting ***", get_chat_ts(now) );
    } else if (strcasecmp(event, "connected") == 0) {
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
@@ -85,7 +85,7 @@ static void rrclient_handle_connection_event(const char *event, const char *data
       }
       login_user = strdup(user);
       rrclient_update_connection_ui(true);
-      ui_print( "%s *** Connected ***", get_chat_ts(now) );
+      ui_print(NULL, "%s *** Connected ***", get_chat_ts(now) );
       dict_free(d);
    } else if (strcasecmp(event, "goodbye") == 0 || strcasecmp(event, "disconnect") == 0) {
       if (login_user) {
@@ -93,13 +93,13 @@ static void rrclient_handle_connection_event(const char *event, const char *data
          login_user = NULL;
       }
       rrclient_update_connection_ui(false);
-      ui_print( "%s *** DISCONNECTED ***", get_chat_ts(now) );
+      ui_print(NULL, "%s *** DISCONNECTED ***", get_chat_ts(now) );
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);
       userlist_clear_all();
    } else if (strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {
-      ui_print("{red}* http error *{reset}");
+      ui_print(NULL, "{red}* http error *{reset}");
       rrclient_update_connection_ui(false);
    }
 }
@@ -127,7 +127,7 @@ static void rrclient_handle_ptt_event(const char *event, const char *data, rrcon
    if (ptt_button) {
 #if     defined(USE_GTK)
 
-      if (ui_mode == GUI_MODE_GTK) {
+      if (ui_mode == UI_MODE_GTK) {
          update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), active);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
       }
@@ -147,7 +147,7 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
 
 #if     defined(USE_GTK)
 
-   if (ui_mode == GUI_MODE_GTK) {
+   if (ui_mode == UI_MODE_GTK) {
       GtkWidget *entry = freq_entry;
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
 
@@ -167,7 +167,7 @@ static void rrclient_handle_mode_event(const char *event, const char *data, rrco
    const char *mode = (const char *)data;
 #if     defined(USE_GTK)
 
-   if (ui_mode == GUI_MODE_GTK) {
+   if (ui_mode == UI_MODE_GTK) {
       set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
    }
 #endif // defined(USE_GTK)
@@ -222,7 +222,11 @@ static void rrclient_handle_whois_event(const char *event, const char *data, rrc
    const char *whois_msg = (const char *)data;
 
    if (whois_msg && main_window) {
-      ui_show_whois_dialog(GTK_WINDOW(main_window), whois_msg);
+#if	defined(USE_GTK)
+      if (ui_mode == UI_MODE_GTK) {
+         ui_show_whois_dialog(GTK_WINDOW(main_window), whois_msg);
+      }
+#endif
    }
 }
 
@@ -251,12 +255,12 @@ static void rrclient_handle_talk_msg_event(const char *event, const char *data, 
    dict_dump(d, stderr);
 
    if (strcasecmp(msg_type, "action") == 0) {
-      ui_print("%s * %s %s", get_chat_ts(msg_ts), from, msg_data);
+      ui_print(NULL, "%s * %s %s", get_chat_ts(msg_ts), from, msg_data);
    } else {
       if (login_user != NULL && strcmp(from, login_user) == 0) {
-         ui_print("%s {yellow}=>{reset} %s", get_chat_ts(msg_ts), msg_data);
+         ui_print(NULL, "%s {yellow}=>{reset} %s", get_chat_ts(msg_ts), msg_data);
       } else {
-         ui_print("%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(NULL, "%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
       }
    }
    dict_free(d);
