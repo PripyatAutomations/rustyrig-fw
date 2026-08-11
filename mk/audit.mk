@@ -29,12 +29,17 @@ compile_commands.json:
 	bear -- make clean world
 
 clang-tidy: compile_commands.json
+	@echo "************************"
+	@echo "*** clang-tidy audit ***"
+	@echo "************************"
 	 clang-tidy -p . -checks='bugprone-*,performance-*,portability-*,readability-*' rrclient/*.c rrserver/*.c librustyaxe/*.c librrprotocol/*.c 2>&1 | tee audit-logs/clang-tidy.log
 
 audit-clang-tidy: clang-tidy
 
 audit-scanbuild:
+	@echo "************************"
+	@echo "*** scan-build audit ***"
+	@echo "************************"
 	${SCANBUILD} make clean all 2>&1 | tee audit-logs/scanbuild.log
-
 
 audit-all: audit-printf audit-cppcheck audit-flawfinder audit-clang-tidy audit-scanbuild
