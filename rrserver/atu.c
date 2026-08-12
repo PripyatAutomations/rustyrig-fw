@@ -94,7 +94,7 @@ int rr_atu_init(int uid) {
    Log(LOG_INFO, "atu", " => ATU #%d initializing", uid);
 
    // do we have saved tuning parameters for this unit?
-   if ( (tv = rr_atu_find_saved_state(uid) ) ) {
+   if ( ( tv = rr_atu_find_saved_state(uid) ) ) {
       // Apply them
    }
 
@@ -114,7 +114,7 @@ int rr_atu_init_all(void) {
 
    // XXX: Iterate over the available ATUs and collect the return values
    for (int i = 0 ; i < tuners ; i++) {
-      if (rr_atu_init(i) ) {
+      if ( rr_atu_init(i) ) {
          rv++;
       }
    }

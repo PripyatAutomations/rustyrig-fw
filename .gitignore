@@ -1,3 +1,5 @@
+.env
+
 # Automated testing tool artifacts
 compile_commands.json
 */compile_commands.json
@@ -48,3 +50,6 @@ recordings/*
 # Log files
 rrserver.log
 rrclient.log
+fwdsp.*.log
+fwdsp.log
+fwdspmgr.log

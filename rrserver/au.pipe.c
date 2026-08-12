@@ -43,7 +43,7 @@ bool pipe_write_samples(rr_au_pipe_device_t *device, const void *samples, size_t
       return true;
    }
 
-   return (write(device->pipe_fd, samples, size) == size);
+   return(write(device->pipe_fd, samples, size) == size);
 }
 
 bool pipe_read_samples(rr_au_pipe_device_t *device, void *buffer, size_t size) {
@@ -100,7 +100,7 @@ int setup_rx_unix_socket_server(const char *path) {
    unlink(path);
 
    addr.sun_family = AF_UNIX;
-   strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
+   strlcpy( addr.sun_path, path, sizeof(addr.sun_path) );
 
    if (bind( fd, (struct sockaddr *)&addr, sizeof(addr) ) < 0) {
       perror("bind");
@@ -199,8 +199,8 @@ void au_unix_socket_poll(void) {
          return;
       }
       // Real error reading
-      Log( LOG_WARN, "au", "fwdsp read error on UNIX socket client (fd=%d), closing. error %d:%s",
-         rx_client_fd, errno, strerror(errno) );
+      Log( LOG_WARN, "au", "fwdsp read error on UNIX socket client (fd=%d), closing. error %d:%s", rx_client_fd, errno,
+         strerror(errno) );
       close(rx_client_fd);
       rx_client_fd = -1;
    }

@@ -31,9 +31,9 @@ bool userlist_add_or_update(dict *d) {
       return false;
    }
 
-   char *t_privs  = dict_get(d, "talk.privs", NULL);
-   char *t_user   = dict_get(d, "talk.user", NULL);
-   int   t_clones = dict_get_int(d, "talk.clones", 0);
+   char *t_privs = dict_get(d, "talk.privs", NULL);
+   char *t_user = dict_get(d, "talk.user", NULL);
+   int t_clones = dict_get_int(d, "talk.clones", 0);
 
    if (!t_user) {
       return false;
@@ -42,38 +42,41 @@ bool userlist_add_or_update(dict *d) {
    struct rr_user *c = userlist_find(t_user);
 
    if (c) {
-      Log(LOG_INFO, "userlist",
-          "Updating userlist entry for %s at <%p>", t_user, c);
+      Log(LOG_INFO, "userlist", "Updating userlist entry for %s at <%p>", t_user, c);
 
-      memset(c->name, 0, sizeof(c->name));
-      strlcpy(c->name, t_user, sizeof(c->name));
+      memset( c->name, 0, sizeof(c->name) );
+      strlcpy( c->name, t_user, sizeof(c->name) );
 
-      memset(c->privs, 0, sizeof(c->privs));
+      memset( c->privs, 0, sizeof(c->privs) );
+
       if (t_privs) {
-         strlcpy(c->privs, t_privs, sizeof(c->privs));
+         strlcpy( c->privs, t_privs, sizeof(c->privs) );
       }
 
       c->clones = t_clones;
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
       if (ui_mode == UI_MODE_GTK) {
          userlist_redraw_gtk();
       }
 #endif
+
       return true;
    }
 
-   struct rr_user *n = calloc(1, sizeof(*n));
+   struct rr_user *n = calloc( 1, sizeof(*n) );
 
    if (!n) {
       fprintf(stderr, "OOM in userlist_add_or_update\n");
+
       return false;
    }
 
-   strlcpy(n->name, t_user, sizeof(n->name));
+   strlcpy( n->name, t_user, sizeof(n->name) );
 
    if (t_privs) {
-      strlcpy(n->privs, t_privs, sizeof(n->privs) );
+      strlcpy( n->privs, t_privs, sizeof(n->privs) );
    }
 
    n->clones = t_clones;
@@ -89,11 +92,10 @@ bool userlist_add_or_update(dict *d) {
       c->next = n;
    }
 
-   Log(LOG_INFO, "userlist",
-       "Storing new userlist entry for %s at <%p> in userlist",
-       n->name, n);
+   Log(LOG_INFO, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
    if (ui_mode == UI_MODE_GTK) {
       userlist_redraw_gtk();
    }
@@ -113,7 +115,7 @@ bool userlist_remove_by_name(const char *name) {
    struct rr_user *prev = NULL;
 
    while (c) {
-      if (!strcasecmp(c->name, name)) {
+      if ( !strcasecmp(c->name, name) ) {
          struct rr_user *next = c->next;
 
          if (prev) {
@@ -122,17 +124,16 @@ bool userlist_remove_by_name(const char *name) {
             global_userlist = next;
          }
 
-         Log(LOG_DEBUG, "userlist",
-             "Removing user %s at <%p>", name, c);
+         Log(LOG_DEBUG, "userlist", "Removing user %s at <%p>", name, c);
 
          free(c);
+
          return true;
       }
 
       prev = c;
       c = c->next;
    }
-
    return false;
 }
 
@@ -154,7 +155,8 @@ void userlist_clear_all(void) {
    // Clear the userlist pointer
    global_userlist = NULL;
 
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
    if (ui_mode == UI_MODE_GTK) {
       userlist_redraw_gtk();
    }
@@ -168,7 +170,7 @@ struct rr_user *userlist_find(const char *name) {
    }
    struct rr_user *c = global_userlist;
    while (c) {
-      if (!strcasecmp(c->name, name) ) {
+      if ( !strcasecmp(c->name, name) ) {
          return c;
       }
       c = c->next;

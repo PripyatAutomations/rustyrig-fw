@@ -88,14 +88,12 @@ static gboolean on_configure_timeout(gpointer data) {
          char opts[256];
          // Generate a string with the options
          memset( opts, 0, sizeof(opts) );
-         snprintf( opts, sizeof(opts), "%s%s", (win->win_raised ? "|raised" : ""),
-            (win->win_modal ? "|modal" : "") );
+         snprintf( opts, sizeof(opts), "%s%s", (win->win_raised ? "|raised" : ""), (win->win_modal ? "|modal" : "") );
 
          // Store the value of width,height@x,y|options
          char val[512];
          memset( val, 0, sizeof(val) );
-         snprintf(val, sizeof(val), "%d,%d@%d,%d%s", win->last_w, win->last_h, win->last_x,
-            win->last_y, opts);
+         snprintf(val, sizeof(val), "%d,%d@%d,%d%s", win->last_w, win->last_h, win->last_x, win->last_y, opts);
 
          // Save it to the running-config
          dict_add(cfg, key, val);
@@ -206,8 +204,7 @@ bool place_window(GtkWidget *window) {
 
       return true;
    }
-   Log(LOG_CRAZY, "gtk.winmgr", "place_window: found gtk window <%p> at <%p> named |%s|", window,
-      win, win->name);
+   Log(LOG_CRAZY, "gtk.winmgr", "place_window: found gtk window <%p> at <%p> named |%s|", window, win, win->name);
 
    char key[512];
    memset( key, 0, sizeof(key) );
@@ -238,11 +235,10 @@ bool place_window(GtkWidget *window) {
             if (cfg_height > 0) {
                win->h = cfg_height;
             }
-            Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name,
-               win->x, win->y, win->w, win->h);
+            Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, win->x, win->y,
+               win->w, win->h);
          } else {
-            Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key,
-               cfg_full);
+            Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
             free( (void *)cfg_full );
 
             return true;
@@ -277,7 +273,7 @@ bool place_window(GtkWidget *window) {
                size_t len = end - opts;
                char opt[32];
 
-               if ( len >= sizeof(opt) ) {
+               if (len >= sizeof(opt) ) {
                   len = sizeof(opt) - 1;
                }
                memcpy(opt, opts, len);
@@ -344,12 +340,12 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    GIcon *icon = g_themed_icon_new(name);
    GtkIconTheme *theme = gtk_icon_theme_get_default();
 
-   if ( gtk_icon_theme_has_icon(theme, name) ) {
+   if (gtk_icon_theme_has_icon(theme, name) ) {
       success = true;
    } else {
       gchar *local_icon = g_strdup_printf("./%s.png", name);
 
-      if ( gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
+      if (gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
          success = true;
       } else {
          g_warning("Failed to set icon '%s': %s", name, err->message);
@@ -385,8 +381,7 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
       }
       pp = &p->next;
    }
-   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: no match for gw:%p name:%s", (void*)gw,
-      name ? name : "(null)");
+   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: no match for gw:%p name:%s", (void*)gw, name ? name : "(null)");
 
    return false;        // failure
 }
@@ -402,8 +397,7 @@ static void on_window_destroy(GtkWidget *w, gpointer user_data) {
 // Store window name / pointer in our list
 gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    if (!gtk_win || !name) {
-      Log(LOG_CRIT, "gui_store_window called with invalid args: name:%s gtk_win: <%p>", name,
-         gtk_win);
+      Log(LOG_CRIT, "gui_store_window called with invalid args: name:%s gtk_win: <%p>", name, gtk_win);
       // XXX: remove this once we debug
       abort();
 
@@ -412,8 +406,7 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
 
    for (gui_window_t *x = gui_windows ; x ; x = x->next) {
       if (strcmp(x->name, name) == 0) {
-         Log(LOG_DEBUG, "gtk.winmgr", "found window %s at <%p> for gtk_win at <%p>", x->name, x,
-            x->gtk_win);
+         Log(LOG_DEBUG, "gtk.winmgr", "found window %s at <%p> for gtk_win at <%p>", x->name, x, x->gtk_win);
 
          return x;
       }
@@ -578,8 +571,7 @@ bool gui_forget_widget(gui_widget_t *gw, const char *name) {
       }
       pp = &p->next;
    }
-   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_widget: no match for gw:%p name:%s", (void*)gw,
-      name ? name : "(null)");
+   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_widget: no match for gw:%p name:%s", (void*)gw, name ? name : "(null)");
 
    return true;
 }
@@ -587,8 +579,7 @@ bool gui_forget_widget(gui_widget_t *gw, const char *name) {
 // Store widget name / pointer in our list
 gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
    if (!widget || !name) {
-      Log(LOG_CRIT, "gui_store_widget called with invalid args: name:%s widget: <%p>", name,
-         widget);
+      Log(LOG_CRIT, "gui_store_widget called with invalid args: name:%s widget: <%p>", name, widget);
       // XXX: remove this once we debug
       abort();
 
@@ -597,8 +588,7 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
 
    for (gui_widget_t *x = gui_widgets ; x ; x = x->next) {
       if (strcmp(x->name, name) == 0) {
-         Log(LOG_DEBUG, "gtk.winmgr", "found widget %s at <%p> for widget at <%p>", x->name, x,
-            x->gtk_widget);
+         Log(LOG_DEBUG, "gtk.winmgr", "found widget %s at <%p> for widget at <%p>", x->name, x, x->gtk_widget);
 
          return x;
       }
@@ -644,7 +634,7 @@ bool flash_main_win(void) {
    gui_window_t *win = gui_find_window(NULL, "main");
    GtkWidget *main_window = win->gtk_win;
 
-   if ( !gtk_window_is_active( GTK_WINDOW(main_window) ) ) {
+   if (!gtk_window_is_active( GTK_WINDOW(main_window) ) ) {
       gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
    }
 

@@ -44,8 +44,7 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
    int idx = 0;
 #if     0       // XXX: clean this up
    const char *username = mg_json_get_str(elem, "$.username")
-                          const char *email = (strlen( v = mg_json_get_str(elem,
-      "$.email") ) ? v : "(none)");
+                          const char *email = (strlen( v = mg_json_get_str(elem, "$.email") ) ? v : "(none)");
    const char *privs = (strlen( v = mg_json_get_str(elem, "$.privs") ) ? v : "None");
    const char *ua = (strlen( v = mg_json_get_str(elem, "$.ua") ) ? v : "Unknown");
    const char *muted = (strlen( v = mg_json_get_str(elem, "$.muted") ) ? v : "false");
@@ -63,9 +62,8 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
       "<b>Last Heard:</b> %s\n"
       "<b>User-Agent:</b> <tt>%s</tt>\n"
       "<hr/>\n", username, email, privs,
-      (strcmp(muted,
-         "true") == 0) ? "<span foreground=\"red\"><b>This user is muted.</b></span>\n" : "",
-      clones, ctime( (time_t*)&connected ), ctime( (time_t*)&last_heard ), ua);
+      (strcmp(muted, "true") == 0) ? "<span foreground=\"red\"><b>This user is muted.</b></span>\n" : "", clones,
+      ctime( (time_t*)&connected ), ctime( (time_t*)&last_heard ), ua);
 }
 #endif
 

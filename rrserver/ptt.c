@@ -55,7 +55,7 @@ bool rr_ptt_set_blocked(bool blocked) {
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    char msgbuf[HTTP_WS_MAX_MSG + 1];
 
-   if (rr_ptt_check_blocked() ) {
+   if ( rr_ptt_check_blocked() ) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
       return false;
@@ -77,14 +77,13 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
 
 // XXX: This does NOT belong here. backend interface must be backend agnostic!
 #if defined(BACKEND_HAMLIB)
-   jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", vfo_name(vfo), VAL_INT, "cat.state.freq",
-      hl_state.freq, VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT,
-      "cat.state.width", hl_state.width, VAL_BOOL, "cat.state.ptt", ptt, VAL_ULONG, "cat.state.ts",
-      now);
+   jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", vfo_name(vfo), VAL_INT, "cat.state.freq", hl_state.freq, VAL_STR,
+      "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT, "cat.state.width", hl_state.width, VAL_BOOL,
+      "cat.state.ptt", ptt, VAL_ULONG, "cat.state.ts", now);
 #else
-   jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", vfo_name(vfo), VAL_INT, "cat.state.freq", 0.0,
-      VAL_STR, "cat.state.mode", "NONE", VAL_INT, "cat.state.width", 0, VAL_BOOL, "cat.state.ptt",
-      ptt, VAL_ULONG, "cat.state.ts", now);
+   jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", vfo_name(vfo), VAL_INT, "cat.state.freq", 0.0, VAL_STR,
+      "cat.state.mode", "NONE", VAL_INT, "cat.state.width", 0, VAL_BOOL, "cat.state.ptt", ptt, VAL_ULONG,
+      "cat.state.ts", now);
 #endif
    // and send a CAT message with the state
    struct mg_str mp = mg_str(jp);

@@ -75,8 +75,7 @@ void ui_speech_apply(GtkWidget *widget, const ui_speech_hint_t *hint) {
    apply_gtk(widget, hint);
 }
 
-void ui_speech_set(GtkWidget *widget, const char *name, const char *description, ui_role_t role,
-                   bool focusable) {
+void ui_speech_set(GtkWidget *widget, const char *name, const char *description, ui_role_t role, bool focusable) {
    if (!widget || !name || !description) {
       return;
    }

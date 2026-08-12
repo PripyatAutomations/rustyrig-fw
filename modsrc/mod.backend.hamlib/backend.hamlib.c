@@ -152,13 +152,13 @@ static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
    int ret = -1;
 
    if (state == true) {
-      if ( ( ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_ON) ) != RIG_OK ) {
+      if ( (ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_ON) ) != RIG_OK) {
          Log( LOG_CRIT, "backend.hamlib", "Failed to enable PTT: %s\n", rigerror(ret) );
 
          return true;
       }
    } else {
-      if ( ( ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_OFF) ) != RIG_OK ) {
+      if ( (ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_OFF) ) != RIG_OK) {
          fprintf( stderr, "Failed to disable PTT: %s\n", rigerror(ret) );
 
          return true;
@@ -210,7 +210,7 @@ static bool hl_init(void) {
 // XXX: this doesnt work on daedalus
 //   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
    // Open connection to rigctld
-   if ( ( ret = rig_open(hl_rig) ) != RIG_OK ) {
+   if ( (ret = rig_open(hl_rig) ) != RIG_OK) {
       fprintf( stderr, "Failed to connect to rigctld: %s\n", rigerror(ret) );
       rig_cleanup(hl_rig);
       shutdown_rig(100);
@@ -228,7 +228,7 @@ static bool hl_freq_set(rr_vfo_t vfo, int freq) {
    int ret = -1;
 
    // Set frequency
-   if ( ( ret = rig_set_freq(hl_rig, RIG_VFO_A, freq) ) != RIG_OK ) {
+   if ( (ret = rig_set_freq(hl_rig, RIG_VFO_A, freq) ) != RIG_OK) {
       Log( LOG_WARN, "ws.rigctl", "Failed to set frequency: %s", rigerror(ret) );
 
       return true;
@@ -274,34 +274,34 @@ rr_vfo_data_t *hl_poll(void) {
    // Do VFO_A for now
    memset( &hl_state, 0, sizeof(hamlib_state_t) );
 
-   if ( ( rc = rig_set_vfo(hl_rig, RIG_VFO_A) ) != RIG_OK ) {
+   if ( (rc = rig_set_vfo(hl_rig, RIG_VFO_A) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "SET VFO A failed: %s", rigerror(rc) );
       free( (void *)rv );
 
       return NULL;
    }
 
-   if ( ( rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq) ) != RIG_OK ) {
+   if ( (rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A freq failed: %s", rigerror(rc) );
       free( (void *)rv );
 
       return NULL;
    }
 
-   if ( ( rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width) ) != RIG_OK ) {
+   if ( (rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A mode failed: %s", rigerror(rc) );
    }
 
-   if ( ( rc = rig_get_ptt(hl_rig, RIG_VFO_CURR, &hl_state.ptt) ) != RIG_OK ) {
+   if ( (rc = rig_get_ptt(hl_rig, RIG_VFO_CURR, &hl_state.ptt) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A ptt failed: %s", rigerror(rc) );
    }
 
-   if ( ( rc = rig_get_strength(hl_rig, RIG_VFO_CURR, &hl_state.power) ) != RIG_OK ) {
+   if ( (rc = rig_get_strength(hl_rig, RIG_VFO_CURR, &hl_state.power) ) != RIG_OK) {
       Log( LOG_WARN, "be.hamlib", "GET VFO_A power failed: %s", rigerror(rc) );
    }
    Log(LOG_CRAZY, "be.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
-      (hl_state.ptt ? "ON" : "off"), (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode),
-      hl_state.width, hl_state.power);
+      (hl_state.ptt ? "ON" : "off"), (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode), hl_state.width,
+      hl_state.power);
 
    // Pack the data into a vfo_data struct to send back to our caller
    rv->freq = hl_state.freq;
@@ -319,11 +319,10 @@ rr_vfo_data_t *hl_poll(void) {
    struct mg_str mp;
    http_client_t *talker = whos_talking();
 
-   const char *jp = dict2json_mkstr( VAL_STR, "cat.state.vfo", "A", VAL_LONG, "cat.state.freq",
-      hl_state.freq, VAL_STR, "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT,
-      "cat.state.width", hl_state.width, VAL_BOOL, "cat.state.ptt", hl_state.ptt, VAL_INT,
-      "cat.state.power", hl_state.power, VAL_ULONG, "cat.ts", now, VAL_STR, "cat.user",
-      (talker ? talker->chatname : "") );
+   const char *jp = dict2json_mkstr( VAL_STR, "cat.state.vfo", "A", VAL_LONG, "cat.state.freq", hl_state.freq, VAL_STR,
+      "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT, "cat.state.width", hl_state.width, VAL_BOOL,
+      "cat.state.ptt", hl_state.ptt, VAL_INT, "cat.state.power", hl_state.power, VAL_ULONG, "cat.ts", now, VAL_STR,
+      "cat.user", (talker ? talker->chatname : "") );
    mp = mg_str(jp);
    Log(LOG_CRAZY, "be.hamlib", "Sending %s", jp);
 #endif
@@ -374,13 +373,11 @@ bool hl_width_set(rr_vfo_t vfo, const char *width) {
    int rv = -1;
 
    if (strcasecmp(width, "narrow") == 0 || strcasecmp(width, "nar") == 0) {
-      rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode,
-         rig_passband_narrow(hl_rig, hl_state.rmode) );
+      rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode, rig_passband_narrow(hl_rig, hl_state.rmode) );
    } else if (strcasecmp(width, "normal") == 0 || strcasecmp(width, "norm") == 0) {
       rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, RIG_PASSBAND_NORMAL);
    } else if (strcasecmp(width, "wide") == 0) {
-      rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode,
-         rig_passband_wide(hl_rig, hl_state.rmode) );
+      rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode, rig_passband_wide(hl_rig, hl_state.rmode) );
    } else {
       Log(LOG_WARN, "be.hl", "Unknown width %s - try narrow|normal|wide!", width);
    }

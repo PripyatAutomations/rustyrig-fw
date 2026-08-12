@@ -49,7 +49,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    if (wp) {
       GtkWidget *userlist_window = wp->gtk_win;
 
-      if ( gtk_widget_get_visible(userlist_window) ) {
+      if (gtk_widget_get_visible(userlist_window) ) {
          gtk_widget_hide(userlist_window);
       } else {
          gtk_widget_show_all(userlist_window);
@@ -67,9 +67,8 @@ void userlist_redraw_gtk(void) {
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
 
-      gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name,
-         COL_TALK_ICON, c->is_ptt ? "🎧" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "",
-         COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
+      gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON,
+         c->is_ptt ? "🎧" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
    }
 }
 
@@ -79,8 +78,8 @@ GtkWidget *userlist_init(void) {
    gui_window_t *window_t = ui_new_window(new_win, "userlist");
    gtk_window_set_title(GTK_WINDOW(new_win), "User List");
 
-   GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-      G_TYPE_STRING, G_TYPE_STRING);
+   GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
+      G_TYPE_STRING);
 
    cul_view = gtk_tree_view_new_with_model( GTK_TREE_MODEL(store) );
    g_object_unref(store);

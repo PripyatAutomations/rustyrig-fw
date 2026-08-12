@@ -60,8 +60,8 @@ extern struct mg_mgr mg_mgr;
 static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
-   Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id,
-      (sp->is_tx ? "tx" : "rx"), sp->pid, status);
+   Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id, (sp->is_tx ? "tx" : "rx"), sp->pid,
+      status);
    // Optionally notify websocket clients, or log, etc.
 }
 
@@ -73,7 +73,7 @@ static void fwdsp_sigchld(int sig) {
    int status;
    pid_t pid;
 
-   while ( ( pid = waitpid(-1, &status, WNOHANG) ) > 0 ) {
+   while ( (pid = waitpid(-1, &status, WNOHANG) ) > 0) {
       for (int i = 0 ; i < max_subprocs ; i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
 
@@ -95,8 +95,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_READ) {
       struct mg_str *data = (struct mg_str *) ev_data;
 
-      Log(LOG_DEBUG, "fwdsp", "[%s %.*s]", ctx->is_stderr ? "stderr" : "stdout", (int) data->len,
-         data->buf);
+      Log(LOG_DEBUG, "fwdsp", "[%s %.*s]", ctx->is_stderr ? "stderr" : "stdout", (int) data->len, data->buf);
    } else if (ev == MG_EV_CLOSE) {
       free(ctx);
    }
@@ -120,8 +119,7 @@ bool fwdsp_init(void) {
 
    // Sanity check as some hams are crazy? ;)
    if (max_subprocs <= 0 || max_subprocs > FWDSP_MAX_SUBPROCS) {
-      Log(LOG_CRIT, "config", "fwdsp:subproc.max <%d> is invalid: range=0-%d", max_subprocs,
-         FWDSP_MAX_SUBPROCS);
+      Log(LOG_CRIT, "config", "fwdsp:subproc.max <%d> is invalid: range=0-%d", max_subprocs, FWDSP_MAX_SUBPROCS);
 
       return true;
    }
@@ -131,8 +129,7 @@ bool fwdsp_init(void) {
       fwdsp_subprocs = calloc( max_subprocs + 1, sizeof(struct fwdsp_subproc) );
 
       if (!fwdsp_subprocs) {
-         Log(LOG_CRIT, "fwdsp-mgr", "fwdsp_init failed to allocate fwdsp_subprocs! errno %d",
-            errno);
+         Log(LOG_CRIT, "fwdsp-mgr", "fwdsp_init failed to allocate fwdsp_subprocs! errno %d", errno);
 
          return true;
       }
@@ -218,12 +215,11 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
    for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
 
-      if ( sp && (sp->pl_id[0] == '\0') &&
-           (sp->pl_id[1] == '\0') &&
-           (sp->pl_id[2] == '\0') &&
-           (sp->pl_id[3] == '\0') ) {
-         Log( LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id,
-            (is_tx ? "tx" : "rx") );
+      if (sp && (sp->pl_id[0] == '\0') &&
+          (sp->pl_id[1] == '\0') &&
+          (sp->pl_id[2] == '\0') &&
+          (sp->pl_id[3] == '\0') ) {
+         Log( LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id, (is_tx ? "tx" : "rx") );
          // Clear the memory for reuse
          memset( sp, 0, sizeof(struct fwdsp_subproc) );
          // Fill the struct
@@ -270,8 +266,7 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
             (is_tx ? "tx" : "rx") );
       }
    } else {
-      Log( LOG_DEBUG, "fwdsp", "Using existing fwdsp instance %x for codec %s.%s", sp, id,
-         (is_tx ? "tx" : "rx") );
+      Log( LOG_DEBUG, "fwdsp", "Using existing fwdsp instance %x for codec %s.%s", sp, id, (is_tx ? "tx" : "rx") );
    }
 
    return sp;
@@ -342,7 +337,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    int sock_pair[2];
 
    if (sp->io_type == FW_IO_STDIO) {
-      if ( pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
+      if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
          perror("pipe");
 
          return false;
@@ -414,8 +409,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          return false;
       }
    }
-   Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, sp->is_tx ? "tx" : "rx",
-      sp->pid);
+   Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid);
 
    return true;
 }
@@ -439,9 +433,8 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
          struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, tx_mode);
 
          if (sp && !sp->pid) {
-            if ( !fwdsp_spawn(sp) ) {
-               Log( LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s.%s", token,
-                  (tx_mode ? "tx" : "rx") );
+            if (!fwdsp_spawn(sp) ) {
+               Log( LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s.%s", token, (tx_mode ? "tx" : "rx") );
                fwdsp_destroy(sp);
                sp = NULL;
             }
@@ -453,8 +446,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
       token = strtok_r(NULL, " ", &saveptr);
    }
    free(tmp);
-   Log( LOG_CRIT, "fwdsp", "No usable codecs found in list: %s for %s", codec_list,
-      (tx_mode ? "tx" : "rx") );
+   Log( LOG_CRIT, "fwdsp", "No usable codecs found in list: %s for %s", codec_list, (tx_mode ? "tx" : "rx") );
 
    return NULL;
 }
@@ -481,8 +473,7 @@ void fwdsp_sweep_expired(void) {
 
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 &&
           now >= sp->cleanup_deadline) {
-         Log( LOG_INFO, "fwdsp", "Cleaning up idle pipeline %s.%s", sp->pl_id,
-            (sp->is_tx ? "tx" : "rx") );
+         Log( LOG_INFO, "fwdsp", "Cleaning up idle pipeline %s.%s", sp->pl_id, (sp->is_tx ? "tx" : "rx") );
          fwdsp_destroy(sp);
       }
    }
@@ -501,9 +492,8 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
    if (c->refcount == 0) {
       struct fwdsp_subproc *sp = fwdsp_find_or_create(c->magic, FW_IO_STDIO, is_tx);
 
-      if ( !sp || !fwdsp_spawn(sp) ) {
-         Log( LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", c->magic,
-            (is_tx ? "tx" : "rx") );
+      if (!sp || !fwdsp_spawn(sp) ) {
+         Log( LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", c->magic, (is_tx ? "tx" : "rx") );
 
          return -1;
       }

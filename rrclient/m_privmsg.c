@@ -21,15 +21,14 @@ extern time_t now;
 extern bool dying, debug_sockets, mirc_colors;
 
 bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args) {
-#if	0	// fix this
+#if     0       // fix this
    char buf[1024];
    memset(buf, 0, 1024);
    size_t pos = 0;
    char *target = wp->title;
 
    for (int i = 0 ; i < argc ; i++) {
-      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 0 ? " " : ""),
-         args[i] ? args[i] : "");
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
 
       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
          break;
@@ -49,8 +48,7 @@ bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args)
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
-      ui_print(window, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s",
-         get_chat_ts(0), cptr->nick, buf);
+      ui_print(window, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, buf);
    }
 #endif
 
@@ -78,8 +76,7 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
    memset(tmp_nick, 0, NICKLEN + 1);
    snprintf(tmp_nick, NICKLEN + 1, "%.*s", (int)nicklen, nick);
 
-   Log(LOG_CRIT, "irc.event", "on_privmsg: argc %d args0 %s args1 %s", mp->argc, mp->argv[0],
-      mp->argv[1]);
+   Log(LOG_CRIT, "irc.event", "on_privmsg: argc %d args0 %s args1 %s", mp->argc, mp->argv[0], mp->argv[1]);
    char *win_title = tmp_nick;
    // Is this a query or channel message?
    bool is_private = true;
@@ -100,11 +97,11 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
    }
 
    if (strcasestr(mp->argv[2], cptr->nick) == 0) {
-      ui_print(NULL, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ",
-         get_chat_ts(0), tmp_nick, colored);
+      ui_print(NULL, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ", get_chat_ts(0), tmp_nick,
+         colored);
    } else {
-      ui_print(NULL, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s{reset} ",
-         get_chat_ts(0), tmp_nick, colored);
+      ui_print(NULL, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s{reset} ", get_chat_ts(0), tmp_nick,
+         colored);
    }
    free(colored);
 

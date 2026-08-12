@@ -52,13 +52,12 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    const char *codec = "*";
    char tmpbuf[512];
    memset(tmpbuf, 0, 512);
-   size_t tmp_len = snprintf(tmpbuf, 512, "%s/%s.%s.%s", recdir, recording_id,
-      (is_tx ? "tx" : "rx"), codec);
+   size_t tmp_len = snprintf(tmpbuf, 512, "%s/%s.%s.%s", recdir, recording_id, (is_tx ? "tx" : "rx"), codec);
    // free the returned value from cfg_get_exp (expanded variable)
    free( (char *)recdir );
 
    if (tmp_len > 0) {
-      if (!(rv = strdup(tmpbuf) ) ) {
+      if ( !( rv = strdup(tmpbuf) ) ) {
          Log(LOG_CRIT, "au.record", "OOM in au_recording_mkfilename");
          exit(1);
       }
@@ -100,8 +99,7 @@ const char *au_recording_start(int channel) {
    FILE *fp = fopen(rec_file, "w");
 
    if (!fp) {
-      Log(LOG_CRIT, "au.record", "Failed to open file %s for recording of channel %d", rec_file,
-         channel);
+      Log(LOG_CRIT, "au.record", "Failed to open file %s for recording of channel %d", rec_file, channel);
 
       return NULL;
    }
@@ -136,7 +134,7 @@ recording_data_t *au_recording_find(const char *id) {
    recording_data_t *rp = NULL;
 
    for (int i = 0 ; i < MAX_RECORD_OPEN - 1 ; i++) {
-      if ( (active_recordings[i]) && active_recordings[i]->rec_id == id) {
+      if ( (active_recordings[i]) && active_recordings[i]->rec_id == id ) {
          return active_recordings[i];
       }
    }

@@ -83,7 +83,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
    GstBuffer *buffer = gst_sample_get_buffer(sample);
    GstMapInfo map;
 
-   if (gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
+   if ( gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
       if (map.size > 0 && map.size < 65536) {
          struct ws_frame *frame = malloc( sizeof(struct ws_frame) );
 
@@ -309,8 +309,8 @@ bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
       return true;
    }
    int codec_id = au_codec_by_id(au->codec);
-   const char *jp = dict2json_mkstr(VAL_STR, "media.codec", au_codec_get_magic(codec_id), VAL_INT,
-      "media.rate", au_codec_get_samplerate(codec_id), VAL_BOOL, "media.active", au->active);
+   const char *jp = dict2json_mkstr(VAL_STR, "media.codec", au_codec_get_magic(codec_id), VAL_INT, "media.rate",
+      au_codec_get_samplerate(codec_id), VAL_BOOL, "media.active", au->active);
    free( (char *)jp );
 
    return true;

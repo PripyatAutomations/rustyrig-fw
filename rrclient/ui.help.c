@@ -26,7 +26,7 @@ static bool safe_name(const char *name) {
       return false;
    }
 
-   if (strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
+   if ( strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
       return false;
    }
 
@@ -82,7 +82,7 @@ void gui_show_help(const char *topic) {
       char line[1024];
 
       // Sanitize the user input
-      if (!safe_name(topic) ) {
+      if ( !safe_name(topic) ) {
          ui_print(NULL, "Invalid help topic");
 
          return;
@@ -107,11 +107,11 @@ void gui_show_help(const char *topic) {
       ui_print(NULL, "********************************");
       ui_print(NULL, "* HELP for %s", topic);
 
-      while (fgets(line, sizeof(line), fp) ) {
+      while ( fgets(line, sizeof(line), fp) ) {
          size_t len = strlen(line);
 
          // remove trailing newlines and carriage returns
-         while (len && (line[len - 1] == '\n' || line[len - 1] == '\r') ) {
+         while ( len && (line[len - 1] == '\n' || line[len - 1] == '\r') ) {
             line[--len] = '\0';
          }
          // Present it to the user with ui_print

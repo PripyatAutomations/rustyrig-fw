@@ -92,8 +92,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          // It's a ping, so we should reply to it with a pong then fall through
          // to cleanup
          if (ping_ts) {
-            const char *jp = dict2json_mkstr( VAL_STR, "type", "pong", VAL_ULONG, "ts",
-               atol(ping_ts) );
+            const char *jp = dict2json_mkstr( VAL_STR, "type", "pong", VAL_ULONG, "ts", atol(ping_ts) );
             mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
             free( (void *)jp );
          } else if (pong_ts) {
@@ -108,9 +107,9 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
             if (from && data) {
                event_emit("talk.msg", NULL, buf);
             }
-         } else if (dict_get(d, "hello", NULL) ) {
+         } else if ( dict_get(d, "hello", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got hello from server");
-         } else if (dict_get(d, "auth.cmd", NULL) ) {
+         } else if ( dict_get(d, "auth.cmd", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got auth message");
          }
          dict_free(d);
@@ -129,8 +128,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       }
       event_emit("connected", NULL, buf);
       ui_print(NULL, "status", "Connected to server");
-      const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient", VAL_STR, "hello.version",
-         VERSION);
+      const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient", VAL_STR, "hello.version", VERSION);
       mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
       free( (void *)jp );
    } else if (ev == MG_EV_CLOSE) {
@@ -160,8 +158,8 @@ bool rrclient_send_chat(const char *data) {
    if (!ws_conn || !data) {
       return true;
    }
-   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", data, VAL_STR,
-      "talk.msg_type", "pub");
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", data, VAL_STR, "talk.msg_type",
+      "pub");
 
    if (!jp) {
       return true;
@@ -311,7 +309,7 @@ bool disconnect_server(const char *server) {
 
 #if     defined(USE_GTK)
       gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
-#endif	// defined(USE_GTK)
+#endif // defined(USE_GTK)
       userlist_clear_all();
    }
 
@@ -342,13 +340,13 @@ bool connect_server(const char *server) {
          gtk_button_set_label(GTK_BUTTON(conn_button), "trying..");
       } else
 #endif // defined(USE_GTK)
-         ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
+      ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
 
 #if     defined(USE_MONGOOSE)
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
 
       if (!ws_conn) {
-         ui_print(NULL, "%s Socket connect error", get_chat_ts(now) );
+         ui_print( NULL, "%s Socket connect error", get_chat_ts(now) );
       }
 #endif // defined(USE_MONGOOSE)
    } else {

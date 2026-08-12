@@ -47,14 +47,14 @@ bool tui_input_cb(const char *input) {
    }
    // Make a mutable copy
    char buf[TUI_INPUTLEN];
-   strlcpy(buf, input, sizeof(buf));
+   strlcpy( buf, input, sizeof(buf) );
    buf[sizeof(buf) - 1] = '\0';
 
    // Tokenize into argc/args
    int argc = 0;
    char *args[64];    // max 64 tokens
    char *tok = strtok(buf, " \t");
-   while (tok && argc < (int)(sizeof(args) / sizeof(args[0]) ) ) {
+   while ( tok && argc < (int)( sizeof(args) / sizeof(args[0]) ) ) {
       args[argc++] = tok;
       tok = strtok(NULL, " \t");
    }
@@ -74,9 +74,7 @@ bool tui_input_cb(const char *input) {
          }
       }
 
-      ui_print(NULL,
-         "{red}*** {bright-red}Huh?! What you say?! I dont understand '%s' {red}***{reset}.",
-         args[0]);
+      ui_print(NULL, "{red}*** {bright-red}Huh?! What you say?! I dont understand '%s' {red}***{reset}.", args[0]);
 
       return true;
    }
@@ -94,8 +92,7 @@ bool tui_input_cb(const char *input) {
    size_t pos = 0;
 
    for (int i = 0 ; i < argc ; i++) {
-      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""),
-         args[i] ? args[i] : "");
+      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
 
       if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
          break;

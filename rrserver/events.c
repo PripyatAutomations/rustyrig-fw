@@ -1,5 +1,6 @@
 //
-// rrserver/events.c: event listeners for shared protocol events from librrprotocol
+// rrserver/events.c: event listeners for shared protocol events from
+// librrprotocol
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -18,8 +19,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 
-static void rrserver_handle_talkmsg_event(const char *event, const char *data, rrconn_t *cptr,
-                                         void *user) {
+static void rrserver_handle_talkmsg_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
@@ -27,7 +27,8 @@ static void rrserver_handle_talkmsg_event(const char *event, const char *data, r
    dict *d = json2dict(data);
    fprintf(stderr, "[talk.msg]\n");
    dict_dump(d, stderr);
-   // XXX: we should dispatch chat messages to the rest of the software and log the chat
+   // XXX: we should dispatch chat messages to the rest of the software and log
+   // the chat
 
    dict_free(d);
 }

@@ -31,18 +31,17 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#define	MAX_WINDOWS 32
-#define	INPUT_HISTORY_MAX 64
-
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
 #endif
+#define	MAX_WINDOWS 32
+#define	INPUT_HISTORY_MAX 64
 #include <rrclient/ui.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 
-#if     defined(USE_MONGOOSE)
+#ifdef USE_MONGOOSE
 extern struct mg_mgr mgr;
 #endif // defined(USE_MONGOOSE)
 
@@ -59,6 +58,8 @@ extern bool rrclient_disconnect(void);
 extern void rrclient_poll_events(void);
 extern void ws_client_init(void);
 extern bool tui_input_cb(const char *input);
+
+/////////////////////////////////////
 static ev_timer tui_clock_watcher;
 static ev_timer ws_poll_watcher;
 struct ev_loop *loop_main = NULL;
@@ -89,31 +90,15 @@ void shutdown_app(int signum) {
    dying = true;
 }
 
-////////////////////////////////////
-// For polling mongoose from glib //
-////////////////////////////////////
-#if     defined(USE_MONGOOSE)
-static gboolean poll_mongoose(gpointer user_data) {
-   mg_mgr_poll(&mgr, 0);
-
-   return G_SOURCE_CONTINUE;
-}
-#endif // defined(USE_MONGOOSE)
-
 ////////////////////////////////////////////////////////////////////
 // 1hz periodic: Check if dying and shutdown, update now variable //
 ////////////////////////////////////////////////////////////////////
+#ifdef USE_GTK
 static gboolean update_now(gpointer user_data) {
    now = time(NULL);
 
    if (dying) {
       // we should handle local shutdown here
-#if     defined(USE_GTK)
-
-      if (ui_mode == UI_MODE_GTK) {
-         gtk_main_quit();
-      }
-#endif
 
       return G_SOURCE_REMOVE;   // remove this timeout
    }
@@ -121,11 +106,25 @@ static gboolean update_now(gpointer user_data) {
    return G_SOURCE_CONTINUE;
 }
 
+#ifdef USE_MONGOOSE
+////////////////////////////////////
+// For polling mongoose from glib //
+////////////////////////////////////
+static gboolean poll_mongoose(gpointer user_data) {
+   mg_mgr_poll(&mgr, 0);
+
+   return G_SOURCE_CONTINUE;
+}
+#endif // USE_MONGOOSE
+#endif // USE_GTK
+
 static void tui_stop_clock_timer(struct ev_loop *loop) {
    ev_timer_stop(loop, &tui_clock_watcher);
 }
 
 static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
+   now = time(NULL);
+
    if (dying) {
       rrclient_cleanup();
    }
@@ -156,18 +155,18 @@ struct talk_msg_event_data {
    time_t ts;
 };
 
-static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn_t *cptr,
-                                           void *user) {
+static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    struct talk_msg_event_data *tmed = (struct talk_msg_event_data *)data;
 
    if (!tmed || !tmed->from[0] || !tmed->data[0]) {
       return;
    }
+
    if (strcasecmp(tmed->msg_type, "action") == 0) {
       ui_print(NULL, "%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
    } else {
-      ui_print(NULL, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s{reset}",
-         get_chat_ts(tmed->ts), tmed->from, tmed->data);
+      ui_print(NULL, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s{reset}", get_chat_ts(tmed->ts),
+         tmed->from, tmed->data);
    }
 }
 
@@ -178,12 +177,12 @@ bool rrclient_cleanup(void) {
    if (ui_mode == UI_MODE_TUI) {
       tui_stop_clock_timer(loop_main);
       tui_raw_mode(false);
-   } else {
-      // Do stuff here for GTK cleanup
+   } else if (ui_mode == UI_MODE_GTK) {
+      gtk_main_quit();
    }
 
    // Shut down sockets
-#if     defined(USE_MONGOOSE)
+#ifdef USE_MONGOOSE
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
 
@@ -286,15 +285,15 @@ int main(int argc, char *argv[]) {
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
       free(config_file);
       config_file = NULL;
-   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
+   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
 
-      if (!(cfg = cfg_load(fullpath) ) ) {
+      if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -305,8 +304,8 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
-   if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
-      if (fullpath && !(cfg = cfg_load(fullpath) ) ) {
+   if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
+      if ( fullpath && !( cfg = cfg_load(fullpath) ) ) {
          ui_print(NULL, "{red}* ERROR *{reset} Couldn't load config '%s', using defaults", fullpath);
       }
       free(fullpath);
@@ -321,7 +320,6 @@ int main(int argc, char *argv[]) {
       logfile = NULL;
    }
    debug_sockets = cfg_get_bool("debug.sockets", false);
-
    const char *cfg_debug_audio = cfg_get_exp("audio.debug");
 
    if (cfg_debug_audio) {
@@ -338,19 +336,18 @@ int main(int argc, char *argv[]) {
    free( (void *)cfg_debug_audio );
    cfg_debug_audio = NULL;
 
-#if     defined(USE_MONGOOSE)
-   g_timeout_add(10, poll_mongoose, NULL);   // Poll Mongoose every 10ms
-#endif // defined(USE_MONGOOSE)
-
    // Setup stdio & clock
    if (ui_mode == UI_MODE_TUI) {
       tui_readline_cb = tui_input_cb;    // set our input callback
       tui_init();
       ui_print("status", "rrcli starting");
       tui_start_clock_timer(loop_main);
-#if     defined(USE_GTK)
-   } else {
+#ifdef USE_GTK
+   } else if (ui_mode == UI_MODE_GTK) {
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
+#ifdef USE_MONGOOSE
+      g_timeout_add(10, poll_mongoose, NULL);   // Poll Mongoose every 10ms
+#endif // defined(USE_MONGOOSE)
 
       gtk_init(&argc, &argv);
 #ifdef _WIN32
@@ -370,23 +367,20 @@ int main(int argc, char *argv[]) {
 
    // How long to suppress hamlib/etc polling during CAT control?
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
-
    ws_client_init();
-
    connman_autoconnect();
 
-      // start gtk main loop
+   // start gtk main loop
    if (ui_mode == UI_MODE_TUI) {
       // Here we run the TUI main loop
-#if defined(USE_MONGOOSE)
+#ifdef USE_MONGOOSE
       mg_mgr_init(&mgr);
-#else
-      ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
-      ev_timer_start(loop, &ws_poll_watcher);
 #endif
+      ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
+      ev_timer_start(loop_main, &ws_poll_watcher);
       ev_run(loop_main, 0);
-#if	defined(USE_GTK)
    } else if (ui_mode == UI_MODE_GTK) {
+#ifdef USE_GTK
       gtk_main();
 #endif
    }

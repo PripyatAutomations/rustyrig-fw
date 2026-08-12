@@ -63,4 +63,3 @@ bool ui_print(const char *window, const char *fmt, ...) {
 
    return ret;
 }
-

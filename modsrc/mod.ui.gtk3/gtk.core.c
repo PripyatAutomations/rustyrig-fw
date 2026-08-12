@@ -200,10 +200,10 @@ char *gtk_colorize_string(const char *in) {
             *o++ = *p++;
             continue;
          }
-         size_t key_len = (size_t)( end - (p + 1) );
+         size_t key_len = (size_t)(end - (p + 1) );
          char key[64];
 
-         if ( key_len >= sizeof(key) ) {
+         if (key_len >= sizeof(key) ) {
             key_len = sizeof(key) - 1;
          }
          memcpy(key, p + 1, key_len);
@@ -325,10 +325,8 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    GtkTextIter end;
 
    gtk_text_buffer_get_end_iter(text_buffer, &end);
-   gtk_text_buffer_insert_markup(
-      text_buffer, &end, colored, -1);
-   gtk_text_buffer_insert(
-      text_buffer, &end, "\n", 1);
+   gtk_text_buffer_insert_markup(text_buffer, &end, colored, -1);
+   gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
 
    g_free(colored);
 
@@ -345,7 +343,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    GtkTreeIter iter;
    int index = 0;
 
-   if ( gtk_tree_model_get_iter_first(model, &iter) ) {
+   if (gtk_tree_model_get_iter_first(model, &iter) ) {
       do{
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
@@ -358,7 +356,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          }
          g_free(str);
          index++;
-      } while ( gtk_tree_model_iter_next(model, &iter) );
+      } while (gtk_tree_model_iter_next(model, &iter) );
    }
 }
 
@@ -397,8 +395,8 @@ bool gui_init(void) {
       ".conn-pending { background: yellow; color: black; }"
       ".conn-idle { background: red; color: white; }", -1, NULL);
 
-   gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-      GTK_STYLE_PROVIDER(css_provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+   gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(css_provider),
+      GTK_STYLE_PROVIDER_PRIORITY_USER);
 
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
@@ -433,7 +431,6 @@ bool gui_init(void) {
    chat_init();
    GtkWidget *chat_box = create_chat_box();
    gtk_box_pack_start(GTK_BOX(main_tab), chat_box, TRUE, TRUE, 0);
-
 
    // ADMIN tab (alt-2)
    admin_tab = init_admin_tab();
@@ -471,12 +468,12 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
    }
    GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
 
-   if ( !GTK_IS_WINDOW(toplevel) ) {
+   if (!GTK_IS_WINDOW(toplevel) ) {
       return FALSE;
    }
    GtkWidget *focused = gtk_window_get_focus( GTK_WINDOW(toplevel) );
 
-   for ( GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
+   for (GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
       if (w == ancestor) {
          return TRUE;
       }

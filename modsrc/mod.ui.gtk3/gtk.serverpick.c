@@ -48,7 +48,7 @@ static void do_connect_from_tree(GtkTreeView *view) {
    GtkTreeModel *model;
    GtkTreeIter iter;
 
-   if ( gtk_tree_selection_get_selected(sel, &model, &iter) ) {
+   if (gtk_tree_selection_get_selected(sel, &model, &iter) ) {
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
       const char *at = strchr(entry, '@');
@@ -73,8 +73,7 @@ static void on_connect_clicked(GtkButton *btn, gpointer user_data) {
    do_connect_from_tree( GTK_TREE_VIEW(user_data) );
 }
 
-static gboolean on_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *col,
-                                 gpointer user_data) {
+static gboolean on_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *col, gpointer user_data) {
    if (!view) {
       return TRUE;
    }
@@ -95,7 +94,7 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
       GtkWidget *focus = gtk_window_get_focus( GTK_WINDOW( gtk_widget_get_toplevel(w) ) );
 
-      if ( GTK_IS_TREE_VIEW(focus) ) {
+      if (GTK_IS_TREE_VIEW(focus) ) {
          do_connect_from_tree( GTK_TREE_VIEW(focus) );
       }
 
@@ -120,8 +119,7 @@ void show_server_chooser(void) {
    GtkWidget *list = gtk_tree_view_new();
    GtkListStore *store = gtk_list_store_new(1, G_TYPE_STRING);
    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *col = gtk_tree_view_column_new_with_attributes("Servers", renderer, "text", 0,
-      NULL);
+   GtkTreeViewColumn *col = gtk_tree_view_column_new_with_attributes("Servers", renderer, "text", 0, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(list), col);
    gtk_tree_view_set_model( GTK_TREE_VIEW(list), GTK_TREE_MODEL(store) );
    g_object_unref(store);
@@ -136,8 +134,8 @@ void show_server_chooser(void) {
    char *v;
    GtkTreeIter match_iter;
    gboolean have_match = FALSE;
-   while ( ( rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0 ) {
-      if ( !g_str_has_suffix(k, ".server.user") ) {
+   while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
+      if (!g_str_has_suffix(k, ".server.user") ) {
          continue;
       }
       const char *name_start = strchr(k, ':');

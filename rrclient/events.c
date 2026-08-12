@@ -1,5 +1,6 @@
 //
-// rrclient/events.c: event listeners for shared protocol events from librrprotocol
+// rrclient/events.c: event listeners for shared protocol events from
+// librrprotocol
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -72,10 +73,9 @@ static void rrclient_update_connection_ui(bool connected) {
 #endif
 }
 
-static void rrclient_handle_connection_event(const char *event, const char *data, rrconn_t *cptr,
-                                             void *user) {
+static void rrclient_handle_connection_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (strcasecmp(event, "connecting") == 0) {
-      ui_print(NULL, "%s *** Connecting ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** Connecting ***", get_chat_ts(now) );
    } else if (strcasecmp(event, "connected") == 0) {
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
@@ -85,7 +85,7 @@ static void rrclient_handle_connection_event(const char *event, const char *data
       }
       login_user = strdup(user);
       rrclient_update_connection_ui(true);
-      ui_print(NULL, "%s *** Connected ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** Connected ***", get_chat_ts(now) );
       dict_free(d);
    } else if (strcasecmp(event, "goodbye") == 0 || strcasecmp(event, "disconnect") == 0) {
       if (login_user) {
@@ -93,7 +93,7 @@ static void rrclient_handle_connection_event(const char *event, const char *data
          login_user = NULL;
       }
       rrclient_update_connection_ui(false);
-      ui_print(NULL, "%s *** DISCONNECTED ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** DISCONNECTED ***", get_chat_ts(now) );
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);
@@ -104,8 +104,7 @@ static void rrclient_handle_connection_event(const char *event, const char *data
    }
 }
 
-static void rrclient_handle_ptt_event(const char *event, const char *data, rrconn_t *cptr,
-                                      void *user) {
+static void rrclient_handle_ptt_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
@@ -135,8 +134,7 @@ static void rrclient_handle_ptt_event(const char *event, const char *data, rrcon
    }
 }
 
-static void rrclient_handle_freq_event(const char *event, const char *data, rrconn_t *cptr,
-                                       void *user) {
+static void rrclient_handle_freq_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
@@ -151,7 +149,7 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
       GtkWidget *entry = freq_entry;
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
 
-      if (!gtk_freq_entry_is_editing(fe) ) {
+      if ( !gtk_freq_entry_is_editing(fe) ) {
          gtk_freq_entry_set_frequency(fe, freq);
       }
    }
@@ -159,8 +157,7 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
    dict_free(d);
 }
 
-static void rrclient_handle_mode_event(const char *event, const char *data, rrconn_t *cptr,
-                                       void *user) {
+static void rrclient_handle_mode_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data || !mode_combo) {
       return;
    }
@@ -173,36 +170,33 @@ static void rrclient_handle_mode_event(const char *event, const char *data, rrco
 #endif // defined(USE_GTK)
 }
 
-static void rrclient_handle_userinfo_event(const char *event, const char *data, rrconn_t *cptr,
-                                           void *user) {
+static void rrclient_handle_userinfo_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
 
    dict *d = json2dict(data);
 
-   if (!userlist_add_or_update(d) ) {
+   if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
    dict_free(d);
 }
 
-static void rrclient_handle_userjoin_event(const char *event, const char *data, rrconn_t *cptr,
-                                           void *user) {
+static void rrclient_handle_userjoin_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
 
    dict *d = json2dict(data);
 
-   if (!userlist_add_or_update(d) ) {
+   if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
    dict_free(d);
 }
 
-static void rrclient_handle_userquit_event(const char *event, const char *data, rrconn_t *cptr,
-                                           void *user) {
+static void rrclient_handle_userquit_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
@@ -214,15 +208,15 @@ static void rrclient_handle_userquit_event(const char *event, const char *data, 
    userlist_remove_by_name(name);
 }
 
-static void rrclient_handle_whois_event(const char *event, const char *data, rrconn_t *cptr,
-                                        void *user) {
+static void rrclient_handle_whois_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
    const char *whois_msg = (const char *)data;
 
    if (whois_msg && main_window) {
-#if	defined(USE_GTK)
+#if     defined(USE_GTK)
+
       if (ui_mode == UI_MODE_GTK) {
          ui_show_whois_dialog(GTK_WINDOW(main_window), whois_msg);
       }
@@ -230,8 +224,7 @@ static void rrclient_handle_whois_event(const char *event, const char *data, rrc
    }
 }
 
-static void rrclient_handle_log_event(const char *event, const char *data, rrconn_t *cptr,
-                                      void *user) {
+static void rrclient_handle_log_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    struct log_event_data *led = (struct log_event_data *)data;
 
    if (!led || !led->message[0]) {
@@ -240,8 +233,7 @@ static void rrclient_handle_log_event(const char *event, const char *data, rrcon
    rrclient_display_log_message(led->message);
 }
 
-static void rrclient_handle_talk_msg_event(const char *event, const char *data, rrconn_t *cptr,
-                                           void *user) {
+static void rrclient_handle_talk_msg_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
@@ -266,8 +258,7 @@ static void rrclient_handle_talk_msg_event(const char *event, const char *data, 
    dict_free(d);
 }
 
-static void rrclient_handle_alert_event(const char *event, const char *data, rrconn_t *cptr,
-                                        void *user) {
+static void rrclient_handle_alert_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
@@ -284,8 +275,7 @@ static void rrclient_handle_alert_event(const char *event, const char *data, rrc
    dict_free(d);
 }
 
-static void rrclient_handle_autherr_event(const char *event, const char *data, rrconn_t *cptr,
-                                          void *user) {
+static void rrclient_handle_autherr_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
@@ -302,8 +292,7 @@ static void rrclient_handle_autherr_event(const char *event, const char *data, r
    dict_free(d);
 }
 
-static void rrclient_handle_catcmd_event(const char *event, const char *data, rrconn_t *cptr,
-                                         void *user) {
+static void rrclient_handle_catcmd_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }

@@ -69,7 +69,7 @@
       "logfile": "./radio-debug.log",
       "logtype": "file",
       "logmode": "0660",
-      "loglevel": "debug",
+      "loglevel": "crazy",
       "mongoose": "false",
       "profiling": "true",
       "show-ts": "true",

@@ -12,14 +12,14 @@
 #include <gtk/gtk.h>
 #include <librrprotocol/rrprotocol.h>
 
-#define	HTTP_USER_LEN 16                      // username length (16 char)
-#define	HTTP_PASS_LEN 40                      // sha1: 40, sha256: 64
-#define	HTTP_HASH_LEN 40                      // sha1
-#define	HTTP_TOKEN_LEN 14                     // session-id / nonce length,
-                                               // longer moar secure
-#define	HTTP_UA_LEN 512                       // allow 128 bytes
-#define	USER_PRIV_LEN 100                     // privileges list
-#define	USER_EMAIL_LEN 128                    // email address
+#define	HTTP_USER_LEN 16                   // username length (16 char)
+#define	HTTP_PASS_LEN 40                   // sha1: 40, sha256: 64
+#define	HTTP_HASH_LEN 40                   // sha1
+#define	HTTP_TOKEN_LEN 14                  // session-id / nonce length,
+                                            // longer moar secure
+#define	HTTP_UA_LEN 512                    // allow 128 bytes
+#define	USER_PRIV_LEN 100                  // privileges list
+#define	USER_EMAIL_LEN 128                 // email address
 
 // GUI (GTK) window
 struct GuiWindow {
@@ -79,8 +79,7 @@ extern bool set_window_icon(GtkWidget *window, const char *icon_name);
 
 extern GtkWidget *ptt_button_create(void);
 extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx);            // gtk.codecpicker.c
-extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list,
-                                 const char *default_id);
+extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
 extern GtkWidget *ptt_button;
 extern GtkWidget *freq_entry;
 extern GtkWidget *mode_combo;

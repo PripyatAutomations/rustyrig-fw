@@ -84,8 +84,7 @@ bool syslog_clear(void) {
 
 GtkWidget *init_log_tab(void) {
    GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC,
-      GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
    log_view = gtk_text_view_new();
    log_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(log_view) );

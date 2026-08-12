@@ -32,8 +32,7 @@ GtkWidget *admin_tab = NULL;
 ///////////////////////////////////////////
 GtkWidget *init_admin_tab(void) {
    GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC,
-      GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
    // add stuff to the window
    gtk_container_add(GTK_CONTAINER(nw), admin_view);

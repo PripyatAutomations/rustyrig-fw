@@ -44,8 +44,8 @@ sqlite3 *db_open(const char *path) {
    return NULL;
 }
 
-bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password,
-                 const char *email, int maxclones, const char *permissions) {
+bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email,
+                 int maxclones, const char *permissions) {
    if (!db || !name || !password || !email || !permissions) {
       return true;
    }
@@ -74,8 +74,7 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const cha
    return success;
 }
 
-bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type,
-                        const char *details) {
+bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details) {
    if (!db || !username || !event_type || !details) {
       return false;
    }
@@ -84,8 +83,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    sqlite3_stmt *stmt;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log( LOG_WARN, "db", "failed preparing statement in db_add_audit_event: %s",
-         sqlite3_errmsg(db) );
+      Log( LOG_WARN, "db", "failed preparing statement in db_add_audit_event: %s", sqlite3_errmsg(db) );
 
       return false;
    }
@@ -101,8 +99,8 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 
 // XXX: We need to add support for pointing to the recording file that will be
 // started
-int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char *mode,
-                 int bandwidth, float power, const char *record_file) {
+int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char *mode, int bandwidth, float power,
+                 const char *record_file) {
    if (!db || !username || !mode || !record_file) {
       return -1;
    }
@@ -157,11 +155,11 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
 }
 
 
-bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest,
-                     const char *msg_type, const char *msg_data) {
+bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type,
+                     const char *msg_data) {
    if (!db || !msg_src || !msg_dest || !msg_type || !msg_data) {
-      Log(LOG_WARN, "db", "invalid arguments db:<%p> ts:%lu src:<%p> dest:<%p> type:<%p> data:<%p>",
-         db, msg_ts, msg_src, msg_dest, msg_type, msg_data);
+      Log(LOG_WARN, "db", "invalid arguments db:<%p> ts:%lu src:<%p> dest:<%p> type:<%p> data:<%p>", db, msg_ts,
+         msg_src, msg_dest, msg_type, msg_data);
 
       return false;
    }
@@ -171,8 +169,7 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
    sqlite3_stmt *stmt;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log( LOG_WARN, "db", "failed preparing statement in db_add_chat_msg: %s",
-         sqlite3_errmsg(db) );
+      Log( LOG_WARN, "db", "failed preparing statement in db_add_chat_msg: %s", sqlite3_errmsg(db) );
 
       return false;
    }

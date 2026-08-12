@@ -39,8 +39,7 @@ extern bool add_server(const char *network, const char *str);
 bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
    char *np = strchr(section, ':');
 
-   ui_print(NULL, "np: %s section: %s, path: %s, buf: %s", np + 1, section,
-         path, buf);
+   ui_print(NULL, "np: %s section: %s, path: %s, buf: %s", np + 1, section, path, buf);
 
    if (np) {
       np++;
@@ -56,7 +55,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          char *val = strchr(tmpbuf, '=');
 
          if (!val || !val[1]) {
-            Log(LOG_CRIT, "irc", "config error: autojoin missing value: %s", buf);
+            Log(LOG_CRIT, "cfg.network", "config error: autojoin missing value: %s", buf);
             free(tmpbuf);
 
             return false;
@@ -65,18 +64,17 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          while (*val == ' ' || *val == '\t') {
             val++;
          }
-
          ui_print(NULL, "np: %s buf: %s val: %s", np, buf, val);
 
          if (strlen(val) < 2) {
-            Log(LOG_CRIT, "irc", "config error: autojoin invalid: %s", buf);
+            Log(LOG_CRIT, "cfg.network", "config error: autojoin invalid: %s", buf);
             free(tmpbuf);
 
             return false;
          }
          char key[256];
          snprintf(key, sizeof(key), "network.%s.autojoin", np);
-         Log(LOG_DEBUG, "irc", "Adding autojoin for %s: %s", np, val);
+         Log(LOG_DEBUG, "cfg.network", "Adding autojoin for %s: %s", np, val);
          ui_print(NULL, "[{green}%s{reset}] Setting autojoin: %s", np, val);
          const char *x = cfg_get(key);
 
@@ -90,7 +88,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
 
             size_t len = strlen(buf);
 
-            if (len + 1 < sizeof(buf) ) {
+            if ( len + 1 < sizeof(buf) ) {
                // +1 for comma
                strncat(buf, ",", sizeof(buf) - len - 1);
                strncat(buf, val, sizeof(buf) - strlen(buf) - 1);

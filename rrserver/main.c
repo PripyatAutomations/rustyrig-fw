@@ -40,7 +40,7 @@ struct mg_mgr mg_mgr;
 #include <rrserver/mqtt.h>
 #endif
 
-#define	TS_ALPHA 0.1          // Weight for the moving average
+#define	TS_ALPHA 0.1       // Weight for the moving average
 
 bool dying = 0;                  // Are we shutting down?
 bool restarting = 0;             // Are we restarting?
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
    now = time(NULL);
 
    int opt;
-   while ( (opt = getopt(argc, argv, "f:hr:") ) != -1) {
+   while ( ( opt = getopt(argc, argv, "f:hr:") ) != -1 ) {
       switch (opt) {
          case 'f': {
             config_file = strdup(optarg);
@@ -138,13 +138,13 @@ int main(int argc, char **argv) {
    char *fullpath = NULL;
 
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
-   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
+   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
 
-      if (!(cfg = cfg_load(fullpath) ) ) {
+      if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
 
 #if     defined(FEATURE_SQLITE)
 
-   if (!(masterdb = db_open(MASTERDB_PATH) ) ) {
+   if ( !( masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(31);
    }
@@ -226,20 +226,20 @@ int main(int argc, char **argv) {
       rr_ptt_set_blocked(true);
    }
 
-   if (rr_io_init() ) {
+   if ( rr_io_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
       set_fault(FAULT_IO_ERROR);
       exit(1);
    }
 
-   if (rr_backend_init() ) {
+   if ( rr_backend_init() ) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
 #if     defined(FEATURE_CAT)
 
-   if (rr_cat_init() ) {
+   if ( rr_cat_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
       exit(1);
@@ -283,7 +283,7 @@ int main(int argc, char **argv) {
       char buf[512];
 
       // Check faults
-      if (check_faults() ) {
+      if ( check_faults() ) {
          Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
          // XXX: Should we stop PTT and halt here?
       }
@@ -301,7 +301,7 @@ int main(int argc, char **argv) {
       }
 
       // Check thermals
-      if (are_we_on_fire() ) {
+      if ( are_we_on_fire() ) {
          rr_ptt_set_all_off();
          rr_ptt_set_blocked(true);
          Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");

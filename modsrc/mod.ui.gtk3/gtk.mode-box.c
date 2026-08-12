@@ -49,7 +49,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 #endif // defined(USE_MONGOOSE)
 
       // Show/hide repeater dialog locally based on FM mode
-      if ( g_str_equal(text, "FM") ) {
+      if (g_str_equal(text, "FM") ) {
          fm_dialog_show();
          gui_window_t *wp = gui_find_window(NULL, "main");
 
@@ -159,10 +159,8 @@ GtkWidget *create_mode_box(void) {
    gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 1);
 
    ///////
-   mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed),
-      NULL);
-   g_signal_connect(mode_combo_wrapper, "key-press-event", G_CALLBACK(on_mode_keypress),
-      mode_combo);
+   mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
+   g_signal_connect(mode_combo_wrapper, "key-press-event", G_CALLBACK(on_mode_keypress), mode_combo);
    g_signal_connect(mode_combo, "key-press-event", G_CALLBACK(on_mode_keypress), mode_combo);
    g_signal_connect(mode_combo, "popup", G_CALLBACK(on_mode_popup), NULL);
    g_signal_connect(mode_combo, "popdown", G_CALLBACK(on_mode_popdown), NULL);

@@ -11,10 +11,10 @@
 #if !defined(_config_h)
 #define _config_h
 
-#define HARDWARE "sb50"
-#define EEPROM_TYPE_MMAP true
+#define HARDWARE 		"sb50"
+#define EEPROM_TYPE_MMAP 	true
 #undef EEPROM_TYPE_I2C
-#define EEPROM_MMAP_ADDR 0x0000
+#define EEPROM_MMAP_ADDR 	0x0000
 #define EEPROM_READONLY
 //#define	NOISY_EEPROM true
 #define RR_MAX_AMPS		2
@@ -23,8 +23,8 @@
 // XXX: Move to cfg:rig*.tot-time and cfg:global.tot-time
 
 #define RF_TALK_TIMEOUT		300
-#define MASTERDB_PATH "./db/master.db"
-#define MASTERDB_TEMPLATE "./sql/sqlite.master.sql"
+#define MASTERDB_PATH 		"./db/master.db"
+#define MASTERDB_TEMPLATE 	"./sql/sqlite.master.sql"
 // This one breaks build but should be sorted out soon.
 #define CAT true
 #define CAT_KPA500 true
@@ -45,14 +45,14 @@
 
 #define	USE_MONGOOSE
 
-#define HTTP_USE_TLS 1
-#define HTTP_TLS_KEY "./config/key.pem"
-#define HTTP_TLS_CERT "./config/cert.pem"
+#define HTTP_USE_TLS 		1
+#define HTTP_TLS_KEY 		"./config/key.pem"
+#define HTTP_TLS_CERT 		"./config/cert.pem"
 #define HTTP_AUTHDB_PATH	"./config/http.users"
-#define EEPROM_SIZE 1048576
-#define MAX_BANDS 14
-#define MAX_AMPS 4
-#define HOST_CAT_PIPE "cat.fifo"
+#define EEPROM_SIZE 		1048576
+#define MAX_BANDS 		14
+#define MAX_AMPS 		4
+#define HOST_CAT_PIPE 		"cat.fifo"
 #define HOST_POSIX
 #define HOST_LINUX	// This should not be here, but i2c depends on it for now
 #endif

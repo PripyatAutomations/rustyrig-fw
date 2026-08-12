@@ -38,5 +38,6 @@ bool rr_protect_warmup_pending(int amp_idx) {
 bool protection_lockout(const char *reason) {
    rig.tx_blocked = true;
    event_emit("protection", NULL, NULL);
+
    return false;
 }

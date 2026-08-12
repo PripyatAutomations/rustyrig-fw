@@ -84,12 +84,11 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
       if (this_write > 0) {
          msg_wrote += this_write;
       } else {
-         Log( LOG_CRIT, "fwdsp", "Failed to write %d bytes of codec info: rv=%d (%d:%s)", msg_len,
-            this_write, errno, strerror(errno) );
+         Log( LOG_CRIT, "fwdsp", "Failed to write %d bytes of codec info: rv=%d (%d:%s)", msg_len, this_write, errno,
+            strerror(errno) );
       }
    }
-   Log(LOG_DEBUG, "fwdsp", "Wrote %d of %d bytes |%.*s|", msg_wrote, msg_len, (msg_len - 4),
-      msgbuf);
+   Log(LOG_DEBUG, "fwdsp", "Wrote %d of %d bytes |%.*s|", msg_wrote, msg_len, (msg_len - 4), msgbuf);
 
    return false;
 }
@@ -100,8 +99,8 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       int sock_fd = (cfg->media_direction == FW_DIR_TX) ? STDOUT_FD : STDIN_FD;
-      Log( LOG_DEBUG, "fwdsp", "Using std%s FD=%d for %s", (cfg->media_direction ? "out" : "in"),
-         sock_fd, (cfg->media_direction == FW_DIR_TX ? "TX" : "RX") );
+      Log( LOG_DEBUG, "fwdsp", "Using std%s FD=%d for %s", (cfg->media_direction ? "out" : "in"), sock_fd,
+         (cfg->media_direction == FW_DIR_TX ? "TX" : "RX") );
 
       fprintf(stderr, "connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
       pipeline = build_pipeline(cfg->pipeline);
@@ -155,7 +154,7 @@ static void run_loop(struct audio_config *cfg) {
          GError *err;
          gchar *debug_info;
 
-         switch ( GST_MESSAGE_TYPE(msg) ) {
+         switch (GST_MESSAGE_TYPE(msg) ) {
             case GST_MESSAGE_ERROR: {
                gst_message_parse_error(msg, &err, &debug_info);
                g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
@@ -171,11 +170,11 @@ static void run_loop(struct audio_config *cfg) {
             }
 
             case GST_MESSAGE_STATE_CHANGED: {
-               if ( GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
+               if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
                   GstState old_state, new_state, pending_state;
                   gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
-                  g_print( "Pipeline state changed from %s to %s.\n",
-                     gst_element_state_get_name(old_state), gst_element_state_get_name(new_state) );
+                  g_print( "Pipeline state changed from %s to %s.\n", gst_element_state_get_name(old_state),
+                     gst_element_state_get_name(new_state) );
                }
                break;
             }
@@ -191,8 +190,7 @@ static void run_loop(struct audio_config *cfg) {
       gst_object_unref(bus);
 
       while (!dying) {
-         GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND,
-            GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
+         GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
 
          if (msg) {
             if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
@@ -224,9 +222,8 @@ static void run_loop(struct audio_config *cfg) {
    sleep(1);
 }
 
-static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level, const gchar *file,
-                            const gchar *function, gint line, GObject *object,
-                            GstDebugMessage *message, gpointer user_data) {
+static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level, const gchar *file, const gchar *function,
+                            gint line, GObject *object, GstDebugMessage *message, gpointer user_data) {
    g_printerr( "GST %s: %s\n", gst_debug_level_get_name(level), gst_debug_message_get(message) );
 }
 
@@ -239,7 +236,7 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
 
    int opt;
-   while ( ( opt = getopt(argc, argv, "c:f:htv") ) != -1 ) {
+   while ( (opt = getopt(argc, argv, "c:f:htv") ) != -1) {
       switch (opt) {
          case 'c': {
             size_t clen = strlen(optarg);
@@ -277,14 +274,14 @@ int main(int argc, char *argv[]) {
       }
    }
    // Find and load the configuration file
-   int cfg_entries = ( sizeof(configs) / sizeof(char *) );
+   int cfg_entries = (sizeof(configs) / sizeof(char *) );
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
 
    // If the user specified a config, apply it, else try to find one in a sane
    // place
    if (config_file) {
-      if ( !( cfg = cfg_load(config_file) ) ) {
+      if (!(cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
@@ -296,7 +293,7 @@ int main(int argc, char *argv[]) {
       if (fullpath) {
          config_file = strdup(fullpath);
 
-         if ( !( cfg = cfg_load(fullpath) ) ) {
+         if (!(cfg = cfg_load(fullpath) ) ) {
             Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
          } else {
             Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
@@ -346,8 +343,7 @@ int main(int argc, char *argv[]) {
    }
    char keybuf[256];
    memset( keybuf, 0, sizeof(keybuf) );
-   snprintf( keybuf, sizeof(keybuf), "pipeline:%s.%s", config_codec,
-      (codec_tx_mode ? "tx" : "rx") );
+   snprintf( keybuf, sizeof(keybuf), "pipeline:%s.%s", config_codec, (codec_tx_mode ? "tx" : "rx") );
    Log(LOG_DEBUG, "codec", "Selecting pipeline '%s' from config --", keybuf);
 
    const char *cfg_pipeline = cfg_get(keybuf);

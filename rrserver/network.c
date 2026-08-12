@@ -52,18 +52,18 @@ static void net_print_listeners(const char *listenaddr) {
 
       if (family == AF_INET || family == AF_INET6) {
          void *addr_ptr = (family == AF_INET)
-             ? (void *)&( (struct sockaddr_in *)ifa->ifa_addr)->sin_addr
-             : (void *)&( (struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
+             ? (void *)&( (struct sockaddr_in *)ifa->ifa_addr )->sin_addr
+             : (void *)&( (struct sockaddr_in6 *)ifa->ifa_addr )->sin6_addr;
 
-         if (!inet_ntop( family, addr_ptr, addr, sizeof(addr) ) ) {
+         if ( !inet_ntop( family, addr_ptr, addr, sizeof(addr) ) ) {
             Log( LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno) );
             continue;
          }
 
-         if (!listenaddr ||
-             strcmp(addr, listenaddr) == 0 ||
-             (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
-             (strcmp(listenaddr, "::") == 0 && family == AF_INET6) ) {
+         if ( !listenaddr ||
+              strcmp(addr, listenaddr) == 0 ||
+              (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
+              (strcmp(listenaddr, "::") == 0 && family == AF_INET6) ) {
             Log(LOG_INFO, "net", " => %s: %s", ifa->ifa_name, addr);
          }
       }
@@ -103,7 +103,7 @@ void show_network_info(void) {
       vlan = atoi(s);
    }
 
-   if (!s || (vlan < 0 || vlan > 4095) ) {
+   if ( !s || (vlan < 0 || vlan > 4095) ) {
       eeprom_get_int("net/vlan");
    }
    int mtu = 0;
@@ -124,8 +124,7 @@ void show_network_info(void) {
    const char *iface = eeprom_get_str("net/interface");
 
    Log(LOG_INFO, "net", "*** Network Configuration ***");
-   Log(LOG_INFO, "net", "  Interface: %s\tCurrent VLAN: %d\tMTU: %d\tMode: Static", iface, vlan,
-      mtu);
+   Log(LOG_INFO, "net", "  Interface: %s\tCurrent VLAN: %d\tMTU: %d\tMode: Static", iface, vlan, mtu);
 
    char s_ip[16], s_mask[16], s_gw[16], s_dns1[16], s_dns2[16];
    snprintf( s_ip, 16, "%s", inet_ntoa(sa_ip) );
@@ -148,8 +147,7 @@ void show_network_info(void) {
 #endif
 
    if (listenaddr) {
-      Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port,
-         tls_bind_port);
+      Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port, tls_bind_port);
       net_print_listeners(listenaddr);
    }
 #endif

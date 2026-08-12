@@ -69,30 +69,7 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
    }
 
    // These commands should always be available
-   if (strncasecmp(msg, "/server", 6) == 0) {
-      const char *server = msg + 8;
-
-      if (server && strlen(server) > 1) {
-         ui_print(NULL, "%s * Changing server profile to %s", get_chat_ts(now), server);
-         disconnect_server(server);
-
-         if (server_name) {
-            free( (char *)server_name );
-            server_name = strdup(server);
-
-            if (!server_name) {
-               fprintf(stderr, "OOM in parse_chat_input /server\n");
-
-               return true;
-            }
-         }
-         Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", server);
-         connect_server(server);
-      } else {
-         ui_print(NULL, "Try /server servername to connect");
-         show_server_chooser();
-      }
-   } else if (strncasecmp(msg, "/disconnect", 10) == 0) {
+   if (strncasecmp(msg, "/disconnect", 10) == 0) {
       disconnect_server(server_name);
    } else if (strncasecmp(msg, "/quit", 4) == 0) {
       const char *jp = dict2json_mkstr(VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", msg + 5);
@@ -111,14 +88,6 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
       }
 #endif
-   } else if (strncasecmp(msg, "/clear", 5) == 0) {
-      if (ui_mode == UI_MODE_TUI) {
-         tui_clear_scrollback(tui_active_window());
-#if     defined(USE_GTK)
-      } else {
-         gtk_text_buffer_set_text(text_buffer, "", -1);
-#endif
-      }
    } else if (strncasecmp(msg, "/clearlog", 8) == 0) {
       syslog_clear();
    } else if (strncasecmp(msg, "/config", 6) == 0 || strcasecmp(msg, "/cfg") == 0) {
@@ -141,29 +110,22 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          // Handle local commands
          if (strcasecmp(msg, "/ban") == 0) {
          } else if (strncasecmp(msg, "/die", 3) == 0) {
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "die", VAL_STR, "talk.args",
-               msg + 5);
+            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "die", VAL_STR, "talk.args", msg + 5);
             mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
             free( (char *)jp );
          } else if (strncasecmp(msg, "/edit", 4) == 0) {
          } else if (strncasecmp(msg, "/help", 4) == 0) {
             gui_show_help(NULL);
          } else if (strncasecmp(msg, "/kick", 4) == 0) {
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "kick", VAL_STR, "talk.reason",
-               msg + 6);
+            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "kick", VAL_STR, "talk.reason", msg + 6);
             mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
             free( (char *)jp );
          } else if (strncasecmp(msg, "/me", 2) == 0) {
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data",
-               msg + 3, VAL_STR, "talk.msg_type", "action");
+            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", msg + 3, VAL_STR,
+               "talk.msg_type", "action");
             mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
          } else if (strncasecmp(msg, "/mute", 4) == 0) {
          } else if (strncasecmp(msg, "/names", 5) == 0) {
-         } else if (strncasecmp(msg, "/restart", 7) == 0) {
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "restart", VAL_STR, "talk.reason",
-               msg + 8);
-            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-            free( (char *)jp );
          } else if (strncasecmp(msg, "/rxmute", 6) == 0) {
          } else if (strncasecmp(msg, "/rxvol", 5) == 0) {
             if (ui_mode == UI_MODE_TUI) {
@@ -177,11 +139,6 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
             }
          } else if (strncasecmp(msg, "/rxunmute", 8) == 0) {
          } else if (strncasecmp(msg, "/unmute", 6) == 0) {
-         } else if (strncasecmp(msg, "/whois", 4) == 0) {
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "whois", VAL_STR, "talk.args",
-               msg + 7);
-            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-            free( (char *)jp );
          } else {
             char msgbuf[4096];
             const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", msg + 1);
@@ -190,8 +147,8 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          }
       } else {
          // not a match
-         const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", msg,
-            VAL_STR, "talk.msg_type", "pub");
+         const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", msg, VAL_STR,
+            "talk.msg_type", "pub");
          mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
          free( (char *)jp );
       }
@@ -203,7 +160,6 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
 
 //////////////////
 bool cmd_join(int argc, char **args) {
-   (void)argc; (void)args;
    ui_print(NULL, "{yellow}JOIN is not supported over WebSocket{reset}");
 
    return false;
@@ -215,8 +171,7 @@ bool cmd_me(int argc, char **args) {
    size_t pos = 0;
 
    for (int i = 1 ; i < argc ; i++) {
-      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 1 ? " " : ""),
-         args[i] ? args[i] : "");
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
 
       if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
          break;
@@ -224,8 +179,8 @@ bool cmd_me(int argc, char **args) {
       pos += n;
    }
 
-   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", buf, VAL_STR,
-      "talk.msg_type", "action");
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", buf, VAL_STR, "talk.msg_type",
+      "action");
 
 #if defined(USE_MONGOOSE)
 
@@ -248,8 +203,7 @@ bool cmd_msg(int argc, char **args) {
    size_t pos = 0;
 
    for (int i = 2 ; i < argc ; i++) {
-      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""),
-         args[i] ? args[i] : "");
+      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
 
       if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
          break;
@@ -259,8 +213,8 @@ bool cmd_msg(int argc, char **args) {
 
    ui_print(NULL, "-> %s %s", target, fullmsg);
 
-   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", fullmsg,
-      VAL_STR, "talk.target", target);
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", fullmsg, VAL_STR, "talk.target",
+      target);
 #if defined(USE_MONGOOSE)
 
    if (ws_conn) {
@@ -277,7 +231,7 @@ bool cmd_notice(int argc, char **args) {
       // XXX: cry not enough args
       return true;
    }
-#if	0
+#if     0
    tui_window_t *wp = NULL;
    bool new_win = false;
 
@@ -307,8 +261,7 @@ bool cmd_notice(int argc, char **args) {
       size_t pos = 0;
 
       for (int i = 2 ; i < argc ; i++) {
-         int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""),
-            args[i] ? args[i] : "");
+         int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
 
          if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
             break;
@@ -325,14 +278,12 @@ bool cmd_notice(int argc, char **args) {
 }
 
 bool cmd_part(int argc, char **args) {
-   (void)argc; (void)args;
    ui_print(NULL, "{yellow}PART is not supported over WebSocket{reset}");
 
    return false;
 }
 
 bool cmd_quit(int argc, char **args) {
-   (void)argc; (void)args;
    ui_print(NULL, "Goodbye!");
 
    // Set the dying flag so main loop with cleanly exit
@@ -351,8 +302,7 @@ bool cmd_quote(int argc, char **args) {
    size_t pos = 0;
 
    for (int i = 1 ; i < argc ; i++) {
-      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 1 ? " " : ""),
-         args[i] ? args[i] : "");
+      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
 
       if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
          break;
@@ -366,19 +316,55 @@ bool cmd_quote(int argc, char **args) {
    return false;
 }
 
+bool cmd_restart(int argc, char **args) {
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "restart", VAL_STR, "talk.reason", args[1]);
+   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free( (char *)jp );
+}
+
+bool cmd_server(int argc, char **args) {
+   const char *server = args[1];
+
+   if (server && strlen(server) > 1) {
+      ui_print(NULL, "%s * Changing server profile to %s", get_chat_ts(now), server);
+      disconnect_server(server);
+
+      if (server_name) {
+         free( (char *)server_name );
+         server_name = strdup(server);
+
+         if (!server_name) {
+            fprintf(stderr, "OOM in parse_chat_input /server\n");
+
+            return true;
+         }
+      }
+      Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", server);
+      connect_server(server);
+   } else {
+      ui_print(NULL, "Try /server servername to connect");
+      show_server_chooser();
+   }
+
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "restart", VAL_STR, "talk.reason", args[1]);
+   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free( (char *)jp );
+}
+
 bool cmd_topic(int argc, char **args) {
-   (void)argc; (void)args;
    ui_print(NULL, "{yellow}TOPIC is not supported over WebSocket{reset}");
 
    return false;
 }
 
 bool cmd_whois(int argc, char **args) {
-   (void)argc; (void)args;
-   ui_print(NULL, "{yellow}WHOIS is not supported over WebSocket{reset}");
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "whois", VAL_STR, "talk.args", msg + 7);
+   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free( (char *)jp );
 
    return false;
 }
+
 
 bool cmd_win(int argc, char **args) {
    if (argc < 1) {
@@ -413,8 +399,7 @@ bool cmd_win(int argc, char **args) {
       ui_print(NULL, "ID: %s", args[1]);
 
       if (id < 1 || id > TUI_MAX_WINDOWS) {
-         ui_print(NULL, "Invalid window %d, must be between 1 and %d", id,
-            TUI_MAX_WINDOWS);
+         ui_print(NULL, "Invalid window %d, must be between 1 and %d", id, TUI_MAX_WINDOWS);
 
          return true;
       }
@@ -427,6 +412,10 @@ bool cmd_win(int argc, char **args) {
 bool cmd_clear(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
       tui_clear_scrollback( tui_active_window() );
+#if     defined(USE_GTK)
+   } else {
+      gtk_text_buffer_set_text(text_buffer, "", -1);
+#endif
    }
 
    return false;
@@ -435,40 +424,46 @@ bool cmd_clear(int argc, char **args) {
 extern bool cmd_help(int argc, char **args);
 client_cmd_t client_cmds[] = {
    {
-      .cmd = "/clear", .cb = cmd_clear, .desc = "Clear the scrollback"
+      .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback"
    },
    {
-      .cmd = "/help", .cb = cmd_help, .desc = "Show help message"
+      .cmd = "help", .cb = cmd_help, .desc = "Show help message"
    },
    {
-      .cmd = "/join", .cb = cmd_join, .desc = "Join a channel (N/A over WS)"
+      .cmd = "join", .cb = cmd_join, .desc = "Join a channel (N/A over WS)"
    },
    {
-      .cmd = "/me", .cb = cmd_me, .desc = "\tSend an action to the current channel"
+      .cmd = "me", .cb = cmd_me, .desc = "\tSend an action to the current channel"
    },
    {
-      .cmd = "/msg", .cb = cmd_msg, .desc = "Send a private message"
+      .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message"
    },
    {
-      .cmd = "/notice", .cb = cmd_notice, .desc = "Send a private notice (N/A over WS)"
+      .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice (N/A over WS)"
    },
    {
-      .cmd = "/part", .cb = cmd_part, .desc = "leave a channel (N/A over WS)"
+      .cmd = "part", .cb = cmd_part, .desc = "leave a channel (N/A over WS)"
    },
    {
-      .cmd = "/quit", .cb = cmd_quit, .desc = "Exit the program"
+      .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program"
    },
    {
-      .cmd = "/quote", .cb = cmd_quote, .desc = "Send a raw command (N/A over WS)"
+      .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command (N/A over WS)"
    },
    {
-      .cmd = "/topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)"
+      .cmd = "restart", .cb = cmd_restart, .desc = "Restart"
    },
    {
-      .cmd = "/win", .cb = cmd_win, .desc = "Change windows"
+      .cmd = "server", .cb = cmd_server, .desc = "Connect to a server"
    },
    {
-      .cmd = "/whois", .cb = cmd_whois, .desc = "Show client information (N/A over WS)"
+      .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)"
+   },
+   {
+      .cmd = "win", .cb = cmd_win, .desc = "Change windows"
+   },
+   {
+      .cmd = "whois", .cb = cmd_whois, .desc = "Show client information"
    },
    {
       .cmd = NULL, .cb = NULL, .desc = NULL
@@ -476,12 +471,12 @@ client_cmd_t client_cmds[] = {
 };
 
 const char *help_msg[] = {
-      "*** Keyboard Shortcuts ***",
-      "   alt-X (1-0)\t\tSwitch to window 1-10",
-      "   alt-left\t\tSwitch to previous win",
-      "   alt-right\t\tSwitch to next win",
-      "   F12\t\t\tPTT toggle",
-      NULL
+   "*** Keyboard Shortcuts ***",
+   "   alt-X (1-0)\t\tSwitch to window 1-10",
+   "   alt-left\t\tSwitch to previous win",
+   "   alt-right\t\tSwitch to next win",
+   "   F12\t\t\tPTT toggle",
+   NULL
 };
 
 bool cmd_help(int argc, char **args) {
@@ -492,7 +487,7 @@ bool cmd_help(int argc, char **args) {
          ui_print(NULL, "   %s\t\t%s", client_cmds[i].cmd, client_cmds[i].desc);
       }
 
-      for (int i = 0; i < sizeof(help_msg) / sizeof(help_msg[0]); i++) {
+      for (int i = 0 ; i < sizeof(help_msg) / sizeof(help_msg[0]) ; i++) {
          if (help_msg[i]) {
             ui_print(NULL, "%s", help_msg[i]);
          }
