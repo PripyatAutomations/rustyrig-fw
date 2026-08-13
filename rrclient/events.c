@@ -213,8 +213,9 @@ static void rrclient_handle_userquit_event(const char *event, const char *data, 
 
    dict *d = json2dict(data);
    dict_dump(d, stderr);
+   const char *masked_ip = "ip.hidden";
    const char *m_user = dict_get(d, "talk.user", NULL);
-   const char *m_ip = dict_get(d, "talk.ip", NULL);
+   const char *m_ip = dict_get(d, "talk.ip", (char *)masked_ip);
    const char *m_target = dict_get(d, "talk.target", NULL);
    time_t m_ts = dict_get_time_t(d, "talk.ts", now);
    const char *s_unknown = "<UNKNOWN>";

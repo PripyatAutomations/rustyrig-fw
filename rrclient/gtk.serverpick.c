@@ -177,5 +177,8 @@ void show_server_chooser(void) {
       gtk_widget_realize(win);
       place_window(win);
 #endif
+   } else if (ui_mode == UI_MODE_TUI) {
+      ui_print(NULL, "server choser:");
+      // XXX: print servers configured here
    }
 }
