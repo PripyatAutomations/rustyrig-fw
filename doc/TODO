@@ -1,5 +1,7 @@
 Immediate needs
 ---------------
+rrclient: Fix tui auto-connect
+rrclient: TUI: Implement /names to show who's in the chat
 *: Anywhere libev or mongoose code exists, make sure the other does as well
   - will need to use wslay/mbedtls to accomplish libev support for websocket!
   - IRC code needs updated to use mongoose

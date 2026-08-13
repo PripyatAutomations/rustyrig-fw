@@ -93,7 +93,7 @@ bool cmd_rxvol(int argc, char **args) {
 bool cmd_server(int argc, char **args) {
    const char *server = args[1];
 
-   if (server && strlen(server) > 1) {
+   if (server && server[0] != '\0') {
       ui_print(NULL, "%s * Changing server profile to %s", get_chat_ts(now), server);
       disconnect_server(server);
 

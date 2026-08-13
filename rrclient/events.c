@@ -189,10 +189,20 @@ static void rrclient_handle_userjoin_event(const char *event, const char *data, 
    }
 
    dict *d = json2dict(data);
+//   dict_dump(d, stderr);
+   const char *m_user = dict_get(d, "talk.user", NULL);
+   const char *m_ip = dict_get(d, "talk.ip", NULL);
+   const char *m_target = dict_get(d, "talk.target", NULL);
+   time_t m_ts = dict_get_time_t(d, "talk.ts", now);
+   const char *s_unknown = "<UNKNOWN>";
+
+   ui_print(NULL, "%s * %s (%s) joined %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
 
    if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
+
+   // need to fire update uer list!
    dict_free(d);
 }
 
@@ -200,12 +210,21 @@ static void rrclient_handle_userquit_event(const char *event, const char *data, 
    if (!data) {
       return;
    }
-   char *name = (char *)data;
 
-   if (!name) {
+   dict *d = json2dict(data);
+   dict_dump(d, stderr);
+   const char *m_user = dict_get(d, "talk.user", NULL);
+   const char *m_ip = dict_get(d, "talk.ip", NULL);
+   const char *m_target = dict_get(d, "talk.target", NULL);
+   time_t m_ts = dict_get_time_t(d, "talk.ts", now);
+   const char *s_unknown = "<UNKNOWN>";
+
+   ui_print(NULL, "%s * %s (%s) quit from %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
+
+   if (!m_target) {
       return;
    }
-   userlist_remove_by_name(name);
+   userlist_remove_by_name(m_target);
 }
 
 static void rrclient_handle_whois_event(const char *event, const char *data, rrconn_t *cptr, void *user) {

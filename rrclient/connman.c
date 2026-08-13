@@ -395,7 +395,7 @@ void connman_autoconnect(void) {
          char this_server[256];
          memset( this_server, 0, sizeof(this_server) );
          snprintf(this_server, sizeof(this_server), "%s", sp);
-         ui_print(NULL, "* Autoconnecting to profile: %s *", this_server);
+         ui_print(NULL, "%s * Autoconnect profile: %s *",  get_chat_ts(now), this_server);
          sp = strtok(NULL, ",");
          connect_or_disconnect( this_server );
       }
