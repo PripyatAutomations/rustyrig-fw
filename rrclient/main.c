@@ -320,6 +320,7 @@ int main(int argc, char *argv[]) {
       logfile = NULL;
    }
    debug_sockets = cfg_get_bool("debug.sockets", false);
+   cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
    const char *cfg_debug_audio = cfg_get_exp("audio.debug");
 
    if (cfg_debug_audio) {
@@ -351,6 +352,7 @@ int main(int argc, char *argv[]) {
 #endif // defined(USE_MONGOOSE)
 
       gtk_init(&argc, &argv);
+
 #ifdef _WIN32
       // Disable edit mode in the console, so copy/paste is more usable
       disable_console_quick_edit();

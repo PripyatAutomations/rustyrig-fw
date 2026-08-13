@@ -90,6 +90,7 @@ extern char *gtk_colorize_string(const char *in);
 extern bool cfg_use_gtk;
 extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 extern gboolean is_widget_or_descendant_focused(GtkWidget *ancestor);
+extern bool gui_fullscreen_toggle(void);	// gui.core.c
 
 #include <rrclient/gtk.codecpicker.h>
 #include <rrclient/gtk.editcfg.h>
@@ -108,9 +109,11 @@ extern gboolean is_widget_or_descendant_focused(GtkWidget *ancestor);
 
 
 ///
+extern GtkWidget *main_window;
 extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 extern GtkWidget *config_tab;
 extern GtkWidget *admin_tab;
+extern bool cfg_fullscreen;		// gtk.core.c
 
 #endif // !defined(__rrclient_gtk_core_h)

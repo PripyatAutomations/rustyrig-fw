@@ -32,25 +32,30 @@ extern GtkNotebook *main_notebook;
 
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    gui_window_t *wp = gui_find_window(NULL, "main");
-   GtkWidget *main_window = wp->gtk_win;
+   GtkWidget *main_win = wp->gtk_win;
 
    if (!main_notebook || !event) {
       return true;
    }
 
+   if ((event->keyval == GDK_KEY_F11)) {
+      gui_fullscreen_toggle();
+      return TRUE;
+   }
+
    if ( (event->state & GDK_MOD1_MASK) ) {
-      if (!main_window) {
-         Log(LOG_DEBUG, "gtk", "main_window is null in alt-# handler");
+      if (!main_win) {
+         Log(LOG_DEBUG, "gtk", "main_win is null in alt-# handler");
 
          return TRUE;
       }
 
       // raise main window if a tab is selected
       if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
-         if (!gtk_window_is_active( GTK_WINDOW(main_window) ) ) {
-            gtk_widget_show_all(main_window);
-            gtk_window_present( GTK_WINDOW(main_window) );
-            place_window(main_window);
+         if (!gtk_window_is_active( GTK_WINDOW(main_win) ) ) {
+            gtk_widget_show_all(main_win);
+            gtk_window_present( GTK_WINDOW(main_win) );
+            place_window(main_win);
          }
       }
 

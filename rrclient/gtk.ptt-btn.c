@@ -21,10 +21,6 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
 
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif // defined(USE_MONGOOSE)
-
 extern bool parse_chat_input(GtkButton *button, gpointer entry);         // chat.cmd.c
 extern bool syslog_clear(void);
 extern GtkWidget *init_log_tab(void);

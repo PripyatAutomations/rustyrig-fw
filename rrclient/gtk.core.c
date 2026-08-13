@@ -44,6 +44,7 @@ bool cfg_use_gtk = true;         // Default to using GTK3
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_admin_tab(void);
 extern bool chat_init(void);             // gtk.chat.c
+bool cfg_fullscreen = false;
 
 static const struct {
    const char *tag;
@@ -374,6 +375,11 @@ void update_connection_button(bool connected, GtkWidget *btn) {
    }
 }
 
+static gboolean fullscreen_later(gpointer data) {
+   gui_fullscreen_toggle();
+   return G_SOURCE_REMOVE;
+}
+
 static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer user_data) {
    if (!widget) {
       return FALSE;
@@ -398,6 +404,7 @@ bool gui_init(void) {
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
+
 
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
@@ -454,7 +461,15 @@ bool gui_init(void) {
    gtk_widget_realize(main_window);
    place_window(main_window);
 
-   ui_print( "%s rustyrig client started", get_chat_ts(now) );
+   // enforce fullscreen if set
+   if (cfg_fullscreen) {
+      Log(LOG_INFO, "ui.gtk3",
+          "Going fullscreen since cfg:ui.full-screen is set!");
+
+      g_idle_add(fullscreen_later, NULL);
+   }
+
+   ui_print(NULL, "%s rustyrig client started", get_chat_ts(now) );
 
    return false;
 }
@@ -477,4 +492,19 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
    }
 
    return FALSE;
+}
+
+bool fullscreen = false;
+
+bool gui_fullscreen_toggle(void) {
+   if (fullscreen) {
+      gtk_window_unfullscreen(GTK_WINDOW(main_window));
+      gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
+   } else {
+      gtk_window_fullscreen(GTK_WINDOW(main_window));
+      gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
+   }
+   fullscreen = !fullscreen;
+
+   return false;
 }
