@@ -71,3 +71,27 @@ bool cmd_kick(int argc, char **args) {
    free( (char *)jp );
    return false;
 }
+
+bool cmd_quote(int argc, char **args) {
+   if (argc < 1) {
+      // XXX: cry not enough args
+      return true;
+   }
+   char fullmsg[502];
+   memset( fullmsg, 0, sizeof(fullmsg) );
+   size_t pos = 0;
+
+   for (int i = 1 ; i < argc ; i++) {
+      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 1 ? " " : ""), args[i] ? args[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   ui_print(NULL, "-raw-> %s", fullmsg);
+   ui_print(NULL, "{yellow}QUOTE is not supported over WebSocket{reset}");
+
+   return false;
+}
