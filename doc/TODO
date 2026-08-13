@@ -20,6 +20,7 @@ librustyaxe: Add memblocks, simple allocator who maintains small allocations (re
 librrprotocol: IRC protocol will be used to link sites, with large messages enabled (16k)
 rrclient: Add auto-reconnect with back off like webui has
 rrclient: Set window title to $user@$rig
+rrclient: Make hotkeys context (tab/window) sensitive
 
 ------------
 - Critical -

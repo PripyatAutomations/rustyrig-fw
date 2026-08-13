@@ -12,8 +12,6 @@
 * Add throttled reconnect like webui has
 * Implement rest of controls typically used by hams
 * Finish whois/reason dialogs
-* Fill out Config tab form which can generate rrgtk.cfg
-  - For now we have the text editor, bug check and fix it!
 * Add a start/stop RX audio button for saving bw isntead of just muting
   - or maybe send the mute/unmute to server who will start/stop sending samples
     as well as sending a start/stop message so gstreamer can be paused
@@ -24,6 +22,8 @@
 * strip of band buttons at the bottom of vfo populated with the bands
   the radio supports & recall the last frequency on that band, maybe 
   move to the parts of the band based on the mode too.
+* Fill out Config tab form which can generate rrgtk.cfg
+  - For now we have the text editor, bug check and fix it!
 
 [bluetooth]	LOW PRIORITY
 * Support bluetooth PTT buttons

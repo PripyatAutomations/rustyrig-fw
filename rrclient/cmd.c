@@ -90,7 +90,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice"
    },
    {
-      .cmd = "part", .cb = cmd_part, .desc = "leave a channel"
+      .cmd = "part", .cb = cmd_part, .desc = "Leave a channel"
    },
    {
       .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program"
@@ -99,7 +99,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command"
    },
    {
-      .cmd = "restart", .cb = cmd_restart, .desc = "Restart"
+      .cmd = "restart", .cb = cmd_restart, .desc = "Restart the server"
    },
    {
       .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level"
