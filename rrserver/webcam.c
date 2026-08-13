@@ -18,7 +18,6 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/gui.h>
 
 // Here we deal with fwdsp -v -t supplied frames for webcams
 const char *webcam_common_codecs(const char *our_codecs, const char *cli_codecs) {

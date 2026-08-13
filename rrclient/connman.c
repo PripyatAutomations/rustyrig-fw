@@ -32,9 +32,6 @@ rr_connection_t *active_connections;
 bool ws_connected = false;       // Is RX stream connected?
 bool ws_tx_connected = false;    // Is TX stream connected?
 bool server_ptt_state = false;
-
-// XXX: this needs to go away and be replaced with http_find_servername(c)
-const char *server_name = NULL;
 const char *login_user = NULL;
 
 extern rr_connection_t *active_connections;
@@ -200,12 +197,12 @@ bool rrclient_autoconnect(void) {
    const char *server = cfg_get_exp("server.auto-connect");
 
    if (server) {
-      char server_name[256];
-      snprintf(server_name, sizeof(server_name), "%s", server);
+      char sname[256];
+      snprintf(sname, sizeof(sname), "%s", server);
       free( (void *)server );
 
       char fullkey[1024];
-      snprintf(fullkey, sizeof(fullkey), "server:%s.server.url", server_name);
+      snprintf(fullkey, sizeof(fullkey), "server:%s.server.url", sname);
       const char *url = cfg_get_exp(fullkey);
 
       if (url) {

@@ -24,7 +24,6 @@
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
 #include <rrserver/gpio.h>
-#include <rrserver/gui.h>
 #include <rrserver/network.h>
 #include <rrserver/amp.h>
 #include <rrserver/atu.h>
@@ -185,7 +184,7 @@ int main(int argc, char **argv) {
 #endif
 
 //   i2c_init();
-   gui_init();
+//   gui_init();
    logger_init(LOGFILE);
 
    // Print the serial #

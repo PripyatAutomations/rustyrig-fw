@@ -243,8 +243,6 @@ static void rrclient_handle_talk_msg_event(const char *event, const char *data, 
    time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
    const char *msg_type = dict_get(d, "talk.msg_type", NULL);
    const char *msg_data = dict_get(d, "talk.data", NULL);
-   fprintf(stderr, "[talk.msg]\n");
-   dict_dump(d, stderr);
 
    if (strcasecmp(msg_type, "action") == 0) {
       ui_print(NULL, "%s * %s %s", get_chat_ts(msg_ts), from, msg_data);
