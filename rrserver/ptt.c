@@ -26,8 +26,8 @@
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
-#if defined(BACKEND_HAMLIB)
-#include <modsrc/mod.backend.hamlib/backend.hamlib.h>
+#if defined(USE_HAMLIB)
+#include <rrserver/backend.hamlib.h>
 #endif
 
 extern struct GlobalState rig;          // Global state
@@ -76,7 +76,7 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    const char *jp;
 
 // XXX: This does NOT belong here. backend interface must be backend agnostic!
-#if defined(BACKEND_HAMLIB)
+#if defined(USE_HAMLIB)
    jp = dict2json_mkstr(VAL_STR, "cat.state.vfo", vfo_name(vfo), VAL_INT, "cat.state.freq", hl_state.freq, VAL_STR,
       "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT, "cat.state.width", hl_state.width, VAL_BOOL,
       "cat.state.ptt", ptt, VAL_ULONG, "cat.state.ts", now);

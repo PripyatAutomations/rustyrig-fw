@@ -1,14 +1,15 @@
 Immediate needs
 ---------------
-*: Merge USE_* and FEATURE_*
+*: Anywhere libev or mongoose code exists, make sure the other does as well
+  - will need to use wslay/mbedtls to accomplish libev support for websocket!
+  - IRC code needs updated to use mongoose
 *: Make eeprom and cfg_get keys consistent somehow and cfg override the eeprom?
 *: Need to fully use the event system so we can avoid lib* calling back directly into program code
 *: Make all events contain JSON data
    - Document all the messages
 rrserver: move auth stuff (user/privs/etc) to sqlite on posix host
   - on non-posix hosts, these should be compacted and stored in eeprom fields
-rrcli: in websocket protocol, chat should automatically open in window #2 since only one room (for now)
-irc: IRC protocol will be used to link sites, with large messages enabled (16k)
+rrclient: tui should probably treat status window as the syslog in gtk; make window 2+ rig views
 www: Fix userlist to show all users not just self + users joined later
 librustyaxe: Merge cfg_get_* and eeprom_get_* so we have just cfg_get_* 
   - we should just load the whole eeprom into the config dict at startup???
@@ -16,14 +17,9 @@ librustyaxe: Merge cfg_get_* and eeprom_get_* so we have just cfg_get_*
 librustyaxe: Make modules able to register their event handlers on loading
 librustyaxe: Ensure modules are completely freed and unloaded. Use dicts or memblocks for internal storage
 librustyaxe: Add memblocks, simple allocator who maintains small allocations (replace malloc,realloc,free,etc) with page tracking for release on module unload
-librrprotocol: Move all mongoose related bits to here
-librrprotocol: Move all irc related bits to here
-rrgtk: Add auto-reconnect with back off like webui has
-rrclient: Add -T option to force TUI and -X to force X11, refusing to open without
-rrgtk/rrcli: Merge tui_print_win and ui_print to be a single call who always takes a window (tab for rrgtk) parameter. This will reduce some duplication (syslog and chat tab printing for example) in rrgtk
-
-------------------------
-Old Stuff (may not all still apply)
+librrprotocol: IRC protocol will be used to link sites, with large messages enabled (16k)
+rrclient: Add auto-reconnect with back off like webui has
+rrclient: Set window title to $user@$rig
 
 ------------
 - Critical -
@@ -43,20 +39,19 @@ Old Stuff (may not all still apply)
 = librustyaxe =
 ===============
 [CAT]
-* Implement control over unix pipes in posix mode
+* Implement control over unix pipes or a file in posix mode
 * Implement control over stm32 serial over usb
 * Merge rr_cat_cmd and CATCommandTable
 
 [logger]
 * Add support for masking out messages such as '-*.noisy'
-? Add support for rate limiting messages?
+? Add support for rate limiting messages by subsys major (first dot)
 
 [config]
 * Make config exporter put a comment with the description and default value, if found in defconfig, for each key saved.
 
 [Porting]
 minimal inet_ntop() for non-posix
-
 
 ============
 = Protocol =
@@ -68,9 +63,3 @@ minimal inet_ntop() for non-posix
   - User change own password
 * CW-U and CW-L
    - CW is centered on the CW dial freq; CW-L is center and width below; CW-R is center and width above
-
-============
-= wishlist =
-============
-* Use libbaresip UA to pass control via SIP and audio from gstreamer over RTP, so we can use whatever codec we want
-  - Should reduce audio latency even further

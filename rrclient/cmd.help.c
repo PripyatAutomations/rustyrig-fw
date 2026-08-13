@@ -21,6 +21,8 @@
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 
+#define HELP_DESC_COL 18
+
 extern client_cmd_t client_cmds[];
 
 static bool safe_name(const char *name) {
@@ -102,14 +104,13 @@ const char *help_msg_before[] = {
 
 const char *help_msg_after[] = {
    "*** Keyboard Shortcuts ***",
-   "   alt-X (1-0)\t\tSwitch to window 1-10",
-   "   alt-left\t\tSwitch to previous win",
-   "   alt-right\t\tSwitch to next win",
-   "   F12\t\t\tPTT toggle",
+   "\t\talt-X (1-0)\t\tSwitch to window 1-10",
+   "\t\talt-left\t\tSwitch to previous win",
+   "\t\talt-right\t\tSwitch to next win",
+   "\t\tF12\t\t\tPTT toggle",
    NULL
 };
 
-#define HELP_DESC_COL 18
 
 bool cmd_help(int argc, char **args) {
    int i = 0;
@@ -137,7 +138,7 @@ bool cmd_help(int argc, char **args) {
       if (spaces < 1)
          spaces = 1;
 
-      ui_print(NULL, "   %s%*s%s",
+      ui_print(NULL, "   /%s%*s%s",
          client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
    }
 

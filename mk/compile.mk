@@ -43,7 +43,7 @@ CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 CFLAGS += -DLOGFILE="\"$(strip $(shell cat ${CF} | jq -r '.debug.logfile'))\""
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
-CFLAGS += -DUSE_EEPROM -DHOST_EEPROM_FILE="\"build/radio/eeprom.bin\""
+CFLAGS += -DHOST_EEPROM_FILE="\"build/${PROFILE}/eeprom.bin\""
 
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd 
@@ -56,7 +56,7 @@ FWDSP_CFLAGS += -D__FWDSP
 CFLAGS_RRCLI += -D__RRCLI=1
 
 #ifeq (${USE_LIBUNWIND},true)
-#CFLAGS += -fno-omit-frame-pointer -Og -gdwarf -DUSE_LIBUNWIND
+#CFLAGS += -fno-omit-frame-pointer -Og -gdwarf
 #LDFLAGS += -lunwind
 
 #ifeq ($(shell uname -m),x86_64)

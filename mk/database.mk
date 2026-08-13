@@ -4,7 +4,7 @@ MASTER_DB=db/master.db
 MASTER_TEMPLATE=sql/sqlite.master.sql
 
 ## ifeq (${USE_SQLITE},true)
-CFLAGS += -DUSE_SQLITE
+CFLAGS += 
 LDFLAGS += -lsqlite3
 ## endif
 

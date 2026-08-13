@@ -13,8 +13,8 @@
 
 #if     defined(USE_GTK)
 #include <gtk/gtk.h>
-#include <mod.ui.gtk3/gtk.core.h>
-#include <mod.ui.gtk3/gtk.alertdialog.h>
+#include <rrclient/gtk.core.h>
+#include <rrclient/gtk.alertdialog.h>
 #include <rrclient/cmd.help.h>
 
 #endif // defined(USE_GTK)

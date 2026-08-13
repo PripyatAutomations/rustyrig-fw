@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_database_h)
 #define	__rr_database_h
-#if     defined(FEATURE_SQLITE)
+#if     defined(USE_SQLITE)
 #include <sqlite3.h>
 
 extern sqlite3 *db_open(const char *path);
@@ -22,9 +22,8 @@ extern bool db_ptt_stop(sqlite3 *db, int session_id);
 extern bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type,
                             const char *msg_data);
 
-//
-extern sqlite3 *masterdb;
+extern sqlite3 *masterdb;	// database.c
 
-#endif // defined(FEATURE_SQLITE)
+#endif // defined(USE_SQLITE)
 
 #endif // !defined(__rr_database_h)

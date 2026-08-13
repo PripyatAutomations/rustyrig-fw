@@ -36,7 +36,7 @@
 struct mg_mgr mg_mgr;
 #endif
 
-#if     defined(FEATURE_MQTT)
+#if     defined(USE_MQTT)
 #include <rrserver/mqtt.h>
 #endif
 
@@ -164,13 +164,12 @@ int main(int argc, char **argv) {
    memset( &rig, 0, sizeof(struct GlobalState) );
    load_defaults();
 
-#if     defined(FEATURE_SQLITE)
-
+#if     defined(USE_SQLITE)
    if ( !( masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(31);
    }
-#endif // defined(FEATURE_SQLITE)
+#endif // defined(USE_SQLITE)
 #if     defined(USE_MONGOOSE)
    mg_mgr_init(&mg_mgr);
 #endif
@@ -237,7 +236,7 @@ int main(int argc, char **argv) {
       set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
-#if     defined(FEATURE_CAT)
+#if     defined(USE_CAT)
 
    if ( rr_cat_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
@@ -256,7 +255,7 @@ int main(int argc, char **argv) {
 
 #if     defined(USE_MONGOOSE)
 // Is mongoose http server enabled?
-#if     defined(FEATURE_HTTP)
+#if     defined(USE_HTTP)
 // Is extra mongoose debugging enabled?
 #if     defined(HTTP_DEBUG_CRAZY)
    mg_log_set(MG_LL_DEBUG);
@@ -266,7 +265,7 @@ int main(int argc, char **argv) {
    http_init(&mg_mgr);
 //   ws_init(&mg_mgr);
 #endif
-#if     defined(FEATURE_MQTT)
+#if     defined(USE_MQTT)
    mqtt_init(&mg_mgr);
    mqtt_client_init();
 #endif
@@ -310,7 +309,7 @@ int main(int argc, char **argv) {
       // XXX: Determine which (pipes|devices|sockets) are needing read from
       // XXX: Iterate over them: console, amp, rig
       // We limit line length to 512
-#if     defined(FEATURE_CAT)
+#if     defined(USE_CAT)
 #if     defined(CAT_YAESU)
       memset(buf, 0, PARSE_LINE_LEN);
       // io_read(&cat_io, &buf, PARSE_LINE_LEN - 1);

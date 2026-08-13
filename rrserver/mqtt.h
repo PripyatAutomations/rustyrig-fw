@@ -9,17 +9,15 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_mqtt_h)
 #define	__rr_mqtt_h
-#include "librustyaxe/config.h"
 #include <librustyaxe/core.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-#if     defined(FEATURE_MQTT)
-//#include "rrserver/mongoose.h"
+#if     defined(USE_MQTT)
 
 extern bool mqtt_init(struct mg_mgr *mgr);
 extern bool mqtt_client_init(void);
 
-#endif // defined(FEATURE_MQTT)
+#endif // defined(USE_MQTT)
 
 #endif // !defined(__rr_mqtt_h)

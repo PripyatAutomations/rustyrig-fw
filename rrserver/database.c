@@ -18,7 +18,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#if     defined(FEATURE_SQLITE)
+#if     defined(USE_SQLITE)
 #include <sqlite3.h>
 #include <rrserver/database.h>
 

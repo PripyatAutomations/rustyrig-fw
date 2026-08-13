@@ -17,8 +17,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/globalstate.h>
-#include <modsrc/mod.backend.hamlib/backend.hamlib.h>
-#include <modsrc/mod.backend.internal/backend.internal.h>
+#include <rrserver/backend.h>
 extern struct GlobalState rig;          // Global state
 
 // Mostly we just use this bit to allow compile-time selection of backends
@@ -35,13 +34,13 @@ static struct rr_backends available_backends[] = {
       "internal", &rr_backend_internal
    },
 // Support for dummy (No Op) backend
-//    { "dummy",        &rr_backend_dummy },
+    { "dummy",        &rr_backend_dummy },
 // A backend using hamlib's rigctld as the target. For legacy radios
-#if     defined(BACKEND_HAMLIB)
+#ifdef USE_HAMLIB
    {
       "hamlib", &rr_backend_hamlib
    },
-#endif // defined(BACKEND_HAMLIB)
+#endif
    {
       NULL, NULL
    }
@@ -109,15 +108,15 @@ rr_backend_t *rr_backend_find(const char *name) {
 bool rr_backend_init(void) {
    rr_backend_t *be = NULL;
 
-// This mode only really applies on posix hosts such as linux...
-   const char *be_name = cfg_get_exp("backend.active");
+   const char *be_name = NULL;
 
 #if     defined(USE_EEPROM)
+   be_name = eeprom_get_str("backend/active");
 
-   if (!be_name) {
-      be_name = eeprom_get_str("backend/active");
-   }
 #endif
+   if (!be_name) {
+      be_name = cfg_get_exp("backend.active");
+   }
 
    be = rr_backend_find(be_name);
 

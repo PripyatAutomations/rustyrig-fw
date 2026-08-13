@@ -851,7 +851,7 @@ sub generate_config_h {
 
    if (defined($config->{features})) {
       if (defined($config->{features}{'alsa'}) && match_boolean($config->{features}{'alsa'})) {
-         printf $fh "#define FEATURE_ALSA\n";
+         printf $fh "#define USE_ALSA\n";
       }
 
       if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat-kpa500'})) {
@@ -863,33 +863,33 @@ sub generate_config_h {
       }
 
       if (defined($config->{features}{'gstreamer'}) && match_boolean($config->{features}{'gstreamer'})) {
-         printf $fh "#define FEATURE_GSTREAMER\n";
+         printf $fh "#define USE_GSTREAMER\n";
       }
 
       if (defined($config->{features}{'http'}) && match_boolean($config->{features}{'http'})) {
-         printf $fh "#define FEATURE_HTTP\n";
+         printf $fh "#define USE_HTTP\n";
       }
 
       if (defined($config->{features}{'mqtt'}) && match_boolean($config->{features}{'mqtt'})) {
-         printf $fh "#define FEATURE_MQTT\n";
+         printf $fh "#define USE_MQTT\n";
       }
 
       if (defined($config->{features}{'opus'}) && match_boolean($config->{features}{'opus'})) {
-         printf $fh "#define FEATURE_OPUS\n";
+         printf $fh "#define USE_OPUS\n";
       }
 
       if (defined($config->{features}{'pipewire'}) && match_boolean($config->{features}{'pipewire'})) {
-         printf $fh "#define FEATURE_PIPEWIRE\n";
+         printf $fh "#define USE_PIPEWIRE\n";
       }
 
       if (defined($config->{features}{'sqlite'}) && match_boolean($config->{features}{'sqlite'})) {
-         printf $fh "#define FEATURE_SQLITE\n";
+         printf $fh "#define USE_SQLITE\n";
       }
    }
 
    if (defined($config->{'backend'})) {
       if (defined($config->{'backend'}{'hamlib'}) && match_boolean($config->{'backend'}{'hamlib'})) {
-         printf $fh "#define BACKEND_HAMLIB\n";
+         printf $fh "#define USE_HAMLIB\n";
       }
       if (defined($config->{'backend'}{'hamlib_debug'})) {
          my $dl = $config->{'backend'}{'hamlib_debug'};

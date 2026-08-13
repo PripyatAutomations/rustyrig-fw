@@ -24,7 +24,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#if     defined(FEATURE_MQTT)
+#if     defined(USE_MQTT)
 #include <rrserver/mqtt.h>
 
 // forward declration
@@ -249,4 +249,4 @@ bool mqtt_client_init(void) {
    return false;
 }
 
-#endif // defined(FEATURE_MQTT)
+#endif // defined(USE_MQTT)

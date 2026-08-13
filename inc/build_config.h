@@ -29,21 +29,21 @@
 #define CAT true
 #define CAT_KPA500 true
 #define CAT_YAESU true
-#define FEATURE_GSTREAMER
-#define FEATURE_HTTP
-#define FEATURE_SQLITE
+#define USE_GSTREAMER
+#define USE_HTTP
+#define USE_SQLITE
 
-// XXX: This needs moved to config/loadable modules
-#define BACKEND_HAMLIB
+#define USE_HAMLIB
 #define BACKEND_HAMLIB_DEBUG	RIG_DEBUG_WARN
 #define BACKEND_HAMLIB_MODEL	2
 #define BACKEND_HAMLIB_BAUD	38400
 #define BACKEND_HAMLIB_PORT	"localhost:4532"
 
-#define FEATURE_MQTT
+#define USE_MQTT
 //#define USE_PROFILING true
 
 #define	USE_MONGOOSE
+#define	USE_EV
 
 #define HTTP_USE_TLS 		1
 #define HTTP_TLS_KEY 		"./config/key.pem"

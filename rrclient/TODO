@@ -1,8 +1,8 @@
 [general]
-* Merge the TUI and GTK print (tui_print and ui_print) so that we can call it when needed
-* Fix PTT button so that it changes colors properly (it stays red with PTT OFF text if not acknowledged by server)
-  - It now turns yellow while waiting for server to acknowledge (go red)
-
+* Fix PTT button
+  - turn YELLOW with PTT PENDING text until acknowledged by server)
+* Fix PTT button needing clicked twice after TOT fired
+  - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
 * Since we've added log replay on join (rrserver.cfg:general/chat.replay-lines)
   - Change get_chat_ts to take a time_t optionally and show the date instead of just time, if before today
     - This should make replay make a little more sense to new users
@@ -18,15 +18,12 @@
   - or maybe send the mute/unmute to server who will start/stop sending samples
     as well as sending a start/stop message so gstreamer can be paused
 * Fix userlist updates so joins/quits properly update it
-* Fix PTT button needing clicked twice after TOT fired
-  - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
 * Make VFO widgets floating
 * C4FM
    - Show FM dialog
 * strip of band buttons at the bottom of vfo populated with the bands
   the radio supports & recall the last frequency on that band, maybe 
-  move to the parts of the band based on the mode too. That be pretty
-  sweet.. but not for any time soon *adds to list*
+  move to the parts of the band based on the mode too.
 
 [bluetooth]	LOW PRIORITY
 * Support bluetooth PTT buttons

@@ -57,13 +57,6 @@ bool cmd_die(int argc, char **args) {
    return false;
 }
 
-bool cmd_restart(int argc, char **args) {
-   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "restart", VAL_STR, "talk.reason", args[1]);
-   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-   free( (char *)jp );
-
-   return false;
-}
 
 bool cmd_kick(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "kick", VAL_STR, "talk.reason", args[1]);
@@ -92,6 +85,14 @@ bool cmd_quote(int argc, char **args) {
 
    ui_print(NULL, "-raw-> %s", fullmsg);
    ui_print(NULL, "{yellow}QUOTE is not supported over WebSocket{reset}");
+
+   return false;
+}
+
+bool cmd_restart(int argc, char **args) {
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "restart", VAL_STR, "talk.reason", args[1]);
+   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free( (char *)jp );
 
    return false;
 }
