@@ -4,7 +4,11 @@ bins += ${rrclient}
 rrclient_objs += audio.o
 rrclient_objs += chat.whois.o
 rrclient_objs += cfg.network.o
-rrclient_objs += commands.o
+rrclient_objs += cmd.o
+rrclient_objs += cmd.admin.o		# Server control tasks
+rrclient_objs += cmd.chat.o
+rrclient_objs += cmd.help.o		# help texts
+rrclient_objs += cmd.tabs.o
 rrclient_objs += connman.o
 rrclient_objs += defconfig.o
 rrclient_objs += events.o
@@ -32,10 +36,8 @@ endif
 
 rrclient_objs += m_privmsg.o
 rrclient_objs += main.o			# main loop
-rrclient_objs += tui.input.o		# TUI input handling
 rrclient_objs += userlist.o
 rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
-rrclient_objs += ui.help.o		# help texts
 rrclient_objs += ui.speech.o		# Support for screener readers
 rrclient_objs += win32.o		# support to run in windows
 

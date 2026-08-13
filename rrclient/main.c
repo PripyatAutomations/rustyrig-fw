@@ -57,14 +57,14 @@ extern bool rrclient_connect(const char *url);
 extern bool rrclient_disconnect(void);
 extern void rrclient_poll_events(void);
 extern void ws_client_init(void);
-extern bool tui_input_cb(const char *input);
+extern bool parse_chat_input_real(const char *msg); // cmd.c
 
 /////////////////////////////////////
 static ev_timer tui_clock_watcher;
 static ev_timer ws_poll_watcher;
 struct ev_loop *loop_main = NULL;
 bool rrclient_cleanup(void);
-bool mirc_colors = true;
+bool cfg_mirc_colors = true;
 bool dying = false;
 bool restarting = false;
 bool debug_sockets = false;
@@ -99,7 +99,7 @@ static gboolean update_now(gpointer user_data) {
 
    if (dying) {
       // we should handle local shutdown here
-
+      rrclient_cleanup();
       return G_SOURCE_REMOVE;   // remove this timeout
    }
 
@@ -338,7 +338,8 @@ int main(int argc, char *argv[]) {
 
    // Setup stdio & clock
    if (ui_mode == UI_MODE_TUI) {
-      tui_readline_cb = tui_input_cb;    // set our input callback
+      tui_readline_cb = parse_chat_input_real;
+
       tui_init();
       ui_print("status", "rrcli starting");
       tui_start_clock_timer(loop_main);

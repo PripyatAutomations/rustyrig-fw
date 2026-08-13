@@ -20,10 +20,8 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif // defined(USE_MONGOOSE)
-#include <rrclient/ui.help.h>
+#include <librrprotocol/rrprotocol.h>
+#include <rrclient/cmd.help.h>
 #include "mod.ui.gtk3/gtk.core.h"
 #include "mod.ui.gtk3/gtk.freqentry.h"
 
@@ -106,7 +104,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
          case GDK_KEY_H:
          case GDK_KEY_h: {
-            gui_show_help("keybindings.hlp");
+            cmd_help(0, NULL);
             break;
          }
          case GDK_KEY_P:

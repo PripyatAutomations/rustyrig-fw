@@ -18,7 +18,7 @@
 #include <ev.h>
 
 extern time_t now;
-extern bool dying, debug_sockets, mirc_colors;
+extern bool dying, debug_sockets, cfg_mirc_colors;
 
 bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args) {
 #if     0       // fix this
@@ -90,7 +90,7 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
 
    char *colored = NULL;
 
-   if (mirc_colors) {
+   if (cfg_mirc_colors) {
       colored = irc_to_tui_colors(mp->argv[2]);
    } else {
       colored = strip_mirc_formatting(mp->argv[2]);

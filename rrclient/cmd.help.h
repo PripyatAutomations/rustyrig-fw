@@ -12,6 +12,6 @@
 #define	__rrclient_ui_help_h
 #include <librustyaxe/config.h>
 
-extern void gui_show_help(const char *topic);
+extern bool cmd_help(int argc, char **args);
 
 #endif // !defined(__rrclient_ui_help_h)

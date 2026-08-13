@@ -41,11 +41,8 @@ GtkWidget *main_tab = NULL;
 GtkWidget *log_tab = NULL;
 GtkCssProvider *css_provider = NULL;
 bool cfg_use_gtk = true;         // Default to using GTK3
-
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_admin_tab(void);
-extern GtkWidget *config_tab;
-extern GtkWidget *admin_tab;
 extern bool chat_init(void);             // gtk.chat.c
 
 static const struct {

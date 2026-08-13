@@ -106,4 +106,11 @@ extern gboolean is_widget_or_descendant_focused(GtkWidget *ancestor);
 #include "mod.ui.gtk3/gtk.hotkey.h"
 #include "mod.ui.gtk3/gtk.alertdialog.h"
 
+
+///
+extern GtkWidget *main_tab;
+extern GtkWidget *log_tab;
+extern GtkWidget *config_tab;
+extern GtkWidget *admin_tab;
+
 #endif // !defined(__rrclient_gtk_core_h)

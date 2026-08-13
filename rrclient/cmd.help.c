@@ -18,7 +18,10 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrclient/cmd.h>
 #include <rrclient/ui.h>
+
+extern client_cmd_t client_cmds[];
 
 static bool safe_name(const char *name) {
    // reject empty names or those containing path separators or parent refs
@@ -33,43 +36,8 @@ static bool safe_name(const char *name) {
    return true;
 }
 
-const char *help_main[] = {
-   "******************************************",
-   "          rustyrig client help           *",
-   "******************************************",
-   "",
-   "[Server Commands]",
-   "   /server [name]          Connect to a server (or default)",
-   "   /disconnect             Disconnect from server",
-   "[Chat Commands]",
-   "   /clear                  Clear chat tab",
-   "   /clearlog               Clear the syslog tab",
-   "   /die                    Shut down server",
-//     "   /edit                   Edit a user",
-   "   /help                   This help text",
-   "   /kick [user] [reason]   Kick the user",
-   "   /me [message]           Send an ACTION",
-   "   /mute [user] [reason]   Disable controls for user",
-   "   /names                  Show who's in the chat",
-   "   /restart [reason]       Restart the server",
-//     "   /rxmute                  MUTE RX audio",
-   "   /rxvol [vol;ume]        Set RX volume",
-//     "   /rxunmute               Unmute RX audio",
-//     "   /txvol [val]            Set TX gain",
-   "   /unmute [user]          Unmute user",
-   "   /whois [user]           WHOIS a user",
-   "   /quit [reason]          End the session",
-   "",
-   "[UI Commands]",
-   "   /chat                   Switch to chat tab",
-   "   /config | /cfg          Switch to config tab",
-   "   /log | /syslog          Switch to syslog tab",
-   "",
-   " See /help keybindings or alt-h for keyboard help!",
-   "******************************************",
-   NULL
-};
-
+// This needs removed asap, its dead code
+/*
 void gui_show_help(const char *topic) {
    if (!topic) {
       int i = 0;
@@ -119,4 +87,66 @@ void gui_show_help(const char *topic) {
       }
       fclose(fp);
    }
+}
+*/
+
+////////////////
+// Help stuff //
+////////////////
+const char *help_msg_before[] = {
+   "******************************************",
+   "*          rustyrig client help          *",
+   "******************************************",
+   NULL
+};
+
+const char *help_msg_after[] = {
+   "*** Keyboard Shortcuts ***",
+   "   alt-X (1-0)\t\tSwitch to window 1-10",
+   "   alt-left\t\tSwitch to previous win",
+   "   alt-right\t\tSwitch to next win",
+   "   F12\t\t\tPTT toggle",
+   NULL
+};
+
+#define HELP_DESC_COL 18
+
+bool cmd_help(int argc, char **args) {
+   int i = 0;
+   // Pre-message
+   while (help_msg_before[i]) {
+      ui_print(NULL, help_msg_before[i]);
+      i++;
+   }
+
+   int longest = 0;
+
+   for (int i = 0; client_cmds[i].cmd; i++) {
+      int len = strlen(client_cmds[i].cmd);
+
+      if (len > longest)
+         longest = len;
+   }
+
+   int desc_col = 3 + longest + 2;
+
+   for (int i = 0; client_cmds[i].cmd; i++) {
+      int len = strlen(client_cmds[i].cmd);
+      int spaces = desc_col - 3 - len;
+
+      if (spaces < 1)
+         spaces = 1;
+
+      ui_print(NULL, "   %s%*s%s",
+         client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
+   }
+
+   // after message
+   i = 0;
+   while (help_msg_after[i]) {
+      ui_print(NULL, help_msg_after[i]);
+      i++;
+   }
+
+   return false;
 }

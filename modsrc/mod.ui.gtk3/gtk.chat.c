@@ -22,10 +22,9 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif // defined(USE_MONGOOSE)
-#include <rrclient/ui.help.h>
+#include <rrclient/cmd.h>
+#include <rrclient/cmd.help.h>
+#include <rrclient/ui.h>
 #include <rrclient/ui.speech.h>
 #include "mod.ui.gtk3/gtk.core.h"
 
@@ -67,7 +66,7 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    if (!msg) {
       return;
    }
-   parse_chat_input(button, entry);
+   parse_chat_input_gtk(button, entry);
 
    g_ptr_array_add( input_history, g_strdup(msg) );
    history_index = input_history->len;
@@ -120,8 +119,11 @@ GtkWidget *create_chat_box(void) {
    gtk_widget_set_size_request(scrolled, -1, 200);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
+   PangoFontDescription *font = pango_font_description_from_string("Monospace 12");
+
    // Chat view
    chat_textview = gtk_text_view_new();
+   gtk_widget_override_font(chat_textview, font);
    text_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(chat_textview) );
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
@@ -139,6 +141,7 @@ GtkWidget *create_chat_box(void) {
    GtkWidget *button = gtk_button_new_with_label("Send (enter)");
    gtk_box_pack_start(GTK_BOX(chat_box), button, FALSE, FALSE, 0);
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
+   pango_font_description_free(font);
 
    return chat_box;
 }
