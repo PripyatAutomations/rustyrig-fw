@@ -16,6 +16,8 @@
 typedef struct client_cmd {
    const char *cmd;
    const char *desc;
+   int min_args;
+   int max_args;
    bool (*cb)(int argc, char **args);
    event_cb_t (*event_cb)(const char *event, void *data, rrconn_t *cptr, void *user);
 } client_cmd_t;

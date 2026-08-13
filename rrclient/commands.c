@@ -32,11 +32,14 @@
 
 extern bool dying;
 extern time_t now;
+extern bool ws_connected;
+extern bool rrclient_send_chat(const char *data);
+extern void gui_show_help(const char *topic);            // ui.help.c
+extern bool syslog_clear(void);
+extern const char *server_name;	// remove this (connman.c)
 
 #if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
-extern bool ws_connected;
-extern bool rrclient_send_chat(const char *data);
 #endif
 
 #if     defined(USE_GTK)
@@ -48,38 +51,9 @@ extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 #endif // defined(USE_GTK)
 
-extern void gui_show_help(const char *topic);            // ui.help.c
-extern bool syslog_clear(void);
-extern const char *server_name;                          // connman.c XXX: to
-                                                         // remove ASAP for
-                                                         // multiserver
-
-bool parse_chat_input(GtkButton *button, gpointer entry) {
-   if (!button || !entry) {
-      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: button:<%p> entry:<%p>", button, entry);
-
-      return true;
-   }
-   const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
-
-   if (!msg || strlen(msg) < 1) {
-      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%p> is empty", msg);
-
-      return true;
-   }
-
-   // These commands should always be available
-   if (strncasecmp(msg, "/disconnect", 10) == 0) {
-      disconnect_server(server_name);
-   } else if (strncasecmp(msg, "/quit", 4) == 0) {
-      const char *jp = dict2json_mkstr(VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", msg + 5);
-#if     defined(USE_MONGOOSE)
-      mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-#endif
-      free( (char *)jp );
-      dying = true;
-      // Switch tabs
-   } else if (strncasecmp(msg, "/chat", 4) == 0) {
+//////////////////
+bool cmd_chat(int argc, char **args) {
+   if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), main_tab);
 
@@ -88,15 +62,70 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
       }
 #endif
-   } else if (strncasecmp(msg, "/clearlog", 8) == 0) {
-      syslog_clear();
-   } else if (strncasecmp(msg, "/config", 6) == 0 || strcasecmp(msg, "/cfg") == 0) {
+   } else if (ui_mode == UI_MODE_TUI) {
+   }
+   return false;
+}
+
+bool cmd_config(int argc, char **args) {
+   if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), config_tab);
 
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
-   } else if (strncasecmp(msg, "/log", 3) == 0 || strcasecmp(msg, "/syslog") == 0) {
+#endif
+   } else if (ui_mode == UI_MODE_TUI) {
+   }
+   return false;
+}
+
+
+bool cmd_clear(int argc, char **args) {
+   if (ui_mode == UI_MODE_TUI) {
+      tui_clear_scrollback( tui_active_window() );
+#if     defined(USE_GTK)
+   } else {
+      gtk_text_buffer_set_text(text_buffer, "", -1);
+#endif
+   }
+
+   return false;
+}
+
+bool cmd_clearlog(int argc, char **args) {
+   syslog_clear();
+   return false;
+}
+
+bool cmd_die(int argc, char **args) {
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "die", VAL_STR, "talk.args", args[1]);
+   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free( (char *)jp );
+   return false;
+}
+
+bool cmd_disconnect(int argc, char **args) {
+   disconnect_server(server_name);
+   return false;
+}
+
+bool cmd_join(int argc, char **args) {
+   ui_print(NULL, "{yellow}JOIN is not supported over WebSocket{reset}");
+
+   return false;
+}
+
+bool cmd_kick(int argc, char **args) {
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "kick", VAL_STR, "talk.reason", args[1]);
+   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+   free( (char *)jp );
+   return false;
+}
+
+bool cmd_log(int argc, char **args) {
+   if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_tab);
 
@@ -104,64 +133,8 @@ bool parse_chat_input(GtkButton *button, gpointer entry) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
 #endif
-#if     defined(USE_MONGOOSE)
-   } else if (ws_conn) {
-      if (msg[0] == '/') {
-         // Handle local commands
-         if (strcasecmp(msg, "/ban") == 0) {
-         } else if (strncasecmp(msg, "/die", 3) == 0) {
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "die", VAL_STR, "talk.args", msg + 5);
-            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-            free( (char *)jp );
-         } else if (strncasecmp(msg, "/edit", 4) == 0) {
-         } else if (strncasecmp(msg, "/help", 4) == 0) {
-            gui_show_help(NULL);
-         } else if (strncasecmp(msg, "/kick", 4) == 0) {
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "kick", VAL_STR, "talk.reason", msg + 6);
-            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-            free( (char *)jp );
-         } else if (strncasecmp(msg, "/me", 2) == 0) {
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", msg + 3, VAL_STR,
-               "talk.msg_type", "action");
-            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-         } else if (strncasecmp(msg, "/mute", 4) == 0) {
-         } else if (strncasecmp(msg, "/names", 5) == 0) {
-         } else if (strncasecmp(msg, "/rxmute", 6) == 0) {
-         } else if (strncasecmp(msg, "/rxvol", 5) == 0) {
-            if (ui_mode == UI_MODE_TUI) {
-               // do stuff
-#if     defined(USE_GTK)
-            } else if (ui_mode == UI_MODE_GTK) {
-               gdouble val = atoi(msg + 7) / 100;
-               gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
-               ui_print(NULL, "* Set rx-vol to %f", val);
-#endif
-            }
-         } else if (strncasecmp(msg, "/rxunmute", 8) == 0) {
-         } else if (strncasecmp(msg, "/unmute", 6) == 0) {
-         } else {
-            char msgbuf[4096];
-            const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", msg + 1);
-            mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-            free( (char *)jp );
-         }
-      } else {
-         // not a match
-         const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", msg, VAL_STR,
-            "talk.msg_type", "pub");
-         mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-         free( (char *)jp );
-      }
-#endif // defined(USE_MONGOOSE)
+   } else if (ui_mode == UI_MODE_TUI) {
    }
-
-   return false;
-}
-
-//////////////////
-bool cmd_join(int argc, char **args) {
-   ui_print(NULL, "{yellow}JOIN is not supported over WebSocket{reset}");
-
    return false;
 }
 
@@ -286,6 +259,12 @@ bool cmd_part(int argc, char **args) {
 bool cmd_quit(int argc, char **args) {
    ui_print(NULL, "Goodbye!");
 
+   const char *jp = dict2json_mkstr(VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", args[1]);
+#if     defined(USE_MONGOOSE)
+   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif
+   free( (char *)jp );
+
    // Set the dying flag so main loop with cleanly exit
    dying = true;
 
@@ -320,6 +299,21 @@ bool cmd_restart(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "restart", VAL_STR, "talk.reason", args[1]);
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free( (char *)jp );
+
+   return false;
+}
+
+bool cmd_rxvol(int argc, char **args) {
+   if (ui_mode == UI_MODE_TUI) {
+      // do stuff
+#if     defined(USE_GTK)
+   } else if (ui_mode == UI_MODE_GTK) {
+      gdouble val = atoi(args[1]) / 100;
+      gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
+      ui_print(NULL, "* Set rx-vol to %f", val);
+#endif
+   }
+   return false;
 }
 
 bool cmd_server(int argc, char **args) {
@@ -349,6 +343,8 @@ bool cmd_server(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "restart", VAL_STR, "talk.reason", args[1]);
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free( (char *)jp );
+
+   return false;
 }
 
 bool cmd_topic(int argc, char **args) {
@@ -358,13 +354,12 @@ bool cmd_topic(int argc, char **args) {
 }
 
 bool cmd_whois(int argc, char **args) {
-   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "whois", VAL_STR, "talk.args", msg + 7);
+   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "whois", VAL_STR, "talk.args", args[1]);
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free( (char *)jp );
 
    return false;
 }
-
 
 bool cmd_win(int argc, char **args) {
    if (argc < 1) {
@@ -409,28 +404,37 @@ bool cmd_win(int argc, char **args) {
    return false;
 }
 
-bool cmd_clear(int argc, char **args) {
-   if (ui_mode == UI_MODE_TUI) {
-      tui_clear_scrollback( tui_active_window() );
-#if     defined(USE_GTK)
-   } else {
-      gtk_text_buffer_set_text(text_buffer, "", -1);
-#endif
-   }
 
-   return false;
-}
+// This is below, it's a bit large and needs access to the client_cmds table anyways
+bool cmd_help(int argc, char **args);
 
-extern bool cmd_help(int argc, char **args);
 client_cmd_t client_cmds[] = {
    {
+      .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab"
+   },
+   {
       .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback"
+   },
+   {
+      .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab"
+   },
+   {
+      .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab"
+   },
+   {
+      .cmd = "die", .cb = cmd_die, .desc = "Shutdown the server"
+   },
+   {
+      .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server"
    },
    {
       .cmd = "help", .cb = cmd_help, .desc = "Show help message"
    },
    {
-      .cmd = "join", .cb = cmd_join, .desc = "Join a channel (N/A over WS)"
+      .cmd = "kick", .cb = cmd_kick, .desc = "Kick a user from the rig"
+   },
+   {
+      .cmd = "join", .cb = cmd_join, .desc = "Join a channel"
    },
    {
       .cmd = "me", .cb = cmd_me, .desc = "\tSend an action to the current channel"
@@ -438,20 +442,28 @@ client_cmd_t client_cmds[] = {
    {
       .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message"
    },
+/*
    {
-      .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice (N/A over WS)"
+      .cmd = "mute", .cb = cmd_mute, .desc = "Mute a user"
+   },
+*/
+   {
+      .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice"
    },
    {
-      .cmd = "part", .cb = cmd_part, .desc = "leave a channel (N/A over WS)"
+      .cmd = "part", .cb = cmd_part, .desc = "leave a channel"
    },
    {
       .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program"
    },
    {
-      .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command (N/A over WS)"
+      .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command"
    },
    {
       .cmd = "restart", .cb = cmd_restart, .desc = "Restart"
+   },
+   {
+      .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level"
    },
    {
       .cmd = "server", .cb = cmd_server, .desc = "Connect to a server"
@@ -459,6 +471,11 @@ client_cmd_t client_cmds[] = {
    {
       .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)"
    },
+/*
+   {
+      .cmd = "unmute", .cb = cmd_unmute, .desc = "Unmute a user"
+   },
+*/
    {
       .cmd = "win", .cb = cmd_win, .desc = "Change windows"
    },
@@ -470,6 +487,9 @@ client_cmd_t client_cmds[] = {
    }
 };
 
+////////////////
+// Help stuff //
+////////////////
 const char *help_msg[] = {
    "*** Keyboard Shortcuts ***",
    "   alt-X (1-0)\t\tSwitch to window 1-10",
@@ -492,7 +512,125 @@ bool cmd_help(int argc, char **args) {
             ui_print(NULL, "%s", help_msg[i]);
          }
       }
+   } else if (ui_mode == UI_MODE_GTK) {
+      gui_show_help(NULL);
    }
 
    return false;
+}
+
+//////////////////////////////
+bool parse_chat_input_real(const char *msg) {
+   if (!msg || !*msg) {
+      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%p> is empty", msg);
+      return true;
+   }
+
+#if defined(USE_MONGOOSE)
+   if (msg[0] == '/') {
+      if (!msg[1]) {
+         return true;
+      }
+
+      char *input = strdup(msg + 1);
+      if (!input) {
+         return true;
+      }
+
+      char *cmd_argv[32];
+      int cmd_argc = 0;
+      const int max_argv = sizeof(cmd_argv) / sizeof(cmd_argv[0]);
+
+      char *p = input;
+
+      /* cmd_argv[0] = command */
+      cmd_argv[cmd_argc++] = p;
+
+      while (*p && !isspace((unsigned char)*p)) {
+         p++;
+      }
+
+      if (*p) {
+         *p++ = '\0';
+      }
+
+      /* Find command */
+      client_cmd_t *cmd = NULL;
+
+      for (int i = 0; client_cmds[i].cmd; i++) {
+         if (strcasecmp(cmd_argv[0], client_cmds[i].cmd) == 0) {
+            cmd = &client_cmds[i];
+            break;
+         }
+      }
+
+      if (!cmd) {
+         free(input);
+         return true;
+      }
+
+      int max_args = cmd->max_args ? cmd->max_args : 1;
+
+      while (*p && cmd_argc < max_argv && cmd_argc <= max_args) {
+         while (isspace((unsigned char)*p)) {
+            p++;
+         }
+
+         if (!*p) {
+            break;
+         }
+
+         cmd_argv[cmd_argc++] = p;
+
+         /*
+          * If this is the last permitted argument, leave the rest
+          * intact as one space-separated argument.
+          */
+         if (cmd_argc == max_args + 1) {
+            break;
+         }
+
+         while (*p && !isspace((unsigned char)*p)) {
+            p++;
+         }
+
+         if (*p) {
+            *p++ = '\0';
+         }
+      }
+
+      Log(LOG_DEBUG, "chat.cmd", "command=%s argc=%d", cmd_argv[0], cmd_argc);
+
+      if (cmd->cb) {
+         cmd->cb(cmd_argc, cmd_argv);
+      }
+
+      free(input);
+   } else {
+      const char *jp = dict2json_mkstr(
+         VAL_STR, "talk.cmd", "msg",
+         VAL_STR, "talk.data", msg,
+         VAL_STR, "talk.msg_type", "pub"
+      );
+
+      if (ws_conn) {
+         mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+      }
+
+      free((char *)jp);
+   }
+#endif
+
+   return false;
+}
+
+bool parse_chat_input(GtkButton *button, gpointer entry) {
+   if (!button || !entry) {
+      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: button:<%p> entry:<%p>", button, entry);
+
+      return true;
+   }
+   const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
+
+   return parse_chat_input_real(msg);
 }
