@@ -31,16 +31,16 @@ static void rrclient_display_log_message(const char *msg) {
    if (!log_buffer || !msg) {
       return;
    }
-#if defined(USE_GTK)
 
    if (ui_mode == UI_MODE_GTK) {
+#if defined(USE_GTK)
       GtkTextIter end;
       gtk_text_buffer_get_end_iter(log_buffer, &end);
       gtk_text_buffer_insert(log_buffer, &end, msg, -1);
       gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
       g_idle_add(ui_scroll_to_end, log_view);
-   }
 #endif
+   }
 }
 
 static void rrclient_update_connection_ui(bool connected) {
@@ -75,7 +75,7 @@ static void rrclient_update_connection_ui(bool connected) {
 
 static void rrclient_handle_connection_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (strcasecmp(event, "connecting") == 0) {
-      ui_print( NULL, "%s *** Connecting ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** {bright-yellow}Connecting{reset} ***", get_chat_ts(now) );
    } else if (strcasecmp(event, "connected") == 0) {
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
@@ -85,7 +85,7 @@ static void rrclient_handle_connection_event(const char *event, const char *data
       }
       login_user = strdup(user);
       rrclient_update_connection_ui(true);
-      ui_print( NULL, "%s *** Connected ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** {green}Connected{reset} ***", get_chat_ts(now) );
       dict_free(d);
    } else if (strcasecmp(event, "goodbye") == 0 || strcasecmp(event, "disconnect") == 0) {
       if (login_user) {
@@ -93,7 +93,7 @@ static void rrclient_handle_connection_event(const char *event, const char *data
          login_user = NULL;
       }
       rrclient_update_connection_ui(false);
-      ui_print( NULL, "%s *** DISCONNECTED ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
       ws_connected = false;
       ws_conn = NULL;
       update_connection_button(false, conn_button);
@@ -183,13 +183,14 @@ static void rrclient_handle_userinfo_event(const char *event, const char *data, 
    dict_free(d);
 }
 
-static void rrclient_handle_userjoin_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_join_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
 
    dict *d = json2dict(data);
-//   dict_dump(d, stderr);
+   fprintf(stderr, "[talk.join]\n");
+   dict_dump(d, stderr);
    const char *m_user = dict_get(d, "talk.user", NULL);
    const char *m_ip = dict_get(d, "talk.ip", NULL);
    const char *m_target = dict_get(d, "talk.target", NULL);
@@ -206,8 +207,10 @@ static void rrclient_handle_userjoin_event(const char *event, const char *data, 
    dict_free(d);
 }
 
-static void rrclient_handle_userquit_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_quit_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   fprintf(stderr, "[talk.quit]\n");
    if (!data) {
+      fprintf(stderr, "no talk.quit data\n");
       return;
    }
 
@@ -343,9 +346,9 @@ void rrclient_register_events(void) {
    event_on("http.error", rrclient_handle_connection_event, NULL);
 
    // Chat/userlist related
-   event_on("join", rrclient_handle_userjoin_event, NULL);
+   event_on("join", rrclient_handle_join_event, NULL);
    event_on("privmsg", rrclient_handle_talk_msg_event, NULL);
-   event_on("quit", rrclient_handle_userquit_event, NULL);
+   event_on("quit", rrclient_handle_quit_event, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg_event, NULL);
    event_on("userinfo", rrclient_handle_userinfo_event, NULL);
    event_on("whois", rrclient_handle_whois_event, NULL);

@@ -23,7 +23,6 @@
 #include <rrclient/gtk.core.h>
 
 #if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
 extern struct mg_connection *ws_conn;
 #endif // defined(USE_MONGOOSE)
 
@@ -452,12 +451,15 @@ static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
    }
 }
 
+static void on_fullscreen_button(GtkComboBoxText *combo, gpointer user_data) {
+   gui_fullscreen_toggle();
+}
+
 GtkWidget *init_config_tab(void) {
    GtkWidget *nw =
       gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
-   GtkWidget *cfg_tab_label =
-      gtk_label_new(NULL);
+   GtkWidget *cfg_tab_label = gtk_label_new(NULL);
 
    gtk_label_set_markup(GTK_LABEL(cfg_tab_label), "(<u>3</u>) Config");
 
@@ -468,12 +470,17 @@ GtkWidget *init_config_tab(void) {
 
    gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
 
-   GtkWidget *btn =
-      gtk_button_new_with_label("Edit Config");
+   GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
 
-   g_signal_connect(btn, "clicked", G_CALLBACK(on_edit_config_button), config_file);
+   g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), config_file);
 
-   gtk_box_pack_start(GTK_BOX(nw), btn, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(nw), btn_cfgedit, FALSE, FALSE, 0);
+
+   GtkWidget *btn_fullscreen = gtk_button_new_with_label("Toggle Fullscreen");
+
+   g_signal_connect(btn_fullscreen, "clicked", G_CALLBACK(on_fullscreen_button), NULL);
+
+   gtk_box_pack_start(GTK_BOX(nw), btn_fullscreen, FALSE, FALSE, 0);
 
    toggle_userlist_button =
       gtk_button_new_with_label("Toggle Userlist");

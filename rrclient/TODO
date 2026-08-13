@@ -1,4 +1,6 @@
 [general]
+* Fix crashes / failure to notify on disconnect
+  - Detect the socket close/error and set client to offline state
 * Fix PTT button
   - turn YELLOW with PTT PENDING text until acknowledged by server)
 * Fix PTT button needing clicked twice after TOT fired

@@ -53,6 +53,9 @@ ws.c / fwdsp/fwdsp-mgr.c:
   - Once an elmer is online, the user can again request elevate
 
 [i2c/eeprom]
+- EEPROM should contain power on defaults when not living on a posix host
+  - Settings should all be loaded into a dict using eeprom_layout
+  - Config file should override these settings
 - Implement hard coded address for i2c eeprom and a codepath to support it
 - Should we bypass the eeprom step and read directly from the config & channels.json on posix?
   - Maybe a use sqlite3 db for storing persistent data?

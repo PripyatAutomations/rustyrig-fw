@@ -273,7 +273,6 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
    }
    const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
 
-   Log(LOG_CRIT, "debug", "calling parse_chat_input_real: %s", msg);
    return parse_chat_input_real(msg);
 }
 #endif	// USE_GTK
