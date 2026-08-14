@@ -21,8 +21,10 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
 
+// Default to TUI mode, it will be set to UI_MODE_GTK if $DISPLAY is set
 enum GuiMode ui_mode = UI_MODE_TUI;
 
+// Print formatted texted, stdarg version
 bool ui_vprint(const char *window, const char *fmt, va_list ap) {
    if (!fmt) {
       return true;
@@ -36,9 +38,7 @@ bool ui_vprint(const char *window, const char *fmt, va_list ap) {
       ui_print_gtk(window, fmt, aq);
       va_end(aq);
 #endif
-   }
-
-   if (ui_mode == UI_MODE_TUI) {
+   } else if (ui_mode == UI_MODE_TUI) {
       tui_window_t *win = tui_window_find(window);
 
       if (!win) {
@@ -51,6 +51,7 @@ bool ui_vprint(const char *window, const char *fmt, va_list ap) {
    return false;
 }
 
+// Print formatted text via ui_vprint()
 bool ui_print(const char *window, const char *fmt, ...) {
    if (!fmt) {
       return true;
