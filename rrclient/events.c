@@ -332,10 +332,38 @@ static void rrclient_handle_catcmd_event(const char *event, const char *data, rr
    dict_free(d);
 }
 
+static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   fprintf(stderr, "[NOMATCH]\n");
+   dict_dump(d, stderr);
+   dict_free(d);
+}
+
+static void rrclient_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   fprintf(stderr, "[hello]\n");
+   const char *m_hwver = dict_get(d, "hello.hwver", "misconfigured radio");
+   const char *m_swver = dict_get(d, "hello.swver", "1.2.3.4");
+   ui_print("%s SERVER is running %s on %s", m_swver, m_hwver);
+   dict_dump(d, stderr);
+   dict_free(d);
+}
+
 /*
  * Initialize the events we care about receiving
  */
 void rrclient_register_events(void) {
+   event_on("NOMATCH", rrclient_handle_nomatch, NULL);
+   event_on("ws.msg.hello", rrclient_handle_hello, NULL);
+
    // Connection status related
    event_on("connected", rrclient_handle_connection_event, NULL);
    event_on("connecting", rrclient_handle_connection_event, NULL);
@@ -358,7 +386,7 @@ void rrclient_register_events(void) {
    // Log events
    event_on("log", rrclient_handle_log_event, NULL);
 
-   // CAT controls
+   // rigctl/CAT controls
    event_on("cat.cmd", rrclient_handle_catcmd_event, NULL);
    event_on("rig.ptt", rrclient_handle_ptt_event, NULL);
    event_on("rig.freq", rrclient_handle_freq_event, NULL);

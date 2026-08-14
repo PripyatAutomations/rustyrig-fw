@@ -1,5 +1,5 @@
 //
-// console.c
+// console.c: librustyaxe TUI based console
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

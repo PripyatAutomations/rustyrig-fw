@@ -20,9 +20,10 @@ extra_clean += firmware.log
 
 BUILD_HEADERS += $(wildcard ${OBJ_DIR}/eeprom_layout.h)
 BUILD_HEADERS += $(wildcard ${OBJ_DIR}/*.h)
-BUILD_HEADERS += $(wildcard rrserver/*.h) $(wildcard rrclient/*.h)
 BUILD_HEADERS += $(wildcard inc/librrprotocol/*.h)
 BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h)
+RRSERVER_HEADERS += $(wildcard rrserver/*.h)
+RRCLIENT_HEADERS += $(wildcard rrclient/*.h)
 
 rrclient_src = $(rrclient_objs:.o=.c)
 rrserver_src = $(rrserver_objs:.o=.c)
@@ -46,16 +47,18 @@ include mk/debug.mk
 include mk/resource.mk
 include mk/packaging.mk
 
-${OBJ_DIR}/build_config.h: ${EEPROM_FILE}
+inc/autoconf.h: ${OBJ_DIR}/${PROFILE}/build_config.h
+	rm -f inc/autoconf.h
+	ln -s "${OBJ_DIR}/${PROFILE}/build_config.h" inc/autoconf.h
+
+${OBJ_DIR}/${PROFILE}/build_config.h: ${EEPROM_FILE}
 ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
 
 extra_distclean += inc/autoconf.h
 
-
-${OBJ_DIR}/.stamp:
+${OBJ_DIR}/.stamp: 
 	mkdir -p "${OBJ_DIR}"
-	rm -f inc/autoconf.h
-	ln -s "${OBJ_DIR}/${PROFILE}/build_config.h" inc/autoconf.h
 	touch $@
 
+extra_build += ${OBJ_DIR}/${PROFILE}/build_config.h inc/autoconf.h
 world: ${OBJ_DIR}/.stamp ${extra_build} ${bins}

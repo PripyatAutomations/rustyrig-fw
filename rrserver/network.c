@@ -22,15 +22,13 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/network.h>
-#define	HOST_POSIX
+
 #if     defined(HOST_POSIX)
 #include <sys/socket.h>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#endif
 
-#if     defined(HOST_POSIX)
 static void net_print_listeners(const char *listenaddr) {
    struct ifaddrs *ifaddr, *ifa;
    char addr[INET6_ADDRSTRLEN];

@@ -34,12 +34,14 @@ rrserver_objs += unwind.o		# Support for stack unwinding on crashes
 rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
 #rrserver_objs += 
 
-CFLAGS_RRSERVER += -I./modsrc/
+RRSERVER_HEADERS += $(wildcard rrserver/*.h)
+
+CFLAGS_RRSERVER += -DRRSERVER
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
-${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
+${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${RRSERVER_HEADERS} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

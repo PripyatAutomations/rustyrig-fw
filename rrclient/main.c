@@ -71,6 +71,7 @@ bool debug_sockets = false;
 time_t now = 0;
 
 static void ws_poll_cb(EV_P_ ev_timer *w, int revents) {
+   // this calls mg_mgr_poll(&mgr, 0);
    rrclient_poll_events();
 }
 
@@ -314,7 +315,7 @@ int main(int argc, char *argv[]) {
    }
    // apply some global configuration
    const char *logfile = cfg_get_exp("log.file");
-   logger_init( (logfile ? logfile : "rrclient.log") );
+   logger_init( (logfile ? logfile : "-") );
 
    if (logfile) {
       free( (char *)logfile );     // _exp versions MUST be freed

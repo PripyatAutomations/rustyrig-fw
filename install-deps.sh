@@ -21,8 +21,8 @@ if [ -f "${DEBVER}" ]; then
     #CONFIG="config/${PROFILE}.config.json"
     #
     #USE_HAMLIB=$(jq -er '.backend.hamlib // empty' "$CONFIG")
-    #USE_SQLITE=$(jq -er '.features.sqlite // empty' "$CONFIG")
-    #USE_GSTREAMER=$(jq -er '.features.gstreamer // empty' "$CONFIG")
+    #USE_SQLITE=$(jq -er '.use.sqlite // empty' "$CONFIG")
+    #USE_GSTREAMER=$(jq -er '.use.gstreamer // empty' "$CONFIG")
 
     #[ "$USE_HAMLIB" = "true" ]   && apt install -y libhamlib-dev libhamlib-utils
     #[ "$USE_SQLITE" = "true" ]   && apt install -y sqlite3 libsqlite3-dev
