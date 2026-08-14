@@ -37,13 +37,13 @@ static bool be_dummy_ptt_set(rr_vfo_t vfo, bool state) {
    int ret = -1;
 
    if (state == true) {
-      if ( (ret = rr_ptt_set(vfo, true) ) != false) {
+      if ( ( ret = rr_ptt_set(vfo, true) ) != false ) {
          Log(LOG_CRIT, "backend.dummy", "Failed to enable PTT");
 
          return true;
       }
    } else {
-      if ( (ret = rr_ptt_set(vfo, false) ) != false) {
+      if ( ( ret = rr_ptt_set(vfo, false) ) != false ) {
          fprintf(stderr, "Failed to disable PTT");
 
          return true;

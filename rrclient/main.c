@@ -100,6 +100,7 @@ static gboolean update_now(gpointer user_data) {
    if (dying) {
       // we should handle local shutdown here
       rrclient_cleanup();
+
       return G_SOURCE_REMOVE;   // remove this timeout
    }
 
@@ -285,15 +286,15 @@ int main(int argc, char *argv[]) {
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
    if (config_file) {
-      if ( !( cfg = cfg_load(config_file) ) ) {
+      if (!(cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
       free(config_file);
       config_file = NULL;
-   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
+   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
 
-      if ( !( cfg = cfg_load(fullpath) ) ) {
+      if (!(cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -304,8 +305,8 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
-   if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
-      if ( fullpath && !( cfg = cfg_load(fullpath) ) ) {
+   if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
+      if (fullpath && !(cfg = cfg_load(fullpath) ) ) {
          ui_print(NULL, "{red}* ERROR *{reset} Couldn't load config '%s', using defaults", fullpath);
       }
       free(fullpath);

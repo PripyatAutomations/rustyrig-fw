@@ -35,7 +35,7 @@ extern time_t now;
 extern bool ws_connected;
 extern bool rrclient_send_chat(const char *data);
 extern bool syslog_clear(void);
-extern const char *server_name;	// remove this (connman.c)
+extern const char *server_name; // remove this (connman.c)
 
 #if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
@@ -45,6 +45,7 @@ bool cmd_die(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "die", VAL_STR, "talk.args", args[1]);
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free( (char *)jp );
+
    return false;
 }
 
@@ -53,6 +54,7 @@ bool cmd_kick(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "kick", VAL_STR, "talk.reason", args[1]);
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
    free( (char *)jp );
+
    return false;
 }
 

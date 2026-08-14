@@ -12,14 +12,14 @@
 #include <gtk/gtk.h>
 #include <librrprotocol/rrprotocol.h>
 
-#define	HTTP_USER_LEN 16                   // username length (16 char)
-#define	HTTP_PASS_LEN 40                   // sha1: 40, sha256: 64
-#define	HTTP_HASH_LEN 40                   // sha1
-#define	HTTP_TOKEN_LEN 14                  // session-id / nonce length,
-                                            // longer moar secure
-#define	HTTP_UA_LEN 512                    // allow 128 bytes
-#define	USER_PRIV_LEN 100                  // privileges list
-#define	USER_EMAIL_LEN 128                 // email address
+#define	HTTP_USER_LEN 16                  // username length (16 char)
+#define	HTTP_PASS_LEN 40                  // sha1: 40, sha256: 64
+#define	HTTP_HASH_LEN 40                  // sha1
+#define	HTTP_TOKEN_LEN 14                 // session-id / nonce length,
+                                           // longer moar secure
+#define	HTTP_UA_LEN 512                   // allow 128 bytes
+#define	USER_PRIV_LEN 100                 // privileges list
+#define	USER_EMAIL_LEN 128                // email address
 
 // GUI (GTK) window
 struct GuiWindow {
@@ -90,7 +90,7 @@ extern char *gtk_colorize_string(const char *in);
 extern bool cfg_use_gtk;
 extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 extern gboolean is_widget_or_descendant_focused(GtkWidget *ancestor);
-extern bool gui_fullscreen_toggle(void);	// gui.core.c
+extern bool gui_fullscreen_toggle(void);        // gui.core.c
 
 #include <rrclient/gtk.codecpicker.h>
 #include <rrclient/gtk.editcfg.h>
@@ -114,6 +114,6 @@ extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 extern GtkWidget *config_tab;
 extern GtkWidget *admin_tab;
-extern bool cfg_fullscreen;		// gtk.core.c
+extern bool cfg_fullscreen;             // gtk.core.c
 
 #endif // !defined(__rrclient_gtk_core_h)

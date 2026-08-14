@@ -8,8 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /*
- * Support for a console interface to the radio via io abstraction
- * (socket|serial|pipe|ws)
+ * Support for a console interface to the radio via io abstraction (socket|serial|pipe|ws)
  */
 #include <stddef.h>
 #include <stdarg.h>

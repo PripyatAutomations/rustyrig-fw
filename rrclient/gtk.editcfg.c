@@ -22,10 +22,6 @@
 #include <rrclient/userlist.h>
 #include <rrclient/gtk.core.h>
 
-#if     defined(USE_MONGOOSE)
-extern struct mg_connection *ws_conn;
-#endif // defined(USE_MONGOOSE)
-
 extern dict *cfg;
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern GtkWidget *toggle_userlist_button;
@@ -47,7 +43,7 @@ static void on_buffer_changed(GtkTextBuffer *buffer, gpointer user_data) {
       return;
    }
 
-   ( (EditorContext *)user_data )->modified = TRUE;
+   ( (EditorContext *)user_data)->modified = TRUE;
 }
 
 static void apply_config(const char *filename) {
@@ -64,8 +60,8 @@ static void destroy_editor(EditorContext *ctx) {
    }
 
    /*
-    * Remove the window from the GUI window registry before destroying the
-    * actual GTK window.
+    * Remove the window from the GUI window registry before destroying the actual GTK
+    * window.
     */
    if (ctx->window_t) {
       gui_forget_window(ctx->window_t, "editcfg");
@@ -142,7 +138,7 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
 
    EditorContext *ctx = user_data;
 
-   if ( !save_editor(ctx, ctx->filepath) ) {
+   if (!save_editor(ctx, ctx->filepath) ) {
       return;
    }
 
@@ -161,15 +157,13 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
       "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
 
    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
-
    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), "config.cfg");
 
    if (gtk_dialog_run( GTK_DIALOG(dialog) ) == GTK_RESPONSE_ACCEPT) {
-      char *filename =
-         gtk_file_chooser_get_filename( GTK_FILE_CHOOSER(dialog) );
+      char *filename = gtk_file_chooser_get_filename( GTK_FILE_CHOOSER(dialog) );
 
       if (filename) {
-         if ( save_editor(ctx, filename) ) {
+         if (save_editor(ctx, filename) ) {
             /*
              * Save As becomes the new file being edited.
              */
@@ -205,12 +199,11 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
    }
 
    if (ctx->modified) {
-      GtkWidget *dialog =
-         gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL,
+            GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
             "You have unsaved changes. Discard them?");
 
-      gboolean cancel =
-         gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
+      gboolean cancel = gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
 
       gtk_widget_destroy(dialog);
 
@@ -232,12 +225,10 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
    }
 
    if (ctx->modified) {
-      GtkWidget *dialog =
-         gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
-            "You have unsaved changes. Close anyway?");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING,
+         GTK_BUTTONS_YES_NO, "You have unsaved changes. Close anyway?");
 
-      gboolean cancel =
-         gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
+      gboolean cancel = gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
 
       gtk_widget_destroy(dialog);
 
@@ -249,8 +240,8 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
    Log(LOG_DEBUG, "config", "Edit config closed for %s", ctx->filepath);
 
    /*
-    * We handle destruction ourselves so that the window registry and
-    * EditorContext are cleaned up together.
+    * We handle destruction ourselves so that the window registry and EditorContext are
+    * cleaned up together.
     */
    destroy_editor(ctx);
 
@@ -265,8 +256,7 @@ void gui_edit_config(const char *filepath) {
    /*
     * Don't allow multiple config editors.
     */
-   gui_window_t *win =
-      gui_find_window(NULL, "editcfg");
+   gui_window_t *win = gui_find_window(NULL, "editcfg");
 
    if (win) {
       GtkWidget *cfgedit_window = win->gtk_win;
@@ -285,42 +275,27 @@ void gui_edit_config(const char *filepath) {
 
    Log(LOG_DEBUG, "gtk.editcfg", "Opening %s for editing", filepath);
 
-   EditorContext *ctx =
-      g_malloc0( sizeof(EditorContext) );
-
+   EditorContext *ctx = g_malloc0( sizeof(EditorContext) );
    ctx->filepath = g_strdup(filepath);
    ctx->modified = FALSE;
 
-   GtkWidget *window =
-      gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    ctx->window = window;
-
-   ctx->window_t =
-      ui_new_window(window, "editcfg");
+   ctx->window_t = ui_new_window(window, "editcfg");
 
    gtk_window_set_title(GTK_WINDOW(window), filepath);
-
    gtk_window_set_default_size(GTK_WINDOW(window), 640, 480);
 
-   GtkWidget *vbox =
-      gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-
+   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    gtk_container_add(GTK_CONTAINER(window), vbox);
 
-   GtkWidget *scrolled =
-      gtk_scrolled_window_new(NULL, NULL);
-
+   GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 0);
 
-   GtkWidget *textview =
-      gtk_text_view_new();
-
+   GtkWidget *textview = gtk_text_view_new();
    gtk_container_add(GTK_CONTAINER(scrolled), textview);
 
-   ctx->buffer =
-      gtk_text_view_get_buffer( GTK_TEXT_VIEW(textview) );
-
+   ctx->buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(textview) );
    g_signal_connect(ctx->buffer, "changed", G_CALLBACK(on_buffer_changed), ctx);
 
    /*
@@ -372,7 +347,7 @@ void gui_edit_config(const char *filepath) {
          fread(buf, 1, (size_t)len, fp);
 
       if (nread != (size_t)len) {
-         if ( ferror(fp) ) {
+         if (ferror(fp) ) {
             Log( LOG_CRIT, "config.edit", "fread() failed for %s: %s", filepath, strerror(errno) );
          } else {
             Log(LOG_CRIT, "config.edit", "Unexpected EOF reading %s "
@@ -389,8 +364,8 @@ void gui_edit_config(const char *filepath) {
       buf[nread] = '\0';
 
       /*
-       * Config files are limited to a reasonable size, so the gint conversion
-       * is safe here.
+       * Config files are limited to a reasonable size, so the gint conversion is safe
+       * here.
        */
       gtk_text_buffer_set_text(ctx->buffer, buf, (gint)nread);
 
@@ -398,40 +373,27 @@ void gui_edit_config(const char *filepath) {
       fclose(fp);
 
       /*
-       * gtk_text_buffer_set_text() emits "changed". Loading the file doesn't
-       * count as an edit.
+       * gtk_text_buffer_set_text() emits "changed". Loading the file doesn't count as an
+       * edit.
        */
       ctx->modified = FALSE;
    }
 
-   GtkWidget *hbox =
-      gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-
+   GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 3);
 
-   GtkWidget *btn_save =
-      gtk_button_new_with_label("Save");
-
-   GtkWidget *btn_save_as =
-      gtk_button_new_with_label("Save As");
-
-   GtkWidget *btn_discard =
-      gtk_button_new_with_label("Discard");
+   GtkWidget *btn_save = gtk_button_new_with_label("Save");
+   GtkWidget *btn_save_as = gtk_button_new_with_label("Save As");
+   GtkWidget *btn_discard = gtk_button_new_with_label("Discard");
 
    gtk_box_pack_end(GTK_BOX(hbox), btn_discard, FALSE, FALSE, 0);
-
    gtk_box_pack_end(GTK_BOX(hbox), btn_save_as, FALSE, FALSE, 0);
-
    gtk_box_pack_end(GTK_BOX(hbox), btn_save, FALSE, FALSE, 0);
 
    g_signal_connect(btn_save, "clicked", G_CALLBACK(on_save_clicked), ctx);
-
    g_signal_connect(btn_save_as, "clicked", G_CALLBACK(on_save_other_clicked), ctx);
-
    g_signal_connect(btn_discard, "clicked", G_CALLBACK(on_discard_clicked), ctx);
-
    g_signal_connect(window, "delete-event", G_CALLBACK(on_delete_event), ctx);
-
    gtk_widget_show_all(window);
    gtk_widget_realize(window);
    place_window(window);
@@ -456,37 +418,25 @@ static void on_fullscreen_button(GtkComboBoxText *combo, gpointer user_data) {
 }
 
 GtkWidget *init_config_tab(void) {
-   GtkWidget *nw =
-      gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
    GtkWidget *cfg_tab_label = gtk_label_new(NULL);
-
    gtk_label_set_markup(GTK_LABEL(cfg_tab_label), "(<u>3</u>) Config");
-
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, cfg_tab_label);
 
-   GtkWidget *config_label =
-      gtk_label_new("Configuration will go here...");
-
+   GtkWidget *config_label = gtk_label_new("Configuration will go here...");
    gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
 
    GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
-
    g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), config_file);
-
    gtk_box_pack_start(GTK_BOX(nw), btn_cfgedit, FALSE, FALSE, 0);
 
    GtkWidget *btn_fullscreen = gtk_button_new_with_label("Toggle Fullscreen");
-
    g_signal_connect(btn_fullscreen, "clicked", G_CALLBACK(on_fullscreen_button), NULL);
-
    gtk_box_pack_start(GTK_BOX(nw), btn_fullscreen, FALSE, FALSE, 0);
 
-   toggle_userlist_button =
-      gtk_button_new_with_label("Toggle Userlist");
-
+   toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
    gtk_box_pack_start(GTK_BOX(nw), toggle_userlist_button, FALSE, FALSE, 3);
-
    g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
 
    return nw;

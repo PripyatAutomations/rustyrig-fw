@@ -10,9 +10,8 @@
 /*
  * Handle PTT and all interlocks preventing it's use
  *
- * we also deal with the PA_INHIBIT lines which allow momentarily stopping RF
- * output without powering down the PAs (such as for relay changes in tuning or
- * filters).
+ * we also deal with the PA_INHIBIT lines which allow momentarily stopping RF output
+ * without powering down the PAs (such as for relay changes in tuning or filters).
  */
 #include <stddef.h>
 #include <stdarg.h>
@@ -55,7 +54,7 @@ bool rr_ptt_set_blocked(bool blocked) {
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    char msgbuf[HTTP_WS_MAX_MSG + 1];
 
-   if ( rr_ptt_check_blocked() ) {
+   if (rr_ptt_check_blocked() ) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
       return false;

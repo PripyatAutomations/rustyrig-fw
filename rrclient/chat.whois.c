@@ -34,7 +34,7 @@ extern time_t now;
 extern bool ws_connected;
 extern bool rrclient_send_chat(const char *data);
 extern bool syslog_clear(void);
-extern const char *server_name;	// remove this (connman.c)
+extern const char *server_name; // remove this (connman.c)
 
 #if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;

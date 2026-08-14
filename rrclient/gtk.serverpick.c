@@ -46,7 +46,7 @@ static void do_connect_from_tree(GtkTreeView *view) {
    GtkTreeModel *model;
    GtkTreeIter iter;
 
-   if (gtk_tree_selection_get_selected(sel, &model, &iter) ) {
+   if ( gtk_tree_selection_get_selected(sel, &model, &iter) ) {
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
       const char *at = strchr(entry, '@');
@@ -92,7 +92,7 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
       GtkWidget *focus = gtk_window_get_focus( GTK_WINDOW( gtk_widget_get_toplevel(w) ) );
 
-      if (GTK_IS_TREE_VIEW(focus) ) {
+      if ( GTK_IS_TREE_VIEW(focus) ) {
          do_connect_from_tree( GTK_TREE_VIEW(focus) );
       }
 
@@ -134,8 +134,8 @@ void show_server_chooser(void) {
       char *v;
       GtkTreeIter match_iter;
       gboolean have_match = FALSE;
-      while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
-         if (!g_str_has_suffix(k, ".server.user") ) {
+      while ( ( rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0 ) {
+         if ( !g_str_has_suffix(k, ".server.user") ) {
             continue;
          }
          const char *name_start = strchr(k, ':');
@@ -150,12 +150,12 @@ void show_server_chooser(void) {
          GtkTreeIter iter;
          gtk_list_store_append(store, &iter);
          gtk_list_store_set(store, &iter, 0, user, -1);
-   /* -- this is borken fix it: it should preselect the active server
-         if (!have_match && strcmp(server, server_name) == 0) {
-            match_iter = iter;
-            have_match = TRUE;
-         }
-   */
+         /* -- this is borken fix it: it should preselect the active server if
+          * (!have_match && strcmp(server, server_name) == 0) {
+          *        match_iter = iter;
+          *        have_match = TRUE;
+          *     }
+          */
       }
 
       if (have_match) {

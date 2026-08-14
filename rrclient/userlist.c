@@ -55,7 +55,6 @@ bool userlist_add_or_update(dict *d) {
 
       c->clones = t_clones;
 
-
       if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
          userlist_redraw_gtk();
@@ -94,7 +93,6 @@ bool userlist_add_or_update(dict *d) {
 
    Log(LOG_INFO, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
-
    if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
       userlist_redraw_gtk();
@@ -115,7 +113,7 @@ bool userlist_remove_by_name(const char *name) {
    struct rr_user *prev = NULL;
 
    while (c) {
-      if ( !strcasecmp(c->name, name) ) {
+      if (!strcasecmp(c->name, name) ) {
          struct rr_user *next = c->next;
 
          if (prev) {
@@ -169,7 +167,7 @@ struct rr_user *userlist_find(const char *name) {
    }
    struct rr_user *c = global_userlist;
    while (c) {
-      if ( !strcasecmp(c->name, name) ) {
+      if (!strcasecmp(c->name, name) ) {
          return c;
       }
       c = c->next;

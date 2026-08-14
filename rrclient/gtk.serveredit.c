@@ -123,7 +123,7 @@ serverlist_t *serverlist_add(const char *name, const char *url) {
    char pass[HTTP_PASS_LEN];
    server_proto_t proto;
 
-   if (!server_parse_url(url, host, &port, user, pass, &proto) ) {
+   if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
       free(sp);
 
       return NULL;
@@ -175,7 +175,7 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
    int port = -1;
    server_proto_t proto;
 
-   if (!server_parse_url(url, host, &port, user, pass, &proto) ) {
+   if ( !server_parse_url(url, host, &port, user, pass, &proto) ) {
       return NULL;
    }
 

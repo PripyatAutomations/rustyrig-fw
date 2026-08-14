@@ -22,13 +22,11 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if     defined(USE_GTK)
-#include <gtk/gtk.h>
-#endif
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 #include <rrclient/gtk.core.h>
 #include <rrclient/gtk.freqentry.h>
+#define	MSGBUF_SIZE 8096
 
 extern dict *cfg;
 extern time_t now;
@@ -198,10 +196,10 @@ char *gtk_colorize_string(const char *in) {
             *o++ = *p++;
             continue;
          }
-         size_t key_len = (size_t)(end - (p + 1) );
+         size_t key_len = (size_t)( end - (p + 1) );
          char key[64];
 
-         if (key_len >= sizeof(key) ) {
+         if ( key_len >= sizeof(key) ) {
             key_len = sizeof(key) - 1;
          }
          memcpy(key, p + 1, key_len);
@@ -307,26 +305,32 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
       return true;
    }
 
-   char msgbuf[8096];
+   char msgbuf[MSGBUF_SIZE];
+   memset( msgbuf, 0, sizeof(msgbuf) );
 
    va_list aq;
    va_copy(aq, ap);
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, aq);
    va_end(aq);
 
-   char *colored = gtk_colorize_string(msgbuf);
+   bool colorize_failed = false;
+   char *colorized = gtk_colorize_string(msgbuf);
 
-   if (!colored) {
-      return true;
+   if (!colorized) {
+      colorize_failed = true;
+      colorized = msgbuf;
+      Log(LOG_WARN, "ui.gtk3", "ui_print_gtk: gtk_colorize_string failed");
    }
 
    GtkTextIter end;
 
    gtk_text_buffer_get_end_iter(text_buffer, &end);
-   gtk_text_buffer_insert_markup(text_buffer, &end, colored, -1);
+   gtk_text_buffer_insert_markup(text_buffer, &end, colorized, -1);
    gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
 
-   g_free(colored);
+   if (!colorize_failed) {
+      g_free(colorized);
+   }
 
    g_idle_add(ui_scroll_to_end, chat_textview);
 
@@ -341,7 +345,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    GtkTreeIter iter;
    int index = 0;
 
-   if (gtk_tree_model_get_iter_first(model, &iter) ) {
+   if ( gtk_tree_model_get_iter_first(model, &iter) ) {
       do{
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
@@ -354,7 +358,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          }
          g_free(str);
          index++;
-      } while (gtk_tree_model_iter_next(model, &iter) );
+      } while ( gtk_tree_model_iter_next(model, &iter) );
    }
 }
 
@@ -377,6 +381,7 @@ void update_connection_button(bool connected, GtkWidget *btn) {
 
 static gboolean fullscreen_later(gpointer data) {
    gui_fullscreen_toggle();
+
    return G_SOURCE_REMOVE;
 }
 
@@ -448,8 +453,6 @@ bool gui_init(void) {
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
-//   g_signal_connect(main_window, "key-press-event",
-// G_CALLBACK(handle_global_hotkey), main_notebook);
    gui_hotkey_register(main_window);
 
    // Generate and display a userlist for this server
@@ -463,13 +466,12 @@ bool gui_init(void) {
 
    // enforce fullscreen if set
    if (cfg_fullscreen) {
-      Log(LOG_INFO, "ui.gtk3",
-          "Going fullscreen since cfg:ui.full-screen is set!");
+      Log(LOG_INFO, "ui.gtk3", "Going fullscreen since cfg:ui.full-screen is set!");
 
       g_idle_add(fullscreen_later, NULL);
    }
 
-   ui_print(NULL, "%s rustyrig client started", get_chat_ts(now) );
+   ui_print( NULL, "%s rustyrig client started", get_chat_ts(now) );
 
    return false;
 }
@@ -480,12 +482,12 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
    }
    GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
 
-   if (!GTK_IS_WINDOW(toplevel) ) {
+   if ( !GTK_IS_WINDOW(toplevel) ) {
       return FALSE;
    }
    GtkWidget *focused = gtk_window_get_focus( GTK_WINDOW(toplevel) );
 
-   for (GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
+   for ( GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
       if (w == ancestor) {
          return TRUE;
       }
@@ -498,10 +500,10 @@ bool fullscreen = false;
 
 bool gui_fullscreen_toggle(void) {
    if (fullscreen) {
-      gtk_window_unfullscreen(GTK_WINDOW(main_window));
+      gtk_window_unfullscreen( GTK_WINDOW(main_window) );
       gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
    } else {
-      gtk_window_fullscreen(GTK_WINDOW(main_window));
+      gtk_window_fullscreen( GTK_WINDOW(main_window) );
       gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
    }
    fullscreen = !fullscreen;

@@ -35,7 +35,7 @@ extern time_t now;
 extern bool ws_connected;
 extern bool rrclient_send_chat(const char *data);
 extern bool syslog_clear(void);
-extern const char *server_name;	// remove this (connman.c)
+extern const char *server_name; // remove this (connman.c)
 
 #if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
@@ -54,11 +54,13 @@ bool cmd_clear(int argc, char **args) {
 
 bool cmd_clearlog(int argc, char **args) {
    syslog_clear();
+
    return false;
 }
 
 bool cmd_disconnect(int argc, char **args) {
    disconnect_server(server_name);
+
    return false;
 }
 
@@ -87,6 +89,7 @@ bool cmd_rxvol(int argc, char **args) {
 #endif
       ui_print(NULL, "* Set rx-vol to %f", val);
    }
+
    return false;
 }
 

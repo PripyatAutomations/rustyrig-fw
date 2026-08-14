@@ -35,7 +35,7 @@ extern time_t now;
 extern bool ws_connected;
 extern bool rrclient_send_chat(const char *data);
 extern bool syslog_clear(void);
-extern const char *server_name;	// remove this (connman.c)
+extern const char *server_name; // remove this (connman.c)
 
 #if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
@@ -61,6 +61,7 @@ bool cmd_admin(int argc, char **args) {
 #endif
    } else if (ui_mode == UI_MODE_TUI) {
    }
+
    return false;
 }
 
@@ -76,6 +77,7 @@ bool cmd_chat(int argc, char **args) {
 #endif
    } else if (ui_mode == UI_MODE_TUI) {
    }
+
    return false;
 }
 
@@ -90,6 +92,7 @@ bool cmd_config(int argc, char **args) {
 #endif
    } else if (ui_mode == UI_MODE_TUI) {
    }
+
    return false;
 }
 
@@ -104,6 +107,7 @@ bool cmd_log(int argc, char **args) {
 #endif
    } else if (ui_mode == UI_MODE_TUI) {
    }
+
    return false;
 }
 

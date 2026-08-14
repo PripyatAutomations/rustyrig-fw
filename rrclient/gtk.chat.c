@@ -32,6 +32,7 @@ extern bool cfg_use_gtk;         // gtk.core.c
 ///////////////
 static GPtrArray *input_history = NULL;
 static unsigned int history_index = -1;
+
 GtkWidget *chat_textview = NULL;
 GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;
@@ -41,6 +42,7 @@ gboolean ui_scroll_to_end(gpointer data) {
    if (!data) {
       return FALSE;
    }
+
    GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
    GtkTextIter end;
@@ -50,6 +52,7 @@ gboolean ui_scroll_to_end(gpointer data) {
 
       return FALSE;
    }
+
    gtk_text_buffer_get_end_iter(buffer, &end);
    gtk_text_view_scroll_to_iter(chat_textview, &end, 0.0, TRUE, 0.0, 1.0);
 

@@ -21,7 +21,7 @@
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 
-#define HELP_DESC_COL 18
+#define	HELP_DESC_COL 18
 
 extern client_cmd_t client_cmds[];
 
@@ -31,7 +31,7 @@ static bool safe_name(const char *name) {
       return false;
    }
 
-   if ( strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
+   if (strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
       return false;
    }
 
@@ -40,57 +40,54 @@ static bool safe_name(const char *name) {
 
 // This needs removed asap, its dead code
 /*
-void gui_show_help(const char *topic) {
-   if (!topic) {
-      int i = 0;
-      while (help_main[i]) {
-         ui_print(NULL, help_main[i]);
-         i++;
-      }
-   } else {
-      char path[256];
-      char line[1024];
-
-      // Sanitize the user input
-      if ( !safe_name(topic) ) {
-         ui_print(NULL, "Invalid help topic");
-
-         return;
-      }
-      // Find the help file
-      const char *help_dir = cfg_get_exp("path.help-dir");
-
-      // did we get a key from the cfgstore?
-      if (help_dir) {
-         snprintf(path, sizeof(path), "%s/%s", help_dir, topic);
-         free( (void *)help_dir );
-      } else {
-         snprintf(path, sizeof(path), "./help/%s", topic);
-      }
-      FILE *fp = fopen(path, "r");
-
-      if (!fp) {
-         ui_print(NULL, "Help file '%s' not found", path);
-
-         return;
-      }
-      ui_print(NULL, "********************************");
-      ui_print(NULL, "* HELP for %s", topic);
-
-      while ( fgets(line, sizeof(line), fp) ) {
-         size_t len = strlen(line);
-
-         // remove trailing newlines and carriage returns
-         while ( len && (line[len - 1] == '\n' || line[len - 1] == '\r') ) {
-            line[--len] = '\0';
-         }
-         // Present it to the user with ui_print
-         ui_print(NULL, line);
-      }
-      fclose(fp);
-   }
-}
-*/
+ *  void gui_show_help(const char *topic) {
+ *  if (!topic) {
+ *     int i = 0;
+ *     while (help_main[i]) {
+ *        ui_print(NULL, help_main[i]);
+ *        i++;
+ *     }
+ *  } else {
+ *     char path[256];
+ *     char line[1024];
+ *
+ *     // Sanitize the user input if ( !safe_name(topic) ) {
+ *        ui_print(NULL, "Invalid help topic");
+ *
+ *        return;
+ *     }
+ *     // Find the help file const char *help_dir = cfg_get_exp("path.help-dir");
+ *
+ *     // did we get a key from the cfgstore?
+ *     if (help_dir) {
+ *        snprintf(path, sizeof(path), "%s/%s", help_dir, topic);
+ *        free( (void *)help_dir );
+ *     } else {
+ *        snprintf(path, sizeof(path), "./help/%s", topic);
+ *     }
+ *     FILE *fp = fopen(path, "r");
+ *
+ *     if (!fp) {
+ *        ui_print(NULL, "Help file '%s' not found", path);
+ *
+ *        return;
+ *     }
+ *     ui_print(NULL, "********************************");
+ *     ui_print(NULL, "* HELP for %s", topic);
+ *
+ *     while ( fgets(line, sizeof(line), fp) ) {
+ *        size_t len = strlen(line);
+ *
+ *        // remove trailing newlines and carriage returns while ( len && (line[len - 1]
+ * == '\n' || line[len - 1] == '\r') ) {
+ *           line[--len] = '\0';
+ *        }
+ *        // Present it to the user with ui_print ui_print(NULL, line);
+ *     }
+ *     fclose(fp);
+ *  }
+ *  }
+ */
 
 ////////////////
 // Help stuff //
@@ -119,27 +116,27 @@ bool cmd_help(int argc, char **args) {
       ui_print(NULL, help_msg_before[i]);
       i++;
    }
-
    int longest = 0;
 
-   for (int i = 0; client_cmds[i].cmd; i++) {
+   for (int i = 0 ; client_cmds[i].cmd ; i++) {
       int len = strlen(client_cmds[i].cmd);
 
-      if (len > longest)
+      if (len > longest) {
          longest = len;
+      }
    }
 
    int desc_col = 3 + longest + 2;
 
-   for (int i = 0; client_cmds[i].cmd; i++) {
+   for (int i = 0 ; client_cmds[i].cmd ; i++) {
       int len = strlen(client_cmds[i].cmd);
       int spaces = desc_col - 3 - len;
 
-      if (spaces < 1)
+      if (spaces < 1) {
          spaces = 1;
+      }
 
-      ui_print(NULL, "   /%s%*s%s",
-         client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
+      ui_print(NULL, "   /%s%*s%s", client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
    }
 
    // after message
@@ -148,6 +145,5 @@ bool cmd_help(int argc, char **args) {
       ui_print(NULL, help_msg_after[i]);
       i++;
    }
-
    return false;
 }

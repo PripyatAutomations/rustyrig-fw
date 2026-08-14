@@ -57,7 +57,7 @@ bool mqtt_init(struct mg_mgr *mgr) {
       return true;
    }
 
-   if ( !mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL) ) {
+   if (!mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL) ) {
       Log(LOG_CRIT, "http", "Failed to start http listener");
       exit(1);
    }
@@ -76,7 +76,7 @@ static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg, struct mg_str *top
    if (pos >= msg->dgram.len) {
       return 0;
    }
-   topic->len = (size_t) ( ( (unsigned) buf[0] ) << 8 | buf[1] );
+   topic->len = (size_t) ( ( (unsigned) buf[0]) << 8 | buf[1]);
    topic->buf = (char *) buf + 2;
    new_pos = pos + 2 + topic->len + (!qos ? 0 : 1);
 
@@ -133,7 +133,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
             int num_topics = 0;
             memset( resp, 0, sizeof(resp) );
 
-            while ( ( ( pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0 ) ) {
+            while ( ( (pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0) ) {
                struct sub *sub = calloc( 1, sizeof(*sub) );
 
                if (!sub) {
@@ -149,7 +149,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
                // Change '+' to '*' for topic matching using mg_match
                for (size_t i = 0 ; i < sub->topic.len ; i++) {
                   if (sub->topic.buf[i] == '+') {
-                     ( (char *) sub->topic.buf )[i] = '*';
+                     ( (char *) sub->topic.buf)[i] = '*';
                   }
                }
 
@@ -166,7 +166,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
                (int) mm->topic.len, mm->topic.buf);
 
             for (struct sub *sub = s_subs ; sub ; sub = sub->next) {
-               if ( mg_match(mm->topic, sub->topic, NULL) ) {
+               if (mg_match(mm->topic, sub->topic, NULL) ) {
                   struct mg_mqtt_opts pub_opts;
                   memset( &pub_opts, 0, sizeof(pub_opts) );
                   pub_opts.topic = mm->topic;
@@ -217,27 +217,27 @@ bool mqtt_client_init(void) {
    mqtt_host = cfg_get("net.mqtt-client.host");
    const char *secret_file = cfg_get("net.mqtt-client.secret-file");
 
-   if ( !file_exists(secret_file) ) {
+   if (!file_exists(secret_file) ) {
       Log(LOG_CRIT, "mqtt.cli", "Secret file '%s' doesn't exist", secret_file);
 
       return false;
    }
 
-   if ( !( fp = fopen(secret_file, "r") ) ) {
+   if (!(fp = fopen(secret_file, "r") ) ) {
       Log( LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno) );
 
       return false;
    }
    memset( mqtt_secret, 0, sizeof(mqtt_secret) );
 
-   if ( !fgets(mqtt_secret, sizeof(mqtt_secret), fp) ) {
+   if (!fgets(mqtt_secret, sizeof(mqtt_secret), fp) ) {
       Log( LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno) );
       fclose(fp);
 
       return true;
    }
    char *end = mqtt_secret + strlen(mqtt_secret) - 1;
-   while ( end >= mqtt_secret && (*end == '\r' || *end == '\n') ) {
+   while (end >= mqtt_secret && (*end == '\r' || *end == '\n') ) {
       *end = '\0';
       end--;
    }

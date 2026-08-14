@@ -106,9 +106,9 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
             if (from && data) {
                event_emit("talk.msg", NULL, buf);
             }
-         } else if ( dict_get(d, "hello", NULL) ) {
+         } else if (dict_get(d, "hello", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got hello from server");
-         } else if ( dict_get(d, "auth.cmd", NULL) ) {
+         } else if (dict_get(d, "auth.cmd", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got auth message");
          }
          dict_free(d);
@@ -287,7 +287,7 @@ bool disconnect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
 
    if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
+#ifdef  USE_GTK
       GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
       gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
       gtk_style_context_add_class(ctx, "conn-idle");
@@ -305,7 +305,7 @@ bool disconnect_server(const char *server) {
 #endif // defined(USE_MONGOOSE)
       ws_connected = false;
 
-#ifdef	USE_GTK
+#ifdef  USE_GTK
       gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
 #endif // defined(USE_GTK)
       userlist_clear_all();
@@ -329,7 +329,7 @@ bool connect_server(const char *server) {
    if (url) {
 
       if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
+#ifdef  USE_GTK
          GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
          gtk_button_set_label(GTK_BUTTON(conn_button), "Offline");
          gtk_style_context_add_class(ctx, "conn-pending");
@@ -395,7 +395,7 @@ void connman_autoconnect(void) {
          char this_server[256];
          memset( this_server, 0, sizeof(this_server) );
          snprintf(this_server, sizeof(this_server), "%s", sp);
-         ui_print(NULL, "%s * Autoconnect profile: %s *",  get_chat_ts(now), this_server);
+         ui_print(NULL, "%s * Autoconnect profile: %s *", get_chat_ts(now), this_server);
          sp = strtok(NULL, ",");
          connect_or_disconnect( this_server );
       }

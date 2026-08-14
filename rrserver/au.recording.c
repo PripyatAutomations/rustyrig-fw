@@ -57,7 +57,7 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    free( (char *)recdir );
 
    if (tmp_len > 0) {
-      if ( !( rv = strdup(tmpbuf) ) ) {
+      if (!(rv = strdup(tmpbuf) ) ) {
          Log(LOG_CRIT, "au.record", "OOM in au_recording_mkfilename");
          exit(1);
       }
@@ -134,7 +134,7 @@ recording_data_t *au_recording_find(const char *id) {
    recording_data_t *rp = NULL;
 
    for (int i = 0 ; i < MAX_RECORD_OPEN - 1 ; i++) {
-      if ( (active_recordings[i]) && active_recordings[i]->rec_id == id ) {
+      if ( (active_recordings[i]) && active_recordings[i]->rec_id == id) {
          return active_recordings[i];
       }
    }

@@ -8,8 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /*
- * Here we implement timers (periodic and one-shot) in a platform independent
- * manner.
+ * Here we implement timers (periodic and one-shot) in a platform independent manner.
  */
 #include <stddef.h>
 #include <stdarg.h>

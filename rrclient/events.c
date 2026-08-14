@@ -143,13 +143,12 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
    dict_dump(d, stderr);
    long freq = dict_get_long(d, "cat.state.freq", 0);
 
-
    if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
       GtkWidget *entry = freq_entry;
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
 
-      if ( !gtk_freq_entry_is_editing(fe) ) {
+      if (!gtk_freq_entry_is_editing(fe) ) {
          gtk_freq_entry_set_frequency(fe, freq);
       }
 #endif // defined(USE_GTK)
@@ -177,7 +176,7 @@ static void rrclient_handle_userinfo_event(const char *event, const char *data, 
 
    dict *d = json2dict(data);
 
-   if ( !userlist_add_or_update(d) ) {
+   if (!userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
    dict_free(d);
@@ -199,7 +198,7 @@ static void rrclient_handle_join_event(const char *event, const char *data, rrco
 
    ui_print(NULL, "%s * %s (%s) joined %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
 
-   if ( !userlist_add_or_update(d) ) {
+   if (!userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 
@@ -209,8 +208,10 @@ static void rrclient_handle_join_event(const char *event, const char *data, rrco
 
 static void rrclient_handle_quit_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    fprintf(stderr, "[talk.quit]\n");
+
    if (!data) {
       fprintf(stderr, "no talk.quit data\n");
+
       return;
    }
 
