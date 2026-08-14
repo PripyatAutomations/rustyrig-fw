@@ -7,7 +7,7 @@ endif
 
 USE_GTK=true
 
-OBJ_DIR := ./build
+OBJ_DIR := $(shell pwd)/build
 
 CHANNELS := config/${PROFILE}.channels.json
 INSTALL_DIR = /usr/local

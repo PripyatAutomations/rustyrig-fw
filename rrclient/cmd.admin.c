@@ -41,15 +41,6 @@ extern const char *server_name;	// remove this (connman.c)
 extern struct mg_connection *ws_conn;
 #endif
 
-#if     defined(USE_GTK)
-extern GtkWidget *chat_entry;
-extern GtkWidget *rx_vol_slider;
-extern GtkWidget *config_tab;
-extern GtkWidget *main_notebook;
-extern GtkWidget *main_tab;
-extern GtkWidget *log_tab;
-#endif // defined(USE_GTK)
-
 bool cmd_die(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "die", VAL_STR, "talk.args", args[1]);
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);

@@ -15,10 +15,11 @@ audit-logs/*/*
 # Built binaries
 bin/*
 
-# Built objects
+# Build artifacts
 build/*
 build/*/*
 build/*/obj/*
+inc/autoconf.h
 
 # Private data
 config/*.crt

@@ -23,8 +23,6 @@
 #include <glib.h>
 #include <librustyaxe/dict.h>
 
-#define	MAX_DIGITS 10
-
 G_BEGIN_DECLS
 
 #define	GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type() )

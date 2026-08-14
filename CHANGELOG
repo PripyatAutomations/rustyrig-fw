@@ -1,5 +1,11 @@
+rustyrig-fw (20260813) testing; urgency=medium
+* more work getting TUI working and fixing misc bugs
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  
+
 rustyrig-fw (20260802) testing; urgency=medium
 * More cleanup, fixed eeprom handling & moved most things to eventbus events
+
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  
 
 rustyrig-fw (20260724) testing; urgeny=medium
@@ -14,6 +20,7 @@ rustyrig-fw (20260721) testing; urgeny=medium
   - We will work on merging rrcli and rrgtk into one program and making rrserver support our irc based protocol as well as http api
     - This will require an alternative for libmongoose be found for http server, json handling, and a few other misc functions.
       ! Need to work on librrprotocol auth bits to remove dependancy on mongoose
+
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, Jul 21 2026 12:10:45 -0400
 
 rustyrig-fw (20251012) testing; urgency=medium

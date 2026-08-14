@@ -81,7 +81,7 @@ GtkWidget *create_vfo_box(void) {
    gtk_box_pack_start(GTK_BOX(control_box), online_spacer, TRUE, TRUE, 0);
 
    // FREQ selection
-   freq_entry = gtk_freq_entry_new(MAX_DIGITS);
+   freq_entry = gtk_freq_entry_new(-1);
    GtkWidget *freq_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(freq_label), "<u>F</u>req");
    gtk_box_pack_start(GTK_BOX(control_box), freq_entry, TRUE, TRUE, 0);

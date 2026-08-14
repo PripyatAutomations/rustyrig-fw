@@ -342,10 +342,9 @@ int main(int argc, char *argv[]) {
       tui_readline_cb = parse_chat_input_real;
 
       tui_init();
-      ui_print("status", "rrcli starting");
       tui_start_clock_timer(loop_main);
-#ifdef USE_GTK
    } else if (ui_mode == UI_MODE_GTK) {
+#ifdef USE_GTK
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
 #ifdef USE_MONGOOSE
       g_timeout_add(10, poll_mongoose, NULL);   // Poll Mongoose every 10ms
@@ -364,6 +363,7 @@ int main(int argc, char *argv[]) {
 #endif // defined(USE_GTK)
    }
    alert_dialogs_init();
+   ui_print("status", "rrclient starting");
 
    // Register all of our core event handlers
    rrclient_register_events();

@@ -40,15 +40,6 @@ extern const char *server_name;	// remove this (connman.c)
 extern struct mg_connection *ws_conn;
 #endif
 
-#if     defined(USE_GTK)
-extern GtkWidget *chat_entry;
-extern GtkWidget *rx_vol_slider;
-extern GtkWidget *config_tab;
-extern GtkWidget *main_notebook;
-extern GtkWidget *main_tab;
-extern GtkWidget *log_tab;
-#endif // defined(USE_GTK)
-
 extern dict *cfg;
 
 void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {

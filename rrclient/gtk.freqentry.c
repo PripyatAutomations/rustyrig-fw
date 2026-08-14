@@ -16,7 +16,7 @@
 #include <rrclient/gtk.freqentry.h>
 #include <rrclient/gtk.core.h>
 
-#define	MAX_DIGITS 10
+#define	MAX_DIGITS 8
 extern dict *cfg;
 extern time_t now;
 
@@ -719,9 +719,10 @@ static void gtk_freq_entry_get_property(GObject *object, guint property_id, GVal
 }
 
 GtkWidget *gtk_freq_entry_new(int num_digits) {
-   if (num_digits > MAX_DIGITS) {
+   if (num_digits > MAX_DIGITS || num_digits <= 0) {
       num_digits = MAX_DIGITS;
    }
+
    // Pass num_digits via construct property
    GtkFreqEntry *fe = g_object_new(GTK_TYPE_FREQ_ENTRY, "num-digits", num_digits, NULL);
 
@@ -769,10 +770,13 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
    };
 
    for (int i = 0 ; i < fe->num_digits ; i++) {
-      if (i == 1 || i == 4 || i == 7) {
+      // Add a separator before this digit when there are 3 digits
+      // remaining to the right, and we're not at the first digit.
+      if (i > 0 && (fe->num_digits - i) % 3 == 0) {
          GtkWidget *sep = gtk_label_new(" ");
-         gtk_box_pack_start(GTK_BOX(fe), sep, FALSE, FALSE, 2);
+         gtk_box_pack_start(GTK_BOX(fe), sep, FALSE, FALSE, 4);
       }
+
       GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
       GtkWidget *up_button = gtk_button_new_with_label("+");

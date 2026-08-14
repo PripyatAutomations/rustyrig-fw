@@ -55,12 +55,12 @@ bool userlist_add_or_update(dict *d) {
 
       c->clones = t_clones;
 
-#if     defined(USE_GTK)
 
       if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
          userlist_redraw_gtk();
-      }
 #endif
+      }
 
       return true;
    }
@@ -94,12 +94,12 @@ bool userlist_add_or_update(dict *d) {
 
    Log(LOG_INFO, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
-#if     defined(USE_GTK)
 
    if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
       userlist_redraw_gtk();
-   }
 #endif
+   }
 
    return true;
 }
@@ -155,12 +155,11 @@ void userlist_clear_all(void) {
    // Clear the userlist pointer
    global_userlist = NULL;
 
-#if     defined(USE_GTK)
-
    if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
       userlist_redraw_gtk();
-   }
 #endif
+   }
 }
 
 // Find a user in the userlist

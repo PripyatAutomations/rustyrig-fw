@@ -108,11 +108,11 @@
    },
    "interface": {
       "amp": {
-         "port": "pipe:/tmp/rustyradio.amp.socket",
+         "port": "pipe:/tmp/rustyrig.amp.socket",
          "enabled": "true"
       },
       "cat": {
-         "port": "pipe:/tmp/rustyradio.cat.socket",
+         "port": "pipe:/tmp/rustyrig.cat.socket",
          "enabled": "true"
       },
       "console": {

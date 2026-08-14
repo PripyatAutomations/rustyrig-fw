@@ -44,7 +44,6 @@ static void rrclient_display_log_message(const char *msg) {
 }
 
 static void rrclient_update_connection_ui(bool connected) {
-#if defined(USE_GTK)
 
    if (!conn_button) {
       return;
@@ -54,6 +53,7 @@ static void rrclient_update_connection_ui(bool connected) {
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
    if (ui_mode == UI_MODE_GTK) {
+#if defined(USE_GTK)
       GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(conn_button) );
 
       if (!ctx) {
@@ -69,8 +69,8 @@ static void rrclient_update_connection_ui(bool connected) {
          gtk_style_context_remove_class(ctx, "conn-pending");
          gtk_style_context_add_class(ctx, "conn-idle");
       }
-   }
 #endif
+   }
 }
 
 static void rrclient_handle_connection_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -124,13 +124,13 @@ static void rrclient_handle_ptt_event(const char *event, const char *data, rrcon
    dict_dump(d, stderr);
 
    if (ptt_button) {
-#if     defined(USE_GTK)
 
       if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
          update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), active);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
-      }
 #endif // defined(USE_GTK)
+      }
    }
 }
 
@@ -143,17 +143,17 @@ static void rrclient_handle_freq_event(const char *event, const char *data, rrco
    dict_dump(d, stderr);
    long freq = dict_get_long(d, "cat.state.freq", 0);
 
-#if     defined(USE_GTK)
 
    if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
       GtkWidget *entry = freq_entry;
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
 
       if ( !gtk_freq_entry_is_editing(fe) ) {
          gtk_freq_entry_set_frequency(fe, freq);
       }
-   }
 #endif // defined(USE_GTK)
+   }
    dict_free(d);
 }
 
@@ -162,12 +162,12 @@ static void rrclient_handle_mode_event(const char *event, const char *data, rrco
       return;
    }
    const char *mode = (const char *)data;
-#if     defined(USE_GTK)
 
    if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
       set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
-   }
 #endif // defined(USE_GTK)
+   }
 }
 
 static void rrclient_handle_userinfo_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -219,16 +219,17 @@ static void rrclient_handle_quit_event(const char *event, const char *data, rrco
    const char *masked_ip = "ip.hidden";
    const char *m_user = dict_get(d, "talk.user", NULL);
    const char *m_ip = dict_get(d, "talk.ip", (char *)masked_ip);
-   const char *m_target = dict_get(d, "talk.target", NULL);
+   const char *m_reason = dict_get(d, "talk.reason", NULL);
+
    time_t m_ts = dict_get_time_t(d, "talk.ts", now);
    const char *s_unknown = "<UNKNOWN>";
 
-   ui_print(NULL, "%s * %s (%s) quit from %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
-
-   if (!m_target) {
+   if (!m_user) {
       return;
    }
-   userlist_remove_by_name(m_target);
+   ui_print(NULL, "%s * %s (%s) quit from %s", get_chat_ts(m_ts), m_user, m_ip, m_reason);
+
+   userlist_remove_by_name(m_user);
 }
 
 static void rrclient_handle_whois_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -238,12 +239,12 @@ static void rrclient_handle_whois_event(const char *event, const char *data, rrc
    const char *whois_msg = (const char *)data;
 
    if (whois_msg && main_window) {
-#if     defined(USE_GTK)
 
       if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
          ui_show_whois_dialog(GTK_WINDOW(main_window), whois_msg);
-      }
 #endif
+      }
    }
 }
 

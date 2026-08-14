@@ -43,8 +43,8 @@ extern struct mg_connection *ws_conn;
 bool cmd_clear(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
       tui_clear_scrollback( tui_active_window() );
+   } else if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
-   } else {
       gtk_text_buffer_set_text(text_buffer, "", -1);
 #endif
    }
@@ -80,12 +80,12 @@ bool cmd_quit(int argc, char **args) {
 bool cmd_rxvol(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
       // do stuff
-#if     defined(USE_GTK)
    } else if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
       gdouble val = atoi(args[1]) / 100;
       gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
-      ui_print(NULL, "* Set rx-vol to %f", val);
 #endif
+      ui_print(NULL, "* Set rx-vol to %f", val);
    }
    return false;
 }

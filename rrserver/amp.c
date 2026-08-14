@@ -29,11 +29,11 @@ typedef struct rr_amp_state {
    bool active;
 } rr_amp_state_t;
 
-rr_amp_state_t *amp_data[MAX_AMPS];
+rr_amp_state_t *amp_data[RR_MAX_AMPS];
 
 bool rr_amp_init(uint8_t index) {
-   if ( index > (MAX_AMPS - 1) ) {
-      Log(LOG_CRIT, "amp", "rr_amp_init: got unit id %d > MAX_AMPS (%d), bailing!", index, MAX_AMPS);
+   if ( index > (RR_MAX_AMPS - 1) ) {
+      Log(LOG_CRIT, "amp", "rr_amp_init: got unit id %d > RR_MAX_AMPS (%d), bailing!", index, RR_MAX_AMPS);
 
       return true;
    }
@@ -60,7 +60,7 @@ bool rr_amp_init_all(void) {
 // Called to free memory allocated by the amp subsystem
 // This will be called before reloading
 bool rr_amp_fini(void) {
-   for (int index = 0 ; index < (MAX_AMPS - 1) ; index++) {
+   for (int index = 0 ; index < (RR_MAX_AMPS - 1) ; index++) {
       if (amp_data[index]) {
          free(amp_data[index]);
          amp_data[index] = NULL;
