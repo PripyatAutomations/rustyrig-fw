@@ -854,6 +854,15 @@ sub generate_config_h {
          printf $fh "#define USE_ALSA\n";
       }
 
+      if (defined($config->{features}{'alsa'}) && match_boolean($config->{features}{'alsa'})) {
+         printf $fh "#define USE_ALSA\n";
+      }
+
+      # Turning this off will remove a lot of debugging code, reducing the size and improving performance of the build
+      if (defined($config->{features}{'debug-build'}) && match_boolean($config->{features}{'debug-build'})) {
+         printf $fh "#define DEBUG_BUILD\n";
+      }
+
       if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat-kpa500'})) {
          printf $fh "#define CAT_KPA500 true\n";
       }

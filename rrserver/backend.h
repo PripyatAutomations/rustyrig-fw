@@ -59,9 +59,9 @@ struct rr_backend {
 typedef struct rr_backend rr_backend_t;
 
 extern bool rr_backend_init(void);
-extern bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo);
-extern bool rr_get_ptt(http_client_t *cptr, rr_vfo_t vfo);
-extern bool rr_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state);
+extern bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
+extern bool rr_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
+extern bool rr_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state);
 extern float rr_get_power(rr_vfo_t vfo);
 extern bool rr_set_power(rr_vfo_t vfo, float power);
 extern float rr_freq_get(rr_vfo_t vfo);

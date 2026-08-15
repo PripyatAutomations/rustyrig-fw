@@ -90,6 +90,7 @@
       "auto-block-ptt": "false",
       "cat-kpa500": "true",
       "cat-yaesu": "true",
+      "debug-build": true,
       "gstreamer": "true",
       "gtk": "true",
       "http": "true",

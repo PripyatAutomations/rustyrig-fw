@@ -65,9 +65,15 @@ bool cmd_disconnect(int argc, char **args) {
 }
 
 bool cmd_quit(int argc, char **args) {
+   const char *quitmsg = "no reason given";
    ui_print(NULL, "Goodbye!");
 
-   const char *jp = dict2json_mkstr(VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", args[1]);
+   if (argc > 1 && args && args[1][0] != '\0') {
+      quitmsg = args[1];
+   }
+      
+   const char *jp = dict2json_mkstr(
+       VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", quitmsg);
 #if     defined(USE_MONGOOSE)
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
 #endif

@@ -18,7 +18,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#if     defined(USE_SQLITE)
+#ifdef	USE_SQLITE
 #include <sqlite3.h>
 #include <rrserver/database.h>
 
@@ -185,7 +185,7 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
    return success;
 }
 
-bool db_send_chat_replay(http_client_t *cptr, const char *channel) {
+bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
    // retrieve the lines from database
    // For first message, send Replay Start message to client
    // send the message to the user

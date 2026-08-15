@@ -152,7 +152,7 @@ bool rr_backend_init(void) {
 // XXX: We need to work out how we'll deal with CAT commands directly (not via
 // http/ws) as they wont have cptr
 // XXX: but we will have a user struct available since they're logged in.. hmmm
-bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
+bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
    if (!cptr || !cptr->user) {
       Log(LOG_CRIT, "rig", "Got be_set_ptt without a user!");
 
@@ -174,7 +174,7 @@ bool rr_be_set_ptt(http_client_t *cptr, rr_vfo_t vfo, bool state) {
    return false;
 }
 
-bool rr_be_get_ptt(http_client_t *cptr, rr_vfo_t vfo) {
+bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo) {
    if (!cptr) {
       return false;
    }

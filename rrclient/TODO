@@ -1,4 +1,7 @@
 [general]
+* Add are you sure dialog on close button and alt-q (exit) hotkey
+* Add alt-q exit hotkey once confirm dialog done
+
 * Fix crashes / failure to notify on disconnect
   - Detect the socket close/error and set client to offline state
 * Fix PTT button

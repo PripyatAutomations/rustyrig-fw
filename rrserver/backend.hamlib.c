@@ -312,7 +312,7 @@ rr_vfo_data_t *hl_poll(void) {
    // send to all users
 #if     defined(USE_MONGOOSE)
    struct mg_str mp;
-   http_client_t *talker = whos_talking();
+   rrconn_t *talker = whos_talking();
 
    const char *jp = dict2json_mkstr( VAL_STR, "cat.state.vfo", "A", VAL_LONG, "cat.state.freq", hl_state.freq, VAL_STR,
       "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT, "cat.state.width", hl_state.width, VAL_BOOL,

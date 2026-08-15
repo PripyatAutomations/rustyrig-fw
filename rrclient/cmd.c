@@ -150,8 +150,6 @@ bool parse_chat_input_real(const char *msg) {
          const char *p = mp;
          const char *c = client_cmds[i].cmd;
 
-         Log(LOG_CRIT, "debug", "input: %s", c);
-
          while ( *p && *c &&
                  !isspace( (unsigned char)*p ) &&
                  tolower( (unsigned char)*p ) == tolower( (unsigned char)*c ) ) {

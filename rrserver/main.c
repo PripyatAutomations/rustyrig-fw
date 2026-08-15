@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
 
       // Has the TOT expired?
       if (global_tot_time > 0 && global_tot_time <= now) {
-         http_client_t *talker = whos_talking();
+         rrconn_t *talker = whos_talking();
          Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", ptt_tot_time);
          rr_ptt_set_all_off();
          char msgbuf[HTTP_WS_MAX_MSG + 1];

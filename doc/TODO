@@ -1,5 +1,9 @@
 Immediate needs
 ---------------
+build: Make sure if pack-eeprom/gen-headers runs, *everything* is rebuilt by triggering a make clean or such
+build: fix -j >1 not making autoconf symlink
+   - or get rid of the manual inc/build_config.h like we should have already... ;)
+librustyaxe: Can we work out a way to avoid dict2json -> json2dict in event-bus?
 rrclient: Fix tui auto-connect
 rrclient: TUI: Implement /names to show who's in the chat
 *: Anywhere libev or mongoose code exists, make sure the other does as well

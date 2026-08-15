@@ -53,7 +53,7 @@
          "7": { "name": "446.000 Simplex", "freq": 446000000, "bandwidth": "3000", "mode": "FM", "tx_power": 100 }
       },
       "60M": {
-         "0": { "name": "60M CH1 (Common voice)", "freq": 5330500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
+         "0": { "name": "60M CH 1 (Comm voice)", "freq": 5330500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
          "1": { "name": "60M CH 2", "freq": 5346500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
          "2": { "name": "60M CH 5", "freq": 5371500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 }
       }

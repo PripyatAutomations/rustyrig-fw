@@ -365,7 +365,6 @@ int main(int argc, char *argv[]) {
 #endif // defined(USE_GTK)
    }
    alert_dialogs_init();
-   ui_print("status", "rrclient starting");
 
    // Register all of our core event handlers
    rrclient_register_events();

@@ -15,47 +15,7 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/connman.h>
-#include <rrclient/userlist.h>
-#include <rrclient/ui.h>
-
-static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (!data) {
-      return;
-   }
-
-   dict *d = json2dict(data);
-   fprintf(stderr, "[talk.msg]\n");
-   dict_dump(d, stderr);
-#if	0
-   //sqlite3 *masterdb = NULL;
-   /*
-    *  bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
-    * *msg_dest, const char *msg_type, const char *msg_data) {
-    *  (void)db;
-    *  (void)msg_ts;
-    *  (void)msg_src;
-    *  (void)msg_dest;
-    *  (void)msg_type;
-    *  (void)msg_data;
-    *  return false;
-    *  }
-    */
-    // Log to database, if configured if (cfg_get_bool("chat.log", false) ) {
-    bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
-  
-       if (!db_res) {
-          fprintf(stderr, "db_add_chat_msg failed\n");
-       }
-    }
-    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data",
-       data, VAL_STR, "talk.from", cptr->chatname, VAL_STR, "talk.target", channel, VAL_STR,
-       "talk.msg_type", msg_type, VAL_LONG, "talk.ts", now);
-   free( (void *)jp );
-#endif
-
-   dict_free(d);
-}
+#include <rrserver/database.h>
 
 static void rrserver_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
@@ -79,8 +39,52 @@ static void rrserver_handle_nomatch(const char *event, const char *data, rrconn_
    dict_free(d);
 }
 
+static void rrserver_handle_send_chat_replay(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   fprintf(stderr, "[send-chat-replay]\n");
+   dict_dump(d, stderr);
+   const char *channel = dict_get(d, "talk.target", NULL);
+
+#ifdef  USE_SQLITE
+   if (channel) {
+      db_send_chat_replay(cptr, channel);
+   }
+#endif
+
+   dict_free(d);
+}
+
+static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   fprintf(stderr, "[talk.msg]\n");
+   dict_dump(d, stderr);
+   const char *channel = dict_get(d, "talk.target", NULL);
+   const char *msg_type = dict_get(d, "talk.msg_type", NULL);
+
+   if (!channel || !msg_type) {
+      return;
+   }
+
+   // Log to database, if configured if (cfg_get_bool("chat.log", false) ) {
+   bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
+  
+   if (!db_res) {
+      fprintf(stderr, "db_add_chat_msg failed\n");
+   }
+   dict_free(d);
+}
+
 void rrserver_register_events(void) {
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
-   event_on("ws.msg.hello", rrserver_handle_hello, NULL);
+   event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
+   event_on("ws.msg.hello", rrserver_handle_hello, NULL);
 }
