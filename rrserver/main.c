@@ -173,6 +173,17 @@ int main(int argc, char **argv) {
    memset( &rig, 0, sizeof(struct GlobalState) );
    load_defaults();
 
+#ifdef USE_COREDUMPS_SERVER
+   struct rlimit rl = {
+      .rlim_cur = RLIM_INFINITY,
+      .rlim_max = RLIM_INFINITY
+   };
+   setrlimit(RLIMIT_CORE, &rl);
+#else
+   struct rlimit rl = { 0, 0 };
+   setrlimit(RLIMIT_CORE, &rl);
+#endif // USE_COREDUMPS_SERVER
+
 #if     defined(USE_SQLITE)
    if (!(masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
@@ -210,21 +221,18 @@ int main(int argc, char **argv) {
 #endif
    Log(LOG_INFO, "core", "Device serial number: %lu", rig.serial);
 
+   // apply some configuration from the eeprom
+#if     defined(USE_EEPROM)
+   auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
+   cfg_backend_poll_interval = cfg_get_int("rig.poll-interval", 1000);
+#endif
+
    // Initialize add-in cards
    // XXX: This should be done by enumerating the bus eventually
    filter_init_all();
    rr_amp_init_all();
    rr_atu_init_all();
 
-#if     defined(USE_EEPROM)
-
-   if (!s) {
-      auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
-   }
-#endif
-
-   // apply some configuration from the eeprom
-   auto_block_ptt = cfg_get_bool("features.auto-block-ptt", false);
 
    if (auto_block_ptt) {
       Log(LOG_INFO, "core",
@@ -260,22 +268,18 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
+   // Bring up libmongoose for the websocket server
 #if     defined(USE_MONGOOSE)
-// Is mongoose http server enabled?
 #if     defined(USE_HTTP)
-// Is extra mongoose debugging enabled?
 #if     defined(HTTP_DEBUG_CRAZY)
    mg_log_set(MG_LL_DEBUG);
-#else
+#else  // HTTP_DEBUG_CRAZY
    mg_log_set(MG_LL_ERROR);
-#endif
+#endif // HTTP_DEBUG_CRAZY
 
-#if     defined(USE_MONGOOSE)
    mg_mgr_init(&mg_mgr);
-#endif
-
    http_init(&mg_mgr);
-#endif
+#endif // USE_HTTP
 #if     defined(USE_MQTT)
    mqtt_init(&mg_mgr);
    mqtt_client_init();
@@ -284,7 +288,6 @@ int main(int argc, char **argv) {
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
-   cfg_backend_poll_interval = cfg_get_int("rig.poll-interval", 1000);
 
 #if     defined(USE_MONGOOSE)
    // Update the clock (now) once a second

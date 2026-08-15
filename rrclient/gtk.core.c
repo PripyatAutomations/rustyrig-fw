@@ -362,20 +362,27 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    }
 }
 
-void update_connection_button(bool connected, GtkWidget *btn) {
+void update_connection_button(int connected, GtkWidget *btn) {
    if (!btn) {
       return;
    }
    GtkStyleContext *ctx = gtk_widget_get_style_context(btn);
 
-   if (connected) {
+   if (connected == 1) {
       gtk_button_set_label(GTK_BUTTON(btn), "Online");
       gtk_style_context_remove_class(ctx, "conn-idle");
+      gtk_style_context_remove_class(ctx, "conn-pending");
       gtk_style_context_add_class(ctx, "conn-active");
-   } else {
+   } else if (connected == 0) {
       gtk_button_set_label(GTK_BUTTON(btn), "Offline");
-      gtk_style_context_remove_class(ctx, "conn-active");
       gtk_style_context_add_class(ctx, "conn-idle");
+      gtk_style_context_remove_class(ctx, "conn-active");
+      gtk_style_context_remove_class(ctx, "conn-pending");
+   } else if (connected == -1) {
+      gtk_button_set_label(GTK_BUTTON(btn), "Trying...");
+      gtk_style_context_add_class(ctx, "conn-pending");
+      gtk_style_context_remove_class(ctx, "conn-active");
+      gtk_style_context_remove_class(ctx, "conn-idle");
    }
 }
 

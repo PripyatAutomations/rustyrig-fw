@@ -208,6 +208,17 @@ int main(int argc, char *argv[]) {
    int c;
    int digit_optind = 0;
 
+#ifdef USE_COREDUMPS_CLIENT
+   struct rlimit rl = {
+      .rlim_cur = RLIM_INFINITY,
+      .rlim_max = RLIM_INFINITY
+   };
+   setrlimit(RLIMIT_CORE, &rl);
+#else
+   struct rlimit rl = { 0, 0 };
+   setrlimit(RLIMIT_CORE, &rl);
+#endif // USE_COREDUMPS_CLIENT
+
    // Set a time stamp so logging will work
    now = time(NULL);
    update_timestamp();

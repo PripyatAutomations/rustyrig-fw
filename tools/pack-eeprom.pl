@@ -858,6 +858,18 @@ sub generate_config_h {
          printf $fh "#define USE_ALSA\n";
       }
 
+      if (defined($config->{features}{'coredumps-client'}) && match_boolean($config->{features}{'coredumps-client'})) {
+         printf $fh "#define USE_COREDUMPS_CLIENT\n";
+      }
+
+      if (defined($config->{features}{'coredumps-fwdsp'}) && match_boolean($config->{features}{'coredumps-fwdsp'})) {
+         printf $fh "#define USE_COREDUMPS_FWDSP\n";
+      }
+
+      if (defined($config->{features}{'coredumps-server'}) && match_boolean($config->{features}{'coredumps-server'})) {
+         printf $fh "#define USE_COREDUMPS_SERVER\n";
+      }
+
       # Turning this off will remove a lot of debugging code, reducing the size and improving performance of the build
       if (defined($config->{features}{'debug-build'}) && match_boolean($config->{features}{'debug-build'})) {
          printf $fh "#define DEBUG_BUILD\n";

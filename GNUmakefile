@@ -15,12 +15,12 @@ include mk/database.mk
 #include mk/libmongoose.mk
 include mk/eeprom.mk
 
-extra_clean += $(wildcard ${OBJ_DIR}/*.h) $(wildcard */compile_commands.json)
+extra_clean += $(wildcard ${BUILD_DIR}/*.h) $(wildcard */compile_commands.json)
 extra_clean += ${EEPROM_FILE} ${librustyaxe} ${librrprotocol}
 extra_clean += firmware.log
 
-BUILD_HEADERS += $(wildcard ${OBJ_DIR}/eeprom_layout.h)
-BUILD_HEADERS += $(wildcard ${OBJ_DIR}/*.h)
+BUILD_HEADERS += $(wildcard ${BUILD_DIR}/eeprom_layout.h)
+BUILD_HEADERS += $(wildcard ${BUILD_DIR}/*.h)
 BUILD_HEADERS += $(wildcard inc/librrprotocol/*.h)
 BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h)
 RRSERVER_HEADERS += $(wildcard rrserver/*.h)
@@ -52,11 +52,11 @@ include mk/packaging.mk
 ${BUILD_DIR}/build_config.h: ${EEPROM_FILE}
 ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
 
-${OBJ_DIR}/.stamp: 
-	mkdir -p "${OBJ_DIR}"
+${BUILD_DIR}/.stamp:
+	mkdir -p "${BUILD_DIR}"
 	touch $@
 
 world: after-eeprom
 
 after-eeprom: ${EEPROM_FILE}
-after-eeprom: ${OBJ_DIR}/.stamp ${BUILD_DIR}/build_config.h ${extra_build} ${bins}
+after-eeprom: ${BUILD_DIR}/.stamp ${BUILD_DIR}/build_config.h ${extra_build} ${bins}

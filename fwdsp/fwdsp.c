@@ -230,6 +230,17 @@ int main(int argc, char *argv[]) {
    fprintf(stderr, "Starting fwdsp v.%s\n", VERSION);
    host_init();
 
+#ifdef USE_COREDUMPS_FWDSP
+   struct rlimit rl = {
+      .rlim_cur = RLIM_INFINITY,
+      .rlim_max = RLIM_INFINITY
+   };
+   setrlimit(RLIMIT_CORE, &rl);
+#else
+   struct rlimit rl = { 0, 0 };
+   setrlimit(RLIMIT_CORE, &rl);
+#endif // USE_COREDUMPS_FWDSP
+
    // Logging MUST go to stderr!
    logfp = stderr;
    now = time(NULL);

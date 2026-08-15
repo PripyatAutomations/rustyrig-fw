@@ -13,9 +13,9 @@ libfwdspmgr_objs += fwdsp-mgr.o
 fwdsp_objs += defconfig.o
 fwdsp_objs += fwdsp.o
 
-fwdsp_real_objs := $(foreach x, ${fwdsp_objs}, ${OBJ_DIR}/fwdsp/${x})
+fwdsp_real_objs := $(foreach x, ${fwdsp_objs}, ${BUILD_DIR}/fwdsp/${x})
 
-${OBJ_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS} GNUmakefile fwdsp/rules.mk ${librustyaxe_headers}
+${BUILD_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS} GNUmakefile fwdsp/rules.mk ${librustyaxe_headers}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

@@ -39,10 +39,10 @@ RRSERVER_HEADERS += $(wildcard rrserver/*.h)
 
 CFLAGS_RRSERVER += -DRRSERVER
 
-rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${OBJ_DIR}/rrserver/${x})
+rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
-${OBJ_DIR}/rrserver/%.o: rrserver/%.c ${RRSERVER_HEADERS} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
+${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${RRSERVER_HEADERS} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

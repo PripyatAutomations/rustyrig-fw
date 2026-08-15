@@ -43,8 +43,7 @@ static void rrclient_display_log_message(const char *msg) {
    }
 }
 
-static void rrclient_update_connection_ui(int connected) {
-
+void rrclient_update_connection_ui(int connected) {
    if (!conn_button) {
       return;
    }
@@ -200,28 +199,27 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 
    if (strcasecmp(event, "connecting") == 0) {
       ui_print( NULL, "%s *** {bright-yellow}Connecting{reset} ***", get_chat_ts(now) );
-#ifdef	USE_GTK
-      gtk_style_context_add_class(ctx, "conn-pending");
-      gtk_style_context_remove_class(ctx, "conn-active");
-      gtk_style_context_remove_class(ctx, "conn-idle");
-#endif	// USE_GTK
+      rrclient_update_connection_ui(-1);
    } else if (strcasecmp(event, "connected") == 0) {
+      if (!data) {
+         return;
+      }
+
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
-      ui_print( NULL, "%s *** {green}Connected, logging in as %s ***", get_chat_ts(now), login_user );
-
-      // discard the old value, if one is saved, and store the new user
-      // XXX: multiserver bug
-      if (login_user) {
-         free( (void *)login_user );
+      if (user) {
+         // XXX: multiserver bug, discard old value if saved so we can store new without a leak
+         if (login_user) {
+            free( (void *)login_user );
+         }
+         login_user = strdup(user);
+         ui_print( NULL, "%s *** {green}Connected, logging in as %s ***", get_chat_ts(now), login_user );
       }
-      login_user = strdup(user);
+      rrclient_update_connection_ui(-1);
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
-      rrclient_update_connection_ui(true);
-      gtk_style_context_add_class(ctx, "conn-pending");
-      gtk_style_context_remove_class(ctx, "conn-active");
-      gtk_style_context_remove_class(ctx, "conn-idle");
+      ui_print( NULL, "%s **** {green}Logged in!", get_chat_ts(now) );
+      rrclient_update_connection_ui(1);
    } else if (strcasecmp(event, "goodbye") == 0 || strcasecmp(event, "disconnect") == 0) {
       if (login_user) {
          free( (void *)login_user );
@@ -233,7 +231,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 #ifdef USE_MONGOOSE
       ws_conn = NULL;
 #endif	// USE_MONGOOSE
-      update_connection_button(false, conn_button);
+      rrclient_update_connection_ui(false);
       userlist_clear_all();
    } else if (strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {
       ui_print(NULL, "{red}* http error *{reset}");
@@ -426,10 +424,11 @@ void rrclient_register_events(void) {
    event_on("ws.msg.ping", rrclient_handle_ping, NULL);
 
    // Connection status related
+   event_on("auth.error", rrclient_handle_autherr, NULL);
+   event_on("authorized", rrclient_handle_connection, NULL);
    event_on("connected", rrclient_handle_connection, NULL);
    event_on("connecting", rrclient_handle_connection, NULL);
    event_on("disconnected", rrclient_handle_connection, NULL);
-   event_on("auth.error", rrclient_handle_autherr, NULL);
 
    // Status events
    event_on("alert", rrclient_handle_alert, NULL);
@@ -453,4 +452,3 @@ void rrclient_register_events(void) {
    event_on("rig.freq", rrclient_handle_freq, NULL);
    event_on("rig.mode", rrclient_handle_mode, NULL);
 }
-
