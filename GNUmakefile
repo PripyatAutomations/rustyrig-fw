@@ -1,6 +1,6 @@
 # New and improved GNU makefile
+.PHONY: world
 all: world
-BUILD_DIR := ./build
 librustyaxe := librustyaxe.so
 librrprotocol := librrprotocol.so
 
@@ -9,6 +9,7 @@ DATE=$(shell date +%Y%m%d)
 INSTALLER=rrclient.win64.${DATE}.exe
 
 include mk/json-config.mk
+BUILD_DIR := ./build/${PROFILE}
 include mk/compile.mk
 include mk/database.mk
 #include mk/libmongoose.mk
@@ -47,18 +48,15 @@ include mk/debug.mk
 include mk/resource.mk
 include mk/packaging.mk
 
-inc/autoconf.h: ${OBJ_DIR}/${PROFILE}/build_config.h
-	rm -f inc/autoconf.h
-	ln -s "${OBJ_DIR}/${PROFILE}/build_config.h" inc/autoconf.h
-
-${OBJ_DIR}/${PROFILE}/build_config.h: ${EEPROM_FILE}
+# This is built as part of ./tools/pack-eeprom until we split it off later perhaps
+${BUILD_DIR}/build_config.h: ${EEPROM_FILE}
 ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
-
-extra_distclean += inc/autoconf.h
 
 ${OBJ_DIR}/.stamp: 
 	mkdir -p "${OBJ_DIR}"
 	touch $@
 
-extra_build += ${OBJ_DIR}/${PROFILE}/build_config.h inc/autoconf.h
-world: ${OBJ_DIR}/.stamp ${extra_build} ${bins}
+world: after-eeprom
+
+after-eeprom: ${EEPROM_FILE}
+after-eeprom: ${OBJ_DIR}/.stamp ${BUILD_DIR}/build_config.h ${extra_build} ${bins}

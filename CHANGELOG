@@ -1,8 +1,10 @@
 rustyrig-fw (20260815) testing; urgency=medium
 * got TUI working (-T)
 * lots of bugs fixed
-* Fixed rrserver high cpu usage
+* Fixed rrserver high cpu usage by moving to timers instead of the big ugly main loop
 * Fixed backend glue so hamlib can work
+* Fixed build_config.h autogeneration from config/${PROFILE}.config.json, radio is default PROFILE
+* Fixed makefile bugs that allowed -j builds to proceed before/while ./tools/pack-eeprom runs
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, Aug 15 2026 10:42:19 AM -0400
 

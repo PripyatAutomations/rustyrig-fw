@@ -995,6 +995,12 @@ sub generate_config_h {
       print $fh "#define HOST_CAT_PIPE \"cat.fifo\"\n";
       print $fh "#define HOST_POSIX\n";
       print $fh "#define HOST_LINUX\t// This should not be here, but i2c depends on it for now\n";
+      print $fh "#define EEPROM_READONLY\n";
+      print $fh "//#define       NOISY_EEPROM true\n";
+      print $fh "#define BACKEND_HAMLIB_DEBUG    RIG_DEBUG_WARN\n";
+      print $fh "#define HTTP_USE_TLS            1\n";
+      print $fh "#define HTTP_TLS_KEY            \"./config/key.pem\"\n";
+      print $fh "#define HTTP_TLS_CERT           \"./config/cert.pem\"\n";
    }
 
    # footer

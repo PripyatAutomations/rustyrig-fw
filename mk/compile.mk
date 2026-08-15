@@ -37,7 +37,7 @@ SHELL = bash
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += $(shell pkg-config --cflags mbedtls)
 CFLAGS += -Wno-deprecated-declarations
-CFLAGS += -I./ -I../ -I./inc
+CFLAGS += -I./ -I../ -I./inc -I${BUILD_DIR}
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
@@ -97,3 +97,5 @@ strip: ${bins}
 	@echo "[strip] ${bins}"
 	@strip $^
 	@ls -a1ls $^
+
+LIB_LDFLAGS := -fPIC -shared

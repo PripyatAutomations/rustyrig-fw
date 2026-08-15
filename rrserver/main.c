@@ -48,7 +48,7 @@ struct GlobalState rig;          // Global state
 time_t now = -1;                 // time() called once a second in main loop to
                                  // update
 int auto_block_ptt = 0;          // Auto block PTT at boot?
-struct timespec last_rig_poll = {
+struct timespec last_backend_poll = {
    .tv_sec = 0, .tv_nsec = 0
 };
 struct timespec loop_start = {
@@ -58,7 +58,7 @@ time_t ptt_tot_time = RF_TALK_TIMEOUT;
 char *rig_name = NULL;
 
 // How often we will poll the backend in ms
-int cfg_rig_poll_interval = 1000;
+int cfg_backend_poll_interval = 1000;
 
 // These are used for restarting ourself using exec()
 int my_argc = -1;
@@ -103,7 +103,7 @@ void restart_rig(void) {
 static int clock_expire_http_iter = 0;
 static int clock_expire_fwdsp_iter = 0;
 
-static void timer_clock_tick(void *arg) {
+static void timer_clock_tick_fn(void *arg) {
    // Update our time keeping variables once per second
    clock_gettime(CLOCK_MONOTONIC, &loop_start);
    now = time(NULL);
@@ -147,33 +147,24 @@ static void timer_clock_tick(void *arg) {
    }
 }
 
-static void timer_check_faults(void *arg) {
+static void timer_check_faults_fn(void *arg) {
    if (check_faults() ) {
       Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
       // XXX: Should we stop PTT and halt here?
    }
 }
 
-static void timer_rig_poll(void *arg) {
+static void timer_backend_poll_fn(void *arg) {
    // Poll the rig
    rr_be_poll(VFO_A);
-   last_rig_poll.tv_sec = loop_start.tv_sec;
-   last_rig_poll.tv_nsec = loop_start.tv_nsec;
+   last_backend_poll.tv_sec = loop_start.tv_sec;
+   last_backend_poll.tv_nsec = loop_start.tv_nsec;
 }
 
 int main(int argc, char **argv) {
    // save for restarting later
    my_argc = argc;
    my_argv = argv;
-
-   // loop time calculation
-#if     defined(USE_PROFILING)
-   struct timespec loop_end = {
-      .tv_sec = 0, .tv_nsec = 0
-   };
-   double loop_runtime = 0.0, current_time;
-   time_t last_profstat = 0;
-#endif // defined(USE_PROFILING)
 
    // Initialize some early state
    now = time(NULL);
@@ -338,17 +329,19 @@ int main(int argc, char **argv) {
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
-   cfg_rig_poll_interval = cfg_get_int("rig.poll-interval", 1000);
+   cfg_backend_poll_interval = cfg_get_int("rig.poll-interval", 1000);
 
+#if     defined(USE_MONGOOSE)
    // Update the clock (now) once a second
-   mg_timer_add(&mg_mgr, 1000, MG_TIMER_REPEAT, timer_clock_tick, &mg_mgr);
+   mg_timer_add(&mg_mgr, 1000, MG_TIMER_REPEAT, timer_clock_tick_fn, &mg_mgr);
 
    // Update the clock (now) once a second
    // Check for faults/protection every 150ms
-   mg_timer_add(&mg_mgr, 150, MG_TIMER_REPEAT, timer_check_faults, &mg_mgr);
+   mg_timer_add(&mg_mgr, 150, MG_TIMER_REPEAT, timer_check_faults_fn, &mg_mgr);
 
    // rig polling
-   mg_timer_add(&mg_mgr, cfg_rig_poll_interval, MG_TIMER_REPEAT, timer_rig_poll, &mg_mgr);
+   mg_timer_add(&mg_mgr, cfg_backend_poll_interval, MG_TIMER_REPEAT, timer_backend_poll_fn, &mg_mgr);
+#endif	// USE_MONGOOSE
 
    // Main loop
    while (1) {
