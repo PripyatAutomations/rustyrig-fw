@@ -100,6 +100,67 @@ void restart_rig(void) {
    exit(127);
 }
 
+static int clock_expire_http_iter = 0;
+static int clock_expire_fwdsp_iter = 0;
+
+static void timer_clock_tick(void *arg) {
+   // Update our time keeping variables once per second
+   clock_gettime(CLOCK_MONOTONIC, &loop_start);
+   now = time(NULL);
+
+   // Check thermals
+   if (are_we_on_fire() ) {
+      rr_ptt_set_all_off();
+      rr_ptt_set_blocked(true);
+      Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
+   }
+
+   // Has the TOT expired?
+   if (global_tot_time > 0 && global_tot_time <= now) {
+      rrconn_t *talker = whos_talking();
+      Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", ptt_tot_time);
+      rr_ptt_set_all_off();
+      char msgbuf[HTTP_WS_MAX_MSG + 1];
+      prepare_msg( msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s",
+         (talker ? talker->chatname : "**UNKNOWN***") );
+      send_global_alert("***SERVER***", msgbuf);
+      global_tot_time = 0;
+   }
+
+   // Send pings, drop dead connections, etc
+
+   // Only expire fwdsp sessions every 10 seconds
+   if (clock_expire_fwdsp_iter >= 30) {
+      // deal with timed out en/decoders
+//      fwdsp_sweep_expired();
+      clock_expire_fwdsp_iter = 0;
+   } else {
+      clock_expire_fwdsp_iter++;
+   }
+
+   // Only expire http sessions every third seconds
+   if (clock_expire_http_iter >= 30) {
+      http_expire_sessions();
+      clock_expire_http_iter = 0;
+   } else {
+      clock_expire_http_iter++;
+   }
+}
+
+static void timer_check_faults(void *arg) {
+   if (check_faults() ) {
+      Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
+      // XXX: Should we stop PTT and halt here?
+   }
+}
+
+static void timer_rig_poll(void *arg) {
+   // Poll the rig
+   rr_be_poll(VFO_A);
+   last_rig_poll.tv_sec = loop_start.tv_sec;
+   last_rig_poll.tv_nsec = loop_start.tv_nsec;
+}
+
 int main(int argc, char **argv) {
    // save for restarting later
    my_argc = argc;
@@ -279,118 +340,27 @@ int main(int argc, char **argv) {
 
    cfg_rig_poll_interval = cfg_get_int("rig.poll-interval", 1000);
 
+   // Update the clock (now) once a second
+   mg_timer_add(&mg_mgr, 1000, MG_TIMER_REPEAT, timer_clock_tick, &mg_mgr);
+
+   // Update the clock (now) once a second
+   // Check for faults/protection every 150ms
+   mg_timer_add(&mg_mgr, 150, MG_TIMER_REPEAT, timer_check_faults, &mg_mgr);
+
+   // rig polling
+   mg_timer_add(&mg_mgr, cfg_rig_poll_interval, MG_TIMER_REPEAT, timer_rig_poll, &mg_mgr);
+
    // Main loop
    while (1) {
-      // save the current time
-      clock_gettime(CLOCK_MONOTONIC, &loop_start);
-      now = time(NULL);
-
-      char buf[512];
-
-      // Check faults
-      if (check_faults() ) {
-         Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
-         // XXX: Should we stop PTT and halt here?
-      }
-
-      // Has the TOT expired?
-      if (global_tot_time > 0 && global_tot_time <= now) {
-         rrconn_t *talker = whos_talking();
-         Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", ptt_tot_time);
-         rr_ptt_set_all_off();
-         char msgbuf[HTTP_WS_MAX_MSG + 1];
-         prepare_msg( msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s",
-            (talker ? talker->chatname : "**UNKNOWN***") );
-         send_global_alert("***SERVER***", msgbuf);
-         global_tot_time = 0;
-      }
-
-      // Check thermals
-      if (are_we_on_fire() ) {
-         rr_ptt_set_all_off();
-         rr_ptt_set_blocked(true);
-         Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
-      }
-      // XXX: we need to pass io structs
-      // XXX: Determine which (pipes|devices|sockets) are needing read from
-      // XXX: Iterate over them: console, amp, rig
-      // We limit line length to 512
-#if     defined(USE_CAT)
-#if     defined(CAT_YAESU)
-      memset(buf, 0, PARSE_LINE_LEN);
-      // io_read(&cat_io, &buf, PARSE_LINE_LEN - 1);
-      rr_cat_parse_line(buf);
-#endif
-#if     defined(CAT_KPA500)
-//      memset(buf, 0, PARSE_LINE_LEN);
-//      io_read(&amp_io, &buf, PARSE_LINE_LEN - 1);
-      rr_cat_parse_amp_line(buf);
-#endif
-#endif
-//      memset(buf, 0, PARSE_LINE_LEN);
-//      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
-//      rr_cons_parse_line(buf);
-
-      // Redraw the GUI virtual framebuffer, update nextion
-//      gui_update();
-
-      // Send pings, drop dead connections, etc
-      http_expire_sessions();
-
-      // XXX: Check if an LCD/OLED is configured and update it
-
-      // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
-
-      long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
-                (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
-
-      // poll the backend (internal or hamlib), if needed
-      if (ms >= cfg_rig_poll_interval) {
-         // Poll the rig
-         rr_be_poll(VFO_A);
-         last_rig_poll.tv_sec = loop_start.tv_sec;
-         last_rig_poll.tv_nsec = loop_start.tv_nsec;
-      }
-
-         // deal with timed out en/decoders
-//         fwdsp_sweep_expired();
 #if     defined(USE_MONGOOSE)
       // Process Mongoose HTTP and MQTT events, this should be at the end of
       // loop so all data is ready
       mg_mgr_poll(&mg_mgr, 1000);
 #endif
 
-      // If enabled, calculate loop run time
-#if     defined(USE_PROFILING)
-      clock_gettime(CLOCK_MONOTONIC, &loop_end);
-      current_time = (loop_end.tv_sec - loop_start.tv_sec) +
-                     (loop_end.tv_nsec - loop_start.tv_nsec) / 1e9;
-
-      if (loop_runtime == 0.0) {
-         loop_runtime = current_time;
-      } else {
-         loop_runtime = (TS_ALPHA * current_time) + (1 - TS_ALPHA) * loop_runtime;
-      }
-#endif // defined(USE_PROFILING)
-
-      const struct timespec ts = {
-         .tv_sec = 0, .tv_nsec = 100000
-      };
-      nanosleep(&ts, NULL);
-
       if (dying) {
          break;
       }
-#if     defined(USE_PROFILING)
-
-      if (now > last_profstat + 300) {
-         last_profstat = now;
-
-         // XXX: Every 5 minutes we should save the loop runtime average instead
-         // of the most recent
-         Log(LOG_CRAZY, "profile", "Last mainloop runtime: %.6f seconds", loop_runtime);
-      }
-#endif // defined(USE_PROFILING)
    }
    host_cleanup();
 

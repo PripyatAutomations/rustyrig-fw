@@ -349,7 +349,7 @@ int main(int argc, char *argv[]) {
 #ifdef USE_GTK
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
 #ifdef USE_MONGOOSE
-      g_timeout_add(10, poll_mongoose, NULL);   // Poll Mongoose every 10ms
+      g_timeout_add(20, poll_mongoose, NULL);   // Poll Mongoose every 20ms
 #endif // defined(USE_MONGOOSE)
 
       gtk_init(&argc, &argv);

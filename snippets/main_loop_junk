@@ -1,0 +1,33 @@
+/*
+#if	0	// XXX: This needs moved to the async io stuff
+      // XXX: we need to pass io structs
+      // XXX: Determine which (pipes|devices|sockets) are needing read from
+      // XXX: Iterate over them: console, amp, rig
+      // We limit line length to 512
+#if     defined(USE_CAT)
+#if     defined(CAT_YAESU)
+      memset(buf, 0, PARSE_LINE_LEN);
+      // io_read(&cat_io, &buf, PARSE_LINE_LEN - 1);
+      rr_cat_parse_line(buf);
+#endif
+#if     defined(CAT_KPA500)
+//      memset(buf, 0, PARSE_LINE_LEN);
+//      io_read(&amp_io, &buf, PARSE_LINE_LEN - 1);
+      rr_cat_parse_amp_line(buf);
+#endif
+#endif
+//      memset(buf, 0, PARSE_LINE_LEN);
+//      io_read(&cons_io, &buf, PARSE_LINE_LEN - 1);
+//      rr_cons_parse_line(buf);
+
+      // Redraw the GUI virtual framebuffer, update nextion
+//      gui_update();
+
+
+      // XXX: Check if an LCD/OLED is configured and update it
+
+      // XXX: Check if any mjpeg subscribers exist and prepare a frame for them
+
+      long ms = (loop_start.tv_sec - last_rig_poll.tv_sec) * 1000L +
+                (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
+*/
