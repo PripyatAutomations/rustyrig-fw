@@ -35,7 +35,7 @@ extern time_t poll_block_expire, poll_block_delay;
 extern GtkWidget *control_box;
 GtkWidget *ptt_button = NULL;
 
-void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
+void update_ptt_button_ui(GtkToggleButton *button, int active) {
    if (!button) {
       return;
    }
@@ -48,11 +48,17 @@ void update_ptt_button_ui(GtkToggleButton *button, gboolean active) {
    }
    GtkStyleContext *context = gtk_widget_get_style_context( GTK_WIDGET(button) );
 
-   if (active) {
+   if (active == 1) {
       gtk_style_context_add_class(context, "ptt-active");
       gtk_style_context_remove_class(context, "ptt-idle");
-   } else {
+      gtk_style_context_remove_class(context, "ptt-pending");
+   } else if (active == -1) {
       gtk_style_context_add_class(context, "ptt-pending");
+      gtk_style_context_remove_class(context, "ptt-active");
+      gtk_style_context_remove_class(context, "ptt-idle");
+   } else if (active == 0) {
+      gtk_style_context_add_class(context, "ptt-idle");
+      gtk_style_context_remove_class(context, "ptt-pending");
       gtk_style_context_remove_class(context, "ptt-active");
    }
 }

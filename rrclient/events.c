@@ -327,7 +327,7 @@ static void rrclient_handle_ptt(const char *event, const char *data, rrconn_t *c
 
       if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
-         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), active);
+         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)active);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
 #endif // defined(USE_GTK)
       }

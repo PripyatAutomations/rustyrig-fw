@@ -100,6 +100,14 @@ bool cmd_rxvol(int argc, char **args) {
 }
 
 bool cmd_server(int argc, char **args) {
+   if (argc < 2 || !args) {
+      if (server_name && server_name[0] != '\0') {
+         connect_server(server_name);
+      }
+
+      return true;
+   }
+
    const char *server = args[1];
 
    if (server && server[0] != '\0') {
