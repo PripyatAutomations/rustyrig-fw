@@ -96,6 +96,7 @@
       "http": "true",
       "libunwind": "false",
       "max_bands": 14,
+      "mongoose": "true",
       "mqtt": "false",
       "sqlite": "true"
    },

@@ -883,6 +883,10 @@ sub generate_config_h {
          printf $fh "#define USE_MQTT\n";
       }
 
+      if (defined($config->{features}{'mongoose'}) && match_boolean($config->{features}{'mongoose'})) {
+         printf $fh "#define USE_MONGOOSE\n";
+      }
+
       if (defined($config->{features}{'opus'}) && match_boolean($config->{features}{'opus'})) {
          printf $fh "#define USE_OPUS\n";
       }

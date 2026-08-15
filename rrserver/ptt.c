@@ -85,8 +85,10 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
       "cat.state.ts", now);
 #endif
    // and send a CAT message with the state
+#ifdef USE_MONGOOSE
    struct mg_str mp = mg_str(jp);
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+#endif
    free( (void *)jp );
 
    return ptt;

@@ -211,7 +211,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       rrclient_update_connection_ui(false);
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
       ws_connected = false;
+#ifdef USE_MONGOOSE
       ws_conn = NULL;
+#endif	// USE_MONGOOSE
       update_connection_button(false, conn_button);
       userlist_clear_all();
    } else if (strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {

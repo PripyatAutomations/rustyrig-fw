@@ -13,11 +13,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#if     defined(USE_MQTT)
+#if     defined(USE_MQTT) && defined(USE_MONGOOSE)
 
 extern bool mqtt_init(struct mg_mgr *mgr);
 extern bool mqtt_client_init(void);
 
-#endif // defined(USE_MQTT)
+#endif // defined(USE_MQTT) && defined(USE_MONGOOSE)
 
 #endif // !defined(__rr_mqtt_h)

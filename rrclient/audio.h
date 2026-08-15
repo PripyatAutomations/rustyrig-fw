@@ -35,10 +35,13 @@ extern GstElement *tx_sink;
 
 extern bool audio_init(void);
 extern void audio_tx_free_frame(void);
-extern void try_send_next_frame(struct mg_connection *c);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
+
+#ifdef USE_MONGOOSE
+extern void try_send_next_frame(struct mg_connection *c);
 extern bool ws_send_capab(struct mg_connection *c, const char *codecs);
+#endif	// USE_MONGOOSE
 
 #endif // !defined(__rrclient_audio_h)

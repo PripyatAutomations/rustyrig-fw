@@ -100,7 +100,9 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
 
 bool cmd_whois(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "whois", VAL_STR, "talk.args", args[1]);
+#ifdef USE_MONGOOSE
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif	// USE_MONGOOSE
    free( (char *)jp );
 
    return false;

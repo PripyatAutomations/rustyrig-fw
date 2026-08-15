@@ -30,6 +30,7 @@
 #include <rrserver/filters.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/ws.h>
 
 #if     defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;
@@ -55,6 +56,9 @@ struct timespec loop_start = {
 };
 time_t ptt_tot_time = RF_TALK_TIMEOUT;
 char *rig_name = NULL;
+
+// How often we will poll the backend in ms
+int cfg_rig_poll_interval = 1000;
 
 // These are used for restarting ourself using exec()
 int my_argc = -1;
@@ -186,7 +190,7 @@ int main(int argc, char **argv) {
 
 //   i2c_init();
 //   gui_init();
-   logger_init(LOGFILE);
+   logger_init(LOG_FILE);
 
    // Print the serial #
    const char *s = cfg_get("device.serial");
@@ -273,6 +277,8 @@ int main(int argc, char **argv) {
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
+   cfg_rig_poll_interval = cfg_get_int("rig.poll-interval", 1000);
+
    // Main loop
    while (1) {
       // save the current time
@@ -339,19 +345,19 @@ int main(int argc, char **argv) {
                 (loop_start.tv_nsec - last_rig_poll.tv_nsec) / 1000000L;
 
       // poll the backend (internal or hamlib), if needed
-      // XXX: move to config
-      if (ms >= 1000) {
+      if (ms >= cfg_rig_poll_interval) {
          // Poll the rig
          rr_be_poll(VFO_A);
          last_rig_poll.tv_sec = loop_start.tv_sec;
          last_rig_poll.tv_nsec = loop_start.tv_nsec;
+      }
+
          // deal with timed out en/decoders
 //         fwdsp_sweep_expired();
-      }
 #if     defined(USE_MONGOOSE)
       // Process Mongoose HTTP and MQTT events, this should be at the end of
       // loop so all data is ready
-      mg_mgr_poll(&mg_mgr, 0);
+      mg_mgr_poll(&mg_mgr, 1000);
 #endif
 
       // If enabled, calculate loop run time

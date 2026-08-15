@@ -10,11 +10,7 @@
 
 #define EEPROM_READONLY
 //#define	NOISY_EEPROM true
-#define CAT true
 #define BACKEND_HAMLIB_DEBUG	RIG_DEBUG_WARN
-#define USE_MQTT
-#define	USE_MONGOOSE
-#define	USE_EV
 #define HTTP_USE_TLS 		1
 #define HTTP_TLS_KEY 		"./config/key.pem"
 #define HTTP_TLS_CERT 		"./config/cert.pem"

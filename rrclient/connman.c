@@ -59,11 +59,12 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
    return NULL;
 }
 
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
 struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 extern struct mg_connection *ws_conn;
+#endif	// USE_MONGOOSE
 extern bool ws_connected;
 
 char session_token[HTTP_TOKEN_LEN + 1] = {
@@ -71,6 +72,7 @@ char session_token[HTTP_TOKEN_LEN + 1] = {
 };
 
 
+#ifdef	USE_MONGOOSE
 static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
@@ -136,12 +138,14 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       ui_print(NULL, "status", "Disconnected from server");
    }
 }
+#endif	// USE_MONGOOSE
 
 bool rrclient_connect(const char *url) {
    if (!url) {
       return true;
    }
    ui_print(NULL, "status", "Connecting to %s", url);
+#ifdef	USE_MONGOOSE
    ws_conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
 
    if (!ws_conn) {
@@ -149,12 +153,13 @@ bool rrclient_connect(const char *url) {
 
       return true;
    }
+#endif	// USE_MONGOOSE
 
    return false;
 }
 
 bool rrclient_send_chat(const char *data) {
-   if (!ws_conn || !data) {
+   if (!data) {
       return true;
    }
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", data, VAL_STR, "talk.msg_type",
@@ -163,35 +168,49 @@ bool rrclient_send_chat(const char *data) {
    if (!jp) {
       return true;
    }
+
+#ifdef	USE_MONGOOSE
+   if (!ws_conn) {
+      return true;
+   }
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif	// USE_MONGOOSE
    free( (void *)jp );
 
    return false;
 }
 
 bool rrclient_send(const char *json) {
-   if (!ws_conn || !json) {
+   if (!json) {
+      return true;
+   }
+
+#ifdef	USE_MONGOOSE
+   if (!ws_conn) {
       return true;
    }
    mg_ws_send(ws_conn, json, strlen(json), WEBSOCKET_OP_TEXT);
-
+#endif	// USE_MONGOOSE
    return false;
 }
 
 bool rrclient_disconnect(void) {
+#ifdef	USE_MONGOOSE
    if (ws_conn) {
       ws_conn->is_closing = 1;
       ws_conn = NULL;
    }
+#endif	// USE_MONGOOSE
    ws_connected = false;
 
    return false;
 }
 
 void rrclient_poll_events(void) {
+#ifdef	USE_MONGOOSE
    mg_mgr_poll(&mgr, 0);
+#endif	// USE_MONGOOSE
 }
-#endif
 
 bool rrclient_autoconnect(void) {
    const char *server = cfg_get_exp("server.auto-connect");
@@ -298,7 +317,6 @@ bool disconnect_server(const char *server) {
 
    if (ws_connected) {
 #if     defined(USE_MONGOOSE)
-
       if (ws_conn) {
          ws_conn->is_closing = 1;
       }

@@ -24,7 +24,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#if     defined(USE_MQTT)
+#if     defined(USE_MQTT) && defined(USE_MONGOOSE)
 #include <rrserver/mqtt.h>
 
 // forward declration
@@ -249,4 +249,4 @@ bool mqtt_client_init(void) {
    return false;
 }
 
-#endif // defined(USE_MQTT)
+#endif // defined(USE_MQTT) && defined(USE_MONGOOSE)

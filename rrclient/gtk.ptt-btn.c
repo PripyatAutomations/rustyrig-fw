@@ -74,10 +74,12 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 
    // Send to server the negated value
    if (!ptt_active) {
+      Log(LOG_CRAZY, "ui.gtk", "Turning PTT off");
 #if     defined(USE_MONGOOSE)
       ws_send_ptt_cmd(ws_conn, "A", false);
 #endif // defined(USE_MONGOOSE)
    } else {
+      Log(LOG_CRAZY, "ui.gtk", "Turning PTT on");
 #if     defined(USE_MONGOOSE)
       ws_send_ptt_cmd(ws_conn, "A", true);
 #endif // defined(USE_MONGOOSE)

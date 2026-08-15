@@ -1,7 +1,11 @@
-rustyrig-fw (20260813) testing; urgency=medium
-* more work getting TUI working and fixing misc bugs
+rustyrig-fw (20260815) testing; urgency=medium
+* got TUI working (-T)
+* lots of bugs fixed
+* Fixed rrserver high cpu usage
+* Fixed backend glue so hamlib can work
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, Aug 15 2026 10:42:19 AM -0400
+
 
 rustyrig-fw (20260802) testing; urgency=medium
 * More cleanup, fixed eeprom handling & moved most things to eventbus events

@@ -64,7 +64,9 @@ void try_send_next_frame(struct mg_connection *c) {
       return;
    }
    sending_in_progress = true;
+#ifdef USE_MONGOOSE
    mg_ws_send(c, send_queue->data, send_queue->len, WEBSOCKET_OP_BINARY);
+#endif	// USE_MONGOOSE
    // audio_tx_free_frame() will be called once send completes
 }
 
@@ -75,11 +77,14 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
       return GST_FLOW_ERROR;
    }
 
+#ifdef USE_MONGOOSE
    if (!ws_tx_conn) {
       gst_sample_unref(sample);
 
       return GST_FLOW_OK;
    }
+#endif	// USE_MONGOOSE
+
    GstBuffer *buffer = gst_sample_get_buffer(sample);
    GstMapInfo map;
 
@@ -95,7 +100,9 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
          frame->len = map.size;
          memcpy(frame->data, map.data, map.size);
 
+#ifdef USE_MONGOOSE
          mg_ws_send(ws_tx_conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
+#endif	// USE_MONGOOSE
 //         ws_tx_conn->pfn = ws_tx_callback;
 //         ws_tx_conn->fn_data = frame;
          free(frame);
