@@ -367,8 +367,7 @@ bool connect_server(const char *server) {
       }
 #endif // defined(USE_MONGOOSE)
    } else {
-      ui_print(NULL,
-         "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
+      ui_print(NULL, "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
          resolved_server);
    }
 

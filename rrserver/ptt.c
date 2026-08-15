@@ -25,6 +25,7 @@
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
+#include <rrserver/timer.h>
 #if defined(USE_HAMLIB)
 #include <rrserver/backend.hamlib.h>
 #endif
@@ -62,7 +63,7 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
 
    // set or clear the talk timeout
    if (ptt) {
-      global_tot_time = now + ptt_tot_time;
+      global_tot_time = now + cfg_rig_hard_tot;
    } else {
       global_tot_time = 0;
    }

@@ -15,6 +15,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/cat.h>
 #include <rrserver/faults.h>
 #include <rrserver/help.h>
@@ -28,9 +30,7 @@
 #include <rrserver/amp.h>
 #include <rrserver/atu.h>
 #include <rrserver/filters.h>
-#include <librustyaxe/core.h>
-#include <librrprotocol/rrprotocol.h>
-#include <librrprotocol/ws.h>
+//#include <librrprotocol/ws.h>
 
 #if     defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;
@@ -40,24 +40,18 @@ struct mg_mgr mg_mgr;
 #include <rrserver/mqtt.h>
 #endif
 
-#define	TS_ALPHA 0.1      // Weight for the moving average
-
 bool dying = 0;                  // Are we shutting down?
 bool restarting = 0;             // Are we restarting?
 struct GlobalState rig;          // Global state
 time_t now = -1;                 // time() called once a second in main loop to
                                  // update
 int auto_block_ptt = 0;          // Auto block PTT at boot?
-struct timespec last_backend_poll = {
-   .tv_sec = 0, .tv_nsec = 0
-};
 struct timespec loop_start = {
    .tv_sec = 0, .tv_nsec = 0
 };
-time_t ptt_tot_time = RF_TALK_TIMEOUT;
 char *rig_name = NULL;
 
-// How often we will poll the backend in ms
+// How often we will poll the backend in ms (default:1000)
 int cfg_backend_poll_interval = 1000;
 
 // These are used for restarting ourself using exec()
@@ -100,53 +94,7 @@ void restart_rig(void) {
    exit(127);
 }
 
-static int clock_expire_http_iter = 0;
-static int clock_expire_fwdsp_iter = 0;
-
-static void timer_clock_tick_fn(void *arg) {
-   // Update our time keeping variables once per second
-   clock_gettime(CLOCK_MONOTONIC, &loop_start);
-   now = time(NULL);
-
-   // Check thermals
-   if (are_we_on_fire() ) {
-      rr_ptt_set_all_off();
-      rr_ptt_set_blocked(true);
-      Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
-   }
-
-   // Has the TOT expired?
-   if (global_tot_time > 0 && global_tot_time <= now) {
-      rrconn_t *talker = whos_talking();
-      Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", ptt_tot_time);
-      rr_ptt_set_all_off();
-      char msgbuf[HTTP_WS_MAX_MSG + 1];
-      prepare_msg( msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s",
-         (talker ? talker->chatname : "**UNKNOWN***") );
-      send_global_alert("***SERVER***", msgbuf);
-      global_tot_time = 0;
-   }
-
-   // Send pings, drop dead connections, etc
-
-   // Only expire fwdsp sessions every 10 seconds
-   if (clock_expire_fwdsp_iter >= 30) {
-      // deal with timed out en/decoders
-//      fwdsp_sweep_expired();
-      clock_expire_fwdsp_iter = 0;
-   } else {
-      clock_expire_fwdsp_iter++;
-   }
-
-   // Only expire http sessions every third seconds
-   if (clock_expire_http_iter >= 30) {
-      http_expire_sessions();
-      clock_expire_http_iter = 0;
-   } else {
-      clock_expire_http_iter++;
-   }
-}
-
+extern void timer_clock_tick_fn(void *arg);	// timer.clocktick.c
 static void timer_check_faults_fn(void *arg) {
    if (check_faults() ) {
       Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
@@ -154,9 +102,15 @@ static void timer_check_faults_fn(void *arg) {
    }
 }
 
+static struct timespec last_backend_poll = {
+   .tv_sec = 0, .tv_nsec = 0
+};
+
 static void timer_backend_poll_fn(void *arg) {
    // Poll the rig
    rr_be_poll(VFO_A);
+//   rr_be_poll(VFO_B);
+
    last_backend_poll.tv_sec = loop_start.tv_sec;
    last_backend_poll.tv_nsec = loop_start.tv_nsec;
 }
@@ -220,15 +174,12 @@ int main(int argc, char **argv) {
    load_defaults();
 
 #if     defined(USE_SQLITE)
-
    if (!(masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(31);
    }
 #endif // defined(USE_SQLITE)
-#if     defined(USE_MONGOOSE)
-   mg_mgr_init(&mg_mgr);
-#endif
+
    timer_init();
    gpio_init();
 
@@ -292,8 +243,8 @@ int main(int argc, char **argv) {
       set_fault(FAULT_BACKEND_ERR);
       exit(1);
    }
-#if     defined(USE_CAT)
 
+#if     defined(USE_CAT)
    if (rr_cat_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
@@ -318,8 +269,12 @@ int main(int argc, char **argv) {
 #else
    mg_log_set(MG_LL_ERROR);
 #endif
+
+#if     defined(USE_MONGOOSE)
+   mg_mgr_init(&mg_mgr);
+#endif
+
    http_init(&mg_mgr);
-//   ws_init(&mg_mgr);
 #endif
 #if     defined(USE_MQTT)
    mqtt_init(&mg_mgr);

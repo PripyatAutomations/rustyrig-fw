@@ -43,7 +43,7 @@ static void rrclient_display_log_message(const char *msg) {
    }
 }
 
-static void rrclient_update_connection_ui(bool connected) {
+static void rrclient_update_connection_ui(int connected) {
 
    if (!conn_button) {
       return;
@@ -60,14 +60,18 @@ static void rrclient_update_connection_ui(bool connected) {
          return;
       }
 
-      if (connected) {
+      if (connected == 1) {
          gtk_style_context_remove_class(ctx, "conn-idle");
          gtk_style_context_remove_class(ctx, "conn-pending");
          gtk_style_context_add_class(ctx, "conn-active");
-      } else {
+      } else if (connected == 0) {
          gtk_style_context_remove_class(ctx, "conn-active");
          gtk_style_context_remove_class(ctx, "conn-pending");
          gtk_style_context_add_class(ctx, "conn-idle");
+      } else if (connected == -1) {
+         gtk_style_context_remove_class(ctx, "conn-active");
+         gtk_style_context_remove_class(ctx, "conn-idle");
+         gtk_style_context_add_class(ctx, "conn-pending");
       }
 #endif
    }
@@ -190,19 +194,34 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 }
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
+#ifdef	USE_GTK
+   GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
+#endif	// USE_GTK
+
    if (strcasecmp(event, "connecting") == 0) {
       ui_print( NULL, "%s *** {bright-yellow}Connecting{reset} ***", get_chat_ts(now) );
+#ifdef	USE_GTK
+      gtk_style_context_add_class(ctx, "conn-pending");
+      gtk_style_context_remove_class(ctx, "conn-active");
+      gtk_style_context_remove_class(ctx, "conn-idle");
+#endif	// USE_GTK
    } else if (strcasecmp(event, "connected") == 0) {
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
+      ui_print( NULL, "%s *** {green}Connected, logging in as %s ***", get_chat_ts(now), login_user );
 
+      // discard the old value, if one is saved, and store the new user
+      // XXX: multiserver bug
       if (login_user) {
          free( (void *)login_user );
       }
       login_user = strdup(user);
-      rrclient_update_connection_ui(true);
-      ui_print( NULL, "%s *** {green}Connected{reset} ***", get_chat_ts(now) );
       dict_free(d);
+   } else if (strcasecmp(event, "authorized") == 0) {
+      rrclient_update_connection_ui(true);
+      gtk_style_context_add_class(ctx, "conn-pending");
+      gtk_style_context_remove_class(ctx, "conn-active");
+      gtk_style_context_remove_class(ctx, "conn-idle");
    } else if (strcasecmp(event, "goodbye") == 0 || strcasecmp(event, "disconnect") == 0) {
       if (login_user) {
          free( (void *)login_user );

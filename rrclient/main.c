@@ -321,6 +321,12 @@ int main(int argc, char *argv[]) {
       free( (char *)logfile );     // _exp versions MUST be freed
       logfile = NULL;
    }
+
+#ifdef USE_MONGOOSE
+      mg_mgr_init(&mgr);
+#endif
+
+
    debug_sockets = cfg_get_bool("debug.sockets", false);
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
    const char *cfg_debug_audio = cfg_get_exp("audio.debug");
@@ -377,9 +383,6 @@ int main(int argc, char *argv[]) {
    // start gtk main loop
    if (ui_mode == UI_MODE_TUI) {
       // Here we run the TUI main loop
-#ifdef USE_MONGOOSE
-      mg_mgr_init(&mgr);
-#endif
       ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
       ev_timer_start(loop_main, &ws_poll_watcher);
       ev_run(loop_main, 0);

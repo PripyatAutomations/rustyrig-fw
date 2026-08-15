@@ -30,6 +30,7 @@ rrserver_objs += protection.o		# Protection features
 rrserver_objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 rrserver_objs += thermal.o		# Thermal management
 rrserver_objs += timer.o		# Timers support
+rrserver_objs += timer.clocktick.o	# Our 1hz timer
 rrserver_objs += unwind.o		# Support for stack unwinding on crashes
 rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
 #rrserver_objs += 
