@@ -34,6 +34,7 @@ extern struct mg_connection *ws_conn, *ws_tx_conn;
 extern bool server_ptt_state;
 extern const char *get_server_property(const char *server, const char *prop);
 extern bool connect_or_disconnect(const char *server);
+extern void connman_register_events(void);
 
 extern bool config_network_cb(const char *path, int line, const char *section, const char *buf);
 

@@ -59,7 +59,14 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
 
 // Redraw the userlist
 void userlist_redraw_gtk(void) {
+   if (!cul_view) {
+      return;
+   }
    GtkListStore *store = GTK_LIST_STORE( gtk_tree_view_get_model( GTK_TREE_VIEW(cul_view) ) );
+
+   if (!store) {
+      return;
+   }
    gtk_list_store_clear(store);
 
    for (struct rr_user *c = global_userlist ; c ; c = c->next) {
@@ -69,6 +76,7 @@ void userlist_redraw_gtk(void) {
       gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON,
          c->is_ptt ? "🎧" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
    }
+   gtk_widget_queue_draw(cul_view);
 }
 
 // Assemble a userlist object and return it

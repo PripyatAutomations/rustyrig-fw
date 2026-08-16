@@ -113,7 +113,7 @@ static gboolean update_now(gpointer user_data) {
 // For polling mongoose from glib //
 ////////////////////////////////////
 static gboolean poll_mongoose(gpointer user_data) {
-   mg_mgr_poll(&mgr, 0);
+   rrclient_poll_events();
 
    return G_SOURCE_CONTINUE;
 }
@@ -385,6 +385,7 @@ int main(int argc, char *argv[]) {
 
    // Register all of our core event handlers
    rrclient_register_events();
+   connman_register_events();
 
    // How long to suppress hamlib/etc polling during CAT control?
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);

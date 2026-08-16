@@ -72,6 +72,64 @@ char session_token[HTTP_TOKEN_LEN + 1] = {
    0
 };
 
+static const unsigned int reconnect_delays[] = { 1, 2, 5, 10, 30, 60 };
+#define RRC_MAX_RECONNECTS 10
+
+static bool reconnect_enabled = false;
+static bool reconnect_pending = false;
+static bool reconnect_attempting = false;
+static unsigned int reconnect_tries = 0;
+static time_t reconnect_at = 0;
+
+static void rrclient_cancel_reconnect(void) {
+   reconnect_enabled = false;
+   reconnect_pending = false;
+   reconnect_tries = 0;
+   reconnect_at = 0;
+}
+
+static void rrclient_schedule_reconnect(void) {
+   if (!reconnect_enabled || reconnect_pending || dying || !server_name || !*server_name) {
+      return;
+   }
+
+   if (reconnect_tries >= RRC_MAX_RECONNECTS) {
+      ui_print(NULL, "%s {red}Giving up after %u reconnect attempts{reset}",
+               get_chat_ts(now), reconnect_tries);
+      reconnect_enabled = false;
+      return;
+   }
+
+   unsigned int delay_index = reconnect_tries;
+   if (delay_index >= sizeof(reconnect_delays) / sizeof(reconnect_delays[0])) {
+      delay_index = sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) - 1;
+   }
+   unsigned int delay = reconnect_delays[delay_index];
+
+   reconnect_tries++;
+   reconnect_pending = true;
+   reconnect_at = time(NULL) + delay;
+   ui_print(NULL, "%s {bright-yellow}Reconnecting in %u second%s (attempt %u/%u){reset}",
+            get_chat_ts(now), delay, delay == 1 ? "" : "s", reconnect_tries, RRC_MAX_RECONNECTS);
+}
+
+static void rrclient_handle_reconnect_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (strcasecmp(event, "authorized") == 0) {
+      reconnect_pending = false;
+      reconnect_tries = 0;
+      reconnect_at = 0;
+   } else if (strcasecmp(event, "disconnected") == 0 ||
+              strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {
+      rrclient_schedule_reconnect();
+   }
+}
+
+void connman_register_events(void) {
+   event_on("authorized", rrclient_handle_reconnect_event, NULL);
+   event_on("disconnected", rrclient_handle_reconnect_event, NULL);
+   event_on("http.error", rrclient_handle_reconnect_event, NULL);
+   event_on("error", rrclient_handle_reconnect_event, NULL);
+}
 
 #ifdef	USE_MONGOOSE
 static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
@@ -196,6 +254,7 @@ bool rrclient_send(const char *json) {
 }
 
 bool rrclient_disconnect(void) {
+   rrclient_cancel_reconnect();
 #ifdef	USE_MONGOOSE
    if (ws_conn) {
       ws_conn->is_closing = 1;
@@ -211,6 +270,15 @@ void rrclient_poll_events(void) {
 #ifdef	USE_MONGOOSE
    mg_mgr_poll(&mgr, 0);
 #endif	// USE_MONGOOSE
+
+   if (reconnect_pending && time(NULL) >= reconnect_at) {
+      reconnect_pending = false;
+      if (reconnect_enabled && !ws_connected && !dying) {
+         reconnect_attempting = true;
+         connect_server(server_name);
+         reconnect_attempting = false;
+      }
+   }
 }
 
 bool rrclient_autoconnect(void) {
@@ -306,6 +374,7 @@ const char *get_server_property(const char *server, const char *prop) {
 bool disconnect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
 
+   rrclient_cancel_reconnect();
    rrclient_update_connection_ui(0);
 
    if (ws_connected) {
@@ -330,6 +399,12 @@ bool connect_server(const char *server) {
 
       return true;
    }
+   if (!reconnect_attempting) {
+      reconnect_enabled = true;
+      reconnect_pending = false;
+      reconnect_tries = 0;
+      reconnect_at = 0;
+   }
    const char *url = get_server_property(resolved_server, "server.url");
    Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", resolved_server, url);
 
@@ -349,6 +424,8 @@ bool connect_server(const char *server) {
 
       if (!ws_conn) {
          ui_print( NULL, "%s Socket connect error", get_chat_ts(now) );
+         ws_connected = false;
+         event_emit("http.error", NULL, NULL);
       }
 #endif // defined(USE_MONGOOSE)
    } else {

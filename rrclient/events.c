@@ -76,6 +76,19 @@ void rrclient_update_connection_ui(int connected) {
    }
 }
 
+static void rrclient_set_offline(void) {
+   if (login_user) {
+      free( (void *)login_user );
+      login_user = NULL;
+   }
+
+   ws_connected = false;
+#ifdef USE_MONGOOSE
+   ws_conn = NULL;
+#endif  // USE_MONGOOSE
+   rrclient_update_connection_ui(0);
+   userlist_clear_all();
+}
 
 static void rrclient_handle_alert(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
@@ -220,22 +233,12 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
    } else if (strcasecmp(event, "authorized") == 0) {
       ui_print( NULL, "%s **** {green}Logged in!", get_chat_ts(now) );
       rrclient_update_connection_ui(1);
-   } else if (strcasecmp(event, "goodbye") == 0 || strcasecmp(event, "disconnect") == 0) {
-      if (login_user) {
-         free( (void *)login_user );
-         login_user = NULL;
-      }
-      rrclient_update_connection_ui(false);
+   } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
-      ws_connected = false;
-#ifdef USE_MONGOOSE
-      ws_conn = NULL;
-#endif	// USE_MONGOOSE
-      rrclient_update_connection_ui(false);
-      userlist_clear_all();
+      rrclient_set_offline();
    } else if (strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {
       ui_print(NULL, "{red}* http error *{reset}");
-      rrclient_update_connection_ui(false);
+      rrclient_set_offline();
    }
 }
 

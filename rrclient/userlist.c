@@ -34,6 +34,8 @@ bool userlist_add_or_update(dict *d) {
    char *t_privs = dict_get(d, "talk.privs", NULL);
    char *t_user = dict_get(d, "talk.user", NULL);
    int t_clones = dict_get_int(d, "talk.clones", 0);
+   bool t_muted = dict_get_bool(d, "talk.muted", false);
+   bool t_ptt = dict_get_bool(d, "talk.tx", false);
 
    if (!t_user) {
       return false;
@@ -54,6 +56,8 @@ bool userlist_add_or_update(dict *d) {
       }
 
       c->clones = t_clones;
+      c->is_muted = t_muted;
+      c->is_ptt = t_ptt;
 
       if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
@@ -79,6 +83,8 @@ bool userlist_add_or_update(dict *d) {
    }
 
    n->clones = t_clones;
+   n->is_muted = t_muted;
+   n->is_ptt = t_ptt;
 
    /* Append to the end of the list. */
    if (!global_userlist) {
@@ -125,6 +131,12 @@ bool userlist_remove_by_name(const char *name) {
          Log(LOG_DEBUG, "userlist", "Removing user %s at <%p>", name, c);
 
          free(c);
+
+         if (ui_mode == UI_MODE_GTK) {
+#if     defined(USE_GTK)
+            userlist_redraw_gtk();
+#endif
+         }
 
          return true;
       }
