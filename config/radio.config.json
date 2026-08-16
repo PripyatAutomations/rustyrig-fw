@@ -103,7 +103,7 @@
       "libunwind": "false",
       "max_bands": 14,
       "mongoose": "true",
-      "mqtt": "false",
+      "mqtt": "true",
       "sqlite": "true"
    },
    "limits": {

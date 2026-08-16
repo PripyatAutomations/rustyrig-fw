@@ -149,14 +149,14 @@ bool parse_chat_input_real(const char *msg) {
          const char *p = mp;
          const char *c = client_cmds[i].cmd;
 
-         while ( *p && *c &&
-                 !isspace( (unsigned char)*p ) &&
-                 tolower( (unsigned char)*p ) == tolower( (unsigned char)*c ) ) {
+         while (*p && *c &&
+                !isspace( (unsigned char)*p ) &&
+                tolower( (unsigned char)*p ) == tolower( (unsigned char)*c ) ) {
             p++;
             c++;
          }
 
-         if ( !*c && ( !*p || isspace( (unsigned char)*p ) ) ) {
+         if (!*c && (!*p || isspace( (unsigned char)*p ) ) ) {
             cmd = &client_cmds[i];
             break;
          }
@@ -190,7 +190,7 @@ bool parse_chat_input_real(const char *msg) {
       /* argv[0] is the command itself. */
       cmd_argv[cmd_argc++] = p;
 
-      while ( *p && !isspace( (unsigned char)*p ) ) {
+      while (*p && !isspace( (unsigned char)*p ) ) {
          p++;
       }
 
@@ -204,8 +204,8 @@ bool parse_chat_input_real(const char *msg) {
        */
       int max_args = cmd->max_args ? cmd->max_args : 1;
 
-      while ( *p && cmd_argc < (int)( sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
-         while ( isspace( (unsigned char)*p ) ) {
+      while (*p && cmd_argc < (int)(sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
+         while (isspace( (unsigned char)*p ) ) {
             p++;
          }
 
@@ -223,7 +223,7 @@ bool parse_chat_input_real(const char *msg) {
             break;
          }
 
-         while ( *p && !isspace( (unsigned char)*p ) ) {
+         while (*p && !isspace( (unsigned char)*p ) ) {
             p++;
          }
 

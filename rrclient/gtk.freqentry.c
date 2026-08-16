@@ -162,7 +162,7 @@ static GtkWidget *get_prev_widget(GtkWidget *widget) {
    }
    GtkWidget *parent = gtk_widget_get_parent(widget);
 
-   if ( !GTK_IS_CONTAINER(parent) ) {
+   if (!GTK_IS_CONTAINER(parent) ) {
       return NULL;
    }
    GList *children = gtk_container_get_children( GTK_CONTAINER(parent) );
@@ -187,7 +187,7 @@ static GtkWidget *get_next_widget(GtkWidget *widget) {
    }
    GtkWidget *parent = gtk_widget_get_parent(widget);
 
-   if ( !GTK_IS_CONTAINER(parent) ) {
+   if (!GTK_IS_CONTAINER(parent) ) {
       return NULL;
    }
    GList *children = gtk_container_get_children( GTK_CONTAINER(parent) );
@@ -216,7 +216,7 @@ static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gp
    int idx = -1;
 
    for (int i = 0 ; i < fe->num_digits ; i++) {
-      if ( gtk_widget_has_focus(fe->digits[i]) ) {
+      if (gtk_widget_has_focus(fe->digits[i]) ) {
          idx = i;
          break;
       }
@@ -290,7 +290,7 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
    int idx = -1;
 
    for (int i = 0 ; i < fe->num_digits ; i++) {
-      if ( fe->digits[i] == GTK_WIDGET(entry) ) {
+      if (fe->digits[i] == GTK_WIDGET(entry) ) {
          idx = i;
          break;
       }
@@ -378,7 +378,7 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
       return TRUE;
    } else if (event->keyval == GDK_KEY_Tab ||
               event->keyval == GDK_KEY_ISO_Left_Tab) {
-      if ( !is_widget_or_descendant_focused( GTK_WIDGET(fe) ) ) {
+      if (!is_widget_or_descendant_focused( GTK_WIDGET(fe) ) ) {
          return FALSE;    /* ignore if focus is outside fe */
       }
       Log(LOG_DEBUG, "gtk.freqentry", "On Key down: %s", (event->state & GDK_SHIFT_MASK) ? "LeftTab" : "Tab");
@@ -589,7 +589,7 @@ static void freqentry_bump_digit(GtkFreqEntry *fe, int idx, int delta) {
    fe->editing = true;
 
    const char *text = gtk_entry_get_text( GTK_ENTRY(fe->digits[idx]) );
-   int val = ( text && g_ascii_isdigit(text[0]) ) ? text[0] - '0' : 0;
+   int val = (text && g_ascii_isdigit(text[0]) ) ? text[0] - '0' : 0;
 
    val += delta;
 
@@ -670,6 +670,7 @@ static void gtk_freq_entry_class_init(GtkFreqEntryClass *class) {
 
    obj_properties[PROP_NUM_DIGITS] =
       g_param_spec_int("num-digits", "Number of digits", "Number of digit entry fields shown in the widget", 1, /*
+                                                                                                                 *
                                                                                                                  *
                                                                                                                  *
                                                                                                                  *

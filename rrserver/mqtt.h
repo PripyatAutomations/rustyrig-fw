@@ -15,7 +15,7 @@
 
 #if     defined(USE_MQTT) && defined(USE_MONGOOSE)
 
-extern bool mqtt_init(struct mg_mgr *mgr);
+extern bool mqtt_server_init(struct mg_mgr *mgr);
 extern bool mqtt_client_init(void);
 
 #endif // defined(USE_MQTT) && defined(USE_MONGOOSE)

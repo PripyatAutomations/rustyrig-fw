@@ -28,7 +28,7 @@
 #include <rrserver/mqtt.h>
 
 // forward declration
-static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data);
+static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data);
 
 struct sub {
    struct sub *next;
@@ -41,23 +41,33 @@ static struct sub *s_subs = NULL;
 // Are we debugging (hexdump) mqtt?
 bool mqtt_debug_sock = false;
 
-bool mqtt_init(struct mg_mgr *mgr) {
-   struct in_addr sa_bind;
-   char listen_addr[255];
-   int bind_port = eeprom_get_int("net/mqtt/port");
-   eeprom_get_ip4("net/mqtt/bind", &sa_bind);
+// XXX: Move these to config
+const char *mqtt_user = NULL;
+const char *mqtt_host = NULL;
+char mqtt_secret[128];
+int mqtt_port = 0;
 
-   memset( listen_addr, 0, sizeof(listen_addr) );
 
-   snprintf(listen_addr, sizeof(listen_addr), "mqtt://%s:%d", inet_ntoa(sa_bind), bind_port);
-
+bool mqtt_server_init(struct mg_mgr *mgr) {
    if (!mgr) {
-      Log(LOG_CRIT, "mqtt", "mqtt_init %s failed", listen_addr);
+      Log(LOG_CRIT, "mqtt", "mqtt_init: NULL mgr passed, skipping");
 
       return true;
    }
 
-   if (!mg_mqtt_listen(mgr, listen_addr, mqtt_cb, NULL) ) {
+   char listen_addr[512];
+   memset( listen_addr, 0, sizeof(listen_addr) );
+   const char *mqtt_bind = cfg_get("net.mqtt.bind");
+   int mqtt_port = cfg_get_int("net.mqtt.port", 18383);
+
+//   struct in_addr sa_bind;
+//   int bind_port = eeprom_get_int("net/mqtt/port");
+//   eeprom_get_ip4("net/mqtt/bind", &sa_bind);
+//
+//   snprintf(listen_addr, sizeof(listen_addr), "mqtt://%s:%d", inet_ntoa(sa_bind), bind_port);
+
+   snprintf(listen_addr, sizeof(listen_addr), "mqtt://%s:%d", mqtt_bind, mqtt_port);
+   if ( !mg_mqtt_listen(mgr, listen_addr, mqtt_server_cb, NULL) ) {
       Log(LOG_CRIT, "http", "Failed to start http listener");
       exit(1);
    }
@@ -66,6 +76,7 @@ bool mqtt_init(struct mg_mgr *mgr) {
    return false;
 }
 
+////////////////////////////////////////
 ///////
 // based on mongoose examples
 //////
@@ -76,7 +87,7 @@ static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg, struct mg_str *top
    if (pos >= msg->dgram.len) {
       return 0;
    }
-   topic->len = (size_t) ( ( (unsigned) buf[0]) << 8 | buf[1]);
+   topic->len = (size_t) ( ( (unsigned) buf[0] ) << 8 | buf[1] );
    topic->buf = (char *) buf + 2;
    new_pos = pos + 2 + topic->len + (!qos ? 0 : 1);
 
@@ -102,7 +113,7 @@ size_t mg_mqtt_next_unsub(struct mg_mqtt_message *msg, struct mg_str *topic, siz
 }
 
 // Event handler function
-static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
+static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_MQTT_CMD) {
       struct mg_mqtt_message *mm = (struct mg_mqtt_message *) ev_data;
       Log(LOG_DEBUG, "mqtt.req", "cmd %d qos %d", mm->cmd, mm->qos);
@@ -133,7 +144,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
             int num_topics = 0;
             memset( resp, 0, sizeof(resp) );
 
-            while ( ( (pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0) ) {
+            while ( ( ( pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0 ) ) {
                struct sub *sub = calloc( 1, sizeof(*sub) );
 
                if (!sub) {
@@ -149,7 +160,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
                // Change '+' to '*' for topic matching using mg_match
                for (size_t i = 0 ; i < sub->topic.len ; i++) {
                   if (sub->topic.buf[i] == '+') {
-                     ( (char *) sub->topic.buf)[i] = '*';
+                     ( (char *) sub->topic.buf )[i] = '*';
                   }
                }
 
@@ -166,7 +177,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
                (int) mm->topic.len, mm->topic.buf);
 
             for (struct sub *sub = s_subs ; sub ; sub = sub->next) {
-               if (mg_match(mm->topic, sub->topic, NULL) ) {
+               if ( mg_match(mm->topic, sub->topic, NULL) ) {
                   struct mg_mqtt_opts pub_opts;
                   memset( &pub_opts, 0, sizeof(pub_opts) );
                   pub_opts.topic = mm->topic;
@@ -204,43 +215,56 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *ev_data) {
    }
 }
 
-// XXX: Move these to config
-const char *mqtt_user = "rustyrig-ft891";
-const char *mqtt_host = "10.237.1.239";
-int mqtt_port = 8833;
-char mqtt_secret[128];
 
 bool mqtt_client_init(void) {
    FILE *fp = NULL;
 
    mqtt_user = cfg_get("net.mqtt-client.user");
    mqtt_host = cfg_get("net.mqtt-client.host");
+   mqtt_port = cfg_get_int("net.mqtt-client.port", 0);
    const char *secret_file = cfg_get("net.mqtt-client.secret-file");
 
-   if (!file_exists(secret_file) ) {
+   if ( !file_exists(secret_file) ) {
       Log(LOG_CRIT, "mqtt.cli", "Secret file '%s' doesn't exist", secret_file);
 
       return false;
    }
 
-   if (!(fp = fopen(secret_file, "r") ) ) {
+   if ( !( fp = fopen(secret_file, "r") ) ) {
       Log( LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno) );
 
       return false;
    }
+   char read_secret[512];
    memset( mqtt_secret, 0, sizeof(mqtt_secret) );
+   memset( read_secret, 0, sizeof(read_secret) );
 
-   if (!fgets(mqtt_secret, sizeof(mqtt_secret), fp) ) {
+   if ( !fgets(read_secret, sizeof(read_secret), fp) ) {
       Log( LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno) );
       fclose(fp);
 
       return true;
    }
-   char *end = mqtt_secret + strlen(mqtt_secret) - 1;
-   while (end >= mqtt_secret && (*end == '\r' || *end == '\n') ) {
+   char *end = read_secret + strlen(read_secret) - 1;
+   while ( end >= read_secret && (*end == '\r' || *end == '\n') ) {
       *end = '\0';
       end--;
    }
+
+   char *s_user = strtok(read_secret, ":\n");   
+   char *s_secret = strtok(NULL, ":\n");
+   if (s_user) {
+      if (sizeof(mqtt_user) >= strlen(s_user)) {
+         memcpy((void *)mqtt_user, s_user, strlen(s_user));
+      }
+   }
+
+   if (s_secret) {
+      if (sizeof(mqtt_secret) >= strlen(s_secret)) {
+         memcpy(mqtt_secret, s_secret, strlen(s_secret));
+      }
+   }
+
    Log(LOG_DEBUG, "mqtt.cli", "Connect to mqtt: user=\"%s\", pass=\"%s\", host=\"%s:%d\"", mqtt_user, mqtt_secret,
       mqtt_host, mqtt_port);
 

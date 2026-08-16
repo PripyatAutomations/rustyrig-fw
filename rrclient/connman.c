@@ -41,7 +41,7 @@ extern bool dying;
 extern bool debug_sockets;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN + 1];
-extern void rrclient_update_connection_ui(int connected); 	// events.c
+extern void rrclient_update_connection_ui(int connected);       // events.c
 
 static const char *rrclient_resolve_server_name(const char *requested_server) {
    if (requested_server && *requested_server) {
@@ -60,19 +60,21 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
    return NULL;
 }
 
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
 struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 extern struct mg_connection *ws_conn;
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
 
 char session_token[HTTP_TOKEN_LEN + 1] = {
    0
 };
 
-static const unsigned int reconnect_delays[] = { 1, 2, 5, 10, 30, 60 };
-#define RRC_MAX_RECONNECTS 10
+static const unsigned int reconnect_delays[] = {
+   1, 2, 5, 10, 30, 60
+};
+#define	RRC_MAX_RECONNECTS 10
 
 static bool reconnect_enabled = false;
 static bool reconnect_pending = false;
@@ -93,14 +95,15 @@ static void rrclient_schedule_reconnect(void) {
    }
 
    if (reconnect_tries >= RRC_MAX_RECONNECTS) {
-      ui_print(NULL, "%s {red}Giving up after %u reconnect attempts{reset}",
-               get_chat_ts(now), reconnect_tries);
+      ui_print(NULL, "%s {red}Giving up after %u reconnect attempts{reset}", get_chat_ts(now), reconnect_tries);
       reconnect_enabled = false;
+
       return;
    }
 
    unsigned int delay_index = reconnect_tries;
-   if (delay_index >= sizeof(reconnect_delays) / sizeof(reconnect_delays[0])) {
+
+   if ( delay_index >= sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) ) {
       delay_index = sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) - 1;
    }
    unsigned int delay = reconnect_delays[delay_index];
@@ -108,8 +111,8 @@ static void rrclient_schedule_reconnect(void) {
    reconnect_tries++;
    reconnect_pending = true;
    reconnect_at = time(NULL) + delay;
-   ui_print(NULL, "%s {bright-yellow}Reconnecting in %u second%s (attempt %u/%u){reset}",
-            get_chat_ts(now), delay, delay == 1 ? "" : "s", reconnect_tries, RRC_MAX_RECONNECTS);
+   ui_print(NULL, "%s {bright-yellow}Reconnecting in %u second%s (attempt %u/%u){reset}", get_chat_ts(now), delay,
+      delay == 1 ? "" : "s", reconnect_tries, RRC_MAX_RECONNECTS);
 }
 
 static void rrclient_handle_reconnect_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -130,7 +133,7 @@ void connman_register_events(void) {
    event_on("error", rrclient_handle_reconnect_event, NULL);
 }
 
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
 static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
@@ -166,9 +169,9 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
             if (from && data) {
                event_emit("talk.msg", NULL, buf);
             }
-         } else if (dict_get(d, "hello", NULL) ) {
+         } else if ( dict_get(d, "hello", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got hello from server");
-         } else if (dict_get(d, "auth.cmd", NULL) ) {
+         } else if ( dict_get(d, "auth.cmd", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got auth message");
          }
          dict_free(d);
@@ -196,14 +199,14 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       ui_print(NULL, "status", "Disconnected from server");
    }
 }
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
 
 bool rrclient_connect(const char *url) {
    if (!url) {
       return true;
    }
    ui_print(NULL, "status", "Connecting to %s", url);
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
    ws_conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
 
    if (!ws_conn) {
@@ -211,7 +214,7 @@ bool rrclient_connect(const char *url) {
 
       return true;
    }
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
 
    return false;
 }
@@ -227,12 +230,13 @@ bool rrclient_send_chat(const char *data) {
       return true;
    }
 
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
+
    if (!ws_conn) {
       return true;
    }
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
    free( (void *)jp );
 
    return false;
@@ -243,35 +247,39 @@ bool rrclient_send(const char *json) {
       return true;
    }
 
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
+
    if (!ws_conn) {
       return true;
    }
    mg_ws_send(ws_conn, json, strlen(json), WEBSOCKET_OP_TEXT);
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
+
    return false;
 }
 
 bool rrclient_disconnect(void) {
    rrclient_cancel_reconnect();
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
+
    if (ws_conn) {
       ws_conn->is_closing = 1;
       ws_conn = NULL;
    }
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
    ws_connected = false;
 
    return false;
 }
 
 void rrclient_poll_events(void) {
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
    mg_mgr_poll(&mgr, 0);
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
 
    if (reconnect_pending && time(NULL) >= reconnect_at) {
       reconnect_pending = false;
+
       if (reconnect_enabled && !ws_connected && !dying) {
          reconnect_attempting = true;
          connect_server(server_name);
@@ -378,6 +386,7 @@ bool disconnect_server(const char *server) {
 
    if (ws_connected) {
 #if     defined(USE_MONGOOSE)
+
       if (ws_conn) {
          ws_conn->is_closing = 1;
       }
@@ -398,6 +407,7 @@ bool connect_server(const char *server) {
 
       return true;
    }
+
    if (!reconnect_attempting) {
       reconnect_enabled = true;
       reconnect_pending = false;
@@ -428,7 +438,8 @@ bool connect_server(const char *server) {
       }
 #endif // defined(USE_MONGOOSE)
    } else {
-      ui_print(NULL, "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
+      ui_print(NULL,
+         "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
          resolved_server);
    }
 

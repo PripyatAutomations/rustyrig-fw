@@ -31,7 +31,7 @@ static bool safe_name(const char *name) {
       return false;
    }
 
-   if (strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
+   if ( strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
       return false;
    }
 
@@ -137,7 +137,8 @@ bool cmd_help(int argc, char **args) {
          spaces = 1;
       }
 
-      ui_print(NULL, "\t{bright-green}/%s%*s{bright-yellow}%s{reset}", client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
+      ui_print(NULL, "\t{bright-green}/%s%*s{bright-yellow}%s{reset}", client_cmds[i].cmd, spaces, "",
+         client_cmds[i].desc);
    }
 
    // after message

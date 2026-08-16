@@ -215,7 +215,9 @@ int main(int argc, char *argv[]) {
    };
    setrlimit(RLIMIT_CORE, &rl);
 #else
-   struct rlimit rl = { 0, 0 };
+   struct rlimit rl = {
+      0, 0
+   };
    setrlimit(RLIMIT_CORE, &rl);
 #endif // USE_COREDUMPS_CLIENT
 
@@ -298,15 +300,15 @@ int main(int argc, char *argv[]) {
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       }
       free(config_file);
       config_file = NULL;
-   } else if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
+   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
 
-      if (!(cfg = cfg_load(fullpath) ) ) {
+      if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -317,8 +319,8 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
-   if ( (fullpath = find_file_by_list(configs, num_configs) ) ) {
-      if (fullpath && !(cfg = cfg_load(fullpath) ) ) {
+   if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
+      if ( fullpath && !( cfg = cfg_load(fullpath) ) ) {
          ui_print(NULL, "{red}* ERROR *{reset} Couldn't load config '%s', using defaults", fullpath);
       }
       free(fullpath);
@@ -333,14 +335,14 @@ int main(int argc, char *argv[]) {
       logfile = NULL;
    }
 
-#ifdef USE_MONGOOSE
-      mg_mgr_init(&mgr);
-#endif
-
-
+/////////////////////////////////////////
+// Store some oft used config settings //
+/////////////////////////////////////////
    debug_sockets = cfg_get_bool("debug.sockets", false);
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
    const char *cfg_debug_audio = cfg_get_exp("audio.debug");
+   // How long to suppress hamlib/etc polling during CAT control?
+   int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
 
    if (cfg_debug_audio) {
       // Set the GST_DEBUG environment variable, before spawning subprocesses
@@ -355,6 +357,12 @@ int main(int argc, char *argv[]) {
    }
    free( (void *)cfg_debug_audio );
    cfg_debug_audio = NULL;
+
+//////////////////////////////
+
+#ifdef USE_MONGOOSE
+   mg_mgr_init(&mgr);
+#endif
 
    // Setup stdio & clock
    if (ui_mode == UI_MODE_TUI) {
@@ -372,7 +380,7 @@ int main(int argc, char *argv[]) {
       gtk_init(&argc, &argv);
 
 #ifdef _WIN32
-      // Disable edit mode in the console, so copy/paste is more usable
+      // Disable edit mode in console, so copy/paste is usable
       disable_console_quick_edit();
 
       // see if windows is in dark mode
@@ -387,8 +395,6 @@ int main(int argc, char *argv[]) {
    rrclient_register_events();
    connman_register_events();
 
-   // How long to suppress hamlib/etc polling during CAT control?
-   int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
    ws_client_init();
    connman_autoconnect();
 

@@ -44,7 +44,7 @@ bool cmd_die(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "die", VAL_STR, "talk.args", args[1]);
 #ifdef USE_MONGOOSE
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
    free( (char *)jp );
 
    return false;
@@ -55,7 +55,7 @@ bool cmd_kick(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "kick", VAL_STR, "talk.reason", args[1]);
 #ifdef USE_MONGOOSE
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
    free( (char *)jp );
 
    return false;

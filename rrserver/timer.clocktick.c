@@ -22,7 +22,7 @@
 #include <rrserver/thermal.h>
 #include <rrserver/backend.h>
 
-extern struct timespec loop_start;	// main.c
+extern struct timespec loop_start;      // main.c
 
 // This is the hardware limit, not reconfigurable
 const time_t cfg_rig_hard_tot = RF_TALK_TIMEOUT;
@@ -36,7 +36,7 @@ void timer_clock_tick_fn(void *arg) {
    now = time(NULL);
 
    // Check thermals
-   if (are_we_on_fire() ) {
+   if ( are_we_on_fire() ) {
       rr_ptt_set_all_off();
       rr_ptt_set_blocked(true);
       Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");

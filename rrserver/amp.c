@@ -32,7 +32,7 @@ typedef struct rr_amp_state {
 rr_amp_state_t *amp_data[RR_MAX_AMPS];
 
 bool rr_amp_init(uint8_t index) {
-   if (index > (RR_MAX_AMPS - 1) ) {
+   if ( index > (RR_MAX_AMPS - 1) ) {
       Log(LOG_CRIT, "amp", "rr_amp_init: got unit id %d > RR_MAX_AMPS (%d), bailing!", index, RR_MAX_AMPS);
 
       return true;

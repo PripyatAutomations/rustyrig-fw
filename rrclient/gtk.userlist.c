@@ -48,7 +48,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    if (wp) {
       GtkWidget *userlist_window = wp->gtk_win;
 
-      if ( gtk_widget_get_visible(userlist_window) ) {
+      if (gtk_widget_get_visible(userlist_window) ) {
          gtk_widget_hide(userlist_window);
       } else {
          userlist_redraw_gtk();
@@ -77,6 +77,7 @@ void userlist_redraw_gtk(void) {
       gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON,
          c->is_ptt ? "🎧" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
    }
+
    gtk_widget_queue_draw(cul_view);
 }
 

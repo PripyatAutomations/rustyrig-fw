@@ -196,10 +196,10 @@ char *gtk_colorize_string(const char *in) {
             *o++ = *p++;
             continue;
          }
-         size_t key_len = (size_t)( end - (p + 1) );
+         size_t key_len = (size_t)(end - (p + 1) );
          char key[64];
 
-         if ( key_len >= sizeof(key) ) {
+         if (key_len >= sizeof(key) ) {
             key_len = sizeof(key) - 1;
          }
          memcpy(key, p + 1, key_len);
@@ -345,7 +345,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    GtkTreeIter iter;
    int index = 0;
 
-   if ( gtk_tree_model_get_iter_first(model, &iter) ) {
+   if (gtk_tree_model_get_iter_first(model, &iter) ) {
       do{
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
@@ -358,7 +358,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          }
          g_free(str);
          index++;
-      } while ( gtk_tree_model_iter_next(model, &iter) );
+      } while (gtk_tree_model_iter_next(model, &iter) );
    }
 }
 
@@ -399,6 +399,40 @@ static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer us
    gtk_window_set_urgency_hint(GTK_WINDOW(widget), FALSE);
 
    return FALSE;
+}
+
+// This pops up and confirms the user if they want to quit. True return should exit
+bool ui_confirm_quit(void) {
+   if (ui_mode == UI_MODE_GTK) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING,
+         GTK_BUTTONS_YES_NO, "Confirm quit?");
+
+      gboolean cancel = gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
+
+      gtk_widget_destroy(dialog);
+
+      if (cancel) {
+         return false;
+      }
+   } else if (ui_mode == UI_MODE_TUI) {
+      ui_print( NULL, "Confirm quit? (Y/N) - NYI, Quit %s:%d", __FILE__, __LINE__);
+      // XXX: Set input mode to accept this and return false to cancel
+   }
+
+   // Confirm the quit
+   dying = true;
+
+   return true;
+}
+
+static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
+   if ( ui_confirm_quit() ) {
+      dying = true;
+
+      return FALSE;  // allow GTK to destroy the window
+   }
+
+   return TRUE;      // cancel close
 }
 
 bool gui_init(void) {
@@ -460,6 +494,7 @@ bool gui_init(void) {
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
+   g_signal_connect(main_window, "delete-event", G_CALLBACK(on_window_delete), NULL);
    gui_hotkey_register(main_window);
 
    // Generate and display a userlist for this server
@@ -489,12 +524,12 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
    }
    GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
 
-   if ( !GTK_IS_WINDOW(toplevel) ) {
+   if (!GTK_IS_WINDOW(toplevel) ) {
       return FALSE;
    }
    GtkWidget *focused = gtk_window_get_focus( GTK_WINDOW(toplevel) );
 
-   for ( GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
+   for (GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
       if (w == ancestor) {
          return TRUE;
       }

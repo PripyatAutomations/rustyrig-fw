@@ -49,7 +49,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 #endif // defined(USE_MONGOOSE)
 
       // Show/hide repeater dialog locally based on FM mode
-      if ( g_str_equal(text, "FM") ) {
+      if (g_str_equal(text, "FM") ) {
          fm_dialog_show();
          gui_window_t *wp = gui_find_window(NULL, "main");
 

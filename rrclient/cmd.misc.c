@@ -63,23 +63,27 @@ bool cmd_disconnect(int argc, char **args) {
    return false;
 }
 
+extern bool ui_confirm_quit(void);
+
 bool cmd_quit(int argc, char **args) {
    const char *quitmsg = "no reason given";
-   ui_print(NULL, "Goodbye!");
 
    if (argc > 1 && args && args[1][0] != '\0') {
       quitmsg = args[1];
    }
-      
-   const char *jp = dict2json_mkstr(
-       VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", quitmsg);
-#if     defined(USE_MONGOOSE)
-   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-#endif
-   free( (char *)jp );
 
-   // Set the dying flag so main loop with cleanly exit
-   dying = true;
+   if ( ui_confirm_quit() ) {
+      ui_print(NULL, "{bright-cyan}Seeya soon, have a great day!{reset}");
+
+      const char *jp = dict2json_mkstr(VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", quitmsg);
+#if     defined(USE_MONGOOSE)
+      mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+#endif
+      free( (char *)jp );
+
+      // Set the dying flag so main loop with cleanly exit
+      dying = true;
+   }
 
    return false;
 }
@@ -133,7 +137,7 @@ bool cmd_server(int argc, char **args) {
    const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "restart", VAL_STR, "talk.reason", args[1]);
 #ifdef USE_MONGOOSE
    mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
    free( (char *)jp );
 
    return false;

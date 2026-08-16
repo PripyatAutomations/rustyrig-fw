@@ -43,7 +43,7 @@ static void on_buffer_changed(GtkTextBuffer *buffer, gpointer user_data) {
       return;
    }
 
-   ( (EditorContext *)user_data)->modified = TRUE;
+   ( (EditorContext *)user_data )->modified = TRUE;
 }
 
 static void apply_config(const char *filename) {
@@ -138,7 +138,7 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
 
    EditorContext *ctx = user_data;
 
-   if (!save_editor(ctx, ctx->filepath) ) {
+   if ( !save_editor(ctx, ctx->filepath) ) {
       return;
    }
 
@@ -163,7 +163,7 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
       char *filename = gtk_file_chooser_get_filename( GTK_FILE_CHOOSER(dialog) );
 
       if (filename) {
-         if (save_editor(ctx, filename) ) {
+         if ( save_editor(ctx, filename) ) {
             /*
              * Save As becomes the new file being edited.
              */
@@ -199,9 +199,8 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
    }
 
    if (ctx->modified) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL,
-            GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
-            "You have unsaved changes. Discard them?");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING,
+         GTK_BUTTONS_YES_NO, "You have unsaved changes. Discard them?");
 
       gboolean cancel = gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
 
@@ -347,7 +346,7 @@ void gui_edit_config(const char *filepath) {
          fread(buf, 1, (size_t)len, fp);
 
       if (nread != (size_t)len) {
-         if (ferror(fp) ) {
+         if ( ferror(fp) ) {
             Log( LOG_CRIT, "config.edit", "fread() failed for %s: %s", filepath, strerror(errno) );
          } else {
             Log(LOG_CRIT, "config.edit", "Unexpected EOF reading %s "

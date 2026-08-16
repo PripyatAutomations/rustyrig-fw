@@ -27,7 +27,7 @@ extern GtkTextBuffer *log_buffer;
 extern GtkWidget *log_view;
 #endif
 
-extern int ws_connected;	// in librustyaxe/tui.window.c BUT belongs in rrclient!
+extern int ws_connected;        // in librustyaxe/tui.window.c BUT belongs in rrclient!
 
 static void rrclient_display_log_message(const char *msg) {
    if (!log_buffer || !msg) {
@@ -87,7 +87,7 @@ static void rrclient_set_offline(void) {
    ws_connected = false;
 #ifdef USE_MONGOOSE
    ws_conn = NULL;
-#endif  // USE_MONGOOSE
+#endif // USE_MONGOOSE
    rrclient_update_connection_ui(0);
    userlist_clear_all();
 }
@@ -116,14 +116,16 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
 
    dict *d = json2dict(data);
    const char *a_cmd = dict_get(d, "auth.cmd", NULL);
+
    if (strcasecmp(a_cmd, "authorized") == 0) {
       time_t a_ts = dict_get_time_t(d, "auth.ts", now);
       const char *a_user = dict_get(d, "auth.user", NULL);
       const char *a_token = dict_get(d, "auth.token", NULL);
       const char *a_privs = dict_get(d, "auth.privs", NULL);
 
-      ui_print( NULL, "%s {bright-cyan}Welcome back, {bright-yellow}%s{bright-cyan}! You have {bright-green}%s{bright-cyan} privileges",
-           get_chat_ts(a_ts), a_user, a_privs);
+      ui_print( NULL,
+         "%s {bright-cyan}Welcome back, {bright-yellow}%s{bright-cyan}! You have {bright-green}%s{bright-cyan} privileges",
+         get_chat_ts(a_ts), a_user, a_privs);
    }
    dict_free(d);
 }
@@ -171,7 +173,8 @@ static void rrclient_handle_hello(const char *event, const char *data, rrconn_t 
 //   dict_dump(d, stderr);
    const char *m_hwver = dict_get(d, "hello.hwver", (char *)"misconfigured radio");
    const char *m_swver = dict_get(d, "hello.swver", (char *)"1.2.3.4");
-   ui_print(NULL, "%s {bright-yellow}Your host is running {bright-green}%s{bright-yellow} on {bright-red}%s", get_chat_ts(0), m_swver, m_hwver);
+   ui_print(NULL, "%s {bright-yellow}Your host is running {bright-green}%s{bright-yellow} on {bright-red}%s",
+      get_chat_ts(0), m_swver, m_hwver);
    dict_free(d);
 }
 
@@ -207,10 +210,33 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    dict_free(d);
 }
 
+void tui_refresh_online_status(void) {
+   tui_window_t *tw = tui_active_window();
+   char connected_status[128];
+   memset( connected_status, 0, sizeof(connected_status) );
+
+   if (ws_connected == 1) {
+      snprintf(connected_status, sizeof(connected_status), "{bright-green}ONLINE{reset}");
+   } else if (ws_connected == 0) {
+      snprintf(connected_status, sizeof(connected_status), "{bright-red}OFFLINE{reset}");
+   } else if (ws_connected == -1) {
+      snprintf(connected_status, sizeof(connected_status), "{bright-yellow}trying{reset}");
+   }
+
+   const char *win_color = "{bright-cyan}";
+
+   if (tw->title[0] == '&' || tw->title[0] == '#') {
+      win_color = "{bright-magenta}";
+   }
+
+   tui_update_status(tw, "{bright-black}[%s{bright-black}] [%s%s{bright-black}]{reset}", connected_status,
+      win_color, tw->title);
+}
+
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
-#ifdef	USE_GTK
+#ifdef  USE_GTK
    GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
-#endif	// USE_GTK
+#endif // USE_GTK
 
    if (strcasecmp(event, "connecting") == 0) {
       ui_print( NULL, "%s *** {bright-yellow}Connecting{reset} ***", get_chat_ts(now) );
@@ -222,8 +248,10 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
+
       if (user) {
-         // XXX: multiserver bug, discard old value if saved so we can store new without a leak
+         // XXX: multiserver bug, discard old value if saved so we can store new without a
+         // leak
          if (login_user) {
             free( (void *)login_user );
          }
@@ -235,32 +263,6 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
    } else if (strcasecmp(event, "authorized") == 0) {
       ui_print( NULL, "%s **** {green}Logged in!", get_chat_ts(now) );
       rrclient_update_connection_ui(1);
-
-      if (ui_mode == UI_MODE_TUI) {
-         tui_window_t *tw = tui_active_window();
-         char connected_status[128];
-         memset(connected_status, 0, sizeof(connected_status));
-         if (ws_connected == 1) {
-            snprintf(connected_status, sizeof(connected_status),
-                "{bright-green}ONLINE{reset}");
-         } else if (ws_connected == 0) {
-            snprintf(connected_status, sizeof(connected_status),
-                "{bright-red}offline{reset}");
-         } else if (ws_connected == -1) {
-            snprintf(connected_status, sizeof(connected_status),
-                "{bright-yellow}trying{reset}");
-         }
-
-         const char *win_color = "{bright-cyan}";
-
-         if (tw->title[0] == '&' || tw->title[0] == '#') {
-            win_color = "{bright-magenta}";
-         }
-
-         tui_update_status(tw,
-            "{bright-black}[%s{bright-black}] [%s%s{bright-black}]{reset}",
-            connected_status, win_color, tw->title);
-      }
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
       rrclient_set_offline();
@@ -268,6 +270,11 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       ui_print(NULL, "{red}* http error *{reset}");
       rrclient_set_offline();
    }
+
+   if (ui_mode == UI_MODE_TUI) {
+      tui_refresh_online_status();
+   }
+
 }
 
 static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -284,7 +291,7 @@ static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *
       GtkWidget *entry = freq_entry;
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
 
-      if (!gtk_freq_entry_is_editing(fe) ) {
+      if ( !gtk_freq_entry_is_editing(fe) ) {
          gtk_freq_entry_set_frequency(fe, freq);
       }
 #endif // defined(USE_GTK)
@@ -306,7 +313,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
 
    ui_print(NULL, "%s * %s (%s) joined %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
 
-   if (!userlist_add_or_update(d) ) {
+   if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 
@@ -410,8 +417,7 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
       return;
    }
 
-   ui_print(NULL, "%s * %s (%s) quit from %s: %s",
-      get_chat_ts(m_ts), m_user, m_ip, m_target, m_reason);
+   ui_print(NULL, "%s * %s (%s) quit from %s: %s", get_chat_ts(m_ts), m_user, m_ip, m_target, m_reason);
 
    userlist_remove_by_name(m_user);
 }
@@ -423,7 +429,7 @@ static void rrclient_handle_userinfo(const char *event, const char *data, rrconn
 
    dict *d = json2dict(data);
 
-   if (!userlist_add_or_update(d) ) {
+   if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
    dict_free(d);

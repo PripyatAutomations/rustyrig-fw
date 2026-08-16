@@ -3,8 +3,10 @@
 
 #echo "${C_SRC}"
 
+subdirs := librustyaxe librrprotocol fwdsp rrclient rrserver
+
 TOPLEVEL=$(pwd)
-for i in fwdsp librrprotocol librustyaxe modsrc/* rrclient rrserver; do
+for i in ${subdirs}; do
    P=$(pwd)
    cd $i
    uncrustify -c ${TOPLEVEL}/.uncrustify.cfg *.[ch] --replace --no-backup

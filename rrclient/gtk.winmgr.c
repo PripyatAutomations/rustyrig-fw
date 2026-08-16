@@ -270,7 +270,7 @@ bool place_window(GtkWidget *window) {
                size_t len = end - opts;
                char opt[32];
 
-               if ( len >= sizeof(opt) ) {
+               if (len >= sizeof(opt) ) {
                   len = sizeof(opt) - 1;
                }
                memcpy(opt, opts, len);
@@ -337,12 +337,12 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    GIcon *icon = g_themed_icon_new(name);
    GtkIconTheme *theme = gtk_icon_theme_get_default();
 
-   if ( gtk_icon_theme_has_icon(theme, name) ) {
+   if (gtk_icon_theme_has_icon(theme, name) ) {
       success = true;
    } else {
       gchar *local_icon = g_strdup_printf("./%s.png", name);
 
-      if ( gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
+      if (gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
          success = true;
       } else {
          g_warning("Failed to set icon '%s': %s", name, err->message);
@@ -631,7 +631,7 @@ bool flash_main_win(void) {
    gui_window_t *win = gui_find_window(NULL, "main");
    GtkWidget *main_window = win->gtk_win;
 
-   if ( !gtk_window_is_active( GTK_WINDOW(main_window) ) ) {
+   if (!gtk_window_is_active( GTK_WINDOW(main_window) ) ) {
       gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
    }
 

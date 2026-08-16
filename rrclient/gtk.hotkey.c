@@ -53,7 +53,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 
       // raise main window if a tab is selected
       if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
-         if ( !gtk_window_is_active( GTK_WINDOW(main_win) ) ) {
+         if (!gtk_window_is_active( GTK_WINDOW(main_win) ) ) {
             gtk_widget_show_all(main_win);
             gtk_window_present( GTK_WINDOW(main_win) );
             place_window(main_win);
@@ -143,7 +143,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
                   return TRUE;
                }
 
-               if ( gtk_widget_get_visible(userlist_window) ) {
+               if (gtk_widget_get_visible(userlist_window) ) {
                   gtk_widget_hide(userlist_window);
                } else {
                   gtk_widget_show_all(userlist_window);

@@ -50,6 +50,7 @@ static void rrserver_handle_send_chat_replay(const char *event, const char *data
    const char *channel = dict_get(d, "talk.target", NULL);
 
 #ifdef  USE_SQLITE
+
    if (channel) {
       db_send_chat_replay(cptr, channel);
    }
@@ -73,10 +74,10 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       return;
    }
 
-#ifdef	USE_SQLITE
+#ifdef  USE_SQLITE
    // Log to database, if configured if (cfg_get_bool("chat.log", false) ) {
    bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
-  
+
    if (!db_res) {
       fprintf(stderr, "db_add_chat_msg failed\n");
    }

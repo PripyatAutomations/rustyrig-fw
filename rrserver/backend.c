@@ -27,13 +27,21 @@ struct rr_backends {
 };
 
 static struct rr_backends available_backends[] = {
-   { "internal", &rr_backend_internal },
-   { "dummy", &rr_backend_dummy },
+   {
+      "internal", &rr_backend_internal
+   },
+   {
+      "dummy", &rr_backend_dummy
+   },
 // A backend using hamlib's rigctld as the target. For legacy radios
 #ifdef USE_HAMLIB
-   { "hamlib", &rr_backend_hamlib },
+   {
+      "hamlib", &rr_backend_hamlib
+   },
 #endif
-   { NULL, NULL }
+   {
+      NULL, NULL
+   }
 };
 
 static const char *s_true = "true";
@@ -78,7 +86,7 @@ rr_backend_t *rr_backend_find(const char *name) {
    if (!name) {
       return NULL;
    }
-   int items = (sizeof(available_backends) / sizeof(struct rr_backends) );
+   int items = ( sizeof(available_backends) / sizeof(struct rr_backends) );
 
    for (int i = 0 ; i < items ; i++) {
       rr_backend_t *bp = available_backends[i].backend;
@@ -153,7 +161,7 @@ bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
       return true;
    }
 
-   if (rig.backend->api->ptt_set(vfo, state) ) {
+   if ( rig.backend->api->ptt_set(vfo, state) ) {
       Log( LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.", rr_vfo_name(vfo), bool2str(state) );
 
       return true;
@@ -183,7 +191,7 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
       return true;
    }
 
-   if (rig.backend->api->freq_set(vfo, freq) ) {
+   if ( rig.backend->api->freq_set(vfo, freq) ) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.", rr_vfo_name(vfo), freq);
 
       return true;

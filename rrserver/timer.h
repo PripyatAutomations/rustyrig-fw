@@ -15,6 +15,6 @@ extern bool timer_create_oneshot( int delay, void (*callback) () );
 extern bool timer_run(void);
 extern bool timer_init(void);
 
-extern const time_t cfg_rig_hard_tot;	// timer.clocktick.c
+extern const time_t cfg_rig_hard_tot;   // timer.clocktick.c
 
 #endif // !defined(__rr_timer_h)
