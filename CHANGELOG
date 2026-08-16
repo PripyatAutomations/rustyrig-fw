@@ -5,9 +5,10 @@ rustyrig-fw (20260815) testing; urgency=medium
 * Fixed backend glue so hamlib can work
 * Fixed build_config.h autogeneration from config/${PROFILE}.config.json, radio is default PROFILE
 * Fixed makefile bugs that allowed -j builds to proceed before/while ./tools/pack-eeprom runs
-* TUI now is pretty much as functional as the GUI features
+* TUI now is pretty much as functional as the GUI features and duplication is removed
+* connect button changes yellow while trying and green when online, red for offline
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, Aug 15 2026 10:42:19 AM -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat Aug 15 11:33:45 PM EDT 2026
 
 
 rustyrig-fw (20260802) testing; urgency=medium

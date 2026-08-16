@@ -1,32 +1,41 @@
 [general]
 * Add are you sure dialog on close button and alt-q (exit) hotkey
-* Add alt-q exit hotkey once confirm dialog done
+  - Add alt-q exit hotkey
 
-* Fix crashes / failure to notify on disconnect
-  - Detect the socket close/error and set client to offline state
 * Fix PTT button
   - turn YELLOW with PTT PENDING text until acknowledged by server)
+
 * Fix PTT button needing clicked twice after TOT fired
   - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
+
 * Since we've added log replay on join (rrserver.cfg:general/chat.replay-lines)
   - Change get_chat_ts to take a time_t optionally and show the date instead of just time, if before today
     - This should make replay make a little more sense to new users
   - Add some support for skipping already shown lines, if possible. Use Replay Start/Replay Complete messages to assist
+
 * Support PTT lock; controlled by ctrl or shift clicking PTT button (disable ptt lock by default)
+
 * Add mute/unmute button for RX audio which halts sending the samples entirely
-* Add throttled reconnect like webui has
+
 * Implement rest of controls typically used by hams
+
 * Finish whois/reason dialogs
+
 * Add a start/stop RX audio button for saving bw isntead of just muting
   - or maybe send the mute/unmute to server who will start/stop sending samples
     as well as sending a start/stop message so gstreamer can be paused
+
 * Fix userlist updates so joins/quits properly update it
+
 * Make VFO widgets floating
+
 * C4FM
    - Show FM dialog
+
 * strip of band buttons at the bottom of vfo populated with the bands
   the radio supports & recall the last frequency on that band, maybe 
   move to the parts of the band based on the mode too.
+
 * Fill out Config tab form which can generate rrgtk.cfg
   - For now we have the text editor, bug check and fix it!
 
@@ -35,5 +44,5 @@
 * Maybe automate routing of headsets when connected, if reasonably feasible?
 
 [cfgedit]	URGENT
+! Make save config moves the file to .old first
 * Option to edit on-disk or in-memory configuration
-* Make save config moves the file to .old first

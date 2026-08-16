@@ -311,7 +311,7 @@ int main(int argc, char *argv[]) {
       }
       free(fullpath);
    } else {
-      // Use default settings and save it to ~/.config/rrclient.cfg
+      // Use default settings builtin
       cfg = default_cfg;
       fprintf(stderr, "No config found :(\n");
       exit(1);

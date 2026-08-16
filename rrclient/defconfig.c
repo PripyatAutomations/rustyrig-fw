@@ -9,6 +9,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
+// XXX: This needs updated!
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
