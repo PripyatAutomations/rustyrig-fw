@@ -1,6 +1,7 @@
-Common to both server and client
---------------------------------
-Pull the repo initially:
+-----
+FETCH
+-----
+Pull the repo initially (this saves space and time):
      git clone http://github.com/pripyatautomations/rustyrig-fw --depth=1
      cd rustyrig-fw
      git submodule init
@@ -11,6 +12,10 @@ Pull the repo initially:
 Fetch updates & submodules
      make update
 
+
+-----
+BUILD
+-----
      sudo ./install-deps.sh
 
      # Edit things in config/ as appropriate.
@@ -21,7 +26,6 @@ Fetch updates & submodules
 
 Server setup below
 -------------------------------------
-
 This code is a bit of a mess. Right now I'm focused on getting it functional
 then we'll go through and rewrite/cleanup each file.
 
