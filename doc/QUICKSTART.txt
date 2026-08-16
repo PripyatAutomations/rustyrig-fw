@@ -16,6 +16,8 @@ Fetch updates & submodules
 -----
 BUILD
 -----
+     # install deps (this currently only works for debian, please add checks
+     # for your distro and appropriate commands ;)
      sudo ./install-deps.sh
 
      # Edit things in config/ as appropriate.

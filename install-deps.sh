@@ -5,6 +5,8 @@ set -e
 
 DEBVER=/etc/debian_version
 
+# Is this a debian offspring? If so, it'll use APT
+# XXX: We need to work on the fact that package names vary (check actual distro later)
 if [ -f "${DEBVER}" ]; then
     # Needed for eeprom tool
     apt install \
