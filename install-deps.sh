@@ -17,17 +17,18 @@ if [ -f "${DEBVER}" ]; then
     # Mojo::JSON::Pointer used by buildconf.pl
     cpan install Mojo::JSON::Pointer
 
+    CONFIG="config/${PROFILE}.config.json"
+    USE_HAMLIB=$(jq -er '.backend.hamlib // empty' "$CONFIG")
+    USE_GPIOD=$(jq -er '.use.gpio // empty' "$CONFIG") && PKG="${PKG} libgpiod-dev gpiod"
+    USE_LIBMBEDTLS=$(jq -er '.use.mbedtls // empty' "$CONFIG") && PKG="${PKG} libmedtls-dev"
+    USE_LIBEV=$(jq -er '.use.libev // empty' "$CONFIG") && PKG="${PKG} libev-dev"
+    USE_SQLITE=$(jq -er '.use.sqlite // empty' "$CONFIG") && PKG="${PKG} libsqlite3-dev sqlite3"
+    USE_GSTREAMER=$(jq -er '.use.gstreamer // empty' "$CONFIG")
+    USE_GTK=$(jq -er '.use.gtk // empty' "$CONFIG") && PKG="${PKG} libgtk-3-dev"
 
-    #CONFIG="config/${PROFILE}.config.json"
-    #
-    #USE_HAMLIB=$(jq -er '.backend.hamlib // empty' "$CONFIG")
-    #USE_SQLITE=$(jq -er '.use.sqlite // empty' "$CONFIG")
-    #USE_GSTREAMER=$(jq -er '.use.gstreamer // empty' "$CONFIG")
+    [ "$USE_HAMLIB" = "true" ] && PKG="${PKG} libhamlib-dev libhamlib-utils"
+    [ "$USE_SQLITE" = "true" ] && PKG="${PKG} sqlite3 libsqlite3-dev"
+    [ "$USE_GSTREAMER" = "true" ] && PKG="${PKG} libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-tools gstreamer1.0-plugins-rtp"
 
-    #[ "$USE_HAMLIB" = "true" ]   && apt install -y libhamlib-dev libhamlib-utils
-    #[ "$USE_SQLITE" = "true" ]   && apt install -y sqlite3 libsqlite3-dev
-    #[ "$USE_GSTREAMER" = "true" ] && apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-tools
-    apt install build-essential libgpiod-dev gpiod jq pkg-config libmbedtls-dev libgtk-3-dev libgstreamer-plugins-base1.0-0 libgstreamer1.0-dev	gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-rtp libgtk-3-dev make sqlite3 libsqlite3-dev libhamlib-dev libev-dev libwebsockets-dev libhamlib-utils libhamlib-dev  libncurses-dev  libbsd-dev
-    #apt install build-essential gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-rtp libgtk-3-dev make libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-plugins-base-apps libmbedtls-dev libhamlib-dev libhamlib-dev jq libsqlite3-dev sqlite3-tools sqlite3 sqlite3-pcre libgpiod-dev libhamlib-utils
-    #apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
+    apt install build-essential jq pkg-config make libbsd-dev libncurses-dev ${PKG}
 fi

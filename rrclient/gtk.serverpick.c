@@ -27,7 +27,6 @@ extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
-extern bool ws_connected;
 extern const char *server_name;                          // connman.c XXX: to
                                                          // remove ASAP for
                                                          // multiserver

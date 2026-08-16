@@ -1,11 +1,13 @@
 Immediate needs
 ---------------
-build: Make sure if pack-eeprom/gen-headers runs, *everything* is rebuilt by triggering a make clean or such
-build: fix -j >1 not making autoconf symlink
-   - or get rid of the manual inc/build_config.h like we should have already... ;)
-librustyaxe: Can we work out a way to avoid dict2json -> json2dict in event-bus?
-rrclient: Fix tui auto-connect
-rrclient: TUI: Implement /names to show who's in the chat
+rrclient: Fix userlist window
+  - window opened at startup doesnt track user changes
+  - new windows do not have modal property they should per config
+librustyaxe: Can we work out a way to avoid dict2json -> json2dict in event-bus? - event_emit_dict() ;)
+rrclient: Implement /names to show who's in the chat (espc in TUI)
+rrserver: Add last-seen time to users, kept in the database.
+  - Update it on connect and disconnect
+  - Add a timer to update the db every minute or five with everyone active
 *: Anywhere libev or mongoose code exists, make sure the other does as well
   - will need to use wslay/mbedtls to accomplish libev support for websocket!
   - IRC code needs updated to use mongoose

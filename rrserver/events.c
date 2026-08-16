@@ -73,12 +73,15 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       return;
    }
 
+#ifdef	USE_SQLITE
    // Log to database, if configured if (cfg_get_bool("chat.log", false) ) {
    bool db_res = db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data);
   
    if (!db_res) {
       fprintf(stderr, "db_add_chat_msg failed\n");
    }
+#endif
+
    dict_free(d);
 }
 

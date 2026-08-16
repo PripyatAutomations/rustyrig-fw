@@ -463,7 +463,7 @@ bool gui_init(void) {
    gui_hotkey_register(main_window);
 
    // Generate and display a userlist for this server
-   userlist_init();
+   userlist_create();
 
    // Make the main window on screen
    gtk_widget_show_all(main_window);

@@ -29,8 +29,8 @@
 
 // Server connections
 rr_connection_t *active_connections;
-bool ws_connected = false;       // Is RX stream connected?
-bool ws_tx_connected = false;    // Is TX stream connected?
+int ws_connected = 0;
+int ws_tx_connected = 0;
 bool server_ptt_state = false;
 const char *login_user = NULL;
 
@@ -66,7 +66,6 @@ extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 extern struct mg_connection *ws_conn;
 #endif	// USE_MONGOOSE
-extern bool ws_connected;
 
 char session_token[HTTP_TOKEN_LEN + 1] = {
    0

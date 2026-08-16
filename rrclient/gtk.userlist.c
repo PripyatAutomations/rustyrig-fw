@@ -51,6 +51,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
       if ( gtk_widget_get_visible(userlist_window) ) {
          gtk_widget_hide(userlist_window);
       } else {
+         userlist_redraw_gtk();
          gtk_widget_show_all(userlist_window);
          place_window(userlist_window);
       }
@@ -80,7 +81,7 @@ void userlist_redraw_gtk(void) {
 }
 
 // Assemble a userlist object and return it
-GtkWidget *userlist_init(void) {
+GtkWidget *userlist_create(void) {
    GtkWidget *new_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *window_t = ui_new_window(new_win, "userlist");
    gtk_window_set_title(GTK_WINDOW(new_win), "User List");
@@ -125,6 +126,7 @@ GtkWidget *userlist_init(void) {
    gui_hotkey_register(new_win);
    g_signal_connect(new_win, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
    place_window(new_win);
+   userlist_redraw_gtk();
 
    return new_win;
 }

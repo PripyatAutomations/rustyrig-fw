@@ -93,18 +93,19 @@ static bool safe_name(const char *name) {
 // Help stuff //
 ////////////////
 const char *help_msg_before[] = {
-   "******************************************",
-   "*          rustyrig client help          *",
-   "******************************************",
+   "{bright-magenta}******************************************",
+   "{bright-magenta}*          rustyrig client help          *",
+   "{bright-magenta}******************************************{reset}",
    NULL
 };
 
 const char *help_msg_after[] = {
-   "*** Keyboard Shortcuts ***",
-   "\t\talt-X (1-0)\t\tSwitch to window 1-10",
-   "\t\talt-left\t\tSwitch to previous win",
-   "\t\talt-right\t\tSwitch to next win",
-   "\t\tF12\t\t\tPTT toggle",
+   "\n",
+   "{bright-magenta}{underlne}*** Keyboard Shortcuts ***",
+   "\t{bright-green}alt-X (1-0)  {bright-yellow}Switch to window 1-10",
+   "\t{bright-green}alt-left     {bright-yellow}Switch to previous win",
+   "\t{bright-green}alt-right    {bright-yellow}Switch to next win",
+   "\t{bright-green}F12          {bright-yellow}PTT toggle{reset}",
    NULL
 };
 
@@ -136,7 +137,7 @@ bool cmd_help(int argc, char **args) {
          spaces = 1;
       }
 
-      ui_print(NULL, "   /%s%*s%s", client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
+      ui_print(NULL, "\t{bright-green}/%s%*s{bright-yellow}%s{reset}", client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
    }
 
    // after message

@@ -68,7 +68,7 @@ extern bool clear_client_list(void);
 extern struct rr_user *userlist_find(const char *name);
 
 #if     defined(USE_GTK)
-extern GtkWidget *userlist_init(void);
+extern GtkWidget *userlist_create(void);
 #endif // defined(USE_GTK)
 
 #include <librrprotocol/client-flags.h>

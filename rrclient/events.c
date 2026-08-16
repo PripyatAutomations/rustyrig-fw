@@ -27,6 +27,8 @@ extern GtkTextBuffer *log_buffer;
 extern GtkWidget *log_view;
 #endif
 
+extern int ws_connected;	// in librustyaxe/tui.window.c BUT belongs in rrclient!
+
 static void rrclient_display_log_message(const char *msg) {
    if (!log_buffer || !msg) {
       return;
@@ -233,6 +235,32 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
    } else if (strcasecmp(event, "authorized") == 0) {
       ui_print( NULL, "%s **** {green}Logged in!", get_chat_ts(now) );
       rrclient_update_connection_ui(1);
+
+      if (ui_mode == UI_MODE_TUI) {
+         tui_window_t *tw = tui_active_window();
+         char connected_status[32];
+         memset(connected_status, 0, sizeof(connected_status));
+         if (ws_connected == 1) {
+            snprintf(connected_status, sizeof(connected_status),
+                "{bright-green}ONLINE{reset}");
+         } else if (ws_connected == 0) {
+            snprintf(connected_status, sizeof(connected_status),
+                "{bright-red}offline{reset}");
+         } else if (ws_connected == -1) {
+            snprintf(connected_status, sizeof(connected_status),
+                "{bright-yellow}trying{reset}");
+         }
+
+         const char *win_color = "{bright-cyan}";
+
+         if (tw->title[0] == '&' || tw->title[0] == '#') {
+            win_color = "{bright-magenta}";
+         }
+
+         tui_update_status(tw,
+            "{bright-black}[%s{bright-black}] [%s%s{bright-black}]{reset}",
+            connected_status, win_color, tw->title);
+      }
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
       rrclient_set_offline();

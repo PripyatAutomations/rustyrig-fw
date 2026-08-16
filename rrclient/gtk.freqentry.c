@@ -23,7 +23,6 @@ extern time_t now;
 // XXX: This needs decoupled from the websocket/mg code and made to use the
 // generic
 // XXX: abstractions, so it'll work over serial etc as well
-extern bool ws_connected;
 #if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, long freq);

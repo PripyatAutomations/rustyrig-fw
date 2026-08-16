@@ -28,7 +28,6 @@ extern dict *cfg;
 extern time_t now;
 extern bool dying;
 extern bool ptt_active;
-extern bool ws_connected;
 extern struct mg_connection *ws_conn;
 extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
