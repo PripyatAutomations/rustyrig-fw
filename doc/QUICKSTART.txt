@@ -43,7 +43,7 @@ Long story short, on a debian-based system do the following to try it:
 
    Edit config/rrserver.cfg to set it up
 
-   Add users/change passwords in config/http.users
+   Add users/change passwords in config/http.users (See http.users.example)
 
    Run it with ./bin/rrserver
 

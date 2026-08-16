@@ -18,50 +18,7 @@ You probably will want to run ./install-deps.sh (apt based for now)
 
 Config files go in config/ or ~/.config/
 
-To build:
-
-	# Clone the repo and submodules
-	git clone http://github.com/pripyatautomations/rustyrig-fw --depth=1
-	cd rustyrig-fw
-	git submodule init
-	git submodule update --depth=1
-
-
-Configure:
-	Be sure config/http.users has appropriate contents
-		Try user-edit.sh - report bugs!
-
-	Make sure config/radio.config.json is good for your build host (probably if linux or msys2)
-
-	Copy config/rrclient.cfg.example to ~/.config then edit the servers
-		cp -i config/rrclient.cfg.example config/rrclient.cfg
-		cp -i config/rrserver.cfg.example config/rrserver.cfg
-
-	Edit config/rrserver.cfg for the server (examples in config/release.config.json)
-	This can go in ~/.config/rrserver.cfg or /etc/rustyrig/rrserver.cfg too.
-
-	Make TLS self-signed certs (or disable tls but webui audio cant work)
-	./tools/gen-selfsigned-tls-certs
-
-To run server:
-	./test-server
-
-To run client:
-	./test-client.sh
-
-test-all.sh:
-	If you have tmux or screen available, this script will launch a new session
-	running the server and client in their own windows.
-
-	You can watch the debug messages this way.
-
-	Note you can filter the log messages by editing log.level in the appropriate config file ;)
-
-
-Installing:	Probably BROKEN, but you can try it
-	make install
-
-
+See QUICKSTART.txt for building/running quickstart.
 
 Packaging
 ---------

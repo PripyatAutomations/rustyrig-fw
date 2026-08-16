@@ -1,5 +1,8 @@
 # Build with makepkg -f
 pkgname=('rrclient' 'rrserver' 'rrserver-fwdsp')
+
+#### This is in the .version file at the toplevel ####
+
 pkgver=20250918
 pkgrel=1
 pkgdesc="rustyrig-fw client and server"
