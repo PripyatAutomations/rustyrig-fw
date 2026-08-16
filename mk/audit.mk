@@ -1,14 +1,16 @@
 SCANBUILD := scan-build-21
 audit_files = $(wildcard librustyaxe/*.[ch] librrprotocol/*.[ch] rrclient/*.[ch] rrserver/*.[ch] fwdsp/*.[ch])
-audit: audit-printf audit-cppcheck audit-flawfinder
 
-audit-printf: ${bins}
+# audit-scanbuild *MUST* be first as it does a make clean!
+audit: audit-log/scanbuild.log audit-printf audit-cppcheck audit-flawfinder audit-clang-tidy
+
+audit-printf: audit-log/scanbuild.log
 	@echo "****************************"
 	@echo "*** Audit Format Strings ***"
 	@echo "****************************"
 	@which pscan >/dev/null && pscan -w ${audit_files} 2>&1 | tee audit-logs/audit-printf.log
 
-audit-cppcheck: ${bins}
+audit-cppcheck: audit-log/scanbuild.log
 	@echo "**********************"
 	@echo "*** cppcheck audit ***"
 	@echo "**********************"
@@ -16,11 +18,11 @@ audit-cppcheck: ${bins}
 		-I./inc/ --enable=warning,performance,portability --inline-suppr --std=c11 \
 		--checkers-report=audit-logs/cppcheck.report.txt --language=c ${audit_files} 2>&1 | tee audit-logs/cppcheck.log
 
-audit-flawfinder: ${bins}
+audit-flawfinder: audit-log/scanbuild.log
 	@echo "********************"
 	@echo "* flawfinder audit *"
 	@echo "********************"
-	@which flawfinder >/dev/null && flawfinder -m 3 -Q -i ${audit_files} 2>&1 | tee audit-logs/flawfinder.log
+	@which flawfinder >/dev/null && flawfinder -m 2 -Q ${audit_files} 2>&1 | tee audit-logs/flawfinder.log
 
 audit-deps:
 	apt install -y cppcheck pscan flawfinder
@@ -28,7 +30,7 @@ audit-deps:
 compile_commands.json: distclean
 	bear -- make world
 
-clang-tidy: compile_commands.json ${bins}
+clang-tidy: compile_commands.json audit-log/scanbuild.log
 	@echo "************************"
 	@echo "*** clang-tidy audit ***"
 	@echo "************************"
@@ -38,10 +40,11 @@ clang-tidy: compile_commands.json ${bins}
 
 audit-clang-tidy: clang-tidy
 
-audit-scanbuild: clean
+audit-log/scanbuild.log: audit-scanbuild
+
+audit-scanbuild:
 	@echo "************************"
 	@echo "*** scan-build audit ***"
 	@echo "************************"
-	${SCANBUILD} make -j4 all 2>&1 | tee audit-logs/scanbuild.log
-
-audit-all: audit-printf audit-cppcheck audit-flawfinder audit-clang-tidy audit-scanbuild
+	${MAKE} clean
+	${SCANBUILD} ${MAKE} -j4 world 2>&1 | tee audit-logs/scanbuild.log

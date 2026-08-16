@@ -238,7 +238,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *tw = tui_active_window();
-         char connected_status[32];
+         char connected_status[128];
          memset(connected_status, 0, sizeof(connected_status));
          if (ws_connected == 1) {
             snprintf(connected_status, sizeof(connected_status),

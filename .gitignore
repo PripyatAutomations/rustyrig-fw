@@ -54,3 +54,9 @@ rrclient.log
 fwdsp.*.log
 fwdsp.log
 fwdspmgr.log
+
+# core files
+core.*
+core
+*.core
+*.core.*
