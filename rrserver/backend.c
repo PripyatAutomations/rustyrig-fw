@@ -122,7 +122,7 @@ bool rr_backend_init(void) {
    if (!be) {
       Log(LOG_CRIT, "core", "Invalid backend selection %s - please fix config key backend.active!", be_name);
       free( (char *)be_name );
-      exit(1);
+      exit(EXIT_FAILURE);
    }
    free( (char *)be_name );
 

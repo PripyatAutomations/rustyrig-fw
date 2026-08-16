@@ -59,7 +59,7 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    if (tmp_len > 0) {
       if ( !( rv = strdup(tmpbuf) ) ) {
          Log(LOG_CRIT, "au.record", "OOM in au_recording_mkfilename");
-         exit(1);
+         exit(EXIT_FAILURE);
       }
    }
 

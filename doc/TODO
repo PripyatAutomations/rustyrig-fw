@@ -1,5 +1,8 @@
 Immediate needs
 ---------------
+rrclient: implement USE_LIBEV stuff in USE_MONGOOSE
+rrclient/librrprotocol: Make mongoose and libev mutually exclusive
+rrclient: GTK: Add ^C, etc for embedding mIRC-style colors
 rrclient: Fix userlist window
   - window opened at startup doesnt track user changes
   - new windows do not have modal property they should per config

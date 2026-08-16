@@ -30,7 +30,7 @@
 #include <rrserver/amp.h>
 #include <rrserver/atu.h>
 #include <rrserver/filters.h>
-//#include <librrprotocol/ws.h>
+#include <rrserver/protection.h>
 
 #if     defined(USE_MONGOOSE)
 struct mg_mgr mg_mgr;
@@ -43,8 +43,8 @@ struct mg_mgr mg_mgr;
 bool dying = 0;                  // Are we shutting down?
 bool restarting = 0;             // Are we restarting?
 struct GlobalState rig;          // Global state
-time_t now = -1;                 // time() called once a second in main loop to
-                                 // update
+time_t now = -1;                 // time() at 1hz timer
+time_t started = -1;             // time() when started
 int auto_block_ptt = 0;          // Auto block PTT at boot?
 struct timespec loop_start = {
    .tv_sec = 0, .tv_nsec = 0
@@ -63,6 +63,8 @@ extern char *config_file;        // from defconfig.c
 extern defconfig_t defcfg[];     // From defconfig.c
 extern const char *configs[];
 extern const int num_configs;
+extern void timer_clock_tick_fn(void *arg);     // timer.clocktick.c
+
 
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
@@ -91,10 +93,9 @@ void restart_rig(void) {
 
    // If execv fails
    perror("execv");
-   exit(127);
+   exit(EXIT_FAILURE);
 }
 
-extern void timer_clock_tick_fn(void *arg);     // timer.clocktick.c
 static void timer_check_faults_fn(void *arg) {
    if ( check_faults() ) {
       Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
@@ -121,7 +122,7 @@ int main(int argc, char **argv) {
    my_argv = argv;
 
    // Initialize some early state
-   now = time(NULL);
+   now = started = time(NULL);
 
    int opt;
    while ( ( opt = getopt(argc, argv, "f:hr:") ) != -1 ) {
@@ -139,7 +140,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Usage: %s [-f config file] [-r rigname]\n", argv[0]);
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
             fprintf(stderr, "  -r\t\t\tRig name (for finding config file\n");
-            exit(1);
+            exit(EXIT_FAILURE);
          }
       }
    }
@@ -160,7 +161,7 @@ int main(int argc, char **argv) {
    } else {
       cfg = default_cfg;
       fprintf(stderr, "No config found :(\n");
-      exit(1);
+      exit(EXIT_FAILURE);
    }
    logfp = stdout;
    rig.log_level = LOG_DEBUG;            // startup in debug mode until config
@@ -173,6 +174,7 @@ int main(int argc, char **argv) {
    memset( &rig, 0, sizeof(struct GlobalState) );
    load_defaults();
 
+// Core dump setup
 #ifdef USE_COREDUMPS_SERVER
    struct rlimit rl = {
       .rlim_cur = RLIM_INFINITY,
@@ -190,10 +192,11 @@ int main(int argc, char **argv) {
 
    if ( !( masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
-      exit(31);
+      exit(EXIT_FAILURE);
    }
 #endif // defined(USE_SQLITE)
 
+   protection_init();
    timer_init();
    gpio_init();
 
@@ -245,13 +248,13 @@ int main(int argc, char **argv) {
    if ( rr_io_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
       set_fault(FAULT_IO_ERROR);
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    if ( rr_backend_init() ) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
 #if     defined(USE_CAT)
@@ -259,7 +262,7 @@ int main(int argc, char **argv) {
    if ( rr_cat_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 #endif
 
@@ -271,7 +274,7 @@ int main(int argc, char **argv) {
    show_network_info();
    show_pin_info();
 
-   // Bring up libmongoose for the websocket/mqtt servers & mqtt client
+// Bring up libmongoose for the websocket/mqtt servers & mqtt client
 #if     defined(USE_MONGOOSE)
 #if     defined(USE_HTTP)
 #if     defined(HTTP_DEBUG_CRAZY)
@@ -287,12 +290,7 @@ int main(int argc, char **argv) {
    mqtt_server_init(&mg_mgr);
    mqtt_client_init();
 #endif
-#endif // USE_MONGOOSE
 
-   Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
-
-
-#if     defined(USE_MONGOOSE)
    // Update the clock (now) once a second
    mg_timer_add(&mg_mgr, 1000, MG_TIMER_REPEAT, timer_clock_tick_fn, &mg_mgr);
 
@@ -303,6 +301,8 @@ int main(int argc, char **argv) {
    // rig polling
    mg_timer_add(&mg_mgr, cfg_backend_poll_interval, MG_TIMER_REPEAT, timer_backend_poll_fn, &mg_mgr);
 #endif // USE_MONGOOSE
+
+   Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
    // Main loop
    while (1) {

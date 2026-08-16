@@ -1,12 +1,38 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@
+        dh $@
+
+override_dh_auto_clean:
+        $(MAKE) distclean
 
 override_dh_auto_build:
-	make
+        # Build the normal GTK profile
+        $(MAKE) PROFILE=default
+
+        # Build the TUI-only client profile
+        $(MAKE) PROFILE=no-gtk rrclient
 
 override_dh_auto_install:
-	# install both to staging dirs
-	make install DESTDIR=$(CURDIR)/debian/rrgtk PREFIX=/usr CLIENT_ONLY=1
-	make install DESTDIR=$(CURDIR)/debian/rrserver PREFIX=/usr SERVER_ONLY=1
+        # Normal/default packages
+        $(MAKE) PROFILE=default install-librustyaxe \
+                DESTDIR=$(CURDIR)/debian/librustyaxe PREFIX=/usr
+
+        $(MAKE) PROFILE=default install-librrprotocol \
+                DESTDIR=$(CURDIR)/debian/librrprotocol PREFIX=/usr
+
+        $(MAKE) PROFILE=default install-client \
+                DESTDIR=$(CURDIR)/debian/rrclient PREFIX=/usr
+
+        $(MAKE) PROFILE=default install-server \
+                DESTDIR=$(CURDIR)/debian/rrserver PREFIX=/usr
+
+        $(MAKE) PROFILE=default install-fwdsp \
+                DESTDIR=$(CURDIR)/debian/fwdsp PREFIX=/usr
+
+        # TUI-only client
+        $(MAKE) PROFILE=no-gtk install-client \
+                DESTDIR=$(CURDIR)/debian/rrclient-tui PREFIX=/usr
+
+        mv debian/rrclient-tui/usr/bin/rrclient \
+           debian/rrclient-tui/usr/bin/rrclient-tui

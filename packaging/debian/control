@@ -2,18 +2,60 @@ Source: rustyrig-fw
 Section: hamradio
 Priority: optional
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
-Build-Depends: debhelper-compat (= 13)
-Standards-Version: 4.1.4
+Build-Depends:
+ debhelper-compat (= 13)
+Standards-Version: 4.7.2
+Homepage: https://github.com/PripyatAutomations/rustyrig-fw
+Vcs-Git: https://github.com/PripyatAutomations/rustyrig-fw.git
+Vcs-Browser: https://github.com/PripyatAutomations/rustyrig-fw
 
-Package: rrgtk
+Package: librustyaxe
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Rusty Rig Client
- A basic GTK client to access a radio or server running rustyrig firmware.
+#Multi-Arch: same
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends}
+Description: RustyRig core library
+ Core library used by the RustyRig server and clients.
+
+Package: librrprotocol
+Architecture: any
+#Multi-Arch: same
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends}
+Description: RustyRig protocol library
+ Protocol library used by RustyRig clients and servers.
+
+Package: rrclient
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends}
+Description: RustyRig GTK client
+ GTK and TUI client for accessing a radio or
+ RustyRig server.
+
+Package: rrclient-tui
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends}
+Description: RustyRig TUI client
+ TUI-only RustyRig client built without GTK or GLib.
 
 Package: rrserver
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Rusty Rig Server
- The reference implementation of rustyrig server in C.
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends}
+Description: RustyRig server
+ Reference implementation of the RustyRig server in C.
 
+Package: fwdsp
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends}
+Description: RustyRig audio DSP service
+ Audio DSP service used by the RustyRig system.

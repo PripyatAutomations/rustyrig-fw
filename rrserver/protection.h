@@ -10,7 +10,8 @@
 #if     !defined(__rr_protection_h)
 #define	__rr_protection_h
 
-extern bool rr_protect_warmup_pending(int amp_idx);
+extern bool protection_warmup_pending(int amp_idx);
 extern bool protection_lockout(const char *reason);
+extern bool protection_init(void);
 
 #endif // !defined(__rr_protection_h)

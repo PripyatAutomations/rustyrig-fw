@@ -13,15 +13,19 @@ Fetch updates & submodules
      make update
 
 
+---------
+CONFIGURE
+---------
+     # Edit things in config/ as appropriate.
+     # - Default profile is 'radio'
+     - config/${PROFILE}.config.json has build-time config
+
 -----
 BUILD
 -----
      # install deps (this currently only works for debian, please add checks
      # for your distro and appropriate commands ;)
      sudo ./install-deps.sh
-
-     # Edit things in config/ as appropriate.
-     - config/radio.config.json has build-time config
 
      Build it:
      ./build.sh

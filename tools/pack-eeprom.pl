@@ -891,6 +891,10 @@ sub generate_config_h {
          printf $fh "#define USE_HTTP\n";
       }
 
+      if (defined($config->{features}{'libev'}) && match_boolean($config->{features}{'libev'})) {
+         printf $fh "#define USE_LIBEV\n";
+      }
+
       if (defined($config->{features}{'mqtt'}) && match_boolean($config->{features}{'mqtt'})) {
          printf $fh "#define USE_MQTT\n";
       }

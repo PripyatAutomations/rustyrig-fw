@@ -1,3 +1,9 @@
+rustyrig-fw (20260816) testing; urgency=medium
+* Renamed -c argument to all programs to -f to give a config filename
+* fixed some small bugs
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun Aug 16 01:36:49 PM EDT 2026
+
 rustyrig-fw (20260815) testing; urgency=medium
 * got TUI working (-T or unset $DISPLAY)
 * lots of bugs fixed
@@ -10,7 +16,6 @@ rustyrig-fw (20260815) testing; urgency=medium
 * updated tools/archive-config.sh to save the rrclient and rrserver configs too
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat Aug 15 11:33:45 PM EDT 2026
-
 
 rustyrig-fw (20260802) testing; urgency=medium
 * More cleanup, fixed eeprom handling & moved most things to eventbus events

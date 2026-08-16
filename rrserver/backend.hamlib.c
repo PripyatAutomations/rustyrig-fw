@@ -190,20 +190,10 @@ static bool hl_init(void) {
    }
    const char *cfg_hamlib_port = cfg_get_exp("backend.hamlib-port");
 
-   // XXX: Is this needed or is the simpler code OK?
-/*
- *  strlcpy(hl_rig->state.rigport.pathname, "localhost:4532",
- * sizeof(hl_rig->state.rigport.pathname));
- *  hl_rig->state.rigport.pathname[sizeof(hl_rig->state.rigport.pathname) - 1] =
- * '\0';
- */
-
    rig_set_conf( hl_rig, rig_token_lookup(hl_rig, "rig_pathname"),
       (cfg_hamlib_port ? cfg_hamlib_port : BACKEND_HAMLIB_PORT) );
    free( (char *)cfg_hamlib_port );
 
-// XXX: this doesnt work on daedalus
-//   HAMLIB_RIGPORT(hl_rig)->parm.serial.rate = BACKEND_HAMLIB_BAUD;
    // Open connection to rigctld
    if ( (ret = rig_open(hl_rig) ) != RIG_OK) {
       fprintf( stderr, "Failed to connect to rigctld: %s\n", rigerror(ret) );

@@ -60,9 +60,12 @@ extern void ws_client_init(void);
 extern bool parse_chat_input_real(const char *msg); // cmd.c
 
 /////////////////////////////////////
+#ifdef	USE_LIBEV
 static ev_timer tui_clock_watcher;
 static ev_timer ws_poll_watcher;
 struct ev_loop *loop_main = NULL;
+#endif	// USE_LIBEV
+
 bool rrclient_cleanup(void);
 bool cfg_mirc_colors = true;
 bool dying = false;
@@ -70,11 +73,12 @@ bool restarting = false;
 bool debug_sockets = false;
 time_t now = 0;
 
+#ifdef	USE_LIBEV
 static void ws_poll_cb(EV_P_ ev_timer *w, int revents) {
    // this calls mg_mgr_poll(&mgr, 0);
    rrclient_poll_events();
 }
-
+#endif	// USE_LIBEV
 bool ptt_active = false;
 time_t poll_block_expire = 0;    // Here we set this to now +
                                  // config:cat.poll-blocking to prevent rig
@@ -120,6 +124,7 @@ static gboolean poll_mongoose(gpointer user_data) {
 #endif // USE_MONGOOSE
 #endif // USE_GTK
 
+#ifdef	USE_LIBEV
 static void tui_stop_clock_timer(struct ev_loop *loop) {
    ev_timer_stop(loop, &tui_clock_watcher);
 }
@@ -138,6 +143,7 @@ static void tui_start_clock_timer(struct ev_loop *loop) {
                                                              // repeat every 1s
    ev_timer_start(loop, &tui_clock_watcher);
 }
+#endif	// USE_LIBEV
 
 static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    struct log_event_data *led = (struct log_event_data *)data;
@@ -177,7 +183,6 @@ bool rrclient_cleanup(void) {
    dict_free(cfg);
 
    if (ui_mode == UI_MODE_TUI) {
-      tui_stop_clock_timer(loop_main);
       tui_raw_mode(false);
    } else if (ui_mode == UI_MODE_GTK) {
       gtk_main_quit();
@@ -194,9 +199,9 @@ bool rrclient_cleanup(void) {
 }
 
 void show_help(int argc, char **argv) {
-   printf("%s [-T] [-c config] [-h]\n", argv[0]);
+   printf("%s [-T] [-f config] [-h]\n", argv[0]);
    printf("\t-T\t\tTUI only mode (no X11)\n");
-   printf("\t-c config\tChose an alternative configuration file\n");
+   printf("\t-f config\tChose an alternative configuration file\n");
    printf("\t-h\t\tHelp\n");
 }
 
@@ -204,9 +209,14 @@ void show_help(int argc, char **argv) {
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
    char *fullpath = NULL;
+
+#ifdef USE_LIBEV
    loop_main = EV_DEFAULT;
+#endif	// USE_LIBEV
    int c;
    int digit_optind = 0;
+
+   cfg = default_cfg;
 
 #ifdef USE_COREDUMPS_CLIENT
    struct rlimit rl = {
@@ -215,6 +225,9 @@ int main(int argc, char *argv[]) {
    };
    setrlimit(RLIMIT_CORE, &rl);
 #else
+#ifdef USE_LIBEV)
+      tui_stop_clock_timer(loop_main);
+#endif
    struct rlimit rl = {
       0, 0
    };
@@ -239,7 +252,7 @@ int main(int argc, char *argv[]) {
       int option_index = 0;
       static struct option long_options[] = {
          {
-            "config", required_argument, 0, 'c'
+            "config", required_argument, 0, 'f'
          },
          {
             "tui", no_argument, 0, 'T'
@@ -252,14 +265,14 @@ int main(int argc, char *argv[]) {
          }
       };
 
-      c = getopt_long(argc, argv, "Thc:021", long_options, &option_index);
+      c = getopt_long(argc, argv, "Thf:", long_options, &option_index);
 
       if (c == -1) {
          break;
       }
 
       switch (c) {
-         case 'c': {
+         case 'f': {
             printf("Using config file: %s\n", optarg);
             config_file = strdup(optarg);
             break;
@@ -302,30 +315,29 @@ int main(int argc, char *argv[]) {
    if (config_file) {
       if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
+         free(config_file);
+         config_file = NULL;
+      } else {
+         printf("Loading config %s\n", config_file);
       }
-      free(config_file);
-      config_file = NULL;
-   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
+   }
+
+   if ( !config_file && ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
 
       if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
+      printf("Loading config %s\n", config_file);
       free(fullpath);
-   } else {
+   }
+
+   if (!config_file){
       // Use default settings builtin
-      cfg = default_cfg;
       fprintf(stderr, "No config found :(\n");
       exit(1);
    }
 
-   if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
-      if ( fullpath && !( cfg = cfg_load(fullpath) ) ) {
-         ui_print(NULL, "{red}* ERROR *{reset} Couldn't load config '%s', using defaults", fullpath);
-      }
-      free(fullpath);
-      fullpath = NULL;
-   }
    // apply some global configuration
    const char *logfile = cfg_get_exp("log.file");
    logger_init( (logfile ? logfile : "-") );
@@ -369,7 +381,9 @@ int main(int argc, char *argv[]) {
       tui_readline_cb = parse_chat_input_real;
 
       tui_init();
+#ifdef	USE_LIBEV
       tui_start_clock_timer(loop_main);
+#endif
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef USE_GTK
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
@@ -401,9 +415,11 @@ int main(int argc, char *argv[]) {
    // start gtk main loop
    if (ui_mode == UI_MODE_TUI) {
       // Here we run the TUI main loop
+#ifdef	USE_LIBEV
       ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
       ev_timer_start(loop_main, &ws_poll_watcher);
       ev_run(loop_main, 0);
+#endif	// USE_LIBEV
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef USE_GTK
       gtk_main();
