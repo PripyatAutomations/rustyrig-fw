@@ -94,7 +94,7 @@ void show_network_info(void) {
 #ifdef   HOST_POSIX
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;
    int vlan = 0;
-   s = cfg_get("net.vlan");
+   const char *s = cfg_get("net.vlan");
 
    if (s) {
       vlan = atoi(s);
