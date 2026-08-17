@@ -216,8 +216,8 @@ int main(int argc, char **argv) {
    if (s) {
       serial_tmp = atoi(s);
    }
-#ifdef	USE_EEPROM
 
+#ifdef	USE_EEPROM
    if (!s || serial_tmp == 0) {
       rig.serial = get_serial_number();
    }

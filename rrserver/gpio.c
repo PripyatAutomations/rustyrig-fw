@@ -22,7 +22,6 @@
 #include <rrserver/gpio.h>
 
 #ifdef	USE_GPIO
-
 #ifdef	HOST_POSIX
 #include <stdio.h>
 #include <gpiod.h>              // Linux hosts
@@ -58,7 +57,7 @@ uint32_t radio_gpiochip_init(const char *chipname) {
    }
 // On posix hosts, such as linux on pi, we use libgpiod to access gpio, add
 // other platforms here
-#if     defined(HOST_POSIX)
+#ifdef   HOST_POSIX
    struct gpiod_chip *tmp = NULL;
 
    if ( !( tmp = gpiod_chip_open(chipname) ) ) {

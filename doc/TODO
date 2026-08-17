@@ -1,5 +1,10 @@
 Immediate needs
 ---------------
+* HTTP_DEBUG_CRAZY - where does it get set?
+* DEBUG_WS_BINFRAMES - where does it get set?
+* DEBUG_PROTO_UNKNOWN ' ' '
+* MAKE SURE the protocol messages line up
+  - Try to minimize wasted traffic
 rrclient: Make the VFO widget able to be popped out to floating window (optionally modal)/returned to the main window
 rrclient: implement USE_LIBEV stuff in USE_MONGOOSE
 rrclient/librrprotocol: Make mongoose and libev mutually exclusive

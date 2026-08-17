@@ -134,6 +134,8 @@ void connman_register_events(void) {
 }
 
 #ifdef  USE_MONGOOSE
+// XXX: This needs moved include rrprotocol.c
+// XXX: Cleanup this asap
 static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
@@ -272,7 +274,7 @@ bool rrclient_disconnect(void) {
 
 void rrclient_poll_events(void) {
 #ifdef  USE_MONGOOSE
-   mg_mgr_poll(&mgr, 20);
+   mg_mgr_poll(&mgr, 0);
 #endif // USE_MONGOOSE
 
    if (reconnect_pending && time(NULL) >= reconnect_at) {

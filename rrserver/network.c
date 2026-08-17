@@ -23,7 +23,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/network.h>
 
-#if     defined(HOST_POSIX)
+#ifdef   HOST_POSIX
 #include <sys/socket.h>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
@@ -69,7 +69,7 @@ static void net_print_listeners(const char *listenaddr) {
 
    freeifaddrs(ifaddr);
 }
-#endif
+#endif   // HOST_POSIX
 
 // Here we have to provide a common interface with serial
 // transport for cons, cat, and debug
@@ -78,20 +78,20 @@ void show_network_info(void) {
       return;
    }
    int bind_port = cfg_get_int("net.http.port", 0);
-#if     defined(USE_EEPROM)
+#ifdef   USE_EEPROM
    if (!bind_port) {
       eeprom_get_int("net/http/port");
    }
-#endif
+#endif   // USE_EEPROM
 
    int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
-#if     defined(USE_EEPROM)
+#ifdef   USE_EEPROM
    if (!tls_bind_port) {
       tls_bind_port = eeprom_get_int("net/http/tls-port");
    }
-#endif
+#endif   // USE_EEPROM
 
-#if     !defined(HOST_POSIX)
+#ifdef   HOST_POSIX
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;
    int vlan = 0;
    s = cfg_get("net.vlan");
@@ -132,19 +132,19 @@ void show_network_info(void) {
 
    Log(LOG_INFO, "net", "Static IP: %s (%s) GW: %s", s_ip, s_mask, s_gw);
    Log(LOG_INFO, "net", "Name Servers: %s, %s", s_dns1, s_dns2);
-#else
+#else // HOST_POSIX
    // print what addresses our bind will apply to
    const char *listenaddr = cfg_get("net.http.bind");
 
-#if     defined(USE_EEPROM)
+#ifdef   USE_EEPROM
    if (!listenaddr) {
       listenaddr = (char *)eeprom_get_str("net/http/bind");
    }
-#endif
+#endif   // USE_EEPROM
 
    if (listenaddr) {
       Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port, tls_bind_port);
       net_print_listeners(listenaddr);
    }
-#endif
+#endif   // HOST_POSIX
 }

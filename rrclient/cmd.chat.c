@@ -113,6 +113,7 @@ bool cmd_notice(int argc, char **args) {
    }
 
    char *notice_target = args[1];
+   // XXX: this should exist, everything past max_args should end up in one arg, yes?
    char notice_msg[502];
    memset( notice_msg, 0, sizeof(notice_msg) );
    size_t pos = 0;
@@ -150,7 +151,18 @@ bool cmd_notice(int argc, char **args) {
          ui_print(NULL, "-> *%s* %s", notice_target, notice_msg);
       }
    }
-   ui_print(NULL, "{yellow}=> *%s*{reset} {bright-cyan}%s{reset}: %s", notice_target, notice_msg);
+   ui_print(NULL, "TEST: {yellow}=> *%s*{reset} {bright-cyan}%s{reset}: %s", notice_target, notice_msg);
+
+   // XXX: Actually send it
+   dict *d = dict_new();
+   dict_add(d, "talk.msg-type", (char *)"notice");
+   dict_add(d, "talk.msg", notice_msg);
+   dict_add(d, "talk.target", notice_target);
+
+   // XXX: Send it to the network
+   // Send it for display? (XXX: Should we do this or let the network echo it back?)
+   event_emit_dict("talk", NULL, d);
+   dict_free(d);
    return false;
 }
 

@@ -25,7 +25,7 @@
 // Create a timer that occurs every interval milliseconds
 // Repeats can be used to create a timer that only happens a few times
 //       Use repeats = 0 for unlimited repeats
-bool timer_create_periodic( int interval, int repeats, void (*callback) () ) {
+bool timer_create_periodic( const char *name, int interval, int repeats, void (*callback) () ) {
 #ifdef	USE_MONGOOSE
    // XXX: Provide a libmongoose based timer here
 #else	// USE_MONGOOSE
@@ -40,8 +40,8 @@ bool timer_create_periodic( int interval, int repeats, void (*callback) () ) {
    return false;
 }
 
-bool timer_create_oneshot( int delay, void (*callback) () ) {
-   return timer_create_periodic(delay, 1, callback);
+bool timer_create_oneshot( const char *name, int delay, void (*callback) () ) {
+   return timer_create_periodic(name, delay, 1, callback);
 }
 
 // Run all pending timers this iteration of the main loop
