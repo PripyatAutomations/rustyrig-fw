@@ -29,55 +29,23 @@ extern struct GlobalState rig;          // Global state
 
 // Fault Table contains the known faults and their text strings
 struct fault_table fault_table[] = {
-   // FAULT       Fatal?      String
-   {
-      FAULT_NONE, false, "None"
-   },
-   {
-      FAULT_STUCK_RELAY, true, "RELAY"
-   },
-   {
-      FAULT_INLET_THERMAL, true, "THERM_IN"
-   },
-   {
-      FAULT_TOO_HOT, true, "THERM_BOX"
-   },
-   {
-      FAULT_HIGH_SWR, true, "SWR"
-   },
-   {
-      FAULT_FINAL_THERMAL, true, "THERM_FIN"
-   },
-   {
-      FAULT_FINAL_LOW_CURRENT, true, "F Lo Curr"
-   },
-   {
-      FAULT_FINAL_HIGH_CURRENT, true, "F Hi Curr"
-   },
-   {
-      FAULT_FINAL_LOW_VOLT, true, "F Lo Volt"
-   },
-   {
-      FAULT_FINAL_HIGH_VOLT, true, "F Hi Volt"
-   },
-   {
-      FAULT_TOT_TIMEOUT, true, "TIMEOUT"
-   },
-   {
-      FAULT_WARMING_UP, false, "WARM UP"
-   },
-   {
-      FAULT_IO_ERROR, false, "IO INIT"
-   },
-   {
-      FAULT_BACKEND_ERR, false, "BACKEND"
-   },
-   {
-      FAULT_CAT_ERROR, false, "CAT INIT"
-   },
-   {
-      FAULT_UNKNOWN, true, "UNK. ERR"
-   },
+   // FAULT       		Fatal?      String
+   { FAULT_NONE, 		false, "None" },
+   { FAULT_STUCK_RELAY, 	true, "RELAY" },
+   { FAULT_INLET_THERMAL, 	true, "THERM_IN" },
+   { FAULT_TOO_HOT, 		true, "THERM_BOX" },
+   { FAULT_HIGH_SWR, 		true, "SWR" },
+   { FAULT_FINAL_THERMAL, 	true, "THERM_FIN" },
+   { FAULT_FINAL_LOW_CURRENT, 	true, "F Lo Curr" },
+   { FAULT_FINAL_HIGH_CURRENT,	true, "F Hi Curr" },
+   { FAULT_FINAL_LOW_VOLT, 	true, "F Lo Volt" },
+   { FAULT_FINAL_HIGH_VOLT, 	true, "F Hi Volt" },
+   { FAULT_TOT_TIMEOUT, 	true, "TIMEOUT" },
+   { FAULT_WARMING_UP, 		false, "WARM UP" },
+   { FAULT_IO_ERROR, 		false, "IO INIT" },
+   { FAULT_BACKEND_ERR, 	false, "BACKEND" },
+   { FAULT_CAT_ERROR,		false, "CAT INIT" },
+   { FAULT_UNKNOWN, 		true, "UNK. ERR" },
 };
 
 int fault_priority(uint32_t fault) {

@@ -36,14 +36,14 @@ extern bool rrclient_send_chat(const char *data);
 extern bool syslog_clear(void);
 extern const char *server_name; // remove this (connman.c)
 
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
 extern struct mg_connection *ws_conn;
 #endif
 bool cmd_clear(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
       tui_clear_scrollback( tui_active_window() );
    } else if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
       gtk_text_buffer_set_text(text_buffer, "", -1);
 #endif
    }
@@ -76,7 +76,7 @@ bool cmd_quit(int argc, char **args) {
       ui_print(NULL, "{bright-cyan}Seeya soon, have a great day!{reset}");
 
       const char *jp = dict2json_mkstr(VAL_STR, "auth.cmd", "quit", VAL_STR, "auth.msg", quitmsg);
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
       mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
 #endif
       free( (char *)jp );
@@ -92,7 +92,7 @@ bool cmd_rxvol(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
       // do stuff
    } else if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
       gdouble val = atoi(args[1]) / 100;
       gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
 #endif

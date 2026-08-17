@@ -65,7 +65,7 @@
       }
    },
    "debug": {
-      "noisy-eeprom": "false",
+      "noisy-eeprom": "true",
       "logfile": "./radio-debug.log",
       "logtype": "file",
       "logmode": "0660",
@@ -94,6 +94,7 @@
       "coredumps-fwdsp": "true",
       "coredumps-server": "false",
       "debug-build": "true",
+      "eeprom": "false",
       "gpio": "false",
       "gstreamer": "false",
       "gtk": "true",

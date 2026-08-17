@@ -184,9 +184,9 @@ void au_unix_socket_poll(void) {
 // XXX: We need to find the channel ID associated with the connection
 // XXX: Then send it using void au_send_to_ws(const void *data, size_t len, int
 // channel) {
+//
 // XXX: Dead code
-//      Log(LOG_DEBUG, "audio", "Read %zd bytes from UNIX socket client
-// (fd=%d)", n, rx_client_fd);
+//      Log(LOG_DEBUG, "audio", "Read %zd bytes from UNIX socket client (fd=%d)", n, rx_client_fd);
 //      broadcast_audio_to_ws_clients(buf, n);
    } else if (n == 0) {
       // Client closed connection

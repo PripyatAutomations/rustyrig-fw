@@ -32,11 +32,11 @@
 #include <rrserver/filters.h>
 #include <rrserver/protection.h>
 
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
 struct mg_mgr mg_mgr;
 #endif
 
-#if     defined(USE_MQTT)
+#ifdef	USE_MQTT
 #include <rrserver/mqtt.h>
 #endif
 
@@ -65,7 +65,6 @@ extern const char *configs[];
 extern const int num_configs;
 extern void timer_clock_tick_fn(void *arg);     // timer.clocktick.c
 
-
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
    rig.faultbeep = 1;
@@ -83,23 +82,21 @@ void shutdown_rig(uint32_t signum) {
 
 void restart_rig(void) {
    Log(LOG_CRIT, "core", "Restarting process...");
-
    host_cleanup();
 
-   // Ensure argv is NULL-terminated (it should be, but defensively...)
+   // Ensure argv is NULL-terminated (it should be, but defensively set it so...)
    my_argv[my_argc] = NULL;
-
    execv(my_argv[0], my_argv);
 
    // If execv fails
-   perror("execv");
+   Log(LOG_CRIT, "core", "restart_rig failed in execve(): %d: %s", errno, strerror(errno));
    exit(EXIT_FAILURE);
 }
 
 static void timer_check_faults_fn(void *arg) {
    if ( check_faults() ) {
-      Log(LOG_CRIT, "core", "Fault detected, see crash dump above");
-      // XXX: Should we stop PTT and halt here?
+      Log(LOG_CRIT, "core", "Fault detected, see log above. Rig haltered!");
+      // XXX: Stop PTT and halt here?
    }
 }
 
@@ -110,7 +107,7 @@ static struct timespec last_backend_poll = {
 static void timer_backend_poll_fn(void *arg) {
    // Poll the rig
    rr_be_poll(VFO_A);
-//   rr_be_poll(VFO_B);
+   rr_be_poll(VFO_B);
 
    last_backend_poll.tv_sec = loop_start.tv_sec;
    last_backend_poll.tv_nsec = loop_start.tv_nsec;
@@ -166,6 +163,7 @@ int main(int argc, char **argv) {
    logfp = stdout;
    rig.log_level = LOG_DEBUG;            // startup in debug mode until config
                                          // loaded
+   logger_init(LOG_FILE);
 
    srand( (unsigned int)now );
    host_init();
@@ -188,29 +186,28 @@ int main(int argc, char **argv) {
    setrlimit(RLIMIT_CORE, &rl);
 #endif // USE_COREDUMPS_SERVER
 
-#if     defined(USE_SQLITE)
-
+#ifdef	USE_SQLITE
    if ( !( masterdb = db_open(MASTERDB_PATH) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(EXIT_FAILURE);
    }
-#endif // defined(USE_SQLITE)
+#endif // USE_SQLITE
 
    protection_init();
    timer_init();
+#ifdef	USE_GPIO
    gpio_init();
+#endif	// USE_GPIO
 
-#if     defined(USE_EEPROM)
-
+#ifdef	USE_EEPROM
    // if able to connect to EEPROM, load and apply settings
    if (eeprom_init() == 0) {
       eeprom_load_config();
    }
-#endif
+#endif	// USE_EEPROM
 
 //   i2c_init();
 //   gui_init();
-   logger_init(LOG_FILE);
 
    // Print the serial #
    const char *s = cfg_get("device.serial");
@@ -219,7 +216,7 @@ int main(int argc, char **argv) {
    if (s) {
       serial_tmp = atoi(s);
    }
-#if     defined(USE_EEPROM)
+#ifdef	USE_EEPROM
 
    if (!s || serial_tmp == 0) {
       rig.serial = get_serial_number();
@@ -228,7 +225,7 @@ int main(int argc, char **argv) {
    Log(LOG_INFO, "core", "Device serial number: %lu", rig.serial);
 
    // apply some configuration from the eeprom
-#if     defined(USE_EEPROM)
+#ifdef	USE_EEPROM
    auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
    cfg_backend_poll_interval = cfg_get_int("rig.poll-interval", 1000);
 #endif
@@ -257,8 +254,7 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
    }
 
-#if     defined(USE_CAT)
-
+#ifdef	USE_CAT
    if ( rr_cat_init() ) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
@@ -306,7 +302,7 @@ int main(int argc, char **argv) {
 
    // Main loop
    while (1) {
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
       // Process Mongoose HTTP and MQTT events, this should be at the end of
       // loop so all data is ready
       mg_mgr_poll(&mg_mgr, 1000);
@@ -318,7 +314,7 @@ int main(int argc, char **argv) {
    }
    host_cleanup();
 
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
    mg_mgr_free(&mg_mgr);
 #endif
 

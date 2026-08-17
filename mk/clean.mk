@@ -1,6 +1,8 @@
 ##################
 # Source Cleanup #
 ##################
+extra_clean += core.* fwdsp.core rrclient.core rrserver.core
+
 clean: ${extra_clean_targets}
 	@echo "[clean]"
 	${RM} ${bins} ${rrserver_objs} ${rrgtk_objs} ${extra_clean} *.log

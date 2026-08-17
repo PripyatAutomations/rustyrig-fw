@@ -20,12 +20,12 @@
 #include <rrclient/ui.h>
 
 extern const char *login_user;   // from connman.c
-#if defined(USE_GTK)
+#ifdef	USE_GTK
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern GtkWidget *main_window;
 extern GtkTextBuffer *log_buffer;
 extern GtkWidget *log_view;
-#endif
+#endif	// USE_GTK
 
 extern int ws_connected;        // in librustyaxe/tui.window.c BUT belongs in rrclient!
 
@@ -35,13 +35,13 @@ static void rrclient_display_log_message(const char *msg) {
    }
 
    if (ui_mode == UI_MODE_GTK) {
-#if defined(USE_GTK)
+#ifdef	USE_GTK
       GtkTextIter end;
       gtk_text_buffer_get_end_iter(log_buffer, &end);
       gtk_text_buffer_insert(log_buffer, &end, msg, -1);
       gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
       g_idle_add(ui_scroll_to_end, log_view);
-#endif
+#endif	// USE_GTK
    }
 }
 
@@ -54,7 +54,7 @@ void rrclient_update_connection_ui(int connected) {
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
    if (ui_mode == UI_MODE_GTK) {
-#if defined(USE_GTK)
+#ifdef	USE_GTK
       GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(conn_button) );
 
       if (!ctx) {
@@ -74,7 +74,7 @@ void rrclient_update_connection_ui(int connected) {
          gtk_style_context_remove_class(ctx, "conn-idle");
          gtk_style_context_add_class(ctx, "conn-pending");
       }
-#endif
+#endif	// USE_GTK
    }
 }
 
@@ -101,11 +101,23 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
 //   fprintf(stderr, "[alert]\n");
 //   dict_dump(d, stderr);
 
-   const char *from = dict_get(d, "talk.from", NULL);
    time_t msg_ts = dict_get_time_t(d, "alert.ts", 0);
-   const char *msg_type = dict_get(d, "talk.msg_type", NULL);
-   const char *msg_data = dict_get(d, "alert.data", NULL);
+   const char *msg_from = dict_get(d, "alert.from", (char *)"*unknown*");
+   const char *msg_data = dict_get(d, "alert.data", (char *)"*No message*");
+   const char *msg_type = dict_get(d, "alert.type", (char *)"warning");
 
+   // Print a colorized version of the test
+   // XXX: Should we make a function to strip color escapes for below?
+   ui_print(NULL, "{red}*** {bright-red}ALERT {red}***{reset} %s: %s", msg_from, msg_data);
+
+   char my_msg[512];
+   memset(my_msg, 0, sizeof(my_msg));
+   snprintf(my_msg, sizeof(my_msg), "*** ALERT ***\nFrom: %s\nnMessage:\n\t%s", msg_from, msg_data);
+   Log(LOG_INFO, "proto.alert", "%s", my_msg);
+
+   if (ui_mode == UI_MODE_GTK) {
+      alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, my_msg);
+   }
    dict_free(d);
 }
 
@@ -169,22 +181,29 @@ static void rrclient_handle_hello(const char *event, const char *data, rrconn_t 
    }
 
    dict *d = json2dict(data);
-//   fprintf(stderr, "[hello]\n");
-//   dict_dump(d, stderr);
    const char *m_hwver = dict_get(d, "hello.hwver", (char *)"misconfigured radio");
    const char *m_swver = dict_get(d, "hello.swver", (char *)"1.2.3.4");
-   ui_print(NULL, "%s {bright-yellow}Your host is running {bright-green}%s{bright-yellow} on {bright-red}%s",
+   ui_print(NULL, "%s {bright-yellow}Your host is running {bright-green}%s{bright-yellow} on {bright-green}%s",
       get_chat_ts(0), m_swver, m_hwver);
    dict_free(d);
 }
 
 static void rrclient_handle_log(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   struct log_event_data *led = (struct log_event_data *)data;
+   dict *d = json2dict(data);
+   char logmsg[512];
+   memset(logmsg, 0, sizeof(logmsg));
 
-   if (!led || !led->message[0]) {
-      return;
+   if (d) {
+      const char *log_from =   dict_get(d, "log.from", (char *)"*unknown*");
+      const char *log_msg =    dict_get(d, "log.msg", (char *)"*empty*");
+      const char *log_subsys = dict_get(d, "log.subsys", (char *)"*unknown*");
+      const char *log_prio =   dict_get(d, "log.prio", (char *)"info");
+      time_t log_ts =          dict_get_time_t(d, (char *)"log.ts", now);
+
+      snprintf(logmsg, sizeof(logmsg), "[%s] <%s.%s> From %s: %s",
+         get_chat_ts(log_ts), log_subsys, log_prio, log_from, log_msg);
+      rrclient_display_log_message(logmsg);
    }
-   rrclient_display_log_message(led->message);
 }
 
 static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -328,9 +347,9 @@ static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *
    const char *mode = (const char *)data;
 
    if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
       set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
-#endif // defined(USE_GTK)
+#endif	// USE_GTK
    }
 }
 
@@ -383,10 +402,10 @@ static void rrclient_handle_ptt(const char *event, const char *data, rrconn_t *c
    if (ptt_button) {
 
       if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
          update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)active);
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
-#endif // defined(USE_GTK)
+#endif	// USE_GTK
       }
    }
 }
@@ -395,7 +414,7 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
 //   fprintf(stderr, "[talk.quit]\n");
 
    if (!data) {
-      fprintf(stderr, "no talk.quit data\n");
+//      fprintf(stderr, "no talk.quit data\n");
 
       return;
    }
@@ -444,9 +463,9 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    if (whois_msg && main_window) {
 
       if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
          ui_show_whois_dialog(GTK_WINDOW(main_window), whois_msg);
-#endif
+#endif	// USE_GTK
       }
    }
 }

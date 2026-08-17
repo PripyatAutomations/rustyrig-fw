@@ -24,7 +24,6 @@
 
 extern dict *cfg;                // config.c
 
-// main.c
 extern GtkWidget *main_notebook;
 GtkWidget *admin_view = NULL;
 GtkWidget *admin_tab = NULL;

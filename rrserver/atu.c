@@ -35,6 +35,7 @@ bool rr_atu_load_memories(int unit) {
    }
 #if     defined(HOST_POSIX)
    // Open the json configuration file, if present
+   const char *chan_file = CHANNEL_FILE;
 #endif
 
    // Look up ATU memory header

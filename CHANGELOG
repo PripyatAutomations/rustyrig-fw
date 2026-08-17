@@ -1,8 +1,9 @@
-rustyrig-fw (20260816) testing; urgency=medium
+rustyrig-fw (20260817) testing; urgency=medium
 * Renamed -c argument to all programs to -f to give a config filename
 * fixed some small bugs
+* fixed USE_* wrappers throughout tree
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun Aug 16 01:36:49 PM EDT 2026
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon Aug 17 12:04:10 AM EDT 2026
 
 rustyrig-fw (20260815) testing; urgency=medium
 * got TUI working (-T or unset $DISPLAY)

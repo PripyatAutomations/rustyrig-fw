@@ -36,11 +36,11 @@ extern bool rrclient_send_chat(const char *data);
 extern bool syslog_clear(void);
 extern const char *server_name; // remove this (connman.c)
 
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
 extern struct mg_connection *ws_conn;
-#endif
+#endif	// USE_MONGOOSE
 
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
 extern GtkWidget *chat_entry;
 extern GtkWidget *rx_vol_slider;
 extern GtkWidget *config_tab;
@@ -51,13 +51,13 @@ extern GtkWidget *log_tab;
 
 bool cmd_admin(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_tab);
 
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
-#endif
+#endif	// USE_GTK
    } else if (ui_mode == UI_MODE_TUI) {
    }
 
@@ -66,14 +66,14 @@ bool cmd_admin(int argc, char **args) {
 
 bool cmd_chat(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), main_tab);
 
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
          gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
       }
-#endif
+#endif	// USE_GTK
    } else if (ui_mode == UI_MODE_TUI) {
    }
 
@@ -82,13 +82,13 @@ bool cmd_chat(int argc, char **args) {
 
 bool cmd_config(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), config_tab);
 
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
-#endif
+#endif	// USE_GTK
    } else if (ui_mode == UI_MODE_TUI) {
    }
 
@@ -97,13 +97,13 @@ bool cmd_config(int argc, char **args) {
 
 bool cmd_log(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_tab);
 
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
-#endif
+#endif	// USE_GTK
    } else if (ui_mode == UI_MODE_TUI) {
    }
 

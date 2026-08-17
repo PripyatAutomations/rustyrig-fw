@@ -24,7 +24,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/filters.h>
 #define	FILTERS_C
-//#include "filter_tables.h"
+#include "filter_tables.h"
 
 int filter_init(int fid) {
    int rv = -1;

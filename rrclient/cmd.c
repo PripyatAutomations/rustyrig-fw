@@ -36,7 +36,7 @@ extern bool rrclient_send_chat(const char *data);
 extern bool syslog_clear(void);
 extern const char *server_name; // remove this (connman.c)
 
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
 extern struct mg_connection *ws_conn;
 #endif
 
@@ -133,7 +133,6 @@ bool parse_chat_input_real(const char *msg) {
    }
 
 #ifdef  USE_MONGOOSE
-
    if (msg[0] == '/') {
       Log(LOG_CRIT, "debug", "msg<%d>: %s", strlen(msg), msg);
 
@@ -237,8 +236,7 @@ bool parse_chat_input_real(const char *msg) {
 
       free(input);
    } else {
-#if defined(USE_MONGOOSE)
-
+#ifdef	USE_MONGOOSE
       if (!ws_connected) {
          ui_print(NULL, "{red}*** Not connected to server ***{reset}");
 
@@ -259,7 +257,7 @@ bool parse_chat_input_real(const char *msg) {
    return false;
 }
 
-#if     defined(USE_GTK)
+#ifdef	USE_GTK
 bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
    if (!button || !entry) {
       Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: button:<%p> entry:<%p>", button, entry);

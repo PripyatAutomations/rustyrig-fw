@@ -24,7 +24,6 @@ extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
 
-
 /* global registry */
 static AlertDialogStyle alert_dialog_styles[MSG_LAST];
 

@@ -875,6 +875,10 @@ sub generate_config_h {
          printf $fh "#define DEBUG_BUILD\n";
       }
 
+      if (defined($config->{features}{'eeprom'}) && match_boolean($config->{features}{'eeprom'})) {
+         printf $fh "#define USE_EEPROM\n";
+      }
+
       if (defined($config->{features}{'cat-kpa500'}) && match_boolean($config->{features}{'cat-kpa500'})) {
          printf $fh "#define CAT_KPA500 true\n";
       }

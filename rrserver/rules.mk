@@ -37,7 +37,7 @@ rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
 
 RRSERVER_HEADERS += $(wildcard rrserver/*.h)
 
-CFLAGS_RRSERVER += -DRRSERVER
+CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}

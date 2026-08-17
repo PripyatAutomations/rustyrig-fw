@@ -71,8 +71,7 @@ bool userlist_add_or_update(dict *d) {
    struct rr_user *n = calloc( 1, sizeof(*n) );
 
    if (!n) {
-      fprintf(stderr, "OOM in userlist_add_or_update\n");
-
+      abort();
       return false;
    }
 

@@ -21,27 +21,28 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/gpio.h>
 
-#if     defined(HOST_POSIX)
+#ifdef	USE_GPIO
+
+#ifdef	HOST_POSIX
 #include <stdio.h>
 #include <gpiod.h>              // Linux hosts
 #define	MAX_GPIOCHIPS 8
 radio_gpiochip gpiochips[MAX_GPIOCHIPS];
-#endif
+#endif	// HOST_POSIX
 
 // right now we only support one gpio chip, but this wrapper should ease
 // transition
 uint32_t radio_find_gpiochip(const char *name) {
 // On posix hosts, such as linux on pi, we use libgpiod to access gpio, add
 // other platforms here
-#if     defined(HOST_POSIX)
+#ifdef	HOST_POSIX
 
    for (uint32_t i = 0 ; i < MAX_GPIOCHIPS ; i++) {
       if (strcasecmp(gpiochips[i].key, name) == 0) {
          return i;
       }
    }
-
-#endif
+#endif	// HOST_POSIX
 
    return -1;
 }
@@ -77,7 +78,7 @@ uint32_t radio_gpiochip_init(const char *chipname) {
       }
    }
 
-#endif
+#endif	// HOST_POSIX
 
    if (slot_found) {
       Log(LOG_INFO, "gpio", "Initializing GPIO chip %s at index %i [ptr: %x]", chipname, i, tmp);
@@ -102,3 +103,5 @@ uint32_t gpio_init(void) {
 
    return 0;
 }
+
+#endif	// USE_GPIO

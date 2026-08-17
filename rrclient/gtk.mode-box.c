@@ -74,13 +74,11 @@ static gboolean on_mode_keypress(GtkWidget *widget, GdkEventKey *event, gpointer
       case GDK_KEY_A:
       case GDK_KEY_a: {
          set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "AM");
-         fprintf(stderr, "FM\n");
          break;
       }
       case GDK_KEY_C:
       case GDK_KEY_c: {
          set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "CW");
-         fprintf(stderr, "FM\n");
          break;
       }
       case GDK_KEY_D:
@@ -93,25 +91,21 @@ static gboolean on_mode_keypress(GtkWidget *widget, GdkEventKey *event, gpointer
          } else {
             set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "D-L");
          }
-         fprintf(stderr, "FM\n");
          break;
       }
       case GDK_KEY_F:
       case GDK_KEY_f: {
          set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
-         fprintf(stderr, "FM\n");
          break;
       }
       case GDK_KEY_L:
       case GDK_KEY_l: {
          set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "LSB");
-         fprintf(stderr, "FM\n");
          break;
       }
       case GDK_KEY_U:
       case GDK_KEY_u: {
          set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), "USB");
-         fprintf(stderr, "FM\n");
          break;
       }
    }

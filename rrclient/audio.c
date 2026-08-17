@@ -182,7 +182,7 @@ bool audio_init(void) {
       gst_pipeline_use_clock(GST_PIPELINE(rx_pipeline), NULL);
 
       // XXX: Set this once our latency detector works
-      //   gst_pipeline_set_latency(GST_PIPELINE(rx_pipeline), 0);
+      //   gst_pipeline_set_latency(GST_PIPELINE(rx_pipeline), estimated_latency);
       gst_element_set_state(rx_pipeline, GST_STATE_PLAYING);
       gst_debug_bin_to_dot_file(GST_BIN(tx_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "rx-pipeline");
    } else {
@@ -220,7 +220,7 @@ bool audio_init(void) {
       g_signal_connect(rx_bus, "message", G_CALLBACK(on_bus_message), NULL);
       gst_object_unref(rx_bus);
 
-#if     1
+#if     1	// disabled for now
       const char *cfg_tx_format = cfg_get_exp("audio.pipeline.tx.format");
       int tx_format = 0;
 

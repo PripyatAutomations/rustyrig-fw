@@ -79,14 +79,13 @@ void show_network_info(void) {
    }
    int bind_port = cfg_get_int("net.http.port", 0);
 #if     defined(USE_EEPROM)
-
    if (!bind_port) {
       eeprom_get_int("net/http/port");
    }
 #endif
+
    int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
 #if     defined(USE_EEPROM)
-
    if (!tls_bind_port) {
       tls_bind_port = eeprom_get_int("net/http/tls-port");
    }
@@ -138,7 +137,6 @@ void show_network_info(void) {
    const char *listenaddr = cfg_get("net.http.bind");
 
 #if     defined(USE_EEPROM)
-
    if (!listenaddr) {
       listenaddr = (char *)eeprom_get_str("net/http/bind");
    }

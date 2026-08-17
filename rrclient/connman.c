@@ -231,7 +231,6 @@ bool rrclient_send_chat(const char *data) {
    }
 
 #ifdef  USE_MONGOOSE
-
    if (!ws_conn) {
       return true;
    }
@@ -248,7 +247,6 @@ bool rrclient_send(const char *json) {
    }
 
 #ifdef  USE_MONGOOSE
-
    if (!ws_conn) {
       return true;
    }
@@ -260,8 +258,8 @@ bool rrclient_send(const char *json) {
 
 bool rrclient_disconnect(void) {
    rrclient_cancel_reconnect();
-#ifdef  USE_MONGOOSE
 
+#ifdef  USE_MONGOOSE
    if (ws_conn) {
       ws_conn->is_closing = 1;
       ws_conn = NULL;
@@ -274,7 +272,7 @@ bool rrclient_disconnect(void) {
 
 void rrclient_poll_events(void) {
 #ifdef  USE_MONGOOSE
-   mg_mgr_poll(&mgr, 0);
+   mg_mgr_poll(&mgr, 20);
 #endif // USE_MONGOOSE
 
    if (reconnect_pending && time(NULL) >= reconnect_at) {
@@ -385,8 +383,7 @@ bool disconnect_server(const char *server) {
    rrclient_update_connection_ui(0);
 
    if (ws_connected) {
-#if     defined(USE_MONGOOSE)
-
+#ifdef	USE_MONGOOSE
       if (ws_conn) {
          ws_conn->is_closing = 1;
       }
@@ -428,7 +425,7 @@ bool connect_server(const char *server) {
       }
       ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
 
-#if     defined(USE_MONGOOSE)
+#ifdef	USE_MONGOOSE
       ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
 
       if (!ws_conn) {

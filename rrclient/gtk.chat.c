@@ -48,7 +48,7 @@ gboolean ui_scroll_to_end(gpointer data) {
    GtkTextIter end;
 
    if (!data) {
-      printf("ui_scroll_to_end: data == NULL\n");
+      Log(LOG_CRAZY, "ui.gtk", "ui_scroll_to_end: data == NULL");
 
       return FALSE;
    }

@@ -25,17 +25,30 @@
 // Create a timer that occurs every interval milliseconds
 // Repeats can be used to create a timer that only happens a few times
 //       Use repeats = 0 for unlimited repeats
-// callback
 bool timer_create_periodic( int interval, int repeats, void (*callback) () ) {
+#ifdef	USE_MONGOOSE
+   // XXX: Provide a libmongoose based timer here
+#else	// USE_MONGOOSE
+#ifdef	USE_LIBEV
+   // XXX: Provide a libev based timer here
+#else	// USE_LIB_EV
+#ifdef	HOST_POSIX
+   // XXX: Implement fallback version using posix timers on linux/glibc and bsd if possible
+#endif	// HOST_POSIX
+#endif	// USE_LIBEV
+#endif	// USE_MONGOOSE
    return false;
 }
 
 bool timer_create_oneshot( int delay, void (*callback) () ) {
-   return false;
+   return timer_create_periodic(delay, 1, callback);
 }
 
 // Run all pending timers this iteration of the main loop
 bool timer_run(void) {
+#if	!defined(USE_MONGOOSE) && !defined(USE_LIBEV) && defined(HOST_POSIX)
+   // XXX: Add support for manually running timers in the main loop without a library on posix ;(
+#endif
    return false;
 }
 

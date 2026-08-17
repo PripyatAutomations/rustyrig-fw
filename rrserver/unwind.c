@@ -2,7 +2,8 @@
  * If enabled, use linunwind so can dump stack traces
  */
 #include <stdio.h>
-#include "build_config.h"
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 
 #if     defined(USE_LIBUNWIND)
 #include <libunwind.h>
@@ -17,19 +18,22 @@ void print_stacktrace(void) {
    if (unw_init_local(&cursor, &context) != 0) {
       return;
    }
+
+   Log(LOG_CRIT, "core", "-------- stack dump --------");
    while (unw_step(&cursor) > 0) {
       char name[256];
       unw_word_t offset;
 
       if (unw_get_proc_name(&cursor, name, sizeof(name), &offset) == 0) {
-         fprintf(stderr, "  %s (+0x%lx)\n", name, (long)offset);
+         Log(LOG_CRIT, "core", "  %s (+0x%lx)", name, (long)offset);
       } else {
-         fprintf(stderr, "  ???\n");
+         Log(LOG_CRIT, "core", "  ???");
       }
    }
+   Log(LOG_CRIT, "core", "-------- end stack dump --------");
 }
 #else
 void print_stacktrace(void) {
-   printf("\n\n**** stacktrace unavailable - we were built without libunwind ****\n\n");
+   Log(LOG_CRIT, "core", "**** stacktrace unavailable - we were built without libunwind ****");
 }
 #endif

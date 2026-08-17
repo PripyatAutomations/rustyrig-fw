@@ -1,5 +1,6 @@
 Immediate needs
 ---------------
+rrclient: Make the VFO widget able to be popped out to floating window (optionally modal)/returned to the main window
 rrclient: implement USE_LIBEV stuff in USE_MONGOOSE
 rrclient/librrprotocol: Make mongoose and libev mutually exclusive
 rrclient: GTK: Add ^C, etc for embedding mIRC-style colors
