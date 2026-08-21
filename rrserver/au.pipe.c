@@ -81,7 +81,7 @@ static const char *tx_socket_path = DEFAULT_SOCKET_PATH_TX;
 int rx_server_fd = -1;
 int rx_client_fd = -1;
 
-int setup_rx_unix_socket_server(const char *path) {
+static int au_start_listener(const char *path) {
    if (!path) {
       return -1;
    }
@@ -144,7 +144,7 @@ void close_server(void ) {
 }
 
 void au_unix_socket_init(void) {
-   rx_server_fd = setup_rx_unix_socket_server(DEFAULT_SOCKET_PATH_RX);
+   rx_server_fd = au_start_listener(DEFAULT_SOCKET_PATH_RX);
 
    if (rx_server_fd < 0) {
       Log(LOG_DEBUG, "au", "Failed to create UNIX server socket");

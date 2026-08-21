@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cmd.h>
@@ -27,12 +26,10 @@
 
 extern dict *cfg;                // main.c
 extern time_t now;               // main.c
-extern bool cfg_use_gtk;         // gtk.core.c
 
 ///////////////
 static GPtrArray *input_history = NULL;
 static unsigned int history_index = -1;
-
 GtkWidget *chat_textview = NULL;
 GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;
@@ -40,18 +37,13 @@ GtkTextBuffer *text_buffer = NULL;
 // Scroll to the end of a GtkTextView
 gboolean ui_scroll_to_end(gpointer data) {
    if (!data) {
+      Log(LOG_CRAZY, "ui.gtk", "ui_scroll_to_end: data == NULL");
       return FALSE;
    }
 
    GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
    GtkTextIter end;
-
-   if (!data) {
-      Log(LOG_CRAZY, "ui.gtk", "ui_scroll_to_end: data == NULL");
-
-      return FALSE;
-   }
 
    gtk_text_buffer_get_end_iter(buffer, &end);
    gtk_text_view_scroll_to_iter(chat_textview, &end, 0.0, TRUE, 0.0, 1.0);
@@ -108,8 +100,6 @@ static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointe
 }
 
 GtkWidget *create_chat_box(void) {
-//   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-//   gui_window_t *main_window_t = ui_new_window(main_window, "main");
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
    if (!chat_box) {

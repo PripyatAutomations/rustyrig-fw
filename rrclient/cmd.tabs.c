@@ -32,9 +32,6 @@
 
 extern bool dying;
 extern time_t now;
-extern bool rrclient_send_chat(const char *data);
-extern bool syslog_clear(void);
-extern const char *server_name; // remove this (connman.c)
 
 #ifdef	USE_MONGOOSE
 extern struct mg_connection *ws_conn;
@@ -42,7 +39,6 @@ extern struct mg_connection *ws_conn;
 
 #ifdef	USE_GTK
 extern GtkWidget *chat_entry;
-extern GtkWidget *rx_vol_slider;
 extern GtkWidget *config_tab;
 extern GtkWidget *main_notebook;
 extern GtkWidget *main_tab;

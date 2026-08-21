@@ -16,17 +16,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
-#endif // defined(USE_MONGOOSE)
-#include <rrclient/userlist.h>
 #include <rrclient/gtk.core.h>
 
 extern dict *cfg;                // config.c
-extern struct mg_connection *ws_conn;
 extern time_t now;
 extern GtkWidget *main_notebook;
 
@@ -64,6 +58,7 @@ bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...)
       printf("log_print sent NULL fmt\n");
    }
 
+   // This usually indicates a bug has occurred...
    if (!log_buffer) {
 //      fprintf(stderr, "log_print called with no log_buffer");
       return false;

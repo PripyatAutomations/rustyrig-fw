@@ -22,12 +22,10 @@
 #include <rrclient/ui.h>
 
 #if     defined(USE_GTK)
-#include <gtk/gtk.h>
 #include <rrclient/gtk.core.h>
 
 extern dict *cfg;
 extern struct rr_user *global_userlist;          // userlist.c
-
 extern GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
 

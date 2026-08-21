@@ -18,7 +18,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cmd.help.h>
@@ -29,6 +28,7 @@ extern dict *cfg;
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 extern GtkNotebook *main_notebook;
+extern GtkWidget *freq_entry;
 
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    gui_window_t *wp = gui_find_window(NULL, "main");

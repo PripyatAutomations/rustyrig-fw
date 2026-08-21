@@ -57,5 +57,13 @@ extern const char *au_recording_start(int channel);
 extern bool au_recording_stop(const char *id);
 
 //#include "rrserver/au.pcm5102.h"
+////////////////
+// Recordings //
+////////////////
+struct RecordingData {
+   FILE *fp;
+   const char *rec_id;
+};
+typedef struct RecordingData recording_data_t;
 
 #endif // !defined(__rr_audio_h)

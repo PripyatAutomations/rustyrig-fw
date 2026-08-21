@@ -352,7 +352,7 @@ int main(int argc, char *argv[]) {
 /////////////////////////////////////////
    debug_sockets = cfg_get_bool("debug.sockets", false);
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
-   const char *cfg_debug_audio = cfg_get_exp("audio.debug");
+   const char *cfg_debug_audio = cfg_get_exp("debug.audio");
    // How long to suppress hamlib/etc polling during CAT control?
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
 

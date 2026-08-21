@@ -17,7 +17,6 @@ rrclient: Implement /names to show who's in the chat (espc in TUI)
 rrserver: Add last-seen time to users, kept in the database.
   - Update it on connect and disconnect
   - Add a timer to update the db every minute or five with everyone active
-*: Make eeprom and cfg_get keys consistent somehow and cfg override the eeprom?
 *: Need to fully use the event system so we can avoid lib* calling back directly into program code
 *: Make all events contain JSON data
    - Document all the messages

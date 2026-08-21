@@ -75,7 +75,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          char key[256];
          snprintf(key, sizeof(key), "network.%s.autojoin", np);
          Log(LOG_DEBUG, "cfg.network", "Adding autojoin for %s: %s", np, val);
-         ui_print(NULL, "[{green}%s{reset}] Setting autojoin: %s", np, val);
+         ui_print(NULL, "[{bright-green}%s{reset}] Setting autojoin: %s", np, val);
          const char *x = cfg_get(key);
 
          if (!x) {

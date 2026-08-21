@@ -22,9 +22,8 @@
 extern const char *login_user;   // from connman.c
 #ifdef	USE_GTK
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
-extern GtkWidget *main_window;
+extern GtkWidget *freq_entry, *log_view, *main_window, *ptt_button;
 extern GtkTextBuffer *log_buffer;
-extern GtkWidget *log_view;
 #endif	// USE_GTK
 
 extern int ws_connected;        // in librustyaxe/tui.window.c BUT belongs in rrclient!

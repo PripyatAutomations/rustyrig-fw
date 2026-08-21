@@ -15,14 +15,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
 
 extern dict *cfg;
 extern time_t now;
-extern bool ptt_active;
 
 /* global registry */
 static AlertDialogStyle alert_dialog_styles[MSG_LAST];

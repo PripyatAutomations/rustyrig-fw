@@ -13,16 +13,15 @@
 #include <stdbool.h>
 #include <librustyaxe/dict.h>
 #include <librustyaxe/logger.h>
-#include <rrclient/gtk.freqentry.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/gtk.freqentry.h>
 
 #define	MAX_DIGITS 8
 extern dict *cfg;
 extern time_t now;
 
 // XXX: This needs decoupled from the websocket/mg code and made to use the
-// generic
-// XXX: abstractions, so it'll work over serial etc as well
+// XXX: generic abstractions, so it'll work over serial etc as well
 #if     defined(USE_MONGOOSE)
 extern struct mg_connection *ws_conn;
 extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, long freq);
@@ -224,8 +223,8 @@ static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gp
 
    if (idx < 0) {
       return FALSE;  // no digit focused, let event propagate
-
    }
+
    int delta = 0;
 
    if (event->direction == GDK_SCROLL_UP) {

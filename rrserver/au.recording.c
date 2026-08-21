@@ -22,25 +22,29 @@
 #include <unistd.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/au.h>
+
 // How long should the random part of the filename be?
-#define	RECORDING_ID_LEN 24
+#define	RECORDING_ID_LEN 12
 
-// Only warn that recording directory is unset the first time
-bool recdir_unset_warned = false;
+const char *cfg_path_record_dir = NULL;
+int cfg_recording_max = 16;
 
-const char *au_recording_mkfilename(const char *recording_id, int channel) {
+static bool f_recdir_unset = false;
+ 
+struct RecordingData **active_recordings;
+
+static const char *rec_mkpath(const char *recording_id, int channel) {
    char *rv = NULL;
 
    if (!recording_id || channel < 0) {
       return NULL;
    }
-   const char *recdir = cfg_get_exp("path.record-dir");
 
-   if (!recdir) {
+   if (!cfg_path_record_dir) {
       // have we NOT warned the user yet?
-      if (!recdir_unset_warned) {
+      if (!f_recdir_unset) {
          Log(LOG_WARN, "au.record", "Please set path.record-dir in config to enable recording");
-         recdir_unset_warned = true;
+         f_recdir_unset = true;
       }
 
       // either way, we've failed, so return NULL....
@@ -50,15 +54,16 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    // (pipelines) we are maintaining
    bool is_tx = false;
    const char *codec = "*";
-   char tmpbuf[512];
-   memset(tmpbuf, 0, 512);
-   size_t tmp_len = snprintf(tmpbuf, 512, "%s/%s.%s.%s", recdir, recording_id, (is_tx ? "tx" : "rx"), codec);
+   char tmpbuf[PATH_MAX + 1];
+   memset(tmpbuf, 0, PATH_MAX + 1);
+   size_t tmp_len = snprintf(tmpbuf, sizeof(tmpbuf), "%s/%s.%s.%s", cfg_path_record_dir, recording_id, (is_tx ? "tx" : "rx"), codec);
    // free the returned value from cfg_get_exp (expanded variable)
-   free( (char *)recdir );
+   free( (char *)cfg_path_record_dir );
+   cfg_path_record_dir = NULL;
 
    if (tmp_len > 0) {
       if ( !( rv = strdup(tmpbuf) ) ) {
-         Log(LOG_CRIT, "au.record", "OOM in au_recording_mkfilename");
+         Log(LOG_CRIT, "au.record", "OOM in rec_mkpath");
          exit(EXIT_FAILURE);
       }
    }
@@ -70,16 +75,6 @@ const char *au_recording_mkfilename(const char *recording_id, int channel) {
    return rv;
 }
 
-struct RecordingData {
-   FILE *fp;
-   const char *rec_id;
-};
-typedef struct RecordingData recording_data_t;
-
-#define	MAX_RECORD_OPEN 16
-
-struct RecordingData *active_recordings[MAX_RECORD_OPEN];
-
 // Returns the ID of of the new recording
 const char *au_recording_start(int channel) {
    if (channel < 0) {
@@ -88,7 +83,12 @@ const char *au_recording_start(int channel) {
    char *recording_id = malloc(RECORDING_ID_LEN + 1);
    generate_nonce( recording_id, sizeof(recording_id) );
 
-   const char *rec_file = au_recording_mkfilename(recording_id, channel);
+   if (!cfg_path_record_dir) {
+      cfg_path_record_dir = cfg_get_exp("path.record-dir");
+      cfg_recording_max = cfg_get_int("record.max", 16);
+   }
+
+   const char *rec_file = rec_mkpath(recording_id, channel);
 
    if (!rec_file) {
       Log(LOG_CRIT, "au.record", "Failed to generate a random filename for recording. OOM?");
@@ -116,7 +116,7 @@ const char *au_recording_start(int channel) {
    rd->rec_id = recording_id;
 
    // Store the fd somewhere (active_recordings array?)
-   for (int i = 0 ; i < MAX_RECORD_OPEN - 1 ; i++) {
+   for (int i = 0 ; i < cfg_recording_max - 1 ; i++) {
       if (!active_recordings[i]) {
          active_recordings[i] = rd;
          break;
@@ -126,14 +126,13 @@ const char *au_recording_start(int channel) {
    return recording_id;
 }
 
-
 recording_data_t *au_recording_find(const char *id) {
    if (!id) {
       return NULL;
    }
    recording_data_t *rp = NULL;
 
-   for (int i = 0 ; i < MAX_RECORD_OPEN - 1 ; i++) {
+   for (int i = 0 ; i < cfg_recording_max - 1 ; i++) {
       if ( (active_recordings[i]) && active_recordings[i]->rec_id == id ) {
          return active_recordings[i];
       }

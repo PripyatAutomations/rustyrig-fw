@@ -97,13 +97,12 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    return success;
 }
 
-// XXX: We need to add support for pointing to the recording file that will be
-// started
 int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char *mode, int bandwidth, float power,
                  const char *record_file) {
    if (!db || !username || !mode || !record_file) {
       return -1;
    }
+   // XXX: Add a random session key so we don't have to trust user supplied rowids! ;)
    const char *sql =
       "INSERT INTO ptt_log (username, frequency, mode, bandwidth, power, record_file) "
       "VALUES (?, ?, ?, ?, ?, ?);";
@@ -130,6 +129,7 @@ int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char
    int row_id = (int)sqlite3_last_insert_rowid(db);
    sqlite3_finalize(stmt);
 
+   // Pass the session key 
    return row_id;   // Caller should store this to end the session
 }
 

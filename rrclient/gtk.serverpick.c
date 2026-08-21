@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
@@ -26,10 +25,7 @@
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *cfg;
 extern time_t now;
-extern bool ptt_active;
-extern const char *server_name;                          // connman.c XXX: to
-                                                         // remove ASAP for
-                                                         // multiserver
+extern const char *server_name;
 
 static void do_connect_from_tree(GtkTreeView *view) {
    if (!view) {

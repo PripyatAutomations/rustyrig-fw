@@ -21,12 +21,8 @@
 #include <rrclient/gtk.core.h>
 
 #if     defined(USE_MONGOOSE)
-#include "ext/libmongoose/mongoose.h"
 extern struct mg_connection *ws_conn;
 #endif // defined(USE_MONGOOSE)
-
-extern dict *cfg;                                // main.c
-extern bool syslog_clear(void);
 
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;

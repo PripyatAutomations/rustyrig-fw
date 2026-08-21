@@ -9,9 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // XXX: Need to break this into pieces and wrap up our custom widgets, soo we
-// can do
-// XXX: nice things like pop-out (floating) VFOs
-#include <glib.h>
+// XXX: can do nice things like pop-out (floating) VFOs
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -20,6 +18,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>

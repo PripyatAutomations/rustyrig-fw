@@ -16,22 +16,16 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);         // chat.cmd.c
-extern bool syslog_clear(void);
-extern GtkWidget *init_log_tab(void);
 extern dict *cfg;
 extern time_t now;
-extern bool dying;
 extern bool ptt_active;
 extern struct mg_connection *ws_conn;
-extern GtkWidget *userlist_init(void);
 extern time_t poll_block_expire, poll_block_delay;
-extern GtkWidget *control_box;
 GtkWidget *ptt_button = NULL;
 
 void update_ptt_button_ui(GtkToggleButton *button, int active) {

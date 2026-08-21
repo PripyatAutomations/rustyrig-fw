@@ -31,13 +31,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
 
-// Linked list of all of our windows, usually 'main' will be the head of the
-// list
+// Linked list of all of our windows, usually 'status' will be the head of the list
 gui_window_t *gui_windows = NULL;
 
 // Linked list of all our widgets
