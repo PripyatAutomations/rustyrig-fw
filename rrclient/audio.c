@@ -31,19 +31,17 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
+#include <gst/app/gstappsink.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/codecneg.h>
 #include <rrclient/ui.h>
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
-#include <gst/app/gstappsink.h>
 #include <rrclient/audio.h>
 
 extern dict *cfg;                // main.c
 extern struct mg_connection *ws_conn, *ws_tx_conn;
-extern GtkWidget *rx_vol_slider;
-
 bool audio_enabled = false;
 bool gst_active = false;
 

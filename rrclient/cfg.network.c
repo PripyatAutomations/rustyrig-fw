@@ -23,15 +23,16 @@
 #include <ev.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#define	MAX_WINDOWS 32
-#define	INPUT_HISTORY_MAX 64
+#include <rrclient/ui.h>
+#include <rrclient/connman.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
 #endif
-#include <rrclient/ui.h>
-#include <rrclient/connman.h>
+
+#define	MAX_WINDOWS 32
+#define	INPUT_HISTORY_MAX 64
 
 extern bool add_server(const char *network, const char *str);
 
