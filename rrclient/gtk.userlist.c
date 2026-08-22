@@ -21,12 +21,11 @@
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 
-#if     defined(USE_GTK)
 #include <rrclient/gtk.core.h>
 
 extern dict *cfg;
 extern struct rr_user *global_userlist;          // userlist.c
-extern GtkWidget *userlist_window;
+GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
 
 // Instead of destroying the window, hide it...
@@ -43,8 +42,15 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    // Toggle the userlist
    gui_window_t *wp = gui_find_window(NULL, "userlist");
 
+   // if userlist window hasn't been initialized yet, do so now
+   if (!wp) {
+      userlist_create();
+      wp = gui_find_window(NULL, "userlist");
+   }
+
+   // (re)try
    if (wp) {
-      GtkWidget *userlist_window = wp->gtk_win;
+      userlist_window = wp->gtk_win;
 
       if (gtk_widget_get_visible(userlist_window) ) {
          gtk_widget_hide(userlist_window);
@@ -129,5 +135,3 @@ GtkWidget *userlist_create(void) {
 
    return new_win;
 }
-
-#endif // defined(USE_GTK)

@@ -41,7 +41,7 @@ extern struct mg_connection *ws_conn;
 extern GtkWidget *chat_entry;
 extern GtkWidget *config_tab;
 extern GtkWidget *main_notebook;
-extern GtkWidget *main_tab;
+extern GtkWidget *status_tab;
 extern GtkWidget *log_tab;
 #endif // defined(USE_GTK)
 
@@ -63,7 +63,7 @@ bool cmd_admin(int argc, char **args) {
 bool cmd_chat(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), main_tab);
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
 
       if (index != -1) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);

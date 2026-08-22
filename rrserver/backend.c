@@ -24,24 +24,17 @@ extern struct GlobalState rig;          // Global state
 struct rr_backends {
    const char          *name;
    rr_backend_t        *backend;
+   const char          *description;
 };
 
 static struct rr_backends available_backends[] = {
-   {
-      "internal", &rr_backend_internal
-   },
-   {
-      "dummy", &rr_backend_dummy
-   },
+   { "internal", &rr_backend_internal, "Internal backend" },
+   { "dummy", &rr_backend_dummy, "Dummy backend does nothing (developer)" },
 // A backend using hamlib's rigctld as the target. For legacy radios
 #ifdef USE_HAMLIB
-   {
-      "hamlib", &rr_backend_hamlib
-   },
+   { "hamlib", &rr_backend_hamlib, "hamlib support" },
 #endif
-   {
-      NULL, NULL
-   }
+   { NULL, NULL, NULL }
 };
 
 static const char *s_true = "true";
@@ -105,25 +98,28 @@ rr_backend_t *rr_backend_find(const char *name) {
 
 bool rr_backend_init(void) {
    rr_backend_t *be = NULL;
-
    const char *be_name = NULL;
 
 #if     defined(USE_EEPROM)
    be_name = eeprom_get_str("backend/active");
-
 #endif
 
    if (!be_name) {
       be_name = cfg_get_exp("backend.active");
    }
 
-   be = rr_backend_find(be_name);
+   if (!be_name) {
+      Log(LOG_CRIT, "core", "No backend.active setting in config, shutting down!");
+      exit(1);
+   }
 
+   be = rr_backend_find(be_name);
    if (!be) {
       Log(LOG_CRIT, "core", "Invalid backend selection %s - please fix config key backend.active!", be_name);
       free( (char *)be_name );
       exit(EXIT_FAILURE);
    }
+
    free( (char *)be_name );
 
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
@@ -145,25 +141,21 @@ bool rr_backend_init(void) {
    return false;
 }
 
-// XXX: We need to work out how we'll deal with CAT commands directly (not via
-// http/ws) as they wont have cptr
-// XXX: but we will have a user struct available since they're logged in.. hmmm
 bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
    if (!cptr || !cptr->user) {
       Log(LOG_CRIT, "rig", "Got be_set_ptt without a user!");
 
       return true;
    }
-   // Sqawk audit log and Apply PTT if we made it this far
-   Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
 
    if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
       return true;
    }
 
+   // Sqawk audit log and Apply PTT if we made it this far
+   Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
    if ( rig.backend->api->ptt_set(vfo, state) ) {
       Log( LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.", rr_vfo_name(vfo), bool2str(state) );
-
       return true;
    }
 

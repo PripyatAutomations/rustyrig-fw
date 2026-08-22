@@ -26,6 +26,9 @@
 
 extern dict *cfg;                // main.c
 extern time_t now;               // main.c
+extern GtkWidget *main_notebook,
+                 *status_tab;
+extern bool cfg_ui_gtk_vfo_on_top;
 
 ///////////////
 static GPtrArray *input_history = NULL;
@@ -99,21 +102,46 @@ static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointe
    return TRUE;
 }
 
-GtkWidget *create_chat_box(void) {
-   GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
-   if (!chat_box) {
+static GtkWidget *chatbox_vfo_init(void) {
+   GtkWidget *vfo = create_vfo_box();
+
+   bool vfo_docked = cfg_get_bool("ui.gtk.vfo-docked", true);
+
+   if (!vfo_docked) {
+      gui_window_t *vfo_win = create_vfo_window(vfo, 'A');
+      gtk_container_add(GTK_CONTAINER(vfo_win->gtk_win), vfo);
       return NULL;
    }
+
+   return vfo;
+}
+
+GtkWidget *create_chat_box(void) {
+   bool is_rig_window = true;		// is this a rig?
+   GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+
+   if (!chat_box) { // XXX: throw OOM warning
+      return NULL;
+   }
+
+   GtkWidget *vfo = NULL;
+
+   // cfg:ui.gtk.vfo-on-top
+   if (cfg_ui_gtk_vfo_on_top) {
+      if ((vfo = chatbox_vfo_init())) {
+         gtk_box_pack_start(GTK_BOX(chat_box), vfo, FALSE, FALSE, 0);
+      }
+   }
+
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
-   PangoFontDescription *font = pango_font_description_from_string("Monospace 12");
 
    // Chat view
    chat_textview = gtk_text_view_new();
-   gtk_widget_override_font(chat_textview, font);
+   gtk_widget_override_font(chat_textview, gui_font_find("monospace"));
    text_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(chat_textview) );
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
@@ -131,13 +159,27 @@ GtkWidget *create_chat_box(void) {
    GtkWidget *button = gtk_button_new_with_label("Send (enter)");
    gtk_box_pack_start(GTK_BOX(chat_box), button, FALSE, FALSE, 0);
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
-   pango_font_description_free(font);
+
+   // !cfg:ui.gtk.vfo-on-top
+   if (!cfg_ui_gtk_vfo_on_top) {
+      vfo = chatbox_vfo_init();
+      if ((vfo = chatbox_vfo_init())) {
+         gtk_box_pack_start(GTK_BOX(chat_box), vfo, FALSE, FALSE, 0);
+      }
+   }
 
    return chat_box;
 }
 
 bool chat_init(void) {
+   status_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   GtkWidget *status_tab_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(status_tab_label), "(<u>4</u>) &amp;localrig");
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), status_tab, status_tab_label);
    input_history = g_ptr_array_new_with_free_func(g_free);
+
+   GtkWidget *chat_box = create_chat_box();
+   gtk_box_pack_start(GTK_BOX(status_tab), chat_box, TRUE, TRUE, 0);
 
    return false;
 }

@@ -420,7 +420,7 @@ GtkWidget *init_config_tab(void) {
    GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
    GtkWidget *cfg_tab_label = gtk_label_new(NULL);
-   gtk_label_set_markup(GTK_LABEL(cfg_tab_label), "(<u>3</u>) Config");
+   gtk_label_set_markup(GTK_LABEL(cfg_tab_label), "(<u>2</u>) Config");
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, cfg_tab_label);
 
    GtkWidget *config_label = gtk_label_new("Configuration will go here...");

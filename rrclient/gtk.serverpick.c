@@ -99,7 +99,6 @@ static gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
 
 void show_server_chooser(void) {
    if (ui_mode == UI_MODE_GTK) {
-#ifdef USE_GTK
       gui_window_t *old_win = gui_find_window(NULL, "serverpick");
 
       if (old_win && old_win->gtk_win) {
@@ -171,7 +170,6 @@ void show_server_chooser(void) {
       gtk_widget_show_all(win);
       gtk_widget_realize(win);
       place_window(win);
-#endif
    } else if (ui_mode == UI_MODE_TUI) {
       ui_print(NULL, "server choser:");
       // XXX: print servers configured here

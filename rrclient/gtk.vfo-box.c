@@ -138,7 +138,7 @@ gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
    } else {
       GtkWidget *vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gui_window_t *vfo_win = ui_new_window(vfo_window, win_name);
-      gtk_window_set_title(GTK_WINDOW(vfo_window), "rustyrig remote client");
+      gtk_window_set_title(GTK_WINDOW(vfo_window), "rrclient vfo");
    }
 
    return vfo_win;

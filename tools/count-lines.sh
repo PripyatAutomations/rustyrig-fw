@@ -8,7 +8,7 @@ SZ_HTML=$(cat www/index.html | wc -l)
 SZ_CSS=$(cat www/css/*.css | wc -l)
 SZ_SH=$(cat *.sh tools/*.sh | wc -l)
 SZ_SQL=$(cat sql/*.sql | wc -l)
-SZ_MK=$(cat GNUmakefile */rules.ml | wc -l)
+SZ_MK=$(cat GNUmakefile */rules.mk | wc -l)
 
 SZ_C_TTL=$((${SZ_C_LRP} + ${SZ_C_LRR} + ${SZ_C_RRFW} + ${SZ_C_RRCLI}))
 SZ_JS_TTL=$(cat www/js/webui*.js | wc -l)

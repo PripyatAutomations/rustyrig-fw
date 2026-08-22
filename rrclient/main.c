@@ -68,6 +68,8 @@ struct ev_loop *loop_main = NULL;
 
 bool rrclient_cleanup(void);
 bool cfg_mirc_colors = true;
+bool cfg_ui_gtk_vfo_on_top = true;
+int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
 bool dying = false;
 bool restarting = false;
 bool debug_sockets = false;
@@ -356,17 +358,41 @@ int main(int argc, char *argv[]) {
    const char *cfg_debug_audio = cfg_get_exp("debug.audio");
    // How long to suppress hamlib/etc polling during CAT control?
    int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
+#ifdef	USE_GTK
+   cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
+
+   const char *main_tabstrip_s = cfg_get("ui.gtk.main-tabstrip");
+   if (main_tabstrip_s && main_tabstrip_s[0] != '\0') {
+      if (strcasecmp(main_tabstrip_s, "left") == 0) {
+        cfg_ui_gtk_main_tabstrip = GTK_POS_LEFT;
+        Log(LOG_CRIT, "ui.core", "Placing main tabstrip at LEFT");
+      } else if (strcasecmp(main_tabstrip_s, "right") == 0) {
+        cfg_ui_gtk_main_tabstrip = GTK_POS_RIGHT;
+        Log(LOG_CRIT, "ui.core", "Placing main tabstrip at RIGHT");
+      } else if (strcasecmp(main_tabstrip_s, "top") == 0) {
+        cfg_ui_gtk_main_tabstrip = GTK_POS_TOP;
+        Log(LOG_CRIT, "ui.core", "Placing main tabstrip at TOP");
+      } else if (strcasecmp(main_tabstrip_s, "bottom") == 0) {
+        cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
+        Log(LOG_CRIT, "ui.core", "Placing main tabstrip at BOTTOM");
+      }
+   } else {
+      Log(LOG_CRIT, "ui.core", "No configuration for ui.gtk.main-tabstrip!");
+   }
+#endif
 
    if (cfg_debug_audio) {
+#ifdef	USE_GSTREAMER
       // Set the GST_DEBUG environment variable, before spawning subprocesses
 #ifdef _WIN32
       SetEnvironmentVariable("GST_DEBUG", cfg_debug_audio);
       // Set the path for gstreamer dump directory
       SetEnvironmentVariable("GST_DEBUG_DUMP_DOT_DIR", ".");
-#else
+#else	// _WIN32
       setenv("GST_DEBUG", cfg_debug_audio, 0);
       setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
-#endif
+#endif	// _WIN32
+#endif	// USE_GSTREAMER
    }
    free( (void *)cfg_debug_audio );
    cfg_debug_audio = NULL;
@@ -380,8 +406,8 @@ int main(int argc, char *argv[]) {
    // Setup stdio & clock
    if (ui_mode == UI_MODE_TUI) {
       tui_readline_cb = parse_chat_input_real;
-
       tui_init();
+
 #ifdef	USE_LIBEV
       tui_start_clock_timer(loop_main);
 #endif
@@ -410,6 +436,7 @@ int main(int argc, char *argv[]) {
    rrclient_register_events();
    connman_register_events();
 
+   // setup the client bits and autoconnect if configured
    ws_client_init();
    connman_autoconnect();
 

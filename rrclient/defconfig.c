@@ -63,16 +63,22 @@ defconfig_t defcfg[] = {
    { "path.help-dir", "./help", "Path to find help-files" },
    { "rig0.volume.rx", "50", "rig0: Speaker volume" },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
+#ifdef	GTK
    { "ui.full-screen", "false", "Go full-screen at start?" },
+   { "ui.font.monospace", "Monospace 12", "Default monospace font" },
+   { "ui.gtk.vfo-on-top", "false", "Place VFO controls at top of the rig window?" },
+   { "ui.gtk.main-tabstrip", "bottom", "Placement of main tabstrip: left,right,bottom,top" },
+   { "ui.gtk.vfo-docked", "true", "NYI: Docked or floating VFO?" },
+#endif	// GTK
 #ifdef _WIN32
    // windows hosts usually dont already have a gtk3 theme, so default to the included windows 10 theme
    { "ui.gtk.theme", "Windows10", "Chosen light theme" },
    { "ui.gtk.theme.dark", "Windows10-Dark", "Chosen dark theme" },
-#else
+#else	// _WIN32
    // On non-windows hosts, prefer the active theme in gtk3
    { "ui.gtk.theme", NULL, "Chosen light theme" },
    { "ui.gtk.theme.dark", NULL, "Chosen dark theme" },
-#endif
+#endif	// _WIN32
    { "ui.show-pings", "true", "Show Ping? Pong! notices" },
    {
       NULL, NULL, NULL

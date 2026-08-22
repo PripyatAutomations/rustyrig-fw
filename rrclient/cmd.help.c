@@ -25,6 +25,12 @@
 
 extern client_cmd_t client_cmds[];
 
+struct help_line {
+  enum GuiMode mode;
+  const char *line;
+};
+typedef struct help_line help_line_t;
+
 static bool safe_name(const char *name) {
    // reject empty names or those containing path separators or parent refs
    if (!name || !*name) {
@@ -89,12 +95,6 @@ static bool safe_name(const char *name) {
  *  }
  */
 
-struct help_line {
-  enum GuiMode mode;
-  const char *line;
-};
-
-typedef struct help_line help_line_t;
 
 ////////////////
 // Help stuff //
@@ -108,16 +108,16 @@ static help_line_t help_msg_before[] = {
 
 static help_line_t help_msg_after[] = {
    { UI_MODE_NONE, "\n" },
-   { UI_MODE_NONE,"{bright-magenta}{underlne}*** Keyboard Shortcuts ***" },
-   { UI_MODE_GTK, "\t{bright-green}alt-c        {bright-yellow}Focus chat input" },
-   { UI_MODE_NONE,"\t{bright-green}alt-# (1-0)  {bright-yellow}Switch to window 1-10" },
-   { UI_MODE_NONE,"\t{bright-green}alt-left     {bright-yellow}Switch to previous win" },
-   { UI_MODE_NONE,"\t{bright-green}alt-right    {bright-yellow}Switch to next win" },
-   { UI_MODE_NONE,"\t{bright-green}F12          {bright-yellow}PTT toggle{reset}" },
+   { UI_MODE_NONE, "{bright-magenta}{underlne}*** Keyboard Shortcuts ***" },
+   { UI_MODE_GTK,  "\t{bright-green}alt-c         {bright-yellow}Focus chat input" },
+   { UI_MODE_NONE, "\t{bright-green}alt-# (1-0)   {bright-yellow}Switch to window 1-10" },
+   { UI_MODE_GTK,  "\t{bright-green}alt-enter     {bright-yellow}Hold for PTT" },
+   { UI_MODE_GTK,  "\t{bright-green}ctl-alt-enter {bright-yellow}Toggle PTT (if enabled)" },
+   { UI_MODE_TUI, "\t{bright-green}alt-left      {bright-yellow}Switch to previous win" },
+   { UI_MODE_TUI, "\t{bright-green}alt-right     {bright-yellow}Switch to next win" },
+   { UI_MODE_GTK,  "\t{bright-green}F11           {bright-yellow}Fullscreen toggle{reset}" },
    { UI_MODE_NONE, NULL }
 };
-
-
 
 bool cmd_help(int argc, char **args) {
    // Pre-message

@@ -34,12 +34,14 @@ GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
 GtkWidget *toggle_userlist_button = NULL;
 GtkWidget *main_notebook = NULL;
-GtkWidget *main_tab = NULL;
+GtkWidget *status_tab = NULL;
 GtkWidget *log_tab = NULL;
 GtkCssProvider *css_provider = NULL;
 bool cfg_use_gtk = true;         // Default to using GTK3
 extern GtkWidget *init_log_tab(void);
+extern int cfg_ui_gtk_main_tabstrip;	// main.c
 extern GtkWidget *init_admin_tab(void);
+extern bool cfg_ui_gtk_vfo_on_top;
 extern bool chat_init(void);             // gtk.chat.c
 bool cfg_fullscreen = false;
 
@@ -435,6 +437,7 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
 }
 
 bool gui_init(void) {
+   gui_font_init();
    css_provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css_provider, ".ptt-active { background: red; color: white; }"
       ".ptt-idle { background: #0fc00f; color: white; }"
@@ -450,36 +453,10 @@ bool gui_init(void) {
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 
-
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
    gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
-   main_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-   GtkWidget *main_tab_label = gtk_label_new(NULL);
-   gtk_label_set_markup(GTK_LABEL(main_tab_label), "(<u>1</u>) Control");
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), main_tab, main_tab_label);
-
-   ///////////
-   // VFO A //
-   ///////////
-   GtkWidget *vfo_a = create_vfo_box();
-   // If docked, we wont create a window, but it might be created later
-   // similarly
-   bool vfo_docked = cfg_get_bool("vfo-a.docked", true);
-
-   if (vfo_docked) {
-      // Attach to the main window
-      gtk_box_pack_start(GTK_BOX(main_tab), vfo_a, FALSE, FALSE, 0);
-   } else {
-      // Floating
-      gui_window_t *vfo_win = create_vfo_window(vfo_a, 'A');
-      gtk_container_add(GTK_CONTAINER(vfo_win->gtk_win), vfo_a);
-   }
-   // MAIN tab (alt-1)
-   //// CHAT stuff...
-   chat_init();
-   GtkWidget *chat_box = create_chat_box();
-   gtk_box_pack_start(GTK_BOX(main_tab), chat_box, TRUE, TRUE, 0);
+   gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
    // ADMIN tab (alt-2)
    admin_tab = init_admin_tab();
@@ -489,6 +466,9 @@ bool gui_init(void) {
    // LOG tab (alt-4)
    log_tab = init_log_tab();
 
+   //// CHAT stuff...
+   chat_init();
+
    // Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
@@ -496,14 +476,19 @@ bool gui_init(void) {
    g_signal_connect(main_window, "delete-event", G_CALLBACK(on_window_delete), NULL);
    gui_hotkey_register(main_window);
 
-   // Generate and display a userlist for this server
-   userlist_create();
-
    // Make the main window on screen
    gtk_widget_show_all(main_window);
-   gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
    gtk_widget_realize(main_window);
    place_window(main_window);
+
+   if (ui_mode == UI_MODE_GTK) {
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
+
+      if (index != -1) {
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
+      }
+   } else if (ui_mode == UI_MODE_TUI) {
+   }
 
    // enforce fullscreen if set
    if (cfg_fullscreen) {
@@ -511,9 +496,9 @@ bool gui_init(void) {
 
       g_idle_add(fullscreen_later, NULL);
    }
+   gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
 
    ui_print( NULL, "%s rustyrig client started", get_chat_ts(now) );
-
    return false;
 }
 

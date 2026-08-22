@@ -41,7 +41,6 @@ CFLAGS += -I./ -I../ -I./inc -I${BUILD_DIR}
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
-CFLAGS += -DCONFDIR="\"${CONF_DIR}\"" -DVERSION="\"${VERSION}\""
 CFLAGS += -DHOST_EEPROM_FILE="\"build/${PROFILE}/eeprom.bin\""
 
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.

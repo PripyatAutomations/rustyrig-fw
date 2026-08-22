@@ -763,8 +763,8 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
    fe->digits = g_new0(GtkWidget*, fe->num_digits);
    fe->up_buttons = g_new0(GtkWidget*, fe->num_digits);
    fe->down_buttons = g_new0(GtkWidget*, fe->num_digits);
-
-   PangoFontDescription *font = pango_font_description_from_string("Monospace 12");
+ 
+   PangoFontDescription *font = gui_font_find("monospace");
    GdkRGBA white = {
       1, 1, 1, 1
    };
@@ -830,8 +830,6 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
    gtk_widget_add_events(GTK_WIDGET(fe), GDK_SCROLL_MASK);
 //   gtk_widget_add_events(GTK_WIDGET(fe), GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
    g_signal_connect(fe, "scroll-event", G_CALLBACK(on_freqentry_scroll), fe);
-
-   pango_font_description_free(font);
 }
 
 void gtk_freq_entry_set_value(GtkFreqEntry *fe, guint64 freq) {

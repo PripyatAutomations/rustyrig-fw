@@ -8,8 +8,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// This allows finding and working with a widget by a human readable name, for
-// automation, etc
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -23,13 +21,17 @@
 #include <rrclient/cmd.help.h>
 #include <rrclient/gtk.core.h>
 #include <rrclient/gtk.freqentry.h>
+#include <rrclient/ui.h>
 
 extern dict *cfg;
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 extern GtkNotebook *main_notebook;
 extern GtkWidget *freq_entry;
+bool ptt = false;
 
+// XXX: We need to rewrite this so that it can build/quickly search a list of hotkeys relevant to
+// XXX: the currently active context
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    gui_window_t *wp = gui_find_window(NULL, "main");
    GtkWidget *main_win = wp->gtk_win;
@@ -38,12 +40,14 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return true;
    }
 
+   // F11 toggles fullscreen
    if ( (event->keyval == GDK_KEY_F11) ) {
       gui_fullscreen_toggle();
 
       return TRUE;
    }
 
+   // ALT-* keys
    if ( (event->state & GDK_MOD1_MASK) ) {
       if (!main_win) {
          Log(LOG_DEBUG, "gtk", "main_win is null in alt-# handler");
@@ -61,6 +65,17 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       }
 
       switch (event->keyval) {
+         case GDK_KEY_Return: {
+            bool is_ctrl = (event->state & GDK_CONTROL_MASK) != 0;
+
+            // Got PTT event
+            ptt = !ptt;
+            const char *pmsg = (ptt ? "on" : "off");
+            const char *cmsg = (is_ctrl ? "yes": "no");
+            ui_print(NULL, "{bright-yellow} PTT: {bright-green}%s{bright-yellow} ctrl: {bright-green}%s{reset}", pmsg, cmsg);
+            Log(LOG_AUDIT, "ptt", "PTT toggled by hotkey: %s (ctrl: %s)", pmsg, cmsg);
+            break;
+         }
          case GDK_KEY_1: {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 0);
             gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
