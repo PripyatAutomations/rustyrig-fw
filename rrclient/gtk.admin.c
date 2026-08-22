@@ -38,10 +38,10 @@ GtkWidget *init_admin_tab(void) {
    GtkWidget *admin_tab_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(admin_tab_label), "(<u>2</u>) Admin");
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, admin_tab_label);
-   ui_speech_set(nw, "Admin Tab",                // name
+   ui_speech_set(nw, "Admin Tab",         // name
       "Server administration",            // description
       UI_ROLE_BUTTON,                     // role
-      true);                               // focusable
+      true);                              // focusable
 
    return nw;
 }

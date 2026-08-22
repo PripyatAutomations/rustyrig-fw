@@ -317,6 +317,7 @@ int main(int argc, char *argv[]) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
          free(config_file);
          config_file = NULL;
+         exit(1);
       } else {
          printf("Loading config %s\n", config_file);
       }

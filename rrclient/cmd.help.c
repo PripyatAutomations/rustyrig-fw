@@ -89,37 +89,48 @@ static bool safe_name(const char *name) {
  *  }
  */
 
+struct help_line {
+  enum GuiMode mode;
+  const char *line;
+};
+
+typedef struct help_line help_line_t;
+
 ////////////////
 // Help stuff //
 ////////////////
-const char *help_msg_before[] = {
-   "{bright-magenta}******************************************",
-   "{bright-magenta}*          rustyrig client help          *",
-   "{bright-magenta}******************************************{reset}",
-   NULL
+static help_line_t help_msg_before[] = {
+   { UI_MODE_NONE, "{bright-magenta}******************************************" },
+   { UI_MODE_NONE, "{bright-magenta}*          rustyrig client help          *" },
+   { UI_MODE_NONE, "{bright-magenta}******************************************{reset}" },
+   { UI_MODE_NONE, NULL }
 };
 
-const char *help_msg_after[] = {
-   "\n",
-   "{bright-magenta}{underlne}*** Keyboard Shortcuts ***",
-   "\t{bright-green}alt-X (1-0)  {bright-yellow}Switch to window 1-10",
-   "\t{bright-green}alt-left     {bright-yellow}Switch to previous win",
-   "\t{bright-green}alt-right    {bright-yellow}Switch to next win",
-   "\t{bright-green}F12          {bright-yellow}PTT toggle{reset}",
-   NULL
+static help_line_t help_msg_after[] = {
+   { UI_MODE_NONE, "\n" },
+   { UI_MODE_NONE,"{bright-magenta}{underlne}*** Keyboard Shortcuts ***" },
+   { UI_MODE_GTK, "\t{bright-green}alt-c        {bright-yellow}Focus chat input" },
+   { UI_MODE_NONE,"\t{bright-green}alt-# (1-0)  {bright-yellow}Switch to window 1-10" },
+   { UI_MODE_NONE,"\t{bright-green}alt-left     {bright-yellow}Switch to previous win" },
+   { UI_MODE_NONE,"\t{bright-green}alt-right    {bright-yellow}Switch to next win" },
+   { UI_MODE_NONE,"\t{bright-green}F12          {bright-yellow}PTT toggle{reset}" },
+   { UI_MODE_NONE, NULL }
 };
+
 
 
 bool cmd_help(int argc, char **args) {
-   int i = 0;
    // Pre-message
-   while (help_msg_before[i]) {
-      ui_print(NULL, help_msg_before[i]);
-      i++;
+   for (int i = 0; help_msg_before[i].line; i++) {
+      if (help_msg_before[i].mode == UI_MODE_NONE ||
+          ui_mode == help_msg_before[i].mode) {
+         ui_print(NULL, help_msg_before[i].line);
+      }
    }
+
    int longest = 0;
 
-   for (int i = 0 ; client_cmds[i].cmd ; i++) {
+   for (int i = 0; client_cmds[i].cmd; i++) {
       int len = strlen(client_cmds[i].cmd);
 
       if (len > longest) {
@@ -129,7 +140,7 @@ bool cmd_help(int argc, char **args) {
 
    int desc_col = 3 + longest + 2;
 
-   for (int i = 0 ; client_cmds[i].cmd ; i++) {
+   for (int i = 0; client_cmds[i].cmd; i++) {
       int len = strlen(client_cmds[i].cmd);
       int spaces = desc_col - 3 - len;
 
@@ -137,15 +148,17 @@ bool cmd_help(int argc, char **args) {
          spaces = 1;
       }
 
-      ui_print(NULL, "\t{bright-green}/%s%*s{bright-yellow}%s{reset}", client_cmds[i].cmd, spaces, "",
-         client_cmds[i].desc);
+      ui_print(NULL, "\t{bright-green}/%s%*s{bright-yellow}%s{reset}",
+         client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
    }
 
-   // after message
-   i = 0;
-   while (help_msg_after[i]) {
-      ui_print(NULL, help_msg_after[i]);
-      i++;
+   // After-message
+   for (int i = 0; help_msg_after[i].line; i++) {
+      if (help_msg_after[i].mode == UI_MODE_NONE ||
+         ui_mode == help_msg_after[i].mode) {
+         ui_print(NULL, help_msg_after[i].line);
+      }
    }
+
    return false;
 }
