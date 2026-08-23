@@ -18,7 +18,7 @@ struct rr_backend_funcs {
    // Backend management
    bool (*backend_init)(void);                           // Startup
    bool (*backend_fini)(void);                           // Shutdown
-   rr_vfo_data_t *(*backend_poll)(void);                 // Called periodically
+   rr_vfo_data_t *(*backend_poll)(rr_vfo_t vfo);         // Called periodically
                                                          // to get the rig
                                                          // status
 
@@ -38,6 +38,7 @@ struct rr_backend_funcs {
    float (*power_get)(rr_vfo_t vfo);
    rr_mode_t (*mode_get)(rr_vfo_t vfo);
    bool (*mode_set)(rr_vfo_t vfo, rr_mode_t mode);
+   const char *(*mode_get_str)(rr_vfo_t vfo);
    bool (*freq_set)(rr_vfo_t vfo, int freq);
    float (*freq_get)(rr_vfo_t vfo);
    uint16_t (*width_get)(rr_vfo_t vfo);

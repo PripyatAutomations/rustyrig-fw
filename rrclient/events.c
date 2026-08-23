@@ -166,8 +166,8 @@ static void rrclient_handle_catcmd(const char *event, const char *data, rrconn_t
    }
 
    dict *d = json2dict(data);
-//   fprintf(stderr, "[cat.cmd]\n");
-//   dict_dump(d, stderr);
+   fprintf(stderr, "[cat.cmd]\n");
+   dict_dump(d, stderr);
 /*
  *  const char *from = dict_get(d, "talk.from", NULL);
  *  time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
@@ -386,12 +386,13 @@ static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *
    free( (void *)jp );
 }
 
-static void rrclient_handle_ptt(const char *event, const char *data, rrconn_t *cptr, void *user) {
+static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
 
    dict *d = json2dict(data);
+   dict_dump(d, stderr);
    const char *cat_user = dict_get(d, "cat.user", NULL);
    time_t msg_ts = dict_get_time_t(d, "cat.ts", 0);
    const char *cat_mode = dict_get(d, "cat.state.mode", NULL);
@@ -402,11 +403,10 @@ static void rrclient_handle_ptt(const char *event, const char *data, rrconn_t *c
    int cat_width = dict_get_int(d, "cat.state.width", 0);
    int cat_power = dict_get_int(d, "cat.state.power", 0);
 
-//   fprintf(stderr, "[rig.ptt]\n");
-//   dict_dump(d, stderr);
+   fprintf(stderr, "[rig.ptt]\n");
+   dict_dump(d, stderr);
 
    if (ptt_button) {
-
       if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
          update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)active);
@@ -510,7 +510,8 @@ void rrclient_register_events(void) {
 
    // rigctl/CAT controls
    event_on("cat.cmd", rrclient_handle_catcmd, NULL);
-   event_on("rig.ptt", rrclient_handle_ptt, NULL);
+   event_on("cat.state", rrclient_handle_cat, NULL);
+   event_on("rig.ptt", rrclient_handle_cat, NULL);
    event_on("rig.freq", rrclient_handle_freq, NULL);
    event_on("rig.mode", rrclient_handle_mode, NULL);
 }

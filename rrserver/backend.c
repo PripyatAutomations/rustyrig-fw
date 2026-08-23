@@ -268,15 +268,22 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
    return rv;
 }
 
+// Try to keep log from being blown up except in LOG_CRAZY level
+static bool rr_be_poll_warned = false;
+
 bool rr_be_poll(rr_vfo_t vfo) {
    if (vfo < 0 || vfo >> MAX_VFOS) {
+      Log(LOG_DEBUG, "backend", "rr_be_poll: vfo %d out of range (0-%d)", vfo, MAX_VFOS);
       return true;
    }
 
    if (!rig.backend || !rig.backend->api || !rig.backend->api->backend_poll) {
+      // this can be exceptionally noisy, so do subsequent warnings at CRAZY level only
+      int log_level = ( rr_be_poll_warned ? LOG_CRAZY : LOG_CRIT );
+      Log(log_level, "backend", "rr_be_poll: no backend available (set log level to CRAZY to see all warnings)");
       return true;
    }
-   rr_vfo_data_t *ret_vfo = rig.backend->api->backend_poll();
+   rr_vfo_data_t *ret_vfo = rig.backend->api->backend_poll(vfo);
 
    if (!ret_vfo) {
       return true;

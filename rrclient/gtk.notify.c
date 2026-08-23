@@ -34,8 +34,10 @@ bool ui_notify_init(void) {
 void ui_notify_fini(void) {
    notify_uninit();
 }
+#include <libnotify/notify.h>
 
-bool ui_notify_message(const char *title, const char *message) {
+bool ui_notify_message(const char *title, const char *message,
+   int urgency, int timeout) {
    if (!title || !message) {
       return false;
    }
@@ -47,8 +49,17 @@ bool ui_notify_message(const char *title, const char *message) {
       return false;
    }
 
+   if (urgency >= NOTIFY_URGENCY_LOW &&
+       urgency <= NOTIFY_URGENCY_CRITICAL) {
+      notify_notification_set_urgency(n, urgency);
+   }
+
+   if (timeout >= 0) {
+      notify_notification_set_timeout(n, timeout);
+   }
+
    gboolean ret = notify_notification_show(n, NULL);
-   g_object_unref(G_OBJECT(n));
+   g_object_unref(n);
 
    return ret == TRUE;
 }

@@ -39,9 +39,12 @@ static bool hl_init(void);       // fwd decl
 static bool hl_fini(void);       // fwd decl
 
 /*
- *  RIG_DEBUG_NONE = 0,   // no bug reporting RIG_DEBUG_BUG,        // serious bug
- * RIG_DEBUG_ERR,        // error case (e.g. protocol, memory allocation) RIG_DEBUG_WARN,
- *       // warning RIG_DEBUG_VERBOSE,    // verbose RIG_DEBUG_TRACE,      // tracing
+ * RIG_DEBUG_NONE = 0,   // no bug reporting
+ * RIG_DEBUG_BUG,        // serious bug
+ * RIG_DEBUG_ERR,        // error case (e.g. protocol, memory allocation)
+ * RIG_DEBUG_WARN,       // warnins
+ * RIG_DEBUG_VERBOSE,    // verbose
+ * RIG_DEBUG_TRACE,      // tracing
  * RIG_DEBUG_CACHE       // caching
  */
 static int32_t hamlib_debug_level = RIG_DEBUG_ERR;  // RIG_DEBUG_VERBOSE;
@@ -239,7 +242,7 @@ static bool hl_fini(void) {
 
 // Here we poll the various meters and state
 // You *MUST* free the returned value
-rr_vfo_data_t *hl_poll(void) {
+rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // XXX: We need to deal with generating diffs
    // - save the current state as a whole, with a timestamp
    // - poll the rig status
@@ -256,10 +259,11 @@ rr_vfo_data_t *hl_poll(void) {
    }
    memset( rv, 0, sizeof(rr_vfo_t) );
 
+   // XXX: We need to add a way to look up 
    // Do VFO_A for now
    memset( &hl_state, 0, sizeof(hamlib_state_t) );
 
-   if ( (rc = rig_set_vfo(hl_rig, RIG_VFO_A) ) != RIG_OK) {
+   if ( (rc = rig_set_vfo(hl_rig, hl_get_vfo(vfo)) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "SET VFO A failed: %s", rigerror(rc) );
       free( (void *)rv );
 
@@ -304,19 +308,24 @@ rr_vfo_data_t *hl_poll(void) {
    struct mg_str mp;
    rrconn_t *talker = whos_talking();
 
-   const char *jp = dict2json_mkstr( VAL_STR, "cat.state.vfo", "A", VAL_LONG, "cat.state.freq", hl_state.freq, VAL_STR,
-      "cat.state.mode", rig_strrmode(hl_state.rmode), VAL_INT, "cat.state.width", hl_state.width, VAL_BOOL,
-      "cat.state.ptt", hl_state.ptt, VAL_INT, "cat.state.power", hl_state.power, VAL_ULONG, "cat.ts", now, VAL_STR,
-      "cat.user", (talker ? talker->chatname : "") );
+   dict *d = dict_new();
+   dict_add(d, "cat.state.vfo", "A");
+   dict_add(d, "cat.state.mode", rig_strrmode(hl_state.rmode));
+   dict_add(d, "cat.user", (talker ? talker->chatname : "") );
+   dict_add_int(d, "cat.state.width", hl_state.width);
+   dict_add_int(d, "cat.state.power", hl_state.power);
+   dict_add_bool(d, "cat.state.ptt", hl_state.ptt);
+   dict_add_long(d, "cat.state.freq", hl_state.freq);
+   dict_add_ulong(d, "cat.ts", now);
+   const char *jp = dict2json(d);
    mp = mg_str(jp);
    Log(LOG_CRAZY, "backend.hamlib", "Sending %s", jp);
-#endif
 
    // Send to everyone, including the sender, which will then display it in
    // various widgets
-#if     defined(USE_MONGOOSE)
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
    free( (char *)jp );
+   dict_free(d);
 #endif
 
    return rv;
@@ -371,11 +380,19 @@ bool hl_width_set(rr_vfo_t vfo, const char *width) {
    return false;
 }
 
+// this needs to end up at rig.backend->api->get_mode
+static const char *hl_mode_get_str(rr_vfo_t vfo) {
+   // convert this to a backend-agnostic string
+   return rig_strrmode(hl_state.rmode);
+}
+
 static rr_backend_funcs_t rr_backend_hamlib_api = {
    .backend_fini = &hl_fini,
    .backend_init = &hl_init,
    .backend_poll = &hl_poll,
    .ptt_set = &hl_ptt_set,
+   .mode_get = &hl_mode_get,
+   .mode_get_str = &hl_mode_get_str,
    .freq_set = &hl_freq_set,
    .mode_set = &hl_mode_set,
    .power_set = &hl_power_set,

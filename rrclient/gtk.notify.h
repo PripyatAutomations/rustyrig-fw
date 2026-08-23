@@ -2,9 +2,9 @@
 #define __rrclient_gtk_notify_h
 
 #include <stdbool.h>
+#include <libnotify/notify.h>
 
 extern bool ui_notify_init(void);
 extern void ui_notify_fini(void);
-extern bool ui_notify_message(const char *title, const char *message);
-
+extern bool ui_notify_message(const char *title, const char *message, int urgency, int timeout);
 #endif

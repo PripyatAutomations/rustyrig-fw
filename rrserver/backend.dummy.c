@@ -64,7 +64,7 @@ static bool be_dummy_fini(void) {
 }
 
 // rig polling
-rr_vfo_data_t *be_dummy_poll(void) {
+rr_vfo_data_t *be_dummy_poll(rr_vfo_t vfo) {
    return NULL;
 }
 

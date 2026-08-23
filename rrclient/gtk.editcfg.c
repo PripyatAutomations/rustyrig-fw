@@ -325,25 +325,19 @@ void gui_edit_config(const char *filepath) {
 
       rewind(fp);
 
-      char *buf =
-         malloc( (size_t)len + 1 );
+      char *buf = malloc( (size_t)len + 1 );
 
-      if (errno) {
+      if (!buf && errno) {
          fprintf(stderr, "OOM in gui_edit_config!\n");
-         abort();
-      }
-
-      if (!buf) {
          Log(LOG_CRIT, "config.edit", "OOM reading %s", filepath);
-
+//         abort();
          fclose(fp);
          destroy_editor(ctx);
 
          return;
       }
 
-      size_t nread =
-         fread(buf, 1, (size_t)len, fp);
+      size_t nread = fread(buf, 1, (size_t)len, fp);
 
       if (nread != (size_t)len) {
          if ( ferror(fp) ) {
@@ -363,8 +357,7 @@ void gui_edit_config(const char *filepath) {
       buf[nread] = '\0';
 
       /*
-       * Config files are limited to a reasonable size, so the gint conversion is safe
-       * here.
+       * Config files are limited to a reasonable size, so the gint conversion is safe here.
        */
       gtk_text_buffer_set_text(ctx->buffer, buf, (gint)nread);
 
@@ -372,8 +365,7 @@ void gui_edit_config(const char *filepath) {
       fclose(fp);
 
       /*
-       * gtk_text_buffer_set_text() emits "changed". Loading the file doesn't count as an
-       * edit.
+       * gtk_text_buffer_set_text() emits "changed". Loading the file doesn't count as an edit.
        */
       ctx->modified = FALSE;
    }
@@ -401,7 +393,6 @@ void gui_edit_config(const char *filepath) {
 /////////////////////////////
 // Config tab in tab strip //
 /////////////////////////////
-
 extern char *config_file;
 
 static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {

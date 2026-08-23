@@ -63,7 +63,7 @@ static bool be_internal_fini(void) {
 }
 
 // rig polling
-rr_vfo_data_t *be_internal_poll(void) {
+rr_vfo_data_t *be_internal_poll(rr_vfo_t vfo) {
    return NULL;
 }
 
