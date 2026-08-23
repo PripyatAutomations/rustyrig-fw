@@ -263,29 +263,30 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // Do VFO_A for now
    memset( &hl_state, 0, sizeof(hamlib_state_t) );
 
-   if ( (rc = rig_set_vfo(hl_rig, hl_get_vfo(vfo)) ) != RIG_OK) {
+   vfo_t hl_vfo = hl_get_vfo(vfo);
+   if ( (rc = rig_set_vfo(hl_rig, hl_vfo) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "SET VFO A failed: %s", rigerror(rc) );
       free( (void *)rv );
 
       return NULL;
    }
 
-   if ( (rc = rig_get_freq(hl_rig, RIG_VFO_CURR, &hl_state.freq) ) != RIG_OK) {
+   if ( (rc = rig_get_freq(hl_rig, hl_vfo, &hl_state.freq) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "GET VFO_A freq failed: %s", rigerror(rc) );
       free( (void *)rv );
 
       return NULL;
    }
 
-   if ( (rc = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width) ) != RIG_OK) {
+   if ( (rc = rig_get_mode(hl_rig, hl_vfo, &hl_state.rmode, &hl_state.width) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "GET VFO_A mode failed: %s", rigerror(rc) );
    }
 
-   if ( (rc = rig_get_ptt(hl_rig, RIG_VFO_CURR, &hl_state.ptt) ) != RIG_OK) {
+   if ( (rc = rig_get_ptt(hl_rig, hl_vfo, &hl_state.ptt) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "GET VFO_A ptt failed: %s", rigerror(rc) );
    }
 
-   if ( (rc = rig_get_strength(hl_rig, RIG_VFO_CURR, &hl_state.power) ) != RIG_OK) {
+   if ( (rc = rig_get_strength(hl_rig, hl_vfo, &hl_state.power) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "GET VFO_A power failed: %s", rigerror(rc) );
    }
    Log(LOG_CRAZY, "backend.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
@@ -321,6 +322,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    mp = mg_str(jp);
    Log(LOG_CRAZY, "backend.hamlib", "Sending %s", jp);
 
+   fprintf(stderr, "be.hamlib: %s\n", jp);
    // Send to everyone, including the sender, which will then display it in
    // various widgets
    ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);

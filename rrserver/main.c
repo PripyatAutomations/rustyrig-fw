@@ -107,7 +107,7 @@ static struct timespec last_backend_poll = {
 static void timer_backend_poll_fn(void *arg) {
    // Poll the rig
    rr_be_poll(VFO_A);
-   rr_be_poll(VFO_B);
+//   rr_be_poll(VFO_B);
 
    last_backend_poll.tv_sec = loop_start.tv_sec;
    last_backend_poll.tv_nsec = loop_start.tv_nsec;
