@@ -28,7 +28,10 @@ enum GuiMode {
 #ifdef _WIN32
 extern void win32_check_darkmode(void);
 #endif // WIN32
+
 extern enum GuiMode ui_mode;    // in ui.c
 extern bool ui_print(const char *window, const char *fmt, ...);
+extern void ui_message_bell(void);
+extern void ui_message_notify(const char *title, const char *message);
 
 #endif // !defined(__rrclient_ui_h)

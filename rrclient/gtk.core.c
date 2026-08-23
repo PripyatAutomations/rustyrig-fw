@@ -25,6 +25,8 @@
 #include <rrclient/ui.h>
 #include <rrclient/gtk.core.h>
 #include <rrclient/gtk.freqentry.h>
+#include <rrclient/ui.colors.h>
+
 #define	MSGBUF_SIZE 8096
 
 extern dict *cfg;
@@ -45,134 +47,6 @@ extern bool cfg_ui_gtk_vfo_on_top;
 extern bool chat_init(void);             // gtk.chat.c
 bool cfg_fullscreen = false;
 
-static const struct {
-   const char *tag;
-   const char *pango;
-} pango_color_map[] = {
-   {
-      "black", "black"
-   },
-   {
-      "red", "red"
-   },
-   {
-      "green", "green"
-   },
-   {
-      "yellow", "yellow"
-   },
-   {
-      "blue", "blue"
-   },
-   {
-      "magenta", "magenta"
-   },
-   {
-      "cyan", "cyan"
-   },
-   {
-      "white", "white"
-   },
-   {
-      "bright-black", "#808080"
-   },
-   {
-      "bright-red", "#ff0000"
-   },
-   {
-      "bright-green", "#00ff00"
-   },
-   {
-      "bright-yellow", "#ffff00"
-   },
-   {
-      "bright-blue", "#0000ff"
-   },
-   {
-      "bright-magenta", "#ff00ff"
-   },
-   {
-      "bright-cyan", "#00ffff"
-   },
-   {
-      "bright-white", "#ffffff"
-   },
-   {
-      "brown", "#804000"
-   },
-   {
-      "orange", "#ff8000"
-   },
-   {
-      "bg-black", "black"
-   },
-   {
-      "bg-red", "red"
-   },
-   {
-      "bg-green", "green"
-   },
-   {
-      "bg-yellow", "yellow"
-   },
-   {
-      "bg-blue", "blue"
-   },
-   {
-      "bg-magenta", "magenta"
-   },
-   {
-      "bg-cyan", "cyan"
-   },
-   {
-      "bg-white", "white"
-   },
-   {
-      "bg-bright-black", "#808080"
-   },
-   {
-      "bg-bright-red", "#ff0000"
-   },
-   {
-      "bg-bright-green", "#00ff00"
-   },
-   {
-      "bg-bright-yellow", "#ffff00"
-   },
-   {
-      "bg-bright-blue", "#0000ff"
-   },
-   {
-      "bg-bright-magenta", "#ff00ff"
-   },
-   {
-      "bg-bright-cyan", "#00ffff"
-   },
-   {
-      "bg-bright-white", "#ffffff"
-   },
-   {
-      "bg-brown", "#804000"
-   },
-   {
-      "bg-orange", "#ff8000"
-   },
-   {
-      NULL, NULL
-   }
-};
-
-static const char *pango_color_for_tag(const char *tag, bool *is_bg) {
-   *is_bg = (strncmp(tag, "bg-", 3) == 0);
-
-   for (int i = 0 ; pango_color_map[i].tag ; i++) {
-      if (strcmp(tag, pango_color_map[i].tag) == 0) {
-         return pango_color_map[i].pango;
-      }
-   }
-
-   return NULL;
-}
 
 char *gtk_colorize_string(const char *in) {
    if (!in) {
@@ -458,22 +332,23 @@ bool gui_init(void) {
    gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
-   // ADMIN tab (alt-2)
+   // ADMIN tab (alt-1)
    admin_tab = init_admin_tab();
-
-   // CONFIG tab (alt-3)
+   // CONFIG tab (alt-2)
    config_tab = init_config_tab();
-   // LOG tab (alt-4)
+   // LOG tab (alt-3)
    log_tab = init_log_tab();
 
-   //// CHAT stuff...
+   //// CHAT stuff (alt-4+)...
    chat_init();
 
-   // Signals
+   // GTK Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
    g_signal_connect(main_window, "delete-event", G_CALLBACK(on_window_delete), NULL);
+
+   // bind our hotkeys
    gui_hotkey_register(main_window);
 
    // Make the main window on screen

@@ -48,6 +48,7 @@ extern struct mg_mgr mgr;
 extern const char *configs[];  // from defcfg.c
 extern const int num_configs;
 extern char *config_file;
+extern bool cfg_ui_bell_chat;
 
 extern void connman_autoconnect(void);
 extern bool ws_audio_init(void);
@@ -67,12 +68,14 @@ struct ev_loop *loop_main = NULL;
 #endif	// USE_LIBEV
 
 bool rrclient_cleanup(void);
+const char *cfg_debug_audio = NULL;
 bool cfg_mirc_colors = true;
 bool cfg_ui_gtk_vfo_on_top = true;
 int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
 bool dying = false;
 bool restarting = false;
 bool debug_sockets = false;
+int cfg_poll_block_delay = -1;
 time_t now = 0;
 
 #ifdef	USE_LIBEV
@@ -187,7 +190,10 @@ bool rrclient_cleanup(void) {
    if (ui_mode == UI_MODE_TUI) {
       tui_raw_mode(false);
    } else if (ui_mode == UI_MODE_GTK) {
+#ifdef	USE_GTK
       gtk_main_quit();
+      gui_font_fini();
+#endif	// USE_GTK
    }
 
    // Shut down sockets
@@ -195,6 +201,9 @@ bool rrclient_cleanup(void) {
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
 
+#ifdef USE_LIBNOTIFY
+   ui_notify_fini();
+#endif	// USE_LIBNOTIFY
    exit(0);
 
    return false;
@@ -355,9 +364,11 @@ int main(int argc, char *argv[]) {
 /////////////////////////////////////////
    debug_sockets = cfg_get_bool("debug.sockets", false);
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
-   const char *cfg_debug_audio = cfg_get_exp("debug.audio");
+   cfg_debug_audio = cfg_get_exp("debug.audio");
    // How long to suppress hamlib/etc polling during CAT control?
-   int cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
+   cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
+   cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
+
 #ifdef	USE_GTK
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
 
@@ -428,6 +439,11 @@ int main(int argc, char *argv[]) {
       win32_check_darkmode();
 #endif // _WIN32
       gui_init();
+
+      if (!ui_notify_init()) {
+         Log(LOG_WARN, "gtk.notify", "Desktop notifications unavailable");
+      }
+
 #endif // defined(USE_GTK)
    }
    alert_dialogs_init();

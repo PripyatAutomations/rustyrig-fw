@@ -49,7 +49,7 @@ ${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${RRSERVER_HEADERS} ${BUILD_HEADERS} GNU
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
 bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB}
-	@echo "[link] $@"
+	@echo "[link] $@ from $(words ${rrserver_real_objs}) objects"
 	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lev ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
 	@ls -a1ls $@
 	@file $@

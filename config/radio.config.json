@@ -101,6 +101,7 @@
       "http": "true",
       "libev": "true",
       "libmbedtls": "false",
+      "libnotify": "true",
       "libunwind": "false",
       "max_bands": 14,
       "mongoose": "true",

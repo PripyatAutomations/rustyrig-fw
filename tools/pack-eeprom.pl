@@ -854,10 +854,6 @@ sub generate_config_h {
          printf $fh "#define USE_ALSA\n";
       }
 
-      if (defined($config->{features}{'alsa'}) && match_boolean($config->{features}{'alsa'})) {
-         printf $fh "#define USE_ALSA\n";
-      }
-
       if (defined($config->{features}{'coredumps-client'}) && match_boolean($config->{features}{'coredumps-client'})) {
          printf $fh "#define USE_COREDUMPS_CLIENT\n";
       }
@@ -897,6 +893,10 @@ sub generate_config_h {
 
       if (defined($config->{features}{'libev'}) && match_boolean($config->{features}{'libev'})) {
          printf $fh "#define USE_LIBEV\n";
+      }
+
+      if (defined($config->{features}{'libnotify'}) && match_boolean($config->{features}{'libnotify'})) {
+         printf $fh "#define USE_LIBNOTIFY\n";
       }
 
       if (defined($config->{features}{'mqtt'}) && match_boolean($config->{features}{'mqtt'})) {

@@ -27,6 +27,7 @@ extern GtkTextBuffer *log_buffer;
 #endif	// USE_GTK
 
 extern int ws_connected;        // in librustyaxe/tui.window.c BUT belongs in rrclient!
+bool cfg_ui_bell_chat = false;
 
 static void rrclient_display_log_message(const char *msg) {
    if (!log_buffer || !msg) {
@@ -115,6 +116,7 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
    Log(LOG_INFO, "proto.alert", "%s", my_msg);
 
    if (ui_mode == UI_MODE_GTK) {
+      ui_message_bell();
       alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, my_msg);
    }
    dict_free(d);
@@ -225,6 +227,11 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          ui_print(NULL, "%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
       }
    }
+   cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
+
+   if (cfg_ui_bell_chat) {
+      ui_message_bell();
+   }
    dict_free(d);
 }
 
@@ -274,7 +281,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             free( (void *)login_user );
          }
          login_user = strdup(user);
-         ui_print( NULL, "%s *** {green}Connected, logging in as %s ***", get_chat_ts(now), login_user );
+         ui_print( NULL, "%s *** {green}Connected, logging in as %s{reset} ***", get_chat_ts(now), login_user );
       }
       rrclient_update_connection_ui(-1);
       dict_free(d);

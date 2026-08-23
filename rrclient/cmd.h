@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rrclient_command_h)
-#define	__rrclient_command_h
+#ifndef	__rrclient_cmd_h
+#define	__rrclient_cmd_h
 #include <librustyaxe/core.h>
 #include <librustyaxe/config.h>
 #include <librustyaxe/struct.h>
@@ -53,4 +53,4 @@ extern bool cmd_topic(int argc, char **args);
 extern bool cmd_whois(int argc, char **args);
 extern bool cmd_win(int argc, char **args);
 
-#endif // !defined(__rrclient_config_h)
+#endif // __rrclient_cmd_h

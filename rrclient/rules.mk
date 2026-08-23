@@ -25,6 +25,10 @@ rrclient_objs += gtk.freqentry.o	# Frequency Entry Widget
 rrclient_objs += gtk.font.o		# Font stuff
 rrclient_objs += gtk.hotkey.o		# Hotkey support
 rrclient_objs += gtk.mode-box.o		# Modulation Mode / width box
+ifeq (${USE_LIBNOTIFY},true)
+rrclient_objs += gtk.notify.o		# Support for libnotify
+notify_ldflags := $(shell pkg-config --libs libnotify)
+endif
 rrclient_objs += gtk.ptt-btn.o		# Push To Talk (PTT) button in GUI
 rrclient_objs += gtk.txpower.o		# TX power box
 rrclient_objs += gtk.serveredit.o	# Serve editor
@@ -40,12 +44,13 @@ rrclient_objs += m_privmsg.o
 rrclient_objs += main.o			# main loop
 rrclient_objs += userlist.o
 rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
+rrclient_objs += ui.bell.o		# Bell/sounds support for the UI
+rrclient_objs += ui.colors.o		# User interface color handling
 rrclient_objs += ui.speech.o		# Support for screener readers
 rrclient_objs += win32.o		# support to run in windows
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
 extra_clean += ${rrclient_real_objs}
-
 CFLAGS += -I./modsrc/ -I/usr/include/gstreamer-1.0/
 
 ${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h)
@@ -62,8 +67,8 @@ ${BUILD_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS} GNUmakefile r
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
 bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs}
-	@echo "[link] $@"
-	@${CC} ${LDFLAGS} ${LDFLAGS_RRCLI} -o $@ ${rrclient_real_objs} -lrustyaxe -lrrprotocol -lev ${gtk_ldflags} ${gst_ldflags} || exit 2
+	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
+	@${CC} ${LDFLAGS} ${LDFLAGS_RRCLI}-o $@ ${rrclient_real_objs} -lrustyaxe -lrrprotocol -lev ${gtk_ldflags} ${gst_ldflags} ${notify_ldflags} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@
