@@ -18,19 +18,19 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-#if command -v flrig >/dev/null 2>&1; then
-#   flrig &
-#   FLRIG_PID=$!
-#   echo "flrig running at pid ${FLRIG_PID}"
-#
-#   sleep 2
-#
-#   rigctld -m 4 -o &
-#   RIGCTLD_PID=$!
-#else
+if command -v flrig >/dev/null 2>&1; then
+   flrig &
+   FLRIG_PID=$!
+   echo "flrig running at pid ${FLRIG_PID}"
+
+   sleep 2
+
+   rigctld -m 4 -o &
+   RIGCTLD_PID=$!
+else
    rigctld -m 1 -o &
    RIGCTLD_PID=$!
-#fi
+fi
 
 echo "rigctld running at pid ${RIGCTLD_PID}"
 echo

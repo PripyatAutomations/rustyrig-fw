@@ -176,7 +176,9 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
    int cat_freq = dict_get_int(d, "cat.state.freq", 0.0);
    int cat_width = dict_get_int(d, "cat.state.width", 0);
    int cat_power = dict_get_int(d, "cat.state.power", 0);
-   dict_dump(d, stderr);
+
+   // Set VFO cat_vfo to the values extracted
+   vfo_set_dict(d);
 
    if (ptt_button) {
       if (ui_mode == UI_MODE_GTK) {
@@ -509,7 +511,4 @@ void rrclient_register_events(void) {
    // rigctl/CAT controls
    event_on("cat.cmd", rrclient_handle_catcmd, NULL);
    event_on("ws.msg.cat", rrclient_handle_cat, NULL);
-   event_on("rig.ptt", rrclient_handle_cat, NULL);
-   event_on("rig.freq", rrclient_handle_freq, NULL);
-   event_on("rig.mode", rrclient_handle_mode, NULL);
 }

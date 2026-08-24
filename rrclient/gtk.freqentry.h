@@ -39,6 +39,7 @@ extern GtkWidget *gtk_freq_entry_last_touched_digit(GtkFreqEntry *fi);
 extern bool gtk_freq_entry_is_editing(GtkFreqEntry *fi);
 extern bool gtk_freq_entry_focus_digit(GtkFreqEntry *fi, int digit);
 extern int gtk_freq_entry_num_digits(GtkFreqEntry *fi);
+extern void gtk_freq_entry_set_value(GtkFreqEntry *fe, guint64 freq);
 
 G_END_DECLS
 

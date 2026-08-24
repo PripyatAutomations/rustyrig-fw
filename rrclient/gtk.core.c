@@ -224,7 +224,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
 
-         if (str && strcmp(str, text) == 0) {
+         if (str && strcasecmp(str, text) == 0) {
             gtk_combo_box_set_active(GTK_COMBO_BOX(combo), index);
             g_free(str);
 
