@@ -83,23 +83,11 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    dict_add_int(d, "cat.state.freq", hl_state.freq);
    dict_add_int(d, "cat.state.width", hl_state.width);
    dict_add_ulong(d, "cat.state.ts", now);
-   jp = dict2json(d);
-/*
-   jp = dict2json_mkstr(VAL_STR,  "cat.state.vfo", vfo_name(vfo),
-                        VAL_INT,  "cat.state.freq", 0.0,
-                        VAL_STR,  "cat.state.mode", "NONE",
-                        VAL_INT,  "cat.state.width", 0,
-                        VAL_BOOL, "cat.state.ptt", ptt,
-                        VAL_ULONG,"cat.state.ts", now);
-*/
    // and send a CAT message with the state
 #ifdef USE_MONGOOSE
-   struct mg_str mp = mg_str(jp);
-   ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+   ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
 #endif
-
    dict_free(d);
-   free( (void *)jp );
 
    return ptt;
 }

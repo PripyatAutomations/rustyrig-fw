@@ -113,7 +113,7 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
    char my_msg[512];
    memset(my_msg, 0, sizeof(my_msg));
    snprintf(my_msg, sizeof(my_msg), "*** ALERT ***\nFrom: %s\nnMessage:\n\t%s", msg_from, msg_data);
-   Log(LOG_INFO, "proto.alert", "%s", my_msg);
+   Log(LOG_INFO, "proto.alert", "*** ALERT From: %s --- ***", msg_from, msg_data);
 
    if (ui_mode == UI_MODE_GTK) {
       ui_message_bell();
@@ -158,6 +158,36 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
  *  const char *msg_data = dict_get(d, "talk.data", NULL);
  */
    dict_free(d);
+}
+
+static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   dict_dump(d, stderr);
+   const char *cat_user = dict_get(d, "cat.user", NULL);
+   time_t msg_ts = dict_get_time_t(d, "cat.ts", 0);
+   const char *cat_mode = dict_get(d, "cat.state.mode", NULL);
+   const char *cat_vfo = dict_get(d, "cat.state.vfo", NULL);
+   bool active = dict_get_bool(d, "cat.state.ptt", false);
+
+   int cat_freq = dict_get_int(d, "cat.state.freq", 0.0);
+   int cat_width = dict_get_int(d, "cat.state.width", 0);
+   int cat_power = dict_get_int(d, "cat.state.power", 0);
+   dict_dump(d, stderr);
+
+   if (ptt_button) {
+      if (ui_mode == UI_MODE_GTK) {
+#ifdef	USE_GTK
+         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)active);
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
+#endif	// USE_GTK
+      }
+   }
+
+   // Update the VFO display
 }
 
 static void rrclient_handle_catcmd(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -377,44 +407,12 @@ static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *
 
    dict *d = json2dict(data);
    time_t p_ts = dict_get_time_t(d, "ping.ts", 0);
-   const char *jp = dict2json_mkstr(VAL_ULONG, "pong.ts", p_ts);
-// XXX: fix this (find c)
-//   mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-//   fprintf(stderr, "[ping]\n");
-//   dict_dump(d, stderr);
+   dict_add(d, "cmd", "pong");
+   dict_add_ulong(d, "pong.ts", p_ts);
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
-   free( (void *)jp );
 }
 
-static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (!data) {
-      return;
-   }
-
-   dict *d = json2dict(data);
-   dict_dump(d, stderr);
-   const char *cat_user = dict_get(d, "cat.user", NULL);
-   time_t msg_ts = dict_get_time_t(d, "cat.ts", 0);
-   const char *cat_mode = dict_get(d, "cat.state.mode", NULL);
-   const char *cat_vfo = dict_get(d, "cat.state.vfo", NULL);
-   bool active = dict_get_bool(d, "cat.state.ptt", false);
-
-   int cat_freq = dict_get_int(d, "cat.state.freq", 0.0);
-   int cat_width = dict_get_int(d, "cat.state.width", 0);
-   int cat_power = dict_get_int(d, "cat.state.power", 0);
-
-   fprintf(stderr, "[rig.ptt]\n");
-   dict_dump(d, stderr);
-
-   if (ptt_button) {
-      if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)active);
-         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
-#endif	// USE_GTK
-      }
-   }
-}
 
 static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *cptr, void *user) {
 //   fprintf(stderr, "[talk.quit]\n");
@@ -510,7 +508,7 @@ void rrclient_register_events(void) {
 
    // rigctl/CAT controls
    event_on("cat.cmd", rrclient_handle_catcmd, NULL);
-   event_on("cat.state", rrclient_handle_cat, NULL);
+   event_on("ws.msg.cat", rrclient_handle_cat, NULL);
    event_on("rig.ptt", rrclient_handle_cat, NULL);
    event_on("rig.freq", rrclient_handle_freq, NULL);
    event_on("rig.mode", rrclient_handle_mode, NULL);

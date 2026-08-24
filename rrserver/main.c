@@ -161,9 +161,10 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
    }
    logfp = stdout;
-   rig.log_level = LOG_DEBUG;            // startup in debug mode until config
+//   rig.log_level = LOG_DEBUG;            // startup in debug mode until config
                                          // loaded
-   logger_init(LOG_FILE);
+   rig.log_level = LOG_CRAZY;
+   logger_init(LOG_FILE, false);
 
    srand( (unsigned int)now );
    host_init();

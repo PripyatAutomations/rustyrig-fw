@@ -318,14 +318,14 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    dict_add_bool(d, "cat.state.ptt", hl_state.ptt);
    dict_add_long(d, "cat.state.freq", hl_state.freq);
    dict_add_ulong(d, "cat.ts", now);
+
    const char *jp = dict2json(d);
    mp = mg_str(jp);
    Log(LOG_CRAZY, "backend.hamlib", "Sending %s", jp);
 
-   fprintf(stderr, "be.hamlib: %s\n", jp);
    // Send to everyone, including the sender, which will then display it in
    // various widgets
-   ws_broadcast(NULL, &mp, WEBSOCKET_OP_TEXT);
+   ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
    free( (char *)jp );
    dict_free(d);
 #endif

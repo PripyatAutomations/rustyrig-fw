@@ -47,7 +47,6 @@ extern bool cfg_ui_gtk_vfo_on_top;
 extern bool chat_init(void);             // gtk.chat.c
 bool cfg_fullscreen = false;
 
-
 char *gtk_colorize_string(const char *in) {
    if (!in) {
       return NULL;

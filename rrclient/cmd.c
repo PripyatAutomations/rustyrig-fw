@@ -240,14 +240,15 @@ bool parse_chat_input_real(const char *msg) {
          return false;
       }
 #endif
-      const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", msg, VAL_STR, "talk.msg_type",
-         "pub");
+      dict *d = dict_new();
+      dict_add(d, "talk.cmd", "msg");
+      dict_add(d, "talk.data", msg);
+      dict_add(d, "talk.msg_type", "pub");
 
       if (ws_conn) {
-         mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+         ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
       }
-
-      free( (char *)jp );
+      dict_free(d);
    }
 #endif /* USE_MONGOOSE */
 

@@ -1,9 +1,8 @@
 Immediate needs
 ---------------
-* Add ws_send_dict() ASAP and clean up a lot of this mess
-* Rework dict_* so they actually use the val_type and dict_value_t union
-* HTTP_DEBUG_CRAZY - where does it get set?
-* DEBUG_WS_BINFRAMES - where does it get set?
+* Fix the color parser to not mangle json
+* HTTP_DEBUG_CRAZY - where does it get set? - mk/compile.ml
+* DEBUG_WS_BINFRAMES - where does it get set? - mk/compile.ml
 * DEBUG_PROTO_UNKNOWN ' ' '
 * MAKE SURE the protocol messages line up
   - Try to minimize wasted traffic

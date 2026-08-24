@@ -16,7 +16,7 @@
 #include <rrclient/gtk.core.h>
 #include <rrclient/gtk.freqentry.h>
 
-#define	MAX_DIGITS 8
+#define	MAX_DIGITS 10
 extern dict *cfg;
 extern time_t now;
 

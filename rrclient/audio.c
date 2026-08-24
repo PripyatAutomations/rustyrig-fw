@@ -315,9 +315,11 @@ bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
       return true;
    }
    int codec_id = au_codec_by_id(au->codec);
-   const char *jp = dict2json_mkstr(VAL_STR, "media.codec", au_codec_get_magic(codec_id), VAL_INT, "media.rate",
-      au_codec_get_samplerate(codec_id), VAL_BOOL, "media.active", au->active);
-   free( (char *)jp );
+   dict *d = dict_new();
+   dict_add(d, "media.codec", au_codec_get_magic(codec_id));
+   dict_add_int(d, "media.rate",  au_codec_get_samplerate(codec_id));
+   dict_add_bool(d, "media.active", au->active);
+   dict_free(d);
 
    return true;
 }

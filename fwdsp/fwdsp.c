@@ -322,7 +322,7 @@ int main(int argc, char *argv[]) {
       // unneeded unless new code added between here and inner else
 //      free(fullpath);
    }
-   logger_init(LOGFILE);
+   logger_init(LOGFILE, false);
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);

@@ -32,23 +32,35 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    if (!fmt || !ap) {
       return true;
    }
-   char outbuf[8096];
-   memset( outbuf, 0, sizeof(outbuf) );
-   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
 
-   if (log_buffer) {
-      GtkTextIter end;
-      gtk_text_buffer_get_end_iter(log_buffer, &end);
-      gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
-      gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-
-      // Scroll after the current main loop iteration, this ensures widget is
-      // fully drawn and scroll will be complete
-      g_idle_add(ui_scroll_to_end, log_view);
-   } else {
+   if (!log_buffer) {
       return true;
    }
 
+   char outbuf[8096];
+   memset(outbuf, 0, sizeof(outbuf));
+   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
+   char *colorized = gtk_colorize_string(outbuf);
+
+   const char *ts = get_chat_ts(now);
+   char *ts_colorized = gtk_colorize_string(ts);
+
+   GtkTextIter end;
+   gtk_text_buffer_get_end_iter(log_buffer, &end);
+
+   if (ts_colorized) {
+      gtk_text_buffer_insert_markup(log_buffer, &end, ts_colorized, -1);
+      free(ts_colorized);
+   } else {
+      gtk_text_buffer_insert(log_buffer, &end, ts, -1);
+   }
+
+   gtk_text_buffer_insert_markup(log_buffer, &end, colorized, -1);
+   gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
+
+   g_idle_add(ui_scroll_to_end, log_view);
+
+   free(colorized);
    return false;
 }
 

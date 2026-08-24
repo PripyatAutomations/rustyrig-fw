@@ -57,15 +57,17 @@ bool cmd_me(int argc, char **args) {
       pos += n;
    }
 
-   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", buf, VAL_STR, "talk.msg_type",
-      "action");
+   dict *d = dict_new();
+   dict_add(d, "talk.cmd", "msg");
+   dict_add(d, "talk.data", buf);
+   dict_add(d, "talk.msg_type", "action");
 
 #ifdef	USE_MONGOOSE
    if (ws_conn) {
-      mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    }
 #endif
-   free( (void *)jp );
+   dict_free(d);
 
    return false;
 }
@@ -91,16 +93,18 @@ bool cmd_msg(int argc, char **args) {
 
    ui_print(NULL, "-> %s %s", target, fullmsg);
 
-   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", fullmsg, VAL_STR, "talk.target",
-      target);
+   dict *d = dict_new();
+   dict_add(d, "talk.cmd", "msg");
+   dict_add(d, "talk.data", fullmsg);
+   dict_add(d, "talk.target", target);
 
 #ifdef	USE_MONGOOSE
    if (ws_conn) {
-      mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
+      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    }
 #endif
-   free( (void *)jp );
 
+   dict_free(d);
    return false;
 }
 

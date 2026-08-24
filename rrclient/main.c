@@ -352,7 +352,7 @@ int main(int argc, char *argv[]) {
 
    // apply some global configuration
    const char *logfile = cfg_get_exp("log.file");
-   logger_init( (logfile ? logfile : "-") );
+   logger_init( (logfile ? logfile : "-"), (ui_mode == UI_MODE_TUI) );
 
    if (logfile) {
       free( (char *)logfile );     // _exp versions MUST be freed
@@ -430,6 +430,7 @@ int main(int argc, char *argv[]) {
 #endif // defined(USE_MONGOOSE)
 
       gtk_init(&argc, &argv);
+      log_add_callback(log_print_va);
 
 #ifdef _WIN32
       // Disable edit mode in console, so copy/paste is usable

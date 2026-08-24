@@ -37,6 +37,8 @@ GtkWidget *chat_textview = NULL;
 GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;
 
+// XXX: Move this to gtk.core.c
+
 // Scroll to the end of a GtkTextView
 gboolean ui_scroll_to_end(gpointer data) {
    if (!data) {

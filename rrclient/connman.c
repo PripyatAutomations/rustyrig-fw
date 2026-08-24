@@ -156,9 +156,11 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          // It's a ping, so we should reply to it with a pong then fall through
          // to cleanup
          if (ping_ts) {
-            const char *jp = dict2json_mkstr( VAL_STR, "type", "pong", VAL_ULONG, "ts", atol(ping_ts) );
-            mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-            free( (void *)jp );
+            dict *d = dict_new();
+            dict_add(d, "type", "pong");
+            dict_add_ulong(d, "ts", atol(ping_ts));
+            ws_send_dict(NULL, c, d, WEBSOCKET_OP_TEXT);
+            dict_free(d);
          } else if (pong_ts) {
             Log(LOG_CRAZY, "pong", "Received pong ts:%s", pong_ts);
          } else if (cmd && strcasecmp(cmd, "msg") == 0) {
@@ -192,9 +194,11 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       }
       event_emit("connected", NULL, buf);
       ui_print(NULL, "status", "Connected to server");
-      const char *jp = dict2json_mkstr(VAL_STR, "hello", "rrclient", VAL_STR, "hello.version", VERSION);
-      mg_ws_send(c, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-      free( (void *)jp );
+      dict *d = dict_new();
+      dict_add(d, "hello", "rcclient");
+      dict_add(d, "hello.version", VERSION);
+      ws_send_dict(NULL, c, d, WEBSOCKET_OP_TEXT);
+      dict_free(d);
    } else if (ev == MG_EV_CLOSE) {
       ws_connected = false;
       event_emit("disconnected", NULL, NULL);
@@ -225,35 +229,19 @@ bool rrclient_send_chat(const char *data) {
    if (!data) {
       return true;
    }
-   const char *jp = dict2json_mkstr(VAL_STR, "talk.cmd", "msg", VAL_STR, "talk.data", data, VAL_STR, "talk.msg_type",
-      "pub");
+   dict *d = dict_new();
+   dict_add(d, "talk.cmd", "msg");
+   dict_add(d, "talk.data", data);
+   dict_add(d, "talk.msg_type", "pub");
 
-   if (!jp) {
-      return true;
-   }
-
-#ifdef  USE_MONGOOSE
-   if (!ws_conn) {
-      return true;
-   }
-   mg_ws_send(ws_conn, jp, strlen(jp), WEBSOCKET_OP_TEXT);
-#endif // USE_MONGOOSE
-   free( (void *)jp );
-
-   return false;
-}
-
-bool rrclient_send(const char *json) {
-   if (!json) {
-      return true;
-   }
 
 #ifdef  USE_MONGOOSE
    if (!ws_conn) {
       return true;
    }
-   mg_ws_send(ws_conn, json, strlen(json), WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
 #endif // USE_MONGOOSE
+   dict_free(d);
 
    return false;
 }
