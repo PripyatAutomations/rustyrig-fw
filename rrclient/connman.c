@@ -43,10 +43,6 @@ extern bool debug_sockets;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN + 1];
 extern void rrclient_update_connection_ui(int connected);       // events.c
-#ifdef	USE_MONGOOSE
-extern rrconn_t *http_find_client_by_c(struct mg_connection *c);
-extern rrconn_t *http_add_client(struct mg_connection *c, bool is_ws);
-#endif	// USE_MONGOOSE
 
 static const char *rrclient_resolve_server_name(const char *requested_server) {
    if (requested_server && *requested_server) {
@@ -145,7 +141,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
       if (msg && msg->data.buf) {
-         rrconn_t *cptr = http_find_client_by_c(c);
+         rrconn_t *cptr = ws_conn;
          char buf[HTTP_WS_MAX_MSG + 1];
          memset( buf, 0, sizeof(buf) );
          memcpy(buf, msg->data.buf, msg->data.len);
@@ -202,8 +198,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       dict *d = dict_new();
       dict_add(d, "hello", "rcclient");
       dict_add(d, "hello.version", VERSION);
-      rrconn_t *cptr = http_find_client_by_c(c);
-      ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
+      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
    } else if (ev == MG_EV_CLOSE) {
       ws_connected = false;
@@ -225,6 +220,8 @@ bool rrclient_connect(const char *url) {
       ui_print(NULL, "status", "Connection failed");
       return true;
    }
+   ws_conn->conn->fn_data = (void *)ws_conn;
+
 #endif // USE_MONGOOSE
 
    return false;
@@ -401,7 +398,7 @@ bool connect_server(const char *server) {
 
 #ifdef	USE_MONGOOSE
       fprintf(stderr, "mgr:<%p> url:<%p> = %s, http_handler:<%p>\n",
-         (void *)&mgr, url, url, (void *)http_handler);
+         (void *)&mgr, url, url, http_handler);
 
       struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
       
@@ -416,6 +413,8 @@ bool connect_server(const char *server) {
          memset(ws_conn, 0, sizeof(rrconn_t));
       }
       ws_conn->conn = c;
+      ws_conn->conn->fn_data = (void *)ws_conn;
+
 #endif // defined(USE_MONGOOSE)
    } else {
       ui_print(NULL,
