@@ -34,10 +34,8 @@ extern bool dying;
 extern time_t now;
 extern bool syslog_clear(void);
 extern const char *server_name; // remove this (connman.c)
+extern rrconn_t *ws_conn;
 
-#ifdef	USE_MONGOOSE
-extern struct mg_connection *ws_conn;
-#endif
 bool cmd_clear(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
       tui_clear_scrollback( tui_active_window() );

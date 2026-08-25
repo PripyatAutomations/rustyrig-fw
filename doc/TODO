@@ -1,6 +1,8 @@
 Immediate needs
 ---------------
 * Fix the color parser to not mangle json
+  gtk_colorize_string()
+
 * HTTP_DEBUG_CRAZY - where does it get set?
   - mk/compile.ml
 * DEBUG_WS_BINFRAMES - where does it get set?

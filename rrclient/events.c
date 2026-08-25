@@ -23,27 +23,10 @@ extern const char *login_user;   // from connman.c
 #ifdef	USE_GTK
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern GtkWidget *freq_entry, *log_view, *main_window, *ptt_button;
-extern GtkTextBuffer *log_buffer;
 #endif	// USE_GTK
 
 extern int ws_connected;        // in librustyaxe/tui.window.c BUT belongs in rrclient!
 bool cfg_ui_bell_chat = false;
-
-static void rrclient_display_log_message(const char *msg) {
-   if (!log_buffer || !msg) {
-      return;
-   }
-
-   if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      GtkTextIter end;
-      gtk_text_buffer_get_end_iter(log_buffer, &end);
-      gtk_text_buffer_insert(log_buffer, &end, msg, -1);
-      gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-      g_idle_add(ui_scroll_to_end, log_view);
-#endif	// USE_GTK
-   }
-}
 
 void rrclient_update_connection_ui(int connected) {
    if (!conn_button) {
@@ -157,6 +140,8 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
  *  const char *msg_type = dict_get(d, "talk.msg_type", NULL);
  *  const char *msg_data = dict_get(d, "talk.data", NULL);
  */
+   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", data);
+   dict_dump(d, NULL);
    dict_free(d);
 }
 
@@ -166,7 +151,7 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
    }
 
    dict *d = json2dict(data);
-   dict_dump(d, stderr);
+//   dict_dump(d, stderr);
    const char *cat_user = dict_get(d, "cat.user", NULL);
    time_t msg_ts = dict_get_time_t(d, "cat.ts", 0);
    const char *cat_mode = dict_get(d, "cat.state.mode", NULL);
@@ -199,7 +184,7 @@ static void rrclient_handle_catcmd(const char *event, const char *data, rrconn_t
 
    dict *d = json2dict(data);
    fprintf(stderr, "[cat.cmd]\n");
-   dict_dump(d, stderr);
+//   dict_dump(d, stderr);
 /*
  *  const char *from = dict_get(d, "talk.from", NULL);
  *  time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
@@ -235,7 +220,6 @@ static void rrclient_handle_log(const char *event, const char *data, rrconn_t *c
 
       snprintf(logmsg, sizeof(logmsg), "[%s] <%s.%s> From %s: %s",
          get_chat_ts(log_ts), log_subsys, log_prio, log_from, log_msg);
-      rrclient_display_log_message(logmsg);
    }
 }
 

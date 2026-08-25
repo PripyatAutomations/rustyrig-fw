@@ -19,11 +19,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.speech.h>
 #include <rrclient/gtk.core.h>
-
-#if     defined(USE_MONGOOSE)
-extern struct mg_connection *ws_conn;
-#endif // defined(USE_MONGOOSE)
-
+extern rrconn_t *ws_conn;
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;
 
@@ -99,8 +95,14 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);
    tx_ctx->is_tx = true;
 #if     defined(USE_MONGOOSE)
-   tx_ctx->conn = ws_conn;
-   rx_ctx->conn = ws_conn;
+
+   if (ws_tx_conn) {
+      tx_ctx->conn = ws_tx_conn->conn;
+   }
+
+   if (ws_conn) {
+      rx_ctx->conn = ws_conn->conn;
+   }
 #endif // defined(USE_MONGOOSE)
    rx_ctx->is_tx = false;
 

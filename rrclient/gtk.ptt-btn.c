@@ -24,7 +24,7 @@ extern bool parse_chat_input(GtkButton *button, gpointer entry);         // chat
 extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
-extern struct mg_connection *ws_conn;
+extern rrconn_t *ws_conn;
 extern time_t poll_block_expire, poll_block_delay;
 GtkWidget *ptt_button = NULL;
 

@@ -19,21 +19,13 @@
 #define	MAX_DIGITS 10
 extern dict *cfg;
 extern time_t now;
+extern rrconn_t *ws_conn;
+extern bool ws_send_freq_cmd(rrconn_t *cptr, const char *vfo, long freq);
 
-// XXX: This needs decoupled from the websocket/mg code and made to use the
-// XXX: generic abstractions, so it'll work over serial etc as well
-#if     defined(USE_MONGOOSE)
-extern struct mg_connection *ws_conn;
-extern bool ws_send_freq_cmd(struct mg_connection *c, const char *vfo, long freq);
-#endif // defined(USE_MONGOOSE)
-
-// XXX: This should be made less ugly; we need to block CAT polling momentarily
-// when
-// XXX: widget is actively being changed, so the server and client aren't
-// fighting each other
+// XXX: This should be made less ugly; we need to block CAT polling momentarily when widget
+// XXX: is actively being changed, so the server and client aren't fighting each other
 extern time_t poll_block_expire, poll_block_delay;
 
-//
 // This should be private. Use the accessor functions below in Public API
 struct _GtkFreqEntry {
    GtkBox parent_instance;

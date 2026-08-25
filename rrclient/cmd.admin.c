@@ -32,10 +32,7 @@
 
 extern bool dying;
 extern time_t now;
-
-#ifdef USE_MONGOOSE
-extern struct mg_connection *ws_conn;
-#endif
+extern rrconn_t *ws_conn;
 
 bool cmd_die(int argc, char **args) {
    dict *d = dict_new();

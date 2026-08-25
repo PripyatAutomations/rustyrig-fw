@@ -10,7 +10,6 @@
 //
 // XXX: This needs finished to fully support multiple connections in one client
 //
-
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -26,6 +25,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 #include <rrclient/userlist.h>
+#include <librrprotocol/http.h>
 
 // Server connections
 rr_connection_t *active_connections;
@@ -33,6 +33,7 @@ int ws_connected = 0;
 int ws_tx_connected = 0;
 bool server_ptt_state = false;
 const char *login_user = NULL;
+rrconn_t *ws_conn = NULL, *ws_tx_conn = NULL;
 
 extern rr_connection_t *active_connections;
 extern dict *cfg;
@@ -42,6 +43,10 @@ extern bool debug_sockets;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN + 1];
 extern void rrclient_update_connection_ui(int connected);       // events.c
+#ifdef	USE_MONGOOSE
+extern rrconn_t *http_find_client_by_c(struct mg_connection *c);
+extern rrconn_t *http_add_client(struct mg_connection *c, bool is_ws);
+#endif	// USE_MONGOOSE
 
 static const char *rrclient_resolve_server_name(const char *requested_server) {
    if (requested_server && *requested_server) {
@@ -60,11 +65,10 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
    return NULL;
 }
 
+
 #ifdef  USE_MONGOOSE
-struct mg_connection *ws_conn = NULL, *ws_tx_conn = NULL;
 extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
-extern struct mg_connection *ws_conn;
 #endif // USE_MONGOOSE
 
 char session_token[HTTP_TOKEN_LEN + 1] = {
@@ -141,6 +145,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
       if (msg && msg->data.buf) {
+         rrconn_t *cptr = http_find_client_by_c(c);
          char buf[HTTP_WS_MAX_MSG + 1];
          memset( buf, 0, sizeof(buf) );
          memcpy(buf, msg->data.buf, msg->data.len);
@@ -159,7 +164,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
             dict *d = dict_new();
             dict_add(d, "type", "pong");
             dict_add_ulong(d, "ts", atol(ping_ts));
-            ws_send_dict(NULL, c, d, WEBSOCKET_OP_TEXT);
+            ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
             dict_free(d);
          } else if (pong_ts) {
             Log(LOG_CRAZY, "pong", "Received pong ts:%s", pong_ts);
@@ -197,7 +202,8 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       dict *d = dict_new();
       dict_add(d, "hello", "rcclient");
       dict_add(d, "hello.version", VERSION);
-      ws_send_dict(NULL, c, d, WEBSOCKET_OP_TEXT);
+      rrconn_t *cptr = http_find_client_by_c(c);
+      ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
    } else if (ev == MG_EV_CLOSE) {
       ws_connected = false;
@@ -213,35 +219,13 @@ bool rrclient_connect(const char *url) {
    }
    ui_print(NULL, "status", "Connecting to %s", url);
 #ifdef  USE_MONGOOSE
-   ws_conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
+   ws_conn->conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
 
-   if (!ws_conn) {
+   if (!ws_conn->conn) {
       ui_print(NULL, "status", "Connection failed");
-
       return true;
    }
 #endif // USE_MONGOOSE
-
-   return false;
-}
-
-bool rrclient_send_chat(const char *data) {
-   if (!data) {
-      return true;
-   }
-   dict *d = dict_new();
-   dict_add(d, "talk.cmd", "msg");
-   dict_add(d, "talk.data", data);
-   dict_add(d, "talk.msg_type", "pub");
-
-
-#ifdef  USE_MONGOOSE
-   if (!ws_conn) {
-      return true;
-   }
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
-#endif // USE_MONGOOSE
-   dict_free(d);
 
    return false;
 }
@@ -251,7 +235,7 @@ bool rrclient_disconnect(void) {
 
 #ifdef  USE_MONGOOSE
    if (ws_conn) {
-      ws_conn->is_closing = 1;
+      ws_conn->conn->is_closing = 1;
       ws_conn = NULL;
    }
 #endif // USE_MONGOOSE
@@ -375,7 +359,7 @@ bool disconnect_server(const char *server) {
    if (ws_connected) {
 #ifdef	USE_MONGOOSE
       if (ws_conn) {
-         ws_conn->is_closing = 1;
+         ws_conn->conn->is_closing = 1;
       }
 #endif // defined(USE_MONGOOSE)
       ws_connected = false;
@@ -387,6 +371,7 @@ bool disconnect_server(const char *server) {
 
 // XXX: pass pointer to the server structure
 bool connect_server(const char *server) {
+   rrconn_t *cptr = NULL;
    const char *resolved_server = rrclient_resolve_server_name(server);
 
    if (!resolved_server) {
@@ -405,7 +390,6 @@ bool connect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", resolved_server, url);
 
    if (url) {
-
       if (ui_mode == UI_MODE_GTK) {
 #ifdef  USE_GTK
          GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
@@ -416,13 +400,22 @@ bool connect_server(const char *server) {
       ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
 
 #ifdef	USE_MONGOOSE
-      ws_conn = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
+      fprintf(stderr, "mgr:<%p> url:<%p> = %s, http_handler:<%p>\n",
+         (void *)&mgr, url, url, (void *)http_handler);
 
-      if (!ws_conn) {
+      struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
+      
+      if (!c) {
          ui_print( NULL, "%s Socket connect error", get_chat_ts(now) );
          ws_connected = false;
          event_emit("http.error", NULL, NULL);
       }
+
+      if (!ws_conn) {
+         ws_conn = malloc(sizeof(rrconn_t));
+         memset(ws_conn, 0, sizeof(rrconn_t));
+      }
+      ws_conn->conn = c;
 #endif // defined(USE_MONGOOSE)
    } else {
       ui_print(NULL,

@@ -46,3 +46,6 @@
 [cfgedit]	URGENT
 ! Make save config moves the file to .old first
 * Option to edit on-disk or in-memory configuration
+
+[TUI]
+* Add a tab for showing client / radio log (togglable)

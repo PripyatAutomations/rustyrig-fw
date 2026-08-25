@@ -32,94 +32,35 @@
 
 extern bool dying;
 extern time_t now;
-
-#ifdef	USE_MONGOOSE
-extern struct mg_connection *ws_conn;
-#endif
+extern rrconn_t *ws_conn;
 
 client_cmd_t client_cmds[] = {
-   {
-      .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab"
-   },
-   {
-      .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab"
-   },
-   {
-      .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback"
-   },
-   {
-      .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab"
-   },
-   {
-      .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab"
-   },
-   {
-      .cmd = "die", .cb = cmd_die, .desc = "Shutdown the server"
-   },
-   {
-      .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server"
-   },
-   {
-      .cmd = "help", .cb = cmd_help, .desc = "Show help message"
-   },
-   {
-      .cmd = "kick", .cb = cmd_kick, .desc = "Kick a user from the rig"
-   },
-   {
-      .cmd = "join", .cb = cmd_join, .desc = "Join a channel"
-   },
-   {
-      .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab"
-   },
-   {
-      .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel"
-   },
-   {
-      .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message"
-   },
-/*
- *  {
- *     .cmd = "mute", .cb = cmd_mute, .desc = "Mute a user"
- *  },
- */
-   {
-      .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice"
-   },
-   {
-      .cmd = "part", .cb = cmd_part, .desc = "Leave a channel"
-   },
-   {
-      .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program"
-   },
-   {
-      .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command"
-   },
-   {
-      .cmd = "restart", .cb = cmd_restart, .desc = "Restart the server"
-   },
-   {
-      .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level"
-   },
-   {
-      .cmd = "server", .cb = cmd_server, .desc = "Connect to a server"
-   },
-   {
-      .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)"
-   },
-/*
- *  {
- *     .cmd = "unmute", .cb = cmd_unmute, .desc = "Unmute a user"
- *  },
- */
-   {
-      .cmd = "win", .cb = cmd_win, .desc = "Change windows"
-   },
-   {
-      .cmd = "whois", .cb = cmd_whois, .desc = "Show client information"
-   },
-   {
-      .cmd = NULL, .cb = NULL, .desc = NULL
-   }
+   { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
+   { .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab" },
+   { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
+   { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
+   { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
+   { .cmd = "die", .cb = cmd_die, .desc = "Shutdown the server" },
+   { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
+   { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
+   { .cmd = "kick", .cb = cmd_kick, .desc = "Kick a user from the rig" },
+   { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },
+   { .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab" },
+   { .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel" },
+   { .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message" },
+//   { .cmd = "mute", .cb = cmd_mute, .desc = "Mute a user" },
+   { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
+   { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
+   { .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program" },
+   { .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command" },
+   { .cmd = "restart", .cb = cmd_restart, .desc = "Restart the server" },
+   { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
+   { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
+   { .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)" },
+//  { .cmd = "unmute", .cb = cmd_unmute, .desc = "Unmute a user" },
+   { .cmd = "win", .cb = cmd_win, .desc = "Change windows" },
+   { .cmd = "whois", .cb = cmd_whois, .desc = "Show client information" },
+   { .cmd = NULL, .cb = NULL, .desc = NULL }
 };
 
 bool parse_chat_input_real(const char *msg) {
@@ -263,7 +204,6 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
       return true;
    }
    const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
-
    return parse_chat_input_real(msg);
 }
 #endif // USE_GTK

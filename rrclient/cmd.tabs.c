@@ -32,10 +32,7 @@
 
 extern bool dying;
 extern time_t now;
-
-#ifdef	USE_MONGOOSE
-extern struct mg_connection *ws_conn;
-#endif	// USE_MONGOOSE
+extern rrconn_t *ws_conn;
 
 #ifdef	USE_GTK
 extern GtkWidget *chat_entry;

@@ -40,7 +40,6 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    char outbuf[8096];
    memset(outbuf, 0, sizeof(outbuf));
    vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
-   char *colorized = gtk_colorize_string(outbuf);
 
    const char *ts = get_chat_ts(now);
    char *ts_colorized = gtk_colorize_string(ts);
@@ -55,12 +54,13 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
       gtk_text_buffer_insert(log_buffer, &end, ts, -1);
    }
 
-   gtk_text_buffer_insert_markup(log_buffer, &end, colorized, -1);
+   char header[512];
+   memset(header, 0, sizeof(header));
+   snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(priority));
+   gtk_text_buffer_insert(log_buffer, &end, header, -1);
+   gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
    gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-
    g_idle_add(ui_scroll_to_end, log_view);
-
-   free(colorized);
    return false;
 }
 
@@ -72,7 +72,7 @@ bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...)
 
    // This usually indicates a bug has occurred...
    if (!log_buffer) {
-//      fprintf(stderr, "log_print called with no log_buffer");
+      fprintf(stderr, "log_print called with no log_buffer");
       return false;
    }
    va_list ap;

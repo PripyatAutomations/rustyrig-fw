@@ -19,11 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
-
-#if     defined(USE_MONGOOSE)
-extern struct mg_connection *ws_conn;
-#endif // defined(USE_MONGOOSE)
-
+extern rrconn_t *ws_conn;
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
 

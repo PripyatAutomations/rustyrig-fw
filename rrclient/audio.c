@@ -41,7 +41,7 @@
 #include <rrclient/audio.h>
 
 extern dict *cfg;                // main.c
-extern struct mg_connection *ws_conn, *ws_tx_conn;
+extern rrconn_t *ws_conn, *ws_tx_conn;
 bool audio_enabled = false;
 bool gst_active = false;
 
@@ -100,7 +100,7 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
          memcpy(frame->data, map.data, map.size);
 
 #ifdef USE_MONGOOSE
-         mg_ws_send(ws_tx_conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
+         mg_ws_send(ws_tx_conn->conn, frame->data, frame->len, WEBSOCKET_OP_BINARY);
 #endif // USE_MONGOOSE
 //         ws_tx_conn->pfn = ws_tx_callback;
 //         ws_tx_conn->fn_data = frame;

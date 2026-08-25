@@ -32,10 +32,7 @@
 
 extern bool dying;
 extern time_t now;
-
-#ifdef	USE_MONGOOSE
-extern struct mg_connection *ws_conn;
-#endif
+extern rrconn_t *ws_conn;
 
 bool cmd_join(int argc, char **args) {
    ui_print(NULL, "{yellow}JOIN is not supported over WebSocket{reset}");
