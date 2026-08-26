@@ -53,6 +53,8 @@ char *rig_name = NULL;
 // How often we will poll the backend in ms (default:1000)
 int cfg_backend_poll_interval = 1000;
 int cfg_backend_announce_interval = 10000;
+int cfg_tick_interval = 100;
+
 // These are used for restarting ourself using exec()
 int my_argc = -1;
 char **my_argv = NULL;
@@ -109,6 +111,12 @@ static void timer_backend_poll_fn(void *arg) {
    }
 }
 
+// We need to update this pretty often as it's used to time a lot of UI interactions
+// See cfg:core.tick-interval
+static void timer_tick_fn(void *arg) {
+    clock_gettime(CLOCK_MONOTONIC, &mono_now);
+}
+
 int main(int argc, char **argv) {
    // save for restarting later
    my_argc = argc;
@@ -140,6 +148,8 @@ int main(int argc, char **argv) {
    // load config (posix hosts)
    char *fullpath = NULL;
 
+   rig.log_level = LOG_CRAZY;
+
    if (config_file) {
       if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
@@ -157,9 +167,6 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
    }
    logfp = stdout;
-//   rig.log_level = LOG_DEBUG;            // startup in debug mode until config
-                                         // loaded
-   rig.log_level = LOG_CRAZY;
    logger_init(LOG_FILE, false);
 
    srand( (unsigned int)now );
@@ -226,6 +233,7 @@ int main(int argc, char **argv) {
    auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
    cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 1000);
    cfg_backend_announce_interval = cfg_get_int("backend.announce-interval", 10);
+   cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 #endif
 
    // Initialize add-in cards
@@ -294,6 +302,10 @@ int main(int argc, char **argv) {
 
    // rig polling
    mg_timer_add(&mg_mgr, cfg_backend_poll_interval, MG_TIMER_REPEAT, timer_backend_poll_fn, &mg_mgr);
+
+   // 'precise' timekeeping
+   mg_timer_add(&mg_mgr, cfg_tick_interval, MG_TIMER_REPEAT, timer_tick_fn, &mg_mgr);
+
 #endif // USE_MONGOOSE
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");

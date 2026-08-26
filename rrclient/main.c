@@ -67,20 +67,21 @@ static ev_timer ws_poll_watcher;
 struct ev_loop *loop_main = NULL;
 #endif	// USE_LIBEV
 
+struct timespec mono_now;
 bool rrclient_cleanup(void);
 const char *cfg_debug_audio = NULL;
 bool cfg_mirc_colors = true;
 bool cfg_ui_gtk_vfo_on_top = true;
 int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
+int cfg_tick_interval = 100;
 bool dying = false;
 bool restarting = false;
 bool debug_sockets = false;
-int cfg_poll_block_delay = -1;
+int cfg_ui_vfo_viscosity = -1;
 time_t now = 0;
 
 #ifdef	USE_LIBEV
 static void ws_poll_cb(EV_P_ ev_timer *w, int revents) {
-   // this calls mg_mgr_poll(&mgr, 0);
    rrclient_poll_events();
 }
 #endif	// USE_LIBEV
@@ -123,7 +124,6 @@ static gboolean update_now(gpointer user_data) {
 ////////////////////////////////////
 static gboolean poll_mongoose(gpointer user_data) {
    rrclient_poll_events();
-
    return G_SOURCE_CONTINUE;
 }
 #endif // USE_MONGOOSE
@@ -262,18 +262,10 @@ int main(int argc, char *argv[]) {
       int this_option_optind = optind ? optind : 1;
       int option_index = 0;
       static struct option long_options[] = {
-         {
-            "config", required_argument, 0, 'f'
-         },
-         {
-            "tui", no_argument, 0, 'T'
-         },
-         {
-            "help", no_argument, 0, 'h'
-         },
-         {
-            0, 0, 0, 0
-         }
+         { "config", required_argument, 0, 'f' },
+         { "tui", no_argument, 0, 'T' },
+         { "help", no_argument, 0, 'h' },
+         { 0, 0, 0, 0 }
       };
 
       c = getopt_long(argc, argv, "Thf:", long_options, &option_index);
@@ -366,8 +358,9 @@ int main(int argc, char *argv[]) {
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
    cfg_debug_audio = cfg_get_exp("debug.audio");
    // How long to suppress hamlib/etc polling during CAT control?
-   cfg_poll_block_delay = cfg_get_int("cat.poll-blocking", 2);
+   cfg_ui_vfo_viscosity = cfg_get_int("ui.vfo.visocity", 1000);
    cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
+   cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 
 #ifdef	USE_GTK
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);

@@ -52,7 +52,7 @@ defconfig_t defcfg[] = {
    { "audio.prefer-codecs", "mu16 pc16 mu08", "Preferred codec order" },
    { "audio.volume.rx", "30", "Default RX volume" },
    { "audio.volume.tx", "20", "Default TX out vol" },
-   { "cat.poll-blocking", "2", "Sec to block CAT poll messages for input debouncing" },
+   { "ui.vfo.visocity", "1000", "Second to block CAT poll messages for input debouncing" },
    { "debug.audio", ":*3", "gstreamer debug level" },
    { "debug.http", "false", "Extra HTTP debugging" },
    { "debug.http.crazy", "false", "Insane level of HTTP debugging" },

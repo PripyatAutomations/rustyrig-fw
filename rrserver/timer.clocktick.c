@@ -35,8 +35,6 @@ static rr_vfo_data_t last_vfo_state[MAX_VFOS];
 
 // Here we do the things that aren't terribly time sensitive, with about a 1hz interval
 void timer_clock_tick_fn(void *arg) {
-   // Update our time keeping variables once per second
-   clock_gettime(CLOCK_MONOTONIC, &mono_now);
    now = time(NULL);
 
    // Check thermals
