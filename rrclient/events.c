@@ -175,6 +175,7 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
    }
 
    // Update the VFO display
+   dict_free(d);
 }
 
 static void rrclient_handle_catcmd(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -381,8 +382,8 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
    }
 
    dict *d = json2dict(data);
-//   fprintf(stderr, "[NOMATCH]\n");
-//   dict_dump(d, stderr);
+   fprintf(stderr, "[NOMATCH]\n");
+   dict_dump(d, stderr);
    dict_free(d);
 }
 
@@ -423,12 +424,14 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
    const char *s_unknown = "<UNKNOWN>";
 
    if (!m_user) {
+      dict_free(d);
       return;
    }
 
    ui_print(NULL, "%s * %s (%s) quit from %s: %s", get_chat_ts(m_ts), m_user, m_ip, m_target, m_reason);
 
    userlist_remove_by_name(m_user);
+   dict_free(d);
 }
 
 static void rrclient_handle_userinfo(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -451,7 +454,6 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    const char *whois_msg = (const char *)data;
 
    if (whois_msg && main_window) {
-
       if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
          ui_show_whois_dialog(GTK_WINDOW(main_window), whois_msg);

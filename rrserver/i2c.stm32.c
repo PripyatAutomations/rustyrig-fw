@@ -1,5 +1,5 @@
 //
-// i2c.stm32.c
+// rrserver/i2c.stm32.c
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

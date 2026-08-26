@@ -1,5 +1,5 @@
 //
-// protection.h
+// rrserver/protection.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,11 +7,11 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_protection_h)
-#define	__rr_protection_h
+#ifndef	__rrserver_protection_h
+#define	__rrserver_protection_h
 
 extern bool protection_warmup_pending(int amp_idx);
 extern bool protection_lockout(const char *reason);
 extern bool protection_init(void);
 
-#endif // !defined(__rr_protection_h)
+#endif // !__rrserver_protection_h

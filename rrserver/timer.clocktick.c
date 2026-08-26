@@ -1,5 +1,5 @@
 //
-// main.c
+// rrserver/timer.clocktick.c: Periodic (1hz) timer
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -23,16 +23,20 @@
 #include <rrserver/backend.h>
 
 extern struct timespec loop_start;      // main.c
+extern struct timespec mono_now;
+extern int cfg_backend_announce_interval;	// main.c: how many times to skip announcing unless diff
 
 // This is the hardware limit, not reconfigurable
 const time_t cfg_rig_hard_tot = RF_TALK_TIMEOUT;
-
+static time_t be_poll_last = 0;
 static int clock_expire_http_iter = 0;
 static int clock_expire_fwdsp_iter = 0;
+static rr_vfo_data_t last_vfo_state[MAX_VFOS];
 
+// Here we do the things that aren't terribly time sensitive, with about a 1hz interval
 void timer_clock_tick_fn(void *arg) {
    // Update our time keeping variables once per second
-   clock_gettime(CLOCK_MONOTONIC, &loop_start);
+   clock_gettime(CLOCK_MONOTONIC, &mono_now);
    now = time(NULL);
 
    // Check thermals
@@ -71,5 +75,24 @@ void timer_clock_tick_fn(void *arg) {
       clock_expire_http_iter = 0;
    } else {
       clock_expire_http_iter++;
+   }
+
+   bool force_send_state = false;
+   // Should we send rig state announcements?
+   if ((be_poll_last + cfg_backend_announce_interval) <= now) {
+      // Yes, we must send it
+      force_send_state = true;
+   }
+
+   // save the vfo state for the next check
+   for (int i = 0; i < MAX_VFOS; i++) {
+      last_vfo_state[i] = vfos[i];
+   }
+
+//   if (force_send_state || vfo_diff(vfos[i], last_vfo_state[i])) {
+   if (force_send_state) {
+      // send a cat.state message
+      // Update the last polled time
+      be_poll_last = now;
    }
 }

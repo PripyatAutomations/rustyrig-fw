@@ -32,28 +32,27 @@
 #include <rrserver/filters.h>
 #include <rrserver/protection.h>
 
-#ifdef	USE_MONGOOSE
-struct mg_mgr mg_mgr;
-#endif
-
 #ifdef	USE_MQTT
 #include <rrserver/mqtt.h>
 #endif
 
+#ifdef	USE_MONGOOSE
+struct mg_mgr mg_mgr;
+#endif
+
+struct GlobalState rig;          // Global state
+struct timespec mono_now;
+struct timespec last_vfo_announce;
 bool dying = 0;                  // Are we shutting down?
 bool restarting = 0;             // Are we restarting?
-struct GlobalState rig;          // Global state
 time_t now = -1;                 // time() at 1hz timer
 time_t started = -1;             // time() when started
 int auto_block_ptt = 0;          // Auto block PTT at boot?
-struct timespec loop_start = {
-   .tv_sec = 0, .tv_nsec = 0
-};
 char *rig_name = NULL;
 
 // How often we will poll the backend in ms (default:1000)
 int cfg_backend_poll_interval = 1000;
-
+int cfg_backend_announce_interval = 10000;
 // These are used for restarting ourself using exec()
 int my_argc = -1;
 char **my_argv = NULL;
@@ -70,7 +69,6 @@ static uint32_t load_defaults(void) {
    rig.faultbeep = 1;
    rig.bc_standby = 1;
    rig.tr_delay = 50;
-
    return 0;
 }
 
@@ -100,17 +98,15 @@ static void timer_check_faults_fn(void *arg) {
    }
 }
 
-static struct timespec last_backend_poll = {
-   .tv_sec = 0, .tv_nsec = 0
-};
-
+// This is called by our timer at 1000ms (1hz) rate by default
+// cfg:backend.poll-interval is where this is set
 static void timer_backend_poll_fn(void *arg) {
-   // Poll the rig
    rr_be_poll(VFO_A);
-//   rr_be_poll(VFO_B);
+   rr_be_poll(VFO_B);
 
-   last_backend_poll.tv_sec = loop_start.tv_sec;
-   last_backend_poll.tv_nsec = loop_start.tv_nsec;
+   if (timespec_diff_ms(&mono_now, &last_vfo_announce) >= cfg_backend_announce_interval) {
+      last_vfo_announce = mono_now;
+   }
 }
 
 int main(int argc, char **argv) {
@@ -228,7 +224,8 @@ int main(int argc, char **argv) {
    // apply some configuration from the eeprom
 #ifdef	USE_EEPROM
    auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
-   cfg_backend_poll_interval = cfg_get_int("rig.poll-interval", 1000);
+   cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 1000);
+   cfg_backend_announce_interval = cfg_get_int("backend.announce-interval", 10);
 #endif
 
    // Initialize add-in cards

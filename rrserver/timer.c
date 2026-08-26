@@ -1,5 +1,5 @@
 //
-// timer.c
+// rrserver/timer.c
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

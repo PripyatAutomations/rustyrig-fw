@@ -50,7 +50,6 @@ static void rrserver_handle_send_chat_replay(const char *event, const char *data
    const char *channel = dict_get(d, "talk.target", NULL);
 
 #ifdef  USE_SQLITE
-
    if (channel) {
       db_send_chat_replay(cptr, channel);
    }
@@ -71,6 +70,7 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
    const char *msg_type = dict_get(d, "talk.msg_type", NULL);
 
    if (!channel || !msg_type) {
+      dict_free(d);
       return;
    }
 
@@ -86,8 +86,18 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
    dict_free(d);
 }
 
+static void rrserver_handle_recording_start(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   // Deal with this
+}
+
+static void rrserver_handle_recording_stop(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   // Deal with this
+}
+
 void rrserver_register_events(void) {
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
+   event_on("recording-start", rrserver_handle_recording_start, NULL);
+   event_on("recording-stop", rrserver_handle_recording_start, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    event_on("ws.msg.hello", rrserver_handle_hello, NULL);

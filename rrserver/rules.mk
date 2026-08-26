@@ -22,6 +22,7 @@ rrserver_objs += gpio.o			# GPIO controls
 #rrserver_objs += gui.fb.o		# Virtual framebuffer for GUI (NYI)
 #rrserver_objs += gui.nextion.o		# Nextion display support (NYI)
 rrserver_objs += help.o			# support for help menus from filesystem, if available
+rrserver_objs += http.bans.o
 rrserver_objs += i2c.o			# Support for i2c bus devices
 rrserver_objs += main.o			# main loop
 rrserver_objs += mqtt.o			# MQTT client/server support

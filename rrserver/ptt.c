@@ -1,5 +1,4 @@
-
-// ptt.c
+// rrserver/ptt.c
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -26,9 +25,6 @@
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
 #include <rrserver/timer.h>
-#if defined(USE_HAMLIB)
-#include <rrserver/backend.hamlib.h>
-#endif
 
 extern struct GlobalState rig;          // Global state
 extern time_t ptt_tot_time;
@@ -83,10 +79,7 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    dict_add_int(d, "cat.state.freq", hl_state.freq);
    dict_add_int(d, "cat.state.width", hl_state.width);
    dict_add_ulong(d, "cat.state.ts", now);
-   // and send a CAT message with the state
-#ifdef USE_MONGOOSE
    ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
-#endif
    dict_free(d);
 
    return ptt;

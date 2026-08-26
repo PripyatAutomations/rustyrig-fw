@@ -1,5 +1,5 @@
 //
-// database.c: sqlite3 database stuff
+// rrserver/database.c: sqlite3 database stuff
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_database_h)
-#define	__rr_database_h
+#if     !defined(__rrserver_database_h)
+#define	__rrserver_database_h
 #if     defined(USE_SQLITE)
 #include <sqlite3.h>
 
@@ -26,4 +26,4 @@ extern sqlite3 *masterdb;       // database.c
 
 #endif // defined(USE_SQLITE)
 
-#endif // !defined(__rr_database_h)
+#endif // !defined(__rrserver_database_h)

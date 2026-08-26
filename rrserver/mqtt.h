@@ -1,5 +1,5 @@
 //
-// mqtt.h
+// rrserver/mqtt.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_mqtt_h)
-#define	__rr_mqtt_h
+#if     !defined(__rrserver_mqtt_h)
+#define	__rrserver_mqtt_h
 #include <librustyaxe/core.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,4 +20,4 @@ extern bool mqtt_client_init(void);
 
 #endif // defined(USE_MQTT) && defined(USE_MONGOOSE)
 
-#endif // !defined(__rr_mqtt_h)
+#endif // !defined(__rrserver_mqtt_h)

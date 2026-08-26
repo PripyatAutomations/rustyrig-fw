@@ -1,5 +1,5 @@
 //
-// i2c.hal.h
+// rrserver/i2c.hal.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

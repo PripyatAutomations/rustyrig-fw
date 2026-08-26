@@ -1,5 +1,5 @@
 //
-// au.pipe.c: Pipe/socket interface for audio samples
+// rrserver/au.pipe.c: Pipe/socket interface for audio samples
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

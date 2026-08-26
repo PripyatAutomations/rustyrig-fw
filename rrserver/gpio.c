@@ -1,5 +1,5 @@
 //
-// gpio.c
+// rrserver/gpio.c; gpio management stuff
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -76,7 +76,6 @@ uint32_t radio_gpiochip_init(const char *chipname) {
          break;
       }
    }
-
 #endif	// HOST_POSIX
 
    if (slot_found) {
@@ -102,5 +101,4 @@ uint32_t gpio_init(void) {
 
    return 0;
 }
-
 #endif	// USE_GPIO

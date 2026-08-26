@@ -414,7 +414,6 @@ bool connect_server(const char *server) {
       }
       ws_conn->conn = c;
       ws_conn->conn->fn_data = (void *)ws_conn;
-
 #endif // defined(USE_MONGOOSE)
    } else {
       ui_print(NULL,

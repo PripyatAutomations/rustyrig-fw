@@ -1,5 +1,5 @@
 //
-// filters.h
+// rrserver/filters.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_filters_h)
-#define	__rr_filters_h
+#if     !defined(__rrserver_filters_h)
+#define	__rrserver_filters_h
 
 // Filter type
 #include <stdint.h>
@@ -65,4 +65,4 @@ struct rf_filter {
 extern int filter_init(int fid);
 extern int filter_init_all(void);
 
-#endif // !defined(__rr_filters_h)
+#endif // !defined(__rrserver_filters_h)

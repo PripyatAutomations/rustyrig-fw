@@ -40,7 +40,6 @@
 #include <rrclient/ui.h>
 #include <rrclient/audio.h>
 
-extern dict *cfg;                // main.c
 extern rrconn_t *ws_conn, *ws_tx_conn;
 bool audio_enabled = false;
 bool gst_active = false;
@@ -53,8 +52,8 @@ GstElement *rx_sink = NULL, *tx_sink = NULL;
 static struct ws_frame *send_queue = NULL;
 static bool sending_in_progress = false;
 
-void try_send_next_frame(struct mg_connection *c) {
-   if (!c) {
+void try_send_next_frame(rrconn_t *cptr) {
+   if (!cptr) {
       return;
    }
 
@@ -63,7 +62,7 @@ void try_send_next_frame(struct mg_connection *c) {
    }
    sending_in_progress = true;
 #ifdef USE_MONGOOSE
-   mg_ws_send(c, send_queue->data, send_queue->len, WEBSOCKET_OP_BINARY);
+   mg_ws_send(cptr->conn, send_queue->data, send_queue->len, WEBSOCKET_OP_BINARY);
 #endif // USE_MONGOOSE
    // audio_tx_free_frame() will be called once send completes
 }
@@ -75,14 +74,10 @@ GstFlowReturn handle_tx_sample(GstElement *sink, gpointer user_data) {
       return GST_FLOW_ERROR;
    }
 
-#ifdef USE_MONGOOSE
-
    if (!ws_tx_conn) {
       gst_sample_unref(sample);
-
       return GST_FLOW_OK;
    }
-#endif // USE_MONGOOSE
 
    GstBuffer *buffer = gst_sample_get_buffer(sample);
    GstMapInfo map;
@@ -307,20 +302,20 @@ bool audio_process_frame(const char *data, size_t len) {
 }
 
 
-#if     0
-bool send_au_control_msg(struct mg_connection *c, audio_settings_t *au) {
-   if (!c || !au) {
-      Log(LOG_CRIT, "ws.audio", "send_au_control_msg: Got invalid c:<%x> or au:<%x>", c, au);
-
+#if	0	// we need to make audio_settings_t
+bool send_au_control_msg(rrconn_t *cptr, audio_settings_t *au) {
+   if (!cptr || !au) {
+      Log(LOG_CRIT, "ws.audio", "send_au_control_msg: Got invalid cptr:<%x> or au:<%x>", cptr, au);
       return true;
    }
+
    int codec_id = au_codec_by_id(au->codec);
    dict *d = dict_new();
    dict_add(d, "media.codec", au_codec_get_magic(codec_id));
    dict_add_int(d, "media.rate",  au_codec_get_samplerate(codec_id));
    dict_add_bool(d, "media.active", au->active);
+   ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
-
    return true;
 }
 #endif

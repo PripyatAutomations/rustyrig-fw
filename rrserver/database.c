@@ -1,5 +1,5 @@
 //
-// database.c: sqlite3 database stuff
+// rrserver/database.c: sqlite3 database stuff
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

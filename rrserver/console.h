@@ -1,5 +1,5 @@
 //
-// console.h
+// rrserver/console.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_console_h)
-#define	__rr_console_h
+#if     !defined(__rrserver_console_h)
+#define	__rrserver_console_h
 
 #include "build_config.h"
 #include <stdbool.h>
@@ -19,4 +19,4 @@ struct cons_cmds {
        max_args;
    bool (*hndlr)();
 };
-#endif // !defined(__rr_console_h)
+#endif // !defined(__rrserver_console_h)

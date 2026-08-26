@@ -1,5 +1,5 @@
 //
-// channels.h
+// rrserver/channels.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,9 +7,9 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_channels_h)
-#define	__rr_channels_h
+#if     !defined(__rrserver_channels_h)
+#define	__rrserver_channels_h
 #include "rrserver/config.h"
 #include "rrserver/eeprom_laout.h"
 
-#endif // !defined(__rr_channels_h)
+#endif // !defined(__rrserver_channels_h)

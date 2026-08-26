@@ -1,5 +1,5 @@
 //
-// i2c.h
+// rrserver/i2c.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_i2c_h)
-#define	__rr_i2c_h
+#if     !defined(__rrserver_i2c_h)
+#define	__rrserver_i2c_h
 #include "build_config.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -24,4 +24,4 @@ typedef struct {
 } I2CBus;
 
 
-#endif // !defined(__rr_i2c_h)
+#endif // !defined(__rrserver_i2c_h)

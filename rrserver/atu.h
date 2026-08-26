@@ -1,5 +1,5 @@
 //
-// atu.h
+// rrserver/atu.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_atu_h)
-#define	__rr_atu_h
+#ifndef	__rrserver_atu_h
+#define	__rrserver_atu_h
 #include <librustyaxe/config.h>
 
 // A tuning value
@@ -36,4 +36,5 @@ extern int rr_atu_init_all(void);
 extern bool rr_atu_load_memories(int unit);
 extern rr_atu_tv *rr_atu_find_saved_state(int uid);
 
-#endif // !defined(__rr_atu_h)
+#endif // _rrserver_atu_h
+

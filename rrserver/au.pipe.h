@@ -1,5 +1,5 @@
 //
-// au.pipe.h
+// rrserver/au.pipe.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -8,8 +8,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-#if     !defined(__rr_au_pipe_h)
-#define	__rr_au_pipe_h
+#ifndef	__rrserver_au_pipe_h
+#define	__rrserver_au_pipe_h
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -31,4 +31,4 @@ bool pipe_read_samples(rr_au_pipe_device_t *device, void *buffer, size_t size);
 // Cleanup resources associated with the pipe
 void pipe_cleanup(rr_au_pipe_device_t *device);
 
-#endif // __rr_au_pipe_h
+#endif // __rrserver_au_pipe_h

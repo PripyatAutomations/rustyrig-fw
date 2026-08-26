@@ -1,5 +1,5 @@
 //
-// backend.c
+// rrsever/backend.c
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -102,9 +102,9 @@ bool rr_backend_init(void) {
    rr_backend_t *be = NULL;
    const char *be_name = NULL;
 
-#if     defined(USE_EEPROM)
+#ifdef	USE_EEPROM
    be_name = eeprom_get_str("backend/active");
-#endif
+#endif	// USE_EEPROM
 
    if (!be_name) {
       be_name = cfg_get_exp("backend.active");

@@ -1,5 +1,5 @@
 //
-// network.h
+// rrserver/network.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,12 +7,12 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_network_h)
-#define	__rr_network_h
+#ifndef	__rrserver_network_h
+#define	__rrserver_network_h
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 extern void show_network_info(void);
 
-#endif // !defined(__rr_network_h)
+#endif // !__rrserver_network_h

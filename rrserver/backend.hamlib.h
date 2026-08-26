@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_backend_hamlib_h)
-#define	__rr_backend_hamlib_h
+#if     !defined(__rrserver_backend_hamlib_h)
+#define	__rrserver_backend_hamlib_h
 
 #if     defined(USE_HAMLIB)
 #include <hamlib/rig.h>
@@ -33,4 +33,4 @@ typedef struct hamlib_state {
 extern hamlib_state_t hl_state;
 #endif // defined(USE_HAMLIB)
 
-#endif // !defined(__rr_backend_hamlib_h)
+#endif // !defined(__rrserver_backend_hamlib_h)

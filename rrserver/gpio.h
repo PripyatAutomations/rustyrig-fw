@@ -1,5 +1,5 @@
 //
-// gpio.h
+// rrserver/gpio.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,17 +7,17 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_gpio_h)
-#define	__rr_gpio_h
+#if     !defined(__rrserver_gpio_h)
+#define	__rrserver_gpio_h
 #include "build_config.h"
 #include <stdbool.h>
 
-#if     defined(HOST_POSIX)
+#ifdef	HOST_POSIX
 // XXX: Include host gpio support
 extern const uint32_t max__rr_gpiochips;
-#else
+#else	// HOST_POSIX
 // Include uc specific gpio
-#endif
+#endif	// HOST_POSIX
 
 #define	GPIO_KEYLEN 8
 struct GPIO_pin {
@@ -35,4 +35,4 @@ typedef struct radio__rr_gpiochip {
 
 extern uint32_t gpio_init(void);
 
-#endif // !defined(__h)
+#endif // !defined(__rrserver_gpio_h)

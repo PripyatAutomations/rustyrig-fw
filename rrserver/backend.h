@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_backend_h)
-#define	__rr_backend_h
+#if     !defined(__rrserver_backend_h)
+#define	__rrserver_backend_h
 #include <stdbool.h>
 #include <librrprotocol/rrprotocol.h>
 
@@ -77,4 +77,4 @@ extern rr_mode_t rr_get_mode(rr_vfo_t vfo);
 #include <rrserver/backend.hamlib.h>
 #include <rrserver/backend.internal.h>
 
-#endif // !defined(__rr_backend_h)
+#endif // !defined(__rrserver_backend_h)

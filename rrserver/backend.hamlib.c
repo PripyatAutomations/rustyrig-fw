@@ -32,7 +32,7 @@
 #include <rrserver/backend.hamlib.h>
 
 // This only gets drug in if we have features/backend/hamlib=true
-#if     defined(USE_HAMLIB)
+#ifdef	USE_HAMLIB
 #include <hamlib/rig.h>
 static RIG *hl_rig = NULL;       // hamlib Rig interface
 static bool hl_init(void);       // fwd decl
@@ -169,13 +169,8 @@ static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
 // Initialize the hamlib connection
 static bool hl_init(void) {
    int ret;
+   rig_model_t model = cfg_get_int("backend.hamlib-model", 2);
 
-   // Config values are stored in build_config.h as #defines for now
-#if     defined(USE_HAMLIB_MODEL)
-   rig_model_t model = BACKEND_HAMLIB_MODEL;
-#else
-   rig_model_t model = RIG_MODEL_NETRIGCTL;   // Use NET rigctl (model 2)
-#endif
    // Set debug level, if configured
    // XXX: We should probably make this a run-time configuration
 #if     defined(BACKEND_HAMLIB_DEBUG)
@@ -305,10 +300,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    rv->power = hl_state.power;
 
    // send to all users
-#if     defined(USE_MONGOOSE)
-   struct mg_str mp;
    rrconn_t *talker = whos_talking();
-
    dict *d = dict_new();
    dict_add(d, "cat.state.vfo", "A");
    dict_add(d, "cat.state.mode", rig_strrmode(hl_state.rmode));
@@ -318,18 +310,13 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    dict_add_bool(d, "cat.state.ptt", hl_state.ptt);
    dict_add_long(d, "cat.state.freq", hl_state.freq);
    dict_add_ulong(d, "cat.ts", now);
-
    const char *jp = dict2json(d);
-   mp = mg_str(jp);
    Log(LOG_CRAZY, "backend.hamlib", "Sending %s", jp);
-
-   // Send to everyone, including the sender, which will then display it in
-   // various widgets
-   ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
    free( (char *)jp );
-   dict_free(d);
-#endif
 
+   // Send to everyone, including the sender, which will then display it in various widgets
+   ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
    return rv;
 }
 

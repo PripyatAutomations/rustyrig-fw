@@ -1,5 +1,5 @@
 //
-// i2c.mux.c
+// rrserver/i2c.mux.c: Support for multiplexors on i2c busses
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

@@ -1,5 +1,4 @@
-// webcam.c: Support for a webcam via gstreamer, usually pointed at the
-// rig/station
+// rrserver/webcam.c: Support for a webcam via gstreamer, usually pointed at rig
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,7 +6,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -24,14 +22,12 @@ const char *webcam_common_codecs(const char *our_codecs, const char *cli_codecs)
    if (!our_codecs) {
       Log(LOG_CRIT, "webcam",
          "webcam_common_codecs: You should probably configure some video codecs in config: codecs.allowed.video, returning no codecs");
-
       return NULL;
    }
 
    if (!cli_codecs) {
       // XXX: Send a notice to the user that their client is misconfigured
       Log(LOG_DEBUG, "webcam", "webcam_common_codecs: Client sent an empty video codec list");
-
       return NULL;
    }
 

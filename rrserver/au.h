@@ -1,5 +1,5 @@
 //
-// au.h
+// rrsever/au.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_audio_h)
-#define	__rr_audio_h
+#ifndef	__rrserver_audio_h
+#define	__rrserver_audio_h
 #include <stdbool.h>
 #include <stddef.h>
 #include <librrprotocol/codecneg.h>
@@ -66,4 +66,4 @@ struct RecordingData {
 };
 typedef struct RecordingData recording_data_t;
 
-#endif // !defined(__rr_audio_h)
+#endif // !defined(__rrserver_audio_h)

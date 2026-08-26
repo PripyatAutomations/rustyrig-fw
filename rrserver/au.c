@@ -1,5 +1,5 @@
 //
-// au.c: Handle receiving/sending audio between this service and audio backends
+// rrsever/au.c: Handle receiving/sending audio between this service and audio backends
 // such as fwdsp for gstreamer
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw

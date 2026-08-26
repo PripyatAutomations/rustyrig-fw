@@ -1,5 +1,5 @@
 //
-// thermal.h
+// rrserver/thermal.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if     !defined(__rr_thermal_h)
-#define	__rr_thermal_h
+#ifndef	__rrserver_thermal_h
+#define	__rrserver_thermal_h
 
 #include <rrserver/globalstate.h>
 
@@ -40,8 +40,7 @@ static inline double degF_to_degC(double tempF) {
 extern struct ThermalLimits thermal_limits;
 extern uint32_t get_thermal(uint32_t sensor);            // Query temp in degC
                                                          // for sensor id given
-extern bool are_we_on_fire(void);                // Determine if radio is on
-                                                 // fire
-                                                 // and try to prevent that
+// Is the radio on fire? Shut down if so
+extern bool are_we_on_fire(void);
 
-#endif // !defined(__rr_thermal_h)
+#endif // !__rrserver_thermal_h

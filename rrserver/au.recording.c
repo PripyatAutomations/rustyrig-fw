@@ -1,5 +1,5 @@
 //
-// au.recording.c: Support for recording TX audio to a file
+// rrserver/au.recording.c: Support for recording TX audio to a file
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
