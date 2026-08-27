@@ -1,5 +1,5 @@
 //
-// backend.internal.c: Support for running in a real radio, storing real state.
+// rrserver/backend.internal.c: Support for running in a real radio, storing real state.
 //
 // This is the backend you want to extend if you want to add features to your rig
 //

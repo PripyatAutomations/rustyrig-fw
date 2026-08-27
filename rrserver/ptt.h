@@ -7,6 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
 #ifndef	__rrserver_ptt_h
 #define	__rrserver_ptt_h
 #include <librrprotocol/rrprotocol.h>

@@ -8,8 +8,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// XXX: Need to break this into pieces and wrap up our custom widgets, soo we
-// XXX: can do nice things like pop-out (floating) VFOs
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

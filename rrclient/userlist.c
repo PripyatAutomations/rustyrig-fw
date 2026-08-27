@@ -1,5 +1,5 @@
 //
-// src/rrclient/userlist.c: Userlist storage & display
+// rrclient/userlist.c: Userlist storage & display
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,7 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-
+//
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -31,8 +31,8 @@ bool userlist_add_or_update(dict *d) {
       return false;
    }
 
-   char *t_privs = dict_get(d, "talk.privs", NULL);
-   char *t_user = dict_get(d, "talk.user", NULL);
+   const char *t_privs = dict_get(d, "talk.privs", NULL);
+   const char *t_user = dict_get(d, "talk.user", NULL);
    int t_clones = dict_get_int(d, "talk.clones", 0);
    bool t_muted = dict_get_bool(d, "talk.muted", false);
    bool t_ptt = dict_get_bool(d, "talk.tx", false);

@@ -1,5 +1,5 @@
 //
-// main.c
+// rrserver/main.c
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,6 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -31,10 +32,7 @@
 #include <rrserver/atu.h>
 #include <rrserver/filters.h>
 #include <rrserver/protection.h>
-
-#ifdef	USE_MQTT
 #include <rrserver/mqtt.h>
-#endif
 
 #ifdef	USE_MONGOOSE
 struct mg_mgr mg_mgr;

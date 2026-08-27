@@ -1,5 +1,5 @@
 //
-// backend.dummy.c: This is a dummy (NOOP) backend for rig state
+// rrserver/backend.dummy.c: This is a dummy (NOOP) backend for rig state
 // It presents preconfigured values below and returns success or not implemented
 // on all rig control messages. It exists for testing purposes only and is not useful
 // to most users.
@@ -12,9 +12,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// Internal backend supports controlling real hardware. This needs to be
-// completed before using on
-// a real rig. Feel free to jump in here.
+// This backend does nothing but will allow the server to run without keeping state
 //
 #include <stddef.h>
 #include <stdarg.h>

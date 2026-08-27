@@ -1,5 +1,5 @@
 //
-// backend.hamlib.h
+// rrserver/backend.hamlib.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,6 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
 #if     !defined(__rrserver_backend_hamlib_h)
 #define	__rrserver_backend_hamlib_h
 

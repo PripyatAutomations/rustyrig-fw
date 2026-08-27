@@ -7,6 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -37,8 +38,8 @@ extern rrconn_t *ws_conn;
 
 extern dict *cfg;
 
-void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
-   if (!parent || !json_array) {
+void ui_show_whois_dialog(GtkWindow *parent, dict *d) {
+   if (!parent || !d) {
       return;
    }
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Whois Info", parent,
@@ -55,18 +56,21 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
    size_t len = 0;
 
    FILE *stream = open_memstream(&markup, &len);
-
+   if (!stream) {
+      Log(LOG_CRIT, "rrproto", "ui_show_whois_dialog: unable to open_memstream()!: %d:%s", errno, strerror(errno));
+      return;
+   }
    int idx = 0;
-#if     0       // XXX: clean this up
-   const char *username = mg_json_get_str(elem, "$.username")
-                          const char *email = (strlen( v = mg_json_get_str(elem, "$.email") ) ? v : "(none)");
-   const char *privs = (strlen( v = mg_json_get_str(elem, "$.privs") ) ? v : "None");
-   const char *ua = (strlen( v = mg_json_get_str(elem, "$.ua") ) ? v : "Unknown");
-   const char *muted = (strlen( v = mg_json_get_str(elem, "$.muted") ) ? v : "false");
-
-   long connected = mg_json_get_long(elem, "$.connected", 0);
-   long last_heard = mg_json_get_long(elem, "$.last_heard", 0);
-   int clones = (int) mg_json_get_long(elem, "$.clones", 0);
+   const char *s_none = "(none)";
+   const char *s_unknown = "(unknown)";
+   const char *username = dict_get(d, "talk.username", s_none);
+   const char *email = dict_get(d, "talk.email", s_none);
+   const char *privs = dict_get(d, "talk.privs", s_none);
+   const char *ua = dict_get(d, "talk.ua", s_unknown);
+   bool muted = dict_get_bool(d, "talk.muted", false);
+   long connected = dict_get_long(d, "talk.connected", 0);
+   long last_heard = dict_get_long(d, "talk.last_heard", 0);
+   int clones = dict_get_int(d, "talk.clones", 0);
 
    fprintf(stream, "<b>User:</b> %s\n"
       "<b>Email:</b> %s\n"
@@ -77,11 +81,8 @@ void ui_show_whois_dialog(GtkWindow *parent, const char *json_array) {
       "<b>Last Heard:</b> %s\n"
       "<b>User-Agent:</b> <tt>%s</tt>\n"
       "<hr/>\n", username, email, privs,
-      (strcmp(muted, "true") == 0) ? "<span foreground=\"red\"><b>This user is muted.</b></span>\n" : "", clones,
-      ctime( (time_t*)&connected ), ctime( (time_t*)&last_heard ), ua);
-}
-#endif
-
+      (muted ? "<span foreground=\"red\"><b>This user is muted.</b></span>\n" : ""),
+      clones, ctime( (time_t*)&connected ), ctime( (time_t*)&last_heard ), ua);
    fclose(stream);
 
    gtk_label_set_markup(GTK_LABEL(label), markup);

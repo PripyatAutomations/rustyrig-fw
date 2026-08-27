@@ -1,5 +1,5 @@
 //
-// %%file%%
+// rrclient/cmd.help.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,7 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-
+//
 #if     !defined(__rrclient_ui_help_h)
 #define	__rrclient_ui_help_h
 #include <librustyaxe/config.h>

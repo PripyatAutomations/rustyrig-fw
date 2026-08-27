@@ -7,7 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-// i2c_hal.h
+//
 #if     !defined(__RR_I2C_HAL_H)
 #define	__RR_I2C_HAL_H
 

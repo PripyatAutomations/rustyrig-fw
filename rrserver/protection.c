@@ -1,5 +1,5 @@
 //
-// rrserver/protection.c
+// rrserver/protection.c: SWR protection
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,8 +7,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-//
-// Here we deal with SWR protection
 //
 #include <stddef.h>
 #include <stdarg.h>

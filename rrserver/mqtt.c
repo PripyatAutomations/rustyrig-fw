@@ -1,3 +1,4 @@
+//
 // rrserver/mqtt.c
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
@@ -12,7 +13,6 @@
 // We eventually will support both client and server roles
 // but for now focus will be on server
 //
-
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

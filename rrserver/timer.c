@@ -7,6 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
 /*
  * Here we implement timers (periodic and one-shot) in a platform independent manner.
  */

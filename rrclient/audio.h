@@ -1,5 +1,5 @@
 //
-// audio.h
+// rrclient/audio.h
 //      This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,6 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
 #if     !defined(__rrclient_audio_h)
 #define	__rrclient_audio_h
 #include <librustyaxe/core.h>

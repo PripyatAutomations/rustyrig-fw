@@ -7,7 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-
+//
 #include <getopt.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -369,16 +369,16 @@ int main(int argc, char *argv[]) {
    if (main_tabstrip_s && main_tabstrip_s[0] != '\0') {
       if (strcasecmp(main_tabstrip_s, "left") == 0) {
         cfg_ui_gtk_main_tabstrip = GTK_POS_LEFT;
-        Log(LOG_CRIT, "ui.core", "Placing main tabstrip at LEFT");
+        Log(LOG_DEBUG, "ui.core", "Placing main tabstrip at LEFT");
       } else if (strcasecmp(main_tabstrip_s, "right") == 0) {
         cfg_ui_gtk_main_tabstrip = GTK_POS_RIGHT;
-        Log(LOG_CRIT, "ui.core", "Placing main tabstrip at RIGHT");
+        Log(LOG_DEBUG, "ui.core", "Placing main tabstrip at RIGHT");
       } else if (strcasecmp(main_tabstrip_s, "top") == 0) {
         cfg_ui_gtk_main_tabstrip = GTK_POS_TOP;
-        Log(LOG_CRIT, "ui.core", "Placing main tabstrip at TOP");
+        Log(LOG_DEBUG, "ui.core", "Placing main tabstrip at TOP");
       } else if (strcasecmp(main_tabstrip_s, "bottom") == 0) {
         cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
-        Log(LOG_CRIT, "ui.core", "Placing main tabstrip at BOTTOM");
+        Log(LOG_DEBUG, "ui.core", "Placing main tabstrip at BOTTOM");
       }
    } else {
       Log(LOG_CRIT, "ui.core", "No configuration for ui.gtk.main-tabstrip!");

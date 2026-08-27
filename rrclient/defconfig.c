@@ -1,7 +1,6 @@
 //
 // rrclient/defconfig.c: Here we store the hard-coded default configuration
 //                    which is used for keys missing in the user's config
-//
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -10,7 +9,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// XXX: This needs updated!
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -80,7 +78,5 @@ defconfig_t defcfg[] = {
    { "ui.gtk.theme.dark", NULL, "Chosen dark theme" },
 #endif	// _WIN32
    { "ui.show-pings", "true", "Show Ping? Pong! notices" },
-   {
-      NULL, NULL, NULL
-   }
+   { NULL, NULL, NULL }
 };

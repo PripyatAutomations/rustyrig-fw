@@ -1,5 +1,6 @@
 Immediate needs
 ---------------
+* Cleanup librrprotocol/cli.main.c!
 * Need to clean up a few things related to hamlib (model, host, etc) in
   pack-eeprom vs rrserver/backend.hamlib.c so they can be stored in eeprom!
 * Fix the color parser to not mangle json

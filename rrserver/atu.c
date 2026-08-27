@@ -1,5 +1,5 @@
 //
-// rrserver/atu.c
+// rrserver/atu.c: Antennua Matching (auto tuner) support
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -7,11 +7,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-/*
- * Here we deal with antenna matching
- *
- * Build conf will generate the LC tables used below (atu_tables.h)
- */
+
+// Build conf will generate the LC tables used below (atu_tables.h)
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

@@ -1,4 +1,6 @@
+//
 // rrclient/audio.c: support for using gstreamer for audio streams
+//      This is part of rustyrig-fw.
 //    https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -12,6 +14,7 @@
 // This needs split out into ws.audio.c ws.tx-audio.c for the parts not-relevant
 // to gstreamer.
 // We should keep TX and RX here to make sure things stay in sync
+//
 #include <stdint.h>
 #ifdef _WIN32
 #include <winsock2.h>

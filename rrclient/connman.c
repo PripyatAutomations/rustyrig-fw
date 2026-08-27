@@ -61,7 +61,6 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
    return NULL;
 }
 
-
 #ifdef  USE_MONGOOSE
 extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
@@ -150,9 +149,9 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          if (!d) {
             return;
          }
-         char *cmd = dict_get(d, "talk.cmd", NULL);
-         char *pong_ts = dict_get(d, "pong.ts", NULL);
-         char *ping_ts = dict_get(d, "ping.ts", NULL);
+         const char *cmd = dict_get(d, "talk.cmd", NULL);
+         const char *pong_ts = dict_get(d, "pong.ts", NULL);
+         const char *ping_ts = dict_get(d, "ping.ts", NULL);
 
          // It's a ping, so we should reply to it with a pong then fall through
          // to cleanup
@@ -165,10 +164,10 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          } else if (pong_ts) {
             Log(LOG_CRAZY, "pong", "Received pong ts:%s", pong_ts);
          } else if (cmd && strcasecmp(cmd, "msg") == 0) {
-            char *from = dict_get(d, "talk.from", NULL);
-            char *data = dict_get(d, "talk.data", NULL);
-            char *msg_type = dict_get(d, "talk.msg_type", NULL);
-            char *target = dict_get(d, "talk.target", NULL);
+            const char *from = dict_get(d, "talk.from", NULL);
+            const char *data = dict_get(d, "talk.data", NULL);
+            const char *msg_type = dict_get(d, "talk.msg_type", NULL);
+            const char *target = dict_get(d, "talk.target", NULL);
             time_t ts = dict_get_time_t(d, "talk.ts", now);
 
             if (from && data) {
@@ -185,9 +184,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
       ws_connected = true;
       struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
 
-      char buf[HTTP_WS_MAX_MSG + 1] = {
-         0
-      };
+      char buf[HTTP_WS_MAX_MSG + 1] = { 0 };
 
       if (msg && msg->data.buf) {
          memset( buf, 0, sizeof(buf) );
@@ -397,9 +394,6 @@ bool connect_server(const char *server) {
       ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
 
 #ifdef	USE_MONGOOSE
-      fprintf(stderr, "mgr:<%p> url:<%p> = %s, http_handler:<%p>\n",
-         (void *)&mgr, url, url, http_handler);
-
       struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
       
       if (!c) {

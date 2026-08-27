@@ -8,6 +8,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+//
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
