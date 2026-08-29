@@ -17,17 +17,23 @@ mkdir -p run/rrclient
 #   fi
 #fi
 
-case "$1" in
-   gdb )
-     gdb ./bin/rrclient -ex run
-     ;;
+#while [ ! -z $1 ]; do
+   case "$1" in
+      gtk)
+        G_DEBUG=fatal-criticals gdb --ex run --args ./bin/rrclient
+        ;;
+      gdb)
+        gdb ./bin/rrclient -ex run
+        ;;
 
-   valgrind)
-     rm -f audit-logs/valgrind.rrclient.*.log
-     valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./bin/rrclient
-     ;;
+      valgrind)
+        rm -f audit-logs/valgrind.rrclient.*.log
+        valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./bin/rrclient
+        ;;
 
-   *)
-     ./bin/rrclient
-     ;;
-esac
+      *)
+        ./bin/rrclient
+        ;;
+   esac
+#   shift
+#done

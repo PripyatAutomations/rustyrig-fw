@@ -302,6 +302,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // send to all users
    rrconn_t *talker = whos_talking();
    dict *d = dict_new();
+   dict_add(d, "msg.type", "cat");
    dict_add(d, "cat.state.vfo", "A");
    dict_add(d, "cat.state.mode", rig_strrmode(hl_state.rmode));
    dict_add(d, "cat.user", (talker ? talker->chatname : "") );
@@ -309,7 +310,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    dict_add_int(d, "cat.state.power", hl_state.power);
    dict_add_bool(d, "cat.state.ptt", hl_state.ptt);
    dict_add_long(d, "cat.state.freq", hl_state.freq);
-   dict_add_ulong(d, "cat.ts", now);
+   dict_add_ulong(d, "msg.ts", now);
    const char *jp = dict2json(d);
    Log(LOG_CRAZY, "backend.hamlib", "Sending %s", jp);
    free( (char *)jp );

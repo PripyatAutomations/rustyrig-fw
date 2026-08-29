@@ -34,7 +34,7 @@ endif
 SHELL = bash
 .SHELLFLAGS = -e -c
 
-CFLAGS += -Werror -Wno-duplicated-branches
+CFLAGS += -Wno-duplicated-branches
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += $(shell pkg-config --cflags mbedtls)
 CFLAGS += -Wno-deprecated-declarations

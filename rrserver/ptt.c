@@ -75,12 +75,13 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    const char *mode_str = rig.backend->api->mode_get_str(vfo);
    const char *jp = NULL;
    dict *d = dict_new();
+   dict_add(d, "msg.type", "cat.state");
    dict_add(d, "cat.state.vfo", vfo_name(vfo));
    dict_add(d, "cat.state.mode", mode_str);
    dict_add_bool(d, "cat.state.ptt", ptt);
    dict_add_int(d, "cat.state.freq", hl_state.freq);
    dict_add_int(d, "cat.state.width", hl_state.width);
-   dict_add_ulong(d, "cat.state.ts", now);
+   dict_add_ulong(d, "msg.ts", now);
    ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 

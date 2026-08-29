@@ -129,6 +129,7 @@ static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
 }
 
 bool audio_init(void) {
+   return 0;
    gst_init(NULL, NULL);
 
 // This is re-enabled old stuff

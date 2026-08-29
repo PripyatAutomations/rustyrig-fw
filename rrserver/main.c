@@ -145,27 +145,43 @@ int main(int argc, char **argv) {
    }
    // load config (posix hosts)
    char *fullpath = NULL;
-
    rig.log_level = LOG_CRAZY;
 
    if (config_file) {
       if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
+         free(config_file);
+         config_file = NULL;
+         exit(1);
+      } else {
+         printf("Loading config %s\n", config_file);
       }
-   } else if ( ( fullpath = find_file_by_list(configs, num_configs) ) ) {
+   }
+
+   if ( !config_file && ( fullpath = find_file_by_list(configs, num_configs) ) ) {
       config_file = strdup(fullpath);
 
       if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
+      printf("Loading config %s\n", config_file);
       free(fullpath);
-   } else {
-      cfg = default_cfg;
-      fprintf(stderr, "No config found :(\n");
-      exit(EXIT_FAILURE);
    }
-   logfp = stdout;
-   logger_init(LOG_FILE, false);
+
+   if (!config_file){
+      // Use default settings builtin
+      fprintf(stderr, "No config found :(\n");
+      exit(1);
+   }
+
+   // apply some global configuration
+   const char *logfile = cfg_get_exp("log.file");
+   logger_init( (logfile ? logfile : "-"), false );
+
+   if (logfile) {
+      free( (char *)logfile );     // _exp versions MUST be freed
+      logfile = NULL;
+   }
 
    srand( (unsigned int)now );
    host_init();

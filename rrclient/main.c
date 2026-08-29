@@ -191,7 +191,7 @@ bool rrclient_cleanup(void) {
       tui_raw_mode(false);
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
-      gtk_main_quit();
+//      gtk_main_quit();
       gui_font_fini();
 #endif	// USE_GTK
    }

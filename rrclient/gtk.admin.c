@@ -33,15 +33,17 @@ GtkWidget *init_admin_tab(void) {
    GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
-   // add stuff to the window
-   gtk_container_add(GTK_CONTAINER(nw), admin_view);
-   GtkWidget *admin_tab_label = gtk_label_new(NULL);
-   gtk_label_set_markup(GTK_LABEL(admin_tab_label), "(<u>1</u>) Admin");
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, admin_tab_label);
-   ui_speech_set(nw, "Admin Tab",         // name
-      "Server administration",            // description
-      UI_ROLE_BUTTON,                     // role
-      true);                              // focusable
+   if (admin_view) {
+      // add stuff to the window
+      gtk_container_add(GTK_CONTAINER(nw), admin_view);
+      GtkWidget *admin_tab_label = gtk_label_new(NULL);
+      gtk_label_set_markup(GTK_LABEL(admin_tab_label), "(<u>1</u>) Admin");
+      gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, admin_tab_label);
+      ui_speech_set(nw, "Admin Tab",         // name
+         "Server administration",            // description
+         UI_ROLE_BUTTON,                     // role
+         true);                              // focusable
+   }
 
    return nw;
 }

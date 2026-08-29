@@ -277,6 +277,10 @@ void tui_refresh_online_status(void) {
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
 #ifdef  USE_GTK
+   if (!conn_button) {
+      return;
+   }
+
    GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
 #endif // USE_GTK
 
