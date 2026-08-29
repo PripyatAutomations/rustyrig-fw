@@ -1,0 +1,19 @@
+         const char *win_color = "{bright-cyan}";
+
+         if (tw->title[0] == '&' || tw->title[0] == '#') {
+            win_color = "{bright-magenta}";
+         }
+         char connected_status[32];
+         memset( connected_status, 0, sizeof(connected_status) );
+
+         if (ws_connected == 1) {
+            snprintf(connected_status, sizeof(connected_status), "{bright-green}ONLINE{reset}");
+         } else if (ws_connected == 0) {
+            snprintf(connected_status, sizeof(connected_status), "{bright-red}offline{reset}");
+         } else if (ws_connected == -1) {
+            snprintf(connected_status, sizeof(connected_status), "{bright-yellow}trying{reset}");
+         }
+         tui_update_status(tw, "{bright-black}[%s{bright-black}] [{green}%s{bright-black}] [%s%s{bright-black}]{reset}",
+            connected_status, network, win_color, tw->title);
+
+         tui_update_input_line();

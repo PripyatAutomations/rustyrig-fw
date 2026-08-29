@@ -1,9 +1,9 @@
 rrserver := bin/rrserver
 bins += ${rrserver}
 
-rrserver_objs += au.o			# core audio stuff
-rrserver_objs += au.pipe.o		# audio over pipes (for gstreamer)
-rrserver_objs += au.recording.o		# support for recording session audio
+#rrserver_objs += au.o			# core audio stuff
+#rrserver_objs += au.pipe.o		# audio over pipes (for gstreamer)
+#rrserver_objs += au.recording.o		# support for recording session audio
 rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
 rrserver_objs += backend.o		# Interface to various backends

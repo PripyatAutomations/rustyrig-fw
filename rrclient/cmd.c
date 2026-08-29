@@ -182,6 +182,7 @@ bool parse_chat_input_real(const char *msg) {
       }
 #endif
       dict *d = dict_new();
+      dict_add(d, "msg.type", "talk");
       dict_add(d, "talk.cmd", "msg");
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");

@@ -240,6 +240,10 @@ void update_connection_button(int connected, GtkWidget *btn) {
    }
    GtkStyleContext *ctx = gtk_widget_get_style_context(btn);
 
+   if (!ctx) {
+      return;
+   }
+
    if (connected == 1) {
       gtk_button_set_label(GTK_BUTTON(btn), "Online");
       gtk_style_context_remove_class(ctx, "conn-idle");

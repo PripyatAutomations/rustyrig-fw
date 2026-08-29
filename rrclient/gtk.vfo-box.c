@@ -145,7 +145,7 @@ gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
 }
 
 bool vfo_set_dict(dict *d) {
-   dict_dump(d, NULL);
+//   dict_dump(d, NULL);
    const char *vfo_sel = dict_get(d, "cat.state.vfo", (char *)"*");
    int vfo_power = dict_get_int(d, "cat.state.power", 0);
    

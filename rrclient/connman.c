@@ -28,13 +28,11 @@
 #include <librrprotocol/http.h>
 
 // Server connections
-rr_connection_t *active_connections;
-int ws_connected = 0;
-int ws_tx_connected = 0;
-bool server_ptt_state = false;
-const char *login_user = NULL;
-rrconn_t *ws_conn = NULL, *ws_tx_conn = NULL;
-
+extern int ws_connected;
+extern int ws_tx_connected;
+extern bool server_ptt_state;
+extern const char *login_user;
+extern rrconn_t *ws_conn, *ws_tx_conn;
 extern rr_connection_t *active_connections;
 extern dict *cfg;
 extern struct ev_loop *loop;
@@ -66,9 +64,7 @@ extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 #endif // USE_MONGOOSE
 
-char session_token[HTTP_TOKEN_LEN + 1] = {
-   0
-};
+extern char session_token[HTTP_TOKEN_LEN + 1];
 
 static const unsigned int reconnect_delays[] = {
    1, 2, 5, 10, 30, 60
@@ -150,9 +146,8 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
             return;
          }
          const char *cmd = dict_get(d, "talk.cmd", NULL);
-         const char *pong_ts = dict_get(d, "pong.ts", NULL);
-         const char *ping_ts = dict_get(d, "ping.ts", NULL);
-
+         const char *msg_ts = dict_get(d, "msg.ts", NULL);
+#if	0
          // It's a ping, so we should reply to it with a pong then fall through
          // to cleanup
          if (ping_ts) {
@@ -178,6 +173,7 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          } else if ( dict_get(d, "auth.cmd", NULL) ) {
             Log(LOG_DEBUG, "ws", "Got auth message");
          }
+#endif
          dict_free(d);
       }
    } else if (ev == MG_EV_WS_OPEN) {

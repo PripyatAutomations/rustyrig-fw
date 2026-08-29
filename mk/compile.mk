@@ -44,6 +44,9 @@ CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
 CFLAGS += -DHOST_EEPROM_FILE="\"build/${PROFILE}/eeprom.bin\""
 
+CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g
+LDFLAGS += -fsanitize=address,undefined
+
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd 
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)

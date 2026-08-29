@@ -32,32 +32,15 @@ void rrclient_update_connection_ui(int connected) {
    if (!conn_button) {
       return;
    }
-   update_connection_button(connected, conn_button);
 
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
    if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
-      GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(conn_button) );
-
-      if (!ctx) {
-         return;
-      }
-
-      if (connected == 1) {
-         gtk_style_context_remove_class(ctx, "conn-idle");
-         gtk_style_context_remove_class(ctx, "conn-pending");
-         gtk_style_context_add_class(ctx, "conn-active");
-      } else if (connected == 0) {
-         gtk_style_context_remove_class(ctx, "conn-active");
-         gtk_style_context_remove_class(ctx, "conn-pending");
-         gtk_style_context_add_class(ctx, "conn-idle");
-      } else if (connected == -1) {
-         gtk_style_context_remove_class(ctx, "conn-active");
-         gtk_style_context_remove_class(ctx, "conn-idle");
-         gtk_style_context_add_class(ctx, "conn-pending");
-      }
+      update_connection_button(connected, conn_button);
 #endif	// USE_GTK
+   } else if (ui_mode == UI_MODE_TUI) {
+     // Set the status line contents
    }
 }
 
@@ -67,12 +50,17 @@ static void rrclient_set_offline(void) {
       login_user = NULL;
    }
 
-   ws_connected = false;
-#ifdef USE_MONGOOSE
-   ws_conn = NULL;
-#endif // USE_MONGOOSE
    rrclient_update_connection_ui(0);
    userlist_clear_all();
+
+   if (!ws_conn) {
+      return;
+   }
+
+   ws_connected = false;
+   ws_conn->conn = NULL;
+   free(ws_conn);
+   ws_conn = NULL;
 }
 
 static void rrclient_handle_alert(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -84,7 +72,7 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
 //   fprintf(stderr, "[alert]\n");
 //   dict_dump(d, stderr);
 
-   time_t msg_ts = dict_get_time_t(d, "alert.ts", 0);
+   time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *msg_from = dict_get(d, "alert.from", (char *)"*unknown*");
    const char *msg_data = dict_get(d, "alert.data", (char *)"*No message*");
    const char *msg_type = dict_get(d, "alert.type", (char *)"warning");
@@ -114,7 +102,7 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
    const char *a_cmd = dict_get(d, "auth.cmd", NULL);
 
    if (strcasecmp(a_cmd, "authorized") == 0) {
-      time_t a_ts = dict_get_time_t(d, "auth.ts", now);
+      time_t a_ts = dict_get_time_t(d, "msg.ts", now);
       const char *a_user = dict_get(d, "auth.user", NULL);
       const char *a_token = dict_get(d, "auth.token", NULL);
       const char *a_privs = dict_get(d, "auth.privs", NULL);
@@ -135,12 +123,11 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
 //   fprintf(stderr, "[auth.error]\n");
 //   dict_dump(d, stderr);
 /*
- *  const char *from = dict_get(d, "talk.from", NULL);
- *  time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
- *  const char *msg_type = dict_get(d, "talk.msg_type", NULL);
- *  const char *msg_data = dict_get(d, "talk.data", NULL);
+ *  const char *from = dict_get(d, "error.sender", NULL);
+ *  time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
  */
-   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", data);
+  const char *error_msg = dict_get(d, "error.msg", NULL);
+   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", error_msg);
    dict_dump(d, NULL);
    dict_free(d);
 }
@@ -151,9 +138,8 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
    }
 
    dict *d = json2dict(data);
-//   dict_dump(d, stderr);
    const char *cat_user = dict_get(d, "cat.user", NULL);
-   time_t msg_ts = dict_get_time_t(d, "cat.ts", 0);
+   time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *cat_mode = dict_get(d, "cat.state.mode", NULL);
    const char *cat_vfo = dict_get(d, "cat.state.vfo", NULL);
    bool active = dict_get_bool(d, "cat.state.ptt", false);
@@ -188,7 +174,7 @@ static void rrclient_handle_catcmd(const char *event, const char *data, rrconn_t
 //   dict_dump(d, stderr);
 /*
  *  const char *from = dict_get(d, "talk.from", NULL);
- *  time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
+ *  time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
  *  const char *msg_type = dict_get(d, "talk.msg_type", NULL);
  *  const char *msg_data = dict_get(d, "talk.data", NULL);
  */
@@ -217,7 +203,7 @@ static void rrclient_handle_log(const char *event, const char *data, rrconn_t *c
       const char *log_msg =    dict_get(d, "log.msg", (char *)"*empty*");
       const char *log_subsys = dict_get(d, "log.subsys", (char *)"*unknown*");
       const char *log_prio =   dict_get(d, "log.prio", (char *)"info");
-      time_t log_ts =          dict_get_time_t(d, (char *)"log.ts", now);
+      time_t log_ts =          dict_get_time_t(d, (char *)"msg.ts", now);
 
       snprintf(logmsg, sizeof(logmsg), "[%s] <%s.%s> From %s: %s",
          get_chat_ts(log_ts), log_subsys, log_prio, log_from, log_msg);
@@ -231,7 +217,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
    dict *d = json2dict(data);
    const char *from = dict_get(d, "talk.from", NULL);
-   time_t msg_ts = dict_get_time_t(d, "talk.ts", 0);
+   time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *msg_type = dict_get(d, "talk.msg_type", NULL);
    const char *msg_data = dict_get(d, "talk.data", NULL);
 
@@ -307,7 +293,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       rrclient_update_connection_ui(-1);
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
-      ui_print( NULL, "%s **** {green}Logged in!", get_chat_ts(now) );
+      ui_print( NULL, "%s *** {green}Logged in!{reset} ***", get_chat_ts(now) );
       rrclient_update_connection_ui(1);
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
@@ -354,7 +340,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
    const char *m_user = dict_get(d, "talk.user", NULL);
    const char *m_ip = dict_get(d, "talk.ip", NULL);
    const char *m_target = dict_get(d, "talk.target", NULL);
-   time_t m_ts = dict_get_time_t(d, "talk.ts", now);
+   time_t m_ts = dict_get_time_t(d, "msg.ts", now);
    const char *s_unknown = "<UNKNOWN>";
 
    ui_print(NULL, "%s * %s (%s) joined %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
@@ -385,10 +371,10 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
       return;
    }
 
-   dict *d = json2dict(data);
-   fprintf(stderr, "[NOMATCH]\n");
-   dict_dump(d, stderr);
-   dict_free(d);
+//   dict *d = json2dict(data);
+//   fprintf(stderr, "[NOMATCH]\n");
+//   dict_dump(d, stderr);
+//   dict_free(d);
 }
 
 static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -397,9 +383,8 @@ static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *
    }
 
    dict *d = json2dict(data);
-   time_t p_ts = dict_get_time_t(d, "ping.ts", 0);
+   // just replace 'ping' with 'pong' and send it back
    dict_add(d, "cmd", "pong");
-   dict_add_ulong(d, "pong.ts", p_ts);
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }

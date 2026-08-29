@@ -55,6 +55,7 @@ bool cmd_me(int argc, char **args) {
    }
 
    dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "msg");
    dict_add(d, "talk.data", buf);
    dict_add(d, "talk.msg_type", "action");

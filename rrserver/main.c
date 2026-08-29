@@ -93,7 +93,7 @@ void restart_rig(void) {
 
 static void timer_check_faults_fn(void *arg) {
    if ( check_faults() ) {
-      Log(LOG_CRIT, "core", "Fault detected, see log above. Rig haltered!");
+      Log(LOG_CRIT, "core", "Fault detected, see log above. Rig halted!");
       // XXX: Stop PTT and halt here?
    }
 }
@@ -102,7 +102,7 @@ static void timer_check_faults_fn(void *arg) {
 // cfg:backend.poll-interval is where this is set
 static void timer_backend_poll_fn(void *arg) {
    rr_be_poll(VFO_A);
-   rr_be_poll(VFO_B);
+//   rr_be_poll(VFO_B);
 
    if (timespec_diff_ms(&mono_now, &last_vfo_announce) >= cfg_backend_announce_interval) {
       last_vfo_announce = mono_now;
@@ -257,8 +257,7 @@ int main(int argc, char **argv) {
    rr_atu_init_all();
 
    if (auto_block_ptt) {
-      Log(LOG_INFO, "core",
-         "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
+      Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
       rr_ptt_set_blocked(true);
    }
 

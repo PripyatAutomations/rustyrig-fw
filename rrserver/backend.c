@@ -21,8 +21,6 @@
 #include <rrserver/backend.h>
 extern struct GlobalState rig;          // Global state
 
-rr_vfo_data_t vfos[MAX_VFOS] = { 0};
-
 // Mostly we just use this bit to allow compile-time selection of backends
 struct rr_backends {
    const char          *name;

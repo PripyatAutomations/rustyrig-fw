@@ -1,0 +1,23 @@
+      // AUTHENTICATION RELATED
+      const char *auth_cmd = dict_get(d, "auth.cmd", NULL);
+      const char *auth_user = dict_get(d, "auth.user", NULL);
+      const char *auth_error = dict_get(d, "auth.error", NULL);
+      dict_dump(d, stderr);
+
+      if (auth_error) {
+         Log(LOG_CRIT, "rrproto.auth", "Auth Error: %s", auth_error);
+         goto cleanup;
+      }
+
+      if (strcasecmp(auth_cmd, "challenge") == 0) {
+         const char *auth_nonce = dict_get(d, "auth.nonce", NULL);
+         const char *auth_token = dict_get(d, "auth.token", NULL);
+         Log(LOG_CRIT, "rrproto.auth", "challenge: nonce=%s, token=%s", auth_nonce, auth_token);
+      } else if (strcasecmp(auth_cmd, "login") == 0) {
+         const char *auth_token = dict_get(d, "auth.token", NULL);
+         Log(LOG_CRIT, "rrproto.auth", "login: user=%s, token=%s", auth_user, auth_token);
+      } else if (strcasecmp(auth_cmd, "pass") == 0) {
+         const char *auth_pass = dict_get(d, "auth.pass", NULL);
+         const char *auth_token = dict_get(d, "auth.token", NULL);
+         Log(LOG_CRIT, "rrproto.auth", "pass: user=%s, token=%s, pass=%s", auth_user, auth_token, auth_pass);
+      }

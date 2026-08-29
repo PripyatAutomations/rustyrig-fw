@@ -16,6 +16,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/database.h>
+#include <rrserver/backend.h>
 
 static void rrserver_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
@@ -36,6 +37,33 @@ static void rrserver_handle_nomatch(const char *event, const char *data, rrconn_
    dict *d = json2dict(data);
    fprintf(stderr, "[NOMATCH]\n");
    dict_dump(d, stderr);
+   dict_free(d);
+}
+
+static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   fprintf(stderr, "[rigctl]\n");
+   dict_dump(d, stderr);
+
+   const char *rc_cmd = dict_get(d, "rigctl.cmd", NULL);
+   const char *rc_vfo = dict_get(d, "rigctl.vfo", NULL);
+   const char *rc_from = dict_get(d, "rigctl.from", NULL);
+   int rc_freq = dict_get_int(d, "rigctl.freq", 0);
+
+   Log(LOG_CRIT, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d",
+      rc_cmd, rc_vfo, rc_from, rc_freq);
+   if (!rc_cmd || !rc_vfo || !rc_from) {
+      dict_free(d);
+      return;
+   }
+
+   rr_vfo_t vfo = vfo_lookup(rc_vfo[0]);
+   fprintf(stderr, "setting vfo %s freq to %d\n", rc_vfo ,rc_freq);
+   rr_freq_set(vfo, rc_freq);
    dict_free(d);
 }
 
@@ -98,7 +126,8 @@ void rrserver_register_events(void) {
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
    event_on("recording-start", rrserver_handle_recording_start, NULL);
    event_on("recording-stop", rrserver_handle_recording_start, NULL);
+   event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
-   event_on("ws.msg.hello", rrserver_handle_hello, NULL);
+   event_on("hello", rrserver_handle_hello, NULL);
 }
