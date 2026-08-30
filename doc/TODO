@@ -1,14 +1,17 @@
 Immediate needs
 ---------------
+* Anywhere with a bool return type needs to ensure
+  that it returns true on success, false on failure
+  - currently we still use 0 for success, which is incorrect
 * Cleanup librrprotocol/cli.main.c!
 * Need to clean up a few things related to hamlib (model, host, etc) in
   pack-eeprom vs rrserver/backend.hamlib.c so they can be stored in eeprom!
 * Fix the color parser to not mangle json
   gtk_colorize_string()
 * HTTP_DEBUG_CRAZY - where does it get set?
-  - mk/compile.ml
+  - mk/compile.mk
 * DEBUG_WS_BINFRAMES - where does it get set?
-- mk/compile.ml
+  - mk/compile.k
 * DEBUG_PROTO_UNKNOWN ' ' ' -- remove this!
 * MAKE SURE the protocol messages line up
   - Try to minimize wasted traffic

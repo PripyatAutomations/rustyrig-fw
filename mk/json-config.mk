@@ -13,21 +13,22 @@ CHANNELS := config/${PROFILE}.channels.json
 INSTALL_DIR = /usr/local
 CONF_DIR := /etc/rustyrig
 
-CFLAGS_WARN += $(strip $(shell cat ${CF} | jq -r ".build.cflags_warn"))
-CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
-LDFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.ldflags"))
-TC_PREFIX := $(strip $(shell cat ${CF} | jq -r ".build.toolchain.prefix"))
-EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r ".eeprom.size"))
+CFLAGS_WARN += $(strip $(shell cat ${CF} | jq -r '.build.cflags_warn'))
+CFLAGS += $(strip $(shell cat ${CF} | jq -r '.build.cflags'))
+LDFLAGS += $(strip $(shell cat ${CF} | jq -r '.build.ldflags'))
+TC_PREFIX := $(strip $(shell cat ${CF} | jq -r '.build.toolchain.prefix'))
+EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r '.eeprom.size'))
 EEPROM_FILE := build/${PROFILE}/eeprom.bin
-PLATFORM := $(strip $(shell cat ${CF} | jq -r ".build.platform"))
+PLATFORM := $(strip $(shell cat ${CF} | jq -r '.build.platform'))
+USE_ASAN = $(strip $(shell cat ${CF} | jq -r '.build.use_asan'))
 USE_GSTREAMER = $(strip $(shell cat ${CF} | jq -r '.features.gstreamer'))
 USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
-USE_LIBNOTIFY = $(strip $(shell cat ${CF} | jq -r ".features.libnotify"))
-USE_LIBUNWIND = $(strip $(shell cat ${CF} | jq -r ".features.libunwind"))
-USE_MONGOOSE = $(strip $(shell cat ${CF} | jq -r ".features.mongoose"))
+USE_LIBNOTIFY = $(strip $(shell cat ${CF} | jq -r '.features.libnotify'))
+USE_LIBUNWIND = $(strip $(shell cat ${CF} | jq -r '.features.libunwind'))
+USE_MONGOOSE = $(strip $(shell cat ${CF} | jq -r '.features.mongoose'))
 USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
-USE_SSL = $(strip $(shell cat ${CF} | jq -r ".net.http.tls_enabled"))
-USE_GTK = $(strip $(shell cat ${CF} | jq -r ".features.gtk"))
+USE_SSL = $(strip $(shell cat ${CF} | jq -r '.net.http.tls_enabled'))
+USE_GTK = $(strip $(shell cat ${CF} | jq -r '.features.gtk'))
 
 ${CF}:
 	@echo "*******************************************************"

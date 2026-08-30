@@ -44,6 +44,46 @@ void rrclient_update_connection_ui(int connected) {
    }
 }
 
+char sb_online[128];	// due to formatting (24 char real)
+char sb_window[128];	// due to formatting (16 char real)
+char sb_vfo[32];
+const char *current_vfo = "A";
+
+// Refresh status bar online status section
+static void tui_refresh_sb_online(void) {
+   memset( sb_online, 0, sizeof(sb_online) );
+
+   if (ws_connected == 1) {
+      snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-green}ONLINE{bright-black}]{reset}");
+   } else if (ws_connected == 0) {
+      snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-red}OFFLINE{bright-black}]{reset}");
+   } else if (ws_connected == -1) {
+      snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-yellow}trying{bright-black}]{reset}");
+   }
+}
+
+// Refresh statusbar window name section
+void tui_refresh_sb_window(void) {
+   tui_window_t *tw = tui_active_window();
+   memset( sb_window, 0, sizeof(sb_window));
+   const char *win_color = "{bright-cyan}";
+   if (tw->title[0] == '&' || tw->title[0] == '#') {
+      win_color = "{bright-magenta}";
+   }
+   snprintf(sb_window, sizeof(sb_window), 
+    "{bright-black}[%s%s{bright-black}]{reset}",
+     win_color, tw->title);
+}
+
+// Refresh statusbar VFO section
+void tui_refresh_sb_vfo(void) {
+   memset(sb_vfo, 0, sizeof(sb_vfo));
+
+   // XXX: Get this from backend vfo object asap
+   snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: %i/%s-%i>", current_vfo, 7200000,
+      /* Mode */ "LSB", 3000/* Width */);
+}
+
 static void rrclient_set_offline(void) {
    if (login_user) {
       free( (void *)login_user );
@@ -110,6 +150,9 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
       ui_print( NULL,
          "%s {bright-cyan}Welcome back, {bright-yellow}%s{bright-cyan}! You have {bright-green}%s{bright-cyan} privileges",
          get_chat_ts(a_ts), a_user, a_privs);
+      if (ui_mode == UI_MODE_TUI) {
+         tui_refresh_sb_online();
+      }
    }
    dict_free(d);
 }
@@ -160,6 +203,9 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
       }
    }
 
+   if (ui_mode == UI_MODE_TUI) {
+      tui_refresh_sb_vfo();
+   }
    // Update the VFO display
    dict_free(d);
 }
@@ -238,28 +284,6 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    dict_free(d);
 }
 
-void tui_refresh_online_status(void) {
-   tui_window_t *tw = tui_active_window();
-   char connected_status[128];
-   memset( connected_status, 0, sizeof(connected_status) );
-
-   if (ws_connected == 1) {
-      snprintf(connected_status, sizeof(connected_status), "{bright-green}ONLINE{reset}");
-   } else if (ws_connected == 0) {
-      snprintf(connected_status, sizeof(connected_status), "{bright-red}OFFLINE{reset}");
-   } else if (ws_connected == -1) {
-      snprintf(connected_status, sizeof(connected_status), "{bright-yellow}trying{reset}");
-   }
-
-   const char *win_color = "{bright-cyan}";
-
-   if (tw->title[0] == '&' || tw->title[0] == '#') {
-      win_color = "{bright-magenta}";
-   }
-
-   tui_update_status(tw, "{bright-black}[%s{bright-black}] [%s%s{bright-black}]{reset}", connected_status,
-      win_color, tw->title);
-}
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
 #ifdef  USE_GTK
@@ -304,7 +328,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
    }
 
    if (ui_mode == UI_MODE_TUI) {
-      tui_refresh_online_status();
+      tui_refresh_sb_online();
    }
 
 }
@@ -388,7 +412,6 @@ static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }
-
 
 static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *cptr, void *user) {
 //   fprintf(stderr, "[talk.quit]\n");

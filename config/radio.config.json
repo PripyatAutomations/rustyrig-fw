@@ -38,7 +38,8 @@
       "platform": "posix",
       "toolchain": {
          "prefix": ""
-      }
+      },
+      "use_asan": "false"
    },
    "cards": {
       "amp": {

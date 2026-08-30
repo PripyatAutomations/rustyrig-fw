@@ -43,9 +43,10 @@ CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
 CFLAGS += -DHOST_EEPROM_FILE="\"build/${PROFILE}/eeprom.bin\""
-
-CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g
-LDFLAGS += -fsanitize=address,undefined
+ifeq (${USE_ASAN},true)
+CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g -fstack-check
+LDFLAGS += -fsanitize=address,undefined -fstack-check
+endif
 
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd 

@@ -55,7 +55,6 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
    if (server_name && *server_name) {
       return server_name;
    }
-
    return NULL;
 }
 
@@ -92,7 +91,6 @@ static void rrclient_schedule_reconnect(void) {
    if (reconnect_tries >= RRC_MAX_RECONNECTS) {
       ui_print(NULL, "%s {red}Giving up after %u reconnect attempts{reset}", get_chat_ts(now), reconnect_tries);
       reconnect_enabled = false;
-
       return;
    }
 
@@ -147,33 +145,6 @@ static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) 
          }
          const char *cmd = dict_get(d, "talk.cmd", NULL);
          const char *msg_ts = dict_get(d, "msg.ts", NULL);
-#if	0
-         // It's a ping, so we should reply to it with a pong then fall through
-         // to cleanup
-         if (ping_ts) {
-            dict *d = dict_new();
-            dict_add(d, "type", "pong");
-            dict_add_ulong(d, "ts", atol(ping_ts));
-            ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
-            dict_free(d);
-         } else if (pong_ts) {
-            Log(LOG_CRAZY, "pong", "Received pong ts:%s", pong_ts);
-         } else if (cmd && strcasecmp(cmd, "msg") == 0) {
-            const char *from = dict_get(d, "talk.from", NULL);
-            const char *data = dict_get(d, "talk.data", NULL);
-            const char *msg_type = dict_get(d, "talk.msg_type", NULL);
-            const char *target = dict_get(d, "talk.target", NULL);
-            time_t ts = dict_get_time_t(d, "talk.ts", now);
-
-            if (from && data) {
-               event_emit("talk.msg", NULL, buf);
-            }
-         } else if ( dict_get(d, "hello", NULL) ) {
-            Log(LOG_DEBUG, "ws", "Got hello from server");
-         } else if ( dict_get(d, "auth.cmd", NULL) ) {
-            Log(LOG_DEBUG, "ws", "Got auth message");
-         }
-#endif
          dict_free(d);
       }
    } else if (ev == MG_EV_WS_OPEN) {
@@ -206,17 +177,15 @@ bool rrclient_connect(const char *url) {
       return true;
    }
    ui_print(NULL, "status", "Connecting to %s", url);
+
 #ifdef  USE_MONGOOSE
    ws_conn->conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
-
    if (!ws_conn->conn) {
       ui_print(NULL, "status", "Connection failed");
       return true;
    }
    ws_conn->conn->fn_data = (void *)ws_conn;
-
 #endif // USE_MONGOOSE
-
    return false;
 }
 
@@ -230,7 +199,6 @@ bool rrclient_disconnect(void) {
    }
 #endif // USE_MONGOOSE
    ws_connected = false;
-
    return false;
 }
 
@@ -267,7 +235,6 @@ bool rrclient_autoconnect(void) {
          free( (void *)url );
       }
    }
-
    return false;
 }
 
@@ -320,7 +287,6 @@ bool connection_remove(rr_connection_t *conn) {
 
       return true;
    }
-
    return false;
 }
 
@@ -333,7 +299,6 @@ const char *get_server_property(const char *server, const char *prop) {
    char fullkey[1024];
    memset( fullkey, 0, sizeof(fullkey) );
    snprintf(fullkey, sizeof(fullkey), "server:%s.%s", server, prop);
-
    return dict_get(cfg, fullkey, NULL);
 }
 
@@ -355,7 +320,6 @@ bool disconnect_server(const char *server) {
       ws_connected = false;
       userlist_clear_all();
    }
-
    return false;
 }
 
@@ -410,16 +374,13 @@ bool connect_server(const char *server) {
          "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
          resolved_server);
    }
-
    return false;
 }
 
 bool connect_or_disconnect(const char *server) {
    const char *resolved_server = rrclient_resolve_server_name(server);
-
    if (!resolved_server) {
       Log(LOG_WARN, "connman", "connect_or_disconnect called with no server");
-
       return true;
    }
 
@@ -432,7 +393,6 @@ bool connect_or_disconnect(const char *server) {
       }
       connect_server(resolved_server);
    }
-
    return false;
 }
 

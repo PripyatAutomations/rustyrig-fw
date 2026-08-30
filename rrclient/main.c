@@ -40,6 +40,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
+#include <rrclient/ui.statusbar.h>
 
 #ifdef USE_MONGOOSE
 extern struct mg_mgr mgr;
@@ -140,6 +141,11 @@ static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
    if (dying) {
       rrclient_cleanup();
    }
+   tui_window_t *tw = tui_active_window();
+   // XXX: this belongs in tui.winmgr!
+   tui_refresh_sb_window();
+   tui_refresh_sb_vfo();
+   tui_update_status(tw, "%s %s %s", sb_online, sb_window, sb_vfo);
    tui_redraw_clock();
 }
 
