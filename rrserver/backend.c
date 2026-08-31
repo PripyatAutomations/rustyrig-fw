@@ -45,7 +45,6 @@ static const char *bool2str(bool val) {
    if (val == true) {
       return s_true;
    }
-
    return s_false;
 }
 
@@ -71,7 +70,6 @@ static const char *rr_vfo_name(rr_vfo_t vfo) {
          return "-";
       }
    }
-
    return "-";
 }
 
@@ -93,7 +91,6 @@ rr_backend_t *rr_backend_find(const char *name) {
          return bp;
       }
    }
-
    return NULL;
 }
 
@@ -138,7 +135,6 @@ bool rr_backend_init(void) {
       return true;
    }
    rig.backend->api->backend_init();
-
    return false;
 }
 
@@ -159,7 +155,6 @@ bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
       Log( LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.", rr_vfo_name(vfo), bool2str(state) );
       return true;
    }
-
    return false;
 }
 
@@ -173,23 +168,19 @@ bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo) {
       return false;
    }
    bool rv = rig.backend->api->ptt_get(vfo);
-
    return rv;
 }
 
 bool rr_freq_set(rr_vfo_t vfo, int freq) {
    if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
       Log(LOG_CRIT, "rig", "rr_freq_set called with no active (or broken) backend selected!");
-
       return true;
    }
 
    if ( rig.backend->api->freq_set(vfo, freq) ) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.", rr_vfo_name(vfo), freq);
-
       return true;
    }
-
    return false;
 }
 
@@ -199,8 +190,6 @@ float rr_freq_get(rr_vfo_t vfo) {
    }
 
    return rig.backend->api->freq_get(vfo);
-
-   return 0;
 }
 
 float rr_get_power(rr_vfo_t vfo) {
@@ -209,8 +198,6 @@ float rr_get_power(rr_vfo_t vfo) {
    }
 
    return rig.backend->api->power_get(vfo);
-
-   return 0;
 }
 
 bool rr_set_power(rr_vfo_t vfo, float power) {
@@ -218,10 +205,7 @@ bool rr_set_power(rr_vfo_t vfo, float power) {
       return false;
    }
    bool rv = rig.backend->api->power_set(vfo, power);
-
    return rv;
-
-   return false;
 }
 
 uint16_t rr_get_width(rr_vfo_t vfo) {
@@ -230,8 +214,6 @@ uint16_t rr_get_width(rr_vfo_t vfo) {
    }
 
    return rig.backend->api->width_get(vfo);
-
-   return 0;
 }
 
 bool rr_set_width(rr_vfo_t vfo, const char *width) {
@@ -241,8 +223,6 @@ bool rr_set_width(rr_vfo_t vfo, const char *width) {
    bool rv = rig.backend->api->width_set(vfo, width);
 
    return rv;
-
-   return false;
 }
 
 rr_mode_t rr_get_mode(rr_vfo_t vfo) {
@@ -252,7 +232,6 @@ rr_mode_t rr_get_mode(rr_vfo_t vfo) {
       return false;
    }
    mode = rig.backend->api->mode_get(vfo);
-
    return mode;
 }
 
@@ -263,7 +242,6 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
       return false;
    }
    rv = rig.backend->api->mode_set(vfo, mode);
-
    return rv;
 }
 
@@ -291,6 +269,5 @@ bool rr_be_poll(rr_vfo_t vfo) {
    memcpy( &vfos[vfo], ret_vfo, sizeof(rr_vfo_data_t) );
    // free the memory given to use
    free(ret_vfo);
-
    return false;
 }
