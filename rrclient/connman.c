@@ -41,6 +41,7 @@ extern bool debug_sockets;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN + 1];
 extern void rrclient_update_connection_ui(int connected);       // events.c
+extern void tui_refresh_sb_online(void);			// events.c
 
 static const char *rrclient_resolve_server_name(const char *requested_server) {
    if (requested_server && *requested_server) {
@@ -104,6 +105,8 @@ static void rrclient_schedule_reconnect(void) {
    reconnect_tries++;
    reconnect_pending = true;
    reconnect_at = time(NULL) + delay;
+   ws_connected = -1;
+   tui_refresh_sb_online();
    ui_print(NULL, "%s {bright-yellow}Reconnecting in %u second%s (attempt %u/%u){reset}", get_chat_ts(now), delay,
       delay == 1 ? "" : "s", reconnect_tries, RRC_MAX_RECONNECTS);
 }

@@ -50,7 +50,7 @@ char sb_vfo[32];
 const char *current_vfo = "A";
 
 // Refresh status bar online status section
-static void tui_refresh_sb_online(void) {
+void tui_refresh_sb_online(void) {
    memset( sb_online, 0, sizeof(sb_online) );
 
    if (ws_connected == 1) {
@@ -330,7 +330,6 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
    if (ui_mode == UI_MODE_TUI) {
       tui_refresh_sb_online();
    }
-
 }
 
 static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *cptr, void *user) {

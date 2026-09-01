@@ -23,7 +23,17 @@
 
 extern GtkWidget *freq_entry;
 
+typedef struct {
+   GtkWidget *fe;           /* the GtkFreqEntry container */
+   GtkWidget *chat_entry;
+   GtkWidget *mode_combo;
+} VfoKeyData;
+
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
+
+// Should we pause the VFO widget being updated until after the server has sent response?
+bool vfo_muted = false;
+struct timeval vfo_muted_since = { 0 };
 
 static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    if (!button) {
@@ -31,12 +41,6 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    }
    connect_or_disconnect( server_name );
 }
-
-typedef struct {
-   GtkWidget *fe;           /* the GtkFreqEntry container */
-   GtkWidget *chat_entry;
-   GtkWidget *mode_combo;
-} VfoKeyData;
 
 static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    if (!widget || !event || !user_data) {

@@ -52,11 +52,8 @@ extern char *config_file;
 extern bool cfg_ui_bell_chat;
 
 extern void connman_autoconnect(void);
-extern bool ws_audio_init(void);
 extern void rrclient_register_events(void);
 extern bool rrclient_autoconnect(void);
-extern bool rrclient_connect(const char *url);
-extern bool rrclient_disconnect(void);
 extern void rrclient_poll_events(void);
 extern void ws_client_init(void);
 extern bool parse_chat_input_real(const char *msg); // cmd.c
@@ -112,7 +109,6 @@ static gboolean update_now(gpointer user_data) {
    if (dying) {
       // we should handle local shutdown here
       rrclient_cleanup();
-
       return G_SOURCE_REMOVE;   // remove this timeout
    }
 
@@ -182,9 +178,9 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
    }
 
    if (strcasecmp(tmed->msg_type, "action") == 0) {
-      ui_print(NULL, "%s * %s %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+      ui_print(NULL, "%s {bright-green}* {bright-cyan}%s{reset} %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
    } else {
-      ui_print(NULL, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s{reset}", get_chat_ts(tmed->ts),
+      ui_print(NULL, "%s {bright-black}<{cyan}%s{bright-black}>{reset} %s{reset}", get_chat_ts(tmed->ts),
          tmed->from, tmed->data);
    }
 }
@@ -215,7 +211,7 @@ bool rrclient_cleanup(void) {
    return false;
 }
 
-void show_help(int argc, char **argv) {
+void show_arg_help(int argc, char **argv) {
    printf("%s [-T] [-f config] [-h]\n", argv[0]);
    printf("\t-T\t\tTUI only mode (no X11)\n");
    printf("\t-f config\tChose an alternative configuration file\n");
@@ -288,7 +284,7 @@ int main(int argc, char *argv[]) {
          }
 
          case 'h': {
-            show_help(argc, argv);
+            show_arg_help(argc, argv);
             exit(0);
             break;
          }

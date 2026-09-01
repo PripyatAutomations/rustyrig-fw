@@ -81,7 +81,7 @@ const char *au_recording_start(int channel) {
       return NULL;
    }
    char *recording_id = malloc(RECORDING_ID_LEN + 1);
-   generate_nonce( recording_id, sizeof(recording_id) );
+   auth_generate_nonce( recording_id, sizeof(recording_id) );
 
    if (!cfg_path_record_dir) {
       cfg_path_record_dir = cfg_get_exp("path.record-dir");
