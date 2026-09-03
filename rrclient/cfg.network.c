@@ -36,7 +36,49 @@
 #define	MAX_WINDOWS 32
 #define	INPUT_HISTORY_MAX 64
 
-extern bool add_server(const char *network, const char *str);
+extern bool add_server(const char *network, const char *str) __attribute__((weak));   // cfg.servers.c (optional: IRC transport)
+
+// Save callback: emit [network:NAME] autojoin lines.  These live in the
+// cfg dict as network.<name>.autojoin keys, written by config_network_cb()
+// when loading.
+static bool config_network_save_cb(FILE *fp, const char *path) {
+   if (!fp || !cfg) {
+      return false;
+   }
+
+   int rank = 0;
+   const char *key;
+   char *val;
+
+   while ( ( rank = dict_enumerate(cfg, rank, &key, &val) ) >= 0 ) {
+      if (strncmp(key, "network.", 8) != 0) {
+         continue;
+      }
+
+      // network.<name>.autojoin => [network:<name>] autojoin=<val>
+      const char *name = key + 8;
+      const char *dot = strstr(name, ".autojoin");
+
+      if (!dot) {
+         continue;
+      }
+      char netname[128];
+
+      if (dot - name >= (ptrdiff_t)sizeof(netname) ) {
+         Log(LOG_WARN, "cfg.network", "network name too long to save: %s", name);
+         continue;
+      }
+      strlcpy(netname, name, dot - name + 1);
+      fprintf(fp, "[network:%s]\nautojoin=%s\n\n", netname, val ? val : "");
+   }
+
+   return false;
+}
+
+// Called once at startup to register our save callback
+bool cfg_network_save_init(void) {
+   return cfg_add_save_callback("cfg.network", config_network_save_cb);
+}
 
 // Callback for the config parser for 'network:*' section
 bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
@@ -104,7 +146,13 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          free(tmpbuf);
       } else {
          ui_print("status", "[{green}%s{reset}] adding server: %s", np, buf);
-         add_server(np, buf);
+
+         // Weak symbol: cfg.servers.c may be disabled (old IRC transport)
+         if (add_server) {
+            add_server(np, buf);
+         } else {
+            Log(LOG_DEBUG, "cfg.network", "add_server not available (cfg.servers disabled), skipping %s", buf);
+         }
       }
 
       return false;

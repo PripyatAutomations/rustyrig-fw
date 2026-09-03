@@ -57,6 +57,9 @@ extern bool rrclient_autoconnect(void);
 extern void rrclient_poll_events(void);
 extern void ws_client_init(void);
 extern bool parse_chat_input_real(const char *msg); // cmd.c
+extern char **client_cmd_completions(const char *line, const char *word); // cmd.c
+extern bool cfg_servers_init(void) __attribute__((weak));   // cfg.servers.c (optional: IRC server list)
+extern bool cfg_network_save_init(void);  // cfg.network.c
 
 /////////////////////////////////////
 #ifdef	USE_LIBEV
@@ -317,6 +320,14 @@ int main(int argc, char *argv[]) {
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
 
+   // Register config save callbacks so module-owned sections get saved.
+   // cfg_servers_init() is weak: it lives in cfg.servers.c which is part of
+   // the old IRC transport path and may be disabled in rules.mk.
+   if (cfg_servers_init) {
+      cfg_servers_init();
+   }
+   cfg_network_save_init();
+
    if (config_file) {
       if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
@@ -412,6 +423,7 @@ int main(int argc, char *argv[]) {
    // Setup stdio & clock
    if (ui_mode == UI_MODE_TUI) {
       tui_readline_cb = parse_chat_input_real;
+      tui_register_completion_provider(client_cmd_completions);
       tui_init();
 
 #ifdef	USE_LIBEV

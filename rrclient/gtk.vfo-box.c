@@ -147,25 +147,3 @@ gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
 
    return vfo_win;
 }
-
-bool vfo_set_dict(dict *d) {
-//   dict_dump(d, NULL);
-   const char *vfo_sel = dict_get(d, "cat.state.vfo", (char *)"*");
-   int vfo_power = dict_get_int(d, "cat.state.power", 0);
-   
-   time_t vfo_ts = dict_get_ulong(d, "cat.ts", now);
-   bool vfo_ptt = dict_get_bool(d, "cat.state.ptt", false);
-   const char *vfo_user = dict_get(d, "cat.user", NULL);
-   const char *vfo_mode = dict_get(d, "cat.state.mode", NULL);
-   int vfo_width = dict_get_int(d, "cat.state.width", 0);
-   long vfo_freq = dict_get_long(d, "cat.state.freq", 0.0);
-
-   // Set the widgets
-   GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
-   gtk_freq_entry_set_value(fe, vfo_freq);
-
-   // XXX: set the mode
-   set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), vfo_mode);
-
-   return false;
-}

@@ -63,6 +63,62 @@ client_cmd_t client_cmds[] = {
    { .cmd = NULL, .cb = NULL, .desc = NULL }
 };
 
+// Completion provider for the TUI: tab-completion of /commands from client_cmds[]
+char **client_cmd_completions(const char *line, const char *word) {
+   if (!word) {
+      return NULL;
+   }
+
+   // Only complete the first word, and only when it starts with '/'
+   const char *p = line;
+
+   while (*p && *p != ' ') {
+      p++;
+   }
+
+   if (*p) {   // Not the first word
+      return NULL;
+   }
+
+   bool lead_slash = (word[0] == '/');
+   const char *w = lead_slash ? word + 1 : word;
+   size_t len = strlen(w);
+
+   if (!len && !lead_slash) {
+      return NULL;   // Nothing to match against
+   }
+
+   char **matches = NULL;
+   size_t count = 0;
+
+   for (int i = 0; client_cmds[i].cmd; i++) {
+      if (strncasecmp(client_cmds[i].cmd, w, len) != 0) {
+         continue;
+      }
+
+      size_t mlen = strlen(client_cmds[i].cmd) + (lead_slash ? 2 : 1);
+      char *m = malloc(mlen);
+
+      if (!m) {
+         continue;
+      }
+
+      snprintf(m, mlen, "%s%s", lead_slash ? "/" : "", client_cmds[i].cmd);
+
+      char **tmp = realloc(matches, (count + 2) * sizeof(char *));
+
+      if (!tmp) {
+         free(m);
+         continue;
+      }
+      matches = tmp;
+      matches[count++] = m;
+      matches[count] = NULL;
+   }
+
+   return matches;
+}
+
 bool parse_chat_input_real(const char *msg) {
    if (!msg || !*msg) {
       Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%p> is empty", msg);

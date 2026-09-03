@@ -30,6 +30,8 @@ extern bool parse_chat_input_gtk(GtkButton *button, gpointer entry);
 #endif
 
 extern bool parse_chat_input_real(const char *msg);
+extern bool tui_register_completion_provider(char **(*fn)(const char *line, const char *word));
+extern char **client_cmd_completions(const char *line, const char *word);
 extern bool cmd_admin(int argc, char **args);
 extern bool cmd_chat(int argc, char **args);
 extern bool cmd_clear(int argc, char **args);
