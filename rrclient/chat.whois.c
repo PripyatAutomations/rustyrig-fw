@@ -98,9 +98,7 @@ bool cmd_whois(int argc, char **args) {
    dict *d = dict_new();
    dict_add(d, "talk.cmd", "whois");
    dict_add(d, "talk.args", args[1]);
-#ifdef USE_MONGOOSE
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
-#endif // USE_MONGOOSE
    dict_free(d);
 
    return false;

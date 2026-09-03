@@ -10,9 +10,9 @@ rrclient_objs += cmd.chat.o		# chat commands
 rrclient_objs += cmd.help.o		# help texts
 rrclient_objs += cmd.misc.o		# unsorted commands
 rrclient_objs += cmd.tabs.o		# tab/window switching
-rrclient_objs += connman.o
-rrclient_objs += defconfig.o
-rrclient_objs += events.o
+rrclient_objs += connman.o		# connection manager
+rrclient_objs += defconfig.o		# default config values
+rrclient_objs += events.o		# event handlers
 ifeq (${USE_GTK},true)
 rrclient_objs += gtk.core.o             # Support for a GTK user interface
 rrclient_objs += gtk.admin.o		# Admin tab
@@ -40,7 +40,7 @@ rrclient_objs += gtk.vol-box.o		# Volume widget
 rrclient_objs += gtk.winmgr.o		# window management
 endif
 
-rrclient_objs += m_privmsg.o
+rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
 rrclient_objs += main.o			# main loop
 rrclient_objs += userlist.o
 rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)

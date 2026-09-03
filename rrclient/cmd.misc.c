@@ -50,13 +50,11 @@ bool cmd_clear(int argc, char **args) {
 
 bool cmd_clearlog(int argc, char **args) {
    syslog_clear();
-
    return false;
 }
 
 bool cmd_disconnect(int argc, char **args) {
    disconnect_server(server_name);
-
    return false;
 }
 
@@ -73,11 +71,10 @@ bool cmd_quit(int argc, char **args) {
       ui_print(NULL, "{bright-cyan}Seeya soon, have a great day!{reset}");
 
       dict *d = dict_new();
+      dict_add(d, "msg.type", "auth");
       dict_add(d, "auth.cmd", "quit");
       dict_add(d, "auth.msg", quitmsg);
-#ifdef	USE_MONGOOSE
       ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
-#endif
       dict_free(d);
 
       // Set the dying flag so main loop with cleanly exit
@@ -111,7 +108,6 @@ bool cmd_server(int argc, char **args) {
    }
 
    const char *server = args[1];
-
    if (server && server[0] != '\0') {
       ui_print(NULL, "%s * Changing server profile to %s", get_chat_ts(now), server);
       disconnect_server(server);
@@ -134,11 +130,10 @@ bool cmd_server(int argc, char **args) {
    }
 
    dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "restart");
    dict_add(d, "talk.reason", args[1]);
-#ifdef USE_MONGOOSE
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
-#endif // USE_MONGOOSE
    dict_free(d);
 
    return false;

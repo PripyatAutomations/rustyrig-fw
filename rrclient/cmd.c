@@ -70,7 +70,6 @@ bool parse_chat_input_real(const char *msg) {
       return true;
    }
 
-#ifdef  USE_MONGOOSE
    if (msg[0] == '/') {
       Log(LOG_CRIT, "debug", "msg<%d>: %s", strlen(msg), msg);
 
@@ -111,7 +110,6 @@ bool parse_chat_input_real(const char *msg) {
 
       if (!input) {
          Log(LOG_CRIT, "chat.cmd", "Out of memory parsing command");
-
          return true;
       }
 
@@ -174,13 +172,10 @@ bool parse_chat_input_real(const char *msg) {
 
       free(input);
    } else {
-#ifdef	USE_MONGOOSE
       if (!ws_connected) {
          ui_print(NULL, "{red}*** Not connected to server ***{reset}");
-
          return false;
       }
-#endif
       dict *d = dict_new();
       dict_add(d, "msg.type", "talk");
       dict_add(d, "talk.cmd", "msg");
@@ -192,7 +187,6 @@ bool parse_chat_input_real(const char *msg) {
       }
       dict_free(d);
    }
-#endif /* USE_MONGOOSE */
 
    return false;
 }

@@ -60,11 +60,9 @@ bool cmd_me(int argc, char **args) {
    dict_add(d, "talk.data", buf);
    dict_add(d, "talk.msg_type", "action");
 
-#ifdef	USE_MONGOOSE
    if (ws_conn) {
       ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    }
-#endif
    dict_free(d);
 
    return false;
@@ -88,7 +86,6 @@ bool cmd_msg(int argc, char **args) {
       }
       pos += n;
    }
-
    ui_print(NULL, "-> %s %s", target, fullmsg);
 
    dict *d = dict_new();
@@ -96,11 +93,9 @@ bool cmd_msg(int argc, char **args) {
    dict_add(d, "talk.data", fullmsg);
    dict_add(d, "talk.target", target);
 
-#ifdef	USE_MONGOOSE
    if (ws_conn) {
       ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    }
-#endif
 
    dict_free(d);
    return false;
@@ -112,7 +107,6 @@ bool cmd_notice(int argc, char **args) {
    }
 
    char *notice_target = args[1];
-   // XXX: this should exist, everything past max_args should end up in one arg, yes?
    char notice_msg[502];
    memset( notice_msg, 0, sizeof(notice_msg) );
    size_t pos = 0;

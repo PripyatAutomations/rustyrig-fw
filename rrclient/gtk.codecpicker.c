@@ -97,7 +97,6 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);
    tx_ctx->is_tx = true;
 #if     defined(USE_MONGOOSE)
-
    if (ws_tx_conn) {
       tx_ctx->conn = ws_tx_conn->conn;
    }

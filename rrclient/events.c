@@ -109,8 +109,6 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
    }
 
    dict *d = json2dict(data);
-//   fprintf(stderr, "[alert]\n");
-//   dict_dump(d, stderr);
 
    time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *msg_from = dict_get(d, "alert.from", (char *)"*unknown*");
@@ -163,13 +161,7 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
    }
 
    dict *d = json2dict(data);
-//   fprintf(stderr, "[auth.error]\n");
-//   dict_dump(d, stderr);
-/*
- *  const char *from = dict_get(d, "error.sender", NULL);
- *  time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
- */
-  const char *error_msg = dict_get(d, "error.msg", NULL);
+   const char *error_msg = dict_get(d, "error.msg", NULL);
    Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", error_msg);
    dict_dump(d, NULL);
    dict_free(d);
@@ -216,8 +208,6 @@ static void rrclient_handle_catcmd(const char *event, const char *data, rrconn_t
    }
 
    dict *d = json2dict(data);
-   fprintf(stderr, "[cat.cmd]\n");
-//   dict_dump(d, stderr);
 /*
  *  const char *from = dict_get(d, "talk.from", NULL);
  *  time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
@@ -286,14 +276,6 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
-#ifdef  USE_GTK
-   if (!conn_button) {
-      return;
-   }
-
-   GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
-#endif // USE_GTK
-
    if (strcasecmp(event, "connecting") == 0) {
       ui_print( NULL, "%s *** {bright-yellow}Connecting{reset} ***", get_chat_ts(now) );
       rrclient_update_connection_ui(-1);
@@ -304,10 +286,8 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 
       dict *d = json2dict(data);
       const char *user = dict_get(d, "auth.user", NULL);
-
       if (user) {
-         // XXX: multiserver bug, discard old value if saved so we can store new without a
-         // leak
+         // XXX: multiserver bug, discard old value if saved so we can store new without a leak
          if (login_user) {
             free( (void *)login_user );
          }
@@ -337,8 +317,6 @@ static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *
       return;
    }
    dict *d = json2dict(data);
-//   fprintf(stderr, "[freq]\n");
-//   dict_dump(d, stderr);
    long freq = dict_get_long(d, "cat.state.freq", 0);
 
    if (ui_mode == UI_MODE_GTK) {
@@ -372,7 +350,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
 
-   // need to fire update uer list!
+   // need to fire update user list!
    dict_free(d);
 }
 
@@ -393,11 +371,7 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
    if (!data) {
       return;
    }
-
-//   dict *d = json2dict(data);
-//   fprintf(stderr, "[NOMATCH]\n");
-//   dict_dump(d, stderr);
-//   dict_free(d);
+   Log(LOG_CRAZY, "ws.nomatch", "Got NOMATCH hit with json: %s", data);
 }
 
 static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -413,22 +387,15 @@ static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *
 }
 
 static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *cptr, void *user) {
-//   fprintf(stderr, "[talk.quit]\n");
-
    if (!data) {
-//      fprintf(stderr, "no talk.quit data\n");
-
       return;
    }
 
    dict *d = json2dict(data);
-//   fprintf(stderr, "[quit]\n");
-//   dict_dump(d, stderr);
    const char *masked_ip = "ip.hidden";
    const char *m_user = dict_get(d, "talk.user", NULL);
    const char *m_ip = dict_get(d, "talk.ip", (char *)masked_ip);
    const char *m_reason = dict_get(d, "talk.reason", NULL);
-   // XXX: This needs to be fixed to add some awareness in the server of multiple channels
    const char *m_target = "&localrig";
 
    time_t m_ts = dict_get_time_t(d, "talk.ts", now);
@@ -451,7 +418,6 @@ static void rrclient_handle_userinfo(const char *event, const char *data, rrconn
    }
 
    dict *d = json2dict(data);
-
    if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
