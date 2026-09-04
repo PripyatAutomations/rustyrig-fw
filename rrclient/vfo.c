@@ -20,6 +20,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
+#include <rrclient/vfo.h>
 
 #ifdef	USE_GTK
 #include <gtk/gtk.h>
@@ -40,7 +41,7 @@ static void vfo_state_init(void) {
 
 // Accessors for other modules.  These read only the saved state, never
 // the widgets, so both UIs share the same copy of the truth.
-const char *vfo_state_get(const char *key, const char *def) {
+const char *vfo_state_get(const char *vfo, const char *key, const char *def) {
    if (!vfo_state || !key) {
       return def;
    }
@@ -48,7 +49,7 @@ const char *vfo_state_get(const char *key, const char *def) {
    return val ? val : def;
 }
 
-long vfo_state_get_long(const char *key, long def) {
+long vfo_state_get_long(const char *vfo, const char *key, long def) {
    if (!vfo_state || !key) {
       return def;
    }
@@ -56,7 +57,7 @@ long vfo_state_get_long(const char *key, long def) {
    return val ? atol(val) : def;
 }
 
-bool vfo_state_get_bool(const char *key, bool def) {
+bool vfo_state_get_bool(const char *vfo, const char *key, bool def) {
    if (!vfo_state || !key) {
       return def;
    }
@@ -64,12 +65,33 @@ bool vfo_state_get_bool(const char *key, bool def) {
    return val ? (strcasecmp(val, "true") == 0 || atoi(val) != 0) : def;
 }
 
-bool vfo_set_dict(dict *d) {
+bool vfo_set_dict(const char *vfo, dict *d) {
    if (!d) {
       return true;
    }
    vfo_state_init();
 
+   bool vfo_ptt = dict_get_bool(d, "cat.state.ptt", false);
+   int vfo_freq = dict_get_int(d, "cat.state.freq", 0);
+   int vfo_power = dict_get_int(d, "cat.state.power", 0);
+   int vfo_width = dict_get_int(d, "cat.state.width", 0);
+   const char *msg_type = dict_get(d, "msg.type", NULL);
+   const char *vfo_id = dict_get(d, "cat.state.vfo", NULL);
+   const char *vfo_user = dict_get(d, "cat.user", NULL);
+   const char *vfo_mode = dict_get(d, "cat.state.mode", NULL);
+   time_t msg_ts = dict_get_ulong(d, "msg.ts", 0);
+
+   dict *msg = dict_new();
+   dict_add_bool(msg, "cat.state.ptt", vfo_ptt);
+   dict_add_int(msg, "cat.state.freq", vfo_freq);
+   dict_add_int(msg, "cat.state.power", vfo_power);
+   dict_add_int(msg, "cat.state.width", vfo_width);
+   dict_add(msg, "msg.type", msg_type);
+   dict_add(msg, "cat.state.vfo", vfo_id);
+   dict_add(msg, "cat.user", vfo_user);
+   dict_add(msg, "cat.state.mode", vfo_mode);
+   dict_add_ulong(msg, "msg.ts", msg_ts);
+#if	0
    // Save every cat.* key we receive into the central state
    int rank = 0;
    const char *key;
@@ -86,6 +108,7 @@ bool vfo_set_dict(dict *d) {
          dict_add_null(vfo_state, key);
       }
    }
+#endif	// 0
    return vfo_update_ui();
 }
 
@@ -95,11 +118,11 @@ bool vfo_update_ui(void) {
       return true;
    }
 
-   long vfo_freq = vfo_state_get_long("cat.state.freq", 0);
-   const char *vfo_mode = vfo_state_get("cat.state.mode", NULL);
-   int vfo_width = (int)vfo_state_get_long("cat.state.width", 0);
-   int vfo_power = (int)vfo_state_get_long("cat.state.power", 0);
-   bool vfo_ptt = vfo_state_get_bool("cat.state.ptt", false);
+   long vfo_freq = vfo_state_get_long("A", "cat.state.freq", 0);
+   const char *vfo_mode = vfo_state_get("A", "cat.state.mode", NULL);
+   int vfo_width = (int)vfo_state_get_long("A", "cat.state.width", 0);
+   int vfo_power = (int)vfo_state_get_long("A", "cat.state.power", 0);
+   bool vfo_ptt = vfo_state_get_bool("A", "cat.state.ptt", false);
 
    if (ui_mode == UI_MODE_TUI) {
       // TUI: refresh the statusbar VFO section from the saved state
