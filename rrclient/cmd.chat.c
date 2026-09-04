@@ -89,6 +89,7 @@ bool cmd_msg(int argc, char **args) {
    ui_print(NULL, "-> %s %s", target, fullmsg);
 
    dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "msg");
    dict_add(d, "talk.data", fullmsg);
    dict_add(d, "talk.target", target);
@@ -146,8 +147,8 @@ bool cmd_notice(int argc, char **args) {
    }
    ui_print(NULL, "TEST: {yellow}=> *%s*{reset} {bright-cyan}%s{reset}: %s", notice_target, notice_msg);
 
-   // XXX: Actually send it
    dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.msg-type", (char *)"notice");
    dict_add(d, "talk.msg", notice_msg);
    dict_add(d, "talk.target", notice_target);

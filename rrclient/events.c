@@ -58,7 +58,7 @@ void tui_refresh_sb_online(void) {
    } else if (ws_connected == 0) {
       snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-red}OFFLINE{bright-black}]{reset}");
    } else if (ws_connected == -1) {
-      snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-yellow}trying{bright-black}]{reset}");
+      snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-yellow}Trying{bright-black}]{reset}");
    }
 }
 

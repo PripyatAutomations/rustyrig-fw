@@ -1,6 +1,8 @@
 ============
 = rrserver =
 ============
+! Logger callback to call bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details) as needed for LOG_AUDIT levels
+
 [protocol]
 * Instead of blorping out the rig status once a second, lets do broadcasts only when changed or every 30 seconds plus on-connect
 
