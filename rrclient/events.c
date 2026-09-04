@@ -70,18 +70,23 @@ void tui_refresh_sb_window(void) {
    if (tw->title[0] == '&' || tw->title[0] == '#') {
       win_color = "{bright-magenta}";
    }
-   snprintf(sb_window, sizeof(sb_window), 
+   snprintf(sb_window, sizeof(sb_window),
     "{bright-black}[%s%s{bright-black}]{reset}",
      win_color, tw->title);
 }
 
 // Refresh statusbar VFO section
+// Reads the central VFO state saved by vfo_set_dict() - the same copy
+// the GTK UI uses.  Never hardcode values here.
 void tui_refresh_sb_vfo(void) {
    memset(sb_vfo, 0, sizeof(sb_vfo));
 
-   // XXX: Get this from backend vfo object asap
-   snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: %i/%s-%i>", current_vfo, 7200000,
-      /* Mode */ "LSB", 3000/* Width */);
+   const char *vfo = vfo_state_get("cat.state.vfo", "A");
+   long freq = vfo_state_get_long("cat.state.freq", 0);
+   const char *mode = vfo_state_get("cat.state.mode", "---");
+   long width = vfo_state_get_long("cat.state.width", 0);
+
+   snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: %ld/%s-%ld>", vfo, freq, mode, width);
 }
 
 static void rrclient_set_offline(void) {
@@ -173,32 +178,15 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
    }
 
    dict *d = json2dict(data);
-   const char *cat_user = dict_get(d, "cat.user", NULL);
-   time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
-   const char *cat_mode = dict_get(d, "cat.state.mode", NULL);
-   const char *cat_vfo = dict_get(d, "cat.state.vfo", NULL);
-   bool active = dict_get_bool(d, "cat.state.ptt", false);
 
-   int cat_freq = dict_get_int(d, "cat.state.freq", 0.0);
-   int cat_width = dict_get_int(d, "cat.state.width", 0);
-   int cat_power = dict_get_int(d, "cat.state.power", 0);
+   if (!d) {
+      return;
+   }
 
-   // Set VFO cat_vfo to the values extracted
+   // vfo_set_dict() saves all cat.* keys into the central VFO state and
+   // pushes the update to the active UI (GTK widgets or TUI statusbar).
+   // All UIs read from that saved state - never from the event dict.
    vfo_set_dict(d);
-
-   if (ptt_button) {
-      if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)active);
-         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), active);
-#endif	// USE_GTK
-      }
-   }
-
-   if (ui_mode == UI_MODE_TUI) {
-      tui_refresh_sb_vfo();
-   }
-   // Update the VFO display
    dict_free(d);
 }
 
@@ -375,6 +363,7 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
 }
 
 static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *cptr, void *user) {
+#if	0	// this seems to be a duplicate
    if (!data) {
       return;
    }
@@ -384,6 +373,7 @@ static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *
    dict_add(d, "cmd", "pong");
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
+#endif
 }
 
 static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *cptr, void *user) {

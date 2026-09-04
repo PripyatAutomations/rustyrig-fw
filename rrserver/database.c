@@ -18,10 +18,10 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/database.h>
 
 #ifdef  USE_SQLITE
 #include <sqlite3.h>
-#include <rrserver/database.h>
 
 // database handle
 sqlite3 *masterdb = NULL;
@@ -155,36 +155,50 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
    return success;
 }
 
-
-bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type,
+bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src,
+                     const char *msg_dest, const char *msg_type,
                      const char *msg_data) {
-   if (!db || !msg_src || !msg_dest || !msg_type || !msg_data) {
-      Log(LOG_WARN, "db", "invalid arguments db:<%p> ts:%lu src:<%p> dest:<%p> type:<%p> data:<%p>", db, msg_ts,
-         msg_src, msg_dest, msg_type, msg_data);
-
+   if (!db || !msg_src || !msg_type || !msg_data) {
+      Log(LOG_WARN, "db", "invalid arguments db:<%p> ts:%lld src:<%p> dest:<%p> type:<%p> data:<%p>",
+         db, (long long)msg_ts, msg_src, msg_dest, msg_type, msg_data);
       return false;
    }
-   const char *sql =
-      "INSERT INTO chat_log (msg_ts, msg_src, msg_dest, msg_type, msg_data) VALUES (?, ?, ?, ?, ?);";
 
-   sqlite3_stmt *stmt;
+   const char *sql =
+      "INSERT INTO chat_log "
+      "(msg_ts, msg_src, msg_dest, msg_type, msg_data) "
+      "VALUES (?, ?, ?, ?, ?);";
+
+   sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log( LOG_WARN, "db", "failed preparing statement in db_add_chat_msg: %s", sqlite3_errmsg(db) );
-
+      Log(LOG_WARN, "db", "failed preparing statement in db_add_chat_msg: %s",
+         sqlite3_errmsg(db));
       return false;
    }
-   sqlite3_bind_int(stmt, 1, msg_ts);
-   sqlite3_bind_text(stmt, 2, msg_src, -1, SQLITE_STATIC);
-   sqlite3_bind_text(stmt, 3, msg_dest, -1, SQLITE_STATIC);
-   sqlite3_bind_text(stmt, 4, msg_type, -1, SQLITE_STATIC);
-   sqlite3_bind_text(stmt, 5, msg_data, -1, SQLITE_STATIC);
+
+   sqlite3_bind_int64(stmt, 1, (sqlite3_int64)msg_ts);
+   sqlite3_bind_text(stmt, 2, msg_src, -1, SQLITE_TRANSIENT);
+
+   if (msg_dest) {
+      sqlite3_bind_text(stmt, 3, msg_dest, -1, SQLITE_TRANSIENT);
+   } else {
+      sqlite3_bind_null(stmt, 3);
+   }
+
+   sqlite3_bind_text(stmt, 4, msg_type, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 5, msg_data, -1, SQLITE_TRANSIENT);
 
    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
-   sqlite3_finalize(stmt);
 
+   if (!success) {
+      Log(LOG_WARN, "db", "db_add_chat_msg failed: %s", sqlite3_errmsg(db));
+   }
+
+   sqlite3_finalize(stmt);
    return success;
 }
+#endif	// USE_SQLITE
 
 bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
    // retrieve the lines from database
@@ -194,4 +208,23 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
    // send Reply Complete message to client
    return false;
 }
-#endif
+
+const char *replay_msg_type(const char *msg_type) {
+   if (!msg_type) {
+      return NULL;
+   }
+
+   if (!strcmp(msg_type, "pub")) {
+      return "replay";
+   }
+
+   if (!strcmp(msg_type, "action")) {
+      return "replay-action";
+   }
+
+   if (!strcmp(msg_type, "privmsg")) {
+      return "replay-privmsg";
+   }
+
+   return NULL;
+}

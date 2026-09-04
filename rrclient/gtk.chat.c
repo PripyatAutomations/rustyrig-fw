@@ -38,7 +38,6 @@ GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;
 
 // XXX: Move this to gtk.core.c
-
 // Scroll to the end of a GtkTextView
 gboolean ui_scroll_to_end(gpointer data) {
    if (!data) {
@@ -56,6 +55,129 @@ gboolean ui_scroll_to_end(gpointer data) {
    // remove the idle handler after it runs
    return FALSE;
 }
+//////////
+
+static bool gtk_chat_do_completion(GtkEntry *entry) {
+   const char *line = gtk_entry_get_text(entry);
+   int cursor_pos = gtk_editable_get_position(GTK_EDITABLE(entry));
+
+   if (!line || cursor_pos <= 0) {
+      return false;
+   }
+
+   // Find start of word before cursor
+   int start = cursor_pos;
+
+   while (start > 0 && line[start - 1] != ' ') {
+      start--;
+   }
+
+   int word_len = cursor_pos - start;
+
+   if (word_len <= 0) {
+      return false;
+   }
+
+   char word[TUI_INPUTLEN];
+
+   if (word_len >= sizeof(word)) {
+      return false;
+   }
+
+   memcpy(word, line + start, word_len);
+   word[word_len] = '\0';
+
+   char **matches = completion_collect(line, word);
+
+   if (!matches || !matches[0]) {
+      completion_free(matches);
+      return false;
+   }
+
+   int nmatch = 0;
+   while (matches[nmatch]) {
+      nmatch++;
+   }
+
+   // Longest common prefix
+   size_t plen = strlen(matches[0]);
+
+   for (int i = 1; i < nmatch; i++) {
+      size_t j = 0;
+
+      while (j < plen &&
+             matches[i][j] &&
+             matches[0][j] == matches[i][j]) {
+         j++;
+      }
+
+      plen = j;
+   }
+
+   // Single match or unambiguous prefix
+   if (nmatch == 1 || plen > (size_t)word_len) {
+      size_t replace_len = plen;
+      bool add_space = (nmatch == 1);
+
+      if (add_space) {
+         replace_len++;
+      }
+
+      char *new_line = malloc(strlen(line) + replace_len - word_len + 1);
+
+      if (!new_line) {
+         completion_free(matches);
+         return false;
+      }
+
+      memcpy(new_line, line, start);
+      memcpy(new_line + start, matches[0], plen);
+
+      if (add_space) {
+         new_line[start + plen] = ' ';
+      }
+
+      strcpy(new_line + start + replace_len, line + cursor_pos);
+
+      gtk_entry_set_text(entry, new_line);
+      gtk_editable_set_position(
+         GTK_EDITABLE(entry),
+         start + replace_len
+      );
+
+      free(new_line);
+      completion_free(matches);
+      return true;
+   }
+
+   // Ambiguous: print candidates into the chat window
+   for (int i = 0; i < nmatch && i < TUI_MAX_COMPLETIONS_SHOWN; i++) {
+      gtk_text_buffer_insert_at_cursor(
+         text_buffer,
+         matches[i],
+         -1
+      );
+      gtk_text_buffer_insert_at_cursor(
+         text_buffer,
+         "\n",
+         -1
+      );
+   }
+
+   if (nmatch > TUI_MAX_COMPLETIONS_SHOWN) {
+      char buf[64];
+
+      snprintf(buf, sizeof(buf),
+               "... and %d more\n",
+               nmatch - TUI_MAX_COMPLETIONS_SHOWN);
+
+      gtk_text_buffer_insert_at_cursor(text_buffer, buf, -1);
+   }
+
+   completion_free(matches);
+   g_idle_add(ui_scroll_to_end, chat_textview);
+   return false;
+}
 
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
@@ -72,9 +194,43 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
 }
 
 // Here we support input history for the chat/control window entry input
-static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
+static gboolean on_chat_entry_keypress(GtkWidget *entry,
+                                       GdkEventKey *event,
+                                       gpointer user_data)
+{
    if (!event || !entry) {
       return FALSE;
+   }
+
+   if (event->keyval == GDK_KEY_Tab) {
+      gtk_chat_do_completion(GTK_ENTRY(entry));
+      return TRUE;
+   }
+
+   if (event->keyval == GDK_KEY_Page_Up) {
+      GtkAdjustment *adj =
+         gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(chat_textview));
+
+      gtk_adjustment_set_value(
+         adj,
+         gtk_adjustment_get_value(adj) -
+         gtk_adjustment_get_page_increment(adj)
+      );
+
+      return TRUE;
+   }
+
+   if (event->keyval == GDK_KEY_Page_Down) {
+      GtkAdjustment *adj =
+         gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(chat_textview));
+
+      gtk_adjustment_set_value(
+         adj,
+         gtk_adjustment_get_value(adj) +
+         gtk_adjustment_get_page_increment(adj)
+      );
+
+      return TRUE;
    }
 
    if (!input_history || input_history->len == 0) {
@@ -97,7 +253,9 @@ static gboolean on_entry_key_press(GtkWidget *entry, GdkEventKey *event, gpointe
    } else {
       return FALSE;
    }
+
    const char *text = g_ptr_array_index(input_history, history_index);
+
    gtk_entry_set_text(GTK_ENTRY(chat_entry), text);
    gtk_editable_set_position(GTK_EDITABLE(chat_entry), -1);
 
@@ -155,7 +313,7 @@ GtkWidget *create_chat_box(void) {
    chat_entry = gtk_entry_new();
    gtk_box_pack_start(GTK_BOX(chat_box), chat_entry, FALSE, FALSE, 0);
    g_signal_connect(chat_entry, "activate", G_CALLBACK(on_send_button_clicked), chat_entry);
-   g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_entry_key_press), NULL);
+   g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_chat_entry_keypress), NULL);
 
    // SEND the command/message
    GtkWidget *button = gtk_button_new_with_label("Send (enter)");

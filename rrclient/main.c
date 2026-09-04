@@ -420,10 +420,11 @@ int main(int argc, char *argv[]) {
    mg_mgr_init(&mgr);
 #endif
 
+   tui_register_completion_provider(client_cmd_completions);
+
    // Setup stdio & clock
    if (ui_mode == UI_MODE_TUI) {
       tui_readline_cb = parse_chat_input_real;
-      tui_register_completion_provider(client_cmd_completions);
       tui_init();
 
 #ifdef	USE_LIBEV

@@ -34,6 +34,7 @@
 #include <rrserver/protection.h>
 #include <rrserver/mqtt.h>
 
+extern void rrserver_register_events(void); // events.c
 #ifdef	USE_MONGOOSE
 struct mg_mgr mg_mgr;
 #endif
@@ -122,6 +123,9 @@ int main(int argc, char **argv) {
 
    // Initialize some early state
    now = started = time(NULL);
+
+   event_init();
+   rrserver_register_events();
 
    int opt;
    while ( ( opt = getopt(argc, argv, "f:hr:") ) != -1 ) {

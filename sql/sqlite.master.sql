@@ -24,12 +24,14 @@ CREATE TABLE ptt_log (
 
 CREATE TABLE chat_log (
    msg_id INTEGER PRIMARY KEY AUTOINCREMENT,
-   msg_ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+   msg_ts INTEGER NOT NULL DEFAULT (unixepoch()),
    msg_src TEXT NOT NULL,
    msg_dest TEXT DEFAULT NULL,
    msg_type TEXT NOT NULL,
    msg_data TEXT NOT NULL
 );
+
+CREATE INDEX chat_log_dest_ts ON chat_log (msg_dest, msg_ts, msg_id);
 
 -- Users
 CREATE TABLE users (

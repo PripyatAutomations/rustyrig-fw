@@ -24,6 +24,7 @@ extern bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, con
                             const char *msg_data);
 extern bool db_send_chat_replay(rrconn_t *cptr, const char *channel);
 extern sqlite3 *masterdb;       // database.c
+extern const char *replay_msg_type(const char *msg_type);
 
 #endif // defined(USE_SQLITE)
 
