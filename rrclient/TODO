@@ -1,4 +1,6 @@
 [general]
+* Make vfo.c support multiple VFOs (up to MAX_VFOs)
+
 * Add are you sure dialog on close button and alt-q (exit) hotkey
   - Add alt-q exit hotkey
 

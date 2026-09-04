@@ -113,10 +113,19 @@ bool gui_font_init(void) {
 }
 
 bool gui_font_fini(void) {
-   // Free all loaded fonts
    for (int i = 0; i < MAX_FONTS; i++) {
-      gui_font_free(fonts[i]);
-      fonts[i] = NULL;
+      if (fonts[i]) {
+#ifdef	USE_GTK
+         if (fonts[i]->pango_font) {
+            PangoFontDescription *pango_font = fonts[i]->pango_font;
+            pango_font_description_free(pango_font);
+            fonts[i]->pango_font = NULL;
+         }
+#endif	// USE_GTK
+         free(fonts[i]);
+         fonts[i] = NULL;
+      }
    }
-   return false;
+   return true;
 }
+

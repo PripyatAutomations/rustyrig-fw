@@ -24,7 +24,6 @@
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
-#include <rrclient/userlist.h>
 #include <librrprotocol/http.h>
 
 // Server connections
@@ -64,8 +63,6 @@ extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 #endif // USE_MONGOOSE
 
-extern char session_token[HTTP_TOKEN_LEN + 1];
-
 static const unsigned int reconnect_delays[] = {
    1, 2, 5, 10, 30, 60
 };
@@ -86,6 +83,11 @@ static void rrclient_cancel_reconnect(void) {
 
 static void rrclient_schedule_reconnect(void) {
    if (!reconnect_enabled || reconnect_pending || dying || !server_name || !*server_name) {
+      return;
+   }
+
+   // Never schedule a reconnect while we're already trying to connect
+   if (ws_connected) {
       return;
    }
 
@@ -129,82 +131,8 @@ void connman_register_events(void) {
    event_on("error", rrclient_handle_reconnect_event, NULL);
 }
 
-#ifdef  USE_MONGOOSE
-// XXX: This needs moved include rrprotocol.c
-// XXX: Cleanup this asap
-static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
-   if (ev == MG_EV_WS_MSG) {
-      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
-
-      if (msg && msg->data.buf) {
-         rrconn_t *cptr = ws_conn;
-         char buf[HTTP_WS_MAX_MSG + 1];
-         memset( buf, 0, sizeof(buf) );
-         memcpy(buf, msg->data.buf, msg->data.len);
-         dict *d = json2dict(buf);
-
-         if (!d) {
-            return;
-         }
-         const char *cmd = dict_get(d, "talk.cmd", NULL);
-         const char *msg_ts = dict_get(d, "msg.ts", NULL);
-         dict_free(d);
-      }
-   } else if (ev == MG_EV_WS_OPEN) {
-      ws_connected = true;
-      struct mg_ws_message *msg = (struct mg_ws_message *)ev_data;
-
-      char buf[HTTP_WS_MAX_MSG + 1] = { 0 };
-
-      if (msg && msg->data.buf) {
-         memset( buf, 0, sizeof(buf) );
-         memcpy(buf, msg->data.buf, msg->data.len);
-      }
-      event_emit("connected", NULL, buf);
-      ui_print(NULL, "status", "Connected to server");
-      dict *d = dict_new();
-      dict_add(d, "hello", "rcclient");
-      dict_add(d, "hello.version", VERSION);
-      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
-      dict_free(d);
-   } else if (ev == MG_EV_CLOSE) {
-      ws_connected = false;
-      event_emit("disconnected", NULL, NULL);
-      ui_print(NULL, "status", "Disconnected from server");
-   }
-}
-#endif // USE_MONGOOSE
-
-bool rrclient_connect(const char *url) {
-   if (!url) {
-      return true;
-   }
-   ui_print(NULL, "status", "Connecting to %s", url);
-
-#ifdef  USE_MONGOOSE
-   ws_conn->conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
-   if (!ws_conn->conn) {
-      ui_print(NULL, "status", "Connection failed");
-      return true;
-   }
-   ws_conn->conn->fn_data = (void *)ws_conn;
-#endif // USE_MONGOOSE
-   return false;
-}
-
-bool rrclient_disconnect(void) {
-   rrclient_cancel_reconnect();
-
-#ifdef  USE_MONGOOSE
-   if (ws_conn) {
-      ws_conn->conn->is_closing = 1;
-      ws_conn = NULL;
-   }
-#endif // USE_MONGOOSE
-   ws_connected = false;
-   return false;
-}
-
+// Reconnect engine poll - called from the main loop. The websocket I/O and
+// protocol-level connect/disconnect live in librrprotocol.
 void rrclient_poll_events(void) {
 #ifdef  USE_MONGOOSE
    mg_mgr_poll(&mgr, 0);
@@ -213,96 +141,14 @@ void rrclient_poll_events(void) {
    if (reconnect_pending && time(NULL) >= reconnect_at) {
       reconnect_pending = false;
 
-      if (reconnect_enabled && !ws_connected && !dying) {
+      // ws_connected == 1 means connected; 0 offline; -1 "trying" from
+      // schedule_reconnect() - all but 1 are valid states to (re)connect in.
+      if (reconnect_enabled && ws_connected != 1 && !dying) {
          reconnect_attempting = true;
          connect_server(server_name);
          reconnect_attempting = false;
       }
    }
-}
-
-bool rrclient_autoconnect(void) {
-   const char *server = cfg_get_exp("server.auto-connect");
-
-   if (server) {
-      char sname[256];
-      snprintf(sname, sizeof(sname), "%s", server);
-      free( (void *)server );
-
-      char fullkey[1024];
-      snprintf(fullkey, sizeof(fullkey), "server:%s.server.url", sname);
-      const char *url = cfg_get_exp(fullkey);
-
-      if (url) {
-         rrclient_connect(url);
-         free( (void *)url );
-      }
-   }
-   return false;
-}
-
-rr_connection_t *connection_find(const char *server) {
-   if (!server) {
-      Log(LOG_DEBUG, "connman", "connection_find without server");
-
-      return NULL;
-   }
-   rr_connection_t *cptr = NULL;
-
-   while (cptr) {
-      if (strcasecmp(cptr->name, server) == 0) {
-         Log(LOG_CRAZY, "connman", "Found server |%s| at <%p>", server, cptr);
-         server_name = strdup(server);
-
-         return cptr;
-      }
-      cptr = cptr->next;
-   }
-   return NULL;
-}
-
-bool connection_create(const char *server) {
-   if (!server) {
-      Log(LOG_DEBUG, "connman", "connection_create without server");
-
-      return true;
-   }
-   // Look up the connection properties from the server blocks and return true
-   // if not found
-   rr_connection_t *cptr = connection_find(server);
-
-   if (cptr) {
-      // Server already exists
-      Log(LOG_WARN, "connman", "Connection for server |%s| already exists", server);
-
-      return true;
-   }
-
-   // Connect to the server
-
-   // Add to the connection list
-   return false;
-}
-
-bool connection_remove(rr_connection_t *conn) {
-   if (!conn) {
-      Log(LOG_DEBUG, "connman", "connection_remove called with no connection ptr");
-
-      return true;
-   }
-   return false;
-}
-
-const char *get_server_property(const char *server, const char *prop) {
-   if (!server || !prop) {
-      Log(LOG_CRIT, "ws", "get_server_prop with null server:<%p> or prop:<%p>");
-
-      return NULL;
-   }
-   char fullkey[1024];
-   memset( fullkey, 0, sizeof(fullkey) );
-   snprintf(fullkey, sizeof(fullkey), "server:%s.%s", server, prop);
-   return dict_get(cfg, fullkey, NULL);
 }
 
 ///////////////////////////////////////////////////////////
@@ -347,35 +193,30 @@ bool connect_server(const char *server) {
    Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", resolved_server, url);
 
    if (url) {
-      if (ui_mode == UI_MODE_GTK) {
-#ifdef  USE_GTK
-         GtkStyleContext *ctx = gtk_widget_get_style_context(conn_button);
-         rrclient_update_connection_ui(-1);
-#endif // defined(USE_GTK)
-      } else if (ui_mode == UI_MODE_TUI) {
-      }
+      rrclient_update_connection_ui(-1);
       ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
 
 #ifdef	USE_MONGOOSE
-      struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
-      
-      if (!c) {
-         ui_print( NULL, "%s Socket connect error", get_chat_ts(now) );
-         ws_connected = false;
-         event_emit("http.error", NULL, NULL);
-      }
-
       if (!ws_conn) {
          ws_conn = malloc(sizeof(rrconn_t));
-         memset(ws_conn, 0, sizeof(rrconn_t));
+         memset( ws_conn, 0, sizeof(rrconn_t) );
+      }
+
+      struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
+
+      if (!c) {
+         ui_print( NULL, "%s Socket connect error", get_chat_ts(now) );
+         ws_connected = 0;
+         event_emit("http.error", NULL, NULL);
+         return true;
       }
       ws_conn->conn = c;
       ws_conn->conn->fn_data = (void *)ws_conn;
 #endif // defined(USE_MONGOOSE)
-   } else {
-      ui_print(NULL,
-         "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
-         resolved_server);
+    } else {
+   ui_print(NULL,
+       "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
+       get_chat_ts(now), resolved_server);
    }
    return false;
 }

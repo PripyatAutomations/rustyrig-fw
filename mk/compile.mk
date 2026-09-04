@@ -44,7 +44,8 @@ CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
 CFLAGS += -DHOST_EEPROM_FILE="\"build/${PROFILE}/eeprom.bin\""
 ifeq (${USE_ASAN},true)
-CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g -fstack-check
+CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g -fstack-check \
+	-fno-common -fsanitize=undefined -fno-sanitize-recover=all
 LDFLAGS += -fsanitize=address,undefined -fstack-check
 endif
 

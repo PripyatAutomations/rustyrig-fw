@@ -85,7 +85,6 @@ void tui_refresh_sb_vfo(void) {
    long freq = vfo_state_get_long("cat.state.freq", 0);
    const char *mode = vfo_state_get("cat.state.mode", "---");
    long width = vfo_state_get_long("cat.state.width", 0);
-
    snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: %ld/%s-%ld>", vfo, freq, mode, width);
 }
 
@@ -114,7 +113,6 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
    }
 
    dict *d = json2dict(data);
-
    time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *msg_from = dict_get(d, "alert.from", (char *)"*unknown*");
    const char *msg_data = dict_get(d, "alert.data", (char *)"*No message*");
@@ -150,8 +148,7 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
       const char *a_token = dict_get(d, "auth.token", NULL);
       const char *a_privs = dict_get(d, "auth.privs", NULL);
 
-      ui_print( NULL,
-         "%s {bright-cyan}Welcome back, {bright-yellow}%s{bright-cyan}! You have {bright-green}%s{bright-cyan} privileges",
+      ui_print( NULL, "%s {bright-cyan}Welcome back, {bright-yellow}%s{bright-cyan}! You have {bright-green}%s{bright-cyan} privileges",
          get_chat_ts(a_ts), a_user, a_privs);
       if (ui_mode == UI_MODE_TUI) {
          tui_refresh_sb_online();
@@ -244,24 +241,38 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *msg_type = dict_get(d, "talk.msg_type", NULL);
    const char *msg_data = dict_get(d, "talk.data", NULL);
+   const char *msg_cmd = dict_get(d, "talk.cmd", NULL);
 
-   if (strcasecmp(msg_type, "action") == 0) {
-      ui_print(NULL, "%s * %s %s", get_chat_ts(msg_ts), from, msg_data);
+   if (msg_cmd && strcasecmp(msg_cmd, "replay-start") == 0) {
+      ui_print(NULL, "{red}>>>{reset} Start of chat chat replay. {red}<<<{reset}");
+   } else if (msg_cmd && strcasecmp(msg_cmd, "replay-completed") == 0) {
+      ui_print(NULL, "{red}>>>{reset} Finished chat replay. {red}<<<{reset}");
    } else {
-      if (login_user != NULL && strcmp(from, login_user) == 0) {
-         ui_print(NULL, "%s {yellow}=>{reset} %s", get_chat_ts(msg_ts), msg_data);
-      } else {
-         ui_print(NULL, "%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
+      if (strcasecmp(msg_type, "action") == 0) {
+         ui_print(NULL, "%s {yellow}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
+      } else if (strcasecmp(msg_type, "pub") == 0) {
+         if (login_user != NULL && strcmp(from, login_user) == 0) {
+            ui_print(NULL, "%s {yellow}=>{reset} %s", get_chat_ts(msg_ts), msg_data);
+         } else {
+            ui_print(NULL, "%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
+         }
+      } else if (strcasecmp(msg_type, "replay-pub") == 0) {
+        ui_print(NULL, "%s {red}<{reset}%s{red}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
+      } else if (strcasecmp(msg_type, "replay-action") == 0) {
+         ui_print(NULL, "%s {red}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
+      } else if (strcasecmp(msg_type, "priv") == 0) {
+         ui_print(NULL, "%s {bright-green}*{reset}%s{bright-green}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
+      } else if (strcasecmp(msg_type, "replay-priv") == 0) {
+         ui_print(NULL, "%s {magenta}*{reset}%s{magenta}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
       }
-   }
-   cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
+      cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
 
-   if (cfg_ui_bell_chat) {
-      ui_message_bell();
+      if (cfg_ui_bell_chat) {
+         ui_message_bell();
+      }
    }
    dict_free(d);
 }
-
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (strcasecmp(event, "connecting") == 0) {
@@ -362,20 +373,6 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
    Log(LOG_CRAZY, "ws.nomatch", "Got NOMATCH hit with json: %s", data);
 }
 
-static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *cptr, void *user) {
-#if	0	// this seems to be a duplicate
-   if (!data) {
-      return;
-   }
-
-   dict *d = json2dict(data);
-   // just replace 'ping' with 'pong' and send it back
-   dict_add(d, "cmd", "pong");
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
-   dict_free(d);
-#endif
-}
-
 static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -388,7 +385,7 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
    const char *m_reason = dict_get(d, "talk.reason", NULL);
    const char *m_target = "&localrig";
 
-   time_t m_ts = dict_get_time_t(d, "talk.ts", now);
+   time_t m_ts = dict_get_time_t(d, "msg.ts", now);
    const char *s_unknown = "<UNKNOWN>";
 
    if (!m_user) {
@@ -436,7 +433,6 @@ void rrclient_register_events(void) {
    event_on("NOMATCH", rrclient_handle_nomatch, NULL);
    event_on("ws.msg.hello", rrclient_handle_hello, NULL);
    event_on("ws.msg.auth", rrclient_handle_auth, NULL);
-   event_on("ws.msg.ping", rrclient_handle_ping, NULL);
 
    // Connection status related
    event_on("auth.error", rrclient_handle_autherr, NULL);
@@ -455,6 +451,7 @@ void rrclient_register_events(void) {
    event_on("privmsg", rrclient_handle_talk_msg, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg, NULL);
+   event_on("ws.talk.msg", rrclient_handle_talk_msg, NULL);
    event_on("userinfo", rrclient_handle_userinfo, NULL);
    event_on("whois", rrclient_handle_whois, NULL);
 

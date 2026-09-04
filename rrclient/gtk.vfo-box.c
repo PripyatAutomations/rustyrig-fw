@@ -63,7 +63,6 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
       return TRUE;
    } else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->mode_combo);
-
       return TRUE;
    }
 
@@ -125,7 +124,6 @@ GtkWidget *create_vfo_box(void) {
 gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
    if (!vfo_box || vfo == '\0') {
       Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%p> vfo |%c|", vfo_box, vfo);
-
       return NULL;
    }
    // prepare a programmatic name for the VFO

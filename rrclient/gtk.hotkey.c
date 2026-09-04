@@ -43,7 +43,6 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    // F11 toggles fullscreen
    if ( (event->keyval == GDK_KEY_F11) ) {
       gui_fullscreen_toggle();
-
       return TRUE;
    }
 
@@ -51,7 +50,6 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    if ( (event->state & GDK_MOD1_MASK) ) {
       if (!main_win) {
          Log(LOG_DEBUG, "gtk", "main_win is null in alt-# handler");
-
          return TRUE;
       }
 
@@ -179,10 +177,8 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
             break;
          }
       }
-
       return TRUE;
    }
-
    return FALSE;
 }
 
@@ -191,6 +187,5 @@ bool gui_hotkey_register(GtkWidget *widget) {
       return true;
    }
    g_signal_connect(widget, "key-press-event", G_CALLBACK(gui_global_hotkey_cb), widget);
-
    return false;
 }

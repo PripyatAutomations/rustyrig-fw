@@ -45,7 +45,6 @@ const char *vfo_state_get(const char *key, const char *def) {
       return def;
    }
    const char *val = dict_get(vfo_state, key, NULL);
-
    return val ? val : def;
 }
 
@@ -54,7 +53,6 @@ long vfo_state_get_long(const char *key, long def) {
       return def;
    }
    const char *val = dict_get(vfo_state, key, NULL);
-
    return val ? atol(val) : def;
 }
 
@@ -63,7 +61,6 @@ bool vfo_state_get_bool(const char *key, bool def) {
       return def;
    }
    const char *val = dict_get(vfo_state, key, NULL);
-
    return val ? (strcasecmp(val, "true") == 0 || atoi(val) != 0) : def;
 }
 
@@ -89,7 +86,6 @@ bool vfo_set_dict(dict *d) {
          dict_add_null(vfo_state, key);
       }
    }
-
    return vfo_update_ui();
 }
 
@@ -108,7 +104,6 @@ bool vfo_update_ui(void) {
    if (ui_mode == UI_MODE_TUI) {
       // TUI: refresh the statusbar VFO section from the saved state
       tui_refresh_sb_vfo();
-
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
       // Frequency
@@ -149,6 +144,5 @@ bool vfo_update_ui(void) {
       }
 #endif	// USE_GTK
    }
-
    return false;
 }

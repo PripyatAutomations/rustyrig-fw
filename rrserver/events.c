@@ -42,7 +42,6 @@ static void rrserver_handle_nomatch(const char *event, const char *data, rrconn_
    Log(LOG_WARN, "ws.nomatch", "NOMATCH: %s", data);
 }
 
-
 static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -154,18 +153,21 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
             cptr->chatname, dict_get(d, "talk.data", ""));
       }
 
+      const char *talk_from = dict_get(d, "talk.from", NULL);
+      const char *talk_target = dict_get(d, "talk.target", NULL);
+      const char *talk_msg_type = dict_get(d, "talk.msg_type", NULL);
+      const char *talk_msg = dict_get(d, "talk.data", NULL);
+
 #ifdef USE_SQLITE
       if (channel) {
-         if (!db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, data)) {
+         if (!db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, talk_msg)) {
             Log(LOG_WARN, "db", "failed to save chat message");
          }
       }
 #endif
 
       Log(LOG_CRAZY, "events.ws", "talk.msg broadcasting: from=<%s> target=<%s> type=<%s>",
-         dict_get(d, "talk.from", "(null)"),
-         dict_get(d, "talk.target", "(null)"),
-         dict_get(d, "talk.msg_type", "(null)"));
+         talk_from, talk_target, talk_msg_type);
 
       ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
       Log(LOG_CRAZY, "events.ws", "talk.msg broadcast returned");
