@@ -257,6 +257,12 @@ bool vfo_update_ui(void) {
       // Width (map Hz to the NARR/NORM/WIDE combo entries)
       // If the server sent us the rig's supported passband widths, populate
       // the combo from that instead of the canned NARR/NORM/WIDE entries.
+      // The widths arrive as narr,norm,wide (hz) - we keep them so the
+      // canned NARR/NORM/WIDE labels below can be mapped to real values
+      // (atol() on those labels is 0, which made NARR always win the
+      // closest-match and the widget appeared to default to narrow).
+      static long rig_widths[3] = { 0, 0, 0 };   // narr, norm, wide in hz
+
       if (width_combo) {
          const char *widths_str = vfo_state_get(vfo_str, "cat.state.widths", NULL);
          static char last_widths[128] = { 0 };
@@ -271,8 +277,12 @@ bool vfo_update_ui(void) {
             }
 
             // Add the widths the rig reports, as Hz values
+            memset(rig_widths, 0, sizeof(rig_widths));
             char *dup = strdup(widths_str);
-            for (char *tok = strtok(dup, ",") ; tok ; tok = strtok(NULL, ",")) {
+            int wi = 0;
+            for (char *tok = strtok(dup, ",") ; tok && wi < 3 ; tok = strtok(NULL, ","), wi++) {
+               rig_widths[wi] = atol(tok);
+
                char entry[32];
                snprintf(entry, sizeof(entry), "%s Hz", tok);
                gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), entry);
@@ -299,8 +309,28 @@ bool vfo_update_ui(void) {
                gtk_tree_model_get(model, &iter, 0, &entry, -1);
 
                if (entry) {
-                  long w = atol(entry);
-                  long delta = (w > vfo_width) ? (w - vfo_width) : (vfo_width - w);
+                 long w = atol(entry);
+
+                 // Canned labels NARR/NORM/WIDE contain no digits; map them
+                 // to the passband values the rig reported. If we have none
+                 // yet, treat them as equal so the initial NORM default
+                 // (set in gtk.mode-box.c) is preserved.
+                 if (w <= 0) {
+                    w = (i < 3) ? rig_widths[i] : 0;
+                 }
+
+                 // If we can't resolve a real width for this entry (no
+                 // digits and no rig-reported passbands), skip it: selecting
+                 // among equal unknowns would always pick NARR. Leaving
+                 // best_idx at -1 preserves the NORM default from
+                 // gtk.mode-box.c.
+                 if (w <= 0) {
+                    i++;
+                    valid = gtk_tree_model_iter_next(model, &iter);
+                    continue;
+                 }
+
+                 long delta = (w > vfo_width) ? (w - vfo_width) : (vfo_width - w);
 
                   if (best_idx < 0 || delta < best_delta) {
                      best_idx = i;
