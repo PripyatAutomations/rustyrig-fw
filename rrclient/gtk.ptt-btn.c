@@ -30,6 +30,7 @@ extern bool ptt_active;
 extern const char *login_user;   // connman.c
 extern rrconn_t *ws_conn;
 extern time_t poll_block_expire, poll_block_delay;
+extern bool dying;              // main.c
 GtkWidget *ptt_button = NULL;
 
 // PTT ack tracking: when the user toggles PTT we show PENDING (yellow) until
@@ -159,7 +160,7 @@ void ptt_button_set_online(bool online) {
 }
 
 void update_ptt_button_ui(GtkToggleButton *button, int active) {
-   if (!button) {
+   if (!button || dying) {
       return;
    }
 

@@ -143,7 +143,9 @@ static gboolean mg_source_check(GSource *source) {
 }
 
 static gboolean mg_source_dispatch(GSource *source, GSourceFunc cb, gpointer data) {
-   rrclient_poll_events();             // mg_mgr_poll(&mgr, 0) + reconnect engine
+   if (!dying) {
+      rrclient_poll_events();          // mg_mgr_poll(&mgr, 0) + reconnect engine
+   }
    return G_SOURCE_CONTINUE;
 }
 
@@ -230,17 +232,30 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
 }
 
 bool rrclient_cleanup(void) {
+   // Idempotent: this is reachable from the timeout, the TUI clock cb, the
+   // signal handler, and after gtk_main()/ev_run() return.  Guard so GTK is
+   // not torn down twice (which triggers gtk_main_quit "main_loops != NULL").
+   static bool cleaned_up = false;
+   if (cleaned_up) {
+      return true;
+   }
+   cleaned_up = true;
    logger_end();
    dict_free(cfg);
 
    if (ui_mode == UI_MODE_TUI) {
       tui_raw_mode(false);
-   } else if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      gui_font_fini();
-      gtk_main_quit();
-#endif	// USE_GTK
-   }
+       } else if (ui_mode == UI_MODE_GTK) {
+   #ifdef	USE_GTK
+          gui_font_fini();
+          // Only quit if the main loop is still running.  When the user closes
+          // the window, destroy→gtk_main_quit already unwound the loop and
+          // calling gtk_main_quit() again asserts ("main_loops != NULL").
+          if (gtk_main_level() > 0) {
+             gtk_main_quit();
+          }
+   #endif	// USE_GTK
+       }
 
    // Shut down sockets
 #ifdef USE_MONGOOSE

@@ -27,13 +27,16 @@ extern GtkWidget *main_notebook;
 
 GtkTextBuffer *log_buffer = NULL;
 GtkWidget *log_view = NULL;
+extern bool dying;               // main.c
 
 // backend
 bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    if (!fmt || !ap) {
       return true;
    }
-   if (!log_buffer) {
+   // During shutdown the GTK widgets (and log_buffer) are destroyed before
+   // the network/Log() teardown completes; refuse to touch them once dying.
+   if (dying || !log_buffer) {
       return true;
    }
    // Respect the configured log level.  Without this we rendered EVERY Log()

@@ -22,6 +22,7 @@
 #include <rrclient/ui.h>
 
 extern dict *cfg;
+extern bool dying;               // main.c
 struct rr_user *global_userlist = NULL;
 
 // Add or update an entry, matching on name.
@@ -175,7 +176,10 @@ void userlist_clear_all(void) {
    }
    // Clear the userlist pointer
    global_userlist = NULL;
-
+   // Skip GTK redraw during shutdown: the widgets are already gone.
+   if (dying) {
+      return;
+   }
    if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
       userlist_redraw_gtk();

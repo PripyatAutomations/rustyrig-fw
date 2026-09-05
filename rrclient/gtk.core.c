@@ -29,6 +29,7 @@
 
 extern dict *cfg;
 extern time_t now;
+extern bool dying;               // main.c
 GtkWidget *main_window = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
@@ -207,6 +208,11 @@ void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def) {
 
 bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    if (!fmt) {
+      return true;
+   }
+   // During shutdown the chat text buffer is destroyed before the network
+   // layer finishes tearing down; don't touch GTK widgets once dying.
+   if (dying) {
       return true;
    }
 
