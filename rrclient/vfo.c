@@ -32,7 +32,7 @@
 // off stomping the entry with poll echoes for rig.edit-delay seconds after
 // that (default 3).
 extern time_t freqentry_last_send;
-extern int cfg_rig_edit_delay;      // main.c
+extern int cfg_ui_edit_delay;       // main.c
 #endif
 
 // The single copy of the VFO state.  There may be multiple VFOs, identified
@@ -227,7 +227,7 @@ bool vfo_update_ui(void) {
       // Skip if we just sent a freq change from the entry: the server's
       // poll echo may still show the pre-change value for rig.edit-delay
       // seconds (gives the user a few moments to click the spinners).
-      if (freq_entry && vfo_freq > 0 && (now - freqentry_last_send) > cfg_rig_edit_delay) {
+      if (freq_entry && vfo_freq > 0 && (now - freqentry_last_send) > cfg_ui_edit_delay) {
          GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
 
          if ( !gtk_freq_entry_is_editing(fe) ) {
@@ -236,8 +236,16 @@ bool vfo_update_ui(void) {
       }
 
       // Mode
+      // Block the changed handler while we set the combo from server state,
+      // else setting it here fires on_mode_changed(), which sends the mode
+      // command right back - a feedback loop that clobbers the user's mode
+      // changes (e.g. !mode LSB from chat gets reverted to the old mode).
       if (mode_combo && vfo_mode) {
+         extern gulong mode_changed_handler_id;      // gtk.mode-box.c
+
+         g_signal_handler_block(mode_combo, mode_changed_handler_id);
          set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), vfo_mode);
+         g_signal_handler_unblock(mode_combo, mode_changed_handler_id);
       }
 
       // Width (map Hz to the NARR/NORM/WIDE combo entries)

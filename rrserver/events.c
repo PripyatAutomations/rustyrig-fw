@@ -54,13 +54,14 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    dict_dump(d, NULL);
 
-   const char *rc_cmd = dict_get(d, "rigctl.cmd", NULL);
+    const char *rc_cmd = dict_get(d, "rigctl.cmd", NULL);
    const char *rc_vfo = dict_get(d, "rigctl.vfo", NULL);
    const char *rc_from = dict_get(d, "rigctl.from", NULL);
    int rc_freq = dict_get_int(d, "rigctl.freq", 0);
+   const char *rc_mode = dict_get(d, "rigctl.mode", NULL);
 
-   Log(LOG_CRIT, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d",
-      rc_cmd, rc_vfo, rc_from, rc_freq);
+   Log(LOG_CRIT, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d, mode: %s",
+      rc_cmd, rc_vfo, rc_from, rc_freq, rc_mode ? rc_mode : "(none)");
 
    if (!rc_cmd || !rc_vfo || !rc_from) {
       dict_free(d);
@@ -68,6 +69,29 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    }
 
    rr_vfo_t vfo = vfo_lookup(rc_vfo[0]);
+
+   if (strcasecmp(rc_cmd, "mode") == 0) {
+      // Set the rig mode (from !mode chat command or ws cat.cmd mode)
+      if (!rc_mode) {
+         Log(LOG_WARN, "ws.rigctl", "MODE set without a mode");
+         dict_free(d);
+         return;
+      }
+
+      rr_mode_t new_mode = vfo_parse_mode(rc_mode);
+      if (new_mode == MODE_NONE) {
+         Log(LOG_WARN, "ws.rigctl", "Couldn't parse mode %s", rc_mode);
+         dict_free(d);
+         return;
+      }
+
+      // Audit trail: who changed which VFO to what mode
+      Log(LOG_AUDIT, "ws.rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
+      rr_set_mode(vfo, new_mode);
+      dict_free(d);
+      return;
+   }
+
    fprintf(stderr, "setting vfo %s freq to %d\n", rc_vfo, rc_freq);
 
    // Audit trail: who changed which VFO to what frequency

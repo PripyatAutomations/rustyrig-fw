@@ -79,7 +79,7 @@ bool dying = false;
 bool restarting = false;
 bool debug_sockets = false;
 int cfg_ui_vfo_viscosity = -1;
-int cfg_rig_edit_delay = 3;         // Seconds to suppress freq updates after local edit
+int cfg_ui_edit_delay = 3;          // Seconds to suppress freq updates after local edit
 time_t now = 0;
 
 #ifdef	USE_LIBEV
@@ -377,7 +377,7 @@ int main(int argc, char *argv[]) {
    poll_block_delay = (cfg_ui_vfo_viscosity > 0) ? (cfg_ui_vfo_viscosity / 1000) : 0;
    Log(LOG_DEBUG, "main", "CAT poll blocking delay: %d second(s)", (int)poll_block_delay);
    // How long after a local freq edit to suppress CAT poll echoes (seconds)?
-   cfg_rig_edit_delay = cfg_get_int("rig.edit-delay", 3);
+   cfg_ui_edit_delay = cfg_get_int("ui.edit-delay", 3);
    cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 

@@ -60,7 +60,7 @@ defconfig_t defcfg[] = {
    { "debug.show-ts", "true", "Show timestamps in log" },
    { "path.help-dir", "./help", "Path to find help-files" },
    { "rig0.volume.rx", "50", "rig0: Speaker volume" },
-   { "rig.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit" },
+   { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit" },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
 #ifdef	GTK
    { "ui.full-screen", "false", "Go full-screen at start?" },
