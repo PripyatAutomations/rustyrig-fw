@@ -35,6 +35,7 @@
 #include <rrserver/mqtt.h>
 
 extern void rrserver_register_events(void); // events.c
+extern void audit_init(void);               // audit.c
 #ifdef	USE_MONGOOSE
 struct mg_mgr mg_mgr;
 #endif
@@ -213,6 +214,7 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(EXIT_FAILURE);
    }
+   audit_init();   // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
 
    protection_init();

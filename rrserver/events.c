@@ -69,6 +69,10 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    rr_vfo_t vfo = vfo_lookup(rc_vfo[0]);
    fprintf(stderr, "setting vfo %s freq to %d\n", rc_vfo, rc_freq);
+
+   // Audit trail: who changed which VFO to what frequency
+   Log(LOG_AUDIT, "ws.rigctl", "User %s set VFO %s FREQ to %d hz", rc_from, rc_vfo, rc_freq);
+
    rr_freq_set(vfo, rc_freq);
    dict_free(d);
 }
@@ -143,12 +147,12 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
        strcasecmp(msg_type, "action") == 0) {
 
       if (strcasecmp(msg_type, "action") == 0) {
-         Log(LOG_AUDIT, "ws.chat", "** %s * %s%s",
+         Log(LOG_INFO, "ws.chat", "** %s * %s%s",
             channel ? channel : "&localrig",
             cptr->chatname,
             dict_get(d, "talk.data", ""));
-      } else {
-         Log(LOG_AUDIT, "ws.chat", "** %s <%s> %s",
+      } else if (strcasecmp(msg_type, "pub") == 0) {
+         Log(LOG_INFO, "ws.chat", "** %s <%s> %s",
             channel ? channel : "&localrig",
             cptr->chatname, dict_get(d, "talk.data", ""));
       }
@@ -166,11 +170,11 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       }
 #endif
 
-      Log(LOG_CRAZY, "events.ws", "talk.msg broadcasting: from=<%s> target=<%s> type=<%s>",
+      Log(LOG_CRAZY, "ws.chat", "talk.msg broadcasting: from=<%s> target=<%s> type=<%s>",
          talk_from, talk_target, talk_msg_type);
 
       ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
-      Log(LOG_CRAZY, "events.ws", "talk.msg broadcast returned");
+      Log(LOG_CRAZY, "ws.chat", "talk.msg broadcast returned");
       dict_free(d);
       return;
    }

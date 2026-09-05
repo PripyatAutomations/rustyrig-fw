@@ -6,6 +6,7 @@ bins += ${rrserver}
 #rrserver_objs += au.recording.o		# support for recording session audio
 rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
+rrserver_objs += audit.o		# Store LOG_AUDIT Log() messages in the audit_log db table
 rrserver_objs += backend.o		# Interface to various backends
 rrserver_objs += backend.dummy.o	# Dummy (NOOP) backend for testing
 rrserver_objs += backend.hamlib.o	# Hamlib backend for posix hosts
@@ -34,7 +35,7 @@ rrserver_objs += timer.o		# Timers support
 rrserver_objs += timer.clocktick.o	# Our 1hz timer
 rrserver_objs += unwind.o		# Support for stack unwinding on crashes
 rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
-#rrserver_objs += 
+#rrserver_objs +=
 
 RRSERVER_HEADERS += $(wildcard rrserver/*.h)
 

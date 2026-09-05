@@ -1,11 +1,13 @@
 -- General audit log
+-- event_type is the log subsystem (e.g. 'auth', 'ptt', 'ws.chat') for events
+-- captured from Log(LOG_AUDIT, ...) by rrserver/audit.c, or a category such as
+-- 'login', 'logout', 'kicked', 'muted', 'unmuted', 'banned' for direct calls
+-- to db_add_audit_event(). username is '-' when the logger doesn't know it.
 CREATE TABLE audit_log (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
    username TEXT NOT NULL,
-   event_type TEXT NOT NULL CHECK(event_type IN (
-      'login', 'logout', 'kicked', 'muted', 'unmuted', 'banned'
-   )),
+   event_type TEXT NOT NULL,
    details TEXT  -- optional, for additional info if needed
 );
 
