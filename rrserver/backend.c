@@ -225,6 +225,15 @@ bool rr_set_width(rr_vfo_t vfo, const char *width) {
    return rv;
 }
 
+// Get the passband widths (hz) the rig/backend supports, into `widths'
+// (up to `max' entries). Returns the count written, or 0 if unsupported.
+int rr_widths_get(rr_vfo_t vfo, int *widths, int max) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->widths_get) {
+      return 0;
+   }
+   return rig.backend->api->widths_get(vfo, widths, max);
+}
+
 rr_mode_t rr_get_mode(rr_vfo_t vfo) {
    rr_mode_t mode = MODE_NONE;
 

@@ -44,6 +44,7 @@ struct rr_backend_funcs {
    float (*freq_get)(rr_vfo_t vfo);
    uint16_t (*width_get)(rr_vfo_t vfo);
    bool (*width_set)(rr_vfo_t vfo, const char *width);
+   int (*widths_get)(rr_vfo_t vfo, int *widths, int max); // Supported passband widths (hz)
 };
 typedef struct rr_backend_funcs rr_backend_funcs_t;
 
@@ -71,6 +72,7 @@ extern bool rr_freq_set(rr_vfo_t vfo, int freq);
 extern bool rr_be_poll(rr_vfo_t vfo);
 extern uint16_t rr_get_width(rr_vfo_t vfo);
 extern bool rr_set_width(rr_vfo_t vfo, const char *width);
+extern int rr_widths_get(rr_vfo_t vfo, int *widths, int max);
 extern bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode);
 extern rr_mode_t rr_get_mode(rr_vfo_t vfo);
 

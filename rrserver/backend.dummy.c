@@ -66,11 +66,23 @@ rr_vfo_data_t *be_dummy_poll(rr_vfo_t vfo) {
    return NULL;
 }
 
+// Canned passband widths for the dummy backend
+static int be_dummy_widths_get(rr_vfo_t vfo, int *widths, int max) {
+   if (!widths || max < 3) {
+      return 0;
+   }
+   widths[0] = 2400;
+   widths[1] = 3000;
+   widths[2] = 3600;
+   return 3;
+}
+
 static rr_backend_funcs_t rr_backend_dummy_api = {
    .backend_fini = &be_dummy_fini,
    .backend_init = &be_dummy_init,
    .backend_poll = &be_dummy_poll,
-   .ptt_set = &be_dummy_ptt_set
+   .ptt_set = &be_dummy_ptt_set,
+   .widths_get = &be_dummy_widths_get
 };
 
 rr_backend_t rr_backend_dummy = {

@@ -240,24 +240,82 @@ bool vfo_update_ui(void) {
       // else setting it here fires on_mode_changed(), which sends the mode
       // command right back - a feedback loop that clobbers the user's mode
       // changes (e.g. !mode LSB from chat gets reverted to the old mode).
+      // Also skip if we just sent a mode change locally: the poll echo may
+      // still carry the previous mode (ui.edit-delay seconds grace).
       if (mode_combo && vfo_mode) {
          extern gulong mode_changed_handler_id;      // gtk.mode-box.c
+         extern time_t modebox_last_send;            // gtk.mode-box.c
 
-         g_signal_handler_block(mode_combo, mode_changed_handler_id);
-         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), vfo_mode);
-         g_signal_handler_unblock(mode_combo, mode_changed_handler_id);
+         if ( (now - modebox_last_send) > cfg_ui_edit_delay ) {
+            g_signal_handler_block(mode_combo, mode_changed_handler_id);
+            set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), vfo_mode);
+            g_signal_handler_unblock(mode_combo, mode_changed_handler_id);
+         }
       }
 
       // Width (map Hz to the NARR/NORM/WIDE combo entries)
-      if (width_combo && vfo_width > 0) {
-         const char *wname = "NORM";
+      // If the server sent us the rig's supported passband widths, populate
+      // the combo from that instead of the canned NARR/NORM/WIDE entries.
+      if (width_combo) {
+         const char *widths_str = vfo_state_get(vfo_str, "cat.state.widths", NULL);
+         static char last_widths[128] = { 0 };
 
-         if (vfo_width < 1800) {
-            wname = "NARR";
-         } else if (vfo_width > 2700) {
-            wname = "WIDE";
+         if (widths_str && *widths_str && strcmp(widths_str, last_widths) != 0) {
+            snprintf(last_widths, sizeof(last_widths), "%s", widths_str);
+
+            // Remove existing entries
+            gint count = gtk_tree_model_iter_n_children(GTK_TREE_MODEL(gtk_combo_box_get_model(GTK_COMBO_BOX(width_combo))), NULL);
+            for (gint i = count - 1 ; i >= 0 ; i--) {
+               gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT(width_combo), i);
+            }
+
+            // Add the widths the rig reports, as Hz values
+            char *dup = strdup(widths_str);
+            for (char *tok = strtok(dup, ",") ; tok ; tok = strtok(NULL, ",")) {
+               char entry[32];
+               snprintf(entry, sizeof(entry), "%s Hz", tok);
+               gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), entry);
+            }
+            free(dup);
          }
-         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(width_combo), wname);
+      }
+
+      if (width_combo && vfo_width > 0) {
+         // Select the entry closest to the current width. If the combo still
+         // has the canned NARR/NORM/WIDE entries, map to those; otherwise we
+         // match the "<hz> Hz" entries the server sent us.
+         GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(width_combo));
+         GtkTreeIter iter;
+         int best_idx = -1;
+         long best_delta = 0;
+         int i = 0;
+
+         if (gtk_tree_model_get_iter_first(model, &iter) ) {
+            gboolean valid = TRUE;
+
+            while (valid) {
+               gchar *entry = NULL;
+               gtk_tree_model_get(model, &iter, 0, &entry, -1);
+
+               if (entry) {
+                  long w = atol(entry);
+                  long delta = (w > vfo_width) ? (w - vfo_width) : (vfo_width - w);
+
+                  if (best_idx < 0 || delta < best_delta) {
+                     best_idx = i;
+                     best_delta = delta;
+                  }
+                  g_free(entry);
+               }
+
+               i++;
+               valid = gtk_tree_model_iter_next(model, &iter);
+            }
+         }
+
+         if (best_idx >= 0) {
+            gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), best_idx);
+         }
       }
 
       // TX power

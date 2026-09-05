@@ -21,6 +21,8 @@
 #include <rrclient/gtk.core.h>
 #include <rrclient/vfo.h>
 extern rrconn_t *ws_conn;
+extern time_t now;
+extern int cfg_ui_edit_delay;       // main.c
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
 
@@ -34,6 +36,11 @@ static void on_mode_popdown(GtkComboBox *b, gpointer u) {
 
 gulong mode_changed_handler_id;
 
+// Timestamp of the last mode command sent by this widget; vfo_update_ui()
+// suppresses mode combo updates for ui.edit-delay seconds after a local
+// send, since the server's poll echo may still carry the previous mode.
+time_t modebox_last_send = 0;
+
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
 
@@ -42,6 +49,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 #if     defined(USE_MONGOOSE)
       char vfo[2] = { vfo_state_get_active(), '\0' };
       ws_send_mode_cmd(ws_conn, vfo, text);
+      modebox_last_send = now;
 #endif // defined(USE_MONGOOSE)
 
       // Show/hide repeater dialog locally based on FM mode

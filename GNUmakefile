@@ -60,3 +60,12 @@ world: after-eeprom
 
 after-eeprom: ${EEPROM_FILE}
 after-eeprom: ${BUILD_DIR}/.stamp ${BUILD_DIR}/build_config.h ${extra_build} ${bins}
+
+audit-log:
+	./tools/get-audit-log.sh
+
+chat-log:
+	./tools/get-chat-log.sh
+
+ptt-log:
+	./tools/get-ptt-log.sh

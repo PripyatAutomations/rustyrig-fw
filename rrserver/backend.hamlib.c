@@ -318,6 +318,25 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // Send the canonical internal mode name (D-U/D-L, etc), never the raw
    // hamlib string (PKTUSB/PKTLSB) - conversion already done above.
    dict_add(d, "cat.state.mode", vfo_mode_name(rv->mode));
+
+   // Query the supported passband widths through the backend-agnostic
+   // wrapper and broadcast them as a comma-separated list, e.g. "2400,3000,3600"
+   int widths[8];
+   int num_widths = rr_widths_get(vfo, widths, 8);
+
+   if (num_widths > 0) {
+      char widths_str[128];
+      memset(widths_str, 0, sizeof(widths_str));
+      int len = 0;
+
+      for (int i = 0 ; i < num_widths ; i++) {
+         if (i > 0) {
+            len += snprintf(widths_str + len, sizeof(widths_str) - len, ",");
+         }
+         len += snprintf(widths_str + len, sizeof(widths_str) - len, "%d", widths[i]);
+      }
+      dict_add(d, "cat.state.widths", widths_str);
+   }
    dict_add(d, "cat.user", (talker ? talker->chatname : "") );
    dict_add_int(d, "cat.state.width", hl_state.width);
    dict_add_int(d, "cat.state.power", hl_state.power);
@@ -369,6 +388,11 @@ uint16_t hl_width_get(rr_vfo_t vfo) {
 bool hl_width_set(rr_vfo_t vfo, const char *width) {
    int rv = -1;
 
+   // Refresh the current mode first - hl_state.rmode may be stale (or zero
+   // if no poll has happened yet) and the passband helpers need the mode
+   // we're switching the width FOR.
+   hl_mode_get(vfo);
+
    if (strcasecmp(width, "narrow") == 0 || strcasecmp(width, "nar") == 0) {
       rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode, rig_passband_narrow(hl_rig, hl_state.rmode) );
    } else if (strcasecmp(width, "normal") == 0 || strcasecmp(width, "norm") == 0) {
@@ -377,10 +401,49 @@ bool hl_width_set(rr_vfo_t vfo, const char *width) {
       rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode, rig_passband_wide(hl_rig, hl_state.rmode) );
    } else {
       Log(LOG_WARN, "backend.hamlib", "Unknown width %s - try narrow|normal|wide!", width);
+      return true;
    }
-   Log(LOG_INFO, "backend.hamlib", "Set width to %s: rv=%d");
+   // NB: the format args were missing here (crash in printf/strlen)
+   Log(LOG_INFO, "backend.hamlib", "Set width to %s: rv=%d", width, rv);
 
-   return false;
+   return rv != RIG_OK;
+}
+
+// Fill `widths' with the passband widths (hz) the rig supports for the
+// current mode: narrow, normal and wide. Returns count written, 0 on error.
+int hl_widths_get(rr_vfo_t vfo, int *widths, int max) {
+   if (!widths || max < 3) {
+      return 0;
+   }
+
+   // Make sure we know the current mode; the passband helpers are per-mode
+   hl_mode_get(vfo);
+   rmode_t rmode = hl_state.rmode;
+
+   int norm = hl_state.width;
+   if (norm <= 0) {
+      norm = rig_passband_normal(hl_rig, rmode);
+   }
+   int narr = rig_passband_narrow(hl_rig, rmode);
+   int wide = rig_passband_wide(hl_rig, rmode);
+
+   // Some rigs/backends return 0 for narrow/wide; synthesize sane values
+   if (narr <= 0 && norm > 0) {
+      narr = (norm * 2) / 3;
+   }
+   if (wide <= 0 && norm > 0) {
+      wide = (norm * 3) / 2;
+   }
+
+   if (narr <= 0 || norm <= 0 || wide <= 0) {
+      Log(LOG_DEBUG, "backend.hamlib", "widths_get: couldn't determine passbands (mode %s)", rig_strrmode(rmode) );
+      return 0;
+   }
+
+   widths[0] = narr;
+   widths[1] = norm;
+   widths[2] = wide;
+   return 3;
 }
 
 // this needs to end up at rig.backend->api->get_mode
@@ -399,6 +462,7 @@ static rr_backend_funcs_t rr_backend_hamlib_api = {
    .freq_set = &hl_freq_set,
    .mode_set = &hl_mode_set,
    .power_set = &hl_power_set,
+   .widths_get = &hl_widths_get,
    .width_set = &hl_width_set
 };
 
