@@ -33,6 +33,7 @@
 // that (default 3).
 extern time_t freqentry_last_send;
 extern int cfg_ui_edit_delay;       // main.c
+extern int cfg_ui_ptt_ack_timeout;  // gtk.ptt-btn.c
 #endif
 
 // The single copy of the VFO state.  There may be multiple VFOs, identified
@@ -323,10 +324,23 @@ bool vfo_update_ui(void) {
          gtk_range_set_value(GTK_RANGE(tx_power_slider), vfo_power);
       }
 
-      // PTT state
+      // PTT state. If we're PENDING an ack, skip the confirmed-state update
+      // (so the yellow PENDING survives poll echoes) and check the timeout.
       if (ptt_button) {
-         update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)vfo_ptt);
-         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), vfo_ptt);
+         extern bool ptt_button_pending;             // gtk.ptt-btn.c
+         extern time_t ptt_button_pending_expire;    // gtk.ptt-btn.c
+         extern int cfg_ui_ptt_ack_timeout;          // main.c
+
+         if (ptt_button_pending) {
+            if (now >= ptt_button_pending_expire) {
+               // Ack timed out: revert the button to the confirmed state
+               update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), 0);
+               gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), false);
+            }
+         } else {
+            update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)vfo_ptt);
+            gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), vfo_ptt);
+         }
       }
 #endif	// USE_GTK
    }

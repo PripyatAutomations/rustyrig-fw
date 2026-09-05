@@ -80,6 +80,7 @@ bool restarting = false;
 bool debug_sockets = false;
 int cfg_ui_vfo_viscosity = -1;
 int cfg_ui_edit_delay = 3;          // Seconds to suppress freq updates after local edit
+int cfg_ui_ptt_ack_timeout = 2;     // Seconds to wait for a PTT ack before reverting (gtk.ptt-btn.c)
 time_t now = 0;
 
 #ifdef	USE_LIBEV
@@ -378,6 +379,8 @@ int main(int argc, char *argv[]) {
    Log(LOG_DEBUG, "main", "CAT poll blocking delay: %d second(s)", (int)poll_block_delay);
    // How long after a local freq edit to suppress CAT poll echoes (seconds)?
    cfg_ui_edit_delay = cfg_get_int("ui.edit-delay", 3);
+   // How long to wait for a PTT ack before reverting the button (seconds)?
+   cfg_ui_ptt_ack_timeout = cfg_get_int("ui.ptt-ack-timeout", 2);
    cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 

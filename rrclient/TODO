@@ -1,5 +1,5 @@
 [general]
-* Make vfo.c support multiple VFOs (up to MAX_VFOs)
+* Make PTT button stay gray if you don't have TX privileges or are a noob without approval
 
 * Add are you sure dialog on close button and alt-q (exit) hotkey
   - Add alt-q exit hotkey

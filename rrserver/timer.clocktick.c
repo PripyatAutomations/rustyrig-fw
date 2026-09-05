@@ -50,11 +50,23 @@ void timer_clock_tick_fn(void *arg) {
       rrconn_t *talker = whos_talking();
       Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", cfg_rig_hard_tot);
       rr_ptt_set_all_off();
+      global_tot_time = 0;
       char msgbuf[HTTP_WS_MAX_MSG + 1];
       prepare_msg( msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s",
          (talker ? talker->chatname : "**UNKNOWN***") );
       send_global_alert("***SERVER***", msgbuf);
-      global_tot_time = 0;
+
+      // Tell clients TX was halted by TOT so they can flag it in their UI.
+      // NOTE: sent AFTER rr_ptt_set_all_off() so the confirmed cat.state.ptt
+      // echo doesn't overwrite the client's TOT warning state.
+      dict *tot_msg = dict_new();
+      dict_add(tot_msg, "msg.type", "ptt.tot-expired");
+      dict_add_ulong(tot_msg, "msg.ts", now);
+      if (talker) {
+         dict_add(tot_msg, "ptt.tot.user", talker->chatname);
+      }
+      ws_broadcast_dict(NULL, tot_msg, WEBSOCKET_OP_TEXT);
+      dict_free(tot_msg);
    }
 
    // Send pings, drop dead connections, etc

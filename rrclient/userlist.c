@@ -59,6 +59,12 @@ bool userlist_add_or_update(dict *d) {
       c->is_muted = t_muted;
       c->is_ptt = t_ptt;
 
+#if     defined(USE_GTK)
+      // Another user starting/stopping TX changes the PTT button color
+      if (ui_mode == UI_MODE_GTK) {
+         ptt_button_refresh();
+      }
+#endif
       if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
          userlist_redraw_gtk();
@@ -84,6 +90,12 @@ bool userlist_add_or_update(dict *d) {
    n->clones = t_clones;
    n->is_muted = t_muted;
    n->is_ptt = t_ptt;
+
+#if     defined(USE_GTK)
+   if (ui_mode == UI_MODE_GTK) {
+      ptt_button_refresh();
+   }
+#endif
 
    /* Append to the end of the list. */
    if (!global_userlist) {

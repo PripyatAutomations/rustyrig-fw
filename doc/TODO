@@ -1,5 +1,6 @@
 Immediate needs
 ---------------
+- add noob.cool-down=30 to rrserver/defconfig.c
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure
   - currently we still use 0 for success, which is incorrect

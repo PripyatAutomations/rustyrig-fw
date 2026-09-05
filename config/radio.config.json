@@ -1,4 +1,9 @@
 {
+   "subparts": {
+      "fwdsp": "true",
+      "rrclient": "true",
+      "rrserver": "true"
+   },
    "modules": {
       "atu": {
          "atu0": {

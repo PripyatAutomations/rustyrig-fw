@@ -23,6 +23,8 @@
 extern const char *login_user;   // from connman.c
 #ifdef	USE_GTK
 extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
+extern int cfg_ui_ptt_ack_timeout;   // gtk.ptt-btn.c
+extern void ptt_button_tot_expired(void);   // gtk.ptt-btn.c
 extern GtkWidget *freq_entry, *log_view, *main_window, *ptt_button;
 #endif	// USE_GTK
 
@@ -101,6 +103,11 @@ static void rrclient_set_offline(void) {
    rrclient_update_connection_ui(0);
    userlist_clear_all();
 
+#ifdef	USE_GTK
+   // PTT button goes back to dark grey while offline
+   ptt_button_set_online(false);
+#endif
+
    if (!ws_conn) {
       return;
    }
@@ -136,6 +143,14 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
       alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, my_msg);
    }
    dict_free(d);
+}
+
+// Server TX timed out (TOT) - flag it on the PTT button (orange) via the
+// dedicated ptt.tot-expired message from the server
+static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_t *cptr, void *user) {
+#ifdef	USE_GTK
+   ptt_button_tot_expired();
+#endif
 }
 
 static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -299,10 +314,16 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
          ui_print( NULL, "%s *** {green}Connected, logging in as %s{reset} ***", get_chat_ts(now), login_user );
       }
       rrclient_update_connection_ui(-1);
+#ifdef	USE_GTK
+      ptt_button_set_online(true);   // button turns green once we're online
+#endif
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
       ui_print( NULL, "%s *** {green}Logged in!{reset} ***", get_chat_ts(now) );
       rrclient_update_connection_ui(1);
+#ifdef	USE_GTK
+      ptt_button_set_online(true);
+#endif
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
       rrclient_set_offline();
@@ -466,4 +487,7 @@ void rrclient_register_events(void) {
    // rigctl/CAT controls
    event_on("cat.cmd", rrclient_handle_catcmd, NULL);
    event_on("ws.msg.cat", rrclient_handle_cat, NULL);
+
+   // Server TX timeout (TOT) fired
+   event_on("ws.msg.ptt.tot-expired", rrclient_handle_ptt_tot, NULL);
 }
