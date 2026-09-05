@@ -32,6 +32,10 @@ typedef struct hamlib_state {
 } hamlib_state_t;
 
 extern hamlib_state_t hl_state;
+
+// Send the last known rig state (or one synthesized from live VFO data) to a
+// single client; see hl_poll() for the throttling of the broadcast path.
+extern bool hl_send_state_to(rrconn_t *cptr);
 #endif // defined(USE_HAMLIB)
 
 #endif // !defined(__rrserver_backend_hamlib_h)

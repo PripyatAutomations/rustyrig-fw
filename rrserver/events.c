@@ -240,6 +240,15 @@ static void rrserver_handle_recording_stop(const char *event,
 }
 
 
+static void rrserver_handle_send_cat_state(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   // Push the current rig state to a single (usually just-logged-in) client
+   if (!cptr) {
+      return;
+   }
+   rr_cat_state_send(cptr);
+}
+
+
 void rrserver_register_events(void) {
    Log(LOG_CRAZY, "events", "Registering rrserver events");
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
@@ -249,5 +258,6 @@ void rrserver_register_events(void) {
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    event_on("hello", rrserver_handle_hello, NULL);
+   event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
    Log(LOG_CRAZY, "events", "Finished registering rrserver events");
 }

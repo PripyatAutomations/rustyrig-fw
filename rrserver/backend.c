@@ -280,3 +280,19 @@ bool rr_be_poll(rr_vfo_t vfo) {
    free(ret_vfo);
    return false;
 }
+
+// Push the last known rig state to a single client (e.g. a just-authenticated
+// user). Front-end for the backend's state sender, so callers outside
+// rrserver (like librrprotocol) can trigger it via rrserver/events.c without
+// linking against a specific backend.
+bool rr_cat_state_send(rrconn_t *cptr) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->backend_poll) {
+      // no backend, nothing sane to send
+      return true;
+   }
+#ifdef USE_HAMLIB
+   return hl_send_state_to(cptr);
+#else
+   return true;   // other backends don't track a sendable state yet
+#endif
+}

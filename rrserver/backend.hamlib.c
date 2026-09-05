@@ -50,6 +50,119 @@ static bool hl_fini(void);       // fwd decl
 static int32_t hamlib_debug_level = RIG_DEBUG_ERR;  // RIG_DEBUG_VERBOSE;
 hamlib_state_t hl_state;
 static int last_good_width = 0;      // last non-zero passband width seen
+// Reconnect state: when the rig connection drops (or never comes up), tear
+// everything down and retry every backend.reconnect-interval seconds. Setting
+// the interval to 0 restores the old behavior of exiting instead.
+static bool hl_connected = false;
+static time_t hl_retry_at = 0;
+static int cfg_reconnect_interval = -1;   // seconds; -1 = not yet read
+static void hl_destroy(RIG *hl_rig);      // fwd decl (defined below)
+
+// Tear down the rig connection and schedule a reconnect (or exit if the
+// reconnect interval is disabled)
+static void hl_disconnect(const char *why) {
+   Log(LOG_CRIT, "backend.hamlib", "Hamlib connection lost: %s", why);
+
+   if (hl_rig) {
+      hl_destroy(hl_rig);
+      hl_rig = NULL;
+      rr_backend_hamlib.backend_data_ptr = NULL;
+   }
+   hl_connected = false;
+
+   if (cfg_reconnect_interval < 0) {
+      cfg_reconnect_interval = cfg_get_int("backend.reconnect-interval", 30);
+      if (cfg_reconnect_interval < 0) cfg_reconnect_interval = 30;
+   }
+
+   if (cfg_reconnect_interval > 0) {
+      hl_retry_at = now + cfg_reconnect_interval;
+      Log(LOG_WARN, "backend.hamlib", "Will retry hamlib connection in %d seconds", cfg_reconnect_interval);
+   } else {
+      Log(LOG_CRIT, "backend.hamlib", "Reconnect disabled; shutting down");
+      shutdown_rig(100);
+   }
+}
+// Last cat.state dict we sent (for diffing against the next poll) and when we
+// last transmitted a (possibly unchanged) cat.state announcement. Keeping the
+// whole dict lets us reuse dict_diff() instead of hand-rolling field compares.
+static dict *last_state_dict = NULL;
+static time_t last_state_send = 0;
+static int cfg_state_interval = -1;  // seconds; -1 = not yet read from config
+
+// The keys we consider when diffing cat.state messages. Anything not listed
+// here (like the volatile msg.ts timestamp) is ignored by the diff, so only
+// genuine state changes trigger an immediate broadcast. Add fields here to
+// have them participate in change detection.
+static const char *cat_state_cmp_keys[] = {
+   "cat.state.freq",
+   "cat.state.mode",
+   "cat.state.width",
+   "cat.state.ptt",
+   "cat.user",
+   NULL,
+};
+
+// Copy only the keys in cat_state_cmp_keys from src into a new dict. Returns
+// NULL on OOM. This both strips volatile keys (msg.ts) and narrows the diff
+// to just the state we care about.
+static dict *cat_state_filter(dict *src) {
+   if (!src) return NULL;
+
+   dict *out = dict_new();
+   if (!out) return NULL;
+
+   for (int i = 0; cat_state_cmp_keys[i]; i++) {
+      const char *key = cat_state_cmp_keys[i];
+      const char *key2 = NULL;
+      dict_value_t val;
+      val_type_t type;
+      int rank = 0;
+
+      while ((rank = dict_enumerate_typed(src, rank, &key2, &val, &type)) >= 0) {
+         if (strcmp(key2, key) != 0) {
+            continue;
+         }
+         // Copy the value with its native type (all public dict_add_* API)
+         switch (type) {
+            case VAL_STR:
+               dict_add(out, key, val.s);
+               break;
+            case VAL_INT:
+               dict_add_int(out, key, val.i);
+               break;
+            case VAL_UINT:
+               dict_add_uint(out, key, val.ui);
+               break;
+            case VAL_LONG:
+               dict_add_long(out, key, val.l);
+               break;
+            case VAL_ULONG:
+               dict_add_ulong(out, key, val.ul);
+               break;
+            case VAL_LLONG:
+               dict_add_llong(out, key, val.ll);
+               break;
+            case VAL_ULLONG:
+               dict_add_ullong(out, key, val.ull);
+               break;
+            case VAL_FLOAT:
+               dict_add_float(out, key, val.f);
+               break;
+            case VAL_DOUBLE:
+               dict_add_double(out, key, val.d);
+               break;
+            case VAL_BOOL:
+               dict_add_bool(out, key, val.i != 0);
+               break;
+            default:
+               break;   // ignore exotic/unknown types
+         }
+         break;
+      }
+   }
+   return out;
+}
 
 // Return hamlib VFO from rr VFO id
 static vfo_t hl_get_vfo(rr_vfo_t vfo) {
@@ -85,6 +198,9 @@ static vfo_t hl_get_vfo(rr_vfo_t vfo) {
 }
 
 rr_mode_t hl_mode_get(rr_vfo_t vfo) {
+   if (!hl_rig) {
+      return MODE_NONE;
+   }
    int rv = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width);
    Log(LOG_DEBUG, "hl_mode_get", "rv: %d mode: %lu width: %d", rv, hl_state.rmode, hl_state.width);
 
@@ -147,6 +263,10 @@ static void hl_destroy(RIG *hl_rig) {
 }
 
 static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
+   if (!hl_rig) {
+      Log(LOG_WARN, "backend.hamlib", "PTT set while disconnected");
+      return true;
+   }
    vfo_t hl_vfo = hl_get_vfo(vfo);
    int ret = -1;
 
@@ -195,12 +315,29 @@ static bool hl_init(void) {
 
    // Open connection to rigctld
    if ( (ret = rig_open(hl_rig) ) != RIG_OK) {
-      fprintf( stderr, "Failed to connect to rigctld: %s\n", rigerror(ret) );
+      Log(LOG_CRIT, "backend.hamlib", "Failed to connect to rigctld: %s", rigerror(ret) );
       rig_cleanup(hl_rig);
-      shutdown_rig(100);
+      hl_rig = NULL;
+      hl_connected = false;
 
+      if (cfg_reconnect_interval < 0) {
+         cfg_reconnect_interval = cfg_get_int("backend.reconnect-interval", 30);
+         if (cfg_reconnect_interval < 0) cfg_reconnect_interval = 30;
+      }
+
+      if (cfg_reconnect_interval > 0) {
+         hl_retry_at = now + cfg_reconnect_interval;
+         Log(LOG_WARN, "backend.hamlib", "Will retry hamlib connection in %d seconds", cfg_reconnect_interval);
+      } else {
+         // Old behavior: exit and let the supervisor/cron restart us
+         shutdown_rig(100);
+      }
       return true;
    }
+   hl_connected = true;
+   hl_retry_at = 0;
+   Log(LOG_INFO, "backend.hamlib", "Connected to hamlib");
+
    // Activate VFO A
    rig_set_vfo(hl_rig, RIG_VFO_A);
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
@@ -210,6 +347,11 @@ static bool hl_init(void) {
 
 static bool hl_freq_set(rr_vfo_t vfo, int freq) {
    int ret = -1;
+
+   if (!hl_rig) {
+      Log(LOG_WARN, "backend.hamlib", "FREQ set while disconnected");
+      return true;
+   }
 
    // Set frequency
    if ( (ret = rig_set_freq(hl_rig, RIG_VFO_A, freq) ) != RIG_OK) {
@@ -246,6 +388,21 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // send_rig_status
    int rc = -1;
 
+   // If the rig connection is down, try to re-establish it (throttled by
+   // backend.reconnect-interval), otherwise just skip this poll
+   if (!hl_rig) {
+      if (cfg_reconnect_interval > 0 && hl_retry_at && now >= hl_retry_at) {
+         Log(LOG_INFO, "backend.hamlib", "Attempting hamlib reconnect...");
+         hl_retry_at = 0;   // set again by hl_init if this attempt fails
+         if (hl_init() == false) {
+            Log(LOG_INFO, "backend.hamlib", "Hamlib reconnected!");
+         }
+      }
+      if (!hl_rig) {
+         return NULL;
+      }
+   }
+
    rr_vfo_data_t *rv = malloc( sizeof(rr_vfo_data_t) );
 
    if (!rv) {
@@ -263,6 +420,8 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    if ( (rc = rig_set_vfo(hl_rig, hl_vfo) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "SET VFO A failed: %s", rigerror(rc) );
       free( (void *)rv );
+      // The rig isn't talking to us; tear down and schedule a reconnect
+      hl_disconnect("rig_set_vfo failed");
 
       return NULL;
    }
@@ -270,6 +429,8 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    if ( (rc = rig_get_freq(hl_rig, hl_vfo, &hl_state.freq) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "GET VFO_A freq failed: %s", rigerror(rc) );
       free( (void *)rv );
+      // The rig isn't talking to us; tear down and schedule a reconnect
+      hl_disconnect("rig_get_freq failed");
 
       return NULL;
    }
@@ -343,14 +504,94 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    dict_add_bool(d, "cat.state.ptt", hl_state.ptt);
    dict_add_long(d, "cat.state.freq", hl_state.freq);
    dict_add_ulong(d, "msg.ts", now);
+   // Lazy-load the configured max interval between unchanged cat.state sends.
+   if (cfg_state_interval < 0) {
+      cfg_state_interval = cfg_get_int("backend.state-interval", 15);
+      if (cfg_state_interval < 0) cfg_state_interval = 15;
+   }
+   // Decide whether to actually transmit this state. We diff against the last
+   // state we sent, considering only the keys in cat_state_cmp_keys so the
+   // volatile timestamp (msg.ts) and other noise don't force a send every poll.
+   bool changed = true;
+   dict *curr_cmp = cat_state_filter(d);
+   if (last_state_dict && curr_cmp) {
+      dict *prev_cmp = cat_state_filter(last_state_dict);
+      if (prev_cmp) {
+         dict *df = dict_diff(prev_cmp, curr_cmp);
+         // A non-NULL diff still needs to be non-empty to count as changed:
+         // dict_diff() returns an empty dict when the two are identical.
+         changed = (df && df->fill > 0);
+         if (df) dict_free(df);
+         dict_free(prev_cmp);
+      }
+   }
+   if (curr_cmp) dict_free(curr_cmp);
+
+   // If unchanged, only re-transmit at most once per configured interval so a
+   // quiet rig doesn't spam a full cat.state every poll (cuts network traffic
+   // and GUI workload). A real change always goes out immediately.
+   if (!changed) {
+      if (last_state_send + cfg_state_interval > now) {
+         // Too soon since our last (possibly unchanged) announcement; drop it.
+         dict_free(d);
+         return rv;
+      }
+      Log(LOG_CRAZY, "backend.hamlib", "Sending unchanged cat.state (interval reached)");
+   }
+   // Remember this state as the new baseline for future diffs.
+   if (last_state_dict) dict_free(last_state_dict);
+   last_state_dict = dict_new();
+   if (last_state_dict) {
+      dict_merge(last_state_dict, d);
+   }
+   last_state_send = now;
    const char *jp = dict2json(d);
    Log(LOG_CRAZY, "backend.hamlib", "Sending %s", jp);
    free( (char *)jp );
-
    // Send to everyone, including the sender, which will then display it in various widgets
    ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
    return rv;
+}
+
+// Send the last known rig state to a single (usually just-authenticated)
+// client so their UI populates immediately instead of waiting up to
+// backend.state-interval for the next unchanged-state announcement. If we
+// haven't sent any state yet, build one from the current VFO data.
+bool hl_send_state_to(rrconn_t *cptr) {
+   if (!cptr) {
+      return true;
+   }
+
+   dict *d = NULL;
+
+   if (last_state_dict) {
+      d = dict_new();
+      if (d) {
+         dict_merge(d, last_state_dict);
+      }
+   } else {
+      // No state sent yet: synthesize one from the live VFO data
+      rr_vfo_data_t *vp = &vfos[VFO_A];
+      d = dict_new();
+      if (d) {
+         dict_add(d, "msg.type", "cat");
+         dict_add(d, "cat.state.vfo", "A");
+         dict_add(d, "cat.state.mode", vfo_mode_name(vp->mode));
+         dict_add_int(d, "cat.state.width", vp->width);
+         dict_add_long(d, "cat.state.freq", vp->freq);
+         dict_add_bool(d, "cat.state.ptt", hl_state.ptt);
+      }
+   }
+
+   if (!d) {
+      Log(LOG_WARN, "backend.hamlib", "OOM sending cat.state to %s", cptr->chatname);
+      return true;
+   }
+   dict_add_ulong(d, "msg.ts", now);
+   ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return false;
 }
 
 bool hl_power_set(rr_vfo_t vfo, float power) {
@@ -359,6 +600,10 @@ bool hl_power_set(rr_vfo_t vfo, float power) {
 
 float hl_power_get(rr_vfo_t vfo) {
    value_t power;
+
+   if (!hl_rig) {
+      return 0;
+   }
    int rv = rig_get_level(hl_rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &power);
 
    if (rv != RIG_OK) {
@@ -370,6 +615,10 @@ float hl_power_get(rr_vfo_t vfo) {
 }
 
 bool hl_mode_set(rr_vfo_t vfo, rr_mode_t mode) {
+   if (!hl_rig) {
+      Log(LOG_WARN, "backend.hamlib", "MODE set while disconnected");
+      return true;
+   }
    int rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_mode(mode), RIG_PASSBAND_NORMAL);
 
    if (rv == RIG_OK) {
@@ -387,6 +636,11 @@ uint16_t hl_width_get(rr_vfo_t vfo) {
 
 bool hl_width_set(rr_vfo_t vfo, const char *width) {
    int rv = -1;
+
+   if (!hl_rig) {
+      Log(LOG_WARN, "backend.hamlib", "WIDTH set while disconnected");
+      return true;
+   }
 
    // Refresh the current mode first - hl_state.rmode may be stale (or zero
    // if no poll has happened yet) and the passband helpers need the mode
@@ -428,6 +682,10 @@ bool hl_width_set(rr_vfo_t vfo, const char *width) {
 // current mode: narrow, normal and wide. Returns count written, 0 on error.
 int hl_widths_get(rr_vfo_t vfo, int *widths, int max) {
    if (!widths || max < 3) {
+      return 0;
+   }
+
+   if (!hl_rig) {
       return 0;
    }
 
