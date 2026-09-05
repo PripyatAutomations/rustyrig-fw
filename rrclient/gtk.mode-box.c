@@ -19,6 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/vfo.h>
 extern rrconn_t *ws_conn;
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
@@ -39,7 +40,8 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    if (text) {
       // Send mode command over websocket as before
 #if     defined(USE_MONGOOSE)
-      ws_send_mode_cmd(ws_conn, "A", text);
+      char vfo[2] = { vfo_state_get_active(), '\0' };
+      ws_send_mode_cmd(ws_conn, vfo, text);
 #endif // defined(USE_MONGOOSE)
 
       // Show/hide repeater dialog locally based on FM mode

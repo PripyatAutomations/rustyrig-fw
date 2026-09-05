@@ -78,14 +78,16 @@ void tui_refresh_sb_window(void) {
 
 // Refresh statusbar VFO section
 // Reads the central VFO state saved by vfo_set_dict() - the same copy
-// the GTK UI uses.  Never hardcode values here.
+// the GTK UI uses.  Shows the ACTIVE VFO (single upper case letter).
+// Never hardcode values here.
 void tui_refresh_sb_vfo(void) {
    memset(sb_vfo, 0, sizeof(sb_vfo));
 
-   const char *vfo = vfo_state_get("A", "cat.state.vfo", "A");
-   long freq = vfo_state_get_long("A", "cat.state.freq", 0);
-   const char *mode = vfo_state_get("A", "cat.state.mode", "---");
-   long width = vfo_state_get_long("A", "cat.state.width", 0);
+   char vfo_str[2] = { vfo_state_get_active(), 0 };
+   const char *vfo = vfo_state_get(vfo_str, "cat.state.vfo", vfo_str);
+   long freq = vfo_state_get_long(vfo_str, "cat.state.freq", 0);
+   const char *mode = vfo_state_get(vfo_str, "cat.state.mode", "---");
+   long width = vfo_state_get_long(vfo_str, "cat.state.width", 0);
    snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: %ld/%s-%ld>", vfo, freq, mode, width);
 }
 
@@ -181,10 +183,11 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
       return;
    }
 
-   // vfo_set_dict() saves all cat.* keys into the central VFO state and
-   // pushes the update to the active UI (GTK widgets or TUI statusbar).
+   // vfo_set_dict() saves all cat.* keys into the central VFO state, namespaced
+   // by the VFO letter from the dict (cat.state.vfo), and pushes the update for
+   // the active VFO to the UI (GTK widgets or TUI statusbar).
    // All UIs read from that saved state - never from the event dict.
-   vfo_set_dict("A", d);
+   vfo_set_dict(NULL, d);
    dict_free(d);
 }
 

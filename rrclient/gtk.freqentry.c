@@ -15,6 +15,7 @@
 #include <librustyaxe/dict.h>
 #include <librustyaxe/logger.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/vfo.h>
 #include <rrclient/gtk.freqentry.h>
 
 #define	MAX_DIGITS 10
@@ -435,7 +436,8 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
 
    if (freq > 0 && fe->freq != freq) {
       Log(LOG_CRAZY, "gtk.freqentry", "finalize: %lu (prev %lu)", freq, fe->freq);
-      ws_send_freq_cmd(ws_conn, "A", freq);
+      char vfo[2] = { vfo_state_get_active(), '\0' };
+      ws_send_freq_cmd(ws_conn, vfo, freq);
       fe->prev_freq = fe->freq;
       fe->freq = freq;
       fe->editing = false;
@@ -746,7 +748,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
    fe->digits = g_new0(GtkWidget*, fe->num_digits);
    fe->up_buttons = g_new0(GtkWidget*, fe->num_digits);
    fe->down_buttons = g_new0(GtkWidget*, fe->num_digits);
- 
+
    PangoFontDescription *font = gui_font_find("monospace");
    GdkRGBA white = { 1, 1, 1, 1 };
 

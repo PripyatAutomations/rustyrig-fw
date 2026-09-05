@@ -39,7 +39,7 @@
       "toolchain": {
          "prefix": ""
       },
-      "use_asan": "true"
+      "use_asan": "false"
    },
    "cards": {
       "amp": {

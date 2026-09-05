@@ -254,7 +254,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    }
    memset( rv, 0, sizeof(rr_vfo_t) );
 
-   // XXX: We need to add a way to look up 
+   // XXX: We need to add a way to look up
    // Do VFO_A for now
    memset( &hl_state, 0, sizeof(hamlib_state_t) );
 
@@ -304,7 +304,9 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    dict *d = dict_new();
    dict_add(d, "msg.type", "cat");
    dict_add(d, "cat.state.vfo", "A");
-   dict_add(d, "cat.state.mode", rig_strrmode(hl_state.rmode));
+   // Send the canonical internal mode name (D-U/D-L, etc), never the raw
+   // hamlib string (PKTUSB/PKTLSB) - conversion already done above.
+   dict_add(d, "cat.state.mode", vfo_mode_name(rv->mode));
    dict_add(d, "cat.user", (talker ? talker->chatname : "") );
    dict_add_int(d, "cat.state.width", hl_state.width);
    dict_add_int(d, "cat.state.power", hl_state.power);

@@ -19,6 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/vfo.h>
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);         // chat.cmd.c
 extern dict *cfg;
@@ -66,12 +67,13 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    poll_block_expire = now + poll_block_delay;
 
    // Send to server the negated value
+   char vfo[2] = { vfo_state_get_active(), '\0' };
    if (!ptt_active) {
       Log(LOG_CRAZY, "ui.gtk", "Turning PTT off");
-      ws_send_ptt_cmd(ws_conn, "A", false);
+      ws_send_ptt_cmd(ws_conn, vfo, false);
    } else {
       Log(LOG_CRAZY, "ui.gtk", "Turning PTT on");
-      ws_send_ptt_cmd(ws_conn, "A", true);
+      ws_send_ptt_cmd(ws_conn, vfo, true);
    }
 }
 
