@@ -35,11 +35,32 @@ static void on_mode_popdown(GtkComboBox *b, gpointer u) {
 }
 
 gulong mode_changed_handler_id;
+gulong width_changed_handler_id = 0;
 
 // Timestamp of the last mode command sent by this widget; vfo_update_ui()
 // suppresses mode combo updates for ui.edit-delay seconds after a local
 // send, since the server's poll echo may still carry the previous mode.
 time_t modebox_last_send = 0;
+
+// Timestamp of the last width change we sent ourselves. vfo.c skips UI
+// updates from the server's poll echo for cfg_ui_edit_delay seconds after
+// send, since the server's poll echo may still carry the previous width.
+time_t widthbox_last_send = 0;
+
+static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
+   const gchar *text = gtk_combo_box_text_get_active_text(combo);
+
+   if (text) {
+      // Send width command over websocket: the server accepts both the
+      // canned NARR/NORM/WIDE labels and numeric "<hz> Hz" entries.
+#if     defined(USE_MONGOOSE)
+      char vfo[2] = { vfo_state_get_active(), '\0' };
+      ws_send_width_cmd(ws_conn, vfo, text);
+      widthbox_last_send = now;
+#endif // defined(USE_MONGOOSE)
+      g_free( (gchar *)text );
+   }
+}
 
 static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
@@ -152,8 +173,7 @@ GtkWidget *create_mode_box(void) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), "WIDE");
    gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), 1);
 
-//   width_changed_handler_id = g_signal_connect(width_combo, "changed",
-// G_CALLBACK(on_mode_changed), NULL);
+   width_changed_handler_id = g_signal_connect(width_combo, "changed", G_CALLBACK(on_width_changed), NULL);
    gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 1);
 
    ///////

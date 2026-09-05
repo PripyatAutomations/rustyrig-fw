@@ -30,6 +30,10 @@ USE_SQLITE = $(strip $(shell cat ${CF} | jq -r '.features.sqlite'))
 USE_SSL = $(strip $(shell cat ${CF} | jq -r '.net.http.tls_enabled'))
 USE_GTK = $(strip $(shell cat ${CF} | jq -r '.features.gtk'))
 
+BUILD_FWDSP = $(strip $(shell cat ${CF} | jq -r '.components.fwdsp'))
+BUILD_RRCLIENT = $(strip $(shell cat ${CF} | jq -r '.components.rrclient'))
+BUILD_RRSERVER = $(strip $(shell cat ${CF} | jq -r '.components.rrserver'))
+
 ${CF}:
 	@echo "*******************************************************"
 	@echo "* PLEASE read QUICKSTART.txt and edit ${CF} as needed *"

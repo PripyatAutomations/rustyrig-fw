@@ -1,0 +1,7 @@
+         // XXX: We need to look up the channel ID for RX *FROM* the client
+         if (channel < 0) {
+            Log(LOG_CRIT, "ptt", "Couldn't find channel ID for TX stream, ignoring PTT event");
+            return true;
+            // XXX: send an error & ptt off notice
+         }
+

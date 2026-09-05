@@ -124,6 +124,45 @@ static gboolean update_now(gpointer user_data) {
 ////////////////////////////////////
 // For polling mongoose from glib //
 ////////////////////////////////////
+// Mongoose GSource integration (GTK mode) - the counterpart of the libev
+// ev_timer used in TUI mode.  Instead of a plain g_timeout_add() we hook a
+// custom GSource into the GTK main loop so poll scheduling behaves like a
+// real event source: prepare()/check() decide when to dispatch, and
+// mg_mgr_poll() gets a small blocking timeout so idle wakeups are cheap.
+typedef struct {
+   GSource source;
+} MgSource;
+
+static gboolean mg_source_prepare(GSource *source, gint *timeout_) {
+   *timeout_ = 20;                     // wake at least every 20ms
+   return FALSE;
+}
+
+static gboolean mg_source_check(GSource *source) {
+   return TRUE;                        // always dispatch on timeout
+}
+
+static gboolean mg_source_dispatch(GSource *source, GSourceFunc cb, gpointer data) {
+   rrclient_poll_events();             // mg_mgr_poll(&mgr, 0) + reconnect engine
+   return G_SOURCE_CONTINUE;
+}
+
+static void mg_source_finalize(GSource *source) {
+}
+
+static GSourceFuncs mg_source_funcs = {
+   mg_source_prepare, mg_source_check, mg_source_dispatch, mg_source_finalize,
+   NULL, NULL
+};
+
+static void poll_mongoose_init(void) {
+   GSource *src = g_source_new(&mg_source_funcs, sizeof(MgSource));
+   g_source_set_name(src, "mongoose-poll");
+   g_source_set_priority(src, G_PRIORITY_DEFAULT_IDLE);
+   g_source_attach(src, g_main_context_default());
+   g_source_unref(src);
+}
+
 static gboolean poll_mongoose(gpointer user_data) {
    rrclient_poll_events();
    return G_SOURCE_CONTINUE;
@@ -443,7 +482,7 @@ int main(int argc, char *argv[]) {
 #ifdef USE_GTK
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
 #ifdef USE_MONGOOSE
-      g_timeout_add(20, poll_mongoose, NULL);   // Poll Mongoose every 20ms
+      poll_mongoose_init();                     // Mongoose via GSource (libev-style)
 #endif // defined(USE_MONGOOSE)
 
       gtk_init(&argc, &argv);

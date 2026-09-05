@@ -68,6 +68,8 @@ defconfig_t defcfg[] = {
    { "ui.gtk.vfo-on-top", "false", "Place VFO controls at top of the rig window?" },
    { "ui.gtk.main-tabstrip", "bottom", "Placement of main tabstrip: left,right,bottom,top" },
    { "ui.gtk.vfo-docked", "true", "NYI: Docked or floating VFO?" },
+   { "ui.gtk.scrollback.chat", "200", "Max chat scrollback lines (0 = unlimited)" },
+   { "ui.gtk.scrollback.syslog", "200", "Max syslog tab scrollback lines (0 = unlimited)" },
 #endif	// GTK
 #ifdef _WIN32
    // windows hosts usually dont already have a gtk3 theme, so default to the included windows 10 theme

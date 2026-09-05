@@ -115,6 +115,7 @@ extern GtkWidget *mode_combo;
 extern bool ui_print_gtk(const char *window, const char *fmt, va_list ap);
 extern char *gtk_colorize_string(const char *in);
 extern bool cfg_use_gtk;
+extern void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def);
 extern bool gui_fullscreen_toggle(void);        // gui.core.c
 
 extern GtkWidget *main_window;

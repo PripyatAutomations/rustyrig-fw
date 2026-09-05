@@ -172,6 +172,39 @@ char *gtk_colorize_string(const char *in) {
    return out;
 }
 
+// Trim a text buffer to the configured scrollback length.
+// cfg_key: config key holding the max line count (0 = unlimited)
+// def: fallback if the key isn't set.
+// Counting lines isn't free, so we only check every 16 inserts.
+static int scrollback_skip = 0;
+
+void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def) {
+   if (!buf || !cfg_key) {
+      return;
+   }
+
+   // Counting lines isn't free; only do it every 16 inserts
+   if (++scrollback_skip < 16) {
+      return;
+   }
+   scrollback_skip = 0;
+
+   int max = cfg_get_int(cfg_key, def);
+   if (max <= 0) {
+      return;                       // unlimited
+   }
+
+   int count = gtk_text_buffer_get_line_count(buf);
+   if (count <= max) {
+      return;
+   }
+
+   GtkTextIter start, end;
+   gtk_text_buffer_get_start_iter(buf, &start);
+   gtk_text_buffer_get_iter_at_line(buf, &end, count - max);
+   gtk_text_buffer_delete(buf, &start, &end);
+}
+
 bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    if (!fmt) {
       return true;
@@ -199,6 +232,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    gtk_text_buffer_get_end_iter(text_buffer, &end);
    gtk_text_buffer_insert_markup(text_buffer, &end, colorized, -1);
    gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
+   gtk_trim_scrollback(text_buffer, "ui.gtk.scrollback.chat", 200);
 
    if (!colorize_failed) {
       g_free(colorized);

@@ -2,6 +2,9 @@ rrclient := bin/rrclient
 bins += ${rrclient}
 
 rrclient_objs += audio.o
+rrclient_objs += cat.o
+rrclient_objs += cat.kpa500.o
+rrclient_objs += cat.yaesu.o
 rrclient_objs += chat.whois.o
 rrclient_objs += cfg.network.o
 rrclient_objs += cmd.o

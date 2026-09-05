@@ -295,6 +295,17 @@ bool vfo_update_ui(void) {
          // Select the entry closest to the current width. If the combo still
          // has the canned NARR/NORM/WIDE entries, map to those; otherwise we
          // match the "<hz> Hz" entries the server sent us.
+         // Block the changed handler while we sync from server state (same
+         // as the mode combo), and skip if we just sent a width change
+         // locally: the poll echo may still carry the previous width.
+         extern gulong width_changed_handler_id;    // gtk.mode-box.c
+         extern time_t widthbox_last_send;          // gtk.mode-box.c
+
+         if ( (now - widthbox_last_send) <= cfg_ui_edit_delay ) {
+            return true;   // nothing else below depends on the width combo
+         }
+
+         g_signal_handler_block(width_combo, width_changed_handler_id);
          GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(width_combo));
          GtkTreeIter iter;
          int best_idx = -1;
@@ -347,6 +358,8 @@ bool vfo_update_ui(void) {
          if (best_idx >= 0) {
             gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), best_idx);
          }
+
+         g_signal_handler_unblock(width_combo, width_changed_handler_id);
       }
 
       // TX power

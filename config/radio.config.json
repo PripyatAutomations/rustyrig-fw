@@ -1,5 +1,5 @@
 {
-   "subparts": {
+   "components": {
       "fwdsp": "true",
       "rrclient": "true",
       "rrserver": "true"

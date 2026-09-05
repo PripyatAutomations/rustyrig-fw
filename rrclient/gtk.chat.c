@@ -311,7 +311,12 @@ GtkWidget *create_chat_box(void) {
 
    // Chat INPUT
    chat_entry = gtk_entry_new();
-   gtk_box_pack_start(GTK_BOX(chat_box), chat_entry, FALSE, FALSE, 0);
+   // Explicitly span the full width of the box; with fill=FALSE packing an
+   // entry can end up right-aligned once other widgets (vfo box) are packed
+   // around it.
+   gtk_widget_set_halign(chat_entry, GTK_ALIGN_FILL);
+   gtk_widget_set_hexpand(chat_entry, TRUE);
+   gtk_box_pack_start(GTK_BOX(chat_box), chat_entry, TRUE, FALSE, 0);
    g_signal_connect(chat_entry, "activate", G_CALLBACK(on_send_button_clicked), chat_entry);
    g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_chat_entry_keypress), NULL);
 
@@ -322,7 +327,6 @@ GtkWidget *create_chat_box(void) {
 
    // !cfg:ui.gtk.vfo-on-top
    if (!cfg_ui_gtk_vfo_on_top) {
-      vfo = chatbox_vfo_init();
       if ((vfo = chatbox_vfo_init())) {
          gtk_box_pack_start(GTK_BOX(chat_box), vfo, FALSE, FALSE, 0);
       }

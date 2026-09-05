@@ -76,9 +76,8 @@ defconfig_t defcfg[] = {
    { "net.mqtt.bind", "127.0.0.1", "Address to listen for mqtt" },
    { "net.mqtt.enabled", "false", "Enable MQTT service listener?" },
    { "net.mqtt.port", "48383", "Port for MQTT to listen" },
-   // [Embedded] This stuff only applies to embedded targets
    { "net.vlan", "4420", "VLAN to use for ethernet interface, 0 for untagged" },
-   // [/Embedded] This stuff only applies to embedded targets
+   { "noob.cool-down", "30", "How long to block noob PTT after elmer overrides it" },
    { "path.db.master", "./db/master.db", "Master database path" },
    { "path.db.master.template", "./sql/sqlite.master.sql", "Path to sql file to initialize database" },
    { "path.record-dir", "./recordings", "TX & RX recordings basedir" },

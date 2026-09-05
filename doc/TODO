@@ -1,5 +1,6 @@
 Immediate needs
 ---------------
+* Support for multiple rigs/channels
 - add noob.cool-down=30 to rrserver/defconfig.c
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure
@@ -38,6 +39,7 @@ librustyaxe: Add memblocks, simple allocator who maintains small allocations (re
 librrprotocol: IRC protocol will be used to link sites, with large messages enabled (16k)
 rrclient: Set window title to $user@$rig
 rrclient: Make hotkeys context (tab/window) sensitive
+rrclient: Support for connecting to multiple servers
 
 *: Anywhere libev or mongoose code exists, make sure the other does as well
   - will need to use wslay/mbedtls to accomplish libev support for websocket!

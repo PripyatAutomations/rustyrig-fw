@@ -393,15 +393,30 @@ bool hl_width_set(rr_vfo_t vfo, const char *width) {
    // we're switching the width FOR.
    hl_mode_get(vfo);
 
-   if (strcasecmp(width, "narrow") == 0 || strcasecmp(width, "nar") == 0) {
+   // The client sends either the canned NARR/NORM/WIDE labels or a numeric
+   // passband in hz (possibly with a " Hz" suffix from the combo entries).
+   // Match labels case-insensitively (incl. the NARR/NORM shorthands) and
+   // fall back to parsing a leading number as an absolute passband.
+   const char *p = width;
+   while (*p == ' ' || *p == '\t') {
+      p++;
+   }
+
+   if (strncasecmp(p, "narr", 4) == 0 || strcasecmp(width, "nar") == 0) {
       rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode, rig_passband_narrow(hl_rig, hl_state.rmode) );
-   } else if (strcasecmp(width, "normal") == 0 || strcasecmp(width, "norm") == 0) {
+   } else if (strncasecmp(p, "norm", 4) == 0 || strcasecmp(width, "normal") == 0) {
       rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, RIG_PASSBAND_NORMAL);
    } else if (strcasecmp(width, "wide") == 0) {
       rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode, rig_passband_wide(hl_rig, hl_state.rmode) );
    } else {
-      Log(LOG_WARN, "backend.hamlib", "Unknown width %s - try narrow|normal|wide!", width);
-      return true;
+      long hz = atol(p);
+
+      if (hz > 0) {
+         rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, (pbwidth_t)hz);
+      } else {
+         Log(LOG_WARN, "backend.hamlib", "Unknown width %s - try narrow|normal|wide or hz!", width);
+         return true;
+      }
    }
    // NB: the format args were missing here (crash in printf/strlen)
    Log(LOG_INFO, "backend.hamlib", "Set width to %s: rv=%d", width, rv);

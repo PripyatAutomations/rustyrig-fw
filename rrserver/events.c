@@ -59,9 +59,10 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    const char *rc_from = dict_get(d, "rigctl.from", NULL);
    int rc_freq = dict_get_int(d, "rigctl.freq", 0);
    const char *rc_mode = dict_get(d, "rigctl.mode", NULL);
+   const char *rc_width = dict_get(d, "rigctl.width", NULL);
 
-   Log(LOG_CRIT, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d, mode: %s",
-      rc_cmd, rc_vfo, rc_from, rc_freq, rc_mode ? rc_mode : "(none)");
+   Log(LOG_CRIT, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d, mode: %s, width: %s",
+     rc_cmd, rc_vfo, rc_from, rc_freq, rc_mode ? rc_mode : "(none)", rc_width ? rc_width : "(none)");
 
    if (!rc_cmd || !rc_vfo || !rc_from) {
       dict_free(d);
@@ -88,6 +89,21 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       // Audit trail: who changed which VFO to what mode
       Log(LOG_AUDIT, "ws.rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
       rr_set_mode(vfo, new_mode);
+      dict_free(d);
+      return;
+   }
+
+   if (strcasecmp(rc_cmd, "width") == 0) {
+      // Set the rig passband width (from !width chat command or ws cat.cmd width)
+      if (!rc_width) {
+         Log(LOG_WARN, "ws.rigctl", "WIDTH set without a width");
+         dict_free(d);
+         return;
+      }
+
+      // Audit trail: who changed which VFO to what passband width
+      Log(LOG_AUDIT, "ws.rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
+      rr_set_width(vfo, rc_width);
       dict_free(d);
       return;
    }

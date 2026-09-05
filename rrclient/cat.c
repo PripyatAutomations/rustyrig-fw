@@ -1,0 +1,202 @@
+//
+// librustyaxe/cat.c
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+/*
+ * This is the CAT parser. We use the io abstraction in io.c
+ *
+ * Here we parse commands for the various functions of the radio.
+ *
+ * Amplifier and rig control are split up into two CAT interfaces. CAT_KPA500:
+ * Electraft KPA-500 amplifier control protocol CAT_YAESU: Yaesu FT-891/991A rig control
+ * protocol You can enable both protocols or just one, depending on your build
+ *
+ * Since the KPA500 commands have a prefix character, we can be flexible about how it is
+ * connected. A single pipe/serial port/socket can be used, for CAT, if desired.
+ *
+ * We have two entry points here
+ * - rr_cat_parse_line(): Parses a line from io (sock|net|pipe)
+ * - rr_cat_parse_ws(): Parses a websocket message containing a CAT command
+ *
+ * We respond via rr_cat_reply() with enum rr_cat_req_type as first arg
+ */
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <string.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#include <rrclient/cat.h>
+
+static CATcmd *cat_commands = NULL;
+
+static CATcmd *cat_find_or_create_cmd(const char *cmd) {
+   CATcmd *c = cat_commands;
+
+   while (c) {
+      if (strcmp(c->cmd, cmd) == 0) {
+         return c;
+      }
+      c = c->next;
+   }
+   CATcmd *newc = calloc( 1, sizeof(*newc) );
+
+   if (!newc) {
+      return NULL;
+   }
+   newc->cmd = strdup(cmd);
+   newc->callbacks = NULL;
+   newc->next = cat_commands;
+   cat_commands = newc;
+
+   return newc;
+}
+
+bool cat_register_callback(const char *cmd, CATCallback cb) {
+   CATcmd *c = cat_find_or_create_cmd(cmd);
+
+   if (!c) {
+      return false;
+   }
+   CATCallbackNode *n = calloc( 1, sizeof(*n) );
+
+   if (!n) {
+      return false;
+   }
+   n->cb = cb;
+
+   // append at end
+   CATCallbackNode **p = &c->callbacks;
+   while (*p) {
+      p = &(*p)->next;
+   }
+   *p = n;
+
+   return true;
+}
+
+bool cat_invoke_callbacks(const char *cmd, const char *args) {
+   CATcmd *c = cat_commands;
+   while (c) {
+      if (strcmp(c->cmd, cmd) == 0) {
+         CATCallbackNode *n = c->callbacks;
+         while (n) {
+            n->cb(args);
+            n = n->next;
+         }
+         return true;
+      }
+      c = c->next;
+   }
+   return false;  // unknown command
+}
+
+bool cat_register_builtin_array(const CATBuiltin *arr) {
+   if (!arr) {
+      return false;
+   }
+
+   for (const CATBuiltin *p = arr ; p->cmd != NULL ; p++) {
+      if (p->cb) {
+         if ( !cat_register_callback(p->cmd, p->cb) ) {
+            return false;
+         }
+      }
+   }
+
+   return true;
+}
+
+
+// Initialize CAT control
+int32_t rr_cat_init(void) {
+   Log(LOG_INFO, "cat", "Initializing CAT interfaces");
+
+#if     defined(HOST_POSIX)
+// XXX: Open the pipe(s)
+
+#if     defined(CAT_YAESU)              // Yaesu-style rig control
+   rr_cat_yaesu_init();
+#endif
+#if     defined(CAT_KPA500)             // KPA500 amplifier control
+
+   rr_cat_kpa500_init();
+#endif
+#endif
+   Log(LOG_INFO, "cat", "CAT Initialization succesful");
+
+   return 0;
+}
+
+int32_t rr_cat_printf(char *str, ...) {
+   va_list ap;
+   va_start(ap, str);
+
+   // XXX: Print it to a buffer and send to serial...
+
+   va_end(ap);
+
+   return 0;
+}
+
+// Here we parse commands for the main rig
+int32_t rr_cat_parse_line_real(char *line) {
+   return 0;
+}
+
+// Here we decide which parser to use
+int32_t rr_cat_parse_line(char *line) {
+   size_t line_len = -1;
+   char *endp = NULL;
+
+   // If passed empty string, stop immediately and let the caller know...
+   if ( line == NULL || (line_len = strlen(line) <= 0) ) {
+      return -1;
+   } else {
+      char *p = endp = line + line_len;
+
+      while (p < line) {
+         // Scrub out line endings
+         if (*p == '\r' || *p == '\n') {
+            *p = '\0';
+         }
+         p--;
+      }
+
+      // validate the pointers, just in case...
+      if ( endp <= line || ( endp > (line + line_len) ) ) {
+         // Line is invalid, stop touching it and let the caller know
+         return -1;
+      }
+
+      // is command line complete? if not, return -2 to say "Not yet"
+      if (*endp == ';') {
+         *endp = '\0';
+         endp--;
+      } else {
+         return -2;
+      }
+   }
+#if     defined(CAT_KPA500)
+
+   // is command for amp?
+   if (*line == '^') {
+      return rr_cat_parse_amp_line(line + 1);
+   } else
+#endif
+#if     defined(CAT_YAESU)
+   {
+      // XXX: Validate the CAT command syntax
+      return rr_cat_parse_line_real(line);
+   }
+#endif
+   return 0;
+}

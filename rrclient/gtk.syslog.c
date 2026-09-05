@@ -19,6 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
+#include <librustyaxe/logger.h>
 
 extern dict *cfg;                // config.c
 extern time_t now;
@@ -32,8 +33,13 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    if (!fmt || !ap) {
       return true;
    }
-
    if (!log_buffer) {
+      return true;
+   }
+   // Respect the configured log level.  Without this we rendered EVERY Log()
+   // call (including LOG_CRAZY websocket dumps) into the log tab, which made
+   // CPU usage climb the longer the client ran.
+   if (debug_filter(subsys, priority)) {
       return true;
    }
 
@@ -60,6 +66,7 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    gtk_text_buffer_insert(log_buffer, &end, header, -1);
    gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
    gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
+   gtk_trim_scrollback(log_buffer, "ui.gtk.scrollback.syslog", 200);
    g_idle_add(ui_scroll_to_end, log_view);
    return false;
 }
