@@ -28,6 +28,11 @@ extern bool ws_send_freq_cmd(rrconn_t *cptr, const char *vfo, long freq);
 // XXX: is actively being changed, so the server and client aren't fighting each other
 extern time_t poll_block_expire, poll_block_delay;
 
+// Timestamp of the last freq command sent by the entry; vfo_update_ui()
+// suppresses freq updates for a couple seconds after a local send, since
+// the server's poll echo may still carry the pre-change frequency.
+time_t freqentry_last_send = 0;
+
 // This should be private. Use the accessor functions below in Public API
 struct _GtkFreqEntry {
    GtkBox parent_instance;
@@ -441,6 +446,10 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
       fe->prev_freq = fe->freq;
       fe->freq = freq;
       fe->editing = false;
+      // The rig takes a moment to apply the change; the next poll echo may
+      // still carry the OLD frequency. Suppress UI updates briefly so the
+      // entry doesn't get stomped back to the stale value.
+      freqentry_last_send = now;
    }
 }
 

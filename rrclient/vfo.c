@@ -27,6 +27,14 @@
 #include <rrclient/gtk.core.h>
 #endif
 
+#ifdef	USE_GTK
+// Set when the freq entry sends a freq command (gtk.freqentry.c); we hold
+// off stomping the entry with poll echoes for rig.edit-delay seconds after
+// that (default 3).
+extern time_t freqentry_last_send;
+extern int cfg_rig_edit_delay;      // main.c
+#endif
+
 // The single copy of the VFO state.  There may be multiple VFOs, identified
 // by a single upper case letter (see librrprotocol/vfo.h: vfo_lookup(),
 // vfo_name()).  Keys are stored per-VFO as:
@@ -216,7 +224,10 @@ bool vfo_update_ui(void) {
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
       // Frequency
-      if (freq_entry && vfo_freq > 0) {
+      // Skip if we just sent a freq change from the entry: the server's
+      // poll echo may still show the pre-change value for rig.edit-delay
+      // seconds (gives the user a few moments to click the spinners).
+      if (freq_entry && vfo_freq > 0 && (now - freqentry_last_send) > cfg_rig_edit_delay) {
          GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
 
          if ( !gtk_freq_entry_is_editing(fe) ) {

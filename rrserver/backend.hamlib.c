@@ -49,6 +49,7 @@ static bool hl_fini(void);       // fwd decl
  */
 static int32_t hamlib_debug_level = RIG_DEBUG_ERR;  // RIG_DEBUG_VERBOSE;
 hamlib_state_t hl_state;
+static int last_good_width = 0;      // last non-zero passband width seen
 
 // Return hamlib VFO from rr VFO id
 static vfo_t hl_get_vfo(rr_vfo_t vfo) {
@@ -298,6 +299,16 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // XXX: finish this
    rv->width = hl_state.width;
    rv->power = hl_state.power;
+
+   // Some rigs (notably in PKTUSB/PKTLSB modes) briefly report a passband
+   // width of 0 right after a mode change. Don't broadcast that - keep the
+   // last sane width so the clients don't see the display flicker to 0.
+   if (hl_state.width > 0) {
+      last_good_width = hl_state.width;
+   } else {
+      rv->width = last_good_width;
+      hl_state.width = last_good_width;
+   }
 
    // send to all users
    rrconn_t *talker = whos_talking();
