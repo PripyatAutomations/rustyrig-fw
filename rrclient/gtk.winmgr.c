@@ -477,7 +477,7 @@ gboolean focus_main_later(gpointer data) {
    }
    GtkWindow *win = GTK_WINDOW(data);
 
-   return g_idle_add(focus_main_later, win);
+   return g_idle_add(focus_main_later_cb, win);
 }
 
 gui_window_t *ui_new_window(GtkWidget *window, const char *name) {

@@ -317,11 +317,36 @@ static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer us
    return FALSE;
 }
 
+// Map plain Y/N (and y/n) keys to the dialog's Yes/No responses
+static gboolean on_confirm_dialog_key(GtkWidget *widget, GdkEventKey *ev, gpointer data) {
+   if (!widget || !ev) {
+      return FALSE;
+   }
+
+   switch (ev->keyval) {
+      case 'y':
+      case 'Y':
+         gtk_dialog_response( GTK_DIALOG(widget), GTK_RESPONSE_YES );
+         return TRUE;
+
+      case 'n':
+      case 'N':
+         gtk_dialog_response( GTK_DIALOG(widget), GTK_RESPONSE_NO );
+         return TRUE;
+   }
+
+   return FALSE;
+}
+
 // This pops up and confirms the user if they want to quit. True return should exit
 bool ui_confirm_quit(void) {
    if (ui_mode == UI_MODE_GTK) {
       GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING,
          GTK_BUTTONS_YES_NO, "Confirm quit?");
+
+      // Accept Y or N keys in addition to clicking / Enter on the buttons
+      g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_confirm_dialog_key), NULL);
+      gtk_dialog_set_default_response( GTK_DIALOG(dialog), GTK_RESPONSE_YES );
 
       gboolean cancel = gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
 

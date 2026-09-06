@@ -59,6 +59,9 @@ static void do_connect_from_tree(GtkTreeView *view) {
    // This will cause the removal in the destroyed callback added by
    // gui_new_window() in gtk.winmgr.c
    gtk_widget_destroy(server_window);
+
+   // Return focus to the chat input
+   gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
 }
 
 void on_connect_clicked(GtkButton *btn, gpointer user_data) {
@@ -86,6 +89,9 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
       gui_window_t *win = gui_find_window(NULL, "serverpick");
       GtkWidget *server_window = win->gtk_win;
       gtk_widget_destroy(server_window);
+
+      // Return focus to the chat input
+      gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
       GtkWidget *focus = gtk_window_get_focus( GTK_WINDOW( gtk_widget_get_toplevel(w) ) );
 
