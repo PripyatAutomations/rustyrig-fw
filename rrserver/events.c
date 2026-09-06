@@ -19,6 +19,7 @@
 
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
+#include <rrserver/ptt.h>
 
 
 static void rrserver_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -57,6 +58,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
     const char *rc_cmd = dict_get(d, "rigctl.cmd", NULL);
    const char *rc_vfo = dict_get(d, "rigctl.vfo", NULL);
    const char *rc_from = dict_get(d, "rigctl.from", NULL);
+   bool rc_ptt = dict_get_bool(d, "rigctl.ptt", false);
    int rc_freq = dict_get_int(d, "rigctl.freq", 0);
    const char *rc_mode = dict_get(d, "rigctl.mode", NULL);
    const char *rc_width = dict_get(d, "rigctl.width", NULL);
@@ -70,6 +72,14 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    }
 
    rr_vfo_t vfo = vfo_lookup(rc_vfo[0]);
+
+   if (strcasecmp(rc_cmd, "ptt") == 0) {
+      // Key/dekey the rig (from the PTT button in the client)
+      Log(LOG_AUDIT, "rigctl", "User %s set PTT to %s on vfo %s", rc_from, (rc_ptt ? "true" : "false"), rc_vfo);
+      rr_ptt_set(vfo, rc_ptt);
+      dict_free(d);
+      return;
+   }
 
    if (strcasecmp(rc_cmd, "mode") == 0) {
       // Set the rig mode (from !mode chat command or ws cat.cmd mode)

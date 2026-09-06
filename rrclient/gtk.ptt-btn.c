@@ -38,6 +38,12 @@ GtkWidget *ptt_button = NULL;
 // (checked by vfo_update_ui, which reads these two):
 bool ptt_button_pending = false;
 time_t ptt_button_pending_expire = 0;
+// The state we asked the server for; the ack (cat.state.ptt) must match it
+// before we leave PENDING, so unrelated/stale echoes don't cancel it
+bool ptt_button_pending_state = false;
+// Quiet pending: filter contradictory echoes but DON'T show PENDING on the
+// button (used after sending PTT off, so a stale "on" ack can't bounce us)
+bool ptt_button_pending_quiet = false;
 extern int cfg_ui_ptt_ack_timeout;          // main.c
 
 // Connection state for the button: grey while offline, colored once online.
@@ -95,7 +101,7 @@ static void ptt_button_apply(void) {
    if (!ptt_btn_online) {
       label = "OFFLINE";
       cls = "ptt-offline";
-   } else if (ptt_button_pending) {
+   } else if (ptt_button_pending && !ptt_button_pending_quiet) {
       label = "PENDING";
       cls = "ptt-pending";
    } else if (ptt_btn_tot) {
@@ -108,8 +114,12 @@ static void ptt_button_apply(void) {
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker->name);
       label = namebuf;
       cls = "ptt-active";
-   } else if (ptt_active) {
-      label = "PTT ON";
+    } else if (ptt_active) {
+      // We're the talker: show our callsign (red, same as anyone else's TX)
+      static char namebuf[PTT_LABEL_MAXLEN + 1];
+      snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN,
+         (talker && talker->name) ? talker->name : login_user);
+      label = namebuf;
       cls = "ptt-active";
    } else {
       label = "PTT OFF";
@@ -169,6 +179,7 @@ void update_ptt_button_ui(GtkToggleButton *button, int active) {
    if (active >= 0) {
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
+      ptt_button_pending_quiet = false;
       ptt_btn_tot = false;   // confirmed state supersedes a TOT warning
       ptt_active = (active == 1);
    }
@@ -203,20 +214,38 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 
    ptt_active = gtk_toggle_button_get_active(button);
 
-   // Enter PENDING until the server echoes cat.state.ptt back to us
-   ptt_button_pending = true;
-   ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
-   update_ptt_button_ui(button, -1);
+   // Clicked while a request is still PENDING: cancel it. Clear the pending
+   // state; the rest of this handler sends the (now opposite) command.
+   if (ptt_button_pending) {
+      Log(LOG_CRAZY, "ui.gtk", "PTT clicked while pending: cancelling request");
+      ptt_button_pending = false;
+      ptt_button_pending_expire = 0;
+   }
 
    poll_block_expire = now + poll_block_delay;
 
-   // Send to server the negated value
+   // Send the new state to the server
    char vfo[2] = { vfo_state_get_active(), '\0' };
    if (!ptt_active) {
+      // Turning OFF needs no visible PENDING: off is the safe default, apply
+      // it immediately. We DO keep a quiet pending filter until the server's
+      // matching "off" ack, so a stale "on" ack can't bounce the button.
       Log(LOG_CRAZY, "ui.gtk", "Turning PTT off");
+      update_ptt_button_ui(button, 0);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), false);
+      ptt_button_pending = true;
+      ptt_button_pending_state = false;
+      ptt_button_pending_quiet = true;
+      ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
       ws_send_ptt_cmd(ws_conn, vfo, false);
    } else {
       Log(LOG_CRAZY, "ui.gtk", "Turning PTT on");
+      // Enter PENDING until the server echoes cat.state.ptt back to us
+      ptt_button_pending = true;
+      ptt_button_pending_state = ptt_active;
+      ptt_button_pending_quiet = false;
+      ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
+      update_ptt_button_ui(button, -1);
       ws_send_ptt_cmd(ws_conn, vfo, true);
    }
 }

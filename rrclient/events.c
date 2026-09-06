@@ -487,6 +487,9 @@ void rrclient_register_events(void) {
    // rigctl/CAT controls
    event_on("cat.cmd", rrclient_handle_catcmd, NULL);
    event_on("ws.msg.cat", rrclient_handle_cat, NULL);
+   // Server's cat.state broadcasts (rr_ptt_set, backend polls) carry the same
+   // cat.state.* keys; route them through the same handler
+   event_on("ws.msg.cat.state", rrclient_handle_cat, NULL);
 
    // Server TX timeout (TOT) fired
    event_on("ws.msg.ptt.tot-expired", rrclient_handle_ptt_tot, NULL);

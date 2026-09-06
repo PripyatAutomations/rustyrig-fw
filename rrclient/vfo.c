@@ -367,15 +367,21 @@ bool vfo_update_ui(void) {
          gtk_range_set_value(GTK_RANGE(tx_power_slider), vfo_power);
       }
 
-      // PTT state. If we're PENDING an ack, skip the confirmed-state update
-      // (so the yellow PENDING survives poll echoes) and check the timeout.
+      // PTT state. While PENDING an ack, only a confirmed cat.state.ptt that
+      // MATCHES what we asked for clears the pending state; anything else
+      // (poll echoes with stale state) is ignored until the ack or timeout.
       if (ptt_button) {
          extern bool ptt_button_pending;             // gtk.ptt-btn.c
+         extern bool ptt_button_pending_state;       // gtk.ptt-btn.c
          extern time_t ptt_button_pending_expire;    // gtk.ptt-btn.c
          extern int cfg_ui_ptt_ack_timeout;          // main.c
 
          if (ptt_button_pending) {
-            if (now >= ptt_button_pending_expire) {
+            if (vfo_ptt == ptt_button_pending_state) {
+               // Server confirmed the state we requested: ack received
+               update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)vfo_ptt);
+               gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), vfo_ptt);
+            } else if (now >= ptt_button_pending_expire) {
                // Ack timed out: revert the button to the confirmed state
                update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), 0);
                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), false);
