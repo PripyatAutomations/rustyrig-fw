@@ -31,6 +31,9 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+
+// Hard-coded defaults (rrclient/defconfig.c)
+extern defconfig_t defcfg[];
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
@@ -281,6 +284,14 @@ void show_arg_help(int argc, char **argv) {
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
    char *fullpath = NULL;
+
+   // Apply the hard-coded defaults from defconfig.c FIRST, so keys missing
+   // from the user's config (e.g. ui.font.*) fall back to them.
+   if (!default_cfg) {
+      default_cfg = dict_new();
+   }
+   cfg_set_defaults(default_cfg, defcfg);
+
 
 #ifdef USE_LIBEV
    loop_main = EV_DEFAULT;

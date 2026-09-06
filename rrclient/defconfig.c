@@ -60,7 +60,7 @@ defconfig_t defcfg[] = {
    { "debug.show-ts", "true", "Show timestamps in log" },
    { "log.file", "rrclient.log", "Where to log" },
    { "log.level", "info", "What level of log events to keep" },
-   { "net.http.hex-dump", "false", "Should we hexdump all http traffic?" },  
+   { "net.http.hex-dump", "false", "Should we hexdump all http traffic?" },
    { "networks.auto", NULL, "Which networks to autoconnect to" },
    { "path.help-dir", "./help", "Path to find help-files" },
    { "path.modules", "./modules", "Where to store modules" },
@@ -68,15 +68,19 @@ defconfig_t defcfg[] = {
    { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit" },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
    { "tui.use-color", "true", "Enable color in the TUI?" },
-#ifdef	GTK
+#ifdef	USE_GTK
    { "ui.full-screen", "false", "Go full-screen at start?" },
-   { "ui.font.monospace", "Monospace 12", "Default monospace font" },
+   { "ui.font.chat", "Monospace 12", "Monospace base font: chat, syslog fallback, freq digits" },
+   { "ui.font.default", "Sans 11", "Default UI font (labels, buttons, etc)" },
+   { "ui.font.buttons", "Sans Bold 11", "Font for buttons (falls back to ui.font.default)" },
+   { "ui.font.labels", NULL, "Font for field/tab labels (falls back to ui.font.default)" },
+   { "ui.font.syslog", NULL, "Syslog tab font (falls back to ui.font.chat)" },
    { "ui.gtk.vfo-on-top", "false", "Place VFO controls at top of the rig window?" },
    { "ui.gtk.main-tabstrip", "bottom", "Placement of main tabstrip: left,right,bottom,top" },
    { "ui.gtk.vfo-docked", "true", "NYI: Docked or floating VFO?" },
    { "ui.gtk.scrollback.chat", "200", "Max chat scrollback lines (0 = unlimited)" },
    { "ui.gtk.scrollback.syslog", "200", "Max syslog tab scrollback lines (0 = unlimited)" },
-#endif	// GTK
+#endif	// USE_GTK
 #ifdef _WIN32
    // windows hosts usually dont already have a gtk3 theme, so default to the included windows 10 theme
    { "ui.gtk.theme", "Windows10", "Chosen light theme" },

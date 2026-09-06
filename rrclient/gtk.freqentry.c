@@ -758,7 +758,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
    fe->up_buttons = g_new0(GtkWidget*, fe->num_digits);
    fe->down_buttons = g_new0(GtkWidget*, fe->num_digits);
 
-   PangoFontDescription *font = gui_font_find("monospace");
+   PangoFontDescription *font = gui_font_find("chat");
    GdkRGBA white = { 1, 1, 1, 1 };
 
    for (int i = 0 ; i < fe->num_digits ; i++) {

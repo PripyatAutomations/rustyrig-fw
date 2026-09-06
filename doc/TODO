@@ -1,5 +1,8 @@
 Immediate needs
 ---------------
+rrclient: Fix/finish server picker & server editor and put them to use
+  - We should be able to run without a config file and actually be usable
+    - We need to finish the config tab and config saving
 * Support for multiple rigs/channels
 - add noob.cool-down=30 to rrserver/defconfig.c
 * Anywhere with a bool return type needs to ensure

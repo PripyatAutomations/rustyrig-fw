@@ -301,7 +301,11 @@ GtkWidget *create_chat_box(void) {
 
    // Chat view
    chat_textview = gtk_text_view_new();
-   gtk_widget_override_font(chat_textview, gui_font_find("monospace"));
+   // Chat view uses the required "chat" alias (ui.font.chat)
+   PangoFontDescription *chat_font = gui_font_find("chat");
+   if (chat_font) {
+      gtk_widget_override_font(chat_textview, chat_font);
+   }
    text_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(chat_textview) );
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);

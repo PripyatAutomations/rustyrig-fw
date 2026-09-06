@@ -105,11 +105,78 @@ bool gui_font_free(gui_font_t *font) {
 
 // load our needed font families
 bool gui_font_init(void) {
-   if (!gui_font_load("monospace")) {
-      fprintf(stderr, "Sorry but we *MUST* have fonts configured - set ui.font.monospace= in config!");
+   // "chat" is the monospace base: chat view, syslog fallback and the freq
+   // digit buttons all use it. Required.
+   if (!gui_font_load("chat")) {
+      fprintf(stderr, "Sorry but we *MUST* have fonts configured - set ui.font.chat= in config!");
       exit(1);
    }
+
+   // Default UI font (labels, buttons, etc). Optional: fall back to the
+   // theme's default font if unset.
+   if (!gui_font_load("default")) {
+      Log(LOG_WARN, "ui.font", "No ui.font.default set; using theme default for UI labels");
+   }
+
+   // Optional overrides below: each falls back sensibly when unset.
+
+   // Syslog tab. Optional: falls back to "chat", then the theme default.
+   if (!gui_font_load("syslog")) {
+      Log(LOG_DEBUG, "ui.font", "No ui.font.syslog set; falling back to ui.font.chat for syslog");
+   }
+
+   // Buttons. Optional: falls back to the "default" alias, then the theme
+   // default. The default config uses a Bold face.
+   if (!gui_font_load("buttons")) {
+      Log(LOG_DEBUG, "ui.font", "No ui.font.buttons set; falling back to ui.font.default for buttons");
+   }
+
+   // Labels. Optional: falls back to the "default" alias, then the theme.
+   if (!gui_font_load("labels")) {
+      Log(LOG_DEBUG, "ui.font", "No ui.font.labels set; falling back to ui.font.default for labels");
+   }
+
    return false;
+}
+
+// Recursively apply the "labels" font to every GtkLabel under a container.
+// Labels inside buttons are skipped: they're the button's text and belong to
+// the "buttons" alias.
+static void gui_font_apply_labels_recurse(GtkWidget *w, bool in_button) {
+   if (!w) {
+      return;
+   }
+
+   bool now_in_button = in_button;
+   if (GTK_IS_BUTTON(w) ) {
+      now_in_button = true;
+   }
+
+   if (!now_in_button && GTK_IS_LABEL(w) ) {
+      PangoFontDescription *font = gui_font_find("labels");
+      if (!font) {
+         font = gui_font_find("default");
+      }
+      if (font) {
+         gtk_widget_override_font(w, font);
+      }
+   }
+
+   if (GTK_IS_CONTAINER(w) ) {
+      GList *children = gtk_container_get_children(GTK_CONTAINER(w) );
+      for (GList *l = children; l; l = l->next) {
+         gui_font_apply_labels_recurse(GTK_WIDGET(l->data), now_in_button);
+      }
+      g_list_free(children);
+   }
+}
+
+// Call once the main window's widget tree is fully built (after show_all)
+void gui_font_apply_labels(GtkWidget *root) {
+   if (!root) {
+      return;
+   }
+   gui_font_apply_labels_recurse(root, false);
 }
 
 bool gui_font_fini(void) {

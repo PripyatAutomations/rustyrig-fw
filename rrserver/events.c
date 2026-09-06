@@ -259,6 +259,48 @@ static void rrserver_handle_send_cat_state(const char *event, const char *data, 
 }
 
 
+// A departing user was holding PTT (fired from srv.http.c on MG_EV_CLOSE).
+// Release only the VFO this user keyed; we have no business touching any
+// other VFO's TX state. (ptt_vfo is recorded on every key-up, so unknown
+// should only happen for stale/foreign sessions.)
+static void rrserver_handle_rig_ptt_off(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   dict *d = (data ? json2dict(data) : NULL);
+   const char *who = (d ? dict_get(d, "cat.user", NULL) : NULL);
+   const char *vfo = (d ? dict_get(d, "cat.vfo", NULL) : NULL);
+
+   if (vfo && vfo[0]) {
+      Log(LOG_AUDIT, "rigctl", "Departing user %s had PTT on vfo %s: keying down", (who ? who : "(unknown)"), vfo);
+      rr_ptt_set(vfo_lookup(vfo[0]), false);
+   } else {
+      Log(LOG_WARN, "rigctl", "Departing user %s held PTT but no VFO recorded; NOT touching rig TX", (who ? who : "(unknown)"));
+   }
+
+   if (d) {
+      dict_free(d);
+   }
+}
+
+
+// Server measured RTT to a client from the ping/pong exchange; store/log it
+// so the audio subsystem (or anything else) can track link quality.
+static void rrserver_handle_latency(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!cptr || !data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   if (!d) {
+      return;
+   }
+
+   long long rtt = dict_get_llong(d, "latency.rtt", -1);
+   if (rtt >= 0) {
+      Log(LOG_AUDIT, "latency", "RTT to user %s: %lld ms", cptr->chatname, rtt);
+   }
+   dict_free(d);
+}
+
+
 void rrserver_register_events(void) {
    Log(LOG_CRAZY, "events", "Registering rrserver events");
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
@@ -269,5 +311,7 @@ void rrserver_register_events(void) {
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    event_on("hello", rrserver_handle_hello, NULL);
    event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
+   event_on("rig.ptt", rrserver_handle_rig_ptt_off, NULL);
+   event_on("latency", rrserver_handle_latency, NULL);
    Log(LOG_CRAZY, "events", "Finished registering rrserver events");
 }

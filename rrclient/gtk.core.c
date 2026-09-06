@@ -370,6 +370,15 @@ bool gui_init(void) {
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
 
+   // Apply the default UI font to the whole window tree. Widgets which set
+   // their own font (chat, frequency entry, etc) keep it; everything else
+   // (labels, buttons, tabs, ...) inherits this one.
+   PangoFontDescription *default_font = gui_font_find("default");
+   if (default_font) {
+      gtk_widget_override_font(main_window, default_font);
+   }
+
+
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
    gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
@@ -398,6 +407,10 @@ bool gui_init(void) {
    gtk_widget_show_all(main_window);
    gtk_widget_realize(main_window);
    place_window(main_window);
+
+   // Apply the configurable labels font to all GtkLabels in the built tree
+   // (must run after the tree exists; skipped inside buttons)
+   gui_font_apply_labels(main_window);
 
    if (ui_mode == UI_MODE_GTK) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);

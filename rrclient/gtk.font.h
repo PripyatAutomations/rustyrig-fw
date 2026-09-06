@@ -26,6 +26,7 @@ extern gui_font_t *gui_font_load(const char *alias);
 extern bool gui_font_free(gui_font_t *font);
 extern bool gui_font_init(void);
 extern bool gui_font_fini(void);
+extern void gui_font_apply_labels(GtkWidget *root);
 extern gui_font_t *fonts[MAX_FONTS];
 
 #endif // !defined(__rrclient_gtk_font_h)
