@@ -131,13 +131,9 @@ void connman_register_events(void) {
    event_on("error", rrclient_handle_reconnect_event, NULL);
 }
 
-// Reconnect engine poll - called from the main loop. The websocket I/O and
-// protocol-level connect/disconnect live in librrprotocol.
-void rrclient_poll_events(void) {
-#ifdef  USE_MONGOOSE
-   mg_mgr_poll(&mgr, 0);
-#endif // USE_MONGOOSE
-
+// Reconnect engine poll - split from the mg_mgr_poll() side so the GTK GSource
+// can block inside mg_mgr_poll() and still drive reconnects.
+void rrclient_poll_events_reconnect(void) {
    if (reconnect_pending && time(NULL) >= reconnect_at) {
       reconnect_pending = false;
 

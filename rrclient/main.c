@@ -58,6 +58,7 @@ extern void connman_autoconnect(void);
 extern void rrclient_register_events(void);
 extern bool rrclient_autoconnect(void);
 extern void rrclient_poll_events(void);
+extern void rrclient_poll_events_reconnect(void);
 extern void ws_client_init(void);
 extern bool parse_chat_input_real(const char *msg); // cmd.c
 extern char **client_cmd_completions(const char *line, const char *word); // cmd.c
@@ -136,18 +137,48 @@ typedef struct {
    GSource source;
 } MgSource;
 
+static gint64 mg_next_poll_us = 0;   // monotonic usec of next due poll
+
+// Cadence of the reconnect/poll sweep. Socket events DON'T wait for this:
+// dispatch blocks inside mg_mgr_poll()'s internal poll() and returns
+// immediately when data arrives. Keep interval > poll block time or the
+// source stays permanently ready and starves GTK.
+//
+// The 10ms/8ms split keeps the client ~90% blocked in poll() (near-zero CPU)
+// while capping event latency at ~10ms. Don't lengthen the interval without
+// lengthening the block to match -- GLib sleep time is NOT woken by socket
+// data since we register no GPollFDs.
+#define	MG_POLL_INTERVAL_US	10000
+#define	MG_POLL_BLOCK_MS	8
+
 static gboolean mg_source_prepare(GSource *source, gint *timeout_) {
-   *timeout_ = 20;                     // wake at least every 20ms
+   gint64 now = g_get_monotonic_time();
+
+   if (now >= mg_next_poll_us) {
+      mg_next_poll_us = now + MG_POLL_INTERVAL_US;
+      *timeout_ = 0;
+      return TRUE;                     // dispatch now
+   }
+
+   *timeout_ = (gint)((mg_next_poll_us - now) / 1000);
    return FALSE;
 }
 
 static gboolean mg_source_check(GSource *source) {
-   return TRUE;                        // always dispatch on timeout
+   // Must stay FALSE: returning TRUE makes the source permanently ready,
+   // spinning the main loop at 100% CPU.
+   return FALSE;
 }
 
 static gboolean mg_source_dispatch(GSource *source, GSourceFunc cb, gpointer data) {
+   // Block up to 45ms inside mg_mgr_poll's internal poll(): it returns
+   // immediately when socket data arrives, so event latency is unaffected,
+   // but idle wakeups drop to ~20/s instead of spinning at 200/s.
    if (!dying) {
-      rrclient_poll_events();          // mg_mgr_poll(&mgr, 0) + reconnect engine
+#ifdef	USE_MONGOOSE
+      mg_mgr_poll(&mgr, MG_POLL_BLOCK_MS);
+#endif
+      rrclient_poll_events_reconnect();
    }
    return G_SOURCE_CONTINUE;
 }
@@ -163,7 +194,10 @@ static GSourceFuncs mg_source_funcs = {
 static void poll_mongoose_init(void) {
    GSource *src = g_source_new(&mg_source_funcs, sizeof(MgSource));
    g_source_set_name(src, "mongoose-poll");
-   g_source_set_priority(src, G_PRIORITY_DEFAULT_IDLE);
+   // Priority must be above the default-idle band: during UI setup and heavy
+   // redraws an idle-priority source is starved, delaying socket reads (and
+   // thus ping/pong RTT measurement and eventually audio) by hundreds of ms.
+   g_source_set_priority(src, G_PRIORITY_DEFAULT);
    g_source_attach(src, g_main_context_default());
    g_source_unref(src);
 }

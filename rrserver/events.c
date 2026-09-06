@@ -147,6 +147,11 @@ static void rrserver_handle_send_chat_replay(const char *event, const char *data
       db_send_chat_replay(cptr, channel);
    }
 #endif
+
+   // The initial ping: send it now that login, CAT state, media negotiation,
+   // and the chat replay have all been pushed, so the client is settled and
+   // the RTT measurement reflects the real link instead of UI-setup lag.
+   ws_send_ping(cptr);
    dict_free(d);
 }
 
@@ -294,8 +299,9 @@ static void rrserver_handle_latency(const char *event, const char *data, rrconn_
    }
 
    long long rtt = dict_get_llong(d, "latency.rtt", -1);
+   long long rtt_us = dict_get_llong(d, "latency.rtt_us", -1);
    if (rtt >= 0) {
-      Log(LOG_AUDIT, "latency", "RTT to user %s: %lld ms", cptr->chatname, rtt);
+      Log(LOG_DEBUG, "latency", "RTT to user %s: %lld ms (%lld us)", cptr->chatname, rtt, rtt_us);
    }
    dict_free(d);
 }

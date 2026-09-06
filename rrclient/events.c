@@ -392,11 +392,64 @@ static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *
    }
 }
 
+// Generic ws.msg.talk listener: the specific commands are dispatched by
+// ws_handle_talk_msg() into dedicated events (userinfo, join, talk.msg,
+// chat.replay, ...). We register a handler so the event system doesn't fire
+// NOMATCH for every talk message.
+static void rrclient_handle_talk(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   Log(LOG_CRAZY, "ws.talk", "ws.msg.talk: %s", (data ? data : "<NULL>"));
+}
+
+static void rrclient_handle_chat_replay(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   if (!d) {
+      return;
+   }
+
+   const char *cmd = dict_get(d, "talk.cmd", NULL);
+
+   if (cmd && strcasecmp(cmd, "replay-start") == 0) {
+      ui_print(NULL, "{red}>>>{reset} Start of chat replay. {red}<<<{reset}");
+   } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0)) {
+      ui_print(NULL, "{red}>>>{reset} Finished chat replay. {red}<<<{reset}");
+   }
+   dict_free(d);
+}
+
 static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
    }
    Log(LOG_CRAZY, "ws.nomatch", "Got NOMATCH hit with json: %s", data);
+
+   dict *d = json2dict(data);
+   if (!d) {
+      Log(LOG_DEBUG, "ws.nomatch", "NOMATCH json unparseable");
+      return;
+   }
+
+   const char *msg_type = dict_get(d, "msg.type", NULL);
+   time_t msg_ts = dict_get_time_t(d, "msg.ts", now);
+
+   // Chat commands which have no dedicated event yet; show them in the UI
+   if (msg_type && strcasecmp(msg_type, "talk") == 0) {
+      const char *cmd = dict_get(d, "talk.cmd", NULL);
+
+      if (cmd && strcasecmp(cmd, "replay-start") == 0) {
+         ui_print(NULL, "%s {red}>>>{reset} Start of chat replay. {red}<<<{reset}", get_chat_ts(msg_ts));
+      } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0)) {
+         ui_print(NULL, "%s {red}>>>{reset} Finished chat replay. {red}<<<{reset}", get_chat_ts(msg_ts));
+      } else {
+         Log(LOG_DEBUG, "ws.nomatch", "Unhandled talk cmd:|%s|", (cmd ? cmd : "<NONE>"));
+      }
+   } else {
+      Log(LOG_DEBUG, "ws.nomatch", "Unhandled msg.type:|%s|", (msg_type ? msg_type : "<NONE>"));
+   }
+   dict_free(d);
 }
 
 static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -455,10 +508,56 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
 /*
  * Initialize the events we care about receiving
  */
+// Handlers for generic ws.msg.* events which have no dedicated listener yet;
+// registering them keeps the event system from firing NOMATCH for expected
+// traffic. The real handling happens in the in-process message handlers.
+static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   Log(LOG_CRAZY, "ws.ping", "Server ping: %s", (data ? data : "<NULL>"));
+}
+
+static void rrclient_handle_logging_in(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   Log(LOG_CRAZY, "ws.auth", "Logging in: %s", (data ? data : "<NULL>"));
+}
+
+static void rrclient_handle_media_capab(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   Log(LOG_CRAZY, "ws.media", "Media capabilities: %s", (data ? data : "<NULL>"));
+}
+
+static void rrclient_handle_media(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   if (!d) {
+      Log(LOG_DEBUG, "ws.media", "Unparseable media message");
+      return;
+   }
+
+   const char *cmd = dict_get(d, "media.cmd", NULL);
+
+   if (cmd && strcasecmp(cmd, "capab") == 0) {
+      const char *codecs = dict_get(d, "media.codecs", NULL);
+      Log(LOG_DEBUG, "ws.media", "Server media capabilities: %s", (codecs ? codecs : "<none>"));
+   } else if (cmd && strcasecmp(cmd, "isupport") == 0) {
+      const char *codecs = dict_get(d, "media.codecs", NULL);
+      const char *preferred = dict_get(d, "media.preferred", NULL);
+      Log(LOG_INFO, "ws.media", "Negotiated codec: %s (server supports: %s)",
+         (preferred ? preferred : "<none>"), (codecs ? codecs : "<none>"));
+   } else {
+      Log(LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>"));
+   }
+   dict_free(d);
+}
+
 void rrclient_register_events(void) {
    event_on("NOMATCH", rrclient_handle_nomatch, NULL);
    event_on("ws.msg.hello", rrclient_handle_hello, NULL);
    event_on("ws.msg.auth", rrclient_handle_auth, NULL);
+   event_on("ws.msg.ping", rrclient_handle_ping, NULL);
+   event_on("logging-in", rrclient_handle_logging_in, NULL);
+   event_on("media.capab", rrclient_handle_media_capab, NULL);
+   event_on("ws.msg.media", rrclient_handle_media, NULL);
 
    // Connection status related
    event_on("auth.error", rrclient_handle_autherr, NULL);
@@ -474,6 +573,8 @@ void rrclient_register_events(void) {
 
    // Chat/userlist related
    event_on("join", rrclient_handle_join, NULL);
+   event_on("ws.msg.talk", rrclient_handle_talk, NULL);
+   event_on("chat.replay", rrclient_handle_chat_replay, NULL);
    event_on("privmsg", rrclient_handle_talk_msg, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg, NULL);

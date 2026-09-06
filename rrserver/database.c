@@ -130,7 +130,7 @@ int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char
    int row_id = (int)sqlite3_last_insert_rowid(db);
    sqlite3_finalize(stmt);
 
-   // Pass the session key 
+   // Pass the session key
    return row_id;   // Caller should store this to end the session
 }
 
@@ -251,32 +251,10 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
    }
 
    /*
-    * Tell the client that replay is starting.
+    * Send replay-start lazily: only when we actually have replay lines to
+    * send. Clients shouldn't get start/complete markers for an empty replay.
     */
-   dict *start = dict_new();
-
-   if (!start) {
-      Log(LOG_CRIT, "db.replay",
-         "db_send_chat_replay: failed creating replay-start dict");
-      sqlite3_finalize(stmt);
-      return false;
-   }
-
-   dict_add(start, "msg.type", "talk");
-   dict_add(start, "talk.cmd", "replay-start");
-   dict_add(start, "talk.target", channel);
-
-   if (!ws_send_dict(NULL, cptr, start, WEBSOCKET_OP_TEXT)) {
-      Log(LOG_CRIT, "db.replay",
-         "db_send_chat_replay: failed sending replay-start to cptr:<%p>",
-         cptr);
-      dict_free(start);
-      sqlite3_finalize(stmt);
-      return false;
-   }
-
-   dict_free(start);
-
+   bool started = false;
    bool success = true;
    int rc;
 
@@ -304,6 +282,33 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
             (long long)msg_id,
             msg_type ? msg_type : "(null)");
          continue;
+      }
+
+      if (!started) {
+         dict *start = dict_new();
+
+         if (!start) {
+            Log(LOG_CRIT, "db.replay",
+               "db_send_chat_replay: failed creating replay-start dict");
+            success = false;
+            break;
+         }
+
+         dict_add(start, "msg.type", "talk");
+         dict_add(start, "talk.cmd", "replay-start");
+         dict_add(start, "talk.target", channel);
+
+         if (!ws_send_dict(NULL, cptr, start, WEBSOCKET_OP_TEXT)) {
+            Log(LOG_CRIT, "db.replay",
+               "db_send_chat_replay: failed sending replay-start to cptr:<%p>",
+               cptr);
+            dict_free(start);
+            success = false;
+            break;
+         }
+
+         dict_free(start);
+         started = true;
       }
 
       dict *msg = dict_new();
@@ -385,11 +390,11 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
    /*
     * Tell the client that replay is complete.
     *
-    * Only send this if the replay itself completed successfully.
-    * If the connection failed while sending a message, there's
-    * little point in trying to send another message to it.
+    * Only send this if we actually sent replay lines (and the replay
+    * completed successfully). If the connection failed while sending a
+    * message, there's little point in trying to send another message to it.
     */
-   if (success) {
+   if (success && started) {
       dict *complete = dict_new();
 
       if (!complete) {
