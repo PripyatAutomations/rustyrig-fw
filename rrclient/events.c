@@ -22,7 +22,6 @@
 
 extern const char *login_user;   // from connman.c
 #ifdef	USE_GTK
-extern void ui_show_whois_dialog(GtkWindow *parent, const char *json_array);
 extern int cfg_ui_ptt_ack_timeout;   // gtk.ptt-btn.c
 extern void ptt_button_tot_expired(void);   // gtk.ptt-btn.c
 extern GtkWidget *freq_entry, *log_view, *main_window, *ptt_button;
@@ -282,7 +281,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          ui_print(NULL, "%s {red}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "priv") == 0) {
          ui_print(NULL, "%s {bright-green}*{reset}%s{bright-green}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
-      } else if (strcasecmp(msg_type, "replay-priv") == 0) {
+      } else if (strcasecmp(msg_type, "replay-priv") == 0 || strcasecmp(msg_type, "replay-privmsg") == 0) {
          ui_print(NULL, "%s {magenta}*{reset}%s{magenta}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
       }
       cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
@@ -327,9 +326,36 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
       rrclient_set_offline();
-   } else if (strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {
-      ui_print(NULL, "{red}* http error *{reset}");
+   } else if (strcasecmp(event, "http.error") == 0) {
+      // Fatal connection-level error (MG_EV_ERROR, cli.main.c) - the conn is gone
+      const char *err = NULL;
+      if (data) {
+         dict *d = json2dict(data);
+         if (d) {
+            err = dict_get(d, "error.msg", NULL);
+         }
+      }
+      if (err) {
+         ui_print(NULL, "{red}* http error *{reset} %s", err);
+      } else {
+         ui_print(NULL, "{red}* http error *{reset}");
+      }
       rrclient_set_offline();
+   } else if (strcasecmp(event, "error") == 0) {
+      // Non-fatal protocol error message from the server (cli.error.c);
+      // display it in chat but do NOT drop the connection
+      const char *err = NULL;
+      const char *from = NULL;
+      if (data) {
+         dict *d = json2dict(data);
+         if (d) {
+            err = dict_get(d, "error.msg", NULL);
+            from = dict_get(d, "error.from", NULL);
+            dict_free(d);
+         }
+      }
+      ui_print(NULL, "%s {red}ERROR%s%s:{reset} %s", get_chat_ts(now),
+         (from ? " from " : ""), (from ? from : ""), (err ? err : "unknown error"));
    }
 
    if (ui_mode == UI_MODE_TUI) {
@@ -494,15 +520,48 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    if (!data) {
       return;
    }
-   const char *whois_msg = (const char *)data;
 
-   if (whois_msg && main_window) {
-      if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-         ui_show_whois_dialog(GTK_WINDOW(main_window), whois_msg);
-#endif	// USE_GTK
-      }
+   dict *d = json2dict(data);
+   if (!d) {
+      Log(LOG_DEBUG, "ws.whois", "whois reply unparseable");
+      return;
    }
+
+   // Flat whois reply from srv.chat.c: talk.username/email/privs/muted/clones,
+   // talk.connected/last_heard (unix ts) and talk.ua. Rendered IRC-style in chat.
+   const char *s_none = "(none)";
+   const char *s_unknown = "(unknown)";
+   const char *username = dict_get(d, "talk.username", s_none);
+   const char *email = dict_get(d, "talk.email", s_none);
+   const char *privs = dict_get(d, "talk.privs", s_none);
+   const char *ua = dict_get(d, "talk.ua", s_unknown);
+   bool muted = dict_get_bool(d, "talk.muted", false);
+   time_t connected = dict_get_time_t(d, "talk.connected", 0);
+   time_t last_heard = dict_get_time_t(d, "talk.last_heard", 0);
+   int clones = dict_get_int(d, "talk.clones", 0);
+
+   ui_print(NULL, "{cyan}***{reset} {bold}Whois for %s{reset}", username);
+   ui_print(NULL, "{cyan}***{reset} Email:      %s", email);
+   ui_print(NULL, "{cyan}***{reset} Privileges: %s", privs);
+
+   if (muted) {
+      ui_print(NULL, "{cyan}***{reset} {bright-red}This user is currently MUTEd. Rigctl is temporarily suspended.{reset}");
+   }
+
+   ui_print(NULL, "{cyan}***{reset} Sessions:   %d", clones);
+
+   if (connected > 0) {
+      ui_print(NULL, "{cyan}***{reset} Connected:  %s", get_chat_ts(connected));
+   }
+
+   if (last_heard > 0) {
+      ui_print(NULL, "{cyan}***{reset} Last heard: %s", get_chat_ts(last_heard));
+   }
+
+   ui_print(NULL, "{cyan}***{reset} Client:     %s", ua);
+   ui_print(NULL, "{cyan}***{reset} {bold}End of WHOIS %s{reset}", username);
+
+   dict_free(d);
 }
 
 /*

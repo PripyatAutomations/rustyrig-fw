@@ -117,17 +117,19 @@ static void rrclient_handle_reconnect_event(const char *event, const char *data,
       reconnect_pending = false;
       reconnect_tries = 0;
       reconnect_at = 0;
-   } else if (strcasecmp(event, "disconnected") == 0 ||
-              strcasecmp(event, "http.error") == 0 || strcasecmp(event, "error") == 0) {
+   } else if (strcasecmp(event, "disconnected") == 0 || strcasecmp(event, "http.error") == 0) {
+      // "disconnected" and "http.error" (MG_EV_ERROR) are connection failures:
+      // schedule a reconnect. Plain "error" events are non-fatal protocol error
+      // messages from the server (cli.error.c) and must NOT drop the connection.
       rrclient_schedule_reconnect();
-   }
+    }
 }
 
 void connman_register_events(void) {
    event_on("authorized", rrclient_handle_reconnect_event, NULL);
    event_on("disconnected", rrclient_handle_reconnect_event, NULL);
    event_on("http.error", rrclient_handle_reconnect_event, NULL);
-   event_on("error", rrclient_handle_reconnect_event, NULL);
+   // NB: no event_on("error", ...) here - server protocol errors are non-fatal
 }
 
 // Reconnect engine poll - split from the mg_mgr_poll() side so the GTK GSource
