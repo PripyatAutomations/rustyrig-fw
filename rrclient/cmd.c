@@ -41,6 +41,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
    { .cmd = "die", .cb = cmd_die, .desc = "Shutdown the server" },
    { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
+   { .cmd = "css-reload", .cb = cmd_css_reload, .desc = "Reload GTK CSS from the config file" },
    { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
    { .cmd = "kick", .cb = cmd_kick, .desc = "Kick a user from the rig" },
    { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },

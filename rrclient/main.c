@@ -403,6 +403,10 @@ int main(int argc, char *argv[]) {
 
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
+#ifdef	USE_GTK
+extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
+   cfg_gtkcss_init();
+#endif
 
    // Register config save callbacks so module-owned sections get saved.
    // cfg_servers_init() is weak: it lives in cfg.servers.c which is part of

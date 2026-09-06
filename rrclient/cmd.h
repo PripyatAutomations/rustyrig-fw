@@ -39,6 +39,7 @@ extern bool cmd_clearlog(int argc, char **args);
 extern bool cmd_config(int argc, char **args);
 extern bool cmd_die(int argc, char **args);
 extern bool cmd_disconnect(int argc, char **args);
+extern bool cmd_css_reload(int argc, char **args);   // cfg.gtkcss.c
 extern bool cmd_help(int argc, char **args);
 extern bool cmd_join(int argc, char **args);
 extern bool cmd_kick(int argc, char **args);

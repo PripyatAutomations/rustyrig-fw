@@ -34,6 +34,23 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
+#ifdef	USE_GTK
+// Default GTK CSS for the client UI. The [gtk-css] section of the config
+// file overrides this, and can be reloaded at runtime with /css-reload
+// Use dark green with bold white text so the online/PTT buttons are readable
+#define	DEFAULT_CSS \
+   ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
+   ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
+   ".ptt-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
+   ".ptt-offline { background: #555555; color: white; font-weight: bold; }\n" \
+   ".ptt-tot { background: #e07000; color: black; font-weight: bold; }\n" \
+   ".conn-active { background: #0a7a0a; color: white; font-weight: bold; }\n" \
+   ".conn-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
+   ".conn-idle { background: #b00000; color: white; font-weight: bold; }"
+
+const char *default_css = DEFAULT_CSS;
+#endif	// USE_GTK
+
 defconfig_t defcfg[] = {
    { "audio.pipeline.rx", "", "User choice pipeline for RX" },
    { "audio.pipeline.rx.format", "", "User pipeline format (bytes|time) for RX " },
@@ -77,6 +94,9 @@ defconfig_t defcfg[] = {
    { "ui.font.syslog", NULL, "Syslog tab font (falls back to ui.font.chat)" },
    { "ui.gtk.vfo-on-top", "false", "Place VFO controls at top of the rig window?" },
    { "ui.gtk.main-tabstrip", "bottom", "Placement of main tabstrip: left,right,bottom,top" },
+   // All of the GTK CSS lives here; the [gtk-css] section of the config file
+   // overrides this, and can be reloaded at runtime with /css-reload
+   { "ui.gtk.css", DEFAULT_CSS, "GTK CSS for the client UI (see also [gtk-css] config section)" },
    { "ui.gtk.vfo-docked", "true", "NYI: Docked or floating VFO?" },
    { "ui.gtk.scrollback.chat", "200", "Max chat scrollback lines (0 = unlimited)" },
    { "ui.gtk.scrollback.syslog", "200", "Max syslog tab scrollback lines (0 = unlimited)" },

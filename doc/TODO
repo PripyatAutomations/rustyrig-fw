@@ -1,5 +1,9 @@
 Immediate needs
 ---------------
+* Elmer/noob mode needs a dialog confirmation system
+  - Noob requests elevated privs and is cautioned about their responsibility
+  - Elmers are prompted and one can accept responsibility for the user
+
 rrclient: Fix/finish server picker & server editor and put them to use
   - We should be able to run without a config file and actually be usable
     - We need to finish the config tab and config saving

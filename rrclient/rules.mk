@@ -7,6 +7,9 @@ rrclient_objs += cat.kpa500.o
 rrclient_objs += cat.yaesu.o
 rrclient_objs += chat.whois.o
 rrclient_objs += cfg.network.o
+ifeq (${USE_GTK},true)
+rrclient_objs += cfg.gtkcss.o		# GTK CSS from config file
+endif
 rrclient_objs += cmd.o
 rrclient_objs += cmd.admin.o		# Server control tasks
 rrclient_objs += cmd.chat.o		# chat commands

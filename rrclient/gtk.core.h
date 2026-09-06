@@ -81,6 +81,8 @@ extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const ch
 extern gboolean focus_main_later(gpointer data);
 extern bool place_window(GtkWidget *window);
 extern bool gui_init(void);
+extern bool gtk_css_apply_cfg(void);                 // cfg.gtkcss.c
+extern bool cmd_css_reload(int argc, char **args);   // cfg.gtkcss.c
 extern GtkWidget *conn_button;
 extern void show_server_chooser(void);                   // gtk.serverpick.c
 extern bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...);

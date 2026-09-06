@@ -353,18 +353,10 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
 
 bool gui_init(void) {
    gui_font_init();
-   css_provider = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(css_provider, ".ptt-active { background: red; color: white; }"
-      ".ptt-idle { background: #0fc00f; color: white; }"
-      ".ptt-pending { background: yellow; color: black; }"
-      ".ptt-offline { background: #555555; color: white; }"
-      ".ptt-tot { background: orange; color: black; }"
-      ".conn-active { background: #0fc00f; color: white; }"
-      ".conn-pending { background: yellow; color: black; }"
-      ".conn-idle { background: red; color: white; }", -1, NULL);
 
-   gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(css_provider),
-      GTK_STYLE_PROVIDER_PRIORITY_USER);
+   // Apply user CSS (from [gtk-css] config section) or the default from
+   // defconfig.c. See cfg.gtkcss.c, reloadable at runtime with /css-reload
+   gtk_css_apply_cfg();
 
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *main_window_t = ui_new_window(main_window, "main");

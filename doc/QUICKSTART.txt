@@ -38,7 +38,6 @@ then we'll go through and rewrite/cleanup each file.
 I've made this mess in essentially a few weeks^Wmonths of spare time.
 Keep that in mind before exposing it to the internet.
 Probably wise to use a VPN for now.
-
 Mongoose httpd is well maintained and tested, but my code presently is not.
 
 Feel free to contribute changes or improvements via github or .diff's!
@@ -68,6 +67,10 @@ Client setup
 ------------
 Edit config/rrclient.cfg
 Run ./rrclient for gtk or ./rrclient -T (or unset $DISPLAY) for TUI.
+
+- We're migrating the client to use libsoup3 for it's http/websocket. This
+  will make it work better on posix hosts and client is unlikely to get run
+  on embedded.
 
 --
 See doc/STATUS for status of subsystems.
