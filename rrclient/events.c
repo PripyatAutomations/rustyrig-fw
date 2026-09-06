@@ -31,9 +31,11 @@ extern int ws_connected;        // in librustyaxe/tui.window.c BUT belongs in rr
 bool cfg_ui_bell_chat = false;
 
 void rrclient_update_connection_ui(int connected) {
+#ifdef	USE_GTK
    if (!conn_button) {
       return;
    }
+#endif
 
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
@@ -138,8 +140,10 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
    Log(LOG_INFO, "proto.alert", "*** ALERT From: %s --- ***", msg_from, msg_data);
 
    if (ui_mode == UI_MODE_GTK) {
+#ifdef	USE_GTK
       ui_message_bell();
       alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, my_msg);
+#endif
    }
    dict_free(d);
 }
@@ -413,7 +417,12 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
 }
 
 static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (!data || !mode_combo) {
+#ifdef	USE_GTK
+   if (!mode_combo) {
+      return;
+   }
+#endif
+   if (!data) {
       return;
    }
    const char *mode = (const char *)data;

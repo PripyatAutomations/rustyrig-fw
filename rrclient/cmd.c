@@ -32,16 +32,19 @@
 extern bool dying;
 extern time_t now;
 extern rrconn_t *ws_conn;
+extern dict *cfg;
 
 client_cmd_t client_cmds[] = {
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
    { .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
-   { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
    { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
    { .cmd = "die", .cb = cmd_die, .desc = "Shutdown the server" },
    { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
+#ifdef	USE_GTK
+   { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
    { .cmd = "css-reload", .cb = cmd_css_reload, .desc = "Reload GTK CSS from the config file" },
+#endif	// USE_GTK
    { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
    { .cmd = "kick", .cb = cmd_kick, .desc = "Kick a user from the rig" },
    { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },
@@ -63,10 +66,65 @@ client_cmd_t client_cmds[] = {
    { .cmd = NULL, .cb = NULL, .desc = NULL }
 };
 
+/* Complete server names as the argument to /server, from the same cfg keys
+ * the server chooser lists. PARITY: rrclient/ui.c show_server_chooser()
+ */
+static char **complete_server_names(const char *word) {
+   char **matches = NULL;
+   size_t count = 0;
+   size_t len = word ? strlen(word) : 0;
+   int rank = 0;
+   const char *k;
+   char *v;
+
+   while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
+      if (!k) {
+         continue;
+      }
+      size_t klen = strlen(k);
+
+      // match the server chooser check for keys ending in ".server.user"
+      if (klen < 12 || strcmp(&k[klen - 12], ".server.user") != 0) {
+         continue;
+      }
+      const char *name_start = strchr(k, ':');
+
+      if (!name_start) {
+         continue;
+      }
+      name_start++;
+      char server[32];
+      sscanf(name_start, "%31[^.]", server);
+
+      if (len && strncasecmp(server, word, len) != 0) {
+         continue;
+      }
+      char **tmp = realloc(matches, (count + 2) * sizeof(char *) );
+
+      if (!tmp) {
+         continue;
+      }
+      matches = tmp;
+      matches[count] = strdup(server);
+
+      if (matches[count]) {
+         matches[++count] = NULL;
+      }
+   }
+
+   return matches;
+}
+
 // Completion provider for the TUI: tab-completion of /commands from client_cmds[]
 char **client_cmd_completions(const char *line, const char *word) {
    if (!word) {
       return NULL;
+   }
+
+   // Complete server names as the argument to "/server " (with or without
+   // a trailing space); the command itself is completed by the logic below
+   if (strncasecmp(line, "/server", 7) == 0 && line[7] == ' ') {
+      return complete_server_names(word);
    }
 
    // Only complete the first word, and only when it starts with '/'

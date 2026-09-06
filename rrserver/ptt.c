@@ -95,8 +95,8 @@ bool rr_ptt_toggle(rr_vfo_t vfo) {
 bool rr_ptt_set_all_off(void) {
    Log(LOG_AUDIT, "core", "PTT turned off for all VFOs!");
 
-   for (int i = 1 ; i < vfos_enabled ; i++) {
-      rr_ptt_set(i, false);
+   for (int i = VFO_A ; i < MAX_VFOS ; i++) {
+      rr_ptt_set((rr_vfo_t)i, false);
    }
 
    global_tot_time = 0;

@@ -17,6 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
@@ -120,6 +121,15 @@ static help_line_t help_msg_after[] = {
 };
 
 bool cmd_help(int argc, char **args) {
+   // TUI: defer the full-screen redraw until all lines are printed, otherwise
+   // each line causes a full redraw and this takes forever
+   bool deferred = false;
+
+   if (ui_mode == UI_MODE_TUI) {
+      tui_redraw_defer();
+      deferred = true;
+   }
+
    // Pre-message
    for (int i = 0; help_msg_before[i].line; i++) {
       if (help_msg_before[i].mode == UI_MODE_NONE ||
@@ -152,13 +162,17 @@ bool cmd_help(int argc, char **args) {
          client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
    }
 
-   // After-message
-   for (int i = 0; help_msg_after[i].line; i++) {
-      if (help_msg_after[i].mode == UI_MODE_NONE ||
-         ui_mode == help_msg_after[i].mode) {
-         ui_print(NULL, help_msg_after[i].line);
+      // After-message
+      for (int i = 0; help_msg_after[i].line; i++) {
+         if (help_msg_after[i].mode == UI_MODE_NONE ||
+             ui_mode == help_msg_after[i].mode) {
+            ui_print(NULL, help_msg_after[i].line);
+         }
       }
-   }
 
-   return false;
-}
+      if (deferred) {
+         tui_redraw_flush();
+      }
+
+      return false;
+   }

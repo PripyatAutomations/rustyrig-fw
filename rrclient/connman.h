@@ -18,7 +18,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#if     defined(USE_GTK)
 #include <gtk/gtk.h>
+#endif // defined(USE_GTK)
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 

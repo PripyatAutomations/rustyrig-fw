@@ -1,6 +1,6 @@
 {
    "components": {
-      "fwdsp": "true",
+      "fwdsp": "false",
       "rrclient": "true",
       "rrserver": "true"
    },

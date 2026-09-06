@@ -1,3 +1,6 @@
+RRCLIENT_HEADERS += $(wildcard rrclient/*.h)
+rrclient_src = $(rrclient_objs:.o=.c)
+
 rrclient := bin/rrclient
 bins += ${rrclient}
 
@@ -51,7 +54,9 @@ rrclient_objs += userlist.o
 rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
 rrclient_objs += ui.bell.o		# Bell/sounds support for the UI
 rrclient_objs += ui.colors.o		# User interface color handling
+ifeq (${USE_GTK},true)
 rrclient_objs += ui.speech.o		# Support for screener readers
+endif
 rrclient_objs += vfo.o			# VFO management
 rrclient_objs += win32.o		# support to run in windows
 

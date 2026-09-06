@@ -30,8 +30,7 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-
-// Hard-coded defaults (rrclient/defconfig.c)
+#include <glib.h>
 extern defconfig_t defcfg[];
 #ifdef _WIN32
 #include <winsock2.h>
@@ -64,19 +63,11 @@ extern char **client_cmd_completions(const char *line, const char *word); // cmd
 extern bool cfg_servers_init(void) __attribute__((weak));   // cfg.servers.c (optional: IRC server list)
 extern bool cfg_network_save_init(void);  // cfg.network.c
 
-///////////////////////////////////////
-// Main loop: both TUI and GTK modes run on the GLib main loop. (libev was
-// removed; the TUI clock, keyboard watching, and reconnect polling are all
-// GLib sources now.)
-/////////////////////////////////////
-
-
 struct timespec mono_now;
 bool rrclient_cleanup(void);
 const char *cfg_debug_audio = NULL;
 bool cfg_mirc_colors = true;
 bool cfg_ui_gtk_vfo_on_top = true;
-int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
 int cfg_tick_interval = 100;
 bool dying = false;
 bool restarting = false;
@@ -107,10 +98,12 @@ void shutdown_app(int signum) {
    dying = true;
 }
 
+#ifdef USE_GTK
+int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
+
 ////////////////////////////////////////////////////////////////////
 // 1hz periodic: Check if dying and shutdown, update now variable //
 ////////////////////////////////////////////////////////////////////
-#ifdef USE_GTK
 static gboolean update_now(gpointer user_data) {
    now = time(NULL);
 
@@ -216,7 +209,6 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
       return G_SOURCE_REMOVE;
    }
    tui_window_t *tw = tui_active_window();
-   // XXX: this belongs in tui.winmgr!
    tui_refresh_sb_window();
    tui_refresh_sb_vfo();
    tui_update_status(tw, "%s %s %s", sb_online, sb_window, sb_vfo);
@@ -272,14 +264,14 @@ bool rrclient_cleanup(void) {
    if (ui_mode == UI_MODE_TUI) {
       tui_raw_mode(false);
             } else if (ui_mode == UI_MODE_GTK) {
-       #ifdef	USE_GTK
+#ifdef	USE_GTK
           // Only quit if the main loop is still running.  When the user closes
           // the window, destroy→gtk_main_quit already unwound the loop and
           // calling gtk_main_quit() again asserts ("main_loops != NULL").
           if (gtk_main_level() > 0) {
              gtk_main_quit();
           }
-   #endif	// USE_GTK
+#endif	// USE_GTK
        }
 
    // Shut down sockets
@@ -287,9 +279,10 @@ bool rrclient_cleanup(void) {
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
 
-#ifdef USE_LIBNOTIFY
+#if defined(USE_LIBNOTIFY) && defined(USE_GTK)
    ui_notify_fini();
-#endif	// USE_LIBNOTIFY
+#endif	// USE_LIBNOTIFY && USE_GTK
+
    exit(0);
 
    return false;
@@ -338,11 +331,16 @@ int main(int argc, char *argv[]) {
    update_timestamp();
 
    // set a default based on if $DISPLAY is set
+#if defined(USE_GTK)
    if (display) {
       ui_mode = UI_MODE_GTK;
    } else {
       ui_mode = UI_MODE_TUI;
    }
+#else
+   // GTK is not compiled in, always use TUI (-T becomes a no-op)
+   ui_mode = UI_MODE_TUI;
+#endif
 
    // Let's do commandline parsing here
    // -T: Always force TUI (no X11)
@@ -455,7 +453,6 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
 // Store some oft used config settings //
 /////////////////////////////////////////
    debug_sockets = cfg_get_bool("debug.sockets", false);
-   cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
    cfg_debug_audio = cfg_get_exp("debug.audio");
    // How long to suppress hamlib/etc polling during CAT control?
    // (config is in milliseconds; poll_block_delay is whole seconds)
@@ -470,6 +467,7 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 
 #ifdef	USE_GTK
+   cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
 
    const char *main_tabstrip_s = cfg_get("ui.gtk.main-tabstrip");
@@ -528,6 +526,7 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef USE_GTK
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
+
 #ifdef USE_MONGOOSE
       poll_mongoose_init();                     // Mongoose via GSource
 #endif // defined(USE_MONGOOSE)
@@ -547,10 +546,9 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
       if (!ui_notify_init()) {
          Log(LOG_WARN, "gtk.notify", "Desktop notifications unavailable");
       }
-
+      alert_dialogs_init();
 #endif // defined(USE_GTK)
    }
-   alert_dialogs_init();
 
    // Register all of our core event handlers
    rrclient_register_events();

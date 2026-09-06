@@ -21,6 +21,7 @@
 #include <rrclient/ui.h>
 
 void ui_message_bell(void) {
+#ifdef	USE_GTK
    if (!chat_textview) {
       return;
    }
@@ -29,4 +30,8 @@ void ui_message_bell(void) {
    if (display) {
       gdk_display_beep(display);
    }
+#else	// USE_GTK
+   fprintf(stdout, "\a");
+   fflush(stdout);
+#endif	// USE_GTK
 }

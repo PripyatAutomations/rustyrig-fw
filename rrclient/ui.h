@@ -40,5 +40,6 @@ extern enum GuiMode ui_mode;    // in ui.c
 extern bool ui_print(const char *window, const char *fmt, ...);
 extern void ui_message_bell(void);
 extern void ui_message_notify(const char *title, const char *message);
+extern void show_server_chooser(void);
 
 #endif // !defined(__rrclient_ui_h)

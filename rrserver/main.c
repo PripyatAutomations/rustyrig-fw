@@ -95,7 +95,9 @@ void restart_rig(void) {
 static void timer_check_faults_fn(void *arg) {
    if ( check_faults() ) {
       Log(LOG_CRIT, "core", "Fault detected, see log above. Rig halted!");
-      // XXX: Stop PTT and halt here?
+      // Kill TX and block PTT so clients can't re-key it.
+      rr_ptt_set_all_off();
+      rr_ptt_set_blocked(true);
    }
 }
 

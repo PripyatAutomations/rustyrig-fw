@@ -53,6 +53,9 @@ LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
 # librustyaxe (tui.keys.c etc) uses g_unix_fd_add() from glib, which lives in
 # libglib-2.0; glib is already a runtime dep via GTK/GStreamer.
+# Headers are needed even without GTK (USE_GTK=false), so pull them via
+# pkg-config unconditionally.
+CFLAGS += $(shell pkg-config --cflags glib-2.0)
 LDFLAGS += $(shell pkg-config --libs glib-2.0)
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 

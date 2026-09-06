@@ -83,7 +83,6 @@ extern bool gui_init(void);
 extern bool gtk_css_apply_cfg(void);                 // cfg.gtkcss.c
 extern bool cmd_css_reload(int argc, char **args);   // cfg.gtkcss.c
 extern GtkWidget *conn_button;
-extern void show_server_chooser(void);                   // gtk.serverpick.c
 extern bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...);
 extern bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap);
 extern void gui_edit_config(const char *filepath);

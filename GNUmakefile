@@ -23,11 +23,6 @@ BUILD_HEADERS += $(wildcard ${BUILD_DIR}/eeprom_layout.h)
 BUILD_HEADERS += $(wildcard ${BUILD_DIR}/*.h)
 BUILD_HEADERS += $(wildcard inc/librrprotocol/*.h)
 BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h)
-RRSERVER_HEADERS += $(wildcard rrserver/*.h)
-RRCLIENT_HEADERS += $(wildcard rrclient/*.h)
-
-rrclient_src = $(rrclient_objs:.o=.c)
-rrserver_src = $(rrserver_objs:.o=.c)
 
 ifeq (${PLATFORM},posix)
 LDFLAGS += -lgpiod
@@ -36,9 +31,19 @@ endif
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk
 include librrprotocol/rules.mk
-include rrserver/rules.mk
+
+ifeq (${BUILD_RRCLIENT},true)
 include rrclient/rules.mk
-#include fwdsp/rules.mk
+endif
+
+ifeq (${BUILD_RRSERVER},true)
+include rrserver/rules.mk
+endif
+
+ifeq (${BUILD_FWDSP},true)
+include fwdsp/rules.mk
+endif
+
 include mk/install.mk
 include mk/win64.mk
 include mk/audit.mk

@@ -1,3 +1,6 @@
+RRSERVER_HEADERS += $(wildcard rrserver/*.h)
+rrserver_src = $(rrserver_objs:.o=.c)
+
 rrserver := bin/rrserver
 bins += ${rrserver}
 
