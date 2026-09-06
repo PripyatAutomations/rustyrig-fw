@@ -23,10 +23,14 @@ behavior:
 1. `librrprotocol` - protocol/wire semantics
 2. `rrserver` - server-side behavior
 3. `rrclient` - native client behavior
-4. `rustyrig-www` - browser client behavior
+4. `www` from rustyrig-www project - browser client behavior
+5. `librustyaxe` - Shared code used in many of my projects
 
 Do not assume that a convenient implementation location is the
-authoritative location.
+authoritative location. Never try to put UI stuff in the libraries.
+You can send an event from the library for the program to consume,
+if interested. If the program is interested in an event, it must
+use event_on() to listen for it and provide a suitable callback.
 
 ## Native C client
 

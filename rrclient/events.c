@@ -332,7 +332,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       if (data) {
          dict *d = json2dict(data);
          if (d) {
-            err = dict_get(d, "error.msg", NULL);
+            const char *msg = dict_get(d, "error.msg", NULL);
+            err = (msg ? strdup(msg) : NULL);
+            dict_free(d);
          }
       }
       if (err) {
@@ -340,6 +342,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       } else {
          ui_print(NULL, "{red}* http error *{reset}");
       }
+      free((void *)err);
       rrclient_set_offline();
    } else if (strcasecmp(event, "error") == 0) {
       // Non-fatal protocol error message from the server (cli.error.c);
@@ -349,13 +352,17 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       if (data) {
          dict *d = json2dict(data);
          if (d) {
-            err = dict_get(d, "error.msg", NULL);
-            from = dict_get(d, "error.from", NULL);
+            const char *msg = dict_get(d, "error.msg", NULL);
+            const char *src = dict_get(d, "error.from", NULL);
+            err = (msg ? strdup(msg) : NULL);
+            from = (src ? strdup(src) : NULL);
             dict_free(d);
          }
       }
       ui_print(NULL, "%s {red}ERROR%s%s:{reset} %s", get_chat_ts(now),
          (from ? " from " : ""), (from ? from : ""), (err ? err : "unknown error"));
+      free((void *)err);
+      free((void *)from);
    }
 
    if (ui_mode == UI_MODE_TUI) {
@@ -551,11 +558,15 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    ui_print(NULL, "{cyan}***{reset} Sessions:   %d", clones);
 
    if (connected > 0) {
-      ui_print(NULL, "{cyan}***{reset} Connected:  %s", get_chat_ts(connected));
+      char buf[64];
+      strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&connected));
+      ui_print(NULL, "{cyan}***{reset} Connected:  %s", buf);
    }
 
    if (last_heard > 0) {
-      ui_print(NULL, "{cyan}***{reset} Last heard: %s", get_chat_ts(last_heard));
+      char buf[64];
+      strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&last_heard));
+      ui_print(NULL, "{cyan}***{reset} Last heard: %s", buf);
    }
 
    ui_print(NULL, "{cyan}***{reset} Client:     %s", ua);
