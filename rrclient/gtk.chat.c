@@ -316,7 +316,9 @@ GtkWidget *create_chat_box(void) {
    // around it.
    gtk_widget_set_halign(chat_entry, GTK_ALIGN_FILL);
    gtk_widget_set_hexpand(chat_entry, TRUE);
-   gtk_box_pack_start(GTK_BOX(chat_box), chat_entry, TRUE, FALSE, 0);
+   // expand must be FALSE vertically, otherwise the box splits extra space
+   // between the entry and the chat view, leaving a gap below the entry
+   gtk_box_pack_start(GTK_BOX(chat_box), chat_entry, FALSE, FALSE, 0);
    g_signal_connect(chat_entry, "activate", G_CALLBACK(on_send_button_clicked), chat_entry);
    g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_chat_entry_keypress), NULL);
 

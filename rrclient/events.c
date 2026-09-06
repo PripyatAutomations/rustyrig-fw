@@ -91,7 +91,7 @@ void tui_refresh_sb_vfo(void) {
    const char *mode = vfo_state_get(vfo_str, "cat.state.mode", "---");
    long width = vfo_state_get_long(vfo_str, "cat.state.width", 0);
    // Show freq in kHz with hz precision: 7200000 -> 7200.000
-   snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: %.3f/%s-%ld>", vfo, freq / 1000.0, mode, width);
+   snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: %.3f/%s@%ld>", vfo, freq / 1000.0, mode, width);
 }
 
 static void rrclient_set_offline(void) {

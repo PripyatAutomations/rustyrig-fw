@@ -58,8 +58,9 @@ static time_t hl_retry_at = 0;
 static int cfg_reconnect_interval = -1;   // seconds; -1 = not yet read
 static void hl_destroy(RIG *hl_rig);      // fwd decl (defined below)
 
-// Tear down the rig connection and schedule a reconnect (or exit if the
-// reconnect interval is disabled)
+// Tear down the rig connection and schedule a reconnect. If the reconnect
+// interval is 0 (disabled), shut the process down instead so an external
+// supervisor (systemd/cron/etc) can handle the restart.
 static void hl_disconnect(const char *why) {
    Log(LOG_CRIT, "backend.hamlib", "Hamlib connection lost: %s", why);
 
@@ -79,7 +80,9 @@ static void hl_disconnect(const char *why) {
       hl_retry_at = now + cfg_reconnect_interval;
       Log(LOG_WARN, "backend.hamlib", "Will retry hamlib connection in %d seconds", cfg_reconnect_interval);
    } else {
-      Log(LOG_CRIT, "backend.hamlib", "Reconnect disabled; shutting down");
+      // Reconnect disabled: exit so the supervisor/cron can restart us.
+      // shutdown_rig() sets dying=1, which breaks the main loop and exits.
+      Log(LOG_CRIT, "backend.hamlib", "backend.reconnect-interval=0; exiting");
       shutdown_rig(100);
    }
 }

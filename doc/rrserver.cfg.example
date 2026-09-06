@@ -23,7 +23,8 @@ backend.hamlib-debug=warn
 backend.hamlib-model=2
 ;backend.hamlib-baud=38400
 backend.hamlib-port=127.0.0.1:4532
-; Seconds to wait before retrying hamlib after disconnect (0 = exit instead)
+; Seconds to wait before retrying hamlib after disconnect; 0 = exit on disconnect
+; (use with an external supervisor/cron to restart)
 backend.reconnect-interval=30
 debug.noisy_eeprom=true
 ; Log chat messages in sqlite3?

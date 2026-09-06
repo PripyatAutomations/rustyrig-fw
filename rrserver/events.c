@@ -87,7 +87,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       }
 
       // Audit trail: who changed which VFO to what mode
-      Log(LOG_AUDIT, "ws.rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
+      Log(LOG_AUDIT, "rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
       rr_set_mode(vfo, new_mode);
       dict_free(d);
       return;
@@ -102,7 +102,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       }
 
       // Audit trail: who changed which VFO to what passband width
-      Log(LOG_AUDIT, "ws.rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
+      Log(LOG_AUDIT, "rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
       rr_set_width(vfo, rc_width);
       dict_free(d);
       return;
@@ -111,7 +111,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    fprintf(stderr, "setting vfo %s freq to %d\n", rc_vfo, rc_freq);
 
    // Audit trail: who changed which VFO to what frequency
-   Log(LOG_AUDIT, "ws.rigctl", "User %s set VFO %s FREQ to %d hz", rc_from, rc_vfo, rc_freq);
+   Log(LOG_AUDIT, "rigctl", "User %s set VFO %s FREQ to %d hz", rc_from, rc_vfo, rc_freq);
 
    rr_freq_set(vfo, rc_freq);
    dict_free(d);

@@ -250,7 +250,7 @@ int main(int argc, char **argv) {
    // apply some configuration from the eeprom
 #ifdef	USE_EEPROM
    auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
-   cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 1000);
+   cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 60);
    cfg_backend_announce_interval = cfg_get_int("backend.announce-interval", 10);
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 #endif

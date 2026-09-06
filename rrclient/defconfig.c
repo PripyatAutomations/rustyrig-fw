@@ -50,7 +50,7 @@ defconfig_t defcfg[] = {
    { "audio.prefer-codecs", "mu16 pc16 mu08", "Preferred codec order" },
    { "audio.volume.rx", "30", "Default RX volume" },
    { "audio.volume.tx", "20", "Default TX out vol" },
-   { "ui.vfo.visocity", "1000", "Second to block CAT poll messages for input debouncing" },
+   { "codecs.allowed", "mu08 mu16", "CODECs to support by default" },
    { "debug.audio", ":*3", "gstreamer debug level" },
    { "debug.http", "false", "Extra HTTP debugging" },
    { "debug.http.crazy", "false", "Insane level of HTTP debugging" },
@@ -58,10 +58,16 @@ defconfig_t defcfg[] = {
    { "default.tx.power", "30", "Default TX power in watts (float)" },
    { "debug.loglevel", "debug", "Log level (audit | crit | warn | info | debug | crazy)" },
    { "debug.show-ts", "true", "Show timestamps in log" },
+   { "log.file", "rrclient.log", "Where to log" },
+   { "log.level", "info", "What level of log events to keep" },
+   { "net.http.hex-dump", "false", "Should we hexdump all http traffic?" },  
+   { "networks.auto", NULL, "Which networks to autoconnect to" },
    { "path.help-dir", "./help", "Path to find help-files" },
+   { "path.modules", "./modules", "Where to store modules" },
    { "rig0.volume.rx", "50", "rig0: Speaker volume" },
    { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit" },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
+   { "tui.use-color", "true", "Enable color in the TUI?" },
 #ifdef	GTK
    { "ui.full-screen", "false", "Go full-screen at start?" },
    { "ui.font.monospace", "Monospace 12", "Default monospace font" },
@@ -80,6 +86,10 @@ defconfig_t defcfg[] = {
    { "ui.gtk.theme", NULL, "Chosen light theme" },
    { "ui.gtk.theme.dark", NULL, "Chosen dark theme" },
 #endif	// _WIN32
+   { "ui.ptt-ack-timeout", "2", "How long to wait for server to ACK ptt button?" },
+   { "ui.bell.chat", "true", "Dings in chat for new messages?" },
+   { "ui.freqentry.scroll-divider", "1.0", "Scroll divider for VFO widgets, if needed" },
    { "ui.show-pings", "true", "Show Ping? Pong! notices" },
+   { "ui.vfo.visocity", "1000", "Second to block CAT poll messages for input debouncing" },
    { NULL, NULL, NULL }
 };
