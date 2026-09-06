@@ -82,14 +82,6 @@ GtkWidget *create_vfo_box(void) {
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
    gtk_style_context_add_class(conn_ctx, "conn-idle");
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
-   // Configurable button font (falls back to ui.font.default, then theme)
-   PangoFontDescription *btn_font = gui_font_find("buttons");
-   if (!btn_font) {
-      btn_font = gui_font_find("default");
-   }
-   if (btn_font) {
-      gtk_widget_override_font(conn_button, btn_font);
-   }
 
    GtkWidget *online_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_box_pack_start(GTK_BOX(control_box), online_spacer, TRUE, TRUE, 0);

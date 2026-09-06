@@ -273,14 +273,6 @@ GtkWidget *ptt_button_create(void) {
    }
    gtk_box_pack_start(GTK_BOX(ptt_box), ptt_button, FALSE, FALSE, 0);
    g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
-   // Configurable button font (falls back to ui.font.default, then theme)
-   PangoFontDescription *btn_font = gui_font_find("buttons");
-   if (!btn_font) {
-      btn_font = gui_font_find("default");
-   }
-   if (btn_font) {
-      gtk_widget_override_font(ptt_button, btn_font);
-   }
    // Start out dark grey until we're online with the server
    gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-offline");
 

@@ -20,7 +20,6 @@ Source Layout
     gtk.core.c				GTK UI: Core stuff
     gtk.editcfg.c			GTK UI: Configuration (text) editor
     gtk.fm-mode.c			GKT UI: FM mode controls dialog
-    gtk.font.c				GTK UI: Font handling
     gtk.freqentry.c			GTK UI: Frequency entry widget
     gtk.hotkey.c			GTK UI: Hotkey handling
     gtk.mode-box.c			GTK UI: VFO Mode box widget

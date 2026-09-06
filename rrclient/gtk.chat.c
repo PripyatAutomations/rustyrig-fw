@@ -299,13 +299,9 @@ GtkWidget *create_chat_box(void) {
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
 
-   // Chat view
+   // Chat view. Font (monospace) comes from the #chat-view CSS rule in [gtk-css]
    chat_textview = gtk_text_view_new();
-   // Chat view uses the required "chat" alias (ui.font.chat)
-   PangoFontDescription *chat_font = gui_font_find("chat");
-   if (chat_font) {
-      gtk_widget_override_font(chat_textview, chat_font);
-   }
+   gtk_widget_set_name(chat_textview, "chat-view");
    text_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(chat_textview) );
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);

@@ -39,6 +39,12 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
 // file overrides this, and can be reloaded at runtime with /css-reload
 // Use dark green with bold white text so the online/PTT buttons are readable
 #define	DEFAULT_CSS \
+   /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
+   "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
+   "label { font-family: \"Sans\"; font-size: 11pt; }\n" \
+   "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
+   "#log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
+   "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
    ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
    ".ptt-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
@@ -87,11 +93,6 @@ defconfig_t defcfg[] = {
    { "tui.use-color", "true", "Enable color in the TUI?" },
 #ifdef	USE_GTK
    { "ui.full-screen", "false", "Go full-screen at start?" },
-   { "ui.font.chat", "Monospace 12", "Monospace base font: chat, syslog fallback, freq digits" },
-   { "ui.font.default", "Sans 11", "Default UI font (labels, buttons, etc)" },
-   { "ui.font.buttons", "Sans Bold 11", "Font for buttons (falls back to ui.font.default)" },
-   { "ui.font.labels", NULL, "Font for field/tab labels (falls back to ui.font.default)" },
-   { "ui.font.syslog", NULL, "Syslog tab font (falls back to ui.font.chat)" },
    { "ui.gtk.vfo-on-top", "false", "Place VFO controls at top of the rig window?" },
    { "ui.gtk.main-tabstrip", "bottom", "Placement of main tabstrip: left,right,bottom,top" },
    // All of the GTK CSS lives here; the [gtk-css] section of the config file

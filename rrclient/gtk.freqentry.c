@@ -758,7 +758,6 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
    fe->up_buttons = g_new0(GtkWidget*, fe->num_digits);
    fe->down_buttons = g_new0(GtkWidget*, fe->num_digits);
 
-   PangoFontDescription *font = gui_font_find("chat");
    GdkRGBA white = { 1, 1, 1, 1 };
 
    for (int i = 0 ; i < fe->num_digits ; i++) {
@@ -782,6 +781,8 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
       gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
       gtk_widget_set_size_request(entry, 20, 30);
       gtk_widget_override_color(entry, GTK_STATE_FLAG_NORMAL, &white);
+      // Font (monospace) comes from the .freq-digit CSS class in [gtk-css]
+      gtk_widget_set_name(entry, "freq-digit");
       gtk_entry_set_text(GTK_ENTRY(entry), "0");  // start zeroed
 
       GtkWidget *down_button = gtk_button_new_with_label("-");
@@ -789,9 +790,10 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
       g_object_set_data( G_OBJECT(down_button), "digit-index", GINT_TO_POINTER(i) );
       g_object_set_data( G_OBJECT(down_button), "digit-delta", GINT_TO_POINTER(-1) );
 
-      gtk_widget_override_font(up_button, font);
-      gtk_widget_override_font(entry, font);
-      gtk_widget_override_font(down_button, font);
+      // Font (monospace) for the +/- buttons comes from the freq-digit
+      // widget name selector in [gtk-css]
+      gtk_widget_set_name(up_button, "freq-digit-button");
+      gtk_widget_set_name(down_button, "freq-digit-button");
 
       // Set a background color scaled with the frequency magnitude (GHz, MHz, KHz, Hz)
       GdkRGBA c = digit_group_color( digit_group(i) );

@@ -271,9 +271,8 @@ bool rrclient_cleanup(void) {
 
    if (ui_mode == UI_MODE_TUI) {
       tui_raw_mode(false);
-       } else if (ui_mode == UI_MODE_GTK) {
-   #ifdef	USE_GTK
-          gui_font_fini();
+            } else if (ui_mode == UI_MODE_GTK) {
+       #ifdef	USE_GTK
           // Only quit if the main loop is still running.  When the user closes
           // the window, destroy→gtk_main_quit already unwound the loop and
           // calling gtk_main_quit() again asserts ("main_loops != NULL").
@@ -309,7 +308,7 @@ int main(int argc, char *argv[]) {
    char *fullpath = NULL;
 
    // Apply the hard-coded defaults from defconfig.c FIRST, so keys missing
-   // from the user's config (e.g. ui.font.*) fall back to them.
+   // from the user's config fall back to them.
    if (!default_cfg) {
       default_cfg = dict_new();
    }

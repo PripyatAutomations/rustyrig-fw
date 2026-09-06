@@ -28,7 +28,6 @@ rrclient_objs += gtk.codecpicker.o	# codec picker widget
 rrclient_objs += gtk.editcfg.o		# configuration tab
 rrclient_objs += gtk.fm-mode.o		# FM mode dialog
 rrclient_objs += gtk.freqentry.o	# Frequency Entry Widget
-rrclient_objs += gtk.font.o		# Font stuff
 rrclient_objs += gtk.hotkey.o		# Hotkey support
 rrclient_objs += gtk.mode-box.o		# Modulation Mode / width box
 ifeq (${USE_LIBNOTIFY},true)

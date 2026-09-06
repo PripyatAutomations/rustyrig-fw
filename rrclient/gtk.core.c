@@ -352,8 +352,6 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
 }
 
 bool gui_init(void) {
-   gui_font_init();
-
    // Apply user CSS (from [gtk-css] config section) or the default from
    // defconfig.c. See cfg.gtkcss.c, reloadable at runtime with /css-reload
    gtk_css_apply_cfg();
@@ -365,12 +363,6 @@ bool gui_init(void) {
    // Apply the default UI font to the whole window tree. Widgets which set
    // their own font (chat, frequency entry, etc) keep it; everything else
    // (labels, buttons, tabs, ...) inherits this one.
-   PangoFontDescription *default_font = gui_font_find("default");
-   if (default_font) {
-      gtk_widget_override_font(main_window, default_font);
-   }
-
-
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
    gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
@@ -400,9 +392,7 @@ bool gui_init(void) {
    gtk_widget_realize(main_window);
    place_window(main_window);
 
-   // Apply the configurable labels font to all GtkLabels in the built tree
-   // (must run after the tree exists; skipped inside buttons)
-   gui_font_apply_labels(main_window);
+   // Fonts are handled entirely by the [gtk-css] section (see cfg.gtkcss.c)
 
    if (ui_mode == UI_MODE_GTK) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
