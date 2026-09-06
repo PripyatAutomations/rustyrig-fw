@@ -105,7 +105,6 @@
       "gstreamer": "false",
       "gtk": "true",
       "http": "true",
-      "libev": "true",
       "libmbedtls": "false",
       "libnotify": "true",
       "libunwind": "false",

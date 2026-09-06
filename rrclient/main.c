@@ -24,7 +24,6 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <time.h>
-#include <ev.h>
 #include <termios.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -65,12 +64,12 @@ extern char **client_cmd_completions(const char *line, const char *word); // cmd
 extern bool cfg_servers_init(void) __attribute__((weak));   // cfg.servers.c (optional: IRC server list)
 extern bool cfg_network_save_init(void);  // cfg.network.c
 
+///////////////////////////////////////
+// Main loop: both TUI and GTK modes run on the GLib main loop. (libev was
+// removed; the TUI clock, keyboard watching, and reconnect polling are all
+// GLib sources now.)
 /////////////////////////////////////
-#ifdef	USE_LIBEV
-static ev_timer tui_clock_watcher;
-static ev_timer ws_poll_watcher;
-struct ev_loop *loop_main = NULL;
-#endif	// USE_LIBEV
+
 
 struct timespec mono_now;
 bool rrclient_cleanup(void);
@@ -87,11 +86,11 @@ int cfg_ui_edit_delay = 3;          // Seconds to suppress freq updates after lo
 int cfg_ui_ptt_ack_timeout = 2;     // Seconds to wait for a PTT ack before reverting (gtk.ptt-btn.c)
 time_t now = 0;
 
-#ifdef	USE_LIBEV
-static void ws_poll_cb(EV_P_ ev_timer *w, int revents) {
+static gboolean ws_poll_cb(gpointer user_data) {
    rrclient_poll_events();
+   return G_SOURCE_CONTINUE;
 }
-#endif	// USE_LIBEV
+
 bool ptt_active = false;
 time_t poll_block_expire = 0;    // Here we set this to now +
                                  // config:cat.poll-blocking to prevent rig
@@ -128,8 +127,7 @@ static gboolean update_now(gpointer user_data) {
 ////////////////////////////////////
 // For polling mongoose from glib //
 ////////////////////////////////////
-// Mongoose GSource integration (GTK mode) - the counterpart of the libev
-// ev_timer used in TUI mode.  Instead of a plain g_timeout_add() we hook a
+// Mongoose GSource integration (GTK mode).  Instead of a plain g_timeout_add() we hook a
 // custom GSource into the GTK main loop so poll scheduling behaves like a
 // real event source: prepare()/check() decide when to dispatch, and
 // mg_mgr_poll() gets a small blocking timeout so idle wakeups are cheap.
@@ -209,16 +207,13 @@ static gboolean poll_mongoose(gpointer user_data) {
 #endif // USE_MONGOOSE
 #endif // USE_GTK
 
-#ifdef	USE_LIBEV
-static void tui_stop_clock_timer(struct ev_loop *loop) {
-   ev_timer_stop(loop, &tui_clock_watcher);
-}
-
-static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
+// TUI 1hz clock: updates now, refreshes statusbar/clock, handles shutdown
+static gboolean tui_clock_cb_real(gpointer user_data) {
    now = time(NULL);
 
    if (dying) {
       rrclient_cleanup();
+      return G_SOURCE_REMOVE;
    }
    tui_window_t *tw = tui_active_window();
    // XXX: this belongs in tui.winmgr!
@@ -226,14 +221,8 @@ static void tui_clock_cb(EV_P_ ev_timer *w, int revents) {
    tui_refresh_sb_vfo();
    tui_update_status(tw, "%s %s %s", sb_online, sb_window, sb_vfo);
    tui_redraw_clock();
+   return G_SOURCE_CONTINUE;
 }
-
-static void tui_start_clock_timer(struct ev_loop *loop) {
-   ev_timer_init(&tui_clock_watcher, tui_clock_cb, 0, 1.0);  // start after 0s,
-                                                             // repeat every 1s
-   ev_timer_start(loop, &tui_clock_watcher);
-}
-#endif	// USE_LIBEV
 
 static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *cptr, void *user) {
    struct log_event_data *led = (struct log_event_data *)data;
@@ -269,9 +258,9 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
 }
 
 bool rrclient_cleanup(void) {
-   // Idempotent: this is reachable from the timeout, the TUI clock cb, the
-   // signal handler, and after gtk_main()/ev_run() return.  Guard so GTK is
-   // not torn down twice (which triggers gtk_main_quit "main_loops != NULL").
+   // Idempotent: this is reachable from the timeouts, the signal handler, and
+   // after gtk_main()/g_main_loop_run() return.  Guard so GTK is not torn down
+   // twice (which triggers gtk_main_quit "main_loops != NULL").
    static bool cleaned_up = false;
    if (cleaned_up) {
       return true;
@@ -327,9 +316,6 @@ int main(int argc, char *argv[]) {
    cfg_set_defaults(default_cfg, defcfg);
 
 
-#ifdef USE_LIBEV
-   loop_main = EV_DEFAULT;
-#endif	// USE_LIBEV
    int c;
    int digit_optind = 0;
 
@@ -342,9 +328,6 @@ int main(int argc, char *argv[]) {
    };
    setrlimit(RLIMIT_CORE, &rl);
 #else
-#ifdef USE_LIBEV)
-      tui_stop_clock_timer(loop_main);
-#endif
    struct rlimit rl = {
       0, 0
    };
@@ -535,14 +518,15 @@ int main(int argc, char *argv[]) {
       tui_readline_cb = parse_chat_input_real;
       tui_init();
 
-#ifdef	USE_LIBEV
-      tui_start_clock_timer(loop_main);
-#endif
+      // 1hz TUI clock (statusbar/clock refresh, shutdown check)
+      g_timeout_add(1000, tui_clock_cb_real, NULL);
+      // 20hz reconnect/poll sweep
+      g_timeout_add(50, ws_poll_cb, NULL);
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef USE_GTK
       g_timeout_add(1000, update_now, NULL);    // 1hz periodic timer
 #ifdef USE_MONGOOSE
-      poll_mongoose_init();                     // Mongoose via GSource (libev-style)
+      poll_mongoose_init();                     // Mongoose via GSource
 #endif // defined(USE_MONGOOSE)
 
       gtk_init(&argc, &argv);
@@ -573,14 +557,12 @@ int main(int argc, char *argv[]) {
    ws_client_init();
    connman_autoconnect();
 
-   // start gtk main loop
+   // start the main loop (both modes now run on GLib)
    if (ui_mode == UI_MODE_TUI) {
-      // Here we run the TUI main loop
-#ifdef	USE_LIBEV
-      ev_timer_init(&ws_poll_watcher, ws_poll_cb, 0, 0.05);
-      ev_timer_start(loop_main, &ws_poll_watcher);
-      ev_run(loop_main, 0);
-#endif	// USE_LIBEV
+      // TUI: run the GLib main loop. The keyboard, clock, and reconnect
+      // polling are all GLib sources now (stdin is watched via tui.keys.c)
+      GMainLoop *tui_loop = g_main_loop_new(NULL, FALSE);
+      g_main_loop_run(tui_loop);
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef USE_GTK
       gtk_main();

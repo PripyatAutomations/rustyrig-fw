@@ -20,8 +20,6 @@ rrclient: Fix/finish server picker & server editor and put them to use
 * DEBUG_PROTO_UNKNOWN ' ' ' -- remove this!
 * MAKE SURE the protocol messages line up
   - Try to minimize wasted traffic
-rrclient: implement libev + wslay stuff in !USE_MONGOOSE builds
-rrclient/librrprotocol: Make mongoose and libev mutually exclusive
 rrclient: Add ^C, etc for embedding mIRC-style colors
 rrclient: Fix userlist window
   - window opened at startup doesnt track user changes
@@ -33,7 +31,7 @@ rrserver: Add last-seen time to users, kept in the database.
 rrserver: move auth stuff (user/privs/etc) to sqlite on posix host
   - on non-posix hosts, these should be compacted and stored in eeprom fields
 rrclient: tui: should probably treat status window as the syslog in gtk; make windows 2+ show rig controls
-librustyaxe: Merge cfg_get_* and eeprom_get_* so we have just cfg_get_* 
+librustyaxe: Merge cfg_get_* and eeprom_get_* so we have just cfg_get_*
   - we should just load the whole eeprom into the config dict at startup???
   - deal with debug.* vs log.* keys that need merged
 librustyaxe: Make modules able to register their event handlers on loading
@@ -44,9 +42,7 @@ rrclient: Set window title to $user@$rig
 rrclient: Make hotkeys context (tab/window) sensitive
 rrclient: Support for connecting to multiple servers
 
-*: Anywhere libev or mongoose code exists, make sure the other does as well
-  - will need to use wslay/mbedtls to accomplish libev support for websocket!
-  - IRC code needs updated to use mongoose
+*: Mongoose must be used consistently everywhere it's enabled
 
 =================
 = librrprotocol =

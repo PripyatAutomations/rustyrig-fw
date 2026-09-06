@@ -50,7 +50,10 @@ LDFLAGS += -fsanitize=address,undefined -fstack-check
 endif
 
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
-LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd 
+LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
+# librustyaxe (tui.keys.c etc) uses g_unix_fd_add() from glib, which lives in
+# libglib-2.0; glib is already a runtime dep via GTK/GStreamer.
+LDFLAGS += $(shell pkg-config --libs glib-2.0)
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 
 gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)

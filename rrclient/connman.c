@@ -18,7 +18,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <ev.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>

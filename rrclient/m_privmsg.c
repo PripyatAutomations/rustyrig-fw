@@ -25,7 +25,6 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 #include <rrclient/ui.h>
-#include <ev.h>
 
 extern time_t now;
 extern bool dying, debug_sockets, cfg_mirc_colors;

@@ -30,13 +30,12 @@ bool timer_create_periodic( const char *name, int interval, int repeats, void (*
 #ifdef	USE_MONGOOSE
    // XXX: Provide a libmongoose based timer here
 #else	// USE_MONGOOSE
-#ifdef	USE_LIBEV
-   // XXX: Provide a libev based timer here
-#else	// USE_LIB_EV
 #ifdef	HOST_POSIX
-   // XXX: Implement fallback version using posix timers on linux/glibc and bsd if possible
+   // Fallback: plain posix timers on linux/glibc and bsd if possible
+   // NB: posix timer callback is via a signal, so we need to keep track of the
+   // callback function in a table, and then dispatch it from timer_run() from
+   // the main loop.. (oh and handle SIGALRM in the signal handler)
 #endif	// HOST_POSIX
-#endif	// USE_LIBEV
 #endif	// USE_MONGOOSE
    return false;
 }
@@ -47,7 +46,7 @@ bool timer_create_oneshot( const char *name, int delay, void (*callback) () ) {
 
 // Run all pending timers this iteration of the main loop
 bool timer_run(void) {
-#if	!defined(USE_MONGOOSE) && !defined(USE_LIBEV) && defined(HOST_POSIX)
+#if	!defined(USE_MONGOOSE) && defined(HOST_POSIX)
    // XXX: Add support for manually running timers in the main loop without a library on posix ;(
 #endif
    return false;

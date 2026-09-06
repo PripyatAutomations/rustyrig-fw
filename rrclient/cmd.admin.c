@@ -28,7 +28,6 @@
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
-#include <ev.h>
 
 extern bool dying;
 extern time_t now;
