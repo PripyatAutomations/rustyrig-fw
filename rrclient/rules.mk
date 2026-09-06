@@ -40,7 +40,7 @@ endif
 rrclient_objs += gtk.ptt-btn.o		# Push To Talk (PTT) button in GUI
 rrclient_objs += gtk.txpower.o		# TX power box
 rrclient_objs += gtk.serveredit.o	# Serve editor
-rrclient_objs += gtk.serverpick.o       # server picker
+rrclient_objs += gtk.serverpick.o		# server picker window
 rrclient_objs += gtk.syslog.o		# syslog tab
 rrclient_objs += gtk.userlist.o		# GTK part of the userlist
 rrclient_objs += gtk.vfo-box.o		# VFO box element

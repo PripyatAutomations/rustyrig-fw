@@ -28,6 +28,9 @@
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
+#ifdef	USE_GTK
+#include <rrclient/gtk.core.h>
+#endif	// USE_GTK
 
 extern bool dying;
 extern time_t now;
@@ -84,6 +87,18 @@ bool cmd_config(int argc, char **args) {
    } else if (ui_mode == UI_MODE_TUI) {
    }
 
+   return false;
+}
+
+// Show the edit-config dialog.  GTK only; there is no TUI equivalent.
+bool cmd_editcfg(int argc, char **args) {
+#ifdef	USE_GTK
+   if (ui_mode == UI_MODE_GTK) {
+      gui_edit_config(argc > 1 ? args[1] : NULL);
+      return false;
+   }
+#endif	// USE_GTK
+   ui_print(NULL, "{bright-red}/editcfg is only available in the GTK UI{reset}");
    return false;
 }
 

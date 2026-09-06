@@ -52,7 +52,7 @@ static void apply_config(const char *filename) {
       return;
    }
 
-   cfg_load(filename);
+   cfg_reload(filename);
 }
 
 static void destroy_editor(EditorContext *ctx) {
@@ -143,7 +143,15 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
       return;
    }
 
-   apply_config(ctx->filepath);
+   GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL,
+      GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "Reload config from \"%s\"?", ctx->filepath);
+
+   if (gtk_dialog_run( GTK_DIALOG(confirm) ) == GTK_RESPONSE_YES) {
+      apply_config(ctx->filepath);
+   }
+
+   gtk_widget_destroy(confirm);
+
    destroy_editor(ctx);
 }
 
@@ -246,6 +254,14 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
    destroy_editor(ctx);
 
    return TRUE;
+}
+
+static void on_reload_config_button(GtkButton *btn, gpointer user_data) {
+   if (!user_data) {
+      return;
+   }
+
+   cfg_reload((const char *)user_data);
 }
 
 void gui_edit_config(const char *filepath) {
@@ -394,7 +410,7 @@ void gui_edit_config(const char *filepath) {
 /////////////////////////////
 // Config tab in tab strip //
 /////////////////////////////
-extern char *config_file;
+extern const char *config_file;
 
 static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
    if (user_data != NULL) {
@@ -421,6 +437,10 @@ GtkWidget *init_config_tab(void) {
    GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
    g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), config_file);
    gtk_box_pack_start(GTK_BOX(nw), btn_cfgedit, FALSE, FALSE, 0);
+
+   GtkWidget *btn_reloadcfg = gtk_button_new_with_label("Reload Config");
+   g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), config_file);
+   gtk_box_pack_start(GTK_BOX(nw), btn_reloadcfg, FALSE, FALSE, 0);
 
    GtkWidget *btn_fullscreen = gtk_button_new_with_label("Toggle Fullscreen");
    g_signal_connect(btn_fullscreen, "clicked", G_CALLBACK(on_fullscreen_button), NULL);

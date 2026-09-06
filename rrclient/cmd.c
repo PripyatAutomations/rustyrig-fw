@@ -26,6 +26,7 @@
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
+#include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 
@@ -34,37 +35,6 @@ extern time_t now;
 extern rrconn_t *ws_conn;
 extern dict *cfg;
 
-client_cmd_t client_cmds[] = {
-   { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
-   { .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab" },
-   { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
-   { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
-   { .cmd = "die", .cb = cmd_die, .desc = "Shutdown the server" },
-   { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
-#ifdef	USE_GTK
-   { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
-   { .cmd = "css-reload", .cb = cmd_css_reload, .desc = "Reload GTK CSS from the config file" },
-#endif	// USE_GTK
-   { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
-   { .cmd = "kick", .cb = cmd_kick, .desc = "Kick a user from the rig" },
-   { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },
-   { .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab" },
-   { .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel" },
-   { .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message" },
-//   { .cmd = "mute", .cb = cmd_mute, .desc = "Mute a user" },
-   { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
-   { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
-   { .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program" },
-   { .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command" },
-   { .cmd = "restart", .cb = cmd_restart, .desc = "Restart the server" },
-   { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
-   { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
-   { .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)" },
-//  { .cmd = "unmute", .cb = cmd_unmute, .desc = "Unmute a user" },
-   { .cmd = "win", .cb = cmd_win, .desc = "Change windows" },
-   { .cmd = "whois", .cb = cmd_whois, .desc = "Show client information" },
-   { .cmd = NULL, .cb = NULL, .desc = NULL }
-};
 
 /* Complete server names as the argument to /server, from the same cfg keys
  * the server chooser lists. PARITY: rrclient/ui.c show_server_chooser()
@@ -115,6 +85,79 @@ static char **complete_server_names(const char *word) {
    return matches;
 }
 
+/*
+ * complete_usernames: complete usernames from the global userlist for
+ * commands like /whois, /kick, /ban, /mute, /unmute.
+ */
+static char **complete_usernames(const char *word) {
+   char **matches = NULL;
+   size_t count = 0;
+   size_t len = word ? strlen(word) : 0;
+
+   for (struct rr_user *uptr = global_userlist; uptr; uptr = uptr->next) {
+      if (!uptr->name) {
+         continue;
+      }
+
+      if (len && strncasecmp(uptr->name, word, len) != 0) {
+         continue;
+      }
+      char **tmp = realloc(matches, (count + 2) * sizeof(char *) );
+
+      if (!tmp) {
+         continue;
+      }
+      matches = tmp;
+      matches[count] = strdup(uptr->name);
+
+      if (matches[count]) {
+         matches[++count] = NULL;
+      }
+   }
+
+   return matches;
+}
+
+
+bool cmd_reload(int argc, char **args) {
+   cfg_reload(config_file);
+   return false;
+}
+
+///////////////////////////////////////////////
+client_cmd_t client_cmds[] = {
+   { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
+   { .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab" },
+   { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
+   { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
+   { .cmd = "die", .cb = cmd_die, .desc = "Shutdown the server" },
+   { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
+#ifdef	USE_GTK
+   { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
+#endif	// USE_GTK
+   { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
+   { .cmd = "kick", .cb = cmd_kick, .desc = "Kick a user from the rig" },
+   { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },
+   { .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab" },
+   { .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel" },
+   { .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message" },
+//   { .cmd = "mute", .cb = cmd_mute, .desc = "Mute a user" },
+   { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
+   { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
+   { .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program" },
+   { .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command" },
+   { .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file" },
+   { .cmd = "restart", .cb = cmd_restart, .desc = "Restart the server" },
+   { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
+   { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
+   { .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)" },
+//  { .cmd = "unmute", .cb = cmd_unmute, .desc = "Unmute a user" },
+   { .cmd = "win", .cb = cmd_win, .desc = "Change windows" },
+   { .cmd = "whois", .cb = cmd_whois, .desc = "Show client information" },
+   { .cmd = NULL, .cb = NULL, .desc = NULL }
+};
+////////////////////////////////////////////////
+
 // Completion provider for the TUI: tab-completion of /commands from client_cmds[]
 char **client_cmd_completions(const char *line, const char *word) {
    if (!word) {
@@ -125,6 +168,17 @@ char **client_cmd_completions(const char *line, const char *word) {
    // a trailing space); the command itself is completed by the logic below
    if (strncasecmp(line, "/server", 7) == 0 && line[7] == ' ') {
       return complete_server_names(word);
+   }
+
+   // Complete usernames as the argument to user-targeting commands
+   static const char *user_cmds[] = { "/whois", "/kick", "/ban", "/mute", "/unmute" };
+
+   for (size_t i = 0; i < sizeof(user_cmds) / sizeof(user_cmds[0]); i++) {
+      size_t clen = strlen(user_cmds[i]);
+
+      if (strncasecmp(line, user_cmds[i], clen) == 0 && line[clen] == ' ') {
+         return complete_usernames(word);
+      }
    }
 
    // Only complete the first word, and only when it starts with '/'

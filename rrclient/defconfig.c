@@ -113,6 +113,7 @@ defconfig_t defcfg[] = {
 #endif	// _WIN32
    { "ui.ptt-ack-timeout", "2", "How long to wait for server to ACK ptt button?" },
    { "ui.bell.chat", "true", "Dings in chat for new messages?" },
+   { "ui.bell.chat-highlight", "./sounds/uh-oh.wav", "Sound to play instead of a ding for msgs with our username in them" },
    { "ui.freqentry.scroll-divider", "1.0", "Scroll divider for VFO widgets, if needed" },
    { "ui.show-pings", "true", "Show Ping? Pong! notices" },
    { "ui.vfo.visocity", "1000", "Second to block CAT poll messages for input debouncing" },

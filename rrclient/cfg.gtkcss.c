@@ -194,9 +194,12 @@ bool cmd_css_reload(int argc, char **args) {
       return true;
    }
 
+   Log(LOG_WARN, "config", "Starting CSS reload from %s", config_file);
+
    FILE *fp = fopen(config_file, "r");
    if (!fp) {
       ui_print(NULL, "{bright-red}Couldn't open %s: %s{reset}", config_file, strerror(errno));
+      Log(LOG_WARN, "config", "Failed to reload CSS from %s: %s", config_file, strerror(errno));
       return true;
    }
 
@@ -237,10 +240,11 @@ bool cmd_css_reload(int argc, char **args) {
       ui_print(NULL, "No CSS found in [gtk-css] section or defaults");
       return true;
    }
-   if (!gtk_css_apply(css)) {
-      ui_print(NULL, "{bright-green}Reloaded CSS from %s (%lu bytes){reset}", config_file, (unsigned long)strlen(css));
-   } else {
+   if (gtk_css_apply(css)) {
       ui_print(NULL, "{bright-red}Failed to apply CSS from %s, see log{reset}", config_file);
+   } else {
+      Log(LOG_INFO, "config", "Finished reloading CSS from %s", config_file);
+      ui_print(NULL, "{bright-green}Reloaded CSS from %s (%lu bytes){reset}", config_file, (unsigned long)strlen(css));
    }
    return false;
 }

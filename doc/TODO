@@ -1,5 +1,12 @@
 Immediate needs
 ---------------
+* webui/rrclient: Make userlist show a microphone emoji by whoever is PTT
+* rrclient: make @username auto-complete once enough unique is typed
+  - save last typed before completing so backspace will remove the completed part
+    - continue completion only if user presses tab
+  - pressing tab at any point should list available username completions
+    dont do it with ui_print, make it a little popup like phones do
+
 * Elmer/noob mode needs a dialog confirmation system
   - Noob requests elevated privs and is cautioned about their responsibility
   - Elmers are prompted and one can accept responsibility for the user
@@ -12,7 +19,6 @@ rrclient: Fix/finish server picker & server editor and put them to use
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure
   - currently we still use 0 for success, which is incorrect
-* Cleanup librrprotocol/cli.main.c!
 * Need to clean up a few things related to hamlib (model, host, etc) in
   pack-eeprom vs rrserver/backend.hamlib.c so they can be stored in eeprom!
 * Fix the color parser to not mangle json

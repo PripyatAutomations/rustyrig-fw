@@ -125,7 +125,10 @@ void show_server_chooser(void) {
       if (have_match) {
          gtk_tree_selection_select_iter(sel, &match_iter);
       }
-      GtkWidget *btn = gtk_button_new_with_label("Offline");
+      // Always CONNECT: this button connects to the selection, it does not
+      // toggle or reflect connection status.
+      GtkWidget *btn = gtk_button_new_with_label("CONNECT");
+      gtk_widget_set_tooltip_text(btn, "Connect to the selected server");
       g_signal_connect(btn, "clicked", G_CALLBACK(on_connect_clicked), list);
       g_signal_connect(win, "key-press-event", G_CALLBACK(on_key), NULL);
       g_signal_connect(list, "row-activated", G_CALLBACK(on_row_activated), NULL);  // double-click

@@ -106,10 +106,10 @@ bool cmd_rxvol(int argc, char **args) {
 }
 
 bool cmd_server(int argc, char **args) {
-   if (argc < 2 || !args) {
-      if (server_name && server_name[0] != '\0') {
-         connect_server(server_name);
-      }
+   // With no argument, show the server picker rather than silently
+   // reconnecting to the current profile.
+   if (argc < 2 || !args || !args[1] || args[1][0] == '\0') {
+      show_server_chooser();
 
       return true;
    }

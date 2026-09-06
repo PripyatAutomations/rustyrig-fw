@@ -1,4 +1,7 @@
 [general]
+* Support for reloading config without a restart
+* Populate config tab from defconfig, showing radio/text field/etc based on default value check
+
 * Make PTT button stay gray if you don't have TX privileges or are a noob without approval
 
 * Add are you sure dialog on close button and alt-q (exit) hotkey

@@ -205,7 +205,7 @@ rr_mode_t hl_mode_get(rr_vfo_t vfo) {
       return MODE_NONE;
    }
    int rv = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width);
-   Log(LOG_DEBUG, "hl_mode_get", "rv: %d mode: %lu width: %d", rv, hl_state.rmode, hl_state.width);
+   Log(LOG_DEBUG, "backend.hamlib.mode_get", "rv: %d mode: %lu width: %d", rv, hl_state.rmode, hl_state.width);
 
    return MODE_NONE;
 }
@@ -276,17 +276,14 @@ static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
    if (state == true) {
       if ( (ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_ON) ) != RIG_OK) {
          Log( LOG_CRIT, "backend.hamlib", "Failed to enable PTT: %s\n", rigerror(ret) );
-
          return true;
       }
    } else {
       if ( (ret = rig_set_ptt(hl_rig, hl_vfo, RIG_PTT_OFF) ) != RIG_OK) {
-         fprintf( stderr, "Failed to disable PTT: %s\n", rigerror(ret) );
-
+         Log(LOG_CRIT, "backend.hamlib", "Failed to disable PTT: %s", rigerror(ret));
          return true;
       }
    }
-
    return false;
 }
 
@@ -307,7 +304,6 @@ static bool hl_init(void) {
 
    if (!hl_rig) {
       fprintf(stderr, "Failed to initialize rig\n");
-
       return true;
    }
    const char *cfg_hamlib_port = cfg_get_exp("backend.hamlib-port");
@@ -344,7 +340,6 @@ static bool hl_init(void) {
    // Activate VFO A
    rig_set_vfo(hl_rig, RIG_VFO_A);
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
-
    return false;
 }
 
@@ -358,18 +353,16 @@ static bool hl_freq_set(rr_vfo_t vfo, int freq) {
 
    // Set frequency
    if ( (ret = rig_set_freq(hl_rig, RIG_VFO_A, freq) ) != RIG_OK) {
-      Log( LOG_WARN, "ws.rigctl", "Failed to set frequency: %s", rigerror(ret) );
+      Log( LOG_WARN, "backend.hamlib", "Failed to set frequency: %s", rigerror(ret) );
 
       return true;
    }
-
    return false;
 }
 
 static bool hl_fini(void) {
    if (!hl_rig) {
-      Log(LOG_WARN, "hamlib", "hl_fini called but hl_rig == NULL");
-
+      Log(LOG_WARN, "backend.hamlib", "hl_fini called but hl_rig == NULL");
       return true;
    }
 
@@ -377,7 +370,6 @@ static bool hl_fini(void) {
       hl_destroy(hl_rig);
    }
    hl_rig = NULL;
-
    return false;
 }
 
@@ -410,7 +402,6 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
 
    if (!rv) {
       printf("OOM in hl_poll!\n");
-
       return NULL;
    }
    memset( rv, 0, sizeof(rr_vfo_t) );
@@ -425,7 +416,6 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
       free( (void *)rv );
       // The rig isn't talking to us; tear down and schedule a reconnect
       hl_disconnect("rig_set_vfo failed");
-
       return NULL;
    }
 
@@ -434,7 +424,6 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
       free( (void *)rv );
       // The rig isn't talking to us; tear down and schedule a reconnect
       hl_disconnect("rig_get_freq failed");
-
       return NULL;
    }
 
@@ -627,13 +616,11 @@ bool hl_mode_set(rr_vfo_t vfo, rr_mode_t mode) {
    if (rv == RIG_OK) {
       return false;
    }
-
    return true;
 }
 
 uint16_t hl_width_get(rr_vfo_t vfo) {
    hl_mode_get(vfo);
-
    return hl_state.width;
 }
 
