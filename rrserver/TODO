@@ -1,11 +1,17 @@
 ============
 = rrserver =
 ============
-* DONE - Logger callback (rrserver/audit.c) calls db_add_audit_event() for LOG_AUDIT level Log() messages
+* Need to clean up a few things related to hamlib (model, host, etc) in
+  pack-eeprom vs rrserver/backend.hamlib.c so they can be stored in eeprom!
 
+* DEBUG_PROTO_UNKNOWN ' ' ' -- remove this!
+
+*: Add last-seen time to users, kept in the database.
+  - Update it on connect and disconnect
+  - Add a timer to update the db every minute or five with everyone active
+
+*: authdb on non-posix hosts should be compacted and stored in eeprom fields
 [protocol]
-* Instead of blorping out the rig status once a second, lets do broadcasts only when changed or every 30 seconds plus on-connect
-
 * Implement multiple chat channels (bcast)
 
 [privileges]

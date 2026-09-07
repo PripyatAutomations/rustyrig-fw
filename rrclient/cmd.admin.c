@@ -44,9 +44,69 @@ bool cmd_die(int argc, char **args) {
 }
 
 bool cmd_kick(int argc, char **args) {
+   if (argc < 2 || !args[1]) {
+      ui_print(NULL, "Usage: /kick <user> <reason>");
+      return true;
+   }
+
+   // Everything after the target is the reason; the server requires a
+   // minimum length (CHAT_MIN_REASON_LEN in librrprotocol/srv.chat.c)
+   char reason[256] = "";
+
+   for (int i = 2 ; i < argc ; i++) {
+      int n = snprintf(reason + strlen(reason), sizeof(reason) - strlen(reason), "%s%s",
+         (i > 2 ? " " : ""), args[i] ? args[i] : "");
+
+      if (n < 0) {
+         break;
+      }
+   }
+
    dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "kick");
-   dict_add(d, "talk.reason", args[1]);
+   dict_add(d, "talk.target", args[1]);
+
+   if (reason[0]) {
+      dict_add(d, "talk.reason", reason);
+   }
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+
+   return false;
+}
+
+/* PARITY: rustyrig-www/js/webui (mute/unmute send msg.type talk, talk.cmd) */
+bool cmd_mute(int argc, char **args) {
+   if (argc < 2 || !args[1]) {
+      ui_print(NULL, "Usage: /mute <user> [reason]");
+      return true;
+   }
+
+   dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "mute");
+   dict_add(d, "talk.target", args[1]);
+
+   if (args[2]) {
+      dict_add(d, "talk.reason", args[2]);
+   }
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+
+   return false;
+}
+
+bool cmd_unmute(int argc, char **args) {
+   if (argc < 2 || !args[1]) {
+      ui_print(NULL, "Usage: /unmute <user>");
+      return true;
+   }
+
+   dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "unmute");
+   dict_add(d, "talk.target", args[1]);
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 

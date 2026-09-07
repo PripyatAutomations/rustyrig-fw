@@ -75,22 +75,19 @@ static void net_print_listeners(const char *listenaddr) {
 // Here we have to provide a common interface with serial
 // transport for cons, cat, and debug
 void show_network_info(void) {
+#ifdef   USE_EEPROM
    if (eeprom_ready != 1 || eeprom_corrupted == 1) {
       return;
    }
    int bind_port = cfg_get_int("net.http.port", 0);
-#ifdef   USE_EEPROM
    if (!bind_port) {
       eeprom_get_int("net/http/port");
    }
-#endif   // USE_EEPROM
 
    int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
-#ifdef   USE_EEPROM
    if (!tls_bind_port) {
       tls_bind_port = eeprom_get_int("net/http/tls-port");
    }
-#endif   // USE_EEPROM
 
 #ifdef   HOST_POSIX
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;
@@ -137,15 +134,14 @@ void show_network_info(void) {
    // print what addresses our bind will apply to
    const char *listenaddr = cfg_get("net.http.bind");
 
-#ifdef   USE_EEPROM
    if (!listenaddr) {
       listenaddr = (char *)eeprom_get_str("net/http/bind");
    }
-#endif   // USE_EEPROM
 
    if (listenaddr) {
       Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port, tls_bind_port);
       net_print_listeners(listenaddr);
    }
 #endif   // HOST_POSIX
+#endif   // USE_EEPROM
 }

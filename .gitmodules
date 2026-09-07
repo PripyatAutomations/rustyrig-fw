@@ -19,3 +19,6 @@
 [submodule "librrprotocol"]
 	path = librrprotocol
 	url = https://github.com/PripyatAutomations/librrprotocol
+[submodule "callsign-lookup"]
+	path = callsign-lookup
+	url = https://github.com/PripyatAutomations/callsign-lookup

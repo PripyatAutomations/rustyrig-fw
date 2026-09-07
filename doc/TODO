@@ -1,91 +1,16 @@
 Immediate needs
 ---------------
 * webui/rrclient: Make userlist show a microphone emoji by whoever is PTT
-* rrclient: make @username auto-complete once enough unique is typed
-  - save last typed before completing so backspace will remove the completed part
-    - continue completion only if user presses tab
-  - pressing tab at any point should list available username completions
-    dont do it with ui_print, make it a little popup like phones do
 
 * Elmer/noob mode needs a dialog confirmation system
   - Noob requests elevated privs and is cautioned about their responsibility
   - Elmers are prompted and one can accept responsibility for the user
 
-rrclient: Fix/finish server picker & server editor and put them to use
-  - We should be able to run without a config file and actually be usable
-    - We need to finish the config tab and config saving
 * Support for multiple rigs/channels
-- add noob.cool-down=30 to rrserver/defconfig.c
+
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure
   - currently we still use 0 for success, which is incorrect
-* Need to clean up a few things related to hamlib (model, host, etc) in
-  pack-eeprom vs rrserver/backend.hamlib.c so they can be stored in eeprom!
-* Fix the color parser to not mangle json
-  gtk_colorize_string()
-* HTTP_DEBUG_CRAZY - where does it get set?
-  - mk/compile.mk
-* DEBUG_WS_BINFRAMES - where does it get set?
-  - mk/compile.k
-* DEBUG_PROTO_UNKNOWN ' ' ' -- remove this!
+
 * MAKE SURE the protocol messages line up
   - Try to minimize wasted traffic
-rrclient: Add ^C, etc for embedding mIRC-style colors
-rrclient: Fix userlist window
-  - window opened at startup doesnt track user changes
-  - new windows do not have modal property they should per config
-rrclient: Implement /names to show who's in the chat (espc in TUI)
-rrserver: Add last-seen time to users, kept in the database.
-  - Update it on connect and disconnect
-  - Add a timer to update the db every minute or five with everyone active
-rrserver: move auth stuff (user/privs/etc) to sqlite on posix host
-  - on non-posix hosts, these should be compacted and stored in eeprom fields
-rrclient: tui: should probably treat status window as the syslog in gtk; make windows 2+ show rig controls
-librustyaxe: Merge cfg_get_* and eeprom_get_* so we have just cfg_get_*
-  - we should just load the whole eeprom into the config dict at startup???
-  - deal with debug.* vs log.* keys that need merged
-librustyaxe: Make modules able to register their event handlers on loading
-librustyaxe: Ensure modules are completely freed and unloaded. Use dicts or memblocks for internal storage
-librustyaxe: Add memblocks, simple allocator who maintains small allocations (replace malloc,realloc,free,etc) with page tracking for release on module unload
-librrprotocol: IRC protocol will be used to link sites, with large messages enabled (16k)
-rrclient: Set window title to $user@$rig
-rrclient: Make hotkeys context (tab/window) sensitive
-rrclient: Support for connecting to multiple servers
-
-*: Mongoose must be used consistently everywhere it's enabled
-
-=================
-= librrprotocol =
-=================
-* track rx bytes & tx bytes in the session
-	- all
-	- text, media (binary)
-
-===============
-= librustyaxe =
-===============
-[CAT]
-* Implement control over unix pipes or a file in posix mode
-* Implement control over stm32 serial over usb
-* Merge rr_cat_cmd and CATCommandTable
-
-[logger]
-* Add support for masking out messages such as '-*.noisy'
-? Add support for rate limiting messages by subsys major (first dot)
-
-[config]
-* Make config exporter put a comment with the description and default value, if found in defconfig, for each key saved.
-
-[Porting]
-minimal inet_ntop() for non-posix
-
-============
-= Protocol =
-============
-* Implement ALERT message that pops up for all users (for shutdown, overheat, SWR alerts).
-* User management
-  - Add/edit users
-  - Reset password
-  - User change own password
-* CW-U and CW-L
-   - CW is centered on the CW dial freq; CW-L is center and width below; CW-R is center and width above

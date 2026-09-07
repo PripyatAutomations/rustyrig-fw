@@ -1,23 +1,41 @@
 [general]
-* Support for reloading config without a restart
+* Fix the color parser to not mangle json
+  gtk_colorize_string()
+
+* make @username auto-complete once enough unique is typed
+  - save last typed before completing so backspace will remove the completed part
+    - continue completion only if user presses tab
+  - pressing tab at any point should list available username completions
+    dont do it with ui_print, make it a little popup like phones do
+
+* Fix/finish server picker & server editor and put them to use
+  - We should be able to run without a config file and actually be usable
+    - We need to finish the config tab and config saving
+
+* Add ^C, etc for embedding mIRC-style colors
+
+* Fix userlist window
+  - window opened at startup doesnt track user changes
+  - new windows do not have modal property they should per config
+
+* Implement /names to show who's in the chat (espc in TUI)
+
+* tui: should probably treat status window as the syslog in gtk; make windows 2+ show rig controls
+
+* Set window title to $user@$rig
+
+* Make hotkeys context (tab/window) sensitive
+
+* Support for connecting to multiple servers
+
 * Populate config tab from defconfig, showing radio/text field/etc based on default value check
 
 * Make PTT button stay gray if you don't have TX privileges or are a noob without approval
 
-* Add are you sure dialog on close button and alt-q (exit) hotkey
-  - Add alt-q exit hotkey
+- Add alt-q exit hotkey?
 
-* Fix PTT button
-  - turn YELLOW with PTT PENDING text until acknowledged by server)
-
-* Fix PTT button needing clicked twice after TOT fired
-  - Maybe change the PTT button color to a warning color (yellow?) if TOT expiry happens
-
-* Since we've added log replay on join (rrserver.cfg:general/chat.replay-lines)
-  - get_chat_ts() will take a time_t show the date instead of just time, 
-      if before today
-      - This should make replay make a little more sense to new users
-  - Add some support for skipping already shown lines, if possible. Use Replay Start/Replay Complete messages to assist
+* Fix PTT button needing clicked twice after TOT fired (if still applies)
+  - Make sure TOT expire goes ORANGE
 
 * Support PTT lock; controlled by ctrl or shift clicking PTT button (disable ptt lock by default)
 
@@ -25,7 +43,7 @@
 
 * Implement rest of controls typically used by hams
 
-* Finish whois/reason dialogs
+* Finish reason dialog
 
 * Add a start/stop RX audio button for saving bw isntead of just muting
   - or maybe send the mute/unmute to server who will start/stop sending samples
@@ -33,17 +51,13 @@
 
 * Fix userlist updates so joins/quits properly update it
 
-* Make VFO widgets floating
+* Make VFO widgets able to undock/float
 
-* C4FM
-   - Show FM dialog
+* C4FM mode / dialog
 
 * strip of band buttons at the bottom of vfo populated with the bands
   the radio supports & recall the last frequency on that band, maybe 
   move to the parts of the band based on the mode too.
-
-* Fill out Config tab form which can generate rrclient.cfg
-  - For now we have the text editor, bug check and fix it!
 
 [bluetooth]	LOW PRIORITY
 * Support bluetooth PTT buttons
@@ -51,7 +65,8 @@
 
 [cfgedit]	URGENT
 ! Make save config moves the file to .old first
-* Option to edit on-disk or in-memory configuration
+* Add a button in config editor to replace the config editor contents with 
+  in-memory settings instead of config file values
 
 [TUI]
 * Add a tab for showing client / radio log (togglable)

@@ -126,7 +126,6 @@ bool cmd_reload(int argc, char **args) {
 
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
-   { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
    { .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
    { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
@@ -141,7 +140,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab" },
    { .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel" },
    { .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message" },
-//   { .cmd = "mute", .cb = cmd_mute, .desc = "Mute a user" },
+   { .cmd = "mute", .cb = cmd_mute, .desc = "Mute a user" },
    { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
    { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
    { .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program" },
@@ -152,7 +151,8 @@ client_cmd_t client_cmds[] = {
    { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
    { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
    { .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)" },
-//  { .cmd = "unmute", .cb = cmd_unmute, .desc = "Unmute a user" },
+   { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
+   { .cmd = "unmute", .cb = cmd_unmute, .desc = "Unmute a user" },
    { .cmd = "win", .cb = cmd_win, .desc = "Change windows" },
    { .cmd = "whois", .cb = cmd_whois, .desc = "Show client information" },
    { .cmd = NULL, .cb = NULL, .desc = NULL }

@@ -102,8 +102,10 @@ int rr_atu_init(int uid) {
 int rr_atu_init_all(void) {
    int rv = 0;
    int tuners = 1;
+#ifdef	USE_EEPROM
    tuners = eeprom_get_int("hw/atus");
-
+#endif	// USE_EEPROM
+   tuners = cfg_get_int("atu.max", 4);
    if (tuners < 0) {
       tuners = 0;
    }

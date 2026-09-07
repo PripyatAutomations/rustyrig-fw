@@ -21,6 +21,7 @@ EEPROM_SIZE := $(strip $(shell cat ${CF} | jq -r '.eeprom.size'))
 EEPROM_FILE := build/${PROFILE}/eeprom.bin
 PLATFORM := $(strip $(shell cat ${CF} | jq -r '.build.platform'))
 USE_ASAN = $(strip $(shell cat ${CF} | jq -r '.build.use_asan'))
+USE_EEPROM = $(strip $(shell cat ${CF} | jq -r '.features.eeprom'))
 USE_GSTREAMER = $(strip $(shell cat ${CF} | jq -r '.features.gstreamer'))
 USE_HAMLIB = $(strip $(shell cat ${CF} | jq -r '.backend.hamlib'))
 USE_LIBNOTIFY = $(strip $(shell cat ${CF} | jq -r '.features.libnotify'))

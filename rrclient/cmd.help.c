@@ -108,10 +108,12 @@ static help_line_t help_msg_before[] = {
 };
 
 static help_line_t help_msg_after[] = {
+   { UI_MODE_NONE, "\t{bright-green}!help        {bright-yellow}Show the server side rigctl help" },
    { UI_MODE_NONE, "\n" },
-   { UI_MODE_NONE, "{bright-magenta}{underlne}*** Keyboard Shortcuts ***" },
+   { UI_MODE_NONE, "\t{bright-magenta}*** {underline}Keyboard Shortcuts{underline-off} ***" },
    { UI_MODE_GTK,  "\t{bright-green}alt-c         {bright-yellow}Focus chat input" },
    { UI_MODE_NONE, "\t{bright-green}alt-# (1-0)   {bright-yellow}Switch to window 1-10" },
+   { UI_MODE_NONE, "\t{bright-green}esc-# (1-0)   {bright-yellow}Switch to window 1-10" },
    { UI_MODE_GTK,  "\t{bright-green}alt-enter     {bright-yellow}Hold for PTT" },
    { UI_MODE_GTK,  "\t{bright-green}ctl-alt-enter {bright-yellow}Toggle PTT (if enabled)" },
    { UI_MODE_TUI, "\t{bright-green}alt-left      {bright-yellow}Switch to previous win" },
@@ -139,7 +141,6 @@ bool cmd_help(int argc, char **args) {
    }
 
    int longest = 0;
-
    for (int i = 0; client_cmds[i].cmd; i++) {
       int len = strlen(client_cmds[i].cmd);
 
@@ -149,7 +150,6 @@ bool cmd_help(int argc, char **args) {
    }
 
    int desc_col = 3 + longest + 2;
-
    for (int i = 0; client_cmds[i].cmd; i++) {
       int len = strlen(client_cmds[i].cmd);
       int spaces = desc_col - 3 - len;
@@ -173,6 +173,5 @@ bool cmd_help(int argc, char **args) {
       if (deferred) {
          tui_redraw_flush();
       }
-
       return false;
    }

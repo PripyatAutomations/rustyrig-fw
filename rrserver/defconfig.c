@@ -37,6 +37,7 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
    { "audio.debug", "false", "Debug audio? [bool]" },
+   { "atu.max", "4", "Maximum number of ATUs" },
    { "backend.active", "internal", "Backend to use for rig control" },
    { "backend.announce-interval", "30", "How often to send a forced update of VFO state?" },
    { "backend.state-interval", "15", "Send cat state at most once every N seconds if unchanged?" },

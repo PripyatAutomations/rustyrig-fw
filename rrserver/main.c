@@ -122,6 +122,14 @@ int main(int argc, char **argv) {
    my_argc = argc;
    my_argv = argv;
 
+   // Apply the hard-coded defaults from defconfig.c FIRST, so keys missing
+   // from the user's config fall back to them.
+   if (!default_cfg) {
+      default_cfg = dict_new();
+   }
+   cfg_set_defaults(default_cfg, defcfg);
+   cfg = default_cfg;
+
    // Initialize some early state
    now = started = time(NULL);
 
@@ -155,7 +163,7 @@ int main(int argc, char **argv) {
    if (config_file) {
       if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
-         free(config_file);
+         free( (void *)config_file);
          config_file = NULL;
          exit(1);
       } else {
@@ -293,7 +301,9 @@ int main(int argc, char **argv) {
 
    // Network connectivity
    show_network_info();
+#ifdef	USE_EEPROM
    show_pin_info();
+#endif	// USE_EEPROM
 
 // Bring up libmongoose for the websocket/mqtt servers & mqtt client
 #if     defined(USE_MONGOOSE)

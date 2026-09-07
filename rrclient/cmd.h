@@ -46,6 +46,7 @@ extern bool cmd_kick(int argc, char **args);
 extern bool cmd_log(int argc, char **args);
 extern bool cmd_me(int argc, char **args);
 extern bool cmd_msg(int argc, char **args);
+extern bool cmd_mute(int argc, char **args);
 extern bool cmd_notice(int argc, char **args);
 extern bool cmd_part(int argc, char **args);
 extern bool cmd_quit(int argc, char **args);
@@ -55,6 +56,7 @@ extern bool cmd_restart(int argc, char **args);
 extern bool cmd_rxvol(int argc, char **args);
 extern bool cmd_server(int argc, char **args);
 extern bool cmd_topic(int argc, char **args);
+extern bool cmd_unmute(int argc, char **args);
 extern bool cmd_whois(int argc, char **args);
 extern bool cmd_win(int argc, char **args);
 

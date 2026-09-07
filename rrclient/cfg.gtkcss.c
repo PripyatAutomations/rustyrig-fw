@@ -214,7 +214,7 @@ bool cmd_css_reload(int argc, char **args) {
          *end-- = '\0';
       }
       // Trim leading whitespace
-      char *p = buf;
+      const char *p = buf;
       while (*p == ' ' || *p == '\t') {
          p++;
       }
