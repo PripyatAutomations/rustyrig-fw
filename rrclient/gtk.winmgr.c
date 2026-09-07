@@ -192,105 +192,108 @@ bool place_window(GtkWidget *window) {
    memset( key, 0, sizeof(key) );
    snprintf(key, sizeof(key), "ui.%s", win->name);
 
+   const char *cfg_full = cfg_get_exp(key);
+
    // if we have x/y/h/w saved, use them
    if (win->last_h > 0 && win->last_w > 0) {
       Log(LOG_DEBUG, "gtk.winmgr", "place_window |%s| using stored coords (w,h@x,y): %d,%d@%d,%d",
          (*win->name ? win->name : ""), win->w, win->h, win->x, win->y);
-   } else {
+   } else if (cfg_full) {
       // If the window doesn't have h/w set, try to get them from the
       // configuration
-      const char *cfg_full = cfg_get_exp(key);
+      int cfg_height = 0, cfg_width = 0, cfg_x = 0, cfg_y = 0;
 
-      if (cfg_full) {
-         int cfg_height = 0, cfg_width = 0, cfg_x = 0, cfg_y = 0;
+      // We found a new-style configuration, parse it
+      if (sscanf(cfg_full, "%d,%d@%d,%d", &cfg_width, &cfg_height, &cfg_x, &cfg_y) == 4) {
+         // Save the location into the window
+         win->x = cfg_x;
+         win->y = cfg_y;
 
-         // We found a new-style configuration, parse it
-         if (sscanf(cfg_full, "%d,%d@%d,%d", &cfg_width, &cfg_height, &cfg_x, &cfg_y) == 4) {
-            // Save the location into the window
-            win->x = cfg_x;
-            win->y = cfg_y;
-
-            if (cfg_width > 0) {
-               win->w = cfg_width;
-            }
-
-            if (cfg_height > 0) {
-               win->h = cfg_height;
-            }
-            Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, win->x, win->y,
-               win->w, win->h);
-         } else {
-            Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
-            free( (void *)cfg_full );
-
-            return true;
+         if (cfg_width > 0) {
+            win->w = cfg_width;
          }
-         // Parse out options, delimited by | at the end of the string
-         char *opts = strchr(cfg_full, '|');
 
-         if (opts) {
-            opts++;   /* skip the '|' */
+         if (cfg_height > 0) {
+            win->h = cfg_height;
+         }
+         Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, win->x, win->y,
+            win->w, win->h);
+      } else {
+         Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
+         free( (void *)cfg_full );
 
-            while (*opts) {
-               char *end = strchr(opts, '|');
+         return true;
+      }
+   }
 
-               // Is this the last arg?
-               if (!end) {
-                  end = opts + strlen(opts);
-               }
-               // trim trailing whitespace
-               while (*end == ' ' || *end == '\t') {
-                  if (end <= opts) {
-                     break;
-                  }
-                  end--;
-               }
-               // trim leading whitespace
-               while (*opts == ' ' || *opts == '\t') {
-                  if (opts >= end) {
-                     break;
-                  }
-                  opts++;
-               }
-               size_t len = end - opts;
-               char opt[32];
+   // Parse out options, delimited by | at the end of the string
+   // Always applied, so window flags (modal/keep-above, hidden, etc.) are
+   // (re)set on every placement, not just the first.
+   if (cfg_full) {
+      char *opts = strchr(cfg_full, '|');
 
-               if (len >= sizeof(opt) ) {
-                  len = sizeof(opt) - 1;
-               }
-               memcpy(opt, opts, len);
-               opt[len] = '\0';
+      if (opts) {
+         opts++;   /* skip the '|' */
 
-               if (strcasecmp(opt, "hidden") == 0) {
-                  if (strcasecmp(win->name, "main") != 0) {
-                     // Hide this window by default
-                     win->win_hidden = true;
-                     gtk_widget_hide(win->gtk_win);
-                  }
-               } else if (strcasecmp(opt, "minimized") == 0) {
-                  win->win_minimized = true;
-                  gtk_window_iconify( GTK_WINDOW(win->gtk_win) );
-               } else if (strcasecmp(opt, "modal") == 0) {
-                  // Window is always-on-top
-                  win->win_modal = true;
-                  gtk_window_set_keep_above(GTK_WINDOW(win->gtk_win), TRUE);
-               } else if (strcasecmp(opt, "no-hide") == 0) {
-                  // Don't hide this window when the main window is minimized
-                  win->win_nohide = true;
-               } else if (strcasecmp(opt, "raised") == 0) {
-                  // Window should start raised
-                  win->win_raised = true;
-                  gtk_window_present( GTK_WINDOW(win->gtk_win) );
-               }
+         while (*opts) {
+            char *end = strchr(opts, '|');
 
-               if (*end == '\0') {
+            // Is this the last arg?
+            if (!end) {
+               end = opts + strlen(opts);
+            }
+            // trim trailing whitespace
+            while (*end == ' ' || *end == '\t') {
+               if (end <= opts) {
                   break;
                }
-               opts = end + 1;
+               end--;
             }
-            free( (void *)cfg_full );
+            // trim leading whitespace
+            while (*opts == ' ' || *opts == '\t') {
+               if (opts >= end) {
+                  break;
+               }
+               opts++;
+            }
+            size_t len = end - opts;
+            char opt[32];
+
+            if (len >= sizeof(opt) ) {
+               len = sizeof(opt) - 1;
+            }
+            memcpy(opt, opts, len);
+            opt[len] = '\0';
+
+            if (strcasecmp(opt, "hidden") == 0) {
+               if (strcasecmp(win->name, "main") != 0) {
+                  // Hide this window by default
+                  win->win_hidden = true;
+                  gtk_widget_hide(win->gtk_win);
+               }
+            } else if (strcasecmp(opt, "minimized") == 0) {
+               win->win_minimized = true;
+               gtk_window_iconify( GTK_WINDOW(win->gtk_win) );
+            } else if (strcasecmp(opt, "modal") == 0) {
+               // Window is always-on-top
+               win->win_modal = true;
+               gtk_window_set_keep_above(GTK_WINDOW(win->gtk_win), TRUE);
+            } else if (strcasecmp(opt, "no-hide") == 0) {
+               // Don't hide this window when the main window is minimized
+               win->win_nohide = true;
+            } else if (strcasecmp(opt, "raised") == 0) {
+               // Window should start raised
+               win->win_raised = true;
+               gtk_window_present( GTK_WINDOW(win->gtk_win) );
+            }
+
+            if (*end == '\0') {
+               break;
+            }
+            opts = end + 1;
          }
       }
+      free( (void *)cfg_full );
    }
 
    if (win->w > 0 && win->h > 0) {

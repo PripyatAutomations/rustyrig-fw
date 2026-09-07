@@ -71,6 +71,7 @@ extern struct rr_user *userlist_find(const char *name);
 #if     defined(USE_GTK)
 extern GtkWidget *userlist_create(void);
 extern void userlist_set_visible(bool visible);
+extern void userlist_refocus_main(void);   // return focus to main after showing userlist
 #endif // defined(USE_GTK)
 
 #include <librrprotocol/client-flags.h>

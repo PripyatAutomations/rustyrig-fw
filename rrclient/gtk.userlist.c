@@ -38,6 +38,29 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
    return TRUE;
 }
 
+// Focus the main window once the current GTK work (mapping a newly created
+// userlist window, etc.) is done, so the WM doesn't hand focus to the
+// userlist after we return.
+static gboolean refocus_main_idle(gpointer user_data) {
+   extern GtkWidget *main_window;   // gtk.core.c
+   if (main_window) {
+      gtk_window_present(GTK_WINDOW(main_window) );
+   }
+   return G_SOURCE_REMOVE;
+}
+
+static void refocus_main(void) {
+   userlist_refocus_main();
+}
+
+// The userlist window shouldn't steal focus; return it to the main window.
+// g_idle_add defers this until after the userlist is fully mapped, which
+// matters on the first show (newly created window), otherwise the WM
+// focuses the just-mapped userlist after we return.
+void userlist_refocus_main(void) {
+   g_idle_add(refocus_main_idle, NULL);
+}
+
 // Show or hide the userlist window (creates it if needed).
 // Used by the connect/disconnect handlers when ui.auto-show-userlist is set.
 void userlist_set_visible(bool visible) {
@@ -60,6 +83,7 @@ void userlist_set_visible(bool visible) {
       userlist_redraw_gtk();
       gtk_widget_show_all(userlist_window);
       place_window(userlist_window);
+      refocus_main();
    } else {
       gtk_widget_hide(userlist_window);
    }
@@ -85,6 +109,7 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
          userlist_redraw_gtk();
          gtk_widget_show_all(userlist_window);
          place_window(userlist_window);
+         refocus_main();
       }
    }
 }

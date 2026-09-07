@@ -21,6 +21,7 @@
 #include <rrclient/cmd.help.h>
 #include <rrclient/gtk.core.h>
 #include <rrclient/gtk.freqentry.h>
+#include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 
 extern dict *cfg;
@@ -202,6 +203,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
                } else {
                   gtk_widget_show_all(userlist_window);
                   place_window(userlist_window);
+                  userlist_refocus_main();
                }
             }
             break;

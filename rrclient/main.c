@@ -271,7 +271,6 @@ bool rrclient_cleanup(void) {
    }
    cleaned_up = true;
    logger_end();
-   dict_free(cfg);
 
    if (ui_mode == UI_MODE_TUI) {
       tui_raw_mode(false);
@@ -288,8 +287,12 @@ bool rrclient_cleanup(void) {
 
    // Shut down sockets
 #ifdef USE_MONGOOSE
+   // NOTE: this fires the "disconnected" event, whose handlers still read
+   // cfg (e.g. ui.auto-show-userlist), so cfg must be freed AFTER this.
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
+
+   dict_free(cfg);
 
 #if defined(USE_LIBNOTIFY) && defined(USE_GTK)
    ui_notify_fini();
