@@ -36,7 +36,6 @@ SHELL = bash
 
 CFLAGS += -Wno-duplicated-branches
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
-CFLAGS += $(shell pkg-config --cflags mbedtls)
 CFLAGS += -Wno-deprecated-declarations
 CFLAGS += -I./ -I../ -I./inc -I${BUILD_DIR}
 CFLAGS += -DMG_ENABLE_IPV6=1
@@ -57,7 +56,6 @@ LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
 # pkg-config unconditionally.
 CFLAGS += $(shell pkg-config --cflags glib-2.0)
 LDFLAGS += $(shell pkg-config --libs glib-2.0)
-LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 
 gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
 gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
@@ -110,3 +108,8 @@ strip: ${bins}
 	@ls -a1ls $^
 
 LIB_LDFLAGS := -fPIC -shared
+
+ifeq (${USE_LIBMBEDTLS},true)
+CFLAGS += $(shell pkg-config --cflags mbedtls)
+LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
+endif

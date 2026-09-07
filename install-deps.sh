@@ -13,11 +13,11 @@ if [ -f "${DEBVER}" ]; then
        libjson-perl libterm-readline-perl-perl libhash-merge-perl \
        libjson-xs-perl libstring-crc32-perl libgpiod-dev gpiod \
        jq pkg-config libmbedtls-dev libopus-dev libgtk-3-dev \
-       libgstreamer-plugins-base1.0-0 libgstreamer1.0-dev
+       libgstreamer-plugins-base1.0-0 libgstreamer1.0-dev \
+       libjson-validator-perl
 
-
-    # Mojo::JSON::Pointer used by buildconf.pl
-    cpan install Mojo::JSON::Pointer
+    # Mojo::JSON::Pointer used by buildconf.pl -- looks like libjson-validator-perl has us
+#    cpan install Mojo::JSON::Pointer
 
     CONFIG="config/${PROFILE}.config.json"
     USE_HAMLIB=$(jq -er '.backend.hamlib // empty' "$CONFIG")
