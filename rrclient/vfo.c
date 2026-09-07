@@ -126,7 +126,7 @@ bool vfo_set_dict(const char *vfo, dict *d) {
       vfo_id = vfo_state_check_id(dict_get(d, "cat.state.vfo", NULL));
    }
    char vfo_str[2] = { vfo_id, 0 };
-   Log(LOG_DEBUG, "vfo", "vfo_set_dict: VFO %c", vfo_id);
+   Log(LOG_CRAZY, "vfo", "vfo_set_dict: VFO %c", vfo_id);
 
    // Track whether this update is for the VFO the UI is showing, so we
    // don't needlessly refresh widgets on updates for other VFOs.

@@ -397,12 +397,15 @@ bool gui_init(void) {
 
    // ADMIN tab (alt-1)
    admin_tab = init_admin_tab();
+
    // CONFIG tab (alt-2)
    config_tab = init_config_tab();
-   // LOG tab (alt-3)
-   log_tab = init_log_tab();
-   // Host LOG tab (alt-4)
+
+   // Host LOG tab (alt-3)
    host_log_tab = init_host_log_tab();
+
+   // LOG tab (alt-4)
+   log_tab = init_log_tab();
 
    //// CHAT stuff (alt-5+)...
    chat_init();

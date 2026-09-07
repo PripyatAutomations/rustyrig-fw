@@ -81,7 +81,7 @@ static gboolean on_configure_timeout(gpointer data) {
          dict_add(cfg, key, val);
 
          // No, send it as a log message instead
-         Log(LOG_DEBUG, "gtk-ui", "Window %s moved, cfg edit:\t%s=%s", win->name, key, val);
+         Log(LOG_INFO, "gtk-ui", "Window %s moved, new cfg entry: %s=%s", win->name, key, val);
       }
    }
    configure_event_timeout = 0;

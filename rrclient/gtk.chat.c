@@ -344,7 +344,7 @@ bool chat_init(void) {
    GtkWidget *status_tab_label = gtk_label_new(NULL);
    char tab_desc[64];
    memset(tab_desc, 0, sizeof(tab_desc));
-   snprintf(tab_desc, sizeof(tab_desc), "(<u>%d</u> &amp;localrig", next_chat_tab);
+   snprintf(tab_desc, sizeof(tab_desc), "(<u>%d</u>) &amp;localrig", next_chat_tab);
    gtk_label_set_markup(GTK_LABEL(status_tab_label), tab_desc);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), status_tab, status_tab_label);
    input_history = g_ptr_array_new_with_free_func(g_free);

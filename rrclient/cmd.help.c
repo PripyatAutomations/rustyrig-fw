@@ -115,9 +115,9 @@ static help_line_t help_msg_after[] = {
    { UI_MODE_NONE, "\t{bright-green}alt-# (1-0)   {bright-yellow}Switch to window 1-10" },
    { UI_MODE_NONE, "\t{bright-green}esc-# (1-0)   {bright-yellow}Switch to window 1-10" },
    { UI_MODE_GTK,  "\t{bright-green}alt-enter     {bright-yellow}Hold for PTT" },
-   { UI_MODE_GTK,  "\t{bright-green}ctl-alt-enter {bright-yellow}Toggle PTT (if enabled)" },
-   { UI_MODE_TUI, "\t{bright-green}alt-left      {bright-yellow}Switch to previous win" },
-   { UI_MODE_TUI, "\t{bright-green}alt-right     {bright-yellow}Switch to next win" },
+   { UI_MODE_GTK,  "\t{bright-green}ctl-alt-enter {bright-yellow}Toggle PTT" },
+   { UI_MODE_NONE, "\t{bright-green}alt-left      {bright-yellow}Switch to previous win" },
+   { UI_MODE_NONE, "\t{bright-green}alt-right     {bright-yellow}Switch to next win" },
    { UI_MODE_GTK,  "\t{bright-green}F11           {bright-yellow}Fullscreen toggle{reset}" },
    { UI_MODE_NONE, NULL }
 };
