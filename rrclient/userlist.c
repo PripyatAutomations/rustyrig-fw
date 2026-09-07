@@ -34,7 +34,7 @@ bool userlist_add_or_update(dict *d) {
 
    const char *t_privs = dict_get(d, "talk.privs", NULL);
    const char *t_user = dict_get(d, "talk.user", NULL);
-   int t_clones = dict_get_int(d, "talk.clones", 0);
+   int t_sessions = dict_get_int(d, "talk.sessions", 0);
    bool t_muted = dict_get_bool(d, "talk.muted", false);
    bool t_ptt = dict_get_bool(d, "talk.tx", false);
 
@@ -56,7 +56,7 @@ bool userlist_add_or_update(dict *d) {
          strlcpy( c->privs, t_privs, sizeof(c->privs) );
       }
 
-      c->clones = t_clones;
+      c->sessions = t_sessions;
       c->is_muted = t_muted;
       c->is_ptt = t_ptt;
 
@@ -88,7 +88,7 @@ bool userlist_add_or_update(dict *d) {
       strlcpy( n->privs, t_privs, sizeof(n->privs) );
    }
 
-   n->clones = t_clones;
+   n->sessions = t_sessions;
    n->is_muted = t_muted;
    n->is_ptt = t_ptt;
 

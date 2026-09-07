@@ -46,12 +46,12 @@ sqlite3 *db_open(const char *path) {
 }
 
 bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email,
-                 int maxclones, const char *permissions) {
+                 int maxsessions, const char *permissions) {
    if (!db || !name || !password || !email || !permissions) {
       return true;
    }
    const char *sql = "INSERT INTO users "
-                     "(uid, name, enabled, password, email, maxclones, permissions) "
+                     "(uid, name, enabled, password, email, maxsessions, permissions) "
                      "VALUES (?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
@@ -66,7 +66,7 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const cha
    sqlite3_bind_int(stmt, 3, enabled ? 1 : 0);
    sqlite3_bind_text(stmt, 4, password, -1, SQLITE_STATIC);
    sqlite3_bind_text(stmt, 5, email ? email : "", -1, SQLITE_STATIC);
-   sqlite3_bind_int(stmt, 6, maxclones);
+   sqlite3_bind_int(stmt, 6, maxsessions);
    sqlite3_bind_text(stmt, 7, permissions, -1, SQLITE_STATIC);
 
    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
@@ -85,7 +85,7 @@ int db_get_users(sqlite3 *db) {
    if (!db) {
       return -1;
    }
-   const char *sql = "SELECT uid, name, enabled, password, email, maxclones, permissions FROM users;";
+   const char *sql = "SELECT uid, name, enabled, password, email, maxsessions, permissions FROM users;";
 
    sqlite3_stmt *stmt = NULL;
 
@@ -105,7 +105,7 @@ int db_get_users(sqlite3 *db) {
       bool enabled = sqlite3_column_int(stmt, 2) != 0;
       const char *pass = (const char *)sqlite3_column_text(stmt, 3);
       const char *email = (const char *)sqlite3_column_text(stmt, 4);
-      int maxclones = sqlite3_column_int(stmt, 5);
+      int maxsessions = sqlite3_column_int(stmt, 5);
       const char *privs = (const char *)sqlite3_column_text(stmt, 6);
 
       if (uid < 0 || uid >= HTTP_MAX_USERS || !name || name[0] == '\0') {
@@ -127,19 +127,19 @@ int db_get_users(sqlite3 *db) {
          strlcpy( up->email, email, sizeof(up->email) );
       }
 
-      if (maxclones < 1 || maxclones > HTTP_MAX_SESSIONS) {
-         Log(LOG_WARN, "db", "db_get_users: user %s has invalid maxclones: %d, defaulting to 1", up->name, maxclones);
-         maxclones = 1;
+      if (maxsessions < 1 || maxsessions > HTTP_MAX_SESSIONS) {
+         Log(LOG_WARN, "db", "db_get_users: user %s has invalid maxsessions: %d, defaulting to 1", up->name, maxsessions);
+         maxsessions = 1;
       }
-      up->max_clones = maxclones;
+      up->max_sessions = maxsessions;
 
       if (privs) {
          strlcpy( up->privs, privs, sizeof(up->privs) );
       }
 
-      Log(LOG_DEBUG, "db", "db_get_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_clones=%d",
+      Log(LOG_DEBUG, "db", "db_get_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_sessions=%d",
          uid, up->name, (up->email[0] != '\0' ? up->email : "none"), (up->enabled ? "true" : "false"),
-         (up->privs[0] != '\0' ? up->privs : "none"), up->max_clones);
+         (up->privs[0] != '\0' ? up->privs : "none"), up->max_sessions);
       user_count++;
    }
 

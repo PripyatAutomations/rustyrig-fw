@@ -571,7 +571,7 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
       return;
    }
 
-   // Flat whois reply from srv.chat.c: talk.username/email/privs/muted/clones,
+   // Flat whois reply from srv.chat.c: talk.username/email/privs/muted/sessions,
    // talk.connected/last_heard (unix ts) and talk.ua. Rendered IRC-style in chat.
    const char *s_none = "(none)";
    const char *s_unknown = "(unknown)";
@@ -582,7 +582,7 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    bool muted = dict_get_bool(d, "talk.muted", false);
    time_t connected = dict_get_time_t(d, "talk.connected", 0);
    time_t last_heard = dict_get_time_t(d, "talk.last_heard", 0);
-   int clones = dict_get_int(d, "talk.clones", 0);
+   int sessions = dict_get_int(d, "talk.sessions", 0);
 
    ui_print(NULL, "{cyan}***{reset} {bold}Whois for %s{reset}", username);
    ui_print(NULL, "{cyan}***{reset} Email:      %s", email);
@@ -592,7 +592,7 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
       ui_print(NULL, "{cyan}***{reset} {bright-red}This user is currently MUTEd. Rigctl is temporarily suspended.{reset}");
    }
 
-   ui_print(NULL, "{cyan}***{reset} Sessions:   %d", clones);
+   ui_print(NULL, "{cyan}***{reset} Sessions:   %d", sessions);
 
    if (connected > 0) {
       char buf[64];
