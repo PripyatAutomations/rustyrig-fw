@@ -86,3 +86,23 @@ bool cmd_restart(int argc, char **args) {
 
    return false;
 }
+
+/* PARITY: rustyrig-www/js/webui (rehash sends msg.type:rehash) */
+bool cmd_rehash(int argc, char **args) {
+   (void)argc;
+   (void)args;
+
+   if (!ws_conn) {
+      ui_print(NULL, "{red}Not connected to a server!{reset}");
+      return true;
+   }
+
+   dict *d = dict_new();
+   dict_add_ulong(d, "msg.ts", now);
+   dict_add(d, "msg.type", "rehash");
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+
+   ui_print(NULL, "Rehash requested from server");
+   return false;
+}

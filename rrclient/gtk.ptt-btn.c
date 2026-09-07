@@ -46,6 +46,8 @@ bool ptt_button_pending_state = false;
 bool ptt_button_pending_quiet = false;
 extern int cfg_ui_ptt_ack_timeout;          // main.c
 
+static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
+
 // Connection state for the button: grey while offline, colored once online.
 // Set via ptt_button_set_online() from events.c
 static bool ptt_btn_online = false;
@@ -166,6 +168,28 @@ void ptt_button_set_online(bool online) {
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), FALSE);
       }
    }
+   ptt_button_apply();
+}
+
+// Set the PTT button state programmatically WITHOUT firing the "toggled"
+// signal - used when reflecting server echoes (cat.state.ptt) onto the UI.
+// Firing the handler here would send a new cat.cmd ptt for every echo and
+// the server would broadcast it back: an infinite ping-pong.
+// (PARITY: rustyrig-www/js/webui.rigctl.js sets checkbox.checked directly)
+void ptt_button_set_state(bool active) {
+   if (!ptt_button || dying) {
+      return;
+   }
+
+   GtkToggleButton *btn = GTK_TOGGLE_BUTTON(ptt_button);
+
+   if (gtk_toggle_button_get_active(btn) == active) {
+      ptt_button_apply();
+      return;
+   }
+   g_signal_handlers_block_by_func(ptt_button, on_ptt_toggled, NULL);
+   gtk_toggle_button_set_active(btn, active);
+   g_signal_handlers_unblock_by_func(ptt_button, on_ptt_toggled, NULL);
    ptt_button_apply();
 }
 

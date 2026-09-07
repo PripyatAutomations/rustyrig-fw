@@ -78,6 +78,11 @@ See `doc/client-parity.md` for the current parity map.
 - Preserve existing error handling and logging conventions.
 - Do not remove code just because it appears unused until build profiles
   and alternate clients/frontends have been considered.
+- Configuration items MUST be added to defconfig.c in rrclient or rrserver
+  to prevent crashes at start without a config.
+- Build configuration is in config/${PROFILE}.config.json and PROFILE
+  defaults to 'radio'
+- mk/json-config.mk maps config settings to make variables as needed
 
 ## Before modifying code
 
@@ -127,3 +132,4 @@ Do not force frontend-specific implementations to look alike. They only
 need equivalent behavior where the parity document says they do.
 If possible without large changes, we should try to adjust the webui to
 match C version as we add new protocol messages or features.
+Configuration

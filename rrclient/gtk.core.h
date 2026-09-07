@@ -76,6 +76,7 @@ typedef struct GuiWidget gui_widget_t;
 
 extern void update_connection_button(int connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, int active);
+extern void ptt_button_set_state(bool active);
 extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text);
 extern gboolean focus_main_later(gpointer data);
 extern bool place_window(GtkWidget *window);

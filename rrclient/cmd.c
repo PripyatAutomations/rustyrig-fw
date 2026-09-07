@@ -146,6 +146,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
    { .cmd = "quit", .cb = cmd_quit, .desc = "Exit the program" },
    { .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command" },
+   { .cmd = "rehash", .cb = cmd_rehash, .desc = "Ask server to reload config & users" },
    { .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file" },
    { .cmd = "restart", .cb = cmd_restart, .desc = "Restart the server" },
    { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },

@@ -307,6 +307,51 @@ static void rrserver_handle_latency(const char *event, const char *data, rrconn_
 }
 
 
+/*
+ * librrprotocol emits "authdb.load" when net.http.authdb-dynamic is true
+ * (see srv.auth.passdb.c: http_reload_users()); we fill http_users[] from
+ * the sqlite users table here.
+ */
+static void rrserver_handle_authdb_load(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)cptr;
+   (void)user;
+
+   if (!masterdb) {
+      Log(LOG_CRIT, "db", "authdb-dynamic is set but masterdb isn't open!");
+      return;
+   }
+
+   if (db_get_users(masterdb) < 0) {
+      Log(LOG_CRIT, "db", "Failed to load users from database; keeping previous table");
+   }
+}
+
+/*
+ * A client (with admin/owner privs -- checked in srv.http.c) asked us to
+ * rehash: reload the config file and then the user database (which may come
+ * from the sqlite users table or the http.users file depending on
+ * net.http.authdb-dynamic).
+ */
+static void rrserver_handle_rehash(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   Log(LOG_INFO, "core", "Rehashing server configuration (requested by %s)",
+      (cptr && cptr->chatname[0] != '\0' ? cptr->chatname : "internal"));
+
+   if (cfg_reload(NULL) ) {
+      Log(LOG_CRIT, "core", "Config reload failed; keeping previous configuration");
+   }
+
+   // Reload users after the config, since authdb path/dynamic may have changed
+   int users = http_reload_users();
+
+   if (users < 0) {
+      Log(LOG_CRIT, "auth", "User database reload failed; keeping previous users");
+   } else {
+      Log(LOG_INFO, "auth", "User database reloaded: %d users", users);
+   }
+}
+
 void rrserver_register_events(void) {
    Log(LOG_CRAZY, "events", "Registering rrserver events");
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
@@ -319,5 +364,7 @@ void rrserver_register_events(void) {
    event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
    event_on("rig.ptt", rrserver_handle_rig_ptt_off, NULL);
    event_on("latency", rrserver_handle_latency, NULL);
+   event_on("authdb.load", rrserver_handle_authdb_load, NULL);
+   event_on("rehash", rrserver_handle_rehash, NULL);
    Log(LOG_CRAZY, "events", "Finished registering rrserver events");
 }

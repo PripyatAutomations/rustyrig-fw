@@ -59,7 +59,6 @@ int my_argc = -1;
 char **my_argv = NULL;
 
 // Things that probably should be in headers... ;)
-extern char *config_file;        // from defconfig.c
 extern defconfig_t defcfg[];     // From defconfig.c
 extern const char *configs[];
 extern const int num_configs;

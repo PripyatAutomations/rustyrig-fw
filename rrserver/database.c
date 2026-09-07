@@ -75,6 +75,85 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const cha
    return success;
 }
 
+/*
+ * db_get_users: load the users table into the http_users[] array used by the
+ * auth code in librrprotocol. Called via the "authdb.load" event when
+ * net.http.authdb-dynamic is true (see srv.auth.passdb.c: http_reload_users())
+ * and after db_add_user() changes.
+ */
+int db_get_users(sqlite3 *db) {
+   if (!db) {
+      return -1;
+   }
+   const char *sql = "SELECT uid, name, enabled, password, email, maxclones, permissions FROM users;";
+
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "db_get_users: prepare failed: %s", sqlite3_errmsg(db));
+      return -1;
+   }
+
+   // Reset any existing users before (re)loading
+   memset( http_users, 0, sizeof(http_users) );
+   int user_count = 0;
+   int rc;
+
+   while ( (rc = sqlite3_step(stmt) ) == SQLITE_ROW && user_count < HTTP_MAX_USERS) {
+      int uid = sqlite3_column_int(stmt, 0);
+      const char *name = (const char *)sqlite3_column_text(stmt, 1);
+      bool enabled = sqlite3_column_int(stmt, 2) != 0;
+      const char *pass = (const char *)sqlite3_column_text(stmt, 3);
+      const char *email = (const char *)sqlite3_column_text(stmt, 4);
+      int maxclones = sqlite3_column_int(stmt, 5);
+      const char *privs = (const char *)sqlite3_column_text(stmt, 6);
+
+      if (uid < 0 || uid >= HTTP_MAX_USERS || !name || name[0] == '\0') {
+         Log(LOG_WARN, "db", "db_get_users: skipping invalid row uid:%d", uid);
+         continue;
+      }
+
+      http_user_t *up = &http_users[uid];
+
+      up->uid = uid;
+      strlcpy( up->name, name, sizeof(up->name) );
+      up->enabled = enabled;
+
+      if (pass) {
+         strlcpy( up->pass, pass, sizeof(up->pass) );
+      }
+
+      if (email) {
+         strlcpy( up->email, email, sizeof(up->email) );
+      }
+
+      if (maxclones < 1 || maxclones > HTTP_MAX_SESSIONS) {
+         Log(LOG_WARN, "db", "db_get_users: user %s has invalid maxclones: %d, defaulting to 1", up->name, maxclones);
+         maxclones = 1;
+      }
+      up->max_clones = maxclones;
+
+      if (privs) {
+         strlcpy( up->privs, privs, sizeof(up->privs) );
+      }
+
+      Log(LOG_DEBUG, "db", "db_get_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_clones=%d",
+         uid, up->name, (up->email[0] != '\0' ? up->email : "none"), (up->enabled ? "true" : "false"),
+         (up->privs[0] != '\0' ? up->privs : "none"), up->max_clones);
+      user_count++;
+   }
+
+   if (rc != SQLITE_DONE) {
+      Log(LOG_CRIT, "db", "db_get_users: iteration failed: %s", sqlite3_errmsg(db));
+      sqlite3_finalize(stmt);
+      return -1;
+   }
+   sqlite3_finalize(stmt);
+
+   Log(LOG_INFO, "db", "Loaded %d users from database", user_count);
+   return user_count;
+}
+
 bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details) {
    if (!db || !username || !event_type || !details) {
       return false;

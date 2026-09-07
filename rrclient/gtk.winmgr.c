@@ -347,7 +347,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
 }
 
 bool gui_forget_window(gui_window_t *gw, const char *name) {
-   if (!gw || !name) {
+   if (!gw && !name) {
       return true;
    }
    gui_window_t **pp = &gui_windows;
@@ -389,6 +389,14 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    for (gui_window_t *x = gui_windows ; x ; x = x->next) {
       if (strcmp(x->name, name) == 0) {
          Log(LOG_DEBUG, "gtk.winmgr", "found window %s at <%p> for gtk_win at <%p>", x->name, x, x->gtk_win);
+
+         // If we found a stale entry (old gtk_win), update it to the new window
+         if (x->gtk_win != gtk_win) {
+            Log(LOG_WARN, "gtk.winmgr", "window '%s' already stored with gtk_win <%p>, replacing with <%p>", name, x->gtk_win, gtk_win);
+            x->gtk_win = gtk_win;
+            g_signal_connect(gtk_win, "configure-event", G_CALLBACK(on_window_configure), gtk_win);
+            g_signal_connect(gtk_win, "destroy", G_CALLBACK(on_window_destroy), x);
+         }
 
          return x;
       }

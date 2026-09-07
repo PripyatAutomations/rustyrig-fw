@@ -66,7 +66,7 @@ defconfig_t defcfg[] = {
    { "net.http.bind", "127.0.0.1", "Address to listen for HTTP" },
    { "net.http.port", "8420", "Port to listen for http on" },
    { "net.http.authdb", "./config/http.users", "Path to user database" },
-   { "net.http.authdb_dynamic", "false", "NYI: SQL user storage" },
+   { "net.http.authdb-dynamic", "false", "Load users from sqlite db instead of authdb file" },
    { "net.http.hex-dump", "false", "Hex dump http? (Noisy!)" },
    { "net.http.port", "8420", "HTTP listner port" },
    { "net.http.tls-bind", "127.0.0.1", "Address to listen for HTTPS (TLS)" },

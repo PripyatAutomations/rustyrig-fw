@@ -374,22 +374,27 @@ bool vfo_update_ui(void) {
          extern bool ptt_button_pending;             // gtk.ptt-btn.c
          extern bool ptt_button_pending_state;       // gtk.ptt-btn.c
          extern time_t ptt_button_pending_expire;    // gtk.ptt-btn.c
-         extern int cfg_ui_ptt_ack_timeout;          // main.c
 
          if (ptt_button_pending) {
             if (vfo_ptt == ptt_button_pending_state) {
                // Server confirmed the state we requested: ack received
+               ptt_button_pending = false;
+               ptt_button_pending_expire = 0;
                update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)vfo_ptt);
-               gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), vfo_ptt);
             } else if (now >= ptt_button_pending_expire) {
                // Ack timed out: revert the button to the confirmed state
+               ptt_button_pending = false;
+               ptt_button_pending_expire = 0;
                update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), 0);
-               gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), false);
             }
          } else {
             update_ptt_button_ui(GTK_TOGGLE_BUTTON(ptt_button), (int)vfo_ptt);
-            gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), vfo_ptt);
          }
+
+         // Reflect the server's state onto the button WITHOUT firing the
+         // "toggled" handler, else every echo would send a new cat.cmd ptt
+         // which the server broadcasts back - an infinite ping-pong.
+         ptt_button_set_state(vfo_ptt);
       }
 #endif	// USE_GTK
    }

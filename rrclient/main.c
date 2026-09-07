@@ -49,7 +49,6 @@ extern struct mg_mgr mgr;
 
 extern const char *configs[];  // from defcfg.c
 extern const int num_configs;
-extern char *config_file;
 extern bool cfg_ui_bell_chat;
 
 extern void connman_autoconnect(void);
@@ -416,7 +415,7 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    if (config_file) {
       if ( !( cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
-         free(config_file);
+         free( (void *)config_file);
          config_file = NULL;
          exit(1);
       } else {
