@@ -72,7 +72,9 @@ typedef struct GuiWidget gui_widget_t;
 #include <rrclient/gtk.chat.h>
 #include <rrclient/gtk.hotkey.h>
 #include <rrclient/gtk.alertdialog.h>
+#ifdef	USE_LIBNOTIFY
 #include <rrclient/gtk.notify.h>
+#endif	// USE_LIBNOTIFY
 
 extern void update_connection_button(int connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, int active);
