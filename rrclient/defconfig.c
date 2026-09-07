@@ -52,7 +52,9 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
    ".ptt-tot { background: #e07000; color: black; font-weight: bold; }\n" \
    ".conn-active { background: #0a7a0a; color: white; font-weight: bold; }\n" \
    ".conn-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
-   ".conn-idle { background: #b00000; color: white; font-weight: bold; }"
+   ".conn-idle { background: #b00000; color: white; font-weight: bold; }\n" \
+   "/* Userlist flag icons (👑⭐👤👀🎤🙊🧙🐣): size the columns/cells here */\n" \
+   "#userlist-tree, #userlist-tree.userlist-icon { font-family: \"Sans\"; font-size: 12pt; }"
 
 const char *default_css = DEFAULT_CSS;
 #endif	// USE_GTK
@@ -116,6 +118,7 @@ defconfig_t defcfg[] = {
    { "ui.bell.chat-highlight", "./sounds/uh-oh.wav", "Sound to play instead of a ding for msgs with our username in them" },
    { "ui.freqentry.scroll-divider", "1.0", "Scroll divider for VFO widgets, if needed" },
    { "ui.show-pings", "true", "Show Ping? Pong! notices" },
+   { "ui.auto-show-userlist", "true", "Show the userlist when connected, hide when disconnected?" },
    { "ui.vfo.visocity", "1000", "Second to block CAT poll messages for input debouncing" },
    { NULL, NULL, NULL }
 };

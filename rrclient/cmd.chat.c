@@ -26,6 +26,7 @@
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
+#include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 
@@ -163,6 +164,42 @@ bool cmd_part(int argc, char **args) {
    ui_print(NULL, "{yellow}PART is not supported over WebSocket yet{reset}");
 
    return false;
+}
+
+// PARITY: rrclient/cmd.names.c (C client) - /names prints the userlist like an
+// IRC client, with privilege flags and PTT state.
+bool cmd_names(int argc, char **args) {
+   if (!global_userlist) {
+      ui_print(NULL, "{yellow}No users online{reset}");
+      return true;
+   }
+
+   ui_print(NULL, "{yellow}Users online:{reset}");
+
+   int count = 0;
+   for (struct rr_user *c = global_userlist; c; c = c->next) {
+      count++;
+
+      // @ before the name for admin|owner, + for noob.
+      // A microphone after the name marks whoever holds the PTT.
+      char prefix[8] = "";
+      char suffix[16] = "";
+
+      if ( strcasestr(c->privs, "owner") || strcasestr(c->privs, "admin") ) {
+         strlcpy(prefix, "@", sizeof(prefix));
+      } else if ( strcasestr(c->privs, "noob") ) {
+         strlcpy(prefix, "+", sizeof(prefix));
+      }
+
+      if (c->is_ptt) {
+         strlcpy(suffix, " 🎤", sizeof(suffix));
+      }
+
+      ui_print(NULL, "  {white}%s%s%s{reset}", prefix, c->name, suffix);
+   }
+
+   ui_print(NULL, "{yellow}%d user%s online{reset}", count, (count == 1) ? "" : "s");
+   return true;
 }
 
 bool cmd_topic(int argc, char **args) {

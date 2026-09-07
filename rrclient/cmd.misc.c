@@ -64,13 +64,24 @@ bool cmd_disconnect(int argc, char **args) {
 bool cmd_quit(int argc, char **args) {
    const char *quitmsg = "no reason given";
 
-   if (argc > 1 && args && args[1][0] != '\0') {
-      quitmsg = args[1];
+   // -y/-yes/y/yes anywhere in the args quits without confirmation
+   bool confirmed = false;
+   int first_arg = 1;
+
+   while (first_arg < argc && args[first_arg] &&
+          (strcasecmp(args[first_arg], "-y") == 0 || strcasecmp(args[first_arg], "-yes") == 0 ||
+           strcasecmp(args[first_arg], "y") == 0 || strcasecmp(args[first_arg], "yes") == 0) ) {
+      confirmed = true;
+      first_arg++;
+   }
+
+   if (first_arg < argc && args[first_arg][0] != '\0') {
+      quitmsg = args[first_arg];
    }
 
 #ifdef	USE_GTK
    // Confirm before quitting in GTK mode
-   if (ui_mode == UI_MODE_GTK && !ui_confirm_quit() ) {
+   if (ui_mode == UI_MODE_GTK && !confirmed && !ui_confirm_quit() ) {
       return false;
    }
 #endif	// USE_GTK

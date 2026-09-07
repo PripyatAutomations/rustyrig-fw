@@ -38,6 +38,33 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
    return TRUE;
 }
 
+// Show or hide the userlist window (creates it if needed).
+// Used by the connect/disconnect handlers when ui.auto-show-userlist is set.
+void userlist_set_visible(bool visible) {
+   gui_window_t *wp = gui_find_window(NULL, "userlist");
+
+   if (!wp) {
+      if (!visible) {
+         return;
+      }
+      userlist_create();
+      wp = gui_find_window(NULL, "userlist");
+   }
+
+   if (!wp || !wp->gtk_win) {
+      return;
+   }
+   userlist_window = wp->gtk_win;
+
+   if (visible) {
+      userlist_redraw_gtk();
+      gtk_widget_show_all(userlist_window);
+      place_window(userlist_window);
+   } else {
+      gtk_widget_hide(userlist_window);
+   }
+}
+
 void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    // Toggle the userlist
    gui_window_t *wp = gui_find_window(NULL, "userlist");
@@ -79,7 +106,7 @@ void userlist_redraw_gtk(void) {
       gtk_list_store_append(store, &iter);
 
       gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON,
-         c->is_ptt ? "🎧" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
+         c->is_ptt ? "🎤" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
    }
 
    gtk_widget_queue_draw(cul_view);
@@ -95,10 +122,12 @@ GtkWidget *userlist_create(void) {
       G_TYPE_STRING);
 
    cul_view = gtk_tree_view_new_with_model( GTK_TREE_MODEL(store) );
+   gtk_widget_set_name(cul_view, "userlist-tree");
    g_object_unref(store);
 
    GtkCellRenderer *priv_icon = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *col = gtk_tree_view_column_new();
+   g_object_set(priv_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_column_pack_start(col, priv_icon, FALSE);
    gtk_tree_view_column_add_attribute(col, priv_icon, "text", COL_PRIV_ICON);
 
@@ -109,18 +138,21 @@ GtkWidget *userlist_create(void) {
 
    GtkCellRenderer *talk_icon = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *talk_col = gtk_tree_view_column_new();
+   g_object_set(talk_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_column_pack_start(talk_col, talk_icon, FALSE);
    gtk_tree_view_column_add_attribute(talk_col, talk_icon, "text", COL_TALK_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), talk_col);
 
    GtkCellRenderer *mute_icon = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *mute_col = gtk_tree_view_column_new();
+   g_object_set(mute_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_column_pack_start(mute_col, mute_icon, FALSE);
    gtk_tree_view_column_add_attribute(mute_col, mute_icon, "text", COL_MUTE_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), mute_col);
 
    GtkCellRenderer *elmernoob_icon = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new();
+   g_object_set(elmernoob_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_column_pack_start(elmernoob_col, elmernoob_icon, FALSE);
    gtk_tree_view_column_add_attribute(elmernoob_col, elmernoob_icon, "text", COL_ELMERNOOB_ICON);
    gtk_tree_view_append_column(GTK_TREE_VIEW(cul_view), elmernoob_col);

@@ -20,6 +20,7 @@ rrclient_objs += cmd.help.o		# help texts
 rrclient_objs += cmd.misc.o		# unsorted commands
 rrclient_objs += cmd.tabs.o		# tab/window switching
 rrclient_objs += connman.o		# connection manager
+rrclient_objs += rrclient.o		# client connection state & core connect/disconnect
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
 ifeq (${USE_GTK},true)

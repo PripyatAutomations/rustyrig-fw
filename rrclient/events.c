@@ -105,8 +105,15 @@ static void rrclient_set_offline(void) {
    userlist_clear_all();
 
 #ifdef	USE_GTK
-   // PTT button goes back to dark grey while offline
-   ptt_button_set_online(false);
+   if (ui_mode == UI_MODE_GTK) {
+      // PTT button goes back to dark grey while offline
+      ptt_button_set_online(false);
+
+      // Hide the userlist again when we disconnect
+      if (cfg_get_bool("ui.auto-show-userlist", true)) {
+         userlist_set_visible(false);
+      }
+   }
 #endif
 
    if (!ws_conn) {
@@ -324,7 +331,12 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       }
       rrclient_update_connection_ui(-1);
 #ifdef	USE_GTK
-      ptt_button_set_online(true);   // button turns green once we're online
+      if (ui_mode == UI_MODE_GTK) {
+         ptt_button_set_online(true);   // button turns green once we're online
+         if (cfg_get_bool("ui.auto-show-userlist", true)) {
+            userlist_set_visible(true);
+         }
+      }
 #endif
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
@@ -336,6 +348,11 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
       rrclient_set_offline();
+#ifdef	USE_GTK
+      if (ui_mode == UI_MODE_GTK && cfg_get_bool("ui.auto-show-userlist", true)) {
+         userlist_set_visible(false);
+      }
+#endif
    } else if (strcasecmp(event, "http.error") == 0) {
       // Fatal connection-level error (MG_EV_ERROR, cli.main.c) - the conn is gone
       const char *err = NULL;

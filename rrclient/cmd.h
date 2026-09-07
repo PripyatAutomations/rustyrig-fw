@@ -46,6 +46,7 @@ extern bool cmd_kick(int argc, char **args);
 extern bool cmd_log(int argc, char **args);
 extern bool cmd_me(int argc, char **args);
 extern bool cmd_msg(int argc, char **args);
+extern bool cmd_names(int argc, char **args);
 extern bool cmd_mute(int argc, char **args);
 extern bool cmd_notice(int argc, char **args);
 extern bool cmd_part(int argc, char **args);

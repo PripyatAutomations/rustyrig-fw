@@ -22,6 +22,7 @@
 #include <rrclient/ui.speech.h>
 #include <rrclient/gtk.core.h>
 extern rrconn_t *ws_conn;
+extern rrconn_t *ws_tx_conn;   // rrclient/rrclient.c
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;
 

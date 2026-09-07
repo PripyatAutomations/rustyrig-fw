@@ -1,5 +1,7 @@
 Immediate needs
 ---------------
+* Fix crashes after reloading the config, probably stale pointers to old dict *cfg ?
+
 * webui/rrclient: Make userlist show a microphone emoji by whoever is PTT
 
 * Elmer/noob mode needs a dialog confirmation system

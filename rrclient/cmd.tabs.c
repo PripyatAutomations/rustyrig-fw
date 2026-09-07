@@ -155,6 +155,25 @@ bool cmd_win(int argc, char **args) {
          return true;
       }
       tui_window_focus_id(id);
+   } else if (ui_mode == UI_MODE_GTK) {
+#ifdef USE_GTK
+      // XXX: add window commands (close, etc)
+      int id = -1;
+      if (argc < 2) {
+         return true;
+      }
+
+      id = atoi(args[1]);
+      int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
+
+      if (id >= 1 && id <= pages) {
+         ui_print(NULL, "Switching to window %d of %d", id, pages);
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), id);
+      } else {
+         ui_print(NULL, "Invalid window id %d given", id);
+         return true;
+      }
+#endif	// USE_GTK
    }
 
    return false;

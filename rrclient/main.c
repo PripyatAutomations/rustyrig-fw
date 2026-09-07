@@ -542,11 +542,13 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
 #endif // _WIN32
       gui_init();
 
+#ifdef	USE_LIBNOTIFY
       if (!ui_notify_init()) {
          Log(LOG_WARN, "gtk.notify", "Desktop notifications unavailable");
       }
+#endif	// USE_LIBNOTIFY
       alert_dialogs_init();
-#endif // defined(USE_GTK)
+#endif // USE_GTK
    }
 
    // Register all of our core event handlers

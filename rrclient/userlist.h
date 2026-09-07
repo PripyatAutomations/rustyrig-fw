@@ -70,6 +70,7 @@ extern struct rr_user *userlist_find(const char *name);
 
 #if     defined(USE_GTK)
 extern GtkWidget *userlist_create(void);
+extern void userlist_set_visible(bool visible);
 #endif // defined(USE_GTK)
 
 #include <librrprotocol/client-flags.h>
