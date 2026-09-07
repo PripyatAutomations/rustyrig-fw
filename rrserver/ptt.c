@@ -60,8 +60,10 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    }
 
    // set or clear the talk timeout
+   // Config: rig.tot - max TX time in seconds (default 300) before the
+   // clocktick timer halts PTT. PARITY: rrserver/timer.clocktick.c TOT check
    if (ptt) {
-      global_tot_time = now + cfg_rig_hard_tot;
+      global_tot_time = now + cfg_get_int("rig.tot", 300);
    } else {
       global_tot_time = 0;
    }

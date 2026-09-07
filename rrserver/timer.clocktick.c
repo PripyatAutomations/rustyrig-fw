@@ -48,7 +48,7 @@ void timer_clock_tick_fn(void *arg) {
    // Has the TOT expired?
    if (global_tot_time > 0 && global_tot_time <= now) {
       rrconn_t *talker = whos_talking();
-      Log(LOG_AUDIT, "ptt", "TOT (%d) expired, halting TX!", cfg_rig_hard_tot);
+      Log(LOG_AUDIT, "ptt", "TOT (rig.tot: %d) expired, halting TX!", cfg_get_int("rig.tot", 300) );
       rr_ptt_set_all_off();
       global_tot_time = 0;
       char msgbuf[HTTP_WS_MAX_MSG + 1];
@@ -61,6 +61,7 @@ void timer_clock_tick_fn(void *arg) {
       // echo doesn't overwrite the client's TOT warning state.
       dict *tot_msg = dict_new();
       dict_add(tot_msg, "msg.type", "ptt.tot-expired");
+      dict_add_int(tot_msg, "ptt.tot.secs", cfg_get_int("rig.tot", 300) );
       dict_add_ulong(tot_msg, "msg.ts", now);
       if (talker) {
          dict_add(tot_msg, "ptt.tot.user", talker->chatname);

@@ -94,6 +94,7 @@ defconfig_t defcfg[] = {
    { "path.modules", "./modules/", "Where to find modules" },
    { "path.record-dir", "./recordings", "TX & RX recordings basedir" },
    { "record.max", "16", "Maximum concurrent audio recordings" },
+   { "rig.tot", "300", "Time-out timer: max TX time in seconds before PTT is halted" },
    { "rig.warmup-required", "false", "Does rig require warmup time?" },
    { "rig.warmup-time", "30", "Required rig warmup time" },
 //  { "testkey.defcfg.main", " 1",  "Test key for defconfig" },

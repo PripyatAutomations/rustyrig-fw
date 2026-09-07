@@ -199,7 +199,9 @@ static gboolean poll_mongoose(gpointer user_data) {
 #endif // USE_MONGOOSE
 #endif // USE_GTK
 
-// TUI 1hz clock: updates now, refreshes statusbar/clock, handles shutdown
+// TUI 1hz clock: updates now, refreshes statusbar/clock, handles shutdown.
+// Over SSH (SSH_TTY set) the clock is HH:MM, so we only repaint when the
+// minute actually changes instead of once a second.
 static gboolean tui_clock_cb_real(gpointer user_data) {
    now = time(NULL);
 
@@ -207,6 +209,17 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
       rrclient_cleanup();
       return G_SOURCE_REMOVE;
    }
+
+   // Over SSH: repaint only when the minute turns over (or on first tick)
+   static time_t last_repaint = 0;
+   bool over_ssh = tui_is_over_ssh();
+
+   if (over_ssh && last_repaint != 0 && (now / 60) == (last_repaint / 60) ) {
+      last_repaint = now;
+      return G_SOURCE_CONTINUE;
+   }
+   last_repaint = now;
+
    tui_window_t *tw = tui_active_window();
    tui_refresh_sb_window();
    tui_refresh_sb_vfo();

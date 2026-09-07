@@ -51,8 +51,9 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 // Connection state for the button: grey while offline, colored once online.
 // Set via ptt_button_set_online() from events.c
 static bool ptt_btn_online = false;
-// TOT expired on the server: show orange until the next confirmed PTT update
+// TOT expired on the server: show orange TIMED OUT until the next confirmed PTT update
 static bool ptt_btn_tot = false;
+static int ptt_btn_tot_secs = 0;
 
 #define PTT_LABEL_MAXLEN 16
 
@@ -107,7 +108,10 @@ static void ptt_button_apply(void) {
       label = "PENDING";
       cls = "ptt-pending";
    } else if (ptt_btn_tot) {
-      label = "TOT EXPIRED";
+      static char totbuf[32];
+      snprintf(totbuf, sizeof(totbuf), "TIMED OUT %ds",
+         (ptt_btn_tot_secs > 0 ? ptt_btn_tot_secs : 300) );
+      label = totbuf;
       cls = "ptt-tot";
    } else if (someone_else_transmitting(talker) ) {
       // Show who's on the air, limited to PTT_LABEL_MAXLEN characters.
@@ -144,8 +148,12 @@ void ptt_button_refresh(void) {
 }
 
 // Server TOT expired: orange warning until the next confirmed PTT state arrives
-void ptt_button_tot_expired(void) {
+// PARITY: rustyrig-www/js/webui.rigctl.js ptt_tot_expired()
+void ptt_button_tot_expired(int tot_secs) {
    ptt_btn_tot = true;
+   if (tot_secs > 0) {
+      ptt_btn_tot_secs = tot_secs;
+   }
    ptt_button_pending = false;
    ptt_button_pending_expire = 0;
    ptt_button_apply();
@@ -163,6 +171,7 @@ void ptt_button_set_online(bool online) {
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
       ptt_btn_tot = false;
+      ptt_btn_tot_secs = 0;
       ptt_active = false;
       if (ptt_button) {
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), FALSE);

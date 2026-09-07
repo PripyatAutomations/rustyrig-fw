@@ -23,7 +23,7 @@
 extern const char *login_user;   // from connman.c
 #ifdef	USE_GTK
 extern int cfg_ui_ptt_ack_timeout;   // gtk.ptt-btn.c
-extern void ptt_button_tot_expired(void);   // gtk.ptt-btn.c
+extern void ptt_button_tot_expired(int tot_secs);   // gtk.ptt-btn.c
 extern GtkWidget *freq_entry, *log_view, *main_window, *ptt_button;
 #endif	// USE_GTK
 
@@ -157,9 +157,26 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
 
 // Server TX timed out (TOT) - flag it on the PTT button (orange) via the
 // dedicated ptt.tot-expired message from the server
+// PARITY: rustyrig-www/js/webui.rigctl.js ptt_tot_expired()
 static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   int tot_secs = 0;
+
+   if (data) {
+      dict *d = json2dict(data);
+      if (d) {
+         tot_secs = dict_get_int(d, "ptt.tot.secs", 0);
+         dict_free(d);
+      }
+   }
+
+   // Show the timeout in the TUI scrollback (both UIs print to scrollback)
+   ui_print(NULL, "{red}PTT Halted: Talk Timeout after %d seconds{reset}",
+      (tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
+
 #ifdef	USE_GTK
-   ptt_button_tot_expired();
+   if (ui_mode == UI_MODE_GTK) {
+      ptt_button_tot_expired(tot_secs);
+   }
 #endif
 }
 
