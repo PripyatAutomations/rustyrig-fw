@@ -106,7 +106,7 @@
       "gtk": "true",
       "http": "true",
       "libmbedtls": "false",
-      "libnotify": "true",
+      "libnotify": "false",
       "libunwind": "false",
       "max_bands": 14,
       "mongoose": "true",
