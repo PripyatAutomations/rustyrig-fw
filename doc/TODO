@@ -2,8 +2,6 @@ Immediate needs
 ---------------
 * Fix crashes after reloading the config, probably stale pointers to old dict *cfg ?
 
-* webui/rrclient: Make userlist show a microphone emoji by whoever is PTT
-
 * Elmer/noob mode needs a dialog confirmation system
   - Noob requests elevated privs and is cautioned about their responsibility
   - Elmers are prompted and one can accept responsibility for the user
@@ -13,6 +11,3 @@ Immediate needs
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure
   - currently we still use 0 for success, which is incorrect
-
-* MAKE SURE the protocol messages line up
-  - Try to minimize wasted traffic

@@ -1,3 +1,15 @@
+rustyrig-fw (202609) testing; urgency=medium
+* Many UI improvements
+  - PTT button has pending (yellow)
+  - CSS moved to rrclient.cfg
+  - See /help and !help
+* Countless bug fixes
+* Added latency estimator
+* Fixed userlist - now shows symbol to indicate TXing
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon Sep  7 07:30:54 PM EDT 2026
+
+
 rustyrig-fw (20260817) testing; urgency=medium
 * Renamed -c argument to all programs to -f to give a config filename
 * fixed some small bugs
