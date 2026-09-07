@@ -260,6 +260,12 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    }
 
    dict *d = json2dict(data);
+
+   if (!d) {
+      Log(LOG_WARN, "ws.chat", "talk.msg with unparseable json");
+      return;
+   }
+
    const char *from = dict_get(d, "talk.from", NULL);
    time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *msg_type = dict_get(d, "talk.msg_type", NULL);
@@ -270,7 +276,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       ui_print(NULL, "{red}>>>{reset} Start of chat chat replay. {red}<<<{reset}");
    } else if (msg_cmd && strcasecmp(msg_cmd, "replay-completed") == 0) {
       ui_print(NULL, "{red}>>>{reset} Finished chat replay. {red}<<<{reset}");
-   } else {
+   } else if (msg_type && msg_data) {
       if (strcasecmp(msg_type, "action") == 0) {
          ui_print(NULL, "%s {yellow}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "pub") == 0) {
@@ -494,6 +500,28 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
    dict_free(d);
 }
 
+// Server notices (msg.type notice, e.g. !help output, kick/logout notices).
+// Registered so they display instead of falling through to NOMATCH.
+static void rrclient_handle_notice(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+   if (!d) {
+      return;
+   }
+
+   time_t msg_ts = dict_get_time_t(d, "msg.ts", now);
+   const char *msg = dict_get(d, "notice.msg", NULL);
+
+   if (msg) {
+      // Notices are plain text, one line per notice.
+      ui_print(NULL, "%s {bright-yellow}NOTICE{reset}: %s", get_chat_ts(msg_ts), msg);
+   }
+   dict_free(d);
+}
+
 static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -637,6 +665,7 @@ void rrclient_register_events(void) {
    event_on("logging-in", rrclient_handle_logging_in, NULL);
    event_on("media.capab", rrclient_handle_media_capab, NULL);
    event_on("ws.msg.media", rrclient_handle_media, NULL);
+   event_on("ws.msg.notice", rrclient_handle_notice, NULL);
 
    // Connection status related
    event_on("auth.error", rrclient_handle_autherr, NULL);

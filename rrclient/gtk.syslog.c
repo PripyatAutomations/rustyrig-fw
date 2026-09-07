@@ -27,6 +27,7 @@ extern GtkWidget *main_notebook;
 
 GtkTextBuffer *log_buffer = NULL;
 GtkWidget *log_view = NULL;
+GtkWidget *host_log_view = NULL;
 extern bool dying;               // main.c
 
 // backend
@@ -114,6 +115,27 @@ GtkWidget *init_log_tab(void) {
    gtk_container_add(GTK_CONTAINER(nw), log_view);
    GtkWidget *syslog_tab_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(syslog_tab_label), "(<u>3</u>) Syslog");
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, syslog_tab_label);
+
+   return nw;
+}
+
+GtkWidget *init_host_log_tab(void) {
+   GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+
+   host_log_view = gtk_text_view_new();
+   gtk_widget_set_name(host_log_view, "log-view");
+   log_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(host_log_view) );
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(host_log_view), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(host_log_view), FALSE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(host_log_view), GTK_WRAP_WORD_CHAR);
+
+   // Log font (monospace) comes from the #log-view CSS rule in [gtk-css].
+   // Users may want something smaller to fit long lines.
+   gtk_container_add(GTK_CONTAINER(nw), host_log_view);
+   GtkWidget *syslog_tab_label = gtk_label_new(NULL);
+   gtk_label_set_markup(GTK_LABEL(syslog_tab_label), "(<u>4</u>) Host log");
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, syslog_tab_label);
 
    return nw;

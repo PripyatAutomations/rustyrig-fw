@@ -63,6 +63,22 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       }
 
       switch (event->keyval) {
+         case GDK_KEY_Left:
+         case GDK_KEY_KP_Left: {
+            // Previous tab
+            int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
+            int cur = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), (cur > 0 ? cur - 1 : pages - 1));
+            return TRUE;
+         }
+         case GDK_KEY_Right:
+         case GDK_KEY_KP_Right: {
+            // Next tab
+            int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
+            int cur = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), (cur + 1) % pages);
+            return TRUE;
+         }
          case GDK_KEY_Return: {
             bool is_ctrl = (event->state & GDK_CONTROL_MASK) != 0;
 
@@ -89,6 +105,31 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
          case GDK_KEY_4: {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 3);
+            break;
+         }
+         case GDK_KEY_5: {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 4);
+            break;
+         }
+         case GDK_KEY_6: {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 5);
+            gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
+            break;
+         }
+         case GDK_KEY_7: {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 6);
+            break;
+         }
+         case GDK_KEY_8: {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 7);
+            break;
+         }
+         case GDK_KEY_9: {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 8);
+            break;
+         }
+         case GDK_KEY_0: {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 9);
             break;
          }
          case GDK_KEY_C:

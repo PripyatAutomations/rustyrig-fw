@@ -37,9 +37,11 @@ GtkWidget *toggle_userlist_button = NULL;
 GtkWidget *main_notebook = NULL;
 GtkWidget *status_tab = NULL;
 GtkWidget *log_tab = NULL;
+GtkWidget *host_log_tab = NULL;
 GtkCssProvider *css_provider = NULL;
 bool cfg_use_gtk = true;         // Default to using GTK3
 extern GtkWidget *init_log_tab(void);
+extern GtkWidget *init_host_log_tab(void);
 extern int cfg_ui_gtk_main_tabstrip;	// main.c
 extern GtkWidget *init_admin_tab(void);
 extern bool cfg_ui_gtk_vfo_on_top;
@@ -399,8 +401,10 @@ bool gui_init(void) {
    config_tab = init_config_tab();
    // LOG tab (alt-3)
    log_tab = init_log_tab();
+   // Host LOG tab (alt-4)
+   host_log_tab = init_host_log_tab();
 
-   //// CHAT stuff (alt-4+)...
+   //// CHAT stuff (alt-5+)...
    chat_init();
 
    // GTK Signals
