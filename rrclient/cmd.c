@@ -95,10 +95,6 @@ static char **complete_usernames(const char *word) {
    size_t len = word ? strlen(word) : 0;
 
    for (struct rr_user *uptr = global_userlist; uptr; uptr = uptr->next) {
-      if (!uptr->name) {
-         continue;
-      }
-
       if (len && strncasecmp(uptr->name, word, len) != 0) {
          continue;
       }

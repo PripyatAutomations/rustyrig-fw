@@ -120,7 +120,7 @@ static void ptt_button_apply(void) {
       // We're the talker: show our callsign (red, same as anyone else's TX)
       static char namebuf[PTT_LABEL_MAXLEN + 1];
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN,
-         (talker && talker->name) ? talker->name : login_user);
+         talker ? talker->name : login_user);
       label = namebuf;
       cls = "ptt-active";
    } else {
