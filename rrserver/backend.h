@@ -77,7 +77,6 @@ extern bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode);
 extern rr_mode_t rr_get_mode(rr_vfo_t vfo);
 extern bool rr_cat_state_send(rrconn_t *cptr);   // push current state to one client
 
-#include <rrserver/backend.dummy.h>
 #include <rrserver/backend.hamlib.h>
 #include <rrserver/backend.internal.h>
 

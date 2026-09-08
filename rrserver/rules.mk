@@ -11,7 +11,6 @@ rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
 rrserver_objs += audit.o		# Store LOG_AUDIT Log() messages in the audit_log db table
 rrserver_objs += backend.o		# Interface to various backends
-rrserver_objs += backend.dummy.o	# Dummy (NOOP) backend for testing
 rrserver_objs += backend.hamlib.o	# Hamlib backend for posix hosts
 rrserver_objs += backend.internal.o	# Internal backend for real radios (rustyrig-fw)
 rrserver_objs += channels.o		# Channel Memories

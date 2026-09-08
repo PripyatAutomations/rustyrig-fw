@@ -30,7 +30,6 @@ struct rr_backends {
 
 static struct rr_backends available_backends[] = {
    { "internal", &rr_backend_internal, "Internal backend" },
-   { "dummy", &rr_backend_dummy, "Dummy backend does nothing (developer)" },
 // A backend using hamlib's rigctld as the target. For legacy radios
 #ifdef USE_HAMLIB
    { "hamlib", &rr_backend_hamlib, "hamlib support" },

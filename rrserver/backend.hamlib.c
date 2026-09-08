@@ -337,8 +337,8 @@ static bool hl_init(void) {
    hl_retry_at = 0;
    Log(LOG_INFO, "backend.hamlib", "Connected to hamlib");
 
-   // Activate VFO A
-   rig_set_vfo(hl_rig, RIG_VFO_A);
+   // Activate the configured/active VFO
+   rig_set_vfo(hl_rig, hl_get_vfo(active_vfo) );
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
    return false;
 }
@@ -351,8 +351,8 @@ static bool hl_freq_set(rr_vfo_t vfo, int freq) {
       return true;
    }
 
-   // Set frequency
-   if ( (ret = rig_set_freq(hl_rig, RIG_VFO_A, freq) ) != RIG_OK) {
+   // Set frequency on the requested VFO
+   if ( (ret = rig_set_freq(hl_rig, hl_get_vfo(vfo), freq) ) != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "Failed to set frequency: %s", rigerror(ret) );
 
       return true;
@@ -467,7 +467,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    rrconn_t *talker = whos_talking();
    dict *d = dict_new();
    dict_add(d, "msg.type", "cat");
-   dict_add(d, "cat.state.vfo", "A");
+   dict_add(d, "cat.state.vfo", vfo_name(vfo) ? vfo_name(vfo) : "A");
    // Send the canonical internal mode name (D-U/D-L, etc), never the raw
    // hamlib string (PKTUSB/PKTLSB) - conversion already done above.
    dict_add(d, "cat.state.mode", vfo_mode_name(rv->mode));
@@ -564,11 +564,11 @@ bool hl_send_state_to(rrconn_t *cptr) {
       }
    } else {
       // No state sent yet: synthesize one from the live VFO data
-      rr_vfo_data_t *vp = &vfos[VFO_A];
+      rr_vfo_data_t *vp = &vfos[active_vfo];
       d = dict_new();
       if (d) {
          dict_add(d, "msg.type", "cat");
-         dict_add(d, "cat.state.vfo", "A");
+         dict_add(d, "cat.state.vfo", vfo_name(active_vfo) );
          dict_add(d, "cat.state.mode", vfo_mode_name(vp->mode));
          dict_add_int(d, "cat.state.width", vp->width);
          dict_add_long(d, "cat.state.freq", vp->freq);

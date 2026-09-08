@@ -62,6 +62,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    int rc_freq = dict_get_int(d, "rigctl.freq", 0);
    const char *rc_mode = dict_get(d, "rigctl.mode", NULL);
    const char *rc_width = dict_get(d, "rigctl.width", NULL);
+   float rc_power = dict_get_float(d, "rigctl.power", 0);
 
    Log(LOG_CRIT, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d, mode: %s, width: %s",
      rc_cmd, rc_vfo, rc_from, rc_freq, rc_mode ? rc_mode : "(none)", rc_width ? rc_width : "(none)");
@@ -118,6 +119,21 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       return;
    }
 
+   if (strcasecmp(rc_cmd, "power") == 0) {
+      // Set the rig power (from !power chat command or ws cat.cmd power)
+      if (rc_power <= 0) {
+         Log(LOG_WARN, "ws.rigctl", "POWER set with bogus value %f", rc_power);
+         dict_free(d);
+         return;
+      }
+
+      // Audit trail: who changed which VFO to what power
+      Log(LOG_AUDIT, "rigctl", "User %s set VFO %s POWER to %f watts", rc_from, rc_vfo, rc_power);
+      rr_set_power(vfo, rc_power);
+      dict_free(d);
+      return;
+   }
+
    fprintf(stderr, "setting vfo %s freq to %d\n", rc_vfo, rc_freq);
 
    // Audit trail: who changed which VFO to what frequency
@@ -125,6 +141,13 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    rr_freq_set(vfo, rc_freq);
    dict_free(d);
+}
+
+
+// Ask the backend to poll the active VFO, e.g. after the active VFO changes
+// (!vfo), so the new VFO's cat.state gets broadcast promptly.
+static void rrserver_handle_be_poll(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   rr_be_poll(active_vfo);
 }
 
 
@@ -358,6 +381,7 @@ void rrserver_register_events(void) {
    event_on("recording-start", rrserver_handle_recording_start, NULL);
    event_on("recording-stop",rrserver_handle_recording_stop, NULL);
    event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
+ event_on("be.poll", rrserver_handle_be_poll, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    event_on("hello", rrserver_handle_hello, NULL);

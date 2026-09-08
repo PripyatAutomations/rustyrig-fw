@@ -51,8 +51,10 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
    }
 
    float power = rr_get_power(vfo);
+   // Read state from the vfos[] table (polled from the active backend), not
+   // the hamlib cache: other backends (internal) don't maintain hl_state.
    int session = db_ptt_start(masterdb, talker->chatname, vfo_name(vfo),
-      (double)hl_state.freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo),
+      (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo),
       power, "");
 
    if (session < 0) {
@@ -62,7 +64,7 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
    ptt_log_session[vfo] = session;
    talker->ptt_session = session;
    Log(LOG_DEBUG, "ptt", "PTT log: session %d opened for %s on VFO %s @ %.0f Hz",
-      session, talker->chatname, vfo_name(vfo), (double)hl_state.freq);
+      session, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq);
 #else
    (void)talker;
    (void)vfo;
@@ -163,14 +165,15 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    }
 
    const char *mode_str = rig.backend->api->mode_get_str(vfo);
-   const char *jp = NULL;
    dict *d = dict_new();
    dict_add(d, "msg.type", "cat.state");
-   dict_add(d, "cat.state.vfo", vfo_name(vfo));
+   dict_add(d, "cat.state.vfo", vfo_name(vfo) );
    dict_add(d, "cat.state.mode", mode_str);
    dict_add_bool(d, "cat.state.ptt", ptt);
-   dict_add_int(d, "cat.state.freq", hl_state.freq);
-   dict_add_int(d, "cat.state.width", hl_state.width);
+   // Read freq/width from the vfos[] table (polled from the active backend);
+   // hl_state is a hamlib-only cache and is zeroed for other backends.
+   dict_add_int(d, "cat.state.freq", (vfo >= 0 && vfo < MAX_VFOS ? vfos[vfo].freq : 0) );
+   dict_add_int(d, "cat.state.width", (vfo >= 0 && vfo < MAX_VFOS ? vfos[vfo].width : 0) );
    dict_add_ulong(d, "msg.ts", now);
    ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
