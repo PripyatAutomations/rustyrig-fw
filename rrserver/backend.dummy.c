@@ -31,23 +31,10 @@ static rr_vfo_t be_dummy_get_vfo(rr_vfo_t vfo) {
    return vfo;
 }
 
+// NB: The backend's ptt_set() is called FROM rr_ptt_set(); calling back into
+// rr_ptt_set() from here would recurse forever. This backend fakes the rig,
+// so there's nothing to do beyond acknowledging.
 static bool be_dummy_ptt_set(rr_vfo_t vfo, bool state) {
-   int ret = -1;
-
-   if (state == true) {
-      if ( (ret = rr_ptt_set(vfo, true) ) != false) {
-         Log(LOG_CRIT, "backend.dummy", "Failed to enable PTT");
-
-         return true;
-      }
-   } else {
-      if ( (ret = rr_ptt_set(vfo, false) ) != false) {
-         fprintf(stderr, "Failed to disable PTT");
-
-         return true;
-      }
-   }
-
    return false;
 }
 

@@ -145,27 +145,19 @@ static rr_vfo_t be_internal_get_vfo(rr_vfo_t vfo) {
    return vfo;
 }
 
+// NB: The backend's ptt_set() is called FROM rr_ptt_set(), so we must only do
+// the backend-local work here. Never call rr_ptt_set() from a backend, it
+// would recurse forever (the hamlib backend just programs the rig, we just
+// update our own state).
 static bool be_internal_ptt_set(rr_vfo_t vfo, bool state) {
-   int ret = -1;
-
-   if (state == true) {
-      if ( (ret = rr_ptt_set(vfo, true) ) != false) {
-         Log(LOG_CRIT, "backend.internal", "Failed to enable PTT");
-
-         return true;
-      }
-   } else {
-      if ( (ret = rr_ptt_set(vfo, false) ) != false) {
-         Log(LOG_CRIT, "backend.internal", "Failed to disable PTT");
-
-         return true;
-      }
+   if (vfo < 0 || vfo >= MAX_VFOS) {
+      Log(LOG_WARN, "backend.internal", "ptt_set: invalid vfo %d", vfo);
+      return true;
    }
 
    // We are the rig; remember the ptt state we just applied
-   if (vfo >= 0 && vfo < MAX_VFOS) {
-      be_state[vfo].ptt = state;
-   }
+   be_state[vfo].ptt = state;
+   Log(LOG_DEBUG, "backend.internal", "VFO %s PTT -> %s", vfo_name(vfo), (state ? "ON" : "off") );
    return false;
 }
 
