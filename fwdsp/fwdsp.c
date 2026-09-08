@@ -43,6 +43,8 @@ extern defconfig_t defcfg[];
 
 const char *config_file = NULL;
 const char *config_codec = "pc16";
+char *logfile = "./fwdsp.log";
+
 bool codec_tx_mode = false;
 bool config_video = false;               // is this audio or video stream?
 bool dying = false;
@@ -322,7 +324,7 @@ int main(int argc, char *argv[]) {
       // unneeded unless new code added between here and inner else
 //      free(fullpath);
    }
-   logger_init(LOGFILE, false);
+   logger_init(logfile, false);
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);

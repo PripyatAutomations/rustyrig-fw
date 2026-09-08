@@ -11,3 +11,9 @@ Immediate needs
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure
   - currently we still use 0 for success, which is incorrect
+
+* Integrate callsign-lookup in rrserver
+  - rrclient sends /qrz $call or /fcc $call to server
+  - server spawns callsign-lookup and scrapes output
+  - sends to client
+  - client displays it to user

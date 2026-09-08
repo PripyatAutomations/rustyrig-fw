@@ -1,8 +1,31 @@
 {
    "components": {
-      "fwdsp": "false",
+      "callsign-lookup": "true",
+      "fwdsp": "true",
       "rrclient": "true",
       "rrserver": "true"
+   },
+   "features": {
+      "alsa": "false",
+      "auto-block-ptt": "false",
+      "cat-kpa500": "false",
+      "cat-yaesu": "false",
+      "coredumps-client": "true",
+      "coredumps-fwdsp": "true",
+      "coredumps-server": "false",
+      "debug-build": "true",
+      "eeprom": "false",
+      "gpio": "false",
+      "gstreamer": "false",
+      "gtk": "true",
+      "http": "true",
+      "libmbedtls": "false",
+      "libnotify": "false",
+      "libunwind": "false",
+      "max_bands": 14,
+      "mongoose": "true",
+      "mqtt": "true",
+      "sqlite": "true"
    },
    "modules": {
       "atu": {
@@ -90,28 +113,6 @@
       "size": 1048576,
       "type": "mmap",
       "readonly": "false"
-   },
-   "features": {
-      "alsa": "false",
-      "auto-block-ptt": "false",
-      "cat-kpa500": "false",
-      "cat-yaesu": "false",
-      "coredumps-client": "true",
-      "coredumps-fwdsp": "true",
-      "coredumps-server": "false",
-      "debug-build": "true",
-      "eeprom": "false",
-      "gpio": "false",
-      "gstreamer": "false",
-      "gtk": "true",
-      "http": "true",
-      "libmbedtls": "false",
-      "libnotify": "false",
-      "libunwind": "false",
-      "max_bands": 14,
-      "mongoose": "true",
-      "mqtt": "true",
-      "sqlite": "true"
    },
    "limits": {
       "max_amps": 2,
