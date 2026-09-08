@@ -194,10 +194,14 @@ bool place_window(GtkWidget *window) {
 
    const char *cfg_full = cfg_get_exp(key);
 
-   // if we have x/y/h/w saved, use them
+    // if we have x/y/h/w saved, use them
    if (win->last_h > 0 && win->last_w > 0) {
-      Log(LOG_DEBUG, "gtk.winmgr", "place_window |%s| using stored coords (w,h@x,y): %d,%d@%d,%d",
-         (*win->name ? win->name : ""), win->w, win->h, win->x, win->y);
+      Log(LOG_DEBUG, "gtk.winmgr", "place_window |%s| using stored coords (w,h@x,y): %d,%d@%d,%d flags: %s%s%s%s%s%s%s",
+         (*win->name ? win->name : ""), win->w, win->h, win->x, win->y,
+         (win->win_modal ? " modal" : ""), (win->win_raised ? " raised" : ""),
+         (win->win_hidden ? " hidden" : ""), (win->win_minimized ? " minimized" : ""),
+         (win->win_nohide ? " nohide" : ""), (win->win_stashed ? " stashed" : ""),
+         (!win->win_modal && !win->win_raised && !win->win_hidden && !win->win_minimized && !win->win_nohide && !win->win_stashed ? " none" : "") );
    } else if (cfg_full) {
       // If the window doesn't have h/w set, try to get them from the
       // configuration
@@ -216,8 +220,33 @@ bool place_window(GtkWidget *window) {
          if (cfg_height > 0) {
             win->h = cfg_height;
          }
-         Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d", win->name, win->x, win->y,
-            win->w, win->h);
+         char flags[128];
+         memset(flags, 0, sizeof(flags) );
+         int flen = 0;
+
+         if (win->win_modal) {
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%smodal", (flen ? "," : "") );
+         }
+         if (win->win_raised) {
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sraised", (flen ? "," : "") );
+         }
+         if (win->win_hidden) {
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%shidden", (flen ? "," : "") );
+         }
+         if (win->win_minimized) {
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sminimized", (flen ? "," : "") );
+         }
+         if (win->win_nohide) {
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%snohide", (flen ? "," : "") );
+         }
+         if (win->win_stashed) {
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sstashed", (flen ? "," : "") );
+         }
+         if (!flen) {
+            snprintf(flags, sizeof(flags), "none");
+         }
+         Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d flags: %s", win->name, win->x, win->y,
+            win->w, win->h, flags);
       } else {
          Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
          free( (void *)cfg_full );
