@@ -2,6 +2,8 @@ This is the source for rustyrig remote station.
 
 For now it's easiest just to build/run it from this folder, but installing it should probably work.
 
+See QUICKSTART.txt for instructions of use!
+
 Take a look at the deps in install-deps.sh if you need manually install them.
 Currently it only supports debian-based systems. Contributions always welcome!
 
@@ -37,7 +39,9 @@ RX and TX do not refer to radio role, but rather the direction of the stream its
 Good luck!
 
 - rustyaxe
-
+GTK View:
 ![GTK ScreenShot](doc/screenshot-gtk.png)
+TUI View:
 ![TUI ScreenShot](doc/screenshot-tui.png)
+WebUI View:
 ![WebUI ScreenShot](doc/screenshot-webui.png)
