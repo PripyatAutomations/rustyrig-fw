@@ -8,9 +8,10 @@ rustyrig-fw (20260907) testing; urgency=medium
 * Fixed userlist - now shows symbol to indicate TXing
 * Added PTT logging in server
 * Fixed a ton of bugs
-* added internal backend
+* added internal backend, removed dummy
+* Mostly fixed config reloading
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon Sep  7 07:30:54 PM EDT 2026
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue Sep  8 12:55:21 AM EDT 2026
 
 
 rustyrig-fw (20260817) testing; urgency=medium
