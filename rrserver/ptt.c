@@ -69,32 +69,37 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
 #endif
 }
 
-// Close the ptt_log row for the talker, log how long they transmitted
+// Close the ptt_log row for the VFO, log how long they transmitted
+// NB: `talker' may be NULL (e.g. is_ptt already cleared before the key-up
+// reaches us, or TOT/fault/disconnect forced TX off). The per-VFO session
+// table is the source of truth; the talker is only a fallback lookup.
 static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo) {
 #ifdef	USE_SQLITE
-   if (!talker || !masterdb || vfo < 0 || vfo >= MAX_VFOS) {
+   if (!masterdb || vfo < 0 || vfo >= MAX_VFOS) {
       return;
    }
    int session = ptt_log_session[vfo];
 
-   if (session <= 0) {
-      session = talker->ptt_session;   // fallback (e.g. all-off path)
+   if (session <= 0 && talker) {
+      session = talker->ptt_session;   // fallback
    }
    if (session <= 0) {
       return;
    }
    ptt_log_session[vfo] = -1;
-   talker->ptt_session = 0;
+   if (talker) {
+      talker->ptt_session = 0;
+   }
 
    int secs = -1;
 
    if (!db_ptt_stop(masterdb, session, &secs) ) {
-      Log(LOG_WARN, "ptt", "PTT log: failed to close session %d for %s", session, talker->chatname);
+      Log(LOG_WARN, "ptt", "PTT log: failed to close session %d for %s", session, (talker ? talker->chatname : "unknown") );
       return;
    }
    if (secs >= 0) {
       Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)",
-         talker->chatname, secs, session);
+         (talker ? talker->chatname : "unknown"), secs, session);
    }
 #else
    (void)talker;
