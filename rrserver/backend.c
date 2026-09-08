@@ -291,8 +291,11 @@ bool rr_cat_state_send(rrconn_t *cptr) {
       return true;
    }
 #ifdef USE_HAMLIB
-   return hl_send_state_to(cptr);
-#else
-   return true;   // other backends don't track a sendable state yet
+   // Only the hamlib backend has its own state sender; the internal backend
+   // also tracks a sendable state, everything else falls through below.
+   if (!rig.backend || !rig.backend->name || strcasecmp(rig.backend->name, "internal") != 0) {
+      return hl_send_state_to(cptr);
+   }
 #endif
+   return be_internal_send_state_to(cptr);
 }

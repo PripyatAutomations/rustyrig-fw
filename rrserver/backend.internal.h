@@ -12,5 +12,6 @@
 #define	__rrserver_backend_internal_h
 
 extern rr_backend_t rr_backend_internal;
+extern bool be_internal_send_state_to(rrconn_t *cptr);
 
 #endif // !defined(__rrserver_backend_internal_h)

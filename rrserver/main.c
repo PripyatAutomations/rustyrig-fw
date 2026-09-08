@@ -222,6 +222,7 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
       exit(EXIT_FAILURE);
    }
+   db_migrate(masterdb);   // add new columns to existing databases (no-op when current)
    audit_init();   // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
 

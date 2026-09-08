@@ -18,9 +18,10 @@ extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, co
                         int maxsessions, const char *permissions);
 extern int db_get_users(sqlite3 *db);
 extern bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details);
-extern int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char *mode, int bandwidth,
-                        float power, const char *record_file);
-extern bool db_ptt_stop(sqlite3 *db, int session_id);
+extern int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode,
+                        int bandwidth, float power, const char *record_file);
+extern bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs);
+extern void db_migrate(sqlite3 *db);
 extern bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type,
                             const char *msg_data);
 extern bool db_send_chat_replay(rrconn_t *cptr, const char *channel);

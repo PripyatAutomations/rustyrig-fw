@@ -177,15 +177,15 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    return success;
 }
 
-int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char *mode, int bandwidth, float power,
-                 const char *record_file) {
+int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth,
+                 float power, const char *record_file) {
    if (!db || !username || !mode || !record_file) {
       return -1;
    }
    // XXX: Add a random session key so we don't have to trust user supplied rowids! ;)
    const char *sql =
-      "INSERT INTO ptt_log (username, frequency, mode, bandwidth, power, record_file) "
-      "VALUES (?, ?, ?, ?, ?, ?);";
+      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file) "
+      "VALUES (?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 
@@ -195,11 +195,12 @@ int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char
       return -1;
    }
    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
-   sqlite3_bind_double(stmt, 2, frequency);
-   sqlite3_bind_text(stmt, 3, mode, -1, SQLITE_STATIC);
-   sqlite3_bind_int(stmt, 4, bandwidth);
-   sqlite3_bind_double(stmt, 5, power);
-   sqlite3_bind_text(stmt, 6, record_file, -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 2, vfo ? vfo : "", -1, SQLITE_STATIC);
+   sqlite3_bind_double(stmt, 3, frequency);
+   sqlite3_bind_text(stmt, 4, mode, -1, SQLITE_STATIC);
+   sqlite3_bind_int(stmt, 5, bandwidth);
+   sqlite3_bind_double(stmt, 6, power);
+   sqlite3_bind_text(stmt, 7, record_file, -1, SQLITE_STATIC);
 
    if (sqlite3_step(stmt) != SQLITE_DONE) {
       sqlite3_finalize(stmt);
@@ -213,11 +214,19 @@ int db_ptt_start(sqlite3 *db, const char *username, double frequency, const char
    return row_id;   // Caller should store this to end the session
 }
 
-bool db_ptt_stop(sqlite3 *db, int session_id) {
+// Close out a PTT session row: stamp end_time and duration (seconds).
+// Returns the duration via *duration_secs when non-NULL (so callers can log
+// how long the user transmitted); -1 if the row wasn't found.
+bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs) {
    if (!db || session_id < 0) {
       return false;
    }
-   const char *sql = "UPDATE ptt_log SET end_time = CURRENT_TIMESTAMP WHERE id = ?;";
+   // SQLite julianday('now') resolution is ~ms; round to whole seconds.
+   const char *sql =
+      "UPDATE ptt_log "
+      "SET end_time = CURRENT_TIMESTAMP, "
+      "    duration = CAST(ROUND( (julianday('now') - julianday(start_time)) * 86400 ) AS INTEGER) "
+      "WHERE id = ?;";
 
    sqlite3_stmt *stmt;
 
@@ -228,10 +237,32 @@ bool db_ptt_stop(sqlite3 *db, int session_id) {
    }
    sqlite3_bind_int(stmt, 1, session_id);
 
-   bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+   bool success = (sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0);
    sqlite3_finalize(stmt);
 
-   return success;
+   if (!success) {
+      return false;
+   }
+
+   if (duration_secs) {
+      // Read back the computed duration
+      const char *sel = "SELECT duration FROM ptt_log WHERE id = ?;";
+
+      if (sqlite3_prepare_v2(db, sel, -1, &stmt, NULL) != SQLITE_OK) {
+         Log( LOG_WARN, "db", "db_ptt_stop: reading back duration failed: %s", sqlite3_errmsg(db) );
+         *duration_secs = -1;
+         return true;
+      }
+      sqlite3_bind_int(stmt, 1, session_id);
+
+      if (sqlite3_step(stmt) == SQLITE_ROW) {
+         *duration_secs = sqlite3_column_int(stmt, 0);
+      } else {
+         *duration_secs = -1;
+      }
+      sqlite3_finalize(stmt);
+   }
+   return true;
 }
 
 bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src,
@@ -276,6 +307,32 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src,
 
    sqlite3_finalize(stmt);
    return success;
+}
+
+// Apply lightweight migrations for schema added after a database was first
+// created. Safe to call on every start: each statement is a no-op if the
+// column/table already exists.
+void db_migrate(sqlite3 *db) {
+   if (!db) {
+      return;
+   }
+   char *err = NULL;
+
+   // ptt_log: vfo (VFO letter keyed) & duration (TX seconds, set at key-down)
+   if (sqlite3_exec(db, "ALTER TABLE ptt_log ADD COLUMN vfo TEXT;", NULL, NULL, &err) != SQLITE_OK) {
+      if (err && strstr(err, "duplicate column") == NULL) {
+         Log(LOG_WARN, "db", "db_migrate: adding ptt_log.vfo failed: %s", err);
+      }
+      sqlite3_free(err);
+      err = NULL;
+   }
+   if (sqlite3_exec(db, "ALTER TABLE ptt_log ADD COLUMN duration INTEGER;", NULL, NULL, &err) != SQLITE_OK) {
+      if (err && strstr(err, "duplicate column") == NULL) {
+         Log(LOG_WARN, "db", "db_migrate: adding ptt_log.duration failed: %s", err);
+      }
+      sqlite3_free(err);
+      err = NULL;
+   }
 }
 #endif	// USE_SQLITE
 

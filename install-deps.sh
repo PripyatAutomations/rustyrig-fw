@@ -1,6 +1,4 @@
 #!/bin/bash
-set -e
-
 [ -z "$PROFILE" ] && PROFILE=radio
 
 DEBVER=/etc/debian_version
@@ -8,25 +6,18 @@ DEBVER=/etc/debian_version
 # Is this a debian offspring? If so, it'll use APT
 # XXX: We need to work on the fact that package names vary (check actual distro later)
 if [ -f "${DEBVER}" ]; then
-    # Needed for eeprom tool
-    apt install \
-       libjson-perl libterm-readline-perl-perl libhash-merge-perl \
-       libjson-xs-perl libstring-crc32-perl libgpiod-dev gpiod \
-       jq pkg-config libmbedtls-dev libopus-dev libgtk-3-dev \
-       libgstreamer-plugins-base1.0-0 libgstreamer1.0-dev \
-       libjson-validator-perl
-
-    # Mojo::JSON::Pointer used by buildconf.pl -- looks like libjson-validator-perl has us
-#    cpan install Mojo::JSON::Pointer
+    # Needed for eeprom tool / header generation
+    PERL_DEPS="libjson-perl libterm-readline-perl-perl libhash-merge-perl"
+    PERL_DEPS="${PERL_DEPS} libjson-xs-perl libstring-crc32-perl libjson-validator-perl"
 
     CONFIG="config/${PROFILE}.config.json"
-    USE_HAMLIB=$(jq -er '.backend.hamlib // empty' "$CONFIG")
-    USE_GPIOD=$(jq -er '.use.gpio // empty' "$CONFIG")
-    USE_LIBMBEDTLS=$(jq -er '.use.mbedtls // empty' "$CONFIG")
-    USE_LIBNOTIFY=$(jq -er '.use.libnotify // empty' "$CONFIG")
-    USE_SQLITE=$(jq -er '.use.sqlite // empty' "$CONFIG")
-    USE_GSTREAMER=$(jq -er '.use.gstreamer // empty' "$CONFIG")
-    USE_GTK=$(jq -er '.use.gtk // empty' "$CONFIG") && PKG="${PKG} libgtk-3-dev"
+    USE_HAMLIB=$(jq -r '.backend.hamlib' "$CONFIG")
+    USE_GPIOD=$(jq -r '.use.gpio' "$CONFIG")
+    USE_LIBMBEDTLS=$(jq -r '.use.mbedt_s' "$CONFIG")
+    USE_LIBNOTIFY=$(jq -r '.use.libnotify' "$CONFIG")
+    USE_SQLITE=$(jq -r '.use.sqlite' "$CONFIG")
+    USE_GSTREAMER=$(jq -r '.use.gstreamer' "$CONFIG")
+    USE_GTK=$(jq -r '.use.gtk' "$CONFIG") && PKG="${PKG} libgtk-3-dev"
 
     [ "$USE_HAMLIB" = "true" ] && PKG="${PKG} libhamlib-dev libhamlib-utils"
     [ "$USE_SQLITE" = "true" ] && PKG="${PKG} sqlite3 libsqlite3-dev"
@@ -34,6 +25,5 @@ if [ -f "${DEBVER}" ]; then
     [ "$USE_LIBNOTIFY" = "true" ] && PKG="${PKG} libnotify-dev"
     [ "$USE_LIBMEDTLS" = "true" ] && PKG="${PKG} libmedtls-dev"
     [ "$USE_GPIOD" = "true" ] && PKG="${PKG} libgpiod-dev gpiod"
-
-    apt install build-essential jq pkg-config make libbsd-dev libncurses-dev ${PKG}
+    echo apt install build-essential jq pkg-config make libbsd-dev libncurses-dev ${PERL_DEPS} ${PKG}
 fi

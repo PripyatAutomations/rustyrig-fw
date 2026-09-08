@@ -27,12 +27,80 @@
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
 #include <rrserver/timer.h>
+#ifdef	USE_SQLITE
+#include <rrserver/database.h>
+#endif
 
 extern struct GlobalState rig;          // Global state
 extern time_t ptt_tot_time;
 
 time_t global_tot_time = 0;              // TOT
 int vfos_enabled = 2;                    // A + B by default
+
+// VFO currently keyed by PTT logging (row id in ptt_log, -1 none)
+static int ptt_log_session[MAX_VFOS];
+
+// Snapshot the VFO state and open a ptt_log row for the talker
+static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
+#ifdef	USE_SQLITE
+   if (!talker || !masterdb || vfo < 0 || vfo >= MAX_VFOS) {
+      return;
+   }
+   if (ptt_log_session[vfo] > 0) {
+      return;   // already logging this VFO
+   }
+
+   float power = rr_get_power(vfo);
+   int session = db_ptt_start(masterdb, talker->chatname, vfo_name(vfo),
+      (double)hl_state.freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo),
+      power, "");
+
+   if (session < 0) {
+      Log(LOG_WARN, "ptt", "PTT log: failed to start session for %s", talker->chatname);
+      return;
+   }
+   ptt_log_session[vfo] = session;
+   talker->ptt_session = session;
+   Log(LOG_DEBUG, "ptt", "PTT log: session %d opened for %s on VFO %s @ %.0f Hz",
+      session, talker->chatname, vfo_name(vfo), (double)hl_state.freq);
+#else
+   (void)talker;
+   (void)vfo;
+#endif
+}
+
+// Close the ptt_log row for the talker, log how long they transmitted
+static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo) {
+#ifdef	USE_SQLITE
+   if (!talker || !masterdb || vfo < 0 || vfo >= MAX_VFOS) {
+      return;
+   }
+   int session = ptt_log_session[vfo];
+
+   if (session <= 0) {
+      session = talker->ptt_session;   // fallback (e.g. all-off path)
+   }
+   if (session <= 0) {
+      return;
+   }
+   ptt_log_session[vfo] = -1;
+   talker->ptt_session = 0;
+
+   int secs = -1;
+
+   if (!db_ptt_stop(masterdb, session, &secs) ) {
+      Log(LOG_WARN, "ptt", "PTT log: failed to close session %d for %s", session, talker->chatname);
+      return;
+   }
+   if (secs >= 0) {
+      Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)",
+         talker->chatname, secs, session);
+   }
+#else
+   (void)talker;
+   (void)vfo;
+#endif
+}
 
 bool rr_ptt_check_blocked(void) {
    if (rig.tx_blocked) {
@@ -66,6 +134,21 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
       global_tot_time = now + cfg_get_int("rig.tot", 300);
    } else {
       global_tot_time = 0;
+   }
+
+   // PTT logging: snapshot VFO state on key-down; log TX seconds on key-up.
+   // whos_talking() is updated by librrprotocol (cptr->is_ptt) before the
+   // rigctl event reaches us, so the talker is already current here.
+   if (vfo >= 0 && vfo < MAX_VFOS) {
+      rrconn_t *talker = whos_talking();
+
+      if (ptt && talker) {
+         ptt_log_start(talker, vfo);
+      } else if (!ptt) {
+         // Close the session for whoever was on this VFO (may be gone by now
+         // if TOT/fault/disconnect forced TX off)
+         ptt_log_stop(talker, vfo);
+      }
    }
 
    if (rig.backend && rig.backend->api) {

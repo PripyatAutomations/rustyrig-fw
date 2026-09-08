@@ -12,15 +12,19 @@ CREATE TABLE audit_log (
 );
 
 -- PTT-specific event log
+-- vfo: VFO letter ('A'...) the user keyed; duration: seconds of TX set on
+-- key-down by db_ptt_stop().
 CREATE TABLE ptt_log (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
    username TEXT NOT NULL,
+   vfo TEXT,
    frequency REAL NOT NULL,
    mode TEXT NOT NULL,
    bandwidth INTEGER NOT NULL,
    power REAL NOT NULL,
    start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
    end_time DATETIME,
+   duration INTEGER,
    record_file TEXT
 );
 
