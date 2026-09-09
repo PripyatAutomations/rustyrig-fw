@@ -145,6 +145,12 @@ static rr_vfo_t be_internal_get_vfo(rr_vfo_t vfo) {
    return vfo;
 }
 
+// The internal backend IS the radio: every rr VFO (A-Z) is valid. The radio
+// may not have hardware for all of them, but state is kept for each.
+static bool be_internal_vfo_supported(rr_vfo_t vfo) {
+   return (vfo >= 0 && vfo < MAX_VFOS);
+}
+
 // NB: The backend's ptt_set() is called FROM rr_ptt_set(), so we must only do
 // the backend-local work here. Never call rr_ptt_set() from a backend, it
 // would recurse forever (the hamlib backend just programs the rig, we just
@@ -488,7 +494,9 @@ static rr_backend_funcs_t rr_backend_internal_api = {
    .power_get = &be_internal_power_get,
    .widths_get = &be_internal_widths_get,
    .width_get = &be_internal_width_get,
-   .width_set = &be_internal_width_set
+   .width_set = &be_internal_width_set,
+   .vfo_supported = &be_internal_vfo_supported,
+   .state_send = &be_internal_send_state_to
 };
 
 rr_backend_t rr_backend_internal = {

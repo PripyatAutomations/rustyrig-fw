@@ -121,6 +121,11 @@ int32_t rr_cat_init(void) {
    Log(LOG_INFO, "cat", "Initializing CAT interfaces");
 
 #if     defined(HOST_POSIX)
+// PTY interface (./dev/ttyCAT0): external software (hamlib, rigctl, etc)
+// opens the slave as a serial port and talks to our CAT parsers.
+// No-op unless cat.pty.enable is true in the config.
+   cat_pty_init();
+
 // XXX: Open the pipe(s)
 
 #if     defined(CAT_YAESU)              // Yaesu-style rig control
@@ -136,67 +141,94 @@ int32_t rr_cat_init(void) {
    return 0;
 }
 
-int32_t rr_cat_printf(char *str, ...) {
+int32_t rr_cat_printf(const char *str, ...) {
    va_list ap;
    va_start(ap, str);
 
-   // XXX: Print it to a buffer and send to serial...
+   // Send the reply out the CAT PTY, if it's up
+   if (cat_pty_active()) {
+      char buf[512];
+      int len = vsnprintf(buf, sizeof(buf), str, ap);
+      if (len > 0 && (size_t)len < sizeof(buf)) {
+         (void)!write(cat_pty_fd(), buf, len);
+      }
+   }
 
    va_end(ap);
 
    return 0;
 }
 
-// Here we parse commands for the main rig
+// Here we parse commands for the main rig.
+// The Yaesu protocol puts the 2-letter verb first, then any arguments
+// (e.g. "FA004250000;" or "TX0;").  Lines may arrive with or without the
+// terminating ';' depending on the input source.
 int32_t rr_cat_parse_line_real(char *line) {
-   return 0;
+   if (!line || strlen(line) < 2) {
+      return -1;
+   }
+
+   char verb[3] = { line[0], line[1], 0 };
+   char *args = line + 2;
+
+   while (*args == ' ') {
+      args++;
+   }
+
+   // Registered dynamic callbacks first (they may override the built-ins)
+   if (cat_invoke_callbacks(verb, args) ) {
+      return 0;
+   }
+
+#if     defined(CAT_YAESU)
+   for (CATcmdTable *p = rr_cat_yaesu_commands ; p->command != NULL ; p++) {
+      if (strcmp(p->command, verb) == 0) {
+         if (p->rr_cat_yaesu_r) {
+            Log(LOG_DEBUG, "cat", "CAT cmd %s args: %s", verb, (args[0] ? args : "(none)") );
+            p->rr_cat_yaesu_r(args);
+         } else {
+            // NB: an empty (NULL) handler that's a QUERY leaves the client
+            // waiting for a response that never comes (WSJT-X hangs and
+            // drops the connection). Implement the handler or answer here.
+            Log(LOG_WARN, "cat", "Unimplemented CAT command: %s (args: %s) - no response sent!",
+               verb, (args[0] ? args : "(none)") );
+         }
+         return 0;
+      }
+   }
+#endif
+
+   Log(LOG_WARN, "cat", "Unknown CAT command: %s (args: %s)", verb, (args[0] ? args : "(none)") );
+   return -1;
 }
 
 // Here we decide which parser to use
 int32_t rr_cat_parse_line(char *line) {
-   size_t line_len = -1;
-   char *endp = NULL;
-
-   // If passed empty string, stop immediately and let the caller know...
-   if ( line == NULL || (line_len = strlen(line) <= 0) ) {
+   if ( line == NULL || line[0] == '\0' ) {
       return -1;
-   } else {
-      char *p = endp = line + line_len;
-
-      while (p < line) {
-         // Scrub out line endings
-         if (*p == '\r' || *p == '\n') {
-            *p = '\0';
-         }
-         p--;
-      }
-
-      // validate the pointers, just in case...
-      if ( endp <= line || ( endp > (line + line_len) ) ) {
-         // Line is invalid, stop touching it and let the caller know
-         return -1;
-      }
-
-      // is command line complete? if not, return -2 to say "Not yet"
-      if (*endp == ';') {
-         *endp = '\0';
-         endp--;
-      } else {
-         return -2;
-      }
    }
+
+   // Scrub trailing line endings, the ';' terminator and any trailing spaces
+   size_t len = strlen(line);
+
+   while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n' ||
+                      line[len - 1] == ';' || line[len - 1] == ' ') ) {
+      line[--len] = '\0';
+   }
+
+   if (len == 0) {
+      return -1;
+   }
+
 #if     defined(CAT_KPA500)
 
    // is command for amp?
    if (*line == '^') {
       return rr_cat_parse_amp_line(line + 1);
-   } else
+   }
 #endif
 #if     defined(CAT_YAESU)
-   {
-      // XXX: Validate the CAT command syntax
-      return rr_cat_parse_line_real(line);
-   }
+   return rr_cat_parse_line_real(line);
 #endif
    return 0;
 }

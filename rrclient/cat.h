@@ -60,13 +60,11 @@ typedef struct CATcmd {
    struct CATcmd *next;
 } CATcmd;
 
-extern int32_t rr_cat_printf(char *str, ...);
+extern int32_t rr_cat_printf(const char *str, ...);
 extern int32_t rr_cat_parse_line(char *line);
-extern int32_t rr_cat_init(void);
 extern int32_t rr_cat_parse_line_real(char *line);
-extern int32_t rr_cat_parse_line(char *line);
 extern int32_t rr_cat_parse_amp_line(char *line);
-extern int32_t rr_cat_printf(char *str, ...);
+extern int32_t rr_cat_init(void);
 //extern bool rr_cat_parse_ws(rr_cat_req_type reqtype, struct mg_ws_message
 // *msg);
 extern bool cat_register_callback(const char *cmd, CATCallback cb);
@@ -75,5 +73,6 @@ extern bool cat_register_builtin_array(const CATBuiltin *arr);
 
 #include <rrclient/cat.kpa500.h>
 #include <rrclient/cat.yaesu.h>
+#include <rrclient/cat.pty.h>
 
 #endif // !defined(_rr_cat_control_h)

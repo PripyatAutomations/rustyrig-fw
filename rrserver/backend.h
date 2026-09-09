@@ -22,6 +22,11 @@ struct rr_backend_funcs {
    rr_vfo_data_t *(*backend_poll)(rr_vfo_t vfo);         // Called periodically
                                                          // to get the rig
                                                          // status
+   bool (*vfo_supported)(rr_vfo_t vfo);                  // Does the rig expose
+                                                         // this VFO? (used to
+                                                         // skip polling
+                                                         // VFOs the rig
+                                                         // can't answer for)
 
    ////////////////////////////////////////
    // Rig control
@@ -45,6 +50,8 @@ struct rr_backend_funcs {
    uint16_t (*width_get)(rr_vfo_t vfo);
    bool (*width_set)(rr_vfo_t vfo, const char *width);
    int (*widths_get)(rr_vfo_t vfo, int *widths, int max); // Supported passband widths (hz)
+   bool (*state_send)(rrconn_t *cptr);                   // Push current cat.state
+                                                         // to a single client
 };
 typedef struct rr_backend_funcs rr_backend_funcs_t;
 
@@ -63,6 +70,7 @@ typedef struct rr_backend rr_backend_t;
 
 extern bool rr_backend_init(void);
 extern bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
+extern bool rr_ptt_apply(rr_vfo_t vfo, bool state);
 extern bool rr_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
 extern bool rr_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state);
 extern float rr_get_power(rr_vfo_t vfo);
@@ -70,6 +78,7 @@ extern bool rr_set_power(rr_vfo_t vfo, float power);
 extern float rr_freq_get(rr_vfo_t vfo);
 extern bool rr_freq_set(rr_vfo_t vfo, int freq);
 extern bool rr_be_poll(rr_vfo_t vfo);
+extern bool rr_be_vfo_supported(rr_vfo_t vfo);
 extern uint16_t rr_get_width(rr_vfo_t vfo);
 extern bool rr_set_width(rr_vfo_t vfo, const char *width);
 extern int rr_widths_get(rr_vfo_t vfo, int *widths, int max);

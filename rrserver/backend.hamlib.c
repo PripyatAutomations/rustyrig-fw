@@ -48,8 +48,14 @@ static bool hl_fini(void);       // fwd decl
  * RIG_DEBUG_CACHE       // caching
  */
 static int32_t hamlib_debug_level = RIG_DEBUG_ERR;  // RIG_DEBUG_VERBOSE;
-hamlib_state_t hl_state;
-static int last_good_width = 0;      // last non-zero passband width seen
+hamlib_state_t hl_state[MAX_VFOS];   // per-VFO state cache (VFO_A..VFO_Z)
+// Per-VFO probe results. Rigs like the FT-891 only answer mode/width reads
+// for VFOs they actually expose state for; once a VFO has failed a read we
+// stop re-issuing those commands every poll and serve our cached state
+// instead (updated by our own set commands). Reset on reconnect.
+static bool hl_vfo_probed[MAX_VFOS];       // we've tried reading this VFO
+static bool hl_vfo_mode_ok[MAX_VFOS];      // mode/width reads work for it
+rr_mode_t hl_mode_to_rr(rmode_t mode);   // fwd decl (defined below)
 // Reconnect state: when the rig connection drops (or never comes up), tear
 // everything down and retry every backend.reconnect-interval seconds. Setting
 // the interval to 0 restores the old behavior of exiting instead.
@@ -86,11 +92,12 @@ static void hl_disconnect(const char *why) {
       shutdown_rig(100);
    }
 }
-// Last cat.state dict we sent (for diffing against the next poll) and when we
-// last transmitted a (possibly unchanged) cat.state announcement. Keeping the
-// whole dict lets us reuse dict_diff() instead of hand-rolling field compares.
-static dict *last_state_dict = NULL;
-static time_t last_state_send = 0;
+// Last cat.state dict we sent, per VFO (for diffing against the next poll)
+// and when we last transmitted a (possibly unchanged) cat.state announcement
+// for that VFO. Keeping the whole dict lets us reuse dict_diff() instead of
+// hand-rolling field compares.
+static dict *last_state_dict[MAX_VFOS];
+static time_t last_state_send[MAX_VFOS];
 static int cfg_state_interval = -1;  // seconds; -1 = not yet read from config
 
 // The keys we consider when diffing cat.state messages. Anything not listed
@@ -167,8 +174,15 @@ static dict *cat_state_filter(dict *src) {
    return out;
 }
 
-// Return hamlib VFO from rr VFO id
+// Return hamlib VFO from rr VFO id. Rigs only expose a couple of VFOs
+// (typically A/B); any rr VFO beyond what the rig names falls back to
+// RIG_VFO_CURR so state set/get still targets the active VFO.
+// PARITY: librrprotocol/vfo.c vfo_lookup()/vfo_name() (A-Z naming)
 static vfo_t hl_get_vfo(rr_vfo_t vfo) {
+   if (vfo < 0 || vfo >= MAX_VFOS) {
+      return RIG_VFO_NONE;
+   }
+
    switch (vfo) {
       case VFO_A: {
          return RIG_VFO_A;
@@ -182,32 +196,66 @@ static vfo_t hl_get_vfo(rr_vfo_t vfo) {
          return RIG_VFO_C;
          break;
       }
-      case VFO_D: {
-         return RIG_VFO_N(3);
-         break;
-      }
-      case VFO_E: {
-         return RIG_VFO_N(4);
-         break;
-      }
-      case VFO_NONE:
       default: {
-         return RIG_VFO_NONE;
          break;
       }
    }
 
-   return RIG_VFO_NONE;
+   return RIG_VFO_CURR;
+}
+
+// True if the connected rig reports support for the given rr VFO. Falls back
+// to A/B (plus C if the rig lists it) when the rig doesn't advertise a VFO
+// list. Used by the poll loop so we never query VFOs the rig can't answer
+// for (which is what produces newcat "Protocol error" spam on rigs like the
+// FT-891).
+bool hl_vfo_supported(rr_vfo_t vfo) {
+   if (vfo < 0 || vfo >= MAX_VFOS) {
+      return false;
+   }
+   if (!hl_rig) {
+      return vfo == VFO_A || vfo == VFO_B;
+   }
+
+   vfo_t hl_vfo = hl_get_vfo(vfo);
+   if (hl_vfo == RIG_VFO_CURR) {
+      // rr VFOs beyond what we can name in hamlib all map to the current VFO;
+      // only meaningful for the active one.
+      return vfo == active_vfo;
+   }
+   // Some backends (e.g. newcat for the FT-891) don't advertise RIG_VFO_B in
+   // vfo_list even though the rig has one and will answer freq reads for it,
+   // so only trust the advertised list for VFOs we can't name directly. A/B
+   // are always assumed present - failed reads are handled by the probe/
+   // merge logic in backend.c rather than skipping the VFO entirely.
+   bool rv = (hl_rig->state.vfo_list & hl_vfo) == hl_vfo;
+   if (!rv && (vfo == VFO_A || vfo == VFO_B) ) {
+      Log(LOG_DEBUG, "backend.hamlib",
+         "vfo_list=0x%x doesn't advertise VFO %s; assuming present",
+         hl_rig->state.vfo_list, vfo_name(vfo) );
+      rv = true;
+   }
+   return rv;
 }
 
 rr_mode_t hl_mode_get(rr_vfo_t vfo) {
-   if (!hl_rig) {
+   if (!hl_rig || vfo < 0 || vfo >= MAX_VFOS) {
       return MODE_NONE;
    }
-   int rv = rig_get_mode(hl_rig, RIG_VFO_CURR, &hl_state.rmode, &hl_state.width);
-   Log(LOG_DEBUG, "backend.hamlib.mode_get", "rv: %d mode: %lu width: %d", rv, hl_state.rmode, hl_state.width);
+   hamlib_state_t *st = &hl_state[vfo];
+   int rv = rig_get_mode(hl_rig, hl_get_vfo(vfo), &st->rmode, &st->width);
+   Log(LOG_DEBUG, "backend.hamlib.mode_get", "vfo: %s rv: %d mode: %lu width: %d",
+      vfo_name(vfo), rv, st->rmode, st->width);
 
-   return MODE_NONE;
+   if (rv != RIG_OK) {
+      // Don't clobber the cache on failure (rigs like the FT-891 only answer
+      // mode reads for the current VFO) - the caller gets our last known
+      // values for this VFO, which our set commands keep current.
+      hl_vfo_mode_ok[vfo] = false;
+      return hl_mode_to_rr(st->rmode);
+   }
+   hl_vfo_mode_ok[vfo] = true;
+   return hl_mode_to_rr(st->rmode);
 }
 
 // Convert between internal and hamlib IDs for modes
@@ -337,6 +385,12 @@ static bool hl_init(void) {
    hl_retry_at = 0;
    Log(LOG_INFO, "backend.hamlib", "Connected to hamlib");
 
+   // Fresh connection: re-probe which VFOs answer mode/width reads
+   memset(hl_vfo_probed, 0, sizeof(hl_vfo_probed) );
+   memset(hl_vfo_mode_ok, 0, sizeof(hl_vfo_mode_ok) );
+   // Keep cached freq/mode/width state (hl_state[]) across reconnects: it
+   // seeds inactive VFOs until the rig answers reads for them.
+
    // Activate the configured/active VFO
    rig_set_vfo(hl_rig, hl_get_vfo(active_vfo) );
    rr_backend_hamlib.backend_data_ptr = (void *)hl_rig;
@@ -357,6 +411,8 @@ static bool hl_freq_set(rr_vfo_t vfo, int freq) {
 
       return true;
    }
+   // Cache update happens in backend.c rr_freq_set() so both backends get
+   // the same behavior.
    return false;
 }
 
@@ -404,73 +460,98 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
       printf("OOM in hl_poll!\n");
       return NULL;
    }
-   memset( rv, 0, sizeof(rr_vfo_t) );
+   memset( rv, 0, sizeof(rr_vfo_data_t) );
 
-   // XXX: We need to add a way to look up
-   // Do VFO_A for now
-   memset( &hl_state, 0, sizeof(hamlib_state_t) );
+   // Don't ask the rig about VFOs it can't answer for - that's what produces
+   // newcat "Protocol error" spam (e.g. querying VFO B state on rigs that
+   // don't expose it during a mode read).
+   if (!hl_vfo_supported(vfo) ) {
+      free( (void *)rv );
+      return NULL;
+   }
+
+   hamlib_state_t *st = &hl_state[vfo];
 
    vfo_t hl_vfo = hl_get_vfo(vfo);
    if ( (rc = rig_set_vfo(hl_rig, hl_vfo) ) != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "SET VFO A failed: %s", rigerror(rc) );
+      Log( LOG_WARN, "backend.hamlib", "SET VFO %s failed: %s", vfo_name(vfo), rigerror(rc) );
       free( (void *)rv );
       // The rig isn't talking to us; tear down and schedule a reconnect
       hl_disconnect("rig_set_vfo failed");
       return NULL;
    }
 
-   if ( (rc = rig_get_freq(hl_rig, hl_vfo, &hl_state.freq) ) != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "GET VFO_A freq failed: %s", rigerror(rc) );
+   if ( (rc = rig_get_freq(hl_rig, hl_vfo, &st->freq) ) != RIG_OK) {
+      Log( LOG_WARN, "backend.hamlib", "GET VFO %s freq failed: %s", vfo_name(vfo), rigerror(rc) );
       free( (void *)rv );
-      // The rig isn't talking to us; tear down and schedule a reconnect
-      hl_disconnect("rig_get_freq failed");
+      // Inactive VFO reads failing is a rig limitation (protocol error), not
+      // a lost connection - keep the connection and our cached state for it.
+      // Only the active VFO failing means the rig isn't talking to us.
+      if (vfo == active_vfo) {
+         hl_disconnect("rig_get_freq failed");
+      }
       return NULL;
    }
 
-   if ( (rc = rig_get_mode(hl_rig, hl_vfo, &hl_state.rmode, &hl_state.width) ) != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "GET VFO_A mode failed: %s", rigerror(rc) );
-   }
-
-   if ( (rc = rig_get_ptt(hl_rig, hl_vfo, &hl_state.ptt) ) != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "GET VFO_A ptt failed: %s", rigerror(rc) );
-   }
-
-   if ( (rc = rig_get_strength(hl_rig, hl_vfo, &hl_state.power) ) != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "GET VFO_A power failed: %s", rigerror(rc) );
-   }
-   Log(LOG_CRAZY, "backend.hamlib", "VFO_A PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
-      (hl_state.ptt ? "ON" : "off"), (hl_state.freq) / 1000000, rig_strrmode(hl_state.rmode), hl_state.width,
-      hl_state.power);
-
-   // Pack the data into a vfo_data struct to send back to our caller
-   rv->freq = hl_state.freq;
-   rv->width = hl_state.width;
-   const char *tmode = rig_strrmode(hl_state.rmode);
-   rv->mode = vfo_parse_mode(tmode);
-   rv->mode = hl_mode_to_rr(hl_state.rmode);
-
-   // XXX: finish this
-   rv->width = hl_state.width;
-   rv->power = hl_state.power;
-
-   // Some rigs (notably in PKTUSB/PKTLSB modes) briefly report a passband
-   // width of 0 right after a mode change. Don't broadcast that - keep the
-   // last sane width so the clients don't see the display flicker to 0.
-   if (hl_state.width > 0) {
-      last_good_width = hl_state.width;
+   // Mode/width: some rigs only report these for the current VFO. If a read
+   // has failed for this VFO before, don't re-ask every poll (it just spams
+   // "Protocol error" in the log). Mark the fields unread (MODE_NONE/0) and
+   // let backend.c keep the last known values for this VFO.
+   if (!hl_vfo_probed[vfo] || hl_vfo_mode_ok[vfo] || vfo == active_vfo) {
+      if ( (rc = rig_get_mode(hl_rig, hl_vfo, &st->rmode, &st->width) ) != RIG_OK) {
+         Log( LOG_WARN, "backend.hamlib", "GET VFO %s mode failed: %s (backend.c keeps cached mode)",
+            vfo_name(vfo), rigerror(rc) );
+         st->rmode = RIG_MODE_NONE;
+         st->width = 0;
+         if (vfo != active_vfo) {
+            hl_vfo_mode_ok[vfo] = false;
+         }
+      } else {
+         hl_vfo_mode_ok[vfo] = true;
+      }
    } else {
-      rv->width = last_good_width;
-      hl_state.width = last_good_width;
+      // not re-reading this VFO's mode; signal "unread" to backend.c
+      st->rmode = RIG_MODE_NONE;
+      st->width = 0;
    }
+
+   if ( (rc = rig_get_ptt(hl_rig, hl_vfo, &st->ptt) ) != RIG_OK) {
+      Log( LOG_WARN, "backend.hamlib", "GET VFO %s ptt failed: %s", vfo_name(vfo), rigerror(rc) );
+   }
+
+   if ( (rc = rig_get_strength(hl_rig, hl_vfo, &st->power) ) != RIG_OK) {
+      Log( LOG_WARN, "backend.hamlib", "GET VFO %s power failed: %s", vfo_name(vfo), rigerror(rc) );
+   }
+
+   // NB: rig_get_strength() returns the RX S-meter (dB), not TX power. Power
+   // only has meaning while TXing; report 0 otherwise. The S-meter should be
+   // its own protocol field if we want to expose it to clients.
+   if (!st->ptt) {
+      st->power = 0;
+   }
+   Log(LOG_CRAZY, "backend.hamlib", "VFO %s PTT: %s freq: %.6f Mhz Mode: %s - Width: %f - Power: %d",
+      vfo_name(vfo), (st->ptt ? "ON" : "off"), (st->freq) / 1000000, rig_strrmode(st->rmode), st->width,
+      st->power);
+
+   // Pack the data into a vfo_data struct to send back to our caller.
+   // Unread/failed fields are left zero/MODE_NONE so backend.c's merge keeps
+   // the last known values for this VFO.
+   rv->freq = st->freq;
+   rv->width = st->width;
+   rv->mode = hl_mode_to_rr(st->rmode);
+   rv->power = st->power;
 
    // send to all users
    rrconn_t *talker = whos_talking();
    dict *d = dict_new();
    dict_add(d, "msg.type", "cat");
    dict_add(d, "cat.state.vfo", vfo_name(vfo) ? vfo_name(vfo) : "A");
-   // Send the canonical internal mode name (D-U/D-L, etc), never the raw
-   // hamlib string (PKTUSB/PKTLSB) - conversion already done above.
-   dict_add(d, "cat.state.mode", vfo_mode_name(rv->mode));
+   // For fields the rig wouldn't answer reads for (unread => MODE_NONE/0),
+   // fall back to the last known merged state in vfos[] - the same values
+   // backend.c keeps, so clients never see NONE/0 flicker.
+   // PARITY: rrserver/backend.c rr_be_merge_poll()
+   dict_add(d, "cat.state.mode",
+      vfo_mode_name(rv->mode != MODE_NONE ? rv->mode : vfos[vfo].mode) );
 
    // Query the supported passband widths through the backend-agnostic
    // wrapper and broadcast them as a comma-separated list, e.g. "2400,3000,3600"
@@ -491,10 +572,10 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
       dict_add(d, "cat.state.widths", widths_str);
    }
    dict_add(d, "cat.user", (talker ? talker->chatname : "") );
-   dict_add_int(d, "cat.state.width", hl_state.width);
-   dict_add_int(d, "cat.state.power", hl_state.power);
-   dict_add_bool(d, "cat.state.ptt", hl_state.ptt);
-   dict_add_long(d, "cat.state.freq", hl_state.freq);
+   dict_add_int(d, "cat.state.width", (st->width > 0 ? st->width : vfos[vfo].width) );
+   dict_add_int(d, "cat.state.power", st->power);
+   dict_add_bool(d, "cat.state.ptt", st->ptt);
+   dict_add_long(d, "cat.state.freq", (st->freq > 0 ? st->freq : vfos[vfo].freq) );
    dict_add_ulong(d, "msg.ts", now);
    // Lazy-load the configured max interval between unchanged cat.state sends.
    if (cfg_state_interval < 0) {
@@ -506,8 +587,8 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // volatile timestamp (msg.ts) and other noise don't force a send every poll.
    bool changed = true;
    dict *curr_cmp = cat_state_filter(d);
-   if (last_state_dict && curr_cmp) {
-      dict *prev_cmp = cat_state_filter(last_state_dict);
+   if (last_state_dict[vfo] && curr_cmp) {
+      dict *prev_cmp = cat_state_filter(last_state_dict[vfo]);
       if (prev_cmp) {
          dict *df = dict_diff(prev_cmp, curr_cmp);
          // A non-NULL diff still needs to be non-empty to count as changed:
@@ -522,8 +603,8 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // If unchanged, only re-transmit at most once per configured interval so a
    // quiet rig doesn't spam a full cat.state every poll (cuts network traffic
    // and GUI workload). A real change always goes out immediately.
-   if (!changed) {
-      if (last_state_send + cfg_state_interval > now) {
+    if (!changed) {
+      if (last_state_send[vfo] + cfg_state_interval > now) {
          // Too soon since our last (possibly unchanged) announcement; drop it.
          dict_free(d);
          return rv;
@@ -531,12 +612,12 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
       Log(LOG_CRAZY, "backend.hamlib", "Sending unchanged cat.state (interval reached)");
    }
    // Remember this state as the new baseline for future diffs.
-   if (last_state_dict) dict_free(last_state_dict);
-   last_state_dict = dict_new();
-   if (last_state_dict) {
-      dict_merge(last_state_dict, d);
+   if (last_state_dict[vfo]) dict_free(last_state_dict[vfo]);
+   last_state_dict[vfo] = dict_new();
+   if (last_state_dict[vfo]) {
+      dict_merge(last_state_dict[vfo], d);
    }
-   last_state_send = now;
+   last_state_send[vfo] = now;
    const char *jp = dict2json(d);
    Log(LOG_CRAZY, "backend.hamlib", "Sending %s", jp);
    free( (char *)jp );
@@ -555,34 +636,37 @@ bool hl_send_state_to(rrconn_t *cptr) {
       return true;
    }
 
-   dict *d = NULL;
+   // Send the last known state for every VFO the rig supports so the client
+   // UI populates all of them, not just the active one.
+   for (int i = 0 ; i < MAX_VFOS ; i++) {
+      dict *d = NULL;
 
-   if (last_state_dict) {
-      d = dict_new();
-      if (d) {
-         dict_merge(d, last_state_dict);
+      if (last_state_dict[i]) {
+         d = dict_new();
+         if (d) {
+            dict_merge(d, last_state_dict[i]);
+         }
+      } else if (hl_vfo_supported((rr_vfo_t)i) ) {
+         // No state sent yet for this VFO: synthesize one from the live VFO data
+         rr_vfo_data_t *vp = &vfos[i];
+         d = dict_new();
+         if (d) {
+            dict_add(d, "msg.type", "cat");
+            dict_add(d, "cat.state.vfo", vfo_name((rr_vfo_t)i) );
+            dict_add(d, "cat.state.mode", vfo_mode_name(vp->mode));
+            dict_add_int(d, "cat.state.width", vp->width);
+            dict_add_long(d, "cat.state.freq", vp->freq);
+            dict_add_bool(d, "cat.state.ptt", hl_state[i].ptt);
+         }
       }
-   } else {
-      // No state sent yet: synthesize one from the live VFO data
-      rr_vfo_data_t *vp = &vfos[active_vfo];
-      d = dict_new();
-      if (d) {
-         dict_add(d, "msg.type", "cat");
-         dict_add(d, "cat.state.vfo", vfo_name(active_vfo) );
-         dict_add(d, "cat.state.mode", vfo_mode_name(vp->mode));
-         dict_add_int(d, "cat.state.width", vp->width);
-         dict_add_long(d, "cat.state.freq", vp->freq);
-         dict_add_bool(d, "cat.state.ptt", hl_state.ptt);
-      }
-   }
 
-   if (!d) {
-      Log(LOG_WARN, "backend.hamlib", "OOM sending cat.state to %s", cptr->chatname);
-      return true;
+      if (!d) {
+         continue;
+      }
+      dict_add_ulong(d, "msg.ts", now);
+      ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
+      dict_free(d);
    }
-   dict_add_ulong(d, "msg.ts", now);
-   ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
-   dict_free(d);
    return false;
 }
 
@@ -607,11 +691,11 @@ float hl_power_get(rr_vfo_t vfo) {
 }
 
 bool hl_mode_set(rr_vfo_t vfo, rr_mode_t mode) {
-   if (!hl_rig) {
+   if (!hl_rig || vfo < 0 || vfo >= MAX_VFOS) {
       Log(LOG_WARN, "backend.hamlib", "MODE set while disconnected");
       return true;
    }
-   int rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_mode(mode), RIG_PASSBAND_NORMAL);
+   int rv = rig_set_mode(hl_rig, hl_get_vfo(vfo), hl_mode(mode), RIG_PASSBAND_NORMAL);
 
    if (rv == RIG_OK) {
       return false;
@@ -620,19 +704,24 @@ bool hl_mode_set(rr_vfo_t vfo, rr_mode_t mode) {
 }
 
 uint16_t hl_width_get(rr_vfo_t vfo) {
+   if (vfo < 0 || vfo >= MAX_VFOS) {
+      return 0;
+   }
    hl_mode_get(vfo);
-   return hl_state.width;
+   return hl_state[vfo].width;
 }
 
 bool hl_width_set(rr_vfo_t vfo, const char *width) {
    int rv = -1;
 
-   if (!hl_rig) {
+   if (!hl_rig || vfo < 0 || vfo >= MAX_VFOS) {
       Log(LOG_WARN, "backend.hamlib", "WIDTH set while disconnected");
       return true;
    }
+   hamlib_state_t *st = &hl_state[vfo];
+   vfo_t hl_vfo = hl_get_vfo(vfo);
 
-   // Refresh the current mode first - hl_state.rmode may be stale (or zero
+   // Refresh the current mode first - st->rmode may be stale (or zero
    // if no poll has happened yet) and the passband helpers need the mode
    // we're switching the width FOR.
    hl_mode_get(vfo);
@@ -646,17 +735,23 @@ bool hl_width_set(rr_vfo_t vfo, const char *width) {
       p++;
    }
 
+   pbwidth_t target = 0;
+
    if (strncasecmp(p, "narr", 4) == 0 || strcasecmp(width, "nar") == 0) {
-      rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode, rig_passband_narrow(hl_rig, hl_state.rmode) );
+      target = rig_passband_narrow(hl_rig, st->rmode);
+      rv = rig_set_mode( hl_rig, hl_vfo, st->rmode, target );
    } else if (strncasecmp(p, "norm", 4) == 0 || strcasecmp(width, "normal") == 0) {
-      rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, RIG_PASSBAND_NORMAL);
+      target = rig_passband_normal(hl_rig, st->rmode);
+      rv = rig_set_mode(hl_rig, hl_vfo, st->rmode, RIG_PASSBAND_NORMAL);
    } else if (strcasecmp(width, "wide") == 0) {
-      rv = rig_set_mode( hl_rig, RIG_VFO_CURR, hl_state.rmode, rig_passband_wide(hl_rig, hl_state.rmode) );
+      target = rig_passband_wide(hl_rig, st->rmode);
+      rv = rig_set_mode( hl_rig, hl_vfo, st->rmode, target );
    } else {
       long hz = atol(p);
 
       if (hz > 0) {
-         rv = rig_set_mode(hl_rig, RIG_VFO_CURR, hl_state.rmode, (pbwidth_t)hz);
+         target = (pbwidth_t)hz;
+         rv = rig_set_mode(hl_rig, hl_vfo, st->rmode, target);
       } else {
          Log(LOG_WARN, "backend.hamlib", "Unknown width %s - try narrow|normal|wide or hz!", width);
          return true;
@@ -665,6 +760,8 @@ bool hl_width_set(rr_vfo_t vfo, const char *width) {
    // NB: the format args were missing here (crash in printf/strlen)
    Log(LOG_INFO, "backend.hamlib", "Set width to %s: rv=%d", width, rv);
 
+   // Cache update happens in backend.c rr_set_width() so both backends
+   // get the same behavior.
    return rv != RIG_OK;
 }
 
@@ -679,11 +776,16 @@ int hl_widths_get(rr_vfo_t vfo, int *widths, int max) {
       return 0;
    }
 
-   // Make sure we know the current mode; the passband helpers are per-mode
+   // Make sure we know the current mode; the passband helpers are per-mode.
+   // For VFOs whose mode reads fail (rig only answers for the current VFO),
+   // fall back to the merged rr mode from vfos[] converted back to hamlib.
    hl_mode_get(vfo);
-   rmode_t rmode = hl_state.rmode;
+   rmode_t rmode = hl_state[vfo].rmode;
+   if (rmode == RIG_MODE_NONE && vfo >= 0 && vfo < MAX_VFOS && vfos[vfo].mode != MODE_NONE) {
+      rmode = hl_mode(vfos[vfo].mode);
+   }
 
-   int norm = hl_state.width;
+   int norm = hl_state[vfo].width;
    if (norm <= 0) {
       norm = rig_passband_normal(hl_rig, rmode);
    }
@@ -712,7 +814,10 @@ int hl_widths_get(rr_vfo_t vfo, int *widths, int max) {
 // this needs to end up at rig.backend->api->get_mode
 static const char *hl_mode_get_str(rr_vfo_t vfo) {
    // convert this to a backend-agnostic string
-   return rig_strrmode(hl_state.rmode);
+   if (vfo < 0 || vfo >= MAX_VFOS) {
+      return rig_strrmode(RIG_MODE_NONE);
+   }
+   return rig_strrmode(hl_state[vfo].rmode);
 }
 
 static rr_backend_funcs_t rr_backend_hamlib_api = {
@@ -726,7 +831,9 @@ static rr_backend_funcs_t rr_backend_hamlib_api = {
    .mode_set = &hl_mode_set,
    .power_set = &hl_power_set,
    .widths_get = &hl_widths_get,
-   .width_set = &hl_width_set
+   .width_set = &hl_width_set,
+   .vfo_supported = &hl_vfo_supported,
+   .state_send = &hl_send_state_to
 };
 
 rr_backend_t rr_backend_hamlib = {

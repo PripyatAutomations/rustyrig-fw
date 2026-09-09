@@ -39,6 +39,7 @@ extern defconfig_t defcfg[];
 #define	MAX_WINDOWS 32
 #define	INPUT_HISTORY_MAX 64
 #include <rrclient/ui.h>
+#include <rrclient/cat.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.statusbar.h>
@@ -480,6 +481,9 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    cfg_ui_ptt_ack_timeout = cfg_get_int("ui.ptt-ack-timeout", 2);
    cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
+
+   // CAT parsers + PTY interface (./dev/ttyCAT0 when cat.pty.enable is true)
+   rr_cat_init();
 
 #ifdef	USE_GTK
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);

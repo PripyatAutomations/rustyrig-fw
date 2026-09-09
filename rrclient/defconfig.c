@@ -76,6 +76,8 @@ defconfig_t defcfg[] = {
    { "audio.volume.rx", "30", "Default RX volume" },
    { "audio.volume.tx", "20", "Default TX out vol" },
    { "codecs.allowed", "mu08 mu16", "CODECs to support by default" },
+   { "cat.pty.enable", "true", "Create a PTY (e.g. ./dev/ttyCAT0) for external CAT software (hamlib/rigctl)" },
+   { "cat.pty.path", "./dev/ttyCAT0", "Path to symlink the CAT PTY slave to" },
    { "debug.audio", ":*3", "gstreamer debug level" },
    { "debug.http", "false", "Extra HTTP debugging" },
    { "debug.http.crazy", "false", "Insane level of HTTP debugging" },

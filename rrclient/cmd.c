@@ -140,7 +140,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "names", .cb = cmd_names, .desc = "List users with privilege flags" },
    { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
    { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
-   { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (-y skips confirm)" },
+   { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)" },
    { .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command" },
    { .cmd = "rehash", .cb = cmd_rehash, .desc = "Ask server to reload config & users" },
    { .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file" },

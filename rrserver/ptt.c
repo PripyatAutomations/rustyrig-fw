@@ -158,25 +158,30 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
       }
    }
 
-   if (rig.backend && rig.backend->api) {
-      rig.backend->api->ptt_set(vfo, ptt);
-   } else {
-      Log(LOG_WARN, "ptt", "no backend");
+   // Go through backend.c (rr_ptt_apply) rather than poking the backend api
+   // directly. PARITY: rrserver/backend.c rr_ptt_apply()
+   // NB: rr_ptt_apply() returns false on SUCCESS, true on failure.
+   if (rr_ptt_apply(vfo, ptt) ) {
+      Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF") );
    }
 
-   const char *mode_str = rig.backend->api->mode_get_str(vfo);
-   dict *d = dict_new();
-   dict_add(d, "msg.type", "cat.state");
-   dict_add(d, "cat.state.vfo", vfo_name(vfo) );
-   dict_add(d, "cat.state.mode", mode_str);
-   dict_add_bool(d, "cat.state.ptt", ptt);
-   // Read freq/width from the vfos[] table (polled from the active backend);
-   // hl_state is a hamlib-only cache and is zeroed for other backends.
-   dict_add_int(d, "cat.state.freq", (vfo >= 0 && vfo < MAX_VFOS ? vfos[vfo].freq : 0) );
-   dict_add_int(d, "cat.state.width", (vfo >= 0 && vfo < MAX_VFOS ? vfos[vfo].width : 0) );
-   dict_add_ulong(d, "msg.ts", now);
-   ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
-   dict_free(d);
+   // Broadcast immediate cat.state so clients see TX state without waiting
+   // for the next backend poll.
+   if (rig.backend && rig.backend->api && rig.backend->api->mode_get_str) {
+      const char *mode_str = rig.backend->api->mode_get_str(vfo);
+      dict *d = dict_new();
+      dict_add(d, "msg.type", "cat.state");
+      dict_add(d, "cat.state.vfo", vfo_name(vfo) );
+      dict_add(d, "cat.state.mode", mode_str);
+      dict_add_bool(d, "cat.state.ptt", ptt);
+      // Read freq/width from the vfos[] table (polled from the active backend);
+      // hl_state is a hamlib-only cache and is zeroed for other backends.
+      dict_add_int(d, "cat.state.freq", (vfo >= 0 && vfo < MAX_VFOS ? vfos[vfo].freq : 0) );
+      dict_add_int(d, "cat.state.width", (vfo >= 0 && vfo < MAX_VFOS ? vfos[vfo].width : 0) );
+      dict_add_ulong(d, "msg.ts", now);
+      ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
+      dict_free(d);
+   }
 
    return ptt;
 }

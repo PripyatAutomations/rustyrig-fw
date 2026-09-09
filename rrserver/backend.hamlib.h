@@ -14,10 +14,12 @@
 #if     defined(USE_HAMLIB)
 #include <hamlib/rig.h>
 #include <rrserver/backend.h>
+#include <librrprotocol/rrprotocol.h>
 // Exposed interface is entirely via the rr_backend_t. Someday these might
 // become modules
 extern rr_backend_t rr_backend_hamlib;
 
+// Per-VFO state cache; indexed by rr_vfo_t (VFO_A..VFO_Z)
 typedef struct hamlib_state {
    freq_t freq;
    rmode_t rmode;
@@ -31,7 +33,11 @@ typedef struct hamlib_state {
    ptt_t ptt;
 } hamlib_state_t;
 
-extern hamlib_state_t hl_state;
+extern hamlib_state_t hl_state[MAX_VFOS];
+
+// True if the connected rig reports support for the given rr VFO (A/B map to
+// RIG_VFO_A/RIG_VFO_B, anything else falls back to RIG_VFO_CURR)
+extern bool hl_vfo_supported(rr_vfo_t vfo);
 
 // Send the last known rig state (or one synthesized from live VFO data) to a
 // single client; see hl_poll() for the throttling of the broadcast path.

@@ -150,10 +150,22 @@ bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
 
    // Sqawk audit log and Apply PTT if we made it this far
    Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
+   return rr_ptt_apply(vfo, state);
+}
+
+// Apply PTT directly through the active backend, with no user/audit context.
+// Used by internal paths (TOT, forced key-down on disconnect, ptt.c's own
+// audited path) that must NOT bypass backend.c by poking the api directly.
+bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
+      return true;
+   }
+
    if ( rig.backend->api->ptt_set(vfo, state) ) {
       Log( LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.", rr_vfo_name(vfo), bool2str(state) );
       return true;
    }
+
    return false;
 }
 
@@ -171,7 +183,7 @@ bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo) {
 }
 
 bool rr_freq_set(rr_vfo_t vfo, int freq) {
-   if (!rig.backend || !rig.backend->api || !rig.backend->api->ptt_set) {
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->freq_set) {
       Log(LOG_CRIT, "rig", "rr_freq_set called with no active (or broken) backend selected!");
       return true;
    }
@@ -179,6 +191,13 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
    if ( rig.backend->api->freq_set(vfo, freq) ) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.", rr_vfo_name(vfo), freq);
       return true;
+   }
+
+   // Keep the canonical per-VFO cache current: for VFOs the rig won't answer
+   // reads for, this is what the next poll merge serves clients.
+   // PARITY: applies to both hamlib and internal backends.
+   if (vfo >= 0 && vfo < MAX_VFOS) {
+      vfos[vfo].freq = freq;
    }
    return false;
 }
@@ -221,6 +240,23 @@ bool rr_set_width(rr_vfo_t vfo, const char *width) {
    }
    bool rv = rig.backend->api->width_set(vfo, width);
 
+   if (!rv && vfo >= 0 && vfo < MAX_VFOS) {
+      // Cache update in backend.c so both backends behave identically. Ask
+      // the backend what width the rig ended up at; if it can't tell (rig
+      // doesn't answer mode reads for this VFO), fall back to a numeric
+      // parse of the requested width.
+      uint16_t w = rig.backend->api->width_get ? rig.backend->api->width_get(vfo) : 0;
+      if (w == 0) {
+         const char *p = width;
+         while (*p == ' ' || *p == '\t') {
+            p++;
+         }
+         w = (uint16_t)atol(p);
+      }
+      if (w > 0) {
+         vfos[vfo].width = w;
+      }
+   }
    return rv;
 }
 
@@ -250,14 +286,45 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
       return false;
    }
    rv = rig.backend->api->mode_set(vfo, mode);
+
+   if (!rv && vfo >= 0 && vfo < MAX_VFOS) {
+      // Cache update in backend.c so both backends behave identically
+      vfos[vfo].mode = mode;
+   }
    return rv;
 }
 
 // Try to keep log from being blown up except in LOG_CRAZY level
 static bool rr_be_poll_warned = false;
+// Have we made first contact with each VFO? Used to seed inactive VFOs from
+// the active VFO's known state before the first poll of that VFO. PARITY:
+// this policy lives HERE in backend.c so both hamlib and internal backends
+// get identical VFO seeding/merging behavior.
+static bool rr_be_vfo_probed[MAX_VFOS];
+
+// Merge a fresh poll result into the per-VFO storage. Fields the backend
+// couldn't read (freq 0, mode MODE_NONE, width 0) keep their previous known
+// values - rigs like the FT-891 only answer some reads for the current VFO,
+// and the internal backend never fails, so both get the same treatment.
+static void rr_be_merge_poll(rr_vfo_t vfo, rr_vfo_data_t *ret) {
+   rr_vfo_data_t *cur = &vfos[vfo];
+
+   if (ret->freq > 0) {
+      cur->freq = ret->freq;
+   }
+   if (ret->mode != MODE_NONE) {
+      cur->mode = ret->mode;
+   }
+   if (ret->width > 0) {
+      cur->width = ret->width;
+   }
+   cur->power = ret->power;
+   cur->type = ret->type;
+   cur->id = vfo;
+}
 
 bool rr_be_poll(rr_vfo_t vfo) {
-   if (vfo < 0 || vfo >> MAX_VFOS) {
+   if (vfo < 0 || vfo >= MAX_VFOS) {
       Log(LOG_DEBUG, "backend", "rr_be_poll: vfo %d out of range (0-%d)", vfo, MAX_VFOS);
       return true;
    }
@@ -268,16 +335,50 @@ bool rr_be_poll(rr_vfo_t vfo) {
       Log(log_level, "backend", "rr_be_poll: no backend available (set log level to CRAZY to see all warnings)");
       return true;
    }
+
+   // First contact with this VFO: seed it from the active VFO's known state
+   // so clients always see sane freq/mode/width (rigs may never answer reads
+   // for inactive VFOs).
+   if (!rr_be_vfo_probed[vfo] ) {
+      rr_be_vfo_probed[vfo] = true;
+      if (vfo != active_vfo && vfos[vfo].freq == 0 && vfos[active_vfo].freq > 0) {
+         vfos[vfo] = vfos[active_vfo];
+         vfos[vfo].id = vfo;
+         Log(LOG_DEBUG, "backend", "VFO %s seeded from active VFO %s: %.6f Mhz %s",
+            vfo_name(vfo), vfo_name(active_vfo), vfos[vfo].freq / 1000000.0,
+            vfo_mode_name(vfos[vfo].mode) );
+      }
+   }
+
    rr_vfo_data_t *ret_vfo = rig.backend->api->backend_poll(vfo);
 
    if (!ret_vfo) {
+      // Backend couldn't read this VFO (rig limitation, disconnected, etc);
+      // keep the last known state in vfos[] untouched.
       return true;
    }
-   // save it to the VFO storage
-   memcpy( &vfos[vfo], ret_vfo, sizeof(rr_vfo_data_t) );
+   // merge it into the VFO storage, keeping last-known values for anything
+   // the backend couldn't read
+   rr_be_merge_poll(vfo, ret_vfo);
    // free the memory given to use
    free(ret_vfo);
    return false;
+}
+
+// Ask the active backend whether the rig exposes this VFO. Backends without
+// a vfo_supported hook report only VFO A/B (the common case); the hamlib
+// backend checks the rig's own VFO list.
+bool rr_be_vfo_supported(rr_vfo_t vfo) {
+   if (vfo < 0 || vfo >= MAX_VFOS) {
+      return false;
+   }
+   if (!rig.backend || !rig.backend->api) {
+      return false;
+   }
+   if (!rig.backend->api->vfo_supported) {
+      return vfo == VFO_A || vfo == VFO_B;
+   }
+   return rig.backend->api->vfo_supported(vfo);
 }
 
 // Push the last known rig state to a single client (e.g. a just-authenticated
@@ -285,16 +386,9 @@ bool rr_be_poll(rr_vfo_t vfo) {
 // rrserver (like librrprotocol) can trigger it via rrserver/events.c without
 // linking against a specific backend.
 bool rr_cat_state_send(rrconn_t *cptr) {
-   if (!rig.backend || !rig.backend->api || !rig.backend->api->backend_poll) {
-      // no backend, nothing sane to send
+   if (!rig.backend || !rig.backend->api || !rig.backend->api->state_send) {
+      // no backend (or one that can't send state), nothing sane to send
       return true;
    }
-#ifdef USE_HAMLIB
-   // Only the hamlib backend has its own state sender; the internal backend
-   // also tracks a sendable state, everything else falls through below.
-   if (!rig.backend || !rig.backend->name || strcasecmp(rig.backend->name, "internal") != 0) {
-      return hl_send_state_to(cptr);
-   }
-#endif
-   return be_internal_send_state_to(cptr);
+   return rig.backend->api->state_send(cptr);
 }

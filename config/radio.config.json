@@ -9,7 +9,7 @@
       "alsa": "false",
       "auto-block-ptt": "false",
       "cat-kpa500": "false",
-      "cat-yaesu": "false",
+      "cat-yaesu": "true",
       "coredumps-client": "true",
       "coredumps-fwdsp": "true",
       "coredumps-server": "false",
