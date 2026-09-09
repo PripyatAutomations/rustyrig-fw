@@ -10,15 +10,7 @@ Lets start working on support for multple channels. Normally rigs will occupy th
   - pressing tab at any point should list available username completions
     dont do it with ui_print, make it a little popup like phones do
 
-* Fix/finish server picker & server editor and put them to use
-  - We should be able to run without a config file and actually be usable
-    - We need to finish the config tab and config saving
-
 * Add ^C, etc for embedding mIRC-style colors
-
-* Fix userlist window
-  - window opened at startup doesnt track user changes
-  - new windows do not have modal property they should per config
 
 * Implement /names to show who's in the chat (espc in TUI)
 
@@ -31,10 +23,6 @@ Lets start working on support for multple channels. Normally rigs will occupy th
 * Support for connecting to multiple servers
 
 * Populate config tab from defconfig, showing radio/text field/etc based on default value check
-
-* Make PTT button stay gray if you don't have TX privileges or are a noob without approval
-
-- Add alt-q exit hotkey?
 
 * Fix PTT button needing clicked twice after TOT fired (if still applies)
   - Make sure TOT expire goes ORANGE

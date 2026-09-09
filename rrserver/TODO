@@ -34,7 +34,6 @@ ws.c / fwdsp/fwdsp-mgr.c:
   - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)
 
 [core]
-* Support for at least VFO A & B
 * Test TX halt when PTTing user disconnects.
   - also halt TX by FLAG_NOOB users if the last elmer logs out
 
