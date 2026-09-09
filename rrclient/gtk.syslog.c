@@ -27,9 +27,23 @@ extern GtkWidget *main_notebook;
 
 GtkWidget *log_view = NULL;
 GtkTextBuffer *log_buffer = NULL;
+static GtkWidget *log_page = NULL;       // notebook page holding log_view
 GtkWidget *host_log_view = NULL;
 GtkTextBuffer *host_log_buffer = NULL;
 extern bool dying;               // main.c
+
+// Is the client log tab the one the user is looking at?  While it's hidden
+// we skip markup colorization, scroll re-arming and other per-line costs;
+// plain inserts are still cheap and keep the log complete for when the
+// user opens the tab.
+static bool log_tab_visible(void) {
+   if (!log_page || !main_notebook) {
+      return false;
+   }
+
+   return (gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
+           gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_page) );
+}
 
 // backend
 bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
@@ -48,33 +62,48 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
       return true;
    }
 
-   char outbuf[8096];
-   memset(outbuf, 0, sizeof(outbuf));
-   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
+      char outbuf[8096];
+      memset(outbuf, 0, sizeof(outbuf));
+      vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
 
-   const char *ts = get_chat_ts(now);
-   char *ts_colorized = gtk_colorize_string(ts);
+      bool visible = log_tab_visible();
 
-   GtkTextIter end;
-   gtk_text_buffer_get_end_iter(log_buffer, &end);
+      GtkTextIter end;
 
-   if (ts_colorized) {
-      gtk_text_buffer_insert_markup(log_buffer, &end, ts_colorized, -1);
-      free(ts_colorized);
-   } else {
-      gtk_text_buffer_insert(log_buffer, &end, ts, -1);
+      gtk_text_buffer_get_end_iter(log_buffer, &end);
+
+      if (visible) {
+         const char *ts = get_chat_ts(now);
+         char *ts_colorized = gtk_colorize_string(ts);
+
+         if (ts_colorized) {
+            gtk_text_buffer_insert_markup(log_buffer, &end, ts_colorized, -1);
+            free(ts_colorized);
+         } else {
+            gtk_text_buffer_insert(log_buffer, &end, ts, -1);
+         }
+      } else {
+         // Hidden: plain-text timestamp, no markup parsing
+         char tsbuf[32];
+
+         snprintf(tsbuf, sizeof(tsbuf), "%s", get_chat_ts(now) );
+         gtk_text_buffer_insert(log_buffer, &end, tsbuf, -1);
+      }
+
+      char header[512];
+      memset(header, 0, sizeof(header));
+      snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(priority));
+      gtk_text_buffer_insert(log_buffer, &end, header, -1);
+      gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
+      gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
+      gtk_trim_scrollback(log_buffer, "ui.gtk.scrollback.syslog", 200);
+
+      // Hidden: no scroll idle callback; the view re-scrolls when shown
+      if (visible) {
+         g_idle_add(ui_scroll_to_end, log_view);
+      }
+      return false;
    }
-
-   char header[512];
-   memset(header, 0, sizeof(header));
-   snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(priority));
-   gtk_text_buffer_insert(log_buffer, &end, header, -1);
-   gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
-   gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-   gtk_trim_scrollback(log_buffer, "ui.gtk.scrollback.syslog", 200);
-   g_idle_add(ui_scroll_to_end, log_view);
-   return false;
-}
 
 // print to syslog
 bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...) {
@@ -116,6 +145,7 @@ GtkWidget *init_log_tab(void) {
    gtk_container_add(GTK_CONTAINER(nw), log_view);
    GtkWidget *syslog_tab_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(syslog_tab_label), "(<u>4</u>) Client log");
+   log_page = nw;
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, syslog_tab_label);
 
    return nw;

@@ -68,6 +68,13 @@ static const struct {
 const char *pango_color_for_tag(const char *tag, bool *is_bg) {
    *is_bg = (strncmp(tag, "bg-", 3) == 0);
 
+   // ui.theme.headers resolves at runtime so themes can be configured
+   if (strcmp(tag, "headers") == 0) {
+      const char *hc = cfg_get("ui.theme.headers");
+
+      return pango_color_for_tag( (hc && *hc) ? hc : "cyan", is_bg);
+   }
+
    for (int i = 0 ; color_map[i].tag ; i++) {
       if (strcmp(tag, color_map[i].tag) == 0) {
          return color_map[i].pango;

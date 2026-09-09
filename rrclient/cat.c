@@ -1,5 +1,5 @@
 //
-// librustyaxe/cat.c
+// rrclient/cat.c
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -184,7 +184,7 @@ int32_t rr_cat_parse_line_real(char *line) {
    for (CATcmdTable *p = rr_cat_yaesu_commands ; p->command != NULL ; p++) {
       if (strcmp(p->command, verb) == 0) {
          if (p->rr_cat_yaesu_r) {
-            Log(LOG_DEBUG, "cat", "CAT cmd %s args: %s", verb, (args[0] ? args : "(none)") );
+            Log(LOG_CRAZY, "cat", "CAT cmd %s args: %s", verb, (args[0] ? args : "(none)") );
             p->rr_cat_yaesu_r(args);
          } else {
             // NB: an empty (NULL) handler that's a QUERY leaves the client

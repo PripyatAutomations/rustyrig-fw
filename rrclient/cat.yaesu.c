@@ -99,7 +99,7 @@ static void cat_mode_set(const char *digit) {
          return;
    }
 
-   Log(LOG_INFO, "cat.yaesu", "Set MODE to %s", mode);
+   Log(LOG_CRAZY, "cat.yaesu", "Set MODE to %s", mode);
    ws_send_mode_cmd(ws_conn, cat_vfo_str(0), mode);
 }
 
@@ -119,10 +119,10 @@ void rr_cat_yaesu_af_gain(const char *args) {
 void rr_cat_yaesu_auto_info(const char *args) {
    if (!args || !args[0]) {
       rr_cat_printf("AI0;");
-      Log(LOG_DEBUG, "cat.yaesu", "AI query -> 0");
+      Log(LOG_CRAZY, "cat.yaesu", "AI query -> 0");
       return;
    }
-   Log(LOG_DEBUG, "cat.yaesu", "Set AI to %c", args[0]);
+   Log(LOG_CRAZY, "cat.yaesu", "Set AI to %c", args[0]);
 }               // Enable/Disable Auto Information mode
 
 void rr_cat_yaesu_vfo_a_to_mem(const char *args) {
@@ -198,13 +198,13 @@ void rr_cat_yaesu_set_vfo_a(const char *args) {
       // FT-891/FT-991 (newcat) use 9-digit frequency fields; the 11-digit
       // form is the FTDX101/5000 family. Wrong width shifts the parsed value.
       rr_cat_printf("FA%09ld;", freq);
-      Log(LOG_DEBUG, "cat.yaesu", "VFO A read -> %ld", freq);
+      Log(LOG_CRAZY, "cat.yaesu", "VFO A read -> %ld", freq);
       return;
    }
 
    long freq = atol(args);
 
-   Log(LOG_INFO, "cat.yaesu", "Set VFO A freq to %ld", freq);
+   Log(LOG_CRAZY, "cat.yaesu", "Set VFO A freq to %ld", freq);
    ws_send_freq_cmd(ws_conn, cat_vfo_str('A'), freq);
 }               // Read/Set VFO A frequency
 
@@ -212,13 +212,13 @@ void rr_cat_yaesu_set_vfo_b(const char *args) {
    if (!args || !args[0]) {
       long freq = vfo_state_get_long("B", "cat.state.freq", 0);
       rr_cat_printf("FB%09ld;", freq);
-      Log(LOG_DEBUG, "cat.yaesu", "VFO B read -> %ld", freq);
+      Log(LOG_CRAZY, "cat.yaesu", "VFO B read -> %ld", freq);
       return;
    }
 
    long freq = atol(args);
 
-   Log(LOG_INFO, "cat.yaesu", "Set VFO B freq to %ld", freq);
+   Log(LOG_CRAZY, "cat.yaesu", "Set VFO B freq to %ld", freq);
    ws_send_freq_cmd(ws_conn, cat_vfo_str('B'), freq);
 }               // Read/Set VFO B frequency
 
@@ -230,7 +230,7 @@ void rr_cat_yaesu_agc_func(const char *args) {
 
 void rr_cat_yaesu_id(const char *args) {
    // FT-891 replies with its model code; hamlib uses this to identify the rig
-   Log(LOG_DEBUG, "cat.yaesu", "ID query -> 0911");
+   Log(LOG_CRAZY, "cat.yaesu", "ID query -> 0911");
    rr_cat_printf("ID0911;");
 }                       // IDentification
 
@@ -265,7 +265,7 @@ void rr_cat_yaesu_mode(const char *args) {
       // "MD;" legacy query
       int digit = cat_mode_digit();
       rr_cat_printf("MD%d;", digit);
-      Log(LOG_DEBUG, "cat.yaesu", "MODE read -> %d", digit);
+      Log(LOG_CRAZY, "cat.yaesu", "MODE read -> %d", digit);
       return;
    }
 
@@ -278,7 +278,7 @@ void rr_cat_yaesu_mode(const char *args) {
          // "MD0;" -- query: reply MD<n-selector><mode>;
          int digit = cat_mode_digit();
          rr_cat_printf("MD%c%d;", args[0], digit);
-         Log(LOG_DEBUG, "cat.yaesu", "MODE read (band %c) -> %d", args[0], digit);
+         Log(LOG_CRAZY, "cat.yaesu", "MODE read (band %c) -> %d", args[0], digit);
          return;
       }
 
@@ -322,20 +322,20 @@ void rr_cat_yaesu_narrow(const char *args) {
       // NB: Yaesu newcat queries are band-qualified ("NA0;"/"NA1;") and
       // clients expect the selector echoed in the reply.
       rr_cat_printf("NA00;");
-      Log(LOG_DEBUG, "cat.yaesu", "NARROW query -> 0");
+      Log(LOG_CRAZY, "cat.yaesu", "NARROW query -> 0");
       return;
    }
 
    if ( (args[0] == '0' || args[0] == '1') && !args[1] ) {
       // band-qualified query ("NA0;" or "NA1;") - echo the selector back
       rr_cat_printf("NA%c0;", args[0]);
-      Log(LOG_DEBUG, "cat.yaesu", "NARROW query (band %c) -> 0", args[0]);
+      Log(LOG_CRAZY, "cat.yaesu", "NARROW query (band %c) -> 0", args[0]);
       return;
    }
 
    // Set: args[0] is 0/1. Map onto the width command (narrow/normal) so the
    // server applies a real filter change.
-   Log(LOG_INFO, "cat.yaesu", "Set NARROW to %c", args[0]);
+   Log(LOG_CRAZY, "cat.yaesu", "Set NARROW to %c", args[0]);
    ws_send_width_cmd(ws_conn, cat_vfo_str(0), (args[0] == '1' ? "narrow" : "normal") );
 }               // Narrow
 
@@ -382,10 +382,10 @@ void rr_cat_yaesu_tx_power(const char *args) {
 void rr_cat_yaesu_power(const char *args) {
    if (!args || !args[0]) {
       rr_cat_printf("PS1;");
-      Log(LOG_DEBUG, "cat.yaesu", "PS query -> 1");
+      Log(LOG_CRAZY, "cat.yaesu", "PS query -> 1");
       return;
    }
-   Log(LOG_DEBUG, "cat.yaesu", "Set PS to %c", args[0]);
+   Log(LOG_CRAZY, "cat.yaesu", "Set PS to %c", args[0]);
 }               // Read/Toggle power
 
 void rr_cat_yaesu_qmb_store(const char *args) {
@@ -399,7 +399,7 @@ void rr_cat_yaesu_width(const char *args) {
       // Legacy "SH;" query
       int w = (int)vfo_state_get_long("A", "cat.state.width", 2400);
       rr_cat_printf("SH%04d;", w);
-      Log(LOG_DEBUG, "cat.yaesu", "WIDTH read -> %d", w);
+      Log(LOG_CRAZY, "cat.yaesu", "WIDTH read -> %d", w);
       return;
    }
 
@@ -408,18 +408,18 @@ void rr_cat_yaesu_width(const char *args) {
          // "SH0;" -- query
          int w = (int)vfo_state_get_long("A", "cat.state.width", 2400);
          rr_cat_printf("SH0%04d;", w);
-         Log(LOG_DEBUG, "cat.yaesu", "WIDTH read (band %c) -> %d", args[0], w);
+         Log(LOG_CRAZY, "cat.yaesu", "WIDTH read (band %c) -> %d", args[0], w);
          return;
       }
 
       // "SH0<nnnn>;" -- set width on the main band
-      Log(LOG_INFO, "cat.yaesu", "Set WIDTH to %s", args + 1);
+      Log(LOG_CRAZY, "cat.yaesu", "Set WIDTH to %s", args + 1);
       ws_send_width_cmd(ws_conn, cat_vfo_str(0), args + 1);
       return;
    }
 
    // Legacy "SH<nnnn>;" set form
-   Log(LOG_INFO, "cat.yaesu", "Set WIDTH to %s", args);
+   Log(LOG_CRAZY, "cat.yaesu", "Set WIDTH to %s", args);
    ws_send_width_cmd(ws_conn, cat_vfo_str(0), args);
 }               // Width
 
@@ -444,13 +444,13 @@ void rr_cat_yaesu_ptt(const char *args) {
    if (!args || !args[0]) {
       bool ptt = vfo_state_get_bool("A", "cat.state.ptt", false);
       rr_cat_printf("TX%d;", ptt ? 1 : 0);
-      Log(LOG_DEBUG, "cat.yaesu", "PTT query -> %d", ptt ? 1 : 0);
+      Log(LOG_CRAZY, "cat.yaesu", "PTT query -> %d", ptt ? 1 : 0);
       return;
    }
 
    bool ptt = (args[0] == '1');
 
-   Log(LOG_INFO, "cat.yaesu", "Set PTT to %s", (ptt ? "ON" : "OFF") );
+   Log(LOG_CRAZY, "cat.yaesu", "Set PTT to %s", (ptt ? "ON" : "OFF") );
    ws_send_ptt_cmd(ws_conn, cat_vfo_str(0), ptt);
 }
 
@@ -475,12 +475,12 @@ void rr_cat_yaesu_key_speed(const char *args) {
    if (!args || !args[0]) {
       long speed = vfo_state_get_long("A", "cat.state.key_speed", 450);
       rr_cat_printf("KS%03ld;", speed);
-      Log(LOG_DEBUG, "cat.yaesu", "KS query -> %ld", speed);
+      Log(LOG_CRAZY, "cat.yaesu", "KS query -> %ld", speed);
       return;
    }
 
    long speed = atol(args);
-   Log(LOG_DEBUG, "cat.yaesu", "Set KS to %ld", speed);
+   Log(LOG_CRAZY, "cat.yaesu", "Set KS to %ld", speed);
 }
 
 void rr_cat_yaesu_zero_in(const char *args) {

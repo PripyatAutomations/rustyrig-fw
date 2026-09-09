@@ -115,6 +115,8 @@ defconfig_t defcfg[] = {
    { "ui.gtk.theme", NULL, "Chosen light theme" },
    { "ui.gtk.theme.dark", NULL, "Chosen dark theme" },
 #endif	// _WIN32
+   { "ui.theme.completion", "bright-magenta", "Color tag used for tab-completion candidates" },
+   { "ui.theme.headers", "cyan", "Color tag used for headers (help banner, section titles)" },
    { "ui.ptt-ack-timeout", "2", "How long to wait for server to ACK ptt button?" },
    { "ui.bell.chat", "true", "Dings in chat for new messages?" },
    { "ui.bell.chat-highlight", "./sounds/uh-oh.wav", "Sound to play instead of a ding for msgs with our username in them" },

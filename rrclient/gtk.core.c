@@ -181,6 +181,77 @@ char *gtk_colorize_string(const char *in) {
 // Counting lines isn't free, so we only check every 16 inserts.
 static int scrollback_skip = 0;
 
+// Lines printed while the chat tab was hidden. They're rendered through the
+// normal markup path once the tab is focused again, so colors are preserved.
+static GQueue *chat_backlog = NULL;
+
+// Cap on the hidden-tab backlog so a long time away can't grow it unbounded.
+// Old lines beyond the cap are dropped, matching the scrollback trim.
+#define CHAT_BACKLOG_MAX 200
+
+extern GtkWidget *main_notebook;      // gtk.chat.c / gtk.core.c
+extern GtkWidget *status_tab;         // gtk.chat.c: the chat tab page widget
+
+// Is the chat tab the one the user is looking at?
+static bool chat_tab_visible(void) {
+   if (!main_notebook || !status_tab) {
+      return true;      // tabs not up yet; behave as before
+   }
+
+   return (gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
+           gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab) );
+}
+
+// Queue a raw line for later rendering while the tab is hidden
+static void chat_backlog_push(const char *line) {
+   if (!line) {
+      return;
+   }
+   if (!chat_backlog) {
+      chat_backlog = g_queue_new();
+   }
+
+   char *copy = strdup(line);
+
+   if (!copy) {
+      return;
+   }
+   g_queue_push_tail(chat_backlog, copy);
+
+   while (g_queue_get_length(chat_backlog) > CHAT_BACKLOG_MAX) {
+      g_free(g_queue_pop_head(chat_backlog) );
+   }
+}
+
+// Render any queued lines into the chat buffer with the normal markup path.
+// Called when the chat tab is visible again (or first becomes visible).
+static void chat_backlog_flush(void) {
+   if (!chat_backlog || g_queue_is_empty(chat_backlog) || !text_buffer) {
+      return;
+   }
+
+   char *line;
+
+   while ( (line = g_queue_pop_head(chat_backlog) ) ) {
+      char *colorized = gtk_colorize_string(line);
+
+      GtkTextIter end;
+
+      gtk_text_buffer_get_end_iter(text_buffer, &end);
+
+      if (colorized) {
+         gtk_text_buffer_insert_markup(text_buffer, &end, colorized, -1);
+         g_free(colorized);
+      } else {
+         gtk_text_buffer_insert(text_buffer, &end, line, -1);
+      }
+      gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
+      g_free(line);
+   }
+   gtk_trim_scrollback(text_buffer, "ui.gtk.scrollback.chat", 200);
+   g_idle_add(ui_scroll_to_end, chat_textview);
+}
+
 void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def) {
    if (!buf || !cfg_key) {
       return;
@@ -225,6 +296,19 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    va_copy(aq, ap);
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, aq);
    va_end(aq);
+
+   // While the chat tab isn't the current notebook page, don't insert into
+   // the buffer (avoids per-line markup parsing and redraws for lines the
+   // user can't see). Queue the raw strings instead; chat_backlog_flush()
+   // renders them through the normal colorize path when the tab is focused
+   // again, so nothing is lost or left uncolored.
+   // PARITY: rrclient/gtk.syslog.c log_tab_visible() (same tab-visibility idea)
+   if (!chat_tab_visible() ) {
+      chat_backlog_push(msgbuf);
+      return false;
+   }
+
+   chat_backlog_flush();
 
    bool colorize_failed = false;
    char *colorized = gtk_colorize_string(msgbuf);

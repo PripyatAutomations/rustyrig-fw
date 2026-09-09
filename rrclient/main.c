@@ -305,9 +305,10 @@ bool rrclient_cleanup(void) {
 }
 
 void show_arg_help(int argc, char **argv) {
-   printf("%s [-T] [-f config] [-h]\n", argv[0]);
+   printf("%s [-T] [-f config] [-s server] [-h]\n", argv[0]);
    printf("\t-T\t\tTUI only mode (no X11)\n");
    printf("\t-f config\tChose an alternative configuration file\n");
+   printf("\t-s server\tServer profile to autoconnect to on start\n");
    printf("\t-h\t\tHelp\n");
 }
 
@@ -315,6 +316,7 @@ void show_arg_help(int argc, char **argv) {
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
    char *fullpath = NULL;
+   char *autoconnect_server = NULL;   // -s: server profile to connect to on start
 
    // Apply the hard-coded defaults from defconfig.c FIRST, so keys missing
    // from the user's config fall back to them.
@@ -366,11 +368,12 @@ int main(int argc, char *argv[]) {
       static struct option long_options[] = {
          { "config", required_argument, 0, 'f' },
          { "tui", no_argument, 0, 'T' },
+         { "server", required_argument, 0, 's' },
          { "help", no_argument, 0, 'h' },
          { 0, 0, 0, 0 }
       };
 
-      c = getopt_long(argc, argv, "Thf:", long_options, &option_index);
+      c = getopt_long(argc, argv, "Thf:s:", long_options, &option_index);
 
       if (c == -1) {
          break;
@@ -391,6 +394,12 @@ int main(int argc, char *argv[]) {
 
          case 'T': {
             ui_mode = UI_MODE_TUI;
+            break;
+         }
+
+         case 's': {
+            printf("Autoconnect server: %s\n", optarg);
+            autoconnect_server = strdup(optarg);
             break;
          }
 
@@ -454,6 +463,13 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
       // Use default settings builtin
       fprintf(stderr, "No config found :(\n");
       exit(1);
+   }
+
+   // -s overrides server.auto-connect so we connect to the given profile on start
+   if (autoconnect_server) {
+      dict_add(cfg, "server.auto-connect", autoconnect_server);
+      free( (void *)autoconnect_server);
+      autoconnect_server = NULL;
    }
 
    // apply some global configuration

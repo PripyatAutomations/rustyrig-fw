@@ -100,41 +100,43 @@ static dict *last_state_dict[MAX_VFOS];
 static time_t last_state_send[MAX_VFOS];
 static int cfg_state_interval = -1;  // seconds; -1 = not yet read from config
 
-// The keys we consider when diffing cat.state messages. Anything not listed
-// here (like the volatile msg.ts timestamp) is ignored by the diff, so only
-// genuine state changes trigger an immediate broadcast. Add fields here to
-// have them participate in change detection.
-static const char *cat_state_cmp_keys[] = {
-   "cat.state.freq",
-   "cat.state.mode",
-   "cat.state.width",
-   "cat.state.ptt",
-   "cat.user",
-   NULL,
-};
+// Last active VFO letter we announced, so we can include cat.state.lastvfo
+// when the active VFO changes. 0 = nothing announced yet.
+static char s_announced_active = 0;
 
-// Copy only the keys in cat_state_cmp_keys from src into a new dict. Returns
+// Which cat.* keys participate in change detection. We include ALL
+// cat.state.* keys by prefix, so per-VFO keys (cat.state.vfo.<a..z>.*) and
+// the active/lastvfo indicators all count, while msg.ts doesn't.
+// PARITY: rrserver/backend.internal.c cat_state_cmp_key()
+static bool cat_state_cmp_key(const char *key) {
+   if (!key) {
+      return false;
+   }
+   return (strncmp(key, "cat.state.", 10) == 0 || strcmp(key, "cat.user") == 0);
+}
+
+// Copy only the keys that participate in change detection from src. Returns
 // NULL on OOM. This both strips volatile keys (msg.ts) and narrows the diff
-// to just the state we care about.
+// to just the state we care about. We match by prefix rather than exact key
+// list, so per-VFO keys (cat.state.vfo.<a..z>.*) all count.
+// PARITY: rrserver/backend.internal.c be_cat_state_filter()
 static dict *cat_state_filter(dict *src) {
    if (!src) return NULL;
 
    dict *out = dict_new();
    if (!out) return NULL;
 
-   for (int i = 0; cat_state_cmp_keys[i]; i++) {
-      const char *key = cat_state_cmp_keys[i];
-      const char *key2 = NULL;
-      dict_value_t val;
-      val_type_t type;
-      int rank = 0;
+   int rank = 0;
+   const char *key = NULL;
+   dict_value_t val;
+   val_type_t type;
 
-      while ((rank = dict_enumerate_typed(src, rank, &key2, &val, &type)) >= 0) {
-         if (strcmp(key2, key) != 0) {
-            continue;
-         }
-         // Copy the value with its native type (all public dict_add_* API)
-         switch (type) {
+   while ((rank = dict_enumerate_typed(src, rank, &key, &val, &type)) >= 0) {
+      if (!cat_state_cmp_key(key)) {
+         continue;
+      }
+      // Copy the value with its native type (all public dict_add_* API)
+      switch (type) {
             case VAL_STR:
                dict_add(out, key, val.s);
                break;
@@ -168,8 +170,6 @@ static dict *cat_state_filter(dict *src) {
             default:
                break;   // ignore exotic/unknown types
          }
-         break;
-      }
    }
    return out;
 }
@@ -545,14 +545,22 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // send to all users
    rrconn_t *talker = whos_talking();
    dict *d = dict_new();
+   char vfo_l = (char)('a' + vfo);
+   char state_key[64];
    dict_add(d, "msg.type", "cat");
-   dict_add(d, "cat.state.vfo", vfo_name(vfo) ? vfo_name(vfo) : "A");
+   // Per-VFO state keys: cat.state.vfo.<a..z>.{mode,widths,width,power,ptt,freq}
+   // Protocol: cat.state.vfo.<a..z>.* + cat.state.active/lastvfo (see be_cat_state_dict)
+   // PARITY: rrserver/backend.internal.c be_cat_state_dict()
+#define HL_STATE_KEY(suffix, var) do { \
+      snprintf(state_key, sizeof(state_key), "cat.state.vfo.%c.%s", vfo_l, suffix); \
+      var; \
+   } while (0)
    // For fields the rig wouldn't answer reads for (unread => MODE_NONE/0),
    // fall back to the last known merged state in vfos[] - the same values
    // backend.c keeps, so clients never see NONE/0 flicker.
    // PARITY: rrserver/backend.c rr_be_merge_poll()
-   dict_add(d, "cat.state.mode",
-      vfo_mode_name(rv->mode != MODE_NONE ? rv->mode : vfos[vfo].mode) );
+   HL_STATE_KEY("mode", dict_add(d, state_key,
+      vfo_mode_name(rv->mode != MODE_NONE ? rv->mode : vfos[vfo].mode) ));
 
    // Query the supported passband widths through the backend-agnostic
    // wrapper and broadcast them as a comma-separated list, e.g. "2400,3000,3600"
@@ -570,14 +578,26 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
          }
          len += snprintf(widths_str + len, sizeof(widths_str) - len, "%d", widths[i]);
       }
-      dict_add(d, "cat.state.widths", widths_str);
+      HL_STATE_KEY("widths", dict_add(d, state_key, widths_str));
    }
    dict_add(d, "cat.user", (talker ? talker->chatname : "") );
-   dict_add_int(d, "cat.state.width", (st->width > 0 ? st->width : vfos[vfo].width) );
-   dict_add_int(d, "cat.state.power", st->power);
-   dict_add_bool(d, "cat.state.ptt", st->ptt);
-   dict_add_long(d, "cat.state.freq", (st->freq > 0 ? st->freq : vfos[vfo].freq) );
+   HL_STATE_KEY("width", dict_add_int(d, state_key, (st->width > 0 ? st->width : vfos[vfo].width) ));
+   HL_STATE_KEY("power", dict_add_int(d, state_key, st->power));
+   HL_STATE_KEY("ptt", dict_add_bool(d, state_key, st->ptt));
+   HL_STATE_KEY("freq", dict_add_long(d, state_key, (st->freq > 0 ? st->freq : vfos[vfo].freq) ));
+
+   // Active VFO (letter). When it changed since our last announcement, also
+   // include cat.state.lastvfo so clients know which VFO they left.
+   char act[2] = { (char)('a' + active_vfo), 0 };
+   dict_add(d, "cat.state.active", act);
+   if (s_announced_active && s_announced_active != act[0]) {
+      char last[2] = { s_announced_active, 0 };
+      dict_add(d, "cat.state.lastvfo", last);
+   }
+   s_announced_active = act[0];
+
    dict_add_ulong(d, "msg.ts", now);
+#undef HL_STATE_KEY
    // Lazy-load the configured max interval between unchanged cat.state sends.
    if (cfg_state_interval < 0) {
       cfg_state_interval = cfg_get_int("backend.state-interval", 15);
@@ -652,12 +672,23 @@ bool hl_send_state_to(rrconn_t *cptr) {
          rr_vfo_data_t *vp = &vfos[i];
          d = dict_new();
          if (d) {
+            char vfo_l = (char)('a' + i);
+            char key[64];
             dict_add(d, "msg.type", "cat");
-            dict_add(d, "cat.state.vfo", vfo_name((rr_vfo_t)i) );
-            dict_add(d, "cat.state.mode", vfo_mode_name(vp->mode));
-            dict_add_int(d, "cat.state.width", vp->width);
-            dict_add_long(d, "cat.state.freq", vp->freq);
-            dict_add_bool(d, "cat.state.ptt", hl_state[i].ptt);
+            snprintf(key, sizeof(key), "cat.state.vfo.%c.mode", vfo_l);
+            dict_add(d, key, vfo_mode_name(vp->mode));
+            snprintf(key, sizeof(key), "cat.state.vfo.%c.width", vfo_l);
+            dict_add_int(d, key, vp->width);
+            snprintf(key, sizeof(key), "cat.state.vfo.%c.freq", vfo_l);
+            dict_add_long(d, key, vp->freq);
+            snprintf(key, sizeof(key), "cat.state.vfo.%c.ptt", vfo_l);
+            dict_add_bool(d, key, hl_state[i].ptt);
+            // active VFO (letter); only announce on the active VFO's message
+            // so a just-connecting client gets one authoritative answer
+            if ((rr_vfo_t)i == active_vfo) {
+               char act[2] = { (char)('a' + active_vfo), 0 };
+               dict_add(d, "cat.state.active", act);
+            }
          }
       }
 

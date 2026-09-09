@@ -151,12 +151,27 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
    }
 
    // Ambiguous: print candidates into the chat window
+   // ui.theme.completion is the color tag used to print candidates
+   const char *completion_color = cfg_get("ui.theme.completion");
+
+   if (!completion_color) {
+      completion_color = "bright-magenta";
+   }
+
    for (int i = 0; i < nmatch && i < TUI_MAX_COMPLETIONS_SHOWN; i++) {
-      gtk_text_buffer_insert_at_cursor(
-         text_buffer,
-         matches[i],
-         -1
-      );
+      char colored[512];
+      snprintf(colored, sizeof(colored), "{%s}%s{reset}", completion_color, matches[i]);
+      char *markup = gtk_colorize_string(colored);
+
+      if (markup) {
+         GtkTextIter iter;
+
+         gtk_text_buffer_get_end_iter(text_buffer, &iter);
+         gtk_text_buffer_insert_markup(text_buffer, &iter, markup, -1);
+         g_free(markup);
+      } else {
+         gtk_text_buffer_insert_at_cursor(text_buffer, matches[i], -1);
+      }
       gtk_text_buffer_insert_at_cursor(
          text_buffer,
          "\n",

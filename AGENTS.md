@@ -85,16 +85,15 @@ See `doc/client-parity.md` for the current parity map.
 - mk/json-config.mk maps config settings to make variables as needed
 
 ## Before modifying code
-
-For a non-trivial change:
-
-1. Locate the existing implementation.
-2. Locate its callers/users.
-3. Determine whether the behavior is protocol-defined.
-4. Search the other client implementation for corresponding behavior.
-5. Check the relevant architecture/parity documentation.
-6. Make the smallest change consistent with the existing design.
-7. Build/test the affected configurations.
+1: Before changing: Commit with "LLM-$llmname // Automated commit before changes" commit message.
+2: After changing: Commit with "LLM-$llmname // Automated commit after changes" commit message.
+3. Locate the existing implementation.
+4. Locate its callers/users.
+5. Determine whether the behavior is protocol-defined.
+6. Search the other client implementation for corresponding behavior.
+7. Check the relevant architecture/parity documentation.
+8. Make the smallest change consistent with the existing design.
+9. Build/test the affected configurations.
 
 ## Synchronization marker
 
@@ -132,4 +131,4 @@ Do not force frontend-specific implementations to look alike. They only
 need equivalent behavior where the parity document says they do.
 If possible without large changes, we should try to adjust the webui to
 match C version as we add new protocol messages or features.
-Configuration
+Configuration.

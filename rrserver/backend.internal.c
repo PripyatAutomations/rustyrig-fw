@@ -42,19 +42,22 @@ static struct {
 
 // Last cat.state dict we sent (for diffing against the next poll), mirroring
 // the hamlib backend so clients see identical behavior.
+// One baseline per VFO so we never diff VFO A's state against VFO B's.
 // PARITY: rrserver/backend.hamlib.c (cat.state broadcast/diff logic)
-static dict *last_state_dict = NULL;
-static time_t last_state_send = 0;
+static dict *last_state_dict[MAX_VFOS];
+static time_t last_state_send[MAX_VFOS];
 static int cfg_state_interval = -1;  // seconds; -1 = not yet read from config
 
-static const char *cat_state_cmp_keys[] = {
-   "cat.state.freq",
-   "cat.state.mode",
-   "cat.state.width",
-   "cat.state.ptt",
-   "cat.user",
-   NULL,
-};
+// Which cat.* keys participate in change detection. We include ALL
+// cat.state.* keys by prefix, so per-VFO keys (cat.state.vfo.<a..z>.*) and
+// the active/lastvfo indicators all count, while msg.ts doesn't.
+// PARITY: rrserver/backend.hamlib.c cat_state_filter()
+static bool cat_state_cmp_key(const char *key) {
+   if (!key) {
+      return false;
+   }
+   return (strncmp(key, "cat.state.", 10) == 0 || strcmp(key, "cat.user") == 0);
+}
 
 // Per-mode default passbands (hz): narrow, normal, wide
 static void be_widths_for_mode(rr_mode_t mode, int *narr, int *norm, int *wide) {
@@ -82,7 +85,7 @@ static void be_widths_for_mode(rr_mode_t mode, int *narr, int *norm, int *wide) 
    }
 }
 
-// Copy only the keys in cat_state_cmp_keys from src into a new dict.
+// Copy only the keys that participate in change detection from src.
 // PARITY: rrserver/backend.hamlib.c cat_state_filter()
 static dict *be_cat_state_filter(dict *src) {
    if (!src) return NULL;
@@ -90,52 +93,48 @@ static dict *be_cat_state_filter(dict *src) {
    dict *out = dict_new();
    if (!out) return NULL;
 
-   for (int i = 0; cat_state_cmp_keys[i]; i++) {
-      const char *key = cat_state_cmp_keys[i];
-      const char *key2 = NULL;
-      dict_value_t val;
-      val_type_t type;
-      int rank = 0;
+   int rank = 0;
+   const char *key;
+   dict_value_t val;
+   val_type_t type;
 
-      while ((rank = dict_enumerate_typed(src, rank, &key2, &val, &type)) >= 0) {
-         if (strcmp(key2, key) != 0) {
-            continue;
-         }
-         switch (type) {
-            case VAL_STR:
-               dict_add(out, key, val.s);
-               break;
-            case VAL_INT:
-               dict_add_int(out, key, val.i);
-               break;
-            case VAL_UINT:
-               dict_add_uint(out, key, val.ui);
-               break;
-            case VAL_LONG:
-               dict_add_long(out, key, val.l);
-               break;
-            case VAL_ULONG:
-               dict_add_ulong(out, key, val.ul);
-               break;
-            case VAL_LLONG:
-               dict_add_llong(out, key, val.ll);
-               break;
-            case VAL_ULLONG:
-               dict_add_ullong(out, key, val.ull);
-               break;
-            case VAL_FLOAT:
-               dict_add_float(out, key, val.f);
-               break;
-            case VAL_DOUBLE:
-               dict_add_double(out, key, val.d);
-               break;
-            case VAL_BOOL:
-               dict_add_bool(out, key, val.i != 0);
-               break;
-            default:
-               break;
-         }
-         break;
+   while ((rank = dict_enumerate_typed(src, rank, &key, &val, &type)) >= 0) {
+      if (!cat_state_cmp_key(key)) {
+         continue;
+      }
+      switch (type) {
+         case VAL_STR:
+            dict_add(out, key, val.s);
+            break;
+         case VAL_INT:
+            dict_add_int(out, key, val.i);
+            break;
+         case VAL_UINT:
+            dict_add_uint(out, key, val.ui);
+            break;
+         case VAL_LONG:
+            dict_add_long(out, key, val.l);
+            break;
+         case VAL_ULONG:
+            dict_add_ulong(out, key, val.ul);
+            break;
+         case VAL_LLONG:
+            dict_add_llong(out, key, val.ll);
+            break;
+         case VAL_ULLONG:
+            dict_add_ullong(out, key, val.ull);
+            break;
+         case VAL_FLOAT:
+            dict_add_float(out, key, val.f);
+            break;
+         case VAL_DOUBLE:
+            dict_add_double(out, key, val.d);
+            break;
+         case VAL_BOOL:
+            dict_add_bool(out, key, val.i != 0);
+            break;
+         default:
+            break;
       }
    }
    return out;
@@ -336,7 +335,12 @@ static bool be_internal_fini(void) {
 }
 
 // Build the cat.state dict from our state (caller frees)
+// Protocol: per-VFO keys cat.state.vfo.<a..z>.{freq,mode,width,power,ptt,widths}
+// plus cat.state.active (current active VFO letter) and cat.state.lastvfo
+// (previous active VFO, present only when the active VFO changed).
 // PARITY: rrserver/backend.hamlib.c hl_poll() broadcast block
+static char s_announced_active = 0;   // active VFO as last announced to clients
+
 static dict *be_cat_state_dict(rr_vfo_t vfo) {
    if (vfo < 0 || vfo >= MAX_VFOS) {
       return NULL;
@@ -348,9 +352,12 @@ static dict *be_cat_state_dict(rr_vfo_t vfo) {
    }
 
    rrconn_t *talker = whos_talking();
+   char vfo_l = 'a' + vfo;
+   char key[64];
+
    dict_add(d, "msg.type", "cat");
-   dict_add(d, "cat.state.vfo", vfo_name(vfo) ? vfo_name(vfo) : "A");
-   dict_add(d, "cat.state.mode", vfo_mode_name(be_state[vfo].mode));
+   snprintf(key, sizeof(key), "cat.state.vfo.%c.mode", vfo_l);
+   dict_add(d, key, vfo_mode_name(be_state[vfo].mode));
 
    // Advertise the passband widths we support for the current mode
    int widths[8];
@@ -367,14 +374,30 @@ static dict *be_cat_state_dict(rr_vfo_t vfo) {
          }
          len += snprintf(widths_str + len, sizeof(widths_str) - len, "%d", widths[i]);
       }
-      dict_add(d, "cat.state.widths", widths_str);
+      snprintf(key, sizeof(key), "cat.state.vfo.%c.widths", vfo_l);
+      dict_add(d, key, widths_str);
    }
 
    dict_add(d, "cat.user", (talker ? talker->chatname : "") );
-   dict_add_int(d, "cat.state.width", be_state[vfo].width);
-   dict_add_int(d, "cat.state.power", (int)be_state[vfo].power);
-   dict_add_bool(d, "cat.state.ptt", be_state[vfo].ptt);
-   dict_add_long(d, "cat.state.freq", be_state[vfo].freq);
+   snprintf(key, sizeof(key), "cat.state.vfo.%c.width", vfo_l);
+   dict_add_int(d, key, be_state[vfo].width);
+   snprintf(key, sizeof(key), "cat.state.vfo.%c.power", vfo_l);
+   dict_add_int(d, key, (int)be_state[vfo].power);
+   snprintf(key, sizeof(key), "cat.state.vfo.%c.ptt", vfo_l);
+   dict_add_bool(d, key, be_state[vfo].ptt);
+   snprintf(key, sizeof(key), "cat.state.vfo.%c.freq", vfo_l);
+   dict_add_long(d, key, be_state[vfo].freq);
+
+   // Active VFO (letter). When it changed since our last announcement, also
+   // include cat.state.lastvfo so clients know which VFO they left.
+   char act[2] = { (char)('a' + active_vfo), 0 };
+   dict_add(d, "cat.state.active", act);
+   if (s_announced_active && s_announced_active != act[0]) {
+      char last[2] = { s_announced_active, 0 };
+      dict_add(d, "cat.state.lastvfo", last);
+   }
+   s_announced_active = act[0];
+
    dict_add_ulong(d, "msg.ts", now);
    return d;
 }
@@ -388,15 +411,14 @@ bool be_internal_send_state_to(rrconn_t *cptr) {
 
    dict *d = NULL;
 
-   if (last_state_dict) {
+   if (last_state_dict[active_vfo]) {
       d = dict_new();
       if (d) {
-         dict_merge(d, last_state_dict);
+         dict_merge(d, last_state_dict[active_vfo]);
       }
    } else {
       d = be_cat_state_dict(active_vfo);
    }
-
    if (!d) {
       Log(LOG_WARN, "backend.internal", "OOM sending cat.state to %s", cptr->chatname);
       return true;
@@ -441,8 +463,8 @@ rr_vfo_data_t *be_internal_poll(rr_vfo_t vfo) {
 
       bool changed = true;
       dict *curr_cmp = be_cat_state_filter(d);
-      if (last_state_dict && curr_cmp) {
-         dict *prev_cmp = be_cat_state_filter(last_state_dict);
+      if (last_state_dict[vfo] && curr_cmp) {
+         dict *prev_cmp = be_cat_state_filter(last_state_dict[vfo]);
          if (prev_cmp) {
             dict *df = dict_diff(prev_cmp, curr_cmp);
             changed = (df && df->fill > 0);
@@ -453,7 +475,7 @@ rr_vfo_data_t *be_internal_poll(rr_vfo_t vfo) {
       if (curr_cmp) dict_free(curr_cmp);
 
       if (!changed) {
-         if (last_state_send + cfg_state_interval > now) {
+         if (last_state_send[vfo] + cfg_state_interval > now) {
             // Too soon since our last (possibly unchanged) announcement; drop it
             dict_free(d);
             return rv;
@@ -462,12 +484,12 @@ rr_vfo_data_t *be_internal_poll(rr_vfo_t vfo) {
       }
 
       // Remember this state as the new baseline for future diffs
-      if (last_state_dict) dict_free(last_state_dict);
-      last_state_dict = dict_new();
-      if (last_state_dict) {
-         dict_merge(last_state_dict, d);
+      if (last_state_dict[vfo]) dict_free(last_state_dict[vfo]);
+      last_state_dict[vfo] = dict_new();
+      if (last_state_dict[vfo]) {
+         dict_merge(last_state_dict[vfo], d);
       }
-      last_state_send = now;
+      last_state_send[vfo] = now;
 
       const char *jp = dict2json(d);
       Log(LOG_CRAZY, "backend.internal", "Sending %s", jp);

@@ -128,9 +128,21 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    char vfo_str[2] = { vfo_id, 0 };
    Log(LOG_CRAZY, "vfo", "vfo_set_dict: VFO %c", vfo_id);
 
+   // The server is authoritative about which VFO is active (e.g. after a
+   // !vfo switch); track its announcements so the UI shows the right VFO.
+   // This must happen BEFORE computing is_active below, so an update that
+   // switches the active VFO still refreshes the UI.
+   // PARITY: rustyrig-www/js/webui.rigctl.js (cat.state.active handling)
+   char prev_active = s_active_vfo;
+
+   if (dict_get_bool(d, "cat.state.active", false) ) {
+      vfo_state_set_active(vfo_str);
+   }
+
    // Track whether this update is for the VFO the UI is showing, so we
    // don't needlessly refresh widgets on updates for other VFOs.
-   bool is_active = (vfo_id == s_active_vfo);
+   // When the active VFO just changed, force a refresh so the UI follows.
+   bool is_active = (vfo_id == s_active_vfo || s_active_vfo != prev_active);
 
    // Save every cat.* key we receive into the central state, namespaced
    // per-VFO (dict handles replace-on-add, so no duplicates accumulate)
