@@ -498,6 +498,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // "Protocol error" in the log). Mark the fields unread (MODE_NONE/0) and
    // let backend.c keep the last known values for this VFO.
    if (!hl_vfo_probed[vfo] || hl_vfo_mode_ok[vfo] || vfo == active_vfo) {
+      hl_vfo_probed[vfo] = true;
       if ( (rc = rig_get_mode(hl_rig, hl_vfo, &st->rmode, &st->width) ) != RIG_OK) {
          Log( LOG_WARN, "backend.hamlib", "GET VFO %s mode failed: %s (backend.c keeps cached mode)",
             vfo_name(vfo), rigerror(rc) );
