@@ -70,7 +70,24 @@ static gboolean on_configure_timeout(gpointer data) {
          char opts[256];
          // Generate a string with the options
          memset( opts, 0, sizeof(opts) );
-         snprintf( opts, sizeof(opts), "%s%s", (win->win_raised ? "|raised" : ""), (win->win_modal ? "|modal" : "") );
+         // NB: keep this in sync with the option parser below (hidden|minimized|
+         // modal|no-hide|raised) so saved entries round-trip losslessly.
+         int flen = 0;
+         if (win->win_raised) {
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sraised", (flen ? "|" : "") );
+         }
+         if (win->win_modal) {
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%smodal", (flen ? "|" : "") );
+         }
+         if (win->win_nohide) {
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sno-hide", (flen ? "|" : "") );
+         }
+         if (win->win_hidden) {
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%shidden", (flen ? "|" : "") );
+         }
+         if (win->win_minimized) {
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sminimized", (flen ? "|" : "") );
+         }
 
          // Store the value of width,height@x,y|options
          char val[512];
