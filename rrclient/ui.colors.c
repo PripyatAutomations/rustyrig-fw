@@ -68,15 +68,31 @@ static const struct {
 const char *pango_color_for_tag(const char *tag, bool *is_bg) {
    *is_bg = (strncmp(tag, "bg-", 3) == 0);
 
+   // Config values may be written bare ("cyan") or braced ("{cyan}", as they
+   // appear in message templates). Strip surrounding braces so both forms
+   // resolve; an unknown tag still returns NULL.
+   char clean[64];
+   const char *t = tag;
+   size_t tlen = tag ? strlen(tag) : 0;
+   if (tag && tlen >= 2 && tag[0] == '{' && tag[tlen - 1] == '}') {
+      tlen -= 2;
+      if (tlen >= sizeof(clean)) {
+         tlen = sizeof(clean) - 1;
+      }
+      memcpy(clean, tag + 1, tlen);
+      clean[tlen] = '\0';
+      t = clean;
+   }
+
    // ui.theme.headers resolves at runtime so themes can be configured
-   if (strcmp(tag, "headers") == 0) {
+   if (strcmp(t, "headers") == 0) {
       const char *hc = cfg_get("ui.theme.headers");
 
       return pango_color_for_tag( (hc && *hc) ? hc : "cyan", is_bg);
    }
 
    for (int i = 0 ; color_map[i].tag ; i++) {
-      if (strcmp(tag, color_map[i].tag) == 0) {
+      if (strcmp(t, color_map[i].tag) == 0) {
          return color_map[i].pango;
       }
    }
