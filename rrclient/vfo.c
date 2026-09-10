@@ -232,8 +232,15 @@ bool vfo_update_ui(void) {
    bool vfo_ptt = vfo_state_get_bool(vfo_str, "cat.state.ptt", false);
 
    if (ui_mode == UI_MODE_TUI) {
-      // TUI: refresh the statusbar VFO section from the saved state
+      // TUI: refresh the statusbar VFO section from the saved state and
+      // repaint immediately - the 1hz clock that normally repaints skips
+      // redraws over SSH until the minute turns over, so a VFO switch would
+      // otherwise take up to a minute to show up in the status line.
+      tui_window_t *tw = tui_active_window();
+
+      tui_refresh_sb_window();
       tui_refresh_sb_vfo();
+      tui_update_status(tw, "%s %s %s", sb_online, sb_window, sb_vfo);
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
       // Frequency

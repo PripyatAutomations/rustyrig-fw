@@ -54,6 +54,7 @@ static const char *cat_state_cmp_keys[] = {
    "cat.state.mode",
    "cat.state.width",
    "cat.state.ptt",
+   "cat.state.active",
    "cat.user",
    NULL,
 };
@@ -361,6 +362,10 @@ static dict *be_cat_state_dict(rr_vfo_t vfo) {
    rrconn_t *talker = whos_talking();
    dict_add(d, "msg.type", "cat");
    dict_add(d, "cat.state.vfo", vfo_name(vfo) ? vfo_name(vfo) : "A");
+   // Which VFO is active: the client UIs (TUI statusline, GTK VFO box,
+   // webui) display the VFO with active == true.
+   // PARITY: rrclient/vfo.c vfo_set_dict() (cat.state.active handling)
+   dict_add_bool(d, "cat.state.active", vfo == active_vfo);
    dict_add(d, "cat.state.mode", vfo_mode_name(be_state[vfo].mode));
 
    // Advertise the passband widths we support for the current mode

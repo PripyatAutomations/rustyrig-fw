@@ -109,6 +109,7 @@ static const char *cat_state_cmp_keys[] = {
    "cat.state.mode",
    "cat.state.width",
    "cat.state.ptt",
+   "cat.state.active",
    "cat.user",
    NULL,
 };
@@ -547,6 +548,10 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    dict *d = dict_new();
    dict_add(d, "msg.type", "cat");
    dict_add(d, "cat.state.vfo", vfo_name(vfo) ? vfo_name(vfo) : "A");
+   // Which VFO is active: the client UIs (TUI statusline, GTK VFO box,
+   // webui) display the VFO with active == true.
+   // PARITY: rrclient/vfo.c vfo_set_dict() (cat.state.active handling)
+   dict_add_bool(d, "cat.state.active", vfo == active_vfo);
    // For fields the rig wouldn't answer reads for (unread => MODE_NONE/0),
    // fall back to the last known merged state in vfos[] - the same values
    // backend.c keeps, so clients never see NONE/0 flicker.
@@ -654,6 +659,7 @@ bool hl_send_state_to(rrconn_t *cptr) {
          if (d) {
             dict_add(d, "msg.type", "cat");
             dict_add(d, "cat.state.vfo", vfo_name((rr_vfo_t)i) );
+            dict_add_bool(d, "cat.state.active", (rr_vfo_t)i == active_vfo);
             dict_add(d, "cat.state.mode", vfo_mode_name(vp->mode));
             dict_add_int(d, "cat.state.width", vp->width);
             dict_add_long(d, "cat.state.freq", vp->freq);
