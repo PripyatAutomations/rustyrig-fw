@@ -62,6 +62,7 @@ extern bool parse_chat_input_real(const char *msg); // cmd.c
 extern char **client_cmd_completions(const char *line, const char *word); // cmd.c
 extern bool cfg_servers_init(void) __attribute__((weak));   // cfg.servers.c (optional: IRC server list)
 extern bool cfg_network_save_init(void);  // cfg.network.c
+extern const char *config_file;           // librustyaxe/config.c
 
 struct timespec mono_now;
 bool rrclient_cleanup(void);
@@ -296,6 +297,13 @@ bool rrclient_cleanup(void) {
    // cfg (e.g. ui.auto-show-userlist), so cfg must be freed AFTER this.
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
+
+   // Persist the running config (including window placements learned while
+   // we ran) if ui.save-on-exit says so. Backed up via cfg_save's .old logic.
+   if (cfg && config_file && cfg_get_bool("ui.save-on-exit", false)) {
+      Log(LOG_INFO, "config", "ui.save-on-exit: saving config to %s", config_file);
+      cfg_save(cfg, config_file);
+   }
 
    dict_free(cfg);
 

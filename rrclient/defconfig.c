@@ -123,6 +123,7 @@ defconfig_t defcfg[] = {
    { "ui.freqentry.scroll-divider", "1.0", "Scroll divider for VFO widgets, if needed" },
    { "ui.show-pings", "true", "Show Ping? Pong! notices" },
    { "ui.auto-show-userlist", "true", "Show the userlist when connected, hide when disconnected?" },
+   { "ui.save-on-exit", "false", "Save window placements and config on exit?" },
    { "ui.vfo.visocity", "1000", "Second to block CAT poll messages for input debouncing" },
    { NULL, NULL, NULL }
 };
