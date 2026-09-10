@@ -18,6 +18,7 @@
 #include <time.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/color.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
@@ -123,7 +124,19 @@ char *gtk_colorize_string(const char *in) {
             }
          } else {
             bool is_bg = false;
-            const char *pango_color = pango_color_for_tag(key, &is_bg);
+            // Hex color support: {#rgb}, {#rrggbb}, {#rrggbb:fallback} and
+            // bg- prefixed variants. Pango understands #rrggbb directly, so
+            // the fallback (for 16-color terminals) isn't needed here.
+            char hexbuf[16], fbbuf[64];
+            bool hex_bg = false;
+            const char *pango_color = NULL;
+
+            if (color_tag_parse(key, hexbuf, sizeof(hexbuf), fbbuf, sizeof(fbbuf), &hex_bg) ) {
+               pango_color = hexbuf;
+               is_bg = hex_bg;
+            } else {
+               pango_color = pango_color_for_tag(key, &is_bg);
+            }
 
             if (pango_color) {
                if (fg || bg) {
