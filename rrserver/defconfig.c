@@ -47,6 +47,7 @@ defconfig_t defcfg[] = {
    { "backend.poll-interval", "250", "How often to poll the rig in ms" },
    { "backend.hamlib-port", "127.0.0.1:4532", "What hamlib device to use (def: rigctld localhost)" },
    { "backend.reconnect-interval", "30", "Seconds to wait before retrying hamlib after disconnect; 0 = exit on disconnect (for supervisor/cron restart)" },
+   { "rig.vfos", "2", "How many VFOs does the rig expose? (A-Z; 2 means only A and B exist)" },
    { "chat.log", "true", "Should we log the chat to text files by date/rig?" },
    { "chat.replay-lines", "20", "Lines of replay to show on joining chat" },
    { "codecs.allowed", "mu16 pc16 mu08", "Preferred codec order" },

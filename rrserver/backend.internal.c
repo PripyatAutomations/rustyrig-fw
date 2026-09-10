@@ -149,8 +149,17 @@ static rr_vfo_t be_internal_get_vfo(rr_vfo_t vfo) {
 
 // The internal backend IS the radio: every rr VFO (A-Z) is valid. The radio
 // may not have hardware for all of them, but state is kept for each.
+// cfg:rig.vfos caps how many are actually exposed (see rr_be_vfo_supported,
+// which applies the cap centrally as well).
 static bool be_internal_vfo_supported(rr_vfo_t vfo) {
-   return (vfo >= 0 && vfo < MAX_VFOS);
+   if (vfo < 0 || vfo >= MAX_VFOS) {
+      return false;
+   }
+   int cfg_vfos = cfg_get_int("rig.vfos", 2);
+   if (cfg_vfos < 1 || cfg_vfos > MAX_VFOS) {
+      cfg_vfos = MAX_VFOS;
+   }
+   return (vfo < cfg_vfos);
 }
 
 // NB: The backend's ptt_set() is called FROM rr_ptt_set(), so we must only do

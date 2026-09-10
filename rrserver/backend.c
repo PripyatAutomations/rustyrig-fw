@@ -368,6 +368,8 @@ bool rr_be_poll(rr_vfo_t vfo) {
 // Ask the active backend whether the rig exposes this VFO. Backends without
 // a vfo_supported hook report only VFO A/B (the common case); the hamlib
 // backend checks the rig's own VFO list.
+// cfg:rig.vfos caps this per radio, so rigs with fewer VFOs don't broadcast
+// a pile of unused VFO state to every client.
 bool rr_be_vfo_supported(rr_vfo_t vfo) {
    if (vfo < 0 || vfo >= MAX_VFOS) {
       return false;
@@ -375,10 +377,27 @@ bool rr_be_vfo_supported(rr_vfo_t vfo) {
    if (!rig.backend || !rig.backend->api) {
       return false;
    }
+   bool supported = false;
    if (!rig.backend->api->vfo_supported) {
-      return vfo == VFO_A || vfo == VFO_B;
+      supported = (vfo == VFO_A || vfo == VFO_B);
+   } else {
+      supported = rig.backend->api->vfo_supported(vfo);
    }
-   return rig.backend->api->vfo_supported(vfo);
+   if (!supported) {
+      return false;
+   }
+   // Apply the configured per-radio VFO cap on top of whatever the backend
+   // reports. Values outside [1, MAX_VFOS] are ignored so a bad config can't
+   // hide the rig's VFOs entirely.
+   static int cfg_vfos = -1;
+   if (cfg_vfos < 0) {
+      cfg_vfos = cfg_get_int("rig.vfos", 2);
+      if (cfg_vfos < 1 || cfg_vfos > MAX_VFOS) {
+         Log(LOG_WARN, "backend", "rig.vfos=%d out of range (1-%d); ignoring", cfg_vfos, MAX_VFOS);
+         cfg_vfos = MAX_VFOS;
+      }
+   }
+   return (vfo < cfg_vfos);
 }
 
 // Push the last known rig state to a single client (e.g. a just-authenticated
