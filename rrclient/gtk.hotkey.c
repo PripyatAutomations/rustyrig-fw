@@ -201,9 +201,10 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
                if (gtk_widget_get_visible(userlist_window) ) {
                   gtk_widget_hide(userlist_window);
                } else {
+                  // Record focus state BEFORE showing, so we know if main had focus
+                  userlist_refocus_main();
                   gtk_widget_show_all(userlist_window);
                   place_window(userlist_window);
-                  userlist_refocus_main();
                }
             }
             break;

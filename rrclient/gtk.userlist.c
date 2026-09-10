@@ -40,10 +40,13 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
 
 // Focus the main window once the current GTK work (mapping a newly created
 // userlist window, etc.) is done, so the WM doesn't hand focus to the
-// userlist after we return.
+// userlist after we return. Only restores focus if the main window had it
+// before the userlist appeared (main_was_focused), so showing the userlist
+// never steals focus from another app.
+static bool main_was_focused = false;
 static gboolean refocus_main_idle(gpointer user_data) {
    extern GtkWidget *main_window;   // gtk.core.c
-   if (main_window) {
+   if (main_window && main_was_focused) {
       gtk_window_present(GTK_WINDOW(main_window) );
    }
    return G_SOURCE_REMOVE;
@@ -53,11 +56,16 @@ static void refocus_main(void) {
    userlist_refocus_main();
 }
 
-// The userlist window shouldn't steal focus; return it to the main window.
-// g_idle_add defers this until after the userlist is fully mapped, which
-// matters on the first show (newly created window), otherwise the WM
-// focuses the just-mapped userlist after we return.
+// The userlist window shouldn't steal focus; return it to the main window
+// only if the main window had focus before the userlist was shown. This must
+// be called BEFORE the userlist is shown/mapped, so it can record whether the
+// main window held focus at that moment. g_idle_add defers the actual
+// re-focus until after the userlist is fully mapped, which matters on the
+// first show (newly created window), otherwise the WM focuses the just-mapped
+// userlist after we return.
 void userlist_refocus_main(void) {
+   extern GtkWidget *main_window;   // gtk.core.c
+   main_was_focused = (main_window && gtk_window_is_active(GTK_WINDOW(main_window)) );
    g_idle_add(refocus_main_idle, NULL);
 }
 
@@ -80,10 +88,11 @@ void userlist_set_visible(bool visible) {
    userlist_window = wp->gtk_win;
 
    if (visible) {
+      // Record focus state BEFORE showing, so we know if main had focus
+      refocus_main();
       userlist_redraw_gtk();
       gtk_widget_show_all(userlist_window);
       place_window(userlist_window);
-      refocus_main();
    } else {
       gtk_widget_hide(userlist_window);
    }
@@ -106,10 +115,11 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
       if (gtk_widget_get_visible(userlist_window) ) {
          gtk_widget_hide(userlist_window);
       } else {
+         // Record focus state BEFORE showing, so we know if main had focus
+         refocus_main();
          userlist_redraw_gtk();
          gtk_widget_show_all(userlist_window);
          place_window(userlist_window);
-         refocus_main();
       }
    }
 }
