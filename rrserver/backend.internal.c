@@ -40,11 +40,13 @@ static struct {
    float     power;       // power in watts
 } be_state[MAX_VFOS];
 
-// Last cat.state dict we sent (for diffing against the next poll), mirroring
-// the hamlib backend so clients see identical behavior.
+// Last cat.state dict we sent, per VFO (for diffing against the next poll),
+// mirroring the hamlib backend so clients see identical behavior. These MUST be
+// per-VFO: we poll every supported VFO in turn, so a single shared baseline
+// would make VFO A and VFO B diff against each other and broadcast forever.
 // PARITY: rrserver/backend.hamlib.c (cat.state broadcast/diff logic)
-static dict *last_state_dict = NULL;
-static time_t last_state_send = 0;
+static dict *last_state_dict[MAX_VFOS] = { 0 };
+static time_t last_state_send[MAX_VFOS] = { 0 };
 static int cfg_state_interval = -1;  // seconds; -1 = not yet read from config
 
 static const char *cat_state_cmp_keys[] = {
@@ -386,24 +388,27 @@ bool be_internal_send_state_to(rrconn_t *cptr) {
       return true;
    }
 
-   dict *d = NULL;
+   // Send the last known state for every VFO so the client UI populates all
+   // of them, mirroring hl_send_state_to().
+   for (int i = 0 ; i < MAX_VFOS ; i++) {
+      dict *d = NULL;
 
-   if (last_state_dict) {
-      d = dict_new();
-      if (d) {
-         dict_merge(d, last_state_dict);
+      if (last_state_dict[i]) {
+         d = dict_new();
+         if (d) {
+            dict_merge(d, last_state_dict[i]);
+         }
+      } else if (be_internal_vfo_supported((rr_vfo_t)i) ) {
+         d = be_cat_state_dict((rr_vfo_t)i);
       }
-   } else {
-      d = be_cat_state_dict(active_vfo);
-   }
 
-   if (!d) {
-      Log(LOG_WARN, "backend.internal", "OOM sending cat.state to %s", cptr->chatname);
-      return true;
+      if (!d) {
+         continue;
+      }
+      dict_add_ulong(d, "msg.ts", now);
+      ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
+      dict_free(d);
    }
-   dict_add_ulong(d, "msg.ts", now);
-   ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
-   dict_free(d);
    return false;
 }
 
@@ -441,8 +446,8 @@ rr_vfo_data_t *be_internal_poll(rr_vfo_t vfo) {
 
       bool changed = true;
       dict *curr_cmp = be_cat_state_filter(d);
-      if (last_state_dict && curr_cmp) {
-         dict *prev_cmp = be_cat_state_filter(last_state_dict);
+      if (last_state_dict[vfo] && curr_cmp) {
+         dict *prev_cmp = be_cat_state_filter(last_state_dict[vfo]);
          if (prev_cmp) {
             dict *df = dict_diff(prev_cmp, curr_cmp);
             changed = (df && df->fill > 0);
@@ -453,7 +458,7 @@ rr_vfo_data_t *be_internal_poll(rr_vfo_t vfo) {
       if (curr_cmp) dict_free(curr_cmp);
 
       if (!changed) {
-         if (last_state_send + cfg_state_interval > now) {
+         if (last_state_send[vfo] + cfg_state_interval > now) {
             // Too soon since our last (possibly unchanged) announcement; drop it
             dict_free(d);
             return rv;
@@ -461,13 +466,14 @@ rr_vfo_data_t *be_internal_poll(rr_vfo_t vfo) {
          Log(LOG_CRAZY, "backend.internal", "Sending unchanged cat.state (interval reached)");
       }
 
-      // Remember this state as the new baseline for future diffs
-      if (last_state_dict) dict_free(last_state_dict);
-      last_state_dict = dict_new();
-      if (last_state_dict) {
-         dict_merge(last_state_dict, d);
+      // Remember this state as the new baseline for future diffs (per VFO,
+      // so polling VFO A doesn't make VFO B's next poll look "changed")
+      if (last_state_dict[vfo]) dict_free(last_state_dict[vfo]);
+      last_state_dict[vfo] = dict_new();
+      if (last_state_dict[vfo]) {
+         dict_merge(last_state_dict[vfo], d);
       }
-      last_state_send = now;
+      last_state_send[vfo] = now;
 
       const char *jp = dict2json(d);
       Log(LOG_CRAZY, "backend.internal", "Sending %s", jp);
