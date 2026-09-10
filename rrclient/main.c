@@ -79,6 +79,10 @@ time_t now = 0;
 
 static gboolean ws_poll_cb(gpointer user_data) {
    rrclient_poll_events();
+   // Drive the reconnect engine too: in TUI mode this is the only poll sweep,
+   // and without it a scheduled reconnect never fires (the GTK GSource path
+   // calls rrclient_poll_events_reconnect() from mg_source_dispatch()).
+   rrclient_poll_events_reconnect();
    return G_SOURCE_CONTINUE;
 }
 
