@@ -16,13 +16,5 @@ Immediate needs
   - sends to client
   - client displays it to user
 
-* I just noticed a big ugly bug. Pretty sure we accept commands
-besides login commands before the user is authenticated. We 
-need to rework websocket command handling such that only pong
-and auth messages are allowed until the user is actually logged
-in.
-
-* Make colors support #aabbcc or ^C mirc colors too!
-
 Lets make sure unauthenticated users can only use auth commands like login or pass.
 Don't allow unauthenticated clients to send pings. That could be ugly.
