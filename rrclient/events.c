@@ -685,6 +685,31 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       const char *preferred = dict_get(d, "media.preferred", NULL);
       Log(LOG_INFO, "ws.media", "Negotiated codec: %s (server supports: %s)",
          (preferred ? preferred : "<none>"), (codecs ? codecs : "<none>"));
+   } else if (cmd && strcasecmp(cmd, "available") == 0) {
+      // Server is telling us about a subscribable media channel. There is
+      // one channel per (subsystem, direction, vfo, rig) - e.g. RX audio
+      // for VFO A and B are separate channels on multi-VFO RX rigs.
+      const char *uuid = dict_get(d, "media.chan-uuid", NULL);
+      uint32_t subsys = dict_get_ulong(d, "media.subsys", 0);
+      uint32_t dir = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
+      uint32_t vfo = dict_get_ulong(d, "media.vfo", RR_BINFRAME_VFO_NA);
+      uint32_t rig = dict_get_ulong(d, "media.rig", RR_BINFRAME_RIG_NA);
+      const char *descr = dict_get(d, "media.descr", NULL);
+
+      Log(LOG_INFO, "ws.media", "Media channel available: %s subsys 0x%02X %s vfo %u rig %u (%s)",
+         (uuid ? uuid : "<none>"), subsys, (dir == RR_BINFRAME_DIR_TX ? "tx" : "rx"),
+         vfo, rig, (descr ? descr : "-"));
+
+      // Re-emit for the UI/audio layer; the audio subsystem subscribes to
+      // the RX/TX channels it wants (event_on("media.available", ...)).
+      event_emit_dict("media.available", cptr, d);
+   } else if (cmd && strcasecmp(cmd, "subscribed") == 0) {
+      const char *uuid = dict_get(d, "media.chan-uuid", NULL);
+      uint32_t stream = dict_get_ulong(d, "media.stream", 0);
+
+      Log(LOG_INFO, "ws.media", "Subscribed to media channel %s (stream %u)",
+         (uuid ? uuid : "<none>"), stream);
+      event_emit_dict("media.subscribed", cptr, d);
    } else {
       Log(LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>"));
    }
@@ -692,6 +717,9 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
 }
 
 void rrclient_register_events(void) {
+   extern void rrclient_media_register_events(void);   // media.c
+   rrclient_media_register_events();
+
    event_on("NOMATCH", rrclient_handle_nomatch, NULL);
    event_on("ws.msg.hello", rrclient_handle_hello, NULL);
    event_on("ws.msg.auth", rrclient_handle_auth, NULL);

@@ -34,6 +34,8 @@
 #include <rrserver/mqtt.h>
 
 extern void rrserver_register_events(void); // events.c
+extern void rrserver_media_register_events(void);   // media.c
+extern void rrserver_media_init(void);              // media.c
 extern void audit_init(void);               // audit.c
 #ifdef	USE_MONGOOSE
 struct mg_mgr mg_mgr;
@@ -295,6 +297,9 @@ int main(int argc, char **argv) {
       set_fault(FAULT_BACKEND_ERR);
       exit(EXIT_FAILURE);
    }
+
+   // Provision the media channels (RX/TX audio per exposed VFO)
+   rrserver_media_init();
 
 #ifdef	USE_CAT
    if ( rr_cat_init() ) {

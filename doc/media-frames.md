@@ -167,3 +167,42 @@ the server strips the header, rewrites `rig`/`vfo`/`stream`/`seq`
 central values, and fans the payload out to subscribed websocket
 clients as a normal binframe. The `stream` id assigned by the server
 matches the `fwdsp_subproc.chan_id`.
+
+## Media channels (media.cmd: list/subscribe/available/subscribed)
+
+Media flows in binframes, but before any frames flow the client must
+learn which streams exist and subscribe to the ones it wants. Channels
+are described with the same routing quadruple as a binframe header
+(subsystem, direction, vfo, rig), so a rig exposing multiple
+independent RX VFOs (e.g. Radioberry) gets one channel per VFO; never
+assume a single shared RX or TX stream.
+
+Server -> client, one message per channel (sent after auth, and on
+demand when the client sends `media.cmd: list`):
+
+    { "msg": { "type": "media" },
+      "media": { "cmd": "available",
+                 "chan-uuid": "680b3c00-3f4c",
+                 "subsys": 1, "dir": 0, "vfo": 0, "rig": 0,
+                 "codec": "mu16", "descr": "RX audio VFO A" } }
+
+`subsys`/`dir` use the RR_BINFRAME_SUBSYS_* / RR_BINFRAME_DIR_* values
+from `librrprotocol/ws.binframe.h`; `vfo` is 0 = VFO A etc., 0xFF = n/a.
+
+Client -> server, subscribe/unsubscribe by uuid:
+
+    { "msg": { "type": "media" },
+      "media": { "cmd": "subscribe", "chan-uuid": "680b3c00-3f4c" } }
+
+Server -> client confirmation (the `stream` id matches the binframe
+`stream` byte used on frames for that channel):
+
+    { "msg": { "type": "media" },
+      "media": { "cmd": "subscribed", "chan-uuid": "680b3c00-3f4c",
+                 "stream": 1 } }
+
+Implementations: server `librrprotocol/ws.mediachan.c` + channel
+provisioning in `rrserver/media.c` (RX/TX audio per exposed VFO); native
+client `rrclient/media.c` and browser client `www/js/webui.media.js`.
+Both clients auto-subscribe the audio RX/TX pair for the active VFO and
+listen for more channels as they appear.

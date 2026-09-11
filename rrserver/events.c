@@ -376,6 +376,9 @@ static void rrserver_handle_rehash(const char *event, const char *data, rrconn_t
 }
 
 void rrserver_register_events(void) {
+   extern void rrserver_media_register_events(void);   // media.c
+   rrserver_media_register_events();
+
    Log(LOG_CRAZY, "events", "Registering rrserver events");
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
    event_on("recording-start", rrserver_handle_recording_start, NULL);

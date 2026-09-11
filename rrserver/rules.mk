@@ -28,6 +28,7 @@ rrserver_objs += help.o			# support for help menus from filesystem, if available
 rrserver_objs += http.bans.o
 rrserver_objs += i2c.o			# Support for i2c bus devices
 rrserver_objs += main.o			# main loop
+rrserver_objs += media.o		# media channel provisioning
 rrserver_objs += mqtt.o			# MQTT client/server support
 rrserver_objs += network.o		# Network management/config for embedded hosts
 rrserver_objs += protection.o		# Protection features

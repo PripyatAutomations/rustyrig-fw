@@ -24,6 +24,7 @@ rrclient_objs += connman.o		# connection manager
 rrclient_objs += rrclient.o		# client connection state & core connect/disconnect
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
+rrclient_objs += media.o		# media channel subscribe handling
 ifeq (${USE_GTK},true)
 rrclient_objs += gtk.core.o             # Support for a GTK user interface
 rrclient_objs += gtk.admin.o		# Admin tab
