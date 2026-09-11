@@ -449,9 +449,14 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
          int mins = atoi(argv[i + 1]);
          int before = db_quota_get(masterdb, name);
 
-         if (mins <= 0) {
-            quota_reply(cptr, "quota %s: minutes must be positive (got '%s' for %s)", subcmd, argv[i + 1], name);
+         if (mins < 0) {
+            quota_reply(cptr, "quota %s: minutes must not be negative (got '%s' for %s)", subcmd, argv[i + 1], name);
             return;
+         }
+         if (mins == 0 && strcasecmp(subcmd, "ADD") == 0) {
+            // ADD 0 is a no-op (would just leave credits unchanged)
+            quota_reply(cptr, "quota ADD: nothing to add for %s (got 0)", name);
+            continue;
          }
          bool ok;
 
