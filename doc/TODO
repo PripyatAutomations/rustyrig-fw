@@ -16,5 +16,4 @@ Immediate needs
   - sends to client
   - client displays it to user
 
-Lets make sure unauthenticated users can only use auth commands like login or pass.
-Don't allow unauthenticated clients to send pings. That could be ugly.
+Lets make the top status line (where we show the window name) in the TUI show the VFO status, latency as (XXXms) on the end and PTT state like [VFO A: 7200.000 LSB 3000] (80ms) PTT: admin or PTT: off
