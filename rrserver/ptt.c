@@ -102,6 +102,19 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo) {
    if (secs >= 0) {
       Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)",
          (talker ? talker->chatname : "unknown"), secs, session);
+
+      // Quota accounting: debit the session duration from the user's credits
+      // when quota.enforce is true. PARITY: sql/sqlite.master.sql ptt_credits
+      if (cfg_get_bool("quota.enforce", true) && talker) {
+         if (!db_quota_spend(masterdb, talker->chatname, secs) ) {
+            Log(LOG_WARN, "ptt", "PTT quota: failed to debit %d credits for %s", secs, talker->chatname);
+         } else {
+            int left = db_quota_get(masterdb, talker->chatname);
+
+            Log(LOG_INFO, "ptt", "PTT quota: %s spent %d credits, %d remaining",
+               talker->chatname, secs, left);
+         }
+      }
    }
 #else
    (void)talker;
@@ -132,6 +145,22 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
       return false;
+   }
+
+   // Quota enforcement: when quota.enforce is true, the user needs remaining
+   // PTT credits (ptt_credits table) to key up. PARITY: rrserver/database.c
+   if (ptt && cfg_get_bool("quota.enforce", true) && masterdb) {
+      rrconn_t *caller = whos_talking();
+
+      if (caller) {
+         int credits = db_quota_get(masterdb, caller->chatname);
+
+         if (credits <= 0) {
+            Log(LOG_AUDIT, "ptt", "PTT quota: %s denied TX (%d credits)",
+               caller->chatname, credits);
+            return false;
+         }
+      }
    }
 
    // set or clear the talk timeout

@@ -333,6 +333,100 @@ void db_migrate(sqlite3 *db) {
       sqlite3_free(err);
       err = NULL;
    }
+
+   // ptt_credits: remaining TX seconds per user (PTT quota accounting)
+   if (sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS ptt_credits ("
+      "   username TEXT PRIMARY KEY,"
+      "   credits INTEGER NOT NULL DEFAULT 0,"
+      "   updated DATETIME DEFAULT CURRENT_TIMESTAMP"
+      ");", NULL, NULL, &err) != SQLITE_OK) {
+      Log(LOG_WARN, "db", "db_migrate: creating ptt_credits failed: %s", err ? err : "?");
+      sqlite3_free(err);
+      err = NULL;
+   }
+}
+
+// Remaining PTT credits (TX seconds) for a user, or -1 if they have no row.
+int db_quota_get(sqlite3 *db, const char *username) {
+   if (!db || !username) {
+      return -1;
+   }
+   const char *sql = "SELECT credits FROM ptt_credits WHERE username = ?;";
+
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "db_quota_get: prepare failed: %s", sqlite3_errmsg(db));
+      return -1;
+   }
+   sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+
+   int credits = -1;
+
+   if (sqlite3_step(stmt) == SQLITE_ROW) {
+      credits = sqlite3_column_int(stmt, 0);
+   }
+   sqlite3_finalize(stmt);
+
+   return credits;
+}
+
+// Debit credits for a finished PTT session. Credits are allowed to go
+// negative so the books reflect the overage rather than hiding it.
+bool db_quota_spend(sqlite3 *db, const char *username, int secs) {
+   if (!db || !username || secs <= 0) {
+      return false;
+   }
+   const char *sql =
+      "INSERT INTO ptt_credits (username, credits) VALUES (?, -?) "
+      "ON CONFLICT(username) DO UPDATE SET "
+      "credits = credits + excluded.credits, "
+      "updated = CURRENT_TIMESTAMP;";
+
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "db_quota_spend: prepare failed: %s", sqlite3_errmsg(db));
+      return false;
+   }
+   sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+   sqlite3_bind_int(stmt, 2, secs);
+
+   bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+   sqlite3_finalize(stmt);
+
+   if (!success) {
+      Log(LOG_CRIT, "db", "db_quota_spend: failed debiting %d credits for %s", secs, username);
+   }
+   return success;
+}
+
+// Grant (or with a negative amount, revoke) credits. Creates the row if
+// the user has none yet.
+bool db_quota_add(sqlite3 *db, const char *username, int credits) {
+   if (!db || !username) {
+      return false;
+   }
+   const char *sql =
+      "INSERT INTO ptt_credits (username, credits) VALUES (?, ?) "
+      "ON CONFLICT(username) DO UPDATE SET "
+      "credits = credits + excluded.credits, "
+      "updated = CURRENT_TIMESTAMP;";
+
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "db_quota_add: prepare failed: %s", sqlite3_errmsg(db));
+      return false;
+   }
+   sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+   sqlite3_bind_int(stmt, 2, credits);
+
+   bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+   sqlite3_finalize(stmt);
+
+   return success;
 }
 #endif	// USE_SQLITE
 
