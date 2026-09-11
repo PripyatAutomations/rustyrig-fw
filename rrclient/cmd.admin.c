@@ -202,8 +202,8 @@ bool cmd_quota(int argc, char **args) {
          pos += n;
       }
    } else {
-      // Single-user shortcut: "/quota bob" == "SHOW bob"
-      snprintf(tail, sizeof(tail), "SHOW");
+      // Single-user shortcut: "/quota bob" == "SHOW bob". Leave data empty;
+      // the server maps a non-keyword target with no data to SHOW target.
    }
 
    if (tail[0]) {
