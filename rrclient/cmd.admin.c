@@ -170,8 +170,11 @@ bool cmd_rehash(int argc, char **args) {
 /* PARITY: rustyrig-www/js/webui.chat.js /quota (sends talk.cmd=quota) */
 bool cmd_quota(int argc, char **args) {
    if (argc < 2 || !args[1]) {
+      // Bare /quota is a shortcut for LIST + showing the help
+      args = (char *[]){ (char *)"quota", (char *)"LIST", NULL };
+      argc = 2;
       ui_print(NULL, "Usage: /quota LIST | SHOW <user>... | ADD <user> <minutes> | RESET <user>... | SET <user> <minutes>");
-      return true;
+      ui_print(NULL, "  ADD/SET take minutes (0 = no TX allowed); SHOW shows seconds too.");
    }
 
    dict *d = dict_new();
@@ -190,7 +193,7 @@ bool cmd_quota(int argc, char **args) {
 
    if (strcasecmp(args[1], "list") == 0 || strcasecmp(args[1], "show") == 0 ||
        strcasecmp(args[1], "add") == 0 || strcasecmp(args[1], "reset") == 0 ||
-       strcasecmp(args[1], "set") == 0) {
+       strcasecmp(args[1], "set") == 0 || strcasecmp(args[1], "help") == 0) {
       size_t pos = 0;
 
       for (int i = 2 ; i < argc ; i++) {

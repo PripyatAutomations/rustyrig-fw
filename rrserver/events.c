@@ -410,6 +410,12 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
       return;
    }
 
+   if (strcasecmp(subcmd, "HELP") == 0) {
+      quota_reply(cptr, "Usage: /quota LIST | SHOW <user>... | ADD <user> <minutes> | RESET <user>... | SET <user> <minutes>");
+      quota_reply(cptr, "  ADD/SET take minutes (0 = no TX allowed); SHOW shows seconds too.");
+      return;
+   }
+
    if (strcasecmp(subcmd, "SHOW") == 0 || strcasecmp(subcmd, "RESET") == 0) {
       if (argc < 1) {
          quota_reply(cptr, "quota %s: no user given", subcmd);
@@ -421,7 +427,9 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
          int before = db_quota_get(masterdb, name);
 
          if (strcasecmp(subcmd, "SHOW") == 0) {
-            quota_reply(cptr, "%s: %d minutes remaining", name, (before < 0 ? 0 : before) / 60);
+            int mins = (before < 0 ? 0 : before) / 60;
+
+            quota_reply(cptr, "%s: %d minutes (%d seconds) remaining", name, mins, (before < 0 ? 0 : before));
 
          } else {
             if (db_quota_set(masterdb, name, 60 * 60) ) {
@@ -523,7 +531,7 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    bool target_is_cmd = target &&
       (strcasecmp(target, "LIST") == 0 || strcasecmp(target, "SHOW") == 0 ||
        strcasecmp(target, "ADD") == 0 || strcasecmp(target, "RESET") == 0 ||
-       strcasecmp(target, "SET") == 0);
+       strcasecmp(target, "SET") == 0 || strcasecmp(target, "HELP") == 0);
 
    if (target_is_cmd) {
       snprintf(tail, sizeof(tail), "%s %s", target, data_str ? data_str : "");
@@ -555,7 +563,9 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    }
 
    if (argc < 1) {
-      quota_reply(cptr, "Usage: /quota LIST | SHOW <user>... | ADD <user> <minutes> | RESET <user>... | SET <user> <minutes>");
+      // Bare /quota is a shortcut for LIST followed by the help text
+      quota_apply(cptr, cptr->chatname, "LIST", 0, NULL);
+      quota_apply(cptr, cptr->chatname, "HELP", 0, NULL);
       dict_free(d);
       return;
    }
