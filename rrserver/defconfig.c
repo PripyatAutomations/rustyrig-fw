@@ -81,14 +81,14 @@ defconfig_t defcfg[] = {
    { "net.mqtt-client.host", NULL, "To be removed" },
    { "net.mqtt-client.port", NULL, "To be removed" },
    { "net.mqtt-client.user", NULL, "To be removed" },
-
    // MQTT server
    { "net.mqtt.bind", "127.0.0.1", "Address to listen for mqtt" },
    { "net.mqtt.enabled", "false", "Enable MQTT service listener?" },
    { "net.mqtt.port", "48383", "Port for MQTT to listen" },
+   //
    { "net.mtu", NULL, "MTU for network (non-posix hosts)" },
    { "net.vlan", "4420", "VLAN to use for ethernet interface, 0 for untagged" },
-   { "noob.cool-down", "30", "How long to block noob PTT after elmer overrides it" },
+   { "noob.cool-down", "30", "How long to block noob PTT after elmer overrides it (seconds)" },
    { "path.db.master", "./db/master.db", "Master database path" },
    { "path.db.master.template", "./sql/sqlite.master.sql", "Path to sql file to initialize database" },
    { "path.pid-file", "./rrserver.pid", "Where to store pid file" },
@@ -96,10 +96,9 @@ defconfig_t defcfg[] = {
    { "path.record-dir", "./recordings", "TX & RX recordings basedir" },
    { "record.max", "16", "Maximum concurrent audio recordings" },
    { "quota.enforce", "true", "Require TX credits (ptt_credits table) for users to TX?" },
-   { "quota.warning", "5", "Minutes of remaining TX credits to send one-time low-credits notice" },
+   { "quota.warning", "30", "Send a one-time low-credits notice at X min of remaining TX credits" },
    { "rig.tot", "300", "Time-out timer: max TX time in seconds before PTT is halted" },
    { "rig.warmup-required", "false", "Does rig require warmup time?" },
    { "rig.warmup-time", "30", "Required rig warmup time" },
-//  { "testkey.defcfg.main", " 1",  "Test key for defconfig" },
    { NULL, NULL, NULL }
 };
