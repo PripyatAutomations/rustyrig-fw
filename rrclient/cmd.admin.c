@@ -113,7 +113,7 @@ bool cmd_unmute(int argc, char **args) {
    return false;
 }
 
-bool cmd_quote(int argc, char **args) {
+bool cmd_raw(int argc, char **args) {
    if (argc < 1) {
       // XXX: cry not enough args
       return true;
