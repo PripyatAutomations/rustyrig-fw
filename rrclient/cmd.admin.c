@@ -171,10 +171,12 @@ bool cmd_rehash(int argc, char **args) {
 bool cmd_quota(int argc, char **args) {
    if (argc < 2 || !args[1]) {
       // Bare /quota is a shortcut for LIST + showing the help
-      args = (char *[]){ (char *)"quota", (char *)"LIST", NULL };
-      argc = 2;
       ui_print(NULL, "Usage: /quota LIST | SHOW <user>... | ADD <user> <minutes> | RESET <user>... | SET <user> <minutes>");
       ui_print(NULL, "  ADD/SET take minutes (0 = no TX allowed); SHOW shows seconds too.");
+
+      // Send LIST to the server for the actual listing
+      args[1] = (char *)"LIST";
+      argc = 2;
    }
 
    dict *d = dict_new();
