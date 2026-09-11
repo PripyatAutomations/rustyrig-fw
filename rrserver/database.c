@@ -430,6 +430,41 @@ bool db_quota_add(sqlite3 *db, const char *username, int credits) {
 }
 #endif	// USE_SQLITE
 
+// Send a chat-style notice to one client as msg_type (e.g. 'privmsg', 'pub').
+// Rendered by clients as replay-* messages (see replay_msg_type()); we send
+// it with the replay- prefix already applied so it shows in the chat UI.
+bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *text) {
+   if (!cptr || !msg_type || !text) {
+      return false;
+   }
+   const char *replay_type = replay_msg_type(msg_type);
+
+   if (!replay_type) {
+      Log(LOG_WARN, "db.notice", "db_send_notice: unknown msg_type: %s", msg_type);
+      return false;
+   }
+
+   dict *d = dict_new();
+
+   if (!d) {
+      Log(LOG_CRIT, "db.notice", "db_send_notice: failed to create dict");
+      return false;
+   }
+
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "msg");
+   dict_add(d, "talk.msg_type", replay_type);
+   dict_add(d, "talk.from", "&server");
+   dict_add(d, "talk.target", "&localrig");
+   dict_add(d, "talk.data", text);
+   dict_add_ulong(d, "msg.ts", now);
+
+   bool sent = ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
+
+   dict_free(d);
+   return sent;
+}
+
 const char *replay_msg_type(const char *msg_type) {
    if (!msg_type) {
       return NULL;

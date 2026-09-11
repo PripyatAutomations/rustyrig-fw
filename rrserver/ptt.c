@@ -40,6 +40,39 @@ int vfos_enabled = 2;                    // A + B by default
 // VFO currently keyed by PTT logging (row id in ptt_log, -1 none)
 static int ptt_log_session[MAX_VFOS];
 
+// Set once when a user's remaining credits fall to/below quota.warning so we
+// only nag them a single time until they're re-credited above the threshold
+static bool quota_warned[HTTP_MAX_USERS];
+
+static void quota_maybe_warn(rrconn_t *talker, int left) {
+   if (!talker || !talker->user || talker->user->uid < 0 || talker->user->uid >= HTTP_MAX_USERS) {
+      return;
+   }
+
+   int uid = talker->user->uid;
+   int warning = cfg_get_int("quota.warning", 5) * 60;   // minutes remaining
+
+   if (left > warning || left <= 0) {
+      if (left <= 0) {
+         quota_warned[uid] = false;   // reset so they get re-warned after a top-up
+      }
+      return;
+   }
+   if (quota_warned[uid]) {
+      return;   // only once per crossing
+   }
+   quota_warned[uid] = true;
+
+   char msg[256];
+
+   snprintf(msg, sizeof(msg), "Low PTT credits: %d minutes of TX remaining for %s", left / 60, talker->chatname);
+   Log(LOG_WARN, "ptt", "PTT quota: %s low credits: %d remaining", talker->chatname, left);
+
+   if (!db_send_notice(talker, "privmsg", msg) ) {
+      Log(LOG_WARN, "ptt", "PTT quota: failed to send low-credits notice to %s", talker->chatname);
+   }
+}
+
 // Snapshot the VFO state and open a ptt_log row for the talker
 static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
 #ifdef	USE_SQLITE
@@ -113,6 +146,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo) {
 
             Log(LOG_INFO, "ptt", "PTT quota: %s spent %d credits, %d remaining",
                talker->chatname, secs, left);
+            quota_maybe_warn(talker, left);
          }
       }
    }
