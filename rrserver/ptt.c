@@ -82,6 +82,29 @@ static void quota_maybe_warn(rrconn_t *talker, int left) {
    }
 }
 
+// Fetch the username recorded in a ptt_log row. Returns a malloc'd copy the
+// caller must free, or NULL. Used at key-up when the talker is unknown (e.g.
+// is_ptt was already cleared before the key-up reached us).
+static char *ptt_log_username(int session) {
+   if (!masterdb || session <= 0) {
+      return NULL;
+   }
+   const char *sql = "SELECT username FROM ptt_log WHERE id = ?;";
+   sqlite3_stmt *stmt;
+   char *ret = NULL;
+
+   if (sqlite3_prepare_v2(masterdb, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_WARN, "ptt", "PTT log: failed to look up session %d: %s", session, sqlite3_errmsg(masterdb));
+      return NULL;
+   }
+   sqlite3_bind_int(stmt, 1, session);
+   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+      ret = strdup((const char *)sqlite3_column_text(stmt, 0));
+   }
+   sqlite3_finalize(stmt);
+   return ret;
+}
+
 // Snapshot the VFO state and open a ptt_log row for the talker
 static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
 #ifdef	USE_SQLITE
@@ -142,22 +165,33 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo) {
       return;
    }
    if (secs >= 0) {
+      // If the talker is unknown at key-up, recover their name from the
+      // session row so the log line and quota debit still work.
+      const char *who = (talker ? talker->chatname : NULL);
+      char *looked_up = NULL;
+
+      if (!who) {
+         looked_up = ptt_log_username(session);
+         who = looked_up;
+      }
       Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)",
-         (talker ? talker->chatname : "unknown"), secs, session);
+         (who ? who : "unknown"), secs, session);
 
       // Quota accounting: debit the session duration from the user's credits
       // when quota.enforce is true. PARITY: sql/sqlite.master.sql tx_credits
-      if (cfg_get_bool("quota.enforce", true) && talker) {
-         if (!db_quota_spend(masterdb, talker->chatname, secs) ) {
-            Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s", secs, talker->chatname);
+      if (cfg_get_bool("quota.enforce", true) && who) {
+         if (!db_quota_spend(masterdb, who, secs) ) {
+            Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s", secs, who);
          } else {
-            int left = db_quota_get(masterdb, talker->chatname);
+            int left = db_quota_get(masterdb, who);
 
-            Log(LOG_INFO, "ptt", "TX quota: %s spent %d credits, %d remaining",
-               talker->chatname, secs, left);
-            quota_maybe_warn(talker, left);
+            Log(LOG_INFO, "ptt", "TX quota: %s spent %d credits, %d remaining", who, secs, left);
+            if (talker) {
+               quota_maybe_warn(talker, left);
+            }
          }
       }
+      free(looked_up);
    }
 #else
    (void)talker;

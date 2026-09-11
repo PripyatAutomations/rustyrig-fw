@@ -18,7 +18,14 @@ CONFIGURE
 ---------
      # Edit things in config/ as appropriate.
      # - Default profile is 'radio'
-     - config/${PROFILE}.config.json has build-time config
+   - config/${PROFILE}.config.json has build-time config
+
+   Edit config/rrserver.cfg to set it up
+   -- config/http.users OR use sqlite! see sql/sqlite.master.exampes.sql
+
+   Add users/change passwords in config/http.users (See config/http.users.example)
+   - Try ./tools/user-edit.sh!
+
 
 -----
 BUILD
@@ -49,11 +56,6 @@ Long story short, on a debian-based system do the following to try it:
 
    Start up rigctld connected to your rig (example is dummy):
 	rigctld -o -v -v -m 1 &
-
-   Edit config/rrserver.cfg to set it up
-
-   Add users/change passwords in config/http.users (See config/http.users.example)
-   - Try ./tools/user-edit.sh!
 
    Run it with ./bin/rrserver
 

@@ -32,7 +32,7 @@ CREATE TABLE ptt_log (
 -- at key-down when quota.enforce is true (see rrserver/ptt.c); session
 -- duration is debited on key-up. Users with no row have no credits.
 CREATE TABLE tx_credits (
-   username TEXT PRIMARY KEY,
+   name TEXT PRIMARY KEY,
    credits INTEGER NOT NULL DEFAULT 0,
    updated DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -55,6 +55,6 @@ CREATE TABLE users (
    enabled BOOLEAN NOT NULL,        -- 0 = disabled, 1 = enabled
    password TEXT NOT NULL,          -- hashed password
    email TEXT,                      -- optional email
-   maxclones INTEGER DEFAULT 1,     -- max allowed simultaneous sessions
+   maxsessions INTEGER DEFAULT 1,   -- max allowed simultaneous sessions
    permissions TEXT                 -- comma-separated or JSON if complex
 );

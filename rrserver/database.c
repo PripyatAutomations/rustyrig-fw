@@ -312,47 +312,12 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src,
 // Apply lightweight migrations for schema added after a database was first
 // created. Safe to call on every start: each statement is a no-op if the
 // column/table already exists.
-void db_migrate(sqlite3 *db) {
-   if (!db) {
-      return;
-   }
-   char *err = NULL;
-
-   // ptt_log: vfo (VFO letter keyed) & duration (TX seconds, set at key-down)
-   if (sqlite3_exec(db, "ALTER TABLE ptt_log ADD COLUMN vfo TEXT;", NULL, NULL, &err) != SQLITE_OK) {
-      if (err && strstr(err, "duplicate column") == NULL) {
-         Log(LOG_WARN, "db", "db_migrate: adding ptt_log.vfo failed: %s", err);
-      }
-      sqlite3_free(err);
-      err = NULL;
-   }
-   if (sqlite3_exec(db, "ALTER TABLE ptt_log ADD COLUMN duration INTEGER;", NULL, NULL, &err) != SQLITE_OK) {
-      if (err && strstr(err, "duplicate column") == NULL) {
-         Log(LOG_WARN, "db", "db_migrate: adding ptt_log.duration failed: %s", err);
-      }
-      sqlite3_free(err);
-      err = NULL;
-   }
-
-   // tx_credits: remaining TX seconds per user (TX quota accounting)
-   if (sqlite3_exec(db,
-      "CREATE TABLE IF NOT EXISTS tx_credits ("
-      "   username TEXT PRIMARY KEY,"
-      "   credits INTEGER NOT NULL DEFAULT 0,"
-      "   updated DATETIME DEFAULT CURRENT_TIMESTAMP"
-      ");", NULL, NULL, &err) != SQLITE_OK) {
-      Log(LOG_WARN, "db", "db_migrate: creating tx_credits failed: %s", err ? err : "?");
-      sqlite3_free(err);
-      err = NULL;
-   }
-}
-
 // Remaining TX credits (TX seconds) for a user, or -1 if they have no row.
 int db_quota_get(sqlite3 *db, const char *username) {
    if (!db || !username) {
       return -1;
    }
-   const char *sql = "SELECT credits FROM tx_credits WHERE username = ?;";
+   const char *sql = "SELECT credits FROM tx_credits WHERE name = ?;";
 
    sqlite3_stmt *stmt = NULL;
 
@@ -379,8 +344,8 @@ bool db_quota_spend(sqlite3 *db, const char *username, int secs) {
       return false;
    }
    const char *sql =
-      "INSERT INTO tx_credits (username, credits) VALUES (?, -?) "
-      "ON CONFLICT(username) DO UPDATE SET "
+      "INSERT INTO tx_credits (name, credits) VALUES (?, -?) "
+      "ON CONFLICT(name) DO UPDATE SET "
       "credits = credits + excluded.credits, "
       "updated = CURRENT_TIMESTAMP;";
 
@@ -409,8 +374,8 @@ bool db_quota_add(sqlite3 *db, const char *username, int credits) {
       return false;
    }
    const char *sql =
-      "INSERT INTO tx_credits (username, credits) VALUES (?, ?) "
-      "ON CONFLICT(username) DO UPDATE SET "
+      "INSERT INTO tx_credits (name, credits) VALUES (?, ?) "
+      "ON CONFLICT(name) DO UPDATE SET "
       "credits = credits + excluded.credits, "
       "updated = CURRENT_TIMESTAMP;";
 
@@ -435,8 +400,8 @@ bool db_quota_set(sqlite3 *db, const char *username, int credits) {
       return false;
    }
    const char *sql =
-      "INSERT INTO tx_credits (username, credits) VALUES (?, ?) "
-      "ON CONFLICT(username) DO UPDATE SET "
+      "INSERT INTO tx_credits (name, credits) VALUES (?, ?) "
+      "ON CONFLICT(name) DO UPDATE SET "
       "credits = excluded.credits, "
       "updated = CURRENT_TIMESTAMP;";
 
@@ -464,7 +429,7 @@ bool db_quota_list(sqlite3 *db, int (*cb)(const char *name, int credits, void *u
    // All users with their credits; users without a tx_credits row show 0
    const char *sql =
       "SELECT u.name, COALESCE(c.credits, 0) "
-      "FROM users u LEFT JOIN tx_credits c ON c.username = u.name "
+      "FROM users u LEFT JOIN tx_credits c ON c.name = u.name "
       "ORDER BY u.name;";
 
    sqlite3_stmt *stmt = NULL;

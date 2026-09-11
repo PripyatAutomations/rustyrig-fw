@@ -209,8 +209,20 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
    }
 
    dict *d = json2dict(data);
-   const char *error_msg = dict_get(d, "error.msg", NULL);
-   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", error_msg);
+   // The kick path sends auth.error (see ws_kick_client in librrprotocol)
+   const char *error_msg = dict_get(d, "auth.error", NULL);
+
+   if (!error_msg) {
+      error_msg = dict_get(d, "error.msg", NULL);
+   }
+   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", (error_msg ? error_msg : "unknown"));
+
+   // Show the error in the UI and stop the reconnect engine: retrying with
+   // bad credentials just hammers the server. PARITY: webui.auth.js stops
+   // reconnecting on auth errors too.
+   ui_print(NULL, "%s {red}Authentication error: %s{reset}", get_chat_ts(now),
+      (error_msg ? error_msg : "unknown error"));
+
    dict_dump(d, NULL);
    dict_free(d);
 }

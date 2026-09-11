@@ -112,6 +112,14 @@ static void rrclient_schedule_reconnect(void) {
       delay == 1 ? "" : "s", reconnect_tries, RRC_MAX_RECONNECTS);
 }
 
+static void rrclient_handle_auth_error_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   // Auth failures (bad login/password, kicked, disabled account) are not
+   // transient: never auto-reconnect, the user must fix credentials and
+   // connect manually. The red error display happens in the auth.error
+   // handler in events.c
+   rrclient_cancel_reconnect();
+}
+
 static void rrclient_handle_reconnect_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (strcasecmp(event, "authorized") == 0) {
       reconnect_pending = false;
@@ -129,6 +137,7 @@ void connman_register_events(void) {
    event_on("authorized", rrclient_handle_reconnect_event, NULL);
    event_on("disconnected", rrclient_handle_reconnect_event, NULL);
    event_on("http.error", rrclient_handle_reconnect_event, NULL);
+   event_on("auth.error", rrclient_handle_auth_error_event, NULL);
    // NB: no event_on("error", ...) here - server protocol errors are non-fatal
 }
 
@@ -199,7 +208,9 @@ bool connect_server(const char *server) {
          memset( ws_conn, 0, sizeof(rrconn_t) );
       }
 
-      struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, NULL, NULL);
+      // Pass ws_conn as fn_data: events can fire before mg_ws_connect()
+      // returns (early errors/closes), and http_handler() needs cptr then.
+      struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, ws_conn, NULL);
 
       if (!c) {
          ui_print( NULL, "%s Socket connect error", get_chat_ts(now) );
@@ -208,7 +219,6 @@ bool connect_server(const char *server) {
          return true;
       }
       ws_conn->conn = c;
-      ws_conn->conn->fn_data = (void *)ws_conn;
 #endif // defined(USE_MONGOOSE)
     } else {
    ui_print(NULL,

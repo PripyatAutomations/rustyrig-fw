@@ -411,8 +411,9 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
    }
 
    if (strcasecmp(subcmd, "HELP") == 0) {
-      quota_reply(cptr, "Usage: /quota LIST | SHOW <user>... | ADD <user> <minutes> | RESET <user>... | SET <user> <minutes>");
-      quota_reply(cptr, "  ADD/SET take minutes (0 = no TX allowed); SHOW shows seconds too.");
+      quota_reply(cptr, "Usage: /quota LIST | SHOW <user>... | ADD <user> <time> | RESET <user>... | SET <user> <time>");
+      quota_reply(cptr, "  ADD/SET take a dhms time string like 30m, 2h, 1d or 1w2d (0 = no TX allowed);");
+      quota_reply(cptr, "  SHOW shows exact seconds too.");
       return;
    }
 
@@ -447,21 +448,22 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
 
    if (strcasecmp(subcmd, "ADD") == 0 || strcasecmp(subcmd, "SET") == 0) {
       if (argc < 2) {
-         quota_reply(cptr, "Usage: /quota %s <user> <minutes> [user2 minutes2 ...]", subcmd);
+         quota_reply(cptr, "Usage: /quota %s <user> <time> [user2 time2 ...] (time like 30m, 2h, 1d)", subcmd);
          return;
       }
 
-      // Pairs: user minutes [user minutes ...]
+      // Pairs: user time [user time ...]; time is a dhms string (see
+      // librustyaxe/util.time.c dhms2time_t), e.g. 90m, 2h, 1d, 1w2d
       for (int i = 0 ; i + 1 < argc ; i += 2) {
          const char *name = argv[i];
-         int mins = atoi(argv[i + 1]);
+         time_t secs = dhms2time_t(argv[i + 1]);
          int before = db_quota_get(masterdb, name);
 
-         if (mins < 0) {
-            quota_reply(cptr, "quota %s: minutes must not be negative (got '%s' for %s)", subcmd, argv[i + 1], name);
+         if (secs <= 0 && argv[i + 1][0] != '0') {
+            quota_reply(cptr, "quota %s: invalid time '%s' for %s (try 30m, 2h, 1d)", subcmd, argv[i + 1], name);
             return;
          }
-         if (mins == 0 && strcasecmp(subcmd, "ADD") == 0) {
+         if (secs <= 0 && strcasecmp(subcmd, "ADD") == 0) {
             // ADD 0 is a no-op (would just leave credits unchanged)
             quota_reply(cptr, "quota ADD: nothing to add for %s (got 0)", name);
             continue;
@@ -469,21 +471,28 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
          bool ok;
 
          if (strcasecmp(subcmd, "ADD") == 0) {
-            ok = db_quota_add(masterdb, name, mins * 60);
+            ok = db_quota_add(masterdb, name, (int)secs);
 
             if (ok) {
-               Log(LOG_AUDIT, "quota", "%s added %d minutes to %s (was %d)",
-                  actor, mins, name, (before < 0 ? 0 : before) / 60);
-               quota_reply(cptr, "%s: added %d minutes (now %d)",
-                  name, mins, db_quota_get(masterdb, name) / 60);
+               char *was = time_t2dhms((time_t)(before < 0 ? 0 : before));
+               char *added = time_t2dhms(secs);
+               char *now = time_t2dhms((time_t)db_quota_get(masterdb, name));
+               Log(LOG_AUDIT, "quota", "%s added %s to %s (was %s)", actor, added, name, was);
+               quota_reply(cptr, "%s: added %s (now %s)", name, added, now);
+               free( (void *)was);
+               free( (void *)added);
+               free( (void *)now);
             }
          } else {
-            ok = db_quota_set(masterdb, name, mins * 60);
+            ok = db_quota_set(masterdb, name, (int)secs);
 
             if (ok) {
-               Log(LOG_AUDIT, "quota", "%s set %s to %d minutes (was %d)",
-                  actor, name, mins, (before < 0 ? 0 : before) / 60);
-               quota_reply(cptr, "%s: set to %d minutes", name, mins);
+               char *was = time_t2dhms((time_t)(before < 0 ? 0 : before));
+               char *set = time_t2dhms(secs);
+               Log(LOG_AUDIT, "quota", "%s set %s to %s (was %s)", actor, name, set, was);
+               quota_reply(cptr, "%s: set to %s", name, set);
+               free( (void *)was);
+               free( (void *)set);
             }
          }
 
@@ -495,7 +504,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
       }
 
       if (argc % 2 != 0) {
-         quota_reply(cptr, "quota %s: dangling argument '%s' (expected user minutes pairs)", subcmd, argv[argc - 1]);
+         quota_reply(cptr, "quota %s: dangling argument '%s' (expected user time pairs)", subcmd, argv[argc - 1]);
       }
       return;
    }
