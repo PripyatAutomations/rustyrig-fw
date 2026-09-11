@@ -95,6 +95,7 @@ defconfig_t defcfg[] = {
    { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit" },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
    { "tui.use-color", "true", "Enable color in the TUI?" },
+   { "tui.use-mouse", "true", "Enable mouse in the TUI?" },
 #ifdef	USE_GTK
    { "ui.full-screen", "false", "Go full-screen at start?" },
    { "ui.gtk.vfo-on-top", "false", "Place VFO controls at top of the rig window?" },
