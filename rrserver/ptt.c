@@ -146,7 +146,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo) {
          (talker ? talker->chatname : "unknown"), secs, session);
 
       // Quota accounting: debit the session duration from the user's credits
-      // when quota.enforce is true. PARITY: sql/sqlite.master.sql ptt_credits
+      // when quota.enforce is true. PARITY: sql/sqlite.master.sql tx_credits
       if (cfg_get_bool("quota.enforce", true) && talker) {
          if (!db_quota_spend(masterdb, talker->chatname, secs) ) {
             Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s", secs, talker->chatname);
@@ -191,7 +191,7 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    }
 
    // Quota enforcement: when quota.enforce is true, the user needs remaining
-   // TX credits (ptt_credits table) to key up. PARITY: rrserver/database.c
+   // TX credits (tx_credits table) to key up. PARITY: rrserver/database.c
    if (ptt && cfg_get_bool("quota.enforce", true) && masterdb) {
       rrconn_t *caller = whos_talking();
 

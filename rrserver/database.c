@@ -334,14 +334,14 @@ void db_migrate(sqlite3 *db) {
       err = NULL;
    }
 
-   // ptt_credits: remaining TX seconds per user (TX quota accounting)
+   // tx_credits: remaining TX seconds per user (TX quota accounting)
    if (sqlite3_exec(db,
-      "CREATE TABLE IF NOT EXISTS ptt_credits ("
+      "CREATE TABLE IF NOT EXISTS tx_credits ("
       "   username TEXT PRIMARY KEY,"
       "   credits INTEGER NOT NULL DEFAULT 0,"
       "   updated DATETIME DEFAULT CURRENT_TIMESTAMP"
       ");", NULL, NULL, &err) != SQLITE_OK) {
-      Log(LOG_WARN, "db", "db_migrate: creating ptt_credits failed: %s", err ? err : "?");
+      Log(LOG_WARN, "db", "db_migrate: creating tx_credits failed: %s", err ? err : "?");
       sqlite3_free(err);
       err = NULL;
    }
@@ -352,7 +352,7 @@ int db_quota_get(sqlite3 *db, const char *username) {
    if (!db || !username) {
       return -1;
    }
-   const char *sql = "SELECT credits FROM ptt_credits WHERE username = ?;";
+   const char *sql = "SELECT credits FROM tx_credits WHERE username = ?;";
 
    sqlite3_stmt *stmt = NULL;
 
@@ -379,7 +379,7 @@ bool db_quota_spend(sqlite3 *db, const char *username, int secs) {
       return false;
    }
    const char *sql =
-      "INSERT INTO ptt_credits (username, credits) VALUES (?, -?) "
+      "INSERT INTO tx_credits (username, credits) VALUES (?, -?) "
       "ON CONFLICT(username) DO UPDATE SET "
       "credits = credits + excluded.credits, "
       "updated = CURRENT_TIMESTAMP;";
@@ -409,7 +409,7 @@ bool db_quota_add(sqlite3 *db, const char *username, int credits) {
       return false;
    }
    const char *sql =
-      "INSERT INTO ptt_credits (username, credits) VALUES (?, ?) "
+      "INSERT INTO tx_credits (username, credits) VALUES (?, ?) "
       "ON CONFLICT(username) DO UPDATE SET "
       "credits = credits + excluded.credits, "
       "updated = CURRENT_TIMESTAMP;";
@@ -435,7 +435,7 @@ bool db_quota_set(sqlite3 *db, const char *username, int credits) {
       return false;
    }
    const char *sql =
-      "INSERT INTO ptt_credits (username, credits) VALUES (?, ?) "
+      "INSERT INTO tx_credits (username, credits) VALUES (?, ?) "
       "ON CONFLICT(username) DO UPDATE SET "
       "credits = excluded.credits, "
       "updated = CURRENT_TIMESTAMP;";
@@ -461,10 +461,10 @@ bool db_quota_list(sqlite3 *db, int (*cb)(const char *name, int credits, void *u
    if (!db || !cb) {
       return false;
    }
-   // All users with their credits; users without a ptt_credits row show 0
+   // All users with their credits; users without a tx_credits row show 0
    const char *sql =
       "SELECT u.name, COALESCE(c.credits, 0) "
-      "FROM users u LEFT JOIN ptt_credits c ON c.username = u.name "
+      "FROM users u LEFT JOIN tx_credits c ON c.username = u.name "
       "ORDER BY u.name;";
 
    sqlite3_stmt *stmt = NULL;

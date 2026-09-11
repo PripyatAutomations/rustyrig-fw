@@ -15,7 +15,7 @@ INSERT INTO users (uid, name, enabled, password, email, maxclones, permissions) 
 
 -- TX credits for testing (seconds of TX; with quota.enforce=true users
 -- cannot key up without a row here)
-INSERT INTO ptt_credits (username, credits) VALUES
+INSERT INTO tx_credits (username, credits) VALUES
    ('admin', 14400),
    ('guest', 3600),
    ('bob',   14400);

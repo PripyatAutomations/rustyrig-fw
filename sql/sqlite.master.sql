@@ -31,7 +31,7 @@ CREATE TABLE ptt_log (
 -- TX credit accounting: remaining TX seconds per user. One row is consumed
 -- at key-down when quota.enforce is true (see rrserver/ptt.c); session
 -- duration is debited on key-up. Users with no row have no credits.
-CREATE TABLE ptt_credits (
+CREATE TABLE tx_credits (
    username TEXT PRIMARY KEY,
    credits INTEGER NOT NULL DEFAULT 0,
    updated DATETIME DEFAULT CURRENT_TIMESTAMP

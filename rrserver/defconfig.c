@@ -95,7 +95,7 @@ defconfig_t defcfg[] = {
    { "path.modules", "./modules/", "Where to find modules" },
    { "path.record-dir", "./recordings", "TX & RX recordings basedir" },
    { "record.max", "16", "Maximum concurrent audio recordings" },
-   { "quota.enforce", "true", "Require TX credits (ptt_credits table) for users to TX?" },
+   { "quota.enforce", "true", "Require TX credits (tx_credits table) for users to TX?" },
    { "quota.warning", "30", "Send a one-time low-credits notice at X min of remaining TX credits" },
    { "rig.tot", "300", "Time-out timer: max TX time in seconds before PTT is halted" },
    { "rig.warmup-required", "false", "Does rig require warmup time?" },

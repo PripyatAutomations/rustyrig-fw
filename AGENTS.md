@@ -85,12 +85,12 @@ See `doc/client-parity.md` for the current parity map.
 - mk/json-config.mk maps config settings to make variables as needed
 
 ## Before modifying code
-1: Before changing: Commit with "LLM-$llmname // Automated commit before changes" commit message.
-2: After changing: Commit with "LLM-$llmname // Automated commit after changes" commit message.
+1. Before changing: do a git commit for safety.
+2. After changing, show me a diff of the whole change set
 3. Locate the existing implementation.
 4. Locate its callers/users.
 5. Determine whether the behavior is protocol-defined.
-6. Search the other client implementation for corresponding behavior.
+6. Search the other client implementation for corresponding behavior. - C (rrclient/rrserver and librrprotocol) is authoritative!
 7. Check the relevant architecture/parity documentation.
 8. Make the smallest change consistent with the existing design.
 9. Build/test the affected configurations.

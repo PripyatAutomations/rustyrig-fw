@@ -11,9 +11,6 @@ rrclient_objs += cat.pty.o		# PTY CAT interface (./dev/ttyCAT0)
 rrclient_objs += cat.yaesu.o
 rrclient_objs += chat.whois.o
 rrclient_objs += cfg.network.o
-ifeq (${USE_GTK},true)
-rrclient_objs += cfg.gtkcss.o		# GTK CSS from config file
-endif
 rrclient_objs += cmd.o
 rrclient_objs += cmd.admin.o		# Server control tasks
 rrclient_objs += cmd.chat.o		# chat commands
@@ -25,7 +22,20 @@ rrclient_objs += rrclient.o		# client connection state & core connect/disconnect
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
 rrclient_objs += media.o		# media channel subscribe handling
+rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
+rrclient_objs += main.o			# main loop
+rrclient_objs += userlist.o
+rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
+rrclient_objs += ui.bell.o		# Bell/sounds support for the UI
+rrclient_objs += ui.colors.o		# User interface color handling
+rrclient_objs += vfo.o			# VFO management
+rrclient_objs += win32.o		# support to run in windows
+
+#######
+# GTK #
+#######
 ifeq (${USE_GTK},true)
+rrclient_objs += cfg.gtkcss.o		# GTK CSS from config file
 rrclient_objs += gtk.core.o             # Support for a GTK user interface
 rrclient_objs += gtk.admin.o		# Admin tab
 rrclient_objs += gtk.alertdialog.o	# alert/error/warning dialogs
@@ -49,19 +59,10 @@ rrclient_objs += gtk.userlist.o		# GTK part of the userlist
 rrclient_objs += gtk.vfo-box.o		# VFO box element
 rrclient_objs += gtk.vol-box.o		# Volume widget
 rrclient_objs += gtk.winmgr.o		# window management
-endif
-
-rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
-rrclient_objs += main.o			# main loop
-rrclient_objs += userlist.o
-rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
-rrclient_objs += ui.bell.o		# Bell/sounds support for the UI
-rrclient_objs += ui.colors.o		# User interface color handling
-ifeq (${USE_GTK},true)
 rrclient_objs += ui.speech.o		# Support for screener readers
 endif
-rrclient_objs += vfo.o			# VFO management
-rrclient_objs += win32.o		# support to run in windows
+
+###########################################
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
 extra_clean += ${rrclient_real_objs}

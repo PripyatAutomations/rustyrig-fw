@@ -683,8 +683,8 @@ CATcmdTable rr_cat_yaesu_commands[] = {
       "TS", 1, 1, rr_cat_yaesu_txw
    },                                                   // TXW?
    {
-         "TX", 0, 1, rr_cat_yaesu_ptt
-      },                                                   // TX Set (PTT)
+      "TX", 0, 1, rr_cat_yaesu_ptt
+   },                                                   // TX Set (PTT)
    {
       "UP", 0, 0, rr_cat_yaesu_down
    },                                                   // UP
@@ -701,11 +701,11 @@ CATcmdTable rr_cat_yaesu_commands[] = {
       "VX", 0, 1, rr_cat_yaesu_vox
    },                                                   // VOX
    {
-         "KS", 0, 1, rr_cat_yaesu_key_speed
-      },                                                   // Keying Speed
-      {
-         "ZI", 0, 1, rr_cat_yaesu_zero_in
-      },                                                   // Zero in
+      "KS", 0, 1, rr_cat_yaesu_key_speed
+   },                                                   // Keying Speed
+   {
+      "ZI", 0, 1, rr_cat_yaesu_zero_in
+   },                                                   // Zero in
    {
       NULL, -1, -1, NULL
    }                                                     // Terminator
