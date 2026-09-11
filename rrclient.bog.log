@@ -1,0 +1,192 @@
+<main@debug> CAT poll blocking delay: 1 second(s)
+<cat@info> Initializing CAT interfaces
+<cat.pty@info> CAT PTY up: ./dev/ttyCAT0 => /dev/pts/4
+<cat@info> Rig CAT control (yaesu emu) initialized
+<cat@info> CAT Initialization succesful
+<cfg@crazy> returning default value |bottom| for key |ui.gtk.main-tabstrip|
+<ui.core@debug> Placing main tabstrip at BOTTOM
+<ws@debug> Setting TLS CA path to <0x561291ec5fc0> * with target mg_str at <0x7fff7d639be0>
+<ws@debug> ws_init finished
+<connman@debug> server: |localhost| url: |ws://localhost:8420/ws/|
+<rrproto.cli.main@crit> No fn_data in mg_conn:<0x561291ec6820>
+<rrproto.cli.main@crit> No fn_data in mg_conn:<0x561291ec6820>
+<cat.pty@debug> PTY slave closed (HUP), re-arming in 2s
+<event@crazy> send event connected: {"connected":{"server":"localhost"}}
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<event.match@crazy> Event connected from cptr:<(nil)> hit 1 times
+<ws@debug> ev_ws_connect: server: |localhost| user: |bob|
+<event@crazy> send event connected: {"auth":{"server":"localhost","user":"bob"}}
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<event.match@crazy> Event connected from cptr:<(nil)> hit 1 times
+<ws.proto@crazy> Sending dict <0x561291ec6b30> to conn <0x561291ec6bb0>: {"hello":{"swver":"20260906.01"},"msg":{"type":"hello"}}
+<rrproto.auth@info> Sending initial LOGIN!
+<ws.proto@crazy> Sending dict <0x561291ec6b30> to conn <0x561291ec6bb0>: {"auth":{"user":"bob","cmd":"login"},"msg":{"type":"auth"}}
+<http@crazy> ws_handle_cli: msg={"hello":{"hwver":"sb50","swver":"20260906.01"},"msg":{"ts":1789058840,"type":"hello"}}
+<event@crazy> send event ws.msg.hello: {"msg":{"ts":1789058840,"type":"hello"},"hello":{"hwver":"sb50","swver":"20260906.01"}}
+<event@crazy> Firing event ws.msg.hello from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<event.match@crazy> Event ws.msg.hello from cptr:<(nil)> hit 1 times
+<auth.ws@info> *** server is running 20260906.01 on sb50 ***
+<http@crazy> ws_handle_cli: msg={"auth":{"token":"fpadmL9L/6u+D","user":"bob","cmd":"challenge","nonce":"T/9zXvUP11FlN"},"msg":{"type":"auth"}}
+<event@crazy> send event ws.msg.auth: {"msg":{"type":"auth"},"auth":{"token":"fpadmL9L/6u+D","user":"bob","cmd":"challenge","nonce":"T/9zXvUP11FlN"}}
+<event@crazy> Firing event ws.msg.auth from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<event.match@crazy> Event ws.msg.auth from cptr:<(nil)> hit 1 times
+<auth.ws@audit> Got CHALLENGE T/9zXvUP11FlN from server localhost, sending password!
+<auth@crazy> passwd |48181acd22b3edaebc8a447868a7df7ce629920a| nonce |T/9zXvUP11FlN| result |7c5ae17faf9883bb26396fee4bd04605f82660e7|
+<ws.proto@crazy> Sending dict <0x561291ed7600> to conn <0x561291ec6bb0>: {"auth":{"pass":"7c5ae17faf9883bb26396fee4bd04605f82660e7","token":"fpadmL9L/6u+D","user":"bob","cmd":"pass"},"msg":{"type":"auth"}}
+<event@crazy> send event logging-in: {"msg":{"type":"auth"},"auth":{"token":"fpadmL9L/6u+D","user":"bob","cmd":"challenge","nonce":"T/9zXvUP11FlN"}}
+<event@crazy> Firing event logging-in from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<ws.auth@crazy> Logging in: {"msg":{"type":"auth"},"auth":{"token":"fpadmL9L/6u+D","user":"bob","cmd":"challenge","nonce":"T/9zXvUP11FlN"}}
+<event.match@crazy> Event logging-in from cptr:<(nil)> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789058840,"token":"fpadmL9L/6u+D","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> send event ws.msg.auth: {"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789058840,"token":"fpadmL9L/6u+D","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> Firing event ws.msg.auth from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<event.match@crazy> Event ws.msg.auth from cptr:<(nil)> hit 1 times
+<event@crazy> send event authorized: {"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789058840,"token":"fpadmL9L/6u+D","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> Firing event authorized from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<event@crazy> Firing event authorized from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<event.match@crazy> Event authorized from cptr:<(nil)> hit 2 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058840,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14077000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789058840,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14077000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058840,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789058840,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http@crazy> ws_handle_cli: msg={ "msg": { "type": "media" }, "media": { "cmd": "capab", "codecs": "pc16 mu16 mu08 opus flac" } }
+<event@crazy> send event ws.msg.media: {"media":{"codecs":"pc16 mu16 mu08 opus flac","cmd":"capab"},"msg":{"type":"media"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<ws.media@debug> Server media capabilities: pc16 mu16 mu08 opus flac
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<codecneg@crazy> codec_filter_common(|pc16 mu16 mu08|, |pc16 mu16 mu08 opus flac|) returned |pc16 mu16 mu08|
+<ws.media@info> Negotiated common codecs: pc16 mu16 mu08 (default: pc16)
+<ws.proto@crazy> Sending dict <0x561291eda0b0> to conn <0x561291ec6bb0>: {"media":{"channel":"rx","ts":1789058840,"codec":"pc16","cmd":"codec"},"msg":{"type":"media"}}
+<ws.media@info> Selected rx codec pc16
+<ws.proto@crazy> Sending dict <0x561291ed85d0> to conn <0x561291ec6bb0>: {"media":{"channel":"tx","ts":1789058840,"codec":"pc16","cmd":"codec"},"msg":{"type":"media"}}
+<ws.media@info> Selected tx codec pc16
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058840,"type":"talk"},"talk":{"sessions":1,"muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event join: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event join from cptr:<0x561291ec6bb0> with data:<0x561291ed3250> user:(null)
+<userlist@info> Storing new userlist entry for bob at <0x561291ed8fa0> in userlist
+<event.match@crazy> Event join from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058840,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed3250> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<ws.talk@debug> UserInfo: bob has privs 'admin,edit,view,radio,tx,elmer,syslog,chat,restart' (TX: false, Muted: false, sessions: 1)
+<event@crazy> send event userinfo: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event userinfo from cptr:<0x561291ec6bb0> with data:<0x561291ed3250> user:(null)
+<userlist@info> Updating userlist entry for bob at <0x561291ed8fa0>
+<event.match@crazy> Event userinfo from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058840,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"admin","privs":"admin,edit,view,radio,tx,elmer,syslog,chat","sessions":1}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"admin","privs":"admin,edit,view,radio,tx,elmer,syslog,chat","sessions":1}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed90b0> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"admin","privs":"admin,edit,view,radio,tx,elmer,syslog,chat","sessions":1}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<ws.talk@debug> UserInfo: admin has privs 'admin,edit,view,radio,tx,elmer,syslog,chat' (TX: false, Muted: false, sessions: 1)
+<event@crazy> send event userinfo: {"msg":{"ts":1789058840,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"admin","privs":"admin,edit,view,radio,tx,elmer,syslog,chat","sessions":1}}
+<event@crazy> Firing event userinfo from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<userlist@info> Storing new userlist entry for admin at <0x561291ed3250> in userlist
+<event.match@crazy> Event userinfo from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"talk":{"cmd":"replay-start","target":"&localrig"},"msg":{"type":"talk"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"type":"talk"},"talk":{"cmd":"replay-start","target":"&localrig"}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"type":"talk"},"talk":{"cmd":"replay-start","target":"&localrig"}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event chat.replay: {"msg":{"type":"talk"},"talk":{"cmd":"replay-start","target":"&localrig"}}
+<event@crazy> Firing event chat.replay from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<event.match@crazy> Event chat.replay from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789017302,"type":"talk"},"talk":{"data":"hiihi","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789017302,"type":"talk"},"talk":{"data":"hiihi","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789017302,"type":"talk"},"talk":{"data":"hiihi","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"msg":{"ts":1789017302,"type":"talk"},"talk":{"data":"hiihi","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event talk.msg from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789032078,"type":"talk"},"talk":{"data":"p/help","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789032078,"type":"talk"},"talk":{"data":"p/help","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789032078,"type":"talk"},"talk":{"data":"p/help","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"msg":{"ts":1789032078,"type":"talk"},"talk":{"data":"p/help","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event talk.msg from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789033553,"type":"talk"},"talk":{"data":"sup?","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789033553,"type":"talk"},"talk":{"data":"sup?","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789033553,"type":"talk"},"talk":{"data":"sup?","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"msg":{"ts":1789033553,"type":"talk"},"talk":{"data":"sup?","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event talk.msg from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789057564,"type":"talk"},"talk":{"data":"hello","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789057564,"type":"talk"},"talk":{"data":"hello","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789057564,"type":"talk"},"talk":{"data":"hello","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"msg":{"ts":1789057564,"type":"talk"},"talk":{"data":"hello","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event talk.msg from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058807,"type":"talk"},"talk":{"data":"yo","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789058807,"type":"talk"},"talk":{"data":"yo","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789058807,"type":"talk"},"talk":{"data":"yo","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"msg":{"ts":1789058807,"type":"talk"},"talk":{"data":"yo","cmd":"msg","msg_type":"replay-pub","from":"admin","target":"&localrig"}}
+<event@crazy> Firing event talk.msg from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"talk":{"cmd":"replay-complete","target":"&localrig"},"msg":{"type":"talk"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"type":"talk"},"talk":{"cmd":"replay-complete","target":"&localrig"}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"type":"talk"},"talk":{"cmd":"replay-complete","target":"&localrig"}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event chat.replay: {"msg":{"type":"talk"},"talk":{"cmd":"replay-complete","target":"&localrig"}}
+<event@crazy> Firing event chat.replay from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<event.match@crazy> Event chat.replay from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"ping":{"ts":155179300752},"msg":{"ts":1789058840,"type":"ping"}}
+<event@crazy> send event ws.msg.ping: {"msg":{"ts":1789058840,"type":"ping"},"ping":{"ts":155179300752}}
+<event@crazy> Firing event ws.msg.ping from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.ping@crazy> Server ping: {"msg":{"ts":1789058840,"type":"ping"},"ping":{"ts":155179300752}}
+<event.match@crazy> Event ws.msg.ping from cptr:<(nil)> hit 1 times
+<ws.proto@crazy> Sending dict <0x561291ed8480> to conn <0x561291ec6bb0>: {"ping":{"ts":155179300752},"msg":{"ts":1789058840,"type":"pong"}}
+<ws.proto@crazy> Sending dict <0x561291ed8480> to conn <0x561291ec6bb0>: {"talk":{"cmd":"msg","msg_type":"pub","data":"yo admin"},"msg":{"type":"talk"}}
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058842,"type":"talk"},"talk":{"data":"yo admin","cmd":"msg","msg_type":"pub","from":"bob","msg":{"global":false},"target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789058842,"type":"talk"},"talk":{"data":"yo admin","cmd":"msg","msg_type":"pub","from":"bob","msg":{"global":false},"target":"&localrig"}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789058842,"type":"talk"},"talk":{"data":"yo admin","cmd":"msg","msg_type":"pub","from":"bob","msg":{"global":false},"target":"&localrig"}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"msg":{"ts":1789058842,"type":"talk"},"talk":{"data":"yo admin","cmd":"msg","msg_type":"pub","from":"bob","msg":{"global":false},"target":"&localrig"}}
+<event@crazy> Firing event talk.msg from cptr:<0x561291ec6bb0> with data:<0x561291ed7c50> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<0x561291ec6bb0> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058846,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14077000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789058846,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14077000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058848,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789058848,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<ws.proto@crazy> Sending dict <0x561291eda0b0> to conn <0x561291ec6bb0>: {"talk":{"cmd":"msg","msg_type":"pub","data":"!freq 14074 mode d-u"},"msg":{"type":"talk"}}
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789058849,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"D-U","vfo":"A","power":0,"width":2400,"freq":14074000,"widths":"1200,2400,3000"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789058849,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"D-U","vfo":"A","width":2400,"power":0,"freq":14074000,"widths":"1200,2400,3000"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561291ed7c50> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: D-U
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<debug@crit> msg<5>: /quit
+<chat.cmd@crazy> command=quit argc=1 max_args=1
+<ws.proto@crazy> Sending dict <0x561291eda0f0> to conn <0x561291ec6bb0>: {"auth":{"msg":"no reason given","cmd":"quit"},"msg":{"type":"auth"}}
