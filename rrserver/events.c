@@ -405,7 +405,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
    }
 
    if (strcasecmp(subcmd, "LIST") == 0) {
-      quota_reply(cptr, "PTT quotas (minutes remaining):");
+      quota_reply(cptr, "TX quotas (minutes remaining):");
       db_quota_list(masterdb, quota_list_cb, cptr);
       return;
    }

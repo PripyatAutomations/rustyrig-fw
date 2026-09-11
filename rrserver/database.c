@@ -334,7 +334,7 @@ void db_migrate(sqlite3 *db) {
       err = NULL;
    }
 
-   // ptt_credits: remaining TX seconds per user (PTT quota accounting)
+   // ptt_credits: remaining TX seconds per user (TX quota accounting)
    if (sqlite3_exec(db,
       "CREATE TABLE IF NOT EXISTS ptt_credits ("
       "   username TEXT PRIMARY KEY,"
@@ -347,7 +347,7 @@ void db_migrate(sqlite3 *db) {
    }
 }
 
-// Remaining PTT credits (TX seconds) for a user, or -1 if they have no row.
+// Remaining TX credits (TX seconds) for a user, or -1 if they have no row.
 int db_quota_get(sqlite3 *db, const char *username) {
    if (!db || !username) {
       return -1;

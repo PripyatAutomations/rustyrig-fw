@@ -143,7 +143,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)" },
    { .cmd = "quote", .cb = cmd_quote, .desc = "Send a raw command" },
    { .cmd = "rehash", .cb = cmd_rehash, .desc = "Ask server to reload config & users" },
-   { .cmd = "quota", .cb = cmd_quota, .max_args = 8, .desc = "PTT quota admin (LIST|SHOW|ADD|RESET|SET)" },
+   { .cmd = "quota", .cb = cmd_quota, .max_args = 8, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)" },
    { .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file" },
    { .cmd = "restart", .cb = cmd_restart, .desc = "Restart the server" },
    { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
