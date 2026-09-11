@@ -332,6 +332,19 @@ bool parse_chat_input_real(const char *msg) {
             *p++ = '\0';
          }
       }
+      /*
+       * When we break on the max_args limit the remainder is left intact, which
+       * can leave trailing whitespace on the last argument (e.g. tab-completed
+       * '/whois admin '). Strip it so arguments are clean.
+       */
+      char *last = cmd_argv[cmd_argc - 1];
+      char *end = last + strlen(last);
+
+      while (end > last && isspace( (unsigned char)end[-1] ) ) {
+         end--;
+      }
+      *end = '\0';
+
       Log(LOG_CRAZY, "chat.cmd", "command=%s argc=%d max_args=%d", cmd_argv[0], cmd_argc, max_args);
       cmd->cb(cmd_argc, cmd_argv);
       free(input);
