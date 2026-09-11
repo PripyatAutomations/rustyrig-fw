@@ -166,3 +166,51 @@ bool cmd_rehash(int argc, char **args) {
    ui_print(NULL, "Rehash requested from server");
    return false;
 }
+
+/* PARITY: rustyrig-www/js/webui.chat.js /quota (sends talk.cmd=quota) */
+bool cmd_quota(int argc, char **args) {
+   if (argc < 2 || !args[1]) {
+      ui_print(NULL, "Usage: /quota LIST | SHOW <user>... | ADD <mins> <user>... | RESET <user>... | SET <mins> <user>...");
+      return true;
+   }
+
+   dict *d = dict_new();
+
+   if (!d) {
+      ui_print(NULL, "{red}/quota: out of memory{reset}");
+      return true;
+   }
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "quota");
+   dict_add(d, "talk.target", args[1]);
+
+   // Extra users go into the data tail: "SHOW user2 user3..." etc.
+   // The first user rides in talk.target like the webui does.
+   char tail[512] = "";
+
+   if (strcasecmp(args[1], "list") == 0 || strcasecmp(args[1], "show") == 0 ||
+       strcasecmp(args[1], "add") == 0 || strcasecmp(args[1], "reset") == 0 ||
+       strcasecmp(args[1], "set") == 0) {
+      size_t pos = 0;
+
+      for (int i = 2 ; i < argc ; i++) {
+         int n = snprintf(tail + pos, sizeof(tail) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
+
+         if (n < 0 || (size_t)n >= sizeof(tail) - pos) {
+            break;
+         }
+         pos += n;
+      }
+   } else {
+      // Single-user shortcut: "/quota bob" == "SHOW bob"
+      snprintf(tail, sizeof(tail), "SHOW");
+   }
+
+   if (tail[0]) {
+      dict_add(d, "talk.data", tail);
+   }
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+
+   return false;
+}

@@ -428,6 +428,62 @@ bool db_quota_add(sqlite3 *db, const char *username, int credits) {
 
    return success;
 }
+
+// Set the user's credits to an absolute value (creates the row if needed).
+bool db_quota_set(sqlite3 *db, const char *username, int credits) {
+   if (!db || !username) {
+      return false;
+   }
+   const char *sql =
+      "INSERT INTO ptt_credits (username, credits) VALUES (?, ?) "
+      "ON CONFLICT(username) DO UPDATE SET "
+      "credits = excluded.credits, "
+      "updated = CURRENT_TIMESTAMP;";
+
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "db_quota_set: prepare failed: %s", sqlite3_errmsg(db));
+      return false;
+   }
+   sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+   sqlite3_bind_int(stmt, 2, credits);
+
+   bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+   sqlite3_finalize(stmt);
+
+   return success;
+}
+
+// Iterate all credit rows. Calls cb(name, credits, user) per row; stop when
+// cb returns false. Returns false on db errors.
+bool db_quota_list(sqlite3 *db, int (*cb)(const char *name, int credits, void *user), void *user) {
+   if (!db || !cb) {
+      return false;
+   }
+   const char *sql = "SELECT username, credits FROM ptt_credits ORDER BY username;";
+
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "db_quota_list: prepare failed: %s", sqlite3_errmsg(db));
+      return false;
+   }
+
+   int rc;
+
+   while ( (rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+      const char *name = (const char *)sqlite3_column_text(stmt, 0);
+      int credits = sqlite3_column_int(stmt, 1);
+
+      if (!cb(name, credits, user) ) {
+         break;
+      }
+   }
+   sqlite3_finalize(stmt);
+
+   return (rc == SQLITE_DONE || rc == SQLITE_ROW);
+}
 #endif	// USE_SQLITE
 
 // Send a chat-style notice to one client as msg_type (e.g. 'privmsg', 'pub').

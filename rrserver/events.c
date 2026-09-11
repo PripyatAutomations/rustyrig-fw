@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -375,6 +376,173 @@ static void rrserver_handle_rehash(const char *event, const char *data, rrconn_t
    }
 }
 
+/*
+ * A client (with admin/owner privs -- checked in srv.chat.c) ran /quota:
+ *   LIST | SHOW <user>... | ADD <mins> <user>... | RESET <user>... |
+ *   SET <mins> <user>...
+ * Replies to the requesting client via ws_send_notice().
+ */
+static void quota_reply(rrconn_t *cptr, const char *fmt, ...) {
+   char buf[HTTP_WS_MAX_MSG + 1];
+   va_list ap;
+
+   va_start(ap, fmt);
+   vsnprintf(buf, sizeof(buf), fmt, ap);
+   va_end(ap);
+
+   ws_send_notice(cptr, "%s", buf);
+}
+
+// db_quota_list callback: print one row to the requesting client
+static int quota_list_cb(const char *name, int credits, void *user) {
+   quota_reply((rrconn_t *)user, "  %-16s %6d", name, credits / 60);
+   return 1;
+}
+
+static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, int mins, int argc, char **users) {
+   if (!masterdb || !subcmd) {
+      return;
+   }
+
+   if (strcasecmp(subcmd, "LIST") == 0) {
+      quota_reply(cptr, "PTT quotas (minutes remaining):");
+      db_quota_list(masterdb, quota_list_cb, cptr);
+      return;
+   }
+
+   if (argc < 1) {
+      quota_reply(cptr, "quota %s: no user given", subcmd);
+      return;
+   }
+
+   for (int i = 0 ; i < argc ; i++) {
+      const char *name = users[i];
+      int before = db_quota_get(masterdb, name);
+
+      if (strcasecmp(subcmd, "SHOW") == 0) {
+         quota_reply(cptr, "%s: %d minutes remaining", name, before / 60);
+
+      } else if (strcasecmp(subcmd, "ADD") == 0) {
+         if (mins <= 0) {
+            quota_reply(cptr, "quota ADD: minutes must be positive");
+            return;
+         }
+         if (db_quota_add(masterdb, name, mins * 60) ) {
+            Log(LOG_AUDIT, "quota", "%s added %d minutes to %s (was %d)",
+               actor, mins, name, before / 60);
+            quota_reply(cptr, "%s: added %d minutes (now %d)", name, mins, db_quota_get(masterdb, name) / 60);
+            quota_reset_warned(name);
+         } else {
+            quota_reply(cptr, "quota ADD: failed for %s", name);
+         }
+
+      } else if (strcasecmp(subcmd, "RESET") == 0) {
+         if (db_quota_set(masterdb, name, 60 * 60) ) {
+            Log(LOG_AUDIT, "quota", "%s reset %s to 60 minutes (was %d)",
+               actor, name, before / 60);
+            quota_reply(cptr, "%s: reset to 60 minutes", name);
+            quota_reset_warned(name);
+         } else {
+            quota_reply(cptr, "quota RESET: failed for %s", name);
+         }
+
+      } else if (strcasecmp(subcmd, "SET") == 0) {
+         if (mins < 0) {
+            quota_reply(cptr, "quota SET: minutes must be >= 0");
+            return;
+         }
+         if (db_quota_set(masterdb, name, mins * 60) ) {
+            Log(LOG_AUDIT, "quota", "%s set %s to %d minutes (was %d)",
+               actor, name, mins, before / 60);
+            quota_reply(cptr, "%s: set to %d minutes", name, mins);
+            quota_reset_warned(name);
+         } else {
+            quota_reply(cptr, "quota SET: failed for %s", name);
+         }
+
+      } else {
+         quota_reply(cptr, "Unknown quota subcommand: %s (try LIST, SHOW, ADD, RESET, SET)", subcmd);
+         return;
+      }
+   }
+}
+
+static void rrserver_handle_quota_cmd(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)user;
+
+   if (!cptr || !data) {
+      return;
+   }
+   dict *d = json2dict(data);
+
+   if (!d) {
+      return;
+   }
+
+   if (!masterdb) {
+      ws_send_error(cptr, "quota: database is not open");
+      dict_free(d);
+      return;
+   }
+
+   // Command tail comes from quota.data; a single SHOW user may instead be
+   // in quota.target (webui passes it via talk.target)
+   char tail[HTTP_WS_MAX_MSG + 1];
+   const char *data_str = dict_get(d, "quota.data", "");
+   const char *target = dict_get(d, "quota.target", NULL);
+
+   if ( (!data_str || data_str[0] == '\0') && target) {
+      snprintf(tail, sizeof(tail), "SHOW %s", target);
+   } else {
+      snprintf(tail, sizeof(tail), "%s", data_str ? data_str : "");
+   }
+
+   // Split into subcommand + args (users and/or minutes)
+   char *argv[32];
+   int argc = 0;
+   char *p = tail;
+
+   while (p && *p && argc < 32) {
+      while (*p == ' ' || *p == '\t') {
+         p++;
+      }
+      if (*p == '\0') {
+         break;
+      }
+      argv[argc++] = p;
+      while (*p && *p != ' ' && *p != '\t') {
+         p++;
+      }
+      if (*p) {
+         *p++ = '\0';
+      }
+   }
+
+   if (argc < 1) {
+      quota_reply(cptr, "Usage: /quota LIST | SHOW <user>... | ADD <mins> <user>... | RESET <user>... | SET <mins> <user>...");
+      dict_free(d);
+      return;
+   }
+
+   const char *subcmd = argv[0];
+   int mins = 0;
+   int user_arg = 1;
+
+   // ADD/SET take minutes as the first argument
+   if (strcasecmp(subcmd, "ADD") == 0 || strcasecmp(subcmd, "SET") == 0) {
+      if (argc < 2 || (mins = atoi(argv[1]) ) <= 0) {
+         quota_reply(cptr, "Usage: /quota %s <minutes> <user>...", subcmd);
+         dict_free(d);
+         return;
+      }
+      user_arg = 2;
+   }
+
+   quota_apply(cptr, cptr->chatname, subcmd, mins, argc - user_arg, &argv[user_arg]);
+   dict_free(d);
+}
+
 void rrserver_register_events(void) {
    extern void rrserver_media_register_events(void);   // media.c
    rrserver_media_register_events();
@@ -393,5 +561,6 @@ void rrserver_register_events(void) {
    event_on("latency", rrserver_handle_latency, NULL);
    event_on("authdb.load", rrserver_handle_authdb_load, NULL);
    event_on("rehash", rrserver_handle_rehash, NULL);
+   event_on("quota.cmd", rrserver_handle_quota_cmd, NULL);
    Log(LOG_CRAZY, "events", "Finished registering rrserver events");
 }

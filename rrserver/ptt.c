@@ -44,6 +44,15 @@ static int ptt_log_session[MAX_VFOS];
 // only nag them a single time until they're re-credited above the threshold
 static bool quota_warned[HTTP_MAX_USERS];
 
+// Clear the one-time low-credits latch for a user (after a top-up etc)
+void quota_reset_warned(const char *username) {
+   int uid = http_getuid(username);
+
+   if (uid >= 0 && uid < HTTP_MAX_USERS) {
+      quota_warned[uid] = false;
+   }
+}
+
 static void quota_maybe_warn(rrconn_t *talker, int left) {
    if (!talker || !talker->user || talker->user->uid < 0 || talker->user->uid >= HTTP_MAX_USERS) {
       return;

@@ -24,6 +24,8 @@ extern bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs);
 extern int db_quota_get(sqlite3 *db, const char *username);
 extern bool db_quota_spend(sqlite3 *db, const char *username, int secs);
 extern bool db_quota_add(sqlite3 *db, const char *username, int credits);
+extern bool db_quota_set(sqlite3 *db, const char *username, int credits);
+extern bool db_quota_list(sqlite3 *db, int (*cb)(const char *name, int credits, void *user), void *user);
 extern bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *text);
 extern void db_migrate(sqlite3 *db);
 extern bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type,
