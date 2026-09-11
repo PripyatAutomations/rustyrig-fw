@@ -461,7 +461,11 @@ bool db_quota_list(sqlite3 *db, int (*cb)(const char *name, int credits, void *u
    if (!db || !cb) {
       return false;
    }
-   const char *sql = "SELECT username, credits FROM ptt_credits ORDER BY username;";
+   // All users with their credits; users without a ptt_credits row show 0
+   const char *sql =
+      "SELECT u.name, COALESCE(c.credits, 0) "
+      "FROM users u LEFT JOIN ptt_credits c ON c.username = u.name "
+      "ORDER BY u.name;";
 
    sqlite3_stmt *stmt = NULL;
 

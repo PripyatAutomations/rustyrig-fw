@@ -170,7 +170,7 @@ bool cmd_rehash(int argc, char **args) {
 /* PARITY: rustyrig-www/js/webui.chat.js /quota (sends talk.cmd=quota) */
 bool cmd_quota(int argc, char **args) {
    if (argc < 2 || !args[1]) {
-      ui_print(NULL, "Usage: /quota LIST | SHOW <user>... | ADD <mins> <user>... | RESET <user>... | SET <mins> <user>...");
+      ui_print(NULL, "Usage: /quota LIST | SHOW <user>... | ADD <user> <minutes> | RESET <user>... | SET <user> <minutes>");
       return true;
    }
 
