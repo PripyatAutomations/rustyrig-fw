@@ -572,9 +572,8 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    }
 
    if (argc < 1) {
-      // Bare /quota is a shortcut for LIST followed by the help text
+      // Bare /quota is a shortcut for LIST; use /quota help for the help text
       quota_apply(cptr, cptr->chatname, "LIST", 0, NULL);
-      quota_apply(cptr, cptr->chatname, "HELP", 0, NULL);
       dict_free(d);
       return;
    }

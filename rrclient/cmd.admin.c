@@ -171,8 +171,8 @@ bool cmd_rehash(int argc, char **args) {
 bool cmd_quota(int argc, char **args) {
    if (argc < 2 || !args[1]) {
       // Bare /quota is a shortcut for LIST + showing the help
-      ui_print(NULL, "Usage: /quota LIST | SHOW <user>... | ADD <user> <minutes> | RESET <user>... | SET <user> <minutes>");
-      ui_print(NULL, "  ADD/SET take minutes (0 = no TX allowed); SHOW shows seconds too.");
+      ui_print(NULL, "{reset}Usage: /quota LIST | SHOW <user>... | ADD <user> <minutes> | RESET <user>... | SET <user> <minutes>");
+      ui_print(NULL, "     ADD/SET take seconds or dhms string (ex: 1h30m) (SET 0 = no TX allowed)");
 
       // Send LIST to the server for the actual listing
       args[1] = (char *)"LIST";
