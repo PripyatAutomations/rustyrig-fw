@@ -37,6 +37,7 @@ extern void rrserver_register_events(void); // events.c
 extern void rrserver_media_register_events(void);   // media.c
 extern void rrserver_media_init(void);              // media.c
 extern void audit_init(void);               // audit.c
+extern void hostlog_init(void);             // hostlog.c
 #ifdef	USE_MONGOOSE
 struct mg_mgr mg_mgr;
 #endif
@@ -234,6 +235,7 @@ int main(int argc, char **argv) {
    }
    audit_init();   // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
+   hostlog_init();   // Stream Log() lines to FLAG_SYSLOG clients (hostlog.c)
 
    protection_init();
    timer_init();

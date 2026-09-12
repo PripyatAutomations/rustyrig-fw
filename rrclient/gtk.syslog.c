@@ -46,6 +46,54 @@ static bool log_tab_visible(void) {
            gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_page) );
 }
 
+// One host log line arrived as a SUBSYS_LOG binframe payload (media.frame.log
+// event; the binframe header is already stripped by ws_binframe_process).
+// Payload: struct rr_logframe - prio byte, 16-byte NUL-padded subsys, then
+// the NUL-terminated message. Plain text only: the host never sends color.
+static void host_log_frame_handler(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)cptr;
+   (void)user;
+
+   if (dying || !host_log_buffer || !data || len < RR_LOGFRAME_HDR_LEN) {
+      return;
+   }
+   const uint8_t *p = (const uint8_t *)data;
+   logpriority_t prio = (logpriority_t)p[0];
+   char subsys[17];
+
+   memcpy(subsys, p + 1, 16);
+   subsys[16] = '\0';   // subsys is NUL padded, but belt & braces
+   const char *msg = (const char *)p + RR_LOGFRAME_HDR_LEN;
+
+   // msg is NUL terminated inside the payload; clamp the visible length to
+   // what actually arrived in case of a truncation bug on the wire.
+   size_t avail = len - RR_LOGFRAME_HDR_LEN;
+   size_t mlen = strnlen(msg, avail);
+
+   GtkTextIter end;
+
+   gtk_text_buffer_get_end_iter(host_log_buffer, &end);
+
+   char tsbuf[32];
+   snprintf(tsbuf, sizeof(tsbuf), "%s", get_chat_ts(now) );
+   gtk_text_buffer_insert(host_log_buffer, &end, tsbuf, -1);
+
+   char header[64];
+   snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(prio) );
+   gtk_text_buffer_insert(host_log_buffer, &end, header, -1);
+   gtk_text_buffer_insert(host_log_buffer, &end, msg, (gint)mlen);
+   gtk_text_buffer_insert(host_log_buffer, &end, "\n", 1);
+   gtk_trim_scrollback(host_log_buffer, "ui.gtk.scrollback.hostlog", 500);
+
+   // Only bother scrolling when the user is actually watching this tab
+   if (main_notebook && host_log_page &&
+       gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
+       gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), host_log_page) ) {
+      g_idle_add(ui_scroll_to_end, host_log_view);
+   }
+}
+
 // When the user switches to a log tab, jump the view to the newest entry.
 // log_print_va() skips the per-line scroll idle callback while the tab is
 // hidden (the old comment claimed the view "re-scrolls when shown" but nothing
@@ -210,6 +258,13 @@ GtkWidget *init_host_log_tab(void) {
    gtk_label_set_markup(GTK_LABEL(syslog_tab_label), "(<u>3</u>) Host Log");
    host_log_page = nw;
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, syslog_tab_label);
+
+   // Host log lines arrive as RR_BINFRAME_SUBSYS_LOG binframes from the
+   // server (rrserver/hostlog.c); the JSON/textframe paths are left alone
+   // so the log text never gets mangled. Payload layout:
+   // librrprotocol/ws.binframe.h struct rr_logframe.
+   // PARITY: rrserver/hostlog.c hostlog_cb()
+   event_on_binary("media.frame.log", host_log_frame_handler, NULL);
 
    return nw;
 }

@@ -21,6 +21,7 @@ rrserver_objs += events.o		# Our event hooks
 rrserver_objs += faults.o		# Fault management/alerting
 rrserver_objs += filters.o		# Support for managing BPF/LPF/HPF
 rrserver_objs += gpio.o			# GPIO controls
+rrserver_objs += hostlog.o		# Stream host Log() lines to FLAG_SYSLOG clients as binframes
 #rrserver_objs += gui.o			# Support for a GUI on the OLED/Nextion (NYI)
 #rrserver_objs += gui.fb.o		# Virtual framebuffer for GUI (NYI)
 #rrserver_objs += gui.nextion.o		# Nextion display support (NYI)
