@@ -126733,3 +126733,17 @@
 <http.ws@debug> binary: 146 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 11 AA 
 <event@crazy> send binary event media.frame.log: 118 bytes
 <event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (118 bytes)
+<main@debug> CAT poll blocking delay: 1 second(s)
+<cat@info> Initializing CAT interfaces
+<cat.pty@info> CAT PTY up: ./dev/ttyCAT0 => /dev/pts/4
+<cat@info> Rig CAT control (yaesu emu) initialized
+<cat@info> CAT Initialization succesful
+<cfg@crazy> returning default value |bottom| for key |ui.gtk.main-tabstrip|
+<ui.core@debug> Placing main tabstrip at BOTTOM
+<ws@debug> Setting TLS CA path to <0x5562a0dd6400> * with target mg_str at <0x7fff0119e900>
+<ws@debug> ws_init finished
+<connman@debug> server: |camp| url: |(null)|
+<cat.pty@debug> PTY slave closed (HUP), re-arming in 2s
+<debug@crit> msg<5>: /quit
+<chat.cmd@crazy> command=quit argc=1 max_args=1
+<rrproto.srv@warn> Unable to send msg dict:<0x5562a0dd6d70> to conn:<(nil)> - invalid destination
