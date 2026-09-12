@@ -49,6 +49,17 @@ void timer_clock_tick_fn(void *arg) {
    if (global_tot_time > 0 && global_tot_time <= now) {
       rrconn_t *talker = whos_talking();
       Log(LOG_AUDIT, "ptt", "TOT (rig.tot: %d) expired, halting TX!", cfg_get_int("rig.tot", 300) );
+
+      // Clear the talker's TX flag BEFORE releasing the rig. is_ptt is only
+      // otherwise updated by srv.rigctl.c on a client cat.ptt message, so
+      // without this whos_talking() keeps returning the user after TOT
+      // (blocking other users from keying up) until they bounce PTT.
+      if (talker) {
+         talker->is_ptt = false;
+         talker->ptt_vfo = 0;
+         ws_send_userinfo(talker, NULL);
+      }
+
       rr_ptt_set_all_off();
       global_tot_time = 0;
       char msgbuf[HTTP_WS_MAX_MSG + 1];
