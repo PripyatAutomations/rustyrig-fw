@@ -8,12 +8,12 @@ Take a look at the deps in install-deps.sh if you need manually install them.
 Currently it only supports debian-based systems. Contributions always welcome!
 
 It consists of a few parts:
-	fwdsp/		gstreamer based audio bridge
-	librrprotocol/	RustyRig protocol library, you can make your own client!
-	librustyaxe/	Shared code in many of my projects
-	rrclient/	GTK/TUI client (Use -T to force TUI)
-	rrserver/	backend server
-	www/		WebUI (served by rrserver) - in PripyatAutomations/rustyrig-www repo
+-	fwdsp/		gstreamer based audio bridge
+-	librrprotocol/	RustyRig protocol library, you can make your own client!
+-	librustyaxe/	Shared code in many of my projects
+-	rrclient/	GTK/TUI client (Use -T to force TUI)
+-	rrserver/	backend server
+-	www/		WebUI (served by rrserver) - in PripyatAutomations/rustyrig-www repo
 
 You probably will want to run ./install-deps.sh (apt based for now)
 
