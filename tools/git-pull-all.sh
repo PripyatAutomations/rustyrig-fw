@@ -3,6 +3,9 @@ subdirs="librrprotocol librustyaxe www callsign-lookup"
 subdirs_ext="libmongoose mbedtls sqlite wslay"
 
 git pull
+
+git submodule update --remote --recursive
+
 for i in ${subdirs}; do
    (cd $i; git pull)
 done
