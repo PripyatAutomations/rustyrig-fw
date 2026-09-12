@@ -1,0 +1,1182 @@
+<main@debug> CAT poll blocking delay: 1 second(s)
+<cat@info> Initializing CAT interfaces
+<cat.pty@info> CAT PTY up: ./dev/ttyCAT0 => /dev/pts/4
+<cat@info> Rig CAT control (yaesu emu) initialized
+<cat@info> CAT Initialization succesful
+<cfg@crazy> returning default value |bottom| for key |ui.gtk.main-tabstrip|
+<ui.core@debug> Placing main tabstrip at BOTTOM
+<ws@debug> Setting TLS CA path to <0x55c057fb8400> * with target mg_str at <0x7ffcc9101300>
+<ws@debug> ws_init finished
+<connman@debug> server: |localhost| url: |ws://localhost:8420/ws/|
+<cat.pty@debug> PTY slave closed (HUP), re-arming in 2s
+<event@crazy> send event connected: {"connected":{"server":"localhost"}}
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event connected from cptr:<(nil)> hit 2 times
+<ws@debug> ev_ws_connect: server: |localhost| user: |bob|
+<event@crazy> send event connected: {"auth":{"server":"localhost","user":"bob"}}
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event connected from cptr:<(nil)> hit 2 times
+<ws.proto@crazy> Sending dict <0x55c057fb8f70> to conn <0x55c057fb8ff0>: {"hello":{"swver":"20260911.01"},"msg":{"type":"hello"}}
+<rrproto.auth@info> Sending initial LOGIN!
+<ws.proto@crazy> Sending dict <0x55c057fb8f70> to conn <0x55c057fb8ff0>: {"auth":{"user":"bob","cmd":"login"},"msg":{"type":"auth"}}
+<http@crazy> ws_handle_cli: msg={"hello":{"hwver":"sb50","swver":"20260911.01"},"msg":{"ts":1789182290,"type":"hello"}}
+<event@crazy> send event ws.msg.hello: {"msg":{"ts":1789182290,"type":"hello"},"hello":{"hwver":"sb50","swver":"20260911.01"}}
+<event@crazy> Firing event ws.msg.hello from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.hello from cptr:<(nil)> hit 1 times
+<auth.ws@info> *** server is running 20260911.01 on sb50 ***
+<http@crazy> ws_handle_cli: msg={"auth":{"token":"xUh+BLTvUYeN1","user":"bob","cmd":"challenge","nonce":"KsHE7gzYNeSc/"},"msg":{"type":"auth"}}
+<event@crazy> send event ws.msg.auth: {"msg":{"type":"auth"},"auth":{"token":"xUh+BLTvUYeN1","user":"bob","cmd":"challenge","nonce":"KsHE7gzYNeSc/"}}
+<event@crazy> Firing event ws.msg.auth from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.auth from cptr:<(nil)> hit 1 times
+<auth.ws@audit> Got CHALLENGE KsHE7gzYNeSc/ from server localhost, sending password!
+<auth@crazy> passwd |48181acd22b3edaebc8a447868a7df7ce629920a| nonce |KsHE7gzYNeSc/| result |02c2d3c87a1f60f9ae15c767f4163559fc40b755|
+<ws.proto@crazy> Sending dict <0x55c057fc9a40> to conn <0x55c057fb8ff0>: {"auth":{"pass":"02c2d3c87a1f60f9ae15c767f4163559fc40b755","token":"xUh+BLTvUYeN1","user":"bob","cmd":"pass"},"msg":{"type":"auth"}}
+<event@crazy> send event logging-in: {"msg":{"type":"auth"},"auth":{"token":"xUh+BLTvUYeN1","user":"bob","cmd":"challenge","nonce":"KsHE7gzYNeSc/"}}
+<event@crazy> Firing event logging-in from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.auth@crazy> Logging in: {"msg":{"type":"auth"},"auth":{"token":"xUh+BLTvUYeN1","user":"bob","cmd":"challenge","nonce":"KsHE7gzYNeSc/"}}
+<event.match@crazy> Event logging-in from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 133 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 55 
+<event@crazy> send binary event media.frame.log: 105 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (105 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 56 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 68 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 57 
+<event@crazy> send binary event media.frame.log: 40 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (40 bytes)
+<http.ws@debug> binary: 130 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 58 
+<event@crazy> send binary event media.frame.log: 102 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (102 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 59 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 5A 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 5B 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 5C 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 56 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 5D 
+<event@crazy> send binary event media.frame.log: 28 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (28 bytes)
+<http.ws@debug> binary: 65 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 5E 
+<event@crazy> send binary event media.frame.log: 37 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (37 bytes)
+<http.ws@debug> binary: 140 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 5F 
+<event@crazy> send binary event media.frame.log: 112 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (112 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 60 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 61 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 62 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 63 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 56 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 64 
+<event@crazy> send binary event media.frame.log: 28 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (28 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 65 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 60 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 66 
+<event@crazy> send binary event media.frame.log: 32 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (32 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 67 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 61 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 68 
+<event@crazy> send binary event media.frame.log: 33 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (33 bytes)
+<http.ws@debug> binary: 132 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 69 
+<event@crazy> send binary event media.frame.log: 104 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (104 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 6A 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 6B 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 6C 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 6D 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 56 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 6E 
+<event@crazy> send binary event media.frame.log: 28 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (28 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 6F 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 60 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 70 
+<event@crazy> send binary event media.frame.log: 32 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (32 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 71 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 61 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 72 
+<event@crazy> send binary event media.frame.log: 33 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (33 bytes)
+<http.ws@debug> binary: 133 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 73 
+<event@crazy> send binary event media.frame.log: 105 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (105 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 74 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 75 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 76 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 77 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 56 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 78 
+<event@crazy> send binary event media.frame.log: 28 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (28 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 79 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 68 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 7A 
+<event@crazy> send binary event media.frame.log: 40 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (40 bytes)
+<http.ws@debug> binary: 267 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 7B 
+<event@crazy> send binary event media.frame.log: 239 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (239 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789182290,"token":"xUh+BLTvUYeN1","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> send event ws.msg.auth: {"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789182290,"token":"xUh+BLTvUYeN1","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> Firing event ws.msg.auth from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.auth from cptr:<(nil)> hit 1 times
+<event@crazy> send event authorized: {"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789182290,"token":"xUh+BLTvUYeN1","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> Firing event authorized from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event@crazy> Firing event authorized from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event@crazy> Firing event authorized from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event authorized from cptr:<(nil)> hit 3 times
+<http.ws@debug> binary: 73 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 7C 
+<event@crazy> send binary event media.frame.log: 45 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (45 bytes)
+<http.ws@debug> binary: 139 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 7D 
+<event@crazy> send binary event media.frame.log: 111 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (111 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 7E 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182290,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182290,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 7F 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182290,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182290,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 105 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 80 
+<event@crazy> send binary event media.frame.log: 77 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (77 bytes)
+<http.ws@debug> binary: 233 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 81 
+<event@crazy> send binary event media.frame.log: 205 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (205 bytes)
+<http@crazy> ws_handle_cli: msg={ "msg": { "type": "media" }, "media": { "cmd": "capab", "codecs": "pc16 mu16 mu08 opus flac" } }
+<event@crazy> send event ws.msg.media: {"media":{"codecs":"pc16 mu16 mu08 opus flac","cmd":"capab"},"msg":{"type":"media"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.media@debug> Server media capabilities: pc16 mu16 mu08 opus flac
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<codecneg@crazy> codec_filter_common(|pc16 mu16 mu08|, |pc16 mu16 mu08 opus flac|) returned |pc16 mu16 mu08|
+<ws.media@info> Negotiated common codecs: pc16 mu16 mu08 (default: pc16)
+<ws.proto@crazy> Sending dict <0x55c057fcc4f0> to conn <0x55c057fb8ff0>: {"media":{"channel":"rx","ts":1789182291,"codec":"pc16","cmd":"codec"},"msg":{"type":"media"}}
+<ws.media@info> Selected rx codec pc16
+<ws.proto@crazy> Sending dict <0x55c057fcaa10> to conn <0x55c057fb8ff0>: {"media":{"channel":"tx","ts":1789182291,"codec":"pc16","cmd":"codec"},"msg":{"type":"media"}}
+<ws.media@info> Selected tx codec pc16
+<http.ws@debug> binary: 78 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 82 
+<event@crazy> send binary event media.frame.log: 50 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (50 bytes)
+<http.ws@debug> binary: 144 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 83 
+<event@crazy> send binary event media.frame.log: 116 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (116 bytes)
+<http.ws@debug> binary: 266 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 84 
+<event@crazy> send binary event media.frame.log: 238 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (238 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57ce1","subsys":1,"dir":0,"vfo":0,"cmd":"available","descr":"RX audio VFO A"}}
+<event@crazy> send event ws.msg.media: {"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57ce1","subsys":1,"dir":0,"vfo":0,"cmd":"available","descr":"RX audio VFO A"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.media@info> Media channel available: 6aa4c150-7f75aeb57ce1 subsys 0x01 rx vfo 0 rig 0 (RX audio VFO A)
+<event@crazy> send event media.available: {"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57ce1","subsys":1,"dir":0,"vfo":0,"cmd":"available","descr":"RX audio VFO A"}}
+<event@crazy> Firing event media.available from cptr:<(nil)> with data:<0x55c057fcc4f0> user:(null)
+<event.match@crazy> Event media.available from cptr:<(nil)> hit 1 times
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<ws.media@debug> Unhandled media cmd: |available|
+<http.ws@debug> binary: 266 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 85 
+<event@crazy> send binary event media.frame.log: 238 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (238 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57dac","subsys":1,"dir":1,"vfo":0,"cmd":"available","descr":"TX audio VFO A"}}
+<event@crazy> send event ws.msg.media: {"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57dac","subsys":1,"dir":1,"vfo":0,"cmd":"available","descr":"TX audio VFO A"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.media@info> Media channel available: 6aa4c150-7f75aeb57dac subsys 0x01 tx vfo 0 rig 0 (TX audio VFO A)
+<event@crazy> send event media.available: {"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57dac","subsys":1,"dir":1,"vfo":0,"cmd":"available","descr":"TX audio VFO A"}}
+<event@crazy> Firing event media.available from cptr:<(nil)> with data:<0x55c057fcc4f0> user:(null)
+<event.match@crazy> Event media.available from cptr:<(nil)> hit 1 times
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<ws.media@debug> Unhandled media cmd: |available|
+<http.ws@debug> binary: 266 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 86 
+<event@crazy> send binary event media.frame.log: 238 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (238 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57e77","subsys":1,"dir":0,"vfo":1,"cmd":"available","descr":"RX audio VFO B"}}
+<event@crazy> send event ws.msg.media: {"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57e77","subsys":1,"dir":0,"vfo":1,"cmd":"available","descr":"RX audio VFO B"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.media@info> Media channel available: 6aa4c150-7f75aeb57e77 subsys 0x01 rx vfo 1 rig 0 (RX audio VFO B)
+<event@crazy> send event media.available: {"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57e77","subsys":1,"dir":0,"vfo":1,"cmd":"available","descr":"RX audio VFO B"}}
+<event@crazy> Firing event media.available from cptr:<(nil)> with data:<0x55c057fcc4f0> user:(null)
+<event.match@crazy> Event media.available from cptr:<(nil)> hit 1 times
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<ws.media@debug> Unhandled media cmd: |available|
+<http.ws@debug> binary: 266 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 87 
+<event@crazy> send binary event media.frame.log: 238 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (238 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57f42","subsys":1,"dir":1,"vfo":1,"cmd":"available","descr":"TX audio VFO B"}}
+<event@crazy> send event ws.msg.media: {"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57f42","subsys":1,"dir":1,"vfo":1,"cmd":"available","descr":"TX audio VFO B"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.media@info> Media channel available: 6aa4c150-7f75aeb57f42 subsys 0x01 tx vfo 1 rig 0 (TX audio VFO B)
+<event@crazy> send event media.available: {"msg":{"type":"media"},"media":{"ts":1789182290,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57f42","subsys":1,"dir":1,"vfo":1,"cmd":"available","descr":"TX audio VFO B"}}
+<event@crazy> Firing event media.available from cptr:<(nil)> with data:<0x55c057fcc4f0> user:(null)
+<event.match@crazy> Event media.available from cptr:<(nil)> hit 1 times
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<ws.media@debug> Unhandled media cmd: |available|
+<http.ws@debug> binary: 110 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 88 
+<event@crazy> send binary event media.frame.log: 82 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (82 bytes)
+<http.ws@debug> binary: 304 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 89 
+<event@crazy> send binary event media.frame.log: 276 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (276 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182290,"type":"talk"},"talk":{"sessions":1,"muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789182290,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789182290,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event join: {"msg":{"ts":1789182290,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event join from cptr:<0x55c057fb8ff0> with data:<0x55c057fc5690> user:(null)
+<userlist@info> Storing new userlist entry for bob at <0x55c057fcc4f0> in userlist
+<event.match@crazy> Event join from cptr:<0x55c057fb8ff0> hit 1 times
+<http.ws@debug> binary: 279 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 8A 
+<event@crazy> send binary event media.frame.log: 251 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (251 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182290,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789182290,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789182290,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<ws.talk@debug> UserInfo: bob has privs 'admin,edit,view,radio,tx,elmer,syslog,chat,restart' (TX: false, Muted: false, sessions: 1)
+<event@crazy> send event userinfo: {"msg":{"ts":1789182290,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event userinfo from cptr:<0x55c057fb8ff0> with data:<0x55c057fc5690> user:(null)
+<userlist@info> Updating userlist entry for bob at <0x55c057fcc4f0>
+<event.match@crazy> Event userinfo from cptr:<0x55c057fb8ff0> hit 1 times
+<http.ws@debug> binary: 157 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 8B 
+<event@crazy> send binary event media.frame.log: 129 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (129 bytes)
+<http.ws@debug> binary: 141 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 8C 
+<event@crazy> send binary event media.frame.log: 113 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (113 bytes)
+<http.ws@debug> binary: 85 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 8D 
+<event@crazy> send binary event media.frame.log: 57 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (57 bytes)
+<http.ws@debug> binary: 80 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 8E 
+<event@crazy> send binary event media.frame.log: 52 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (52 bytes)
+<http.ws@debug> binary: 83 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 8F 
+<event@crazy> send binary event media.frame.log: 55 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (55 bytes)
+<http.ws@debug> binary: 79 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 90 
+<event@crazy> send binary event media.frame.log: 51 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (51 bytes)
+<http.ws@debug> binary: 126 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 91 
+<event@crazy> send binary event media.frame.log: 98 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (98 bytes)
+<http.ws@debug> binary: 167 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 92 
+<event@crazy> send binary event media.frame.log: 139 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (139 bytes)
+<http@crazy> ws_handle_cli: msg={"ping":{"ts":93936654813},"msg":{"ts":1789182290,"type":"ping"}}
+<event@crazy> send event ws.msg.ping: {"msg":{"ts":1789182290,"type":"ping"},"ping":{"ts":93936654813}}
+<event@crazy> Firing event ws.msg.ping from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<ws.ping@crazy> Server ping: {"msg":{"ts":1789182290,"type":"ping"},"ping":{"ts":93936654813}}
+<event.match@crazy> Event ws.msg.ping from cptr:<(nil)> hit 1 times
+<ws.proto@crazy> Sending dict <0x55c057fb8eb0> to conn <0x55c057fb8ff0>: {"ping":{"ts":93936654813},"msg":{"ts":1789182290,"type":"pong"}}
+<http.ws@debug> binary: 107 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 93 
+<event@crazy> send binary event media.frame.log: 79 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (79 bytes)
+<http.ws@debug> binary: 171 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 94 
+<event@crazy> send binary event media.frame.log: 143 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (143 bytes)
+<http.ws@debug> binary: 82 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 95 
+<event@crazy> send binary event media.frame.log: 54 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (54 bytes)
+<http.ws@debug> binary: 171 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 96 
+<event@crazy> send binary event media.frame.log: 143 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (143 bytes)
+<http.ws@debug> binary: 82 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 97 
+<event@crazy> send binary event media.frame.log: 54 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (54 bytes)
+<http.ws@debug> binary: 142 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 98 
+<event@crazy> send binary event media.frame.log: 114 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (114 bytes)
+<http.ws@debug> binary: 101 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 99 
+<event@crazy> send binary event media.frame.log: 73 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (73 bytes)
+<http.ws@debug> binary: 108 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 9A 
+<event@crazy> send binary event media.frame.log: 80 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (80 bytes)
+<http.ws@debug> binary: 103 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 9B 
+<event@crazy> send binary event media.frame.log: 75 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (75 bytes)
+<http.ws@debug> binary: 132 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 9C 
+<event@crazy> send binary event media.frame.log: 104 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (104 bytes)
+<http.ws@debug> binary: 79 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 9D 
+<event@crazy> send binary event media.frame.log: 51 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (51 bytes)
+<http.ws@debug> binary: 98 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 9E 
+<event@crazy> send binary event media.frame.log: 70 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (70 bytes)
+<http.ws@debug> binary: 110 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 9F 
+<event@crazy> send binary event media.frame.log: 82 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (82 bytes)
+<debug@crit> msg<7>: /quota 
+<chat.cmd@crazy> command=quota argc=1 max_args=8
+<ws.proto@crazy> Sending dict <0x55c057fa1250> to conn <0x55c057fb8ff0>: {"talk":{"cmd":"quota","target":"LIST"},"msg":{"type":"talk"}}
+<http.ws@debug> binary: 139 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A0 
+<event@crazy> send binary event media.frame.log: 111 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (111 bytes)
+<http.ws@debug> binary: 133 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A1 
+<event@crazy> send binary event media.frame.log: 105 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (105 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A2 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 68 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A3 
+<event@crazy> send binary event media.frame.log: 40 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (40 bytes)
+<http.ws@debug> binary: 145 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A4 
+<event@crazy> send binary event media.frame.log: 117 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (117 bytes)
+<http.ws@debug> binary: 134 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A5 
+<event@crazy> send binary event media.frame.log: 106 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (106 bytes)
+<http.ws@debug> binary: 193 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A6 
+<event@crazy> send binary event media.frame.log: 165 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (165 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A7 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A8 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 A9 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182293,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 100 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 AA 
+<event@crazy> send binary event media.frame.log: 72 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (72 bytes)
+<debug@crit> msg<7>: /quota 
+<chat.cmd@crazy> command=quota argc=1 max_args=8
+<ws.proto@crazy> Sending dict <0x55c057fca8c0> to conn <0x55c057fb8ff0>: {"talk":{"cmd":"quota","target":"LIST"},"msg":{"type":"talk"}}
+<http.ws@debug> binary: 139 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 AB 
+<event@crazy> send binary event media.frame.log: 111 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (111 bytes)
+<http.ws@debug> binary: 133 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 AC 
+<event@crazy> send binary event media.frame.log: 105 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (105 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 AD 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 68 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 AE 
+<event@crazy> send binary event media.frame.log: 40 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (40 bytes)
+<http.ws@debug> binary: 145 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 AF 
+<event@crazy> send binary event media.frame.log: 117 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (117 bytes)
+<http.ws@debug> binary: 134 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B0 
+<event@crazy> send binary event media.frame.log: 106 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (106 bytes)
+<http.ws@debug> binary: 193 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B1 
+<event@crazy> send binary event media.frame.log: 165 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (165 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B2 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B3 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B4 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182300,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 100 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B5 
+<event@crazy> send binary event media.frame.log: 72 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (72 bytes)
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B6 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B7 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B8 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182303,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182303,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 B9 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 BA 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 BB 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182303,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182303,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 BC 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 BD 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 BE 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182318,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182318,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 BF 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C0 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C1 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182318,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182318,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C2 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C3 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C4 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182333,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182333,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C5 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C6 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C7 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182333,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182333,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C8 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 C9 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 CA 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182348,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182348,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 CB 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 CC 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 CD 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182348,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182348,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 CE 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 CF 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 D0 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182363,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182363,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 D1 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 D2 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 D3 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182363,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182363,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x55c057fc5690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<debug@crit> msg<5>: /quit
+<chat.cmd@crazy> command=quit argc=1 max_args=1
+<ws.proto@crazy> Sending dict <0x55c057fcaa30> to conn <0x55c057fb8ff0>: {"auth":{"msg":"no reason given","cmd":"quit"},"msg":{"type":"auth"}}
+<http.ws@debug> binary: 146 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 00 D4 
+<event@crazy> send binary event media.frame.log: 118 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (118 bytes)
+<main@debug> CAT poll blocking delay: 1 second(s)
+<cat@info> Initializing CAT interfaces
+<cat.pty@info> CAT PTY up: ./dev/ttyCAT0 => /dev/pts/4
+<cat@info> Rig CAT control (yaesu emu) initialized
+<cat@info> CAT Initialization succesful
+<cfg@crazy> returning default value |bottom| for key |ui.gtk.main-tabstrip|
+<ui.core@debug> Placing main tabstrip at BOTTOM
+<ws@debug> Setting TLS CA path to <0x561ec8dff400> * with target mg_str at <0x7ffd40e7b520>
+<ws@debug> ws_init finished
+<connman@debug> server: |localhost| url: |ws://localhost:8420/ws/|
+<cat.pty@debug> PTY slave closed (HUP), re-arming in 2s
+<event@crazy> send event connected: {"connected":{"server":"localhost"}}
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event connected from cptr:<(nil)> hit 2 times
+<ws@debug> ev_ws_connect: server: |localhost| user: |bob|
+<event@crazy> send event connected: {"auth":{"server":"localhost","user":"bob"}}
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event@crazy> Firing event connected from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event connected from cptr:<(nil)> hit 2 times
+<ws.proto@crazy> Sending dict <0x561ec8dfff70> to conn <0x561ec8dffff0>: {"hello":{"swver":"20260911.01"},"msg":{"type":"hello"}}
+<rrproto.auth@info> Sending initial LOGIN!
+<ws.proto@crazy> Sending dict <0x561ec8dfff70> to conn <0x561ec8dffff0>: {"auth":{"user":"bob","cmd":"login"},"msg":{"type":"auth"}}
+<http@crazy> ws_handle_cli: msg={"hello":{"hwver":"sb50","swver":"20260911.01"},"msg":{"ts":1789182376,"type":"hello"}}
+<event@crazy> send event ws.msg.hello: {"msg":{"ts":1789182376,"type":"hello"},"hello":{"hwver":"sb50","swver":"20260911.01"}}
+<event@crazy> Firing event ws.msg.hello from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event ws.msg.hello from cptr:<(nil)> hit 1 times
+<auth.ws@info> *** server is running 20260911.01 on sb50 ***
+<http@crazy> ws_handle_cli: msg={"auth":{"token":"Qf0ram/7kBH4w","user":"bob","cmd":"challenge","nonce":"bQPpFZVMdQtRp"},"msg":{"type":"auth"}}
+<event@crazy> send event ws.msg.auth: {"msg":{"type":"auth"},"auth":{"token":"Qf0ram/7kBH4w","user":"bob","cmd":"challenge","nonce":"bQPpFZVMdQtRp"}}
+<event@crazy> Firing event ws.msg.auth from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event ws.msg.auth from cptr:<(nil)> hit 1 times
+<auth.ws@audit> Got CHALLENGE bQPpFZVMdQtRp from server localhost, sending password!
+<auth@crazy> passwd |48181acd22b3edaebc8a447868a7df7ce629920a| nonce |bQPpFZVMdQtRp| result |68e4675fe419db5dd9f0b829619c9f3e3bb443e3|
+<ws.proto@crazy> Sending dict <0x561ec8e10a40> to conn <0x561ec8dffff0>: {"auth":{"pass":"68e4675fe419db5dd9f0b829619c9f3e3bb443e3","token":"Qf0ram/7kBH4w","user":"bob","cmd":"pass"},"msg":{"type":"auth"}}
+<event@crazy> send event logging-in: {"msg":{"type":"auth"},"auth":{"token":"Qf0ram/7kBH4w","user":"bob","cmd":"challenge","nonce":"bQPpFZVMdQtRp"}}
+<event@crazy> Firing event logging-in from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.auth@crazy> Logging in: {"msg":{"type":"auth"},"auth":{"token":"Qf0ram/7kBH4w","user":"bob","cmd":"challenge","nonce":"bQPpFZVMdQtRp"}}
+<event.match@crazy> Event logging-in from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 133 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 02 
+<event@crazy> send binary event media.frame.log: 105 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (105 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 03 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 68 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 04 
+<event@crazy> send binary event media.frame.log: 40 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (40 bytes)
+<http.ws@debug> binary: 130 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 05 
+<event@crazy> send binary event media.frame.log: 102 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (102 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 06 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 07 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 08 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 09 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 56 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 0A 
+<event@crazy> send binary event media.frame.log: 28 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (28 bytes)
+<http.ws@debug> binary: 65 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 0B 
+<event@crazy> send binary event media.frame.log: 37 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (37 bytes)
+<http.ws@debug> binary: 140 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 0C 
+<event@crazy> send binary event media.frame.log: 112 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (112 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 0D 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 0E 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 0F 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 10 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 56 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 11 
+<event@crazy> send binary event media.frame.log: 28 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (28 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 12 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 60 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 13 
+<event@crazy> send binary event media.frame.log: 32 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (32 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 14 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 61 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 15 
+<event@crazy> send binary event media.frame.log: 33 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (33 bytes)
+<http.ws@debug> binary: 132 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 16 
+<event@crazy> send binary event media.frame.log: 104 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (104 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 17 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 18 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 19 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 1A 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 56 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 1B 
+<event@crazy> send binary event media.frame.log: 28 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (28 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 1C 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 60 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 1D 
+<event@crazy> send binary event media.frame.log: 32 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (32 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 1E 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 61 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 1F 
+<event@crazy> send binary event media.frame.log: 33 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (33 bytes)
+<http.ws@debug> binary: 133 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 20 
+<event@crazy> send binary event media.frame.log: 105 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (105 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 21 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 22 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 58 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 23 
+<event@crazy> send binary event media.frame.log: 30 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (30 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 24 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 56 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 25 
+<event@crazy> send binary event media.frame.log: 28 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (28 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 26 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 68 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 27 
+<event@crazy> send binary event media.frame.log: 40 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (40 bytes)
+<http.ws@debug> binary: 267 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 28 
+<event@crazy> send binary event media.frame.log: 239 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (239 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789182376,"token":"Qf0ram/7kBH4w","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> send event ws.msg.auth: {"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789182376,"token":"Qf0ram/7kBH4w","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> Firing event ws.msg.auth from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event ws.msg.auth from cptr:<(nil)> hit 1 times
+<event@crazy> send event authorized: {"msg":{"type":"auth"},"auth":{"user":"bob","ts":1789182376,"token":"Qf0ram/7kBH4w","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","cmd":"authorized"}}
+<event@crazy> Firing event authorized from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event@crazy> Firing event authorized from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event@crazy> Firing event authorized from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event authorized from cptr:<(nil)> hit 3 times
+<http.ws@debug> binary: 73 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 29 
+<event@crazy> send binary event media.frame.log: 45 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (45 bytes)
+<http.ws@debug> binary: 139 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 2A 
+<event@crazy> send binary event media.frame.log: 111 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (111 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 2B 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182376,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182376,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 2C 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182376,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182376,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 105 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 2D 
+<event@crazy> send binary event media.frame.log: 77 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (77 bytes)
+<http.ws@debug> binary: 232 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 2E 
+<event@crazy> send binary event media.frame.log: 204 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (204 bytes)
+<http@crazy> ws_handle_cli: msg={ "msg": { "type": "media" }, "media": { "cmd": "capab", "codecs": "pc16 mu16 mu08 opus flac" } }
+<event@crazy> send event ws.msg.media: {"media":{"codecs":"pc16 mu16 mu08 opus flac","cmd":"capab"},"msg":{"type":"media"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.media@debug> Server media capabilities: pc16 mu16 mu08 opus flac
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<codecneg@crazy> codec_filter_common(|pc16 mu16 mu08|, |pc16 mu16 mu08 opus flac|) returned |pc16 mu16 mu08|
+<ws.media@info> Negotiated common codecs: pc16 mu16 mu08 (default: pc16)
+<ws.proto@crazy> Sending dict <0x561ec8e134f0> to conn <0x561ec8dffff0>: {"media":{"channel":"rx","ts":1789182376,"codec":"pc16","cmd":"codec"},"msg":{"type":"media"}}
+<ws.media@info> Selected rx codec pc16
+<ws.proto@crazy> Sending dict <0x561ec8e11a10> to conn <0x561ec8dffff0>: {"media":{"channel":"tx","ts":1789182376,"codec":"pc16","cmd":"codec"},"msg":{"type":"media"}}
+<ws.media@info> Selected tx codec pc16
+<http.ws@debug> binary: 78 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 2F 
+<event@crazy> send binary event media.frame.log: 50 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (50 bytes)
+<http.ws@debug> binary: 144 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 30 
+<event@crazy> send binary event media.frame.log: 116 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (116 bytes)
+<http.ws@debug> binary: 266 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 31 
+<event@crazy> send binary event media.frame.log: 238 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (238 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57ce1","subsys":1,"dir":0,"vfo":0,"cmd":"available","descr":"RX audio VFO A"}}
+<event@crazy> send event ws.msg.media: {"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57ce1","subsys":1,"dir":0,"vfo":0,"cmd":"available","descr":"RX audio VFO A"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.media@info> Media channel available: 6aa4c150-7f75aeb57ce1 subsys 0x01 rx vfo 0 rig 0 (RX audio VFO A)
+<event@crazy> send event media.available: {"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57ce1","subsys":1,"dir":0,"vfo":0,"cmd":"available","descr":"RX audio VFO A"}}
+<event@crazy> Firing event media.available from cptr:<(nil)> with data:<0x561ec8e134f0> user:(null)
+<event.match@crazy> Event media.available from cptr:<(nil)> hit 1 times
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<ws.media@debug> Unhandled media cmd: |available|
+<http.ws@debug> binary: 266 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 32 
+<event@crazy> send binary event media.frame.log: 238 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (238 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57dac","subsys":1,"dir":1,"vfo":0,"cmd":"available","descr":"TX audio VFO A"}}
+<event@crazy> send event ws.msg.media: {"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57dac","subsys":1,"dir":1,"vfo":0,"cmd":"available","descr":"TX audio VFO A"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.media@info> Media channel available: 6aa4c150-7f75aeb57dac subsys 0x01 tx vfo 0 rig 0 (TX audio VFO A)
+<event@crazy> send event media.available: {"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57dac","subsys":1,"dir":1,"vfo":0,"cmd":"available","descr":"TX audio VFO A"}}
+<event@crazy> Firing event media.available from cptr:<(nil)> with data:<0x561ec8e134f0> user:(null)
+<event.match@crazy> Event media.available from cptr:<(nil)> hit 1 times
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<ws.media@debug> Unhandled media cmd: |available|
+<http.ws@debug> binary: 266 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 33 
+<event@crazy> send binary event media.frame.log: 238 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (238 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57e77","subsys":1,"dir":0,"vfo":1,"cmd":"available","descr":"RX audio VFO B"}}
+<event@crazy> send event ws.msg.media: {"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57e77","subsys":1,"dir":0,"vfo":1,"cmd":"available","descr":"RX audio VFO B"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.media@info> Media channel available: 6aa4c150-7f75aeb57e77 subsys 0x01 rx vfo 1 rig 0 (RX audio VFO B)
+<event@crazy> send event media.available: {"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57e77","subsys":1,"dir":0,"vfo":1,"cmd":"available","descr":"RX audio VFO B"}}
+<event@crazy> Firing event media.available from cptr:<(nil)> with data:<0x561ec8e134f0> user:(null)
+<event.match@crazy> Event media.available from cptr:<(nil)> hit 1 times
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<ws.media@debug> Unhandled media cmd: |available|
+<http.ws@debug> binary: 266 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 34 
+<event@crazy> send binary event media.frame.log: 238 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (238 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57f42","subsys":1,"dir":1,"vfo":1,"cmd":"available","descr":"TX audio VFO B"}}
+<event@crazy> send event ws.msg.media: {"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57f42","subsys":1,"dir":1,"vfo":1,"cmd":"available","descr":"TX audio VFO B"}}
+<event@crazy> Firing event ws.msg.media from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.media@info> Media channel available: 6aa4c150-7f75aeb57f42 subsys 0x01 tx vfo 1 rig 0 (TX audio VFO B)
+<event@crazy> send event media.available: {"msg":{"type":"media"},"media":{"ts":1789182376,"rig":0,"chan-uuid":"6aa4c150-7f75aeb57f42","subsys":1,"dir":1,"vfo":1,"cmd":"available","descr":"TX audio VFO B"}}
+<event@crazy> Firing event media.available from cptr:<(nil)> with data:<0x561ec8e134f0> user:(null)
+<event.match@crazy> Event media.available from cptr:<(nil)> hit 1 times
+<event.match@crazy> Event ws.msg.media from cptr:<(nil)> hit 1 times
+<ws.media@debug> Unhandled media cmd: |available|
+<http.ws@debug> binary: 110 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 35 
+<event@crazy> send binary event media.frame.log: 82 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (82 bytes)
+<http.ws@debug> binary: 304 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 36 
+<event@crazy> send binary event media.frame.log: 276 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (276 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182376,"type":"talk"},"talk":{"sessions":1,"muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","target":"&localrig"}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789182376,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789182376,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<event@crazy> send event join: {"msg":{"ts":1789182376,"type":"talk"},"talk":{"target":"&localrig","muted":"false","cmd":"join","ip":"127.0.0.1","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event join from cptr:<0x561ec8dffff0> with data:<0x561ec8e0c690> user:(null)
+<userlist@info> Storing new userlist entry for bob at <0x561ec8e134f0> in userlist
+<event.match@crazy> Event join from cptr:<0x561ec8dffff0> hit 1 times
+<http.ws@debug> binary: 279 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 37 
+<event@crazy> send binary event media.frame.log: 251 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (251 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182376,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> send event ws.msg.talk: {"msg":{"ts":1789182376,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event ws.msg.talk from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.talk@crazy> ws.msg.talk: {"msg":{"ts":1789182376,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event.match@crazy> Event ws.msg.talk from cptr:<(nil)> hit 1 times
+<ws.talk@debug> UserInfo: bob has privs 'admin,edit,view,radio,tx,elmer,syslog,chat,restart' (TX: false, Muted: false, sessions: 1)
+<event@crazy> send event userinfo: {"msg":{"ts":1789182376,"type":"talk"},"talk":{"muted":false,"tx":false,"cmd":"userinfo","user":"bob","privs":"admin,edit,view,radio,tx,elmer,syslog,chat,restart","sessions":1}}
+<event@crazy> Firing event userinfo from cptr:<0x561ec8dffff0> with data:<0x561ec8e0c690> user:(null)
+<userlist@info> Updating userlist entry for bob at <0x561ec8e134f0>
+<event.match@crazy> Event userinfo from cptr:<0x561ec8dffff0> hit 1 times
+<http.ws@debug> binary: 157 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 38 
+<event@crazy> send binary event media.frame.log: 129 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (129 bytes)
+<http.ws@debug> binary: 141 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 39 
+<event@crazy> send binary event media.frame.log: 113 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (113 bytes)
+<http.ws@debug> binary: 85 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 3A 
+<event@crazy> send binary event media.frame.log: 57 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (57 bytes)
+<http.ws@debug> binary: 80 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 3B 
+<event@crazy> send binary event media.frame.log: 52 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (52 bytes)
+<http.ws@debug> binary: 83 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 3C 
+<event@crazy> send binary event media.frame.log: 55 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (55 bytes)
+<http.ws@debug> binary: 79 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 3D 
+<event@crazy> send binary event media.frame.log: 51 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (51 bytes)
+<http.ws@debug> binary: 126 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 3E 
+<event@crazy> send binary event media.frame.log: 98 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (98 bytes)
+<http.ws@debug> binary: 167 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 3F 
+<event@crazy> send binary event media.frame.log: 139 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (139 bytes)
+<http@crazy> ws_handle_cli: msg={"ping":{"ts":94021648657},"msg":{"ts":1789182376,"type":"ping"}}
+<event@crazy> send event ws.msg.ping: {"msg":{"ts":1789182376,"type":"ping"},"ping":{"ts":94021648657}}
+<event@crazy> Firing event ws.msg.ping from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<ws.ping@crazy> Server ping: {"msg":{"ts":1789182376,"type":"ping"},"ping":{"ts":94021648657}}
+<event.match@crazy> Event ws.msg.ping from cptr:<(nil)> hit 1 times
+<ws.proto@crazy> Sending dict <0x561ec8dffeb0> to conn <0x561ec8dffff0>: {"ping":{"ts":94021648657},"msg":{"ts":1789182376,"type":"pong"}}
+<http.ws@debug> binary: 107 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 40 
+<event@crazy> send binary event media.frame.log: 79 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (79 bytes)
+<http.ws@debug> binary: 171 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 41 
+<event@crazy> send binary event media.frame.log: 143 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (143 bytes)
+<http.ws@debug> binary: 82 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 42 
+<event@crazy> send binary event media.frame.log: 54 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (54 bytes)
+<http.ws@debug> binary: 171 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 43 
+<event@crazy> send binary event media.frame.log: 143 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (143 bytes)
+<http.ws@debug> binary: 82 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 44 
+<event@crazy> send binary event media.frame.log: 54 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (54 bytes)
+<http.ws@debug> binary: 142 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 45 
+<event@crazy> send binary event media.frame.log: 114 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (114 bytes)
+<http.ws@debug> binary: 101 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 46 
+<event@crazy> send binary event media.frame.log: 73 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (73 bytes)
+<http.ws@debug> binary: 108 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 47 
+<event@crazy> send binary event media.frame.log: 80 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (80 bytes)
+<http.ws@debug> binary: 103 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 48 
+<event@crazy> send binary event media.frame.log: 75 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (75 bytes)
+<http.ws@debug> binary: 132 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 49 
+<event@crazy> send binary event media.frame.log: 104 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (104 bytes)
+<http.ws@debug> binary: 79 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 4A 
+<event@crazy> send binary event media.frame.log: 51 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (51 bytes)
+<http.ws@debug> binary: 98 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 4B 
+<event@crazy> send binary event media.frame.log: 70 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (70 bytes)
+<http.ws@debug> binary: 110 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 4C 
+<event@crazy> send binary event media.frame.log: 82 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (82 bytes)
+<debug@crit> msg<7>: /quota 
+<chat.cmd@crazy> command=quota argc=1 max_args=8
+<ws.proto@crazy> Sending dict <0x561ec8de8250> to conn <0x561ec8dffff0>: {"talk":{"cmd":"quota","target":"LIST"},"msg":{"type":"talk"}}
+<http.ws@debug> binary: 139 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 4D 
+<event@crazy> send binary event media.frame.log: 111 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (111 bytes)
+<http.ws@debug> binary: 133 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 4E 
+<event@crazy> send binary event media.frame.log: 105 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (105 bytes)
+<http.ws@debug> binary: 59 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 4F 
+<event@crazy> send binary event media.frame.log: 31 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (31 bytes)
+<http.ws@debug> binary: 68 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 50 
+<event@crazy> send binary event media.frame.log: 40 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (40 bytes)
+<http.ws@debug> binary: 145 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 51 
+<event@crazy> send binary event media.frame.log: 117 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (117 bytes)
+<http.ws@debug> binary: 134 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 52 
+<event@crazy> send binary event media.frame.log: 106 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (106 bytes)
+<http.ws@debug> binary: 193 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 53 
+<event@crazy> send binary event media.frame.log: 165 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (165 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"TX quotas (minutes remaining):"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 54 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  admin            4h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 55 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  bob              4h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 184 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 56 
+<event@crazy> send binary event media.frame.log: 156 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (156 bytes)
+<http@crazy> ws_handle_cli: msg={"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> send event ws.msg.notice: {"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> Firing event ws.msg.notice from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event ws.msg.notice from cptr:<(nil)> hit 1 times
+<event@crazy> send event talk.msg: {"notice":{"msg":"  guest            1h"},"msg":{"ts":1789182377,"type":"notice"}}
+<event@crazy> Firing event talk.msg from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<event.match@crazy> Event talk.msg from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 100 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 57 
+<event@crazy> send binary event media.frame.log: 72 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (72 bytes)
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 58 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 59 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 5A 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182379,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182379,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 5B 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 5C 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 5D 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182379,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182379,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 5E 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 5F 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 60 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182394,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182394,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 61 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 62 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 63 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182394,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182394,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 64 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 65 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 66 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182409,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182409,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 67 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 68 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 69 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182409,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182409,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 6A 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 234 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 6B 
+<event@crazy> send binary event media.frame.log: 206 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (206 bytes)
+<http.ws@debug> binary: 282 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 6C 
+<event@crazy> send binary event media.frame.log: 254 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (254 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182424,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182424,"type":"cat"},"cat":{"user":"","state":{"active":true,"ptt":false,"mode":"USB","vfo":"A","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO A
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
+<http.ws@debug> binary: 92 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 6D 
+<event@crazy> send binary event media.frame.log: 64 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (64 bytes)
+<http.ws@debug> binary: 235 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 6E 
+<event@crazy> send binary event media.frame.log: 207 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (207 bytes)
+<http.ws@debug> binary: 283 bytes, hex: 52 52 01 07 74 65 78 74 00 FF FF 00 00 00 01 6F 
+<event@crazy> send binary event media.frame.log: 255 bytes
+<event.nomatch@crazy> Binary event media.frame.log from cptr:<(nil)> didn't match anything (255 bytes)
+<http@crazy> ws_handle_cli: msg={"msg":{"ts":1789182424,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","power":0,"width":3000,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> send event ws.msg.cat: {"msg":{"ts":1789182424,"type":"cat"},"cat":{"user":"","state":{"active":false,"ptt":false,"mode":"USB","vfo":"B","width":3000,"power":0,"freq":14074000,"widths":"1800,3000,3600"}}}
+<event@crazy> Firing event ws.msg.cat from cptr:<(nil)> with data:<0x561ec8e0c690> user:(null)
+<vfo@crazy> vfo_set_dict: VFO B
+<vfo@crazy> vfo_parse_mode: USB
+<event.match@crazy> Event ws.msg.cat from cptr:<(nil)> hit 1 times
