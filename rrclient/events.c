@@ -733,47 +733,33 @@ void rrclient_register_events(void) {
    rrclient_media_register_events();
 
    event_on("NOMATCH", rrclient_handle_nomatch, NULL);
-   event_on("ws.msg.hello", rrclient_handle_hello, NULL);
-   event_on("ws.msg.auth", rrclient_handle_auth, NULL);
-   event_on("ws.msg.ping", rrclient_handle_ping, NULL);
-   event_on("logging-in", rrclient_handle_logging_in, NULL);
-   event_on("media.capab", rrclient_handle_media_capab, NULL);
-   event_on("ws.msg.media", rrclient_handle_media, NULL);
-   event_on("ws.msg.notice", rrclient_handle_notice, NULL);
-
-   // Connection status related
+   event_on("alert", rrclient_handle_alert, NULL);
    event_on("auth.error", rrclient_handle_autherr, NULL);
    event_on("authorized", rrclient_handle_connection, NULL);
+   event_on("cat.cmd", rrclient_handle_catcmd, NULL);
+   event_on("chat.replay", rrclient_handle_chat_replay, NULL);
    event_on("connected", rrclient_handle_connection, NULL);
    event_on("connecting", rrclient_handle_connection, NULL);
    event_on("disconnected", rrclient_handle_connection, NULL);
-
-   // Status events
-   event_on("alert", rrclient_handle_alert, NULL);
    event_on("error", rrclient_handle_connection, NULL);
    event_on("http.error", rrclient_handle_connection, NULL);
-
-   // Chat/userlist related
    event_on("join", rrclient_handle_join, NULL);
-   event_on("ws.msg.talk", rrclient_handle_talk, NULL);
-   event_on("chat.replay", rrclient_handle_chat_replay, NULL);
+   event_on("log", rrclient_handle_log, NULL);
+   event_on("logging-in", rrclient_handle_logging_in, NULL);
+   event_on("media.capab", rrclient_handle_media_capab, NULL);
    event_on("privmsg", rrclient_handle_talk_msg, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg, NULL);
-   event_on("ws.talk.msg", rrclient_handle_talk_msg, NULL);
    event_on("userinfo", rrclient_handle_userinfo, NULL);
    event_on("whois", rrclient_handle_whois, NULL);
-
-   // Log events
-   event_on("log", rrclient_handle_log, NULL);
-
-   // rigctl/CAT controls
-   event_on("cat.cmd", rrclient_handle_catcmd, NULL);
+   event_on("ws.msg.auth", rrclient_handle_auth, NULL);
    event_on("ws.msg.cat", rrclient_handle_cat, NULL);
-   // Server's cat.state broadcasts (rr_ptt_set, backend polls) carry the same
-   // cat.state.* keys; route them through the same handler
    event_on("ws.msg.cat.state", rrclient_handle_cat, NULL);
-
-   // Server TX timeout (TOT) fired
+   event_on("ws.msg.hello", rrclient_handle_hello, NULL);
+   event_on("ws.msg.media", rrclient_handle_media, NULL);
+   event_on("ws.msg.notice", rrclient_handle_notice, NULL);
+   event_on("ws.msg.ping", rrclient_handle_ping, NULL);
    event_on("ws.msg.ptt.tot-expired", rrclient_handle_ptt_tot, NULL);
+   event_on("ws.msg.talk", rrclient_handle_talk, NULL);
+   event_on("ws.talk.msg", rrclient_handle_talk_msg, NULL);
 }

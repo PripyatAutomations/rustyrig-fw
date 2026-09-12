@@ -407,7 +407,7 @@ static void quota_reply(rrconn_t *cptr, const char *fmt, ...) {
 
 // db_quota_list callback: print one row to the requesting client
 static int quota_list_cb(const char *name, int credits, void *user) {
-   quota_reply((rrconn_t *)user, "  %-16s %6d", name, credits / 60);
+   quota_reply((rrconn_t *)user, "  %-16s %s", name, time_t2dhms(credits));
    return 1;
 }
 
@@ -490,7 +490,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
                char *added = time_t2dhms(secs);
                char *now = time_t2dhms((time_t)db_quota_get(masterdb, name));
                Log(LOG_AUDIT, "quota", "%s added %s to %s (was %s)", actor, added, name, was);
-               quota_reply(cptr, "%s: added %s (now %s)", name, added, now);
+               quota_reply(cptr, "added %s (now %s) to %s's quota", added, now, name);
                free( (void *)was);
                free( (void *)added);
                free( (void *)now);
@@ -502,7 +502,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
                char *was = time_t2dhms((time_t)(before < 0 ? 0 : before));
                char *set = time_t2dhms(secs);
                Log(LOG_AUDIT, "quota", "%s set %s to %s (was %s)", actor, name, set, was);
-               quota_reply(cptr, "%s: set to %s", name, set);
+               quota_reply(cptr, "set %s's quota to %s", name, set);
                free( (void *)was);
                free( (void *)set);
             }
@@ -531,15 +531,14 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    if (!cptr || !data) {
       return;
    }
-   dict *d = json2dict(data);
-
-   if (!d) {
-      return;
-   }
 
    if (!masterdb) {
       ws_send_error(cptr, "quota: database is not open");
-      dict_free(d);
+      return;
+   }
+
+   dict *d = json2dict(data);
+   if (!d) {
       return;
    }
 
@@ -597,22 +596,22 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
 void rrserver_register_events(void) {
    extern void rrserver_media_register_events(void);   // media.c
    rrserver_media_register_events();
-
    Log(LOG_CRAZY, "events", "Registering rrserver events");
+
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
+   event_on("authdb.load", rrserver_handle_authdb_load, NULL);
+   event_on("be.poll", rrserver_handle_be_poll, NULL);
+   event_on("hello", rrserver_handle_hello, NULL);
+   event_on("latency", rrserver_handle_latency, NULL);
+   event_on("ptt.off", rrserver_handle_ptt_off, NULL);
+   event_on("quota.cmd", rrserver_handle_quota_cmd, NULL);
    event_on("recording-start", rrserver_handle_recording_start, NULL);
    event_on("recording-stop",rrserver_handle_recording_stop, NULL);
-   event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
- event_on("be.poll", rrserver_handle_be_poll, NULL);
-   event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
-   event_on("talk.msg", rrserver_handle_talkmsg, NULL);
-   event_on("hello", rrserver_handle_hello, NULL);
-   event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
-   event_on("rig.ptt", rrserver_handle_rig_ptt_off, NULL);
-   event_on("ptt.off", rrserver_handle_ptt_off, NULL);
-   event_on("latency", rrserver_handle_latency, NULL);
-   event_on("authdb.load", rrserver_handle_authdb_load, NULL);
    event_on("rehash", rrserver_handle_rehash, NULL);
-   event_on("quota.cmd", rrserver_handle_quota_cmd, NULL);
+   event_on("rig.ptt", rrserver_handle_rig_ptt_off, NULL);
+   event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
+   event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
+   event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
+   event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    Log(LOG_CRAZY, "events", "Finished registering rrserver events");
 }
