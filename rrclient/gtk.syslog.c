@@ -45,6 +45,20 @@ static bool log_tab_visible(void) {
            gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_page) );
 }
 
+// When the user switches to the log tab, jump the view to the newest entry.
+// log_print_va() skips the per-line scroll idle callback while the tab is
+// hidden (the old comment claimed the view "re-scrolls when shown" but nothing
+// implemented that), so this signal handler is what actually does it.
+static void log_tab_switched(GtkNotebook *nb, GtkWidget *page, guint page_num, gpointer user) {
+   (void)nb;
+   (void)page_num;
+   (void)user;
+
+   if (log_view && page == log_page) {
+      g_idle_add(ui_scroll_to_end, log_view);
+   }
+}
+
 // backend
 bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    if (!fmt || !ap) {
@@ -94,11 +108,28 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
       memset(header, 0, sizeof(header));
       snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(priority));
       gtk_text_buffer_insert(log_buffer, &end, header, -1);
-      gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
+
+      if (visible) {
+         // Colorize the message body: Log() format strings carry {color} tags
+         // (the 03f283d perf change only colorized the timestamp, leaving the
+         // body inserted raw with the tags showing literally).
+         char *colorized = gtk_colorize_string(outbuf);
+
+         if (colorized) {
+            gtk_text_buffer_insert_markup(log_buffer, &end, colorized, -1);
+            free(colorized);
+         } else {
+            gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
+         }
+      } else {
+         // Hidden: plain text, no markup parsing or colorization cost
+         gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
+      }
       gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
       gtk_trim_scrollback(log_buffer, "ui.gtk.scrollback.syslog", 200);
 
-      // Hidden: no scroll idle callback; the view re-scrolls when shown
+      // Hidden: no scroll idle callback; log_tab_switched() scrolls to the
+      // end when the user opens the tab.
       if (visible) {
          g_idle_add(ui_scroll_to_end, log_view);
       }
@@ -147,6 +178,9 @@ GtkWidget *init_log_tab(void) {
    gtk_label_set_markup(GTK_LABEL(syslog_tab_label), "(<u>4</u>) Client log");
    log_page = nw;
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, syslog_tab_label);
+
+   // Scroll to the end when the user switches to this tab (see log_tab_switched)
+   g_signal_connect(main_notebook, "switch-page", G_CALLBACK(log_tab_switched), NULL);
 
    return nw;
 }
