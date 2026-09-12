@@ -305,5 +305,18 @@ bool rr_ptt_set_all_off(void) {
 
    global_tot_time = 0;
 
+   // Clear the talker's TX state AFTER the VFO loop so ptt_log_stop() above
+   // still sees the talker for the quota debit / log line. is_ptt is
+   // otherwise only updated by srv.rigctl.c on a client cat.ptt message, so
+   // a forced TX-off (TOT, fault, thermal, mute, admin noob-halt) would
+   // leave a phantom talker holding the channel until they bounce PTT.
+   rrconn_t *talker = whos_talking();
+
+   if (talker) {
+      talker->is_ptt = false;
+      talker->ptt_vfo = 0;
+      ws_send_userinfo(talker, NULL);
+   }
+
    return false;
 }

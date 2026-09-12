@@ -288,6 +288,18 @@ static void rrserver_handle_send_cat_state(const char *event, const char *data, 
 }
 
 
+// librrprotocol emits "ptt.off" to force TX off (srv.chat.c MUTE, srv.rigctl.c
+// admin noob-halt). NB: nobody registered for this before, so the event fell
+// through to NOMATCH and the rig kept transmitting while the flag was cleared.
+static void rrserver_handle_ptt_off(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)data;
+   (void)cptr;
+   (void)user;
+   Log(LOG_AUDIT, "ptt", "Forced TX off (%s event)", (event ? event : "ptt.off") );
+   rr_ptt_set_all_off();
+}
+
+
 // A departing user was holding PTT (fired from srv.http.c on MG_EV_CLOSE).
 // Release only the VFO this user keyed; we have no business touching any
 // other VFO's TX state. (ptt_vfo is recorded on every key-up, so unknown
@@ -597,6 +609,7 @@ void rrserver_register_events(void) {
    event_on("hello", rrserver_handle_hello, NULL);
    event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
    event_on("rig.ptt", rrserver_handle_rig_ptt_off, NULL);
+   event_on("ptt.off", rrserver_handle_ptt_off, NULL);
    event_on("latency", rrserver_handle_latency, NULL);
    event_on("authdb.load", rrserver_handle_authdb_load, NULL);
    event_on("rehash", rrserver_handle_rehash, NULL);
