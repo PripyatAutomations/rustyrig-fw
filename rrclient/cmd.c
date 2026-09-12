@@ -142,6 +142,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
    { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)" },
    { .cmd = "raw", .cb = cmd_raw, .desc = "Send a raw command" },
+   { .cmd = "syslog", .cb = cmd_syslog, .desc = "Toggle server host log stream (/syslog on|off)" },
    { .cmd = "rehash", .cb = cmd_rehash, .desc = "Ask server to reload config & users" },
    { .cmd = "quota", .cb = cmd_quota, .max_args = 8, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)" },
    { .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file" },

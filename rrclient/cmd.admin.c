@@ -119,7 +119,7 @@ bool cmd_raw(int argc, char **args) {
       return true;
    }
    char fullmsg[502];
-   memset( fullmsg, 0, sizeof(fullmsg) );
+   memset(fullmsg, 0, sizeof(fullmsg) );
    size_t pos = 0;
 
    for (int i = 1 ; i < argc ; i++) {
@@ -134,6 +134,28 @@ bool cmd_raw(int argc, char **args) {
    ui_print(NULL, "-raw-> %s", fullmsg);
    ui_print(NULL, "{yellow}QUOTE is not supported over WebSocket{reset}");
 
+   return false;
+}
+
+// /syslog <on|off>: toggle the server's host log stream (FLAG_SYSLOG).
+// The server reads the requested state from talk.target (see
+// librrprotocol/srv.chat.c ws_chat_cmd_syslog); the log lines come back
+// as RR_BINFRAME_SUBSYS_LOG binframes for the Host Log tab.
+// PARITY: rustyrig-www/js/webui.chat.js (syslog toggle)
+bool cmd_syslog(int argc, char **args) {
+   if (argc < 2 || !args[1] || (!strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
+      ui_print(NULL, "Usage: /syslog <on|off>");
+      return true;
+   }
+
+   dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "syslog");
+   dict_add(d, "talk.target", args[1]);
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+
+   ui_print(NULL, "{yellow}Host log streaming %s (server permitting){reset}", args[1]);
    return false;
 }
 
