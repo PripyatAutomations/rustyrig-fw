@@ -25,6 +25,26 @@ typedef struct client_cmd {
    event_cb_t (*event_cb)(const char *event, void *data, rrconn_t *cptr, void *user);
 } client_cmd_t;
 
+// Media channel table iteration for completion providers (media.c owns the
+// storage; these walk the stored rrclient_media_known entries).
+#define RR_CLIENT_MEDIA_MAX_CHANS 64
+
+struct rr_client_media_chan {
+   char uuid[64];
+   uint8_t subsystem;
+   uint8_t direction;
+   uint8_t vfo;
+   uint8_t rig;
+   char descr[128];
+   bool subscribed;
+};
+
+// Iterate stored channels: idx 0..n. Returns NULL past the end. `listno`
+// (when non-NULL) receives the 1-based list number shown by /media LIST.
+extern const struct rr_client_media_chan *rrclient_media_chan_iter(int idx, int *listno);
+extern int rrclient_media_chan_count(void);
+extern bool media_have_priv(const char *priv);
+
 #ifdef USE_GTK
 #include <gtk/gtk.h>
 extern bool parse_chat_input_gtk(GtkButton *button, gpointer entry);

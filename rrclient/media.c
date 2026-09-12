@@ -120,15 +120,11 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
    kp->subscribed = true;
 }
 
-// Event: a media.available message from the server (re-emitted by
-// events.c rrclient_handle_media)
-static void rrclient_handle_media_available(const char *event, const char *data,
-   rrconn_t *cptr, void *user) {
-   if (!data || !cptr) {
-      return;
-   }
-   dict *d = json2dict(data);
-
+// Called by events.c with the already-parsed media.available dict (no JSON
+// round-trip: dotted keys don't survive dict2json -> json2dict reliably).
+// Note cptr may be NULL (the ws.msg.* event fires without one), so storage
+// never depends on it; autosubscribe uses ws_conn.
+void rrclient_media_available(dict *d, rrconn_t *cptr) {
    if (!d) {
       return;
    }
@@ -151,20 +147,28 @@ static void rrclient_handle_media_available(const char *event, const char *data,
          if (descr && descr[0] != '\0') {
             snprintf(kp->descr, sizeof(kp->descr), "%s", descr);
          }
-         media_try_autosubscribe(cptr, kp);
+         media_try_autosubscribe(ws_conn, kp);
       }
    }
-   dict_free(d);
 }
 
-// Event: the server removed a channel (re-emitted by events.c)
-static void rrclient_handle_media_chan_removed(const char *event, const char *data,
-   rrconn_t *cptr, void *user) {
-   if (!data) {
+// Called by events.c with the parsed subscribed/unsubscribed dict
+void rrclient_media_subscribed(dict *d, bool unsub) {
+   if (!d) {
       return;
    }
-   dict *d = json2dict(data);
+   const char *uuid = dict_get(d, "media.chan-uuid", NULL);
+   struct rr_media_known *kp = (uuid ? media_known_find(uuid) : NULL);
 
+   if (kp) {
+      kp->subscribed = !unsub;
+      Log(LOG_INFO, "ws.media", "Media subscription %s: %s",
+         (unsub ? "removed" : "confirmed"), kp->uuid);
+   }
+}
+
+// Called by events.c with the parsed chan-remove dict
+void rrclient_media_chan_removed(dict *d) {
    if (!d) {
       return;
    }
@@ -176,45 +180,6 @@ static void rrclient_handle_media_chan_removed(const char *event, const char *da
          (kp->descr[0] != '\0' ? kp->descr : "-"));
       memset(kp, 0, sizeof(*kp) );
    }
-   dict_free(d);
-}
-
-// Event: our subscribe was confirmed
-static void rrclient_handle_media_subscribed(const char *event, const char *data,
-   rrconn_t *cptr, void *user) {
-   if (data) {
-      dict *d = json2dict(data);
-
-      if (d) {
-         const char *uuid = dict_get(d, "media.chan-uuid", NULL);
-         struct rr_media_known *kp = (uuid ? media_known_find(uuid) : NULL);
-
-         if (kp) {
-            kp->subscribed = true;
-         }
-         dict_free(d);
-      }
-   }
-   Log(LOG_INFO, "ws.media", "Media subscription confirmed");
-}
-
-// Event: our unsubscribe was confirmed
-static void rrclient_handle_media_unsubscribed(const char *event, const char *data,
-   rrconn_t *cptr, void *user) {
-   if (data) {
-      dict *d = json2dict(data);
-
-      if (d) {
-         const char *uuid = dict_get(d, "media.chan-uuid", NULL);
-         struct rr_media_known *kp = (uuid ? media_known_find(uuid) : NULL);
-
-         if (kp) {
-            kp->subscribed = false;
-         }
-         dict_free(d);
-      }
-   }
-   Log(LOG_INFO, "ws.media", "Media subscription removed");
 }
 
 // Event: connection state changes. On (re)connect, reset our local channel
@@ -246,10 +211,9 @@ static void rrclient_handle_media_conn(const char *event, const char *data,
 }
 
 void rrclient_media_register_events(void) {
-   event_on("media.available", rrclient_handle_media_available, NULL);
-   event_on("media.subscribed", rrclient_handle_media_subscribed, NULL);
-   event_on("media.unsubscribed", rrclient_handle_media_unsubscribed, NULL);
-   event_on("media.chan-removed", rrclient_handle_media_chan_removed, NULL);
+   // media.* messages are dispatched directly from events.c (see
+   // rrclient_handle_media) with the parsed dict; only connection state
+   // needs the event bus here.
    event_on("connected", rrclient_handle_media_conn, NULL);
    event_on("authorized", rrclient_handle_media_conn, NULL);
    event_on("disconnected", rrclient_handle_media_conn, NULL);
@@ -267,6 +231,29 @@ int rrclient_media_chan_count(void) {
       }
    }
    return n;
+}
+
+// Walk stored channels for completion providers etc: idx 0..count-1 over the
+// non-empty slots; `listno` gets the 1-based number /media LIST shows.
+const struct rr_client_media_chan *rrclient_media_chan_iter(int idx, int *listno) {
+   int n = 0;
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      if (known_chans[i].uuid[0] == '\0') {
+         continue;
+      }
+      if (n == idx) {
+         if (listno) {
+            *listno = n + 1;
+         }
+         return (const struct rr_client_media_chan *)&known_chans[i];
+      }
+      n++;
+   }
+   if (listno) {
+      *listno = 0;
+   }
+   return NULL;
 }
 
 // Get channel slot `idx` (0..count-1). Returns NULL when out of range.
@@ -337,22 +324,24 @@ bool cmd_media(int argc, char **args) {
    const char *sub = (argc > 1 ? args[1] : NULL);
 
    if (!sub || sub[0] == '\0' || strcasecmp(sub, "LIST") == 0) {
-      // List what we know about and our subscription state
-      ui_print(NULL, "{bright-cyan}Available media channels:{reset}");
-      int n = 0;
+     // List what we know about and our subscription state
+     ui_print(NULL, "{bright-cyan}Available media channels:{reset}");
+     int n = 0;
 
-      for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
-         struct rr_media_known *kp = &known_chans[i];
+     for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+        struct rr_media_known *kp = &known_chans[i];
 
-         if (kp->uuid[0] == '\0') {
-            continue;
-         }
-         ui_print(NULL, " %2d. %s%s %s  {magenta}%s{reset}", ++n,
-            (kp->subscribed ? "{green}*{reset} " : "  "),
-            (kp->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx"), kp->uuid,
-            (kp->descr[0] != '\0' ? kp->descr : "-"));
-      }
-      ui_print(NULL, "{bright-cyan}End of list ({reset}%d{bright-cyan} channels, {reset}*{bright-cyan} = subscribed){reset}", n);
+        if (kp->uuid[0] == '\0') {
+           continue;
+        }
+        n++;
+        ui_print(NULL, " %2d. %s%s %s  {magenta}%s{reset}", n,
+           (kp->subscribed ? "{green}*{reset} " : "  "),
+           (kp->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx"), kp->uuid,
+           (kp->descr[0] != '\0' ? kp->descr : "-"));
+     }
+     ui_print(NULL, "{bright-cyan}End of list ({reset}%d{bright-cyan} channels, {reset}*{bright-cyan} = subscribed){reset}", n);
+     Log(LOG_INFO, "ws.media", "/media LIST: %d stored channels", n);
 
       if (sub) {
          return false;   // explicit LIST: no refresh
@@ -360,8 +349,9 @@ bool cmd_media(int argc, char **args) {
       rrclient_media_refresh();
       return false;
    }
-   if (strcasecmp(sub, "SUBSCRIBE") == 0 || strcasecmp(sub, "UNSUBSCRIBE") == 0) {
-      bool unsub = (strcasecmp(sub, "UNSUBSCRIBE") == 0);
+   if (strcasecmp(sub, "SUBSCRIBE") == 0 || strcasecmp(sub, "SUB") == 0 ||
+       strcasecmp(sub, "UNSUBSCRIBE") == 0 || strcasecmp(sub, "UNSUB") == 0) {
+      bool unsub = (strncasecmp(sub, "UN", 2) == 0);
 
       if (argc < 3 || !args[2] || args[2][0] == '\0') {
          ui_print(NULL, "Usage: /media %s <uuid|#>", sub);
@@ -400,7 +390,7 @@ bool cmd_media(int argc, char **args) {
 
       return rrclient_media_subscribe(kp->uuid);
    }
-   ui_print(NULL, "Usage: /media [LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>]");
+   ui_print(NULL, "Usage: /media [LIST | SUB|SUBSCRIBE <uuid|#> | UNSUB|UNSUBSCRIBE <uuid|#>]");
 
    return true;
 }

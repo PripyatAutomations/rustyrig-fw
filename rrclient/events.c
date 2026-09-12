@@ -712,23 +712,31 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
          (uuid ? uuid : "<none>"), subsys, (dir == RR_BINFRAME_DIR_TX ? "tx" : "rx"),
          vfo, rig, (descr ? descr : "-"));
 
-      // Re-emit for the UI/audio layer; the audio subsystem subscribes to
-      // the RX/TX channels it wants (event_on("media.available", ...)).
-      event_emit_dict("media.available", cptr, d);
+      // Hand the parsed dict straight to the media layer (no JSON
+      // round-trip); it stores the channel and auto-subscribes as needed.
+      extern void rrclient_media_available(dict *d, rrconn_t *cptr);   // media.c
+
+      rrclient_media_available(d, cptr);
    } else if (cmd && strcasecmp(cmd, "subscribed") == 0) {
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
       uint32_t stream = dict_get_ulong(d, "media.stream", 0);
 
       Log(LOG_INFO, "ws.media", "Subscribed to media channel %s (stream %u)",
          (uuid ? uuid : "<none>"), stream);
-      event_emit_dict("media.subscribed", cptr, d);
+      extern void rrclient_media_subscribed(dict *d, bool unsub);   // media.c
+
+      rrclient_media_subscribed(d, false);
    } else if (cmd && strcasecmp(cmd, "unsubscribed") == 0) {
-      event_emit_dict("media.unsubscribed", cptr, d);
+      extern void rrclient_media_subscribed(dict *d, bool unsub);   // media.c
+
+      rrclient_media_subscribed(d, true);
    } else if (cmd && strcasecmp(cmd, "chan-remove") == 0) {
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
 
       Log(LOG_INFO, "ws.media", "Media channel removed: %s", (uuid ? uuid : "<none>"));
-      event_emit_dict("media.chan-removed", cptr, d);
+      extern void rrclient_media_chan_removed(dict *d);   // media.c
+
+      rrclient_media_chan_removed(d);
    } else {
       Log(LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>"));
    }

@@ -522,7 +522,6 @@ bool gui_init(void) {
    place_window(main_window);
 
    // Fonts are handled entirely by the [gtk-css] section (see cfg.gtkcss.c)
-
    if (ui_mode == UI_MODE_GTK) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
 
@@ -564,17 +563,15 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
    return FALSE;
 }
 
-bool fullscreen = false;
-
 bool gui_fullscreen_toggle(void) {
-   if (fullscreen) {
+   if (cfg_fullscreen) {
       gtk_window_unfullscreen( GTK_WINDOW(main_window) );
       gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
    } else {
       gtk_window_fullscreen( GTK_WINDOW(main_window) );
       gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
    }
-   fullscreen = !fullscreen;
+   cfg_fullscreen = !cfg_fullscreen;
 
    return false;
 }

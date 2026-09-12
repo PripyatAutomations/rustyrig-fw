@@ -183,6 +183,96 @@ char **client_cmd_completions(const char *line, const char *word) {
       }
    }
 
+   // Complete /media: first argument is a subcommand (LIST|SUBSCRIBE|UNSUBSCRIBE),
+   // the second is a stored channel uuid or list number. SUBSCRIBE offers the
+   // full table (subscribe can create); UNSUBSCRIBE only subscribed channels.
+   if (strncasecmp(line, "/media", 6) == 0 && (line[6] == ' ' || line[6] == '\0')) {
+      const char *q = line + 6;
+      char tok1[64] = "";
+      size_t tlen = 0;
+
+      while (*q == ' ') {
+         q++;
+      }
+      while (*q && *q != ' ' && tlen < sizeof(tok1) - 1) {
+         tok1[tlen++] = *q++;
+      }
+      tok1[tlen] = '\0';
+
+      bool first_arg = (tlen == 0) || (strcasecmp(tok1, word) == 0) ||
+                       (strlen(word) > tlen && strncasecmp(word, tok1, tlen) == 0);
+
+      if (first_arg) {
+         static const char *media_cmds[] = { "LIST", "SUBSCRIBE", "UNSUBSCRIBE", "SUB", "UNSUB" };
+         char **matches = NULL;
+         size_t count = 0, len = strlen(word);
+
+         for (size_t i = 0; i < sizeof(media_cmds) / sizeof(media_cmds[0]); i++) {
+            if (len && strncasecmp(media_cmds[i], word, len) != 0) {
+               continue;
+            }
+            char **tmp = realloc(matches, (count + 2) * sizeof(char *));
+
+            if (!tmp) {
+               continue;
+            }
+            matches = tmp;
+            matches[count] = strdup(media_cmds[i]);
+
+            if (matches[count]) {
+               matches[++count] = NULL;
+            }
+         }
+         return matches;
+      }
+      // Second argument: channel uuids (or list numbers) from our table.
+      // SUB/UNSUB are aliases for SUBSCRIBE/UNSUBSCRIBE.
+      bool subcmd = (strcasecmp(tok1, "SUBSCRIBE") == 0 || strcasecmp(tok1, "SUB") == 0);
+      bool unsub = (strcasecmp(tok1, "UNSUBSCRIBE") == 0 || strcasecmp(tok1, "UNSUB") == 0);
+
+      if (!subcmd && !unsub) {
+         return NULL;
+      }
+      char **matches = NULL;
+      size_t count = 0, len = strlen(word);
+
+      for (int i = 0 ; ; i++) {
+         int listno = 0;
+         const struct rr_client_media_chan *kp = rrclient_media_chan_iter(i, &listno);
+
+         if (!kp) {
+            break;
+         }
+         if (unsub && !kp->subscribed) {
+            continue;
+         }
+         // Offer both the list number and the uuid
+         char numstr[8];
+
+         snprintf(numstr, sizeof(numstr), "%d", listno);
+
+         const char *cands[2] = { numstr, kp->uuid };
+
+         for (int c = 0 ; c < 2 ; c++) {
+            if (len && strncasecmp(cands[c], word, len) != 0) {
+               continue;
+            }
+            char **tmp = realloc(matches, (count + 2) * sizeof(char *));
+
+            if (!tmp) {
+               continue;
+            }
+            matches = tmp;
+            matches[count] = strdup(cands[c]);
+
+            if (matches[count]) {
+               matches[++count] = NULL;
+            }
+         }
+      }
+      return matches;
+   }
+
    // Complete /quota: first argument is a subcommand (LIST|SHOW|ADD|RESET|SET|HELP),
    // any later argument is a username. A bare "/quota <tab>" offers both.
    if (strncasecmp(line, "/quota", 6) == 0 && (line[6] == ' ' || line[6] == '\0')) {
