@@ -154,29 +154,80 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
    // ui.theme.completion is the color tag used to print candidates
    const char *completion_color = cfg_get("ui.theme.completion");
 
-   if (!completion_color) {
+   if (!completion_color || !*completion_color) {
       completion_color = "bright-magenta";
    }
 
-   for (int i = 0; i < nmatch && i < TUI_MAX_COMPLETIONS_SHOWN; i++) {
-      char colored[512];
-      snprintf(colored, sizeof(colored), "{%s}%s{reset}", completion_color, matches[i]);
-      char *markup = gtk_colorize_string(colored);
+   // Config values may be braced ("{bright-magenta}", as they appear in
+   // templates) or bare; strip braces so the tag resolves and no stray '}'
+   // is printed (the TUI's theme_ansi_code() does the same). PARITY: tui.completion
+   char color_tag[64];
 
-      if (markup) {
-         GtkTextIter iter;
+   snprintf(color_tag, sizeof(color_tag), "%s", completion_color);
+   size_t clen = strlen(color_tag);
 
-         gtk_text_buffer_get_end_iter(text_buffer, &iter);
-         gtk_text_buffer_insert_markup(text_buffer, &iter, markup, -1);
-         g_free(markup);
-      } else {
-         gtk_text_buffer_insert_at_cursor(text_buffer, matches[i], -1);
+   if (clen >= 2 && color_tag[0] == '{' && color_tag[clen - 1] == '}') {
+      memmove(color_tag, color_tag + 1, clen - 2);
+      color_tag[clen - 2] = '\0';
+   }
+
+   // Multi-column layout across a few lines (column-major, like the TUI)
+   {
+      int maxlen = 0;
+      int nshown = nmatch > TUI_MAX_COMPLETIONS_SHOWN ? TUI_MAX_COMPLETIONS_SHOWN : nmatch;
+
+      for (int i = 0; i < nshown; i++) {
+         int l = (int)strlen(matches[i]);
+
+         if (l > maxlen) {
+            maxlen = l;
+         }
       }
-      gtk_text_buffer_insert_at_cursor(
-         text_buffer,
-         "\n",
-         -1
-      );
+
+      // Each column is the entry plus two spaces of gutter; assume ~80 cols
+      int cols = maxlen > 0 ? 80 / (maxlen + 2) : 1;
+
+      if (cols < 1) {
+         cols = 1;
+      }
+
+      int rows = (nshown + cols - 1) / cols;
+
+      for (int r = 0; r < rows; r++) {
+         char line[1024];
+         size_t pos = 0;
+
+         pos += snprintf(line + pos, sizeof(line) - pos, "  ");
+
+         for (int c = 0; c < cols; c++) {
+            int idx = c * rows + r;   // column-major so matches read down each column
+
+            if (idx >= nshown) {
+               break;
+            }
+            pos += snprintf(line + pos, sizeof(line) - pos, "%-*s  ", maxlen, matches[idx]);
+
+            if (pos >= sizeof(line) - 1) {
+               break;
+            }
+         }
+
+         char colored[1100];
+
+         snprintf(colored, sizeof(colored), "{%s}%s{reset}", color_tag, line);
+         char *markup = gtk_colorize_string(colored);
+
+         if (markup) {
+            GtkTextIter iter;
+
+            gtk_text_buffer_get_end_iter(text_buffer, &iter);
+            gtk_text_buffer_insert_markup(text_buffer, &iter, markup, -1);
+            g_free(markup);
+         } else {
+            gtk_text_buffer_insert_at_cursor(text_buffer, line, -1);
+         }
+         gtk_text_buffer_insert_at_cursor(text_buffer, "\n", -1);
+      }
    }
 
    if (nmatch > TUI_MAX_COMPLETIONS_SHOWN) {

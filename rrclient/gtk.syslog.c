@@ -141,7 +141,9 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
 
       gtk_text_buffer_get_end_iter(log_buffer, &end);
 
-      if (visible) {
+      // Always insert markup: lines added while the tab is hidden would
+      // otherwise show literal {color} tags when the tab is opened.
+      {
          const char *ts = get_chat_ts(now);
          char *ts_colorized = gtk_colorize_string(ts);
 
@@ -151,12 +153,6 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
          } else {
             gtk_text_buffer_insert(log_buffer, &end, ts, -1);
          }
-      } else {
-         // Hidden: plain-text timestamp, no markup parsing
-         char tsbuf[32];
-
-         snprintf(tsbuf, sizeof(tsbuf), "%s", get_chat_ts(now) );
-         gtk_text_buffer_insert(log_buffer, &end, tsbuf, -1);
       }
 
       char header[512];
@@ -164,10 +160,10 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
       snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(priority));
       gtk_text_buffer_insert(log_buffer, &end, header, -1);
 
-      if (visible) {
-         // Colorize the message body: Log() format strings carry {color} tags
-         // (the 03f283d perf change only colorized the timestamp, leaving the
-         // body inserted raw with the tags showing literally).
+      // Colorize the message body: Log() format strings carry {color} tags
+      // (the 03f283d perf change only colorized the timestamp, leaving the
+      // body inserted raw with the tags showing literally).
+      {
          char *colorized = gtk_colorize_string(outbuf);
 
          if (colorized) {
@@ -176,9 +172,6 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
          } else {
             gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
          }
-      } else {
-         // Hidden: plain text, no markup parsing or colorization cost
-         gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
       }
       gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
       gtk_trim_scrollback(log_buffer, "ui.gtk.scrollback.syslog", 200);

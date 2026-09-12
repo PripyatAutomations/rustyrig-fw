@@ -181,6 +181,79 @@ char **client_cmd_completions(const char *line, const char *word) {
       }
    }
 
+   // Complete /quota: first argument is a subcommand (LIST|SHOW|ADD|RESET|SET|HELP),
+   // any later argument is a username. A bare "/quota <tab>" offers both.
+   if (strncasecmp(line, "/quota", 6) == 0 && (line[6] == ' ' || line[6] == '\0')) {
+      // Grab the first token after the command (if any)
+      const char *q = line + 6;
+      char tok1[64] = "";
+      size_t tlen = 0;
+
+      while (*q == ' ') {
+         q++;
+      }
+
+      while (*q && *q != ' ' && tlen < sizeof(tok1) - 1) {
+         tok1[tlen++] = *q++;
+      }
+      tok1[tlen] = '\0';
+
+      // First argument if the word being completed is that token (exact match,
+      // e.g. mid-edit) or is empty and no token exists yet; "SH" -> "SHOW"
+      // counts as the first argument too since the token is a prefix of word.
+      bool first_arg = (tlen == 0) || (strcasecmp(tok1, word) == 0) ||
+                       (strlen(word) > tlen && strncasecmp(word, tok1, tlen) == 0);
+
+      if (first_arg) {
+         static const char *quota_cmds[] = { "LIST", "SHOW", "ADD", "RESET", "SET", "HELP" };
+         char **matches = NULL;
+         size_t count = 0, len = strlen(word);
+
+         for (size_t i = 0; i < sizeof(quota_cmds) / sizeof(quota_cmds[0]); i++) {
+            if (len && strncasecmp(quota_cmds[i], word, len) != 0) {
+               continue;
+            }
+            char **tmp = realloc(matches, (count + 2) * sizeof(char *));
+
+            if (!tmp) {
+               continue;
+            }
+            matches = tmp;
+            matches[count] = strdup(quota_cmds[i]);
+
+            if (matches[count]) {
+               matches[++count] = NULL;
+            }
+         }
+
+         // Usernames are valid as the first argument too ("/quota bob" == SHOW bob)
+         char **users = complete_usernames(word);
+
+         if (users) {
+            size_t un = 0;
+
+            while (users[un]) {
+               un++;
+            }
+            char **tmp = realloc(matches, (count + un + 1) * sizeof(char *));
+
+            if (tmp) {
+               matches = tmp;
+               for (size_t i = 0; i < un; i++) {
+                  matches[count++] = users[i];
+               }
+               matches[count] = NULL;
+            } else {
+               completion_free(users);
+            }
+         }
+         return matches;
+      }
+
+      // Later arguments are usernames
+      return complete_usernames(word);
+   }
+
    // Only complete the first word, and only when it starts with '/'
    const char *p = line;
 

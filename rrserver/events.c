@@ -446,7 +446,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
 
          } else {
             if (db_quota_set(masterdb, name, 60 * 60) ) {
-               Log(LOG_AUDIT, "quota", "%s reset %s to 60 minutes (was %d)",
+               Log(LOG_AUDIT, "quota", "%s reset %s's TX quota to 60 minutes (was %d)",
                   actor, name, (before < 0 ? 0 : before) / 60);
                quota_reply(cptr, "%s: reset to 60 minutes", name);
                quota_reset_warned(name);
@@ -489,7 +489,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
                char *was = time_t2dhms((time_t)(before < 0 ? 0 : before));
                char *added = time_t2dhms(secs);
                char *now = time_t2dhms((time_t)db_quota_get(masterdb, name));
-               Log(LOG_AUDIT, "quota", "%s added %s to %s (was %s)", actor, added, name, was);
+               Log(LOG_AUDIT, "quota", "%s added %s to %s's TX quota (was %s)", actor, added, name, was);
                quota_reply(cptr, "added %s (now %s) to %s's quota", added, now, name);
                free( (void *)was);
                free( (void *)added);
@@ -501,8 +501,8 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
             if (ok) {
                char *was = time_t2dhms((time_t)(before < 0 ? 0 : before));
                char *set = time_t2dhms(secs);
-               Log(LOG_AUDIT, "quota", "%s set %s to %s (was %s)", actor, name, set, was);
-               quota_reply(cptr, "set %s's quota to %s", name, set);
+               Log(LOG_AUDIT, "quota", "%s set %s's TX quota to %s (was %s)", actor, name, set, was);
+               quota_reply(cptr, "%s set %s's quota to %s", actor, name, set);
                free( (void *)was);
                free( (void *)set);
             }
