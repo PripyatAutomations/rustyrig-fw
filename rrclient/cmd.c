@@ -369,6 +369,10 @@ char **client_cmd_completions(const char *line, const char *word) {
    size_t count = 0;
 
    for (int i = 0; client_cmds[i].cmd; i++) {
+      // Hide admin-only commands from non-staff users
+      if (client_cmds[i].admin && !media_have_priv("admin|owner") ) {
+         continue;
+      }
       if (strncasecmp(client_cmds[i].cmd, w, len) != 0) {
          continue;
       }
