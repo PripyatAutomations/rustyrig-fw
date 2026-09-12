@@ -80,6 +80,23 @@ static void rrserver_handle_send_media_channels(const char *event, const char *d
    media_send_available_all(cptr);
 }
 
+// Remove a media channel by uuid and tell every connected client it went
+// away. Fired from the remove-media-channel event; data is the channel uuid.
+static void rrserver_handle_remove_media_channel(const char *event, const char *data,
+   rrconn_t *cptr, void *user) {
+   const char *uuid = (data ? (const char *)data : "");
+   struct rr_mediachan *cp = media_chan_find_uuid(uuid);
+
+   if (!cp) {
+      Log(LOG_WARN, "ws.media", "remove-media-channel: unknown uuid |%s|", uuid);
+      return;
+   }
+   // Tell every client before the channel (and its uuid) goes away
+   media_send_chan_removed_all(cp);
+   media_chan_remove(uuid);
+}
+
 void rrserver_media_register_events(void) {
    event_on("send-media-channels", rrserver_handle_send_media_channels, NULL);
+   event_on("remove-media-channel", rrserver_handle_remove_media_channel, NULL);
 }

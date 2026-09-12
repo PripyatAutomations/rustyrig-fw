@@ -157,6 +157,10 @@ bool cmd_help(int argc, char **args) {
 
    int desc_col = 3 + longest + 2;
    for (int i = 0; client_cmds[i].cmd; i++) {
+      // Hide admin-only commands from non-staff users
+      if (client_cmds[i].admin && !media_have_priv("admin|owner") ) {
+         continue;
+      }
       int len = strlen(client_cmds[i].cmd);
       int spaces = desc_col - 3 - len;
 

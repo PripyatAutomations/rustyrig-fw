@@ -29,6 +29,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
+#include <rrclient/ui.h>
 
 extern bool dying;
 extern time_t now;
@@ -125,33 +126,34 @@ client_cmd_t client_cmds[] = {
    { .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
    { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
-   { .cmd = "die", .cb = cmd_die, .desc = "Shutdown the server" },
+   { .cmd = "die", .cb = cmd_die, .admin = true, .desc = "Shutdown the server" },
    { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
 #ifdef	USE_GTK
    { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
 #endif	// USE_GTK
    { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
-   { .cmd = "kick", .cb = cmd_kick, .desc = "Kick a user from the rig" },
+   { .cmd = "kick", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the rig" },
    { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },
    { .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab" },
    { .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel" },
    { .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message" },
-   { .cmd = "mute", .cb = cmd_mute, .desc = "Mute a user" },
+   { .cmd = "mute", .cb = cmd_mute, .admin = true, .desc = "Mute a user" },
    { .cmd = "names", .cb = cmd_names, .desc = "List users with privilege flags" },
    { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
    { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
    { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)" },
    { .cmd = "raw", .cb = cmd_raw, .desc = "Send a raw command" },
+   { .cmd = "media", .cb = cmd_media, .max_args = 2, .desc = "Media channels: LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>" },
    { .cmd = "syslog", .cb = cmd_syslog, .desc = "Toggle server host log stream (/syslog on|off)" },
-   { .cmd = "rehash", .cb = cmd_rehash, .desc = "Ask server to reload config & users" },
-   { .cmd = "quota", .cb = cmd_quota, .max_args = 8, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)" },
+   { .cmd = "rehash", .cb = cmd_rehash, .admin = true, .desc = "Ask server to reload config & users" },
+   { .cmd = "quota", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)" },
    { .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file" },
-   { .cmd = "restart", .cb = cmd_restart, .desc = "Restart the server" },
+   { .cmd = "restart", .cb = cmd_restart, .admin = true, .desc = "Restart the server" },
    { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
    { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
    { .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)" },
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
-   { .cmd = "unmute", .cb = cmd_unmute, .desc = "Unmute a user" },
+   { .cmd = "unmute", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user" },
    { .cmd = "win", .cb = cmd_win, .desc = "Change windows" },
    { .cmd = "whois", .cb = cmd_whois, .desc = "Show client information" },
    { .cmd = NULL, .cb = NULL, .desc = NULL }
@@ -421,6 +423,14 @@ bool parse_chat_input_real(const char *msg) {
       *end = '\0';
 
       Log(LOG_CRAZY, "chat.cmd", "command=%s argc=%d max_args=%d", cmd_argv[0], cmd_argc, max_args);
+
+      // Admin-only commands are rejected for non-staff users (and hidden
+      // from /help); staff is set by the server from admin|owner privs.
+      if (cmd->admin && !media_have_priv("admin|owner") ) {
+         ui_print(NULL, "{red}You do not have enough privileges to use '/%s'{reset}", cmd_argv[0]);
+         free(input);
+         return false;
+      }
       cmd->cb(cmd_argc, cmd_argv);
       free(input);
    } else {

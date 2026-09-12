@@ -722,6 +722,13 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       Log(LOG_INFO, "ws.media", "Subscribed to media channel %s (stream %u)",
          (uuid ? uuid : "<none>"), stream);
       event_emit_dict("media.subscribed", cptr, d);
+   } else if (cmd && strcasecmp(cmd, "unsubscribed") == 0) {
+      event_emit_dict("media.unsubscribed", cptr, d);
+   } else if (cmd && strcasecmp(cmd, "chan-remove") == 0) {
+      const char *uuid = dict_get(d, "media.chan-uuid", NULL);
+
+      Log(LOG_INFO, "ws.media", "Media channel removed: %s", (uuid ? uuid : "<none>"));
+      event_emit_dict("media.chan-removed", cptr, d);
    } else {
       Log(LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>"));
    }

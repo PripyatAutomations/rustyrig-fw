@@ -20,6 +20,7 @@ typedef struct client_cmd {
    const char *desc;
    int min_args;
    int max_args;
+   bool admin;   // admin-only: hidden from /help and rejected for non-staff
    bool (*cb)(int argc, char **args);
    event_cb_t (*event_cb)(const char *event, void *data, rrconn_t *cptr, void *user);
 } client_cmd_t;
@@ -44,6 +45,8 @@ extern bool cmd_help(int argc, char **args);
 extern bool cmd_join(int argc, char **args);
 extern bool cmd_kick(int argc, char **args);
 extern bool cmd_log(int argc, char **args);
+extern bool cmd_media(int argc, char **args);
+extern bool media_have_priv(const char *priv);   // media.c
 extern bool cmd_me(int argc, char **args);
 extern bool cmd_msg(int argc, char **args);
 extern bool cmd_names(int argc, char **args);
