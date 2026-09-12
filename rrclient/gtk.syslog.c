@@ -28,6 +28,7 @@ extern GtkWidget *main_notebook;
 GtkWidget *log_view = NULL;
 GtkTextBuffer *log_buffer = NULL;
 static GtkWidget *log_page = NULL;       // notebook page holding log_view
+static GtkWidget *host_log_page = NULL;  // notebook page holding host_log_view
 GtkWidget *host_log_view = NULL;
 GtkTextBuffer *host_log_buffer = NULL;
 extern bool dying;               // main.c
@@ -45,10 +46,12 @@ static bool log_tab_visible(void) {
            gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_page) );
 }
 
-// When the user switches to the log tab, jump the view to the newest entry.
+// When the user switches to a log tab, jump the view to the newest entry.
 // log_print_va() skips the per-line scroll idle callback while the tab is
 // hidden (the old comment claimed the view "re-scrolls when shown" but nothing
 // implemented that), so this signal handler is what actually does it.
+// Host log stays plain text (color is a client-side thing); it only gets the
+// scroll-on-focus behavior.
 static void log_tab_switched(GtkNotebook *nb, GtkWidget *page, guint page_num, gpointer user) {
    (void)nb;
    (void)page_num;
@@ -56,6 +59,10 @@ static void log_tab_switched(GtkNotebook *nb, GtkWidget *page, guint page_num, g
 
    if (log_view && page == log_page) {
       g_idle_add(ui_scroll_to_end, log_view);
+   }
+
+   if (host_log_view && page == host_log_page) {
+      g_idle_add(ui_scroll_to_end, host_log_view);
    }
 }
 
@@ -201,6 +208,7 @@ GtkWidget *init_host_log_tab(void) {
    gtk_container_add(GTK_CONTAINER(nw), host_log_view);
    GtkWidget *syslog_tab_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(syslog_tab_label), "(<u>3</u>) Host Log");
+   host_log_page = nw;
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, syslog_tab_label);
 
    return nw;
