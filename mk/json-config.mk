@@ -35,6 +35,7 @@ BUILD_CALLSIGN_LOOKUP = $(strip $(shell cat ${CF} | jq -r '.components.callisgn-
 BUILD_FWDSP = $(strip $(shell cat ${CF} | jq -r '.components.fwdsp'))
 BUILD_RRCLIENT = $(strip $(shell cat ${CF} | jq -r '.components.rrclient'))
 BUILD_RRSERVER = $(strip $(shell cat ${CF} | jq -r '.components.rrserver'))
+USE_CCACHE = $(strip $(shell cat ${CF} | jq -r '.build.ccache // "false"'))
 
 ${CF}:
 	@echo "*******************************************************"

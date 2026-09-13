@@ -66,6 +66,7 @@
       "toolchain": {
          "prefix": ""
       },
+      "ccache": false,
       "use_asan": "false"
    },
    "cards": {

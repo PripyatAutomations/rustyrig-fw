@@ -21,6 +21,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
+#include <rrserver/fwdsp-mgr.h>
 #include <rrserver/backend.h>
 
 extern time_t now;
@@ -96,7 +97,44 @@ static void rrserver_handle_remove_media_channel(const char *event, const char *
    media_chan_remove(uuid);
 }
 
+// A client selected a codec for one direction (fired by ws.mediachan.c from
+// media.cmd: codec). Spawn (or ref up) the fwdsp pipeline for that codec.
+// data is a dict: media.codec, media.dir, optional media.chan-uuid.
+static void rrserver_handle_codec_select(const char *event, const char *data,
+   rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+   // event_emit_dict() JSON-encodes the payload, so parse it back here
+   dict *d = json2dict(data);
+
+   if (!d) {
+      Log(LOG_WARN, "ws.media", "codec-select with unparseable payload");
+      return;
+   }
+   const char *codec = dict_get(d, "media.codec", NULL);
+   uint32_t dir = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_RX);
+
+   if (!codec || strlen(codec) != 4) {
+      Log(LOG_WARN, "ws.media", "codec-select without a 4-char codec magic");
+      dict_free(d);
+      return;
+   }
+   bool is_tx = (dir == RR_BINFRAME_DIR_TX);
+   int chan_id = fwdsp_codec_start(codec, is_tx);
+
+   if (chan_id < 0) {
+      Log(LOG_CRIT, "ws.media", "Failed to start fwdsp pipeline for %s.%s", codec, (is_tx ? "tx" : "rx") );
+      dict_free(d);
+      return;
+   }
+   Log(LOG_INFO, "ws.media", "Started fwdsp pipeline %s.%s (chan %d) for %s", codec,
+      (is_tx ? "tx" : "rx"), chan_id, (cptr ? cptr->chatname : "?"));
+   dict_free(d);
+}
+
 void rrserver_media_register_events(void) {
    event_on("send-media-channels", rrserver_handle_send_media_channels, NULL);
    event_on("remove-media-channel", rrserver_handle_remove_media_channel, NULL);
+   event_on("media.codec-select", rrserver_handle_codec_select, NULL);
 }

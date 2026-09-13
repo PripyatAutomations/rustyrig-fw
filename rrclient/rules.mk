@@ -81,9 +81,9 @@ ${BUILD_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS} GNUmakefile r
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
-bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs}
+bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS} ${LDFLAGS_RRCLI}-o $@ ${rrclient_real_objs} -lrustyaxe -lrrprotocol -lev ${gtk_ldflags} ${gst_ldflags} ${notify_ldflags} || exit 2
+	@${CC} ${LDFLAGS} ${LDFLAGS_RRCLI}-o $@ ${rrclient_real_objs} -lrustyaxe -lrrprotocol -Wl,--no-as-needed -lfwdspmgr -Wl,--as-needed -lev ${gtk_ldflags} ${gst_ldflags} ${notify_ldflags} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

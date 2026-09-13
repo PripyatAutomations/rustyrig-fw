@@ -90,6 +90,11 @@ CC := gcc
 LD := ld
 endif
 
+# Use ccache if requested via config (build.ccache: true)
+ifeq (${USE_CCACHE},true)
+CC := ccache ${CC}
+endif
+
 ifeq (${USE_SQLITE},true)
 CFLAGS += $(shell pkg-config --cflags sqlite3)
 LDFLAGS += $(shell pkg-config --libs sqlite3)

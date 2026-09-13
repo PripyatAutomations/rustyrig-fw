@@ -19,6 +19,7 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/ws.mediachan.h>
 #include <rrclient/ui.speech.h>
 #include <rrclient/gtk.core.h>
 extern rrconn_t *ws_conn;
@@ -40,13 +41,17 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       return;
    }
    const char *codec = gtk_combo_box_get_active_id( GTK_COMBO_BOX(combo) );
-
    if (codec) {
       Log( LOG_CRAZY, "gtk.codecpicker", "setting active codec: %s for %s", codec, (ctx->is_tx ? "TX" : "RX") );
+      // Tell the server which codec we want for this direction; it spawns
+      // the matching fwdsp pipeline and re-announces the channel with the
+      // active codec magic.
+      // PARITY: rustyrig-www/js/webui.media.js (codec select)
+      rrconn_t *cptr = (ctx->is_tx ? (ws_tx_conn ? ws_tx_conn : ws_conn) : ws_conn);
 
-      // we need to invert is_tx since we're asking the server to set itself up
-      // to match our needs
-//      ws_select_codec(ctx->conn, codec, !ctx->is_tx);
+      if (cptr) {
+         media_send_codec_select(cptr, codec, (ctx->is_tx ? "tx" : "rx") );
+      }
    }
 }
 
@@ -97,6 +102,30 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);
    CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);
    tx_ctx->is_tx = true;
+   // Populate both pickers from our negotiated common codecs (falls back to
+   // codecs.allowed before negotiation completes), defaulting to whichever
+   // codec the negotiation picked for that direction.
+   // PARITY: rustyrig-www/js/webui.media.js (codec picker population)
+   const char *negotiated = media_get_common_codecs();
+   const char *default_rx = media_get_codec(false);
+   const char *default_tx = media_get_codec(true);
+
+   if (negotiated) {
+      populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), negotiated,
+         (default_rx && default_rx[0] ? default_rx : "mu08") );
+      populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), negotiated,
+         (default_tx && default_tx[0] ? default_tx : "mu08") );
+   } else {
+      // Not negotiated yet: show our configured preferences; the negotiation
+      // (ws_handle_media_msg) will re-select once the server answers.
+      const char *my_codecs = cfg_get_exp("codecs.allowed");
+
+      if (my_codecs) {
+         populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), my_codecs, NULL);
+         populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), my_codecs, NULL);
+         free( (void *)my_codecs );
+      }
+   }
 #if     defined(USE_MONGOOSE)
    if (ws_tx_conn) {
       tx_ctx->conn = ws_tx_conn->conn;

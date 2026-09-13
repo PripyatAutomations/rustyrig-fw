@@ -65,5 +65,7 @@ extern bool fwdsp_spawn(struct fwdsp_subproc *sp);
 extern int fwdsp_get_chan_id(const char *magic, bool is_tx);
 extern void fwdsp_sweep_expired(void);
 extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);
+extern int fwdsp_codec_start(const char codec_id[5], bool is_tx);
+extern int fwdsp_codec_stop(const char *codec, bool is_tx);
 
 #endif // !defined(__rr_fwdsp_mgr_h)

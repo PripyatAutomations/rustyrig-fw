@@ -23,13 +23,13 @@
 
 const char *configs[] = {
 #ifndef _WIN32
-   "~/.config/rrserver.cfg",
-   "config/rrserver.cfg",
-   "rrserver.cfg",
-   "/etc/rustyrig/rrserver.cfg"
+   "~/.config/fwdsp.cfg",
+   "config/fwdsp.cfg",
+   "fwdsp.cfg",
+   "/etc/rustyrig/fwdsp.cfg"
 #else
-   "%APPDATA%\\rrserver\\rrserver.cfg",
-   ".\\rrserver.cfg"
+   "%APPDATA%\\rrserver\\fwdsp.cfg",
+   ".\\fwdsp.cfg"
 #endif
 };
 

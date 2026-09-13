@@ -17,6 +17,8 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
+#include <rrserver/fwdsp-mgr.h>
+
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
 #include <rrserver/ptt.h>
@@ -77,7 +79,7 @@ void timer_clock_tick_fn(void *arg) {
    // Only expire fwdsp sessions every 10 seconds
    if (clock_expire_fwdsp_iter >= 30) {
       // deal with timed out en/decoders
-//      fwdsp_sweep_expired();
+      fwdsp_sweep_expired();
       clock_expire_fwdsp_iter = 0;
    } else {
       clock_expire_fwdsp_iter++;

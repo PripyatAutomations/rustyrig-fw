@@ -19,6 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
+#include <rrserver/fwdsp-mgr.h>
 #include <rrserver/help.h>
 #include <rrserver/ptt.h>
 #include <rrserver/thermal.h>
@@ -312,7 +313,9 @@ int main(int argc, char **argv) {
 
 //   rr_au_init();
 //   dds_init();
-//   fwdsp_init();
+   if ( fwdsp_init() ) {
+      Log(LOG_CRIT, "fwdsp", "fwdsp manager failed to initialize; audio will be unavailable");
+   }
 
    // Network connectivity
    show_network_info();

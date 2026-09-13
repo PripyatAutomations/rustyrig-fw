@@ -63,6 +63,7 @@ struct rr_media_known {
    uint8_t direction;
    uint8_t vfo;
    uint8_t rig;
+   char codec[5];                  // active (negotiated) codec magic
    char descr[128];
    bool subscribed;
 };
@@ -144,6 +145,11 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          kp->direction = dir;
          kp->vfo = vfo;
          kp->rig = rig;
+         const char *codec = dict_get(d, "media.codec", NULL);
+
+         if (codec && strlen(codec) == 4) {
+            snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
+         }
          if (descr && descr[0] != '\0') {
             snprintf(kp->descr, sizeof(kp->descr), "%s", descr);
          }
@@ -162,8 +168,13 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
 
    if (kp) {
       kp->subscribed = !unsub;
-      Log(LOG_INFO, "ws.media", "Media subscription %s: %s",
-         (unsub ? "removed" : "confirmed"), kp->uuid);
+      const char *codec = dict_get(d, "media.codec", NULL);
+
+      if (codec && strlen(codec) == 4) {
+         snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
+      }
+      Log(LOG_INFO, "ws.media", "Media subscription %s: %s (codec %s)",
+         (unsub ? "removed" : "confirmed"), kp->uuid, (kp->codec[0] ? kp->codec : "none") );
    }
 }
 
@@ -335,10 +346,11 @@ bool cmd_media(int argc, char **args) {
            continue;
         }
         n++;
-        ui_print(NULL, " %2d. %s%s %s  {magenta}%s{reset}", n,
+        ui_print(NULL, " %2d. %s%s %s  [%s]  {magenta}%s{reset}", n,
            (kp->subscribed ? "{green}*{reset} " : "  "),
            (kp->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx"), kp->uuid,
-           (kp->descr[0] != '\0' ? kp->descr : "-"));
+           (kp->codec[0] != '\0' ? kp->codec : "----"),
+           (kp->descr[0] != '\0' ? kp->descr : "-") );
      }
      ui_print(NULL, "{bright-cyan}End of list ({reset}%d{bright-cyan} channels, {reset}*{bright-cyan} = subscribed){reset}", n);
      Log(LOG_INFO, "ws.media", "/media LIST: %d stored channels", n);
