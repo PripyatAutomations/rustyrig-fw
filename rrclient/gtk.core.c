@@ -516,6 +516,10 @@ bool gui_init(void) {
    // bind our hotkeys
    gui_hotkey_register(main_window);
 
+   // Video (webcam) frame listener
+   extern void rrclient_webcam_register(void);   // gtk.webcam.c
+   rrclient_webcam_register();
+
    // Make the main window on screen
    gtk_widget_show_all(main_window);
    gtk_widget_realize(main_window);

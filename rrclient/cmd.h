@@ -67,6 +67,7 @@ extern bool cmd_join(int argc, char **args);
 extern bool cmd_kick(int argc, char **args);
 extern bool cmd_log(int argc, char **args);
 extern bool cmd_media(int argc, char **args);
+extern bool cmd_webcam(int argc, char **args);   // gtk.webcam.c
 extern bool media_have_priv(const char *priv);   // media.c
 extern bool cmd_me(int argc, char **args);
 extern bool cmd_msg(int argc, char **args);

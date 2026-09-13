@@ -54,6 +54,7 @@ extern bool cfg_ui_bell_chat;
 
 extern void connman_autoconnect(void);
 extern void rrclient_register_events(void);
+extern void webcam_client_register_events(void);   // webcam.c
 extern bool rrclient_autoconnect(void);
 extern void rrclient_poll_events(void);
 extern void rrclient_poll_events_reconnect(void);
@@ -601,6 +602,7 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
 
    // Register all of our core event handlers
    rrclient_register_events();
+   webcam_client_register_events();
    connman_register_events();
 
    // setup the client bits and autoconnect if configured

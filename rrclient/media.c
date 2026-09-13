@@ -103,19 +103,22 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
    if (!cptr || !kp || !media_ready || kp->subscribed) {
       return;
    }
-   // Only audio channels are auto-subscribed for now; other subsystems
-   // (waterfall, modem, ...) are opt-in by the user.
-   if (kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO) {
+   // Audio channels for the active VFO auto-subscribe; video channels
+   // (webcam etc, VFO NA) also auto-subscribe so the viewer just works.
+   // Other subsystems (waterfall, modem, ...) stay opt-in by the user.
+   if (kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO && kp->subsystem != RR_BINFRAME_SUBSYS_VIDEO) {
       return;
    }
-   // Only auto-subscribe the channels for the VFO the UI is currently
-   // showing; channels for other VFOs stay available for the user to
-   // switch to (multi-VFO RX rigs expose them all).
-   char cur_vfo = vfo_state_get_active();
-   uint8_t active_id = (cur_vfo >= 'A' && cur_vfo <= 'Z') ? (uint8_t)(cur_vfo - 'A') : 0;
+   if (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO) {
+      // Only auto-subscribe the channels for the VFO the UI is currently
+      // showing; channels for other VFOs stay available for the user to
+      // switch to (multi-VFO RX rigs expose them all).
+      char cur_vfo = vfo_state_get_active();
+      uint8_t active_id = (cur_vfo >= 'A' && cur_vfo <= 'Z') ? (uint8_t)(cur_vfo - 'A') : 0;
 
-   if (kp->vfo != active_id && kp->vfo != RR_BINFRAME_VFO_NA) {
-      return;
+      if (kp->vfo != active_id && kp->vfo != RR_BINFRAME_VFO_NA) {
+         return;
+      }
    }
    media_send_subscribe(cptr, kp->uuid);
    kp->subscribed = true;

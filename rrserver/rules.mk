@@ -58,7 +58,7 @@ ${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${RRSERVER_HEADERS} ${BUILD_HEADERS} GNU
 
 bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrserver_real_objs}) objects"
-	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr -lev ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
+	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr -lev ${LDFLAGS} ${gst_ldflags} ${LDFLAGS_RRSERVER} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

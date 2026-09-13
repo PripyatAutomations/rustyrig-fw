@@ -206,3 +206,28 @@ provisioning in `rrserver/media.c` (RX/TX audio per exposed VFO); native
 client `rrclient/media.c` and browser client `www/js/webui.media.js`.
 Both clients auto-subscribe the audio RX/TX pair for the active VFO and
 listen for more channels as they appear.
+
+## Webcam / video sources (SUBSYS_VIDEO)
+
+Video (e.g. a v4l2 webcam pointed at the rig) rides the same media
+channel machinery on `RR_BINFRAME_SUBSYS_VIDEO` (0x02), with
+vfo/rig = 0xFF (NA) since a camera isn't tied to a rig or VFO. The
+payload is a full encoded video frame (codec `jpeg` initially).
+
+Two source paths are supported:
+
+1. **Server webcam** (rrserver/webcam.c): with `webcam.enable: true`
+   the server grabs frames from `webcam.device` (default /dev/video0)
+   with a gstreamer `v4l2src` pipeline and fans them out to every
+   subscriber of the video channel it provisions at startup.
+2. **Client webcam** (rrclient/webcam.c): a client connection configured
+   with `client.role: video-source` announces `hello.role: video-source`
+   in its initial HELLO, registers as a media source after auth, and
+   pushes TX-direction video binframes for the video channel. The server
+   validates the flag and fans the frames out to subscribers.
+
+Because such connections are not ordinary users, the server flags them
+(`FLAG_VIDEO_SOURCE`) and keeps them out of the chat/user lists; they
+show up only as media channels. The GTK client renders incoming video
+frames in a viewer window (`/webcam` to toggle it, `/media SUB <n>` to
+subscribe).

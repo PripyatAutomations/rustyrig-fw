@@ -6,6 +6,7 @@ bins += ${rrclient}
 
 rrclient_objs += audio.o
 rrclient_objs += cat.o
+rrclient_objs += webcam.o		# client-side v4l2 webcam video source
 rrclient_objs += cat.kpa500.o
 rrclient_objs += cat.pty.o		# PTY CAT interface (./dev/ttyCAT0)
 rrclient_objs += cat.yaesu.o
@@ -59,6 +60,7 @@ rrclient_objs += gtk.userlist.o		# GTK part of the userlist
 rrclient_objs += gtk.vfo-box.o		# VFO box element
 rrclient_objs += gtk.vol-box.o		# Volume widget
 rrclient_objs += gtk.winmgr.o		# window management
+rrclient_objs += gtk.webcam.o		# webcam/video viewer window
 rrclient_objs += ui.speech.o		# Support for screener readers
 endif
 

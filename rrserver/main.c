@@ -37,6 +37,8 @@
 extern void rrserver_register_events(void); // events.c
 extern void rrserver_media_register_events(void);   // media.c
 extern void rrserver_media_init(void);              // media.c
+extern void webcam_init(void);                      // webcam.c
+extern void webcam_shutdown(void);                  // webcam.c
 extern void audit_init(void);               // audit.c
 extern void hostlog_init(void);             // hostlog.c
 #ifdef	USE_MONGOOSE
@@ -312,6 +314,9 @@ int main(int argc, char **argv) {
 
    // Provision the media channels (RX/TX audio per exposed VFO)
    rrserver_media_init();
+
+   // Grab a webcam, if we're configured with one (webcam.enable)
+   webcam_init();
 
 #ifdef	USE_CAT
    if ( rr_cat_init() ) {
