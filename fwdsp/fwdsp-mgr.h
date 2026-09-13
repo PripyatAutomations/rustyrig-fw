@@ -50,6 +50,7 @@ struct fwdsp_subproc {
    int tc_out_channel;                           // Output channel
 };
 
+extern void fwdsp_reap_children(void);
 extern bool fwdsp_init(void);
 //extern int fwdsp_find_offset(const char *id);
 //extern struct fwdsp_subproc *fwdsp_find_instance(const char *id);

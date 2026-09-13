@@ -32,19 +32,19 @@ bool config_fwdsp_section_cb(const char *path, int line, const char *section, co
    }
    *val++ = '\0';   // split at '='
 
-   while (*val == " " || *val == '\t') {
+   while (*val == ' ' || *val == '\t') {
       val++;
    }
    // trim trailing whitespace
    char *end = val + strlen(val) - 1;
 
-   while (end >= val && (*end == " " || *end == '\t')) {
+   while (end >= val && (*end == ' ' || *end == '\t')) {
       *end-- = '\0';
    }
    // trim trailing whitespace on key too
    char *kend = tmpbuf + strlen(tmpbuf) - 1;
 
-   while (kend >= tmpbuf && (*kend == " " || *kend == '\t')) {
+   while (kend >= tmpbuf && (*kend == ' ' || *kend == '\t')) {
       *kend-- = '\0';
    }
    char fullkey[128];
@@ -86,19 +86,19 @@ bool config_pipeline_section_cb(const char *path, int line, const char *section,
    }
    *val++ = '\0';
 
-   while (*val == " " || *val == '\t') {
+   while (*val == ' ' || *val == '\t') {
       val++;
    }
    // trim trailing whitespace
    char *end = val + strlen(val) - 1;
 
-   while (end >= val && (*end == " " || *end == '\t')) {
+   while (end >= val && (*end == ' ' || *end == '\t')) {
       *end-- = '\0';
    }
    // trim key whitespace
    char *kend = tmpbuf + strlen(tmpbuf) - 1;
 
-   while (kend >= tmpbuf && (*kend == " " || *kend == '\t')) {
+   while (kend >= tmpbuf && (*kend == ' ' || *kend == '\t')) {
       *kend-- = '\0';
    }
    // Accept both "pc16.rx" and "pipeline:pc16.rx" spellings

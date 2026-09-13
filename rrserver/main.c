@@ -147,6 +147,8 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
+   extern bool config_fwdsp_section_cb(const char *path, int line, const char *section, const char *buf);   // cfg.fwdsp.c
+   extern bool config_pipeline_section_cb(const char *path, int line, const char *section, const char *buf);   // cfg.fwdsp.c
    // [fwdsp] keys land as fwdsp.* (fwdsp.subproc.max, fwdsp.hangtime, ...)
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
    // [pipeline] keys land as pipeline:<codec>.<dir> -- the format bin/fwdsp
@@ -368,6 +370,9 @@ int main(int argc, char **argv) {
    // Main loop
    while (1) {
 #ifdef	USE_MONGOOSE
+      // Reap any exited fwdsp children (flag set by the SIGCHLD handler)
+      fwdsp_reap_children();
+
       // Process Mongoose HTTP and MQTT events, this should be at the end of
       // loop so all data is ready
       mg_mgr_poll(&mg_mgr, 1000);

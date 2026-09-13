@@ -16,7 +16,11 @@ posix-install:
 install: ${real_install}
 
 install:
-	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
+	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/lib ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av ${bins} ${INSTALL_DIR}/bin
+	# Shared libs (librustyaxe.so, librrprotocol.so, libfwdspmgr.so) all build
+	# at the top of the tree and land in ${libs}; install them so the binaries
+	# can find them (see -Wl,-rpath in mk/compile.mk)
+	cp -av ${libs} ${INSTALL_DIR}/lib
 #	cp -av archive-config.sh *-rigctld.sh killall.sh rrgtk.sh test-run.sh ${INSTALL_DIR}/bin
 #	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc

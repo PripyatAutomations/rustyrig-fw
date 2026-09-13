@@ -15,6 +15,7 @@ rrserver_objs += backend.hamlib.o	# Hamlib backend for posix hosts
 rrserver_objs += backend.internal.o	# Internal backend for real radios (rustyrig-fw)
 rrserver_objs += channels.o		# Channel Memories
 rrserver_objs += console.o		# Console support
+rrserver_objs += cfg.fwdsp.o		# config section callbacks for [fwdsp]/[pipeline]
 rrserver_objs += database.o		# sqlite3 database stuff
 rrserver_objs += defconfig.o		# Default configuration
 rrserver_objs += events.o		# Our event hooks

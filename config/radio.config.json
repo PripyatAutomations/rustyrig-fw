@@ -67,7 +67,7 @@
          "prefix": ""
       },
       "ccache": false,
-      "use_asan": "false"
+      "use_asan": "true"
    },
    "cards": {
       "amp": {

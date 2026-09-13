@@ -7,7 +7,6 @@ CFLAGS_FWDSP := ${CFLAGS} -I${BUILD_DIR} #-DLOGFILE="\"fwdsp.log\""
 LDFLAGS_FWDSP := ${LDFLAGS} -L. -lrustyaxe ${gst_ldflags}
 fwdsp := bin/fwdsp
 bins += ${fwdsp}
-libs += libfwdspmgr
 
 libfwdspmgr_objs += fwdsp-mgr.o
 fwdsp_objs += defconfig.o
@@ -22,6 +21,7 @@ ${BUILD_DIR}/rrserver/fwdsp-mgr.h: fwdsp/fwdsp-mgr.h GNUmakefile
 	@cp $< $@
 
 libfwdspmgr := libfwdspmgr.so
+libs += ${libfwdspmgr}
 real_libfwdspmgr_objs := $(foreach x, ${libfwdspmgr_objs}, ${BUILD_DIR}/fwdsp/${x})
 extra_clean += ${real_libfwdspmgr_objs} ${libfwdspmgr}
 

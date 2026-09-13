@@ -75,7 +75,22 @@ static void fwdsp_set_exit_cb(fwdsp_exit_cb_t cb) {
    on_fwdsp_exit = cb;
 }
 
+static volatile sig_atomic_t fwdsp_sigchld_pending = 0;
+
 static void fwdsp_sigchld(int sig) {
+   // Async-signal-safe: only set a flag. waitpid(), Log() and touching the
+   // subprocs array happen in fwdsp_reap_children() on the main loop.
+   (void) sig;
+   fwdsp_sigchld_pending = 1;
+}
+
+// Called from the main event loop; reaps dead fwdsp children safely.
+void fwdsp_reap_children(void) {
+   if (!fwdsp_sigchld_pending) {
+      return;
+   }
+   fwdsp_sigchld_pending = 0;
+
    int status;
    pid_t pid;
 
@@ -98,11 +113,18 @@ static void fwdsp_sigchld(int sig) {
 static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct fwdsp_io_conn *ctx = c->fn_data;
 
+   if (!ctx) {
+      return;
+   }
+
    if (ev == MG_EV_READ) {
       struct mg_str *data = (struct mg_str *) ev_data;
 
       Log(LOG_DEBUG, "fwdsp", "[%s %.*s]", ctx->is_stderr ? "stderr" : "stdout", (int) data->len, data->buf);
    } else if (ev == MG_EV_CLOSE) {
+      // Free only the wrapper we allocated in fwdsp_spawn(). ctx->sp points
+      // into the shared fwdsp_subprocs array which is managed by the slot
+      // allocator and must never be freed here.
       free(ctx);
    }
 }
@@ -146,7 +168,10 @@ bool fwdsp_init(void) {
       fprintf(stderr, "OOM in fwdsp_init\n");
       exit(1);
    }
-   // Setup signal handling for SIGCHLD
+   // Setup signal handling for SIGCHLD. We only record the reaping request
+   // here; the actual waitpid()/cleanup runs in fwdsp_reap_children() from the
+   // main event loop. Doing waitpid/Log/memset inside the handler is not
+   // async-signal-safe and corrupted the heap when clients connected.
    struct sigaction sa = {
       .sa_handler = fwdsp_sigchld,
       .sa_flags = SA_RESTART | SA_NOCLDSTOP
@@ -378,9 +403,11 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       perror("execl");
       _exit(127);
    }
-   // --- Parent ---
+    // --- Parent ---
    sp->pid = pid;
+   // cfg_get_exp() returns a malloc'd string we own
    free( (char *)fwdsp_path );
+   fwdsp_path = NULL;
 
    if (sp->io_type == FW_IO_STDIO) {
       close(in_pipe[0]);
@@ -390,13 +417,34 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       sp->fw_stdout = out_pipe[0];
       sp->fw_stderr = err_pipe[0];
 
-      // Hook up stdout/stderr to Mongoose immediately
+      // Hook up stdout/stderr to Mongoose immediately. The fn_data must be a
+      // heap-allocated struct fwdsp_io_conn: fwdsp_read_cb() frees it on
+      // MG_EV_CLOSE. Passing `sp` itself (which lives inside the shared
+      // fwdsp_subprocs array) made the callback free() the whole array --
+      // corrupting the heap and later crashing mg_iobuf_free when a client
+      // connected ("double free or corruption").
       if (sp->fw_stdout) {
-         sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, sp);
+         struct fwdsp_io_conn *ctx = calloc(1, sizeof(*ctx) );
+
+         if (ctx) {
+            ctx->sp = sp;
+            ctx->is_stderr = false;
+            sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, ctx);
+         } else {
+            sp->mg_stdout_conn = NULL;
+         }
       }
 
       if (sp->fw_stderr) {
-         sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, sp);
+         struct fwdsp_io_conn *ctx = calloc(1, sizeof(*ctx) );
+
+         if (ctx) {
+            ctx->sp = sp;
+            ctx->is_stderr = true;
+            sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, ctx);
+         } else {
+            sp->mg_stderr_conn = NULL;
+         }
       }
 
       if (sp->fw_stdin) {
