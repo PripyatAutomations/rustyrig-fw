@@ -417,7 +417,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
    }
 
    if (strcasecmp(subcmd, "LIST") == 0) {
-      quota_reply(cptr, "TX quotas (minutes remaining):");
+      quota_reply(cptr, "TX quotas (time remaining):");
       db_quota_list(masterdb, quota_list_cb, cptr);
       return;
    }
@@ -442,13 +442,12 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
          if (strcasecmp(subcmd, "SHOW") == 0) {
             int mins = (before < 0 ? 0 : before) / 60;
 
-            quota_reply(cptr, "%s: %d minutes (%d seconds) remaining", name, mins, (before < 0 ? 0 : before));
-
+            quota_reply(cptr, "%s: %s remaining", name, time_t2dhms(before));
          } else {
             if (db_quota_set(masterdb, name, 60 * 60) ) {
-               Log(LOG_AUDIT, "quota", "%s reset %s's TX quota to 60 minutes (was %d)",
-                  actor, name, (before < 0 ? 0 : before) / 60);
-               quota_reply(cptr, "%s: reset to 60 minutes", name);
+               Log(LOG_AUDIT, "quota", "%s reset %s's TX quota to 60m (was %s)",
+                  actor, name, time_t2dhms(before));
+               quota_reply(cptr, "%s: reset to 60m", name);
                quota_reset_warned(name);
             } else {
                quota_reply(cptr, "quota RESET: failed for %s", name);

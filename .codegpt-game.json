@@ -1,0 +1,9 @@
+{
+  "name": "rrclient",
+  "engine": "generic",
+  "build": { "cmd": "make bin/rrclient" },
+  "launch": { "cmd": "./bin/rrclient", "args": [] },
+  "log": { "stdout": true },
+  "ready": "gtk|main window|ui",
+  "sourceRoots": ["rrclient"]
+}
