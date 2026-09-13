@@ -33,10 +33,20 @@ extern bool dying;
 extern time_t now;
 extern rrconn_t *ws_conn;
 
+// /die <reason>: shutdown the server. Server requires a reason of at least
+// CHAT_MIN_REASON_LEN chars and reads it at talk.args.reason; msg.type must
+// be "talk" or the server drops the message as unset msg_type.
+// PARITY: www/js/webui.chat.js chat_send_command() (talk.args.reason)
 bool cmd_die(int argc, char **args) {
+   if (argc < 2 || !args[1] || strlen(args[1]) < 10) {
+      ui_print(NULL, "Usage: /die <reason> (min 10 chars)");
+      return true;
+   }
+
    dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "die");
-   dict_add(d, "talk.args", args[1]);
+   dict_add(d, "talk.args.reason", args[1]);
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
@@ -159,10 +169,20 @@ bool cmd_syslog(int argc, char **args) {
    return false;
 }
 
+// /restart <reason>: restart the server. Server requires a reason of at
+// least CHAT_MIN_REASON_LEN chars and reads it at talk.args.reason; msg.type
+// must be "talk" or the server drops the message as unset msg_type.
+// PARITY: www/js/webui.chat.js chat_send_command() (talk.args.reason)
 bool cmd_restart(int argc, char **args) {
+   if (argc < 2 || !args[1] || strlen(args[1]) < 10) {
+      ui_print(NULL, "Usage: /restart <reason> (min 10 chars)");
+      return true;
+   }
+
    dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "restart");
-   dict_add(d, "talk.reason", args[1]);
+   dict_add(d, "talk.args.reason", args[1]);
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
