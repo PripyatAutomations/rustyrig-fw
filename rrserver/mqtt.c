@@ -68,8 +68,13 @@ bool mqtt_server_init(struct mg_mgr *mgr) {
 
    snprintf(listen_addr, sizeof(listen_addr), "mqtt://%s:%d", mqtt_bind, mqtt_port);
    if ( !mg_mqtt_listen(mgr, listen_addr, mqtt_server_cb, NULL) ) {
-      Log(LOG_CRIT, "http", "Failed to start http listener");
-      exit(EXIT_FAILURE);
+      Log(LOG_CRIT, "mqtt", "Failed to start MQTT listener on %s", listen_addr);
+
+      if ( cfg_get_bool("net.mqtt.required", false) ) {
+         exit(EXIT_FAILURE);
+      }
+
+      return true;
    }
    Log(LOG_INFO, "mqtt", "MQTT listening at %s", listen_addr);
 

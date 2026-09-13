@@ -85,6 +85,8 @@ defconfig_t defcfg[] = {
    { "net.mqtt.bind", "127.0.0.1", "Address to listen for mqtt" },
    { "net.mqtt.enabled", "false", "Enable MQTT service listener?" },
    { "net.mqtt.port", "48383", "Port for MQTT to listen" },
+   { "net.mqtt.required", "false", "Exit if MQTT listener fails to start?" },
+   { "net.http.required", "false", "Exit if HTTP/HTTPS listener fails to start?" },
    //
    { "net.mtu", NULL, "MTU for network (non-posix hosts)" },
    { "net.vlan", "4420", "VLAN to use for ethernet interface, 0 for untagged" },
