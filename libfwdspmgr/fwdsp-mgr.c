@@ -38,6 +38,9 @@ defconfig_t defcfg_fwdsp[] = {
    },
 #endif
    {
+      "path.fwdsp.config", "config/fwdsp.cfg", "Path to fwdsp configuration"
+   },
+   {
       "fwdsp.subproc.max", "16", "Maximum allowed de/encoder processes"
    },
    {
@@ -387,10 +390,16 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       return false;
    }
    const char *fwdsp_path = cfg_get_exp("path.fwdsp");
+   const char *fwdsp_config = cfg_get_exp("path.fwdsp.config");
 
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp bin");
 
+      return false;
+   }
+   if (!fwdsp_config || fwdsp_config[0] == '\0') {
+      Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp.config to point at fwdsp config");
+      free( (char *)fwdsp_path );
       return false;
    }
 
@@ -406,13 +415,13 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       }
 
       if (sp->is_tx) {
-         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-t", NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-t", NULL);
       } else if (sp->is_video) {
          // video pipelines: -v makes fwdsp announce FW_MEDIA_VIDEO and treat
          // the pipeline as a video (not audio) stream
-         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-v", "-t", NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-v", "-t", NULL);
       } else {
-         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, NULL);
       }
       perror("execl");
       _exit(127);
@@ -422,6 +431,8 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    // cfg_get_exp() returns a malloc'd string we own
    free( (char *)fwdsp_path );
    fwdsp_path = NULL;
+   free( (char *)fwdsp_config );
+   fwdsp_config = NULL;
 
    if (sp->io_type == FW_IO_STDIO) {
       close(in_pipe[0]);

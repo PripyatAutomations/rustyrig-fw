@@ -43,7 +43,7 @@ extern defconfig_t defcfg[];
 
 const char *config_file = NULL;
 const char *config_codec = "pc16";
-char *logfile = "./fwdsp.log";
+const char *logfile = "./fwdsp.log";
 
 // Store [pipeline] section keys as pipeline:<codec>.<dir> -- the format
 // looked up by cfg_get() below. Mirrors rrserver/cfg.fwdsp.c
@@ -177,7 +177,6 @@ static void run_loop(struct audio_config *cfg) {
  */
 
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
-
       if (ret == GST_STATE_CHANGE_FAILURE) {
          g_printerr("Failed to set pipeline to PLAYING state.\n");
          GstMessage *msg = gst_bus_poll(gst_element_get_bus(pipeline), GST_MESSAGE_ERROR, 0);
@@ -276,7 +275,6 @@ static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level, con
 }
 
 int main(int argc, char *argv[]) {
-   fprintf(stderr, "Starting fwdsp v.%s\n", VERSION);
    host_init();
 
 #ifdef USE_COREDUMPS_FWDSP
@@ -334,6 +332,7 @@ int main(int argc, char *argv[]) {
          }
       }
    }
+   Log(LOG_INFO, "fwdsp", "Starting fwdsp v.%s", VERSION);
    // Find and load the configuration file
    int cfg_entries = (sizeof(configs) / sizeof(char *) );
    default_cfg = dict_new();
@@ -349,8 +348,7 @@ int main(int argc, char *argv[]) {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
       }
    } else {
-//      char *fullpath = find_file_by_list(configs, cfg_entries);
-      char *fullpath = "config/fwdsp.cfg";
+      const char *fullpath = "config/fwdsp.cfg";
 
       if (fullpath) {
          config_file = strdup(fullpath);
@@ -361,7 +359,6 @@ int main(int argc, char *argv[]) {
             Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
          }
          empty_config = false;
-//         free(fullpath);
       } else {
          // Use default settings and save it to ~/.config/rrclient.cfg
          cfg = default_cfg;
@@ -369,10 +366,14 @@ int main(int argc, char *argv[]) {
          fprintf(stderr, "No config found :(\n");
          exit(1);
       }
-      // unneeded unless new code added between here and inner else
-//      free(fullpath);
    }
-   logger_init(logfile, false);
+   const char *logfile = cfg_get_exp("log.file");
+   logger_init( (logfile ? logfile : "-"), false);
+
+   if (logfile) {
+      free( (char *)logfile );     // _exp versions MUST be freed
+      logfile = NULL;
+   }
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
