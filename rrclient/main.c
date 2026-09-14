@@ -54,6 +54,7 @@ extern bool cfg_ui_bell_chat;
 
 extern void connman_autoconnect(void);
 extern void rrclient_register_events(void);
+extern bool audio_init(void);   // rrclient/audio.c
 extern void webcam_client_register_events(void);   // webcam.c
 extern bool rrclient_autoconnect(void);
 extern void rrclient_poll_events(void);
@@ -604,6 +605,10 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    rrclient_register_events();
    webcam_client_register_events();
    connman_register_events();
+
+   // GStreamer audio paths (RX pipeline feeds from media.frame.audio events;
+   // TX pipeline pushes mic samples to the server)
+   audio_init();
 
    // setup the client bits and autoconnect if configured
    ws_client_init();

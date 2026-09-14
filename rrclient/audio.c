@@ -47,6 +47,13 @@ extern rrconn_t *ws_conn, *ws_tx_conn;
 bool audio_enabled = false;
 bool gst_active = false;
 
+// Binary event: one audio payload from the server (codec data; the codec
+// magic is in the frame header, see doc/media-frames.md). Feeds the RX
+// pipeline's appsrc. Registered in audio_init().
+static void audio_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
+   audio_process_frame( (const char *)data, len);
+}
+
 // This probably should go into it's own bit
 GstElement *rx_pipeline = NULL, *tx_pipeline = NULL;
 GstElement *rx_appsrc = NULL, *tx_appsrc = NULL;
@@ -129,8 +136,12 @@ static void on_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data) {
 }
 
 bool audio_init(void) {
-   return 0;
    gst_init(NULL, NULL);
+
+   // Subscribe to RX audio frames from the server (binframe subsystem audio;
+   // see doc/media-frames.md). Frames arrive only while we're subscribed to
+   // an RX audio media channel (see media.c autosubscribe).
+   event_on_binary("media.frame.audio", audio_frame_cb, NULL);
 
 // This is re-enabled old stuff
    Log(LOG_INFO, "audio", "Configuring RX audio-path");

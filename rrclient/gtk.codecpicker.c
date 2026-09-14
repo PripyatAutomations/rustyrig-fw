@@ -56,7 +56,7 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
 }
 
 void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id) {
-   if (!codec_list || !combo || !default_id) {
+   if (!codec_list || !combo) {
       return;
    }
    char *list = g_strdup(codec_list);
@@ -81,6 +81,42 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
    g_free(list);
 }
 
+// Re-populate both pickers from the negotiated codec list. Called at GUI
+// init (pre-negotiation fallback) and from the media.codecs event once the
+// server answers our capab.
+// PARITY: rustyrig-www/js/webui.media.js (codec picker population)
+void codec_pickers_refresh(void) {
+   if (!tx_combo || !rx_combo) {
+      return;
+   }
+   const char *negotiated = media_get_common_codecs();
+   const char *default_rx = media_get_codec(false);
+   const char *default_tx = media_get_codec(true);
+
+   if (negotiated) {
+      populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), negotiated,
+         (default_rx && default_rx[0] ? default_rx : NULL) );
+      populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), negotiated,
+         (default_tx && default_tx[0] ? default_tx : NULL) );
+   } else {
+      // Not negotiated yet: show our configured preferences; the negotiation
+      // (ws_handle_media_msg) will re-select once the server answers.
+      const char *my_codecs = cfg_get_exp("codecs.allowed");
+
+      if (my_codecs) {
+         populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), my_codecs, NULL);
+         populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), my_codecs, NULL);
+         free( (void *)my_codecs );
+      }
+   }
+}
+
+// Event: codec negotiation completed (emitted by librrprotocol cli.media.c);
+// refresh the pickers from the negotiated list.
+static void codec_media_codecs_cb(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   codec_pickers_refresh();
+}
+
 GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *widget_label = gtk_label_new(NULL);
@@ -102,30 +138,10 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);
    CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);
    tx_ctx->is_tx = true;
-   // Populate both pickers from our negotiated common codecs (falls back to
-   // codecs.allowed before negotiation completes), defaulting to whichever
-   // codec the negotiation picked for that direction.
-   // PARITY: rustyrig-www/js/webui.media.js (codec picker population)
-   const char *negotiated = media_get_common_codecs();
-   const char *default_rx = media_get_codec(false);
-   const char *default_tx = media_get_codec(true);
-
-   if (negotiated) {
-      populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), negotiated,
-         (default_rx && default_rx[0] ? default_rx : "mu08") );
-      populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), negotiated,
-         (default_tx && default_tx[0] ? default_tx : "mu08") );
-   } else {
-      // Not negotiated yet: show our configured preferences; the negotiation
-      // (ws_handle_media_msg) will re-select once the server answers.
-      const char *my_codecs = cfg_get_exp("codecs.allowed");
-
-      if (my_codecs) {
-         populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), my_codecs, NULL);
-         populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), my_codecs, NULL);
-         free( (void *)my_codecs );
-      }
-   }
+   // Populate both pickers; pre-negotiation we show codecs.allowed, and the
+   // media.codecs event (below) re-populates once the server answers.
+   codec_pickers_refresh();
+   event_on("media.codecs", codec_media_codecs_cb, NULL);
 #if     defined(USE_MONGOOSE)
    if (ws_tx_conn) {
       tx_ctx->conn = ws_tx_conn->conn;
@@ -136,9 +152,6 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    }
 #endif // defined(USE_MONGOOSE)
    rx_ctx->is_tx = false;
-
-   gtk_combo_box_set_active(GTK_COMBO_BOX(tx_combo), 1);
-   gtk_combo_box_set_active(GTK_COMBO_BOX(rx_combo), 1);
 
    gtk_box_pack_start(GTK_BOX(vbox), widget_label, FALSE, FALSE, 1);
    gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), TRUE, TRUE, 1);
