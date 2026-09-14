@@ -45,6 +45,53 @@ const char *config_file = NULL;
 const char *config_codec = "pc16";
 char *logfile = "./fwdsp.log";
 
+// Store [pipeline] section keys as pipeline:<codec>.<dir> -- the format
+// looked up by cfg_get() below. Mirrors rrserver/cfg.fwdsp.c
+// config_pipeline_section_cb().
+static bool config_pipeline_section_cb(const char *path, int line, const char *section, const char *buf) {
+   (void)line;
+   (void)path;
+   if (!buf || section == NULL || strncasecmp(section, "pipeline", 8) != 0) {
+      return true;
+   }
+   char *tmpbuf = strdup(buf);
+   if (!tmpbuf) {
+      Log(LOG_CRIT, "cfg.fwdsp", "OOM in config_pipeline_section_cb!");
+      return true;
+   }
+   char *val = strchr(tmpbuf, '=');
+   if (!val || !val[1]) {
+      Log(LOG_CRIT, "cfg.fwdsp", "config error: pipeline entry missing value: %s", buf);
+      free(tmpbuf);
+      return false;
+   }
+   *val++ = '\0';
+   while (*val == ' ' || *val == '\t') {
+      val++;
+   }
+   // trim trailing whitespace
+   char *end = val + strlen(val) - 1;
+   while (end >= val && (*end == ' ' || *end == '\t')) {
+      *end-- = '\0';
+   }
+   // trim key whitespace
+   char *kend = tmpbuf + strlen(tmpbuf) - 1;
+   while (kend >= tmpbuf && (*kend == ' ' || *kend == '\t')) {
+      *kend-- = '\0';
+   }
+   // Accept both "pc16.rx" and "pipeline:pc16.rx" spellings
+   const char *id = tmpbuf;
+   if (strncmp(id, "pipeline:", 9) == 0) {
+      id += 9;
+   }
+   char fullkey[128];
+   snprintf(fullkey, sizeof(fullkey), "pipeline:%s", id);
+   dict_add(cfg, fullkey, val);
+   Log(LOG_DEBUG, "cfg.fwdsp", "Loaded %s from config", fullkey);
+   free(tmpbuf);
+   return false;
+}
+
 bool codec_tx_mode = false;
 bool config_video = false;               // is this audio or video stream?
 bool dying = false;
@@ -291,6 +338,7 @@ int main(int argc, char *argv[]) {
    int cfg_entries = (sizeof(configs) / sizeof(char *) );
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
+   cfg_add_callback(NULL, "pipeline", config_pipeline_section_cb);
 
    // If the user specified a config, apply it, else try to find one in a sane
    // place
