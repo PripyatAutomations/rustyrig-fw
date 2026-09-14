@@ -23,27 +23,14 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 
-#ifdef USE_GSTREAMER
-#include <gst/gst.h>
-#include <gst/app/gstappsink.h>
-#endif
+#include <libfwdspmgr/fwdsp-mgr.h>
 
 extern rrconn_t *ws_conn;
 extern time_t now;
 
-#ifndef USE_GSTREAMER
-// Built without gstreamer: the video source is unavailable
-void webcam_client_start(void) {
-   Log(LOG_DEBUG, "webcam", "Built without gstreamer; client webcam unavailable");
-}
-
-void webcam_client_stop(void) { }
-
-void webcam_client_register_events(void) { }
-#else
-
-static GstElement *webcam_pipeline = NULL;
-static GstElement *webcam_sink = NULL;
+// GStreamer never links into rrclient: frame capture runs in a fwdsp
+// subprocess which hands us frames via the fwdsp.frame.<codec> event.
+static int webcam_fwdsp_chan = -1;
 static uint32_t webcam_seq = 0;
 static bool webcam_active = false;
 
@@ -98,23 +85,13 @@ static void webcam_push_frame(const uint8_t *data, size_t len) {
    free(frame);
 }
 
-// Called from the gstreamer streaming thread per captured frame
-static GstFlowReturn webcam_frame_cb(GstElement *sink, gpointer user_data) {
-   GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(sink) );
-
-   if (!sample) {
-      return GST_FLOW_ERROR;
+// Called via event_on_binary() when the fwdsp subprocess emits a captured frame
+static void webcam_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
+   (void)event; (void)cptr; (void)user;
+   if (!data || len == 0) {
+      return;
    }
-   GstBuffer *buffer = gst_sample_get_buffer(sample);
-   GstMapInfo map;
-
-   if (gst_buffer_map(buffer, &map, GST_MAP_READ) && map.size > 0) {
-      webcam_push_frame(map.data, map.size);
-      gst_buffer_unmap(buffer, &map);
-   }
-   gst_sample_unref(sample);
-
-   return GST_FLOW_OK;
+   webcam_push_frame((const uint8_t *)data, len);
 }
 
 // Start grabbing frames (called after auth when we're a video source)
@@ -127,57 +104,31 @@ void webcam_client_start(void) {
    if (!device || device[0] == '\0') {
       device = "/dev/video0";
    }
-   char pipeline_str[256];
+   // Spawn the fwdsp capture subprocess; the pipeline itself (v4l2src ->
+   // jpegenc) is defined in the fwdsp config, gstreamer lives entirely in
+   // the subprocess. Frames arrive via the event bus.
+   char event_name[32];
 
-   snprintf(pipeline_str, sizeof(pipeline_str),
-      "v4l2src device=%s ! image/jpeg ! appsink name=wc_sink emit-signals=true sync=false",
-      device);
-   GError *err = NULL;
+   snprintf(event_name, sizeof(event_name), "fwdsp.frame.%.4s", "jpeg");
+   event_on_binary(event_name, webcam_frame_cb, NULL);
+   webcam_fwdsp_chan = fwdsp_video_start("jpeg", true);
 
-   webcam_pipeline = gst_parse_launch(pipeline_str, &err);
-
-   if (!webcam_pipeline || err) {
-      Log(LOG_CRIT, "webcam", "Failed to create webcam pipeline for %s: %s", device,
-         (err ? err->message : "(null)") );
-
-      if (err) {
-         g_error_free(err);
-      }
-      webcam_pipeline = NULL;
-      return;
-   }
-   webcam_sink = gst_bin_get_by_name(GST_BIN(webcam_pipeline), "wc_sink");
-
-   if (!webcam_sink) {
-      Log(LOG_CRIT, "webcam", "Webcam pipeline has no appsink?!");
-      gst_object_unref(webcam_pipeline);
-      webcam_pipeline = NULL;
-      return;
-   }
-   g_signal_connect(webcam_sink, "new-sample", G_CALLBACK(webcam_frame_cb), NULL);
-
-   if (gst_element_set_state(webcam_pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
-      Log(LOG_CRIT, "webcam", "Failed to start webcam pipeline on %s", device);
-      gst_object_unref(webcam_sink);
-      gst_object_unref(webcam_pipeline);
-      webcam_sink = NULL;
-      webcam_pipeline = NULL;
+   if (webcam_fwdsp_chan < 0) {
+      Log(LOG_CRIT, "webcam", "Failed to start fwdsp video pipeline for %s (device %s)",
+         "jpeg", device);
       return;
    }
    webcam_active = true;
    webcam_register_source();
-   Log(LOG_INFO, "webcam", "Client webcam capture started on %s", device);
+   Log(LOG_INFO, "webcam", "Client webcam capture started via fwdsp on %s", device);
 }
 
 void webcam_client_stop(void) {
-   if (!webcam_pipeline) {
+   if (webcam_fwdsp_chan < 0) {
       return;
    }
-   gst_element_set_state(webcam_pipeline, GST_STATE_NULL);
-   gst_object_unref(webcam_sink);
-   gst_object_unref(webcam_pipeline);
-   webcam_sink = NULL;
-   webcam_pipeline = NULL;
+   fwdsp_codec_stop("jpeg", true);
+   webcam_fwdsp_chan = -1;
    webcam_active = false;
 }
 
@@ -207,5 +158,3 @@ void webcam_client_register_events(void) {
    event_on("authorized", webcam_conn_event, NULL);
    event_on("disconnected", webcam_conn_event, NULL);
 }
-
-#endif // USE_GSTREAMER

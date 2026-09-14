@@ -3,7 +3,7 @@
 # - Eventually on embedded targets this will be replaced with
 # a codec chip that supports a few common codecs.
 
-CFLAGS_FWDSP := ${CFLAGS} -I${BUILD_DIR} #-DLOGFILE="\"fwdsp.log\""
+CFLAGS_FWDSP := ${CFLAGS} -I${BUILD_DIR} #-DLOGFILE="\"fwdsp.log\"" -I${BUILD_DIR}/libfwdspmgr
 LDFLAGS_FWDSP := ${LDFLAGS} -L. -lrustyaxe ${gst_ldflags}
 fwdsp := bin/fwdsp
 bins += ${fwdsp}

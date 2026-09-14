@@ -26,6 +26,8 @@ struct fwdsp_subproc {
    char pl_id[5];
    char pipeline[1024];
    bool is_tx;
+   bool is_video;                        // video (webcam etc) pipeline? passed
+                                         // as -v so fwdsp sets FW_MEDIA_VIDEO
    bool is_trancoder;                    // is this a transcoder? If so it'll
                                          // have tc_* below set
    int refcount;
@@ -67,6 +69,7 @@ extern int fwdsp_get_chan_id(const char *magic, bool is_tx);
 extern void fwdsp_sweep_expired(void);
 extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);
 extern int fwdsp_codec_start(const char codec_id[5], bool is_tx);
+extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
 extern int fwdsp_codec_stop(const char *codec, bool is_tx);
 
 #endif // !defined(__rr_fwdsp_mgr_h)

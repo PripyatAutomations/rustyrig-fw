@@ -31,6 +31,7 @@ rrclient_objs += ui.bell.o		# Bell/sounds support for the UI
 rrclient_objs += ui.colors.o		# User interface color handling
 rrclient_objs += vfo.o			# VFO management
 rrclient_objs += win32.o		# support to run in windows
+rrclient_objs += webcam.o
 
 #######
 # GTK #

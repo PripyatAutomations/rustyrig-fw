@@ -18,68 +18,27 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-// When webcam.enable is set in the config, we grab frames from a v4l2 device
-// (webcam.device, default /dev/video0) with a gstreamer pipeline, and fan the
-// encoded frames out to every subscriber of the SUBSYS_VIDEO media channel.
-// Clients subscribe like any other media channel; the video channel is
-// announced via media.available after auth.
-#ifdef USE_GSTREAMER
-#include <gst/gst.h>
-#include <gst/app/gstappsink.h>
+// When webcam.enable is set in the config, we spawn a fwdsp subprocess (which
+// runs the gstreamer v4l2 capture pipeline; gstreamer never links into us) and
+// fan the encoded frames out to every subscriber of the SUBSYS_VIDEO media
+// channel. The subprocess hands us frames via the fwdsp.frame.<codec> event.
+#include <libfwdspmgr/fwdsp-mgr.h>
 
-static GstElement *webcam_pipeline = NULL;
-static GstElement *webcam_sink = NULL;
 static struct rr_mediachan *webcam_chan = NULL;
 static const char *webcam_codec = "jpeg";
+static int webcam_fwdsp_chan = -1;
 
-// Called from the gstreamer streaming thread for each captured frame
-static GstFlowReturn webcam_frame_cb(GstElement *sink, gpointer user_data) {
-   GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(sink) );
-
-   if (!sample) {
-      return GST_FLOW_ERROR;
+// Called via event_on_binary() when the fwdsp subprocess emits a captured frame
+static void webcam_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
+   (void)event; (void)cptr; (void)user;
+   // The caller hands us the raw frame; the media channel layer owns the wire
+   // header (PARITY: librrprotocol/ws.mediachan.c)
+   if (webcam_chan && data && len > 0) {
+      ws_media_broadcast_subscribed(webcam_chan, (const uint8_t *)data, len, webcam_codec);
    }
-   GstBuffer *buffer = gst_sample_get_buffer(sample);
-   GstMapInfo map;
-
-   if (!gst_buffer_map(buffer, &map, GST_MAP_READ) || map.size == 0) {
-      gst_sample_unref(sample);
-      return GST_FLOW_OK;
-   }
-   // Fan out to every client subscribed to the video channel; the media
-   // channel layer owns the wire header (PARITY: librrprotocol/ws.mediachan.c)
-   if (webcam_chan) {
-      ws_media_broadcast_subscribed(webcam_chan, map.data, map.size, webcam_codec);
-   }
-   gst_buffer_unmap(buffer, &map);
-   gst_sample_unref(sample);
-
-   return GST_FLOW_OK;
-}
-#endif // USE_GSTREAMER
-
-// Here we deal with fwdsp -v -t supplied frames for webcams
-const char *webcam_common_codecs(const char *our_codecs, const char *cli_codecs) {
-   if (!our_codecs) {
-      Log(LOG_CRIT, "webcam",
-         "webcam_common_codecs: You should probably configure some video codecs in config: codecs.allowed.video, returning no codecs");
-      return NULL;
-   }
-
-   if (!cli_codecs) {
-      // XXX: Send a notice to the user that their client is misconfigured
-      Log(LOG_DEBUG, "webcam", "webcam_common_codecs: Client sent an empty video codec list");
-      return NULL;
-   }
-
-   // Find the overlap between our preferred codecs and what the client supports
-   // XXX: Ensure that we only return codecs with pipelines configured
-   // No matches
-   return NULL;
 }
 
-#ifdef USE_GSTREAMER
-// Provision the video media channel and start the v4l2 capture pipeline
+// Provision the video media channel and spawn the fwdsp capture subprocess
 void webcam_init(void) {
    bool enabled = cfg_get_bool("webcam.enable", false);
 
@@ -104,69 +63,33 @@ void webcam_init(void) {
       Log(LOG_CRIT, "webcam", "Failed to provision video media channel");
       return;
    }
-   // Simple pipeline: v4l2 device -> jpeg frames into appsink
-   char pipeline_str[256];
+   // Frames come from the fwdsp subprocess via the event bus. The pipeline
+   // itself (v4l2src -> jpegenc) is defined in the fwdsp config; gstreamer
+   // lives entirely inside the subprocess, never linked into rrserver.
+   char event_name[32];
 
-   snprintf(pipeline_str, sizeof(pipeline_str),
-      "v4l2src device=%s ! image/jpeg ! appsink name=wc_sink emit-signals=true sync=false",
-      device);
-   GError *err = NULL;
+   snprintf(event_name, sizeof(event_name), "fwdsp.frame.%.4s", webcam_codec);
+   event_on_binary(event_name, webcam_frame_cb, NULL);
+   webcam_fwdsp_chan = fwdsp_video_start(webcam_codec, false);
 
-   webcam_pipeline = gst_parse_launch(pipeline_str, &err);
-
-   if (!webcam_pipeline || err) {
-      Log(LOG_CRIT, "webcam", "Failed to create webcam pipeline for %s: %s", device,
-         (err ? err->message : "(null)") );
-
-      if (err) {
-         g_error_free(err);
-      }
-      webcam_pipeline = NULL;
-      return;
+   if (webcam_fwdsp_chan < 0) {
+      Log(LOG_CRIT, "webcam", "Failed to start fwdsp video pipeline for %s (device %s)",
+         webcam_codec, device);
+   } else {
+      Log(LOG_INFO, "webcam", "Webcam capture started via fwdsp on %s (codec %s, channel %s)",
+         device, webcam_codec, webcam_chan->uuid);
    }
-   webcam_sink = gst_bin_get_by_name(GST_BIN(webcam_pipeline), "wc_sink");
-
-   if (!webcam_sink) {
-      Log(LOG_CRIT, "webcam", "Webcam pipeline has no appsink?!");
-      gst_object_unref(webcam_pipeline);
-      webcam_pipeline = NULL;
-      return;
-   }
-   g_signal_connect(webcam_sink, "new-sample", G_CALLBACK(webcam_frame_cb), NULL);
-
-   if (gst_element_set_state(webcam_pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
-      Log(LOG_CRIT, "webcam", "Failed to start webcam pipeline on %s", device);
-      gst_object_unref(webcam_sink);
-      gst_object_unref(webcam_pipeline);
-      webcam_sink = NULL;
-      webcam_pipeline = NULL;
-      return;
-   }
-   Log(LOG_INFO, "webcam", "Webcam capture started on %s (codec %s, channel %s)",
-      device, webcam_codec, webcam_chan->uuid);
 }
 
-// Stop the pipeline; used on shutdown
+// Stop the capture subprocess; used on shutdown
 void webcam_shutdown(void) {
-   if (!webcam_pipeline) {
-      return;
+   if (webcam_fwdsp_chan >= 0) {
+      fwdsp_codec_stop(webcam_codec, false);
+      webcam_fwdsp_chan = -1;
    }
-   gst_element_set_state(webcam_pipeline, GST_STATE_NULL);
-   gst_object_unref(webcam_sink);
-   gst_object_unref(webcam_pipeline);
-   webcam_sink = NULL;
-   webcam_pipeline = NULL;
-
    if (webcam_chan) {
       media_send_chan_removed_all(webcam_chan);
       media_chan_remove(webcam_chan->uuid);
       webcam_chan = NULL;
    }
 }
-#else // USE_GSTREAMER
-void webcam_init(void) {
-   Log(LOG_DEBUG, "webcam", "Built without gstreamer; webcam support disabled");
-}
-
-void webcam_shutdown(void) { }
-#endif // USE_GSTREAMER

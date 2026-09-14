@@ -120,7 +120,17 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_READ) {
       struct mg_str *data = (struct mg_str *) ev_data;
 
-      Log(LOG_DEBUG, "fwdsp", "[%s %.*s]", ctx->is_stderr ? "stderr" : "stdout", (int) data->len, data->buf);
+      if (ctx->is_stderr) {
+         Log(LOG_DEBUG, "fwdsp", "[stderr %.*s]", (int) data->len, data->buf);
+      } else {
+         // Data from the subprocess (stdout): dispatch it as frames on the
+         // event bus so the host (rrserver, rrclient) can forward or consume
+         // it. Event name is fwdsp.frame.<pl_id>, e.g. fwdsp.frame.jpeg
+         char event_name[32];
+
+         snprintf(event_name, sizeof(event_name), "fwdsp.frame.%.4s", ctx->sp->pl_id);
+         event_emit_binary(event_name, NULL, data->buf, data->len);
+      }
    } else if (ev == MG_EV_CLOSE) {
       // Free only the wrapper we allocated in fwdsp_spawn(). ctx->sp points
       // into the shared fwdsp_subprocs array which is managed by the slot
@@ -397,6 +407,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 
       if (sp->is_tx) {
          execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-t", NULL);
+      } else if (sp->is_video) {
+         // video pipelines: -v makes fwdsp announce FW_MEDIA_VIDEO and treat
+         // the pipeline as a video (not audio) stream
+         execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, "-v", "-t", NULL);
       } else {
          execl(fwdsp_path, fwdsp_path, "-f", config_file, "-c", sp->pl_id, NULL);
       }
@@ -549,6 +563,43 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
          Log( LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for %s.%s", codec_id, (is_tx ? "tx" : "rx") );
 
          return -1;
+      }
+   }
+   sp->refcount++;
+
+   return sp->chan_id;
+}
+
+// Start (or ref up) a video pipeline (e.g. webcam capture) for a codec magic.
+// Like fwdsp_codec_start, but the subprocess is spawned with -v so fwdsp
+// treats it as a video stream. Returns the channel id, or -1 on failure.
+int fwdsp_video_start(const char codec_id[5], bool is_tx) {
+   if (!codec_id || codec_id[0] == '\0') {
+      return -1;
+   }
+   if (fwdsp_init() ) {
+      Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: mgr init failed");
+      return -1;
+   }
+   struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, !is_tx);
+
+   if (!sp) {
+      // create + spawn, marking the instance as video before exec
+      sp = fwdsp_find_or_create(codec_id, FW_IO_STDIO, is_tx);
+
+      if (!sp) {
+         Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: failed to create %s", codec_id);
+         return -1;
+      }
+      // The instance may already be running (audio use of the same id?);
+      // only spawn here when it has no pid yet.
+      if (!sp->pid) {
+         sp->is_video = true;
+
+         if (!fwdsp_spawn(sp) ) {
+            Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: spawn failed for %s", codec_id);
+            return -1;
+         }
       }
    }
    sp->refcount++;
