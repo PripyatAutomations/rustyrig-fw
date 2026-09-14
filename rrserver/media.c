@@ -21,7 +21,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
-#include <rrserver/fwdsp-mgr.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 #include <rrserver/backend.h>
 
 extern time_t now;

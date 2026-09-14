@@ -19,7 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
-#include <rrserver/fwdsp-mgr.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 #include <rrserver/help.h>
 #include <rrserver/ptt.h>
 #include <rrserver/thermal.h>

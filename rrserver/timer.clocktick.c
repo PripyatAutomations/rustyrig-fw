@@ -17,7 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
-#include <rrserver/fwdsp-mgr.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>

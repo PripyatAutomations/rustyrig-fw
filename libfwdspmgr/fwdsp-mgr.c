@@ -20,7 +20,7 @@
 #include <sys/wait.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/fwdsp-mgr.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 
 #define	FWDSP_MAX_SUBPROCS 100
 
