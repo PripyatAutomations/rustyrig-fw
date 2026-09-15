@@ -18,18 +18,18 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrclient/audio.h>
 #include <rrclient/gtk.core.h>
 
 GtkWidget *rx_vol_slider = NULL;         // gstreamer volume
 GtkWidget *rx_rig_vol_slider = NULL;     // Rig side setting
 
 void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
-   if (!range || !user_data) {
+   (void)user_data;
+   if (!range) {
       return;
    }
-   gdouble val = gtk_range_get_value(range);
-   val /= 100.0;   // scale from 0–100 to 0.0–1.0
-   g_object_set(G_OBJECT(user_data), "volume", val, NULL);
+   audio_set_rx_volume((int)gtk_range_get_value(range));
 }
 
 // Returns a GtkWidget with the volume box
@@ -63,7 +63,7 @@ GtkWidget *create_volbox(void) {
    int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
 
-//   g_signal_connect(rx_vol_slider, "value-changed",
-// G_CALLBACK(on_rx_volume_changed), rx_vol_gst_elem);
+   g_signal_connect(rx_vol_slider, "value-changed",
+      G_CALLBACK(on_rx_volume_changed), NULL);
    return rx_vol_vbox;
 }

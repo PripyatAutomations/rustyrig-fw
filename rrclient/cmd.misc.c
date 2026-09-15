@@ -26,6 +26,7 @@
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
+#include <rrclient/audio.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 
@@ -102,7 +103,14 @@ bool cmd_quit(int argc, char **args) {
 }
 
 bool cmd_rxvol(int argc, char **args) {
-   int val = atoi(args[1]) / 100;
+   if (argc < 2 || !args[1]) {
+      ui_print(NULL, "* Usage: /rxvol <0-100>");
+      return true;
+   }
+   int val = atoi(args[1]);
+   if (val < 0) val = 0;
+   if (val > 100) val = 100;
+   audio_set_rx_volume(val);
 
    if (ui_mode == UI_MODE_TUI) {
       // do stuff
@@ -110,7 +118,7 @@ bool cmd_rxvol(int argc, char **args) {
 #ifdef	USE_GTK
       gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
 #endif
-      ui_print(NULL, "* Set rx-vol to %f", val);
+      ui_print(NULL, "* Set rx-vol to %d", val);
    }
 
    return false;

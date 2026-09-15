@@ -50,7 +50,18 @@ static bool start_rx_fwdsp(const char *codec) {
 bool audio_init(void) {
    event_on_binary("media.frame.audio", audio_frame_cb, NULL);
    start_rx_fwdsp("pc16");
+   audio_set_rx_volume(cfg_get_int("audio.volume.rx", 30));
    return false;
+}
+
+bool audio_set_rx_volume(int percent) {
+   if (percent < 0) percent = 0;
+   if (percent > 100) percent = 100;
+   dict_add_int(cfg, "audio.volume.rx", percent);
+   if (rx_codec[0] == '\0') {
+      return false;
+   }
+   return fwdsp_set_volume(rx_codec, false, percent);
 }
 
 void ws_audio_shutdown(void) {

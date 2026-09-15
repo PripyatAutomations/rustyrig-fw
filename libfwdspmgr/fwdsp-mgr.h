@@ -21,6 +21,16 @@ struct fwdsp_io_conn {
    bool is_stderr;
 };
 
+#define FWDSP_CONTROL_MAGIC 0x46574453U
+#define FWDSP_CONTROL_SET_VOLUME 1
+
+struct fwdsp_control_msg {
+   uint32_t magic;
+   uint8_t type;
+   uint8_t value;
+   uint16_t reserved;
+};
+
 struct fwdsp_subproc {
    pid_t pid;
    char pl_id[5];
@@ -40,6 +50,7 @@ struct fwdsp_subproc {
    int fw_stdin;
    int fw_stdout;
    int fw_stderr;
+   int fw_control;
 
    // --- Mongoose tracking for polling ---
    struct mg_connection *mg_stdin_conn;
@@ -71,6 +82,7 @@ extern void fwdsp_sweep_expired(void);
 extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);
 extern int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uuid);
 extern bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len);
+extern bool fwdsp_set_volume(const char codec_id[5], bool is_tx, int percent);
 extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
 extern int fwdsp_codec_stop(const char *codec, bool is_tx);
 

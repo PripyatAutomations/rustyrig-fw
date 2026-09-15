@@ -397,6 +397,10 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
       if (sp->fw_stderr > 0) {
          close(sp->fw_stderr);
       }
+
+      if (sp->fw_control > 0) {
+         close(sp->fw_control);
+      }
    }
    // Clear struct
    memset( sp, 0, sizeof(*sp) );
@@ -412,7 +416,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (!sp) {
       return false;
    }
-   int in_pipe[2], out_pipe[2], err_pipe[2];
+   int in_pipe[2], out_pipe[2], err_pipe[2], control_pipe[2];
    int sock_pair[2];
    struct mg_mgr *manager = fwdsp_mg_manager();
 
@@ -423,9 +427,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 #ifndef _WIN32
       if (socketpair(AF_UNIX, SOCK_STREAM, 0, in_pipe) ||
           socketpair(AF_UNIX, SOCK_STREAM, 0, out_pipe) ||
-          socketpair(AF_UNIX, SOCK_STREAM, 0, err_pipe)) {
+          socketpair(AF_UNIX, SOCK_STREAM, 0, err_pipe) ||
+          socketpair(AF_UNIX, SOCK_STREAM, 0, control_pipe)) {
 #else
-      if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe)) {
+      if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) || pipe(control_pipe)) {
 #endif
          perror("pipe");
 
@@ -459,19 +464,21 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          dup2(in_pipe[0], 0);
          dup2(out_pipe[1], 1);
          dup2(err_pipe[1], 2);
+         dup2(control_pipe[0], 3);
          close(in_pipe[1]);
          close(out_pipe[0]);
          close(err_pipe[0]);
+         close(control_pipe[1]);
       }
 
       if (sp->is_tx) {
-         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-t", NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", "-t", NULL);
       } else if (sp->is_video) {
          // video pipelines: -v makes fwdsp announce FW_MEDIA_VIDEO and treat
          // the pipeline as a video (not audio) stream
-         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-v", "-t", NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", "-v", "-t", NULL);
       } else {
-         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", NULL);
       }
       perror("execl");
       _exit(127);
@@ -488,9 +495,11 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       close(in_pipe[0]);
       close(out_pipe[1]);
       close(err_pipe[1]);
+      close(control_pipe[0]);
       sp->fw_stdin = in_pipe[1];
       sp->fw_stdout = out_pipe[0];
       sp->fw_stderr = err_pipe[0];
+      sp->fw_control = control_pipe[1];
 
       // Hook up stdout/stderr to Mongoose immediately. The fn_data must be a
       // heap-allocated struct fwdsp_io_conn: fwdsp_read_cb() frees it on
@@ -602,6 +611,20 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, s
       }
    }
    return false;
+}
+
+bool fwdsp_set_volume(const char codec_id[5], bool is_tx, int percent) {
+   struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
+   struct fwdsp_control_msg msg = {
+      .magic = FWDSP_CONTROL_MAGIC,
+      .type = FWDSP_CONTROL_SET_VOLUME,
+      .value = (uint8_t)(percent < 0 ? 0 : percent > 100 ? 100 : percent)
+   };
+
+   if (!sp || sp->fw_control <= 0) {
+      return true;
+   }
+   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
 }
 
 void fwdsp_sweep_expired(void) {

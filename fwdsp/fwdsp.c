@@ -38,6 +38,7 @@
 #define	__FWDSP
 #endif
 #include <librustyaxe/core.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 #include <fwdsp/fwdsp-shared.h>
 
 extern const char **configs;
@@ -47,6 +48,7 @@ extern bool log_stdout;
 
 const char *config_file = NULL;
 const char *config_codec = "pc16";
+static int control_fd = -1;
 const char *logfile = "./fwdsp.log";
 
 // Store [pipeline] section keys as pipeline:<codec>.<dir> -- the format
@@ -165,6 +167,7 @@ static void run_loop(struct audio_config *cfg) {
          gst_object_unref(appsink);
          appsink = NULL;
       }
+      GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
 
       // XXX: Blorp this over the connection
 /* XXX: Implement bus signals instead of polling GstBus *bus;
@@ -246,10 +249,23 @@ static void run_loop(struct audio_config *cfg) {
                }
             }
          }
+
+         if (control_fd >= 0) {
+            struct pollfd control_poll = { .fd = control_fd, .events = POLLIN };
+            struct fwdsp_control_msg control;
+
+            if (poll(&control_poll, 1, 0) > 0 &&
+                read(control_fd, &control, sizeof(control)) == (ssize_t)sizeof(control) &&
+                control.magic == FWDSP_CONTROL_MAGIC &&
+                control.type == FWDSP_CONTROL_SET_VOLUME && volume) {
+               g_object_set(G_OBJECT(volume), "volume", control.value / 100.0, NULL);
+            }
+         }
       }
       gst_object_unref(bus);
       if (appsrc) gst_object_unref(appsrc);
       if (appsink) gst_object_unref(appsink);
+      if (volume) gst_object_unref(volume);
       cleanup_pipeline(&pipeline);
 
       if (!cfg->persistent) {
@@ -295,8 +311,12 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
 
    int opt;
-   while ( (opt = getopt(argc, argv, "c:f:htv") ) != -1) {
+   while ( (opt = getopt(argc, argv, "C:c:f:htv") ) != -1) {
       switch (opt) {
+         case 'C': {
+            control_fd = atoi(optarg);
+            break;
+         }
          case 'c': {
             size_t clen = strlen(optarg);
 

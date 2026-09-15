@@ -29,6 +29,7 @@ extern void audio_tx_free_frame(void);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
+extern bool audio_set_rx_volume(int percent);
 
 extern void try_send_next_frame(rrconn_t *cptr);
 
