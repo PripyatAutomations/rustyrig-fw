@@ -19,3 +19,10 @@ Immediate needs
 rrclient: Lets make the top status line (where we show the window name) in the TUI show the VFO status, latency as (XXXms) on the end and PTT state like [VFO A: 7200.000 LSB 3000] (80ms) PTT: admin or PTT: off with printf escapes
 
 * Finish the TX quota stuff
+
+* Add TX channel UUID to PTT messages
+  - All listeners auto-sub/unsub
+
+* Recordings!
+  - Save the raw audio frames from gstreamer in ./recordings
+    - mkdir if missing

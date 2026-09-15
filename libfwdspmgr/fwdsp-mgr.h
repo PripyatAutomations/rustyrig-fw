@@ -39,7 +39,7 @@ struct fwdsp_subproc {
    bool is_tx;
    bool is_video;                        // video (webcam etc) pipeline? passed
                                          // as -v so fwdsp sets FW_MEDIA_VIDEO
-   bool is_trancoder;                    // is this a transcoder? If so it'll
+   bool is_transcoder;                    // is this a transcoder? If so it'll
                                          // have tc_* below set
    int refcount;
    time_t cleanup_deadline;
@@ -52,11 +52,13 @@ struct fwdsp_subproc {
    int fw_stderr;
    int fw_control;
 
+#ifdef	USE_MONGOOSE
    // --- Mongoose tracking for polling ---
    struct mg_connection *mg_stdin_conn;
    struct mg_connection *mg_stdout_conn;
    struct mg_connection *mg_stderr_conn;
-
+// Otherwise, we should probably use glib
+#endif	// USE_MONGOOSE
    // transcoder stuff
    char tc_in_codec[5];                          // Input codec
    int tc_in_channel;                            // Input channel

@@ -140,7 +140,7 @@ static bool write_all(int fd, const uint8_t *data, size_t len) {
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       dying = false;
-      Log(LOG_DEBUG, "fwdsp", "Starting %s pipeline", cfg->tx_mode ? "TX" : "RX");
+      Log(LOG_DEBUG, "fwdsp", "Starting %s.%s pipeline", config_codec, cfg->tx_mode ? "tx" : "rx");
 
       pipeline = build_pipeline(cfg->pipeline);
 
