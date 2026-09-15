@@ -121,15 +121,22 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
       return;
    }
    bool is_tx = (dir == RR_BINFRAME_DIR_TX);
-   int chan_id = fwdsp_codec_start(codec, is_tx);
+   bool fwdsp_tx = !is_tx;
+   const char *channel_uuid = dict_get(d, "media.chan-uuid", NULL);
+   struct rr_mediachan *channel = channel_uuid ? media_chan_find_uuid(channel_uuid) :
+      media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, dir, 0, 0);
+   if (!channel_uuid && channel) {
+      channel_uuid = channel->uuid;
+   }
+   int chan_id = fwdsp_codec_start(codec, fwdsp_tx, channel_uuid);
 
    if (chan_id < 0) {
-      Log(LOG_CRIT, "ws.media", "Failed to start fwdsp pipeline for %s.%s", codec, (is_tx ? "tx" : "rx") );
+      Log(LOG_CRIT, "ws.media", "Failed to start fwdsp pipeline for %s.%s", codec, (fwdsp_tx ? "tx" : "rx") );
       dict_free(d);
       return;
    }
    Log(LOG_INFO, "ws.media", "Started fwdsp pipeline %s.%s (chan %d) for %s", codec,
-      (is_tx ? "tx" : "rx"), chan_id, (cptr ? cptr->chatname : "?"));
+      (fwdsp_tx ? "tx" : "rx"), chan_id, (cptr ? cptr->chatname : "?"));
    dict_free(d);
 }
 

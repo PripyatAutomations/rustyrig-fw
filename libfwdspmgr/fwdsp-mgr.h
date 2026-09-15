@@ -24,6 +24,7 @@ struct fwdsp_io_conn {
 struct fwdsp_subproc {
    pid_t pid;
    char pl_id[5];
+   char channel_uuid[64];
    char pipeline[1024];
    bool is_tx;
    bool is_video;                        // video (webcam etc) pipeline? passed
@@ -68,7 +69,8 @@ extern bool fwdsp_spawn(struct fwdsp_subproc *sp);
 extern int fwdsp_get_chan_id(const char *magic, bool is_tx);
 extern void fwdsp_sweep_expired(void);
 extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);
-extern int fwdsp_codec_start(const char codec_id[5], bool is_tx);
+extern int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uuid);
+extern bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len);
 extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
 extern int fwdsp_codec_stop(const char *codec, bool is_tx);
 

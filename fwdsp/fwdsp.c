@@ -22,12 +22,15 @@
 //
 #include <stdint.h>
 #include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
+#include <gst/app/gstappsink.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <sys/stat.h>
@@ -40,6 +43,7 @@
 extern const char **configs;
 extern const int num_configs;
 extern defconfig_t defcfg[];
+extern bool log_stdout;
 
 const char *config_file = NULL;
 const char *config_codec = "pc16";
@@ -112,34 +116,20 @@ static GstElement *build_pipeline(const char *pipeline_str) {
    return gst_parse_launch(pipeline_str, NULL);
 }
 
-static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
-   if (sock_fd <= 0 || !cfg) {
-      return true;
-   }
-   // Inform the other side of our codec id, direction, and media type
-   int msg_wrote = 0;
-   char msgbuf[1024];
-   memset( msgbuf, 0, sizeof(msgbuf) );
-   snprintf( msgbuf, sizeof(msgbuf),
-      "{ \"media\": { \"cmd\": \"fwdsp\", \"version\": \"%s\", \"codec-id\": \"%s\", \"gst-pipeline\": \"%s\", \"type\": \"%s\", \"direction\": \"%s\" } }\r\n\r\n",
-      VERSION, config_codec, cfg->pipeline, (cfg->media_type == FW_MEDIA_AUDIO ? "audio" : "video"),
-      (cfg->media_direction == FW_DIR_TX ? "tx" : "rx") );
-   size_t msg_len = strlen(msgbuf);
+static bool write_all(int fd, const uint8_t *data, size_t len) {
+   while (len > 0) {
+      ssize_t written = write(fd, data, len);
 
-   // Make sure we send the whole message
-   while (msg_wrote < msg_len) {
-      size_t this_write = write(sock_fd, &msgbuf, msg_len);
-
-      if (this_write > 0) {
-         msg_wrote += this_write;
+      if (written > 0) {
+         data += written;
+         len -= (size_t)written;
+      } else if (written < 0 && errno == EINTR) {
+         continue;
       } else {
-         Log( LOG_CRIT, "fwdsp", "Failed to write %d bytes of codec info: rv=%d (%d:%s)", msg_len, this_write, errno,
-            strerror(errno) );
+         return false;
       }
    }
-   Log(LOG_DEBUG, "fwdsp", "Wrote %d of %d bytes |%.*s|", msg_wrote, msg_len, (msg_len - 4), msgbuf);
-
-   return false;
+   return true;
 }
 
 #define	STDIN_FD 0
@@ -147,23 +137,34 @@ static bool send_codec_msg(int sock_fd, struct audio_config *cfg) {
 
 static void run_loop(struct audio_config *cfg) {
    while (1) {
-      int sock_fd = (cfg->media_direction == FW_DIR_TX) ? STDOUT_FD : STDIN_FD;
-      Log( LOG_DEBUG, "fwdsp", "Using std%s FD=%d for %s", (cfg->media_direction ? "out" : "in"), sock_fd,
-         (cfg->media_direction == FW_DIR_TX ? "TX" : "RX") );
+      dying = false;
+      Log(LOG_DEBUG, "fwdsp", "Starting %s pipeline", cfg->tx_mode ? "TX" : "RX");
 
-      fprintf(stderr, "connected %s sock_fd=%d\n", (cfg->tx_mode ? "TX" : "RX"), sock_fd);
       pipeline = build_pipeline(cfg->pipeline);
 
       if (!pipeline) {
          fprintf(stderr, "fwdsp: Failed to build pipeline\n");
          cleanup_pipeline(&pipeline);
-         close(sock_fd);
          sleep(1);
          continue;
       }
-      // Send the codec information message, telling the backend what sort of
-      // data we can work with
-      send_codec_msg(sock_fd, cfg);
+
+      GstElement *appsrc = gst_bin_get_by_name(GST_BIN(pipeline), "rx-src");
+      if (!appsrc) {
+         appsrc = gst_bin_get_by_name(GST_BIN(pipeline), "tx-src");
+      }
+      if (appsrc && !GST_IS_APP_SRC(appsrc)) {
+         gst_object_unref(appsrc);
+         appsrc = NULL;
+      }
+      GstElement *appsink = gst_bin_get_by_name(GST_BIN(pipeline), "rx-sink");
+      if (!appsink) {
+         appsink = gst_bin_get_by_name(GST_BIN(pipeline), "tx-sink");
+      }
+      if (appsink && !GST_IS_APP_SINK(appsink)) {
+         gst_object_unref(appsink);
+         appsink = NULL;
+      }
 
       // XXX: Blorp this over the connection
 /* XXX: Implement bus signals instead of polling GstBus *bus;
@@ -179,65 +180,14 @@ static void run_loop(struct audio_config *cfg) {
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
          g_printerr("Failed to set pipeline to PLAYING state.\n");
-         GstMessage *msg = gst_bus_poll(gst_element_get_bus(pipeline), GST_MESSAGE_ERROR, 0);
-
-         if (msg) {
-            GError *err;
-            gchar *debug_info;
-            gst_message_parse_error(msg, &err, &debug_info);
-            g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
-            g_printerr("Debugging info: %s\n", debug_info ? debug_info : "none");
-            g_clear_error(&err);
-            g_free(debug_info);
-            gst_message_unref(msg);
-            exit(1);
-         }
+         cleanup_pipeline(&pipeline);
+         if (appsrc) gst_object_unref(appsrc);
+         if (appsink) gst_object_unref(appsink);
+         return;
       }
       GstBus *bus = gst_element_get_bus(pipeline);
-      GstMessage *msg = gst_bus_timed_pop_filtered(bus, 5 * GST_SECOND,
-         GST_MESSAGE_ERROR | GST_MESSAGE_EOS | GST_MESSAGE_STATE_CHANGED);
-
-      if (msg != NULL) {
-         GError *err;
-         gchar *debug_info;
-
-         switch (GST_MESSAGE_TYPE(msg) ) {
-            case GST_MESSAGE_ERROR: {
-               gst_message_parse_error(msg, &err, &debug_info);
-               g_printerr("Error from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
-               g_printerr("Debug info: %s\n", debug_info ? debug_info : "none");
-               g_clear_error(&err);
-               g_free(debug_info);
-               break;
-            }
-
-            case GST_MESSAGE_EOS: {
-               g_print("End-Of-Stream reached.\n");
-               break;
-            }
-
-            case GST_MESSAGE_STATE_CHANGED: {
-               if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline) ) {
-                  GstState old_state, new_state, pending_state;
-                  gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
-                  g_print( "Pipeline state changed from %s to %s.\n", gst_element_state_get_name(old_state),
-                     gst_element_state_get_name(new_state) );
-               }
-               break;
-            }
-
-            default: {
-               // Not expected
-               break;
-            }
-         }
-
-         gst_message_unref(msg);
-      }
-      gst_object_unref(bus);
-
       while (!dying) {
-         GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
+         GstMessage *msg = gst_bus_timed_pop_filtered(bus, 10 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
 
          if (msg) {
             if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
@@ -252,21 +202,60 @@ static void run_loop(struct audio_config *cfg) {
             }
             dying = true;
             gst_message_unref(msg);
+            break;
+         }
+
+         if (appsink) {
+            GstSample *sample = gst_app_sink_try_pull_sample(GST_APP_SINK(appsink), 10 * GST_MSECOND);
+
+            if (sample) {
+               GstBuffer *buffer = gst_sample_get_buffer(sample);
+               GstMapInfo map;
+
+               if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
+                  if (!write_all(STDOUT_FD, map.data, map.size)) {
+                     dying = true;
+                  }
+                  gst_buffer_unmap(buffer, &map);
+               }
+               gst_sample_unref(sample);
+            }
+         }
+
+         if (appsrc) {
+            struct pollfd input_poll = { .fd = STDIN_FD, .events = POLLIN };
+            if (poll(&input_poll, 1, 0) > 0 && (input_poll.revents & (POLLIN | POLLHUP))) {
+               uint8_t input[4096];
+               ssize_t bytes = read(STDIN_FD, input, sizeof(input));
+
+               if (bytes > 0) {
+                  GstBuffer *buffer = gst_buffer_new_allocate(NULL, (size_t)bytes, NULL);
+                  if (!buffer) {
+                     dying = true;
+                  } else {
+                     gst_buffer_fill(buffer, 0, input, (size_t)bytes);
+                     if (gst_app_src_push_buffer(GST_APP_SRC(appsrc), buffer) != GST_FLOW_OK) {
+                        dying = true;
+                     }
+                  }
+               } else if (bytes == 0) {
+                  gst_app_src_end_of_stream(GST_APP_SRC(appsrc));
+                  dying = true;
+               } else if (errno != EINTR && errno != EAGAIN) {
+                  dying = true;
+               }
+            }
          }
       }
       gst_object_unref(bus);
+      if (appsrc) gst_object_unref(appsrc);
+      if (appsink) gst_object_unref(appsink);
       cleanup_pipeline(&pipeline);
 
-      // If a socket instead of stdio, close it here
-      struct stat sb;
-      fstat(sock_fd, &sb);
-
-      if (sb.st_mode == S_IFSOCK) {
-         close(sock_fd);
-         sock_fd = -1;
+      if (!cfg->persistent) {
+         return;
       }
    }
-   sleep(1);
 }
 
 static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level, const gchar *file, const gchar *function,
@@ -275,7 +264,18 @@ static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level, con
 }
 
 int main(int argc, char *argv[]) {
+   int saved_stdout = dup(STDOUT_FD);
+   int null_stdout = open("/dev/null", O_WRONLY);
+
+   if (saved_stdout >= 0 && null_stdout >= 0) {
+      dup2(null_stdout, STDOUT_FD);
+   }
+   if (null_stdout >= 0) {
+      close(null_stdout);
+   }
+
    host_init();
+   log_stdout = false;
 
 #ifdef USE_COREDUMPS_FWDSP
    struct rlimit rl = {
@@ -369,6 +369,12 @@ int main(int argc, char *argv[]) {
    }
    const char *logfile = cfg_get_exp("log.file");
    logger_init( (logfile ? logfile : "-"), false);
+   log_stdout = false;
+
+   if (saved_stdout >= 0) {
+      dup2(saved_stdout, STDOUT_FD);
+      close(saved_stdout);
+   }
 
    if (logfile) {
       free( (char *)logfile );     // _exp versions MUST be freed
@@ -436,6 +442,11 @@ int main(int argc, char *argv[]) {
       fprintf( stderr, "Run took %li sec", (now - last_run) );
       last_run = now;
    } while (au_cfg.persistent);
+   null_stdout = open("/dev/null", O_WRONLY);
+   if (null_stdout >= 0) {
+      dup2(null_stdout, STDOUT_FD);
+      close(null_stdout);
+   }
    host_cleanup();
 
    return 0;

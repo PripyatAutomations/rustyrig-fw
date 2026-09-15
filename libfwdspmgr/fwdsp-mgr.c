@@ -18,6 +18,9 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/wait.h>
+#ifndef _WIN32
+#include <sys/socket.h>
+#endif
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
@@ -65,8 +68,14 @@ extern const char *config_file;          // librustyaxe/config.c
 #ifdef USE_MONGOOSE
 extern struct mg_mgr mg_mgr;             // rrserver/main.c defines it; rrclient links through librrprotocol's `mgr` alias
 #pragma weak mg_mgr
+extern struct mg_mgr mgr;
+#pragma weak mgr
 #endif
 static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
+
+static struct mg_mgr *fwdsp_mg_manager(void) {
+   return (&mg_mgr != NULL) ? &mg_mgr : &mgr;
+}
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
    Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id, (sp->is_tx ? "tx" : "rx"), sp->pid,
@@ -121,19 +130,32 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
    }
 
    if (ev == MG_EV_READ) {
-      struct mg_str *data = (struct mg_str *) ev_data;
+      size_t len = ev_data ? *(size_t *)ev_data : c->recv.len;
+
+      if (len > c->recv.len) {
+         len = c->recv.len;
+      }
 
       if (ctx->is_stderr) {
-         Log(LOG_DEBUG, "fwdsp", "[stderr %.*s]", (int) data->len, data->buf);
+         char message[1024];
+         size_t message_len = len < sizeof(message) - 1 ? len : sizeof(message) - 1;
+         memcpy(message, c->recv.buf, message_len);
+         message[message_len] = '\0';
+         Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
       } else {
-         // Data from the subprocess (stdout): dispatch it as frames on the
-         // event bus so the host (rrserver, rrclient) can forward or consume
-         // it. Event name is fwdsp.frame.<pl_id>, e.g. fwdsp.frame.jpeg
-         char event_name[32];
+         struct rr_mediachan *channel = ctx->sp->channel_uuid[0] != '\0' ?
+            media_chan_find_uuid(ctx->sp->channel_uuid) : media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
+            ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX, 0, 0);
 
-         snprintf(event_name, sizeof(event_name), "fwdsp.frame.%.4s", ctx->sp->pl_id);
-         event_emit_binary(event_name, NULL, data->buf, data->len);
+         if (channel) {
+            ws_media_broadcast_subscribed(channel, (const uint8_t *)c->recv.buf, len,
+               ctx->sp->pl_id);
+         } else {
+            Log(LOG_WARN, "fwdsp", "No media channel for %s.%s output",
+               ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
+         }
       }
+      mg_iobuf_del(&c->recv, 0, len);
    } else if (ev == MG_EV_CLOSE) {
       // Free only the wrapper we allocated in fwdsp_spawn(). ctx->sp points
       // into the shared fwdsp_subprocs array which is managed by the slot
@@ -231,13 +253,30 @@ static int fwdsp_find_offset(const char *id, bool is_tx) {
    return -1;
 }
 
+static struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is_tx,
+   const char *channel_uuid) {
+   if (!id || !channel_uuid || !*channel_uuid || !fwdsp_subprocs) {
+      return NULL;
+   }
+   for (int i = 0 ; i < max_subprocs ; i++) {
+      struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+      if (sp->pl_id[0] != '\0' && sp->is_tx == is_tx &&
+          strncmp(sp->pl_id, id, 4) == 0 &&
+          strncmp(sp->channel_uuid, channel_uuid, sizeof(sp->channel_uuid)) == 0) {
+         return sp;
+      }
+   }
+   return NULL;
+}
+
 static struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx) {
    int i = fwdsp_find_offset(id, is_tx);
 
    return (i >= 0) ? &fwdsp_subprocs[i] : NULL;
 }
 
-static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx) {
+static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx,
+   const char *channel_uuid) {
    if (!id) {
       Log(LOG_CRIT, "fwdsp", "create: Invalid parameters: id == NULL");
 
@@ -268,10 +307,11 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          memset( sp, 0, sizeof(struct fwdsp_subproc) );
          // Fill the struct
          memcpy(sp->pl_id, id, 4);
+         if (channel_uuid) {
+            snprintf(sp->channel_uuid, sizeof(sp->channel_uuid), "%s", channel_uuid);
+         }
 
-         // We need to INVERT the TX flag here, because the client is telling us
-         // which codec it wants for the direction, we must match
-         sp->is_tx = !is_tx;
+         sp->is_tx = is_tx;
          sp->chan_id = next_channel_id++;
          sp->io_type = io_type;
          active_slots++;
@@ -301,7 +341,7 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
    struct fwdsp_subproc *sp = fwdsp_find_instance(id, is_tx);
 
    if (!sp) {
-      sp = fwdsp_create(id, io_type, is_tx);
+      sp = fwdsp_create(id, io_type, is_tx, NULL);
 
       if (!sp) {
          Log(LOG_CRIT, "fwdsp", "Failure in fwdsp_create call");
@@ -374,9 +414,19 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
    int in_pipe[2], out_pipe[2], err_pipe[2];
    int sock_pair[2];
+   struct mg_mgr *manager = fwdsp_mg_manager();
 
    if (sp->io_type == FW_IO_STDIO) {
-      if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) ) {
+      if (!manager) {
+         return false;
+      }
+#ifndef _WIN32
+      if (socketpair(AF_UNIX, SOCK_STREAM, 0, in_pipe) ||
+          socketpair(AF_UNIX, SOCK_STREAM, 0, out_pipe) ||
+          socketpair(AF_UNIX, SOCK_STREAM, 0, err_pipe)) {
+#else
+      if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe)) {
+#endif
          perror("pipe");
 
          return false;
@@ -454,7 +504,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          if (ctx) {
             ctx->sp = sp;
             ctx->is_stderr = false;
-            sp->mg_stdout_conn = mg_wrapfd(&mg_mgr, sp->fw_stdout, fwdsp_read_cb, ctx);
+            sp->mg_stdout_conn = mg_wrapfd(manager, sp->fw_stdout, fwdsp_read_cb, ctx);
          } else {
             sp->mg_stdout_conn = NULL;
          }
@@ -466,14 +516,14 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          if (ctx) {
             ctx->sp = sp;
             ctx->is_stderr = true;
-            sp->mg_stderr_conn = mg_wrapfd(&mg_mgr, sp->fw_stderr, fwdsp_read_cb, ctx);
+            sp->mg_stderr_conn = mg_wrapfd(manager, sp->fw_stderr, fwdsp_read_cb, ctx);
          } else {
             sp->mg_stderr_conn = NULL;
          }
       }
 
       if (sp->fw_stdin) {
-         sp->mg_stdin_conn = mg_wrapfd(&mg_mgr, sp->fw_stdin, NULL, sp);
+         sp->mg_stdin_conn = mg_wrapfd(manager, sp->fw_stdin, NULL, sp);
       }
 
       if (!sp->mg_stdout_conn || !sp->mg_stderr_conn || !sp->mg_stdin_conn) {
@@ -533,6 +583,27 @@ int fwdsp_get_chan_id(const char *magic, bool is_tx) {
    return (sp) ? sp->chan_id : -1;
 }
 
+bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len) {
+   struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
+   const uint8_t *bytes = data;
+
+   if (!sp || sp->fw_stdin <= 0 || !bytes || len == 0) {
+      return true;
+   }
+   while (len > 0) {
+      ssize_t written = write(sp->fw_stdin, bytes, len);
+      if (written > 0) {
+         bytes += written;
+         len -= (size_t)written;
+      } else if (written < 0 && errno == EINTR) {
+         continue;
+      } else {
+         return true;
+      }
+   }
+   return false;
+}
+
 void fwdsp_sweep_expired(void) {
    time_t now = time(NULL);
 
@@ -547,6 +618,32 @@ void fwdsp_sweep_expired(void) {
          continue;
       }
 
+      struct rr_mediachan *channel = sp->channel_uuid[0] != '\0' ?
+         media_chan_find_uuid(sp->channel_uuid) : media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
+         sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX, 0, 0);
+      u_int32_t chan_id = channel ? (u_int32_t)(channel - media_channels) + 1 : 0;
+      int users = 0;
+      rrconn_t *cur = http_client_list;
+
+      while (channel && cur) {
+         if (cur->is_ws && cur->authenticated &&
+             ((channel->direction == RR_BINFRAME_DIR_RX &&
+               chan_id_in_array(cur->rx_channels, MAX_RX_CHANNELS, chan_id)) ||
+              (channel->direction == RR_BINFRAME_DIR_TX &&
+               chan_id_in_array(cur->tx_channels, MAX_TX_CHANNELS, chan_id)))) {
+            users++;
+         }
+         cur = cur->next;
+      }
+
+      if (sp->pid > 0 && users > 0) {
+         sp->refcount = users;
+         sp->cleanup_deadline = 0;
+      } else if (sp->pid > 0 && sp->refcount > 0) {
+         sp->refcount = 0;
+         sp->cleanup_deadline = now + 5;
+      }
+
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 &&
           now >= sp->cleanup_deadline) {
          Log( LOG_INFO, "fwdsp", "Cleaning up idle pipeline %s.%s", sp->pl_id, (sp->is_tx ? "tx" : "rx") );
@@ -557,11 +654,17 @@ void fwdsp_sweep_expired(void) {
 
 // Start (or ref up) a pipeline for a codec magic (e.g. "mu08") in one
 // direction. Returns the channel id, or -1 on failure.
-int fwdsp_codec_start(const char codec_id[5], bool is_tx) {
+int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uuid) {
    if (!codec_id || codec_id[0] == '\0') {
       return -1;
    }
-   struct fwdsp_subproc *sp = fwdsp_find_or_create(codec_id, FW_IO_STDIO, is_tx);
+   struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid);
+   if (!sp && (!channel_uuid || !*channel_uuid)) {
+      sp = fwdsp_find_or_create(codec_id, FW_IO_STDIO, is_tx);
+   }
+   if (!sp && channel_uuid) {
+      sp = fwdsp_create(codec_id, FW_IO_STDIO, is_tx, channel_uuid);
+   }
 
    if (!sp) {
       Log( LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", codec_id, (is_tx ? "tx" : "rx") );

@@ -19,20 +19,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
-#include <gst/app/gstappsink.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern bool audio_enabled;
 extern bool gst_active;
-extern GstElement *rx_pipeline;
-extern GstElement *rx_appsrc;
-extern GstElement *rx_vol_gst_elem;
-extern GstElement *tx_pipeline;
-extern GstElement *tx_appsrc;
-extern GstElement *tx_vol_gst_elem;
-extern GstElement *tx_sink;
 
 extern bool audio_init(void);
 extern void audio_tx_free_frame(void);
@@ -41,6 +31,5 @@ extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
 
 extern void try_send_next_frame(rrconn_t *cptr);
-extern bool ws_send_capab(rrconn_t *cptr, const char *codecs);
 
 #endif // !defined(__rrclient_audio_h)
