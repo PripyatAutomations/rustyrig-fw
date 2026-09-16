@@ -169,17 +169,6 @@ static void run_loop(struct audio_config *cfg) {
       }
       GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
 
-      // XXX: Blorp this over the connection
-/* XXX: Implement bus signals instead of polling GstBus *bus;
- *
- *  [..]
- *
- *  bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
- *  gst_bus_add_signal_watch (bus);
- *  g_signal_connect (bus, "message::error", G_CALLBACK (cb_message_error), NULL);
- *  g_signal_connect (bus, "message::eos", G_CALLBACK (cb_message_eos), NULL);
- */
-
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
          g_printerr("Failed to set pipeline to PLAYING state.\n");
@@ -256,8 +245,8 @@ static void run_loop(struct audio_config *cfg) {
 
             if (poll(&control_poll, 1, 0) > 0 &&
                 read(control_fd, &control, sizeof(control)) == (ssize_t)sizeof(control) &&
-                control.magic == FWDSP_CONTROL_MAGIC &&
-                control.type == FWDSP_CONTROL_SET_VOLUME && volume) {
+                control.magic == FWDSP_CTRL_MAGIC &&
+                control.type == FWDSP_CTRL_SET_VOLUME && volume) {
                g_object_set(G_OBJECT(volume), "volume", control.value / 100.0, NULL);
             }
          }

@@ -11,8 +11,8 @@
 #if     !defined(__fwdsp_shared_h)
 #define	__fwdsp_shared_h
 
-#define	DEFAULT_SOCKET_PATH_TX "./state/fwdso-tx.sock"
-#define	DEFAULT_SOCKET_PATH_RX "./state/fwdsp-rx.pipe"
+#define	DEFAULT_SOCKET_PATH_TX "./dev/fwdsp.tx.sock"
+#define	DEFAULT_SOCKET_PATH_RX "./dev/fwdsp.rx.sock"
 
 struct audio_config {
    const char *pipeline;

@@ -21,8 +21,13 @@ struct fwdsp_io_conn {
    bool is_stderr;
 };
 
-#define FWDSP_CONTROL_MAGIC 0x46574453U
-#define FWDSP_CONTROL_SET_VOLUME 1
+#define FWDSP_CTRL_MAGIC          0x46574453U
+#define FWDSP_CTRL_SET_VOLUME     1	// set volume
+#define	FWDSP_CTRL_SHUTDOWN       2	// shut down process
+#define	FWDSP_CTRL_CONFIGURE	     3	// Configure the pipeline
+#define	FWDSP_CTRL_PAUSE	     4  // Pause the stream
+#define	FWDSP_CTRL_RESUME	     5  // Resume the stream
+#define	FWDSP_CTRL_FLUSH	     6  // Flush the buffer
 
 struct fwdsp_control_msg {
    uint32_t magic;
