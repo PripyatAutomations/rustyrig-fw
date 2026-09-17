@@ -22,7 +22,7 @@ ${BUILD_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS} GNUmakefile fwdsp/rules.mk ${
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_FWDSP} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-bin/fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${fwdsp_real_objs}
+bin/fwdsp: ${BUILD_HEADERS} ${librustyaxe} ./libfwdspmgr.so ${librrprotocol} ${fwdsp_real_objs}
 	@echo "[link] $< => $@"
 	@${CC}  -o $@ ${fwdsp_real_objs} -lrustyaxe ${LDFLAGS} ${LDFLAGS_FWDSP} || exit 2
 	@ls -a1ls $@

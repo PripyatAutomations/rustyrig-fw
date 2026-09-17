@@ -3,7 +3,11 @@
 
 CFLAGS_LIBFWDSPMGR := ${CFLAGS} -I${BUILD_DIR}
 
-libfwdspmgr_objs += fwdsp-mgr.o
+libfwdspmgr_objs += fwdsp-mgr.o		# process management
+libfwdspmgr_objs += fwdsp-ctl.o		# control messages
+libfwdspmgr_objs += fwdsp-video.o	# video stuff
+
+libfwdspmgr_srcs = $(wildcard libfwdsmgr/*.c)
 
 # Public header consumers (rrserver/rrclient) include <libfwdspmgr/fwdsp-mgr.h>
 BUILD_HEADERS += ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h
@@ -28,3 +32,5 @@ ${BUILD_DIR}/libfwdspmgr/%.o: libfwdspmgr/%.c ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_LIBFWDSPMGR} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
+
+${libfwdspmgr_srcs}: GNUmakefile ${librrprotocol_headers} librrprotocol/rules.mk ${BUILD_DIR}/build_config.h

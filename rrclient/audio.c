@@ -30,20 +30,39 @@ extern rrconn_t *ws_conn;
 bool audio_enabled = false;
 bool gst_active = false;
 static char rx_codec[5] = { 0 };
-static void audio_frame_cb(const char *event, const void *data, size_t len,
-   rrconn_t *cptr, void *user);
+static char tx_codec[5] = { 0 };
+
+static void audio_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user);
 
 static bool start_rx_fwdsp(const char *codec) {
    if (rx_codec[0] != '\0') {
       return true;
    }
+
    if (fwdsp_init() || fwdsp_codec_start(codec, false, NULL) < 0) {
       Log(LOG_WARN, "audio", "Unable to start client fwdsp %s.rx", codec);
       return false;
    }
+
    memcpy(rx_codec, codec, 4);
    rx_codec[4] = '\0';
    Log(LOG_INFO, "audio", "Started client fwdsp %s.rx", rx_codec);
+   return true;
+}
+
+static bool start_tx_fwdsp(const char *codec) {
+   if (tx_codec[0] != '\0') {
+      return true;
+   }
+
+   if (fwdsp_init() || fwdsp_codec_start(codec, true, NULL) < 0) {
+      Log(LOG_WARN, "audio", "Unable to start client fwdsp %s.tx", codec);
+      return false;
+   }
+
+   memcpy(tx_codec, codec, 4);
+   tx_codec[4] = '\0';
+   Log(LOG_INFO, "audio", "Started client fwdsp %s.tx", rx_codec);
    return true;
 }
 
@@ -55,19 +74,47 @@ bool audio_init(void) {
 }
 
 bool audio_set_rx_volume(int percent) {
-   if (percent < 0) percent = 0;
-   if (percent > 100) percent = 100;
+   if (percent < 0) {
+      percent = 0;
+   }
+
+   if (percent > 100) {
+      percent = 100;
+   }
+
    dict_add_int(cfg, "audio.volume.rx", percent);
    if (rx_codec[0] == '\0') {
       return false;
    }
-   return fwdsp_set_volume(rx_codec, false, percent);
+   return fwdsp_cmd_setvol(rx_codec, false, percent);
+}
+
+bool audio_set_tx_volume(int percent) {
+   if (percent < 0) {
+      percent = 0;
+   }
+
+   if (percent > 100) {
+      percent = 100;
+   }
+
+   dict_add_int(cfg, "audio.volume.tx", percent);
+   if (tx_codec[0] == '\0') {
+      return false;
+   }
+   return fwdsp_cmd_setvol(tx_codec, true, percent);
 }
 
 void ws_audio_shutdown(void) {
    if (rx_codec[0] != '\0') {
       fwdsp_codec_stop(rx_codec, false);
+      fwdsp_cmd_shutdown(rx_codec, false, 0);
       rx_codec[0] = '\0';
+   }
+   if (tx_codec[0] != '\0') {
+      fwdsp_codec_stop(tx_codec, true);
+      fwdsp_cmd_shutdown(tx_codec, true, 0);
+      tx_codec[0] = '\0';
    }
 }
 
@@ -85,9 +132,11 @@ static void audio_frame_cb(const char *event, const void *data, size_t len,
    if (!codec || strlen(codec) != 4) {
       codec = "pc16";
    }
+
    if (rx_codec[0] == '\0' && !start_rx_fwdsp(codec)) {
       return;
    }
+
    if (fwdsp_write_samples(rx_codec, false, data, len)) {
       Log(LOG_WARN, "audio", "Unable to write RX frame to fwdsp %s.rx", rx_codec);
    }

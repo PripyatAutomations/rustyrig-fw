@@ -1,5 +1,5 @@
 //
-// fwp-manager.c: Deal with starting and stopping fwdsp instances as needed
+// libfwdsp/fwpdsp-mgr.c: Deal with starting and stopping fwdsp instances as needed
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -24,7 +24,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
-
+#include <libfwdspmgr/fwdsp-ctl.h>
 #define	FWDSP_MAX_SUBPROCS 100
 
 defconfig_t defcfg_fwdsp[] = {
@@ -143,7 +143,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
 bool fwdsp_init(void) {
    if (fwdsp_mgr_ready) {
-      return true;
+      return false;
    }
 
    const char *max_subprocs_s = cfg_get_exp("fwdsp.subproc.max");
@@ -238,7 +238,7 @@ static struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is
    return NULL;
 }
 
-static struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx) {
+struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx) {
    int i = fwdsp_find_offset(id, is_tx);
    return (i >= 0) ? &fwdsp_subprocs[i] : NULL;
 }
@@ -259,8 +259,6 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
       return NULL;
    }
 
-   // Find the desired pipeline
-   // Find an unused slot
    for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
 
@@ -292,8 +290,10 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
                break;
             }
          }
-         fwdsp_spawn(sp);
-         return sp;
+         if (fwdsp_spawn(sp)) {
+            return sp;
+         }
+         return NULL;
       }
    }
    Log(LOG_CRIT, "fwdsp", "Out of subproc slots?! %d > %d", active_slots, max_subprocs);
@@ -323,12 +323,12 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    }
    // Disconnect stdout/stderr from event loop
    // XXX: this was crashing! should be ok now
-#if     defined(USE_MONGOOSE)
+#ifdef USE_MONGOOSE
    if (sp->mg_stdout_conn) {
       mg_close_conn(sp->mg_stdout_conn);
       sp->mg_stdout_conn = NULL;
    }
-#endif
+#endif // USE_MONGOOSE
 
    // Kill subprocess
    if (sp->pid > 0) {
@@ -372,6 +372,10 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    return true;
 }
 
+
+//
+// Holy shite batman, there's some scary in here lol
+//
 bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (!sp) {
       return false;
@@ -405,16 +409,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
 
    const char *fwdsp_path = cfg_get_exp("path.fwdsp");
-   const char *fwdsp_config = cfg_get_exp("path.fwdsp.config");
+   const char *fwdsp_config = config_file;
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp bin");
 
-      return false;
-   }
-
-   if (!fwdsp_config || fwdsp_config[0] == '\0') {
-      Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp.config to point at fwdsp config");
-      free( (char *)fwdsp_path );
       return false;
    }
 
@@ -445,11 +443,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
     // --- Parent ---
    sp->pid = pid;
+
    // cfg_get_exp() returns a malloc'd string we own
    free( (char *)fwdsp_path );
    fwdsp_path = NULL;
-   free( (char *)fwdsp_config );
-   fwdsp_config = NULL;
 
    if (sp->io_type == FW_IO_STDIO) {
       close(in_pipe[0]);
@@ -461,6 +458,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       sp->fw_stderr = err_pipe[0];
       sp->fw_control = control_pipe[1];
 
+#ifdef	USE_MONGOOSE
       // Hook up stdout/stderr to Mongoose immediately. The fn_data must be a
       // heap-allocated struct fwdsp_io_conn: fwdsp_read_cb() frees it on
       // MG_EV_CLOSE. Passing `sp` itself (which lives inside the shared
@@ -478,7 +476,6 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
             sp->mg_stdout_conn = NULL;
          }
       }
-
       if (sp->fw_stderr) {
          struct fwdsp_io_conn *ctx = calloc(1, sizeof(*ctx) );
          if (ctx) {
@@ -499,6 +496,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
             sp->is_tx ? "tx" : "rx");
          return false;
       }
+#endif	// USE_MONGOOSE
    }
    Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid);
    return true;
@@ -565,34 +563,6 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, s
       }
    }
    return false;
-}
-
-bool fwdsp_set_volume(const char codec_id[5], bool is_tx, int percent) {
-   struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
-   struct fwdsp_control_msg msg = {
-      .magic = FWDSP_CTRL_MAGIC,
-      .type = FWDSP_CTRL_SET_VOLUME,
-      .value = (uint8_t)(percent < 0 ? 0 : percent > 100 ? 100 : percent)
-   };
-
-   if (!sp || sp->fw_control <= 0) {
-      return true;
-   }
-   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
-}
-
-bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int percent) {
-   struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
-   struct fwdsp_control_msg msg = {
-      .magic = FWDSP_CTRL_MAGIC,
-      .type = FWDSP_CTRL_SHUTDOWN,
-      .value = (uint8_t)1
-   };
-
-   if (!sp || sp->fw_control <= 0) {
-      return true;
-   }
-   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
 }
 
 void fwdsp_sweep_expired(void) {
@@ -667,7 +637,6 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
    if (!sp->pid) {
       if (!fwdsp_spawn(sp) ) {
          Log( LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for %s.%s", codec_id, (is_tx ? "tx" : "rx") );
-
          return -1;
       }
    }
@@ -675,41 +644,6 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
    return sp->chan_id;
 }
 
-// Start (or ref up) a video pipeline (e.g. webcam capture) for a codec magic.
-// Like fwdsp_codec_start, but the subprocess is spawned with -v so fwdsp
-// treats it as a video stream. Returns the channel id, or -1 on failure.
-int fwdsp_video_start(const char codec_id[5], bool is_tx) {
-   if (!codec_id || codec_id[0] == '\0') {
-      return -1;
-   }
-
-   if (fwdsp_init() ) {
-      Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: mgr init failed");
-      return -1;
-   }
-
-   struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, !is_tx);
-   if (!sp) {
-      // create + spawn, marking the instance as video before exec
-      sp = fwdsp_find_or_create(codec_id, FW_IO_STDIO, is_tx);
-      if (!sp) {
-         Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: failed to create %s", codec_id);
-         return -1;
-      }
-
-      // The instance may already be running (audio use of the same id?);
-      // only spawn here when it has no pid yet.
-      if (!sp->pid) {
-         sp->is_video = true;
-         if (!fwdsp_spawn(sp) ) {
-            Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: spawn failed for %s", codec_id);
-            return -1;
-         }
-      }
-   }
-   sp->refcount++;
-   return sp->chan_id;
-}
 
 // Drop a reference on a codec pipeline. When the last user goes away, either
 // destroy the subproc outright or set the hangtime cleanup deadline.

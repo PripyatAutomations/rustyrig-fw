@@ -55,16 +55,16 @@ const char *logfile = "./fwdsp.log";
 // looked up by cfg_get() below. Mirrors rrserver/cfg.fwdsp.c
 // config_pipeline_section_cb().
 static bool config_pipeline_section_cb(const char *path, int line, const char *section, const char *buf) {
-   (void)line;
-   (void)path;
    if (!buf || section == NULL || strncasecmp(section, "pipeline", 8) != 0) {
       return true;
    }
+
    char *tmpbuf = strdup(buf);
    if (!tmpbuf) {
       Log(LOG_CRIT, "cfg.fwdsp", "OOM in config_pipeline_section_cb!");
       return true;
    }
+
    char *val = strchr(tmpbuf, '=');
    if (!val || !val[1]) {
       Log(LOG_CRIT, "cfg.fwdsp", "config error: pipeline entry missing value: %s", buf);
@@ -75,21 +75,25 @@ static bool config_pipeline_section_cb(const char *path, int line, const char *s
    while (*val == ' ' || *val == '\t') {
       val++;
    }
+
    // trim trailing whitespace
    char *end = val + strlen(val) - 1;
    while (end >= val && (*end == ' ' || *end == '\t')) {
       *end-- = '\0';
    }
+
    // trim key whitespace
    char *kend = tmpbuf + strlen(tmpbuf) - 1;
    while (kend >= tmpbuf && (*kend == ' ' || *kend == '\t')) {
       *kend-- = '\0';
    }
+
    // Accept both "pc16.rx" and "pipeline:pc16.rx" spellings
    const char *id = tmpbuf;
    if (strncmp(id, "pipeline:", 9) == 0) {
       id += 9;
    }
+
    char fullkey[128];
    snprintf(fullkey, sizeof(fullkey), "pipeline:%s", id);
    dict_add(cfg, fullkey, val);
@@ -159,6 +163,7 @@ static void run_loop(struct audio_config *cfg) {
          gst_object_unref(appsrc);
          appsrc = NULL;
       }
+
       GstElement *appsink = gst_bin_get_by_name(GST_BIN(pipeline), "rx-sink");
       if (!appsink) {
          appsink = gst_bin_get_by_name(GST_BIN(pipeline), "tx-sink");
@@ -167,16 +172,27 @@ static void run_loop(struct audio_config *cfg) {
          gst_object_unref(appsink);
          appsink = NULL;
       }
-      GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
 
+      GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
          g_printerr("Failed to set pipeline to PLAYING state.\n");
          cleanup_pipeline(&pipeline);
-         if (appsrc) gst_object_unref(appsrc);
-         if (appsink) gst_object_unref(appsink);
+
+         if (appsrc) {
+            gst_object_unref(appsrc);
+         }
+
+         if (appsink) {
+            gst_object_unref(appsink);
+         }
+
+         if (volume) {
+            gst_object_unref(volume);
+         }
          return;
       }
+
       GstBus *bus = gst_element_get_bus(pipeline);
       while (!dying) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 10 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
@@ -252,9 +268,18 @@ static void run_loop(struct audio_config *cfg) {
          }
       }
       gst_object_unref(bus);
-      if (appsrc) gst_object_unref(appsrc);
-      if (appsink) gst_object_unref(appsink);
-      if (volume) gst_object_unref(volume);
+      if (appsrc) {
+         gst_object_unref(appsrc);
+      }
+
+      if (appsink) {
+         gst_object_unref(appsink);
+      }
+
+      if (volume) {
+         gst_object_unref(volume);
+      }
+
       cleanup_pipeline(&pipeline);
 
       if (!cfg->persistent) {
@@ -275,6 +300,7 @@ int main(int argc, char *argv[]) {
    if (saved_stdout >= 0 && null_stdout >= 0) {
       dup2(null_stdout, STDOUT_FD);
    }
+
    if (null_stdout >= 0) {
       close(null_stdout);
    }
@@ -361,8 +387,7 @@ int main(int argc, char *argv[]) {
 
       if (fullpath) {
          config_file = strdup(fullpath);
-
-         if (!(cfg = cfg_load(fullpath) ) ) {
+         if (!(cfg = cfg_load(config_file) ) ) {
             Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
          } else {
             Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
@@ -419,13 +444,13 @@ int main(int argc, char *argv[]) {
    if (au_cfg.channel_id < 0) {
       au_cfg.channel_id = 0;
    }
+
    char keybuf[256];
    memset( keybuf, 0, sizeof(keybuf) );
    snprintf( keybuf, sizeof(keybuf), "pipeline:%s.%s", config_codec, (codec_tx_mode ? "tx" : "rx") );
    Log(LOG_DEBUG, "codec", "Selecting pipeline '%s' from config --", keybuf);
 
    const char *cfg_pipeline = cfg_get(keybuf);
-
    if (cfg_pipeline) {
       Log(LOG_DEBUG, "codec", "-> full pipeline:\t%s", cfg_pipeline);
       au_cfg.pipeline = cfg_pipeline;
@@ -445,12 +470,13 @@ int main(int argc, char *argv[]) {
    gst_debug_add_log_function(gst_log_handler, NULL, NULL);
 
    time_t last_run = 0;
-   do{
+   do {
       now = time(NULL);
       run_loop(&au_cfg);
       fprintf( stderr, "Run took %li sec", (now - last_run) );
       last_run = now;
    } while (au_cfg.persistent);
+
    null_stdout = open("/dev/null", O_WRONLY);
    if (null_stdout >= 0) {
       dup2(null_stdout, STDOUT_FD);

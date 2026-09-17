@@ -24,10 +24,12 @@ struct fwdsp_io_conn {
 #define FWDSP_CTRL_MAGIC          0x46574453U
 #define FWDSP_CTRL_SET_VOLUME     1	// set volume
 #define	FWDSP_CTRL_SHUTDOWN       2	// shut down process
-#define	FWDSP_CTRL_CONFIGURE	     3	// Configure the pipeline
-#define	FWDSP_CTRL_PAUSE	     4  // Pause the stream
-#define	FWDSP_CTRL_RESUME	     5  // Resume the stream
-#define	FWDSP_CTRL_FLUSH	     6  // Flush the buffer
+#define	FWDSP_CTRL_CONFIGURE	  3	// Configure the pipeline
+#define	FWDSP_CTRL_PAUSE	  4     // Pause the stream
+#define	FWDSP_CTRL_RESUME	  5     // Resume the stream
+#define	FWDSP_CTRL_FLUSH	  6     // Flush the buffer
+#define	FWDSP_CTRL_START_RECORD	  7	// Start recording the raw audio
+#define FWDSP_CTRL_STOP_RECORD    8     // Stop recording the raw audio
 
 struct fwdsp_control_msg {
    uint32_t magic;
@@ -89,8 +91,10 @@ extern void fwdsp_sweep_expired(void);
 extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);
 extern int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uuid);
 extern bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len);
-extern bool fwdsp_set_volume(const char codec_id[5], bool is_tx, int percent);
+extern bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent);
+extern bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1);
 extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
 extern int fwdsp_codec_stop(const char *codec, bool is_tx);
+extern struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx);
 
 #endif // !defined(__rr_fwdsp_mgr_h)
