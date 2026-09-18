@@ -35,6 +35,8 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <sys/stat.h>
+#include <pthread.h>
+#include <FLAC/stream_encoder.h>
 #if     !defined(__FWDSP)
 #define	__FWDSP
 #endif
@@ -108,8 +110,256 @@ bool config_video = false;               // is this audio or video stream?
 bool dying = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
+
+#define FWDSP_RECORD_RING_SIZE (512U * 1024U)
+
+struct fwdsp_recorder {
+   pthread_t thread;
+   pthread_mutex_t lock;
+   pthread_cond_t cond;
+   uint8_t *ring;
+   size_t ring_size;
+   size_t read_pos;
+   size_t write_pos;
+   size_t used;
+   bool running;
+   bool stopping;
+   bool thread_started;
+   bool overflow_logged;
+   unsigned sample_rate;
+   unsigned channels;
+   unsigned bits_per_sample;
+   char filename[PATH_MAX];
+};
+
+static struct fwdsp_recorder recorder = { 0 };
+static bool record_requested = false;
+
 time_t now = -1;                 // time() called once a second in main loop to
                                  // update
+
+static bool cfg_bool_value(const char *key, bool fallback) {
+   const char *value = cfg_get_exp(key);
+   bool result = fallback;
+
+   if (value) {
+      if (!strcasecmp(value, "true") || !strcasecmp(value, "yes") ||
+          !strcasecmp(value, "on") || !strcmp(value, "1")) {
+         result = true;
+      } else if (!strcasecmp(value, "false") || !strcasecmp(value, "no") ||
+                 !strcasecmp(value, "off") || !strcmp(value, "0")) {
+         result = false;
+      }
+      free((char *)value);
+   }
+
+   return result;
+}
+
+static void recorder_reset_ring(struct fwdsp_recorder *rec) {
+   rec->read_pos = 0;
+   rec->write_pos = 0;
+   rec->used = 0;
+   rec->overflow_logged = false;
+}
+
+static void *recorder_thread_main(void *arg) {
+   struct fwdsp_recorder *rec = arg;
+   FLAC__StreamEncoder *enc = FLAC__stream_encoder_new();
+   FLAC__int32 *samples = NULL;
+   size_t samples_cap = 0;
+   uint8_t chunk[8192];
+
+   if (!enc) {
+      Log(LOG_CRIT, "record", "Unable to allocate FLAC encoder");
+      return NULL;
+   }
+
+   FLAC__stream_encoder_set_channels(enc, rec->channels);
+   FLAC__stream_encoder_set_bits_per_sample(enc, rec->bits_per_sample);
+   FLAC__stream_encoder_set_sample_rate(enc, rec->sample_rate);
+   FLAC__stream_encoder_set_compression_level(enc, 3);
+
+   if (FLAC__stream_encoder_init_file(enc, rec->filename, NULL, NULL) != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
+      Log(LOG_CRIT, "record", "Unable to open recording %s", rec->filename);
+      FLAC__stream_encoder_delete(enc);
+      return NULL;
+   }
+
+   Log(LOG_INFO, "record", "Recording to %s", rec->filename);
+
+   for (;;) {
+      size_t got = 0;
+
+      pthread_mutex_lock(&rec->lock);
+      while (rec->used == 0 && !rec->stopping) {
+         pthread_cond_wait(&rec->cond, &rec->lock);
+      }
+
+      if (rec->used == 0 && rec->stopping) {
+         pthread_mutex_unlock(&rec->lock);
+         break;
+      }
+
+      got = rec->used < sizeof(chunk) ? rec->used : sizeof(chunk);
+      size_t first = rec->ring_size - rec->read_pos;
+      if (first > got) {
+         first = got;
+      }
+      memcpy(chunk, rec->ring + rec->read_pos, first);
+      if (got > first) {
+         memcpy(chunk + first, rec->ring, got - first);
+      }
+      rec->read_pos = (rec->read_pos + got) % rec->ring_size;
+      rec->used -= got;
+      pthread_mutex_unlock(&rec->lock);
+
+      size_t frame_bytes = (rec->bits_per_sample / 8U) * rec->channels;
+      got -= got % frame_bytes;
+      size_t frames = got / frame_bytes;
+      size_t values = frames * rec->channels;
+
+      if (values > samples_cap) {
+         FLAC__int32 *tmp = realloc(samples, values * sizeof(*samples));
+         if (!tmp) {
+            Log(LOG_CRIT, "record", "OOM converting recording samples");
+            break;
+         }
+         samples = tmp;
+         samples_cap = values;
+      }
+
+      for (size_t i = 0 ; i < values ; i++) {
+         uint16_t v = (uint16_t)chunk[i * 2] | ((uint16_t)chunk[i * 2 + 1] << 8);
+         samples[i] = (int16_t)v;
+      }
+
+      if (frames > 0 && !FLAC__stream_encoder_process_interleaved(enc, samples, (unsigned)frames)) {
+         Log(LOG_CRIT, "record", "FLAC encoder failed while writing %s", rec->filename);
+         break;
+      }
+   }
+
+   FLAC__stream_encoder_finish(enc);
+   FLAC__stream_encoder_delete(enc);
+   free(samples);
+   Log(LOG_INFO, "record", "Closed recording %s", rec->filename);
+   return NULL;
+}
+
+static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bits_per_sample) {
+   const char *record_dir;
+   struct tm tm_now;
+   char stamp[32];
+
+   if (recorder.running) {
+      return true;
+   }
+
+   if (bits_per_sample != 16 || channels == 0 || sample_rate == 0) {
+      Log(LOG_WARN, "record", "Unsupported raw recording format: %u Hz, %u ch, %u bit",
+         sample_rate, channels, bits_per_sample);
+      return false;
+   }
+
+   record_dir = cfg_get_exp("path.record-dir");
+   if (!record_dir || !*record_dir) {
+      free((char *)record_dir);
+      record_dir = strdup("./recordings");
+   }
+
+   if (mkdir(record_dir, 0755) < 0 && errno != EEXIST) {
+      Log(LOG_CRIT, "record", "Unable to create recording directory %s: %s",
+         record_dir, strerror(errno));
+      free((char *)record_dir);
+      return false;
+   }
+
+   localtime_r(&now, &tm_now);
+   strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", &tm_now);
+   snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s-%s-%s.flac",
+      record_dir, stamp, config_codec, codec_tx_mode ? "tx" : "rx");
+   free((char *)record_dir);
+
+   recorder.ring = malloc(FWDSP_RECORD_RING_SIZE);
+   if (!recorder.ring) {
+      Log(LOG_CRIT, "record", "Unable to allocate recording ring buffer");
+      return false;
+   }
+
+   recorder.ring_size = FWDSP_RECORD_RING_SIZE;
+   recorder.sample_rate = sample_rate;
+   recorder.channels = channels;
+   recorder.bits_per_sample = bits_per_sample;
+   recorder.stopping = false;
+   recorder.running = true;
+   recorder_reset_ring(&recorder);
+   pthread_mutex_init(&recorder.lock, NULL);
+   pthread_cond_init(&recorder.cond, NULL);
+
+   if (pthread_create(&recorder.thread, NULL, recorder_thread_main, &recorder) != 0) {
+      Log(LOG_CRIT, "record", "Unable to start recording thread: %s", strerror(errno));
+      pthread_cond_destroy(&recorder.cond);
+      pthread_mutex_destroy(&recorder.lock);
+      free(recorder.ring);
+      memset(&recorder, 0, sizeof(recorder));
+      return false;
+   }
+
+   recorder.thread_started = true;
+   return true;
+}
+
+static void recorder_stop(void) {
+   if (!recorder.running) {
+      return;
+   }
+
+   pthread_mutex_lock(&recorder.lock);
+   recorder.stopping = true;
+   pthread_cond_signal(&recorder.cond);
+   pthread_mutex_unlock(&recorder.lock);
+
+   if (recorder.thread_started) {
+      pthread_join(recorder.thread, NULL);
+   }
+
+   pthread_cond_destroy(&recorder.cond);
+   pthread_mutex_destroy(&recorder.lock);
+   free(recorder.ring);
+   memset(&recorder, 0, sizeof(recorder));
+}
+
+static void recorder_write(const uint8_t *data, size_t len) {
+   if (!recorder.running || !data || len == 0) {
+      return;
+   }
+
+   pthread_mutex_lock(&recorder.lock);
+   size_t free_space = recorder.ring_size - recorder.used;
+   if (len > free_space) {
+      if (!recorder.overflow_logged) {
+         Log(LOG_WARN, "record", "Recording ring overflow; dropping audio until writer catches up");
+         recorder.overflow_logged = true;
+      }
+      pthread_mutex_unlock(&recorder.lock);
+      return;
+   }
+
+   size_t first = recorder.ring_size - recorder.write_pos;
+   if (first > len) {
+      first = len;
+   }
+   memcpy(recorder.ring + recorder.write_pos, data, first);
+   if (len > first) {
+      memcpy(recorder.ring, data + first, len - first);
+   }
+   recorder.write_pos = (recorder.write_pos + len) % recorder.ring_size;
+   recorder.used += len;
+   recorder.overflow_logged = false;
+   pthread_cond_signal(&recorder.cond);
+   pthread_mutex_unlock(&recorder.lock);
+}
 
 static void cleanup_pipeline(GstElement **pipe) {
    if (*pipe) {
@@ -299,6 +549,12 @@ static void run_loop(struct audio_config *cfg) {
          appsink = NULL;
       }
 
+      GstElement *record_sink = gst_bin_get_by_name(GST_BIN(pipeline), "record-sink");
+      if (record_sink && !GST_IS_APP_SINK(record_sink)) {
+         gst_object_unref(record_sink);
+         record_sink = NULL;
+      }
+
       GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
@@ -316,11 +572,16 @@ static void run_loop(struct audio_config *cfg) {
          if (volume) {
             gst_object_unref(volume);
          }
+
+         if (record_sink) {
+            gst_object_unref(record_sink);
+         }
          return;
       }
 
       GstBus *bus = gst_element_get_bus(pipeline);
       struct fwdsp_frame_reader input_reader = { 0 };
+      record_requested = cfg_bool_value(codec_tx_mode ? "record.tx" : "record.rx", false);
 
       while (!dying) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 10 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
@@ -358,6 +619,40 @@ static void run_loop(struct audio_config *cfg) {
             }
          }
 
+         if (record_sink) {
+            GstSample *record_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(record_sink), 0);
+
+            if (record_sample) {
+               GstBuffer *record_buffer = gst_sample_get_buffer(record_sample);
+               GstCaps *caps = gst_sample_get_caps(record_sample);
+               GstMapInfo record_map;
+               unsigned rate = 16000;
+               unsigned channels = 1;
+
+               if (caps) {
+                  GstStructure *st = gst_caps_get_structure(caps, 0);
+                  int tmp = 0;
+                  if (gst_structure_get_int(st, "rate", &tmp) && tmp > 0) {
+                     rate = (unsigned)tmp;
+                  }
+                  if (gst_structure_get_int(st, "channels", &tmp) && tmp > 0) {
+                     channels = (unsigned)tmp;
+                  }
+               }
+
+               if (record_requested && !recorder.running) {
+                  recorder_start(rate, channels, 16);
+               }
+
+               if (record_requested && recorder.running && record_buffer &&
+                   gst_buffer_map(record_buffer, &record_map, GST_MAP_READ)) {
+                  recorder_write(record_map.data, record_map.size);
+                  gst_buffer_unmap(record_buffer, &record_map);
+               }
+               gst_sample_unref(record_sample);
+            }
+         }
+
          if (appsrc) {
             struct pollfd input_poll = { .fd = STDIN_FD, .events = POLLIN };
             if (poll(&input_poll, 1, 0) > 0 && (input_poll.revents & (POLLIN | POLLHUP))) {
@@ -384,9 +679,31 @@ static void run_loop(struct audio_config *cfg) {
 
             if (poll(&control_poll, 1, 0) > 0 &&
                 read(control_fd, &control, sizeof(control)) == (ssize_t)sizeof(control) &&
-                control.magic == FWDSP_CTRL_MAGIC &&
-                control.type == FWDSP_CTRL_SET_VOLUME && volume) {
-               g_object_set(G_OBJECT(volume), "volume", control.value / 100.0, NULL);
+                control.magic == FWDSP_CTRL_MAGIC) {
+               switch (control.type) {
+                  case FWDSP_CTRL_SET_VOLUME:
+                     if (volume) {
+                        g_object_set(G_OBJECT(volume), "volume", control.value / 100.0, NULL);
+                     }
+                     break;
+
+                  case FWDSP_CTRL_START_RECORD:
+                     record_requested = true;
+                     break;
+
+                  case FWDSP_CTRL_STOP_RECORD:
+                     record_requested = false;
+                     recorder_stop();
+                     break;
+
+                  case FWDSP_CTRL_SHUTDOWN:
+                     dying = true;
+                     break;
+
+                  default:
+                     Log(LOG_WARN, "fwdsp", "Unknown control message type %u", control.type);
+                     break;
+               }
             }
          }
       }
@@ -403,6 +720,11 @@ static void run_loop(struct audio_config *cfg) {
          gst_object_unref(volume);
       }
 
+      if (record_sink) {
+         gst_object_unref(record_sink);
+      }
+
+      recorder_stop();
       frame_reader_clear(&input_reader);
       cleanup_pipeline(&pipeline);
 

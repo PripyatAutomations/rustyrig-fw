@@ -31,7 +31,10 @@
 #define	FWDSP_MAX_SUBPROCS 100
 
 defconfig_t defcfg_fwdsp[] = {
-   { "codecs.allowed", "pc16 mu16 mu08", "Preferred codecs" },
+   { "codecs.allowed", "opus pc16 mu16 mu08 flac", "Preferred codecs" },
+   { "path.record-dir", "./recordings", "Path to audio recordings" },
+   { "record.rx", "false", "Record received audio" },
+   { "record.tx", "false", "Record transmitted audio" },
 #ifdef _WIN32
    { "path.fwdsp", "bin/fwdsp.exe", "Path to fwdsp binary" },
 #else
@@ -754,11 +757,10 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
    }
 
    /*
-    * fwdsp stdin is a byte stream, so preserve the media frame boundary
-    * explicitly:
+    * fwdsp stdin is SOCK_STREAM, so preserve the media packet boundary:
     *
-    *    uint32_t length, network byte order
-    *    <length bytes of media data>
+    *    4-byte big-endian payload length
+    *    payload
     */
    uint32_t frame_len = htonl((uint32_t)len);
    const uint8_t *header = (const uint8_t *)&frame_len;
@@ -770,19 +772,32 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
       if (written > 0) {
          header += written;
          remaining -= (size_t)written;
-      } else if (written < 0 && errno == EINTR) {
          continue;
-      } else {
-         int saved_errno = errno;
-
-         Log(LOG_WARN, "fwdsp",
-            "write_samples: header write failed for %s.%s "
-            "fd %d pid %d: errno=%d (%s)",
-            codec_id, is_tx ? "tx" : "rx",
-            sp->fw_stdin, sp->pid,
-            saved_errno, strerror(saved_errno));
-         return true;
       }
+
+      if (written < 0 && errno == EINTR) {
+         continue;
+      }
+
+      int saved_errno = errno;
+
+      Log(LOG_WARN, "fwdsp",
+         "write_samples: header write failed for %s.%s "
+         "fd %d pid %d: errno=%d (%s)",
+         codec_id, is_tx ? "tx" : "rx",
+         sp->fw_stdin, sp->pid,
+         saved_errno, strerror(saved_errno));
+
+      if (saved_errno == EPIPE) {
+         /*
+          * The child no longer has its stdin open. Arrange for the
+          * normal child-reaping path to check it rather than repeatedly
+          * trying to feed a dead subprocess.
+          */
+         fwdsp_sigchld_pending = 1;
+      }
+
+      return true;
    }
 
    remaining = len;
@@ -793,19 +808,27 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
       if (written > 0) {
          bytes += written;
          remaining -= (size_t)written;
-      } else if (written < 0 && errno == EINTR) {
          continue;
-      } else {
-         int saved_errno = errno;
-
-         Log(LOG_WARN, "fwdsp",
-            "write_samples: payload write failed for %s.%s "
-            "fd %d pid %d: errno=%d (%s)",
-            codec_id, is_tx ? "tx" : "rx",
-            sp->fw_stdin, sp->pid,
-            saved_errno, strerror(saved_errno));
-         return true;
       }
+
+      if (written < 0 && errno == EINTR) {
+         continue;
+      }
+
+      int saved_errno = errno;
+
+      Log(LOG_WARN, "fwdsp",
+         "write_samples: payload write failed for %s.%s "
+         "fd %d pid %d: errno=%d (%s)",
+         codec_id, is_tx ? "tx" : "rx",
+         sp->fw_stdin, sp->pid,
+         saved_errno, strerror(saved_errno));
+
+      if (saved_errno == EPIPE) {
+         fwdsp_sigchld_pending = 1;
+      }
+
+      return true;
    }
 
    return false;

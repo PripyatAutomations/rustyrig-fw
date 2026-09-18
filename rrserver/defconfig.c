@@ -50,7 +50,7 @@ defconfig_t defcfg[] = {
    { "rig.vfos", "2", "How many VFOs does the rig expose? (A-Z; 2 means only A and B exist)" },
    { "chat.log", "true", "Should we log the chat to text files by date/rig?" },
    { "chat.replay-lines", "20", "Lines of replay to show on joining chat" },
-   { "codecs.allowed", "mu16 pc16 mu08", "Preferred codec order" },
+   { "codecs.allowed", "opus mu16 pc16 mu08", "Preferred codec order" },
    { "codecs.allowed.video", "jpeg h264", "Preferred video codec order" },
    { "webcam.enable", "false", "Capture a v4l2 webcam and stream it as a video media channel" },
    { "webcam.device", "/dev/video0", "v4l2 device to grab frames from" },

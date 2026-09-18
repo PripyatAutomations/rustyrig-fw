@@ -7,7 +7,7 @@
 # rrserver and rrclient link against it, fwdsp itself does not.
 
 CFLAGS_FWDSP := ${CFLAGS} -I${BUILD_DIR}
-LDFLAGS_FWDSP := ${LDFLAGS} -L. -lrustyaxe ${gst_ldflags}
+LDFLAGS_FWDSP := ${LDFLAGS} -L. -lrustyaxe ${gst_ldflags} -lFLAC -lpthread
 fwdsp := bin/fwdsp
 bins += ${fwdsp}
 
