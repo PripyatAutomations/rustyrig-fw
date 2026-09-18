@@ -26,6 +26,17 @@ The WebUI is in the separate repository:
 This map is deliberately conservative. Verify the actual implementation
 before treating a row as a one-to-one mapping.
 
+## Deferred media parity
+
+The native client now provides `/rxcodec` and `/txcodec` in GTK and TUI,
+plus GTK `NONE` selections that unsubscribe audio channels. UUID-specific
+selection uses the existing protocol. These controls and G.722 playback are
+not yet mirrored in the outdated WebUI media implementation. The browser's
+`js/webui.audio.js` implements PCM and mu-law; adding GStreamer pipelines to
+the native configuration does not add browser decoders. See
+[Native audio codec selection](media-codecs.md) for current native semantics
+and the one-local-pipeline-per-direction limitation.
+
 ## What parity means
 
 Parity means equivalent externally observable behavior, not identical

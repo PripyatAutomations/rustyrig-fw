@@ -8,6 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "build_config.h"
+#include <fwdsp/default-pipelines.h>
 #include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -36,11 +37,12 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
 defconfig_t defcfg[] = {
+   FWDSP_AUDIO_PIPELINE_DEFAULTS
    {
-      "codecs.allowed", "mu16 pc16 mu08", "Preferred codec order"
+      "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codec order"
    },
    {
-      "fwdsp:audio.debug", "false", "gstreamer debug level"
+      "fwdsp.audio.debug", "false", "gstreamer debug level"
    },
    {
       "log.level", "debug", "main log level"

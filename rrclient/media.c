@@ -18,11 +18,13 @@
 //
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrclient/vfo.h>
 #include <rrclient/audio.h>
+#include <rrclient/media.h>
 
 extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
@@ -67,10 +69,14 @@ struct rr_media_known {
    char codec[5];                  // active (negotiated) codec magic
    char descr[128];
    bool subscribed;
+   bool disabled;                 // explicit NONE, retained for re-enabling
+   char pending_codec[5];         // wait for confirmation before resubscribing
 };
 
 static struct rr_media_known known_chans[RR_MEDIA_MAX_CHANS];
 static bool media_ready = false;         // have we got the first available batch?
+static bool direction_disabled[2];
+const struct rr_media_known *rrclient_media_chan_lookup(const char *arg);
 
 static struct rr_media_known *media_known_find(const char *uuid) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
@@ -99,40 +105,128 @@ static struct rr_media_known *media_known_add(const char *uuid) {
    return NULL;
 }
 
-// Select a codec for the active audio channel in one direction. This is used
-// by the GTK picker and keeps the wire protocol UUID-specific.
-bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) {
-   if (!cptr || !codec || strlen(codec) != 4) {
-      return true;
-   }
-
-   char cur_vfo = vfo_state_get_active();
-   uint8_t active_id = (cur_vfo >= 'A' && cur_vfo <= 'Z') ?
-      (uint8_t)(cur_vfo - 'A') : 0;
-   uint8_t wanted_dir = is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX;
-   bool sent = false;
-
+// One local pipeline per direction; prefer a subscription on the active VFO.
+const char *rrclient_media_current_codec(bool is_tx) {
+   uint8_t direction = is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX;
+   char vfo = vfo_state_get_active();
+   const char *fallback = NULL;
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *kp = &known_chans[i];
-
-      if (kp->uuid[0] == '\0' || kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-          kp->direction != wanted_dir) {
+      if (!kp->uuid[0] || !kp->subscribed || kp->disabled ||
+          kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO || kp->direction != direction ||
+          !kp->codec[0]) {
          continue;
       }
-      if (kp->vfo != active_id && kp->vfo != RR_BINFRAME_VFO_NA) {
-         continue;
+      if (kp->vfo == vfo - 'A' || kp->vfo == RR_BINFRAME_VFO_NA) {
+         return kp->codec;
       }
-      if (!media_send_codec_select(cptr, codec, kp->uuid)) {
-         sent = true;
+      if (!fallback) {
+         fallback = kp->codec;
       }
    }
+   return fallback;
+}
 
-   return !sent;
+static void media_sync_audio(void) {
+   for (int tx = 0 ; tx < 2 ; tx++) {
+      const char *codec = rrclient_media_current_codec(tx);
+      if (codec) {
+         audio_switch_codec(codec, tx);
+      } else {
+         audio_stop_codec(tx);
+      }
+   }
+   event_emit("client.media.changed", ws_conn, "");
+}
+
+static bool media_codec_supported(const char *codec) {
+   const char *list = media_get_common_codecs();
+   if (!list || !codec || strlen(codec) != 4) {
+      return false;
+   }
+   while (*list) {
+      while (*list == ' ') {
+         list++;
+      }
+      const char *end = strchr(list, ' ');
+      size_t len = end ? (size_t)(end - list) : strlen(list);
+      if (len == 4 && strncasecmp(codec, list, 4) == 0) {
+         return true;
+      }
+      if (!end) {
+         break;
+      }
+      list = end + 1;
+   }
+   return false;
+}
+
+// NONE is local subscription intent, never an encoded format on the wire.
+// The default applies to all subscribed (or explicitly disabled) audio channels.
+static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
+   const char *target) {
+   if (!cptr || !media_ready || !codec || strlen(codec) != 4) {
+      return true;
+   }
+   bool none = strcasecmp(codec, "none") == 0;
+   if (!none && !media_codec_supported(codec)) {
+      ui_print(NULL, "Codec %s is not in the negotiated codec list", codec);
+      return true;
+   }
+   const struct rr_media_known *selected = target ? rrclient_media_chan_lookup(target) : NULL;
+   if (target && !selected) {
+      ui_print(NULL, "No such media channel: %s", target);
+      return true;
+   }
+   char normalized[5] = { 0 };
+   for (int i = 0 ; i < 4 ; i++) {
+      normalized[i] = (char)tolower((unsigned char)codec[i]);
+   }
+   uint8_t direction = is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX;
+   bool sent = false, failed = false;
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      struct rr_media_known *kp = &known_chans[i];
+      if (!kp->uuid[0] || kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+          kp->direction != direction || (selected && kp != selected) ||
+          (!kp->subscribed && !kp->disabled)) {
+         continue;
+      }
+      if (none) {
+         if (kp->subscribed && media_send_unsubscribe(cptr, kp->uuid)) {
+            failed = true;
+            continue;
+         }
+         kp->disabled = true;
+         kp->subscribed = false;
+         kp->pending_codec[0] = '\0';
+      } else {
+         if (media_send_codec_select(cptr, normalized, kp->uuid)) {
+            failed = true;
+            continue;
+         }
+         if (kp->disabled) {
+            memcpy(kp->pending_codec, normalized, sizeof(kp->pending_codec));
+         }
+      }
+      sent = true;
+   }
+   if (!target && !failed && (none || sent)) {
+      direction_disabled[is_tx] = none;
+   }
+   media_sync_audio();
+   if (!sent && (target || !none)) {
+      ui_print(NULL, "No subscribed %s audio channels match; use /media LIST", is_tx ? "TX" : "RX");
+   }
+   return failed || (!sent && (target || !none));
+}
+
+bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) {
+   return media_select_codec(cptr, is_tx, codec, NULL);
 }
 
 // Track pending subscriptions so we only subscribe once per channel
 static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
-   if (!cptr || !kp || !media_ready || kp->subscribed) {
+   if (!cptr || !kp || !media_ready || kp->subscribed || kp->disabled) {
       return;
    }
    // Audio channels for the active VFO auto-subscribe; video channels
@@ -151,6 +245,10 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
       if (kp->vfo != active_id && kp->vfo != RR_BINFRAME_VFO_NA) {
          return;
       }
+      if (direction_disabled[kp->direction == RR_BINFRAME_DIR_TX]) {
+         kp->disabled = true;
+         return;
+      }
    }
    if (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && kp->codec[0] == '\0') {
       const char *codec = media_get_preferred_codec();
@@ -161,8 +259,9 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
       return;
    }
 
-   media_send_subscribe(cptr, kp->uuid);
-   kp->subscribed = true;
+   if (!media_send_subscribe(cptr, kp->uuid)) {
+      kp->subscribed = true;
+   }
 }
 
 // Called by events.c with the already-parsed media.available dict (no JSON
@@ -190,20 +289,22 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          kp->vfo = vfo;
          kp->rig = rig;
          const char *codec = dict_get(d, "media.codec", NULL);
-         char old_codec[5] = { 0 };
-         memcpy(old_codec, kp->codec, sizeof(old_codec));
 
          if (codec && strlen(codec) == 4) {
             snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
          }
-         if (kp->subscribed && kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
-             kp->codec[0] != '\0' && strncmp(old_codec, kp->codec, 4) != 0) {
-            audio_switch_codec(kp->codec, kp->direction == RR_BINFRAME_DIR_TX);
+         if (kp->disabled && kp->pending_codec[0] &&
+             strcmp(kp->pending_codec, kp->codec) == 0 && ws_conn &&
+             !media_send_subscribe(ws_conn, kp->uuid)) {
+            kp->pending_codec[0] = '\0';
+            kp->disabled = false;
+            kp->subscribed = true;
          }
          if (descr && descr[0] != '\0') {
             snprintf(kp->descr, sizeof(kp->descr), "%s", descr);
          }
          media_try_autosubscribe(ws_conn, kp);
+         media_sync_audio();
       }
    }
 }
@@ -217,15 +318,19 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
    struct rr_media_known *kp = (uuid ? media_known_find(uuid) : NULL);
 
    if (kp) {
+      if (!unsub && kp->disabled) {
+         if (ws_conn) {
+            media_send_unsubscribe(ws_conn, kp->uuid);
+         }
+         return;
+      }
       kp->subscribed = !unsub;
       const char *codec = dict_get(d, "media.codec", NULL);
 
       if (codec && strlen(codec) == 4) {
          snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
       }
-      if (!unsub && kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && kp->codec[0] != '\0') {
-         audio_switch_codec(kp->codec, kp->direction == RR_BINFRAME_DIR_TX);
-      }
+      media_sync_audio();
       Log(LOG_INFO, "ws.media", "Media subscription %s: %s (codec %s)",
          (unsub ? "removed" : "confirmed"), kp->uuid, (kp->codec[0] ? kp->codec : "none") );
    }
@@ -243,6 +348,7 @@ void rrclient_media_chan_removed(dict *d) {
       Log(LOG_INFO, "ws.media", "Media channel removed: %s (%s)", kp->uuid,
          (kp->descr[0] != '\0' ? kp->descr : "-"));
       memset(kp, 0, sizeof(*kp) );
+      media_sync_audio();
    }
 }
 
@@ -256,6 +362,8 @@ static void rrclient_handle_media_conn(const char *event, const char *data,
    if (strcasecmp(event, "disconnected") == 0) {
      memset(known_chans, 0, sizeof(known_chans) );
      media_ready = false;
+     memset(direction_disabled, 0, sizeof(direction_disabled));
+     media_sync_audio();
      media_my_privs[0] = '\0';
    } else if (strcasecmp(event, "authorized") == 0 && data) {
       dict *ad = json2dict(data);
@@ -287,8 +395,12 @@ static void rrclient_handle_media_codecs(const char *event, const char *data,
       return;
    }
 
-   rrclient_media_select_codec(conn, false, codec);
-   rrclient_media_select_codec(conn, true, codec);
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      if (known_chans[i].uuid[0]) {
+         media_try_autosubscribe(conn, &known_chans[i]);
+      }
+   }
+   media_sync_audio();
 }
 
 void rrclient_media_register_events(void) {
@@ -365,8 +477,11 @@ const struct rr_media_known *rrclient_media_chan_lookup(const char *arg) {
       return kp;
    }
    // Try a 1-based index into the stored list
-   if (arg[0] >= '1' && arg[0] <= '9') {
-      return rrclient_media_chan_get(atoi(arg) - 1);
+   const char *number = arg[0] == '#' ? arg + 1 : arg;
+   char *end;
+   long index = strtol(number, &end, 10);
+   if (end != number && !*end && index > 0 && index <= RR_MEDIA_MAX_CHANS) {
+      return rrclient_media_chan_get((int)index - 1);
    }
    return NULL;
 }
@@ -378,7 +493,13 @@ bool rrclient_media_subscribe(const char *uuid) {
    if (!cptr || !uuid || uuid[0] == '\0') {
       return true;
    }
-   return media_send_subscribe(cptr, uuid);
+   bool failed = media_send_subscribe(cptr, uuid);
+   struct rr_media_known *kp = media_known_find(uuid);
+   if (!failed && kp) {
+      kp->disabled = false;
+      kp->pending_codec[0] = '\0';
+   }
+   return failed;
 }
 
 bool rrclient_media_unsubscribe(const char *uuid) {
@@ -387,7 +508,15 @@ bool rrclient_media_unsubscribe(const char *uuid) {
    if (!cptr || !uuid || uuid[0] == '\0') {
       return true;
    }
-   return media_send_unsubscribe(cptr, uuid);
+   bool failed = media_send_unsubscribe(cptr, uuid);
+   struct rr_media_known *kp = media_known_find(uuid);
+   if (!failed && kp) {
+      kp->disabled = true;
+      kp->subscribed = false;
+      kp->pending_codec[0] = '\0';
+      media_sync_audio();
+   }
+   return failed;
 }
 
 // Ask the server for a fresh media.available batch
@@ -476,4 +605,61 @@ bool cmd_media(int argc, char **args) {
    ui_print(NULL, "Usage: /media [LIST | SUB|SUBSCRIBE <uuid|#> | UNSUB|UNSUBSCRIBE <uuid|#>]");
 
    return true;
+}
+
+// Shared GTK/TUI commands: list codecs and channel state, or select by UUID.
+static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
+   const char *command = is_tx ? "txcodec" : "rxcodec";
+   if (argc > 3 || (argc == 3 && strcasecmp(args[1], "list") == 0)) {
+      ui_print(NULL, "Usage: /%s [LIST | <codec>|NONE [uuid|#number]]", command);
+      return true;
+   }
+   if (argc < 2 || strcasecmp(args[1], "list") == 0) {
+      const char *list = media_ready ? media_get_common_codecs() : NULL;
+      ui_print(NULL, "%s codecs: NONE %s", is_tx ? "TX" : "RX",
+         list ? list : "(not negotiated)");
+      int number = 0, matches = 0;
+      for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+         struct rr_media_known *kp = &known_chans[i];
+         if (!kp->uuid[0]) {
+            continue;
+         }
+         number++;
+         if (kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+             kp->direction != (is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX) ||
+             (!kp->subscribed && !kp->disabled)) {
+            continue;
+         }
+         ui_print(NULL, " #%d %s: %s%s (%s)", number, kp->uuid,
+            kp->disabled ? "NONE" : kp->codec,
+            kp->pending_codec[0] ? " (selection pending)" : "", kp->descr);
+         matches++;
+      }
+      if (!matches) {
+         ui_print(NULL, "No subscribed %s audio channels", is_tx ? "TX" : "RX");
+      }
+      return false;
+   }
+   if (!ws_conn || !media_ready) {
+      ui_print(NULL, "Connect to a server before selecting codecs");
+      return true;
+   }
+   if (strlen(args[1]) != 4) {
+      ui_print(NULL, "Use /%s LIST to see supported codecs", command);
+      return true;
+   }
+   bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
+   if (!failed) {
+      ui_print(NULL, "Requested %s codec %s%s%s", is_tx ? "TX" : "RX", args[1],
+         argc == 3 ? " for " : "", argc == 3 ? args[2] : "");
+   }
+   return failed;
+}
+
+bool cmd_rxcodec(int argc, char **args) {
+   return cmd_audio_codec(argc, args, false);
+}
+
+bool cmd_txcodec(int argc, char **args) {
+   return cmd_audio_codec(argc, args, true);
 }

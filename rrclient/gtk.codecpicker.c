@@ -22,11 +22,13 @@
 #include <librrprotocol/ws.mediachan.h>
 #include <rrclient/ui.speech.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/media.h>
 extern rrconn_t *ws_conn;
 extern rrconn_t *ws_tx_conn;   // rrclient/rrclient.c
-extern bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec);
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;
+static bool updating_codecs = false;
+void codec_pickers_refresh(void);
 
 typedef struct {
 #if     defined(USE_MONGOOSE)
@@ -38,7 +40,7 @@ typedef struct {
 static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
    CodecSelectorCtx *ctx = user_data;
 
-   if (!ctx) {
+   if (!ctx || updating_codecs) {
       return;
    }
    const char *codec = gtk_combo_box_get_active_id( GTK_COMBO_BOX(combo) );
@@ -48,11 +50,12 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       // the matching fwdsp pipeline and re-announces the channel with the
       // active codec magic.
       // PARITY: rustyrig-www/js/webui.media.js (codec select)
-      rrconn_t *cptr = (ctx->is_tx ? (ws_tx_conn ? ws_tx_conn : ws_conn) : ws_conn);
+      rrconn_t *cptr = ws_conn;
 
       if (cptr) {
          rrclient_media_select_codec(cptr, ctx->is_tx, codec);
       }
+      codec_pickers_refresh();
    }
 }
 
@@ -62,9 +65,10 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
    }
    char *list = g_strdup(codec_list);
    char *saveptr = NULL;
-   int index = 0, default_index = -1;
+   int index = 1, default_index = 0;
 
    gtk_combo_box_text_remove_all(combo);
+   gtk_combo_box_text_append(combo, "none", "NONE");
 
    for (char *tok = strtok_r(list, " ", &saveptr) ; tok ; tok = strtok_r(NULL, " ", &saveptr) ) {
       Log(LOG_CRAZY, "gtk.codecpicker", "Adding codec |%s| to list <%x>", tok, combo);
@@ -87,12 +91,13 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
 // server answers our capab.
 // PARITY: rustyrig-www/js/webui.media.js (codec picker population)
 void codec_pickers_refresh(void) {
-   if (!tx_combo || !rx_combo) {
+   if (!tx_combo || !rx_combo || updating_codecs) {
       return;
    }
+   updating_codecs = true;
    const char *negotiated = media_get_common_codecs();
-   const char *default_rx = media_get_codec(false);
-   const char *default_tx = media_get_codec(true);
+   const char *default_rx = rrclient_media_current_codec(false);
+   const char *default_tx = rrclient_media_current_codec(true);
 
    if (negotiated) {
       populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), negotiated,
@@ -108,8 +113,12 @@ void codec_pickers_refresh(void) {
          populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), my_codecs, NULL);
          populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), my_codecs, NULL);
          free( (void *)my_codecs );
+      } else {
+         populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), "", NULL);
+         populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), "", NULL);
       }
    }
+   updating_codecs = false;
 }
 
 // Event: codec negotiation completed (emitted by librrprotocol cli.media.c);
@@ -143,6 +152,7 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    // media.codecs event (below) re-populates once the server answers.
    codec_pickers_refresh();
    event_on("media.codecs", codec_media_codecs_cb, NULL);
+   event_on("client.media.changed", codec_media_codecs_cb, NULL);
 #if     defined(USE_MONGOOSE)
    if (ws_tx_conn) {
       tx_ctx->conn = ws_tx_conn->conn;

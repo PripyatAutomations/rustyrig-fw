@@ -40,11 +40,11 @@ with tempfile.TemporaryDirectory(prefix="fwdsp-record-test-") as temp:
         sentinels.append(path)
 
     config = root / "fwdsp.cfg"
-    config.write_text(f"""[general]
+    config.write_text(f"""[fwdsp]
 log.file=-
-path.record-dir={records}
-record.buffer-size=524288
-[pipeline]
+recording.path={records}
+recording.buffer-size=524288
+[pipelines]
 pc16.tx=audiotestsrc is-live=true ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! tee name=t t. ! queue ! appsink name=tx-sink sync=false t. ! queue ! appsink name=record-sink sync=false
 """)
     read_fd, write_fd = os.pipe()

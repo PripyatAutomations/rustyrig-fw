@@ -9,6 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #include "build_config.h"
+#include <fwdsp/default-pipelines.h>
 #include <librustyaxe/config.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -36,6 +37,7 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   FWDSP_AUDIO_PIPELINE_DEFAULTS
    { "audio.debug", "false", "Debug audio? [bool]" },
    { "atu.max", "4", "Maximum number of ATUs" },
    { "backend.active", "internal", "Backend to use for rig control" },
@@ -50,7 +52,7 @@ defconfig_t defcfg[] = {
    { "rig.vfos", "2", "How many VFOs does the rig expose? (A-Z; 2 means only A and B exist)" },
    { "chat.log", "true", "Should we log the chat to text files by date/rig?" },
    { "chat.replay-lines", "20", "Lines of replay to show on joining chat" },
-   { "codecs.allowed", "opus mu16 pc16 mu08", "Preferred codec order" },
+   { "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codec order" },
    { "codecs.allowed.video", "jpeg h264", "Preferred video codec order" },
    { "webcam.enable", "false", "Capture a v4l2 webcam and stream it as a video media channel" },
    { "webcam.device", "/dev/video0", "v4l2 device to grab frames from" },
@@ -65,6 +67,8 @@ defconfig_t defcfg[] = {
    { "device.serial", NULL, "Device serial # (usually from eeprom)" },
    { "features.auto-block-ptt", "false", "Block PTT at start?" },
    { "fwdsp.hangtime", "60", "How long should unused (en|de)coders be kept alive after last used?" },
+   { "fwdsp.path", "./bin/fwdsp", "Path to fwdsp binary" },
+   { "fwdsp.subproc.max", "16", "Maximum server fwdsp processes" },
    { "log.file", "rrserver.log", "Where to log?" },
    { "log.level", "*:info", "What to log?" },
    { "net.http.404-path", NULL, "Path to 404 file" },

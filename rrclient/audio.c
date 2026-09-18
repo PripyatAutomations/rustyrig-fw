@@ -27,6 +27,7 @@
 #include <libfwdspmgr/fwdsp-ctl.h>
 #include <librrprotocol/connman.h>
 #include <rrclient/audio.h>
+#include <rrclient/media.h>
 
 extern rrconn_t *ws_conn;
 bool audio_enabled = false;
@@ -125,17 +126,18 @@ bool audio_set_tx_volume(int percent) {
    return fwdsp_cmd_setvol(tx_codec, true, percent);
 }
 
+void audio_stop_codec(bool is_tx) {
+   char *active = is_tx ? tx_codec : rx_codec;
+   if (active[0]) {
+      fwdsp_cmd_stop_record(active, is_tx, 0);
+      fwdsp_codec_stop(active, is_tx);
+      active[0] = '\0';
+   }
+}
+
 void ws_audio_shutdown(void) {
-   if (rx_codec[0] != '\0') {
-      fwdsp_codec_stop(rx_codec, false);
-      fwdsp_cmd_shutdown(rx_codec, false, 0);
-      rx_codec[0] = '\0';
-   }
-   if (tx_codec[0] != '\0') {
-      fwdsp_codec_stop(tx_codec, true);
-      fwdsp_cmd_shutdown(tx_codec, true, 0);
-      tx_codec[0] = '\0';
-   }
+   audio_stop_codec(false);
+   audio_stop_codec(true);
 }
 
 //
@@ -148,9 +150,10 @@ bool audio_process_frame(const char *data, size_t len) {
 static void audio_frame_cb(const char *event, const void *data, size_t len,
    rrconn_t *cptr, void *user) {
    (void)event; (void)cptr; (void)user;
-   const char *codec = media_get_codec(false);
-   if (!codec || strlen(codec) != 4) {
-      codec = "pc16";
+   const char *codec = rrclient_media_current_codec(false);
+   if (!codec) {
+      // NONE/unsubscribe may race with already queued network frames.
+      return;
    }
 
    if (rx_codec[0] == '\0' || strncmp(rx_codec, codec, 4) != 0) {

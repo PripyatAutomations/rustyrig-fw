@@ -28,6 +28,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
+#include <rrclient/media.h>
 #include <rrclient/ui.h>
 #include <rrclient/ui.h>
 
@@ -153,6 +154,8 @@ client_cmd_t client_cmds[] = {
    { .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file" },
    { .cmd = "restart", .cb = cmd_restart, .admin = true, .desc = "Restart the server" },
    { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
+   { .cmd = "rxcodec", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
+   { .cmd = "txcodec", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
    { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
    { .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)" },
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },

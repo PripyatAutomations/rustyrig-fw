@@ -903,6 +903,10 @@ int main(int argc, char *argv[]) {
    const char *logfile = cfg_get_exp("fwdsp.log.file");
    logger_init( (logfile ? logfile : "-"), false);
    log_stdout = false;
+   if (logfp == stdout) {
+      // stdout is framed media, even when logging is configured as "-".
+      logfp = stderr;
+   }
 
    if (saved_stdout >= 0) {
       dup2(saved_stdout, STDOUT_FD);

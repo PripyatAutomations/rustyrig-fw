@@ -24,6 +24,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
+#include <fwdsp/default-pipelines.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -31,7 +32,7 @@
 #define	FWDSP_MAX_SUBPROCS 100
 
 defconfig_t defcfg_fwdsp[] = {
-   { "codecs.allowed", "opus pc16 mu16 mu08", "Preferred codecs" },
+   { "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codecs" },
 #ifdef _WIN32
    { "fwdsp.path", "bin/fwdsp.exe", "Path to fwdsp binary" },
 #else

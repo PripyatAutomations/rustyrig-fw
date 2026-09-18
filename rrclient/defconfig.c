@@ -19,6 +19,7 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <fwdsp/default-pipelines.h>
 
 const char *configs[] = {
 #ifdef _WIN32
@@ -60,6 +61,7 @@ const char *default_css = DEFAULT_CSS;
 #endif	// USE_GTK
 
 defconfig_t defcfg[] = {
+   FWDSP_AUDIO_PIPELINE_DEFAULTS
    { "audio.pipeline.rx", "", "User choice pipeline for RX" },
    { "audio.pipeline.rx.format", "", "User pipeline format (bytes|time) for RX " },
    { "audio.pipeline.tx", "", "User choice pipeline for gstreamer TX" },
@@ -72,10 +74,10 @@ defconfig_t defcfg[] = {
    { "audio.pipeline.tx.opus", "", "Pipeline: OPUS TX" },
    { "audio.pipeline.rx.flac", "", "Pipeline: FLAC RX" },
    { "audio.pipeline.tx.flac", "", "Pipeline: FLAC TX" },
-   { "audio.prefer-codecs", "opus mu16 pc16 mu08", "Preferred codec order" },
+   { "audio.prefer-codecs", FWDSP_DEFAULT_CODECS, "Preferred codec order" },
    { "audio.volume.rx", "30", "Default RX volume" },
    { "audio.volume.tx", "20", "Default TX out vol" },
-   { "codecs.allowed", "opus mu08 mu16", "CODECs to support by default" },
+   { "codecs.allowed", FWDSP_DEFAULT_CODECS, "CODECs to support by default" },
    { "client.role", "", "Connection role: set to video-source for webcam feed connections" },
    { "webcam.device", "/dev/video0", "v4l2 device to grab frames from" },
    { "cat.pty.enable", "true", "Create a PTY (e.g. ./dev/ttyCAT0) for external CAT software (hamlib/rigctl)" },
@@ -93,6 +95,7 @@ defconfig_t defcfg[] = {
    { "networks.auto", NULL, "Which networks to autoconnect to" },
    { "path.help-dir", "./help", "Path to find help-files" },
    { "path.fwdsp", "./bin/fwdsp", "Path to fwdsp binary" },
+   { "fwdsp.path", "./bin/fwdsp", "Path to fwdsp binary" },
    { "path.fwdsp.config", "./config/fwdsp.cfg", "Path to fwdsp configuration" },
    { "fwdsp.subproc.max", "4", "Maximum client fwdsp processes" },
    { "fwdsp.hangtime", "5", "Seconds to keep unused client fwdsp alive" },

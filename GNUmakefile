@@ -75,3 +75,6 @@ chat-log:
 
 ptt-log:
 	./tools/get-ptt-log.sh
+
+# Native programs and the child share the codec list and fallback pipelines.
+${BUILD_DIR}/rrclient/defconfig.o ${BUILD_DIR}/rrserver/defconfig.o ${BUILD_DIR}/fwdsp/defconfig.o ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.o: fwdsp/default-pipelines.h
