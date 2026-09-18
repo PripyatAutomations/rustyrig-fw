@@ -21,6 +21,9 @@ struct fwdsp_io_conn {
    bool is_stderr;
 };
 
+// Local child IPC: high length bit marks codec/container initialization data.
+#define FWDSP_FRAME_STREAM_HEADER 0x80000000U
+
 #define FWDSP_CTRL_MAGIC          0x46574453U
 #define FWDSP_CTRL_SET_VOLUME     1	// set volume
 #define	FWDSP_CTRL_SHUTDOWN       2	// shut down process
@@ -53,6 +56,9 @@ struct fwdsp_subproc {
                                          // as -v so fwdsp sets FW_MEDIA_VIDEO
    bool is_transcoder;                    // is this a transcoder? If so it'll
                                          // have tc_* below set
+   uint8_t *stream_headers;          // length-framed initialization packets
+   size_t stream_headers_len;
+   bool replay_headers;
    int refcount;
    time_t cleanup_deadline;
    int chan_id;
@@ -79,6 +85,7 @@ struct fwdsp_subproc {
 };
 
 extern void fwdsp_reap_children(void);
+extern void fwdsp_send_stream_headers(const char *uuid, rrconn_t *cptr);
 extern bool fwdsp_init(void);
 //extern int fwdsp_find_offset(const char *id);
 //extern struct fwdsp_subproc *fwdsp_find_instance(const char *id);

@@ -12,6 +12,7 @@ rrclient_objs += cat.pty.o		# PTY CAT interface (./dev/ttyCAT0)
 rrclient_objs += cat.yaesu.o
 rrclient_objs += chat.whois.o
 rrclient_objs += cfg.network.o
+rrclient_objs += cmd.completion.o
 rrclient_objs += cmd.o
 rrclient_objs += cmd.admin.o		# Server control tasks
 rrclient_objs += cmd.chat.o		# chat commands

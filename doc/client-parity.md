@@ -37,6 +37,12 @@ the native configuration does not add browser decoders. See
 [Native audio codec selection](media-codecs.md) for current native semantics
 and the one-local-pipeline-per-direction limitation.
 
+Ogg/Vorbis (`oggv`) is also native-only; browser decoder support remains
+deferred. Shared `/media`, user-targeting, `/quota` and `/syslog` parameter
+completion is mirrored in `js/webui.chat.completion.js` and native
+`rrclient/cmd.completion.c`. Native `/rxcodec` and `/txcodec` completion follows
+the existing native-only media controls. GTK and TUI share the same provider.
+
 ## What parity means
 
 Parity means equivalent externally observable behavior, not identical

@@ -421,14 +421,14 @@ static uint32_t frame_length_decode(const uint8_t header[FWDSP_FRAME_HEADER_SIZE
           (uint32_t)header[3];
 }
 
-static bool write_frame(int fd, const uint8_t *data, size_t len) {
+static bool write_frame(int fd, const uint8_t *data, size_t len, bool is_header) {
    uint8_t header[FWDSP_FRAME_HEADER_SIZE];
 
    if (!data || len == 0 || len > UINT32_MAX || len > FWDSP_MAX_FRAME_SIZE) {
       return false;
    }
 
-   frame_length_encode(header, (uint32_t)len);
+   frame_length_encode(header, (uint32_t)len | (is_header ? FWDSP_FRAME_STREAM_HEADER : 0));
 
    if (!write_all(fd, header, sizeof(header))) {
       return false;
@@ -601,36 +601,16 @@ static void run_loop(struct audio_config *cfg) {
       record_requested = false;   // application supplies recording policy and identity
 
       while (!dying) {
-         GstMessage *msg = gst_bus_timed_pop_filtered(bus, 10 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
-
-         if (msg) {
-            if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
-               GError *err;
-               gchar *dbg;
-               gst_message_parse_error(msg, &err, &dbg);
-               fprintf(stderr, "fwdsp: GStreamer error: %s\n", err->message);
-               if (dbg) {
-                  fprintf(stderr, "fwdsp: GStreamer details: %s\n", dbg);
-               }
-               g_error_free(err);
-               g_free(dbg);
-            } else if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS) {
-               fprintf(stderr, "fwdsp: GStreamer EOS received\n");
-            }
-            dying = true;
-            gst_message_unref(msg);
-            break;
-         }
 
          if (appsink) {
-            GstSample *sample = gst_app_sink_try_pull_sample(GST_APP_SINK(appsink), 10 * GST_MSECOND);
-
-            if (sample) {
+            GstSample *sample;
+            while ((sample = gst_app_sink_try_pull_sample(GST_APP_SINK(appsink), 0))) {
                GstBuffer *buffer = gst_sample_get_buffer(sample);
                GstMapInfo map;
 
                if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-                  if (!write_frame(STDOUT_FD, map.data, map.size)) {
+                  if (!write_frame(STDOUT_FD, map.data, map.size,
+                      GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_HEADER))) {
                      dying = true;
                   }
                   gst_buffer_unmap(buffer, &map);
@@ -641,9 +621,8 @@ static void run_loop(struct audio_config *cfg) {
 
          // Support for recording TX (and optionally RX) audio to FLAC files
          if (record_sink) {
-            GstSample *record_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(record_sink), 0);
-
-            if (record_sample) {
+            GstSample *record_sample;
+            while ((record_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(record_sink), 0))) {
                GstBuffer *record_buffer = gst_sample_get_buffer(record_sample);
                GstCaps *caps = gst_sample_get_caps(record_sample);
                GstMapInfo record_map;
@@ -680,6 +659,27 @@ static void run_loop(struct audio_config *cfg) {
                }
                gst_sample_unref(record_sample);
             }
+         }
+
+         GstMessage *msg = gst_bus_timed_pop_filtered(bus, 0, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
+
+         if (msg) {
+            if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
+               GError *err;
+               gchar *dbg;
+               gst_message_parse_error(msg, &err, &dbg);
+               fprintf(stderr, "fwdsp: GStreamer error: %s\n", err->message);
+               if (dbg) {
+                  fprintf(stderr, "fwdsp: GStreamer details: %s\n", dbg);
+               }
+               g_error_free(err);
+               g_free(dbg);
+            } else if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS) {
+               fprintf(stderr, "fwdsp: GStreamer EOS received\n");
+            }
+            dying = true;
+            gst_message_unref(msg);
+            break;
          }
 
          if (appsrc) {
@@ -771,6 +771,14 @@ static void run_loop(struct audio_config *cfg) {
                }
             }
          }
+         // Service input/control promptly without sleeping once per audio packet.
+         // Encoders may produce several packets from one capture buffer.
+         struct pollfd pending[2] = {
+            { .fd = appsrc ? STDIN_FD : -1, .events = POLLIN },
+            { .fd = control_fd, .events = POLLIN }
+         };
+         poll(pending, 2, 2);
+
       }
       gst_object_unref(bus);
       if (appsrc) {

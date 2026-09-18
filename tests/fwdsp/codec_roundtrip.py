@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 
-CODECS = ('pc16', 'g722', 'mu16', 'mu08', 'opus')
+CODECS = ('pc16', 'g722', 'mu16', 'mu08', 'opus', 'oggv')
 ROOT = Path.cwd()
 ENV = dict(os.environ, LD_LIBRARY_PATH=str(ROOT))
 
@@ -18,7 +18,7 @@ def frames(data):
     result = []
     while data:
         assert len(data) >= 4, 'truncated length header'
-        size = int.from_bytes(data[:4], 'big')
+        size = int.from_bytes(data[:4], 'big') & 0x7fffffff
         assert 0 < size <= len(data) - 4, 'truncated/invalid payload'
         result.append(data[4:4 + size])
         data = data[4 + size:]
@@ -27,7 +27,7 @@ def frames(data):
 
 def config_pipelines(path):
     text = re.sub(r'\\\n\s*', ' ', Path(path).read_text())
-    return dict(re.findall(r'^((?:pc16|g722|mu16|mu08|opus)\.(?:tx|rx))=(.*)$', text, re.M))
+    return dict(re.findall(r'^((?:pc16|g722|mu16|mu08|opus|oggv)\.(?:tx|rx))=(.*)$', text, re.M))
 
 
 with tempfile.TemporaryDirectory(prefix='fwdsp-codecs-') as temp:

@@ -24,6 +24,7 @@ typedef struct client_cmd {
    bool (*cb)(int argc, char **args);
    event_cb_t (*event_cb)(const char *event, void *data, rrconn_t *cptr, void *user);
 } client_cmd_t;
+extern client_cmd_t client_cmds[];
 
 // Media channel table iteration for completion providers (media.c owns the
 // storage; these walk the stored rrclient_media_known entries).
@@ -38,6 +39,7 @@ struct rr_client_media_chan {
    char codec[5];                  // active (negotiated) codec magic
    char descr[128];
    bool subscribed;
+   bool disabled;                 // explicit NONE, eligible for re-enable
 };
 
 // Iterate stored channels: idx 0..n. Returns NULL past the end. `listno`

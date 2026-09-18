@@ -195,7 +195,7 @@ static void poll_mongoose_init(void) {
    // Priority must be above the default-idle band: during UI setup and heavy
    // redraws an idle-priority source is starved, delaying socket reads (and
    // thus ping/pong RTT measurement and eventually audio) by hundreds of ms.
-   g_source_set_priority(src, G_PRIORITY_DEFAULT);
+   g_source_set_priority(src, G_PRIORITY_HIGH);
    g_source_attach(src, g_main_context_default());
    g_source_unref(src);
 }

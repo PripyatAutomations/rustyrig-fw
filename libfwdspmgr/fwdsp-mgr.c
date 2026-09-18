@@ -160,6 +160,27 @@ void fwdsp_reap_children(void) {
    }
 }
 
+// Header packets keep their existing encoded payload on the network. Only
+// child IPC carries the marker used to cache them for late subscribers.
+static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp,
+   struct rr_mediachan *channel, rrconn_t *cptr) {
+   for (size_t pos = 0; pos + 4 <= sp->stream_headers_len;) {
+      uint32_t len = frame_length_decode(sp->stream_headers + pos);
+      pos += 4;
+      if (len > sp->stream_headers_len - pos) break;
+      ws_media_send_frame(channel, cptr, sp->stream_headers + pos, len, sp->pl_id);
+      pos += len;
+   }
+}
+
+void fwdsp_send_stream_headers(const char *uuid, rrconn_t *cptr) {
+   struct rr_mediachan *channel = media_chan_find_uuid(uuid);
+   if (!channel || channel->direction != RR_BINFRAME_DIR_RX) return;
+   struct fwdsp_subproc *sp = fwdsp_find_channel_instance(channel->codec, true, uuid);
+   // A resumed encoder will replay to all subscribers before its next packet.
+   if (sp && !sp->replay_headers) fwdsp_replay_stream_headers(sp, channel, cptr);
+}
+
 static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct fwdsp_io_conn *ctx = c->fn_data;
 
@@ -207,6 +228,8 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
       } else {
          while (c->recv.len >= FWDSP_FRAME_HEADER_SIZE) {
             uint32_t frame_len = frame_length_decode((const uint8_t *)c->recv.buf);
+            bool is_header = (frame_len & FWDSP_FRAME_STREAM_HEADER) != 0;
+            frame_len &= ~FWDSP_FRAME_STREAM_HEADER;
 
             if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE) {
                Log(LOG_CRIT, "fwdsp", "Invalid frame length %u from %s.%s",
@@ -220,6 +243,22 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                break;
             }
 
+            if (is_header) {
+               struct fwdsp_subproc *sp = ctx->sp;
+               // Bound retained codec setup data, independent of media payload size.
+               if (total_len <= 256 * 1024 - sp->stream_headers_len) {
+                  uint8_t *headers = realloc(sp->stream_headers, sp->stream_headers_len + total_len);
+                  if (headers) {
+                     sp->stream_headers = headers;
+                     frame_length_encode(headers + sp->stream_headers_len, frame_len);
+                     memcpy(headers + sp->stream_headers_len + 4, c->recv.buf + 4, frame_len);
+                     sp->stream_headers_len += total_len;
+                  }
+               } else {
+                  Log(LOG_WARN, "fwdsp", "Codec initialization data exceeds cache limit");
+               }
+            }
+
             struct rr_mediachan *channel = ctx->sp->channel_uuid[0] != '\0' ?
                media_chan_find_uuid(ctx->sp->channel_uuid) :
                media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
@@ -228,6 +267,10 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
             if (channel && ctx->sp->refcount > 0 &&
                 strncmp(channel->codec, ctx->sp->pl_id, 4) == 0) {
+               if (ctx->sp->replay_headers) {
+                  fwdsp_replay_stream_headers(ctx->sp, channel, NULL);
+                  ctx->sp->replay_headers = false;
+               }
                ws_media_broadcast_subscribed(channel,
                   (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
                   frame_len, ctx->sp->pl_id);
@@ -505,6 +548,7 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
       }
    }
 
+   free(sp->stream_headers);
    // Clear struct
    memset( sp, 0, sizeof(*sp) );
 
@@ -964,6 +1008,7 @@ void fwdsp_sweep_expired(void) {
 
       if (users > 0) {
          if (sp->is_tx && sp->refcount == 0 && sp->cleanup_deadline > 0) {
+            sp->replay_headers = true;
             fwdsp_send_control(sp, FWDSP_CTRL_RESUME, 0);
          }
          sp->refcount = users;
@@ -1011,6 +1056,7 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
       }
    } else if (sp->is_tx && sp->refcount == 0 && sp->cleanup_deadline > 0) {
       // Reuse a warm encoder retained by fwdsp.hangtime.
+      sp->replay_headers = true;
       fwdsp_send_control(sp, FWDSP_CTRL_RESUME, 0);
    }
    sp->cleanup_deadline = 0;
@@ -1076,6 +1122,15 @@ int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
    int chan_id = fwdsp_codec_start(new_codec, is_tx, channel_uuid);
    if (chan_id < 0) {
       return -1;
+   }
+
+   // A channel can switch back before the subscriber sweep has paused its
+   // old encoder. Its new decoder still needs the cached initialization data.
+   struct fwdsp_subproc *replacement = channel_uuid && *channel_uuid ?
+      fwdsp_find_channel_instance(new_codec, is_tx, channel_uuid) :
+      fwdsp_find_instance(new_codec, is_tx);
+   if (replacement && replacement->stream_headers_len) {
+      replacement->replay_headers = true;
    }
 
    // Start the replacement first so switching never creates an avoidable

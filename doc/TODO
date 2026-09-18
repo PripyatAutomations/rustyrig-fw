@@ -35,3 +35,6 @@ fwdsp: Recordings triggered by control pipe commands
   - Ring buffer of audio and a second thread to encode
 
 codec negotiation: Discard codecs without configured pipelines?
+
+rrserver: add recordings to database
+rrclient: Consider bringing in sqlite db for storage/caching (call lookups, etc)

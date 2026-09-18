@@ -10,13 +10,32 @@ provide these mono codecs:
 | `g722` | G.722 wideband ADPCM | 16 kHz | 64 kbit/s |
 | `mu16` | G.711 mu-law at 16 kHz | 16 kHz | 128 kbit/s |
 | `mu08` | G.711 mu-law | 8 kHz | 64 kbit/s |
-| `opus` | Opus | 16 kHz input | Configured by the encoder |
+| `opus` | Opus, 20 ms frames | 16 kHz input | 24 kbit/s CBR |
+| `oggv` | Ogg/Vorbis | 16 kHz | Variable, quality 0.3 |
 
 G.722 uses GStreamer's `avenc_g722` and `avdec_g722` from gst-libav.
 Mu-law uses `mulawenc` and `mulawdec`. Both endpoints need the plugins
 for the selected codec; negotiation lists configured codecs, not an inventory
 of installed plugins. G.722 retains more audio bandwidth than `mu08` at the
 same payload bitrate. `pc16` is the uncompressed fallback.
+
+`pc16` preserves 16-bit linear PCM samples. `mu16` uses 8-bit logarithmic
+mu-law samples at the same 16 kHz sample rate: half the bandwidth, with
+quantization loss. Neither name denotes the RF modulation mode.
+
+For LTE, start with Opus at 24–32 kbit/s mono and 20 ms frames; use G.722
+at 64 kbit/s as a simpler fallback. These are payload rates, excluding the
+RustyRig, WebSocket, TCP/IP and cellular overhead. WebSocket/TCP still stalls
+behind retransmitted packets; choosing a lower bitrate cannot eliminate LTE
+delay variation. The supplied Opus setting uses generic audio mode to retain
+tones and noisy radio audio as well as speech.
+
+Ogg is a container. `oggv` specifically selects Vorbis in Ogg using `vorbisenc`,
+`oggmux`, `oggdemux` and `vorbisdec`. It uses 20 ms maximum mux/page delay.
+The manager caches initialization packets and replays them for late subscribers
+and warm encoder reuse, before sending live pages. This does not change the
+network media framing. Child IPC marks initialization packets with the high
+bit of the four-byte length, so rebuild fwdsp and its manager together.
 
 ## Commands
 
@@ -28,6 +47,7 @@ These commands work in both native client views:
 /rxcodec g722
 /txcodec mu16 #2
 /rxcodec mu08 <channel-uuid>
+/rxcodec oggv
 /rxcodec NONE
 ```
 
@@ -39,6 +59,15 @@ Setting a codec without a channel targets all subscribed audio channels in
 that direction, including channels previously disabled with `NONE`. An optional
 UUID or channel number targets one channel. Use `/media SUBSCRIBE` to select
 other available channels first. Codec names are case-insensitive.
+
+Tab completion works in GTK and TUI, including immediately after a space.
+The first codec argument offers negotiated codecs, `LIST` and `NONE`; the
+second offers eligible channel UUIDs and list numbers for that direction.
+`/media` completes its subcommands and channel references. `/msg`, `/notice`,
+`/whois`, `/kick`, `/mute` and `/unmute` complete user names in the recipient
+position. `/quota` completes subcommands and user arguments, but not numeric
+quota values. `/server`, `/help`, `/syslog`, `/webcam` and `/quit` also offer
+appropriate parameter choices. Completion respects the cursor position.
 
 `NONE` unsubscribes the affected audio channels and releases their local audio
 pipeline. Decoders stop immediately; unused encoders pause and retain the
@@ -67,13 +96,19 @@ Replace that source with the station's capture source for live audio.
 Each pipeline keeps its raw S16LE `record-sink` branch for FLAC recording;
 encoded transport packets remain length-framed.
 
-Headless validation: `bash tests/fwdsp/test_codec_roundtrip.sh` checks all five
+Headless validation: `bash tests/fwdsp/test_codec_roundtrip.sh` checks all six
 codecs in both configurations and the built-in defaults, including fragmented
 and coalesced transport writes. `bash tests/rrclient/test_codec_commands.sh`
 checks command selection, channel targeting, NONE and re-enabling.
 `bash tests/fwdsp/test_switching.sh` exercises repeated switches with real
 subprocesses, paused encoder reuse, subscriber-driven resume and child-exit
 cleanup. It also checks that buffered packets from retired codecs cannot be
-forwarded after a switch.
+forwarded after a switch, and decodes Ogg following reuse and late joins.
+`python3 tests/fwdsp/opus_continuity.py` checks packet/sample retention from
+normal 1024-sample capture buffers; a nonzero-audio check alone misses blips.
+The worker drains queued samples without a per-packet delay, and encoded
+appsinks use backpressure rather than dropping codec packets or stream headers.
+`bash tests/rrclient/test_completion.sh` and
+`node tests/rrclient/web_completion.js` check parameter completion.
 These checks do not establish that live Opus playback works on a particular
 sound device.

@@ -182,7 +182,17 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
    dict_free(d);
 }
 
+// Late subscribers need container/codec headers before the next media packet.
+static void rrserver_media_subscribed(const char *event, const char *data,
+   rrconn_t *cptr, void *user) {
+   dict *d = data ? json2dict(data) : NULL;
+   const char *uuid = d ? dict_get(d, "media.chan-uuid", NULL) : NULL;
+   if (uuid && cptr) fwdsp_send_stream_headers(uuid, cptr);
+   if (d) dict_free(d);
+}
+
 void rrserver_media_register_events(void) {
+   event_on("media.subscribed", rrserver_media_subscribed, NULL);
    event_on("send-media-channels", rrserver_handle_send_media_channels, NULL);
    event_on("remove-media-channel", rrserver_handle_remove_media_channel, NULL);
    event_on("media.codec-select", rrserver_handle_codec_select, NULL);
