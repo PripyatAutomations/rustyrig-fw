@@ -37,7 +37,7 @@ bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent) {
    if (!sp || sp->fw_control <= 0) {
       return true;
    }
-   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t)sizeof(msg) ? false : true;
 }
 
 bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1) {
@@ -51,7 +51,7 @@ bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1) {
    if (!sp || sp->fw_control <= 0) {
       return true;
    }
-   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t)sizeof(msg) ? false : true;
 }
 
 
@@ -75,7 +75,7 @@ static bool fwdsp_cmd_record(const char codec_id[5], bool is_tx,
       return true;
    }
 
-   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t)sizeof(msg) ? false : true;
 }
 
 bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx,
