@@ -9,7 +9,8 @@ import sys
 import tempfile
 import time
 
-CODECS = ('pc16', 'g722', 'mu16', 'mu08', 'opus', 'oggv')
+BASE_CODECS = ('pc16', 'g722', 'mu16', 'mu08', 'opus', 'oggv')
+CODECS = BASE_CODECS + tuple(codec[:3] + 'T' for codec in BASE_CODECS)
 ROOT = Path.cwd()
 ENV = dict(os.environ, LD_LIBRARY_PATH=str(ROOT))
 
@@ -27,7 +28,7 @@ def frames(data):
 
 def config_pipelines(path):
     text = re.sub(r'\\\n\s*', ' ', Path(path).read_text())
-    return dict(re.findall(r'^((?:pc16|g722|mu16|mu08|opus|oggv)\.(?:tx|rx))=(.*)$', text, re.M))
+    return dict(re.findall(r'^([A-Za-z0-9]{4}\.(?:tx|rx))=(.*)$', text, re.M))
 
 
 with tempfile.TemporaryDirectory(prefix='fwdsp-codecs-') as temp:
@@ -37,24 +38,41 @@ with tempfile.TemporaryDirectory(prefix='fwdsp-codecs-') as temp:
     source.write_text('''#include <stdio.h>
 #include "fwdsp/default-pipelines.h"
 struct entry { const char *key, *value, *description; };
-static struct entry defaults[] = { FWDSP_AUDIO_PIPELINE_DEFAULTS };
+#ifndef TEST_SOURCE
+#define TEST_SOURCE FWDSP_CAPTURE_SOURCE
+#endif
+static struct entry defaults[] = { FWDSP_AUDIO_PIPELINE_DEFAULTS(TEST_SOURCE) };
 int main(void) {
    for (unsigned i = 0; i < sizeof(defaults)/sizeof(defaults[0]); i++)
       printf("%s\\t%s\\n", defaults[i].key + 9, defaults[i].value);
 }
 ''')
-    subprocess.run(shlex.split(os.environ.get('CC', 'cc')) +
-                   ['-I.', str(source), '-o', str(work / 'defaults')], check=True)
-    defaults = dict(line.split('\t', 1) for line in
-                    subprocess.check_output([str(work / 'defaults')], text=True).splitlines())
     sources = [('client', config_pipelines('config/rrclient.cfg')),
-               ('server', config_pipelines('config/rrserver.cfg')), ('defaults', defaults)]
+               ('server', config_pipelines('config/rrserver.cfg'))]
+    for role, macro in [('client', 'FWDSP_CAPTURE_SOURCE'), ('server', 'FWDSP_NOISE_SOURCE')]:
+        subprocess.run(shlex.split(os.environ.get('CC', 'cc')) +
+                       ['-I.', '-DTEST_SOURCE=' + macro, str(source), '-o', str(work / 'defaults')], check=True)
+        defaults = dict(line.split('\t', 1) for line in
+                        subprocess.check_output([str(work / 'defaults')], text=True).splitlines())
+        for codec in CODECS:
+            for direction in ('rx', 'tx'):
+                key = codec + '.' + direction
+                normalize = lambda value: ' '.join(value.split())
+                assert normalize(defaults[key]) == normalize(sources[role == 'server'][1][key]), (role, key)
+        sources.append(('defaults-' + role, defaults))
     for label, pipelines in sources:
         for codec in CODECS:
             tx = pipelines[codec + '.tx']
             rx = pipelines[codec + '.rx']
             # Keep codec elements/caps/recording branches, replacing hardware
             # with a finite source and an output sink we can validate.
+            if codec.endswith('T'):
+                assert tx.startswith('audiotestsrc ') and 'wave=sine' in tx and 'freq=600' in tx
+            elif 'client' in label:
+                assert tx.startswith('pulsesrc ') and 'audioconvert ! audioresample' in tx
+                tx = re.sub(r'^pulsesrc[^!]*', 'audiotestsrc is-live=true wave=sine freq=600 ', tx)
+            else:
+                assert tx.startswith('audiotestsrc ') and 'wave=pink-noise' in tx and 'volume=0.15' in tx
             tx = re.sub(r'\bsamplesperbuffer=\d+\s*', '', tx)
             tx = tx.replace('audiotestsrc ', 'audiotestsrc num-buffers=40 samplesperbuffer=160 ', 1)
             rx, replacements = re.subn(r'pulsesink\s+[^!]+?(?=\s+t\.|$)',

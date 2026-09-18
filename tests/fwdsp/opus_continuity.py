@@ -21,7 +21,7 @@ def frames(data):
 
 with tempfile.TemporaryDirectory() as temp:
     work = Path(temp)
-    tx = pipelines['opus.tx'].replace('audiotestsrc ', 'audiotestsrc num-buffers=32 samplesperbuffer=1024 ', 1)
+    tx = re.sub(r'^pulsesrc[^!]*', 'audiotestsrc num-buffers=32 samplesperbuffer=1024 is-live=true wave=sine freq=600 ', pipelines['opus.tx'])
     rx = re.sub(r'pulsesink\s+[^!]+?(?=\s+t\.|$)', 'appsink name=rx-sink sync=false', pipelines['opus.rx'], count=1)
     cfg = work / 'test.cfg'
     cfg.write_text(f'[fwdsp]\nlog.file=-\n[pipelines]\nopus.tx={tx}\nopus.rx={rx}\n')

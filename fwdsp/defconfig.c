@@ -37,7 +37,7 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
 defconfig_t defcfg[] = {
-   FWDSP_AUDIO_PIPELINE_DEFAULTS
+   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_CAPTURE_SOURCE)
    {
       "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codec order"
    },

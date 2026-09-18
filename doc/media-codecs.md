@@ -13,6 +13,24 @@ provide these mono codecs:
 | `opus` | Opus, 20 ms frames | 16 kHz input | 24 kbit/s CBR |
 | `oggv` | Ogg/Vorbis | 16 kHz | Variable, quality 0.3 |
 
+Each format also has a tone variant, made by replacing the last character
+of its ID with uppercase `T`:
+
+| Normal | Tone |
+|---|---|
+| `pc16` | `pc1T` |
+| `g722` | `g72T` |
+| `mu16` | `mu1T` |
+| `mu08` | `mu0T` |
+| `opus` | `opuT` |
+| `oggv` | `oggT` |
+
+Tone variants retain the 600 Hz sine source on both client and server.
+They use the same encoding, decoding and recording branches as their normal
+counterparts, but have independent pipeline IDs. They are listed after normal
+codecs so automatic negotiation does not prefer a test tone. Commands accept
+any letter case and send the canonical negotiated ID, including uppercase `T`.
+
 G.722 uses GStreamer's `avenc_g722` and `avdec_g722` from gst-libav.
 Mu-law uses `mulawenc` and `mulawdec`. Both endpoints need the plugins
 for the selected codec; negotiation lists configured codecs, not an inventory
@@ -48,6 +66,7 @@ These commands work in both native client views:
 /txcodec mu16 #2
 /rxcodec mu08 <channel-uuid>
 /rxcodec oggv
+/rxcodec opuT
 /rxcodec NONE
 ```
 
@@ -91,19 +110,31 @@ fwdsp. Keep those defaults and the supplied configurations synchronized.
 `codecs.allowed` controls advertisement; client `audio.prefer-codecs` controls
 preference. Restart after editing configuration.
 
-The supplied TX pipelines retain the existing `audiotestsrc` test tone.
-Replace that source with the station's capture source for live audio.
+The client's normal TX pipelines use `pulsesrc` with the default local sound
+input, followed by conversion/resampling to the codec's mono sample format.
+To choose a particular input, set `device=<source-name>` on `pulsesrc` in the
+client pipelines. RX pipelines still play through the configured sound output.
+
+The server's normal encoding pipelines use pink noise at source amplitude
+0.15 for testing. Replace that source with station capture when connecting the
+radio audio. Server `.tx` means encoding audio for client reception, not RF TX.
+The shared built-in defaults select the same sources as the supplied config
+files. The manager passes its resolved pipeline to fwdsp with `-p` so parent
+defaults are respected even when the config file omits pipeline entries.
 Each pipeline keeps its raw S16LE `record-sink` branch for FLAC recording;
 encoded transport packets remain length-framed.
 
-Headless validation: `bash tests/fwdsp/test_codec_roundtrip.sh` checks all six
-codecs in both configurations and the built-in defaults, including fragmented
+Headless validation: `bash tests/fwdsp/test_codec_roundtrip.sh` checks all twelve
+IDs in both configurations and each application's built-in defaults, including fragmented
 and coalesced transport writes. `bash tests/rrclient/test_codec_commands.sh`
 checks command selection, channel targeting, NONE and re-enabling.
 `bash tests/fwdsp/test_switching.sh` exercises repeated switches with real
 subprocesses, paused encoder reuse, subscriber-driven resume and child-exit
 cleanup. It also checks that buffered packets from retired codecs cannot be
 forwarded after a switch, and decodes Ogg following reuse and late joins.
+It also checks that a parent-selected pipeline overrides child defaults/config.
+Roundtrip tests replace client sound capture with a finite test source; actual
+sound-card capture needs a running audio server and is not covered headlessly.
 `python3 tests/fwdsp/opus_continuity.py` checks packet/sample retention from
 normal 1024-sample capture buffers; a nonzero-audio check alone misses blips.
 The worker drains queued samples without a per-packet delay, and encoded

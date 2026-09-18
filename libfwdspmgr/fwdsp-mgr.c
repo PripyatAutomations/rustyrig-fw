@@ -607,6 +607,12 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 
    const char *fwdsp_path = cfg_get_exp("fwdsp.path");
    const char *fwdsp_config = config_file;
+   char pipeline_key[64];
+   snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->pl_id,
+      sp->is_tx ? "tx" : "rx");
+   // Parent defaults differ: client capture versus server test noise. Pass the
+   // resolved pipeline so the child does not substitute its standalone defaults.
+   const char *child_pipeline = cfg_get(pipeline_key);
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp bin");
 
@@ -665,6 +671,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
             "-f", fwdsp_config,
             "-c", sp->pl_id,
             "-C", "3",
+            "-p", child_pipeline ? child_pipeline : "",
             "-t",
             NULL);
       } else if (sp->is_video) {
@@ -672,6 +679,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
             "-f", fwdsp_config,
             "-c", sp->pl_id,
             "-C", "3",
+            "-p", child_pipeline ? child_pipeline : "",
             "-v",
             "-t",
             NULL);
@@ -680,6 +688,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
             "-f", fwdsp_config,
             "-c", sp->pl_id,
             "-C", "3",
+            "-p", child_pipeline ? child_pipeline : "",
             NULL);
       }
 

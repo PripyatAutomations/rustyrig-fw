@@ -13,6 +13,10 @@ struct rr_mediachan media_channels[MAX_MEDIA_CHANNELS];
 rrconn_t *http_client_list;
 static unsigned frames_received, decoded_samples;
 static bool feed_decoder = true;
+static const char *parent_pipeline;
+const char *cfg_get(const char *key) {
+   return !strcmp(key, "pipeline:pc1T.tx") ? parent_pipeline : NULL;
+}
 void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {
    if (level > LOG_WARN) return;
    va_list ap;
@@ -115,6 +119,17 @@ int main(int argc, char **argv) {
    assert(!fwdsp_find_instance(old, false));
    for (int i = 0; i < max_subprocs; i++) fwdsp_destroy(&fwdsp_subprocs[i]);
    poll_for(50);
+   assert(!active_slots && !mg_mgr.conns);
+   // The parent's resolved pipeline must override the child's config/defaults.
+   // A finite source proves the override was used: the file has an endless tone.
+   parent_pipeline = "audiotestsrc num-buffers=5 samplesperbuffer=320 is-live=true ! "
+      "audio/x-raw,format=S16LE,rate=16000,channels=1 ! "
+      "appsink name=tx-sink sync=false";
+   memcpy(media_channels[0].codec, "pc1T", 5);
+   frames_received = 0;
+   assert(fwdsp_codec_start("pc1T", true, "channel") >= 0);
+   poll_for(1000);
+   assert(frames_received >= 4 && frames_received <= 5);
    assert(!active_slots && !mg_mgr.conns);
    mg_mgr_free(&mg_mgr);
    free(fwdsp_subprocs);

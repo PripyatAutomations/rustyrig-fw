@@ -65,7 +65,7 @@ extern char **client_cmd_completions(const char *line, const char *word); // cmd
 extern bool cfg_servers_init(void) __attribute__((weak));   // cfg.servers.c (optional: IRC server list)
 extern bool cfg_network_save_init(void);  // cfg.network.c
 extern const char *config_file;           // librustyaxe/config.c
-
+extern bool tui_over_ssh;		// librustyaxe/tui.c
 struct timespec mono_now;
 bool rrclient_cleanup(void);
 const char *cfg_debug_audio = NULL;
@@ -319,7 +319,8 @@ bool rrclient_cleanup(void) {
 }
 
 void show_arg_help(int argc, char **argv) {
-   printf("%s [-T] [-f config] [-s server] [-h]\n", argv[0]);
+   printf("%s [-T] [-f config] [-s server] [-S] [-h]\n", argv[0]);
+   printf("\t-S\t\tssh mode (implies -T; throttle screen updates)\n");
    printf("\t-T\t\tTUI only mode (no X11)\n");
    printf("\t-f config\tChose an alternative configuration file\n");
    printf("\t-s server\tServer profile to autoconnect to on start\n");
@@ -383,6 +384,7 @@ int main(int argc, char *argv[]) {
          { "config", required_argument, 0, 'f' },
          { "tui", no_argument, 0, 'T' },
          { "server", required_argument, 0, 's' },
+         { "ssh", no_argument, 0, 's' },
          { "help", no_argument, 0, 'h' },
          { 0, 0, 0, 0 }
       };
@@ -397,6 +399,13 @@ int main(int argc, char *argv[]) {
          case 'f': {
             printf("Using config file: %s\n", optarg);
             config_file = strdup(optarg);
+            break;
+         }
+
+         case 'S': {
+            printf("Setting ssh mode!\n");
+            tui_over_ssh = true;
+            tui_over_ssh = UI_MODE_TUI;
             break;
          }
 

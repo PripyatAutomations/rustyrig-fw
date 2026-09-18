@@ -9,7 +9,7 @@ client_cmd_t client_cmds[] = {
 };
 static bool admin;
 bool media_have_priv(const char *p) { return admin; }
-const char *media_get_common_codecs(void) { return "pc16 opus g722 oggv"; }
+const char *media_get_common_codecs(void) { return "pc16 opus g722 oggv opuT"; }
 static struct rr_client_media_chan channels[] = {
    {.uuid="rx-active", .subsystem=1, .direction=0, .subscribed=true},
    {.uuid="rx-disabled", .subsystem=1, .direction=0, .disabled=true},
@@ -37,6 +37,7 @@ int main(void) {
    check("/rx", "/rx", "/rxcodec");
    check("/rxcodec ", "", "NONE");
    check("/rxcodec OP", "OP", "opus");
+   check("/rxcodec opu", "opu", "opuT");
    check("/rxcodec opus ", "", "rx-active");
    check("/rxcodec opus rx-d", "rx-d", "rx-disabled");
    check("/rxcodec opus rx-o", "rx-o", NULL);

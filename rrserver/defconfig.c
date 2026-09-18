@@ -37,7 +37,7 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
-   FWDSP_AUDIO_PIPELINE_DEFAULTS
+   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_NOISE_SOURCE)
    { "audio.debug", "false", "Debug audio? [bool]" },
    { "atu.max", "4", "Maximum number of ATUs" },
    { "backend.active", "internal", "Backend to use for rig control" },

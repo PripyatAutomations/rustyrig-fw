@@ -4,7 +4,7 @@ cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # Real codec elements, with no sound device required for decoder lifecycle tests.
-sed 's/pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false/appsink name=rx-sink sync=false/g' config/rrclient.cfg > "$work/test.cfg"
+sed 's/pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false/appsink name=rx-sink sync=false/g' config/rrserver.cfg > "$work/test.cfg"
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
    ${SWITCHING_CFLAGS:-} tests/fwdsp/switching.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe -lrrprotocol -o "$work/switching"

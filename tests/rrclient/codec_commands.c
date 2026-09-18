@@ -21,7 +21,7 @@ bool ui_print(const char *window, const char *fmt, ...) {
    return false;
 }
 char vfo_state_get_active(void) { return 'A'; }
-const char *media_get_common_codecs(void) { return "pc16 g722 mu16 mu08 opus"; }
+const char *media_get_common_codecs(void) { return "pc16 g722 mu16 mu08 opus opuT"; }
 const char *media_get_preferred_codec(void) { return "pc16"; }
 bool audio_switch_codec(const char *codec, bool tx) {
    snprintf(local_codec[tx], sizeof(local_codec[tx]), "%s", codec);
@@ -105,6 +105,11 @@ int main(void) {
    rrclient_handle_media_conn("disconnected", NULL, ws_conn, NULL);
    assert(!local_codec[0][0] && !local_codec[1][0] && !direction_disabled[0]);
    assert(cmd_txcodec(2, tx));
+   media_ready = true;
+   known_chans[0] = (struct rr_media_known){.uuid="rx-tone", .subsystem=1, .direction=0, .subscribed=true};
+   char *tone[] = {"rxcodec", "oput"};
+   assert(!cmd_rxcodec(2, tone));
+   assert(!strcmp(last_codec, "opuT"));
    puts("PASS: codec commands, UUID targeting, NONE, re-enable, and disconnect");
    return 0;
 }

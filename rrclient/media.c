@@ -139,10 +139,10 @@ static void media_sync_audio(void) {
    event_emit("client.media.changed", ws_conn, "");
 }
 
-static bool media_codec_supported(const char *codec) {
+static const char *media_codec_supported(const char *codec) {
    const char *list = media_get_common_codecs();
    if (!list || !codec || strlen(codec) != 4) {
-      return false;
+      return NULL;
    }
    while (*list) {
       while (*list == ' ') {
@@ -151,14 +151,14 @@ static bool media_codec_supported(const char *codec) {
       const char *end = strchr(list, ' ');
       size_t len = end ? (size_t)(end - list) : strlen(list);
       if (len == 4 && strncasecmp(codec, list, 4) == 0) {
-         return true;
+         return list;
       }
       if (!end) {
          break;
       }
       list = end + 1;
    }
-   return false;
+   return NULL;
 }
 
 // NONE is local subscription intent, never an encoded format on the wire.
@@ -169,7 +169,8 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
       return true;
    }
    bool none = strcasecmp(codec, "none") == 0;
-   if (!none && !media_codec_supported(codec)) {
+   const char *canonical = media_codec_supported(codec);
+   if (!none && !canonical) {
       ui_print(NULL, "Codec %s is not in the negotiated codec list", codec);
       return true;
    }
@@ -179,8 +180,9 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
       return true;
    }
    char normalized[5] = { 0 };
-   for (int i = 0 ; i < 4 ; i++) {
-      normalized[i] = (char)tolower((unsigned char)codec[i]);
+   if (canonical) {
+      // User input is case-insensitive; preserve the negotiated wire ID (e.g. opuT).
+      memcpy(normalized, canonical, 4);
    }
    uint8_t direction = is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX;
    bool sent = false, failed = false;

@@ -844,8 +844,9 @@ int main(int argc, char *argv[]) {
    logfp = stderr;
    now = time(NULL);
 
+   const char *parent_pipeline = NULL;
    int opt;
-   while ( (opt = getopt(argc, argv, "C:c:f:htv") ) != -1) {
+   while ( (opt = getopt(argc, argv, "C:c:f:p:htv") ) != -1) {
       switch (opt) {
          case 'C': {
             control_fd = atoi(optarg);
@@ -871,6 +872,10 @@ int main(int argc, char *argv[]) {
             codec_tx_mode = true;
             break;
          }
+         case 'p': {
+            parent_pipeline = *optarg ? optarg : NULL;
+            break;
+         }
          case 'v': {
             config_video = true;
             break;
@@ -880,6 +885,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-t]\n", argv[0]);
             fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
+            fprintf(stderr, "  -p\t\t\tPipeline selected by the parent (overrides config/defaults)\n");
             fprintf(stderr, "  -t\t\t\tTransmit mode\n");
             fprintf(stderr, "  -v\t\t\tVideo mode\n");
             exit(1);
@@ -961,7 +967,7 @@ int main(int argc, char *argv[]) {
    snprintf( keybuf, sizeof(keybuf), "pipeline:%s.%s", config_codec, (codec_tx_mode ? "tx" : "rx") );
    Log(LOG_DEBUG, "codec", "Selecting pipeline '%s' from config --", keybuf);
 
-   const char *cfg_pipeline = cfg_get(keybuf);
+   const char *cfg_pipeline = parent_pipeline ? parent_pipeline : cfg_get(keybuf);
    if (cfg_pipeline) {
       Log(LOG_DEBUG, "codec", "-> full pipeline:\t%s", cfg_pipeline);
       au_cfg.pipeline = cfg_pipeline;

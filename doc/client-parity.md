@@ -42,6 +42,8 @@ deferred. Shared `/media`, user-targeting, `/quota` and `/syslog` parameter
 completion is mirrored in `js/webui.chat.completion.js` and native
 `rrclient/cmd.completion.c`. Native `/rxcodec` and `/txcodec` completion follows
 the existing native-only media controls. GTK and TUI share the same provider.
+The `pc1T`, `g72T`, `mu1T`, `mu0T`, `opuT` and `oggT` tone IDs are native
+pipeline variants; they are not added to browser codec advertisement.
 
 ## What parity means
 
