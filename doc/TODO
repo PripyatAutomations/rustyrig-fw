@@ -33,3 +33,5 @@ rrclient: tui - Lets make the top status line (where we show the window name) in
 fwdsp: Recordings triggered by control pipe commands
   - Send metadata & target filename
   - Ring buffer of audio and a second thread to encode
+
+codec negotiation: Discard codecs without configured pipelines?
