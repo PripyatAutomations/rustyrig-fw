@@ -21,6 +21,7 @@
 // needed
 //
 #include <stdint.h>
+#include <limits.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -138,6 +139,131 @@ static bool write_all(int fd, const uint8_t *data, size_t len) {
    return true;
 }
 
+#define FWDSP_FRAME_HEADER_SIZE 4
+#define FWDSP_MAX_FRAME_SIZE (64U * 1024U * 1024U)
+#define FWDSP_READER_MAX_BUFFER (FWDSP_MAX_FRAME_SIZE + 4096U)
+
+static void frame_length_encode(uint8_t header[FWDSP_FRAME_HEADER_SIZE], uint32_t len) {
+   header[0] = (uint8_t)(len >> 24);
+   header[1] = (uint8_t)(len >> 16);
+   header[2] = (uint8_t)(len >> 8);
+   header[3] = (uint8_t)len;
+}
+
+static uint32_t frame_length_decode(const uint8_t header[FWDSP_FRAME_HEADER_SIZE]) {
+   return ((uint32_t)header[0] << 24) |
+          ((uint32_t)header[1] << 16) |
+          ((uint32_t)header[2] << 8) |
+          (uint32_t)header[3];
+}
+
+static bool write_frame(int fd, const uint8_t *data, size_t len) {
+   uint8_t header[FWDSP_FRAME_HEADER_SIZE];
+
+   if (!data || len == 0 || len > UINT32_MAX || len > FWDSP_MAX_FRAME_SIZE) {
+      return false;
+   }
+
+   frame_length_encode(header, (uint32_t)len);
+
+   if (!write_all(fd, header, sizeof(header))) {
+      return false;
+   }
+
+   return write_all(fd, data, len);
+}
+
+struct fwdsp_frame_reader {
+   uint8_t *buf;
+   size_t len;
+   size_t cap;
+};
+
+static void frame_reader_clear(struct fwdsp_frame_reader *reader) {
+   if (!reader) {
+      return;
+   }
+
+   free(reader->buf);
+   reader->buf = NULL;
+   reader->len = 0;
+   reader->cap = 0;
+}
+
+static bool frame_reader_append(struct fwdsp_frame_reader *reader,
+   const uint8_t *data, size_t len) {
+   if (!reader || !data || len == 0) {
+      return false;
+   }
+
+   if (len > FWDSP_READER_MAX_BUFFER ||
+       reader->len > FWDSP_READER_MAX_BUFFER - len) {
+      return false;
+   }
+
+   size_t needed = reader->len + len;
+
+   if (needed > reader->cap) {
+      size_t newcap = reader->cap ? reader->cap : 4096;
+
+      while (newcap < needed) {
+         if (newcap > FWDSP_READER_MAX_BUFFER / 2) {
+            newcap = FWDSP_READER_MAX_BUFFER;
+            break;
+         }
+         newcap *= 2;
+      }
+
+      uint8_t *newbuf = realloc(reader->buf, newcap);
+      if (!newbuf) {
+         return false;
+      }
+
+      reader->buf = newbuf;
+      reader->cap = newcap;
+   }
+
+   memcpy(reader->buf + reader->len, data, len);
+   reader->len += len;
+   return true;
+}
+
+static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader,
+   GstAppSrc *appsrc) {
+   while (reader->len >= FWDSP_FRAME_HEADER_SIZE) {
+      uint32_t frame_len = frame_length_decode(reader->buf);
+
+      if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE) {
+         Log(LOG_CRIT, "fwdsp", "Invalid framed input length %u", frame_len);
+         return false;
+      }
+
+      size_t total_len = FWDSP_FRAME_HEADER_SIZE + (size_t)frame_len;
+      if (reader->len < total_len) {
+         return true;
+      }
+
+      GstBuffer *buffer = gst_buffer_new_allocate(NULL, frame_len, NULL);
+      if (!buffer) {
+         return false;
+      }
+
+      gst_buffer_fill(buffer, 0, reader->buf + FWDSP_FRAME_HEADER_SIZE,
+         frame_len);
+
+      if (gst_app_src_push_buffer(appsrc, buffer) != GST_FLOW_OK) {
+         return false;
+      }
+
+      reader->len -= total_len;
+      if (reader->len > 0) {
+         memmove(reader->buf, reader->buf + total_len, reader->len);
+      }
+   }
+
+   return true;
+}
+
 #define	STDIN_FD 0
 #define	STDOUT_FD 1
 
@@ -194,6 +320,8 @@ static void run_loop(struct audio_config *cfg) {
       }
 
       GstBus *bus = gst_element_get_bus(pipeline);
+      struct fwdsp_frame_reader input_reader = { 0 };
+
       while (!dying) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 10 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
 
@@ -221,7 +349,7 @@ static void run_loop(struct audio_config *cfg) {
                GstMapInfo map;
 
                if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-                  if (!write_all(STDOUT_FD, map.data, map.size)) {
+                  if (!write_frame(STDOUT_FD, map.data, map.size)) {
                      dying = true;
                   }
                   gst_buffer_unmap(buffer, &map);
@@ -237,14 +365,9 @@ static void run_loop(struct audio_config *cfg) {
                ssize_t bytes = read(STDIN_FD, input, sizeof(input));
 
                if (bytes > 0) {
-                  GstBuffer *buffer = gst_buffer_new_allocate(NULL, (size_t)bytes, NULL);
-                  if (!buffer) {
+                  if (!frame_reader_append(&input_reader, input, (size_t)bytes) ||
+                      !frame_reader_push_appsrc(&input_reader, GST_APP_SRC(appsrc))) {
                      dying = true;
-                  } else {
-                     gst_buffer_fill(buffer, 0, input, (size_t)bytes);
-                     if (gst_app_src_push_buffer(GST_APP_SRC(appsrc), buffer) != GST_FLOW_OK) {
-                        dying = true;
-                     }
                   }
                } else if (bytes == 0) {
                   gst_app_src_end_of_stream(GST_APP_SRC(appsrc));
@@ -280,6 +403,7 @@ static void run_loop(struct audio_config *cfg) {
          gst_object_unref(volume);
       }
 
+      frame_reader_clear(&input_reader);
       cleanup_pipeline(&pipeline);
 
       if (!cfg->persistent) {
@@ -335,7 +459,7 @@ int main(int argc, char *argv[]) {
          case 'c': {
             size_t clen = strlen(optarg);
 
-            if (clen < 0 || clen > 4) {
+            if (clen != 4) {
                fprintf(stderr, "Codec magic (-c) '%s' *must* be exactly 4 characters\n", optarg);
                exit(1);
             } else {

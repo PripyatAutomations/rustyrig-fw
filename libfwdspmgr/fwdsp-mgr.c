@@ -25,6 +25,9 @@
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
+#ifndef _WIN32
+#include <arpa/inet.h>
+#endif
 #define	FWDSP_MAX_SUBPROCS 100
 
 defconfig_t defcfg_fwdsp[] = {
@@ -77,6 +80,56 @@ static void fwdsp_sigchld(int sig) {
    fwdsp_sigchld_pending = 1;
 }
 
+#define FWDSP_FRAME_HEADER_SIZE 4
+#define FWDSP_MAX_FRAME_SIZE (64U * 1024U * 1024U)
+
+static void frame_length_encode(uint8_t header[FWDSP_FRAME_HEADER_SIZE], uint32_t len) {
+   header[0] = (uint8_t)(len >> 24);
+   header[1] = (uint8_t)(len >> 16);
+   header[2] = (uint8_t)(len >> 8);
+   header[3] = (uint8_t)len;
+}
+
+static uint32_t frame_length_decode(const uint8_t header[FWDSP_FRAME_HEADER_SIZE]) {
+   return ((uint32_t)header[0] << 24) |
+          ((uint32_t)header[1] << 16) |
+          ((uint32_t)header[2] << 8) |
+          (uint32_t)header[3];
+}
+
+static bool fwdsp_write_all(int fd, const uint8_t *data, size_t len) {
+   while (len > 0) {
+      ssize_t written = write(fd, data, len);
+
+      if (written > 0) {
+         data += written;
+         len -= (size_t)written;
+      } else if (written < 0 && errno == EINTR) {
+         continue;
+      } else {
+         return false;
+      }
+   }
+
+   return true;
+}
+
+static bool fwdsp_write_frame(int fd, const uint8_t *data, size_t len) {
+   uint8_t header[FWDSP_FRAME_HEADER_SIZE];
+
+   if (!data || len == 0 || len > UINT32_MAX || len > FWDSP_MAX_FRAME_SIZE) {
+      return false;
+   }
+
+   frame_length_encode(header, (uint32_t)len);
+
+   if (!fwdsp_write_all(fd, header, sizeof(header))) {
+      return false;
+   }
+
+   return fwdsp_write_all(fd, data, len);
+}
+
 // Called from the main event loop; reaps dead fwdsp children safely.
 void fwdsp_reap_children(void) {
    if (!fwdsp_sigchld_pending) {
@@ -103,37 +156,94 @@ void fwdsp_reap_children(void) {
 
 static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
    struct fwdsp_io_conn *ctx = c->fn_data;
+
+   (void)ev_data;
+
    if (!ctx) {
       return;
    }
 
    if (ev == MG_EV_READ) {
-      size_t len = ev_data ? *(size_t *)ev_data : c->recv.len;
-      if (len > c->recv.len) {
-         len = c->recv.len;
-      }
-
       if (ctx->is_stderr) {
-         char message[1024];
-         size_t message_len = len < sizeof(message) - 1 ? len : sizeof(message) - 1;
-         memcpy(message, c->recv.buf, message_len);
-         message[message_len] = '\0';
-         Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
-      } else {
-         struct rr_mediachan *channel = ctx->sp->channel_uuid[0] != '\0' ?
-            media_chan_find_uuid(ctx->sp->channel_uuid) : media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
-            ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX, 0, 0);
+         for (;;) {
+            uint8_t *newline = memchr(c->recv.buf, '\n', c->recv.len);
 
-         if (channel) {
-            ws_media_broadcast_subscribed(channel, (const uint8_t *)c->recv.buf, len,
-               ctx->sp->pl_id);
-         } else {
-            Log(LOG_WARN, "fwdsp", "No media channel for %s.%s output",
-               ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
+            if (!newline) {
+               break;
+            }
+
+            size_t line_len = (size_t)(newline - (uint8_t *)c->recv.buf);
+            size_t consumed = line_len + 1;
+
+            if (line_len > 0 && c->recv.buf[line_len - 1] == '\r') {
+               line_len--;
+            }
+
+            char *message = malloc(line_len + 1);
+            if (!message) {
+               Log(LOG_CRIT, "fwdsp", "OOM buffering fwdsp stderr");
+               mg_iobuf_del(&c->recv, 0, consumed);
+               continue;
+            }
+
+            memcpy(message, c->recv.buf, line_len);
+            message[line_len] = '\0';
+            Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
+            free(message);
+
+            mg_iobuf_del(&c->recv, 0, consumed);
+         }
+
+         if (c->recv.len > FWDSP_MAX_FRAME_SIZE) {
+            Log(LOG_WARN, "fwdsp", "Discarding oversized unterminated stderr data");
+            mg_iobuf_del(&c->recv, 0, c->recv.len);
+         }
+      } else {
+         while (c->recv.len >= FWDSP_FRAME_HEADER_SIZE) {
+            uint32_t frame_len = frame_length_decode((const uint8_t *)c->recv.buf);
+
+            if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE) {
+               Log(LOG_CRIT, "fwdsp", "Invalid frame length %u from %s.%s",
+                  frame_len, ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
+               mg_iobuf_del(&c->recv, 0, c->recv.len);
+               break;
+            }
+
+            size_t total_len = FWDSP_FRAME_HEADER_SIZE + (size_t)frame_len;
+            if (c->recv.len < total_len) {
+               break;
+            }
+
+            struct rr_mediachan *channel = ctx->sp->channel_uuid[0] != '\0' ?
+               media_chan_find_uuid(ctx->sp->channel_uuid) :
+               media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
+                  ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX,
+                  0, 0);
+
+            if (channel) {
+               ws_media_broadcast_subscribed(channel,
+                  (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
+                  frame_len, ctx->sp->pl_id);
+            } else {
+               Log(LOG_WARN, "fwdsp", "No media channel for %s.%s output",
+                  ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
+            }
+
+            mg_iobuf_del(&c->recv, 0, total_len);
          }
       }
-      mg_iobuf_del(&c->recv, 0, len);
    } else if (ev == MG_EV_CLOSE) {
+      if (ctx->is_stderr && c->recv.len > 0) {
+         char *message = malloc(c->recv.len + 1);
+
+         if (message) {
+            memcpy(message, c->recv.buf, c->recv.len);
+            message[c->recv.len] = '\0';
+            Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
+            free(message);
+         }
+      }
+
       // Free only the wrapper we allocated in fwdsp_spawn(). ctx->sp points
       // into the shared fwdsp_subprocs array which is managed by the slot
       // allocator and must never be freed here.
@@ -372,6 +482,17 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    return true;
 }
 
+static bool fwdsp_child_dup_fd(int oldfd, int newfd) {
+   if (oldfd == newfd) {
+      return true;
+   }
+
+   if (dup2(oldfd, newfd) < 0) {
+      return false;
+   }
+
+   return true;
+}
 
 //
 // Holy shite batman, there's some scary in here lol
@@ -419,29 +540,77 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (pid == 0) {
       // --- Child ---
       if (sp->io_type == FW_IO_STDIO) {
-         dup2(in_pipe[0], 0);
-         dup2(out_pipe[1], 1);
-         dup2(err_pipe[1], 2);
-         dup2(control_pipe[0], 3);
-         close(in_pipe[1]);
-         close(out_pipe[0]);
-         close(err_pipe[0]);
-         close(control_pipe[1]);
+         /*
+          * Move the child ends to their fixed descriptors.
+          *
+          * stdin   = media input
+          * stdout  = media output
+          * stderr  = logging
+          * fd 3    = control
+          */
+         if (!fwdsp_child_dup_fd(in_pipe[0], STDIN_FILENO) ||
+             !fwdsp_child_dup_fd(out_pipe[1], STDOUT_FILENO) ||
+             !fwdsp_child_dup_fd(err_pipe[1], STDERR_FILENO) ||
+             !fwdsp_child_dup_fd(control_pipe[0], 3)) {
+            _exit(126);
+         }
+
+         /*
+          * Close every socketpair descriptor except descriptors which are now
+          * one of our fixed child descriptors.
+          */
+         int child_fds[] = {
+            in_pipe[0],
+            in_pipe[1],
+            out_pipe[0],
+            out_pipe[1],
+            err_pipe[0],
+            err_pipe[1],
+            control_pipe[0],
+            control_pipe[1]
+         };
+
+         for (size_t i = 0 ;
+              i < sizeof(child_fds) / sizeof(child_fds[0]) ;
+              i++) {
+            int fd = child_fds[i];
+
+            if (fd != STDIN_FILENO &&
+                fd != STDOUT_FILENO &&
+                fd != STDERR_FILENO &&
+                fd != 3) {
+               close(fd);
+            }
+         }
       }
 
       if (sp->is_tx) {
-         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", "-t", NULL);
+         execl(fwdsp_path, fwdsp_path,
+            "-f", fwdsp_config,
+            "-c", sp->pl_id,
+            "-C", "3",
+            "-t",
+            NULL);
       } else if (sp->is_video) {
-         // video pipelines: -v makes fwdsp announce FW_MEDIA_VIDEO and treat
-         // the pipeline as a video (not audio) stream
-         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", "-v", "-t", NULL);
+         execl(fwdsp_path, fwdsp_path,
+            "-f", fwdsp_config,
+            "-c", sp->pl_id,
+            "-C", "3",
+            "-v",
+            "-t",
+            NULL);
       } else {
-         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", NULL);
+         execl(fwdsp_path, fwdsp_path,
+            "-f", fwdsp_config,
+            "-c", sp->pl_id,
+            "-C", "3",
+            NULL);
       }
+
       perror("execl");
       _exit(127);
    }
-    // --- Parent ---
+   // --- Parent ---
    sp->pid = pid;
 
    // cfg_get_exp() returns a malloc'd string we own
@@ -487,13 +656,20 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          }
       }
 
+/* XXX: remove this
       if (sp->fw_stdin) {
          sp->mg_stdin_conn = mg_wrapfd(manager, sp->fw_stdin, NULL, sp);
       }
-
       if (!sp->mg_stdout_conn || !sp->mg_stderr_conn || !sp->mg_stdin_conn) {
          Log(LOG_CRIT, "fwdsp", "Failed to attach fds to event loop for codec %s.%s", sp->pl_id,
             sp->is_tx ? "tx" : "rx");
+         return false;
+      }
+*/
+      if (!sp->mg_stdout_conn || !sp->mg_stderr_conn) {
+         Log(LOG_CRIT, "fwdsp",
+            "Failed to attach fds to event loop for codec %s.%s",
+            sp->pl_id, sp->is_tx ? "tx" : "rx");
          return false;
       }
 #endif	// USE_MONGOOSE
@@ -543,25 +719,95 @@ int fwdsp_get_chan_id(const char *magic, bool is_tx) {
    return (sp) ? sp->chan_id : -1;
 }
 
-bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len) {
+bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
+   const void *data, size_t len) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
    const uint8_t *bytes = data;
 
-   if (!sp || sp->fw_stdin <= 0 || !bytes || len == 0) {
+   if (!sp) {
+      Log(LOG_WARN, "fwdsp",
+         "write_samples: no fwdsp instance for %s.%s",
+         codec_id, is_tx ? "tx" : "rx");
       return true;
    }
 
-   while (len > 0) {
-      ssize_t written = write(sp->fw_stdin, bytes, len);
+   if (sp->fw_stdin <= 0) {
+      Log(LOG_WARN, "fwdsp",
+         "write_samples: %s.%s has invalid stdin fd %d pid %d",
+         codec_id, is_tx ? "tx" : "rx",
+         sp->fw_stdin, sp->pid);
+      return true;
+   }
+
+   if (!bytes || len == 0) {
+      Log(LOG_WARN, "fwdsp",
+         "write_samples: %s.%s got empty frame",
+         codec_id, is_tx ? "tx" : "rx");
+      return true;
+   }
+
+   if (len > UINT32_MAX) {
+      Log(LOG_WARN, "fwdsp",
+         "write_samples: %s.%s frame too large: %zu bytes",
+         codec_id, is_tx ? "tx" : "rx", len);
+      return true;
+   }
+
+   /*
+    * fwdsp stdin is a byte stream, so preserve the media frame boundary
+    * explicitly:
+    *
+    *    uint32_t length, network byte order
+    *    <length bytes of media data>
+    */
+   uint32_t frame_len = htonl((uint32_t)len);
+   const uint8_t *header = (const uint8_t *)&frame_len;
+   size_t remaining = sizeof(frame_len);
+
+   while (remaining > 0) {
+      ssize_t written = write(sp->fw_stdin, header, remaining);
+
       if (written > 0) {
-         bytes += written;
-         len -= (size_t)written;
+         header += written;
+         remaining -= (size_t)written;
       } else if (written < 0 && errno == EINTR) {
          continue;
       } else {
+         int saved_errno = errno;
+
+         Log(LOG_WARN, "fwdsp",
+            "write_samples: header write failed for %s.%s "
+            "fd %d pid %d: errno=%d (%s)",
+            codec_id, is_tx ? "tx" : "rx",
+            sp->fw_stdin, sp->pid,
+            saved_errno, strerror(saved_errno));
          return true;
       }
    }
+
+   remaining = len;
+
+   while (remaining > 0) {
+      ssize_t written = write(sp->fw_stdin, bytes, remaining);
+
+      if (written > 0) {
+         bytes += written;
+         remaining -= (size_t)written;
+      } else if (written < 0 && errno == EINTR) {
+         continue;
+      } else {
+         int saved_errno = errno;
+
+         Log(LOG_WARN, "fwdsp",
+            "write_samples: payload write failed for %s.%s "
+            "fd %d pid %d: errno=%d (%s)",
+            codec_id, is_tx ? "tx" : "rx",
+            sp->fw_stdin, sp->pid,
+            saved_errno, strerror(saved_errno));
+         return true;
+      }
+   }
+
    return false;
 }
 
