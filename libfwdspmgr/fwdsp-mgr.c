@@ -792,7 +792,8 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
    size_t remaining = sizeof(frame_len);
 
    while (remaining > 0) {
-      ssize_t written = write(sp->fw_stdin, header, remaining);
+      /* The child may exit before SIGCHLD is reaped; return EPIPE safely. */
+      ssize_t written = send(sp->fw_stdin, header, remaining, MSG_NOSIGNAL);
 
       if (written > 0) {
          header += written;
@@ -828,7 +829,7 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
    remaining = len;
 
    while (remaining > 0) {
-      ssize_t written = write(sp->fw_stdin, bytes, remaining);
+      ssize_t written = send(sp->fw_stdin, bytes, remaining, MSG_NOSIGNAL);
 
       if (written > 0) {
          bytes += written;
@@ -870,7 +871,7 @@ static bool fwdsp_send_control(struct fwdsp_subproc *sp, uint8_t type, uint8_t v
       .value = value
    };
 
-   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t)sizeof(msg) ? false : true;
 }
 
 static int fwdsp_encoder_hangtime(void) {
