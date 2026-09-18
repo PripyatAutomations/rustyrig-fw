@@ -686,22 +686,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
    Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid);
 
-   // Recording policy is expressed in radio/client media directions. On the
-   // server an RX media channel uses an encoder (fwdsp tx mode), so do not
-   // infer record.rx/record.tx solely from sp->is_tx when a UUID is present.
-   bool record_this = false;
-   if (sp->channel_uuid[0] != '\0') {
-      struct rr_mediachan *channel = media_chan_find_uuid(sp->channel_uuid);
-      if (channel) {
-         record_this = cfg_get_bool(channel->direction == RR_BINFRAME_DIR_TX ?
-            "record.tx" : "record.rx", false);
-      }
-   } else {
-      record_this = cfg_get_bool(sp->is_tx ? "record.tx" : "record.rx", false);
-   }
-   if (record_this) {
-      fwdsp_send_control(sp, FWDSP_CTRL_START_RECORD, 1);
-   }
+   // The application starts recording with its user and radio direction.
 
    return true;
 }

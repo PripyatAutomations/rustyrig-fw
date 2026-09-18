@@ -23,6 +23,7 @@
 #include <rrserver/ptt.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
+#include <libfwdspmgr/fwdsp-ctl.h>
 
 
 static void rrserver_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -302,8 +303,16 @@ static bool rrserver_recording_control(const char *data, bool start) {
    }
 
    bool fwdsp_tx = (channel->direction == RR_BINFRAME_DIR_RX);
+   rrconn_t *talker = whos_talking();
+   const char *who = fwdsp_tx ? "radio" :
+      (talker && talker->ptt_vfo == 'A' + channel->vfo ? talker->chatname : NULL);
+   if (start && (!who || !*who)) {
+      Log(LOG_WARN, "record", "No transmitter for recording on channel %s", channel->uuid);
+      dict_free(d);
+      return true;
+   }
    bool failed = start ?
-      fwdsp_cmd_start_record_channel(codec, fwdsp_tx, channel->uuid) :
+      fwdsp_cmd_start_record_named(codec, fwdsp_tx, channel->uuid, who, !fwdsp_tx) :
       fwdsp_cmd_stop_record_channel(codec, fwdsp_tx, channel->uuid);
 
    if (failed) {

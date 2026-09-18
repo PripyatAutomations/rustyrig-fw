@@ -83,6 +83,26 @@ bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx,
    return fwdsp_cmd_record(codec_id, is_tx, channel_uuid, true);
 }
 
+bool fwdsp_cmd_start_record_named(const char codec_id[5], bool is_tx,
+   const char *channel_uuid, const char *username, bool record_tx) {
+   struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
+      fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid) :
+      fwdsp_find_instance(codec_id, is_tx);
+   struct fwdsp_control_msg msg = {
+      .magic = FWDSP_CTRL_MAGIC,
+      .type = FWDSP_CTRL_START_RECORD,
+      .value = 1,
+      .record_direction = record_tx ? 2 : 1
+   };
+
+   if (!sp || sp->fw_control <= 0 || !username || !*username ||
+       strlen(username) >= sizeof(msg.record_user)) {
+      return true;
+   }
+   snprintf(msg.record_user, sizeof(msg.record_user), "%s", username);
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t)sizeof(msg);
+}
+
 bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx,
    const char *channel_uuid) {
    return fwdsp_cmd_record(codec_id, is_tx, channel_uuid, false);

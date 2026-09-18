@@ -22,9 +22,44 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
+#include <libfwdspmgr/fwdsp-ctl.h>
 #include <rrserver/backend.h>
+#include <rrserver/media.h>
 
 extern time_t now;
+
+// Recording direction describes the radio, not the encoder/decoder process.
+static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker, bool start) {
+   bool tx = channel->direction == RR_BINFRAME_DIR_TX;
+   if (!channel->codec[0] ||
+       !fwdsp_find_channel_instance(channel->codec, !tx, channel->uuid)) {
+      return;
+   }
+   if (start && !cfg_get_bool(tx ? "record.tx" : "record.rx", false)) {
+      return;
+   }
+   if (start && tx && (!talker || !talker->chatname[0])) {
+      return;
+   }
+   bool failed = start ? fwdsp_cmd_start_record_named(channel->codec, !tx,
+      channel->uuid, tx ? talker->chatname : "radio", tx) :
+      fwdsp_cmd_stop_record_channel(channel->codec, !tx, channel->uuid);
+   if (failed) {
+      Log(LOG_WARN, "record", "Unable to %s recording for channel %s",
+         start ? "start" : "stop", channel->uuid);
+   }
+}
+
+void rrserver_media_record_ptt(rr_vfo_t vfo, bool ptt, rrconn_t *talker) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS) {
+      return;
+   }
+   struct rr_mediachan *channel = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
+      RR_BINFRAME_DIR_TX, (uint8_t)vfo, 0);
+   if (channel) {
+      media_record_channel(channel, talker, ptt);
+   }
+}
 
 // Create the TX and RX audio channel for a VFO (if not already made)
 static void media_setup_vfo(rr_vfo_t vfo) {
@@ -134,6 +169,12 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
          codec, (fwdsp_tx ? "tx" : "rx"), channel->uuid);
       dict_free(d);
       return;
+   }
+
+   rrconn_t *talker = whos_talking();
+   if (channel->direction == RR_BINFRAME_DIR_RX ||
+       (talker && talker->ptt_vfo == 'A' + channel->vfo)) {
+      media_record_channel(channel, talker, true);
    }
 
    Log(LOG_INFO, "ws.media", "Active fwdsp pipeline %s.%s (chan %d) for %s channel %s", codec,

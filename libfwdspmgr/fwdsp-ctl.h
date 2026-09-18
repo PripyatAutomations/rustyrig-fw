@@ -11,5 +11,7 @@ extern bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx,
    const char *channel_uuid);
 extern bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx,
    const char *channel_uuid);
+extern bool fwdsp_cmd_start_record_named(const char codec_id[5], bool is_tx,
+   const char *channel_uuid, const char *username, bool record_tx);
 
 #endif // !__libfwdspmgr_fwdsp_ctl_h

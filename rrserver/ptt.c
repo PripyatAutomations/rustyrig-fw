@@ -26,6 +26,7 @@
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
+#include <rrserver/media.h>
 #include <rrserver/timer.h>
 #ifdef	USE_SQLITE
 #include <rrserver/database.h>
@@ -269,6 +270,8 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    // NB: rr_ptt_apply() returns false on SUCCESS, true on failure.
    if (rr_ptt_apply(vfo, ptt) ) {
       Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF") );
+   } else {
+      rrserver_media_record_ptt(vfo, ptt, whos_talking());
    }
 
    // Broadcast immediate cat.state so clients see TX state without waiting

@@ -135,6 +135,8 @@ struct fwdsp_recorder {
 
 static struct fwdsp_recorder recorder = { 0 };
 static bool record_requested = false;
+static char record_user[FWDSP_RECORD_USER_LEN] = "unknown";
+static bool record_tx = false;
 
 time_t now = -1;                 // time() called once a second in main loop to
                                  // update
@@ -144,6 +146,38 @@ static void recorder_reset_ring(struct fwdsp_recorder *rec) {
    rec->write_pos = 0;
    rec->used = 0;
    rec->overflow_logged = false;
+}
+
+// Reserve the name atomically: concurrent channels and quick restarts must
+// never truncate an existing recording. The suffix is only a collision ID.
+static FILE *recorder_open_file(struct fwdsp_recorder *rec) {
+   char base[PATH_MAX];
+   snprintf(base, sizeof(base), "%s", rec->filename);
+   for (unsigned suffix = 0 ; suffix < 1000000 ; suffix++) {
+      int len = suffix ?
+         snprintf(rec->filename, sizeof(rec->filename), "%s.%u.flac", base, suffix) :
+         snprintf(rec->filename, sizeof(rec->filename), "%s.flac", base);
+      if (len < 0 || (size_t)len >= sizeof(rec->filename)) {
+         errno = ENAMETOOLONG;
+         return NULL;
+      }
+      int fd = open(rec->filename, O_CREAT | O_EXCL | O_RDWR, 0666);
+      if (fd >= 0) {
+         FILE *file = fdopen(fd, "w+b");
+         if (!file) {
+            int error = errno;
+            close(fd);
+            unlink(rec->filename);
+            errno = error;
+         }
+         return file;
+      }
+      if (errno != EEXIST) {
+         return NULL;
+      }
+   }
+   errno = EEXIST;
+   return NULL;
 }
 
 static void *recorder_thread_main(void *arg) {
@@ -163,8 +197,15 @@ static void *recorder_thread_main(void *arg) {
    FLAC__stream_encoder_set_sample_rate(enc, rec->sample_rate);
    FLAC__stream_encoder_set_compression_level(enc, 3);
 
-   if (FLAC__stream_encoder_init_file(enc, rec->filename, NULL, NULL) != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
-      Log(LOG_CRIT, "record", "Unable to open recording %s", rec->filename);
+   FILE *file = recorder_open_file(rec);
+   if (!file) {
+      Log(LOG_CRIT, "record", "Unable to create recording %s: %s", rec->filename, strerror(errno));
+      FLAC__stream_encoder_delete(enc);
+      return NULL;
+   }
+   if (FLAC__stream_encoder_init_FILE(enc, file, NULL, NULL) != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
+      Log(LOG_CRIT, "record", "Unable to initialize recording %s", rec->filename);
+      // init_FILE transfers ownership even when initialization fails.
       FLAC__stream_encoder_delete(enc);
       return NULL;
    }
@@ -273,10 +314,22 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
 
    time_t record_now = time(NULL);
    localtime_r(&record_now, &tm_now);
-   strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", &tm_now);
-   snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s-%s-%s.flac",
-      record_dir, stamp, config_codec, codec_tx_mode ? "tx" : "rx");
+   strftime(stamp, sizeof(stamp), "%Y%m%d.%H%M%S", &tm_now);
+   char safe_user[FWDSP_RECORD_USER_LEN];
+   snprintf(safe_user, sizeof(safe_user), "%s", record_user);
+   for (char *p = safe_user ; *p ; p++) {
+      if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+            (*p >= '0' && *p <= '9') || *p == '-' || *p == '_')) {
+         *p = '_';
+      }
+   }
+   int name_len = snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s",
+      record_dir, stamp, safe_user, record_tx ? "tx" : "rx");
    free((char *)record_dir);
+   if (name_len < 0 || (size_t)name_len >= sizeof(recorder.filename)) {
+      Log(LOG_CRIT, "record", "Recording path is too long");
+      return false;
+   }
 
    size_t ring_size = (size_t)cfg_get_int("record.buffer-size", FWDSP_RECORD_RING_SIZE_DEFAULT);
    if (ring_size < FWDSP_RECORD_RING_SIZE_MIN) {
@@ -584,7 +637,10 @@ static void run_loop(struct audio_config *cfg) {
 
       GstBus *bus = gst_element_get_bus(pipeline);
       struct fwdsp_frame_reader input_reader = { 0 };
-      record_requested = false;   // manager applies record.rx/record.tx after spawn
+      struct fwdsp_control_msg control;
+      size_t control_used = 0;
+      record_tx = cfg->tx_mode;
+      record_requested = false;   // application supplies recording policy and identity
 
       while (!dying) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 10 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
@@ -689,11 +745,20 @@ static void run_loop(struct audio_config *cfg) {
 
          if (control_fd >= 0) {
             struct pollfd control_poll = { .fd = control_fd, .events = POLLIN };
-            struct fwdsp_control_msg control;
-
-            if (poll(&control_poll, 1, 0) > 0 &&
-                read(control_fd, &control, sizeof(control)) == (ssize_t)sizeof(control) &&
-                control.magic == FWDSP_CTRL_MAGIC) {
+            if (poll(&control_poll, 1, 0) > 0) {
+               ssize_t got = read(control_fd, (uint8_t *)&control + control_used,
+                  sizeof(control) - control_used);
+               if (got > 0) {
+                  control_used += (size_t)got;
+               }
+            }
+            if (control_used == sizeof(control)) {
+               control_used = 0;
+               if (control.magic != FWDSP_CTRL_MAGIC) {
+                  Log(LOG_WARN, "fwdsp", "Invalid control message magic");
+                  dying = true;
+                  continue;
+               }
                switch (control.type) {
                   case FWDSP_CTRL_SET_VOLUME:
                      if (volume) {
@@ -707,6 +772,14 @@ static void run_loop(struct audio_config *cfg) {
                            "Recording requested but pipeline %s.%s has no appsink name=record-sink",
                            config_codec, codec_tx_mode ? "tx" : "rx");
                      } else {
+                        control.record_user[sizeof(control.record_user) - 1] = '\0';
+                        const char *who = control.record_user[0] ? control.record_user : "unknown";
+                        bool tx = control.record_direction ? control.record_direction == 2 : cfg->tx_mode;
+                        if (recorder.running && (strcmp(record_user, who) != 0 || record_tx != tx)) {
+                           recorder_stop();
+                        }
+                        snprintf(record_user, sizeof(record_user), "%s", who);
+                        record_tx = tx;
                         record_requested = true;
                      }
                      break;

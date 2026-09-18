@@ -30,12 +30,17 @@ struct fwdsp_io_conn {
 #define	FWDSP_CTRL_FLUSH	  6     // Flush the buffer
 #define	FWDSP_CTRL_START_RECORD	  7	// Start recording the raw audio
 #define FWDSP_CTRL_STOP_RECORD    8     // Stop recording the raw audio
+#define FWDSP_RECORD_USER_LEN     64
 
 struct fwdsp_control_msg {
    uint32_t magic;
    uint8_t type;
    uint8_t value;
    uint16_t reserved;
+   // START_RECORD only: direction + 1 (0 means unspecified), and identity.
+   // Local manager/child IPC; rebuild fwdsp and libfwdspmgr together.
+   uint8_t record_direction;
+   char record_user[FWDSP_RECORD_USER_LEN];
 };
 
 struct fwdsp_subproc {
