@@ -33,17 +33,16 @@
 defconfig_t defcfg_fwdsp[] = {
    { "codecs.allowed", "opus pc16 mu16 mu08", "Preferred codecs" },
 #ifdef _WIN32
-   { "path.fwdsp", "bin/fwdsp.exe", "Path to fwdsp binary" },
+   { "fwdsp.path", "bin/fwdsp.exe", "Path to fwdsp binary" },
 #else
-   { "path.fwdsp", "bin/fwdsp", "Path to fwdsp binary" },
+   { "fwdsp.path", "bin/fwdsp", "Path to fwdsp binary" },
 #endif
-   { "path.fwdsp.config", "config/fwdsp.cfg", "Path to fwdsp configuration" },
-   { "path.record-dir", "./recordings", "Path to audio recordings" },
-   { "record.rx", "false", "Record received audio" },
-   { "record.tx", "false", "Record transmitted audio" },
+   { "fwdsp.recording.path", "./recordings", "Path to audio recordings" },
+   { "fwdsp.recording.rx", "false", "Record received audio" },
+   { "fwdsp.recording.tx", "false", "Record transmitted audio" },
    { "fwdsp.subproc.max", "16", "Maximum allowed de/encoder processes" },
    { "fwdsp.hangtime", "60", "How long to keep unused encoders alive after last use; decoders stop immediately" },
-   { "subproc.debug", "false", "Show extra debug messages" },
+   { "fwdsp.subproc.debug", "false", "Show extra debug messages" },
    { NULL, NULL, NULL }
 };
 
@@ -305,9 +304,9 @@ bool fwdsp_init(void) {
    fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
 
    // Find the fwdsp path
-   fwdsp_path = cfg_get_exp("path.fwdsp");
+   fwdsp_path = cfg_get_exp("fwdsp.path");
    if (!fwdsp_path) {
-      Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp binary");
+      Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp binary");
       return true;
    }
    fwdsp_mgr_ready = true;
@@ -539,10 +538,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       return false;
    }
 
-   const char *fwdsp_path = cfg_get_exp("path.fwdsp");
+   const char *fwdsp_path = cfg_get_exp("fwdsp.path");
    const char *fwdsp_config = config_file;
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
-      Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp bin");
+      Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp bin");
 
       return false;
    }

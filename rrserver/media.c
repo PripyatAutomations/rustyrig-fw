@@ -35,7 +35,7 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
        !fwdsp_find_channel_instance(channel->codec, !tx, channel->uuid)) {
       return;
    }
-   if (start && !cfg_get_bool(tx ? "record.tx" : "record.rx", false)) {
+   if (start && !cfg_get_bool(tx ? "fwdsp.recording.tx" : "fwdsp.recording.rx", false)) {
       return;
    }
    if (start && tx && (!talker || !talker->chatname[0])) {

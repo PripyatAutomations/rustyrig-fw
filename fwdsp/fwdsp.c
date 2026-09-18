@@ -43,6 +43,7 @@
 #include <librustyaxe/core.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <fwdsp/fwdsp-shared.h>
+#include <librrprotocol/cfg.fwdsp.h>
 
 extern const char **configs;
 extern const int num_configs;
@@ -56,62 +57,20 @@ const char *logfile = "./fwdsp.log";
 bool codec_tx_mode = false;
 bool config_video = false;               // is this audio or video stream?
 bool dying = false;
+bool restarting = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
 
 time_t now = -1;                 // time() called once a second in main loop to
                                  // update
 
-// Store [pipeline] section keys as pipeline:<codec>.<dir> -- the format
-// looked up by cfg_get() below. Mirrors rrserver/cfg.fwdsp.c
-// config_pipeline_section_cb().
-static bool config_pipeline_section_cb(const char *path, int line, const char *section, const char *buf) {
-   if (!buf || section == NULL || strncasecmp(section, "pipeline", 8) != 0) {
-      return true;
-   }
-
-   char *tmpbuf = strdup(buf);
-   if (!tmpbuf) {
-      Log(LOG_CRIT, "cfg.fwdsp", "OOM in config_pipeline_section_cb!");
-      return true;
-   }
-
-   char *val = strchr(tmpbuf, '=');
-   if (!val || !val[1]) {
-      Log(LOG_CRIT, "cfg.fwdsp", "config error: pipeline entry missing value: %s", buf);
-      free(tmpbuf);
-      return false;
-   }
-   *val++ = '\0';
-   while (*val == ' ' || *val == '\t') {
-      val++;
-   }
-
-   // trim trailing whitespace
-   char *end = val + strlen(val) - 1;
-   while (end >= val && (*end == ' ' || *end == '\t')) {
-      *end-- = '\0';
-   }
-
-   // trim key whitespace
-   char *kend = tmpbuf + strlen(tmpbuf) - 1;
-   while (kend >= tmpbuf && (*kend == ' ' || *kend == '\t')) {
-      *kend-- = '\0';
-   }
-
-   // Accept both "pc16.rx" and "pipeline:pc16.rx" spellings
-   const char *id = tmpbuf;
-   if (strncmp(id, "pipeline:", 9) == 0) {
-      id += 9;
-   }
-
-   char fullkey[128];
-   snprintf(fullkey, sizeof(fullkey), "pipeline:%s", id);
-   dict_add(cfg, fullkey, val);
-   Log(LOG_DEBUG, "cfg.fwdsp", "Loaded %s from config", fullkey);
-   free(tmpbuf);
-   return false;
-}
+// Use the same section callbacks as rrclient/rrserver.  The child receives
+// the parent application's config file with -f, so there is one source of
+// truth for [fwdsp] settings and [pipelines].
+extern bool config_fwdsp_section_cb(const char *path, int line,
+   const char *section, const char *buf);
+extern bool config_pipeline_section_cb(const char *path, int line,
+   const char *section, const char *buf);
 
 #define FWDSP_RECORD_RING_SIZE_DEFAULT (512U * 1024U)
 #define FWDSP_RECORD_RING_SIZE_MIN     4096U
@@ -298,7 +257,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return false;
    }
 
-   record_dir = cfg_get_exp("path.record-dir");
+   record_dir = cfg_get_exp("fwdsp.recording.path");
    if (!record_dir || !*record_dir) {
       free((char *)record_dir);
       record_dir = strdup("./recordings");
@@ -330,7 +289,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return false;
    }
 
-   size_t ring_size = (size_t)cfg_get_int("record.buffer-size", FWDSP_RECORD_RING_SIZE_DEFAULT);
+   size_t ring_size = (size_t)cfg_get_int("fwdsp.recording.buffer-size", FWDSP_RECORD_RING_SIZE_DEFAULT);
    if (ring_size < FWDSP_RECORD_RING_SIZE_MIN) {
       ring_size = FWDSP_RECORD_RING_SIZE_MIN;
    }
@@ -924,7 +883,9 @@ int main(int argc, char *argv[]) {
    int cfg_entries = (sizeof(configs) / sizeof(char *) );
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
+   cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
    cfg_add_callback(NULL, "pipeline", config_pipeline_section_cb);
+   cfg_add_callback(NULL, "pipelines", config_pipeline_section_cb);
 
    // If the user specified a config, apply it, else try to find one in a sane
    // place
@@ -935,25 +896,11 @@ int main(int argc, char *argv[]) {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
       }
    } else {
-      const char *fullpath = "config/fwdsp.cfg";
-
-      if (fullpath) {
-         config_file = strdup(fullpath);
-         if (!(cfg = cfg_load(config_file) ) ) {
-            Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
-         } else {
-            Log(LOG_DEBUG, "config", "Loaded config from '%s'", fullpath);
-         }
-         empty_config = false;
-      } else {
-         // Use default settings and save it to ~/.config/rrclient.cfg
-         cfg = default_cfg;
-         empty_config = true;
-         fprintf(stderr, "No config found :(\n");
-         exit(1);
-      }
+      Log(LOG_CRIT, "core",
+         "fwdsp requires -f with the parent application's config file");
+      exit(1);
    }
-   const char *logfile = cfg_get_exp("log.file");
+   const char *logfile = cfg_get_exp("fwdsp.log.file");
    logger_init( (logfile ? logfile : "-"), false);
    log_stdout = false;
 
@@ -969,7 +916,7 @@ int main(int argc, char *argv[]) {
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
-   const char *cfg_audio_debug = cfg_get("fwdsp:audio.debug");
+   const char *cfg_audio_debug = cfg_get("fwdsp.audio.debug");
 
    if (cfg_audio_debug) {
       setenv("GST_DEBUG", cfg_audio_debug, 0);
