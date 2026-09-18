@@ -93,10 +93,13 @@ extern int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *cha
 extern bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len);
 extern bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent);
 extern bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1);
-extern bool fwdsp_cmd_start_record(const char codec_id[5], bool is_tx, int unused1);
-extern bool fwdsp_cmd_stop_record(const char codec_id[5], bool is_tx, int unused1);
 extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
 extern int fwdsp_codec_stop(const char *codec, bool is_tx);
+extern int fwdsp_codec_stop_channel(const char *codec, bool is_tx, const char *channel_uuid);
+extern int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx, const char *channel_uuid);
+extern struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is_tx, const char *channel_uuid);
+extern bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx, const char *channel_uuid);
+extern bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx, const char *channel_uuid);
 extern struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx);
 
 #endif // !defined(__rr_fwdsp_mgr_h)

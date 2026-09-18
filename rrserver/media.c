@@ -113,30 +113,31 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
       return;
    }
    const char *codec = dict_get(d, "media.codec", NULL);
-   uint32_t dir = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_RX);
+   const char *old_codec = dict_get(d, "media.old-codec", NULL);
+   const char *channel_uuid = dict_get(d, "media.chan-uuid", NULL);
+   struct rr_mediachan *channel = channel_uuid ? media_chan_find_uuid(channel_uuid) : NULL;
 
-   if (!codec || strlen(codec) != 4) {
-      Log(LOG_WARN, "ws.media", "codec-select without a 4-char codec magic");
+   if (!codec || strlen(codec) != 4 || !channel) {
+      Log(LOG_WARN, "ws.media", "codec-select without a valid codec/channel");
       dict_free(d);
       return;
    }
-   bool is_tx = (dir == RR_BINFRAME_DIR_TX);
-   bool fwdsp_tx = !is_tx;
-   const char *channel_uuid = dict_get(d, "media.chan-uuid", NULL);
-   struct rr_mediachan *channel = channel_uuid ? media_chan_find_uuid(channel_uuid) :
-      media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, dir, 0, 0);
-   if (!channel_uuid && channel) {
-      channel_uuid = channel->uuid;
-   }
-   int chan_id = fwdsp_codec_start(codec, fwdsp_tx, channel_uuid);
+
+   // Media direction is from the client's point of view. Server RX-channel
+   // delivery therefore needs an encoder (fwdsp tx mode), while client TX
+   // media needs a decoder (fwdsp rx mode).
+   bool fwdsp_tx = (channel->direction == RR_BINFRAME_DIR_RX);
+   int chan_id = fwdsp_codec_switch(old_codec, codec, fwdsp_tx, channel->uuid);
 
    if (chan_id < 0) {
-      Log(LOG_CRIT, "ws.media", "Failed to start fwdsp pipeline for %s.%s", codec, (fwdsp_tx ? "tx" : "rx") );
+      Log(LOG_CRIT, "ws.media", "Failed to switch fwdsp pipeline to %s.%s for %s",
+         codec, (fwdsp_tx ? "tx" : "rx"), channel->uuid);
       dict_free(d);
       return;
    }
-   Log(LOG_INFO, "ws.media", "Started fwdsp pipeline %s.%s (chan %d) for %s", codec,
-      (fwdsp_tx ? "tx" : "rx"), chan_id, (cptr ? cptr->chatname : "?"));
+
+   Log(LOG_INFO, "ws.media", "Active fwdsp pipeline %s.%s (chan %d) for %s channel %s", codec,
+      (fwdsp_tx ? "tx" : "rx"), chan_id, (cptr ? cptr->chatname : "?"), channel->uuid);
    dict_free(d);
 }
 

@@ -24,6 +24,7 @@
 #include <rrclient/gtk.core.h>
 extern rrconn_t *ws_conn;
 extern rrconn_t *ws_tx_conn;   // rrclient/rrclient.c
+extern bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec);
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;
 
@@ -50,7 +51,7 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       rrconn_t *cptr = (ctx->is_tx ? (ws_tx_conn ? ws_tx_conn : ws_conn) : ws_conn);
 
       if (cptr) {
-         media_send_codec_select(cptr, codec, (ctx->is_tx ? "tx" : "rx") );
+         rrclient_media_select_codec(cptr, ctx->is_tx, codec);
       }
    }
 }

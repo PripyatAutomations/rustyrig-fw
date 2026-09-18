@@ -55,15 +55,21 @@ bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1) {
 }
 
 
-bool fwdsp_cmd_start_record(const char codec_id[5], bool is_tx, int unused1) {
-   struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
+static bool fwdsp_cmd_record(const char codec_id[5], bool is_tx,
+   const char *channel_uuid, bool start) {
+   struct fwdsp_subproc *sp = NULL;
+
+   if (channel_uuid && *channel_uuid) {
+      sp = fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid);
+   } else {
+      sp = fwdsp_find_instance(codec_id, is_tx);
+   }
+
    struct fwdsp_control_msg msg = {
       .magic = FWDSP_CTRL_MAGIC,
-      .type = FWDSP_CTRL_START_RECORD,
-      .value = 1
+      .type = start ? FWDSP_CTRL_START_RECORD : FWDSP_CTRL_STOP_RECORD,
+      .value = start ? 1 : 0
    };
-
-   (void)unused1;
 
    if (!sp || sp->fw_control <= 0) {
       return true;
@@ -72,19 +78,22 @@ bool fwdsp_cmd_start_record(const char codec_id[5], bool is_tx, int unused1) {
    return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
 }
 
-bool fwdsp_cmd_stop_record(const char codec_id[5], bool is_tx, int unused1) {
-   struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
-   struct fwdsp_control_msg msg = {
-      .magic = FWDSP_CTRL_MAGIC,
-      .type = FWDSP_CTRL_STOP_RECORD,
-      .value = 0
-   };
+bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx,
+   const char *channel_uuid) {
+   return fwdsp_cmd_record(codec_id, is_tx, channel_uuid, true);
+}
 
+bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx,
+   const char *channel_uuid) {
+   return fwdsp_cmd_record(codec_id, is_tx, channel_uuid, false);
+}
+
+bool fwdsp_cmd_start_record(const char codec_id[5], bool is_tx, int unused1) {
    (void)unused1;
+   return fwdsp_cmd_start_record_channel(codec_id, is_tx, NULL);
+}
 
-   if (!sp || sp->fw_control <= 0) {
-      return true;
-   }
-
-   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
+bool fwdsp_cmd_stop_record(const char codec_id[5], bool is_tx, int unused1) {
+   (void)unused1;
+   return fwdsp_cmd_stop_record_channel(codec_id, is_tx, NULL);
 }

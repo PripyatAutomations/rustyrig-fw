@@ -31,18 +31,18 @@
 #define	FWDSP_MAX_SUBPROCS 100
 
 defconfig_t defcfg_fwdsp[] = {
-   { "codecs.allowed", "opus pc16 mu16 mu08 flac", "Preferred codecs" },
-   { "path.record-dir", "./recordings", "Path to audio recordings" },
-   { "record.rx", "false", "Record received audio" },
-   { "record.tx", "false", "Record transmitted audio" },
+   { "codecs.allowed", "opus pc16 mu16 mu08", "Preferred codecs" },
 #ifdef _WIN32
    { "path.fwdsp", "bin/fwdsp.exe", "Path to fwdsp binary" },
 #else
    { "path.fwdsp", "bin/fwdsp", "Path to fwdsp binary" },
 #endif
    { "path.fwdsp.config", "config/fwdsp.cfg", "Path to fwdsp configuration" },
+   { "path.record-dir", "./recordings", "Path to audio recordings" },
+   { "record.rx", "false", "Record received audio" },
+   { "record.tx", "false", "Record transmitted audio" },
    { "fwdsp.subproc.max", "16", "Maximum allowed de/encoder processes" },
-   { "fwdsp.hangtime", "60", "How long to keep unused (en|de)coders alive after last use" },
+   { "fwdsp.hangtime", "60", "How long to keep unused encoders alive after last use; decoders stop immediately" },
    { "subproc.debug", "false", "Show extra debug messages" },
    { NULL, NULL, NULL }
 };
@@ -65,6 +65,8 @@ static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
 static struct mg_mgr *fwdsp_mg_manager(void) {
    return (&mg_mgr != NULL) ? &mg_mgr : &mgr;
 }
+
+static bool fwdsp_send_control(struct fwdsp_subproc *sp, uint8_t type, uint8_t value);
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
    Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id, (sp->is_tx ? "tx" : "rx"), sp->pid, status);
@@ -306,7 +308,7 @@ bool fwdsp_init(void) {
    fwdsp_path = cfg_get_exp("path.fwdsp");
    if (!fwdsp_path) {
       Log(LOG_CRIT, "fwdsp", "You must set path.fwdsp to point at fwdsp binary");
-      return NULL;
+      return true;
    }
    fwdsp_mgr_ready = true;
    return false;
@@ -335,7 +337,7 @@ static int fwdsp_find_offset(const char *id, bool is_tx) {
    return -1;
 }
 
-static struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is_tx,
+struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is_tx,
    const char *channel_uuid) {
    if (!id || !channel_uuid || !*channel_uuid || !fwdsp_subprocs) {
       return NULL;
@@ -406,6 +408,11 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          if (fwdsp_spawn(sp)) {
             return sp;
          }
+
+         memset(sp, 0, sizeof(*sp));
+         if (active_slots > 0) {
+            active_slots--;
+         }
          return NULL;
       }
    }
@@ -421,11 +428,11 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
       if (!sp) {
          Log(LOG_CRIT, "fwdsp", "Failure in fwdsp_create call");
       } else {
-         Log( LOG_DEBUG, "fwdsp", "Spawned new instance of fwdsp at %x for codec %s.%s", sp, id,
+         Log( LOG_DEBUG, "fwdsp", "Spawned new instance of fwdsp at %p for codec %s.%s", (void *)sp, id,
             (is_tx ? "tx" : "rx") );
       }
    } else {
-      Log( LOG_DEBUG, "fwdsp", "Using existing fwdsp instance %x for codec %s.%s", sp, id, (is_tx ? "tx" : "rx") );
+      Log( LOG_DEBUG, "fwdsp", "Using existing fwdsp instance %p for codec %s.%s", (void *)sp, id, (is_tx ? "tx" : "rx") );
    }
    return sp;
 }
@@ -678,6 +685,24 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 #endif	// USE_MONGOOSE
    }
    Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid);
+
+   // Recording policy is expressed in radio/client media directions. On the
+   // server an RX media channel uses an encoder (fwdsp tx mode), so do not
+   // infer record.rx/record.tx solely from sp->is_tx when a UUID is present.
+   bool record_this = false;
+   if (sp->channel_uuid[0] != '\0') {
+      struct rr_mediachan *channel = media_chan_find_uuid(sp->channel_uuid);
+      if (channel) {
+         record_this = cfg_get_bool(channel->direction == RR_BINFRAME_DIR_TX ?
+            "record.tx" : "record.rx", false);
+      }
+   } else {
+      record_this = cfg_get_bool(sp->is_tx ? "record.tx" : "record.rx", false);
+   }
+   if (record_this) {
+      fwdsp_send_control(sp, FWDSP_CTRL_START_RECORD, 1);
+   }
+
    return true;
 }
 
@@ -834,8 +859,56 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
    return false;
 }
 
+static bool fwdsp_send_control(struct fwdsp_subproc *sp, uint8_t type, uint8_t value) {
+   if (!sp || sp->fw_control <= 0) {
+      return true;
+   }
+
+   struct fwdsp_control_msg msg = {
+      .magic = FWDSP_CTRL_MAGIC,
+      .type = type,
+      .value = value
+   };
+
+   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg) ? false : true;
+}
+
+static int fwdsp_encoder_hangtime(void) {
+   const char *hangtime_s = cfg_get_exp("fwdsp.hangtime");
+   int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
+
+   free((char *)hangtime_s);
+   return hangtime < 0 ? 0 : hangtime;
+}
+
+static void fwdsp_idle_pipeline(struct fwdsp_subproc *sp) {
+   if (!sp || sp->pid <= 0) {
+      return;
+   }
+
+   sp->refcount = 0;
+
+   // is_tx means fwdsp consumes raw sound-card PCM and emits encoded media:
+   // it is an encoder. Keep encoders warm for fwdsp.hangtime so PTT/codec
+   // reuse does not pay process/GStreamer startup latency. Decoders are cheap
+   // to recreate and can otherwise accumulate one process per old codec.
+   if (sp->is_tx) {
+      int hangtime = fwdsp_encoder_hangtime();
+
+      if (hangtime > 0) {
+         // A warm encoder must not keep producing frames for the channel after
+         // a codec switch. Pause the GStreamer pipeline but keep the process.
+         fwdsp_send_control(sp, FWDSP_CTRL_PAUSE, 0);
+         sp->cleanup_deadline = time(NULL) + hangtime;
+         return;
+      }
+   }
+
+   fwdsp_destroy(sp);
+}
+
 void fwdsp_sweep_expired(void) {
-   time_t now = time(NULL);
+   time_t sweep_now = time(NULL);
 
    if (!active_slots) {
       return;
@@ -843,18 +916,34 @@ void fwdsp_sweep_expired(void) {
 
    for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
-      if (!sp) {
+
+      if (!sp || sp->pl_id[0] == '\0' || sp->pid <= 0) {
          continue;
       }
 
-      struct rr_mediachan *channel = sp->channel_uuid[0] != '\0' ?
-         media_chan_find_uuid(sp->channel_uuid) : media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
-         sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX, 0, 0);
+      // Channel-less instances are used by rrclient. Their lifetime is driven
+      // explicitly by audio_switch_codec()/fwdsp_codec_stop(), not by the
+      // server subscription table.
+      if (sp->channel_uuid[0] == '\0') {
+         if (sp->refcount == 0 && sp->cleanup_deadline > 0 &&
+             sweep_now >= sp->cleanup_deadline) {
+            fwdsp_destroy(sp);
+         }
+         continue;
+      }
+
+      struct rr_mediachan *channel = media_chan_find_uuid(sp->channel_uuid);
       u_int32_t chan_id = channel ? (u_int32_t)(channel - media_channels) + 1 : 0;
       int users = 0;
+
+      // A lingering encoder still points at the same channel UUID, but it is
+      // no longer active after that channel switches codec. Do not let its
+      // subscribers resurrect its refcount during the sweep.
+      bool active_codec = channel && channel->codec[0] != '\0' &&
+         strncmp(channel->codec, sp->pl_id, 4) == 0;
       rrconn_t *cur = http_client_list;
 
-      while (channel && cur) {
+      while (active_codec && cur) {
          if (cur->is_ws && cur->authenticated &&
              ((channel->direction == RR_BINFRAME_DIR_RX &&
                chan_id_in_array(cur->rx_channels, MAX_RX_CHANNELS, chan_id)) ||
@@ -865,17 +954,18 @@ void fwdsp_sweep_expired(void) {
          cur = cur->next;
       }
 
-      if (sp->pid > 0 && users > 0) {
+      if (users > 0) {
          sp->refcount = users;
          sp->cleanup_deadline = 0;
-      } else if (sp->pid > 0 && sp->refcount > 0) {
-         sp->refcount = 0;
-         sp->cleanup_deadline = now + 5;
+      } else if (sp->refcount > 0) {
+         fwdsp_idle_pipeline(sp);
+         continue;
       }
 
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 &&
-          now >= sp->cleanup_deadline) {
-         Log( LOG_INFO, "fwdsp", "Cleaning up idle pipeline %s.%s", sp->pl_id, (sp->is_tx ? "tx" : "rx") );
+          sweep_now >= sp->cleanup_deadline) {
+         Log(LOG_INFO, "fwdsp", "Cleaning up idle encoder %s.%s",
+            sp->pl_id, (sp->is_tx ? "tx" : "rx"));
          fwdsp_destroy(sp);
       }
    }
@@ -908,7 +998,11 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
          Log( LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for %s.%s", codec_id, (is_tx ? "tx" : "rx") );
          return -1;
       }
+   } else if (sp->is_tx && sp->refcount == 0 && sp->cleanup_deadline > 0) {
+      // Reuse a warm encoder retained by fwdsp.hangtime.
+      fwdsp_send_control(sp, FWDSP_CTRL_RESUME, 0);
    }
+   sp->cleanup_deadline = 0;
    sp->refcount++;
    return sp->chan_id;
 }
@@ -916,15 +1010,21 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
 
 // Drop a reference on a codec pipeline. When the last user goes away, either
 // destroy the subproc outright or set the hangtime cleanup deadline.
-int fwdsp_codec_stop(const char *codec, bool is_tx) {
+int fwdsp_codec_stop_channel(const char *codec, bool is_tx, const char *channel_uuid) {
    if (!codec || codec[0] == '\0') {
       return -1;
    }
 
-   struct fwdsp_subproc *sp = fwdsp_find_instance(codec, is_tx);
-   if (!sp) {
-      Log(LOG_WARN, "fwdsp", "fwdsp_codec_stop: no instance for %s.%s", codec, (is_tx ? "tx" : "rx") );
+   struct fwdsp_subproc *sp = NULL;
+   if (channel_uuid && *channel_uuid) {
+      sp = fwdsp_find_channel_instance(codec, is_tx, channel_uuid);
+   } else {
+      sp = fwdsp_find_instance(codec, is_tx);
+   }
 
+   if (!sp) {
+      Log(LOG_DEBUG, "fwdsp", "fwdsp_codec_stop: no instance for %s.%s channel %s",
+         codec, (is_tx ? "tx" : "rx"), (channel_uuid ? channel_uuid : "-"));
       return -1;
    }
 
@@ -933,15 +1033,47 @@ int fwdsp_codec_stop(const char *codec, bool is_tx) {
    }
 
    if (sp->refcount == 0) {
-      const char *hangtime_s = cfg_get_exp("fwdsp.hangtime");
-      int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
-      free( (char *)hangtime_s );
-
-      if (hangtime > 0) {
-         sp->cleanup_deadline = time(NULL) + hangtime;
-      } else {
-         fwdsp_destroy(sp);
-      }
+      fwdsp_idle_pipeline(sp);
    }
    return 0;
 }
+
+int fwdsp_codec_stop(const char *codec, bool is_tx) {
+   return fwdsp_codec_stop_channel(codec, is_tx, NULL);
+}
+
+int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
+   const char *channel_uuid) {
+   if (!new_codec || strlen(new_codec) != 4) {
+      return -1;
+   }
+
+   if (old_codec && strlen(old_codec) == 4 &&
+       strncmp(old_codec, new_codec, 4) == 0) {
+      struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
+         fwdsp_find_channel_instance(new_codec, is_tx, channel_uuid) :
+         fwdsp_find_instance(new_codec, is_tx);
+
+      if (sp && sp->pid > 0) {
+         if (sp->refcount > 0) {
+            return sp->chan_id;
+         }
+         return fwdsp_codec_start(new_codec, is_tx, channel_uuid);
+      }
+   }
+
+   int chan_id = fwdsp_codec_start(new_codec, is_tx, channel_uuid);
+   if (chan_id < 0) {
+      return -1;
+   }
+
+   // Start the replacement first so switching never creates an avoidable
+   // media gap. Then release the old process. Encoders linger; decoders die.
+   if (old_codec && strlen(old_codec) == 4 &&
+       strncmp(old_codec, new_codec, 4) != 0) {
+      fwdsp_codec_stop_channel(old_codec, is_tx, channel_uuid);
+   }
+
+   return chan_id;
+}
+

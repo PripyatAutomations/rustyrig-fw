@@ -1,3 +1,23 @@
+rustyrig-fw (20260917) testing; urgency=medium
+- Codec selection is per media channel UUID.
+- Client no longer pre-starts pc16 before negotiation.
+- Codec changes replace the active decoder immediately.
+- Unused decoders stop immediately.
+- Unused encoders are PAUSED and retained for fwdsp.hangtime, then reaped.
+  Selecting the same encoder again during hangtime RESUMEs it.
+- recording-start / recording-stop server event placeholders control the
+  channel's active fwdsp instance.
+- record.rx / record.tx enable recording automatically.
+- Raw S16LE recording is copied into a non-blocking ring and FLAC-compressed
+  by a pthread worker.
+- record.buffer-size now controls the ring size (minimum 4096 bytes).
+- path.record-dir controls output location.
+- mk/compile.mk adds libFLAC and pthread flags to fwdsp only.
+- rrclient.cfg and rrserver.cfg now include record-sink tee branches for pc16
+  and opus.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com> Wed Sep  9 03:58:41 AM EDT 2026
+
 rustyrig-fw (20260909) testing; urgency=medium
 * More work on yaesu CAT emulator
 

@@ -21,6 +21,8 @@
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
+#include <librrprotocol/ws.mediachan.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 
 
 static void rrserver_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -263,19 +265,77 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
 }
 
 
+static bool rrserver_recording_control(const char *data, bool start) {
+   if (!data) {
+      Log(LOG_WARN, "record", "recording-%s without channel data", start ? "start" : "stop");
+      return true;
+   }
+
+   dict *d = json2dict(data);
+   if (!d) {
+      Log(LOG_WARN, "record", "recording-%s with unparseable data", start ? "start" : "stop");
+      return true;
+   }
+
+   const char *uuid = dict_get(d, "media.chan-uuid", NULL);
+   if (!uuid) {
+      uuid = dict_get(d, "recording.chan-uuid", NULL);
+   }
+   struct rr_mediachan *channel = uuid ? media_chan_find_uuid(uuid) : NULL;
+
+   if (!channel) {
+      Log(LOG_WARN, "record", "recording-%s for unknown media channel %s",
+         start ? "start" : "stop", (uuid ? uuid : "<none>"));
+      dict_free(d);
+      return true;
+   }
+
+   const char *codec = dict_get(d, "media.codec", NULL);
+   if (!codec || strlen(codec) != 4) {
+      codec = channel->codec;
+   }
+   if (!codec || strlen(codec) != 4) {
+      Log(LOG_WARN, "record", "recording-%s: channel %s has no active codec",
+         start ? "start" : "stop", channel->uuid);
+      dict_free(d);
+      return true;
+   }
+
+   bool fwdsp_tx = (channel->direction == RR_BINFRAME_DIR_RX);
+   bool failed = start ?
+      fwdsp_cmd_start_record_channel(codec, fwdsp_tx, channel->uuid) :
+      fwdsp_cmd_stop_record_channel(codec, fwdsp_tx, channel->uuid);
+
+   if (failed) {
+      Log(LOG_WARN, "record", "Unable to %s recording for %s (%s.%s)",
+         start ? "start" : "stop", channel->uuid, codec, fwdsp_tx ? "tx" : "rx");
+   } else {
+      Log(LOG_INFO, "record", "%s recording for %s (%s.%s)",
+         start ? "Started" : "Stopped", channel->uuid, codec, fwdsp_tx ? "tx" : "rx");
+   }
+
+   dict_free(d);
+   return failed;
+}
+
 static void rrserver_handle_recording_start(const char *event,
+                                             const char *data,
+                                             rrconn_t *cptr,
+                                             void *user) {
+   (void)event;
+   (void)cptr;
+   (void)user;
+   rrserver_recording_control(data, true);
+}
+
+static void rrserver_handle_recording_stop(const char *event,
                                             const char *data,
                                             rrconn_t *cptr,
                                             void *user) {
-   // Deal with this
-}
-
-
-static void rrserver_handle_recording_stop(const char *event,
-                                           const char *data,
-                                           rrconn_t *cptr,
-                                           void *user) {
-   // Deal with this
+   (void)event;
+   (void)cptr;
+   (void)user;
+   rrserver_recording_control(data, false);
 }
 
 

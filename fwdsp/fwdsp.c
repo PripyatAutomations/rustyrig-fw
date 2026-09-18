@@ -111,7 +111,8 @@ bool dying = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
 
-#define FWDSP_RECORD_RING_SIZE (512U * 1024U)
+#define FWDSP_RECORD_RING_SIZE_DEFAULT (512U * 1024U)
+#define FWDSP_RECORD_RING_SIZE_MIN     4096U
 
 struct fwdsp_recorder {
    pthread_t thread;
@@ -137,24 +138,6 @@ static bool record_requested = false;
 
 time_t now = -1;                 // time() called once a second in main loop to
                                  // update
-
-static bool cfg_bool_value(const char *key, bool fallback) {
-   const char *value = cfg_get_exp(key);
-   bool result = fallback;
-
-   if (value) {
-      if (!strcasecmp(value, "true") || !strcasecmp(value, "yes") ||
-          !strcasecmp(value, "on") || !strcmp(value, "1")) {
-         result = true;
-      } else if (!strcasecmp(value, "false") || !strcasecmp(value, "no") ||
-                 !strcasecmp(value, "off") || !strcmp(value, "0")) {
-         result = false;
-      }
-      free((char *)value);
-   }
-
-   return result;
-}
 
 static void recorder_reset_ring(struct fwdsp_recorder *rec) {
    rec->read_pos = 0;
@@ -201,7 +184,22 @@ static void *recorder_thread_main(void *arg) {
          break;
       }
 
+      size_t frame_bytes = (rec->bits_per_sample / 8U) * rec->channels;
       got = rec->used < sizeof(chunk) ? rec->used : sizeof(chunk);
+      got -= got % frame_bytes;
+
+      // If stopping with a partial sample left, discard only that impossible
+      // tail rather than consuming aligned audio and losing bytes silently.
+      if (got == 0) {
+         if (rec->stopping) {
+            rec->used = 0;
+            pthread_mutex_unlock(&rec->lock);
+            break;
+         }
+         pthread_mutex_unlock(&rec->lock);
+         continue;
+      }
+
       size_t first = rec->ring_size - rec->read_pos;
       if (first > got) {
          first = got;
@@ -214,8 +212,6 @@ static void *recorder_thread_main(void *arg) {
       rec->used -= got;
       pthread_mutex_unlock(&rec->lock);
 
-      size_t frame_bytes = (rec->bits_per_sample / 8U) * rec->channels;
-      got -= got % frame_bytes;
       size_t frames = got / frame_bytes;
       size_t values = frames * rec->channels;
 
@@ -275,19 +271,25 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return false;
    }
 
-   localtime_r(&now, &tm_now);
+   time_t record_now = time(NULL);
+   localtime_r(&record_now, &tm_now);
    strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", &tm_now);
    snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s-%s-%s.flac",
       record_dir, stamp, config_codec, codec_tx_mode ? "tx" : "rx");
    free((char *)record_dir);
 
-   recorder.ring = malloc(FWDSP_RECORD_RING_SIZE);
+   size_t ring_size = (size_t)cfg_get_int("record.buffer-size", FWDSP_RECORD_RING_SIZE_DEFAULT);
+   if (ring_size < FWDSP_RECORD_RING_SIZE_MIN) {
+      ring_size = FWDSP_RECORD_RING_SIZE_MIN;
+   }
+
+   recorder.ring = malloc(ring_size);
    if (!recorder.ring) {
       Log(LOG_CRIT, "record", "Unable to allocate recording ring buffer");
       return false;
    }
 
-   recorder.ring_size = FWDSP_RECORD_RING_SIZE;
+   recorder.ring_size = ring_size;
    recorder.sample_rate = sample_rate;
    recorder.channels = channels;
    recorder.bits_per_sample = bits_per_sample;
@@ -297,8 +299,9 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
    pthread_mutex_init(&recorder.lock, NULL);
    pthread_cond_init(&recorder.cond, NULL);
 
-   if (pthread_create(&recorder.thread, NULL, recorder_thread_main, &recorder) != 0) {
-      Log(LOG_CRIT, "record", "Unable to start recording thread: %s", strerror(errno));
+   int thread_rc = pthread_create(&recorder.thread, NULL, recorder_thread_main, &recorder);
+   if (thread_rc != 0) {
+      Log(LOG_CRIT, "record", "Unable to start recording thread: %s", strerror(thread_rc));
       pthread_cond_destroy(&recorder.cond);
       pthread_mutex_destroy(&recorder.lock);
       free(recorder.ring);
@@ -581,7 +584,7 @@ static void run_loop(struct audio_config *cfg) {
 
       GstBus *bus = gst_element_get_bus(pipeline);
       struct fwdsp_frame_reader input_reader = { 0 };
-      record_requested = cfg_bool_value(codec_tx_mode ? "record.tx" : "record.rx", false);
+      record_requested = false;   // manager applies record.rx/record.tx after spawn
 
       while (!dying) {
          GstMessage *msg = gst_bus_timed_pop_filtered(bus, 10 * GST_MSECOND, GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
@@ -628,16 +631,24 @@ static void run_loop(struct audio_config *cfg) {
                GstMapInfo record_map;
                unsigned rate = 16000;
                unsigned channels = 1;
+               bool format_ok = false;
 
                if (caps) {
                   GstStructure *st = gst_caps_get_structure(caps, 0);
                   int tmp = 0;
+                  const char *format = gst_structure_get_string(st, "format");
+                  format_ok = format && strcmp(format, "S16LE") == 0;
                   if (gst_structure_get_int(st, "rate", &tmp) && tmp > 0) {
                      rate = (unsigned)tmp;
                   }
                   if (gst_structure_get_int(st, "channels", &tmp) && tmp > 0) {
                      channels = (unsigned)tmp;
                   }
+               }
+
+               if (record_requested && !format_ok) {
+                  Log(LOG_WARN, "record", "record-sink must provide audio/x-raw,format=S16LE");
+                  record_requested = false;
                }
 
                if (record_requested && !recorder.running) {
@@ -688,12 +699,31 @@ static void run_loop(struct audio_config *cfg) {
                      break;
 
                   case FWDSP_CTRL_START_RECORD:
-                     record_requested = true;
+                     if (!record_sink) {
+                        Log(LOG_WARN, "record",
+                           "Recording requested but pipeline %s.%s has no appsink name=record-sink",
+                           config_codec, codec_tx_mode ? "tx" : "rx");
+                     } else {
+                        record_requested = true;
+                     }
                      break;
 
                   case FWDSP_CTRL_STOP_RECORD:
                      record_requested = false;
                      recorder_stop();
+                     break;
+
+                  case FWDSP_CTRL_PAUSE:
+                     gst_element_set_state(pipeline, GST_STATE_PAUSED);
+                     break;
+
+                  case FWDSP_CTRL_RESUME:
+                     gst_element_set_state(pipeline, GST_STATE_PLAYING);
+                     break;
+
+                  case FWDSP_CTRL_FLUSH:
+                     gst_element_send_event(pipeline, gst_event_new_flush_start());
+                     gst_element_send_event(pipeline, gst_event_new_flush_stop(TRUE));
                      break;
 
                   case FWDSP_CTRL_SHUTDOWN:

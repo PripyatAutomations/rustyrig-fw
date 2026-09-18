@@ -34,42 +34,49 @@ static char tx_codec[5] = { 0 };
 
 static void audio_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user);
 
-static bool start_rx_fwdsp(const char *codec) {
-   if (rx_codec[0] != '\0') {
-      return true;
-   }
-
-   if (fwdsp_init() || fwdsp_codec_start(codec, false, NULL) < 0) {
-      Log(LOG_WARN, "audio", "Unable to start client fwdsp %s.rx", codec);
-      return false;
-   }
-
-   memcpy(rx_codec, codec, 4);
-   rx_codec[4] = '\0';
-   Log(LOG_INFO, "audio", "Started client fwdsp %s.rx", rx_codec);
-   return true;
-}
-
-static bool start_tx_fwdsp(const char *codec) {
-   if (tx_codec[0] != '\0') {
-      return true;
-   }
-
-   if (fwdsp_init() || fwdsp_codec_start(codec, true, NULL) < 0) {
-      Log(LOG_WARN, "audio", "Unable to start client fwdsp %s.tx", codec);
-      return false;
-   }
-
-   memcpy(tx_codec, codec, 4);
-   tx_codec[4] = '\0';
-   Log(LOG_INFO, "audio", "Started client fwdsp %s.tx", rx_codec);
-   return true;
-}
-
 bool audio_init(void) {
    event_on_binary("media.frame.audio", audio_frame_cb, NULL);
-   start_rx_fwdsp("pc16");
-   audio_set_rx_volume(cfg_get_int("audio.volume.rx", 30));
+   return false;
+}
+
+bool audio_switch_codec(const char *codec, bool is_tx) {
+   if (!codec || strlen(codec) != 4) {
+      return true;
+   }
+
+   char *active = is_tx ? tx_codec : rx_codec;
+   if (active[0] != '\0' && strncmp(active, codec, 4) == 0) {
+      return false;
+   }
+
+   char old_codec[5] = { 0 };
+   if (active[0] != '\0') {
+      memcpy(old_codec, active, sizeof(old_codec));
+   }
+
+   // Start the replacement first. fwdsp_codec_stop() destroys decoders
+   // immediately, while encoders are retained for fwdsp.hangtime.
+   if (fwdsp_init() || fwdsp_codec_start(codec, is_tx, NULL) < 0) {
+      Log(LOG_WARN, "audio", "Unable to switch client fwdsp to %s.%s",
+         codec, (is_tx ? "tx" : "rx"));
+      return true;
+   }
+
+   memcpy(active, codec, 4);
+   active[4] = '\0';
+
+   if (old_codec[0] != '\0') {
+      fwdsp_codec_stop(old_codec, is_tx);
+   }
+
+   if (is_tx) {
+      audio_set_tx_volume(cfg_get_int("audio.volume.tx", 100));
+   } else {
+      audio_set_rx_volume(cfg_get_int("audio.volume.rx", 30));
+   }
+
+   Log(LOG_INFO, "audio", "Switched client fwdsp %s to %s",
+      (is_tx ? "tx" : "rx"), active);
    return false;
 }
 
@@ -133,8 +140,10 @@ static void audio_frame_cb(const char *event, const void *data, size_t len,
       codec = "pc16";
    }
 
-   if (rx_codec[0] == '\0' && !start_rx_fwdsp(codec)) {
-      return;
+   if (rx_codec[0] == '\0' || strncmp(rx_codec, codec, 4) != 0) {
+      if (audio_switch_codec(codec, false)) {
+         return;
+      }
    }
 
    if (fwdsp_write_samples(rx_codec, false, data, len)) {

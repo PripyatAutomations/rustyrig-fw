@@ -30,6 +30,8 @@ extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
 extern bool audio_set_rx_volume(int percent);
+extern bool audio_set_tx_volume(int percent);
+extern bool audio_switch_codec(const char *codec, bool is_tx);
 
 extern void try_send_next_frame(rrconn_t *cptr);
 

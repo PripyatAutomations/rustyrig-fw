@@ -22,6 +22,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrclient/vfo.h>
+#include <rrclient/audio.h>
 
 extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
@@ -98,6 +99,37 @@ static struct rr_media_known *media_known_add(const char *uuid) {
    return NULL;
 }
 
+// Select a codec for the active audio channel in one direction. This is used
+// by the GTK picker and keeps the wire protocol UUID-specific.
+bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) {
+   if (!cptr || !codec || strlen(codec) != 4) {
+      return true;
+   }
+
+   char cur_vfo = vfo_state_get_active();
+   uint8_t active_id = (cur_vfo >= 'A' && cur_vfo <= 'Z') ?
+      (uint8_t)(cur_vfo - 'A') : 0;
+   uint8_t wanted_dir = is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX;
+   bool sent = false;
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      struct rr_media_known *kp = &known_chans[i];
+
+      if (kp->uuid[0] == '\0' || kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+          kp->direction != wanted_dir) {
+         continue;
+      }
+      if (kp->vfo != active_id && kp->vfo != RR_BINFRAME_VFO_NA) {
+         continue;
+      }
+      if (!media_send_codec_select(cptr, codec, kp->uuid)) {
+         sent = true;
+      }
+   }
+
+   return !sent;
+}
+
 // Track pending subscriptions so we only subscribe once per channel
 static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
    if (!cptr || !kp || !media_ready || kp->subscribed) {
@@ -120,6 +152,15 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
          return;
       }
    }
+   if (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && kp->codec[0] == '\0') {
+      const char *codec = media_get_preferred_codec();
+
+      if (codec && strlen(codec) == 4) {
+         media_send_codec_select(cptr, codec, kp->uuid);
+      }
+      return;
+   }
+
    media_send_subscribe(cptr, kp->uuid);
    kp->subscribed = true;
 }
@@ -149,9 +190,15 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          kp->vfo = vfo;
          kp->rig = rig;
          const char *codec = dict_get(d, "media.codec", NULL);
+         char old_codec[5] = { 0 };
+         memcpy(old_codec, kp->codec, sizeof(old_codec));
 
          if (codec && strlen(codec) == 4) {
             snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
+         }
+         if (kp->subscribed && kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
+             kp->codec[0] != '\0' && strncmp(old_codec, kp->codec, 4) != 0) {
+            audio_switch_codec(kp->codec, kp->direction == RR_BINFRAME_DIR_TX);
          }
          if (descr && descr[0] != '\0') {
             snprintf(kp->descr, sizeof(kp->descr), "%s", descr);
@@ -175,6 +222,9 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
 
       if (codec && strlen(codec) == 4) {
          snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
+      }
+      if (!unsub && kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && kp->codec[0] != '\0') {
+         audio_switch_codec(kp->codec, kp->direction == RR_BINFRAME_DIR_TX);
       }
       Log(LOG_INFO, "ws.media", "Media subscription %s: %s (codec %s)",
          (unsub ? "removed" : "confirmed"), kp->uuid, (kp->codec[0] ? kp->codec : "none") );
@@ -224,11 +274,29 @@ static void rrclient_handle_media_conn(const char *event, const char *data,
    }
 }
 
+static void rrclient_handle_media_codecs(const char *event, const char *data,
+   rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)user;
+
+   const char *codec = media_get_preferred_codec();
+   rrconn_t *conn = cptr ? cptr : ws_conn;
+
+   if (!conn || !codec || strlen(codec) != 4) {
+      return;
+   }
+
+   rrclient_media_select_codec(conn, false, codec);
+   rrclient_media_select_codec(conn, true, codec);
+}
+
 void rrclient_media_register_events(void) {
    // media.* messages are dispatched directly from events.c (see
    // rrclient_handle_media) with the parsed dict; only connection state
    // needs the event bus here.
    event_on("connected", rrclient_handle_media_conn, NULL);
+   event_on("media.codecs", rrclient_handle_media_codecs, NULL);
    event_on("authorized", rrclient_handle_media_conn, NULL);
    event_on("disconnected", rrclient_handle_media_conn, NULL);
 }
