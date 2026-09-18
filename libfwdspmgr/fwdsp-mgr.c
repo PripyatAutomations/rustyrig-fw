@@ -67,6 +67,7 @@ static struct mg_mgr *fwdsp_mg_manager(void) {
 }
 
 static bool fwdsp_send_control(struct fwdsp_subproc *sp, uint8_t type, uint8_t value);
+static bool fwdsp_destroy(struct fwdsp_subproc *sp);
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
    Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id, (sp->is_tx ? "tx" : "rx"), sp->pid, status);
@@ -151,8 +152,8 @@ void fwdsp_reap_children(void) {
             if (on_fwdsp_exit) {
                on_fwdsp_exit(sp, status);
             }
-            memset( sp, 0, sizeof(struct fwdsp_subproc) );
-            active_slots--;
+            sp->pid = 0;   // already reaped: only release I/O and the slot
+            fwdsp_destroy(sp);
             break;
          }
       }
@@ -168,7 +169,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
       return;
    }
 
-   if (ev == MG_EV_READ) {
+   if (ev == MG_EV_READ && ctx->sp) {
       if (ctx->is_stderr) {
          for (;;) {
             uint8_t *newline = memchr(c->recv.buf, '\n', c->recv.len);
@@ -225,11 +226,12 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX,
                   0, 0);
 
-            if (channel) {
+            if (channel && ctx->sp->refcount > 0 &&
+                strncmp(channel->codec, ctx->sp->pl_id, 4) == 0) {
                ws_media_broadcast_subscribed(channel,
                   (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
                   frame_len, ctx->sp->pl_id);
-            } else {
+            } else if (!channel) {
                Log(LOG_WARN, "fwdsp", "No media channel for %s.%s output",
                   ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
             }
@@ -238,6 +240,17 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
       }
    } else if (ev == MG_EV_CLOSE) {
+      // Mongoose owns these descriptors and has closed them before this event.
+      // Clear live slot pointers too, so teardown cannot close a reused fd.
+      if (ctx->sp) {
+         if (ctx->is_stderr) {
+            ctx->sp->mg_stderr_conn = NULL;
+            ctx->sp->fw_stderr = -1;
+         } else {
+            ctx->sp->mg_stdout_conn = NULL;
+            ctx->sp->fw_stdout = -1;
+         }
+      }
       if (ctx->is_stderr && c->recv.len > 0) {
          char *message = malloc(c->recv.len + 1);
 
@@ -441,12 +454,21 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    if (!sp || sp->pl_id[0] == '\0') {
       return true;
    }
-   // Disconnect stdout/stderr from event loop
-   // XXX: this was crashing! should be ok now
+   // Let Mongoose close both wrapped sockets on its next poll. Detach their
+   // contexts before the slot is reused; never free a connection mid-poll or
+   // close its descriptor behind the event loop's back.
 #ifdef USE_MONGOOSE
    if (sp->mg_stdout_conn) {
-      mg_close_conn(sp->mg_stdout_conn);
+      ((struct fwdsp_io_conn *)sp->mg_stdout_conn->fn_data)->sp = NULL;
+      sp->mg_stdout_conn->is_closing = 1;
       sp->mg_stdout_conn = NULL;
+      sp->fw_stdout = -1;
+   }
+   if (sp->mg_stderr_conn) {
+      ((struct fwdsp_io_conn *)sp->mg_stderr_conn->fn_data)->sp = NULL;
+      sp->mg_stderr_conn->is_closing = 1;
+      sp->mg_stderr_conn = NULL;
+      sp->fw_stderr = -1;
    }
 #endif // USE_MONGOOSE
 
@@ -941,6 +963,9 @@ void fwdsp_sweep_expired(void) {
       }
 
       if (users > 0) {
+         if (sp->is_tx && sp->refcount == 0 && sp->cleanup_deadline > 0) {
+            fwdsp_send_control(sp, FWDSP_CTRL_RESUME, 0);
+         }
          sp->refcount = users;
          sp->cleanup_deadline = 0;
       } else if (sp->refcount > 0) {
@@ -1062,4 +1087,3 @@ int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
 
    return chan_id;
 }
-

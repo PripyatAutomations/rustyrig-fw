@@ -71,5 +71,9 @@ Headless validation: `bash tests/fwdsp/test_codec_roundtrip.sh` checks all five
 codecs in both configurations and the built-in defaults, including fragmented
 and coalesced transport writes. `bash tests/rrclient/test_codec_commands.sh`
 checks command selection, channel targeting, NONE and re-enabling.
+`bash tests/fwdsp/test_switching.sh` exercises repeated switches with real
+subprocesses, paused encoder reuse, subscriber-driven resume and child-exit
+cleanup. It also checks that buffered packets from retired codecs cannot be
+forwarded after a switch.
 These checks do not establish that live Opus playback works on a particular
 sound device.
