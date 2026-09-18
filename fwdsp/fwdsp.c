@@ -53,6 +53,14 @@ const char *config_file = NULL;
 const char *config_codec = "pc16";
 static int control_fd = -1;
 const char *logfile = "./fwdsp.log";
+bool codec_tx_mode = false;
+bool config_video = false;               // is this audio or video stream?
+bool dying = false;
+bool empty_config = true;
+static GstElement *pipeline = NULL;
+
+time_t now = -1;                 // time() called once a second in main loop to
+                                 // update
 
 // Store [pipeline] section keys as pipeline:<codec>.<dir> -- the format
 // looked up by cfg_get() below. Mirrors rrserver/cfg.fwdsp.c
@@ -105,12 +113,6 @@ static bool config_pipeline_section_cb(const char *path, int line, const char *s
    return false;
 }
 
-bool codec_tx_mode = false;
-bool config_video = false;               // is this audio or video stream?
-bool dying = false;
-bool empty_config = true;
-static GstElement *pipeline = NULL;
-
 #define FWDSP_RECORD_RING_SIZE_DEFAULT (512U * 1024U)
 #define FWDSP_RECORD_RING_SIZE_MIN     4096U
 
@@ -137,9 +139,6 @@ static struct fwdsp_recorder recorder = { 0 };
 static bool record_requested = false;
 static char record_user[FWDSP_RECORD_USER_LEN] = "unknown";
 static bool record_tx = false;
-
-time_t now = -1;                 // time() called once a second in main loop to
-                                 // update
 
 static void recorder_reset_ring(struct fwdsp_recorder *rec) {
    rec->read_pos = 0;
@@ -681,6 +680,7 @@ static void run_loop(struct audio_config *cfg) {
             }
          }
 
+         // Support for recording TX (and optionally RX) audio to FLAC files
          if (record_sink) {
             GstSample *record_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(record_sink), 0);
 
