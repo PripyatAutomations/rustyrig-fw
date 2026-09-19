@@ -30,6 +30,7 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 #include <glib.h>
 extern defconfig_t defcfg[];
 #ifdef _WIN32
@@ -86,6 +87,18 @@ static gboolean ws_poll_cb(gpointer user_data) {
    // and without it a scheduled reconnect never fires (the GTK GSource path
    // calls rrclient_poll_events_reconnect() from mg_source_dispatch()).
    rrclient_poll_events_reconnect();
+   return G_SOURCE_CONTINUE;
+}
+
+/*
+ * Periodic fwdsp housekeeping shared by both GTK and TUI modes.
+ */
+static gboolean fwdsp_maintenance_cb(gpointer user_data) {
+   (void)user_data;
+
+   fwdsp_reap_children();
+   fwdsp_sweep_expired();
+
    return G_SOURCE_CONTINUE;
 }
 
@@ -220,9 +233,8 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
 
    // Over SSH: repaint only when the minute turns over (or on first tick)
    static time_t last_repaint = 0;
-   bool over_ssh = tui_is_over_ssh();
 
-   if (over_ssh && last_repaint != 0 && (now / 60) == (last_repaint / 60) ) {
+   if (tui_over_ssh && last_repaint != 0 && (now / 60) == (last_repaint / 60) ) {
       last_repaint = now;
       return G_SOURCE_CONTINUE;
    }
@@ -278,7 +290,8 @@ bool rrclient_cleanup(void) {
       return true;
    }
    cleaned_up = true;
-   logger_end();
+
+   tui_over_ssh = tui_is_over_ssh();
 
    if (ui_mode == UI_MODE_TUI) {
       tui_raw_mode(false);
@@ -292,6 +305,10 @@ bool rrclient_cleanup(void) {
           }
 #endif	// USE_GTK
        }
+
+   // Stop all fwdsp children while their Mongoose wrappers and logging are
+   // still alive. This also releases encoders retained by fwdsp.hangtime.
+   fwdsp_fini();
 
    // Shut down sockets
 #ifdef USE_MONGOOSE
@@ -313,6 +330,7 @@ bool rrclient_cleanup(void) {
    ui_notify_fini();
 #endif	// USE_LIBNOTIFY && USE_GTK
 
+   logger_end();
    exit(0);
 
    return false;
@@ -384,7 +402,7 @@ int main(int argc, char *argv[]) {
          { "config", required_argument, 0, 'f' },
          { "tui", no_argument, 0, 'T' },
          { "server", required_argument, 0, 's' },
-         { "ssh", no_argument, 0, 's' },
+         { "ssh", no_argument, 0, 'S' },
          { "help", no_argument, 0, 'h' },
          { 0, 0, 0, 0 }
       };
@@ -571,6 +589,10 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
 #endif
 
    tui_register_completion_provider(client_cmd_completions);
+
+   // Reap exited children and expire warm encoders after fwdsp.hangtime.
+   // This is independent of the UI and Mongoose polling mechanisms.
+   g_timeout_add(1000, fwdsp_maintenance_cb, NULL);
 
    // Setup stdio & clock
    if (ui_mode == UI_MODE_TUI) {

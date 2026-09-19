@@ -371,8 +371,34 @@ bool fwdsp_init(void) {
 }
 
 bool fwdsp_fini(void) {
-   free( (char *)fwdsp_path );
+   if (!fwdsp_mgr_ready && !fwdsp_subprocs) {
+      return false;
+   }
+
+   /*
+    * Tear down every remaining subprocess, including encoders retained by
+    * fwdsp.hangtime. fwdsp_destroy() also closes IPC and releases any cached
+    * stream headers associated with the slot.
+    */
+   if (fwdsp_subprocs) {
+      for (int i = 0 ; i < max_subprocs ; i++) {
+         if (fwdsp_subprocs[i].pl_id[0] != '\0') {
+            fwdsp_destroy(&fwdsp_subprocs[i]);
+         }
+      }
+
+      free(fwdsp_subprocs);
+      fwdsp_subprocs = NULL;
+   }
+
+   free((char *)fwdsp_path);
    fwdsp_path = NULL;
+
+   active_slots = 0;
+   next_channel_id = 1;
+   fwdsp_mgr_ready = false;
+   fwdsp_sigchld_pending = 0;
+
    return false;
 }
 
@@ -1150,4 +1176,33 @@ int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
    }
 
    return chan_id;
+}
+
+int fwdsp_codec_stop_channel_immediate(const char *codec, bool is_tx, const char *channel_uuid) {
+   if (!codec || codec[0] == '\0') {
+      return -1;
+   }
+
+   struct fwdsp_subproc *sp = NULL;
+
+   if (channel_uuid && *channel_uuid) {
+      sp = fwdsp_find_channel_instance(codec, is_tx, channel_uuid);
+   } else {
+      sp = fwdsp_find_instance(codec, is_tx);
+   }
+
+   if (!sp) {
+      Log(LOG_DEBUG, "fwdsp",
+         "fwdsp_codec_stop_immediate: no instance for %s.%s channel %s",
+         codec, is_tx ? "tx" : "rx",
+         channel_uuid ? channel_uuid : "-");
+      return -1;
+   }
+
+   fwdsp_destroy(sp);
+   return 0;
+}
+
+int fwdsp_codec_stop_immediate(const char *codec, bool is_tx) {
+   return fwdsp_codec_stop_channel_immediate(codec, is_tx, NULL);
 }

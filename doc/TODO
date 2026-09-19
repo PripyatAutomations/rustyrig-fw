@@ -1,5 +1,10 @@
 Immediate needs
 ---------------
+* Move all socket code out of librrprotocol
+  - It needs to go into client and server code
+    - client glib/wslay
+    - server glib/wslay OR libmongoose
+
 * Elmer/noob mode needs a dialog confirmation system
   - Noob requests elevated privs and is cautioned about their responsibility
   - Elmers are prompted and one can accept responsibility for the user

@@ -87,10 +87,10 @@ struct fwdsp_subproc {
 extern void fwdsp_reap_children(void);
 extern void fwdsp_send_stream_headers(const char *uuid, rrconn_t *cptr);
 extern bool fwdsp_init(void);
+extern bool fwdsp_fini(void);
 //extern int fwdsp_find_offset(const char *id);
 //extern struct fwdsp_subproc *fwdsp_find_instance(const char *id);
-//extern struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type
-// io_type, bool is_tx);
+//extern struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx);
 extern struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io_type, bool is_tx);
 //extern bool fwdsp_destroy(struct fwdsp_subproc *instance);
 //extern bool fwdsp_spawn(struct fwdsp_subproc *sp, const char *path);
@@ -113,5 +113,7 @@ extern struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is
 extern bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx, const char *channel_uuid);
 extern bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx, const char *channel_uuid);
 extern struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx);
+extern int fwdsp_codec_stop_immediate(const char *codec, bool is_tx);
+extern int fwdsp_codec_stop_channel_immediate(const char *codec, bool is_tx, const char *channel_uuid);
 
 #endif // !defined(__rr_fwdsp_mgr_h)

@@ -128,9 +128,10 @@ bool audio_set_tx_volume(int percent) {
 
 void audio_stop_codec(bool is_tx) {
    char *active = is_tx ? tx_codec : rx_codec;
+
    if (active[0]) {
       fwdsp_cmd_stop_record(active, is_tx, 0);
-      fwdsp_codec_stop(active, is_tx);
+      fwdsp_codec_stop_immediate(active, is_tx);
       active[0] = '\0';
    }
 }

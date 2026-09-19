@@ -66,7 +66,7 @@ defconfig_t defcfg[] = {
    { "debug.show-ts", "false", "Show timestamps in log? [bool]" },
    { "device.serial", NULL, "Device serial # (usually from eeprom)" },
    { "features.auto-block-ptt", "false", "Block PTT at start?" },
-   { "fwdsp.hangtime", "60", "How long should unused (en|de)coders be kept alive after last used?" },
+   { "fwdsp.hangtime", "30", "How long should unused (en|de)coders be kept alive after last used?" },
    { "fwdsp.path", "./bin/fwdsp", "Path to fwdsp binary" },
    { "fwdsp.subproc.max", "16", "Maximum server fwdsp processes" },
    { "log.file", "rrserver.log", "Where to log?" },
