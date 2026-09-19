@@ -137,7 +137,7 @@ int db_get_users(sqlite3 *db) {
          strlcpy( up->privs, privs, sizeof(up->privs) );
       }
 
-      Log(LOG_DEBUG, "db", "db_get_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_sessions=%d",
+      Log(LOG_CRAZY, "db", "db_get_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_sessions=%d",
          uid, up->name, (up->email[0] != '\0' ? up->email : "none"), (up->enabled ? "true" : "false"),
          (up->privs[0] != '\0' ? up->privs : "none"), up->max_sessions);
       user_count++;
@@ -163,8 +163,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    sqlite3_stmt *stmt;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log( LOG_CRIT, "db", "failed preparing statement in db_add_audit_event: %s", sqlite3_errmsg(db) );
-
+      Log(LOG_CRIT, "db", "failed preparing statement in db_add_audit_event: %s", sqlite3_errmsg(db));
       return false;
    }
    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
@@ -190,8 +189,7 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
    sqlite3_stmt *stmt;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log( LOG_CRIT, "db", "failed preparing statement in db_ptt_start: %s", sqlite3_errmsg(db) );
-
+      Log(LOG_CRIT, "db", "failed preparing statement in db_ptt_start: %s", sqlite3_errmsg(db));
       return -1;
    }
    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
@@ -231,8 +229,7 @@ bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs) {
    sqlite3_stmt *stmt;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log( LOG_CRIT, "db", "failed preparing statement in db_ptt_stop: %s", sqlite3_errmsg(db) );
-
+      Log(LOG_CRIT, "db", "failed preparing statement in db_ptt_stop: %s", sqlite3_errmsg(db));
       return false;
    }
    sqlite3_bind_int(stmt, 1, session_id);
@@ -249,7 +246,7 @@ bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs) {
       const char *sel = "SELECT duration FROM ptt_log WHERE id = ?;";
 
       if (sqlite3_prepare_v2(db, sel, -1, &stmt, NULL) != SQLITE_OK) {
-         Log( LOG_WARN, "db", "db_ptt_stop: reading back duration failed: %s", sqlite3_errmsg(db) );
+         Log(LOG_WARN, "db", "db_ptt_stop: reading back duration failed: %s", sqlite3_errmsg(db));
          *duration_secs = -1;
          return true;
       }

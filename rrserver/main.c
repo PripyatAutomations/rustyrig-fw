@@ -187,8 +187,6 @@ int main(int argc, char **argv) {
          free( (void *)config_file);
          config_file = NULL;
          exit(1);
-      } else {
-         printf("Loading config %s\n", config_file);
       }
    }
 
@@ -198,7 +196,6 @@ int main(int argc, char **argv) {
       if ( !( cfg = cfg_load(fullpath) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
-      printf("Loading config %s\n", config_file);
       free(fullpath);
    }
 
@@ -208,6 +205,7 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
+   printf("Loading config %s\n", config_file);
    // apply some global configuration
    const char *logfile = cfg_get_exp("log.file");
    logger_init( (logfile ? logfile : "-"), false );

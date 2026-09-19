@@ -43,3 +43,6 @@ codec negotiation: Discard codecs without configured pipelines?
 
 rrserver: add recordings to database
 rrclient: Consider bringing in sqlite db for storage/caching (call lookups, etc)
+
+*: Rotator/amp/ATU support
+   - backend.internal, backend.hamlib, and backend.network based

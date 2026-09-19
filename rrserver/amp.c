@@ -48,10 +48,22 @@ bool rr_amp_init(uint8_t index) {
 }
 
 bool rr_amp_init_all(void) {
-   Log(LOG_INFO, "amp", "Initializing all amplifiers");
-   rr_amp_init(0);
-   Log(LOG_INFO, "amp", "Amp setup complete");
+   int amps = cfg_get_int("amp.max", 0);
 
+   if (amps > RR_MAX_AMPS) {
+      Log(LOG_CRIT, "amp", "amp.max (%d) > RR_MAX_AMPS (%d), capping at %d", amps, RR_MAX_AMPS, RR_MAX_AMPS);
+      amps = RR_MAX_AMPS;
+   }
+
+   if (amps > 0) {
+      Log(LOG_INFO, "amp", "Initializing all amplifiers");
+      for (int i = 0; i < amps; i++) {
+         rr_amp_init(i);
+      }
+      Log(LOG_INFO, "amp", "Amp setup complete");
+   } else {
+      Log(LOG_INFO, "amp", "No amplifiers configured");
+   }
    return false;
 }
 
