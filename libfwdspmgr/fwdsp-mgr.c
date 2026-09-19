@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #endif
 #include <librustyaxe/core.h>
+#include <librustyaxe/util.file.h>
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <fwdsp/default-pipelines.h>
@@ -331,6 +332,25 @@ bool fwdsp_init(void) {
    if (max_subprocs <= 0 || max_subprocs > FWDSP_MAX_SUBPROCS) {
       Log(LOG_CRIT, "config", "fwdsp.subproc.max <%d> is invalid: range=0-%d", max_subprocs, FWDSP_MAX_SUBPROCS);
       return true;
+   }
+
+   const char *record_dir = cfg_get_exp("fwdsp.recording.path");
+   bool record_dir_owned = record_dir != NULL;
+   if (!record_dir || !*record_dir) {
+      free((char *)record_dir);
+      record_dir = "./recordings";
+      record_dir_owned = false;
+   }
+   if (!mkdir_p(record_dir)) {
+      Log(LOG_CRIT, "fwdsp-mgr", "Unable to create recording directory %s: %s",
+         record_dir, strerror(errno));
+      if (record_dir_owned) {
+         free((char *)record_dir);
+      }
+      return true;
+   }
+   if (record_dir_owned) {
+      free((char *)record_dir);
    }
 
    // if not allocated, try to allocate it

@@ -55,7 +55,8 @@ include mk/resource.mk
 include mk/packaging.mk
 
 # This is built as part of ./tools/pack-eeprom until we split it off later perhaps
-${BUILD_DIR}/build_config.h: ${EEPROM_FILE}
+${BUILD_DIR}/build_config.h: ${EEPROM_FILE} .version
+
 ${EEPROM_FILE}: ${CF} ${CHANNELS} $(wildcard res/*.json)
 
 ${BUILD_DIR}/.stamp:

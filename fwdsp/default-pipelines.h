@@ -18,6 +18,7 @@
 
 #define FWDSP_PC16_TX(source) \
    source " ! " \
+   "volume name=tx-vol ! " \
    "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
    "tee name=t  t. ! " \
    "queue max-size-buffers=2 leaky=downstream ! " \
@@ -40,6 +41,7 @@
 
 #define FWDSP_G722_TX(source) \
    source " ! " \
+   "volume name=tx-vol ! " \
    "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
    "tee name=t  t. ! " \
    "queue max-size-buffers=2 leaky=downstream ! " \
@@ -63,6 +65,7 @@
 
 #define FWDSP_MU16_TX(source) \
    source " ! " \
+   "volume name=tx-vol ! " \
    "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
    "tee name=t  t. ! " \
    "queue max-size-buffers=2 leaky=downstream ! " \
@@ -87,6 +90,7 @@
 
 #define FWDSP_MU08_TX(source) \
    source " ! " \
+   "volume name=tx-vol ! " \
    "audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! " \
    "tee name=t  t. ! " \
    "queue max-size-buffers=2 leaky=downstream ! " \
@@ -111,6 +115,7 @@
 
 #define FWDSP_OPUS_TX(source) \
    source " ! " \
+   "volume name=tx-vol ! " \
    "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
    "tee name=t  t. ! " \
    "queue max-size-buffers=2 leaky=downstream ! " \
@@ -135,6 +140,7 @@
 
 #define FWDSP_OGGV_TX(source) \
    source " ! " \
+   "volume name=tx-vol ! " \
    "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
    " tee name=t t. ! " \
    " queue max-size-buffers=2 leaky=downstream ! " \

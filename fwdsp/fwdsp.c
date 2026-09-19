@@ -41,6 +41,7 @@
 #define	__FWDSP
 #endif
 #include <librustyaxe/core.h>
+#include <librustyaxe/util.file.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <fwdsp/fwdsp-shared.h>
 #include <librrprotocol/cfg.fwdsp.h>
@@ -98,6 +99,7 @@ static struct fwdsp_recorder recorder = { 0 };
 static bool record_requested = false;
 static char record_user[FWDSP_RECORD_USER_LEN] = "unknown";
 static bool record_tx = false;
+static char *recording_dir = NULL;
 
 static void recorder_reset_ring(struct fwdsp_recorder *rec) {
    rec->read_pos = 0;
@@ -243,7 +245,6 @@ static void *recorder_thread_main(void *arg) {
 }
 
 static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bits_per_sample) {
-   const char *record_dir;
    struct tm tm_now;
    char stamp[32];
 
@@ -257,18 +258,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return false;
    }
 
-   record_dir = cfg_get_exp("fwdsp.recording.path");
-   if (!record_dir || !*record_dir) {
-      free((char *)record_dir);
-      record_dir = strdup("./recordings");
-   }
-
-   if (mkdir(record_dir, 0755) < 0 && errno != EEXIST) {
-      Log(LOG_CRIT, "record", "Unable to create recording directory %s: %s",
-         record_dir, strerror(errno));
-      free((char *)record_dir);
-      return false;
-   }
+   const char *record_dir = recording_dir ? recording_dir : "./recordings";
 
    time_t record_now = time(NULL);
    localtime_r(&record_now, &tm_now);
@@ -283,7 +273,6 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
    }
    int name_len = snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s",
       record_dir, stamp, safe_user, record_tx ? "tx" : "rx");
-   free((char *)record_dir);
    if (name_len < 0 || (size_t)name_len >= sizeof(recorder.filename)) {
       Log(LOG_CRIT, "record", "Recording path is too long");
       return false;
@@ -531,6 +520,51 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader,
 #define	STDIN_FD 0
 #define	STDOUT_FD 1
 
+// Keep codec pipelines tolerant of short scheduling/network hiccups without
+// allowing unbounded latency. The configured queue sizes are deliberately
+// overridden here so custom and built-in pipelines share the same ~100 ms cap.
+static void configure_pipeline_buffers(GstElement *pipeline) {
+   if (!pipeline) {
+      return;
+   }
+
+   GstIterator *iterator = gst_bin_iterate_recurse(GST_BIN(pipeline));
+   GValue item = G_VALUE_INIT;
+   bool done = false;
+
+   while (!done) {
+      switch (gst_iterator_next(iterator, &item)) {
+         case GST_ITERATOR_OK: {
+            GstElement *element = g_value_get_object(&item);
+            GstElementFactory *factory = element ? gst_element_get_factory(element) : NULL;
+            const gchar *name = factory ? gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : NULL;
+
+            if (name && (!strcmp(name, "queue") || !strcmp(name, "queue2"))) {
+               g_object_set(G_OBJECT(element),
+                  "max-size-buffers", 8u,
+                  "max-size-time", (guint64)100000000,
+                  NULL);
+            } else if (element && GST_IS_APP_SINK(element)) {
+               g_object_set(G_OBJECT(element),
+                  "max-buffers", 8u,
+                  "max-time", (guint64)100000000,
+                  NULL);
+            }
+            g_value_reset(&item);
+            break;
+         }
+         case GST_ITERATOR_RESYNC:
+            gst_iterator_resync(iterator);
+            break;
+         default:
+            done = true;
+            break;
+      }
+   }
+   g_value_unset(&item);
+   gst_iterator_free(iterator);
+}
+
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       dying = false;
@@ -544,6 +578,8 @@ static void run_loop(struct audio_config *cfg) {
          sleep(1);
          continue;
       }
+
+      configure_pipeline_buffers(pipeline);
 
       GstElement *appsrc = gst_bin_get_by_name(GST_BIN(pipeline), "rx-src");
       if (!appsrc) {
@@ -569,7 +605,13 @@ static void run_loop(struct audio_config *cfg) {
          record_sink = NULL;
       }
 
-      GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
+      GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline),
+         cfg->tx_mode ? "tx-vol" : "rx-vol");
+      // Preserve compatibility with older custom TX pipelines that only
+      // exposed rx-vol.
+      if (!volume && cfg->tx_mode) {
+         volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
+      }
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
          g_printerr("Failed to set pipeline to PLAYING state.\n");
@@ -923,6 +965,18 @@ int main(int argc, char *argv[]) {
          "fwdsp requires -f with the parent application's config file");
       exit(1);
    }
+
+   recording_dir = (char *)cfg_get_exp("fwdsp.recording.path");
+   if (!recording_dir || !*recording_dir) {
+      free(recording_dir);
+      recording_dir = strdup("./recordings");
+   }
+   if (!recording_dir) {
+      Log(LOG_CRIT, "record", "Unable to resolve recording directory");
+      free(recording_dir);
+      recording_dir = NULL;
+      return 1;
+   }
    const char *logfile = cfg_get_exp("fwdsp.log.file");
    logger_init( (logfile ? logfile : "-"), false);
    log_stdout = false;
@@ -1009,6 +1063,8 @@ int main(int argc, char *argv[]) {
       close(null_stdout);
    }
    host_cleanup();
+
+   free(recording_dir);
 
    return 0;
 }

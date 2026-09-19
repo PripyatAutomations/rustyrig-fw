@@ -21,27 +21,16 @@ Immediate needs
   - sends to client
   - client displays it to user
 
-rrclient: tui - Lets make the top status line (where we show the window name) in the TUI show the VFO status, latency as (XXXms) on the end and PTT state like [VFO A: 7200.000 LSB 3000] (80ms) PTT: admin or PTT: off with printf escapes
-
-* Finish the TX quota stuff
-
 * Add TX channel UUID to PTT messages
   - All listeners auto-sub/unsub
-
-* Recordings!
-  - Save the raw audio frames from gstreamer in ./recordings
-    - mkdir if missing
 
 * Consider splitting UI and network/audio into threads
   - When gui is busy, audio skips slightly
 
-fwdsp: Recordings triggered by control pipe commands
-  - Send metadata & target filename
-  - Ring buffer of audio and a second thread to encode
-
 codec negotiation: Discard codecs without configured pipelines?
 
 rrserver: add recordings to database
+
 rrclient: Consider bringing in sqlite db for storage/caching (call lookups, etc)
 
 *: Rotator/amp/ATU support
