@@ -40,6 +40,8 @@ defconfig_t defcfg_fwdsp[] = {
    { "fwdsp.path", "bin/fwdsp", "Path to fwdsp binary" },
 #endif
    { "fwdsp.recording.path", "./recordings", "Path to audio recordings" },
+   { "recording.codec", "flac", "Recording container/codec: flac or ogg" },
+   { "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg" },
    { "fwdsp.recording.rx", "false", "Record received audio" },
    { "fwdsp.recording.tx", "false", "Record transmitted audio" },
    { "fwdsp.subproc.max", "16", "Maximum allowed de/encoder processes" },

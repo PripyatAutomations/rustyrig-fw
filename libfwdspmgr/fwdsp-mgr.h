@@ -34,6 +34,7 @@ struct fwdsp_io_conn {
 #define	FWDSP_CTRL_START_RECORD	  7	// Start recording the raw audio
 #define FWDSP_CTRL_STOP_RECORD    8     // Stop recording the raw audio
 #define FWDSP_RECORD_USER_LEN     64
+#define FWDSP_RECORD_ID_LEN       64
 
 struct fwdsp_control_msg {
    uint32_t magic;
@@ -44,6 +45,7 @@ struct fwdsp_control_msg {
    // Local manager/child IPC; rebuild fwdsp and libfwdspmgr together.
    uint8_t record_direction;
    char record_user[FWDSP_RECORD_USER_LEN];
+   char record_id[FWDSP_RECORD_ID_LEN];
 };
 
 struct fwdsp_subproc {

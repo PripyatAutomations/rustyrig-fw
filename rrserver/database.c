@@ -26,6 +26,38 @@
 // database handle
 sqlite3 *masterdb = NULL;
 
+static void db_ensure_ptt_recording_id(sqlite3 *db) {
+   if (!db) {
+      return;
+   }
+
+   sqlite3_stmt *stmt = NULL;
+   bool have_column = false;
+   if (sqlite3_prepare_v2(db, "PRAGMA table_info(ptt_log);", -1, &stmt, NULL) == SQLITE_OK) {
+      while (sqlite3_step(stmt) == SQLITE_ROW) {
+         const char *name = (const char *)sqlite3_column_text(stmt, 1);
+         if (name && strcmp(name, "recording_id") == 0) {
+            have_column = true;
+            break;
+         }
+      }
+   }
+   sqlite3_finalize(stmt);
+   if (have_column) {
+      return;
+   }
+
+   char *error = NULL;
+   if (sqlite3_exec(db, "ALTER TABLE ptt_log ADD COLUMN recording_id TEXT;", NULL, NULL, &error) != SQLITE_OK) {
+      // A database created before the ptt_log schema exists will be upgraded
+      // when its schema is installed. Do not make opening it fatal here.
+      if (error && strstr(error, "no such table") == NULL) {
+         Log(LOG_WARN, "db", "Unable to add ptt_log.recording_id: %s", error);
+      }
+      sqlite3_free(error);
+   }
+}
+
 sqlite3 *db_open(const char *path) {
    if (!path) {
       return NULL;
@@ -39,6 +71,7 @@ sqlite3 *db_open(const char *path) {
    sqlite3 *db = NULL;
 
    if (sqlite3_open(path, &db) == SQLITE_OK) {
+      db_ensure_ptt_recording_id(db);
       return db;
    }
 
@@ -177,14 +210,14 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 }
 
 int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth,
-                 float power, const char *record_file) {
-   if (!db || !username || !mode || !record_file) {
+                 float power, const char *recording_id) {
+   if (!db || !username || !mode || !recording_id) {
       return -1;
    }
    // XXX: Add a random session key so we don't have to trust user supplied rowids! ;)
    const char *sql =
-      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file) "
-      "VALUES (?, ?, ?, ?, ?, ?, ?);";
+      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id) "
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 
@@ -198,7 +231,8 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
    sqlite3_bind_text(stmt, 4, mode, -1, SQLITE_STATIC);
    sqlite3_bind_int(stmt, 5, bandwidth);
    sqlite3_bind_double(stmt, 6, power);
-   sqlite3_bind_text(stmt, 7, record_file, -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 7, recording_id, -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 8, recording_id, -1, SQLITE_STATIC);
 
    if (sqlite3_step(stmt) != SQLITE_DONE) {
       sqlite3_finalize(stmt);

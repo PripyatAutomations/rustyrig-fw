@@ -1,5 +1,8 @@
 Immediate needs
 ---------------
+rrclient: extend the status bar to be able to show any VFO's properties and who is actively TXing
+* Make each VFO have an independant PTT, etc
+
 * Move all socket code out of librrprotocol
   - It needs to go into client and server code
     - client glib/wslay

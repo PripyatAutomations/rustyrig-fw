@@ -2,7 +2,7 @@
 #ifndef FWDSP_DEFAULT_PIPELINES_H
 #define FWDSP_DEFAULT_PIPELINES_H
 
-#define FWDSP_DEFAULT_CODECS "pc16 g722 mu16 mu08 opus oggv aacv pc1T g72T mu1T mu0T opuT oggT aacT"
+#define FWDSP_DEFAULT_CODECS "pc16 g722 mu16 mu08 opus oggv aacv flac pc1T g72T mu1T mu0T opuT oggT aacT flaT"
 
 #define FWDSP_CAPTURE_SOURCE "pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample"
 #define FWDSP_NOISE_SOURCE "audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true"
@@ -145,7 +145,10 @@
 
 #define FWDSP_OGGV_RX \
    "appsrc name=rx-src is-live=true format=bytes caps=application/ogg ! " \
-   " oggdemux ! " \
+   " tee name=encoded-t " \
+   " encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
+   " appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true " \
+   " encoded-t. ! queue ! oggdemux ! " \
    " vorbisdec ! " \
    " audioconvert ! " \
    " audioresample ! " \
@@ -166,7 +169,32 @@
    " audioconvert ! " \
    " vorbisenc quality=0.3 ! " \
    " oggmux max-delay=20000000 max-page-delay=20000000 ! " \
-   " appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false t. ! " \
+   " tee name=encoded-t " \
+   " encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
+   " appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false " \
+   " encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
+   " appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true t. ! " \
+   " queue max-size-buffers=4 leaky=downstream ! " \
+   " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
+
+#define FWDSP_FLAC_RX \
+   "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-flac,framed=true ! " \
+   " tee name=encoded-t encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
+   " appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true " \
+   " encoded-t. ! queue ! flacparse ! flacdec ! audioconvert ! audioresample ! " \
+   " audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t " \
+   " t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! " \
+   " pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! " \
+   " queue max-size-buffers=4 leaky=downstream ! " \
+   " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
+
+#define FWDSP_FLAC_TX(source) \
+   source " ! volume name=tx-vol ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
+   " tee name=t t. ! queue max-size-buffers=2 leaky=downstream ! flacenc ! tee name=encoded-t " \
+   " encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
+   " appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false " \
+   " encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
+   " appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true t. ! " \
    " queue max-size-buffers=4 leaky=downstream ! " \
    " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
@@ -198,6 +226,10 @@
    { "pipeline:oggv.rx", FWDSP_OGGV_RX, "Default oggv.rx audio pipeline" }, \
    { "pipeline:oggv.tx", FWDSP_OGGV_TX(source), "Default oggv.tx audio pipeline" }, \
    { "pipeline:oggT.rx", FWDSP_OGGV_RX, "Default oggT.rx audio pipeline" }, \
-   { "pipeline:oggT.tx", FWDSP_OGGV_TX("audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true"), "Default oggT.tx audio pipeline" },
+   { "pipeline:oggT.tx", FWDSP_OGGV_TX("audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true"), "Default oggT.tx audio pipeline" }, \
+   { "pipeline:flac.rx", FWDSP_FLAC_RX, "Default flac.rx audio pipeline" }, \
+   { "pipeline:flac.tx", FWDSP_FLAC_TX(source), "Default flac.tx audio pipeline" }, \
+   { "pipeline:flaT.rx", FWDSP_FLAC_RX, "Default flaT.rx audio pipeline" }, \
+   { "pipeline:flaT.tx", FWDSP_FLAC_TX("audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true"), "Default flaT.tx audio pipeline" },
 
 #endif

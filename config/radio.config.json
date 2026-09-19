@@ -25,7 +25,9 @@
       "max_bands": 14,
       "mongoose": "true",
       "mqtt": "true",
-      "sqlite": "true"
+      "sqlite": "true",
+      "opus": "true",
+      "flac": "true"
    },
    "modules": {
       "atu": {

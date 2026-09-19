@@ -25,17 +25,30 @@
 #include <libfwdspmgr/fwdsp-ctl.h>
 #include <rrserver/backend.h>
 #include <rrserver/media.h>
+#include <rrserver/ptt.h>
 
 extern time_t now;
 
+static bool media_recording_enabled(bool tx) {
+   // Current server configs keep recording policy under [fwdsp]. Retain the
+   // older top-level names for installations that use rrserver defaults or a
+   // pre-existing config file.
+   const char *key = tx ? "fwdsp.recording.tx" : "fwdsp.recording.rx";
+   if (cfg_get(key)) {
+      return cfg_get_bool(key, false);
+   }
+   return cfg_get_bool(tx ? "record.tx" : "record.rx", false);
+}
+
 // Recording direction describes the radio, not the encoder/decoder process.
-static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker, bool start) {
+static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker, bool start,
+   const char *recording_id) {
    bool tx = channel->direction == RR_BINFRAME_DIR_TX;
    if (!channel->codec[0] ||
        !fwdsp_find_channel_instance(channel->codec, !tx, channel->uuid)) {
       return;
    }
-   if (start && !cfg_get_bool(tx ? "fwdsp.recording.tx" : "fwdsp.recording.rx", false)) {
+   if (start && !media_recording_enabled(tx)) {
       return;
    }
    if (start && !tx) {
@@ -48,8 +61,8 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
    if (start && tx && (!talker || !talker->chatname[0])) {
       return;
    }
-   bool failed = start ? fwdsp_cmd_start_record_named(channel->codec, !tx,
-      channel->uuid, tx ? talker->chatname : "radio", tx) :
+   bool failed = start ? fwdsp_cmd_start_record_named_id(channel->codec, !tx,
+      channel->uuid, tx ? talker->chatname : "radio", tx, recording_id) :
       fwdsp_cmd_stop_record_channel(channel->codec, !tx, channel->uuid);
    if (failed) {
       Log(LOG_WARN, "record", "Unable to %s recording for channel %s",
@@ -74,23 +87,24 @@ void rrserver_media_recording_tick(void) {
       char always_key[64];
       snprintf(always_key, sizeof(always_key), "record.always.vfo_%c", 'a' + channel->vfo);
       bool always = cfg_get_bool(always_key, false);
-      bool recording = cfg_get_bool("fwdsp.recording.rx", false);
+      bool recording = media_recording_enabled(false);
       if (!recording || (!always && !clients)) {
          fwdsp_cmd_stop_record_channel(channel->codec, true, channel->uuid);
       } else {
-         media_record_channel(channel, NULL, true);
+         media_record_channel(channel, NULL, true, NULL);
       }
    }
 }
 
-void rrserver_media_record_ptt(rr_vfo_t vfo, bool ptt, rrconn_t *talker) {
+void rrserver_media_record_ptt(rr_vfo_t vfo, bool ptt, rrconn_t *talker,
+   const char *recording_id) {
    if (vfo < VFO_A || vfo >= MAX_VFOS) {
       return;
    }
    struct rr_mediachan *channel = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
       RR_BINFRAME_DIR_TX, (uint8_t)vfo, 0);
    if (channel) {
-      media_record_channel(channel, talker, ptt);
+      media_record_channel(channel, talker, ptt, recording_id);
    }
 }
 
@@ -205,9 +219,11 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
    }
 
    rrconn_t *talker = whos_talking();
+   const char *recording_id = channel->direction == RR_BINFRAME_DIR_TX ?
+      rr_ptt_recording_id((rr_vfo_t)channel->vfo) : NULL;
    if (channel->direction == RR_BINFRAME_DIR_RX ||
        (talker && talker->ptt_vfo == 'A' + channel->vfo)) {
-      media_record_channel(channel, talker, true);
+      media_record_channel(channel, talker, true, recording_id);
    }
 
    Log(LOG_INFO, "ws.media", "Active fwdsp pipeline %s.%s (chan %d) for %s channel %s", codec,

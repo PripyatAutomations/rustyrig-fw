@@ -304,6 +304,8 @@ static bool rrserver_recording_control(const char *data, bool start) {
 
    bool fwdsp_tx = (channel->direction == RR_BINFRAME_DIR_RX);
    rrconn_t *talker = whos_talking();
+   const char *recording_id = (!fwdsp_tx && start) ?
+      rr_ptt_recording_id((rr_vfo_t)channel->vfo) : NULL;
    const char *who = fwdsp_tx ? "radio" :
       (talker && talker->ptt_vfo == 'A' + channel->vfo ? talker->chatname : NULL);
    if (start && (!who || !*who)) {
@@ -312,7 +314,7 @@ static bool rrserver_recording_control(const char *data, bool start) {
       return true;
    }
    bool failed = start ?
-      fwdsp_cmd_start_record_named(codec, fwdsp_tx, channel->uuid, who, !fwdsp_tx) :
+      fwdsp_cmd_start_record_named_id(codec, fwdsp_tx, channel->uuid, who, !fwdsp_tx, recording_id) :
       fwdsp_cmd_stop_record_channel(codec, fwdsp_tx, channel->uuid);
 
    if (failed) {

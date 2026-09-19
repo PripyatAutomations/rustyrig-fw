@@ -23,15 +23,33 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/au.h>
 
-// How long should the random part of the filename be?
-#define	RECORDING_ID_LEN 12
-
 const char *cfg_path_record_dir = NULL;
 int cfg_recording_max = 16;
 
 static bool f_recdir_unset = false;
  
 struct RecordingData **active_recordings;
+
+bool au_recording_generate_id(char *buffer, size_t length) {
+   if (!buffer || length < RECORDING_ID_BUFSIZE) {
+      return false;
+   }
+   // auth_generate_nonce() emits length - 2 characters but places its
+   // terminator one byte past that. Normalize the result to exactly 12 chars.
+   if (auth_generate_nonce(buffer, RECORDING_ID_LEN + 2) < 0) {
+      return false;
+   }
+   buffer[RECORDING_ID_LEN] = '\0';
+   // The nonce generator uses base64, whose '+' and '/' characters are poor
+   // filename components. Keep the database ID and filename representation
+   // identical by folding them into the same safe alphabet here.
+   for (size_t i = 0; i < RECORDING_ID_LEN; i++) {
+      if (buffer[i] == '+' || buffer[i] == '/') {
+         buffer[i] = '_';
+      }
+   }
+   return true;
+}
 
 static const char *rec_mkpath(const char *recording_id, int channel) {
    char *rv = NULL;
@@ -80,8 +98,11 @@ const char *au_recording_start(int channel) {
    if (channel < 0) {
       return NULL;
    }
-   char *recording_id = malloc(RECORDING_ID_LEN + 1);
-   auth_generate_nonce( recording_id, sizeof(recording_id) );
+   char *recording_id = malloc(RECORDING_ID_BUFSIZE);
+   if (!recording_id || !au_recording_generate_id(recording_id, RECORDING_ID_BUFSIZE)) {
+      free(recording_id);
+      return NULL;
+   }
 
    if (!cfg_path_record_dir) {
       cfg_path_record_dir = cfg_get_exp("path.record-dir");

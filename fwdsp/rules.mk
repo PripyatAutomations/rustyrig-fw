@@ -7,7 +7,7 @@
 # librrprotocol, but does not use libfwdspmgr itself at runtime.
 
 CFLAGS_FWDSP := ${CFLAGS} -I${BUILD_DIR}
-LDFLAGS_FWDSP := ${LDFLAGS} -L. -lrustyaxe ${gst_ldflags} -lFLAC -lpthread -lrrprotocol
+LDFLAGS_FWDSP := ${LDFLAGS} -L. -lrustyaxe ${gst_ldflags} -lpthread -lrrprotocol
 fwdsp := bin/fwdsp
 bins += ${fwdsp}
 

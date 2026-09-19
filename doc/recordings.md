@@ -3,8 +3,9 @@
 Recordings use local wall-clock time at recording start:
 
 ```
-YYYYMMDD.HHMMSS.username.direction.flac
+YYYYMMDD.HHMMSS[.recording-id].username.direction.flac
 20260916.145901.admin.tx.flac
+20260916.145901.k8Q2mN4pR7sT.admin.tx.flac
 20260916.145901.radio.rx.flac
 ```
 
@@ -20,8 +21,10 @@ recording multiple channels never overwrites a file. Collisions add a suffix:
 `20260916.145901.admin.tx.1.flac`, `.2.flac`, etc.
 
 Codec, VFO, frequency, and other session metadata belong in the database;
-they are not encoded in this filename. Database association is separate from
-filename generation (the PTT log currently leaves `record_file` empty).
+they are not encoded in this filename. Server-side PTT recordings carry the
+same random `recording_id` in the `ptt_log.recording_id` column (and the
+legacy `record_file` field); recordings without a server event keep the
+shorter filename form.
 
 The manager passes recording identity through local control IPC. Rebuild and
 restart fwdsp, libfwdspmgr, rrclient, and rrserver together after changing that

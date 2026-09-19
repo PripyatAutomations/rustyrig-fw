@@ -56,6 +56,9 @@ extern void au_unix_socket_cleanup(void);
 extern void au_unix_socket_poll(void);
 extern const char *au_recording_start(int channel);
 extern bool au_recording_stop(const char *id);
+#define RECORDING_ID_LEN 12
+#define RECORDING_ID_BUFSIZE (RECORDING_ID_LEN + 3)
+extern bool au_recording_generate_id(char *buffer, size_t length);
 
 //#include "rrserver/au.pcm5102.h"
 ////////////////

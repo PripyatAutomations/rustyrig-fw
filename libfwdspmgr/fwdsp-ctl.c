@@ -24,6 +24,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
+#include <libfwdspmgr/fwdsp-ctl.h>
 
 bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
@@ -84,6 +85,13 @@ bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx,
 
 bool fwdsp_cmd_start_record_named(const char codec_id[5], bool is_tx,
    const char *channel_uuid, const char *username, bool record_tx) {
+   return fwdsp_cmd_start_record_named_id(codec_id, is_tx, channel_uuid,
+      username, record_tx, NULL);
+}
+
+bool fwdsp_cmd_start_record_named_id(const char codec_id[5], bool is_tx,
+   const char *channel_uuid, const char *username, bool record_tx,
+   const char *recording_id) {
    struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
       fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid) :
       fwdsp_find_instance(codec_id, is_tx);
@@ -95,10 +103,14 @@ bool fwdsp_cmd_start_record_named(const char codec_id[5], bool is_tx,
    };
 
    if (!sp || sp->fw_control <= 0 || !username || !*username ||
-       strlen(username) >= sizeof(msg.record_user)) {
+       strlen(username) >= sizeof(msg.record_user) ||
+       (recording_id && strlen(recording_id) >= sizeof(msg.record_id))) {
       return true;
    }
    snprintf(msg.record_user, sizeof(msg.record_user), "%s", username);
+   if (recording_id) {
+      snprintf(msg.record_id, sizeof(msg.record_id), "%s", recording_id);
+   }
    return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t)sizeof(msg);
 }
 

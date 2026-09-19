@@ -104,6 +104,8 @@ defconfig_t defcfg[] = {
    { "path.pid-file", "./rrserver.pid", "Where to store pid file" },
    { "path.modules", "./modules/", "Where to find modules" },
    { "path.record-dir", "./recordings", "TX & RX recordings basedir" },
+   { "recording.codec", "ogg", "Recording container/codec: flac or ogg" },
+   { "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg" },
    { "record.rx", "false", "Record received audio" },
    { "record.tx", "false", "Record transmitted audio" },
    { "record.always.vfo_a", "false", "Record VFO A RX audio with no connected client" },

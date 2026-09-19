@@ -36,7 +36,6 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <pthread.h>
-#include <FLAC/stream_encoder.h>
 #if     !defined(__FWDSP)
 #define	__FWDSP
 #endif
@@ -98,8 +97,25 @@ struct fwdsp_recorder {
 static struct fwdsp_recorder recorder = { 0 };
 static bool record_requested = false;
 static char record_user[FWDSP_RECORD_USER_LEN] = "unknown";
+static char record_id[FWDSP_RECORD_ID_LEN];
 static bool record_tx = false;
 static char *recording_dir = NULL;
+static char recording_codec[8] = "flac";
+static bool recording_encoded = false;
+
+static bool codec_is_modem(const char *codec) {
+   if (!codec) {
+      return false;
+   }
+   // *T IDs are synthetic test-tone codecs. Data/modem codecs use an
+   // explicit .drx/.dtx marker (or the compact drx/dtx form) instead.
+   return strstr(codec, ".drx") || strstr(codec, ".dtx") ||
+      strstr(codec, "drx") || strstr(codec, "dtx");
+}
+
+static bool recording_codec_valid(const char *codec) {
+   return codec && (strcasecmp(codec, "flac") == 0 || strcasecmp(codec, "ogg") == 0);
+}
 
 static void recorder_reset_ring(struct fwdsp_recorder *rec) {
    rec->read_pos = 0;
@@ -114,9 +130,10 @@ static FILE *recorder_open_file(struct fwdsp_recorder *rec) {
    char base[PATH_MAX];
    snprintf(base, sizeof(base), "%s", rec->filename);
    for (unsigned suffix = 0 ; suffix < 1000000 ; suffix++) {
+      const char *extension = strcmp(recording_codec, "ogg") == 0 ? "ogg" : "flac";
       int len = suffix ?
-         snprintf(rec->filename, sizeof(rec->filename), "%s.%u.flac", base, suffix) :
-         snprintf(rec->filename, sizeof(rec->filename), "%s.flac", base);
+         snprintf(rec->filename, sizeof(rec->filename), "%s.%u.%s", base, suffix, extension) :
+         snprintf(rec->filename, sizeof(rec->filename), "%s.%s", base, extension);
       if (len < 0 || (size_t)len >= sizeof(rec->filename)) {
          errno = ENAMETOOLONG;
          return NULL;
@@ -142,35 +159,60 @@ static FILE *recorder_open_file(struct fwdsp_recorder *rec) {
 
 static void *recorder_thread_main(void *arg) {
    struct fwdsp_recorder *rec = arg;
-   FLAC__StreamEncoder *enc = FLAC__stream_encoder_new();
-   FLAC__int32 *samples = NULL;
-   size_t samples_cap = 0;
    uint8_t chunk[8192];
-
-   if (!enc) {
-      Log(LOG_CRIT, "record", "Unable to allocate FLAC encoder");
-      return NULL;
-   }
-
-   FLAC__stream_encoder_set_channels(enc, rec->channels);
-   FLAC__stream_encoder_set_bits_per_sample(enc, rec->bits_per_sample);
-   FLAC__stream_encoder_set_sample_rate(enc, rec->sample_rate);
-   FLAC__stream_encoder_set_compression_level(enc, 3);
-
    FILE *file = recorder_open_file(rec);
    if (!file) {
       Log(LOG_CRIT, "record", "Unable to create recording %s: %s", rec->filename, strerror(errno));
-      FLAC__stream_encoder_delete(enc);
       return NULL;
    }
-   if (FLAC__stream_encoder_init_FILE(enc, file, NULL, NULL) != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
-      Log(LOG_CRIT, "record", "Unable to initialize recording %s", rec->filename);
-      // init_FILE transfers ownership even when initialization fails.
-      FLAC__stream_encoder_delete(enc);
+
+   // The file is opened above only to reserve a collision-free name. GStreamer
+   // owns the actual output file and supplies either FLAC or Ogg/Vorbis.
+   fclose(file);
+   GError *parse_error = NULL;
+   const char *encode = recording_encoded ? "identity" :
+      (strcmp(recording_codec, "ogg") == 0 ?
+         "audioconvert ! vorbisenc quality=0.3 ! oggmux" : "flacenc");
+   char pipeline_desc[512];
+   if (recording_encoded) {
+      snprintf(pipeline_desc, sizeof(pipeline_desc),
+         "appsrc name=record-src is-live=false format=bytes ! %s ! filesink name=record-file",
+         encode);
+   } else {
+      snprintf(pipeline_desc, sizeof(pipeline_desc),
+         "appsrc name=record-src is-live=false format=time ! %s ! filesink name=record-file",
+         encode);
+   }
+   GstElement *record_pipeline = gst_parse_launch(pipeline_desc, &parse_error);
+   if (!record_pipeline) {
+      Log(LOG_CRIT, "record", "Unable to create %s recorder: %s", recording_codec,
+         parse_error ? parse_error->message : "unknown error");
+      if (parse_error) g_error_free(parse_error);
+      unlink(rec->filename);
+      return NULL;
+   }
+   GstElement *record_src = gst_bin_get_by_name(GST_BIN(record_pipeline), "record-src");
+   GstElement *record_file = gst_bin_get_by_name(GST_BIN(record_pipeline), "record-file");
+   GstCaps *record_caps = recording_encoded ?
+      gst_caps_new_empty_simple(strcmp(recording_codec, "ogg") == 0 ?
+         "application/ogg" : "audio/x-flac") :
+      gst_caps_new_simple("audio/x-raw",
+         "format", G_TYPE_STRING, "S16LE", "rate", G_TYPE_INT, (gint)rec->sample_rate,
+         "channels", G_TYPE_INT, (gint)rec->channels, "layout", G_TYPE_STRING, "interleaved", NULL);
+   gst_app_src_set_caps(GST_APP_SRC(record_src), record_caps);
+   gst_caps_unref(record_caps);
+   g_object_set(G_OBJECT(record_file), "location", rec->filename, NULL);
+   gst_object_unref(record_file);
+   if (gst_element_set_state(record_pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
+      Log(LOG_CRIT, "record", "Unable to start %s recorder %s", recording_codec, rec->filename);
+      gst_object_unref(record_src);
+      gst_object_unref(record_pipeline);
+      unlink(rec->filename);
       return NULL;
    }
 
    Log(LOG_INFO, "record", "Recording to %s", rec->filename);
+   uint64_t recorded_samples = 0;
 
    for (;;) {
       size_t got = 0;
@@ -214,32 +256,32 @@ static void *recorder_thread_main(void *arg) {
       pthread_mutex_unlock(&rec->lock);
 
       size_t frames = got / frame_bytes;
-      size_t values = frames * rec->channels;
-
-      if (values > samples_cap) {
-         FLAC__int32 *tmp = realloc(samples, values * sizeof(*samples));
-         if (!tmp) {
-            Log(LOG_CRIT, "record", "OOM converting recording samples");
-            break;
-         }
-         samples = tmp;
-         samples_cap = values;
+      GstBuffer *buffer = gst_buffer_new_allocate(NULL, got, NULL);
+      if (!buffer) {
+         Log(LOG_CRIT, "record", "Unable to allocate recording buffer");
+         break;
       }
-
-      for (size_t i = 0 ; i < values ; i++) {
-         uint16_t v = (uint16_t)chunk[i * 2] | ((uint16_t)chunk[i * 2 + 1] << 8);
-         samples[i] = (int16_t)v;
+      gst_buffer_fill(buffer, 0, chunk, got);
+      if (!recording_encoded) {
+         GST_BUFFER_PTS(buffer) = gst_util_uint64_scale(recorded_samples, GST_SECOND, rec->sample_rate);
+         GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale(frames, GST_SECOND, rec->sample_rate);
+         recorded_samples += frames;
       }
-
-      if (frames > 0 && !FLAC__stream_encoder_process_interleaved(enc, samples, (unsigned)frames)) {
-         Log(LOG_CRIT, "record", "FLAC encoder failed while writing %s", rec->filename);
+      if (gst_app_src_push_buffer(GST_APP_SRC(record_src), buffer) != GST_FLOW_OK) {
+         Log(LOG_CRIT, "record", "%s encoder failed while writing %s", recording_codec, rec->filename);
          break;
       }
    }
 
-   FLAC__stream_encoder_finish(enc);
-   FLAC__stream_encoder_delete(enc);
-   free(samples);
+   gst_app_src_end_of_stream(GST_APP_SRC(record_src));
+   GstBus *record_bus = gst_element_get_bus(record_pipeline);
+   GstMessage *record_done = gst_bus_timed_pop_filtered(record_bus, 5 * GST_SECOND,
+      GST_MESSAGE_EOS | GST_MESSAGE_ERROR);
+   if (record_done) gst_message_unref(record_done);
+   gst_object_unref(record_bus);
+   gst_element_set_state(record_pipeline, GST_STATE_NULL);
+   gst_object_unref(record_src);
+   gst_object_unref(record_pipeline);
    Log(LOG_INFO, "record", "Closed recording %s", rec->filename);
    return NULL;
 }
@@ -252,7 +294,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return true;
    }
 
-   if (bits_per_sample != 16 || channels == 0 || sample_rate == 0) {
+   if ((!recording_encoded && bits_per_sample != 16) || channels == 0 || sample_rate == 0) {
       Log(LOG_WARN, "record", "Unsupported raw recording format: %u Hz, %u ch, %u bit",
          sample_rate, channels, bits_per_sample);
       return false;
@@ -271,8 +313,19 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
          *p = '_';
       }
    }
-   int name_len = snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s",
-      record_dir, stamp, safe_user, record_tx ? "tx" : "rx");
+   char safe_id[FWDSP_RECORD_ID_LEN];
+   snprintf(safe_id, sizeof(safe_id), "%s", record_id);
+   for (char *p = safe_id ; *p ; p++) {
+      if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+            (*p >= '0' && *p <= '9') || *p == '-' || *p == '_')) {
+         *p = '_';
+      }
+   }
+   int name_len = safe_id[0] ?
+      snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s.%s",
+         record_dir, stamp, safe_id, safe_user, record_tx ? "tx" : "rx") :
+      snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s",
+         record_dir, stamp, safe_user, record_tx ? "tx" : "rx");
    if (name_len < 0 || (size_t)name_len >= sizeof(recorder.filename)) {
       Log(LOG_CRIT, "record", "Recording path is too long");
       return false;
@@ -604,6 +657,12 @@ static void run_loop(struct audio_config *cfg) {
          gst_object_unref(record_sink);
          record_sink = NULL;
       }
+      GstElement *record_encoded_sink = gst_bin_get_by_name(GST_BIN(pipeline),
+         "record-encoded-sink");
+      if (record_encoded_sink && !GST_IS_APP_SINK(record_encoded_sink)) {
+         gst_object_unref(record_encoded_sink);
+         record_encoded_sink = NULL;
+      }
 
       GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline),
          cfg->tx_mode ? "tx-vol" : "rx-vol");
@@ -631,6 +690,10 @@ static void run_loop(struct audio_config *cfg) {
 
          if (record_sink) {
             gst_object_unref(record_sink);
+         }
+
+         if (record_encoded_sink) {
+            gst_object_unref(record_encoded_sink);
          }
          return;
       }
@@ -663,10 +726,23 @@ static void run_loop(struct audio_config *cfg) {
             }
          }
 
-         // Support for recording TX (and optionally RX) audio to FLAC files
-         if (record_sink) {
+         // Record either the encoded Ogg stream or the PCM recording branch.
+         GstElement *active_record_sink = recording_encoded ? record_encoded_sink : record_sink;
+         // Both branches are present in the Ogg pipelines so the recording
+         // format can be selected at startup. Drain the inactive appsink as
+         // well; otherwise it can apply backpressure and prevent EOS.
+         GstElement *inactive_record_sink = recording_encoded ? record_sink : record_encoded_sink;
+         if (inactive_record_sink) {
+            GstSample *discard_sample;
+            while ((discard_sample = gst_app_sink_try_pull_sample(
+               GST_APP_SINK(inactive_record_sink), 0))) {
+               gst_sample_unref(discard_sample);
+            }
+         }
+         if (active_record_sink) {
             GstSample *record_sample;
-            while ((record_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(record_sink), 0))) {
+            while ((record_sample = gst_app_sink_try_pull_sample(
+               GST_APP_SINK(active_record_sink), 0))) {
                GstBuffer *record_buffer = gst_sample_get_buffer(record_sample);
                GstCaps *caps = gst_sample_get_caps(record_sample);
                GstMapInfo record_map;
@@ -674,7 +750,9 @@ static void run_loop(struct audio_config *cfg) {
                unsigned channels = 1;
                bool format_ok = false;
 
-               if (caps) {
+               if (recording_encoded) {
+                  format_ok = true;
+               } else if (caps) {
                   GstStructure *st = gst_caps_get_structure(caps, 0);
                   int tmp = 0;
                   const char *format = gst_structure_get_string(st, "format");
@@ -693,7 +771,7 @@ static void run_loop(struct audio_config *cfg) {
                }
 
                if (record_requested && !recorder.running) {
-                  recorder_start(rate, channels, 16);
+                  recorder_start(rate, channels, recording_encoded ? 8 : 16);
                }
 
                if (record_requested && recorder.running && record_buffer &&
@@ -773,18 +851,22 @@ static void run_loop(struct audio_config *cfg) {
                      break;
 
                   case FWDSP_CTRL_START_RECORD:
-                     if (!record_sink) {
+                     if (!record_sink && !record_encoded_sink) {
                         Log(LOG_WARN, "record",
-                           "Recording requested but pipeline %s.%s has no appsink name=record-sink",
+                           "Recording requested but pipeline %s.%s has no recording appsink",
                            config_codec, codec_tx_mode ? "tx" : "rx");
                      } else {
                         control.record_user[sizeof(control.record_user) - 1] = '\0';
+                        control.record_id[sizeof(control.record_id) - 1] = '\0';
                         const char *who = control.record_user[0] ? control.record_user : "unknown";
+                        const char *id = control.record_id;
                         bool tx = control.record_direction ? control.record_direction == 2 : cfg->tx_mode;
-                        if (recorder.running && (strcmp(record_user, who) != 0 || record_tx != tx)) {
+                        if (recorder.running && (strcmp(record_user, who) != 0 ||
+                            strcmp(record_id, id) != 0 || record_tx != tx)) {
                            recorder_stop();
                         }
                         snprintf(record_user, sizeof(record_user), "%s", who);
+                        snprintf(record_id, sizeof(record_id), "%s", id);
                         record_tx = tx;
                         record_requested = true;
                      }
@@ -850,6 +932,9 @@ static void run_loop(struct audio_config *cfg) {
 
       if (record_sink) {
          gst_object_unref(record_sink);
+      }
+      if (record_encoded_sink) {
+         gst_object_unref(record_encoded_sink);
       }
 
       recorder_stop();
@@ -981,6 +1066,28 @@ int main(int argc, char *argv[]) {
       recording_dir = NULL;
       return 1;
    }
+   const bool modem_codec = codec_is_modem(config_codec);
+   const char *cfg_recording_codec_exp = cfg_get_exp(modem_codec ?
+      "fwdsp.recording.codec.modem" : "fwdsp.recording.codec");
+   const char *cfg_recording_codec = cfg_recording_codec_exp;
+   if (!cfg_recording_codec) cfg_recording_codec = cfg_get(modem_codec ?
+      "recording.codec.modem" : "recording.codec");
+   if (recording_codec_valid(cfg_recording_codec)) {
+      snprintf(recording_codec, sizeof(recording_codec), "%s", cfg_recording_codec);
+      for (char *p = recording_codec; *p; p++) {
+         if (*p >= 'A' && *p <= 'Z') *p = (char)(*p - 'A' + 'a');
+      }
+   } else if (cfg_recording_codec && *cfg_recording_codec) {
+      Log(LOG_WARN, "record", "Unsupported recording.codec=%s; using flac", cfg_recording_codec);
+   }
+   // Ogg/Vorbis can be copied directly into an Ogg recording. Other codec /
+   // recording combinations continue through the PCM recording branch.
+   recording_encoded = !modem_codec &&
+      ((strcmp(recording_codec, "ogg") == 0 && strncmp(config_codec, "ogg", 3) == 0) ||
+       (strcmp(recording_codec, "flac") == 0 && strcasecmp(config_codec, "flac") == 0));
+   Log(LOG_INFO, "record", "Recording format selected: %s%s", recording_codec,
+      recording_encoded ? " (encoded stream copy)" : " (PCM encoder)");
+   free((char *)cfg_recording_codec_exp);
    const char *logfile = cfg_get_exp("fwdsp.log.file");
    logger_init( (logfile ? logfile : "-"), false);
    log_stdout = false;

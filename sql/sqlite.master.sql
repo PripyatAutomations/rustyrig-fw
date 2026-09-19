@@ -13,7 +13,7 @@ CREATE TABLE audit_log (
 
 -- PTT-specific event log
 -- vfo: VFO letter ('A'...) the user keyed; duration: seconds of TX set on
--- key-down by db_ptt_stop().
+-- key-down by db_ptt_stop(). recording_id links the row to its audio file.
 CREATE TABLE ptt_log (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
    username TEXT NOT NULL,
@@ -25,7 +25,8 @@ CREATE TABLE ptt_log (
    start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
    end_time DATETIME,
    duration INTEGER,
-   record_file TEXT
+   record_file TEXT,
+   recording_id TEXT
 );
 
 -- TX credit accounting: remaining TX seconds per user. One row is consumed

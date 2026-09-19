@@ -23,6 +23,7 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/au.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
 #include <rrserver/ptt.h>
@@ -40,6 +41,14 @@ int vfos_enabled = 2;                    // A + B by default
 
 // VFO currently keyed by PTT logging (row id in ptt_log, -1 none)
 static int ptt_log_session[MAX_VFOS];
+static char ptt_recording_id[MAX_VFOS][RECORDING_ID_BUFSIZE];
+
+const char *rr_ptt_recording_id(rr_vfo_t vfo) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS || !ptt_recording_id[vfo][0]) {
+      return NULL;
+   }
+   return ptt_recording_id[vfo];
+}
 
 // Set once when a user's remaining credits fall to/below quota.warning so we
 // only nag them a single time until they're re-credited above the threshold
@@ -107,7 +116,7 @@ static char *ptt_log_username(int session) {
 }
 
 // Snapshot the VFO state and open a ptt_log row for the talker
-static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
+static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_id) {
 #ifdef	USE_SQLITE
    if (!talker || !masterdb || vfo < 0 || vfo >= MAX_VFOS) {
       return;
@@ -121,7 +130,7 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
    // the hamlib cache: other backends (internal) don't maintain hl_state.
    int session = db_ptt_start(masterdb, talker->chatname, vfo_name(vfo),
       (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo),
-      power, "");
+      power, recording_id ? recording_id : "");
 
    if (session < 0) {
       Log(LOG_WARN, "ptt", "PTT log: failed to start session for %s", talker->chatname);
@@ -134,6 +143,7 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo) {
 #else
    (void)talker;
    (void)vfo;
+   (void)recording_id;
 #endif
 }
 
@@ -218,6 +228,8 @@ bool rr_ptt_set_blocked(bool blocked) {
 // For CAT to call
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    char msgbuf[HTTP_WS_MAX_MSG + 1];
+   rrconn_t *ptt_talker = whos_talking();
+   const char *recording_id = NULL;
 
    if ( rr_ptt_check_blocked() ) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
@@ -254,14 +266,17 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    // whos_talking() is updated by librrprotocol (cptr->is_ptt) before the
    // rigctl event reaches us, so the talker is already current here.
    if (vfo >= 0 && vfo < MAX_VFOS) {
-      rrconn_t *talker = whos_talking();
-
-      if (ptt && talker) {
-         ptt_log_start(talker, vfo);
+      if (ptt && ptt_talker) {
+         if (!ptt_recording_id[vfo][0]) {
+            au_recording_generate_id(ptt_recording_id[vfo], sizeof(ptt_recording_id[vfo]));
+         }
+         recording_id = ptt_recording_id[vfo][0] ? ptt_recording_id[vfo] : NULL;
+         ptt_log_start(ptt_talker, vfo, recording_id);
       } else if (!ptt) {
          // Close the session for whoever was on this VFO (may be gone by now
          // if TOT/fault/disconnect forced TX off)
-         ptt_log_stop(talker, vfo);
+         recording_id = ptt_recording_id[vfo][0] ? ptt_recording_id[vfo] : NULL;
+         ptt_log_stop(ptt_talker, vfo);
       }
    }
 
@@ -271,7 +286,10 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    if (rr_ptt_apply(vfo, ptt) ) {
       Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF") );
    } else {
-      rrserver_media_record_ptt(vfo, ptt, whos_talking());
+      rrserver_media_record_ptt(vfo, ptt, ptt_talker, recording_id);
+   }
+   if (!ptt && vfo >= VFO_A && vfo < MAX_VFOS) {
+      ptt_recording_id[vfo][0] = '\0';
    }
 
    // Broadcast immediate cat.state so clients see TX state without waiting

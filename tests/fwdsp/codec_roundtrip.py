@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 
-BASE_CODECS = ('pc16', 'g722', 'mu16', 'mu08', 'opus', 'oggv', 'aacv')
+BASE_CODECS = ('pc16', 'g722', 'mu16', 'mu08', 'opus', 'oggv', 'aacv', 'flac')
 CODECS = BASE_CODECS + tuple(codec[:3] + 'T' for codec in BASE_CODECS)
 ROOT = Path.cwd()
 ENV = dict(os.environ, LD_LIBRARY_PATH=str(ROOT))

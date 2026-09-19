@@ -907,6 +907,10 @@ sub generate_config_h {
          printf $fh "#define USE_OPUS\n";
       }
 
+      if (defined($config->{features}{'flac'}) && match_boolean($config->{features}{'flac'})) {
+         printf $fh "#define USE_FLAC\n";
+      }
+
       if (defined($config->{features}{'pipewire'}) && match_boolean($config->{features}{'pipewire'})) {
          printf $fh "#define USE_PIPEWIRE\n";
       }
