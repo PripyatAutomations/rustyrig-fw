@@ -1,5 +1,5 @@
 //
-// libfwdspmgr/fwdsp-ctl.c: control messages support for fwdsp
+// libfwdspmgr/fwdsp-ctl.c: Support for sending messages to fwdsp to control it
 //
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
@@ -9,7 +9,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// codec negotiation should call fwdsp_create
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

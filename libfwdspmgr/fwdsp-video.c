@@ -8,7 +8,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// codec negotiation should call fwdsp_create
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -25,6 +24,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
+
 // Start (or ref up) a video pipeline (e.g. webcam capture) for a codec magic.
 // Like fwdsp_codec_start, but the subprocess is spawned with -v so fwdsp
 // treats it as a video stream. Returns the channel id, or -1 on failure.

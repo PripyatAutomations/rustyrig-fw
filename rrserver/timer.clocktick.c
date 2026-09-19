@@ -24,6 +24,7 @@
 #include <rrserver/ptt.h>
 #include <rrserver/thermal.h>
 #include <rrserver/backend.h>
+#include <rrserver/media.h>
 
 extern struct timespec loop_start;      // main.c
 extern struct timespec mono_now;
@@ -39,6 +40,8 @@ static rr_vfo_data_t last_vfo_state[MAX_VFOS];
 // Here we do the things that aren't terribly time sensitive, with about a 1hz interval
 void timer_clock_tick_fn(void *arg) {
    now = time(NULL);
+
+   rrserver_media_recording_tick();
 
    // Check thermals
    if ( are_we_on_fire() ) {

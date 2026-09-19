@@ -38,6 +38,13 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
    if (start && !cfg_get_bool(tx ? "fwdsp.recording.tx" : "fwdsp.recording.rx", false)) {
       return;
    }
+   if (start && !tx) {
+      char always_key[64];
+      snprintf(always_key, sizeof(always_key), "record.always.vfo_%c", 'a' + channel->vfo);
+      if (!cfg_get_bool(always_key, false) && http_count_clients() == 0) {
+         return;
+      }
+   }
    if (start && tx && (!talker || !talker->chatname[0])) {
       return;
    }
@@ -47,6 +54,32 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
    if (failed) {
       Log(LOG_WARN, "record", "Unable to %s recording for channel %s",
          start ? "start" : "stop", channel->uuid);
+   }
+}
+
+// Keep RX recording tied to actual client demand. Codec processes can linger
+// after a client disconnects, so the periodic server tick also stops an RX
+// recorder that no longer has a listener and starts one when a client returns.
+void rrserver_media_recording_tick(void) {
+   bool clients = http_count_clients() > 0;
+
+   for (int i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+      struct rr_mediachan *channel = &media_channels[i];
+      if (!channel->uuid[0] || channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+          channel->direction != RR_BINFRAME_DIR_RX || !channel->codec[0] ||
+          !fwdsp_find_channel_instance(channel->codec, true, channel->uuid)) {
+         continue;
+      }
+
+      char always_key[64];
+      snprintf(always_key, sizeof(always_key), "record.always.vfo_%c", 'a' + channel->vfo);
+      bool always = cfg_get_bool(always_key, false);
+      bool recording = cfg_get_bool("fwdsp.recording.rx", false);
+      if (!recording || (!always && !clients)) {
+         fwdsp_cmd_stop_record_channel(channel->codec, true, channel->uuid);
+      } else {
+         media_record_channel(channel, NULL, true);
+      }
    }
 }
 
