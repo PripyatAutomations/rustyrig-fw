@@ -214,6 +214,9 @@ bool vfo_set_dict(const char *vfo, dict *d) {
             break;
       }
    }
+   // A custom top line can show inactive VFOs too. Re-render it when their
+   // state changes, while preserving the active-VFO-only GTK widget updates.
+   if (!is_active && ui_mode == UI_MODE_TUI) tui_redraw_screen();
    // Only refresh the UI if this update touched the VFO currently displayed
    return is_active ? vfo_update_ui() : false;
 }

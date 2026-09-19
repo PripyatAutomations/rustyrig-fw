@@ -106,3 +106,8 @@ Example:
 and in JS:
 
     // PARITY: rustyrig-fw/rrclient/vfo.c
+
+The configurable `tui.status-line` top/topic row is frontend-specific. It
+reads the native client's existing VFO state; it introduces no protocol or
+CAT semantics. GTK widgets and browser DOM displays retain their own layout.
+See [TUI top status line](tui-status-line.md).

@@ -20,6 +20,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <fwdsp/default-pipelines.h>
+#include <rrclient/ui.statusbar.h>
 
 const char *configs[] = {
 #ifdef _WIN32
@@ -107,6 +108,7 @@ defconfig_t defcfg[] = {
    { "rig0.volume.rx", "50", "rig0: Speaker volume" },
    { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit" },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
+   { "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, "Top row template with live ${variable} and {color} escapes" },
    { "tui.use-color", "true", "Enable color in the TUI?" },
    { "tui.use-mouse", "true", "Enable mouse in the TUI?" },
 #ifdef	USE_GTK

@@ -11,6 +11,10 @@
 #if     !defined(__rrclient_ui_statusbar_h)
 #define	__rrclient_ui_statusbar_h
 #include <librustyaxe/config.h>
+#include <librustyaxe/tui.h>
+
+#define RRCLIENT_DEFAULT_STATUS_LINE "${topic} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${active_mode:---}"
+extern char *rrclient_tui_topline(tui_window_t *win);
 
 extern char sb_online[128];	// due to formatting (24 char real)
 extern char sb_window[128];	// due to formatting (16 char real)

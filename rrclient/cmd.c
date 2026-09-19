@@ -41,6 +41,7 @@ extern dict *cfg;
 
 bool cmd_reload(int argc, char **args) {
    cfg_reload(config_file);
+   if (ui_mode == UI_MODE_TUI) tui_redraw_screen();
    return false;
 }
 

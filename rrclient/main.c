@@ -597,6 +597,7 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    // Setup stdio & clock
    if (ui_mode == UI_MODE_TUI) {
       tui_readline_cb = parse_chat_input_real;
+      tui_set_topline_renderer(rrclient_tui_topline);
       tui_init();
 
       // 1hz TUI clock (statusbar/clock refresh, shutdown check)
