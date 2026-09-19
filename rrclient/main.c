@@ -407,7 +407,7 @@ int main(int argc, char *argv[]) {
          { 0, 0, 0, 0 }
       };
 
-      c = getopt_long(argc, argv, "Thf:s:", long_options, &option_index);
+      c = getopt_long(argc, argv, "ThSf:s:", long_options, &option_index);
 
       if (c == -1) {
          break;
@@ -423,7 +423,7 @@ int main(int argc, char *argv[]) {
          case 'S': {
             printf("Setting ssh mode!\n");
             tui_over_ssh = true;
-            tui_over_ssh = UI_MODE_TUI;
+            ui_mode = UI_MODE_TUI;
             break;
          }
 
