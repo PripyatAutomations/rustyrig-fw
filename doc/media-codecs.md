@@ -12,6 +12,7 @@ provide these mono codecs:
 | `mu08` | G.711 mu-law | 8 kHz | 64 kbit/s |
 | `opus` | Opus, 20 ms frames | 16 kHz input | 24 kbit/s CBR |
 | `oggv` | Ogg/Vorbis | 16 kHz | Variable, quality 0.3 |
+| `aacv` | AAC-LC in ADTS frames | 16 kHz | 32 kbit/s CBR |
 
 Each format also has a tone variant, made by replacing the last character
 of its ID with uppercase `T`:
@@ -24,6 +25,7 @@ of its ID with uppercase `T`:
 | `mu08` | `mu0T` |
 | `opus` | `opuT` |
 | `oggv` | `oggT` |
+| `aacv` | `aacT` |
 
 Tone variants retain the 600 Hz sine source on both client and server.
 They use the same encoding, decoding and recording branches as their normal
@@ -37,12 +39,18 @@ for the selected codec; negotiation lists configured codecs, not an inventory
 of installed plugins. G.722 retains more audio bandwidth than `mu08` at the
 same payload bitrate. `pc16` is the uncompressed fallback.
 
+`aacv` uses GStreamer's `avenc_aac`, `aacparse` and `avdec_aac` from gst-libav.
+It sends ADTS-framed AAC-LC access units so browser decoders can consume the
+packets individually. AAC is a useful browser fallback when Opus is not
+available, but its browser support is discovered at runtime.
+
 `pc16` preserves 16-bit linear PCM samples. `mu16` uses 8-bit logarithmic
 mu-law samples at the same 16 kHz sample rate: half the bandwidth, with
 quantization loss. Neither name denotes the RF modulation mode.
 
-For LTE, start with Opus at 24–32 kbit/s mono and 20 ms frames; use G.722
-at 64 kbit/s as a simpler fallback. These are payload rates, excluding the
+For LTE, start with Opus at 24–32 kbit/s mono and 20 ms frames; use AAC-LC at
+32 kbit/s when browser compatibility matters, or G.722 at 64 kbit/s as a
+simpler native fallback. These are payload rates, excluding the
 RustyRig, WebSocket, TCP/IP and cellular overhead. WebSocket/TCP still stalls
 behind retransmitted packets; choosing a lower bitrate cannot eliminate LTE
 delay variation. The supplied Opus setting uses generic audio mode to retain

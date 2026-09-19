@@ -642,6 +642,7 @@ static void run_loop(struct audio_config *cfg) {
       record_tx = cfg->tx_mode;
       record_requested = false;   // application supplies recording policy and identity
       bool pipeline_paused = false;
+      bool input_eos = false;
 
       while (!dying) {
 
@@ -725,7 +726,7 @@ static void run_loop(struct audio_config *cfg) {
             break;
          }
 
-         if (appsrc) {
+         if (appsrc && !input_eos) {
             struct pollfd input_poll = { .fd = STDIN_FD, .events = POLLIN };
             if (poll(&input_poll, 1, 0) > 0 && (input_poll.revents & (POLLIN | POLLHUP))) {
                uint8_t input[4096];
@@ -738,7 +739,10 @@ static void run_loop(struct audio_config *cfg) {
                   }
                } else if (bytes == 0) {
                   gst_app_src_end_of_stream(GST_APP_SRC(appsrc));
-                  dying = true;
+                  // Let decoders drain their final access unit before the
+                  // loop exits. This matters for codecs such as AAC whose
+                  // decoder output is queued behind the input buffer.
+                  input_eos = true;
                } else if (errno != EINTR && errno != EAGAIN) {
                   dying = true;
                }

@@ -2,7 +2,7 @@
 #ifndef FWDSP_DEFAULT_PIPELINES_H
 #define FWDSP_DEFAULT_PIPELINES_H
 
-#define FWDSP_DEFAULT_CODECS "pc16 g722 mu16 mu08 opus oggv pc1T g72T mu1T mu0T opuT oggT"
+#define FWDSP_DEFAULT_CODECS "pc16 g722 mu16 mu08 opus oggv aacv pc1T g72T mu1T mu0T opuT oggT aacT"
 
 #define FWDSP_CAPTURE_SOURCE "pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample"
 #define FWDSP_NOISE_SOURCE "audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true"
@@ -124,6 +124,25 @@
    "queue max-size-buffers=4 leaky=downstream ! " \
    "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
+#define FWDSP_AAC_RX \
+   "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/mpeg,mpegversion=4,stream-format=adts,framed=true,rate=16000,channels=1 ! " \
+   " aacparse ! avdec_aac ! audioconvert ! audioresample ! " \
+   "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
+   "tee name=t  t. ! queue max-size-buffers=2 leaky=downstream ! " \
+   "volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false  t. ! " \
+   "queue max-size-buffers=4 leaky=downstream ! " \
+   "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
+
+#define FWDSP_AAC_TX(source) \
+   source " ! audioconvert ! audioresample ! audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved ! " \
+   "volume name=tx-vol ! tee name=t  t. ! " \
+   "queue max-size-buffers=2 leaky=downstream ! " \
+   "avenc_aac bitrate=32000 ! aacparse ! audio/mpeg,mpegversion=4,stream-format=adts,framed=true ! " \
+   "appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false  t. ! " \
+   "queue max-size-buffers=4 leaky=downstream ! audioconvert ! " \
+   "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
+   "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
+
 #define FWDSP_OGGV_RX \
    "appsrc name=rx-src is-live=true format=bytes caps=application/ogg ! " \
    " oggdemux ! " \
@@ -172,6 +191,10 @@
    { "pipeline:opus.tx", FWDSP_OPUS_TX(source), "Default opus.tx audio pipeline" }, \
    { "pipeline:opuT.rx", FWDSP_OPUS_RX, "Default opuT.rx audio pipeline" }, \
    { "pipeline:opuT.tx", FWDSP_OPUS_TX("audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true"), "Default opuT.tx audio pipeline" }, \
+   { "pipeline:aacv.rx", FWDSP_AAC_RX, "Default aacv.rx audio pipeline" }, \
+   { "pipeline:aacv.tx", FWDSP_AAC_TX(source), "Default aacv.tx audio pipeline" }, \
+   { "pipeline:aacT.rx", FWDSP_AAC_RX, "Default aacT.rx audio pipeline" }, \
+   { "pipeline:aacT.tx", FWDSP_AAC_TX("audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true"), "Default aacT.tx audio pipeline" }, \
    { "pipeline:oggv.rx", FWDSP_OGGV_RX, "Default oggv.rx audio pipeline" }, \
    { "pipeline:oggv.tx", FWDSP_OGGV_TX(source), "Default oggv.tx audio pipeline" }, \
    { "pipeline:oggT.rx", FWDSP_OGGV_RX, "Default oggT.rx audio pipeline" }, \
