@@ -99,6 +99,9 @@ static void ptt_button_apply(void) {
    const char *cls;
    struct rr_user *talker = tx_user();
 
+   vfo_controls_set_ptt_state(ptt_active || someone_else_transmitting(talker),
+      ptt_active);
+
    // grey = offline, yellow = pending, orange = TOT fired, green = idle,
    // red = any user TX, showing their callsign (css in gtk.core.c)
    if (!ptt_btn_online) {

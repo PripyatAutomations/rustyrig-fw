@@ -12,7 +12,8 @@ YYYYMMDD.HHMMSS[.recording-id].username.direction.flac
 Direction is radio RX/TX, not fwdsp encoder/decoder mode. Shared RX recordings
 use `radio`; TX uses the transmitting username. The native client uses its
 configured login name for its own TX recording. Server automatic TX recording
-starts at PTT and stops at key-up; RX recording starts with the RX pipeline.
+is armed at PTT and stops at key-up; the file is created when the pipeline
+delivers its first sample. RX recording starts with the RX pipeline.
 The existing `record.rx`, `record.tx`, and `path.record-dir` settings apply.
 
 Characters outside ASCII letters, digits, `_`, and `-` in the username become
@@ -24,7 +25,8 @@ Codec, VFO, frequency, and other session metadata belong in the database;
 they are not encoded in this filename. Server-side PTT recordings carry the
 same random `recording_id` in the `ptt_log.recording_id` column (and the
 legacy `record_file` field); recordings without a server event keep the
-shorter filename form.
+shorter filename form. Changing codecs closes the current segment and starts
+another one with the same PTT ID, so all segments can be found by that ID.
 
 The manager passes recording identity through local control IPC. Rebuild and
 restart fwdsp, libfwdspmgr, rrclient, and rrserver together after changing that

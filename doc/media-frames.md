@@ -205,7 +205,13 @@ Implementations: server `librrprotocol/ws.mediachan.c` + channel
 provisioning in `rrserver/media.c` (RX/TX audio per exposed VFO); native
 client `rrclient/media.c` and browser client `www/js/webui.media.js`.
 Both clients auto-subscribe the audio RX/TX pair for the active VFO and
-listen for more channels as they appear.
+listen for more channels as they appear. For an outgoing TX frame, the
+client selects the subscribed audio channel whose direction is TX and whose
+VFO matches the currently active VFO (or the wildcard VFO when applicable).
+It copies that channel's server-assigned `stream` into the frame header; a
+different VFO's channel must never be used as a fallback. The channel UUID
+is the control-plane identity, while the `(subsystem, direction, vfo, rig)`
+tuple and `stream` are the data-plane routing fields.
 
 ## Webcam / video sources (SUBSYS_VIDEO)
 

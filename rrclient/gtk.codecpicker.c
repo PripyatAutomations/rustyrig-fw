@@ -152,7 +152,6 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    // media.codecs event (below) re-populates once the server answers.
    codec_pickers_refresh();
    event_on("media.codecs", codec_media_codecs_cb, NULL);
-   event_on("client.media.changed", codec_media_codecs_cb, NULL);
 #if     defined(USE_MONGOOSE)
    if (ws_tx_conn) {
       tx_ctx->conn = ws_tx_conn->conn;

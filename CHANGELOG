@@ -4,6 +4,11 @@ rustyrig-fw (20260919) testing; urgency=medium
 - Code cleanup & documentation
 - Ensure defaults are put in defconfig for all keys & default settings
   except those frequently changed removed from rrclient/rrserver.cfg
+- Improve PTT button in rrclient to lock controls during PTT:
+  - Frequency, mode, volume, and TX power lock while anyone is transmitting.
+  - Codec selectors remain available while another user transmits.
+  - Codec selectors lock during our own transmission.
+  - The PTT button remains enabled.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 

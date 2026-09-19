@@ -30,11 +30,12 @@
 extern time_t now;
 
 static bool media_recording_enabled(bool tx) {
-   // Current server configs keep recording policy under [fwdsp]. Retain the
-   // older top-level names for installations that use rrserver defaults or a
-   // pre-existing config file.
+   // Current server configs may keep recording policy under [fwdsp]. The
+   // fwdsp defaults are always loaded, though, so merely checking whether
+   // that key exists would hide an explicitly enabled legacy record.tx/rx
+   // setting. Treat either spelling being true as enabled.
    const char *key = tx ? "fwdsp.recording.tx" : "fwdsp.recording.rx";
-   if (cfg_get(key)) {
+   if (cfg_get_bool(key, false)) {
       return cfg_get_bool(key, false);
    }
    return cfg_get_bool(tx ? "record.tx" : "record.rx", false);
@@ -44,8 +45,18 @@ static bool media_recording_enabled(bool tx) {
 static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker, bool start,
    const char *recording_id) {
    bool tx = channel->direction == RR_BINFRAME_DIR_TX;
-   if (!channel->codec[0] ||
-       !fwdsp_find_channel_instance(channel->codec, !tx, channel->uuid)) {
+   if (!channel->codec[0]) {
+      if (start) {
+         Log(LOG_DEBUG, "record", "No %s codec selected for channel %s; recording not armed",
+            tx ? "TX" : "RX", channel->uuid);
+      }
+      return;
+   }
+   if (!fwdsp_find_channel_instance(channel->codec, !tx, channel->uuid)) {
+      if (start) {
+         Log(LOG_DEBUG, "record", "No fwdsp pipeline for %s channel %s; recording not armed",
+            tx ? "TX" : "RX", channel->uuid);
+      }
       return;
    }
    if (start && !media_recording_enabled(tx)) {
@@ -67,6 +78,10 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
    if (failed) {
       Log(LOG_WARN, "record", "Unable to %s recording for channel %s",
          start ? "start" : "stop", channel->uuid);
+   } else {
+      Log(LOG_INFO, "record", "%s %s recording for channel %s (%s)%s",
+         start ? "Armed" : "Stopped", (tx ? "TX" : "RX"), channel->uuid,
+         channel->codec, (start ? "; file is created when samples arrive" : ""));
    }
 }
 
@@ -209,6 +224,16 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
    // delivery therefore needs an encoder (fwdsp tx mode), while client TX
    // media needs a decoder (fwdsp rx mode).
    bool fwdsp_tx = (channel->direction == RR_BINFRAME_DIR_RX);
+   // A codec switch changes the stream format and therefore starts a new
+   // recording segment. Stop the old recorder explicitly before replacing the
+   // fwdsp process; warm encoders otherwise keep a paused recorder alive
+   // during fwdsp.hangtime. Keep the PTT ID for the replacement segment so
+   // one PTT row still finds every file belonging to that transmission.
+   bool codec_changed = old_codec && strlen(old_codec) == 4 &&
+      strncmp(old_codec, codec, 4) != 0;
+   if (codec_changed) {
+      fwdsp_cmd_stop_record_channel(old_codec, fwdsp_tx, channel->uuid);
+   }
    int chan_id = fwdsp_codec_switch(old_codec, codec, fwdsp_tx, channel->uuid);
 
    if (chan_id < 0) {

@@ -36,6 +36,8 @@ struct rr_client_media_chan {
    uint8_t direction;
    uint8_t vfo;
    uint8_t rig;
+   uint8_t stream;
+   bool stream_valid;
    char codec[5];                  // active (negotiated) codec magic
    char descr[128];
    bool subscribed;

@@ -4,6 +4,10 @@
 
 #define FWDSP_DEFAULT_CODECS "pc16 g722 mu16 mu08 opus oggv aacv flac pc1T g72T mu1T mu0T opuT oggT aacT flaT"
 
+/* pulsesrc is the desktop default-source API and is provided by PipeWire's
+ * PulseAudio compatibility server on PipeWire systems. Deployments that do
+ * not provide that compatibility layer can override the TX pipeline with a
+ * pipewiresrc-based definition in their config. */
 #define FWDSP_CAPTURE_SOURCE "pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample"
 #define FWDSP_NOISE_SOURCE "audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true"
 

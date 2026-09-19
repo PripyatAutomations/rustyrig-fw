@@ -132,22 +132,22 @@ defaults are respected even when the config file omits pipeline entries.
 Each pipeline keeps its raw S16LE `record-sink` branch for FLAC recording;
 encoded transport packets remain length-framed.
 
-Headless validation: `bash tests/fwdsp/test_codec_roundtrip.sh` checks all twelve
+Headless validation: `bash fwdsp/tests/test_codec_roundtrip.sh` checks all twelve
 IDs in both configurations and each application's built-in defaults, including fragmented
-and coalesced transport writes. `bash tests/rrclient/test_codec_commands.sh`
+and coalesced transport writes. `bash rrclient/tests/test_codec_commands.sh`
 checks command selection, channel targeting, NONE and re-enabling.
-`bash tests/fwdsp/test_switching.sh` exercises repeated switches with real
+`bash fwdsp/tests/test_switching.sh` exercises repeated switches with real
 subprocesses, paused encoder reuse, subscriber-driven resume and child-exit
 cleanup. It also checks that buffered packets from retired codecs cannot be
 forwarded after a switch, and decodes Ogg following reuse and late joins.
 It also checks that a parent-selected pipeline overrides child defaults/config.
 Roundtrip tests replace client sound capture with a finite test source; actual
 sound-card capture needs a running audio server and is not covered headlessly.
-`python3 tests/fwdsp/opus_continuity.py` checks packet/sample retention from
+`python3 fwdsp/tests/opus_continuity.py` checks packet/sample retention from
 normal 1024-sample capture buffers; a nonzero-audio check alone misses blips.
 The worker drains queued samples without a per-packet delay, and encoded
 appsinks use backpressure rather than dropping codec packets or stream headers.
-`bash tests/rrclient/test_completion.sh` and
-`node tests/rrclient/web_completion.js` check parameter completion.
+`bash rrclient/tests/test_completion.sh` and
+`node www/tests/web_completion.js` check parameter completion.
 These checks do not establish that live Opus playback works on a particular
 sound device.

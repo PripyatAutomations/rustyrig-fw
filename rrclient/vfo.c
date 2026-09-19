@@ -214,6 +214,10 @@ bool vfo_set_dict(const char *vfo, dict *d) {
             break;
       }
    }
+   if (s_active_vfo != prev_active) {
+      char active_str[2] = { s_active_vfo, '\0' };
+      event_emit("client.vfo.changed", NULL, active_str);
+   }
    // A custom top line can show inactive VFOs too. Re-render it when their
    // state changes, while preserving the active-VFO-only GTK widget updates.
    if (!is_active && ui_mode == UI_MODE_TUI) tui_redraw_topline();

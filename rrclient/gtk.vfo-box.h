@@ -14,5 +14,6 @@
 
 extern GtkWidget *create_vfo_box(void);
 extern gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo);
+extern void vfo_controls_set_ptt_state(bool any_tx, bool own_tx);
 
 #endif // !defined(__rrclient_gtk_vfo_box_h)

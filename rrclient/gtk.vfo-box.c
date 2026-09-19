@@ -30,10 +30,29 @@ typedef struct {
 } VfoKeyData;
 
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
+static GtkWidget *vfo_tunable_box = NULL;
+static GtkWidget *vfo_codec_box = NULL;
 
 // Should we pause the VFO widget being updated until after the server has sent response?
 bool vfo_muted = false;
 struct timeval vfo_muted_since = { 0 };
+
+void vfo_controls_set_ptt_state(bool any_tx, bool own_tx) {
+   if (vfo_tunable_box) {
+      gtk_widget_set_sensitive(vfo_tunable_box, !any_tx);
+   }
+   if (vfo_codec_box) {
+      // RX codec selection remains available while another user transmits.
+      // TX is locked separately below because it is shared by everyone on
+      // the transmitting channel.
+      gtk_widget_set_sensitive(vfo_codec_box, true);
+   }
+   if (tx_codec_combo) {
+      // Changing this codec changes the shared TX stream and can leave an
+      // active listener unable to decode it.
+      gtk_widget_set_sensitive(tx_codec_combo, !any_tx);
+   }
+}
 
 static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    if (!button) {
@@ -86,28 +105,32 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *online_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_box_pack_start(GTK_BOX(control_box), online_spacer, TRUE, TRUE, 0);
 
+   vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(control_box), vfo_tunable_box, TRUE, TRUE, 0);
+
    // FREQ selection
    freq_entry = gtk_freq_entry_new(-1);
    GtkWidget *freq_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(freq_label), "<u>F</u>req");
-   gtk_box_pack_start(GTK_BOX(control_box), freq_entry, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(control_box), freq_label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), freq_entry, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), freq_label, FALSE, FALSE, 0);
 
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
-   gtk_box_pack_start(GTK_BOX(control_box), mode_box, TRUE, TRUE, 6);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), mode_box, TRUE, TRUE, 6);
 
    // CODEC selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
+   vfo_codec_box = codec_selectors;
    gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, TRUE, TRUE, 6);
 
    // VOLUME selector
    GtkWidget *rx_vol_vbox = create_volbox();
-   gtk_box_pack_start(GTK_BOX(control_box), rx_vol_vbox, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), rx_vol_vbox, TRUE, TRUE, 0);
 
    // TX POWER Box
    GtkWidget *tx_power_vbox = create_txpower_box();
-   gtk_box_pack_start(GTK_BOX(control_box), tx_power_vbox, TRUE, TRUE, 6);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, TRUE, TRUE, 6);
 
    // Create PTT button widget; pack at the far right edge. NB: must be
    // packed FALSE/FALSE - with expand=TRUE the box stretches but the button

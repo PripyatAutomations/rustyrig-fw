@@ -66,6 +66,8 @@ struct rr_media_known {
    uint8_t direction;
    uint8_t vfo;
    uint8_t rig;
+   uint8_t stream;
+   bool stream_valid;
    char codec[5];                  // active (negotiated) codec magic
    char descr[128];
    bool subscribed;
@@ -105,26 +107,37 @@ static struct rr_media_known *media_known_add(const char *uuid) {
    return NULL;
 }
 
-// One local pipeline per direction; prefer a subscription on the active VFO.
-const char *rrclient_media_current_codec(bool is_tx) {
+// One local pipeline per direction.  Prefer the exact active-VFO channel;
+// a VFO from another channel must never become the TX target just because it
+// happens to remain subscribed while the operator changes VFOs.
+static struct rr_media_known *media_current_channel(bool is_tx) {
    uint8_t direction = is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX;
    char vfo = vfo_state_get_active();
-   const char *fallback = NULL;
+   struct rr_media_known *wildcard = NULL;
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *kp = &known_chans[i];
       if (!kp->uuid[0] || !kp->subscribed || kp->disabled ||
-          kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO || kp->direction != direction ||
-          !kp->codec[0]) {
+         kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO || kp->direction != direction ||
+         !kp->codec[0]) {
          continue;
       }
-      if (kp->vfo == vfo - 'A' || kp->vfo == RR_BINFRAME_VFO_NA) {
-         return kp->codec;
+      if (kp->vfo == (uint8_t)(vfo - 'A')) {
+         return kp;
       }
-      if (!fallback) {
-         fallback = kp->codec;
+      if (kp->vfo == RR_BINFRAME_VFO_NA && !wildcard) {
+         wildcard = kp;
       }
    }
-   return fallback;
+   return wildcard;
+}
+
+const struct rr_client_media_chan *rrclient_media_current_channel(bool is_tx) {
+   return (const struct rr_client_media_chan *)media_current_channel(is_tx);
+}
+
+const char *rrclient_media_current_codec(bool is_tx) {
+   struct rr_media_known *channel = media_current_channel(is_tx);
+   return channel ? channel->codec : NULL;
 }
 
 static void media_sync_audio(void) {
@@ -327,7 +340,16 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
          return;
       }
       kp->subscribed = !unsub;
+      if (unsub) {
+         kp->stream = 0;
+         kp->stream_valid = false;
+      }
       const char *codec = dict_get(d, "media.codec", NULL);
+
+      if (!unsub && dict_get(d, "media.stream", NULL)) {
+         kp->stream = (uint8_t)dict_get_ulong(d, "media.stream", 0);
+         kp->stream_valid = true;
+      }
 
       if (codec && strlen(codec) == 4) {
          snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
@@ -405,12 +427,32 @@ static void rrclient_handle_media_codecs(const char *event, const char *data,
    media_sync_audio();
 }
 
+// Keep the media pair tied to the VFO shown by the UI. Leaving an old VFO
+// subscribed is useful for explicit /media subscriptions, but it must not
+// silently become the microphone destination after an active-VFO switch.
+static void rrclient_handle_media_vfo(const char *event, const char *data,
+   rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)cptr;
+   (void)user;
+
+   if (!ws_conn || !media_ready) {
+      return;
+   }
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      media_try_autosubscribe(ws_conn, &known_chans[i]);
+   }
+   media_sync_audio();
+}
+
 void rrclient_media_register_events(void) {
    // media.* messages are dispatched directly from events.c (see
    // rrclient_handle_media) with the parsed dict; only connection state
    // needs the event bus here.
    event_on("connected", rrclient_handle_media_conn, NULL);
    event_on("media.codecs", rrclient_handle_media_codecs, NULL);
+   event_on("client.vfo.changed", rrclient_handle_media_vfo, NULL);
    event_on("authorized", rrclient_handle_media_conn, NULL);
    event_on("disconnected", rrclient_handle_media_conn, NULL);
 }
