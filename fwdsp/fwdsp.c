@@ -599,6 +599,7 @@ static void run_loop(struct audio_config *cfg) {
       size_t control_used = 0;
       record_tx = cfg->tx_mode;
       record_requested = false;   // application supplies recording policy and identity
+      bool pipeline_paused = false;
 
       while (!dying) {
 
@@ -749,11 +750,15 @@ static void run_loop(struct audio_config *cfg) {
                      break;
 
                   case FWDSP_CTRL_PAUSE:
-                     gst_element_set_state(pipeline, GST_STATE_PAUSED);
+                     if (gst_element_set_state(pipeline, GST_STATE_PAUSED) != GST_STATE_CHANGE_FAILURE) {
+                        pipeline_paused = true;
+                     }
                      break;
 
                   case FWDSP_CTRL_RESUME:
-                     gst_element_set_state(pipeline, GST_STATE_PLAYING);
+                     if (gst_element_set_state(pipeline, GST_STATE_PLAYING) != GST_STATE_CHANGE_FAILURE) {
+                        pipeline_paused = false;
+                     }
                      break;
 
                   case FWDSP_CTRL_FLUSH:
@@ -777,7 +782,11 @@ static void run_loop(struct audio_config *cfg) {
             { .fd = appsrc ? STDIN_FD : -1, .events = POLLIN },
             { .fd = control_fd, .events = POLLIN }
          };
-         poll(pending, 2, 2);
+         int wait_ms = pipeline_paused ? 100 : 2;
+         int poll_rc = poll(pending, 2, wait_ms);
+         if (poll_rc > 0 && pending[1].revents & (POLLHUP | POLLERR | POLLNVAL)) {
+            dying = true;
+         }
 
       }
       gst_object_unref(bus);
