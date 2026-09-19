@@ -317,9 +317,11 @@ bool fwdsp_init(void) {
       return false;
    }
 
-   int max_subprocs = cfg_get_int("fwdsp.subproc.max", 6);
-   if (max_subprocs > 0) {
+   const char *max_subprocs_s = cfg_get_exp("fwdsp.subproc.max");
+   if (max_subprocs_s) {
+      max_subprocs = atoi(max_subprocs_s);
       Log(LOG_DEBUG, "fwdsp-mgr", "fwdspmgr initializing with %d slots available", max_subprocs);
+      free((char *)max_subprocs_s);
    } else {
       Log(LOG_CRIT, "config", "fwdsp.subproc.max must be set in config for fwdsp manager to work!");
       return true;
@@ -518,9 +520,13 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
 }
 
 static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
-   if (!sp || sp->pl_id[0] == '\0') {
+   if (!sp || sp->pl_id[0] == '\0' || sp->destroying) {
       return true;
    }
+   // Mark the slot before touching any child or Mongoose state. Teardown can
+   // be reached from expiry, SIGCHLD handling, codec switching and shutdown;
+   // a late callback must never free the same slot-owned buffers twice.
+   sp->destroying = true;
    // Let Mongoose close both wrapped sockets on its next poll. Detach their
    // contexts before the slot is reused; never free a connection mid-poll or
    // close its descriptor behind the event loop's back.
@@ -572,7 +578,10 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
       }
    }
 
-   free(sp->stream_headers);
+   uint8_t *stream_headers = sp->stream_headers;
+   sp->stream_headers = NULL;
+   sp->stream_headers_len = 0;
+   free(stream_headers);
    // Clear struct
    memset( sp, 0, sizeof(*sp) );
 

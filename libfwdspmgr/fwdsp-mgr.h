@@ -49,6 +49,7 @@ struct fwdsp_control_msg {
 struct fwdsp_subproc {
    pid_t pid;
    char pl_id[5];
+   bool destroying;                    // teardown is in progress; ignore re-entry
    char channel_uuid[64];
    char pipeline[1024];
    bool is_tx;

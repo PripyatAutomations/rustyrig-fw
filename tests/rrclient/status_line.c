@@ -86,6 +86,7 @@ int main(void) {
    tui_window_init();
    tui_set_topline_renderer(render);
    dict_add(cfg, "tui.status-line", "TOPMARK ${active_vfo} ${vfo_a_freq}");
+   tui_redraw_screen();
    tui_update_status(tui_active_window(), "BOTTOM-SENTINEL");
    char *screen = capture_read(output);
    assert(strstr(screen, "\033[1;1H TOPMARK B 7200123"));

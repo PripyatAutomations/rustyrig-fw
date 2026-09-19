@@ -216,7 +216,7 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    }
    // A custom top line can show inactive VFOs too. Re-render it when their
    // state changes, while preserving the active-VFO-only GTK widget updates.
-   if (!is_active && ui_mode == UI_MODE_TUI) tui_redraw_screen();
+   if (!is_active && ui_mode == UI_MODE_TUI) tui_redraw_topline();
    // Only refresh the UI if this update touched the VFO currently displayed
    return is_active ? vfo_update_ui() : false;
 }
@@ -244,6 +244,7 @@ bool vfo_update_ui(void) {
       tui_refresh_sb_window();
       tui_refresh_sb_vfo();
       tui_update_status(tw, "%s %s %s", sb_online, sb_window, sb_vfo);
+      tui_redraw_topline();
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
       // Frequency
