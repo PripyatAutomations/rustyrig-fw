@@ -62,6 +62,7 @@ bool media_have_priv(const char *priv) {
 
 struct rr_media_known {
    char uuid[64];
+   char name[64];
    uint8_t subsystem;
    uint8_t direction;
    uint8_t vfo;
@@ -298,11 +299,15 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
 
       if (kp) {
          const char *descr = dict_get(d, "media.descr", NULL);
+         const char *name = dict_get(d, "media.name", NULL);
 
          kp->subsystem = subsys;
          kp->direction = dir;
          kp->vfo = vfo;
          kp->rig = rig;
+         if (name && name[0] != '\0') {
+            snprintf(kp->name, sizeof(kp->name), "%s", name);
+         }
          const char *codec = dict_get(d, "media.codec", NULL);
 
          if (codec && strlen(codec) == 4) {
@@ -674,7 +679,8 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
              (!kp->subscribed && !kp->disabled)) {
             continue;
          }
-         ui_print(NULL, " #%d %s: %s%s (%s)", number, kp->uuid,
+         ui_print(NULL, " #%d %s [%s]: %s%s (%s)", number,
+            (kp->name[0] ? kp->name : "-"), kp->uuid,
             kp->disabled ? "NONE" : kp->codec,
             kp->pending_codec[0] ? " (selection pending)" : "", kp->descr);
          matches++;
