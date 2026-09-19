@@ -106,13 +106,15 @@ int rr_atu_init_all(void) {
    tuners = eeprom_get_int("hw/atus");
 #endif	// USE_EEPROM
    tuners = cfg_get_int("atu.max", 4);
+
    if (tuners < 0) {
       tuners = 0;
    }
-
+   if (tuners == 0) {
+      return 0;
+   }
    Log(LOG_INFO, "atu", "Initializing all ATUs (%d total)", tuners);
 
-   // XXX: Iterate over the available ATUs and collect the return values
    for (int i = 0 ; i < tuners ; i++) {
       if ( rr_atu_init(i) ) {
          rv++;
@@ -120,6 +122,5 @@ int rr_atu_init_all(void) {
    }
 
    Log(LOG_INFO, "atu", "ATU setup complete with %d warning/issues", rv);
-
    return -rv;
 }

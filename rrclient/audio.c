@@ -84,7 +84,7 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
    }
 
    if (is_tx) {
-      audio_set_tx_volume(cfg_get_int("audio.volume.tx", 100));
+      audio_set_tx_volume(cfg_get_int("audio.volume.tx", 40));
    } else {
       audio_set_rx_volume(cfg_get_int("audio.volume.rx", 30));
    }

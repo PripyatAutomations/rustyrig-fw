@@ -63,7 +63,7 @@ defconfig_t defcfg[] = {
    { "debug.http.crazy", "false", "Show extreme http debugging" },
    { "debug.noisy-eeprom", "false", "Extra debugging msgs from eeprom code?" },
    { "debug.mongoose", "false", "Debug mongoose?" },
-   { "debug.show-ts", "false", "Show timestamps in log? [bool]" },
+   { "debug.show-ts", "true", "Show timestamps in log? [bool]" },
    { "device.serial", NULL, "Device serial # (usually from eeprom)" },
    { "features.auto-block-ptt", "false", "Block PTT at start?" },
    { "fwdsp.hangtime", "30", "How long should unused (en|de)coders be kept alive after last used?" },

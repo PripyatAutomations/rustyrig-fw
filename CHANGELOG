@@ -1,3 +1,12 @@
+rustyrig-fw (20260919) testing; urgency=medium
+- Numerous fwdsp/fwdspmgr fixes
+- Added many new test pipelines
+- Code cleanup & documentation
+- Ensure defaults are put in defconfig for all keys & default settings
+  except those frequently changed removed from rrclient/rrserver.cfg
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>
+
 rustyrig-fw (20260917) testing; urgency=medium
 - Codec selection is per media channel UUID.
 - Client no longer pre-starts pc16 before negotiation.
@@ -13,8 +22,6 @@ rustyrig-fw (20260917) testing; urgency=medium
 - record.buffer-size now controls the ring size (minimum 4096 bytes).
 - path.record-dir controls output location.
 - mk/compile.mk adds libFLAC and pthread flags to fwdsp only.
-- rrclient.cfg and rrserver.cfg now include record-sink tee branches for pc16
-  and opus.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com> Wed Sep  9 03:58:41 AM EDT 2026
 
