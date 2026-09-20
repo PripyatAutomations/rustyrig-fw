@@ -16,5 +16,8 @@ extern GtkWidget *chat_textview;
 extern GtkWidget *chat_entry;
 extern GtkTextBuffer *text_buffer;
 extern GtkWidget *create_chat_box(void);
+extern void gtk_chat_room_add(const char *room);
+extern void gtk_chat_room_remove(const char *room);
+extern const char *gtk_chat_current_room(void);
 
 #endif // !defined(__gtk_chat_h)

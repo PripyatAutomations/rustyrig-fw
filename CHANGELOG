@@ -9,6 +9,10 @@ rustyrig-fw (20260919) testing; urgency=medium
   - Codec selectors remain available while another user transmits.
   - Codec selectors lock during our own transmission.
   - The PTT button remains enabled.
+- Tons of audio work.
+- TX codec selection only applied when PTT button applied.
+  - Only the subset of codecs that are supported by all active users is shown
+- Renamed "channels" to rooms and made support for multiple with or without VFOs linked
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 

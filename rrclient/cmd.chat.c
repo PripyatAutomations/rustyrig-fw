@@ -29,13 +29,24 @@
 #include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
+#ifdef USE_GTK
+#include <rrclient/gtk.chat.h>
+#endif
 
 extern bool dying;
 extern time_t now;
 extern rrconn_t *ws_conn;
 
 bool cmd_join(int argc, char **args) {
-   ui_print(NULL, "{yellow}JOIN is not supported over WebSocket{reset}");
+   if (argc < 2 || !ws_conn) {
+      return true;
+   }
+   dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "join");
+   dict_add(d, "talk.target", args[1]);
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
 
    return false;
 }
@@ -59,6 +70,12 @@ bool cmd_me(int argc, char **args) {
    dict_add(d, "talk.cmd", "msg");
    dict_add(d, "talk.data", buf);
    dict_add(d, "talk.msg_type", "action");
+#ifdef USE_GTK
+   const char *room = gtk_chat_current_room();
+   if (room && room[0]) {
+      dict_add(d, "talk.target", room);
+   }
+#endif
 
    if (ws_conn) {
       ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
@@ -161,7 +178,15 @@ bool cmd_notice(int argc, char **args) {
 }
 
 bool cmd_part(int argc, char **args) {
-   ui_print(NULL, "{yellow}PART is not supported over WebSocket yet{reset}");
+   if (argc < 2 || !ws_conn) {
+      return true;
+   }
+   dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "part");
+   dict_add(d, "talk.target", args[1]);
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
 
    return false;
 }

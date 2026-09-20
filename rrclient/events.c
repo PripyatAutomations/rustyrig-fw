@@ -455,9 +455,20 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
    const char *m_user = dict_get(d, "talk.user", NULL);
    const char *m_ip = dict_get(d, "talk.ip", NULL);
    const char *m_target = dict_get(d, "talk.target", NULL);
+   const char *m_room = dict_get(d, "talk.room", NULL);
    time_t m_ts = dict_get_time_t(d, "msg.ts", now);
    const char *s_unknown = "<UNKNOWN>";
 
+   if (m_room) {
+ #ifdef USE_GTK
+      if (ui_mode == UI_MODE_GTK) {
+         gtk_chat_room_add(m_room);
+      }
+ #endif
+      ui_print(NULL, "%s * %s joined room %s", get_chat_ts(m_ts), m_user, m_room);
+      dict_free(d);
+      return;
+   }
    ui_print(NULL, "%s * %s (%s) joined %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
 
    if ( !userlist_add_or_update(d) ) {
@@ -465,6 +476,19 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
    }
 
    // need to fire update user list!
+   dict_free(d);
+}
+
+static void rrclient_handle_part(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", NULL);
+   if (!room) room = dict_get(d, "talk.target", NULL);
+#ifdef USE_GTK
+   if (room && ui_mode == UI_MODE_GTK) gtk_chat_room_remove(room);
+#endif
+   if (room) ui_print(NULL, "{yellow}Left room %s{reset}", room);
    dict_free(d);
 }
 
@@ -515,7 +539,7 @@ static void rrclient_handle_chat_replay(const char *event, const char *data, rrc
 }
 
 static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (!data) {
+   if (!data || !*data) {
       return;
    }
    Log(LOG_CRAZY, "ws.nomatch", "Got NOMATCH hit with json: %s", data);
@@ -676,6 +700,17 @@ static void rrclient_handle_media_capab(const char *event, const char *data, rrc
    Log(LOG_CRAZY, "ws.media", "Media capabilities: %s", (data ? data : "<NULL>"));
 }
 
+/* media_sync_audio() emits this notification for the native audio layer.
+ * It intentionally carries no JSON payload; registering a listener keeps it
+ * out of the generic NOMATCH path, which expects JSON websocket messages. */
+static void rrclient_handle_media_changed(const char *event, const char *data,
+   rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)cptr;
+   (void)user;
+}
+
 static void rrclient_handle_media(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -762,7 +797,9 @@ void rrclient_register_events(void) {
    event_on("log", rrclient_handle_log, NULL);
    event_on("logging-in", rrclient_handle_logging_in, NULL);
    event_on("media.capab", rrclient_handle_media_capab, NULL);
+   event_on("client.media.changed", rrclient_handle_media_changed, NULL);
    event_on("privmsg", rrclient_handle_talk_msg, NULL);
+   event_on("part", rrclient_handle_part, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg, NULL);
    event_on("userinfo", rrclient_handle_userinfo, NULL);

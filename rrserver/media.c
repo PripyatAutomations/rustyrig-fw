@@ -123,6 +123,35 @@ void rrserver_media_record_ptt(rr_vfo_t vfo, bool ptt, rrconn_t *talker,
    }
 }
 
+// TX decoders are deliberately lazy. The channel codec can be negotiated
+// while idle, but there is no reason to start a GStreamer process until a
+// talker actually keys the VFO. This keeps idle rigs quiet and gives the
+// codec selection/control round trip time to complete before samples arrive.
+bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS) {
+      return false;
+   }
+   struct rr_mediachan *channel = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
+      RR_BINFRAME_DIR_TX, (uint8_t)vfo, 0);
+   if (!channel || !channel->codec[0]) {
+      Log(LOG_WARN, "ws.media", "PTT on VFO %s has no negotiated TX codec",
+         vfo_name(vfo));
+      return false;
+   }
+
+   if (!fwdsp_find_channel_instance(channel->codec, false, channel->uuid)) {
+      int chan_id = fwdsp_codec_switch(NULL, channel->codec, false, channel->uuid);
+      if (chan_id < 0) {
+         Log(LOG_CRIT, "ws.media", "Failed to activate TX decoder %s.rx for %s",
+            channel->codec, channel->uuid);
+         return false;
+      }
+      Log(LOG_INFO, "ws.media", "Activated lazy TX decoder %s.rx (chan %d) for %s",
+         channel->codec, chan_id, (talker ? talker->chatname : "unknown"));
+   }
+   return true;
+}
+
 // Create the TX and RX audio channel for a VFO (if not already made)
 static void media_setup_vfo(rr_vfo_t vfo) {
    if (vfo < VFO_A || vfo >= MAX_VFOS) {
@@ -224,6 +253,25 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
    // delivery therefore needs an encoder (fwdsp tx mode), while client TX
    // media needs a decoder (fwdsp rx mode).
    bool fwdsp_tx = (channel->direction == RR_BINFRAME_DIR_RX);
+   rrconn_t *talker = whos_talking();
+   bool tx_active = channel->direction == RR_BINFRAME_DIR_TX && talker &&
+      talker->ptt_vfo == 'A' + channel->vfo;
+
+   // TX codec changes while idle only update the channel's negotiated format.
+   // The decoder is started lazily from rrserver_media_activate_ptt().
+   if (channel->direction == RR_BINFRAME_DIR_TX && !tx_active) {
+      if (old_codec && strlen(old_codec) == 4 &&
+          strncmp(old_codec, codec, 4) != 0) {
+         // If the previous PTT ended recently, release its warm decoder now
+         // rather than leaving an obsolete codec process attached to the
+         // channel while it is idle.
+         fwdsp_codec_stop_channel(old_codec, false, channel->uuid);
+      }
+      Log(LOG_INFO, "ws.media", "Stored idle TX codec %s for %s; decoder deferred until PTT",
+         codec, channel->uuid);
+      dict_free(d);
+      return;
+   }
    // A codec switch changes the stream format and therefore starts a new
    // recording segment. Stop the old recorder explicitly before replacing the
    // fwdsp process; warm encoders otherwise keep a paused recorder alive
@@ -243,7 +291,6 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
       return;
    }
 
-   rrconn_t *talker = whos_talking();
    const char *recording_id = channel->direction == RR_BINFRAME_DIR_TX ?
       rr_ptt_recording_id((rr_vfo_t)channel->vfo) : NULL;
    if (channel->direction == RR_BINFRAME_DIR_RX ||

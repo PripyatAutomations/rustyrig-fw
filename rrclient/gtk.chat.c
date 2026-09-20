@@ -37,6 +37,39 @@ GtkWidget *chat_textview = NULL;
 GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;
 
+typedef struct {
+   char room[128];
+   GtkWidget *page;
+   GtkWidget *view;
+   GtkWidget *entry;
+} GtkRoomTab;
+
+static GHashTable *room_tabs = NULL;
+
+static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page,
+   guint page_num, gpointer user_data) {
+   (void)notebook;
+   (void)page_num;
+   (void)user_data;
+   GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+   if (tab) {
+      chat_textview = tab->view;
+      chat_entry = tab->entry;
+      text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(tab->view));
+   }
+}
+
+const char *gtk_chat_current_room(void) {
+   if (!main_notebook) {
+      return NULL;
+   }
+   gint page_num = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
+   GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), page_num);
+   GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+
+   return tab && tab->room[0] ? tab->room : NULL;
+}
+
 // XXX: Move this to gtk.core.c
 // Scroll to the end of a GtkTextView
 gboolean ui_scroll_to_end(gpointer data) {
@@ -346,8 +379,7 @@ static GtkWidget *chatbox_vfo_init(void) {
    return vfo;
 }
 
-GtkWidget *create_chat_box(void) {
-   bool is_rig_window = true;		// is this a rig?
+static GtkWidget *create_chat_box_for_room(bool is_rig) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
    if (!chat_box) { // XXX: throw OOM warning
@@ -357,7 +389,7 @@ GtkWidget *create_chat_box(void) {
    GtkWidget *vfo = NULL;
 
    // cfg:ui.gtk.vfo-on-top
-   if (cfg_ui_gtk_vfo_on_top) {
+   if (is_rig && cfg_ui_gtk_vfo_on_top) {
       if ((vfo = chatbox_vfo_init())) {
          gtk_box_pack_start(GTK_BOX(chat_box), vfo, FALSE, FALSE, 0);
       }
@@ -397,7 +429,7 @@ GtkWidget *create_chat_box(void) {
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
    // !cfg:ui.gtk.vfo-on-top
-   if (!cfg_ui_gtk_vfo_on_top) {
+   if (is_rig && !cfg_ui_gtk_vfo_on_top) {
       if ((vfo = chatbox_vfo_init())) {
          gtk_box_pack_start(GTK_BOX(chat_box), vfo, FALSE, FALSE, 0);
       }
@@ -406,9 +438,54 @@ GtkWidget *create_chat_box(void) {
    return chat_box;
 }
 
+GtkWidget *create_chat_box(void) {
+   return create_chat_box_for_room(true);
+}
+
+void gtk_chat_room_add(const char *room) {
+   if (!room || !*room || !main_notebook ||
+       strcasecmp(room, "&localrig") == 0 ||
+       strcasecmp(room, ws_authoritative_room()) == 0) {
+      return;
+   }
+   if (!room_tabs) {
+      room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   }
+   if (g_hash_table_lookup(room_tabs, room)) {
+      return;
+   }
+   GtkRoomTab *tab = g_new0(GtkRoomTab, 1);
+   snprintf(tab->room, sizeof(tab->room), "%s", room);
+   tab->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   GtkWidget *box = create_chat_box_for_room(false);
+   tab->view = chat_textview;
+   tab->entry = chat_entry;
+   gtk_box_pack_start(GTK_BOX(tab->page), box, TRUE, TRUE, 0);
+   g_object_set_data(G_OBJECT(tab->page), "rr-room-tab", tab);
+   GtkWidget *label = gtk_label_new(room);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), tab->page, label);
+   g_hash_table_insert(room_tabs, g_strdup(room), tab);
+   gtk_widget_show_all(tab->page);
+   // Creating a side tab temporarily updates the legacy global widget
+   // pointers. Restore them to whichever page the operator is viewing.
+   gint active = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
+   GtkWidget *active_page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), active);
+   gtk_chat_select_tab(GTK_NOTEBOOK(main_notebook), active_page, active, NULL);
+}
+
+void gtk_chat_room_remove(const char *room) {
+   if (!room_tabs || !room) return;
+   GtkRoomTab *tab = g_hash_table_lookup(room_tabs, room);
+   if (!tab) return;
+   gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), tab->page);
+   if (page >= 0) gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), page);
+   g_hash_table_remove(room_tabs, room);
+}
+
 int next_chat_tab = 5;
 
 bool chat_init(void) {
+   room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    status_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *status_tab_label = gtk_label_new(NULL);
    char tab_desc[64];
@@ -420,6 +497,14 @@ bool chat_init(void) {
 
    GtkWidget *chat_box = create_chat_box();
    gtk_box_pack_start(GTK_BOX(status_tab), chat_box, TRUE, TRUE, 0);
+
+   GtkRoomTab *rig_tab = g_new0(GtkRoomTab, 1);
+   snprintf(rig_tab->room, sizeof(rig_tab->room), "%s", ws_authoritative_room());
+   rig_tab->page = status_tab;
+   rig_tab->view = chat_textview;
+   rig_tab->entry = chat_entry;
+   g_object_set_data(G_OBJECT(status_tab), "rr-room-tab", rig_tab);
+   g_signal_connect(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
 
    return false;
 }

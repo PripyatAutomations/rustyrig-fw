@@ -31,6 +31,9 @@
 #include <rrclient/media.h>
 #include <rrclient/ui.h>
 #include <rrclient/ui.h>
+#ifdef USE_GTK
+#include <rrclient/gtk.chat.h>
+#endif
 
 extern bool dying;
 extern time_t now;
@@ -228,6 +231,15 @@ bool parse_chat_input_real(const char *msg) {
       dict_add(d, "talk.cmd", "msg");
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");
+#ifdef USE_GTK
+      /* GTK chat tabs represent rooms.  Include the selected tab's room so
+       * side-room messages are delivered there instead of defaulting to the
+       * authoritative rig room on the server. */
+      const char *room = gtk_chat_current_room();
+      if (room && room[0]) {
+         dict_add(d, "talk.target", room);
+      }
+#endif
 
       if (ws_conn) {
          ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);

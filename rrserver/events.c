@@ -217,7 +217,7 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
     */
    if (strcasecmp(msg_type, "file_chunk") == 0) {
       Log(LOG_DEBUG, "ws.chat", "broadcasting file chunk from %s", cptr->chatname);
-      ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
+      ws_broadcast_room_dict(cptr, d, channel);
       dict_free(d);
       return;
    }
@@ -255,7 +255,7 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       Log(LOG_CRAZY, "ws.chat", "talk.msg broadcasting: from=<%s> target=<%s> type=<%s>",
          talk_from, talk_target, talk_msg_type);
 
-      ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
+      ws_broadcast_room_dict(cptr, d, channel);
       Log(LOG_CRAZY, "ws.chat", "talk.msg broadcast returned");
       dict_free(d);
       return;

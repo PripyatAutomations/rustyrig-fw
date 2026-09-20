@@ -64,6 +64,7 @@ struct fwdsp_subproc {
    bool replay_headers;
    int refcount;
    time_t cleanup_deadline;
+   time_t last_no_channel_warn;
    int chan_id;
    enum fwdsp_io_type io_type;
 

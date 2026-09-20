@@ -286,7 +286,12 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    if (rr_ptt_apply(vfo, ptt) ) {
       Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF") );
    } else {
-      rrserver_media_record_ptt(vfo, ptt, ptt_talker, recording_id);
+      if (!ptt || rrserver_media_activate_ptt(vfo, ptt_talker)) {
+         rrserver_media_record_ptt(vfo, ptt, ptt_talker, recording_id);
+      } else {
+         Log(LOG_WARN, "ptt", "TX audio decoder could not be activated on VFO %s",
+            vfo_name(vfo));
+      }
    }
    if (!ptt && vfo >= VFO_A && vfo < MAX_VFOS) {
       ptt_recording_id[vfo][0] = '\0';

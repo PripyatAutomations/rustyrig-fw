@@ -55,11 +55,28 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       }
 
       // raise main window if a tab is selected
+      int digit = -1;
       if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
+         digit = (int)(event->keyval - GDK_KEY_0);
+      } else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9) {
+         digit = (int)(event->keyval - GDK_KEY_KP_0);
+      }
+      if (digit >= 0) {
          if (!gtk_window_is_active( GTK_WINDOW(main_win) ) ) {
             gtk_widget_show_all(main_win);
             gtk_window_present( GTK_WINDOW(main_win) );
             place_window(main_win);
+         }
+
+         /* Notebook pages are numbered in display order.  Resolve the
+          * number at runtime so rooms appended after &localrig are reachable
+          * with the same Alt-number convention as the built-in tabs. */
+         int tab_number = digit == 0 ? 10 : digit;
+         int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
+         if (tab_number >= 1 && tab_number <= pages) {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), tab_number - 1);
+            gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+            return TRUE;
          }
       }
 
@@ -89,48 +106,6 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
             const char *cmsg = (is_ctrl ? "yes": "no");
             ui_print(NULL, "{bright-yellow} PTT: {bright-green}%s{bright-yellow} ctrl: {bright-green}%s{reset}", pmsg, cmsg);
             Log(LOG_AUDIT, "ptt", "PTT toggled by hotkey: %s (ctrl: %s)", pmsg, cmsg);
-            break;
-         }
-         case GDK_KEY_1: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 0);
-            gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
-            break;
-         }
-         case GDK_KEY_2: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 1);
-            break;
-         }
-         case GDK_KEY_3: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 2);
-            break;
-         }
-         case GDK_KEY_4: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 3);
-            break;
-         }
-         case GDK_KEY_5: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 4);
-            break;
-         }
-         case GDK_KEY_6: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 5);
-            gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
-            break;
-         }
-         case GDK_KEY_7: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 6);
-            break;
-         }
-         case GDK_KEY_8: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 7);
-            break;
-         }
-         case GDK_KEY_9: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 8);
-            break;
-         }
-         case GDK_KEY_0: {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 9);
             break;
          }
          case GDK_KEY_C:

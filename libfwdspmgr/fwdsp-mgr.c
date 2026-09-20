@@ -64,6 +64,7 @@ extern struct mg_mgr mgr;
 #pragma weak mgr
 #endif
 static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
+extern time_t now;
 
 static struct mg_mgr *fwdsp_mg_manager(void) {
    return (&mg_mgr != NULL) ? &mg_mgr : &mgr;
@@ -278,8 +279,16 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
                   frame_len, ctx->sp->pl_id);
             } else if (!channel) {
-               Log(LOG_WARN, "fwdsp", "No media channel for %s.%s output",
-                  ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
+               /* A pipeline can produce packets briefly while its media
+                * channel is being replaced or unsubscribed.  Do not emit a
+                * warning for every packet in that transient state. */
+               if (ctx->sp->last_no_channel_warn == 0 ||
+                   now < ctx->sp->last_no_channel_warn ||
+                   now - ctx->sp->last_no_channel_warn >= 5) {
+                  Log(LOG_WARN, "fwdsp", "No media channel for %s.%s output",
+                     ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
+                  ctx->sp->last_no_channel_warn = now;
+               }
             }
 
             mg_iobuf_del(&c->recv, 0, total_len);
