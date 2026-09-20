@@ -111,6 +111,7 @@ int rr_atu_init_all(void) {
       tuners = 0;
    }
    if (tuners == 0) {
+      Log(LOG_INFO, "atu", "No antenna matching units configured");
       return 0;
    }
    Log(LOG_INFO, "atu", "Initializing all ATUs (%d total)", tuners);

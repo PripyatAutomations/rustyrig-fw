@@ -55,7 +55,6 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       if (cptr) {
          rrclient_media_select_codec(cptr, ctx->is_tx, codec);
       }
-      codec_pickers_refresh();
    }
 }
 
@@ -71,7 +70,6 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
    gtk_combo_box_text_append(combo, "none", "NONE");
 
    for (char *tok = strtok_r(list, " ", &saveptr) ; tok ; tok = strtok_r(NULL, " ", &saveptr) ) {
-      Log(LOG_CRAZY, "gtk.codecpicker", "Adding codec |%s| to list <%x>", tok, combo);
       gtk_combo_box_text_append(combo, tok, tok);
 
       if (default_id && strcmp(tok, default_id) == 0) {
@@ -118,6 +116,20 @@ void codec_pickers_refresh(void) {
          populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), "", NULL);
       }
    }
+   updating_codecs = false;
+}
+
+// Reflect the codec confirmed by a concrete media subscription without
+// rebuilding the other direction's picker.  Subscription notifications are
+// authoritative for the channel that was just attached.
+void codec_picker_set_active(bool is_tx, const char *codec) {
+   GtkWidget *combo = is_tx ? tx_combo : rx_combo;
+   if (!combo) {
+      return;
+   }
+   updating_codecs = true;
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo),
+      (codec && codec[0]) ? codec : "none");
    updating_codecs = false;
 }
 

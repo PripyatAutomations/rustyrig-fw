@@ -27,7 +27,8 @@
       "mqtt": "true",
       "sqlite": "true",
       "opus": "true",
-      "flac": "true"
+      "flac": "true",
+      "profiling": "true"
    },
    "modules": {
       "atu": {

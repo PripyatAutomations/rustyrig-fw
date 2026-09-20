@@ -107,6 +107,7 @@ extern void disable_console_quick_edit(void);
 extern GtkWidget *ptt_button_create(void);
 extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx);            // gtk.codecpicker.c
 extern void codec_pickers_refresh(void);                                                        // gtk.codecpicker.c
+extern void codec_picker_set_active(bool is_tx, const char *codec);                            // gtk.codecpicker.c
 extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
 extern gulong mode_changed_handler_id;
 extern gulong freq_changed_handler_id;

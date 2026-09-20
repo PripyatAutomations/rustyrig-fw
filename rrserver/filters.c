@@ -29,7 +29,7 @@
 
 int filter_init(int fid) {
    int rv = -1;
-   Log(LOG_INFO, "filt", " => Filter #%d initialized", fid);
+//   Log(LOG_INFO, "filt", " => Filter #%d initialized", fid);
 
    return rv;
 }

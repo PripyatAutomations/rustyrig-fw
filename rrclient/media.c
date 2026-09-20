@@ -216,15 +216,6 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
          kp->subscribed = false;
          kp->pending_codec[0] = '\0';
       } else {
-         /* Selecting the codec already active on this channel is a no-op.
-          * In particular, GTK may emit a changed signal while it restores
-          * the current combo-box value.  Re-sending that selection makes the
-          * server re-announce the channel and can look like a subscription
-          * loop to clients. */
-         if (kp->subscribed && !kp->disabled &&
-             strncmp(kp->codec, normalized, sizeof(kp->codec) - 1) == 0) {
-            continue;
-         }
          if (media_send_codec_select(cptr, normalized, kp->uuid)) {
             failed = true;
             continue;

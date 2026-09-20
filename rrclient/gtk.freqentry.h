@@ -40,6 +40,7 @@ extern bool gtk_freq_entry_is_editing(GtkFreqEntry *fi);
 extern bool gtk_freq_entry_focus_digit(GtkFreqEntry *fi, int digit);
 extern int gtk_freq_entry_num_digits(GtkFreqEntry *fi);
 extern void gtk_freq_entry_set_value(GtkFreqEntry *fe, guint64 freq);
+extern unsigned long gtk_freq_entry_get_value(GtkFreqEntry *fe);
 
 G_END_DECLS
 

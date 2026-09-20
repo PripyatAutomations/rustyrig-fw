@@ -65,6 +65,7 @@ struct fwdsp_subproc {
    int refcount;
    time_t cleanup_deadline;
    time_t last_no_channel_warn;
+   bool recording_active;
    int chan_id;
    enum fwdsp_io_type io_type;
 

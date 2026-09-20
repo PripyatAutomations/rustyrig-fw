@@ -25,6 +25,7 @@
 #ifdef	USE_GTK
 #include <gtk/gtk.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/gtk.freqentry.h>
 #endif
 
 #ifdef	USE_GTK
@@ -126,7 +127,7 @@ bool vfo_set_dict(const char *vfo, dict *d) {
       vfo_id = vfo_state_check_id(dict_get(d, "cat.state.vfo", NULL));
    }
    char vfo_str[2] = { vfo_id, 0 };
-   Log(LOG_CRAZY, "vfo", "vfo_set_dict: VFO %c", vfo_id);
+//   Log(LOG_CRAZY, "vfo", "vfo_set_dict: VFO %c", vfo_id);
 
    // The server is authoritative about which VFO is active (e.g. after a
    // !vfo switch); track its announcements so the UI shows the right VFO.
@@ -258,7 +259,8 @@ bool vfo_update_ui(void) {
       if (freq_entry && vfo_freq > 0 && (now - freqentry_last_send) > cfg_ui_edit_delay) {
          GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
 
-         if ( !gtk_freq_entry_is_editing(fe) ) {
+         if ( !gtk_freq_entry_is_editing(fe) &&
+              gtk_freq_entry_get_value(fe) != (unsigned long)vfo_freq ) {
             gtk_freq_entry_set_value(fe, (guint64)vfo_freq);
          }
       }
@@ -275,9 +277,15 @@ bool vfo_update_ui(void) {
          extern time_t modebox_last_send;            // gtk.mode-box.c
 
          if ( (now - modebox_last_send) > cfg_ui_edit_delay ) {
-            g_signal_handler_block(mode_combo, mode_changed_handler_id);
-            set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), vfo_mode);
-            g_signal_handler_unblock(mode_combo, mode_changed_handler_id);
+            gchar *current_mode = gtk_combo_box_text_get_active_text(
+               GTK_COMBO_BOX_TEXT(mode_combo));
+            bool mode_changed = !current_mode || strcmp(current_mode, vfo_mode) != 0;
+            g_free(current_mode);
+            if (mode_changed) {
+               g_signal_handler_block(mode_combo, mode_changed_handler_id);
+               set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), vfo_mode);
+               g_signal_handler_unblock(mode_combo, mode_changed_handler_id);
+            }
          }
       }
 
@@ -382,7 +390,8 @@ bool vfo_update_ui(void) {
             }
          }
 
-         if (best_idx >= 0) {
+         if (best_idx >= 0 &&
+             gtk_combo_box_get_active(GTK_COMBO_BOX(width_combo)) != best_idx) {
             gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), best_idx);
          }
 
@@ -390,7 +399,8 @@ bool vfo_update_ui(void) {
       }
 
       // TX power
-      if (tx_power_slider && vfo_power > 0) {
+      if (tx_power_slider && vfo_power > 0 &&
+          (int)gtk_range_get_value(GTK_RANGE(tx_power_slider)) != vfo_power) {
          gtk_range_set_value(GTK_RANGE(tx_power_slider), vfo_power);
       }
 

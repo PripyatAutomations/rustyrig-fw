@@ -131,7 +131,7 @@ bool userlist_remove_by_name(const char *name) {
    struct rr_user *prev = NULL;
 
    while (c) {
-      if ( strcasecmp(c->name, name) == 0) {
+      if (strcasecmp(c->name, name) == 0) {
          struct rr_user *next = c->next;
 
          if (prev) {
@@ -170,16 +170,19 @@ void userlist_clear_all(void) {
 
    while (c) {
       next = c->next;
-      Log(LOG_CRAZY, "userlist", "Clearing entry at <%p>", c);
+      Log(LOG_CRAZY, "userlist", "Clearing entry at <%p>: %s (%d/%d) logged-in: %lu", c, c->name, c->sessions, c->logged_in);
       free(c);
       c = next;
    }
+
    // Clear the userlist pointer
    global_userlist = NULL;
+
    // Skip GTK redraw during shutdown: the widgets are already gone.
    if (dying) {
       return;
    }
+
    if (ui_mode == UI_MODE_GTK) {
 #if     defined(USE_GTK)
       userlist_redraw_gtk();
@@ -194,7 +197,7 @@ struct rr_user *userlist_find(const char *name) {
    }
    struct rr_user *c = global_userlist;
    while (c) {
-      if ( strcasecmp(c->name, name) == 0 ) {
+      if (strcasecmp(c->name, name) == 0) {
          return c;
       }
       c = c->next;

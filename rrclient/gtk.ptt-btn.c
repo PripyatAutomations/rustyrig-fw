@@ -22,6 +22,8 @@
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
 #include <rrclient/userlist.h>
+#include <rrclient/audio.h>
+#include <rrclient/media.h>
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);         // chat.cmd.c
 extern dict *cfg;
@@ -72,11 +74,10 @@ static bool someone_else_transmitting(struct rr_user *talker) {
    return (talker && (!login_user || strcmp(talker->name, login_user) != 0) );
 }
 
-// We (the clicking user) may halt a noob's PTT if we're an admin or elmer.
-// Both sets of privileges come from our cached userlist data, which the
-// server sends as part of the login process.
-static bool i_can_halt_noob(const struct rr_user *talker) {
-   if (!talker || !strcasestr(talker->privs, "noob") ) {
+// Administrators and owners may halt any other user's PTT. Elmers may halt
+// only a noob's PTT. The privilege list comes from cached userlist data.
+static bool i_can_halt_user(const struct rr_user *talker) {
+   if (!talker) {
       return false;
    }
 
@@ -85,7 +86,9 @@ static bool i_can_halt_noob(const struct rr_user *talker) {
       return false;
    }
 
-   return (strcasestr(me->privs, "admin") || strcasestr(me->privs, "elmer") );
+   bool privileged = strcasestr(me->privs, "admin") || strcasestr(me->privs, "owner");
+   bool elmer_noob = strcasestr(me->privs, "elmer") && strcasestr(talker->privs, "noob");
+   return privileged || elmer_noob;
 }
 
 // Apply the current state to the button widget
@@ -107,6 +110,13 @@ static void ptt_button_apply(void) {
    if (!ptt_btn_online) {
       label = "OFFLINE";
       cls = "ptt-offline";
+   } else if (someone_else_transmitting(talker) ) {
+      // Another user is on the air even if a local request is still pending.
+      // The shared rig state is the most useful status to show here.
+      static char namebuf[PTT_LABEL_MAXLEN + 1];
+      snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker->name);
+      label = namebuf;
+      cls = "ptt-active";
    } else if (ptt_button_pending && !ptt_button_pending_quiet) {
       label = "PENDING";
       cls = "ptt-pending";
@@ -116,14 +126,7 @@ static void ptt_button_apply(void) {
          (ptt_btn_tot_secs > 0 ? ptt_btn_tot_secs : 300) );
       label = totbuf;
       cls = "ptt-tot";
-   } else if (someone_else_transmitting(talker) ) {
-      // Show who's on the air, limited to PTT_LABEL_MAXLEN characters.
-      // The button has a fixed width so it never resizes.
-      static char namebuf[PTT_LABEL_MAXLEN + 1];
-      snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker->name);
-      label = namebuf;
-      cls = "ptt-active";
-    } else if (ptt_active) {
+   } else if (ptt_active) {
       // We're the talker: show our callsign (red, same as anyone else's TX)
       static char namebuf[PTT_LABEL_MAXLEN + 1];
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN,
@@ -234,7 +237,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    // We can't key up while someone else holds PTT. Exception: if they're a
    // noob and we're admin/elmer, we allow it so the server halts their TX
    // (and starts their cooldown).
-   if (someone_else_transmitting(talker) && !i_can_halt_noob(talker) ) {
+   if (someone_else_transmitting(talker) && !i_can_halt_user(talker) ) {
       Log(LOG_AUDIT, "ui.gtk", "PTT ignored: %s is already transmitting", talker->name);
       ui_print(NULL, "{yellow}*** {bright-red}%s{bright-yellow} is already transmitting{reset}", talker->name);
 
@@ -275,6 +278,21 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
       ws_send_ptt_cmd(ws_conn, vfo, false);
    } else {
+      // Start the local TX encoder before asking the server to key the rig.
+      // The server starts its decoder before sending the matching cat.state
+      // acknowledgement, so keeping this gate ahead of the command ensures
+      // the first spoken samples have a live path when the button turns red.
+      const char *tx_codec = rrclient_media_current_codec(true);
+      if (!tx_codec || audio_switch_codec(tx_codec, true)) {
+         Log(LOG_WARN, "ui.gtk", "PTT refused: TX audio encoder is not ready");
+         ui_print(NULL, "{yellow}*** TX audio is not ready; select a TX codec first{reset}");
+         ptt_active = false;
+         g_signal_handlers_block_by_func(button, on_ptt_toggled, NULL);
+         gtk_toggle_button_set_active(button, FALSE);
+         g_signal_handlers_unblock_by_func(button, on_ptt_toggled, NULL);
+         ptt_button_apply();
+         return;
+      }
       Log(LOG_CRAZY, "ui.gtk", "Turning PTT on");
       // Enter PENDING until the server echoes cat.state.ptt back to us
       ptt_button_pending = true;

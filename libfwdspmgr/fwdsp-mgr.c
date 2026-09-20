@@ -278,14 +278,21 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                ws_media_broadcast_subscribed(channel,
                   (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
                   frame_len, ctx->sp->pl_id);
-            } else if (!channel) {
+            } else if (!channel && ctx->sp->channel_uuid[0] != '\0' &&
+                       ctx->sp->refcount > 0) {
                /* A pipeline can produce packets briefly while its media
                 * channel is being replaced or unsubscribed.  Do not emit a
-                * warning for every packet in that transient state. */
+                * warning for every packet in that transient state.  Idle
+                * encoders are intentionally retained for hangtime and may
+                * still drain a final buffer after their channel is gone. */
                if (ctx->sp->last_no_channel_warn == 0 ||
                    now < ctx->sp->last_no_channel_warn ||
                    now - ctx->sp->last_no_channel_warn >= 5) {
-                  Log(LOG_WARN, "fwdsp", "No media channel for %s.%s output",
+                  // Encoders intentionally linger for fwdsp.hangtime after
+                  // their last subscriber leaves. Packets produced while
+                  // that channel is being unsubscribed have no destination,
+                  // but are harmless and should not look like a client error.
+                  Log(LOG_DEBUG, "fwdsp", "No media channel for %s.%s output",
                      ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
                   ctx->sp->last_no_channel_warn = now;
                }
@@ -1136,6 +1143,20 @@ int fwdsp_codec_stop_channel(const char *codec, bool is_tx, const char *channel_
    struct fwdsp_subproc *sp = NULL;
    if (channel_uuid && *channel_uuid) {
       sp = fwdsp_find_channel_instance(codec, is_tx, channel_uuid);
+      /* Older pipelines were created before channel UUIDs were attached.
+       * Retire an otherwise unbound legacy instance during renegotiation so
+       * it cannot keep emitting packets with no media destination. */
+      if (!sp && fwdsp_subprocs) {
+         for (int i = 0; i < max_subprocs; i++) {
+            struct fwdsp_subproc *candidate = &fwdsp_subprocs[i];
+            if (candidate->pl_id[0] && candidate->is_tx == is_tx &&
+                !candidate->channel_uuid[0] &&
+                !strncmp(candidate->pl_id, codec, 4)) {
+               sp = candidate;
+               break;
+            }
+         }
+      }
    } else {
       sp = fwdsp_find_instance(codec, is_tx);
    }

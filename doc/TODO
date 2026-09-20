@@ -1,7 +1,8 @@
 Immediate needs
 ---------------
 rrclient: extend the status bar to be able to show any VFO's properties and who is actively TXing
-* Make each VFO have an independant PTT, etc
+
+* Make each VFO have an independant PTT, etc - we can RX/TX independantly on 4 channels in hardware!
 
 * Move all socket code out of librrprotocol
   - It needs to go into client and server code
@@ -16,7 +17,7 @@ rrclient: extend the status bar to be able to show any VFO's properties and who 
 
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure
-  - currently we still use 0 for success, which is incorrect
+  - currently some places, we still use 0 for success, which is incorrect
 
 * Integrate callsign-lookup in rrserver
   - rrclient sends /qrz $call or /fcc $call to server
@@ -40,3 +41,5 @@ rrclient: Consider bringing in sqlite db for storage/caching (call lookups, etc)
    - backend.internal, backend.hamlib, and backend.network based
 
 librustyaxe: logger - extend log.level so its work like log.level=*:info,event:crazy@10,6 to allow 10 messages in 6 seconds. Would that be too much work?
+
+rrclient/rrserver: Maybe support storing config in the db too? So load config file then apply db? Would need to periodically poll db for changes tho, ugly..

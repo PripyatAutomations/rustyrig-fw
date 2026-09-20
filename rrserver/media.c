@@ -29,6 +29,29 @@
 
 extern time_t now;
 
+struct media_record_log_state {
+   char uuid[64];
+   bool active;
+};
+static struct media_record_log_state media_record_logs[MAX_MEDIA_CHANNELS];
+
+static bool media_record_log_transition(const char *uuid, bool active) {
+   if (!uuid || !*uuid) return true;
+   struct media_record_log_state *slot = NULL;
+   for (int i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+      if (!media_record_logs[i].uuid[0] && !slot) slot = &media_record_logs[i];
+      if (media_record_logs[i].uuid[0] && !strcmp(media_record_logs[i].uuid, uuid)) {
+         slot = &media_record_logs[i];
+         break;
+      }
+   }
+   if (!slot) return true;
+   if (!slot->uuid[0]) snprintf(slot->uuid, sizeof(slot->uuid), "%s", uuid);
+   if (slot->active == active) return false;
+   slot->active = active;
+   return true;
+}
+
 static bool media_recording_enabled(bool tx) {
    // Current server configs may keep recording policy under [fwdsp]. The
    // fwdsp defaults are always loaded, though, so merely checking whether
@@ -79,9 +102,11 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
       Log(LOG_WARN, "record", "Unable to %s recording for channel %s",
          start ? "start" : "stop", channel->uuid);
    } else {
-      Log(LOG_INFO, "record", "%s %s recording for channel %s (%s)%s",
-         start ? "Armed" : "Stopped", (tx ? "TX" : "RX"), channel->uuid,
-         channel->codec, (start ? "; file is created when samples arrive" : ""));
+      if (media_record_log_transition(channel->uuid, start)) {
+         Log(LOG_INFO, "record", "%s %s recording for channel %s (%s)%s",
+            start ? "Armed" : "Stopped", (tx ? "TX" : "RX"), channel->uuid,
+            channel->codec, (start ? "; file is created when samples arrive" : ""));
+      }
    }
 }
 

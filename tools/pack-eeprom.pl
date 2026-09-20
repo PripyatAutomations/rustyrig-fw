@@ -956,11 +956,18 @@ sub generate_config_h {
       }
    }
 
+   my $profiling;
+   if (defined($config->{'features'})) {
+      $profiling = $config->{'features'}{'profiling'};
+   }
+   if (defined($config->{'debug'}) && defined($config->{'debug'}{'profiling'})) {
+      $profiling = $config->{'debug'}{'profiling'};
+   }
+   if (defined($profiling) && match_boolean($profiling)) {
+      print $fh "#define USE_PROFILING true\n";
+   }
+
    if (defined($config->{'debug'})) {
-      my $profiling = $config->{'debug'}{'profiling'};
-      if (defined($profiling) && match_boolean($config->{debug}{'profiling'})) {
-         print $fh "#define USE_PROFILING true\n";
-      }
 
       my $logfile = $config->{'debug'}{'logfile'};
       if (defined($logfile)) {
