@@ -53,6 +53,8 @@ defconfig_t defcfg[] = {
    { "rig.name", "rig", "Name used by the authoritative #rig-<name> room" },
    { "chat.log", "true", "Should we log the chat to text files by date/rig?" },
    { "chat.replay-lines", "20", "Lines of replay to show on joining chat" },
+   { "callsign-lookup.cache-db", "./db/rrserver-callsigns.db", "Server-local callsign lookup cache database" },
+   { "callsign-lookup.use-cache", "true", "Cache callsign lookup results on the server" },
    { "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codec order" },
    { "codecs.allowed.video", "jpeg h264", "Preferred video codec order" },
    { "webcam.enable", "false", "Capture a v4l2 webcam and stream it as a video media channel" },

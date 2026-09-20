@@ -543,6 +543,9 @@ bool rrclient_media_subscribe(const char *uuid) {
       return true;
    }
    bool failed = media_send_subscribe(cptr, uuid);
+   if (failed) {
+      ui_print(NULL, "Failed to subscribe to media channel uuid %s", uuid);
+   }
    struct rr_media_known *kp = media_known_find(uuid);
    if (!failed && kp) {
       kp->disabled = false;
@@ -558,6 +561,9 @@ bool rrclient_media_unsubscribe(const char *uuid) {
       return true;
    }
    bool failed = media_send_unsubscribe(cptr, uuid);
+   if (failed) {
+      ui_print(NULL, "Failed to unsubscribe from media channel uuid %s", uuid);
+   }
    struct rr_media_known *kp = media_known_find(uuid);
    if (!failed && kp) {
       kp->disabled = true;
@@ -573,7 +579,12 @@ void rrclient_media_refresh(void) {
    rrconn_t *cptr = ws_conn;
 
    if (cptr) {
-      media_send_list(cptr);
+      if (media_send_list(cptr)) {
+         Log(LOG_WARN, "ws.media", "Unable to refresh media channel list: request was not sent");
+         ui_print(NULL, "Unable to refresh media channels; connection is not writable");
+      }
+   } else {
+      Log(LOG_DEBUG, "ws.media", "Unable to refresh media channel list: not connected");
    }
 }
 
@@ -595,10 +606,12 @@ bool cmd_media(int argc, char **args) {
            continue;
         }
         n++;
-        ui_print(NULL, " %2d. %s%s %s  [%s]  {magenta}%s{reset}", n,
+        char vfo = (kp->vfo < RR_BINFRAME_VFO_NA) ? (char)('A' + kp->vfo) : '-';
+        ui_print(NULL, " %2d. %s%s %s  [%s]  VFO %c rig %u {magenta}%s{reset}", n,
            (kp->subscribed ? "{green}*{reset} " : "  "),
            (kp->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx"), kp->uuid,
            (kp->codec[0] != '\0' ? kp->codec : "----"),
+           vfo, kp->rig,
            (kp->descr[0] != '\0' ? kp->descr : "-") );
      }
      ui_print(NULL, "{bright-cyan}End of list ({reset}%d{bright-cyan} channels, {reset}*{bright-cyan} = subscribed){reset}", n);
@@ -698,10 +711,14 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
       ui_print(NULL, "Use /%s LIST to see supported codecs", command);
       return true;
    }
+   const struct rr_media_known *target = (argc == 3) ? rrclient_media_chan_lookup(args[2]) : media_current_channel(is_tx);
    bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
    if (!failed) {
-      ui_print(NULL, "Requested %s codec %s%s%s", is_tx ? "TX" : "RX", args[1],
-         argc == 3 ? " for " : "", argc == 3 ? args[2] : "");
+      char vfo = (target && target->vfo < RR_BINFRAME_VFO_NA) ? (char)('A' + target->vfo) : '-';
+      ui_print(NULL, "Requested %s codec %s for channel #%d uuid %s VFO %c (%s)",
+         is_tx ? "TX" : "RX", args[1], target ? (int)(target - known_chans) + 1 : 0,
+         target ? target->uuid : (argc == 3 ? args[2] : "<active>"), vfo,
+         target && target->descr[0] ? target->descr : "audio");
    }
    return failed;
 }

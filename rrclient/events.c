@@ -759,9 +759,17 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       uint32_t rig = dict_get_ulong(d, "media.rig", RR_BINFRAME_RIG_NA);
       const char *descr = dict_get(d, "media.descr", NULL);
 
-      Log(LOG_INFO, "ws.media", "Media channel available: %s subsys 0x%02X %s vfo %u rig %u (%s)",
+      if (!uuid || !*uuid) {
+         Log(LOG_WARN, "ws.media", "Ignoring media.available without channel UUID (subsys 0x%02X, dir %u, VFO %u)",
+            subsys, dir, vfo);
+         dict_free(d);
+         return;
+      }
+
+      Log(LOG_INFO, "ws.media", "Media channel available: uuid %s subsys 0x%02X %s VFO %c rig %u (%s)",
          (uuid ? uuid : "<none>"), subsys, (dir == RR_BINFRAME_DIR_TX ? "tx" : "rx"),
-         vfo, rig, (descr ? descr : "-"));
+         (vfo < RR_BINFRAME_VFO_NA ? (char)('A' + vfo) : '-'), rig,
+         (descr ? descr : "-"));
 
       // Hand the parsed dict straight to the media layer (no JSON
       // round-trip); it stores the channel and auto-subscribes as needed.
@@ -772,8 +780,17 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
       uint32_t stream = dict_get_ulong(d, "media.stream", 0);
 
-      Log(LOG_INFO, "ws.media", "Subscribed to media channel %s (stream %u)",
-         (uuid ? uuid : "<none>"), stream);
+      if (!uuid || !*uuid) {
+         Log(LOG_WARN, "ws.media", "Ignoring media.subscribed without channel UUID (stream %u)", stream);
+         dict_free(d);
+         return;
+      }
+
+      Log(LOG_INFO, "ws.media", "Subscribed to media channel uuid %s (stream %u, %s VFO %c)",
+         (uuid ? uuid : "<none>"), stream,
+         (dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA) == RR_BINFRAME_DIR_TX ? "tx" : "rx"),
+         (dict_get_ulong(d, "media.vfo", RR_BINFRAME_VFO_NA) < RR_BINFRAME_VFO_NA ?
+            (char)('A' + dict_get_ulong(d, "media.vfo", RR_BINFRAME_VFO_NA)) : '-'));
       extern void rrclient_media_subscribed(dict *d, bool unsub);   // media.c
 
       rrclient_media_subscribed(d, false);
