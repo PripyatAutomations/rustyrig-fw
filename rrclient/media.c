@@ -28,6 +28,9 @@
 
 extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
+#ifdef USE_GTK
+extern void codec_picker_set_active(bool is_tx, const char *codec);
+#endif
 
 // Privileges the server granted us at auth (e.g. "admin,edit,view,...")
 static char media_my_privs[128] = { 0 };
@@ -229,7 +232,12 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
    if (!target && !failed && (none || sent)) {
       direction_disabled[is_tx] = none;
    }
-   media_sync_audio();
+   // Keep the current local pipeline until the server re-announces the
+   // channel with the requested codec. NONE is local unsubscribe intent and
+   // can stop audio immediately; encoded codec changes wait for confirmation.
+   if (none) {
+      media_sync_audio();
+   }
    if (!sent && (target || !none)) {
       ui_print(NULL, "No subscribed %s audio channels match; use /media LIST", is_tx ? "TX" : "RX");
    }
@@ -266,15 +274,6 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
          return;
       }
    }
-   if (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && kp->codec[0] == '\0') {
-      const char *codec = media_get_preferred_codec();
-
-      if (codec && strlen(codec) == 4) {
-         media_send_codec_select(cptr, codec, kp->uuid);
-      }
-      return;
-   }
-
    if (!media_send_subscribe(cptr, kp->uuid)) {
       kp->subscribed = true;
    }
@@ -325,6 +324,11 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          }
          media_try_autosubscribe(ws_conn, kp);
          media_sync_audio();
+#ifdef USE_GTK
+         if (media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
+            codec_picker_set_active(kp->direction == RR_BINFRAME_DIR_TX, kp->codec);
+         }
+#endif
       }
    }
 }
@@ -360,6 +364,12 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
          snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
       }
       media_sync_audio();
+#ifdef USE_GTK
+      if (media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
+         codec_picker_set_active(kp->direction == RR_BINFRAME_DIR_TX,
+            (unsub ? NULL : kp->codec));
+      }
+#endif
       Log(LOG_INFO, "ws.media", "Media subscription %s: %s (codec %s)",
          (unsub ? "removed" : "confirmed"), kp->uuid, (kp->codec[0] ? kp->codec : "none") );
    }

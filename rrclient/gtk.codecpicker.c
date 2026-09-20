@@ -28,7 +28,10 @@ extern rrconn_t *ws_tx_conn;   // rrclient/rrclient.c
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;
 static bool updating_codecs = false;
+static char picker_codec_list[256] = { 0 };
+static bool picker_list_initialized = false;
 void codec_pickers_refresh(void);
+void codec_picker_set_active(bool is_tx, const char *codec);
 
 typedef struct {
 #if     defined(USE_MONGOOSE)
@@ -96,25 +99,34 @@ void codec_pickers_refresh(void) {
    const char *negotiated = media_get_common_codecs();
    const char *default_rx = rrclient_media_current_codec(false);
    const char *default_tx = rrclient_media_current_codec(true);
+   char available[sizeof(picker_codec_list)] = { 0 };
+   char *configured = NULL;
 
    if (negotiated) {
-      populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), negotiated,
-         (default_rx && default_rx[0] ? default_rx : NULL) );
-      populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), negotiated,
-         (default_tx && default_tx[0] ? default_tx : NULL) );
+      snprintf(available, sizeof(available), "%s", negotiated);
    } else {
       // Not negotiated yet: show our configured preferences; the negotiation
       // (ws_handle_media_msg) will re-select once the server answers.
-      const char *my_codecs = cfg_get_exp("codecs.allowed");
+      configured = (char *)cfg_get_exp("codecs.allowed");
 
-      if (my_codecs) {
-         populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), my_codecs, NULL);
-         populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), my_codecs, NULL);
-         free( (void *)my_codecs );
-      } else {
-         populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), "", NULL);
-         populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), "", NULL);
+      if (configured) {
+         snprintf(available, sizeof(available), "%s", configured);
       }
+   }
+   free(configured);
+
+   if (!picker_list_initialized || strcmp(available, picker_codec_list) != 0) {
+      snprintf(picker_codec_list, sizeof(picker_codec_list), "%s", available);
+      picker_list_initialized = true;
+      populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), available,
+         (default_rx && default_rx[0] ? default_rx : NULL) );
+      populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), available,
+         (default_tx && default_tx[0] ? default_tx : NULL) );
+   } else {
+      // The negotiated list is unchanged, so preserve the widgets and only
+      // reflect the currently selected channel codec.
+      codec_picker_set_active(false, default_rx);
+      codec_picker_set_active(true, default_tx);
    }
    updating_codecs = false;
 }
@@ -156,6 +168,7 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
       UI_ROLE_COMBOBOX,                     // role
       true);                               // focusable
    gtk_widget_set_tooltip_text(rx_combo, "Receive codec");
+   picker_list_initialized = false;
 
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);
    CodecSelectorCtx *rx_ctx = g_new0(CodecSelectorCtx, 1);

@@ -794,23 +794,10 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       extern void rrclient_media_subscribed(dict *d, bool unsub);   // media.c
 
       rrclient_media_subscribed(d, false);
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) {
-         uint32_t dir = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
-         const char *codec = dict_get(d, "media.codec", NULL);
-         codec_picker_set_active(dir == RR_BINFRAME_DIR_TX, codec);
-      }
-#endif
    } else if (cmd && strcasecmp(cmd, "unsubscribed") == 0) {
-      uint32_t dir = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
       extern void rrclient_media_subscribed(dict *d, bool unsub);   // media.c
 
       rrclient_media_subscribed(d, true);
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) {
-         codec_picker_set_active(dir == RR_BINFRAME_DIR_TX, NULL);
-      }
-#endif
    } else if (cmd && strcasecmp(cmd, "chan-remove") == 0) {
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
 
