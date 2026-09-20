@@ -6,7 +6,6 @@ bins += ${rrclient}
 
 rrclient_objs += audio.o
 rrclient_objs += cat.o
-rrclient_objs += webcam.o		# client-side v4l2 webcam video source
 rrclient_objs += cat.kpa500.o
 rrclient_objs += cat.pty.o		# PTY CAT interface (./dev/ttyCAT0)
 rrclient_objs += cat.yaesu.o
@@ -20,18 +19,19 @@ rrclient_objs += cmd.help.o		# help texts
 rrclient_objs += cmd.misc.o		# unsorted commands
 rrclient_objs += cmd.tabs.o		# tab/window switching
 rrclient_objs += connman.o		# connection manager
-rrclient_objs += rrclient.o		# client connection state & core connect/disconnect
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
-rrclient_objs += media.o		# media channel subscribe handling
+rrclient_objs += rrclient.o		# client connection state & core connect/disconnect
 rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
 rrclient_objs += main.o			# main loop
+rrclient_objs += media.o		# media channel subscribe handling
 rrclient_objs += userlist.o
 rrclient_objs += ui.statusbar.o
 rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
 rrclient_objs += ui.bell.o		# Bell/sounds support for the UI
 rrclient_objs += ui.colors.o		# User interface color handling
 rrclient_objs += vfo.o			# VFO management
+rrclient_objs += webcam.o		# client-side v4l2 webcam video source
 rrclient_objs += win32.o		# support to run in windows
 
 #######
@@ -87,7 +87,7 @@ ${BUILD_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS} GNUmakefile r
 
 bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI}-o $@ ${rrclient_real_objs} -lrustyaxe -lrrprotocol -Wl,--no-as-needed -lfwdspmgr -Wl,--as-needed -lev ${gtk_ldflags} ${notify_ldflags} ${LDFLAGS} || exit 2
+	@${CC} ${LDFLAGS_RRCLI}-o $@ ${rrclient_real_objs} -lrustyaxe -lrrprotocol -Wl,--no-as-needed -lfwdspmgr -Wl,--as-needed ${gtk_ldflags} ${notify_ldflags} ${LDFLAGS} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

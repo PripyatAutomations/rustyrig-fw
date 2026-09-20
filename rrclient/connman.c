@@ -33,7 +33,6 @@ extern const char *login_user;
 extern rrconn_t *ws_conn, *ws_tx_conn;
 extern rr_connection_t *active_connections;
 extern dict *cfg;
-extern struct ev_loop *loop;
 extern bool dying;
 extern bool debug_sockets;
 extern time_t now, poll_block_expire, poll_block_delay;

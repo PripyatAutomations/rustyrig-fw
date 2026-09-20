@@ -16,12 +16,13 @@ libfwdspmgr := libfwdspmgr.so
 libs += ${libfwdspmgr}
 
 real_libfwdspmgr_objs := $(addprefix ${BUILD_DIR}/libfwdspmgr/,$(libfwdspmgr_objs))
-extra_clean += ${real_libfwdspmgr_objs} ${libfwdspmgr}
+extra_clean += ${real_libfwdspmgr_objs} ${libfwdspmgr} libfwdspmgr.so.0
 
 ${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${librustyaxe} ${librrprotocol} GNUmakefile
 	@${RM} -f $@
 	@echo "[link] $@ from $(words ${real_libfwdspmgr_objs}) objects"
-	@${CC} ${LIB_LDFLAGS} -o $@ ${real_libfwdspmgr_objs} -lrustyaxe -lrrprotocol ${LDFLAGS}
+	@${CC} ${LIB_LDFLAGS} -Wl,-soname,libfwdspmgr.so.0 -o $@ ${real_libfwdspmgr_objs} -lrustyaxe -lrrprotocol ${LDFLAGS}
+	@ln -sf libfwdspmgr.so libfwdspmgr.so.0
 	@ls -a1ls $@
 
 ${BUILD_DIR}/libfwdspmgr/%.o: libfwdspmgr/%.c ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h GNUmakefile libfwdspmgr/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}

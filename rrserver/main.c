@@ -237,10 +237,16 @@ int main(int argc, char **argv) {
 #endif // USE_COREDUMPS_SERVER
 
 #ifdef	USE_SQLITE
-   if ( !( masterdb = db_open(MASTERDB_PATH) ) ) {
-      Log(LOG_CRIT, "core", "Cant open master db at %s", MASTERDB_PATH);
+   const char *masterdb_path = cfg_get_exp("path.db.master");
+   if (!masterdb_path) {
+      masterdb_path = strdup(MASTERDB_PATH);
+   }
+   if ( !( masterdb = db_open(masterdb_path) ) ) {
+      Log(LOG_CRIT, "core", "Cant open master db at %s", masterdb_path);
+      free((void *)masterdb_path);
       exit(EXIT_FAILURE);
    }
+   free((void *)masterdb_path);
    audit_init();   // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
    hostlog_init();   // Stream Log() lines to FLAG_SYSLOG clients (hostlog.c)

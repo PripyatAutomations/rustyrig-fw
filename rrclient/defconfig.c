@@ -30,7 +30,7 @@ const char *configs[] = {
    "./config/rrclient.cfg",
    "~/.config/rrclient.cfg",
    "~/.rrclient.cfg",
-   "/etc/rrclient.cfg"
+   "/etc/rustyrig/rrclient.cfg"
 #endif
 };
 
@@ -82,6 +82,7 @@ defconfig_t defcfg[] = {
    { "client.role", "", "Connection role: set to video-source for webcam feed connections" },
    { "callsign-lookup.cache-db", "./db/rrclient-callsigns.db", "Client-local callsign lookup cache database" },
    { "callsign-lookup.use-cache", "true", "Cache local callsign lookup results" },
+   { "callsign-lookup.path", "./bin/callsign-lookup", "Callsign lookup helper executable" },
    { "webcam.device", "/dev/video0", "v4l2 device to grab frames from" },
    { "cat.pty.enable", "true", "Create a PTY (e.g. ./dev/ttyCAT0) for external CAT software (hamlib/rigctl)" },
    { "cat.pty.path", "./dev/ttyCAT0", "Path to symlink the CAT PTY slave to" },

@@ -1,38 +1,73 @@
 #!/usr/bin/make -f
 
+export DH_VERBOSE = 1
+
 %:
-        dh $@
+	dh $@
 
 override_dh_auto_clean:
-        $(MAKE) distclean
+	$(MAKE) distclean || true
+	$(MAKE) -C callsign-lookup clean || true
 
 override_dh_auto_build:
-        # Build the normal GTK profile
-        $(MAKE) PROFILE=default
-
-        # Build the TUI-only client profile
-        $(MAKE) PROFILE=no-gtk rrclient
+	$(MAKE) -j4 PROFILE=radio
+	$(MAKE) -j4 -C callsign-lookup
+	cp -f bin/rrclient /tmp/rustyrig-rrclient-gtk
+	# Keep the TUI objects separate from the GTK build.
+	rm -rf $(CURDIR)/build/radio-tui
+	mkdir -p $(CURDIR)/build/radio-tui
+	cp -f $(CURDIR)/build/radio/build_config.h $(CURDIR)/build/radio-tui/build_config.h
+	$(MAKE) -j4 PROFILE=radio USE_GTK=false BUILD_DIR=$(CURDIR)/build/radio-tui bin/rrclient
 
 override_dh_auto_install:
-        # Normal/default packages
-        $(MAKE) PROFILE=default install-librustyaxe \
-                DESTDIR=$(CURDIR)/debian/librustyaxe PREFIX=/usr
+	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
+	install -Dm755 /tmp/rustyrig-rrclient-gtk debian/rustyrig-client/usr/bin/rrclient
+	install -Dm755 bin/rrclient debian/rustyrig-client-tui/usr/bin/rrclient-tui
+	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
+	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup/usr/bin/callsign-lookup
+	install -Dm644 config/callsign-lookup.cfg.example debian/rustyrig-callsign-lookup/etc/rustyrig/callsign-lookup.cfg.example
 
-        $(MAKE) PROFILE=default install-librrprotocol \
-                DESTDIR=$(CURDIR)/debian/librrprotocol PREFIX=/usr
+	install -d debian/rustyrig-server/var/lib/rustyrig/db
+	install -d debian/rustyrig-server/var/lib/rustyrig/recordings
+	install -d debian/rustyrig-server/var/lib/rustyrig/modems
+	install -d debian/rustyrig-server/var/lib/rustyrig/www
+	install -d debian/rustyrig-server/var/lib/rustyrig/tools
+	install -d debian/rustyrig-server/var/run/rustyrig
+	install -d debian/rustyrig-server/var/log/rustyrig
+	install -d debian/rustyrig-client/var/lib/rustyrig/db
+	install -d debian/rustyrig-client/var/lib/rustyrig/help
+	install -d debian/rustyrig-client/var/lib/rustyrig/recordings/client
+	install -d debian/rustyrig-client/var/log/rustyrig
+	install -d debian/rustyrig-client/var/run/rustyrig
+	install -d debian/rustyrig-server/etc/rustyrig
+	install -d debian/rustyrig-client/etc/rustyrig
+	install -Dm644 config/rrserver.cfg.example debian/rustyrig-server/etc/rustyrig/rrserver.cfg.example
+	install -Dm644 config/callsign-lookup.srv.cfg.example debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg.example
+	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
+	install -Dm644 config/rrclient.cfg.example debian/rustyrig-client/etc/rustyrig/rrclient.cfg.example
+	install -Dm644 config/callsign-lookup.cli.cfg.example debian/rustyrig-client/etc/rustyrig/callsign-lookup.cli.cfg.example
+	find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-server/var/lib/rustyrig/www/ \;
+	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
+	install -Dm644 sql/sqlite.master.sql debian/rustyrig-server/usr/share/rustyrig/sql/sqlite.master.sql
 
-        $(MAKE) PROFILE=default install-client \
-                DESTDIR=$(CURDIR)/debian/rrclient PREFIX=/usr
+	install -Dm755 librustyaxe.so debian/librustyaxe/usr/lib/$(DEB_HOST_MULTIARCH)/librustyaxe.so.0
+	install -Dm755 librrprotocol.so debian/librrprotocol/usr/lib/$(DEB_HOST_MULTIARCH)/librrprotocol.so.0
+	install -Dm755 libfwdspmgr.so debian/libfwdspmgr/usr/lib/$(DEB_HOST_MULTIARCH)/libfwdspmgr.so.0
+	install -d debian/librustyaxe-dev/usr/lib/$(DEB_HOST_MULTIARCH)
+	install -d debian/librrprotocol-dev/usr/lib/$(DEB_HOST_MULTIARCH)
+	install -d debian/libfwdspmgr-dev/usr/lib/$(DEB_HOST_MULTIARCH)
+	ln -sf librustyaxe.so.0 debian/librustyaxe-dev/usr/lib/$(DEB_HOST_MULTIARCH)/librustyaxe.so
+	ln -sf librrprotocol.so.0 debian/librrprotocol-dev/usr/lib/$(DEB_HOST_MULTIARCH)/librrprotocol.so
+	ln -sf libfwdspmgr.so.0 debian/libfwdspmgr-dev/usr/lib/$(DEB_HOST_MULTIARCH)/libfwdspmgr.so
 
-        $(MAKE) PROFILE=default install-server \
-                DESTDIR=$(CURDIR)/debian/rrserver PREFIX=/usr
+	install -d debian/librustyaxe-dev/usr/include/librustyaxe
+	cp -a librustyaxe/*.h debian/librustyaxe-dev/usr/include/librustyaxe/
+	install -d debian/librrprotocol-dev/usr/include/librrprotocol
+	cp -a librrprotocol/*.h debian/librrprotocol-dev/usr/include/librrprotocol/
+	install -d debian/libfwdspmgr-dev/usr/include/libfwdspmgr
+	cp -a libfwdspmgr/*.h debian/libfwdspmgr-dev/usr/include/libfwdspmgr/
 
-        $(MAKE) PROFILE=default install-fwdsp \
-                DESTDIR=$(CURDIR)/debian/fwdsp PREFIX=/usr
-
-        # TUI-only client
-        $(MAKE) PROFILE=no-gtk install-client \
-                DESTDIR=$(CURDIR)/debian/rrclient-tui PREFIX=/usr
-
-        mv debian/rrclient-tui/usr/bin/rrclient \
-           debian/rrclient-tui/usr/bin/rrclient-tui
+	install -d debian/rustyrig-server/usr/share/doc/rustyrig/config
+	cp -a config/*.example debian/rustyrig-server/usr/share/doc/rustyrig/config/
+	cp -a doc debian/rustyrig-server/usr/share/doc/rustyrig/
+	cp -a sql debian/rustyrig-server/usr/share/doc/rustyrig/

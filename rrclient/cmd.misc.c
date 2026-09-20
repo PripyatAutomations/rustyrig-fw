@@ -35,7 +35,67 @@ extern time_t now;
 extern bool syslog_clear(void);
 extern const char *server_name; // remove this (connman.c)
 extern rrconn_t *ws_conn;
+extern const char *config_file;
 extern bool ui_confirm_quit(void);
+
+bool cmd_qrz(int argc, char **args) {
+   if (argc != 2 || !args[1] || !args[1][0]) {
+      ui_print(NULL, "Usage: /qrz CALLSIGN");
+      return true;
+   }
+
+   for (const unsigned char *p = (const unsigned char *)args[1]; *p; p++) {
+      if (!isalnum(*p) && *p != '-' && *p != '/' && *p != '.') {
+         ui_print(NULL, "Invalid callsign: %s", args[1]);
+         return true;
+      }
+   }
+
+   const char *program = cfg_get("callsign-lookup.path");
+   const char *qrz_user = cfg_get("callsign-lookup.qrz-username");
+   const char *qrz_pass = cfg_get("callsign-lookup.qrz-password");
+   if (!qrz_user || !*qrz_user || !qrz_pass || !*qrz_pass) {
+      if (!ws_conn) {
+         ui_print(NULL, "Callsign lookup is not configured locally and the server is disconnected");
+         return true;
+      }
+      dict *request = dict_new();
+      dict_add(request, "msg.type", "talk");
+      dict_add(request, "talk.cmd", "qrz");
+      dict_add(request, "talk.data", args[1]);
+      ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+      dict_free(request);
+      ui_print(NULL, "Asking the server to look up %s", args[1]);
+      return false;
+   }
+   if (!program || !*program || !config_file || !*config_file) {
+      ui_print(NULL, "Callsign lookup is not configured locally");
+      return true;
+   }
+
+   char command[2048];
+   snprintf(command, sizeof(command), "%s -f '%s' '%s' 2>&1", program,
+      config_file, args[1]);
+   FILE *pipe = popen(command, "r");
+   if (!pipe) {
+      ui_print(NULL, "Unable to start callsign lookup");
+      return true;
+   }
+
+   char line[1024];
+   while (fgets(line, sizeof(line), pipe)) {
+      line[strcspn(line, "\r\n")] = '\0';
+      if (*line) {
+         ui_print(NULL, "%s", line);
+      }
+   }
+   int status = pclose(pipe);
+   if (status != 0) {
+      ui_print(NULL, "Callsign lookup failed for %s", args[1]);
+      return true;
+   }
+   return false;
+}
 
 bool cmd_clear(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {

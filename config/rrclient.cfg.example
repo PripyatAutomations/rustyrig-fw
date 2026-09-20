@@ -1,127 +1,125 @@
-; See rrserver/defconfig.c for options and their descriptions
+; .include file loads a required file inline; !include file is optional and continues if absent.
+; Include paths are relative to this file and may be nested up to 4 levels deep. Full paths allowed too!
+; See rrclient/defconfig.c for options and their descriptions
 ; Comments can begin with // # or ;   - We now support C style /* */ comments too
 // most settings go in [general] setting, servers are called [server:name] where name is short name for it
 // If you need to send bug reports, please set log.level=*:crazy
+
 [general]
-; enforce quotas?
-quota.enforce=true
-; warning 30 minutes before expiry
-quota.warning=30
+; CAT PTY interface: expose the slave as /var/run/rustyrig/ttyCAT0 for hamlib/rigctl/etc
+cat.pty.path=/var/run/rustyrig/ttyCAT0
+; Reserved PTY names for future modem subprocesses: /var/run/rustyrig/ttyMODEM0, ...
+; subsys:level -- levels:  audit | crit | warn | info | debug | crazy | blitz
+;log.level=*:info core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy ws.auth:crazy
+;log.level=*:info,ws.*:crazy,http.*:crazy,event:crazy
+;log.level=*:debug,ws.chat.*:crazy
+log.level=*:crazy,ws.binframe:debug,event.*:debug
+;log.level=*:info,ws.*:debug,ws.binframe:crazy,media.*:crazy
+;log.file=-
+log.file=/var/log/rustyrig/rrclient.log
+path.help-dir=/var/lib/rustyrig/help
+ui.show-pings=false
+ui.full-screen=false
 fwdsp.subproc.max=24
-fwdsp.path=./bin/fwdsp
-core.daemonize=false
-core.tick-interval=100
-; used for test-server.sh to know which rigctld to start
-rigctld.start-script=tools/dummy-rigctld.sh
-# If enabled, we will allow autospawning fwdsp instances which transcode between codecs; see *.tt in pipelines section below for pipelines
-codecs.allow-transcoding=true
+# Divide scroll events by this # to get single-steps
+ui.freqentry.scroll-divider=3.0
+; Do we put the VFO at top or bottom of the window?
+ui.gtk.vfo-on-top=false
+; bottom, top, left, right
+ui.gtk.main-tabstrip=bottom
+ui.bell.chat=false
+ui.bell.connection=false
+; combine events within this time (ms) into one change
+ui.vfo.debounce-time=400
+; pause updating vfo-box from CAT events for X ms
+ui.vfo.visocity=1000
+; show the userlist when connected?
+ui.auto-show-userlist=true
+tui.use-mouse=false
+# Top/topic row; fields are expanded from live client state at each redraw.
+tui.status-line=${topic} | ${ptt-state} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${active_mode:---}
+# Example: tui.status-line={bright-cyan}${window}{reset} A:${vfo_a_freq_khz:---} B:${vfo_b_freq_khz:---} ${active_ptt:RX}
+# If we want to autoconnect to a server, name it here.
+server.auto-connect=localhost
+callsign-lookup.path=/usr/bin/callsign-lookup
+callsign-lookup.cache-db=/var/lib/rustyrig/db/rrclient-callsigns.db
+
+# XXX: Get rid of this and just use the negotiated codec list!
 codecs.allowed=pc16 g722 mu16 mu08 opus oggv aacv flac pc1T g72T mu1T mu0T opuT oggT aacT flaT
-# Transcoding video could get very CPU heavy quickly
-codecs.allow-transcoding.video=false
-codecs.allowed.video=h264 vp8 vp9
-; How often to poll the rig in ms
-backend.poll-interval=250
-backend.active=internal
-;backend.active=hamlib
-; Poll rig every 1000ms
-backend.poll-interval=1000
-   ; Only send a full rig state update every X seconds
-backend.announce-interval=30
-; Send cat state at most once every N seconds if unchanged
-backend.state-interval=15
-backend.hamlib=true
-backend.hamlib-debug=warn
-backend.hamlib-model=2
-;backend.hamlib-baud=38400
-backend.hamlib-port=127.0.0.1:4532
-; Seconds to wait before retrying hamlib after disconnect; 0 = exit on disconnect
-; (use with an external supervisor/cron to restart)
-backend.reconnect-interval=30
-debug.noisy_eeprom=true
-; Log chat messages in sqlite3?
-chat.log=true
-; If logging is enabled, should we replay a bit of history when the user joins?
-chat.replay-lines=20
-; How long should we let unused fwdsp instances linger before stopping?/
-debug.show-ts=true
-debug.mongoose=false
-debug.profiling=true
-#eeprom.addr=0x0000
-#eeprom.size=1048576
-#eeprom.type=mmap
-#eeprom.readonly=false
-features.auto-block-ptt=false
-#interface.amp.port=
-#interface.pipe.enabled=true
-#interface.cat.enabled=true
-;log.level=*:info,ws:crazy,ws.*:crazy,http.*:crazy,event:crazy,http.client:info,http.req:info,librrprotocol.*:crazy
-;log.level=*:info,ws.msg.*:crazy,event:info,ws.chat.*:crazy
-;log.level=*:info,ws.*:crazy,ws.proto:info,http.*:crazy,event.*:crazy,http.client:info,http.req:info,librrprotocol.*:crazy,db.*:crazy
-log.level=*:crazy,backend.*:info,ws.frame.*:info,vfo:info,auth.*:info
-log.file=rrserver.log
-net.http.enabled=true
-net.http.bind=0.0.0.0
-net.http.port=8420
-net.http.authdb-dynamic=true
-net.http.tls-enabled=false
-net.http.tls-bind=0.0.0.0
-net.http.tls-port=4420
-net.mqtt.enabled=true
-net.mqtt.bind=0.0.0.0
-net.mqtt.port=8833
-net.mqtt-client.enabled=false
-net.mqtt-client.server=10.217.1.219
-net.mqtt-client.port=8833
-net.mqtt-client.user=rustyrig-ft891
-net.mqtt-client.secret-file=./config/mqtt-secret
-owner.call=N0CALL
-owner.privs=US/General
-pin.show=true
-pin.master=012345
-pin.reset=76543210
-station.call=N0CALL
-station.grid=AA00aa
+default.volume.rx=50
+default.tx.power=50
+debug.http=false
+debug.http.crazy=true
+debug.audio=*:3
 
-; Paths for various things; keys should be unified to path.* ASAP
-path.db.master=./db/master.db
-path.db.master.template=./sql/sqlite.master.sql
-path.pid-file=./run/rrserver.pid
-path.modules=./modules
-net.http.authdb=./config/http.users
-#interface.pipe=/tmp/rustyrig.amp.sock
-#interface.cat.port=pipe:/tmp/rustyrig.cat.sock
-net.http.404-path=./www/404.shtml
-net.http.tls-cert=./config/cert.pem
-net.http.tls-key=./config/key.pem
-net.mqtt-client.secret-file=./config/mqtt-cli.secret
-net.http.ua-bans=./config/ua-bans.txt
-net.http.www-root=./www
-net.http.hex-dump=false
-path.sock-dir=./run/rrserver
-# fwdsp binary
-;path.fwdsp=/usr/local/bin/fwdsp
+; Window placements & options (hidden|minimized|modal|no-hide|raised)
+; Size of -1 will avoid resizing the window and let GTK size it
+ui.editcfg=640,634@0,27|raised
+ui.fm-mode=210,226@436,305|raised|no-hide
+ui.main=1075,750@0,27|raised
+ui.serverpick=300,222@200,150|raised|modal
+ui.userlist=200,241@1046,303raised|modal|no-hide
 
-# modules directory (NYI)
-;path.mod-dir=/usr/lib/modules/rustyrig/rrserver/
-path.mod-dir=./modules/rrserver/
-atu.max=0
+# Length of time to block CAT updates (in seconds) after a local state change
+cat.poll-blocking=1
+
+#############
+# TUI Theme #
+#############
+; Should these just be a single color we lookup OR a full string with {name} or {#hex} style colors for 256 color?
+theme.bgcolor={black}
+theme.normal={white}
+theme.chans={magenta}
+theme.clock.digit={cyan}
+theme.clock.separator={bright-black}
+theme.nicks={bright-cyan}
+; Color tag for headers (help banner, section titles) and tab-completion candidates
+ui.theme.headers={cyan}
+ui.theme.completion={cyan}
+theme.msg.connected={bright-green}
+theme.msg.offline={red}
+theme.status={reset}Status: {light-green}${online}{reset} {bright-black}[{bright-cyan}${win.title}{bright-black}]
+tui.keymap.prev-win=Alt-Left
+tui.keymap.next-win=Alt-Right
+tui.keymap.ptt=Ctrl-Space
+tui.keymap.del-word=Ctrl-W
+tui.keymap.del-line=Ctrl-U
+tui.keymap.scroll-up=Pgup
+tui.keymap.scroll-down=Pgdn
+
+# Fonts are managed by GTK via CSS in this [gtk-css] section.
+# NOTE: '#' and ';' start comments; escape them with a backslash when the
+# CSS needs a literal one, e.g. an id selector: \#chat-view { ... }
+
+;;;;;;;;;; disabled for now ;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+audio.volume.rx=35
+rig0.volume.rx=50
+; PCM is the initial fallback while testing the compressed codecs.
+; Use the RX/TX picker or /rxcodec and /txcodec to change codecs.
+; duplicate codecs.allowed removed: use the negotiated list above
+audio.pipeline.rx.format=time
+; mulaw (matches the fwdsp test pipelines, which all encode with mulawenc)
+audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes caps=audio/x-mulaw,rate=16000,channels=1 ! mulawdec ! audioconvert ! audioresample ! volume name=rx-vol ! queue ! pulsesink device=default name=rx-sink client-name=rrgtk
+; 16khz PCM for digital modes (only when the fwdsp pipeline sends raw S16LE)
+;audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=rrloop_rx name=rx-sink client-name=rrgtk
+; 44.1khz PCM for digital modes
+#audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=44100,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrgtk
+// TX pipeline
+audio.pipeline.tx.format=time
+;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
 
 [fwdsp]
-path=./bin/fwdsp
-; Don't allow more than 24 subprocs
-subproc.max=24
+path=/usr/bin/fwdsp
 hangtime=5
-subproc.debug=false
-audio.debug=false
-recording.path=./recordings
+recording.path=/var/lib/rustyrig/recordings/client/
 recording.tx=true
 recording.rx=true
 recording.buffer-size=524288
-recording.codec=ogg
+recording.codec=flac
 recording.codec.modem=flac
-;log.level=debug
-;log.show-ts=false
-log.file=./fwdsp-srv.log
+log.file=/var/log/rustyrig/fwdsp-cli.log
+subproc.max=24
 
 [pipelines]
 ; Audio direction is relative to the program running fwdsp:
@@ -135,7 +133,7 @@ pc16.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-pc16.tx=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+pc16.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
@@ -147,7 +145,7 @@ opus.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-opus.tx=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+opus.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! opusenc audio-type=generic frame-size=20 bitrate=24000 bitrate-type=cbr ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -160,7 +158,8 @@ aacv.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-aacv.tx=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! audioconvert ! audioresample ! audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! tee name=t \
+aacv.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! audioconvert ! audioresample ! \
+        audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! avenc_aac bitrate=32000 ! aacparse ! audio/mpeg,mpegversion=4,stream-format=adts,framed=true ! \
         appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! audioconvert ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
@@ -183,7 +182,7 @@ mu16.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-mu16.tx=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+mu16.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=16000,channels=1 ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -196,7 +195,7 @@ mu08.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-mu08.tx=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+mu08.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=8000,channels=1 ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -218,7 +217,7 @@ oggv.rx=appsrc name=rx-src is-live=true format=bytes caps=application/ogg ! \
         queue max-size-buffers=4 leaky=downstream ! \
         appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-oggv.tx=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+oggv.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
         tee name=t t. ! \
         queue max-size-buffers=2 leaky=downstream ! \
@@ -239,7 +238,7 @@ g722.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-g722.tx=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+g722.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! avenc_g722 bitrate=64000 ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -343,7 +342,7 @@ flac.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
         queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-flac.tx=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+flac.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! flacenc ! tee name=encoded-t \
         encoded-t. ! queue max-size-buffers=8 leaky=downstream ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -370,3 +369,38 @@ flaT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-tim
 ; raw audio record-sink branches.
 jpeg.tx=v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,width=640,height=480,framerate=15/1 ! jpegenc quality=70 ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false
 jpeg.rx=appsrc name=rx-src do-timestamp=1 format=time ! jpegparse ! jpegdec ! videoconvert ! fakesink name=rx-sink sync=false
+
+[server:localhost]
+server.enabled=true
+server.url=ws://localhost:8420/ws/
+;server.url=ws://10.219.1.1:8420/ws/
+;server.user=bob
+;server.pass=bob
+server.user=admin
+server.pass=password
+;server.user=guest
+;server.pass=guest
+
+[server:camp]
+server.enabled=true
+;server.url=ws://localhost:8420/ws/
+server.url=ws://10.219.1.1:8420/ws/
+server.user=bob
+server.pass=bob
+
+[gtk-css]
+button { font-family: "Sans"; font-size: 11pt; }
+label { font-family: "Sans"; font-size: 11pt; }
+\#chat-view { font-family: "Monospace"; font-size: 12pt; }
+\#log-view { font-family: "Monospace"; font-size: 12pt; }
+\#freq-digit, \#freq-digit-button { font-family: "Monospace"; font-size: 12pt; }
+.ptt-active   { background: #b00000; color: white; font-weight: bold; }
+.ptt-idle     { background: #0a7a0a; color: white; font-weight: bold; }
+.ptt-pending  { background: #e6c200; color: black; font-weight: bold; }
+.ptt-offline  { background: #555555; color: white; font-weight: bold; }
+.ptt-tot      { background: #e07000; color: black; font-weight: bold; }
+.conn-active  { background: #0a7a0a; color: white; font-weight: bold; }
+.conn-pending { background: #e6c200; color: black; font-weight: bold; }
+.conn-idle    { background: #b00000; color: white; font-weight: bold; }
+
+#!include /etc/rustyrig/callsign-lookup.cli.cfg

@@ -69,6 +69,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
    { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
    { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)" },
+   { .cmd = "qrz", .cb = cmd_qrz, .max_args = 1, .desc = "Look up a callsign" },
    { .cmd = "raw", .cb = cmd_raw, .desc = "Send a raw command" },
    { .cmd = "media", .cb = cmd_media, .max_args = 2, .desc = "Media channels: LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>" },
 #ifdef USE_GTK
@@ -130,6 +131,7 @@ bool parse_chat_input_real(const char *msg) {
       }
 
       if (!cmd || !cmd->cb) {
+         ui_print(NULL, "{red}Invalid command: /%s{reset}", mp);
          return true;
       }
 

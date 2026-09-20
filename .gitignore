@@ -25,6 +25,7 @@ build/*/obj/*
 inc/autoconf.h
 
 # Private data
+config/callsign-lookup.*.cfg
 config/*.crt
 config/*.cert
 config/*.pem

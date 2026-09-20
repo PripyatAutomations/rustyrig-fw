@@ -41,7 +41,10 @@ Good luck! - rustyaxe
 
 GTK View:
 ![GTK ScreenShot](doc/screenshot-gtk.png)
+
 TUI View:
 ![TUI ScreenShot](doc/screenshot-tui.png)
+
 WebUI View:
+
 ![WebUI ScreenShot](doc/screenshot-webui.png)

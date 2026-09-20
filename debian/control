@@ -3,7 +3,27 @@ Section: hamradio
 Priority: optional
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Build-Depends:
- debhelper-compat (= 13)
+ debhelper-compat (= 13),
+ make,
+ jq,
+ pkg-config,
+ libbsd-dev,
+ libcurl4-openssl-dev,
+ libev-dev,
+ libgpiod-dev,
+ libglib2.0-dev,
+ libhamlib-dev,
+ libgtk-3-dev,
+ libgstreamer1.0-dev,
+ libgstreamer-plugins-base1.0-dev,
+ libncurses-dev,
+ libsqlite3-dev,
+ libjson-perl,
+ libterm-readline-perl-perl,
+ libhash-merge-perl,
+ libjson-xs-perl,
+ libstring-crc32-perl,
+ libjson-validator-perl
 Standards-Version: 4.7.2
 Homepage: https://github.com/PripyatAutomations/rustyrig-fw
 Vcs-Git: https://github.com/PripyatAutomations/rustyrig-fw.git
@@ -11,51 +31,70 @@ Vcs-Browser: https://github.com/PripyatAutomations/rustyrig-fw
 
 Package: librustyaxe
 Architecture: any
-#Multi-Arch: same
-Depends:
- ${shlibs:Depends},
- ${misc:Depends}
-Description: RustyRig core library
- Core library used by the RustyRig server and clients.
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: RustyRig shared core library
+ Shared core library used by RustyRig clients, servers, and tools.
+
+Package: librustyaxe-dev
+Architecture: any
+Depends: librustyaxe (= ${binary:Version}), ${misc:Depends}
+Description: Development files for librustyaxe
+ Headers and linker files for the RustyRig core library.
 
 Package: librrprotocol
 Architecture: any
-#Multi-Arch: same
-Depends:
- ${shlibs:Depends},
- ${misc:Depends}
-Description: RustyRig protocol library
- Protocol library used by RustyRig clients and servers.
+Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: RustyRig protocol shared library
+ WebSocket, media, chat, and rig-control protocol implementation.
 
-Package: rrclient
+Package: librrprotocol-dev
 Architecture: any
-Depends:
- ${shlibs:Depends},
- ${misc:Depends}
-Description: RustyRig GTK client
- GTK and TUI client for accessing a radio or
- RustyRig server.
+Depends: librrprotocol (= ${binary:Version}), librustyaxe-dev, ${misc:Depends}
+Description: Development files for librrprotocol
+ Headers and linker files for the RustyRig protocol library.
 
-Package: rrclient-tui
+Package: libfwdspmgr
 Architecture: any
-Depends:
- ${shlibs:Depends},
- ${misc:Depends}
-Description: RustyRig TUI client
- TUI-only RustyRig client built without GTK or GLib.
+Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: RustyRig DSP manager shared library
+ Shared process and pipeline manager used by RustyRig audio services.
 
-Package: rrserver
+Package: libfwdspmgr-dev
 Architecture: any
-Depends:
- ${shlibs:Depends},
- ${misc:Depends}
+Depends: libfwdspmgr (= ${binary:Version}), ${misc:Depends}
+Description: Development files for libfwdspmgr
+ Headers and linker files for the RustyRig DSP manager.
+
+Package: rustyrig-server
+Architecture: any
+Depends: librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig server
- Reference implementation of the RustyRig server in C.
+ Backend server for remote radio operation.
 
-Package: fwdsp
+Package: rustyrig-client
 Architecture: any
-Depends:
- ${shlibs:Depends},
- ${misc:Depends}
+Depends: librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: RustyRig GTK client
+ GTK client for accessing a RustyRig server.
+
+Package: rustyrig-client-tui
+Architecture: any
+Depends: librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: RustyRig terminal client
+ TUI-only RustyRig client built without GTK.
+
+Package: rustyrig-fwdsp
+Architecture: any
+Depends: libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}),
+ gstreamer1.0-tools, gstreamer1.0-plugins-base,
+ gstreamer1.0-plugins-good, gstreamer1.0-pulseaudio,
+ gstreamer1.0-plugins-bad, gstreamer1.0-plugins-rtp,
+ ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig audio DSP service
- Audio DSP service used by the RustyRig system.
+ GStreamer-based audio codec and pipeline service.
+
+Package: rustyrig-callsign-lookup
+Architecture: any
+Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: RustyRig callsign lookup service
+ Callsign lookup helper using local databases and the QRZ XML API.
