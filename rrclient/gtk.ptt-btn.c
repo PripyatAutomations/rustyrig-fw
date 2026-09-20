@@ -304,6 +304,13 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    }
 }
 
+bool ptt_button_hotkey_toggle(void) {
+   if (!ptt_button) return false;
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button),
+      !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button)));
+   return true;
+}
+
 GtkWidget *ptt_button_create(void) {
    GtkWidget *ptt_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    ptt_button = gtk_toggle_button_new_with_label("PTT OFF");

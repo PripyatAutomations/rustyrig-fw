@@ -6,6 +6,7 @@ bool dying, restarting;
 time_t now;
 enum GuiMode ui_mode = UI_MODE_NONE;
 const char *login_user = "operator";
+struct rr_user *global_userlist = NULL;
 char sb_online[128], sb_window[128], sb_vfo[32];
 void tui_refresh_sb_window(void) {}
 void tui_refresh_sb_vfo(void) {}
@@ -59,7 +60,7 @@ int main(void) {
    strcpy(window.title, "chat");
    strcpy(window.status_line, "Test topic");
    char *initial = rrclient_tui_topline(&window);
-   assert(!strcmp(initial, "Test topic | VFO A: --- kHz ---"));
+   assert(!strcmp(initial, "Test topic | PTT: OFF | VFO A: --- kHz ---"));
    free(initial);
    state("A", 7200123, "LSB");
    state("B", 14250000, "USB");
@@ -67,6 +68,18 @@ int main(void) {
       "A 7200123 7200123 7200.123 7.200123");
    check(&window, "${vfo_B_mode} ${active_mode} ${active_width} ${active_power} ${active_ptt}",
       "USB LSB 2700 25 RX");
+   check(&window, "${ptt-state}", "PTT: OFF");
+   state("B", 14250000, "USB");
+   dict_add(cfg, "tui.status-line", "${ptt-state}");
+   dict *tx = dict_new();
+   dict_add_bool(tx, "cat.state.ptt", true);
+   vfo_set_dict("B", tx);
+   dict_free(tx);
+   vfo_state_set_active("B");
+   check(&window, "${ptt-state}", "PTT: operator");
+   ws_connected = -1;
+   check(&window, "${ptt-state}", "PTT: WAIT");
+   ws_connected = 1;
    vfo_state_set_active("B");
    check(&window, "${active_vfo}/${active_freq}/${active_mode}", "B/14250000/USB");
    check(&window, "${window}/${topic}/${server}/${user}/${connection}/${rxcodec}/${txcodec}",

@@ -17,6 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/termkey.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cmd.help.h>
 #include <rrclient/gtk.core.h>
@@ -29,7 +30,6 @@ extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 extern GtkNotebook *main_notebook;
 extern GtkWidget *freq_entry;
-bool ptt = false;
 
 // XXX: We need to rewrite this so that it can build/quickly search a list of hotkeys relevant to
 // XXX: the currently active context
@@ -98,15 +98,8 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
             return TRUE;
          }
          case GDK_KEY_Return: {
-            bool is_ctrl = (event->state & GDK_CONTROL_MASK) != 0;
-
-            // Got PTT event
-            ptt = !ptt;
-            const char *pmsg = (ptt ? "on" : "off");
-            const char *cmsg = (is_ctrl ? "yes": "no");
-            ui_print(NULL, "{bright-yellow} PTT: {bright-green}%s{bright-yellow} ctrl: {bright-green}%s{reset}", pmsg, cmsg);
-            Log(LOG_AUDIT, "ptt", "PTT toggled by hotkey: %s (ctrl: %s)", pmsg, cmsg);
-            break;
+            return tui_hotkey_dispatch(NULL, TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT |
+               ((event->state & GDK_CONTROL_MASK) ? TERMKEY_KEYMOD_CTRL : 0));
          }
          case GDK_KEY_C:
          case GDK_KEY_c: {

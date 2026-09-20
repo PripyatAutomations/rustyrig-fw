@@ -45,7 +45,9 @@ extern bool ws_send_ptt_cmd(rrconn_t *cptr, const char *vfo, bool ptt);
 static const char *cat_vfo_str(char vfo) {
    static char buf[2];
 
-   buf[0] = vfo ? vfo : 'A';
+   // A zero selector means the currently active VFO.  Never silently fall
+   // back to VFO A: PTT and CAT commands are independent per VFO.
+   buf[0] = vfo ? vfo : vfo_state_get_active();
    buf[1] = '\0';
    return buf;
 }

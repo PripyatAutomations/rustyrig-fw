@@ -72,6 +72,13 @@ void timer_clock_tick_fn(void *arg) {
       dict_add_ulong(tot_msg, "msg.ts", now);
       if (talker) {
          dict_add(tot_msg, "ptt.tot.user", talker->chatname);
+         if (talker->ptt_vfo >= 0 && talker->ptt_vfo < MAX_VFOS) {
+            rr_vfo_t vfo = talker->ptt_vfo;
+            dict_add(tot_msg, "ptt.tot.vfo", vfo_name(vfo));
+            dict_add_long(tot_msg, "ptt.tot.freq", vfos[vfo].freq);
+            dict_add(tot_msg, "ptt.tot.mode", vfo_mode_name(rr_get_mode(vfo)));
+            dict_add_int(tot_msg, "ptt.tot.width", rr_get_width(vfo));
+         }
       }
       ws_broadcast_dict(NULL, tot_msg, WEBSOCKET_OP_TEXT);
       dict_free(tot_msg);

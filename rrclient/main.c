@@ -29,6 +29,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/termkey.h>
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <glib.h>
@@ -43,6 +44,7 @@ extern defconfig_t defcfg[];
 #include <rrclient/cat.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
+#include <rrclient/vfo.h>
 #include <rrclient/ui.statusbar.h>
 
 #ifdef USE_MONGOOSE
@@ -67,6 +69,9 @@ extern bool cfg_servers_init(void) __attribute__((weak));   // cfg.servers.c (op
 extern bool cfg_network_save_init(void);  // cfg.network.c
 extern const char *config_file;           // librustyaxe/config.c
 extern bool tui_over_ssh;		// librustyaxe/tui.c
+#ifdef USE_GTK
+extern bool ptt_button_hotkey_toggle(void); // gtk.ptt-btn.c
+#endif
 struct timespec mono_now;
 bool rrclient_cleanup(void);
 const char *cfg_debug_audio = NULL;
@@ -107,6 +112,22 @@ time_t poll_block_expire = 0;    // Here we set this to now +
                                  // config:cat.poll-blocking to prevent rig
                                  // polling from sclearing local controls
 time_t poll_block_delay = 0;     // ^-- stores the delay
+
+static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifiers,
+   void *user_data) {
+   (void)win;
+   (void)key;
+   (void)modifiers;
+   (void)user_data;
+#ifdef USE_GTK
+   if (ui_mode == UI_MODE_GTK) return ptt_button_hotkey_toggle();
+#endif
+   if (!ws_conn || ws_connected != 1) return true;
+   char vfo[2] = { vfo_state_get_active(), '\0' };
+   bool active = vfo_state_get_bool(vfo, "cat.state.ptt", false);
+   ws_send_ptt_cmd(ws_conn, vfo, !active);
+   return true;
+}
 
 void shutdown_app(int signum) {
    if (signum > 0) {
@@ -579,7 +600,7 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
 #endif	// _WIN32
 #endif	// USE_GSTREAMER
    }
-   free( (void *)cfg_debug_audio );
+   free((void *)cfg_debug_audio);
    cfg_debug_audio = NULL;
 
 //////////////////////////////
@@ -588,7 +609,12 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    mg_mgr_init(&mgr);
 #endif
 
+
+   // Setup the tab complete and hotkeys
    tui_register_completion_provider(client_cmd_completions);
+   tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);
+   tui_hotkey_register(' ', TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
+   tui_hotkey_register(0, TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
 
    // Reap exited children and expire warm encoders after fwdsp.hangtime.
    // This is independent of the UI and Mongoose polling mechanisms.

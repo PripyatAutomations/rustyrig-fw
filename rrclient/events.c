@@ -160,18 +160,34 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
 // PARITY: rustyrig-www/js/webui.rigctl.js ptt_tot_expired()
 static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_t *cptr, void *user) {
    int tot_secs = 0;
+   const char *tot_user = NULL, *tot_vfo = NULL, *tot_mode = NULL;
+   long tot_freq = 0;
+   int tot_width = 0;
 
    if (data) {
       dict *d = json2dict(data);
       if (d) {
          tot_secs = dict_get_int(d, "ptt.tot.secs", 0);
+         tot_user = dict_get(d, "ptt.tot.user", NULL);
+         tot_vfo = dict_get(d, "ptt.tot.vfo", NULL);
+         tot_mode = dict_get(d, "ptt.tot.mode", NULL);
+         tot_freq = dict_get_long(d, "ptt.tot.freq", 0);
+         tot_width = dict_get_int(d, "ptt.tot.width", 0);
+         if (tot_user || tot_vfo || tot_mode) {
+            ui_print(NULL, "{red}PTT Halted: %s on VFO %s @ %ld Hz %s %d Hz after %d seconds{reset}",
+               tot_user ? tot_user : "unknown user", tot_vfo ? tot_vfo : "?", tot_freq,
+               tot_mode ? tot_mode : "?", tot_width,
+               (tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300)));
+         }
          dict_free(d);
       }
    }
 
    // Show the timeout in the TUI scrollback (both UIs print to scrollback)
-   ui_print(NULL, "{red}PTT Halted: Talk Timeout after %d seconds{reset}",
-      (tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
+   if (!tot_user && !tot_vfo && !tot_mode) {
+      ui_print(NULL, "{red}PTT Halted: Talk Timeout after %d seconds{reset}",
+         (tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
+   }
 
 #ifdef	USE_GTK
    if (ui_mode == UI_MODE_GTK) {

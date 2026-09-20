@@ -8,6 +8,7 @@
 #include <rrclient/ui.statusbar.h>
 #include <rrclient/vfo.h>
 #include <rrclient/media.h>
+#include <rrclient/userlist.h>
 
 extern const char *login_user;
 
@@ -23,6 +24,24 @@ static const char *topline_value(const char *name, tui_window_t *win,
    if (!strcmp(name, "user")) return login_user;
    if (!strcmp(name, "connection")) {
       return ws_connected == 1 ? "ONLINE" : (ws_connected == -1 ? "CONNECTING" : "OFFLINE");
+   }
+   if (!strcmp(name, "ptt-state")) {
+      if (ws_connected != 1) return "{bright-yellow}PTT: WAIT{reset}";
+      const char *tx_user = NULL;
+      for (struct rr_user *u = global_userlist; u; u = u->next) {
+         if (u->is_ptt) {
+            tx_user = u->name;
+            break;
+         }
+      }
+      const char active = vfo_state_get_active();
+      const bool ptt = vfo_state_get_bool((char[]){ active, 0 }, "cat.state.ptt", false);
+      if (ptt && !tx_user) tx_user = login_user ? login_user : "TX";
+      if (tx_user) {
+         snprintf(value, size, "{bright-red}PTT: %s{reset}", tx_user);
+         return value;
+      }
+      return "{bright-green}PTT: OFF{reset}";
    }
    if (!strcmp(name, "rxcodec") || !strcmp(name, "txcodec")) {
       const char *codec = rrclient_media_current_codec(name[0] == 't');

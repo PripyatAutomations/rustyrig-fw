@@ -25,6 +25,10 @@ extern dict *cfg;
 extern bool dying;               // main.c
 struct rr_user *global_userlist = NULL;
 
+static void userlist_refresh_ptt_status(void) {
+   if (ui_mode == UI_MODE_TUI) tui_redraw_topline();
+}
+
 // Add or update an entry, matching on name.
 // All old information will be replaced with the new
 bool userlist_add_or_update(dict *d) {
@@ -71,6 +75,7 @@ bool userlist_add_or_update(dict *d) {
          userlist_redraw_gtk();
 #endif
       }
+      userlist_refresh_ptt_status();
 
       return true;
    }
@@ -116,6 +121,7 @@ bool userlist_add_or_update(dict *d) {
       userlist_redraw_gtk();
 #endif
    }
+   userlist_refresh_ptt_status();
 
    return true;
 }
@@ -149,6 +155,7 @@ bool userlist_remove_by_name(const char *name) {
             userlist_redraw_gtk();
 #endif
          }
+         userlist_refresh_ptt_status();
 
          return true;
       }
@@ -188,6 +195,7 @@ void userlist_clear_all(void) {
       userlist_redraw_gtk();
 #endif
    }
+   userlist_refresh_ptt_status();
 }
 
 // Find a user in the userlist
