@@ -105,6 +105,7 @@ defconfig_t defcfg[] = {
    { "noob.cool-down", "30", "How long to block noob PTT after elmer overrides it (seconds)" },
    { "path.db.master", "./db/master.db", "Master database path" },
    { "path.db.master.template", "./sql/sqlite.master.sql", "Path to sql file to initialize database" },
+   { "path.db.master.preload", "./sql/sqlite.master.preload.sql", "Path to SQL preload data for new databases" },
    { "path.pid-file", "./rrserver.pid", "Where to store pid file" },
    { "path.modules", "./modules/", "Where to find modules" },
    { "path.record-dir", "./recordings", "TX & RX recordings basedir" },

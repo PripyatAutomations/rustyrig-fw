@@ -31,6 +31,7 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/termkey.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/cfg.fwdsp.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <glib.h>
 extern defconfig_t defcfg[];
@@ -487,6 +488,7 @@ int main(int argc, char *argv[]) {
 
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
+   config_fwdsp_init();
 #ifdef	USE_GTK
 extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    cfg_gtkcss_init();

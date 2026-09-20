@@ -15,7 +15,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
 #include <time.h>
+#include <sys/stat.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/database.h>
@@ -25,6 +28,58 @@
 
 // database handle
 sqlite3 *masterdb = NULL;
+
+static bool db_run_sql_file(sqlite3 *db, const char *path, const char *description) {
+   FILE *fp = fopen(path, "rb");
+   if (!fp) {
+      Log(LOG_CRIT, "db", "Cannot open database %s %s: %s", description, path, strerror(errno));
+      return false;
+   }
+   if (fseek(fp, 0, SEEK_END) != 0) {
+      fclose(fp);
+      return false;
+   }
+   long length = ftell(fp);
+   rewind(fp);
+   if (length < 0 || (unsigned long)length > SIZE_MAX - 1) {
+      fclose(fp);
+      return false;
+   }
+
+   char *sql = malloc((size_t)length + 1);
+   if (!sql || fread(sql, 1, (size_t)length, fp) != (size_t)length) {
+      free(sql);
+      fclose(fp);
+      return false;
+   }
+   sql[length] = '\0';
+   fclose(fp);
+
+   char *error = NULL;
+   int rc = sqlite3_exec(db, sql, NULL, NULL, &error);
+   if (rc != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "Cannot run database %s %s: %s", description, path,
+          error ? error : sqlite3_errmsg(db));
+   }
+   sqlite3_free(error);
+   free(sql);
+   return rc == SQLITE_OK;
+}
+
+static bool db_initialize_new(sqlite3 *db) {
+   const char *template_path = cfg_get_exp("path.db.master.template");
+   const char *preload_path = cfg_get_exp("path.db.master.preload");
+   bool ok = template_path && db_run_sql_file(db, template_path, "template");
+   if (!template_path) {
+      Log(LOG_CRIT, "db", "No path.db.master.template configured for a new database");
+   }
+   if (ok && preload_path) {
+      ok = db_run_sql_file(db, preload_path, "preload");
+   }
+   free((void *)template_path);
+   free((void *)preload_path);
+   return ok;
+}
 
 static void db_ensure_ptt_recording_id(sqlite3 *db) {
    if (!db) {
@@ -68,9 +123,15 @@ sqlite3 *db_open(const char *path) {
 
       return masterdb;
    }
+   bool new_database = access(path, F_OK) != 0;
    sqlite3 *db = NULL;
 
    if (sqlite3_open(path, &db) == SQLITE_OK) {
+      if (new_database && !db_initialize_new(db)) {
+         sqlite3_close(db);
+         unlink(path);
+         return NULL;
+      }
       db_ensure_ptt_recording_id(db);
       return db;
    }

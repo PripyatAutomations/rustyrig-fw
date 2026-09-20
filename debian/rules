@@ -30,6 +30,7 @@ override_dh_auto_install:
 	install -d debian/rustyrig-server/var/lib/rustyrig/db
 	install -d debian/rustyrig-server/var/lib/rustyrig/recordings
 	install -d debian/rustyrig-server/var/lib/rustyrig/modems
+	install -d debian/rustyrig-server/var/lib/rustyrig/sql
 	install -d debian/rustyrig-server/var/lib/rustyrig/www
 	install -d debian/rustyrig-server/var/lib/rustyrig/tools
 	install -d debian/rustyrig-server/var/run/rustyrig
@@ -48,7 +49,8 @@ override_dh_auto_install:
 	install -Dm644 config/callsign-lookup.cli.cfg.example debian/rustyrig-client/etc/rustyrig/callsign-lookup.cli.cfg.example
 	find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-server/var/lib/rustyrig/www/ \;
 	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
-	install -Dm644 sql/sqlite.master.sql debian/rustyrig-server/usr/share/rustyrig/sql/sqlite.master.sql
+	install -Dm644 sql/sqlite.master.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.sql
+	install -Dm644 sql/sqlite.master.preload.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.preload.sql
 
 	install -Dm755 librustyaxe.so debian/librustyaxe/usr/lib/$(DEB_HOST_MULTIARCH)/librustyaxe.so.0
 	install -Dm755 librrprotocol.so debian/librrprotocol/usr/lib/$(DEB_HOST_MULTIARCH)/librrprotocol.so.0
@@ -70,4 +72,3 @@ override_dh_auto_install:
 	install -d debian/rustyrig-server/usr/share/doc/rustyrig/config
 	cp -a config/*.example debian/rustyrig-server/usr/share/doc/rustyrig/config/
 	cp -a doc debian/rustyrig-server/usr/share/doc/rustyrig/
-	cp -a sql debian/rustyrig-server/usr/share/doc/rustyrig/

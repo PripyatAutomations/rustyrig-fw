@@ -1,4 +1,4 @@
-rustyrig-fw (20260919) testing; urgency=medium
+rustyrig-fw (20260920) testing; urgency=medium
 - Numerous fwdsp/fwdspmgr fixes
 - Added many new test pipelines
 - Code cleanup & documentation
@@ -13,6 +13,7 @@ rustyrig-fw (20260919) testing; urgency=medium
 - TX codec selection only applied when PTT button applied.
   - Only the subset of codecs that are supported by all active users is shown
 - Renamed "channels" to rooms and made support for multiple with or without VFOs linked
+- Added some deb packaging bits
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 

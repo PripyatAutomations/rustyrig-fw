@@ -83,7 +83,8 @@ station.grid=AA00aa
 
 ; Paths for various things; keys should be unified to path.* ASAP
 path.db.master=/var/lib/rustyrig/db/master.db
-path.db.master.template=/usr/share/rustyrig/sql/sqlite.master.sql
+path.db.master.template=/var/lib/rustyrig/sql/sqlite.master.sql
+path.db.master.preload=/var/lib/rustyrig/sql/sqlite.master.preload.sql
 ;path.pid-file=/var/run/rustyrig/rrserver.pid
 net.http.authdb=/etc/rustyrig/http.users
 interface.amp=/var/run/rustyrig/ttyAMP0

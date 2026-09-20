@@ -2,7 +2,7 @@
 #MASTER_TEMPLATE := $(strip $(shell cat ${CF} | jq -r ".path.db.master.template"))
 MASTER_DB=db/master.db
 MASTER_TEMPLATE=sql/sqlite.master.sql
-MASTER_EXAMPLES=sql/sqlite.master.examples.sql
+MASTER_PRELOAD=sql/sqlite.master.preload.sql
 
 ## ifeq (${USE_SQLITE},true)
 CFLAGS +=
@@ -13,9 +13,9 @@ ${MASTER_DB}:
 	mkdir -p $(shell dirname "${MASTER_DB}")
 	mkdir -p audit-logs build db
 	sqlite3 $@ < "${MASTER_TEMPLATE}"
-	@if [ -f "${MASTER_EXAMPLES}" ]; then \
-		sqlite3 $@ < "${MASTER_EXAMPLES}" ; \
-		echo "Applied example data from ${MASTER_EXAMPLES}" ; \
+	@if [ -f "${MASTER_PRELOAD}" ]; then \
+		sqlite3 $@ < "${MASTER_PRELOAD}" ; \
+		echo "Applied preload data from ${MASTER_PRELOAD}" ; \
 	fi
 
 PTT_LINES := 50
