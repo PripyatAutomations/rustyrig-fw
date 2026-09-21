@@ -57,7 +57,7 @@ static bool media_recording_enabled(bool tx) {
    // fwdsp defaults are always loaded, though, so merely checking whether
    // that key exists would hide an explicitly enabled legacy record.tx/rx
    // setting. Treat either spelling being true as enabled.
-   const char *key = tx ? "fwdsp.recording.tx" : "fwdsp.recording.rx";
+   const char *key = tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx";
    if (cfg_get_bool(key, false)) {
       return cfg_get_bool(key, false);
    }

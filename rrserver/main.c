@@ -150,9 +150,9 @@ int main(int argc, char **argv) {
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
-   // [pipeline] keys land as pipeline:<codec>.<dir> -- the format bin/fwdsp
+   // [pipelines] keys land as pipeline:<codec>.<dir> -- the format bin/fwdsp
    // looks up with cfg_get() (see fwdsp/fwdsp.c)
-   cfg_add_callback(NULL, "pipeline", config_pipeline_section_cb);
+   cfg_add_callback(NULL, "pipelines", config_pipeline_section_cb);
 
    event_init();
    rrserver_register_events();

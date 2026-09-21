@@ -1,0 +1,11 @@
+librustyaxe
+librustyaxe-dev
+librrprotocol
+librrprotocol-dev
+libfwdspmgr
+libfwdspmgr-dev
+rustyrig-server
+rustyrig-client
+rustyrig-client-tui
+rustyrig-fwdsp
+rustyrig-callsign-lookup

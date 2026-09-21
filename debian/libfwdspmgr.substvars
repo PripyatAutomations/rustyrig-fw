@@ -1,0 +1,3 @@
+shlibs:Depends=libc6 (>= 2.14), librrprotocol (>= 20260920.03), librustyaxe (>= 20260920.03)
+misc:Depends=
+misc:Pre-Depends=

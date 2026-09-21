@@ -51,9 +51,9 @@ bool cmd_qrz(int argc, char **args) {
       }
    }
 
-   const char *program = cfg_get("callsign-lookup.path");
-   const char *qrz_user = cfg_get("callsign-lookup.qrz-username");
-   const char *qrz_pass = cfg_get("callsign-lookup.qrz-password");
+   const char *program = cfg_get("callsign-lookup:path");
+   const char *qrz_user = cfg_get("callsign-lookup:qrz-username");
+   const char *qrz_pass = cfg_get("callsign-lookup:qrz-password");
    if (!qrz_user || !*qrz_user || !qrz_pass || !*qrz_pass) {
       if (!ws_conn) {
          ui_print(NULL, "Callsign lookup is not configured locally and the server is disconnected");
@@ -74,7 +74,7 @@ bool cmd_qrz(int argc, char **args) {
    }
 
    char command[2048];
-   snprintf(command, sizeof(command), "%s -f '%s' '%s' 2>&1", program,
+   snprintf(command, sizeof(command), "%s -q -f '%s' '%s' 2>&1", program,
       config_file, args[1]);
    FILE *pipe = popen(command, "r");
    if (!pipe) {
@@ -85,8 +85,13 @@ bool cmd_qrz(int argc, char **args) {
    char line[1024];
    while (fgets(line, sizeof(line), pipe)) {
       line[strcspn(line, "\r\n")] = '\0';
-      if (*line) {
-         ui_print(NULL, "%s", line);
+      if (*line && strncmp(line, "+NOTICE ", 8) != 0 &&
+          strncmp(line, "+OK ", 4) != 0 &&
+          strncmp(line, "+PROTO ", 7) != 0 &&
+          strncmp(line, "+GOODBYE", 8) != 0 &&
+          strcmp(line, "+EOR") != 0 && line[0] != '[' && line[0] != '<' &&
+          strncmp(line, "==", 2) != 0) {
+         rrclient_print_callsign_line(line);
       }
    }
    int status = pclose(pipe);
@@ -95,6 +100,84 @@ bool cmd_qrz(int argc, char **args) {
       return true;
    }
    return false;
+}
+
+bool cmd_grid(int argc, char **args) {
+   if (argc != 2 || !args[1] || !args[1][0]) {
+      ui_print(NULL, "Usage: /grid GRID|LAT,LON");
+      return true;
+   }
+   for (const unsigned char *p = (const unsigned char *)args[1]; *p; p++) {
+      if (!isalnum(*p) && *p != '-' && *p != '.' && *p != ',' &&
+          *p != '+' && *p != ' ') {
+         ui_print(NULL, "Invalid grid or coordinates: %s", args[1]);
+         return true;
+      }
+   }
+
+   const char *program = cfg_get("callsign-lookup:path");
+   if (!program || !*program || !config_file || !*config_file) {
+      if (!ws_conn) {
+         ui_print(NULL, "Callsign lookup is not configured locally and the server is disconnected");
+         return true;
+      }
+      dict *request = dict_new();
+      dict_add(request, "msg.type", "talk");
+      dict_add(request, "talk.cmd", "grid");
+      dict_add(request, "talk.data", args[1]);
+      ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+      dict_free(request);
+      ui_print(NULL, "Asking the server for grid information for %s", args[1]);
+      return false;
+   }
+
+   char command[2048];
+   snprintf(command, sizeof(command), "%s -q -f '%s' -g '%s' 2>&1", program,
+      config_file, args[1]);
+   FILE *pipe = popen(command, "r");
+   if (!pipe) {
+      ui_print(NULL, "Unable to start callsign lookup");
+      return true;
+   }
+   char line[1024];
+   while (fgets(line, sizeof(line), pipe)) {
+      line[strcspn(line, "\r\n")] = '\0';
+      if (*line && strncmp(line, "+NOTICE ", 8) != 0 && strncmp(line, "+OK ", 4) != 0 &&
+          strncmp(line, "+PROTO ", 7) != 0 && strncmp(line, "+GOODBYE", 8) != 0 &&
+          strcmp(line, "+EOR") != 0 && line[0] != '[' && line[0] != '<' &&
+          strncmp(line, "==", 2) != 0) {
+         rrclient_print_callsign_line(line);
+      }
+   }
+   int status = pclose(pipe);
+   if (status != 0) {
+      ui_print(NULL, "Grid lookup failed for %s", args[1]);
+      return true;
+   }
+   return false;
+}
+
+void rrclient_print_callsign_line(const char *line) {
+   if (!line || !*line) {
+      return;
+   }
+
+   /* The helper emits a compact, line-oriented response. Keep the protocol
+    * header recognizable, and align the field labels without parsing or
+    * discarding any returned data. */
+   if (strncmp(line, "200 OK ", 7) == 0) {
+      ui_print(NULL, "{bright-green}%s{reset}", line);
+      return;
+   }
+
+   const char *colon = strchr(line, ':');
+   if (colon && colon != line) {
+      int label_len = (int)(colon - line);
+      ui_print(NULL, "{bright-cyan}%.*s:{reset}%s", label_len, line, colon + 1);
+      return;
+   }
+
+   ui_print(NULL, "%s", line);
 }
 
 bool cmd_clear(int argc, char **args) {

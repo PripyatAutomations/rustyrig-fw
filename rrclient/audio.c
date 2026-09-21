@@ -68,7 +68,7 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
    memcpy(active, codec, 4);
    active[4] = '\0';
 
-   if (cfg_get_bool(is_tx ? "fwdsp.recording.tx" : "fwdsp.recording.rx", false)) {
+   if (cfg_get_bool(is_tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx", false)) {
       const char *who = "radio";
       if (is_tx) {
          who = server_name ? get_server_property(server_name, "server.user") : NULL;

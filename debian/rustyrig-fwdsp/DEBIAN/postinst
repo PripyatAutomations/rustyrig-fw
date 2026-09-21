@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+if ! getent group rustyrig-dsp >/dev/null; then
+    addgroup --system rustyrig-dsp
+fi
+if ! getent group rustyrig >/dev/null; then
+    addgroup --system rustyrig
+fi
+if ! getent passwd rustyrig-dsp >/dev/null; then
+    adduser --system --ingroup rustyrig-dsp --home /var/lib/rustyrig \
+        --no-create-home --shell /usr/sbin/nologin rustyrig-dsp
+fi
+
+# DSP workers need to write recordings owned by the RustyRig service account.
+if getent group rustyrig >/dev/null; then
+    adduser rustyrig-dsp rustyrig >/dev/null 2>&1 || true
+fi
+if getent group audio >/dev/null; then
+    adduser rustyrig-dsp audio >/dev/null 2>&1 || true
+fi
+if [ -d /var/lib/rustyrig/recordings ]; then
+    chown rustyrig:rustyrig /var/lib/rustyrig/recordings
+    chmod 0770 /var/lib/rustyrig/recordings
+fi
+
+exit 0

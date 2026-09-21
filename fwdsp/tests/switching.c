@@ -26,9 +26,9 @@ void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {
    va_end(ap);
 }
 const char *cfg_get_exp(const char *key) {
-   if (!strcmp(key, "fwdsp.subproc.max")) return strdup("16");
-   if (!strcmp(key, "fwdsp.hangtime")) return strdup("60");
-   if (!strcmp(key, "fwdsp.path")) return strdup("./bin/fwdsp");
+   if (!strcmp(key, "fwdsp:subproc.max")) return strdup("16");
+   if (!strcmp(key, "fwdsp:hangtime")) return strdup("60");
+   if (!strcmp(key, "fwdsp:path")) return strdup("./bin/fwdsp");
    return NULL;
 }
 struct rr_mediachan *media_chan_find_uuid(const char *uuid) { return &media_channels[0]; }

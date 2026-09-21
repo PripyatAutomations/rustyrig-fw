@@ -1,0 +1,48 @@
+! Fix history (up/down buttons in chat input!
+
+* display a Reconnecting symbol on top in the corner
+
+! When disconnected, show a OFFLINE notice on the login screen
+  - if ws reconnects, have the handler hide this div
+
+! Sometimes the chat input doesmt show up at the bottom and have to refresh page
+
+* Add chromahash on the password fields
+
+! Confirm if the freq entry widget keeps a sane value after a wrap-around
+  occurs
+
+* mute the join/parts when reconecting
+
+* Send user-info when they join instead of every time CUL is updated
+  - This will save a fair bit of data transfer over the length of a session
+
+* move stuff to local/sessionStorage so we can reload the script without disconnecting!
+  - update components in cache when server says a newer version available
+
+* Change the window title to show unread messages
+
+- Pasting images
+  - Expire incomplete images from memory after a few minutes
+  - Make sure we're cleaning up image data when no longer used
+  - FIX MINIMIZE BUTTON!
+
+* Fix tab highlights
+
+* Implement Web Serial firmare uploads
+        https://developer.chrome.com/articles/serial/
+        https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API
+        - js/zmodemjs for zmodem upload
+
+* Add more error messages when privileges denied, etc. (server side)
+
+* Implement tabbed/windowed modes with movable/resizable windows (overlapping)
+
+* Send a bundle hash for the app when ws connects, so client can reload assets as needed
+
+[www.chat]
+* Support saving the chat log locally
+  - could we request some lines of replay?
+
+- Should we allow selecting text for copy/paste?
+  - maybe cfg tab option?

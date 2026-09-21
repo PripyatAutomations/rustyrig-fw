@@ -35,18 +35,18 @@
 defconfig_t defcfg_fwdsp[] = {
    { "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codecs" },
 #ifdef _WIN32
-   { "fwdsp.path", "bin/fwdsp.exe", "Path to fwdsp binary" },
+   { "fwdsp:path", "bin/fwdsp.exe", "Path to fwdsp binary" },
 #else
-   { "fwdsp.path", "bin/fwdsp", "Path to fwdsp binary" },
+   { "fwdsp:path", "bin/fwdsp", "Path to fwdsp binary" },
 #endif
-   { "fwdsp.recording.path", "./recordings", "Path to audio recordings" },
+   { "fwdsp:recording.path", "./recordings", "Path to audio recordings" },
    { "recording.codec", "flac", "Recording container/codec: flac or ogg" },
    { "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg" },
-   { "fwdsp.recording.rx", "false", "Record received audio" },
-   { "fwdsp.recording.tx", "false", "Record transmitted audio" },
-   { "fwdsp.subproc.max", "16", "Maximum allowed de/encoder processes" },
-   { "fwdsp.hangtime", "60", "How long to keep unused encoders alive after last use; decoders stop immediately" },
-   { "fwdsp.subproc.debug", "false", "Show extra debug messages" },
+   { "fwdsp:recording.rx", "false", "Record received audio" },
+   { "fwdsp:recording.tx", "false", "Record transmitted audio" },
+   { "fwdsp:subproc.max", "16", "Maximum allowed de/encoder processes" },
+   { "fwdsp:hangtime", "60", "How long to keep unused encoders alive after last use; decoders stop immediately" },
+   { "fwdsp:subproc.debug", "false", "Show extra debug messages" },
    { NULL, NULL, NULL }
 };
 
@@ -288,7 +288,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                if (ctx->sp->last_no_channel_warn == 0 ||
                    now < ctx->sp->last_no_channel_warn ||
                    now - ctx->sp->last_no_channel_warn >= 5) {
-                  // Encoders intentionally linger for fwdsp.hangtime after
+                  // Encoders intentionally linger for fwdsp:hangtime after
                   // their last subscriber leaves. Packets produced while
                   // that channel is being unsubscribed have no destination,
                   // but are harmless and should not look like a client error.
@@ -336,23 +336,23 @@ bool fwdsp_init(void) {
       return false;
    }
 
-   const char *max_subprocs_s = cfg_get_exp("fwdsp.subproc.max");
+   const char *max_subprocs_s = cfg_get_exp("fwdsp:subproc.max");
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
       Log(LOG_DEBUG, "fwdsp-mgr", "fwdspmgr initializing with %d slots available", max_subprocs);
       free((char *)max_subprocs_s);
    } else {
-      Log(LOG_CRIT, "config", "fwdsp.subproc.max must be set in config for fwdsp manager to work!");
+      Log(LOG_CRIT, "config", "fwdsp:subproc.max must be set in config for fwdsp manager to work!");
       return true;
    }
 
    // Sanity check as some hams are crazy? ;)
    if (max_subprocs <= 0 || max_subprocs > FWDSP_MAX_SUBPROCS) {
-      Log(LOG_CRIT, "config", "fwdsp.subproc.max <%d> is invalid: range=0-%d", max_subprocs, FWDSP_MAX_SUBPROCS);
+      Log(LOG_CRIT, "config", "fwdsp:subproc.max <%d> is invalid: range=0-%d", max_subprocs, FWDSP_MAX_SUBPROCS);
       return true;
    }
 
-   const char *record_dir = cfg_get_exp("fwdsp.recording.path");
+   const char *record_dir = cfg_get_exp("fwdsp:recording.path");
    bool record_dir_owned = record_dir != NULL;
    if (!record_dir || !*record_dir) {
       free((char *)record_dir);
@@ -401,9 +401,6 @@ bool fwdsp_init(void) {
    // Find the fwdsp path
    fwdsp_path = cfg_get_exp("fwdsp:path");
    if (!fwdsp_path) {
-      fwdsp_path = cfg_get_exp("fwdsp.path");
-   }
-   if (!fwdsp_path) {
       Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp binary");
       return true;
    }
@@ -418,7 +415,7 @@ bool fwdsp_fini(void) {
 
    /*
     * Tear down every remaining subprocess, including encoders retained by
-    * fwdsp.hangtime. fwdsp_destroy() also closes IPC and releases any cached
+    * fwdsp:hangtime. fwdsp_destroy() also closes IPC and releases any cached
     * stream headers associated with the slot.
     */
    if (fwdsp_subprocs) {
@@ -679,9 +676,6 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
 
    const char *fwdsp_path = cfg_get_exp("fwdsp:path");
-   if (!fwdsp_path) {
-      fwdsp_path = cfg_get_exp("fwdsp.path");
-   }
    const char *fwdsp_config = config_file;
    char pipeline_key[64];
    snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->pl_id,
@@ -1001,7 +995,7 @@ static bool fwdsp_send_control(struct fwdsp_subproc *sp, uint8_t type, uint8_t v
 }
 
 static int fwdsp_encoder_hangtime(void) {
-   const char *hangtime_s = cfg_get_exp("fwdsp.hangtime");
+   const char *hangtime_s = cfg_get_exp("fwdsp:hangtime");
    int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
 
    free((char *)hangtime_s);
@@ -1016,7 +1010,7 @@ static void fwdsp_idle_pipeline(struct fwdsp_subproc *sp) {
    sp->refcount = 0;
 
    // is_tx means fwdsp consumes raw sound-card PCM and emits encoded media:
-   // it is an encoder. Keep encoders warm for fwdsp.hangtime so PTT/codec
+   // it is an encoder. Keep encoders warm for fwdsp:hangtime so PTT/codec
    // reuse does not pay process/GStreamer startup latency. Decoders are cheap
    // to recreate and can otherwise accumulate one process per old codec.
    if (sp->is_tx) {
@@ -1129,7 +1123,7 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
          return -1;
       }
    } else if (sp->is_tx && sp->refcount == 0 && sp->cleanup_deadline > 0) {
-      // Reuse a warm encoder retained by fwdsp.hangtime.
+      // Reuse a warm encoder retained by fwdsp:hangtime.
       sp->replay_headers = true;
       fwdsp_send_control(sp, FWDSP_CTRL_RESUME, 0);
    }

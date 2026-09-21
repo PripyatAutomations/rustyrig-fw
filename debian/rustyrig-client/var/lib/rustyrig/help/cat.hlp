@@ -1,0 +1,6 @@
+CAT is provided via io subsystem (file|pipe|socket) as available.
+
+AMPlifier control is via Elecraft KPA500 protocol on %{interface/amp/port}.
+Rig control is via Yaesu ft891 emulation on %{interface/cat/port}.
+
+You can set both protocols to the same port, if desirable.

@@ -1,0 +1,12 @@
+Package: rustyrig-callsign-lookup
+Source: rustyrig-fw
+Version: 20260920.03
+Architecture: amd64
+Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
+Installed-Size: 1695
+Depends: librustyaxe (= 20260920.03), libc6 (>= 2.34), libcurl4t64 (>= 7.16.2), libev4t64 (>= 1:4.04), libfreexl1 (>= 0.0.2~beta20110817), libgcc-s1 (>= 3.3), libgeos-c1t64 (>= 3.4.2), libminizip1t64, libproj25 (>= 4.8.0), librttopo1 (>= 1.0.0), libspatialite8t64 (>= 2.4.0), libsqlite3-0 (>= 3.5.9), libxml2-16 (>= 2.14.1), zlib1g (>= 1:1.1.4)
+Section: hamradio
+Priority: optional
+Homepage: https://github.com/PripyatAutomations/rustyrig-fw
+Description: RustyRig callsign lookup service
+ Callsign lookup helper using local databases and the QRZ XML API.

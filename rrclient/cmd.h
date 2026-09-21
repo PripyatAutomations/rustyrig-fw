@@ -84,6 +84,9 @@ extern bool cmd_raw(int argc, char **args);
 extern bool cmd_syslog(int argc, char **args);
 extern bool cmd_quota(int argc, char **args);
 extern bool cmd_qrz(int argc, char **args);
+extern bool cmd_grid(int argc, char **args);
+/* Render one structured callsign-lookup response line in the active UI. */
+extern void rrclient_print_callsign_line(const char *line);
 extern bool cmd_rehash(int argc, char **args);
 extern bool cmd_restart(int argc, char **args);
 extern bool cmd_rxvol(int argc, char **args);

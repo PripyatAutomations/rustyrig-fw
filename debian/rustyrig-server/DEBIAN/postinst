@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+if ! getent group rustyrig >/dev/null; then
+    addgroup --system rustyrig
+fi
+if ! getent passwd rustyrig >/dev/null; then
+    adduser --system --ingroup rustyrig --home /var/lib/rustyrig \
+        --no-create-home --shell /usr/sbin/nologin rustyrig
+fi
+if ! getent group rustyrig-modems >/dev/null; then
+    addgroup --system rustyrig-modems
+fi
+if ! getent passwd rustyrig-modems >/dev/null; then
+    adduser --system --ingroup rustyrig-modems --home /var/lib/rustyrig \
+        --no-create-home --shell /usr/sbin/nologin rustyrig-modems
+fi
+
+for dir in /var/lib/rustyrig/db /var/lib/rustyrig/recordings /var/lib/rustyrig/modems /var/log/rustyrig; do
+    install -d -o rustyrig -g rustyrig -m 0770 "$dir"
+done
+install -d -o rustyrig-modems -g rustyrig-modems -m 0770 /var/lib/rustyrig/modems
+install -d -o rustyrig -g rustyrig -m 0770 /var/run/rustyrig
+
+exit 0

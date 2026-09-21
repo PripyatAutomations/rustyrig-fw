@@ -16,6 +16,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
+#include <rrclient/cmd.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
@@ -603,7 +604,21 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
 
    if (msg) {
       // Notices are plain text, one line per notice.
-      ui_print(NULL, "%s {bright-yellow}NOTICE{reset}: %s", get_chat_ts(msg_ts), msg);
+      bool callsign_field = strncmp(msg, "Callsign:", 9) == 0 ||
+         strncmp(msg, "Cached:", 7) == 0 || strncmp(msg, "Name:", 5) == 0 ||
+         strncmp(msg, "Class:", 6) == 0 || strncmp(msg, "Grid:", 5) == 0 ||
+         strncmp(msg, "WGS-84:", 7) == 0 || strncmp(msg, "Heading:", 8) == 0 ||
+         strncmp(msg, "DXCC:", 5) == 0 || strncmp(msg, "Email:", 6) == 0 ||
+         strncmp(msg, "Address1:", 9) == 0 || strncmp(msg, "Address2:", 9) == 0 ||
+         strncmp(msg, "State:", 6) == 0 || strncmp(msg, "Zip:", 4) == 0 ||
+         strncmp(msg, "County:", 7) == 0 || strncmp(msg, "License Effective:", 18) == 0 ||
+         strncmp(msg, "License Expires:", 16) == 0 || strncmp(msg, "Country:", 8) == 0;
+      if (strncmp(msg, "200 OK ", 7) == 0 || callsign_field) {
+         ui_print(NULL, "%s {bright-yellow}NOTICE{reset}:", get_chat_ts(msg_ts));
+         rrclient_print_callsign_line(msg);
+      } else {
+         ui_print(NULL, "%s {bright-yellow}NOTICE{reset}: %s", get_chat_ts(msg_ts), msg);
+      }
    }
    dict_free(d);
 }

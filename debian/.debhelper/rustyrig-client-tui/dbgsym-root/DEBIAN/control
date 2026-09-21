@@ -1,0 +1,12 @@
+Package: rustyrig-client-tui-dbgsym
+Source: rustyrig-fw
+Version: 20260920.03
+Auto-Built-Package: debug-symbols
+Architecture: amd64
+Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
+Installed-Size: 167
+Depends: rustyrig-client-tui (= 20260920.03)
+Section: debug
+Priority: optional
+Description: debug symbols for rustyrig-client-tui
+Build-Ids: 5106058cf6b75649732a431e1d685e1b76cc13f3

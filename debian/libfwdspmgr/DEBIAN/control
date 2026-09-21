@@ -1,0 +1,12 @@
+Package: libfwdspmgr
+Source: rustyrig-fw
+Version: 20260920.03
+Architecture: amd64
+Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
+Installed-Size: 46
+Depends: librustyaxe (= 20260920.03), libc6 (>= 2.14), librrprotocol (>= 20260920.03)
+Section: hamradio
+Priority: optional
+Homepage: https://github.com/PripyatAutomations/rustyrig-fw
+Description: RustyRig DSP manager shared library
+ Shared process and pipeline manager used by RustyRig audio services.

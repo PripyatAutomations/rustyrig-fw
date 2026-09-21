@@ -1,0 +1,12 @@
+Package: rustyrig-client
+Source: rustyrig-fw
+Version: 20260920.03
+Architecture: amd64
+Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
+Installed-Size: 289
+Depends: librrprotocol (= 20260920.03), libfwdspmgr (= 20260920.03), librustyaxe (= 20260920.03), libatk1.0-0t64 (>= 1.12.4), libc6 (>= 2.38), libgdk-pixbuf-2.0-0 (>= 2.22.0), libglib2.0-0t64 (>= 2.80.0), libgtk-3-0t64 (>= 3.16.2)
+Section: hamradio
+Priority: optional
+Homepage: https://github.com/PripyatAutomations/rustyrig-fw
+Description: RustyRig GTK client
+ GTK client for accessing a RustyRig server.

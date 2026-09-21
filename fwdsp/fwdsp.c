@@ -331,7 +331,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return false;
    }
 
-   size_t ring_size = (size_t)cfg_get_int("fwdsp.recording.buffer-size", FWDSP_RECORD_RING_SIZE_DEFAULT);
+   size_t ring_size = (size_t)cfg_get_int("fwdsp:recording.buffer-size", FWDSP_RECORD_RING_SIZE_DEFAULT);
    if (ring_size < FWDSP_RECORD_RING_SIZE_MIN) {
       ring_size = FWDSP_RECORD_RING_SIZE_MIN;
    }
@@ -1038,7 +1038,6 @@ int main(int argc, char *argv[]) {
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
-   cfg_add_callback(NULL, "pipeline", config_pipeline_section_cb);
    cfg_add_callback(NULL, "pipelines", config_pipeline_section_cb);
 
    // If the user specified a config, apply it, else try to find one in a sane
@@ -1055,7 +1054,7 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
-   recording_dir = (char *)cfg_get_exp("fwdsp.recording.path");
+   recording_dir = (char *)cfg_get_exp("fwdsp:recording.path");
    if (!recording_dir || !*recording_dir) {
       free(recording_dir);
       recording_dir = strdup("./recordings");
@@ -1068,7 +1067,7 @@ int main(int argc, char *argv[]) {
    }
    const bool modem_codec = codec_is_modem(config_codec);
    const char *cfg_recording_codec_exp = cfg_get_exp(modem_codec ?
-      "fwdsp.recording.codec.modem" : "fwdsp.recording.codec");
+      "fwdsp:recording.codec.modem" : "fwdsp:recording.codec");
    const char *cfg_recording_codec = cfg_recording_codec_exp;
    if (!cfg_recording_codec) cfg_recording_codec = cfg_get(modem_codec ?
       "recording.codec.modem" : "recording.codec");
@@ -1088,7 +1087,7 @@ int main(int argc, char *argv[]) {
    Log(LOG_INFO, "record", "Recording format selected: %s%s", recording_codec,
       recording_encoded ? " (encoded stream copy)" : " (PCM encoder)");
    free((char *)cfg_recording_codec_exp);
-   const char *logfile = cfg_get_exp("fwdsp.log.file");
+   const char *logfile = cfg_get_exp("fwdsp:log.file");
    logger_init( (logfile ? logfile : "-"), false);
    log_stdout = false;
    if (logfp == stdout) {
@@ -1108,7 +1107,7 @@ int main(int argc, char *argv[]) {
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
-   const char *cfg_audio_debug = cfg_get("fwdsp.audio.debug");
+   const char *cfg_audio_debug = cfg_get("fwdsp:audio.debug");
 
    if (cfg_audio_debug) {
       setenv("GST_DEBUG", cfg_audio_debug, 0);

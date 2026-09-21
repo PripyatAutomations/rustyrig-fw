@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+if ! getent group rustyrig >/dev/null; then
+    addgroup --system rustyrig
+fi
+if ! getent passwd rustyrig >/dev/null; then
+    adduser --system --ingroup rustyrig --home /var/lib/rustyrig \
+        --no-create-home --shell /usr/sbin/nologin rustyrig
+fi
+
+for dir in /var/lib/rustyrig/db /var/lib/rustyrig/recordings/client /var/log/rustyrig /var/run/rustyrig; do
+    install -d -o rustyrig -g rustyrig -m 0770 "$dir"
+done
+
+exit 0

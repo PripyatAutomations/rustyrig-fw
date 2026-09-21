@@ -42,7 +42,7 @@ defconfig_t defcfg[] = {
       "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codec order"
    },
    {
-      "fwdsp.audio.debug", "false", "gstreamer debug level"
+      "fwdsp:audio.debug", "false", "gstreamer debug level"
    },
    {
       "recording.codec", "flac", "Recording container/codec: flac or ogg"

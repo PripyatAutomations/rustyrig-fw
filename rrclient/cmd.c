@@ -70,6 +70,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
    { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)" },
    { .cmd = "qrz", .cb = cmd_qrz, .max_args = 1, .desc = "Look up a callsign" },
+   { .cmd = "grid", .cb = cmd_grid, .max_args = 1, .desc = "Look up a grid square or coordinates" },
    { .cmd = "raw", .cb = cmd_raw, .desc = "Send a raw command" },
    { .cmd = "media", .cb = cmd_media, .max_args = 2, .desc = "Media channels: LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>" },
 #ifdef USE_GTK
