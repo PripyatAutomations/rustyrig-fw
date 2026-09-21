@@ -1,6 +1,0 @@
-rustyrig-fw (20260920.05) UNRELEASED; urgency=medium
-
-  * Package RustyRig server, clients, DSP service, callsign lookup, and
-    shared library development files.
-
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 20 Sep 2026 00:00:00 -0400

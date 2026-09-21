@@ -89,7 +89,7 @@ static char **complete_usernames(const char *word) {
 
 static void completion_add(char ***matches, size_t *count, const char *value,
    const char *word) {
-   if (!value || strncasecmp(value, word, strlen(word))) return;
+   if (!value || strncasecmp(value, word, strlen(word)) != 0) return;
    char *copy = strdup(value);
    if (!copy) return;
    char **tmp = realloc(*matches, (*count + 2) * sizeof(char *));
@@ -138,7 +138,7 @@ char **client_cmd_completions(const char *line, const char *word) {
          if (arg == 1) {
             completion_words(&matches, &count, media ? "LIST SUBSCRIBE UNSUBSCRIBE SUB UNSUB" : "LIST NONE", word);
             if (!media) completion_words(&matches, &count, media_get_common_codecs(), word);
-         } else if (arg == 2 && first && strcasecmp(first, "LIST")) {
+         } else if (arg == 2 && first && strcasecmp(first, "LIST") != 0) {
             bool unsub = !strcasecmp(first, "UNSUB") || !strcasecmp(first, "UNSUBSCRIBE");
             bool sub = !strcasecmp(first, "SUB") || !strcasecmp(first, "SUBSCRIBE");
             for (int i = 0; !media || sub || unsub; i++) {

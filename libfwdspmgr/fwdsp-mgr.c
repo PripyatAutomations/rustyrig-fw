@@ -648,8 +648,9 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       return false;
    }
 
-   int in_pipe[2], out_pipe[2], err_pipe[2], control_pipe[2];
-   int sock_pair[2];
+   int in_pipe[2] = { -1, -1 }, out_pipe[2] = { -1, -1 };
+   int err_pipe[2] = { -1, -1 }, control_pipe[2] = { -1, -1 };
+   int sock_pair[2] = { -1, -1 };
    struct mg_mgr *manager = fwdsp_mg_manager();
 
    if (sp->io_type == FW_IO_STDIO) {

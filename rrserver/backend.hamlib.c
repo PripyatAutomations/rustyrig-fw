@@ -775,7 +775,7 @@ bool hl_width_set(rr_vfo_t vfo, const char *width) {
 // Fill `widths' with the passband widths (hz) the rig supports for the
 // current mode: narrow, normal and wide. Returns count written, 0 on error.
 int hl_widths_get(rr_vfo_t vfo, int *widths, int max) {
-   if (!widths || max < 3) {
+   if (!widths || max < 3 || vfo < VFO_A || vfo >= MAX_VFOS) {
       return 0;
    }
 
@@ -788,7 +788,7 @@ int hl_widths_get(rr_vfo_t vfo, int *widths, int max) {
    // fall back to the merged rr mode from vfos[] converted back to hamlib.
    hl_mode_get(vfo);
    rmode_t rmode = hl_state[vfo].rmode;
-   if (rmode == RIG_MODE_NONE && vfo >= 0 && vfo < MAX_VFOS && vfos[vfo].mode != MODE_NONE) {
+   if (rmode == RIG_MODE_NONE && vfos[vfo].mode != MODE_NONE) {
       rmode = hl_mode(vfos[vfo].mode);
    }
 

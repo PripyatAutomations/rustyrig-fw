@@ -67,3 +67,5 @@ core.*
 core
 *.core
 *.core.*
+
+debian/.debhelper

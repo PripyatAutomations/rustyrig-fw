@@ -13,5 +13,6 @@ endif
 distclean: clean
 	@echo "[distclean]"
 	${RM} -rf ${OBJ_DIR}
-	${RM} -r audit-logs/ build/ config/archive db/ run/ ${extra_distclean}
+	# Audit reports are historical artifacts and must survive clean/distclean.
+	${RM} -r build/ config/archive db/ run/ ${extra_distclean}
 	${RM} -f *.log

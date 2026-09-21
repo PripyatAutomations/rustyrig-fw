@@ -15,6 +15,7 @@
 #include "build_config.h"
 #include <librustyaxe/core.h>
 #include <stddef.h>
+#include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -107,13 +108,25 @@ const char *au_recording_start(int channel) {
    if (!cfg_path_record_dir) {
       cfg_path_record_dir = cfg_get_path("path.record-dir");
       cfg_recording_max = cfg_get_int("record.max", 16);
+      if (cfg_recording_max < 1) cfg_recording_max = 1;
+      if (!active_recordings) {
+         active_recordings = calloc((size_t)cfg_recording_max,
+            sizeof(*active_recordings));
+         if (!active_recordings) {
+            Log(LOG_CRIT, "au.record", "Unable to allocate recording table");
+            free((char *)cfg_path_record_dir);
+            cfg_path_record_dir = NULL;
+            free(recording_id);
+            return NULL;
+         }
+      }
    }
 
    const char *rec_file = rec_mkpath(recording_id, channel);
 
    if (!rec_file) {
       Log(LOG_CRIT, "au.record", "Failed to generate a random filename for recording. OOM?");
-
+      free(recording_id);
       return NULL;
    }
    // Open the recording file for writing
@@ -121,15 +134,17 @@ const char *au_recording_start(int channel) {
 
    if (!fp) {
       Log(LOG_CRIT, "au.record", "Failed to open file %s for recording of channel %d", rec_file, channel);
-
+      free((char *)rec_file);
+      free(recording_id);
       return NULL;
    }
+   free((char *)rec_file);
    struct RecordingData *rd = malloc( sizeof(struct RecordingData) );
 
    if (!rd) {
       fprintf(stderr, "OOM in au_recording_start?!\n");
       fclose(fp);
-
+      free(recording_id);
       return NULL;
    }
    memset( rd, 0, sizeof(struct RecordingData) );
@@ -137,24 +152,34 @@ const char *au_recording_start(int channel) {
    rd->rec_id = recording_id;
 
    // Store the fd somewhere (active_recordings array?)
-   for (int i = 0 ; i < cfg_recording_max - 1 ; i++) {
+   bool stored = false;
+   for (int i = 0 ; i < cfg_recording_max ; i++) {
       if (!active_recordings[i]) {
          active_recordings[i] = rd;
+         stored = true;
          break;
       }
+   }
+   if (!stored) {
+      fclose(fp);
+      free(rd);
+      free(recording_id);
+      Log(LOG_WARN, "au.record", "Recording table is full");
+      return NULL;
    }
 
    return recording_id;
 }
 
 recording_data_t *au_recording_find(const char *id) {
-   if (!id) {
+   if (!id || !active_recordings) {
       return NULL;
    }
    recording_data_t *rp = NULL;
 
-   for (int i = 0 ; i < cfg_recording_max - 1 ; i++) {
-      if ( (active_recordings[i]) && active_recordings[i]->rec_id == id ) {
+   for (int i = 0 ; i < cfg_recording_max ; i++) {
+      if (active_recordings[i] && active_recordings[i]->rec_id &&
+          strcmp(active_recordings[i]->rec_id, id) == 0) {
          return active_recordings[i];
       }
    }
@@ -167,12 +192,22 @@ bool au_recording_stop(const char *id) {
       return true;
    }
    recording_data_t *rp = au_recording_find(id);
+   if (!rp) {
+      return true;
+   }
 
    // Find the location of the recording struct (active_recordings array)
    // Close the fd
    if (rp->fp) {
       fclose(rp->fp);
    }
+   for (int i = 0; i < cfg_recording_max; i++) {
+      if (active_recordings[i] == rp) {
+         active_recordings[i] = NULL;
+         break;
+      }
+   }
+   free((char *)rp->rec_id);
    free(rp);
 
    return false;

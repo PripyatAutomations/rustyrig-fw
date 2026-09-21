@@ -228,7 +228,7 @@ bool cmd_quit(int argc, char **args) {
       first_arg++;
    }
 
-   if (first_arg < argc && args[first_arg][0] != '\0') {
+   if (args && first_arg < argc && args[first_arg] && args[first_arg][0] != '\0') {
       quitmsg = args[first_arg];
    }
 
@@ -245,7 +245,9 @@ bool cmd_quit(int argc, char **args) {
    dict_add(d, "msg.type", "auth");
    dict_add(d, "auth.cmd", "quit");
    dict_add(d, "auth.msg", quitmsg);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   if (d && ws_conn) {
+      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   }
    dict_free(d);
 
    // Set the dying flag so main loop with cleanly exit

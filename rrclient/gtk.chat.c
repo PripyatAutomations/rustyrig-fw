@@ -92,21 +92,21 @@ gboolean ui_scroll_to_end(gpointer data) {
 
 static bool gtk_chat_do_completion(GtkEntry *entry) {
    const char *line = gtk_entry_get_text(entry);
-   int cursor_pos = gtk_editable_get_position(GTK_EDITABLE(entry));
+   int tui_cursor_pos = gtk_editable_get_position(GTK_EDITABLE(entry));
 
-   if (!line || cursor_pos <= 0) {
+   if (!line || tui_cursor_pos <= 0) {
       return false;
    }
 
    // Find start of word before cursor
-   cursor_pos = (int)(g_utf8_offset_to_pointer(line, cursor_pos) - line);
-   int start = cursor_pos;
+   tui_cursor_pos = (int)(g_utf8_offset_to_pointer(line, tui_cursor_pos) - line);
+   int start = tui_cursor_pos;
 
    while (start > 0 && line[start - 1] != ' ') {
       start--;
    }
 
-   int word_len = cursor_pos - start;
+   int word_len = tui_cursor_pos - start;
 
    if (word_len < 0) {
       return false;
@@ -121,7 +121,7 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
    memcpy(word, line + start, word_len);
    word[word_len] = '\0';
 
-   char *prefix = g_strndup(line, cursor_pos);
+   char *prefix = g_strndup(line, tui_cursor_pos);
    char **matches = completion_collect(prefix, word);
    g_free(prefix);
 
@@ -173,7 +173,7 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
          new_line[start + plen] = ' ';
       }
 
-      strcpy(new_line + start + replace_len, line + cursor_pos);
+      strcpy(new_line + start + replace_len, line + tui_cursor_pos);
 
       gtk_entry_set_text(entry, new_line);
       gtk_editable_set_position(

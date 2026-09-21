@@ -45,6 +45,7 @@ bool mqtt_debug_sock = false;
 const char *mqtt_user = NULL;
 const char *mqtt_host = NULL;
 char mqtt_secret[128];
+static char mqtt_user_buf[128];
 int mqtt_port = 0;
 
 
@@ -224,7 +225,9 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
 bool mqtt_client_init(void) {
    FILE *fp = NULL;
 
-   mqtt_user = cfg_get("net.mqtt-client.user");
+   const char *configured_user = cfg_get("net.mqtt-client.user");
+   strlcpy(mqtt_user_buf, configured_user ? configured_user : "", sizeof(mqtt_user_buf));
+   mqtt_user = mqtt_user_buf;
    mqtt_host = cfg_get("net.mqtt-client.host");
    mqtt_port = cfg_get_int("net.mqtt-client.port", 0);
    char *secret_file = cfg_get_path("net.mqtt-client.secret-file");
@@ -259,18 +262,14 @@ bool mqtt_client_init(void) {
    char *s_user = strtok(read_secret, ":\n");   
    char *s_secret = strtok(NULL, ":\n");
    if (s_user) {
-      if (sizeof(mqtt_user) >= strlen(s_user)) {
-         memcpy((void *)mqtt_user, s_user, strlen(s_user));
-      }
+      strlcpy(mqtt_user_buf, s_user, sizeof(mqtt_user_buf));
    }
 
    if (s_secret) {
-      if (sizeof(mqtt_secret) >= strlen(s_secret)) {
-         memcpy(mqtt_secret, s_secret, strlen(s_secret));
-      }
+      strlcpy(mqtt_secret, s_secret, sizeof(mqtt_secret));
    }
 
-   Log(LOG_DEBUG, "mqtt.cli", "Connect to mqtt: user=\"%s\", pass=\"%s\", host=\"%s:%d\"", mqtt_user, mqtt_secret,
+   Log(LOG_DEBUG, "mqtt.cli", "Connect to mqtt: user=\"%s\", host=\"%s:%d\"", mqtt_user,
       mqtt_host, mqtt_port);
 
    fclose(fp);

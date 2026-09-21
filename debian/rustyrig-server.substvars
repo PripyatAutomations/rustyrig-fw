@@ -1,3 +1,3 @@
-shlibs:Depends=libc6 (>= 2.38), libfwdspmgr (>= 20260920.05), librrprotocol (>= 20260920.05), librustyaxe (>= 20260920.05), libsqlite3-0 (>= 3.5.9)
+shlibs:Depends=libc6 (>= 2.38), libfwdspmgr (>= 20260920.06), librrprotocol (>= 20260920.06), librustyaxe (>= 20260920.06), libsqlite3-0 (>= 3.5.9)
 misc:Depends=
 misc:Pre-Depends=

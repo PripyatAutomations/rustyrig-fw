@@ -36,12 +36,15 @@ static bool db_run_sql_file(sqlite3 *db, const char *path, const char *descripti
       return false;
    }
    if (fseek(fp, 0, SEEK_END) != 0) {
+      Log(LOG_CRIT, "db", "Cannot seek database SQL %s: %s", path, strerror(errno));
       fclose(fp);
       return false;
    }
    long length = ftell(fp);
    rewind(fp);
    if (length < 0 || (unsigned long)length > SIZE_MAX - 1) {
+      Log(LOG_CRIT, "db", "Cannot determine database SQL size %s: %s", path,
+         length < 0 ? strerror(errno) : "file too large");
       fclose(fp);
       return false;
    }

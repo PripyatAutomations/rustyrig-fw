@@ -445,7 +445,7 @@ static void rrserver_handle_rehash(const char *event, const char *data, rrconn_t
    Log(LOG_INFO, "core", "Rehashing server configuration (requested by %s)",
       (cptr && cptr->chatname[0] != '\0' ? cptr->chatname : "internal"));
 
-   if (cfg_reload(NULL) ) {
+   if (!cfg_reload(NULL) ) {
       Log(LOG_CRIT, "core", "Config reload failed; keeping previous configuration");
    }
 

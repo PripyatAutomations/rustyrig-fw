@@ -58,17 +58,7 @@ bool load_http_ua_bans(const char *path) {
    if (!fp) {
       return true;
    }
-   while (!feof(fp) ) {
-      memset(line, 0, 1024);
-
-      if (!fgets(line, 1024, fp) ) {
-         char *start = line + strspn(line, " \t\r\n");
-
-         if (start != line) {
-            memmove(line, start, strlen(start) + 1);
-         }
-      }
-
+   while (fgets(line, sizeof(line), fp)) {
       // Skip comments and empty lines
       if (line[0] == '#' || line[0] == ';' ||
           (strlen(line) > 1 && (line[0] == '/' && line[1] == '/') ) || line[0] == '\n') {
@@ -91,23 +81,19 @@ bool load_http_ua_bans(const char *path) {
       if (line[0] == '\n' || line[0] == '\0') {
          continue;
       }
-      // If we made it this far, it's probably a valid line, parse it
-      http_ua_ban_t *p = http_ua_bans;
-
-      // find the end of list
-      while (p) {
-         // ensure we return a non-null pointer
-         if (p->next) {
-            p = p->next;
-         } else {
-            break;
-         }
+      http_ua_ban_t *new_ban = calloc(1, sizeof(*new_ban));
+      if (!new_ban) {
+         fclose(fp);
+         return true;
       }
-
-      // Add to the linked list at the tail
-      if (p) {
-         http_ua_ban_t *new_ban = malloc( sizeof(http_ua_ban_t) );
-         p->next = new_ban;
+      new_ban->useragent = strdup(line);
+      new_ban->enabled = true;
+      if (!http_ua_bans) {
+         http_ua_bans = new_ban;
+      } else {
+         http_ua_ban_t *tail = http_ua_bans;
+         while (tail->next) tail = tail->next;
+         tail->next = new_ban;
       }
    }
    fclose(fp);

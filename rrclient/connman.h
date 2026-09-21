@@ -32,7 +32,6 @@ extern bool connect_server(const char *server);
 #if     defined(USE_MONGOOSE)
 extern rrconn_t *ws_conn, *ws_tx_conn;
 #endif
-extern bool server_ptt_state;
 extern const char *get_server_property(const char *server, const char *prop);
 extern bool connect_or_disconnect(const char *server);
 extern void connman_register_events(void);

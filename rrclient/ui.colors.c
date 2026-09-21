@@ -66,6 +66,9 @@ static const struct {
 };
 
 const char *pango_color_for_tag(const char *tag, bool *is_bg) {
+   if (!tag || !is_bg) {
+      return NULL;
+   }
    *is_bg = (strncmp(tag, "bg-", 3) == 0);
 
    // Config values may be written bare ("cyan") or braced ("{cyan}", as they

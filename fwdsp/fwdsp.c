@@ -1034,7 +1034,7 @@ int main(int argc, char *argv[]) {
    }
    Log(LOG_INFO, "fwdsp", "Starting fwdsp v.%s", VERSION);
    // Find and load the configuration file
-   int cfg_entries = (sizeof(configs) / sizeof(char *) );
+   int cfg_entries = num_configs;
    default_cfg = dict_new();
    cfg_set_defaults(default_cfg, defcfg);
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);

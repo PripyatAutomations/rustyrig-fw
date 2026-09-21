@@ -38,7 +38,6 @@ typedef struct {
 
 extern bool rr_au_init(void);
 extern bool rr_au_write_samples(rr_au_backend_interface_t *be, const void *samples, size_t size);
-extern bool pipe_read_samples(rr_au_device_t *device, void *buffer, size_t size);
 extern void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev);
 
 //////////

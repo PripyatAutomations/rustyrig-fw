@@ -344,7 +344,7 @@ void gui_edit_config(const char *filepath) {
 
       char *buf = malloc( (size_t)len + 1 );
 
-      if (!buf && errno) {
+      if (!buf) {
          fprintf(stderr, "OOM in gui_edit_config!\n");
          Log(LOG_CRIT, "config.edit", "OOM reading %s", filepath);
 //         abort();

@@ -27,8 +27,6 @@
 
 // Server connections
 extern int ws_connected;
-extern int ws_tx_connected;
-extern bool server_ptt_state;
 extern const char *login_user;
 extern rrconn_t *ws_conn, *ws_tx_conn;
 extern rr_connection_t *active_connections;
@@ -204,6 +202,10 @@ bool connect_server(const char *server) {
 #ifdef	USE_MONGOOSE
       if (!ws_conn) {
          ws_conn = malloc(sizeof(rrconn_t));
+         if (!ws_conn) {
+            Log(LOG_CRIT, "connman", "Unable to allocate WebSocket connection state");
+            return true;
+         }
          memset( ws_conn, 0, sizeof(rrconn_t) );
       }
 

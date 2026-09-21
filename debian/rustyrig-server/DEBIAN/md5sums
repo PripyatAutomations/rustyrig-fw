@@ -1,9 +1,10 @@
-6e0fbdfab4ab59ef551f33f7f2814dd7  usr/bin/rrserver
-6dbb86a7aa8ef46c7586227e26861ef2  usr/share/doc/rustyrig-server/changelog.gz
+e8891e922c2c76e42cc9a23877b60e8e  usr/bin/rrserver
+bd895d12cca3a59ec6f2117e822a6adf  usr/lib/systemd/system/rustyrig-server.service
+7c66c8218dc9d1f2b4831256fc20982f  usr/share/doc/rustyrig-server/changelog.gz
 941a6cc35822b9a977f2786ae654e8e4  usr/share/doc/rustyrig/config/callsign-lookup.cfg.example
-1c278f3e31ee242aff5e363923fb8833  usr/share/doc/rustyrig/config/callsign-lookup.cli.cfg.example
+afb2ec39141d355c2db9cfdca4c9ea21  usr/share/doc/rustyrig/config/callsign-lookup.cli.cfg.example
 b0035c4aa0a82ebbf8dafbc267d9397e  usr/share/doc/rustyrig/config/callsign-lookup.srv.cfg.example
-7de5a51444bc799b6d914a765ea57488  usr/share/doc/rustyrig/config/rrclient.cfg.example.gz
+1b1c985a4a2c8e458a05c8d0440dd411  usr/share/doc/rustyrig/config/rrclient.cfg.example.gz
 821046448e2e1e3c784b5630df58f3e7  usr/share/doc/rustyrig/config/rrserver.cfg.example.gz
 b1c912456218f019cb880912539bab61  usr/share/doc/rustyrig/doc/CONFIGURING.txt
 9dc83a0327b2a38e17ba165728335cf3  usr/share/doc/rustyrig/doc/DEBUG.txt
