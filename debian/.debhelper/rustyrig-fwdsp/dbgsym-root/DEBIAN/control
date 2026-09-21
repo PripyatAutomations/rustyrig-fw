@@ -1,12 +1,12 @@
 Package: rustyrig-fwdsp-dbgsym
 Source: rustyrig-fw
-Version: 20260920.04
+Version: 20260920.05
 Auto-Built-Package: debug-symbols
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Installed-Size: 73
-Depends: rustyrig-fwdsp (= 20260920.04)
+Depends: rustyrig-fwdsp (= 20260920.05)
 Section: debug
 Priority: optional
 Description: debug symbols for rustyrig-fwdsp
-Build-Ids: c7a61f877e4ccbf08c27c32a7c6226340775fea3
+Build-Ids: 796c6f72f80b6fa265a9161d73a0c9f4bca8559e

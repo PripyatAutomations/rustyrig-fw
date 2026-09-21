@@ -227,17 +227,17 @@ bool mqtt_client_init(void) {
    mqtt_user = cfg_get("net.mqtt-client.user");
    mqtt_host = cfg_get("net.mqtt-client.host");
    mqtt_port = cfg_get_int("net.mqtt-client.port", 0);
-   const char *secret_file = cfg_get("net.mqtt-client.secret-file");
+   char *secret_file = cfg_get_path("net.mqtt-client.secret-file");
 
    if ( !file_exists(secret_file) ) {
       Log(LOG_CRIT, "mqtt.cli", "Secret file '%s' doesn't exist", secret_file);
-
+      free(secret_file);
       return false;
    }
 
    if ( !( fp = fopen(secret_file, "r") ) ) {
       Log( LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno) );
-
+      free(secret_file);
       return false;
    }
    char read_secret[512];
@@ -247,7 +247,7 @@ bool mqtt_client_init(void) {
    if ( !fgets(read_secret, sizeof(read_secret), fp) ) {
       Log( LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno) );
       fclose(fp);
-
+      free(secret_file);
       return true;
    }
    char *end = read_secret + strlen(read_secret) - 1;
@@ -274,6 +274,7 @@ bool mqtt_client_init(void) {
       mqtt_host, mqtt_port);
 
    fclose(fp);
+   free(secret_file);
 
    return false;
 }

@@ -1,33 +1,84 @@
-# Build with makepkg -f
-pkgname=('rrclient' 'rrserver' 'rrserver-fwdsp')
-
-#### This is in the .version file at the toplevel ####
-
-pkgver=20250918
+# Build with: makepkg -f
+# Starter Arch Linux packaging; update pkgver/source for each release.
+pkgbase=rustyrig
+pkgname=(rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-tui rustyrig-fwdsp rustyrig-callsign-lookup)
+pkgver=20260920.05
 pkgrel=1
-pkgdesc="rustyrig-fw client and server"
+pkgdesc='RustyRig remote radio software'
 arch=('x86_64')
-url="https://example.com/"
+url='https://github.com/PripyatAutomations/rustyrig-fw'
 license=('MIT')
-source=("rr-${pkgver}.tar.gz")
-md5sums=('SKIP') # or actual sum
+makedepends=('git' 'make' 'jq' 'pkgconf' 'perl' 'libbsd' 'ncurses' 'sqlite' 'curl' 'hamlib' 'libgpiod' 'glib2' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
+source=('git+https://github.com/PripyatAutomations/rustyrig-fw.git')
+sha256sums=('SKIP')
+
+prepare() {
+   cd "$srcdir/rustyrig-fw"
+   test "$(cat .version)" = "$pkgver" || warning "PKGBUILD pkgver differs from source .version"
+}
 
 build() {
-   cd "$srcdir/rr-$pkgver"
-   make
+   cd "$srcdir/rustyrig-fw"
+   make PROFILE=radio
+   cp -f bin/rrclient "$srcdir/rrclient-gtk"
+   make PROFILE=radio USE_GTK=false BUILD_DIR=build/radio-tui bin/rrclient
+   make -C callsign-lookup
 }
 
-package_rrclient() {
-   cd "$srcdir/rr-$pkgver"
-   install -Dm755 build/client/rrclient "$pkgdir/usr/bin/rrclient"
+_install_libs() {
+   cd "$srcdir/rustyrig-fw"
+   install -Dm755 librustyaxe.so "$pkgdir/usr/lib/librustyaxe.so.0"
+   install -Dm755 librrprotocol.so "$pkgdir/usr/lib/librrprotocol.so.0"
+   install -Dm755 libfwdspmgr.so "$pkgdir/usr/lib/libfwdspmgr.so.0"
+   ln -s librustyaxe.so.0 "$pkgdir/usr/lib/librustyaxe.so"
+   ln -s librrprotocol.so.0 "$pkgdir/usr/lib/librrprotocol.so"
+   ln -s libfwdspmgr.so.0 "$pkgdir/usr/lib/libfwdspmgr.so"
 }
 
-package_rrserver() {
-   cd "$srcdir/rr-$pkgver"
-   install -Dm755 build/radio/rrserver "$pkgdir/usr/bin/rrserver"
+package_rustyrig-libs() {
+   pkgdesc='RustyRig shared libraries'
+   depends=('glib2' 'sqlite' 'libbsd')
+   _install_libs
 }
 
-package_fwdsp() {
-   cd "$srcdir/rr-$pkgver"
-   install -Dm755 build/radio/fwdsp "$pkgdir/usr/bin/fwdsp"
+package_rustyrig-server() {
+   pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'sqlite' 'hamlib' 'libgpiod')
+   cd "$srcdir/rustyrig-fw"
+   install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
+   install -Dm644 packaging/rrserver.service "$pkgdir/usr/lib/systemd/system/rustyrig-server.service"
+   install -Dm755 packaging/rrserver.rc "$pkgdir/etc/init.d/rrserver"
+   install -Dm644 config/rrserver.cfg.example "$pkgdir/etc/rustyrig/rrserver.cfg.example"
+   install -Dm644 config/callsign-lookup.srv.cfg.example "$pkgdir/etc/rustyrig/callsign-lookup.srv.cfg.example"
+   install -Dm644 sql/sqlite.master.sql "$pkgdir/var/lib/rustyrig/sql/sqlite.master.sql"
+   install -Dm644 sql/sqlite.master.preload.sql "$pkgdir/var/lib/rustyrig/sql/sqlite.master.preload.sql"
+   install -Dm755 tools/dummy-rigctld.sh "$pkgdir/var/lib/rustyrig/tools/dummy-rigctld.sh"
+   install -d "$pkgdir/var/lib/rustyrig"/{db,recordings,modems,sql,tools,www} "$pkgdir/var/log/rustyrig"
+   find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/www/" \;
 }
+
+package_rustyrig-client() {
+   pkgdesc='RustyRig GTK client'; depends=('rustyrig-libs' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
+   cd "$srcdir/rustyrig-fw"
+   install -Dm755 "$srcdir/rrclient-gtk" "$pkgdir/usr/bin/rrclient"
+   install -Dm644 config/rrclient.cfg.example "$pkgdir/etc/rustyrig/rrclient.cfg.example"
+   install -Dm644 config/callsign-lookup.cli.cfg.example "$pkgdir/etc/rustyrig/callsign-lookup.cli.cfg.example"
+   install -d "$pkgdir/var/lib/rustyrig"/{db,help,recordings/client} "$pkgdir/var/log/rustyrig"
+   find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/help/" \;
+}
+
+package_rustyrig-client-tui() {
+   pkgdesc='RustyRig terminal client'; depends=('rustyrig-libs' 'ncurses')
+   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/rrclient "$pkgdir/usr/bin/rrclient-tui"
+}
+package_rustyrig-fwdsp() {
+   pkgdesc='RustyRig GStreamer audio DSP service'; depends=('rustyrig-libs' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
+   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/fwdsp "$pkgdir/usr/bin/fwdsp"
+}
+package_rustyrig-callsign-lookup() {
+   pkgdesc='RustyRig callsign lookup service'; depends=('rustyrig-libs' 'curl' 'sqlite')
+   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/callsign-lookup "$pkgdir/usr/bin/callsign-lookup"; install -Dm644 config/callsign-lookup.cfg.example "$pkgdir/etc/rustyrig/callsign-lookup.cfg.example"
+}
+
+post_install() { ldconfig; }
+post_upgrade() { ldconfig; }
+post_remove() { ldconfig; }

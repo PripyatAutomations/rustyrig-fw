@@ -352,7 +352,7 @@ bool fwdsp_init(void) {
       return true;
    }
 
-   const char *record_dir = cfg_get_exp("fwdsp:recording.path");
+   char *record_dir = cfg_get_path("fwdsp:recording.path");
    bool record_dir_owned = record_dir != NULL;
    if (!record_dir || !*record_dir) {
       free((char *)record_dir);
@@ -399,7 +399,7 @@ bool fwdsp_init(void) {
    fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
 
    // Find the fwdsp path
-   fwdsp_path = cfg_get_exp("fwdsp:path");
+   fwdsp_path = cfg_get_path("fwdsp:path");
    if (!fwdsp_path) {
       Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp binary");
       return true;
@@ -675,7 +675,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       return false;
    }
 
-   const char *fwdsp_path = cfg_get_exp("fwdsp:path");
+   char *fwdsp_path = cfg_get_path("fwdsp:path");
    const char *fwdsp_config = config_file;
    char pipeline_key[64];
    snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->pl_id,

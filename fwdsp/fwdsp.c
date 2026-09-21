@@ -1054,7 +1054,7 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
-   recording_dir = (char *)cfg_get_exp("fwdsp:recording.path");
+   recording_dir = cfg_get_path("fwdsp:recording.path");
    if (!recording_dir || !*recording_dir) {
       free(recording_dir);
       recording_dir = strdup("./recordings");
@@ -1087,7 +1087,7 @@ int main(int argc, char *argv[]) {
    Log(LOG_INFO, "record", "Recording format selected: %s%s", recording_codec,
       recording_encoded ? " (encoded stream copy)" : " (PCM encoder)");
    free((char *)cfg_recording_codec_exp);
-   const char *logfile = cfg_get_exp("fwdsp:log.file");
+   char *logfile = cfg_get_path("fwdsp:log.file");
    logger_init( (logfile ? logfile : "-"), false);
    log_stdout = false;
    if (logfp == stdout) {
@@ -1101,7 +1101,7 @@ int main(int argc, char *argv[]) {
    }
 
    if (logfile) {
-      free( (char *)logfile );     // _exp versions MUST be freed
+      free(logfile);
       logfile = NULL;
    }
 
@@ -1157,6 +1157,12 @@ int main(int argc, char *argv[]) {
    }
    // set up gstreamer
    gst_init(&argc, &argv);
+   /* GStreamer wraps this API in a pedantic-incompatible function-pointer
+    * comparison. Call the underlying function directly; our handler is never
+    * gst_debug_log_default, so the wrapper's special case is unnecessary. */
+#ifdef gst_debug_add_log_function
+#undef gst_debug_add_log_function
+#endif
    gst_debug_add_log_function(gst_log_handler, NULL, NULL);
 
    time_t last_run = 0;

@@ -51,12 +51,13 @@ bool cmd_qrz(int argc, char **args) {
       }
    }
 
-   const char *program = cfg_get("callsign-lookup:path");
+   char *program = cfg_get_path("callsign-lookup:path");
    const char *qrz_user = cfg_get("callsign-lookup:qrz-username");
    const char *qrz_pass = cfg_get("callsign-lookup:qrz-password");
    if (!qrz_user || !*qrz_user || !qrz_pass || !*qrz_pass) {
       if (!ws_conn) {
          ui_print(NULL, "Callsign lookup is not configured locally and the server is disconnected");
+         free(program);
          return true;
       }
       dict *request = dict_new();
@@ -66,10 +67,12 @@ bool cmd_qrz(int argc, char **args) {
       ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
       dict_free(request);
       ui_print(NULL, "Asking the server to look up %s", args[1]);
+      free(program);
       return false;
    }
    if (!program || !*program || !config_file || !*config_file) {
       ui_print(NULL, "Callsign lookup is not configured locally");
+      free(program);
       return true;
    }
 
@@ -79,6 +82,7 @@ bool cmd_qrz(int argc, char **args) {
    FILE *pipe = popen(command, "r");
    if (!pipe) {
       ui_print(NULL, "Unable to start callsign lookup");
+      free(program);
       return true;
    }
 
@@ -95,6 +99,7 @@ bool cmd_qrz(int argc, char **args) {
       }
    }
    int status = pclose(pipe);
+   free(program);
    if (status != 0) {
       ui_print(NULL, "Callsign lookup failed for %s", args[1]);
       return true;
@@ -115,10 +120,11 @@ bool cmd_grid(int argc, char **args) {
       }
    }
 
-   const char *program = cfg_get("callsign-lookup:path");
+   char *program = cfg_get_path("callsign-lookup:path");
    if (!program || !*program || !config_file || !*config_file) {
       if (!ws_conn) {
-         ui_print(NULL, "Callsign lookup is not configured locally and the server is disconnected");
+      ui_print(NULL, "Callsign lookup is not configured locally and the server is disconnected");
+         free(program);
          return true;
       }
       dict *request = dict_new();
@@ -128,6 +134,7 @@ bool cmd_grid(int argc, char **args) {
       ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
       dict_free(request);
       ui_print(NULL, "Asking the server for grid information for %s", args[1]);
+      free(program);
       return false;
    }
 
@@ -137,6 +144,7 @@ bool cmd_grid(int argc, char **args) {
    FILE *pipe = popen(command, "r");
    if (!pipe) {
       ui_print(NULL, "Unable to start callsign lookup");
+      free(program);
       return true;
    }
    char line[1024];
@@ -150,6 +158,7 @@ bool cmd_grid(int argc, char **args) {
       }
    }
    int status = pclose(pipe);
+   free(program);
    if (status != 0) {
       ui_print(NULL, "Grid lookup failed for %s", args[1]);
       return true;

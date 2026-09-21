@@ -105,7 +105,7 @@ const char *au_recording_start(int channel) {
    }
 
    if (!cfg_path_record_dir) {
-      cfg_path_record_dir = cfg_get_exp("path.record-dir");
+      cfg_path_record_dir = cfg_get_path("path.record-dir");
       cfg_recording_max = cfg_get_int("record.max", 16);
    }
 

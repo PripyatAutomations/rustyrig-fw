@@ -207,11 +207,11 @@ int main(int argc, char **argv) {
 
    printf("Loading config %s\n", config_file);
    // apply some global configuration
-   const char *logfile = cfg_get_exp("log.file");
+   char *logfile = cfg_get_path("log.file");
    logger_init( (logfile ? logfile : "-"), false );
 
    if (logfile) {
-      free( (char *)logfile );     // _exp versions MUST be freed
+      free(logfile);
       logfile = NULL;
    }
 
@@ -237,7 +237,7 @@ int main(int argc, char **argv) {
 #endif // USE_COREDUMPS_SERVER
 
 #ifdef	USE_SQLITE
-   const char *masterdb_path = cfg_get_exp("path.db.master");
+   char *masterdb_path = cfg_get_path("path.db.master");
    if (!masterdb_path) {
       masterdb_path = strdup(MASTERDB_PATH);
    }

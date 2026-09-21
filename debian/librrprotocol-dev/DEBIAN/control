@@ -1,10 +1,10 @@
 Package: librrprotocol-dev
 Source: rustyrig-fw
-Version: 20260920.04
+Version: 20260920.05
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Installed-Size: 62
-Depends: librrprotocol (= 20260920.04), librustyaxe-dev
+Depends: librrprotocol (= 20260920.05), librustyaxe-dev
 Section: hamradio
 Priority: optional
 Homepage: https://github.com/PripyatAutomations/rustyrig-fw

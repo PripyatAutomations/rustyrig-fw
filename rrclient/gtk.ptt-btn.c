@@ -49,6 +49,7 @@ bool ptt_button_pending_quiet = false;
 extern int cfg_ui_ptt_ack_timeout;          // main.c
 
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
+static gulong ptt_toggled_handler = 0;
 
 // Connection state for the button: grey while offline, colored once online.
 // Set via ptt_button_set_online() from events.c
@@ -202,9 +203,9 @@ void ptt_button_set_state(bool active) {
       ptt_button_apply();
       return;
    }
-   g_signal_handlers_block_by_func(ptt_button, on_ptt_toggled, NULL);
+   if (ptt_toggled_handler) g_signal_handler_block(ptt_button, ptt_toggled_handler);
    gtk_toggle_button_set_active(btn, active);
-   g_signal_handlers_unblock_by_func(ptt_button, on_ptt_toggled, NULL);
+   if (ptt_toggled_handler) g_signal_handler_unblock(ptt_button, ptt_toggled_handler);
    ptt_button_apply();
 }
 
@@ -244,9 +245,9 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       // Revert the toggle without re-entering this handler
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
-      g_signal_handlers_block_by_func(button, on_ptt_toggled, NULL);
+      if (ptt_toggled_handler) g_signal_handler_block(button, ptt_toggled_handler);
       gtk_toggle_button_set_active(button, FALSE);
-      g_signal_handlers_unblock_by_func(button, on_ptt_toggled, NULL);
+      if (ptt_toggled_handler) g_signal_handler_unblock(button, ptt_toggled_handler);
       ptt_button_apply();
       return;
    }
@@ -287,9 +288,9 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
          Log(LOG_WARN, "ui.gtk", "PTT refused: TX audio encoder is not ready");
          ui_print(NULL, "{yellow}*** TX audio is not ready; select a TX codec first{reset}");
          ptt_active = false;
-         g_signal_handlers_block_by_func(button, on_ptt_toggled, NULL);
+         if (ptt_toggled_handler) g_signal_handler_block(button, ptt_toggled_handler);
          gtk_toggle_button_set_active(button, FALSE);
-         g_signal_handlers_unblock_by_func(button, on_ptt_toggled, NULL);
+         if (ptt_toggled_handler) g_signal_handler_unblock(button, ptt_toggled_handler);
          ptt_button_apply();
          return;
       }
@@ -333,7 +334,7 @@ GtkWidget *ptt_button_create(void) {
       return NULL;
    }
    gtk_box_pack_start(GTK_BOX(ptt_box), ptt_button, FALSE, FALSE, 0);
-   g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
+   ptt_toggled_handler = g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
    // Start out dark grey until we're online with the server
    gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-offline");
 

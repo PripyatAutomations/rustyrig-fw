@@ -1,12 +1,12 @@
 Package: librustyaxe-dbgsym
 Source: rustyrig-fw
-Version: 20260920.04
+Version: 20260920.05
 Auto-Built-Package: debug-symbols
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Installed-Size: 329
-Depends: librustyaxe (= 20260920.04)
+Depends: librustyaxe (= 20260920.05)
 Section: debug
 Priority: optional
 Description: debug symbols for librustyaxe
-Build-Ids: a0201020a19c51828db36e1145bff28e14e9d37b
+Build-Ids: 5124050409bb4669d3031bb9c2c7370d63fec5fa

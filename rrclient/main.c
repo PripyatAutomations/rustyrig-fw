@@ -537,11 +537,11 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    }
 
    // apply some global configuration
-   const char *logfile = cfg_get_exp("log.file");
+   char *logfile = cfg_get_path("log.file");
    logger_init( (logfile ? logfile : "-"), (ui_mode == UI_MODE_TUI) );
 
    if (logfile) {
-      free( (char *)logfile );     // _exp versions MUST be freed
+      free(logfile);
       logfile = NULL;
    }
 

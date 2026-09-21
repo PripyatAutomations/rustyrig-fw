@@ -15,6 +15,7 @@ audit-logs/*/*
 # Built libraries
 *.o
 *.so
+*.so.0
 *.dll
 
 # Built binaries

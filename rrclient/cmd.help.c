@@ -108,14 +108,15 @@ static help_line_t help_msg_before[] = {
 };
 
 static help_line_t help_msg_after[] = {
+   { UI_MODE_NONE, "" },
    { UI_MODE_NONE, "\t{headers}*** {underline}Server rigctl commands{underline-off} ***" },
    { UI_MODE_NONE, "\t{bright-green}!help        {bright-yellow}Show the server side rigctl help" },
    { UI_MODE_NONE, "\t{bright-green}!freq <freq> {bright-yellow}Set frequency - 7200, 7.2m or 7200000 form" },
    { UI_MODE_NONE, "\t{bright-green}!mode <mode> {bright-yellow}Set mode to CW|AM|LSB|USB|FM|DL|DU" },
-   { UI_MODE_NONE, "\t{bright-green}!power <watts>{bright-yellow}Set power in watts (e.g. !power 25)" },
+   { UI_MODE_NONE, "\t{bright-green}!power <watts>{bright-yellow} Set power in watts (e.g. !power 25)" },
    { UI_MODE_NONE, "\t{bright-green}!width <w>   {bright-yellow}Set passband width (narrow|normal|wide)" },
    { UI_MODE_NONE, "\t{bright-green}!vfo <vfo>   {bright-yellow}Switch VFOs (A|B|C)" },
-   { UI_MODE_NONE, "\n" },
+   { UI_MODE_NONE, "" },
    { UI_MODE_NONE, "\t{headers}*** {underline}Keyboard Shortcuts{underline-off} ***" },
    { UI_MODE_GTK,  "\t{bright-green}alt-c         {bright-yellow}Focus chat input" },
    { UI_MODE_NONE, "\t{bright-green}alt-# (1-0)   {bright-yellow}Switch to window 1-10" },

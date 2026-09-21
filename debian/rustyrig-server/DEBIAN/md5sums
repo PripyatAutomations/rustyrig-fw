@@ -1,9 +1,9 @@
-c1bd90d34e8c6cfa66f9918b1dc519f2  usr/bin/rrserver
-255c6c685b5e0ff74a2acbaf9bad3366  usr/share/doc/rustyrig-server/changelog.gz
+6e0fbdfab4ab59ef551f33f7f2814dd7  usr/bin/rrserver
+6dbb86a7aa8ef46c7586227e26861ef2  usr/share/doc/rustyrig-server/changelog.gz
 941a6cc35822b9a977f2786ae654e8e4  usr/share/doc/rustyrig/config/callsign-lookup.cfg.example
 1c278f3e31ee242aff5e363923fb8833  usr/share/doc/rustyrig/config/callsign-lookup.cli.cfg.example
 b0035c4aa0a82ebbf8dafbc267d9397e  usr/share/doc/rustyrig/config/callsign-lookup.srv.cfg.example
-1b1c985a4a2c8e458a05c8d0440dd411  usr/share/doc/rustyrig/config/rrclient.cfg.example.gz
+7de5a51444bc799b6d914a765ea57488  usr/share/doc/rustyrig/config/rrclient.cfg.example.gz
 821046448e2e1e3c784b5630df58f3e7  usr/share/doc/rustyrig/config/rrserver.cfg.example.gz
 b1c912456218f019cb880912539bab61  usr/share/doc/rustyrig/doc/CONFIGURING.txt
 9dc83a0327b2a38e17ba165728335cf3  usr/share/doc/rustyrig/doc/DEBUG.txt
@@ -23,7 +23,7 @@ dd41ab60622debb7c8ada32b0adad03b  usr/share/doc/rustyrig/doc/OLD/Sensors.txt
 30760267e7098bb417d2cd1c9859d04d  usr/share/doc/rustyrig/doc/OLD/old-README.txt
 57ed73ff76f809e19a0276cf5cb568ca  usr/share/doc/rustyrig/doc/OLD/zmodem.txt.gz
 d97928ee2b923cd7d58a421a3566ce82  usr/share/doc/rustyrig/doc/PROTOCOL_WARNING
-13fd5cc77f91c2d8727db6940d174784  usr/share/doc/rustyrig/doc/QUICKSTART.txt
+e235197624d1362ad27a80b0b6abfb3a  usr/share/doc/rustyrig/doc/QUICKSTART.txt
 ecfbf065505d8ce5d6c0e315c40fae1f  usr/share/doc/rustyrig/doc/TODO
 315a72bed6caa43a18dd95f3a44d2d9b  usr/share/doc/rustyrig/doc/ai-context.md
 dacdb6ede6338fac3b4946e14a54dc55  usr/share/doc/rustyrig/doc/api-gen/README.md

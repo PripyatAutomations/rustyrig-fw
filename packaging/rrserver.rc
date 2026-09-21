@@ -1,0 +1,75 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          rrserver
+# Required-Start:    $remote_fs $network
+# Required-Stop:     $remote_fs $network
+# Should-Start:      $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: RustyRig radio server
+# Description:       Backend server for remote radio operation.
+### END INIT INFO
+
+set -e
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+NAME=rrserver
+DAEMON=/usr/bin/rrserver
+CONFIG=/etc/rustyrig/rrserver.cfg
+PIDFILE=/run/rustyrig/rrserver.pid
+RUNDIR=/run/rustyrig
+USER=rustyrig
+GROUP=rustyrig
+
+if [ -r /lib/lsb/init-functions ]; then
+   . /lib/lsb/init-functions
+else
+   log_daemon_msg() { echo "$1 $2"; }
+   log_end_msg() { [ "$1" -eq 0 ] && echo "done" || echo "failed"; }
+fi
+
+do_start() {
+   if [ ! -x "$DAEMON" ]; then
+      log_daemon_msg "Starting $NAME" "missing $DAEMON"
+      log_end_msg 1
+      return 1
+   fi
+   if [ ! -r "$CONFIG" ]; then
+      log_daemon_msg "Starting $NAME" "missing $CONFIG"
+      log_end_msg 1
+      return 1
+   fi
+   install -d -o "$USER" -g "$GROUP" -m 0770 "$RUNDIR"
+   log_daemon_msg "Starting $NAME"
+   start-stop-daemon --start --quiet --background --make-pidfile \
+      --pidfile "$PIDFILE" --chuid "$USER:$GROUP" \
+      --chdir /var/lib/rustyrig --exec "$DAEMON" -- \
+      -f "$CONFIG"
+   log_end_msg $?
+}
+
+do_stop() {
+   log_daemon_msg "Stopping $NAME"
+   start-stop-daemon --stop --quiet --retry=TERM/15/KILL/5 \
+      --pidfile "$PIDFILE" --exec "$DAEMON"
+   result=$?
+   rm -f "$PIDFILE"
+   log_end_msg $result
+   return $result
+}
+
+case "$1" in
+   start) do_start ;;
+   stop) do_stop ;;
+   restart|force-reload)
+      do_stop || true
+      do_start
+      ;;
+   status)
+      status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME" || exit $?
+      ;;
+   *)
+      echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+      exit 2
+      ;;
+esac

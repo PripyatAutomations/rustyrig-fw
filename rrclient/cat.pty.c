@@ -215,11 +215,14 @@ bool cat_pty_init(void) {
       return true;
    }
 
-   const char *path = cfg_get_exp("cat.pty.path");
-
-   if (!path || !path[0]) {
-      path = "./dev/ttyCAT0";
+   char *path_expanded = cfg_get_path("cat.pty.path");
+   char path[PATH_MAX];
+   if (!path_expanded || !path_expanded[0]) {
+      snprintf(path, sizeof(path), "%s", "./dev/ttyCAT0");
+   } else {
+      snprintf(path, sizeof(path), "%s", path_expanded);
    }
+   free(path_expanded);
 
    // Create ./dev (or whatever parent dir the path names) if needed
    char dir[256];

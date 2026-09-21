@@ -67,8 +67,8 @@ static bool db_run_sql_file(sqlite3 *db, const char *path, const char *descripti
 }
 
 static bool db_initialize_new(sqlite3 *db) {
-   const char *template_path = cfg_get_exp("path.db.master.template");
-   const char *preload_path = cfg_get_exp("path.db.master.preload");
+   char *template_path = cfg_get_path("path.db.master.template");
+   char *preload_path = cfg_get_path("path.db.master.preload");
    bool ok = template_path && db_run_sql_file(db, template_path, "template");
    if (!template_path) {
       Log(LOG_CRIT, "db", "No path.db.master.template configured for a new database");

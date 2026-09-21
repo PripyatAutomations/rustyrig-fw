@@ -37,6 +37,9 @@ BUILD
      Build it:
      ./build.sh
 
+	* or if using debian or it's offspring *
+     make debs
+
 Server setup below
 -------------------------------------
 This code is a bit of a mess. Right now I'm focused on getting it functional
@@ -57,18 +60,24 @@ Long story short, on a debian-based system do the following to try it:
    Start up rigctld connected to your rig (example is dummy):
 	rigctld -o -v -v -m 1 &
 
-   Run it with ./bin/rrserver
+   Set backend.active=hamlib in rrserver.cfg (/etc/rustyrig or ./config)
+
+   Run it with ./bin/rrserver or 'rrserver' if installed
 
    Open a browser and connect to the http (port 8420) or https (port 4420):
 	firefox	https://localhost:4420/
 
-You should probably use https otherwise crypto.subtle isn't available so we cant use sha1!
+You should probably use https otherwise crypto.subtle isn't available so we cant use sha1
+for authentication except on localhost!
+
 
 
 Client setup
 ------------
-Edit config/rrclient.cfg
-Run ./rrclient for gtk or ./rrclient -T (or unset $DISPLAY) for TUI.
+Native client rrclient has gtk and TUI (-T) modes- check it out!
+
+Edit config/rrclient.cfg (or /etc/rustyrig/rrclient.cfg)
+Run rrclient for gtk or rrclient -T (or unset $DISPLAY) for TUI.
 
 - We're migrating the client to use libsoup3 for it's http/websocket. This
   will make it work better on posix hosts and client is unlikely to get run

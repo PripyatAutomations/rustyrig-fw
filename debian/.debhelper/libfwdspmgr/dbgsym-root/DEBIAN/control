@@ -1,12 +1,12 @@
 Package: libfwdspmgr-dbgsym
 Source: rustyrig-fw
-Version: 20260920.04
+Version: 20260920.05
 Auto-Built-Package: debug-symbols
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Installed-Size: 41
-Depends: libfwdspmgr (= 20260920.04)
+Depends: libfwdspmgr (= 20260920.05)
 Section: debug
 Priority: optional
 Description: debug symbols for libfwdspmgr
-Build-Ids: a62ccb0ce0d48260ff0165154dc8a072a8418e27
+Build-Ids: cef1d5c298ca26ac228cc716ce220c0817ca6266

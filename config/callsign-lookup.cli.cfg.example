@@ -6,12 +6,11 @@ use-cache=true
 qrz-api-url=https://xmldata.qrz.com/xml/1.34/
 qrz-username=YOUR_CALLSIGN
 qrz-password=YOUR_QRZ_PASSWORD_OR_API_KEY
-cache-db=/var/lib/rustyrig/db/rrclient-callsigns.db
+cache-db=~/.config/rustyrig/callsigns.db
 cache-expiry=3d
 cache-keep-stale-if-offline=true
 path=/usr/bin/callsign-lookup
 
-; Optional station location used for distance/bearing calculations.
-; [site]
-; coordinates=40.7128,-74.0060
-; gridsquare=FN30as
+[site]
+coordinates=40.7128,-74.0060
+gridsquare=FN30as

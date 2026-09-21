@@ -435,11 +435,11 @@ GtkWidget *init_config_tab(void) {
    gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
 
    GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
-   g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), config_file);
+   g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), (gpointer)config_file);
    gtk_box_pack_start(GTK_BOX(nw), btn_cfgedit, FALSE, FALSE, 0);
 
    GtkWidget *btn_reloadcfg = gtk_button_new_with_label("Reload Config");
-   g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), config_file);
+   g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer)config_file);
    gtk_box_pack_start(GTK_BOX(nw), btn_reloadcfg, FALSE, FALSE, 0);
 
    GtkWidget *btn_fullscreen = gtk_button_new_with_label("Toggle Fullscreen");
