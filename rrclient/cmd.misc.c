@@ -44,7 +44,7 @@ void rrclient_print_callsign_line(const char *line);
  * input is user supplied, so constructing a command string for popen() would
  * turn an otherwise harmless lookup into command injection. */
 static bool run_local_lookup(const char *program, const char *config,
-   const char *query, bool grid) {
+   const char *query, bool grid, bool no_cache) {
    if (!program || !*program || !config || !*config || !query || !*query) {
       return false;
    }
@@ -80,9 +80,11 @@ static bool run_local_lookup(const char *program, const char *config,
          }
       } else {
          if (has_dir) {
-            execl(program, program, "-q", "-f", config, query, (char *)NULL);
+            if (no_cache) execl(program, program, "-q", "-f", config, "-n", query, (char *)NULL);
+            else execl(program, program, "-q", "-f", config, query, (char *)NULL);
          } else {
-            execlp(program, program, "-q", "-f", config, query, (char *)NULL);
+            if (no_cache) execlp(program, program, "-q", "-f", config, "-n", query, (char *)NULL);
+            else execlp(program, program, "-q", "-f", config, query, (char *)NULL);
          }
       }
       dprintf(STDERR_FILENO, "callsign lookup exec failed for %s: %s\n",
@@ -120,8 +122,9 @@ static bool run_local_lookup(const char *program, const char *config,
 }
 
 bool cmd_qrz(int argc, char **args) {
-   if (argc != 2 || !args[1] || !args[1][0]) {
-      ui_print(NULL, "Usage: /qrz CALLSIGN");
+   bool no_cache = argc == 3 && args[2] && strcasecmp(args[2], "nocache") == 0;
+   if ((argc != 2 && !no_cache) || (argc == 3 && !no_cache) || !args[1] || !args[1][0]) {
+      ui_print(NULL, "Usage: /qrz CALLSIGN [NOCACHE]");
       return true;
    }
 
@@ -144,7 +147,9 @@ bool cmd_qrz(int argc, char **args) {
       dict *request = dict_new();
       dict_add(request, "msg.type", "talk");
       dict_add(request, "talk.cmd", "qrz");
-      dict_add(request, "talk.data", args[1]);
+      char request_data[256];
+      snprintf(request_data, sizeof(request_data), "%s%s", args[1], no_cache ? " NOCACHE" : "");
+      dict_add(request, "talk.data", request_data);
       ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
       dict_free(request);
       ui_print(NULL, "Asking the server to look up %s", args[1]);
@@ -157,7 +162,7 @@ bool cmd_qrz(int argc, char **args) {
       return true;
    }
 
-   bool lookup_ok = run_local_lookup(program, config_file, args[1], false);
+   bool lookup_ok = run_local_lookup(program, config_file, args[1], false, no_cache);
    free(program);
    if (!lookup_ok) {
       ui_print(NULL, "Callsign lookup failed for %s", args[1]);
@@ -197,7 +202,7 @@ bool cmd_grid(int argc, char **args) {
       return false;
    }
 
-   bool lookup_ok = run_local_lookup(program, config_file, args[1], true);
+   bool lookup_ok = run_local_lookup(program, config_file, args[1], true, false);
    free(program);
    if (!lookup_ok) {
       ui_print(NULL, "Grid lookup failed for %s", args[1]);
@@ -222,7 +227,7 @@ void rrclient_print_callsign_line(const char *line) {
    const char *colon = strchr(line, ':');
    if (colon && colon != line) {
       int label_len = (int)(colon - line);
-      ui_print(NULL, "{bright-cyan}%.*s:{reset}%s", label_len, line, colon + 1);
+      ui_print(NULL, "  {bright-cyan}%.*s:{reset}%s", label_len, line, colon + 1);
       return;
    }
 

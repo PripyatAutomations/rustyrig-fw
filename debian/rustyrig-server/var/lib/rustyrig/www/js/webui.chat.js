@@ -12,6 +12,54 @@ function msg_create_links(message) {
    );
 }
 
+// Callsign responses contain data returned by an external lookup service.
+// Escape it before inserting it into the chat DOM.
+function webui_escape_html(value) {
+   return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+}
+
+/* PARITY: rustyrig-fw/rrclient/events.c:rrclient_handle_callsign */
+function webui_parse_callsign_msg(msgObj) {
+   const response = msgObj && msgObj.callsign;
+   if (!response) {
+      return;
+   }
+
+   const fields = response.fields && typeof response.fields === 'object' ? response.fields : null;
+   if (!fields) {
+      return;
+   }
+
+   const ts = msg_timestamp(msgObj.msg && msgObj.msg.ts);
+   const rendered = [`<div class="chat-status notice">${ts}&nbsp;<b>CALLSIGN</b></div>`];
+   if (fields) {
+      if (response.status) {
+         rendered.push(`<div class="chat-status">${ts}&nbsp;&nbsp;${webui_escape_html(response.status)}</div>`);
+      }
+      const preferred = [
+         'callsign', 'name', 'email', 'address1', 'address2',
+         'county', 'state', 'zip', 'country', 'wgs-84', 'heading',
+         'license-effective', 'cached', 'cache-fetched', 'cache-expiry'
+      ];
+      const keys = Object.keys(fields).sort((a, b) => {
+         const ai = preferred.indexOf(a.replace(/_/g, '-'));
+         const bi = preferred.indexOf(b.replace(/_/g, '-'));
+         if (ai >= 0 || bi >= 0) return (ai < 0 ? preferred.length : ai) - (bi < 0 ? preferred.length : bi);
+         return a.localeCompare(b);
+      });
+      keys.forEach(key => {
+         const label = key.replace(/_/g, '-');
+         rendered.push(`<div class="chat-status">${ts}&nbsp;&nbsp;<span class="chat-msg-prefix">${webui_escape_html(label)}:</span>${webui_escape_html(fields[key])}</div>`);
+      });
+   }
+   ChatBox.Append(rendered.join(''));
+}
+
 // Server sends booleans sometimes as real JSON bools (dict_add_bool) and
 // sometimes as "true"/"false" strings (dict_add); handle both
 function parse_bool_field(val) {
@@ -318,8 +366,12 @@ function chat_send_command(cmd, args) {
       if (typeof args.target !== 'undefined') {
          msgObj.talk.target = args.target;
       }
+      if (typeof args.data !== 'undefined') {
+         msgObj.talk.data = args.data;
+      }
       var rest = { ...args };
       delete rest.target;
+      delete rest.data;
       if (Object.keys(rest).length > 0) {
          msgObj.talk.args = rest;
       }
@@ -408,6 +460,17 @@ function parse_chat_cmd(e) {
                }
                break;
             }
+            case 'qrz':
+            case 'grid': {
+               const lookup = args.slice(1).join(' ').trim();
+               if (!lookup) {
+                  ChatBox.Append('<div><span class="error">Usage: /' + command.toLowerCase() +
+                     (command.toLowerCase() === 'grid' ? ' GRID|LAT,LON' : ' CALLSIGN') + '</span></div>');
+               } else {
+                  args_obj = { data: lookup };
+               }
+               break;
+            }
             case 'rxmute':
                unmute_vol = $('#rig-rx-vol').val();
                rxGainNode.gain.value = 0;
@@ -473,6 +536,8 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/qrz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Look up a callsign: &lt;callsign&gt; [NOCACHE]</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/grid&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Look up a grid square or coordinates: &lt;grid|lat,lon&gt;</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');

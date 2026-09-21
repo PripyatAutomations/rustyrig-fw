@@ -206,6 +206,9 @@ function webui_handle_ws_msg(event) {
             webui_parse_cat_msg(msgObj);
          } else if (msgObj["ptt.tot-expired"]) {   // Server talk-timeout fired
             ptt_tot_expired(msgObj);
+         } else if (msgObj.callsign) {
+            /* PARITY: rustyrig-fw/rrclient/events.c:rrclient_handle_callsign */
+            webui_parse_callsign_msg(msgObj);
          } else if (msgObj.notice) {   // notices from ws_send_notice()
             var notice_ts = msg_timestamp(msgObj.msg.ts);
             ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${msgObj.notice.msg}</div>`);

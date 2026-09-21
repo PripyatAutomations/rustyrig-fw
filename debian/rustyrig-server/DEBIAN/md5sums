@@ -1,7 +1,7 @@
-9ac989a76c2854d4bae6fe12407a7613  usr/bin/rrserver
+0be82678eecd138f920917211c71bf3d  usr/bin/rrserver
 bd895d12cca3a59ec6f2117e822a6adf  usr/lib/systemd/system/rustyrig-server.service
 972b2c79745161a72a3d580ceff070f3  usr/lib/tmpfiles.d/rustyrig.conf
-d6dca695e320d5dd896b8bd77d889a7d  usr/share/doc/rustyrig-server/changelog.gz
+cca7f79c9a84e9926ec63cc56823e458  usr/share/doc/rustyrig-server/changelog.gz
 941a6cc35822b9a977f2786ae654e8e4  usr/share/doc/rustyrig/config/callsign-lookup.cfg.example
 afb2ec39141d355c2db9cfdca4c9ea21  usr/share/doc/rustyrig/config/callsign-lookup.cli.cfg.example
 b0035c4aa0a82ebbf8dafbc267d9397e  usr/share/doc/rustyrig/config/callsign-lookup.srv.cfg.example
@@ -194,13 +194,13 @@ b616571b706159f4c6f41dfbee076208  var/lib/rustyrig/www/js/usbDfuDevice.js
 cc240137e060db5995b7886599f7803e  var/lib/rustyrig/www/js/webui.auth.js
 92e305fb3b71c1089a81f6fe3468a9c6  var/lib/rustyrig/www/js/webui.binframe.js
 6b4c79f19806f5b0709d013c6a5ee761  var/lib/rustyrig/www/js/webui.chat.completion.js
-8ff98272017fbaca12ec5fdaee39e351  var/lib/rustyrig/www/js/webui.chat.js
+c1fb11c31acac9141faefd53df2d4e1b  var/lib/rustyrig/www/js/webui.chat.js
 4fb2e2e429a53b2a18b227e5d2e35ec8  var/lib/rustyrig/www/js/webui.debug.js
 4b66bd2a847d042e2d6baf472af573a2  var/lib/rustyrig/www/js/webui.emoji.js
 ec3990962475cb1ececc9781b5325fd7  var/lib/rustyrig/www/js/webui.filexfer.js
 093b7ae357af21872ae025d3e7a18168  var/lib/rustyrig/www/js/webui.frequency.js
 42b50c2d41f18144bd8ed6facd2a440e  var/lib/rustyrig/www/js/webui.input.js
-875aae3a101e95e6bba66b2dd3c60190  var/lib/rustyrig/www/js/webui.js
+b9991e4b52d9e931879a1aa5df124303  var/lib/rustyrig/www/js/webui.js
 5c39bb57e67e09d67703852b37ed1656  var/lib/rustyrig/www/js/webui.latencycalc.js
 b8a4ce8716fbfb74b5f2fd8b5c21f49d  var/lib/rustyrig/www/js/webui.media.js
 5f861990cf3550b20267a21080f1c186  var/lib/rustyrig/www/js/webui.notifications.js

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
@@ -589,6 +590,71 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
 
 // Server notices (msg.type notice, e.g. !help output, kick/logout notices).
 // Registered so they display instead of falling through to NOMATCH.
+static bool callsign_notice_active = false;
+
+static int callsign_field_rank(const char *key) {
+   static const char *order[] = {
+      "callsign", "name", "email", "address1", "address2",
+      "county", "state", "zip", "country", "wgs_84", "heading",
+      "license_effective", "cached", "cache_fetched", "cache_expiry", NULL
+   };
+   for (int i = 0; order[i]; i++) {
+      if (strcmp(key, order[i]) == 0) return i;
+   }
+   return 1000;
+}
+
+typedef struct {
+   const char *key;
+   char *value;
+} callsign_field_t;
+
+static int callsign_field_cmp(const void *a, const void *b) {
+   const callsign_field_t *fa = a;
+   const callsign_field_t *fb = b;
+   int ra = callsign_field_rank(fa->key);
+   int rb = callsign_field_rank(fb->key);
+   if (ra != rb) return ra - rb;
+   return strcmp(fa->key, fb->key);
+}
+
+static void rrclient_handle_callsign(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   bool done = dict_get_bool(d, "callsign.done", false);
+   const char *status = dict_get(d, "callsign.status", NULL);
+   if (status || dict_get_bool(d, "callsign.done", false)) {
+      if (!callsign_notice_active) {
+         callsign_notice_active = true;
+         ui_print(NULL, "%s {bright-yellow}CALLSIGN{reset}:", get_chat_ts(dict_get_time_t(d, "msg.ts", now)));
+      }
+   }
+   if (status) {
+      rrclient_print_callsign_line(status);
+   }
+   callsign_field_t fields[64];
+   size_t field_count = 0;
+   const char *key = NULL;
+   char *value = NULL;
+   int rank = 0;
+   while ((rank = dict_enumerate(d, rank, &key, &value)) >= 0) {
+      if (key && value && strncmp(key, "callsign.fields.", 16) == 0 && field_count < 64) {
+         fields[field_count].key = key + 16;
+         fields[field_count].value = value;
+         field_count++;
+      }
+   }
+   qsort(fields, field_count, sizeof(fields[0]), callsign_field_cmp);
+   for (size_t i = 0; i < field_count; i++) {
+         char line[1152];
+         snprintf(line, sizeof(line), "%s: %s", fields[i].key, fields[i].value);
+         rrclient_print_callsign_line(line);
+   }
+   if (done) callsign_notice_active = false;
+   dict_free(d);
+}
+
 static void rrclient_handle_notice(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -613,10 +679,15 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
          strncmp(msg, "State:", 6) == 0 || strncmp(msg, "Zip:", 4) == 0 ||
          strncmp(msg, "County:", 7) == 0 || strncmp(msg, "License Effective:", 18) == 0 ||
          strncmp(msg, "License Expires:", 16) == 0 || strncmp(msg, "Country:", 8) == 0;
-      if (strncmp(msg, "200 OK ", 7) == 0 || callsign_field) {
+      if (strncmp(msg, "200 OK ", 7) == 0) {
+         callsign_notice_active = true;
          ui_print(NULL, "%s {bright-yellow}NOTICE{reset}:", get_chat_ts(msg_ts));
          rrclient_print_callsign_line(msg);
+      } else if (callsign_field && callsign_notice_active) {
+         rrclient_print_callsign_line(msg);
+         if (strncmp(msg, "Country:", 8) == 0) callsign_notice_active = false;
       } else {
+         callsign_notice_active = false;
          ui_print(NULL, "%s {bright-yellow}NOTICE{reset}: %s", get_chat_ts(msg_ts), msg);
       }
    }
@@ -846,6 +917,7 @@ void rrclient_register_events(void) {
    event_on("logging-in", rrclient_handle_logging_in, NULL);
    event_on("media.capab", rrclient_handle_media_capab, NULL);
    event_on("client.media.changed", rrclient_handle_media_changed, NULL);
+   event_on("callsign.line", rrclient_handle_callsign, NULL);
    event_on("privmsg", rrclient_handle_talk_msg, NULL);
    event_on("part", rrclient_handle_part, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
@@ -857,7 +929,10 @@ void rrclient_register_events(void) {
    event_on("ws.msg.cat.state", rrclient_handle_cat, NULL);
    event_on("ws.msg.hello", rrclient_handle_hello, NULL);
    event_on("ws.msg.media", rrclient_handle_media, NULL);
-   event_on("ws.msg.notice", rrclient_handle_notice, NULL);
+   /* librrprotocol validates notice frames and emits the semantic
+    * notice.msg event. Consume that event so protocol routing stays separate
+    * from the client presentation layer. */
+   event_on("notice.msg", rrclient_handle_notice, NULL);
    event_on("ws.msg.ping", rrclient_handle_ping, NULL);
    event_on("ws.msg.ptt.tot-expired", rrclient_handle_ptt_tot, NULL);
    event_on("ws.msg.talk", rrclient_handle_talk, NULL);

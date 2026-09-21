@@ -41,6 +41,9 @@ static rr_vfo_data_t last_vfo_state[MAX_VFOS];
 void timer_clock_tick_fn(void *arg) {
    now = time(NULL);
 
+   // Drain persistent callsign helper startup output without blocking media.
+   ws_callsign_lookup_poll();
+
    rrserver_media_recording_tick();
 
    // Check thermals
