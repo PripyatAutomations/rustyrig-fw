@@ -1,20 +1,20 @@
-libfwdspmgr-dbgsym_20260921.02_amd64.deb debug optional automatic=yes
-libfwdspmgr-dev_20260921.02_amd64.deb hamradio optional
-libfwdspmgr_20260921.02_amd64.deb hamradio optional
-librrprotocol-dbgsym_20260921.02_amd64.deb debug optional automatic=yes
-librrprotocol-dev_20260921.02_amd64.deb hamradio optional
-librrprotocol_20260921.02_amd64.deb hamradio optional
-librustyaxe-dbgsym_20260921.02_amd64.deb debug optional automatic=yes
-librustyaxe-dev_20260921.02_amd64.deb hamradio optional
-librustyaxe_20260921.02_amd64.deb hamradio optional
-rustyrig-callsign-lookup-dbgsym_20260921.02_amd64.deb debug optional automatic=yes
-rustyrig-callsign-lookup_20260921.02_amd64.deb hamradio optional
-rustyrig-client-dbgsym_20260921.02_amd64.deb debug optional automatic=yes
-rustyrig-client-tui-dbgsym_20260921.02_amd64.deb debug optional automatic=yes
-rustyrig-client-tui_20260921.02_amd64.deb hamradio optional
-rustyrig-client_20260921.02_amd64.deb hamradio optional
-rustyrig-fw_20260921.02_amd64.buildinfo hamradio optional
-rustyrig-fwdsp-dbgsym_20260921.02_amd64.deb debug optional automatic=yes
-rustyrig-fwdsp_20260921.02_amd64.deb hamradio optional
-rustyrig-server-dbgsym_20260921.02_amd64.deb debug optional automatic=yes
-rustyrig-server_20260921.02_amd64.deb hamradio optional
+libfwdspmgr-dbgsym_20260921.03_amd64.deb debug optional automatic=yes
+libfwdspmgr-dev_20260921.03_amd64.deb hamradio optional
+libfwdspmgr_20260921.03_amd64.deb hamradio optional
+librrprotocol-dbgsym_20260921.03_amd64.deb debug optional automatic=yes
+librrprotocol-dev_20260921.03_amd64.deb hamradio optional
+librrprotocol_20260921.03_amd64.deb hamradio optional
+librustyaxe-dbgsym_20260921.03_amd64.deb debug optional automatic=yes
+librustyaxe-dev_20260921.03_amd64.deb hamradio optional
+librustyaxe_20260921.03_amd64.deb hamradio optional
+rustyrig-callsign-lookup-dbgsym_20260921.03_amd64.deb debug optional automatic=yes
+rustyrig-callsign-lookup_20260921.03_amd64.deb hamradio optional
+rustyrig-client-dbgsym_20260921.03_amd64.deb debug optional automatic=yes
+rustyrig-client-tui-dbgsym_20260921.03_amd64.deb debug optional automatic=yes
+rustyrig-client-tui_20260921.03_amd64.deb hamradio optional
+rustyrig-client_20260921.03_amd64.deb hamradio optional
+rustyrig-fw_20260921.03_amd64.buildinfo hamradio optional
+rustyrig-fwdsp-dbgsym_20260921.03_amd64.deb debug optional automatic=yes
+rustyrig-fwdsp_20260921.03_amd64.deb hamradio optional
+rustyrig-server-dbgsym_20260921.03_amd64.deb debug optional automatic=yes
+rustyrig-server_20260921.03_amd64.deb hamradio optional

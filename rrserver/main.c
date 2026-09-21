@@ -333,6 +333,12 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "fwdsp", "fwdsp manager failed to initialize; audio will be unavailable");
    }
 
+   // Warm the persistent callsign helper while the radio is coming online so
+   // the first /qrz or /grid request does not block on process startup.
+   if (!ws_callsign_lookup_init()) {
+      Log(LOG_WARN, "callsign", "Callsign lookup helper was not ready at radio initialization; lookups will retry on demand");
+   }
+
    // Network connectivity
    show_network_info();
 #ifdef	USE_EEPROM

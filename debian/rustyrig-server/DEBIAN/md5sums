@@ -1,7 +1,7 @@
-6bd2c09c2edc3e04337fd2157d018cd9  usr/bin/rrserver
+9ac989a76c2854d4bae6fe12407a7613  usr/bin/rrserver
 bd895d12cca3a59ec6f2117e822a6adf  usr/lib/systemd/system/rustyrig-server.service
 972b2c79745161a72a3d580ceff070f3  usr/lib/tmpfiles.d/rustyrig.conf
-1800635ae59ba92ef63fa22be80e73c2  usr/share/doc/rustyrig-server/changelog.gz
+d6dca695e320d5dd896b8bd77d889a7d  usr/share/doc/rustyrig-server/changelog.gz
 941a6cc35822b9a977f2786ae654e8e4  usr/share/doc/rustyrig/config/callsign-lookup.cfg.example
 afb2ec39141d355c2db9cfdca4c9ea21  usr/share/doc/rustyrig/config/callsign-lookup.cli.cfg.example
 b0035c4aa0a82ebbf8dafbc267d9397e  usr/share/doc/rustyrig/config/callsign-lookup.srv.cfg.example

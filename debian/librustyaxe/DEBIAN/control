@@ -1,6 +1,6 @@
 Package: librustyaxe
 Source: rustyrig-fw
-Version: 20260921.02
+Version: 20260921.03
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Installed-Size: 329
