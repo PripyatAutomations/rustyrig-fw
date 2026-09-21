@@ -334,6 +334,10 @@ GtkWidget *ptt_button_create(void) {
       return NULL;
    }
    gtk_box_pack_start(GTK_BOX(ptt_box), ptt_button, FALSE, FALSE, 0);
+   // The main window can be rebuilt during a reconnect or shutdown.  Let
+   // GTK clear this borrowed pointer when the widget is finalized so event
+   // callbacks cannot update a stale button.
+   g_object_add_weak_pointer(G_OBJECT(ptt_button), (gpointer *)&ptt_button);
    ptt_toggled_handler = g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
    // Start out dark grey until we're online with the server
    gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-offline");

@@ -46,6 +46,7 @@ package_rustyrig-server() {
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
    install -Dm644 packaging/rrserver.service "$pkgdir/usr/lib/systemd/system/rustyrig-server.service"
+   install -Dm644 packaging/rustyrig.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/rustyrig.conf"
    install -Dm755 packaging/rrserver.rc "$pkgdir/etc/init.d/rrserver"
    install -Dm644 config/rrserver.cfg.example "$pkgdir/etc/rustyrig/rrserver.cfg.example"
    install -Dm644 config/callsign-lookup.srv.cfg.example "$pkgdir/etc/rustyrig/callsign-lookup.srv.cfg.example"

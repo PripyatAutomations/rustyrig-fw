@@ -48,6 +48,8 @@ typedef struct ws_conn ws_conn_t;
 
 ///////////////////////////////////////////////////////////
 
+// Send helpers return true when the message was accepted for transmission.
+// Protocol handlers below return true on successful handling and false on invalid input/error.
 extern bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int data_type);
 extern void ws_broadcast_dict(rrconn_t *sender, dict *d, int data_type);
 extern void ws_broadcast_dict_with_flags(u_int32_t flags, rrconn_t *sender, dict *d, int data_type);

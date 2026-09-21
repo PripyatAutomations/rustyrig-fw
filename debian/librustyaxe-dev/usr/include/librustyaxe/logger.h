@@ -52,7 +52,6 @@ struct log_event_data {
 extern FILE *logfp;
 extern int log_level;
 extern void Log(logpriority_t priority, const char *subsys, const char *fmt, ...);
-extern void logger_setup(void);
 void logger_init(const char *logfile, bool tui_mode);
 extern void hash_to_hex(char *dest, const uint8_t *hash, size_t len);
 extern char latest_timestamp[64];

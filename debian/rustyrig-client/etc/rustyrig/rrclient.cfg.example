@@ -56,6 +56,9 @@ ui.userlist=200,241@1046,303raised|modal|no-hide
 
 # Length of time to block CAT updates (in seconds) after a local state change
 cat.poll-blocking=1
+; CAT PTY symlink for hamlib/rigctl. Tilde expands to the user's home directory.
+cat.pty.enable=true
+cat.pty.path=~/ttyCAT0
 
 #############
 # TUI Theme #

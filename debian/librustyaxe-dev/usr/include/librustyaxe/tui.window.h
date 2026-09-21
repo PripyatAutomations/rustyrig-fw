@@ -37,7 +37,5 @@ extern int handle_alt_right(int c, int key);
 extern void tui_window_update_topline(const char *line);
 extern bool tui_clear_scrollback(tui_window_t *w);
 
-// XXX: remove this!
-extern int ws_connected;
 
 #endif // !defined(__librustyaxe_tui_window_h)

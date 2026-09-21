@@ -5,8 +5,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// We create a pseudo-terminal and expose its slave as ./dev/ttyCAT0 (config:
-// cat.pty.path).  External software such as hamlib/rigctl/WSJT-X opens the
+// We create a pseudo-terminal and expose its slave at cat.pty.path (default:
+// ~/ttyCAT0).  External software such as hamlib/rigctl/WSJT-X opens the
 // slave as if it were a serial port; everything written there is fed line by
 // line through the CAT parsers in cat.c / cat.yaesu.c / cat.kpa500.c.
 //
@@ -43,7 +43,7 @@ static int pty_master = -1;              // master side fd
 static GIOChannel *pty_chan = NULL;      // glib wrapper around master
 static guint pty_watch_id = 0;           // glib watch source id
 static char pty_slave[128] = { 0 };      // ptsname() result
-static char pty_link[256] = { 0 };       // ./dev/ttyCAT0 path
+static char pty_link[PATH_MAX] = { 0 };  // configured CAT symlink path
 static char pty_buf[512] = { 0 };        // partial line accumulator
 static size_t pty_buf_len = 0;
 
@@ -215,17 +215,22 @@ bool cat_pty_init(void) {
       return true;
    }
 
-   char *path_expanded = cfg_get_path("cat.pty.path");
+   // cfg_get_path() only expands user-supplied values.  Use cfg_get() here so
+   // the built-in ~/ttyCAT0 default is expanded as well.
+   const char *configured_path = cfg_get("cat.pty.path");
+   char *path_expanded = configured_path ? expand_path(configured_path) : NULL;
    char path[PATH_MAX];
    if (!path_expanded || !path_expanded[0]) {
-      snprintf(path, sizeof(path), "%s", "./dev/ttyCAT0");
+      char *fallback = expand_path("~/ttyCAT0");
+      snprintf(path, sizeof(path), "%s", fallback ? fallback : "./ttyCAT0");
+      free(fallback);
    } else {
       snprintf(path, sizeof(path), "%s", path_expanded);
    }
    free(path_expanded);
 
    // Create ./dev (or whatever parent dir the path names) if needed
-   char dir[256];
+   char dir[PATH_MAX];
    snprintf(dir, sizeof(dir), "%s", path);
    char *slash = strrchr(dir, '/');
 

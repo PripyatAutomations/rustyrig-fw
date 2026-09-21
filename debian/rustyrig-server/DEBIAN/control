@@ -1,10 +1,10 @@
 Package: rustyrig-server
 Source: rustyrig-fw
-Version: 20260920.06
+Version: 20260921.02
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
-Installed-Size: 16927
-Depends: librrprotocol (= 20260920.06), libfwdspmgr (= 20260920.06), librustyaxe (= 20260920.06), libc6 (>= 2.38), libsqlite3-0 (>= 3.5.9)
+Installed-Size: 16929
+Depends: librrprotocol (= 20260921.02), libfwdspmgr (= 20260921.02), librustyaxe (= 20260921.02), libc6 (>= 2.38), libsqlite3-0 (>= 3.5.9), systemd | systemd-standalone-tmpfiles | systemd-tmpfiles
 Section: hamradio
 Priority: optional
 Homepage: https://github.com/PripyatAutomations/rustyrig-fw

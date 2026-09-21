@@ -32,14 +32,14 @@ void audio_stop_codec(bool tx) { local_codec[tx][0] = 0; }
 void event_emit(const char *event, rrconn_t *cptr, const char *data) {}
 bool media_send_codec_select(rrconn_t *cptr, const char *codec, const char *uuid) {
    assert(strcmp(codec, "none") != 0);
-   if (fail_send) return true;
+   if (fail_send) return false;
    selected++;
    snprintf(last_uuid, sizeof(last_uuid), "%s", uuid);
    snprintf(last_codec, sizeof(last_codec), "%s", codec);
-   return false;
+   return true;
 }
-bool media_send_subscribe(rrconn_t *cptr, const char *uuid) { subscribed++; return fail_send; }
-bool media_send_unsubscribe(rrconn_t *cptr, const char *uuid) { unsubscribed++; return fail_send; }
+bool media_send_subscribe(rrconn_t *cptr, const char *uuid) { subscribed++; return !fail_send; }
+bool media_send_unsubscribe(rrconn_t *cptr, const char *uuid) { unsubscribed++; return !fail_send; }
 
 static void announce(const char *uuid, const char *codec, int vfo) {
    dict *d = dict_new();

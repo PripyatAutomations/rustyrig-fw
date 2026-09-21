@@ -132,6 +132,17 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *tx_power_vbox = create_txpower_box();
    gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, TRUE, TRUE, 6);
 
+   // These globals are borrowed widget references used by protocol/event
+   // callbacks.  Clear them automatically if the VFO window is destroyed.
+   if (conn_button) g_object_add_weak_pointer(G_OBJECT(conn_button), (gpointer *)&conn_button);
+   if (vfo_tunable_box) g_object_add_weak_pointer(G_OBJECT(vfo_tunable_box), (gpointer *)&vfo_tunable_box);
+   if (vfo_codec_box) g_object_add_weak_pointer(G_OBJECT(vfo_codec_box), (gpointer *)&vfo_codec_box);
+   if (freq_entry) g_object_add_weak_pointer(G_OBJECT(freq_entry), (gpointer *)&freq_entry);
+   if (mode_combo) g_object_add_weak_pointer(G_OBJECT(mode_combo), (gpointer *)&mode_combo);
+   if (width_combo) g_object_add_weak_pointer(G_OBJECT(width_combo), (gpointer *)&width_combo);
+   if (tx_codec_combo) g_object_add_weak_pointer(G_OBJECT(tx_codec_combo), (gpointer *)&tx_codec_combo);
+   if (rx_codec_combo) g_object_add_weak_pointer(G_OBJECT(rx_codec_combo), (gpointer *)&rx_codec_combo);
+
    // Create PTT button widget; pack at the far right edge. NB: must be
    // packed FALSE/FALSE - with expand=TRUE the box stretches but the button
    // inside sits at its left, leaving it shy of the window edge.

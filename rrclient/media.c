@@ -211,7 +211,7 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
          continue;
       }
       if (none) {
-         if (kp->subscribed && media_send_unsubscribe(cptr, kp->uuid)) {
+         if (kp->subscribed && !media_send_unsubscribe(cptr, kp->uuid)) {
             failed = true;
             continue;
          }
@@ -219,7 +219,7 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
          kp->subscribed = false;
          kp->pending_codec[0] = '\0';
       } else {
-         if (media_send_codec_select(cptr, normalized, kp->uuid)) {
+         if (!media_send_codec_select(cptr, normalized, kp->uuid)) {
             failed = true;
             continue;
          }
@@ -313,8 +313,8 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
             snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
          }
          if (kp->disabled && kp->pending_codec[0] &&
-             strcmp(kp->pending_codec, kp->codec) == 0 && ws_conn &&
-             !media_send_subscribe(ws_conn, kp->uuid)) {
+            strcmp(kp->pending_codec, kp->codec) == 0 && ws_conn &&
+             media_send_subscribe(ws_conn, kp->uuid)) {
             kp->pending_codec[0] = '\0';
             kp->disabled = false;
             kp->subscribed = true;
@@ -552,16 +552,16 @@ bool rrclient_media_subscribe(const char *uuid) {
    if (!cptr || !uuid || uuid[0] == '\0') {
       return true;
    }
-   bool failed = media_send_subscribe(cptr, uuid);
-   if (failed) {
+   bool sent = media_send_subscribe(cptr, uuid);
+   if (!sent) {
       ui_print(NULL, "Failed to subscribe to media channel uuid %s", uuid);
    }
    struct rr_media_known *kp = media_known_find(uuid);
-   if (!failed && kp) {
+   if (sent && kp) {
       kp->disabled = false;
       kp->pending_codec[0] = '\0';
    }
-   return failed;
+   return !sent;
 }
 
 bool rrclient_media_unsubscribe(const char *uuid) {
@@ -570,18 +570,18 @@ bool rrclient_media_unsubscribe(const char *uuid) {
    if (!cptr || !uuid || uuid[0] == '\0') {
       return true;
    }
-   bool failed = media_send_unsubscribe(cptr, uuid);
-   if (failed) {
+   bool sent = media_send_unsubscribe(cptr, uuid);
+   if (!sent) {
       ui_print(NULL, "Failed to unsubscribe from media channel uuid %s", uuid);
    }
    struct rr_media_known *kp = media_known_find(uuid);
-   if (!failed && kp) {
+   if (sent && kp) {
       kp->disabled = true;
       kp->subscribed = false;
       kp->pending_codec[0] = '\0';
       media_sync_audio();
    }
-   return failed;
+   return !sent;
 }
 
 // Ask the server for a fresh media.available batch
@@ -589,7 +589,7 @@ void rrclient_media_refresh(void) {
    rrconn_t *cptr = ws_conn;
 
    if (cptr) {
-      if (media_send_list(cptr)) {
+      if (!media_send_list(cptr)) {
          Log(LOG_WARN, "ws.media", "Unable to refresh media channel list: request was not sent");
          ui_print(NULL, "Unable to refresh media channels; connection is not writable");
       }

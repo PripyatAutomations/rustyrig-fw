@@ -18,7 +18,7 @@
 #include <librustyaxe/tui.theme.h>
 #include <librustyaxe/tui.window.h>
 
-extern bool tui_enabled;
+extern bool tui_is_enabled;
 
 extern bool tui_init(void);
 extern bool tui_set_rl_cb( bool (*cb) (int argc, char **argv) );
@@ -49,7 +49,7 @@ extern void tui_set_topline_renderer(char *(*renderer)(tui_window_t *win));
 extern bool tui_is_over_ssh(void);
 
 // Defer redraws while printing multiple lines (i.e. help), then flush once
-extern int redraw_defer_count;
+extern int tui_redraw_defer_count;
 extern void tui_redraw_defer(void);
 extern void tui_redraw_flush(void);
 
@@ -59,7 +59,6 @@ extern bool tui_unregister_completion_provider(char **(*fn)(const char *line, co
 extern bool tui_do_completion(tui_window_t *win);
 extern int tui_rows(void);
 extern int tui_cols(void);
-extern void tui_draw_input(tui_window_t *w, int term_rows);
 extern void tui_print(tui_window_t *win, const char *fmt, ...);
 extern void tui_vprint(tui_window_t *win, const char *fmt, va_list ap);
 

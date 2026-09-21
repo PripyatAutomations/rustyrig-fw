@@ -562,7 +562,7 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
    cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 
-   // CAT parsers + PTY interface (./dev/ttyCAT0 when cat.pty.enable is true)
+   // CAT parsers + PTY interface (~/ttyCAT0 by default when enabled)
    rr_cat_init();
 
 #ifdef	USE_GTK

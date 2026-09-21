@@ -43,8 +43,6 @@ typedef struct rr_connection rr_connection_t;
 extern char active_server[512];
 extern rr_connection_t *active_connections;
 extern int ws_connected;
-extern int ws_tx_connected;
-extern bool server_ptt_state;
 extern const char *get_server_property(const char *server, const char *prop);
 
 #endif // __librrprotocol_connman_h

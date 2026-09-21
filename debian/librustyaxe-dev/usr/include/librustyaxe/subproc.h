@@ -43,7 +43,6 @@ extern bool subproc_init(void);
 extern int subproc_killall(int signum);
 extern void subproc_shutdown_all(void);
 extern int subproc_check_all(void);
-extern int subproc_respawn_corpses(void);
 extern bool subproc_start(int slot);
 extern int subproc_create(const char *name, const char *path, const char **argv, int argc);
 

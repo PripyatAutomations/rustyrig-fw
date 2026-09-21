@@ -1,10 +1,10 @@
 Package: libfwdspmgr-dev
 Source: rustyrig-fw
-Version: 20260920.06
+Version: 20260921.02
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Installed-Size: 19
-Depends: libfwdspmgr (= 20260920.06)
+Depends: libfwdspmgr (= 20260921.02)
 Section: hamradio
 Priority: optional
 Homepage: https://github.com/PripyatAutomations/rustyrig-fw

@@ -5,7 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// This provides a local PTY (e.g. ./dev/ttyCAT0) that external rig-control
+// This provides a local PTY (default ~/ttyCAT0) that external rig-control
 // software (hamlib, rigctl, WSJT-X, etc) can open as a serial port.  Bytes
 // written to the PTY slave are fed through the rrclient CAT parsers; replies
 // written with cat_pty_printf() come back out of the slave.

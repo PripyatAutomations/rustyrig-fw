@@ -78,21 +78,23 @@ extern bool cfg_set_default(dict *d, const char *key, const char *val);
 extern bool cfg_set_defaults(dict *d, defconfig_t *defaults);
 extern dict *cfg_load(const char *path);
 
+// Boolean API contract: configuration operations return true on success and false on failure.
 // Apply new configuration to the oldcfg dict
 extern bool cfg_apply_new(dict *oldcfg, dict *newcfg);
 
-// Reload a config file (or the last-loaded one if filename is NULL) into the global cfg dict
+// Reload a config file (or the last-loaded one if filename is NULL) into the global cfg dict.
 extern bool cfg_reload(const char *filename);
 
 // Save the dict into a file
 extern bool cfg_save(dict *d, const char *path);
 
-// Register a callback to emit module-owned config sections during cfg_save
+// Register a callback to emit module-owned config sections during cfg_save.
+// These registration/removal functions and cfg_run_save_callbacks return true on success.
 extern bool cfg_add_save_callback(const char *name, cfg_save_cb_t callback);
 extern bool cfg_remove_save_callback(cfg_save_cb_t callback);
 extern bool cfg_run_save_callbacks(FILE *fp, const char *path);
 
-// Create a new config
+// Locate and load a config (or defaults if none exists); true means completed.
 extern bool cfg_detect_and_load(const char *configs[], int num_configs);
 
 // Typed lookups
@@ -108,6 +110,7 @@ extern int cfg_get_int(const char *key, int def);
 extern unsigned int cfg_get_uint(const char *key, unsigned int def);
 
 ///////////
+// Register a section parser; true means registered, false means invalid input.
 extern bool cfg_add_callback( const char *path, const char *section, bool (*cb) () );
 
 /////////////

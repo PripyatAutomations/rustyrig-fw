@@ -1,9 +1,9 @@
 0e19c1aba3b5917c245baacf380bac2d  usr/include/librrprotocol/auth.h
-2d0d8ab4da0726d28c20be43bbbd7385  usr/include/librrprotocol/cfg.fwdsp.h
+7147c65a0fcf83875ad1e2e978cb1c64  usr/include/librrprotocol/cfg.fwdsp.h
 eba5d672b90993c135085639803e80db  usr/include/librrprotocol/cli.irc.h
 f6dc66c6b94c1eb39fffd80ae6af2e44  usr/include/librrprotocol/client-flags.h
 d0c74a0235232169c660383609786683  usr/include/librrprotocol/codecneg.h
-ffab705e8ad13b5dc19f55250a4eb878  usr/include/librrprotocol/connman.h
+54250c923033f99ea05a376fa5587773  usr/include/librrprotocol/connman.h
 08c4f0965b1755dc8a76ec81121cc03e  usr/include/librrprotocol/http.h
 f9e8e4c79fc41a64f1e9bb5ea3e5dbe9  usr/include/librrprotocol/irc.capab.h
 1ed2e094f8cea394d92d0b163a6d7357  usr/include/librrprotocol/irc.channel.h
@@ -17,6 +17,6 @@ f9e8e4c79fc41a64f1e9bb5ea3e5dbe9  usr/include/librrprotocol/irc.capab.h
 54cd96c44e27018e1be0f28a665f77e2  usr/include/librrprotocol/state.h
 e3d9132fc1c0e6089f20cfaee93b7de5  usr/include/librrprotocol/vfo.h
 4e3e8bf0d9f84f266ebc05b4549dd38f  usr/include/librrprotocol/ws.binframe.h
-b739ddc2008aa6ae1677ddafde8d1ad9  usr/include/librrprotocol/ws.h
+fd634eeee46b83818716dd53a8df1037  usr/include/librrprotocol/ws.h
 d359fabb9fc9b3e733acd5777a1806c4  usr/include/librrprotocol/ws.mediachan.h
-7c66c8218dc9d1f2b4831256fc20982f  usr/share/doc/librrprotocol-dev/changelog.gz
+1800635ae59ba92ef63fa22be80e73c2  usr/share/doc/librrprotocol-dev/changelog.gz

@@ -35,6 +35,7 @@ override_dh_auto_install:
 	install -d debian/rustyrig-server/var/lib/rustyrig/tools
 	install -d debian/rustyrig-server/var/run/rustyrig
 	install -d debian/rustyrig-server/var/log/rustyrig
+	install -Dm644 packaging/rustyrig.tmpfiles debian/rustyrig-server/usr/lib/tmpfiles.d/rustyrig.conf
 	install -d debian/rustyrig-client/var/lib/rustyrig/db
 	install -d debian/rustyrig-client/var/lib/rustyrig/help
 	install -d debian/rustyrig-client/var/lib/rustyrig/recordings/client

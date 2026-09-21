@@ -19,7 +19,5 @@ extern bool mkdir_p(const char *path);
 extern char *expand_path(const char *path);
 extern char *find_file_by_list(const char *files[], int file_count);
 
-extern time_t timestr2time_t(const char *str);
-extern bool str2bool(const char *str, bool def);
 
 #endif // !defined(__rr_util_file_h)

@@ -69,6 +69,7 @@ install -Dpm0755 librrprotocol.so %{buildroot}%{_libdir}/librrprotocol.so.0
 install -Dpm0755 libfwdspmgr.so %{buildroot}%{_libdir}/libfwdspmgr.so.0
 install -Dpm0644 packaging/rrserver.service %{buildroot}%{_unitdir}/rustyrig-server.service
 install -Dpm0755 packaging/rrserver.rc %{buildroot}%{_sysconfdir}/init.d/rrserver
+install -Dpm0644 packaging/rustyrig.tmpfiles %{buildroot}%{_tmpfilesdir}/rustyrig.conf
 for f in rrserver.cfg.example rrclient.cfg.example callsign-lookup.cfg.example callsign-lookup.srv.cfg.example callsign-lookup.cli.cfg.example; do install -Dpm0644 config/$f %{buildroot}%{_sysconfdir}/rustyrig/$f; done
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
 install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.preload.sql
@@ -95,6 +96,7 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %files server
 %{_bindir}/rrserver
 %{_unitdir}/rustyrig-server.service
+%{_tmpfilesdir}/rustyrig.conf
 %config(noreplace) %{_sysconfdir}/init.d/rrserver
 %config(noreplace) %{_sysconfdir}/rustyrig/rrserver.cfg.example
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.srv.cfg.example

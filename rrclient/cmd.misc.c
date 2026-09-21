@@ -22,6 +22,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
@@ -37,6 +38,86 @@ extern const char *server_name; // remove this (connman.c)
 extern rrconn_t *ws_conn;
 extern const char *config_file;
 extern bool ui_confirm_quit(void);
+void rrclient_print_callsign_line(const char *line);
+
+/* Run the local callsign helper without invoking a shell.  Callsign and grid
+ * input is user supplied, so constructing a command string for popen() would
+ * turn an otherwise harmless lookup into command injection. */
+static bool run_local_lookup(const char *program, const char *config,
+   const char *query, bool grid) {
+   if (!program || !*program || !config || !*config || !query || !*query) {
+      return false;
+   }
+
+   int output_pipe[2];
+   if (pipe(output_pipe) != 0) {
+      return false;
+   }
+
+   pid_t child = fork();
+   if (child < 0) {
+      close(output_pipe[0]);
+      close(output_pipe[1]);
+      return false;
+   }
+
+   if (child == 0) {
+      close(output_pipe[0]);
+      if (dup2(output_pipe[1], STDOUT_FILENO) < 0 ||
+          dup2(output_pipe[1], STDERR_FILENO) < 0) {
+         _exit(126);
+      }
+      close(output_pipe[1]);
+      // Keep the configured absolute/relative path behavior, while also
+      // preserving the old popen() behavior for a bare helper name by using
+      // PATH lookup when no directory component was configured.
+      bool has_dir = strchr(program, '/') != NULL;
+      if (grid) {
+         if (has_dir) {
+            execl(program, program, "-q", "-f", config, "-g", query, (char *)NULL);
+         } else {
+            execlp(program, program, "-q", "-f", config, "-g", query, (char *)NULL);
+         }
+      } else {
+         if (has_dir) {
+            execl(program, program, "-q", "-f", config, query, (char *)NULL);
+         } else {
+            execlp(program, program, "-q", "-f", config, query, (char *)NULL);
+         }
+      }
+      dprintf(STDERR_FILENO, "callsign lookup exec failed for %s: %s\n",
+         program, strerror(errno));
+      _exit(127);
+   }
+
+   close(output_pipe[1]);
+   FILE *output = fdopen(output_pipe[0], "r");
+   if (!output) {
+      close(output_pipe[0]);
+      (void)waitpid(child, NULL, 0);
+      return false;
+   }
+
+   char line[1024];
+   while (fgets(line, sizeof(line), output)) {
+      line[strcspn(line, "\r\n")] = '\0';
+      if (*line && strncmp(line, "+NOTICE ", 8) != 0 &&
+          strncmp(line, "+OK ", 4) != 0 &&
+          strncmp(line, "+PROTO ", 7) != 0 &&
+          strncmp(line, "+GOODBYE", 8) != 0 &&
+          strcmp(line, "+EOR") != 0 && line[0] != '[' && line[0] != '<' &&
+          strncmp(line, "==", 2) != 0) {
+         rrclient_print_callsign_line(line);
+      }
+   }
+   fclose(output);
+
+   int status = 0;
+   if (waitpid(child, &status, 0) < 0) {
+      return false;
+   }
+   return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
 
 bool cmd_qrz(int argc, char **args) {
    if (argc != 2 || !args[1] || !args[1][0]) {
@@ -76,31 +157,9 @@ bool cmd_qrz(int argc, char **args) {
       return true;
    }
 
-   char command[2048];
-   snprintf(command, sizeof(command), "%s -q -f '%s' '%s' 2>&1", program,
-      config_file, args[1]);
-   FILE *pipe = popen(command, "r");
-   if (!pipe) {
-      ui_print(NULL, "Unable to start callsign lookup");
-      free(program);
-      return true;
-   }
-
-   char line[1024];
-   while (fgets(line, sizeof(line), pipe)) {
-      line[strcspn(line, "\r\n")] = '\0';
-      if (*line && strncmp(line, "+NOTICE ", 8) != 0 &&
-          strncmp(line, "+OK ", 4) != 0 &&
-          strncmp(line, "+PROTO ", 7) != 0 &&
-          strncmp(line, "+GOODBYE", 8) != 0 &&
-          strcmp(line, "+EOR") != 0 && line[0] != '[' && line[0] != '<' &&
-          strncmp(line, "==", 2) != 0) {
-         rrclient_print_callsign_line(line);
-      }
-   }
-   int status = pclose(pipe);
+   bool lookup_ok = run_local_lookup(program, config_file, args[1], false);
    free(program);
-   if (status != 0) {
+   if (!lookup_ok) {
       ui_print(NULL, "Callsign lookup failed for %s", args[1]);
       return true;
    }
@@ -138,28 +197,9 @@ bool cmd_grid(int argc, char **args) {
       return false;
    }
 
-   char command[2048];
-   snprintf(command, sizeof(command), "%s -q -f '%s' -g '%s' 2>&1", program,
-      config_file, args[1]);
-   FILE *pipe = popen(command, "r");
-   if (!pipe) {
-      ui_print(NULL, "Unable to start callsign lookup");
-      free(program);
-      return true;
-   }
-   char line[1024];
-   while (fgets(line, sizeof(line), pipe)) {
-      line[strcspn(line, "\r\n")] = '\0';
-      if (*line && strncmp(line, "+NOTICE ", 8) != 0 && strncmp(line, "+OK ", 4) != 0 &&
-          strncmp(line, "+PROTO ", 7) != 0 && strncmp(line, "+GOODBYE", 8) != 0 &&
-          strcmp(line, "+EOR") != 0 && line[0] != '[' && line[0] != '<' &&
-          strncmp(line, "==", 2) != 0) {
-         rrclient_print_callsign_line(line);
-      }
-   }
-   int status = pclose(pipe);
+   bool lookup_ok = run_local_lookup(program, config_file, args[1], true);
    free(program);
-   if (status != 0) {
+   if (!lookup_ok) {
       ui_print(NULL, "Grid lookup failed for %s", args[1]);
       return true;
    }
