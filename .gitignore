@@ -1,5 +1,7 @@
 .env
 
+debian/.debhelper/*
+
 # Device files
 dev/*
 

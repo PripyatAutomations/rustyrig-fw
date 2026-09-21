@@ -43,3 +43,8 @@ rrclient: Consider bringing in sqlite db for storage/caching (call lookups, etc)
 librustyaxe: logger - extend log.level so its work like log.level=*:info,event:crazy@10,6 to allow 10 messages in 6 seconds. Would that be too much work?
 
 rrclient/rrserver: Maybe support storing config in the db too? So load config file then apply db? Would need to periodically poll db for changes tho, ugly..
+
+
+https://github.com/ngtcp2/ngtcp2/
+https://github.com/ngtcp2/nghttp3/
+https://developer.mozilla.org/en-US/docs/Web/API/WebTransport#examples

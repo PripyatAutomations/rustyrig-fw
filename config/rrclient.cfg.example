@@ -106,7 +106,7 @@ audio.pipeline.tx.format=time
 [fwdsp]
 path=/usr/bin/fwdsp
 hangtime=5
-recording.path=~/rrclient-recordings/
+recording.path=./rrclient-recordings/
 recording.tx=true
 recording.rx=true
 recording.buffer-size=524288

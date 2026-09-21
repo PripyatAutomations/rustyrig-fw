@@ -1,3 +1,3 @@
-shlibs:Depends=libc6 (>= 2.38), libfwdspmgr (>= 20260920.03), libglib2.0-0t64 (>= 2.12.0), librrprotocol (>= 20260920.03), librustyaxe (>= 20260920.03)
+shlibs:Depends=libc6 (>= 2.38), libfwdspmgr (>= 20260920.04), libglib2.0-0t64 (>= 2.12.0), librrprotocol (>= 20260920.04), librustyaxe (>= 20260920.04)
 misc:Depends=
 misc:Pre-Depends=

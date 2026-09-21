@@ -1,12 +1,12 @@
 Package: rustyrig-callsign-lookup-dbgsym
 Source: rustyrig-fw
-Version: 20260920.03
+Version: 20260920.04
 Auto-Built-Package: debug-symbols
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
-Installed-Size: 750
-Depends: rustyrig-callsign-lookup (= 20260920.03)
+Installed-Size: 752
+Depends: rustyrig-callsign-lookup (= 20260920.04)
 Section: debug
 Priority: optional
 Description: debug symbols for rustyrig-callsign-lookup
-Build-Ids: 50518da82cf885c80c78f3dfa3ce888096813396
+Build-Ids: 505bcf80c0730d5bc0269a4fbe8423e901e8f2ef

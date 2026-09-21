@@ -2,14 +2,11 @@
 ; Include paths are relative to this file and may be nested up to 4 levels deep. Full paths allowed too!
 ; See rrclient/defconfig.c for options and their descriptions
 ; Comments can begin with // # or ;   - We now support C style /* */ comments too
+; subsys:level -- levels:  audit | crit | warn | info | debug | crazy | blitz
 // most settings go in [general] setting, servers are called [server:name] where name is short name for it
 // If you need to send bug reports, please set log.level=*:crazy
 
 [general]
-; CAT PTY interface: expose the slave as /var/run/rustyrig/ttyCAT0 for hamlib/rigctl/etc
-cat.pty.path=/var/run/rustyrig/ttyCAT0
-; Reserved PTY names for future modem subprocesses: /var/run/rustyrig/ttyMODEM0, ...
-; subsys:level -- levels:  audit | crit | warn | info | debug | crazy | blitz
 ;log.level=*:info core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy ws.auth:crazy
 ;log.level=*:info,ws.*:crazy,http.*:crazy,event:crazy
 ;log.level=*:debug,ws.chat.*:crazy
@@ -40,8 +37,6 @@ tui.status-line=${topic} | ${ptt-state} | VFO ${active_vfo}: ${active_freq_khz:-
 # Example: tui.status-line={bright-cyan}${window}{reset} A:${vfo_a_freq_khz:---} B:${vfo_b_freq_khz:---} ${active_ptt:RX}
 # If we want to autoconnect to a server, name it here.
 server.auto-connect=localhost
-callsign-lookup.path=/usr/bin/callsign-lookup
-callsign-lookup.cache-db=/var/lib/rustyrig/db/rrclient-callsigns.db
 
 # XXX: Get rid of this and just use the negotiated codec list!
 codecs.allowed=pc16 g722 mu16 mu08 opus oggv aacv flac pc1T g72T mu1T mu0T opuT oggT aacT flaT
@@ -111,13 +106,13 @@ audio.pipeline.tx.format=time
 [fwdsp]
 path=/usr/bin/fwdsp
 hangtime=5
-recording.path=/var/lib/rustyrig/recordings/client/
+recording.path=~/rrclient-recordings/
 recording.tx=true
 recording.rx=true
 recording.buffer-size=524288
 recording.codec=flac
 recording.codec.modem=flac
-log.file=/var/log/rustyrig/fwdsp-cli.log
+log.file=/var/log/fwdsp-cli.log
 subproc.max=24
 
 [pipelines]
