@@ -28,17 +28,67 @@
 #include <librrprotocol/connman.h>
 #include <rrclient/audio.h>
 #include <rrclient/media.h>
+#include <rrclient/vfo.h>
 
 extern rrconn_t *ws_conn;
+extern bool ptt_active;
+extern time_t now;
 bool audio_enabled = false;
 bool gst_active = false;
 static char rx_codec[5] = { 0 };
 static char tx_codec[5] = { 0 };
+static time_t tx_pcm_warned = 0;
+static time_t rx_pcm_warned = 0;
+
+static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
+   (void)name;
+   (void)user_data;
+   char vfo[2] = { vfo_state_get_active(), '\0' };
+   bool transmitting = ptt_active || vfo_state_get_bool(vfo, "cat.state.ptt", false);
+   const char *selected = rrclient_media_current_codec(true);
+   if (!transmitting || !tx_codec[0] || !selected || strncmp(selected, tx_codec, 4) != 0) {
+      return;
+   }
+   if (fwdsp_write_samples(tx_codec, true, samples, len) &&
+       (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5)) {
+      tx_pcm_warned = now;
+      Log(LOG_WARN, "audio", "Unable to feed client mic PCM to %s.tx", tx_codec);
+   }
+}
+
+static void client_rx_pcm(const char *name, const void *samples, size_t len, void *user_data) {
+   (void)name;
+   (void)user_data;
+   if (!fwdsp_processor_write("sink.client.dsp0", samples, len) &&
+       (rx_pcm_warned == 0 || now < rx_pcm_warned || now - rx_pcm_warned >= 5)) {
+      rx_pcm_warned = now;
+      Log(LOG_WARN, "audio", "Unable to play decoded client RX PCM");
+   }
+}
 
 static void audio_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user);
 
 bool audio_init(void) {
    event_on_binary("media.frame.audio", audio_frame_cb, NULL);
+   if (fwdsp_init()) {
+      Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
+      return true;
+   }
+
+   bool mic_ok = fwdsp_audio_capture_start("src.client.dsp0", NULL, client_mic_pcm, NULL);
+   bool speaker_ok = fwdsp_audio_playback_start("sink.client.dsp0", NULL);
+   if (!mic_ok || !speaker_ok) {
+      Log(LOG_CRIT, "audio", "Unable to start client PCM endpoints (mic=%s, speaker=%s)",
+         mic_ok ? "ready" : "failed", speaker_ok ? "ready" : "failed");
+      if (mic_ok) fwdsp_processor_stop("src.client.dsp0");
+      if (speaker_ok) fwdsp_processor_stop("sink.client.dsp0");
+      return true;
+   }
+
+   fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
+   audio_enabled = true;
+   gst_active = true;
+   Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
    return false;
 }
 
@@ -62,6 +112,11 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
    if (fwdsp_init() || fwdsp_codec_start(codec, is_tx, NULL) < 0) {
       Log(LOG_WARN, "audio", "Unable to switch client fwdsp to %s.%s",
          codec, (is_tx ? "tx" : "rx"));
+      return true;
+   }
+   if (!is_tx && !fwdsp_codec_set_pcm_callback(codec, NULL, client_rx_pcm, NULL)) {
+      Log(LOG_WARN, "audio", "Unable to route decoded %s RX audio to sink.client.dsp0", codec);
+      fwdsp_codec_stop_immediate(codec, false);
       return true;
    }
 
@@ -104,10 +159,7 @@ bool audio_set_rx_volume(int percent) {
    }
 
    dict_add_int(cfg, "audio.volume.rx", percent);
-   if (rx_codec[0] == '\0') {
-      return false;
-   }
-   return fwdsp_cmd_setvol(rx_codec, false, percent);
+   return fwdsp_processor_setvol("sink.client.dsp0", percent);
 }
 
 bool audio_set_tx_volume(int percent) {
@@ -139,6 +191,10 @@ void audio_stop_codec(bool is_tx) {
 void ws_audio_shutdown(void) {
    audio_stop_codec(false);
    audio_stop_codec(true);
+   fwdsp_processor_stop("src.client.dsp0");
+   fwdsp_processor_stop("sink.client.dsp0");
+   audio_enabled = false;
+   gst_active = false;
 }
 
 //

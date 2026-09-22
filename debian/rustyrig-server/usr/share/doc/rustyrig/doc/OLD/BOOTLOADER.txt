@@ -1,3 +1,0 @@
-This is a stub.
-
-You should probably look at BOOTLOADER_$platform.txt, if it exists.

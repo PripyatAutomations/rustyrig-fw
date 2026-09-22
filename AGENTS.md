@@ -79,6 +79,19 @@ See `doc/client-parity.md` for the current parity map.
 - Build configuration is in config/${PROFILE}.config.json and PROFILE defaults to 'radio'
 - mk/json-config.mk maps config settings to make variables as needed
 
+## Test placement and validation
+
+- Keep tests beside the component they exercise: `rrclient/tests/`,
+  `rrserver/tests/`, `fwdsp/tests/`, `librrprotocol/tests/`,
+  `libfwdspmgr/tests/`, and equivalent
+  component-local directories. Keep the root `tests/` directory for shared
+  test helpers, the root test runner, and tests of those shared helpers.
+- Register component suites in `tests/run-tests.sh` so `make test` can run
+  them. Add a test wrapper in the owning component when its suite needs a
+  project-wide runner to discover it.
+- Before changing code, run the relevant existing tests and note any baseline
+  failures. After the change, rerun those tests and the broader affected suite.
+
 ## Before modifying code
 1. Before changing: do a git commit for safety.
 2. After changing, show me a diff of the whole change set

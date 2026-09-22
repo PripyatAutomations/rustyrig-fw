@@ -10,6 +10,7 @@ Component suites are kept with their source tree:
 
 ```
 fwdsp/tests/             # fwdsp tests
+librrprotocol/tests/     # protocol tests
 rrclient/tests/          # native client and WebUI parity tests
 rrserver/tests/          # server tests
 librustyaxe/tests/       # authoritative external-submodule tests
@@ -26,8 +27,10 @@ invoked through their own Makefiles so they remain the source of truth.
 ## Usage
 
 ```sh
-./tests/run-tests.sh            # run everything
-./tests/run-tests.sh rrclient     # run one suite
+make test                       # build configured programs, then run maintained suites
+TEST_SUITES="fwdsp rrclient" make test # select suites for make test
+./tests/run-tests.sh            # run every suite, including librustyaxe
+./tests/run-tests.sh rrclient   # run one suite
 ```
 
 ## Writing a new suite
@@ -39,3 +42,7 @@ Create `<component>/tests/` and either:
    need the assertion helpers (`assert_eq`, `assert_contains`, `assert_ok`).
 
 Register the component name in `tests/run-tests.sh` when adding a new suite.
+The default `make test` excludes `librustyaxe` because it is an external
+submodule with its own test state; pass `TEST_SUITES="... librustyaxe"` to
+include it when its tests are ready. The direct runner with no arguments still
+invokes all registered suites.

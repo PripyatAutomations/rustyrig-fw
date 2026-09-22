@@ -538,7 +538,13 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
 
    // apply some global configuration
    char *logfile = cfg_get_path("log.file");
-   logger_init( (logfile ? logfile : "-"), (ui_mode == UI_MODE_TUI) );
+   const char *log_target = logfile ? logfile : "-";
+   // "-" means stdout for GTK. Other modes use stdout for their UI, so route
+   // the common setting to the normal client log file instead.
+   if (ui_mode != UI_MODE_GTK && strcmp(log_target, "-") == 0) {
+      log_target = "rrclient.log";
+   }
+   logger_init(log_target, (ui_mode == UI_MODE_TUI));
 
    if (logfile) {
       free(logfile);

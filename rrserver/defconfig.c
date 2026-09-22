@@ -37,7 +37,7 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
-   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_NOISE_SOURCE)
+   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE)
    { "audio.debug", "false", "Debug audio? [bool]" },
    { "atu.max", "4", "Maximum number of ATUs" },
    { "backend.active", "internal", "Backend to use for rig control" },
@@ -50,7 +50,7 @@ defconfig_t defcfg[] = {
    { "backend.hamlib-port", "127.0.0.1:4532", "What hamlib device to use (def: rigctld localhost)" },
    { "backend.reconnect-interval", "30", "Seconds to wait before retrying hamlib after disconnect; 0 = exit on disconnect (for supervisor/cron restart)" },
    { "rig.vfos", "2", "How many VFOs does the rig expose? (A-Z; 2 means only A and B exist)" },
-   { "rig.name", "sb50", "Name used by the authoritative #rig-<name> room" },
+   { "station.name", "rustyrig", "Site name used by authoritative #<station>-rig0 room" },
    { "site:coordinates", NULL, "Station coordinates as latitude,longitude (optional)" },
    { "site:gridsquare", NULL, "Station Maidenhead grid square (optional)" },
    { "chat.log", "true", "Should we log the chat to text files by date/rig?" },
@@ -75,6 +75,8 @@ defconfig_t defcfg[] = {
    { "fwdsp:hangtime", "30", "How long should unused (en|de)coders be kept alive after last used?" },
    { "fwdsp:path", "./bin/fwdsp", "Path to fwdsp binary" },
    { "fwdsp:subproc.max", "16", "Maximum server fwdsp processes" },
+   { "fwdsp:pcm-hub", "true", "Route decoded talker PCM through the rig audio hub" },
+   { "fwdsp:rig0.rx-source", "src.rig0", "fwdsp source endpoint for rig 0 RX PCM" },
    { "log.file", "rrserver.log", "Where to log?" },
    { "log.level", "*:info", "What to log?" },
    { "net.http.404-path", "./www/404.shtml", "Path to 404 file" },

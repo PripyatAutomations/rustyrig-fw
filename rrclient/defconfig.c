@@ -62,7 +62,7 @@ const char *default_css = DEFAULT_CSS;
 #endif	// USE_GTK
 
 defconfig_t defcfg[] = {
-   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_CAPTURE_SOURCE)
+   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE)
    { "audio.pipeline.rx", "", "User choice pipeline for RX" },
    { "audio.pipeline.rx.format", "", "User pipeline format (bytes|time) for RX " },
    { "audio.pipeline.tx", "", "User choice pipeline for gstreamer TX" },
@@ -103,6 +103,7 @@ defconfig_t defcfg[] = {
    { "path.fwdsp.config", "./config/fwdsp.cfg", "Path to fwdsp configuration" },
    { "fwdsp:subproc.max", "4", "Maximum client fwdsp processes" },
    { "fwdsp:hangtime", "5", "Seconds to keep unused client fwdsp alive" },
+   { "fwdsp:pcm-hub", "true", "Route decoded client RX PCM to sink.client.dsp0" },
    { "path.record-dir", "./recordings", "Audio recording directory" },
    { "site:coordinates", NULL, "Station coordinates as latitude,longitude (optional)" },
    { "site:gridsquare", NULL, "Station Maidenhead grid square (optional)" },

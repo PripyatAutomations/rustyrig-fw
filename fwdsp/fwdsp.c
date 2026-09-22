@@ -55,7 +55,18 @@ const char *config_codec = "pc16";
 static int control_fd = -1;
 const char *logfile = "./fwdsp.log";
 bool codec_tx_mode = false;
-bool config_video = false;               // is this audio or video stream?
+bool config_video = false;
+static bool pcm_hub_mode = false;               // is this audio or video stream?
+enum pcm_processor_mode {
+   PCM_PROCESSOR_MODE_AUTO = 0,
+   PCM_PROCESSOR_MODE_BIDIRECTIONAL,
+   PCM_PROCESSOR_MODE_CAPTURE,
+   PCM_PROCESSOR_MODE_PLAYBACK
+};
+
+static bool processor_mode = false;
+static enum pcm_processor_mode processor_io_mode = PCM_PROCESSOR_MODE_AUTO;
+static char processor_name[64]; // qualified pipeline name: proc.*, src.*, sink.*, or recode.*
 bool dying = false;
 bool restarting = false;
 bool empty_config = true;
@@ -448,6 +459,9 @@ static bool write_all(int fd, const uint8_t *data, size_t len) {
 #define FWDSP_FRAME_HEADER_SIZE 4
 #define FWDSP_MAX_FRAME_SIZE (64U * 1024U * 1024U)
 #define FWDSP_READER_MAX_BUFFER (FWDSP_MAX_FRAME_SIZE + 4096U)
+#define FWDSP_FRAME_STREAM_HEADER 0x80000000U
+#define FWDSP_FRAME_PCM_TAP      0x40000000U
+#define FWDSP_FRAME_LENGTH_MASK  0x3FFFFFFFU
 
 static void frame_length_encode(uint8_t header[FWDSP_FRAME_HEADER_SIZE], uint32_t len) {
    header[0] = (uint8_t)(len >> 24);
@@ -477,6 +491,16 @@ static bool write_frame(int fd, const uint8_t *data, size_t len, bool is_header)
    }
 
    return write_all(fd, data, len);
+}
+
+static bool write_pcm_tap_frame(int fd, const uint8_t *data, size_t len) {
+   uint8_t header[FWDSP_FRAME_HEADER_SIZE];
+   if (!data || len == 0 || len > FWDSP_FRAME_LENGTH_MASK || len > FWDSP_MAX_FRAME_SIZE ||
+       (len & 1U) != 0) {
+      return false;
+   }
+   frame_length_encode(header, (uint32_t)len | FWDSP_FRAME_PCM_TAP);
+   return write_all(fd, header, sizeof(header)) && write_all(fd, data, len);
 }
 
 struct fwdsp_frame_reader {
@@ -539,7 +563,8 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader,
    while (reader->len >= FWDSP_FRAME_HEADER_SIZE) {
       uint32_t frame_len = frame_length_decode(reader->buf);
 
-      if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE) {
+      if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE ||
+          (processor_mode && (frame_len & 1U) != 0)) {
          Log(LOG_CRIT, "fwdsp", "Invalid framed input length %u", frame_len);
          return false;
       }
@@ -618,10 +643,31 @@ static void configure_pipeline_buffers(GstElement *pipeline) {
    gst_iterator_free(iterator);
 }
 
+static bool processor_pcm_caps(GstCaps *caps) {
+   if (!caps || gst_caps_is_empty(caps) || gst_caps_get_size(caps) != 1) {
+      return false;
+   }
+   const GstStructure *structure = gst_caps_get_structure(caps, 0);
+   const char *format = gst_structure_get_string(structure, "format");
+   const char *layout = gst_structure_get_string(structure, "layout");
+   int rate = 0;
+   int channels = 0;
+   return gst_structure_has_name(structure, "audio/x-raw") && format &&
+      strcmp(format, "S16LE") == 0 &&
+      (!layout || strcmp(layout, "interleaved") == 0) &&
+      gst_structure_get_int(structure, "rate", &rate) && rate == 16000 &&
+      gst_structure_get_int(structure, "channels", &channels) && channels == 1;
+}
+
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       dying = false;
-      Log(LOG_DEBUG, "fwdsp", "Starting %s.%s pipeline", config_codec, cfg->tx_mode ? "tx" : "rx");
+      if (processor_mode) {
+         Log(LOG_DEBUG, "fwdsp", "Starting audio processor %s pipeline", processor_name);
+      } else {
+         Log(LOG_DEBUG, "fwdsp", "Starting %s.%s pipeline", config_codec,
+            cfg->tx_mode ? "tx" : "rx");
+      }
 
       pipeline = build_pipeline(cfg->pipeline);
 
@@ -634,8 +680,9 @@ static void run_loop(struct audio_config *cfg) {
 
       configure_pipeline_buffers(pipeline);
 
-      GstElement *appsrc = gst_bin_get_by_name(GST_BIN(pipeline), "rx-src");
-      if (!appsrc) {
+      GstElement *appsrc = gst_bin_get_by_name(GST_BIN(pipeline),
+         processor_mode ? "processor-src" : "rx-src");
+      if (!appsrc && !processor_mode) {
          appsrc = gst_bin_get_by_name(GST_BIN(pipeline), "tx-src");
       }
       if (appsrc && !GST_IS_APP_SRC(appsrc)) {
@@ -643,8 +690,9 @@ static void run_loop(struct audio_config *cfg) {
          appsrc = NULL;
       }
 
-      GstElement *appsink = gst_bin_get_by_name(GST_BIN(pipeline), "rx-sink");
-      if (!appsink) {
+      GstElement *appsink = gst_bin_get_by_name(GST_BIN(pipeline),
+         processor_mode ? "processor-sink" : "rx-sink");
+      if (!appsink && !processor_mode) {
          appsink = gst_bin_get_by_name(GST_BIN(pipeline), "tx-sink");
       }
       if (appsink && !GST_IS_APP_SINK(appsink)) {
@@ -664,13 +712,49 @@ static void run_loop(struct audio_config *cfg) {
          record_encoded_sink = NULL;
       }
 
+      // Optional decoded-PCM tap used by rrserver to route a remote talker
+      // into the rig TX sink, and by rrclient to play RX audio through its
+      // persistent local speaker endpoint.
+      GstElement *hub_sink = gst_bin_get_by_name(GST_BIN(pipeline), "hub-sink");
+      if (hub_sink && !GST_IS_APP_SINK(hub_sink)) {
+         gst_object_unref(hub_sink);
+         hub_sink = NULL;
+      }
+
       GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline),
-         cfg->tx_mode ? "tx-vol" : "rx-vol");
+         processor_mode ? "processor-vol" : (cfg->tx_mode ? "tx-vol" : "rx-vol"));
       // Preserve compatibility with older custom TX pipelines that only
       // exposed rx-vol.
       if (!volume && cfg->tx_mode) {
          volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
       }
+      GstCaps *processor_input_caps = processor_mode && appsrc ?
+         gst_app_src_get_caps(GST_APP_SRC(appsrc)) : NULL;
+      bool processor_input_ok = !appsrc || processor_pcm_caps(processor_input_caps);
+      if (processor_input_caps) {
+         gst_caps_unref(processor_input_caps);
+      }
+      bool processor_endpoints_ok = appsrc || appsink;
+      if (processor_io_mode == PCM_PROCESSOR_MODE_BIDIRECTIONAL) {
+         processor_endpoints_ok = appsrc && appsink;
+      } else if (processor_io_mode == PCM_PROCESSOR_MODE_CAPTURE) {
+         processor_endpoints_ok = !appsrc && appsink;
+      } else if (processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK) {
+         processor_endpoints_ok = appsrc && !appsink;
+      }
+      if (processor_mode && (!processor_endpoints_ok || !processor_input_ok)) {
+         Log(LOG_CRIT, "fwdsp", "Audio pipeline %s has invalid endpoints or non-mono S16LE 16 kHz appsrc caps",
+            processor_name);
+         if (appsrc) gst_object_unref(appsrc);
+         if (appsink) gst_object_unref(appsink);
+         if (volume) gst_object_unref(volume);
+         if (record_sink) gst_object_unref(record_sink);
+         if (record_encoded_sink) gst_object_unref(record_encoded_sink);
+         if (hub_sink) gst_object_unref(hub_sink);
+         cleanup_pipeline(&pipeline);
+         return;
+      }
+
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
          g_printerr("Failed to set pipeline to PLAYING state.\n");
@@ -695,6 +779,7 @@ static void run_loop(struct audio_config *cfg) {
          if (record_encoded_sink) {
             gst_object_unref(record_encoded_sink);
          }
+         if (hub_sink) gst_object_unref(hub_sink);
          return;
       }
 
@@ -716,13 +801,38 @@ static void run_loop(struct audio_config *cfg) {
                GstMapInfo map;
 
                if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-                  if (!write_frame(STDOUT_FD, map.data, map.size,
-                      GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_HEADER))) {
+                  bool output_ok = true;
+                  if (processor_mode &&
+                      (!processor_pcm_caps(gst_sample_get_caps(sample)) || (map.size & 1U) != 0)) {
+                     Log(LOG_CRIT, "fwdsp", "Audio pipeline %s produced non-S16LE/16kHz/mono output",
+                        processor_name);
+                     output_ok = false;
+                     dying = true;
+                  }
+                  bool is_header = !processor_mode &&
+                     GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_HEADER);
+                  if (output_ok && !write_frame(STDOUT_FD, map.data, map.size, is_header)) {
                      dying = true;
                   }
                   gst_buffer_unmap(buffer, &map);
                }
                gst_sample_unref(sample);
+            }
+         }
+
+         if (hub_sink) {
+            GstSample *hub_sample;
+            while ((hub_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(hub_sink), 0))) {
+               GstBuffer *hub_buffer = gst_sample_get_buffer(hub_sample);
+               GstMapInfo hub_map;
+               if (hub_buffer && gst_buffer_map(hub_buffer, &hub_map, GST_MAP_READ)) {
+                  if (pcm_hub_mode && !cfg->tx_mode && !processor_mode &&
+                      !write_pcm_tap_frame(STDOUT_FD, hub_map.data, hub_map.size)) {
+                     dying = true;
+                  }
+                  gst_buffer_unmap(hub_buffer, &hub_map);
+               }
+               gst_sample_unref(hub_sample);
             }
          }
 
@@ -936,6 +1046,9 @@ static void run_loop(struct audio_config *cfg) {
       if (record_encoded_sink) {
          gst_object_unref(record_encoded_sink);
       }
+      if (hub_sink) {
+         gst_object_unref(hub_sink);
+      }
 
       recorder_stop();
       frame_reader_clear(&input_reader);
@@ -985,8 +1098,9 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
 
    const char *parent_pipeline = NULL;
+   bool codec_arg_set = false;
    int opt;
-   while ( (opt = getopt(argc, argv, "C:c:f:p:htv") ) != -1) {
+   while ( (opt = getopt(argc, argv, "C:c:f:HM:p:P:Thtv") ) != -1) {
       switch (opt) {
          case 'C': {
             control_fd = atoi(optarg);
@@ -1001,6 +1115,7 @@ int main(int argc, char *argv[]) {
             } else {
                fprintf(stderr, "Setting codec magic to %s\n", optarg);
                config_codec = strdup(optarg);
+               codec_arg_set = true;
             }
             break;
          }
@@ -1012,8 +1127,53 @@ int main(int argc, char *argv[]) {
             codec_tx_mode = true;
             break;
          }
+         case 'H': {
+            pcm_hub_mode = true;
+            break;
+         }
+         case 'M': {
+            if (strcmp(optarg, "auto") == 0) {
+               processor_io_mode = PCM_PROCESSOR_MODE_AUTO;
+            } else if (strcmp(optarg, "process") == 0 ||
+                       strcmp(optarg, "bidirectional") == 0) {
+               processor_io_mode = PCM_PROCESSOR_MODE_BIDIRECTIONAL;
+            } else if (strcmp(optarg, "capture") == 0) {
+               processor_io_mode = PCM_PROCESSOR_MODE_CAPTURE;
+            } else if (strcmp(optarg, "playback") == 0) {
+               processor_io_mode = PCM_PROCESSOR_MODE_PLAYBACK;
+            } else {
+               fprintf(stderr, "Unknown -T endpoint mode '%s'\n", optarg);
+               return 2;
+            }
+            processor_mode = true;
+            break;
+         }
          case 'p': {
             parent_pipeline = *optarg ? optarg : NULL;
+            break;
+         }
+         case 'P': {
+            const char *dot = strchr(optarg, '.');
+            if (!dot || dot == optarg || !dot[1] ||
+                strlen(optarg) >= sizeof(processor_name)) {
+               fprintf(stderr, "Pipeline name must be namespace.name (proc, src, sink, or recode)\n");
+               return 2;
+            }
+            size_t namespace_len = (size_t)(dot - optarg);
+            bool known_namespace =
+               (namespace_len == 4 && memcmp(optarg, "proc", 4) == 0) ||
+               (namespace_len == 3 && memcmp(optarg, "src", 3) == 0) ||
+               (namespace_len == 4 && memcmp(optarg, "sink", 4) == 0) ||
+               (namespace_len == 6 && memcmp(optarg, "recode", 6) == 0);
+            if (!known_namespace) {
+               fprintf(stderr, "Unknown pipeline namespace in '%s'\n", optarg);
+               return 2;
+            }
+            snprintf(processor_name, sizeof(processor_name), "%s", optarg);
+            break;
+         }
+         case 'T': {
+            processor_mode = true;
             break;
          }
          case 'v': {
@@ -1022,16 +1182,30 @@ int main(int argc, char *argv[]) {
          }
          case 'h':
          default: {
-            fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-t]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-T [-M auto|process|capture|playback] [-P namespace.name]] [-H] [-t]\n", argv[0]);
             fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
             fprintf(stderr, "  -p\t\t\tPipeline selected by the parent (overrides config/defaults)\n");
+            fprintf(stderr, "  -T\t\t\tRun a framed PCM processor or audio endpoint\n");
+            fprintf(stderr, "  -H\t\t\tEmit decoded PCM tap frames for the server hub\n");
+            fprintf(stderr, "  -M\t\t\tEndpoint shape: auto, process, capture, or playback\n");
+            fprintf(stderr, "  -P\t\t\tSelect namespace.name from config (proc, src, sink, recode)\n");
             fprintf(stderr, "  -t\t\t\tTransmit mode\n");
             fprintf(stderr, "  -v\t\t\tVideo mode\n");
             exit(1);
          }
       }
    }
+   if (processor_name[0] && !processor_mode) {
+      // Retain the original -P behavior for scripts created before -T was
+      // added; new callers should select transform mode explicitly.
+      processor_mode = true;
+   }
+   if (processor_mode && codec_arg_set) {
+      fprintf(stderr, "fwdsp: -T transform mode cannot be combined with -c codec mode\n");
+      return 2;
+   }
+
    Log(LOG_INFO, "fwdsp", "Starting fwdsp v.%s", VERSION);
    // Find and load the configuration file
    int cfg_entries = num_configs;
@@ -1137,7 +1311,12 @@ int main(int argc, char *argv[]) {
 
    char keybuf[256];
    memset( keybuf, 0, sizeof(keybuf) );
-   snprintf( keybuf, sizeof(keybuf), "pipeline:%s.%s", config_codec, (codec_tx_mode ? "tx" : "rx") );
+   if (processor_mode) {
+      snprintf(keybuf, sizeof(keybuf), "pipeline:%s", processor_name);
+   } else {
+      snprintf(keybuf, sizeof(keybuf), "pipeline:%s.%s", config_codec,
+         codec_tx_mode ? "tx" : "rx");
+   }
    Log(LOG_DEBUG, "codec", "Selecting pipeline '%s' from config --", keybuf);
 
    const char *cfg_pipeline = parent_pipeline ? parent_pipeline : cfg_get(keybuf);
@@ -1145,7 +1324,9 @@ int main(int argc, char *argv[]) {
       Log(LOG_DEBUG, "codec", "-> full pipeline:\t%s", cfg_pipeline);
       au_cfg.pipeline = cfg_pipeline;
    } else {
-      Log(LOG_CRIT, "fwdsp", "No pipeline configured for codec id %s", config_codec);
+      Log(LOG_CRIT, "fwdsp", processor_mode ?
+         "No pipeline configured for processor %s" : "No pipeline configured for codec id %s",
+         processor_mode ? processor_name : config_codec);
       exit(1);
    }
 

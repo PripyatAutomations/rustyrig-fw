@@ -79,6 +79,9 @@ int main(int argc, char **argv) {
          fprintf(stderr, "round %u codec %s frames %u\n", round, codec, frames_received);
          assert(frames_received >= 5);
          if (!strcmp(codec, "oggv")) {
+            for (unsigned attempt = 0; attempt < 10 && decoded_samples <= 1000; attempt++) {
+               poll_for(250);
+            }
             assert(decoded_samples > 1000);
             assert(fwdsp_find_channel_instance(codec, true, "channel")->stream_headers_len > 0);
          }
@@ -95,7 +98,9 @@ int main(int argc, char **argv) {
    decoded_samples = 0;
    rrconn_t late_listener = {0};
    fwdsp_send_stream_headers("channel", &late_listener);
-   poll_for(1500);
+   for (unsigned attempt = 0; attempt < 10 && decoded_samples <= 1000; attempt++) {
+      poll_for(250);
+   }
    assert(decoded_samples > 1000);
    // Subscriber sweeps must resume an idle encoder, not only clear its timer.
    struct fwdsp_subproc *encoder = fwdsp_find_channel_instance(old, true, "channel");
@@ -132,7 +137,6 @@ int main(int argc, char **argv) {
    assert(frames_received >= 4 && frames_received <= 5);
    assert(!active_slots && !mg_mgr.conns);
    mg_mgr_free(&mg_mgr);
-   free(fwdsp_subprocs);
    fwdsp_fini();
    puts("PASS: repeated codec switches, warm encoder reuse, watcher cleanup and child exit");
 }

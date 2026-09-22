@@ -1,7 +1,0 @@
-     if (typeof socket === "undefined" || socket === null) {
-        console.log("[audio] A valid websocket must be passed!");
-        return null;
-     }
-     // Store the websocket and make sure we're in correct binary mode
-     this.socket = socket;
-     this.socket.binaryType = 'arraybuffer';

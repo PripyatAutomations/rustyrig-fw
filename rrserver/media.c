@@ -35,6 +35,66 @@ struct media_record_log_state {
 };
 static struct media_record_log_state media_record_logs[MAX_MEDIA_CHANNELS];
 
+static time_t rig_rx_write_warned[MAX_MEDIA_CHANNELS];
+static time_t rig_tx_write_warned;
+
+static void rrserver_rig_rx_pcm(const char *name, const void *samples, size_t len,
+   void *user_data) {
+   (void)name;
+   (void)user_data;
+   for (int i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+      struct rr_mediachan *channel = &media_channels[i];
+      if (!channel->uuid[0] || channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+          channel->direction != RR_BINFRAME_DIR_RX || channel->rig != 0 ||
+          !channel->codec[0]) {
+         continue;
+      }
+      char always_key[64];
+      snprintf(always_key, sizeof(always_key), "record.always.vfo_%c", 'a' + channel->vfo);
+      if (!ws_media_channel_has_subscribers(channel) && !cfg_get_bool(always_key, false)) {
+         continue;
+      }
+      if (!fwdsp_write_channel_samples(channel->codec, true, channel->uuid, samples, len) &&
+          (rig_rx_write_warned[i] == 0 || now < rig_rx_write_warned[i] ||
+           now - rig_rx_write_warned[i] >= 5)) {
+         rig_rx_write_warned[i] = now;
+         Log(LOG_WARN, "pcm.hub", "Unable to feed rig RX PCM to %s.tx for channel %s",
+            channel->codec, channel->uuid);
+      }
+   }
+}
+
+static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, size_t len,
+   void *user_data) {
+   (void)user_data;
+   if (!channel_uuid || !*channel_uuid || !fwdsp_processor_write("sink.rig0", samples, len)) {
+      if (rig_tx_write_warned == 0 || now < rig_tx_write_warned ||
+          now - rig_tx_write_warned >= 5) {
+         rig_tx_write_warned = now;
+         Log(LOG_WARN, "pcm.hub", "Unable to feed decoded talker PCM to sink.rig0 (%s)",
+            (channel_uuid && *channel_uuid) ? channel_uuid : "unknown channel");
+      }
+   }
+}
+
+bool rrserver_media_audio_init(void) {
+   const char *configured_rx_source = cfg_get_exp("fwdsp:rig0.rx-source");
+   const char *rx_source = configured_rx_source && *configured_rx_source ?
+      configured_rx_source : "src.rig0";
+   bool source_ok = fwdsp_audio_capture_start(rx_source, NULL, rrserver_rig_rx_pcm, NULL);
+   bool sink_ok = fwdsp_audio_playback_start("sink.rig0", NULL);
+   if (!source_ok || !sink_ok) {
+      Log(LOG_CRIT, "pcm.hub", "Unable to start rig PCM endpoints (%s=%s, sink.rig0=%s)",
+         rx_source, source_ok ? "ready" : "failed", sink_ok ? "ready" : "failed");
+      free((char *)configured_rx_source);
+      return false;
+   }
+   Log(LOG_INFO, "pcm.hub", "Rig PCM endpoints ready: %s -> per-channel encoders; TX decoders -> sink.rig0",
+      rx_source);
+   free((char *)configured_rx_source);
+   return true;
+}
+
 static bool media_record_log_transition(const char *uuid, bool active) {
    if (!uuid || !*uuid) return true;
    struct media_record_log_state *slot = NULL;
@@ -173,6 +233,12 @@ bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
       }
       Log(LOG_INFO, "ws.media", "Activated lazy TX decoder %s.rx (chan %d) for %s",
          channel->codec, chan_id, (talker ? talker->chatname : "unknown"));
+   }
+   if (!fwdsp_codec_set_pcm_callback(channel->codec, channel->uuid,
+         rrserver_talker_pcm, NULL)) {
+      Log(LOG_CRIT, "ws.media", "Unable to connect decoded TX PCM from %s to sink.rig0",
+         channel->uuid);
+      return false;
    }
    return true;
 }
@@ -329,6 +395,24 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
 }
 
 // Late subscribers need container/codec headers before the next media packet.
+static void rrserver_media_talker_frame(const char *event, const void *payload,
+   size_t len, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)user;
+   const uint8_t *data = payload;
+   if (!cptr || !data || len == 0 || !cptr->is_ptt || cptr->ptt_vfo < 'A') return;
+   rr_vfo_t vfo = (rr_vfo_t)(cptr->ptt_vfo - 'A');
+   if (vfo < VFO_A || vfo >= MAX_VFOS) return;
+   struct rr_mediachan *channel = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
+      RR_BINFRAME_DIR_TX, (uint8_t)vfo, 0);
+   if (!channel || !channel->codec[0] || strlen(cptr->codec_tx) != 4 ||
+       strncmp(channel->codec, cptr->codec_tx, 4) != 0 ||
+       !fwdsp_write_channel_samples(channel->codec, false, channel->uuid, data, len)) {
+      Log(LOG_WARN, "pcm.hub", "Unable to decode incoming TX audio for %s on VFO %c",
+         cptr->chatname, cptr->ptt_vfo);
+   }
+}
+
 static void rrserver_media_subscribed(const char *event, const char *data,
    rrconn_t *cptr, void *user) {
    dict *d = data ? json2dict(data) : NULL;
@@ -338,6 +422,7 @@ static void rrserver_media_subscribed(const char *event, const char *data,
 }
 
 void rrserver_media_register_events(void) {
+   event_on_binary("media.frame.tx", rrserver_media_talker_frame, NULL);
    event_on("media.subscribed", rrserver_media_subscribed, NULL);
    event_on("send-media-channels", rrserver_handle_send_media_channels, NULL);
    event_on("remove-media-channel", rrserver_handle_remove_media_channel, NULL);

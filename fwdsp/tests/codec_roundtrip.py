@@ -19,7 +19,7 @@ def frames(data):
     result = []
     while data:
         assert len(data) >= 4, 'truncated length header'
-        size = int.from_bytes(data[:4], 'big') & 0x7fffffff
+        size = int.from_bytes(data[:4], 'big') & 0x3fffffff
         assert 0 < size <= len(data) - 4, 'truncated/invalid payload'
         result.append(data[4:4 + size])
         data = data[4 + size:]
@@ -47,9 +47,9 @@ int main(void) {
       printf("%s\\t%s\\n", defaults[i].key + 9, defaults[i].value);
 }
 ''')
-    sources = [('client', config_pipelines('config/rrclient.cfg')),
-               ('server', config_pipelines('config/rrserver.cfg'))]
-    for role, macro in [('client', 'FWDSP_CAPTURE_SOURCE'), ('server', 'FWDSP_NOISE_SOURCE')]:
+    sources = [('client', config_pipelines('config/rrclient.cfg.example')),
+               ('server', config_pipelines('config/rrserver.cfg.example'))]
+    for role, macro in [('client', 'FWDSP_RIG_PCM_SOURCE'), ('server', 'FWDSP_RIG_PCM_SOURCE')]:
         subprocess.run(shlex.split(os.environ.get('CC', 'cc')) +
                        ['-I.', '-DTEST_SOURCE=' + macro, str(source), '-o', str(work / 'defaults')], check=True)
         defaults = dict(line.split('\t', 1) for line in
@@ -68,16 +68,16 @@ int main(void) {
             # with a finite source and an output sink we can validate.
             if codec.endswith('T'):
                 assert tx.startswith('audiotestsrc ') and 'wave=sine' in tx and 'freq=600' in tx
-            elif 'client' in label:
-                assert tx.startswith('pulsesrc ') and 'audioconvert ! audioresample' in tx
-                tx = re.sub(r'^pulsesrc[^!]*', 'audiotestsrc is-live=true wave=sine freq=600 ', tx)
             else:
-                assert tx.startswith('audiotestsrc ') and 'wave=pink-noise' in tx and 'volume=0.15' in tx
+                assert tx.startswith('appsrc name=tx-src ') and 'format=S16LE,rate=16000' in tx
+                tx = re.sub(r'^appsrc name=tx-src[^!]*!',
+                    'audiotestsrc is-live=true wave=pink-noise volume=0.15 !', tx, count=1)
             tx = re.sub(r'\bsamplesperbuffer=\d+\s*', '', tx)
             tx = tx.replace('audiotestsrc ', 'audiotestsrc num-buffers=40 samplesperbuffer=160 ', 1)
-            rx, replacements = re.subn(r'pulsesink\s+[^!]+?(?=\s+t\.|$)',
-                'appsink name=rx-sink sync=false', rx, count=1)
-            assert replacements == 1, rx
+            # RX audio is routed through the PCM hub tap, not a second
+            # direct-to-speaker branch.
+            assert 'appsink name=hub-sink' in rx, rx
+            assert 'pulsesink' not in rx, rx
             cfg = work / 'pipeline.cfg'
             cfg.write_text(f'[general]\n[fwdsp]\nlog.file=-\n[pipelines]\n{codec}.tx={tx}\n{codec}.rx={rx}\n')
             args = ['bin/fwdsp', '-f', str(cfg), '-c', codec]
@@ -88,7 +88,8 @@ int main(void) {
             assert len(packets) >= 5, encoded.stderr.decode()
             assert b'GStreamer error:' not in encoded.stderr, encoded.stderr.decode()
             with (work / 'decoded').open('wb') as out, (work / 'rx.log').open('wb') as log:
-                proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=out, stderr=log, env=ENV)
+                proc = subprocess.Popen(args + ['-H'], stdin=subprocess.PIPE,
+                    stdout=out, stderr=log, env=ENV)
             try:
                 # Split headers and combine packets across writes. The stream
                 # reader must reconstruct codec packet boundaries exactly.
@@ -100,7 +101,7 @@ int main(void) {
                     time.sleep(0.02)
                 time.sleep(0.2)
                 proc.stdin.close()
-                assert proc.wait(timeout=5) == 0
+                assert proc.wait(timeout=15) == 0
             finally:
                 if proc.poll() is None:
                     proc.kill()

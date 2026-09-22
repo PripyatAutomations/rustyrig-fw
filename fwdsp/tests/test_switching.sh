@@ -4,7 +4,19 @@ cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # Real codec elements, with no sound device required for decoder lifecycle tests.
-sed 's/pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false/appsink name=rx-sink sync=false/g' config/rrserver.cfg > "$work/test.cfg"
+server_cfg=${RRSERVER_CONFIG:-config/rrserver.cfg}
+[[ -f "$server_cfg" ]] || server_cfg=config/rrserver.cfg.example
+python3 - "$server_cfg" "$work/test.cfg" <<'PYTHON'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+text = re.sub(r'\\\n\s*', ' ', text)
+text = text.replace('pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false',
+                    'appsink name=rx-sink sync=false')
+text = re.sub(r'(?m)^([A-Za-z0-9]{4}\.tx=)appsrc[^!]*!',
+              r'\1audiotestsrc is-live=true wave=pink-noise volume=0.15 !', text)
+Path(sys.argv[2]).write_text(text)
+PYTHON
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
    ${SWITCHING_CFLAGS:-} fwdsp/tests/switching.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe -lrrprotocol -o "$work/switching"

@@ -1,3 +1,0 @@
-misc:Depends=systemd | systemd-standalone-tmpfiles | systemd-tmpfiles
-shlibs:Depends=libc6 (>= 2.38), libfwdspmgr (>= 20260921.05), librrprotocol (>= 20260921.05), librustyaxe (>= 20260921.05), libsqlite3-0 (>= 3.5.9)
-misc:Pre-Depends=

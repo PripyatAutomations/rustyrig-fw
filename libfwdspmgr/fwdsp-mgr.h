@@ -16,6 +16,21 @@ enum fwdsp_io_type {
    FW_IO_SOCKET                 // socket io
 };
 
+enum fwdsp_pipeline_role {
+   FWDSP_ROLE_NONE = 0,
+   FWDSP_ROLE_CODEC,
+   FWDSP_ROLE_PROCESSOR
+};
+
+enum fwdsp_processor_io {
+   FWDSP_PROCESSOR_IO_BIDIRECTIONAL = 0,
+   FWDSP_PROCESSOR_IO_CAPTURE,
+   FWDSP_PROCESSOR_IO_PLAYBACK
+};
+
+typedef void (*fwdsp_processor_output_cb)(const char *name,
+   const void *samples, size_t len, void *user_data);
+
 struct fwdsp_io_conn {
    struct fwdsp_subproc *sp;
    bool is_stderr;
@@ -50,15 +65,16 @@ struct fwdsp_control_msg {
 
 struct fwdsp_subproc {
    pid_t pid;
+   enum fwdsp_pipeline_role role;
    char pl_id[5];
+   char processor_namespace[8];
+   char processor_name[64];
    bool destroying;                    // teardown is in progress; ignore re-entry
    char channel_uuid[64];
    char pipeline[1024];
    bool is_tx;
    bool is_video;                        // video (webcam etc) pipeline? passed
                                          // as -v so fwdsp sets FW_MEDIA_VIDEO
-   bool is_transcoder;                    // is this a transcoder? If so it'll
-                                         // have tc_* below set
    uint8_t *stream_headers;          // length-framed initialization packets
    size_t stream_headers_len;
    bool replay_headers;
@@ -82,11 +98,9 @@ struct fwdsp_subproc {
    struct mg_connection *mg_stderr_conn;
 // Otherwise, we should probably use glib
 #endif	// USE_MONGOOSE
-   // transcoder stuff
-   char tc_in_codec[5];                          // Input codec
-   int tc_in_channel;                            // Input channel
-   char tc_out_codec[5];                         // Output codec
-   int tc_out_channel;                           // Output channel
+   enum fwdsp_processor_io processor_io;
+   fwdsp_processor_output_cb processor_output;
+   void *processor_output_data;
 };
 
 extern void fwdsp_reap_children(void);
@@ -108,6 +122,13 @@ extern void fwdsp_sweep_expired(void);
 extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);
 extern int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uuid);
 extern bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len);
+// Write framed payload to the instance bound to a specific media channel.
+// Returns true when all bytes are accepted by the child pipe.
+extern bool fwdsp_write_channel_samples(const char codec_id[5], bool is_tx,
+   const char *channel_uuid, const void *data, size_t len);
+// Receive the decoded PCM tap from one active RX decoder.
+extern bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *channel_uuid,
+   fwdsp_processor_output_cb output_cb, void *user_data);
 extern bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent);
 extern bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1);
 extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
@@ -120,5 +141,25 @@ extern bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx, co
 extern struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx);
 extern int fwdsp_codec_stop_immediate(const char *codec, bool is_tx);
 extern int fwdsp_codec_stop_channel_immediate(const char *codec, bool is_tx, const char *channel_uuid);
+// -T audio pipelines exchange mono S16LE PCM at 16 kHz using the fwdsp framed
+// stdin/stdout protocol. They may expose appsrc name=processor-src, appsink
+// name=processor-sink, or both. If pipeline is NULL, use pipeline:proc.<name>.
+// Capture and playback endpoints resolve to pipeline:src.<name> and
+// pipeline:sink.<name>. fwdsp also accepts pipeline:recode.<name> for recoders.
+// Output buffers are borrowed during the callback;
+// callbacks run on the manager/event-loop thread and should return promptly.
+extern bool fwdsp_processor_start(const char *name, const char *pipeline,
+   fwdsp_processor_output_cb output_cb, void *user_data);
+extern bool fwdsp_audio_capture_start(const char *name, const char *pipeline,
+   fwdsp_processor_output_cb output_cb, void *user_data);
+extern bool fwdsp_audio_playback_start(const char *name, const char *pipeline);
+// Write one even-length PCM frame to a processor or playback endpoint. true
+// means the complete framed sample data was accepted by the child pipe.
+extern bool fwdsp_processor_write(const char *name, const void *samples, size_t len);
+// Set the named processor's processor-vol element to 0..100 percent.
+extern bool fwdsp_processor_setvol(const char *name, int percent);
+// Stop a named endpoint. Pass a qualified name (src.rig0, sink.rig0,
+// proc.effect-name, or recode.codec-name) when names may overlap.
+extern bool fwdsp_processor_stop(const char *name);
 
 #endif // !defined(__rr_fwdsp_mgr_h)

@@ -37,6 +37,7 @@
 extern void rrserver_register_events(void); // events.c
 extern void rrserver_media_register_events(void);   // media.c
 extern void rrserver_media_init(void);              // media.c
+extern bool rrserver_media_audio_init(void);          // media.c
 extern void webcam_init(void);                      // webcam.c
 extern void webcam_shutdown(void);                  // webcam.c
 extern void audit_init(void);               // audit.c
@@ -329,7 +330,8 @@ int main(int argc, char **argv) {
 
 //   rr_au_init();
 //   dds_init();
-   if ( fwdsp_init() ) {
+   bool fwdsp_ready = !fwdsp_init();
+   if (!fwdsp_ready) {
       Log(LOG_CRIT, "fwdsp", "fwdsp manager failed to initialize; audio will be unavailable");
    }
 
@@ -348,7 +350,6 @@ int main(int argc, char **argv) {
 
 // Bring up libmongoose for the websocket/mqtt servers & mqtt client
 #if     defined(USE_MONGOOSE)
-#if     defined(USE_HTTP)
 #if     defined(HTTP_DEBUG_CRAZY)
    mg_log_set(MG_LL_DEBUG);
 #else // HTTP_DEBUG_CRAZY
@@ -356,6 +357,10 @@ int main(int argc, char **argv) {
 #endif // HTTP_DEBUG_CRAZY
 
    mg_mgr_init(&mg_mgr);
+   if (fwdsp_ready && !rrserver_media_audio_init()) {
+      Log(LOG_CRIT, "pcm.hub", "Rig audio hub initialization failed");
+   }
+#if     defined(USE_HTTP)
    http_init(&mg_mgr);
 #endif // USE_HTTP
 #if     defined(USE_MQTT)
