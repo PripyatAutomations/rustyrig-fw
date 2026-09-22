@@ -2,6 +2,7 @@
 # Source Cleanup #
 ##################
 extra_clean += core.* fwdsp.core rrclient.core rrserver.core
+extra_clean += compile_commands.json audit-logs/*
 
 clean: ${extra_clean_targets}
 	@echo "[clean]"
