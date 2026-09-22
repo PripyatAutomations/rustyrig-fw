@@ -1,10 +1,10 @@
 Package: rustyrig-client
 Source: rustyrig-fw
-Version: 20260921.04
+Version: 20260921.05
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Installed-Size: 297
-Depends: librrprotocol (= 20260921.04), libfwdspmgr (= 20260921.04), librustyaxe (= 20260921.04), libatk1.0-0t64 (>= 1.12.4), libc6 (>= 2.38), libgdk-pixbuf-2.0-0 (>= 2.22.0), libglib2.0-0t64 (>= 2.80.0), libgtk-3-0t64 (>= 3.16.2)
+Depends: librrprotocol (= 20260921.05), libfwdspmgr (= 20260921.05), librustyaxe (= 20260921.05), libatk1.0-0t64 (>= 1.12.4), libc6 (>= 2.38), libgdk-pixbuf-2.0-0 (>= 2.22.0), libglib2.0-0t64 (>= 2.80.0), libgtk-3-0t64 (>= 3.16.2)
 Section: hamradio
 Priority: optional
 Homepage: https://github.com/PripyatAutomations/rustyrig-fw

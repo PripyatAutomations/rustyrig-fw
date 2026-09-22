@@ -2,7 +2,8 @@ While win32 is mentioned in various places, that would require some
 cleanup of places we hardcode 64bit toolchain paths.
 
 Eventually I do intend to setup a toolchain to target builds for
-win32 as well, but I won't be able to test them at all.
+win32 as well, but I won't be able to test them at all as I don't own
+windows.
 
 Win64 builds i can at least test a little before uploading.
 
@@ -14,4 +15,4 @@ XXX: Insert windows build instructions
 XXX: Insert windows test instructions
 XXX: Insert windows configuraiton instructions
 
-Consult README.txt as well
+Consult README.md and QUICKSTART.txt as well

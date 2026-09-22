@@ -68,4 +68,15 @@ core
 *.core
 *.core.*
 
+######################################
+# distclean should remove this stuff #
+######################################
 debian/.debhelper
+debian/debhelper-build-stamp
+debian/libfwdspmgr*
+debian/librrprotocol*
+debian/librustyaxe*
+debian/rustyrig-callsign-lookup*
+debian/rustyrig-client*
+debian/rustyrig-fwdsp*
+debian/rustyrig-server*

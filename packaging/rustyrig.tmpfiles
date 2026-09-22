@@ -1,0 +1,7 @@
+# Keep runtime state directories available for the rrserver service.
+d /var/lib/rustyrig 0770 rustyrig rustyrig -
+d /var/lib/rustyrig/db 0770 rustyrig rustyrig -
+d /var/lib/rustyrig/recordings 0770 rustyrig rustyrig -
+d /var/lib/rustyrig/modems 0770 rustyrig rustyrig -
+d /var/log/rustyrig 0770 rustyrig rustyrig -
+d /run/rustyrig 0770 rustyrig rustyrig -

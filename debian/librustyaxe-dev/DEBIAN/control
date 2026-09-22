@@ -1,10 +1,10 @@
 Package: librustyaxe-dev
 Source: rustyrig-fw
-Version: 20260921.04
+Version: 20260921.05
 Architecture: amd64
 Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
 Installed-Size: 103
-Depends: librustyaxe (= 20260921.04)
+Depends: librustyaxe (= 20260921.05)
 Section: hamradio
 Priority: optional
 Homepage: https://github.com/PripyatAutomations/rustyrig-fw

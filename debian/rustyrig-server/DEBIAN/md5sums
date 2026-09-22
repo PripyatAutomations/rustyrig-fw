@@ -1,7 +1,7 @@
-0be82678eecd138f920917211c71bf3d  usr/bin/rrserver
+fe89a911798634f20a536e0542592458  usr/bin/rrserver
 bd895d12cca3a59ec6f2117e822a6adf  usr/lib/systemd/system/rustyrig-server.service
 972b2c79745161a72a3d580ceff070f3  usr/lib/tmpfiles.d/rustyrig.conf
-cca7f79c9a84e9926ec63cc56823e458  usr/share/doc/rustyrig-server/changelog.gz
+9f77a3ed1f8b474db55740dcf97fb955  usr/share/doc/rustyrig-server/changelog.gz
 941a6cc35822b9a977f2786ae654e8e4  usr/share/doc/rustyrig/config/callsign-lookup.cfg.example
 afb2ec39141d355c2db9cfdca4c9ea21  usr/share/doc/rustyrig/config/callsign-lookup.cli.cfg.example
 b0035c4aa0a82ebbf8dafbc267d9397e  usr/share/doc/rustyrig/config/callsign-lookup.srv.cfg.example
@@ -26,7 +26,7 @@ dd41ab60622debb7c8ada32b0adad03b  usr/share/doc/rustyrig/doc/OLD/Sensors.txt
 57ed73ff76f809e19a0276cf5cb568ca  usr/share/doc/rustyrig/doc/OLD/zmodem.txt.gz
 d97928ee2b923cd7d58a421a3566ce82  usr/share/doc/rustyrig/doc/PROTOCOL_WARNING
 e235197624d1362ad27a80b0b6abfb3a  usr/share/doc/rustyrig/doc/QUICKSTART.txt
-ecfbf065505d8ce5d6c0e315c40fae1f  usr/share/doc/rustyrig/doc/TODO
+05484aaafa7a049b9fe8ff444f796893  usr/share/doc/rustyrig/doc/TODO
 315a72bed6caa43a18dd95f3a44d2d9b  usr/share/doc/rustyrig/doc/ai-context.md
 dacdb6ede6338fac3b4946e14a54dc55  usr/share/doc/rustyrig/doc/api-gen/README.md
 fe6e11a966208f4ae6a2ac6847857693  usr/share/doc/rustyrig/doc/api-gen/cat.md

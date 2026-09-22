@@ -6,6 +6,7 @@ RustyRig is radio/remote-station software. The main firmware/software
 repository contains:
 
 - `fwdsp/` - GStreamer-based audio bridge
+- `libfwdspmgr/` - Management for fwdsp sub processes
 - `librrprotocol/` - RustyRig protocol library and wire-level behavior
 - `librustyaxe/` - shared C code used by multiple projects
 - `rrclient/` - native GTK/TUI client
@@ -25,7 +26,7 @@ behavior:
 3. `rrclient` - native client behavior
 4. `www` from rustyrig-www project - browser client behavior
 5. `librustyaxe` - Shared code used in many of my projects
-
+5. `libfwdspmgr` - Shared code used for managing fwdsp subprocs
 Do not assume that a convenient implementation location is the
 authoritative location. Never try to put UI stuff in the libraries.
 You can send an event from the library for the program to consume,
@@ -69,19 +70,13 @@ See `doc/client-parity.md` for the current parity map.
 - Do not casually change protocol messages or their semantics.
 - Do not duplicate shared global state between libraries.
 - Preserve the non-GTK build.
-- Be conscious that some shared code may eventually run on small
-  microcontrollers.
-- Prefer integer arithmetic when practical; do not introduce floating
-  point merely for convenience.
-- Use the project's existing time abstractions rather than inventing
-  unrelated timestamp/elapsed-time mechanisms.
+- Be conscious that some shared code may eventually run on small microcontrollers.
+- Prefer integer arithmetic when practical; do not introduce floating  point merely for convenience.
+- Use the project's existing time abstractions rather than inventing unrelated timestamp/elapsed-time mechanisms.
 - Preserve existing error handling and logging conventions.
-- Do not remove code just because it appears unused until build profiles
-  and alternate clients/frontends have been considered.
-- Configuration items MUST be added to defconfig.c in rrclient or rrserver
-  to prevent crashes at start without a config.
-- Build configuration is in config/${PROFILE}.config.json and PROFILE
-  defaults to 'radio'
+- Do not remove code just because it appears unused until build profiles and alternate clients/frontends have been considered.
+- Configuration items MUST be added to defconfig.c in rrclient or rrserver to prevent crashes at start without a config.
+- Build configuration is in config/${PROFILE}.config.json and PROFILE defaults to 'radio'
 - mk/json-config.mk maps config settings to make variables as needed
 
 ## Before modifying code
@@ -131,4 +126,3 @@ Do not force frontend-specific implementations to look alike. They only
 need equivalent behavior where the parity document says they do.
 If possible without large changes, we should try to adjust the webui to
 match C version as we add new protocol messages or features.
-Configuration.

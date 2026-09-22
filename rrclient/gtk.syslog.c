@@ -49,7 +49,8 @@ static bool log_tab_visible(void) {
 // One host log line arrived as a SUBSYS_LOG binframe payload (media.frame.log
 // event; the binframe header is already stripped by ws_binframe_process).
 // Payload: struct rr_logframe - prio byte, 16-byte NUL-padded subsys, then
-// the NUL-terminated message. Plain text only: the host never sends color.
+// the NUL-terminated message. Host log messages use the same {color} tags as
+// local Log() output, so render them through the GTK colorizer too.
 static void host_log_frame_handler(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
    (void)event;
    (void)cptr;
@@ -75,14 +76,32 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
 
    gtk_text_buffer_get_end_iter(host_log_buffer, &end);
 
-   char tsbuf[32];
+   char tsbuf[128];
    snprintf(tsbuf, sizeof(tsbuf), "%s", get_chat_ts(now) );
-   gtk_text_buffer_insert(host_log_buffer, &end, tsbuf, -1);
+   char *ts_markup = gtk_colorize_string(tsbuf);
+   if (ts_markup) {
+      gtk_text_buffer_insert_markup(host_log_buffer, &end, ts_markup, -1);
+      g_free(ts_markup);
+   } else {
+      gtk_text_buffer_insert(host_log_buffer, &end, tsbuf, -1);
+   }
 
    char header[64];
    snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(prio) );
    gtk_text_buffer_insert(host_log_buffer, &end, header, -1);
-   gtk_text_buffer_insert(host_log_buffer, &end, msg, (gint)mlen);
+   char *msg_copy = malloc(mlen + 1);
+   if (msg_copy) {
+      memcpy(msg_copy, msg, mlen);
+      msg_copy[mlen] = '\0';
+      char *msg_markup = gtk_colorize_string(msg_copy);
+      if (msg_markup) {
+         gtk_text_buffer_insert_markup(host_log_buffer, &end, msg_markup, -1);
+         g_free(msg_markup);
+      } else {
+         gtk_text_buffer_insert(host_log_buffer, &end, msg_copy, (gint)mlen);
+      }
+      free(msg_copy);
+   }
    gtk_text_buffer_insert(host_log_buffer, &end, "\n", 1);
    gtk_trim_scrollback(host_log_buffer, "ui.gtk.scrollback.hostlog", 500);
 

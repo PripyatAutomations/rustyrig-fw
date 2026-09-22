@@ -5,8 +5,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// We create a pseudo-terminal and expose its slave at cat.pty.path (default:
-// ~/ttyCAT0).  External software such as hamlib/rigctl/WSJT-X opens the
+// We create a pseudo-terminal and expose its slave at cat.port (default:
+// $HOME/ttyCAT0).  External software such as hamlib/rigctl/WSJT-X opens the
 // slave as if it were a serial port; everything written there is fed line by
 // line through the CAT parsers in cat.c / cat.yaesu.c / cat.kpa500.c.
 //
@@ -216,12 +216,12 @@ bool cat_pty_init(void) {
    }
 
    // cfg_get_path() only expands user-supplied values.  Use cfg_get() here so
-   // the built-in ~/ttyCAT0 default is expanded as well.
-   const char *configured_path = cfg_get("cat.pty.path");
+   // the built-in $HOME/ttyCAT0 default is expanded as well.
+   const char *configured_path = cfg_get("cat.path");
    char *path_expanded = configured_path ? expand_path(configured_path) : NULL;
    char path[PATH_MAX];
    if (!path_expanded || !path_expanded[0]) {
-      char *fallback = expand_path("~/ttyCAT0");
+      char *fallback = expand_path("$HOME/ttyCAT0");
       snprintf(path, sizeof(path), "%s", fallback ? fallback : "./ttyCAT0");
       free(fallback);
    } else {
