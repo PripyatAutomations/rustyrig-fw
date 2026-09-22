@@ -5,6 +5,10 @@ export DH_VERBOSE = 1
 %:
 	dh $@
 
+# Keep package builds independent of the optional hardware/integration test suite.
+override_dh_auto_test:
+	:
+
 override_dh_auto_clean:
 	$(MAKE) distclean || true
 	$(MAKE) -C callsign-lookup clean || true

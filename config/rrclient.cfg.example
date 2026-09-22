@@ -107,6 +107,7 @@ audio.pipeline.tx.format=time
 ;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
 
 [fwdsp]
+pcm-hub=true
 path=/usr/bin/fwdsp
 hangtime=5
 recording.path=~/rrclient-recordings/
@@ -119,6 +120,15 @@ log.file=/var/log/fwdsp-cli.log
 subproc.max=24
 
 [pipelines]
+; Persistent client hardware endpoints: microphone capture and speaker playback.
+src.client.dsp0=pulsesrc name=processor-mic client-name=rrclient-mic do-timestamp=true ! \
+        audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! \
+        appsink name=processor-sink emit-signals=false sync=false max-buffers=5 drop=true
+sink.client.dsp0=appsrc name=processor-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! volume name=processor-vol ! \
+        audioconvert ! audioresample ! pulsesink device=default name=processor-speaker client-name=rrclient-speaker sync=false
+
 ; Audio direction is relative to the program running fwdsp:
 ;   *.rx = media received by this program (decode -> local/raw audio)
 ;   *.tx = media sent by this program (local/raw audio -> encode)
@@ -127,10 +137,9 @@ subproc.max=24
 ; Raw signed 16-bit little-endian PCM, 16 kHz mono.
 pc16.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
         tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-pc16.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
+pc16.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
         t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
@@ -139,10 +148,9 @@ pc16.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioco
 opus.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-opus,rate=16000,channels=1,channel-mapping-family=0 ! \
         opusdec ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-opus.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
+opus.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! opusenc audio-type=generic frame-size=20 bitrate=24000 bitrate-type=cbr ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -152,10 +160,9 @@ opus.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioco
 aacv.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/mpeg,mpegversion=4,stream-format=adts,framed=true,rate=16000,channels=1 ! \
         aacparse ! avdec_aac ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-aacv.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! audioconvert ! audioresample ! \
+aacv.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! \
         audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! avenc_aac bitrate=32000 ! aacparse ! audio/mpeg,mpegversion=4,stream-format=adts,framed=true ! \
         appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -165,8 +172,7 @@ aacv.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioco
 aacT.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/mpeg,mpegversion=4,stream-format=adts,framed=true,rate=16000,channels=1 ! \
         aacparse ! avdec_aac ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 aacT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true ! audioconvert ! audioresample ! audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! avenc_aac bitrate=32000 ! aacparse ! audio/mpeg,mpegversion=4,stream-format=adts,framed=true ! \
         appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -176,10 +182,9 @@ aacT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-tim
 mu16.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=16000,channels=1 ! \
         mulawdec ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-mu16.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
+mu16.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=16000,channels=1 ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -189,10 +194,9 @@ mu16.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioco
 mu08.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=8000,channels=1 ! \
         mulawdec ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-mu08.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
+mu08.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! audioresample ! \
         audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=8000,channels=1 ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -207,14 +211,11 @@ oggv.rx=appsrc name=rx-src is-live=true format=bytes caps=application/ogg ! \
         audioconvert ! \
         audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
-        tee name=t t. ! \
-        queue max-size-buffers=2 leaky=downstream ! \
-        volume name=rx-vol ! \
-        pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
+        tee name=t  t. ! \
         queue max-size-buffers=4 leaky=downstream ! \
-        appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-oggv.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
+oggv.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
         tee name=t t. ! \
         queue max-size-buffers=2 leaky=downstream ! \
@@ -232,10 +233,9 @@ oggv.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioco
 g722.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/G722,rate=16000,channels=1 ! \
         avdec_g722 ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-g722.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
+g722.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! avenc_g722 bitrate=64000 ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -244,8 +244,7 @@ g722.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioco
 ; Tone variants: same formats, independent 600 Hz test sources on either host.
 pc1T.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
         tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
 pc1T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
@@ -255,8 +254,7 @@ pc1T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume 
 g72T.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/G722,rate=16000,channels=1 ! \
         avdec_g722 ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
 g72T.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=160 do-timestamp=true ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
@@ -267,8 +265,7 @@ g72T.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=160 do-tim
 mu1T.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=16000,channels=1 ! \
         mulawdec ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
 mu1T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
@@ -279,10 +276,9 @@ mu1T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume 
 mu0T.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=8000,channels=1 ! \
         mulawdec ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-mu0T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! \
+mu0T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! audioresample ! \
         audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=8000,channels=1 ! \
              appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -291,8 +287,7 @@ mu0T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume 
 opuT.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-opus,rate=16000,channels=1,channel-mapping-family=0 ! \
         opusdec ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
-        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
 opuT.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
@@ -308,12 +303,9 @@ oggT.rx=appsrc name=rx-src is-live=true format=bytes caps=application/ogg ! \
         audioconvert ! \
         audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
-        tee name=t t. ! \
-        queue max-size-buffers=2 leaky=downstream ! \
-        volume name=rx-vol ! \
-        pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
+        tee name=t  t. ! \
         queue max-size-buffers=4 leaky=downstream ! \
-        appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+        appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
 oggT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
@@ -335,11 +327,10 @@ flac.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true encoded-t. ! \
         queue ! flacparse ! flacdec ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! \
-        pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
-        queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+         t. ! \
+        queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-flac.tx=pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample ! volume name=tx-vol ! \
+flac.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
         t. ! queue max-size-buffers=2 leaky=downstream ! flacenc ! tee name=encoded-t \
         encoded-t. ! queue max-size-buffers=8 leaky=downstream ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
@@ -351,9 +342,8 @@ flaT.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio
         appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true encoded-t. ! \
         queue ! flacparse ! flacdec ! audioconvert ! audioresample ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
-        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! \
-        pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
-        queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+         t. ! \
+        queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
 flaT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
         audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
