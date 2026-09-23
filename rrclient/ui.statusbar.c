@@ -6,6 +6,23 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.statusbar.h>
+
+extern dict *cfg;
+
+static char *cached_status_line = NULL;
+
+static const char *rrclient_status_line_template(void) {
+   const char *configured = cfg ? dict_get(cfg, "tui.status-line", NULL) : NULL;
+   if (!configured) configured = RRCLIENT_DEFAULT_STATUS_LINE;
+   if (!cached_status_line || strcmp(cached_status_line, configured) != 0) {
+      char *copy = strdup(configured);
+      if (copy) {
+         free(cached_status_line);
+         cached_status_line = copy;
+      }
+   }
+   return cached_status_line ? cached_status_line : RRCLIENT_DEFAULT_STATUS_LINE;
+}
 #include <rrclient/vfo.h>
 #include <rrclient/media.h>
 #include <rrclient/userlist.h>
@@ -89,10 +106,10 @@ static const char *topline_value(const char *name, tui_window_t *win,
 }
 
 char *rrclient_tui_topline(tui_window_t *win) {
-   // Fetch the raw template: cfg_get_exp() would expand these against config
-   // keys rather than current radio state. No cached values survive a redraw.
-   const char *format = cfg_get("tui.status-line");
-   if (!format) format = RRCLIENT_DEFAULT_STATUS_LINE;
+   // Read the raw template without cfg_get(): verbose config logging during a
+   // redraw can recurse through the TUI log callback. The copied template is
+   // refreshed only when the live config value changes.
+   const char *format = rrclient_status_line_template();
    dict *values = dict_new();
    if (!values) return NULL;
 

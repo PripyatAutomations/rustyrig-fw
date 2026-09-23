@@ -23,6 +23,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/ui.speech.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/userlist.h>
 
 extern dict *cfg;                // main.c
 extern time_t now;               // main.c
@@ -48,16 +49,29 @@ static GHashTable *room_tabs = NULL;
 static GtkRoomTab *rig_room_tab = NULL;
 int next_chat_tab = 5;
 
+static gboolean gtk_chat_set_userlist_width(gpointer data) {
+   GtkWidget *paned = GTK_WIDGET(data);
+   if (!paned || !GTK_IS_PANED(paned)) return G_SOURCE_REMOVE;
+   int width = cfg_get_int("ui.userlist-width", 220);
+   int total = gtk_widget_get_allocated_width(paned);
+   if (width < 120) width = 120;
+   if (total > width) gtk_paned_set_position(GTK_PANED(paned), total - width);
+   return G_SOURCE_REMOVE;
+}
+
 static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page,
    guint page_num, gpointer user_data) {
    (void)notebook;
    (void)page_num;
    (void)user_data;
    GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
-   if (tab) {
+   if (tab && tab->view && GTK_IS_TEXT_VIEW(tab->view)) {
       chat_textview = tab->view;
       chat_entry = tab->entry;
       text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(tab->view));
+      /* The shared user list follows the selected room, including when it
+       * is detached in its own window. */
+      userlist_redraw_gtk();
    }
 }
 
@@ -67,6 +81,7 @@ bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget *
    else if (rig_room_tab && !strcasecmp(rig_room_tab->room, room)) tab = rig_room_tab;
    else if (room_tabs) tab = g_hash_table_lookup(room_tabs, room);
    if (!tab) return false;
+   if (!tab->view || !GTK_IS_TEXT_VIEW(tab->view)) return false;
    if (buffer) *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(tab->view));
    if (view) *view = tab->view;
    return true;
@@ -392,7 +407,7 @@ static GtkWidget *chatbox_vfo_init(void) {
    return vfo;
 }
 
-static GtkWidget *create_chat_box_for_room(bool is_rig) {
+static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
    if (!chat_box) { // XXX: throw OOM warning
@@ -421,7 +436,20 @@ static GtkWidget *create_chat_box_for_room(bool is_rig) {
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
-   gtk_box_pack_start(GTK_BOX(chat_box), scrolled, TRUE, TRUE, 0);
+
+   /* Keep every room's user list beside its chat. GtkPaned gives the user a
+    * draggable divider; the authoritative room additionally supports the
+    * existing detachable list window. */
+   if (is_rig || (room && *room)) {
+      GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+      gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
+      gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, FALSE);
+      g_idle_add(gtk_chat_set_userlist_width, paned);
+      if (is_rig) userlist_dock_into(GTK_PANED(paned));
+      else userlist_dock_room_into(GTK_PANED(paned), room);
+   } else {
+      gtk_box_pack_start(GTK_BOX(chat_box), scrolled, TRUE, TRUE, 0);
+   }
 
    // Chat INPUT
    chat_entry = gtk_entry_new();
@@ -452,7 +480,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig) {
 }
 
 GtkWidget *create_chat_box(void) {
-   return create_chat_box_for_room(true);
+   return create_chat_box_for_room(true, ws_authoritative_room());
 }
 
 void gtk_chat_room_add(const char *room) {
@@ -474,7 +502,7 @@ void gtk_chat_room_add(const char *room) {
    GtkRoomTab *tab = g_new0(GtkRoomTab, 1);
    snprintf(tab->room, sizeof(tab->room), "%s", room);
    tab->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-   GtkWidget *box = create_chat_box_for_room(false);
+   GtkWidget *box = create_chat_box_for_room(false, room);
    tab->view = chat_textview;
    tab->entry = chat_entry;
    gtk_box_pack_start(GTK_BOX(tab->page), box, TRUE, TRUE, 0);
@@ -496,6 +524,7 @@ void gtk_chat_room_remove(const char *room) {
    GtkRoomTab *tab = g_hash_table_lookup(room_tabs, room);
    if (!tab) return;
    gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), tab->page);
+   userlist_remove_room_view(room);
    if (page >= 0) gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), page);
    g_hash_table_remove(room_tabs, room);
 }
@@ -505,6 +534,26 @@ void gtk_chat_set_authoritative_room(const char *room) {
       return;
    }
    snprintf(rig_room_tab->room, sizeof(rig_room_tab->room), "%s", room);
+   /* The status page is deliberately created before authentication, but it
+    * must not contain a rig room, VFO controls, or a user list until the
+    * server tells us which authoritative room this connection joined. */
+   if (!g_object_get_data(G_OBJECT(rig_room_tab->page), "rr-rig-room-built")) {
+      GList *children = gtk_container_get_children(GTK_CONTAINER(rig_room_tab->page));
+      for (GList *it = children; it; it = it->next) {
+         gtk_widget_destroy(GTK_WIDGET(it->data));
+      }
+      g_list_free(children);
+      GtkWidget *chat_box = create_chat_box_for_room(true, room);
+      if (!chat_box) {
+         return;
+      }
+      gtk_box_pack_start(GTK_BOX(rig_room_tab->page), chat_box, TRUE, TRUE, 0);
+      rig_room_tab->view = chat_textview;
+      rig_room_tab->entry = chat_entry;
+      g_object_set_data(G_OBJECT(rig_room_tab->page), "rr-rig-room-built",
+         GINT_TO_POINTER(1));
+      gtk_widget_show_all(rig_room_tab->page);
+   }
    GtkWidget *label = gtk_notebook_get_tab_label(GTK_NOTEBOOK(main_notebook), rig_room_tab->page);
    if (label && GTK_IS_LABEL(label)) {
       char text[160];
@@ -519,22 +568,16 @@ bool chat_init(void) {
    GtkWidget *status_tab_label = gtk_label_new(NULL);
    char tab_desc[64];
    memset(tab_desc, 0, sizeof(tab_desc));
-   const char *rig_room = ws_authoritative_room();
-   snprintf(tab_desc, sizeof(tab_desc), "(<u>%d</u>) %s", next_chat_tab, rig_room);
+   snprintf(tab_desc, sizeof(tab_desc), "(<u>%d</u>) status", next_chat_tab);
    gtk_label_set_markup(GTK_LABEL(status_tab_label), tab_desc);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), status_tab, status_tab_label);
    input_history = g_ptr_array_new_with_free_func(g_free);
 
-   GtkWidget *chat_box = create_chat_box();
-   gtk_box_pack_start(GTK_BOX(status_tab), chat_box, TRUE, TRUE, 0);
-
    rig_room_tab = g_new0(GtkRoomTab, 1);
-   snprintf(rig_room_tab->room, sizeof(rig_room_tab->room), "%s", ws_authoritative_room());
    rig_room_tab->page = status_tab;
-   rig_room_tab->view = chat_textview;
-   rig_room_tab->entry = chat_entry;
    g_object_set_data(G_OBJECT(status_tab), "rr-room-tab", rig_room_tab);
    g_signal_connect(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
+   userlist_redraw_gtk();
 
    return false;
 }

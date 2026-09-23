@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -44,6 +45,7 @@ bool userlist_add_or_update(dict *d) {
    int t_sessions = dict_get_int(d, "talk.sessions", 0);
    bool t_muted = dict_get_bool(d, "talk.muted", false);
    bool t_ptt = dict_get_bool(d, "talk.tx", false);
+   const char *t_ptt_vfo = dict_get(d, "talk.ptt-vfo", NULL);
 
    if (!t_user) {
       return false;
@@ -67,6 +69,7 @@ bool userlist_add_or_update(dict *d) {
       c->sessions = t_sessions;
       c->is_muted = t_muted;
       c->is_ptt = t_ptt;
+      c->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
 
 #if     defined(USE_GTK)
       // Another user starting/stopping TX changes the PTT button color
@@ -101,6 +104,7 @@ bool userlist_add_or_update(dict *d) {
    n->sessions = t_sessions;
    n->is_muted = t_muted;
    n->is_ptt = t_ptt;
+   n->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
 
 #if     defined(USE_GTK)
    if (ui_mode == UI_MODE_GTK) {

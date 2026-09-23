@@ -63,9 +63,10 @@ static int ptt_btn_tot_secs = 0;
 
 // Red while active for ANY user: find them in the cached userlist
 static struct rr_user *tx_user(void) {
+   char active_vfo = vfo_state_get_active();
    for (struct rr_user *c = global_userlist; c; c = c->next) {
       if (c->room[0] && strcasecmp(c->room, rrclient_current_room()) != 0) continue;
-      if (c->is_ptt) {
+      if (c->is_ptt && c->ptt_vfo == active_vfo) {
          return c;
       }
    }
@@ -343,6 +344,10 @@ GtkWidget *ptt_button_create(void) {
    ptt_toggled_handler = g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
    // Start out dark grey until we're online with the server
    gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-offline");
+   /* The connection may have completed before the GTK widget was created.
+    * Apply the cached connection state immediately instead of waiting for a
+    * later click or server echo to repaint the button. */
+   ptt_button_apply();
 
    return ptt_box;
 }

@@ -51,6 +51,25 @@ bool cmd_chan(int argc, char **args) {
    return false;
 }
 
+/* /room is deliberately sent to the server.  Room administration belongs to
+ * the server database and the server decides whether this user may perform
+ * the requested operation. */
+bool cmd_room(int argc, char **args) {
+   if (!ws_conn) return true;
+   char data[512] = "";
+   for (int i = 1; i < argc; i++) {
+      if (i > 1) strlcat(data, " ", sizeof(data));
+      strlcat(data, args[i], sizeof(data));
+   }
+   dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "room");
+   dict_add(d, "talk.data", data);
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return false;
+}
+
 bool cmd_list(int argc, char **args) {
    (void)argc; (void)args;
    if (!ws_conn) return true;
@@ -107,6 +126,13 @@ bool cmd_me(int argc, char **args) {
       tui_window_t *window = tui_active_window();
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
          dict_add(d, "talk.target", window->title);
+      } else if (cfg_get_bool("tui.status-chat", false)) {
+         const char *room = ws_authoritative_room();
+         if (room && *room) dict_add(d, "talk.target", room);
+      } else {
+         ui_print(NULL, "{yellow}Select a room tab before sending an action (status is for client logs and commands){reset}");
+         dict_free(d);
+         return false;
       }
    }
 

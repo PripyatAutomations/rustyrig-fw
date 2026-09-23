@@ -224,6 +224,24 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
       if (ui_mode == UI_MODE_TUI) {
          tui_refresh_sb_online();
       }
+      /* The server always joins its authoritative rig room. Extra room
+       * joins are client preferences and are sent only when configured on
+       * this server profile. */
+      const char *autojoin = server_name ? get_server_property(server_name, "autojoin") : NULL;
+      const char *rig_room = ws_authoritative_room();
+      if (autojoin && *autojoin) {
+         char *list = strdup(autojoin);
+         if (list) {
+            char *save = NULL;
+            for (char *room = strtok_r(list, ", \t\r\n", &save);
+               room; room = strtok_r(NULL, ", \t\r\n", &save)) {
+               if (!rig_room || strcasecmp(room, rig_room) != 0) {
+                  rrclient_room_request_join(room);
+               }
+            }
+            free(list);
+         }
+      }
    }
    dict_free(d);
 }
@@ -334,11 +352,10 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    const char *msg_cmd = dict_get(d, "talk.cmd", NULL);
    const char *target_room = dict_get(d, "talk.target", NULL);
    /* Room and private messages both use talk.target.  Give every explicit
-    * target its own numbered window; the authoritative room remains the
-    * status window. */
+    * target its own numbered window; the status window is reserved for the
+    * client log. */
    const char *output_room = target_room;
-   if (ui_mode == UI_MODE_TUI && target_room &&
-       strcasecmp(target_room, ws_authoritative_room()) != 0) {
+   if (ui_mode == UI_MODE_TUI && target_room) {
       rrclient_tui_room_window(target_room, true);
    }
 #ifdef USE_GTK
@@ -490,7 +507,7 @@ static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *
 }
 
 static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
-   if (!room || !*room || strcasecmp(room, ws_authoritative_room()) == 0) return tui_window_find("status");
+   if (!room || !*room) return tui_window_find("status");
    tui_window_t *window = tui_window_find(room);
    if (!window && create) window = tui_window_create(room);
    if (window) window->cptr = ws_conn;
@@ -508,10 +525,17 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
    const char *m_target = dict_get(d, "talk.target", NULL);
    const char *m_room = dict_get(d, "talk.room", NULL);
    if (m_room && dict_get_bool(d, "room.has-vfos", false)) {
+      rrclient_room_set_vfo_mask(m_room, dict_get_ulong(d, "room.vfo-mask", 0));
+#ifdef USE_GTK
+      if (ui_mode == UI_MODE_GTK) userlist_room_vfos_changed(m_room);
+#endif
+   }
+   if (m_room && dict_get_bool(d, "room.has-vfos", false)) {
       ws_set_authoritative_room(m_room);
 #ifdef USE_GTK
       if (ui_mode == UI_MODE_GTK) {
          gtk_chat_set_authoritative_room(m_room);
+         userlist_room_vfos_changed(m_room);
       }
 #endif
    }
@@ -521,7 +545,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
    if (m_room) {
       if (m_user && login_user && strcasecmp(m_user, login_user) == 0) {
          rrclient_room_join(m_room);
-         if (ui_mode == UI_MODE_TUI && strcasecmp(m_room, ws_authoritative_room()) != 0) {
+         if (ui_mode == UI_MODE_TUI) {
             rrclient_tui_room_window(m_room, true);
             tui_window_focus(m_room);
          }
@@ -556,6 +580,9 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
    const char *vfos = dict_get(d, "talk.vfos", "");
    if (room) {
       rrclient_room_set_vfos(room, vfos);
+#ifdef USE_GTK
+      if (ui_mode == UI_MODE_GTK) userlist_room_vfos_changed(room);
+#endif
       ui_print(room, "{yellow}Room %s VFOs:{reset} %s", room, *vfos ? vfos : "(none)");
    }
    dict_free(d);
@@ -591,6 +618,11 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
 #ifdef USE_GTK
       if (ui_mode == UI_MODE_GTK) gtk_chat_room_remove(room);
 #endif
+      if (ui_mode == UI_MODE_TUI) {
+         tui_window_t *window = tui_window_find(room);
+         if (window) tui_window_destroy(window);
+         tui_window_focus("status");
+      }
       ui_print(NULL, "{yellow}Room %s was removed by an administrator{reset}", room);
    }
    dict_free(d);
@@ -609,7 +641,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
 #ifdef USE_GTK
       if (ui_mode == UI_MODE_GTK) gtk_chat_room_remove(room);
 #endif
-      if (ui_mode == UI_MODE_TUI && strcasecmp(room, ws_authoritative_room()) != 0) {
+      if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = tui_window_find(room);
          if (window) tui_window_destroy(window);
          tui_window_focus("status");

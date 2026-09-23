@@ -155,26 +155,9 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
          case GDK_KEY_U:
          case GDK_KEY_u: {
-            gui_window_t *wp = gui_find_window(NULL, "userlist");
-
-            if (wp) {
-               GtkWidget *userlist_window = wp->gtk_win;
-
-               if (!userlist_window) {
-                  Log(LOG_DEBUG, "gtk", "userlist_window is null in alt-u handler");
-
-                  return TRUE;
-               }
-
-               if (gtk_widget_get_visible(userlist_window) ) {
-                  gtk_widget_hide(userlist_window);
-               } else {
-                  // Record focus state BEFORE showing, so we know if main had focus
-                  userlist_refocus_main();
-                  gtk_widget_show_all(userlist_window);
-                  place_window(userlist_window);
-               }
-            }
+            /* Keep the hotkey in sync with the button, including the
+             * docked-pane state. */
+            on_toggle_userlist_clicked(NULL, NULL);
             break;
          }
          case GDK_KEY_V:

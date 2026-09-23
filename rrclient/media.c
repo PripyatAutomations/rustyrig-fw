@@ -135,8 +135,39 @@ static struct rr_media_known *media_current_channel(bool is_tx) {
    return wildcard;
 }
 
+/* Return the channel the UI should address for a codec request.  Unlike the
+ * audio pipeline selector above, this deliberately includes a channel that
+ * is disabled (NONE) or waiting for a subscription confirmation.  Otherwise
+ * selecting a codec after NONE loses the UUID and sends a misleading
+ * direction-wide request. */
+static struct rr_media_known *media_codec_target_channel(bool is_tx) {
+   uint8_t direction = is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX;
+   char active = vfo_state_get_active();
+   struct rr_media_known *fallback = NULL;
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      struct rr_media_known *kp = &known_chans[i];
+      if (!kp->uuid[0] || kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+          kp->direction != direction) {
+         continue;
+      }
+      if (kp->vfo == (uint8_t)(active - 'A')) {
+         if (kp->subscribed && !kp->disabled) {
+            return kp;
+         }
+         if (!fallback) {
+            fallback = kp;
+         }
+      }
+   }
+   return fallback;
+}
+
 const struct rr_client_media_chan *rrclient_media_current_channel(bool is_tx) {
    return (const struct rr_client_media_chan *)media_current_channel(is_tx);
+}
+
+const struct rr_client_media_chan *rrclient_media_codec_target_channel(bool is_tx) {
+   return (const struct rr_client_media_chan *)media_codec_target_channel(is_tx);
 }
 
 const char *rrclient_media_current_codec(bool is_tx) {
@@ -253,28 +284,17 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
    if (!cptr || !kp || !media_ready || kp->subscribed || kp->disabled) {
       return;
    }
-   // Audio channels for the active VFO auto-subscribe; video channels
-   // (webcam etc, VFO NA) also auto-subscribe so the viewer just works.
-   // Other subsystems (waterfall, modem, ...) stay opt-in by the user.
-   if (kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO && kp->subsystem != RR_BINFRAME_SUBSYS_VIDEO) {
+   // Subscribe only to the primary rig audio pair on VFO A. Additional
+   // media channels remain available through /media commands.
+   if (kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+       kp->vfo != 0) {
       return;
    }
-   if (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO) {
-      // Only auto-subscribe the channels for the VFO the UI is currently
-      // showing; channels for other VFOs stay available for the user to
-      // switch to (multi-VFO RX rigs expose them all).
-      char cur_vfo = vfo_state_get_active();
-      uint8_t active_id = (cur_vfo >= 'A' && cur_vfo <= 'Z') ? (uint8_t)(cur_vfo - 'A') : 0;
-
-      if (kp->vfo != active_id && kp->vfo != RR_BINFRAME_VFO_NA) {
-         return;
-      }
-      if (direction_disabled[kp->direction == RR_BINFRAME_DIR_TX]) {
-         kp->disabled = true;
-         return;
-      }
+   if (direction_disabled[kp->direction == RR_BINFRAME_DIR_TX]) {
+      kp->disabled = true;
+      return;
    }
-   if (!media_send_subscribe(cptr, kp->uuid)) {
+   if (media_send_subscribe(cptr, kp->uuid)) {
       kp->subscribed = true;
    }
 }
@@ -721,7 +741,7 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
       ui_print(NULL, "Use /%s LIST to see supported codecs", command);
       return true;
    }
-   const struct rr_media_known *target = (argc == 3) ? rrclient_media_chan_lookup(args[2]) : media_current_channel(is_tx);
+   const struct rr_media_known *target = (argc == 3) ? rrclient_media_chan_lookup(args[2]) : media_codec_target_channel(is_tx);
    bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
    if (!failed) {
       char vfo = (target && target->vfo < 26) ? (char)('A' + target->vfo) : '-';

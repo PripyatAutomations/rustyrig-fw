@@ -51,7 +51,7 @@ bool cmd_reload(int argc, char **args) {
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
-   { .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab" },
+   { .cmd = "room", .cb = cmd_room, .max_args = 4, .desc = "Send room administration command to the server" },
    { .cmd = "chan", .cb = cmd_chan, .max_args = 4, .desc = "Manage rooms and room VFO mappings" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
 #ifdef USE_GTK
@@ -248,12 +248,19 @@ bool parse_chat_input_real(const char *msg) {
 #endif
       } else if (ui_mode == UI_MODE_TUI) {
          /* TUI windows represent both rooms and private conversations.  The
-          * status window is the authoritative room; side windows use their
-          * title as the protocol target. */
+          * status window is the client log, so target the authoritative room
+          * when it is active. */
          tui_window_t *window = tui_active_window();
          if (window && window->title[0] &&
              strcasecmp(window->title, "status") != 0) {
             dict_add(d, "talk.target", window->title);
+         } else if (cfg_get_bool("tui.status-chat", false)) {
+            const char *room = ws_authoritative_room();
+            if (room && *room) dict_add(d, "talk.target", room);
+         } else {
+            ui_print(NULL, "{yellow}Select a room tab before sending a message (status is for client logs and commands){reset}");
+            dict_free(d);
+            return false;
          }
       }
 

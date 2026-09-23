@@ -70,6 +70,9 @@ extern defconfig_t defcfg[];     // From defconfig.c
 extern const char *configs[];
 extern const int num_configs;
 extern void timer_clock_tick_fn(void *arg);     // timer.clocktick.c
+#ifdef USE_PROFILING
+extern void timer_profile_dump_fn(void *arg);   // timer.clocktick.c
+#endif
 
 // Set minimum defaults, til we have EEPROM available
 static uint32_t load_defaults(void) {
@@ -247,6 +250,20 @@ int main(int argc, char **argv) {
       free((void *)masterdb_path);
       exit(EXIT_FAILURE);
    }
+   const char *rig_room = ws_authoritative_room();
+   if (rig_room && *rig_room) {
+      int rig_vfos = cfg_get_int("rig.vfos", 2);
+      if (rig_vfos < 1) rig_vfos = 1;
+      if (rig_vfos > 32) rig_vfos = 32;
+      uint32_t rig_mask = rig_vfos == 32 ? UINT32_MAX : ((UINT32_C(1) << rig_vfos) - 1);
+      db_room_ensure(masterdb, rig_room, true, rig_mask);
+      char *existing_rig_vfos = db_room_vfo_list(masterdb, rig_room);
+      if (!existing_rig_vfos || !*existing_rig_vfos) {
+         db_room_vfo_add(masterdb, rig_room, "rig0.vfo_a");
+         if (rig_vfos > 1) db_room_vfo_add(masterdb, rig_room, "rig0.vfo_b");
+      }
+      free(existing_rig_vfos);
+   }
    free((void *)masterdb_path);
    audit_init();   // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
@@ -370,6 +387,11 @@ int main(int argc, char **argv) {
 
    // Update the clock (now) once a second
    mg_timer_add(&mg_mgr, 1000, MG_TIMER_REPEAT, timer_clock_tick_fn, &mg_mgr);
+
+#ifdef USE_PROFILING
+   // Keep the server's event profile independent of event traffic volume.
+   mg_timer_add(&mg_mgr, 300000, MG_TIMER_REPEAT, timer_profile_dump_fn, &mg_mgr);
+#endif
 
    // Update the clock (now) once a second
    // Check for faults/protection every 150ms

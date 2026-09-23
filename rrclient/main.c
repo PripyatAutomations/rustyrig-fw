@@ -280,6 +280,35 @@ static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *c
    ui_print("status", "%s", led->message);
 }
 
+/* The GTK frontend has its own log tab callback.  Keep the TUI's status
+ * window equivalent, but only feed it this client's Log() calls; server host
+ * log events remain separate and are intentionally not mirrored here. */
+static bool rrclient_tui_log_print_va(logpriority_t priority, const char *subsys,
+                                      const char *fmt, va_list ap) {
+   static bool log_printing = false;
+   /* tui_vprint redraws the top line.  The top-line renderer reads config,
+    * and cfg_get() logs at verbose levels, so allowing that callback back
+    * into this function recurses until the stack is exhausted. */
+   if (log_printing) {
+      return true;
+   }
+   if (!fmt || dying || debug_filter(subsys, priority)) {
+      return true;
+   }
+
+   char message[4096];
+   va_list copy;
+   va_copy(copy, ap);
+   vsnprintf(message, sizeof(message), fmt, copy);
+   va_end(copy);
+
+   log_printing = true;
+   ui_print("status", "%s <%s.%s> %s", get_chat_ts(now),
+      subsys ? subsys : "core", log_priority_to_str(priority), message);
+   log_printing = false;
+   return false;
+}
+
 struct talk_msg_event_data {
    char from[128];
    char data[4096];
@@ -633,6 +662,7 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
       tui_readline_cb = parse_chat_input_real;
       tui_set_topline_renderer(rrclient_tui_topline);
       tui_init();
+      log_add_callback(rrclient_tui_log_print_va);
 
       // 1hz TUI clock (statusbar/clock refresh, shutdown check)
       g_timeout_add(1000, tui_clock_cb_real, NULL);

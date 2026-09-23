@@ -22,6 +22,7 @@
 #include <rrclient/gtk.core.h>
 
 extern GtkWidget *freq_entry;
+extern int ws_connected;
 
 typedef struct {
    GtkWidget *fe;           /* the GtkFreqEntry container */
@@ -100,6 +101,11 @@ GtkWidget *create_vfo_box(void) {
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
    gtk_style_context_add_class(conn_ctx, "conn-idle");
+   /* The connection may already be established when a VFO widget is built
+    * (for example after the authoritative room arrives).  Paint the button
+    * from the cached protocol state immediately instead of leaving the
+    * initial _Offline label until the next click. */
+   update_connection_button(ws_connected, conn_button);
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
 
    GtkWidget *online_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);

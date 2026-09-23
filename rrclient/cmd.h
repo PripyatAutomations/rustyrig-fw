@@ -32,6 +32,7 @@ extern client_cmd_t client_cmds[];
 
 struct rr_client_media_chan {
    char uuid[64];
+   char name[64];
    uint8_t subsystem;
    uint8_t direction;
    uint8_t vfo;
@@ -59,7 +60,7 @@ extern bool parse_chat_input_real(const char *msg);
 extern bool tui_register_completion_provider(char **(*fn)(const char *line, const char *word));
 extern char **client_cmd_completions(const char *line, const char *word);
 extern bool cmd_admin(int argc, char **args);
-extern bool cmd_chat(int argc, char **args);
+extern bool cmd_room(int argc, char **args);
 extern bool cmd_chan(int argc, char **args);
 extern bool cmd_clear(int argc, char **args);
 extern bool cmd_clearlog(int argc, char **args);

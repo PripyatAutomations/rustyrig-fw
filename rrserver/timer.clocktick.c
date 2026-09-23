@@ -37,6 +37,13 @@ static int clock_expire_http_iter = 0;
 static int clock_expire_fwdsp_iter = 0;
 static rr_vfo_data_t last_vfo_state[MAX_VFOS];
 
+#ifdef USE_PROFILING
+void timer_profile_dump_fn(void *arg) {
+   (void)arg;
+   event_profile_dump();
+}
+#endif
+
 // Here we do the things that aren't terribly time sensitive, with about a 1hz interval
 void timer_clock_tick_fn(void *arg) {
    now = time(NULL);

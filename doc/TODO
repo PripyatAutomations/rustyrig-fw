@@ -2,7 +2,7 @@ Immediate needs
 ---------------
 rrserver: FIX NEEDING TO RUN AS ROOT IN PACKAGES!
 
-rrclient: extend the status bar to be able to show any VFO's properties and who is actively TXing
+rrclient: Need to split gtk into its own package as a loadable module using events asap
 
 * Make each VFO have an independant PTT, etc - we can RX/TX independantly on 4 channels in hardware!
 

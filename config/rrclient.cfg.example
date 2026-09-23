@@ -31,9 +31,11 @@ ui.vfo.debounce-time=400
 ui.vfo.visocity=1000
 ; show the userlist when connected?
 ui.auto-show-userlist=true
+ui.userlist-width=220
 tui.use-mouse=false
 # Top/topic row; fields are expanded from live client state at each redraw.
 tui.status-line=${topic} | ${ptt-state} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${active_mode:---}
+tui.status-chat=false
 # Example: tui.status-line={bright-cyan}${window}{reset} A:${vfo_a_freq_khz:---} B:${vfo_b_freq_khz:---} ${active_ptt:RX}
 # If we want to autoconnect to a server, name it here.
 server.auto-connect=localhost
@@ -365,6 +367,9 @@ server.url=ws://localhost:8420/ws/
 ;server.pass=bob
 server.user=admin
 server.pass=password
+; Optional chat rooms to join after login, separated by commas or spaces.
+; The server's authoritative rig room is joined automatically by the server.
+autojoin=
 ;server.user=guest
 ;server.pass=guest
 
@@ -374,6 +379,8 @@ server.enabled=true
 server.url=ws://10.219.1.1:8420/ws/
 server.user=bob
 server.pass=bob
+; Optional chat rooms to join after login, separated by commas or spaces.
+autojoin=
 
 [gtk-css]
 button { font-family: "Sans"; font-size: 11pt; }

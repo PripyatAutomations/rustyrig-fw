@@ -387,6 +387,12 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
       chat_backlog_push(msgbuf);
       return false;
    }
+   if (!target_buffer || !target_view || !GTK_IS_TEXT_VIEW(target_view)) {
+      /* Authentication can produce notices before the authoritative room
+       * has been announced and its GTK widgets have been built. */
+      chat_backlog_push(msgbuf);
+      return false;
+   }
    if (!explicit_room) chat_backlog_flush();
 
    bool colorize_failed = false;

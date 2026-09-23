@@ -59,22 +59,6 @@ bool cmd_admin(int argc, char **args) {
    return false;
 }
 
-bool cmd_chat(int argc, char **args) {
-   if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
-
-      if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
-         gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
-      }
-#endif	// USE_GTK
-   } else if (ui_mode == UI_MODE_TUI) {
-   }
-
-   return false;
-}
-
 bool cmd_config(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK

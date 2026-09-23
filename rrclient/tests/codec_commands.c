@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include "rrclient/cmd.h"
 #include "rrclient/media.c"
 
 static rrconn_t connection;
@@ -82,6 +83,9 @@ int main(void) {
    assert(!cmd_rxcodec(2, off));
    assert(unsubscribed == 2 && !local_codec[0][0] && !local_codec[1][0]);
    test_active_vfo = 'A';
+   const struct rr_client_media_chan *target =
+      rrclient_media_codec_target_channel(false);
+   assert(target && !strcmp(target->uuid, "rx-a"));
    assert(known_chans[3].subscribed); // video unaffected
    announce("rx-a", "pc16", 0); // an announcement cannot undo NONE
    assert(known_chans[0].disabled && !local_codec[0][0] && subscribed == 0);

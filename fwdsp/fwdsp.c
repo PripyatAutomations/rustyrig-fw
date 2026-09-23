@@ -507,6 +507,7 @@ struct fwdsp_frame_reader {
    uint8_t *buf;
    size_t len;
    size_t cap;
+   GstClockTime next_pts;
 };
 
 static void frame_reader_clear(struct fwdsp_frame_reader *reader) {
@@ -560,8 +561,30 @@ static bool frame_reader_append(struct fwdsp_frame_reader *reader,
 
 static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader,
    GstAppSrc *appsrc) {
+   GstClockTime frame_duration = GST_MSECOND * 20;
+   int raw_rate = 0, raw_channels = 0;
+   GstCaps *input_caps = gst_app_src_get_caps(appsrc);
+   if (input_caps && gst_caps_get_size(input_caps) > 0) {
+      GstStructure *structure = gst_caps_get_structure(input_caps, 0);
+      const char *media_type = gst_structure_get_name(structure);
+      if (media_type && strcmp(media_type, "audio/x-raw") == 0) {
+         gst_structure_get_int(structure, "rate", &raw_rate);
+         gst_structure_get_int(structure, "channels", &raw_channels);
+         if (raw_rate <= 0 || raw_channels <= 0) {
+            raw_rate = 0;
+            raw_channels = 0;
+         }
+      }
+   }
+   if (input_caps) {
+      gst_caps_unref(input_caps);
+   }
+
    while (reader->len >= FWDSP_FRAME_HEADER_SIZE) {
-      uint32_t frame_len = frame_length_decode(reader->buf);
+      /* The high bits carry stream/tap flags on encoded output frames.  They
+       * are metadata, not part of the payload length. */
+      uint32_t frame_len = frame_length_decode(reader->buf) &
+         FWDSP_FRAME_LENGTH_MASK;
 
       if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE ||
           (processor_mode && (frame_len & 1U) != 0)) {
@@ -581,6 +604,23 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader,
 
       gst_buffer_fill(buffer, 0, reader->buf + FWDSP_FRAME_HEADER_SIZE,
          frame_len);
+
+      if (raw_rate > 0 && raw_channels > 0) {
+         frame_duration = (GST_SECOND * (guint64)frame_len) /
+            ((guint64)raw_rate * (guint64)raw_channels * 2U);
+         if (frame_duration == 0) {
+            frame_duration = 1;
+         }
+      }
+
+      /* appsrc's do-timestamp uses wall-clock arrival time.  Framed input
+       * can arrive in bursts, which makes audio encoders such as flacenc see
+       * buffers moving backwards in the running time.  Stamp the frames from
+       * their audio cadence instead. */
+      GST_BUFFER_PTS(buffer) = reader->next_pts;
+      GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
+      GST_BUFFER_DURATION(buffer) = frame_duration;
+      reader->next_pts += frame_duration;
 
       if (gst_app_src_push_buffer(appsrc, buffer) != GST_FLOW_OK) {
          return false;

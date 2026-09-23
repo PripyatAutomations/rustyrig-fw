@@ -47,6 +47,7 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
    "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
+   "#room-vfo-frequency { font-family: \"Monospace\"; font-size: 16pt; font-weight: bold; }\n" \
    ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
    ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
    ".ptt-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
@@ -115,6 +116,7 @@ defconfig_t defcfg[] = {
    { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit" },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
    { "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, "Top row template with live ${variable} and {color} escapes" },
+   { "tui.status-chat", "false", "Allow unprefixed text from the status view to use the authoritative room" },
    { "tui.use-color", "true", "Enable color in the TUI?" },
    { "tui.use-mouse", "true", "Enable mouse in the TUI?" },
 #ifdef	USE_GTK
@@ -146,6 +148,7 @@ defconfig_t defcfg[] = {
    { "ui.freqentry.scroll-divider", "1.0", "Scroll divider for VFO widgets, if needed" },
    { "ui.show-pings", "false", "Show Ping? Pong! notices" },
    { "ui.auto-show-userlist", "true", "Show the userlist when connected, hide when disconnected?" },
+   { "ui.userlist-width", "220", "Default width in pixels for GTK room user lists" },
    { "ui.save-on-exit", "false", "Save window placements and config on exit?" },
    { "ui.vfo.visocity", "1000", "Second to block CAT poll messages for input debouncing" },
    { NULL, NULL, NULL }

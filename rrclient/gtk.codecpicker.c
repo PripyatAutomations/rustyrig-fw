@@ -74,7 +74,7 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
 
       if (cptr) {
          const struct rr_client_media_chan *channel =
-            rrclient_media_current_channel(ctx->is_tx);
+            rrclient_media_codec_target_channel(ctx->is_tx);
          if (!rrclient_media_select_codec(cptr, ctx->is_tx, codec)) {
             char vfo = channel && channel->vfo < 26 ?
                (char)('A' + channel->vfo) : '-';

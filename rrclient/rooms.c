@@ -9,6 +9,8 @@
 #include <rrclient/gtk.chat.h>
 #endif
 
+extern rrconn_t *ws_conn;
+
 typedef struct client_room {
    char name[128];
    char vfos[512];
@@ -37,6 +39,18 @@ bool rrclient_room_join(const char *room) {
    r->next = rooms;
    rooms = r;
    return true;
+}
+
+bool rrclient_room_request_join(const char *room) {
+   if (!room || !*room || !ws_conn || rrclient_room_is_joined(room)) return false;
+   dict *d = dict_new();
+   if (!d) return false;
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "join");
+   dict_add(d, "talk.target", room);
+   bool ok = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return ok;
 }
 
 bool rrclient_room_part(const char *room) {
@@ -69,6 +83,19 @@ bool rrclient_room_set_vfos(const char *room, const char *vfos) {
       if (!strcasecmp(r->name, name)) { strlcpy(r->vfos, vfos ? vfos : "", sizeof(r->vfos)); return true; }
    }
    return false;
+}
+
+bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask) {
+   char vfos[256] = "";
+   size_t used = 0;
+   for (unsigned int i = 0; i < 32; i++) {
+      if (!(mask & (1UL << i))) continue;
+      int n = snprintf(vfos + used, sizeof(vfos) - used, "%srig0.vfo_%c",
+         used ? " " : "", (char)('a' + i));
+      if (n < 0 || (size_t)n >= sizeof(vfos) - used) break;
+      used += (size_t)n;
+   }
+   return rrclient_room_set_vfos(room, vfos);
 }
 
 const char *rrclient_room_vfos(const char *room) {
