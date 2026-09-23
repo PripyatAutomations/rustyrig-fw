@@ -422,9 +422,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 #ifdef	USE_GTK
       if (ui_mode == UI_MODE_GTK) {
          ptt_button_set_online(true);   // button turns green once we're online
-         if (cfg_get_bool("ui.auto-show-userlist", true)) {
-            userlist_set_visible(true);
-         }
+         /* The authoritative room has not necessarily arrived yet.  Its
+          * chat-tab construction creates and docks the room userlist; do not
+          * create a provisional detached window during connection setup. */
       }
 #endif
       dict_free(d);

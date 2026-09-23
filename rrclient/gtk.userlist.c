@@ -37,6 +37,7 @@ static GtkWidget *userlist_dock_button = NULL;
 static bool userlist_is_docked = false;
 static GHashTable *room_userlist_views = NULL;
 static void userlist_update_title(void);
+void userlist_dock_into(GtkPaned *paned);
 
 typedef struct room_userlist_entry {
    char *room;
@@ -71,10 +72,15 @@ static void userlist_remove_from_parent(void) {
    }
 }
 
-// Instead of destroying the window, hide it...
+// Closing a detached userlist is equivalent to pressing Dock.  Keep the
+// panel available in the room instead of making the list disappear.
 static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
+   (void)data;
    if (!widget || !event) {
       return TRUE;
+   }
+   if (!userlist_is_docked && userlist_dock_paned) {
+      userlist_dock_into(GTK_PANED(userlist_dock_paned));
    }
    gtk_widget_hide(widget);
 

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RustyRig Client
+Comment=Remote amateur radio station client
+Exec=rrclient
+Terminal=false
+Categories=Network;HamRadio;
+Keywords=amateur;ham;radio;remote;rig;
+StartupNotify=true
