@@ -377,12 +377,17 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    // renders them through the normal colorize path when the tab is focused
    // again, so nothing is lost or left uncolored.
    // PARITY: rrclient/gtk.syslog.c log_tab_visible() (same tab-visibility idea)
-   if (!chat_tab_visible() ) {
+   GtkTextBuffer *target_buffer = text_buffer;
+   GtkWidget *target_view = chat_textview;
+   bool explicit_room = window && *window;
+   if (explicit_room && !gtk_chat_room_widgets(window, &target_buffer, &target_view)) {
+      explicit_room = false;
+   }
+   if (!explicit_room && !chat_tab_visible() ) {
       chat_backlog_push(msgbuf);
       return false;
    }
-
-   chat_backlog_flush();
+   if (!explicit_room) chat_backlog_flush();
 
    bool colorize_failed = false;
    char *colorized = gtk_colorize_string(msgbuf);
@@ -395,16 +400,16 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
 
    GtkTextIter end;
 
-   gtk_text_buffer_get_end_iter(text_buffer, &end);
-   gtk_text_buffer_insert_markup(text_buffer, &end, colorized, -1);
-   gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
-   gtk_trim_scrollback(text_buffer, "ui.gtk.scrollback.chat", 200);
+   gtk_text_buffer_get_end_iter(target_buffer, &end);
+   gtk_text_buffer_insert_markup(target_buffer, &end, colorized, -1);
+   gtk_text_buffer_insert(target_buffer, &end, "\n", 1);
+   gtk_trim_scrollback(target_buffer, "ui.gtk.scrollback.chat", 200);
 
    if (!colorize_failed) {
       g_free(colorized);
    }
 
-   g_idle_add(ui_scroll_to_end, chat_textview);
+   g_idle_add(ui_scroll_to_end, target_view);
 
    return false;
 }

@@ -22,6 +22,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
 #include <rrclient/userlist.h>
+#include <rrclient/rooms.h>
 #include <rrclient/audio.h>
 #include <rrclient/media.h>
 
@@ -63,6 +64,7 @@ static int ptt_btn_tot_secs = 0;
 // Red while active for ANY user: find them in the cached userlist
 static struct rr_user *tx_user(void) {
    for (struct rr_user *c = global_userlist; c; c = c->next) {
+      if (c->room[0] && strcasecmp(c->room, rrclient_current_room()) != 0) continue;
       if (c->is_ptt) {
          return c;
       }

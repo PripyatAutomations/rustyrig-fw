@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <rrclient/cmd.h>
 #include <rrclient/userlist.h>
+#include <rrclient/rooms.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librustyaxe/tui.h>
 
@@ -68,6 +69,7 @@ static char **complete_usernames(const char *word) {
    size_t len = word ? strlen(word) : 0;
 
    for (struct rr_user *uptr = global_userlist; uptr; uptr = uptr->next) {
+      if (uptr->room[0] && strcasecmp(uptr->room, ws_authoritative_room()) != 0) continue;
       if (len && strncasecmp(uptr->name, word, len) != 0) {
          continue;
       }
@@ -162,8 +164,10 @@ char **client_cmd_completions(const char *line, const char *word) {
          if (arg == 1 || (first &&
              ((!strcasecmp(first, "SHOW") || !strcasecmp(first, "RESET")) ||
               (arg == 2 && (!strcasecmp(first, "ADD") || !strcasecmp(first, "SET")))))) {
-            for (struct rr_user *u = global_userlist; u; u = u->next)
+            for (struct rr_user *u = global_userlist; u; u = u->next) {
+               if (u->room[0] && strcasecmp(u->room, ws_authoritative_room()) != 0) continue;
                completion_add(&matches, &count, u->name, word);
+            }
          }
       } else if (arg == 1 && !strcasecmp(command, "/syslog")) {
          completion_words(&matches, &count, "on off", word);

@@ -28,12 +28,14 @@ Backend server for remote radio operation.
 %package client
 Summary: RustyRig GTK client
 Requires: %{name}-libs = %{version}-%{release}, gtk3, gstreamer1
+Conflicts: %{name}-client-tui
 %description client
 GTK client for accessing a RustyRig server.
 
 %package client-tui
 Summary: RustyRig terminal client
 Requires: %{name}-libs = %{version}-%{release}, ncurses
+Conflicts: %{name}-client
 %description client-tui
 Terminal-only RustyRig client.
 
@@ -61,7 +63,7 @@ cp -f bin/rrclient rrclient-gtk
 %install
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
 install -Dpm0755 rrclient-gtk %{buildroot}%{_bindir}/rrclient
-install -Dpm0755 bin/rrclient %{buildroot}%{_bindir}/rrclient-tui
+install -Dpm0755 bin/rrclient %{buildroot}%{_bindir}/rrclient
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
 install -Dpm0755 bin/callsign-lookup %{buildroot}%{_bindir}/callsign-lookup
 install -Dpm0755 librustyaxe.so %{buildroot}%{_libdir}/librustyaxe.so.0
@@ -106,7 +108,7 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %config(noreplace) %{_sysconfdir}/rustyrig/rrclient.cfg.example
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cli.cfg.example
 %files client-tui
-%{_bindir}/rrclient-tui
+%{_bindir}/rrclient
 %files fwdsp
 %{_bindir}/fwdsp
 %files callsign-lookup

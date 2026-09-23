@@ -26,7 +26,7 @@ override_dh_auto_build:
 override_dh_auto_install:
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
 	install -Dm755 /tmp/rustyrig-rrclient-gtk debian/rustyrig-client/usr/bin/rrclient
-	install -Dm755 bin/rrclient debian/rustyrig-client-tui/usr/bin/rrclient-tui
+	install -Dm755 bin/rrclient debian/rustyrig-client-tui/usr/bin/rrclient
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
 	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup/usr/bin/callsign-lookup
 	install -Dm644 config/callsign-lookup.cfg.example debian/rustyrig-callsign-lookup/etc/rustyrig/callsign-lookup.cfg.example

@@ -1,5 +1,5 @@
 [general]
-Lets start working on support for multple channels. Normally rigs will occupy their own channel. I need them to have a topic we can send when changed, we'll use this topic to set the 'status line' in the TUI and window title for the GTK UI. That's the target field in talk msgs already. We just have &localrig currently but lets work towards multichannel.
+Continue support for multiple rooms. Rig rooms should carry VFO metadata and side rooms should remain chat-only.
 
 * Fix the color parser to not mangle json
   gtk_colorize_string()

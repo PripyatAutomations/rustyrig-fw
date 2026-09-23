@@ -616,7 +616,7 @@ bool cmd_media(int argc, char **args) {
            continue;
         }
         n++;
-        char vfo = (kp->vfo < RR_BINFRAME_VFO_NA) ? (char)('A' + kp->vfo) : '-';
+      char vfo = (kp->vfo < 26) ? (char)('A' + kp->vfo) : '-';
         ui_print(NULL, " %2d. %s%s %s  [%s]  VFO %c rig %u {magenta}%s{reset}", n,
            (kp->subscribed ? "{green}*{reset} " : "  "),
            (kp->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx"), kp->uuid,
@@ -724,7 +724,7 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
    const struct rr_media_known *target = (argc == 3) ? rrclient_media_chan_lookup(args[2]) : media_current_channel(is_tx);
    bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
    if (!failed) {
-      char vfo = (target && target->vfo < RR_BINFRAME_VFO_NA) ? (char)('A' + target->vfo) : '-';
+      char vfo = (target && target->vfo < 26) ? (char)('A' + target->vfo) : '-';
       ui_print(NULL, "Requested %s codec %s for channel #%d uuid %s VFO %c (%s)",
          is_tx ? "TX" : "RX", args[1], target ? (int)(target - known_chans) + 1 : 0,
          target ? target->uuid : (argc == 3 ? args[2] : "<active>"), vfo,

@@ -45,7 +45,7 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
    "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
    "label { font-family: \"Sans\"; font-size: 11pt; }\n" \
    "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-   "#log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
+   "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
    ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \

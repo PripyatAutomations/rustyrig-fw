@@ -757,7 +757,20 @@ static void run_loop(struct audio_config *cfg) {
 
       GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
       if (ret == GST_STATE_CHANGE_FAILURE) {
-         g_printerr("Failed to set pipeline to PLAYING state.\n");
+         GstBus *state_bus = gst_element_get_bus(pipeline);
+         GstMessage *state_msg = gst_bus_timed_pop_filtered(state_bus, 250 * GST_MSECOND, GST_MESSAGE_ERROR);
+         if (state_msg) {
+            GError *state_err = NULL; gchar *state_dbg = NULL;
+            gst_message_parse_error(state_msg, &state_err, &state_dbg);
+            g_printerr("Failed to set pipeline to PLAYING state: %s\n",
+               state_err ? state_err->message : "unknown GStreamer error");
+            if (state_dbg) g_printerr("GStreamer details: %s\n", state_dbg);
+            if (state_err) g_error_free(state_err);
+            g_free(state_dbg); gst_message_unref(state_msg);
+         } else {
+            g_printerr("Failed to set pipeline to PLAYING state (no GStreamer error message).\n");
+         }
+         gst_object_unref(state_bus);
          cleanup_pipeline(&pipeline);
 
          if (appsrc) {
@@ -1346,7 +1359,7 @@ int main(int argc, char *argv[]) {
 #endif
    gst_debug_add_log_function(gst_log_handler, NULL, NULL);
 
-   time_t last_run = 0;
+   time_t last_run = time(NULL);
    do {
       now = time(NULL);
       run_loop(&au_cfg);

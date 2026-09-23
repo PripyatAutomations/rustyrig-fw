@@ -84,6 +84,19 @@ static bool db_initialize_new(sqlite3 *db) {
    return ok;
 }
 
+static void db_ensure_rooms(sqlite3 *db) {
+   if (!db) return;
+   const char *sql = "CREATE TABLE IF NOT EXISTS rooms (name TEXT PRIMARY KEY, has_vfos INTEGER NOT NULL DEFAULT 0, vfo_mask INTEGER NOT NULL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);";
+   char *error = NULL;
+   if (sqlite3_exec(db, sql, NULL, NULL, &error) != SQLITE_OK) {
+      Log(LOG_WARN, "db", "Unable to create rooms table: %s", error ? error : sqlite3_errmsg(db));
+   }
+   sqlite3_free(error);
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS room_vfos (room TEXT NOT NULL, binding TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(room,binding));", NULL, NULL, &error) != SQLITE_OK)
+      Log(LOG_WARN, "db", "Unable to create room_vfos table: %s", error ? error : sqlite3_errmsg(db));
+   sqlite3_free(error);
+}
+
 static void db_ensure_ptt_recording_id(sqlite3 *db) {
    if (!db) {
       return;
@@ -136,10 +149,112 @@ sqlite3 *db_open(const char *path) {
          return NULL;
       }
       db_ensure_ptt_recording_id(db);
+      db_ensure_rooms(db);
       return db;
    }
 
    return NULL;
+}
+
+
+bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_mask) {
+   if (!db || !name || !*name) return false;
+   const char *sql = "INSERT INTO rooms(name,has_vfos,vfo_mask) VALUES(?,?,?) "
+                     "ON CONFLICT(name) DO UPDATE SET has_vfos=excluded.has_vfos,vfo_mask=excluded.vfo_mask;";
+   sqlite3_stmt *st = NULL;
+   if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_int(st, 2, has_vfos ? 1 : 0);
+   sqlite3_bind_int64(st, 3, (sqlite3_int64)vfo_mask);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+   return ok;
+}
+
+bool db_room_delete(sqlite3 *db, const char *name) {
+   if (!db || !name || !*name) return false;
+   sqlite3_stmt *st = NULL;
+   if (sqlite3_prepare_v2(db, "DELETE FROM room_vfos WHERE room=?;", -1, &st, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+   if (!ok || sqlite3_prepare_v2(db, "DELETE FROM rooms WHERE name=?;", -1, &st, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+   return ok;
+}
+
+char *db_room_list(sqlite3 *db) {
+   if (!db) return NULL;
+   sqlite3_stmt *st = NULL;
+   if (sqlite3_prepare_v2(db, "SELECT name FROM rooms ORDER BY name;", -1, &st, NULL) != SQLITE_OK) return NULL;
+   size_t cap = 256, len = 0;
+   char *out = calloc(1, cap);
+   if (!out) { sqlite3_finalize(st); return NULL; }
+   while (sqlite3_step(st) == SQLITE_ROW) {
+      const char *name = (const char *)sqlite3_column_text(st, 0);
+      if (!name) continue;
+      size_t need = strlen(name) + (len ? 1 : 0);
+      if (len + need + 1 > cap) {
+         while (len + need + 1 > cap) cap *= 2;
+         char *tmp = realloc(out, cap);
+         if (!tmp) { free(out); sqlite3_finalize(st); return NULL; }
+         out = tmp;
+      }
+      if (len) out[len++] = ' ';
+      memcpy(out + len, name, strlen(name));
+      len += strlen(name);
+      out[len] = 0;
+   }
+   sqlite3_finalize(st);
+   return out;
+}
+
+
+static char *db_join_rows(sqlite3 *db, const char *sql, const char *room, bool include_room) {
+   sqlite3_stmt *st = NULL;
+   if (!db || sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) return NULL;
+   if (room) sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   size_t cap = 256, len = 0;
+   char *out = calloc(1, cap);
+   if (!out) { sqlite3_finalize(st); return NULL; }
+   while (sqlite3_step(st) == SQLITE_ROW) {
+      const char *a = (const char *)sqlite3_column_text(st, 0);
+      const char *b = include_room ? (const char *)sqlite3_column_text(st, 1) : NULL;
+      if (!a) continue;
+      size_t need = strlen(a) + (b ? strlen(b) + 1 : 0) + (len ? 1 : 0);
+      if (len + need + 1 > cap) { while (len + need + 1 > cap) cap *= 2; char *tmp = realloc(out, cap); if (!tmp) { free(out); sqlite3_finalize(st); return NULL; } out = tmp; }
+      if (len) out[len++] = ' ';
+      if (b) { memcpy(out + len, a, strlen(a)); len += strlen(a); out[len++] = '='; memcpy(out + len, b, strlen(b)); len += strlen(b); }
+      else { memcpy(out + len, a, strlen(a)); len += strlen(a); }
+      out[len] = 0;
+   }
+   sqlite3_finalize(st); return out;
+}
+
+bool db_room_vfo_add(sqlite3 *db, const char *room, const char *binding) {
+   if (!db || !room || !binding) return false;
+   sqlite3_stmt *st = NULL;
+   if (sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO room_vfos(room,binding) VALUES(?,?);", -1, &st, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT); sqlite3_bind_text(st, 2, binding, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE; sqlite3_finalize(st); return ok;
+}
+
+bool db_room_vfo_remove(sqlite3 *db, const char *room, const char *binding) {
+   if (!db || !room || !binding) return false;
+   sqlite3_stmt *st = NULL;
+   if (sqlite3_prepare_v2(db, "DELETE FROM room_vfos WHERE room=? AND binding=?;", -1, &st, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT); sqlite3_bind_text(st, 2, binding, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE; sqlite3_finalize(st); return ok;
+}
+
+char *db_room_vfo_list(sqlite3 *db, const char *room) {
+   return db_join_rows(db, "SELECT binding FROM room_vfos WHERE room=? ORDER BY binding;", room, false);
+}
+
+char *db_room_vfo_map_list(sqlite3 *db) {
+   return db_join_rows(db, "SELECT room,binding FROM room_vfos ORDER BY room,binding;", NULL, true);
 }
 
 bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email,
@@ -575,7 +690,7 @@ bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *text) {
    dict_add(d, "talk.cmd", "msg");
    dict_add(d, "talk.msg_type", replay_type);
    dict_add(d, "talk.from", "&server");
-   dict_add(d, "talk.target", "&localrig");
+   dict_add(d, "talk.target", ws_authoritative_room());
    dict_add(d, "talk.data", text);
    dict_add_ulong(d, "msg.ts", now);
 

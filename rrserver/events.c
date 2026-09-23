@@ -26,6 +26,92 @@
 #include <libfwdspmgr/fwdsp-ctl.h>
 
 
+static void rrserver_handle_room_join(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)user;
+   if (!data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+#ifdef USE_SQLITE
+   const char *room = dict_get(d, "talk.room", NULL);
+   if (room && !db_room_ensure(masterdb, room, dict_get_bool(d, "room.has-vfos", false),
+                                (uint32_t)dict_get_ulong(d, "room.vfo-mask", 0)))
+      Log(LOG_WARN, "db", "failed to persist room %s", room);
+#else
+   (void)cptr;
+#endif
+   dict_free(d);
+}
+
+static void rrserver_handle_room_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)data; (void)user;
+   if (!cptr) return;
+   dict *reply = dict_new();
+   dict_add(reply, "msg.type", "talk");
+   dict_add(reply, "talk.cmd", "room-list");
+   dict_add(reply, "talk.rooms", "");
+#ifdef USE_SQLITE
+   db_room_ensure(masterdb, ws_authoritative_room(), true, ws_room_vfo_mask(ws_authoritative_room()));
+   char *rooms = db_room_list(masterdb);
+   if (rooms) { dict_add(reply, "talk.rooms", rooms); free(rooms); }
+#endif
+   ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
+   dict_free(reply);
+}
+
+static void rrserver_handle_room_vfo_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)data; (void)user;
+   if (!cptr) return;
+   dict *reply = dict_new(); dict_add(reply, "msg.type", "talk");
+   dict_add(reply, "talk.cmd", "room-vfo-list");
+#ifdef USE_SQLITE
+   char *map = db_room_vfo_map_list(masterdb);
+   dict_add(reply, "talk.vfos", map ? map : ""); free(map);
+#else
+   dict_add(reply, "talk.vfos", "");
+#endif
+   ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT); dict_free(reply);
+}
+
+static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)cptr; (void)user;
+   if (!data) return;
+   dict *d = json2dict(data); if (!d) return;
+   const char *room = dict_get(d, "talk.room", NULL);
+   const char *binding = dict_get(d, "talk.vfo", NULL);
+   const char *action = dict_get(d, "talk.action", NULL);
+#ifdef USE_SQLITE
+   if (room && binding) {
+      db_room_ensure(masterdb, room, true, 0);
+      if (action && strcasecmp(action, "add") == 0) db_room_vfo_add(masterdb, room, binding);
+      else if (action && strcasecmp(action, "remove") == 0) db_room_vfo_remove(masterdb, room, binding);
+      char *vfos = db_room_vfo_list(masterdb, room);
+      dict_add(d, "talk.cmd", "room-vfo");
+      dict_add(d, "talk.vfos", vfos ? vfos : "");
+      ws_broadcast_room_dict(NULL, d, room);
+      free(vfos);
+   }
+#endif
+   dict_free(d);
+}
+
+static void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)cptr; (void)user;
+   if (!data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", NULL);
+#ifdef USE_SQLITE
+   if (room && !db_room_delete(masterdb, room))
+      Log(LOG_WARN, "db", "failed to delete room metadata %s", room);
+#endif
+   if (room) {
+      ws_broadcast_room_dict(NULL, d, room);
+      for (rrconn_t *cur = http_client_list; cur; cur = cur->next)
+         ws_client_part_room(cur, room);
+   }
+   dict_free(d);
+}
+
 static void rrserver_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -230,12 +316,12 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
 
       if (strcasecmp(msg_type, "action") == 0) {
          Log(LOG_INFO, "ws.chat", "** %s * %s%s",
-            channel ? channel : "&localrig",
+            channel ? channel : ws_authoritative_room(),
             cptr->chatname,
             dict_get(d, "talk.data", ""));
       } else if (strcasecmp(msg_type, "pub") == 0) {
          Log(LOG_INFO, "ws.chat", "** %s <%s> %s",
-            channel ? channel : "&localrig",
+            channel ? channel : ws_authoritative_room(),
             cptr->chatname, dict_get(d, "talk.data", ""));
       }
 
@@ -681,6 +767,11 @@ void rrserver_register_events(void) {
    event_on("rig.ptt", rrserver_handle_rig_ptt_off, NULL);
    event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
+   event_on("room.join", rrserver_handle_room_join, NULL);
+   event_on("room.list", rrserver_handle_room_list, NULL);
+   event_on("room.delete", rrserver_handle_room_delete, NULL);
+   event_on("room.vfo-list", rrserver_handle_room_vfo_list, NULL);
+   event_on("room.vfo", rrserver_handle_room_vfo, NULL);
    event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    Log(LOG_CRAZY, "events", "Finished registering rrserver events");

@@ -27,6 +27,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
+#include <rrclient/rooms.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 #ifdef USE_GTK
@@ -36,6 +37,30 @@
 extern bool dying;
 extern time_t now;
 extern rrconn_t *ws_conn;
+
+bool cmd_chan(int argc, char **args) {
+   if (argc < 2 || !ws_conn) return true;
+   char data[512] = "";
+   for (int i = 1; i < argc; i++) {
+      if (i > 1) strlcat(data, " ", sizeof(data));
+      strlcat(data, args[i], sizeof(data));
+   }
+   dict *d = dict_new(); dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "chan"); dict_add(d, "talk.data", data);
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT); dict_free(d);
+   return false;
+}
+
+bool cmd_list(int argc, char **args) {
+   (void)argc; (void)args;
+   if (!ws_conn) return true;
+   dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "list");
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return false;
+}
 
 bool cmd_join(int argc, char **args) {
    if (argc < 2 || !ws_conn) {
@@ -71,11 +96,19 @@ bool cmd_me(int argc, char **args) {
    dict_add(d, "talk.data", buf);
    dict_add(d, "talk.msg_type", "action");
 #ifdef USE_GTK
-   const char *room = gtk_chat_current_room();
-   if (room && room[0]) {
-      dict_add(d, "talk.target", room);
+   if (ui_mode == UI_MODE_GTK) {
+      const char *room = gtk_chat_current_room();
+      if (room && room[0]) {
+         dict_add(d, "talk.target", room);
+      }
    }
 #endif
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_active_window();
+      if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
+         dict_add(d, "talk.target", window->title);
+      }
+   }
 
    if (ws_conn) {
       ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
@@ -103,7 +136,27 @@ bool cmd_msg(int argc, char **args) {
       }
       pos += n;
    }
-   ui_print(NULL, "-> %s %s", target, fullmsg);
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_window_find(target);
+      if (!window) {
+         window = tui_window_create(target);
+      }
+      if (window) {
+         window->cptr = ws_conn;
+         ui_print(target, "-> %s %s", target, fullmsg);
+      } else {
+         ui_print(NULL, "-> %s %s", target, fullmsg);
+      }
+   }
+#ifdef USE_GTK
+   else if (ui_mode == UI_MODE_GTK) {
+      gtk_chat_room_add(target);
+      ui_print(target, "-> %s %s", target, fullmsg);
+   }
+#endif
+   else {
+      ui_print(NULL, "-> %s %s", target, fullmsg);
+   }
 
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
@@ -187,6 +240,10 @@ bool cmd_part(int argc, char **args) {
    dict_add(d, "talk.target", args[1]);
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
+   rrclient_room_part(args[1]);
+#ifdef USE_GTK
+   if (ui_mode == UI_MODE_GTK) gtk_chat_room_remove(args[1]);
+#endif
 
    return false;
 }
@@ -203,6 +260,7 @@ bool cmd_names(int argc, char **args) {
 
    int count = 0;
    for (struct rr_user *c = global_userlist; c; c = c->next) {
+      if (c->room[0] && strcasecmp(c->room, rrclient_current_room()) != 0) continue;
       count++;
 
       // @ before the name for admin|owner, + for noob.

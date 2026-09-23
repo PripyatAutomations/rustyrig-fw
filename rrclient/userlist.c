@@ -20,6 +20,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
+#include <rrclient/rooms.h>
 
 extern dict *cfg;
 extern bool dying;               // main.c
@@ -38,6 +39,8 @@ bool userlist_add_or_update(dict *d) {
 
    const char *t_privs = dict_get(d, "talk.privs", NULL);
    const char *t_user = dict_get(d, "talk.user", NULL);
+   const char *t_room = dict_get(d, "talk.room", NULL);
+   if (!t_room) t_room = rrclient_current_room();
    int t_sessions = dict_get_int(d, "talk.sessions", 0);
    bool t_muted = dict_get_bool(d, "talk.muted", false);
    bool t_ptt = dict_get_bool(d, "talk.tx", false);
@@ -46,11 +49,12 @@ bool userlist_add_or_update(dict *d) {
       return false;
    }
 
-   struct rr_user *c = userlist_find(t_user);
+   struct rr_user *c = userlist_find_in_room(t_user, t_room);
 
    if (c) {
       Log(LOG_INFO, "userlist", "Updating userlist entry for %s at <%p>", t_user, c);
 
+      strlcpy(c->room, t_room, sizeof(c->room));
       memset( c->name, 0, sizeof(c->name) );
       strlcpy( c->name, t_user, sizeof(c->name) );
 
@@ -87,6 +91,7 @@ bool userlist_add_or_update(dict *d) {
       return false;
    }
 
+   strlcpy(n->room, t_room, sizeof(n->room));
    strlcpy( n->name, t_user, sizeof(n->name) );
 
    if (t_privs) {
@@ -128,42 +133,50 @@ bool userlist_add_or_update(dict *d) {
 
 // Remove a user from the list, by name. While there should only ever be ONE,
 // this will scan the entire list...
-bool userlist_remove_by_name(const char *name) {
-   if (!name) {
-      return false;
-   }
-
-   struct rr_user *c = global_userlist;
-   struct rr_user *prev = NULL;
-
+bool userlist_remove_by_name_room(const char *name, const char *room) {
+   if (!name) return false;
+   struct rr_user *c = global_userlist, *prev = NULL;
    while (c) {
-      if (strcasecmp(c->name, name) == 0) {
+      if (!strcasecmp(c->name, name) && (!room || !strcasecmp(c->room, room))) {
          struct rr_user *next = c->next;
-
-         if (prev) {
-            prev->next = next;
-         } else {
-            global_userlist = next;
-         }
-
-         Log(LOG_DEBUG, "userlist", "Removing user %s at <%p>", name, c);
-
+         if (prev) prev->next = next; else global_userlist = next;
+         Log(LOG_DEBUG, "userlist", "Removing user %s from room %s at <%p>", name,
+            c->room, c);
          free(c);
-
          if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
+#if defined(USE_GTK)
             userlist_redraw_gtk();
 #endif
          }
          userlist_refresh_ptt_status();
-
          return true;
       }
-
-      prev = c;
-      c = c->next;
+      prev = c; c = c->next;
    }
    return false;
+}
+
+void userlist_remove_room(const char *room) {
+   if (!room) return;
+   struct rr_user *c = global_userlist, *prev = NULL;
+   while (c) {
+      struct rr_user *next = c->next;
+      if (!strcasecmp(c->room, room)) {
+         if (prev) prev->next = next; else global_userlist = next;
+         free(c);
+      } else prev = c;
+      c = next;
+   }
+   if (!dying && ui_mode == UI_MODE_GTK) {
+#if defined(USE_GTK)
+      userlist_redraw_gtk();
+#endif
+   }
+   userlist_refresh_ptt_status();
+}
+
+bool userlist_remove_by_name(const char *name) {
+   return userlist_remove_by_name_room(name, rrclient_current_room());
 }
 
 // Clearing the userlist
@@ -198,17 +211,14 @@ void userlist_clear_all(void) {
    userlist_refresh_ptt_status();
 }
 
-// Find a user in the userlist
-struct rr_user *userlist_find(const char *name) {
-   if (!name) {
-      return NULL;
-   }
-   struct rr_user *c = global_userlist;
-   while (c) {
-      if (strcasecmp(c->name, name) == 0) {
-         return c;
-      }
-      c = c->next;
-   }
+// Find a user in a specific room.
+struct rr_user *userlist_find_in_room(const char *name, const char *room) {
+   if (!name) return NULL;
+   for (struct rr_user *c = global_userlist; c; c = c->next)
+      if (!strcasecmp(c->name, name) && (!room || !strcasecmp(c->room, room))) return c;
    return NULL;
+}
+
+struct rr_user *userlist_find(const char *name) {
+   return userlist_find_in_room(name, rrclient_current_room());
 }

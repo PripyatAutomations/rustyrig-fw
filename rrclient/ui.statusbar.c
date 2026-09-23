@@ -9,6 +9,7 @@
 #include <rrclient/vfo.h>
 #include <rrclient/media.h>
 #include <rrclient/userlist.h>
+#include <rrclient/rooms.h>
 
 extern const char *login_user;
 
@@ -29,6 +30,7 @@ static const char *topline_value(const char *name, tui_window_t *win,
       if (ws_connected != 1) return "{bright-yellow}PTT: WAIT{reset}";
       const char *tx_user = NULL;
       for (struct rr_user *u = global_userlist; u; u = u->next) {
+         if (u->room[0] && strcasecmp(u->room, ws_authoritative_room()) != 0) continue;
          if (u->is_ptt) {
             tx_user = u->name;
             break;

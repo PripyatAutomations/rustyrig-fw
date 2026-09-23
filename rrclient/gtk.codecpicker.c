@@ -21,7 +21,9 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrclient/ui.speech.h>
+#include <rrclient/ui.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/cmd.h>
 #include <rrclient/media.h>
 extern rrconn_t *ws_conn;
 extern rrconn_t *ws_tx_conn;   // rrclient/rrclient.c
@@ -32,6 +34,21 @@ static char picker_codec_list[256] = { 0 };
 static bool picker_list_initialized = false;
 void codec_pickers_refresh(void);
 void codec_picker_set_active(bool is_tx, const char *codec);
+
+static int codec_channel_number(const struct rr_client_media_chan *channel) {
+   if (!channel) {
+      return 0;
+   }
+   for (int i = 0; i < RR_CLIENT_MEDIA_MAX_CHANS; i++) {
+      int number = 0;
+      const struct rr_client_media_chan *candidate =
+         rrclient_media_chan_iter(i, &number);
+      if (candidate == channel) {
+         return number;
+      }
+   }
+   return 0;
+}
 
 typedef struct {
 #if     defined(USE_MONGOOSE)
@@ -56,7 +73,18 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       rrconn_t *cptr = ws_conn;
 
       if (cptr) {
-         rrclient_media_select_codec(cptr, ctx->is_tx, codec);
+         const struct rr_client_media_chan *channel =
+            rrclient_media_current_channel(ctx->is_tx);
+         if (!rrclient_media_select_codec(cptr, ctx->is_tx, codec)) {
+            char vfo = channel && channel->vfo < 26 ?
+               (char)('A' + channel->vfo) : '-';
+            const char *description = channel && channel->descr[0] ?
+               channel->descr : "audio";
+            ui_print(NULL, "Requested %s codec %s for channel #%d uuid %s VFO %c (%s)",
+               ctx->is_tx ? "TX" : "RX", codec,
+               codec_channel_number(channel),
+               channel ? channel->uuid : "<active>", vfo, description);
+         }
       }
    }
 }

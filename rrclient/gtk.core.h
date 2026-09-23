@@ -22,6 +22,8 @@
 #include <librrprotocol/rrprotocol.h>
 #include <gtk/gtk.h>
 
+extern bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget **view);
+
 #define	HTTP_USER_LEN 16                 // username length (16 char)
 #define	HTTP_PASS_LEN 40                 // sha1: 40, sha256: 64
 #define	HTTP_HASH_LEN 40                 // sha1

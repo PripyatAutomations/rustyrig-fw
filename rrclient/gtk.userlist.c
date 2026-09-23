@@ -19,6 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
+#include <rrclient/rooms.h>
 #include <rrclient/ui.h>
 
 #include <rrclient/gtk.core.h>
@@ -136,7 +137,9 @@ void userlist_redraw_gtk(void) {
    }
    gtk_list_store_clear(store);
 
+   const char *room = rrclient_current_room();
    for (struct rr_user *c = global_userlist ; c ; c = c->next) {
+      if (room && strcasecmp(c->room, room) != 0) continue;
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
 

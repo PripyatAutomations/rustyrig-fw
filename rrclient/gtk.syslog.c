@@ -87,7 +87,8 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    }
 
    char header[64];
-   snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(prio) );
+   // get_chat_ts() already includes the separator after the timestamp.
+   snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(prio) );
    gtk_text_buffer_insert(host_log_buffer, &end, header, -1);
    char *msg_copy = malloc(mlen + 1);
    if (msg_copy) {
@@ -176,7 +177,8 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
 
       char header[512];
       memset(header, 0, sizeof(header));
-      snprintf(header, sizeof(header), " <%s.%s> ", subsys, log_priority_to_str(priority));
+      // get_chat_ts() already includes the separator after the timestamp.
+      snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(priority));
       gtk_text_buffer_insert(log_buffer, &end, header, -1);
 
       // Colorize the message body: Log() format strings carry {color} tags

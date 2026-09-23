@@ -58,7 +58,7 @@ package_rustyrig-server() {
 }
 
 package_rustyrig-client() {
-   pkgdesc='RustyRig GTK client'; depends=('rustyrig-libs' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
+   pkgdesc='RustyRig GTK client'; conflicts=('rustyrig-client-tui'); replaces=('rustyrig-client-tui'); depends=('rustyrig-libs' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 "$srcdir/rrclient-gtk" "$pkgdir/usr/bin/rrclient"
    install -Dm644 config/rrclient.cfg.example "$pkgdir/etc/rustyrig/rrclient.cfg.example"
@@ -68,8 +68,8 @@ package_rustyrig-client() {
 }
 
 package_rustyrig-client-tui() {
-   pkgdesc='RustyRig terminal client'; depends=('rustyrig-libs' 'ncurses')
-   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/rrclient "$pkgdir/usr/bin/rrclient-tui"
+   pkgdesc='RustyRig terminal client'; conflicts=('rustyrig-client'); replaces=('rustyrig-client'); depends=('rustyrig-libs' 'ncurses')
+   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/rrclient "$pkgdir/usr/bin/rrclient"
 }
 package_rustyrig-fwdsp() {
    pkgdesc='RustyRig GStreamer audio DSP service'; depends=('rustyrig-libs' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')

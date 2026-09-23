@@ -69,7 +69,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
 
          /* Notebook pages are numbered in display order.  Resolve the
-          * number at runtime so rooms appended after &localrig are reachable
+          * number at runtime so rooms appended after the rig room are reachable
           * with the same Alt-number convention as the built-in tabs. */
          int tab_number = digit == 0 ? 10 : digit;
          int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));

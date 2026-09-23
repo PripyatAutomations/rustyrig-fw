@@ -30,6 +30,13 @@ extern bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *tex
 extern bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type,
                             const char *msg_data);
 extern bool db_send_chat_replay(rrconn_t *cptr, const char *channel);
+extern bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_mask);
+extern bool db_room_delete(sqlite3 *db, const char *name);
+extern char *db_room_list(sqlite3 *db);
+extern bool db_room_vfo_add(sqlite3 *db, const char *room, const char *binding);
+extern bool db_room_vfo_remove(sqlite3 *db, const char *room, const char *binding);
+extern char *db_room_vfo_list(sqlite3 *db, const char *room);
+extern char *db_room_vfo_map_list(sqlite3 *db);
 extern sqlite3 *masterdb;       // database.c
 extern const char *replay_msg_type(const char *msg_type);
 extern bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *text);

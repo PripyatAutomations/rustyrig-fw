@@ -52,6 +52,7 @@ bool cmd_reload(int argc, char **args) {
 client_cmd_t client_cmds[] = {
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
    { .cmd = "chat", .cb = cmd_chat, .desc = "Focus the chat tab" },
+   { .cmd = "chan", .cb = cmd_chan, .max_args = 4, .desc = "Manage rooms and room VFO mappings" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
 #ifdef USE_GTK
    { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
@@ -63,6 +64,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
    { .cmd = "kick", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the rig" },
    { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },
+   { .cmd = "list", .cb = cmd_list, .desc = "List available rooms" },
    { .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab" },
    { .cmd = "media", .cb = cmd_media, .max_args = 2, .desc = "Media channels: LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>" },
    { .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel" },
@@ -234,15 +236,26 @@ bool parse_chat_input_real(const char *msg) {
       dict_add(d, "talk.cmd", "msg");
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");
+      if (ui_mode == UI_MODE_GTK) {
 #ifdef USE_GTK
-      /* GTK chat tabs represent rooms.  Include the selected tab's room so
-       * side-room messages are delivered there instead of defaulting to the
-       * authoritative rig room on the server. */
-      const char *room = gtk_chat_current_room();
-      if (room && room[0]) {
-         dict_add(d, "talk.target", room);
-      }
+         /* GTK chat tabs represent rooms.  Include the selected tab's room so
+          * side-room messages are delivered there instead of defaulting to
+          * the authoritative rig room on the server. */
+         const char *room = gtk_chat_current_room();
+         if (room && room[0]) {
+            dict_add(d, "talk.target", room);
+         }
 #endif
+      } else if (ui_mode == UI_MODE_TUI) {
+         /* TUI windows represent both rooms and private conversations.  The
+          * status window is the authoritative room; side windows use their
+          * title as the protocol target. */
+         tui_window_t *window = tui_active_window();
+         if (window && window->title[0] &&
+             strcasecmp(window->title, "status") != 0) {
+            dict_add(d, "talk.target", window->title);
+         }
+      }
 
       if (ws_conn) {
          ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);

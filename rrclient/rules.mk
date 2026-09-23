@@ -26,6 +26,7 @@ rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
 rrclient_objs += main.o			# main loop
 rrclient_objs += media.o		# media channel subscribe handling
 rrclient_objs += userlist.o
+rrclient_objs += rooms.o		# joined room tracking
 rrclient_objs += ui.statusbar.o
 rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
 rrclient_objs += ui.bell.o		# Bell/sounds support for the UI

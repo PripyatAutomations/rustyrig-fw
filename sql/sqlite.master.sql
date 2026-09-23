@@ -49,6 +49,22 @@ CREATE TABLE chat_log (
 
 CREATE INDEX chat_log_dest_ts ON chat_log (msg_dest, msg_ts, msg_id);
 
+-- Persistent room metadata. Chat history remains in chat_log when a room is removed.
+CREATE TABLE rooms (
+   name TEXT PRIMARY KEY,
+   has_vfos INTEGER NOT NULL DEFAULT 0,
+   vfo_mask INTEGER NOT NULL DEFAULT 0,
+   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE room_vfos (
+   room TEXT NOT NULL,
+   binding TEXT NOT NULL,
+   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (room, binding),
+   FOREIGN KEY (room) REFERENCES rooms(name) ON DELETE CASCADE
+);
+
 -- Users
 CREATE TABLE users (
    uid INTEGER PRIMARY KEY,         -- unique user ID

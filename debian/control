@@ -73,12 +73,16 @@ Description: RustyRig server
 
 Package: rustyrig-client
 Architecture: any
+Conflicts: rustyrig-client-tui
+Replaces: rustyrig-client-tui
 Depends: librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig GTK client
  GTK client for accessing a RustyRig server.
 
 Package: rustyrig-client-tui
 Architecture: any
+Conflicts: rustyrig-client
+Replaces: rustyrig-client
 Depends: librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig terminal client
  TUI-only RustyRig client built without GTK.
