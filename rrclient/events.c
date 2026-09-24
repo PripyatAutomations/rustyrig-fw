@@ -774,7 +774,7 @@ static void rrclient_handle_callsign(const char *event, const char *data, rrconn
    if (status) {
       rrclient_print_callsign_line(status);
    }
-   callsign_field_t fields[64];
+   callsign_field_t fields[64] = { 0 };
    size_t field_count = 0;
    const char *key = NULL;
    char *value = NULL;

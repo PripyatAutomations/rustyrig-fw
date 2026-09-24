@@ -4,8 +4,6 @@ rrserver: FIX NEEDING TO RUN AS ROOT IN PACKAGES!
 
 rrclient: Need to split gtk into its own package as a loadable module using events asap
 
-* Make each VFO have an independant PTT, etc - we can RX/TX independantly on 4 channels in hardware!
-
 * Move all socket code out of librrprotocol
   - It needs to go into client and server code
     - client glib/wslay
@@ -22,12 +20,7 @@ rrclient: Need to split gtk into its own package as a loadable module using even
   - currently some places, we still use 0 for success, which is incorrect
     - these should be *mostly* gone but need fixed immediately if found!
 
-* Add TX channel UUID to PTT messages
-  - All listeners auto-sub/unsub
-
 codec negotiation: Discard codecs without configured pipelines?
-
-rrserver: add recordings to database
 
 rrclient: Consider bringing in sqlite db for storage/caching (call lookups, etc)
 

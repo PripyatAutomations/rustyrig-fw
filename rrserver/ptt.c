@@ -21,8 +21,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 #include <rrserver/au.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
@@ -42,12 +44,74 @@ int vfos_enabled = 2;                    // A + B by default
 // VFO currently keyed by PTT logging (row id in ptt_log, -1 none)
 static int ptt_log_session[MAX_VFOS];
 static char ptt_recording_id[MAX_VFOS][RECORDING_ID_BUFSIZE];
+static char ptt_recording_file[MAX_VFOS][FWDSP_RECORD_FILE_LEN];
 
 const char *rr_ptt_recording_id(rr_vfo_t vfo) {
    if (vfo < VFO_A || vfo >= MAX_VFOS || !ptt_recording_id[vfo][0]) {
       return NULL;
    }
    return ptt_recording_id[vfo];
+}
+
+const char *rr_ptt_recording_file(rr_vfo_t vfo) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS || !ptt_recording_file[vfo][0]) {
+      return NULL;
+   }
+   return ptt_recording_file[vfo];
+}
+
+static void ptt_filename_part(char *dst, size_t dst_len, const char *src) {
+   if (!dst || dst_len == 0) return;
+   snprintf(dst, dst_len, "%s", src && *src ? src : "unknown");
+   for (char *p = dst; *p; p++) {
+      if (!(('a' <= *p && *p <= 'z') || ('A' <= *p && *p <= 'Z') ||
+            ('0' <= *p && *p <= '9') || *p == '-' || *p == '_')) {
+         *p = '_';
+      }
+   }
+}
+
+static bool ptt_prepare_recording_file(rr_vfo_t vfo, const char *username,
+   const char *recording_id) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS || !recording_id || !*recording_id) {
+      return false;
+   }
+   if (!cfg_get_bool("fwdsp:recording.tx", false) &&
+       !cfg_get_bool("record.tx", false)) {
+      return false;
+   }
+   char *record_dir = cfg_get_path("fwdsp:recording.path");
+   if (!record_dir || !*record_dir) {
+      free(record_dir);
+      record_dir = cfg_get_path("path.record-dir");
+   }
+   if (!record_dir || !*record_dir) {
+      free(record_dir);
+      return false;
+   }
+   const char *codec = cfg_get("fwdsp:recording.codec");
+   if (!codec || !*codec) codec = cfg_get("recording.codec");
+   if (!codec || !*codec) codec = "flac";
+   const char *extension = codec && strcasecmp(codec, "ogg") == 0 ? "ogg" : "flac";
+   time_t timestamp = time(NULL);
+   struct tm local_time;
+   char stamp[32];
+   char safe_user[64];
+   char safe_id[RECORDING_ID_BUFSIZE];
+   localtime_r(&timestamp, &local_time);
+   strftime(stamp, sizeof(stamp), "%Y%m%d.%H%M%S", &local_time);
+   ptt_filename_part(safe_user, sizeof(safe_user), username);
+   ptt_filename_part(safe_id, sizeof(safe_id), recording_id);
+   int written = snprintf(ptt_recording_file[vfo], sizeof(ptt_recording_file[vfo]),
+      "%s/%s.%s.%s.%s.%s", record_dir, stamp, safe_id, safe_user,
+      "tx", extension);
+   free(record_dir);
+   if (written < 0 || (size_t)written >= sizeof(ptt_recording_file[vfo])) {
+      ptt_recording_file[vfo][0] = '\0';
+      Log(LOG_WARN, "ptt", "PTT recording filename is too long");
+      return false;
+   }
+   return true;
 }
 
 // Set once when a user's remaining credits fall to/below quota.warning so we
@@ -130,7 +194,8 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
    // the hamlib cache: other backends (internal) don't maintain hl_state.
    int session = db_ptt_start(masterdb, talker->chatname, vfo_name(vfo),
       (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo),
-      power, recording_id ? recording_id : "");
+      power, ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL,
+      recording_id ? recording_id : "");
 
    if (session < 0) {
       Log(LOG_WARN, "ptt", "PTT log: failed to start session for %s", talker->chatname);
@@ -151,7 +216,7 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
 // NB: `talker' may be NULL (e.g. is_ptt already cleared before the key-up
 // reaches us, or TOT/fault/disconnect forced TX off). The per-VFO session
 // table is the source of truth; the talker is only a fallback lookup.
-static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo) {
+static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
 #ifdef	USE_SQLITE
    if (!masterdb || vfo < 0 || vfo >= MAX_VFOS) {
       return;
@@ -171,7 +236,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo) {
 
    int secs = -1;
 
-   if (!db_ptt_stop(masterdb, session, &secs) ) {
+   if (!db_ptt_stop(masterdb, session, &secs, reason) ) {
       Log(LOG_WARN, "ptt", "PTT log: failed to close session %d for %s", session, (talker ? talker->chatname : "unknown") );
       return;
    }
@@ -226,7 +291,7 @@ bool rr_ptt_set_blocked(bool blocked) {
 }
 
 // For CAT to call
-bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
+bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
    char msgbuf[HTTP_WS_MAX_MSG + 1];
    rrconn_t *ptt_talker = whos_talking();
    const char *recording_id = NULL;
@@ -271,12 +336,14 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
             au_recording_generate_id(ptt_recording_id[vfo], sizeof(ptt_recording_id[vfo]));
          }
          recording_id = ptt_recording_id[vfo][0] ? ptt_recording_id[vfo] : NULL;
+         ptt_recording_file[vfo][0] = '\0';
+         ptt_prepare_recording_file(vfo, ptt_talker->chatname, recording_id);
          ptt_log_start(ptt_talker, vfo, recording_id);
       } else if (!ptt) {
          // Close the session for whoever was on this VFO (may be gone by now
          // if TOT/fault/disconnect forced TX off)
          recording_id = ptt_recording_id[vfo][0] ? ptt_recording_id[vfo] : NULL;
-         ptt_log_stop(ptt_talker, vfo);
+         ptt_log_stop(ptt_talker, vfo, reason);
       }
    }
 
@@ -285,6 +352,13 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    // NB: rr_ptt_apply() returns false on SUCCESS, true on failure.
    if (rr_ptt_apply(vfo, ptt) ) {
       Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF") );
+      // A failed key-down must not leave an open database session or a
+      // recording ID that will be attached to a later transmission.
+      if (ptt && vfo >= VFO_A && vfo < MAX_VFOS) {
+         ptt_log_stop(ptt_talker, vfo, "backend-error");
+         ptt_recording_id[vfo][0] = '\0';
+         ptt_recording_file[vfo][0] = '\0';
+      }
    } else {
       if (!ptt || rrserver_media_activate_ptt(vfo, ptt_talker)) {
          rrserver_media_record_ptt(vfo, ptt, ptt_talker, recording_id);
@@ -318,15 +392,19 @@ bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
    return ptt;
 }
 
+bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {
+   return rr_ptt_set_reason(vfo, ptt, ptt ? "key-down" : "released");
+}
+
 bool rr_ptt_toggle(rr_vfo_t vfo) {
    return rr_ptt_set(vfo, !rig.ptt);
 }
 
-bool rr_ptt_set_all_off(void) {
+bool rr_ptt_set_all_off_reason(const char *reason) {
    Log(LOG_AUDIT, "core", "PTT turned off for all VFOs!");
 
    for (int i = VFO_A ; i < MAX_VFOS ; i++) {
-      rr_ptt_set((rr_vfo_t)i, false);
+      rr_ptt_set_reason((rr_vfo_t)i, false, reason ? reason : "forced");
    }
 
    global_tot_time = 0;
@@ -345,4 +423,8 @@ bool rr_ptt_set_all_off(void) {
    }
 
    return false;
+}
+
+bool rr_ptt_set_all_off(void) {
+   return rr_ptt_set_all_off_reason("forced");
 }

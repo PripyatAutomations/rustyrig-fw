@@ -97,7 +97,7 @@ static void db_ensure_rooms(sqlite3 *db) {
    sqlite3_free(error);
 }
 
-static void db_ensure_ptt_recording_id(sqlite3 *db) {
+static void db_ensure_ptt_columns(sqlite3 *db) {
    if (!db) {
       return;
    }
@@ -115,7 +115,7 @@ static void db_ensure_ptt_recording_id(sqlite3 *db) {
    }
    sqlite3_finalize(stmt);
    if (have_column) {
-      return;
+      goto ensure_stop_reason;
    }
 
    char *error = NULL;
@@ -126,6 +126,29 @@ static void db_ensure_ptt_recording_id(sqlite3 *db) {
          Log(LOG_WARN, "db", "Unable to add ptt_log.recording_id: %s", error);
       }
       sqlite3_free(error);
+   }
+
+ensure_stop_reason:
+   stmt = NULL;
+   have_column = false;
+   if (sqlite3_prepare_v2(db, "PRAGMA table_info(ptt_log);", -1, &stmt, NULL) == SQLITE_OK) {
+      while (sqlite3_step(stmt) == SQLITE_ROW) {
+         const char *name = (const char *)sqlite3_column_text(stmt, 1);
+         if (name && strcmp(name, "stop_reason") == 0) {
+            have_column = true;
+            break;
+         }
+      }
+   }
+   sqlite3_finalize(stmt);
+   if (!have_column) {
+      error = NULL;
+      if (sqlite3_exec(db, "ALTER TABLE ptt_log ADD COLUMN stop_reason TEXT;", NULL, NULL, &error) != SQLITE_OK) {
+         if (error && strstr(error, "no such table") == NULL) {
+            Log(LOG_WARN, "db", "Unable to add ptt_log.stop_reason: %s", error);
+         }
+         sqlite3_free(error);
+      }
    }
 }
 
@@ -148,7 +171,7 @@ sqlite3 *db_open(const char *path) {
          unlink(path);
          return NULL;
       }
-      db_ensure_ptt_recording_id(db);
+      db_ensure_ptt_columns(db);
       db_ensure_rooms(db);
       return db;
    }
@@ -260,7 +283,7 @@ char *db_room_vfo_map_list(sqlite3 *db) {
 bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email,
                  int maxsessions, const char *permissions) {
    if (!db || !name || !password || !email || !permissions) {
-      return true;
+      return false;
    }
    const char *sql = "INSERT INTO users "
                      "(uid, name, enabled, password, email, maxsessions, permissions) "
@@ -389,7 +412,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 }
 
 int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth,
-                 float power, const char *recording_id) {
+                 float power, const char *record_file, const char *recording_id) {
    if (!db || !username || !mode || !recording_id) {
       return -1;
    }
@@ -410,7 +433,11 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
    sqlite3_bind_text(stmt, 4, mode, -1, SQLITE_STATIC);
    sqlite3_bind_int(stmt, 5, bandwidth);
    sqlite3_bind_double(stmt, 6, power);
-   sqlite3_bind_text(stmt, 7, recording_id, -1, SQLITE_STATIC);
+   if (record_file && *record_file) {
+      sqlite3_bind_text(stmt, 7, record_file, -1, SQLITE_STATIC);
+   } else {
+      sqlite3_bind_null(stmt, 7);
+   }
    sqlite3_bind_text(stmt, 8, recording_id, -1, SQLITE_STATIC);
 
    if (sqlite3_step(stmt) != SQLITE_DONE) {
@@ -428,7 +455,7 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
 // Close out a PTT session row: stamp end_time and duration (seconds).
 // Returns the duration via *duration_secs when non-NULL (so callers can log
 // how long the user transmitted); -1 if the row wasn't found.
-bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs) {
+bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs, const char *stop_reason) {
    if (!db || session_id < 0) {
       return false;
    }
@@ -436,7 +463,8 @@ bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs) {
    const char *sql =
       "UPDATE ptt_log "
       "SET end_time = CURRENT_TIMESTAMP, "
-      "    duration = CAST(ROUND( (julianday('now') - julianday(start_time)) * 86400 ) AS INTEGER) "
+      "    duration = CAST(ROUND( (julianday('now') - julianday(start_time)) * 86400 ) AS INTEGER), "
+      "    stop_reason = ? "
       "WHERE id = ?;";
 
    sqlite3_stmt *stmt;
@@ -445,7 +473,8 @@ bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs) {
       Log(LOG_CRIT, "db", "failed preparing statement in db_ptt_stop: %s", sqlite3_errmsg(db));
       return false;
    }
-   sqlite3_bind_int(stmt, 1, session_id);
+   sqlite3_bind_text(stmt, 1, stop_reason && *stop_reason ? stop_reason : "released", -1, SQLITE_STATIC);
+   sqlite3_bind_int(stmt, 2, session_id);
 
    bool success = (sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0);
    sqlite3_finalize(stmt);

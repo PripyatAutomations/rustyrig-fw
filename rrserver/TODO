@@ -12,8 +12,6 @@
 
 *: authdb on non-posix hosts should be compacted and stored in eeprom fields
 [protocol]
-* Implement multiple chat channels (bcast)
-
 [privileges]
 * Implement user groups that contain privilege sets, then users can be assigned into groups
 
@@ -22,10 +20,7 @@ ws.c / fwdsp/fwdsp-mgr.c:
 	ws_txtframe_process: media.codec handling
 	   * Remove codec enum and just pass 4 byte ID
 	   * Use fwdsp_codec_start instead of fwdsp_find_or_create, so we setup all the audio stuff not just the subproc
-* Finish implement recordings, saved in the ptt database & path.record
-
 [audit]
-* Add support for TX quotas (credits) and tracking top talkers
 
 [buildconf]
 - Support for loading older (input) eeprom layouts, according to version saved in the EEPROM, for upgrading

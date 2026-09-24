@@ -12,8 +12,9 @@ YYYYMMDD.HHMMSS[.recording-id].username.direction.flac
 Direction is radio RX/TX, not fwdsp encoder/decoder mode. Shared RX recordings
 use `radio`; TX uses the transmitting username. The native client uses its
 configured login name for its own TX recording. Server automatic TX recording
-is armed at PTT and stops at key-up; the file is created when the pipeline
-delivers its first sample. RX recording starts with the RX pipeline.
+is armed at PTT and stops at key-up; its name is reserved at key-down and the
+file is opened when the pipeline delivers its first sample. RX recording starts
+with the RX pipeline.
 The existing `record.rx`, `record.tx`, and `path.record-dir` settings apply.
 
 Characters outside ASCII letters, digits, `_`, and `-` in the username become
@@ -23,8 +24,9 @@ recording multiple channels never overwrites a file. Collisions add a suffix:
 
 Codec, VFO, frequency, and other session metadata belong in the database;
 they are not encoded in this filename. Server-side PTT recordings carry the
-same random `recording_id` in the `ptt_log.recording_id` column (and the
-legacy `record_file` field); recordings without a server event keep the
+same random `recording_id` in the `ptt_log.recording_id` column. The
+`ptt_log.record_file` column is generated at key-down and stores the full path
+selected for that PTT session. Recordings without a server PTT event keep the
 shorter filename form. Changing codecs closes the current segment and starts
 another one with the same PTT ID, so all segments can be found by that ID.
 

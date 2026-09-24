@@ -100,6 +100,13 @@ bool fwdsp_cmd_start_record_named(const char codec_id[5], bool is_tx,
 bool fwdsp_cmd_start_record_named_id(const char codec_id[5], bool is_tx,
    const char *channel_uuid, const char *username, bool record_tx,
    const char *recording_id) {
+   return fwdsp_cmd_start_record_named_file(codec_id, is_tx, channel_uuid,
+      username, record_tx, recording_id, NULL);
+}
+
+bool fwdsp_cmd_start_record_named_file(const char codec_id[5], bool is_tx,
+   const char *channel_uuid, const char *username, bool record_tx,
+   const char *recording_id, const char *record_file) {
    struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
       fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid) :
       fwdsp_find_instance(codec_id, is_tx);
@@ -112,7 +119,8 @@ bool fwdsp_cmd_start_record_named_id(const char codec_id[5], bool is_tx,
 
    if (!sp || sp->fw_control <= 0 || !username || !*username ||
        strlen(username) >= sizeof(msg.record_user) ||
-       (recording_id && strlen(recording_id) >= sizeof(msg.record_id))) {
+       (recording_id && strlen(recording_id) >= sizeof(msg.record_id)) ||
+       (record_file && strlen(record_file) >= sizeof(msg.record_file))) {
       return true;
    }
    if (sp->recording_active) {
@@ -121,6 +129,9 @@ bool fwdsp_cmd_start_record_named_id(const char codec_id[5], bool is_tx,
    snprintf(msg.record_user, sizeof(msg.record_user), "%s", username);
    if (recording_id) {
       snprintf(msg.record_id, sizeof(msg.record_id), "%s", recording_id);
+   }
+   if (record_file) {
+      snprintf(msg.record_file, sizeof(msg.record_file), "%s", record_file);
    }
    bool failed = send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t)sizeof(msg);
    if (!failed) {

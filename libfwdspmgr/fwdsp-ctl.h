@@ -16,5 +16,8 @@ extern bool fwdsp_cmd_start_record_named(const char codec_id[5], bool is_tx,
 extern bool fwdsp_cmd_start_record_named_id(const char codec_id[5], bool is_tx,
    const char *channel_uuid, const char *username, bool record_tx,
    const char *recording_id);
+extern bool fwdsp_cmd_start_record_named_file(const char codec_id[5], bool is_tx,
+   const char *channel_uuid, const char *username, bool record_tx,
+   const char *recording_id, const char *record_file);
 
 #endif // !__libfwdspmgr_fwdsp_ctl_h

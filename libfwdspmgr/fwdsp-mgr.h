@@ -50,6 +50,7 @@ struct fwdsp_io_conn {
 #define FWDSP_CTRL_STOP_RECORD    8     // Stop recording the raw audio
 #define FWDSP_RECORD_USER_LEN     64
 #define FWDSP_RECORD_ID_LEN       64
+#define FWDSP_RECORD_FILE_LEN     512
 
 struct fwdsp_control_msg {
    uint32_t magic;
@@ -61,6 +62,7 @@ struct fwdsp_control_msg {
    uint8_t record_direction;
    char record_user[FWDSP_RECORD_USER_LEN];
    char record_id[FWDSP_RECORD_ID_LEN];
+   char record_file[FWDSP_RECORD_FILE_LEN];
 };
 
 struct fwdsp_subproc {

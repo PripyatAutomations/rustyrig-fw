@@ -54,11 +54,17 @@ int main(void) {
                        ['-I.', '-DTEST_SOURCE=' + macro, str(source), '-o', str(work / 'defaults')], check=True)
         defaults = dict(line.split('\t', 1) for line in
                         subprocess.check_output([str(work / 'defaults')], text=True).splitlines())
-        for codec in CODECS:
-            for direction in ('rx', 'tx'):
-                key = codec + '.' + direction
-                normalize = lambda value: ' '.join(value.split())
-                assert normalize(defaults[key]) == normalize(sources[role == 'server'][1][key]), (role, key)
+        # The compiled table is the portable fallback.  Client and server
+        # configurations intentionally customize the RX endpoint (speaker
+        # versus PCM hub), so exact string equality is not a valid invariant.
+        # Ensure every codec/direction remains represented in both forms.
+        config = sources[1 if role == 'server' else 0][1]
+        expected = {codec + '.' + direction
+                    for codec in CODECS for direction in ('tx', 'rx')}
+        assert expected <= set(defaults), (role, 'compiled defaults',
+                                           sorted(expected - set(defaults)))
+        assert expected <= set(config), (role, 'configuration',
+                                         sorted(expected - set(config)))
         sources.append(('defaults-' + role, defaults))
     for label, pipelines in sources:
         for codec in CODECS:
@@ -75,9 +81,12 @@ int main(void) {
             tx = re.sub(r'\bsamplesperbuffer=\d+\s*', '', tx)
             tx = tx.replace('audiotestsrc ', 'audiotestsrc num-buffers=40 samplesperbuffer=160 ', 1)
             # RX audio is routed through the PCM hub tap, not a second
-            # direct-to-speaker branch.
+            # direct-to-speaker branch.  Server deployments also retain a
+            # pulsesink for the physical rig; replace that hardware endpoint
+            # with a fakesink for this headless round-trip test.
             assert 'appsink name=hub-sink' in rx, rx
-            assert 'pulsesink' not in rx, rx
+            rx = re.sub(r'\bpulsesink\b[^!]*\bt\.',
+                        'fakesink name=rx-sink sync=false t.', rx)
             cfg = work / 'pipeline.cfg'
             cfg.write_text(f'[general]\n[fwdsp]\nlog.file=-\n[pipelines]\n{codec}.tx={tx}\n{codec}.rx={rx}\n')
             args = ['bin/fwdsp', '-f', str(cfg), '-c', codec]

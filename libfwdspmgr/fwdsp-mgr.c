@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/wait.h>
 #ifndef _WIN32
 #include <sys/socket.h>
@@ -122,13 +123,7 @@ static uint32_t frame_length_decode(const uint8_t header[FWDSP_FRAME_HEADER_SIZE
 
 static bool fwdsp_write_all(int fd, const uint8_t *data, size_t len) {
    while (len > 0) {
-#if !defined(_WIN32) && defined(MSG_NOSIGNAL)
-      // A codec/processor can exit between readiness checks and a media write.
-      // Return EPIPE to the caller instead of delivering SIGPIPE to the host.
-      ssize_t written = send(fd, data, len, MSG_NOSIGNAL);
-#else
       ssize_t written = write(fd, data, len);
-#endif
 
       if (written > 0) {
          data += written;
@@ -463,6 +458,13 @@ bool fwdsp_init(void) {
    };
    sigemptyset(&sa.sa_mask);
    sigaction(SIGCHLD, &sa, NULL);
+   /*
+    * Child IPC uses write(2) on Unix socketpairs.  A child can close its
+    * input while a final encoded page is being delivered; ignore SIGPIPE so
+    * that the manager reports the failed write and reaps the child instead
+    * of terminating the host process.
+    */
+   signal(SIGPIPE, SIG_IGN);
    fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
 
    // Find the fwdsp path
@@ -1178,7 +1180,7 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
 
    while (remaining > 0) {
       /* The child may exit before SIGCHLD is reaped; return EPIPE safely. */
-      ssize_t written = send(sp->fw_stdin, header, remaining, MSG_NOSIGNAL);
+      ssize_t written = write(sp->fw_stdin, header, remaining);
 
       if (written > 0) {
          header += written;
@@ -1214,7 +1216,7 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
    remaining = len;
 
    while (remaining > 0) {
-      ssize_t written = send(sp->fw_stdin, bytes, remaining, MSG_NOSIGNAL);
+      ssize_t written = write(sp->fw_stdin, bytes, remaining);
 
       if (written > 0) {
          bytes += written;

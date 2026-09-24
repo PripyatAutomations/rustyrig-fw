@@ -109,7 +109,9 @@ static struct fwdsp_recorder recorder = { 0 };
 static bool record_requested = false;
 static char record_user[FWDSP_RECORD_USER_LEN] = "unknown";
 static char record_id[FWDSP_RECORD_ID_LEN];
+static char record_file[FWDSP_RECORD_FILE_LEN];
 static bool record_tx = false;
+static bool record_file_explicit = false;
 static char *recording_dir = NULL;
 static char recording_codec[8] = "flac";
 static bool recording_encoded = false;
@@ -142,9 +144,11 @@ static FILE *recorder_open_file(struct fwdsp_recorder *rec) {
    snprintf(base, sizeof(base), "%s", rec->filename);
    for (unsigned suffix = 0 ; suffix < 1000000 ; suffix++) {
       const char *extension = strcmp(recording_codec, "ogg") == 0 ? "ogg" : "flac";
-      int len = suffix ?
-         snprintf(rec->filename, sizeof(rec->filename), "%s.%u.%s", base, suffix, extension) :
-         snprintf(rec->filename, sizeof(rec->filename), "%s.%s", base, extension);
+      int len = record_file_explicit ?
+         (suffix ? snprintf(rec->filename, sizeof(rec->filename), "%s.%u", base, suffix) :
+            snprintf(rec->filename, sizeof(rec->filename), "%s", base)) :
+         (suffix ? snprintf(rec->filename, sizeof(rec->filename), "%s.%u.%s", base, suffix, extension) :
+            snprintf(rec->filename, sizeof(rec->filename), "%s.%s", base, extension));
       if (len < 0 || (size_t)len >= sizeof(rec->filename)) {
          errno = ENAMETOOLONG;
          return NULL;
@@ -332,11 +336,16 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
          *p = '_';
       }
    }
-   int name_len = safe_id[0] ?
-      snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s.%s",
-         record_dir, stamp, safe_id, safe_user, record_tx ? "tx" : "rx") :
-      snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s",
-         record_dir, stamp, safe_user, record_tx ? "tx" : "rx");
+   int name_len;
+   if (record_file_explicit && record_file[0]) {
+      name_len = snprintf(recorder.filename, sizeof(recorder.filename), "%s", record_file);
+   } else {
+      name_len = safe_id[0] ?
+         snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s.%s",
+            record_dir, stamp, safe_id, safe_user, record_tx ? "tx" : "rx") :
+         snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s",
+            record_dir, stamp, safe_user, record_tx ? "tx" : "rx");
+   }
    if (name_len < 0 || (size_t)name_len >= sizeof(recorder.filename)) {
       Log(LOG_CRIT, "record", "Recording path is too long");
       return false;
@@ -1021,15 +1030,20 @@ static void run_loop(struct audio_config *cfg) {
                      } else {
                         control.record_user[sizeof(control.record_user) - 1] = '\0';
                         control.record_id[sizeof(control.record_id) - 1] = '\0';
+                        control.record_file[sizeof(control.record_file) - 1] = '\0';
                         const char *who = control.record_user[0] ? control.record_user : "unknown";
                         const char *id = control.record_id;
+                        const char *file = control.record_file;
                         bool tx = control.record_direction ? control.record_direction == 2 : cfg->tx_mode;
                         if (recorder.running && (strcmp(record_user, who) != 0 ||
-                            strcmp(record_id, id) != 0 || record_tx != tx)) {
+                            strcmp(record_id, id) != 0 || strcmp(record_file, file) != 0 ||
+                            record_tx != tx)) {
                            recorder_stop();
                         }
                         snprintf(record_user, sizeof(record_user), "%s", who);
                         snprintf(record_id, sizeof(record_id), "%s", id);
+                        snprintf(record_file, sizeof(record_file), "%s", control.record_file);
+                        record_file_explicit = record_file[0] != '\0';
                         record_tx = tx;
                         record_requested = true;
                      }

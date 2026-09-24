@@ -155,8 +155,9 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
    if (start && tx && (!talker || !talker->chatname[0])) {
       return;
    }
-   bool failed = start ? fwdsp_cmd_start_record_named_id(channel->codec, !tx,
-      channel->uuid, tx ? talker->chatname : "radio", tx, recording_id) :
+   const char *record_file = tx ? rr_ptt_recording_file((rr_vfo_t)channel->vfo) : NULL;
+   bool failed = start ? fwdsp_cmd_start_record_named_file(channel->codec, !tx,
+      channel->uuid, tx ? talker->chatname : "radio", tx, recording_id, record_file) :
       fwdsp_cmd_stop_record_channel(channel->codec, !tx, channel->uuid);
    if (failed) {
       Log(LOG_WARN, "record", "Unable to %s recording for channel %s",

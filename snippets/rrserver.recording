@@ -2,8 +2,8 @@
          if (!cptr->ptt_session) {
             const char *recording = au_recording_start(channel);
             cptr->ptt_session = db_ptt_start(masterdb, cptr->user->name, dp->freq, mode_name, dp->width, dp->power,
-               recording);
+               recording, recording);
          } else {
-            db_ptt_stop(masterdb, cptr->ptt_session);
+            db_ptt_stop(masterdb, cptr->ptt_session, NULL, "released");
          }
 #endif	// 0

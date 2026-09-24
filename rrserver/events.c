@@ -399,8 +399,11 @@ static bool rrserver_recording_control(const char *data, bool start) {
       dict_free(d);
       return true;
    }
+   const char *record_file = (!fwdsp_tx && channel->vfo >= 0) ?
+      rr_ptt_recording_file((rr_vfo_t)channel->vfo) : NULL;
    bool failed = start ?
-      fwdsp_cmd_start_record_named_id(codec, fwdsp_tx, channel->uuid, who, !fwdsp_tx, recording_id) :
+      fwdsp_cmd_start_record_named_file(codec, fwdsp_tx, channel->uuid, who,
+         !fwdsp_tx, recording_id, record_file) :
       fwdsp_cmd_stop_record_channel(codec, fwdsp_tx, channel->uuid);
 
    if (failed) {
@@ -453,7 +456,7 @@ static void rrserver_handle_ptt_off(const char *event, const char *data, rrconn_
    (void)cptr;
    (void)user;
    Log(LOG_AUDIT, "ptt", "Forced TX off (%s event)", (event ? event : "ptt.off") );
-   rr_ptt_set_all_off();
+   rr_ptt_set_all_off_reason("forced");
 }
 
 
@@ -468,7 +471,7 @@ static void rrserver_handle_rig_ptt_off(const char *event, const char *data, rrc
 
    if (vfo && vfo[0]) {
       Log(LOG_AUDIT, "rigctl", "Departing user %s had PTT on vfo %s: keying down", (who ? who : "(unknown)"), vfo);
-      rr_ptt_set(vfo_lookup(vfo[0]), false);
+      rr_ptt_set_reason(vfo_lookup(vfo[0]), false, "disconnect");
    } else {
       Log(LOG_WARN, "rigctl", "Departing user %s held PTT but no VFO recorded; NOT touching rig TX", (who ? who : "(unknown)"));
    }

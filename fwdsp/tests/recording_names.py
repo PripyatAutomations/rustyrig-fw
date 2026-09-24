@@ -12,11 +12,12 @@ class Control(ctypes.Structure):
     _fields_ = [("magic", ctypes.c_uint32), ("type", ctypes.c_uint8),
                 ("value", ctypes.c_uint8), ("reserved", ctypes.c_uint16),
                 ("direction", ctypes.c_uint8), ("user", ctypes.c_char * 64),
-                ("record_id", ctypes.c_char * 64)]
+                ("record_id", ctypes.c_char * 64),
+                ("record_file", ctypes.c_char * 512)]
 
 
-def send_control(fd, kind, username=b"", direction=0, record_id=b"", fragment=False):
-    message = bytes(Control(0x46574453, kind, 1, 0, direction, username, record_id))
+def send_control(fd, kind, username=b"", direction=0, record_id=b"", record_file=b"", fragment=False):
+    message = bytes(Control(0x46574453, kind, 1, 0, direction, username, record_id, record_file))
     if fragment:
         # A stream socket/pipe need not deliver a whole control in one read.
         for part in (message[:3], message[3:11], message[11:]):
@@ -84,6 +85,12 @@ pc16.tx=audiotestsrc is-live=true ! audio/x-raw,format=S16LE,rate=16000,channels
         wait_for_record("*.___bad_user.tx.flac")
         time.sleep(0.15)
         send_control(write_fd, 8)
+        explicit = records / "explicit.R999.admin.tx.flac"
+        send_control(write_fd, 7, b"admin", 2, record_id=b"R999",
+                     record_file=str(explicit).encode())
+        wait_for_record("explicit.R999.admin.tx.flac")
+        assert explicit.exists()
+        send_control(write_fd, 8)
         send_control(write_fd, 2)
         assert proc.wait(timeout=5) == 0
     finally:
@@ -95,9 +102,10 @@ pc16.tx=audiotestsrc is-live=true ! audio/x-raw,format=S16LE,rate=16000,channels
     for path in sentinels:
         assert path.read_bytes() == b"existing recording", path
     recordings = set(records.glob("*.flac")) - set(sentinels)
-    assert len(recordings) == 4, recordings
+    assert len(recordings) == 5, recordings
     for path in recordings:
-        assert re.fullmatch(r"\d{8}\.\d{6}(?:\.[A-Za-z0-9_-]+)?\.[A-Za-z0-9_-]+\.(tx|rx)(\.\d+)?\.flac", path.name)
+        if path.name != "explicit.R999.admin.tx.flac":
+            assert re.fullmatch(r"\d{8}\.\d{6}(?:\.[A-Za-z0-9_-]+)?\.[A-Za-z0-9_-]+\.(tx|rx)(\.\d+)?\.flac", path.name)
         subprocess.run(["flac", "--silent", "--test", str(path)], check=True)
         samples = int(subprocess.check_output(["metaflac", "--show-total-samples", str(path)]))
         assert samples > 0, path

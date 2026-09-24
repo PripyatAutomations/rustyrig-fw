@@ -55,7 +55,7 @@ void timer_clock_tick_fn(void *arg) {
 
    // Check thermals
    if ( are_we_on_fire() ) {
-      rr_ptt_set_all_off();
+      rr_ptt_set_all_off_reason("thermal");
       rr_ptt_set_blocked(true);
       Log(LOG_CRIT, "core", "Radio is on fire?! Halted TX!");
    }
@@ -66,7 +66,7 @@ void timer_clock_tick_fn(void *arg) {
       Log(LOG_AUDIT, "ptt", "TOT (rig.tot: %d) expired, halting TX!", cfg_get_int("rig.tot", 300) );
       // rr_ptt_set_all_off() also clears the talker's is_ptt/ptt_vfo, so
       // whos_talking() doesn't keep returning them after TOT.
-      rr_ptt_set_all_off();
+      rr_ptt_set_all_off_reason("timeout");
       global_tot_time = 0;
       char msgbuf[HTTP_WS_MAX_MSG + 1];
       prepare_msg( msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s",

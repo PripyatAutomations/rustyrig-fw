@@ -19,8 +19,9 @@ extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, co
 extern int db_get_users(sqlite3 *db);
 extern bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details);
 extern int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode,
-                        int bandwidth, float power, const char *recording_id);
-extern bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs);
+                        int bandwidth, float power, const char *record_file,
+                        const char *recording_id);
+extern bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs, const char *stop_reason);
 extern int db_quota_get(sqlite3 *db, const char *username);
 extern bool db_quota_spend(sqlite3 *db, const char *username, int secs);
 extern bool db_quota_add(sqlite3 *db, const char *username, int credits);
