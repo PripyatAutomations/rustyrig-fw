@@ -1,3 +1,9 @@
+rustyrig-fw (20260924) testing; urgency=medium
+- Added right click menu for userlist
+- Added /room
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>
+
 rustyrig-fw (20260920) testing; urgency=medium
 - Numerous fwdsp/fwdspmgr fixes
 - Added many new test pipelines

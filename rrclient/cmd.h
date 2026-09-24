@@ -61,7 +61,6 @@ extern bool tui_register_completion_provider(char **(*fn)(const char *line, cons
 extern char **client_cmd_completions(const char *line, const char *word);
 extern bool cmd_admin(int argc, char **args);
 extern bool cmd_room(int argc, char **args);
-extern bool cmd_chan(int argc, char **args);
 extern bool cmd_clear(int argc, char **args);
 extern bool cmd_clearlog(int argc, char **args);
 extern bool cmd_config(int argc, char **args);
@@ -71,6 +70,7 @@ extern bool cmd_css_reload(int argc, char **args);   // cfg.gtkcss.c
 extern bool cmd_help(int argc, char **args);
 extern bool cmd_join(int argc, char **args);
 extern bool cmd_list(int argc, char **args);
+extern bool cmd_query(int argc, char **args);
 extern bool cmd_kick(int argc, char **args);
 extern bool cmd_log(int argc, char **args);
 extern bool cmd_media(int argc, char **args);

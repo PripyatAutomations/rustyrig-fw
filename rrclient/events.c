@@ -351,20 +351,25 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    const char *msg_data = dict_get(d, "talk.data", NULL);
    const char *msg_cmd = dict_get(d, "talk.cmd", NULL);
    const char *target_room = dict_get(d, "talk.target", NULL);
+   bool private_msg = msg_type &&
+      (strcasecmp(msg_type, "priv") == 0 ||
+       strcasecmp(msg_type, "privmsg") == 0);
    /* Room and private messages both use talk.target.  Give every explicit
     * target its own numbered window; the status window is reserved for the
     * client log. */
    const char *output_room = target_room;
-   if (ui_mode == UI_MODE_TUI && target_room) {
-      rrclient_tui_room_window(target_room, true);
+   if (private_msg && from && login_user && strcmp(from, login_user) != 0)
+      output_room = from;
+   if (ui_mode == UI_MODE_TUI && output_room) {
+      rrclient_tui_room_window(output_room, true);
    }
 #ifdef USE_GTK
-   if (ui_mode == UI_MODE_GTK && target_room &&
-       strcasecmp(target_room, ws_authoritative_room()) != 0) {
+   if (ui_mode == UI_MODE_GTK && output_room &&
+       strcasecmp(output_room, ws_authoritative_room()) != 0) {
       /* talk.target is also used for private messages.  Treat an unseen
        * target as a conversation tab so private replies are not dumped into
        * the rig room. */
-      gtk_chat_room_add(target_room);
+      gtk_chat_room_add(output_room);
    }
 #endif
 
@@ -592,7 +597,19 @@ static void rrclient_handle_room_vfo_list(const char *event, const char *data, r
    (void)event; (void)cptr; (void)user;
    if (!data) return;
    dict *d = json2dict(data); if (!d) return;
-   ui_print(NULL, "{yellow}Room/VFO mappings:{reset} %s", dict_get(d, "talk.vfos", "(none)"));
+   const char *vfos = dict_get(d, "talk.vfos", "");
+   ui_print(NULL, "{yellow}Room/VFO mappings:{reset}");
+   if (!vfos || !*vfos) {
+      ui_print(NULL, "  (none)");
+   } else {
+      char *lines = strdup(vfos);
+      char *save = NULL;
+      for (char *line = lines ? strtok_r(lines, "\n", &save) : NULL;
+           line; line = strtok_r(NULL, "\n", &save)) {
+         ui_print(NULL, "  %s", line);
+      }
+      free(lines);
+   }
    dict_free(d);
 }
 

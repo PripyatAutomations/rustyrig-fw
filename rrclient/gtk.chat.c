@@ -497,6 +497,8 @@ void gtk_chat_room_add(const char *room) {
       if (page >= 0) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
       }
+      if (existing->entry && GTK_IS_WIDGET(existing->entry))
+         gtk_widget_grab_focus(existing->entry);
       return;
    }
    GtkRoomTab *tab = g_new0(GtkRoomTab, 1);
@@ -517,6 +519,8 @@ void gtk_chat_room_add(const char *room) {
    if (page >= 0) {
       gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
    }
+   if (tab->entry && GTK_IS_WIDGET(tab->entry))
+      gtk_widget_grab_focus(tab->entry);
 }
 
 void gtk_chat_room_remove(const char *room) {
@@ -554,6 +558,15 @@ void gtk_chat_set_authoritative_room(const char *room) {
          GINT_TO_POINTER(1));
       gtk_widget_show_all(rig_room_tab->page);
    }
+   /* Authentication/join processing can finish after the initial window
+    * focus grab.  Select the now-authoritative rig tab and restore focus to
+    * its input once its widgets exist. */
+   gint rig_page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),
+      rig_room_tab->page);
+   if (rig_page >= 0)
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), rig_page);
+   if (rig_room_tab->entry && GTK_IS_WIDGET(rig_room_tab->entry))
+      gtk_widget_grab_focus(rig_room_tab->entry);
    GtkWidget *label = gtk_notebook_get_tab_label(GTK_NOTEBOOK(main_notebook), rig_room_tab->page);
    if (label && GTK_IS_LABEL(label)) {
       char text[160];

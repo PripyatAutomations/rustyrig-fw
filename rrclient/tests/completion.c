@@ -4,7 +4,7 @@ bool dying, restarting;
 time_t now;
 struct rr_user *global_userlist;
 client_cmd_t client_cmds[] = {
-   {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"},
+   {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
    {.cmd="kick", .admin=true}, {0}
 };
 static bool admin;
@@ -49,12 +49,16 @@ int main(void) {
    check("/media UNSUBSCRIBE rx-d", "rx-d", NULL);
    check("/media SUB #", "#", "#5");
    check("/msg a", "a", "alice");
+   check("/query a", "a", "alice");
    check("/notice ", "", "alice");
    check("/msg alice a", "a", NULL);
    check("/whois\ta", "a", "alice");
    check("/quota SET a", "a", "alice");
    check("/quota SET alice ", "", NULL);
    check("/quota SHOW alice a", "a", "alice");
+   check("/room ", "", "LIST");
+   check("/room vfo ", "", "ADD");
+   check("/room vfo r", "r", "REMOVE");
    check("/syslog o", "o", "on");
    check("/help rx", "rx", "rxcodec");
    check("/ki", "/ki", NULL);

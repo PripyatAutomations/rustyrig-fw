@@ -31,6 +31,27 @@ extern GtkComboBoxText *rx_combo;
 extern GtkNotebook *main_notebook;
 extern GtkWidget *freq_entry;
 
+/* GTK reports an Escape-prefix as two ordinary key events, unlike termkey,
+ * which presents ESC-number as an Alt modifier.  Keep the prefix briefly in
+ * the GTK handler so Esc-1 through Esc-0 select the same tabs as Alt-1 through
+ * Alt-0. */
+static gboolean gtk_escape_prefix = FALSE;
+
+static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
+   if (!main_win || digit < 0 || digit > 9) return FALSE;
+   if (!gtk_window_is_active(GTK_WINDOW(main_win))) {
+      gtk_widget_show_all(main_win);
+      gtk_window_present(GTK_WINDOW(main_win));
+      place_window(main_win);
+   }
+   int tab_number = digit == 0 ? 10 : digit;
+   int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
+   if (tab_number < 1 || tab_number > pages) return FALSE;
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), tab_number - 1);
+   gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+   return TRUE;
+}
+
 // XXX: We need to rewrite this so that it can build/quickly search a list of hotkeys relevant to
 // XXX: the currently active context
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
@@ -39,6 +60,22 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 
    if (!main_notebook || !event) {
       return true;
+   }
+
+   if (event->keyval == GDK_KEY_Escape) {
+      gtk_escape_prefix = TRUE;
+      /* Let GTK's normal Escape handling close menus and popups. */
+      return FALSE;
+   }
+
+   if (gtk_escape_prefix) {
+      gtk_escape_prefix = FALSE;
+      int digit = -1;
+      if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9)
+         digit = (int)(event->keyval - GDK_KEY_0);
+      else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9)
+         digit = (int)(event->keyval - GDK_KEY_KP_0);
+      if (digit >= 0 && gtk_switch_tab_digit(digit, main_win)) return TRUE;
    }
 
    // F11 toggles fullscreen
@@ -62,22 +99,8 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          digit = (int)(event->keyval - GDK_KEY_KP_0);
       }
       if (digit >= 0) {
-         if (!gtk_window_is_active( GTK_WINDOW(main_win) ) ) {
-            gtk_widget_show_all(main_win);
-            gtk_window_present( GTK_WINDOW(main_win) );
-            place_window(main_win);
-         }
-
-         /* Notebook pages are numbered in display order.  Resolve the
-          * number at runtime so rooms appended after the rig room are reachable
-          * with the same Alt-number convention as the built-in tabs. */
-         int tab_number = digit == 0 ? 10 : digit;
-         int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
-         if (tab_number >= 1 && tab_number <= pages) {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), tab_number - 1);
-            gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
-            return TRUE;
-         }
+         /* Notebook pages are numbered in display order. */
+         if (gtk_switch_tab_digit(digit, main_win)) return TRUE;
       }
 
       switch (event->keyval) {

@@ -277,7 +277,36 @@ char *db_room_vfo_list(sqlite3 *db, const char *room) {
 }
 
 char *db_room_vfo_map_list(sqlite3 *db) {
-   return db_join_rows(db, "SELECT room,binding FROM room_vfos ORDER BY room,binding;", NULL, true);
+   sqlite3_stmt *st = NULL;
+   if (!db || sqlite3_prepare_v2(db,
+         "SELECT room,binding FROM room_vfos ORDER BY room,binding;",
+         -1, &st, NULL) != SQLITE_OK) return NULL;
+   size_t cap = 256, len = 0;
+   char *out = calloc(1, cap);
+   char current_room[256] = "";
+   if (!out) { sqlite3_finalize(st); return NULL; }
+   while (sqlite3_step(st) == SQLITE_ROW) {
+      const char *room = (const char *)sqlite3_column_text(st, 0);
+      const char *binding = (const char *)sqlite3_column_text(st, 1);
+      if (!room || !binding) continue;
+      bool new_room = strcmp(current_room, room) != 0;
+      size_t need = strlen(binding) + (new_room ? strlen(room) + 2 + (len ? 1 : 0) : 2);
+      if (len + need + 1 > cap) {
+         while (len + need + 1 > cap) cap *= 2;
+         char *tmp = realloc(out, cap);
+         if (!tmp) { free(out); sqlite3_finalize(st); return NULL; }
+         out = tmp;
+      }
+      if (new_room) {
+         if (len) out[len++] = '\n';
+         len += (size_t)snprintf(out + len, cap - len, "%s: %s", room, binding);
+         snprintf(current_room, sizeof(current_room), "%s", room);
+      } else {
+         len += (size_t)snprintf(out + len, cap - len, ", %s", binding);
+      }
+   }
+   sqlite3_finalize(st);
+   return out;
 }
 
 bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email,

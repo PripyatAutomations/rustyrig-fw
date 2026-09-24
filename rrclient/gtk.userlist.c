@@ -24,6 +24,7 @@
 #include <rrclient/vfo.h>
 
 #include <rrclient/gtk.core.h>
+#include <rrclient/gtk.chat.h>
 
 extern dict *cfg;
 extern rrconn_t *ws_conn;
@@ -204,6 +205,82 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    gtk_widget_queue_draw(view);
 }
 
+static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
+   (void)user_data;
+   const char *target = g_object_get_data(G_OBJECT(item), "rr-user-target");
+   const char *command = g_object_get_data(G_OBJECT(item), "rr-user-command");
+   if (!target || !*target || !command || !ws_conn) return;
+
+   if (strcasecmp(command, "query") == 0) {
+#ifdef USE_GTK
+      gtk_chat_room_add(target);
+#endif
+      return;
+   }
+
+   dict *d = dict_new();
+   if (!d) return;
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", command);
+   dict_add(d, "talk.target", target);
+   if (strcasecmp(command, "mute") == 0 || strcasecmp(command, "kick") == 0)
+      dict_add(d, "talk.reason", "Requested from the user list");
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+}
+
+static void userlist_context_menu_add(GtkWidget *menu, const char *label,
+   const char *command, const char *target) {
+   GtkWidget *item = gtk_menu_item_new_with_label(label);
+   g_object_set_data_full(G_OBJECT(item), "rr-user-target", g_strdup(target), g_free);
+   g_object_set_data_full(G_OBJECT(item), "rr-user-command", g_strdup(command), g_free);
+   g_signal_connect(item, "activate", G_CALLBACK(userlist_context_action), NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+}
+
+static gboolean userlist_button_press(GtkWidget *widget, GdkEventButton *event,
+   gpointer user_data) {
+   (void)user_data;
+   if (!widget || !event ||
+       (event->type != GDK_BUTTON_PRESS && event->type != GDK_BUTTON_RELEASE) ||
+       event->button != 3)
+      return FALSE;
+
+   GtkTreePath *path = NULL;
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x,
+         (gint)event->y, &path, NULL, NULL, NULL)) return FALSE;
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
+   GtkTreeIter iter;
+   char *target = NULL;
+   if (!model || !gtk_tree_model_get_iter(model, &iter, path)) {
+      gtk_tree_path_free(path);
+      return FALSE;
+   }
+   gtk_tree_model_get(model, &iter, COL_USERNAME, &target, -1);
+   gtk_tree_path_free(path);
+   if (!target || !*target) {
+      g_free(target);
+      return FALSE;
+   }
+   gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(widget)), &iter);
+
+   GtkWidget *menu = gtk_menu_new();
+   userlist_context_menu_add(menu, "Open private query", "query", target);
+   userlist_context_menu_add(menu, "Whois", "whois", target);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+   userlist_context_menu_add(menu, "Mute", "mute", target);
+   userlist_context_menu_add(menu, "Unmute", "unmute", target);
+   userlist_context_menu_add(menu, "Kick", "kick", target);
+   gtk_widget_show_all(menu);
+   /* Use the legacy popup API here because it works with both older GTK 3
+    * releases and tree views whose release event is not a fully populated
+    * pointer event. */
+   gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL, NULL,
+      event->button, event->time);
+   g_free(target);
+   return TRUE;
+}
+
 static struct rr_user *room_vfo_talker(const char *room, char vfo) {
    for (struct rr_user *user = global_userlist; user; user = user->next) {
       if (user->is_ptt && user->ptt_vfo == vfo &&
@@ -335,6 +412,8 @@ static GtkWidget *userlist_view_create(void) {
       G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    gtk_widget_set_name(view, "userlist-tree");
+   gtk_widget_add_events(view, GDK_BUTTON_RELEASE_MASK);
+   g_signal_connect(view, "button-release-event", G_CALLBACK(userlist_button_press), NULL);
    g_object_unref(store);
 
    GtkCellRenderer *priv_icon = gtk_cell_renderer_text_new();

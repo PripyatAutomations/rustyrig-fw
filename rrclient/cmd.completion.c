@@ -131,6 +131,7 @@ char **client_cmd_completions(const char *line, const char *word) {
       } else if (arg == 1 && (!strcasecmp(command, "/whois") ||
           !strcasecmp(command, "/kick") || !strcasecmp(command, "/mute") ||
           !strcasecmp(command, "/unmute") || !strcasecmp(command, "/msg") ||
+          !strcasecmp(command, "/query") ||
           !strcasecmp(command, "/notice"))) {
          matches = complete_usernames(word);
       } else if (!strcasecmp(command, "/rxcodec") || !strcasecmp(command, "/txcodec") ||
@@ -168,6 +169,12 @@ char **client_cmd_completions(const char *line, const char *word) {
                if (u->room[0] && strcasecmp(u->room, ws_authoritative_room()) != 0) continue;
                completion_add(&matches, &count, u->name, word);
             }
+         }
+      } else if (!strcasecmp(command, "/room")) {
+         if (arg == 1) {
+            completion_words(&matches, &count, "LIST REMOVE VFO", word);
+         } else if (arg == 2 && first && !strcasecmp(first, "VFO")) {
+            completion_words(&matches, &count, "ADD LIST REMOVE", word);
          }
       } else if (arg == 1 && !strcasecmp(command, "/syslog")) {
          completion_words(&matches, &count, "on off", word);

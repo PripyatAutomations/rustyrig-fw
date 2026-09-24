@@ -51,8 +51,7 @@ bool cmd_reload(int argc, char **args) {
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
-   { .cmd = "room", .cb = cmd_room, .max_args = 4, .desc = "Send room administration command to the server" },
-   { .cmd = "chan", .cb = cmd_chan, .max_args = 4, .desc = "Manage rooms and room VFO mappings" },
+   { .cmd = "room", .cb = cmd_room, .max_args = 4, .desc = "List, remove, or manage room VFO mappings" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
 #ifdef USE_GTK
    { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
@@ -68,12 +67,13 @@ client_cmd_t client_cmds[] = {
    { .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab" },
    { .cmd = "media", .cb = cmd_media, .max_args = 2, .desc = "Media channels: LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>" },
    { .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel" },
-   { .cmd = "msg", .cb = cmd_msg, .desc = "Send a private message" },
+   { .cmd = "msg", .cb = cmd_msg, .max_args = 31, .desc = "Send a private message" },
    { .cmd = "mute", .cb = cmd_mute, .admin = true, .desc = "Mute a user" },
    { .cmd = "names", .cb = cmd_names, .desc = "List users with privilege flags" },
    { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
    { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
    { .cmd = "qrz", .cb = cmd_qrz, .max_args = 1, .desc = "Look up a callsign" },
+   { .cmd = "query", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab" },
    { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)" },
    { .cmd = "quota", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)" },
    { .cmd = "raw", .cb = cmd_raw, .desc = "Send a raw command" },
@@ -244,6 +244,8 @@ bool parse_chat_input_real(const char *msg) {
          const char *room = gtk_chat_current_room();
          if (room && room[0]) {
             dict_add(d, "talk.target", room);
+            if (room[0] != '#' && room[0] != '&')
+               dict_add(d, "talk.msg_type", "priv");
          }
 #endif
       } else if (ui_mode == UI_MODE_TUI) {
@@ -254,6 +256,8 @@ bool parse_chat_input_real(const char *msg) {
          if (window && window->title[0] &&
              strcasecmp(window->title, "status") != 0) {
             dict_add(d, "talk.target", window->title);
+            if (window->title[0] != '#' && window->title[0] != '&')
+               dict_add(d, "talk.msg_type", "priv");
          } else if (cfg_get_bool("tui.status-chat", false)) {
             const char *room = ws_authoritative_room();
             if (room && *room) dict_add(d, "talk.target", room);

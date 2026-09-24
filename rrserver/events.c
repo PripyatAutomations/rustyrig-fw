@@ -73,7 +73,7 @@ static void rrserver_handle_room_vfo_list(const char *event, const char *data, r
 }
 
 static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
+   (void)event; (void)user;
    if (!data) return;
    dict *d = json2dict(data); if (!d) return;
    const char *room = dict_get(d, "talk.room", NULL);
@@ -81,15 +81,29 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    const char *action = dict_get(d, "talk.action", NULL);
 #ifdef USE_SQLITE
    if (room && binding) {
-      db_room_ensure(masterdb, room, true, 0);
-      if (action && strcasecmp(action, "add") == 0) db_room_vfo_add(masterdb, room, binding);
-      else if (action && strcasecmp(action, "remove") == 0) db_room_vfo_remove(masterdb, room, binding);
+      bool ok = db_room_ensure(masterdb, room, true, 0);
+      if (ok && action && strcasecmp(action, "add") == 0)
+         ok = db_room_vfo_add(masterdb, room, binding);
+      else if (ok && action && strcasecmp(action, "remove") == 0)
+         ok = db_room_vfo_remove(masterdb, room, binding);
+      else
+         ok = false;
+      if (!ok) {
+         ws_send_error(cptr, "Unable to %s VFO %s for room %s",
+            action ? action : "update", binding ? binding : "(none)", room ? room : "(none)");
+         dict_free(d);
+         return;
+      }
       char *vfos = db_room_vfo_list(masterdb, room);
       dict_add(d, "talk.cmd", "room-vfo");
       dict_add(d, "talk.vfos", vfos ? vfos : "");
       ws_broadcast_room_dict(NULL, d, room);
+      ws_send_notice(cptr, "Room %s VFO %s %s",
+         room, binding, strcasecmp(action, "add") == 0 ? "added" : "removed");
       free(vfos);
    }
+#else
+   ws_send_error(cptr, "Room VFO mappings require database support");
 #endif
    dict_free(d);
 }
@@ -101,10 +115,19 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
    if (!d) return;
    const char *room = dict_get(d, "talk.room", NULL);
 #ifdef USE_SQLITE
-   if (room && !db_room_delete(masterdb, room))
+   if (room && !db_room_delete(masterdb, room)) {
       Log(LOG_WARN, "db", "failed to delete room metadata %s", room);
+      ws_send_error(cptr, "Unable to remove room %s", room);
+      dict_free(d);
+      return;
+   }
+#else
+   ws_send_error(cptr, "Room removal requires database support");
+   dict_free(d);
+   return;
 #endif
    if (room) {
+      ws_send_notice(cptr, "Room %s removed", room);
       ws_broadcast_room_dict(NULL, d, room);
       for (rrconn_t *cur = http_client_list; cur; cur = cur->next)
          ws_client_part_room(cur, room);
@@ -304,6 +327,26 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
    if (strcasecmp(msg_type, "file_chunk") == 0) {
       Log(LOG_DEBUG, "ws.chat", "broadcasting file chunk from %s", cptr->chatname);
       ws_broadcast_room_dict(cptr, d, channel);
+      dict_free(d);
+      return;
+   }
+
+   if (strcasecmp(msg_type, "priv") == 0 || strcasecmp(msg_type, "privmsg") == 0) {
+      const char *target_name = dict_get(d, "talk.target", NULL);
+      rrconn_t *target = target_name ? http_find_client_by_name(target_name) : NULL;
+      if (!target) {
+         ws_send_error(cptr, "No such user: %s", target_name ? target_name : "(none)");
+         dict_free(d);
+         return;
+      }
+#ifdef USE_SQLITE
+      if (!db_add_chat_msg(masterdb, now, cptr->chatname, target_name, "privmsg",
+                           dict_get(d, "talk.data", "")))
+         Log(LOG_WARN, "db", "failed to save private message");
+#endif
+      dict_add(d, "talk.msg_type", "priv");
+      ws_send_dict(cptr, target, d, WEBSOCKET_OP_TEXT);
+      if (target != cptr) ws_send_dict(cptr, cptr, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
       return;
    }
