@@ -1,7 +1,5 @@
 Immediate needs
 ---------------
-rrserver: FIX NEEDING TO RUN AS ROOT IN PACKAGES!
-
 rrclient: Need to split gtk into its own package as a loadable module using events asap
 
 * Move all socket code out of librrprotocol
@@ -13,14 +11,14 @@ rrclient: Need to split gtk into its own package as a loadable module using even
   - Noob requests elevated privs and is cautioned about their responsibility
   - Elmers are prompted and one can accept responsibility for the user
 
-* Support for multiple rigs/channels
+* Support for multiple rigs
 
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure
   - currently some places, we still use 0 for success, which is incorrect
     - these should be *mostly* gone but need fixed immediately if found!
 
-codec negotiation: Discard codecs without configured pipelines?
+codec negotiation: Discard codecs without configured pipelines from the list?
 
 rrclient: Consider bringing in sqlite db for storage/caching (call lookups, etc)
 
@@ -31,6 +29,7 @@ librustyaxe: logger - extend log.level so its work like log.level=*:info,event:c
 
 rrclient/rrserver: Maybe support storing config in the db too? So load config file then apply db? Would need to periodically poll db for changes tho, ugly..
 
-https://github.com/ngtcp2/ngtcp2/
-https://github.com/ngtcp2/nghttp3/
-https://developer.mozilla.org/en-US/docs/Web/API/WebTransport#examples
+* WebTransport support
+  - https://github.com/ngtcp2/ngtcp2/
+  - https://github.com/ngtcp2/nghttp3/
+  - https://developer.mozilla.org/en-US/docs/Web/API/WebTransport#examples

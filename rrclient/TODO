@@ -1,8 +1,7 @@
 [general]
-Continue support for multiple rooms. Rig rooms should carry VFO metadata and side rooms should remain chat-only.
+- Make sure PTT button goes ORANGE on PTT expiry
 
-* Fix the color parser to not mangle json
-  gtk_colorize_string()
+* Support PTT lock; controlled by ctrl or shift clicking PTT button (disable ptt lock by default)
 
 * make @username auto-complete once enough unique is typed
   - save last typed before completing so backspace will remove the completed part
@@ -12,22 +11,14 @@ Continue support for multiple rooms. Rig rooms should carry VFO metadata and sid
 
 * Add ^C, etc for embedding mIRC-style colors
 
-* Implement /names to show who's in the chat (espc in TUI)
-
 * tui: should probably treat status window as the syslog in gtk; make windows 2+ show rig controls
-
-* Set window title to $user@$rig
 
 * Make hotkeys context (tab/window) sensitive
 
 * Support for connecting to multiple servers
 
 * Populate config tab from defconfig, showing radio/text field/etc based on default value check
-
-* Fix PTT button needing clicked twice after TOT fired (if still applies)
-  - Make sure TOT expire goes ORANGE
-
-* Support PTT lock; controlled by ctrl or shift clicking PTT button (disable ptt lock by default)
+  - use active values, just take descriptions, from defconfig
 
 * Add mute/unmute button for RX audio which halts sending the samples entirely
 
@@ -39,9 +30,9 @@ Continue support for multiple rooms. Rig rooms should carry VFO metadata and sid
   - or maybe send the mute/unmute to server who will start/stop sending samples
     as well as sending a start/stop message so gstreamer can be paused
 
-* Fix userlist updates so joins/quits properly update it
-
-* Make VFO widgets able to undock/float
+* Make VFO widgets able to undock/float too
+  - maybe not, this breaks spirit of multiplayer UNLESS we
+    force docked mode if multiple users are connected?
 
 * C4FM mode / dialog
 
@@ -59,4 +50,4 @@ Continue support for multiple rooms. Rig rooms should carry VFO metadata and sid
   in-memory settings instead of config file values
 
 [TUI]
-* Add a tab for showing client / radio log (togglable)
+* Make log window selectable between host and client logs.

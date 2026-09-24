@@ -6,45 +6,49 @@
 
 * DEBUG_PROTO_UNKNOWN ' ' ' -- remove this!
 
-*: Add last-seen time to users, kept in the database.
-  - Update it on connect and disconnect
-  - Add a timer to update the db every minute or five with everyone active
-
 *: authdb on non-posix hosts should be compacted and stored in eeprom fields
+
 [protocol]
+
 [privileges]
 * Implement user groups that contain privilege sets, then users can be assigned into groups
 
 [audio]
-ws.c / fwdsp/fwdsp-mgr.c:
-	ws_txtframe_process: media.codec handling
-	   * Remove codec enum and just pass 4 byte ID
-	   * Use fwdsp_codec_start instead of fwdsp_find_or_create, so we setup all the audio stuff not just the subproc
+
 [audit]
 
 [buildconf]
 - Support for loading older (input) eeprom layouts, according to version saved in the EEPROM, for upgrading
   - see res/archive/*
+
 * Remove need for offset & key properties
   - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)
 
 [core]
 * Test TX halt when PTTing user disconnects.
   - also halt TX by FLAG_NOOB users if the last elmer logs out
+  - Should work, needs tested
 
 [eeprom/config]
 * remove need for the key field (why not use the name of the entry itself?) in eeprom_layout
+
 * fix relative offsets in eeprom_layout
+
 ? Create a minimal tokenization of eeprom name references, so we don't have to store full strings all over
+
 - Make a tool which converts res/eeprom_layout.json (and eeprom_types.json) to a text file like doc/eeprom.txt
+
 * Fix net/bind to be an ip4 or ip6 type instead of string!
+
 * more work to integrate config into eeprom
   - work on dict and just load/save changed parts of the eeprom
     - Read into new empty dict
     - dict_diff to get changed keys (include option to get unique flags only / both / only changed)
     - If eeprom write delay expired, save to eeprom
     - On exit, etc
+
   - read eeprom into config / channels dict on posix
+
   ? May just compress the flat-file with a light compressor that will spread eeprom wear and pack that into eeprom?
 
 [elmer mode]
@@ -65,6 +69,7 @@ ws.c / fwdsp/fwdsp-mgr.c:
 
 [mqtt]
 * Finish mqtt server stuff (via mongoose)
+
 * Implement mqtt client mode, for sending status to existing server(s)
 
 [Network]
