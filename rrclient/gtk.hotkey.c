@@ -78,6 +78,15 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       if (digit >= 0 && gtk_switch_tab_digit(digit, main_win)) return TRUE;
    }
 
+   // GTK provides key-release events, so the keyboard PTT shortcuts behave
+   // as true push-to-talk controls rather than toggles.
+   if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_space) {
+      if (event->type == GDK_KEY_PRESS) {
+         return ptt_button_hotkey_press();
+      }
+      return ptt_button_hotkey_release();
+   }
+
    // F11 toggles fullscreen
    if ( (event->keyval == GDK_KEY_F11) ) {
       gui_fullscreen_toggle();
@@ -121,8 +130,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
             return TRUE;
          }
          case GDK_KEY_Return: {
-            return tui_hotkey_dispatch(NULL, TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT |
-               ((event->state & GDK_CONTROL_MASK) ? TERMKEY_KEYMOD_CTRL : 0));
+            return ptt_button_hotkey_press();
          }
          case GDK_KEY_C:
          case GDK_KEY_c: {
@@ -200,10 +208,23 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    return FALSE;
 }
 
+static gboolean gui_global_hotkey_release_cb(GtkWidget *widget, GdkEventKey *event,
+   gpointer user_data) {
+   (void)widget;
+   (void)user_data;
+   if (!event) return FALSE;
+   if (event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter ||
+       event->keyval == GDK_KEY_space) {
+      return ptt_button_hotkey_release();
+   }
+   return FALSE;
+}
+
 bool gui_hotkey_register(GtkWidget *widget) {
    if (!widget) {
       return true;
    }
    g_signal_connect(widget, "key-press-event", G_CALLBACK(gui_global_hotkey_cb), widget);
+   g_signal_connect(widget, "key-release-event", G_CALLBACK(gui_global_hotkey_release_cb), widget);
    return false;
 }

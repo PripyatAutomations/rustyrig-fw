@@ -12,5 +12,7 @@ const char *rrclient_current_room(void);
 bool rrclient_room_set_vfos(const char *room, const char *vfos);
 bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask);
 const char *rrclient_room_vfos(const char *room);
+bool rrclient_room_set_topic(const char *room, const char *topic);
+const char *rrclient_room_topic(const char *room);
 
 #endif

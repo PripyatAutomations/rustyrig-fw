@@ -116,6 +116,7 @@ defconfig_t defcfg[] = {
    { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit" },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
    { "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, "Top row template with live ${variable} and {color} escapes" },
+   { "tui.room-status-line", RRCLIENT_DEFAULT_ROOM_STATUS_LINE, "Top row template for rooms without an attached VFO" },
    { "tui.status-chat", "false", "Allow unprefixed text from the status view to use the authoritative room" },
    { "tui.use-color", "true", "Enable color in the TUI?" },
    { "tui.use-mouse", "true", "Enable mouse in the TUI?" },

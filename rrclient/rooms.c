@@ -14,6 +14,7 @@ extern rrconn_t *ws_conn;
 typedef struct client_room {
    char name[128];
    char vfos[512];
+   char topic[512];
    struct client_room *next;
 } client_room_t;
 
@@ -102,6 +103,25 @@ const char *rrclient_room_vfos(const char *room) {
    const char *name = canonical(room);
    for (client_room_t *r = rooms; r; r = r->next)
       if (!strcasecmp(r->name, name)) return r->vfos;
+   return "";
+}
+
+bool rrclient_room_set_topic(const char *room, const char *topic) {
+   if (!rrclient_room_join(room)) return false;
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next) {
+      if (!strcasecmp(r->name, name)) {
+         strlcpy(r->topic, topic ? topic : "", sizeof(r->topic));
+         return true;
+      }
+   }
+   return false;
+}
+
+const char *rrclient_room_topic(const char *room) {
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next)
+      if (!strcasecmp(r->name, name)) return r->topic;
    return "";
 }
 

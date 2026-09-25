@@ -39,7 +39,7 @@ extern rrconn_t *ws_conn;
 // PARITY: www/js/webui.chat.js chat_send_command() (talk.args.reason)
 bool cmd_die(int argc, char **args) {
    if (argc < 2 || !args[1] || strlen(args[1]) < 10) {
-      ui_print(NULL, "Usage: /die <reason> (min 10 chars)");
+      ui_print(ui_active_window_name(), "Usage: /die <reason> (min 10 chars)");
       return true;
    }
 
@@ -55,7 +55,7 @@ bool cmd_die(int argc, char **args) {
 
 bool cmd_kick(int argc, char **args) {
    if (argc < 2 || !args[1]) {
-      ui_print(NULL, "Usage: /kick <user> <reason>");
+      ui_print(ui_active_window_name(), "Usage: /kick <user> <reason>");
       return true;
    }
 
@@ -89,7 +89,7 @@ bool cmd_kick(int argc, char **args) {
 /* PARITY: rustyrig-www/js/webui (mute/unmute send msg.type talk, talk.cmd) */
 bool cmd_mute(int argc, char **args) {
    if (argc < 2 || !args[1]) {
-      ui_print(NULL, "Usage: /mute <user> [reason]");
+      ui_print(ui_active_window_name(), "Usage: /mute <user> [reason]");
       return true;
    }
 
@@ -109,7 +109,7 @@ bool cmd_mute(int argc, char **args) {
 
 bool cmd_unmute(int argc, char **args) {
    if (argc < 2 || !args[1]) {
-      ui_print(NULL, "Usage: /unmute <user>");
+      ui_print(ui_active_window_name(), "Usage: /unmute <user>");
       return true;
    }
 
@@ -141,8 +141,8 @@ bool cmd_raw(int argc, char **args) {
       pos += n;
    }
 
-   ui_print(NULL, "-raw-> %s", fullmsg);
-   ui_print(NULL, "{yellow}QUOTE is not supported over WebSocket{reset}");
+   ui_print(ui_active_window_name(), "-raw-> %s", fullmsg);
+   ui_print(ui_active_window_name(), "{yellow}QUOTE is not supported over WebSocket{reset}");
 
    return false;
 }
@@ -154,7 +154,7 @@ bool cmd_raw(int argc, char **args) {
 // PARITY: rustyrig-www/js/webui.chat.js (syslog toggle)
 bool cmd_syslog(int argc, char **args) {
    if (argc < 2 || !args[1] || (!strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
-      ui_print(NULL, "Usage: /syslog <on|off>");
+      ui_print(ui_active_window_name(), "Usage: /syslog <on|off>");
       return true;
    }
 
@@ -165,7 +165,7 @@ bool cmd_syslog(int argc, char **args) {
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
-   ui_print(NULL, "{yellow}Host log streaming %s (server permitting){reset}", args[1]);
+   ui_print(ui_active_window_name(), "{yellow}Host log streaming %s (server permitting){reset}", args[1]);
    return false;
 }
 
@@ -175,7 +175,7 @@ bool cmd_syslog(int argc, char **args) {
 // PARITY: www/js/webui.chat.js chat_send_command() (talk.args.reason)
 bool cmd_restart(int argc, char **args) {
    if (argc < 2 || !args[1] || strlen(args[1]) < 10) {
-      ui_print(NULL, "Usage: /restart <reason> (min 10 chars)");
+      ui_print(ui_active_window_name(), "Usage: /restart <reason> (min 10 chars)");
       return true;
    }
 
@@ -195,7 +195,7 @@ bool cmd_rehash(int argc, char **args) {
    (void)args;
 
    if (!ws_conn) {
-      ui_print(NULL, "{red}Not connected to a server!{reset}");
+      ui_print(ui_active_window_name(), "{red}Not connected to a server!{reset}");
       return true;
    }
 
@@ -205,7 +205,7 @@ bool cmd_rehash(int argc, char **args) {
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
-   ui_print(NULL, "Rehash requested from server");
+   ui_print(ui_active_window_name(), "Rehash requested from server");
    return false;
 }
 
@@ -220,7 +220,7 @@ bool cmd_quota(int argc, char **args) {
    dict *d = dict_new();
 
    if (!d) {
-      ui_print(NULL, "{red}/quota: out of memory{reset}");
+      ui_print(ui_active_window_name(), "{red}/quota: out of memory{reset}");
       return true;
    }
    dict_add(d, "msg.type", "talk");

@@ -28,6 +28,7 @@
 #endif
 
 extern const char *login_user;   // from connman.c
+extern char session_token[HTTP_TOKEN_LEN + 1];
 #ifdef	USE_GTK
 extern int cfg_ui_ptt_ack_timeout;   // gtk.ptt-btn.c
 extern void ptt_button_tot_expired(int tot_secs);   // gtk.ptt-btn.c
@@ -358,6 +359,18 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
     * target its own numbered window; the status window is reserved for the
     * client log. */
    const char *output_room = target_room;
+   if (!output_room && !private_msg) {
+      if (ui_mode == UI_MODE_TUI) {
+         tui_window_t *active = tui_active_window();
+         if (active && active->title[0] && strcasecmp(active->title, "status") != 0)
+            output_room = active->title;
+      }
+#ifdef USE_GTK
+      else if (ui_mode == UI_MODE_GTK) {
+         output_room = gtk_chat_current_room();
+      }
+#endif
+   }
    if (private_msg && from && login_user && strcmp(from, login_user) != 0)
       output_room = from;
    if (ui_mode == UI_MODE_TUI && output_room) {
@@ -480,7 +493,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             dict_free(d);
          }
       }
-      ui_print(NULL, "%s {red}ERROR%s%s:{reset} %s", get_chat_ts(now),
+      ui_print(ui_active_window_name(), "%s {red}*** ERROR%s%s:{reset} %s", get_chat_ts(now),
          (from ? " from " : ""), (from ? from : ""), (err ? err : "unknown error"));
       free((void *)err);
       free((void *)from);
@@ -529,26 +542,27 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
    const char *m_ip = dict_get(d, "talk.ip", NULL);
    const char *m_target = dict_get(d, "talk.target", NULL);
    const char *m_room = dict_get(d, "talk.room", NULL);
-   if (m_room && dict_get_bool(d, "room.has-vfos", false)) {
-      rrclient_room_set_vfo_mask(m_room, dict_get_ulong(d, "room.vfo-mask", 0));
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) userlist_room_vfos_changed(m_room);
-#endif
-   }
-   if (m_room && dict_get_bool(d, "room.has-vfos", false)) {
-      ws_set_authoritative_room(m_room);
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) {
-         gtk_chat_set_authoritative_room(m_room);
-         userlist_room_vfos_changed(m_room);
-      }
-#endif
-   }
    time_t m_ts = dict_get_time_t(d, "msg.ts", now);
    const char *s_unknown = "<UNKNOWN>";
 
    if (m_room) {
       if (m_user && login_user && strcasecmp(m_user, login_user) == 0) {
+         /* The server includes the room's VFO mapping on our join event.
+          * Clear any stale client-side mapping when joining an ordinary
+          * room; otherwise its top line incorrectly retains PTT/VFO state
+          * from the rig room. */
+         bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
+         rrclient_room_set_vfo_mask(m_room,
+            has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
+#ifdef USE_GTK
+         if (ui_mode == UI_MODE_GTK) userlist_room_vfos_changed(m_room);
+#endif
+         if (has_vfos) {
+            ws_set_authoritative_room(m_room);
+#ifdef USE_GTK
+            if (ui_mode == UI_MODE_GTK) gtk_chat_set_authoritative_room(m_room);
+#endif
+         }
          rrclient_room_join(m_room);
          if (ui_mode == UI_MODE_TUI) {
             rrclient_tui_room_window(m_room, true);
@@ -598,17 +612,49 @@ static void rrclient_handle_room_vfo_list(const char *event, const char *data, r
    if (!data) return;
    dict *d = json2dict(data); if (!d) return;
    const char *vfos = dict_get(d, "talk.vfos", "");
-   ui_print(NULL, "{yellow}Room/VFO mappings:{reset}");
+   const char *output = ui_active_window_name();
+   ui_print(output, "{yellow}Room/VFO mappings:{reset}");
    if (!vfos || !*vfos) {
-      ui_print(NULL, "  (none)");
+      ui_print(output, "  (none)");
    } else {
       char *lines = strdup(vfos);
       char *save = NULL;
       for (char *line = lines ? strtok_r(lines, "\n", &save) : NULL;
            line; line = strtok_r(NULL, "\n", &save)) {
-         ui_print(NULL, "  %s", line);
+         ui_print(output, "  %s", line);
       }
       free(lines);
+   }
+   dict_free(d);
+}
+
+static void rrclient_handle_room_topic(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)cptr; (void)user;
+   if (!data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", NULL);
+   const char *topic = dict_get(d, "talk.topic", "");
+   const char *from = dict_get(d, "talk.user", NULL);
+   bool query = dict_get_bool(d, "talk.query", false);
+   if (room) {
+      rrclient_room_set_topic(room, topic);
+      if (ui_mode == UI_MODE_TUI) {
+         tui_window_t *window = rrclient_tui_room_window(room, true);
+         if (window) snprintf(window->status_line, sizeof(window->status_line), "%s", topic);
+      }
+#ifdef USE_GTK
+      if (ui_mode == UI_MODE_GTK) {
+         gtk_chat_room_set_topic(room, topic);
+      } else
+#endif
+      if (query)
+         ui_print(room, "{yellow}Topic:{reset} %s", *topic ? topic : "(none)");
+      else if (from && *from && (!login_user || strcasecmp(from, login_user) != 0))
+         ui_print(room, "{yellow}Topic changed by %s:{reset} %s", from,
+            *topic ? topic : "(none)");
+      else if (!from || !*from)
+         ui_print(room, "{yellow}Topic:{reset} %s", *topic ? topic : "(none)");
    }
    dict_free(d);
 }
@@ -619,7 +665,7 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
    dict *d = json2dict(data);
    if (!d) return;
    const char *rooms = dict_get(d, "talk.rooms", "");
-   ui_print(NULL, "{yellow}Available rooms:{reset} %s", (rooms && *rooms) ? rooms : "(none)");
+   ui_print(ui_active_window_name(), "{yellow}Available rooms:{reset} %s", (rooms && *rooms) ? rooms : "(none)");
    dict_free(d);
 }
 
@@ -652,8 +698,14 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
    const char *room = dict_get(d, "talk.room", NULL);
    if (!room) room = dict_get(d, "talk.target", NULL);
    const char *member = dict_get(d, "talk.user", NULL);
+   const char *session = dict_get(d, "talk.session", NULL);
    if (member && room) userlist_remove_by_name_room(member, room);
-   if (room && member && login_user && strcasecmp(member, login_user) == 0) {
+   /* Usernames are not unique across simultaneous sessions.  The server
+    * echoes the authenticated session token on the PART confirmation so only
+    * the client that requested the part closes its room tab. */
+   bool is_self = session && *session && session_token[0] &&
+      strcmp(session, session_token) == 0;
+   if (room && is_self) {
       rrclient_room_part(room);
 #ifdef USE_GTK
       if (ui_mode == UI_MODE_GTK) gtk_chat_room_remove(room);
@@ -694,6 +746,20 @@ static void rrclient_handle_talk(const char *event, const char *data, rrconn_t *
    Log(LOG_CRAZY, "ws.talk", "ws.msg.talk: %s", (data ? data : "<NULL>"));
 }
 
+static const char *rrclient_replay_room(dict *d) {
+   const char *room = dict_get(d, "talk.target", NULL);
+   if (room && *room) return room;
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_active_window();
+      if (window && window->title[0] && strcasecmp(window->title, "status") != 0)
+         return window->title;
+   }
+#ifdef USE_GTK
+   if (ui_mode == UI_MODE_GTK) return gtk_chat_current_room();
+#endif
+   return NULL;
+}
+
 static void rrclient_handle_chat_replay(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -705,11 +771,16 @@ static void rrclient_handle_chat_replay(const char *event, const char *data, rrc
    }
 
    const char *cmd = dict_get(d, "talk.cmd", NULL);
+   const char *room = rrclient_replay_room(d);
+   if (room && ui_mode == UI_MODE_TUI) rrclient_tui_room_window(room, true);
+#ifdef USE_GTK
+   if (room && ui_mode == UI_MODE_GTK) gtk_chat_room_add(room);
+#endif
 
    if (cmd && strcasecmp(cmd, "replay-start") == 0) {
-      ui_print(NULL, "{red}>>>{reset} Start of chat replay. {red}<<<{reset}");
+      ui_print(room, "{red}>>>{reset} Start of chat replay. {red}<<<{reset}");
    } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0)) {
-      ui_print(NULL, "{red}>>>{reset} Finished chat replay. {red}<<<{reset}");
+      ui_print(room, "{red}>>>{reset} Finished chat replay. {red}<<<{reset}");
    }
    dict_free(d);
 }
@@ -732,11 +803,16 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
    // Chat commands which have no dedicated event yet; show them in the UI
    if (msg_type && strcasecmp(msg_type, "talk") == 0) {
       const char *cmd = dict_get(d, "talk.cmd", NULL);
+      const char *room = rrclient_replay_room(d);
+      if (room && ui_mode == UI_MODE_TUI) rrclient_tui_room_window(room, true);
+#ifdef USE_GTK
+      if (room && ui_mode == UI_MODE_GTK) gtk_chat_room_add(room);
+#endif
 
       if (cmd && strcasecmp(cmd, "replay-start") == 0) {
-         ui_print(NULL, "%s {red}>>>{reset} Start of chat replay. {red}<<<{reset}", get_chat_ts(msg_ts));
+         ui_print(room, "%s {red}>>>{reset} Start of chat replay. {red}<<<{reset}", get_chat_ts(msg_ts));
       } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0)) {
-         ui_print(NULL, "%s {red}>>>{reset} Finished chat replay. {red}<<<{reset}", get_chat_ts(msg_ts));
+         ui_print(room, "%s {red}>>>{reset} Finished chat replay. {red}<<<{reset}", get_chat_ts(msg_ts));
       } else {
          Log(LOG_DEBUG, "ws.nomatch", "Unhandled talk cmd:|%s|", (cmd ? cmd : "<NONE>"));
       }
@@ -825,6 +901,7 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
 
    time_t msg_ts = dict_get_time_t(d, "msg.ts", now);
    const char *msg = dict_get(d, "notice.msg", NULL);
+   const char *output = ui_active_window_name();
 
    if (msg) {
       // Notices are plain text, one line per notice.
@@ -839,14 +916,14 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
          strncmp(msg, "License Expires:", 16) == 0 || strncmp(msg, "Country:", 8) == 0;
       if (strncmp(msg, "200 OK ", 7) == 0) {
          callsign_notice_active = true;
-         ui_print(NULL, "%s {bright-yellow}NOTICE{reset}:", get_chat_ts(msg_ts));
+         ui_print(output, "%s {bright-yellow}NOTICE{reset}:", get_chat_ts(msg_ts));
          rrclient_print_callsign_line(msg);
       } else if (callsign_field && callsign_notice_active) {
          rrclient_print_callsign_line(msg);
          if (strncmp(msg, "Country:", 8) == 0) callsign_notice_active = false;
       } else {
          callsign_notice_active = false;
-         ui_print(NULL, "%s {bright-yellow}NOTICE{reset}: %s", get_chat_ts(msg_ts), msg);
+         ui_print(output, "%s {bright-yellow}NOTICE{reset}: %s", get_chat_ts(msg_ts), msg);
       }
    }
    dict_free(d);
@@ -910,35 +987,36 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    const char *email = dict_get(d, "talk.email", s_none);
    const char *privs = dict_get(d, "talk.privs", s_none);
    const char *ua = dict_get(d, "talk.ua", s_unknown);
+   const char *output = ui_active_window_name();
    bool muted = dict_get_bool(d, "talk.muted", false);
    time_t connected = dict_get_time_t(d, "talk.connected", 0);
    time_t last_heard = dict_get_time_t(d, "talk.last_heard", 0);
    int sessions = dict_get_int(d, "talk.sessions", 0);
 
-   ui_print(NULL, "{cyan}***{reset} {bold}Whois for %s{reset}", username);
-   ui_print(NULL, "{cyan}***{reset} Email:      %s", email);
-   ui_print(NULL, "{cyan}***{reset} Privileges: %s", privs);
+   ui_print(output, "{cyan}***{reset} {bold}Whois for %s{reset}", username);
+   ui_print(output, "{cyan}***{reset} Email:      %s", email);
+   ui_print(output, "{cyan}***{reset} Privileges: %s", privs);
 
    if (muted) {
-      ui_print(NULL, "{cyan}***{reset} {bright-red}This user is currently MUTEd. Rigctl is temporarily suspended.{reset}");
+      ui_print(output, "{cyan}***{reset} {bright-red}This user is currently MUTEd. Rigctl is temporarily suspended.{reset}");
    }
 
-   ui_print(NULL, "{cyan}***{reset} Sessions:   %d", sessions);
+   ui_print(output, "{cyan}***{reset} Sessions:   %d", sessions);
 
    if (connected > 0) {
       char buf[64];
       strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&connected));
-      ui_print(NULL, "{cyan}***{reset} Connected:  %s", buf);
+      ui_print(output, "{cyan}***{reset} Connected:  %s", buf);
    }
 
    if (last_heard > 0) {
       char buf[64];
       strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&last_heard));
-      ui_print(NULL, "{cyan}***{reset} Last heard: %s", buf);
+      ui_print(output, "{cyan}***{reset} Last heard: %s", buf);
    }
 
-   ui_print(NULL, "{cyan}***{reset} Client:     %s", ua);
-   ui_print(NULL, "{cyan}***{reset} {bold}End of WHOIS %s{reset}", username);
+   ui_print(output, "{cyan}***{reset} Client:     %s", ua);
+   ui_print(output, "{cyan}***{reset} {bold}End of WHOIS %s{reset}", username);
 
    dict_free(d);
 }
@@ -1082,6 +1160,7 @@ void rrclient_register_events(void) {
    event_on("room.list", rrclient_handle_room_list, NULL);
    event_on("room.vfo", rrclient_handle_room_vfo, NULL);
    event_on("room.vfo-list", rrclient_handle_room_vfo_list, NULL);
+   event_on("room.topic", rrclient_handle_room_topic, NULL);
    event_on("room.deleted", rrclient_handle_room_deleted, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg, NULL);

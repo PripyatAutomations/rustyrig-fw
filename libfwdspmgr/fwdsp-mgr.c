@@ -1316,7 +1316,8 @@ static void fwdsp_idle_pipeline(struct fwdsp_subproc *sp) {
          // A warm encoder must not keep producing frames for the channel after
          // a codec switch. Pause the GStreamer pipeline but keep the process.
          fwdsp_send_control(sp, FWDSP_CTRL_PAUSE, 0);
-         sp->cleanup_deadline = time(NULL) + hangtime;
+         sp->idle_since = time(NULL);
+         sp->cleanup_deadline = sp->idle_since + hangtime;
          return;
       }
    }
@@ -1378,6 +1379,7 @@ void fwdsp_sweep_expired(void) {
          }
          sp->refcount = users;
          sp->cleanup_deadline = 0;
+         sp->idle_since = 0;
       } else if (sp->refcount > 0) {
          fwdsp_idle_pipeline(sp);
          continue;
@@ -1385,8 +1387,10 @@ void fwdsp_sweep_expired(void) {
 
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 &&
           sweep_now >= sp->cleanup_deadline) {
-         Log(LOG_INFO, "fwdsp", "Cleaning up idle encoder %s.%s",
-            sp->pl_id, (sp->is_tx ? "tx" : "rx"));
+         time_t idle_seconds = sp->idle_since > 0 && sweep_now >= sp->idle_since ?
+            sweep_now - sp->idle_since : 0;
+         Log(LOG_INFO, "fwdsp", "Cleaning up idle encoder %s.%s after %ld seconds idle",
+            sp->pl_id, (sp->is_tx ? "tx" : "rx"), (long)idle_seconds);
          fwdsp_destroy(sp);
       }
    }
@@ -1424,6 +1428,7 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
       fwdsp_send_control(sp, FWDSP_CTRL_RESUME, 0);
    }
    sp->cleanup_deadline = 0;
+   sp->idle_since = 0;
    sp->refcount++;
    return sp->chan_id;
 }

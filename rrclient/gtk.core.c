@@ -77,7 +77,17 @@ char *gtk_colorize_string(const char *in) {
 
    const char *p = in;
    while (*p) {
-      if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x1d ||
+      if ((unsigned char)*p == 0x1b) {
+         /* GStreamer/fwdsp diagnostics can contain ANSI CSI color sequences.
+          * GTK consumes Pango markup, so strip terminal styling here rather
+          * than exposing escape bytes or feeding them to the markup parser. */
+         p++;
+         if (*p == '[') {
+            p++;
+            while (*p && !isalpha((unsigned char)*p)) p++;
+            if (*p) p++;
+         }
+      } else if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x1d ||
           (unsigned char)*p == 0x1f || (unsigned char)*p == 0x0f) {
          unsigned char control = (unsigned char)*p++;
          if (control == 0x02) {

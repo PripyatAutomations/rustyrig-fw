@@ -12,6 +12,9 @@ void tui_refresh_sb_window(void) {}
 void tui_refresh_sb_vfo(void) {}
 void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {}
 const char *rrclient_media_current_codec(bool tx) { return tx ? NULL : "opuT"; }
+const char *rrclient_room_vfos(const char *room) {
+   return room && !strcmp(room, "#rig") ? "rig0.vfo_a" : "";
+}
 
 static unsigned redraws;
 static char *render(tui_window_t *win) {
@@ -60,8 +63,17 @@ int main(void) {
    strcpy(window.title, "chat");
    strcpy(window.status_line, "Test topic");
    char *initial = rrclient_tui_topline(&window);
-   assert(!strcmp(initial, "Test topic | PTT: OFF | VFO A: --- kHz ---"));
+   assert(!strcmp(initial, "Test topic | ONLINE"));
    free(initial);
+   strcpy(window.title, "#side");
+   char *room_line = rrclient_tui_topline(&window);
+   assert(room_line && !strcmp(room_line, "Test topic | ONLINE"));
+   free(room_line);
+   strcpy(window.title, "host log");
+   char *log_line = rrclient_tui_topline(&window);
+   assert(log_line && !strcmp(log_line, "Test topic | ONLINE"));
+   free(log_line);
+   strcpy(window.title, "#rig");
    state("A", 7200123, "LSB");
    state("B", 14250000, "USB");
    check(&window, "${active_vfo} ${vfo_a_freq} ${vfo_a_freq_hz} ${vfo_a_freq_khz} ${vfo_a_freq_mhz}",
@@ -83,9 +95,10 @@ int main(void) {
    vfo_state_set_active("B");
    check(&window, "${active_vfo}/${active_freq}/${active_mode}", "B/14250000/USB");
    check(&window, "${window}/${topic}/${server}/${user}/${connection}/${rxcodec}/${txcodec}",
-      "chat/Test topic/station/operator/ONLINE/opuT/NONE");
+      "#rig/Test topic/station/operator/ONLINE/opuT/NONE");
    check(&window, "${missing} ${vfo_z_freq:unknown} ${vfo_z_mode:---} 100%", " unknown --- 100%");
    check(&window, "broken ${active_vfo", "broken ${active_vfo");
+   check(&window, "literal {json: value} ${active_vfo}", "literal {json: value} B");
    check(&window, "", "");
    cfg_tui_colors = true;
    check(&window, "{red}${active_vfo}{reset}", "\033[31mB\033[0m");
@@ -97,6 +110,8 @@ int main(void) {
    assert(output && dup2(fileno(output), STDOUT_FILENO) >= 0);
    setvbuf(output, NULL, _IONBF, 0);
    tui_window_init();
+   tui_window_create("#rig");
+   tui_window_focus("#rig");
    tui_set_topline_renderer(render);
    dict_add(cfg, "tui.status-line", "TOPMARK ${active_vfo} ${vfo_a_freq}");
    tui_redraw_screen();

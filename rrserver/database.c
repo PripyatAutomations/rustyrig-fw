@@ -86,10 +86,20 @@ static bool db_initialize_new(sqlite3 *db) {
 
 static void db_ensure_rooms(sqlite3 *db) {
    if (!db) return;
-   const char *sql = "CREATE TABLE IF NOT EXISTS rooms (name TEXT PRIMARY KEY, has_vfos INTEGER NOT NULL DEFAULT 0, vfo_mask INTEGER NOT NULL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);";
+   const char *sql = "CREATE TABLE IF NOT EXISTS rooms (name TEXT PRIMARY KEY, has_vfos INTEGER NOT NULL DEFAULT 0, vfo_mask INTEGER NOT NULL DEFAULT 0, topic TEXT NOT NULL DEFAULT '', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);";
    char *error = NULL;
    if (sqlite3_exec(db, sql, NULL, NULL, &error) != SQLITE_OK) {
       Log(LOG_WARN, "db", "Unable to create rooms table: %s", error ? error : sqlite3_errmsg(db));
+   }
+   sqlite3_free(error);
+   /* Upgrade databases created before room topics were introduced.  SQLite
+    * reports a duplicate-column error when this has already been applied;
+    * that is harmless and deliberately does not make startup fail. */
+   error = NULL;
+   if (sqlite3_exec(db, "ALTER TABLE rooms ADD COLUMN topic TEXT NOT NULL DEFAULT '';", NULL, NULL, &error) != SQLITE_OK) {
+      if (error && strstr(error, "duplicate column name") == NULL &&
+          strstr(error, "no such table") == NULL)
+         Log(LOG_WARN, "db", "Unable to add rooms.topic: %s", error);
    }
    sqlite3_free(error);
    if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS room_vfos (room TEXT NOT NULL, binding TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(room,binding));", NULL, NULL, &error) != SQLITE_OK)
@@ -192,6 +202,33 @@ bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_m
    bool ok = sqlite3_step(st) == SQLITE_DONE;
    sqlite3_finalize(st);
    return ok;
+}
+
+bool db_room_set_topic(sqlite3 *db, const char *name, const char *topic) {
+   if (!db || !name || !*name || !topic) return false;
+   sqlite3_stmt *st = NULL;
+   if (sqlite3_prepare_v2(db, "UPDATE rooms SET topic=? WHERE name=?;", -1, &st, NULL) != SQLITE_OK)
+      return false;
+   sqlite3_bind_text(st, 1, topic, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(st, 2, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+   return ok;
+}
+
+char *db_room_get_topic(sqlite3 *db, const char *name) {
+   if (!db || !name || !*name) return NULL;
+   sqlite3_stmt *st = NULL;
+   if (sqlite3_prepare_v2(db, "SELECT topic FROM rooms WHERE name=?;", -1, &st, NULL) != SQLITE_OK)
+      return NULL;
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   char *topic = NULL;
+   if (sqlite3_step(st) == SQLITE_ROW) {
+      const char *value = (const char *)sqlite3_column_text(st, 0);
+      topic = strdup(value ? value : "");
+   }
+   sqlite3_finalize(st);
+   return topic;
 }
 
 bool db_room_delete(sqlite3 *db, const char *name) {

@@ -111,6 +111,20 @@ static void completion_words(char ***matches, size_t *count, const char *values,
    free(copy);
 }
 
+static char **complete_config_keys(const char *word) {
+   char **matches = NULL;
+   size_t count = 0;
+#if defined(__GNUC__) || defined(__clang__)
+   extern defconfig_t defcfg[] __attribute__((weak));
+#else
+   extern defconfig_t defcfg[];
+#endif
+   if (!defcfg) return NULL;
+   for (size_t i = 0; defcfg[i].key; i++)
+      completion_add(&matches, &count, defcfg[i].key, word);
+   return matches;
+}
+
 // line ends at the cursor, word is its last (possibly empty) token.
 char **client_cmd_completions(const char *line, const char *word) {
    if (!line || !word || strlen(word) > strlen(line)) return NULL;
@@ -176,6 +190,8 @@ char **client_cmd_completions(const char *line, const char *word) {
          } else if (arg == 2 && first && !strcasecmp(first, "VFO")) {
             completion_words(&matches, &count, "ADD LIST REMOVE", word);
          }
+      } else if (!strcasecmp(command, "/set") && arg == 1) {
+         matches = complete_config_keys(word);
       } else if (arg == 1 && !strcasecmp(command, "/syslog")) {
          completion_words(&matches, &count, "on off", word);
       } else if (arg == 1 && !strcasecmp(command, "/webcam")) {

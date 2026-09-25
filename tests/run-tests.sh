@@ -32,7 +32,7 @@ run_suite() {
 }
 
 if [ "$#" -eq 0 ]; then
-  SUITES="fwdsp librrprotocol rrclient rrserver selftest librustyaxe www"
+  SUITES="selftest librustyaxe librrprotocol rrserver rrclient fwdsp www"
 else
   SUITES="$*"
 fi

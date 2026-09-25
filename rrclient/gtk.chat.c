@@ -533,6 +533,20 @@ void gtk_chat_room_remove(const char *room) {
    g_hash_table_remove(room_tabs, room);
 }
 
+void gtk_chat_room_set_topic(const char *room, const char *topic) {
+   if (!room || !*room) return;
+   GtkTextBuffer *buffer = NULL;
+   GtkWidget *view = NULL;
+   if (!gtk_chat_room_widgets(room, &buffer, &view) || !buffer) return;
+   char line[640];
+   snprintf(line, sizeof(line), "*** Topic for %s: %s", room,
+      (topic && *topic) ? topic : "(none)");
+   GtkTextIter end;
+   gtk_text_buffer_get_end_iter(buffer, &end);
+   gtk_text_buffer_insert(buffer, &end, line, -1);
+   gtk_text_buffer_insert(buffer, &end, "\n", 1);
+}
+
 void gtk_chat_set_authoritative_room(const char *room) {
    if (!room || !*room || !rig_room_tab || !rig_room_tab->page) {
       return;

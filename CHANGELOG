@@ -1,6 +1,9 @@
 rustyrig-fw (20260924) testing; urgency=medium
 - Added right click menu for userlist
 - Added /room
+  - LIST | REMOVE - management
+  - VFO (ADD|LIST|REMOVE) - VFO binding management
+- Many fixes to the TUI rendering to remove flickers/corruption
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 

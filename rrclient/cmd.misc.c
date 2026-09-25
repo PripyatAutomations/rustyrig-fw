@@ -37,8 +37,137 @@ extern bool syslog_clear(void);
 extern const char *server_name; // remove this (connman.c)
 extern rrconn_t *ws_conn;
 extern const char *config_file;
+extern dict *cfg;
+extern dict *default_cfg;
+extern defconfig_t defcfg[];
 extern bool ui_confirm_quit(void);
 void rrclient_print_callsign_line(const char *line);
+
+static const char *cmd_set_type_name(defconfig_type_t type) {
+   switch (type) {
+   case DEFCONFIG_BOOL: return "bool";
+   case DEFCONFIG_INT: return "int";
+   case DEFCONFIG_UINT: return "uint";
+   case DEFCONFIG_FLOAT: return "float";
+   case DEFCONFIG_PATH: return "path";
+   case DEFCONFIG_PASSWORD: return "password";
+   case DEFCONFIG_ENUM: return "enum";
+   case DEFCONFIG_STRING:
+   default: return "string";
+   }
+}
+
+static bool cmd_set_matches(const char *pattern, const char *key) {
+   if (!pattern || !*pattern) return true;
+   return (strchr(pattern, '*') || strchr(pattern, '?'))
+      ? fnmatch(pattern, key, 0) == 0
+      : strcmp(pattern, key) == 0;
+}
+
+static bool cmd_set_has_key(char **keys, size_t count, const char *key) {
+   for (size_t i = 0; i < count; i++) {
+      if (strcmp(keys[i], key) == 0) return true;
+   }
+   return false;
+}
+
+static int cmd_set_key_cmp(const void *a, const void *b) {
+   const char *const *ka = a;
+   const char *const *kb = b;
+   return strcmp(*ka, *kb);
+}
+
+static void cmd_set_print_key(const char *key) {
+   const defconfig_t *def = cfg_defconfig_find(key);
+   const char *value = cfg ? dict_get(cfg, key, NULL) : NULL;
+   if (!value && default_cfg) value = dict_get(default_cfg, key, NULL);
+   if (!value) value = "(unset)";
+
+   ui_print(ui_active_window_name(), "%s%s = %s {bright-black}[%s%s]{reset}",
+      def ? "" : "* ", key, value,
+      def ? cmd_set_type_name(def->type) : "custom",
+      def && def->help ? "; " : "",
+      def && def->help ? def->help : "");
+}
+
+static bool cmd_set_list(const char *pattern) {
+   char **keys = NULL;
+   size_t count = 0;
+   size_t capacity = 0;
+   const char *key = NULL;
+   char *value = NULL;
+   int rank = 0;
+
+   /* cfg contains user-defined keys, including keys with no defconfig entry. */
+   while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (!cmd_set_matches(pattern, key) || cmd_set_has_key(keys, count, key)) continue;
+      if (count == capacity) {
+         size_t next = capacity ? capacity * 2 : 64;
+         char **grown = realloc(keys, next * sizeof(*keys));
+         if (!grown) { free(keys); return false; }
+         keys = grown;
+         capacity = next;
+      }
+      keys[count++] = (char *)key;
+   }
+
+   /* Include effective defaults not copied into cfg by the loader. */
+   for (size_t i = 0; defcfg[i].key; i++) {
+      const char *defkey = defcfg[i].key;
+      const char *defvalue = default_cfg ? dict_get(default_cfg, defkey, NULL) : NULL;
+      if (!defvalue || !cmd_set_matches(pattern, defkey) || cmd_set_has_key(keys, count, defkey)) continue;
+      if (count == capacity) {
+         size_t next = capacity ? capacity * 2 : 64;
+         char **grown = realloc(keys, next * sizeof(*keys));
+         if (!grown) { free(keys); return false; }
+         keys = grown;
+         capacity = next;
+      }
+      keys[count++] = (char *)defkey;
+   }
+
+   qsort(keys, count, sizeof(*keys), cmd_set_key_cmp);
+   for (size_t i = 0; i < count; i++) cmd_set_print_key(keys[i]);
+   if (!count && pattern && *pattern && !strchr(pattern, '*') && !strchr(pattern, '?') &&
+       cfg_defconfig_find(pattern)) {
+      /* A known key may intentionally have no value (for example an optional
+       * site setting).  /set key should still explain that key and show it as
+       * unset rather than reporting it as unknown. */
+      cmd_set_print_key(pattern);
+      count = 1;
+   }
+   if (!count) {
+      ui_print(ui_active_window_name(), "{yellow}No configuration keys match '%s'{reset}",
+         (pattern && *pattern) ? pattern : "*");
+   }
+   free(keys);
+   return true;
+}
+
+bool cmd_set(int argc, char **args) {
+   if (argc < 2 || !args[1] || !*args[1]) {
+      return cmd_set_list(NULL) ? false : true;
+   }
+   if (argc < 3 || !args[2]) {
+      return cmd_set_list(args[1]) ? false : true;
+   }
+   char value[512] = "";
+   for (int i = 2; i < argc; i++) {
+      if (i > 2) strlcat(value, " ", sizeof(value));
+      strlcat(value, args[i] ? args[i] : "", sizeof(value));
+   }
+   const defconfig_t *def = cfg_defconfig_find(args[1]);
+   if (!def) {
+      ui_print(ui_active_window_name(), "{red}Unknown configuration key: %s{reset}", args[1]);
+      return false;
+   }
+   if (!cfg_set_value(args[1], value)) {
+      ui_print(ui_active_window_name(), "{red}Invalid value for %s{reset}", args[1]);
+      return false;
+   }
+   ui_print(ui_active_window_name(), "{green}Set %s = %s{reset}", args[1], cfg_get(args[1]));
+   return false;
+}
 
 /* Run the local callsign helper without invoking a shell.  Callsign and grid
  * input is user supplied, so constructing a command string for popen() would
@@ -124,13 +253,13 @@ static bool run_local_lookup(const char *program, const char *config,
 bool cmd_qrz(int argc, char **args) {
    bool no_cache = argc == 3 && args[2] && strcasecmp(args[2], "nocache") == 0;
    if ((argc != 2 && !no_cache) || (argc == 3 && !no_cache) || !args[1] || !args[1][0]) {
-      ui_print(NULL, "Usage: /qrz CALLSIGN [NOCACHE]");
+      ui_print(ui_active_window_name(), "Usage: /qrz CALLSIGN [NOCACHE]");
       return true;
    }
 
    for (const unsigned char *p = (const unsigned char *)args[1]; *p; p++) {
       if (!isalnum(*p) && *p != '-' && *p != '/' && *p != '.') {
-         ui_print(NULL, "Invalid callsign: %s", args[1]);
+         ui_print(ui_active_window_name(), "Invalid callsign: %s", args[1]);
          return true;
       }
    }
@@ -140,7 +269,7 @@ bool cmd_qrz(int argc, char **args) {
    const char *qrz_pass = cfg_get("callsign-lookup:qrz-password");
    if (!qrz_user || !*qrz_user || !qrz_pass || !*qrz_pass) {
       if (!ws_conn) {
-         ui_print(NULL, "Callsign lookup is not configured locally and the server is disconnected");
+         ui_print(ui_active_window_name(), "Callsign lookup is not configured locally and the server is disconnected");
          free(program);
          return true;
       }
@@ -152,12 +281,12 @@ bool cmd_qrz(int argc, char **args) {
       dict_add(request, "talk.data", request_data);
       ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
       dict_free(request);
-      ui_print(NULL, "Asking the server to look up %s", args[1]);
+      ui_print(ui_active_window_name(), "Asking the server to look up %s", args[1]);
       free(program);
       return false;
    }
    if (!program || !*program || !config_file || !*config_file) {
-      ui_print(NULL, "Callsign lookup is not configured locally");
+      ui_print(ui_active_window_name(), "Callsign lookup is not configured locally");
       free(program);
       return true;
    }
@@ -165,7 +294,7 @@ bool cmd_qrz(int argc, char **args) {
    bool lookup_ok = run_local_lookup(program, config_file, args[1], false, no_cache);
    free(program);
    if (!lookup_ok) {
-      ui_print(NULL, "Callsign lookup failed for %s", args[1]);
+      ui_print(ui_active_window_name(), "Callsign lookup failed for %s", args[1]);
       return true;
    }
    return false;
@@ -173,13 +302,13 @@ bool cmd_qrz(int argc, char **args) {
 
 bool cmd_grid(int argc, char **args) {
    if (argc != 2 || !args[1] || !args[1][0]) {
-      ui_print(NULL, "Usage: /grid GRID|LAT,LON");
+      ui_print(ui_active_window_name(), "Usage: /grid GRID|LAT,LON");
       return true;
    }
    for (const unsigned char *p = (const unsigned char *)args[1]; *p; p++) {
       if (!isalnum(*p) && *p != '-' && *p != '.' && *p != ',' &&
           *p != '+' && *p != ' ') {
-         ui_print(NULL, "Invalid grid or coordinates: %s", args[1]);
+         ui_print(ui_active_window_name(), "Invalid grid or coordinates: %s", args[1]);
          return true;
       }
    }
@@ -187,7 +316,7 @@ bool cmd_grid(int argc, char **args) {
    char *program = cfg_get_path("callsign-lookup:path");
    if (!program || !*program || !config_file || !*config_file) {
       if (!ws_conn) {
-      ui_print(NULL, "Callsign lookup is not configured locally and the server is disconnected");
+      ui_print(ui_active_window_name(), "Callsign lookup is not configured locally and the server is disconnected");
          free(program);
          return true;
       }
@@ -197,7 +326,7 @@ bool cmd_grid(int argc, char **args) {
       dict_add(request, "talk.data", args[1]);
       ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
       dict_free(request);
-      ui_print(NULL, "Asking the server for grid information for %s", args[1]);
+      ui_print(ui_active_window_name(), "Asking the server for grid information for %s", args[1]);
       free(program);
       return false;
    }
@@ -205,7 +334,7 @@ bool cmd_grid(int argc, char **args) {
    bool lookup_ok = run_local_lookup(program, config_file, args[1], true, false);
    free(program);
    if (!lookup_ok) {
-      ui_print(NULL, "Grid lookup failed for %s", args[1]);
+      ui_print(ui_active_window_name(), "Grid lookup failed for %s", args[1]);
       return true;
    }
    return false;
@@ -220,18 +349,18 @@ void rrclient_print_callsign_line(const char *line) {
     * header recognizable, and align the field labels without parsing or
     * discarding any returned data. */
    if (strncmp(line, "200 OK ", 7) == 0) {
-      ui_print(NULL, "{bright-green}%s{reset}", line);
+      ui_print(ui_active_window_name(), "{bright-green}%s{reset}", line);
       return;
    }
 
    const char *colon = strchr(line, ':');
    if (colon && colon != line) {
       int label_len = (int)(colon - line);
-      ui_print(NULL, "  {bright-cyan}%.*s:{reset}%s", label_len, line, colon + 1);
+      ui_print(ui_active_window_name(), "  {bright-cyan}%.*s:{reset}%s", label_len, line, colon + 1);
       return;
    }
 
-   ui_print(NULL, "%s", line);
+   ui_print(ui_active_window_name(), "%s", line);
 }
 
 bool cmd_clear(int argc, char **args) {
@@ -284,7 +413,7 @@ bool cmd_quit(int argc, char **args) {
    }
 #endif	// USE_GTK
 
-   ui_print(NULL, "{bright-cyan}Seeya soon, have a great day!{reset}");
+   ui_print(ui_active_window_name(), "{bright-cyan}Seeya soon, have a great day!{reset}");
 
    dict *d = dict_new();
    dict_add(d, "msg.type", "auth");
@@ -303,7 +432,7 @@ bool cmd_quit(int argc, char **args) {
 
 bool cmd_rxvol(int argc, char **args) {
    if (argc < 2 || !args[1]) {
-      ui_print(NULL, "* Usage: /rxvol <0-100>");
+      ui_print(ui_active_window_name(), "* Usage: /rxvol <0-100>");
       return true;
    }
    int val = atoi(args[1]);
@@ -317,7 +446,7 @@ bool cmd_rxvol(int argc, char **args) {
 #ifdef	USE_GTK
       gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
 #endif
-      ui_print(NULL, "* Set rx-vol to %d", val);
+      ui_print(ui_active_window_name(), "* Set rx-vol to %d", val);
    }
 
    return false;
@@ -343,7 +472,7 @@ bool cmd_server(int argc, char **args) {
        server = trimmed;
 
        if (server && server[0] != '\0') {
-         ui_print(NULL, "%s * Changing server profile to %s", get_chat_ts(now), server);
+         ui_print(ui_active_window_name(), "%s * Changing server profile to %s", get_chat_ts(now), server);
          disconnect_server(server);
 
          // Set the profile name unconditionally, server_name may be NULL on a
@@ -359,7 +488,7 @@ bool cmd_server(int argc, char **args) {
          Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", server);
          connect_server(server);
       } else {
-         ui_print(NULL, "Try /server servername to connect");
+         ui_print(ui_active_window_name(), "Try /server servername to connect");
          show_server_chooser();
       }
 

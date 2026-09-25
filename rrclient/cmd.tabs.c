@@ -82,7 +82,7 @@ bool cmd_editcfg(int argc, char **args) {
       return false;
    }
 #endif	// USE_GTK
-   ui_print(NULL, "{bright-red}/editcfg is only available in the GTK UI{reset}");
+   ui_print(ui_active_window_name(), "{bright-red}/editcfg is only available in the GTK UI{reset}");
    return false;
 }
 
@@ -131,10 +131,10 @@ bool cmd_win(int argc, char **args) {
       }
       int id = atoi(args[1]);
 
-      ui_print(NULL, "ID: %s", args[1]);
+      ui_print(ui_active_window_name(), "ID: %s", args[1]);
 
       if (id < 1 || id > TUI_MAX_WINDOWS) {
-         ui_print(NULL, "Invalid window %d, must be between 1 and %d", id, TUI_MAX_WINDOWS);
+         ui_print(ui_active_window_name(), "Invalid window %d, must be between 1 and %d", id, TUI_MAX_WINDOWS);
 
          return true;
       }
@@ -151,10 +151,10 @@ bool cmd_win(int argc, char **args) {
       int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
 
       if (id >= 1 && id <= pages) {
-         ui_print(NULL, "Switching to window %d of %d", id, pages);
+         ui_print(ui_active_window_name(), "Switching to window %d of %d", id, pages);
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), id);
       } else {
-         ui_print(NULL, "Invalid window id %d given", id);
+         ui_print(ui_active_window_name(), "Invalid window id %d given", id);
          return true;
       }
 #endif	// USE_GTK

@@ -94,6 +94,7 @@ extern bool cmd_rehash(int argc, char **args);
 extern bool cmd_restart(int argc, char **args);
 extern bool cmd_rxvol(int argc, char **args);
 extern bool cmd_server(int argc, char **args);
+extern bool cmd_set(int argc, char **args);
 extern bool cmd_topic(int argc, char **args);
 extern bool cmd_unmute(int argc, char **args);
 extern bool cmd_whois(int argc, char **args);

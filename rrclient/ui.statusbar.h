@@ -14,6 +14,7 @@
 #include <librustyaxe/tui.h>
 
 #define RRCLIENT_DEFAULT_STATUS_LINE "${topic} | ${ptt-state} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${active_mode:---}"
+#define RRCLIENT_DEFAULT_ROOM_STATUS_LINE "${topic} | ${connection}"
 extern char *rrclient_tui_topline(tui_window_t *win);
 
 extern char sb_online[128];	// due to formatting (24 char real)

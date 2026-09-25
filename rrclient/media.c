@@ -20,17 +20,29 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrclient/vfo.h>
 #include <rrclient/audio.h>
 #include <rrclient/media.h>
+#include <rrclient/ui.h>
 
 extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
 #ifdef USE_GTK
 extern void codec_picker_set_active(bool is_tx, const char *codec);
+#include <rrclient/gtk.chat.h>
 #endif
+
+/* Media command replies belong with the conversation that requested them.
+ * Falling back to NULL sends them to the TUI status window, which makes a
+ * /media LIST in a room unexpectedly pollute the client log/status tab. */
+static const char *media_output_window(void) {
+   return ui_active_window_name();
+}
+
+#define media_print(...) ui_print(media_output_window(), __VA_ARGS__)
 
 // Privileges the server granted us at auth (e.g. "admin,edit,view,...")
 static char media_my_privs[128] = { 0 };
@@ -219,12 +231,12 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
    bool none = strcasecmp(codec, "none") == 0;
    const char *canonical = media_codec_supported(codec);
    if (!none && !canonical) {
-      ui_print(NULL, "Codec %s is not in the negotiated codec list", codec);
+      media_print( "Codec %s is not in the negotiated codec list", codec);
       return true;
    }
    const struct rr_media_known *selected = target ? rrclient_media_chan_lookup(target) : NULL;
    if (target && !selected) {
-      ui_print(NULL, "No such media channel: %s", target);
+      media_print( "No such media channel: %s", target);
       return true;
    }
    char normalized[5] = { 0 };
@@ -270,7 +282,7 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec,
       media_sync_audio();
    }
    if (!sent && (target || !none)) {
-      ui_print(NULL, "No subscribed %s audio channels match; use /media LIST", is_tx ? "TX" : "RX");
+      media_print( "No subscribed %s audio channels match; use /media LIST", is_tx ? "TX" : "RX");
    }
    return failed || (!sent && (target || !none));
 }
@@ -574,7 +586,7 @@ bool rrclient_media_subscribe(const char *uuid) {
    }
    bool sent = media_send_subscribe(cptr, uuid);
    if (!sent) {
-      ui_print(NULL, "Failed to subscribe to media channel uuid %s", uuid);
+      media_print( "Failed to subscribe to media channel uuid %s", uuid);
    }
    struct rr_media_known *kp = media_known_find(uuid);
    if (sent && kp) {
@@ -592,7 +604,7 @@ bool rrclient_media_unsubscribe(const char *uuid) {
    }
    bool sent = media_send_unsubscribe(cptr, uuid);
    if (!sent) {
-      ui_print(NULL, "Failed to unsubscribe from media channel uuid %s", uuid);
+      media_print( "Failed to unsubscribe from media channel uuid %s", uuid);
    }
    struct rr_media_known *kp = media_known_find(uuid);
    if (sent && kp) {
@@ -611,7 +623,7 @@ void rrclient_media_refresh(void) {
    if (cptr) {
       if (!media_send_list(cptr)) {
          Log(LOG_WARN, "ws.media", "Unable to refresh media channel list: request was not sent");
-         ui_print(NULL, "Unable to refresh media channels; connection is not writable");
+         media_print( "Unable to refresh media channels; connection is not writable");
       }
    } else {
       Log(LOG_DEBUG, "ws.media", "Unable to refresh media channel list: not connected");
@@ -626,7 +638,7 @@ bool cmd_media(int argc, char **args) {
 
    if (!sub || sub[0] == '\0' || strcasecmp(sub, "LIST") == 0) {
      // List what we know about and our subscription state
-     ui_print(NULL, "{bright-cyan}Available media channels:{reset}");
+     media_print( "{bright-cyan}Available media channels:{reset}");
      int n = 0;
 
      for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
@@ -637,14 +649,14 @@ bool cmd_media(int argc, char **args) {
         }
         n++;
       char vfo = (kp->vfo < 26) ? (char)('A' + kp->vfo) : '-';
-        ui_print(NULL, " %2d. %s%s %s  [%s]  VFO %c rig %u {magenta}%s{reset}", n,
+        media_print( " %2d. %s%s %s  [%s]  VFO %c rig %u {magenta}%s{reset}", n,
            (kp->subscribed ? "{green}*{reset} " : "  "),
            (kp->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx"), kp->uuid,
            (kp->codec[0] != '\0' ? kp->codec : "----"),
            vfo, kp->rig,
            (kp->descr[0] != '\0' ? kp->descr : "-") );
      }
-     ui_print(NULL, "{bright-cyan}End of list ({reset}%d{bright-cyan} channels, {reset}*{bright-cyan} = subscribed){reset}", n);
+     media_print( "{bright-cyan}End of list ({reset}%d{bright-cyan} channels, {reset}*{bright-cyan} = subscribed){reset}", n);
      Log(LOG_INFO, "ws.media", "/media LIST: %d stored channels", n);
 
       if (sub) {
@@ -658,43 +670,43 @@ bool cmd_media(int argc, char **args) {
       bool unsub = (strncasecmp(sub, "UN", 2) == 0);
 
       if (argc < 3 || !args[2] || args[2][0] == '\0') {
-         ui_print(NULL, "Usage: /media %s <uuid|#>", sub);
+         media_print( "Usage: /media %s <uuid|#>", sub);
          return true;
       }
       const struct rr_media_known *kp = rrclient_media_chan_lookup(args[2]);
 
       if (!kp) {
          if (unsub) {
-            ui_print(NULL, "No such channel |%s|", args[2]);
+            media_print( "No such channel |%s|", args[2]);
             return true;
          }
          // Not in our table - pass the arg through as a creation request; the
          // server generates a new channel for subscribe-without-uuid.
-         ui_print(NULL, "No stored channel matches |%s|; asking server to create one", args[2]);
+         media_print( "No stored channel matches |%s|; asking server to create one", args[2]);
 
          return rrclient_media_subscribe(args[2]);
       }
       if (unsub) {
          if (!kp->subscribed) {
-            ui_print(NULL, "Not subscribed to %s", kp->uuid);
+            media_print( "Not subscribed to %s", kp->uuid);
             return false;
          }
-         ui_print(NULL, "Unsubscribing from %s (%s)", kp->uuid,
+         media_print( "Unsubscribing from %s (%s)", kp->uuid,
             (kp->descr[0] != '\0' ? kp->descr : "-"));
 
          return rrclient_media_unsubscribe(kp->uuid);
       }
       if (kp->subscribed) {
-         ui_print(NULL, "Already subscribed to %s (%s)", kp->uuid,
+         media_print( "Already subscribed to %s (%s)", kp->uuid,
             (kp->descr[0] != '\0' ? kp->descr : "-"));
          return false;
       }
-      ui_print(NULL, "Subscribing to %s (%s)", kp->uuid,
+      media_print( "Subscribing to %s (%s)", kp->uuid,
          (kp->descr[0] != '\0' ? kp->descr : "-"));
 
       return rrclient_media_subscribe(kp->uuid);
    }
-   ui_print(NULL, "Usage: /media [LIST | SUB|SUBSCRIBE <uuid|#> | UNSUB|UNSUBSCRIBE <uuid|#>]");
+   media_print( "Usage: /media [LIST | SUB|SUBSCRIBE <uuid|#> | UNSUB|UNSUBSCRIBE <uuid|#>]");
 
    return true;
 }
@@ -703,12 +715,12 @@ bool cmd_media(int argc, char **args) {
 static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
    const char *command = is_tx ? "txcodec" : "rxcodec";
    if (argc > 3 || (argc == 3 && strcasecmp(args[1], "list") == 0)) {
-      ui_print(NULL, "Usage: /%s [LIST | <codec>|NONE [uuid|#number]]", command);
+      media_print( "Usage: /%s [LIST | <codec>|NONE [uuid|#number]]", command);
       return true;
    }
    if (argc < 2 || strcasecmp(args[1], "list") == 0) {
       const char *list = media_ready ? media_get_common_codecs() : NULL;
-      ui_print(NULL, "%s codecs: NONE %s", is_tx ? "TX" : "RX",
+      media_print( "%s codecs: NONE %s", is_tx ? "TX" : "RX",
          list ? list : "(not negotiated)");
       int number = 0, matches = 0;
       for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
@@ -722,30 +734,30 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
              (!kp->subscribed && !kp->disabled)) {
             continue;
          }
-         ui_print(NULL, " #%d %s [%s]: %s%s (%s)", number,
+         media_print( " #%d %s [%s]: %s%s (%s)", number,
             (kp->name[0] ? kp->name : "-"), kp->uuid,
             kp->disabled ? "NONE" : kp->codec,
             kp->pending_codec[0] ? " (selection pending)" : "", kp->descr);
          matches++;
       }
       if (!matches) {
-         ui_print(NULL, "No subscribed %s audio channels", is_tx ? "TX" : "RX");
+         media_print( "No subscribed %s audio channels", is_tx ? "TX" : "RX");
       }
       return false;
    }
    if (!ws_conn || !media_ready) {
-      ui_print(NULL, "Connect to a server before selecting codecs");
+      media_print( "Connect to a server before selecting codecs");
       return true;
    }
    if (strlen(args[1]) != 4) {
-      ui_print(NULL, "Use /%s LIST to see supported codecs", command);
+      media_print( "Use /%s LIST to see supported codecs", command);
       return true;
    }
    const struct rr_media_known *target = (argc == 3) ? rrclient_media_chan_lookup(args[2]) : media_codec_target_channel(is_tx);
    bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
    if (!failed) {
       char vfo = (target && target->vfo < 26) ? (char)('A' + target->vfo) : '-';
-      ui_print(NULL, "Requested %s codec %s for channel #%d uuid %s VFO %c (%s)",
+      media_print( "Requested %s codec %s for channel #%d uuid %s VFO %c (%s)",
          is_tx ? "TX" : "RX", args[1], target ? (int)(target - known_chans) + 1 : 0,
          target ? target->uuid : (argc == 3 ? args[2] : "<active>"), vfo,
          target && target->descr[0] ? target->descr : "audio");

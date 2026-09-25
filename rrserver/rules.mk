@@ -1,5 +1,5 @@
-RRSERVER_HEADERS += $(wildcard rrserver/*.h)
-rrserver_src = $(rrserver_objs:.o=.c)
+rrserver_headers += $(wildcard rrserver/*.h)
+rrserver_src = $(addprefix rrserver/,$(rrserver_objs:.o=.c))
 
 rrserver := bin/rrserver
 bins += ${rrserver}
@@ -42,20 +42,20 @@ rrserver_objs += waterfall.o		# support for sending a waterfall
 rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
 #rrserver_objs +=
 
-RRSERVER_HEADERS += $(wildcard rrserver/*.h)
+rrserver_headers += $(wildcard rrserver/*.h)
 
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
-${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${RRSERVER_HEADERS} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr}
+bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr} ${rrserver_src}
 	@echo "[link] $@ from $(words ${rrserver_real_objs}) objects"
 	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
 	@ls -a1ls $@

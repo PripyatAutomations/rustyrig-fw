@@ -51,7 +51,7 @@ static bool safe_name(const char *name) {
  *  if (!topic) {
  *     int i = 0;
  *     while (help_main[i]) {
- *        ui_print(NULL, help_main[i]);
+ *        ui_print(ui_active_window_name(), help_main[i]);
  *        i++;
  *     }
  *  } else {
@@ -59,7 +59,7 @@ static bool safe_name(const char *name) {
  *     char line[1024];
  *
  *     // Sanitize the user input if ( !safe_name(topic) ) {
- *        ui_print(NULL, "Invalid help topic");
+ *        ui_print(ui_active_window_name(), "Invalid help topic");
  *
  *        return;
  *     }
@@ -75,12 +75,12 @@ static bool safe_name(const char *name) {
  *     FILE *fp = fopen(path, "r");
  *
  *     if (!fp) {
- *        ui_print(NULL, "Help file '%s' not found", path);
+ *        ui_print(ui_active_window_name(), "Help file '%s' not found", path);
  *
  *        return;
  *     }
- *     ui_print(NULL, "********************************");
- *     ui_print(NULL, "* HELP for %s", topic);
+ *     ui_print(ui_active_window_name(), "********************************");
+ *     ui_print(ui_active_window_name(), "* HELP for %s", topic);
  *
  *     while ( fgets(line, sizeof(line), fp) ) {
  *        size_t len = strlen(line);
@@ -89,7 +89,7 @@ static bool safe_name(const char *name) {
  * == '\n' || line[len - 1] == '\r') ) {
  *           line[--len] = '\0';
  *        }
- *        // Present it to the user with ui_print ui_print(NULL, line);
+ *        // Present it to the user with ui_print ui_print(ui_active_window_name(), line);
  *     }
  *     fclose(fp);
  *  }
@@ -121,8 +121,8 @@ static help_line_t help_msg_after[] = {
    { UI_MODE_GTK,  "\t{bright-green}alt-c         {bright-yellow}Focus chat input" },
    { UI_MODE_NONE, "\t{bright-green}alt-# (1-0)   {bright-yellow}Switch to window 1-10" },
    { UI_MODE_NONE, "\t{bright-green}esc-# (1-0)   {bright-yellow}Switch to window 1-10" },
-   { UI_MODE_NONE, "\t{bright-green}alt-enter     {bright-yellow}Toggle PTT" },
-   { UI_MODE_NONE, "\t{bright-green}ctrl-space    {bright-yellow}Toggle PTT" },
+   { UI_MODE_NONE, "\t{bright-green}alt-enter     {bright-yellow}Hold PTT (GTK; TUI toggles)" },
+   { UI_MODE_NONE, "\t{bright-green}ctrl-space    {bright-yellow}Hold PTT (GTK; TUI toggles)" },
    { UI_MODE_NONE, "\t{bright-green}alt-left      {bright-yellow}Switch to previous win" },
    { UI_MODE_NONE, "\t{bright-green}alt-right     {bright-yellow}Switch to next win" },
    { UI_MODE_GTK,  "\t{bright-green}F11           {bright-yellow}Fullscreen toggle{reset}" },
@@ -143,7 +143,7 @@ bool cmd_help(int argc, char **args) {
    for (int i = 0; help_msg_before[i].line; i++) {
       if (help_msg_before[i].mode == UI_MODE_NONE ||
           ui_mode == help_msg_before[i].mode) {
-         ui_print(NULL, help_msg_before[i].line);
+         ui_print(ui_active_window_name(), help_msg_before[i].line);
       }
    }
 
@@ -169,7 +169,7 @@ bool cmd_help(int argc, char **args) {
          spaces = 1;
       }
 
-      ui_print(NULL, "\t{bright-green}/%s%*s{bright-yellow}%s{reset}",
+      ui_print(ui_active_window_name(), "\t{bright-green}/%s%*s{bright-yellow}%s{reset}",
          client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
    }
 
@@ -177,7 +177,7 @@ bool cmd_help(int argc, char **args) {
       for (int i = 0; help_msg_after[i].line; i++) {
          if (help_msg_after[i].mode == UI_MODE_NONE ||
              ui_mode == help_msg_after[i].mode) {
-            ui_print(NULL, help_msg_after[i].line);
+            ui_print(ui_active_window_name(), help_msg_after[i].line);
          }
       }
 

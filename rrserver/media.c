@@ -54,6 +54,21 @@ static void rrserver_rig_rx_pcm(const char *name, const void *samples, size_t le
       if (!ws_media_channel_has_subscribers(channel) && !cfg_get_bool(always_key, false)) {
          continue;
       }
+      /* A channel can become active before its codec-select event has
+       * finished (and a child can also have exited between two PCM ticks).
+       * Make the encoder lookup self-healing here.  This is deliberately
+       * limited to subscribed/always-recorded channels, so an idle VFO does
+       * not start a fwdsp process merely because the PCM source is running.
+       */
+      if (!fwdsp_find_channel_instance(channel->codec, true, channel->uuid)) {
+         if (fwdsp_codec_start(channel->codec, true, channel->uuid) < 0 &&
+             (rig_rx_write_warned[i] == 0 || now < rig_rx_write_warned[i] ||
+              now - rig_rx_write_warned[i] >= 5)) {
+            rig_rx_write_warned[i] = now;
+            Log(LOG_WARN, "pcm.hub", "Unable to start %s.tx for channel %s",
+               channel->codec, channel->uuid);
+         }
+      }
       if (!fwdsp_write_channel_samples(channel->codec, true, channel->uuid, samples, len) &&
           (rig_rx_write_warned[i] == 0 || now < rig_rx_write_warned[i] ||
            now - rig_rx_write_warned[i] >= 5)) {

@@ -51,6 +51,7 @@ extern int cfg_ui_ptt_ack_timeout;          // main.c
 
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 static gulong ptt_toggled_handler = 0;
+static bool ptt_hotkey_held = false;
 
 // Connection state for the button: grey while offline, colored once online.
 // Set via ptt_button_set_online() from events.c
@@ -178,6 +179,7 @@ void ptt_button_set_online(bool online) {
 
    if (!online) {
       // Going offline resets everything back to grey
+      ptt_hotkey_held = false;
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
       ptt_btn_tot = false;
@@ -312,6 +314,25 @@ bool ptt_button_hotkey_toggle(void) {
    if (!ptt_button) return false;
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button),
       !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button)));
+   return true;
+}
+
+bool ptt_button_hotkey_press(void) {
+   if (!ptt_button) return false;
+   if (ptt_hotkey_held) return true;
+   ptt_hotkey_held = true;
+   if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button))) {
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), TRUE);
+   }
+   return true;
+}
+
+bool ptt_button_hotkey_release(void) {
+   if (!ptt_button || !ptt_hotkey_held) return false;
+   ptt_hotkey_held = false;
+   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button))) {
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), FALSE);
+   }
    return true;
 }
 

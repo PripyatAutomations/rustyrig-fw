@@ -1,4 +1,4 @@
-RRCLIENT_HEADERS += $(wildcard rrclient/*.h)
+rrclient_headers += $(wildcard rrclient/*.h)
 rrclient_src = $(rrclient_objs:.o=.c)
 
 rrclient := bin/rrclient
@@ -71,7 +71,6 @@ endif
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
 extra_clean += ${rrclient_real_objs}
-CFLAGS += -I./modsrc/ -I/usr/include/gstreamer-1.0/
 
 ${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h)
 	@${RM} -f $@
@@ -79,8 +78,7 @@ ${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/ru
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
-# as soon as we complete loadable modules, this must go away!
-${BUILD_DIR}/rrclient/%.o: modsrc/mod.ui.gtk3/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/%.o: ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

@@ -82,6 +82,7 @@ struct fwdsp_subproc {
    bool replay_headers;
    int refcount;
    time_t cleanup_deadline;
+   time_t idle_since;
    time_t last_no_channel_warn;
    bool recording_active;
    int chan_id;

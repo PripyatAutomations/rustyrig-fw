@@ -228,6 +228,7 @@ static void *recorder_thread_main(void *arg) {
 
    Log(LOG_INFO, "record", "Recording to %s", rec->filename);
    uint64_t recorded_samples = 0;
+   time_t recording_started = 0;
 
    for (;;) {
       size_t got = 0;
@@ -282,6 +283,9 @@ static void *recorder_thread_main(void *arg) {
          GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale(frames, GST_SECOND, rec->sample_rate);
          recorded_samples += frames;
       }
+      if (recording_started == 0) {
+         recording_started = time(NULL);
+      }
       if (gst_app_src_push_buffer(GST_APP_SRC(record_src), buffer) != GST_FLOW_OK) {
          Log(LOG_CRIT, "record", "%s encoder failed while writing %s", recording_codec, rec->filename);
          break;
@@ -297,7 +301,13 @@ static void *recorder_thread_main(void *arg) {
    gst_element_set_state(record_pipeline, GST_STATE_NULL);
    gst_object_unref(record_src);
    gst_object_unref(record_pipeline);
-   Log(LOG_INFO, "record", "Closed recording %s", rec->filename);
+   time_t recording_seconds = recording_started > 0 && time(NULL) >= recording_started ?
+      time(NULL) - recording_started : 0;
+   if (!recording_encoded && rec->sample_rate > 0) {
+      recording_seconds = (time_t)(recorded_samples / rec->sample_rate);
+   }
+   Log(LOG_INFO, "record", "Closed recording %s after %ld seconds",
+      rec->filename, (long)recording_seconds);
    return NULL;
 }
 
@@ -1330,6 +1340,9 @@ int main(int argc, char *argv[]) {
    free((char *)cfg_recording_codec_exp);
    char *logfile = cfg_get_path("fwdsp:log.file");
    logger_init( (logfile ? logfile : "-"), false);
+   // The parent prefixes captured child output with its own timestamp.  Do
+   // not nest another timestamp inside the fwdsp line.
+   logger_set_show_timestamp(false);
    log_stdout = false;
    if (logfp == stdout) {
       // stdout is framed media, even when logging is configured as "-".
@@ -1417,7 +1430,7 @@ int main(int argc, char *argv[]) {
    do {
       now = time(NULL);
       run_loop(&au_cfg);
-      fprintf( stderr, "Run took %li sec", (now - last_run) );
+      fprintf( stderr, "Run took %li sec\n", (now - last_run) );
       last_run = now;
    } while (au_cfg.persistent);
 

@@ -19,6 +19,7 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/config.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
 #include <rrclient/gtk.core.h>
@@ -30,6 +31,113 @@ extern GtkWidget *main_notebook;
 extern dict *cfg_load(const char *path);
 
 GtkWidget *config_tab = NULL;
+extern defconfig_t defcfg[];
+
+typedef struct cfg_editor_binding {
+   const char *key;
+   defconfig_type_t type;
+   GtkWidget *widget;
+} cfg_editor_binding_t;
+
+static void cfg_editor_changed(GtkWidget *widget, gpointer user_data) {
+   cfg_editor_binding_t *binding = (cfg_editor_binding_t *)user_data;
+   if (!binding || !binding->key) return;
+   char value[512] = "";
+   switch (binding->type) {
+   case DEFCONFIG_BOOL:
+      snprintf(value, sizeof(value), "%s",
+         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)) ? "true" : "false");
+      break;
+   case DEFCONFIG_INT:
+   case DEFCONFIG_UINT:
+   case DEFCONFIG_FLOAT:
+      snprintf(value, sizeof(value), "%s", gtk_entry_get_text(GTK_ENTRY(widget)));
+      break;
+   default:
+      if (GTK_IS_COMBO_BOX_TEXT(widget)) {
+         const char *text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(widget));
+         snprintf(value, sizeof(value), "%s", text ? text : "");
+         g_free((gpointer)text);
+      } else {
+         snprintf(value, sizeof(value), "%s", gtk_entry_get_text(GTK_ENTRY(widget)));
+      }
+      break;
+   }
+   if (!cfg_set_value(binding->key, value))
+      Log(LOG_WARN, "gtk.config", "Rejected value for %s", binding->key);
+}
+
+static GtkWidget *cfg_editor_widget(const defconfig_t *def, const char *value,
+   cfg_editor_binding_t **binding_out) {
+   GtkWidget *widget = NULL;
+   if (def->type == DEFCONFIG_BOOL) {
+      widget = gtk_check_button_new();
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget),
+         value && (!strcasecmp(value, "true") || !strcasecmp(value, "yes") || !strcmp(value, "1")));
+   } else if (def->type == DEFCONFIG_ENUM && def->choices && *def->choices) {
+      widget = gtk_combo_box_text_new();
+      char *choices = strdup(def->choices), *save = NULL;
+      int active = 0, selected = -1;
+      for (char *p = strtok_r(choices, "|", &save); p; p = strtok_r(NULL, "|", &save), active++) {
+         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(widget), p);
+         if (value && !strcasecmp(p, value)) selected = active;
+      }
+      free(choices);
+      gtk_combo_box_set_active(GTK_COMBO_BOX(widget), selected >= 0 ? selected : 0);
+   } else {
+      widget = gtk_entry_new();
+      gtk_entry_set_text(GTK_ENTRY(widget), value ? value : "");
+      gtk_entry_set_visibility(GTK_ENTRY(widget), def->type != DEFCONFIG_PASSWORD);
+      g_signal_connect(widget, "changed", G_CALLBACK(cfg_editor_changed), NULL);
+   }
+   if (!widget) return NULL;
+   cfg_editor_binding_t *binding = calloc(1, sizeof(*binding));
+   if (!binding) { gtk_widget_destroy(widget); return NULL; }
+   binding->key = def->key;
+   binding->type = def->type;
+   binding->widget = widget;
+   g_object_set_data_full(G_OBJECT(widget), "rr-cfg-binding", binding, free);
+   if (def->type == DEFCONFIG_BOOL)
+      g_signal_connect(widget, "toggled", G_CALLBACK(cfg_editor_changed), binding);
+   else if (def->type == DEFCONFIG_ENUM && def->choices && *def->choices)
+      g_signal_connect(widget, "changed", G_CALLBACK(cfg_editor_changed), binding);
+   else
+      g_signal_connect(widget, "changed", G_CALLBACK(cfg_editor_changed), binding);
+   if (binding_out) *binding_out = binding;
+   return widget;
+}
+
+static GtkWidget *cfg_editor_panel(void) {
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+      GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 4);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 6);
+   int row = 0;
+   for (size_t i = 0; defcfg[i].key; i++) {
+      const defconfig_t *def = &defcfg[i];
+      const char *value = cfg_get(def->key);
+      GtkWidget *label = gtk_label_new(def->key);
+      gtk_widget_set_halign(label, GTK_ALIGN_START);
+      gtk_widget_set_tooltip_text(label, def->help ? def->help : "");
+      GtkWidget *help = gtk_label_new(def->help ? def->help : "");
+      gtk_widget_set_halign(help, GTK_ALIGN_START);
+      gtk_widget_set_hexpand(help, TRUE);
+      gtk_widget_set_tooltip_text(help, def->help ? def->help : "");
+      cfg_editor_binding_t *binding = NULL;
+      GtkWidget *editor = cfg_editor_widget(def, value ? value : def->val, &binding);
+      if (!editor) continue;
+      gtk_widget_set_hexpand(editor, TRUE);
+      gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), editor, 1, row, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), help, 2, row, 1, 1);
+      row++;
+   }
+   gtk_container_add(GTK_CONTAINER(scroll), grid);
+   return scroll;
+}
 
 typedef struct {
    GtkWidget *window;
@@ -433,6 +541,10 @@ GtkWidget *init_config_tab(void) {
 
    GtkWidget *config_label = gtk_label_new("Configuration will go here...");
    gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
+
+   GtkWidget *cfg_panel = cfg_editor_panel();
+   gtk_widget_set_vexpand(cfg_panel, TRUE);
+   gtk_box_pack_start(GTK_BOX(nw), cfg_panel, TRUE, TRUE, 0);
 
    GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
    g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), (gpointer)config_file);

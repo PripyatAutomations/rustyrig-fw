@@ -61,6 +61,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
    { .cmd = "grid", .cb = cmd_grid, .max_args = 1, .desc = "Look up a grid square or coordinates" },
    { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
+   { .cmd = "j", .cb = cmd_join, .desc = "Alias for /join" },
    { .cmd = "kick", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the rig" },
    { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },
    { .cmd = "list", .cb = cmd_list, .desc = "List available rooms" },
@@ -83,8 +84,9 @@ client_cmd_t client_cmds[] = {
    { .cmd = "rxcodec", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
    { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
    { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
+   { .cmd = "set", .cb = cmd_set, .max_args = 31, .desc = "Set a typed configuration value" },
    { .cmd = "syslog", .cb = cmd_syslog, .desc = "Toggle server host log stream (/syslog on|off)" },
-   { .cmd = "topic", .cb = cmd_topic, .desc = "Set channel topic (N/A over WS)" },
+   { .cmd = "topic", .cb = cmd_topic, .desc = "Get or set the current room topic" },
    { .cmd = "txcodec", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
    { .cmd = "unmute", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user" },
 #ifdef USE_GTK
@@ -134,7 +136,7 @@ bool parse_chat_input_real(const char *msg) {
       }
 
       if (!cmd || !cmd->cb) {
-         ui_print(NULL, "{red}Invalid command: /%s{reset}", mp);
+         ui_print(ui_active_window_name(), "{red}*** Invalid command: /%s{reset}", mp);
          return true;
       }
 
@@ -220,7 +222,7 @@ bool parse_chat_input_real(const char *msg) {
       // Admin-only commands are rejected for non-staff users (and hidden
       // from /help); staff is set by the server from admin|owner privs.
       if (cmd->admin && !media_have_priv("admin|owner") ) {
-         ui_print(NULL, "{red}You do not have enough privileges to use '/%s'{reset}", cmd_argv[0]);
+         ui_print(ui_active_window_name(), "{red}You do not have enough privileges to use '/%s'{reset}", cmd_argv[0]);
          free(input);
          return false;
       }
@@ -228,7 +230,7 @@ bool parse_chat_input_real(const char *msg) {
       free(input);
    } else {
       if (!ws_connected) {
-         ui_print(NULL, "{red}*** Not connected to server ***{reset}");
+         ui_print(ui_active_window_name(), "{red}*** Not connected to server ***{reset}");
          return false;
       }
       dict *d = dict_new();
@@ -262,7 +264,7 @@ bool parse_chat_input_real(const char *msg) {
             const char *room = ws_authoritative_room();
             if (room && *room) dict_add(d, "talk.target", room);
          } else {
-            ui_print(NULL, "{yellow}Select a room tab before sending a message (status is for client logs and commands){reset}");
+            ui_print(ui_active_window_name(), "{yellow}Select a room tab before sending a message (status is for client logs and commands){reset}");
             dict_free(d);
             return false;
          }

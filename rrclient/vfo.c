@@ -21,6 +21,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
+#include <rrclient/rooms.h>
 
 #ifdef	USE_GTK
 #include <gtk/gtk.h>
@@ -247,8 +248,15 @@ bool vfo_update_ui(void) {
       tui_window_t *tw = tui_active_window();
 
       tui_refresh_sb_window();
-      tui_refresh_sb_vfo();
-      tui_update_status(tw, "%s %s %s", sb_online, sb_window, sb_vfo);
+      const bool is_room = tw && (tw->title[0] == '#' || tw->title[0] == '&');
+      const bool has_vfos = is_room && rrclient_room_vfos(tw->title) &&
+         *rrclient_room_vfos(tw->title);
+      if (has_vfos || !is_room) {
+         tui_refresh_sb_vfo();
+         tui_update_status(tw, "%s %s", sb_online, sb_window);
+      } else {
+         tui_update_status(tw, "%s %s", sb_online, sb_window);
+      }
       tui_redraw_topline();
    } else if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK

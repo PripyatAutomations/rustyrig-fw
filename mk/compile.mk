@@ -57,20 +57,22 @@ LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
 CFLAGS += $(shell pkg-config --cflags glib-2.0)
 LDFLAGS += $(shell pkg-config --libs glib-2.0)
 
-gst_ldflags += $(shell pkg-config --cflags --libs gstreamer-app-1.0)
-gst_ldflags += $(shell pkg-config --libs gstreamer-1.0)
+ifeq (${USE_GSTREAMER},true)
+gst_cflags += $(shell pkg-config --cflags gstreamer-app-1.0)
+gst_ldflags += $(shell pkg-config --libs gstreamer-app-1.0)
+endif
 
 FWDSP_CFLAGS += -D__FWDSP
 CFLAGS_RRCLI += -D__RRCLI=1
 
-#ifeq (${USE_LIBUNWIND},true)
-#CFLAGS += -fno-omit-frame-pointer -Og -gdwarf
-#LDFLAGS += -lunwind
+ifeq (${USE_LIBUNWIND},true)
+CFLAGS += -fno-omit-frame-pointer -Og -gdwarf
+LDFLAGS += -lunwind
 
-#ifeq ($(shell uname -m),x86_64)
-#LDFLAGS += -lunwind-x86_64
-#endif
-#endif
+ifeq ($(shell uname -m),x86_64)
+LDFLAGS += -lunwind-x86_64
+endif
+endif
 
 ifeq (${USE_HAMLIB},true)
 LDFLAGS += -lhamlib

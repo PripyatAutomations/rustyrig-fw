@@ -21,9 +21,26 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
 #include <rrclient/gtk.serverpick.h>
+#ifdef USE_GTK
+#include <rrclient/gtk.chat.h>
+#endif
 
 // Default to TUI mode, it will be set to UI_MODE_GTK if $DISPLAY is set
 enum GuiMode ui_mode = UI_MODE_TUI;
+
+const char *ui_active_window_name(void) {
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_active_window();
+      if (window && window->title[0] && strcasecmp(window->title, "status") != 0)
+         return window->title;
+   }
+#ifdef USE_GTK
+   else if (ui_mode == UI_MODE_GTK) {
+      return gtk_chat_current_room();
+   }
+#endif
+   return NULL;
+}
 
 // Print formatted texted, stdarg version
 bool ui_vprint(const char *window, const char *fmt, va_list ap) {
@@ -42,9 +59,11 @@ bool ui_vprint(const char *window, const char *fmt, va_list ap) {
    } else if (ui_mode == UI_MODE_TUI) {
       tui_window_t *win = tui_window_find(window);
 
-      if (!win) {
-         /* Try to figure out if this is a special window */
-      }
+      /* Chat/event replies can arrive before the frontend has created the
+       * corresponding tab.  Create the destination instead of silently
+       * falling back to the status window. */
+      if (!win && window && *window && strcasecmp(window, "status") != 0)
+         win = tui_window_create(window);
 
       tui_vprint(win, fmt, ap);
    }

@@ -31,6 +31,7 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/termkey.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/ws.binframe.h>
 #include <librrprotocol/cfg.fwdsp.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <glib.h>
@@ -265,24 +266,59 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
    tui_window_t *tw = tui_active_window();
    tui_refresh_sb_window();
    tui_refresh_sb_vfo();
-   tui_update_status(tw, "%s %s %s", sb_online, sb_window, sb_vfo);
+   tui_update_status(tw, "%s %s", sb_online, sb_window);
    tui_redraw_clock();
    return G_SOURCE_CONTINUE;
 }
 
-static void rrclient_handle_log_event(const char *event, void *data, rrconn_t *cptr, void *user) {
-   struct log_event_data *led = (struct log_event_data *)data;
+static void rrclient_tui_host_log_frame(const char *event, const void *data,
+   size_t len, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)cptr;
+   (void)user;
 
-   if (!led || !led->message[0]) {
+   if (dying || !data || len < RR_LOGFRAME_HDR_LEN) {
       return;
    }
 
-   ui_print("status", "%s", led->message);
+   const uint8_t *payload = (const uint8_t *)data;
+   char subsys[sizeof(((struct rr_logframe *)0)->subsys) + 1];
+   memcpy(subsys, payload + 1, sizeof(subsys) - 1);
+   subsys[sizeof(subsys) - 1] = '\0';
+
+   size_t message_len = strnlen((const char *)payload + RR_LOGFRAME_HDR_LEN,
+      len - RR_LOGFRAME_HDR_LEN);
+   if (message_len == 0) {
+      return;
+   }
+
+   char message[4096];
+   size_t src_pos = 0;
+   size_t out = 0;
+   const unsigned char *src = payload + RR_LOGFRAME_HDR_LEN;
+   while (out + 1 < sizeof(message) && src_pos < message_len) {
+      unsigned char ch = src[src_pos++];
+      if (ch == '\033' && src_pos < message_len && src[src_pos] == '[') {
+         // Drop terminal CSI sequences from remote log text.  The TUI adds
+         // its own SGR sequences and remote logs must never move the cursor.
+         while (src_pos < message_len) {
+            unsigned char end = src[src_pos++];
+            if (end >= '@' && end <= '~') break;
+         }
+         continue;
+      }
+      if (ch < 32 || ch == 127) ch = ' ';
+      message[out++] = (char)ch;
+   }
+   message[out] = '\0';
+
+   ui_print("host log", "%s <%s.%s> %s", get_chat_ts(now), subsys,
+      log_priority_to_str((logpriority_t)payload[0]), message);
 }
 
-/* The GTK frontend has its own log tab callback.  Keep the TUI's status
- * window equivalent, but only feed it this client's Log() calls; server host
- * log events remain separate and are intentionally not mirrored here. */
+/* The GTK frontend has its own log tab callback.  The TUI keeps local client
+ * logs separate from status/command output; server host log events are
+ * handled by rrclient_tui_host_log_frame(). */
 static bool rrclient_tui_log_print_va(logpriority_t priority, const char *subsys,
                                       const char *fmt, va_list ap) {
    static bool log_printing = false;
@@ -302,8 +338,15 @@ static bool rrclient_tui_log_print_va(logpriority_t priority, const char *subsys
    vsnprintf(message, sizeof(message), fmt, copy);
    va_end(copy);
 
+   // Log messages can originate in subprocesses and may contain carriage
+   // returns or terminal escapes.  Keep them as one safe TUI line.
+   for (size_t i = 0; message[i]; i++) {
+      unsigned char ch = (unsigned char)message[i];
+      if (ch < 32 || ch == 127) message[i] = ' ';
+   }
+
    log_printing = true;
-   ui_print("status", "%s <%s.%s> %s", get_chat_ts(now),
+   ui_print("client log", "%s <%s.%s> %s", get_chat_ts(now),
       subsys ? subsys : "core", log_priority_to_str(priority), message);
    log_printing = false;
    return false;
@@ -325,9 +368,9 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
    }
 
    if (strcasecmp(tmed->msg_type, "action") == 0) {
-      ui_print(NULL, "%s {bright-green}* {bright-cyan}%s{reset} %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+      ui_print(tmed->target[0] ? tmed->target : NULL, "%s {bright-green}* {bright-cyan}%s{reset} %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
    } else {
-      ui_print(NULL, "%s {bright-black}<{cyan}%s{bright-black}>{reset} %s{reset}", get_chat_ts(tmed->ts),
+      ui_print(tmed->target[0] ? tmed->target : NULL, "%s {bright-black}<{cyan}%s{bright-black}>{reset} %s{reset}", get_chat_ts(tmed->ts),
          tmed->from, tmed->data);
    }
 }
@@ -662,6 +705,12 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
       tui_readline_cb = parse_chat_input_real;
       tui_set_topline_renderer(rrclient_tui_topline);
       tui_init();
+      // Keep status for commands and transient client output.  Logs have
+      // dedicated windows so routine protocol/audio diagnostics do not bury
+      // useful status messages.
+      tui_window_create("host log");
+      tui_window_create("client log");
+      event_on_binary("media.frame.log", rrclient_tui_host_log_frame, NULL);
       log_add_callback(rrclient_tui_log_print_va);
 
       // 1hz TUI clock (statusbar/clock refresh, shutdown check)

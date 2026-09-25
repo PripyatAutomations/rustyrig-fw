@@ -135,7 +135,7 @@ bool cmd_me(int argc, char **args) {
          const char *room = ws_authoritative_room();
          if (room && *room) dict_add(d, "talk.target", room);
       } else {
-         ui_print(NULL, "{yellow}Select a room tab before sending an action (status is for client logs and commands){reset}");
+         ui_print(ui_active_window_name(), "{yellow}Select a room tab before sending an action (status is for client logs and commands){reset}");
          dict_free(d);
          return false;
       }
@@ -176,7 +176,7 @@ bool cmd_msg(int argc, char **args) {
          window->cptr = ws_conn;
          ui_print(target, "-> %s %s", target, fullmsg);
       } else {
-         ui_print(NULL, "-> %s %s", target, fullmsg);
+         ui_print(ui_active_window_name(), "-> %s %s", target, fullmsg);
       }
    }
 #ifdef USE_GTK
@@ -186,7 +186,7 @@ bool cmd_msg(int argc, char **args) {
    }
 #endif
    else {
-      ui_print(NULL, "-> %s %s", target, fullmsg);
+      ui_print(ui_active_window_name(), "-> %s %s", target, fullmsg);
    }
 
    dict *d = dict_new();
@@ -244,10 +244,10 @@ bool cmd_notice(int argc, char **args) {
       if (wp->cptr) {
          char *notice_target = wp->title;
 
-         ui_print(NULL, "-> *%s* %s", notice_target, notice_msg);
+         ui_print(ui_active_window_name(), "-> *%s* %s", notice_target, notice_msg);
       }
    }
-   ui_print(NULL, "TEST: {yellow}=> *%s*{reset} {bright-cyan}%s{reset}: %s", notice_target, notice_msg);
+   ui_print(ui_active_window_name(), "TEST: {yellow}=> *%s*{reset} {bright-cyan}%s{reset}: %s", notice_target, notice_msg);
 
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
@@ -293,7 +293,7 @@ bool cmd_part(int argc, char **args) {
       return false;
    }
    if (!target || !*target || (target[0] != '#' && target[0] != '&')) {
-      ui_print(NULL, "{yellow}Usage: /part #room (select a room tab or provide the room){reset}");
+      ui_print(ui_active_window_name(), "{yellow}Usage: /part #room (select a room tab or provide the room){reset}");
       return false;
    }
    dict *d = dict_new();
@@ -302,10 +302,6 @@ bool cmd_part(int argc, char **args) {
    dict_add(d, "talk.target", target);
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
-   rrclient_room_part(target);
-#ifdef USE_GTK
-   if (ui_mode == UI_MODE_GTK) gtk_chat_room_remove(target);
-#endif
 
    return false;
 }
@@ -314,11 +310,11 @@ bool cmd_part(int argc, char **args) {
 // IRC client, with privilege flags and PTT state.
 bool cmd_names(int argc, char **args) {
    if (!global_userlist) {
-      ui_print(NULL, "{yellow}No users online{reset}");
+      ui_print(ui_active_window_name(), "{yellow}No users online{reset}");
       return true;
    }
 
-   ui_print(NULL, "{yellow}Users online:{reset}");
+   ui_print(ui_active_window_name(), "{yellow}Users online:{reset}");
 
    int count = 0;
    for (struct rr_user *c = global_userlist; c; c = c->next) {
@@ -340,15 +336,44 @@ bool cmd_names(int argc, char **args) {
          strlcpy(suffix, " 🎤", sizeof(suffix));
       }
 
-      ui_print(NULL, "  {white}%s%s%s{reset}", prefix, c->name, suffix);
+      ui_print(ui_active_window_name(), "  {white}%s%s%s{reset}", prefix, c->name, suffix);
    }
 
-   ui_print(NULL, "{yellow}%d user%s online{reset}", count, (count == 1) ? "" : "s");
+   ui_print(ui_active_window_name(), "{yellow}%d user%s online{reset}", count, (count == 1) ? "" : "s");
    return true;
 }
 
 bool cmd_topic(int argc, char **args) {
-   ui_print(NULL, "{yellow}TOPIC is not supported over WebSocket yet{reset}");
-
+   const char *room = NULL;
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_active_window();
+      if (window && window->title[0] && strcasecmp(window->title, "status") != 0)
+         room = window->title;
+   }
+#ifdef USE_GTK
+   else if (ui_mode == UI_MODE_GTK) {
+      room = gtk_chat_current_room();
+   }
+#endif
+   if (!room || (room[0] != '#' && room[0] != '&')) {
+      ui_print(ui_active_window_name(), "{yellow}Select a room tab before using /topic{reset}");
+      return false;
+   }
+   dict *d = dict_new();
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "topic");
+   dict_add(d, "talk.target", room);
+   if (argc > 1) {
+      char topic[512] = "";
+      for (int i = 1; i < argc; i++) {
+         if (i > 1) strlcat(topic, " ", sizeof(topic));
+         strlcat(topic, args[i], sizeof(topic));
+      }
+      dict_add(d, "talk.data", topic);
+   } else {
+      dict_add(d, "talk.data", "");
+   }
+   if (ws_conn) ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
    return false;
 }

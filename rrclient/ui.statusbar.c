@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.statusbar.h>
@@ -10,18 +11,20 @@
 extern dict *cfg;
 
 static char *cached_status_line = NULL;
+static char *cached_room_status_line = NULL;
 
-static const char *rrclient_status_line_template(void) {
-   const char *configured = cfg ? dict_get(cfg, "tui.status-line", NULL) : NULL;
-   if (!configured) configured = RRCLIENT_DEFAULT_STATUS_LINE;
-   if (!cached_status_line || strcmp(cached_status_line, configured) != 0) {
+static const char *rrclient_status_line_template(const char *key, const char *fallback,
+   char **cache) {
+   const char *configured = cfg ? dict_get(cfg, key, NULL) : NULL;
+   if (!configured) configured = fallback;
+   if (!*cache || strcmp(*cache, configured) != 0) {
       char *copy = strdup(configured);
       if (copy) {
-         free(cached_status_line);
-         cached_status_line = copy;
+         free(*cache);
+         *cache = copy;
       }
    }
-   return cached_status_line ? cached_status_line : RRCLIENT_DEFAULT_STATUS_LINE;
+   return *cache ? *cache : fallback;
 }
 #include <rrclient/vfo.h>
 #include <rrclient/media.h>
@@ -109,7 +112,18 @@ char *rrclient_tui_topline(tui_window_t *win) {
    // Read the raw template without cfg_get(): verbose config logging during a
    // redraw can recurse through the TUI log callback. The copied template is
    // refreshed only when the live config value changes.
-   const char *format = rrclient_status_line_template();
+   const bool is_room = win && (win->title[0] == '#' || win->title[0] == '&');
+   const bool has_vfos = is_room && rrclient_room_vfos(win->title) &&
+      *rrclient_room_vfos(win->title);
+   const char *format = !has_vfos ?
+      rrclient_status_line_template("tui.room-status-line", RRCLIENT_DEFAULT_ROOM_STATUS_LINE,
+         &cached_room_status_line) :
+      rrclient_status_line_template("tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE,
+         &cached_status_line);
+   /* Chat rooms without a server-side VFO mapping should not imply that
+    * their controls are active. Keep the status and connection visible, but
+    * reserve the VFO presentation for the rig room (or another mapped room).
+    * Custom templates remain untouched. */
    dict *values = dict_new();
    if (!values) return NULL;
 

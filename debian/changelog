@@ -1,4 +1,4 @@
-rustyrig-fw (20260924.04) UNRELEASED; urgency=medium
+rustyrig-fw (20260925.01) UNRELEASED; urgency=medium
 
   * Package RustyRig server, clients, DSP service, callsign lookup, and
     shared library development files.

@@ -7,7 +7,10 @@
 
 static rrconn_t connection;
 bool dying, restarting;
+enum GuiMode ui_mode = UI_MODE_NONE;
 time_t now;
+tui_window_t *tui_active_window(void) { return NULL; }
+const char *ui_active_window_name(void) { return NULL; }
 rrconn_t *ws_conn = &connection;
 static unsigned selected, subscribed, unsubscribed;
 static char last_uuid[64], last_codec[5], local_codec[2][5], output[8192];

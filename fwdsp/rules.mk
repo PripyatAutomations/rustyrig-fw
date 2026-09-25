@@ -6,7 +6,7 @@
 # fwdsp uses the shared [fwdsp]/[pipelines] config callbacks from
 # librrprotocol, but does not use libfwdspmgr itself at runtime.
 
-CFLAGS_FWDSP := ${CFLAGS} -I${BUILD_DIR}
+CFLAGS_FWDSP := ${CFLAGS} -I${BUILD_DIR} ${gst_cflags}
 LDFLAGS_FWDSP := ${LDFLAGS} -L. -lrustyaxe ${gst_ldflags} -lpthread -lrrprotocol
 fwdsp := bin/fwdsp
 bins += ${fwdsp}

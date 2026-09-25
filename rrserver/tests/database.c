@@ -47,6 +47,10 @@ int main(void) {
    run_file(db, "sql/sqlite.master.preload.sql");
 
    assert(db_room_ensure(db, "#alpha", true, 3));
+   assert(db_room_set_topic(db, "#alpha", "Test topic"));
+   char *topic = db_room_get_topic(db, "#alpha");
+   assert(topic && strcmp(topic, "Test topic") == 0);
+   free(topic);
    assert(db_room_vfo_add(db, "#alpha", "rig0.vfo_a"));
    assert(db_room_vfo_add(db, "#alpha", "rig0.vfo_b"));
    assert(db_room_vfo_add(db, "#alpha", "rig0.vfo_a")); // idempotent

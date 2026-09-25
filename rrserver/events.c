@@ -36,9 +36,63 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
    if (room && !db_room_ensure(masterdb, room, dict_get_bool(d, "room.has-vfos", false),
                                 (uint32_t)dict_get_ulong(d, "room.vfo-mask", 0)))
       Log(LOG_WARN, "db", "failed to persist room %s", room);
+   if (room && cptr) {
+      char *topic = db_room_get_topic(masterdb, room);
+      dict *reply = dict_new();
+      dict_add(reply, "msg.type", "talk");
+      dict_add(reply, "talk.cmd", "topic");
+      dict_add(reply, "talk.room", room);
+      dict_add(reply, "talk.topic", topic ? topic : "");
+      dict_add_bool(reply, "talk.query", true);
+      ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
+      dict_free(reply);
+      free(topic);
+   }
 #else
    (void)cptr;
 #endif
+   dict_free(d);
+}
+
+static void rrserver_handle_room_topic(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)user;
+   if (!data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", NULL);
+   const char *topic = dict_get(d, "talk.topic", "");
+   bool query = dict_get_bool(d, "talk.query", false);
+#ifdef USE_SQLITE
+   if (!room) {
+      ws_send_error(cptr, "No room selected for TOPIC");
+      dict_free(d);
+      return;
+   }
+   if (query) {
+      char *stored = db_room_get_topic(masterdb, room);
+      dict_add(d, "talk.topic", stored ? stored : "");
+      free(stored);
+      ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
+      dict_free(d);
+      return;
+   }
+   if (!db_room_set_topic(masterdb, room, topic)) {
+      ws_send_error(cptr, "Unable to set topic for room %s", room);
+      dict_free(d);
+      return;
+   }
+#else
+   if (!query) {
+      ws_send_error(cptr, "Room topics require database support");
+      dict_free(d);
+      return;
+   }
+#endif
+   dict_add(d, "talk.cmd", "topic");
+   dict_add(d, "talk.topic", topic ? topic : "");
+   dict_add(d, "talk.user", cptr ? cptr->chatname : "");
+   dict_add_bool(d, "talk.query", false);
+   ws_broadcast_room_dict(NULL, d, room);
    dict_free(d);
 }
 
@@ -818,6 +872,7 @@ void rrserver_register_events(void) {
    event_on("room.delete", rrserver_handle_room_delete, NULL);
    event_on("room.vfo-list", rrserver_handle_room_vfo_list, NULL);
    event_on("room.vfo", rrserver_handle_room_vfo, NULL);
+   event_on("room.topic", rrserver_handle_room_topic, NULL);
    event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    Log(LOG_CRAZY, "events", "Finished registering rrserver events");

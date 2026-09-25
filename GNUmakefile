@@ -12,7 +12,6 @@ include mk/json-config.mk
 BUILD_DIR := ./build/${PROFILE}
 include mk/compile.mk
 include mk/database.mk
-#include mk/libmongoose.mk
 include mk/eeprom.mk
 
 extra_clean += $(wildcard ${BUILD_DIR}/*.h) $(wildcard */compile_commands.json)
@@ -67,7 +66,7 @@ world: after-eeprom
 
 # Build configured programs and run the maintained project test suites.
 # The external librustyaxe submodule suite can be selected explicitly.
-TEST_SUITES ?= fwdsp librrprotocol rrclient rrserver selftest www librustyaxe
+TEST_SUITES ?= selftest librustyaxe librrprotocol rrserver rrclient fwdsp www
 .PHONY: test
 test tests: ${bins}
 	./tests/run-tests.sh ${TEST_SUITES}

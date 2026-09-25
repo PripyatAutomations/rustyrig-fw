@@ -16,7 +16,7 @@
       "debug-build": "true",
       "eeprom": "false",
       "gpio": "false",
-      "gstreamer": "false",
+      "gstreamer": "true",
       "gtk": "true",
       "http": "true",
       "libmbedtls": "false",

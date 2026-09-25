@@ -35,6 +35,7 @@ ui.userlist-width=220
 tui.use-mouse=false
 # Top/topic row; fields are expanded from live client state at each redraw.
 tui.status-line=${topic} | ${ptt-state} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${active_mode:---}
+tui.room-status-line=${topic} | ${connection}
 tui.status-chat=false
 # Example: tui.status-line={bright-cyan}${window}{reset} A:${vfo_a_freq_khz:---} B:${vfo_b_freq_khz:---} ${active_ptt:RX}
 # If we want to autoconnect to a server, name it here.
