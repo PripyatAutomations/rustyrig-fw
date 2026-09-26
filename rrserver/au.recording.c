@@ -76,10 +76,6 @@ static const char *rec_mkpath(const char *recording_id, int channel) {
    char tmpbuf[PATH_MAX + 1];
    memset(tmpbuf, 0, PATH_MAX + 1);
    size_t tmp_len = snprintf(tmpbuf, sizeof(tmpbuf), "%s/%s.%s.%s", cfg_path_record_dir, recording_id, (is_tx ? "tx" : "rx"), codec);
-   // free the returned value from cfg_get_exp (expanded variable)
-   free( (char *)cfg_path_record_dir );
-   cfg_path_record_dir = NULL;
-
    if (tmp_len > 0) {
       if ( !( rv = strdup(tmpbuf) ) ) {
          Log(LOG_CRIT, "au.record", "OOM in rec_mkpath");
@@ -94,6 +90,27 @@ static const char *rec_mkpath(const char *recording_id, int channel) {
    return rv;
 }
 
+bool au_recording_config_refresh(const char *key) {
+   (void)key;
+   char *new_dir = cfg_get_path("path.record-dir");
+   int new_max = cfg_get_int("record.max", 16);
+   if (new_max < 1) new_max = 1;
+
+   /* The active table cannot be resized while recordings may still refer to
+    * it. Apply a changed limit on the next process start instead of risking
+    * an out-of-bounds access during a live reload. */
+   if (active_recordings && new_max != cfg_recording_max) {
+      Log(LOG_WARN, "au.record", "record.max changed while recordings are active; keeping %d until restart",
+         cfg_recording_max);
+   } else {
+      cfg_recording_max = new_max;
+   }
+   free((char *)cfg_path_record_dir);
+   cfg_path_record_dir = new_dir;
+   f_recdir_unset = false;
+   return true;
+}
+
 // Returns the ID of of the new recording
 const char *au_recording_start(int channel) {
    if (channel < 0) {
@@ -105,20 +122,16 @@ const char *au_recording_start(int channel) {
       return NULL;
    }
 
-   if (!cfg_path_record_dir) {
-      cfg_path_record_dir = cfg_get_path("path.record-dir");
-      cfg_recording_max = cfg_get_int("record.max", 16);
-      if (cfg_recording_max < 1) cfg_recording_max = 1;
+   if (!active_recordings) {
+      au_recording_config_refresh(NULL);
+      active_recordings = calloc((size_t)cfg_recording_max,
+         sizeof(*active_recordings));
       if (!active_recordings) {
-         active_recordings = calloc((size_t)cfg_recording_max,
-            sizeof(*active_recordings));
-         if (!active_recordings) {
-            Log(LOG_CRIT, "au.record", "Unable to allocate recording table");
-            free((char *)cfg_path_record_dir);
-            cfg_path_record_dir = NULL;
-            free(recording_id);
-            return NULL;
-         }
+         Log(LOG_CRIT, "au.record", "Unable to allocate recording table");
+         free((char *)cfg_path_record_dir);
+         cfg_path_record_dir = NULL;
+         free(recording_id);
+         return NULL;
       }
    }
 

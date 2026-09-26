@@ -23,6 +23,7 @@
 #include <gtk/gtk.h>
 
 extern bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget **view);
+extern bool ui_confirm_dialog(GtkWindow *parent, const char *message);
 
 #define	HTTP_USER_LEN 16                 // username length (16 char)
 #define	HTTP_PASS_LEN 40                 // sha1: 40, sha256: 64

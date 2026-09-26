@@ -33,6 +33,7 @@
 #include <rrserver/filters.h>
 #include <rrserver/protection.h>
 #include <rrserver/mqtt.h>
+#include <rrserver/au.h>
 
 extern void rrserver_register_events(void); // events.c
 extern void rrserver_media_register_events(void);   // media.c
@@ -60,6 +61,23 @@ char *rig_name = NULL;
 int cfg_backend_poll_interval = 1000;
 int cfg_backend_announce_interval = 10000;
 int cfg_tick_interval = 100;
+
+/* Refresh server settings which are consumed from globals by timers and
+ * protection code.  Config reload replaces the dictionary atomically; this
+ * callback keeps those long-lived mirrors in step with it. */
+static bool rrserver_config_refresh(const char *key) {
+   (void)key;
+   cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 1000);
+   if (cfg_backend_poll_interval < 1) cfg_backend_poll_interval = 1000;
+   cfg_backend_announce_interval = cfg_get_int("backend.announce-interval", 10000);
+   if (cfg_backend_announce_interval < 1) cfg_backend_announce_interval = 10000;
+   cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
+   if (cfg_tick_interval < 1) cfg_tick_interval = 100;
+   protection_init();
+   au_recording_config_refresh(NULL);
+   Log(LOG_DEBUG, "config", "Refreshed cached server configuration");
+   return true;
+}
 
 // These are used for restarting ourself using exec()
 int my_argc = -1;
@@ -269,7 +287,9 @@ int main(int argc, char **argv) {
 #endif // USE_SQLITE
    hostlog_init();   // Stream Log() lines to FLAG_SYSLOG clients (hostlog.c)
 
-   protection_init();
+   reload_event_add(NULL, rrserver_config_refresh,
+      "refresh cached server settings after config reload");
+   rrserver_config_refresh(NULL);
    timer_init();
 #ifdef	USE_GPIO
    gpio_init();
@@ -281,6 +301,10 @@ int main(int argc, char **argv) {
       eeprom_load_config();
    }
 #endif	// USE_EEPROM
+
+   /* EEPROM-backed settings may have augmented the config, so refresh the
+      same cached values once more before timers and backends start. */
+   rrserver_config_refresh(NULL);
 
 //   i2c_init();
 //   gui_init();
@@ -303,9 +327,6 @@ int main(int argc, char **argv) {
    // apply some configuration from the eeprom
 #ifdef	USE_EEPROM
    auto_block_ptt = eeprom_get_bool("features/auto-block-ptt");
-   cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 60);
-   cfg_backend_announce_interval = cfg_get_int("backend.announce-interval", 10);
-   cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 #endif
 
    // Initialize add-in cards

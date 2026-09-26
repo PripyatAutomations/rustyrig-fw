@@ -20,6 +20,8 @@
 #include <signal.h>
 #include <sys/wait.h>
 #ifndef _WIN32
+#include <fcntl.h>
+#include <poll.h>
 #include <sys/socket.h>
 #endif
 #include <librustyaxe/core.h>
@@ -128,8 +130,21 @@ static bool fwdsp_write_all(int fd, const uint8_t *data, size_t len) {
       if (written > 0) {
          data += written;
          len -= (size_t)written;
-      } else if (written < 0 && errno == EINTR) {
+      } else if (written < 0 && (errno == EINTR)) {
          continue;
+      } else if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+#ifndef _WIN32
+         /* Never let a stalled GStreamer child block the server event loop.
+          * A media frame may be dropped under backpressure; the caller will
+          * retire the unhealthy child and recreate it on the next tick. */
+         struct pollfd pfd = { .fd = fd, .events = POLLOUT };
+         int ready;
+         do {
+            ready = poll(&pfd, 1, 5);
+         } while (ready < 0 && errno == EINTR);
+         if (ready > 0 && (pfd.revents & POLLOUT)) continue;
+#endif
+         return false;
       } else {
          return false;
       }
@@ -768,7 +783,9 @@ bool fwdsp_processor_write(const char *name, const void *samples, size_t len) {
        (len & 1) != 0 || len > FWDSP_MAX_FRAME_SIZE) {
       return false;
    }
-   return fwdsp_write_frame(sp->fw_stdin, samples, len);
+   if (fwdsp_write_frame(sp->fw_stdin, samples, len)) return true;
+   fwdsp_destroy(sp);
+   return false;
 }
 
 bool fwdsp_processor_setvol(const char *name, int percent) {
@@ -1042,6 +1059,12 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       sp->fw_stdout = out_pipe[0];
       sp->fw_stderr = err_pipe[0];
       sp->fw_control = control_pipe[1];
+#ifndef _WIN32
+      int stdin_flags = fcntl(sp->fw_stdin, F_GETFL, 0);
+      if (stdin_flags >= 0) {
+         (void)fcntl(sp->fw_stdin, F_SETFL, stdin_flags | O_NONBLOCK);
+      }
+#endif
 
 #ifdef	USE_MONGOOSE
       // Hook up stdout/stderr to Mongoose immediately. The fn_data must be a
@@ -1137,7 +1160,6 @@ int fwdsp_get_chan_id(const char *magic, bool is_tx) {
 bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
    const void *data, size_t len) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
-   const uint8_t *bytes = data;
 
    if (!sp) {
       Log(LOG_WARN, "fwdsp",
@@ -1154,7 +1176,7 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
       return true;
    }
 
-   if (!bytes || len == 0) {
+   if (!data || len == 0) {
       Log(LOG_WARN, "fwdsp",
          "write_samples: %s.%s got empty frame",
          codec_id, is_tx ? "tx" : "rx");
@@ -1167,84 +1189,11 @@ bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
          codec_id, is_tx ? "tx" : "rx", len);
       return true;
    }
-
-   /*
-    * fwdsp stdin is SOCK_STREAM, so preserve the media packet boundary:
-    *
-    *    4-byte big-endian payload length
-    *    payload
-    */
-   uint32_t frame_len = htonl((uint32_t)len);
-   const uint8_t *header = (const uint8_t *)&frame_len;
-   size_t remaining = sizeof(frame_len);
-
-   while (remaining > 0) {
-      /* The child may exit before SIGCHLD is reaped; return EPIPE safely. */
-      ssize_t written = write(sp->fw_stdin, header, remaining);
-
-      if (written > 0) {
-         header += written;
-         remaining -= (size_t)written;
-         continue;
-      }
-
-      if (written < 0 && errno == EINTR) {
-         continue;
-      }
-
-      int saved_errno = errno;
-
-      Log(LOG_WARN, "fwdsp",
-         "write_samples: header write failed for %s.%s "
-         "fd %d pid %d: errno=%d (%s)",
-         codec_id, is_tx ? "tx" : "rx",
-         sp->fw_stdin, sp->pid,
-         saved_errno, strerror(saved_errno));
-
-      if (saved_errno == EPIPE) {
-         /*
-          * The child no longer has its stdin open. Arrange for the
-          * normal child-reaping path to check it rather than repeatedly
-          * trying to feed a dead subprocess.
-          */
-         fwdsp_sigchld_pending = 1;
-      }
-
-      return true;
-   }
-
-   remaining = len;
-
-   while (remaining > 0) {
-      ssize_t written = write(sp->fw_stdin, bytes, remaining);
-
-      if (written > 0) {
-         bytes += written;
-         remaining -= (size_t)written;
-         continue;
-      }
-
-      if (written < 0 && errno == EINTR) {
-         continue;
-      }
-
-      int saved_errno = errno;
-
-      Log(LOG_WARN, "fwdsp",
-         "write_samples: payload write failed for %s.%s "
-         "fd %d pid %d: errno=%d (%s)",
-         codec_id, is_tx ? "tx" : "rx",
-         sp->fw_stdin, sp->pid,
-         saved_errno, strerror(saved_errno));
-
-      if (saved_errno == EPIPE) {
-         fwdsp_sigchld_pending = 1;
-      }
-
-      return true;
-   }
-
-   return false;
+   if (fwdsp_write_frame(sp->fw_stdin, data, len)) return false;
+   /* A full child input socket must never stall the host. Retire the
+    * unhealthy process; the normal codec/endpoint owner will recreate it. */
+   fwdsp_destroy(sp);
+   return true;
 }
 
 bool fwdsp_write_channel_samples(const char codec_id[5], bool is_tx,
@@ -1257,7 +1206,9 @@ bool fwdsp_write_channel_samples(const char codec_id[5], bool is_tx,
    if (!sp || sp->pid <= 0 || sp->fw_stdin < 0) {
       return false;
    }
-   return fwdsp_write_frame(sp->fw_stdin, data, len);
+   if (fwdsp_write_frame(sp->fw_stdin, data, len)) return true;
+   fwdsp_destroy(sp);
+   return false;
 }
 
 bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *channel_uuid,

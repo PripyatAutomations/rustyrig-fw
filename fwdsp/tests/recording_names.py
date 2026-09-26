@@ -110,3 +110,47 @@ pc16.tx=audiotestsrc is-live=true ! audio/x-raw,format=S16LE,rate=16000,channels
         samples = int(subprocess.check_output(["metaflac", "--show-total-samples", str(path)]))
         assert samples > 0, path
     print("PASS: recording names, collisions, fragmented controls, identity changes, and FLAC integrity")
+
+# The same recording control path must also produce the configured Ogg/Vorbis
+# container. Keep this as a separate short process so a stale recorder cannot
+# hide a format-selection regression in the longer FLAC scenario above.
+with tempfile.TemporaryDirectory(prefix="fwdsp-record-ogg-") as temp:
+    root = Path(temp)
+    records = root / "recordings"
+    records.mkdir()
+    config = root / "fwdsp.cfg"
+    config.write_text(f"""[fwdsp]
+log.file=-
+recording.path={records}
+recording.codec=ogg
+[pipelines]
+pc16.tx=audiotestsrc is-live=true ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! tee name=t t. ! queue ! appsink name=tx-sink sync=false t. ! queue ! appsink name=record-sink sync=false
+""")
+    read_fd, write_fd = os.pipe()
+    env = dict(os.environ, LD_LIBRARY_PATH=str(Path.cwd()))
+    proc = subprocess.Popen(
+        ["bin/fwdsp", "-f", str(config), "-c", "pc16", "-t", "-C", str(read_fd)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        pass_fds=(read_fd,), env=env)
+    os.close(read_fd)
+    try:
+        send_control(write_fd, 7, b"admin", 2, record_id=b"OGG1", fragment=True)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not list(records.glob("*.admin.tx.ogg")):
+            if proc.poll() is not None:
+                raise AssertionError(proc.stderr.read().decode(errors="replace"))
+            time.sleep(0.02)
+        files = list(records.glob("*.admin.tx.ogg"))
+        assert files, "Ogg recording was not created"
+        time.sleep(0.15)
+        send_control(write_fd, 8)
+        send_control(write_fd, 2)
+        assert proc.wait(timeout=5) == 0
+        assert files[0].read_bytes()[:4] == b"OggS", files[0]
+        assert files[0].stat().st_size > 64, files[0]
+    finally:
+        os.close(write_fd)
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+    print("PASS: Ogg/Vorbis recording format and control lifecycle")

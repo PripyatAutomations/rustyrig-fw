@@ -47,7 +47,6 @@ static struct {
 // PARITY: rrserver/backend.hamlib.c (cat.state broadcast/diff logic)
 static dict *last_state_dict[MAX_VFOS] = { 0 };
 static time_t last_state_send[MAX_VFOS] = { 0 };
-static int cfg_state_interval = -1;  // seconds; -1 = not yet read from config
 
 static const char *cat_state_cmp_keys[] = {
    "cat.state.freq",
@@ -462,11 +461,8 @@ rr_vfo_data_t *be_internal_poll(rr_vfo_t vfo) {
    // quiet rig doesn't spam unchanged cat.state messages.
    dict *d = be_cat_state_dict(vfo);
    if (d) {
-      // Lazy-load the configured max interval between unchanged cat.state sends
-      if (cfg_state_interval < 0) {
-         cfg_state_interval = cfg_get_int("backend.state-interval", 15);
-         if (cfg_state_interval < 0) cfg_state_interval = 15;
-      }
+      int cfg_state_interval = cfg_get_int("backend.state-interval", 15);
+      if (cfg_state_interval < 0) cfg_state_interval = 15;
 
       bool changed = true;
       dict *curr_cmp = be_cat_state_filter(d);

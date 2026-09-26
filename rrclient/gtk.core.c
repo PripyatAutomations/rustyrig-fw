@@ -519,23 +519,24 @@ static gboolean on_confirm_dialog_key(GtkWidget *widget, GdkEventKey *ev, gpoint
    return FALSE;
 }
 
+bool ui_confirm_dialog(GtkWindow *parent, const char *message) {
+   if (!message) return false;
+   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
+      GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
+   /* Keep confirmation prompts in the middle of the display even when the
+    * parent is a tab or a partially off-screen window. */
+   gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
+   g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_confirm_dialog_key), NULL);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_YES);
+   gboolean confirmed = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_YES;
+   gtk_widget_destroy(dialog);
+   return confirmed;
+}
+
 // This pops up and confirms the user if they want to quit. True return should exit
 bool ui_confirm_quit(void) {
    if (ui_mode == UI_MODE_GTK) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING,
-         GTK_BUTTONS_YES_NO, "Confirm quit?");
-
-      // Accept Y or N keys in addition to clicking / Enter on the buttons
-      g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_confirm_dialog_key), NULL);
-      gtk_dialog_set_default_response( GTK_DIALOG(dialog), GTK_RESPONSE_YES );
-
-      gboolean cancel = gtk_dialog_run( GTK_DIALOG(dialog) ) != GTK_RESPONSE_YES;
-
-      gtk_widget_destroy(dialog);
-
-      if (cancel) {
-         return false;
-      }
+      if (!ui_confirm_dialog(GTK_WINDOW(main_window), "Confirm quit?")) return false;
    } else if (ui_mode == UI_MODE_TUI) {
       ui_print( NULL, "Confirm quit? (Y/N) - NYI, Quit %s:%d", __FILE__, __LINE__);
       // XXX: Set input mode to accept this and return false to cancel

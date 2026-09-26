@@ -61,7 +61,10 @@ rr_mode_t hl_mode_to_rr(rmode_t mode);   // fwd decl (defined below)
 // the interval to 0 restores the old behavior of exiting instead.
 static bool hl_connected = false;
 static time_t hl_retry_at = 0;
-static int cfg_reconnect_interval = -1;   // seconds; -1 = not yet read
+static int hl_reconnect_interval(void) {
+   int interval = cfg_get_int("backend.reconnect-interval", 30);
+   return interval < 0 ? 30 : interval;
+}
 static void hl_destroy(RIG *hl_rig);      // fwd decl (defined below)
 
 // Tear down the rig connection and schedule a reconnect. If the reconnect
@@ -77,10 +80,7 @@ static void hl_disconnect(const char *why) {
    }
    hl_connected = false;
 
-   if (cfg_reconnect_interval < 0) {
-      cfg_reconnect_interval = cfg_get_int("backend.reconnect-interval", 30);
-      if (cfg_reconnect_interval < 0) cfg_reconnect_interval = 30;
-   }
+   int cfg_reconnect_interval = hl_reconnect_interval();
 
    if (cfg_reconnect_interval > 0) {
       hl_retry_at = now + cfg_reconnect_interval;
@@ -98,7 +98,6 @@ static void hl_disconnect(const char *why) {
 // hand-rolling field compares.
 static dict *last_state_dict[MAX_VFOS];
 static time_t last_state_send[MAX_VFOS];
-static int cfg_state_interval = -1;  // seconds; -1 = not yet read from config
 
 // The keys we consider when diffing cat.state messages. Anything not listed
 // here (like the volatile msg.ts timestamp) is ignored by the diff, so only
@@ -368,10 +367,7 @@ static bool hl_init(void) {
       hl_rig = NULL;
       hl_connected = false;
 
-      if (cfg_reconnect_interval < 0) {
-         cfg_reconnect_interval = cfg_get_int("backend.reconnect-interval", 30);
-         if (cfg_reconnect_interval < 0) cfg_reconnect_interval = 30;
-      }
+      int cfg_reconnect_interval = hl_reconnect_interval();
 
       if (cfg_reconnect_interval > 0) {
          hl_retry_at = now + cfg_reconnect_interval;
@@ -443,7 +439,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    // If the rig connection is down, try to re-establish it (throttled by
    // backend.reconnect-interval), otherwise just skip this poll
    if (!hl_rig) {
-      if (cfg_reconnect_interval > 0 && hl_retry_at && now >= hl_retry_at) {
+      if (hl_reconnect_interval() > 0 && hl_retry_at && now >= hl_retry_at) {
          Log(LOG_INFO, "backend.hamlib", "Attempting hamlib reconnect...");
          hl_retry_at = 0;   // set again by hl_init if this attempt fails
          if (hl_init() == false) {
@@ -583,11 +579,8 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    dict_add_bool(d, "cat.state.ptt", st->ptt);
    dict_add_long(d, "cat.state.freq", (st->freq > 0 ? st->freq : vfos[vfo].freq) );
    dict_add_ulong(d, "msg.ts", now);
-   // Lazy-load the configured max interval between unchanged cat.state sends.
-   if (cfg_state_interval < 0) {
-      cfg_state_interval = cfg_get_int("backend.state-interval", 15);
-      if (cfg_state_interval < 0) cfg_state_interval = 15;
-   }
+   int cfg_state_interval = cfg_get_int("backend.state-interval", 15);
+   if (cfg_state_interval < 0) cfg_state_interval = 15;
    // Decide whether to actually transmit this state. We diff against the last
    // state we sent, considering only the keys in cat_state_cmp_keys so the
    // volatile timestamp (msg.ts) and other noise don't force a send every poll.

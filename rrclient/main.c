@@ -87,6 +87,63 @@ int cfg_ui_vfo_viscosity = -1;
 int cfg_ui_edit_delay = 3;          // Seconds to suppress freq updates after local edit
 int cfg_ui_ptt_ack_timeout = 2;     // Seconds to wait for a PTT ack before reverting (gtk.ptt-btn.c)
 time_t now = 0;
+time_t poll_block_delay = 0;     // CAT polling suppression delay in seconds
+#ifdef USE_GTK
+/* Defined here so the configuration refresh helper can use it regardless of
+ * declaration order in the GTK and TUI build profiles. */
+int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
+#endif
+
+/* Keep all long-lived client configuration mirrors in one place.  This is
+ * called once after startup config has loaded and again after every complete
+ * config reload. */
+static bool rrclient_config_refresh(const char *key) {
+   (void)key;
+   debug_sockets = cfg_get_bool("debug.sockets", false);
+
+   const char *debug_audio = cfg_get_exp("debug.audio");
+   free((void *)cfg_debug_audio);
+   cfg_debug_audio = debug_audio;
+#ifdef USE_GSTREAMER
+   if (cfg_debug_audio) {
+#ifdef _WIN32
+      SetEnvironmentVariable("GST_DEBUG", cfg_debug_audio);
+      SetEnvironmentVariable("GST_DEBUG_DUMP_DOT_DIR", ".");
+#else
+      setenv("GST_DEBUG", cfg_debug_audio, 1);
+      setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 1);
+#endif
+   }
+#endif
+
+   cfg_ui_vfo_viscosity = cfg_get_int("ui.vfo.visocity", 1000);
+   poll_block_delay = (cfg_ui_vfo_viscosity > 0) ? (cfg_ui_vfo_viscosity / 1000) : 0;
+   cfg_ui_edit_delay = cfg_get_int("ui.edit-delay", 3);
+   cfg_ui_ptt_ack_timeout = cfg_get_int("ui.ptt-ack-timeout", 2);
+   cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
+   cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
+
+   /* This setting is shared by the GTK and TUI input implementations. */
+   tui_set_shared_input_history(cfg_get_bool("ui.shared-input-history", true));
+
+#ifdef USE_GTK
+   cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
+   cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
+   const char *tabstrip = cfg_get("ui.gtk.main-tabstrip");
+   if (tabstrip && strcasecmp(tabstrip, "left") == 0) {
+      cfg_ui_gtk_main_tabstrip = GTK_POS_LEFT;
+   } else if (tabstrip && strcasecmp(tabstrip, "right") == 0) {
+      cfg_ui_gtk_main_tabstrip = GTK_POS_RIGHT;
+   } else if (tabstrip && strcasecmp(tabstrip, "top") == 0) {
+      cfg_ui_gtk_main_tabstrip = GTK_POS_TOP;
+   } else {
+      cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
+   }
+#endif
+
+   Log(LOG_DEBUG, "main", "Refreshed cached client configuration");
+   return true;
+}
 
 static gboolean ws_poll_cb(gpointer user_data) {
    rrclient_poll_events();
@@ -113,7 +170,6 @@ bool ptt_active = false;
 time_t poll_block_expire = 0;    // Here we set this to now +
                                  // config:cat.poll-blocking to prevent rig
                                  // polling from sclearing local controls
-time_t poll_block_delay = 0;     // ^-- stores the delay
 
 static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifiers,
    void *user_data) {
@@ -142,8 +198,6 @@ void shutdown_app(int signum) {
 }
 
 #ifdef USE_GTK
-int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
-
 ////////////////////////////////////////////////////////////////////
 // 1hz periodic: Check if dying and shutdown, update now variable //
 ////////////////////////////////////////////////////////////////////
@@ -418,6 +472,8 @@ bool rrclient_cleanup(void) {
       cfg_save(cfg, config_file);
    }
 
+   free((void *)cfg_debug_audio);
+   cfg_debug_audio = NULL;
    dict_free(cfg);
 
 #if defined(USE_LIBNOTIFY) && defined(USE_GTK)
@@ -626,62 +682,13 @@ extern bool cfg_gtkcss_init(void);   // cfg.gtkcss.c
 /////////////////////////////////////////
 // Store some oft used config settings //
 /////////////////////////////////////////
-   debug_sockets = cfg_get_bool("debug.sockets", false);
-   cfg_debug_audio = cfg_get_exp("debug.audio");
-   // How long to suppress hamlib/etc polling during CAT control?
-   // (config is in milliseconds; poll_block_delay is whole seconds)
-   cfg_ui_vfo_viscosity = cfg_get_int("ui.vfo.visocity", 1000);
-   poll_block_delay = (cfg_ui_vfo_viscosity > 0) ? (cfg_ui_vfo_viscosity / 1000) : 0;
+   reload_event_add(NULL, rrclient_config_refresh,
+      "refresh cached client settings after config reload");
+   rrclient_config_refresh(NULL);
    Log(LOG_DEBUG, "main", "CAT poll blocking delay: %d second(s)", (int)poll_block_delay);
-   // How long after a local freq edit to suppress CAT poll echoes (seconds)?
-   cfg_ui_edit_delay = cfg_get_int("ui.edit-delay", 3);
-   // How long to wait for a PTT ack before reverting the button (seconds)?
-   cfg_ui_ptt_ack_timeout = cfg_get_int("ui.ptt-ack-timeout", 2);
-   cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
-   cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 
    // CAT parsers + PTY interface (~/ttyCAT0 by default when enabled)
    rr_cat_init();
-
-#ifdef	USE_GTK
-   cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
-   cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
-
-   const char *main_tabstrip_s = cfg_get("ui.gtk.main-tabstrip");
-   if (main_tabstrip_s && main_tabstrip_s[0] != '\0') {
-      if (strcasecmp(main_tabstrip_s, "left") == 0) {
-        cfg_ui_gtk_main_tabstrip = GTK_POS_LEFT;
-        Log(LOG_DEBUG, "ui.core", "Placing main tabstrip at LEFT");
-      } else if (strcasecmp(main_tabstrip_s, "right") == 0) {
-        cfg_ui_gtk_main_tabstrip = GTK_POS_RIGHT;
-        Log(LOG_DEBUG, "ui.core", "Placing main tabstrip at RIGHT");
-      } else if (strcasecmp(main_tabstrip_s, "top") == 0) {
-        cfg_ui_gtk_main_tabstrip = GTK_POS_TOP;
-        Log(LOG_DEBUG, "ui.core", "Placing main tabstrip at TOP");
-      } else if (strcasecmp(main_tabstrip_s, "bottom") == 0) {
-        cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
-        Log(LOG_DEBUG, "ui.core", "Placing main tabstrip at BOTTOM");
-      }
-   } else {
-      Log(LOG_CRIT, "ui.core", "No configuration for ui.gtk.main-tabstrip!");
-   }
-#endif
-
-   if (cfg_debug_audio) {
-#ifdef	USE_GSTREAMER
-      // Set the GST_DEBUG environment variable, before spawning subprocesses
-#ifdef _WIN32
-      SetEnvironmentVariable("GST_DEBUG", cfg_debug_audio);
-      // Set the path for gstreamer dump directory
-      SetEnvironmentVariable("GST_DEBUG_DUMP_DOT_DIR", ".");
-#else	// _WIN32
-      setenv("GST_DEBUG", cfg_debug_audio, 0);
-      setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
-#endif	// _WIN32
-#endif	// USE_GSTREAMER
-   }
-   free((void *)cfg_debug_audio);
-   cfg_debug_audio = NULL;
 
 //////////////////////////////
 

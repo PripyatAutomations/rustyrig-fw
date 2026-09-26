@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <limits.h>
 #include <time.h>
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
@@ -38,6 +39,51 @@ typedef struct cfg_editor_binding {
    defconfig_type_t type;
    GtkWidget *widget;
 } cfg_editor_binding_t;
+
+static bool cfg_editor_numeric_candidate(GtkEditable *editable,
+   const char *insert, gint position, gint selection_start, gint selection_end,
+   defconfig_type_t type) {
+   const char *current = gtk_entry_get_text(GTK_ENTRY(editable));
+   size_t current_len = strlen(current);
+   size_t insert_len = strlen(insert);
+   size_t prefix_len = (size_t)(selection_start < 0 ? position : selection_start);
+   size_t suffix_start = (size_t)(selection_end < 0 ? position : selection_end);
+   if (prefix_len > current_len) prefix_len = current_len;
+   if (suffix_start > current_len) suffix_start = current_len;
+   if (suffix_start < prefix_len) suffix_start = prefix_len;
+
+   char *candidate = calloc(1, prefix_len + insert_len +
+      (current_len - suffix_start) + 1);
+   if (!candidate) return false;
+   memcpy(candidate, current, prefix_len);
+   memcpy(candidate + prefix_len, insert, insert_len);
+   memcpy(candidate + prefix_len + insert_len, current + suffix_start,
+      current_len - suffix_start);
+
+   bool valid = true;
+   unsigned dots = 0;
+   for (size_t i = 0; candidate[i]; i++) {
+      if (candidate[i] >= '0' && candidate[i] <= '9') continue;
+      if (candidate[i] == '-' && type != DEFCONFIG_UINT && i == 0) continue;
+      if (candidate[i] == '.' && type == DEFCONFIG_FLOAT && dots++ == 0) continue;
+      valid = false;
+      break;
+   }
+   free(candidate);
+   return valid;
+}
+
+static void cfg_editor_numeric_insert(GtkEditable *editable, gchar *insert,
+   gint length, gint *position, gpointer user_data) {
+   (void)length;
+   cfg_editor_binding_t *binding = (cfg_editor_binding_t *)user_data;
+   if (!binding || !insert || !position) return;
+   gint selection_start = -1, selection_end = -1;
+   gtk_editable_get_selection_bounds(editable, &selection_start, &selection_end);
+   if (!cfg_editor_numeric_candidate(editable, insert, *position,
+      selection_start, selection_end, binding->type))
+      g_signal_stop_emission_by_name(editable, "insert-text");
+}
 
 static void cfg_editor_changed(GtkWidget *widget, gpointer user_data) {
    cfg_editor_binding_t *binding = (cfg_editor_binding_t *)user_data;
@@ -71,9 +117,16 @@ static GtkWidget *cfg_editor_widget(const defconfig_t *def, const char *value,
    cfg_editor_binding_t **binding_out) {
    GtkWidget *widget = NULL;
    if (def->type == DEFCONFIG_BOOL) {
-      widget = gtk_check_button_new();
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget),
-         value && (!strcasecmp(value, "true") || !strcasecmp(value, "yes") || !strcmp(value, "1")));
+      GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+      GtkWidget *on = gtk_radio_button_new_with_label(NULL, "true");
+      GtkWidget *off = gtk_radio_button_new_with_label_from_widget(
+         GTK_RADIO_BUTTON(on), "false");
+      bool enabled = value && (!strcasecmp(value, "true") ||
+         !strcasecmp(value, "yes") || !strcmp(value, "1"));
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(enabled ? on : off), TRUE);
+      gtk_box_pack_start(GTK_BOX(box), on, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(box), off, FALSE, FALSE, 0);
+      widget = box;
    } else if (def->type == DEFCONFIG_ENUM && def->choices && *def->choices) {
       widget = gtk_combo_box_text_new();
       char *choices = strdup(def->choices), *save = NULL;
@@ -97,14 +150,32 @@ static GtkWidget *cfg_editor_widget(const defconfig_t *def, const char *value,
    binding->type = def->type;
    binding->widget = widget;
    g_object_set_data_full(G_OBJECT(widget), "rr-cfg-binding", binding, free);
-   if (def->type == DEFCONFIG_BOOL)
-      g_signal_connect(widget, "toggled", G_CALLBACK(cfg_editor_changed), binding);
-   else if (def->type == DEFCONFIG_ENUM && def->choices && *def->choices)
+   if (def->type == DEFCONFIG_BOOL) {
+      GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
+      for (GList *it = children; it; it = it->next)
+         g_signal_connect(it->data, "toggled", G_CALLBACK(cfg_editor_changed), binding);
+      g_list_free(children);
+   } else if (def->type == DEFCONFIG_ENUM && def->choices && *def->choices)
       g_signal_connect(widget, "changed", G_CALLBACK(cfg_editor_changed), binding);
-   else
+   else {
+      if (def->type == DEFCONFIG_INT || def->type == DEFCONFIG_UINT ||
+          def->type == DEFCONFIG_FLOAT)
+         g_signal_connect(widget, "insert-text",
+            G_CALLBACK(cfg_editor_numeric_insert), binding);
       g_signal_connect(widget, "changed", G_CALLBACK(cfg_editor_changed), binding);
+   }
    if (binding_out) *binding_out = binding;
    return widget;
+}
+
+static int cfg_editor_defconfig_compare(const void *left, const void *right) {
+   const defconfig_t *a = *(const defconfig_t * const *)left;
+   const defconfig_t *b = *(const defconfig_t * const *)right;
+   bool a_section = strchr(a->key, ':') != NULL;
+   bool b_section = strchr(b->key, ':') != NULL;
+
+   if (a_section != b_section) return a_section ? 1 : -1;
+   return strcmp(a->key, b->key);
 }
 
 static GtkWidget *cfg_editor_panel(void) {
@@ -116,8 +187,18 @@ static GtkWidget *cfg_editor_panel(void) {
    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
    gtk_container_set_border_width(GTK_CONTAINER(grid), 6);
    int row = 0;
-   for (size_t i = 0; defcfg[i].key; i++) {
-      const defconfig_t *def = &defcfg[i];
+   size_t def_count = 0;
+   while (defcfg[def_count].key) def_count++;
+   const defconfig_t **defs = calloc(def_count, sizeof(*defs));
+   if (!defs) {
+      gtk_container_add(GTK_CONTAINER(scroll), grid);
+      return scroll;
+   }
+   for (size_t i = 0; i < def_count; i++) defs[i] = &defcfg[i];
+   qsort(defs, def_count, sizeof(*defs), cfg_editor_defconfig_compare);
+
+   for (size_t i = 0; i < def_count; i++) {
+      const defconfig_t *def = defs[i];
       const char *value = cfg_get(def->key);
       GtkWidget *label = gtk_label_new(def->key);
       gtk_widget_set_halign(label, GTK_ALIGN_START);
@@ -135,6 +216,7 @@ static GtkWidget *cfg_editor_panel(void) {
       gtk_grid_attach(GTK_GRID(grid), help, 2, row, 1, 1);
       row++;
    }
+   free(defs);
    gtk_container_add(GTK_CONTAINER(scroll), grid);
    return scroll;
 }
@@ -520,7 +602,8 @@ void gui_edit_config(const char *filepath) {
 /////////////////////////////
 extern const char *config_file;
 
-static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
+static void on_edit_config_button(GtkButton *button, gpointer user_data) {
+   (void)button;
    if (user_data != NULL) {
       gui_edit_config(user_data);
    } else {
@@ -528,8 +611,30 @@ static void on_edit_config_button(GtkComboBoxText *combo, gpointer user_data) {
    }
 }
 
-static void on_fullscreen_button(GtkComboBoxText *combo, gpointer user_data) {
+static void on_fullscreen_button(GtkButton *button, gpointer user_data) {
+   (void)button;
    gui_fullscreen_toggle();
+}
+
+static void on_save_config_button(GtkButton *button, gpointer user_data) {
+   (void)user_data;
+   static char save_path[PATH_MAX];
+   const char *home = getenv("HOME");
+   snprintf(save_path, sizeof(save_path), "%s/.config/rrclient.cfg",
+      (home && *home) ? home : ".");
+
+   GtkWindow *parent = NULL;
+   GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   if (toplevel && GTK_IS_WINDOW(toplevel)) parent = GTK_WINDOW(toplevel);
+   char message[PATH_MAX + 128];
+   snprintf(message, sizeof(message),
+      "Save configuration to \"%s\"?\nThe existing file will be backed up.",
+      save_path);
+   if (!ui_confirm_dialog(parent, message)) return;
+
+   if (cfg_save(cfg, save_path)) {
+      Log(LOG_INFO, "gtk.config", "Configuration saved to %s", save_path);
+   }
 }
 
 GtkWidget *init_config_tab(void) {
@@ -546,21 +651,48 @@ GtkWidget *init_config_tab(void) {
    gtk_widget_set_vexpand(cfg_panel, TRUE);
    gtk_box_pack_start(GTK_BOX(nw), cfg_panel, TRUE, TRUE, 0);
 
-   GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
-   g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), (gpointer)config_file);
-   gtk_box_pack_start(GTK_BOX(nw), btn_cfgedit, FALSE, FALSE, 0);
+   GtkWidget *button_grid = gtk_grid_new();
+   gtk_grid_set_column_spacing(GTK_GRID(button_grid), 8);
+   gtk_grid_set_row_spacing(GTK_GRID(button_grid), 4);
+   gtk_container_set_border_width(GTK_CONTAINER(button_grid), 6);
+   gtk_grid_set_column_homogeneous(GTK_GRID(button_grid), TRUE);
+   gtk_widget_set_halign(button_grid, GTK_ALIGN_START);
+   gtk_widget_set_size_request(button_grid, 380, -1);
+   gtk_box_pack_start(GTK_BOX(nw), button_grid, FALSE, FALSE, 0);
 
-   GtkWidget *btn_reloadcfg = gtk_button_new_with_label("Reload Config");
-   g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer)config_file);
-   gtk_box_pack_start(GTK_BOX(nw), btn_reloadcfg, FALSE, FALSE, 0);
+   GtkWidget *left_buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   GtkWidget *right_buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_widget_set_size_request(left_buttons, 180, -1);
+   gtk_widget_set_size_request(right_buttons, 180, -1);
+   gtk_grid_attach(GTK_GRID(button_grid), left_buttons, 0, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(button_grid), right_buttons, 1, 0, 1, 1);
+
+   GtkWidget *btn_savecfg = gtk_button_new_with_label("Save Config");
+   g_signal_connect(btn_savecfg, "clicked", G_CALLBACK(on_save_config_button), NULL);
+   gtk_box_pack_start(GTK_BOX(left_buttons), btn_savecfg, FALSE, FALSE, 0);
 
    GtkWidget *btn_fullscreen = gtk_button_new_with_label("Toggle Fullscreen");
    g_signal_connect(btn_fullscreen, "clicked", G_CALLBACK(on_fullscreen_button), NULL);
-   gtk_box_pack_start(GTK_BOX(nw), btn_fullscreen, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(left_buttons), btn_fullscreen, FALSE, FALSE, 0);
+
+   GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
+   g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), (gpointer)config_file);
+   gtk_box_pack_start(GTK_BOX(left_buttons), btn_cfgedit, FALSE, FALSE, 0);
+
+   GtkWidget *btn_reloadcfg = gtk_button_new_with_label("Reload Config");
+   g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer)config_file);
+   gtk_box_pack_start(GTK_BOX(right_buttons), btn_reloadcfg, FALSE, FALSE, 0);
 
    toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
-   gtk_box_pack_start(GTK_BOX(nw), toggle_userlist_button, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(right_buttons), toggle_userlist_button, FALSE, FALSE, 0);
    g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
+
+   GtkWidget *actions[] = { btn_savecfg, btn_fullscreen, btn_cfgedit,
+      btn_reloadcfg, toggle_userlist_button };
+   for (size_t i = 0; i < sizeof(actions) / sizeof(actions[0]); i++) {
+      gtk_widget_set_size_request(actions[i], 170, -1);
+      gtk_widget_set_halign(actions[i], GTK_ALIGN_CENTER);
+   }
 
    return nw;
 }

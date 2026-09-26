@@ -364,7 +364,10 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
 #ifndef _WIN32
    GError *err = NULL;
    bool success = false;
-   const char *name = icon_name ? icon_name : "res/rustyrig";
+   const char *path = icon_name ? icon_name : "res/rustyrig";
+   /* GTK icon themes use the application name, not a source-tree path.
+    * Keep accepting paths for the development-tree fallback below. */
+   gchar *name = g_path_get_basename(path);
 
    gtk_window_set_icon_name(GTK_WINDOW(window), name);
    // Check if the icon name was registered by attempting to load it
@@ -374,7 +377,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    if (gtk_icon_theme_has_icon(theme, name) ) {
       success = true;
    } else {
-      gchar *local_icon = g_strdup_printf("./%s.png", name);
+      gchar *local_icon = g_strdup_printf("./%s.png", path);
 
       if (gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
          success = true;
@@ -385,6 +388,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
       g_free(local_icon);
    }
    g_object_unref(icon);
+   g_free(name);
 
    return success;
 #else

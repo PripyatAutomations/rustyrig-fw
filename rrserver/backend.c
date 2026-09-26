@@ -389,13 +389,10 @@ bool rr_be_vfo_supported(rr_vfo_t vfo) {
    // Apply the configured per-radio VFO cap on top of whatever the backend
    // reports. Values outside [1, MAX_VFOS] are ignored so a bad config can't
    // hide the rig's VFOs entirely.
-   static int cfg_vfos = -1;
-   if (cfg_vfos < 0) {
-      cfg_vfos = cfg_get_int("rig.vfos", 2);
-      if (cfg_vfos < 1 || cfg_vfos > MAX_VFOS) {
-         Log(LOG_WARN, "backend", "rig.vfos=%d out of range (1-%d); ignoring", cfg_vfos, MAX_VFOS);
-         cfg_vfos = MAX_VFOS;
-      }
+   int cfg_vfos = cfg_get_int("rig.vfos", 2);
+   if (cfg_vfos < 1 || cfg_vfos > MAX_VFOS) {
+      Log(LOG_WARN, "backend", "rig.vfos=%d out of range (1-%d); ignoring", cfg_vfos, MAX_VFOS);
+      cfg_vfos = MAX_VFOS;
    }
    return (vfo < cfg_vfos);
 }

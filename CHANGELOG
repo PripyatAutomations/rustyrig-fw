@@ -4,6 +4,9 @@ rustyrig-fw (20260924) testing; urgency=medium
   - LIST | REMOVE - management
   - VFO (ADD|LIST|REMOVE) - VFO binding management
 - Many fixes to the TUI rendering to remove flickers/corruption
+- Added /set [key [value]] for tui/gtk to edit config
+- Starts of GTK config & gstreamer pipeline editors
+- Fixed some obscure UI bugs
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 

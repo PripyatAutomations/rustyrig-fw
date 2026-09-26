@@ -32,6 +32,8 @@ ui.vfo.visocity=1000
 ; show the userlist when connected?
 ui.auto-show-userlist=true
 ui.userlist-width=220
+; Share command/chat history between all room tabs (false keeps one per room).
+ui.shared-input-history=true
 tui.use-mouse=false
 # Top/topic row; fields are expanded from live client state at each redraw.
 tui.status-line=${topic} | ${ptt-state} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${active_mode:---}
@@ -91,23 +93,11 @@ tui.keymap.scroll-down=Pgdn
 # NOTE: '#' and ';' start comments; escape them with a backslash when the
 # CSS needs a literal one, e.g. an id selector: \#chat-view { ... }
 
-;;;;;;;;;; disabled for now ;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 audio.volume.rx=35
 rig0.volume.rx=50
 ; PCM is the initial fallback while testing the compressed codecs.
 ; Use the RX/TX picker or /rxcodec and /txcodec to change codecs.
 ; duplicate codecs.allowed removed: use the negotiated list above
-audio.pipeline.rx.format=time
-; mulaw (matches the fwdsp test pipelines, which all encode with mulawenc)
-audio.pipeline.rx=appsrc name=rx-src is-live=true format=bytes caps=audio/x-mulaw,rate=16000,channels=1 ! mulawdec ! audioconvert ! audioresample ! volume name=rx-vol ! queue ! pulsesink device=default name=rx-sink client-name=rrgtk
-; 16khz PCM for digital modes (only when the fwdsp pipeline sends raw S16LE)
-;audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=rrloop_rx name=rx-sink client-name=rrgtk
-; 44.1khz PCM for digital modes
-#audio.pipeline.rx=appsrc name=rx-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=44100,channels=1,layout=interleaved ! audioconvert ! audioresample ! volume name=rx-vol ! queue2 ! pulsesink device=default name=rx-sink client-name=rrgtk
-// TX pipeline
-audio.pipeline.tx.format=time
-;audio.pipeline.tx=audiotestsrc wave=sine freq=440 do-timestamp=1 ! audio/x-raw,rate=8000,channels=1 ! volume name=tx-vol ! mulawenc ! appsink name=tx-sink emit-signals=true sync=false
 
 [fwdsp]
 pcm-hub=true
