@@ -93,6 +93,7 @@ extern void rrclient_print_callsign_line(const char *line);
 extern bool cmd_rehash(int argc, char **args);
 extern bool cmd_restart(int argc, char **args);
 extern bool cmd_rxvol(int argc, char **args);
+extern bool cmd_save(int argc, char **args);
 extern bool cmd_server(int argc, char **args);
 extern bool cmd_set(int argc, char **args);
 extern bool cmd_topic(int argc, char **args);

@@ -15,6 +15,7 @@
 #include <fnmatch.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <ctype.h>
 #include <time.h>
@@ -384,6 +385,55 @@ bool cmd_clearlog(int argc, char **args) {
 
 bool cmd_disconnect(int argc, char **args) {
    disconnect_server(server_name);
+   return false;
+}
+
+bool cmd_save(int argc, char **args) {
+   bool confirmed = false;
+   for (int i = 1; i < argc; i++) {
+      if (args[i] && (strcasecmp(args[i], "-y") == 0 ||
+          strcasecmp(args[i], "yes") == 0 || strcasecmp(args[i], "y") == 0)) {
+         confirmed = true;
+      }
+   }
+
+#ifdef USE_GTK
+   if (ui_mode == UI_MODE_GTK && !confirmed) {
+      GtkWindow *parent = NULL;
+      if (main_window && GTK_IS_WINDOW(main_window)) parent = GTK_WINDOW(main_window);
+      if (!ui_confirm_dialog(parent,
+            "Save configuration to ~/.config/rrclient.cfg?\nThe existing file will be backed up."))
+         return false;
+      confirmed = true;
+   }
+#endif
+
+   if (ui_mode == UI_MODE_TUI && !confirmed) {
+      ui_print(ui_active_window_name(),
+         "Save configuration to ~/.config/rrclient.cfg? Existing config will be backed up. "
+         "Run /save yes to confirm.");
+      return false;
+   }
+
+   if (!cfg) {
+      ui_print(ui_active_window_name(), "{red}*** Cannot save: configuration is not loaded{reset}");
+      return false;
+   }
+
+   char path[PATH_MAX];
+   const char *home = getenv("HOME");
+   int written = snprintf(path, sizeof(path), "%s/.config/rrclient.cfg",
+      (home && *home) ? home : ".");
+   if (written < 0 || (size_t)written >= sizeof(path)) {
+      ui_print(ui_active_window_name(), "{red}*** Cannot save: configuration path is too long{reset}");
+      return false;
+   }
+
+   if (!cfg_save(cfg, path)) {
+      ui_print(ui_active_window_name(), "{red}*** Failed to save configuration to %s{reset}", path);
+      return false;
+   }
+   ui_print(ui_active_window_name(), "{green}Configuration saved to %s{reset}", path);
    return false;
 }
 

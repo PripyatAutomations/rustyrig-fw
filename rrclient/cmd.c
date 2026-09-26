@@ -83,6 +83,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "restart", .cb = cmd_restart, .admin = true, .desc = "Restart the server" },
    { .cmd = "rxcodec", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
    { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
+   { .cmd = "save", .cb = cmd_save, .max_args = 1, .desc = "Save config to ~/.config/rrclient.cfg" },
    { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
    { .cmd = "set", .cb = cmd_set, .max_args = 31, .desc = "Set a typed configuration value" },
    { .cmd = "syslog", .cb = cmd_syslog, .desc = "Toggle server host log stream (/syslog on|off)" },

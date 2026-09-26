@@ -644,7 +644,7 @@ GtkWidget *init_config_tab(void) {
    gtk_label_set_markup(GTK_LABEL(cfg_tab_label), "(<u>2</u>) Config");
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, cfg_tab_label);
 
-   GtkWidget *config_label = gtk_label_new("Configuration will go here...");
+   GtkWidget *config_label = gtk_label_new("Please be sure to click SAVE CONFIG when done...");
    gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
 
    GtkWidget *cfg_panel = cfg_editor_panel();
