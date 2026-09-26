@@ -17,9 +17,13 @@ callback on the manager/event-loop thread, so callbacks must return promptly.
 The server's `src.rig0` and `sink.rig0` pipelines use PulseAudio (including
 PipeWire's PulseAudio compatibility layer) by default and can be overridden in
 the normal `[pipelines]` config section. Set `device=` in the pipelines when
-the rig audio interface is not the host default. For testing, `src.pink` and
-`src.tone660` generate PCM sources; select one by setting
-`[fwdsp] rig0.rx-source=src.pink` or `src.tone660`, then restart rrserver.
+the rig audio interface is not the host default. Normal codec IDs always use
+the `src.rig0` host/radio input. With `audio.test-mode=true`, the server also
+advertises RX-only tone (`*T`) and pink-noise (`*P`) codec variants, whose
+fwdsp pipelines generate their own source. Set it to `false` to hide those
+test variants. A radio TX channel always uses a normal codec and the client's
+microphone. The `src.pink` and `src.tone660` endpoints remain available for
+explicit processor tests.
 The selected rig RX source is framed into each active VFO RX encoder. Incoming
 talker packets are sent to other subscribers on that VFO, excluding the origin,
 decoded to canonical PCM, and written to `sink.rig0`. The decoder's optional

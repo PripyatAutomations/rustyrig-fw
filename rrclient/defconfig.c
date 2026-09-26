@@ -65,6 +65,7 @@ const char *default_css = DEFAULT_CSS;
 defconfig_t defcfg[] = {
    FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE)
    { "audio.prefer-codecs", FWDSP_DEFAULT_CODECS, "Preferred codec order" },
+   { "audio.test-mode", "true", "Show and advertise tone/pink test codecs", DEFCONFIG_BOOL, NULL },
    { "audio.volume.rx", "30", "Default RX volume", DEFCONFIG_UINT, NULL },
    { "audio.volume.tx", "40", "Default TX out vol", DEFCONFIG_UINT, NULL },
    { "codecs.allowed", FWDSP_DEFAULT_CODECS, "CODECs to support by default" },

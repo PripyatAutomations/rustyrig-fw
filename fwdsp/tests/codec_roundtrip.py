@@ -10,7 +10,8 @@ import tempfile
 import time
 
 BASE_CODECS = ('pc16', 'g722', 'mu16', 'mu08', 'opus', 'oggv', 'aacv', 'flac')
-CODECS = BASE_CODECS + tuple(codec[:3] + 'T' for codec in BASE_CODECS)
+CODECS = (BASE_CODECS + tuple(codec[:3] + 'T' for codec in BASE_CODECS) +
+          tuple(codec[:3] + 'P' for codec in BASE_CODECS))
 ROOT = Path.cwd()
 ENV = dict(os.environ, LD_LIBRARY_PATH=str(ROOT))
 
@@ -47,8 +48,8 @@ int main(void) {
       printf("%s\\t%s\\n", defaults[i].key + 9, defaults[i].value);
 }
 ''')
-    sources = [('client', config_pipelines('config/rrclient.cfg.example')),
-               ('server', config_pipelines('config/rrserver.cfg.example'))]
+    sources = [('client', config_pipelines('config/rrclient.cfg')),
+               ('server', config_pipelines('config/rrserver.cfg'))]
     for role, macro in [('client', 'FWDSP_RIG_PCM_SOURCE'), ('server', 'FWDSP_RIG_PCM_SOURCE')]:
         subprocess.run(shlex.split(os.environ.get('CC', 'cc')) +
                        ['-I.', '-DTEST_SOURCE=' + macro, str(source), '-o', str(work / 'defaults')], check=True)
@@ -63,17 +64,25 @@ int main(void) {
                     for codec in CODECS for direction in ('tx', 'rx')}
         assert expected <= set(defaults), (role, 'compiled defaults',
                                            sorted(expected - set(defaults)))
-        assert expected <= set(config), (role, 'configuration',
-                                         sorted(expected - set(config)))
+        # Pink variants intentionally use the shared built-in defaults rather
+        # than duplicating every long pipeline in each example config.
+        configured_expected = {key for key in expected if not key[:4].endswith('P')}
+        assert configured_expected <= set(config), (role, 'configuration',
+                                                    sorted(configured_expected - set(config)))
         sources.append(('defaults-' + role, defaults))
     for label, pipelines in sources:
         for codec in CODECS:
+            if codec + '.tx' not in pipelines:
+                assert codec.endswith('P'), (label, codec)
+                continue
             tx = pipelines[codec + '.tx']
             rx = pipelines[codec + '.rx']
             # Keep codec elements/caps/recording branches, replacing hardware
             # with a finite source and an output sink we can validate.
             if codec.endswith('T'):
                 assert tx.startswith('audiotestsrc ') and 'wave=sine' in tx and 'freq=600' in tx
+            elif codec.endswith('P'):
+                assert tx.startswith('audiotestsrc ') and 'wave=pink-noise' in tx
             else:
                 assert tx.startswith('appsrc name=tx-src ') and 'format=S16LE,rate=16000' in tx
                 tx = re.sub(r'^appsrc name=tx-src[^!]*!',

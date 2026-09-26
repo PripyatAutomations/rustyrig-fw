@@ -72,7 +72,7 @@ install -Dpm0755 libfwdspmgr.so %{buildroot}%{_libdir}/libfwdspmgr.so.0
 install -Dpm0644 packaging/rrserver.service %{buildroot}%{_unitdir}/rustyrig-server.service
 install -Dpm0755 packaging/rrserver.rc %{buildroot}%{_sysconfdir}/init.d/rrserver
 install -Dpm0644 packaging/rustyrig.tmpfiles %{buildroot}%{_tmpfilesdir}/rustyrig.conf
-for f in rrserver.cfg.example rrclient.cfg.example callsign-lookup.cfg.example callsign-lookup.srv.cfg.example callsign-lookup.cli.cfg.example; do install -Dpm0644 config/$f %{buildroot}%{_sysconfdir}/rustyrig/$f; done
+for f in rrserver.cfg rrclient.cfg callsign-lookup.cfg callsign-lookup.srv.cfg callsign-lookup.cli.cfg; do install -Dpm0644 config/$f %{buildroot}%{_sysconfdir}/rustyrig/$f; done
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
 install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.preload.sql
 install -Dpm0755 tools/dummy-rigctld.sh %{buildroot}%{_sharedstatedir}/rustyrig/tools/dummy-rigctld.sh
@@ -100,17 +100,17 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %{_unitdir}/rustyrig-server.service
 %{_tmpfilesdir}/rustyrig.conf
 %config(noreplace) %{_sysconfdir}/init.d/rrserver
-%config(noreplace) %{_sysconfdir}/rustyrig/rrserver.cfg.example
-%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.srv.cfg.example
+%config(noreplace) %{_sysconfdir}/rustyrig/rrserver.cfg
+%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.srv.cfg
 %{_sharedstatedir}/rustyrig
 %files client
 %{_bindir}/rrclient
-%config(noreplace) %{_sysconfdir}/rustyrig/rrclient.cfg.example
-%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cli.cfg.example
+%config(noreplace) %{_sysconfdir}/rustyrig/rrclient.cfg
+%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cli.cfg
 %files client-tui
 %{_bindir}/rrclient
 %files fwdsp
 %{_bindir}/fwdsp
 %files callsign-lookup
 %{_bindir}/callsign-lookup
-%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cfg.example
+%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cfg

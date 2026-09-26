@@ -29,6 +29,11 @@ inc/autoconf.h
 
 # Private data
 config/callsign-lookup.*.cfg
+!config/rrserver.cfg
+!config/rrclient.cfg
+!config/callsign-lookup.cfg
+!config/callsign-lookup.srv.cfg
+!config/callsign-lookup.cli.cfg
 config/*.old
 config/*.crt
 config/*.cert

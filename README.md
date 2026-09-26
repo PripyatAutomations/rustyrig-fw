@@ -42,6 +42,10 @@ Good luck! - rustyaxe
 GTK View:
 ![GTK ScreenShot](doc/screenshot-gtk.png)
 
+GTK Config Tab:
+
+![GTK Config ScreenShot](doc/screenshot-gtk-cfgtab.png)
+
 TUI View:
 ![TUI ScreenShot](doc/screenshot-tui.png)
 

@@ -48,8 +48,8 @@ package_rustyrig-server() {
    install -Dm644 packaging/rrserver.service "$pkgdir/usr/lib/systemd/system/rustyrig-server.service"
    install -Dm644 packaging/rustyrig.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/rustyrig.conf"
    install -Dm755 packaging/rrserver.rc "$pkgdir/etc/init.d/rrserver"
-   install -Dm644 config/rrserver.cfg.example "$pkgdir/etc/rustyrig/rrserver.cfg.example"
-   install -Dm644 config/callsign-lookup.srv.cfg.example "$pkgdir/etc/rustyrig/callsign-lookup.srv.cfg.example"
+   install -Dm644 config/rrserver.cfg "$pkgdir/etc/rustyrig/rrserver.cfg"
+   install -Dm644 config/callsign-lookup.srv.cfg "$pkgdir/etc/rustyrig/callsign-lookup.srv.cfg"
    install -Dm644 sql/sqlite.master.sql "$pkgdir/var/lib/rustyrig/sql/sqlite.master.sql"
    install -Dm644 sql/sqlite.master.preload.sql "$pkgdir/var/lib/rustyrig/sql/sqlite.master.preload.sql"
    install -Dm755 tools/dummy-rigctld.sh "$pkgdir/var/lib/rustyrig/tools/dummy-rigctld.sh"
@@ -61,8 +61,8 @@ package_rustyrig-client() {
    pkgdesc='RustyRig GTK client'; conflicts=('rustyrig-client-tui'); replaces=('rustyrig-client-tui'); depends=('rustyrig-libs' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 "$srcdir/rrclient-gtk" "$pkgdir/usr/bin/rrclient"
-   install -Dm644 config/rrclient.cfg.example "$pkgdir/etc/rustyrig/rrclient.cfg.example"
-   install -Dm644 config/callsign-lookup.cli.cfg.example "$pkgdir/etc/rustyrig/callsign-lookup.cli.cfg.example"
+   install -Dm644 config/rrclient.cfg "$pkgdir/etc/rustyrig/rrclient.cfg"
+   install -Dm644 config/callsign-lookup.cli.cfg "$pkgdir/etc/rustyrig/callsign-lookup.cli.cfg"
    install -d "$pkgdir/var/lib/rustyrig"/{db,help,recordings/client} "$pkgdir/var/log/rustyrig"
    find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/help/" \;
 }
@@ -77,7 +77,7 @@ package_rustyrig-fwdsp() {
 }
 package_rustyrig-callsign-lookup() {
    pkgdesc='RustyRig callsign lookup service'; depends=('rustyrig-libs' 'curl' 'sqlite')
-   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/callsign-lookup "$pkgdir/usr/bin/callsign-lookup"; install -Dm644 config/callsign-lookup.cfg.example "$pkgdir/etc/rustyrig/callsign-lookup.cfg.example"
+   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/callsign-lookup "$pkgdir/usr/bin/callsign-lookup"; install -Dm644 config/callsign-lookup.cfg "$pkgdir/etc/rustyrig/callsign-lookup.cfg"
 }
 
 post_install() { ldconfig; }

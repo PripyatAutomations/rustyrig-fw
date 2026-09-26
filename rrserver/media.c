@@ -49,6 +49,11 @@ static void rrserver_rig_rx_pcm(const char *name, const void *samples, size_t le
           !channel->codec[0]) {
          continue;
       }
+      /* Tone and pink test codecs generate their own source in fwdsp. They
+       * must not also be fed from the rig PCM hub. */
+      if (channel->codec[3] == 'T' || channel->codec[3] == 'P') {
+         continue;
+      }
       char always_key[64];
       snprintf(always_key, sizeof(always_key), "record.always.vfo_%c", 'a' + channel->vfo);
       if (!ws_media_channel_has_subscribers(channel) && !cfg_get_bool(always_key, false)) {
@@ -93,20 +98,20 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
 }
 
 bool rrserver_media_audio_init(void) {
-   const char *configured_rx_source = cfg_get_exp("fwdsp:rig0.rx-source");
-   const char *rx_source = configured_rx_source && *configured_rx_source ?
-      configured_rx_source : "src.rig0";
+   /* The normal codec IDs always carry the rig PCM source.  Test-mode codec
+    * IDs (the *T tone and *P pink variants) provide self-contained sources
+    * alongside it, so selecting a test codec never changes the normal path. */
+   const char *rx_source = "src.rig0";
    bool source_ok = fwdsp_audio_capture_start(rx_source, NULL, rrserver_rig_rx_pcm, NULL);
    bool sink_ok = fwdsp_audio_playback_start("sink.rig0", NULL);
    if (!source_ok || !sink_ok) {
       Log(LOG_CRIT, "pcm.hub", "Unable to start rig PCM endpoints (%s=%s, sink.rig0=%s)",
-         rx_source, source_ok ? "ready" : "failed", sink_ok ? "ready" : "failed");
-      free((char *)configured_rx_source);
+         rx_source, source_ok ? "ready" : "failed",
+         sink_ok ? "ready" : "failed");
       return false;
    }
    Log(LOG_INFO, "pcm.hub", "Rig PCM endpoints ready: %s -> per-channel encoders; TX decoders -> sink.rig0",
       rx_source);
-   free((char *)configured_rx_source);
    return true;
 }
 

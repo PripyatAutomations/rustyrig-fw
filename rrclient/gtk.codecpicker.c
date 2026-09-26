@@ -18,6 +18,7 @@
 #include <time.h>
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
+#include <librrprotocol/codecneg.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrclient/ui.speech.h>
@@ -135,7 +136,10 @@ void codec_pickers_refresh(void) {
    } else {
       // Not negotiated yet: show our configured preferences; the negotiation
       // (ws_handle_media_msg) will re-select once the server answers.
-      configured = (char *)cfg_get_exp("codecs.allowed");
+      const char *configured_codecs = cfg_get_exp("codecs.allowed");
+      configured = codec_filter_test_mode(configured_codecs,
+         cfg_get_bool("audio.test-mode", true));
+      free((void *)configured_codecs);
 
       if (configured) {
          snprintf(available, sizeof(available), "%s", configured);

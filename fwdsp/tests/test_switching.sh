@@ -5,7 +5,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # Real codec elements, with no sound device required for decoder lifecycle tests.
 server_cfg=${RRSERVER_CONFIG:-config/rrserver.cfg}
-[[ -f "$server_cfg" ]] || server_cfg=config/rrserver.cfg.example
+[[ -f "$server_cfg" ]] || server_cfg=config/rrserver.cfg
 python3 - "$server_cfg" "$work/test.cfg" <<'PYTHON'
 import re, sys
 from pathlib import Path

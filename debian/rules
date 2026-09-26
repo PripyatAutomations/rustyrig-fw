@@ -30,7 +30,7 @@ override_dh_auto_install:
 	install -Dm755 bin/rrclient debian/rustyrig-client-tui/usr/bin/rrclient
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
 	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup/usr/bin/callsign-lookup
-	install -Dm644 config/callsign-lookup.cfg.example debian/rustyrig-callsign-lookup/etc/rustyrig/callsign-lookup.cfg.example
+	install -Dm644 config/callsign-lookup.cfg debian/rustyrig-callsign-lookup/etc/rustyrig/callsign-lookup.cfg
 
 	install -d debian/rustyrig-server/var/lib/rustyrig/db
 	install -d debian/rustyrig-server/var/lib/rustyrig/recordings
@@ -48,11 +48,14 @@ override_dh_auto_install:
 	install -d debian/rustyrig-client/var/run/rustyrig
 	install -d debian/rustyrig-server/etc/rustyrig
 	install -d debian/rustyrig-client/etc/rustyrig
-	install -Dm644 config/rrserver.cfg.example debian/rustyrig-server/etc/rustyrig/rrserver.cfg.example
-	install -Dm644 config/callsign-lookup.srv.cfg.example debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg.example
+	install -d debian/rustyrig-client-tui/etc/rustyrig
+	install -Dm644 config/rrserver.cfg debian/rustyrig-server/etc/rustyrig/rrserver.cfg
+	install -Dm644 config/callsign-lookup.srv.cfg debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
-	install -Dm644 config/rrclient.cfg.example debian/rustyrig-client/etc/rustyrig/rrclient.cfg.example
-	install -Dm644 config/callsign-lookup.cli.cfg.example debian/rustyrig-client/etc/rustyrig/callsign-lookup.cli.cfg.example
+	install -Dm644 config/rrclient.cfg debian/rustyrig-client/etc/rustyrig/rrclient.cfg
+	install -Dm644 config/callsign-lookup.cli.cfg debian/rustyrig-client/etc/rustyrig/callsign-lookup.cli.cfg
+	install -Dm644 config/rrclient.cfg debian/rustyrig-client-tui/etc/rustyrig/rrclient.cfg
+	install -Dm644 config/callsign-lookup.cli.cfg debian/rustyrig-client-tui/etc/rustyrig/callsign-lookup.cli.cfg
 	find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-server/var/lib/rustyrig/www/ \;
 	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
 	install -Dm644 sql/sqlite.master.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.sql
@@ -76,7 +79,7 @@ override_dh_auto_install:
 	cp -a libfwdspmgr/*.h debian/libfwdspmgr-dev/usr/include/libfwdspmgr/
 
 	install -d debian/rustyrig-server/usr/share/doc/rustyrig/config
-	cp -a config/*.example debian/rustyrig-server/usr/share/doc/rustyrig/config/
+	cp -a config/rrserver.cfg config/rrclient.cfg config/callsign-lookup.cfg config/callsign-lookup.srv.cfg config/callsign-lookup.cli.cfg debian/rustyrig-server/usr/share/doc/rustyrig/config/
 	cp -a doc debian/rustyrig-server/usr/share/doc/rustyrig/
 
 override_dh_installinit:

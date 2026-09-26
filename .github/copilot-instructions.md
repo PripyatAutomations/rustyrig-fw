@@ -187,8 +187,8 @@ Priority order (later overrides earlier):
 
 Copy example files to start:
 ```bash
-cp config/rrclient.cfg.example ~/.config/rrclient.cfg
-cp config/rrserver.cfg.example ~/.config/rrserver.cfg
+cp config/rrclient.cfg ~/.config/rrclient.cfg
+cp config/rrserver.cfg ~/.config/rrserver.cfg
 ```
 
 Generate TLS certificates (required for WebUI audio):

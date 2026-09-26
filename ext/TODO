@@ -1,0 +1,6 @@
+Take a look at ext/wwvsim and ext/chusim:
+   figure out a good way to run them as subprocess like fwdsp, feeding audio
+   into the pipeline as if a src. - it should be mostly ready for such use
+   already with the right config options! We should NOT change that code as
+   it's external from our code.
+

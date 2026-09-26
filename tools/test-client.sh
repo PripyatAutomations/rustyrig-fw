@@ -10,7 +10,7 @@ mkdir -p run/rrclient
 #   echo "No config found at ~/.config/rrclient.cfg, copy example? [N/y]"
 #   read line
 #   if [ "${line}" == "y" -o "${line}" == "Y" ]; then
-#      cp config/rrclient.cfg.example ~/.config/rrclient.cfg
+#      cp config/rrclient.cfg ~/.config/rrclient.cfg
 #   else
 #      echo "Skipping!"
 #      exit 1
