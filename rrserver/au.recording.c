@@ -35,9 +35,9 @@ bool au_recording_generate_id(char *buffer, size_t length) {
    if (!buffer || length < RECORDING_ID_BUFSIZE) {
       return false;
    }
-   // auth_generate_nonce() emits length - 2 characters but places its
-   // terminator one byte past that. Normalize the result to exactly 12 chars.
-   if (auth_generate_nonce(buffer, RECORDING_ID_LEN + 2) < 0) {
+   // auth_generate_nonce() takes the complete buffer size, including its
+   // terminator. Generate exactly the 12-character recording ID here.
+   if (auth_generate_nonce(buffer, RECORDING_ID_LEN + 1) < 0) {
       return false;
    }
    buffer[RECORDING_ID_LEN] = '\0';

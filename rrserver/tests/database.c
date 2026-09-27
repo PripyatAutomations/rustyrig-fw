@@ -46,6 +46,23 @@ int main(void) {
    run_file(db, "sql/sqlite.master.sql");
    run_file(db, "sql/sqlite.master.preload.sql");
 
+   // Public persistence helpers must reject incomplete calls without
+   // dereferencing a null handle or inserting malformed state.
+   assert(!db_room_ensure(NULL, "#invalid", false, 0));
+   assert(!db_room_ensure(db, NULL, false, 0));
+   assert(!db_room_ensure(db, "", false, 0));
+   assert(!db_room_set_topic(db, "#missing", NULL));
+   assert(db_room_get_topic(db, "#missing") == NULL);
+   assert(!db_room_vfo_add(db, NULL, "rig0.vfo_a"));
+   assert(!db_room_vfo_add(db, "#missing", NULL));
+   assert(!db_room_vfo_remove(db, NULL, "rig0.vfo_a"));
+   assert(db_get_users(NULL) == -1);
+   assert(db_ptt_start(NULL, "admin", "A", 14074000, "USB", 3000, 25.0f, NULL, "id") == -1);
+   assert(!db_ptt_stop(db, -1, NULL, NULL));
+   assert(db_quota_get(NULL, "admin") == -1);
+   assert(!db_quota_spend(db, "admin", 0));
+   assert(!db_quota_spend(db, NULL, 1));
+
    assert(db_room_ensure(db, "#alpha", true, 3));
    assert(db_room_set_topic(db, "#alpha", "Test topic"));
    char *topic = db_room_get_topic(db, "#alpha");
@@ -97,6 +114,6 @@ int main(void) {
    assert(db_quota_get(db, "new-user") == 25);
 
    sqlite3_close(db);
-   puts("PASS: database schema, rooms, users, PTT recordings, chat, audit, and quota");
+   puts("PASS: database schema, validation, rooms, users, PTT recordings, chat, audit, and quota");
    return 0;
 }

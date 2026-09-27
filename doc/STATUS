@@ -1,0 +1,13 @@
+[audio]
+- Working via gstreamer pipelines
+- See *P and *T pipelines for pink noise and single tone tests, if audio.debug is true
+
+[cat]
+- Basic yaesu CAT is acceptable on dev/ttyCAT0 device
+
+[rigs]
+- Internal backend stores rig state and is a good base for new radio support
+- Support using hamlib backend to control other rigs
+
+[websocket]
+- Working, using libmongoose

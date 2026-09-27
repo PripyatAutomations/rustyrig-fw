@@ -1,24 +1,16 @@
 rustyrig-fw (20260927) testing; urgency=medium
-- Consolidated client and server logging controls under log.*: timestamp,
-  HTTP, and GStreamer verbosity settings no longer use duplicate debug.* keys.
-- Removed unused client configuration aliases and the duplicate HTTP port
-  default; the outbound MQTT client now has a typed enabled/host/port setup.
-- Removed stale hamlib and fwdsp subprocess debug aliases from shipped
-  configurations and documentation.
-- Renamed the fwdsp GStreamer verbosity setting from `audio.debug` to
-  `log.audio` so all logging controls use the same namespace.
+- Configuration key name cleanup
 - Removed the unused runtime `debug.profiling` setting; profiling remains a
   build feature controlled by the profile configuration.
 - Added protocol security tests for challenge-response hashes, privilege
   matching, wildcard privileges, and invalid user/privilege inputs.
-- Added configuration-integrity tests that reject duplicate keys and
-  incomplete enum metadata in client and server defaults.
+- More automated tests
+- Test cases
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>
+ -- Pripyat Automations <dangerousdevices@istabpeople.com> Sun Sep 27 12:40:41 PM EDT 2026
 
 rustyrig-fw (20260926) testing; urgency=medium
-- Keep GTK private query tabs chat-only; room userlists and VFO controls stay
-  attached to room tabs.
+- UI fixes around query and status/log tabs
 - GTK PTT shortcuts now match TUI: tap to toggle the PTT lock, hold to key
   only while the shortcut is held; pending state remains yellow.
 - Reordered room administration commands to `/room list` and
@@ -27,9 +19,6 @@ rustyrig-fw (20260926) testing; urgency=medium
   format string, which could crash the client while displaying a PM.
 - Private queries now render incoming messages as *user* message and sent
   messages as -> message, using the server echo to avoid duplicate output.
-- Flush deferred TUI redraws after chat events so messages appear immediately
-  in the active room tab.
-- Propagated package build parallelism to dpkg-buildpackage and Debian rules.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 
@@ -64,7 +53,7 @@ rustyrig-fw (20260920) testing; urgency=medium
 - Fixed callsign-lookup & integrated
   see /CALL and /GRID commands
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>
+ -- Pripyat Automations <dangerousdevices@istabpeople.com> 
 
 rustyrig-fw (20260917) testing; urgency=medium
 - Codec selection is per media channel UUID.

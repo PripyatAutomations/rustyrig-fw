@@ -16,12 +16,13 @@ Fetch updates & submodules
 ---------
 CONFIGURE
 ---------
-     # Edit things in config/ as appropriate.
-     # - Default profile is 'radio'
+* Edit things in config/ as appropriate.
+   # - Default profile is 'radio'
    - config/${PROFILE}.config.json has build-time config
 
    Edit config/rrserver.cfg to set it up
-   -- config/http.users OR use sqlite! see sql/sqlite.master.exampes.sql
+   -- config/http.users OR use sqlite! see sql/sqlite.master.preload.sql
+   * SQL is preferred method of user management! *
 
    Add users/change passwords in config/http.users (See config/http.users.example)
    - Try ./tools/user-edit.sh!
@@ -42,13 +43,7 @@ BUILD
 
 Server setup below
 -------------------------------------
-This code is a bit of a mess. Right now I'm focused on getting it functional
-then we'll go through and rewrite/cleanup each file.
-
-I've made this mess in essentially a few weeks^Wmonths of spare time.
-Keep that in mind before exposing it to the internet.
 Probably wise to use a VPN for now.
-Mongoose httpd is well maintained and tested, but my code presently is not.
 
 Feel free to contribute changes or improvements via github or .diff's!
 
@@ -57,8 +52,8 @@ Long story short, on a debian-based system do the following to try it:
    Find your rig's model # in hamlib:
 	rigctld -l | less
 
-   Start up rigctld connected to your rig (example is dummy):
-	rigctld -o -v -v -m 1 &
+   Start up rigctld connected to your rig (example is dummy) - the -o is important!:
+	rigctld -o -m 1 &
 
    Set backend.active=hamlib in rrserver.cfg (/etc/rustyrig or ./config)
 
@@ -71,17 +66,12 @@ You should probably use https otherwise crypto.subtle isn't available so we cant
 for authentication except on localhost!
 
 
-
 Client setup
 ------------
 Native client rrclient has gtk and TUI (-T) modes- check it out!
 
 Edit config/rrclient.cfg (or /etc/rustyrig/rrclient.cfg)
 Run rrclient for gtk or rrclient -T (or unset $DISPLAY) for TUI.
-
-- We're migrating the client to use libsoup3 for it's http/websocket. This
-  will make it work better on posix hosts and client is unlikely to get run
-  on embedded.
 
 --
 See doc/STATUS for status of subsystems.

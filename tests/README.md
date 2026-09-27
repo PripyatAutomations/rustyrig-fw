@@ -23,6 +23,9 @@ tests/
 
 Existing in-tree suites (e.g. `librustyaxe/tests/`, `fwdsp/tests/`) are
 invoked through their own Makefiles so they remain the source of truth.
+Generated RustyAxe test objects and executables are placed below
+`build/tests/librustyaxe` and are removed after `check`, keeping component
+source directories clean.
 
 ## Usage
 
