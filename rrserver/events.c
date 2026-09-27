@@ -14,9 +14,12 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdarg.h>
+#include <ctype.h>
+#include <stdio.h>
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/auth.h>
 
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
@@ -886,6 +889,274 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    dict_free(d);
 }
 
+static void user_reply(rrconn_t *cptr, const char *fmt, ...) {
+   char buf[HTTP_WS_MAX_MSG + 1];
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(buf, sizeof(buf), fmt, ap);
+   va_end(ap);
+   ws_send_notice(cptr, "%s", buf);
+}
+
+static bool user_name_valid(const char *name) {
+   if (!name || !*name || strlen(name) > HTTP_USER_LEN) return false;
+   for (const unsigned char *p = (const unsigned char *)name; *p; p++) {
+      if (!isalnum(*p) && *p != '_' && *p != '-') return false;
+   }
+   return true;
+}
+
+static bool user_is_elevated(const http_user_t *user) {
+   return user && match_priv(user->privs, "admin|owner");
+}
+
+static bool user_target_allowed(const http_user_t *actor, const http_user_t *target, bool password_change) {
+   if (!actor || !target) return false;
+   if (has_priv(actor->uid, "owner")) return true;
+   if (user_is_elevated(target)) {
+      return password_change && actor->uid == target->uid;
+   }
+   return true;
+}
+
+static bool user_temp_password(char *password, size_t length) {
+   if (!password || length < 9) return false;
+   unsigned value = arc4random_uniform(100000000U);
+   return snprintf(password, length, "%08u", value) > 0;
+}
+
+static bool user_reload_database(rrconn_t *cptr) {
+   if (db_get_users(masterdb) < 0) {
+      ws_send_error(cptr, "USER: account database reload failed");
+      return false;
+   }
+   return true;
+}
+
+static void user_disconnect_sessions(const http_user_t *target, const char *reason) {
+   if (!target) return;
+   for (rrconn_t *cur = http_client_list; cur;) {
+      rrconn_t *next = cur->next;
+      if (cur->user == target) ws_kick_client(cur, reason);
+      cur = next;
+   }
+}
+
+static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)user;
+#ifndef USE_SQLITE
+   (void)data;
+   if (cptr) ws_send_error(cptr, "USER: account management requires SQLite support");
+   return;
+#else
+   if (!cptr || !cptr->user || !data) return;
+   if (!masterdb) {
+      ws_send_error(cptr, "USER: account database is not open");
+      return;
+   }
+
+   char input[HTTP_WS_MAX_MSG + 1];
+   snprintf(input, sizeof(input), "%s", data);
+   char *argv[8] = {0};
+   int argc = 0;
+   char *save = NULL;
+   for (char *token = strtok_r(input, " \t\r\n", &save);
+        token && argc < (int)(sizeof(argv) / sizeof(argv[0]));
+        token = strtok_r(NULL, " \t\r\n", &save)) {
+      argv[argc++] = token;
+   }
+
+   if (argc == 0 || strcasecmp(argv[0], "help") == 0) {
+      user_reply(cptr, "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | resetpw <user> | pass <user> <password>");
+      return;
+   }
+
+   if (strcasecmp(argv[0], "list") == 0) {
+      if (argc != 1) {
+         user_reply(cptr, "Usage: /user list");
+         return;
+      }
+      user_reply(cptr, "Users:");
+      for (int i = 0; i < HTTP_MAX_USERS; i++) {
+         http_user_t *entry = &http_users[i];
+         if (!entry->name[0]) continue;
+         char expiry[32] = "never";
+         if (entry->password_expires > 0) {
+            struct tm tm_value;
+            localtime_r(&entry->password_expires, &tm_value);
+            strftime(expiry, sizeof(expiry), "%Y-%m-%d", &tm_value);
+         }
+         user_reply(cptr, "  %-16s %-7s sessions=%d privs=%s password-expires=%s%s",
+            entry->name, entry->enabled ? "enabled" : "locked", entry->sessions,
+            entry->privs[0] ? entry->privs : "none", expiry,
+            entry->password_change_required ? " (change required)" : "");
+      }
+      return;
+   }
+
+   if (strcasecmp(argv[0], "oldpw") == 0) {
+      if (argc != 1) {
+         user_reply(cptr, "Usage: /user oldpw");
+         return;
+      }
+      int configured_age = cfg_get_int("security.max-pw-age", 90);
+      unsigned max_age = configured_age > 0 ? (unsigned)configured_age : 0;
+      if (max_age == 0) {
+         user_reply(cptr, "USER: password age reporting is disabled");
+         return;
+      }
+      time_t cutoff = now - (time_t)max_age * 86400;
+      int found = 0;
+      for (int i = 0; i < HTTP_MAX_USERS; i++) {
+         http_user_t *entry = &http_users[i];
+         if (!entry->name[0] || entry->password_set <= 0 || entry->password_set > cutoff) continue;
+         int days = (int)((now - entry->password_set) / 86400);
+         user_reply(cptr, "  %-16s password set %d days ago%s", entry->name, days,
+            entry->password_change_required ? " (change required)" : "");
+         found++;
+      }
+      if (!found) user_reply(cptr, "USER: no passwords are older than %u days", max_age);
+      return;
+   }
+
+   if (strcasecmp(argv[0], "add") == 0) {
+      if (argc < 2 || argc > 3 || !user_name_valid(argv[1])) {
+         user_reply(cptr, "Usage: /user add <user> [privileges]");
+         return;
+      }
+      if (http_getuid(argv[1]) >= 0) {
+         user_reply(cptr, "USER: account already exists: %s", argv[1]);
+         return;
+      }
+      const char *privileges = argc == 3 ? argv[2] : "view,chat";
+      if (strlen(privileges) > USER_PRIV_LEN ||
+          (!has_priv(cptr->user->uid, "owner") && match_priv(privileges, "admin|owner"))) {
+         user_reply(cptr, "USER: administrators cannot create owner or administrator accounts");
+         return;
+      }
+      int uid = db_user_next_uid(masterdb);
+      if (uid < 1 || uid >= HTTP_MAX_USERS) {
+         user_reply(cptr, "USER: no user slots are available");
+         return;
+      }
+      char password[9];
+      char *password_hash = NULL;
+      bool ok = user_temp_password(password, sizeof(password));
+      if (ok) password_hash = hash_passwd(password);
+      ok = ok && password_hash && db_user_create(masterdb, uid, argv[1], true, password_hash,
+         "no@example.com", 1, privileges, true, now + 7 * 86400);
+      free(password_hash);
+      if (!ok || !user_reload_database(cptr)) {
+         user_reply(cptr, "USER: failed to add %s", argv[1]);
+         return;
+      }
+      Log(LOG_AUDIT, "auth.users", "%s added user %s with privileges %s", cptr->chatname, argv[1], privileges);
+      user_reply(cptr, "USER: added %s with temporary password %s (password change required at next login)", argv[1], password);
+      return;
+   }
+
+   const char *target_name = argc > 1 ? argv[1] : NULL;
+   int target_uid = target_name ? http_getuid(target_name) : -1;
+   http_user_t *target = target_uid >= 0 ? &http_users[target_uid] : NULL;
+   bool password_change = strcasecmp(argv[0], "pass") == 0 || strcasecmp(argv[0], "resetpw") == 0;
+
+   if (!target_name || !target || !target->name[0]) {
+      user_reply(cptr, "USER: account not found: %s", target_name ? target_name : "(missing)");
+      return;
+   }
+   if (!user_target_allowed(cptr->user, target, password_change)) {
+      user_reply(cptr, "USER: insufficient privilege to modify %s", target->name);
+      return;
+   }
+
+   if (strcasecmp(argv[0], "lock") == 0 || strcasecmp(argv[0], "unlock") == 0) {
+      if (argc != 2 || (user_is_elevated(target) && !has_priv(cptr->user->uid, "owner"))) {
+         user_reply(cptr, "USER: admins cannot lock owners or administrators");
+         return;
+      }
+      if (target == cptr->user) {
+         user_reply(cptr, "USER: you cannot lock or unlock your own account");
+         return;
+      }
+      bool enabled = strcasecmp(argv[0], "unlock") == 0;
+      if (!db_user_set_enabled(masterdb, target->name, enabled) || !user_reload_database(cptr)) {
+         user_reply(cptr, "USER: failed to %s %s", enabled ? "unlock" : "lock", target->name);
+         return;
+      }
+      Log(LOG_AUDIT, "auth.users", "%s %s user %s", cptr->chatname, enabled ? "unlocked" : "locked", target->name);
+      user_reply(cptr, "USER: %s %s", enabled ? "Unlocked" : "Locked", target->name);
+      return;
+   }
+
+   if (strcasecmp(argv[0], "remove") == 0) {
+      if (argc != 2 || (user_is_elevated(target) && !has_priv(cptr->user->uid, "owner"))) {
+         user_reply(cptr, "USER: admins cannot remove owners or administrators");
+         return;
+      }
+      if (target == cptr->user) {
+         user_reply(cptr, "USER: you cannot remove your own account");
+         return;
+      }
+      char removed_name[HTTP_USER_LEN + 1];
+      strlcpy(removed_name, target->name, sizeof(removed_name));
+      if (!db_user_remove(masterdb, removed_name)) {
+         user_reply(cptr, "USER: failed to remove %s", removed_name);
+         return;
+      }
+      user_disconnect_sessions(target, "Your account was removed by an administrator");
+      if (!user_reload_database(cptr)) {
+         user_reply(cptr, "USER: removed %s, but account reload failed", removed_name);
+         return;
+      }
+      Log(LOG_AUDIT, "auth.users", "%s removed user %s", cptr->chatname, removed_name);
+      user_reply(cptr, "USER: removed %s", removed_name);
+      return;
+   }
+
+   if (strcasecmp(argv[0], "resetpw") == 0) {
+      if (argc != 2) {
+         user_reply(cptr, "Usage: /user resetpw <user>");
+         return;
+      }
+      char password[9];
+      if (!user_temp_password(password, sizeof(password))) {
+         user_reply(cptr, "USER: unable to generate a temporary password");
+         return;
+      }
+      char *password_hash = hash_passwd(password);
+      bool ok = password_hash && db_user_update_password(masterdb, target->name, password_hash, true, now + 7 * 86400);
+      free(password_hash);
+      if (!ok || !user_reload_database(cptr)) {
+         user_reply(cptr, "USER: failed to reset password for %s", target->name);
+         return;
+      }
+      Log(LOG_AUDIT, "auth.users", "%s reset password for %s", cptr->chatname, target->name);
+      user_reply(cptr, "USER: temporary password for %s: %s (password change required at next login)", target->name, password);
+      return;
+   }
+
+   if (strcasecmp(argv[0], "pass") == 0) {
+      if (argc != 3 || !argv[2] || strlen(argv[2]) < 8 || strlen(argv[2]) > 128) {
+         user_reply(cptr, "Usage: /user pass <user> <password> (8-128 characters)");
+         return;
+      }
+      char *password_hash = hash_passwd(argv[2]);
+      bool ok = password_hash && db_user_update_password(masterdb, target->name, password_hash, false, 0);
+      free(password_hash);
+      if (!ok || !user_reload_database(cptr)) {
+         user_reply(cptr, "USER: failed to change password for %s", target->name);
+         return;
+      }
+      Log(LOG_AUDIT, "auth.users", "%s changed password for %s", cptr->chatname, target->name);
+      user_reply(cptr, "USER: password changed for %s", target->name);
+      return;
+   }
+
+   user_reply(cptr, "USER: unknown subcommand %s", argv[0]);
+#endif
+}
+
 void rrserver_register_events(void) {
    extern void rrserver_media_register_events(void);   // media.c
    rrserver_media_register_events();
@@ -898,6 +1169,7 @@ void rrserver_register_events(void) {
    event_on("latency", rrserver_handle_latency, NULL);
    event_on("ptt.off", rrserver_handle_ptt_off, NULL);
    event_on("quota.cmd", rrserver_handle_quota_cmd, NULL);
+   event_on("user.cmd", rrserver_handle_user_cmd, NULL);
    event_on("recording-start", rrserver_handle_recording_start, NULL);
    event_on("recording-stop",rrserver_handle_recording_stop, NULL);
    event_on("rehash", rrserver_handle_rehash, NULL);

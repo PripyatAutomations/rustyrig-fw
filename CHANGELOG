@@ -9,6 +9,13 @@ rustyrig-fw (20260927) testing; urgency=medium
   configured user-agent ban file alongside the existing init support.
 - MQTT now listens on loopback by default, and added a regression test proving
   an authenticated user's PTT is released when their connection drops.
+- Debian server installs now prompt for the admin password through debconf and
+  apply it to a newly created database without resetting upgrade databases.
+- Put the RustyRig Client desktop launcher in the Ham Radio menu category.
+- Added server-side user administration commands and password age metadata;
+  fresh databases disable guest and no longer preload bob.
+- Account reloads now preserve live session and mute state, and shared-header
+  changes correctly rebuild dependent libraries.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com> Sun Sep 27 12:40:41 PM EDT 2026
 

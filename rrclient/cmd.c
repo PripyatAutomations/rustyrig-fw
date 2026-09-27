@@ -90,6 +90,7 @@ client_cmd_t client_cmds[] = {
    { .cmd = "topic", .cb = cmd_topic, .desc = "Get or set the current room topic" },
    { .cmd = "txcodec", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
    { .cmd = "unmute", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user" },
+   { .cmd = "user", .cb = cmd_user, .max_args = 4, .admin = true, .desc = "Manage server users (LIST|ADD|REMOVE|LOCK|UNLOCK|OLDPW|RESETPW|PASS)" },
 #ifdef USE_GTK
    { .cmd = "webcam", .cb = cmd_webcam, .max_args = 1, .desc = "Toggle the webcam viewer window (SHOW | HIDE)" },
 #endif

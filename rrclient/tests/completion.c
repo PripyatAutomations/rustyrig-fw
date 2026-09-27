@@ -5,7 +5,7 @@ time_t now;
 struct rr_user *global_userlist;
 client_cmd_t client_cmds[] = {
    {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
-   {.cmd="kick", .admin=true}, {0}
+   {.cmd="kick", .admin=true}, {.cmd="user", .admin=true}, {0}
 };
 static bool admin;
 bool media_have_priv(const char *p) { return admin; }
@@ -56,6 +56,7 @@ int main(void) {
    check("/quota SET a", "a", "alice");
    check("/quota SET alice ", "", NULL);
    check("/quota SHOW alice a", "a", "alice");
+   check("/user o", "o", "OLDPW");
    check("/room ", "", "LIST");
    check("/room #test ", "", "VFO");
    check("/room #test vfo ", "", "ADD");

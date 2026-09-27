@@ -98,6 +98,7 @@ extern bool cmd_server(int argc, char **args);
 extern bool cmd_set(int argc, char **args);
 extern bool cmd_topic(int argc, char **args);
 extern bool cmd_unmute(int argc, char **args);
+extern bool cmd_user(int argc, char **args);
 extern bool cmd_whois(int argc, char **args);
 extern bool cmd_win(int argc, char **args);
 

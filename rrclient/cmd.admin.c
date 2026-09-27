@@ -257,3 +257,29 @@ bool cmd_quota(int argc, char **args) {
 
    return false;
 }
+
+/* PARITY: librrprotocol/srv.chat.c /user and rrserver/events.c */
+bool cmd_user(int argc, char **args) {
+   if (argc < 2 || !args[1]) {
+      ui_print(ui_active_window_name(), "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | oldpw | resetpw <user> | pass <user> <password>");
+      return true;
+   }
+   dict *d = dict_new();
+   if (!d) {
+      ui_print(ui_active_window_name(), "{red}/user: out of memory{reset}");
+      return true;
+   }
+   char data[512] = "";
+   size_t pos = 0;
+   for (int i = 1; i < argc; i++) {
+      int n = snprintf(data + pos, sizeof(data) - pos, "%s%s", i > 1 ? " " : "", args[i] ? args[i] : "");
+      if (n < 0 || (size_t)n >= sizeof(data) - pos) break;
+      pos += (size_t)n;
+   }
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "user");
+   dict_add(d, "talk.data", data);
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return false;
+}

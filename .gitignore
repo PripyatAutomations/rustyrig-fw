@@ -86,3 +86,5 @@ debian/rustyrig-callsign-lookup*
 debian/rustyrig-client*
 debian/rustyrig-fwdsp*
 debian/rustyrig-server*
+!debian/rustyrig-server.config
+!debian/rustyrig-server.templates

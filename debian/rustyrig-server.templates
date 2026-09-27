@@ -1,0 +1,7 @@
+Template: rustyrig-server/admin-password
+Type: password
+Default:
+Description: Password for the RustyRig admin account:
+ Choose the password used to log in as the RustyRig admin user.  This is
+ required when creating a new server database.  An existing database is not
+ changed during upgrades.

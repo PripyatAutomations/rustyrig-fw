@@ -186,6 +186,14 @@ char **client_cmd_completions(const char *line, const char *word) {
                completion_add(&matches, &count, u->name, word);
             }
          }
+      } else if (!strcasecmp(command, "/user")) {
+         if (arg == 1) {
+            completion_words(&matches, &count, "LIST ADD REMOVE LOCK UNLOCK OLDPW RESETPW PASS HELP", word);
+         } else if (arg == 2 && first &&
+                    (strcasecmp(first, "ADD") != 0 && strcasecmp(first, "LIST") != 0 &&
+                     strcasecmp(first, "HELP") != 0 && strcasecmp(first, "OLDPW") != 0)) {
+            matches = complete_usernames(word);
+         }
       } else if (!strcasecmp(command, "/room")) {
          if (arg == 1) {
             completion_words(&matches, &count, "LIST #", word);

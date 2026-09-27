@@ -74,6 +74,9 @@ CREATE TABLE users (
    name TEXT NOT NULL UNIQUE,       -- username
    enabled BOOLEAN NOT NULL,        -- 0 = disabled, 1 = enabled
    password TEXT NOT NULL,          -- hashed password
+   password_set INTEGER NOT NULL DEFAULT (unixepoch()),
+   password_expires INTEGER DEFAULT NULL,
+   password_change_required BOOLEAN NOT NULL DEFAULT 0,
    email TEXT,                      -- optional email
    maxsessions INTEGER DEFAULT 1,   -- max allowed simultaneous sessions
    permissions TEXT                 -- comma-separated or JSON if complex

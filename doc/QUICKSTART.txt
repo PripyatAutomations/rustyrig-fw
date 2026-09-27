@@ -21,11 +21,18 @@ CONFIGURE
    - config/${PROFILE}.config.json has build-time config
 
    Edit config/rrserver.cfg to set it up
-   -- config/http.users OR use sqlite! see sql/sqlite.master.preload.sql
+   -- SQLite is preferred; see sql/sqlite.master.preload.sql
    * SQL is preferred method of user management! *
 
-   Add users/change passwords in config/http.users (See config/http.users.example)
-   - Try ./tools/user-edit.sh!
+   Source-tree databases start with the test users from the preload file.  A
+   Debian server package asks for the admin password through debconf and
+   applies it when creating the first database.  Existing package databases
+   are preserved on upgrades.
+
+   Once logged in as an admin or owner, use `/user list` to inspect accounts.
+   `/user add`, `lock`, `unlock`, `remove`, `resetpw`, and `pass` manage
+   accounts; `/user oldpw` reports passwords older than
+   `security.max-pw-age` days.
 
 
 -----

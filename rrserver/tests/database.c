@@ -41,6 +41,7 @@ static int count_rows(sqlite3 *db, const char *sql) {
 
 int main(void) {
    sqlite3 *db = NULL;
+   now = time(NULL);
    assert(sqlite3_open(":memory:", &db) == SQLITE_OK);
    masterdb = db;
    run_file(db, "sql/sqlite.master.sql");
@@ -89,9 +90,39 @@ int main(void) {
 
    assert(db_add_user(db, 9, "test-user", true, "hash", "test@example.invalid", 2, "view"));
    assert(!db_add_user(db, 10, NULL, true, "hash", "x", 1, "view"));
-   assert(db_get_users(db) == 4);
+   assert(db_get_users(db) == 3);
+   assert(http_getuid("bob") < 0);
+   assert(http_getuid("guest") == 2);
+   assert(!http_users[2].enabled);
+   assert(http_users[2].password_set > 0);
    assert(strcmp(http_users[9].name, "test-user") == 0);
    assert(http_users[9].max_sessions == 2);
+   assert(http_users[9].password_set > 0);
+
+   assert(db_user_next_uid(db) == 10);
+   assert(db_user_create(db, 10, "new-user", true, "new-hash", "new@example.invalid",
+      1, "view,chat", true, now + 7 * 86400));
+   assert(db_get_users(db) == 4);
+   assert(http_users[10].password_change_required);
+   assert(http_users[10].password_expires > now);
+   assert(db_user_set_enabled(db, "new-user", false));
+   assert(db_user_update_password(db, "new-user", "updated-hash", false, 0));
+   assert(db_get_users(db) == 4);
+   assert(!http_users[10].enabled);
+   assert(!http_users[10].password_change_required);
+   assert(http_users[10].password_expires == 0);
+
+   // Reloads must retain runtime session/mute state for connected users.
+   http_users[1].sessions = 2;
+   http_users[1].is_muted = 1;
+   assert(db_get_users(db) == 4);
+   assert(http_users[1].sessions == 2);
+   assert(http_users[1].is_muted == 1);
+   assert(db_quota_add(db, "new-user", 30));
+   assert(!db_user_remove(db, "missing-user"));
+   assert(db_user_remove(db, "new-user"));
+   assert(db_get_users(db) == 3);
+   assert(count_rows(db, "SELECT COUNT(*) FROM tx_credits WHERE name='new-user';") == 0);
 
    int session = db_ptt_start(db, "test-user", "A", 14074000, "USB", 3000, 25.0f,
       "/tmp/20260923.rec-123.test-user.tx.ogg", "rec-123");

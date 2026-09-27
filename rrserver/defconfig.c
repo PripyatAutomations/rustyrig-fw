@@ -110,6 +110,7 @@ defconfig_t defcfg[] = {
    { "path.record-dir", "./recordings", "TX & RX recordings basedir", DEFCONFIG_PATH, NULL },
    { "recording.codec", "ogg", "Recording container/codec: flac or ogg", DEFCONFIG_ENUM, "ogg|flac" },
    { "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg", DEFCONFIG_ENUM, "ogg|flac" },
+   { "security.max-pw-age", "90", "Report passwords older than this many days with /user oldpw (0 disables)", DEFCONFIG_UINT, NULL },
    { "record.rx", "false", "Record received audio", DEFCONFIG_BOOL, NULL },
    { "record.tx", "false", "Record transmitted audio", DEFCONFIG_BOOL, NULL },
    { "record.always.vfo_a", "false", "Record VFO A RX audio with no connected client", DEFCONFIG_BOOL, NULL },

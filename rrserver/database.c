@@ -107,6 +107,34 @@ static void db_ensure_rooms(sqlite3 *db) {
    sqlite3_free(error);
 }
 
+static void db_ensure_user_columns(sqlite3 *db) {
+   if (!db) return;
+   const char *columns[] = {
+      "ALTER TABLE users ADD COLUMN password_set INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE users ADD COLUMN password_expires INTEGER DEFAULT NULL;",
+      "ALTER TABLE users ADD COLUMN password_change_required INTEGER NOT NULL DEFAULT 0;"
+   };
+   const char *updates[] = {
+      "UPDATE users SET password_set=unixepoch() WHERE password_set IS NULL OR password_set=0;",
+      NULL,
+      NULL
+   };
+   for (size_t i = 0; i < sizeof(columns) / sizeof(columns[0]); i++) {
+      char *error = NULL;
+      if (sqlite3_exec(db, columns[i], NULL, NULL, &error) != SQLITE_OK) {
+         if (!error || strstr(error, "duplicate column name") == NULL)
+            Log(LOG_WARN, "db", "Unable to upgrade users table: %s", error ? error : sqlite3_errmsg(db));
+      }
+      sqlite3_free(error);
+      if (updates[i]) {
+         error = NULL;
+         if (sqlite3_exec(db, updates[i], NULL, NULL, &error) != SQLITE_OK)
+            Log(LOG_WARN, "db", "Unable to initialize users table: %s", error ? error : sqlite3_errmsg(db));
+         sqlite3_free(error);
+      }
+   }
+}
+
 static void db_ensure_ptt_columns(sqlite3 *db) {
    if (!db) {
       return;
@@ -181,6 +209,7 @@ sqlite3 *db_open(const char *path) {
          unlink(path);
          return NULL;
       }
+      db_ensure_user_columns(db);
       db_ensure_ptt_columns(db);
       db_ensure_rooms(db);
       return db;
@@ -352,8 +381,8 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const cha
       return false;
    }
    const char *sql = "INSERT INTO users "
-                     "(uid, name, enabled, password, email, maxsessions, permissions) "
-                     "VALUES (?, ?, ?, ?, ?, ?, ?);";
+                     "(uid, name, enabled, password, password_set, email, maxsessions, permissions) "
+                     "VALUES (?, ?, ?, ?, unixepoch(), ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 
@@ -376,6 +405,95 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const cha
    return success;
 }
 
+bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled, const char *password,
+                    const char *email, int maxsessions, const char *permissions,
+                    bool password_change_required, time_t password_expires) {
+   if (!db || uid < 0 || !name || !*name || !password || !permissions || maxsessions < 1)
+      return false;
+   sqlite3_stmt *stmt = NULL;
+   const char *sql = "INSERT INTO users "
+      "(uid,name,enabled,password,password_set,password_expires,password_change_required,email,maxsessions,permissions) "
+      "VALUES (?,?,?,?,unixepoch(),?,?,?, ?,?);";
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_int(stmt, 1, uid);
+   sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_int(stmt, 3, enabled ? 1 : 0);
+   sqlite3_bind_text(stmt, 4, password, -1, SQLITE_TRANSIENT);
+   if (password_expires > 0) sqlite3_bind_int64(stmt, 5, (sqlite3_int64)password_expires);
+   else sqlite3_bind_null(stmt, 5);
+   sqlite3_bind_int(stmt, 6, password_change_required ? 1 : 0);
+   sqlite3_bind_text(stmt, 7, email ? email : "", -1, SQLITE_TRANSIENT);
+   sqlite3_bind_int(stmt, 8, maxsessions);
+   sqlite3_bind_text(stmt, 9, permissions, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+
+static bool db_user_update(sqlite3 *db, const char *sql, const char *name, bool enabled) {
+   if (!db || !name || !*name) return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_int(stmt, 1, enabled ? 1 : 0);
+   sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+
+bool db_user_set_enabled(sqlite3 *db, const char *name, bool enabled) {
+   return db_user_update(db, "UPDATE users SET enabled=? WHERE name=?;", name, enabled);
+}
+
+bool db_user_remove(sqlite3 *db, const char *name) {
+   if (!db || !name || !*name) return false;
+   if (sqlite3_exec(db, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) return false;
+   sqlite3_stmt *stmt = NULL;
+   bool ok = sqlite3_prepare_v2(db, "DELETE FROM users WHERE name=?;", -1, &stmt, NULL) == SQLITE_OK;
+   if (ok) {
+      sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+      ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   }
+   sqlite3_finalize(stmt);
+   if (ok) {
+      ok = sqlite3_prepare_v2(db, "DELETE FROM tx_credits WHERE name=?;", -1, &stmt, NULL) == SQLITE_OK;
+      if (ok) {
+         sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+         ok = sqlite3_step(stmt) == SQLITE_DONE;
+      }
+      sqlite3_finalize(stmt);
+   }
+   if (sqlite3_exec(db, ok ? "COMMIT;" : "ROLLBACK;", NULL, NULL, NULL) != SQLITE_OK) ok = false;
+   return ok;
+}
+
+bool db_user_update_password(sqlite3 *db, const char *name, const char *password_hash,
+                             bool password_change_required, time_t password_expires) {
+   if (!db || !name || !*name || !password_hash || !*password_hash) return false;
+   sqlite3_stmt *stmt = NULL;
+   const char *sql = "UPDATE users SET password=?, password_set=unixepoch(), password_expires=?, "
+                     "password_change_required=? WHERE name=?;";
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, password_hash, -1, SQLITE_TRANSIENT);
+   if (password_expires > 0) sqlite3_bind_int64(stmt, 2, (sqlite3_int64)password_expires);
+   else sqlite3_bind_null(stmt, 2);
+   sqlite3_bind_int(stmt, 3, password_change_required ? 1 : 0);
+   sqlite3_bind_text(stmt, 4, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+
+int db_user_next_uid(sqlite3 *db) {
+   if (!db) return -1;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db, "SELECT COALESCE(MAX(uid)+1,1) FROM users;", -1, &stmt, NULL) != SQLITE_OK)
+      return -1;
+   int uid = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
+   sqlite3_finalize(stmt);
+   return uid;
+}
+
 /*
  * db_get_users: load the users table into the http_users[] array used by the
  * auth code in librrprotocol. Called via the "authdb.load" event when
@@ -386,7 +504,8 @@ int db_get_users(sqlite3 *db) {
    if (!db) {
       return -1;
    }
-   const char *sql = "SELECT uid, name, enabled, password, email, maxsessions, permissions FROM users;";
+   const char *sql = "SELECT uid, name, enabled, password, password_set, password_expires, "
+                     "password_change_required, email, maxsessions, permissions FROM users;";
 
    sqlite3_stmt *stmt = NULL;
 
@@ -395,8 +514,13 @@ int db_get_users(sqlite3 *db) {
       return -1;
    }
 
-   // Reset any existing users before (re)loading
-   memset( http_users, 0, sizeof(http_users) );
+   /* Reload the persistent fields without dropping live connection state.
+    * Authentication keeps pointers into this array, so preserve the fields
+    * maintained by the protocol layer while replacing the database-backed
+    * account data. */
+   http_user_t old_users[HTTP_MAX_USERS];
+   memcpy(old_users, http_users, sizeof(old_users));
+   memset(http_users, 0, sizeof(http_users));
    int user_count = 0;
    int rc;
 
@@ -405,9 +529,13 @@ int db_get_users(sqlite3 *db) {
       const char *name = (const char *)sqlite3_column_text(stmt, 1);
       bool enabled = sqlite3_column_int(stmt, 2) != 0;
       const char *pass = (const char *)sqlite3_column_text(stmt, 3);
-      const char *email = (const char *)sqlite3_column_text(stmt, 4);
-      int maxsessions = sqlite3_column_int(stmt, 5);
-      const char *privs = (const char *)sqlite3_column_text(stmt, 6);
+      time_t password_set = (time_t)sqlite3_column_int64(stmt, 4);
+      time_t password_expires = sqlite3_column_type(stmt, 5) == SQLITE_NULL ? 0 :
+         (time_t)sqlite3_column_int64(stmt, 5);
+      bool password_change_required = sqlite3_column_int(stmt, 6) != 0;
+      const char *email = (const char *)sqlite3_column_text(stmt, 7);
+      int maxsessions = sqlite3_column_int(stmt, 8);
+      const char *privs = (const char *)sqlite3_column_text(stmt, 9);
 
       if (uid < 0 || uid >= HTTP_MAX_USERS || !name || name[0] == '\0') {
          Log(LOG_WARN, "db", "db_get_users: skipping invalid row uid:%d", uid);
@@ -417,8 +545,13 @@ int db_get_users(sqlite3 *db) {
       http_user_t *up = &http_users[uid];
 
       up->uid = uid;
+      up->sessions = old_users[uid].sessions;
+      up->is_muted = old_users[uid].is_muted;
       strlcpy( up->name, name, sizeof(up->name) );
       up->enabled = enabled;
+      up->password_set = password_set;
+      up->password_expires = password_expires;
+      up->password_change_required = password_change_required;
 
       if (pass) {
          strlcpy( up->pass, pass, sizeof(up->pass) );

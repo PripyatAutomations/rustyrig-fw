@@ -10,12 +10,22 @@
 //
 #if     !defined(__rrserver_database_h)
 #define	__rrserver_database_h
+#include <stdbool.h>
+#include <time.h>
 #if     defined(USE_SQLITE)
 #include <sqlite3.h>
 
 extern sqlite3 *db_open(const char *path);
 extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email,
                         int maxsessions, const char *permissions);
+extern bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled, const char *password,
+                           const char *email, int maxsessions, const char *permissions,
+                           bool password_change_required, time_t password_expires);
+extern bool db_user_set_enabled(sqlite3 *db, const char *name, bool enabled);
+extern bool db_user_remove(sqlite3 *db, const char *name);
+extern bool db_user_update_password(sqlite3 *db, const char *name, const char *password_hash,
+                                    bool password_change_required, time_t password_expires);
+extern int db_user_next_uid(sqlite3 *db);
 extern int db_get_users(sqlite3 *db);
 extern bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details);
 extern int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode,
