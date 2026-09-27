@@ -61,6 +61,8 @@ package_rustyrig-client() {
    pkgdesc='RustyRig GTK client'; conflicts=('rustyrig-client-tui'); replaces=('rustyrig-client-tui'); depends=('rustyrig-libs' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 "$srcdir/rrclient-gtk" "$pkgdir/usr/bin/rrclient"
+   install -Dm644 packaging/rustyrig-client.desktop "$pkgdir/usr/share/applications/rustyrig-client.desktop"
+   install -Dm644 res/rustyrig.png "$pkgdir/usr/share/icons/hicolor/48x48/apps/rustyrig.png"
    install -Dm644 config/rrclient.cfg "$pkgdir/etc/rustyrig/rrclient.cfg"
    install -Dm644 config/callsign-lookup.cli.cfg "$pkgdir/etc/rustyrig/callsign-lookup.cli.cfg"
    install -d "$pkgdir/var/lib/rustyrig"/{db,help,recordings/client} "$pkgdir/var/log/rustyrig"

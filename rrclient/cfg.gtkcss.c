@@ -1,9 +1,10 @@
 //
 // rrclient/cfg.gtkcss.c: Gtk CSS support
-//    All of the GTK CSS used by the client lives in one place: the [gtk-css]
-//    section of the user's config file (config/rrclient.cfg by default).
-//    Users can edit it there without recompiling, and even reload it at
-//    runtime with /css-reload.
+//    All user-customizable GTK CSS lives in one place: the [gtk-css] section
+//    of the user's config file (config/rrclient.cfg by default). A small
+//    compiled-in stylesheet remains as a fallback when the section is empty.
+//    Users can edit the section without recompiling, and reload it at runtime
+//    with /css-reload.
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -26,6 +27,11 @@
 #include <rrclient/ui.h>
 
 extern const char *config_file;                 // librustyaxe/config.c
+
+#ifdef USE_GTK
+// Compiled-in fallback CSS. User customization belongs in [gtk-css].
+extern const char *default_css;                 // defconfig.c
+#endif
 
 // Accumulated CSS from the [gtk-css] section of the config file
 static char *gtk_css_buf = NULL;
@@ -67,7 +73,11 @@ const char *gtk_css_get(void) {
    if (gtk_css_buf && gtk_css_buf[0] != '\0') {
       return gtk_css_buf;
    }
-   return cfg_get("ui.gtk.css");                // default from defconfig.c
+#ifdef USE_GTK
+   return default_css;
+#else
+   return NULL;
+#endif
 }
 
 #ifdef USE_GTK
@@ -108,7 +118,7 @@ bool gtk_css_apply_cfg(void) {
    // goes on a second provider at the same priority; user rules that match
    // the same selectors win because they're loaded later.
    if (!base_css_provider) {
-      const char *def = cfg_get("ui.gtk.css");
+      const char *def = default_css;
       if (def && *def) {
          base_css_provider = gtk_css_provider_new();
          GError *err = NULL;
@@ -125,7 +135,9 @@ bool gtk_css_apply_cfg(void) {
       }
    }
 #endif
-   return gtk_css_apply(gtk_css_get());
+   // The fallback is already installed as the base provider. Only install a
+   // second provider when the user supplied a [gtk-css] section.
+   return gtk_css_apply(gtk_css_buf && *gtk_css_buf ? gtk_css_buf : NULL);
 }
 
 // Strip a leading escape backslash from comment chars ('\#' -> '#',

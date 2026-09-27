@@ -127,8 +127,9 @@ contain `<codec>.rx` and `<codec>.tx` entries (internally stored as
 `pipeline:<codec>.rx` and `pipeline:<codec>.tx`). Shared built-in
 defaults live in `fwdsp/default-pipelines.h`, used by the client, server and
 fwdsp. Keep those defaults and the supplied configurations synchronized.
-`codecs.allowed` controls advertisement; client `audio.prefer-codecs` controls
-preference. Restart after editing configuration.
+`codecs.allowed` controls advertisement and the negotiated codec order. The
+client follows that negotiated list and only requests a codec change
+explicitly. Restart after editing configuration.
 
 The client's normal TX pipelines use `pulsesrc` with the default local sound
 input, followed by conversion/resampling to the codec's mono sample format.

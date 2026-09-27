@@ -112,14 +112,51 @@ static void rrserver_handle_room_list(const char *event, const char *data, rrcon
    dict_free(reply);
 }
 
+static void rrserver_handle_room_add(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)user;
+   if (!data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", NULL);
+#ifdef USE_SQLITE
+   if (!room || !db_room_ensure(masterdb, room, false, 0)) {
+      ws_send_error(cptr, "Unable to add room %s", room ? room : "(none)");
+      dict_free(d);
+      return;
+   }
+#else
+   ws_send_error(cptr, "Room management requires database support");
+   dict_free(d);
+   return;
+#endif
+   ws_send_notice(cptr, "Room %s added", room);
+   dict_free(d);
+}
+
 static void rrserver_handle_room_vfo_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)data; (void)user;
+   (void)event; (void)user;
    if (!cptr) return;
    dict *reply = dict_new(); dict_add(reply, "msg.type", "talk");
    dict_add(reply, "talk.cmd", "room-vfo-list");
 #ifdef USE_SQLITE
-   char *map = db_room_vfo_map_list(masterdb);
-   dict_add(reply, "talk.vfos", map ? map : ""); free(map);
+   const char *requested_room = NULL;
+   if (data) {
+      dict *request = json2dict(data);
+      if (request) {
+         requested_room = dict_get(request, "talk.room", NULL);
+         if (requested_room && *requested_room) dict_add(reply, "talk.room", requested_room);
+         char *vfos = requested_room && *requested_room ?
+            db_room_vfo_list(masterdb, requested_room) : db_room_vfo_map_list(masterdb);
+         dict_add(reply, "talk.vfos", vfos ? vfos : "");
+         free(vfos);
+         dict_free(request);
+      } else {
+         dict_add(reply, "talk.vfos", "");
+      }
+   } else {
+      char *map = db_room_vfo_map_list(masterdb);
+      dict_add(reply, "talk.vfos", map ? map : ""); free(map);
+   }
 #else
    dict_add(reply, "talk.vfos", "");
 #endif
@@ -868,6 +905,7 @@ void rrserver_register_events(void) {
    event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("room.join", rrserver_handle_room_join, NULL);
+   event_on("room.add", rrserver_handle_room_add, NULL);
    event_on("room.list", rrserver_handle_room_list, NULL);
    event_on("room.delete", rrserver_handle_room_delete, NULL);
    event_on("room.vfo-list", rrserver_handle_room_vfo_list, NULL);

@@ -225,6 +225,11 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
 bool mqtt_client_init(void) {
    FILE *fp = NULL;
 
+   if (!cfg_get_bool("net.mqtt-client.enabled", false)) {
+      Log(LOG_DEBUG, "mqtt.cli", "Outbound MQTT client disabled");
+      return false;
+   }
+
    const char *configured_user = cfg_get("net.mqtt-client.user");
    strlcpy(mqtt_user_buf, configured_user ? configured_user : "", sizeof(mqtt_user_buf));
    mqtt_user = mqtt_user_buf;

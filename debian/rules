@@ -2,6 +2,17 @@
 
 export DH_VERBOSE = 1
 
+# dpkg-buildpackage exposes requested parallelism as parallel=N.  Direct
+# debian/rules invocations remain serial unless that option is supplied.
+DEB_BUILD_JOBS = 1
+parallel_opt := $(filter parallel=%,$(DEB_BUILD_OPTIONS))
+ifneq ($(parallel_opt),)
+DEB_BUILD_JOBS = $(patsubst parallel=%,%,$(parallel_opt))
+ifeq ($(DEB_BUILD_JOBS),auto)
+DEB_BUILD_JOBS = $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+endif
+endif
+
 %:
 	dh $@
 
@@ -14,19 +25,20 @@ override_dh_auto_clean:
 	$(MAKE) -C callsign-lookup clean || true
 
 override_dh_auto_build:
-	$(MAKE) -j4 PROFILE=radio
-	$(MAKE) -j4 -C callsign-lookup
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=radio
+	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup
 	cp -f bin/rrclient /tmp/rustyrig-rrclient-gtk
 	# Keep the TUI objects separate from the GTK build.
 	rm -rf $(CURDIR)/build/radio-tui
 	mkdir -p $(CURDIR)/build/radio-tui
 	cp -f $(CURDIR)/build/radio/build_config.h $(CURDIR)/build/radio-tui/build_config.h
-	$(MAKE) -j4 PROFILE=radio USE_GTK=false BUILD_DIR=$(CURDIR)/build/radio-tui bin/rrclient
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=radio USE_GTK=false BUILD_DIR=$(CURDIR)/build/radio-tui bin/rrclient
 
 override_dh_auto_install:
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
 	install -Dm755 /tmp/rustyrig-rrclient-gtk debian/rustyrig-client/usr/bin/rrclient
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client/usr/share/applications/rustyrig-client.desktop
+	install -Dm644 res/rustyrig.png debian/rustyrig-client/usr/share/icons/hicolor/48x48/apps/rustyrig.png
 	install -Dm755 bin/rrclient debian/rustyrig-client-tui/usr/bin/rrclient
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
 	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup/usr/bin/callsign-lookup

@@ -13,13 +13,10 @@ backend.poll-interval=250
 backend.active=internal
 ; Set backend.active=hamlib to use the rigctld/Hamlib backend.
 ;backend.active=hamlib
-; Poll rig every 1000ms
-backend.poll-interval=1000
 ; Only send a full rig state update every X seconds
 backend.announce-interval=30
 ; Send cat state at most once every N seconds if unchanged
 backend.state-interval=15
-backend.hamlib=true
 backend.hamlib-debug=warn
 backend.hamlib-model=2
 ;backend.hamlib-baud=38400
@@ -33,14 +30,10 @@ chat.log=true
 ; If logging is enabled, should we replay a bit of history when the user joins?
 chat.replay-lines=20
 ; How long should we let unused fwdsp instances linger before stopping?/
-fwdsp.hangtime=30
-debug.logtype=file
-debug.logmode=0660
-debug.loglevel=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy
-;debug.loglevel=*:crazy
-debug.show-ts=true
-debug.mongoose=false
-debug.profiling=true
+fwdsp:hangtime=30
+log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy
+;log.level=*:crazy
+log.show-ts=true
 #eeprom.addr=0x0000
 #eeprom.size=1048576
 #eeprom.type=mmap
@@ -64,7 +57,7 @@ net.mqtt.enabled=true
 net.mqtt.bind=0.0.0.0
 net.mqtt.port=8833
 net.mqtt-client.enabled=false
-net.mqtt-client.server=10.217.1.219
+net.mqtt-client.host=10.217.1.219
 net.mqtt-client.port=8833
 net.mqtt-client.user=rustyrig-ft891
 net.mqtt-client.secret-file=./config/mqtt-secret
@@ -76,10 +69,10 @@ pin.reset=76543210
 station.call=N0CALL
 station.grid=AA00aa
 
-; audio shortcuts
-au.rig0.rx=pulsesrc device=alsa_input.usb-Creative_Technology_Ltd_Sound_Blaster_X-Fi_Go__Pro_00315403-00.analog-stereo
+; Legacy audio shortcut names are retained here for old pipeline examples.
+au.rig0.rx=pulsesrc device=default
 au.rig0.rx.rate=48000
-au.rig0.tx=pulsesink device=alsa_output.usb-Creative_Technology_Ltd_Sound_Blaster_X-Fi_Go__Pro_00315403-00.analog-stereo
+au.rig0.tx=pulsesink device=default
 au.rig0.tx.rate=48000
 
 ; Paths for various things; keys should be unified to path.* ASAP
@@ -101,9 +94,8 @@ net.http.hex-dump=false
 path.sock-dir=./run/rrserver
 path.record-dir=./recordings
 # fwdsp binary
-;path.fwdsp=/usr/local/bin/fwdsp
-path.fwdsp=/usr/bin/fwdsp
-callsign-lookup.path=/usr/bin/callsign-lookup
+fwdsp:path=/usr/bin/fwdsp
+callsign-lookup:path=/usr/bin/callsign-lookup
 
 # modules directory (NYI)
 ;path.mod-dir=/usr/lib/modules/rustyrig/rrserver/
@@ -114,8 +106,7 @@ path.mod-dir=./modules/rrserver/
 [fwdsp]
 ; Don't allow more than 24 subprocs
 subproc.max=24
-subproc.debug=false
-audio.debug=false
+;log.audio=false
 log.level=debug
 log.show-ts=false
 

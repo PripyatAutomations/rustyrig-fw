@@ -1,3 +1,5 @@
 {
-    "CodeGPT.apiKey": "CodeGPT Plus Beta"
+    "CodeGPT.apiKey": "CodeGPT Plus Beta",
+    "cmake.sourceDirectory": "/home/orc/rustyrig-fw/ext/codec2",
+    "cmake.autoDetectSourceDirectory": false
 }

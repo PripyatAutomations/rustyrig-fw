@@ -27,7 +27,7 @@
 #include <rrclient/ui.h>
 
 extern time_t now;
-extern bool dying, debug_sockets, cfg_mirc_colors;
+extern bool dying, cfg_mirc_colors;
 
 bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args) {
 #if     0       // fix this

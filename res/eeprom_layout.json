@@ -2,7 +2,7 @@
    "debug/loglevel": {
       "offset": 0,
       "type": "str",
-      "key": "debug.loglevel",
+      "key": "log.level",
       "size": 6
    },
    "dev/serial": {
@@ -252,7 +252,7 @@
    "debug/show-ts": {
        "offset": 248,
        "type": "bool",
-       "key": "debug.show-ts",
+       "key": "log.show-ts",
        "default": "true"
    },
    "net/http/www-root": {

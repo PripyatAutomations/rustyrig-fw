@@ -76,13 +76,12 @@ extern bool ptt_button_hotkey_toggle(void); // gtk.ptt-btn.c
 #endif
 struct timespec mono_now;
 bool rrclient_cleanup(void);
-const char *cfg_debug_audio = NULL;
+const char *cfg_log_audio = NULL;
 bool cfg_mirc_colors = true;
 bool cfg_ui_gtk_vfo_on_top = true;
 int cfg_tick_interval = 100;
 bool dying = false;
 bool restarting = false;
-bool debug_sockets = false;
 int cfg_ui_vfo_viscosity = -1;
 int cfg_ui_edit_delay = 3;          // Seconds to suppress freq updates after local edit
 int cfg_ui_ptt_ack_timeout = 2;     // Seconds to wait for a PTT ack before reverting (gtk.ptt-btn.c)
@@ -99,18 +98,16 @@ int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
  * config reload. */
 static bool rrclient_config_refresh(const char *key) {
    (void)key;
-   debug_sockets = cfg_get_bool("debug.sockets", false);
-
-   const char *debug_audio = cfg_get_exp("debug.audio");
-   free((void *)cfg_debug_audio);
-   cfg_debug_audio = debug_audio;
+   const char *log_audio = cfg_get_exp("log.audio");
+   free((void *)cfg_log_audio);
+   cfg_log_audio = log_audio;
 #ifdef USE_GSTREAMER
-   if (cfg_debug_audio) {
+   if (cfg_log_audio) {
 #ifdef _WIN32
-      SetEnvironmentVariable("GST_DEBUG", cfg_debug_audio);
+      SetEnvironmentVariable("GST_DEBUG", cfg_log_audio);
       SetEnvironmentVariable("GST_DEBUG_DUMP_DOT_DIR", ".");
 #else
-      setenv("GST_DEBUG", cfg_debug_audio, 1);
+      setenv("GST_DEBUG", cfg_log_audio, 1);
       setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 1);
 #endif
    }
@@ -472,8 +469,8 @@ bool rrclient_cleanup(void) {
       cfg_save(cfg, config_file);
    }
 
-   free((void *)cfg_debug_audio);
-   cfg_debug_audio = NULL;
+   free((void *)cfg_log_audio);
+   cfg_log_audio = NULL;
    dict_free(cfg);
 
 #if defined(USE_LIBNOTIFY) && defined(USE_GTK)

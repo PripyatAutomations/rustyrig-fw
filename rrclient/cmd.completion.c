@@ -132,9 +132,11 @@ char **client_cmd_completions(const char *line, const char *word) {
    if (!prefix) return NULL;
    char *save = NULL, *command = strtok_r(prefix, " \t", &save);
    char *first = NULL;
+   char *second = NULL;
    unsigned arg = 0;
    for (char *p = command; p; p = strtok_r(NULL, " \t", &save)) {
       if (arg == 1) first = p;
+      if (arg == 2) second = p;
       arg++;
    }
    char **matches = NULL;
@@ -186,8 +188,10 @@ char **client_cmd_completions(const char *line, const char *word) {
          }
       } else if (!strcasecmp(command, "/room")) {
          if (arg == 1) {
-            completion_words(&matches, &count, "LIST REMOVE VFO", word);
-         } else if (arg == 2 && first && !strcasecmp(first, "VFO")) {
+            completion_words(&matches, &count, "LIST #", word);
+         } else if (arg == 2 && first && first[0] == '#') {
+            completion_words(&matches, &count, "ADD REMOVE VFO", word);
+         } else if (arg == 3 && first && !strcasecmp(second, "VFO")) {
             completion_words(&matches, &count, "ADD LIST REMOVE", word);
          }
       } else if (!strcasecmp(command, "/set") && arg == 1) {

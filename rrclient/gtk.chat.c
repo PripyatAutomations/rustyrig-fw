@@ -407,7 +407,7 @@ static GtkWidget *chatbox_vfo_init(void) {
    return vfo;
 }
 
-static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room) {
+static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
    if (!chat_box) { // XXX: throw OOM warning
@@ -437,10 +437,10 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room) {
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
 
-   /* Keep every room's user list beside its chat. GtkPaned gives the user a
-    * draggable divider; the authoritative room additionally supports the
-    * existing detachable list window. */
-   if (is_rig || (room && *room)) {
+   /* Keep room user lists beside their chat. Private query tabs stay
+    * chat-only; GtkPaned gives room tabs a draggable divider, and the
+    * authoritative room additionally supports the detachable list window. */
+   if (is_rig || (!is_query && room && *room)) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
       gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, FALSE);
@@ -463,6 +463,9 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room) {
    gtk_box_pack_start(GTK_BOX(chat_box), chat_entry, FALSE, FALSE, 0);
    g_signal_connect(chat_entry, "activate", G_CALLBACK(on_send_button_clicked), chat_entry);
    g_signal_connect(chat_entry, "key-press-event", G_CALLBACK(on_chat_entry_keypress), NULL);
+   /* GtkEntry handles Return/space itself, so register the global shortcut
+    * handler directly on each chat input as well as the main window. */
+   gui_hotkey_register(chat_entry);
 
    // SEND the command/message
    GtkWidget *button = gtk_button_new_with_label("Send (enter)");
@@ -480,12 +483,12 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room) {
 }
 
 GtkWidget *create_chat_box(void) {
-   return create_chat_box_for_room(true, ws_authoritative_room());
+   return create_chat_box_for_room(true, ws_authoritative_room(), false);
 }
 
-void gtk_chat_room_add(const char *room) {
+static void gtk_chat_tab_add(const char *room, bool is_query) {
    if (!room || !*room || !main_notebook ||
-       strcasecmp(room, ws_authoritative_room()) == 0) {
+       (!is_query && strcasecmp(room, ws_authoritative_room()) == 0)) {
       return;
    }
    if (!room_tabs) {
@@ -504,7 +507,7 @@ void gtk_chat_room_add(const char *room) {
    GtkRoomTab *tab = g_new0(GtkRoomTab, 1);
    snprintf(tab->room, sizeof(tab->room), "%s", room);
    tab->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-   GtkWidget *box = create_chat_box_for_room(false, room);
+   GtkWidget *box = create_chat_box_for_room(false, room, is_query);
    tab->view = chat_textview;
    tab->entry = chat_entry;
    gtk_box_pack_start(GTK_BOX(tab->page), box, TRUE, TRUE, 0);
@@ -521,6 +524,14 @@ void gtk_chat_room_add(const char *room) {
    }
    if (tab->entry && GTK_IS_WIDGET(tab->entry))
       gtk_widget_grab_focus(tab->entry);
+}
+
+void gtk_chat_room_add(const char *room) {
+   gtk_chat_tab_add(room, false);
+}
+
+void gtk_chat_query_add(const char *user) {
+   gtk_chat_tab_add(user, true);
 }
 
 void gtk_chat_room_remove(const char *room) {
@@ -561,7 +572,7 @@ void gtk_chat_set_authoritative_room(const char *room) {
          gtk_widget_destroy(GTK_WIDGET(it->data));
       }
       g_list_free(children);
-      GtkWidget *chat_box = create_chat_box_for_room(true, room);
+      GtkWidget *chat_box = create_chat_box_for_room(true, room, false);
       if (!chat_box) {
          return;
       }

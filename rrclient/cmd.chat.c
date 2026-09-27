@@ -80,7 +80,7 @@ bool cmd_query(int argc, char **args) {
    }
 #ifdef USE_GTK
    else if (ui_mode == UI_MODE_GTK) {
-      gtk_chat_room_add(args[1]);
+      gtk_chat_query_add(args[1]);
    }
 #endif
    return false;
@@ -174,20 +174,13 @@ bool cmd_msg(int argc, char **args) {
       }
       if (window) {
          window->cptr = ws_conn;
-         ui_print(target, "-> %s %s", target, fullmsg);
-      } else {
-         ui_print(ui_active_window_name(), "-> %s %s", target, fullmsg);
       }
    }
 #ifdef USE_GTK
    else if (ui_mode == UI_MODE_GTK) {
-      gtk_chat_room_add(target);
-      ui_print(target, "-> %s %s", target, fullmsg);
+      gtk_chat_query_add(target);
    }
 #endif
-   else {
-      ui_print(ui_active_window_name(), "-> %s %s", target, fullmsg);
-   }
 
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");

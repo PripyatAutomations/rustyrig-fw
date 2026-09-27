@@ -57,8 +57,10 @@ int main(void) {
    check("/quota SET alice ", "", NULL);
    check("/quota SHOW alice a", "a", "alice");
    check("/room ", "", "LIST");
-   check("/room vfo ", "", "ADD");
-   check("/room vfo r", "r", "REMOVE");
+   check("/room #test ", "", "VFO");
+   check("/room #test vfo ", "", "ADD");
+   check("/room #test vfo l", "l", "LIST");
+   check("/room #test vfo r", "r", "REMOVE");
    check("/syslog o", "o", "on");
    check("/help rx", "rx", "rxcodec");
    check("/ki", "/ki", NULL);

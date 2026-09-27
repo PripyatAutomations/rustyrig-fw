@@ -377,14 +377,31 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    if (gtk_icon_theme_has_icon(theme, name) ) {
       success = true;
    } else {
+      /* Source-tree builds use ./res, while packages install the icon in the
+       * standard hicolor theme. Try both, plus the common local prefix. */
       gchar *local_icon = g_strdup_printf("./%s.png", path);
+      const gchar *candidates[] = {
+         local_icon,
+         "./rustyrig.png",
+         "/usr/local/share/icons/hicolor/48x48/apps/rustyrig.png",
+         "/usr/share/icons/hicolor/48x48/apps/rustyrig.png",
+         "/usr/share/pixmaps/rustyrig.png",
+         NULL
+      };
 
-      if (gtk_window_set_icon_from_file(GTK_WINDOW(window), local_icon, &err) ) {
-         success = true;
-      } else {
-         g_warning("Failed to set icon '%s': %s", name, err->message);
+      for (int i = 0; candidates[i] && !success; i++) {
+         if (!g_file_test(candidates[i], G_FILE_TEST_IS_REGULAR)) {
+            continue;
+         }
          g_clear_error(&err);
+         if (gtk_window_set_icon_from_file(GTK_WINDOW(window), candidates[i], &err)) {
+            success = true;
+         }
       }
+      if (!success && err) {
+         g_warning("Failed to set icon '%s': %s", name, err->message);
+      }
+      g_clear_error(&err);
       g_free(local_icon);
    }
    g_object_unref(icon);

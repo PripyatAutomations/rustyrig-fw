@@ -38,7 +38,6 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
    FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE)
-   { "audio.debug", "false", "Debug audio? [bool]", DEFCONFIG_BOOL, NULL },
    { "atu.max", "4", "Maximum number of ATUs", DEFCONFIG_UINT, NULL },
    { "backend.active", "internal", "Backend to use for rig control", DEFCONFIG_ENUM, "internal|hamlib" },
    { "backend.announce-interval", "30", "How often to send a forced update of VFO state?", DEFCONFIG_UINT, NULL },
@@ -66,11 +65,7 @@ defconfig_t defcfg[] = {
    { "webcam.codec", "jpeg", "4-char codec magic for the video stream", DEFCONFIG_ENUM, "jpeg|h264" },
    { "core.daemonize", "false", "Should we go to background after starting?", DEFCONFIG_BOOL, NULL },
    { "core.tick-interval", "100", "How often to do timer tick?", DEFCONFIG_UINT, NULL },
-   { "debug.http", "false", "Show more HTTP debugging", DEFCONFIG_BOOL, NULL },
-   { "debug.http.crazy", "false", "Show extreme http debugging", DEFCONFIG_BOOL, NULL },
    { "debug.noisy-eeprom", "false", "Extra debugging msgs from eeprom code?", DEFCONFIG_BOOL, NULL },
-   { "debug.mongoose", "false", "Debug mongoose?", DEFCONFIG_BOOL, NULL },
-   { "debug.show-ts", "true", "Show timestamps in log? [bool]", DEFCONFIG_BOOL, NULL },
    { "device.serial", NULL, "Device serial # (usually from eeprom)" },
    { "features.auto-block-ptt", "false", "Block PTT at start?", DEFCONFIG_BOOL, NULL },
    { "fwdsp:hangtime", "30", "How long should unused (en|de)coders be kept alive after last used?", DEFCONFIG_UINT, NULL },
@@ -79,6 +74,7 @@ defconfig_t defcfg[] = {
    { "fwdsp:pcm-hub", "true", "Route decoded talker PCM through the rig audio hub", DEFCONFIG_BOOL, NULL },
    { "log.file", "rrserver.log", "Where to log?" },
    { "log.level", "*:info", "What to log?" },
+   { "log.show-ts", "true", "Show timestamps in log?", DEFCONFIG_BOOL, NULL },
    { "net.http.404-path", "./www/404.shtml", "Path to 404 file", DEFCONFIG_PATH, NULL },
    { "net.http.enabled", "true", "Enable http?", DEFCONFIG_BOOL, NULL },
    { "net.http.bind", "127.0.0.1", "Address to listen for HTTP" },
@@ -86,17 +82,16 @@ defconfig_t defcfg[] = {
    { "net.http.authdb", "./config/http.users", "Path to user database", DEFCONFIG_PATH, NULL },
    { "net.http.authdb-dynamic", "true", "Load users from sqlite db instead of authdb file", DEFCONFIG_BOOL, NULL },
    { "net.http.hex-dump", "false", "Hex dump http? (Noisy!)", DEFCONFIG_BOOL, NULL },
-   { "net.http.port", "8420", "HTTP listner port", DEFCONFIG_UINT, NULL },
    { "net.http.tls-bind", "127.0.0.1", "Address to listen for HTTPS (TLS)" },
    { "net.http.tls-enabled", "false", "Enable HTTPS (TLS) listener?", DEFCONFIG_BOOL, NULL },
    { "net.http.tls-port", "8443", "Port for TLS listener", DEFCONFIG_UINT, NULL },
    { "net.http.www-root", "./www", "Path to static http content", DEFCONFIG_PATH, NULL },
    // MQTT client
-   { "net.mqtt-client.secret-file", "./config/mqtt-client.secrets", "Where is the mqtt client credentials?", DEFCONFIG_PATH, NULL },
-   // XXX: Merge this into mqtt://user:password@host:port format, ex: mqtt://rig1:test@10.10.10.10:18383
-   { "net.mqtt-client.host", NULL, "To be removed" },
-   { "net.mqtt-client.port", NULL, "To be removed" },
-   { "net.mqtt-client.user", NULL, "To be removed" },
+   { "net.mqtt-client.enabled", "false", "Enable the outbound MQTT client", DEFCONFIG_BOOL, NULL },
+   { "net.mqtt-client.secret-file", "./config/mqtt-client.secrets", "Where are the MQTT client credentials?", DEFCONFIG_PATH, NULL },
+   { "net.mqtt-client.host", NULL, "Outbound MQTT broker host" },
+   { "net.mqtt-client.port", "1883", "Outbound MQTT broker port", DEFCONFIG_UINT, NULL },
+   { "net.mqtt-client.user", NULL, "Outbound MQTT username" },
    // MQTT server
    { "net.mqtt.bind", "127.0.0.1", "Address to listen for mqtt" },
    { "net.mqtt.enabled", "false", "Enable MQTT service listener?", DEFCONFIG_BOOL, NULL },

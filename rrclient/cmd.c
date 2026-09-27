@@ -51,7 +51,7 @@ bool cmd_reload(int argc, char **args) {
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
-   { .cmd = "room", .cb = cmd_room, .max_args = 4, .desc = "List, remove, or manage room VFO mappings" },
+   { .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "List or manage rooms and room VFO mappings" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
 #ifdef USE_GTK
    { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },

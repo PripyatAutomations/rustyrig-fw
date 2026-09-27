@@ -72,6 +72,8 @@ install -Dpm0755 libfwdspmgr.so %{buildroot}%{_libdir}/libfwdspmgr.so.0
 install -Dpm0644 packaging/rrserver.service %{buildroot}%{_unitdir}/rustyrig-server.service
 install -Dpm0755 packaging/rrserver.rc %{buildroot}%{_sysconfdir}/init.d/rrserver
 install -Dpm0644 packaging/rustyrig.tmpfiles %{buildroot}%{_tmpfilesdir}/rustyrig.conf
+install -Dpm0644 packaging/rustyrig-client.desktop %{buildroot}%{_datadir}/applications/rustyrig-client.desktop
+install -Dpm0644 res/rustyrig.png %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 for f in rrserver.cfg rrclient.cfg callsign-lookup.cfg callsign-lookup.srv.cfg callsign-lookup.cli.cfg; do install -Dpm0644 config/$f %{buildroot}%{_sysconfdir}/rustyrig/$f; done
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
 install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.preload.sql
@@ -105,6 +107,8 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %{_sharedstatedir}/rustyrig
 %files client
 %{_bindir}/rrclient
+%{_datadir}/applications/rustyrig-client.desktop
+%{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 %config(noreplace) %{_sysconfdir}/rustyrig/rrclient.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cli.cfg
 %files client-tui

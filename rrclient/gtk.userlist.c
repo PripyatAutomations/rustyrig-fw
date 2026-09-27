@@ -213,7 +213,7 @@ static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
 
    if (strcasecmp(command, "query") == 0) {
 #ifdef USE_GTK
-      gtk_chat_room_add(target);
+      gtk_chat_query_add(target);
 #endif
       return;
    }

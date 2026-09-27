@@ -78,8 +78,8 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       if (digit >= 0 && gtk_switch_tab_digit(digit, main_win)) return TRUE;
    }
 
-   // GTK provides key-release events, so the keyboard PTT shortcuts behave
-   // as true push-to-talk controls rather than toggles.
+   // GTK provides key-release events, allowing PTT shortcuts to distinguish a
+   // quick toggle tap from a held push-to-talk key.
    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_space) {
       if (event->type == GDK_KEY_PRESS) {
          return ptt_button_hotkey_press();

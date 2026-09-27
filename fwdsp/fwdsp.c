@@ -1361,10 +1361,10 @@ int main(int argc, char *argv[]) {
 
    // Set up some debugging
    setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
-   const char *cfg_audio_debug = cfg_get("fwdsp:audio.debug");
+   const char *cfg_log_audio = cfg_get("fwdsp:log.audio");
 
-   if (cfg_audio_debug) {
-      setenv("GST_DEBUG", cfg_audio_debug, 0);
+   if (cfg_log_audio) {
+      setenv("GST_DEBUG", cfg_log_audio, 0);
    }
    // codec_mapping_t *au_codec_find_by_magic(magic);
 

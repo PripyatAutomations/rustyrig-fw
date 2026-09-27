@@ -52,6 +52,12 @@ extern int cfg_ui_ptt_ack_timeout;          // main.c
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 static gulong ptt_toggled_handler = 0;
 static bool ptt_hotkey_held = false;
+static bool ptt_hotkey_initial_active = false;
+static gint64 ptt_hotkey_pressed_at = 0;
+
+/* A quick tap toggles the PTT lock, matching the TUI. Holding the shortcut
+ * keeps PTT active only until release. */
+#define PTT_HOTKEY_TAP_USEC 350000
 
 // Connection state for the button: grey while offline, colored once online.
 // Set via ptt_button_set_online() from events.c
@@ -180,6 +186,8 @@ void ptt_button_set_online(bool online) {
    if (!online) {
       // Going offline resets everything back to grey
       ptt_hotkey_held = false;
+      ptt_hotkey_initial_active = false;
+      ptt_hotkey_pressed_at = 0;
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
       ptt_btn_tot = false;
@@ -321,7 +329,9 @@ bool ptt_button_hotkey_press(void) {
    if (!ptt_button) return false;
    if (ptt_hotkey_held) return true;
    ptt_hotkey_held = true;
-   if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button))) {
+   ptt_hotkey_initial_active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button));
+   ptt_hotkey_pressed_at = g_get_monotonic_time();
+   if (!ptt_hotkey_initial_active) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), TRUE);
    }
    return true;
@@ -329,9 +339,16 @@ bool ptt_button_hotkey_press(void) {
 
 bool ptt_button_hotkey_release(void) {
    if (!ptt_button || !ptt_hotkey_held) return false;
+   gint64 elapsed = g_get_monotonic_time() - ptt_hotkey_pressed_at;
+   bool quick_tap = elapsed >= 0 && elapsed < PTT_HOTKEY_TAP_USEC;
    ptt_hotkey_held = false;
-   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button))) {
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), FALSE);
+   ptt_hotkey_pressed_at = 0;
+
+   /* A short press is a lock toggle. A held shortcut always keys down only
+    * for the duration of the key hold. */
+   bool desired_active = quick_tap ? !ptt_hotkey_initial_active : false;
+   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button)) != desired_active) {
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), desired_active);
    }
    return true;
 }

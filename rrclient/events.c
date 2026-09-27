@@ -382,7 +382,8 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       /* talk.target is also used for private messages.  Treat an unseen
        * target as a conversation tab so private replies are not dumped into
        * the rig room. */
-      gtk_chat_room_add(output_room);
+      if (private_msg) gtk_chat_query_add(output_room);
+      else gtk_chat_room_add(output_room);
    }
 #endif
 
@@ -402,9 +403,13 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       } else if (strcasecmp(msg_type, "replay-pub") == 0) {
         ui_print(output_room, "%s {red}<{reset}%s{red}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "replay-action") == 0) {
-         ui_print(output_room, "%s {red}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
+        ui_print(output_room, "%s {red}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "priv") == 0) {
-         ui_print(output_room, "%s {bright-green}*{reset}%s{bright-green}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
+         if (from && login_user && strcasecmp(from, login_user) == 0)
+            ui_print(output_room, "%s {bright-green}->{reset} %s", get_chat_ts(msg_ts), msg_data);
+         else
+            ui_print(output_room, "%s {bright-green}*{reset}%s{bright-green}*{reset} %s",
+               get_chat_ts(msg_ts), from ? from : "?", msg_data);
       } else if (strcasecmp(msg_type, "replay-priv") == 0 || strcasecmp(msg_type, "replay-privmsg") == 0) {
          ui_print(output_room, "%s {magenta}*{reset}%s{magenta}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
       }
@@ -414,6 +419,8 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          ui_message_bell();
       }
    }
+   if (ui_mode == UI_MODE_TUI)
+      tui_redraw_flush();
    dict_free(d);
 }
 
@@ -612,8 +619,12 @@ static void rrclient_handle_room_vfo_list(const char *event, const char *data, r
    if (!data) return;
    dict *d = json2dict(data); if (!d) return;
    const char *vfos = dict_get(d, "talk.vfos", "");
+   const char *room = dict_get(d, "talk.room", NULL);
    const char *output = ui_active_window_name();
-   ui_print(output, "{yellow}Room/VFO mappings:{reset}");
+   if (room && *room)
+      ui_print(output, "{yellow}VFO mappings for %s:{reset}", room);
+   else
+      ui_print(output, "{yellow}Room/VFO mappings:{reset}");
    if (!vfos || !*vfos) {
       ui_print(output, "  (none)");
    } else {

@@ -49,7 +49,6 @@ defconfig_t defcfg_fwdsp[] = {
    { "fwdsp:recording.tx", "false", "Record transmitted audio" },
    { "fwdsp:subproc.max", "16", "Maximum allowed de/encoder processes" },
    { "fwdsp:hangtime", "60", "How long to keep unused encoders alive after last use; decoders stop immediately" },
-   { "fwdsp:subproc.debug", "false", "Show extra debug messages" },
    { NULL, NULL, NULL }
 };
 

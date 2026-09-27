@@ -32,7 +32,6 @@ extern rrconn_t *ws_conn, *ws_tx_conn;
 extern rr_connection_t *active_connections;
 extern dict *cfg;
 extern bool dying;
-extern bool debug_sockets;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN + 1];
 extern void rrclient_update_connection_ui(int connected);       // events.c
@@ -44,7 +43,7 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
    }
    const char *autoconnect = cfg_get_exp("server.auto-connect");
 
-   if (autoconnect && *autoconnect) {
+   if (autoconnect) {
       return autoconnect;
    }
 
@@ -252,7 +251,7 @@ void connman_autoconnect(void) {
    // Should we connect to a server on startup?
    const char *autoconnect = cfg_get_exp("server.auto-connect");
 
-   if (autoconnect) {
+   if (autoconnect && *autoconnect) {
       char *tv = strdup(autoconnect);
 
       if (!tv) {
