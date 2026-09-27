@@ -7,6 +7,8 @@ rustyrig-fw (20260927) testing; urgency=medium
 - More automated test cases
 - Debian, Arch, and RPM packages now install the rrserver systemd unit and
   configured user-agent ban file alongside the existing init support.
+- MQTT now listens on loopback by default, and added a regression test proving
+  an authenticated user's PTT is released when their connection drops.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com> Sun Sep 27 12:40:41 PM EDT 2026
 
