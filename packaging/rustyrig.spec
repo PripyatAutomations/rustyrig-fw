@@ -75,6 +75,7 @@ install -Dpm0644 packaging/rustyrig.tmpfiles %{buildroot}%{_tmpfilesdir}/rustyri
 install -Dpm0644 packaging/rustyrig-client.desktop %{buildroot}%{_datadir}/applications/rustyrig-client.desktop
 install -Dpm0644 res/rustyrig.png %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 for f in rrserver.cfg rrclient.cfg callsign-lookup.cfg callsign-lookup.srv.cfg callsign-lookup.cli.cfg; do install -Dpm0644 config/$f %{buildroot}%{_sysconfdir}/rustyrig/$f; done
+install -Dpm0644 config/ua-bans %{buildroot}%{_sysconfdir}/rustyrig/ua-bans.txt
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
 install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.preload.sql
 install -Dpm0755 tools/dummy-rigctld.sh %{buildroot}%{_sharedstatedir}/rustyrig/tools/dummy-rigctld.sh
@@ -104,6 +105,7 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %config(noreplace) %{_sysconfdir}/init.d/rrserver
 %config(noreplace) %{_sysconfdir}/rustyrig/rrserver.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.srv.cfg
+%config(noreplace) %{_sysconfdir}/rustyrig/ua-bans.txt
 %{_sharedstatedir}/rustyrig
 %files client
 %{_bindir}/rrclient

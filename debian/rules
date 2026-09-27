@@ -53,6 +53,7 @@ override_dh_auto_install:
 	install -d debian/rustyrig-server/var/run/rustyrig
 	install -d debian/rustyrig-server/var/log/rustyrig
 	install -Dm644 packaging/rustyrig.tmpfiles debian/rustyrig-server/usr/lib/tmpfiles.d/rustyrig.conf
+	install -Dm644 packaging/rrserver.service debian/rustyrig-server/usr/lib/systemd/system/rustyrig-server.service
 	install -d debian/rustyrig-client/var/lib/rustyrig/db
 	install -d debian/rustyrig-client/var/lib/rustyrig/help
 	install -d debian/rustyrig-client/var/lib/rustyrig/recordings/client
@@ -63,6 +64,7 @@ override_dh_auto_install:
 	install -d debian/rustyrig-client-tui/etc/rustyrig
 	install -Dm644 config/rrserver.cfg debian/rustyrig-server/etc/rustyrig/rrserver.cfg
 	install -Dm644 config/callsign-lookup.srv.cfg debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg
+	install -Dm644 config/ua-bans debian/rustyrig-server/etc/rustyrig/ua-bans.txt
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
 	install -Dm644 config/rrclient.cfg debian/rustyrig-client/etc/rustyrig/rrclient.cfg
 	install -Dm644 config/callsign-lookup.cli.cfg debian/rustyrig-client/etc/rustyrig/callsign-lookup.cli.cfg
@@ -91,7 +93,7 @@ override_dh_auto_install:
 	cp -a libfwdspmgr/*.h debian/libfwdspmgr-dev/usr/include/libfwdspmgr/
 
 	install -d debian/rustyrig-server/usr/share/doc/rustyrig/config
-	cp -a config/rrserver.cfg config/rrclient.cfg config/callsign-lookup.cfg config/callsign-lookup.srv.cfg config/callsign-lookup.cli.cfg debian/rustyrig-server/usr/share/doc/rustyrig/config/
+	cp -a config/rrserver.cfg config/rrclient.cfg config/callsign-lookup.cfg config/callsign-lookup.srv.cfg config/callsign-lookup.cli.cfg config/ua-bans debian/rustyrig-server/usr/share/doc/rustyrig/config/
 	cp -a doc debian/rustyrig-server/usr/share/doc/rustyrig/
 
 override_dh_installinit:

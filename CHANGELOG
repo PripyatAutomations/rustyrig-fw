@@ -4,8 +4,9 @@ rustyrig-fw (20260927) testing; urgency=medium
   build feature controlled by the profile configuration.
 - Added protocol security tests for challenge-response hashes, privilege
   matching, wildcard privileges, and invalid user/privilege inputs.
-- More automated tests
-- Test cases
+- More automated test cases
+- Debian, Arch, and RPM packages now install the rrserver systemd unit and
+  configured user-agent ban file alongside the existing init support.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com> Sun Sep 27 12:40:41 PM EDT 2026
 

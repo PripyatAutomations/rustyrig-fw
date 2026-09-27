@@ -50,6 +50,7 @@ package_rustyrig-server() {
    install -Dm755 packaging/rrserver.rc "$pkgdir/etc/init.d/rrserver"
    install -Dm644 config/rrserver.cfg "$pkgdir/etc/rustyrig/rrserver.cfg"
    install -Dm644 config/callsign-lookup.srv.cfg "$pkgdir/etc/rustyrig/callsign-lookup.srv.cfg"
+   install -Dm644 config/ua-bans "$pkgdir/etc/rustyrig/ua-bans.txt"
    install -Dm644 sql/sqlite.master.sql "$pkgdir/var/lib/rustyrig/sql/sqlite.master.sql"
    install -Dm644 sql/sqlite.master.preload.sql "$pkgdir/var/lib/rustyrig/sql/sqlite.master.preload.sql"
    install -Dm755 tools/dummy-rigctld.sh "$pkgdir/var/lib/rustyrig/tools/dummy-rigctld.sh"
