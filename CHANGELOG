@@ -1,4 +1,8 @@
 rustyrig-fw (20260927) testing; urgency=medium
+- Fixed `/user` server commands to parse their event envelope before handling
+  subcommands such as `list` and `add`.
+- GTK VFO controls now apply cached CAT frequency/state when the room widget
+  is created, so startup frequency matches the userlist immediately.
 - Configuration key name cleanup
 - Removed the unused runtime `debug.profiling` setting; profiling remains a
   build feature controlled by the profile configuration.

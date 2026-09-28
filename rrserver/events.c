@@ -956,8 +956,23 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       return;
    }
 
+   /* user.cmd is emitted with event_emit_dict(), so data is the serialized
+    * event envelope.  Parse that envelope before splitting the command tail;
+    * tokenizing the JSON itself made every subcommand look like a missing or
+    * unknown account (for example `/user list` became an empty target). */
+   dict *request = json2dict(data);
+   if (!request) {
+      ws_send_error(cptr, "USER: invalid command payload");
+      return;
+   }
+   const char *command_data = dict_get(request, "user.data", NULL);
+   if (!command_data) {
+      command_data = "";
+   }
+
    char input[HTTP_WS_MAX_MSG + 1];
-   snprintf(input, sizeof(input), "%s", data);
+   snprintf(input, sizeof(input), "%s", command_data);
+   dict_free(request);
    char *argv[8] = {0};
    int argc = 0;
    char *save = NULL;

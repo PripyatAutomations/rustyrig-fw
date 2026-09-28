@@ -20,6 +20,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/vfo.h>
 
 extern GtkWidget *freq_entry;
 extern int ws_connected;
@@ -157,6 +158,13 @@ GtkWidget *create_vfo_box(void) {
 
    // This will sort out tab order between previous/next widget
    g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
+
+   /* CAT state commonly arrives while authentication is building the room
+    * tab.  The user list reads that cached state directly, but the controls
+    * are created afterwards and would otherwise keep their zero/default
+    * values until the next CAT poll.  Push the already-received state into
+    * the newly-created widgets immediately. */
+   vfo_update_ui();
 
    return control_box;
 }

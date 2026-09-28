@@ -79,6 +79,8 @@ See `doc/client-parity.md` for the current parity map.
 - Build configuration is in config/${PROFILE}.config.json and PROFILE defaults to 'radio'
 - mk/json-config.mk maps config settings to make variables as needed
 - Always update the changelog. Only one section per day with as many entries as needed
+- Don't edit anything in ext/ we do not own that code!
+
 ## Test placement and validation
 
 - Keep tests beside the component they exercise: `rrclient/tests/`,
