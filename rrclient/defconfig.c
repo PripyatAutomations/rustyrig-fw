@@ -120,6 +120,7 @@ defconfig_t defcfg[] = {
    { "ui.theme.completion", "cyan", "Color tag used for tab-completion candidates" },
    { "ui.theme.headers", "cyan", "Color tag used for headers (help banner, section titles)" },
    { "ui.ptt-ack-timeout", "2", "How long to wait for server to ACK ptt button?", DEFCONFIG_UINT, NULL },
+   { "ui.ptt-hold-delay", "500", "Milliseconds before a PTT shortcut becomes hold-to-talk", DEFCONFIG_UINT, NULL },
    { "ui.bell.chat", "false", "Dings in chat for new messages?", DEFCONFIG_BOOL, NULL },
    { "ui.bell.chat-other", "./sounds-ding.wav", "Sound to play for normal chat messages" },
    { "ui.bell.chat-highlight", "./sounds/uh-oh.wav", "Sound to play instead of a ding for msgs with our username in them" },

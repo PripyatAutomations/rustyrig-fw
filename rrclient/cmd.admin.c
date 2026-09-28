@@ -261,7 +261,7 @@ bool cmd_quota(int argc, char **args) {
 /* PARITY: librrprotocol/srv.chat.c /user and rrserver/events.c */
 bool cmd_user(int argc, char **args) {
    if (argc < 2 || !args[1]) {
-      ui_print(ui_active_window_name(), "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | oldpw | resetpw <user> | pass <user> <password>");
+      ui_print(ui_active_window_name(), "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | privs <user> list|add|remove|set [privileges] | oldpw | resetpw <user> | pass <user> <password>");
       return true;
    }
    dict *d = dict_new();

@@ -906,6 +906,84 @@ static bool user_name_valid(const char *name) {
    return true;
 }
 
+/* Privileges are stored as a comma-separated list. Keep the list deliberately
+ * conservative here because this command changes authorization state. */
+static bool user_privilege_list_valid(const char *privileges, bool allow_empty) {
+   if (!privileges) return false;
+   if (!*privileges) return allow_empty;
+   if (strlen(privileges) > USER_PRIV_LEN) return false;
+
+   const char *p = privileges;
+   while (*p) {
+      const char *end = strchr(p, ',');
+      size_t len = end ? (size_t)(end - p) : strlen(p);
+      if (len == 0 || len >= 64) return false;
+      for (size_t i = 0; i < len; i++) {
+         unsigned char ch = (unsigned char)p[i];
+         if (!isalnum(ch) && ch != '.' && ch != '_' && ch != '-' && ch != '*')
+            return false;
+      }
+      if (end && end[1] == '\0') return false;
+      p = end ? end + 1 : p + len;
+   }
+   return true;
+}
+
+static bool user_privilege_contains(const char *privileges, const char *wanted) {
+   if (!privileges || !wanted || !*wanted) return false;
+   char copy[USER_PRIV_LEN + 1];
+   strlcpy(copy, privileges, sizeof(copy));
+   char *save = NULL;
+   for (char *token = strtok_r(copy, ",", &save); token;
+      token = strtok_r(NULL, ",", &save)) {
+      if (strcasecmp(token, wanted) == 0) return true;
+   }
+   return false;
+}
+
+static bool user_privilege_has_elevated(const char *privileges) {
+   return user_privilege_contains(privileges, "admin") ||
+      user_privilege_contains(privileges, "owner");
+}
+
+static bool user_privilege_add_tokens(const char *base, const char *extra,
+   char *out, size_t out_len) {
+   if (!base || !extra || !out || out_len == 0) return false;
+   snprintf(out, out_len, "%s", base);
+   char copy[USER_PRIV_LEN + 1];
+   strlcpy(copy, extra, sizeof(copy));
+   char *save = NULL;
+   for (char *token = strtok_r(copy, ",", &save); token;
+      token = strtok_r(NULL, ",", &save)) {
+      if (user_privilege_contains(out, token)) continue;
+      size_t used = strlen(out);
+      int written = snprintf(out + used, out_len - used, "%s%s",
+         used ? "," : "", token);
+      if (written < 0 || (size_t)written >= out_len - used) return false;
+   }
+   return true;
+}
+
+static bool user_privilege_remove_tokens(const char *base, const char *remove,
+   char *out, size_t out_len) {
+   if (!base || !remove || !out || out_len == 0) return false;
+   out[0] = '\0';
+   char base_copy[USER_PRIV_LEN + 1];
+   char remove_copy[USER_PRIV_LEN + 1];
+   strlcpy(base_copy, base, sizeof(base_copy));
+   strlcpy(remove_copy, remove, sizeof(remove_copy));
+   char *save = NULL;
+   for (char *token = strtok_r(base_copy, ",", &save); token;
+      token = strtok_r(NULL, ",", &save)) {
+      if (user_privilege_contains(remove_copy, token)) continue;
+      size_t used = strlen(out);
+      int written = snprintf(out + used, out_len - used, "%s%s",
+         used ? "," : "", token);
+      if (written < 0 || (size_t)written >= out_len - used) return false;
+   }
+   return true;
+}
+
 static bool user_is_elevated(const http_user_t *user) {
    return user && match_priv(user->privs, "admin|owner");
 }
@@ -983,7 +1061,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    }
 
    if (argc == 0 || strcasecmp(argv[0], "help") == 0) {
-      user_reply(cptr, "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | resetpw <user> | pass <user> <password>");
+      user_reply(cptr, "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | privs <user> list|add|remove|set [privileges] | oldpw | resetpw <user> | pass <user> <password>");
       return;
    }
 
@@ -1080,6 +1158,72 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       user_reply(cptr, "USER: account not found: %s", target_name ? target_name : "(missing)");
       return;
    }
+
+   if (strcasecmp(argv[0], "privs") == 0) {
+      if (argc < 3 || argc > 4 ||
+          (strcasecmp(argv[2], "list") != 0 && argc != 4) ||
+          (argc == 4 && strcasecmp(argv[2], "list") == 0)) {
+         user_reply(cptr, "Usage: /user privs <user> list|add|remove|set [privileges]");
+         return;
+      }
+
+      bool actor_is_owner = has_priv(cptr->user->uid, "owner");
+      if (strcasecmp(argv[2], "list") == 0) {
+         user_reply(cptr, "USER: %s privileges: %s", target->name,
+            target->privs[0] ? target->privs : "none");
+         return;
+      }
+
+      if (user_is_elevated(target) && !actor_is_owner) {
+         user_reply(cptr, "USER: only owners may change administrator or owner privileges");
+         return;
+      }
+
+      const char *requested = argv[3];
+      if (!user_privilege_list_valid(requested, false) ||
+          (strcasecmp(requested, "none") == 0 && strcasecmp(argv[2], "set") != 0)) {
+         user_reply(cptr, "USER: invalid privilege list: %s", requested ? requested : "(missing)");
+         return;
+      }
+
+      char updated[USER_PRIV_LEN + 1];
+      if (strcasecmp(argv[2], "set") == 0) {
+         if (strcasecmp(requested, "none") == 0) {
+            updated[0] = '\0';
+         } else {
+            strlcpy(updated, requested, sizeof(updated));
+         }
+      } else if (strcasecmp(argv[2], "add") == 0) {
+         if (!user_privilege_add_tokens(target->privs, requested, updated, sizeof(updated))) {
+            user_reply(cptr, "USER: resulting privilege list is too long");
+            return;
+         }
+      } else if (strcasecmp(argv[2], "remove") == 0) {
+         if (!user_privilege_remove_tokens(target->privs, requested, updated, sizeof(updated))) {
+            user_reply(cptr, "USER: resulting privilege list is too long");
+            return;
+         }
+      } else {
+         user_reply(cptr, "Usage: /user privs <user> list|add|remove|set [privileges]");
+         return;
+      }
+
+      if (!actor_is_owner && user_privilege_has_elevated(updated)) {
+         user_reply(cptr, "USER: administrators cannot grant owner or administrator privileges");
+         return;
+      }
+      if (!db_user_set_privileges(masterdb, target->name, updated) ||
+          !user_reload_database(cptr)) {
+         user_reply(cptr, "USER: failed to update privileges for %s", target->name);
+         return;
+      }
+      Log(LOG_AUDIT, "auth.users", "%s changed privileges for %s to %s",
+         cptr->chatname, target->name, updated[0] ? updated : "none");
+      user_reply(cptr, "USER: %s privileges for %s: %s", argv[2], target->name,
+         updated[0] ? updated : "none");
+      return;
+   }
+
    if (!user_target_allowed(cptr->user, target, password_change)) {
       user_reply(cptr, "USER: insufficient privilege to modify %s", target->name);
       return;

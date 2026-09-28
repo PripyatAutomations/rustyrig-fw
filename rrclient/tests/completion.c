@@ -57,6 +57,9 @@ int main(void) {
    check("/quota SET alice ", "", NULL);
    check("/quota SHOW alice a", "a", "alice");
    check("/user o", "o", "OLDPW");
+   check("/user pr", "pr", "PRIVS");
+   check("/user privs ", "", "alice");
+   check("/user privs alice ", "", "LIST");
    check("/room ", "", "LIST");
    check("/room #test ", "", "VFO");
    check("/room #test vfo ", "", "ADD");

@@ -85,6 +85,7 @@ bool restarting = false;
 int cfg_ui_vfo_viscosity = -1;
 int cfg_ui_edit_delay = 3;          // Seconds to suppress freq updates after local edit
 int cfg_ui_ptt_ack_timeout = 2;     // Seconds to wait for a PTT ack before reverting (gtk.ptt-btn.c)
+int cfg_ui_ptt_hold_delay = 500;    // Milliseconds before a PTT shortcut is treated as hold-to-talk
 time_t now = 0;
 time_t poll_block_delay = 0;     // CAT polling suppression delay in seconds
 #ifdef USE_GTK
@@ -117,6 +118,8 @@ static bool rrclient_config_refresh(const char *key) {
    poll_block_delay = (cfg_ui_vfo_viscosity > 0) ? (cfg_ui_vfo_viscosity / 1000) : 0;
    cfg_ui_edit_delay = cfg_get_int("ui.edit-delay", 3);
    cfg_ui_ptt_ack_timeout = cfg_get_int("ui.ptt-ack-timeout", 2);
+   cfg_ui_ptt_hold_delay = cfg_get_int("ui.ptt-hold-delay", 500);
+   if (cfg_ui_ptt_hold_delay < 0) cfg_ui_ptt_hold_delay = 0;
    cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 

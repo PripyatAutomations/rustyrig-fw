@@ -105,6 +105,9 @@ int main(void) {
    assert(db_get_users(db) == 4);
    assert(http_users[10].password_change_required);
    assert(http_users[10].password_expires > now);
+   assert(db_user_set_privileges(db, "new-user", "view,chat,radio"));
+   assert(db_get_users(db) == 4);
+   assert(strcmp(http_users[10].privs, "view,chat,radio") == 0);
    assert(db_user_set_enabled(db, "new-user", false));
    assert(db_user_update_password(db, "new-user", "updated-hash", false, 0));
    assert(db_get_users(db) == 4);

@@ -22,6 +22,7 @@ extern bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled,
                            const char *email, int maxsessions, const char *permissions,
                            bool password_change_required, time_t password_expires);
 extern bool db_user_set_enabled(sqlite3 *db, const char *name, bool enabled);
+extern bool db_user_set_privileges(sqlite3 *db, const char *name, const char *privileges);
 extern bool db_user_remove(sqlite3 *db, const char *name);
 extern bool db_user_update_password(sqlite3 *db, const char *name, const char *password_hash,
                                     bool password_change_required, time_t password_expires);

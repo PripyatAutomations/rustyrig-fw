@@ -48,6 +48,7 @@ bool ptt_button_pending_state = false;
 // button (used after sending PTT off, so a stale "on" ack can't bounce us)
 bool ptt_button_pending_quiet = false;
 extern int cfg_ui_ptt_ack_timeout;          // main.c
+extern int cfg_ui_ptt_hold_delay;           // main.c
 
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 static gulong ptt_toggled_handler = 0;
@@ -57,8 +58,6 @@ static gint64 ptt_hotkey_pressed_at = 0;
 
 /* A quick tap toggles the PTT lock, matching the TUI. Holding the shortcut
  * keeps PTT active only until release. */
-#define PTT_HOTKEY_TAP_USEC 350000
-
 // Connection state for the button: grey while offline, colored once online.
 // Set via ptt_button_set_online() from events.c
 static bool ptt_btn_online = false;
@@ -340,7 +339,8 @@ bool ptt_button_hotkey_press(void) {
 bool ptt_button_hotkey_release(void) {
    if (!ptt_button || !ptt_hotkey_held) return false;
    gint64 elapsed = g_get_monotonic_time() - ptt_hotkey_pressed_at;
-   bool quick_tap = elapsed >= 0 && elapsed < PTT_HOTKEY_TAP_USEC;
+   gint64 hold_delay = (gint64)cfg_ui_ptt_hold_delay * 1000;
+   bool quick_tap = elapsed >= 0 && elapsed < hold_delay;
    ptt_hotkey_held = false;
    ptt_hotkey_pressed_at = 0;
 

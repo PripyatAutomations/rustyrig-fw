@@ -445,6 +445,20 @@ bool db_user_set_enabled(sqlite3 *db, const char *name, bool enabled) {
    return db_user_update(db, "UPDATE users SET enabled=? WHERE name=?;", name, enabled);
 }
 
+bool db_user_set_privileges(sqlite3 *db, const char *name, const char *privileges) {
+   if (!db || !name || !*name || !privileges || strlen(privileges) > USER_PRIV_LEN)
+      return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db, "UPDATE users SET permissions=? WHERE name=?;", -1,
+      &stmt, NULL) != SQLITE_OK)
+      return false;
+   sqlite3_bind_text(stmt, 1, privileges, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+
 bool db_user_remove(sqlite3 *db, const char *name) {
    if (!db || !name || !*name) return false;
    if (sqlite3_exec(db, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) return false;

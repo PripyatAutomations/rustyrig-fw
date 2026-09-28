@@ -1,4 +1,8 @@
 rustyrig-fw (20260927) testing; urgency=medium
+- Added configurable `ui.ptt-hold-delay` (500 ms by default) so accidental
+  PTT shortcut taps are less likely to become brief transmissions.
+- Added owner/admin-scoped `/user privs` management for listing, adding,
+  removing, and assigning exact account privileges.
 - Fixed `/user` server commands to parse their event envelope before handling
   subcommands such as `list` and `add`.
 - GTK VFO controls now apply cached CAT frequency/state when the room widget
