@@ -1,11 +1,12 @@
-rrserver_headers += $(wildcard rrserver/*.h)
-rrserver_src = $(addprefix rrserver/,$(rrserver_objs:.o=.c))
-
+CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
 bins += ${rrserver}
 
-#rrserver_objs += au.o			# core audio stuff
-#rrserver_objs += au.pipe.o		# audio over pipes (for gstreamer)
+rrserver_headers += $(wildcard rrserver/*.h)
+rrserver_src = $(addprefix rrserver/,$(rrserver_objs:.o=.c))
+
+#rrserver_objs += au.o			# core abstractions
+rrserver_objs += au.pcm5102.o           # Support for TI PCM5102 i2c DAC
 rrserver_objs += au.recording.o		# support for recording session audio
 rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
@@ -22,9 +23,6 @@ rrserver_objs += faults.o		# Fault management/alerting
 rrserver_objs += filters.o		# Support for managing BPF/LPF/HPF
 rrserver_objs += gpio.o			# GPIO controls
 rrserver_objs += hostlog.o		# Stream host Log() lines to FLAG_SYSLOG clients as binframes
-#rrserver_objs += gui.o			# Support for a GUI on the OLED/Nextion (NYI)
-#rrserver_objs += gui.fb.o		# Virtual framebuffer for GUI (NYI)
-#rrserver_objs += gui.nextion.o		# Nextion display support (NYI)
 rrserver_objs += help.o			# support for help menus from filesystem, if available
 rrserver_objs += http.bans.o
 rrserver_objs += i2c.o			# Support for i2c bus devices
@@ -40,11 +38,14 @@ rrserver_objs += timer.clocktick.o	# Our 1hz timer
 rrserver_objs += unwind.o		# Support for stack unwinding on crashes
 rrserver_objs += waterfall.o		# support for sending a waterfall
 rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
+
+###########################
+# GUI on the radio itself #
+###########################
+#rrserver_objs += gui.o			# Support for a GUI on the OLED/Nextion (NYI)
+#rrserver_objs += gui.fb.o		# Virtual framebuffer for GUI (NYI)
+#rrserver_objs += gui.nextion.o		# Nextion display support (NYI)
 #rrserver_objs +=
-
-rrserver_headers += $(wildcard rrserver/*.h)
-
-CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}

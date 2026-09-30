@@ -8,9 +8,9 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-/*
- * Here we implement timers (periodic and one-shot) in a platform independent manner.
- */
+// Here we implement timers (periodic and one-shot) in a platform independent manner.
+// XXX: Need to merge all timer code into this API and replace anywhere
+// XXX: we setup timers throughout rrserver
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

@@ -534,6 +534,17 @@ void gtk_chat_query_add(const char *user) {
    gtk_chat_tab_add(user, true);
 }
 
+void gtk_chat_show_status(void) {
+   if (!main_notebook || !status_tab) return;
+   gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
+   if (page >= 0) {
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
+   }
+   if (rig_room_tab && rig_room_tab->entry && GTK_IS_WIDGET(rig_room_tab->entry)) {
+      gtk_widget_grab_focus(rig_room_tab->entry);
+   }
+}
+
 void gtk_chat_room_remove(const char *room) {
    if (!room_tabs || !room) return;
    GtkRoomTab *tab = g_hash_table_lookup(room_tabs, room);
@@ -614,6 +625,16 @@ bool chat_init(void) {
    rig_room_tab = g_new0(GtkRoomTab, 1);
    rig_room_tab->page = status_tab;
    g_object_set_data(G_OBJECT(status_tab), "rr-room-tab", rig_room_tab);
+   /* Keep a usable status page before authentication.  If connection setup
+    * fails, errors must have a GTK text buffer to land in; after the server
+    * announces the authoritative room, gtk_chat_set_authoritative_room()
+    * replaces this placeholder with the rig room controls. */
+   GtkWidget *status_box = create_chat_box_for_room(false, NULL, false);
+   if (status_box) {
+      gtk_box_pack_start(GTK_BOX(status_tab), status_box, TRUE, TRUE, 0);
+      rig_room_tab->view = chat_textview;
+      rig_room_tab->entry = chat_entry;
+   }
    g_signal_connect(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
    userlist_redraw_gtk();
 

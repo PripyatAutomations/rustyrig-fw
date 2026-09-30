@@ -1,4 +1,6 @@
 rustyrig-fw (20260927) testing; urgency=medium
+- GTK now keeps a usable status page before authentication and switches to it
+  with a visible error when the configured server cannot be reached.
 - Added configurable `ui.ptt-hold-delay` (500 ms by default) so accidental
   PTT shortcut taps are less likely to become brief transmissions.
 - Added owner/admin-scoped `/user privs` management for listing, adding,

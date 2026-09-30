@@ -7,8 +7,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // Here we support plotting a waterfall onto virtual fb
-// to be sent either to display or network client
-//
+// to be sent either to our display or network client
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

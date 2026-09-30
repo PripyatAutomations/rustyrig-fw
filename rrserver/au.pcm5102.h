@@ -1,5 +1,5 @@
 //
-// au.pcm5102.h
+// rrserver/au.pcm5102.h
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

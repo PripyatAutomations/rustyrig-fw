@@ -478,10 +478,15 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             dict_free(d);
          }
       }
+#ifdef USE_GTK
+      if (ui_mode == UI_MODE_GTK) {
+         gtk_chat_show_status();
+      }
+#endif
       if (err) {
-         ui_print(NULL, "{red}* http error *{reset} %s", err);
+         ui_print(NULL, "%s {red}*** Unable to reach server: %s{reset}", get_chat_ts(now), err);
       } else {
-         ui_print(NULL, "{red}* http error *{reset}");
+         ui_print(NULL, "%s {red}*** Unable to reach server{reset}", get_chat_ts(now));
       }
       free((void *)err);
       rrclient_set_offline();
