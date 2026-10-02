@@ -1,3 +1,29 @@
+rustyrig-fw (20261002) testing; urgency=medium
+- Bounded MQTT subscription parsing and per-client subscription counts to
+  prevent malformed packets and oversized requests from corrupting memory.
+- Freed MQTT topic and subscription allocations when clients disconnect.
+- Made `net.mqtt.enabled` control whether the MQTT listener starts.
+- Required the new `video-src` account privilege as well as the declared
+  `video-source` role before a client can register as a video media source.
+- NUL-terminated saved HTTP User-Agent headers and centralized connection
+  resource cleanup so authenticated and unauthenticated disconnects are safe.
+- Removed session tokens, nonces, stored password hashes, and challenge
+  responses from logs, corrected password-hash buffer wiping, and require an
+  exact nonce match and valid user-array index during authentication.
+- Enabled the maintained project test suites in CI and added security
+  regressions for MQTT, media-source authorization, and HTTP-owned strings.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>
+
+rustyrig-fw (20261001) testing; urgency=medium
+- Hash complete authentication password hashes and nonces without fixed-buffer
+  truncation, matching the existing WebUI challenge-response calculation.
+- Added authentication regression vectors for stored password hashes and long
+  nonces, including nonces differing only beyond the previous buffer limit.
+- Removed password hashes and challenge responses from the hashing debug log.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>
+
 rustyrig-fw (20260927) testing; urgency=medium
 - Fixed ring-buffer name ownership and cleanup, including NULL-safe creation
   and destruction paths.

@@ -228,7 +228,8 @@ Two source paths are supported:
    subscriber of the video channel it provisions at startup.
 2. **Client webcam** (rrclient/webcam.c): a client connection configured
    with `client.role: video-source` announces `hello.role: video-source`
-   in its initial HELLO, registers as a media source after auth, and
+   in its initial HELLO. Its account must have the `video-src` privilege;
+   after authentication it registers as a media source and
    pushes TX-direction video binframes for the video channel. The server
    validates the flag and fans the frames out to subscribers.
 

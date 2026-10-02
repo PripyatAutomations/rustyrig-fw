@@ -38,6 +38,8 @@ struct sub {
 };
 static struct sub *s_subs = NULL;
 
+#define MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT 256
+
 // Are we debugging (hexdump) mqtt?
 bool mqtt_debug_sock = false;
 
@@ -50,6 +52,11 @@ int mqtt_port = 0;
 
 
 bool mqtt_server_init(struct mg_mgr *mgr) {
+   if (!cfg_get_bool("net.mqtt.enabled", false)) {
+      Log(LOG_DEBUG, "mqtt", "MQTT listener disabled");
+      return false;
+   }
+
    if (!mgr) {
       Log(LOG_CRIT, "mqtt", "mqtt_init: NULL mgr passed, skipping");
 
@@ -87,25 +94,65 @@ bool mqtt_server_init(struct mg_mgr *mgr) {
 // based on mongoose examples
 //////
 static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg, struct mg_str *topic, uint8_t *qos, size_t pos) {
-   unsigned char *buf = (unsigned char *) msg->dgram.buf + pos;
-   size_t new_pos;
-
-   if (pos >= msg->dgram.len) {
+   if (!msg || !topic || !msg->dgram.buf || pos > msg->dgram.len ||
+       msg->dgram.len - pos < 2) {
       return 0;
    }
-   topic->len = (size_t) ( ( (unsigned) buf[0] ) << 8 | buf[1] );
+   unsigned char *buf = (unsigned char *)msg->dgram.buf + pos;
+   size_t topic_len = (size_t)( ( (unsigned)buf[0] << 8) | buf[1]);
+   size_t suffix_len = qos ? 1 : 0;
+   size_t remaining = msg->dgram.len - pos - 2;
+
+   if (topic_len == 0 || topic_len > remaining || suffix_len > remaining - topic_len) {
+      return 0;
+   }
+   topic->len = topic_len;
    topic->buf = (char *) buf + 2;
-   new_pos = pos + 2 + topic->len + (!qos ? 0 : 1);
-
-   if (new_pos > msg->dgram.len) {
-      return 0;
-   }
+   size_t new_pos = pos + 2 + topic_len + suffix_len;
 
    if (qos) {
       *qos = buf[2 + topic->len];
    }
 
    return new_pos;
+}
+
+static size_t mqtt_subscription_count(struct mg_connection *c) {
+   size_t count = 0;
+
+   for (struct sub *sub = s_subs ; sub ; sub = sub->next) {
+      if (sub->c == c) {
+         count++;
+      }
+   }
+   return count;
+}
+
+static void mqtt_subscription_free(struct sub *sub) {
+   if (!sub) {
+      return;
+   }
+   mg_free( (void *)sub->topic.buf);
+   free(sub);
+}
+
+static size_t mqtt_subscription_start(struct mg_mqtt_message *msg) {
+   if (!msg || !msg->dgram.buf || msg->dgram.len < 4) {
+      return SIZE_MAX;
+   }
+   const uint8_t *packet = (const uint8_t *)msg->dgram.buf;
+   size_t pos = 1;
+
+   for (int encoded = 0 ; encoded < 4 ; encoded++) {
+      if (pos >= msg->dgram.len) {
+         return SIZE_MAX;
+      }
+      bool continued = (packet[pos++] & 0x80) != 0;
+      if (!continued) {
+         return msg->dgram.len - pos >= 2 ? pos + 2 : SIZE_MAX;
+      }
+   }
+   return SIZE_MAX;
 }
 
 size_t mg_mqtt_next_sub(struct mg_mqtt_message *msg, struct mg_str *topic, uint8_t *qos, size_t pos) {
@@ -144,13 +191,31 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
          case MQTT_CMD_SUBSCRIBE: {
             // Client subscribes
-            size_t pos = 4;   // Initial topic offset, where ID ends
-            uint8_t qos, resp[256];
+            size_t pos = mqtt_subscription_start(mm);
+            uint8_t qos, resp[MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT];
             struct mg_str topic;
-            int num_topics = 0;
+            size_t num_topics = 0;
+            size_t client_topics = mqtt_subscription_count(c);
             memset( resp, 0, sizeof(resp) );
 
+            if (pos == SIZE_MAX) {
+               Log(LOG_WARN, "mqtt.req", "Malformed MQTT subscription packet");
+               c->is_closing = 1;
+               break;
+            }
+
             while ( ( ( pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0 ) ) {
+               if (num_topics >= sizeof(resp) ||
+                   client_topics >= MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT) {
+                  Log(LOG_WARN, "mqtt.req", "Too many MQTT subscriptions from connection %p", c);
+                  c->is_closing = 1;
+                  break;
+               }
+               if (qos > 2) {
+                  Log(LOG_WARN, "mqtt.req", "Invalid MQTT subscription QoS %u", qos);
+                  c->is_closing = 1;
+                  break;
+               }
                struct sub *sub = calloc( 1, sizeof(*sub) );
 
                if (!sub) {
@@ -159,8 +224,14 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
                }
                sub->c = c;
                sub->topic = mg_strdup(topic);
+               if (!sub->topic.buf) {
+                  free(sub);
+                  Log(LOG_CRIT, "mqtt.req", "Unable to copy MQTT subscription topic");
+                  break;
+               }
                sub->qos = qos;
                LIST_ADD_HEAD(struct sub, &s_subs, sub);
+               client_topics++;
                Log(LOG_DEBUG, "mqtt.req", "SUB %p [%.*s]", c->fd, (int) sub->topic.len, sub->topic.buf);
 
                // Change '+' to '*' for topic matching using mg_match
@@ -217,6 +288,7 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
          Log(LOG_DEBUG, "mqtt.req", "UNSUB %p [%.*s]", c->fd, (int) sub->topic.len, sub->topic.buf);
          LIST_DELETE(struct sub, &s_subs, sub);
+         mqtt_subscription_free(sub);
       }
    }
 }
