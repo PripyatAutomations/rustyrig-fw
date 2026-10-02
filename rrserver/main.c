@@ -237,6 +237,14 @@ int main(int argc, char **argv) {
       logfile = NULL;
    }
 
+   char *ua_ban_path = cfg_get_path("net.http.ua-bans");
+   if (ua_ban_path) {
+      if (load_http_ua_bans(ua_ban_path)) {
+         Log(LOG_WARN, "http", "Unable to load HTTP User-Agent bans from %s", ua_ban_path);
+      }
+      free(ua_ban_path);
+   }
+
    srand( (unsigned int)now );
    host_init();
 
@@ -448,6 +456,9 @@ int main(int argc, char **argv) {
 #ifdef	USE_MONGOOSE
    mg_mgr_free(&mg_mgr);
 #endif
+
+   event_shutdown();
+   cfg_fini();
 
    if (restarting) {
       restart_rig();

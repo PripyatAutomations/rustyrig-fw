@@ -41,7 +41,19 @@ bool userlist_add_or_update(dict *d) {
    const char *t_privs = dict_get(d, "talk.privs", NULL);
    const char *t_user = dict_get(d, "talk.user", NULL);
    const char *t_room = dict_get(d, "talk.room", NULL);
-   if (!t_room) t_room = rrclient_current_room();
+   if (!t_room || !*t_room) {
+      /* Some userinfo messages are not room-qualified.  Do not use the
+       * current conversation blindly here: a private query tab is also a
+       * conversation, but it is not a room and would temporarily move roster
+       * entries out of the room they belong to. */
+      const char *current = rrclient_current_room();
+      t_room = (current && *current && rrclient_room_is_joined(current))
+         ? current : ws_authoritative_room();
+   }
+   if (!t_room || !*t_room) {
+      Log(LOG_WARN, "userlist", "Ignoring userinfo for %s without a room", t_user ? t_user : "<unknown>");
+      return true;
+   }
    int t_sessions = dict_get_int(d, "talk.sessions", 0);
    bool t_muted = dict_get_bool(d, "talk.muted", false);
    bool t_ptt = dict_get_bool(d, "talk.tx", false);
@@ -54,7 +66,7 @@ bool userlist_add_or_update(dict *d) {
    struct rr_user *c = userlist_find_in_room(t_user, t_room);
 
    if (c) {
-      Log(LOG_INFO, "userlist", "Updating userlist entry for %s at <%p>", t_user, c);
+      Log(LOG_DEBUG, "userlist", "Updating userlist entry for %s at <%p>", t_user, c);
 
       strlcpy(c->room, t_room, sizeof(c->room));
       memset( c->name, 0, sizeof(c->name) );

@@ -1447,5 +1447,6 @@ int main(int argc, char *argv[]) {
 }
 
 void shutdown_app(int signum) {
-   exit(signum);
+   (void)signum;
+   dying = true;
 }

@@ -465,6 +465,8 @@ bool rrclient_cleanup(void) {
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
 
+   event_shutdown();
+
    // Persist the running config (including window placements learned while
    // we ran) if ui.save-on-exit says so. Backed up via cfg_save's .old logic.
    if (cfg && config_file && cfg_get_bool("ui.save-on-exit", false)) {
@@ -474,7 +476,11 @@ bool rrclient_cleanup(void) {
 
    free((void *)cfg_log_audio);
    cfg_log_audio = NULL;
-   dict_free(cfg);
+   cfg_fini();
+
+   if (ui_mode == UI_MODE_TUI) {
+      tui_fini();
+   }
 
 #if defined(USE_LIBNOTIFY) && defined(USE_GTK)
    ui_notify_fini();

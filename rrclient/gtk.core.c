@@ -66,6 +66,10 @@ char *gtk_colorize_string(const char *in) {
    size_t len = strlen(in);
    /* Markup expands color/control sequences substantially.  Keep enough
     * headroom for mIRC color codes and escaped text without truncating. */
+   if (len > (SIZE_MAX - 256) / 64) {
+      Log(LOG_WARN, "gtk", "Refusing oversized colorized string (%zu bytes)", len);
+      return NULL;
+   }
    char *out = malloc(len * 64 + 256);
 
    if (!out) {
@@ -223,6 +227,9 @@ char *gtk_colorize_string(const char *in) {
                if (escaped) {
                   o += sprintf(o, "%s", escaped);
                   g_free(escaped);
+               } else {
+                  free(out);
+                  return NULL;
                }
             }
          }
@@ -232,6 +239,10 @@ char *gtk_colorize_string(const char *in) {
          size_t chunk_len = next ? (size_t)(next - p) : strlen(p);
 
          char *escaped = g_markup_escape_text(p, (gint)chunk_len);
+         if (!escaped) {
+            free(out);
+            return NULL;
+         }
          o += sprintf(o, "%s", escaped);
          g_free(escaped);
 

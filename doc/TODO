@@ -25,9 +25,7 @@ rrclient: Consider bringing in sqlite db for storage/caching (call lookups, etc)
 *: Rotator/amp/ATU support
    - backend.internal, backend.hamlib, and backend.network based
 
-librustyaxe: logger - extend log.level so its work like log.level=*:info,event:crazy@10,6 to allow 10 messages in 6 seconds. Would that be too much work?
-
-rrclient/rrserver: Maybe support storing config in the db too? So load config file then apply db? Would need to periodically poll db for changes tho, ugly..
+librustyaxe: logger - extend log.level so its allows throttling like log.level=*:info,event:crazy@10,6 to allow 10 messages in 6 seconds?
 
 * WebTransport support
   - https://github.com/ngtcp2/ngtcp2/

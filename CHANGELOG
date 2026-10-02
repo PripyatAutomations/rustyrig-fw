@@ -1,12 +1,26 @@
 rustyrig-fw (20260927) testing; urgency=medium
+- Fixed ring-buffer name ownership and cleanup, including NULL-safe creation
+  and destruction paths.
+- Fixed an out-of-bounds read in duration parsing when a value has no unit.
+- Fixed the protocol rig-state diff path ignoring its allocated result, which
+  leaked the diff and suppressed incremental state updates.
+- Added shared configuration shutdown cleanup for dictionaries, callbacks,
+  save handlers, reload events, and the loaded configuration path.
+- Applications now release the shared event registry during orderly shutdown.
+- TUI shutdown now removes its GLib input source, destroys TermKey state,
+  and frees window scrollback and input history.
+- SIGINT/SIGTERM now enter the normal client, server, or fwdsp shutdown path
+  instead of bypassing finalizers with an immediate exit.
+- TUI startup now handles non-terminal stdin without dereferencing a failed
+  TermKey allocation.
+- Version bumping now keeps Debian, RPM, and Arch metadata synchronized and
+  accepts both legacy date versions and semantic versions such as `v0.1.0`.
 - GTK now keeps a usable status page before authentication and switches to it
   with a visible error when the configured server cannot be reached.
 - Added configurable `ui.ptt-hold-delay` (500 ms by default) so accidental
   PTT shortcut taps are less likely to become brief transmissions.
 - Added owner/admin-scoped `/user privs` management for listing, adding,
   removing, and assigning exact account privileges.
-- Fixed `/user` server commands to parse their event envelope before handling
-  subcommands such as `list` and `add`.
 - GTK VFO controls now apply cached CAT frequency/state when the room widget
   is created, so startup frequency matches the userlist immediately.
 - Configuration key name cleanup
@@ -14,18 +28,25 @@ rustyrig-fw (20260927) testing; urgency=medium
   build feature controlled by the profile configuration.
 - Added protocol security tests for challenge-response hashes, privilege
   matching, wildcard privileges, and invalid user/privilege inputs.
+- Ensured userinfo messages always carry a valid room and prevented an
+  unqualified update received while a private query is active from moving
+  room roster entries into the query tab.
+- Enabled configured HTTP user-agent regular-expression bans and rejected
+  invalid patterns instead of silently accepting them.
+- Hardened GTK log markup conversion against oversized input and escaping
+  allocation failures.
+- Lowered repetitive PTT transition and userlist refresh messages to debug
+  level.
 - More automated test cases
 - Debian, Arch, and RPM packages now install the rrserver systemd unit and
   configured user-agent ban file alongside the existing init support.
-- MQTT now listens on loopback by default, and added a regression test proving
-  an authenticated user's PTT is released when their connection drops.
+- MQTT now listens on loopback by default.
 - Debian server installs now prompt for the admin password through debconf and
   apply it to a newly created database without resetting upgrade databases.
 - Put the RustyRig Client desktop launcher in the Ham Radio menu category.
 - Added server-side user administration commands and password age metadata;
-  fresh databases disable guest and no longer preload bob.
-- Account reloads now preserve live session and mute state, and shared-header
-  changes correctly rebuild dependent libraries.
+  fresh databases disable guest.
+- Account reloads now preserve live session and mute state.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com> Sun Sep 27 12:40:41 PM EDT 2026
 

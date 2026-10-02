@@ -7,10 +7,12 @@ cd "$ROOT"
 
 usage() {
    cat <<'EOF'
-Usage: tools/bump-version.sh [--version YYYYMMDD.NN] [--dry-run]
+Usage: tools/bump-version.sh [--version VERSION] [--dry-run]
 
 Advance the RustyRig package version and keep the package metadata in sync.
-Without --version, the sequence is incremented for today's date.
+VERSION may be a legacy YYYYMMDD.NN value or a semantic version such as
+0.1.0 (an optional leading 'v' is accepted). Without --version, a legacy
+date sequence is incremented, or the semantic patch component is incremented.
 EOF
 }
 
@@ -40,22 +42,44 @@ while (($#)); do
 done
 
 old_version=$(tr -d '[:space:]' < .version 2>/dev/null || true)
+
+normalize_version() {
+   local version=$1
+   version=${version#v}
+   if [[ "$version" =~ ^[0-9]{8}\.[0-9]+$ ]]; then
+      printf '%s' "$version"
+   elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+      printf '%s' "$version"
+   else
+      return 1
+   fi
+}
+
 if [[ -n "$requested_version" ]]; then
-   [[ "$requested_version" =~ ^[0-9]{8}\.[0-9]{2,}$ ]] || {
-      echo "invalid version: $requested_version (expected YYYYMMDD.NN)" >&2
+   new_version=$(normalize_version "$requested_version") || {
+      echo "invalid version: $requested_version (expected YYYYMMDD.NN or MAJOR.MINOR.PATCH)" >&2
       exit 2
    }
-   new_version=$requested_version
 else
-   version_date=$(date +%Y%m%d)
-   old_date=${old_version%%.*}
-   old_sequence=${old_version#*.}
-   if [[ "$old_date" == "$version_date" && "$old_sequence" =~ ^[0-9]+$ ]]; then
-      next_sequence=$((10#$old_sequence + 1))
+   if [[ "$old_version" =~ ^[0-9]{8}\.[0-9]+$ ]]; then
+      version_date=$(date +%Y%m%d)
+      old_date=${old_version%%.*}
+      old_sequence=${old_version#*.}
+      if [[ "$old_date" == "$version_date" ]]; then
+         next_sequence=$((10#$old_sequence + 1))
+      else
+         next_sequence=1
+      fi
+      new_version=$(printf '%s.%02d' "$version_date" "$next_sequence")
+   elif [[ "$old_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+      major=${BASH_REMATCH[1]}
+      minor=${BASH_REMATCH[2]}
+      patch=${BASH_REMATCH[3]}
+      new_version="${major}.${minor}.$((10#$patch + 1))"
    else
-      next_sequence=1
+      version_date=$(date +%Y%m%d)
+      new_version="${version_date}.01"
    fi
-   new_version=$(printf '%s.%02d' "$version_date" "$next_sequence")
 fi
 
 echo "VERSION: ${old_version:-unset} -> $new_version"
