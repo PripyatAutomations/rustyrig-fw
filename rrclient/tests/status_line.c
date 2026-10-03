@@ -120,6 +120,40 @@ int main(void) {
    assert(strstr(screen, "\033[1;1H TOPMARK B 7200123"));
    const char *bottom = strstr(screen, "\033[23;1H");
    assert(bottom && strstr(bottom, "BOTTOM-SENTINEL"));
+   assert(!strstr(screen, " \033[24;1H\033[2K"));
+   free(screen);
+
+   capture_reset(output);
+   tui_redraw_request();
+   tui_redraw_flush();
+   assert(!tui_redraw_if_pending());
+   screen = capture_read(output);
+   assert(strstr(screen, "\033[H\033[2J"));
+   assert(strstr(screen, "\033[1;1H TOPMARK B 7200123"));
+   free(screen);
+
+   capture_reset(output);
+   tui_redraw_defer();
+   tui_print(tui_active_window(), "CHAT-SENTINEL");
+   screen = capture_read(output);
+   assert(!strstr(screen, "CHAT-SENTINEL"));
+   free(screen);
+   capture_reset(output);
+   tui_redraw_flush();
+   screen = capture_read(output);
+   assert(strstr(screen, "CHAT-SENTINEL"));
+   assert(strstr(screen, "\033[H\033[2J"));
+   free(screen);
+
+   capture_reset(output);
+   tui_window_t *client_log = tui_window_create("client log");
+   assert(client_log);
+   int client_log_count = client_log->log_count;
+   tui_print(client_log, "INACTIVE-LOG-SENTINEL");
+   screen = capture_read(output);
+   assert(client_log->log_count == client_log_count + 1);
+   assert(!strstr(screen, "\033[H\033[2J"));
+   assert(!strstr(screen, "INACTIVE-LOG-SENTINEL"));
    free(screen);
 
    capture_reset(output);

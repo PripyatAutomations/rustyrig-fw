@@ -311,6 +311,14 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
    // Over SSH: repaint only when the minute turns over (or on first tick)
    static time_t last_repaint = 0;
 
+   /* SIGWINCH queues a full redraw because terminal I/O is not signal-safe.
+    * Consume it before the SSH clock throttle so resized remote terminals do
+    * not keep a partially rendered screen until the next minute. */
+   if (tui_redraw_if_pending()) {
+      last_repaint = now;
+      return G_SOURCE_CONTINUE;
+   }
+
    if (tui_over_ssh && last_repaint != 0 && (now / 60) == (last_repaint / 60) ) {
       last_repaint = now;
       return G_SOURCE_CONTINUE;

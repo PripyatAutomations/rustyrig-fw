@@ -346,6 +346,13 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       return;
    }
 
+   /* Finish the event's window selection and buffered writes before painting.
+    * tui_vprint() records the dirty screen while this batch is deferred, and
+    * the flush at the end guarantees one complete log-area redraw. */
+   if (ui_mode == UI_MODE_TUI) {
+      tui_redraw_defer();
+   }
+
    const char *from = dict_get(d, "talk.from", NULL);
    time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *msg_type = dict_get(d, "talk.msg_type", NULL);
