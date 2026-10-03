@@ -6,12 +6,43 @@
 #include <stdbool.h>
 #include <time.h>
 #include <sqlite3.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/auth.h>
 #include <rrserver/database.h>
 
 time_t now;
 bool dying;
 bool restarting;
+
+#define MAX_REPLAY_FRAMES 64
+struct replay_frame {
+   char cmd[32];
+   char type[32];
+   char target[64];
+   char data[64];
+};
+static struct replay_frame replay_frames[MAX_REPLAY_FRAMES];
+static int replay_frame_count;
+
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int data_type) {
+   (void)sender;
+   (void)data_type;
+   assert(dest);
+   assert(d);
+   assert(replay_frame_count < MAX_REPLAY_FRAMES);
+   struct replay_frame *frame = &replay_frames[replay_frame_count++];
+   snprintf(frame->cmd, sizeof(frame->cmd), "%s", dict_get(d, "talk.cmd", ""));
+   snprintf(frame->type, sizeof(frame->type), "%s", dict_get(d, "talk.msg_type", ""));
+   snprintf(frame->target, sizeof(frame->target), "%s", dict_get(d, "talk.target", ""));
+   snprintf(frame->data, sizeof(frame->data), "%s", dict_get(d, "talk.data", ""));
+   return true;
+}
+
+static void reset_replay_frames(void) {
+   memset(replay_frames, 0, sizeof(replay_frames));
+   replay_frame_count = 0;
+}
 
 static void run_file(sqlite3 *db, const char *path) {
    FILE *fp = fopen(path, "rb");
@@ -42,6 +73,11 @@ static int count_rows(sqlite3 *db, const char *sql) {
 int main(void) {
    sqlite3 *db = NULL;
    now = time(NULL);
+   cfg = dict_new();
+   default_cfg = dict_new();
+   assert(cfg && default_cfg);
+   dict_add(default_cfg, "chat.replay-lines", "20");
+   dict_add(cfg, "chat.replay-lines", "20");
    assert(sqlite3_open(":memory:", &db) == SQLITE_OK);
    masterdb = db;
    run_file(db, "sql/sqlite.master.sql");
@@ -137,6 +173,34 @@ int main(void) {
 
    assert(db_add_chat_msg(db, 1234, "test-user", "#room", "pub", "hello"));
    assert(count_rows(db, "SELECT COUNT(*) FROM chat_log WHERE msg_data='hello';") == 1);
+
+   for (int i = 0; i < 30; i++) {
+      char line[32];
+      snprintf(line, sizeof(line), "line-%02d", i);
+      assert(db_add_chat_msg(db, 2000 + i, "test-user", "#room", "pub", line));
+   }
+   rrconn_t replay_client = {0};
+   reset_replay_frames();
+   assert(db_send_chat_replay(&replay_client, "#room"));
+   assert(replay_frame_count == 22); // start + configured 20 lines + complete
+   assert(strcmp(replay_frames[0].cmd, "replay-start") == 0);
+   assert(strcmp(replay_frames[1].data, "line-10") == 0);
+   assert(strcmp(replay_frames[20].data, "line-29") == 0);
+   assert(strcmp(replay_frames[20].type, "replay-pub") == 0);
+   assert(strcmp(replay_frames[21].cmd, "replay-complete") == 0);
+
+   dict_add(cfg, "chat.replay-lines", "3");
+   reset_replay_frames();
+   assert(db_send_chat_replay(&replay_client, "#room"));
+   assert(replay_frame_count == 5);
+   assert(strcmp(replay_frames[1].data, "line-27") == 0);
+   assert(strcmp(replay_frames[3].data, "line-29") == 0);
+
+   dict_add(cfg, "chat.replay-lines", "0");
+   reset_replay_frames();
+   assert(db_send_chat_replay(&replay_client, "#room"));
+   assert(replay_frame_count == 0);
+
    assert(db_add_audit_event(db, "test-user", "test", "details"));
    assert(count_rows(db, "SELECT COUNT(*) FROM audit_log WHERE event_type='test';") == 1);
 
@@ -148,6 +212,10 @@ int main(void) {
    assert(db_quota_get(db, "new-user") == 25);
 
    sqlite3_close(db);
-   puts("PASS: database schema, validation, rooms, users, PTT recordings, chat, audit, and quota");
+   dict_free(cfg);
+   cfg = NULL;
+   dict_free(default_cfg);
+   default_cfg = NULL;
+   puts("PASS: database schema, validation, rooms, users, PTT recordings, bounded chat replay, audit, and quota");
    return 0;
 }

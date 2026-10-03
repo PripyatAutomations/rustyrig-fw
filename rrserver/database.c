@@ -970,10 +970,22 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
       return false;
    }
 
+   int replay_lines = cfg_get_int("chat.replay-lines", 20);
+   if (replay_lines <= 0) {
+      return true;
+   }
+
+   /* Select newest-first so LIMIT applies to the tail of the history, then
+    * restore chronological order for the client-facing replay. */
    const char *sql =
       "SELECT msg_id, msg_ts, msg_src, msg_dest, msg_type, msg_data "
-      "FROM chat_log "
-      "WHERE msg_dest = ? "
+      "FROM ("
+      " SELECT msg_id, msg_ts, msg_src, msg_dest, msg_type, msg_data "
+      " FROM chat_log "
+      " WHERE msg_dest = ? AND msg_type IN ('pub', 'action', 'privmsg') "
+      " ORDER BY msg_ts DESC, msg_id DESC "
+      " LIMIT ?"
+      ") "
       "ORDER BY msg_ts ASC, msg_id ASC;";
 
    sqlite3_stmt *stmt = NULL;
@@ -988,6 +1000,12 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
    if (sqlite3_bind_text(stmt, 1, channel, -1, SQLITE_TRANSIENT) != SQLITE_OK) {
       Log(LOG_CRIT, "db.replay",
          "db_send_chat_replay: failed binding channel");
+      sqlite3_finalize(stmt);
+      return false;
+   }
+   if (sqlite3_bind_int(stmt, 2, replay_lines) != SQLITE_OK) {
+      Log(LOG_CRIT, "db.replay",
+         "db_send_chat_replay: failed binding replay line limit");
       sqlite3_finalize(stmt);
       return false;
    }

@@ -2,6 +2,8 @@ rustyrig-fw (20261003) testing; urgency=medium
 - Many TUI drawing fixes
 - Restored cooked input, blocking stdin, cursor, colors, keypad, mouse, focus,
   paste, margins, and scroll-region terminal state when the TUI exits.
+- Made `chat.replay-lines` limit replay to the configured number of most-recent
+  messages while preserving chronological display order.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 
