@@ -16,6 +16,14 @@ rustyrig-fw (20261003.02) testing; urgency=medium
   * Namespace the installed log-query commands as rr-get-*-log.
   * Document the inspected rig-property architecture and the review boundary
     for the planned Hamlib migration before room mappings or CAT depend on it.
+  * Added explicit per-rig typed property ownership, observations, change
+    events, and a central typed control request path with two-rig isolation
+    and unavailable/last-known-state regression coverage.
+  * Moved Hamlib `cat.state` generation, diff suppression, and initial client
+    state into a temporary server compatibility adapter while preserving the
+    FT-891 partial-read behavior and existing wire output.
+  * Restored Hamlib compilation in the radio build profile so its migrated path
+    is built and linked by the normal release configuration.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 03 Oct 2026 00:00:00 -0400
 

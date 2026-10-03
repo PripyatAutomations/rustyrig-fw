@@ -30,6 +30,7 @@
 #include <rrserver/thermal.h>
 #include <rrserver/backend.h>
 #include <rrserver/backend.hamlib.h>
+#include <rrserver/rig.properties.h>
 
 // This only gets drug in if we have features/backend/hamlib=true
 #ifdef	USE_HAMLIB
@@ -92,86 +93,49 @@ static void hl_disconnect(const char *why) {
       shutdown_rig(100);
    }
 }
-// Last cat.state dict we sent, per VFO (for diffing against the next poll)
-// and when we last transmitted a (possibly unchanged) cat.state announcement
-// for that VFO. Keeping the whole dict lets us reuse dict_diff() instead of
-// hand-rolling field compares.
-static dict *last_state_dict[MAX_VFOS];
-static time_t last_state_send[MAX_VFOS];
-
-// The keys we consider when diffing cat.state messages. Anything not listed
-// here (like the volatile msg.ts timestamp) is ignored by the diff, so only
-// genuine state changes trigger an immediate broadcast. Add fields here to
-// have them participate in change detection.
-static const char *cat_state_cmp_keys[] = {
-   "cat.state.freq",
-   "cat.state.mode",
-   "cat.state.width",
-   "cat.state.ptt",
-   "cat.state.active",
-   "cat.user",
-   NULL,
-};
-
-// Copy only the keys in cat_state_cmp_keys from src into a new dict. Returns
-// NULL on OOM. This both strips volatile keys (msg.ts) and narrows the diff
-// to just the state we care about.
-static dict *cat_state_filter(dict *src) {
-   if (!src) return NULL;
-
-   dict *out = dict_new();
-   if (!out) return NULL;
-
-   for (int i = 0; cat_state_cmp_keys[i]; i++) {
-      const char *key = cat_state_cmp_keys[i];
-      const char *key2 = NULL;
-      dict_value_t val;
-      val_type_t type;
-      int rank = 0;
-
-      while ((rank = dict_enumerate_typed(src, rank, &key2, &val, &type)) >= 0) {
-         if (strcmp(key2, key) != 0) {
-            continue;
-         }
-         // Copy the value with its native type (all public dict_add_* API)
-         switch (type) {
-            case VAL_STR:
-               dict_add(out, key, val.s);
-               break;
-            case VAL_INT:
-               dict_add_int(out, key, val.i);
-               break;
-            case VAL_UINT:
-               dict_add_uint(out, key, val.ui);
-               break;
-            case VAL_LONG:
-               dict_add_long(out, key, val.l);
-               break;
-            case VAL_ULONG:
-               dict_add_ulong(out, key, val.ul);
-               break;
-            case VAL_LLONG:
-               dict_add_llong(out, key, val.ll);
-               break;
-            case VAL_ULLONG:
-               dict_add_ullong(out, key, val.ull);
-               break;
-            case VAL_FLOAT:
-               dict_add_float(out, key, val.f);
-               break;
-            case VAL_DOUBLE:
-               dict_add_double(out, key, val.d);
-               break;
-            case VAL_BOOL:
-               dict_add_bool(out, key, val.i != 0);
-               break;
-            default:
-               break;   // ignore exotic/unknown types
-         }
-         break;
-      }
+static bool hl_property_name(char *name, size_t len, rr_vfo_t vfo,
+   const char *field) {
+   if (!rr_backend_hamlib.owner || vfo < VFO_A || vfo >= MAX_VFOS) {
+      return false;
    }
-   return out;
+   return rr_property_vfo_name(name, len, (char)('A' + vfo), field);
+}
+
+static void hl_property_unavailable(rr_vfo_t vfo, const char *field) {
+   char name[RR_PROPERTY_NAME_MAX];
+   if (hl_property_name(name, sizeof(name), vfo, field)) {
+      rr_rig_property_unavailable(rr_backend_hamlib.owner, name);
+   }
+}
+
+static void hl_property_observe_long(rr_vfo_t vfo, const char *field,
+   long value) {
+   char name[RR_PROPERTY_NAME_MAX];
+   dict_value_t observed = { .l = value };
+   if (hl_property_name(name, sizeof(name), vfo, field)) {
+      rr_rig_property_observe(rr_backend_hamlib.owner, name, VAL_LONG,
+         &observed);
+   }
+}
+
+static void hl_property_observe_int(rr_vfo_t vfo, const char *field,
+   int value) {
+   char name[RR_PROPERTY_NAME_MAX];
+   dict_value_t observed = { .i = value };
+   if (hl_property_name(name, sizeof(name), vfo, field)) {
+      rr_rig_property_observe(rr_backend_hamlib.owner, name, VAL_INT,
+         &observed);
+   }
+}
+
+static void hl_property_observe_string(rr_vfo_t vfo, const char *field,
+   const char *value) {
+   char name[RR_PROPERTY_NAME_MAX];
+   dict_value_t observed = { .s = value };
+   if (hl_property_name(name, sizeof(name), vfo, field)) {
+      rr_rig_property_observe(rr_backend_hamlib.owner, name, VAL_STR,
+         &observed);
+   }
 }
 
 // Return hamlib VFO from rr VFO id. Rigs only expose a couple of VFOs
@@ -335,6 +299,13 @@ static bool hl_ptt_set(rr_vfo_t vfo, bool state) {
    return false;
 }
 
+static bool hl_ptt_get(rr_vfo_t vfo) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS) {
+      return false;
+   }
+   return hl_state[vfo].ptt != RIG_PTT_OFF;
+}
+
 // Initialize the hamlib connection
 static bool hl_init(void) {
    int ret;
@@ -487,8 +458,10 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
       if (vfo == active_vfo) {
          hl_disconnect("rig_get_freq failed");
       }
+      hl_property_unavailable(vfo, RR_PROP_VFO_FREQUENCY);
       return NULL;
    }
+   hl_property_observe_long(vfo, RR_PROP_VFO_FREQUENCY, (long)st->freq);
 
    // Mode/width: some rigs only report these for the current VFO. If a read
    // has failed for this VFO before, don't re-ask every poll (it just spams
@@ -504,13 +477,30 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
          if (vfo != active_vfo) {
             hl_vfo_mode_ok[vfo] = false;
          }
+         hl_property_unavailable(vfo, RR_PROP_VFO_MODE);
+         hl_property_unavailable(vfo, RR_PROP_VFO_WIDTH);
       } else {
          hl_vfo_mode_ok[vfo] = true;
+         rr_mode_t mode = hl_mode_to_rr(st->rmode);
+         if (mode == MODE_NONE) {
+            hl_property_unavailable(vfo, RR_PROP_VFO_MODE);
+         } else {
+            hl_property_observe_string(vfo, RR_PROP_VFO_MODE,
+               vfo_mode_name(mode));
+         }
+         if (st->width > 0) {
+            hl_property_observe_int(vfo, RR_PROP_VFO_WIDTH,
+               (int)st->width);
+         } else {
+            hl_property_unavailable(vfo, RR_PROP_VFO_WIDTH);
+         }
       }
    } else {
       // not re-reading this VFO's mode; signal "unread" to backend.c
       st->rmode = RIG_MODE_NONE;
       st->width = 0;
+      hl_property_unavailable(vfo, RR_PROP_VFO_MODE);
+      hl_property_unavailable(vfo, RR_PROP_VFO_WIDTH);
    }
 
    if ( (rc = rig_get_ptt(hl_rig, hl_vfo, &st->ptt) ) != RIG_OK) {
@@ -539,135 +529,7 @@ rr_vfo_data_t *hl_poll(rr_vfo_t vfo) {
    rv->mode = hl_mode_to_rr(st->rmode);
    rv->power = st->power;
 
-   // send to all users
-   rrconn_t *talker = whos_talking();
-   dict *d = dict_new();
-   dict_add(d, "msg.type", "cat");
-   dict_add(d, "cat.state.vfo", vfo_name(vfo) ? vfo_name(vfo) : "A");
-   // Which VFO is active: the client UIs (TUI statusline, GTK VFO box,
-   // webui) display the VFO with active == true.
-   // PARITY: rrclient/vfo.c vfo_set_dict() (cat.state.active handling)
-   dict_add_bool(d, "cat.state.active", vfo == active_vfo);
-   // For fields the rig wouldn't answer reads for (unread => MODE_NONE/0),
-   // fall back to the last known merged state in vfos[] - the same values
-   // backend.c keeps, so clients never see NONE/0 flicker.
-   // PARITY: rrserver/backend.c rr_be_merge_poll()
-   dict_add(d, "cat.state.mode",
-      vfo_mode_name(rv->mode != MODE_NONE ? rv->mode : vfos[vfo].mode) );
-
-   // Query the supported passband widths through the backend-agnostic
-   // wrapper and broadcast them as a comma-separated list, e.g. "2400,3000,3600"
-   int widths[8];
-   int num_widths = rr_widths_get(vfo, widths, 8);
-
-   if (num_widths > 0) {
-      char widths_str[128];
-      memset(widths_str, 0, sizeof(widths_str));
-      int len = 0;
-
-      for (int i = 0 ; i < num_widths ; i++) {
-         if (i > 0) {
-            len += snprintf(widths_str + len, sizeof(widths_str) - len, ",");
-         }
-         len += snprintf(widths_str + len, sizeof(widths_str) - len, "%d", widths[i]);
-      }
-      dict_add(d, "cat.state.widths", widths_str);
-   }
-   dict_add(d, "cat.user", (talker ? talker->chatname : "") );
-   dict_add_int(d, "cat.state.width", (st->width > 0 ? st->width : vfos[vfo].width) );
-   dict_add_int(d, "cat.state.power", st->power);
-   dict_add_bool(d, "cat.state.ptt", st->ptt);
-   dict_add_long(d, "cat.state.freq", (st->freq > 0 ? st->freq : vfos[vfo].freq) );
-   dict_add_ulong(d, "msg.ts", now);
-   int cfg_state_interval = cfg_get_int("backend.state-interval", 15);
-   if (cfg_state_interval < 0) cfg_state_interval = 15;
-   // Decide whether to actually transmit this state. We diff against the last
-   // state we sent, considering only the keys in cat_state_cmp_keys so the
-   // volatile timestamp (msg.ts) and other noise don't force a send every poll.
-   bool changed = true;
-   dict *curr_cmp = cat_state_filter(d);
-   if (last_state_dict[vfo] && curr_cmp) {
-      dict *prev_cmp = cat_state_filter(last_state_dict[vfo]);
-      if (prev_cmp) {
-         dict *df = dict_diff(prev_cmp, curr_cmp);
-         // A non-NULL diff still needs to be non-empty to count as changed:
-         // dict_diff() returns an empty dict when the two are identical.
-         changed = (df && df->fill > 0);
-         if (df) dict_free(df);
-         dict_free(prev_cmp);
-      }
-   }
-   if (curr_cmp) dict_free(curr_cmp);
-
-   // If unchanged, only re-transmit at most once per configured interval so a
-   // quiet rig doesn't spam a full cat.state every poll (cuts network traffic
-   // and GUI workload). A real change always goes out immediately.
-    if (!changed) {
-      if (last_state_send[vfo] + cfg_state_interval > now) {
-         // Too soon since our last (possibly unchanged) announcement; drop it.
-         dict_free(d);
-         return rv;
-      }
-      Log(LOG_CRAZY, "backend.hamlib", "Sending unchanged cat.state (interval reached)");
-   }
-   // Remember this state as the new baseline for future diffs.
-   if (last_state_dict[vfo]) dict_free(last_state_dict[vfo]);
-   last_state_dict[vfo] = dict_new();
-   if (last_state_dict[vfo]) {
-      dict_merge(last_state_dict[vfo], d);
-   }
-   last_state_send[vfo] = now;
-   const char *jp = dict2json(d);
-   Log(LOG_CRAZY, "backend.hamlib", "Sending %s", jp);
-   free( (char *)jp );
-   // Send to everyone, including the sender, which will then display it in various widgets
-   ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
-   dict_free(d);
    return rv;
-}
-
-// Send the last known rig state to a single (usually just-authenticated)
-// client so their UI populates immediately instead of waiting up to
-// backend.state-interval for the next unchanged-state announcement. If we
-// haven't sent any state yet, build one from the current VFO data.
-bool hl_send_state_to(rrconn_t *cptr) {
-   if (!cptr) {
-      return true;
-   }
-
-   // Send the last known state for every VFO the rig supports so the client
-   // UI populates all of them, not just the active one.
-   for (int i = 0 ; i < MAX_VFOS ; i++) {
-      dict *d = NULL;
-
-      if (last_state_dict[i]) {
-         d = dict_new();
-         if (d) {
-            dict_merge(d, last_state_dict[i]);
-         }
-      } else if (hl_vfo_supported((rr_vfo_t)i) ) {
-         // No state sent yet for this VFO: synthesize one from the live VFO data
-         rr_vfo_data_t *vp = &vfos[i];
-         d = dict_new();
-         if (d) {
-            dict_add(d, "msg.type", "cat");
-            dict_add(d, "cat.state.vfo", vfo_name((rr_vfo_t)i) );
-            dict_add_bool(d, "cat.state.active", (rr_vfo_t)i == active_vfo);
-            dict_add(d, "cat.state.mode", vfo_mode_name(vp->mode));
-            dict_add_int(d, "cat.state.width", vp->width);
-            dict_add_long(d, "cat.state.freq", vp->freq);
-            dict_add_bool(d, "cat.state.ptt", hl_state[i].ptt);
-         }
-      }
-
-      if (!d) {
-         continue;
-      }
-      dict_add_ulong(d, "msg.ts", now);
-      ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
-      dict_free(d);
-   }
-   return false;
 }
 
 bool hl_power_set(rr_vfo_t vfo, float power) {
@@ -825,6 +687,7 @@ static rr_backend_funcs_t rr_backend_hamlib_api = {
    .backend_init = &hl_init,
    .backend_poll = &hl_poll,
    .ptt_set = &hl_ptt_set,
+   .ptt_get = &hl_ptt_get,
    .mode_get = &hl_mode_get,
    .mode_get_str = &hl_mode_get_str,
    .freq_set = &hl_freq_set,
@@ -833,11 +696,11 @@ static rr_backend_funcs_t rr_backend_hamlib_api = {
    .widths_get = &hl_widths_get,
    .width_set = &hl_width_set,
    .vfo_supported = &hl_vfo_supported,
-   .state_send = &hl_send_state_to
 };
 
 rr_backend_t rr_backend_hamlib = {
    .name = "hamlib",
+   .uses_property_state = true,
    .api = &rr_backend_hamlib_api,
 };
 

@@ -39,9 +39,6 @@ extern hamlib_state_t hl_state[MAX_VFOS];
 // RIG_VFO_A/RIG_VFO_B, anything else falls back to RIG_VFO_CURR)
 extern bool hl_vfo_supported(rr_vfo_t vfo);
 
-// Send the last known rig state (or one synthesized from live VFO data) to a
-// single client; see hl_poll() for the throttling of the broadcast path.
-extern bool hl_send_state_to(rrconn_t *cptr);
 #endif // defined(USE_HAMLIB)
 
 #endif // !defined(__rrserver_backend_hamlib_h)

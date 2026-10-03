@@ -1,7 +1,7 @@
 # Rig property migration plan
 
-Status: Phase 0 inspection complete; Phase 1 is authorized through the
-Hamlib/property stop point below.
+Status: Phase 1 implemented through the Hamlib/property stop point; awaiting
+review before any room, CAT-client, or later migration work.
 
 This document records the architecture investigation and the agreed stopping
 point for introducing a backend-neutral rig property layer. It is intended to
@@ -359,8 +359,152 @@ read and write flows, remaining compatibility adapters, remaining globals and
 single-radio assumptions, anything that challenges the planned room-slot to
 rig model, and the recommended next step.
 
+## Phase 1 concrete design
+
+Phase 1 introduced two deliberately separate server components:
+
+- `rrserver/rig.properties.*` owns the generic runtime model.
+- `rrserver/rig.compat.*` projects that model into the temporary `cat.state`
+  wire representation.
+
+`rr_server_rig_t` is opaque. It owns copied identity/name strings, a dictionary
+of property entries, its backend association, its control handler, and its own
+version sequence. The dictionary stores borrowed `VAL_PTR` references to
+property entries; `rr_server_rig_free()` enumerates and destroys those entries
+before freeing the dictionary. Two independently allocated rigs therefore
+share neither state nor versioning.
+
+Each property entry keeps descriptor/schema data separate from runtime state.
+Descriptors currently contain name, `val_type_t`, readable/writable flags, and
+an optional unit. Runtime state separately records the typed `dict_value_t`,
+whether an observation has ever been attempted, whether a value is known,
+whether it is currently available, a version, and the server's `now`
+timestamp for the last state change.
+
+### Typed-value ownership rules
+
+- Descriptor names and units are copied and owned by the rig.
+- Observation inputs are borrowed only for the duration of
+  `rr_rig_property_observe()`.
+- String observations are deep-copied into rig-owned storage.
+- Numeric, boolean, and character values are copied by value.
+- Snapshots borrow any returned string from the property entry; it remains
+  valid only until that property changes or the rig is freed.
+- `VAL_PTR` is rejected because the dictionary does not own pointed-to data
+  and a generic property cannot infer a destructor.
+- `VAL_NULL` is not a property value: known/available state represents absence
+  without sacrificing legitimate zero, false, or empty-string values.
+- Mode values are normalized strings such as `USB` in the generic layer.
+  Conversion to/from `rr_mode_t` is confined to the current backend and
+  compatibility boundaries.
+
+### Introduced APIs
+
+The public server-internal API now provides:
+
+- Explicit rig construction, destruction, identity, and backend association.
+- Descriptor definition and lookup.
+- Dynamic `vfo.<ID>.<field>` name generation/parsing without fixed A/B struct
+  members.
+- Typed observations and explicit unavailable observations.
+- Borrowed property snapshots with observed/known/available state.
+- A typed control request containing target rig, property, value, source, and
+  context.
+- A synchronous per-rig control handler that validates descriptor existence,
+  writability, and type before invoking the backend-facing handler.
+- The `rig.property.changed` internal event, emitted only for canonical state
+  or availability changes.
+
+### Runtime ownership graph
+
+    GlobalState (temporary single-server root)
+      -> rr_server_rig_t "rig0"
+           -> backend association
+           -> independent descriptor/property dictionary
+           -> backend control handler
+      -> rr_cat_compat_t
+           -> borrowed rr_server_rig_t
+           -> per-VFO legacy publication cache/timers
+
+`rr_backend_t.owner` is the present Hamlib-to-rig observation link. It remains
+a single-owner field because the Hamlib backend itself is still a static
+singleton; this is listed as migration debt rather than being hidden inside
+the property service.
+
+### Read/observation flow
+
+    Hamlib read
+      -> rr_rig_property_observe(rig, property, typed value)
+         or rr_rig_property_unavailable(rig, property)
+      -> per-rig comparison and state/availability update
+      -> rig.property.changed event when canonical state changed
+      -> legacy rr_vfo_data_t result returned to backend.c
+      -> temporary vfos[] merge
+      -> rr_cat_compat_t publication/diff/rate limiting
+      -> existing cat.state clients
+
+Hamlib now contains no `cat.state` construction, websocket broadcast,
+last-message dictionary, or wire diff logic. Frequency, mode, and width are
+submitted as generic observations. A failed inactive-VFO observation marks the
+property unavailable while retaining any last-known value.
+
+### Write/control flow
+
+    existing rigctl request
+      -> existing rrserver event handler
+      -> rr_freq_set()/rr_set_mode() temporary input adapter
+      -> rr_control_request_t (explicit rig/property/value/source)
+      -> descriptor/type/write validation
+      -> backend operation
+      -> later Hamlib observation becomes authoritative state
+
+A successful request still updates `vfos[]` as temporary client-compatibility
+scaffolding. It does not update canonical observed property state. The existing
+optimistic wire echo in `librrprotocol/srv.rigctl.c` also remains separate from
+canonical state.
+
+### Temporary compatibility adapters
+
+- `rr_vfo_data_t` poll results and `vfos[]` merging remain in `backend.c`.
+- `rr_cat_compat_t` generates existing Hamlib `cat.state` messages, preserves
+  the comparison key set and unchanged-state interval, and sends initial state
+  to newly authenticated clients.
+- Existing `rigctl` events enter the generic frequency/mode control path via
+  the old backend wrapper functions.
+- The internal backend retains its old state and publication implementation.
+- PTT, power, and supported-width capability semantics remain compatibility
+  concerns and are not canonical generic properties yet.
+
+### Migration debt after Phase 1
+
+- `GlobalState` still exposes one `radio`, one selected backend, and one CAT
+  compatibility adapter.
+- `rr_backend_t` implementations and Hamlib's `RIG *`, caches, and reconnect
+  state remain static singletons. Supporting multiple live Hamlib instances
+  requires allocating backend instances per rig.
+- `vfos[]`, `active_vfo`, and `rr_vfo_data_t` remain global compatibility
+  state.
+- The internal backend still duplicates old `cat.state` publication logic.
+- PTT remains fragmented across connection, global, VFO, and backend state.
+- Width writes have not entered the generic control path.
+- Optimistic `srv.rigctl.c` updates remain migration debt.
+- No generic client discovery/subscription protocol exists yet; the property
+  event is internal.
+- Property mutation assumes the server event-loop threading model and does not
+  yet add per-rig locking.
+
+The room-slot to rig design is still viable, but Phase 1 exposes its main
+prerequisite: the fixed `rig0` allocation and static backend registry must
+become a collection of runtime rig/backend instances before room binding
+strings can resolve safely. Room work must not use `GlobalState.radio` as its
+long-term registry.
+
 ## Recorded validation state
 
-At the end of Phase 0, `selftest`, `rrserver`, and `librrprotocol` test suites
-passed. No property-layer source changes had been made, and the worktree was
-clean.
+The Phase 0 baseline passed `selftest`, `rrserver`, and `librrprotocol`.
+
+Phase 1 adds component-local tests for independent rigs, typed ownership,
+unknown/known/unavailable state, legitimate zero/false values, string copying,
+event change suppression, failed controls, initial `cat.state`, unchanged
+publication suppression, frequency/mode changes, and last-known compatibility
+output. The Hamlib-enabled `radio` profile builds and links against Hamlib.

@@ -19,6 +19,8 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
+#include <rrserver/rig.compat.h>
+#include <rrserver/rig.properties.h>
 extern struct GlobalState rig;          // Global state
 
 // Mostly we just use this bit to allow compile-time selection of backends
@@ -72,6 +74,81 @@ static const char *rr_vfo_name(rr_vfo_t vfo) {
    return "-";
 }
 
+static rr_control_result_t rr_backend_property_control(
+   const rr_control_request_t *request, void *user) {
+   rr_server_rig_t *radio = user;
+   rr_backend_t *backend = rr_server_rig_backend(radio);
+   char vfo_id = 0;
+   const char *field = NULL;
+
+   if (!request || request->rig != radio || !backend || !backend->api ||
+       !rr_property_parse_vfo(request->property, &vfo_id, &field)) {
+      return RR_CONTROL_INVALID;
+   }
+   rr_vfo_t vfo = vfo_lookup(vfo_id);
+   if (vfo == VFO_NONE) {
+      return RR_CONTROL_INVALID;
+   }
+
+   if (strcmp(field, RR_PROP_VFO_FREQUENCY) == 0) {
+      if (request->value_type != VAL_LONG || request->value.l < 0 ||
+          request->value.l > INT32_MAX || !backend->api->freq_set) {
+         return RR_CONTROL_INVALID;
+      }
+      return backend->api->freq_set(vfo, (int)request->value.l) ?
+         RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
+   }
+
+   if (strcmp(field, RR_PROP_VFO_MODE) == 0) {
+      if (request->value_type != VAL_STR || !request->value.s ||
+          !backend->api->mode_set) {
+         return RR_CONTROL_INVALID;
+      }
+      rr_mode_t mode = vfo_parse_mode(request->value.s);
+      if (mode == MODE_NONE) {
+         return RR_CONTROL_INVALID;
+      }
+      return backend->api->mode_set(vfo, mode) ?
+         RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
+   }
+
+   return RR_CONTROL_UNSUPPORTED;
+}
+
+static bool rr_cat_compat_vfo_supported(rr_server_rig_t *radio,
+   rr_vfo_t vfo, void *user) {
+   (void)radio;
+   (void)user;
+   return rr_be_vfo_supported(vfo);
+}
+
+static bool rr_cat_compat_ptt_get(rr_server_rig_t *radio, rr_vfo_t vfo,
+   void *user) {
+   (void)user;
+   rr_backend_t *backend = rr_server_rig_backend(radio);
+   if (!backend || !backend->api || !backend->api->ptt_get) {
+      return false;
+   }
+   return backend->api->ptt_get(vfo);
+}
+
+static int rr_cat_compat_widths_get(rr_server_rig_t *radio, rr_vfo_t vfo,
+   int *widths, int max, void *user) {
+   (void)user;
+   rr_backend_t *backend = rr_server_rig_backend(radio);
+   if (!backend || !backend->api || !backend->api->widths_get) {
+      return 0;
+   }
+   return backend->api->widths_get(vfo, widths, max);
+}
+
+static rrconn_t *rr_cat_compat_talker_get(rr_server_rig_t *radio,
+   void *user) {
+   (void)radio;
+   (void)user;
+   return whos_talking();
+}
+
 // Get the backend structure based on the name
 rr_backend_t *rr_backend_find(const char *name) {
    if (!name) {
@@ -122,6 +199,17 @@ bool rr_backend_init(void) {
    Log(LOG_INFO, "core", "Set rig backend to %s", be->name);
    rig.backend = be;
 
+   const char *station_name = cfg_get("station.name");
+   rig.radio = rr_server_rig_new("rig0", station_name);
+   if (!rig.radio) {
+      Log(LOG_CRIT, "core", "Unable to allocate runtime rig object");
+      return true;
+   }
+   rr_server_rig_set_backend(rig.radio, be);
+   rr_server_rig_set_control_handler(rig.radio,
+      rr_backend_property_control, rig.radio);
+   be->owner = rig.radio;
+
    if (!be->api) {
       Log(LOG_CRIT, "core", "Backend %s doesn't have api pointer", be->name);
 
@@ -134,7 +222,49 @@ bool rr_backend_init(void) {
       return true;
    }
    rig.backend->api->backend_init();
+
+   for (int i = 0; i < MAX_VFOS; i++) {
+      if (rr_be_vfo_supported((rr_vfo_t)i) &&
+          rr_rig_define_vfo_properties(rig.radio, (char)('A' + i))) {
+         Log(LOG_CRIT, "core", "Unable to define properties for VFO %s",
+            vfo_name((rr_vfo_t)i));
+         rr_backend_fini();
+         return true;
+      }
+   }
+
+   if (be->uses_property_state) {
+      rr_cat_compat_ops_t ops = {
+         .vfo_supported = rr_cat_compat_vfo_supported,
+         .ptt_get = rr_cat_compat_ptt_get,
+         .widths_get = rr_cat_compat_widths_get,
+         .talker_get = rr_cat_compat_talker_get,
+      };
+      rig.cat_compat = rr_cat_compat_new(rig.radio, &ops);
+      if (!rig.cat_compat) {
+         Log(LOG_CRIT, "core", "Unable to allocate cat.state compatibility adapter");
+         rr_backend_fini();
+         return true;
+      }
+   }
    return false;
+}
+
+bool rr_backend_fini(void) {
+   bool failed = false;
+
+   if (rig.backend && rig.backend->api && rig.backend->api->backend_fini) {
+      failed = rig.backend->api->backend_fini();
+   }
+   rr_cat_compat_free(rig.cat_compat);
+   rig.cat_compat = NULL;
+   if (rig.backend) {
+      rig.backend->owner = NULL;
+   }
+   rr_server_rig_free(rig.radio);
+   rig.radio = NULL;
+   rig.backend = NULL;
+   return failed;
 }
 
 bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
@@ -183,12 +313,32 @@ bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo) {
 }
 
 bool rr_freq_set(rr_vfo_t vfo, int freq) {
-   if (!rig.backend || !rig.backend->api || !rig.backend->api->freq_set) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS || !rig.backend ||
+       !rig.backend->api || !rig.backend->api->freq_set) {
       Log(LOG_CRIT, "rig", "rr_freq_set called with no active (or broken) backend selected!");
       return true;
    }
 
-   if ( rig.backend->api->freq_set(vfo, freq) ) {
+   bool failed;
+   if (rig.backend->uses_property_state && rig.radio) {
+      char property[RR_PROPERTY_NAME_MAX];
+      if (!rr_property_vfo_name(property, sizeof(property),
+            (char)('A' + vfo), RR_PROP_VFO_FREQUENCY)) {
+         return true;
+      }
+      rr_control_request_t request = {
+         .rig = rig.radio,
+         .property = property,
+         .value_type = VAL_LONG,
+         .value.l = freq,
+         .source = "legacy.rigctl",
+      };
+      failed = rr_rig_control(&request) != RR_CONTROL_OK;
+   } else {
+      failed = rig.backend->api->freq_set(vfo, freq);
+   }
+
+   if (failed) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %.0f failed.", rr_vfo_name(vfo), freq);
       return true;
    }
@@ -282,10 +432,27 @@ rr_mode_t rr_get_mode(rr_vfo_t vfo) {
 bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
    bool rv = false;
 
-   if (!rig.backend || !rig.backend->api || !rig.backend->api->mode_set) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS || !rig.backend ||
+       !rig.backend->api || !rig.backend->api->mode_set) {
       return false;
    }
-   rv = rig.backend->api->mode_set(vfo, mode);
+   if (rig.backend->uses_property_state && rig.radio) {
+      char property[RR_PROPERTY_NAME_MAX];
+      if (!rr_property_vfo_name(property, sizeof(property),
+            (char)('A' + vfo), RR_PROP_VFO_MODE)) {
+         return true;
+      }
+      rr_control_request_t request = {
+         .rig = rig.radio,
+         .property = property,
+         .value_type = VAL_STR,
+         .value.s = vfo_mode_name(mode),
+         .source = "legacy.rigctl",
+      };
+      rv = rr_rig_control(&request) != RR_CONTROL_OK;
+   } else {
+      rv = rig.backend->api->mode_set(vfo, mode);
+   }
 
    if (!rv && vfo >= 0 && vfo < MAX_VFOS) {
       // Cache update in backend.c so both backends behave identically
@@ -360,6 +527,10 @@ bool rr_be_poll(rr_vfo_t vfo) {
    // merge it into the VFO storage, keeping last-known values for anything
    // the backend couldn't read
    rr_be_merge_poll(vfo, ret_vfo);
+   if (rig.backend->uses_property_state && rig.cat_compat) {
+      int interval = cfg_get_int("backend.state-interval", 15);
+      rr_cat_compat_publish(rig.cat_compat, vfo, interval);
+   }
    // free the memory given to use
    free(ret_vfo);
    return false;
@@ -402,6 +573,9 @@ bool rr_be_vfo_supported(rr_vfo_t vfo) {
 // rrserver (like librrprotocol) can trigger it via rrserver/events.c without
 // linking against a specific backend.
 bool rr_cat_state_send(rrconn_t *cptr) {
+   if (rig.backend && rig.backend->uses_property_state && rig.cat_compat) {
+      return rr_cat_compat_send_state(rig.cat_compat, cptr);
+   }
    if (!rig.backend || !rig.backend->api || !rig.backend->api->state_send) {
       // no backend (or one that can't send state), nothing sane to send
       return true;

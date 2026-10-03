@@ -451,6 +451,7 @@ int main(int argc, char **argv) {
          break;
       }
    }
+   rr_backend_fini();
    host_cleanup();
 
 #ifdef	USE_MONGOOSE

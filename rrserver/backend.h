@@ -15,6 +15,8 @@
 
 #include <rrserver/globalstate.h>
 
+struct rr_server_rig;
+
 struct rr_backend_funcs {
    // Backend management
    bool (*backend_init)(void);                           // Startup
@@ -64,11 +66,15 @@ struct rr_backend {
                                                          // will be kept but
                                                          // VFO/PTT/etc are
                                                          // faked
+   bool uses_property_state;                             // Observations flow via
+                                                         // rr_server_rig
+   struct rr_server_rig *owner;                          // Current explicit owner
    rr_backend_funcs_t   *api;
 };
 typedef struct rr_backend rr_backend_t;
 
 extern bool rr_backend_init(void);
+extern bool rr_backend_fini(void);
 extern bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
 extern bool rr_ptt_apply(rr_vfo_t vfo, bool state);
 extern bool rr_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
