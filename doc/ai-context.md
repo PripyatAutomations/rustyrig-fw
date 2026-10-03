@@ -23,17 +23,18 @@ others to develop clients faster.
 The C native client and JavaScript WebUI intentionally implement the
 same underlying client behavior in different languages/frameworks.
 
-When changing shared client behavior, inspect both implementations.
+When changing shared client behavior, inspect both implementations and
+try to keep the WebUI consistent with the native client.
 
 Most client related stuff actually belongs in librrprotocol, as long as it
-does not directly interact with the UI code.
+does not directly interact with the UI code. Other clients will use it too.
 
 ### C
 
 - 3-space indentation.
-- Preserve support for GTK and non-GTK builds.
+- Preserve support for GTK and non-GTK builds with feature parity.
 - Avoid unnecessary dependencies.
-- Be mindful of eventual small/microcontroller targets for shared code in rrserver
+- Be mindful of eventual small/microcontroller targets for shared code and rrserver
 - Prefer integer arithmetic where practical.
 - Preserve established logging/error-handling conventions.
 
@@ -54,6 +55,6 @@ one. This project has accumulated substantial shared infrastructure.
 When a project decision would be expensive for an AI to rediscover, add
 it here.
 
-- Always look at defconfig.c in rrclient or rrserver to discover configuration keys
+- Always look at defconfig.c in the program's sub-directory to discover configuration keys
 - Always make sure config keys have a default in the appropriate defconfig.c
 - Pause and ASK if you arent sure what I mean or what direction I want to take.
