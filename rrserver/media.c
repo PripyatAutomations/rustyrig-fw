@@ -229,10 +229,9 @@ void rrserver_media_record_ptt(rr_vfo_t vfo, bool ptt, rrconn_t *talker,
    }
 }
 
-// TX decoders are deliberately lazy. The channel codec can be negotiated
-// while idle, but there is no reason to start a GStreamer process until a
-// talker actually keys the VFO. This keeps idle rigs quiet and gives the
-// codec selection/control round trip time to complete before samples arrive.
+// TX decoders are normally prewarmed when the client subscribes so the first
+// PTT frame does not pay GStreamer startup latency. Keep this fallback for a
+// decoder that exited or a channel that was activated without a subscription.
 bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
    if (vfo < VFO_A || vfo >= MAX_VFOS) {
       return false;
@@ -252,7 +251,7 @@ bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
             channel->codec, channel->uuid);
          return false;
       }
-      Log(LOG_INFO, "ws.media", "Activated lazy TX decoder %s.rx (chan %d) for %s",
+      Log(LOG_INFO, "ws.media", "Activated fallback TX decoder %s.rx (chan %d) for %s",
          channel->codec, chan_id, (talker ? talker->chatname : "unknown"));
    }
    if (!fwdsp_codec_set_pcm_callback(channel->codec, channel->uuid,
@@ -366,24 +365,6 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
    // media needs a decoder (fwdsp rx mode).
    bool fwdsp_tx = (channel->direction == RR_BINFRAME_DIR_RX);
    rrconn_t *talker = whos_talking();
-   bool tx_active = channel->direction == RR_BINFRAME_DIR_TX && talker &&
-      talker->ptt_vfo == 'A' + channel->vfo;
-
-   // TX codec changes while idle only update the channel's negotiated format.
-   // The decoder is started lazily from rrserver_media_activate_ptt().
-   if (channel->direction == RR_BINFRAME_DIR_TX && !tx_active) {
-      if (old_codec && strlen(old_codec) == 4 &&
-          strncmp(old_codec, codec, 4) != 0) {
-         // If the previous PTT ended recently, release its warm decoder now
-         // rather than leaving an obsolete codec process attached to the
-         // channel while it is idle.
-         fwdsp_codec_stop_channel(old_codec, false, channel->uuid);
-      }
-      Log(LOG_INFO, "ws.media", "Stored idle TX codec %s for %s; decoder deferred until PTT",
-         codec, channel->uuid);
-      dict_free(d);
-      return;
-   }
    // A codec switch changes the stream format and therefore starts a new
    // recording segment. Stop the old recorder explicitly before replacing the
    // fwdsp process; warm encoders otherwise keep a paused recorder alive
@@ -399,6 +380,14 @@ static void rrserver_handle_codec_select(const char *event, const char *data,
    if (chan_id < 0) {
       Log(LOG_CRIT, "ws.media", "Failed to switch fwdsp pipeline to %s.%s for %s",
          codec, (fwdsp_tx ? "tx" : "rx"), channel->uuid);
+      dict_free(d);
+      return;
+   }
+   if (channel->direction == RR_BINFRAME_DIR_TX &&
+       !fwdsp_codec_set_pcm_callback(codec, channel->uuid,
+          rrserver_talker_pcm, NULL)) {
+      Log(LOG_CRIT, "ws.media", "Unable to connect prewarmed TX decoder for %s",
+         channel->uuid);
       dict_free(d);
       return;
    }
@@ -438,7 +427,42 @@ static void rrserver_media_subscribed(const char *event, const char *data,
    rrconn_t *cptr, void *user) {
    dict *d = data ? json2dict(data) : NULL;
    const char *uuid = d ? dict_get(d, "media.chan-uuid", NULL) : NULL;
-   if (uuid && cptr) fwdsp_send_stream_headers(uuid, cptr);
+   struct rr_mediachan *channel = uuid ? media_chan_find_uuid(uuid) : NULL;
+
+   /* Prewarm both audio directions as soon as subscription and codec are
+    * confirmed. The subscriber sweep keeps these processes referenced while
+    * the client remains attached, so first audio and first PTT do not pay
+    * GStreamer startup latency. */
+   if (channel && channel->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
+       channel->codec[0]) {
+      bool fwdsp_tx = channel->direction == RR_BINFRAME_DIR_RX;
+      struct fwdsp_subproc *sp = fwdsp_find_channel_instance(channel->codec,
+         fwdsp_tx, channel->uuid);
+      int chan_id = sp ? sp->chan_id :
+         fwdsp_codec_start(channel->codec, fwdsp_tx, channel->uuid);
+
+      if (chan_id < 0) {
+         Log(LOG_CRIT, "ws.media", "Failed to prewarm subscribed %s %s.%s for %s",
+            channel->direction == RR_BINFRAME_DIR_RX ? "RX encoder" : "TX decoder",
+            channel->codec, fwdsp_tx ? "tx" : "rx", channel->uuid);
+      } else {
+         if (channel->direction == RR_BINFRAME_DIR_TX &&
+             !fwdsp_codec_set_pcm_callback(channel->codec, channel->uuid,
+                rrserver_talker_pcm, NULL)) {
+            Log(LOG_CRIT, "ws.media", "Unable to connect prewarmed TX decoder for %s",
+               channel->uuid);
+         }
+         if (channel->direction == RR_BINFRAME_DIR_RX) {
+            media_record_channel(channel, NULL, true, NULL);
+         }
+         if (!sp) {
+            Log(LOG_INFO, "ws.media", "Prewarmed subscribed %s %s.%s (chan %d) for %s",
+               channel->direction == RR_BINFRAME_DIR_RX ? "RX encoder" : "TX decoder",
+               channel->codec, fwdsp_tx ? "tx" : "rx", chan_id, channel->uuid);
+         }
+      }
+   }
+   if (channel && cptr) fwdsp_send_stream_headers(channel->uuid, cptr);
    if (d) dict_free(d);
 }
 

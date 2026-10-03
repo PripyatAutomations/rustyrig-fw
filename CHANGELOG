@@ -4,6 +4,9 @@ rustyrig-fw (20261003) testing; urgency=medium
   paste, margins, and scroll-region terminal state when the TUI exits.
 - Made `chat.replay-lines` limit replay to the configured number of most-recent
   messages while preserving chronological display order.
+- Prewarm subscribed RX encoders and TX decoders so newly joined clients and
+  first PTT frames do not wait for GStreamer process startup.
+- Removed the obsolete Toggle Userlist button from the GTK configuration tab.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 

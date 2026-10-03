@@ -22,12 +22,9 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/config.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/userlist.h>
 #include <rrclient/gtk.core.h>
 
 extern dict *cfg;
-extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
-extern GtkWidget *toggle_userlist_button;
 extern GtkWidget *main_notebook;
 extern dict *cfg_load(const char *path);
 
@@ -683,12 +680,8 @@ GtkWidget *init_config_tab(void) {
    g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer)config_file);
    gtk_box_pack_start(GTK_BOX(right_buttons), btn_reloadcfg, FALSE, FALSE, 0);
 
-   toggle_userlist_button = gtk_button_new_with_label("Toggle Userlist");
-   gtk_box_pack_start(GTK_BOX(right_buttons), toggle_userlist_button, FALSE, FALSE, 0);
-   g_signal_connect(toggle_userlist_button, "clicked", G_CALLBACK(on_toggle_userlist_clicked), NULL);
-
    GtkWidget *actions[] = { btn_savecfg, btn_fullscreen, btn_cfgedit,
-      btn_reloadcfg, toggle_userlist_button };
+      btn_reloadcfg };
    for (size_t i = 0; i < sizeof(actions) / sizeof(actions[0]); i++) {
       gtk_widget_set_size_request(actions[i], 170, -1);
       gtk_widget_set_halign(actions[i], GTK_ALIGN_CENTER);

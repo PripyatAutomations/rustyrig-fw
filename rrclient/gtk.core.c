@@ -35,7 +35,6 @@ extern bool dying;               // main.c
 GtkWidget *main_window = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
-GtkWidget *toggle_userlist_button = NULL;
 GtkWidget *main_notebook = NULL;
 GtkWidget *status_tab = NULL;
 GtkWidget *log_tab = NULL;
