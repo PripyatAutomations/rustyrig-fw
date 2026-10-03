@@ -14,6 +14,8 @@ rustyrig-fw (20261003.02) testing; urgency=medium
   * Install the log-query tools and build-profile configuration with native
     packages, using /etc/rustyrig outside a source checkout.
   * Namespace the installed log-query commands as rr-get-*-log.
+  * Document the inspected rig-property architecture and the review boundary
+    for the planned Hamlib migration before room mappings or CAT depend on it.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 03 Oct 2026 00:00:00 -0400
 
