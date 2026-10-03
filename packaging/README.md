@@ -3,9 +3,10 @@
 `packaging/PKGBUILD` is a starter Arch Linux split package. Build it with
 `makepkg -f`. Run `tools/bump-version.sh --version v0.1.0` for a semantic
 release (or omit `--version` while using the legacy date sequence); the script
-updates `.version`, `debian/changelog`, `packaging/PKGBUILD`, and
-`packaging/rustyrig.spec` together. Package metadata stores the normalized
-version without the optional leading `v`.
+updates `.version`, the root `CHANGELOG`, `packaging/PKGBUILD`, and
+`packaging/rustyrig.spec` together. `debian/changelog` is a symlink to the
+root changelog, so Debian consumes that same release history. Package metadata
+stores the normalized version without the optional leading `v`.
 
 `packaging/rustyrig.spec` is a starter Fedora/RHEL RPM spec. It is intentionally
 not distribution-repo complete and has not been tested on an RPM distribution,

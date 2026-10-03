@@ -1,302 +1,304 @@
-rustyrig-fw (20261003) testing; urgency=medium
-- Many TUI drawing fixes
-- Restored cooked input, blocking stdin, cursor, colors, keypad, mouse, focus,
-  paste, margins, and scroll-region terminal state when the TUI exits.
-- Made `chat.replay-lines` limit replay to the configured number of most-recent
-  messages while preserving chronological display order.
-- Prewarm subscribed RX encoders and TX decoders so newly joined clients and
-  first PTT frames do not wait for GStreamer process startup.
-- Removed the obsolete Toggle Userlist button from the GTK configuration tab.
+rustyrig-fw (20261003.01) testing; urgency=medium
+  * Many TUI drawing fixes
+  * Restored cooked input, blocking stdin, cursor, colors, keypad, mouse, focus,
+    paste, margins, and scroll-region terminal state when the TUI exits.
+  * Made `chat.replay-lines` limit replay to the configured number of most-recent
+    messages while preserving chronological display order.
+  * Prewarm subscribed RX encoders and TX decoders so newly joined clients and
+    first PTT frames do not wait for GStreamer process startup.
+  * Removed the obsolete Toggle Userlist button from the GTK configuration tab.
+  * Use the root CHANGELOG as Debian's changelog through a tested relative
+    symlink, keeping all package version metadata on one release history.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 03 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261002) testing; urgency=medium
-- Bounded MQTT subscription parsing and per-client subscription counts to
-  prevent malformed packets and oversized requests from corrupting memory.
-- Freed MQTT topic and subscription allocations when clients disconnect.
-- Made `net.mqtt.enabled` control whether the MQTT listener starts.
-- Required the new `video-src` account privilege as well as the declared
-  `video-source` role before a client can register as a video media source.
-- NULL-terminated saved HTTP User-Agent headers and centralized connection
-  resource cleanup so authenticated and unauthenticated disconnects are safe.
-- Removed session tokens, nonces, stored password hashes, and challenge
-  responses from logs, corrected password-hash buffer wiping, and require an
-  exact nonce match and valid user-array index during authentication.
-- Enabled the maintained project test suites in CI and added security
-  regressions for MQTT, media-source authorization, and HTTP-owned strings.
+  * Bounded MQTT subscription parsing and per-client subscription counts to
+    prevent malformed packets and oversized requests from corrupting memory.
+  * Freed MQTT topic and subscription allocations when clients disconnect.
+  * Made `net.mqtt.enabled` control whether the MQTT listener starts.
+  * Required the new `video-src` account privilege as well as the declared
+    `video-source` role before a client can register as a video media source.
+  * NULL-terminated saved HTTP User-Agent headers and centralized connection
+    resource cleanup so authenticated and unauthenticated disconnects are safe.
+  * Removed session tokens, nonces, stored password hashes, and challenge
+    responses from logs, corrected password-hash buffer wiping, and require an
+    exact nonce match and valid user-array index during authentication.
+  * Enabled the maintained project test suites in CI and added security
+    regressions for MQTT, media-source authorization, and HTTP-owned strings.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 02 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261001) testing; urgency=medium
-- Hash complete authentication password hashes and nonces without fixed-buffer
-  truncation, matching the existing WebUI challenge-response calculation.
-- Added authentication regression vectors for stored password hashes and long
-  nonces, including nonces differing only beyond the previous buffer limit.
-- Removed password hashes and challenge responses from the hashing debug log.
+  * Hash complete authentication password hashes and nonces without fixed-buffer
+    truncation, matching the existing WebUI challenge-response calculation.
+  * Added authentication regression vectors for stored password hashes and long
+    nonces, including nonces differing only beyond the previous buffer limit.
+  * Removed password hashes and challenge responses from the hashing debug log.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 01 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20260927) testing; urgency=medium
-- Fixed ring-buffer name ownership and cleanup, including NULL-safe creation
-  and destruction paths.
-- Fixed an out-of-bounds read in duration parsing when a value has no unit.
-- Fixed the protocol rig-state diff path ignoring its allocated result, which
-  leaked the diff and suppressed incremental state updates.
-- Added shared configuration shutdown cleanup for dictionaries, callbacks,
-  save handlers, reload events, and the loaded configuration path.
-- Applications now release the shared event registry during orderly shutdown.
-- TUI shutdown now removes its GLib input source, destroys TermKey state,
-  and frees window scrollback and input history.
-- SIGINT/SIGTERM now enter the normal client, server, or fwdsp shutdown path
-  instead of bypassing finalizers with an immediate exit.
-- TUI startup now handles non-terminal stdin without dereferencing a failed
-  TermKey allocation.
-- Version bumping now keeps Debian, RPM, and Arch metadata synchronized and
-  accepts both legacy date versions and semantic versions such as `v0.1.0`.
-- GTK now keeps a usable status page before authentication and switches to it
-  with a visible error when the configured server cannot be reached.
-- Added configurable `ui.ptt-hold-delay` (500 ms by default) so accidental
-  PTT shortcut taps are less likely to become brief transmissions.
-- Added owner/admin-scoped `/user privs` management for listing, adding,
-  removing, and assigning exact account privileges.
-- GTK VFO controls now apply cached CAT frequency/state when the room widget
-  is created, so startup frequency matches the userlist immediately.
-- Configuration key name cleanup
-- Removed the unused runtime `debug.profiling` setting; profiling remains a
-  build feature controlled by the profile configuration.
-- Added protocol security tests for challenge-response hashes, privilege
-  matching, wildcard privileges, and invalid user/privilege inputs.
-- Ensured userinfo messages always carry a valid room and prevented an
-  unqualified update received while a private query is active from moving
-  room roster entries into the query tab.
-- Enabled configured HTTP user-agent regular-expression bans and rejected
-  invalid patterns instead of silently accepting them.
-- Hardened GTK log markup conversion against oversized input and escaping
-  allocation failures.
-- Lowered repetitive PTT transition and userlist refresh messages to debug
-  level.
-- More automated test cases
-- Debian, Arch, and RPM packages now install the rrserver systemd unit and
-  configured user-agent ban file alongside the existing init support.
-- MQTT now listens on loopback by default.
-- Debian server installs now prompt for the admin password through debconf and
-  apply it to a newly created database without resetting upgrade databases.
-- Put the RustyRig Client desktop launcher in the Ham Radio menu category.
-- Added server-side user administration commands and password age metadata;
-  fresh databases disable guest.
-- Account reloads now preserve live session and mute state.
+  * Fixed ring-buffer name ownership and cleanup, including NULL-safe creation
+    and destruction paths.
+  * Fixed an out-of-bounds read in duration parsing when a value has no unit.
+  * Fixed the protocol rig-state diff path ignoring its allocated result, which
+    leaked the diff and suppressed incremental state updates.
+  * Added shared configuration shutdown cleanup for dictionaries, callbacks,
+    save handlers, reload events, and the loaded configuration path.
+  * Applications now release the shared event registry during orderly shutdown.
+  * TUI shutdown now removes its GLib input source, destroys TermKey state,
+    and frees window scrollback and input history.
+  * SIGINT/SIGTERM now enter the normal client, server, or fwdsp shutdown path
+    instead of bypassing finalizers with an immediate exit.
+  * TUI startup now handles non-terminal stdin without dereferencing a failed
+    TermKey allocation.
+  * Version bumping now keeps Debian, RPM, and Arch metadata synchronized and
+    accepts both legacy date versions and semantic versions such as `v0.1.0`.
+  * GTK now keeps a usable status page before authentication and switches to it
+    with a visible error when the configured server cannot be reached.
+  * Added configurable `ui.ptt-hold-delay` (500 ms by default) so accidental
+    PTT shortcut taps are less likely to become brief transmissions.
+  * Added owner/admin-scoped `/user privs` management for listing, adding,
+    removing, and assigning exact account privileges.
+  * GTK VFO controls now apply cached CAT frequency/state when the room widget
+    is created, so startup frequency matches the userlist immediately.
+  * Configuration key name cleanup
+  * Removed the unused runtime `debug.profiling` setting; profiling remains a
+    build feature controlled by the profile configuration.
+  * Added protocol security tests for challenge-response hashes, privilege
+    matching, wildcard privileges, and invalid user/privilege inputs.
+  * Ensured userinfo messages always carry a valid room and prevented an
+    unqualified update received while a private query is active from moving
+    room roster entries into the query tab.
+  * Enabled configured HTTP user-agent regular-expression bans and rejected
+    invalid patterns instead of silently accepting them.
+  * Hardened GTK log markup conversion against oversized input and escaping
+    allocation failures.
+  * Lowered repetitive PTT transition and userlist refresh messages to debug
+    level.
+  * More automated test cases
+  * Debian, Arch, and RPM packages now install the rrserver systemd unit and
+    configured user-agent ban file alongside the existing init support.
+  * MQTT now listens on loopback by default.
+  * Debian server installs now prompt for the admin password through debconf and
+    apply it to a newly created database without resetting upgrade databases.
+  * Put the RustyRig Client desktop launcher in the Ham Radio menu category.
+  * Added server-side user administration commands and password age metadata;
+    fresh databases disable guest.
+  * Account reloads now preserve live session and mute state.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com> Sun Sep 27 12:40:41 PM EDT 2026
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 27 Sep 2026 00:00:00 -0400
 
 rustyrig-fw (20260926) testing; urgency=medium
-- UI fixes around query and status/log tabs
-- GTK PTT shortcuts now match TUI: tap to toggle the PTT lock, hold to key
-  only while the shortcut is held; pending state remains yellow.
-- Reordered room administration commands to `/room list` and
-  `/room #room add|remove|vfo ...`, including room-scoped VFO listings.
-- Fixed GTK/TUI private-message rendering passing too few arguments to its
-  format string, which could crash the client while displaying a PM.
-- Private queries now render incoming messages as *user* message and sent
-  messages as -> message, using the server echo to avoid duplicate output.
+  * UI fixes around query and status/log tabs
+  * GTK PTT shortcuts now match TUI: tap to toggle the PTT lock, hold to key
+    only while the shortcut is held; pending state remains yellow.
+  * Reordered room administration commands to `/room list` and
+    `/room #room add|remove|vfo ...`, including room-scoped VFO listings.
+  * Fixed GTK/TUI private-message rendering passing too few arguments to its
+    format string, which could crash the client while displaying a PM.
+  * Private queries now render incoming messages as *user* message and sent
+    messages as -> message, using the server echo to avoid duplicate output.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 26 Sep 2026 00:00:00 -0400
 
 rustyrig-fw (20260924) testing; urgency=medium
-- Added right click menu for userlist
-- Added /room
-  - LIST | REMOVE - management
-  - VFO (ADD|LIST|REMOVE) - VFO binding management
-- Many fixes to the TUI rendering to remove flickers/corruption
-- Added /set [key [value]] for tui/gtk to edit config
-- Starts of GTK config & gstreamer pipeline editors
-- Fixed some obscure UI bugs
+  * Added right click menu for userlist
+  * Added /room
+    - LIST | REMOVE - management
+    - VFO (ADD|LIST|REMOVE) - VFO binding management
+  * Many fixes to the TUI rendering to remove flickers/corruption
+  * Added /set [key [value]] for tui/gtk to edit config
+  * Starts of GTK config & gstreamer pipeline editors
+  * Fixed some obscure UI bugs
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 24 Sep 2026 00:00:00 -0400
 
 rustyrig-fw (20260920) testing; urgency=medium
-- Numerous fwdsp/fwdspmgr fixes
-- Added many new test pipelines
-- Code cleanup & documentation
-- Ensure defaults are put in defconfig for all keys & default settings
-  except those frequently changed removed from rrclient/rrserver.cfg
-- Improve PTT button in rrclient to lock controls during PTT:
-  - Frequency, mode, volume, and TX power lock while anyone is transmitting.
-  - Codec selectors remain available while another user transmits.
-  - Codec selectors lock during our own transmission.
-  - The PTT button remains enabled.
-- Tons of audio work.
-- TX codec selection only applied when PTT button applied.
-  - Only the subset of codecs that are supported by all active users is shown
-- Renamed "channels" to rooms and made support for multiple with or without VFOs linked
-- Added some deb packaging bits
-- Fixed callsign-lookup & integrated
-  see /CALL and /GRID commands
+  * Numerous fwdsp/fwdspmgr fixes
+  * Added many new test pipelines
+  * Code cleanup & documentation
+  * Ensure defaults are put in defconfig for all keys & default settings
+    except those frequently changed removed from rrclient/rrserver.cfg
+  * Improve PTT button in rrclient to lock controls during PTT:
+    - Frequency, mode, volume, and TX power lock while anyone is transmitting.
+    - Codec selectors remain available while another user transmits.
+    - Codec selectors lock during our own transmission.
+    - The PTT button remains enabled.
+  * Tons of audio work.
+  * TX codec selection only applied when PTT button applied.
+    - Only the subset of codecs that are supported by all active users is shown
+  * Renamed "channels" to rooms and made support for multiple with or without VFOs linked
+  * Added some deb packaging bits
+  * Fixed callsign-lookup & integrated
+    see /CALL and /GRID commands
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com> 
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 20 Sep 2026 00:00:00 -0400
 
 rustyrig-fw (20260917) testing; urgency=medium
-- Codec selection is per media channel UUID.
-- Client no longer pre-starts pc16 before negotiation.
-- Codec changes replace the active decoder immediately.
-- Unused decoders stop immediately.
-- Unused encoders are PAUSED and retained for fwdsp.hangtime, then reaped.
-  Selecting the same encoder again during hangtime RESUMEs it.
-- recording-start / recording-stop server event placeholders control the
-  channel's active fwdsp instance.
-- record.rx / record.tx enable recording automatically.
-- Raw S16LE recording is copied into a non-blocking ring and FLAC-compressed
-  by a pthread worker.
-- record.buffer-size now controls the ring size (minimum 4096 bytes).
-- path.record-dir controls output location.
-- mk/compile.mk adds libFLAC and pthread flags to fwdsp only.
+  * Codec selection is per media channel UUID.
+  * Client no longer pre-starts pc16 before negotiation.
+  * Codec changes replace the active decoder immediately.
+  * Unused decoders stop immediately.
+  * Unused encoders are PAUSED and retained for fwdsp.hangtime, then reaped.
+    Selecting the same encoder again during hangtime RESUMEs it.
+  * recording-start / recording-stop server event placeholders control the
+    channel's active fwdsp instance.
+  * record.rx / record.tx enable recording automatically.
+  * Raw S16LE recording is copied into a non-blocking ring and FLAC-compressed
+    by a pthread worker.
+  * record.buffer-size now controls the ring size (minimum 4096 bytes).
+  * path.record-dir controls output location.
+  * mk/compile.mk adds libFLAC and pthread flags to fwdsp only.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com> Wed Sep  9 03:58:41 AM EDT 2026
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 17 Sep 2026 00:00:00 -0400
 
 rustyrig-fw (20260909) testing; urgency=medium
-* More work on yaesu CAT emulator
+  * More work on yaesu CAT emulator
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com> Wed Sep  9 03:58:41 AM EDT 2026
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 09 Sep 2026 00:00:00 -0400
 
 rustyrig-fw (20260907) testing; urgency=medium
-* Many UI improvements
-  - PTT button has pending (yellow)
-  - CSS moved to rrclient.cfg
-  - See /help and !help
-* Countless bug fixes
-* Added latency estimator
-* Fixed userlist - now shows symbol to indicate TXing
-* Added PTT logging in server
-* Fixed a ton of bugs
-* added internal backend, removed dummy
-* Mostly fixed config reloading
+  * Many UI improvements
+    - PTT button has pending (yellow)
+    - CSS moved to rrclient.cfg
+    - See /help and !help
+  * Countless bug fixes
+  * Added latency estimator
+  * Fixed userlist - now shows symbol to indicate TXing
+  * Added PTT logging in server
+  * Fixed a ton of bugs
+  * added internal backend, removed dummy
+  * Mostly fixed config reloading
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue Sep  8 12:55:21 AM EDT 2026
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 07 Sep 2026 00:00:00 -0400
 
 rustyrig-fw (20260817) testing; urgency=medium
-* Renamed -c argument to all programs to -f to give a config filename
-* fixed some small bugs
-* fixed USE_* wrappers throughout tree
+  * Renamed -c argument to all programs to -f to give a config filename
+  * fixed some small bugs
+  * fixed USE_* wrappers throughout tree
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon Aug 17 12:04:10 AM EDT 2026
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 17 Aug 2026 00:00:00 -0400
 
 rustyrig-fw (20260815) testing; urgency=medium
-* got TUI working (-T or unset $DISPLAY)
-* lots of bugs fixed
-* Fixed rrserver high cpu usage by moving to timers instead of the big ugly main loop
-* Fixed backend glue so hamlib can work
-* Fixed build_config.h autogeneration from config/${PROFILE}.config.json, radio is default PROFILE
-* Fixed makefile bugs that allowed -j builds to proceed before/while ./tools/pack-eeprom runs
-* TUI now is pretty much as functional as the GUI features and duplication is removed
-* connect button changes yellow while trying and green when online, red for offline
-* updated tools/archive-config.sh to save the rrclient and rrserver configs too
+  * got TUI working (-T or unset $DISPLAY)
+  * lots of bugs fixed
+  * Fixed rrserver high cpu usage by moving to timers instead of the big ugly main loop
+  * Fixed backend glue so hamlib can work
+  * Fixed build_config.h autogeneration from config/${PROFILE}.config.json, radio is default PROFILE
+  * Fixed makefile bugs that allowed -j builds to proceed before/while ./tools/pack-eeprom runs
+  * TUI now is pretty much as functional as the GUI features and duplication is removed
+  * connect button changes yellow while trying and green when online, red for offline
+  * updated tools/archive-config.sh to save the rrclient and rrserver configs too
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat Aug 15 11:33:45 PM EDT 2026
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 15 Aug 2026 00:00:00 -0400
 
 rustyrig-fw (20260802) testing; urgency=medium
-* More cleanup, fixed eeprom handling & moved most things to eventbus events
+  * More cleanup, fixed eeprom handling & moved most things to eventbus events
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 02 Aug 2026 00:00:00 -0400
 
-rustyrig-fw (20260724) testing; urgeny=medium
-* Lot of cleanup. rrserver and rrgtk run and work now
-  - Need to resolve issues in backend/backend.hamlib stuff
+rustyrig-fw (20260724) testing; urgency=medium
+  * Lot of cleanup. rrserver and rrgtk run and work now
+    - Need to resolve issues in backend/backend.hamlib stuff
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, Jul 24 2026 11:19:45 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 24 Jul 2026 00:00:00 -0400
 
-rustyrig-fw (20260721) testing; urgeny=medium
-* Cleaned up code a bit until everything at least compiles and runs
-* Repaired libmongoose-based functionality (rrgtk/rrserver)
-  - We will work on merging rrcli and rrgtk into one program and making rrserver support our irc based protocol as well as http api
+rustyrig-fw (20260721) testing; urgency=medium
+  * Cleaned up code a bit until everything at least compiles and runs
+  * Repaired libmongoose-based functionality (rrgtk/rrserver)
+    - We will work on merging rrcli and rrgtk into one program and making rrserver support our irc based protocol as well as http api
     - This will require an alternative for libmongoose be found for http server, json handling, and a few other misc functions.
       ! Need to work on librrprotocol auth bits to remove dependancy on mongoose
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, Jul 21 2026 12:10:45 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 21 Jul 2026 00:00:00 -0400
 
 rustyrig-fw (20251012) testing; urgency=medium
-* Much work on tui
-  - Keybindings for line editing (^A/^E/^W/^U)
-  - Keybindings for window movement (alt-1...0)
-  - moved linewrapping to the tui_redraw_screen to allow clean window resizing
-* Implemented the event system
-* renamed irc-test to rrcli
-* Start of work on loadable modules
-  - Will register their desired events via event_on_list() stdargs mass loader
+  * Much work on tui
+    - Keybindings for line editing (^A/^E/^W/^U)
+    - Keybindings for window movement (alt-1...0)
+    - moved linewrapping to the tui_redraw_screen to allow clean window resizing
+  * Implemented the event system
+  * renamed irc-test to rrcli
+  * Start of work on loadable modules
+    - Will register their desired events via event_on_list() stdargs mass loader
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 12 Oct 2025 22:47:00 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 12 Oct 2025 00:00:00 -0400
 
 rustyrig-fw (20251003) testing; urgency=medium
-* Cleanup and work on tui
-* Work on irc client support in librustyaxe
-  - Bug fixes & features
-* bin/irc-test - Add small irc client for testing the librustyaxe TUI and IRC client-side bits
-* Bug fixes in librustyaxe: config & logger
-* Start of work on events system in librustyaxe, for module callbacks
+  * Cleanup and work on tui
+  * Work on irc client support in librustyaxe
+    - Bug fixes & features
+  * bin/irc-test - Add small irc client for testing the librustyaxe TUI and IRC client-side bits
+  * Bug fixes in librustyaxe: config & logger
+  * Start of work on events system in librustyaxe, for module callbacks
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 03 Oct 2025 03:45:00 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 03 Oct 2025 00:00:00 -0400
 
 rustyrig-fw (20250922) testing; urgency=medium
-* Added alert/warning/error dialog in main window for ui.gtk3
-* Cleaned up the logger bits so now log.level fully supports multiple levels and * for default
-* Removed last of the audio remnants
-* Added chat logging in database (rrserver.cfg:general/chat.log) with optional replay on join (chat.replay-lines)
+  * Added alert/warning/error dialog in main window for ui.gtk3
+  * Cleaned up the logger bits so now log.level fully supports multiple levels and * for default
+  * Removed last of the audio remnants
+  * Added chat logging in database (rrserver.cfg:general/chat.log) with optional replay on join (chat.replay-lines)
    - Needs implemented in rrclient
-* Added dict_get_time_t
-* Re-added ! commands in rrserver ws.chat.c
-* Started work to split protocol related code out to librrprotocol/
-* Work on loadable modules support
-* Adding irc support to librustyaxe (client for now, server soon) -- see irc-test.c
+  * Added dict_get_time_t
+  * Re-added ! commands in rrserver ws.chat.c
+  * Started work to split protocol related code out to librrprotocol/
+  * Work on loadable modules support
+  * Adding irc support to librustyaxe (client for now, server soon) -- see irc-test.c
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 22 Sep 2025 14:08:00 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 22 Sep 2025 00:00:00 -0400
 
 rustyrig-fw (20250917) testing; urgency=medium
-* much more integration of dict2json and json2dict for safe json creation and cleaner parsers
+  * much more integration of dict2json and json2dict for safe json creation and cleaner parsers
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 17 Sep 2025 03:28:00 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 17 Sep 2025 00:00:00 -0400
 
 rustyrig-fw (20250912) testing; urgency=medium
-* More code cleanup
-* Re-arranged the source tree to support potentially merging the client and server into a single program
-* Cleaned up the tree to be less intimidating to new users ;)
+  * More code cleanup
+  * Re-arranged the source tree to support potentially merging the client and server into a single program
+  * Cleaned up the tree to be less intimidating to new users ;)
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 12 Sep 2025 22:40:01 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 12 Sep 2025 00:00:00 -0400
 
 rustyrig-fw (20250827) testing; urgency=medium
-* Improved GtkFreqEntry
-* Code cleanup & some static analysis
-* Temporary shell script based launcher for gst pipelines (./gst-test.sh called by test-run.sh)
-* Made rrserver send error/warning messages to the client when invalid input is sent, rather than ignoring the input as previously done
-* Changed mode dropdown to alt-d instead of alt-o
-* Improved config parser:
-  - Multiline entries, put a \ at end of the line, trailing whitespace ignored!
-  - Variable expansion: ${key.name}
-  - Allow stray whitepsace around the = in key/val sections
-  - Whitespaces trailing and leading are properly scrubbed now
-  - Work on reload events, so if/when we add reloading the config without a restart
-* Fixed ! VFO command parsing to properly allow stacked commands with or without ! on the second on
-* Added dict2json / json2dict (src/common/dict2json.c and inc/common/dict2json.h)
-  - Supports turning a dict into a blob of json for sending to users
-  - Soon will have json to dict, for parsing user messages into an easy to handle dict * object
-* More code cleanup
+  * Improved GtkFreqEntry
+  * Code cleanup & some static analysis
+  * Temporary shell script based launcher for gst pipelines (./gst-test.sh called by test-run.sh)
+  * Made rrserver send error/warning messages to the client when invalid input is sent, rather than ignoring the input as previously done
+  * Changed mode dropdown to alt-d instead of alt-o
+  * Improved config parser:
+    - Multiline entries, put a \ at end of the line, trailing whitespace ignored!
+    - Variable expansion: ${key.name}
+    - Allow stray whitepsace around the = in key/val sections
+    - Whitespaces trailing and leading are properly scrubbed now
+    - Work on reload events, so if/when we add reloading the config without a restart
+  * Fixed ! VFO command parsing to properly allow stacked commands with or without ! on the second on
+  * Added dict2json / json2dict (src/common/dict2json.c and inc/common/dict2json.h)
+    - Supports turning a dict into a blob of json for sending to users
+    - Soon will have json to dict, for parsing user messages into an easy to handle dict * object
+  * More code cleanup
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 27 Aug 2025 22:40:01 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 27 Aug 2025 00:00:00 -0400
 
 rustyrig-fw (20250816) testing; urgency=medium
 
- * Added multi-line (\ at end of line) support to config files
- * Added variable expansion in config, up to 6 levels and 64kbytes
- * Added keybindings (see help/KEYBINDINGS)
- * Cleaned up GtkFreqInput widget to not suck
- * Started work on new audio transport stuff using shmem and gstreamer
- * A little Work on catching webui protocol support up to the GTK client
- * Work on documenting the json over websocket protocol 
- * Some small re-arranging of the distribution (icons, etc to res/)
- * Fixed codec negotiation, so clients show proper list of available codecs
- * bug fixes & code cleanup
+  * Added multi-line (\ at end of line) support to config files
+  * Added variable expansion in config, up to 6 levels and 64kbytes
+  * Added keybindings (see help/KEYBINDINGS)
+  * Cleaned up GtkFreqInput widget to not suck
+  * Started work on new audio transport stuff using shmem and gstreamer
+  * A little Work on catching webui protocol support up to the GTK client
+  * Work on documenting the json over websocket protocol
+  * Some small re-arranging of the distribution (icons, etc to res/)
+  * Fixed codec negotiation, so clients show proper list of available codecs
+  * bug fixes & code cleanup
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 16 Aug 2025 05:06:13 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 16 Aug 2025 00:00:00 -0400
 
 rustyrig-fw (20250702) testing; urgency=medium
 
   * Initial deb package
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 02 Jul 2025 22:43:37 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 02 Jul 2025 00:00:00 -0400

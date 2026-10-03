@@ -90,8 +90,8 @@ fi
 
 printf '%s\n' "$new_version" > .version
 
-if [[ -f debian/changelog ]]; then
-   sed -i -E "1s/^rustyrig-fw \([^)]*\)/rustyrig-fw (${new_version})/" debian/changelog
+if [[ -f CHANGELOG ]]; then
+   sed -i -E "1s/^rustyrig-fw \([^)]*\)/rustyrig-fw (${new_version})/" CHANGELOG
 fi
 
 if [[ -f packaging/PKGBUILD ]]; then
@@ -102,4 +102,4 @@ if [[ -f packaging/rustyrig.spec ]]; then
    sed -i -E "s/^Version:[[:space:]].*/Version: ${new_version}/" packaging/rustyrig.spec
 fi
 
-echo "Updated .version, Debian, Arch, and RPM package metadata."
+echo "Updated .version, CHANGELOG, Arch, and RPM package metadata."
