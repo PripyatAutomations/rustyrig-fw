@@ -34,3 +34,6 @@
 [submodule "ext/chusim"]
 	path = ext/chusim
 	url = https://github.com/ka9q/chusim.git
+[submodule "ext/mbelib-neo"]
+	path = ext/mbelib-neo
+	url = https://github.com/arancormonk/mbelib-neo
