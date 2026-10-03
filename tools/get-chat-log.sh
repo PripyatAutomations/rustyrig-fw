@@ -1,2 +1,4 @@
 #!/bin/sh
-sqlite3 db/master.db 'select * from chat_log'
+DBDIR=/var/lib/rustyrig/db/
+
+sqlite3 ${DBDIR}/master.db 'select * from chat_log'
