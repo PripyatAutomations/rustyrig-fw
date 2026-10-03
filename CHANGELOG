@@ -17,7 +17,7 @@ rustyrig-fw (20261002) testing; urgency=medium
 - Made `net.mqtt.enabled` control whether the MQTT listener starts.
 - Required the new `video-src` account privilege as well as the declared
   `video-source` role before a client can register as a video media source.
-- NUL-terminated saved HTTP User-Agent headers and centralized connection
+- NULL-terminated saved HTTP User-Agent headers and centralized connection
   resource cleanup so authenticated and unauthenticated disconnects are safe.
 - Removed session tokens, nonces, stored password hashes, and challenge
   responses from logs, corrected password-hash buffer wiping, and require an
