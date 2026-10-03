@@ -449,18 +449,16 @@ bool rrclient_cleanup(void) {
 
    tui_over_ssh = tui_is_over_ssh();
 
-   if (ui_mode == UI_MODE_TUI) {
-      tui_raw_mode(false);
-            } else if (ui_mode == UI_MODE_GTK) {
+   if (ui_mode == UI_MODE_GTK) {
 #ifdef	USE_GTK
-          // Only quit if the main loop is still running.  When the user closes
-          // the window, destroy→gtk_main_quit already unwound the loop and
-          // calling gtk_main_quit() again asserts ("main_loops != NULL").
-          if (gtk_main_level() > 0) {
-             gtk_main_quit();
-          }
+      // Only quit if the main loop is still running.  When the user closes
+      // the window, destroy→gtk_main_quit already unwound the loop and
+      // calling gtk_main_quit() again asserts ("main_loops != NULL").
+      if (gtk_main_level() > 0) {
+         gtk_main_quit();
+      }
 #endif	// USE_GTK
-       }
+   }
 
    // Stop all fwdsp children while their Mongoose wrappers and logging are
    // still alive. This also releases encoders retained by fwdsp.hangtime.

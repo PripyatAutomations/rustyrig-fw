@@ -185,9 +185,28 @@ int main(void) {
    while (top[columns] == 'X') columns++;
    assert(columns == (unsigned)tui_cols() - 1);
    free(screen);
+
+   capture_reset(output);
+   tui_fini();
+   screen = capture_read(output);
+   assert(strstr(screen, "\033[0m"));
+   assert(strstr(screen, "\033[?25h"));
+   assert(strstr(screen, "\033[?1000l"));
+   assert(strstr(screen, "\033[?1006l"));
+   assert(strstr(screen, "\033[?2004l"));
+   assert(strstr(screen, "\033[r"));
+   assert(strstr(screen, "\033[999;1H\033[2K\r\n"));
+   free(screen);
+
+   capture_reset(output);
+   tui_fini();
+   screen = capture_read(output);
+   assert(!*screen); // shutdown is safe when cleanup and atexit both invoke it
+   free(screen);
+
    fflush(stdout);
    assert(dup2(saved_stdout, STDOUT_FILENO) >= 0);
    close(saved_stdout);
    fclose(output);
-   puts("PASS: live top-row templates, inactive VFO updates, colors, fallback, clipping; bottom status preserved");
+   puts("PASS: live TUI rows, redraw batching, inactive logs, clipping, and terminal cleanup");
 }

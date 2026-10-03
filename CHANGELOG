@@ -1,11 +1,7 @@
 rustyrig-fw (20261003) testing; urgency=medium
-- Fixed incomplete TUI refreshes by tracking buffered output as dirty, making
-  chat flushes consume queued redraws, removing a stray cursor write, and
-  applying full-screen redraws after terminal resizes, including over SSH.
-  Scrollback mutation and complete terminal frames are serialized so chat,
-  logging, and clock callbacks cannot interleave partial screen updates.
-  Writes to inactive log windows no longer trigger re-entrant redraws of the
-  active chat while its frame is still being painted.
+- Many TUI drawing fixes
+- Restored cooked input, blocking stdin, cursor, colors, keypad, mouse, focus,
+  paste, margins, and scroll-region terminal state when the TUI exits.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>
 
