@@ -68,6 +68,16 @@ CREATE TABLE room_vfos (
    FOREIGN KEY (room) REFERENCES rooms(name) ON DELETE CASCADE
 );
 
+-- Stable canonical identity for a configured logical rig. The readable alias
+-- belongs to one node/config namespace and is not itself protocol identity.
+CREATE TABLE rig_identities (
+   identity_namespace TEXT NOT NULL,
+   alias TEXT NOT NULL,
+   uuid TEXT NOT NULL UNIQUE,
+   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (identity_namespace, alias)
+);
+
 -- Users
 CREATE TABLE users (
    uid INTEGER PRIMARY KEY,         -- unique user ID

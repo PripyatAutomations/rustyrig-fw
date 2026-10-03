@@ -1,7 +1,8 @@
 # Rig property migration plan
 
-Status: Phase 1 implemented through the Hamlib/property stop point; awaiting
-review before any room, CAT-client, or later migration work.
+Status: Phase 2 implemented through the runtime rig registry/backend-instance
+stop point; awaiting review before any room, CAT-client, or later migration
+work.
 
 This document records the architecture investigation and the agreed stopping
 point for introducing a backend-neutral rig property layer. It is intended to
@@ -508,3 +509,159 @@ unknown/known/unavailable state, legitimate zero/false values, string copying,
 event change suppression, failed controls, initial `cat.state`, unchanged
 publication suppression, frequency/mode changes, and last-known compatibility
 output. The Hamlib-enabled `radio` profile builds and links against Hamlib.
+
+## Phase 2 runtime multirig foundation
+
+Phase 2 replaces the selected-backend singleton with a registry of runtime
+rigs. It deliberately retains the existing single-radio configuration as an
+implicit `rig0`; configuration parsing, room bindings, and client protocol are
+not expanded in this phase.
+
+### Ownership and destruction
+
+    GlobalState
+      -> rr_rig_registry_t
+           -> entry (canonical UUID, config alias "rig0")
+                -> rr_server_rig_t
+                     -> property dictionary
+                     -> rr_backend_t instance
+                          -> immutable rr_backend_type_t
+                          -> backend-private instance data
+           -> entry (another UUID/alias)
+                -> independent rig/backend/property state
+      -> rr_cat_compat_t for the explicitly selected legacy rig only
+
+The registry owns entries and rigs. Each rig references exactly one allocated
+backend instance. A backend instance owns its copied configuration alias and
+backend-private data. Registry destruction calls the backend type's destructor,
+clears the rig association, frees the rig/property set, and finally frees the
+entry. `GlobalState` frees the borrowing legacy CAT adapter before freeing the
+registry. Direct removal of the designated legacy rig is rejected until the
+designation and borrowing adapter have been cleared.
+
+`rr_backend_type_t` is immutable implementation metadata. `rr_backend_t` is an
+allocated instance and contains the target rig, alias, active VFO, and private
+data pointer. Every callback receives that instance. Two instances of the same
+type therefore share code but no radio-specific runtime state.
+
+Backend implementations register their immutable types with the generic type
+registry. Build composition is isolated in `backend.register.c`; the runtime
+rig registry contains no Hamlib/internal `#ifdef` or backend-specific branch.
+
+### Registry API
+
+`rrserver/rig.registry.h` provides construction/destruction, add/remove,
+canonical UUID lookup, alias lookup, iteration, count, and explicit legacy-rig
+selection. UUID and alias uniqueness are validated independently; neither
+array position nor room slot is identity.
+
+The backend instance API in `rrserver/backend.h` provides type lookup,
+instance construction/destruction, instance alias/data accessors, explicit
+per-rig polling, registry-wide polling, and explicit per-rig VFO capability
+checks. The old `rr_freq_set()`/mode/PTT helpers remain legacy adapters and
+resolve only the registry's designated legacy rig.
+
+### Stable UUID persistence
+
+SQLite now owns a narrowly scoped identity table:
+
+    rig_identities(
+       identity_namespace TEXT,
+       alias TEXT,
+       uuid TEXT UNIQUE,
+       created_at DATETIME,
+       PRIMARY KEY(identity_namespace, alias)
+    )
+
+`db_rig_uuid_get_or_create()` returns the existing UUID for a namespace/alias
+or uses GLib's UUID generator and persists a new one. Startup uses
+`rig.identity-namespace`, falling back to `station.name`, together with the
+implicit alias `rig0`. A build without SQLite can run but receives an ephemeral
+UUID and logs that persistence is unavailable. Changing the namespace is an
+identity change; operators needing identity independent of station renames
+should configure `rig.identity-namespace` explicitly.
+
+### Hamlib and internal backend instances
+
+Hamlib's `RIG *`, native VFO cache, probe results, connection flag, reconnect
+deadline/interval, model, copied device path, baud setting, and active VFO now
+live in `hamlib_backend_t`, allocated once per backend instance. No mutable
+per-radio Hamlib state remains file-global. Hamlib observations use
+`backend->owner`, so one instance can update only its own property set.
+
+The internal backend now similarly allocates its VFO state per instance. Its
+duplicate `cat.state` construction and diff cache were removed; it submits
+frequency/mode/width observations to the generic property service and uses the
+same compatibility adapter as Hamlib. This was the minimum safe conversion
+needed to prevent a second internal instance from broadcasting as the legacy
+radio.
+
+One scheduler iterates every registered rig and its supported VFOs. A failed
+poll contributes to the aggregate failure result but does not stop iteration,
+so disconnected rigs cannot starve later entries. Generic control requests
+already carry a rig pointer and now dispatch through that rig's backend
+instance; there is no selected-backend lookup beneath `rr_rig_control()`.
+
+### Explicit legacy compatibility boundary
+
+The registry stores an explicit legacy/default rig pointer. Only this rig is
+allowed to merge poll snapshots into global `vfos[]` or publish through the
+single `rr_cat_compat_t`. Other rigs can poll and update generic properties but
+cannot overwrite old client state. `rr_cat_state_send()` and every old
+single-rig control wrapper target this designation.
+
+Inactive-VFO first-poll seeding moved into the legacy adapter. This preserves
+the FT-891 fallback without making the fallback cache part of generic multirig
+state. Existing global `vfos[]`, `active_vfo`, server PTT/TOT state, media
+routing, old rigctl optimistic echoes, and room binding strings remain legacy
+default-rig state by design.
+
+### Configuration limitation and next migration
+
+The runtime APIs can host multiple rigs and multiple instances of one backend
+type, but startup currently instantiates only the old global backend settings
+as alias `rig0`. Each Hamlib instance copies those values into private state;
+there is not yet a parser for per-alias backend configuration. A future config
+migration should enumerate named rig sections (for example `rig:rig0` and
+`rig:rig1`) and pass an alias-scoped configuration view into instance creation.
+The registry API must remain independent of that file format.
+
+Rooms are still untouched. Existing `rig0.vfo_a` strings are not resolved by
+the registry and aliases are not canonical room targets. Phase 3 should define
+the generic rig/VFO discovery and object protocol before mapping room slots to
+rig UUIDs.
+
+### VFO object recommendation
+
+Flat names such as `vfo.A.frequency` are sufficient for backend observation,
+typed control, and arbitrary A-Z allocation today. They are not sufficient as
+the final externally discoverable object model because a VFO will need its own
+stable identity, capabilities, labels, availability, and possibly lifecycle
+for dynamically allocated SDR receivers.
+
+Before exposing the generic client protocol, introduce a lightweight
+first-class VFO child owned by `rr_server_rig_t`. Keep the existing property
+names as paths into that child so the Phase 1 property service does not need a
+large rewrite. Do not use the VFO's letter or its array index as globally
+canonical identity.
+
+### Remaining migration debt after Phase 2
+
+- PTT/TOT, `vfos[]`, `active_vfo`, media, and old client control remain scoped
+  to the explicit legacy rig.
+- Width, power, and PTT have not all moved through generic typed controls.
+- The runtime configuration loader creates only implicit `rig0`.
+- The Hamlib baud value is instance-owned but preserves prior behavior: the
+  existing backend does not yet apply it to rigctld/network connections.
+- Hamlib debug level is a Hamlib library-wide setting, not radio state.
+- Property mutation still assumes the server event-loop threading model.
+- The client-facing property discovery/subscription protocol does not exist.
+- Room bindings still store unresolved legacy alias strings.
+- Physical FT-891, reconnect, rrclient, and WSJT-X checks require the attached
+  station and cannot be completed by the automated test environment.
+
+Focused tests prove two UUID-addressed rigs using two instances of the same
+fake backend type, independent private/property state, correctly routed
+controls and observations, non-blocking polling failures, explicit legacy-only
+publication, registry removal isolation, alias lookup, and persistent UUID
+reuse/differentiation.

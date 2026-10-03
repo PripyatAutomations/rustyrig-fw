@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/database.h>
@@ -104,6 +105,23 @@ static void db_ensure_rooms(sqlite3 *db) {
    sqlite3_free(error);
    if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS room_vfos (room TEXT NOT NULL, binding TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(room,binding));", NULL, NULL, &error) != SQLITE_OK)
       Log(LOG_WARN, "db", "Unable to create room_vfos table: %s", error ? error : sqlite3_errmsg(db));
+   sqlite3_free(error);
+}
+
+static void db_ensure_rig_identities(sqlite3 *db) {
+   if (!db) return;
+   const char *sql =
+      "CREATE TABLE IF NOT EXISTS rig_identities ("
+      "identity_namespace TEXT NOT NULL,"
+      "alias TEXT NOT NULL,"
+      "uuid TEXT NOT NULL UNIQUE,"
+      "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+      "PRIMARY KEY(identity_namespace,alias));";
+   char *error = NULL;
+   if (sqlite3_exec(db, sql, NULL, NULL, &error) != SQLITE_OK) {
+      Log(LOG_WARN, "db", "Unable to create rig_identities table: %s",
+         error ? error : sqlite3_errmsg(db));
+   }
    sqlite3_free(error);
 }
 
@@ -212,10 +230,61 @@ sqlite3 *db_open(const char *path) {
       db_ensure_user_columns(db);
       db_ensure_ptt_columns(db);
       db_ensure_rooms(db);
+      db_ensure_rig_identities(db);
       return db;
    }
 
    return NULL;
+}
+
+char *db_rig_uuid_get_or_create(sqlite3 *db,
+   const char *identity_namespace, const char *alias) {
+   if (!db || !identity_namespace || !*identity_namespace || !alias ||
+       !*alias) {
+      return NULL;
+   }
+   sqlite3_stmt *stmt = NULL;
+   const char *select_sql =
+      "SELECT uuid FROM rig_identities WHERE identity_namespace=? AND alias=?;";
+   if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, NULL) != SQLITE_OK) {
+      return NULL;
+   }
+   sqlite3_bind_text(stmt, 1, identity_namespace, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, alias, -1, SQLITE_TRANSIENT);
+   char *uuid = NULL;
+   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+      uuid = strdup((const char *)sqlite3_column_text(stmt, 0));
+   }
+   sqlite3_finalize(stmt);
+   if (uuid) return uuid;
+
+   gchar *generated = g_uuid_string_random();
+   if (!generated) return NULL;
+   const char *insert_sql =
+      "INSERT OR IGNORE INTO rig_identities(identity_namespace,alias,uuid) "
+      "VALUES(?,?,?);";
+   if (sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL) != SQLITE_OK) {
+      g_free(generated);
+      return NULL;
+   }
+   sqlite3_bind_text(stmt, 1, identity_namespace, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, alias, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, generated, -1, SQLITE_TRANSIENT);
+   bool inserted = sqlite3_step(stmt) == SQLITE_DONE;
+   sqlite3_finalize(stmt);
+   g_free(generated);
+   if (!inserted) return NULL;
+
+   if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, NULL) != SQLITE_OK) {
+      return NULL;
+   }
+   sqlite3_bind_text(stmt, 1, identity_namespace, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, alias, -1, SQLITE_TRANSIENT);
+   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+      uuid = strdup((const char *)sqlite3_column_text(stmt, 0));
+   }
+   sqlite3_finalize(stmt);
+   return uuid;
 }
 
 

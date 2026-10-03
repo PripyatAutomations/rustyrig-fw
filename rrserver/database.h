@@ -51,6 +51,9 @@ extern bool db_room_vfo_add(sqlite3 *db, const char *room, const char *binding);
 extern bool db_room_vfo_remove(sqlite3 *db, const char *room, const char *binding);
 extern char *db_room_vfo_list(sqlite3 *db, const char *room);
 extern char *db_room_vfo_map_list(sqlite3 *db);
+/* Caller owns the returned UUID. Identity is stable for namespace + alias. */
+extern char *db_rig_uuid_get_or_create(sqlite3 *db,
+   const char *identity_namespace, const char *alias);
 extern sqlite3 *masterdb;       // database.c
 extern const char *replay_msg_type(const char *msg_type);
 extern bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *text);

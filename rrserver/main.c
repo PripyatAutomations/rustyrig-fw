@@ -131,16 +131,11 @@ static void timer_check_faults_fn(void *arg) {
 // This is called by our timer at 1000ms (1hz) rate by default
 // cfg:backend.poll-interval is where this is set
 static void timer_backend_poll_fn(void *arg) {
-   // Poll every VFO the rig actually exposes, not just the active one, so
-   // state for the inactive VFO(s) stays current and gets broadcast on
-   // change. Backends that can't answer for a VFO (e.g. hamlib rigs with a
-   // single VFO) simply skip them via vfo_supported.
-   for (int i = 0 ; i < MAX_VFOS ; i++) {
-      if (!rr_be_vfo_supported((rr_vfo_t)i) ) {
-         continue;
-      }
-      rr_be_poll((rr_vfo_t)i);
-   }
+   (void)arg;
+   /* One scheduler services every registered rig. A failed rig is recorded
+      by the aggregate result but never prevents later registry entries from
+      being polled. */
+   rr_backend_poll_all();
 
    if (timespec_diff_ms(&mono_now, &last_vfo_announce) >= cfg_backend_announce_interval) {
       last_vfo_announce = mono_now;

@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <sqlite3.h>
+#include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/auth.h>
@@ -99,6 +100,24 @@ int main(void) {
    assert(db_quota_get(NULL, "admin") == -1);
    assert(!db_quota_spend(db, "admin", 0));
    assert(!db_quota_spend(db, NULL, 1));
+
+   char *rig0_uuid = db_rig_uuid_get_or_create(db, "node-a", "rig0");
+   char *rig0_uuid_again = db_rig_uuid_get_or_create(db, "node-a", "rig0");
+   char *rig1_uuid = db_rig_uuid_get_or_create(db, "node-a", "rig1");
+   char *other_node_uuid = db_rig_uuid_get_or_create(db, "node-b", "rig0");
+   assert(rig0_uuid && rig0_uuid_again && rig1_uuid && other_node_uuid);
+   assert(g_uuid_string_is_valid(rig0_uuid));
+   assert(g_uuid_string_is_valid(rig1_uuid));
+   assert(g_uuid_string_is_valid(other_node_uuid));
+   assert(strcmp(rig0_uuid, rig0_uuid_again) == 0);
+   assert(strcmp(rig0_uuid, rig1_uuid) != 0);
+   assert(strcmp(rig0_uuid, other_node_uuid) != 0);
+   assert(!db_rig_uuid_get_or_create(db, "", "rig0"));
+   assert(count_rows(db, "SELECT COUNT(*) FROM rig_identities;") == 3);
+   free(rig0_uuid);
+   free(rig0_uuid_again);
+   free(rig1_uuid);
+   free(other_node_uuid);
 
    assert(db_room_ensure(db, "#alpha", true, 3));
    assert(db_room_set_topic(db, "#alpha", "Test topic"));
@@ -216,6 +235,6 @@ int main(void) {
    cfg = NULL;
    dict_free(default_cfg);
    default_cfg = NULL;
-   puts("PASS: database schema, validation, rooms, users, PTT recordings, bounded chat replay, audit, and quota");
+   puts("PASS: database schema, rig UUID identities, rooms, users, PTT recordings, bounded chat replay, audit, and quota");
    return 0;
 }

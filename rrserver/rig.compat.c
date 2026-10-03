@@ -14,6 +14,7 @@ struct rr_cat_compat {
    rr_cat_compat_ops_t ops;
    dict *last_state[MAX_VFOS];
    time_t last_sent[MAX_VFOS];
+   bool probed[MAX_VFOS];
 };
 
 static bool rr_cat_property_name(char *name, size_t len, rr_vfo_t vfo,
@@ -208,6 +209,22 @@ void rr_cat_compat_free(rr_cat_compat_t *adapter) {
       dict_free(adapter->last_state[i]);
    }
    free(adapter);
+}
+
+void rr_cat_compat_prepare_poll(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
+   if (!adapter || vfo < VFO_A || vfo >= MAX_VFOS ||
+       adapter->probed[vfo]) {
+      return;
+   }
+   adapter->probed[vfo] = true;
+   if (vfo != active_vfo && vfos[vfo].freq == 0 &&
+       active_vfo >= VFO_A && active_vfo < MAX_VFOS &&
+       vfos[active_vfo].freq > 0) {
+      vfos[vfo] = vfos[active_vfo];
+      vfos[vfo].id = vfo;
+      Log(LOG_DEBUG, "backend", "Legacy VFO %s seeded from active VFO %s",
+         vfo_name(vfo), vfo_name(active_vfo));
+   }
 }
 
 bool rr_cat_compat_publish(rr_cat_compat_t *adapter, rr_vfo_t vfo,

@@ -5,7 +5,7 @@
 #include <rrserver/atu.h>
 #include <rrserver/filters.h>
 
-struct rr_server_rig;
+struct rr_rig_registry;
 struct rr_cat_compat;
 
 struct GlobalState {
@@ -35,9 +35,8 @@ struct GlobalState {
    struct AmpState amps[RR_MAX_AMPS];
    struct ATUState atus[RR_MAX_ATUS];
    struct FilterState filters[RR_MAX_FILTERS];
-   struct rr_backend *backend;
-   struct rr_server_rig *radio;          // Explicit owner of generic properties
-   struct rr_cat_compat *cat_compat;     // Temporary legacy output adapter
+   struct rr_rig_registry *rigs;         // Owns all runtime rigs/backends
+   struct rr_cat_compat *legacy_cat;     // Explicit default-rig wire adapter
 
 #if     defined(HOST_POSIX)   // Host build fd's/buffers/etc
    uint32_t logfile_fd;

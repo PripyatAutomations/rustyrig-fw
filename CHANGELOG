@@ -24,6 +24,14 @@ rustyrig-fw (20261003.02) testing; urgency=medium
     FT-891 partial-read behavior and existing wire output.
   * Restored Hamlib compilation in the radio build profile so its migrated path
     is built and linked by the normal release configuration.
+  * Added a UUID-addressed runtime rig registry with independently allocated
+    backend instances, iteration, lookup, removal, and ordered destruction.
+  * Moved all per-radio Hamlib and internal-backend runtime state into backend
+    instances and made polling and typed controls route through the target rig.
+  * Persist configured rig UUIDs by identity namespace and alias in SQLite,
+    while keeping old single-radio configuration as implicit alias rig0.
+  * Restricted legacy vfos[] and cat.state publication to an explicitly
+    selected default rig and added same-backend multirig isolation tests.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 03 Oct 2026 00:00:00 -0400
 

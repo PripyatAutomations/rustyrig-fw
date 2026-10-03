@@ -49,6 +49,7 @@ defconfig_t defcfg[] = {
    { "backend.hamlib-port", "127.0.0.1:4532", "What hamlib device to use (def: rigctld localhost)" },
    { "backend.reconnect-interval", "30", "Seconds to wait before retrying hamlib after disconnect; 0 = exit on disconnect (for supervisor/cron restart)", DEFCONFIG_UINT, NULL },
    { "rig.vfos", "2", "How many VFOs does the rig expose? (A-Z; 2 means only A and B exist)", DEFCONFIG_UINT, NULL },
+   { "rig.identity-namespace", NULL, "Stable node/config namespace for persistent rig UUIDs; defaults to station.name" },
    { "station.name", "rustyrig", "Site name used by authoritative #<station>-rig0 room" },
    { "audio.test-mode", "true", "Advertise tone and pink-noise test codec variants", DEFCONFIG_BOOL, NULL },
    { "site:coordinates", NULL, "Station coordinates as latitude,longitude (optional)" },
