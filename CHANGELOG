@@ -13,6 +13,7 @@ rustyrig-fw (20261003.02) testing; urgency=medium
     from the selected PROFILE configuration otherwise.
   * Install the log-query tools and build-profile configuration with native
     packages, using /etc/rustyrig outside a source checkout.
+  * Namespace the installed log-query commands as rr-get-*-log.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 03 Oct 2026 00:00:00 -0400
 

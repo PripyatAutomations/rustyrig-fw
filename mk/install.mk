@@ -4,7 +4,7 @@
 CONFIG_FILES=config/rrserver.cfg config/rrclient.cfg \
 	config/callsign-lookup.cfg config/callsign-lookup.srv.cfg \
 	config/callsign-lookup.cli.cfg ${CF}
-LOG_TOOLS=tools/get-audit-log.sh tools/get-chat-log.sh tools/get-ptt-log.sh
+LOG_TOOLS=tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 WEB_ROOT ?= /var/lib/rustyrig/www
 
 .PHONY: windows-install posix-install install install-config install-assets install-tools

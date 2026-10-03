@@ -43,9 +43,9 @@ override_dh_auto_install:
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
 	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup/usr/bin/callsign-lookup
 	install -Dm644 config/callsign-lookup.cfg debian/rustyrig-callsign-lookup/etc/rustyrig/callsign-lookup.cfg
-	install -Dm755 tools/get-audit-log.sh debian/rustyrig-server/usr/bin/get-audit-log.sh
-	install -Dm755 tools/get-chat-log.sh debian/rustyrig-server/usr/bin/get-chat-log.sh
-	install -Dm755 tools/get-ptt-log.sh debian/rustyrig-server/usr/bin/get-ptt-log.sh
+	install -Dm755 tools/rr-get-audit-log debian/rustyrig-server/usr/bin/rr-get-audit-log
+	install -Dm755 tools/rr-get-chat-log debian/rustyrig-server/usr/bin/rr-get-chat-log
+	install -Dm755 tools/rr-get-ptt-log debian/rustyrig-server/usr/bin/rr-get-ptt-log
 
 	install -d debian/rustyrig-server/var/lib/rustyrig/db
 	install -d debian/rustyrig-server/var/lib/rustyrig/recordings

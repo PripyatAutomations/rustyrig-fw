@@ -62,9 +62,9 @@ cp -f bin/rrclient rrclient-gtk
 
 %install
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
-install -Dpm0755 tools/get-audit-log.sh %{buildroot}%{_bindir}/get-audit-log.sh
-install -Dpm0755 tools/get-chat-log.sh %{buildroot}%{_bindir}/get-chat-log.sh
-install -Dpm0755 tools/get-ptt-log.sh %{buildroot}%{_bindir}/get-ptt-log.sh
+install -Dpm0755 tools/rr-get-audit-log %{buildroot}%{_bindir}/rr-get-audit-log
+install -Dpm0755 tools/rr-get-chat-log %{buildroot}%{_bindir}/rr-get-chat-log
+install -Dpm0755 tools/rr-get-ptt-log %{buildroot}%{_bindir}/rr-get-ptt-log
 install -Dpm0755 rrclient-gtk %{buildroot}%{_bindir}/rrclient
 install -Dpm0755 bin/rrclient %{buildroot}%{_bindir}/rrclient
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
@@ -104,9 +104,9 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %{_libdir}/libfwdspmgr.so.0
 %files server
 %{_bindir}/rrserver
-%{_bindir}/get-audit-log.sh
-%{_bindir}/get-chat-log.sh
-%{_bindir}/get-ptt-log.sh
+%{_bindir}/rr-get-audit-log
+%{_bindir}/rr-get-chat-log
+%{_bindir}/rr-get-ptt-log
 %{_unitdir}/rustyrig-server.service
 %{_tmpfilesdir}/rustyrig.conf
 %config(noreplace) %{_sysconfdir}/init.d/rrserver

@@ -45,9 +45,9 @@ package_rustyrig-server() {
    pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'hamlib' 'libgpiod')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
-   install -Dm755 tools/get-audit-log.sh "$pkgdir/usr/bin/get-audit-log.sh"
-   install -Dm755 tools/get-chat-log.sh "$pkgdir/usr/bin/get-chat-log.sh"
-   install -Dm755 tools/get-ptt-log.sh "$pkgdir/usr/bin/get-ptt-log.sh"
+   install -Dm755 tools/rr-get-audit-log "$pkgdir/usr/bin/rr-get-audit-log"
+   install -Dm755 tools/rr-get-chat-log "$pkgdir/usr/bin/rr-get-chat-log"
+   install -Dm755 tools/rr-get-ptt-log "$pkgdir/usr/bin/rr-get-ptt-log"
    install -Dm644 packaging/rrserver.service "$pkgdir/usr/lib/systemd/system/rustyrig-server.service"
    install -Dm644 packaging/rustyrig.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/rustyrig.conf"
    install -Dm755 packaging/rrserver.rc "$pkgdir/etc/init.d/rrserver"

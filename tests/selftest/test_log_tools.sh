@@ -6,8 +6,8 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$work/bin" "$work/source/tools" "$work/source/config" "$work/etc/rustyrig"
-cp "$ROOT"/tools/get-*-log.sh "$work/source/tools/"
-cp "$ROOT"/tools/get-*-log.sh "$work/bin/"
+cp "$ROOT"/tools/rr-get-*-log "$work/source/tools/"
+cp "$ROOT"/tools/rr-get-*-log "$work/bin/"
 touch "$work/source/GNUmakefile"
 
 cat > "$work/bin/sqlite3" <<'EOF'
@@ -23,7 +23,7 @@ cat > "$work/etc/rustyrig/field.config.json" <<'EOF'
 {"database":{"master":{"path":"/srv/rustyrig/field.db"}}}
 EOF
 
-for script in "$work"/source/tools/get-*-log.sh; do
+for script in "$work"/source/tools/rr-get-*-log; do
    capture="$work/capture"
    source_db="$work/source/db/master.db"
 
@@ -68,7 +68,7 @@ for script in "$work"/source/tools/get-*-log.sh; do
 done
 
 make -s -C "$ROOT" install-tools PROFILE=radio INSTALL_DIR="$work/install"
-for script in get-audit-log.sh get-chat-log.sh get-ptt-log.sh; do
+for script in rr-get-audit-log rr-get-chat-log rr-get-ptt-log; do
    [[ -x "$work/install/bin/$script" ]]
 done
 

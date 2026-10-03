@@ -75,13 +75,13 @@ after-eeprom: ${EEPROM_FILE}
 after-eeprom: ${BUILD_DIR}/.stamp ${BUILD_DIR}/build_config.h ${extra_build} ${bins}
 
 audit-log:
-	./tools/get-audit-log.sh
+	./tools/rr-get-audit-log
 
 chat-log:
-	./tools/get-chat-log.sh
+	./tools/rr-get-chat-log
 
 ptt-log:
-	./tools/get-ptt-log.sh
+	./tools/rr-get-ptt-log
 
 # Native programs and the child share the codec list and fallback pipelines.
 ${BUILD_DIR}/rrclient/defconfig.o ${BUILD_DIR}/rrserver/defconfig.o ${BUILD_DIR}/fwdsp/defconfig.o ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.o: fwdsp/default-pipelines.h
