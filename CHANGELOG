@@ -11,6 +11,8 @@ rustyrig-fw (20261003.01) testing; urgency=medium
     symlink, keeping all package version metadata on one release history.
   * Resolve log-tool database paths from ./db in source-tree invocations or
     from the selected PROFILE configuration otherwise.
+  * Install the log-query tools and build-profile configuration with native
+    packages, using /etc/rustyrig outside a source checkout.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 03 Oct 2026 00:00:00 -0400
 

@@ -92,7 +92,7 @@
    },
    "database": {
       "master": {
-          "path": "./db/master.db",
+          "path": "/var/lib/rustyrig/db/master.db",
           "template": "./sql/sqlite.master.sql"
       }
    },

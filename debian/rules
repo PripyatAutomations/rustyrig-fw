@@ -43,6 +43,9 @@ override_dh_auto_install:
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
 	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup/usr/bin/callsign-lookup
 	install -Dm644 config/callsign-lookup.cfg debian/rustyrig-callsign-lookup/etc/rustyrig/callsign-lookup.cfg
+	install -Dm755 tools/get-audit-log.sh debian/rustyrig-server/usr/bin/get-audit-log.sh
+	install -Dm755 tools/get-chat-log.sh debian/rustyrig-server/usr/bin/get-chat-log.sh
+	install -Dm755 tools/get-ptt-log.sh debian/rustyrig-server/usr/bin/get-ptt-log.sh
 
 	install -d debian/rustyrig-server/var/lib/rustyrig/db
 	install -d debian/rustyrig-server/var/lib/rustyrig/recordings
@@ -63,6 +66,7 @@ override_dh_auto_install:
 	install -d debian/rustyrig-client/etc/rustyrig
 	install -d debian/rustyrig-client-tui/etc/rustyrig
 	install -Dm644 config/rrserver.cfg debian/rustyrig-server/etc/rustyrig/rrserver.cfg
+	install -Dm644 config/radio.config.json debian/rustyrig-server/etc/rustyrig/radio.config.json
 	install -Dm644 config/callsign-lookup.srv.cfg debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg
 	install -Dm644 config/ua-bans debian/rustyrig-server/etc/rustyrig/ua-bans.txt
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh

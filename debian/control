@@ -67,7 +67,7 @@ Description: Development files for libfwdspmgr
 
 Package: rustyrig-server
 Architecture: any
-Depends: debconf, sqlite3, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: debconf, jq, sqlite3, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig server
  Backend server for remote radio operation.
 

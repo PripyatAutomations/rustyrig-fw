@@ -21,7 +21,7 @@ Runtime libraries used by RustyRig programs.
 
 %package server
 Summary: RustyRig radio server
-Requires: %{name}-libs = %{version}-%{release}, systemd
+Requires: %{name}-libs = %{version}-%{release}, jq, sqlite, systemd
 %description server
 Backend server for remote radio operation.
 
@@ -62,6 +62,9 @@ cp -f bin/rrclient rrclient-gtk
 
 %install
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
+install -Dpm0755 tools/get-audit-log.sh %{buildroot}%{_bindir}/get-audit-log.sh
+install -Dpm0755 tools/get-chat-log.sh %{buildroot}%{_bindir}/get-chat-log.sh
+install -Dpm0755 tools/get-ptt-log.sh %{buildroot}%{_bindir}/get-ptt-log.sh
 install -Dpm0755 rrclient-gtk %{buildroot}%{_bindir}/rrclient
 install -Dpm0755 bin/rrclient %{buildroot}%{_bindir}/rrclient
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
@@ -75,6 +78,7 @@ install -Dpm0644 packaging/rustyrig.tmpfiles %{buildroot}%{_tmpfilesdir}/rustyri
 install -Dpm0644 packaging/rustyrig-client.desktop %{buildroot}%{_datadir}/applications/rustyrig-client.desktop
 install -Dpm0644 res/rustyrig.png %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 for f in rrserver.cfg rrclient.cfg callsign-lookup.cfg callsign-lookup.srv.cfg callsign-lookup.cli.cfg; do install -Dpm0644 config/$f %{buildroot}%{_sysconfdir}/rustyrig/$f; done
+install -Dpm0644 config/radio.config.json %{buildroot}%{_sysconfdir}/rustyrig/radio.config.json
 install -Dpm0644 config/ua-bans %{buildroot}%{_sysconfdir}/rustyrig/ua-bans.txt
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
 install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.preload.sql
@@ -100,10 +104,14 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %{_libdir}/libfwdspmgr.so.0
 %files server
 %{_bindir}/rrserver
+%{_bindir}/get-audit-log.sh
+%{_bindir}/get-chat-log.sh
+%{_bindir}/get-ptt-log.sh
 %{_unitdir}/rustyrig-server.service
 %{_tmpfilesdir}/rustyrig.conf
 %config(noreplace) %{_sysconfdir}/init.d/rrserver
 %config(noreplace) %{_sysconfdir}/rustyrig/rrserver.cfg
+%config(noreplace) %{_sysconfdir}/rustyrig/radio.config.json
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.srv.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/ua-bans.txt
 %{_sharedstatedir}/rustyrig

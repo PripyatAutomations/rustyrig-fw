@@ -3,19 +3,20 @@
 ###################
 CONFIG_FILES=config/rrserver.cfg config/rrclient.cfg \
 	config/callsign-lookup.cfg config/callsign-lookup.srv.cfg \
-	config/callsign-lookup.cli.cfg
+	config/callsign-lookup.cli.cfg ${CF}
+LOG_TOOLS=tools/get-audit-log.sh tools/get-chat-log.sh tools/get-ptt-log.sh
 WEB_ROOT ?= /var/lib/rustyrig/www
 
-.PHONY: windows-install posix-install install install-config install-assets
+.PHONY: windows-install posix-install install install-config install-assets install-tools
 
 windows-install:
 	@echo "Windows builds do not need to install. A NSIS installer can be built using win64-installer target"
 
-posix-install: install-config install-assets
+posix-install: install-config install-assets install-tools
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	install -Dm755 ${bin} ${INSTALL_DIR}/bin/$(shell basename "${bin}")
 
-install: install-config install-assets
+install: install-config install-assets install-tools
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/lib ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av ${bins} ${INSTALL_DIR}/bin
 	# Shared libs (librustyaxe.so, librrprotocol.so, libfwdspmgr.so) all build
@@ -33,6 +34,11 @@ install-assets:
 	install -Dm644 res/rrclient.desktop "${INSTALL_DIR}/share/applications/rustyrig-client.desktop"
 	install -d "${WEB_ROOT}"
 	cp -a www/. "${WEB_ROOT}/"
+
+install-tools:
+	@for src in ${LOG_TOOLS}; do \
+		install -Dm755 "$$src" "${INSTALL_DIR}/bin/$$(basename "$$src")"; \
+	done
 
 # Install tracked runtime configurations without silently overwriting a
 # user's existing file. Package managers provide equivalent conffile handling;
