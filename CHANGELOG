@@ -1,3 +1,7 @@
+rustyrig-fw (20261004.03) testing; urgency=medium
+  * Packaging: create /var/log/rustyrig owned by rustyrig:rustyrig in debian
+    rules, the Arch PKGBUILD and the RPM spec.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
 rustyrig-fw (20261004.02) testing; urgency=medium
   * Apply each rig's hamlib.baud to its Hamlib connection (serial devices;
     rigctld/network endpoints ignore it), so model/ip/port and model/serial

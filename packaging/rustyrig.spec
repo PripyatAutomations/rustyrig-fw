@@ -83,7 +83,10 @@ install -Dpm0644 config/ua-bans %{buildroot}%{_sysconfdir}/rustyrig/ua-bans.txt
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
 install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.preload.sql
 install -Dpm0755 tools/dummy-rigctld.sh %{buildroot}%{_sharedstatedir}/rustyrig/tools/dummy-rigctld.sh
-mkdir -p %{buildroot}%{_sharedstatedir}/rustyrig/{db,recordings,modems,www,help} %{buildroot}%{_localstatedir}/log/rustyrig
+mkdir -p %{buildroot}%{_sharedstatedir}/rustyrig/{db,recordings,modems,www,help}
+mkdir -p %{buildroot}%{_localstatedir}/log/rustyrig
+chown rustyrig:rustyrig %{buildroot}%{_localstatedir}/log/rustyrig
+chmod 0770 %{buildroot}%{_localstatedir}/log/rustyrig
 find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/www/ \;
 find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/help/ \;
 
@@ -114,6 +117,7 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %config(noreplace) %{_sysconfdir}/rustyrig/radio.config.json
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.srv.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/ua-bans.txt
+%dir %attr(0770,rustyrig,rustyrig) %{_localstatedir}/log/rustyrig
 %{_sharedstatedir}/rustyrig
 %files client
 %{_bindir}/rrclient
