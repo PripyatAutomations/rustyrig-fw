@@ -28,15 +28,23 @@ void rr_backend_register_builtin_types(void) {
 
 #ifdef USE_SQLITE
 sqlite3 *masterdb;
+static bool identity_failure;
+static bool rig_identity_failure;
+static bool vfo_identity_failure;
 char *db_rig_uuid_get_or_create(sqlite3 *db,
    const char *identity_namespace, const char *alias) {
-   (void)db; (void)identity_namespace; (void)alias;
-   return NULL;
+   (void)identity_namespace;
+   if (!db || identity_failure || (rig_identity_failure && strcmp(alias, "@node"))) return NULL;
+   return strdup(!strcmp(alias, "@node") ? "00000000-0000-4000-8000-000000000001" :
+      !strcmp(alias, "first") ? "00000000-0000-4000-8000-000000000002" :
+      "00000000-0000-4000-8000-000000000003");
 }
 char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid,
    const char *alias) {
-   (void)db; (void)rig_uuid; (void)alias;
-   return NULL;
+   (void)alias;
+   if (!db || identity_failure || vfo_identity_failure) return NULL;
+   return strdup(!strcmp(rig_uuid, "00000000-0000-4000-8000-000000000002") ?
+      "00000000-0000-4000-8000-000000000004" : "00000000-0000-4000-8000-000000000005");
 }
 #endif
 
@@ -332,6 +340,7 @@ int main(void) {
    /* Full configuration startup: two instances of one backend receive only
     * their scoped values and an explicit default selection. */
    dict_add(cfg, "station.name", "test-node");
+   masterdb = (sqlite3 *)1; // Identity helper mock handle, never dereferenced.
    dict_add(cfg, "rig.identity-namespace", "test-node");
    dict_add(cfg, "rig.instances", "first second");
    dict_add(cfg, "rig.default", "second");
@@ -393,6 +402,23 @@ int main(void) {
    assert(rr_backend_init());
    assert(!rig.rigs && !rig.default_cat && live_backends == 0);
 
+   identity_failure = true;
+   assert(rr_backend_init());
+   assert(!rig.rigs && !rig.default_cat && live_backends == 0);
+   identity_failure = false;
+   rig_identity_failure = true;
+   assert(rr_backend_init());
+   assert(!rig.rigs && !rig.default_cat && live_backends == 0);
+   rig_identity_failure = false;
+   vfo_identity_failure = true;
+   dict_add(cfg, "rig.instances", "first");
+   dict_add(cfg, "rig.default", "first");
+   assert(rr_backend_init());
+   assert(!rig.rigs && !rig.default_cat && live_backends == 0);
+   vfo_identity_failure = false;
+   masterdb = NULL;
+   assert(rr_backend_init());
+   assert(!rig.rigs && live_backends == 0);
    event_shutdown();
    dict_free(cfg); cfg = NULL;
    dict_free(default_cfg); default_cfg = NULL;

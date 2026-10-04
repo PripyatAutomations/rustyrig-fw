@@ -16,6 +16,8 @@ typedef struct rr_rig_registry rr_rig_registry_t;
 typedef bool (*rr_rig_registry_iter_fn)(rr_server_rig_t *radio, void *user);
 
 extern rr_rig_registry_t *rr_rig_registry_new(void);
+extern bool rr_rig_registry_set_node(rr_rig_registry_t *, const char *uuid);
+extern const char *rr_rig_registry_node(const rr_rig_registry_t *);
 extern void rr_rig_registry_free(rr_rig_registry_t *registry);
 extern rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry,
    const char *uuid, const char *alias, const char *name,

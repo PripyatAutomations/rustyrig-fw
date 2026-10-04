@@ -5,6 +5,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <stdlib.h>
 #include <string.h>
+#include <librustyaxe/core.h>
 
 #include <rrserver/rig.registry.h>
 
@@ -15,6 +16,7 @@ typedef struct rr_rig_registry_entry {
 } rr_rig_registry_entry_t;
 
 struct rr_rig_registry {
+   char *node_uuid;
    rr_rig_registry_entry_t *head;
    rr_server_rig_t *default_rig;
    size_t count;
@@ -22,6 +24,16 @@ struct rr_rig_registry {
 
 rr_rig_registry_t *rr_rig_registry_new(void) {
    return calloc(1, sizeof(rr_rig_registry_t));
+}
+
+bool rr_rig_registry_set_node(rr_rig_registry_t *registry, const char *uuid) {
+   if (!registry || !uuid || registry->node_uuid) return true;
+   registry->node_uuid = strdup(uuid);
+   return !registry->node_uuid;
+}
+
+const char *rr_rig_registry_node(const rr_rig_registry_t *registry) {
+   return registry ? registry->node_uuid : NULL;
 }
 
 static void rr_rig_registry_entry_free(rr_rig_registry_entry_t *entry) {
@@ -45,6 +57,7 @@ void rr_rig_registry_free(rr_rig_registry_t *registry) {
       rr_rig_registry_entry_free(entry);
       entry = next;
    }
+   free(registry->node_uuid);
    free(registry);
 }
 
@@ -125,6 +138,7 @@ rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry,
    entry->next = registry->head;
    registry->head = entry;
    registry->count++;
+   event_emit("object.model.added", NULL, uuid);
    return radio;
 }
 
@@ -146,6 +160,7 @@ bool rr_rig_registry_remove(rr_rig_registry_t *registry, const char *uuid) {
       }
       *link = entry->next;
       registry->count--;
+      event_emit("object.model.removed", NULL, uuid);
       rr_rig_registry_entry_free(entry);
       return false;
    }

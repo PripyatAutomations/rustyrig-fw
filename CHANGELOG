@@ -1,3 +1,18 @@
+rustyrig-fw (20261004.01) testing; urgency=medium
+  * Expose UUID-addressed node/rig/VFO discovery, typed property schema/state,
+    bounded-batch snapshots, lifecycle/observation events and generic controls
+    alongside the default-rig legacy protocol, without optimistic SET state.
+  * Add synchronized native and browser object caches and /objects/native or
+    rrObjectsDump()/browser diagnostics; keep existing UI/CAT paths unchanged.
+  * Persist node identity and fail configured-object startup on identity
+    database errors rather than silently generating replacement UUIDs.
+  * Add wire/cache regression tests and real loopback WebSocket validation
+    with simultaneous internal and dummy-Hamlib rigs, control routing,
+    disconnect/reconnect, persistence and default compatibility isolation.
+  * Document the Phase 4 protocol, consistency rules and Phase 5 stop point.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 04 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261003.02) testing; urgency=medium
   * Validate live multi-rig operation with real internal/Hamlib backends,
     NET rigctl, persistent UUID restart, and default-only CAT isolation.

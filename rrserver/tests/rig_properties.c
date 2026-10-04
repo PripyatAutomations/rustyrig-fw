@@ -1,5 +1,6 @@
 // Regression tests for explicit per-rig property ownership and state.
 #include <assert.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -145,7 +146,41 @@ static rr_property_snapshot_t read_property(rr_server_rig_t *rig,
    return snapshot;
 }
 
+static rr_control_result_t accept_constraint(const rr_control_request_t *r, void *user) {
+   (void)r; (void)user;
+   return RR_CONTROL_OK;
+}
+
+static void test_constraints(void) {
+   rr_server_rig_t *r = rr_server_rig_new("constraints", "Constraints");
+   assert(r);
+   rr_server_rig_set_control_handler(r, accept_constraint, NULL);
+   rr_property_descriptor_t s = { .name = "grid", .type = VAL_LONG,
+      .readable = true, .writable = true, .has_min = true, .has_max = true,
+      .has_step = true, .minimum.l = LONG_MIN, .maximum.l = LONG_MAX, .step.l = 2 };
+   assert(!rr_rig_property_define(r, &s));
+   rr_control_request_t request = { .rig = r, .property = "grid",
+      .value_type = VAL_LONG, .value.l = LONG_MAX };
+   assert(rr_rig_control(&request) == RR_CONTROL_INVALID);
+   request.value.l--;
+   assert(rr_rig_control(&request) == RR_CONTROL_OK);
+   s.step.l = 3;
+   assert(rr_rig_property_define(r, &s)); // Schema cannot silently change.
+   char choices[] = "USB FM";
+   s = (rr_property_descriptor_t){ .name = "choice", .type = VAL_STR,
+      .readable = true, .writable = true, .enum_values = choices };
+   assert(!rr_rig_property_define(r, &s));
+   choices[0] = 'X'; // Descriptor owns its own copy.
+   request.property = "choice"; request.value_type = VAL_STR;
+   request.value.s = "USB";
+   assert(rr_rig_control(&request) == RR_CONTROL_OK);
+   request.value.s = "US";
+   assert(rr_rig_control(&request) == RR_CONTROL_INVALID);
+   rr_server_rig_free(r);
+}
+
 int main(void) {
+   test_constraints();
    event_init();
    event_on(RR_PROPERTY_CHANGED_EVENT, on_property_changed, NULL);
 

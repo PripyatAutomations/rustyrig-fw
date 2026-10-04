@@ -1,5 +1,5 @@
 //
-// rrserver/channels.c
+// rrserver/channels.c: Support for storing channel memories in eeprom or database
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

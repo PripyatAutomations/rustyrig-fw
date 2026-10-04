@@ -439,6 +439,8 @@ int main(int argc, char **argv) {
 
    // Main loop
    while (1) {
+      extern void rrserver_objects_poll(void);
+      rrserver_objects_poll();
 #ifdef	USE_MONGOOSE
       // Reap any exited fwdsp children (flag set by the SIGCHLD handler)
       fwdsp_reap_children();
@@ -452,6 +454,8 @@ int main(int argc, char **argv) {
          break;
       }
    }
+   extern void rrserver_objects_fini(void);
+   rrserver_objects_fini();
    rr_backend_fini();
    host_cleanup();
 

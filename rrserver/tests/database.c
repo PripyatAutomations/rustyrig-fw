@@ -156,6 +156,12 @@ int main(void) {
    char *after_restart = db_vfo_uuid_get_or_create(restart_db,
       restart_rig, "A");
    assert(after_restart && strcmp(before_restart, after_restart) == 0);
+   assert(sqlite3_exec(restart_db, "PRAGMA query_only=ON", NULL, NULL, NULL) == SQLITE_OK);
+   assert(!db_rig_uuid_get_or_create(restart_db, "restart-node", "new-rig"));
+   assert(!db_vfo_uuid_get_or_create(restart_db, restart_rig, "new-vfo"));
+   char *read_only_uuid = db_vfo_uuid_get_or_create(restart_db, restart_rig, "A");
+   assert(read_only_uuid && !strcmp(read_only_uuid, before_restart));
+   free(read_only_uuid);
    sqlite3_close(restart_db);
    unlink(restart_path);
    free(restart_rig);

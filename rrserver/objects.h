@@ -1,18 +1,13 @@
+// rrserver/objects.c: Server authority for UUID discovery, subscriptions, and property controls.
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-// rrclient/rrclient.h
-#ifndef __rrclient_rrclient_h
-#define	__rrclient_rrclient_h
-
-#include <stdbool.h>
-
-bool rrclient_connect(const char *url);
-bool rrclient_disconnect(void);
-void rrclient_poll_events(void);
-bool rrclient_autoconnect(void);
-
-#endif // __rrclient_rrclient_h
+#ifndef RR_SERVER_OBJECTS_H
+#define RR_SERVER_OBJECTS_H
+void rrserver_objects_register_events(void);
+void rrserver_objects_fini(void);
+void rrserver_objects_poll(void);
+#endif

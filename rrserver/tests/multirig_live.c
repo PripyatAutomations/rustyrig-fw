@@ -35,10 +35,12 @@ void ws_broadcast_dict(rrconn_t *sender, dict *message, int type) {
    broadcasts++;
 }
 
+#ifndef RR_TEST_OBJECT_PROTOCOL
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int type) {
    (void)sender; (void)dest; (void)message; (void)type;
    return false;
 }
+#endif
 
 static bool ignore_section(const char *path, int line,
    const char *section, const char *buf) {
@@ -57,6 +59,10 @@ static rr_property_snapshot_t snapshot(rr_server_vfo_t *vfo,
    assert(rr_vfo_property_read(vfo, property, &value));
    return value;
 }
+
+#ifdef RR_TEST_OBJECT_PROTOCOL
+#include "object_protocol.h"
+#endif
 
 static bool dump_vfo(rr_server_vfo_t *vfo, void *user) {
    const char *alias = user;
@@ -120,7 +126,11 @@ int main(int argc, char **argv) {
    rr_server_vfo_t *a0 = rr_server_vfo_find_alias(r0, "A");
    rr_server_vfo_t *a1 = rr_server_vfo_find_alias(r1, "A");
    assert(a0 && a1 && strcmp(rr_server_vfo_id(a0), rr_server_vfo_id(a1)));
+   printf("NODE %s\n", rr_rig_registry_node(rig.rigs));
    assert(!rr_rig_registry_foreach(rig.rigs, dump_rig, NULL));
+#ifdef RR_TEST_OBJECT_PROTOCOL
+   object_net_init();
+#endif
    puts("READY");
 
    char command[32];
@@ -167,8 +177,22 @@ int main(int argc, char **argv) {
       assert(broadcasts == before);
       assert(!memcmp(&legacy, &vfos[VFO_A], sizeof(legacy)));
       assert(!rr_rig_registry_foreach(rig.rigs, dump_rig, NULL));
+#ifdef RR_TEST_OBJECT_PROTOCOL
+      static bool validated;
+      if (!validated && !offline) {
+         object_validate(r0, r1, true);
+         validated = true;
+      } else if (offline) {
+         object_validate(r0, r1, false);
+      } else {
+         object_pump();
+      }
+#endif
       printf("PASS: %s", command);
    }
+#ifdef RR_TEST_OBJECT_PROTOCOL
+   object_net_fini();
+#endif
    rr_backend_fini();
    assert(!rig.rigs && !rig.default_cat);
    event_shutdown();

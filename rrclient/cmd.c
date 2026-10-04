@@ -29,6 +29,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
 #include <rrclient/media.h>
+#include <rrclient/objects.h>
 #include <rrclient/ui.h>
 #include <rrclient/ui.h>
 #ifdef USE_GTK
@@ -50,6 +51,7 @@ bool cmd_reload(int argc, char **args) {
 
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
+   { .cmd = "objects", .cb = cmd_objects, .desc = "Dump UUID object/property cache" },
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
    { .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "List or manage rooms and room VFO mappings" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },

@@ -1,5 +1,6 @@
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
+rrserver_objs += objects.o
 bins += ${rrserver}
 
 rrserver_headers += $(wildcard rrserver/*.h)

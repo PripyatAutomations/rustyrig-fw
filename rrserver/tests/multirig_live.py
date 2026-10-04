@@ -62,7 +62,9 @@ def read_until(marker):
         fields = line.split()
         if line.startswith("CONFIG") and not external:
             assert f"model=2 device=127.0.0.1:{port} baud=19200" in line
-        if fields and fields[0] == "RIG":
+        if fields and fields[0] == "NODE":
+            identities[("@node",)] = fields[1]
+        elif fields and fields[0] == "RIG":
             identities[(fields[1],)] = fields[2]
         elif fields and fields[0] == "VFO":
             identities[(fields[1], fields[2])] = fields[3]
@@ -114,7 +116,7 @@ reconnect-interval=1
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
         )
         identities = read_until("READY")
-        assert len(identities) == 6 and len(set(identities.values())) == 6
+        assert len(identities) == 7 and len(set(identities.values())) == 7
         if previous is not None:
             assert identities == previous, "UUIDs changed across process/DB restart"
         previous = identities

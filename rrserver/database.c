@@ -272,11 +272,13 @@ char *db_rig_uuid_get_or_create(sqlite3 *db,
    sqlite3_bind_text(stmt, 1, identity_namespace, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt, 2, alias, -1, SQLITE_TRANSIENT);
    char *uuid = NULL;
-   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+   int status = sqlite3_step(stmt);
+   if (status == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
       uuid = strdup((const char *)sqlite3_column_text(stmt, 0));
    }
    sqlite3_finalize(stmt);
-   if (uuid) return uuid;
+   // Only a successful lookup with no row permits creating an identity.
+   if (status != SQLITE_DONE) return uuid;
 
    gchar *generated = g_uuid_string_random();
    if (!generated) return NULL;
@@ -321,11 +323,12 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid,
    sqlite3_bind_text(stmt, 1, rig_uuid, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt, 2, config_id, -1, SQLITE_TRANSIENT);
    char *uuid = NULL;
-   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+   int status = sqlite3_step(stmt);
+   if (status == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
       uuid = strdup((const char *)sqlite3_column_text(stmt, 0));
    }
    sqlite3_finalize(stmt);
-   if (uuid) return uuid;
+   if (status != SQLITE_DONE) return uuid;
 
    gchar *generated = g_uuid_string_random();
    if (!generated) return NULL;

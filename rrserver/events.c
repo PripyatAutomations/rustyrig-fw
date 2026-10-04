@@ -1329,6 +1329,8 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 }
 
 void rrserver_register_events(void) {
+   extern void rrserver_objects_register_events(void);
+   rrserver_objects_register_events();
    extern void rrserver_media_register_events(void);   // media.c
    rrserver_media_register_events();
    Log(LOG_CRAZY, "events", "Registering rrserver events");

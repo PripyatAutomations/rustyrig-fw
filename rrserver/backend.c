@@ -15,6 +15,7 @@
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/objects.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.compat.h>
@@ -112,20 +113,15 @@ static char *rr_runtime_uuid(const char *identity_namespace,
    if (masterdb) {
       char *stored = db_rig_uuid_get_or_create(masterdb,
          identity_namespace, alias);
-      if (stored) {
+      if (rr_object_uuid_valid(stored)) {
          return stored;
       }
-      Log(LOG_WARN, "backend", "Could not persist UUID for %s/%s; using an ephemeral UUID",
-         identity_namespace, alias);
+      free(stored);
    }
 #endif
-   gchar *generated = g_uuid_string_random();
-   if (!generated) {
-      return NULL;
-   }
-   char *uuid = strdup(generated);
-   g_free(generated);
-   return uuid;
+   Log(LOG_CRIT, "backend", "Cannot persist identity for %s/%s",
+      identity_namespace, alias);
+   return NULL;
 }
 
 static char *rr_runtime_vfo_uuid(const char *rig_uuid,
@@ -134,18 +130,15 @@ static char *rr_runtime_vfo_uuid(const char *rig_uuid,
    if (masterdb) {
       char *stored = db_vfo_uuid_get_or_create(masterdb, rig_uuid,
          config_id);
-      if (stored) {
+      if (rr_object_uuid_valid(stored)) {
          return stored;
       }
-      Log(LOG_WARN, "backend", "Could not persist VFO UUID for %s/%s; using an ephemeral UUID",
-         rig_uuid, config_id);
+      free(stored);
    }
 #endif
-   gchar *generated = g_uuid_string_random();
-   if (!generated) return NULL;
-   char *uuid = strdup(generated);
-   g_free(generated);
-   return uuid;
+   Log(LOG_CRIT, "backend", "Cannot persist VFO identity for %s/%s",
+      rig_uuid, config_id);
+   return NULL;
 }
 
 static bool rr_token_seen(char **tokens, size_t before, const char *token) {
@@ -218,6 +211,14 @@ bool rr_backend_init(void) {
    if (!identity_namespace || !*identity_namespace) {
       identity_namespace = "default";
    }
+   // @node cannot be a configured rig alias; it reserves a namespace identity.
+   char *node_uuid = rr_runtime_uuid(identity_namespace, "@node");
+   if (!node_uuid || rr_rig_registry_set_node(rig.rigs, node_uuid)) {
+      free(node_uuid);
+      rr_backend_fini();
+      return true;
+   }
+   free(node_uuid);
    char **aliases = g_strsplit_set(configured_rigs, " ,\t\r\n", -1);
    if (!aliases) {
       rr_backend_fini();

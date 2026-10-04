@@ -2,6 +2,7 @@ rrclient_headers += $(wildcard rrclient/*.h)
 rrclient_src = $(rrclient_objs:.o=.c)
 
 rrclient := bin/rrclient
+rrclient_objs += objects.o objects.events.o
 bins += ${rrclient}
 
 rrclient_objs += audio.o

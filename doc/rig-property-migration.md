@@ -1,8 +1,10 @@
 # Rig property migration plan
 
-Status: Phase 3 implemented through first-class VFO ownership and named
-multi-rig configuration; awaiting review before discovery protocol, room,
-CAT-client, media, or later migration work.
+Status: Phase 4 implements UUID object/property discovery, snapshots, events,
+generic controls, and common native/browser caches beside legacy UI/CAT.
+See [the implemented protocol and validation](object-property-protocol.md).
+STOP before Phase 5 room mappings, CAT migration, or media changes; review
+this phase first. Earlier phase notes below are historical progress records.
 
 This document records the architecture investigation and the agreed stopping
 point for introducing a backend-neutral rig property layer. It is intended to
@@ -938,3 +940,72 @@ with the project feature defines and `MG_ARCH=1`; `git diff --check` and
 shell syntax validation passed. Suite and sanitizer output from this run is
 saved in `/tmp/rustyrig-phase3-live-tests.log` and
 `/tmp/rustyrig-phase3-live-sanitizers.log` respectively.
+
+## Phase 4 completion (2026-10-04)
+
+Goal: expose the accepted canonical node/rig/VFO model through UUID discovery,
+typed property schema/state, lifecycle and observation events, and generic
+controls; populate a common client cache without migrating legacy UI/CAT.
+Implemented and stopped at that boundary. No Phase 5 room mapping work was
+started. Safety checkpoint before edits: `23de7702` in rustyrig-fw; root,
+librrprotocol and www remain on `multirig`.
+
+The [protocol specification](object-property-protocol.md) records every
+message, concrete nested-JSON examples, ownership, cache APIs, snapshot
+consistency, result codes, persistent-identity failure policy, limits and
+remaining migration debt. The new protocol and browser implementation live
+in their existing librrprotocol/www submodules, not copied into the parent.
+
+Completion evidence:
+
+- Both real backend implementations and all four VFOs are discovered by the
+  native generic cache over a real loopback WebSocket. Distinct UUIDs and
+  owner links survive duplicate A/B aliases and database/process restarts;
+  the node identity is persisted and checked as well.
+- rig1 observes 145/146 MHz FM; UUID SET of rig1/A to 7.1 MHz reaches Hamlib.
+  Neither client nor canonical server state changes just on acceptance.
+  Polling then updates rig1 while rig0 and legacy CAT state remain isolated.
+- Unknown, known/available and known/unavailable values survive serialization.
+  Tests cover lifecycle removal/re-addition, late updates, stale snapshot
+  versions, malformed targets, authorization rejection, read-only/type/range
+  errors, backend failure and unavailable controls.
+- Node/rig/VFO identity lookup failures abort startup and clean partial
+  construction. SQLite write failures return no replacement UUID; existing
+  identities remain readable in a read-only database. Lookup errors no longer
+  fall through to identity creation.
+- `/objects` prints the native cache; browser console `rrObjectsDump()`
+  inspects the mirrored browser cache. Existing client widgets still show
+  the default/legacy rig by design.
+
+Validation:
+
+- Baseline full suite passed before edits (`/tmp/rustyrig-phase4-baseline.log`).
+- Full suite passed (`/tmp/rustyrig-phase4-tests-complete.log`); affected
+  librrprotocol/rrserver/rrclient suites passed again after the final identity
+  assertions (`/tmp/rustyrig-phase4-affected-final.log`). One earlier full run
+  hit the existing fwdsp Ogg shutdown timeout; its standalone retry and the
+  subsequent full run passed. No fwdsp behavior was changed.
+- Normal Hamlib/GTK build passed (`/tmp/rustyrig-phase4-build-final.log`).
+  `make -j4 USE_GTK=false -W rrclient/objects.h bin/rrclient` passed, then the
+  GTK binary was rebuilt. Logs: `/tmp/rustyrig-phase4-tui-build.log` and
+  `/tmp/rustyrig-phase4-gtk-restore.log`. Existing empty au.pcm5102 translation
+  unit warning remains.
+- ASan/UBSan targeted unit tests and live two-rig WebSocket tests passed;
+  logs `/tmp/rustyrig-phase4-unit-sanitizers-final.log` and
+  `/tmp/rustyrig-phase4-live-sanitizers-final.log`. These instrument the test
+  executables/component sources, not all prebuilt shared/third-party libraries;
+  leak detection was disabled for these runs.
+- Valgrind native cache test: zero errors, zero definitely/indirectly/possibly
+  lost bytes; 16,768 bytes reachable in shared-library process-global state.
+  Log: `/tmp/rustyrig-phase4-valgrind.log`.
+- cppcheck warning/performance/portability checks passed on affected model,
+  database, cache and protocol sources (`/tmp/rustyrig-phase4-cppcheck-final.log`).
+
+The loopback harness pre-authenticates its test session and feeds production
+protocol/backend/cache code. It does not prove physical FT-891 behavior or
+exercise the installed server or a GUI session. The separate wire unit test
+checks unauthenticated request rejection. No installed configuration or data
+was modified. Future room mappings should persist rig UUID targets and leave
+missing targets unavailable; do not fall back by alias/default. RX/TX
+selector values still need an explicit UUID-reference decision before that
+migration. Review this phase before proceeding.

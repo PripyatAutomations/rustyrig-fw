@@ -1158,6 +1158,8 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
 }
 
 void rrclient_register_events(void) {
+   extern void rrclient_objects_register_events(void);
+   rrclient_objects_register_events();
    extern void rrclient_media_register_events(void);   // media.c
    rrclient_media_register_events();
 

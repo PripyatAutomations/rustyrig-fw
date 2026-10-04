@@ -1,4 +1,10 @@
 // rrserver/rig.properties.h: backend-neutral per-rig property state
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 #if !defined(__rrserver_rig_properties_h)
 #define __rrserver_rig_properties_h
 
@@ -33,7 +39,15 @@ typedef struct rr_property_descriptor {
    bool readable;
    bool writable;
    const char *unit;
+   // Optional schema constraints, in the property's native value type.
+   bool has_min, has_max, has_step;
+   dict_value_t minimum, maximum, step;
+   const char *enum_values; // Space-separated string choices; copied on define.
 } rr_property_descriptor_t;
+
+typedef bool (*rr_property_iter_fn)(const rr_property_descriptor_t *, void *);
+bool rr_rig_property_foreach(const rr_server_rig_t *, rr_property_iter_fn, void *);
+bool rr_vfo_property_foreach(const rr_server_vfo_t *, rr_property_iter_fn, void *);
 
 /*
  * Values returned in a snapshot are borrowed from the rig and remain valid

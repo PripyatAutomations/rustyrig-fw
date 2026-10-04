@@ -1,5 +1,13 @@
 // rrserver/rig.properties.c: backend-neutral per-rig property state
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+
 #include <ctype.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -13,6 +21,7 @@
 extern time_t now;
 
 typedef struct rr_rig_property {
+   rr_property_descriptor_t schema;
    char *name;
    char *unit;
    val_type_t type;
@@ -96,6 +105,7 @@ static void rr_property_free(rr_rig_property_t *property) {
    rr_property_value_free(property);
    free(property->name);
    free(property->unit);
+   free((char *)property->schema.enum_values);
    free(property);
 }
 
@@ -371,6 +381,7 @@ rr_server_vfo_t *rr_server_vfo_add(rr_server_rig_t *rig,
    vfo->next = rig->vfos;
    rig->vfos = vfo;
    rig->vfo_count++;
+   event_emit("object.model.added", NULL, vfo->id);
    return vfo;
 }
 
@@ -387,6 +398,7 @@ bool rr_server_vfo_remove(rr_server_rig_t *rig, const char *uuid) {
       }
       *link = vfo->next;
       rig->vfo_count--;
+      event_emit("object.model.removed", NULL, vfo->id);
       rr_server_vfo_free(vfo);
       return false;
    }
@@ -461,16 +473,35 @@ static bool rr_property_define_store(dict *properties,
        !*descriptor->name || !rr_property_type_supported(descriptor->type)) {
       return true;
    }
+   // Numeric step grids are integer-only. String choices are whitespace-free
+   // tokens; neither constraint may be silently advertised on another type.
+   if ((descriptor->enum_values && descriptor->type != VAL_STR) ||
+       ((descriptor->has_min || descriptor->has_max || descriptor->has_step) &&
+        (descriptor->type == VAL_STR || descriptor->type == VAL_BOOL)) ||
+       (descriptor->has_step &&
+        (descriptor->type == VAL_FLOAT || descriptor->type == VAL_DOUBLE))) return true;
 
    rr_rig_property_t *existing = rr_property_find_store(properties,
       descriptor->name);
    if (existing) {
+      const rr_property_descriptor_t *old = &existing->schema;
+      bool same_enum = (!old->enum_values && !descriptor->enum_values) ||
+         (old->enum_values && descriptor->enum_values && !strcmp(old->enum_values, descriptor->enum_values));
+      rr_rig_property_t bound = { .known = true, .type = descriptor->type };
+      bool same_bounds = old->has_min == descriptor->has_min &&
+         old->has_max == descriptor->has_max && old->has_step == descriptor->has_step;
+      bound.value = old->minimum;
+      if (descriptor->has_min && !rr_property_values_equal(&bound, &descriptor->minimum)) same_bounds = false;
+      bound.value = old->maximum;
+      if (descriptor->has_max && !rr_property_values_equal(&bound, &descriptor->maximum)) same_bounds = false;
+      bound.value = old->step;
+      if (descriptor->has_step && !rr_property_values_equal(&bound, &descriptor->step)) same_bounds = false;
       bool same_unit = (!existing->unit && !descriptor->unit) ||
          (existing->unit && descriptor->unit &&
           strcmp(existing->unit, descriptor->unit) == 0);
       return existing->type != descriptor->type ||
          existing->readable != descriptor->readable ||
-         existing->writable != descriptor->writable || !same_unit;
+         existing->writable != descriptor->writable || !same_unit || !same_enum || !same_bounds;
    }
 
    rr_rig_property_t *property = calloc(1, sizeof(*property));
@@ -478,11 +509,15 @@ static bool rr_property_define_store(dict *properties,
       return true;
    }
    property->name = strdup(descriptor->name);
+   property->schema = *descriptor;
+   property->schema.enum_values = descriptor->enum_values ?
+      strdup(descriptor->enum_values) : NULL;
    property->unit = descriptor->unit ? strdup(descriptor->unit) : NULL;
    property->type = descriptor->type;
    property->readable = descriptor->readable;
    property->writable = descriptor->writable;
    if (!property->name || (descriptor->unit && !property->unit) ||
+       (descriptor->enum_values && !property->schema.enum_values) ||
        dict_add_ptr(properties, property->name, property) != 0) {
       rr_property_free(property);
       return true;
@@ -512,12 +547,16 @@ bool rr_rig_property_define(rr_server_rig_t *rig,
       local.name = field;
       return rr_vfo_property_define(vfo, &local);
    }
-   return rr_property_define_store(rig->properties, descriptor);
+   bool failed = rr_property_define_store(rig->properties, descriptor);
+   if (!failed) event_emit("object.model.schema", NULL, rig->id);
+   return failed;
 }
 
 bool rr_vfo_property_define(rr_server_vfo_t *vfo,
    const rr_property_descriptor_t *descriptor) {
-   return !vfo || rr_property_define_store(vfo->properties, descriptor);
+   bool failed = !vfo || rr_property_define_store(vfo->properties, descriptor);
+   if (!failed) event_emit("object.model.schema", NULL, vfo->id);
+   return failed;
 }
 
 bool rr_property_vfo_name(char *buf, size_t len, char vfo_id,
@@ -559,11 +598,16 @@ bool rr_rig_define_vfo_properties(rr_server_rig_t *rig, char vfo_id) {
    descriptor.name = RR_PROP_VFO_FREQUENCY;
    descriptor.type = VAL_LONG;
    descriptor.unit = "Hz";
+   descriptor.has_min = descriptor.has_max = descriptor.has_step = true;
+   descriptor.minimum.l = 1;
+   descriptor.maximum.l = INT32_MAX;
+   descriptor.step.l = 1;
    if (rr_vfo_property_define(vfo, &descriptor)) {
       return true;
    }
 
    descriptor.name = RR_PROP_VFO_MODE;
+   descriptor.has_min = descriptor.has_max = descriptor.has_step = false;
    descriptor.type = VAL_STR;
    descriptor.unit = NULL;
    if (rr_vfo_property_define(vfo, &descriptor)) {
@@ -571,6 +615,7 @@ bool rr_rig_define_vfo_properties(rr_server_rig_t *rig, char vfo_id) {
    }
 
    descriptor.name = RR_PROP_VFO_WIDTH;
+   descriptor.writable = false; // Generic width control is not implemented yet.
    descriptor.type = VAL_INT;
    descriptor.unit = "Hz";
    return rr_vfo_property_define(vfo, &descriptor);
@@ -582,12 +627,37 @@ static bool rr_property_describe_store(dict *properties, const char *name,
    if (!property || !descriptor) {
       return false;
    }
+   *descriptor = property->schema;
    descriptor->name = property->name;
    descriptor->type = property->type;
    descriptor->readable = property->readable;
    descriptor->writable = property->writable;
    descriptor->unit = property->unit;
    return true;
+}
+
+static bool rr_property_foreach(dict *store, rr_property_iter_fn cb, void *user) {
+   if (!store || !cb) return true;
+   int rank = 0;
+   const char *key;
+   dict_value_t value;
+   val_type_t type;
+   while ((rank = dict_enumerate_typed(store, rank, &key, &value, &type)) >= 0) {
+      rr_property_descriptor_t descriptor;
+      if (rr_property_describe_store(store, key, &descriptor) && cb(&descriptor, user))
+         return true;
+   }
+   return false;
+}
+
+bool rr_rig_property_foreach(const rr_server_rig_t *rig,
+   rr_property_iter_fn cb, void *user) {
+   return !rig || rr_property_foreach(rig->properties, cb, user);
+}
+
+bool rr_vfo_property_foreach(const rr_server_vfo_t *vfo,
+   rr_property_iter_fn cb, void *user) {
+   return !vfo || rr_property_foreach(vfo->properties, cb, user);
 }
 
 bool rr_rig_property_describe(const rr_server_rig_t *rig, const char *name,
@@ -753,6 +823,52 @@ rr_control_result_t rr_rig_control(const rr_control_request_t *request) {
    if (property->type != request->value_type) {
       return RR_CONTROL_TYPE_MISMATCH;
    }
+   const rr_property_descriptor_t *s = &property->schema;
+   // Unsigned differences avoid signed overflow across the full native range.
+#define CHECK_INTEGER(member) do { \
+   if ((s->has_min && request->value.member < s->minimum.member) || \
+       (s->has_max && request->value.member > s->maximum.member)) return RR_CONTROL_INVALID; \
+   if (s->has_step) { \
+      if (s->step.member <= 0) return RR_CONTROL_INVALID; \
+      unsigned long long a = request->value.member; \
+      unsigned long long b = s->has_min ? s->minimum.member : 0; \
+      unsigned long long distance = request->value.member >= (s->has_min ? s->minimum.member : 0) ? a - b : b - a; \
+      if (distance % (unsigned long long)s->step.member) return RR_CONTROL_INVALID; \
+   } \
+} while (0)
+   switch (property->type) {
+      case VAL_INT: CHECK_INTEGER(i); break;
+      case VAL_UINT: CHECK_INTEGER(ui); break;
+      case VAL_LONG: CHECK_INTEGER(l); break;
+      case VAL_ULONG: CHECK_INTEGER(ul); break;
+      case VAL_LLONG: CHECK_INTEGER(ll); break;
+      case VAL_ULLONG: CHECK_INTEGER(ull); break;
+      case VAL_CHAR: CHECK_INTEGER(c); break;
+      case VAL_FLOAT:
+         if ((s->has_min && request->value.f < s->minimum.f) ||
+             (s->has_max && request->value.f > s->maximum.f)) return RR_CONTROL_INVALID;
+         break;
+      case VAL_DOUBLE:
+         if ((s->has_min && request->value.d < s->minimum.d) ||
+             (s->has_max && request->value.d > s->maximum.d)) return RR_CONTROL_INVALID;
+         break;
+      case VAL_STR:
+         if (!request->value.s) return RR_CONTROL_INVALID;
+         if (s->enum_values) {
+            bool found = false;
+            size_t len = strlen(request->value.s);
+            for (const char *p = s->enum_values; *p;) {
+               p += strspn(p, " ");
+               size_t n = strcspn(p, " ");
+               if (len && len == n && !strncmp(p, request->value.s, n)) found = true;
+               p += n;
+            }
+            if (!found) return RR_CONTROL_INVALID;
+         }
+         break;
+      default: break;
+   }
+#undef CHECK_INTEGER
    if (!rig->control_handler) {
       return RR_CONTROL_UNSUPPORTED;
    }
