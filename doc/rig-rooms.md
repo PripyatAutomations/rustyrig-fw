@@ -1,0 +1,105 @@
+# Site lobby and rig rooms
+
+Authenticated sessions join `#<station.name>` as a chat-only site lobby.
+A rig room is opt-in: `/join #rplywv00-rig0` attaches to that radio's room.
+`/part` releases that room's media subscriptions. The site lobby remains joined.
+
+Each configured rig owns one authoritative TX room: `#<station.name>-rigN`.
+Only server initialization creates these base rooms. The per-rig `room` setting
+must match that canonical name; other rooms are chat-only unless they are
+mapped RX subrooms beneath a configured rig's namespace.
+
+```ini
+[general]
+station.name=rplywv00
+rig.instances=rig0 rig1
+rig.default=rig0
+
+[rig:rig0]
+backend=internal
+vfos=A B
+room=#rplywv00-rig0
+rx-independent-vfos=B
+
+[rig:rig1]
+backend=hamlib
+hamlib.model=2
+hamlib.device=127.0.0.1:4532
+vfos=A B
+room=#rplywv00-rig1
+```
+
+An administrator can create `#rplywv00-rig0.monitor` and bind its VFOs with
+`/room #rplywv00-rig0.monitor vfo add rig0.vfo_b`. Bindings must belong to that
+room's rig. These rooms receive RX audio and VFO status but cannot transmit or
+change mode or width. Frequency changes are permitted only for mapped VFOs
+explicitly declared safe to tune without moving the shared LO.
+
+`rx-independent-vfos` lists native VFO letters separated by whitespace or
+commas. It overrides `rx-independent-tuning`, which allows all configured VFOs
+when true. Both default to no permission. Set these capabilities according to
+the backend and hardware: the server does not infer LO independence from a
+backend name. An invalid VFO list aborts initialization.
+
+The server persists actual VFO UUID bindings and restores valid RX subrooms at
+startup. Invalid or cross-rig bindings are removed; ordinary rooms retain chat
+history but receive no VFO controls. Configured base bindings are rebuilt from
+rig configuration and cannot be edited or removed with `/room`.
+
+CAT requests carry their room and target its rig. Both CAT and UUID property
+writes require appropriate room membership and permissions. Leaving the TX
+room releases that session's transmission. Existing station-wide PTT arbitration
+and interlocks remain in force; this does not enable simultaneous independent TX.
+
+GTK's main controls follow the selected base rig room. Clicking a VFO row in a
+docked userlist selects that room and VFO; detached rows do not change selection.
+RX subrooms offer a frequency Tune button only for permitted VFOs. The active
+row stays highlighted, including in detached panels. Its default dark red
+background is configurable with `#room-vfo-row.room-vfo-active` in GTK CSS
+(escape the initial `#` as `\#` in the configuration file).
+
+## Audio
+
+Every configured rig VFO gets independent RX and TX channel UUIDs.
+`media.available` adds `media.room`, `media.control-room`, `media.joined`, `media.rig-uuid`, and
+`media.vfo-uuid`. `media.joined` reflects the receiving session's membership,
+not whether some other user has joined. RX channels can be presented in a joined
+subroom with a matching VFO binding; `media.control-room` identifies their primary
+rig room. TX channels require membership in that primary room. Unscoped channels retain their existing
+subscription behavior.
+
+Native and browser clients automatically attach the active VFO's audio pair
+in a joined rig room. They have one local audio pair: joining another rig room
+or selecting its chat tab switches the automatic pair; ordinary chat tabs do
+not change it. Manual `/media` subscriptions remain possible within joined
+rooms. NONE continues to disable the selected audio direction. The server
+rejects subscriptions and codec changes outside the channel's room, removes
+subscriptions on PART, and checks membership during media delivery.
+
+PCM endpoints default to `[pipelines] src.<alias>` and `sink.<alias>`.
+The existing `src.rig0`/`sink.rig0` pipelines still serve rig0. Define dedicated
+pipelines for rig1's input/output devices. Hamlib controls the rig; NET rigctl
+does not itself supply a local audio capture/playback device. An absent rig1
+pipeline leaves that endpoint unavailable and never uses rig0's device.
+
+Endpoint names may be overridden per rig:
+
+```ini
+[rig:rig1]
+audio.source=src.radio1
+audio.sink=sink.radio1
+```
+
+## Autojoin
+
+The native client already supports a per-server list in `config/rrclient.cfg`:
+
+```ini
+[server:my-station]
+autojoin=#rplywv00-rig0,#rplywv00-rig1
+```
+
+Use the existing server section's other connection settings. Lists accept
+commas or whitespace. The browser's **cfg** tab has a “Rooms to join after
+login” setting, saved for that site's browser origin. An empty list leaves the
+session in the site lobby until the operator joins a rig room.
