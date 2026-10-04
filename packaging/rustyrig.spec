@@ -25,10 +25,10 @@ Requires: %{name}-libs = %{version}-%{release}, jq, sqlite, systemd
 %description server
 Backend server for remote radio operation.
 
-%package -n rrserver-gpsd
+%package -n rustyrig-server-gpsd
 Summary: GPSD receiver module for RustyRig server
 Requires: %{name}-server = %{version}-%{release}
-%description -n rrserver-gpsd
+%description -n rustyrig-server-gpsd
 Optional GPSD connection for station and rig coordinates.
 
 %package client
@@ -124,7 +124,7 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %dir %attr(0770,rustyrig,rustyrig) %{_localstatedir}/log/rustyrig
 %{_sharedstatedir}/rustyrig
 /usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
-%files -n rrserver-gpsd
+%files -n rustyrig-server-gpsd
 /usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
 %files client
 %{_bindir}/rrclient

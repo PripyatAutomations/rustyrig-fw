@@ -101,7 +101,7 @@ Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig callsign lookup service
  Callsign lookup helper using local databases and the QRZ XML API.
 
-Package: rrserver-gpsd
+Package: rustyrig-server-gpsd
 Architecture: any
 Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: GPSD receiver module for RustyRig server

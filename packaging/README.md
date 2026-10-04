@@ -25,7 +25,7 @@ root-owned executable code. Runtime data remains under `/var/lib/rustyrig`.
 `path.modules` in each program's config/defaults selects its own directory.
 Source-tree runs can explicitly set `path.modules=./bin`.
 
-`rrserver-gpsd` is an optional separate Debian, Arch and RPM package containing
+`rustyrig-server-gpsd` is an optional separate Debian, Arch and RPM package containing
 `rrserver-gpsd.so`. It depends on the server package; enable `rrserver-gpsd`
 in `[modules]` and configure `gpsd.url`/`gpsd.target`. The NMEA adapter remains
 in the server package. GTK remains in `rustyrig-client-gtk`.

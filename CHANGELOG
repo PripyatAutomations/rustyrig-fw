@@ -5,7 +5,7 @@ rustyrig-fw (20261004.02) testing; urgency=medium
   * Add /rig resource trees and /gps stream subscriptions to native and web
     clients, including UUIDs, rooms, coordinates, media, CAT and permitted
     serial exports; reject absolute server paths in serial requests.
-  * Split rrserver-gpsd into its own package; install server/client modules
+  * Split rustyrig-server-gpsd into its own package; install server/client modules
     under /usr/lib/rustyrig/modules/{rrserver,rrclient} and refresh config
     defaults plus doc/*.cfg.example copies.
   * Flush buffered fwdsp startup diagnostics before restoring binary stdout,

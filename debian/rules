@@ -31,7 +31,7 @@ override_dh_auto_build:
 override_dh_auto_install:
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
 	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
-	install -Dm755 bin/rrserver-gpsd.so debian/rrserver-gpsd/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
+	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client/usr/bin/rrclient
 	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop

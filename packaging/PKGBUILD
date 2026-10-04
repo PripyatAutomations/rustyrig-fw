@@ -1,7 +1,7 @@
 # Build with: makepkg -f
 # Starter Arch Linux packaging; update pkgver/source for each release.
 pkgbase=rustyrig
-pkgname=(rrserver-gpsd rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
+pkgname=(rustyrig-server-gpsd rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
 pkgver=20261004.02
 pkgrel=1
 pkgdesc='RustyRig remote radio software'
@@ -94,7 +94,7 @@ post_install() { ldconfig; }
 post_upgrade() { ldconfig; }
 post_remove() { ldconfig; }
 
-package_rrserver-gpsd() {
+package_rustyrig-server-gpsd() {
    pkgdesc='GPSD receiver module for RustyRig server'
    depends=('rustyrig-server')
    cd "$srcdir/rustyrig-fw"
