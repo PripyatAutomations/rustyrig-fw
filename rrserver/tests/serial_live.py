@@ -38,6 +38,17 @@ def device_read(fd, length):
         result += os.read(fd, length - len(result))
     return result
 
+
+def inventory(client):
+    client.send({"msg": {"type": "object"}, "object": {"cmd": "inventory"}, "request": {"id": "test-inventory"}})
+    rows = []
+    while True:
+        message = client.until(lambda m: m.get("request", {}).get("id") == "test-inventory")
+        if message.get("object", {}).get("cmd") == "inventory-end":
+            return rows
+        assert message["object"]["cmd"] == "inventory-entry", message
+        rows.append(message["inventory"])
+
 with tempfile.TemporaryDirectory(prefix="rr-serial-live-") as temporary:
     work = pathlib.Path(temporary)
     database = work / "master.db"
@@ -100,9 +111,18 @@ buffer-bytes=0
             command(first, "open", port="ttyHOST0")
             first.until(lambda m: m.get("msg", {}).get("type") == "error")
             login(first)
+            rows = inventory(first)
+            export = next(r for r in rows if r['kind'] == 'serial' and r['name'] == 'ttyHOST0')
+            assert export['state'] == 'available' and 'path' not in export
+            assert device not in str(rows)
             command(first, "list")
             available = serial(first, "available")
             assert available["name"] == "ttyHOST0" and available["baud"] == 115200
+            assert available["port"] == "ttyHOST0" and "path" not in available
+            command(first, "open", path=device)
+            assert serial(first, "error")["error"] == "invalid-request"
+            command(first, "open", port="ttyHOST0", path=device)
+            assert serial(first, "error")["error"] == "invalid-request"
             command(first, "open", port="ttyHOST0")
             opened = serial(first, "opened")
             stream = opened["stream"]
@@ -135,6 +155,18 @@ buffer-bytes=0
             assert serial(second, "opened")["stream"] > 0
             command(second, "close")
             serial(second, "closed")
+            # A newly authenticated user without serial privileges cannot
+            # discover or open a physical export, but still sees rig GPS.
+            with sqlite3.connect(database) as db:
+                db.execute("UPDATE users SET permissions='view,radio,chat' WHERE uid=1")
+            restricted = WebSocket(port)
+            clients.append(restricted)
+            login(restricted)
+            rows = inventory(restricted)
+            assert not any(r['kind'] == 'serial' for r in rows)
+            assert any(r['name'] == 'rig0.gps-out' for r in rows)
+            command(restricted, "open", port="ttyHOST0")
+            assert serial(restricted, "error")['error'] == 'forbidden-device'
             print("PASS: production serial auth, named exports, MODEM binary bytes, settings, ownership and session cleanup")
         except Exception:
             print((work / "console.log").read_text())

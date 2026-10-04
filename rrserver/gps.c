@@ -10,6 +10,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrserver/gps.h>
+#include <rrserver/discovery.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/rig.config.h>
@@ -26,7 +27,7 @@ struct gps_source {
 };
 static struct gps_source sources[GPS_SOURCES_MAX];
 static unsigned count;
-static rr_event_token_t input_token, poll_token, subscribed_token;
+static rr_event_token_t input_token, poll_token, subscribed_token, inventory_token;
 
 static bool coordinate(const char **cursor, int32_t *result, unsigned maximum) {
    const char *p = *cursor;
@@ -222,6 +223,40 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
    }
    return !configure_source(source, rr_rig_config_get(alias, "gps.position"));
 }
+static void inventory_gps(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event; (void)user;
+   if (!client || !client->authenticated) return;
+   dict *request = json2dict(data);
+   if (!request) return;
+   const char *scope = dict_get(request, "inventory.scope", "");
+   struct gps_source *source = find(scope);
+   if (source) {
+      const struct gps_source *position = effective(source);
+      for (unsigned output = 0; output < 2; output++) {
+         char name[80]; snprintf(name, sizeof(name), "%s.gps-%s", scope, output ? "out" : "in");
+         dict *row = rr_inventory_row(dict_get(request, "request.id", ""),
+            dict_get_uint(request, "inventory.depth", 1), "gps", name,
+            output && source->channel ? source->channel->uuid : NULL);
+         if (!row) continue;
+         dict_add(row, "inventory.state", output ?
+            (available(position) && (position->fixed || position->valid) ? "position-known" : "no-fix") :
+            source->fixed ? "disabled-by-fixed-position" : source->own_input ? "receiver" : source == sources ? "unconfigured" : "station-fallback");
+         dict_add(row, "inventory.source", position->alias);
+         dict_add(row, "inventory.action", output ? "/gps subscribe|unsubscribe <scope>" : "server-config-only");
+         if (output && source->channel) dict_add(row, "inventory.room", source->channel->room);
+         if (output && available(position) && (position->fixed || position->valid)) {
+            int64_t lat = position->lat, lon = position->lon;
+            char coordinates[64];
+            snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld,%s%lld.%07lld",
+               lat < 0 ? "-" : "", (long long)(llabs(lat) / 10000000), (long long)(llabs(lat) % 10000000),
+               lon < 0 ? "-" : "", (long long)(llabs(lon) / 10000000), (long long)(llabs(lon) % 10000000));
+            dict_add(row, "inventory.coordinates", coordinates);
+         }
+         rr_inventory_send(client, row);
+      }
+   }
+   dict_free(request);
+}
 bool rrserver_gps_init(void) {
    memset(sources, 0, sizeof(sources)); count = 1;
    snprintf(sources[0].alias, sizeof(sources[0].alias), "station");
@@ -235,12 +270,14 @@ bool rrserver_gps_init(void) {
       rr_rig_registry_foreach(rig.rigs,add_rig,NULL)) {
       rrserver_gps_fini();return true;
    }
+   inventory_token = event_on_token(RR_INVENTORY_EVENT, inventory_gps, NULL);
    input_token = event_on_token("gps.nmea.input", gps_input, NULL);
    poll_token = event_on_token("server.poll", poll_gps, NULL);
    subscribed_token = event_on_token("media.subscribed", subscribed, NULL);
    return false;
 }
 void rrserver_gps_fini(void) {
+   event_off_token(inventory_token); inventory_token = NULL;
    event_off_token(input_token); input_token = NULL;
    event_off_token(poll_token); poll_token = NULL;
    event_off_token(subscribed_token); subscribed_token = NULL;

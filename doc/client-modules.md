@@ -12,7 +12,7 @@ Configuration
 Modules are listed in a [modules] section of the client config:
 
     ; Where to find loadable modules
-    path.modules=/var/lib/rustyrig/modules
+    path.modules=/usr/lib/rustyrig/modules/rrclient
 
     [modules]
     rrclient-gtk.so=
@@ -23,7 +23,7 @@ per line. Run with -T (or remove the [modules] section) for the headless
 TUI client; -T never loads a module.
 
 Distro packages split this: rustyrig-client is the headless core;
-rustyrig-client-gtk installs the module into /var/lib/rustyrig/modules and
+rustyrig-client-gtk installs the module into /usr/lib/rustyrig/modules/rrclient and
 is the only package depending on GTK.
 
 Module lifecycle

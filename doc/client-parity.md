@@ -143,3 +143,11 @@ rig and automatically subscribe; browser subscriptions are explicit and emit
 `rustyrig:gps-nmea` for integrations. This transport difference is intentional:
 the browser cannot create local PTYs. Both implementations validate received
 GPS framing/checksums; server coordinates and receiver selection are authoritative.
+
+## Resource discovery
+
+Native GTK/TUI and WebUI share `/rig list`, `/rig subscribe|unsubscribe`
+(UUID property updates), and `/gps list|subscribe|unsubscribe <scope>`.
+The server supplies the resource tree and permission-filtered serial exports.
+`/sercom remote` discovers server exports in both clients; only the native
+client can attach local PTYs or serial devices. See [Resource discovery](resource-discovery.md).

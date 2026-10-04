@@ -13,6 +13,9 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/objects.h>
 #include <rrserver/rig.rooms.h>
+#include <rrserver/discovery.h>
+#include <rrserver/database.h>
+#include <librrprotocol/ws.mediachan.h>
 extern struct GlobalState rig;
 typedef struct subscriber {
    rrconn_t *client;
@@ -172,6 +175,101 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
    }
 }
 
+static void inventory_media(object_send_t *ctx, const char *owner, unsigned depth) {
+   for (unsigned i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+      struct rr_mediachan *ch = &media_channels[i];
+      if (!ch->uuid[0]) continue;
+      const char *parent = ch->vfo_uuid[0] ? ch->vfo_uuid : ch->rig_uuid;
+      if (strcmp(parent, owner ? owner : "")) continue;
+      dict *row = rr_inventory_row(ctx->request, depth, "media", ch->name, ch->uuid);
+      if (!row) continue;
+      dict_add(row, "inventory.room", ch->room);
+      dict_add(row, "inventory.codec", ch->codec);
+      dict_add(row, "inventory.direction", ch->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX");
+      dict_add_uint(row, "inventory.subsystem", ch->subsystem);
+      bool joined = media_client_in_channel_room(ctx->client, ch);
+      bool subscribed = chan_id_in_array(ch->direction == RR_BINFRAME_DIR_TX ?
+         ctx->client->tx_channels : ctx->client->rx_channels,
+         ch->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS, i + 1);
+      dict_add(row, "inventory.state", subscribed ? "subscribed" : joined ? "available" : "join-room-first");
+      dict_add(row, "inventory.action", "/media subscribe|unsubscribe <uuid>");
+      rr_inventory_send(ctx->client, row);
+   }
+}
+static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
+   object_send_t *ctx = user;
+   dict *row = rr_inventory_row(ctx->request, 2, "vfo", rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo));
+   rr_property_snapshot_t state;
+   if (row && rr_vfo_property_read(vfo, "frequency", &state) && state.known) {
+      char frequency[48]; snprintf(frequency, sizeof(frequency), "%ld Hz", state.value.l);
+      dict_add(row, "inventory.frequency", frequency);
+   }
+   rr_inventory_send(ctx->client, row);
+   inventory_media(ctx, rr_server_vfo_id(vfo), 3);
+   return false;
+}
+static void inventory_services(object_send_t *ctx, const char *scope, unsigned depth) {
+   dict *d = dict_new();
+   if (!d) return;
+   dict_add(d, "request.id", ctx->request);
+   dict_add(d, "inventory.scope", scope);
+   dict_add_uint(d, "inventory.depth", depth);
+   event_emit_dict(RR_INVENTORY_EVENT, ctx->client, d);
+   dict_free(d);
+}
+static void inventory_rooms(object_send_t *ctx, const char *base) {
+#ifdef USE_SQLITE
+   char *rooms = db_room_list(masterdb), *save = NULL;
+   for (char *room = rooms ? strtok_r(rooms, " ", &save) : NULL; room; room = strtok_r(NULL, " ", &save)) {
+      if (base ? !ws_room_same_rig(room, base) : ws_room_rig_namespace(room)) continue;
+      dict *row = rr_inventory_row(ctx->request, base ? 2 : 1, "room", room, NULL);
+      if (!row) continue;
+      dict_add(row, "inventory.state", ws_client_in_room(ctx->client, room) ? "joined" : "available");
+      dict_add(row, "inventory.service", base ? (!strcasecmp(room, base) ? "TX-control" : "RX-only") : "chat");
+      dict_add(row, "inventory.action", "/join|part <room>");
+      rr_inventory_send(ctx->client, row);
+   }
+   free(rooms);
+#else
+   (void)ctx; (void)base;
+#endif
+}
+static bool inventory_rig(rr_server_rig_t *radio, void *user) {
+   object_send_t *ctx = user;
+   const char *alias = rr_rig_registry_alias(rig.rigs, radio);
+   dict *row = rr_inventory_row(ctx->request, 1, "rig", alias, rr_server_rig_id(radio));
+   if (row) {
+      dict_add(row, "inventory.backend", rr_server_rig_backend(radio)->type->name);
+      dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
+      dict_add(row, "inventory.state", radio == rr_rig_registry_default(rig.rigs) ? "default" : "available");
+      dict_add(row, "inventory.action", "/join <room>");
+   }
+   rr_inventory_send(ctx->client, row);
+   inventory_rooms(ctx, rr_rig_registry_room(rig.rigs, radio));
+   char cat[80]; snprintf(cat, sizeof(cat), "%s.cat", alias);
+   row = rr_inventory_row(ctx->request, 2, "cat", cat, NULL);
+   if (row) {
+      dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
+      dict_add(row, "inventory.action", "/sercom attach <local-name> <rig-alias>.cat");
+   }
+   rr_inventory_send(ctx->client, row);
+   rr_server_vfo_foreach(radio, inventory_vfo, ctx);
+   inventory_media(ctx, rr_server_rig_id(radio), 2);
+   inventory_services(ctx, alias, 2);
+   return false;
+}
+static void inventory(rrconn_t *client, const char *id) {
+   object_send_t ctx = { .client = client, .request = id };
+   dict *row = rr_inventory_row(id, 0, "site", cfg_get("station.name"), rr_rig_registry_node(rig.rigs));
+   if (row) dict_add(row, "inventory.room", ws_site_room());
+   rr_inventory_send(client, row);
+   inventory_rooms(&ctx, NULL);
+   inventory_services(&ctx, "station", 1);
+   inventory_media(&ctx, "", 1);
+   rr_rig_registry_foreach(rig.rigs, inventory_rig, &ctx);
+   send_message(client, message("object", "inventory-end", id));
+}
+
 static void request(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event; (void)user;
    if (!client || !client->authenticated || !data) return;
@@ -184,7 +282,10 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
    if (dict_get_type(d, "request.id") != VAL_STR || !id || !*id || strlen(id) > 64) goto done;
    if (!strcmp(family, "object")) {
       const char *cmd = dict_get(d, "object.cmd", "");
-      if (!strcmp(cmd, "unsubscribe")) {
+      if (!strcmp(cmd, "inventory")) {
+         inventory(client, id);
+         dict_free(d); return;
+      } else if (!strcmp(cmd, "unsubscribe")) {
          close_client(NULL, NULL, client, NULL); code = "ok";
       } else if (!strcmp(cmd, "snapshot")) {
          if (!rr_rig_registry_node(rig.rigs)) { code = "unavailable"; goto done; }

@@ -11,6 +11,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.serial.h>
 #include <rrserver/serial.h>
+#include <rrserver/discovery.h>
 
 #define SERIAL_PORTS_MAX 32
 // Streams a client session may hold at once: bounded by the 1-byte stream
@@ -45,7 +46,7 @@ struct serial_export {
 static struct serial_export exports[SERIAL_PORTS_MAX];
 static unsigned count;
 static struct serial_session *sessions;
-static rr_event_token_t request_token, closed_token, frame_token, gps_token;
+static rr_event_token_t request_token, closed_token, frame_token, gps_token, inventory_token;
 
 static bool allowed(rrconn_t *client, const struct serial_export *port) {
    if (!client || !client->authenticated || !client->user || !cfg_get_bool("serial.enable", true)) return false;
@@ -62,7 +63,7 @@ static void reply(rrconn_t *client, const char *cmd, const char *name,
    if (error) dict_add(d,"serial.error",error);
    if (port) {
       char mode[4]; rr_serial_mode_format(&port->settings,mode);
-      dict_add(d,"serial.path",port->path); dict_add_int(d,"serial.stream",port->stream);
+      dict_add(d,"serial.port",port->name); dict_add_int(d,"serial.stream",port->stream);
       dict_add_uint(d,"serial.baud",port->settings.baud); dict_add(d,"serial.mode",mode);
       dict_add_uint(d,"serial.seq", !strcmp(cmd,"written") ? port->tx_seq : port->rx_seq);
    }
@@ -132,15 +133,20 @@ static void request(const char *event,const char *data,rrconn_t *client,void *us
    if (!strcmp(cmd,"list")) {
       for (unsigned i=0;i<count;i++) if (!exports[i].service && allowed(client,&exports[i]))
          reply(client,"available",exports[i].name,&exports[i],NULL);
+      reply(client,"list-end",NULL,NULL,NULL);
       goto done;
    }
    if (!strcmp(cmd,"open")) {
       const char *path=dict_get(d,"serial.path",NULL);
       const char *port=dict_get(d,"serial.port",NULL);
-      if (!*name || strlen(name)>=64 || (!path && !port)) { reply(client,"error",name,NULL,"invalid-request"); goto done; }
-      if (p) { reply(client,"opened",name,p,NULL); goto done; }
+      if (!*name || strlen(name)>=64 || (path || !port || !*port || strchr(port, '/'))) { reply(client,"error",name,NULL,"invalid-request"); goto done; }
+      if (p) {
+         if (!allowed(client,p) || strcmp(p->name,port)) reply(client,"error",name,NULL,"forbidden-device");
+         else reply(client,"opened",name,p,NULL);
+         goto done;
+      }
       for (unsigned i=0;i<count;i++) if (!exports[i].service &&
-         ((port && !strcmp(exports[i].name,port)) || (!port && path && !strcmp(exports[i].path,path)))) { p=&exports[i]; break; }
+         (port && !strcmp(exports[i].name,port))) { p=&exports[i]; break; }
       if (!p || !allowed(client,p)) { reply(client,"error",name,NULL,"forbidden-device"); goto done; }
       if (p->owner) { reply(client,"error",name,NULL,"device-busy"); goto done; }
       struct stat candidate, existing;
@@ -309,6 +315,28 @@ failed:
    }
    return active;
 }
+static void inventory_serial(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event; (void)user;
+   dict *request = json2dict(data);
+   if (!request) return;
+   const char *scope = dict_get(request, "inventory.scope", "");
+   for (unsigned i = 0; i < count; i++) {
+      struct serial_export *p = &exports[i];
+      if (strcmp(scope, p->service ? p->gps_scope : "station") || !allowed(client, p)) continue;
+      dict *row = rr_inventory_row(dict_get(request, "request.id", ""),
+         dict_get_uint(request, "inventory.depth", 1), "serial", p->name, NULL);
+      if (!row) continue;
+      dict_add(row, "inventory.service", p->service == 1 ? "gps-in" : p->service == 2 ? "gps-out" : "serial");
+      dict_add(row, "inventory.state", p->service ? "server-local" : p->owner ? "busy" : "available");
+      char access[96]; snprintf(access, sizeof(access), "serial:%s.access", p->name);
+      const char *privileges = cfg_get(access);
+      if (!privileges) privileges = cfg_get("serial.access");
+      dict_add(row, "inventory.access", privileges ? privileges : "admin|owner");
+      dict_add(row, "inventory.action", p->service ? "server-config-only" : "/sercom attach <local-name> host:<name>");
+      rr_inventory_send(client, row);
+   }
+   dict_free(request);
+}
 void rrserver_serial_init(void) {
    const char *key; char *value; int rank=0;
    while (cfg && (rank=dict_enumerate(cfg,rank,&key,&value))>=0) {
@@ -370,6 +398,7 @@ void rrserver_serial_init(void) {
       p->defaults=p->settings;
       count++;
    }
+   inventory_token=event_on_token(RR_INVENTORY_EVENT,inventory_serial,NULL);
    gps_token=event_on_token("serial.gps.output",gps_output,NULL);
    request_token=event_on_token("serial.request",request,NULL);
    closed_token=event_on_token("serial.session.closed",closed,NULL);
@@ -379,6 +408,7 @@ void rrserver_serial_fini(void) {
    for (unsigned i=0;i<count;i++) close_port(&exports[i]);
    count=0;
    while(sessions){struct serial_session *s=sessions;sessions=s->next;free(s);}
+   event_off_token(inventory_token);inventory_token=NULL;
    event_off_token(gps_token);gps_token=NULL;
    event_off_token(request_token); event_off_token(closed_token); event_off_token(frame_token);
    request_token=closed_token=frame_token=NULL;

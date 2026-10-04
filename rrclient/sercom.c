@@ -20,7 +20,7 @@
 typedef struct serial_binding {
    char name[64], service[96], radio[64];
    char vfo;
-   char host_path[PATH_MAX], host_port[64];
+   char host_port[64];
    size_t buffer_limit;
    uint8_t stream;
    uint32_t tx_seq, rx_seq;
@@ -40,7 +40,7 @@ static guint host_timer;
 static bool host_authorized;
 extern rrconn_t *ws_conn;
 
-static bool host_binding(const serial_binding_t *b) { return b->host_path[0] || b->host_port[0]; }
+static bool host_binding(const serial_binding_t *b) { return b->host_port[0]; }
 
 static serial_binding_t *binding(const char *name) {
    for (serial_binding_t *b = bindings; b; b = b->next)
@@ -116,7 +116,7 @@ static void host_command(serial_binding_t *b, const char *command) {
    dict_add(d,"msg.type","serial"); dict_add(d,"serial.cmd",command);
    dict_add(d,"serial.name",b->name);
    if(b->host_port[0]) dict_add(d,"serial.port",b->host_port);
-   else dict_add(d,"serial.path",b->host_path);
+
    dict_add_uint(d,"serial.stream",b->stream);
    if(strcmp(command,"open") || b->settings_override) {
       dict_add_uint(d,"serial.baud",b->requested.baud); dict_add(d,"serial.mode",mode);
@@ -176,6 +176,15 @@ static void host_message(const char *event,const char *data,rrconn_t *client,voi
    (void)event; (void)user;
    if(client && client!=ws_conn) return;
    dict *d=json2dict(data); if(!d) return;
+   if (!strcmp(dict_get(d, "serial.cmd", ""), "available")) {
+      ui_print(NULL, "Server serial %s: %u baud %s; /sercom attach <local-name> host:%s",
+         dict_get(d, "serial.port", ""), dict_get_uint(d, "serial.baud", 0),
+         dict_get(d, "serial.mode", ""), dict_get(d, "serial.port", ""));
+      goto done;
+   }
+   if (!strcmp(dict_get(d, "serial.cmd", ""), "list-end")) {
+      ui_print(NULL, "End of permitted server serial exports"); goto done;
+   }
    serial_binding_t *b=binding(dict_get(d,"serial.name",NULL));
    if (!b || !host_binding(b)) goto done;
    const char *cmd=dict_get(d,"serial.cmd","");
@@ -343,11 +352,11 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       !rr_serial_spec_parse(service,b->service,sizeof(b->service),&b->requested)) goto failed;
    baud=b->requested.baud;
    if(!service_radio(b->service,b->radio,sizeof(b->radio)) && strcmp(gps_service(b),"gps-in") &&
-      strcmp(gps_service(b),"gps-out") && b->service[0]!='/' && strncmp(b->service,"host:",5)) goto failed;
+      strcmp(gps_service(b),"gps-out") && strncmp(b->service,"host:",5)) goto failed;
    if(!strncmp(b->service,"host:",5)) {
       if(!name_valid(b->service+5)) goto failed;
       snprintf(b->host_port,sizeof(b->host_port),"%s",b->service+5);
-   } else if(b->service[0]=='/') snprintf(b->host_path,sizeof(b->host_path),"%s",b->service);
+   }
    char path[PATH_MAX];
    snprintf(key, sizeof(key), "serial:%s.vfo", name);
    const char *vfo = cfg_get(key);
@@ -455,6 +464,14 @@ static void list_port(rr_serial_t *port, void *user) {
       service ? service : "unbound");
 }
 bool cmd_sercom(int argc, char **args) {
+   if (argc == 2 && !strcasecmp(args[1], "remote")) {
+      if (!ws_conn) { ui_print(NULL, "Not connected"); return true; }
+      dict *d = dict_new();
+      if (!d) return true;
+      dict_add(d, "msg.type", "serial"); dict_add(d, "serial.cmd", "list");
+      bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+      dict_free(d); return !sent;
+   }
    if (argc == 1 || (argc == 2 && !strcasecmp(args[1], "list"))) {
       if (!bindings) ui_print(NULL, "No serial endpoints attached");
       rr_serial_foreach(list_port, NULL); return false;
@@ -468,6 +485,6 @@ bool cmd_sercom(int argc, char **args) {
       bool ok = rr_sercom_disconnect(args[2]);
       ui_print(NULL, "%s: %s", args[2], ok ? "disconnected" : "not attached"); return !ok;
    }
-   ui_print(NULL, "Usage: /sercom [list | attach <name> <rigN.cat|rig.gps-out|rigN.gps-in/out|station.gps-in/out|host:port[@baud,mode]> [device] | disconnect <name>]");
+   ui_print(NULL, "Usage: /sercom [list | remote | attach <name> <rigN.cat|rig.gps-out|rigN.gps-in/out|station.gps-in/out|host:port[@baud,mode]> [device] | disconnect <name>]");
    return true;
 }

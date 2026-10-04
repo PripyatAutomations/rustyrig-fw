@@ -32,6 +32,17 @@ def snapshot(client, channel):
     _, frame = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b"RR\x01\x04nmea")
     return frame[10], frame[28:]
 
+
+def inventory(client):
+    client.send({"msg": {"type": "object"}, "object": {"cmd": "inventory"}, "request": {"id": "test-inventory"}})
+    rows = []
+    while True:
+        message = client.until(lambda m: m.get("request", {}).get("id") == "test-inventory")
+        if message.get("object", {}).get("cmd") == "inventory-end":
+            return rows
+        assert message["object"]["cmd"] == "inventory-entry", message
+        rows.append(message["inventory"])
+
 with tempfile.TemporaryDirectory(prefix="rr-gps-live-") as temporary:
     work = pathlib.Path(temporary)
     database = work / "master.db"
@@ -128,6 +139,17 @@ path={work}/disabled-fixed-input
                 channels[media['name']] = (media['chan-uuid'], media['rig'])
                 if media['name'] == 'station.gps.rx':
                     assert media['room'] == '#gpstest' and media['joined'] is True
+            rows = inventory(client)
+            assert rows[0]['kind'] == 'site' and rows[0]['uuid']
+            assert len([r for r in rows if r['kind'] == 'rig']) == 3
+            assert len([r for r in rows if r['kind'] == 'vfo']) >= 3
+            output = next(r for r in rows if r['name'] == 'rig0.gps-out')
+            assert output['coordinates'] == '38.1234567,-80.7654321'
+            assert output['uuid'] == channels['rig0.gps.rx'][0]
+            assert any(r['name'] == 'rig0.gps-in' and r['state'] == 'disabled-by-fixed-position' for r in rows)
+            # Discovery is not permission to consume another room's media.
+            client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": output['uuid']}})
+            client.until(lambda m: m.get('msg', {}).get('type') == 'error')
             index, data = snapshot(client, channels['station.gps.rx'][0])
             assert index == 255 and b',A,4807.038000,N,01131.000002,E,' in data
             join(client, '#gpstest-rig0')

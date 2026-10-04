@@ -4,6 +4,7 @@
 #include <string.h>
 #include <rrserver/gps.c>
 
+bool dying, restarting;
 time_t now = 1791115200;
 struct GlobalState rig;
 static uint64_t clock_us = 1;

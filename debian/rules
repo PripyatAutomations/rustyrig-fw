@@ -30,9 +30,10 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
-	for m in bin/rrserver-gps*.so; do install -Dm755 $$m debian/rustyrig-server/var/lib/rustyrig/modules/$$(basename $$m); done
+	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
+	install -Dm755 bin/rrserver-gpsd.so debian/rrserver-gpsd/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client/usr/bin/rrclient
-	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk/var/lib/rustyrig/modules/rrclient-gtk.so
+	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
 	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
@@ -57,7 +58,7 @@ override_dh_auto_install:
 	install -d debian/rustyrig-client/var/lib/rustyrig/recordings/client
 	install -d -orustyrig -grustyrig -m0770 debian/rustyrig-client/var/log/rustyrig
 	install -d debian/rustyrig-client/var/run/rustyrig
-	install -d debian/rustyrig-client-gtk/var/lib/rustyrig/modules
+	install -d debian/rustyrig-client-gtk/usr/lib/rustyrig/modules/rrclient
 	install -d debian/rustyrig-server/etc/rustyrig
 	install -d debian/rustyrig-client/etc/rustyrig
 	install -Dm644 config/rrserver.cfg debian/rustyrig-server/etc/rustyrig/rrserver.cfg

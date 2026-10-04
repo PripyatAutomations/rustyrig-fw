@@ -12,7 +12,7 @@ Server configuration:
 [general]
 serial.access=admin|owner
 station.gps.position=38.1234567,-80.7654321
-path.modules=./bin
+path.modules=/usr/lib/rustyrig/modules/rrserver
 
 [rig:rig0]
 gps.position=40.5,-75.25
@@ -58,8 +58,25 @@ part can be omitted (`@38400`, or the older `@8n1`). Mode is data bits, parity,
 and stop bits, such as `8n1`, `7e1`, or `8n2`. Defaults are 8N1. Standard baud
 rates through 115200 are supported, with faster rates where the platform
 provides them. A client `host:` binding inherits the server's initial settings
-unless explicitly overridden. Absolute remote paths remain accepted for older
-client configs, but must match an exported server path exactly.
+unless explicitly overridden. Clients may request only a symbolic export name;
+absolute remote paths and `serial.path` requests are rejected. Local device
+paths in client endpoint settings refer only to hardware on the client.
+
+## Discovery and permissions
+
+`/rig list` shows GPS services, their effective coordinates and media UUIDs,
+plus permitted serial exports. `/sercom remote` lists server serial exports;
+`/sercom list` lists local attachments. `/gps subscribe rig0` and
+`/gps unsubscribe rig0` manage the NMEA media subscription. Join the advertised
+room first. A logger attaches with `/sercom attach ttyGPS0 rig.gps-out` to
+follow the selected rig or with `rig0.gps-out` to pin one rig.
+
+Set `[serial:ttyHOST0] access=serial.ttyHOST0|admin|owner` to grant that
+physical export to accounts carrying any of those privileges. Unspecified
+exports use `serial.access` (default `admin|owner`). Discovery, open, settings,
+and binary I/O enforce the same check; revocation closes an existing tunnel.
+GPS emulation uses room-scoped read-only media and requires no serial privilege.
+Server GPS inputs are configured receiver services, not client write endpoints.
 
 ## Runtime management
 

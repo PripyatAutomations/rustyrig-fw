@@ -77,7 +77,7 @@ static void transfer(int source,int sink,const unsigned char *data,size_t len) {
 }
 static void control(rrconn_t *client,const char *cmd,const char *name,const char *path) {
    dict *d=dict_new();dict_add(d,"msg.type","serial");dict_add(d,"serial.cmd",cmd);
-   dict_add(d,"serial.name",name); if(path) dict_add(d,"serial.path",path);
+   dict_add(d,"serial.name",name); if(path) dict_add(d,"serial.port",path);
    send_request(client,d);dict_free(d);
 }
 int main(int argc,char **argv) {
@@ -104,10 +104,10 @@ int main(int argc,char **argv) {
    unsigned char data[98304];for(unsigned i=0;i<sizeof(data);i++) data[i]=i&255;
    transfer(fd,master,data,sizeof(data));transfer(master,fd,data,32768);
    assert(tx_frames>1 && rx_frames>1 && !client.is_ptt && !client.codec_tx[0]);
-   control(&other,"open","other",device);assert(!strcmp(last_error,"device-busy"));
-   control(&other,"open","other","/dev/does-not-exist");assert(!strcmp(last_error,"forbidden-device"));
+   control(&other,"open","other","ttyHOST0");assert(!strcmp(last_error,"device-busy"));
+   control(&other,"open","other","missing");assert(!strcmp(last_error,"forbidden-device"));
    snprintf(user->privs,sizeof(user->privs),"rx");
-   control(&other,"open","other",device);assert(!strcmp(last_error,"forbidden-device"));
+   control(&other,"open","other","ttyHOST0");assert(!strcmp(last_error,"forbidden-device"));
    snprintf(user->privs,sizeof(user->privs),"admin");
    rr_serial_settings_t changed={.baud=19200,.bits=8,.parity='n',.stops=2};
    assert(rr_serial_settings_apply(fd,&changed));
@@ -128,7 +128,7 @@ int main(int argc,char **argv) {
    client.authenticated=false;assert(!ws_binframe_process_mg(&client,(const char *)packet,length));client.authenticated=true;free(packet);
    // Session close releases the export before client memory is freed.
    event_emit("serial.session.closed",&client,NULL);
-   control(&other,"open","other",device);assert(!last_error[0]);control(&other,"close","other",NULL);
+   control(&other,"open","other","ttyHOST0");assert(!last_error[0]);control(&other,"close","other",NULL);
    event_emit("disconnected",NULL,NULL);rr_sercom_shutdown();rrserver_serial_fini();
    close(fd);close(master);close(slave);dict_free(cfg);cfg=NULL;event_shutdown();
    puts("PASS: binary serial passthrough, all byte values, flow control, settings, ownership and disconnect");
