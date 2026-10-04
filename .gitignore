@@ -84,6 +84,7 @@ debian/librrprotocol*
 debian/librustyaxe*
 debian/rustyrig-callsign-lookup*
 debian/rustyrig-client*
+debian/rustyrig/server-gpsd*
 debian/rustyrig-fwdsp*
 debian/rustyrig-server*
 !debian/rustyrig-server.config
