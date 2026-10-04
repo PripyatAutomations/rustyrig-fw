@@ -17,6 +17,8 @@ hamlib.device=localhost:4533
 hamlib.baud=9600
 CFG
 ${CC:-cc} -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
+   $(pkg-config --cflags glib-2.0) \
    rrserver/tests/rig_config.c rrserver/rig.config.c rrserver/defconfig.c \
-   -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -o "$work/rig_config"
+   -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
+   $(pkg-config --libs glib-2.0) -o "$work/rig_config"
 "$work/rig_config" "$work/multirig.cfg"

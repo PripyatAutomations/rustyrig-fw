@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <glib.h>
 
 #include <librustyaxe/core.h>
 #include <rrserver/rig.config.h>
@@ -122,4 +123,33 @@ bool rr_rig_config_get_bool(const char *alias, const char *key,
       return default_value;
    }
    return cfg_get_bool(fullkey, default_value);
+}
+
+uint32_t rr_rig_config_default_vfo_mask(void) {
+   const char *alias = cfg_get("rig.default");
+   char *first_alias = NULL;
+   if (!alias || !*alias) {
+      const char *instances = cfg_get("rig.instances");
+      if (!instances) return 0;
+      while (*instances && (isspace((unsigned char)*instances) ||
+             *instances == ',')) instances++;
+      size_t len = strcspn(instances, " ,\t\r\n");
+      if (!len) return 0;
+      first_alias = strndup(instances, len);
+      alias = first_alias;
+   }
+   const char *configured = rr_rig_config_get(alias, "vfos");
+   free(first_alias);
+   if (!configured) return 0;
+
+   uint32_t mask = 0;
+   char **tokens = g_strsplit_set(configured, " ,\t\r\n", -1);
+   for (size_t i = 0; tokens && tokens[i]; i++) {
+      if (strlen(tokens[i]) != 1 ||
+          !isalpha((unsigned char)tokens[i][0])) continue;
+      int index = toupper((unsigned char)tokens[i][0]) - 'A';
+      if (index >= 0 && index < 32) mask |= UINT32_C(1) << index;
+   }
+   g_strfreev(tokens);
+   return mask;
 }

@@ -5,6 +5,19 @@ rustyrig-fw (20261003.02) testing; urgency=medium
     retained as the default rig.
   * Renamed the multirig selector to rig.default and used default-rig names
     throughout its registry, CAT adapter ownership, logs, and configuration.
+  * Migrated multirig and rig-property regression fixtures to owned VFO
+    objects, current backend callback signatures, and normalized controls.
+  * Added first-class rig-owned VFO objects with canonical UUIDs, explicit
+    persistent/ephemeral lifecycle, local aliases, native IDs, and collection
+    lookup/iteration/removal APIs.
+  * Made frequency, mode, and width canonical VFO-owned properties while
+    retaining vfo.A.* as a resolver onto the same value and version.
+  * Persisted configured VFO UUIDs by rig UUID and stable config/native ID,
+    with restart and cross-rig alias-isolation coverage.
+  * Replaced the obsolete global rig.vfos and backend selection settings with
+    scoped [rig:<alias>] backend configuration and runtime default-rig VFOs.
+  * Added full two-rig startup, scoped backend configuration, duplicate/invalid
+    configuration, and partial-construction cleanup regression coverage.
   * Many TUI drawing fixes
   * Restored cooked input, blocking stdin, cursor, colors, keypad, mouse, focus,
     paste, margins, and scroll-region terminal state when the TUI exits.

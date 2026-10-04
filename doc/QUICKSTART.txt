@@ -62,7 +62,15 @@ Long story short, on a debian-based system do the following to try it:
    Start up rigctld connected to your rig (example is dummy) - the -o is important!:
 	rigctld -o -m 1 &
 
-   Set backend.active=hamlib in rrserver.cfg (/etc/rustyrig or ./config)
+   In rrserver.cfg (/etc/rustyrig or ./config), list the rig and select it:
+        rig.instances=rig0
+        rig.default=rig0
+   Then configure its section:
+        [rig:rig0]
+        backend=hamlib
+        vfos=A B
+        hamlib.model=2
+        hamlib.device=127.0.0.1:4532
 
    Run it with ./bin/rrserver or 'rrserver' if installed
 

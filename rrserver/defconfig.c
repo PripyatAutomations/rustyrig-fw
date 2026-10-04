@@ -41,7 +41,6 @@ defconfig_t defcfg[] = {
    { "atu.max", "4", "Maximum number of ATUs", DEFCONFIG_UINT, NULL },
    { "backend.announce-interval", "30", "How often to send a forced update of VFO state?", DEFCONFIG_UINT, NULL },
    { "backend.poll-interval", "250", "How often to poll the rig in ms", DEFCONFIG_UINT, NULL },
-   { "rig.vfos", "2", "How many VFOs does the rig expose? (A-Z; 2 means only A and B exist)", DEFCONFIG_UINT, NULL },
    { "rig.instances", "rig0", "Configured rig aliases (space or comma separated)" },
    { "rig.default", NULL, "Default rig alias for CAT/media clients; required with multiple rigs" },
    { "rig:rig0.backend", "internal", "Backend for the default rig", DEFCONFIG_ENUM, "internal|hamlib" },

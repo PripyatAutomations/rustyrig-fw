@@ -276,17 +276,18 @@ int main(int argc, char **argv) {
       free((void *)masterdb_path);
       exit(EXIT_FAILURE);
    }
+   uint32_t default_vfo_mask = rr_rig_config_default_vfo_mask();
+   ws_set_authoritative_vfo_mask(default_vfo_mask);
    const char *rig_room = ws_authoritative_room();
    if (rig_room && *rig_room) {
-      int rig_vfos = cfg_get_int("rig.vfos", 2);
-      if (rig_vfos < 1) rig_vfos = 1;
-      if (rig_vfos > 32) rig_vfos = 32;
-      uint32_t rig_mask = rig_vfos == 32 ? UINT32_MAX : ((UINT32_C(1) << rig_vfos) - 1);
-      db_room_ensure(masterdb, rig_room, true, rig_mask);
+      db_room_ensure(masterdb, rig_room, default_vfo_mask != 0,
+         default_vfo_mask);
       char *existing_rig_vfos = db_room_vfo_list(masterdb, rig_room);
       if (!existing_rig_vfos || !*existing_rig_vfos) {
          db_room_vfo_add(masterdb, rig_room, "rig0.vfo_a");
-         if (rig_vfos > 1) db_room_vfo_add(masterdb, rig_room, "rig0.vfo_b");
+         if (default_vfo_mask & (UINT32_C(1) << VFO_B)) {
+            db_room_vfo_add(masterdb, rig_room, "rig0.vfo_b");
+         }
       }
       free(existing_rig_vfos);
    }

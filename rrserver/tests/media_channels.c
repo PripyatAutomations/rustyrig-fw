@@ -102,12 +102,11 @@ const char *rr_ptt_recording_file(rr_vfo_t vfo) {
 int main(void) {
    cfg = dict_new();
    assert(cfg);
-   dict_add_int(cfg, "rig.vfos", 3);
    media_channels_free();
 
    rrserver_media_init();
 
-   /* The configured three VFOs are provisioned as independent RX/TX pairs. */
+   /* The default backend's three VFOs are independent RX/TX pairs. */
    for (uint8_t vfo = 0; vfo < 3; vfo++) {
       struct rr_mediachan *rx = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
          RR_BINFRAME_DIR_RX, vfo, 0);

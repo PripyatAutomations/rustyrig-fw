@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
    assert(!strcmp(rr_rig_config_get("rig0", "vfos"), "A B"));
    assert(!strcmp(rr_rig_config_get("rig1", "backend"), "hamlib"));
    assert(!strcmp(rr_rig_config_get("rig1", "vfos"), "A B"));
+   assert(rr_rig_config_default_vfo_mask() == 3);
    assert(rr_rig_config_get_int("rig1", "hamlib.model", 0) == 2);
    assert(!strcmp(rr_rig_config_get("rig1", "hamlib.device"), "127.0.0.1:4532"));
    loaded = cfg_load(argv[1]);
@@ -52,6 +53,7 @@ int main(int argc, char **argv) {
    assert(rr_rig_config_get_int("second", "hamlib.baud", 0) == 9600);
    assert(!rr_rig_config_get("first", "hamlib.device"));
    assert(!rr_rig_config_get("invalid.alias", "backend"));
+   assert(rr_rig_config_default_vfo_mask() == 3);
    cfg_fini();
    puts("PASS: rig section parsing, shipped configuration, defaults, and isolation");
    return 0;

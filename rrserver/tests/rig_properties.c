@@ -9,6 +9,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/rig.compat.h>
 #include <rrserver/rig.properties.h>
+#include <rrserver/rig.vfo.h>
 
 time_t now = 100;
 bool dying;
@@ -23,6 +24,12 @@ static int broadcasts;
 static int direct_sends;
 static dict *last_cat_state;
 static rrconn_t talker = { .chatname = "W1TEST" };
+
+static bool count_vfo(rr_server_vfo_t *vfo, void *user) {
+   assert(vfo);
+   (*(size_t *)user)++;
+   return false;
+}
 
 void ws_broadcast_dict(rrconn_t *sender, dict *d, int data_type) {
    (void)sender;
@@ -96,6 +103,7 @@ static rr_control_result_t fake_control(const rr_control_request_t *request,
    assert(request);
    assert(request->rig == expected);
    assert(request->source && strcmp(request->source, "test") == 0);
+   assert(request->vfo == rr_server_vfo_find_alias(expected, "A"));
    assert(request->value_type == VAL_LONG);
    backend_requests++;
    snprintf(last_control_property, sizeof(last_control_property), "%s",
@@ -105,6 +113,11 @@ static rr_control_result_t fake_control(const rr_control_request_t *request,
 }
 
 static void define_fake_rig(rr_server_rig_t *rig) {
+   char uuid[64];
+   snprintf(uuid, sizeof(uuid), "%s-vfo-a", rr_server_rig_id(rig));
+   assert(rr_server_vfo_add(rig, uuid, "A", "A", RR_VFO_PERSISTENT));
+   snprintf(uuid, sizeof(uuid), "%s-vfo-b", rr_server_rig_id(rig));
+   assert(rr_server_vfo_add(rig, uuid, "B", "B", RR_VFO_PERSISTENT));
    assert(!rr_rig_define_vfo_properties(rig, 'A'));
    assert(!rr_rig_define_vfo_properties(rig, 'B'));
 
@@ -143,6 +156,28 @@ int main(void) {
    assert(strcmp(rr_server_rig_name(rig1), "FT-891 B") == 0);
    define_fake_rig(rig0);
    define_fake_rig(rig1);
+   assert(rr_server_vfo_count(rig0) == 2);
+   size_t iterated = 0;
+   assert(!rr_server_vfo_foreach(rig0, count_vfo, &iterated));
+   assert(iterated == 2);
+   rr_server_vfo_t *rig0_a = rr_server_vfo_find_alias(rig0, "A");
+   rr_server_vfo_t *rig0_b = rr_server_vfo_find_alias(rig0, "B");
+   rr_server_vfo_t *rig1_a = rr_server_vfo_find_alias(rig1, "A");
+   assert(rig0_a && rig0_b && rig1_a);
+   assert(rr_server_vfo_find_uuid(rig0, rr_server_vfo_id(rig0_a)) ==
+      rig0_a);
+   assert(strcmp(rr_server_vfo_id(rig0_a), rr_server_vfo_id(rig0_b)));
+   assert(strcmp(rr_server_vfo_id(rig0_a), rr_server_vfo_id(rig1_a)));
+   assert(rr_server_vfo_owner(rig0_a) == rig0);
+   assert(rr_server_vfo_lifecycle(rig0_a) == RR_VFO_PERSISTENT);
+   assert(!strcmp(rr_server_vfo_native_id(rig0_a), "A"));
+
+   rr_server_vfo_t *ephemeral = rr_server_vfo_add(rig1,
+      "ephemeral-vfo-c", "C", "C", RR_VFO_EPHEMERAL);
+   assert(ephemeral);
+   assert(rr_server_vfo_lifecycle(ephemeral) == RR_VFO_EPHEMERAL);
+   assert(!rr_server_vfo_remove(rig1, rr_server_vfo_id(ephemeral)));
+   assert(!rr_server_vfo_find_alias(rig1, "C"));
 
    char a_freq[RR_PROPERTY_NAME_MAX];
    char a_mode[RR_PROPERTY_NAME_MAX];
@@ -163,6 +198,9 @@ int main(void) {
    dict_value_t value = { .l = 14074000 };
    assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) ==
       RR_PROPERTY_CHANGED);
+   rr_property_snapshot_t canonical = { 0 };
+   assert(rr_vfo_property_read(rig0_a, RR_PROP_VFO_FREQUENCY, &canonical));
+   assert(canonical.known && canonical.value.l == 14074000);
    value.s = "USB";
    assert(rr_rig_property_observe(rig0, a_mode, VAL_STR, &value) ==
       RR_PROPERTY_CHANGED);
@@ -197,6 +235,17 @@ int main(void) {
    assert(snapshot.value.l == 14074000);
    snapshot = read_property(rig1, a_freq);
    assert(snapshot.value.l == 10136000);
+
+   /* Canonical VFO properties and legacy paths resolve to one value/version. */
+   value.l = 10137000;
+   assert(rr_vfo_property_observe(rig1_a, RR_PROP_VFO_FREQUENCY, VAL_LONG,
+      &value) == RR_PROPERTY_CHANGED);
+   canonical = read_property(rig1, a_freq);
+   assert(canonical.value.l == 10137000);
+   rr_property_snapshot_t direct = { 0 };
+   assert(rr_vfo_property_read(rig1_a, RR_PROP_VFO_FREQUENCY, &direct));
+   assert(direct.version == canonical.version);
+   snapshot = canonical;
 
    /* Re-observing an identical value is not a state change. */
    uint64_t version = snapshot.version;
@@ -261,7 +310,7 @@ int main(void) {
    snapshot = read_property(rig0, a_freq);
    assert(snapshot.value.l == 14074000);
    assert(backend_requests == 2);
-   assert(strcmp(last_control_property, a_freq) == 0);
+   assert(strcmp(last_control_property, RR_PROP_VFO_FREQUENCY) == 0);
    assert(last_control_frequency == 14200000);
 
    request.value_type = VAL_INT;
@@ -333,6 +382,14 @@ int main(void) {
    rr_cat_compat_free(compat);
    dict_free(last_cat_state);
    last_cat_state = NULL;
+
+   const char *removed_uuid = rr_server_vfo_id(rig0_b);
+   char removed_copy[64];
+   snprintf(removed_copy, sizeof(removed_copy), "%s", removed_uuid);
+   assert(!rr_server_vfo_remove(rig0, removed_copy));
+   assert(rr_server_vfo_count(rig0) == 1);
+   assert(rr_server_vfo_find_alias(rig0, "A") == rig0_a);
+   assert(!rr_server_vfo_find_uuid(rig0, removed_copy));
 
    rr_server_rig_free(rig1);
    rr_server_rig_free(rig0);

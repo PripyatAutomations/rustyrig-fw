@@ -278,32 +278,15 @@ static void media_setup_vfo(rr_vfo_t vfo) {
    media_chan_add(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, (uint8_t)vfo, 0, NULL, descr);
 }
 
-// Provision channels for every VFO the rig exposes (rig.vfos in config)
+// Provision legacy media channels for every VFO exposed by the default rig.
 void rrserver_media_init(void) {
-   int nvfos = cfg_get_int("rig.vfos", 2);
-
-   if (nvfos < 1) {
-      nvfos = 1;
-   }
-   if (nvfos > MAX_VFOS) {
-      nvfos = MAX_VFOS;
-   }
-   // Prefer the backend's own view of which VFOs exist (e.g. a Radioberry
-   // exposes 4 independent RX VFOs); fall back to the rig.vfos config when
-   // the backend can't answer yet.
    int made = 0;
 
-   for (int i = 0 ; i < nvfos ; i++) {
+   for (int i = VFO_A; i < MAX_VFOS; i++) {
       if (rr_be_vfo_supported( (rr_vfo_t)i) ) {
          media_setup_vfo( (rr_vfo_t)i);
          made++;
       }
-   }
-   if (made == 0) {
-      for (int i = 0 ; i < nvfos ; i++) {
-         media_setup_vfo( (rr_vfo_t)i);
-      }
-      made = nvfos;
    }
    Log(LOG_INFO, "ws.media", "Provisioned media channels for %d VFO(s)", made);
 }

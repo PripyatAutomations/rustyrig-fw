@@ -1,8 +1,8 @@
 # Rig property migration plan
 
-Status: Phase 2 implemented through the runtime rig registry/backend-instance
-stop point; awaiting review before any room, CAT-client, or later migration
-work.
+Status: Phase 3 implemented through first-class VFO ownership and named
+multi-rig configuration; awaiting review before discovery protocol, room,
+CAT-client, media, or later migration work.
 
 This document records the architecture investigation and the agreed stopping
 point for introducing a backend-neutral rig property layer. It is intended to
@@ -665,3 +665,177 @@ fake backend type, independent private/property state, correctly routed
 controls and observations, non-blocking polling failures, explicit default-rig-only
 publication, registry removal isolation, alias lookup, and persistent UUID
 reuse/differentiation.
+
+## Phase 3 server object graph and named configuration
+
+Phase 3 completes the internal server object graph without exposing it over a
+new wire protocol:
+
+    GlobalState
+      -> rr_rig_registry_t
+           -> rr_server_rig_t (canonical UUID, alias, display name)
+                -> rig property store
+                -> rr_backend_t instance and scoped config alias
+                -> rr_server_vfo_t (canonical UUID, alias A, native ID A)
+                     -> canonical VFO property store
+                -> rr_server_vfo_t (canonical UUID, alias B, native ID B)
+                     -> canonical VFO property store
+      -> rr_cat_compat_t borrowing the configured default rig
+
+A VFO belongs to exactly one rig. Its UUID is canonical; its display alias and
+backend-native ID are separate fields. Traditional backends currently use a
+single A-Z native ID adapter, leaving room for a display alias to change or for
+a future backend to use a different stable native identifier. A VFO is the
+common abstraction for physical VFOs and future SDR slices; there is no
+separate slice object.
+
+### VFO API and lifecycle
+
+`rrserver/rig.vfo.h` provides add/remove, UUID lookup, local alias lookup,
+iteration, count, identity/owner accessors, lifecycle access, and the
+traditional native-index adapter. Removing a rig destroys all of its VFOs and
+their property stores regardless of lifecycle.
+
+`RR_VFO_PERSISTENT` denotes configured or backend-native VFOs whose identity
+survives restart. `RR_VFO_EPHEMERAL` denotes runtime allocations, such as a
+future SDR slice, that receive a UUID for their lifetime but are not written to
+the identity database. Phase 3 does not allocate SDR VFOs.
+
+SQLite persists configured VFO identity as:
+
+    vfo_identities(
+       rig_uuid TEXT,
+       config_id TEXT,
+       uuid TEXT UNIQUE,
+       created_at DATETIME,
+       PRIMARY KEY(rig_uuid, config_id)
+    )
+
+`config_id` is the stable configuration/backend-native identity, not
+necessarily the display alias. `db_vfo_uuid_get_or_create()` reuses the UUID
+for a rig UUID plus config ID after restart. Different rigs can both own an
+alias/native ID `A` without collision because their canonical rig UUID scopes
+the mapping. Ephemeral VFO creation does not call this helper.
+
+### Canonical property ownership and compatibility paths
+
+VFO properties now have one canonical value in the VFO object's property
+store:
+
+    target UUID: <VFO UUID>
+    property: frequency | mode | width
+
+The old rig path `vfo.A.frequency` is a resolver: it finds local alias `A` and
+delegates to the same VFO property entry. It is not a second property or a
+copied value. Canonical and compatibility reads therefore return the same
+value, availability, and version. Property events identify the owning rig and
+canonical VFO target while retaining a compatibility path where applicable.
+
+Control normalization follows the same rule. A canonical request carries the
+VFO object and local property name. A legacy request carrying a rig plus
+`vfo.A.frequency` is resolved once by the property core, and the backend
+handler receives the owning rig, VFO object, and local `frequency` name.
+Backends never search a process-global current VFO.
+
+Rig-level properties remain in the rig property store. Future `rx.vfo` and
+`tx.vfo` values can therefore hold VFO UUIDs internally while the CAT adapter
+continues translating A/B for old clients. That selection migration is not
+performed in Phase 3.
+
+### Exact named-rig configuration
+
+The old `backend.active`, global Hamlib settings, and global `rig.vfos` syntax
+is replaced by a deterministic alias list plus scoped sections:
+
+    [general]
+    rig.instances=rig0 rig1
+    rig.default=rig0
+    rig.identity-namespace=my-stable-node-name
+
+    [rig:rig0]
+    name=FT-891
+    backend=hamlib
+    vfos=A B
+    state-interval=15
+    hamlib.model=2
+    hamlib.device=127.0.0.1:4532
+    hamlib.baud=38400
+    reconnect-interval=30
+
+    [rig:rig1]
+    name=Second radio
+    backend=hamlib
+    vfos=A B
+    state-interval=15
+    hamlib.model=2
+    hamlib.device=127.0.0.1:4533
+    hamlib.baud=38400
+    reconnect-interval=30
+
+Aliases use letters, digits, underscore, or hyphen. `rig.instances` order is
+configuration order only and is never canonical identity. Duplicate aliases,
+unknown backend types, unsupported/duplicate VFO aliases, missing VFO lists,
+and invalid `rig.default` references are startup errors. With one configured
+rig, an omitted `rig.default` selects that rig. Multiple rigs require an
+explicit default, preventing hash/list order from choosing compatibility
+behavior.
+
+The config parser stores section values as `rig:<alias>.<key>`, but backend
+implementations do not assemble those keys. Each backend receives its instance
+alias and uses `rr_backend_config_get*()` as its scoped view. Thus two Hamlib
+instances can independently configure model, device, baud, reconnect timing,
+and future backend options.
+
+### Startup and destruction
+
+Startup registers backend types, opens the persistent store, creates the rig
+registry, parses `rig.instances`, and then performs for each alias:
+
+1. Resolve the backend type and scoped values.
+2. Reuse/create the persistent rig UUID.
+3. Allocate the rig and its backend instance.
+4. Reuse/create each persistent VFO UUID.
+5. Add the VFO child and define its canonical properties.
+6. After all rigs succeed, resolve and install `rig.default` and its CAT
+   compatibility adapter.
+
+Any invalid rig or constructor failure aborts startup and destroys every rig,
+backend, VFO, property store, alias, and partially created registry entry.
+Normal shutdown frees the borrowing default CAT adapter first, then each
+backend, its VFO/property children, its rig, and finally the registry.
+
+### Compatibility boundary and remaining debt after Phase 3
+
+Only the configured default rig feeds `vfos[]`, `active_vfo`, `cat.state`, old
+rigctl controls, PTT/TOT, and legacy media channels. Inactive-VFO fallback and
+current FT-891 CAT semantics remain in that adapter. Hamlib's debug setting is
+still library-global, and Hamlib baud remains instance-owned but is not applied
+to NET rigctl connections.
+
+Room records remain intentionally unmigrated. Existing bindings such as
+`rig0.vfo_a` and the authoritative room's historical `-rig0` name contain
+aliases rather than canonical rig/VFO UUIDs. In particular, choosing a default
+alias other than `rig0` does not make those old binding strings canonical.
+Phase 4 must not reinterpret them by registry order; it should introduce room
+slot records that directly reference rig UUID and VFO UUID.
+
+Other remaining work includes generic width/power/PTT controls, UUID-valued
+RX/TX VFO selection, client discovery/subscription, dynamic VFO allocation,
+threading beyond the current event loop, and physical FT-891/reconnect/client
+validation on an attached station.
+
+### Discovery/property protocol recommendation
+
+The next protocol should expose typed objects rather than paths derived from
+aliases. Discovery should return rigs by UUID with alias, name, backend type,
+capabilities, and child VFO UUIDs; VFO records should include owning rig UUID,
+alias, native/display metadata, lifecycle, capabilities, and property
+descriptors. Snapshots and change events should carry target UUID, property
+name, type, availability, value, and version. Controls should use the same
+target UUID/property pair. Alias paths should appear only as explicit legacy
+compatibility fields.
+
+Discovery and property subscription should be completed before room slots are
+mapped, so room configuration can store canonical rig/VFO UUID references
+without defining a second identity scheme. No discovery messages, room
+mappings, CAT migration, or media redesign are part of Phase 3.
