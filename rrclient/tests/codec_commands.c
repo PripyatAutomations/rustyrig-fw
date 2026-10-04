@@ -73,6 +73,10 @@ int main(void) {
    assert(strstr(output, "NONE pc16 g722") && strstr(output, "rx-a") && !strstr(output, "tx-a"));
    char *bad[] = {"rxcodec", "xxxx"};
    assert(cmd_rxcodec(2, bad) && selected == 0);
+   // The GTK picker uses this same entry point. Display placeholders must
+   // never become codec-select requests, while its "none" ID unsubscribes.
+   assert(rrclient_media_select_codec(ws_conn, false, "----"));
+   assert(selected == 0 && unsubscribed == 0);
    char *set[] = {"rxcodec", "G722", "#2"};
    assert(!cmd_rxcodec(3, set));
    assert(selected == 1 && !strcmp(last_uuid, "rx-b") && !strcmp(last_codec, "g722"));

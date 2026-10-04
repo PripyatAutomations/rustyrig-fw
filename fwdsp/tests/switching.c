@@ -14,7 +14,17 @@ rrconn_t *http_client_list;
 static unsigned frames_received, decoded_samples;
 static bool feed_decoder = true;
 static const char *parent_pipeline;
+static const char *soak_codec;
+static void soak_pcm(const char *name, const void *data, size_t len, void *user) {
+   decoded_samples += len / 2;
+}
 const char *cfg_get(const char *key) {
+   if (soak_codec && !strncmp(key, "pipeline:", 9) &&
+       !strncmp(key + 9, soak_codec, 4) && !strcmp(key + 13, ".rx")) {
+      // The native client consumes the PCM hub tap, not the legacy direct
+      // playback branch which the older switching test replaces with appsink.
+      return !strncmp(soak_codec, "ogg", 3) ? FWDSP_OGGV_RX : FWDSP_PC16_RX;
+   }
    return !strcmp(key, "pipeline:pc1T.tx") ? parent_pipeline : NULL;
 }
 void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {
@@ -38,6 +48,11 @@ struct rr_mediachan *media_chan_find(uint8_t s, uint8_t d, uint8_t v, uint8_t r)
 bool ws_media_broadcast_subscribed(struct rr_mediachan *cp, const uint8_t *data,
    size_t len, const char codec[4]) {
    assert(!strncmp(codec, cp->codec, 4)); // no packets from retired encoders
+   if (soak_codec) {
+      frames_received++;
+      if (feed_decoder) assert(!fwdsp_write_samples(soak_codec, false, data, len));
+      return false;
+   }
    if (!strncmp(codec, "oggv", 4)) {
       if (len >= 4 && !memcmp(data, "OggS", 4)) {
          if (feed_decoder) assert(!fwdsp_write_samples("oggv", false, data, len));
@@ -115,6 +130,31 @@ int main(int argc, char **argv) {
    frames_received = 0;
    poll_for(1500);
    assert(frames_received >= 5 && encoder->refcount == 1);
+   // Optional long run for audio that stops after several minutes. Exercise
+   // the real child pipes and subscriber sweep while decoding continuously.
+   const char *soak = getenv("FWDSP_SOAK_SECONDS");
+   unsigned soak_seconds = soak ? (unsigned)atoi(soak) : 0;
+   soak_codec = getenv("FWDSP_SOAK_CODEC");
+   if (soak_seconds && soak_codec) {
+      cfg = dict_new();
+      dict_add(cfg, "fwdsp:pcm-hub", "true");
+      assert(fwdsp_codec_switch(old, soak_codec, true, "channel") >= 0);
+      assert(fwdsp_codec_switch(old, soak_codec, false, NULL) >= 0);
+      assert(fwdsp_codec_set_pcm_callback(soak_codec, NULL, soak_pcm, NULL));
+      snprintf(media_channels[0].codec, sizeof(media_channels[0].codec), "%s", soak_codec);
+      old = soak_codec;
+      encoder = fwdsp_find_channel_instance(old, true, "channel");
+      poll_for(1500);
+   }
+   for (unsigned second = 0; second < soak_seconds; second++) {
+      unsigned before_frames = frames_received, before_samples = decoded_samples;
+      fwdsp_sweep_expired();
+      poll_for(1000);
+      assert(frames_received >= before_frames + 5);
+      assert(decoded_samples >= before_samples + 1000);
+      assert(encoder->refcount == 1);
+   }
+   if (soak_seconds) fprintf(stderr, "PASS: %u seconds of uninterrupted encoded/decoded audio\n", soak_seconds);
    http_client_list = NULL;
    // Unexpected child death must release every descriptor/watcher too.
    struct fwdsp_subproc *decoder = fwdsp_find_instance(old, false);
@@ -125,6 +165,9 @@ int main(int argc, char **argv) {
    for (int i = 0; i < max_subprocs; i++) fwdsp_destroy(&fwdsp_subprocs[i]);
    poll_for(50);
    assert(!active_slots && !mg_mgr.conns);
+   soak_codec = NULL;
+   dict_free(cfg);
+   cfg = NULL;
    // The parent's resolved pipeline must override the child's config/defaults.
    // A finite source proves the override was used: the file has an endless tone.
    parent_pipeline = "audiotestsrc num-buffers=5 samplesperbuffer=320 is-live=true ! "

@@ -120,6 +120,19 @@ audio bridge still has one local pipeline per direction; the displayed codec
 prefers a subscribed channel on the active VFO. These controls do not add
 simultaneous decoding or mixing of multiple independent RX streams.
 
+The server validates explicit audio codecs on both subscribe-create and
+codec-select requests. `NONE` and the display placeholder `----` are never
+wire codecs, even if accidentally included in a configured codec list.
+
+For a sustained subprocess audio check without a sound device, run
+`FWDSP_SOAK_SECONDS=180 bash fwdsp/tests/test_switching.sh`. It checks
+continuous encoded frames and decoded PCM while running subscriber cleanup.
+Add `FWDSP_SOAK_CODEC=pc1T`, `oggT`, or `oggP` to exercise those test sources
+through the native PCM hub tap instead of the default Ogg playback check.
+Startup diagnostics must stay out of fwdsp's binary stdout: a frame length
+of 757935405 (`0x2d2d2d2d`) can be the log-filter banner, rather than a codec
+request. `fwdsp/tests/test_startup_stdout.sh` covers that failure path.
+
 ## Pipeline configuration
 
 The `[pipelines]` sections in `config/rrclient.cfg` and `config/rrserver.cfg`

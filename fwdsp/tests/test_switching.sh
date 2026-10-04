@@ -25,7 +25,7 @@ python3 - "$work/switching" "$work/test.cfg" <<'PYTHON'
 import os, signal, subprocess, sys
 proc = subprocess.Popen(sys.argv[1:], start_new_session=True)
 try:
-    result = proc.wait(timeout=90)
+    result = proc.wait(timeout=90 + int(os.environ.get('FWDSP_SOAK_SECONDS', '0')))
 finally:
     try:
         os.killpg(proc.pid, signal.SIGKILL)

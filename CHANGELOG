@@ -1,4 +1,9 @@
 rustyrig-fw (20261004.01) testing; urgency=medium
+  * Flush buffered fwdsp startup diagnostics before restoring binary stdout,
+    preventing log-filter banners from corrupting media frames on errors.
+  * Reject invalid/unnegotiated subscribe-create codecs before channel
+    creation; keep NONE and display placeholders out of codec requests.
+    Add startup, codec-validation, and optional sustained-audio regressions.
   * Serial streams are now recycled within a client session instead of
     requiring a reconnect after 255 opens: a stream number is retired only
     when its port closes with no block in flight (TX fully written), so a
