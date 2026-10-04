@@ -26,18 +26,17 @@ Requires: %{name}-libs = %{version}-%{release}, jq, sqlite, systemd
 Backend server for remote radio operation.
 
 %package client
-Summary: RustyRig GTK client
-Requires: %{name}-libs = %{version}-%{release}, gtk3, gstreamer1
-Conflicts: %{name}-client-tui
+Summary: RustyRig client (core, headless)
+Requires: %{name}-libs = %{version}-%{release}, glib2, gstreamer1
 %description client
-GTK client for accessing a RustyRig server.
-
-%package client-tui
-Summary: RustyRig terminal client
-Requires: %{name}-libs = %{version}-%{release}, ncurses
-Conflicts: %{name}-client
-%description client-tui
-Terminal-only RustyRig client.
+Core RustyRig client. Runs headless (TUI) by itself; the GTK interface
+ships separately in rustyrig-client-gtk as a loadable module.
+%package client-gtk
+Summary: RustyRig GTK client module
+Requires: %{name}-client = %{version}-%{release}, gtk3
+%description client-gtk
+GTK frontend for the RustyRig client, loaded from
+/var/lib/rustyrig/modules by the core client's [modules] configuration.
 
 %package fwdsp
 Summary: RustyRig GStreamer audio DSP service
@@ -56,8 +55,6 @@ Callsign lookup helper using local databases and the QRZ XML API.
 
 %build
 %make_build PROFILE=radio
-cp -f bin/rrclient rrclient-gtk
-%make_build PROFILE=radio USE_GTK=false BUILD_DIR=build/radio-tui bin/rrclient
 %make_build -C callsign-lookup
 
 %install
@@ -65,8 +62,8 @@ install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
 install -Dpm0755 tools/rr-get-audit-log %{buildroot}%{_bindir}/rr-get-audit-log
 install -Dpm0755 tools/rr-get-chat-log %{buildroot}%{_bindir}/rr-get-chat-log
 install -Dpm0755 tools/rr-get-ptt-log %{buildroot}%{_bindir}/rr-get-ptt-log
-install -Dpm0755 rrclient-gtk %{buildroot}%{_bindir}/rrclient
 install -Dpm0755 bin/rrclient %{buildroot}%{_bindir}/rrclient
+install -Dpm0755 bin/rrclient-gtk.so %{buildroot}%{_sharedstatedir}/rustyrig/modules/rrclient-gtk.so
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
 install -Dpm0755 bin/callsign-lookup %{buildroot}%{_bindir}/callsign-lookup
 install -Dpm0755 librustyaxe.so %{buildroot}%{_libdir}/librustyaxe.so.0
@@ -83,7 +80,10 @@ install -Dpm0644 config/ua-bans %{buildroot}%{_sysconfdir}/rustyrig/ua-bans.txt
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
 install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.preload.sql
 install -Dpm0755 tools/dummy-rigctld.sh %{buildroot}%{_sharedstatedir}/rustyrig/tools/dummy-rigctld.sh
-mkdir -p %{buildroot}%{_sharedstatedir}/rustyrig/{db,recordings,modems,www,help} %{buildroot}%{_localstatedir}/log/rustyrig
+mkdir -p %{buildroot}%{_sharedstatedir}/rustyrig/{db,recordings,modems,www,help}
+mkdir -p %{buildroot}%{_localstatedir}/log/rustyrig
+chown rustyrig:rustyrig %{buildroot}%{_localstatedir}/log/rustyrig
+chmod 0770 %{buildroot}%{_localstatedir}/log/rustyrig
 find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/www/ \;
 find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/help/ \;
 
@@ -114,15 +114,17 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %config(noreplace) %{_sysconfdir}/rustyrig/radio.config.json
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.srv.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/ua-bans.txt
+%dir %attr(0770,rustyrig,rustyrig) %{_localstatedir}/log/rustyrig
 %{_sharedstatedir}/rustyrig
 %files client
 %{_bindir}/rrclient
-%{_datadir}/applications/rustyrig-client.desktop
-%{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 %config(noreplace) %{_sysconfdir}/rustyrig/rrclient.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cli.cfg
-%files client-tui
-%{_bindir}/rrclient
+%dir %{_sharedstatedir}/rustyrig/modules
+%files client-gtk
+%{_sharedstatedir}/rustyrig/modules/rrclient-gtk.so
+%{_datadir}/applications/rustyrig-client.desktop
+%{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 %files fwdsp
 %{_bindir}/fwdsp
 %files callsign-lookup

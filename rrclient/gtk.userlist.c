@@ -728,3 +728,24 @@ GtkWidget *userlist_create(void) {
    userlist_redraw_gtk();
    return new_win;
 }
+
+// Called by the module shutdown path: stop the repeating room-VFO refresh
+// timers so no module callback can fire after the main loop unwinds.
+void gtk_userlist_stop_timers(void) {
+   if (rig_userlist_entry.refresh_id) {
+      g_source_remove(rig_userlist_entry.refresh_id);
+      rig_userlist_entry.refresh_id = 0;
+   }
+   if (room_userlist_views) {
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, room_userlist_views);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         room_userlist_entry_t *entry = value;
+         if (entry && entry->refresh_id) {
+            g_source_remove(entry->refresh_id);
+            entry->refresh_id = 0;
+         }
+      }
+   }
+}

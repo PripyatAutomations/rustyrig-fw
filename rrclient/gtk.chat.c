@@ -640,3 +640,13 @@ bool chat_init(void) {
 
    return false;
 }
+
+bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
+   (void)button;
+   const gchar *text = gtk_entry_get_text(GTK_ENTRY(entry));
+   if (text && *text) {
+      parse_chat_input_real(text);
+      gtk_entry_set_text(GTK_ENTRY(entry), "");
+   }
+   return false;
+}

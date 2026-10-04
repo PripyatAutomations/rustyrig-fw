@@ -30,6 +30,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/audio.h>
 #include <rrclient/cmd.h>
+#include <rrclient/frontend.h>
 #include <rrclient/ui.h>
 
 extern bool dying;
@@ -41,7 +42,6 @@ extern const char *config_file;
 extern dict *cfg;
 extern dict *default_cfg;
 extern defconfig_t defcfg[];
-extern bool ui_confirm_quit(void);
 void rrclient_print_callsign_line(const char *line);
 
 static const char *cmd_set_type_name(defconfig_type_t type) {
@@ -367,19 +367,18 @@ void rrclient_print_callsign_line(const char *line) {
 bool cmd_clear(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
       tui_clear_scrollback( tui_active_window() );
-   } else if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      gtk_text_buffer_set_text(text_buffer, "", -1);
-#endif
+   } else if (frontend_ops()) {
+      frontend_ops()->chat_clear();
    }
 
    return false;
 }
 
 bool cmd_clearlog(int argc, char **args) {
-#ifdef	USE_GTK
-   syslog_clear();
-#endif
+   (void)argc; (void)args;
+   if (frontend_ops()) {
+      frontend_ops()->syslog_clear();
+   }
    return false;
 }
 
@@ -397,18 +396,13 @@ bool cmd_save(int argc, char **args) {
       }
    }
 
-#ifdef USE_GTK
-   if (ui_mode == UI_MODE_GTK && !confirmed) {
-      GtkWindow *parent = NULL;
-      if (main_window && GTK_IS_WINDOW(main_window)) parent = GTK_WINDOW(main_window);
-      if (!ui_confirm_dialog(parent,
+   if (frontend_ops() && frontend_ops()->confirm_dialog && !confirmed) {
+      if (!frontend_ops()->confirm_dialog(
             "Save configuration to ~/.config/rrclient.cfg?\nThe existing file will be backed up."))
          return false;
-      confirmed = true;
-   }
-#endif
-
-   if (ui_mode == UI_MODE_TUI && !confirmed) {
+         confirmed = true;
+      }
+      if (ui_mode == UI_MODE_TUI && !confirmed) {
       ui_print(ui_active_window_name(),
          "Save configuration to ~/.config/rrclient.cfg? Existing config will be backed up. "
          "Run /save yes to confirm.");
@@ -456,12 +450,11 @@ bool cmd_quit(int argc, char **args) {
       quitmsg = args[first_arg];
    }
 
-#ifdef	USE_GTK
-   // Confirm before quitting in GTK mode
-   if (ui_mode == UI_MODE_GTK && !confirmed && !ui_confirm_quit() ) {
+   // Confirm before quitting with a frontend
+   if (frontend_ops() && frontend_ops()->confirm_quit &&
+       !confirmed && !frontend_ops()->confirm_quit() ) {
       return false;
    }
-#endif	// USE_GTK
 
    ui_print(ui_active_window_name(), "{bright-cyan}Seeya soon, have a great day!{reset}");
 
@@ -492,10 +485,8 @@ bool cmd_rxvol(int argc, char **args) {
 
    if (ui_mode == UI_MODE_TUI) {
       // do stuff
-   } else if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      gtk_range_set_value(GTK_RANGE(rx_vol_slider), val);
-#endif
+   } else if (frontend_ops()) {
+      frontend_ops()->rx_volume(val);
       ui_print(ui_active_window_name(), "* Set rx-vol to %d", val);
    }
 

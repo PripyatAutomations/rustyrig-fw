@@ -1,6 +1,9 @@
 #include <assert.h>
 #include "rrclient/vfo.c"
 #include "rrclient/ui.statusbar.c"
+// The frontend ops table: the test runs headless, so a NULL ops table is
+// exactly what vfo_update_ui must handle.
+#include "rrclient/frontend.c"
 
 bool dying, restarting;
 time_t now;

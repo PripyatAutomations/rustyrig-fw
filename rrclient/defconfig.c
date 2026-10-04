@@ -36,11 +36,26 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
-#ifdef	USE_GTK
-// Default GTK CSS for the client UI. It is a compiled-in fallback; users
-// customize the UI in the [gtk-css] section of the config file, which can be
-// reloaded at runtime with /css-reload.
-// Use dark green with bold white text so the online/PTT buttons are readable
+#define	DEFAULT_CSS \
+   /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
+   "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
+   "label { font-family: \"Sans\"; font-size: 11pt; }\n" \
+   "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
+   "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
+   "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
+   "#room-vfo-frequency { font-family: \"Monospace\"; font-size: 16pt; font-weight: bold; }\n" \
+   ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
+   ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
+   ".ptt-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
+   ".ptt-offline { background: #555555; color: white; font-weight: bold; }\n" \
+   ".ptt-tot { background: #e07000; color: black; font-weight: bold; }\n" \
+   ".conn-active { background: #0a7a0a; color: white; font-weight: bold; }\n" \
+   ".conn-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
+   ".conn-idle { background: #b00000; color: white; font-weight: bold; }\n" \
+   "/* Userlist flag icons (👑⭐👤👀🎤🙊🧙🐣): size the columns/cells here */\n" \
+   "#userlist-tree, #userlist-tree.userlist-icon { font-family: \"Sans\"; font-size: 12pt; }"
+
+
 #define	DEFAULT_CSS \
    /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
    "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
@@ -61,7 +76,6 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
    "#userlist-tree, #userlist-tree.userlist-icon { font-family: \"Sans\"; font-size: 12pt; }"
 
 const char *default_css = DEFAULT_CSS;
-#endif	// USE_GTK
 
 defconfig_t defcfg[] = {
    FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE)
@@ -92,7 +106,7 @@ defconfig_t defcfg[] = {
    { "fwdsp:pcm-hub", "true", "Route decoded client RX PCM to sink.client.dsp0", DEFCONFIG_BOOL, NULL },
    { "site:coordinates", NULL, "Station coordinates as latitude,longitude (optional)" },
    { "site:gridsquare", NULL, "Station Maidenhead grid square (optional)" },
-   { "path.modules", "./modules", "Where to store modules" },
+   { "path.modules", "/var/lib/rustyrig/modules", "Where to find loadable modules" },
    { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit", DEFCONFIG_UINT, NULL },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
    { "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, "Top row template with live ${variable} and {color} escapes" },

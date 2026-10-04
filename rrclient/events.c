@@ -23,37 +23,20 @@
 #include <rrclient/rooms.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
-#ifdef USE_GTK
-#include <rrclient/gtk.chat.h>
-#endif
+#include <rrclient/frontend.h>
 
 extern const char *login_user;   // from connman.c
 extern char session_token[HTTP_TOKEN_LEN + 1];
-#ifdef	USE_GTK
-extern int cfg_ui_ptt_ack_timeout;   // gtk.ptt-btn.c
-extern void ptt_button_tot_expired(int tot_secs);   // gtk.ptt-btn.c
-extern GtkWidget *freq_entry, *log_view, *main_window, *ptt_button;
-#endif	// USE_GTK
 
 extern int ws_connected;        // in librustyaxe/tui.window.c BUT belongs in rrclient!
 bool cfg_ui_bell_chat = false;
 static tui_window_t *rrclient_tui_room_window(const char *room, bool create);
 
 void rrclient_update_connection_ui(int connected) {
-#ifdef	USE_GTK
-   if (!conn_button) {
-      return;
-   }
-#endif
-
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
-   if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      update_connection_button(connected, conn_button);
-#endif	// USE_GTK
-   } else if (ui_mode == UI_MODE_TUI) {
-     // Set the status line contents
+   if (frontend_ops()) {
+      frontend_ops()->conn_button_update(connected);
    }
 }
 
@@ -114,17 +97,15 @@ static void rrclient_set_offline(void) {
    userlist_clear_all();
    rrclient_rooms_clear();
 
-#ifdef	USE_GTK
-   if (ui_mode == UI_MODE_GTK) {
+   if (frontend_ops()) {
       // PTT button goes back to dark grey while offline
-      ptt_button_set_online(false);
+      frontend_ops()->ptt_set_online(false);
 
       // Hide the userlist again when we disconnect
       if (cfg_get_bool("ui.auto-show-userlist", true)) {
-         userlist_set_visible(false);
+         frontend_ops()->userlist_set_visible(false);
       }
    }
-#endif
 
    if (!ws_conn) {
       return;
@@ -156,11 +137,9 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
    snprintf(my_msg, sizeof(my_msg), "*** ALERT ***\nFrom: %s\nnMessage:\n\t%s", msg_from, msg_data);
    Log(LOG_INFO, "proto.alert", "*** ALERT From: %s --- ***", msg_from, msg_data);
 
-   if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      ui_message_bell();
-      alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, my_msg);
-#endif
+   if (frontend_ops()) {
+      frontend_ops()->bell();
+      frontend_ops()->alert(my_msg);
    }
    dict_free(d);
 }
@@ -199,11 +178,9 @@ static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_
          (tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
    }
 
-#ifdef	USE_GTK
-   if (ui_mode == UI_MODE_GTK) {
-      ptt_button_tot_expired(tot_secs);
+   if (frontend_ops()) {
+      frontend_ops()->ptt_tot_expired(tot_secs);
    }
-#endif
 }
 
 static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -372,27 +349,23 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          if (active && active->title[0] && strcasecmp(active->title, "status") != 0)
             output_room = active->title;
       }
-#ifdef USE_GTK
-      else if (ui_mode == UI_MODE_GTK) {
-         output_room = gtk_chat_current_room();
+      else if (frontend_ops()) {
+         output_room = frontend_ops()->chat_current_room();
       }
-#endif
    }
    if (private_msg && from && login_user && strcmp(from, login_user) != 0)
       output_room = from;
    if (ui_mode == UI_MODE_TUI && output_room) {
       rrclient_tui_room_window(output_room, true);
    }
-#ifdef USE_GTK
-   if (ui_mode == UI_MODE_GTK && output_room &&
+   if (frontend_ops() && output_room &&
        strcasecmp(output_room, ws_authoritative_room()) != 0) {
       /* talk.target is also used for private messages.  Treat an unseen
        * target as a conversation tab so private replies are not dumped into
        * the rig room. */
-      if (private_msg) gtk_chat_query_add(output_room);
-      else gtk_chat_room_add(output_room);
+      if (private_msg) frontend_ops()->chat_query_add(output_room);
+      else frontend_ops()->chat_room_add(output_room);
    }
-#endif
 
    if (msg_cmd && strcasecmp(msg_cmd, "replay-start") == 0) {
       ui_print(output_room, "{red}>>>{reset} Start of chat chat replay. {red}<<<{reset}");
@@ -451,29 +424,22 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
          ui_print( NULL, "%s *** {green}Connected, logging in as %s{reset} ***", get_chat_ts(now), login_user );
       }
       rrclient_update_connection_ui(-1);
-#ifdef	USE_GTK
-      if (ui_mode == UI_MODE_GTK) {
-         ptt_button_set_online(true);   // button turns green once we're online
-         /* The authoritative room has not necessarily arrived yet.  Its
-          * chat-tab construction creates and docks the room userlist; do not
-          * create a provisional detached window during connection setup. */
+      if (frontend_ops()) {
+         frontend_ops()->ptt_set_online(true);   // button turns green once we're online
       }
-#endif
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
       ui_print( NULL, "%s *** {green}Logged in!{reset} ***", get_chat_ts(now) );
       rrclient_update_connection_ui(1);
-#ifdef	USE_GTK
-      ptt_button_set_online(true);
-#endif
+      if (frontend_ops()) {
+         frontend_ops()->ptt_set_online(true);
+      }
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
       rrclient_set_offline();
-#ifdef	USE_GTK
-      if (ui_mode == UI_MODE_GTK && cfg_get_bool("ui.auto-show-userlist", true)) {
-         userlist_set_visible(false);
+      if (frontend_ops() && cfg_get_bool("ui.auto-show-userlist", true)) {
+         frontend_ops()->userlist_set_visible(false);
       }
-#endif
    } else if (strcasecmp(event, "http.error") == 0) {
       // Fatal connection-level error (MG_EV_ERROR, cli.main.c) - the conn is gone
       const char *err = NULL;
@@ -485,11 +451,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             dict_free(d);
          }
       }
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) {
-         gtk_chat_show_status();
+      if (frontend_ops()) {
+         frontend_ops()->chat_show_status();
       }
-#endif
       if (err) {
          ui_print(NULL, "%s {red}*** Unable to reach server: %s{reset}", get_chat_ts(now), err);
       } else {
@@ -528,20 +492,12 @@ static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *
       return;
    }
    dict *d = json2dict(data);
-   long freq = dict_get_long(d, "cat.state.freq", 0);
-
-   if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
-      GtkWidget *entry = freq_entry;
-      GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
-
-      if ( !gtk_freq_entry_is_editing(fe) ) {
-         gtk_freq_entry_set_frequency(fe, freq);
+      long freq = dict_get_long(d, "cat.state.freq", 0);
+      if (frontend_ops()) {
+         frontend_ops()->freq_set(freq);
       }
-#endif // defined(USE_GTK)
+      dict_free(d);
    }
-   dict_free(d);
-}
 
 static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
    if (!room || !*room) return tui_window_find("status");
@@ -573,14 +529,10 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
          rrclient_room_set_vfo_mask(m_room,
             has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
-#ifdef USE_GTK
-         if (ui_mode == UI_MODE_GTK) userlist_room_vfos_changed(m_room);
-#endif
+         if (frontend_ops()) frontend_ops()->userlist_room_vfos_changed(m_room);
          if (has_vfos) {
             ws_set_authoritative_room(m_room);
-#ifdef USE_GTK
-            if (ui_mode == UI_MODE_GTK) gtk_chat_set_authoritative_room(m_room);
-#endif
+            if (frontend_ops()) frontend_ops()->chat_set_authoritative_room(m_room);
          }
          rrclient_room_join(m_room);
          if (ui_mode == UI_MODE_TUI) {
@@ -592,10 +544,8 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
        * carry the complete per-room user state. */
       if (m_user && (!login_user || strcasecmp(m_user, login_user) != 0))
          userlist_add_or_update(d);
- #ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK && m_user && login_user &&
-          strcasecmp(m_user, login_user) == 0) gtk_chat_room_add(m_room);
- #endif
+      if (frontend_ops() && m_user && login_user &&
+          strcasecmp(m_user, login_user) == 0) frontend_ops()->chat_room_add(m_room);
       ui_print(m_room, "%s * %s joined room %s", get_chat_ts(m_ts), m_user, m_room);
       dict_free(d);
       return;
@@ -618,9 +568,7 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
    const char *vfos = dict_get(d, "talk.vfos", "");
    if (room) {
       rrclient_room_set_vfos(room, vfos);
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) userlist_room_vfos_changed(room);
-#endif
+      if (frontend_ops()) frontend_ops()->userlist_room_vfos_changed(room);
       ui_print(room, "{yellow}Room %s VFOs:{reset} %s", room, *vfos ? vfos : "(none)");
    }
    dict_free(d);
@@ -666,12 +614,9 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
          tui_window_t *window = rrclient_tui_room_window(room, true);
          if (window) snprintf(window->status_line, sizeof(window->status_line), "%s", topic);
       }
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) {
-         gtk_chat_room_set_topic(room, topic);
-      } else
-#endif
-      if (query)
+      if (frontend_ops()) {
+         frontend_ops()->chat_room_topic(room, topic);
+      } else if (query)
          ui_print(room, "{yellow}Topic:{reset} %s", *topic ? topic : "(none)");
       else if (from && *from && (!login_user || strcasecmp(from, login_user) != 0))
          ui_print(room, "{yellow}Topic changed by %s:{reset} %s", from,
@@ -701,9 +646,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
    if (room) {
       userlist_remove_room(room);
       rrclient_room_part(room);
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) gtk_chat_room_remove(room);
-#endif
+      if (frontend_ops()) frontend_ops()->chat_room_remove(room);
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = tui_window_find(room);
          if (window) tui_window_destroy(window);
@@ -730,9 +673,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
       strcmp(session, session_token) == 0;
    if (room && is_self) {
       rrclient_room_part(room);
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) gtk_chat_room_remove(room);
-#endif
+      if (frontend_ops()) frontend_ops()->chat_room_remove(room);
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = tui_window_find(room);
          if (window) tui_window_destroy(window);
@@ -744,21 +685,11 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
 }
 
 static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *cptr, void *user) {
-#ifdef	USE_GTK
-   if (!mode_combo) {
+   (void)event; (void)cptr; (void)user;
+   if (!data || !frontend_ops()) {
       return;
    }
-#endif
-   if (!data) {
-      return;
-   }
-   const char *mode = (const char *)data;
-
-   if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
-#endif	// USE_GTK
-   }
+   frontend_ops()->mode_set((const char *)data);
 }
 
 // Generic ws.msg.talk listener: the specific commands are dispatched by
@@ -777,9 +708,7 @@ static const char *rrclient_replay_room(dict *d) {
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0)
          return window->title;
    }
-#ifdef USE_GTK
-   if (ui_mode == UI_MODE_GTK) return gtk_chat_current_room();
-#endif
+   if (frontend_ops()) return frontend_ops()->chat_current_room();
    return NULL;
 }
 
@@ -796,9 +725,7 @@ static void rrclient_handle_chat_replay(const char *event, const char *data, rrc
    const char *cmd = dict_get(d, "talk.cmd", NULL);
    const char *room = rrclient_replay_room(d);
    if (room && ui_mode == UI_MODE_TUI) rrclient_tui_room_window(room, true);
-#ifdef USE_GTK
-   if (room && ui_mode == UI_MODE_GTK) gtk_chat_room_add(room);
-#endif
+   if (room && frontend_ops()) frontend_ops()->chat_room_add(room);
 
    if (cmd && strcasecmp(cmd, "replay-start") == 0) {
       ui_print(room, "{red}>>>{reset} Start of chat replay. {red}<<<{reset}");
@@ -828,9 +755,7 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
       const char *cmd = dict_get(d, "talk.cmd", NULL);
       const char *room = rrclient_replay_room(d);
       if (room && ui_mode == UI_MODE_TUI) rrclient_tui_room_window(room, true);
-#ifdef USE_GTK
-      if (room && ui_mode == UI_MODE_GTK) gtk_chat_room_add(room);
-#endif
+      if (room && frontend_ops()) frontend_ops()->chat_room_add(room);
 
       if (cmd && strcasecmp(cmd, "replay-start") == 0) {
          ui_print(room, "%s {red}>>>{reset} Start of chat replay. {red}<<<{reset}", get_chat_ts(msg_ts));
@@ -1158,6 +1083,8 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
 }
 
 void rrclient_register_events(void) {
+   extern void rrclient_objects_register_events(void);
+   rrclient_objects_register_events();
    extern void rrclient_media_register_events(void);   // media.c
    rrclient_media_register_events();
 

@@ -30,10 +30,7 @@
 
 extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
-#ifdef USE_GTK
-extern void codec_picker_set_active(bool is_tx, const char *codec);
-#include <rrclient/gtk.chat.h>
-#endif
+#include <rrclient/frontend.h>
 
 /* Media command replies belong with the conversation that requested them.
  * Falling back to NULL sends them to the TUI status window, which makes a
@@ -356,11 +353,11 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          }
          media_try_autosubscribe(ws_conn, kp);
          media_sync_audio();
-#ifdef USE_GTK
-         if (media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
-            codec_picker_set_active(kp->direction == RR_BINFRAME_DIR_TX, kp->codec);
+         if (frontend_ops() &&
+             media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
+            frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX,
+               kp->codec);
          }
-#endif
       }
    }
 }
@@ -396,12 +393,11 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
          snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
       }
       media_sync_audio();
-#ifdef USE_GTK
-      if (media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
-         codec_picker_set_active(kp->direction == RR_BINFRAME_DIR_TX,
+      if (frontend_ops() &&
+          media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
+         frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX,
             (unsub ? NULL : kp->codec));
       }
-#endif
       Log(LOG_INFO, "ws.media", "Media subscription %s: %s (codec %s)",
          (unsub ? "removed" : "confirmed"), kp->uuid, (kp->codec[0] ? kp->codec : "none") );
    }

@@ -19,19 +19,13 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
+#include <rrclient/frontend.h>
 
 void ui_message_bell(void) {
-#ifdef	USE_GTK
-   if (!chat_textview) {
+   if (frontend_ops() && frontend_ops()->bell) {
+      frontend_ops()->bell();
       return;
    }
-
-   GdkDisplay *display = gtk_widget_get_display(chat_textview);
-   if (display) {
-      gdk_display_beep(display);
-   }
-#else	// USE_GTK
    fprintf(stdout, "\a");
    fflush(stdout);
-#endif	// USE_GTK
 }

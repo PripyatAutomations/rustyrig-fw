@@ -1,4 +1,97 @@
+rustyrig-fw (20261004.06) testing; urgency=medium
+  * Module shutdown now removes the module's repeating GLib sources (1hz
+    clock, per-room userlist refresh timers, window configure debounces)
+    and destroys all windows before unload, so no module code can run after
+    the main loop returns.
+  * New librustyaxe event-token lifecycle test (test_event_tokens) covering
+    register, deliver, unregister, double-unregister, self-unregister,
+    token identity, stale tokens after wildcard removal and re-registration.
+  * doc/client-modules.md documents module config, lifecycle, teardown
+    ordering, and the hot-reload limitation.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+rustyrig-fw (20261004.05) testing; urgency=medium
+  * Packaging: split the GTK frontend into its own package so only it pulls
+    GTK deps. New rustyrig-client-gtk (Debian) / rustyrig-client-gtk (Arch,
+    RPM) ships bin/rrclient-gtk.so in /var/lib/rustyrig/modules; the core
+    rustyrig-client package no longer depends on GTK. The obsolete
+    rustyrig-client-tui package is dropped: the core client IS the TUI.
+  * The GTK/TUI double build (USE_GTK=false rebuild) is gone from debian
+    rules, the Arch PKGBUILD and the RPM spec; one PROFILE=radio build now
+    produces both the core client and the module.
+  * path.modules defaults to /var/lib/rustyrig/modules and the shipped
+    rrclient.cfg enables the GTK module via the [modules] section; -T or
+    an empty [modules] section gives the headless TUI client.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+rustyrig-fw (20261004.04) testing; urgency=medium
+  * rrclient GTK frontend is now a dynamically loaded module
+    (bin/rrclient-gtk.so). Core rrclient no longer links GTK; the module is
+    resolved against the -rdynamic executable at dlopen.
+  * librustyaxe: opaque event tokens (event_on_token/event_off_token) with
+    safe repeated unregister; module ABI gains rr_module_init/
+    rr_module_shutdown and a working rr_unload_module.
+  * librustyaxe/cfg.modules.[ch]: [modules] config section shared by all
+    programs (name[.so]=options, empty options valid). rrclient loads its
+    frontend from it; falls back to TUI when the module is missing or its
+    init fails, or when -T is given.
+  * New rrclient/frontend.h host API: core-to-frontend calls go through a
+    registered ops table and are no-ops without a frontend; the GTK module
+    talks back to the core only via the event bus.
+  * GTK-only settings (tabstrip, vfo-on-top, fullscreen, default CSS) moved
+    into the module with its own config-refresh hook.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+rustyrig-fw (20261004.03) testing; urgency=medium
+  * Packaging: create /var/log/rustyrig owned by rustyrig:rustyrig in debian
+    rules, the Arch PKGBUILD and the RPM spec.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+rustyrig-fw (20261004.02) testing; urgency=medium
+  * Apply each rig's hamlib.baud to its Hamlib connection (serial devices;
+    rigctld/network endpoints ignore it), so model/ip/port and model/serial
+    port/baud endpoints are fully honored per rig section on one server.
+  * Document multi-rig Hamlib endpoint configuration in rrserver.cfg.example
+    and QUICKSTART.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+rustyrig-fw (20261004.01) testing; urgency=medium
+  * Expose UUID-addressed node/rig/VFO discovery, typed property schema/state,
+    bounded-batch snapshots, lifecycle/observation events and generic controls
+    alongside the default-rig legacy protocol, without optimistic SET state.
+  * Add synchronized native and browser object caches and /objects/native or
+    rrObjectsDump()/browser diagnostics; keep existing UI/CAT paths unchanged.
+  * Persist node identity and fail configured-object startup on identity
+    database errors rather than silently generating replacement UUIDs.
+  * Add wire/cache regression tests and real loopback WebSocket validation
+    with simultaneous internal and dummy-Hamlib rigs, control routing,
+    disconnect/reconnect, persistence and default compatibility isolation.
+  * Document the Phase 4 protocol, consistency rules and Phase 5 stop point.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 04 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261003.02) testing; urgency=medium
+  * Validate live multi-rig operation with real internal/Hamlib backends,
+    NET rigctl, persistent UUID restart, and default-only CAT isolation.
+  * Mark all Hamlib VFO properties unavailable on connection loss while
+    preserving last-known values, and keep a non-default rig's disabled
+    reconnect policy from shutting down the other rigs.
+  * Log configured VFO identities and scoped Hamlib connection settings at
+    startup; add a registry/property diagnostic independent of client UI.
+  * Completed named multirig server configuration, registered rig sections at
+    startup, and supplied default rig/VFO settings for omitted configuration.
+  * Added rig1 using Hamlib NET rigctl model 2 at localhost:4532, with rig0
+    retained as the default rig.
+  * Renamed the multirig selector to rig.default and used default-rig names
+    throughout its registry, CAT adapter ownership, logs, and configuration.
+  * Migrated multirig and rig-property regression fixtures to owned VFO
+    objects, current backend callback signatures, and normalized controls.
+  * Added first-class rig-owned VFO objects with canonical UUIDs, explicit
+    persistent/ephemeral lifecycle, local aliases, native IDs, and collection
+    lookup/iteration/removal APIs.
+  * Made frequency, mode, and width canonical VFO-owned properties while
+    retaining vfo.A.* as a resolver onto the same value and version.
+  * Persisted configured VFO UUIDs by rig UUID and stable config/native ID,
+    with restart and cross-rig alias-isolation coverage.
+  * Replaced the obsolete global rig.vfos and backend selection settings with
+    scoped [rig:<alias>] backend configuration and runtime default-rig VFOs.
+  * Added full two-rig startup, scoped backend configuration, duplicate/invalid
+    configuration, and partial-construction cleanup regression coverage.
   * Many TUI drawing fixes
   * Restored cooked input, blocking stdin, cursor, colors, keypad, mouse, focus,
     paste, margins, and scroll-region terminal state when the TUI exits.
@@ -14,6 +107,24 @@ rustyrig-fw (20261003.02) testing; urgency=medium
   * Install the log-query tools and build-profile configuration with native
     packages, using /etc/rustyrig outside a source checkout.
   * Namespace the installed log-query commands as rr-get-*-log.
+  * Document the inspected rig-property architecture and the review boundary
+    for the planned Hamlib migration before room mappings or CAT depend on it.
+  * Added explicit per-rig typed property ownership, observations, change
+    events, and a central typed control request path with two-rig isolation
+    and unavailable/last-known-state regression coverage.
+  * Moved Hamlib `cat.state` generation, diff suppression, and initial client
+    state into a temporary server compatibility adapter while preserving the
+    FT-891 partial-read behavior and existing wire output.
+  * Restored Hamlib compilation in the radio build profile so its migrated path
+    is built and linked by the normal release configuration.
+  * Added a UUID-addressed runtime rig registry with independently allocated
+    backend instances, iteration, lookup, removal, and ordered destruction.
+  * Moved all per-radio Hamlib and internal-backend runtime state into backend
+    instances and made polling and typed controls route through the target rig.
+  * Persist configured rig UUIDs by identity namespace and alias in SQLite,
+    while keeping old single-radio configuration as implicit alias rig0.
+  * Restricted legacy vfos[] and cat.state publication to an explicitly
+    selected default rig and added same-backend multirig isolation tests.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 03 Oct 2026 00:00:00 -0400
 

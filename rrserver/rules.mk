@@ -1,5 +1,6 @@
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
+rrserver_objs += objects.o
 bins += ${rrserver}
 
 rrserver_headers += $(wildcard rrserver/*.h)
@@ -12,6 +13,8 @@ rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
 rrserver_objs += audit.o		# Store LOG_AUDIT Log() messages in the audit_log db table
 rrserver_objs += backend.o		# Interface to various backends
+rrserver_objs += backend.instance.o	# Allocated backend instance lifecycle
+rrserver_objs += backend.register.o	# Build-selected backend type registration
 rrserver_objs += backend.hamlib.o	# Hamlib backend for posix hosts
 rrserver_objs += backend.internal.o	# Internal backend for real radios (rustyrig-fw)
 rrserver_objs += channels.o		# Channel Memories
@@ -32,6 +35,10 @@ rrserver_objs += mqtt.o			# MQTT client/server support
 rrserver_objs += network.o		# Network management/config for embedded hosts
 rrserver_objs += protection.o		# Protection features
 rrserver_objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
+rrserver_objs += rig.compat.o		# Default-rig cat.state adapter
+rrserver_objs += rig.config.o		# Named rig configuration sections/views
+rrserver_objs += rig.properties.o	# Per-rig typed property state/control
+rrserver_objs += rig.registry.o		# UUID-addressed runtime rig collection
 rrserver_objs += thermal.o		# Thermal management
 rrserver_objs += timer.o		# Timers support
 rrserver_objs += timer.clocktick.o	# Our 1hz timer

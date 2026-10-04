@@ -23,6 +23,7 @@
 
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
+#include <rrserver/rig.properties.h>
 #include <rrserver/ptt.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
@@ -348,6 +349,17 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    rr_freq_set(vfo, rc_freq);
    dict_free(d);
+}
+
+/* The generic property event is currently an internal observation stream.
+ * Register it explicitly so it does not fall through the NOMATCH warning
+ * handler while the future generic client protocol adapter is still pending. */
+static void rrserver_handle_rig_property_changed(const char *event,
+   const char *data, rrconn_t *cptr, void *user) {
+   (void)cptr;
+   (void)user;
+   Log(LOG_CRAZY, "rig.property", "%s: %s", event,
+      data ? data : "(null)");
 }
 
 
@@ -1317,6 +1329,8 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 }
 
 void rrserver_register_events(void) {
+   extern void rrserver_objects_register_events(void);
+   rrserver_objects_register_events();
    extern void rrserver_media_register_events(void);   // media.c
    rrserver_media_register_events();
    Log(LOG_CRAZY, "events", "Registering rrserver events");
@@ -1334,6 +1348,8 @@ void rrserver_register_events(void) {
    event_on("rehash", rrserver_handle_rehash, NULL);
    event_on("rig.ptt", rrserver_handle_rig_ptt_off, NULL);
    event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
+   event_on(RR_PROPERTY_CHANGED_EVENT,
+      rrserver_handle_rig_property_changed, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("room.join", rrserver_handle_room_join, NULL);
    event_on("room.add", rrserver_handle_room_add, NULL);

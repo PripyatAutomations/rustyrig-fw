@@ -56,6 +56,7 @@
    },
    "backend": {
       "active": "internal",
+      "hamlib": "true",
       "hamlib-debug": "warn",
       "hamlib-model": 2,
       "hamlib-baud": 38400,

@@ -5,7 +5,9 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
+#include <unistd.h>
 #include <sqlite3.h>
+#include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/auth.h>
@@ -99,6 +101,77 @@ int main(void) {
    assert(db_quota_get(NULL, "admin") == -1);
    assert(!db_quota_spend(db, "admin", 0));
    assert(!db_quota_spend(db, NULL, 1));
+
+   char *rig0_uuid = db_rig_uuid_get_or_create(db, "node-a", "rig0");
+   char *rig0_uuid_again = db_rig_uuid_get_or_create(db, "node-a", "rig0");
+   char *rig1_uuid = db_rig_uuid_get_or_create(db, "node-a", "rig1");
+   char *other_node_uuid = db_rig_uuid_get_or_create(db, "node-b", "rig0");
+   assert(rig0_uuid && rig0_uuid_again && rig1_uuid && other_node_uuid);
+   assert(g_uuid_string_is_valid(rig0_uuid));
+   assert(g_uuid_string_is_valid(rig1_uuid));
+   assert(g_uuid_string_is_valid(other_node_uuid));
+   assert(strcmp(rig0_uuid, rig0_uuid_again) == 0);
+   assert(strcmp(rig0_uuid, rig1_uuid) != 0);
+   assert(strcmp(rig0_uuid, other_node_uuid) != 0);
+   assert(!db_rig_uuid_get_or_create(db, "", "rig0"));
+   assert(count_rows(db, "SELECT COUNT(*) FROM rig_identities;") == 3);
+
+   char *vfo_a = db_vfo_uuid_get_or_create(db, rig0_uuid, "A");
+   char *vfo_a_again = db_vfo_uuid_get_or_create(db, rig0_uuid, "A");
+   char *vfo_b = db_vfo_uuid_get_or_create(db, rig0_uuid, "B");
+   char *rig1_vfo_a = db_vfo_uuid_get_or_create(db, rig1_uuid, "A");
+   assert(vfo_a && vfo_a_again && vfo_b && rig1_vfo_a);
+   assert(g_uuid_string_is_valid(vfo_a));
+   assert(strcmp(vfo_a, vfo_a_again) == 0);
+   assert(strcmp(vfo_a, vfo_b) != 0);
+   assert(strcmp(vfo_a, rig1_vfo_a) != 0);
+   assert(!db_vfo_uuid_get_or_create(db, rig0_uuid, ""));
+   assert(count_rows(db, "SELECT COUNT(*) FROM vfo_identities;") == 3);
+   gchar *ephemeral_uuid = g_uuid_string_random();
+   assert(ephemeral_uuid && g_uuid_string_is_valid(ephemeral_uuid));
+   /* Ephemeral allocation deliberately never calls the persistence helper. */
+   assert(count_rows(db, "SELECT COUNT(*) FROM vfo_identities;") == 3);
+   g_free(ephemeral_uuid);
+   free(vfo_a);
+   free(vfo_a_again);
+   free(vfo_b);
+   free(rig1_vfo_a);
+
+   /* Simulate a process restart by closing and reopening a file-backed DB. */
+   char restart_path[] = "/tmp/rustyrig-vfo-identity-XXXXXX";
+   int restart_fd = mkstemp(restart_path);
+   assert(restart_fd >= 0);
+   close(restart_fd);
+   sqlite3 *restart_db = NULL;
+   assert(sqlite3_open(restart_path, &restart_db) == SQLITE_OK);
+   run_file(restart_db, "sql/sqlite.master.sql");
+   char *restart_rig = db_rig_uuid_get_or_create(restart_db,
+      "restart-node", "rig0");
+   char *before_restart = db_vfo_uuid_get_or_create(restart_db,
+      restart_rig, "A");
+   assert(restart_rig && before_restart);
+   sqlite3_close(restart_db);
+   restart_db = NULL;
+   assert(sqlite3_open(restart_path, &restart_db) == SQLITE_OK);
+   char *after_restart = db_vfo_uuid_get_or_create(restart_db,
+      restart_rig, "A");
+   assert(after_restart && strcmp(before_restart, after_restart) == 0);
+   assert(sqlite3_exec(restart_db, "PRAGMA query_only=ON", NULL, NULL, NULL) == SQLITE_OK);
+   assert(!db_rig_uuid_get_or_create(restart_db, "restart-node", "new-rig"));
+   assert(!db_vfo_uuid_get_or_create(restart_db, restart_rig, "new-vfo"));
+   char *read_only_uuid = db_vfo_uuid_get_or_create(restart_db, restart_rig, "A");
+   assert(read_only_uuid && !strcmp(read_only_uuid, before_restart));
+   free(read_only_uuid);
+   sqlite3_close(restart_db);
+   unlink(restart_path);
+   free(restart_rig);
+   free(before_restart);
+   free(after_restart);
+
+   free(rig0_uuid);
+   free(rig0_uuid_again);
+   free(rig1_uuid);
+   free(other_node_uuid);
 
    assert(db_room_ensure(db, "#alpha", true, 3));
    assert(db_room_set_topic(db, "#alpha", "Test topic"));
@@ -216,6 +289,6 @@ int main(void) {
    cfg = NULL;
    dict_free(default_cfg);
    default_cfg = NULL;
-   puts("PASS: database schema, validation, rooms, users, PTT recordings, bounded chat replay, audit, and quota");
+   puts("PASS: database schema, persistent rig/VFO UUID identities, rooms, users, PTT recordings, bounded chat replay, audit, and quota");
    return 0;
 }

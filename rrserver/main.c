@@ -26,6 +26,7 @@
 #include <rrserver/timer.h>
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
+#include <rrserver/rig.config.h>
 #include <rrserver/gpio.h>
 #include <rrserver/network.h>
 #include <rrserver/amp.h>
@@ -131,16 +132,11 @@ static void timer_check_faults_fn(void *arg) {
 // This is called by our timer at 1000ms (1hz) rate by default
 // cfg:backend.poll-interval is where this is set
 static void timer_backend_poll_fn(void *arg) {
-   // Poll every VFO the rig actually exposes, not just the active one, so
-   // state for the inactive VFO(s) stays current and gets broadcast on
-   // change. Backends that can't answer for a VFO (e.g. hamlib rigs with a
-   // single VFO) simply skip them via vfo_supported.
-   for (int i = 0 ; i < MAX_VFOS ; i++) {
-      if (!rr_be_vfo_supported((rr_vfo_t)i) ) {
-         continue;
-      }
-      rr_be_poll((rr_vfo_t)i);
-   }
+   (void)arg;
+   /* One scheduler services every registered rig. A failed rig is recorded
+      by the aggregate result but never prevents later registry entries from
+      being polled. */
+   rr_backend_poll_all();
 
    if (timespec_diff_ms(&mono_now, &last_vfo_announce) >= cfg_backend_announce_interval) {
       last_vfo_announce = mono_now;
@@ -171,6 +167,10 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
+   if (!rr_rig_config_init()) {
+      Log(LOG_CRIT, "cfg.rig", "Unable to register rig configuration sections");
+      return EXIT_FAILURE;
+   }
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
    // [pipelines] keys land as pipeline:<codec>.<dir> -- the format bin/fwdsp
    // looks up with cfg_get() (see fwdsp/fwdsp.c)
@@ -276,17 +276,18 @@ int main(int argc, char **argv) {
       free((void *)masterdb_path);
       exit(EXIT_FAILURE);
    }
+   uint32_t default_vfo_mask = rr_rig_config_default_vfo_mask();
+   ws_set_authoritative_vfo_mask(default_vfo_mask);
    const char *rig_room = ws_authoritative_room();
    if (rig_room && *rig_room) {
-      int rig_vfos = cfg_get_int("rig.vfos", 2);
-      if (rig_vfos < 1) rig_vfos = 1;
-      if (rig_vfos > 32) rig_vfos = 32;
-      uint32_t rig_mask = rig_vfos == 32 ? UINT32_MAX : ((UINT32_C(1) << rig_vfos) - 1);
-      db_room_ensure(masterdb, rig_room, true, rig_mask);
+      db_room_ensure(masterdb, rig_room, default_vfo_mask != 0,
+         default_vfo_mask);
       char *existing_rig_vfos = db_room_vfo_list(masterdb, rig_room);
       if (!existing_rig_vfos || !*existing_rig_vfos) {
          db_room_vfo_add(masterdb, rig_room, "rig0.vfo_a");
-         if (rig_vfos > 1) db_room_vfo_add(masterdb, rig_room, "rig0.vfo_b");
+         if (default_vfo_mask & (UINT32_C(1) << VFO_B)) {
+            db_room_vfo_add(masterdb, rig_room, "rig0.vfo_b");
+         }
       }
       free(existing_rig_vfos);
    }
@@ -438,6 +439,8 @@ int main(int argc, char **argv) {
 
    // Main loop
    while (1) {
+      extern void rrserver_objects_poll(void);
+      rrserver_objects_poll();
 #ifdef	USE_MONGOOSE
       // Reap any exited fwdsp children (flag set by the SIGCHLD handler)
       fwdsp_reap_children();
@@ -451,6 +454,9 @@ int main(int argc, char **argv) {
          break;
       }
    }
+   extern void rrserver_objects_fini(void);
+   rrserver_objects_fini();
+   rr_backend_fini();
    host_cleanup();
 
 #ifdef	USE_MONGOOSE

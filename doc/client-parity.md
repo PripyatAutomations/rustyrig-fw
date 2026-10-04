@@ -12,6 +12,7 @@ The WebUI is in the separate repository:
 | Concept | Native C | WebUI JS | Parity |
 |---|---|---|---|
 | Connection management | `rrclient/connman.c` | `js/webui.js` and connection-related code | Yes |
+| UUID object/property cache | `rrclient/objects.c`, `objects.events.c` | `js/webui.objects.js` | Yes: discovery, ownership, versions, lifecycle; diagnostic UI differs |
 | Frequency/VFO behavior | `rrclient/vfo.c` | `js/webui.frequency.js` | Yes |
 | CAT/radio control semantics | `rrclient/cat*.c` | `js/webui.rigctl.js` / related code | Yes where exposed by WebUI |
 | Chat behavior | `rrclient/chat*.c`, `rrclient/m_privmsg.c` | `js/webui.chat.js`, `js/webui.chat.completion.js` | Yes |

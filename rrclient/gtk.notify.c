@@ -63,3 +63,7 @@ bool ui_notify_message(const char *title, const char *message,
 
    return ret == TRUE;
 }
+
+void ui_message_notify(const char *title, const char *message) {
+   ui_notify_message(title, message, NOTIFY_URGENCY_NORMAL, 5000);
+}

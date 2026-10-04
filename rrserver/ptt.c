@@ -373,8 +373,8 @@ bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
 
    // Broadcast immediate cat.state so clients see TX state without waiting
    // for the next backend poll.
-   if (rig.backend && rig.backend->api && rig.backend->api->mode_get_str) {
-      const char *mode_str = rig.backend->api->mode_get_str(vfo);
+   const char *mode_str = rr_get_mode_str(vfo);
+   if (mode_str) {
       dict *d = dict_new();
       dict_add(d, "msg.type", "cat.state");
       dict_add(d, "cat.state.vfo", vfo_name(vfo) );

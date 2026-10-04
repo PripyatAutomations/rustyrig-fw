@@ -1,4 +1,8 @@
 [general]
+; Rig aliases select the [rig:<alias>] sections below.
+rig.instances=rig0
+; Required with multiple rigs: select one for CAT/media clients.
+rig.default=rig0
 core.daemonize=false
 ; used for test-server.sh to know which rigctld to start
 rigctld.start-script=tools/dummy-rigctld.sh
@@ -10,20 +14,8 @@ codecs.allow-transcoding.video=false
 codecs.allowed.video=h264 vp8 vp9
 ; How often to poll the rig in ms
 backend.poll-interval=250
-backend.active=internal
-; Set backend.active=hamlib to use the rigctld/Hamlib backend.
-;backend.active=hamlib
 ; Only send a full rig state update every X seconds
 backend.announce-interval=30
-; Send cat state at most once every N seconds if unchanged
-backend.state-interval=15
-backend.hamlib-debug=warn
-backend.hamlib-model=2
-;backend.hamlib-baud=38400
-backend.hamlib-port=127.0.0.1:4532
-; Seconds to wait before retrying hamlib after disconnect; 0 = exit on disconnect
-; (use with an external supervisor/cron to restart)
-backend.reconnect-interval=30
 debug.noisy_eeprom=true
 ; Log chat messages in sqlite3?
 chat.log=true
@@ -102,6 +94,26 @@ callsign-lookup:path=/usr/bin/callsign-lookup
 path.mod-dir=./modules/rrserver/
 
 ##########################
+
+; Keep aliases and rig.identity-namespace stable to preserve rig UUIDs.
+; To add another rig, list its alias in rig.instances and add its section.
+[rig:rig0]
+name=rig0
+backend=internal
+vfos=A B
+; Send CAT state at most once every N seconds if unchanged.
+state-interval=15
+; For a Hamlib rig, set backend=hamlib. hamlib.model is the model number
+; from 'rigctld -l'. hamlib.device is either an IP:port for a rigctld or
+; network rig (model/ip:port), or a serial device path (model/serial:baud),
+; in which case hamlib.baud is used. Each rig section can point at its own
+; endpoint, so multiple Hamlib rigs can live on one server:
+hamlib.model=2
+hamlib.baud=38400
+hamlib.device=127.0.0.1:4532
+; Seconds before reconnecting; 0 leaves non-default rigs offline, or exits
+; for the default rig so a supervisor can restart it.
+reconnect-interval=30
 
 [fwdsp]
 ; Don't allow more than 24 subprocs

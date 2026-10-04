@@ -26,10 +26,9 @@ CFLAGS += -DMG_ARCH=MG_ARCH_UNIX
 
 endif
 
-ifeq (${USE_GTK},true)
-CFLAGS += -DUSE_GTK=1 $(shell pkg-config --cflags gtk+-3.0)
-gtk_ldflags += $(shell pkg-config --libs gtk+-3.0)
-endif
+# GTK is only used by the rrclient GTK frontend module (rrclient/rules.mk
+# builds bin/rrgtk.so with GTK_CFLAGS). The core client never gets USE_GTK.
+GTK_MODULE_CFLAGS := -DUSE_GTK=1 $(shell pkg-config --cflags gtk+-3.0 2>/dev/null)
 
 SHELL = bash
 .SHELLFLAGS = -e -c

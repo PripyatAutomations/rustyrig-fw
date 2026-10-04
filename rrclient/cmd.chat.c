@@ -30,9 +30,7 @@
 #include <rrclient/rooms.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
-#ifdef USE_GTK
-#include <rrclient/gtk.chat.h>
-#endif
+#include <rrclient/frontend.h>
 
 extern bool dying;
 extern time_t now;
@@ -78,11 +76,9 @@ bool cmd_query(int argc, char **args) {
          tui_window_focus(window->title);
       }
    }
-#ifdef USE_GTK
-   else if (ui_mode == UI_MODE_GTK) {
-      gtk_chat_query_add(args[1]);
+   else if (frontend_ops()) {
+      frontend_ops()->chat_query_add(args[1]);
    }
-#endif
    return false;
 }
 
@@ -119,14 +115,12 @@ bool cmd_me(int argc, char **args) {
    dict_add(d, "talk.cmd", "msg");
    dict_add(d, "talk.data", buf);
    dict_add(d, "talk.msg_type", "action");
-#ifdef USE_GTK
-   if (ui_mode == UI_MODE_GTK) {
-      const char *room = gtk_chat_current_room();
+   if (frontend_ops()) {
+      const char *room = frontend_ops()->chat_current_room();
       if (room && room[0]) {
          dict_add(d, "talk.target", room);
       }
    }
-#endif
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
@@ -176,11 +170,9 @@ bool cmd_msg(int argc, char **args) {
          window->cptr = ws_conn;
       }
    }
-#ifdef USE_GTK
-   else if (ui_mode == UI_MODE_GTK) {
-      gtk_chat_query_add(target);
+   else if (frontend_ops()) {
+      frontend_ops()->chat_query_add(target);
    }
-#endif
 
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
@@ -267,17 +259,13 @@ bool cmd_part(int argc, char **args) {
              strcasecmp(window->title, "status") != 0)
             target = window->title;
       }
-#ifdef USE_GTK
-      else if (ui_mode == UI_MODE_GTK) {
-         target = gtk_chat_current_room();
+      else if (frontend_ops()) {
+         target = frontend_ops()->chat_current_room();
       }
-#endif
    }
    /* Query tabs are local conversations rather than joined server rooms. */
    if (argc < 2 && target && *target && target[0] != '#' && target[0] != '&') {
-#ifdef USE_GTK
-      if (ui_mode == UI_MODE_GTK) gtk_chat_room_remove(target);
-#endif
+      if (frontend_ops()) frontend_ops()->chat_room_remove(target);
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = tui_window_find(target);
          if (window) tui_window_destroy(window);
@@ -343,11 +331,9 @@ bool cmd_topic(int argc, char **args) {
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0)
          room = window->title;
    }
-#ifdef USE_GTK
-   else if (ui_mode == UI_MODE_GTK) {
-      room = gtk_chat_current_room();
+   else if (frontend_ops()) {
+      room = frontend_ops()->chat_current_room();
    }
-#endif
    if (!room || (room[0] != '#' && room[0] != '&')) {
       ui_print(ui_active_window_name(), "{yellow}Select a room tab before using /topic{reset}");
       return false;

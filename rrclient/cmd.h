@@ -53,7 +53,9 @@ extern bool media_have_priv(const char *priv);
 
 #ifdef USE_GTK
 #include <gtk/gtk.h>
+#if defined(USE_GTK)
 extern bool parse_chat_input_gtk(GtkButton *button, gpointer entry);
+#endif
 #endif
 
 extern bool parse_chat_input_real(const char *msg);
