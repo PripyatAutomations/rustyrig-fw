@@ -1,3 +1,0 @@
-shlibs:Depends=libc6 (>= 2.4), librustyaxe (>= 20261004.01)
-misc:Depends=
-misc:Pre-Depends=
