@@ -88,3 +88,7 @@ debian/rustyrig-fwdsp*
 debian/rustyrig-server*
 !debian/rustyrig-server.config
 !debian/rustyrig-server.templates
+
+# Python integration-test bytecode
+__pycache__/
+*.py[cod]

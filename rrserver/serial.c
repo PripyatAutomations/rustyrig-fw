@@ -13,9 +13,14 @@
 #include <rrserver/serial.h>
 
 #define SERIAL_PORTS_MAX 32
+// Streams a client session may hold at once: bounded by the 1-byte stream
+// field in the serial frame header. A number becomes reusable only when the
+// owning port closes while fully acknowledged (no in-flight block), so a
+// delayed frame can never land on a reused stream.
+#define SERIAL_STREAMS_MAX 255
 struct serial_session {
    rrconn_t *client;
-   unsigned next_stream;
+   uint8_t live[SERIAL_STREAMS_MAX]; // per-stream open count (0/1)
    struct serial_session *next;
 };
 struct serial_export {
@@ -33,7 +38,7 @@ struct serial_export {
    int fd;
    uint8_t stream;
    uint32_t tx_seq, rx_seq;
-   bool rx_pending;
+   bool rx_pending, close_pending;
    unsigned char pending[RR_SERIAL_BLOCK_MAX];
    size_t pending_len, pending_offset;
 };
@@ -102,10 +107,21 @@ static unsigned allocate_stream(rrconn_t *client) {
    while (s && s->client!=client) s=s->next;
    if (!s) {
       s=calloc(1,sizeof(*s)); if (!s) return 0;
-      s->client=client; s->next_stream=1; s->next=sessions; sessions=s;
+      s->client=client; s->next=sessions; sessions=s;
    }
-   // Never reuse a stream within a session: stale data cannot reach a reopened port.
-   return s->next_stream<256 ? s->next_stream++ : 0;
+   // Reuse retired numbers before growing: a stream is retired (never
+   // pending) once its port closed with nothing in flight, so a delayed
+   // frame cannot collide with a reused number. Only the 1-byte header
+   // bounds concurrent opens.
+   for (unsigned candidate=1;candidate<SERIAL_STREAMS_MAX;candidate++)
+      if (!s->live[candidate]) { s->live[candidate]=1; return candidate; }
+   return 0;
+}
+static void retire_stream(rrconn_t *client, unsigned stream) {
+   if (!client || !stream || stream>=SERIAL_STREAMS_MAX) return;
+   for (struct serial_session *s=sessions;s;s=s->next) if (s->client==client) {
+      s->live[stream]=0; return;
+   }
 }
 static void request(const char *event,const char *data,rrconn_t *client,void *user) {
    (void)event; (void)user;
@@ -150,7 +166,18 @@ static void request(const char *event,const char *data,rrconn_t *client,void *us
    unsigned stream=dict_get_uint(d,"serial.stream",0);
    if(stream && stream!=p->stream) goto done;
    if (!strcmp(cmd,"close")) {
-      reply(client,"closed",name,p,NULL); close_port(p);
+      // Retire only when the stream is fully acknowledged: RX acked via read,
+      // TX fully written with no block in flight. Then no block can arrive or
+      // be delayed for this number and it may be reused immediately. An
+      // unacked close (device vanished) leaves the number retired for this
+      // session instead — a stale frame can never collide with a reuse.
+      if (!p->pending_len) {
+         reply(client,"closed",name,p,NULL);
+         retire_stream(client, p->stream);
+         close_port(p);
+      } else {
+         p->close_pending = true; // retire after the in-flight block is acked
+      }
    } else if (!strcmp(cmd,"configure")) {
       rr_serial_settings_t proposed=p->settings;
       if (!settings_from(d,&proposed) || !rr_serial_settings_apply(p->fd,&proposed))
@@ -171,7 +198,8 @@ static void frame(const char *event,const void *data,size_t len,rrconn_t *client
       struct serial_export *p=&exports[i];
       if (p->service || p->owner!=client || p->stream!=f.hdr.stream || !allowed(client,p)) continue;
       if (p->pending_len || f.hdr.seq!=p->tx_seq+1) {
-         reply(client,"error",p->client_name,p,"invalid-sequence"); close_port(p); return;
+         reply(client,"error",p->client_name,p,"invalid-sequence");
+         retire_stream(client, p->stream); close_port(p); return;
       }
       memcpy(p->pending,f.data,f.len); p->pending_len=f.len; p->pending_offset=0; p->tx_seq=f.hdr.seq;
       return;
@@ -244,15 +272,16 @@ bool rrserver_serial_poll(void) {
       }
       if (!p->owner) continue;
       active=true;
-      if (!allowed(p->owner,p)) { reply(p->owner,"closed",p->client_name,p,"permission-revoked"); close_port(p); continue; }
+      if (!allowed(p->owner,p)) { reply(p->owner,"closed",p->client_name,p,"permission-revoked"); retire_stream(p->owner,p->stream); close_port(p); continue; }
       if (p->pending_len) {
          ssize_t n=write(p->fd,p->pending+p->pending_offset,p->pending_len-p->pending_offset);
          if (n>0) {
             p->pending_offset+=n;
             if (p->pending_offset==p->pending_len) {
-               p->pending_len=p->pending_offset=0;
-               reply(p->owner,"written",p->client_name,p,NULL);
-            }
+                  p->pending_len=p->pending_offset=0;
+                  reply(p->owner,"written",p->client_name,p,NULL);
+                  if (p->close_pending) { reply(p->owner,"closed",p->client_name,p,NULL); retire_stream(p->owner,p->stream); close_port(p); continue; }
+               }
          } else if (n<0 && errno!=EAGAIN && errno!=EINTR) goto failed;
       }
       if(p->buffered<p->buffer_limit) {
@@ -275,7 +304,8 @@ bool rrserver_serial_poll(void) {
       p->buffered-=n;memmove(p->buffer,p->buffer+n,p->buffered);
       continue;
 failed:
-      reply(p->owner,"closed",p->client_name,p,"device-disconnected"); close_port(p);
+      reply(p->owner,"closed",p->client_name,p,"device-disconnected");
+      retire_stream(p->owner,p->stream); close_port(p);
    }
    return active;
 }

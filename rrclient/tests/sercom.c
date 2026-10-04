@@ -126,6 +126,19 @@ int main(int argc, char **argv) {
    assert(in>=0 && out>=0);
    assert(write(in,"$GPGLL*00\r\n$GPGLL*50\r\n",22)==22);
    expect(out,"$GPGLL*50\r\n"); assert(gps_inputs==1);
+   // A selected rig updates the following logger, but a station-pinned logger
+   // receives only station coordinates.
+   char station_path[512];snprintf(station_path,sizeof(station_path),"%s/stationGPS",argv[1]);
+   dict_add(cfg,"serial:stationGPS.path",station_path);
+   assert(rr_sercom_attach("stationGPS","station.gps-out@4800",NULL));
+   int station_fd=open(station_path,O_RDWR|O_NOCTTY|O_NONBLOCK);assert(station_fd>=0);
+   dict *position=dict_new();dict_add(position,"gps.source","rig1");
+   dict_add(position,"gps.nmea","$GPGLL*50");dict_add_bool(position,"gps.selected",true);
+   event_emit_dict("serial.gps.output",NULL,position);expect(out,"$GPGLL*50\r\n");
+   char no_data;assert(read(station_fd,&no_data,1)<0);
+   dict_add(position,"gps.source","station");dict_add_bool(position,"gps.selected",false);
+   event_emit_dict("serial.gps.output",NULL,position);expect(station_fd,"$GPGLL*50\r\n");
+   assert(read(out,&no_data,1)<0);dict_free(position);close(station_fd);
    // Exercise full-duplex real-device transport using a separate PTY as hardware.
    char wire_path[512]; snprintf(wire_path,sizeof(wire_path),"%s/wire",argv[1]);
    rr_serial_t *wire = rr_serial_open("wire", true, wire_path, 9600, collect, wire_rx);

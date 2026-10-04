@@ -28,7 +28,7 @@ const char *rr_server_rig_id(const rr_server_rig_t *radio) {return radio==radios
 const char *rr_rig_config_get(const char *alias,const char *key) {
    char full[128];snprintf(full,sizeof(full),"rig:%s.%s",alias,key);return cfg_get(full);
 }
-const char *ws_authoritative_room(void) {return "#site";}
+const char *ws_site_room(void) {return "#site";}
 struct rr_mediachan *media_chan_add(uint8_t subsystem,uint8_t direction,uint8_t vfo,uint8_t radio,const char *codec,const char *descr) {
    unsigned index=radio==255 ? 0 : radio+1;
    struct rr_mediachan *c=&channels[index];

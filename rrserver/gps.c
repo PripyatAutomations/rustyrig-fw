@@ -229,7 +229,7 @@ bool rrserver_gps_init(void) {
       RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, "nmea", "Station GPS position");
    if (sources[0].channel) {
       snprintf(sources[0].channel->name, sizeof(sources[0].channel->name), "station.gps.rx");
-      snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_authoritative_room());
+      snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_site_room());
    }
    if(!configure_source(&sources[0],cfg_get("station.gps.position")) ||
       rr_rig_registry_foreach(rig.rigs,add_rig,NULL)) {

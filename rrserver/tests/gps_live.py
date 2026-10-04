@@ -82,10 +82,13 @@ rrserver-gps-nmea=
 [serial]
 ttyGPS0=rig2.gps-in@4800
 ttyGPS1=station.gps-out@4800
+ttyGPSfixed=rig0.gps-in@4800
 [serial:ttyGPS0]
 path={work}/ttyGPS0
 [serial:ttyGPS1]
 path={work}/ttyGPS1
+[serial:ttyGPSfixed]
+path={work}/disabled-fixed-input
 """)
     client = None
     peer = None
@@ -101,6 +104,7 @@ path={work}/ttyGPS1
             assert watch.startswith(b"?WATCH=")
             policy = json.loads(watch[7:].rstrip(b";\n"))
             assert policy["nmea"] is True and policy["raw"] == 1 and policy["json"] is False
+            assert not (work / "disabled-fixed-input").exists()
             gps_in = os.open(work / "ttyGPS0", os.O_RDWR | os.O_NONBLOCK)
             gps_out = os.open(work / "ttyGPS1", os.O_RDWR | os.O_NONBLOCK)
             # Fragmented input and oversize/bad-checksum records resynchronize.
@@ -118,11 +122,14 @@ path={work}/ttyGPS1
             login(client)
             client.send({"msg": {"type": "media"}, "media": {"cmd": "list"}})
             channels = {}
-            while len(channels) < 3:
+            while len(channels) < 4:
                 message = client.until(lambda m: m.get("media", {}).get("cmd") == "available" and m["media"].get("codec") == "nmea")
                 media = message['media']
-                if media['name'].startswith('rig'):
-                    channels[media['name']] = (media['chan-uuid'], media['rig'])
+                channels[media['name']] = (media['chan-uuid'], media['rig'])
+                if media['name'] == 'station.gps.rx':
+                    assert media['room'] == '#gpstest' and media['joined'] is True
+            index, data = snapshot(client, channels['station.gps.rx'][0])
+            assert index == 255 and b',A,4807.038000,N,01131.000002,E,' in data
             join(client, '#gpstest-rig0')
             index, data = snapshot(client, channels['rig0.gps.rx'][0])
             assert index == channels['rig0.gps.rx'][1] and b',A,3807.407402,N,08045.925926,W,' in data and b',M*' in data
@@ -140,6 +147,41 @@ path={work}/ttyGPS1
             index, data = snapshot(client, channels['rig0.gps.rx'][0])
             assert index == channels['rig0.gps.rx'][1] and b',M*' in data
             print('PASS: production GPS modules, gpsd WATCH, scoped PTYs, generated rig coordinates, fallback and switch snapshots')
+            # Configured station coordinates prevent the daemon connection too.
+            client.socket.close()
+            client = None
+            process.terminate()
+            process.wait(timeout=5)
+            peer.close()
+            peer = None
+            config.write_text(config.read_text().replace('station.name=gpstest',
+                'station.name=gpstest\nstation.gps.position=42,-71'))
+            process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=ROOT,
+                stdout=output, stderr=subprocess.STDOUT)
+            deadline = time.monotonic() + 8
+            while True:
+                if process.poll() is not None or time.monotonic() > deadline:
+                    raise RuntimeError('fixed-position server failed to start')
+                try:
+                    client = WebSocket(port)
+                    break
+                except ConnectionRefusedError:
+                    time.sleep(0.05)
+            login(client)
+            client.send({'msg': {'type': 'media'}, 'media': {'cmd': 'list'}})
+            metadata = client.until(lambda m: m.get('media', {}).get('name') == 'station.gps.rx')['media']
+            index, data = snapshot(client, metadata['chan-uuid'])
+            assert index == 255 and b',A,4200.000000,N,07100.000000,W,' in data and b',M*' in data
+            daemon.settimeout(0.2)
+            try:
+                unwanted, _ = daemon.accept()
+            except TimeoutError:
+                pass
+            else:
+                unwanted.close()
+                raise AssertionError('fixed station coordinates must disable gpsd connection')
+            assert not (work / 'disabled-fixed-input').exists()
+            print('PASS: configured coordinates disable live gpsd/NMEA inputs and generate manual logger positions')
         except Exception:
             print((work / 'console.log').read_text())
             raise

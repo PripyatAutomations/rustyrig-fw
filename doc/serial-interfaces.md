@@ -1,75 +1,193 @@
-# Native serial interfaces
+# Serial endpoints and rig GPS for loggers
 
-The common native client manages serial endpoints for both GTK and TUI. Each
-endpoint has a transport (PTY or real serial device) and a service binding.
-Transport code in `rrclient/serial.c` owns descriptors, GLib watches, raw serial
-settings, and bounded asynchronous writes. Services in `rrclient/sercom.c` own
-framing and routing. Other services can use the same transport callbacks without
-adding behavior to the CAT parser or a frontend.
+The server owns the rig's location. Native client PTYs expose CAT, server serial
+ports, and generated GPS data to local logging programs. These services work in
+both GTK and TUI; their transport and routing live in common client code.
+
+## Symbolic bindings
+
+Server configuration:
+
+```ini
+[general]
+serial.access=admin|owner
+station.gps.position=38.1234567,-80.7654321
+path.modules=./bin
+
+[rig:rig0]
+gps.position=40.5,-75.25
+
+[serial]
+ttyHOST0=serial:/dev/ttyUSB0@115200,8n1
+ttyGPS0=station.gps-in@4800
+ttyGPS1=rig1.gps-in@4800
+ttyGPS2=rig0.gps-out@4800
+
+[serial:ttyGPS1]
+type=serial
+path=/dev/ttyUSB1
+
+[modules]
+rrserver-gps-nmea=
+;rrserver-gpsd=
+```
+
+Client configuration:
 
 ```ini
 [serial]
-ttyCAT0=rig0.cat
-ttyCAT1=rig1.cat
-ttyGPS0=gps-in
-ttyGPS1=gps-out
+ttyCAT0=rig0.cat@38400
+ttyCAT1=rig1.cat@38400
+ttyHOST0=host:ttyHOST0
+ttyGPS0=rig.gps-out@4800
+;ttyGPS1=rig1.gps-out@4800
+;ttyGPS2=station.gps-out@4800
 
-[serial:ttyCAT0]
-type=pty
-path=./dev/ttyCAT0
-baud=9600
-
-[serial:ttyGPS0]
-type=serial
-path=/dev/ttyUSB0
-baud=4800
+[serial:ttyHOST0]
+buffer-bytes=65536
 ```
 
-Without a mapping, `ttyCAT0` defaults to `rig0.cat`. Other PTYs default to
-`./dev/<name>`. An endpoint mapped to `none` is disabled. Existing
-`cat.pty.enable=false` still disables the default endpoint, and `cat.pty.path`
-is honored when `serial:ttyCAT0.path` is absent. Configuration takes effect at
-client startup. Real serial devices use raw 8N1; supported baud rates are 1200,
-2400, 4800, 9600, 19200, 38400, 57600, and 115200. GPS services default to 4800;
-CAT defaults to 9600. CAT commands without an explicit selector use the
-endpoint's `vfo` setting (default `A`); FA/FB still explicitly select A/B.
-Device access uses the client's operating-system account.
+A local endpoint defaults to a PTY at `./dev/<name>`. `type=serial` and `path`
+select a real local serial device instead. Without a mapping, the native client
+creates `ttyCAT0=rig0.cat` at 9600 baud. `none` disables a mapping. Existing
+`cat.pty.enable=false` disables the default CAT endpoint; `cat.pty.path` remains
+the fallback when `serial:ttyCAT0.path` is absent. GPS endpoints default to 4800.
 
-Runtime management is shared by GTK and TUI:
+Inline `@baud,mode` overrides the endpoint section's `baud` and `mode`; either
+part can be omitted (`@38400`, or the older `@8n1`). Mode is data bits, parity,
+and stop bits, such as `8n1`, `7e1`, or `8n2`. Defaults are 8N1. Standard baud
+rates through 115200 are supported, with faster rates where the platform
+provides them. A client `host:` binding inherits the server's initial settings
+unless explicitly overridden. Absolute remote paths remain accepted for older
+client configs, but must match an exported server path exactly.
+
+## Runtime management
 
 ```text
 /sercom list
-/sercom attach ttyCAT1 rig1.cat
+/sercom attach ttyCAT1 rig1.cat@38400
+/sercom attach ttyHOST0 host:ttyHOST0
+/sercom attach ttyGPS0 rig.gps-out@4800
 /sercom attach radioUSB rig1.cat /dev/ttyUSB1
-/sercom disconnect ttyCAT1
+/sercom disconnect ttyHOST0
 ```
 
-The optional device argument opens a real serial port. Without it, the named
-endpoint's configured transport is used. Disconnect closes the transport and
-removes its owned PTY link. Disconnect before changing an existing binding;
-a failed attachment leaves existing endpoints intact. These commands manage
-runtime bindings; edit `[serial]` to retain them across restarts. Existing files
-and another client's links are never overwritten. A disconnected physical
-serial device can be reopened with disconnect followed by attach.
+The optional device argument opens a real client-side port. Disconnect before
+changing an existing binding. Commands affect the current client process;
+edit `[serial]` to retain mappings across restarts. Closing removes only the
+PTY symlink owned by this process. Existing files and links are not overwritten.
+Real device access uses each process's operating-system account.
 
-A CAT endpoint parses semicolon-delimited Yaesu commands. Replies return only
-to the requesting port. Reads use the named rig's UUID property observations
-and room-scoped PTT status, independent of the selected GUI tab. Writes carry
-that rig's primary room and remain subject to server privileges, room membership,
-and PTT interlocks. Join the rig's base room (or add it to the client's autojoin
-list) before controlling it. Multiple endpoints do not enable simultaneous
-transmission through the server's existing single-talker arbitration.
+CAT endpoints parse semicolon-delimited Yaesu commands. Replies go only to the
+requesting port. Reads use the named rig's UUID property cache; writes target
+its authoritative control room and remain subject to privileges, membership,
+and PTT interlocks. Endpoint `vfo=A` is the default selector; explicit FA/FB
+commands still select A/B. Join the rig's base room before controlling it.
 
-`gps-in` accepts newline-delimited NMEA sentences with valid hexadecimal XOR
-checksums. Oversized frames are discarded through the next terminator. Accepted
-sentences emit the common-client `serial.gps.input` event and are forwarded to
-attached `gps-out` endpoints. Programs interested in GPS data subscribe with
-`event_on()`; the payload is the complete sentence without its line ending.
-A producer can emit `serial.gps.output` with the same payload to write valid
-sentences to all output endpoints. Output uses CRLF endings. This provides
-NMEA transport and forwarding; it does not calculate navigation fixes or invent
-GPS sentences.
+## Server serial passthrough
 
-Browser `/sercom` explains that local PTYs and serial devices are managed by the
-native client. Serial-device ownership is frontend-specific; CAT wire routing
-and the server's room authorization remain authoritative C behavior.
+`serial:/dev/...` exports are allowlisted, exclusively owned by one authenticated
+WebSocket session, and require `serial.access` (default `admin|owner`). A per-port
+`access` overrides that policy. Different aliases cannot open the same active
+physical device. The server opens it only after an authorized attachment,
+restores its prior termios settings on close, and releases it when the session
+ends. Reopening starts with its configured baud/mode again.
+
+Binary payloads are arbitrary bytes in MODEM/`seri` frames. They bypass CAT and
+GPS parsing. Baud/data/parity/stop changes made by a logger to the client PTY
+are detected and applied to the server device. PTY drivers may reject modes
+that physical serial hardware supports; the initial remote mode is retained
+in that case. PTYs do not expose physical DTR/RTS, modem status, or break control,
+so those signals are not transported by this implementation.
+
+`buffer-bytes` is bounded at both ends: client default 65536 for passthrough
+(8192 for other services), server default 16384. Values are 1024 through
+1048576; `0` retains one 1024-byte transfer block. Partial writes are queued;
+one block per direction stays in flight until acknowledged. Full buffers apply
+backpressure rather than silently dropping raw serial bytes. The physical
+sender must honor any flow control its own device requires; a WebSocket cannot
+prevent overflow inside external hardware. NMEA outputs have bounded queues
+and log a full queue rather than growing indefinitely.
+
+## Rig location and GPS adapters
+
+`gps.position=latitude,longitude` in `[rig:rigN]` is the authoritative fixed
+position for that rig. `station.gps.position` in `[general]` is the site fallback.
+Coordinates are signed decimal degrees, with up to seven fractional digits,
+latitude within ±90 and longitude within ±180. Invalid coordinates reject
+startup. Empty/absent coordinates enable live inputs for that source.
+
+The location priority is:
+
+1. The rig's configured coordinates; its live GPS input is disabled.
+2. The rig's own GPS receiver, when configured.
+3. The station's configured coordinates; the station receiver is disabled.
+4. The station GPS receiver.
+
+A rig with its own receiver does not inherit another location when that receiver
+has no fix. NMEA no-fix reports generate invalid-position output. A receiver's
+last accepted position is otherwise retained until another position/no-fix
+report arrives; this is a logger-location service, not a navigation or time
+synchronization service.
+
+`rrserver-gps-nmea.so` consumes `station.gps-in` and `rigN.gps-in` bindings from
+the generic serial manager, whether PTY or real port. Input is newline-delimited
+NMEA with a valid XOR checksum. Oversize/invalid records are discarded and
+framing resumes at the next terminator. Configured coordinates prevent that
+source's input port from opening.
+
+`rrserver-gpsd.so` connects asynchronously to `gpsd.url` (default
+`tcp://127.0.0.1:2947`), reconnects after failures, and feeds the source named by
+`gpsd.target` (default `station`, or a rig alias). Optional `gpsd.device` selects
+one receiver. It requests NMEA WATCH output, including conversions from binary
+receivers; see the [gpsd protocol](https://gpsd.io/gpsd_json.html). Configured
+coordinates disable connection to gpsd for that target.
+
+The server extracts RMC/GGA/GLL positions using integer arithmetic and generates
+RMC sentences for `gps-out`, with current server UTC and checksums. Configured
+coordinates use manual mode `M`; receiver positions use automatic mode `A`,
+and no-fix output uses status `V`/mode `N`. The generated position changes to the
+selected radio's coordinates when the operator switches rigs; it does not
+report the operator's computer location or interpolate a journey between rigs.
+
+Periodic output is limited to one update per source every five minutes. A new
+media subscription receives an immediate snapshot directed to that client;
+switching the native client's active rig replaces its automatic GPS subscription
+and therefore updates its logger immediately without updating other operators.
+`rig.gps-out` follows the active rig (or the station in the lobby).
+`rigN.gps-out` stays pinned to that rig; `station.gps-out` stays pinned to the site.
+Bare client `gps-out` remains a shorthand for the active rig. A logger opens the
+resulting `./dev/ttyGPS0` just as it would a GPS serial device.
+
+GPS channels are read-only MODEM/`nmea` media channels named
+`station.gps.rx` and `rigN.gps.rx`, with no VFO. Rig channels use their rig's
+UUID/index and room; station uses the site lobby and no rig. Join the relevant
+rig base/RX room before subscribing. Native clients automatically subscribe
+when a matching `gps-out` endpoint exists. Browser subscriptions are explicit;
+accepted frames emit `rustyrig:gps-nmea` with `nmea`, `rig`, and `stream` fields
+for browser integrations. The browser cannot create operating-system PTYs.
+
+Adapters feed the server `gps.nmea.input` event with `gps.source`/`gps.nmea`
+JSON fields. Consumers use `event_on()` for `serial.gps.output`, whose JSON
+payload contains the source alias and generated sentence. Native output events
+also include `gps.selected` for routing to the active rig's logger.
+
+## Serial wire format
+
+Control uses `msg.type=serial` JSON with `serial.cmd`:
+`list`, `open`, `configure`, `close`, and `read`. An open includes the client
+endpoint `name` and server export `port`; optional `baud`/`mode` override its
+initial settings. Replies are `available`, `opened`, `configured`, `closed`,
+`written`, or `error`, including the endpoint name and session stream where
+applicable. Only the owning session can configure/write/close its export.
+
+MODEM/`seri` binframes use the existing 28-byte header, no rig/VFO (`255`),
+a nonzero session-local stream, and 1–1024 raw payload bytes. TX means client
+to device; RX means device to client. Sequences start at 1 in each direction.
+The server sends `written` only after the whole TX block is written; the client
+sends `read` with stream/sequence after its RX block drains to the local PTY.
+Streams are never reused within a connection, preventing delayed frames from
+reaching a newly attached device. Reconnect after exhausting its 255 streams.
+Queued bytes are discarded on connection loss rather than replayed into a new
+session. GPS MODEM/`nmea` frames use media subscription streams separately,
+RX direction, no VFO, and a single CRLF-terminated generated sentence.

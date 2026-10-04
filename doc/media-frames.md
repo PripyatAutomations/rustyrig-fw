@@ -238,3 +238,13 @@ Because such connections are not ordinary users, the server flags them
 show up only as media channels. The GTK client renders incoming video
 frames in a viewer window (`/webcam` to toggle it, `/media SUB <n>` to
 subscribe).
+
+
+## Serial and GPS MODEM payloads
+
+`seri` is arbitrary serial bytes in authenticated, exclusively owned session
+streams. `nmea` is read-only generated rig/station GPS data on subscribed media
+streams. These use separate stream registries even though both have subsystem
+MODEM. Routing must include the codec. See
+[serial interfaces and GPS](serial-interfaces.md#serial-wire-format) for control,
+flow control, line settings, coordinate sources and publication timing.

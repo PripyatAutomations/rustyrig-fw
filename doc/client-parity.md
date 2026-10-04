@@ -134,4 +134,12 @@ client and work in GTK and TUI. The browser recognizes the command and explains
 this limitation; it does not forward local endpoint management to the server.
 Both command completers offer LIST, ATTACH, and DISCONNECT. Native CAT writes
 use the same room-scoped protocol APIs as the other native controls. See
-[Native serial interfaces](serial-interfaces.md).
+[Serial endpoints and rig GPS](serial-interfaces.md).
+
+Server real-port passthrough uses MODEM/`seri` binary frames and native local
+PTYs. GPS uses separate read-only MODEM/`nmea` media channels with per-rig
+location and station fallback. Native `rig.gps-out` endpoints follow the active
+rig and automatically subscribe; browser subscriptions are explicit and emit
+`rustyrig:gps-nmea` for integrations. This transport difference is intentional:
+the browser cannot create local PTYs. Both implementations validate received
+GPS framing/checksums; server coordinates and receiver selection are authoritative.
