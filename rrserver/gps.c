@@ -1,3 +1,10 @@
+// rrserver/gps.c: GPS related bits
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 // Rig-scoped GPS publication. Adapters supply validated receiver sentences;
 // configured coordinates generate RMC in manual mode. No floating point.
 #include <ctype.h>
@@ -17,6 +24,7 @@
 
 extern struct GlobalState rig;
 extern time_t now;
+
 #define GPS_SOURCES_MAX 33
 struct gps_source {
    char alias[64];
@@ -31,55 +39,97 @@ static rr_event_token_t input_token, poll_token, subscribed_token, inventory_tok
 
 static bool coordinate(const char **cursor, int32_t *result, unsigned maximum) {
    const char *p = *cursor;
-   while (isspace((unsigned char)*p)) p++;
+   while (isspace((unsigned char)*p)) {
+      p++;
+   }
+
    bool negative = *p == '-';
-   if (*p == '-' || *p == '+') p++;
-   if (!isdigit((unsigned char)*p)) return false;
+   if (*p == '-' || *p == '+') {
+      p++;
+   }
+
+   if (!isdigit((unsigned char)*p)) {
+      return false;
+   }
    unsigned whole = 0, fraction = 0, scale = 1000000;
    while (isdigit((unsigned char)*p)) {
       whole = whole * 10 + (*p++ - '0');
-      if (whole > maximum) return false;
+      if (whole > maximum) {
+         return false;
+      }
    }
    if (*p == '.') {
       p++;
-      if (!isdigit((unsigned char)*p)) return false;
+
+      if (!isdigit((unsigned char)*p)) {
+         return false;
+      }
       while (isdigit((unsigned char)*p)) {
-         if (!scale) return false;
+         if (!scale) {
+            return false;
+         }
          fraction += (*p++ - '0') * scale;
          scale /= 10;
       }
    }
-   if (whole == maximum && fraction) return false;
+
+   if (whole == maximum && fraction) {
+      return false;
+   }
    *result = (int32_t)(whole * 10000000 + fraction);
-   if (negative) *result = -*result;
-   while (isspace((unsigned char)*p)) p++;
+   if (negative) {
+      *result = -*result;
+   }
+
+   while (isspace((unsigned char)*p)) {
+      p++;
+   }
    *cursor = p;
    return true;
 }
+
 bool rrserver_gps_position_parse(const char *text, int32_t *lat, int32_t *lon) {
-   if (!text || !lat || !lon) return false;
+   if (!text || !lat || !lon) {
+      return false;
+   }
    int32_t a, b;
-   if (!coordinate(&text, &a, 90) || *text++ != ',' ||
-       !coordinate(&text, &b, 180) || *text) return false;
+   if (!coordinate(&text, &a, 90) || *text++ != ',' || !coordinate(&text, &b, 180) || *text) {
+      return false;
+   }
    *lat = a; *lon = b; return true;
 }
+
 static struct gps_source *find(const char *alias) {
-   for (unsigned i = 0; i < count; i++) if (!strcmp(sources[i].alias, alias)) return &sources[i];
+   for (unsigned i = 0; i < count; i++) {
+      if (!strcmp(sources[i].alias, alias)) {
+         return &sources[i];
+      }
+   }
    return NULL;
 }
+
 static const struct gps_source *effective(const struct gps_source *source) {
-   if(source==sources || source->own_input || source->fixed || source->received) return source;
+   if (source==sources || source->own_input || source->fixed || source->received) {
+      return source;
+   }
    return sources;
 }
-static bool available(const struct gps_source *source) {return source->fixed || source->received;}
+
+static bool available(const struct gps_source *source) {
+   return source->fixed || source->received;
+}
+
 static void nmea_angle(int32_t angle, unsigned width, char *buf, size_t capacity) {
    uint32_t absolute = angle < 0 ? -(int64_t)angle : angle;
    unsigned degrees = absolute / 10000000;
    uint64_t minutes = ((uint64_t)(absolute % 10000000) * 60 + 5) / 10;
-   if (minutes == 60000000) { degrees++; minutes = 0; }
-   snprintf(buf, capacity, "%0*u%02u.%06u", width, degrees,
-      (unsigned)(minutes / 1000000), (unsigned)(minutes % 1000000));
+   if (minutes == 60000000) {
+      degrees++;
+      minutes = 0;
+   }
+   snprintf(buf, capacity, "%0*u%02u.%06u", width, degrees, (unsigned)(minutes / 1000000), (unsigned)(minutes % 1000000));
 }
+
 static void fixed_sentence(const struct gps_source *source, char *buf, size_t capacity) {
    char lat[24], lon[24], utc[16], date[16];
    nmea_angle(source->lat, 2, lat, sizeof(lat));
@@ -90,22 +140,35 @@ static void fixed_sentence(const struct gps_source *source, char *buf, size_t ca
    // RMC mode M explicitly identifies manually configured coordinates.
    bool valid=source->received ? source->valid : source->fixed;
    int len;
-   if(valid) len=snprintf(buf,capacity,"$GPRMC,%s,A,%s,%c,%s,%c,0.0,,%s,,,%c",
-      utc,lat,source->lat<0 ? 'S' : 'N',lon,source->lon<0 ? 'W' : 'E',date,
-      source->received ? (source->manual ? 'M' : 'A') : 'M');
-   else len=snprintf(buf,capacity,"$GPRMC,%s,V,,,,,0.0,,%s,,,N",utc,date);
+   if (valid) {
+      len=snprintf(buf,capacity,"$GPRMC,%s,A,%s,%c,%s,%c,0.0,,%s,,,%c", utc,lat,source->lat<0 ? 'S' : 'N',lon,source->lon<0 ? 'W' : 'E',date, source->received ? (source->manual ? 'M' : 'A') : 'M');
+   } else {
+      len=snprintf(buf,capacity,"$GPRMC,%s,V,,,,,0.0,,%s,,,N",utc,date);
+   }
+
    unsigned checksum = 0;
-   for (int i = 1; i < len; i++) checksum ^= (unsigned char)buf[i];
+   for (int i = 1; i < len; i++) {
+      checksum ^= (unsigned char)buf[i];
+   }
    snprintf(buf + len, capacity - len, "*%02X", checksum);
 }
+
 static void send_sentence(struct gps_source *source, rrconn_t *client, const char *sentence) {
-   if (!source->channel) return;
+   if (!source->channel) {
+      return;
+   }
+
    char frame[514];
    int len = snprintf(frame, sizeof(frame), "%s\r\n", sentence);
    ws_media_send_frame(source->channel, client, (const uint8_t *)frame, len, "nmea");
+
    if (!client) {
       dict *d = dict_new();
-      if (!d) return;
+
+      if (!d) {
+         return;
+      }
+
       dict_add(d, "gps.source", source->alias); dict_add(d, "gps.nmea", sentence);
       event_emit_dict("serial.gps.output", NULL, d);
       dict_free(d);
@@ -113,14 +176,18 @@ static void send_sentence(struct gps_source *source, rrconn_t *client, const cha
 }
 static void publish(struct gps_source *source, rrconn_t *client) {
    const struct gps_source *position = effective(source);
-   if(available(position)) {
-      char sentence[512];fixed_sentence(position,sentence,sizeof(sentence));
-      send_sentence(source,client,sentence);
-      if(!client) {source->sent_at=mono_us();source->published=true;}
+
+   if (available(position)) {
+      char sentence[512];fixed_sentence(position, sentence, sizeof(sentence));
+      send_sentence(source, client, sentence);
+      if (!client) {
+         source->sent_at = mono_us();
+         source->published = true;
+      }
    }
 }
 static bool receiver_angle(const char *text,const char *hemisphere,bool latitude,int32_t *result) {
-   if(!text || !hemisphere || strlen(hemisphere)!=1) return false;
+   if (!text || !hemisphere || strlen(hemisphere)!=1) return false;
    size_t whole=strcspn(text,".");
    unsigned degree_digits=latitude ? 2 : 3,maximum=latitude ? 90 : 180;
    if(whole!=degree_digits+2) return false;
@@ -166,7 +233,6 @@ static void receiver_position(struct gps_source *source,const char *sentence) {
 }
 
 static void gps_input(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)client; (void)user;
    dict *d = data && data[0] == '{' ? json2dict(data) : NULL;
    const char *sentence = d ? dict_get(d, "gps.nmea", NULL) : data;
    const char *alias = d ? dict_get(d, "gps.source", "station") : "station";
@@ -177,17 +243,19 @@ static void gps_input(const char *event, const char *data, rrconn_t *client, voi
    if (d) dict_free(d);
 }
 static void poll_gps(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)data; (void)client; (void)user;
    uint64_t time = mono_us();
    for (unsigned i = 0; i < count; i++)
-      if (!sources[i].published || time - sources[i].sent_at >= UINT64_C(300000000)) publish(&sources[i], NULL);
+      if (!sources[i].published || time - sources[i].sent_at >= UINT64_C(300000000)) {
+         publish(&sources[i], NULL);
+      }
 }
 static void subscribed(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)user;
    dict *d = json2dict(data); if (!d) return;
    const char *uuid = dict_get(d, "media.chan-uuid", "");
    for (unsigned i = 0; i < count; i++)
-      if (sources[i].channel && !strcmp(sources[i].channel->uuid, uuid)) publish(&sources[i], client);
+      if (sources[i].channel && !strcmp(sources[i].channel->uuid, uuid)) {
+         publish(&sources[i], client);
+      }
    dict_free(d);
 }
 static bool configure_source(struct gps_source *source, const char *position) {
@@ -200,12 +268,20 @@ static bool configure_source(struct gps_source *source, const char *position) {
    const char *key; char *value; int rank = 0;
    char target[96]; snprintf(target, sizeof(target), "%s.gps-in", source->alias);
    while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
-      if (!key || strncmp(key, "serial.", 7) || !value) continue;
+      if (!key || strncmp(key, "serial.", 7) || !value) {
+         continue;
+      }
+
       size_t n = strcspn(value, "@");
-      if (n == strlen(target) && !memcmp(value, target, n)) source->own_input = true;
+      if (n == strlen(target) && !memcmp(value, target, n)) {
+         source->own_input = true;
+      }
    }
+
    const char *gpsd = cfg_get("gpsd.target");
-   if (gpsd && !strcmp(gpsd, source->alias) && cfg_get("module:rrserver-gpsd.options")) source->own_input = true;
+   if (gpsd && !strcmp(gpsd, source->alias) && cfg_get("module:rrserver-gpsd.options")) {
+      source->own_input = true;
+   }
    return true;
 }
 static bool add_rig(rr_server_rig_t *radio, void *user) {
@@ -224,26 +300,39 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
    return !configure_source(source, rr_rig_config_get(alias, "gps.position"));
 }
 static void inventory_gps(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)user;
-   if (!client || !client->authenticated) return;
+   if (!client || !client->authenticated) {
+      return;
+   }
    dict *request = json2dict(data);
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
    const char *scope = dict_get(request, "inventory.scope", "");
    struct gps_source *source = find(scope);
+
    if (source) {
       const struct gps_source *position = effective(source);
+
       for (unsigned output = 0; output < 2; output++) {
          char name[80]; snprintf(name, sizeof(name), "%s.gps-%s", scope, output ? "out" : "in");
          dict *row = rr_inventory_row(dict_get(request, "request.id", ""),
             dict_get_uint(request, "inventory.depth", 1), "gps", name,
             output && source->channel ? source->channel->uuid : NULL);
-         if (!row) continue;
+
+         if (!row) {
+            continue;
+         }
          dict_add(row, "inventory.state", output ?
             (available(position) && (position->fixed || position->valid) ? "position-known" : "no-fix") :
             source->fixed ? "disabled-by-fixed-position" : source->own_input ? "receiver" : source == sources ? "unconfigured" : "station-fallback");
          dict_add(row, "inventory.source", position->alias);
          dict_add(row, "inventory.action", output ? "/gps subscribe|unsubscribe <scope>" : "server-config-only");
-         if (output && source->channel) dict_add(row, "inventory.room", source->channel->room);
+
+         if (output && source->channel) {
+            dict_add(row, "inventory.room", source->channel->room);
+         }
+
          if (output && available(position) && (position->fixed || position->valid)) {
             int64_t lat = position->lat, lon = position->lon;
             char coordinates[64];
@@ -260,14 +349,14 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
 bool rrserver_gps_init(void) {
    memset(sources, 0, sizeof(sources)); count = 1;
    snprintf(sources[0].alias, sizeof(sources[0].alias), "station");
-   sources[0].channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX,
-      RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, "nmea", "Station GPS position");
+   sources[0].channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, "nmea", "Station GPS position");
+
    if (sources[0].channel) {
       snprintf(sources[0].channel->name, sizeof(sources[0].channel->name), "station.gps.rx");
       snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_site_room());
    }
-   if(!configure_source(&sources[0],cfg_get("station.gps.position")) ||
-      rr_rig_registry_foreach(rig.rigs,add_rig,NULL)) {
+
+   if (!configure_source(&sources[0],cfg_get("station.gps.position")) || rr_rig_registry_foreach(rig.rigs,add_rig,NULL)) {
       rrserver_gps_fini();return true;
    }
    inventory_token = event_on_token(RR_INVENTORY_EVENT, inventory_gps, NULL);
@@ -281,6 +370,7 @@ void rrserver_gps_fini(void) {
    event_off_token(input_token); input_token = NULL;
    event_off_token(poll_token); poll_token = NULL;
    event_off_token(subscribed_token); subscribed_token = NULL;
+
    for (unsigned i = 0; i < count; i++) if (sources[i].channel) {
       media_send_chan_removed_all(sources[i].channel);
       media_chan_remove(sources[i].channel->uuid);
