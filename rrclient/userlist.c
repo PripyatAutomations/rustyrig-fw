@@ -20,6 +20,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
+#include <rrclient/frontend.h>
 #include <rrclient/ui.h>
 #include <rrclient/rooms.h>
 
@@ -83,17 +84,9 @@ bool userlist_add_or_update(dict *d) {
       c->is_ptt = t_ptt;
       c->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
 
-#if     defined(USE_GTK)
       // Another user starting/stopping TX changes the PTT button color
-      if (ui_mode == UI_MODE_GTK) {
-         ptt_button_refresh();
-      }
-#endif
-      if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
-         userlist_redraw_gtk();
-#endif
-      }
+      if (frontend_ops()) frontend_ops()->ptt_refresh();
+      if (frontend_ops()) frontend_ops()->userlist_redraw();
       userlist_refresh_ptt_status();
 
       return true;
@@ -118,11 +111,7 @@ bool userlist_add_or_update(dict *d) {
    n->is_ptt = t_ptt;
    n->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
 
-#if     defined(USE_GTK)
-   if (ui_mode == UI_MODE_GTK) {
-      ptt_button_refresh();
-   }
-#endif
+   if (frontend_ops()) frontend_ops()->ptt_refresh();
 
    /* Append to the end of the list. */
    if (!global_userlist) {
@@ -137,10 +126,8 @@ bool userlist_add_or_update(dict *d) {
 
    Log(LOG_INFO, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
-   if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
-      userlist_redraw_gtk();
-#endif
+   if (frontend_ops()) {
+      frontend_ops()->userlist_redraw();
    }
    userlist_refresh_ptt_status();
 
@@ -159,10 +146,8 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
          Log(LOG_DEBUG, "userlist", "Removing user %s from room %s at <%p>", name,
             c->room, c);
          free(c);
-         if (ui_mode == UI_MODE_GTK) {
-#if defined(USE_GTK)
-            userlist_redraw_gtk();
-#endif
+         if (frontend_ops()) {
+            frontend_ops()->userlist_redraw();
          }
          userlist_refresh_ptt_status();
          return true;
@@ -183,10 +168,8 @@ void userlist_remove_room(const char *room) {
       } else prev = c;
       c = next;
    }
-   if (!dying && ui_mode == UI_MODE_GTK) {
-#if defined(USE_GTK)
-      userlist_redraw_gtk();
-#endif
+   if (!dying && frontend_ops()) {
+      frontend_ops()->userlist_redraw();
    }
    userlist_refresh_ptt_status();
 }
@@ -219,10 +202,8 @@ void userlist_clear_all(void) {
       return;
    }
 
-   if (ui_mode == UI_MODE_GTK) {
-#if     defined(USE_GTK)
-      userlist_redraw_gtk();
-#endif
+   if (frontend_ops()) {
+      frontend_ops()->userlist_redraw();
    }
    userlist_refresh_ptt_status();
 }

@@ -28,31 +28,16 @@
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
-#ifdef	USE_GTK
-#include <rrclient/gtk.core.h>
-#endif	// USE_GTK
+#include <rrclient/frontend.h>
 
 extern bool dying;
 extern time_t now;
 extern rrconn_t *ws_conn;
 
-#ifdef	USE_GTK
-extern GtkWidget *chat_entry;
-extern GtkWidget *config_tab;
-extern GtkWidget *main_notebook;
-extern GtkWidget *status_tab;
-extern GtkWidget *log_tab;
-#endif // defined(USE_GTK)
 
 bool cmd_admin(int argc, char **args) {
-   if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_tab);
-
-      if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
-      }
-#endif	// USE_GTK
+   if (frontend_ops()) {
+      frontend_ops()->focus_tab("admin");
    } else if (ui_mode == UI_MODE_TUI) {
    }
 
@@ -60,14 +45,8 @@ bool cmd_admin(int argc, char **args) {
 }
 
 bool cmd_config(int argc, char **args) {
-   if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), config_tab);
-
-      if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
-      }
-#endif	// USE_GTK
+   if (frontend_ops()) {
+      frontend_ops()->focus_tab("config");
    } else if (ui_mode == UI_MODE_TUI) {
    }
 
@@ -76,25 +55,17 @@ bool cmd_config(int argc, char **args) {
 
 // Show the edit-config dialog.  GTK only; there is no TUI equivalent.
 bool cmd_editcfg(int argc, char **args) {
-#ifdef	USE_GTK
-   if (ui_mode == UI_MODE_GTK) {
-      gui_edit_config(argc > 1 ? args[1] : NULL);
+   if (frontend_ops() && frontend_ops()->edit_config) {
+      frontend_ops()->edit_config(argc > 1 ? args[1] : NULL);
       return false;
    }
-#endif	// USE_GTK
    ui_print(ui_active_window_name(), "{bright-red}/editcfg is only available in the GTK UI{reset}");
    return false;
 }
 
 bool cmd_log(int argc, char **args) {
-   if (ui_mode == UI_MODE_GTK) {
-#ifdef	USE_GTK
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_tab);
-
-      if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
-      }
-#endif	// USE_GTK
+   if (frontend_ops()) {
+      frontend_ops()->focus_tab("log");
    } else if (ui_mode == UI_MODE_TUI) {
    }
 
@@ -139,25 +110,18 @@ bool cmd_win(int argc, char **args) {
          return true;
       }
       tui_window_focus_id(id);
-   } else if (ui_mode == UI_MODE_GTK) {
-#ifdef USE_GTK
+   } else if (frontend_ops()) {
       // XXX: add window commands (close, etc)
-      int id = -1;
       if (argc < 2) {
          return true;
       }
-
-      id = atoi(args[1]);
-      int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
-
-      if (id >= 1 && id <= pages) {
-         ui_print(ui_active_window_name(), "Switching to window %d of %d", id, pages);
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), id);
+      int id = atoi(args[1]);
+      if (id >= 1) {
+         frontend_ops()->switch_window(id);
       } else {
          ui_print(ui_active_window_name(), "Invalid window id %d given", id);
          return true;
       }
-#endif	// USE_GTK
    }
 
    return false;

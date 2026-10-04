@@ -4,10 +4,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/rooms.h>
-#ifdef USE_GTK
-#include <gtk/gtk.h>
-#include <rrclient/gtk.chat.h>
-#endif
+#include <rrclient/frontend.h>
 
 extern rrconn_t *ws_conn;
 
@@ -126,9 +123,9 @@ const char *rrclient_room_topic(const char *room) {
 }
 
 const char *rrclient_current_room(void) {
-#ifdef USE_GTK
-   const char *room = gtk_chat_current_room();
-   if (room && *room) return room;
-#endif
+   if (frontend_ops()) {
+      const char *room = frontend_ops()->chat_current_room();
+      if (room && *room) return room;
+   }
    return ws_authoritative_room();
 }

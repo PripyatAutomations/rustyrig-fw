@@ -43,9 +43,31 @@ GtkCssProvider *css_provider = NULL;
 bool cfg_use_gtk = true;         // Default to using GTK3
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_host_log_tab(void);
-extern int cfg_ui_gtk_main_tabstrip;	// main.c
+static int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;   // module-local
+bool cfg_ui_gtk_vfo_on_top = true;
+extern bool cfg_fullscreen;
+
+static void frontend_gtk_config_refresh(const char *key) {
+   (void)key;
+   cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
+   cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
+   const char *tabstrip = cfg_get("ui.gtk.main-tabstrip");
+   if (tabstrip && strcasecmp(tabstrip, "left") == 0) {
+      cfg_ui_gtk_main_tabstrip = GTK_POS_LEFT;
+   } else if (tabstrip && strcasecmp(tabstrip, "right") == 0) {
+      cfg_ui_gtk_main_tabstrip = GTK_POS_RIGHT;
+   } else if (tabstrip && strcasecmp(tabstrip, "top") == 0) {
+      cfg_ui_gtk_main_tabstrip = GTK_POS_TOP;
+   } else {
+      cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;
+   }
+}
+
+static bool frontend_gtk_config_refresh_cb(void) {
+   frontend_gtk_config_refresh(NULL);
+   return false;
+}
 extern GtkWidget *init_admin_tab(void);
-extern bool cfg_ui_gtk_vfo_on_top;
 extern bool chat_init(void);             // gtk.chat.c
 bool cfg_fullscreen = false;
 
@@ -671,4 +693,312 @@ bool gui_fullscreen_toggle(void) {
    cfg_fullscreen = !cfg_fullscreen;
 
    return false;
+}
+
+// ------------------------------------------------------------------
+// Frontend module glue: the ops table the core client sees, plus the
+// module main-loop ownership (gtk_main).
+//
+// The module interacts with core client state ONLY through the event bus
+// (event_on*/event_emit) and the frontend host API in rrclient/frontend.h.
+// ------------------------------------------------------------------
+
+#include <rrclient/frontend.h>
+#include <dlfcn.h>
+
+extern bool ptt_button_hotkey_toggle(void);   // gtk.ptt-btn.c
+extern bool syslog_clear(void);               // gtk.syslog.c
+extern GtkTextBuffer *text_buffer;            // gtk.chat.c
+extern GtkWidget *rx_vol_slider;              // gtk.vol-box.c
+extern GtkWidget *chat_textview;              // gtk.chat.c
+extern GtkWidget *admin_tab, *config_tab;     // gtk.core.c (this file)
+extern bool ui_confirm_quit(void);            // gtk.core.c
+extern bool cfg_gtkcss_init(void);            // cfg.gtkcss.c
+
+static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
+   int width, int power, bool ptt) {
+   GtkWidget *entry = freq_entry;
+   if (entry) {
+      GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
+      if (!gtk_freq_entry_is_editing(fe)) {
+         gtk_freq_entry_set_frequency(fe, freq);
+      }
+   }
+   (void)vfo; (void)mode; (void)width; (void)power; (void)ptt;
+}
+
+static void frontend_gtk_freq_set(long freq) {
+   GtkWidget *entry = freq_entry;
+   if (entry) {
+      GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
+      if (!gtk_freq_entry_is_editing(fe)) {
+         gtk_freq_entry_set_frequency(fe, freq);
+      }
+   }
+}
+
+static void frontend_gtk_mode_set(const char *mode) {
+   set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+}
+
+static void frontend_gtk_conn_button(int connected) {
+   update_connection_button(connected, conn_button);
+}
+
+static void frontend_gtk_ptt_set_online(bool online) {
+   ptt_button_set_online(online);
+}
+
+static void frontend_gtk_ptt_set_state(bool active) {
+   ptt_button_set_state(active);
+}
+
+static void frontend_gtk_ptt_tot_expired(int tot_secs) {
+   ptt_button_tot_expired(tot_secs);
+}
+
+static void frontend_gtk_ptt_refresh(void) {
+   ptt_button_refresh();
+}
+
+static bool frontend_gtk_ptt_hotkey_toggle(void) {
+   return ptt_button_hotkey_toggle();
+}
+
+static void frontend_gtk_codec_set_active(bool is_tx, const char *codec) {
+   codec_picker_set_active(is_tx, codec);
+}
+
+static void frontend_gtk_syslog_clear(void) {
+   syslog_clear();
+}
+
+static void frontend_gtk_focus_tab(const char *tab) {
+   GtkWidget *page = NULL;
+   if (!strcasecmp(tab, "admin")) page = admin_tab;
+   else if (!strcasecmp(tab, "config")) page = config_tab;
+   else if (!strcasecmp(tab, "log")) page = log_tab;
+   else if (!strcasecmp(tab, "host log")) page = host_log_tab;
+   else if (!strcasecmp(tab, "status")) page = status_tab;
+   if (!page || !main_notebook) {
+      return;
+   }
+   int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), page);
+   if (index != -1) {
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
+   }
+}
+
+static void frontend_gtk_switch_window(int id) {
+   int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
+   if (id >= 1 && id <= pages) {
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), id - 1);
+   }
+}
+
+static bool frontend_gtk_confirm_dialog(const char *message) {
+   GtkWindow *parent = NULL;
+   if (main_window && GTK_IS_WINDOW(main_window)) parent = GTK_WINDOW(main_window);
+   return ui_confirm_dialog(parent, message);
+}
+
+static void frontend_gtk_alert(const char *message) {
+   alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, message ? message : "");
+}
+
+static bool frontend_gtk_confirm_quit(void) {
+   return ui_confirm_quit();
+}
+
+static void frontend_gtk_edit_config(const char *path) {
+   gui_edit_config(path);
+}
+
+static void frontend_gtk_bell(void) {
+   GdkDisplay *display = gtk_widget_get_display(main_window ? main_window : chat_textview);
+   if (display) {
+      gdk_display_beep(display);
+   }
+}
+
+static void frontend_gtk_notify(const char *title, const char *message) {
+#ifdef USE_LIBNOTIFY
+   ui_message_notify(title, message);
+#else
+   (void)title; (void)message;
+#endif
+}
+
+static void frontend_gtk_show_server_chooser(void) {
+   show_server_chooser();
+}
+
+static void frontend_gtk_webcam_show(bool show) {
+   (void)show;
+}
+
+static void frontend_gtk_userlist_redraw(void) {
+   userlist_redraw_gtk();
+}
+
+static void frontend_gtk_userlist_set_visible(bool visible) {
+   userlist_set_visible(visible);
+}
+
+static void frontend_gtk_userlist_room_vfos_changed(const char *room) {
+   userlist_room_vfos_changed(room);
+}
+
+static void frontend_gtk_chat_clear(void) {
+   gtk_text_buffer_set_text(text_buffer, "", -1);
+}
+
+static void frontend_gtk_rx_volume(int value) {
+   gtk_range_set_value(GTK_RANGE(rx_vol_slider), value);
+}
+
+static void frontend_gtk_chat_room_add(const char *room) {
+   gtk_chat_room_add(room);
+}
+
+static void frontend_gtk_chat_room_remove(const char *room) {
+   gtk_chat_room_remove(room);
+}
+
+static void frontend_gtk_chat_room_topic(const char *room, const char *topic) {
+   gtk_chat_room_set_topic(room, topic);
+}
+
+static void frontend_gtk_chat_show_status(void) {
+   gtk_chat_show_status();
+}
+
+static void frontend_gtk_chat_set_authoritative_room(const char *room) {
+   gtk_chat_set_authoritative_room(room);
+}
+
+static void frontend_gtk_chat_query_add(const char *who) {
+   gtk_chat_query_add(who);
+}
+
+static void frontend_gtk_chat_room_vfos_changed(const char *room) {
+   userlist_room_vfos_changed(room);
+}
+
+static const char *frontend_gtk_chat_current_room(void) {
+   return gtk_chat_current_room();
+}
+
+static void frontend_gtk_vprint(const char *window, const char *fmt, va_list ap) {
+   ui_print_gtk(window, fmt, ap);
+}
+
+static void frontend_gtk_vfo_widths(const char *vfo, const char *widths) {
+   (void)vfo; (void)widths;
+}
+
+static gboolean frontend_gtk_update_now(gpointer user_data) {
+   (void)user_data;
+   extern bool dying;
+   extern bool rrclient_cleanup(void);
+   now = time(NULL);
+   if (dying) {
+      rrclient_cleanup();
+      return G_SOURCE_REMOVE;
+   }
+   return G_SOURCE_CONTINUE;
+}
+
+static guint frontend_gtk_update_source = 0;
+
+static bool frontend_gtk_init(int *argc, char ***argv) {
+   gtk_init(argc, argv);
+#ifdef USE_LIBNOTIFY
+   if (!ui_notify_init()) {
+      Log(LOG_WARN, "gtk.notify", "Desktop notifications unavailable");
+   }
+#endif
+   alert_dialogs_init();
+   cfg_gtkcss_init();
+   frontend_gtk_config_refresh(NULL);
+   reload_event_add(NULL, frontend_gtk_config_refresh_cb, "refresh cached GTK settings after config reload");
+   if (gui_init()) {
+      return true;   // gui_init failed; module loader will unload us
+   }
+   // Local client log pane (GTK log tab) mirrors client logs.
+   log_add_callback(log_print_va);
+   frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
+   return false;
+}
+
+static void frontend_gtk_run(void) {
+   gtk_main();
+}
+
+static void frontend_gtk_quit(void) {
+   if (gtk_main_level() > 0) {
+      gtk_main_quit();
+   }
+}
+
+const rr_frontend_ops_t gtk_frontend_ops = {
+   .name = "gtk",
+   .init = frontend_gtk_init,
+   .run = frontend_gtk_run,
+   .quit = frontend_gtk_quit,
+   .vfo_state = frontend_gtk_vfo_state,
+   .vfo_widths = frontend_gtk_vfo_widths,
+   .freq_set = frontend_gtk_freq_set,
+   .mode_set = frontend_gtk_mode_set,
+   .connection_state = frontend_gtk_conn_button,
+   .conn_button_update = frontend_gtk_conn_button,
+   .chat_room_add = frontend_gtk_chat_room_add,
+   .chat_room_remove = frontend_gtk_chat_room_remove,
+   .chat_room_topic = frontend_gtk_chat_room_topic,
+   .chat_show_status = frontend_gtk_chat_show_status,
+   .chat_set_authoritative_room = frontend_gtk_chat_set_authoritative_room,
+   .chat_room_vfos_changed = frontend_gtk_chat_room_vfos_changed,
+   .chat_current_room = frontend_gtk_chat_current_room,
+   .chat_query_add = frontend_gtk_chat_query_add,
+   .ptt_set_online = frontend_gtk_ptt_set_online,
+   .ptt_set_state = frontend_gtk_ptt_set_state,
+   .ptt_tot_expired = frontend_gtk_ptt_tot_expired,
+   .ptt_refresh = frontend_gtk_ptt_refresh,
+   .ptt_hotkey_toggle = frontend_gtk_ptt_hotkey_toggle,
+   .codec_set_active = frontend_gtk_codec_set_active,
+   .syslog_clear = frontend_gtk_syslog_clear,
+   .focus_tab = frontend_gtk_focus_tab,
+   .switch_window = frontend_gtk_switch_window,
+   .confirm_dialog = frontend_gtk_confirm_dialog,
+   .confirm_quit = frontend_gtk_confirm_quit,
+   .edit_config = frontend_gtk_edit_config,
+   .alert = frontend_gtk_alert,
+   .bell = frontend_gtk_bell,
+   .notify = frontend_gtk_notify,
+   .show_server_chooser = frontend_gtk_show_server_chooser,
+   .webcam_show = frontend_gtk_webcam_show,
+   .userlist_redraw = frontend_gtk_userlist_redraw,
+   .userlist_set_visible = frontend_gtk_userlist_set_visible,
+   .userlist_room_vfos_changed = frontend_gtk_userlist_room_vfos_changed,
+   .chat_clear = frontend_gtk_chat_clear,
+   .rx_volume = frontend_gtk_rx_volume,
+   .vprint = frontend_gtk_vprint,
+};
+
+void gtk_frontend_stop(void) {
+   // Stop the 1hz timer and quit the main loop if running. The main window
+   // "destroy" signal handler runs gtk_main_quit when the user closes the
+   // window; this path is for shutdown initiated from the core.
+   if (frontend_gtk_update_source) {
+      g_source_remove(frontend_gtk_update_source);
+      frontend_gtk_update_source = 0;
+   }
+   extern bool dying;
+   if (!dying && main_window && GTK_IS_WINDOW(main_window)) {
+      gtk_widget_destroy(main_window);
+      main_window = NULL;
+   }
+   if (gtk_main_level() > 0) {
+      gtk_main_quit();
+   }
 }

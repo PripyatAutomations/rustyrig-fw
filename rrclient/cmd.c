@@ -31,10 +31,7 @@
 #include <rrclient/media.h>
 #include <rrclient/objects.h>
 #include <rrclient/ui.h>
-#include <rrclient/ui.h>
-#ifdef USE_GTK
-#include <rrclient/gtk.chat.h>
-#endif
+#include <rrclient/frontend.h>
 
 extern bool dying;
 extern time_t now;
@@ -55,9 +52,6 @@ client_cmd_t client_cmds[] = {
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
    { .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "List or manage rooms and room VFO mappings" },
    { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
-#ifdef USE_GTK
-   { .cmd = "clearlog", .cb = cmd_clearlog, .desc = "Clear the syslog tab" },
-#endif
    { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
    { .cmd = "die", .cb = cmd_die, .admin = true, .desc = "Shutdown the server" },
    { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
@@ -93,9 +87,6 @@ client_cmd_t client_cmds[] = {
    { .cmd = "txcodec", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
    { .cmd = "unmute", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user" },
    { .cmd = "user", .cb = cmd_user, .max_args = 4, .admin = true, .desc = "Manage server users (LIST|ADD|REMOVE|LOCK|UNLOCK|PRIVS|OLDPW|RESETPW|PASS)" },
-#ifdef USE_GTK
-   { .cmd = "webcam", .cb = cmd_webcam, .max_args = 1, .desc = "Toggle the webcam viewer window (SHOW | HIDE)" },
-#endif
    { .cmd = "win", .cb = cmd_win, .desc = "Change windows" },
    { .cmd = "whois", .cb = cmd_whois, .desc = "Show client information" },
    { .cmd = NULL, .cb = NULL, .desc = NULL }
@@ -242,18 +233,16 @@ bool parse_chat_input_real(const char *msg) {
       dict_add(d, "talk.cmd", "msg");
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");
-      if (ui_mode == UI_MODE_GTK) {
-#ifdef USE_GTK
-         /* GTK chat tabs represent rooms.  Include the selected tab's room so
-          * side-room messages are delivered there instead of defaulting to
-          * the authoritative rig room on the server. */
-         const char *room = gtk_chat_current_room();
+      if (frontend_ops()) {
+         /* Frontend chat tabs represent rooms.  Include the selected tab's
+          * room so side-room messages are delivered there instead of
+          * defaulting to the authoritative rig room on the server. */
+         const char *room = frontend_ops()->chat_current_room();
          if (room && room[0]) {
             dict_add(d, "talk.target", room);
             if (room[0] != '#' && room[0] != '&')
                dict_add(d, "talk.msg_type", "priv");
          }
-#endif
       } else if (ui_mode == UI_MODE_TUI) {
          /* TUI windows represent both rooms and private conversations.  The
           * status window is the client log, so target the authoritative room
@@ -283,14 +272,3 @@ bool parse_chat_input_real(const char *msg) {
    return false;
 }
 
-#ifdef	USE_GTK
-bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
-   if (!button || !entry) {
-      Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: button:<%p> entry:<%p>", button, entry);
-
-      return true;
-   }
-   const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
-   return parse_chat_input_real(msg);
-}
-#endif // USE_GTK
