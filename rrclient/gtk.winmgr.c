@@ -31,6 +31,15 @@ gui_widget_t *gui_widgets = NULL;
 // Timer for delaying window move announcements
 static guint configure_event_timeout = 0;
 
+// Module shutdown: cancel any pending configure debounce/idle so no module
+// code can run after the main loop returns.
+void gtk_winmgr_stop_sources(void) {
+   if (configure_event_timeout) {
+      g_source_remove(configure_event_timeout);
+      configure_event_timeout = 0;
+   }
+}
+
 // This is called when the window has stopped moving
 static gboolean on_configure_timeout(gpointer data) {
    if (!data) {

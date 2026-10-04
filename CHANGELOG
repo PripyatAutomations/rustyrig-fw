@@ -1,3 +1,14 @@
+rustyrig-fw (20261004.06) testing; urgency=medium
+  * Module shutdown now removes the module's repeating GLib sources (1hz
+    clock, per-room userlist refresh timers, window configure debounces)
+    and destroys all windows before unload, so no module code can run after
+    the main loop returns.
+  * New librustyaxe event-token lifecycle test (test_event_tokens) covering
+    register, deliver, unregister, double-unregister, self-unregister,
+    token identity, stale tokens after wildcard removal and re-registration.
+  * doc/client-modules.md documents module config, lifecycle, teardown
+    ordering, and the hot-reload limitation.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
 rustyrig-fw (20261004.05) testing; urgency=medium
   * Packaging: split the GTK frontend into its own package so only it pulls
     GTK deps. New rustyrig-client-gtk (Debian) / rustyrig-client-gtk (Arch,

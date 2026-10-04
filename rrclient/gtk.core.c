@@ -989,10 +989,14 @@ void gtk_frontend_stop(void) {
    // Stop the 1hz timer and quit the main loop if running. The main window
    // "destroy" signal handler runs gtk_main_quit when the user closes the
    // window; this path is for shutdown initiated from the core.
+   extern void gtk_userlist_stop_timers(void);   // gtk.userlist.c
    if (frontend_gtk_update_source) {
       g_source_remove(frontend_gtk_update_source);
       frontend_gtk_update_source = 0;
    }
+   gtk_userlist_stop_timers();
+   extern void gtk_winmgr_stop_sources(void);   // gtk.winmgr.c
+   gtk_winmgr_stop_sources();
    extern bool dying;
    if (!dying && main_window && GTK_IS_WINDOW(main_window)) {
       gtk_widget_destroy(main_window);
