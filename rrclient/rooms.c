@@ -12,6 +12,10 @@ typedef struct client_room {
    char name[128];
    char vfos[512];
    char topic[512];
+   uint32_t vfo_mask;
+   bool tx_control;
+   bool rx_tunable;
+   uint32_t rx_tuning_mask;
    struct client_room *next;
 } client_room_t;
 
@@ -93,7 +97,11 @@ bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask) {
       if (n < 0 || (size_t)n >= sizeof(vfos) - used) break;
       used += (size_t)n;
    }
-   return rrclient_room_set_vfos(room, vfos);
+   bool ok = rrclient_room_set_vfos(room, vfos);
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next)
+      if (!strcasecmp(r->name, name)) { r->vfo_mask = (uint32_t)mask; break; }
+   return ok;
 }
 
 const char *rrclient_room_vfos(const char *room) {
@@ -128,4 +136,41 @@ const char *rrclient_current_room(void) {
       if (room && *room) return room;
    }
    return ws_authoritative_room();
+}
+
+void rrclient_room_set_control_flags(const char *room, bool tx, bool rx) {
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next)
+      if (!strcasecmp(r->name, name)) { r->tx_control = tx; r->rx_tunable = rx; return; }
+}
+bool rrclient_room_tx_control(const char *room) {
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next)
+      if (!strcasecmp(r->name, name)) return r->tx_control;
+   return false;
+}
+bool rrclient_room_rx_tunable(const char *room) {
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next)
+      if (!strcasecmp(r->name, name)) return r->rx_tunable;
+   return false;
+}
+
+void rrclient_room_set_rx_tuning_mask(const char *room, uint32_t mask) {
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next)
+      if (!strcasecmp(r->name, name)) { r->rx_tuning_mask = mask; return; }
+}
+uint32_t rrclient_room_rx_tuning_mask(const char *room) {
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next)
+      if (!strcasecmp(r->name, name)) return r->rx_tuning_mask;
+   return 0;
+}
+
+uint32_t rrclient_room_vfo_mask(const char *room) {
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms; r; r = r->next)
+      if (!strcasecmp(r->name, name)) return r->vfo_mask;
+   return 0;
 }

@@ -30,6 +30,7 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
+	for m in bin/rrserver-gps*.so; do install -Dm755 $$m debian/rustyrig-server/var/lib/rustyrig/modules/$$(basename $$m); done
 	install -Dm755 bin/rrclient debian/rustyrig-client/usr/bin/rrclient
 	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk/var/lib/rustyrig/modules/rrclient-gtk.so
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop

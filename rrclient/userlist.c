@@ -82,6 +82,7 @@ bool userlist_add_or_update(dict *d) {
       c->sessions = t_sessions;
       c->is_muted = t_muted;
       c->is_ptt = t_ptt;
+      strlcpy(c->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(c->ptt_room));
       c->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
 
       // Another user starting/stopping TX changes the PTT button color
@@ -109,6 +110,7 @@ bool userlist_add_or_update(dict *d) {
    n->sessions = t_sessions;
    n->is_muted = t_muted;
    n->is_ptt = t_ptt;
+   strlcpy(n->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(n->ptt_room));
    n->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
 
    if (frontend_ops()) frontend_ops()->ptt_refresh();

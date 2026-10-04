@@ -19,6 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/gtk.chat.h>
 #include <rrclient/vfo.h>
 extern rrconn_t *ws_conn;
 extern time_t now;
@@ -55,7 +56,7 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       // canned NARR/NORM/WIDE labels and numeric "<hz> Hz" entries.
 #if     defined(USE_MONGOOSE)
       char vfo[2] = { vfo_state_get_active(), '\0' };
-      ws_send_width_cmd(ws_conn, vfo, text);
+      ws_send_width_cmd_in_room(ws_conn, vfo, text, gtk_chat_current_room());
       widthbox_last_send = now;
 #endif // defined(USE_MONGOOSE)
       g_free( (gchar *)text );
@@ -69,7 +70,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       // Send mode command over websocket as before
 #if     defined(USE_MONGOOSE)
       char vfo[2] = { vfo_state_get_active(), '\0' };
-      ws_send_mode_cmd(ws_conn, vfo, text);
+      ws_send_mode_cmd_in_room(ws_conn, vfo, text, gtk_chat_current_room());
       modebox_last_send = now;
 #endif // defined(USE_MONGOOSE)
 

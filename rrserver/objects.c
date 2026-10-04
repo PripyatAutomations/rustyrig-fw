@@ -12,6 +12,7 @@
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/objects.h>
+#include <rrserver/rig.rooms.h>
 extern struct GlobalState rig;
 typedef struct subscriber {
    rrconn_t *client;
@@ -228,6 +229,31 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
           (client_has_flag(client, FLAG_NOOB) && !is_elmer_online())) {
          code = "forbidden"; goto done;
       }
+      const char *room = dict_get(d, "request.room", NULL);
+      bool allowed = false;
+      if (room) allowed = rrserver_rig_for_room(room) == ctx.radio &&
+         ws_room_control_allowed(client, room, ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY));
+      else {
+         const char *base = rr_rig_registry_room(rig.rigs, ctx.radio);
+         allowed = base && ws_client_in_room(client, base);
+         // Requests without a room still require membership and the RX capability.
+         if (!allowed && base && ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY) && ws_room_rx_tunable(base)) {
+            char joined[AUTOJOIN_LEN]; snprintf(joined, sizeof(joined), "%s", client->rooms);
+            char *save = NULL;
+            for (char *r = strtok_r(joined, ",", &save); r; r = strtok_r(NULL, ",", &save))
+               if (ws_room_same_rig(r, base)) {
+                  rr_vfo_t index;
+                  if (rr_server_vfo_native_index(ctx.vfo, &index) && index >= 0 && index < 32 &&
+                      (ws_room_rx_tuning_mask(r) & (UINT32_C(1) << index))) { allowed = true; break; }
+               }
+         }
+      }
+      if (allowed && room && !ws_room_tx_control(room)) {
+         rr_vfo_t index;
+         allowed = ctx.vfo && rr_server_vfo_native_index(ctx.vfo, &index) && index >= 0 && index < 32 &&
+            (ws_room_rx_tuning_mask(room) & (UINT32_C(1) << index));
+      }
+      if (!allowed) { code = "forbidden-room"; goto done; }
       rr_control_request_t control = { .rig = ctx.radio, .vfo = ctx.vfo,
          .property = name, .value_type = schema.type, .source = "property.set", .context = client };
       if (!rr_object_value_get(d, "property.value", schema.type, &control.value)) { code = "invalid-value"; goto done; }

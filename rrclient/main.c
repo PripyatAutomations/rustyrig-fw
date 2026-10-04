@@ -29,6 +29,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/io.serial.h>
 #include <librustyaxe/termkey.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.binframe.h>
@@ -43,6 +44,7 @@ extern defconfig_t defcfg[];
 #define	MAX_WINDOWS 32
 #define	INPUT_HISTORY_MAX 64
 #include <rrclient/ui.h>
+#include <rrclient/media.h>
 #include <rrclient/frontend.h>
 #include <librustyaxe/cfg.modules.h>
 #include <rrclient/cat.h>
@@ -166,7 +168,7 @@ static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifi
    if (!ws_conn || ws_connected != 1) return true;
    char vfo[2] = { vfo_state_get_active(), '\0' };
    bool active = vfo_state_get_bool(vfo, "cat.state.ptt", false);
-   ws_send_ptt_cmd(ws_conn, vfo, !active);
+   ws_send_ptt_cmd_in_room(ws_conn, vfo, !active, ui_active_window_name());
    return true;
 }
 
@@ -262,6 +264,7 @@ void poll_mongoose_init(void) {
 // Over SSH (SSH_TTY set) the clock is HH:MM, so we only repaint when the
 // minute actually changes instead of once a second.
 static gboolean tui_clock_cb_real(gpointer user_data) {
+   rrclient_media_room_selected(ui_active_window_name());
    now = time(NULL);
 
    if (dying) {
@@ -428,6 +431,7 @@ bool rrclient_cleanup(void) {
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
 
+   cat_pty_shutdown();
    event_shutdown();
 
    // Persist the running config (including window placements learned while
@@ -575,6 +579,7 @@ int main(int argc, char *argv[]) {
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
    config_fwdsp_init();
+   if (!rr_serial_config_register()) return EXIT_FAILURE;
    cfg_modules_init();
 
    // Register config save callbacks so module-owned sections get saved.
@@ -642,7 +647,7 @@ int main(int argc, char *argv[]) {
    rrclient_config_refresh(NULL);
    Log(LOG_DEBUG, "main", "CAT poll blocking delay: %d second(s)", (int)poll_block_delay);
 
-   // CAT parsers + PTY interface (~/ttyCAT0 by default when enabled)
+   // CAT parsers and configured PTY/serial service bindings
    rr_cat_init();
 
 //////////////////////////////

@@ -43,6 +43,7 @@ package_rustyrig-server() {
    pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'hamlib' 'libgpiod')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
+   for module in bin/rrserver-gps*.so; do install -Dm755 "$module" "$pkgdir/var/lib/rustyrig/modules/${module##*/}"; done
    install -Dm755 tools/rr-get-audit-log "$pkgdir/usr/bin/rr-get-audit-log"
    install -Dm755 tools/rr-get-chat-log "$pkgdir/usr/bin/rr-get-chat-log"
    install -Dm755 tools/rr-get-ptt-log "$pkgdir/usr/bin/rr-get-ptt-log"

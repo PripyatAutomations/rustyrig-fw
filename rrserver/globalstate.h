@@ -41,6 +41,7 @@ struct GlobalState {
    struct AmpState amps[RR_MAX_AMPS];
    struct ATUState atus[RR_MAX_ATUS];
    struct FilterState filters[RR_MAX_FILTERS];
+   struct rr_server_rig *ptt_rig;         // Rig selected by the current TX control room
    struct rr_rig_registry *rigs;         // Owns all runtime rigs/backends
    struct rr_cat_compat *default_cat;     // Explicit default-rig wire adapter
 

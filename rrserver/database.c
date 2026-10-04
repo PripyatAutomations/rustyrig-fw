@@ -463,6 +463,17 @@ static char *db_join_rows(sqlite3 *db, const char *sql, const char *room, bool i
    sqlite3_finalize(st); return out;
 }
 
+bool db_room_vfos_clear(sqlite3 *db, const char *room) {
+   if (!db || !room || !*room) return false;
+   sqlite3_stmt *st = NULL;
+   if (sqlite3_prepare_v2(db, "DELETE FROM room_vfos WHERE room=?;", -1, &st, NULL) != SQLITE_OK)
+      return false;
+   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+   return ok;
+}
+
 bool db_room_vfo_add(sqlite3 *db, const char *room, const char *binding) {
    if (!db || !room || !binding) return false;
    sqlite3_stmt *st = NULL;

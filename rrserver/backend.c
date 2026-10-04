@@ -316,6 +316,7 @@ bool rr_backend_init(void) {
 }
 
 bool rr_backend_fini(void) {
+   rig.ptt_rig = NULL;
    rr_cat_compat_free(rig.default_cat);
    rig.default_cat = NULL;
    rr_rig_registry_free(rig.rigs);
@@ -338,8 +339,9 @@ bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
 }
 
 bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
-   rr_backend_t *backend = rr_default_backend();
-   rr_server_vfo_t *object = rr_default_vfo(vfo);
+   rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_default_radio();
+   rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
+   rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
    if (!backend || !backend->type || !backend->type->api ||
        !backend->type->api->ptt_set || !object) {
       return true;

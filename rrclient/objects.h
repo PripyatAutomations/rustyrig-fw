@@ -21,4 +21,9 @@ typedef void (*rr_object_cache_dump_fn)(const char *line, void *user);
 void rr_object_cache_dump(rr_object_cache_t *, rr_object_cache_dump_fn, void *);
 void rrclient_objects_register_events(void);
 bool cmd_objects(int argc, char **args);
+const dict *rrclient_object_property(const char *uuid, const char *name);
+const dict *rr_object_cache_find_alias(rr_object_cache_t *, const char *type,
+   const char *owner, const char *alias);
+const dict *rrclient_object_find_alias(const char *type, const char *owner,
+   const char *alias);
 #endif

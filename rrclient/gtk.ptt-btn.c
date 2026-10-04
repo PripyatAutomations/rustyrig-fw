@@ -19,6 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/gtk.chat.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
 #include <rrclient/userlist.h>
@@ -38,7 +39,7 @@ GtkWidget *ptt_button = NULL;
 
 // PTT ack tracking: when the user toggles PTT we show PENDING (yellow) until
 // the server's cat.state.ptt echo confirms it, or ui.ptt-ack-timeout expires
-// (checked by vfo_update_ui, which reads these two):
+// (checked by the frontend clock via ptt_button_refresh):
 bool ptt_button_pending = false;
 time_t ptt_button_pending_expire = 0;
 // The state we asked the server for; the ack (cat.state.ptt) must match it
@@ -72,7 +73,8 @@ static struct rr_user *tx_user(void) {
    char active_vfo = vfo_state_get_active();
    for (struct rr_user *c = global_userlist; c; c = c->next) {
       if (c->room[0] && strcasecmp(c->room, rrclient_current_room()) != 0) continue;
-      if (c->is_ptt && c->ptt_vfo == active_vfo) {
+      if (c->is_ptt && c->ptt_vfo == active_vfo &&
+          (!c->ptt_room[0] || !strcasecmp(c->ptt_room, rrclient_current_room()))) {
          return c;
       }
    }
@@ -160,6 +162,14 @@ static void ptt_button_apply(void) {
 // Re-evaluate button state (called when the userlist changes, since another
 // user starting/stopping TX changes the color)
 void ptt_button_refresh(void) {
+   if (ptt_button_pending && ptt_button_pending_expire && now >= ptt_button_pending_expire) {
+      ptt_button_pending = false;
+      ptt_button_pending_expire = 0;
+      ptt_button_pending_quiet = false;
+      char vfo[2] = { vfo_state_get_active(), '\0' };
+      ptt_button_set_state(vfo_state_get_bool(vfo, "cat.state.ptt", false));
+      return;
+   }
    ptt_button_apply();
 }
 
@@ -205,7 +215,15 @@ void ptt_button_set_online(bool online) {
 // the server would broadcast it back: an infinite ping-pong.
 // (PARITY: rustyrig-www/js/webui.rigctl.js sets checkbox.checked directly)
 void ptt_button_set_state(bool active) {
-   if (!ptt_button || dying) {
+   if (dying) return;
+   // Ignore a stale echo while waiting for the state we requested.
+   if (ptt_button_pending && active != ptt_button_pending_state) return;
+   ptt_button_pending = false;
+   ptt_button_pending_expire = 0;
+   ptt_button_pending_quiet = false;
+   ptt_btn_tot = false;
+   ptt_active = active;
+   if (!ptt_button) {
       return;
    }
 
@@ -289,7 +307,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_state = false;
       ptt_button_pending_quiet = true;
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
-      ws_send_ptt_cmd(ws_conn, vfo, false);
+      ws_send_ptt_cmd_in_room(ws_conn, vfo, false, gtk_chat_current_room());
    } else {
       // Start the local TX encoder before asking the server to key the rig.
       // The server starts its decoder before sending the matching cat.state
@@ -313,7 +331,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_quiet = false;
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
       update_ptt_button_ui(button, -1);
-      ws_send_ptt_cmd(ws_conn, vfo, true);
+      ws_send_ptt_cmd_in_room(ws_conn, vfo, true, gtk_chat_current_room());
    }
 }
 

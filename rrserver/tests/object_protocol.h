@@ -77,6 +77,15 @@ static void expect_result(dict *d, const char *expected) {
    assert(object_results == before + 1 && !strcmp(object_result, expected));
 }
 
+static bool object_join_rig(rr_server_rig_t *radio, void *data) {
+   (void)data;
+   char room[128]; snprintf(room, sizeof(room), "%s-%s", ws_site_room(), rr_rig_registry_alias(rig.rigs, radio));
+   assert(!rr_rig_registry_set_room(rig.rigs, radio, room));
+   assert(ws_room_set_vfo_mask(room, 3));
+   assert(ws_client_join_room(&object_server_session, room));
+   return false;
+}
+
 static void object_net_init(void) {
    object_cache = rr_object_cache_new();
    event_on(RR_OBJECT_MESSAGE_EVENT, object_receive, NULL);
@@ -86,6 +95,7 @@ static void object_net_init(void) {
    object_server_session.authenticated = true;
    object_server_session.is_ws = true;
    object_server_session.user = &http_users[HTTP_MAX_USERS-1];
+   assert(!rr_rig_registry_foreach(rig.rigs, object_join_rig, NULL));
    mg_mgr_init(&object_mgr);
    mg_log_set(MG_LL_ERROR);
    struct mg_connection *listener = mg_http_listen(&object_mgr,

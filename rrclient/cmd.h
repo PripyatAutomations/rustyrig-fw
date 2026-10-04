@@ -43,6 +43,12 @@ struct rr_client_media_chan {
    char descr[128];
    bool subscribed;
    bool disabled;                 // explicit NONE, eligible for re-enable
+   char room[128];
+   bool joined;
+   bool automatic;
+   char rig_uuid[64];
+   char vfo_uuid[64];
+   char control_room[128];
 };
 
 // Iterate stored channels: idx 0..n. Returns NULL past the end. `listno`

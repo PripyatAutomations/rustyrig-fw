@@ -212,3 +212,16 @@ void rr_object_cache_dump(rr_object_cache_t *c, rr_object_cache_dump_fn emit, vo
       }
    }
 }
+
+const dict *rr_object_cache_find_alias(rr_object_cache_t *c, const char *type,
+   const char *owner, const char *alias) {
+   if (!c || !type || !alias) return NULL;
+   for (cached_object_t *o = c->objects; o; o = o->next) {
+      if (o->removed || !o->descriptor) continue;
+      dict *d = o->descriptor;
+      if (strcmp(dict_get(d, "object.type", ""), type) ||
+          strcmp(dict_get(d, "object.alias", ""), alias)) continue;
+      if (!owner || !strcmp(dict_get(d, "object.owner", ""), owner)) return d;
+   }
+   return NULL;
+}

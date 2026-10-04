@@ -19,6 +19,9 @@ const char *rrclient_room_vfos(const char *room) {
    return room && !strcmp(room, "#rig") ? "rig0.vfo_a" : "";
 }
 
+const char *rrclient_media_active_room(void) { return ""; }
+const char *rrclient_media_vfo_uuid(const char *room, char vfo) { return NULL; }
+const dict *rrclient_object_property(const char *uuid, const char *name) { return NULL; }
 static unsigned redraws;
 static char *render(tui_window_t *win) {
    redraws++;

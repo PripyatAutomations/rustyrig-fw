@@ -35,6 +35,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cat.h>
+#include <rrclient/sercom.h>
 
 static CATcmd *cat_commands = NULL;
 
@@ -145,18 +146,13 @@ int32_t rr_cat_printf(const char *str, ...) {
    va_list ap;
    va_start(ap, str);
 
-   // Send the reply out the CAT PTY, if it's up
-   if (cat_pty_active()) {
-      char buf[512];
-      int len = vsnprintf(buf, sizeof(buf), str, ap);
-      if (len > 0 && (size_t)len < sizeof(buf)) {
-         (void)!write(cat_pty_fd(), buf, len);
-      }
-   }
+   char buf[512];
+   int len = vsnprintf(buf, sizeof(buf), str, ap);
+   int result = len > 0 && (size_t)len < sizeof(buf) ? rr_cat_serial_reply(buf, len) : -1;
 
    va_end(ap);
 
-   return 0;
+   return result;
 }
 
 // Here we parse commands for the main rig.

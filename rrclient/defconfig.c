@@ -43,7 +43,8 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
    "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-   "#room-vfo-frequency { font-family: \"Monospace\"; font-size: 16pt; font-weight: bold; }\n" \
+   "#room-vfo-frequency { font-family: \"Monospace\"; font-size: 14pt; font-weight: bold; }\n" \
+   "#room-vfo-row.room-vfo-active { background-color: #600000; color: white; }\n" \
    ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
    ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
    ".ptt-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
@@ -63,7 +64,8 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
    "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
    "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-   "#room-vfo-frequency { font-family: \"Monospace\"; font-size: 16pt; font-weight: bold; }\n" \
+   "#room-vfo-frequency { font-family: \"Monospace\"; font-size: 14pt; font-weight: bold; }\n" \
+   "#room-vfo-row.room-vfo-active { background-color: #600000; color: white; }\n" \
    ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
    ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
    ".ptt-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
@@ -88,8 +90,19 @@ defconfig_t defcfg[] = {
    { "callsign-lookup:use-cache", "true", "Cache local callsign lookup results" },
    { "callsign-lookup:path", "./bin/callsign-lookup", "Callsign lookup helper executable" },
    { "webcam.device", "/dev/video0", "v4l2 device to grab frames from" },
+   { "serial.ttyCAT0", "rig0.cat", "Default serial endpoint service; none disables it" },
+   { "serial.ttyHOST0", NULL, "Optional remote serial binding: host:<server endpoint>" },
+   { "serial:ttyHOST0.baud", NULL, "Optional initial baud override; otherwise inherit server settings" },
+   { "serial:ttyHOST0.mode", NULL, "Optional line-mode override; otherwise inherit server settings" },
+   { "serial:ttyHOST0.buffer-bytes", "65536", "Bounded serial buffer; 0 keeps only one transfer block", DEFCONFIG_INT, NULL },
+   { "serial:ttyCAT0.buffer-bytes", "8192", "Bounded local serial write buffer; 0 keeps one transfer block", DEFCONFIG_INT, NULL },
+   { "serial:ttyCAT0.type", "pty", "Serial transport: pty or serial", DEFCONFIG_ENUM, "pty serial" },
+   { "serial:ttyCAT0.path", NULL, "PTY link or real serial device; defaults to cat.pty.path for ttyCAT0" },
+   { "serial:ttyCAT0.mode", "8n1", "Serial data/parity/stop mode" },
+   { "serial:ttyCAT0.vfo", "A", "CAT VFO for commands without an explicit selector" },
+   { "serial:ttyCAT0.baud", "9600", "Serial baud rate (1200 through 115200 supported rates)", DEFCONFIG_INT, NULL },
    { "cat.pty.enable", "true", "Create a PTY (e.g. ~/ttyCAT0) for external CAT software (hamlib/rigctl)", DEFCONFIG_BOOL, NULL },
-   { "cat.pty.path", "~/ttyCAT0", "Path to symlink the CAT PTY slave to" },
+   { "cat.pty.path", "./dev/ttyCAT0", "Path to symlink the CAT PTY slave to" },
    { "default.tx.power", "30", "Default TX power in watts (float)", DEFCONFIG_FLOAT, NULL },
    { "log.audio", ":*3", "GStreamer debug level" },
    { "log.file", "rrclient.log", "Where to log" },

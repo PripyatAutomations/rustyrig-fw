@@ -113,3 +113,25 @@ The configurable `tui.status-line` top/topic row is frontend-specific. It
 reads the native client's existing VFO state; it introduces no protocol or
 CAT semantics. GTK widgets and browser DOM displays retain their own layout.
 See [TUI top status line](tui-status-line.md).
+
+## Rig-room audio
+
+Native `rrclient/media.c` and browser `js/webui.media.js` honor session-specific
+`media.room`/`media.joined` metadata. Both attach the active VFO pair only in a
+joined rig room, switch automatic subscriptions when selecting another joined
+rig room, and drop room audio on PART. Login joins the site lobby; optional
+autojoin uses the native server profile or the browser's site settings. See
+[Site lobby and rig rooms](rig-rooms.md) for configuration and room-scoped CAT/PTT authorization.
+Both clients select audio by room and VFO, recognize the sole TX base room,
+and permit RX-subroom frequency edits only for the advertised per-VFO tuning
+mask. GTK docked row selection, detached panels, and CSS highlighting are
+frontend-specific; browser frequency controls honor the same tuning policy.
+
+## Local serial services
+
+`/sercom` and local PTY/real-device transports belong to the native common
+client and work in GTK and TUI. The browser recognizes the command and explains
+this limitation; it does not forward local endpoint management to the server.
+Both command completers offer LIST, ATTACH, and DISCONNECT. Native CAT writes
+use the same room-scoped protocol APIs as the other native controls. See
+[Native serial interfaces](serial-interfaces.md).

@@ -64,6 +64,10 @@ int main(void) {
    object(c, rig0, "rig", epoch, "rig0", 1);
    object(c, epoch, "node", NULL, "station", 1);
    assert(rr_object_cache_count(c) == 5);
+   assert(rr_object_cache_find_alias(c, "rig", NULL, "rig1") == rr_object_cache_object(c, rig1));
+   assert(rr_object_cache_find_alias(c, "vfo", rig1, "A") == rr_object_cache_object(c, vfo1));
+   assert(rr_object_cache_find_alias(c, "vfo", rig0, "A") == rr_object_cache_object(c, vfo0));
+   assert(!rr_object_cache_find_alias(c, "vfo", epoch, "A"));
    assert(!strcmp(dict_get((dict *)rr_object_cache_object(c, vfo1), "object.owner", ""), rig1));
    d = msg("property", "descriptor", 4);
    dict_add(d, "target", vfo1); dict_add(d, "property.name", "frequency");
@@ -87,6 +91,7 @@ int main(void) {
    d = msg("object", "removed", 8); dict_add(d, "object.uuid", rig1);
    assert(apply(c, d));
    assert(!rr_object_cache_object(c, vfo1));
+   assert(!rr_object_cache_find_alias(c, "vfo", rig1, "A"));
    assert(!rr_object_cache_property(c, vfo1, "frequency", false));
    object(c, vfo1, "vfo", rig1, "A", 6); // Late snapshot must not resurrect.
    assert(!rr_object_cache_object(c, vfo1));

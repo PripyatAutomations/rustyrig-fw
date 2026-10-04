@@ -32,6 +32,7 @@
 #include <rrclient/objects.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
+#include <rrclient/sercom.h>
 
 extern bool dying;
 extern time_t now;
@@ -48,6 +49,7 @@ bool cmd_reload(int argc, char **args) {
 
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
+   { .cmd = "sercom", .cb = cmd_sercom, .max_args = 4, .desc = "Serial endpoints: LIST | ATTACH <name> <service> [device] | DISCONNECT <name>" },
    { .cmd = "objects", .cb = cmd_objects, .desc = "Dump UUID object/property cache" },
    { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
    { .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "List or manage rooms and room VFO mappings" },

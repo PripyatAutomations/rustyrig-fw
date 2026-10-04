@@ -10,6 +10,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    if (!cache) cache = rr_object_cache_new();
    if (d && !rr_object_cache_apply(cache, d)) Log(LOG_WARN, "objects", "Rejected malformed/stale-stream object message");
    dict_free(d);
+   event_emit("client.objects.changed", NULL, NULL);
 }
 
 static void connection(const char *event, const char *data, rrconn_t *client, void *user) {
@@ -41,4 +42,13 @@ void rrclient_objects_register_events(void) {
    event_on("disconnected", connection, NULL);
    event_on("http.error", connection, NULL);
    event_on("auth.error", connection, NULL);
+}
+
+const dict *rrclient_object_property(const char *uuid, const char *name) {
+   return cache && uuid ? rr_object_cache_property(cache, uuid, name, false) : NULL;
+}
+
+const dict *rrclient_object_find_alias(const char *type, const char *owner,
+   const char *alias) {
+   return rr_object_cache_find_alias(cache, type, owner, alias);
 }

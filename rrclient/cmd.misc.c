@@ -46,20 +46,22 @@ void rrclient_print_callsign_line(const char *line);
 
 static const char *cmd_set_type_name(defconfig_type_t type) {
    switch (type) {
-   case DEFCONFIG_BOOL: return "bool";
-   case DEFCONFIG_INT: return "int";
-   case DEFCONFIG_UINT: return "uint";
-   case DEFCONFIG_FLOAT: return "float";
-   case DEFCONFIG_PATH: return "path";
-   case DEFCONFIG_PASSWORD: return "password";
-   case DEFCONFIG_ENUM: return "enum";
-   case DEFCONFIG_STRING:
-   default: return "string";
+      case DEFCONFIG_BOOL: return "bool";
+      case DEFCONFIG_INT: return "int";
+      case DEFCONFIG_UINT: return "uint";
+      case DEFCONFIG_FLOAT: return "float";
+      case DEFCONFIG_PATH: return "path";
+      case DEFCONFIG_PASSWORD: return "password";
+      case DEFCONFIG_ENUM: return "enum";
+      case DEFCONFIG_STRING:
+      default: return "string";
    }
 }
 
 static bool cmd_set_matches(const char *pattern, const char *key) {
-   if (!pattern || !*pattern) return true;
+   if (!pattern || !*pattern) {
+      return true;
+   }
    return (strchr(pattern, '*') || strchr(pattern, '?'))
       ? fnmatch(pattern, key, 0) == 0
       : strcmp(pattern, key) == 0;
@@ -67,7 +69,9 @@ static bool cmd_set_matches(const char *pattern, const char *key) {
 
 static bool cmd_set_has_key(char **keys, size_t count, const char *key) {
    for (size_t i = 0; i < count; i++) {
-      if (strcmp(keys[i], key) == 0) return true;
+      if (strcmp(keys[i], key) == 0) {
+         return true;
+      }
    }
    return false;
 }
@@ -81,8 +85,13 @@ static int cmd_set_key_cmp(const void *a, const void *b) {
 static void cmd_set_print_key(const char *key) {
    const defconfig_t *def = cfg_defconfig_find(key);
    const char *value = cfg ? dict_get(cfg, key, NULL) : NULL;
-   if (!value && default_cfg) value = dict_get(default_cfg, key, NULL);
-   if (!value) value = "(unset)";
+   if (!value && default_cfg) {
+      value = dict_get(default_cfg, key, NULL);
+   }
+
+   if (!value) {
+      value = "(unset)";
+   }
 
    ui_print(ui_active_window_name(), "%s%s = %s {bright-black}[%s%s]{reset}",
       def ? "" : "* ", key, value,
@@ -105,7 +114,10 @@ static bool cmd_set_list(const char *pattern) {
       if (count == capacity) {
          size_t next = capacity ? capacity * 2 : 64;
          char **grown = realloc(keys, next * sizeof(*keys));
-         if (!grown) { free(keys); return false; }
+         if (!grown) {
+            free(keys);
+            return false;
+         }
          keys = grown;
          capacity = next;
       }
@@ -116,11 +128,18 @@ static bool cmd_set_list(const char *pattern) {
    for (size_t i = 0; defcfg[i].key; i++) {
       const char *defkey = defcfg[i].key;
       const char *defvalue = default_cfg ? dict_get(default_cfg, defkey, NULL) : NULL;
-      if (!defvalue || !cmd_set_matches(pattern, defkey) || cmd_set_has_key(keys, count, defkey)) continue;
+
+      if (!defvalue || !cmd_set_matches(pattern, defkey) || cmd_set_has_key(keys, count, defkey)) {
+         continue;
+      }
+
       if (count == capacity) {
          size_t next = capacity ? capacity * 2 : 64;
          char **grown = realloc(keys, next * sizeof(*keys));
-         if (!grown) { free(keys); return false; }
+         if (!grown) {
+            free(keys);
+            return false;
+         }
          keys = grown;
          capacity = next;
       }
@@ -154,7 +173,9 @@ bool cmd_set(int argc, char **args) {
    }
    char value[512] = "";
    for (int i = 2; i < argc; i++) {
-      if (i > 2) strlcat(value, " ", sizeof(value));
+      if (i > 2) {
+         strlcat(value, " ", sizeof(value));
+      }
       strlcat(value, args[i] ? args[i] : "", sizeof(value));
    }
    const defconfig_t *def = cfg_defconfig_find(args[1]);
@@ -397,15 +418,13 @@ bool cmd_save(int argc, char **args) {
    }
 
    if (frontend_ops() && frontend_ops()->confirm_dialog && !confirmed) {
-      if (!frontend_ops()->confirm_dialog(
-            "Save configuration to ~/.config/rrclient.cfg?\nThe existing file will be backed up."))
-         return false;
+      if (!frontend_ops()->confirm_dialog("Save configuration to ~/.config/rrclient.cfg?\nThe existing file will be backed up.")) {
          confirmed = true;
+         return false;
       }
       if (ui_mode == UI_MODE_TUI && !confirmed) {
-      ui_print(ui_active_window_name(),
-         "Save configuration to ~/.config/rrclient.cfg? Existing config will be backed up. "
-         "Run /save yes to confirm.");
+         ui_print(ui_active_window_name(), "Save configuration to ~/.config/rrclient.cfg? Existing config will be backed up. Run /save yes to confirm.");
+      }
       return false;
    }
 
@@ -416,8 +435,7 @@ bool cmd_save(int argc, char **args) {
 
    char path[PATH_MAX];
    const char *home = getenv("HOME");
-   int written = snprintf(path, sizeof(path), "%s/.config/rrclient.cfg",
-      (home && *home) ? home : ".");
+   int written = snprintf(path, sizeof(path), "%s/.config/rrclient.cfg", (home && *home) ? home : ".");
    if (written < 0 || (size_t)written >= sizeof(path)) {
       ui_print(ui_active_window_name(), "{red}*** Cannot save: configuration path is too long{reset}");
       return false;
@@ -478,9 +496,15 @@ bool cmd_rxvol(int argc, char **args) {
       ui_print(ui_active_window_name(), "* Usage: /rxvol <0-100>");
       return true;
    }
+
    int val = atoi(args[1]);
-   if (val < 0) val = 0;
-   if (val > 100) val = 100;
+   if (val < 0) {
+      val = 0;
+   }
+
+   if (val > 100) {
+      val = 100;
+   }
    audio_set_rx_volume(val);
 
    if (ui_mode == UI_MODE_TUI) {
@@ -523,7 +547,6 @@ bool cmd_server(int argc, char **args) {
 
          if (!server_name) {
             fprintf(stderr, "OOM in parse_chat_input /server\n");
-
             return true;
          }
          Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", server);

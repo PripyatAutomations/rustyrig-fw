@@ -98,8 +98,18 @@ path.modules=/var/lib/rustyrig/modules
 ; Keep aliases and rig.identity-namespace stable to preserve rig UUIDs.
 ; To add another rig, list its alias in rig.instances and add its section.
 [rig:rig0]
+; Rig position override (decimal degrees). This disables this rig's GPS input.
+;gps.position=38.1234567,-80.7654321
 name=rig0
 backend=internal
+; Room must be #<station.name>-rigN; defaults to that canonical name.
+; PCM endpoints default to src.<alias> and sink.<alias> in [pipelines].
+; RX subrooms may tune only if changing a VFO never moves the shared LO.
+;rx-independent-tuning=false
+; Or permit only named independent VFOs (overrides the flag above):
+;rx-independent-vfos=B
+;audio.source=src.rig0
+;audio.sink=sink.rig0
 vfos=A B
 ; Send CAT state at most once every N seconds if unchanged.
 state-interval=15
@@ -272,3 +282,24 @@ event spam push !ADMINS
 #################
 # NYI: Support for loadable modules
 [modules]
+
+; Optional server receiver modules. path.modules points at their installed dir.
+[modules]
+;rrserver-gpsd=
+;rrserver-gps-nmea=
+
+; Symbolic serial bindings. Raw exports are exclusive and require serial.access
+; (admin|owner by default). No device opens until an authorized client attaches.
+[serial]
+;ttyHOST0=serial:/dev/ttyUSB0@115200,8n1
+;ttyGPS0=station.gps-in@4800
+;ttyGPS1=rig1.gps-in@4800
+;ttyGPS2=rig0.gps-out@4800
+
+; GPS endpoints default to PTYs at ./dev/<name>. Real receiver example:
+;[serial:ttyGPS0]
+;type=serial
+;path=/dev/ttyUSB1
+;[serial:ttyHOST0]
+;buffer-bytes=16384
+;access=admin|owner

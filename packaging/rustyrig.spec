@@ -59,6 +59,7 @@ Callsign lookup helper using local databases and the QRZ XML API.
 
 %install
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
+for module in bin/rrserver-gps*.so; do install -Dpm0755 "$module" "%{buildroot}%{_sharedstatedir}/rustyrig/modules/${module##*/}"; done
 install -Dpm0755 tools/rr-get-audit-log %{buildroot}%{_bindir}/rr-get-audit-log
 install -Dpm0755 tools/rr-get-chat-log %{buildroot}%{_bindir}/rr-get-chat-log
 install -Dpm0755 tools/rr-get-ptt-log %{buildroot}%{_bindir}/rr-get-ptt-log

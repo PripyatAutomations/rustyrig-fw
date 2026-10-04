@@ -4,7 +4,7 @@ bool dying, restarting;
 time_t now;
 struct rr_user *global_userlist;
 client_cmd_t client_cmds[] = {
-   {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
+   {.cmd="sercom"}, {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
    {.cmd="kick", .admin=true}, {.cmd="user", .admin=true}, {0}
 };
 static bool admin;
@@ -34,6 +34,9 @@ int main(void) {
    struct rr_user user = {0};
    snprintf(user.name, sizeof(user.name), "alice");
    global_userlist = &user;
+   check("/ser", "/ser", "/sercom");
+   check("/sercom at", "at", "ATTACH");
+   check("/sercom di", "di", "DISCONNECT");
    check("/rx", "/rx", "/rxcodec");
    check("/rxcodec ", "", "NONE");
    check("/rxcodec OP", "OP", "opus");

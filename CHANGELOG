@@ -1,4 +1,24 @@
 rustyrig-fw (20261004.06) testing; urgency=medium
+  * Add generic PTY/real-serial endpoints and /sercom management, with
+    per-endpoint rig CAT routing and checksum-validated NMEA in/out.
+  * Export allowlisted server serial devices over raw MODEM binary frames,
+    propagate client PTY baud/mode changes, and bound buffering at both ends.
+  * Add gpsd/NMEA server modules and per-rig GPS channels, station fallback,
+    fixed config coordinates overriding receivers, and generated logger NMEA
+    every five minutes or immediately when selecting another rig.
+  * Reserve base rig rooms for server initialization, keep RX subrooms
+    within their rig namespace, and enforce membership and explicit LO-safe
+    tuning capability for CAT and UUID controls. Route scoped CAT/PTT to
+    the named rig and release TX when leaving its control room.
+  * Keep GTK radio controls in rig rooms, enable docked userlist VFO row
+    selection, and highlight the selected VFO with configurable CSS.
+  * Reduce userlist VFO frequency text from 16pt to 14pt for wider VHF/UHF
+    frequencies.
+  * Clear PTT pending state from authoritative CAT and local-user status
+    updates in GTK and WebUI; restore the GTK acknowledgement timeout.
+  * Join the site lobby at login, configure per-rig rooms with UUID VFO
+    bindings, and scope automatic audio subscriptions and PCM endpoints to
+    those rooms in native and browser clients.
   * Module shutdown now removes the module's repeating GLib sources (1hz
     clock, per-room userlist refresh timers, window configure debounces)
     and destroys all windows before unload, so no module code can run after

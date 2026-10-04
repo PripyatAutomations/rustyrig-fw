@@ -21,6 +21,9 @@
 #include <rrclient/cmd.h>
 #include <rrclient/cmd.help.h>
 #include <rrclient/ui.h>
+#include <rrclient/media.h>
+#include <rrclient/rooms.h>
+#include <rrclient/vfo.h>
 #include <rrclient/ui.speech.h>
 #include <rrclient/gtk.core.h>
 #include <rrclient/userlist.h>
@@ -59,6 +62,9 @@ static gboolean gtk_chat_set_userlist_width(gpointer data) {
    return G_SOURCE_REMOVE;
 }
 
+static GtkWidget *room_vfo_box;
+static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
+
 static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page,
    guint page_num, gpointer user_data) {
    (void)notebook;
@@ -72,6 +78,8 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page,
       /* The shared user list follows the selected room, including when it
        * is detached in its own window. */
       userlist_redraw_gtk();
+      rrclient_media_room_selected(tab->room);
+      gtk_chat_update_vfo_controls(tab);
    }
 }
 
@@ -407,20 +415,48 @@ static GtkWidget *chatbox_vfo_init(void) {
    return vfo;
 }
 
+// A single control box follows the selected rig room.  The site lobby and
+// query tabs never own radio widgets; creating one per rig would overwrite
+// the GTK module's shared frequency/PTT widget pointers.
+static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
+   bool has_vfos = tab && tab->room[0] && rrclient_room_tx_control(tab->room);
+   if (!has_vfos) {
+      if (room_vfo_box && cfg_get_bool("ui.gtk.vfo-docked", true)) gtk_widget_hide(room_vfo_box);
+      return;
+   }
+   GtkWidget *box = g_object_get_data(G_OBJECT(tab->page), "rr-chat-box");
+   if (!box) return;
+   if (!room_vfo_box) {
+      room_vfo_box = chatbox_vfo_init();
+      if (!room_vfo_box) return;
+      g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *)&room_vfo_box);
+   }
+   if (!cfg_get_bool("ui.gtk.vfo-docked", true)) return;
+   GtkWidget *parent = gtk_widget_get_parent(room_vfo_box);
+   if (parent != box) {
+      g_object_ref_sink(room_vfo_box);
+      if (parent) gtk_container_remove(GTK_CONTAINER(parent), room_vfo_box);
+      gtk_box_pack_start(GTK_BOX(box), room_vfo_box, FALSE, FALSE, 0);
+      if (cfg_ui_gtk_vfo_on_top) gtk_box_reorder_child(GTK_BOX(box), room_vfo_box, 0);
+      g_object_unref(room_vfo_box);
+   }
+   gtk_widget_show_all(room_vfo_box);
+   vfo_update_ui();
+}
+
+void gtk_chat_room_vfos_changed(const char *room) {
+   userlist_room_vfos_changed(room);
+   gint page = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
+   GtkWidget *widget = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), page);
+   GtkRoomTab *tab = widget ? g_object_get_data(G_OBJECT(widget), "rr-room-tab") : NULL;
+   gtk_chat_update_vfo_controls(tab);
+}
+
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
    if (!chat_box) { // XXX: throw OOM warning
       return NULL;
-   }
-
-   GtkWidget *vfo = NULL;
-
-   // cfg:ui.gtk.vfo-on-top
-   if (is_rig && cfg_ui_gtk_vfo_on_top) {
-      if ((vfo = chatbox_vfo_init())) {
-         gtk_box_pack_start(GTK_BOX(chat_box), vfo, FALSE, FALSE, 0);
-      }
    }
 
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
@@ -472,13 +508,6 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_box_pack_start(GTK_BOX(chat_box), button, FALSE, FALSE, 0);
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
-   // !cfg:ui.gtk.vfo-on-top
-   if (is_rig && !cfg_ui_gtk_vfo_on_top) {
-      if ((vfo = chatbox_vfo_init())) {
-         gtk_box_pack_start(GTK_BOX(chat_box), vfo, FALSE, FALSE, 0);
-      }
-   }
-
    return chat_box;
 }
 
@@ -508,6 +537,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
    snprintf(tab->room, sizeof(tab->room), "%s", room);
    tab->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *box = create_chat_box_for_room(false, room, is_query);
+   g_object_set_data(G_OBJECT(tab->page), "rr-chat-box", box);
    tab->view = chat_textview;
    tab->entry = chat_entry;
    gtk_box_pack_start(GTK_BOX(tab->page), box, TRUE, TRUE, 0);
@@ -588,6 +618,7 @@ void gtk_chat_set_authoritative_room(const char *room) {
          return;
       }
       gtk_box_pack_start(GTK_BOX(rig_room_tab->page), chat_box, TRUE, TRUE, 0);
+      g_object_set_data(G_OBJECT(rig_room_tab->page), "rr-chat-box", chat_box);
       rig_room_tab->view = chat_textview;
       rig_room_tab->entry = chat_entry;
       g_object_set_data(G_OBJECT(rig_room_tab->page), "rr-rig-room-built",
