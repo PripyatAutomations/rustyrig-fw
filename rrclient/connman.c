@@ -35,7 +35,7 @@ extern bool dying;
 extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN + 1];
 extern void rrclient_update_connection_ui(int connected);       // events.c
-extern void tui_refresh_sb_online(void);			// events.c
+extern void tui_refresh_sb_online(void);                        // events.c
 
 static const char *rrclient_resolve_server_name(const char *requested_server) {
    if (requested_server && *requested_server) {
@@ -50,6 +50,7 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
    if (server_name && *server_name) {
       return server_name;
    }
+
    return NULL;
 }
 
@@ -89,12 +90,13 @@ static void rrclient_schedule_reconnect(void) {
    if (reconnect_tries >= RRC_MAX_RECONNECTS) {
       ui_print(NULL, "%s {red}Giving up after %u reconnect attempts{reset}", get_chat_ts(now), reconnect_tries);
       reconnect_enabled = false;
+
       return;
    }
 
    unsigned int delay_index = reconnect_tries;
 
-   if ( delay_index >= sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) ) {
+   if (delay_index >= sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) ) {
       delay_index = sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) - 1;
    }
    unsigned int delay = reconnect_delays[delay_index];
@@ -126,7 +128,7 @@ static void rrclient_handle_reconnect_event(const char *event, const char *data,
       // schedule a reconnect. Plain "error" events are non-fatal protocol error
       // messages from the server (cli.error.c) and must NOT drop the connection.
       rrclient_schedule_reconnect();
-    }
+   }
 }
 
 void connman_register_events(void) {
@@ -163,7 +165,8 @@ bool disconnect_server(const char *server) {
    rrclient_update_connection_ui(0);
 
    if (ws_connected) {
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
+
       if (ws_conn) {
          ws_conn->conn->is_closing = 1;
       }
@@ -171,6 +174,7 @@ bool disconnect_server(const char *server) {
       ws_connected = false;
       userlist_clear_all();
    }
+
    return false;
 }
 
@@ -198,11 +202,14 @@ bool connect_server(const char *server) {
       rrclient_update_connection_ui(-1);
       ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
 
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
+
       if (!ws_conn) {
-         ws_conn = malloc(sizeof(rrconn_t));
+         ws_conn = malloc( sizeof(rrconn_t) );
+
          if (!ws_conn) {
             Log(LOG_CRIT, "connman", "Unable to allocate WebSocket connection state");
+
             return true;
          }
          memset( ws_conn, 0, sizeof(rrconn_t) );
@@ -216,22 +223,26 @@ bool connect_server(const char *server) {
          ui_print( NULL, "%s Socket connect error", get_chat_ts(now) );
          ws_connected = 0;
          event_emit("http.error", NULL, NULL);
+
          return true;
       }
       ws_conn->conn = c;
 #endif // defined(USE_MONGOOSE)
-    } else {
-   ui_print(NULL,
-       "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
-       get_chat_ts(now), resolved_server);
+   } else {
+      ui_print(NULL,
+         "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
+         get_chat_ts(now), resolved_server);
    }
+
    return false;
 }
 
 bool connect_or_disconnect(const char *server) {
    const char *resolved_server = rrclient_resolve_server_name(server);
+
    if (!resolved_server) {
       Log(LOG_WARN, "connman", "connect_or_disconnect called with no server");
+
       return true;
    }
 
@@ -244,6 +255,7 @@ bool connect_or_disconnect(const char *server) {
       }
       connect_server(resolved_server);
    }
+
    return false;
 }
 

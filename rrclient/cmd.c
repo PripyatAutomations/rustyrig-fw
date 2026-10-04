@@ -43,57 +43,154 @@ extern dict *cfg;
 
 bool cmd_reload(int argc, char **args) {
    cfg_reload(config_file);
-   if (ui_mode == UI_MODE_TUI) tui_redraw_screen();
+
+   if (ui_mode == UI_MODE_TUI) { tui_redraw_screen(); }
+
    return false;
 }
 
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
-   { .cmd = "rig", .cb = cmd_rig, .max_args = 1, .desc = "Site resource tree: LIST | SUBSCRIBE | UNSUBSCRIBE property updates" },
-   { .cmd = "gps", .cb = cmd_gps, .max_args = 2, .desc = "GPS outputs: LIST | SUBSCRIBE <rig|station> | UNSUBSCRIBE <rig|station>" },
-   { .cmd = "sercom", .cb = cmd_sercom, .max_args = 4, .desc = "Serial endpoints: LIST | REMOTE | ATTACH <name> <service> [device] | DISCONNECT <name>" },
-   { .cmd = "objects", .cb = cmd_objects, .desc = "Dump UUID object/property cache" },
-   { .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab" },
-   { .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "List or manage rooms and room VFO mappings" },
-   { .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback" },
-   { .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab" },
-   { .cmd = "die", .cb = cmd_die, .admin = true, .desc = "Shutdown the server" },
-   { .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server" },
-   { .cmd = "grid", .cb = cmd_grid, .max_args = 1, .desc = "Look up a grid square or coordinates" },
-   { .cmd = "help", .cb = cmd_help, .desc = "Show help message" },
-   { .cmd = "j", .cb = cmd_join, .desc = "Alias for /join" },
-   { .cmd = "kick", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the rig" },
-   { .cmd = "join", .cb = cmd_join, .desc = "Join a channel" },
-   { .cmd = "list", .cb = cmd_list, .desc = "List available rooms" },
-   { .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab" },
-   { .cmd = "media", .cb = cmd_media, .max_args = 2, .desc = "Media channels: LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>" },
-   { .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel" },
-   { .cmd = "msg", .cb = cmd_msg, .max_args = 31, .desc = "Send a private message" },
-   { .cmd = "mute", .cb = cmd_mute, .admin = true, .desc = "Mute a user" },
-   { .cmd = "names", .cb = cmd_names, .desc = "List users with privilege flags" },
-   { .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice" },
-   { .cmd = "part", .cb = cmd_part, .desc = "Leave a channel" },
-   { .cmd = "qrz", .cb = cmd_qrz, .max_args = 1, .desc = "Look up a callsign" },
-   { .cmd = "query", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab" },
-   { .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)" },
-   { .cmd = "quota", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)" },
-   { .cmd = "raw", .cb = cmd_raw, .desc = "Send a raw command" },
-   { .cmd = "rehash", .cb = cmd_rehash, .admin = true, .desc = "Ask server to reload config & users" },
-   { .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file" },
-   { .cmd = "restart", .cb = cmd_restart, .admin = true, .desc = "Restart the server" },
-   { .cmd = "rxcodec", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
-   { .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level" },
-   { .cmd = "save", .cb = cmd_save, .max_args = 1, .desc = "Save config to ~/.config/rrclient.cfg" },
-   { .cmd = "server", .cb = cmd_server, .desc = "Connect to a server" },
-   { .cmd = "set", .cb = cmd_set, .max_args = 31, .desc = "Set a typed configuration value" },
-   { .cmd = "syslog", .cb = cmd_syslog, .desc = "Toggle server host log stream (/syslog on|off)" },
-   { .cmd = "topic", .cb = cmd_topic, .desc = "Get or set the current room topic" },
-   { .cmd = "txcodec", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]" },
-   { .cmd = "unmute", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user" },
-   { .cmd = "user", .cb = cmd_user, .max_args = 4, .admin = true, .desc = "Manage server users (LIST|ADD|REMOVE|LOCK|UNLOCK|PRIVS|OLDPW|RESETPW|PASS)" },
-   { .cmd = "win", .cb = cmd_win, .desc = "Change windows" },
-   { .cmd = "whois", .cb = cmd_whois, .desc = "Show client information" },
-   { .cmd = NULL, .cb = NULL, .desc = NULL }
+   {
+      .cmd = "rig", .cb = cmd_rig, .max_args = 1,
+      .desc = "Site resource tree: LIST | SUBSCRIBE | UNSUBSCRIBE property updates"
+   },
+   {
+      .cmd = "gps", .cb = cmd_gps, .max_args = 2,
+      .desc = "GPS outputs: LIST | SUBSCRIBE <rig|station> | UNSUBSCRIBE <rig|station>"
+   },
+   {
+      .cmd = "sercom", .cb = cmd_sercom, .max_args = 4,
+      .desc = "Serial endpoints: LIST | REMOTE | ATTACH <name> <service> [device] | DISCONNECT <name>"
+   },
+   {
+      .cmd = "objects", .cb = cmd_objects, .desc = "Dump UUID object/property cache"
+   },
+   {
+      .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab"
+   },
+   {
+      .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "List or manage rooms and room VFO mappings"
+   },
+   {
+      .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback"
+   },
+   {
+      .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab"
+   },
+   {
+      .cmd = "die", .cb = cmd_die, .admin = true, .desc = "Shutdown the server"
+   },
+   {
+      .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server"
+   },
+   {
+      .cmd = "grid", .cb = cmd_grid, .max_args = 1, .desc = "Look up a grid square or coordinates"
+   },
+   {
+      .cmd = "help", .cb = cmd_help, .desc = "Show help message"
+   },
+   {
+      .cmd = "j", .cb = cmd_join, .desc = "Alias for /join"
+   },
+   {
+      .cmd = "kick", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the rig"
+   },
+   {
+      .cmd = "join", .cb = cmd_join, .desc = "Join a channel"
+   },
+   {
+      .cmd = "list", .cb = cmd_list, .desc = "List available rooms"
+   },
+   {
+      .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab"
+   },
+   {
+      .cmd = "media", .cb = cmd_media, .max_args = 2,
+      .desc = "Media channels: LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>"
+   },
+   {
+      .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel"
+   },
+   {
+      .cmd = "msg", .cb = cmd_msg, .max_args = 31, .desc = "Send a private message"
+   },
+   {
+      .cmd = "mute", .cb = cmd_mute, .admin = true, .desc = "Mute a user"
+   },
+   {
+      .cmd = "names", .cb = cmd_names, .desc = "List users with privilege flags"
+   },
+   {
+      .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice"
+   },
+   {
+      .cmd = "part", .cb = cmd_part, .desc = "Leave a channel"
+   },
+   {
+      .cmd = "qrz", .cb = cmd_qrz, .max_args = 1, .desc = "Look up a callsign"
+   },
+   {
+      .cmd = "query", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab"
+   },
+   {
+      .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)"
+   },
+   {
+      .cmd = "quota", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)"
+   },
+   {
+      .cmd = "raw", .cb = cmd_raw, .desc = "Send a raw command"
+   },
+   {
+      .cmd = "rehash", .cb = cmd_rehash, .admin = true, .desc = "Ask server to reload config & users"
+   },
+   {
+      .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file"
+   },
+   {
+      .cmd = "restart", .cb = cmd_restart, .admin = true, .desc = "Restart the server"
+   },
+   {
+      .cmd = "rxcodec", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]"
+   },
+   {
+      .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level"
+   },
+   {
+      .cmd = "save", .cb = cmd_save, .max_args = 1, .desc = "Save config to ~/.config/rrclient.cfg"
+   },
+   {
+      .cmd = "server", .cb = cmd_server, .desc = "Connect to a server"
+   },
+   {
+      .cmd = "set", .cb = cmd_set, .max_args = 31, .desc = "Set a typed configuration value"
+   },
+   {
+      .cmd = "syslog", .cb = cmd_syslog, .desc = "Toggle server host log stream (/syslog on|off)"
+   },
+   {
+      .cmd = "topic", .cb = cmd_topic, .desc = "Get or set the current room topic"
+   },
+   {
+      .cmd = "txcodec", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]"
+   },
+   {
+      .cmd = "unmute", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user"
+   },
+   {
+      .cmd = "user", .cb = cmd_user, .max_args = 4, .admin = true,
+      .desc = "Manage server users (LIST|ADD|REMOVE|LOCK|UNLOCK|PRIVS|OLDPW|RESETPW|PASS)"
+   },
+   {
+      .cmd = "win", .cb = cmd_win, .desc = "Change windows"
+   },
+   {
+      .cmd = "whois", .cb = cmd_whois, .desc = "Show client information"
+   },
+   {
+      .cmd = NULL, .cb = NULL, .desc = NULL
+   }
 };
 ////////////////////////////////////////////////
 
@@ -121,14 +218,14 @@ bool parse_chat_input_real(const char *msg) {
          const char *p = mp;
          const char *c = client_cmds[i].cmd;
 
-         while (*p && *c &&
-                !isspace( (unsigned char)*p ) &&
-                tolower( (unsigned char)*p ) == tolower( (unsigned char)*c ) ) {
+         while ( *p && *c &&
+                 !isspace( (unsigned char)*p ) &&
+                 tolower( (unsigned char)*p ) == tolower( (unsigned char)*c ) ) {
             p++;
             c++;
          }
 
-         if (!*c && (!*p || isspace( (unsigned char)*p ) ) ) {
+         if ( !*c && ( !*p || isspace( (unsigned char)*p ) ) ) {
             cmd = &client_cmds[i];
             break;
          }
@@ -136,6 +233,7 @@ bool parse_chat_input_real(const char *msg) {
 
       if (!cmd || !cmd->cb) {
          ui_print(ui_active_window_name(), "{red}*** Invalid command: /%s{reset}", mp);
+
          return true;
       }
 
@@ -147,6 +245,7 @@ bool parse_chat_input_real(const char *msg) {
 
       if (!input) {
          Log(LOG_CRIT, "chat.cmd", "Out of memory parsing command");
+
          return true;
       }
 
@@ -162,7 +261,7 @@ bool parse_chat_input_real(const char *msg) {
       /* argv[0] is the command itself. */
       cmd_argv[cmd_argc++] = p;
 
-      while (*p && !isspace( (unsigned char)*p ) ) {
+      while ( *p && !isspace( (unsigned char)*p ) ) {
          p++;
       }
 
@@ -176,8 +275,8 @@ bool parse_chat_input_real(const char *msg) {
        */
       int max_args = cmd->max_args ? cmd->max_args : 1;
 
-      while (*p && cmd_argc < (int)(sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
-         while (isspace( (unsigned char)*p ) ) {
+      while ( *p && cmd_argc < (int)( sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
+         while ( isspace( (unsigned char)*p ) ) {
             p++;
          }
 
@@ -195,7 +294,7 @@ bool parse_chat_input_real(const char *msg) {
             break;
          }
 
-         while (*p && !isspace( (unsigned char)*p ) ) {
+         while ( *p && !isspace( (unsigned char)*p ) ) {
             p++;
          }
 
@@ -204,14 +303,14 @@ bool parse_chat_input_real(const char *msg) {
          }
       }
       /*
-       * When we break on the max_args limit the remainder is left intact, which
-       * can leave trailing whitespace on the last argument (e.g. tab-completed
+       * When we break on the max_args limit the remainder is left intact, which can leave
+       * trailing whitespace on the last argument (e.g. tab-completed
        * '/whois admin '). Strip it so arguments are clean.
        */
       char *last = cmd_argv[cmd_argc - 1];
       char *end = last + strlen(last);
 
-      while (end > last && isspace( (unsigned char)end[-1] ) ) {
+      while ( end > last && isspace( (unsigned char)end[-1] ) ) {
          end--;
       }
       *end = '\0';
@@ -220,9 +319,10 @@ bool parse_chat_input_real(const char *msg) {
 
       // Admin-only commands are rejected for non-staff users (and hidden
       // from /help); staff is set by the server from admin|owner privs.
-      if (cmd->admin && !media_have_priv("admin|owner") ) {
+      if ( cmd->admin && !media_have_priv("admin|owner") ) {
          ui_print(ui_active_window_name(), "{red}You do not have enough privileges to use '/%s'{reset}", cmd_argv[0]);
          free(input);
+
          return false;
       }
       cmd->cb(cmd_argc, cmd_argv);
@@ -230,6 +330,7 @@ bool parse_chat_input_real(const char *msg) {
    } else {
       if (!ws_connected) {
          ui_print(ui_active_window_name(), "{red}*** Not connected to server ***{reset}");
+
          return false;
       }
       dict *d = dict_new();
@@ -237,32 +338,41 @@ bool parse_chat_input_real(const char *msg) {
       dict_add(d, "talk.cmd", "msg");
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");
-      if (frontend_ops()) {
-         /* Frontend chat tabs represent rooms.  Include the selected tab's
-          * room so side-room messages are delivered there instead of
-          * defaulting to the authoritative rig room on the server. */
+
+      if ( frontend_ops() ) {
+         /* Frontend chat tabs represent rooms.  Include the selected tab's room so
+          * side-room messages are delivered there instead of defaulting to the
+          * authoritative rig room on the server. */
          const char *room = frontend_ops()->chat_current_room();
+
          if (room && room[0]) {
             dict_add(d, "talk.target", room);
-            if (room[0] != '#' && room[0] != '&')
+
+            if (room[0] != '#' && room[0] != '&') {
                dict_add(d, "talk.msg_type", "priv");
+            }
          }
       } else if (ui_mode == UI_MODE_TUI) {
-         /* TUI windows represent both rooms and private conversations.  The
-          * status window is the client log, so target the authoritative room
-          * when it is active. */
+         /* TUI windows represent both rooms and private conversations.  The status window
+          * is the client log, so target the authoritative room when it is active. */
          tui_window_t *window = tui_active_window();
+
          if (window && window->title[0] &&
              strcasecmp(window->title, "status") != 0) {
             dict_add(d, "talk.target", window->title);
-            if (window->title[0] != '#' && window->title[0] != '&')
+
+            if (window->title[0] != '#' && window->title[0] != '&') {
                dict_add(d, "talk.msg_type", "priv");
-         } else if (cfg_get_bool("tui.status-chat", false)) {
+            }
+         } else if ( cfg_get_bool("tui.status-chat", false) ) {
             const char *room = ws_authoritative_room();
-            if (room && *room) dict_add(d, "talk.target", room);
+
+            if (room && *room) { dict_add(d, "talk.target", room); }
          } else {
-            ui_print(ui_active_window_name(), "{yellow}Select a room tab before sending a message (status is for client logs and commands){reset}");
+            ui_print(ui_active_window_name(),
+               "{yellow}Select a room tab before sending a message (status is for client logs and commands){reset}");
             dict_free(d);
+
             return false;
          }
       }
@@ -275,4 +385,3 @@ bool parse_chat_input_real(const char *msg) {
 
    return false;
 }
-

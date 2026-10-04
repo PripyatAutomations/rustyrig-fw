@@ -40,6 +40,7 @@ extern dict *cfg;
 bool cmd_whois(int argc, char **args) {
    if (argc < 2 || !args[1]) {
       ui_print(NULL, "Usage: /whois <user>");
+
       return true;
    }
 

@@ -36,7 +36,7 @@ extern rrconn_t *ws_conn;
 
 
 bool cmd_admin(int argc, char **args) {
-   if (frontend_ops()) {
+   if ( frontend_ops() ) {
       frontend_ops()->focus_tab("admin");
    } else if (ui_mode == UI_MODE_TUI) {
    }
@@ -45,7 +45,7 @@ bool cmd_admin(int argc, char **args) {
 }
 
 bool cmd_config(int argc, char **args) {
-   if (frontend_ops()) {
+   if ( frontend_ops() ) {
       frontend_ops()->focus_tab("config");
    } else if (ui_mode == UI_MODE_TUI) {
    }
@@ -57,14 +57,16 @@ bool cmd_config(int argc, char **args) {
 bool cmd_editcfg(int argc, char **args) {
    if (frontend_ops() && frontend_ops()->edit_config) {
       frontend_ops()->edit_config(argc > 1 ? args[1] : NULL);
+
       return false;
    }
    ui_print(ui_active_window_name(), "{bright-red}/editcfg is only available in the GTK UI{reset}");
+
    return false;
 }
 
 bool cmd_log(int argc, char **args) {
-   if (frontend_ops()) {
+   if ( frontend_ops() ) {
       frontend_ops()->focus_tab("log");
    } else if (ui_mode == UI_MODE_TUI) {
    }
@@ -110,16 +112,18 @@ bool cmd_win(int argc, char **args) {
          return true;
       }
       tui_window_focus_id(id);
-   } else if (frontend_ops()) {
+   } else if ( frontend_ops() ) {
       // XXX: add window commands (close, etc)
       if (argc < 2) {
          return true;
       }
       int id = atoi(args[1]);
+
       if (id >= 1) {
          frontend_ops()->switch_window(id);
       } else {
          ui_print(ui_active_window_name(), "Invalid window id %d given", id);
+
          return true;
       }
    }

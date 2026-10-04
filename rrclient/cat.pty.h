@@ -11,7 +11,7 @@
 // written with cat_pty_printf() come back out of the slave.
 //
 #ifndef _rr_cat_pty_h
-#define _rr_cat_pty_h
+#define	_rr_cat_pty_h
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -21,7 +21,7 @@
 extern bool cat_pty_init(void);
 
 // Write a formatted reply out the PTY slave side
-extern int cat_pty_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+extern int cat_pty_printf(const char *fmt, ...) __attribute__( ( format(printf, 1, 2) ) );
 
 // Is the CAT PTY up?
 extern bool cat_pty_active(void);

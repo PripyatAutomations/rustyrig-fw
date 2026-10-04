@@ -40,6 +40,7 @@ extern rrconn_t *ws_conn;
 bool cmd_die(int argc, char **args) {
    if (argc < 2 || !args[1] || strlen(args[1]) < 10) {
       ui_print(ui_active_window_name(), "Usage: /die <reason> (min 10 chars)");
+
       return true;
    }
 
@@ -56,6 +57,7 @@ bool cmd_die(int argc, char **args) {
 bool cmd_kick(int argc, char **args) {
    if (argc < 2 || !args[1]) {
       ui_print(ui_active_window_name(), "Usage: /kick <user> <reason>");
+
       return true;
    }
 
@@ -64,8 +66,8 @@ bool cmd_kick(int argc, char **args) {
    char reason[256] = "";
 
    for (int i = 2 ; i < argc ; i++) {
-      int n = snprintf(reason + strlen(reason), sizeof(reason) - strlen(reason), "%s%s",
-         (i > 2 ? " " : ""), args[i] ? args[i] : "");
+      int n = snprintf(reason + strlen(reason), sizeof(reason) - strlen(reason), "%s%s", (i > 2 ? " " : ""),
+         args[i] ? args[i] : "");
 
       if (n < 0) {
          break;
@@ -90,6 +92,7 @@ bool cmd_kick(int argc, char **args) {
 bool cmd_mute(int argc, char **args) {
    if (argc < 2 || !args[1]) {
       ui_print(ui_active_window_name(), "Usage: /mute <user> [reason]");
+
       return true;
    }
 
@@ -110,6 +113,7 @@ bool cmd_mute(int argc, char **args) {
 bool cmd_unmute(int argc, char **args) {
    if (argc < 2 || !args[1]) {
       ui_print(ui_active_window_name(), "Usage: /unmute <user>");
+
       return true;
    }
 
@@ -129,7 +133,7 @@ bool cmd_raw(int argc, char **args) {
       return true;
    }
    char fullmsg[502];
-   memset(fullmsg, 0, sizeof(fullmsg) );
+   memset( fullmsg, 0, sizeof(fullmsg) );
    size_t pos = 0;
 
    for (int i = 1 ; i < argc ; i++) {
@@ -153,8 +157,9 @@ bool cmd_raw(int argc, char **args) {
 // as RR_BINFRAME_SUBSYS_LOG binframes for the Host Log tab.
 // PARITY: rustyrig-www/js/webui.chat.js (syslog toggle)
 bool cmd_syslog(int argc, char **args) {
-   if (argc < 2 || !args[1] || (!strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
+   if ( argc < 2 || !args[1] || ( !strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
       ui_print(ui_active_window_name(), "Usage: /syslog <on|off>");
+
       return true;
    }
 
@@ -166,6 +171,7 @@ bool cmd_syslog(int argc, char **args) {
    dict_free(d);
 
    ui_print(ui_active_window_name(), "{yellow}Host log streaming %s (server permitting){reset}", args[1]);
+
    return false;
 }
 
@@ -176,6 +182,7 @@ bool cmd_syslog(int argc, char **args) {
 bool cmd_restart(int argc, char **args) {
    if (argc < 2 || !args[1] || strlen(args[1]) < 10) {
       ui_print(ui_active_window_name(), "Usage: /restart <reason> (min 10 chars)");
+
       return true;
    }
 
@@ -196,6 +203,7 @@ bool cmd_rehash(int argc, char **args) {
 
    if (!ws_conn) {
       ui_print(ui_active_window_name(), "{red}Not connected to a server!{reset}");
+
       return true;
    }
 
@@ -206,6 +214,7 @@ bool cmd_rehash(int argc, char **args) {
    dict_free(d);
 
    ui_print(ui_active_window_name(), "Rehash requested from server");
+
    return false;
 }
 
@@ -221,6 +230,7 @@ bool cmd_quota(int argc, char **args) {
 
    if (!d) {
       ui_print(ui_active_window_name(), "{red}/quota: out of memory{reset}");
+
       return true;
    }
    dict_add(d, "msg.type", "talk");
@@ -261,25 +271,33 @@ bool cmd_quota(int argc, char **args) {
 /* PARITY: librrprotocol/srv.chat.c /user and rrserver/events.c */
 bool cmd_user(int argc, char **args) {
    if (argc < 2 || !args[1]) {
-      ui_print(ui_active_window_name(), "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | privs <user> list|add|remove|set [privileges] | oldpw | resetpw <user> | pass <user> <password>");
+      ui_print(ui_active_window_name(),
+         "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | privs <user> list|add|remove|set [privileges] | oldpw | resetpw <user> | pass <user> <password>");
+
       return true;
    }
    dict *d = dict_new();
+
    if (!d) {
       ui_print(ui_active_window_name(), "{red}/user: out of memory{reset}");
+
       return true;
    }
    char data[512] = "";
    size_t pos = 0;
-   for (int i = 1; i < argc; i++) {
+
+   for (int i = 1 ; i < argc ; i++) {
       int n = snprintf(data + pos, sizeof(data) - pos, "%s%s", i > 1 ? " " : "", args[i] ? args[i] : "");
-      if (n < 0 || (size_t)n >= sizeof(data) - pos) break;
+
+      if (n < 0 || (size_t)n >= sizeof(data) - pos) { break; }
       pos += (size_t)n;
    }
+
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "user");
    dict_add(d, "talk.data", data);
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
+
    return false;
 }

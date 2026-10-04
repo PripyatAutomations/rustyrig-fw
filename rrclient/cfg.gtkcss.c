@@ -50,6 +50,7 @@ static void gtkcss_append(const char *line) {
    size_t llen = strlen(line);
 
    char *tmp = realloc(gtk_css_buf, len + llen + 2);
+
    if (!tmp) {
       fprintf(stderr, "OOM in gtkcss_append!\n");
       abort();
@@ -74,8 +75,10 @@ const char *gtk_css_get(void) {
       return gtk_css_buf;
    }
 #ifdef USE_GTK
+
    return default_css;
 #else
+
    return NULL;
 #endif
 }
@@ -92,49 +95,59 @@ bool gtk_css_apply(const char *css) {
       return false;
    }
 #ifdef USE_GTK
+
    if (!css_provider) {
       css_provider = gtk_css_provider_new();
    }
    GError *err = NULL;
-   if (!gtk_css_provider_load_from_data(css_provider, css, -1, &err)) {
+
+   if ( !gtk_css_provider_load_from_data(css_provider, css, -1, &err) ) {
       Log(LOG_WARN, "gtk.css", "Error loading user CSS (base defaults still active): %s",
          err ? err->message : "unknown");
+
       if (err) {
          g_error_free(err);
       }
+
       return true;
    }
-   gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-      GTK_STYLE_PROVIDER(css_provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
-   Log(LOG_DEBUG, "gtk.css", "Applied %lu bytes of CSS", (unsigned long)strlen(css));
+   gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(css_provider),
+      GTK_STYLE_PROVIDER_PRIORITY_USER);
+   Log( LOG_DEBUG, "gtk.css", "Applied %lu bytes of CSS", (unsigned long)strlen(css) );
 #endif
+
    return false;
 }
 
 // Apply whatever CSS we've got (called at GUI init)
 bool gtk_css_apply_cfg(void) {
 #ifdef USE_GTK
+
    // Apply the compiled-in defaults as a base layer first. The user's CSS
    // goes on a second provider at the same priority; user rules that match
    // the same selectors win because they're loaded later.
    if (!base_css_provider) {
       const char *def = default_css;
+
       if (def && *def) {
          base_css_provider = gtk_css_provider_new();
          GError *err = NULL;
-         if (!gtk_css_provider_load_from_data(base_css_provider, def, -1, &err)) {
+
+         if ( !gtk_css_provider_load_from_data(base_css_provider, def, -1, &err) ) {
             Log(LOG_WARN, "gtk.css", "Error loading default CSS: %s", err ? err->message : "unknown");
+
             if (err) {
                g_error_free(err);
             }
          } else {
-            gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-               GTK_STYLE_PROVIDER(base_css_provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
-            Log(LOG_DEBUG, "gtk.css", "Applied default base CSS (%lu bytes)", (unsigned long)strlen(def));
+            gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(base_css_provider),
+               GTK_STYLE_PROVIDER_PRIORITY_USER);
+            Log( LOG_DEBUG, "gtk.css", "Applied default base CSS (%lu bytes)", (unsigned long)strlen(def) );
          }
       }
    }
 #endif
+
    // The fallback is already installed as the base provider. Only install a
    // second provider when the user supplied a [gtk-css] section.
    return gtk_css_apply(gtk_css_buf && *gtk_css_buf ? gtk_css_buf : NULL);
@@ -147,12 +160,14 @@ static const char *gtkcss_unescape(const char *p) {
    if (!p) {
       return NULL;
    }
-   if (*p == '\\' && (p[1] == '#' || p[1] == ';' || (p[1] == '/' && p[2] == '/') || p[1] == '\\') ) {
+
+   if ( *p == '\\' && (p[1] == '#' || p[1] == ';' || (p[1] == '/' && p[2] == '/') || p[1] == '\\') ) {
       // Only need to skip the backslash: the buffer is a scratch copy we
       // consume line-by-line, so we just hand back p+1 and let the caller
       // treat the rest literally.
       return p + 1;
    }
+
    return p;
 }
 
@@ -162,17 +177,21 @@ bool config_gtkcss_cb(const char *path, int line, const char *section, const cha
       return true;
    }
    buf = gtkcss_unescape(buf);
+
    // Skip blank lines and comments
    if (buf[0] == '\0' || buf[0] == '#' || buf[0] == ';') {
       return false;
    }
+
    if (buf[0] == '/' && buf[1] == '/') {
       return false;
    }
+
    if (buf[0] == '/' && buf[1] == '*') {
       return false;                             // XXX: block comments NYI
    }
    gtkcss_append(buf);
+
    return false;
 }
 
@@ -187,6 +206,7 @@ bool config_gtkcss_save_cb(FILE *fp, const char *path) {
       return false;
    }
    fprintf(fp, "[gtk-css]\n%s\n", css);
+
    return false;
 }
 
@@ -195,6 +215,7 @@ bool cfg_gtkcss_init(void) {
    gtkcss_reset();
    cfg_add_callback(NULL, "gtk-css", config_gtkcss_cb);
    cfg_add_save_callback("cfg.gtkcss", config_gtkcss_save_cb);
+
    return false;
 }
 
@@ -203,15 +224,18 @@ bool cfg_gtkcss_init(void) {
 bool cmd_css_reload(int argc, char **args) {
    if (!config_file) {
       ui_print(NULL, "{bright-red}No config file loaded, nothing to reload{reset}");
+
       return true;
    }
 
    Log(LOG_WARN, "config", "Starting CSS reload from %s", config_file);
 
    FILE *fp = fopen(config_file, "r");
+
    if (!fp) {
-      ui_print(NULL, "{bright-red}Couldn't open %s: %s{reset}", config_file, strerror(errno));
-      Log(LOG_WARN, "config", "Failed to reload CSS from %s: %s", config_file, strerror(errno));
+      ui_print( NULL, "{bright-red}Couldn't open %s: %s{reset}", config_file, strerror(errno) );
+      Log( LOG_WARN, "config", "Failed to reload CSS from %s: %s", config_file, strerror(errno) );
+
       return true;
    }
 
@@ -219,10 +243,10 @@ bool cmd_css_reload(int argc, char **args) {
    bool in_section = false;
    gtkcss_reset();
 
-   while (fgets(buf, sizeof(buf) - 1, fp)) {
+   while ( fgets(buf, sizeof(buf) - 1, fp) ) {
       // Trim trailing whitespace/newlines
       char *end = buf + strlen(buf) - 1;
-      while (end >= buf && isspace((unsigned char)*end)) {
+      while ( end >= buf && isspace( (unsigned char)*end ) ) {
          *end-- = '\0';
       }
       // Trim leading whitespace
@@ -230,17 +254,20 @@ bool cmd_css_reload(int argc, char **args) {
       while (*p == ' ' || *p == '\t') {
          p++;
       }
+
       if (*p == '[') {
          // Start of a section: only [gtk-css] content is ours
          in_section = (strncasecmp(p, "[gtk-css]", 9) == 0);
          continue;
       }
+
       if (!in_section) {
          continue;
       }
       // Unescape escaped comment chars, then skip comments/blank lines
       p = gtkcss_unescape(p);
-      if (*p == '\0' || *p == '#' || *p == ';' || (p[0] == '/' && p[1] == '/')) {
+
+      if ( *p == '\0' || *p == '#' || *p == ';' || (p[0] == '/' && p[1] == '/') ) {
          continue;
       }
       gtkcss_append(p);
@@ -248,15 +275,20 @@ bool cmd_css_reload(int argc, char **args) {
    fclose(fp);
 
    const char *css = gtk_css_get();
+
    if (!css || !*css) {
       ui_print(NULL, "No CSS found in [gtk-css] section or defaults");
+
       return true;
    }
-   if (gtk_css_apply(css)) {
+
+   if ( gtk_css_apply(css) ) {
       ui_print(NULL, "{bright-red}Failed to apply CSS from %s, see log{reset}", config_file);
    } else {
       Log(LOG_INFO, "config", "Finished reloading CSS from %s", config_file);
-      ui_print(NULL, "{bright-green}Reloaded CSS from %s (%lu bytes){reset}", config_file, (unsigned long)strlen(css));
+      ui_print( NULL, "{bright-green}Reloaded CSS from %s (%lu bytes){reset}", config_file,
+         (unsigned long)strlen(css) );
    }
+
    return false;
 }

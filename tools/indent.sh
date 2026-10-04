@@ -3,7 +3,7 @@
 
 #echo "${C_SRC}"
 
-subdirs := librustyaxe librrprotocol fwdsp rrclient rrserver
+subdirs="librustyaxe librrprotocol fwdsp rrclient rrserver"
 
 TOPLEVEL=$(pwd)
 for i in ${subdirs}; do

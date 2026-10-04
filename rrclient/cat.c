@@ -107,7 +107,7 @@ bool cat_register_builtin_array(const CATBuiltin *arr) {
 
    for (const CATBuiltin *p = arr ; p->cmd != NULL ; p++) {
       if (p->cb) {
-         if ( !cat_register_callback(p->cmd, p->cb) ) {
+         if (!cat_register_callback(p->cmd, p->cb) ) {
             return false;
          }
       }
@@ -164,7 +164,9 @@ int32_t rr_cat_parse_line_real(char *line) {
       return -1;
    }
 
-   char verb[3] = { line[0], line[1], 0 };
+   char verb[3] = {
+      line[0], line[1], 0
+   };
    char *args = line + 2;
 
    while (*args == ' ') {
@@ -172,43 +174,47 @@ int32_t rr_cat_parse_line_real(char *line) {
    }
 
    // Registered dynamic callbacks first (they may override the built-ins)
-   if (cat_invoke_callbacks(verb, args) ) {
+   if ( cat_invoke_callbacks(verb, args) ) {
       return 0;
    }
 
 #if     defined(CAT_YAESU)
+
    for (CATcmdTable *p = rr_cat_yaesu_commands ; p->command != NULL ; p++) {
       if (strcmp(p->command, verb) == 0) {
          if (p->rr_cat_yaesu_r) {
-            Log(LOG_CRAZY, "cat", "CAT cmd %s args: %s", verb, (args[0] ? args : "(none)") );
+            Log( LOG_CRAZY, "cat", "CAT cmd %s args: %s", verb, (args[0] ? args : "(none)") );
             p->rr_cat_yaesu_r(args);
          } else {
             // NB: an empty (NULL) handler that's a QUERY leaves the client
             // waiting for a response that never comes (WSJT-X hangs and
             // drops the connection). Implement the handler or answer here.
-            Log(LOG_WARN, "cat", "Unimplemented CAT command: %s (args: %s) - no response sent!",
-               verb, (args[0] ? args : "(none)") );
+            Log( LOG_WARN, "cat", "Unimplemented CAT command: %s (args: %s) - no response sent!", verb,
+               (args[0] ? args : "(none)") );
          }
+
          return 0;
       }
    }
+
 #endif
 
-   Log(LOG_WARN, "cat", "Unknown CAT command: %s (args: %s)", verb, (args[0] ? args : "(none)") );
+   Log( LOG_WARN, "cat", "Unknown CAT command: %s (args: %s)", verb, (args[0] ? args : "(none)") );
+
    return -1;
 }
 
 // Here we decide which parser to use
 int32_t rr_cat_parse_line(char *line) {
-   if ( line == NULL || line[0] == '\0' ) {
+   if (line == NULL || line[0] == '\0') {
       return -1;
    }
 
    // Scrub trailing line endings, the ';' terminator and any trailing spaces
    size_t len = strlen(line);
 
-   while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n' ||
-                      line[len - 1] == ';' || line[len - 1] == ' ') ) {
+   while ( len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n' ||
+                       line[len - 1] == ';' || line[len - 1] == ' ') ) {
       line[--len] = '\0';
    }
 
@@ -224,7 +230,9 @@ int32_t rr_cat_parse_line(char *line) {
    }
 #endif
 #if     defined(CAT_YAESU)
+
    return rr_cat_parse_line_real(line);
 #endif
+
    return 0;
 }

@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-#ifndef	__rrclient_cmd_h
+#ifndef __rrclient_cmd_h
 #define	__rrclient_cmd_h
 #include <librustyaxe/core.h>
 #include <librustyaxe/config.h>
@@ -28,7 +28,7 @@ extern client_cmd_t client_cmds[];
 
 // Media channel table iteration for completion providers (media.c owns the
 // storage; these walk the stored rrclient_media_known entries).
-#define RR_CLIENT_MEDIA_MAX_CHANS 64
+#define	RR_CLIENT_MEDIA_MAX_CHANS 64
 
 struct rr_client_media_chan {
    char uuid[64];
@@ -65,7 +65,7 @@ extern bool parse_chat_input_gtk(GtkButton *button, gpointer entry);
 #endif
 
 extern bool parse_chat_input_real(const char *msg);
-extern bool tui_register_completion_provider(char **(*fn)(const char *line, const char *word));
+extern bool tui_register_completion_provider( char **(*fn) (const char *line, const char *word) );
 extern char **client_cmd_completions(const char *line, const char *word);
 extern bool cmd_admin(int argc, char **args);
 extern bool cmd_room(int argc, char **args);

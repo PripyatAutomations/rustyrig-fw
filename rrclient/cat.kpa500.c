@@ -46,6 +46,7 @@ static int32_t rr_cat_kpa500_alc(struct AmpState *amp, char *args) {
       amp->alc[amp->current_band] = alc = tmp;
    }
    rr_cat_printf("^AL%03d;", alc);
+
    return 0;
 }
 
@@ -65,18 +66,21 @@ static int32_t rr_cat_kpa500_afr(struct AmpState *amp, char *args) {
       amp->afr = afr = tmp;
    }
    rr_cat_printf("^AR%04d;", afr);
+
    return 0;
 }
 
 // NOOP - Reply 38400 baud always.
 static int32_t rr_cat_kpa500_baud_pc(struct AmpState *amp, char *args) {
    rr_cat_printf("^BRP3;");
+
    return 0;
 }
 
 // NOOP - Reply 38400 baud always.
 static int32_t rr_cat_kpa500_baud_tx(struct AmpState *amp, char *args) {
    rr_cat_printf("^BRX3;");
+
    return 0;
 }
 
@@ -98,6 +102,7 @@ static int32_t rr_cat_kpa500_bcstandby(struct AmpState *amp, char *args) {
       bc = tmp;
    }
    rr_cat_printf("^BC%d", bc);
+
    return 0;
 }
 
@@ -113,11 +118,13 @@ static int32_t rr_cat_kpa500_band(struct AmpState *amp, char *args) {
       amp->current_band = band = tmp;
    }
    rr_cat_printf("^BN%02d", band);
+
    return 0;
 }
 
 static int32_t rr_cat_kpa500_demo(struct AmpState *amp, char *args) {
    rr_cat_printf("^DMO0");
+
    return 0;
 }
 
@@ -137,6 +144,7 @@ static int32_t rr_cat_kpa500_fan(struct AmpState *amp, char *args) {
       rig.fan_speed = fc = tmp;
    }
    rr_cat_printf("^FC%d", fc);
+
    return 0;
 }
 
@@ -154,6 +162,7 @@ static int32_t rr_cat_kpa500_faults(struct AmpState *amp, char *args) {
       }
    }
    rr_cat_printf("^FL%02d", faults);
+
    return 0;
 }
 
@@ -173,6 +182,7 @@ static int32_t rr_cat_kpa500_inhibit(struct AmpState *amp, char *args) {
       amp->inhibit = inhibit;
    }
    rr_cat_printf("^NH%d", inhibit);
+
    return 0;
 }
 
@@ -192,6 +202,7 @@ static int32_t rr_cat_kpa500_power(struct AmpState *amp, char *args) {
       amp->power = power = tmp;
    }
    rr_cat_printf("^ON%d", power);
+
    return 0;
 }
 
@@ -211,6 +222,7 @@ static int32_t rr_cat_kpa500_standby(struct AmpState *amp, char *args) {
       amp->standby = standby = tmp;
    }
    rr_cat_printf("^OS%d", standby);
+
    return 0;
 }
 
@@ -230,11 +242,13 @@ static int32_t rr_cat_kpa500_powerlevel(struct AmpState *amp, char *args) {
       amp->output_target[amp->current_band] = power = tmp;
    }
    rr_cat_printf("^PJ%03d", power);
+
    return 0;
 }
 
 static int32_t rr_cat_kpa500_fwversion(struct AmpState *amp, char *args) {
    rr_cat_printf("^RVM%s", VERSION);
+
    return 0;
 }
 
@@ -248,7 +262,8 @@ static int32_t rr_cat_kpa500_serial(struct AmpState *amp, char *args) {
       int serial = atoi(s);
       rr_cat_printf("^SN%05d", serial);
    }
-#endif   // USE_EEPROM
+#endif // USE_EEPROM
+
    return 0;
 }
 
@@ -268,6 +283,7 @@ static int32_t rr_cat_kpa500_get_temp(struct AmpState *amp, char *args) {
       sensor = tmp;
    }
    rr_cat_printf( "^TM%03d", get_thermal(sensor) );
+
    return 0;
 }
 
@@ -288,6 +304,7 @@ static int32_t rr_cat_kpa500_faultbeep(struct AmpState *amp, char *args) {
       rig.faultbeep = beep;
    }
    rr_cat_printf("^SP%d", beep);
+
    return 0;
 }
 
@@ -307,6 +324,7 @@ static int32_t rr_cat_kpa500_trdelay(struct AmpState *amp, char *args) {
       rig.tr_delay = trdelay = tmp;
    }
    rr_cat_printf("^TR%02d", trdelay);
+
    return 0;
 }
 
@@ -328,6 +346,7 @@ static int32_t rr_cat_kpa500_power_info(struct AmpState *amp, char *args) {
       curr = get_current(0);
    }
    rr_cat_printf("^VI%03d %03d", volts, curr);
+
    return 0;
 }
 
@@ -337,36 +356,80 @@ static int32_t rr_cat_kpa500_get_swr(struct AmpState *amp, char *args) {
    float swr = get_swr(curr_amp);
    float pwr = get_power(curr_amp);
    rr_cat_printf("^WS%03.0d %03.0d", swr, pwr);
+
    return 0;
 }
 
 static int32_t rr_cat_kpa500_if_mode(struct AmpState *amp, char *args) {
    rr_cat_printf("^XI31");
+
    return 0;
 }
 
 struct rr_cat_cmd cmd_kpa500[] = {
-   {      "AL", rr_cat_kpa500_alc, 3, 3   },
-   {      "AR", rr_cat_kpa500_afr, 4, 4   },
-   {      "BC", rr_cat_kpa500_bcstandby, 1, 1   },
-   {      "BN", rr_cat_kpa500_band, 2, 2   },
-   {      "BRP", rr_cat_kpa500_baud_pc, 1, 1   },
-   {      "BRX", rr_cat_kpa500_baud_tx, 1, 1   },
-   {      "DMO", rr_cat_kpa500_demo, 1, 1   },
-   {      "FC", rr_cat_kpa500_fan, 1, 1   },
-   {      "FL", rr_cat_kpa500_faults, 1, 1 },
-   {      "NH", rr_cat_kpa500_inhibit, 1, 1   },
-   {      "ON", rr_cat_kpa500_power, 1, 1   },
-   {      "OS", rr_cat_kpa500_standby, 1, 1   },
-   {      "PJ", rr_cat_kpa500_powerlevel, 3, 3   },
-   {      "RVM", rr_cat_kpa500_fwversion, 0, 0   },
-   {      "SN", rr_cat_kpa500_serial, 0, 0   },
-   {      "SP", rr_cat_kpa500_faultbeep, 0, 0   },
-   {      "TM", rr_cat_kpa500_get_temp, 0, 0   },
-   {      "TR", rr_cat_kpa500_trdelay, 1, 2   },
-   {      "VI", rr_cat_kpa500_power_info, 0, 0   },
-   {      "WS", rr_cat_kpa500_get_swr, 0, 0   },
-   {      "XI", rr_cat_kpa500_if_mode, 1, 1   }
+   {
+      "AL", rr_cat_kpa500_alc, 3, 3
+   },
+   {
+      "AR", rr_cat_kpa500_afr, 4, 4
+   },
+   {
+      "BC", rr_cat_kpa500_bcstandby, 1, 1
+   },
+   {
+      "BN", rr_cat_kpa500_band, 2, 2
+   },
+   {
+      "BRP", rr_cat_kpa500_baud_pc, 1, 1
+   },
+   {
+      "BRX", rr_cat_kpa500_baud_tx, 1, 1
+   },
+   {
+      "DMO", rr_cat_kpa500_demo, 1, 1
+   },
+   {
+      "FC", rr_cat_kpa500_fan, 1, 1
+   },
+   {
+      "FL", rr_cat_kpa500_faults, 1, 1
+   },
+   {
+      "NH", rr_cat_kpa500_inhibit, 1, 1
+   },
+   {
+      "ON", rr_cat_kpa500_power, 1, 1
+   },
+   {
+      "OS", rr_cat_kpa500_standby, 1, 1
+   },
+   {
+      "PJ", rr_cat_kpa500_powerlevel, 3, 3
+   },
+   {
+      "RVM", rr_cat_kpa500_fwversion, 0, 0
+   },
+   {
+      "SN", rr_cat_kpa500_serial, 0, 0
+   },
+   {
+      "SP", rr_cat_kpa500_faultbeep, 0, 0
+   },
+   {
+      "TM", rr_cat_kpa500_get_temp, 0, 0
+   },
+   {
+      "TR", rr_cat_kpa500_trdelay, 1, 2
+   },
+   {
+      "VI", rr_cat_kpa500_power_info, 0, 0
+   },
+   {
+      "WS", rr_cat_kpa500_get_swr, 0, 0
+   },
+   {
+      "XI", rr_cat_kpa500_if_mode, 1, 1
+   }
 };
 
 // Here we parse the commands for amplifier controls
@@ -379,4 +442,4 @@ bool rr_cat_kpa500_init(void) {
 
    return false;
 }
-#endif   // CAT_KPA500
+#endif // CAT_KPA500
