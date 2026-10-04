@@ -1,7 +1,7 @@
 # Build with: makepkg -f
 # Starter Arch Linux packaging; update pkgver/source for each release.
 pkgbase=rustyrig
-pkgname=(rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-tui rustyrig-fwdsp rustyrig-callsign-lookup)
+pkgname=(rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
 pkgver=20261003.02
 pkgrel=1
 pkgdesc='RustyRig remote radio software'
@@ -20,8 +20,6 @@ prepare() {
 build() {
    cd "$srcdir/rustyrig-fw"
    make PROFILE=radio
-   cp -f bin/rrclient "$srcdir/rrclient-gtk"
-   make PROFILE=radio USE_GTK=false BUILD_DIR=build/radio-tui bin/rrclient
    make -C callsign-lookup
 }
 
@@ -64,21 +62,23 @@ package_rustyrig-server() {
 }
 
 package_rustyrig-client() {
-   pkgdesc='RustyRig GTK client'; conflicts=('rustyrig-client-tui'); replaces=('rustyrig-client-tui'); depends=('rustyrig-libs' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
+   pkgdesc='RustyRig client (core, headless)'
+   depends=('rustyrig-libs' 'glib2' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
    cd "$srcdir/rustyrig-fw"
-   install -Dm755 "$srcdir/rrclient-gtk" "$pkgdir/usr/bin/rrclient"
-   install -Dm644 packaging/rustyrig-client.desktop "$pkgdir/usr/share/applications/rustyrig-client.desktop"
-   install -Dm644 res/rustyrig.png "$pkgdir/usr/share/icons/hicolor/48x48/apps/rustyrig.png"
+   install -Dm755 bin/rrclient "$pkgdir/usr/bin/rrclient"
    install -Dm644 config/rrclient.cfg "$pkgdir/etc/rustyrig/rrclient.cfg"
    install -Dm644 config/callsign-lookup.cli.cfg "$pkgdir/etc/rustyrig/callsign-lookup.cli.cfg"
-   install -d -orustyrig -grustyrig -m0770 "$pkgdir/var/log/rustyrig"
-   install -d "$pkgdir/var/lib/rustyrig"/{db,help,recordings/client}
+   install -d "$pkgdir/var/lib/rustyrig"/{db,help,recordings/client,modules} "$pkgdir/var/log/rustyrig"
    find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/help/" \;
 }
 
-package_rustyrig-client-tui() {
-   pkgdesc='RustyRig terminal client'; conflicts=('rustyrig-client'); replaces=('rustyrig-client'); depends=('rustyrig-libs' 'ncurses')
-   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/rrclient "$pkgdir/usr/bin/rrclient"
+package_rustyrig-client-gtk() {
+   pkgdesc='RustyRig GTK client module'
+   depends=('rustyrig-client' 'gtk3')
+   cd "$srcdir/rustyrig-fw"
+   install -Dm755 bin/rrclient-gtk.so "$pkgdir/var/lib/rustyrig/modules/rrclient-gtk.so"
+   install -Dm644 packaging/rustyrig-client.desktop "$pkgdir/usr/share/applications/rustyrig-client.desktop"
+   install -Dm644 res/rustyrig.png "$pkgdir/usr/share/icons/hicolor/48x48/apps/rustyrig.png"
 }
 package_rustyrig-fwdsp() {
    pkgdesc='RustyRig GStreamer audio DSP service'; depends=('rustyrig-libs' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')

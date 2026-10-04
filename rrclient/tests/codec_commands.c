@@ -3,6 +3,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include "rrclient/cmd.h"
+// Headless test: the frontend ops table is compiled in but never registered.
+#include "rrclient/frontend.c"
 #include "rrclient/media.c"
 
 static rrconn_t connection;

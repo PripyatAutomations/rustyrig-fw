@@ -106,7 +106,7 @@ defconfig_t defcfg[] = {
    { "fwdsp:pcm-hub", "true", "Route decoded client RX PCM to sink.client.dsp0", DEFCONFIG_BOOL, NULL },
    { "site:coordinates", NULL, "Station coordinates as latitude,longitude (optional)" },
    { "site:gridsquare", NULL, "Station Maidenhead grid square (optional)" },
-   { "path.modules", "./modules", "Where to store modules" },
+   { "path.modules", "/var/lib/rustyrig/modules", "Where to find loadable modules" },
    { "ui.edit-delay", "3", "Seconds to suppress freq echoes after a local freq edit", DEFCONFIG_UINT, NULL },
    { "server.auto-connect", NULL, "Profile name to autoconnect on start" },
    { "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, "Top row template with live ${variable} and {color} escapes" },

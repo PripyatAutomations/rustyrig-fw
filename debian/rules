@@ -27,19 +27,13 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=radio
 	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup
-	cp -f bin/rrclient /tmp/rustyrig-rrclient-gtk
-	# Keep the TUI objects separate from the GTK build.
-	rm -rf $(CURDIR)/build/radio-tui
-	mkdir -p $(CURDIR)/build/radio-tui
-	cp -f $(CURDIR)/build/radio/build_config.h $(CURDIR)/build/radio-tui/build_config.h
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=radio USE_GTK=false BUILD_DIR=$(CURDIR)/build/radio-tui bin/rrclient
 
 override_dh_auto_install:
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
-	install -Dm755 /tmp/rustyrig-rrclient-gtk debian/rustyrig-client/usr/bin/rrclient
-	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client/usr/share/applications/rustyrig-client.desktop
-	install -Dm644 res/rustyrig.png debian/rustyrig-client/usr/share/icons/hicolor/48x48/apps/rustyrig.png
-	install -Dm755 bin/rrclient debian/rustyrig-client-tui/usr/bin/rrclient
+	install -Dm755 bin/rrclient debian/rustyrig-client/usr/bin/rrclient
+	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk/var/lib/rustyrig/modules/rrclient-gtk.so
+	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
+	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
 	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup/usr/bin/callsign-lookup
 	install -Dm644 config/callsign-lookup.cfg debian/rustyrig-callsign-lookup/etc/rustyrig/callsign-lookup.cfg
@@ -62,9 +56,9 @@ override_dh_auto_install:
 	install -d debian/rustyrig-client/var/lib/rustyrig/recordings/client
 	install -d -orustyrig -grustyrig -m0770 debian/rustyrig-client/var/log/rustyrig
 	install -d debian/rustyrig-client/var/run/rustyrig
+	install -d debian/rustyrig-client-gtk/var/lib/rustyrig/modules
 	install -d debian/rustyrig-server/etc/rustyrig
 	install -d debian/rustyrig-client/etc/rustyrig
-	install -d debian/rustyrig-client-tui/etc/rustyrig
 	install -Dm644 config/rrserver.cfg debian/rustyrig-server/etc/rustyrig/rrserver.cfg
 	install -Dm644 config/radio.config.json debian/rustyrig-server/etc/rustyrig/radio.config.json
 	install -Dm644 config/callsign-lookup.srv.cfg debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg
@@ -72,8 +66,7 @@ override_dh_auto_install:
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
 	install -Dm644 config/rrclient.cfg debian/rustyrig-client/etc/rustyrig/rrclient.cfg
 	install -Dm644 config/callsign-lookup.cli.cfg debian/rustyrig-client/etc/rustyrig/callsign-lookup.cli.cfg
-	install -Dm644 config/rrclient.cfg debian/rustyrig-client-tui/etc/rustyrig/rrclient.cfg
-	install -Dm644 config/callsign-lookup.cli.cfg debian/rustyrig-client-tui/etc/rustyrig/callsign-lookup.cli.cfg
+	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
 	find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-server/var/lib/rustyrig/www/ \;
 	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
 	install -Dm644 sql/sqlite.master.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.sql
