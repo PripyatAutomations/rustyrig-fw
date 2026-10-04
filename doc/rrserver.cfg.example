@@ -103,7 +103,11 @@ backend=internal
 vfos=A B
 ; Send CAT state at most once every N seconds if unchanged.
 state-interval=15
-; For a Hamlib rig, set backend=hamlib and configure its own endpoint:
+; For a Hamlib rig, set backend=hamlib. hamlib.model is the model number
+; from 'rigctld -l'. hamlib.device is either an IP:port for a rigctld or
+; network rig (model/ip:port), or a serial device path (model/serial:baud),
+; in which case hamlib.baud is used. Each rig section can point at its own
+; endpoint, so multiple Hamlib rigs can live on one server:
 hamlib.model=2
 hamlib.baud=38400
 hamlib.device=127.0.0.1:4532

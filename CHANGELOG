@@ -1,3 +1,10 @@
+rustyrig-fw (20261004.02) testing; urgency=medium
+  * Apply each rig's hamlib.baud to its Hamlib connection (serial devices;
+    rigctld/network endpoints ignore it), so model/ip/port and model/serial
+    port/baud endpoints are fully honored per rig section on one server.
+  * Document multi-rig Hamlib endpoint configuration in rrserver.cfg.example
+    and QUICKSTART.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
 rustyrig-fw (20261004.01) testing; urgency=medium
   * Expose UUID-addressed node/rig/VFO discovery, typed property schema/state,
     bounded-batch snapshots, lifecycle/observation events and generic controls

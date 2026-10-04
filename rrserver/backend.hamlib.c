@@ -172,6 +172,11 @@ static bool hl_connect(rr_backend_t *backend) {
    hamlib_backend_t *data = hl_data(backend);
    if (!data) return true;
 
+   /* hamlib.baud applies to serial devices; network/rigctld endpoints ignore
+      the serial_speed token. Format: model/IP:port or model/serial:baud. */
+   char serial_speed[32];
+   snprintf(serial_speed, sizeof(serial_speed), "%d", data->baud);
+
    Log(LOG_INFO, "backend.hamlib",
       "%s: connecting to %s (model=%d, baud=%d, reconnect-interval=%d)",
       rr_backend_instance_alias(backend), data->device, data->model,
@@ -191,6 +196,10 @@ static bool hl_connect(rr_backend_t *backend) {
    }
    rig_set_conf(data->rig, rig_token_lookup(data->rig, "rig_pathname"),
       data->device);
+   /* PARITY: doc/rrserver.cfg.example hamlib.* keys. The speed token is
+      ignored by network/rigctld backends and applies to serial devices. */
+   rig_set_conf(data->rig, rig_token_lookup(data->rig, "serial_speed"),
+      serial_speed);
 
    int result = rig_open(data->rig);
    if (result != RIG_OK) {

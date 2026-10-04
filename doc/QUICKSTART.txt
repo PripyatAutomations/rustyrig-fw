@@ -72,6 +72,22 @@ Long story short, on a debian-based system do the following to try it:
         hamlib.model=2
         hamlib.device=127.0.0.1:4532
 
+   Multiple hamlib rigs can live on one server - list each alias in
+   rig.instances, add a [rig:alias] section per rig, and set its own
+   hamlib.model plus hamlib.device (an IP:port for rigctld/network, or a
+   serial device path with hamlib.baud for a directly connected rig):
+
+        rig.instances=rig0 rig1
+        [rig:rig0]
+        backend=hamlib
+        hamlib.model=2
+        hamlib.device=127.0.0.1:4532
+        [rig:rig1]
+        backend=hamlib
+        hamlib.model=3073
+        hamlib.device=/dev/ttyUSB0
+        hamlib.baud=4800
+
    Run it with ./bin/rrserver or 'rrserver' if installed
 
    Open a browser and connect to the http (port 8420) or https (port 4420):
