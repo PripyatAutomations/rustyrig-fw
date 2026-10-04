@@ -26,6 +26,8 @@ extern rr_server_rig_t *rr_rig_registry_find_uuid(
    const rr_rig_registry_t *registry, const char *uuid);
 extern rr_server_rig_t *rr_rig_registry_find_alias(
    const rr_rig_registry_t *registry, const char *alias);
+extern rr_server_vfo_t *rr_rig_registry_find_vfo_uuid(
+   const rr_rig_registry_t *registry, const char *uuid);
 extern const char *rr_rig_registry_alias(const rr_rig_registry_t *registry,
    const rr_server_rig_t *radio);
 extern size_t rr_rig_registry_count(const rr_rig_registry_t *registry);

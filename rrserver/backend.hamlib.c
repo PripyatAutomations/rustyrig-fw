@@ -51,6 +51,11 @@ static vfo_t hl_get_vfo(rr_vfo_t vfo) {
    }
 }
 
+static bool hl_index(rr_server_vfo_t *vfo, rr_vfo_t *index) {
+   return rr_server_vfo_native_index(vfo, index) && *index >= VFO_A &&
+      *index < MAX_VFOS;
+}
+
 static rmode_t hl_mode_from_rr(rr_mode_t mode) {
    switch (mode) {
       case MODE_CW: return RIG_MODE_CW;
@@ -75,44 +80,38 @@ static rr_mode_t hl_mode_to_rr(rmode_t mode) {
    return MODE_NONE;
 }
 
-static bool hl_property_name(const rr_backend_t *backend, char *name, size_t len,
-   rr_vfo_t vfo, const char *field) {
-   return backend && backend->owner && vfo >= VFO_A && vfo < MAX_VFOS &&
-      rr_property_vfo_name(name, len, (char)('A' + vfo), field);
-}
-
-static void hl_property_unavailable(rr_backend_t *backend, rr_vfo_t vfo,
+static void hl_property_unavailable(rr_backend_t *backend,
+   rr_server_vfo_t *vfo,
    const char *field) {
-   char name[RR_PROPERTY_NAME_MAX];
-   if (hl_property_name(backend, name, sizeof(name), vfo, field)) {
-      rr_rig_property_unavailable(backend->owner, name);
+   if (backend && vfo && rr_server_vfo_owner(vfo) == backend->owner) {
+      rr_vfo_property_unavailable(vfo, field);
    }
 }
 
-static void hl_property_observe_long(rr_backend_t *backend, rr_vfo_t vfo,
+static void hl_property_observe_long(rr_backend_t *backend,
+   rr_server_vfo_t *vfo,
    const char *field, long value) {
-   char name[RR_PROPERTY_NAME_MAX];
    dict_value_t observed = { .l = value };
-   if (hl_property_name(backend, name, sizeof(name), vfo, field)) {
-      rr_rig_property_observe(backend->owner, name, VAL_LONG, &observed);
+   if (backend && vfo && rr_server_vfo_owner(vfo) == backend->owner) {
+      rr_vfo_property_observe(vfo, field, VAL_LONG, &observed);
    }
 }
 
-static void hl_property_observe_int(rr_backend_t *backend, rr_vfo_t vfo,
+static void hl_property_observe_int(rr_backend_t *backend,
+   rr_server_vfo_t *vfo,
    const char *field, int value) {
-   char name[RR_PROPERTY_NAME_MAX];
    dict_value_t observed = { .i = value };
-   if (hl_property_name(backend, name, sizeof(name), vfo, field)) {
-      rr_rig_property_observe(backend->owner, name, VAL_INT, &observed);
+   if (backend && vfo && rr_server_vfo_owner(vfo) == backend->owner) {
+      rr_vfo_property_observe(vfo, field, VAL_INT, &observed);
    }
 }
 
-static void hl_property_observe_string(rr_backend_t *backend, rr_vfo_t vfo,
+static void hl_property_observe_string(rr_backend_t *backend,
+   rr_server_vfo_t *vfo,
    const char *field, const char *value) {
-   char name[RR_PROPERTY_NAME_MAX];
    dict_value_t observed = { .s = value };
-   if (hl_property_name(backend, name, sizeof(name), vfo, field)) {
-      rr_rig_property_observe(backend->owner, name, VAL_STR, &observed);
+   if (backend && vfo && rr_server_vfo_owner(vfo) == backend->owner) {
+      rr_vfo_property_observe(vfo, field, VAL_STR, &observed);
    }
 }
 
@@ -191,14 +190,16 @@ static bool hl_connect(rr_backend_t *backend) {
 static bool hl_create(rr_backend_t *backend) {
    hamlib_backend_t *data = calloc(1, sizeof(*data));
    if (!data) return true;
-   data->model = cfg_get_int("backend.hamlib-model", 2);
-   data->baud = cfg_get_int("backend.hamlib-baud", 38400);
-   data->reconnect_interval = cfg_get_int("backend.reconnect-interval", 30);
+   data->model = rr_backend_config_get_int(backend, "hamlib.model", 2);
+   data->baud = rr_backend_config_get_int(backend, "hamlib.baud", 38400);
+   data->reconnect_interval = rr_backend_config_get_int(backend,
+      "reconnect-interval", 30);
    if (data->reconnect_interval < 0) data->reconnect_interval = 30;
-   const char *configured_device = cfg_get_exp("backend.hamlib-port");
+   char *configured_device = rr_backend_config_get_exp(backend,
+      "hamlib.device");
    data->device = configured_device ? strdup(configured_device) :
       strdup("127.0.0.1:4532");
-   free((char *)configured_device);
+   free(configured_device);
    if (!data->device) {
       free(data);
       return true;
@@ -227,44 +228,50 @@ static void hl_destroy(rr_backend_t *backend) {
    rr_backend_instance_set_data(backend, NULL);
 }
 
-static bool hl_vfo_supported(rr_backend_t *backend, rr_vfo_t vfo) {
+static bool hl_vfo_supported(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || vfo < VFO_A || vfo >= MAX_VFOS) return false;
-   if (!data->rig) return vfo == VFO_A || vfo == VFO_B;
-   vfo_t hamlib_vfo = hl_get_vfo(vfo);
-   if (hamlib_vfo == RIG_VFO_CURR) return vfo == backend->active_vfo;
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !hl_index(vfo, &index)) return false;
+   if (!data->rig) return index == VFO_A || index == VFO_B;
+   vfo_t hamlib_vfo = hl_get_vfo(index);
+   if (hamlib_vfo == RIG_VFO_CURR) return index == backend->active_vfo;
    bool supported = (data->rig->state.vfo_list & hamlib_vfo) == hamlib_vfo;
-   return supported || vfo == VFO_A || vfo == VFO_B;
+   return supported || index == VFO_A || index == VFO_B;
 }
 
-static rr_mode_t hl_mode_get(rr_backend_t *backend, rr_vfo_t vfo) {
+static rr_mode_t hl_mode_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || !data->rig || vfo < VFO_A || vfo >= MAX_VFOS) {
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !hl_index(vfo, &index)) {
       return MODE_NONE;
    }
-   hamlib_vfo_state_t *state = &data->state[vfo];
-   int result = rig_get_mode(data->rig, hl_get_vfo(vfo), &state->mode,
+   hamlib_vfo_state_t *state = &data->state[index];
+   int result = rig_get_mode(data->rig, hl_get_vfo(index), &state->mode,
       &state->width);
    if (result != RIG_OK) {
-      data->vfo_mode_ok[vfo] = false;
+      data->vfo_mode_ok[index] = false;
    } else {
-      data->vfo_mode_ok[vfo] = true;
+      data->vfo_mode_ok[index] = true;
    }
    return hl_mode_to_rr(state->mode);
 }
 
-static const char *hl_mode_get_str(rr_backend_t *backend, rr_vfo_t vfo) {
+static const char *hl_mode_get_str(rr_backend_t *backend,
+   rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || vfo < VFO_A || vfo >= MAX_VFOS) {
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !hl_index(vfo, &index)) {
       return rig_strrmode(RIG_MODE_NONE);
    }
-   return rig_strrmode(data->state[vfo].mode);
+   return rig_strrmode(data->state[index].mode);
 }
 
-static bool hl_ptt_set(rr_backend_t *backend, rr_vfo_t vfo, bool state) {
+static bool hl_ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo,
+   bool state) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || !data->rig) return true;
-   int result = rig_set_ptt(data->rig, hl_get_vfo(vfo),
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !hl_index(vfo, &index)) return true;
+   int result = rig_set_ptt(data->rig, hl_get_vfo(index),
       state ? RIG_PTT_ON : RIG_PTT_OFF);
    if (result != RIG_OK) {
       Log(LOG_CRIT, "backend.hamlib", "%s: failed to set PTT: %s",
@@ -273,16 +280,19 @@ static bool hl_ptt_set(rr_backend_t *backend, rr_vfo_t vfo, bool state) {
    return result != RIG_OK;
 }
 
-static bool hl_ptt_get(rr_backend_t *backend, rr_vfo_t vfo) {
+static bool hl_ptt_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
-   return data && vfo >= VFO_A && vfo < MAX_VFOS &&
-      data->state[vfo].ptt != RIG_PTT_OFF;
+   rr_vfo_t index = VFO_NONE;
+   return data && hl_index(vfo, &index) &&
+      data->state[index].ptt != RIG_PTT_OFF;
 }
 
-static bool hl_freq_set(rr_backend_t *backend, rr_vfo_t vfo, int freq) {
+static bool hl_freq_set(rr_backend_t *backend, rr_server_vfo_t *vfo,
+   int freq) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || !data->rig) return true;
-   int result = rig_set_freq(data->rig, hl_get_vfo(vfo), freq);
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !hl_index(vfo, &index)) return true;
+   int result = rig_set_freq(data->rig, hl_get_vfo(index), freq);
    if (result != RIG_OK) {
       Log(LOG_WARN, "backend.hamlib", "%s: failed to set frequency: %s",
          rr_backend_instance_alias(backend), rigerror(result));
@@ -290,51 +300,57 @@ static bool hl_freq_set(rr_backend_t *backend, rr_vfo_t vfo, int freq) {
    return result != RIG_OK;
 }
 
-static float hl_freq_get(rr_backend_t *backend, rr_vfo_t vfo) {
+static float hl_freq_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
-   return (!data || vfo < VFO_A || vfo >= MAX_VFOS) ? 0 :
-      (float)data->state[vfo].freq;
+   rr_vfo_t index = VFO_NONE;
+   return (!data || !hl_index(vfo, &index)) ? 0 :
+      (float)data->state[index].freq;
 }
 
-static bool hl_mode_set(rr_backend_t *backend, rr_vfo_t vfo,
+static bool hl_mode_set(rr_backend_t *backend, rr_server_vfo_t *vfo,
    rr_mode_t mode) {
    hamlib_backend_t *data = hl_data(backend);
-   return !data || !data->rig || vfo < VFO_A || vfo >= MAX_VFOS ||
-      rig_set_mode(data->rig, hl_get_vfo(vfo), hl_mode_from_rr(mode),
+   rr_vfo_t index = VFO_NONE;
+   return !data || !data->rig || !hl_index(vfo, &index) ||
+      rig_set_mode(data->rig, hl_get_vfo(index), hl_mode_from_rr(mode),
          RIG_PASSBAND_NORMAL) != RIG_OK;
 }
 
-static bool hl_power_set(rr_backend_t *backend, rr_vfo_t vfo, float power) {
+static bool hl_power_set(rr_backend_t *backend, rr_server_vfo_t *vfo,
+   float power) {
    (void)backend; (void)vfo; (void)power;
    return false;
 }
 
-static float hl_power_get(rr_backend_t *backend, rr_vfo_t vfo) {
+static float hl_power_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
    value_t power = { 0 };
-   if (!data || !data->rig || vfo < VFO_A || vfo >= MAX_VFOS) return 0;
-   if (rig_get_level(data->rig, hl_get_vfo(vfo), RIG_LEVEL_RFPOWER,
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !hl_index(vfo, &index)) return 0;
+   if (rig_get_level(data->rig, hl_get_vfo(index), RIG_LEVEL_RFPOWER,
          &power) != RIG_OK) return 0;
    /* Preserve the legacy API's watts semantics. Hamlib reports a normalized
       fraction here, not watts, so it cannot be returned without calibration. */
    return 0;
 }
 
-static uint16_t hl_width_get(rr_backend_t *backend, rr_vfo_t vfo) {
+static uint16_t hl_width_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || vfo < VFO_A || vfo >= MAX_VFOS) return 0;
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !hl_index(vfo, &index)) return 0;
    hl_mode_get(backend, vfo);
-   return (uint16_t)data->state[vfo].width;
+   return (uint16_t)data->state[index].width;
 }
 
-static bool hl_width_set(rr_backend_t *backend, rr_vfo_t vfo,
+static bool hl_width_set(rr_backend_t *backend, rr_server_vfo_t *vfo,
    const char *width) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || !data->rig || !width || vfo < VFO_A || vfo >= MAX_VFOS) {
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !width || !hl_index(vfo, &index)) {
       return true;
    }
    hl_mode_get(backend, vfo);
-   hamlib_vfo_state_t *state = &data->state[vfo];
+   hamlib_vfo_state_t *state = &data->state[index];
    const char *p = width;
    while (*p == ' ' || *p == '\t') p++;
    pbwidth_t target = 0;
@@ -354,18 +370,19 @@ static bool hl_width_set(rr_backend_t *backend, rr_vfo_t vfo,
       }
       target = (pbwidth_t)hz;
    }
-   return rig_set_mode(data->rig, hl_get_vfo(vfo), state->mode,
+   return rig_set_mode(data->rig, hl_get_vfo(index), state->mode,
       target) != RIG_OK;
 }
 
-static int hl_widths_get(rr_backend_t *backend, rr_vfo_t vfo, int *widths,
-   int max) {
+static int hl_widths_get(rr_backend_t *backend, rr_server_vfo_t *vfo,
+   int *widths, int max) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || !data->rig || !widths || max < 3 || vfo < VFO_A ||
-       vfo >= MAX_VFOS) return 0;
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !widths || max < 3 ||
+       !hl_index(vfo, &index)) return 0;
    hl_mode_get(backend, vfo);
-   rmode_t mode = data->state[vfo].mode;
-   int normal = data->state[vfo].width;
+   rmode_t mode = data->state[index].mode;
+   int normal = data->state[index].width;
    if (normal <= 0) normal = rig_passband_normal(data->rig, mode);
    int narrow = rig_passband_narrow(data->rig, mode);
    int wide = rig_passband_wide(data->rig, mode);
@@ -376,9 +393,11 @@ static int hl_widths_get(rr_backend_t *backend, rr_vfo_t vfo, int *widths,
    return 3;
 }
 
-static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_vfo_t vfo) {
+static rr_vfo_data_t *hl_poll(rr_backend_t *backend,
+   rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
-   if (!data || vfo < VFO_A || vfo >= MAX_VFOS) return NULL;
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !hl_index(vfo, &index)) return NULL;
    if (!data->rig && data->reconnect_interval > 0 && data->retry_at &&
        now >= data->retry_at) {
       Log(LOG_INFO, "backend.hamlib", "%s: attempting reconnect",
@@ -388,20 +407,22 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_vfo_t vfo) {
    }
    if (!data->rig || !hl_vfo_supported(backend, vfo)) return NULL;
 
-   hamlib_vfo_state_t *state = &data->state[vfo];
-   vfo_t hamlib_vfo = hl_get_vfo(vfo);
+   hamlib_vfo_state_t *state = &data->state[index];
+   vfo_t hamlib_vfo = hl_get_vfo(index);
    int result = rig_set_vfo(data->rig, hamlib_vfo);
    if (result != RIG_OK) {
       Log(LOG_WARN, "backend.hamlib", "%s: SET VFO %s failed: %s",
-         rr_backend_instance_alias(backend), vfo_name(vfo), rigerror(result));
+         rr_backend_instance_alias(backend), vfo_name(index),
+         rigerror(result));
       hl_schedule_retry(backend, "rig_set_vfo failed");
       return NULL;
    }
    result = rig_get_freq(data->rig, hamlib_vfo, &state->freq);
    if (result != RIG_OK) {
       Log(LOG_WARN, "backend.hamlib", "%s: GET VFO %s frequency failed: %s",
-         rr_backend_instance_alias(backend), vfo_name(vfo), rigerror(result));
-      if (vfo == backend->active_vfo) {
+         rr_backend_instance_alias(backend), vfo_name(index),
+         rigerror(result));
+      if (index == backend->active_vfo) {
          hl_schedule_retry(backend, "rig_get_freq failed");
       }
       hl_property_unavailable(backend, vfo, RR_PROP_VFO_FREQUENCY);
@@ -410,22 +431,22 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_vfo_t vfo) {
    hl_property_observe_long(backend, vfo, RR_PROP_VFO_FREQUENCY,
       (long)state->freq);
 
-   if (!data->vfo_probed[vfo] || data->vfo_mode_ok[vfo] ||
-       vfo == backend->active_vfo) {
-      data->vfo_probed[vfo] = true;
+   if (!data->vfo_probed[index] || data->vfo_mode_ok[index] ||
+       index == backend->active_vfo) {
+      data->vfo_probed[index] = true;
       result = rig_get_mode(data->rig, hamlib_vfo, &state->mode,
          &state->width);
       if (result != RIG_OK) {
          Log(LOG_WARN, "backend.hamlib", "%s: GET VFO %s mode failed: %s",
-            rr_backend_instance_alias(backend), vfo_name(vfo),
+            rr_backend_instance_alias(backend), vfo_name(index),
             rigerror(result));
          state->mode = RIG_MODE_NONE;
          state->width = 0;
-         if (vfo != backend->active_vfo) data->vfo_mode_ok[vfo] = false;
+         if (index != backend->active_vfo) data->vfo_mode_ok[index] = false;
          hl_property_unavailable(backend, vfo, RR_PROP_VFO_MODE);
          hl_property_unavailable(backend, vfo, RR_PROP_VFO_WIDTH);
       } else {
-         data->vfo_mode_ok[vfo] = true;
+         data->vfo_mode_ok[index] = true;
          rr_mode_t mode = hl_mode_to_rr(state->mode);
          if (mode == MODE_NONE) {
             hl_property_unavailable(backend, vfo, RR_PROP_VFO_MODE);
@@ -450,18 +471,20 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_vfo_t vfo) {
    result = rig_get_ptt(data->rig, hamlib_vfo, &state->ptt);
    if (result != RIG_OK) {
       Log(LOG_WARN, "backend.hamlib", "%s: GET VFO %s PTT failed: %s",
-         rr_backend_instance_alias(backend), vfo_name(vfo), rigerror(result));
+         rr_backend_instance_alias(backend), vfo_name(index),
+         rigerror(result));
    }
    result = rig_get_strength(data->rig, hamlib_vfo, &state->power);
    if (result != RIG_OK) {
       Log(LOG_WARN, "backend.hamlib", "%s: GET VFO %s strength failed: %s",
-         rr_backend_instance_alias(backend), vfo_name(vfo), rigerror(result));
+         rr_backend_instance_alias(backend), vfo_name(index),
+         rigerror(result));
    }
    if (state->ptt == RIG_PTT_OFF) state->power = 0;
 
    rr_vfo_data_t *reply = calloc(1, sizeof(*reply));
    if (!reply) return NULL;
-   reply->id = vfo;
+   reply->id = index;
    reply->freq = state->freq;
    reply->mode = hl_mode_to_rr(state->mode);
    reply->width = state->width;

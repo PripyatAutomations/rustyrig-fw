@@ -76,6 +76,21 @@ rr_server_rig_t *rr_rig_registry_find_alias(const rr_rig_registry_t *registry,
    return NULL;
 }
 
+rr_server_vfo_t *rr_rig_registry_find_vfo_uuid(
+   const rr_rig_registry_t *registry, const char *uuid) {
+   if (!registry || !uuid || !*uuid) {
+      return NULL;
+   }
+   for (rr_rig_registry_entry_t *entry = registry->head; entry;
+        entry = entry->next) {
+      rr_server_vfo_t *vfo = rr_server_vfo_find_uuid(entry->radio, uuid);
+      if (vfo) {
+         return vfo;
+      }
+   }
+   return NULL;
+}
+
 rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry,
    const char *uuid, const char *alias, const char *name,
    const rr_backend_type_t *backend_type) {

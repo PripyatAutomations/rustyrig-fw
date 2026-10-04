@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/rig.vfo.h>
 
 struct rr_server_rig;
 typedef struct rr_backend rr_backend_t;
@@ -24,27 +25,31 @@ typedef struct rr_backend_type rr_backend_type_t;
 typedef struct rr_backend_funcs {
    bool (*create)(rr_backend_t *backend);
    void (*destroy)(rr_backend_t *backend);
-   rr_vfo_data_t *(*poll_state)(rr_backend_t *backend, rr_vfo_t vfo);
-   bool (*vfo_supported)(rr_backend_t *backend, rr_vfo_t vfo);
+   rr_vfo_data_t *(*poll_state)(rr_backend_t *backend,
+      rr_server_vfo_t *vfo);
+   bool (*vfo_supported)(rr_backend_t *backend, rr_server_vfo_t *vfo);
 
-   bool (*ptt_set)(rr_backend_t *backend, rr_vfo_t vfo, bool state);
-   bool (*ptt_get)(rr_backend_t *backend, rr_vfo_t vfo);
-   bool (*split_mode)(rr_backend_t *backend, rr_vfo_t vfo,
+   bool (*ptt_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state);
+   bool (*ptt_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
+   bool (*split_mode)(rr_backend_t *backend, rr_server_vfo_t *vfo,
       const char *args);
-   bool (*tuner_control)(rr_backend_t *backend, rr_vfo_t vfo,
+   bool (*tuner_control)(rr_backend_t *backend, rr_server_vfo_t *vfo,
       const char *args);
-   bool (*power_set)(rr_backend_t *backend, rr_vfo_t vfo, float power);
-   float (*power_get)(rr_backend_t *backend, rr_vfo_t vfo);
-   rr_mode_t (*mode_get)(rr_backend_t *backend, rr_vfo_t vfo);
-   bool (*mode_set)(rr_backend_t *backend, rr_vfo_t vfo, rr_mode_t mode);
-   const char *(*mode_get_str)(rr_backend_t *backend, rr_vfo_t vfo);
-   bool (*freq_set)(rr_backend_t *backend, rr_vfo_t vfo, int freq);
-   float (*freq_get)(rr_backend_t *backend, rr_vfo_t vfo);
-   uint16_t (*width_get)(rr_backend_t *backend, rr_vfo_t vfo);
-   bool (*width_set)(rr_backend_t *backend, rr_vfo_t vfo,
+   bool (*power_set)(rr_backend_t *backend, rr_server_vfo_t *vfo,
+      float power);
+   float (*power_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
+   rr_mode_t (*mode_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
+   bool (*mode_set)(rr_backend_t *backend, rr_server_vfo_t *vfo,
+      rr_mode_t mode);
+   const char *(*mode_get_str)(rr_backend_t *backend,
+      rr_server_vfo_t *vfo);
+   bool (*freq_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, int freq);
+   float (*freq_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
+   uint16_t (*width_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
+   bool (*width_set)(rr_backend_t *backend, rr_server_vfo_t *vfo,
       const char *width);
-   int (*widths_get)(rr_backend_t *backend, rr_vfo_t vfo, int *widths,
-      int max);
+   int (*widths_get)(rr_backend_t *backend, rr_server_vfo_t *vfo,
+      int *widths, int max);
 } rr_backend_funcs_t;
 
 /* Immutable implementation metadata. */
@@ -72,14 +77,23 @@ extern const rr_backend_type_t *rr_backend_type_find(const char *name);
 extern const char *rr_backend_instance_alias(const rr_backend_t *backend);
 extern void *rr_backend_instance_data(const rr_backend_t *backend);
 extern void rr_backend_instance_set_data(rr_backend_t *backend, void *data);
+extern const char *rr_backend_config_get(const rr_backend_t *backend,
+   const char *key);
+extern char *rr_backend_config_get_exp(const rr_backend_t *backend,
+   const char *key);
+extern int rr_backend_config_get_int(const rr_backend_t *backend,
+   const char *key, int default_value);
+extern bool rr_backend_config_get_bool(const rr_backend_t *backend,
+   const char *key, bool default_value);
 extern void rr_backend_register_builtin_types(void);
 
 extern bool rr_backend_init(void);
 extern bool rr_backend_fini(void);
 extern bool rr_backend_poll_all(void);
-extern bool rr_backend_poll_rig(struct rr_server_rig *radio, rr_vfo_t vfo);
+extern bool rr_backend_poll_rig(struct rr_server_rig *radio,
+   rr_server_vfo_t *vfo);
 extern bool rr_backend_vfo_supported(struct rr_server_rig *radio,
-   rr_vfo_t vfo);
+   rr_server_vfo_t *vfo);
 
 /* Legacy single-rig entry points. They always target the explicit legacy rig. */
 extern bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);

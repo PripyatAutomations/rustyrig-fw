@@ -10,6 +10,7 @@
 
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/backend.h>
+#include <rrserver/rig.config.h>
 #include <rrserver/rig.properties.h>
 
 #define RR_BACKEND_TYPE_MAX 16
@@ -45,30 +46,24 @@ const rr_backend_type_t *rr_backend_type_find(const char *name) {
 static rr_control_result_t rr_backend_property_control(
    const rr_control_request_t *request, void *user) {
    rr_backend_t *backend = user;
-   char vfo_id = 0;
-   const char *field = NULL;
 
    if (!request || !backend || request->rig != backend->owner ||
        rr_server_rig_backend(request->rig) != backend || !backend->type ||
-       !backend->type->api ||
-       !rr_property_parse_vfo(request->property, &vfo_id, &field)) {
-      return RR_CONTROL_INVALID;
-   }
-   rr_vfo_t vfo = vfo_lookup(vfo_id);
-   if (vfo == VFO_NONE) {
+       !backend->type->api || !request->vfo ||
+       rr_server_vfo_owner(request->vfo) != request->rig) {
       return RR_CONTROL_INVALID;
    }
 
-   if (strcmp(field, RR_PROP_VFO_FREQUENCY) == 0) {
+   if (strcmp(request->property, RR_PROP_VFO_FREQUENCY) == 0) {
       if (request->value_type != VAL_LONG || request->value.l < 0 ||
           request->value.l > INT32_MAX || !backend->type->api->freq_set) {
          return RR_CONTROL_INVALID;
       }
-      return backend->type->api->freq_set(backend, vfo,
+      return backend->type->api->freq_set(backend, request->vfo,
          (int)request->value.l) ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
    }
 
-   if (strcmp(field, RR_PROP_VFO_MODE) == 0) {
+   if (strcmp(request->property, RR_PROP_VFO_MODE) == 0) {
       if (request->value_type != VAL_STR || !request->value.s ||
           !backend->type->api->mode_set) {
          return RR_CONTROL_INVALID;
@@ -77,7 +72,7 @@ static rr_control_result_t rr_backend_property_control(
       if (mode == MODE_NONE) {
          return RR_CONTROL_INVALID;
       }
-      return backend->type->api->mode_set(backend, vfo, mode) ?
+      return backend->type->api->mode_set(backend, request->vfo, mode) ?
          RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
    }
 
@@ -143,4 +138,26 @@ void rr_backend_instance_set_data(rr_backend_t *backend, void *data) {
    if (backend) {
       backend->data = data;
    }
+}
+
+const char *rr_backend_config_get(const rr_backend_t *backend,
+   const char *key) {
+   return backend ? rr_rig_config_get(backend->config_alias, key) : NULL;
+}
+
+char *rr_backend_config_get_exp(const rr_backend_t *backend,
+   const char *key) {
+   return backend ? rr_rig_config_get_exp(backend->config_alias, key) : NULL;
+}
+
+int rr_backend_config_get_int(const rr_backend_t *backend, const char *key,
+   int default_value) {
+   return backend ? rr_rig_config_get_int(backend->config_alias, key,
+      default_value) : default_value;
+}
+
+bool rr_backend_config_get_bool(const rr_backend_t *backend, const char *key,
+   bool default_value) {
+   return backend ? rr_rig_config_get_bool(backend->config_alias, key,
+      default_value) : default_value;
 }

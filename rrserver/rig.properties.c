@@ -8,6 +8,7 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
 #include <rrserver/rig.properties.h>
+#include <rrserver/rig.vfo.h>
 
 extern time_t now;
 
@@ -25,12 +26,25 @@ typedef struct rr_rig_property {
    time_t changed_at;
 } rr_rig_property_t;
 
+struct rr_server_vfo {
+   char *id;
+   char *alias;
+   char *native_id;
+   rr_vfo_lifecycle_t lifecycle;
+   struct rr_server_rig *owner;
+   dict *properties;
+   uint64_t version;
+   struct rr_server_vfo *next;
+};
+
 struct rr_server_rig {
    char *id;
    char *name;
    struct rr_backend *backend;
    dict *properties;
    uint64_t version;
+   rr_server_vfo_t *vfos;
+   size_t vfo_count;
    rr_rig_control_handler_t control_handler;
    void *control_user;
 };
@@ -56,12 +70,12 @@ static bool rr_property_type_supported(val_type_t type) {
    }
 }
 
-static rr_rig_property_t *rr_property_find(const rr_server_rig_t *rig,
+static rr_rig_property_t *rr_property_find_store(dict *properties,
    const char *name) {
-   if (!rig || !rig->properties || !name) {
+   if (!properties || !name) {
       return NULL;
    }
-   return dict_get_ptr(rig->properties, name, NULL);
+   return dict_get_ptr(properties, name, NULL);
 }
 
 static void rr_property_value_free(rr_rig_property_t *property) {
@@ -83,6 +97,35 @@ static void rr_property_free(rr_rig_property_t *property) {
    free(property->name);
    free(property->unit);
    free(property);
+}
+
+static void rr_property_store_free(dict *properties) {
+   if (!properties) {
+      return;
+   }
+   int rank = 0;
+   const char *key = NULL;
+   dict_value_t value;
+   val_type_t type;
+
+   while ((rank = dict_enumerate_typed(properties, rank, &key, &value,
+          &type)) >= 0) {
+      if (type == VAL_PTR) {
+         rr_property_free(value.p);
+      }
+   }
+   dict_free(properties);
+}
+
+static void rr_server_vfo_free(rr_server_vfo_t *vfo) {
+   if (!vfo) {
+      return;
+   }
+   rr_property_store_free(vfo->properties);
+   free(vfo->id);
+   free(vfo->alias);
+   free(vfo->native_id);
+   free(vfo);
 }
 
 static bool rr_property_values_equal(const rr_rig_property_t *property,
@@ -193,7 +236,7 @@ static bool rr_property_dict_add_value(dict *d, const char *key,
    return rc != 0;
 }
 
-static void rr_property_emit(rr_server_rig_t *rig,
+static void rr_property_emit(rr_server_rig_t *rig, rr_server_vfo_t *vfo,
    const rr_rig_property_t *property) {
    dict *event = dict_new();
 
@@ -203,6 +246,18 @@ static void rr_property_emit(rr_server_rig_t *rig,
    dict_add(event, "msg.type", "rig.property");
    dict_add(event, "rig.id", rig->id);
    dict_add(event, "rig.name", rig->name);
+   dict_add(event, "target.type", vfo ? "vfo" : "rig");
+   dict_add(event, "target.id", vfo ? vfo->id : rig->id);
+   if (vfo) {
+      dict_add(event, "vfo.id", vfo->id);
+      dict_add(event, "vfo.alias", vfo->alias);
+      char compat_name[RR_PROPERTY_NAME_MAX];
+      if (strlen(vfo->alias) == 1 &&
+          rr_property_vfo_name(compat_name, sizeof(compat_name),
+             vfo->alias[0], property->name)) {
+         dict_add(event, "property.compat-name", compat_name);
+      }
+   }
    dict_add(event, "property.name", property->name);
    dict_add(event, "property.type", rr_property_type_name(property->type));
    dict_add(event, "property.status", rr_property_status_name(property));
@@ -243,20 +298,13 @@ void rr_server_rig_free(rr_server_rig_t *rig) {
    if (!rig) {
       return;
    }
-   if (rig->properties) {
-      int rank = 0;
-      const char *key = NULL;
-      dict_value_t value;
-      val_type_t type;
-
-      while ((rank = dict_enumerate_typed(rig->properties, rank, &key,
-             &value, &type)) >= 0) {
-         if (type == VAL_PTR) {
-            rr_property_free(value.p);
-         }
-      }
-      dict_free(rig->properties);
+   rr_server_vfo_t *vfo = rig->vfos;
+   while (vfo) {
+      rr_server_vfo_t *next = vfo->next;
+      rr_server_vfo_free(vfo);
+      vfo = next;
    }
+   rr_property_store_free(rig->properties);
    free(rig->id);
    free(rig->name);
    free(rig);
@@ -270,6 +318,132 @@ const char *rr_server_rig_name(const rr_server_rig_t *rig) {
    return rig ? rig->name : NULL;
 }
 
+rr_server_vfo_t *rr_server_vfo_find_uuid(const rr_server_rig_t *rig,
+   const char *uuid) {
+   if (!rig || !uuid || !*uuid) {
+      return NULL;
+   }
+   for (rr_server_vfo_t *vfo = rig->vfos; vfo; vfo = vfo->next) {
+      if (strcmp(vfo->id, uuid) == 0) {
+         return vfo;
+      }
+   }
+   return NULL;
+}
+
+rr_server_vfo_t *rr_server_vfo_find_alias(const rr_server_rig_t *rig,
+   const char *alias) {
+   if (!rig || !alias || !*alias) {
+      return NULL;
+   }
+   for (rr_server_vfo_t *vfo = rig->vfos; vfo; vfo = vfo->next) {
+      if (strcmp(vfo->alias, alias) == 0) {
+         return vfo;
+      }
+   }
+   return NULL;
+}
+
+rr_server_vfo_t *rr_server_vfo_add(rr_server_rig_t *rig,
+   const char *uuid, const char *alias, const char *native_id,
+   rr_vfo_lifecycle_t lifecycle) {
+   if (!rig || !uuid || !*uuid || !alias || !*alias || !native_id ||
+       !*native_id || (lifecycle != RR_VFO_PERSISTENT &&
+       lifecycle != RR_VFO_EPHEMERAL) ||
+       rr_server_vfo_find_uuid(rig, uuid) ||
+       rr_server_vfo_find_alias(rig, alias)) {
+      return NULL;
+   }
+   rr_server_vfo_t *vfo = calloc(1, sizeof(*vfo));
+   if (!vfo) {
+      return NULL;
+   }
+   vfo->id = strdup(uuid);
+   vfo->alias = strdup(alias);
+   vfo->native_id = strdup(native_id);
+   vfo->properties = dict_new();
+   vfo->lifecycle = lifecycle;
+   vfo->owner = rig;
+   if (!vfo->id || !vfo->alias || !vfo->native_id || !vfo->properties) {
+      rr_server_vfo_free(vfo);
+      return NULL;
+   }
+   vfo->next = rig->vfos;
+   rig->vfos = vfo;
+   rig->vfo_count++;
+   return vfo;
+}
+
+bool rr_server_vfo_remove(rr_server_rig_t *rig, const char *uuid) {
+   if (!rig || !uuid || !*uuid) {
+      return true;
+   }
+   rr_server_vfo_t **link = &rig->vfos;
+   while (*link) {
+      rr_server_vfo_t *vfo = *link;
+      if (strcmp(vfo->id, uuid) != 0) {
+         link = &vfo->next;
+         continue;
+      }
+      *link = vfo->next;
+      rig->vfo_count--;
+      rr_server_vfo_free(vfo);
+      return false;
+   }
+   return true;
+}
+
+size_t rr_server_vfo_count(const rr_server_rig_t *rig) {
+   return rig ? rig->vfo_count : 0;
+}
+
+bool rr_server_vfo_foreach(rr_server_rig_t *rig,
+   rr_server_vfo_iter_fn callback, void *user) {
+   if (!rig || !callback) {
+      return true;
+   }
+   bool failed = false;
+   for (rr_server_vfo_t *vfo = rig->vfos; vfo; vfo = vfo->next) {
+      if (callback(vfo, user)) {
+         failed = true;
+      }
+   }
+   return failed;
+}
+
+const char *rr_server_vfo_id(const rr_server_vfo_t *vfo) {
+   return vfo ? vfo->id : NULL;
+}
+
+const char *rr_server_vfo_alias(const rr_server_vfo_t *vfo) {
+   return vfo ? vfo->alias : NULL;
+}
+
+const char *rr_server_vfo_native_id(const rr_server_vfo_t *vfo) {
+   return vfo ? vfo->native_id : NULL;
+}
+
+rr_vfo_lifecycle_t rr_server_vfo_lifecycle(const rr_server_vfo_t *vfo) {
+   return vfo ? vfo->lifecycle : RR_VFO_EPHEMERAL;
+}
+
+rr_server_rig_t *rr_server_vfo_owner(const rr_server_vfo_t *vfo) {
+   return vfo ? vfo->owner : NULL;
+}
+
+bool rr_server_vfo_native_index(const rr_server_vfo_t *vfo,
+   rr_vfo_t *index) {
+   if (!vfo || !index || strlen(vfo->native_id) != 1) {
+      return false;
+   }
+   rr_vfo_t resolved = vfo_lookup(vfo->native_id[0]);
+   if (resolved == VFO_NONE) {
+      return false;
+   }
+   *index = resolved;
+   return true;
+}
+
 void rr_server_rig_set_backend(rr_server_rig_t *rig,
    struct rr_backend *backend) {
    if (rig) {
@@ -281,14 +455,15 @@ struct rr_backend *rr_server_rig_backend(const rr_server_rig_t *rig) {
    return rig ? rig->backend : NULL;
 }
 
-bool rr_rig_property_define(rr_server_rig_t *rig,
+static bool rr_property_define_store(dict *properties,
    const rr_property_descriptor_t *descriptor) {
-   if (!rig || !descriptor || !descriptor->name || !*descriptor->name ||
-       !rr_property_type_supported(descriptor->type)) {
+   if (!properties || !descriptor || !descriptor->name ||
+       !*descriptor->name || !rr_property_type_supported(descriptor->type)) {
       return true;
    }
 
-   rr_rig_property_t *existing = rr_property_find(rig, descriptor->name);
+   rr_rig_property_t *existing = rr_property_find_store(properties,
+      descriptor->name);
    if (existing) {
       bool same_unit = (!existing->unit && !descriptor->unit) ||
          (existing->unit && descriptor->unit &&
@@ -308,11 +483,41 @@ bool rr_rig_property_define(rr_server_rig_t *rig,
    property->readable = descriptor->readable;
    property->writable = descriptor->writable;
    if (!property->name || (descriptor->unit && !property->unit) ||
-       dict_add_ptr(rig->properties, property->name, property) != 0) {
+       dict_add_ptr(properties, property->name, property) != 0) {
       rr_property_free(property);
       return true;
    }
    return false;
+}
+
+static rr_server_vfo_t *rr_compat_vfo_property(const rr_server_rig_t *rig,
+   const char *name, const char **field) {
+   char alias[2] = { 0 };
+   if (!rig || !rr_property_parse_vfo(name, &alias[0], field)) {
+      return NULL;
+   }
+   return rr_server_vfo_find_alias(rig, alias);
+}
+
+bool rr_rig_property_define(rr_server_rig_t *rig,
+   const rr_property_descriptor_t *descriptor) {
+   if (!rig || !descriptor) {
+      return true;
+   }
+   const char *field = NULL;
+   rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, descriptor->name,
+      &field);
+   if (vfo) {
+      rr_property_descriptor_t local = *descriptor;
+      local.name = field;
+      return rr_vfo_property_define(vfo, &local);
+   }
+   return rr_property_define_store(rig->properties, descriptor);
+}
+
+bool rr_vfo_property_define(rr_server_vfo_t *vfo,
+   const rr_property_descriptor_t *descriptor) {
+   return !vfo || rr_property_define_store(vfo->properties, descriptor);
 }
 
 bool rr_property_vfo_name(char *buf, size_t len, char vfo_id,
@@ -341,41 +546,39 @@ bool rr_property_parse_vfo(const char *name, char *vfo_id,
 }
 
 bool rr_rig_define_vfo_properties(rr_server_rig_t *rig, char vfo_id) {
-   char name[RR_PROPERTY_NAME_MAX];
+   char alias[2] = { (char)toupper((unsigned char)vfo_id), '\0' };
+   rr_server_vfo_t *vfo = rr_server_vfo_find_alias(rig, alias);
    rr_property_descriptor_t descriptor = {
       .readable = true,
       .writable = true,
    };
 
-   if (!rr_property_vfo_name(name, sizeof(name), vfo_id,
-         RR_PROP_VFO_FREQUENCY)) {
+   if (!vfo) {
       return true;
    }
-   descriptor.name = name;
+   descriptor.name = RR_PROP_VFO_FREQUENCY;
    descriptor.type = VAL_LONG;
    descriptor.unit = "Hz";
-   if (rr_rig_property_define(rig, &descriptor)) {
+   if (rr_vfo_property_define(vfo, &descriptor)) {
       return true;
    }
 
-   rr_property_vfo_name(name, sizeof(name), vfo_id, RR_PROP_VFO_MODE);
-   descriptor.name = name;
+   descriptor.name = RR_PROP_VFO_MODE;
    descriptor.type = VAL_STR;
    descriptor.unit = NULL;
-   if (rr_rig_property_define(rig, &descriptor)) {
+   if (rr_vfo_property_define(vfo, &descriptor)) {
       return true;
    }
 
-   rr_property_vfo_name(name, sizeof(name), vfo_id, RR_PROP_VFO_WIDTH);
-   descriptor.name = name;
+   descriptor.name = RR_PROP_VFO_WIDTH;
    descriptor.type = VAL_INT;
    descriptor.unit = "Hz";
-   return rr_rig_property_define(rig, &descriptor);
+   return rr_vfo_property_define(vfo, &descriptor);
 }
 
-bool rr_rig_property_describe(const rr_server_rig_t *rig, const char *name,
+static bool rr_property_describe_store(dict *properties, const char *name,
    rr_property_descriptor_t *descriptor) {
-   rr_rig_property_t *property = rr_property_find(rig, name);
+   rr_rig_property_t *property = rr_property_find_store(properties, name);
    if (!property || !descriptor) {
       return false;
    }
@@ -387,9 +590,27 @@ bool rr_rig_property_describe(const rr_server_rig_t *rig, const char *name,
    return true;
 }
 
-rr_property_update_t rr_rig_property_observe(rr_server_rig_t *rig,
+bool rr_rig_property_describe(const rr_server_rig_t *rig, const char *name,
+   rr_property_descriptor_t *descriptor) {
+   if (!rig) {
+      return false;
+   }
+   const char *field = NULL;
+   rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, name, &field);
+   return vfo ? rr_vfo_property_describe(vfo, field, descriptor) :
+      rr_property_describe_store(rig->properties, name, descriptor);
+}
+
+bool rr_vfo_property_describe(const rr_server_vfo_t *vfo,
+   const char *name, rr_property_descriptor_t *descriptor) {
+   return vfo && rr_property_describe_store(vfo->properties, name,
+      descriptor);
+}
+
+static rr_property_update_t rr_property_observe_store(rr_server_rig_t *rig,
+   rr_server_vfo_t *vfo, dict *properties, uint64_t *version,
    const char *name, val_type_t type, const dict_value_t *value) {
-   rr_rig_property_t *property = rr_property_find(rig, name);
+   rr_rig_property_t *property = rr_property_find_store(properties, name);
    if (!property || !value || property->type != type) {
       return RR_PROPERTY_ERROR;
    }
@@ -404,15 +625,34 @@ rr_property_update_t rr_rig_property_observe(rr_server_rig_t *rig,
    }
    property->observed = true;
    property->available = true;
-   property->version = ++rig->version;
+   property->version = ++*version;
    property->changed_at = now;
-   rr_property_emit(rig, property);
+   rr_property_emit(rig, vfo, property);
    return RR_PROPERTY_CHANGED;
 }
 
-rr_property_update_t rr_rig_property_unavailable(rr_server_rig_t *rig,
-   const char *name) {
-   rr_rig_property_t *property = rr_property_find(rig, name);
+rr_property_update_t rr_rig_property_observe(rr_server_rig_t *rig,
+   const char *name, val_type_t type, const dict_value_t *value) {
+   if (!rig) {
+      return RR_PROPERTY_ERROR;
+   }
+   const char *field = NULL;
+   rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, name, &field);
+   return vfo ? rr_vfo_property_observe(vfo, field, type, value) :
+      rr_property_observe_store(rig, NULL, rig->properties, &rig->version,
+         name, type, value);
+}
+
+rr_property_update_t rr_vfo_property_observe(rr_server_vfo_t *vfo,
+   const char *name, val_type_t type, const dict_value_t *value) {
+   return vfo ? rr_property_observe_store(vfo->owner, vfo, vfo->properties,
+      &vfo->version, name, type, value) : RR_PROPERTY_ERROR;
+}
+
+static rr_property_update_t rr_property_unavailable_store(
+   rr_server_rig_t *rig, rr_server_vfo_t *vfo, dict *properties,
+   uint64_t *version, const char *name) {
+   rr_rig_property_t *property = rr_property_find_store(properties, name);
    if (!property) {
       return RR_PROPERTY_ERROR;
    }
@@ -421,15 +661,33 @@ rr_property_update_t rr_rig_property_unavailable(rr_server_rig_t *rig,
    }
    property->observed = true;
    property->available = false;
-   property->version = ++rig->version;
+   property->version = ++*version;
    property->changed_at = now;
-   rr_property_emit(rig, property);
+   rr_property_emit(rig, vfo, property);
    return RR_PROPERTY_CHANGED;
 }
 
-bool rr_rig_property_read(const rr_server_rig_t *rig, const char *name,
+rr_property_update_t rr_rig_property_unavailable(rr_server_rig_t *rig,
+   const char *name) {
+   if (!rig) {
+      return RR_PROPERTY_ERROR;
+   }
+   const char *field = NULL;
+   rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, name, &field);
+   return vfo ? rr_vfo_property_unavailable(vfo, field) :
+      rr_property_unavailable_store(rig, NULL, rig->properties,
+         &rig->version, name);
+}
+
+rr_property_update_t rr_vfo_property_unavailable(rr_server_vfo_t *vfo,
+   const char *name) {
+   return vfo ? rr_property_unavailable_store(vfo->owner, vfo,
+      vfo->properties, &vfo->version, name) : RR_PROPERTY_ERROR;
+}
+
+static bool rr_property_read_store(dict *properties, const char *name,
    rr_property_snapshot_t *snapshot) {
-   rr_rig_property_t *property = rr_property_find(rig, name);
+   rr_rig_property_t *property = rr_property_find_store(properties, name);
    if (!property || !snapshot) {
       return false;
    }
@@ -444,6 +702,22 @@ bool rr_rig_property_read(const rr_server_rig_t *rig, const char *name,
    return true;
 }
 
+bool rr_rig_property_read(const rr_server_rig_t *rig, const char *name,
+   rr_property_snapshot_t *snapshot) {
+   if (!rig) {
+      return false;
+   }
+   const char *field = NULL;
+   rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, name, &field);
+   return vfo ? rr_vfo_property_read(vfo, field, snapshot) :
+      rr_property_read_store(rig->properties, name, snapshot);
+}
+
+bool rr_vfo_property_read(const rr_server_vfo_t *vfo, const char *name,
+   rr_property_snapshot_t *snapshot) {
+   return vfo && rr_property_read_store(vfo->properties, name, snapshot);
+}
+
 void rr_server_rig_set_control_handler(rr_server_rig_t *rig,
    rr_rig_control_handler_t handler, void *user) {
    if (!rig) {
@@ -454,12 +728,22 @@ void rr_server_rig_set_control_handler(rr_server_rig_t *rig,
 }
 
 rr_control_result_t rr_rig_control(const rr_control_request_t *request) {
-   if (!request || !request->rig || !request->property ||
-       !*request->property) {
+   if (!request || !request->property || !*request->property) {
       return RR_CONTROL_INVALID;
    }
-   rr_rig_property_t *property = rr_property_find(request->rig,
-      request->property);
+   rr_server_rig_t *rig = request->vfo ?
+      rr_server_vfo_owner(request->vfo) : request->rig;
+   if (!rig || (request->rig && request->rig != rig)) {
+      return RR_CONTROL_INVALID;
+   }
+
+   rr_server_vfo_t *vfo = request->vfo;
+   const char *property_name = request->property;
+   if (!vfo) {
+      vfo = rr_compat_vfo_property(rig, request->property, &property_name);
+   }
+   rr_rig_property_t *property = rr_property_find_store(
+      vfo ? vfo->properties : rig->properties, property_name);
    if (!property) {
       return RR_CONTROL_NOT_FOUND;
    }
@@ -469,9 +753,12 @@ rr_control_result_t rr_rig_control(const rr_control_request_t *request) {
    if (property->type != request->value_type) {
       return RR_CONTROL_TYPE_MISMATCH;
    }
-   if (!request->rig->control_handler) {
+   if (!rig->control_handler) {
       return RR_CONTROL_UNSUPPORTED;
    }
-   return request->rig->control_handler(request,
-      request->rig->control_user);
+   rr_control_request_t normalized = *request;
+   normalized.rig = rig;
+   normalized.vfo = vfo;
+   normalized.property = property_name;
+   return rig->control_handler(&normalized, rig->control_user);
 }

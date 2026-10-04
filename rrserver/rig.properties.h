@@ -24,6 +24,8 @@
 
 struct rr_backend;
 typedef struct rr_server_rig rr_server_rig_t;
+struct rr_server_vfo;
+typedef struct rr_server_vfo rr_server_vfo_t;
 
 typedef struct rr_property_descriptor {
    const char *name;
@@ -66,6 +68,9 @@ typedef enum rr_control_result {
 
 typedef struct rr_control_request {
    rr_server_rig_t *rig;
+   /* Canonical VFO target. When present, property is local to this VFO.
+    * Legacy callers may leave this NULL and use vfo.A.frequency paths. */
+   rr_server_vfo_t *vfo;
    const char *property;
    val_type_t value_type;
    dict_value_t value;
@@ -97,6 +102,17 @@ extern rr_property_update_t rr_rig_property_unavailable(rr_server_rig_t *rig,
    const char *name);
 extern bool rr_rig_property_read(const rr_server_rig_t *rig, const char *name,
    rr_property_snapshot_t *snapshot);
+
+extern bool rr_vfo_property_define(rr_server_vfo_t *vfo,
+   const rr_property_descriptor_t *descriptor);
+extern bool rr_vfo_property_describe(const rr_server_vfo_t *vfo,
+   const char *name, rr_property_descriptor_t *descriptor);
+extern rr_property_update_t rr_vfo_property_observe(rr_server_vfo_t *vfo,
+   const char *name, val_type_t type, const dict_value_t *value);
+extern rr_property_update_t rr_vfo_property_unavailable(rr_server_vfo_t *vfo,
+   const char *name);
+extern bool rr_vfo_property_read(const rr_server_vfo_t *vfo,
+   const char *name, rr_property_snapshot_t *snapshot);
 
 extern bool rr_property_vfo_name(char *buf, size_t len, char vfo_id,
    const char *field);
