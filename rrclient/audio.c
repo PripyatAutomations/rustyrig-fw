@@ -66,10 +66,16 @@ static void client_rx_pcm(const char *name, const void *samples, size_t len, voi
    }
 }
 
-static void audio_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user);
+static void audio_full_frame_cb(const char *event, const void *data, size_t len,
+   rrconn_t *cptr, void *user);
+static void audio_full_frame_payload(const void *data, size_t len);
 
 bool audio_init(void) {
-   event_on_binary("media.frame.audio", audio_frame_cb, NULL);
+   // RX audio is routed by the frame header (stream id + codec) via the
+   // full-frame event; see audio_full_frame_cb. The legacy payload-only
+   // media.frame.audio event is deliberately not consumed: a frame would
+   // otherwise be decoded twice (both events fire per packet).
+   event_on_binary(RR_AUDIO_FRAME_EVENT, audio_full_frame_cb, NULL);
    if (fwdsp_init()) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
       return true;
@@ -198,28 +204,36 @@ void ws_audio_shutdown(void) {
 }
 
 //
-// Deal with a received audio frame
+// Deal with a received audio frame (legacy payload-only entry point; the
+// wire path is audio_full_frame_cb, which routes by stream id)
 bool audio_process_frame(const char *data, size_t len) {
-   audio_frame_cb("media.frame.audio", data, len, NULL, NULL);
+   audio_full_frame_payload(data, len);
    return false;
 }
 
-static void audio_frame_cb(const char *event, const void *data, size_t len,
+// Full-frame RX audio: route by the frame's own stream id, matching the
+// same discipline as the GPS path (gps_frame). During a codec switch the
+// channel table and the wire can disagree for a few frames; trusting the
+// frame header instead of the table keeps old-codec frames out of the new
+// decoder (corruption) and stops frames being fed to a torn-down decoder
+// (post-NONE silence).
+static void audio_full_frame_cb(const char *event, const void *data, size_t len,
    rrconn_t *cptr, void *user) {
    (void)event; (void)cptr; (void)user;
-   const char *codec = rrclient_media_current_codec(false);
-   if (!codec) {
-      // NONE/unsubscribe may race with already queued network frames.
-      return;
-   }
+   audio_full_frame_payload(data, len);
+}
+
+static void audio_full_frame_payload(const void *data, size_t len) {
+   struct rr_binframe frame;
+   if (rr_binframe_parse(data, len, &frame) || !frame.len) return;
+   const char *codec = rrclient_media_rx_codec_for_stream(frame.hdr.stream,
+      (const char *)frame.hdr.codec);
+   if (!codec) return;
 
    if (rx_codec[0] == '\0' || strncmp(rx_codec, codec, 4) != 0) {
-      if (audio_switch_codec(codec, false)) {
-         return;
-      }
+      if (audio_switch_codec(codec, false)) return;
    }
-
-   if (fwdsp_write_samples(rx_codec, false, data, len)) {
+   if (fwdsp_write_samples(rx_codec, false, frame.data, frame.len)) {
       Log(LOG_WARN, "audio", "Unable to write RX frame to fwdsp %s.rx", rx_codec);
    }
 }

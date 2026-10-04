@@ -196,6 +196,26 @@ const char *rrclient_media_current_codec(bool is_tx) {
    return channel ? channel->codec : NULL;
 }
 
+// Resolve a subscribed RX audio channel by its wire stream id and codec.
+// Returns the negotiated codec when the frame belongs to a channel we are
+// subscribed to, or NULL when the frame is stale (old stream after a codec
+// switch) or for a channel we no longer follow. Consumers must route by
+// this instead of the mutable current-codec state so a codec switch cannot
+// cross-feed frames between decoders.
+const char *rrclient_media_rx_codec_for_stream(uint8_t stream,
+   const char codec[4]) {
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      struct rr_media_known *channel = &known_chans[i];
+      if (!channel->uuid[0] || !channel->subscribed || !channel->stream_valid ||
+          channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+          channel->direction != RR_BINFRAME_DIR_RX ||
+          channel->stream != stream ||
+          strncmp(channel->codec, codec, 4) != 0) continue;
+      return channel->codec;
+   }
+   return NULL;
+}
+
 static void media_sync_audio(void) {
    for (int tx = 0 ; tx < 2 ; tx++) {
       const char *codec = rrclient_media_current_codec(tx);
