@@ -108,7 +108,7 @@ defconfig_t defcfg[] = {
    { "log.file", "rrclient.log", "Where to log" },
    { "log.http", "false", "Extra HTTP logging", DEFCONFIG_BOOL, NULL },
    { "log.http.crazy", "false", "HTTP wire logging", DEFCONFIG_BOOL, NULL },
-   { "log.level", "info", "What level of log events to keep" },
+   { "log.level", "info,event:debug", "What level of log events to keep" },
    { "log.show-ts", "true", "Show timestamps in log", DEFCONFIG_BOOL, NULL },
    { "net.http.hex-dump", "false", "Should we hexdump all http traffic?", DEFCONFIG_BOOL, NULL },
    { "networks.auto", NULL, "Which networks to autoconnect to" },

@@ -65,6 +65,14 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
 
    memcpy(subsys, p + 1, 16);
    subsys[16] = '\0';   // subsys is NUL padded, but belt & braces
+
+   // Respect the client's configured log level, exactly as the local log
+   // pane does. Without this gate a chatty server log level (e.g. event
+   // CRAZY spam) renders every frame into the text buffer and pegs the CPU.
+   if (debug_filter(subsys, prio)) {
+      return;
+   }
+
    const char *msg = (const char *)p + RR_LOGFRAME_HDR_LEN;
 
    // msg is NUL terminated inside the payload; clamp the visible length to

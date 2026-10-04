@@ -1,4 +1,4 @@
-rustyrig-fw (20261004.07) testing; urgency=medium
+rustyrig-fw (20261004.01) testing; urgency=medium
   * Serial streams are now recycled within a client session instead of
     requiring a reconnect after 255 opens: a stream number is retired only
     when its port closes with no block in flight (TX fully written), so a
