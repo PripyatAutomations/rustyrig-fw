@@ -44,7 +44,7 @@ extern struct rr_server_rig *rr_server_vfo_owner(
    const rr_server_vfo_t *vfo);
 
 /* Traditional A-Z backends use this adapter. Native identity, not the
- * display alias, determines the legacy Hamlib/internal VFO selector. */
+ * display alias, determines the native Hamlib/internal VFO selector. */
 extern bool rr_server_vfo_native_index(const rr_server_vfo_t *vfo,
    rr_vfo_t *index);
 

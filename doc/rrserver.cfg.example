@@ -1,8 +1,8 @@
 [general]
 ; Rig aliases select the [rig:<alias>] sections below.
 rig.instances=rig0
-; Required with multiple rigs: select one for legacy CAT/media clients.
-rig.legacy=rig0
+; Required with multiple rigs: select one for CAT/media clients.
+rig.default=rig0
 core.daemonize=false
 ; used for test-server.sh to know which rigctld to start
 rigctld.start-script=tools/dummy-rigctld.sh

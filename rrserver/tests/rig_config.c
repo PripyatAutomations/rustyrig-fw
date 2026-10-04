@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
    dict_free(cfg);
    cfg = loaded;
    assert(!strcmp(cfg_get("rig.instances"), "rig0 rig1"));
-   assert(!strcmp(cfg_get("rig.legacy"), "rig0"));
+   assert(!strcmp(cfg_get("rig.default"), "rig0"));
    assert(!strcmp(rr_rig_config_get("rig0", "backend"), "internal"));
    assert(!strcmp(rr_rig_config_get("rig0", "vfos"), "A B"));
    assert(!strcmp(rr_rig_config_get("rig1", "backend"), "hamlib"));

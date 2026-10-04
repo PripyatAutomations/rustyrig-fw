@@ -16,7 +16,7 @@ typedef struct rr_rig_registry_entry {
 
 struct rr_rig_registry {
    rr_rig_registry_entry_t *head;
-   rr_server_rig_t *legacy;
+   rr_server_rig_t *default_rig;
    size_t count;
 };
 
@@ -139,9 +139,9 @@ bool rr_rig_registry_remove(rr_rig_registry_t *registry, const char *uuid) {
          link = &entry->next;
          continue;
       }
-      /* Compatibility adapters borrow the explicit legacy rig. Its owner
+      /* Compatibility adapters borrow the explicit default rig. Its owner
          must clear that designation (and free adapters) before removal. */
-      if (registry->legacy == entry->radio) {
+      if (registry->default_rig == entry->radio) {
          return true;
       }
       *link = entry->next;
@@ -185,15 +185,15 @@ bool rr_rig_registry_foreach(rr_rig_registry_t *registry,
    return failed;
 }
 
-bool rr_rig_registry_set_legacy(rr_rig_registry_t *registry,
+bool rr_rig_registry_set_default(rr_rig_registry_t *registry,
    rr_server_rig_t *radio) {
    if (!registry || (radio && !rr_rig_registry_alias(registry, radio))) {
       return true;
    }
-   registry->legacy = radio;
+   registry->default_rig = radio;
    return false;
 }
 
-rr_server_rig_t *rr_rig_registry_legacy(const rr_rig_registry_t *registry) {
-   return registry ? registry->legacy : NULL;
+rr_server_rig_t *rr_rig_registry_default(const rr_rig_registry_t *registry) {
+   return registry ? registry->default_rig : NULL;
 }

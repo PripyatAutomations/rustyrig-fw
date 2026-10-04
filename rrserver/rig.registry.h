@@ -33,9 +33,9 @@ extern const char *rr_rig_registry_alias(const rr_rig_registry_t *registry,
 extern size_t rr_rig_registry_count(const rr_rig_registry_t *registry);
 extern bool rr_rig_registry_foreach(rr_rig_registry_t *registry,
    rr_rig_registry_iter_fn callback, void *user);
-extern bool rr_rig_registry_set_legacy(rr_rig_registry_t *registry,
+extern bool rr_rig_registry_set_default(rr_rig_registry_t *registry,
    rr_server_rig_t *radio);
-extern rr_server_rig_t *rr_rig_registry_legacy(
+extern rr_server_rig_t *rr_rig_registry_default(
    const rr_rig_registry_t *registry);
 
 #endif // !defined(__rrserver_rig_registry_h)

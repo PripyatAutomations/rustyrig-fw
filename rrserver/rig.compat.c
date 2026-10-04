@@ -222,7 +222,7 @@ void rr_cat_compat_prepare_poll(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
        vfos[active_vfo].freq > 0) {
       vfos[vfo] = vfos[active_vfo];
       vfos[vfo].id = vfo;
-      Log(LOG_DEBUG, "backend", "Legacy VFO %s seeded from active VFO %s",
+      Log(LOG_DEBUG, "backend", "Default-rig VFO %s seeded from active VFO %s",
          vfo_name(vfo), vfo_name(active_vfo));
    }
 }

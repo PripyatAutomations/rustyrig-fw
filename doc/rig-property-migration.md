@@ -529,14 +529,14 @@ not expanded in this phase.
                           -> backend-private instance data
            -> entry (another UUID/alias)
                 -> independent rig/backend/property state
-      -> rr_cat_compat_t for the explicitly selected legacy rig only
+      -> rr_cat_compat_t for the explicitly selected default rig only
 
 The registry owns entries and rigs. Each rig references exactly one allocated
 backend instance. A backend instance owns its copied configuration alias and
 backend-private data. Registry destruction calls the backend type's destructor,
 clears the rig association, frees the rig/property set, and finally frees the
-entry. `GlobalState` frees the borrowing legacy CAT adapter before freeing the
-registry. Direct removal of the designated legacy rig is rejected until the
+entry. `GlobalState` frees the borrowing default-rig CAT adapter before freeing the
+registry. Direct removal of the designated default rig is rejected until the
 designation and borrowing adapter have been cleared.
 
 `rr_backend_type_t` is immutable implementation metadata. `rr_backend_t` is an
@@ -551,15 +551,15 @@ rig registry contains no Hamlib/internal `#ifdef` or backend-specific branch.
 ### Registry API
 
 `rrserver/rig.registry.h` provides construction/destruction, add/remove,
-canonical UUID lookup, alias lookup, iteration, count, and explicit legacy-rig
+canonical UUID lookup, alias lookup, iteration, count, and explicit default-rig
 selection. UUID and alias uniqueness are validated independently; neither
 array position nor room slot is identity.
 
 The backend instance API in `rrserver/backend.h` provides type lookup,
 instance construction/destruction, instance alias/data accessors, explicit
 per-rig polling, registry-wide polling, and explicit per-rig VFO capability
-checks. The old `rr_freq_set()`/mode/PTT helpers remain legacy adapters and
-resolve only the registry's designated legacy rig.
+checks. The old `rr_freq_set()`/mode/PTT helpers remain default-rig adapters and
+resolve only the registry's designated default rig.
 
 ### Stable UUID persistence
 
@@ -593,7 +593,7 @@ The internal backend now similarly allocates its VFO state per instance. Its
 duplicate `cat.state` construction and diff cache were removed; it submits
 frequency/mode/width observations to the generic property service and uses the
 same compatibility adapter as Hamlib. This was the minimum safe conversion
-needed to prevent a second internal instance from broadcasting as the legacy
+needed to prevent a second internal instance from broadcasting as the default
 radio.
 
 One scheduler iterates every registered rig and its supported VFOs. A failed
@@ -602,15 +602,15 @@ so disconnected rigs cannot starve later entries. Generic control requests
 already carry a rig pointer and now dispatch through that rig's backend
 instance; there is no selected-backend lookup beneath `rr_rig_control()`.
 
-### Explicit legacy compatibility boundary
+### Explicit default-rig compatibility boundary
 
-The registry stores an explicit legacy/default rig pointer. Only this rig is
+The registry stores an explicit default rig pointer. Only this rig is
 allowed to merge poll snapshots into global `vfos[]` or publish through the
 single `rr_cat_compat_t`. Other rigs can poll and update generic properties but
 cannot overwrite old client state. `rr_cat_state_send()` and every old
 single-rig control wrapper target this designation.
 
-Inactive-VFO first-poll seeding moved into the legacy adapter. This preserves
+Inactive-VFO first-poll seeding moved into the default-rig adapter. This preserves
 the FT-891 fallback without making the fallback cache part of generic multirig
 state. Existing global `vfos[]`, `active_vfo`, server PTT/TOT state, media
 routing, old rigctl optimistic echoes, and room binding strings remain legacy
@@ -648,7 +648,7 @@ canonical identity.
 ### Remaining migration debt after Phase 2
 
 - PTT/TOT, `vfos[]`, `active_vfo`, media, and old client control remain scoped
-  to the explicit legacy rig.
+  to the explicit default rig.
 - Width, power, and PTT have not all moved through generic typed controls.
 - The runtime configuration loader creates only implicit `rig0`.
 - The Hamlib baud value is instance-owned but preserves prior behavior: the
@@ -662,6 +662,6 @@ canonical identity.
 
 Focused tests prove two UUID-addressed rigs using two instances of the same
 fake backend type, independent private/property state, correctly routed
-controls and observations, non-blocking polling failures, explicit legacy-only
+controls and observations, non-blocking polling failures, explicit default-rig-only
 publication, registry removal isolation, alias lookup, and persistent UUID
 reuse/differentiation.

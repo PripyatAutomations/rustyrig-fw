@@ -95,7 +95,7 @@ extern bool rr_backend_poll_rig(struct rr_server_rig *radio,
 extern bool rr_backend_vfo_supported(struct rr_server_rig *radio,
    rr_server_vfo_t *vfo);
 
-/* Legacy single-rig entry points. They always target the explicit legacy rig. */
+/* Default single-rig entry points. They always target the explicit default rig. */
 extern bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
 extern bool rr_ptt_apply(rr_vfo_t vfo, bool state);
 extern bool rr_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);

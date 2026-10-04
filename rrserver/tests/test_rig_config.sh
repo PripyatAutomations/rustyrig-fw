@@ -6,7 +6,7 @@ trap 'rm -rf "$work"' EXIT
 cat > "$work/multirig.cfg" <<'CFG'
 [general]
 rig.instances=first second
-rig.legacy=first
+rig.default=first
 [rig:first]
 backend=internal
 vfos=A B

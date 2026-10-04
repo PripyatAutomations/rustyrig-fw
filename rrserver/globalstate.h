@@ -36,7 +36,7 @@ struct GlobalState {
    struct ATUState atus[RR_MAX_ATUS];
    struct FilterState filters[RR_MAX_FILTERS];
    struct rr_rig_registry *rigs;         // Owns all runtime rigs/backends
-   struct rr_cat_compat *legacy_cat;     // Explicit default-rig wire adapter
+   struct rr_cat_compat *default_cat;     // Explicit default-rig wire adapter
 
 #if     defined(HOST_POSIX)   // Host build fd's/buffers/etc
    uint32_t logfile_fd;

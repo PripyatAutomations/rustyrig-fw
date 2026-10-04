@@ -240,8 +240,8 @@ int main(void) {
    define_properties(radio_a);
    define_properties(radio_b);
 
-   assert(!rr_rig_registry_set_legacy(rig.rigs, radio_a));
-   assert(rr_rig_registry_legacy(rig.rigs) == radio_a);
+   assert(!rr_rig_registry_set_default(rig.rigs, radio_a));
+   assert(rr_rig_registry_default(rig.rigs) == radio_a);
    assert(rr_rig_registry_remove(rig.rigs, uuid_a));
    rr_cat_compat_ops_t compat_ops = {
       .vfo_supported = compat_supported,
@@ -249,10 +249,10 @@ int main(void) {
       .widths_get = compat_widths,
       .user = radio_a,
    };
-   rig.legacy_cat = rr_cat_compat_new(radio_a, &compat_ops);
-   assert(rig.legacy_cat);
+   rig.default_cat = rr_cat_compat_new(radio_a, &compat_ops);
+   assert(rig.default_cat);
 
-   /* The non-legacy rig observes independently and cannot publish cat.state. */
+   /* The non-default rig observes independently and cannot publish cat.state. */
    assert(!rr_backend_poll_rig(radio_b, VFO_A));
    assert(read_frequency(radio_b) == 7074000);
    assert(broadcasts == 0);
@@ -295,8 +295,8 @@ int main(void) {
    assert(data_a->polls == 1);
    assert(data_b->polls == 1);
 
-   rr_cat_compat_free(rig.legacy_cat);
-   rig.legacy_cat = NULL;
+   rr_cat_compat_free(rig.default_cat);
+   rig.default_cat = NULL;
    assert(!rr_rig_registry_remove(rig.rigs, uuid_b));
    assert(rr_rig_registry_count(rig.rigs) == 1);
    assert(rr_rig_registry_find_uuid(rig.rigs, uuid_a) == radio_a);

@@ -43,7 +43,7 @@ defconfig_t defcfg[] = {
    { "backend.poll-interval", "250", "How often to poll the rig in ms", DEFCONFIG_UINT, NULL },
    { "rig.vfos", "2", "How many VFOs does the rig expose? (A-Z; 2 means only A and B exist)", DEFCONFIG_UINT, NULL },
    { "rig.instances", "rig0", "Configured rig aliases (space or comma separated)" },
-   { "rig.legacy", NULL, "Rig alias for legacy CAT/media clients; required with multiple rigs" },
+   { "rig.default", NULL, "Default rig alias for CAT/media clients; required with multiple rigs" },
    { "rig:rig0.backend", "internal", "Backend for the default rig", DEFCONFIG_ENUM, "internal|hamlib" },
    { "rig:rig0.name", "rig0", "Display name for the default rig" },
    { "rig:rig0.vfos", "A B", "VFO aliases for the default rig (space or comma separated)" },
