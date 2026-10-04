@@ -36,7 +36,37 @@ extern bool cfg_ui_gtk_vfo_on_top;
 
 ///////////////
 static GPtrArray *input_history = NULL;
-static unsigned int history_index = -1;
+typedef struct {
+   GPtrArray *local;
+   int index;
+   char *draft;
+   bool shared;
+} GtkInputHistory;
+
+static void input_history_free(gpointer data) {
+   GtkInputHistory *history = data;
+   if (history->local) g_ptr_array_unref(history->local);
+   g_free(history->draft);
+   g_free(history);
+}
+
+static GtkInputHistory *entry_history(GtkWidget *entry, GPtrArray **lines) {
+   GtkInputHistory *history = g_object_get_data(G_OBJECT(entry), "rr-input-history");
+   bool shared = cfg_get_bool("ui.shared-input-history", true);
+   if (!history) {
+      history = g_new0(GtkInputHistory, 1);
+      history->index = -1;
+      g_object_set_data_full(G_OBJECT(entry), "rr-input-history", history, input_history_free);
+   }
+   if (history->shared != shared) {
+      history->shared = shared;
+      history->index = -1;
+      g_clear_pointer(&history->draft, g_free);
+   }
+   if (!shared && !history->local) history->local = g_ptr_array_new_with_free_func(g_free);
+   *lines = shared ? input_history : history->local;
+   return history;
+}
 GtkWidget *chat_textview = NULL;
 GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;
@@ -318,17 +348,8 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
 }
 
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
-   const gchar *msg = gtk_entry_get_text( GTK_ENTRY(chat_entry) );
-
-   if (!msg) {
-      return;
-   }
+   gtk_widget_grab_focus(GTK_WIDGET(entry));
    parse_chat_input_gtk(button, entry);
-
-   g_ptr_array_add( input_history, g_strdup(msg) );
-   history_index = input_history->len;
-   gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
-   gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
 }
 
 // Here we support input history for the chat/control window entry input
@@ -371,32 +392,28 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry,
       return TRUE;
    }
 
-   if (!input_history || input_history->len == 0) {
-      return FALSE;
-   }
+   if (event->keyval != GDK_KEY_Up && event->keyval != GDK_KEY_Down) return FALSE;
+   if (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SHIFT_MASK)) return FALSE;
+   GPtrArray *lines;
+   GtkInputHistory *history = entry_history(entry, &lines);
+   if (!lines || !lines->len) return FALSE;
 
    if (event->keyval == GDK_KEY_Up) {
-      if (history_index > 0) {
-         history_index--;
-      }
-   } else if (event->keyval == GDK_KEY_Down) {
-      if (history_index < input_history->len - 1) {
-         history_index++;
-      } else {
-         gtk_entry_set_text(GTK_ENTRY(chat_entry), "");
-         history_index = input_history->len;
-
-         return TRUE;
+      if (history->index < 0) {
+         g_free(history->draft);
+         history->draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
+         history->index = (int)lines->len - 1;
+      } else if (history->index > 0) {
+         history->index--;
       }
    } else {
-      return FALSE;
+      if (history->index < 0) return TRUE;
+      if (++history->index >= (int)lines->len) history->index = -1;
    }
-
-   const char *text = g_ptr_array_index(input_history, history_index);
-
-   gtk_entry_set_text(GTK_ENTRY(chat_entry), text);
-   gtk_editable_set_position(GTK_EDITABLE(chat_entry), -1);
-
+   const char *text = history->index < 0 ? (history->draft ? history->draft : "") :
+      g_ptr_array_index(lines, history->index);
+   gtk_entry_set_text(GTK_ENTRY(entry), text);
+   gtk_editable_set_position(GTK_EDITABLE(entry), -1);
    return TRUE;
 }
 
@@ -652,6 +669,8 @@ bool chat_init(void) {
    gtk_label_set_markup(GTK_LABEL(status_tab_label), tab_desc);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), status_tab, status_tab_label);
    input_history = g_ptr_array_new_with_free_func(g_free);
+   g_object_set_data_full(G_OBJECT(main_notebook), "rr-shared-input-history",
+      input_history, (GDestroyNotify)g_ptr_array_unref);
 
    rig_room_tab = g_new0(GtkRoomTab, 1);
    rig_room_tab->page = status_tab;
@@ -676,8 +695,22 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
    (void)button;
    const gchar *text = gtk_entry_get_text(GTK_ENTRY(entry));
    if (text && *text) {
-      parse_chat_input_real(text);
+      // Copy before clearing/dispatch: commands may change tabs or destroy
+      // the originating entry. Never retain GtkEntry's borrowed text pointer.
+      char *message = g_strdup(text);
+      GPtrArray *lines;
+      GtkInputHistory *history = entry_history(GTK_WIDGET(entry), &lines);
+      // PARITY: browser chat_history_add() in js/webui.chat.completion.js;
+      // TUI history is owned by librustyaxe/tui.keys.c. Shared is the default.
+      if (lines && (!lines->len || strcmp(g_ptr_array_index(lines, lines->len - 1), message))) {
+         if (lines->len >= HISTORY_LINES) g_ptr_array_remove_index(lines, 0);
+         g_ptr_array_add(lines, g_strdup(message));
+      }
+      history->index = -1;
+      g_clear_pointer(&history->draft, g_free);
       gtk_entry_set_text(GTK_ENTRY(entry), "");
+      parse_chat_input_real(message);
+      g_free(message);
    }
    return false;
 }

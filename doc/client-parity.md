@@ -151,3 +151,11 @@ Native GTK/TUI and WebUI share `/rig list`, `/rig subscribe|unsubscribe`
 The server supplies the resource tree and permission-filtered serial exports.
 `/sercom remote` discovers server exports in both clients; only the native
 client can attach local PTYs or serial devices. See [Resource discovery](resource-discovery.md).
+
+## Chat input history
+
+GTK and TUI default to shared command/chat history across windows via
+`ui.shared-input-history=true`; false keeps history per window. The browser
+also shares input history. GTK Up/Down operates on the originating entry,
+restores that entry's unfinished draft after the newest item, and retains up
+to 50 entries. GTK and browser suppress consecutive duplicate submissions.

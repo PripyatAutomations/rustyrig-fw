@@ -1,4 +1,7 @@
 rustyrig-fw (20261004.01) testing; urgency=medium
+  * Fix GTK chat history recording before entry clearing and recall into the
+    originating input. Honor shared input history (default true), retain
+    per-window drafts, and bound history to 50 entries.
   * Add /rig resource trees and /gps stream subscriptions to native and web
     clients, including UUIDs, rooms, coordinates, media, CAT and permitted
     serial exports; reject absolute server paths in serial requests.
