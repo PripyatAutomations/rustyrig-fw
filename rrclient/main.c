@@ -44,6 +44,7 @@ extern defconfig_t defcfg[];
 #define	INPUT_HISTORY_MAX 64
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
+#include <librustyaxe/cfg.modules.h>
 #include <rrclient/cat.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
@@ -74,7 +75,7 @@ extern const char *config_file;           // librustyaxe/config.c
 extern bool tui_over_ssh;		// librustyaxe/tui.c
 // GTK (and any other graphical frontend) lives in a dynamically loaded
 // module; core rrclient never links a GUI toolkit.
-static bool frontend_requested;      // DISPLAY set (or future -g)
+static bool force_tui = false;       // -T: never load a frontend module
 static rr_module_t *frontend_module; // set once the module loads
 struct timespec mono_now;
 bool rrclient_cleanup(void);
@@ -495,15 +496,9 @@ int main(int argc, char *argv[]) {
    now = time(NULL);
    update_timestamp();
 
-   // set a default based on if $DISPLAY is set and a frontend module exists
-   // (verified after config load; until then assume TUI)
+   // The [modules] config section (after cfg_load) decides which frontend
+   // modules to load; until then assume TUI.
    ui_mode = UI_MODE_TUI;
-   frontend_requested = display != NULL;
-#ifdef _WIN32
-   // Windows always has the graphical shell; the GTK module also checks at
-   // load time, so treat DISPLAY as unavailable here.
-   frontend_requested = false;
-#endif
 
    // Let's do commandline parsing here
    // -T: Always force TUI (no X11)
@@ -547,7 +542,7 @@ int main(int argc, char *argv[]) {
 
          case 'T': {
             ui_mode = UI_MODE_TUI;
-            frontend_requested = false;
+            force_tui = true;
             break;
          }
 
@@ -580,6 +575,7 @@ int main(int argc, char *argv[]) {
    // add our configuration callbacks
    cfg_add_callback(NULL, "network:*", config_network_cb);
    config_fwdsp_init();
+   cfg_modules_init();
 
    // Register config save callbacks so module-owned sections get saved.
    // cfg_servers_init() is weak: it lives in cfg.servers.c which is part of
@@ -666,34 +662,43 @@ int main(int argc, char *argv[]) {
    // This is independent of the UI and Mongoose polling mechanisms.
    g_timeout_add(1000, fwdsp_maintenance_cb, NULL);
 
-       // Setup stdio & clock: the frontend module must be chosen first, so the       // TUI setup below runs only when no graphical frontend was loaded.
-      if (frontend_requested) {
-         // Load the frontend module (e.g. rrgtk). It registers its ops and
-         // event hooks in rr_module_init(); run() below enters its main loop.
-         Log(LOG_INFO, "core", "DISPLAY set; trying frontend module (path.modules=%s)", cfg_get("path.modules"));
-         if (rr_load_module("rrgtk")) {
-            Log(LOG_INFO, "core", "No frontend module found (path.modules=%s); TUI mode", cfg_get("path.modules"));
-            frontend_requested = false;
-            ui_mode = UI_MODE_TUI;
-         } else {
-            frontend_module = rr_find_loaded_module("rrgtk");
+       // Setup stdio & clock: the frontend module must be chosen first, so
+      // the TUI setup below runs only when no graphical frontend loaded.
+      // The [modules] config section decides what to load, e.g.:
+      //    [modules]
+      //    rrclient-gtk.so=
+      const char *module_options = NULL;
+      const char *requested = force_tui ? NULL : cfg_modules_get(0, &module_options);
+      const char *loaded_name = NULL;
+      if (requested) {
+         Log(LOG_INFO, "core", "Requested module %s (path.modules=%s)", requested, cfg_get("path.modules"));
+         if (!rr_load_module(requested)) {
+            frontend_module = rr_find_loaded_module(requested);
+            loaded_name = requested;
             if (frontend_module) {
-               // gtk_init needs the real argc/argv; a failed init (no display,
-               // theme problems) unloads the module and we fall back to TUI.
+               // init (e.g. gtk_init) needs the real argc/argv; a failed init
+               // (no display, theme problems) unloads the module and we fall
+               // back to TUI.
                if (frontend_ops()->init(&argc, &argv)) {
                   Log(LOG_CRIT, "core", "Frontend module init failed; falling back to TUI");
-                  rr_unload_module("rrgtk");
+                  rr_unload_module(requested);
                   frontend_module = NULL;
-                  ui_mode = UI_MODE_TUI;
+                  loaded_name = NULL;
                } else {
                   ui_mode = UI_MODE_GTK;
-   #ifdef USE_MONGOOSE
+#ifdef USE_MONGOOSE
                   poll_mongoose_init();               // Mongoose via GSource
-   #endif
+#endif
                }
             }
+         } else {
+            Log(LOG_INFO, "core", "Requested module %s not found (path.modules=%s); TUI mode", requested, cfg_get("path.modules"));
          }
+      } else {
+         Log(LOG_INFO, "core", "No modules configured ([modules] section); TUI mode");
       }
+      (void)module_options;
+      (void)loaded_name;
 
       if (ui_mode == UI_MODE_TUI) {
          tui_readline_cb = parse_chat_input_real;

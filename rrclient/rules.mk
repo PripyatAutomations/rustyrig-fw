@@ -44,7 +44,7 @@ rrclient_objs += win32.o		# support to run in windows
 # Core rrclient never links GTK; the module carries the GTK dependency.
 ifneq (${USE_GTK},false)
 USE_GTK := ${USE_GTK}
-gtk_module := bin/rrgtk.so
+gtk_module := bin/rrclient-gtk.so
 bins += ${gtk_module}
 
 gtk_module_objs += cfg.gtkcss.o		# GTK CSS from config file
@@ -73,7 +73,7 @@ gtk_module_objs += gtk.vol-box.o		# Volume widget
 gtk_module_objs += gtk.winmgr.o		# window management
 gtk_module_objs += gtk.webcam.o		# webcam/video viewer window
 gtk_module_objs += ui.speech.o		# Support for screener readers
-gtk_module_objs += module.o		# Module entry points
+gtk_module_objs += rrclient-gtk.o	# Module entry points
 endif
 
 ###########################################
@@ -101,7 +101,7 @@ ${BUILD_DIR}/rrclient/cfg.gtkcss.o: rrclient/cfg.gtkcss.c ${BUILD_HEADERS} GNUma
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-${BUILD_DIR}/rrclient/module.o: rrclient/module.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/rrclient-gtk.o: rrclient/module.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"

@@ -1,3 +1,20 @@
+rustyrig-fw (20261004.04) testing; urgency=medium
+  * rrclient GTK frontend is now a dynamically loaded module
+    (bin/rrclient-gtk.so). Core rrclient no longer links GTK; the module is
+    resolved against the -rdynamic executable at dlopen.
+  * librustyaxe: opaque event tokens (event_on_token/event_off_token) with
+    safe repeated unregister; module ABI gains rr_module_init/
+    rr_module_shutdown and a working rr_unload_module.
+  * librustyaxe/cfg.modules.[ch]: [modules] config section shared by all
+    programs (name[.so]=options, empty options valid). rrclient loads its
+    frontend from it; falls back to TUI when the module is missing or its
+    init fails, or when -T is given.
+  * New rrclient/frontend.h host API: core-to-frontend calls go through a
+    registered ops table and are no-ops without a frontend; the GTK module
+    talks back to the core only via the event bus.
+  * GTK-only settings (tabstrip, vfo-on-top, fullscreen, default CSS) moved
+    into the module with its own config-refresh hook.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
 rustyrig-fw (20261004.03) testing; urgency=medium
   * Packaging: create /var/log/rustyrig owned by rustyrig:rustyrig in debian
     rules, the Arch PKGBUILD and the RPM spec.

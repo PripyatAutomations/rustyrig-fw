@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// Loaded by core rrclient via rr_load_module("rrgtk") when $DISPLAY is set.
+// Loaded by core rrclient via loaded via rr_load_module() from the [modules] config section.
 // The module talks to the core client only through the event bus and the
 // frontend ops host interface (rrclient/frontend.h); it never dereferences
 // core client state.
@@ -77,7 +77,7 @@ static void rr_module_tokens_release(void) {
 
 bool rr_module_init(void) {
    if (module_running) {
-      Log(LOG_CRIT, "module", "rrgtk: init called twice");
+      Log(LOG_CRIT, "module", "rrclient-gtk: init called twice");
       return true;
    }
    if (frontend_ops_register(&gtk_frontend_ops)) {
@@ -87,7 +87,7 @@ bool rr_module_init(void) {
    // after loading, so registration alone is safe here even if GTK is not
    // initialized yet.
    module_running = true;
-   Log(LOG_INFO, "module", "rrgtk: frontend registered");
+   Log(LOG_INFO, "module", "rrclient-gtk: frontend registered");
    return false;
 }
 
