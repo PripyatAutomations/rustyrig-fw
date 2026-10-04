@@ -18,11 +18,10 @@ posix-install: install-config install-assets install-tools
 
 install: install-config install-assets install-tools
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/lib ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
-	cp -av ${bins} ${INSTALL_DIR}/bin
-	# The GTK frontend module is a shared object, not a program; it goes in
-	# the modules dir where the [modules] config section finds it.
-	install -d ${INSTALL_DIR}/lib/rustyrig/modules
-	for m in ${bins}; do case $$m in *.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/$$(basename $$m);; esac; done
+	cp -av $(filter-out %.so,${bins}) ${INSTALL_DIR}/bin
+	# Frontend and GPS shared objects also go in the module directory.
+	install -d ${INSTALL_DIR}/lib/rustyrig/modules/rrserver ${INSTALL_DIR}/lib/rustyrig/modules/rrclient
+	for m in ${bins}; do case $$m in *rrserver*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrserver/$$(basename $$m);; *rrclient*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrclient/$$(basename $$m);; esac; done
 	# Shared libs (librustyaxe.so, librrprotocol.so, libfwdspmgr.so) all build
 	# at the top of the tree and land in ${libs}; install them so the binaries
 	# can find them (see -Wl,-rpath in mk/compile.mk)

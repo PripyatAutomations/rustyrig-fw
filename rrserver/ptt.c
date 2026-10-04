@@ -28,6 +28,7 @@
 #include <rrserver/au.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
+#include <rrserver/rig.registry.h>
 #include <rrserver/ptt.h>
 #include <rrserver/media.h>
 #include <rrserver/timer.h>
@@ -377,6 +378,7 @@ bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
    if (mode_str) {
       dict *d = dict_new();
       dict_add(d, "msg.type", "cat.state");
+      if (rig.ptt_rig) dict_add(d, "cat.room", rr_rig_registry_room(rig.rigs, rig.ptt_rig));
       dict_add(d, "cat.state.vfo", vfo_name(vfo) );
       dict_add(d, "cat.state.mode", mode_str);
       dict_add_bool(d, "cat.state.ptt", ptt);

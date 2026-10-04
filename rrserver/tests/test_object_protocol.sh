@@ -18,7 +18,7 @@ ${CC:-cc} ${CFLAGS:-} -std=gnu11 -DRR_TEST_OBJECT_PROTOCOL -I. -Iinc -Ibuild/${P
    rrserver/backend.instance.c rrserver/backend.register.c \
    rrserver/backend.internal.c rrserver/backend.hamlib.c \
    rrserver/rig.properties.c rrserver/rig.compat.c rrserver/rig.registry.c \
-   rrserver/rig.config.c rrserver/database.c rrserver/defconfig.c \
+   rrserver/rig.config.c rrserver/rig.rooms.c rrserver/database.c rrserver/defconfig.c \
    rrserver/objects.c rrclient/objects.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
    $(pkg-config --libs glib-2.0 hamlib sqlite3) ${LDFLAGS:-} \

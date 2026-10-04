@@ -74,16 +74,16 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Depends: librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Description: RustyRig client (core, headless)
- Core RustyRig client. Runs headless (TUI) by itself; the GTK interface
- ships separately in rustyrig-client-gtk as a loadable module.
+Description: RustyRig client
+ RustyRig client with TUI interface; the GTK interface ships separately
+ in rustyrig-client-gtk as a loadable module.
 
 Package: rustyrig-client-gtk
 Architecture: any
 Depends: rustyrig-client (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig GTK client module
  GTK frontend for the RustyRig client, loaded from
- /var/lib/rustyrig/modules by the core client's [modules] configuration.
+ /usr/lib/rustyrig/modules/rrclient by the core client's [modules] configuration.
 
 Package: rustyrig-fwdsp
 Architecture: any
@@ -100,3 +100,10 @@ Architecture: any
 Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig callsign lookup service
  Callsign lookup helper using local databases and the QRZ XML API.
+
+Package: rrserver-gpsd
+Architecture: any
+Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: GPSD receiver module for RustyRig server
+ Optional GPSD connection for station and rig coordinates, installed in
+ /usr/lib/rustyrig/modules/rrserver. Enable rrserver-gpsd in [modules].

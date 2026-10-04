@@ -72,6 +72,11 @@ static void test_subscription_limit_and_cleanup(void) {
    assert(mg_mqtt_parse(packet, packet_len, 4, &message) == MQTT_OK);
 
    struct mg_connection connection = {0};
+   // The limit test subscribes and unsubscribes MQTT_MAX_SUBSCRIPTIONS_PER_
+   // CLIENT+1 topics; each logs at debug. Silence mqtt.req for this section
+   // (as test.audit.c does for auth) and restore the filter afterwards.
+   log_add_filter("mqtt.req", LOG_CRIT);
+
    mqtt_server_cb(&connection, MG_EV_MQTT_CMD, &message);
    assert(connection.is_closing);
    assert(mqtt_subscription_count(&connection) ==
@@ -80,6 +85,7 @@ static void test_subscription_limit_and_cleanup(void) {
    mqtt_server_cb(&connection, MG_EV_CLOSE, NULL);
    assert(mqtt_subscription_count(&connection) == 0);
    assert(s_subs == NULL);
+   log_clear_filters();
    mg_iobuf_free(&connection.send);
    free(packet);
 }

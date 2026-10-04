@@ -47,6 +47,7 @@ extern bool db_room_set_topic(sqlite3 *db, const char *name, const char *topic);
 extern char *db_room_get_topic(sqlite3 *db, const char *name);
 extern bool db_room_delete(sqlite3 *db, const char *name);
 extern char *db_room_list(sqlite3 *db);
+extern bool db_room_vfos_clear(sqlite3 *db, const char *room);
 extern bool db_room_vfo_add(sqlite3 *db, const char *room, const char *binding);
 extern bool db_room_vfo_remove(sqlite3 *db, const char *room, const char *binding);
 extern char *db_room_vfo_list(sqlite3 *db, const char *room);

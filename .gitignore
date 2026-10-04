@@ -84,7 +84,12 @@ debian/librrprotocol*
 debian/librustyaxe*
 debian/rustyrig-callsign-lookup*
 debian/rustyrig-client*
+debian/rustyrig/server-gpsd*
 debian/rustyrig-fwdsp*
 debian/rustyrig-server*
 !debian/rustyrig-server.config
 !debian/rustyrig-server.templates
+
+# Python integration-test bytecode
+__pycache__/
+*.py[cod]

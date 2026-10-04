@@ -113,3 +113,49 @@ The configurable `tui.status-line` top/topic row is frontend-specific. It
 reads the native client's existing VFO state; it introduces no protocol or
 CAT semantics. GTK widgets and browser DOM displays retain their own layout.
 See [TUI top status line](tui-status-line.md).
+
+## Rig-room audio
+
+Native `rrclient/media.c` and browser `js/webui.media.js` honor session-specific
+`media.room`/`media.joined` metadata. Both attach the active VFO pair only in a
+joined rig room, switch automatic subscriptions when selecting another joined
+rig room, and drop room audio on PART. Login joins the site lobby; optional
+autojoin uses the native server profile or the browser's site settings. See
+[Site lobby and rig rooms](rig-rooms.md) for configuration and room-scoped CAT/PTT authorization.
+Both clients select audio by room and VFO, recognize the sole TX base room,
+and permit RX-subroom frequency edits only for the advertised per-VFO tuning
+mask. GTK docked row selection, detached panels, and CSS highlighting are
+frontend-specific; browser frequency controls honor the same tuning policy.
+
+## Local serial services
+
+`/sercom` and local PTY/real-device transports belong to the native common
+client and work in GTK and TUI. The browser recognizes the command and explains
+this limitation; it does not forward local endpoint management to the server.
+Both command completers offer LIST, ATTACH, and DISCONNECT. Native CAT writes
+use the same room-scoped protocol APIs as the other native controls. See
+[Serial endpoints and rig GPS](serial-interfaces.md).
+
+Server real-port passthrough uses MODEM/`seri` binary frames and native local
+PTYs. GPS uses separate read-only MODEM/`nmea` media channels with per-rig
+location and station fallback. Native `rig.gps-out` endpoints follow the active
+rig and automatically subscribe; browser subscriptions are explicit and emit
+`rustyrig:gps-nmea` for integrations. This transport difference is intentional:
+the browser cannot create local PTYs. Both implementations validate received
+GPS framing/checksums; server coordinates and receiver selection are authoritative.
+
+## Resource discovery
+
+Native GTK/TUI and WebUI share `/rig list`, `/rig subscribe|unsubscribe`
+(UUID property updates), and `/gps list|subscribe|unsubscribe <scope>`.
+The server supplies the resource tree and permission-filtered serial exports.
+`/sercom remote` discovers server exports in both clients; only the native
+client can attach local PTYs or serial devices. See [Resource discovery](resource-discovery.md).
+
+## Chat input history
+
+GTK and TUI default to shared command/chat history across windows via
+`ui.shared-input-history=true`; false keeps history per window. The browser
+also shares input history. GTK Up/Down operates on the originating entry,
+restores that entry's unfinished draft after the newest item, and retains up
+to 50 entries. GTK and browser suppress consecutive duplicate submissions.

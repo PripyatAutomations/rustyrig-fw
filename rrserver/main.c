@@ -17,6 +17,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/io.serial.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/faults.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
@@ -27,6 +28,10 @@
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.config.h>
+#include <rrserver/rig.rooms.h>
+#include <rrserver/serial.h>
+#include <rrserver/gps.h>
+#include <librustyaxe/cfg.modules.h>
 #include <rrserver/gpio.h>
 #include <rrserver/network.h>
 #include <rrserver/amp.h>
@@ -38,7 +43,7 @@
 
 extern void rrserver_register_events(void); // events.c
 extern void rrserver_media_register_events(void);   // media.c
-extern void rrserver_media_init(void);              // media.c
+extern bool rrserver_media_init(void);              // media.c
 extern bool rrserver_media_audio_init(void);          // media.c
 extern void webcam_init(void);                      // webcam.c
 extern void webcam_shutdown(void);                  // webcam.c
@@ -171,6 +176,8 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "cfg.rig", "Unable to register rig configuration sections");
       return EXIT_FAILURE;
    }
+   cfg_modules_init();
+   if (!rr_serial_config_register()) return EXIT_FAILURE;
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
    // [pipelines] keys land as pipeline:<codec>.<dir> -- the format bin/fwdsp
    // looks up with cfg_get() (see fwdsp/fwdsp.c)
@@ -278,19 +285,6 @@ int main(int argc, char **argv) {
    }
    uint32_t default_vfo_mask = rr_rig_config_default_vfo_mask();
    ws_set_authoritative_vfo_mask(default_vfo_mask);
-   const char *rig_room = ws_authoritative_room();
-   if (rig_room && *rig_room) {
-      db_room_ensure(masterdb, rig_room, default_vfo_mask != 0,
-         default_vfo_mask);
-      char *existing_rig_vfos = db_room_vfo_list(masterdb, rig_room);
-      if (!existing_rig_vfos || !*existing_rig_vfos) {
-         db_room_vfo_add(masterdb, rig_room, "rig0.vfo_a");
-         if (default_vfo_mask & (UINT32_C(1) << VFO_B)) {
-            db_room_vfo_add(masterdb, rig_room, "rig0.vfo_b");
-         }
-      }
-      free(existing_rig_vfos);
-   }
    free((void *)masterdb_path);
    audit_init();   // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
@@ -361,8 +355,16 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
    }
 
+   if (rrserver_rig_rooms_init()) {
+      Log(LOG_CRIT, "core", "Unable to configure rig rooms");
+      exit(EXIT_FAILURE);
+   }
+
    // Provision the media channels (RX/TX audio per exposed VFO)
-   rrserver_media_init();
+   if (rrserver_media_init()) {
+      Log(LOG_CRIT, "core", "Unable to provision rig media");
+      exit(EXIT_FAILURE);
+   }
 
    // Grab a webcam, if we're configured with one (webcam.enable)
    webcam_init();
@@ -437,17 +439,29 @@ int main(int argc, char **argv) {
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
+   if(rrserver_gps_init()) return EXIT_FAILURE;
+   bool modules_loaded = false;
+   for (int i = 0; ; i++) {
+      const char *module = cfg_modules_get(i, NULL);
+      if (!module) break;
+      if (!rr_load_module(module)) modules_loaded = true;
+   }
+   rrserver_serial_init();
+   (void)modules_loaded;
    // Main loop
    while (1) {
       extern void rrserver_objects_poll(void);
       rrserver_objects_poll();
+      event_emit("server.poll", NULL, NULL);
+      bool serial_active = rrserver_serial_poll();
+      (void)serial_active;
 #ifdef	USE_MONGOOSE
       // Reap any exited fwdsp children (flag set by the SIGCHLD handler)
       fwdsp_reap_children();
 
       // Process Mongoose HTTP and MQTT events, this should be at the end of
       // loop so all data is ready
-      mg_mgr_poll(&mg_mgr, 1000);
+      mg_mgr_poll(&mg_mgr, (serial_active || modules_loaded) ? 10 : 1000);
 #endif
 
       if (dying) {
@@ -455,7 +469,16 @@ int main(int argc, char **argv) {
       }
    }
    extern void rrserver_objects_fini(void);
+   // Unload configured modules while the event bus and transports still exist.
+   for (int i = 0; ; i++) {
+      const char *module = cfg_modules_get(i, NULL);
+      if (!module) break;
+      if (rr_find_loaded_module(module)) rr_unload_module(module);
+   }
+   rrserver_serial_fini();
+   rrserver_gps_fini();
    rrserver_objects_fini();
+   if (fwdsp_ready) fwdsp_fini();
    rr_backend_fini();
    host_cleanup();
 

@@ -846,7 +846,7 @@ static void frontend_gtk_userlist_set_visible(bool visible) {
 }
 
 static void frontend_gtk_userlist_room_vfos_changed(const char *room) {
-   userlist_room_vfos_changed(room);
+   gtk_chat_room_vfos_changed(room);
 }
 
 static void frontend_gtk_chat_clear(void) {
@@ -882,7 +882,7 @@ static void frontend_gtk_chat_query_add(const char *who) {
 }
 
 static void frontend_gtk_chat_room_vfos_changed(const char *room) {
-   userlist_room_vfos_changed(room);
+   gtk_chat_room_vfos_changed(room);
 }
 
 static const char *frontend_gtk_chat_current_room(void) {
@@ -902,6 +902,7 @@ static gboolean frontend_gtk_update_now(gpointer user_data) {
    extern bool dying;
    extern bool rrclient_cleanup(void);
    now = time(NULL);
+   if (!dying) ptt_button_refresh();
    if (dying) {
       rrclient_cleanup();
       return G_SOURCE_REMOVE;

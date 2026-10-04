@@ -22,6 +22,10 @@
 #include <rrclient/rooms.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
+#include <rrclient/media.h>
+#include <rrclient/cmd.h>
+#include <rrclient/objects.h>
+#include <limits.h>
 
 #include <rrclient/gtk.core.h>
 #include <rrclient/gtk.chat.h>
@@ -58,6 +62,8 @@ typedef struct room_vfo_control {
    GtkWidget *freq;
    GtkWidget *mode;
    GtkWidget *ptt;
+   GtkWidget *row;
+   room_userlist_entry_t *entry;
 } room_vfo_control_t;
 
 static int userlist_default_width(void) {
@@ -284,6 +290,7 @@ static gboolean userlist_button_press(GtkWidget *widget, GdkEventButton *event,
 static struct rr_user *room_vfo_talker(const char *room, char vfo) {
    for (struct rr_user *user = global_userlist; user; user = user->next) {
       if (user->is_ptt && user->ptt_vfo == vfo &&
+          (!user->ptt_room[0] || !strcasecmp(user->ptt_room, room)) &&
           (!room || !*room || strcasecmp(user->room, room) == 0)) return user;
    }
    return NULL;
@@ -291,9 +298,19 @@ static struct rr_user *room_vfo_talker(const char *room, char vfo) {
 
 static void room_vfo_refresh_one(room_vfo_control_t *control) {
    if (!control) return;
+   GtkStyleContext *row_ctx = gtk_widget_get_style_context(control->row);
+   bool selected = control->vfo == vfo_state_get_active() &&
+      !strcasecmp(control->room, rrclient_media_active_room());
+   if (selected) gtk_style_context_add_class(row_ctx, "room-vfo-active");
+   else gtk_style_context_remove_class(row_ctx, "room-vfo-active");
    char vfo[2] = { control->vfo, 0 };
-   long freq = vfo_state_get_long(vfo, "cat.state.freq", 0);
-   const char *mode = vfo_state_get(vfo, "cat.state.mode", "---");
+   const char *uuid = rrclient_media_vfo_uuid(control->room, control->vfo);
+   const dict *frequency = rrclient_object_property(uuid, "frequency");
+   const dict *mode_state = rrclient_object_property(uuid, "mode");
+   long freq = frequency && dict_get_bool((dict *)frequency, "property.known", false)
+      ? dict_get_long((dict *)frequency, "property.value", 0) : 0;
+   const char *mode = mode_state && dict_get_bool((dict *)mode_state, "property.known", false)
+      ? dict_get((dict *)mode_state, "property.value", "---") : "---";
    char freq_text[64];
    if (freq > 0) {
       long khz = freq / 1000;
@@ -313,9 +330,9 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    }
    gtk_label_set_text(GTK_LABEL(control->freq), freq_text);
    gtk_label_set_text(GTK_LABEL(control->mode), mode ? mode : "---");
+   if (!control->ptt) return;
    struct rr_user *talker = room_vfo_talker(control->room, control->vfo);
-   bool transmitting = talker ||
-      vfo_state_get_bool(vfo, "cat.state.ptt", false);
+   bool transmitting = talker != NULL;
    /* Keep the compact control consistent with the main VFO widget.  The
     * active/idle color conveys state; the action remains the familiar PTT OFF
     * release control. */
@@ -346,7 +363,51 @@ static void room_vfo_stop_clicked(GtkButton *button, gpointer data) {
    room_vfo_control_t *control = (room_vfo_control_t *)data;
    if (!control || !ws_conn) return;
    char vfo[2] = { control->vfo, 0 };
-   ws_send_ptt_cmd(ws_conn, vfo, false);
+   ws_send_ptt_cmd_in_room(ws_conn, vfo, false, control->room);
+}
+
+static void room_vfo_tune_clicked(GtkButton *button, gpointer data) {
+   (void)button;
+   room_vfo_control_t *control = data;
+   if (!control || !(rrclient_room_rx_tuning_mask(control->room) & (UINT32_C(1) << (control->vfo - 'A'))) || !ws_conn) return;
+   extern GtkWidget *main_window;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Tune RX VFO (Hz)", GTK_WINDOW(main_window),
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
+      "Tune", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *input = gtk_entry_new();
+   const dict *state = rrclient_object_property(rrclient_media_vfo_uuid(control->room, control->vfo), "frequency");
+   char frequency[32]; snprintf(frequency, sizeof(frequency), "%ld",
+      state ? dict_get_long((dict *)state, "property.value", 0) : 0);
+   gtk_entry_set_text(GTK_ENTRY(input), frequency);
+   gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), input);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      char *end = NULL;
+      const char *text = gtk_entry_get_text(GTK_ENTRY(input));
+      long hz = strtol(text, &end, 10);
+      if (end && end != text && !*end && hz > 0 && hz <= INT_MAX) {
+         char vfo[2] = { control->vfo, 0 };
+         ws_send_freq_cmd_in_room(ws_conn, vfo, hz, control->room);
+      } else ui_print(control->room, "Invalid RX frequency (enter whole Hz)");
+   }
+   gtk_widget_destroy(dialog);
+}
+
+static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)widget;
+   room_vfo_control_t *control = data;
+   if (!control || !event || event->type != GDK_BUTTON_RELEASE || event->button != 1)
+      return FALSE;
+   bool docked = control->entry == &rig_userlist_entry ? userlist_is_docked : control->entry->docked;
+   if (!docked) return FALSE;
+   // The PTT release button remains a separate action, never a VFO selector.
+   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *)event); hit; hit = gtk_widget_get_parent(hit))
+      if (hit == control->ptt) return FALSE;
+   rrclient_media_room_selected(control->room);
+   char command[16];
+   snprintf(command, sizeof(command), "!vfo %c", control->vfo);
+   parse_chat_input_real(command);
+   return TRUE;
 }
 
 static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
@@ -361,27 +422,40 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       if (!dot || strncasecmp(dot + 1, "vfo_", 4) != 0 || !dot[5]) continue;
       char vfo = (char)toupper((unsigned char)dot[5]);
       if (vfo < 'A' || vfo > 'Z') continue;
-      GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+      GtkWidget *row = gtk_event_box_new();
+      gtk_widget_set_name(row, "room-vfo-row");
+      gtk_widget_add_events(row, GDK_BUTTON_RELEASE_MASK);
+      GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+      gtk_container_add(GTK_CONTAINER(row), content);
       GtkWidget *name = gtk_label_new(NULL);
       char name_text[16]; snprintf(name_text, sizeof(name_text), "VFO %c", vfo);
       gtk_label_set_text(GTK_LABEL(name), name_text);
       GtkWidget *freq = gtk_label_new("---");
       GtkWidget *mode = gtk_label_new("---");
-      GtkWidget *ptt = gtk_button_new_with_label("PTT OFF");
-      gtk_widget_set_tooltip_text(ptt, "Release PTT on this VFO");
-      gtk_widget_set_size_request(ptt, 88, -1);
+      GtkWidget *ptt = rrclient_room_tx_control(entry->room) ? gtk_button_new_with_label("PTT OFF") : NULL;
+      if (ptt) {
+         gtk_widget_set_tooltip_text(ptt, "Release PTT on this VFO");
+         gtk_widget_set_size_request(ptt, 88, -1);
+      }
       gtk_widget_set_size_request(freq, 105, -1);
       gtk_widget_set_name(freq, "room-vfo-frequency");
       room_vfo_control_t *control = calloc(1, sizeof(*control));
       if (!control) { gtk_widget_destroy(row); continue; }
       control->vfo = vfo; strlcpy(control->room, entry->room, sizeof(control->room));
       control->freq = freq; control->mode = mode; control->ptt = ptt;
+      control->row = row; control->entry = entry;
       g_object_set_data_full(G_OBJECT(row), "rr-room-vfo-control", control, free);
-      g_signal_connect(ptt, "clicked", G_CALLBACK(room_vfo_stop_clicked), control);
-      gtk_box_pack_start(GTK_BOX(row), name, FALSE, FALSE, 2);
-      gtk_box_pack_start(GTK_BOX(row), freq, FALSE, FALSE, 2);
-      gtk_box_pack_start(GTK_BOX(row), mode, FALSE, FALSE, 2);
-      gtk_box_pack_end(GTK_BOX(row), ptt, FALSE, FALSE, 2);
+      if (ptt) g_signal_connect(ptt, "clicked", G_CALLBACK(room_vfo_stop_clicked), control);
+      g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
+      gtk_box_pack_start(GTK_BOX(content), name, FALSE, FALSE, 2);
+      gtk_box_pack_start(GTK_BOX(content), freq, FALSE, FALSE, 2);
+      gtk_box_pack_start(GTK_BOX(content), mode, FALSE, FALSE, 2);
+      if (ptt) gtk_box_pack_end(GTK_BOX(content), ptt, FALSE, FALSE, 2);
+      else if (rrclient_room_rx_tuning_mask(entry->room) & (UINT32_C(1) << (vfo - 'A'))) {
+         GtkWidget *tune = gtk_button_new_with_label("Tune");
+         gtk_box_pack_end(GTK_BOX(content), tune, FALSE, FALSE, 2);
+         g_signal_connect(tune, "clicked", G_CALLBACK(room_vfo_tune_clicked), control);
+      }
       gtk_box_pack_start(GTK_BOX(strip), row, FALSE, FALSE, 1);
       room_vfo_refresh_one(control);
    }
@@ -665,12 +739,13 @@ void userlist_room_vfos_changed(const char *room) {
       entry = &rig_userlist_entry;
       /* The initial GTK layout may be built before authentication supplies
        * the station's configured authoritative room name. */
-      entry->room = (char *)room;
+      entry->room = (char *)ws_authoritative_room();
    } else if (room_userlist_views) {
       entry = g_hash_table_lookup(room_userlist_views, room);
    }
    if (!entry || !entry->panel) return;
    GtkWidget *old = g_object_get_data(G_OBJECT(entry->panel), "rr-room-vfo-strip");
+   g_object_set_data(G_OBJECT(entry->panel), "rr-room-vfo-strip", NULL);
    if (old) gtk_widget_destroy(old);
    if (entry->refresh_id) {
       g_source_remove(entry->refresh_id);

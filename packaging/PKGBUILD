@@ -1,8 +1,8 @@
 # Build with: makepkg -f
 # Starter Arch Linux packaging; update pkgver/source for each release.
 pkgbase=rustyrig
-pkgname=(rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
-pkgver=20261003.02
+pkgname=(rrserver-gpsd rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
+pkgver=20261004.02
 pkgrel=1
 pkgdesc='RustyRig remote radio software'
 arch=('x86_64')
@@ -43,6 +43,7 @@ package_rustyrig-server() {
    pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'hamlib' 'libgpiod')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
+   install -Dm755 bin/rrserver-gps-nmea.so "$pkgdir/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so"
    install -Dm755 tools/rr-get-audit-log "$pkgdir/usr/bin/rr-get-audit-log"
    install -Dm755 tools/rr-get-chat-log "$pkgdir/usr/bin/rr-get-chat-log"
    install -Dm755 tools/rr-get-ptt-log "$pkgdir/usr/bin/rr-get-ptt-log"
@@ -62,13 +63,13 @@ package_rustyrig-server() {
 }
 
 package_rustyrig-client() {
-   pkgdesc='RustyRig client (core, headless)'
+   pkgdesc='RustyRig client'
    depends=('rustyrig-libs' 'glib2' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrclient "$pkgdir/usr/bin/rrclient"
    install -Dm644 config/rrclient.cfg "$pkgdir/etc/rustyrig/rrclient.cfg"
    install -Dm644 config/callsign-lookup.cli.cfg "$pkgdir/etc/rustyrig/callsign-lookup.cli.cfg"
-   install -d "$pkgdir/var/lib/rustyrig"/{db,help,recordings/client,modules} "$pkgdir/var/log/rustyrig"
+   install -d "$pkgdir/var/lib/rustyrig"/{db,help,recordings/client} "$pkgdir/var/log/rustyrig"
    find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/help/" \;
 }
 
@@ -76,7 +77,7 @@ package_rustyrig-client-gtk() {
    pkgdesc='RustyRig GTK client module'
    depends=('rustyrig-client' 'gtk3')
    cd "$srcdir/rustyrig-fw"
-   install -Dm755 bin/rrclient-gtk.so "$pkgdir/var/lib/rustyrig/modules/rrclient-gtk.so"
+   install -Dm755 bin/rrclient-gtk.so "$pkgdir/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so"
    install -Dm644 packaging/rustyrig-client.desktop "$pkgdir/usr/share/applications/rustyrig-client.desktop"
    install -Dm644 res/rustyrig.png "$pkgdir/usr/share/icons/hicolor/48x48/apps/rustyrig.png"
 }
@@ -92,3 +93,10 @@ package_rustyrig-callsign-lookup() {
 post_install() { ldconfig; }
 post_upgrade() { ldconfig; }
 post_remove() { ldconfig; }
+
+package_rrserver-gpsd() {
+   pkgdesc='GPSD receiver module for RustyRig server'
+   depends=('rustyrig-server')
+   cd "$srcdir/rustyrig-fw"
+   install -Dm755 bin/rrserver-gpsd.so "$pkgdir/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so"
+}

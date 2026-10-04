@@ -1,6 +1,6 @@
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
-rrserver_objs += objects.o
+rrserver_objs += objects.o serial.o gps.o
 bins += ${rrserver}
 
 rrserver_headers += $(wildcard rrserver/*.h)
@@ -36,6 +36,7 @@ rrserver_objs += network.o		# Network management/config for embedded hosts
 rrserver_objs += protection.o		# Protection features
 rrserver_objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
 rrserver_objs += rig.compat.o		# Default-rig cat.state adapter
+rrserver_objs += rig.rooms.o		# Per-rig room and media bindings
 rrserver_objs += rig.config.o		# Named rig configuration sections/views
 rrserver_objs += rig.properties.o	# Per-rig typed property state/control
 rrserver_objs += rig.registry.o		# UUID-addressed runtime rig collection
@@ -71,3 +72,15 @@ bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${
 	@size $@
 
 rrserver-deps:
+
+# Receiver adapters use the existing loadable-module lifecycle and event bus.
+gps_modules := bin/rrserver-gps-nmea.so
+ifeq (${USE_MONGOOSE},true)
+gps_modules += bin/rrserver-gpsd.so
+endif
+bins += ${gps_modules}
+bin/rrserver-gps-nmea.so: ${BUILD_DIR}/rrserver/module.gps-nmea.o ${librustyaxe} ${librrprotocol}
+	@${CC} ${LIB_LDFLAGS} -o $@ $< -lrustyaxe -lrrprotocol ${LDFLAGS}
+bin/rrserver-gpsd.so: ${BUILD_DIR}/rrserver/module.gpsd.o ${librustyaxe} ${librrprotocol}
+	@${CC} ${LIB_LDFLAGS} -o $@ $< -lrustyaxe -lrrprotocol ${LDFLAGS}
+extra_clean += ${BUILD_DIR}/rrserver/module.gps-nmea.o ${BUILD_DIR}/rrserver/module.gpsd.o ${gps_modules}

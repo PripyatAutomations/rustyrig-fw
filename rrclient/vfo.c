@@ -23,6 +23,8 @@
 #include <rrclient/vfo.h>
 #include <rrclient/rooms.h>
 #include <rrclient/frontend.h>
+#include <rrclient/media.h>
+#include <rrclient/objects.h>
 
 // The single copy of the VFO state.  There may be multiple VFOs, identified
 // by a single upper case letter (see librrprotocol/vfo.h: vfo_lookup(),
@@ -57,10 +59,28 @@ static const char *vfo_state_key(char vfo, const char *key, char *buf, size_t le
    return buf;
 }
 
+// UUID observations are authoritative for room-scoped rigs.  The CAT cache
+// remains the fallback for servers which do not announce object UUIDs.
+static const dict *room_vfo_property(const char *vfo, const char *key, bool *scoped) {
+   *scoped = false;
+   if (!key) return NULL;
+   const char *property = !strcmp(key, "cat.state.freq") ? "frequency" :
+      !strcmp(key, "cat.state.mode") ? "mode" : !strcmp(key, "cat.state.width") ? "width" : NULL;
+   if (!property) return NULL;
+   const char *uuid = rrclient_media_vfo_uuid(rrclient_media_active_room(), vfo_state_check_id(vfo));
+   if (!uuid) return NULL;
+   *scoped = true;
+   const dict *state = rrclient_object_property(uuid, property);
+   return state && dict_get_bool((dict *)state, "property.known", false) ? state : NULL;
+}
+
 // Accessors for other modules.  `vfo` is the single upper case VFO letter
 // (see librrprotocol/vfo.h).  These read only the saved state, never the
 // widgets, so both UIs share the same copy of the truth.
 const char *vfo_state_get(const char *vfo, const char *key, const char *def) {
+   bool scoped;
+   const dict *state = room_vfo_property(vfo, key, &scoped);
+   if (scoped) return state ? dict_get((dict *)state, "property.value", def) : def;
    if (!vfo_state || !key) {
       return def;
    }
@@ -72,6 +92,9 @@ const char *vfo_state_get(const char *vfo, const char *key, const char *def) {
 }
 
 long vfo_state_get_long(const char *vfo, const char *key, long def) {
+   bool scoped;
+   const dict *state = room_vfo_property(vfo, key, &scoped);
+   if (scoped) return state ? dict_get_long((dict *)state, "property.value", def) : def;
    if (!vfo_state || !key) {
       return def;
    }

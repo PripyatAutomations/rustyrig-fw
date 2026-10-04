@@ -1350,6 +1350,10 @@ int main(int argc, char *argv[]) {
    }
 
    if (saved_stdout >= 0) {
+      // Startup diagnostics were redirected to /dev/null, but printf may
+      // still have them buffered. Drain them before restoring the binary
+      // media descriptor, including when a later startup error calls exit().
+      fflush(stdout);
       dup2(saved_stdout, STDOUT_FD);
       close(saved_stdout);
    }

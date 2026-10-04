@@ -150,6 +150,10 @@ char **client_cmd_completions(const char *line, const char *word) {
           !strcasecmp(command, "/query") ||
           !strcasecmp(command, "/notice"))) {
          matches = complete_usernames(word);
+      } else if (arg == 1 && (!strcasecmp(command, "/rig") || !strcasecmp(command, "/gps"))) {
+         completion_words(&matches, &count, "LIST SUBSCRIBE UNSUBSCRIBE", word);
+      } else if (!strcasecmp(command, "/sercom") && arg == 1) {
+         completion_words(&matches, &count, "LIST REMOTE ATTACH DISCONNECT", word);
       } else if (!strcasecmp(command, "/rxcodec") || !strcasecmp(command, "/txcodec") ||
                  !strcasecmp(command, "/media")) {
          bool media = !strcasecmp(command, "/media");

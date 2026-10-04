@@ -32,11 +32,17 @@ extern time_t now;
 static uint32_t logframe_seq = 0;
 
 // Called by Log() for every message (see librustyaxe/logger.c log_callbacks).
-// The logger calls this BEFORE debug_filter(), so we see everything; clients
-// apply their own filters. Must not Log() at a level that recurses into us
-// uselessly - keep it quiet.
+// The logger calls this BEFORE debug_filter(), so we see everything. Apply
+// the server's own filter before streaming to clients: frames the server
+// itself would suppress are log spam on the wire, not signal (clients apply
+// their own gates too, but parsing dropped frames still costs them CPU).
+// Must not Log() at a level that recurses into us uselessly - keep it quiet.
 static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    if (!subsys || !fmt) {
+      return false;
+   }
+
+   if (debug_filter(subsys, priority)) {
       return false;
    }
 

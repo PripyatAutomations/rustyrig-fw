@@ -1,0 +1,17 @@
+; Installed as /etc/rustyrig/callsign-lookup.cli.cfg; replace credentials as needed.
+[callsign-lookup]
+; Set to true and set credentials below to use QRZ
+use-qrz=false
+use-uls=false
+use-cache=true
+qrz-api-url=https://xmldata.qrz.com/xml/1.34/
+qrz-username=YOUR_CALLSIGN
+qrz-password=YOUR_QRZ_PASSWORD_OR_API_KEY
+cache-db=~/.config/rustyrig/callsigns.db
+cache-expiry=3d
+cache-keep-stale-if-offline=true
+path=/usr/bin/callsign-lookup
+
+[site]
+coordinates=40.7128,-74.0060
+gridsquare=FN30as

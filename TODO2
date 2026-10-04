@@ -1,0 +1,5 @@
+We should have /rig list show available rigs and their VFOs in a tree. Show the uuids and coordinates where possible. Show serial interfaces, vfos, media channels, etc in a nice tree please. Any of the other systems we need? I'd like to see the gps-in, gps-out, etc ports exposed on the site -- more commands to discover/subscribe/unsubscribe to things as needed from the client should exist and enforce appropriate permission checks
+
+We should also move the rrserver-gpsd.so module into rrserver-gpsd package where it ends up in our modules dir; i also noticed that /usr/lib/rustyrig/modules/{rrserver,rrclient}/ is probably a more appropriate place for modules to end up in
+- Adjust path.modules in configs; copy config/*.cfg to doc/*.cfg.example
+

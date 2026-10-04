@@ -1,113 +1,132 @@
+; See rrserver/defconfig.c for options and their descriptions
+; Comments can begin with // # or ;   - We now support C style /* */ comments too
+// most settings go in [general] setting, servers are called [server:name] where name is short name for it
+// If you need to send bug reports, please set log.level=*:crazy
 [general]
 ; Rig aliases select the [rig:<alias>] sections below.
-rig.instances=rig0
+rig.instances=rig0 rig1
 ; Required with multiple rigs: select one for CAT/media clients.
 rig.default=rig0
-core.daemonize=false
-; used for test-server.sh to know which rigctld to start
-rigctld.start-script=tools/dummy-rigctld.sh
-# If enabled, we will allow autospawning fwdsp instances which transcode between codecs; see *.tt in pipelines section below for pipelines
-codecs.allow-transcoding=true
-codecs.allowed=pc16 mu16 mu08 opus flac
-# Transcoding video could get very CPU heavy quickly
-codecs.allow-transcoding.video=false
-codecs.allowed.video=h264 vp8 vp9
-; How often to poll the rig in ms
-backend.poll-interval=250
+atu.max=0
 ; Only send a full rig state update every X seconds
 backend.announce-interval=30
-debug.noisy_eeprom=true
+; How often to poll the rig in ms
+backend.poll-interval=250
 ; Log chat messages in sqlite3?
 chat.log=true
 ; If logging is enabled, should we replay a bit of history when the user joins?
 chat.replay-lines=20
+# If enabled, we will allow autospawning fwdsp instances which transcode between codecs; see *.tt in pipelines section below for pipelines
+codecs.allow-transcoding=false
+# Transcoding video could get very CPU heavy quickly
+codecs.allow-transcoding.video=false
+codecs.allowed=pc16 g722 mu16 mu08 opus oggv aacv flac pc1T g72T mu1T mu0T opuT oggT aacT flaT pc1P g72P mu1P mu0P opuP oggP aacP flaP
+codecs.allowed.video=h264 vp8 vp9
+; Advertise tone (*T) and pink-noise (*P) codec variants for testing.
+audio.test-mode=true
+core.daemonize=false
+core.tick-interval=100
+debug.noisy_eeprom=true
 ; How long should we let unused fwdsp instances linger before stopping?/
-fwdsp:hangtime=30
-log.level=*:info, core:warn www.*:info www.parser:crazy ws:debug ws.chat:crazy
-;log.level=*:crazy
 log.show-ts=true
 #eeprom.addr=0x0000
+#eeprom.readonly=false
 #eeprom.size=1048576
 #eeprom.type=mmap
-#eeprom.readonly=false
 features.auto-block-ptt=false
+interface.amp=/var/run/rustyrig/ttyAMP0
 #interface.amp.port=
-#interface.pipe.enabled=true
+interface.cat=/var/run/rustyrig/ttyCAT0
 #interface.cat.enabled=true
-console.enabled=true
-console.type=tty
-log.level=*:info,ws:crazy,ws.*:crazy,http.*:crazy,event:crazy,http.client:info
-log.file=rrserver.log
-net.http.enabled=true
+#interface.pipe.enabled=true
+log.file=/var/log/rustyrig/rrserver.log
+; Example log level filters
+;log.level=*:info,ws:crazy,ws.*:crazy,http.*:crazy,event:crazy,http.client:info,http.req:info,librrprotocol.*:crazy
+;log.level=*:info,ws.msg.*:crazy,event:info,ws.chat.*:crazy
+;log.level=*:info,ws.*:crazy,ws.proto:info,http.*:crazy,event.*:crazy,http.client:info,http.req:info,librrprotocol.*:crazy,db.*:crazy
+;log.level=*:crazy,backend.*:info,ws.frame.*:info,vfo:info,auth.*:info
+log.level=*:info,backend.*:debug
+net.http.404-path=/var/lib/rustyrig/www/404.shtml
+net.http.authdb=/etc/rustyrig/http.users
+net.http.authdb-dynamic=true
 net.http.bind=0.0.0.0
+net.http.enabled=true
+net.http.hex-dump=false
 net.http.port=8420
-net.http.authdb-dynamic=false
-net.http.tls-enabled=true
 net.http.tls-bind=0.0.0.0
+net.http.tls-cert=/etc/rustyrig/cert.pem
+net.http.tls-enabled=false
+net.http.tls-key=/etc/rustyrig/key.pem
 net.http.tls-port=4420
-net.mqtt.enabled=true
-net.mqtt.bind=0.0.0.0
-net.mqtt.port=8833
+net.http.ua-bans=/etc/rustyrig/ua-bans.txt
+net.http.www-root=/var/lib/rustyrig/www
 net.mqtt-client.enabled=false
-net.mqtt-client.host=10.217.1.219
 net.mqtt-client.port=8833
+net.mqtt-client.secret-file=/etc/rustyrig/mqtt-cli.secret
+net.mqtt-client.host=10.217.1.219
 net.mqtt-client.user=rustyrig-ft891
-net.mqtt-client.secret-file=./config/mqtt-secret
+; Keep the broker listener local unless remote MQTT access is explicitly needed.
+net.mqtt.bind=127.0.0.1
+net.mqtt.enabled=true
+net.mqtt.port=8833
 owner.call=N0CALL
 owner.privs=US/General
-pin.show=true
-pin.master=012345
-pin.reset=76543210
-station.call=N0CALL
-station.grid=AA00aa
-
-; Legacy audio shortcut names are retained here for old pipeline examples.
-au.rig0.rx=pulsesrc device=default
-au.rig0.rx.rate=48000
-au.rig0.tx=pulsesink device=default
-au.rig0.tx.rate=48000
 
 ; Paths for various things; keys should be unified to path.* ASAP
 path.db.master=/var/lib/rustyrig/db/master.db
-path.db.master.template=/var/lib/rustyrig/sql/sqlite.master.sql
 path.db.master.preload=/var/lib/rustyrig/sql/sqlite.master.preload.sql
-path.pid-file=./run/rrserver.pid
-path.modules=./modules
-net.http.authdb=/etc/rustyrig/http.users
-#interface.pipe=/tmp/rustyrig.amp.sock
-#interface.cat.port=pipe:/tmp/rustyrig.cat.sock
-net.http.404-path=/var/lib/rustyrig/www/404.shtml
-net.http.tls-cert=/etc/rustyrig/cert.pem
-net.http.tls-key=/etc/rustyrig/key.pem
-net.mqtt-client.secret-file=/etc/rustyrig/mqtt-cli.secret
-net.http.ua-bans=/etc/rustyrig/ua-bans.txt
-net.http.www-root=/var/lib/rustyrig/www
-net.http.hex-dump=false
-path.sock-dir=./run/rrserver
-path.record-dir=./recordings
+path.db.master.template=/var/lib/rustyrig/sql/sqlite.master.sql
 # fwdsp binary
-fwdsp:path=/usr/bin/fwdsp
-callsign-lookup:path=/usr/bin/callsign-lookup
 
-# modules directory (NYI)
-;path.mod-dir=/usr/lib/modules/rustyrig/rrserver/
-path.mod-dir=./modules/rrserver/
-
-##########################
+; Where to find loadable modules (the GTK client module ships in the same
+; dir; server modules would too).
+path.modules=/usr/lib/rustyrig/modules/rrserver
+;path.pid-file=/var/run/rustyrig/rrserver.pid
+path.sock-dir=/var/run/rustyrig/
+pin.master=012345
+pin.reset=76543210
+pin.show=true
+; enforce quotas?
+quota.enforce=true
+; warning 30 minutes before expiry
+quota.warning=30
+; Report passwords older than this many days with /user oldpw (0 disables).
+security.max-pw-age=90
+; used for test-server.sh to know which rigctld to start
+rigctld.start-script=/var/lib/rustyrig/tools/dummy-rigctld.sh
+; Stable namespace for persistent rig UUIDs. Keep this unchanged if the
+; public station.name is renamed.
+rig.identity-namespace=rplywv00
+station.call=N0CALL
+station.grid=AA00aa
+; Site lobby is #<name>; rig rooms default to #<name>-<rig alias>.
+station.name=rplywv00
+; Optional station coordinates; inherited by rigs without their own position.
+; Fixed coordinates disable the live station GPS receiver adapters.
+;station.gps.position=38.1234567,-80.7654321
+;gpsd.url=tcp://127.0.0.1:2947
+;gpsd.target=station
+;gpsd.device=/dev/ttyUSB1
 
 ; Keep aliases and rig.identity-namespace stable to preserve rig UUIDs.
 ; To add another rig, list its alias in rig.instances and add its section.
 [rig:rig0]
+; Rig position override (decimal degrees). This disables this rig's GPS input.
+;gps.position=38.1234567,-80.7654321
 name=rig0
 backend=internal
+; Room must be #<station.name>-rigN; defaults to that canonical name.
+; PCM endpoints default to src.<alias> and sink.<alias> in [pipelines].
+; RX subrooms may tune only if changing a VFO never moves the shared LO.
+;rx-independent-tuning=false
+; Or permit only named independent VFOs (overrides the flag above):
+;rx-independent-vfos=B
+;audio.source=src.rig0
+;audio.sink=sink.rig0
 vfos=A B
 ; Send CAT state at most once every N seconds if unchanged.
 state-interval=15
-; For a Hamlib rig, set backend=hamlib. hamlib.model is the model number
-; from 'rigctld -l'. hamlib.device is either an IP:port for a rigctld or
-; network rig (model/ip:port), or a serial device path (model/serial:baud),
-; in which case hamlib.baud is used. Each rig section can point at its own
-; endpoint, so multiple Hamlib rigs can live on one server:
+; For a Hamlib rig, set backend=hamlib and configure its own endpoint:
 hamlib.model=2
 hamlib.baud=38400
 hamlib.device=127.0.0.1:4532
@@ -115,160 +134,331 @@ hamlib.device=127.0.0.1:4532
 ; for the default rig so a supervisor can restart it.
 reconnect-interval=30
 
+; Hamlib NET rigctl backend, connected to the local rigctld.
+[rig:rig1]
+name=rig1
+backend=hamlib
+; Optional: room=#my-hamlib-radio
+; Add dedicated src.rig1/sink.rig1 pipelines for this radio's audio devices.
+;audio.source=src.rig1
+;audio.sink=sink.rig1
+vfos=A B
+state-interval=15
+hamlib.model=2
+hamlib.device=127.0.0.1:4532
+reconnect-interval=30
+
 [fwdsp]
+path=/usr/bin/fwdsp
 ; Don't allow more than 24 subprocs
 subproc.max=24
-;log.audio=false
-log.level=debug
-log.show-ts=false
+hangtime=5
+log.audio=false
+pcm-hub=true
+recording.path=/var/lib/rustyrig/recordings
+recording.tx=true
+recording.rx=true
+recording.buffer-size=524288
+recording.codec=ogg
+recording.codec.modem=flac
+log.level=info
+;log.show-ts=false
+log.file=/var/log/rustyrig/fwdsp-srv.log
 
 [pipelines]
-; options: immortal (always restarted), dynamic (will be started as needed), disabled; comma delimited
+; Audio direction is relative to the program running fwdsp:
+;   *.rx = media received by this program (decode -> local/raw audio)
+;   *.tx = media sent by this program (local/raw audio -> encode)
+; record-sink is always on the raw S16LE side of the codec.
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Sound Device Connection ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Capture audio from the connected rig's mic-input
-cap-rig0-rx-raw48=immortal| \
-   ${au.rig0.rx} ! \
-   audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=${au.rig0.rx.rate} ! \
-   queue ! tee name=t-cap-rig0-rx ! \
-   shmsink socket-path=${path.sock-dir}/cap-rig0-rx-raw48.shm shm-size=1048576 wait-for-connection=false
+; Rig audio interfaces use PulseAudio, which also works with PipeWire's
+; PulseAudio compatibility service. Set device= to a specific host source or
+; sink when the default device is not connected to the rig.
+src.rig0=pulsesrc name=processor-rig-rx device=default client-name=rrserver-rig-rx do-timestamp=true ! \
+        audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! \
+        appsink name=processor-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-; Send data out using the connected rig (via speaker out)
-send-rig0-tx-raw48=immortal| \
-   shmsrc socket-path=${path.sock-dir}/send-rig0-tx-raw48.shm ! \
-   audioconvert ! audioresample ! audio/x-raw,rate=${au.rig0.tx.rate} ! \
-   ${au.rig0.tx}
+src.pink=audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        appsink name=processor-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-;;;;;;;;
-; Need to insert some kind of 'bus' for the rig0 RX stream, so we can switch to mirroring data in here from
-; the MONITOR (TX audio) stream for rig0, so when someone TX's everyone else hears it as if MON were enabled in a traditional
-; receiver.
-;;;;;;;;;
+src.tone660=audiotestsrc is-live=true wave=sine freq=660 volume=0.15 samplesperbuffer=320 do-timestamp=true ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        appsink name=processor-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-;;;;;;;;;;;;;;;;
-;
-#input-selector name=rxsel
-#   pad 0: shmsrc(cap-rig0-rx-raw48.shm)  # rig receiver audio
-#   pad 1: shmsrc(send-rig0-tx-raw48.shm) # TX bus monitor audio
+sink.rig0=appsrc name=processor-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! volume name=processor-vol ! \
+        audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        vorbisenc quality=0.3 ! oggmux ! filesink location=/var/lib/rustyrig/recordings/rig-tx.ogg
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Encode things we are sending TO the clients ;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; This will create 16khz PCM for streaming TO clients
-enc-rig0-tx-pc16.deps=cap-rig0-tx-raw48
-enc-rig0-tx-pc16=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/cap-rig0-rx-raw48.shm ! \
-   audioconvert ! audioresample ! audio/x-raw,rate=16000 ! \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-pc16.shm
+; For local tests, src.rig0 can use audiotestsrc wave=pink-noise and
+; sink.rig0 can use audioconvert ! audioresample ! vorbisenc quality=0.3 !
+; oggmux ! filesink location=/var/lib/rustyrig/recordings/rig0-tx.ogg.
 
-; This will create 16khz mulaw ADPCM for streaming TO clients
-enc-rig0-tx-mu16.deps=cap-rig0-tx-raw48
-enc-rig0-tx-mu16=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-rx-raw48.shm ! \
-   audioconvert ! audioresample ! audio/x-raw,rate=16000 ! \
-   mulawenc ! \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-mu16.shm
+; Raw signed 16-bit little-endian PCM, 16 kHz mono.
+pc16.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-; This will create 8khz mulaw ADPCM for streaming TO clients
-enc-rig0-tx-mu08.deps=cap-rig0-tx-raw48
-enc-rig0-tx-mu08=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-rx-raw48.shm ! \
-   audioconvert ! audioresample ! audio/x-raw,rate=8000 ! \
-   mulawenc ! \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-mu08.shm
+pc16.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; This will create OPUS stream for streaming TO clients (web users?)
-enc-rig0-tx-opus.deps=cap-rig0-tx-raw48
-enc-rig0-tx-opus=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-rx-raw48.shm ! \
-   opusenc ! \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-opus.shm
+; Opus, 16 kHz mono, restricted-lowdelay, 10 ms frames.
+opus.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-opus,rate=16000,channels=1,channel-mapping-family=0 ! \
+        opusdec ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-; This will create FLAC stream for streaming TO clients
-enc-rig0-tx-flac.deps=cap-rig0-tx-raw48
-enc-rig0-tx-flac=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-rx-raw48.shm ! \
-   flacenc ! \
-   shmsrc socket-path=${path.sock-dir}/enc-rig0-tx-flac.shm
+opus.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! opusenc audio-type=generic frame-size=20 bitrate=24000 bitrate-type=cbr ! \
+             appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
+; AAC-LC, ADTS-framed MPEG-4 AAC, 16 kHz mono, 32 kbit/s.
+aacv.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/mpeg,mpegversion=4,stream-format=adts,framed=true,rate=16000,channels=1 ! \
+        aacparse ! avdec_aac ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-;;;;;;;;;;;;;;;
-; Transcoding ;
-;;;;;;;;;;;;;;;
-; Convert pc16 TX audio to raw PCM at 16khz for mixing into the RX audio when users TX
-recode-rig0-tx-pc16=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
-   audioconvert ! audioresample ! audio/x-raw,rate=16000 ! \
-   shmsink socket-path=${path.sock-dir}/send-rig0-pc16
+aacv.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! audioconvert ! audioresample ! audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! avenc_aac bitrate=32000 ! aacparse ! audio/mpeg,mpegversion=4,stream-format=adts,framed=true ! \
+        appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! audioconvert ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; Convert mu16 TX audio to mulaw @ 16khz for mixing into the RX audio when users TX
-recode-rig0-tx-mu16=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
-   audioconvert ! audioresample ! audio/x-raw,rate=16000 ! \
-   mulawenc ! \
-   shmsink socket-path=${path.sock-dir}/send-rig0-mu16.shm
+; AAC tone-test variant.
+aacT.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/mpeg,mpegversion=4,stream-format=adts,framed=true,rate=16000,channels=1 ! \
+        aacparse ! avdec_aac ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
+aacT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true ! audioconvert ! audioresample ! audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! avenc_aac bitrate=32000 ! aacparse ! audio/mpeg,mpegversion=4,stream-format=adts,framed=true ! \
+        appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! audioconvert ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; Convert mu08 TX audio to mulaw @ 16khz for mixing into the RX audio when users TX
-recode-rig0-tx-mu08=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
-   audioconvert ! audioresample ! audio/x-raw,rate=8000 ! \
-   mulawenc ! \
-   shmsink socket-path=${path.sock-dir}/send-rig0-mu08.shm
+; G.711 mu-law at 16 kHz.
+mu16.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=16000,channels=1 ! \
+        mulawdec ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-; Convert opus TX audio to mulaw @ 16khz for mixing into the RX audio when users TX
-recode-rig0-tx-opus=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
-   audioconvert ! audioresample ! \
-   opusenc ! \
-   shmsink socket-path=${path.sock-dir}/send-rig0-opus.shm
+mu16.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=16000,channels=1 ! \
+             appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; Convert flac TX audio to mulaw @ 16khz for mixing into the RX audio when users TX
-recode-rig0-tx-flac=dynamic| \
-   shmsrc socket-path=${path.sock-dir}/send-rig0-raw48.shm ! \
-   audioconvert ! audioresample ! \
-   flacenc ! \
-   shmsink socket-path=${path.sock-dir}/send-rig0-flac.shm
+; G.711 mu-law at 8 kHz.  Recording remains raw 8 kHz S16LE.
+mu08.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=8000,channels=1 ! \
+        mulawdec ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-################
-# Audit Alerts #
-################
-# NYI: Once this is implemented, it will support sending notifications
-# of various kinds (push|email) to targets defined by user rules
-[alerts]
-group ADMINS add has-priv admin
-group ADMINS add has-priv owner
-group CAN-TX add has-priv tx
-event hw-fail email !ADMINS
+mu08.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=8000,channels=1 ! \
+             appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; Time-out timer expired
-event ptt-tot push !CAN-TX
+; Ogg/Vorbis (oggv), 16 kHz mono. Requires ogg and vorbis plugins.
+oggv.rx=appsrc name=rx-src is-live=true format=bytes caps=application/ogg ! \
+        tee name=encoded-t encoded-t. ! queue max-size-buffers=8 leaky=downstream ! \
+        appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true encoded-t. ! \
+        queue ! oggdemux ! \
+        vorbisdec ! \
+        audioconvert ! \
+        audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        tee name=t t. ! \
+        queue max-size-buffers=2 leaky=downstream ! \
+        volume name=rx-vol ! \
+        pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
+        queue max-size-buffers=4 leaky=downstream ! \
+        appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-; Push to talk START
-event ptt-start push !ADMINS
+oggv.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        tee name=t t. ! \
+        queue max-size-buffers=2 leaky=downstream ! \
+        audioconvert ! \
+        vorbisenc quality=0.3 ! \
+        oggmux max-delay=20000000 max-page-delay=20000000 ! \
+        tee name=encoded-t encoded-t. ! queue max-size-buffers=8 leaky=downstream ! \
+        appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false encoded-t. ! \
+        queue max-size-buffers=8 leaky=downstream ! \
+        appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true t. ! \
+        queue max-size-buffers=4 leaky=downstream ! \
+        appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; Push to talk END
-event ptt-end push !ADMINS
+; G.722 wideband ADPCM, 16 kHz mono, 64 kbit/s (GStreamer libav).
+g722.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/G722,rate=16000,channels=1 ! \
+        avdec_g722 ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-; Alerts for when a user is banned
-event ban email ADMIN
-event ban push !ADMINS
+g722.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! avenc_g722 bitrate=64000 ! \
+             appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; Alerts for when a user is kicked
-event kick email ADMIN
-event kick push !ADMINS
+; Tone variants: same formats, independent 600 Hz test sources on either host.
+pc1T.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-; Alerts for connect/disconnect of users
-event login push !ADMINS
-event logout push !ADMINS
+pc1T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; Alerts for automated spam detection in chat
-event spam email ADMIN
-event spam push !ADMINS
+g72T.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/G722,rate=16000,channels=1 ! \
+        avdec_g722 ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
 
-#################
-# Addon Modules #
-#################
-# NYI: Support for loadable modules
+g72T.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=160 do-timestamp=true ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! avenc_g722 bitrate=64000 ! \
+             appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+
+mu1T.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=16000,channels=1 ! \
+        mulawdec ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
+
+mu1T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=16000,channels=1 ! \
+             appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+
+mu0T.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=8000,channels=1 ! \
+        mulawdec ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
+
+mu0T.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! mulawenc ! audio/x-mulaw,rate=8000,channels=1 ! \
+             appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+
+opuT.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-opus,rate=16000,channels=1,channel-mapping-family=0 ! \
+        opusdec ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
+
+opuT.tx=audiotestsrc is-live=true wave=sine freq=600 do-timestamp=true ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! opusenc audio-type=generic frame-size=20 bitrate=24000 bitrate-type=cbr ! \
+             appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        t. ! queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+
+oggT.rx=appsrc name=rx-src is-live=true format=bytes caps=application/ogg ! \
+        tee name=encoded-t encoded-t. ! queue max-size-buffers=8 leaky=downstream ! \
+        appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true encoded-t. ! \
+        queue ! oggdemux ! \
+        vorbisdec ! \
+        audioconvert ! \
+        audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        tee name=t t. ! \
+        queue max-size-buffers=2 leaky=downstream ! \
+        volume name=rx-vol ! \
+        pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
+        queue max-size-buffers=4 leaky=downstream ! \
+        appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
+
+oggT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! \
+        tee name=t t. ! \
+        queue max-size-buffers=2 leaky=downstream ! \
+        audioconvert ! \
+        vorbisenc quality=0.3 ! \
+        oggmux max-delay=20000000 max-page-delay=20000000 ! \
+        tee name=encoded-t encoded-t. ! queue max-size-buffers=8 leaky=downstream ! \
+        appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false encoded-t. ! \
+        queue max-size-buffers=8 leaky=downstream ! \
+        appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true t. ! \
+        queue max-size-buffers=4 leaky=downstream ! \
+        appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+
+; FLAC, 16 kHz mono. Encoded recording can be copied without re-encoding.
+flac.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-flac,framed=true ! \
+        tee name=encoded-t encoded-t. ! queue max-size-buffers=8 leaky=downstream ! \
+        appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true encoded-t. ! \
+        queue ! flacparse ! flacdec ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! \
+        pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
+        queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
+
+flac.tx=appsrc name=tx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! flacenc ! tee name=encoded-t \
+        encoded-t. ! queue max-size-buffers=8 leaky=downstream ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        encoded-t. ! queue max-size-buffers=8 leaky=downstream ! appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true t. ! \
+        queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+
+flaT.rx=appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-flac,framed=true ! \
+        tee name=encoded-t encoded-t. ! queue max-size-buffers=8 leaky=downstream ! \
+        appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true encoded-t. ! \
+        queue ! flacparse ! flacdec ! audioconvert ! audioresample ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! volume name=rx-vol ! \
+        pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false t. ! \
+        queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true
+
+flaT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-timestamp=true ! volume name=tx-vol ! \
+        audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t \
+        t. ! queue max-size-buffers=2 leaky=downstream ! flacenc ! tee name=encoded-t \
+        encoded-t. ! queue max-size-buffers=8 leaky=downstream ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false \
+        encoded-t. ! queue max-size-buffers=8 leaky=downstream ! appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true t. ! \
+        queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
+
+; webcam capture: v4l2src frames -> jpeg. Recording currently applies only to
+; raw audio record-sink branches.
+jpeg.tx=v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,width=640,height=480,framerate=15/1 ! jpegenc quality=70 ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false
+jpeg.rx=appsrc name=rx-src do-timestamp=1 format=time ! jpegparse ! jpegdec ! videoconvert ! fakesink name=rx-sink sync=false
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; This is scoped in a section inside the file
+!include /etc/rustyrig/callsign-lookup.srv.cfg
+
+; Optional server receiver modules. path.modules points at their installed dir.
 [modules]
+;rrserver-gpsd=
+;rrserver-gps-nmea=
+
+; Symbolic serial bindings. Raw exports are exclusive and require serial.access
+; (admin|owner by default). No device opens until an authorized client attaches.
+[serial]
+;ttyHOST0=serial:/dev/ttyUSB0@115200,8n1
+;ttyGPS0=station.gps-in@4800
+;ttyGPS1=rig1.gps-in@4800
+;ttyGPS2=rig0.gps-out@4800
+
+; GPS endpoints default to PTYs at ./dev/<name>. Real receiver example:
+;[serial:ttyGPS0]
+;type=serial
+;path=/dev/ttyUSB1
+;[serial:ttyHOST0]
+;buffer-bytes=16384
+;access=admin|owner

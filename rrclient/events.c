@@ -21,6 +21,7 @@
 #include <rrclient/cmd.h>
 #include <rrclient/userlist.h>
 #include <rrclient/rooms.h>
+#include <rrclient/media.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
 #include <rrclient/frontend.h>
@@ -196,26 +197,32 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
       const char *a_user = dict_get(d, "auth.user", NULL);
       const char *a_token = dict_get(d, "auth.token", NULL);
       const char *a_privs = dict_get(d, "auth.privs", NULL);
+      /* PARITY: rustyrig-www/js/webui.auth.js (server-assigned guest name). */
+      if (a_user && (!login_user || strcmp(login_user, a_user))) {
+         char *name = strdup(a_user);
+         if (name) {
+            free((void *)login_user);
+            login_user = name;
+         }
+      }
 
       ui_print( NULL, "%s {bright-cyan}Welcome back, {bright-yellow}%s{bright-cyan}! You have {bright-green}%s{bright-cyan} privileges",
          get_chat_ts(a_ts), a_user, a_privs);
       if (ui_mode == UI_MODE_TUI) {
          tui_refresh_sb_online();
       }
-      /* The server always joins its authoritative rig room. Extra room
+      /* The server joins the site lobby. Extra room
        * joins are client preferences and are sent only when configured on
        * this server profile. */
       const char *autojoin = server_name ? get_server_property(server_name, "autojoin") : NULL;
-      const char *rig_room = ws_authoritative_room();
+
       if (autojoin && *autojoin) {
          char *list = strdup(autojoin);
          if (list) {
             char *save = NULL;
             for (char *room = strtok_r(list, ", \t\r\n", &save);
                room; room = strtok_r(NULL, ", \t\r\n", &save)) {
-               if (!rig_room || strcasecmp(room, rig_room) != 0) {
-                  rrclient_room_request_join(room);
-               }
+               rrclient_room_request_join(room);
             }
             free(list);
          }
@@ -248,6 +255,21 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
    dict_free(d);
 }
 
+/* PARITY: rustyrig-www/js/webui.rigctl.js ptt_confirm_state().
+ * Only authoritative updates for our displayed VFO acknowledge local PTT. */
+static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) {
+   if (!who || !login_user || strcasecmp(who, login_user)) return;
+   char current[2] = { vfo_state_get_active(), '\0' };
+   if (vfo && *vfo && strcasecmp(vfo, current)) return;
+   if (frontend_ops() && frontend_ops()->ptt_set_state)
+      frontend_ops()->ptt_set_state(active);
+}
+
+static void rrclient_handle_object_observation(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event; (void)data; (void)client; (void)user;
+   vfo_update_ui();
+}
+
 static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -259,11 +281,28 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
       return;
    }
 
+   const char *scope = dict_get(d, "cat.room", NULL);
+   const struct rr_client_media_chan *selected = rrclient_media_current_channel(false);
+   if (selected && ((scope && strcasecmp(scope, selected->room) && !ws_room_same_rig(selected->room, scope) &&
+                     !ws_room_same_rig(scope, selected->room)) || (!scope && selected->rig != 0))) {
+      dict_free(d); return;
+   }
+   if (dict_get_type(d, "cat.state.vfo") == VAL_END && dict_get(d, "cat.vfo", NULL))
+      dict_add(d, "cat.state.vfo", dict_get(d, "cat.vfo", NULL));
    // vfo_set_dict() saves all cat.* keys into the central VFO state, namespaced
    // by the VFO letter from the dict (cat.state.vfo), and pushes the update for
    // the active VFO to the UI (GTK widgets or TUI statusbar).
    // All UIs read from that saved state - never from the event dict.
+   char current[2] = { vfo_state_get_active(), '\0' };
+   const char *cmd = dict_get(d, "cat.cmd", NULL);
+   if (cmd && !strcasecmp(cmd, "ptt") && (dict_get_type(d, "cat.ptt") != VAL_END)) {
+      dict_add_bool(d, "cat.state.ptt", dict_get_bool(d, "cat.ptt", false));
+      dict_add(d, "cat.state.vfo", dict_get(d, "cat.vfo", current));
+   }
    vfo_set_dict(NULL, d);
+   if (dict_get_type(d, "cat.state.ptt") != VAL_END)
+      rrclient_confirm_ptt(dict_get(d, "cat.user", login_user),
+         dict_get(d, "cat.state.vfo", NULL), dict_get_bool(d, "cat.state.ptt", false));
    dict_free(d);
 }
 
@@ -529,8 +568,13 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
          rrclient_room_set_vfo_mask(m_room,
             has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
+         rrclient_room_set_control_flags(m_room,
+            dict_get_bool(d, "room.tx-control", has_vfos && ws_room_rig_base(m_room)),
+            dict_get_bool(d, "room.rx-tunable", false));
+         rrclient_room_set_rx_tuning_mask(m_room, dict_get_ulong(d, "room.rx-tuning-mask", 0));
          if (frontend_ops()) frontend_ops()->userlist_room_vfos_changed(m_room);
-         if (has_vfos) {
+         if (has_vfos) rrclient_media_room_joined(m_room);
+         if (dict_get_bool(d, "room.site", false)) {
             ws_set_authoritative_room(m_room);
             if (frontend_ops()) frontend_ops()->chat_set_authoritative_room(m_room);
          }
@@ -567,7 +611,12 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
    const char *room = dict_get(d, "talk.room", NULL);
    const char *vfos = dict_get(d, "talk.vfos", "");
    if (room) {
-      rrclient_room_set_vfos(room, vfos);
+      if (dict_get_type(d, "room.vfo-mask") != VAL_END)
+         rrclient_room_set_vfo_mask(room, dict_get_ulong(d, "room.vfo-mask", 0));
+      else rrclient_room_set_vfos(room, vfos);
+      rrclient_room_set_control_flags(room, dict_get_bool(d, "room.tx-control", false),
+         dict_get_bool(d, "room.rx-tunable", false));
+      rrclient_room_set_rx_tuning_mask(room, dict_get_ulong(d, "room.rx-tuning-mask", 0));
       if (frontend_ops()) frontend_ops()->userlist_room_vfos_changed(room);
       ui_print(room, "{yellow}Room %s VFOs:{reset} %s", room, *vfos ? vfos : "(none)");
    }
@@ -645,6 +694,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
    const char *room = dict_get(d, "talk.room", NULL);
    if (room) {
       userlist_remove_room(room);
+      rrclient_media_room_parted(room);
       rrclient_room_part(room);
       if (frontend_ops()) frontend_ops()->chat_room_remove(room);
       if (ui_mode == UI_MODE_TUI) {
@@ -672,6 +722,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
    bool is_self = session && *session && session_token[0] &&
       strcmp(session, session_token) == 0;
    if (room && is_self) {
+      rrclient_media_room_parted(room);
       rrclient_room_part(room);
       if (frontend_ops()) frontend_ops()->chat_room_remove(room);
       if (ui_mode == UI_MODE_TUI) {
@@ -910,6 +961,13 @@ static void rrclient_handle_userinfo(const char *event, const char *data, rrconn
    }
 
    dict *d = json2dict(data);
+   const char *ptt_room = d ? dict_get(d, "talk.ptt-room", NULL) : NULL;
+   const char *selected_room = rrclient_media_active_room();
+   bool same_rig = !ptt_room || !*ptt_room || !selected_room || !*selected_room ||
+      !strcasecmp(ptt_room, selected_room) || ws_room_same_rig(selected_room, ptt_room);
+   if (d && (same_rig || !dict_get_bool(d, "talk.tx", false)) && (dict_get_type(d, "talk.tx") != VAL_END))
+      rrclient_confirm_ptt(dict_get(d, "talk.user", NULL),
+         dict_get(d, "talk.ptt-vfo", NULL), dict_get_bool(d, "talk.tx", false));
    if ( !userlist_add_or_update(d) ) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
    }
@@ -1117,6 +1175,7 @@ void rrclient_register_events(void) {
    event_on("userinfo", rrclient_handle_userinfo, NULL);
    event_on("whois", rrclient_handle_whois, NULL);
    event_on("ws.msg.auth", rrclient_handle_auth, NULL);
+   event_on("client.objects.changed", rrclient_handle_object_observation, NULL);
    event_on("ws.msg.cat", rrclient_handle_cat, NULL);
    event_on("ws.msg.cat.state", rrclient_handle_cat, NULL);
    event_on("ws.msg.hello", rrclient_handle_hello, NULL);

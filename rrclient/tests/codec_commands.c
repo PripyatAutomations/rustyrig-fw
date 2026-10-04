@@ -27,6 +27,9 @@ bool ui_print(const char *window, const char *fmt, ...) {
    return false;
 }
 static char test_active_vfo = 'A';
+bool rrclient_room_is_joined(const char *room) { return false; }
+uint32_t rrclient_room_vfo_mask(const char *room) { return strstr(room,"-rig") ? 1 : 0; }
+void vfo_state_set_active(const char *vfo) { test_active_vfo = vfo[0]; }
 char vfo_state_get_active(void) { return test_active_vfo; }
 const char *media_get_common_codecs(void) { return "pc16 g722 mu16 mu08 opus opuT"; }
 const char *media_get_preferred_codec(void) { return "pc16"; }
@@ -70,6 +73,10 @@ int main(void) {
    assert(strstr(output, "NONE pc16 g722") && strstr(output, "rx-a") && !strstr(output, "tx-a"));
    char *bad[] = {"rxcodec", "xxxx"};
    assert(cmd_rxcodec(2, bad) && selected == 0);
+   // The GTK picker uses this same entry point. Display placeholders must
+   // never become codec-select requests, while its "none" ID unsubscribes.
+   assert(rrclient_media_select_codec(ws_conn, false, "----"));
+   assert(selected == 0 && unsubscribed == 0);
    char *set[] = {"rxcodec", "G722", "#2"};
    assert(!cmd_rxcodec(3, set));
    assert(selected == 1 && !strcmp(last_uuid, "rx-b") && !strcmp(last_codec, "g722"));
@@ -122,6 +129,56 @@ int main(void) {
    char *tone[] = {"rxcodec", "oput"};
    assert(!cmd_rxcodec(2, tone));
    assert(!strcmp(last_codec, "opuT"));
-   puts("PASS: codec commands, UUID targeting, NONE, re-enable, and disconnect");
+   // Lobby-only channel announcements do not auto-subscribe either rig.
+   memset(known_chans, 0, sizeof(known_chans));
+   memset(direction_disabled, 0, sizeof(direction_disabled));
+   media_room[0] = '\0';
+   media_ready = true;
+   test_active_vfo = 'A';
+   fail_send = false;
+   unsigned before = subscribed;
+   dict *room_channel = dict_new();
+   dict_add(room_channel, "media.chan-uuid", "room-rx");
+   dict_add_int(room_channel, "media.subsys", RR_BINFRAME_SUBSYS_AUDIO);
+   dict_add_int(room_channel, "media.dir", RR_BINFRAME_DIR_RX);
+   dict_add_int(room_channel, "media.vfo", 0);
+   dict_add(room_channel, "media.codec", "pc16");
+   dict_add(room_channel, "media.room", "#radio");
+   dict_add_bool(room_channel, "media.joined", false);
+   rrclient_media_available(room_channel, ws_conn);
+   assert(subscribed == before);
+   rrclient_media_room_joined("#radio");
+   dict_add_bool(room_channel, "media.joined", true);
+   rrclient_media_available(room_channel, ws_conn);
+   assert(subscribed == before + 1);
+   assert(rrclient_media_current_channel(false));
+   rrclient_media_room_parted("#radio");
+   assert(!rrclient_media_current_channel(false));
+   assert(!known_chans[0].subscribed);
+   dict_free(room_channel);
+   // Active GPS switches subscriptions with the rig; pinned output stays subscribed.
+   memset(known_chans,0,sizeof(known_chans));
+   snprintf(media_room,sizeof(media_room),"#site-rig0");
+   known_chans[0]=(struct rr_media_known){.uuid="gps0",.name="rig0.gps.rx",.codec="nmea",
+      .subsystem=4,.direction=0,.vfo=255,.rig=0,.joined=true,.room="#site-rig0",.control_room="#site-rig0"};
+   known_chans[1]=(struct rr_media_known){.uuid="gps1",.name="rig1.gps.rx",.codec="nmea",
+      .subsystem=4,.direction=0,.vfo=255,.rig=1,.joined=true,.room="#site-rig1",.control_room="#site-rig1"};
+   known_chans[2]=(struct rr_media_known){.uuid="station-gps",.name="station.gps.rx",.codec="nmea",
+      .subsystem=4,.direction=0,.vfo=255,.rig=255,.joined=true,.room="#site",.control_room="#site"};
+   gps_outputs_changed(NULL,"active rig1",NULL,NULL);
+   assert(known_chans[0].subscribed && known_chans[1].subscribed && !known_chans[2].subscribed);
+   snprintf(media_room,sizeof(media_room),"#site-rig1");
+   rrclient_handle_media_vfo(NULL,NULL,NULL,NULL);
+   assert(!known_chans[0].subscribed && known_chans[1].subscribed);
+   snprintf(media_room,sizeof(media_room),"#site-rig0");
+   rrclient_handle_media_vfo(NULL,NULL,NULL,NULL);
+   assert(known_chans[0].subscribed && known_chans[1].subscribed);
+   dict *gps_ack=dict_new();dict_add(gps_ack,"media.chan-uuid","gps0");
+   dict_add_int(gps_ack,"media.stream",7);dict_add(gps_ack,"media.codec","nmea");
+   rrclient_media_subscribed(gps_ack,false);dict_free(gps_ack);
+   assert(known_chans[0].stream_valid && known_chans[0].stream==7);
+   gps_outputs_changed(NULL,"",NULL,NULL);
+   assert(!known_chans[0].subscribed && !known_chans[1].subscribed);
+   puts("PASS: codec commands, UUID targeting, NONE, room subscriptions and active/pinned rig GPS");
    return 0;
 }

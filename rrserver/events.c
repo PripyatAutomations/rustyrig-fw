@@ -19,11 +19,17 @@
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/auth.h>
 
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.properties.h>
+#include <rrserver/rig.rooms.h>
+#include <rrserver/rig.vfo.h>
+#include <rrserver/rig.registry.h>
+#include <rrserver/globalstate.h>
+extern struct GlobalState rig;
 #include <rrserver/ptt.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
@@ -56,6 +62,14 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
    (void)cptr;
 #endif
    dict_free(d);
+}
+
+static void rrserver_handle_room_part(const char *event, const char *room, rrconn_t *client, void *user) {
+   (void)event; (void)user;
+   if (client && client->is_ptt && room && rig.ptt_rig) {
+      const char *base = rr_rig_registry_room(rig.rigs, rig.ptt_rig);
+      if (base && !strcasecmp(base, room)) rr_ptt_set_all_off_reason("left-tx-room");
+   }
 }
 
 static void rrserver_handle_room_topic(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -108,7 +122,7 @@ static void rrserver_handle_room_list(const char *event, const char *data, rrcon
    dict_add(reply, "talk.cmd", "room-list");
    dict_add(reply, "talk.rooms", "");
 #ifdef USE_SQLITE
-   db_room_ensure(masterdb, ws_authoritative_room(), true, ws_room_vfo_mask(ws_authoritative_room()));
+   db_room_ensure(masterdb, ws_site_room(), false, 0);
    char *rooms = db_room_list(masterdb);
    if (rooms) { dict_add(reply, "talk.rooms", rooms); free(rooms); }
 #endif
@@ -122,6 +136,11 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
    dict *d = json2dict(data);
    if (!d) return;
    const char *room = dict_get(d, "talk.room", NULL);
+   if (ws_room_rig_base(room)) {
+      ws_send_error(cptr, "Base rig rooms are server-owned");
+      dict_free(d);
+      return;
+   }
 #ifdef USE_SQLITE
    if (!room || !db_room_ensure(masterdb, room, false, 0)) {
       ws_send_error(cptr, "Unable to add room %s", room ? room : "(none)");
@@ -174,7 +193,37 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    const char *room = dict_get(d, "talk.room", NULL);
    const char *binding = dict_get(d, "talk.vfo", NULL);
    const char *action = dict_get(d, "talk.action", NULL);
+   if (action && !strcasecmp(action, "add") && !ws_room_rig_namespace(room)) {
+      ws_send_error(cptr, "VFO controls require a room in this site's numbered rig namespace");
+      dict_free(d);
+      return;
+   }
+   if (rrserver_rig_room_configured(room)) {
+      ws_send_error(cptr, "Rig room VFO bindings are managed by rig configuration");
+      dict_free(d);
+      return;
+   }
 #ifdef USE_SQLITE
+   rr_server_rig_t *radio = rrserver_rig_for_room(room);
+   rr_server_vfo_t *vfo = binding ? rr_rig_registry_find_vfo_uuid(rig.rigs, binding) : NULL;
+   if (!vfo && binding && radio) {
+      const char *dot = strstr(binding, ".vfo_");
+      if (dot && dot[5] && !dot[6]) {
+         char alias[64]; size_t len = (size_t)(dot - binding);
+         if (len < sizeof(alias)) {
+            memcpy(alias, binding, len); alias[len] = '\0';
+            if (rr_rig_registry_find_alias(rig.rigs, alias) == radio) {
+               char native[2] = { (char)toupper((unsigned char)dot[5]), 0 };
+               vfo = rr_server_vfo_find_alias(radio, native);
+            }
+         }
+      }
+   }
+   if (!radio || !vfo || rr_server_vfo_owner(vfo) != radio) {
+      ws_send_error(cptr, "VFO binding must belong to the rig named by the room");
+      dict_free(d); return;
+   }
+   binding = rr_server_vfo_id(vfo);
    if (room && binding) {
       bool ok = db_room_ensure(masterdb, room, true, 0);
       if (ok && action && strcasecmp(action, "add") == 0)
@@ -192,7 +241,25 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
       char *vfos = db_room_vfo_list(masterdb, room);
       dict_add(d, "talk.cmd", "room-vfo");
       dict_add(d, "talk.vfos", vfos ? vfos : "");
+      uint32_t mask = 0;
+      char *copy = strdup(vfos ? vfos : ""), *save = NULL;
+      for (char *id = copy ? strtok_r(copy, " \t\r\n", &save) : NULL; id; id = strtok_r(NULL, " \t\r\n", &save)) {
+         rr_server_vfo_t *mapped = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
+         rr_vfo_t index;
+         if (mapped && rr_server_vfo_native_index(mapped, &index) && index >= 0 && index < 32)
+            mask |= UINT32_C(1) << index;
+      }
+      free(copy);
+      ws_room_set_vfo_mask(room, mask);
+      db_room_ensure(masterdb, room, mask != 0, mask);
+      dict_add_bool(d, "room.has-vfos", mask != 0);
+      dict_add_ulong(d, "room.vfo-mask", mask);
+      dict_add_bool(d, "room.tx-control", false);
+      dict_add_bool(d, "room.rx-tunable", ws_room_rx_tunable(room));
+      dict_add_ulong(d, "room.rx-tuning-mask", ws_room_rx_tuning_mask(room));
       ws_broadcast_room_dict(NULL, d, room);
+      for (rrconn_t *member = http_client_list; member; member = member->next)
+         if (member->authenticated && ws_client_in_room(member, room)) media_send_available_all(member);
       ws_send_notice(cptr, "Room %s VFO %s %s",
          room, binding, strcasecmp(action, "add") == 0 ? "added" : "removed");
       free(vfos);
@@ -209,6 +276,11 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
    dict *d = json2dict(data);
    if (!d) return;
    const char *room = dict_get(d, "talk.room", NULL);
+   if (room && (!strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
+      ws_send_error(cptr, "Site and configured rig rooms cannot be removed");
+      dict_free(d);
+      return;
+   }
 #ifdef USE_SQLITE
    if (room && !db_room_delete(masterdb, room)) {
       Log(LOG_WARN, "db", "failed to delete room metadata %s", room);
@@ -282,7 +354,11 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    rr_vfo_t vfo = vfo_lookup(rc_vfo[0]);
 
+   const char *room = dict_get(d, "rigctl.room", ws_authoritative_room());
+   rr_server_rig_t *radio = rrserver_rig_for_room(room);
+   if (!radio) { dict_free(d); return; }
    if (strcasecmp(rc_cmd, "ptt") == 0) {
+      if (rc_ptt) rig.ptt_rig = radio;
       // Key/dekey the rig (from the PTT button in the client)
       Log(LOG_AUDIT, "rigctl", "User %s set PTT to %s on vfo %s", rc_from, (rc_ptt ? "true" : "false"), rc_vfo);
       rr_ptt_set(vfo, rc_ptt);
@@ -290,6 +366,20 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       return;
    }
 
+   if (radio != rr_rig_registry_default(rig.rigs)) {
+      rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
+      rr_control_request_t request = { .rig = radio, .vfo = object, .source = "rigctl", .context = cptr };
+      if (!strcmp(rc_cmd, "freq")) {
+         request.property = RR_PROP_VFO_FREQUENCY; request.value_type = VAL_LONG; request.value.l = rc_freq;
+      } else if (!strcmp(rc_cmd, "mode")) {
+         request.property = RR_PROP_VFO_MODE; request.value_type = VAL_STR; request.value.s = rc_mode;
+      } else if (!strcmp(rc_cmd, "width")) {
+         request.property = RR_PROP_VFO_WIDTH; request.value_type = VAL_LONG; request.value.l = rc_width ? strtol(rc_width, NULL, 10) : 0;
+      }
+      if (!object || !request.property || rr_rig_control(&request) != RR_CONTROL_OK)
+         Log(LOG_WARN, "rigctl", "Unable to apply %s in room %s", rc_cmd, room);
+      dict_free(d); return;
+   }
    if (strcasecmp(rc_cmd, "mode") == 0) {
       // Set the rig mode (from !mode chat command or ws cat.cmd mode)
       if (!rc_mode) {
@@ -1352,6 +1442,7 @@ void rrserver_register_events(void) {
       rrserver_handle_rig_property_changed, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("room.join", rrserver_handle_room_join, NULL);
+   event_on("room.part", rrserver_handle_room_part, NULL);
    event_on("room.add", rrserver_handle_room_add, NULL);
    event_on("room.list", rrserver_handle_room_list, NULL);
    event_on("room.delete", rrserver_handle_room_delete, NULL);

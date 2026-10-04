@@ -8,6 +8,7 @@
 #define RRCLIENT_ROOMS_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 bool rrclient_room_join(const char *room);
 bool rrclient_room_request_join(const char *room);
@@ -21,4 +22,10 @@ const char *rrclient_room_vfos(const char *room);
 bool rrclient_room_set_topic(const char *room, const char *topic);
 const char *rrclient_room_topic(const char *room);
 
+extern void rrclient_room_set_control_flags(const char *room, bool tx, bool rx);
+extern bool rrclient_room_tx_control(const char *room);
+extern bool rrclient_room_rx_tunable(const char *room);
+extern void rrclient_room_set_rx_tuning_mask(const char *room, uint32_t mask);
+extern uint32_t rrclient_room_rx_tuning_mask(const char *room);
+extern uint32_t rrclient_room_vfo_mask(const char *room);
 #endif

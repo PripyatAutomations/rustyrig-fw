@@ -8,6 +8,7 @@ bins += ${rrclient}
 rrclient_objs += audio.o
 rrclient_objs += cat.o
 rrclient_objs += cat.kpa500.o
+rrclient_objs += serial.o sercom.o
 rrclient_objs += cat.pty.o		# PTY CAT interface (./dev/ttyCAT0)
 rrclient_objs += cat.yaesu.o
 rrclient_objs += chat.whois.o

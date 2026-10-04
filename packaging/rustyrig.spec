@@ -1,5 +1,5 @@
 Name: rustyrig
-Version: 20261003.02
+Version: 20261004.02
 Release: 1%{?dist}
 Summary: RustyRig remote radio software
 License: MIT
@@ -25,18 +25,24 @@ Requires: %{name}-libs = %{version}-%{release}, jq, sqlite, systemd
 %description server
 Backend server for remote radio operation.
 
+%package -n rrserver-gpsd
+Summary: GPSD receiver module for RustyRig server
+Requires: %{name}-server = %{version}-%{release}
+%description -n rrserver-gpsd
+Optional GPSD connection for station and rig coordinates.
+
 %package client
-Summary: RustyRig client (core, headless)
+Summary: RustyRig client
 Requires: %{name}-libs = %{version}-%{release}, glib2, gstreamer1
 %description client
-Core RustyRig client. Runs headless (TUI) by itself; the GTK interface
-ships separately in rustyrig-client-gtk as a loadable module.
+RustyRig client with TUI interface; the GTK interface ships separately
+in rustyrig-client-gtk as a loadable module.
 %package client-gtk
 Summary: RustyRig GTK client module
 Requires: %{name}-client = %{version}-%{release}, gtk3
 %description client-gtk
 GTK frontend for the RustyRig client, loaded from
-/var/lib/rustyrig/modules by the core client's [modules] configuration.
+/usr/lib/rustyrig/modules/rrclient by the core client's [modules] configuration.
 
 %package fwdsp
 Summary: RustyRig GStreamer audio DSP service
@@ -59,11 +65,12 @@ Callsign lookup helper using local databases and the QRZ XML API.
 
 %install
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
+for module in bin/rrserver-gps*.so; do install -Dpm0755 "$module" "%{buildroot}/usr/lib/rustyrig/modules/rrserver/${module##*/}"; done
 install -Dpm0755 tools/rr-get-audit-log %{buildroot}%{_bindir}/rr-get-audit-log
 install -Dpm0755 tools/rr-get-chat-log %{buildroot}%{_bindir}/rr-get-chat-log
 install -Dpm0755 tools/rr-get-ptt-log %{buildroot}%{_bindir}/rr-get-ptt-log
 install -Dpm0755 bin/rrclient %{buildroot}%{_bindir}/rrclient
-install -Dpm0755 bin/rrclient-gtk.so %{buildroot}%{_sharedstatedir}/rustyrig/modules/rrclient-gtk.so
+install -Dpm0755 bin/rrclient-gtk.so %{buildroot}/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
 install -Dpm0755 bin/callsign-lookup %{buildroot}%{_bindir}/callsign-lookup
 install -Dpm0755 librustyaxe.so %{buildroot}%{_libdir}/librustyaxe.so.0
@@ -116,13 +123,16 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %config(noreplace) %{_sysconfdir}/rustyrig/ua-bans.txt
 %dir %attr(0770,rustyrig,rustyrig) %{_localstatedir}/log/rustyrig
 %{_sharedstatedir}/rustyrig
+/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
+%files -n rrserver-gpsd
+/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
 %files client
 %{_bindir}/rrclient
 %config(noreplace) %{_sysconfdir}/rustyrig/rrclient.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cli.cfg
-%dir %{_sharedstatedir}/rustyrig/modules
+%dir /usr/lib/rustyrig/modules/rrclient
 %files client-gtk
-%{_sharedstatedir}/rustyrig/modules/rrclient-gtk.so
+/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
 %{_datadir}/applications/rustyrig-client.desktop
 %{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 %files fwdsp

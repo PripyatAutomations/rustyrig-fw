@@ -40,4 +40,11 @@ extern bool rr_rig_registry_set_default(rr_rig_registry_t *registry,
 extern rr_server_rig_t *rr_rig_registry_default(
    const rr_rig_registry_t *registry);
 
+extern bool rr_rig_registry_set_room(rr_rig_registry_t *registry,
+   rr_server_rig_t *radio, const char *room);
+extern const char *rr_rig_registry_room(const rr_rig_registry_t *registry,
+   const rr_server_rig_t *radio);
+extern uint8_t rr_rig_registry_media_index(const rr_rig_registry_t *registry,
+   const rr_server_rig_t *radio);
+
 #endif // !defined(__rrserver_rig_registry_h)

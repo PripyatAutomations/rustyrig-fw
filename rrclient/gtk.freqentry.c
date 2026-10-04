@@ -15,6 +15,7 @@
 #include <librustyaxe/dict.h>
 #include <librustyaxe/logger.h>
 #include <rrclient/gtk.core.h>
+#include <rrclient/gtk.chat.h>
 #include <rrclient/vfo.h>
 #include <rrclient/gtk.freqentry.h>
 
@@ -442,7 +443,7 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
    if (freq > 0 && fe->freq != freq) {
       Log(LOG_CRAZY, "gtk.freqentry", "finalize: %lu (prev %lu)", freq, fe->freq);
       char vfo[2] = { vfo_state_get_active(), '\0' };
-      ws_send_freq_cmd(ws_conn, vfo, freq);
+      ws_send_freq_cmd_in_room(ws_conn, vfo, freq, gtk_chat_current_room());
       fe->prev_freq = fe->freq;
       fe->freq = freq;
       fe->editing = false;
