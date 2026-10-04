@@ -1,4 +1,6 @@
 rustyrig-fw (20261003.02) testing; urgency=medium
+  * Completed named multirig server configuration, registered rig sections at
+    startup, and supplied default rig/VFO settings for omitted configuration.
   * Many TUI drawing fixes
   * Restored cooked input, blocking stdin, cursor, colors, keypad, mouse, focus,
     paste, margins, and scroll-region terminal state when the TUI exits.

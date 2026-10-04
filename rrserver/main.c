@@ -26,6 +26,7 @@
 #include <rrserver/timer.h>
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
+#include <rrserver/rig.config.h>
 #include <rrserver/gpio.h>
 #include <rrserver/network.h>
 #include <rrserver/amp.h>
@@ -166,6 +167,10 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
+   if (!rr_rig_config_init()) {
+      Log(LOG_CRIT, "cfg.rig", "Unable to register rig configuration sections");
+      return EXIT_FAILURE;
+   }
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
    // [pipelines] keys land as pipeline:<codec>.<dir> -- the format bin/fwdsp
    // looks up with cfg_get() (see fwdsp/fwdsp.c)

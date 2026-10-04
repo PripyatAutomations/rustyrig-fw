@@ -35,8 +35,8 @@ int main(void) {
    assert(test_mode->type == DEFCONFIG_BOOL);
    assert(strcmp(test_mode->val, "true") == 0);
 
-   assert(cfg_set_value("backend.active", "hamlib"));
-   assert(!cfg_set_value("backend.active", "invalid"));
+   assert(cfg_set_value("rig:rig0.backend", "hamlib"));
+   assert(!cfg_set_value("rig:rig0.backend", "invalid"));
    assert(cfg_set_value("recording.codec", "flac"));
    assert(!cfg_set_value("recording.codec", "opus"));
    assert(cfg_set_value("net.http.port", "9000"));

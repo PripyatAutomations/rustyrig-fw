@@ -95,7 +95,7 @@ const char *rr_rig_config_get(const char *alias, const char *key) {
    if (!rr_rig_config_key(fullkey, sizeof(fullkey), alias, key)) {
       return NULL;
    }
-   return dict_get(cfg, fullkey, NULL);
+   return cfg_get(fullkey);
 }
 
 char *rr_rig_config_get_exp(const char *alias, const char *key) {
