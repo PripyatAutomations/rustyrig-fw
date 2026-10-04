@@ -1,4 +1,6 @@
 rustyrig-fw (20261004.02) testing; urgency=medium
+  * Add missing /rig, /gps and /sercom discovery commands to browser help;
+    remove the obsolete /rig tab-switch case and document audit replay status.
   * Fix GTK chat history recording before entry clearing and recall into the
     originating input. Honor shared input history (default true), retain
     per-window drafts, and bound history to 50 entries.

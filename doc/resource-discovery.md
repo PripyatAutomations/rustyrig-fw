@@ -48,6 +48,16 @@ create local PTYs. Existing `/objects` dumps the native property cache.
 `/rig subscribe` refreshes that cache after unsubscribing; ordinary login
 already subscribes to property updates.
 
+Native `/help` lists the registered client commands, hiding administrative
+commands from users without admin/owner privileges. Browser `/help` is
+maintained separately and includes the discovery and subscription commands
+above; local serial/PTY attachment commands require the native client.
+
+Audit events are stored in the server's SQLite `audit_log` table and can be
+read on the server with `tools/rr-get-audit-log`. Client audit replay and a
+`/audit` command are not implemented. Automatic chat replay is a separate
+feature and does not replay audit events.
+
 ## Permission boundaries
 
 Inventory and property discovery require authentication. Inventory is a
