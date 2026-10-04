@@ -33,10 +33,14 @@ int main(int argc, char **argv) {
    assert(loaded);
    dict_free(cfg);
    cfg = loaded;
-   assert(!strcmp(cfg_get("rig.instances"), "rig0"));
+   assert(!strcmp(cfg_get("rig.instances"), "rig0 rig1"));
    assert(!strcmp(cfg_get("rig.legacy"), "rig0"));
    assert(!strcmp(rr_rig_config_get("rig0", "backend"), "internal"));
    assert(!strcmp(rr_rig_config_get("rig0", "vfos"), "A B"));
+   assert(!strcmp(rr_rig_config_get("rig1", "backend"), "hamlib"));
+   assert(!strcmp(rr_rig_config_get("rig1", "vfos"), "A B"));
+   assert(rr_rig_config_get_int("rig1", "hamlib.model", 0) == 2);
+   assert(!strcmp(rr_rig_config_get("rig1", "hamlib.device"), "127.0.0.1:4532"));
    loaded = cfg_load(argv[1]);
    assert(loaded);
    dict_free(cfg);
