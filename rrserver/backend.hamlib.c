@@ -12,9 +12,13 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.properties.h>
+#include <rrserver/rig.registry.h>
+#include <rrserver/globalstate.h>
 
 #ifdef USE_HAMLIB
 #include <hamlib/rig.h>
+
+extern struct GlobalState rig;
 
 typedef struct hamlib_vfo_state {
    freq_t freq;
@@ -123,20 +127,44 @@ static void hl_destroy_connection(hamlib_backend_t *data) {
    data->connected = false;
 }
 
+static bool hl_vfo_unavailable(rr_server_vfo_t *vfo, void *user) {
+   rr_backend_t *backend = user;
+   hl_property_unavailable(backend, vfo, RR_PROP_VFO_FREQUENCY);
+   hl_property_unavailable(backend, vfo, RR_PROP_VFO_MODE);
+   hl_property_unavailable(backend, vfo, RR_PROP_VFO_WIDTH);
+   return false;
+}
+
+static void hl_reconnect_disabled(rr_backend_t *backend) {
+   rr_server_rig_t *default_rig = rr_rig_registry_default(rig.rigs);
+   const char *default_alias = cfg_get("rig.default");
+   const char *alias = rr_backend_instance_alias(backend);
+   // During construction the registry has not selected its default yet.
+   bool non_default = default_rig ? default_rig != backend->owner :
+      default_alias && *default_alias && strcmp(default_alias, alias);
+   if (non_default) {
+      Log(LOG_WARN, "backend.hamlib",
+         "%s: reconnect disabled; non-default instance remains offline", alias);
+      return;
+   }
+   // Preserve the single/default rig's supervisor restart policy.
+   Log(LOG_CRIT, "backend.hamlib", "%s: reconnect disabled; exiting", alias);
+   shutdown_rig(100);
+}
+
 static void hl_schedule_retry(rr_backend_t *backend, const char *why) {
    hamlib_backend_t *data = hl_data(backend);
    if (!data) return;
    Log(LOG_CRIT, "backend.hamlib", "%s: connection lost: %s",
       rr_backend_instance_alias(backend), why);
    hl_destroy_connection(data);
+   rr_server_vfo_foreach(backend->owner, hl_vfo_unavailable, backend);
    if (data->reconnect_interval > 0) {
       data->retry_at = now + data->reconnect_interval;
       Log(LOG_WARN, "backend.hamlib", "%s: retrying in %d seconds",
          rr_backend_instance_alias(backend), data->reconnect_interval);
    } else {
-      Log(LOG_CRIT, "backend.hamlib", "%s: reconnect disabled; exiting",
-         rr_backend_instance_alias(backend));
-      shutdown_rig(100);
+      hl_reconnect_disabled(backend);
    }
 }
 
@@ -144,6 +172,10 @@ static bool hl_connect(rr_backend_t *backend) {
    hamlib_backend_t *data = hl_data(backend);
    if (!data) return true;
 
+   Log(LOG_INFO, "backend.hamlib",
+      "%s: connecting to %s (model=%d, baud=%d, reconnect-interval=%d)",
+      rr_backend_instance_alias(backend), data->device, data->model,
+      data->baud, data->reconnect_interval);
    data->rig = rig_init(data->model);
    if (!data->rig) {
       Log(LOG_CRIT, "backend.hamlib", "%s: rig_init(%d) failed",
@@ -153,7 +185,7 @@ static bool hl_connect(rr_backend_t *backend) {
          Log(LOG_WARN, "backend.hamlib", "%s: retrying rig_init in %d seconds",
             rr_backend_instance_alias(backend), data->reconnect_interval);
       } else {
-         shutdown_rig(100);
+         hl_reconnect_disabled(backend);
       }
       return false;
    }
@@ -173,7 +205,7 @@ static bool hl_connect(rr_backend_t *backend) {
             rr_backend_instance_alias(backend), data->reconnect_interval);
          return false;
       }
-      shutdown_rig(100);
+      hl_reconnect_disabled(backend);
       return false;
    }
 

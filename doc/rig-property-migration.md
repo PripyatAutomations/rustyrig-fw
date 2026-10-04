@@ -839,3 +839,102 @@ Discovery and property subscription should be completed before room slots are
 mapped, so room configuration can store canonical rig/VFO UUID references
 without defining a second identity scheme. No discovery messages, room
 mappings, CAT migration, or media redesign are part of Phase 3.
+
+## Phase 3 live validation (2026-10-03)
+
+The source configuration enumerates `rig0` (internal, default) and `rig1`
+(Hamlib NET rigctl). A diagnostic executable links the production registry,
+configuration parser, persistence, internal/Hamlib backends, and CAT adapter.
+It dumps the actual registry and canonical VFO snapshots from that process;
+only outbound client sends and the application shutdown handler are captured
+for assertions. It does not depend on client discovery or start media.
+
+Run the repeatable integration test with its own loopback dummy rigctld:
+
+```sh
+bash rrserver/tests/test_multirig_live.sh
+```
+
+The normal rrserver suite discovers this wrapper. Hamlib, SQLite, Python 3,
+and rigctld are required; loopback sockets must be allowed. It tests online
+polling, disconnect, reconnect, retries disabled, initially unavailable
+endpoint, default-only CAT/vfos[] output, and process/database reopen with
+all six rig/VFO UUIDs unchanged and matched to database rows. Disconnect
+tests terminate only the dummy daemon created by the test.
+
+To inspect the source configuration against its configured Hamlib endpoint:
+
+```sh
+bash rrserver/tests/test_multirig_live.sh --configured-endpoint
+```
+
+This mode uses `config/rrserver.cfg` and a disposable database. It prints rig
+aliases, UUIDs, backend types, VFO UUIDs, scoped connection settings, and
+canonical frequency/mode availability. It never kills the existing daemon
+or sends frequency/mode/PTT controls to Hamlib, but normal Hamlib polling
+selects VFOs. The test changes only its private internal backend frequencies
+to prove continued polling and compatibility isolation. Printed UUIDs belong
+to the diagnostic database, not the installed server's database. This mode
+reports unavailable properties without claiming a successful observation.
+
+On this host, the existing endpoint was `rigctld -m 1 -o` (dummy hardware),
+not an FT-891. The configured-endpoint diagnostic connected with model 2,
+device `127.0.0.1:4532`, baud 38400 (default; not a NET transport setting),
+and reconnect interval 30. Canonical rig1 A/B observations were respectively
+145000000/146000000 Hz and FM; rig0 remained independently USB. Direct rig1
+polling emitted no legacy CAT state and left `vfos[]` unchanged. Registry-wide
+polling updated both real backend implementations.
+
+Observed diagnostic identities (stable across both process runs):
+
+| Object | UUID |
+| --- | --- |
+| rig0 / internal / default | d4a52d7d-44da-4619-87c9-7beeb999b4f7 |
+| rig0 / A | d378ea97-a639-46bf-8cd1-afe9530b6afd |
+| rig0 / B | 3ed8d1e5-01bd-4fa0-ab87-0b9a918d432b |
+| rig1 / Hamlib | cbd8f058-0344-477d-8da2-b94122fdac60 |
+| rig1 / A | 0c5ba483-6815-4d25-b2cd-44df71621cce |
+| rig1 / B | 73fdee69-7338-4b1a-8c0b-b463cc80af00 |
+
+Two genuine disconnect bugs were fixed:
+
+- Losing the Hamlib connection during VFO selection left canonical properties
+  marked available. All that instance's VFO frequency/mode/width properties
+  now become unavailable, retaining last-known values until new observations.
+- A non-default Hamlib instance with reconnect interval zero requested whole
+  server shutdown on connection failure. It now remains offline. The default
+  rig retains its existing supervisor restart policy.
+
+Startup logs now include VFO identities and the effective Hamlib model,
+endpoint, baud, and reconnect interval. Existing logs already identify each
+runtime rig/backend and the selected default. There is no added per-poll log.
+With access to the running server's log, inspect these records using:
+
+```sh
+grep -E 'Runtime rig|Default rig|VFO [A-Z] \(|connecting to|connected to|connection lost|retrying|remains offline' /var/log/rustyrig/rrserver.log
+```
+
+The installed server was running as `rustyrig`; its log/database could not be
+read with the available permissions (`sudo -n` requires a password). Thus its
+specific in-memory registry and loaded configuration were not inspected.
+The installed `/etc/rustyrig/rrserver.cfg` still contains old `backend.active`
+syntax, unlike the source configuration; do not assume which one that process
+loaded. Successful live results above are from the diagnostic process using
+production backend code and the existing endpoint. Server timer inspection
+confirms it calls `rr_backend_poll_all()`.
+
+Isolation here means independent state and continued polling, not bounded
+latency: Hamlib I/O is still synchronous and transport timeouts can delay the
+shared event loop. Physical FT-891 and installed-process validation remain
+separate from the successful dummy-rigctld test. Phase 4 remains unstarted.
+
+Validation after the fixes: `make -j2` (Hamlib enabled) and
+`./tests/run-tests.sh selftest rrserver librrprotocol rrclient` passed. The live
+integration test also passed under ASan/UBSan with
+`ASAN_OPTIONS=detect_leaks=0`, `CFLAGS='-fsanitize=address,undefined
+-fno-omit-frame-pointer -g'`, and `LDFLAGS='-fsanitize=address,undefined'`.
+cppcheck warning/performance/portability checks on the touched C code passed
+with the project feature defines and `MG_ARCH=1`; `git diff --check` and
+shell syntax validation passed. Suite and sanitizer output from this run is
+saved in `/tmp/rustyrig-phase3-live-tests.log` and
+`/tmp/rustyrig-phase3-live-sanitizers.log` respectively.

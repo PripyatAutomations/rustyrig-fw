@@ -1,4 +1,11 @@
 rustyrig-fw (20261003.02) testing; urgency=medium
+  * Validate live multi-rig operation with real internal/Hamlib backends,
+    NET rigctl, persistent UUID restart, and default-only CAT isolation.
+  * Mark all Hamlib VFO properties unavailable on connection loss while
+    preserving last-known values, and keep a non-default rig's disabled
+    reconnect policy from shutting down the other rigs.
+  * Log configured VFO identities and scoped Hamlib connection settings at
+    startup; add a registry/property diagnostic independent of client UI.
   * Completed named multirig server configuration, registered rig sections at
     startup, and supplied default rig/VFO settings for omitted configuration.
   * Added rig1 using Hamlib NET rigctl model 2 at localhost:4532, with rig0

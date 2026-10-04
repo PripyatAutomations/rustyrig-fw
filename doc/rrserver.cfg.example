@@ -107,7 +107,8 @@ state-interval=15
 hamlib.model=2
 hamlib.baud=38400
 hamlib.device=127.0.0.1:4532
-; Seconds before reconnecting; 0 exits on disconnect (for a supervisor).
+; Seconds before reconnecting; 0 leaves non-default rigs offline, or exits
+; for the default rig so a supervisor can restart it.
 reconnect-interval=30
 
 [fwdsp]

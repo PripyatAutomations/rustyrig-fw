@@ -190,6 +190,9 @@ static bool rr_configure_vfos(rr_server_rig_t *radio, const char *alias) {
          break;
       }
       added++;
+      Log(LOG_INFO, "backend", "rig %s: VFO %s (%s), native %s, persistent",
+         alias, rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo),
+         rr_server_vfo_native_id(vfo));
    }
    g_strfreev(tokens);
    return failed || added == 0;
