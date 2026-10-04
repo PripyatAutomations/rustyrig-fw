@@ -89,9 +89,9 @@ path.record-dir=./recordings
 fwdsp:path=/usr/bin/fwdsp
 callsign-lookup:path=/usr/bin/callsign-lookup
 
-# modules directory (NYI)
-;path.mod-dir=/usr/lib/modules/rustyrig/rrserver/
-path.mod-dir=./modules/rrserver/
+# Where to find loadable modules (the GTK client module ships in the
+# same dir; server modules would too).
+path.modules=/var/lib/rustyrig/modules
 
 ##########################
 

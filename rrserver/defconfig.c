@@ -109,7 +109,7 @@ defconfig_t defcfg[] = {
    { "path.db.master.template", "./sql/sqlite.master.sql", "Path to sql file to initialize database", DEFCONFIG_PATH, NULL },
    { "path.db.master.preload", "./sql/sqlite.master.preload.sql", "Path to SQL preload data for new databases", DEFCONFIG_PATH, NULL },
    { "path.pid-file", "./rrserver.pid", "Where to store pid file", DEFCONFIG_PATH, NULL },
-   { "path.modules", "./modules/", "Where to find modules", DEFCONFIG_PATH, NULL },
+   { "path.modules", "/var/lib/rustyrig/modules", "Where to find modules", DEFCONFIG_PATH, NULL },
    { "path.record-dir", "./recordings", "TX & RX recordings basedir", DEFCONFIG_PATH, NULL },
    { "recording.codec", "ogg", "Recording container/codec: flac or ogg", DEFCONFIG_ENUM, "ogg|flac" },
    { "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg", DEFCONFIG_ENUM, "ogg|flac" },

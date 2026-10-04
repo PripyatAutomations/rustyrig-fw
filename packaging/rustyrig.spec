@@ -26,11 +26,11 @@ Requires: %{name}-libs = %{version}-%{release}, jq, sqlite, systemd
 Backend server for remote radio operation.
 
 %package client
-Summary: RustyRig client (core, headless)
+Summary: RustyRig client
 Requires: %{name}-libs = %{version}-%{release}, glib2, gstreamer1
 %description client
-Core RustyRig client. Runs headless (TUI) by itself; the GTK interface
-ships separately in rustyrig-client-gtk as a loadable module.
+RustyRig client with TUI interface; the GTK interface ships separately
+in rustyrig-client-gtk as a loadable module.
 %package client-gtk
 Summary: RustyRig GTK client module
 Requires: %{name}-client = %{version}-%{release}, gtk3

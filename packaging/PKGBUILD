@@ -62,7 +62,7 @@ package_rustyrig-server() {
 }
 
 package_rustyrig-client() {
-   pkgdesc='RustyRig client (core, headless)'
+   pkgdesc='RustyRig client'
    depends=('rustyrig-libs' 'glib2' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrclient "$pkgdir/usr/bin/rrclient"

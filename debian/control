@@ -74,9 +74,9 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Depends: librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Description: RustyRig client (core, headless)
- Core RustyRig client. Runs headless (TUI) by itself; the GTK interface
- ships separately in rustyrig-client-gtk as a loadable module.
+Description: RustyRig client
+ RustyRig client with TUI interface; the GTK interface ships separately
+ in rustyrig-client-gtk as a loadable module.
 
 Package: rustyrig-client-gtk
 Architecture: any
