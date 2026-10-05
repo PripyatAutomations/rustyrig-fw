@@ -1,3 +1,4 @@
+// rrclient/rooms.c: Handling of chat/control rooms
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -22,6 +23,7 @@ typedef struct client_room {
    bool tx_control;
    bool rx_tunable;
    uint32_t rx_tuning_mask;
+   char active_vfo;
    struct client_room *next;
 } client_room_t;
 
@@ -44,6 +46,7 @@ bool rrclient_room_join(const char *room) {
    client_room_t *r = calloc(1, sizeof(*r));
    if (!r) return false;
    strlcpy(r->name, name, sizeof(r->name));
+   r->active_vfo = 'A';
    r->next = rooms;
    rooms = r;
    return true;
@@ -175,8 +178,23 @@ uint32_t rrclient_room_rx_tuning_mask(const char *room) {
 }
 
 uint32_t rrclient_room_vfo_mask(const char *room) {
-   const char *name = canonical(room);
-   for (client_room_t *r = rooms; r; r = r->next)
-      if (!strcasecmp(r->name, name)) return r->vfo_mask;
-   return 0;
+    const char *name = canonical(room);
+    for (client_room_t *r = rooms; r; r = r->next)
+       if (!strcasecmp(r->name, name)) return r->vfo_mask;
+    return 0;
+}
+
+char rrclient_room_active_vfo(const char *room) {
+    const char *name = canonical(room);
+    for (client_room_t *r = rooms; r; r = r->next)
+       if (!strcasecmp(r->name, name) && r->active_vfo >= 'A' && r->active_vfo <= 'Z')
+          return r->active_vfo;
+    return 'A';
+}
+
+void rrclient_room_set_active_vfo(const char *room, char vfo) {
+    const char *name = canonical(room);
+    if (vfo < 'A' || vfo > 'Z') return;
+    for (client_room_t *r = rooms; r; r = r->next)
+       if (!strcasecmp(r->name, name)) { r->active_vfo = vfo; return; }
 }

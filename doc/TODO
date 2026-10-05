@@ -36,3 +36,5 @@ librustyaxe: logger - extend log.level so its allows throttling like log.level=*
   - https://github.com/ngtcp2/ngtcp2/
   - https://github.com/ngtcp2/nghttp3/
   - https://developer.mozilla.org/en-US/docs/Web/API/WebTransport#examples
+
+* We should have /rig list show available rigs and their VFOs in a tree. Show the uuids and coordinates where possible. Show serial interfaces, vfos, media channels, etc in a nice tree please. Any of the other systems we need? I'd like to see the gps-in, gps-out, etc ports exposed on the site -- more commands to discover/subscribe/unsubscribe to things as needed from the client should exist and enforce appropriate permission check

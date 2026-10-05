@@ -1,13 +1,13 @@
-rustyrig-fw (20261004.02) testing; urgency=medium
+rustyrig-fw (20261004.08) testing; urgency=medium
   * Keep Ogg/FLAC transmit queues lossless, avoid fabricated 20 ms timing
     on encoded input chunks, and use 20 ms PCM test-tone buffers. Guard
     the appsink time limit for GStreamer versions older than 1.24. Log
     GStreamer warnings instead of silently discarding audio diagnostics.
   * Add missing /rig, /gps and /sercom discovery commands to browser help;
-    remove the obsolete /rig tab-switch case and document audit replay status.
-  * Fix GTK chat history recording before entry clearing and recall into the
-    originating input. Honor shared input history (default true), retain
-    per-window drafts, and bound history to 50 entries.
+     remove the obsolete /rig tab-switch case and document audit replay status.
+  * Keep the selected VFO per rig room so selecting a VFO in -rig1 does not
+     change the active VFO shown in -rig0.
+  * Fix GTK chat history
   * Add /rig resource trees and /gps stream subscriptions to native and web
     clients, including UUIDs, rooms, coordinates, media, CAT and permitted
     serial exports; reject absolute server paths in serial requests.
@@ -24,7 +24,9 @@ rustyrig-fw (20261004.02) testing; urgency=medium
     when its port closes with no block in flight (TX fully written), so a
     delayed frame can never collide with a reused number. Closes issued
     while TX is still pending defer retirement until the write completes.
+
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261004.06) testing; urgency=medium
   * Add generic PTY/real-serial endpoints and /sercom management, with
     per-endpoint rig CAT routing and checksum-validated NMEA in/out.
@@ -55,7 +57,9 @@ rustyrig-fw (20261004.06) testing; urgency=medium
     token identity, stale tokens after wildcard removal and re-registration.
   * doc/client-modules.md documents module config, lifecycle, teardown
     ordering, and the hot-reload limitation.
+
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261004.05) testing; urgency=medium
   * Packaging: split the GTK frontend into its own package so only it pulls
     GTK deps. New rustyrig-client-gtk (Debian) / rustyrig-client-gtk (Arch,
@@ -68,7 +72,9 @@ rustyrig-fw (20261004.05) testing; urgency=medium
   * path.modules defaults to /var/lib/rustyrig/modules and the shipped
     rrclient.cfg enables the GTK module via the [modules] section; -T or
     an empty [modules] section gives the headless TUI client.
+
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261004.04) testing; urgency=medium
   * rrclient GTK frontend is now a dynamically loaded module
     (bin/rrclient-gtk.so). Core rrclient no longer links GTK; the module is
@@ -85,18 +91,24 @@ rustyrig-fw (20261004.04) testing; urgency=medium
     talks back to the core only via the event bus.
   * GTK-only settings (tabstrip, vfo-on-top, fullscreen, default CSS) moved
     into the module with its own config-refresh hook.
+
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261004.03) testing; urgency=medium
   * Packaging: create /var/log/rustyrig owned by rustyrig:rustyrig in debian
     rules, the Arch PKGBUILD and the RPM spec.
+
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261004.02) testing; urgency=medium
   * Apply each rig's hamlib.baud to its Hamlib connection (serial devices;
     rigctld/network endpoints ignore it), so model/ip/port and model/serial
     port/baud endpoints are fully honored per rig section on one server.
   * Document multi-rig Hamlib endpoint configuration in rrserver.cfg.example
     and QUICKSTART.
+
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 04 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261004.01) testing; urgency=medium
   * Expose UUID-addressed node/rig/VFO discovery, typed property schema/state,
     bounded-batch snapshots, lifecycle/observation events and generic controls

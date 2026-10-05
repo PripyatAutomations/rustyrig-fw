@@ -117,11 +117,15 @@ bool vfo_state_get_bool(const char *vfo, const char *key, bool def) {
 // The VFO letter the UI is currently showing.  May be set by the user
 // (VFO A/B button, etc) and is used by vfo_update_ui().
 char vfo_state_get_active(void) {
-   return s_active_vfo;
+   const char *room = rrclient_media_active_room();
+   return rrclient_room_active_vfo(room);
 }
 
 void vfo_state_set_active(const char *vfo) {
-   s_active_vfo = vfo_state_check_id(vfo);
+   char active = vfo_state_check_id(vfo);
+   const char *room = rrclient_media_active_room();
+   rrclient_room_set_active_vfo(room, active);
+   s_active_vfo = active;
 }
 
 bool vfo_set_dict(const char *vfo, dict *d) {
@@ -144,16 +148,16 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    // This must happen BEFORE computing is_active below, so an update that
    // switches the active VFO still refreshes the UI.
    // PARITY: rustyrig-www/js/webui.rigctl.js (cat.state.active handling)
-   char prev_active = s_active_vfo;
+   char prev_active = vfo_state_get_active();
 
    if (dict_get_bool(d, "cat.state.active", false) ) {
-      vfo_state_set_active(vfo_str);
+       vfo_state_set_active(vfo_str);
    }
 
    // Track whether this update is for the VFO the UI is showing, so we
    // don't needlessly refresh widgets on updates for other VFOs.
    // When the active VFO just changed, force a refresh so the UI follows.
-   bool is_active = (vfo_id == s_active_vfo || s_active_vfo != prev_active);
+   bool is_active = (vfo_id == vfo_state_get_active() || vfo_state_get_active() != prev_active);
 
    // Save every cat.* key we receive into the central state, namespaced
    // per-VFO (dict handles replace-on-add, so no duplicates accumulate)
@@ -225,8 +229,8 @@ bool vfo_set_dict(const char *vfo, dict *d) {
             break;
       }
    }
-   if (s_active_vfo != prev_active) {
-      char active_str[2] = { s_active_vfo, '\0' };
+   if (vfo_state_get_active() != prev_active) {
+      char active_str[2] = { vfo_state_get_active(), '\0' };
       event_emit("client.vfo.changed", NULL, active_str);
    }
    // A custom top line can show inactive VFOs too. Re-render it when their
@@ -242,7 +246,7 @@ bool vfo_update_ui(void) {
       return true;
    }
 
-   char vfo_str[2] = { s_active_vfo, 0 };
+   char vfo_str[2] = { vfo_state_get_active(), 0 };
    long vfo_freq = vfo_state_get_long(vfo_str, "cat.state.freq", 0);
    const char *vfo_mode = vfo_state_get(vfo_str, "cat.state.mode", NULL);
    int vfo_width = (int)vfo_state_get_long(vfo_str, "cat.state.width", 0);

@@ -28,4 +28,6 @@ extern bool rrclient_room_rx_tunable(const char *room);
 extern void rrclient_room_set_rx_tuning_mask(const char *room, uint32_t mask);
 extern uint32_t rrclient_room_rx_tuning_mask(const char *room);
 extern uint32_t rrclient_room_vfo_mask(const char *room);
+extern char rrclient_room_active_vfo(const char *room);
+extern void rrclient_room_set_active_vfo(const char *room, char vfo);
 #endif
