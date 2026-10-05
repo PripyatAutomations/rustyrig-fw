@@ -22,7 +22,7 @@
 [submodule "callsign-lookup"]
 	path = callsign-lookup
 	url = https://github.com/PripyatAutomations/callsign-lookup
-[submodule "ext/--depth=1"]
+[submodule "ext/codec2"]
 	path = ext/codec2
 	url = https://github.com/drowe67/codec2.git
 [submodule "ext/wwvsim"]

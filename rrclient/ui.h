@@ -12,15 +12,6 @@
 #define	__rrclient_ui_h
 #include <librustyaxe/config.h>
 
-#if     defined(USE_GTK)
-#include <gtk/gtk.h>
-#include <rrclient/gtk.core.h>
-#include <rrclient/gtk.alertdialog.h>
-#include <rrclient/gtk.vfo-box.h>
-#include <rrclient/cmd.help.h>
-
-#endif // defined(USE_GTK)
-
 // TUI statusbar refreshers (tui_refresh_sb_vfo reads the central VFO state
 // in rrclient/vfo.c via vfo_state_get_*())
 #include <rrclient/ui.statusbar.h>
@@ -44,5 +35,6 @@ extern const char *ui_active_window_name(void);
 extern void ui_message_bell(void);
 extern void ui_message_notify(const char *title, const char *message);
 extern void show_server_chooser(void);
+extern bool ui_confirm_quit(void);
 
 #endif // !defined(__rrclient_ui_h)

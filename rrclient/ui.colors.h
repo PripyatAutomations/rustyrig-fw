@@ -15,7 +15,7 @@
 
 #if     defined(USE_GTK)
 #include <gtk/gtk.h>
-#include <rrclient/gtk.core.h>
+#include <rrclient/gtk/gtk.core.h>
 #endif
 
 extern const char *pango_color_for_tag(const char *tag, bool *is_bg);

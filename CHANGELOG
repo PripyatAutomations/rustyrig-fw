@@ -1,3 +1,8 @@
+rustyrig-fw (20261005.01) testing; urgency=medium
+  * Refresh native RX/TX codec pickers on media state changes so switching
+    to an unsubscribed rig/VFO shows NONE instead of the previous codec.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 05 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261004.10) testing; urgency=medium
   * Keep Ogg/FLAC transmit queues lossless, avoid fabricated 20 ms timing
     on encoded input chunks, and use 20 ms PCM test-tone buffers. Guard

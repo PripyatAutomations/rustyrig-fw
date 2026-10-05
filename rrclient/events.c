@@ -1056,6 +1056,17 @@ static void rrclient_handle_media_capab(const char *event, const char *data, rrc
  * out of the generic NOMATCH path, which expects JSON websocket messages. */
 static void rrclient_handle_media_changed(const char *event, const char *data,
    rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)cptr;
+   (void)user;
+   const rr_frontend_ops_t *ops = frontend_ops();
+   if (ops && ops->codec_set_active) {
+      // Resolve both directions from the selected room/VFO, including NULL
+      // (NONE). The last announced channel may belong to another rig.
+      ops->codec_set_active(false, rrclient_media_current_codec(false));
+      ops->codec_set_active(true, rrclient_media_current_codec(true));
+   }
 }
 
 static void rrclient_handle_media(const char *event, const char *data, rrconn_t *cptr, void *user) {

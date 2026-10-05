@@ -1,5 +1,6 @@
 rrclient_headers += $(wildcard rrclient/*.h)
 rrclient_src = $(rrclient_objs:.o=.c)
+gtk_headers := $(wildcard rrclient/gtk/*.h)
 
 rrclient := bin/rrclient
 rrclient_objs += objects.o objects.events.o
@@ -48,33 +49,33 @@ USE_GTK := ${USE_GTK}
 gtk_module := bin/rrclient-gtk.so
 bins += ${gtk_module}
 
-gtk_module_objs += cfg.gtkcss.o		# GTK CSS from config file
-gtk_module_objs += gtk.core.o             # Support for a GTK user interface
-gtk_module_objs += gtk.admin.o		# Admin tab
-gtk_module_objs += gtk.alertdialog.o	# alert/error/warning dialogs
-gtk_module_objs += gtk.chat.o		# Chat related stuff
-gtk_module_objs += gtk.codecpicker.o	# codec picker widget
-gtk_module_objs += gtk.editcfg.o		# configuration tab
-gtk_module_objs += gtk.fm-mode.o		# FM mode dialog
-gtk_module_objs += gtk.freqentry.o	# Frequency Entry Widget
-gtk_module_objs += gtk.hotkey.o		# Hotkey support
-gtk_module_objs += gtk.mode-box.o		# Modulation Mode / width box
+gtk_module_objs += gtk/cfg.gtkcss.o	# GTK CSS from config file
+gtk_module_objs += gtk/gtk.core.o             # Support for a GTK user interface
+gtk_module_objs += gtk/gtk.admin.o	# Admin tab
+gtk_module_objs += gtk/gtk.alertdialog.o	# alert/error/warning dialogs
+gtk_module_objs += gtk/gtk.chat.o	# Chat related stuff
+gtk_module_objs += gtk/gtk.codecpicker.o	# codec picker widget
+gtk_module_objs += gtk/gtk.editcfg.o	# configuration tab
+gtk_module_objs += gtk/gtk.fm-mode.o	# FM mode dialog
+gtk_module_objs += gtk/gtk.freqentry.o	# Frequency Entry Widget
+gtk_module_objs += gtk/gtk.hotkey.o	# Hotkey support
+gtk_module_objs += gtk/gtk.mode-box.o	# Modulation Mode / width box
 ifeq (${USE_LIBNOTIFY},true)
-gtk_module_objs += gtk.notify.o		# Support for libnotify
+gtk_module_objs += gtk/gtk.notify.o	# Support for libnotify
 notify_ldflags := $(shell pkg-config --libs libnotify)
 endif
-gtk_module_objs += gtk.ptt-btn.o		# Push To Talk (PTT) button in GUI
-gtk_module_objs += gtk.txpower.o		# TX power box
-gtk_module_objs += gtk.serveredit.o	# Serve editor
-gtk_module_objs += gtk.serverpick.o		# server picker window
-gtk_module_objs += gtk.syslog.o		# syslog tab
-gtk_module_objs += gtk.userlist.o		# GTK part of the userlist
-gtk_module_objs += gtk.vfo-box.o		# VFO box element
-gtk_module_objs += gtk.vol-box.o		# Volume widget
-gtk_module_objs += gtk.winmgr.o		# window management
-gtk_module_objs += gtk.webcam.o		# webcam/video viewer window
-gtk_module_objs += ui.speech.o		# Support for screener readers
-gtk_module_objs += rrclient-gtk.o	# Module entry points
+gtk_module_objs += gtk/gtk.ptt-btn.o	# Push To Talk (PTT) button in GUI
+gtk_module_objs += gtk/gtk.txpower.o	# TX power box
+gtk_module_objs += gtk/gtk.serveredit.o	# Serve editor
+gtk_module_objs += gtk/gtk.serverpick.o	# server picker window
+gtk_module_objs += gtk/gtk.syslog.o	# syslog tab
+gtk_module_objs += gtk/gtk.userlist.o	# GTK part of the userlist
+gtk_module_objs += gtk/gtk.vfo-box.o	# VFO box element
+gtk_module_objs += gtk/gtk.vol-box.o	# Volume widget
+gtk_module_objs += gtk/gtk.winmgr.o	# window management
+gtk_module_objs += gtk/gtk.webcam.o	# webcam/video viewer window
+gtk_module_objs += gtk/ui.speech.o	# Support for screener readers
+gtk_module_objs += gtk/module.o	# Module entry points
 endif
 
 ###########################################
@@ -90,25 +91,25 @@ extra_clean += ${gtk_module_real_objs} ${gtk_module}
 GTK_CFLAGS := ${GTK_MODULE_CFLAGS}
 GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0)
 
-${BUILD_DIR}/rrclient/gtk.%.o: rrclient/gtk.%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h)
+${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-${BUILD_DIR}/rrclient/cfg.gtkcss.o: rrclient/cfg.gtkcss.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/gtk/cfg.gtkcss.o: rrclient/gtk/cfg.gtkcss.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-${BUILD_DIR}/rrclient/rrclient-gtk.o: rrclient/module.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/gtk/module.o: rrclient/gtk/module.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-${BUILD_DIR}/rrclient/ui.speech.o: rrclient/ui.speech.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/gtk/ui.speech.o: rrclient/gtk/ui.speech.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
