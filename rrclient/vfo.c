@@ -148,16 +148,23 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    // This must happen BEFORE computing is_active below, so an update that
    // switches the active VFO still refreshes the UI.
    // PARITY: rustyrig-www/js/webui.rigctl.js (cat.state.active handling)
-   char prev_active = vfo_state_get_active();
+   // CAT broadcasts may arrive for another rig in the same process.  Keep
+   // that rig's active VFO separate from the room currently shown by the UI.
+   const char *update_room = dict_get(d, "cat.room", NULL);
+   if (!update_room || !*update_room) update_room = rrclient_media_active_room();
+   char prev_active = rrclient_room_active_vfo(update_room);
 
    if (dict_get_bool(d, "cat.state.active", false) ) {
-       vfo_state_set_active(vfo_str);
+      rrclient_room_set_active_vfo(update_room, vfo_id);
+      if (!strcasecmp(update_room, rrclient_media_active_room())) s_active_vfo = vfo_id;
    }
 
    // Track whether this update is for the VFO the UI is showing, so we
    // don't needlessly refresh widgets on updates for other VFOs.
    // When the active VFO just changed, force a refresh so the UI follows.
-   bool is_active = (vfo_id == vfo_state_get_active() || vfo_state_get_active() != prev_active);
+   bool current_room = !strcasecmp(update_room, rrclient_media_active_room());
+   bool is_active = current_room && (vfo_id == vfo_state_get_active() ||
+      vfo_state_get_active() != prev_active);
 
    // Save every cat.* key we receive into the central state, namespaced
    // per-VFO (dict handles replace-on-add, so no duplicates accumulate)

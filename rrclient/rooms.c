@@ -178,14 +178,14 @@ uint32_t rrclient_room_rx_tuning_mask(const char *room) {
 }
 
 uint32_t rrclient_room_vfo_mask(const char *room) {
-    const char *name = canonical(room);
+   const char *name = canonical(room);
     for (client_room_t *r = rooms; r; r = r->next)
        if (!strcasecmp(r->name, name)) return r->vfo_mask;
     return 0;
 }
 
 char rrclient_room_active_vfo(const char *room) {
-    const char *name = canonical(room);
+   const char *name = canonical(room);
     for (client_room_t *r = rooms; r; r = r->next)
        if (!strcasecmp(r->name, name) && r->active_vfo >= 'A' && r->active_vfo <= 'Z')
           return r->active_vfo;
@@ -193,7 +193,7 @@ char rrclient_room_active_vfo(const char *room) {
 }
 
 void rrclient_room_set_active_vfo(const char *room, char vfo) {
-    const char *name = canonical(room);
+   const char *name = canonical(room);
     if (vfo < 'A' || vfo > 'Z') return;
     for (client_room_t *r = rooms; r; r = r->next)
        if (!strcasecmp(r->name, name)) { r->active_vfo = vfo; return; }
